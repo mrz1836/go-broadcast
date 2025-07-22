@@ -3,7 +3,7 @@ package template_test
 import (
 	"testing"
 
-	"github.com/mrz1836/go-template"
+	"github.com/mrz1836/go-broadcast"
 	"github.com/stretchr/testify/assert"
 )
 
