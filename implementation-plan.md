@@ -133,7 +133,7 @@ func (c *Config) Validate() error {
 version: 2
 source:
   repo: "org/template-repo"
-  branch: "main"
+  branch: "master"
   
 defaults:
   branch_prefix: "sync/template"
@@ -795,7 +795,7 @@ func TestEndToEndSync(t *testing.T) {
     
     // Configure expectations
     mockGH.On("ListBranches", mock.Anything, "org/template").
-        Return([]gh.Branch{{Name: "main", SHA: "abc123"}}, nil)
+        Return([]gh.Branch{{Name: "master", SHA: "abc123"}}, nil)
     
     // Run sync
     engine := sync.NewEngine(config, mockGH, mockGit)
