@@ -53,4 +53,3 @@ func applyDefaults(config *Config) {
 		config.Defaults.PRLabels = []string{"automated-sync"}
 	}
 }
-

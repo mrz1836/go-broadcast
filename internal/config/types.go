@@ -38,4 +38,3 @@ type Transform struct {
 	RepoName  bool              `yaml:"repo_name,omitempty"` // Replace repository names
 	Variables map[string]string `yaml:"variables,omitempty"` // Template variables
 }
-

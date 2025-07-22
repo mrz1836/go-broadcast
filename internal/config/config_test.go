@@ -310,4 +310,3 @@ func TestLoad_FileNotFound(t *testing.T) {
 	assert.Nil(t, config)
 	assert.Contains(t, err.Error(), "failed to open config file")
 }
-

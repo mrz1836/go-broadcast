@@ -23,3 +23,4 @@ func TestExampleConfigLoadsAndValidates(t *testing.T) {
 	assert.Equal(t, "master", config.Source.Branch)
 	assert.Len(t, config.Targets, 3)
 }
+

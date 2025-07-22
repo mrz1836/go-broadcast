@@ -15,23 +15,38 @@ var (
 	// branchRegex validates branch names
 	branchRegex = regexp.MustCompile(`^[a-zA-Z0-9][\w./\-]*$`)
 
-	// Common validation errors
-	ErrUnsupportedVersion   = errors.New("unsupported config version")
-	ErrNoTargets            = errors.New("at least one target repository must be specified")
-	ErrDuplicateTarget      = errors.New("duplicate target repository")
-	ErrSourceRepoRequired   = errors.New("source repository is required")
-	ErrInvalidRepoFormat    = errors.New("invalid repository format (expected: org/repo)")
+	// ErrUnsupportedVersion indicates the configuration version is not supported
+	ErrUnsupportedVersion = errors.New("unsupported config version")
+	// ErrNoTargets indicates no target repositories were specified
+	ErrNoTargets = errors.New("at least one target repository must be specified")
+	// ErrDuplicateTarget indicates a target repository is specified multiple times
+	ErrDuplicateTarget = errors.New("duplicate target repository")
+	// ErrSourceRepoRequired indicates the source repository is missing
+	ErrSourceRepoRequired = errors.New("source repository is required")
+	// ErrInvalidRepoFormat indicates a repository name is not in org/repo format
+	ErrInvalidRepoFormat = errors.New("invalid repository format (expected: org/repo)")
+	// ErrSourceBranchRequired indicates the source branch is missing
 	ErrSourceBranchRequired = errors.New("source branch is required")
-	ErrInvalidBranchName    = errors.New("invalid branch name")
-	ErrInvalidBranchPrefix  = errors.New("invalid branch prefix")
-	ErrEmptyPRLabel         = errors.New("PR label cannot be empty")
-	ErrRepoRequired         = errors.New("repository is required")
-	ErrNoFileMappings       = errors.New("at least one file mapping is required")
+	// ErrInvalidBranchName indicates a branch name contains invalid characters
+	ErrInvalidBranchName = errors.New("invalid branch name")
+	// ErrInvalidBranchPrefix indicates the branch prefix contains invalid characters
+	ErrInvalidBranchPrefix = errors.New("invalid branch prefix")
+	// ErrEmptyPRLabel indicates a PR label is empty or whitespace only
+	ErrEmptyPRLabel = errors.New("PR label cannot be empty")
+	// ErrRepoRequired indicates a target repository is missing
+	ErrRepoRequired = errors.New("repository is required")
+	// ErrNoFileMappings indicates a target has no file mappings
+	ErrNoFileMappings = errors.New("at least one file mapping is required")
+	// ErrDuplicateDestination indicates multiple files map to the same destination
 	ErrDuplicateDestination = errors.New("duplicate destination file")
-	ErrSourcePathRequired   = errors.New("source file path is required")
-	ErrDestPathRequired     = errors.New("destination file path is required")
-	ErrInvalidSourcePath    = errors.New("invalid source path (must be relative and within repository)")
-	ErrInvalidDestPath      = errors.New("invalid destination path (must be relative and within repository)")
+	// ErrSourcePathRequired indicates a file mapping has no source path
+	ErrSourcePathRequired = errors.New("source file path is required")
+	// ErrDestPathRequired indicates a file mapping has no destination path
+	ErrDestPathRequired = errors.New("destination file path is required")
+	// ErrInvalidSourcePath indicates a source path is absolute or escapes the repository
+	ErrInvalidSourcePath = errors.New("invalid source path (must be relative and within repository)")
+	// ErrInvalidDestPath indicates a destination path is absolute or escapes the repository
+	ErrInvalidDestPath = errors.New("invalid destination path (must be relative and within repository)")
 )
 
 // Validate checks if the configuration is valid
@@ -167,4 +182,3 @@ func (f *FileMapping) validate() error {
 
 	return nil
 }
-
