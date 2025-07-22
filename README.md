@@ -1,5 +1,5 @@
 # 🚀 go-broadcast
-> From Zero to Go Hero: Pre-wired Template for Modern Libraries
+> Stateless File Sync Orchestrator for Repository Management
 
 <table>
   <thead>
@@ -105,9 +105,9 @@ go get -u github.com/mrz1836/go-broadcast
 ## 📚 Documentation
 
 - **API Reference** – Dive into the godocs at [pkg.go.dev/github.com/mrz1836/go-broadcast](https://pkg.go.dev/github.com/mrz1836/go-broadcast)
-- **Usage Examples** – Browse practical patterns either the [examples directory](examples) or view the [example functions](template_example_test.go)
+- **Usage Examples** – Browse practical patterns in the [examples directory](examples)
 - **Benchmarks** – Check the latest numbers in the [benchmark results](#benchmark-results)
-- **Test Suite** – Review both the [unit tests](template_test.go) and [fuzz tests](template_fuzz_test.go) (powered by [`testify`](https://github.com/stretchr/testify))
+- **Test Suite** – Review the comprehensive test suite (powered by [`testify`](https://github.com/stretchr/testify))
 
 > **Good to know:** `go-broadcast` ships with *zero* runtime dependencies.  
 > The only external package we use is `testify`—and that's strictly for tests.
@@ -329,7 +329,7 @@ make test-race
 
 ## ⚡ Benchmarks
 
-Run the Go [benchmarks](template_benchmark_test.go):
+Run the Go benchmarks:
 
 ```bash script
 make bench
@@ -339,9 +339,7 @@ make bench
 
 ### Benchmark Results
 
-| Benchmark                           | Iterations | ns/op | B/op | allocs/op |
-|-------------------------------------|------------|------:|-----:|----------:|
-| [Greet](template_benchmark_test.go) | 21,179,739 | 56.59 |   40 |         2 |
+Benchmarks will be added as the project develops.
 
 > These benchmarks reflect fast, allocation-free lookups for most retrieval functions, ensuring optimal performance in production environments.
 > Performance benchmarks for the core functions in this library, executed on an Apple M1 Max (ARM64).
