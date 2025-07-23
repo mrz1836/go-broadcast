@@ -82,6 +82,7 @@
 
 ## 🗂️ Table of Contents
 * [Quick Start](#-quick-start)
+* [How It Works](#-how-it-works)
 * [Installation](#-installation)
 * [Usage Examples](#-usage-examples)
 * [Documentation](#-documentation)
@@ -146,6 +147,70 @@ go-broadcast sync --config sync.yaml
 - Creates a branch in each target repository
 - Commits synchronized files
 - Opens a pull request for review
+
+<br/>
+
+## 🔍 How It Works
+
+**go-broadcast** uses a **stateless architecture** that tracks synchronization state through GitHub itself - no databases or state files needed!
+
+### State Tracking Through Branch Names
+
+Every sync operation creates a branch with encoded metadata:
+
+```
+sync/template-20250123-143052-abc123f
+│    │         │                │
+│    │         │                └─── Source commit SHA (7 chars)
+│    │         └──────────────────── Timestamp (YYYYMMDD-HHMMSS)
+│    └────────────────────────────── Template identifier
+└─────────────────────────────────── Configurable prefix
+```
+
+### How go-broadcast Determines What to Sync
+
+1. **State Discovery** - Queries GitHub to find:
+   - Latest commit in source repository
+   - All sync branches in target repositories
+   - Open sync pull requests
+
+2. **Smart Comparison** - For each target:
+   ```
+   Source commit: abc123f (latest)
+   Target's last sync: def456g (from branch name)
+   Status: Behind → Needs sync ✓
+   ```
+
+3. **Content-Based Sync** - Only syncs files that actually changed:
+   - Fetches current file from target
+   - Applies transformations to source
+   - Compares content byte-by-byte
+   - Skips unchanged files
+
+### Pull Request Metadata
+
+Each PR includes structured metadata for complete traceability:
+
+```yaml
+<!-- go-broadcast metadata
+source:
+  repo: company/template-repo
+  branch: master
+  commit: abc123f7890
+files:
+  - src: .github/workflows/ci.yml
+    dest: .github/workflows/ci.yml
+timestamp: 2025-01-23T14:30:52Z
+-->
+```
+
+### Why This Approach is Powerful
+
+✅ **No State Files** - Everything lives in GitHub  
+✅ **Atomic Operations** - Each sync is self-contained  
+✅ **Full Audit Trail** - Branch and PR history shows all syncs  
+✅ **Disaster Recovery** - State can be reconstructed from GitHub  
+✅ **Works at Scale** - No state corruption with concurrent syncs  
 
 <br/>
 
