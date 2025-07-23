@@ -267,9 +267,6 @@ targets:
 - **Integration Tests** – End-to-end testing examples in [test/integration](test/integration)
 - **Benchmarks** – Check the latest numbers in the [benchmark results](#benchmark-results)
 
-> **Good to know:** `go-broadcast` ships with *zero* runtime dependencies.  
-> The only external package we use is `testify`—and that's strictly for tests.
-
 <br/>
 
 <details>
@@ -497,39 +494,39 @@ make bench
 
 The following benchmarks were run on Apple M1 Max:
 
-| Benchmark | Operations | ns/op | B/op | allocs/op |
-|-----------|------------|-------|------|-----------|
-| **Configuration** |
-| LoadFromReader | 33,890 | 36,177 | 24,456 | 394 |
-| LoadFromReader (Large) | 847 | 1,393,492 | 782,384 | 15,832 |
-| Validate | 814,417 | 1,498 | 0 | 0 |
-| Validate (Large) | 22,536 | 52,727 | 6,699 | 9 |
-| LoadAndValidate | 29,571 | 37,114 | 24,467 | 394 |
-| LoadAndValidate (Large) | 820 | 1,471,844 | 789,436 | 15,842 |
-| **Transformations** |
-| TemplateTransform (Small) | 31,008 | 36,891 | 67,906 | 578 |
-| TemplateTransform (Large) | 1,414 | 878,456 | 1,987,868 | 706 |
-| RepoTransform (GoFile) | 86,752 | 14,035 | 21,813 | 133 |
-| RepoTransform (GoFile Large) | 2,055 | 564,035 | 279,377 | 352 |
-| RepoTransform (Markdown) | 58,833 | 21,144 | 20,286 | 125 |
-| BinaryDetection (Text) | 36,248,710 | 33 | 0 | 0 |
-| BinaryDetection (Binary) | 77,023,261 | 16 | 0 | 0 |
-| BinaryDetection (Large Text) | 224,589 | 5,206 | 0 | 0 |
-| ChainTransform | 42,822 | 27,943 | 44,461 | 348 |
-| ChainTransform (Binary) | 374,011 | 3,239 | 6,045 | 56 |
-| **State Management** |
-| BranchParsing | 1,000,000 | 1,189 | 544 | 12 |
-| PRParsing | 26,086,176 | 47 | 0 | 0 |
-| StateComparison | 26,370,776 | 45 | 0 | 0 |
-| SyncBranchGeneration | 10,440,081 | 115 | 64 | 2 |
-| StateAggregation | 523,197 | 2,285 | 0 | 0 |
-| **Sync Operations** |
-| FilterTargets | 321,801 | 3,858 | 16,208 | 8 |
-| FilterTargets (WithFilter) | 7,323,346 | 164 | 352 | 4 |
-| NeedsSync (UpToDate) | 145,035,962 | 8 | 0 | 0 |
-| NeedsSync (Behind) | 142,666,467 | 8 | 0 | 0 |
-| NeedsSync (Pending) | 135,936,728 | 9 | 0 | 0 |
-| OptionsValidation | 371,356,402 | 3 | 0 | 0 |
+| Benchmark                    | Operations  | ns/op     | B/op      | allocs/op |
+|------------------------------|-------------|-----------|-----------|-----------|
+| **Configuration**            |
+| LoadFromReader               | 33,890      | 36,177    | 24,456    | 394       |
+| LoadFromReader (Large)       | 847         | 1,393,492 | 782,384   | 15,832    |
+| Validate                     | 814,417     | 1,498     | 0         | 0         |
+| Validate (Large)             | 22,536      | 52,727    | 6,699     | 9         |
+| LoadAndValidate              | 29,571      | 37,114    | 24,467    | 394       |
+| LoadAndValidate (Large)      | 820         | 1,471,844 | 789,436   | 15,842    |
+| **Transformations**          |
+| TemplateTransform (Small)    | 31,008      | 36,891    | 67,906    | 578       |
+| TemplateTransform (Large)    | 1,414       | 878,456   | 1,987,868 | 706       |
+| RepoTransform (GoFile)       | 86,752      | 14,035    | 21,813    | 133       |
+| RepoTransform (GoFile Large) | 2,055       | 564,035   | 279,377   | 352       |
+| RepoTransform (Markdown)     | 58,833      | 21,144    | 20,286    | 125       |
+| BinaryDetection (Text)       | 36,248,710  | 33        | 0         | 0         |
+| BinaryDetection (Binary)     | 77,023,261  | 16        | 0         | 0         |
+| BinaryDetection (Large Text) | 224,589     | 5,206     | 0         | 0         |
+| ChainTransform               | 42,822      | 27,943    | 44,461    | 348       |
+| ChainTransform (Binary)      | 374,011     | 3,239     | 6,045     | 56        |
+| **State Management**         |
+| BranchParsing                | 1,000,000   | 1,189     | 544       | 12        |
+| PRParsing                    | 26,086,176  | 47        | 0         | 0         |
+| StateComparison              | 26,370,776  | 45        | 0         | 0         |
+| SyncBranchGeneration         | 10,440,081  | 115       | 64        | 2         |
+| StateAggregation             | 523,197     | 2,285     | 0         | 0         |
+| **Sync Operations**          |
+| FilterTargets                | 321,801     | 3,858     | 16,208    | 8         |
+| FilterTargets (WithFilter)   | 7,323,346   | 164       | 352       | 4         |
+| NeedsSync (UpToDate)         | 145,035,962 | 8         | 0         | 0         |
+| NeedsSync (Behind)           | 142,666,467 | 8         | 0         | 0         |
+| NeedsSync (Pending)          | 135,936,728 | 9         | 0         | 0         |
+| OptionsValidation            | 371,356,402 | 3         | 0         | 0         |
 
 ### Performance Characteristics
 
