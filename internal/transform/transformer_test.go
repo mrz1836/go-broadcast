@@ -80,4 +80,3 @@ var (
 	_ Transformer = (*MockTransformer)(nil)
 	_ Chain       = (*MockChain)(nil)
 )
-

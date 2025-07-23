@@ -27,4 +27,3 @@ func IsDryRun() bool {
 func SetFlags(f *Flags) {
 	globalFlags = f
 }
-

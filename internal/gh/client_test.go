@@ -90,4 +90,3 @@ func TestMockClient_GetFile(t *testing.T) {
 
 // Verify interface compliance
 var _ Client = (*MockClient)(nil)
-
