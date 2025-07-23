@@ -34,4 +34,3 @@ type Client interface {
 	// GetRemoteURL returns the URL of the specified remote
 	GetRemoteURL(ctx context.Context, repoPath, remote string) (string, error)
 }
-

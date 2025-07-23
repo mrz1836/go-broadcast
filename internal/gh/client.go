@@ -27,4 +27,3 @@ type Client interface {
 	// GetCommit retrieves commit details
 	GetCommit(ctx context.Context, repo, sha string) (*Commit, error)
 }
-

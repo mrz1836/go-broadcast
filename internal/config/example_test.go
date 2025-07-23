@@ -15,7 +15,7 @@ func TestExampleConfigLoadsAndValidates(t *testing.T) {
 
 	// Validate the configuration
 	err = config.Validate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify it loaded correctly
 	assert.Equal(t, 2, config.Version)
@@ -23,4 +23,3 @@ func TestExampleConfigLoadsAndValidates(t *testing.T) {
 	assert.Equal(t, "master", config.Source.Branch)
 	assert.Len(t, config.Targets, 3)
 }
-

@@ -57,4 +57,3 @@ func (m *MockChain) Transformers() []Transformer {
 	}
 	return args.Get(0).([]Transformer)
 }
-

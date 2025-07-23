@@ -85,4 +85,3 @@ type FileContent struct {
 	Content []byte
 	SHA     string
 }
-

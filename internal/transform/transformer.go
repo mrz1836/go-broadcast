@@ -38,4 +38,3 @@ type Chain interface {
 	// Transformers returns the list of transformers in the chain
 	Transformers() []Transformer
 }
-

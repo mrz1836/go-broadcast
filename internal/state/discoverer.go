@@ -19,4 +19,3 @@ type Discoverer interface {
 	// Returns nil if the branch is not a sync branch
 	ParseBranchName(name string) (*BranchMetadata, error)
 }
-

@@ -64,4 +64,3 @@ func (m *MockClient) GetRemoteURL(ctx context.Context, repoPath, remote string) 
 	args := m.Called(ctx, repoPath, remote)
 	return args.String(0), args.Error(1)
 }
-

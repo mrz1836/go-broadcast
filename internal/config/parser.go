@@ -14,6 +14,7 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open config file: %w", err)
 	}
+
 	defer func() { _ = file.Close() }()
 
 	return LoadFromReader(file)

@@ -24,7 +24,7 @@ func TestMockClient_ListBranches(t *testing.T) {
 	assert.Equal(t, expectedBranches, branches)
 
 	// Test error case
-	testErr := errors.New("API error")
+	testErr := errors.New("API error") //nolint:err113
 	mockClient.On("ListBranches", ctx, "org/error").Return(nil, testErr)
 
 	branches, err = mockClient.ListBranches(ctx, "org/error")
@@ -78,7 +78,7 @@ func TestMockClient_GetFile(t *testing.T) {
 	assert.Equal(t, expectedContent, content)
 
 	// Test nil return
-	fileErr := errors.New("file not found")
+	fileErr := errors.New("file not found") //nolint:err113
 	mockClient.On("GetFile", ctx, "org/repo", "missing.txt", "master").Return(nil, fileErr)
 
 	content, err = mockClient.GetFile(ctx, "org/repo", "missing.txt", "master")
@@ -90,3 +90,4 @@ func TestMockClient_GetFile(t *testing.T) {
 
 // Verify interface compliance
 var _ Client = (*MockClient)(nil)
+

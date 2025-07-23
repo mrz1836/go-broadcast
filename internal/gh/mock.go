@@ -53,6 +53,7 @@ func (m *MockClient) ListPRs(ctx context.Context, repo, state string) ([]PR, err
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
+
 	return args.Get(0).([]PR), args.Error(1)
 }
 
@@ -62,6 +63,7 @@ func (m *MockClient) GetFile(ctx context.Context, repo, path, ref string) (*File
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
+
 	return args.Get(0).(*FileContent), args.Error(1)
 }
 
@@ -71,6 +73,6 @@ func (m *MockClient) GetCommit(ctx context.Context, repo, sha string) (*Commit, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
+
 	return args.Get(0).(*Commit), args.Error(1)
 }
-

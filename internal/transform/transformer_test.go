@@ -34,7 +34,7 @@ func TestMockTransformer(t *testing.T) {
 	assert.Equal(t, expected, result)
 
 	// Test Transform method - error case
-	transformErr := errors.New("transform failed")
+	transformErr := errors.New("transform failed") //nolint:err113
 	mockTransformer.On("Transform", []byte("error"), mock.Anything).Return(nil, transformErr)
 
 	result, err = mockTransformer.Transform([]byte("error"), Context{})
@@ -80,3 +80,4 @@ var (
 	_ Transformer = (*MockTransformer)(nil)
 	_ Chain       = (*MockChain)(nil)
 )
+

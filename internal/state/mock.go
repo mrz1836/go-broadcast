@@ -38,4 +38,3 @@ func (m *MockDiscoverer) ParseBranchName(name string) (*BranchMetadata, error) {
 	}
 	return args.Get(0).(*BranchMetadata), args.Error(1)
 }
-

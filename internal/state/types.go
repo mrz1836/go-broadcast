@@ -93,4 +93,3 @@ const (
 	// StatusConflict indicates there are conflicts preventing sync
 	StatusConflict SyncStatus = "conflict"
 )
-
