@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var validateCmd = &cobra.Command{
 	Use:   "validate",
 	Short: "Validate configuration file",
@@ -32,9 +33,13 @@ Checks performed:
 	RunE:    runValidate,
 }
 
-func runValidate(cmd *cobra.Command, args []string) error {
+func runValidate(_ *cobra.Command, _ []string) error {
+	return runValidateWithFlags(globalFlags)
+}
+
+func runValidateWithFlags(flags *Flags) error {
 	log := logrus.WithField("command", "validate")
-	configPath := GetConfigFile()
+	configPath := flags.ConfigFile
 
 	output.Info(fmt.Sprintf("Validating configuration file: %s", configPath))
 

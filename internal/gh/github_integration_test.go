@@ -71,4 +71,3 @@ func TestGitHubClient_Integration(t *testing.T) {
 		}
 	})
 }
-

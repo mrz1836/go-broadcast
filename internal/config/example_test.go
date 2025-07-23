@@ -18,7 +18,7 @@ func TestExampleConfigLoadsAndValidates(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify it loaded correctly
-	assert.Equal(t, 2, config.Version)
+	assert.Equal(t, 1, config.Version)
 	assert.Equal(t, "org/template-repo", config.Source.Repo)
 	assert.Equal(t, "master", config.Source.Branch)
 	assert.Len(t, config.Targets, 3)

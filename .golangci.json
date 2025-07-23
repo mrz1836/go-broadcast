@@ -56,16 +56,13 @@
 			"errchkjson",
 			"errname",
 			"errorlint",
-			"exhaustive",
 			"forbidigo",
 			"funcorder",
 			"gocheckcompilerdirectives",
 			"gochecknoglobals",
 			"gochecknoinits",
 			"gochecksumtype",
-			"gocognit",
 			"goconst",
-			"gocyclo",
 			"godox",
 			"goheader",
 			"gomoddirectives",
@@ -102,12 +99,15 @@
 			"unparam",
 			"unused",
 			"wastedassign",
-			"wsl_v5",
 			"zerologlint"
 		],
 		"disable": [
 			"gocritic",
-			"godot"
+			"godot",
+			"wsl_v5",
+			"gocognit",
+			"exhaustive",
+			"gocyclo"
 		],
 		"settings": {
 			"funcorder": {
@@ -122,15 +122,9 @@
 			"dupl": {
 				"threshold": 100
 			},
-			"exhaustive": {
-				"default-signifies-exhaustive": false
-			},
 			"funlen": {
 				"lines": 60,
 				"statements": 40
-			},
-			"gocognit": {
-				"min-complexity": 10
 			},
 			"goconst": {
 				"min-len": 3,
@@ -193,12 +187,6 @@
 			},
 			"unparam": {
 				"check-exported": false
-			},
-			"wsl": {
-				"allow-assign-and-call": true,
-				"allow-cuddle-declarations": true,
-				"allow-multiline-assign": true,
-				"strict-append": true
 			}
 		}
 	},

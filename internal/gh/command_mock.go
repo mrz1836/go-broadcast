@@ -28,4 +28,3 @@ func (m *MockCommandRunner) RunWithInput(ctx context.Context, input []byte, name
 	}
 	return called.Get(0).([]byte), called.Error(1)
 }
-

@@ -1,6 +1,6 @@
 # go-broadcast sync configuration example
-# Version 2 is the only supported version
-version: 2
+# Version 1 is the only supported version
+version: 1
 
 # Source repository configuration
 source:
@@ -14,7 +14,7 @@ defaults:
   # Prefix for sync branches (defaults to "sync/template")
   branch_prefix: "sync/template"
   # Labels to apply to PRs (defaults to ["automated-sync"])
-  pr_labels: 
+  pr_labels:
     - "automated-sync"
     - "template-update"
 

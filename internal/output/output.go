@@ -10,6 +10,7 @@ import (
 	"github.com/fatih/color"
 )
 
+//nolint:gochecknoglobals // Output package requires package-level state for consistent formatting
 var (
 	// Color functions
 	successColor = color.New(color.FgGreen, color.Bold)
@@ -67,7 +68,7 @@ func Stderr() io.Writer {
 func Success(msg string) {
 	mu.Lock()
 	defer mu.Unlock()
-	successColor.Fprintln(stdout, msg)
+	_, _ = successColor.Fprintln(stdout, msg)
 }
 
 // Successf prints a formatted success message
@@ -79,7 +80,7 @@ func Successf(format string, args ...interface{}) {
 func Info(msg string) {
 	mu.Lock()
 	defer mu.Unlock()
-	infoColor.Fprintln(stdout, msg)
+	_, _ = infoColor.Fprintln(stdout, msg)
 }
 
 // Infof prints a formatted info message
@@ -91,7 +92,7 @@ func Infof(format string, args ...interface{}) {
 func Warn(msg string) {
 	mu.Lock()
 	defer mu.Unlock()
-	warnColor.Fprintln(stderr, msg)
+	_, _ = warnColor.Fprintln(stderr, msg)
 }
 
 // Warnf prints a formatted warning message
@@ -103,7 +104,7 @@ func Warnf(format string, args ...interface{}) {
 func Error(msg string) {
 	mu.Lock()
 	defer mu.Unlock()
-	errorColor.Fprintln(stderr, msg)
+	_, _ = errorColor.Fprintln(stderr, msg)
 }
 
 // Errorf prints a formatted error message
@@ -115,7 +116,7 @@ func Errorf(format string, args ...interface{}) {
 func Plain(msg string) {
 	mu.Lock()
 	defer mu.Unlock()
-	fmt.Fprintln(stdout, msg)
+	_, _ = fmt.Fprintln(stdout, msg)
 }
 
 // Plainf prints a formatted message without color
@@ -150,7 +151,7 @@ func (p *Progress) Start() {
 				return
 			default:
 				p.mu.Lock()
-				fmt.Fprintf(stdout, "\r%s %s", p.spinner[p.index], p.message)
+				_, _ = fmt.Fprintf(stdout, "\r%s %s", p.spinner[p.index], p.message)
 				p.index = (p.index + 1) % len(p.spinner)
 				p.mu.Unlock()
 			}
@@ -161,7 +162,7 @@ func (p *Progress) Start() {
 // Stop stops the progress indicator
 func (p *Progress) Stop() {
 	p.done <- true
-	fmt.Fprint(stdout, "\r\033[K") // Clear line
+	_, _ = fmt.Fprint(stdout, "\r\033[K") // Clear line
 }
 
 // StopWithSuccess stops with a success message

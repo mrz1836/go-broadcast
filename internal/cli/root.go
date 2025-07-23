@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var rootCmd = &cobra.Command{
 	Use:   "go-broadcast",
 	Short: "Synchronize files from template repos to multiple targets",
@@ -27,6 +28,7 @@ state locally. It supports file transformations and provides progress tracking.`
 	SilenceErrors:     true,
 }
 
+//nolint:gochecknoinits // Cobra commands require init() for flag registration
 func init() {
 	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&globalFlags.ConfigFile, "config", "c", "sync.yaml", "Path to configuration file")
@@ -42,6 +44,13 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(versionCmd)
+}
+
+// GetRootCmd returns the root command for testing purposes
+func GetRootCmd() *cobra.Command {
+	// Reset global flags before returning command to ensure test isolation
+	ResetGlobalFlags()
+	return rootCmd
 }
 
 // Execute runs the CLI

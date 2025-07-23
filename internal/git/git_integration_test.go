@@ -80,4 +80,3 @@ func TestGitClient_FullWorkflow_Integration(t *testing.T) {
 		assert.Equal(t, "https://github.com/octocat/Hello-World.git", url)
 	})
 }
-

@@ -47,7 +47,7 @@ func TestGitClient_Clone_AlreadyExists(t *testing.T) {
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	// Create directory first
-	err = os.MkdirAll(repoPath, 0755)
+	err = os.MkdirAll(repoPath, 0o700)
 	require.NoError(t, err)
 
 	// Try to clone into existing directory
@@ -69,16 +69,16 @@ func TestGitClient_Operations(t *testing.T) {
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	// Initialize a new repository
-	cmd := exec.CommandContext(ctx, "git", "init", repoPath)
+	cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Test uses hardcoded command
 	err = cmd.Run()
 	require.NoError(t, err)
 
 	// Configure git user for tests
-	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.email", "test@example.com")
+	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.email", "test@example.com") //nolint:gosec // Test uses hardcoded command
 	err = cmd.Run()
 	require.NoError(t, err)
 
-	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.name", "Test User")
+	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.name", "Test User") //nolint:gosec // Test uses hardcoded command
 	err = cmd.Run()
 	require.NoError(t, err)
 
@@ -97,7 +97,7 @@ func TestGitClient_Operations(t *testing.T) {
 
 	// Create a test file
 	testFile := filepath.Join(repoPath, "test.txt")
-	err = os.WriteFile(testFile, []byte("test content"), 0644)
+	err = os.WriteFile(testFile, []byte("test content"), 0o600)
 	require.NoError(t, err)
 
 	// Add the file
@@ -116,7 +116,7 @@ func TestGitClient_Operations(t *testing.T) {
 	// Try to commit with no changes
 	err = client.Commit(ctx, repoPath, "Empty commit")
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrNoChanges)
+	require.ErrorIs(t, err, ErrNoChanges)
 
 	// Checkout back to original branch
 	originalBranch := "master"
@@ -128,7 +128,7 @@ func TestGitClient_Operations(t *testing.T) {
 	err = client.Checkout(ctx, repoPath, originalBranch)
 	if err != nil {
 		// If checkout fails, try creating the branch
-		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", originalBranch)
+		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", originalBranch) //nolint:gosec // Test uses hardcoded command
 		err = cmd.Run()
 		require.NoError(t, err)
 	}
@@ -159,14 +159,13 @@ func TestGitClient_GetRemoteURL(t *testing.T) {
 func TestNewClient_GitNotFound(t *testing.T) {
 	// Save original PATH
 	oldPath := os.Getenv("PATH")
-	defer os.Setenv("PATH", oldPath)
+	defer func() { _ = os.Setenv("PATH", oldPath) }()
 
 	// Set PATH to empty to simulate git not being found
-	os.Setenv("PATH", "")
+	_ = os.Setenv("PATH", "")
 
 	client, err := NewClient(nil)
 	require.Error(t, err)
 	assert.Nil(t, client)
 	assert.ErrorIs(t, err, ErrGitNotFound)
 }
-

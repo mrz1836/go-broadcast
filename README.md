@@ -1,4 +1,4 @@
-# 🚀 go-broadcast
+# 📡 go-broadcast
 > Stateless File Sync Orchestrator for Repository Management
 
 <table>
@@ -81,7 +81,9 @@
 <br/>
 
 ## 🗂️ Table of Contents
+* [Quick Start](#-quick-start)
 * [Installation](#-installation)
+* [Usage Examples](#-usage-examples)
 * [Documentation](#-documentation)
 * [Examples & Tests](#-examples--tests)
 * [Benchmarks](#-benchmarks)
@@ -90,6 +92,60 @@
 * [Maintainers](#-maintainers)
 * [Contributing](#-contributing)
 * [License](#-license)
+
+<br/>
+
+## ⚡ Quick Start
+
+Get up and running with go-broadcast in under 5 minutes!
+
+### Prerequisites
+- [Go 1.21+](https://golang.org/doc/install) and [GitHub CLI](https://cli.github.com/) installed
+- GitHub authentication: `gh auth login`
+
+### Installation
+
+```bash
+go install github.com/mrz1836/go-broadcast/cmd/go-broadcast@latest
+```
+
+### Create Configuration
+
+Create a `sync.yaml` file:
+
+```yaml
+version: 1
+source:
+  repo: "your-org/template-repo"
+  branch: "master"
+targets:
+  - repo: "your-org/target-repo"
+    files:
+      - src: ".github/workflows/ci.yml"
+        dest: ".github/workflows/ci.yml"
+    transform:
+      repo_name: true
+```
+
+### Run Sync
+
+```bash
+# Validate configuration
+go-broadcast validate --config sync.yaml
+
+# Preview changes (dry run)
+go-broadcast sync --dry-run --config sync.yaml
+
+# Execute sync
+go-broadcast sync --config sync.yaml
+```
+
+**That's it!** 🎉 go-broadcast automatically:
+- Clones your template repository
+- Applies configured transformations  
+- Creates a branch in each target repository
+- Commits synchronized files
+- Opens a pull request for review
 
 <br/>
 
@@ -102,12 +158,114 @@ go get -u github.com/mrz1836/go-broadcast
 
 <br/>
 
+## 💡 Usage Examples
+
+### Common Use Cases
+
+**Sync CI/CD workflows across microservices:**
+```yaml
+source:
+  repo: "company/ci-templates"
+targets:
+  - repo: "company/user-service"
+    files:
+      - src: "workflows/ci.yml"
+        dest: ".github/workflows/ci.yml"
+    transform:
+      variables:
+        SERVICE_NAME: "user-service"
+```
+
+**Maintain documentation standards:**
+```yaml
+source:
+  repo: "company/doc-templates"
+targets:
+  - repo: "company/backend-api"
+    files:
+      - src: "README.md"
+        dest: "README.md"
+    transform:
+      repo_name: true
+```
+
+### Essential Commands
+
+```bash
+# Validate and preview
+go-broadcast validate --config sync.yaml
+go-broadcast sync --dry-run --config sync.yaml
+
+# Execute sync
+go-broadcast sync --config sync.yaml
+go-broadcast sync org/specific-repo --config sync.yaml
+
+# Monitor status
+go-broadcast status --config sync.yaml
+```
+
+### Configuration Reference
+
+<details>
+<summary><strong>File Transformations</strong></summary>
+
+```yaml
+transform:
+  repo_name: true  # Updates Go module paths
+  variables:
+    SERVICE_NAME: "my-service"    # {{SERVICE_NAME}} → my-service
+    ENVIRONMENT: "production"     # ${ENVIRONMENT} → production
+```
+</details>
+
+<details>
+<summary><strong>File Mapping Options</strong></summary>
+
+```yaml
+files:
+  - src: "Makefile"         # Copy to same location
+    dest: "Makefile"
+  - src: "template.md"      # Rename during sync  
+    dest: "README.md"
+  - src: "config/app.yml"   # Move to different directory
+    dest: "configs/app.yml"
+```
+</details>
+
+<details>
+<summary><strong>Advanced Configuration</strong></summary>
+
+```yaml
+version: 1
+source:
+  repo: "org/template-repo"
+  branch: "master"
+defaults:
+  branch_prefix: "sync/template"
+  pr_labels: ["automated-sync"]
+targets:
+  - repo: "org/target-repo"
+    files:
+      - src: ".github/workflows/ci.yml"
+        dest: ".github/workflows/ci.yml"
+    transform:
+      repo_name: true
+      variables:
+        ENVIRONMENT: "production"
+```
+</details>
+
+<br/>
+
 ## 📚 Documentation
 
+- **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
+- **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)
+- **Configuration Examples** – Browse practical patterns in the [examples directory](examples)
+- **Troubleshooting** – Solve common issues with the [troubleshooting guide](docs/troubleshooting.md)
 - **API Reference** – Dive into the godocs at [pkg.go.dev/github.com/mrz1836/go-broadcast](https://pkg.go.dev/github.com/mrz1836/go-broadcast)
-- **Usage Examples** – Browse practical patterns in the [examples directory](examples)
+- **Integration Tests** – End-to-end testing examples in [test/integration](test/integration)
 - **Benchmarks** – Check the latest numbers in the [benchmark results](#benchmark-results)
-- **Test Suite** – Review the comprehensive test suite (powered by [`testify`](https://github.com/stretchr/testify))
 
 > **Good to know:** `go-broadcast` ships with *zero* runtime dependencies.  
 > The only external package we use is `testify`—and that's strictly for tests.
@@ -252,7 +410,7 @@ vet                   ## Run go vet only on your module packages
 All GitHub Actions workflows in this repository are powered by a single configuration file: [**.env.shared**](.github/.env.shared) – your one-stop shop for tweaking CI/CD behavior without touching a single YAML file! 🎯
 
 This magical file controls everything from:
-- **🚀 Go version matrix** (test on multiple versions or just one)
+- **⚙️ Go version matrix** (test on multiple versions or just one)
 - **🏃 Runner selection** (Ubuntu or macOS, your wallet decides)
 - **🔬 Feature toggles** (coverage, fuzzing, linting, race detection, benchmarks)
 - **🛡️ Security tool versions** (gitleaks, nancy, govulncheck)
@@ -331,18 +489,64 @@ make test-race
 
 Run the Go benchmarks:
 
-```bash script
+```bash
 make bench
 ```
 
-<br/>
+### Performance Results
 
-### Benchmark Results
+The following benchmarks were run on Apple M1 Max:
 
-Benchmarks will be added as the project develops.
+| Benchmark | Operations | ns/op | B/op | allocs/op |
+|-----------|------------|-------|------|-----------|
+| **Configuration** |
+| LoadFromReader | 33,890 | 36,177 | 24,456 | 394 |
+| LoadFromReader (Large) | 847 | 1,393,492 | 782,384 | 15,832 |
+| Validate | 814,417 | 1,498 | 0 | 0 |
+| Validate (Large) | 22,536 | 52,727 | 6,699 | 9 |
+| LoadAndValidate | 29,571 | 37,114 | 24,467 | 394 |
+| LoadAndValidate (Large) | 820 | 1,471,844 | 789,436 | 15,842 |
+| **Transformations** |
+| TemplateTransform (Small) | 31,008 | 36,891 | 67,906 | 578 |
+| TemplateTransform (Large) | 1,414 | 878,456 | 1,987,868 | 706 |
+| RepoTransform (GoFile) | 86,752 | 14,035 | 21,813 | 133 |
+| RepoTransform (GoFile Large) | 2,055 | 564,035 | 279,377 | 352 |
+| RepoTransform (Markdown) | 58,833 | 21,144 | 20,286 | 125 |
+| BinaryDetection (Text) | 36,248,710 | 33 | 0 | 0 |
+| BinaryDetection (Binary) | 77,023,261 | 16 | 0 | 0 |
+| BinaryDetection (Large Text) | 224,589 | 5,206 | 0 | 0 |
+| ChainTransform | 42,822 | 27,943 | 44,461 | 348 |
+| ChainTransform (Binary) | 374,011 | 3,239 | 6,045 | 56 |
+| **State Management** |
+| BranchParsing | 1,000,000 | 1,189 | 544 | 12 |
+| PRParsing | 26,086,176 | 47 | 0 | 0 |
+| StateComparison | 26,370,776 | 45 | 0 | 0 |
+| SyncBranchGeneration | 10,440,081 | 115 | 64 | 2 |
+| StateAggregation | 523,197 | 2,285 | 0 | 0 |
+| **Sync Operations** |
+| FilterTargets | 321,801 | 3,858 | 16,208 | 8 |
+| FilterTargets (WithFilter) | 7,323,346 | 164 | 352 | 4 |
+| NeedsSync (UpToDate) | 145,035,962 | 8 | 0 | 0 |
+| NeedsSync (Behind) | 142,666,467 | 8 | 0 | 0 |
+| NeedsSync (Pending) | 135,936,728 | 9 | 0 | 0 |
+| OptionsValidation | 371,356,402 | 3 | 0 | 0 |
 
-> These benchmarks reflect fast, allocation-free lookups for most retrieval functions, ensuring optimal performance in production environments.
-> Performance benchmarks for the core functions in this library, executed on an Apple M1 Max (ARM64).
+### Performance Characteristics
+
+go-broadcast is designed for efficiency:
+
+- **Configuration parsing** handles ~34K operations/second for normal configs, ~850/second for large configs
+- **Template transformations** process ~31K small files/second, ~1.4K large files/second  
+- **Repository transformations** handle ~87K Go files/second, ~59K Markdown files/second
+- **Binary detection** executes 77M+ operations/second with zero allocations
+- **State comparisons** perform 26M+ operations/second with zero allocations
+- **Sync decisions** evaluate 135M+ operations/second with zero allocations
+- **Concurrent operations** sync multiple repositories simultaneously (configurable concurrency)
+- **GitHub API optimization** reduces API calls through intelligent state discovery
+- **Memory efficiency** most core operations use minimal allocations
+- **Test coverage** maintained at >80% across core packages
+
+> Performance varies based on GitHub API rate limits, network conditions, and repository sizes.
 
 <br/>
 

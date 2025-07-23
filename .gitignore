@@ -5,6 +5,9 @@
 *.so
 *.dylib
 
+# Project binary
+go-broadcast
+
 # Test binary, build with `go test -c`
 *.test
 
@@ -42,3 +45,5 @@ testdata
 
 # Node modules
 node_modules/
+
+lint-output.txt

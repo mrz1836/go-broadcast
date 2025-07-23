@@ -96,4 +96,3 @@ func (e *CommandError) Error() string {
 func (e *CommandError) Unwrap() error {
 	return e.Err
 }
-

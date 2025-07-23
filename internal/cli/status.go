@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:gochecknoglobals // Package-level variable for CLI flag
 var (
 	jsonOutput bool
 )
@@ -20,6 +21,7 @@ func initStatus() {
 	statusCmd.Flags().BoolVar(&jsonOutput, "json", false, "Output status in JSON format")
 }
 
+//nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show sync state for all targets",
@@ -88,10 +90,7 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 
 	// TODO: Initialize state discovery with real implementations
 	// For now, we'll show mock status
-	status, err := getMockStatus(ctx, cfg)
-	if err != nil {
-		return fmt.Errorf("failed to get status: %w", err)
-	}
+	status := getMockStatus(ctx, cfg)
 
 	// Output status
 	if jsonOutput {
@@ -101,7 +100,7 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	return outputTextStatus(status)
 }
 
-func getMockStatus(_ context.Context, cfg *config.Config) (*SyncStatus, error) {
+func getMockStatus(_ context.Context, cfg *config.Config) *SyncStatus {
 	// Mock implementation - will be replaced with real state discovery
 	status := &SyncStatus{
 		Source: SourceStatus{
@@ -142,7 +141,7 @@ func getMockStatus(_ context.Context, cfg *config.Config) (*SyncStatus, error) {
 		status.Targets = append(status.Targets, targetStatus)
 	}
 
-	return status, nil
+	return status
 }
 
 func outputJSON(status *SyncStatus) error {

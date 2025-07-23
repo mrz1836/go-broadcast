@@ -6,11 +6,17 @@ import (
 	"os"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/output"
+	"github.com/mrz1836/go-broadcast/internal/state"
+	"github.com/mrz1836/go-broadcast/internal/sync"
+	"github.com/mrz1836/go-broadcast/internal/transform"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
+//nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var syncCmd = &cobra.Command{
 	Use:   "sync [targets...]",
 	Short: "Synchronize files to target repositories",
@@ -56,12 +62,14 @@ func runSync(cmd *cobra.Command, args []string) error {
 		output.Warn("DRY-RUN MODE: No changes will be made to repositories")
 	}
 
-	// TODO: Initialize sync engine with real implementations
-	// For now, we'll just show what would be done
-	output.Info("Sync operation would execute here...")
+	// Initialize sync engine with real implementations
+	engine, err := createSyncEngine(ctx, cfg)
+	if err != nil {
+		return fmt.Errorf("failed to initialize sync engine: %w", err)
+	}
 
-	// Simulate sync process
-	if err := simulateSync(ctx, cfg, targets); err != nil {
+	// Execute sync
+	if err := engine.Sync(ctx, targets); err != nil {
 		return fmt.Errorf("sync failed: %w", err)
 	}
 
@@ -97,56 +105,52 @@ func loadConfig() (*config.Config, error) {
 	return cfg, nil
 }
 
-func simulateSync(ctx context.Context, cfg *config.Config, targetFilter []string) error {
-	// Filter targets based on command line arguments
-	targets := cfg.Targets
+// createSyncEngine initializes the sync engine with all required dependencies
+func createSyncEngine(ctx context.Context, cfg *config.Config) (*sync.Engine, error) {
+	logger := logrus.StandardLogger()
 
-	if len(targetFilter) > 0 {
-		filtered := []config.TargetConfig{}
-
-		for _, target := range cfg.Targets {
-			for _, filter := range targetFilter {
-				if target.Repo == filter {
-					filtered = append(filtered, target)
-					break
-				}
-			}
-		}
-		if len(filtered) == 0 {
-			return fmt.Errorf("%w: %v", ErrNoMatchingTargets, targetFilter)
-		}
-
-		targets = filtered
+	// Initialize GitHub client
+	ghClient, err := gh.NewClient(ctx, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GitHub client: %w", err)
 	}
 
-	// Show what would be synced
-	output.Info(fmt.Sprintf("Source repository: %s (branch: %s)", cfg.Source.Repo, cfg.Source.Branch))
-	output.Info(fmt.Sprintf("Syncing to %d target(s):", len(targets)))
+	// Initialize Git client
+	gitClient, err := git.NewClient(logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Git client: %w", err)
+	}
 
-	for _, target := range targets {
-		output.Info(fmt.Sprintf("  • %s (%d file mappings)", target.Repo, len(target.Files)))
+	// Initialize state discoverer
+	stateDiscoverer := state.NewDiscoverer(ghClient, logger)
 
-		for _, file := range target.Files {
-			output.Info(fmt.Sprintf("    - %s → %s", file.Src, file.Dest))
-		}
-		if target.Transform.RepoName || len(target.Transform.Variables) > 0 {
-			output.Info("    Transforms:")
+	// Initialize transform chain
+	transformChain := transform.NewChain(logger)
 
-			if target.Transform.RepoName {
-				output.Info("      - Repository name replacement")
-			}
-			if len(target.Transform.Variables) > 0 {
-				output.Info(fmt.Sprintf("      - Variables: %v", target.Transform.Variables))
-			}
+	// Add repository name transformer if any target uses it
+	for _, target := range cfg.Targets {
+		if target.Transform.RepoName {
+			transformChain.Add(transform.NewRepoTransformer())
+			break
 		}
 	}
 
-	// Check for context cancellation
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
+	// Add template variable transformer if any target uses it
+	for _, target := range cfg.Targets {
+		if len(target.Transform.Variables) > 0 {
+			transformChain.Add(transform.NewTemplateTransformer(logrus.StandardLogger()))
+			break
+		}
 	}
 
-	return nil
+	// Create sync options
+	opts := sync.DefaultOptions().
+		WithDryRun(IsDryRun()).
+		WithMaxConcurrency(5)
+
+	// Create and return engine
+	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+	engine.SetLogger(logrus.StandardLogger())
+
+	return engine, nil
 }

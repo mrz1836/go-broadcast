@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -19,6 +18,7 @@ var (
 	ErrNotARepository   = errors.New("not a git repository")
 	ErrRepositoryExists = errors.New("repository already exists")
 	ErrNoChanges        = errors.New("no changes to commit")
+	ErrGitCommand       = errors.New("git command failed")
 )
 
 // gitClient implements the Client interface using git commands
@@ -83,7 +83,7 @@ func (g *gitClient) Add(ctx context.Context, repoPath string, paths ...string) e
 	args := []string{"-C", repoPath, "add"}
 	args = append(args, paths...)
 
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed
 
 	if err := g.runCommand(cmd); err != nil {
 		return fmt.Errorf("failed to add files: %w", err)
@@ -98,7 +98,11 @@ func (g *gitClient) Commit(ctx context.Context, repoPath, message string) error 
 
 	if err := g.runCommand(cmd); err != nil {
 		// Check if it's because there are no changes
-		if strings.Contains(err.Error(), "nothing to commit") {
+		errStr := err.Error()
+		if strings.Contains(errStr, "nothing to commit") ||
+			strings.Contains(errStr, "no changes") ||
+			strings.Contains(errStr, "working tree clean") ||
+			strings.Contains(errStr, "nothing added to commit") {
 			return ErrNoChanges
 		}
 		return fmt.Errorf("failed to commit: %w", err)
@@ -114,7 +118,7 @@ func (g *gitClient) Push(ctx context.Context, repoPath, remote, branch string, f
 		args = append(args, "--force")
 	}
 
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed
 
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 
@@ -132,7 +136,7 @@ func (g *gitClient) Diff(ctx context.Context, repoPath string, staged bool) (str
 		args = append(args, "--staged")
 	}
 
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -179,38 +183,37 @@ func (g *gitClient) runCommand(cmd *exec.Cmd) error {
 	}
 
 	var stderr bytes.Buffer
+	var stdout bytes.Buffer
 
 	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
 
 	err := cmd.Run()
-	if err != nil {
-		errMsg := stderr.String()
-		if g.logger != nil {
-			g.logger.WithFields(logrus.Fields{
-				"command": strings.Join(cmd.Args, " "),
-				"error":   errMsg,
-			}).Error("Git command failed")
-		}
-
-		// Check for common error patterns
-		if strings.Contains(errMsg, "not a git repository") {
-			return ErrNotARepository
-		}
-
-		// Return error with stderr content
-		if errMsg != "" {
-			return fmt.Errorf("%s", errMsg)
-		}
-		return err
+	if err == nil {
+		return nil
 	}
 
-	return nil
-}
+	errMsg := stderr.String()
+	outMsg := stdout.String()
+	if g.logger != nil {
+		g.logger.WithFields(logrus.Fields{
+			"command": strings.Join(cmd.Args, " "),
+			"error":   errMsg,
+			"output":  outMsg,
+		}).Error("Git command failed")
+	}
 
-// isValidRepoPath checks if the path is a valid git repository
-func isValidRepoPath(path string) bool {
-	gitDir := filepath.Join(path, ".git")
-	info, err := os.Stat(gitDir)
-	return err == nil && info.IsDir()
-}
+	// Check for common error patterns
+	if strings.Contains(errMsg, "not a git repository") {
+		return ErrNotARepository
+	}
 
+	// Return error with stderr content (or stdout if stderr is empty)
+	if errMsg != "" {
+		return fmt.Errorf("%w: %s", ErrGitCommand, errMsg)
+	}
+	if outMsg != "" {
+		return fmt.Errorf("%w: %s", ErrGitCommand, outMsg)
+	}
+	return err
+}

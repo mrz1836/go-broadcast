@@ -1,0 +1,119 @@
+# go-broadcast configuration for multi-language projects
+# Syncs language-specific tooling across different technology stacks
+
+version: 1
+
+source:
+  repo: "company/platform-template"
+  branch: "master"
+
+defaults:
+  branch_prefix: "sync/platform"
+  pr_labels:
+    - "automated-sync"
+    - "platform-update"
+
+targets:
+  # Go backend services
+  - repo: "company/go-api-service"
+    files:
+      # Common GitHub Actions
+      - src: ".github/workflows/security.yml"
+        dest: ".github/workflows/security.yml"
+      # Go-specific tooling
+      - src: "go/Makefile"
+        dest: "Makefile"
+      - src: "go/.golangci.yml"
+        dest: ".golangci.yml"
+      - src: "go/Dockerfile"
+        dest: "Dockerfile"
+      # Common documentation
+      - src: "docs/CONTRIBUTING.md"
+        dest: "CONTRIBUTING.md"
+      - src: "docs/SECURITY.md"
+        dest: "SECURITY.md"
+    transform:
+      repo_name: true
+      variables:
+        LANGUAGE: "Go"
+        VERSION: "1.21"
+        SERVICE_TYPE: "api"
+
+  # Python data services
+  - repo: "company/python-data-pipeline"
+    files:
+      # Common GitHub Actions
+      - src: ".github/workflows/security.yml"
+        dest: ".github/workflows/security.yml"
+      # Python-specific files
+      - src: "python/requirements.txt"
+        dest: "requirements.txt"
+      - src: "python/pyproject.toml"
+        dest: "pyproject.toml"
+      - src: "python/Dockerfile"
+        dest: "Dockerfile"
+      - src: "python/.pre-commit-config.yaml"
+        dest: ".pre-commit-config.yaml"
+      # Common documentation
+      - src: "docs/CONTRIBUTING.md"
+        dest: "CONTRIBUTING.md"
+      - src: "docs/SECURITY.md"
+        dest: "SECURITY.md"
+    transform:
+      repo_name: true
+      variables:
+        LANGUAGE: "Python"
+        VERSION: "3.11"
+        SERVICE_TYPE: "data-pipeline"
+
+  # Node.js frontend applications
+  - repo: "company/nodejs-web-app"
+    files:
+      # Common GitHub Actions
+      - src: ".github/workflows/security.yml"
+        dest: ".github/workflows/security.yml"
+      # Node.js-specific files
+      - src: "nodejs/package.json"
+        dest: "package.json"
+      - src: "nodejs/.eslintrc.json"
+        dest: ".eslintrc.json"
+      - src: "nodejs/.prettierrc"
+        dest: ".prettierrc"
+      - src: "nodejs/Dockerfile"
+        dest: "Dockerfile"
+      # Common documentation
+      - src: "docs/CONTRIBUTING.md"
+        dest: "CONTRIBUTING.md"
+      - src: "docs/SECURITY.md"
+        dest: "SECURITY.md"
+    transform:
+      repo_name: true
+      variables:
+        LANGUAGE: "Node.js"
+        VERSION: "18"
+        SERVICE_TYPE: "web-app"
+
+  # Rust services
+  - repo: "company/rust-high-performance"
+    files:
+      # Common GitHub Actions
+      - src: ".github/workflows/security.yml"
+        dest: ".github/workflows/security.yml"
+      # Rust-specific files
+      - src: "rust/Cargo.toml"
+        dest: "Cargo.toml"
+      - src: "rust/clippy.toml"
+        dest: "clippy.toml"
+      - src: "rust/Dockerfile"
+        dest: "Dockerfile"
+      # Common documentation
+      - src: "docs/CONTRIBUTING.md"
+        dest: "CONTRIBUTING.md"
+      - src: "docs/SECURITY.md"
+        dest: "SECURITY.md"
+    transform:
+      repo_name: true
+      variables:
+        LANGUAGE: "Rust"
+        VERSION: "1.70"
+        SERVICE_TYPE: "high-performance"

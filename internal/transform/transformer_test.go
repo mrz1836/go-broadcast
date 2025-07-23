@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMockTransformer(t *testing.T) {
@@ -30,15 +31,15 @@ func TestMockTransformer(t *testing.T) {
 	mockTransformer.On("Transform", input, ctx).Return(expected, nil)
 
 	result, err := mockTransformer.Transform(input, ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expected, result)
 
 	// Test Transform method - error case
-	transformErr := errors.New("transform failed") //nolint:err113
+	transformErr := errors.New("transform failed") //nolint:err113 // Test error doesn't need to be a package variable
 	mockTransformer.On("Transform", []byte("error"), mock.Anything).Return(nil, transformErr)
 
 	result, err = mockTransformer.Transform([]byte("error"), Context{})
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, result)
 
 	mockTransformer.AssertExpectations(t)
@@ -62,7 +63,7 @@ func TestMockChain(t *testing.T) {
 	mockChain.On("Transform", ctx, input, transformCtx).Return(expected, nil)
 
 	result, err := mockChain.Transform(ctx, input, transformCtx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expected, result)
 
 	// Test Transformers method

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMockClient_ListBranches(t *testing.T) {
@@ -20,15 +21,15 @@ func TestMockClient_ListBranches(t *testing.T) {
 	mockClient.On("ListBranches", ctx, "org/repo").Return(expectedBranches, nil)
 
 	branches, err := mockClient.ListBranches(ctx, "org/repo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expectedBranches, branches)
 
 	// Test error case
-	testErr := errors.New("API error") //nolint:err113
+	testErr := errors.New("API error") //nolint:err113 // dynamic error needed for mock testing
 	mockClient.On("ListBranches", ctx, "org/error").Return(nil, testErr)
 
 	branches, err = mockClient.ListBranches(ctx, "org/error")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, branches)
 
 	mockClient.AssertExpectations(t)
@@ -55,7 +56,7 @@ func TestMockClient_CreatePR(t *testing.T) {
 	mockClient.On("CreatePR", ctx, "org/repo", req).Return(expectedPR, nil)
 
 	pr, err := mockClient.CreatePR(ctx, "org/repo", req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expectedPR, pr)
 
 	mockClient.AssertExpectations(t)
@@ -74,15 +75,15 @@ func TestMockClient_GetFile(t *testing.T) {
 	mockClient.On("GetFile", ctx, "org/repo", "README.md", "master").Return(expectedContent, nil)
 
 	content, err := mockClient.GetFile(ctx, "org/repo", "README.md", "master")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expectedContent, content)
 
 	// Test nil return
-	fileErr := errors.New("file not found") //nolint:err113
+	fileErr := errors.New("file not found") //nolint:err113 // dynamic error needed for mock testing
 	mockClient.On("GetFile", ctx, "org/repo", "missing.txt", "master").Return(nil, fileErr)
 
 	content, err = mockClient.GetFile(ctx, "org/repo", "missing.txt", "master")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, content)
 
 	mockClient.AssertExpectations(t)

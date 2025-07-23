@@ -52,8 +52,8 @@ var (
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
 	// Validate version
-	if c.Version != 2 {
-		return fmt.Errorf("%w: %d (only version 2 is supported)", ErrUnsupportedVersion, c.Version)
+	if c.Version != 1 {
+		return fmt.Errorf("%w: %d (only version 1 is supported)", ErrUnsupportedVersion, c.Version)
 	}
 
 	// Validate source

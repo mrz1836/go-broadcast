@@ -10,6 +10,8 @@ import (
 )
 
 // Build information set via ldflags
+//
+//nolint:gochecknoglobals // Build variables are set via ldflags during compilation
 var (
 	version   = "dev"
 	commit    = "unknown"
@@ -31,6 +33,7 @@ func initVersion() {
 	versionCmd.Flags().BoolVar(&jsonOutput, "json", false, "Output version in JSON format")
 }
 
+//nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",

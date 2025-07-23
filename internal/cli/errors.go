@@ -10,4 +10,3 @@ var (
 	// ErrNoMatchingTargets indicates no targets matched the filter
 	ErrNoMatchingTargets = errors.New("no matching targets found")
 )
-

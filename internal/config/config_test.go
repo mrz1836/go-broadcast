@@ -11,7 +11,7 @@ import (
 
 func TestLoadFromReader_ValidConfig(t *testing.T) {
 	yamlContent := `
-version: 2
+version: 1
 source:
   repo: "org/template-repo"
   branch: "master"
@@ -34,7 +34,7 @@ targets:
 	require.NotNil(t, config)
 
 	// Check parsed values
-	assert.Equal(t, 2, config.Version)
+	assert.Equal(t, 1, config.Version)
 	assert.Equal(t, "org/template-repo", config.Source.Repo)
 	assert.Equal(t, "master", config.Source.Branch)
 	assert.Equal(t, "sync/template", config.Defaults.BranchPrefix)
@@ -51,7 +51,7 @@ targets:
 
 func TestLoadFromReader_MinimalConfig(t *testing.T) {
 	yamlContent := `
-version: 2
+version: 1
 source:
   repo: "org/template"
 targets:
@@ -73,7 +73,7 @@ targets:
 
 func TestLoadFromReader_InvalidYAML(t *testing.T) {
 	yamlContent := `
-version: 2
+version: 1
 source:
   repo: [invalid
 `
@@ -86,7 +86,7 @@ source:
 
 func TestLoadFromReader_UnknownFields(t *testing.T) {
 	yamlContent := `
-version: 2
+version: 1
 unknown_field: "value"
 source:
   repo: "org/repo"
@@ -104,7 +104,7 @@ targets:
 
 func TestValidate_ValidConfig(t *testing.T) {
 	config := &Config{
-		Version: 2,
+		Version: 1,
 		Source: SourceConfig{
 			Repo:   "org/template",
 			Branch: "master",
@@ -129,19 +129,19 @@ func TestValidate_ValidConfig(t *testing.T) {
 
 func TestValidate_InvalidVersion(t *testing.T) {
 	config := &Config{
-		Version: 1,
+		Version: 2,
 		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 		Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
 	}
 
 	err := config.Validate()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported config version: 1")
+	assert.Contains(t, err.Error(), "unsupported config version: 2")
 }
 
 func TestValidate_MissingSourceRepo(t *testing.T) {
 	config := &Config{
-		Version: 2,
+		Version: 1,
 		Source:  SourceConfig{Branch: "master"},
 		Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
 	}
@@ -167,7 +167,7 @@ func TestValidate_InvalidRepoFormat(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			config := &Config{
-				Version: 2,
+				Version: 1,
 				Source:  SourceConfig{Repo: tc.repo, Branch: "master"},
 				Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
 			}
@@ -181,7 +181,7 @@ func TestValidate_InvalidRepoFormat(t *testing.T) {
 
 func TestValidate_InvalidBranch(t *testing.T) {
 	config := &Config{
-		Version: 2,
+		Version: 1,
 		Source:  SourceConfig{Repo: "org/repo", Branch: ""},
 		Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
 	}
@@ -193,7 +193,7 @@ func TestValidate_InvalidBranch(t *testing.T) {
 
 func TestValidate_NoTargets(t *testing.T) {
 	config := &Config{
-		Version: 2,
+		Version: 1,
 		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 		Targets: []TargetConfig{},
 	}
@@ -205,7 +205,7 @@ func TestValidate_NoTargets(t *testing.T) {
 
 func TestValidate_DuplicateTargets(t *testing.T) {
 	config := &Config{
-		Version: 2,
+		Version: 1,
 		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 		Targets: []TargetConfig{
 			{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}},
@@ -220,7 +220,7 @@ func TestValidate_DuplicateTargets(t *testing.T) {
 
 func TestValidate_NoFileMappings(t *testing.T) {
 	config := &Config{
-		Version: 2,
+		Version: 1,
 		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 		Targets: []TargetConfig{
 			{Repo: "org/target", Files: []FileMapping{}},
@@ -250,7 +250,7 @@ func TestValidate_InvalidFilePaths(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			config := &Config{
-				Version: 2,
+				Version: 1,
 				Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 				Targets: []TargetConfig{
 					{
@@ -269,7 +269,7 @@ func TestValidate_InvalidFilePaths(t *testing.T) {
 
 func TestValidate_DuplicateDestinations(t *testing.T) {
 	config := &Config{
-		Version: 2,
+		Version: 1,
 		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 		Targets: []TargetConfig{
 			{
@@ -289,7 +289,7 @@ func TestValidate_DuplicateDestinations(t *testing.T) {
 
 func TestValidate_EmptyPRLabel(t *testing.T) {
 	config := &Config{
-		Version: 2,
+		Version: 1,
 		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 		Defaults: DefaultConfig{
 			PRLabels: []string{"valid", "  ", "another"},

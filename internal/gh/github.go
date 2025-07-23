@@ -17,6 +17,10 @@ var (
 	ErrNotAuthenticated = errors.New("gh CLI not authenticated")
 	ErrGHNotFound       = errors.New("gh CLI not found in PATH")
 	ErrRateLimited      = errors.New("GitHub API rate limit exceeded")
+	ErrBranchNotFound   = errors.New("branch not found")
+	ErrPRNotFound       = errors.New("pull request not found")
+	ErrFileNotFound     = errors.New("file not found")
+	ErrCommitNotFound   = errors.New("commit not found")
 )
 
 // githubClient implements the Client interface using gh CLI
@@ -26,7 +30,7 @@ type githubClient struct {
 }
 
 // NewClient creates a new GitHub client using gh CLI
-func NewClient(logger *logrus.Logger) (Client, error) {
+func NewClient(ctx context.Context, logger *logrus.Logger) (Client, error) {
 	// Check if gh is available
 	if _, err := exec.LookPath("gh"); err != nil {
 		return nil, ErrGHNotFound
@@ -35,9 +39,8 @@ func NewClient(logger *logrus.Logger) (Client, error) {
 	runner := NewCommandRunner(logger)
 
 	// Check authentication status
-	ctx := context.Background()
 	if _, err := runner.Run(ctx, "gh", "auth", "status"); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrNotAuthenticated, err)
+		return nil, fmt.Errorf("%w: gh auth status failed", ErrNotAuthenticated)
 	}
 
 	return &githubClient{
@@ -66,7 +69,7 @@ func (g *githubClient) GetBranch(ctx context.Context, repo, branch string) (*Bra
 	output, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s/branches/%s", repo, branch))
 	if err != nil {
 		if isNotFoundError(err) {
-			return nil, nil
+			return nil, ErrBranchNotFound
 		}
 		return nil, fmt.Errorf("failed to get branch: %w", err)
 	}
@@ -112,7 +115,7 @@ func (g *githubClient) GetPR(ctx context.Context, repo string, number int) (*PR,
 	output, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s/pulls/%d", repo, number))
 	if err != nil {
 		if isNotFoundError(err) {
-			return nil, nil
+			return nil, ErrPRNotFound
 		}
 		return nil, fmt.Errorf("failed to get PR: %w", err)
 	}
@@ -155,14 +158,14 @@ func (g *githubClient) GetFile(ctx context.Context, repo, path, ref string) (*Fi
 	output, err := g.runner.Run(ctx, "gh", "api", url)
 	if err != nil {
 		if isNotFoundError(err) {
-			return nil, nil
+			return nil, ErrFileNotFound
 		}
 		return nil, fmt.Errorf("failed to get file: %w", err)
 	}
 
 	var file File
-	if err := json.Unmarshal(output, &file); err != nil {
-		return nil, fmt.Errorf("failed to parse file: %w", err)
+	if unmarshalErr := json.Unmarshal(output, &file); unmarshalErr != nil {
+		return nil, fmt.Errorf("failed to parse file: %w", unmarshalErr)
 	}
 
 	// Decode base64 content
@@ -183,7 +186,7 @@ func (g *githubClient) GetCommit(ctx context.Context, repo, sha string) (*Commit
 	output, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s/commits/%s", repo, sha))
 	if err != nil {
 		if isNotFoundError(err) {
-			return nil, nil
+			return nil, ErrCommitNotFound
 		}
 		return nil, fmt.Errorf("failed to get commit: %w", err)
 	}
@@ -209,17 +212,6 @@ func isNotFoundError(err error) bool {
 		strings.Contains(errStr, "could not resolve")
 }
 
-// isRateLimitError checks if the error is due to rate limiting
-func isRateLimitError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	errStr := err.Error()
-	return strings.Contains(errStr, "rate limit") ||
-		strings.Contains(errStr, "403") && strings.Contains(errStr, "API rate limit exceeded")
-}
-
 // NewClientWithRunner creates a GitHub client with a custom command runner (for testing)
 func NewClientWithRunner(runner CommandRunner, logger *logrus.Logger) Client {
 	return &githubClient{
@@ -227,4 +219,3 @@ func NewClientWithRunner(runner CommandRunner, logger *logrus.Logger) Client {
 		logger: logger,
 	}
 }
-
