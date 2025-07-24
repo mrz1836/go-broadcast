@@ -6,13 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/state"
-	"github.com/mrz1836/go-broadcast/internal/sync"
+	internalsync "github.com/mrz1836/go-broadcast/internal/sync"
 	"github.com/mrz1836/go-broadcast/internal/transform"
 	"github.com/mrz1836/go-broadcast/test/fixtures"
 	"github.com/sirupsen/logrus"
@@ -155,8 +156,8 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 		Return([]byte("transformed content"), nil)
 
 	// Create sync engine
-	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	opts := internalsync.DefaultOptions().WithDryRun(false)
+	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 	engine.SetLogger(logger)
@@ -325,8 +326,8 @@ clean:
 	}
 
 	// Create sync engine
-	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	opts := internalsync.DefaultOptions().WithDryRun(false)
+	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync
@@ -359,9 +360,11 @@ func testRollbackCapabilities(t *testing.T, generator *fixtures.TestRepoGenerato
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
-	// Track operations for rollback verification
+	// Track operations for rollback verification with thread safety
 	var gitOperations []string
+	var gitOperationsMutex sync.Mutex
 	var rollbackCalled bool
+	var rollbackMutex sync.Mutex
 
 	mockState.On("DiscoverState", mock.Anything, scenario.Config).
 		Return(scenario.State, nil)
@@ -383,7 +386,9 @@ func testRollbackCapabilities(t *testing.T, generator *fixtures.TestRepoGenerato
 	// Mock Git operations with tracking
 	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 		Run(func(args mock.Arguments) {
+			gitOperationsMutex.Lock()
 			gitOperations = append(gitOperations, "clone:"+args[2].(string))
+			gitOperationsMutex.Unlock()
 			// Create the expected files in the clone directory
 			cloneDir := args[2].(string)
 			_ = os.MkdirAll(filepath.Join(cloneDir, ".github/workflows"), 0o750)
@@ -395,40 +400,56 @@ func testRollbackCapabilities(t *testing.T, generator *fixtures.TestRepoGenerato
 
 	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 		Run(func(args mock.Arguments) {
+			gitOperationsMutex.Lock()
 			gitOperations = append(gitOperations, "checkout:"+args[2].(string))
+			gitOperationsMutex.Unlock()
 		}).Return(nil)
 
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 		Run(func(args mock.Arguments) {
+			gitOperationsMutex.Lock()
 			gitOperations = append(gitOperations, "create_branch:"+args[2].(string))
+			gitOperationsMutex.Unlock()
 		}).Return(nil)
 
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
+			gitOperationsMutex.Lock()
 			gitOperations = append(gitOperations, "add:"+args[1].(string))
+			gitOperationsMutex.Unlock()
 		}).Return(nil)
 
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 		Run(func(args mock.Arguments) {
+			gitOperationsMutex.Lock()
 			gitOperations = append(gitOperations, "commit:"+args[1].(string))
+			gitOperationsMutex.Unlock()
 		}).Return(nil)
 
 	// Simpler approach: make ALL Push calls fail unconditionally
 	mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Run(func(_ mock.Arguments) {
+			gitOperationsMutex.Lock()
 			gitOperations = append(gitOperations, "push_called_with_failure")
+			gitOperationsMutex.Unlock()
 		}).Return(fmt.Errorf("%w", fixtures.ErrGitPushTimeout)).Maybe()
 
 	// Mock rollback operations
 	mockGit.On("Reset", mock.Anything, mock.AnythingOfType("string"), "HEAD~1").
 		Run(func(args mock.Arguments) {
+			rollbackMutex.Lock()
 			rollbackCalled = true
+			rollbackMutex.Unlock()
+			gitOperationsMutex.Lock()
 			gitOperations = append(gitOperations, "rollback_reset:"+args[1].(string))
+			gitOperationsMutex.Unlock()
 		}).Return(nil).Maybe()
 
 	mockGit.On("Clean", mock.Anything, mock.AnythingOfType("string")).
 		Run(func(args mock.Arguments) {
+			gitOperationsMutex.Lock()
 			gitOperations = append(gitOperations, "rollback_clean:"+args[1].(string))
+			gitOperationsMutex.Unlock()
 		}).Return(nil).Maybe()
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
@@ -441,12 +462,14 @@ func testRollbackCapabilities(t *testing.T, generator *fixtures.TestRepoGenerato
 	// Make PR creation fail to simulate the rollback scenario
 	mockGH.On("CreatePR", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("gh.PRRequest")).
 		Run(func(args mock.Arguments) {
+			gitOperationsMutex.Lock()
 			gitOperations = append(gitOperations, "pr_creation_failed:"+args[1].(string))
+			gitOperationsMutex.Unlock()
 		}).Return(nil, fmt.Errorf("PR creation failed: %w", fixtures.ErrBranchProtection)).Maybe()
 
 	// Create sync engine
-	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	opts := internalsync.DefaultOptions().WithDryRun(false)
+	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 	engine.SetLogger(logger)
@@ -458,7 +481,9 @@ func testRollbackCapabilities(t *testing.T, generator *fixtures.TestRepoGenerato
 	err = engine.Sync(ctx, nil)
 
 	// Debug: Check what operations were performed
+	gitOperationsMutex.Lock()
 	operationLog := strings.Join(gitOperations, ", ")
+	gitOperationsMutex.Unlock()
 	t.Logf("Git operations performed: %s", operationLog)
 	t.Logf("Failure count should be 2, error: %v", err)
 
@@ -557,8 +582,8 @@ func testStateConsistencyAcrossOperations(t *testing.T, generator *fixtures.Test
 		Return(&gh.PR{Number: 999}, nil).Maybe()
 
 	// Create sync engine
-	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	opts := internalsync.DefaultOptions().WithDryRun(false)
+	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute multiple sync operations to test state consistency
@@ -637,8 +662,8 @@ func testWorkflowPermissionsAndSecurity(t *testing.T, generator *fixtures.TestRe
 	})).Return([]byte("securely transformed content"), nil)
 
 	// Create sync engine
-	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	opts := internalsync.DefaultOptions().WithDryRun(false)
+	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync with security considerations
@@ -721,8 +746,8 @@ func testIncrementalTemplateChanges(t *testing.T, generator *fixtures.TestRepoGe
 		Return(&gh.PR{Number: 555}, nil).Maybe()
 
 	// Create sync engine
-	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	opts := internalsync.DefaultOptions().WithDryRun(false)
+	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute multiple sync cycles to test incremental changes

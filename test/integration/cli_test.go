@@ -15,6 +15,12 @@ import (
 
 // TestCLICommands tests the CLI commands end-to-end
 func TestCLICommands(t *testing.T) {
+	// Reset global flags to ensure test isolation
+	cli.ResetGlobalFlags()
+	t.Cleanup(func() {
+		cli.ResetGlobalFlags()
+	})
+
 	// Create test configuration
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "sync.yaml")
@@ -131,6 +137,12 @@ targets: []  # No targets
 
 // TestConfigurationExamples tests that all example configurations are valid
 func TestConfigurationExamples(t *testing.T) {
+	// Reset global flags to ensure test isolation
+	cli.ResetGlobalFlags()
+	t.Cleanup(func() {
+		cli.ResetGlobalFlags()
+	})
+
 	examplesDir := filepath.Join("..", "..", "examples")
 
 	// Find all .yaml files in examples directory
@@ -174,6 +186,12 @@ func TestConfigurationExamples(t *testing.T) {
 
 // TestCLIFlags tests various CLI flag combinations
 func TestCLIFlags(t *testing.T) {
+	// Reset global flags to ensure test isolation
+	cli.ResetGlobalFlags()
+	t.Cleanup(func() {
+		cli.ResetGlobalFlags()
+	})
+
 	// Create test configuration
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "sync.yaml")
@@ -253,6 +271,12 @@ targets:
 
 // TestCLIAliases tests command aliases
 func TestCLIAliases(t *testing.T) {
+	// Reset global flags to ensure test isolation
+	cli.ResetGlobalFlags()
+	t.Cleanup(func() {
+		cli.ResetGlobalFlags()
+	})
+
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "sync.yaml")
 
