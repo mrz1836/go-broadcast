@@ -40,6 +40,9 @@ coverage.out
 # Fuzz Tests
 testdata
 
+# Fuzz testing corpus (auto-generated)
+internal/fuzz/corpus/
+
 # AI Models
 .claude
 
