@@ -29,6 +29,9 @@ gh auth status
 
 **Alternative**: Set a GitHub token directly:
 ```bash
+# Use GH_PAT_TOKEN as the preferred token (checked first)
+export GH_PAT_TOKEN="your_personal_access_token"
+# Or use GITHUB_TOKEN as a fallback
 export GITHUB_TOKEN="your_personal_access_token"
 ```
 
@@ -171,6 +174,9 @@ targets:
 2. **Use SSH instead**: Configure repositories to use SSH URLs
 3. **Set GitHub token**:
    ```bash
+   # Use GH_PAT_TOKEN as the preferred token (checked first)
+   export GH_PAT_TOKEN="your_token"
+   # Or use GITHUB_TOKEN as a fallback
    export GITHUB_TOKEN="your_token"
    ```
 

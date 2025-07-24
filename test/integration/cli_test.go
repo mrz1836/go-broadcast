@@ -231,8 +231,8 @@ targets:
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Skip sync command tests if no GitHub authentication
-			if tc.name == "sync with dry-run" && os.Getenv("GITHUB_TOKEN") == "" {
-				t.Skip("GITHUB_TOKEN not set, skipping test that requires GitHub authentication")
+			if tc.name == "sync with dry-run" && helpers.GetGitHubToken() == "" {
+				t.Skip("GH_PAT_TOKEN or GITHUB_TOKEN not set, skipping test that requires GitHub authentication")
 			}
 
 			cmd := cli.GetRootCmd()

@@ -15,14 +15,18 @@ import (
 
 func TestGitHubClient_Integration(t *testing.T) {
 	// Skip if no GitHub token is available
-	if os.Getenv("GITHUB_TOKEN") == "" {
-		t.Skip("GITHUB_TOKEN not set, skipping integration test")
+	token := os.Getenv("GH_PAT_TOKEN")
+	if token == "" {
+		token = os.Getenv("GITHUB_TOKEN")
+	}
+	if token == "" {
+		t.Skip("GH_PAT_TOKEN or GITHUB_TOKEN not set, skipping integration test")
 	}
 
-	client, err := NewClient(logrus.New())
-	require.NoError(t, err)
-
 	ctx := context.Background()
+	
+	client, err := NewClient(ctx, logrus.New())
+	require.NoError(t, err)
 
 	// Test with a well-known public repository
 	repo := "github/gitignore"
