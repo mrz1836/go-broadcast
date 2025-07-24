@@ -83,7 +83,6 @@
 ## 🗂️ Table of Contents
 * [Quick Start](#-quick-start)
 * [How It Works](#-how-it-works)
-* [Installation](#-installation)
 * [Usage Examples](#-usage-examples)
 * [Documentation](#-documentation)
 * [Examples & Tests](#-examples--tests)
@@ -101,7 +100,7 @@
 Get up and running with go-broadcast in under 5 minutes!
 
 ### Prerequisites
-- [Go 1.21+](https://golang.org/doc/install) and [GitHub CLI](https://cli.github.com/) installed
+- [Go 1.21+](https://golang.org/doc/install) ([supported release](https://golang.org/doc/devel/release.html#policy)) and [GitHub CLI](https://cli.github.com/) installed
 - GitHub authentication: `gh auth login`
 
 ### Installation
@@ -211,15 +210,6 @@ timestamp: 2025-01-23T14:30:52Z
 ✅ **Full Audit Trail** - Branch and PR history shows all syncs  
 ✅ **Disaster Recovery** - State can be reconstructed from GitHub  
 ✅ **Works at Scale** - No state corruption with concurrent syncs  
-
-<br/>
-
-## 📦 Installation
-
-**go-broadcast** requires a [supported release of Go](https://golang.org/doc/devel/release.html#policy).
-```shell script
-go get -u github.com/mrz1836/go-broadcast
-```
 
 <br/>
 
