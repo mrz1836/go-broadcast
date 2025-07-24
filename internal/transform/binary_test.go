@@ -170,7 +170,7 @@ func TestBinaryTransformer(t *testing.T) {
 }
 
 // generateBinaryData creates test data with specified percentage of binary bytes
-func generateBinaryData(size int, binaryPercent int) []byte {
+func generateBinaryData(size, binaryPercent int) []byte {
 	data := make([]byte, size)
 	binaryCount := size * binaryPercent / 100
 

@@ -127,7 +127,7 @@ func (p *ProgressTracker) RecordError(repo string, err error) {
 }
 
 // RecordSkipped records a skipped repository sync
-func (p *ProgressTracker) RecordSkipped(repo string, reason string) {
+func (p *ProgressTracker) RecordSkipped(repo, reason string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

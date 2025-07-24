@@ -47,7 +47,7 @@ func TestGitClient_FullWorkflow_Integration(t *testing.T) {
 
 		// Create a test file
 		testFile := filepath.Join(repoPath, "integration-test.txt")
-		err = os.WriteFile(testFile, []byte("Integration test content\n"), 0644)
+		err = os.WriteFile(testFile, []byte("Integration test content\n"), 0o644)
 		require.NoError(t, err)
 
 		// Add the file
