@@ -8,6 +8,7 @@ import (
 
 	"github.com/mrz1836/go-broadcast/internal/cli"
 	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/test/helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -87,6 +88,9 @@ targets: []  # No targets
 	})
 
 	t.Run("sync command dry-run", func(t *testing.T) {
+		// Skip if GitHub authentication is not available
+		helpers.SkipIfNoGitHubAuth(t)
+
 		// Test sync command in dry-run mode
 		cmd := cli.GetRootCmd()
 		cmd.SetArgs([]string{"sync", "--config", configPath, "--dry-run"})
@@ -101,6 +105,9 @@ targets: []  # No targets
 	})
 
 	t.Run("status command", func(t *testing.T) {
+		// Skip if GitHub authentication is not available
+		helpers.SkipIfNoGitHubAuth(t)
+
 		// Test status command
 		cmd := cli.GetRootCmd()
 		cmd.SetArgs([]string{"status", "--config", configPath})
@@ -223,6 +230,11 @@ targets:
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Skip sync command tests if no GitHub authentication
+			if tc.name == "sync with dry-run" && os.Getenv("GITHUB_TOKEN") == "" {
+				t.Skip("GITHUB_TOKEN not set, skipping test that requires GitHub authentication")
+			}
+
 			cmd := cli.GetRootCmd()
 			cmd.SetArgs(tc.args)
 
@@ -258,6 +270,9 @@ targets:
 	require.NoError(t, err)
 
 	t.Run("sync alias", func(t *testing.T) {
+		// Skip if GitHub authentication is not available
+		helpers.SkipIfNoGitHubAuth(t)
+
 		// Test that 's' alias works for sync command
 		cmd := cli.GetRootCmd()
 		cmd.SetArgs([]string{"s", "--config", configPath, "--dry-run"})
