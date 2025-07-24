@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,19 +30,36 @@ type githubClient struct {
 	logger *logrus.Logger
 }
 
-// NewClient creates a new GitHub client using gh CLI
-func NewClient(ctx context.Context, logger *logrus.Logger) (Client, error) {
+// NewClient creates a new GitHub client using gh CLI.
+//
+// Parameters:
+// - ctx: Context for authentication check and cancellation
+// - logger: Logger instance for general logging
+// - logConfig: Configuration for debug logging and verbose settings
+//
+// Returns:
+// - GitHub client interface implementation
+// - Error if gh CLI is not available or not authenticated
+func NewClient(ctx context.Context, logger *logrus.Logger, logConfig *logging.LogConfig) (Client, error) {
+	// Initialize audit logger for security event tracking
+	auditLogger := logging.NewAuditLogger()
+
 	// Check if gh is available
 	if _, err := exec.LookPath("gh"); err != nil {
+		auditLogger.LogAuthentication("system", "github_cli", false)
 		return nil, ErrGHNotFound
 	}
 
-	runner := NewCommandRunner(logger)
+	runner := NewCommandRunner(logger, logConfig)
 
 	// Check authentication status
 	if _, err := runner.Run(ctx, "gh", "auth", "status"); err != nil {
+		auditLogger.LogAuthentication("unknown", "github_cli", false)
 		return nil, fmt.Errorf("%w: gh auth status failed", ErrNotAuthenticated)
 	}
+
+	// Log successful authentication
+	auditLogger.LogAuthentication("github_cli", "github_token", true)
 
 	return &githubClient{
 		runner: runner,
@@ -84,6 +102,9 @@ func (g *githubClient) GetBranch(ctx context.Context, repo, branch string) (*Bra
 
 // CreatePR creates a new pull request
 func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest) (*PR, error) {
+	// Initialize audit logger for security event tracking
+	auditLogger := logging.NewAuditLogger()
+
 	// Create PR using gh api
 	prData := map[string]interface{}{
 		"title": req.Title,
@@ -99,6 +120,8 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 
 	output, err := g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/pulls", repo), "--method", "POST", "--input", "-")
 	if err != nil {
+		// Log failed repository access
+		auditLogger.LogRepositoryAccess("github_cli", repo, "pr_create_failed")
 		return nil, fmt.Errorf("failed to create PR: %w", err)
 	}
 
@@ -106,6 +129,9 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 	if err := json.Unmarshal(output, &pr); err != nil {
 		return nil, fmt.Errorf("failed to parse PR response: %w", err)
 	}
+
+	// Log successful repository access for PR creation
+	auditLogger.LogRepositoryAccess("github_cli", repo, "pr_create")
 
 	return &pr, nil
 }

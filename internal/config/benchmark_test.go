@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 )
@@ -116,7 +117,7 @@ func BenchmarkValidate(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err = cfg.Validate()
+		err = cfg.ValidateWithLogging(context.Background(), nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -132,7 +133,7 @@ func BenchmarkValidate_Large(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err = cfg.Validate()
+		err = cfg.ValidateWithLogging(context.Background(), nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -150,7 +151,7 @@ func BenchmarkLoadAndValidate(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		err = cfg.Validate()
+		err = cfg.ValidateWithLogging(context.Background(), nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -169,7 +170,7 @@ func BenchmarkLoadAndValidate_Large(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		err = cfg.Validate()
+		err = cfg.ValidateWithLogging(context.Background(), nil)
 		if err != nil {
 			b.Fatal(err)
 		}

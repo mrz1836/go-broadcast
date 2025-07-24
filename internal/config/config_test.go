@@ -2,6 +2,7 @@
 package config
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -123,7 +124,7 @@ func TestValidate_ValidConfig(t *testing.T) {
 		},
 	}
 
-	err := config.Validate()
+	err := config.ValidateWithLogging(context.Background(), nil)
 	assert.NoError(t, err)
 }
 
@@ -134,7 +135,7 @@ func TestValidate_InvalidVersion(t *testing.T) {
 		Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
 	}
 
-	err := config.Validate()
+	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported config version: 2")
 }
@@ -146,7 +147,7 @@ func TestValidate_MissingSourceRepo(t *testing.T) {
 		Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
 	}
 
-	err := config.Validate()
+	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "source repository is required")
 }
@@ -172,7 +173,7 @@ func TestValidate_InvalidRepoFormat(t *testing.T) {
 				Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
 			}
 
-			err := config.Validate()
+			err := config.ValidateWithLogging(context.Background(), nil)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "invalid repository format")
 		})
@@ -186,7 +187,7 @@ func TestValidate_InvalidBranch(t *testing.T) {
 		Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
 	}
 
-	err := config.Validate()
+	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "source branch is required")
 }
@@ -198,7 +199,7 @@ func TestValidate_NoTargets(t *testing.T) {
 		Targets: []TargetConfig{},
 	}
 
-	err := config.Validate()
+	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "at least one target repository must be specified")
 }
@@ -213,7 +214,7 @@ func TestValidate_DuplicateTargets(t *testing.T) {
 		},
 	}
 
-	err := config.Validate()
+	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate target repository: org/target")
 }
@@ -227,7 +228,7 @@ func TestValidate_NoFileMappings(t *testing.T) {
 		},
 	}
 
-	err := config.Validate()
+	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "at least one file mapping is required")
 }
@@ -260,7 +261,7 @@ func TestValidate_InvalidFilePaths(t *testing.T) {
 				},
 			}
 
-			err := config.Validate()
+			err := config.ValidateWithLogging(context.Background(), nil)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.err)
 		})
@@ -282,7 +283,7 @@ func TestValidate_DuplicateDestinations(t *testing.T) {
 		},
 	}
 
-	err := config.Validate()
+	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate destination file: same.txt")
 }
@@ -299,7 +300,7 @@ func TestValidate_EmptyPRLabel(t *testing.T) {
 		},
 	}
 
-	err := config.Validate()
+	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "PR label cannot be empty")
 }

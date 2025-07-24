@@ -244,7 +244,7 @@ fi
 	err = os.Setenv("PATH", tmpDir+":"+oldPath)
 	require.NoError(t, err)
 
-	client, err := NewClient(context.Background(), nil)
+	client, err := NewClient(context.Background(), logrus.New(), nil)
 	require.Error(t, err)
 	assert.Nil(t, client)
 	assert.ErrorIs(t, err, ErrNotAuthenticated)

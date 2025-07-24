@@ -10,7 +10,7 @@ import (
 
 func TestTemplateTransformer_Name(t *testing.T) {
 	logger := logrus.New()
-	transformer := NewTemplateTransformer(logger)
+	transformer := NewTemplateTransformer(logger, nil)
 	assert.Equal(t, "template-variable-replacer", transformer.Name())
 }
 
@@ -113,7 +113,7 @@ func TestTemplateTransformer_Transform(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			transformer := NewTemplateTransformer(logger)
+			transformer := NewTemplateTransformer(logger, nil)
 			ctx := Context{
 				SourceRepo: "org/source",
 				TargetRepo: "org/target",
@@ -130,7 +130,7 @@ func TestTemplateTransformer_Transform(t *testing.T) {
 
 func TestTemplateTransformer_FindUnreplacedVariables(t *testing.T) {
 	logger := logrus.New()
-	transformer := NewTemplateTransformer(logger).(*templateTransformer)
+	transformer := NewTemplateTransformer(logger, nil).(*templateTransformer)
 
 	tests := []struct {
 		name     string
@@ -186,7 +186,7 @@ func TestTemplateTransformer_LogsWarnings(t *testing.T) {
 	logger.AddHook(hook)
 	logger.SetLevel(logrus.DebugLevel)
 
-	transformer := NewTemplateTransformer(logger)
+	transformer := NewTemplateTransformer(logger, nil)
 
 	content := `Service: {{SERVICE_NAME}}, Missing: {{MISSING_VAR}}`
 	ctx := Context{

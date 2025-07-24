@@ -84,7 +84,7 @@ func BenchmarkTemplateTransform_Small(b *testing.B) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
-	transformer := NewTemplateTransformer(logger)
+	transformer := NewTemplateTransformer(logger, nil)
 	ctx := Context{
 		FilePath: "config.yaml",
 		Variables: map[string]string{
@@ -120,7 +120,7 @@ func BenchmarkTemplateTransform_Large(b *testing.B) {
 	// Create large content with many templates
 	largeTemplate := bytes.Repeat(templateContent, 100)
 
-	transformer := NewTemplateTransformer(logger)
+	transformer := NewTemplateTransformer(logger, nil)
 	ctx := Context{
 		FilePath: "large-config.yaml",
 		Variables: map[string]string{
@@ -243,7 +243,7 @@ func BenchmarkChainTransform(b *testing.B) {
 	chain := NewChain(logger).
 		Add(NewBinaryTransformer()).
 		Add(NewRepoTransformer()).
-		Add(NewTemplateTransformer(logger))
+		Add(NewTemplateTransformer(logger, nil))
 
 	transformCtx := Context{
 		FilePath:   "service/main.go",
@@ -289,7 +289,7 @@ func BenchmarkChainTransform_Binary(b *testing.B) {
 	chain := NewChain(logger).
 		Add(NewBinaryTransformer()).
 		Add(NewRepoTransformer()).
-		Add(NewTemplateTransformer(logger))
+		Add(NewTemplateTransformer(logger, nil))
 
 	transformCtx := Context{
 		FilePath:   "image.png",

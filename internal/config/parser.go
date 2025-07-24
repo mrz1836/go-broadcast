@@ -5,19 +5,35 @@ import (
 	"io"
 	"os"
 
+	"github.com/mrz1836/go-broadcast/internal/logging"
 	"gopkg.in/yaml.v3"
 )
 
 // Load reads and parses a configuration file from the given path
 func Load(path string) (*Config, error) {
+	// Initialize audit logger for security event tracking
+	auditLogger := logging.NewAuditLogger()
+
 	file, err := os.Open(path) //#nosec G304 -- Path is user-provided config file
 	if err != nil {
+		// Log failed configuration access
+		auditLogger.LogConfigChange("system", "config_load_failed", path)
 		return nil, fmt.Errorf("failed to open config file: %w", err)
 	}
 
 	defer func() { _ = file.Close() }()
 
-	return LoadFromReader(file)
+	config, parseErr := LoadFromReader(file)
+	if parseErr != nil {
+		// Log failed configuration parsing
+		auditLogger.LogConfigChange("system", "config_parse_failed", path)
+		return nil, parseErr
+	}
+
+	// Log successful configuration loading
+	auditLogger.LogConfigChange("system", "config_loaded", path)
+
+	return config, nil
 }
 
 // LoadFromReader parses configuration from an io.Reader

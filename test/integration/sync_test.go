@@ -454,7 +454,7 @@ require (
 
 	t.Run("template variable transformation", func(t *testing.T) {
 		logger := logrus.New()
-		transformer := transform.NewTemplateTransformer(logger)
+		transformer := transform.NewTemplateTransformer(logger, nil)
 
 		content := []byte(`SERVICE_NAME={{SERVICE_NAME}}
 VERSION=${VERSION}
@@ -482,7 +482,7 @@ VERSION=${VERSION}
 		chain := transform.NewChain(logger)
 
 		chain.Add(transform.NewRepoTransformer())
-		chain.Add(transform.NewTemplateTransformer(logger))
+		chain.Add(transform.NewTemplateTransformer(logger, nil))
 
 		content := []byte(`module github.com/org/template
 SERVICE={{SERVICE_NAME}}`)

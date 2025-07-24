@@ -24,7 +24,7 @@ func TestGitHubClient_Integration(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	client, err := NewClient(ctx, logrus.New())
 	require.NoError(t, err)
 

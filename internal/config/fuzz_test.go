@@ -5,6 +5,7 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
@@ -120,7 +121,7 @@ targets:
 		}
 
 		// Validate the parsed config
-		validationErr := parsedCfg.Validate()
+		validationErr := parsedCfg.ValidateWithLogging(context.Background(), nil)
 		if validationErr != nil {
 			// Validation error is acceptable
 			return
@@ -236,7 +237,7 @@ func FuzzRepoNameValidation(f *testing.F) {
 			},
 		}
 
-		err := cfg.Validate()
+		err := cfg.ValidateWithLogging(context.Background(), nil)
 		if err == nil && !isValid {
 			t.Errorf("Validate() accepted invalid repo name: %q", repoName)
 		}
@@ -361,7 +362,7 @@ func FuzzBranchNameValidation(f *testing.F) {
 			},
 		}
 
-		err := cfg.Validate()
+		err := cfg.ValidateWithLogging(context.Background(), nil)
 		if err == nil && !isValid {
 			t.Errorf("Validate() accepted invalid branch name: %q", branch)
 		}

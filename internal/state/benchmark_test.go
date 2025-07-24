@@ -18,7 +18,7 @@ func BenchmarkBranchParsing(b *testing.B) {
 	}
 
 	// Create a discovery service to test parsing
-	discovery := NewDiscoverer(nil, nil)
+	discovery := NewDiscoverer(nil, nil, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

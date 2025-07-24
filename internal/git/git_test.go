@@ -18,7 +18,7 @@ func TestGitClient_Clone(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	client, err := NewClient(logrus.New())
+	client, err := NewClient(logrus.New(), nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -39,7 +39,7 @@ func TestGitClient_Clone_AlreadyExists(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	client, err := NewClient(logrus.New())
+	client, err := NewClient(logrus.New(), nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -61,7 +61,7 @@ func TestGitClient_Operations(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	client, err := NewClient(logrus.New())
+	client, err := NewClient(logrus.New(), nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -139,7 +139,7 @@ func TestGitClient_GetRemoteURL(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	client, err := NewClient(logrus.New())
+	client, err := NewClient(logrus.New(), nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -164,7 +164,7 @@ func TestNewClient_GitNotFound(t *testing.T) {
 	// Set PATH to empty to simulate git not being found
 	_ = os.Setenv("PATH", "")
 
-	client, err := NewClient(nil)
+	client, err := NewClient(nil, nil)
 	require.Error(t, err)
 	assert.Nil(t, client)
 	assert.ErrorIs(t, err, ErrGitNotFound)

@@ -84,6 +84,7 @@
 * [Quick Start](#-quick-start)
 * [How It Works](#-how-it-works)
 * [Usage Examples](#-usage-examples)
+* [Logging and Debugging](#-logging-and-debugging)
 * [Documentation](#-documentation)
 * [Examples & Tests](#-examples--tests)
 * [Benchmarks](#-benchmarks)
@@ -309,6 +310,141 @@ targets:
         ENVIRONMENT: "production"
 ```
 </details>
+
+<br/>
+
+## 🔍 Logging and Debugging
+
+go-broadcast provides comprehensive logging capabilities designed for debugging, monitoring, and troubleshooting. The logging system features intuitive verbose flags, component-specific debug modes, and automatic sensitive data redaction.
+
+### Quick Start
+
+```bash
+# Basic verbose output (-v for debug, -vv for trace, -vvv for trace with line numbers)
+go-broadcast sync -v                    # Debug level logging
+go-broadcast sync -vv                   # Trace level logging  
+go-broadcast sync -vvv                  # Trace with caller info
+
+# Component-specific debugging
+go-broadcast sync --debug-git           # Show git command details
+go-broadcast sync --debug-api           # Show GitHub API requests/responses
+go-broadcast sync --debug-transform     # Show file transformation details
+go-broadcast sync --debug-config        # Show configuration validation
+go-broadcast sync --debug-state         # Show state discovery process
+
+# Combine for comprehensive debugging
+go-broadcast sync -vv --debug-git --debug-api
+
+# JSON output for log aggregation
+go-broadcast sync --log-format json
+
+# Collect diagnostic information
+go-broadcast diagnose > diagnostics.json
+```
+
+### Log Levels
+
+- **ERROR**: Critical failures that prevent operation
+- **WARN**: Important issues that don't stop execution
+- **INFO**: High-level operation progress (default)
+- **DEBUG**: Detailed operation information (`-v`)
+- **TRACE**: Very detailed debugging information (`-vv`)
+
+### Advanced Logging Features
+
+#### Performance Monitoring
+All operations are timed automatically. Look for `duration_ms` in logs:
+```bash
+# Find slow operations
+go-broadcast sync --log-format json 2>&1 | \
+  jq -r 'select(.duration_ms > 5000) | "\(.operation): \(.duration_ms)ms"'
+```
+
+#### Security and Compliance
+- All tokens and secrets are automatically redacted
+- Audit trail for configuration changes and repository access
+- No sensitive data is ever logged
+
+#### Troubleshooting Common Issues
+
+**Git Authentication Issues**
+```bash
+# Debug git authentication problems
+go-broadcast sync -v --debug-git
+
+# Common indicators:
+# - "Authentication failed" in git output
+# - "Permission denied" errors
+# - Check GH_TOKEN or GITHUB_TOKEN environment variables
+```
+
+**API Rate Limiting**
+```bash
+# Monitor API usage
+go-broadcast sync --debug-api --log-format json 2>&1 | \
+  jq 'select(.component=="github-api") | {operation, duration_ms, error}'
+```
+
+**File Transformation Issues**
+```bash
+# Debug variable replacements and transformations
+go-broadcast sync -vv --debug-transform
+
+# Shows:
+# - Variables being replaced
+# - File size changes
+# - Before/after content for small files (with -vvv)
+```
+
+**State Discovery Problems**
+```bash
+# Understand what go-broadcast sees in repositories
+go-broadcast sync --debug-state
+
+# Shows:
+# - Source repository state
+# - Target repository states
+# - Existing PR detection
+# - File discovery process
+```
+
+### Log Management
+
+#### Structured Logging
+JSON format is ideal for log aggregation systems:
+```bash
+# Send to log aggregation
+go-broadcast sync --log-format json 2>&1 | fluentd
+
+# Parse with jq
+go-broadcast sync --log-format json 2>&1 | jq '.level="error"'
+
+# Save debug session
+go-broadcast sync -vvv --debug-git 2> debug-$(date +%Y%m%d-%H%M%S).log
+```
+
+#### Performance Analysis
+```bash
+# Find slowest operations
+go-broadcast sync --log-format json 2>&1 | \
+  jq -r 'select(.duration_ms) | "\(.duration_ms)ms \(.operation)"' | \
+  sort -rn | head -20
+
+# Monitor memory usage (if implemented)
+go-broadcast sync --log-format json 2>&1 | \
+  jq 'select(.memory_mb) | {operation, memory_mb}'
+```
+
+### Environment Variables
+
+| Variable                  | Description            | Example |
+|---------------------------|------------------------|---------|
+| `GO_BROADCAST_LOG_LEVEL`  | Default log level      | `debug` |
+| `GO_BROADCAST_LOG_FORMAT` | Default log format     | `json`  |
+| `GO_BROADCAST_DEBUG`      | Enable all debug flags | `true`  |
+| `NO_COLOR`                | Disable colored output | `1`     |
+
+For more detailed information, see the [comprehensive logging guide](docs/logging.md) and [troubleshooting runbook](docs/troubleshooting-runbook.md).
 
 <br/>
 

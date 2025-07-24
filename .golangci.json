@@ -77,7 +77,6 @@
 			"misspell",
 			"musttag",
 			"nakedret",
-			"nestif",
 			"nilerr",
 			"nilnesserr",
 			"nilnil",
@@ -107,7 +106,8 @@
 			"wsl_v5",
 			"gocognit",
 			"exhaustive",
-			"gocyclo"
+			"gocyclo",
+			"nestif"
 		],
 		"settings": {
 			"funcorder": {

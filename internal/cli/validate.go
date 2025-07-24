@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,11 +25,23 @@ Checks performed:
   • File paths are valid
   • No duplicate targets or file mappings
   • Transform configurations are valid`,
-	Example: `  # Validate default config file
-  go-broadcast validate
-
-  # Validate specific config file
-  go-broadcast validate --config custom-sync.yaml`,
+	Example: `  # Basic validation
+  go-broadcast validate                     # Validate default config file
+  go-broadcast validate --config sync.yaml # Validate specific file
+  
+  # Debug validation issues
+  go-broadcast validate --log-level debug  # Show detailed validation steps
+  
+  # Automation workflows
+  go-broadcast validate && echo "Config valid"      # Use exit code
+  go-broadcast validate 2>&1 | tee validation.log  # Save validation output
+  
+  # Common patterns
+  go-broadcast validate --config prod.yaml  # Validate production config
+  find . -name "*.yaml" -exec go-broadcast validate --config {} \;  # Validate multiple files
+  
+  # For enhanced debugging, use:
+  # go-broadcast validate --debug-config -v (requires verbose support)`,
 	Aliases: []string{"v", "check"},
 	RunE:    runValidate,
 }
@@ -64,7 +77,7 @@ func runValidateWithFlags(flags *Flags) error {
 	log.Debug("Configuration parsed successfully")
 
 	// Validate configuration
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.ValidateWithLogging(context.Background(), nil); err != nil {
 		output.Error(fmt.Sprintf("Configuration validation failed: %v", err))
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}

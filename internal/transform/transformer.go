@@ -1,7 +1,11 @@
 // Package transform provides file content transformation capabilities
 package transform
 
-import "context"
+import (
+	"context"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
+)
 
 // Transformer defines the interface for content transformations
 type Transformer interface {
@@ -25,6 +29,9 @@ type Context struct {
 
 	// Variables contains custom variables for template substitution
 	Variables map[string]string
+
+	// LogConfig provides configuration for debug logging and verbose settings
+	LogConfig *logging.LogConfig
 }
 
 // Chain defines the interface for composing multiple transformers

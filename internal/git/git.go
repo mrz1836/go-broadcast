@@ -8,7 +8,9 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,18 +25,28 @@ var (
 
 // gitClient implements the Client interface using git commands
 type gitClient struct {
-	logger *logrus.Logger
+	logger    *logrus.Logger
+	logConfig *logging.LogConfig
 }
 
-// NewClient creates a new Git client
-func NewClient(logger *logrus.Logger) (Client, error) {
+// NewClient creates a new Git client.
+//
+// Parameters:
+// - logger: Logger instance for general logging
+// - logConfig: Configuration for debug logging and verbose settings
+//
+// Returns:
+// - Git client interface implementation
+// - Error if git command is not available in PATH
+func NewClient(logger *logrus.Logger, logConfig *logging.LogConfig) (Client, error) {
 	// Check if git is available
 	if _, err := exec.LookPath("git"); err != nil {
 		return nil, ErrGitNotFound
 	}
 
 	return &gitClient{
-		logger: logger,
+		logger:    logger,
+		logConfig: logConfig,
 	}, nil
 }
 
@@ -176,31 +188,96 @@ func (g *gitClient) GetRemoteURL(ctx context.Context, repoPath, remote string) (
 	return strings.TrimSpace(string(output)), nil
 }
 
-// runCommand executes a command and logs the output
+// runCommand executes a git command with comprehensive debug logging support.
+//
+// This method provides detailed visibility into git command execution when debug
+// logging is enabled, including command details, timing, output capture, and
+// environment variable filtering for security.
+//
+// Parameters:
+// - cmd: The exec.Cmd to execute
+//
+// Returns:
+// - Error if command execution fails
+//
+// Side Effects:
+// - Logs command execution details when --debug-git flag is enabled
+// - Captures and logs real-time stdout/stderr output at trace level
+// - Records command timing and exit code information
 func (g *gitClient) runCommand(cmd *exec.Cmd) error {
-	if g.logger != nil && g.logger.IsLevelEnabled(logrus.DebugLevel) {
+	logger := logging.WithStandardFields(g.logger, g.logConfig, logging.ComponentNames.Git)
+
+	// Enhanced debug logging when --debug-git flag is enabled
+	if g.logConfig != nil && g.logConfig.Debug.Git {
+		logger.WithFields(logrus.Fields{
+			logging.StandardFields.Operation: logging.OperationTypes.GitCommand,
+			"command":                        cmd.Path,
+			"args":                           cmd.Args[1:], // Skip command name for cleaner logs
+			"dir":                            cmd.Dir,
+			"env":                            filterSensitiveEnv(cmd.Env),
+		}).Debug("Executing git command")
+
+		// Capture and log output in real-time using debug writers
+		cmd.Stdout = &debugWriter{logger: logger, prefix: "stdout"}
+		cmd.Stderr = &debugWriter{logger: logger, prefix: "stderr"}
+	} else {
+		// Fallback to buffer capture for error handling
+		var stderr bytes.Buffer
+		var stdout bytes.Buffer
+		cmd.Stderr = &stderr
+		cmd.Stdout = &stdout
+	}
+
+	// Execute command with timing
+	start := time.Now()
+	err := cmd.Run()
+	duration := time.Since(start)
+
+	// Log completion with timing and exit code
+	if g.logConfig != nil && g.logConfig.Debug.Git {
+		exitCode := 0
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
+		}
+
+		logger.WithFields(logrus.Fields{
+			logging.StandardFields.DurationMs: duration.Milliseconds(),
+			logging.StandardFields.ExitCode:   exitCode,
+			logging.StandardFields.Status:     "completed",
+		}).Debug("Git command completed")
+	} else if g.logger != nil && g.logger.IsLevelEnabled(logrus.DebugLevel) {
+		// Basic logging for backwards compatibility
 		g.logger.WithField("command", strings.Join(cmd.Args, " ")).Debug("Executing git command")
 	}
 
-	var stderr bytes.Buffer
-	var stdout bytes.Buffer
-
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-
-	err := cmd.Run()
+	// Handle success case
 	if err == nil {
 		return nil
 	}
 
-	errMsg := stderr.String()
-	outMsg := stdout.String()
-	if g.logger != nil {
-		g.logger.WithFields(logrus.Fields{
-			"command": strings.Join(cmd.Args, " "),
-			"error":   errMsg,
-			"output":  outMsg,
-		}).Error("Git command failed")
+	// Handle error case with detailed logging
+	var errMsg, outMsg string
+	if g.logConfig == nil || !g.logConfig.Debug.Git {
+		// Extract error messages from buffers when not using debug writers
+		if stderr, ok := cmd.Stderr.(*bytes.Buffer); ok {
+			errMsg = stderr.String()
+		}
+		if stdout, ok := cmd.Stdout.(*bytes.Buffer); ok {
+			outMsg = stdout.String()
+		}
+
+		if g.logger != nil {
+			g.logger.WithFields(logrus.Fields{
+				logging.StandardFields.Component: logging.ComponentNames.Git,
+				"command":                        strings.Join(cmd.Args, " "),
+				logging.StandardFields.Error:     errMsg,
+				"output":                         outMsg,
+				logging.StandardFields.Status:    "failed",
+			}).Error("Git command failed")
+		}
+	} else {
+		// When using debug logging, command details already logged above
+		logger.WithError(err).Error("Git command failed")
 	}
 
 	// Check for common error patterns
@@ -216,4 +293,66 @@ func (g *gitClient) runCommand(cmd *exec.Cmd) error {
 		return fmt.Errorf("%w: %s", ErrGitCommand, outMsg)
 	}
 	return err
+}
+
+// debugWriter implements io.Writer for real-time git command output logging.
+//
+// This writer captures stdout/stderr output from git commands and logs each
+// line at trace level when debug logging is enabled, providing real-time
+// visibility into git command execution.
+type debugWriter struct {
+	logger *logrus.Entry
+	prefix string
+}
+
+// Write implements io.Writer interface for capturing git command output.
+//
+// Parameters:
+// - p: Byte slice containing the output data to log
+//
+// Returns:
+// - Number of bytes written (always len(p))
+// - Error (always nil in current implementation)
+//
+// Side Effects:
+// - Logs the output content at trace level with stream identification
+func (w *debugWriter) Write(p []byte) (n int, err error) {
+	w.logger.WithField("stream", w.prefix).Trace(string(p))
+	return len(p), nil
+}
+
+// filterSensitiveEnv filters environment variables to redact sensitive information.
+//
+// This function processes environment variables to identify and redact tokens,
+// passwords, and other sensitive information before logging, ensuring security
+// compliance while maintaining debugging visibility.
+//
+// Parameters:
+// - env: Slice of environment variable strings in "KEY=VALUE" format
+//
+// Returns:
+// - Filtered slice with sensitive values replaced with "REDACTED"
+//
+// Security:
+// - Automatically redacts GH_TOKEN, GITHUB_TOKEN, and similar patterns
+// - Preserves variable names for debugging while protecting values
+func filterSensitiveEnv(env []string) []string {
+	filtered := make([]string, 0, len(env))
+	for _, e := range env {
+		if strings.HasPrefix(e, "GH_TOKEN=") ||
+			strings.HasPrefix(e, "GITHUB_TOKEN=") ||
+			strings.Contains(strings.ToLower(e), "token=") ||
+			strings.Contains(strings.ToLower(e), "password=") ||
+			strings.Contains(strings.ToLower(e), "secret=") {
+			parts := strings.SplitN(e, "=", 2)
+			if len(parts) == 2 {
+				filtered = append(filtered, parts[0]+"=REDACTED")
+			} else {
+				filtered = append(filtered, e)
+			}
+		} else {
+			filtered = append(filtered, e)
+		}
+	}
+	return filtered
 }

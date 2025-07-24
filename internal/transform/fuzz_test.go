@@ -173,7 +173,7 @@ func FuzzTemplateVariableReplacement(f *testing.F) {
 		// Create template transformer
 		logger := logrus.New()
 		logger.SetLevel(logrus.ErrorLevel) // Reduce noise during fuzzing
-		transformer := NewTemplateTransformer(logger)
+		transformer := NewTemplateTransformer(logger, nil)
 
 		// Create context
 		ctx := Context{
@@ -500,7 +500,7 @@ func FuzzTransformChain(f *testing.F) {
 			case "binary":
 				chain.Add(NewBinaryTransformer())
 			case "template":
-				chain.Add(NewTemplateTransformer(logger))
+				chain.Add(NewTemplateTransformer(logger, nil))
 			case "repo":
 				chain.Add(NewRepoTransformer())
 			}

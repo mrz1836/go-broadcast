@@ -11,6 +11,8 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/logging"
+	"github.com/mrz1836/go-broadcast/internal/metrics"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/transform"
 	"github.com/sirupsen/logrus"
@@ -28,54 +30,116 @@ type RepositorySync struct {
 
 // Execute performs the complete sync operation for this repository
 func (rs *RepositorySync) Execute(ctx context.Context) error {
+	// Start overall operation timer
+	syncTimer := metrics.StartTimer(ctx, rs.logger, "repository_sync").
+		AddField(logging.StandardFields.SourceRepo, rs.sourceState.Repo).
+		AddField(logging.StandardFields.TargetRepo, rs.target.Repo).
+		AddField("sync_branch", rs.sourceState.Branch).
+		AddField("commit_sha", rs.sourceState.LatestCommit)
+
 	// 1. Check if sync is actually needed
-	if !rs.engine.options.Force && !rs.needsSync() {
+	syncCheckTimer := metrics.StartTimer(ctx, rs.logger, "sync_check")
+	needsSync := rs.engine.options.Force || rs.needsSync()
+	syncCheckTimer.AddField("force_sync", rs.engine.options.Force).
+		AddField("needs_sync", needsSync).Stop()
+
+	if !needsSync {
 		rs.logger.Info("Repository is up-to-date, skipping sync")
+		syncTimer.AddField(logging.StandardFields.Status, "skipped").Stop()
 		return nil
 	}
 
 	// 2. Create temporary directory
+	tempDirTimer := metrics.StartTimer(ctx, rs.logger, "temp_dir_creation")
 	if err := rs.createTempDir(); err != nil {
+		tempDirTimer.StopWithError(err)
+		syncTimer.StopWithError(err)
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
+	tempDirTimer.AddField("temp_dir", rs.tempDir).Stop()
 	defer rs.cleanup()
 
 	// 3. Clone source repository
+	cloneTimer := metrics.StartTimer(ctx, rs.logger, "source_clone").
+		AddField(logging.StandardFields.SourceRepo, rs.sourceState.Repo).
+		AddField("source_branch", rs.sourceState.Branch).
+		AddField("commit_sha", rs.sourceState.LatestCommit)
+
 	if err := rs.cloneSource(ctx); err != nil {
+		cloneTimer.StopWithError(err)
+		syncTimer.StopWithError(err)
 		return fmt.Errorf("failed to clone source: %w", err)
 	}
+	cloneTimer.Stop()
 
 	// 4. Process and transform files
+	processTimer := metrics.StartTimer(ctx, rs.logger, "file_processing").
+		AddField("file_count", len(rs.target.Files))
+
 	changedFiles, err := rs.processFiles(ctx)
 	if err != nil {
+		processTimer.StopWithError(err)
+		syncTimer.StopWithError(err)
 		return fmt.Errorf("failed to process files: %w", err)
 	}
 
+	processTimer.AddField("changed_files", len(changedFiles)).Stop()
+
 	if len(changedFiles) == 0 {
 		rs.logger.Info("No file changes detected, skipping sync")
+		syncTimer.AddField(logging.StandardFields.Status, "no_changes").Stop()
 		return nil
 	}
 
 	// 5. Create sync branch (or use existing one)
+	branchTimer := metrics.StartTimer(ctx, rs.logger, "branch_creation")
 	branchName := rs.createSyncBranch(ctx)
+	branchTimer.AddField(logging.StandardFields.BranchName, branchName).Stop()
 
 	// 6. Commit changes
+	commitTimer := metrics.StartTimer(ctx, rs.logger, "commit_creation").
+		AddField(logging.StandardFields.BranchName, branchName).
+		AddField("changed_files", len(changedFiles))
+
 	commitSHA, err := rs.commitChanges(ctx, branchName, changedFiles)
 	if err != nil {
+		commitTimer.StopWithError(err)
+		syncTimer.StopWithError(err)
 		return fmt.Errorf("failed to commit changes: %w", err)
 	}
+	commitTimer.AddField("commit_sha", commitSHA).Stop()
 
 	// 7. Push changes (unless dry-run)
 	if !rs.engine.options.DryRun {
+		pushTimer := metrics.StartTimer(ctx, rs.logger, "branch_push").
+			AddField(logging.StandardFields.BranchName, branchName).
+			AddField("commit_sha", commitSHA)
+
 		rs.pushChanges(ctx, branchName)
+		pushTimer.Stop()
+	} else {
+		rs.logger.Debug("DRY-RUN: Skipping branch push")
 	}
 
 	// 8. Create or update pull request
+	prTimer := metrics.StartTimer(ctx, rs.logger, "pr_management").
+		AddField(logging.StandardFields.BranchName, branchName).
+		AddField("commit_sha", commitSHA).
+		AddField("changed_files", len(changedFiles))
+
 	if err := rs.createOrUpdatePR(ctx, branchName, commitSHA, changedFiles); err != nil {
+		prTimer.StopWithError(err)
+		syncTimer.StopWithError(err)
 		return fmt.Errorf("failed to create/update PR: %w", err)
 	}
+	prTimer.Stop()
 
 	rs.logger.WithField("branch", branchName).Info("Repository sync completed")
+	syncTimer.AddField(logging.StandardFields.Status, "completed").
+		AddField(logging.StandardFields.BranchName, branchName).
+		AddField("final_commit_sha", commitSHA).
+		AddField("total_changed_files", len(changedFiles)).Stop()
+
 	return nil
 }
 

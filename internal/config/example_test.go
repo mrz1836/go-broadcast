@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ func TestExampleConfigLoadsAndValidates(t *testing.T) {
 	require.NotNil(t, config)
 
 	// Validate the configuration
-	err = config.Validate()
+	err = config.ValidateWithLogging(context.Background(), nil)
 	require.NoError(t, err)
 
 	// Verify it loaded correctly

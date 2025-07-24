@@ -31,7 +31,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 
 	t.Run("successful discovery", func(t *testing.T) {
 		mockGH := &gh.MockClient{}
-		discoverer := NewDiscoverer(mockGH, logger)
+		discoverer := NewDiscoverer(mockGH, logger, nil)
 
 		// Mock source branch
 		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
@@ -128,7 +128,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 
 	t.Run("error getting source commits", func(t *testing.T) {
 		mockGH := &gh.MockClient{}
-		discoverer := NewDiscoverer(mockGH, logger)
+		discoverer := NewDiscoverer(mockGH, logger, nil)
 
 		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
 			Return(nil, assert.AnError)
@@ -148,7 +148,7 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 
 	t.Run("repository with sync history", func(t *testing.T) {
 		mockGH := &gh.MockClient{}
-		discoverer := NewDiscoverer(mockGH, logger)
+		discoverer := NewDiscoverer(mockGH, logger, nil)
 
 		// Mock branches
 		mockGH.On("ListBranches", mock.Anything, "org/service").
@@ -201,7 +201,7 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 
 	t.Run("repository with no sync history", func(t *testing.T) {
 		mockGH := &gh.MockClient{}
-		discoverer := NewDiscoverer(mockGH, logger)
+		discoverer := NewDiscoverer(mockGH, logger, nil)
 
 		// Mock branches - no sync branches
 		mockGH.On("ListBranches", mock.Anything, "org/service").
@@ -238,7 +238,7 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 func TestDiscoveryService_ParseBranchName(t *testing.T) {
 	logger := logrus.New()
 	mockGH := &gh.MockClient{}
-	discoverer := NewDiscoverer(mockGH, logger)
+	discoverer := NewDiscoverer(mockGH, logger, nil)
 
 	t.Run("valid sync branch", func(t *testing.T) {
 		metadata, err := discoverer.ParseBranchName("sync/template-20240115-120530-abc123")
@@ -259,7 +259,7 @@ func TestDiscoveryService_ParseBranchName(t *testing.T) {
 func TestDetermineSyncStatus(t *testing.T) {
 	logger := logrus.New()
 	mockGH := &gh.MockClient{}
-	discoverer := &discoveryService{gh: mockGH, logger: logger}
+	discoverer := &discoveryService{gh: mockGH, logger: logger, logConfig: nil}
 
 	source := SourceState{
 		Repo:         "org/template",
