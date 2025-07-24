@@ -21,6 +21,8 @@ ignore:
   - ".make/**"
   - ".vscode/**"
   - "examples/**"
+  - "test/**"
+  - "cmd/**"
 
 # Parsers
 # --------------
