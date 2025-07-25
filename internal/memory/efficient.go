@@ -288,8 +288,11 @@ func (mpm *PressureMonitor) StartMonitoring() {
 		return // Already monitoring
 	}
 
+	// Create a new stop channel for this monitoring session
+	stopChan := make(chan struct{})
+	mpm.stopChan = stopChan
 	mpm.monitoringEnabled = true
-	go mpm.monitorLoop()
+	go mpm.monitorLoop(stopChan)
 }
 
 // StopMonitoring stops continuous memory monitoring
@@ -302,8 +305,15 @@ func (mpm *PressureMonitor) StopMonitoring() {
 	}
 
 	mpm.monitoringEnabled = false
-	close(mpm.stopChan)
-	mpm.stopChan = make(chan struct{}) // Reset for potential restart
+
+	// Close the current stop channel to signal the monitor loop to stop
+	// We need to be careful about the race condition here
+	select {
+	case <-mpm.stopChan:
+		// Channel already closed, nothing to do
+	default:
+		close(mpm.stopChan)
+	}
 }
 
 // ForceGC forces garbage collection when memory pressure is high
@@ -322,6 +332,9 @@ func (mpm *PressureMonitor) GetCurrentMemStats() runtime.MemStats {
 
 // GetMonitorStats returns monitoring statistics
 func (mpm *PressureMonitor) GetMonitorStats() MonitorStats {
+	mpm.mu.RLock()
+	defer mpm.mu.RUnlock()
+
 	return MonitorStats{
 		AlertCount:         atomic.LoadInt64(&mpm.alertCount),
 		HighPressureEvents: atomic.LoadInt64(&mpm.highPressureEvents),
@@ -331,13 +344,13 @@ func (mpm *PressureMonitor) GetMonitorStats() MonitorStats {
 }
 
 // monitorLoop runs the continuous monitoring process
-func (mpm *PressureMonitor) monitorLoop() {
+func (mpm *PressureMonitor) monitorLoop(stopChan <-chan struct{}) {
 	ticker := time.NewTicker(mpm.monitoringInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-mpm.stopChan:
+		case <-stopChan:
 			return
 		case <-ticker.C:
 			mpm.checkMemoryPressure()

@@ -395,7 +395,7 @@ func TestNewPressureMonitor(t *testing.T) {
 	require.NotNil(t, monitor.alertCallback)
 	require.Equal(t, 30*time.Second, monitor.monitoringInterval)
 	require.NotNil(t, monitor.stopChan)
-	require.False(t, monitor.monitoringEnabled)
+	require.False(t, monitor.GetMonitorStats().MonitoringEnabled)
 }
 
 func TestPressureMonitorStartStop(t *testing.T) {
@@ -403,19 +403,19 @@ func TestPressureMonitorStartStop(t *testing.T) {
 
 	// Test starting monitoring
 	monitor.StartMonitoring()
-	require.True(t, monitor.monitoringEnabled)
+	require.True(t, monitor.GetMonitorStats().MonitoringEnabled)
 
 	// Test starting again (should not panic)
 	monitor.StartMonitoring()
-	require.True(t, monitor.monitoringEnabled)
+	require.True(t, monitor.GetMonitorStats().MonitoringEnabled)
 
 	// Test stopping monitoring
 	monitor.StopMonitoring()
-	require.False(t, monitor.monitoringEnabled)
+	require.False(t, monitor.GetMonitorStats().MonitoringEnabled)
 
 	// Test stopping again (should not panic)
 	monitor.StopMonitoring()
-	require.False(t, monitor.monitoringEnabled)
+	require.False(t, monitor.GetMonitorStats().MonitoringEnabled)
 }
 
 func TestPressureMonitorForceGC(t *testing.T) {
