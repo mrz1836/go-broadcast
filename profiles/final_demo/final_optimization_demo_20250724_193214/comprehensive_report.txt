@@ -1,0 +1,32 @@
+Comprehensive Profiling Report
+==============================
+
+Session: final_optimization_demo
+Start Time: 2025-07-24T19:32:14-04:00
+Duration: 207.814417ms
+Output Directory: profiles/final_demo/final_optimization_demo_20250724_193214
+
+Configuration
+-------------
+CPU Profiling: false
+Memory Profiling: true
+Execution Trace: false
+Block Profiling: false (rate: 1)
+Mutex Profiling: false (fraction: 1)
+
+Memory Analysis
+---------------
+Memory Comparison: final_optimization_demo_start → final_optimization_demo_end (0.21s)
+  Heap Alloc: +1.3 MB
+  Total Alloc: +8.6 MB
+  Heap Sys: +3.8 MB
+  GC Count: +4
+  Goroutines: +1
+
+Generated Profile Files
+-----------------------
+goroutine.prof: 1.4 KB (2025-07-24T19:32:15-04:00)
+allocs.prof: 1.9 KB (2025-07-24T19:32:15-04:00)
+
+Analysis Commands
+-----------------

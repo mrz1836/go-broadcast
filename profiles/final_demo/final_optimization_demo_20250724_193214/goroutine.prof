@@ -1,0 +1,14 @@
+goroutine profile: total 2
+1 @ 0x1004be49c 0x1004fb2c4 0x1005a15f4 0x1005a1420 0x10059eb0c 0x1005baee4 0x1005baa38 0x1005b9b38 0x1005f2670 0x1004c81c4 0x100503e54
+#	0x1005a15f3	runtime/pprof.writeRuntimeProfile+0xb3									/opt/homebrew/opt/go/libexec/src/runtime/pprof/pprof.go:796
+#	0x1005a141f	runtime/pprof.writeGoroutine+0x4f									/opt/homebrew/opt/go/libexec/src/runtime/pprof/pprof.go:755
+#	0x10059eb0b	runtime/pprof.(*Profile).WriteTo+0x14b									/opt/homebrew/opt/go/libexec/src/runtime/pprof/pprof.go:377
+#	0x1005baee3	github.com/mrz1836/go-broadcast/internal/profiling.(*ProfileSuite).captureAdditionalProfiles+0x213	/Users/mrz/projects/go-broadcast/internal/profiling/suite.go:378
+#	0x1005baa37	github.com/mrz1836/go-broadcast/internal/profiling.(*ProfileSuite).stopSession+0x1c7			/Users/mrz/projects/go-broadcast/internal/profiling/suite.go:337
+#	0x1005b9b37	github.com/mrz1836/go-broadcast/internal/profiling.(*ProfileSuite).StopProfiling+0x77			/Users/mrz/projects/go-broadcast/internal/profiling/suite.go:171
+#	0x1005f266f	main.main+0x43f												/Users/mrz/projects/go-broadcast/cmd/profile_demo/main.go:84
+#	0x1004c81c3	runtime.main+0x283											/opt/homebrew/opt/go/libexec/src/runtime/proc.go:283
+
+1 @ 0x1004fc4b8 0x1004dbb34 0x100591298 0x100503e54
+#	0x100591297	github.com/mrz1836/go-broadcast/internal/cache.(*TTLCache).cleanup+0xa7	/Users/mrz/projects/go-broadcast/internal/cache/ttl_cache.go:121
+
