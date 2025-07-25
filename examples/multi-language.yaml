@@ -23,8 +23,8 @@ targets:
       # Go-specific tooling
       - src: "go/Makefile"
         dest: "Makefile"
-      - src: "go/.golangci.yml"
-        dest: ".golangci.yml"
+      - src: "go/.golangci.json"
+        dest: ".golangci.json"
       - src: "go/Dockerfile"
         dest: "Dockerfile"
       # Common documentation

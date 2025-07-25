@@ -28,8 +28,8 @@ targets:
       - src: ".github/workflows/ci.yml"
         dest: ".github/workflows/ci.yml"
       # Sync linting configuration
-      - src: ".golangci.yml"
-        dest: ".golangci.yml"
+      - src: ".golangci.json"
+        dest: ".golangci.json"
       # Sync Makefile
       - src: "Makefile"
         dest: "Makefile"
