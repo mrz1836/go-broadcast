@@ -151,7 +151,9 @@ func (p *Progress) Start() {
 				return
 			default:
 				p.mu.Lock()
+				mu.Lock()
 				_, _ = fmt.Fprintf(stdout, "\r%s %s", p.spinner[p.index], p.message)
+				mu.Unlock()
 				p.index = (p.index + 1) % len(p.spinner)
 				p.mu.Unlock()
 			}
@@ -162,7 +164,9 @@ func (p *Progress) Start() {
 // Stop stops the progress indicator
 func (p *Progress) Stop() {
 	p.done <- true
+	mu.Lock()
 	_, _ = fmt.Fprint(stdout, "\r\033[K") // Clear line
+	mu.Unlock()
 }
 
 // StopWithSuccess stops with a success message
