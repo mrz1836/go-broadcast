@@ -673,13 +673,46 @@ make test-race
 
 <br/>
 
-## ⚡ Benchmarks
+## ⚡ Benchmarks & Profiling
 
-Run the Go benchmarks:
+go-broadcast includes comprehensive performance analysis tools with 100+ benchmarks and advanced profiling capabilities.
 
+### Quick Start
+
+Run all benchmarks:
 ```bash
 make bench
 ```
+
+Run specific benchmarks:
+```bash
+# Benchmark git operations
+go test -bench=. -benchmem ./internal/git
+
+# Benchmark with CPU profiling
+go test -bench=. -cpuprofile=cpu.prof ./internal/worker
+```
+
+### Profiling Demo
+
+Try the built-in profiling demo:
+```bash
+go run ./cmd/profile_demo
+# Results in ./profiles/final_demo/
+```
+
+### Performance Analysis Tools
+
+- **🔬 100+ Benchmarks** covering all major components
+- **📊 CPU & Memory Profiling** with detailed analysis
+- **📈 Performance Reports** in HTML, JSON, and Markdown
+- **🔍 Goroutine Analysis** for concurrency debugging
+- **⚡ Zero-Allocation** operations in critical paths
+
+📚 **Documentation:**
+- [Benchmarking Guide](docs/benchmarking-profiling.md) - Complete benchmarking reference
+- [Profiling Guide](docs/profiling-guide.md) - Advanced profiling techniques
+- [Performance Optimization](docs/performance-optimization.md) - Best practices and tips
 
 ### Performance Results
 

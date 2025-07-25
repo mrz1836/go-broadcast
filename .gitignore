@@ -37,6 +37,9 @@ dist
 coverage.txt
 coverage.out
 
+# Profiling outputs
+profiles/
+
 # Fuzz Tests
 testdata
 
