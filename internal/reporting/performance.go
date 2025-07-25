@@ -559,7 +559,8 @@ func (pr *PerformanceReporter) getTemplateFuncs() template.FuncMap {
 			}
 			return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 		},
-		"title": func(s string) string {
+		"title": func(v interface{}) string {
+			s := fmt.Sprintf("%v", v)
 			if len(s) == 0 {
 				return s
 			}
