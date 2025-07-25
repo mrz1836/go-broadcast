@@ -1,55 +1,69 @@
-# Binaries for programs and plugins
+########################
+# Go Language          #
+########################
+
+# Binary files
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
 
-# Project binary
+# Project main binary
 go-broadcast
 
-# Test binary, build with `go test -c`
+# Test binaries
 *.test
 
-# Go List
+# Go tools
 go.list
-
-# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# OS files
-*.db
-*.DS_Store
-
-# Jetbrains
-.idea/
-
-# Eclipse
-.project
-
-# Notes
-todo.md
-
-# Distribution
-dist
-
-# Code coverage
+# Coverage reports
 coverage.txt
 coverage.out
 
-# Profiling outputs
+# Profiling data
 profiles/
 
-# Fuzz Tests
+# Fuzz testing
 testdata
-
-# Fuzz testing corpus (auto-generated)
 internal/fuzz/corpus/
 
-# AI Models
+########################
+# Development Tools    #
+########################
+
+# IDEs and Editors
+.idea/
+.project
+
+# AI assistants
 .claude
 
-# Node modules
+# Linting
+lint-output.txt
+
+########################
+# Dependencies         #
+########################
+
+# Node.js
 node_modules/
 
-lint-output.txt
+########################
+# Build & Distribution #
+########################
+
+# Build artifacts
+dist/
+
+########################
+# Operating System     #
+########################
+
+# macOS
+.DS_Store
+
+# Database files
+*.db
