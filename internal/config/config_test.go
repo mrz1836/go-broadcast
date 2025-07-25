@@ -311,3 +311,164 @@ func TestLoad_FileNotFound(t *testing.T) {
 	assert.Nil(t, config)
 	assert.Contains(t, err.Error(), "failed to open config file")
 }
+
+// TestApplyDefaults tests the applyDefaults function behavior
+func TestApplyDefaults(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected Config
+	}{
+		{
+			name: "ApplyAllDefaults",
+			input: `
+version: 1
+source:
+  repo: "org/template"
+targets:
+  - repo: "org/service"
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+`,
+			expected: Config{
+				Version: 1,
+				Source: SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
+				},
+				Defaults: DefaultConfig{
+					BranchPrefix: "sync/template",
+					PRLabels:     []string{"automated-sync"},
+				},
+			},
+		},
+		{
+			name: "KeepExistingValues",
+			input: `
+version: 1
+source:
+  repo: "org/template"
+  branch: "main"
+defaults:
+  branch_prefix: "custom/prefix"
+  pr_labels: ["custom-label", "another"]
+targets:
+  - repo: "org/service"
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+`,
+			expected: Config{
+				Version: 1,
+				Source: SourceConfig{
+					Repo:   "org/template",
+					Branch: "main",
+				},
+				Defaults: DefaultConfig{
+					BranchPrefix: "custom/prefix",
+					PRLabels:     []string{"custom-label", "another"},
+				},
+			},
+		},
+		{
+			name: "PartialDefaults",
+			input: `
+version: 1
+source:
+  repo: "org/template"
+  branch: "develop"
+defaults:
+  pr_labels: ["my-label"]
+targets:
+  - repo: "org/service"
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+`,
+			expected: Config{
+				Version: 1,
+				Source: SourceConfig{
+					Repo:   "org/template",
+					Branch: "develop",
+				},
+				Defaults: DefaultConfig{
+					BranchPrefix: "sync/template",
+					PRLabels:     []string{"my-label"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config, err := LoadFromReader(strings.NewReader(tc.input))
+			require.NoError(t, err)
+			require.NotNil(t, config)
+
+			assert.Equal(t, tc.expected.Version, config.Version)
+			assert.Equal(t, tc.expected.Source.Repo, config.Source.Repo)
+			assert.Equal(t, tc.expected.Source.Branch, config.Source.Branch)
+			assert.Equal(t, tc.expected.Defaults.BranchPrefix, config.Defaults.BranchPrefix)
+			assert.Equal(t, tc.expected.Defaults.PRLabels, config.Defaults.PRLabels)
+		})
+	}
+}
+
+// TestLoadFromReader_StrictParsing tests that strict YAML parsing is enforced
+func TestLoadFromReader_StrictParsing(t *testing.T) {
+	yamlContent := `
+version: 1
+unknown_field: "should fail"
+source:
+  repo: "org/repo"
+targets:
+  - repo: "org/target"
+    files:
+      - src: "file"
+        dest: "file"
+`
+
+	config, err := LoadFromReader(strings.NewReader(yamlContent))
+	require.Error(t, err)
+	assert.Nil(t, config)
+	assert.Contains(t, err.Error(), "failed to parse YAML")
+}
+
+// TestLoadFromReader_EmptyInput tests behavior with empty input
+func TestLoadFromReader_EmptyInput(t *testing.T) {
+	config, err := LoadFromReader(strings.NewReader(""))
+	require.Error(t, err)
+	assert.Nil(t, config)
+	assert.Contains(t, err.Error(), "failed to parse YAML")
+}
+
+// TestLoadFromReader_InvalidInput tests various invalid inputs
+func TestLoadFromReader_InvalidInput(t *testing.T) {
+	testCases := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "InvalidYAMLSyntax",
+			input: "version: 1\nsource:\n  repo: [invalid",
+		},
+		{
+			name:  "NotYAML",
+			input: "<xml>not yaml</xml>",
+		},
+		{
+			name:  "MixedTypes",
+			input: "version: \"string instead of int\"",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config, err := LoadFromReader(strings.NewReader(tc.input))
+			require.Error(t, err)
+			assert.Nil(t, config)
+			assert.Contains(t, err.Error(), "failed to parse YAML")
+		})
+	}
+}
