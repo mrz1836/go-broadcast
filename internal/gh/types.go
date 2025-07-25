@@ -81,7 +81,7 @@ type File struct {
 
 // FileContent represents decoded file content
 type FileContent struct {
-	Path    string
-	Content []byte
-	SHA     string
+	Path    string `json:"path"`
+	Content []byte `json:"content"`
+	SHA     string `json:"sha"`
 }
