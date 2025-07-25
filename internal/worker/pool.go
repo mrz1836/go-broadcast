@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,6 +13,7 @@ import (
 var (
 	ErrPoolShuttingDown = errors.New("pool is shutting down")
 	ErrTaskQueueFull    = errors.New("task queue is full")
+	ErrTaskPanicked     = errors.New("task panicked")
 )
 
 // Task represents a unit of work
@@ -109,7 +111,16 @@ func (p *Pool) worker(ctx context.Context, _ int) {
 			p.tasksActive.Add(1)
 			start := time.Now()
 
-			err := task.Execute(ctx)
+			// Recover from panics to prevent worker crash
+			var err error
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						err = fmt.Errorf("%w: %v", ErrTaskPanicked, r)
+					}
+				}()
+				err = task.Execute(ctx)
+			}()
 
 			p.results <- Result{
 				TaskName: task.Name(),
