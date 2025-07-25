@@ -61,6 +61,9 @@ func TestGetConfigFile(t *testing.T) {
 			// Setup test flags if provided
 			if tt.setupFlags != nil {
 				SetFlags(tt.setupFlags)
+			} else {
+				// Reset to nil for default test
+				globalFlags = nil
 			}
 
 			// Test GetConfigFile
@@ -115,6 +118,9 @@ func TestIsDryRun(t *testing.T) {
 			// Setup test flags if provided
 			if tt.setupFlags != nil {
 				SetFlags(tt.setupFlags)
+			} else {
+				// Reset to nil for default test
+				globalFlags = nil
 			}
 
 			// Test IsDryRun
