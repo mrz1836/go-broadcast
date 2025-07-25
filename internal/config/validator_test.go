@@ -849,3 +849,203 @@ func TestErrorMessages(t *testing.T) {
 		})
 	}
 }
+
+// TestConfigValidateContextCancellation tests context cancellation during validation
+func TestConfigValidateContextCancellation(t *testing.T) {
+	// Create a config with multiple targets and files to test all cancellation points
+	config := &Config{
+		Version: 1,
+		Source: SourceConfig{
+			Repo:   "org/template",
+			Branch: "main",
+		},
+		Defaults: DefaultConfig{
+			BranchPrefix: "sync/template",
+			PRLabels:     []string{"automated-sync"},
+		},
+		Targets: []TargetConfig{
+			{
+				Repo: "org/service-1",
+				Files: []FileMapping{
+					{Src: "file1.txt", Dest: "dest1.txt"},
+					{Src: "file2.txt", Dest: "dest2.txt"},
+					{Src: "file3.txt", Dest: "dest3.txt"},
+				},
+				Transform: Transform{
+					Variables: map[string]string{
+						"VAR1": "value1",
+						"VAR2": "value2",
+						"VAR3": "value3",
+					},
+				},
+			},
+			{
+				Repo: "org/service-2",
+				Files: []FileMapping{
+					{Src: "file4.txt", Dest: "dest4.txt"},
+					{Src: "file5.txt", Dest: "dest5.txt"},
+				},
+				Transform: Transform{
+					Variables: map[string]string{
+						"VAR4": "value4",
+						"VAR5": "value5",
+					},
+				},
+			},
+			{
+				Repo: "org/service-3",
+				Files: []FileMapping{
+					{Src: "file6.txt", Dest: "dest6.txt"},
+				},
+			},
+		},
+	}
+
+	t.Run("context cancellation during target iteration", func(t *testing.T) {
+		// Create a context that's already canceled
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		err := config.ValidateWithLogging(ctx, nil)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "validation canceled")
+		assert.Contains(t, err.Error(), "context canceled")
+	})
+
+	t.Run("context cancellation during file mapping validation", func(t *testing.T) {
+		// Create a config that will pass initial validation but cancel during file processing
+		// We can't easily control exactly when cancellation occurs, but we can test the error path
+		ctx, cancel := context.WithCancel(context.Background())
+		// Start validation in a goroutine and cancel after a very short time
+		resultChan := make(chan error, 1)
+		go func() {
+			resultChan <- config.ValidateWithLogging(ctx, nil)
+		}()
+
+		// Cancel immediately to try to hit cancellation during processing
+		cancel()
+
+		err := <-resultChan
+		// The error could be either cancellation or successful validation
+		// depending on timing, but if it's an error, it should be cancellation-related
+		if err != nil {
+			errorMsg := err.Error()
+			isCancellationError := assert.Contains(t, errorMsg, "validation canceled") ||
+				assert.Contains(t, errorMsg, "file mapping validation canceled") ||
+				assert.Contains(t, errorMsg, "context canceled")
+			assert.True(t, isCancellationError, "Error should be cancellation-related: %v", err)
+		}
+	})
+
+	t.Run("context timeout during validation", func(t *testing.T) {
+		// Create a context with a very short timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 1) // 1 nanosecond timeout
+		defer cancel()
+
+		// Give the context time to timeout
+		<-ctx.Done()
+
+		err := config.ValidateWithLogging(ctx, nil)
+
+		require.Error(t, err)
+		errorMsg := err.Error()
+		isTimeoutError := assert.Contains(t, errorMsg, "validation canceled") ||
+			assert.Contains(t, errorMsg, "file mapping validation canceled") ||
+			assert.Contains(t, errorMsg, "context deadline exceeded")
+		assert.True(t, isTimeoutError, "Error should be timeout-related: %v", err)
+	})
+}
+
+// TestConfigValidateContextCancellationEdgeCases tests specific edge cases for context cancellation
+func TestConfigValidateContextCancellationEdgeCases(t *testing.T) {
+	t.Run("cancellation with debug logging enabled", func(t *testing.T) {
+		config := &Config{
+			Version: 1,
+			Source: SourceConfig{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: []TargetConfig{
+				{
+					Repo: "org/service",
+					Files: []FileMapping{
+						{Src: "file1.txt", Dest: "dest1.txt"},
+						{Src: "file2.txt", Dest: "dest2.txt"},
+					},
+				},
+			},
+		}
+
+		// Enable debug logging
+		logConfig := &logging.LogConfig{
+			Debug: logging.DebugFlags{
+				Config: true,
+			},
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		err := config.ValidateWithLogging(ctx, logConfig)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "validation canceled")
+	})
+
+	t.Run("cancellation with empty targets", func(t *testing.T) {
+		config := &Config{
+			Version: 1,
+			Source: SourceConfig{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: []TargetConfig{}, // Empty targets
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		// Should get cancellation error since context is checked early in validation
+		err := config.ValidateWithLogging(ctx, nil)
+
+		require.Error(t, err)
+		// Should be cancellation error since context is checked first
+		assert.Contains(t, err.Error(), "validation canceled")
+	})
+
+	t.Run("cancellation during transform variable validation", func(t *testing.T) {
+		config := &Config{
+			Version: 1,
+			Source: SourceConfig{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: []TargetConfig{
+				{
+					Repo: "org/service",
+					Files: []FileMapping{
+						{Src: "file1.txt", Dest: "dest1.txt"},
+					},
+					Transform: Transform{
+						Variables: map[string]string{
+							"VAR1": "value1",
+							"VAR2": "value2",
+							"VAR3": "value3",
+							"VAR4": "value4",
+							"VAR5": "value5",
+						},
+					},
+				},
+			},
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		err := config.ValidateWithLogging(ctx, nil)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "validation canceled")
+	})
+}

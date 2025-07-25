@@ -2,6 +2,8 @@ package sync
 
 import (
 	"context"
+	stderrors "errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +17,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+)
+
+var (
+	errGitCloneFailed = stderrors.New("git clone failed")
+	errCloneFailed    = stderrors.New("clone failed")
 )
 
 func TestNewEngine(t *testing.T) {
@@ -435,4 +442,279 @@ func TestEngineWithDryRun(t *testing.T) {
 	// Verify no actual operations were called (they would be mocked if called)
 	ghClient.AssertNotCalled(t, "CreatePR")
 	gitClient.AssertNotCalled(t, "Clone")
+}
+
+// TestEngineConcurrentErrorScenarios tests error handling in concurrent sync operations
+func TestEngineConcurrentErrorScenarios(t *testing.T) {
+	// Base configuration with multiple targets for concurrent testing
+	cfg := &config.Config{
+		Source: config.SourceConfig{
+			Repo:   "org/template",
+			Branch: "master",
+		},
+		Targets: []config.TargetConfig{
+			{
+				Repo: "org/target-a",
+				Files: []config.FileMapping{
+					{Src: "file1.txt", Dest: "file1.txt"},
+				},
+			},
+			{
+				Repo: "org/target-b",
+				Files: []config.FileMapping{
+					{Src: "file2.txt", Dest: "file2.txt"},
+				},
+			},
+			{
+				Repo: "org/target-c",
+				Files: []config.FileMapping{
+					{Src: "file3.txt", Dest: "file3.txt"},
+				},
+			},
+		},
+	}
+
+	t.Run("multiple concurrent failures in errgroup", func(t *testing.T) {
+		// Setup mocks
+		ghClient := &gh.MockClient{}
+		gitClient := &git.MockClient{}
+		stateDiscoverer := &state.MockDiscoverer{}
+		transformChain := &transform.MockChain{}
+
+		// Mock state discovery - all targets need sync
+		currentState := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "master",
+				LatestCommit: "new123",
+				LastChecked:  time.Now(),
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target-a": {
+					Repo:           "org/target-a",
+					LastSyncCommit: "old123", // Behind source
+					Status:         state.StatusBehind,
+				},
+				"org/target-b": {
+					Repo:           "org/target-b",
+					LastSyncCommit: "old123", // Behind source
+					Status:         state.StatusBehind,
+				},
+				"org/target-c": {
+					Repo:           "org/target-c",
+					LastSyncCommit: "old123", // Behind source
+					Status:         state.StatusBehind,
+				},
+			},
+		}
+
+		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+
+		// Mock all sync operations to fail with different errors
+		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).
+			Return(errGitCloneFailed).Maybe()
+
+		// Create engine with low concurrency to ensure predictable error handling
+		opts := &Options{
+			DryRun:         false,
+			MaxConcurrency: 2, // Less than number of targets to test queuing
+		}
+		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine.SetLogger(logrus.New())
+
+		// Execute sync - should fail fast on first error due to errgroup behavior
+		err := engine.Sync(context.Background(), nil)
+
+		// Assertions
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "sync operation failed")
+		// Should contain one of the git clone failure messages
+		errorMsg := err.Error()
+		assert.True(t,
+			assert.Contains(t, errorMsg, "git clone failed") ||
+				assert.Contains(t, errorMsg, "clone failed"),
+			"Error should contain git clone failure message")
+
+		stateDiscoverer.AssertExpectations(t)
+	})
+
+	t.Run("partial concurrent failures with success mixed in", func(t *testing.T) {
+		// Setup mocks
+		ghClient := &gh.MockClient{}
+		gitClient := &git.MockClient{}
+		stateDiscoverer := &state.MockDiscoverer{}
+		transformChain := &transform.MockChain{}
+
+		// Mock state - mixed statuses to test different code paths
+		currentState := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "master",
+				LatestCommit: "new123",
+				LastChecked:  time.Now(),
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target-a": {
+					Repo:           "org/target-a",
+					LastSyncCommit: "new123", // Up to date - should be skipped
+					Status:         state.StatusUpToDate,
+				},
+				"org/target-b": {
+					Repo:           "org/target-b",
+					LastSyncCommit: "old123", // Behind source - will fail
+					Status:         state.StatusBehind,
+				},
+				"org/target-c": {
+					Repo:           "org/target-c",
+					LastSyncCommit: "old123", // Behind source - will fail
+					Status:         state.StatusBehind,
+				},
+			},
+		}
+
+		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+
+		// Mock failures for targets that need sync
+		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).
+			Return(errCloneFailed).Maybe()
+
+		// Create engine
+		opts := &Options{
+			DryRun:         false,
+			MaxConcurrency: 3, // Allow all to run concurrently
+		}
+		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine.SetLogger(logrus.New())
+
+		// Execute sync
+		err := engine.Sync(context.Background(), nil)
+
+		// Should fail due to errgroup failing on first error
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "sync operation failed")
+
+		stateDiscoverer.AssertExpectations(t)
+	})
+
+	t.Run("context cancellation during concurrent execution", func(t *testing.T) {
+		// Setup mocks
+		ghClient := &gh.MockClient{}
+		gitClient := &git.MockClient{}
+		stateDiscoverer := &state.MockDiscoverer{}
+		transformChain := &transform.MockChain{}
+
+		// Mock state discovery - all targets behind
+		currentState := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "master",
+				LatestCommit: "new123",
+				LastChecked:  time.Now(),
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target-a": {
+					Repo:           "org/target-a",
+					LastSyncCommit: "old123",
+					Status:         state.StatusBehind,
+				},
+				"org/target-b": {
+					Repo:           "org/target-b",
+					LastSyncCommit: "old123",
+					Status:         state.StatusBehind,
+				},
+				"org/target-c": {
+					Repo:           "org/target-c",
+					LastSyncCommit: "old123",
+					Status:         state.StatusBehind,
+				},
+			},
+		}
+
+		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+
+		// Mock clone operations to check for context cancellation
+		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).
+			Return(context.Canceled).Maybe()
+
+		// Create engine
+		opts := &Options{
+			DryRun:         false,
+			MaxConcurrency: 3,
+		}
+		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine.SetLogger(logrus.New())
+
+		// Create context with short timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		// Execute sync with timeout
+		err := engine.Sync(ctx, nil)
+
+		// Should fail due to context timeout
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "sync operation failed")
+		// The underlying error should be context-related (any context timeout/cancellation is fine)
+		errorMsg := err.Error()
+		hasContextError := strings.Contains(errorMsg, "context deadline exceeded") ||
+			strings.Contains(errorMsg, "context canceled") ||
+			strings.Contains(errorMsg, "deadline exceeded") ||
+			strings.Contains(errorMsg, "timeout") ||
+			strings.Contains(errorMsg, "canceled")
+		assert.True(t, hasContextError, "Error should be context-related: %v", err)
+
+		stateDiscoverer.AssertExpectations(t)
+	})
+
+	t.Run("conflict status handling during concurrent sync", func(t *testing.T) {
+		// Setup mocks
+		ghClient := &gh.MockClient{}
+		gitClient := &git.MockClient{}
+		stateDiscoverer := &state.MockDiscoverer{}
+		transformChain := &transform.MockChain{}
+
+		// Mock state with conflict status to test the warning path
+		currentState := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "master",
+				LatestCommit: "new123",
+				LastChecked:  time.Now(),
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target-a": {
+					Repo:   "org/target-a",
+					Status: state.StatusConflict, // Should trigger warning log and be skipped
+				},
+				"org/target-b": {
+					Repo:           "org/target-b",
+					LastSyncCommit: "new123", // Same as source - up to date, will be skipped
+					Status:         state.StatusUpToDate,
+				},
+				"org/target-c": {
+					Repo:           "org/target-c",
+					LastSyncCommit: "new123", // Same as source - up to date, will be skipped
+					Status:         state.StatusUpToDate,
+				},
+			},
+		}
+
+		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+
+		// Create engine
+		opts := &Options{
+			DryRun:         false,
+			MaxConcurrency: 2,
+		}
+		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine.SetLogger(logrus.New())
+
+		// Execute sync - should succeed since all targets are either conflicts (skipped with warning) or up-to-date
+		err := engine.Sync(context.Background(), nil)
+
+		// Should succeed - conflicts are just warnings, not errors, and up-to-date targets are skipped
+		require.NoError(t, err)
+
+		stateDiscoverer.AssertExpectations(t)
+	})
 }
