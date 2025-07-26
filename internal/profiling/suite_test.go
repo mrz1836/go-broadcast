@@ -5,6 +5,9 @@ import (
 	"errors"
 	"os"
 	"runtime"
+	"runtime/pprof"
+	"runtime/trace"
+	"sync"
 	"testing"
 	"time"
 
@@ -462,4 +465,300 @@ func TestProfileSuiteConcurrentSafety(t *testing.T) {
 	}
 
 	<-done
+}
+
+// TestProfileSuiteGenerateHTMLReport tests HTML report generation
+func TestProfileSuiteGenerateHTMLReport(t *testing.T) {
+	// Skip this test if go tool is not available
+	if _, err := os.Stat("/usr/bin/go"); err != nil && os.IsNotExist(err) {
+		t.Skip("go tool not available")
+	}
+
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+	configureForTesting(suite)
+
+	// Configure with HTML report generation
+	config := suite.config
+	config.EnableCPU = true // Need CPU profile for HTML report
+	config.GenerateReports = true
+	config.ReportFormat = "html"
+	suite.Configure(config)
+
+	// Run with a simple function - not actually testing CPU profiling
+	// Just testing the report generation flow
+	err := suite.ProfileWithFunc("html-report-test", func() error {
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+// TestProfileSuiteBothReportFormats tests generating both text and HTML reports
+func TestProfileSuiteBothReportFormats(t *testing.T) {
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+	configureForTesting(suite)
+
+	// Configure with both report formats
+	config := suite.config
+	config.GenerateReports = true
+	config.ReportFormat = "both"
+	suite.Configure(config)
+
+	err := suite.ProfileWithFunc("both-reports-test", func() error {
+		// Some work to profile
+		data := make([]byte, 1024*1024) // 1MB allocation
+		for i := range data {
+			data[i] = byte(i % 256)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	history := suite.GetSessionHistory()
+	require.Len(t, history, 1)
+
+	// Check if text report exists
+	textReportPath := history[0].OutputDir + "/comprehensive_report.txt"
+	_, err = os.Stat(textReportPath)
+	require.NoError(t, err)
+}
+
+// TestProfileSuiteErrorHandlingDuringStart tests error handling when starting a session fails
+func TestProfileSuiteErrorHandlingDuringStart(t *testing.T) {
+	// Use a non-existent directory to cause failure
+	suite := NewProfileSuite("/nonexistent/path/that/should/fail")
+	configureForTesting(suite)
+
+	err := suite.StartProfiling("error-test")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create session directory")
+	require.Nil(t, suite.currentSession)
+}
+
+// TestProfileSuiteCleanupOldSessionsError tests cleanup with permission errors
+func TestProfileSuiteCleanupOldSessionsError(t *testing.T) {
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+	configureForTesting(suite)
+
+	// Configure to keep only 1 session
+	config := suite.config
+	config.MaxSessionsToKeep = 1
+	suite.Configure(config)
+
+	// Run first session
+	err := suite.ProfileWithFunc("session1", func() error {
+		return nil
+	})
+	require.NoError(t, err)
+
+	// Get the first session directory
+	history := suite.GetSessionHistory()
+	firstSessionDir := history[0].OutputDir
+
+	// Make the directory read-only to simulate permission error during cleanup
+	err = os.Chmod(firstSessionDir, 0o500) //nolint:gosec // Intentionally setting read-only for test
+	require.NoError(t, err)
+
+	// Run second session which should trigger cleanup
+	err = suite.ProfileWithFunc("session2", func() error {
+		return nil
+	})
+	require.NoError(t, err)
+
+	// Cleanup should have been attempted but failed silently
+	// Session history should still be updated
+	history = suite.GetSessionHistory()
+	require.Len(t, history, 1)
+	require.Equal(t, "session2", history[0].Name)
+
+	// Restore permissions for cleanup
+	err = os.Chmod(firstSessionDir, 0o700) //nolint:gosec // Restoring normal permissions after test
+	require.NoError(t, err)
+}
+
+// TestComprehensiveSessionConcurrency tests concurrent access to ComprehensiveSession
+func TestComprehensiveSessionConcurrency(t *testing.T) {
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+	configureForTesting(suite)
+
+	err := suite.StartProfiling("concurrency-test")
+	require.NoError(t, err)
+
+	session := suite.GetCurrentSession()
+	require.NotNil(t, session)
+
+	// Test concurrent access to session fields
+	var wg sync.WaitGroup
+	wg.Add(10)
+
+	for i := 0; i < 10; i++ {
+		go func() {
+			defer wg.Done()
+			// Access session fields concurrently
+			_ = session.Name
+			_ = session.StartTime
+			_ = session.OutputDir
+		}()
+	}
+
+	wg.Wait()
+
+	err = suite.StopProfiling()
+	require.NoError(t, err)
+}
+
+// TestProfileSuiteEnableProfilingWithZeroRates tests enabling profiling with zero rates
+func TestProfileSuiteEnableProfilingWithZeroRates(t *testing.T) {
+	suite := NewProfileSuite(t.TempDir())
+
+	// Configure with zero rates (should not enable block/mutex profiling)
+	config := ProfileConfig{
+		EnableBlock:          true,
+		EnableMutex:          true,
+		BlockProfileRate:     0,
+		MutexProfileFraction: 0,
+	}
+	suite.Configure(config)
+
+	// Save original settings
+	defer func() {
+		runtime.SetBlockProfileRate(0)
+		runtime.SetMutexProfileFraction(0)
+	}()
+
+	err := suite.ProfileWithFunc("zero-rates-test", func() error {
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+// TestProfileSuiteAdditionalProfiles tests capturing additional profiles
+func TestProfileSuiteAdditionalProfiles(t *testing.T) {
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+	configureForTesting(suite)
+
+	// Enable all profile types
+	config := suite.config
+	config.EnableBlock = true
+	config.EnableMutex = true
+	config.BlockProfileRate = 1
+	config.MutexProfileFraction = 1
+	suite.Configure(config)
+
+	err := suite.ProfileWithFunc("additional-profiles-test", func() error {
+		// Create some goroutines to generate goroutine profile
+		done := make(chan struct{})
+		for i := 0; i < 5; i++ {
+			go func() {
+				<-done
+			}()
+		}
+
+		// Do some allocations for allocs profile
+		data := make([][]byte, 10)
+		for i := range data {
+			data[i] = make([]byte, 1024)
+		}
+
+		close(done)
+		return nil
+	})
+	require.NoError(t, err)
+
+	history := suite.GetSessionHistory()
+	require.Len(t, history, 1)
+
+	// Check if profile files were created
+	sessionDir := history[0].OutputDir
+
+	// Check for goroutine profile
+	_, err = os.Stat(sessionDir + "/goroutine.prof")
+	require.NoError(t, err)
+
+	// Check for block profile
+	_, err = os.Stat(sessionDir + "/block.prof")
+	require.NoError(t, err)
+
+	// Check for mutex profile
+	_, err = os.Stat(sessionDir + "/mutex.prof")
+	require.NoError(t, err)
+}
+
+// TestProfileSuiteStopSessionIdempotent tests that stopping a session multiple times is safe
+func TestProfileSuiteStopSessionIdempotent(t *testing.T) {
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+	configureForTesting(suite)
+
+	err := suite.StartProfiling("idempotent-test")
+	require.NoError(t, err)
+
+	// Stop the session
+	err = suite.StopProfiling()
+	require.NoError(t, err)
+
+	// Attempting to stop again should return ErrNoActiveSession
+	err = suite.StopProfiling()
+	require.Error(t, err)
+	require.Equal(t, ErrNoActiveSession, err)
+}
+
+// TestProfileSuiteMemoryProfilingIntegration tests memory profiling integration
+func TestProfileSuiteMemoryProfilingIntegration(t *testing.T) {
+	// Stop any existing CPU profiling from other tests
+	pprof.StopCPUProfile()
+	// Stop any existing trace that might be running
+	trace.Stop()
+
+	tempDir := t.TempDir()
+	suite := NewProfileSuite(tempDir)
+
+	// Configure with memory profiling enabled
+	config := suite.config
+	config.EnableCPU = false
+	config.EnableMemory = true
+	config.EnableTrace = false
+	config.EnableBlock = false
+	config.EnableMutex = false
+	config.GenerateReports = false
+	suite.Configure(config)
+
+	err := suite.ProfileWithFunc("memory-integration-test", func() error {
+		// Allocate some memory
+		data := make([][]byte, 100)
+		for i := range data {
+			data[i] = make([]byte, 1024*10) // 10KB each
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	// Check that memory profiler was used
+	require.NotNil(t, suite.memProfiler)
+}
+
+// TestWriteToReport tests the writeToReport helper function
+func TestWriteToReport(t *testing.T) {
+	tempFile, err := os.CreateTemp("", "report-test-*.txt")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(tempFile.Name()) }()
+	defer func() { _ = tempFile.Close() }()
+
+	// Test writing to report
+	writeToReport(tempFile, "Test message: %s\n", "hello")
+	writeToReport(tempFile, "Number: %d\n", 42)
+
+	// Read back the content
+	err = tempFile.Sync()
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(tempFile.Name())
+	require.NoError(t, err)
+
+	expectedContent := "Test message: hello\nNumber: 42\n"
+	require.Equal(t, expectedContent, string(content))
 }
