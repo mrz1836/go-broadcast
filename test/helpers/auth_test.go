@@ -312,3 +312,47 @@ func TestGetGitHubTokenRealWorldTokenFormats(t *testing.T) {
 		})
 	}
 }
+
+// TestSkipIfNoGitHubAuthActualSkip tests the actual skip behavior
+func TestSkipIfNoGitHubAuthActualSkip(t *testing.T) {
+	// Save original environment
+	originalPAT := os.Getenv("GH_PAT_TOKEN")
+	originalGitHub := os.Getenv("GITHUB_TOKEN")
+
+	// Test with no token - should skip
+	t.Run("SkipsWithNoToken", func(t *testing.T) {
+		// Clear tokens
+		require.NoError(t, os.Unsetenv("GH_PAT_TOKEN"))
+		require.NoError(t, os.Unsetenv("GITHUB_TOKEN"))
+
+		// SkipIfNoGitHubAuth should skip this test
+		SkipIfNoGitHubAuth(t)
+
+		// This line should not be reached
+		t.Fatal("Test should have been skipped")
+	})
+
+	// Test with token - should not skip
+	t.Run("DoesNotSkipWithToken", func(t *testing.T) {
+		// Set a token
+		require.NoError(t, os.Setenv("GH_PAT_TOKEN", "test_token"))
+
+		// SkipIfNoGitHubAuth should not skip this test
+		SkipIfNoGitHubAuth(t)
+
+		// This line should be reached - if we get here, the test passed
+		// The test passing means SkipIfNoGitHubAuth correctly did not skip
+	})
+
+	// Restore environment after test
+	if originalPAT != "" {
+		require.NoError(t, os.Setenv("GH_PAT_TOKEN", originalPAT))
+	} else {
+		require.NoError(t, os.Unsetenv("GH_PAT_TOKEN"))
+	}
+	if originalGitHub != "" {
+		require.NoError(t, os.Setenv("GITHUB_TOKEN", originalGitHub))
+	} else {
+		require.NoError(t, os.Unsetenv("GITHUB_TOKEN"))
+	}
+}
