@@ -7,6 +7,7 @@ import (
 
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -314,4 +315,332 @@ func TestDetermineSyncStatus(t *testing.T) {
 			assert.Equal(t, tt.expected, status)
 		})
 	}
+}
+
+// TestDiscoveryService_DiscoverStateWithDebugLogging tests state discovery with debug logging enabled
+func TestDiscoveryService_DiscoverStateWithDebugLogging(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	// Create a LogConfig with debug state enabled
+	logConfig := &logging.LogConfig{
+		Debug: logging.DebugFlags{
+			State: true,
+		},
+	}
+
+	cfg := &config.Config{
+		Source: config.SourceConfig{
+			Repo:   "org/template",
+			Branch: "main",
+		},
+		Targets: []config.TargetConfig{
+			{Repo: "org/service-a"},
+		},
+	}
+
+	t.Run("successful discovery with debug logging", func(t *testing.T) {
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, logConfig)
+
+		// Mock source branch
+		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
+			Return(&gh.Branch{
+				Name: "main",
+				Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "abc123"},
+			}, nil)
+
+		// Mock branches for service-a
+		mockGH.On("ListBranches", mock.Anything, "org/service-a").
+			Return([]gh.Branch{
+				{Name: "main", Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "def456"}},
+			}, nil)
+
+		// Mock PRs for service-a
+		mockGH.On("ListPRs", mock.Anything, "org/service-a", "open").
+			Return([]gh.PR{}, nil)
+
+		state, err := discoverer.DiscoverState(ctx, cfg)
+		require.NoError(t, err)
+		assert.NotNil(t, state)
+
+		mockGH.AssertExpectations(t)
+	})
+
+	t.Run("source branch error with debug logging", func(t *testing.T) {
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, logConfig)
+
+		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
+			Return(nil, assert.AnError)
+
+		state, err := discoverer.DiscoverState(ctx, cfg)
+		require.Error(t, err)
+		assert.Nil(t, state)
+
+		mockGH.AssertExpectations(t)
+	})
+
+	t.Run("target discovery error with debug logging", func(t *testing.T) {
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, logConfig)
+
+		// Mock successful source branch
+		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
+			Return(&gh.Branch{
+				Name: "main",
+				Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "abc123"},
+			}, nil)
+
+		// Mock error for target branches
+		mockGH.On("ListBranches", mock.Anything, "org/service-a").
+			Return(nil, assert.AnError)
+
+		state, err := discoverer.DiscoverState(ctx, cfg)
+		require.Error(t, err)
+		assert.Nil(t, state)
+
+		mockGH.AssertExpectations(t)
+	})
+}
+
+// TestDiscoveryService_DiscoverStateContextCancellation tests context cancellation handling
+func TestDiscoveryService_DiscoverStateContextCancellation(t *testing.T) {
+	logger := logrus.New()
+
+	cfg := &config.Config{
+		Source: config.SourceConfig{
+			Repo:   "org/template",
+			Branch: "main",
+		},
+		Targets: []config.TargetConfig{
+			{Repo: "org/service-a"},
+		},
+	}
+
+	t.Run("context canceled at start", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, nil)
+
+		state, err := discoverer.DiscoverState(ctx, cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "state discovery canceled")
+		assert.Nil(t, state)
+	})
+
+	t.Run("context canceled during target discovery", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, nil)
+
+		// Mock source branch
+		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
+			Return(&gh.Branch{
+				Name: "main",
+				Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "abc123"},
+			}, nil).Run(func(_ mock.Arguments) {
+			// Cancel context after source is fetched
+			cancel()
+		})
+
+		state, err := discoverer.DiscoverState(ctx, cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "target discovery canceled")
+		assert.Nil(t, state)
+
+		mockGH.AssertExpectations(t)
+	})
+}
+
+// TestDiscoveryService_DiscoverTargetStateWithDebugLogging tests target state discovery with debug logging
+func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	// Create a LogConfig with debug state enabled
+	logConfig := &logging.LogConfig{
+		Debug: logging.DebugFlags{
+			State: true,
+		},
+	}
+
+	t.Run("successful target discovery with debug logging", func(t *testing.T) {
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, logConfig)
+
+		// Mock branches with sync branches
+		mockGH.On("ListBranches", mock.Anything, "org/service").
+			Return([]gh.Branch{
+				{Name: "main", Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "abc123"}},
+				{Name: "sync/template-20240115-120000-def456", Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "ghi789"}},
+				{Name: "sync/template-invalid", Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "jkl012"}}, // Invalid format - will trigger parse error logging
+			}, nil)
+
+		// Mock PRs
+		mockGH.On("ListPRs", mock.Anything, "org/service", "open").
+			Return([]gh.PR{
+				{
+					Number: 10,
+					State:  "open",
+					Head: struct {
+						Ref string `json:"ref"`
+						SHA string `json:"sha"`
+					}{
+						Ref: "sync/template-20240115-120000-def456",
+					},
+				},
+			}, nil)
+
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		require.NoError(t, err)
+		assert.NotNil(t, state)
+		assert.Len(t, state.SyncBranches, 1) // Only valid sync branch
+
+		mockGH.AssertExpectations(t)
+	})
+
+	t.Run("branch listing error with debug logging", func(t *testing.T) {
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, logConfig)
+
+		// Mock error when listing branches
+		mockGH.On("ListBranches", mock.Anything, "org/service").
+			Return(nil, assert.AnError)
+
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to list branches")
+		assert.Nil(t, state)
+
+		mockGH.AssertExpectations(t)
+	})
+
+	t.Run("PR listing error with debug logging", func(t *testing.T) {
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, logConfig)
+
+		// Mock successful branch listing
+		mockGH.On("ListBranches", mock.Anything, "org/service").
+			Return([]gh.Branch{
+				{Name: "main", Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "abc123"}},
+			}, nil)
+
+		// Mock error when listing PRs
+		mockGH.On("ListPRs", mock.Anything, "org/service", "open").
+			Return(nil, assert.AnError)
+
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to list PRs")
+		assert.Nil(t, state)
+
+		mockGH.AssertExpectations(t)
+	})
+}
+
+// TestDiscoveryService_DiscoverTargetStateContextCancellation tests context cancellation in target discovery
+func TestDiscoveryService_DiscoverTargetStateContextCancellation(t *testing.T) {
+	logger := logrus.New()
+
+	t.Run("context canceled at start", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, nil)
+
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "target discovery canceled")
+		assert.Nil(t, state)
+	})
+}
+
+// TestDiscoveryService_ComplexSyncBranchScenarios tests complex sync branch discovery scenarios
+func TestDiscoveryService_ComplexSyncBranchScenarios(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	logConfig := &logging.LogConfig{
+		Debug: logging.DebugFlags{
+			State: true,
+		},
+	}
+
+	t.Run("multiple sync branches", func(t *testing.T) {
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, logConfig)
+
+		// Mock branches with multiple sync branches - note that sync/template-invalid will be filtered out
+		mockGH.On("ListBranches", mock.Anything, "org/service").
+			Return([]gh.Branch{
+				{Name: "sync/template-20240114-100000-abc123", Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "def456"}},
+				{Name: "sync/template-20240115-110000-abc123", Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "ghi789"}},
+				{Name: "sync/template-invalid", Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "invalid"}}, // This will be filtered out due to invalid format
+			}, nil)
+
+		// Mock multiple PRs from different sync branches
+		mockGH.On("ListPRs", mock.Anything, "org/service", "open").
+			Return([]gh.PR{
+				{
+					Number: 10,
+					State:  "open",
+					Head: struct {
+						Ref string `json:"ref"`
+						SHA string `json:"sha"`
+					}{
+						Ref: "sync/template-20240115-110000-abc123",
+					},
+				},
+			}, nil)
+
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		require.NoError(t, err)
+		assert.NotNil(t, state)
+		assert.Len(t, state.SyncBranches, 2) // Only 2 valid sync branches
+		assert.Len(t, state.OpenPRs, 1)
+		assert.Equal(t, "abc123", state.LastSyncCommit) // Latest sync commit SHA
+
+		mockGH.AssertExpectations(t)
+	})
 }
