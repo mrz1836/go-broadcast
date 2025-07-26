@@ -307,5 +307,8 @@ jobs:
           flags: unittests
           token: ${{ secrets.codecov-token }}
           verbose: true
-          file: ./coverage.txt
+          files: ./coverage.txt
           name: codecov-${{ matrix.os }}-${{ matrix.go-version }}
+          disable_search: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
+          override_commit: ${{ github.sha }}
