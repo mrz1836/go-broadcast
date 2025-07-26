@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -273,6 +274,138 @@ func TestDebugWriter(t *testing.T) {
 	assert.Contains(t, logOutput, "stream=test-stream")
 }
 
+// TestGitClient_CloneError tests clone error scenarios
+func TestGitClient_CloneError(t *testing.T) {
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test clone with invalid URL
+	err = client.Clone(ctx, "invalid://url", "/tmp/test-clone-error")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to clone repository")
+}
+
+// TestGitClient_CheckoutError tests checkout error scenarios
+func TestGitClient_CheckoutError(t *testing.T) {
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test checkout on non-existent repository
+	err = client.Checkout(ctx, "/nonexistent/repo", "main")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to checkout branch main")
+}
+
+// TestGitClient_CreateBranchError tests create branch error scenarios
+func TestGitClient_CreateBranchError(t *testing.T) {
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test create branch on non-existent repository
+	err = client.CreateBranch(ctx, "/nonexistent/repo", "test-branch")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create branch test-branch")
+}
+
+// TestGitClient_AddError tests add error scenarios
+func TestGitClient_AddError(t *testing.T) {
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test add on non-existent repository
+	err = client.Add(ctx, "/nonexistent/repo", "file.txt")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to add files")
+}
+
+// TestGitClient_CommitError tests commit error scenarios
+func TestGitClient_CommitError(t *testing.T) {
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test commit on non-existent repository
+	err = client.Commit(ctx, "/nonexistent/repo", "test commit")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to commit")
+}
+
+// TestGitClient_PushError tests push error scenarios
+func TestGitClient_PushError(t *testing.T) {
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test push on non-existent repository
+	err = client.Push(ctx, "/nonexistent/repo", "origin", "main", false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to push")
+}
+
+// TestGitClient_DiffError tests diff error scenarios
+func TestGitClient_DiffError(t *testing.T) {
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test diff on non-existent repository
+	_, err = client.Diff(ctx, "/nonexistent/repo", false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get diff")
+}
+
+// TestGitClient_GetCurrentBranchError tests current branch error scenarios
+func TestGitClient_GetCurrentBranchError(t *testing.T) {
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test get current branch on non-existent repository
+	_, err = client.GetCurrentBranch(ctx, "/nonexistent/repo")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get current branch")
+}
+
+// TestGitClient_GetRemoteURLError tests remote URL error scenarios
+func TestGitClient_GetRemoteURLError(t *testing.T) {
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test get remote URL on non-existent repository
+	_, err = client.GetRemoteURL(ctx, "/nonexistent/repo", "origin")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get remote URL")
+}
+
+// TestGitClient_RunCommandNotARepository tests git error recognition
+func TestGitClient_RunCommandNotARepository(t *testing.T) {
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	// Try to run git command in directory that's not a repository
+	err = client.Checkout(ctx, tmpDir, "main")
+	require.Error(t, err)
+	// The error should be recognized as "not a git repository"
+	assert.ErrorIs(t, err, ErrNotARepository)
+}
+
 // TestFilterSensitiveEnv tests environment variable filtering
 func TestFilterSensitiveEnv(t *testing.T) {
 	tests := []struct {
@@ -360,6 +493,145 @@ func TestFilterSensitiveEnv(t *testing.T) {
 			name:     "empty input",
 			input:    []string{},
 			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filterSensitiveEnv(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestGitClient_RunCommandWithDebugLogging tests debug logging functionality
+func TestGitClient_RunCommandWithDebugLogging(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	logger := logrus.New()
+	logger.SetLevel(logrus.TraceLevel)
+
+	// Create debug config
+	debugConfig := &logging.LogConfig{
+		Debug: logging.DebugFlags{
+			Git: true,
+		},
+	}
+
+	client, err := NewClient(logger, debugConfig)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	repoPath := filepath.Join(tmpDir, "debug-test-repo")
+
+	// Initialize repository to test debug logging
+	cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Test uses hardcoded command
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	// Configure git
+	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.email", "test@example.com") //nolint:gosec // Test uses hardcoded command
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.name", "Test User") //nolint:gosec // Test uses hardcoded command
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	// Test operation with debug logging enabled
+	branch, err := client.GetCurrentBranch(ctx, repoPath)
+	require.NoError(t, err)
+	assert.NotEmpty(t, branch)
+}
+
+// TestGitClient_CommitNoChangesVariations tests different "no changes" error messages
+func TestGitClient_CommitNoChangesVariations(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	repoPath := filepath.Join(tmpDir, "no-changes-repo")
+
+	// Initialize repository
+	cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Test uses hardcoded command
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	// Configure git
+	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.email", "test@example.com") //nolint:gosec // Test uses hardcoded command
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.name", "Test User") //nolint:gosec // Test uses hardcoded command
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	// Create and commit initial file
+	testFile := filepath.Join(repoPath, "test.txt")
+	err = os.WriteFile(testFile, []byte("initial content"), 0o600)
+	require.NoError(t, err)
+
+	err = client.Add(ctx, repoPath, "test.txt")
+	require.NoError(t, err)
+
+	err = client.Commit(ctx, repoPath, "Initial commit")
+	require.NoError(t, err)
+
+	// Try to commit again with no changes - should return ErrNoChanges
+	err = client.Commit(ctx, repoPath, "Empty commit")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNoChanges)
+}
+
+// TestGitClient_FilterSensitiveEnvEdgeCases tests edge cases in environment filtering
+func TestGitClient_FilterSensitiveEnvEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name: "multiple equals signs",
+			input: []string{
+				"NORMAL_VAR=value=with=equals",
+				"API_TOKEN=secret=with=equals",
+			},
+			expected: []string{
+				"NORMAL_VAR=value=with=equals",
+				"API_TOKEN=REDACTED",
+			},
+		},
+		{
+			name: "mixed case sensitivity",
+			input: []string{
+				"API_Token=secret123",
+				"User_Password=pass456",
+				"CLIENT_Secret=client789",
+			},
+			expected: []string{
+				"API_Token=REDACTED",
+				"User_Password=REDACTED",
+				"CLIENT_Secret=REDACTED",
+			},
+		},
+		{
+			name: "empty values",
+			input: []string{
+				"API_TOKEN=",
+				"NORMAL_VAR=",
+			},
+			expected: []string{
+				"API_TOKEN=REDACTED",
+				"NORMAL_VAR=",
+			},
 		},
 	}
 
