@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,10 +18,9 @@ func BenchmarkGitCommand_Simple(b *testing.B) {
 	// Setup mock expectations
 	mockClient.On("GetCurrentBranch", mock.Anything, mock.Anything).Return("main", nil)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		_, _ = mockClient.GetCurrentBranch(ctx, "/tmp/repo")
-	}
+	})
 }
 
 func BenchmarkGitCommand_WithOutput(b *testing.B) {
@@ -37,10 +35,9 @@ func BenchmarkGitCommand_WithOutput(b *testing.B) {
 			diffOutput := benchmark.GenerateGitDiff(getDiffFileCount(size.Size), 50)
 			mockClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return(diffOutput, nil)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_, _ = mockClient.Diff(ctx, "/tmp/repo", false)
-			}
+			})
 		})
 	}
 }
@@ -63,11 +60,10 @@ func BenchmarkClone_Scenarios(b *testing.B) {
 			// Mock successful clone with varying delays to simulate repo sizes
 			mockClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				tmpDir := b.TempDir()
+			benchmark.WithMemoryTracking(b, func() {
+				tmpDir := benchmark.SetupBenchmarkRepo(b)
 				_ = mockClient.Clone(ctx, scenario.url, tmpDir)
-			}
+			})
 		})
 	}
 }
@@ -79,53 +75,40 @@ func BenchmarkAdd_FileCount(b *testing.B) {
 		b.Run(fmt.Sprintf("Files_%d", count), func(b *testing.B) {
 			mockClient := &MockClient{}
 			ctx := context.Background()
-			tmpDir := b.TempDir()
+			tmpDir := benchmark.SetupBenchmarkRepo(b)
 
-			// Create test files
-			files := make([]string, count)
-			for i := 0; i < count; i++ {
-				filename := fmt.Sprintf("file%d.txt", i)
-				filepath := filepath.Join(tmpDir, filename)
-				_ = os.WriteFile(filepath, []byte("test content"), 0o600)
-				files[i] = filename
+			// Create test files using shared utility
+			filePaths := benchmark.SetupBenchmarkFiles(b, tmpDir, count)
+			files := make([]string, len(filePaths))
+			for i, path := range filePaths {
+				files[i] = filepath.Base(path)
 			}
 
 			// Mock add operation
 			mockClient.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_ = mockClient.Add(ctx, tmpDir, files...)
-			}
+			})
 		})
 	}
 }
 
 func BenchmarkDiff_Sizes(b *testing.B) {
-	sizes := []struct {
-		name  string
-		files int
-		lines int
-	}{
-		{"Small", 1, 10},
-		{"Medium", 5, 100},
-		{"Large", 20, 500},
-		{"XLarge", 50, 1000},
-	}
+	sizes := benchmark.StandardSizes()
 
 	for _, size := range sizes {
-		b.Run(size.name, func(b *testing.B) {
+		b.Run(size.Name, func(b *testing.B) {
 			mockClient := &MockClient{}
 			ctx := context.Background()
 
-			// Generate realistic diff output
-			diffOutput := benchmark.GenerateGitDiff(size.files, size.lines)
+			// Generate realistic diff output based on file count
+			diffOutput := benchmark.GenerateGitDiff(size.FileCount/10, 50)
 			mockClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return(diffOutput, nil)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_, _ = mockClient.Diff(ctx, "/tmp/repo", false)
-			}
+			})
 		})
 	}
 }
@@ -155,10 +138,9 @@ func BenchmarkBranch_Operations(b *testing.B) {
 			// Setup appropriate mock expectations
 			setupMockForOperation(mockClient, op.name)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_ = op.fn(mockClient, ctx, "/tmp/repo")
-			}
+			})
 		})
 	}
 }
@@ -180,10 +162,9 @@ func BenchmarkCommit_MessageSizes(b *testing.B) {
 
 			mockClient.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_ = mockClient.Commit(ctx, "/tmp/repo", msgSize.message)
-			}
+			})
 		})
 	}
 }
@@ -204,10 +185,9 @@ func BenchmarkPush_Scenarios(b *testing.B) {
 
 			mockClient.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_ = mockClient.Push(ctx, "/tmp/repo", "origin", "main", scenario.force)
-			}
+			})
 		})
 	}
 }
@@ -223,10 +203,9 @@ func BenchmarkGetRemoteURL_Multiple(b *testing.B) {
 			expectedURL := fmt.Sprintf("https://github.com/user/repo-%s.git", remote)
 			mockClient.On("GetRemoteURL", mock.Anything, mock.Anything, mock.Anything).Return(expectedURL, nil)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_, _ = mockClient.GetRemoteURL(ctx, "/tmp/repo", remote)
-			}
+			})
 		})
 	}
 }
@@ -243,17 +222,16 @@ func BenchmarkGitWorkflow_Complete(b *testing.B) {
 		mockClient.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockClient.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		benchmark.WithMemoryTracking(b, func() {
 			repo := "/tmp/repo"
-			branch := fmt.Sprintf("feature-%d", i)
+			branch := "feature-branch"
 
 			// Complete workflow
 			_ = mockClient.CreateBranch(ctx, repo, branch)
 			_ = mockClient.Add(ctx, repo, ".")
 			_ = mockClient.Commit(ctx, repo, "Add new feature")
 			_ = mockClient.Push(ctx, repo, "origin", branch, false)
-		}
+		})
 	})
 }
 

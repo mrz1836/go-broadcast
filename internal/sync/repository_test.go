@@ -12,6 +12,7 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/state"
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/mrz1836/go-broadcast/internal/transform"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -49,13 +50,13 @@ func TestRepositorySync_Execute(t *testing.T) {
 
 	t.Run("successful sync", func(t *testing.T) {
 		// Create temporary directory and files for testing
-		tmpDir := t.TempDir()
+		tmpDir := testutil.CreateTempDir(t)
 		sourceDir := tmpDir + "/source"
-		require.NoError(t, os.MkdirAll(sourceDir, 0o750))
+		testutil.CreateTestDirectory(t, sourceDir)
 
 		// Create source files
-		require.NoError(t, os.WriteFile(sourceDir+"/file1.txt", []byte("content 1"), 0o600))
-		require.NoError(t, os.WriteFile(sourceDir+"/file2.txt", []byte("content 2"), 0o600))
+		testutil.WriteTestFile(t, sourceDir+"/file1.txt", "content 1")
+		testutil.WriteTestFile(t, sourceDir+"/file2.txt", "content 2")
 
 		// Setup mocks
 		ghClient := &gh.MockClient{}
@@ -68,11 +69,11 @@ func TestRepositorySync_Execute(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			// Copy our pre-created files to the expected location
 			destPath := args[2].(string)
-			_ = os.MkdirAll(destPath, 0o750)                                           // Test setup
-			srcContent1, _ := os.ReadFile(filepath.Join(sourceDir, "file1.txt"))       //nolint:gosec // Test file
-			srcContent2, _ := os.ReadFile(filepath.Join(sourceDir, "file2.txt"))       //nolint:gosec // Test file
-			_ = os.WriteFile(filepath.Join(destPath, "file1.txt"), srcContent1, 0o600) // Test setup
-			_ = os.WriteFile(filepath.Join(destPath, "file2.txt"), srcContent2, 0o600) // Test setup
+			testutil.CreateTestDirectory(t, destPath)                                            // Test setup
+			srcContent1, _ := os.ReadFile(filepath.Join(sourceDir, "file1.txt"))                 //nolint:gosec // Test file
+			srcContent2, _ := os.ReadFile(filepath.Join(sourceDir, "file2.txt"))                 //nolint:gosec // Test file
+			testutil.WriteTestFile(t, filepath.Join(destPath, "file1.txt"), string(srcContent1)) // Test setup
+			testutil.WriteTestFile(t, filepath.Join(destPath, "file2.txt"), string(srcContent2)) // Test setup
 		})
 		gitClient.On("Checkout", mock.Anything, mock.Anything, "abc123").Return(nil)
 
@@ -193,13 +194,13 @@ func TestRepositorySync_Execute(t *testing.T) {
 
 	t.Run("dry run mode", func(t *testing.T) {
 		// Create temporary directory and files for testing
-		tmpDir := t.TempDir()
+		tmpDir := testutil.CreateTempDir(t)
 		sourceDir := tmpDir + "/source"
-		require.NoError(t, os.MkdirAll(sourceDir, 0o750))
+		testutil.CreateTestDirectory(t, sourceDir)
 
 		// Create source files
-		require.NoError(t, os.WriteFile(sourceDir+"/file1.txt", []byte("content 1"), 0o600))
-		require.NoError(t, os.WriteFile(sourceDir+"/file2.txt", []byte("content 2"), 0o600))
+		testutil.WriteTestFile(t, sourceDir+"/file1.txt", "content 1")
+		testutil.WriteTestFile(t, sourceDir+"/file2.txt", "content 2")
 
 		// Setup mocks (minimal since dry-run shouldn't call most operations)
 		ghClient := &gh.MockClient{}
@@ -212,11 +213,11 @@ func TestRepositorySync_Execute(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			// Copy our pre-created files to the expected location
 			destPath := args[2].(string)
-			_ = os.MkdirAll(destPath, 0o750)                                           // Test setup
-			srcContent1, _ := os.ReadFile(filepath.Join(sourceDir, "file1.txt"))       //nolint:gosec // Test file
-			srcContent2, _ := os.ReadFile(filepath.Join(sourceDir, "file2.txt"))       //nolint:gosec // Test file
-			_ = os.WriteFile(filepath.Join(destPath, "file1.txt"), srcContent1, 0o600) // Test setup
-			_ = os.WriteFile(filepath.Join(destPath, "file2.txt"), srcContent2, 0o600) // Test setup
+			testutil.CreateTestDirectory(t, destPath)                                            // Test setup
+			srcContent1, _ := os.ReadFile(filepath.Join(sourceDir, "file1.txt"))                 //nolint:gosec // Test file
+			srcContent2, _ := os.ReadFile(filepath.Join(sourceDir, "file2.txt"))                 //nolint:gosec // Test file
+			testutil.WriteTestFile(t, filepath.Join(destPath, "file1.txt"), string(srcContent1)) // Test setup
+			testutil.WriteTestFile(t, filepath.Join(destPath, "file2.txt"), string(srcContent2)) // Test setup
 		})
 		gitClient.On("Checkout", mock.Anything, mock.Anything, "abc123").Return(nil)
 

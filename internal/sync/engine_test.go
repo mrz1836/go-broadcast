@@ -527,7 +527,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 
 		// Assertions
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "sync operation failed")
+		assert.Contains(t, err.Error(), "failed to complete sync operation")
 		// Should contain one of the git clone failure messages
 		errorMsg := err.Error()
 		assert.True(t,
@@ -591,7 +591,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 
 		// Should fail due to errgroup failing on first error
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "sync operation failed")
+		assert.Contains(t, err.Error(), "failed to complete sync operation")
 
 		stateDiscoverer.AssertExpectations(t)
 	})
@@ -653,7 +653,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 
 		// Should fail due to context timeout
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "sync operation failed")
+		assert.Contains(t, err.Error(), "failed to complete sync operation")
 		// The underlying error should be context-related (any context timeout/cancellation is fine)
 		errorMsg := err.Error()
 		hasContextError := strings.Contains(errorMsg, "context deadline exceeded") ||

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/sirupsen/logrus"
 )
@@ -62,7 +63,7 @@ func (g *gitClient) Clone(ctx context.Context, url, path string) error {
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 
 	if err := g.runCommand(cmd); err != nil {
-		return fmt.Errorf("failed to clone repository: %w", err)
+		return appErrors.WrapWithContext(err, "clone repository")
 	}
 
 	return nil
@@ -73,7 +74,7 @@ func (g *gitClient) Checkout(ctx context.Context, repoPath, branch string) error
 	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", branch)
 
 	if err := g.runCommand(cmd); err != nil {
-		return fmt.Errorf("failed to checkout branch %s: %w", branch, err)
+		return appErrors.WrapWithContext(err, fmt.Sprintf("checkout branch %s", branch))
 	}
 
 	return nil
@@ -84,7 +85,7 @@ func (g *gitClient) CreateBranch(ctx context.Context, repoPath, branch string) e
 	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", branch)
 
 	if err := g.runCommand(cmd); err != nil {
-		return fmt.Errorf("failed to create branch %s: %w", branch, err)
+		return appErrors.WrapWithContext(err, fmt.Sprintf("create branch %s", branch))
 	}
 
 	return nil
@@ -98,7 +99,7 @@ func (g *gitClient) Add(ctx context.Context, repoPath string, paths ...string) e
 	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed
 
 	if err := g.runCommand(cmd); err != nil {
-		return fmt.Errorf("failed to add files: %w", err)
+		return appErrors.WrapWithContext(err, "add files")
 	}
 
 	return nil
@@ -117,7 +118,7 @@ func (g *gitClient) Commit(ctx context.Context, repoPath, message string) error 
 			strings.Contains(errStr, "nothing added to commit") {
 			return ErrNoChanges
 		}
-		return fmt.Errorf("failed to commit: %w", err)
+		return appErrors.WrapWithContext(err, "commit")
 	}
 
 	return nil
@@ -135,7 +136,7 @@ func (g *gitClient) Push(ctx context.Context, repoPath, remote, branch string, f
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 
 	if err := g.runCommand(cmd); err != nil {
-		return fmt.Errorf("failed to push: %w", err)
+		return appErrors.WrapWithContext(err, "push")
 	}
 
 	return nil
@@ -152,7 +153,7 @@ func (g *gitClient) Diff(ctx context.Context, repoPath string, staged bool) (str
 
 	output, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get diff: %w", err)
+		return "", appErrors.WrapWithContext(err, "get diff")
 	}
 
 	return string(output), nil
@@ -169,7 +170,7 @@ func (g *gitClient) GetCurrentBranch(ctx context.Context, repoPath string) (stri
 
 		output, err = cmd.Output()
 		if err != nil {
-			return "", fmt.Errorf("failed to get current branch: %w", err)
+			return "", appErrors.WrapWithContext(err, "get current branch")
 		}
 	}
 
@@ -182,7 +183,7 @@ func (g *gitClient) GetRemoteURL(ctx context.Context, repoPath, remote string) (
 
 	output, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get remote URL: %w", err)
+		return "", appErrors.WrapWithContext(err, "get remote URL")
 	}
 
 	return strings.TrimSpace(string(output)), nil

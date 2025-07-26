@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +51,7 @@ func TestBatchAddFiles(t *testing.T) {
 			}
 
 			// Create temporary git repository
-			tmpDir := t.TempDir()
+			tmpDir := testutil.CreateTempDir(t)
 			ctx := context.Background()
 
 			// Initialize git repo
@@ -81,8 +82,7 @@ func TestBatchAddFiles(t *testing.T) {
 			// Create test files
 			for _, file := range tt.files {
 				filePath := filepath.Join(tmpDir, file)
-				err2 := os.WriteFile(filePath, []byte("test content"), 0o600)
-				require.NoError(t, err2)
+				testutil.WriteTestFile(t, filePath, "test content")
 			}
 
 			// Test batch add
@@ -133,12 +133,11 @@ func TestBatchStatus(t *testing.T) {
 			setupFiles: func(t *testing.T, tmpDir string) {
 				// Create and commit file
 				filePath := filepath.Join(tmpDir, "file1.txt")
-				err := os.WriteFile(filePath, []byte("original content"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, filePath, "original content")
 
 				ctx := context.Background()
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
-				err = addCmd.Run()
+				err := addCmd.Run()
 				require.NoError(t, err)
 
 				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit")
@@ -146,8 +145,7 @@ func TestBatchStatus(t *testing.T) {
 				require.NoError(t, err)
 
 				// Modify the file
-				err = os.WriteFile(filePath, []byte("modified content"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, filePath, "modified content")
 			},
 			validate: func(t *testing.T, result map[string]string) {
 				require.Len(t, result, 1)
@@ -162,11 +160,10 @@ func TestBatchStatus(t *testing.T) {
 
 				// Create and commit file1
 				file1 := filepath.Join(tmpDir, "file1.txt")
-				err := os.WriteFile(file1, []byte("content1"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file1, "content1")
 
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
-				err = addCmd.Run()
+				err := addCmd.Run()
 				require.NoError(t, err)
 
 				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1")
@@ -174,13 +171,11 @@ func TestBatchStatus(t *testing.T) {
 				require.NoError(t, err)
 
 				// Modify file1
-				err = os.WriteFile(file1, []byte("modified content1"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file1, "modified content1")
 
 				// Create and stage file2
 				file2 := filepath.Join(tmpDir, "file2.txt")
-				err = os.WriteFile(file2, []byte("content2"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file2, "content2")
 
 				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file2.txt")
 				err = addCmd2.Run()
@@ -188,8 +183,7 @@ func TestBatchStatus(t *testing.T) {
 
 				// Create untracked file3
 				file3 := filepath.Join(tmpDir, "file3.txt")
-				err = os.WriteFile(file3, []byte("content3"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file3, "content3")
 			},
 			validate: func(t *testing.T, result map[string]string) {
 				require.Len(t, result, 3)
@@ -204,13 +198,11 @@ func TestBatchStatus(t *testing.T) {
 			setupFiles: func(t *testing.T, tmpDir string) {
 				// Create directory structure
 				dirPath := filepath.Join(tmpDir, "path", "to")
-				err := os.MkdirAll(dirPath, 0o750)
-				require.NoError(t, err)
+				testutil.CreateTestDirectory(t, dirPath)
 
 				// Create file with space in name
 				filePath := filepath.Join(dirPath, "my file.txt")
-				err = os.WriteFile(filePath, []byte("content with spaces"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, filePath, "content with spaces")
 			},
 			validate: func(t *testing.T, result map[string]string) {
 				// When specifying specific files with spaces, git might not return them
@@ -234,8 +226,7 @@ func TestBatchStatus(t *testing.T) {
 				for i := 0; i < 120; i++ {
 					fileName := fmt.Sprintf("file%d.txt", i+1)
 					filePath := filepath.Join(tmpDir, fileName)
-					err := os.WriteFile(filePath, []byte(fmt.Sprintf("content %d", i)), 0o600)
-					require.NoError(t, err)
+					testutil.WriteTestFileWithFormat(t, filePath, "content %d", i)
 				}
 			},
 			validate: func(t *testing.T, result map[string]string) {
@@ -255,7 +246,7 @@ func TestBatchStatus(t *testing.T) {
 			}
 
 			// Create temporary git repository
-			tmpDir := t.TempDir()
+			tmpDir := testutil.CreateTempDir(t)
 			ctx := context.Background()
 
 			// Initialize git repo
@@ -317,22 +308,19 @@ func TestBatchStatusAll(t *testing.T) {
 
 				// Create src directory
 				srcDir := filepath.Join(tmpDir, "src")
-				err := os.MkdirAll(srcDir, 0o750)
-				require.NoError(t, err)
+				testutil.CreateTestDirectory(t, srcDir)
 
 				// Create and commit main.go
 				mainFile := filepath.Join(srcDir, "main.go")
-				err = os.WriteFile(mainFile, []byte("package main"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, mainFile, "package main")
 
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "src/main.go")
-				err = addCmd.Run()
+				err := addCmd.Run()
 				require.NoError(t, err)
 
 				// Create and commit old.go to delete later
 				oldFile := filepath.Join(tmpDir, "old.go")
-				err = os.WriteFile(oldFile, []byte("package old"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, oldFile, "package old")
 
 				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "old.go")
 				err = addCmd2.Run()
@@ -343,13 +331,11 @@ func TestBatchStatusAll(t *testing.T) {
 				require.NoError(t, err)
 
 				// Modify main.go
-				err = os.WriteFile(mainFile, []byte("package main\n\nfunc main() {}"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, mainFile, "package main\n\nfunc main() {}")
 
 				// Add README.md
 				readmeFile := filepath.Join(tmpDir, "README.md")
-				err = os.WriteFile(readmeFile, []byte("# Test Repo"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, readmeFile, "# Test Repo")
 
 				addCmd3 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "README.md")
 				err = addCmd3.Run()
@@ -357,8 +343,7 @@ func TestBatchStatusAll(t *testing.T) {
 
 				// Create untracked temp.txt
 				tempFile := filepath.Join(tmpDir, "temp.txt")
-				err = os.WriteFile(tempFile, []byte("temporary"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, tempFile, "temporary")
 
 				// Delete old.go
 				rmCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "rm", "old.go")
@@ -380,16 +365,14 @@ func TestBatchStatusAll(t *testing.T) {
 
 				// Create and commit old-name.txt
 				oldFile := filepath.Join(tmpDir, "old-name.txt")
-				err := os.WriteFile(oldFile, []byte("content"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, oldFile, "content")
 
 				// Create and commit file.go
 				goFile := filepath.Join(tmpDir, "file.go")
-				err = os.WriteFile(goFile, []byte("package main"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, goFile, "package main")
 
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
-				err = addCmd.Run()
+				err := addCmd.Run()
 				require.NoError(t, err)
 
 				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit")
@@ -402,8 +385,7 @@ func TestBatchStatusAll(t *testing.T) {
 				require.NoError(t, err)
 
 				// Modify file.go
-				err = os.WriteFile(goFile, []byte("package main\n\nfunc main() {}"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, goFile, "package main\n\nfunc main() {}")
 			},
 			validate: func(t *testing.T, result map[string]string) {
 				require.Len(t, result, 2)
@@ -421,7 +403,7 @@ func TestBatchStatusAll(t *testing.T) {
 			}
 
 			// Create temporary git repository
-			tmpDir := t.TempDir()
+			tmpDir := testutil.CreateTempDir(t)
 			ctx := context.Background()
 
 			// Initialize git repo
@@ -489,15 +471,13 @@ func TestBatchDiffFiles(t *testing.T) {
 
 				// Create and commit files
 				file1 := filepath.Join(tmpDir, "file1.txt")
-				err := os.WriteFile(file1, []byte("original content 1"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file1, "original content 1")
 
 				file2 := filepath.Join(tmpDir, "file2.txt")
-				err = os.WriteFile(file2, []byte("original content 2"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file2, "original content 2")
 
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
-				err = addCmd.Run()
+				err := addCmd.Run()
 				require.NoError(t, err)
 
 				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit")
@@ -505,11 +485,9 @@ func TestBatchDiffFiles(t *testing.T) {
 				require.NoError(t, err)
 
 				// Modify the files
-				err = os.WriteFile(file1, []byte("modified content 1\nnew line"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file1, "modified content 1\nnew line")
 
-				err = os.WriteFile(file2, []byte("modified content 2"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file2, "modified content 2")
 			},
 			validate: func(t *testing.T, result map[string]string) {
 				require.Len(t, result, 2)
@@ -537,11 +515,10 @@ func TestBatchDiffFiles(t *testing.T) {
 
 				// Create and commit file1
 				file1 := filepath.Join(tmpDir, "file1.txt")
-				err := os.WriteFile(file1, []byte("original content 1"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file1, "original content 1")
 
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
-				err = addCmd.Run()
+				err := addCmd.Run()
 				require.NoError(t, err)
 
 				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1")
@@ -549,8 +526,7 @@ func TestBatchDiffFiles(t *testing.T) {
 				require.NoError(t, err)
 
 				// Modify file1 and stage it
-				err = os.WriteFile(file1, []byte("staged content 1"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file1, "staged content 1")
 
 				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
 				err = addCmd2.Run()
@@ -558,8 +534,7 @@ func TestBatchDiffFiles(t *testing.T) {
 
 				// Create new file2 and stage it
 				file2 := filepath.Join(tmpDir, "file2.txt")
-				err = os.WriteFile(file2, []byte("new file content"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file2, "new file content")
 
 				addCmd3 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file2.txt")
 				err = addCmd3.Run()
@@ -591,8 +566,7 @@ func TestBatchDiffFiles(t *testing.T) {
 				for i := 0; i < 60; i++ {
 					fileName := fmt.Sprintf("file%d.txt", i+1)
 					filePath := filepath.Join(tmpDir, fileName)
-					err := os.WriteFile(filePath, []byte(fmt.Sprintf("original content %d", i)), 0o600)
-					require.NoError(t, err)
+					testutil.WriteTestFileWithFormat(t, filePath, "original content %d", i)
 				}
 
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
@@ -607,8 +581,7 @@ func TestBatchDiffFiles(t *testing.T) {
 				for i := 0; i < 60; i++ {
 					fileName := fmt.Sprintf("file%d.txt", i+1)
 					filePath := filepath.Join(tmpDir, fileName)
-					err := os.WriteFile(filePath, []byte(fmt.Sprintf("modified content %d", i)), 0o600)
-					require.NoError(t, err)
+					testutil.WriteTestFileWithFormat(t, filePath, "modified content %d", i)
 				}
 			},
 			validate: func(t *testing.T, result map[string]string) {
@@ -633,19 +606,16 @@ func TestBatchDiffFiles(t *testing.T) {
 
 				// Create and commit files
 				modFile := filepath.Join(tmpDir, "modified.txt")
-				err := os.WriteFile(modFile, []byte("original"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, modFile, "original")
 
 				unchangedFile := filepath.Join(tmpDir, "unchanged.txt")
-				err = os.WriteFile(unchangedFile, []byte("no changes"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, unchangedFile, "no changes")
 
 				delFile := filepath.Join(tmpDir, "deleted.txt")
-				err = os.WriteFile(delFile, []byte("to be deleted"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, delFile, "to be deleted")
 
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
-				err = addCmd.Run()
+				err := addCmd.Run()
 				require.NoError(t, err)
 
 				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial")
@@ -653,8 +623,7 @@ func TestBatchDiffFiles(t *testing.T) {
 				require.NoError(t, err)
 
 				// Make changes
-				err = os.WriteFile(modFile, []byte("modified"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, modFile, "modified")
 
 				err = os.Remove(delFile)
 				require.NoError(t, err)
@@ -688,7 +657,7 @@ func TestBatchDiffFiles(t *testing.T) {
 			}
 
 			// Create temporary git repository
-			tmpDir := t.TempDir()
+			tmpDir := testutil.CreateTempDir(t)
 			ctx := context.Background()
 
 			// Initialize git repo
@@ -751,12 +720,10 @@ func TestBatchCheckIgnored(t *testing.T) {
 			setupFiles: func(t *testing.T, tmpDir string) {
 				// Create files without gitignore
 				file1 := filepath.Join(tmpDir, "file1.txt")
-				err := os.WriteFile(file1, []byte("content1"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file1, "content1")
 
 				file2 := filepath.Join(tmpDir, "file2.txt")
-				err = os.WriteFile(file2, []byte("content2"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file2, "content2")
 			},
 			validate: func(t *testing.T, result map[string]bool) {
 				require.Len(t, result, 2)
@@ -770,26 +737,21 @@ func TestBatchCheckIgnored(t *testing.T) {
 			setupFiles: func(t *testing.T, tmpDir string) {
 				// Create gitignore
 				gitignore := filepath.Join(tmpDir, ".gitignore")
-				err := os.WriteFile(gitignore, []byte(".DS_Store\nbuild/\n"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, gitignore, ".DS_Store\nbuild/\n")
 
 				// Create files
 				file1 := filepath.Join(tmpDir, "file1.txt")
-				err = os.WriteFile(file1, []byte("content1"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file1, "content1")
 
 				dsStore := filepath.Join(tmpDir, ".DS_Store")
-				err = os.WriteFile(dsStore, []byte("macos metadata"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, dsStore, "macos metadata")
 
 				// Create build directory and file
 				buildDir := filepath.Join(tmpDir, "build")
-				err = os.MkdirAll(buildDir, 0o750)
-				require.NoError(t, err)
+				testutil.CreateTestDirectory(t, buildDir)
 
 				buildFile := filepath.Join(buildDir, "output.txt")
-				err = os.WriteFile(buildFile, []byte("build output"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, buildFile, "build output")
 			},
 			validate: func(t *testing.T, result map[string]bool) {
 				require.Len(t, result, 3)
@@ -804,27 +766,22 @@ func TestBatchCheckIgnored(t *testing.T) {
 			setupFiles: func(t *testing.T, tmpDir string) {
 				// Create comprehensive gitignore
 				gitignore := filepath.Join(tmpDir, ".gitignore")
-				err := os.WriteFile(gitignore, []byte("node_modules/\n.env\n*.log\n"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, gitignore, "node_modules/\n.env\n*.log\n")
 
 				// Create node_modules directory and file
 				nodeDir := filepath.Join(tmpDir, "node_modules")
-				err = os.MkdirAll(nodeDir, 0o750)
-				require.NoError(t, err)
+				testutil.CreateTestDirectory(t, nodeDir)
 
 				nodeFile := filepath.Join(nodeDir, "index.js")
-				err = os.WriteFile(nodeFile, []byte("module.exports = {}"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, nodeFile, "module.exports = {}")
 
 				// Create .env file
 				envFile := filepath.Join(tmpDir, ".env")
-				err = os.WriteFile(envFile, []byte("SECRET=value"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, envFile, "SECRET=value")
 
 				// Create log file
 				logFile := filepath.Join(tmpDir, "debug.log")
-				err = os.WriteFile(logFile, []byte("debug info"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, logFile, "debug info")
 			},
 			validate: func(t *testing.T, result map[string]bool) {
 				require.Len(t, result, 3)
@@ -839,13 +796,11 @@ func TestBatchCheckIgnored(t *testing.T) {
 			setupFiles: func(t *testing.T, tmpDir string) {
 				// Create gitignore with patterns
 				gitignore := filepath.Join(tmpDir, ".gitignore")
-				err := os.WriteFile(gitignore, []byte("*.tmp\n*.bak\n"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, gitignore, "*.tmp\n*.bak\n")
 
 				// Create src directory
 				srcDir := filepath.Join(tmpDir, "src")
-				err = os.MkdirAll(srcDir, 0o750)
-				require.NoError(t, err)
+				testutil.CreateTestDirectory(t, srcDir)
 
 				// Create files
 				files := []string{
@@ -856,8 +811,7 @@ func TestBatchCheckIgnored(t *testing.T) {
 				}
 
 				for _, file := range files {
-					err := os.WriteFile(file, []byte("content"), 0o600)
-					require.NoError(t, err)
+					testutil.WriteTestFile(t, file, "content")
 				}
 			},
 			validate: func(t *testing.T, result map[string]bool) {
@@ -879,15 +833,13 @@ func TestBatchCheckIgnored(t *testing.T) {
 				}
 
 				gitignore := filepath.Join(tmpDir, ".gitignore")
-				err := os.WriteFile(gitignore, []byte(gitignoreContent.String()), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, gitignore, gitignoreContent.String())
 
 				// Create all files
 				for i := 0; i < 120; i++ {
 					fileName := fmt.Sprintf("file%d.txt", i+1)
 					filePath := filepath.Join(tmpDir, fileName)
-					err := os.WriteFile(filePath, []byte("content"), 0o600)
-					require.NoError(t, err)
+					testutil.WriteTestFile(t, filePath, "content")
 				}
 			},
 			validate: func(t *testing.T, result map[string]bool) {
@@ -913,7 +865,7 @@ func TestBatchCheckIgnored(t *testing.T) {
 			}
 
 			// Create temporary git repository
-			tmpDir := t.TempDir()
+			tmpDir := testutil.CreateTempDir(t)
 			ctx := context.Background()
 
 			// Initialize git repo
@@ -981,11 +933,10 @@ func TestBatchRemoveFiles(t *testing.T) {
 
 				// Create and commit file
 				file1 := filepath.Join(tmpDir, "file1.txt")
-				err := os.WriteFile(file1, []byte("content1"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file1, "content1")
 
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
-				err = addCmd.Run()
+				err := addCmd.Run()
 				require.NoError(t, err)
 
 				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1")
@@ -1016,15 +967,13 @@ func TestBatchRemoveFiles(t *testing.T) {
 
 				// Create and commit files
 				file1 := filepath.Join(tmpDir, "file1.txt")
-				err := os.WriteFile(file1, []byte("content1"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file1, "content1")
 
 				file2 := filepath.Join(tmpDir, "file2.txt")
-				err = os.WriteFile(file2, []byte("content2"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, file2, "content2")
 
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
-				err = addCmd.Run()
+				err := addCmd.Run()
 				require.NoError(t, err)
 
 				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add files")
@@ -1084,29 +1033,24 @@ func TestBatchRemoveFiles(t *testing.T) {
 
 				// Create directory structure
 				srcDir := filepath.Join(tmpDir, "src")
-				err := os.MkdirAll(srcDir, 0o750)
-				require.NoError(t, err)
+				testutil.CreateTestDirectory(t, srcDir)
 
 				testDir := filepath.Join(tmpDir, "test")
-				err = os.MkdirAll(testDir, 0o750)
-				require.NoError(t, err)
+				testutil.CreateTestDirectory(t, testDir)
 
 				// Create files
 				mainFile := filepath.Join(srcDir, "main.go")
-				err = os.WriteFile(mainFile, []byte("package main"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, mainFile, "package main")
 
 				testFile := filepath.Join(testDir, "test.go")
-				err = os.WriteFile(testFile, []byte("package test"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, testFile, "package test")
 
 				readmeFile := filepath.Join(tmpDir, "README.md")
-				err = os.WriteFile(readmeFile, []byte("# Test"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, readmeFile, "# Test")
 
 				// Add and commit all files
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
-				err = addCmd.Run()
+				err := addCmd.Run()
 				require.NoError(t, err)
 
 				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add files")
@@ -1151,8 +1095,7 @@ func TestBatchRemoveFiles(t *testing.T) {
 				for i := 0; i < 120; i++ {
 					fileName := fmt.Sprintf("file%d.txt", i+1)
 					filePath := filepath.Join(tmpDir, fileName)
-					err := os.WriteFile(filePath, []byte(fmt.Sprintf("content %d", i)), 0o600)
-					require.NoError(t, err)
+					testutil.WriteTestFileWithFormat(t, filePath, "content %d", i)
 				}
 
 				// Add and commit all files
@@ -1201,11 +1144,10 @@ func TestBatchRemoveFiles(t *testing.T) {
 
 				// Create a dummy file to have a non-empty repo
 				dummyFile := filepath.Join(tmpDir, "dummy.txt")
-				err := os.WriteFile(dummyFile, []byte("dummy"), 0o600)
-				require.NoError(t, err)
+				testutil.WriteTestFile(t, dummyFile, "dummy")
 
 				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "dummy.txt")
-				err = addCmd.Run()
+				err := addCmd.Run()
 				require.NoError(t, err)
 
 				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial")
@@ -1224,7 +1166,7 @@ func TestBatchRemoveFiles(t *testing.T) {
 			}
 
 			// Create temporary git repository
-			tmpDir := t.TempDir()
+			tmpDir := testutil.CreateTempDir(t)
 			ctx := context.Background()
 
 			// Initialize git repo

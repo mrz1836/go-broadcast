@@ -29,10 +29,9 @@ func BenchmarkGHCommand_Simple(b *testing.B) {
 	}
 	mockClient.On("GetBranch", mock.Anything, mock.Anything, mock.Anything).Return(branch, nil)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		_, _ = mockClient.GetBranch(ctx, "user/repo", "main")
-	}
+	})
 }
 
 func BenchmarkListBranches_Sizes(b *testing.B) {
@@ -55,10 +54,9 @@ func BenchmarkListBranches_Sizes(b *testing.B) {
 			branches := generateTestBranches(size.count)
 			mockClient.On("ListBranches", mock.Anything, mock.Anything).Return(branches, nil)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_, _ = mockClient.ListBranches(ctx, "user/repo")
-			}
+			})
 		})
 	}
 }
@@ -79,11 +77,10 @@ func BenchmarkParseJSON_Sizes(b *testing.B) {
 			// Generate JSON response data
 			data := benchmark.GenerateJSONResponse(size.itemCount)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				var result []interface{}
 				_ = json.Unmarshal(data, &result)
-			}
+			})
 		})
 	}
 }
@@ -106,10 +103,9 @@ func BenchmarkDecodeBase64_Sizes(b *testing.B) {
 			}
 			mockClient.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fileContent, nil)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_, _ = mockClient.GetFile(ctx, "user/repo", "test/file.txt", "main")
-			}
+			})
 		})
 	}
 }
@@ -150,10 +146,9 @@ func BenchmarkPROperations_Scenarios(b *testing.B) {
 
 			setupMockForPROperation(mockClient, op.name)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_ = op.fn(mockClient, ctx)
-			}
+			})
 		})
 	}
 }
@@ -203,10 +198,9 @@ func BenchmarkFileOperations_Sizes(b *testing.B) {
 			}
 			mockClient.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fileContent, nil)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_, _ = mockClient.GetFile(ctx, "user/repo", "test/large-file.txt", "main")
-			}
+			})
 		})
 	}
 }
@@ -233,12 +227,11 @@ func BenchmarkCommitOperations(b *testing.B) {
 				mockClient.On("GetCommit", mock.Anything, mock.Anything, commit.SHA).Return(commit, nil)
 			}
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				for _, commit := range commits {
 					_, _ = mockClient.GetCommit(ctx, "user/repo", commit.SHA)
 				}
-			}
+			})
 		})
 	}
 }
@@ -261,16 +254,14 @@ func BenchmarkJSONSerialization_ComplexStructures(b *testing.B) {
 
 	for _, structure := range structures {
 		b.Run(structure.name+"_Marshal", func(b *testing.B) {
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_, _ = json.Marshal(structure.data)
-			}
+			})
 		})
 
 		b.Run(structure.name+"_Unmarshal", func(b *testing.B) {
 			data, _ := json.Marshal(structure.data)
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				switch structure.name {
 				case "Branch":
 					var branch Branch
@@ -285,7 +276,7 @@ func BenchmarkJSONSerialization_ComplexStructures(b *testing.B) {
 					var fileContent FileContent
 					_ = json.Unmarshal(data, &fileContent)
 				}
-			}
+			})
 		})
 	}
 }

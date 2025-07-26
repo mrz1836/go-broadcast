@@ -10,7 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/benchmark"
 	"github.com/mrz1836/go-broadcast/internal/logging"
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/mrz1836/go-broadcast/internal/worker"
 	"github.com/sirupsen/logrus"
 )
@@ -29,11 +31,36 @@ func (t *gitTask) Name() string {
 	return t.name
 }
 
+// writeBenchmarkFile creates a single test file for benchmark usage
+func writeBenchmarkFile(b *testing.B, filePath, content string) error {
+	b.Helper()
+	return os.WriteFile(filePath, []byte(content), 0o600)
+}
+
+// createBenchmarkTestFiles creates multiple test files with "test_file_" pattern for benchmark usage
+func createBenchmarkTestFiles(b *testing.B, dir string, count int) []string {
+	b.Helper()
+
+	files := make([]string, count)
+	for i := 0; i < count; i++ {
+		fileName := fmt.Sprintf("test_file_%d.txt", i)
+		filePath := filepath.Join(dir, fileName)
+		content := fmt.Sprintf("Test content for file %d\n", i)
+
+		err := os.WriteFile(filePath, []byte(content), 0o600)
+		if err != nil {
+			b.Fatalf("failed to create test file %s: %v", filePath, err)
+		}
+		files[i] = filePath
+	}
+	return files
+}
+
 // setupTestRepo creates a temporary git repository for testing
 func setupTestRepo(ctx context.Context, b *testing.B) (string, Client, func()) {
 	b.Helper()
 
-	tmpDir := b.TempDir()
+	tmpDir := benchmark.SetupBenchmarkRepo(b)
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	logger := logrus.New()
@@ -101,13 +128,7 @@ func BenchmarkConcurrentGitOperations(b *testing.B) {
 			defer cleanup()
 
 			// Create test files for each repo operation
-			for i := 0; i < scenario.repos; i++ {
-				testFile := filepath.Join(repoPath, fmt.Sprintf("test_file_%d.txt", i))
-				content := fmt.Sprintf("Test content for file %d\n", i)
-				if err := os.WriteFile(testFile, []byte(content), 0o600); err != nil {
-					b.Fatalf("Failed to create test file: %v", err)
-				}
-			}
+			createBenchmarkTestFiles(b, repoPath, scenario.repos)
 
 			b.ResetTimer()
 
@@ -144,7 +165,8 @@ func BenchmarkConcurrentGitOperations(b *testing.B) {
 								// Add a unique file first
 								fileName := fmt.Sprintf("commit_file_%d_%d.txt", i, j)
 								filePath := filepath.Join(repoPath, fileName)
-								if err := os.WriteFile(filePath, []byte(fmt.Sprintf("commit content %d", j)), 0o600); err != nil {
+								content := fmt.Sprintf("commit content %d", j)
+								if err := writeBenchmarkFile(b, filePath, content); err != nil {
 									return fmt.Errorf("failed to write file: %w", err)
 								}
 
@@ -199,15 +221,10 @@ func BenchmarkBatchOperations(b *testing.B) {
 			defer cleanup()
 
 			// Create test files
+			filePaths := testutil.CreateBenchmarkFiles(b, repoPath, fileCount)
 			var files []string
-			for i := 0; i < fileCount; i++ {
-				fileName := fmt.Sprintf("batch_file_%d.txt", i)
-				filePath := filepath.Join(repoPath, fileName)
-				content := fmt.Sprintf("Content for batch file %d", i)
-				if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
-					b.Fatalf("Failed to create test file: %v", err)
-				}
-				files = append(files, fileName)
+			for _, filePath := range filePaths {
+				files = append(files, filepath.Base(filePath))
 			}
 
 			batchClient := client.(BatchClient)
@@ -227,15 +244,10 @@ func BenchmarkBatchOperations(b *testing.B) {
 			defer cleanup()
 
 			// Create and add test files
+			filePaths := testutil.CreateBenchmarkFiles(b, repoPath, fileCount)
 			var files []string
-			for i := 0; i < fileCount; i++ {
-				fileName := fmt.Sprintf("status_file_%d.txt", i)
-				filePath := filepath.Join(repoPath, fileName)
-				content := fmt.Sprintf("Content for status file %d", i)
-				if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
-					b.Fatalf("Failed to create test file: %v", err)
-				}
-				files = append(files, fileName)
+			for _, filePath := range filePaths {
+				files = append(files, filepath.Base(filePath))
 			}
 
 			batchClient := client.(BatchClient)
@@ -267,14 +279,7 @@ func BenchmarkConcurrentVsSequential(b *testing.B) {
 				repoPath, client, cleanup := setupTestRepo(ctx, b)
 
 				// Create files
-				for file := 0; file < fileCount; file++ {
-					fileName := fmt.Sprintf("file_%d.txt", file)
-					filePath := filepath.Join(repoPath, fileName)
-					content := fmt.Sprintf("Content %d", file)
-					if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
-						b.Fatalf("Failed to write file: %v", err)
-					}
-				}
+				testutil.CreateBenchmarkFiles(b, repoPath, fileCount)
 
 				// Add files
 				for file := 0; file < fileCount; file++ {
@@ -303,7 +308,6 @@ func BenchmarkConcurrentVsSequential(b *testing.B) {
 			// Create tasks for each repo
 			var tasks []worker.Task
 			for repo := 0; repo < repoCount; repo++ {
-				repoIndex := repo
 				task := &gitTask{
 					name: fmt.Sprintf("repo_operation_%d", repo),
 					operation: func(ctx context.Context) error {
@@ -311,14 +315,9 @@ func BenchmarkConcurrentVsSequential(b *testing.B) {
 						defer cleanup()
 
 						// Create and add files
-						for file := 0; file < fileCount; file++ {
-							fileName := fmt.Sprintf("file_%d_%d.txt", repoIndex, file)
-							filePath := filepath.Join(repoPath, fileName)
-							content := fmt.Sprintf("Content %d %d", repoIndex, file)
-							if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
-								return err
-							}
-
+						filePaths := testutil.CreateBenchmarkFiles(b, repoPath, fileCount)
+						for _, filePath := range filePaths {
+							fileName := filepath.Base(filePath)
 							if err := client.Add(ctx, repoPath, fileName); err != nil {
 								return err
 							}
@@ -369,20 +368,15 @@ func BenchmarkGitOperationScaling(b *testing.B) {
 				// Create git operation tasks
 				var tasks []worker.Task
 				for j := 0; j < operationCount; j++ {
-					opIndex := j
 					task := &gitTask{
 						name: fmt.Sprintf("git_op_%d", j),
 						operation: func(ctx context.Context) error {
 							repoPath, client, cleanup := setupTestRepo(ctx, b)
 							defer cleanup()
 
-							// Create a file
-							fileName := fmt.Sprintf("scale_file_%d.txt", opIndex)
-							filePath := filepath.Join(repoPath, fileName)
-							content := fmt.Sprintf("Scale test content %d", opIndex)
-							if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
-								return err
-							}
+							// Create a file using testutil
+							filePaths := testutil.CreateBenchmarkFiles(b, repoPath, 1)
+							fileName := filepath.Base(filePaths[0])
 
 							// Add and get status
 							if err := client.Add(ctx, repoPath, fileName); err != nil {

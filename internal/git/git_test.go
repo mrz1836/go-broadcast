@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/mrz1836/go-broadcast/internal/logging"
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,7 +40,7 @@ func TestGitClient_Clone(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateTempDir(t)
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	// Clone a small public repository
@@ -60,11 +61,11 @@ func TestGitClient_Clone_AlreadyExists(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateTempDir(t)
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	// Create directory first
-	err = os.MkdirAll(repoPath, 0o700)
+	testutil.CreateTestDirectory(t, repoPath)
 	require.NoError(t, err)
 
 	// Try to clone into existing directory
@@ -82,7 +83,7 @@ func TestGitClient_Operations(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateTempDir(t)
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	// Initialize a new repository
@@ -108,8 +109,7 @@ func TestGitClient_Operations(t *testing.T) {
 
 	// Create a test file
 	testFile := filepath.Join(repoPath, "test.txt")
-	err = os.WriteFile(testFile, []byte("test content"), 0o600)
-	require.NoError(t, err)
+	testutil.WriteTestFile(t, testFile, "test content")
 
 	// Add the file
 	err = client.Add(ctx, repoPath, "test.txt")
@@ -154,7 +154,7 @@ func TestGitClient_GetRemoteURL(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateTempDir(t)
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	// Clone a repository with a remote
@@ -191,7 +191,7 @@ func TestGitClient_Push(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateTempDir(t)
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	// Initialize a test repository
@@ -203,8 +203,7 @@ func TestGitClient_Push(t *testing.T) {
 
 	// Create initial commit
 	testFile := filepath.Join(repoPath, "README.md")
-	err = os.WriteFile(testFile, []byte("# Test Repo"), 0o600)
-	require.NoError(t, err)
+	testutil.WriteTestFile(t, testFile, "# Test Repo")
 
 	err = client.Add(ctx, repoPath, "README.md")
 	require.NoError(t, err)
@@ -233,7 +232,7 @@ func TestGitClient_GetCurrentBranch_AlternativeMethod(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateTempDir(t)
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	// Initialize repository
@@ -245,8 +244,7 @@ func TestGitClient_GetCurrentBranch_AlternativeMethod(t *testing.T) {
 
 	// Create initial commit
 	testFile := filepath.Join(repoPath, "test.txt")
-	err = os.WriteFile(testFile, []byte("test"), 0o600)
-	require.NoError(t, err)
+	testutil.WriteTestFile(t, testFile, "test")
 
 	err = client.Add(ctx, repoPath, "test.txt")
 	require.NoError(t, err)
@@ -412,7 +410,7 @@ func TestGitClient_RunCommandNotARepository(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateTempDir(t)
 
 	// Try to run git command in directory that's not a repository
 	err = client.Checkout(ctx, tmpDir, "main")
@@ -539,7 +537,7 @@ func TestGitClient_RunCommandWithDebugLogging(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateTempDir(t)
 	repoPath := filepath.Join(tmpDir, "debug-test-repo")
 
 	// Initialize repository to test debug logging
@@ -566,7 +564,7 @@ func TestGitClient_CommitNoChangesVariations(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateTempDir(t)
 	repoPath := filepath.Join(tmpDir, "no-changes-repo")
 
 	// Initialize repository
@@ -579,8 +577,7 @@ func TestGitClient_CommitNoChangesVariations(t *testing.T) {
 
 	// Create and commit initial file
 	testFile := filepath.Join(repoPath, "test.txt")
-	err = os.WriteFile(testFile, []byte("initial content"), 0o600)
-	require.NoError(t, err)
+	testutil.WriteTestFile(t, testFile, "initial content")
 
 	err = client.Add(ctx, repoPath, "test.txt")
 	require.NoError(t, err)
