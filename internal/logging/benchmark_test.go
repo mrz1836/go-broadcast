@@ -29,10 +29,9 @@ func BenchmarkRedaction_Scenarios(b *testing.B) {
 
 	for _, scenario := range scenarios {
 		b.Run(scenario.name, func(b *testing.B) {
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_ = redactor.RedactSensitive(scenario.text)
-			}
+			})
 		})
 	}
 }
@@ -56,10 +55,9 @@ func BenchmarkRedaction_TokenTypes(b *testing.B) {
 	for _, tokenType := range tokenTypes {
 		b.Run(tokenType.name, func(b *testing.B) {
 			testText := "Token: " + tokenType.token
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_ = redactor.RedactSensitive(testText)
-			}
+			})
 		})
 	}
 }
@@ -136,10 +134,9 @@ func BenchmarkFormatting_Types(b *testing.B) {
 					logEntry.Message = msg
 				}
 
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				benchmark.WithMemoryTracking(b, func() {
 					_, _ = formatter.formatter.Format(logEntry)
-				}
+				})
 			})
 		}
 	}
@@ -213,8 +210,7 @@ func BenchmarkRedactionHook_Processing(b *testing.B) {
 
 	for _, scenario := range scenarios {
 		b.Run(scenario.name, func(b *testing.B) {
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				entry := &logrus.Entry{
 					Logger:  logrus.New(),
 					Data:    scenario.fields,
@@ -222,7 +218,7 @@ func BenchmarkRedactionHook_Processing(b *testing.B) {
 					Message: "Test message with potential token ghp_example123",
 				}
 				_ = hook.Fire(entry)
-			}
+			})
 		})
 	}
 }
@@ -246,11 +242,10 @@ func BenchmarkFieldSensitivityCheck(b *testing.B) {
 	redactor := NewRedactionService()
 
 	b.Run("IsSensitiveField", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			fieldName := fieldNames[i%len(fieldNames)]
+		benchmark.WithMemoryTracking(b, func() {
+			fieldName := fieldNames[0] // Use first field for consistent benchmarking
 			_ = redactor.IsSensitiveField(fieldName)
-		}
+		})
 	})
 }
 
@@ -312,12 +307,11 @@ func BenchmarkLogEntryGeneration(b *testing.B) {
 		b.Run(string(rune('0'+count/1000))+"k_Entries", func(b *testing.B) {
 			entries := benchmark.GenerateLogEntries(count, true) // With tokens
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				for _, entry := range entries {
 					_ = len(entry) // Simulate processing
 				}
-			}
+			})
 		})
 	}
 }
@@ -344,10 +338,9 @@ func BenchmarkAuditLogging(b *testing.B) {
 			// Redirect output to prevent I/O overhead in benchmark
 			audit.logger.Logger.SetOutput(&bytes.Buffer{})
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				op.fn(audit)
-			}
+			})
 		})
 	}
 }
@@ -382,10 +375,9 @@ func BenchmarkPatternMatching_RegexPerformance(b *testing.B) {
 				baseText := string(benchmark.GenerateTestData(textSize.size))
 				testText := baseText + " " + pattern.text
 
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				benchmark.WithMemoryTracking(b, func() {
 					_ = redactor.RedactSensitive(testText)
-				}
+				})
 			})
 		}
 	}

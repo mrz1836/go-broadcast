@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -531,7 +532,7 @@ func TestCreateSyncEngineWithLogConfig(t *testing.T) {
 // TestSyncCommandIntegration tests sync command as configured
 func TestSyncCommandIntegration(t *testing.T) {
 	// Create a test directory
-	testDir := t.TempDir()
+	testDir := testutil.CreateTempDir(t)
 	configPath := filepath.Join(testDir, "sync.yaml")
 
 	// Create a minimal valid config
@@ -545,7 +546,7 @@ targets:
       - src: README.md
         dest: README.md`
 
-	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o600))
+	testutil.WriteTestFile(t, configPath, configContent)
 
 	// Test that command is properly wired
 	cmd := syncCmd

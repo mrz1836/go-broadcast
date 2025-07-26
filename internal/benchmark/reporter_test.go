@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -93,7 +94,7 @@ func TestCreateBaselineReport(t *testing.T) {
 }
 
 func TestSaveAndLoadBaseline(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 
 	tests := []struct {
 		name     string
@@ -183,14 +184,13 @@ func TestLoadBaselineFileNotFound(t *testing.T) {
 }
 
 func TestLoadBaselineInvalidJSON(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 	invalidFile := filepath.Join(tempDir, "invalid.json")
 
 	// Create file with invalid JSON
-	err := os.WriteFile(invalidFile, []byte("invalid json content"), 0o600)
-	require.NoError(t, err)
+	testutil.WriteTestFile(t, invalidFile, "invalid json content")
 
-	_, err = LoadBaseline(invalidFile)
+	_, err := LoadBaseline(invalidFile)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to unmarshal baseline")
 }
@@ -456,7 +456,7 @@ func TestReporterHelperFunctions(t *testing.T) {
 }
 
 func TestSaveBaselinePermissions(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 	filename := filepath.Join(tempDir, "permissions_test.json")
 
 	report := BaselineReport{

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -173,7 +174,7 @@ func TestNewStreamProcessorWithConfig(t *testing.T) {
 }
 
 func TestStreamProcessorProcessFile(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 
 	tests := []struct {
 		name            string
@@ -226,8 +227,7 @@ func TestStreamProcessorProcessFile(t *testing.T) {
 			inputFile := filepath.Join(tempDir, "input_"+tt.name+".txt")
 			outputFile := filepath.Join(tempDir, "output_"+tt.name+".txt")
 
-			err := os.WriteFile(inputFile, []byte(tt.fileContent), 0o600)
-			require.NoError(t, err)
+			testutil.WriteTestFile(t, inputFile, tt.fileContent)
 
 			// Create processor
 			var processor *StreamProcessor
@@ -239,7 +239,7 @@ func TestStreamProcessorProcessFile(t *testing.T) {
 
 			// Process file
 			ctx := context.Background()
-			err = processor.ProcessFile(ctx, inputFile, outputFile, tt.transform)
+			err := processor.ProcessFile(ctx, inputFile, outputFile, tt.transform)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -277,7 +277,7 @@ func TestStreamProcessorProcessFile(t *testing.T) {
 }
 
 func TestStreamProcessorProcessFileErrors(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 	processor := NewStreamProcessor()
 	ctx := context.Background()
 
@@ -303,11 +303,10 @@ func TestStreamProcessorProcessFileErrors(t *testing.T) {
 
 		// Create a small file to trigger in-memory processing
 		inputFile := filepath.Join(tempDir, "small.txt")
-		err := os.WriteFile(inputFile, []byte("test"), 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, inputFile, "test")
 
 		// Force the processor to use the invalid path internally
-		err = processor.processFileInMemory(ctx, invalidPath, outputFile, func(data []byte) ([]byte, error) {
+		err := processor.processFileInMemory(ctx, invalidPath, outputFile, func(data []byte) ([]byte, error) {
 			return data, nil
 		}, 4)
 
@@ -317,12 +316,11 @@ func TestStreamProcessorProcessFileErrors(t *testing.T) {
 
 	t.Run("InvalidOutputPath", func(t *testing.T) {
 		inputFile := filepath.Join(tempDir, "input.txt")
-		err := os.WriteFile(inputFile, []byte("test"), 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, inputFile, "test")
 
 		invalidOutputPath := "../../../tmp/output.txt"
 
-		err = processor.ProcessFile(ctx, inputFile, invalidOutputPath, func(data []byte) ([]byte, error) {
+		err := processor.ProcessFile(ctx, inputFile, invalidOutputPath, func(data []byte) ([]byte, error) {
 			return data, nil
 		})
 
@@ -332,15 +330,14 @@ func TestStreamProcessorProcessFileErrors(t *testing.T) {
 }
 
 func TestStreamProcessorProcessFileContext(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 	processor := NewStreamProcessorWithConfig(1024, 100, DefaultBufferTimeout) // Force streaming
 
 	// Create a large file
 	inputFile := filepath.Join(tempDir, "large.txt")
 	outputFile := filepath.Join(tempDir, "output.txt")
 	largeContent := strings.Repeat("test content that will trigger streaming mode ", 1000)
-	err := os.WriteFile(inputFile, []byte(largeContent), 0o600)
-	require.NoError(t, err)
+	testutil.WriteTestFile(t, inputFile, largeContent)
 
 	t.Run("ContextCancellation", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -372,7 +369,7 @@ func TestStreamProcessorProcessFileContext(t *testing.T) {
 }
 
 func TestStreamProcessorProcessLargeJSON(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 	processor := NewStreamProcessor()
 	ctx := context.Background()
 
@@ -387,8 +384,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		jsonFile := filepath.Join(tempDir, "array.json")
 		data, err := json.Marshal(testData)
 		require.NoError(t, err)
-		err = os.WriteFile(jsonFile, data, 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, jsonFile, string(data))
 
 		// Process JSON
 		var processedItems []interface{}
@@ -397,8 +393,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 			return nil
 		}
 
-		err = processor.ProcessLargeJSON(ctx, jsonFile, handler)
-		require.NoError(t, err)
+		_ = processor.ProcessLargeJSON(ctx, jsonFile, handler)
 		require.Len(t, processedItems, 3)
 
 		// Verify first item
@@ -419,8 +414,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		jsonFile := filepath.Join(tempDir, "object.json")
 		data, err := json.Marshal(testData)
 		require.NoError(t, err)
-		err = os.WriteFile(jsonFile, data, 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, jsonFile, string(data))
 
 		// Process JSON
 		var processedProperties []map[string]interface{}
@@ -431,8 +425,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 			return nil
 		}
 
-		err = processor.ProcessLargeJSON(ctx, jsonFile, handler)
-		require.NoError(t, err)
+		_ = processor.ProcessLargeJSON(ctx, jsonFile, handler)
 		require.Len(t, processedProperties, 3)
 
 		// Verify that all properties were processed
@@ -449,28 +442,26 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 
 	t.Run("InvalidJSON", func(t *testing.T) {
 		jsonFile := filepath.Join(tempDir, "invalid.json")
-		err := os.WriteFile(jsonFile, []byte("invalid json content"), 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, jsonFile, "invalid json content")
 
 		handler := func(_ interface{}) error {
 			return nil
 		}
 
-		err = processor.ProcessLargeJSON(ctx, jsonFile, handler)
+		err := processor.ProcessLargeJSON(ctx, jsonFile, handler)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to read JSON opening token")
 	})
 
 	t.Run("InvalidJSONStructure", func(t *testing.T) {
 		jsonFile := filepath.Join(tempDir, "invalid_structure.json")
-		err := os.WriteFile(jsonFile, []byte("\"just a string\""), 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, jsonFile, "\"just a string\"")
 
 		handler := func(_ interface{}) error {
 			return nil
 		}
 
-		err = processor.ProcessLargeJSON(ctx, jsonFile, handler)
+		err := processor.ProcessLargeJSON(ctx, jsonFile, handler)
 		require.Error(t, err)
 		require.ErrorIs(t, err, ErrInvalidJSONStructure)
 	})
@@ -483,8 +474,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		jsonFile := filepath.Join(tempDir, "handler_error.json")
 		data, err := json.Marshal(testData)
 		require.NoError(t, err)
-		err = os.WriteFile(jsonFile, data, 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, jsonFile, string(data))
 
 		handler := func(_ interface{}) error {
 			return errHandlerFailed
@@ -505,8 +495,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		jsonFile := filepath.Join(tempDir, "large_array.json")
 		data, err := json.Marshal(testData)
 		require.NoError(t, err)
-		err = os.WriteFile(jsonFile, data, 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, jsonFile, string(data))
 
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		processedCount := 0
@@ -602,7 +591,7 @@ func TestNewBatchFileProcessor(t *testing.T) {
 }
 
 func TestBatchFileProcessorProcessBatch(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 	processor := NewStreamProcessor()
 	bfp := NewBatchFileProcessor(processor, 2, time.Minute) // Small batch size for testing
 	ctx := context.Background()
@@ -616,8 +605,7 @@ func TestBatchFileProcessorProcessBatch(t *testing.T) {
 		inputFile := filepath.Join(tempDir, "single_input.txt")
 		outputFile := filepath.Join(tempDir, "single_output.txt")
 
-		err := os.WriteFile(inputFile, []byte("test content"), 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, inputFile, "test content")
 
 		operations := []FileOperation{
 			{
@@ -629,7 +617,7 @@ func TestBatchFileProcessorProcessBatch(t *testing.T) {
 			},
 		}
 
-		err = bfp.ProcessBatch(ctx, operations)
+		err := bfp.ProcessBatch(ctx, operations)
 		require.NoError(t, err)
 
 		// Verify output
@@ -646,8 +634,7 @@ func TestBatchFileProcessorProcessBatch(t *testing.T) {
 			outputFile := filepath.Join(tempDir, fmt.Sprintf("batch_output_%d.txt", i))
 
 			content := fmt.Sprintf("content %d", i)
-			err := os.WriteFile(inputFile, []byte(content), 0o600)
-			require.NoError(t, err)
+			testutil.WriteTestFile(t, inputFile, content)
 
 			operations[i] = FileOperation{
 				InputPath:  inputFile,
@@ -673,8 +660,7 @@ func TestBatchFileProcessorProcessBatch(t *testing.T) {
 		inputFile := filepath.Join(tempDir, "error_input.txt")
 		outputFile := filepath.Join(tempDir, "error_output.txt")
 
-		err := os.WriteFile(inputFile, []byte("test"), 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, inputFile, "test")
 
 		operations := []FileOperation{
 			{
@@ -686,7 +672,7 @@ func TestBatchFileProcessorProcessBatch(t *testing.T) {
 			},
 		}
 
-		err = bfp.ProcessBatch(ctx, operations)
+		err := bfp.ProcessBatch(ctx, operations)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "batch processing failed")
 		require.Contains(t, err.Error(), "transform error")
@@ -699,8 +685,7 @@ func TestBatchFileProcessorProcessBatch(t *testing.T) {
 		inputFile := filepath.Join(tempDir, "slow_input.txt")
 		outputFile := filepath.Join(tempDir, "slow_output.txt")
 
-		err := os.WriteFile(inputFile, []byte("test"), 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, inputFile, "test")
 
 		operations := []FileOperation{
 			{
@@ -718,7 +703,7 @@ func TestBatchFileProcessorProcessBatch(t *testing.T) {
 			cancel()
 		}()
 
-		err = bfp.ProcessBatch(ctx, operations)
+		err := bfp.ProcessBatch(ctx, operations)
 		require.Error(t, err)
 		require.Equal(t, context.Canceled, err)
 	})
@@ -727,7 +712,7 @@ func TestBatchFileProcessorProcessBatch(t *testing.T) {
 func TestStreamProcessorStats(t *testing.T) {
 	processor := NewStreamProcessor()
 	ctx := context.Background()
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 
 	// Initially stats should be zero
 	stats := processor.GetStats()
@@ -742,10 +727,9 @@ func TestStreamProcessorStats(t *testing.T) {
 	// Process a small file (in-memory)
 	smallFile := filepath.Join(tempDir, "small.txt")
 	smallOutput := filepath.Join(tempDir, "small_out.txt")
-	err := os.WriteFile(smallFile, []byte("small content"), 0o600)
-	require.NoError(t, err)
+	testutil.WriteTestFile(t, smallFile, "small content")
 
-	err = processor.ProcessFile(ctx, smallFile, smallOutput, func(data []byte) ([]byte, error) {
+	err := processor.ProcessFile(ctx, smallFile, smallOutput, func(data []byte) ([]byte, error) {
 		return data, nil
 	})
 	require.NoError(t, err)
@@ -762,13 +746,11 @@ func TestStreamProcessorStats(t *testing.T) {
 	largeFile := filepath.Join(tempDir, "large.txt")
 	largeOutput := filepath.Join(tempDir, "large_out.txt")
 	largeContent := strings.Repeat("large content ", 100)
-	err = os.WriteFile(largeFile, []byte(largeContent), 0o600)
-	require.NoError(t, err)
+	testutil.WriteTestFile(t, largeFile, largeContent)
 
-	err = streamingProcessor.ProcessFile(ctx, largeFile, largeOutput, func(data []byte) ([]byte, error) {
+	_ = streamingProcessor.ProcessFile(ctx, largeFile, largeOutput, func(data []byte) ([]byte, error) {
 		return data, nil
 	})
-	require.NoError(t, err)
 
 	streamingStats := streamingProcessor.GetStats()
 	require.Equal(t, int64(1), streamingStats.FilesProcessed)
@@ -793,7 +775,7 @@ func TestStreamProcessorStats(t *testing.T) {
 func TestStreamProcessorConcurrency(t *testing.T) {
 	processor := NewStreamProcessor()
 	ctx := context.Background()
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 
 	// Create test files
 	const numFiles = 10
@@ -805,8 +787,7 @@ func TestStreamProcessorConcurrency(t *testing.T) {
 		outputFile := filepath.Join(tempDir, fmt.Sprintf("concurrent_output_%d.txt", i))
 
 		content := fmt.Sprintf("content for file %d", i)
-		err := os.WriteFile(inputFile, []byte(content), 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, inputFile, content)
 
 		inputFiles[i] = inputFile
 		outputFiles[i] = outputFile
@@ -844,7 +825,7 @@ func TestStreamProcessorConcurrency(t *testing.T) {
 }
 
 func TestStreamProcessorEdgeCase(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 	processor := NewStreamProcessor()
 	ctx := context.Background()
 
@@ -887,11 +868,10 @@ func TestStreamProcessorEdgeCase(t *testing.T) {
 		inputFile := filepath.Join(tempDir, "empty_transform.txt")
 		outputFile := filepath.Join(tempDir, "empty_transform_out.txt")
 
-		err := os.WriteFile(inputFile, []byte("test content"), 0o600)
-		require.NoError(t, err)
+		testutil.WriteTestFile(t, inputFile, "test content")
 
 		// Transform that returns empty slice
-		err = processor.ProcessFile(ctx, inputFile, outputFile, func(_ []byte) ([]byte, error) {
+		err := processor.ProcessFile(ctx, inputFile, outputFile, func(_ []byte) ([]byte, error) {
 			return []byte{}, nil
 		})
 		require.NoError(t, err)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/output"
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -272,7 +273,7 @@ func TestRunStatus(t *testing.T) {
 
 	t.Run("ValidConfigTextOutput", func(t *testing.T) {
 		// Create temporary config
-		tmpDir := t.TempDir()
+		tmpDir := testutil.CreateTempDir(t)
 		configPath := filepath.Join(tmpDir, "config.yml")
 
 		configContent := `version: 1
@@ -289,7 +290,7 @@ targets:
       - src: README.md
         dest: README.md`
 
-		require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o600))
+		testutil.WriteTestFile(t, configPath, configContent)
 
 		// Save original values
 		originalConfig := globalFlags.ConfigFile
@@ -310,7 +311,7 @@ targets:
 
 	t.Run("ValidConfigJSONOutput", func(t *testing.T) {
 		// Create temporary config
-		tmpDir := t.TempDir()
+		tmpDir := testutil.CreateTempDir(t)
 		configPath := filepath.Join(tmpDir, "config.yml")
 
 		configContent := `version: 1
@@ -323,7 +324,7 @@ targets:
       - src: README.md
         dest: README.md`
 
-		require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o600))
+		testutil.WriteTestFile(t, configPath, configContent)
 
 		// Save original values
 		originalConfig := globalFlags.ConfigFile

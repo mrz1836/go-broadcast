@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -314,7 +315,7 @@ targets:
 // TestValidateAbsolutePath tests absolute path display
 func TestValidateAbsolutePath(t *testing.T) {
 	// Create temporary config in a known directory
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateTempDir(t)
 	configPath := filepath.Join(tmpDir, "test-config.yml")
 
 	validConfig := `version: 1
@@ -327,7 +328,7 @@ targets:
       - src: README.md
         dest: README.md`
 
-	require.NoError(t, os.WriteFile(configPath, []byte(validConfig), 0o600))
+	testutil.WriteTestFile(t, configPath, validConfig)
 
 	// Use relative path
 	originalDir, err := os.Getwd()
@@ -365,7 +366,7 @@ targets:
       - src: README.md
         dest: README.md`
 
-	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte(validConfig), 0o600))
+	testutil.WriteTestFile(t, tmpFile.Name(), validConfig)
 
 	// Save original config
 	originalFlags := globalFlags

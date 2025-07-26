@@ -1,6 +1,9 @@
 package benchmark
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
@@ -126,6 +129,13 @@ func CreateTempRepo(b *testing.B) string {
 	return b.TempDir()
 }
 
+// Size represents a size configuration for benchmarks
+type Size struct {
+	Name      string
+	FileCount int
+	FileSize  int
+}
+
 // Sizes returns standard size configurations for benchmarks
 func Sizes() []struct {
 	Name string
@@ -140,4 +150,51 @@ func Sizes() []struct {
 		{"Large", "large"},
 		{"XLarge", "xlarge"},
 	}
+}
+
+// StandardSizes returns consistent size configurations for benchmarks
+func StandardSizes() []Size {
+	return []Size{
+		{Name: "Small", FileCount: 10, FileSize: 1024},
+		{Name: "Medium", FileCount: 100, FileSize: 10240},
+		{Name: "Large", FileCount: 1000, FileSize: 102400},
+	}
+}
+
+// SetupBenchmarkFiles creates files for benchmark testing
+func SetupBenchmarkFiles(b *testing.B, dir string, count int) []string {
+	b.Helper()
+
+	files := make([]string, count)
+	for i := 0; i < count; i++ {
+		fileName := fmt.Sprintf("bench_file_%d.txt", i)
+		filePath := filepath.Join(dir, fileName)
+		content := fmt.Sprintf("Benchmark test content %d", i)
+
+		err := os.WriteFile(filePath, []byte(content), 0o600)
+		if err != nil {
+			b.Fatalf("failed to create benchmark file %s: %v", filePath, err)
+		}
+		files[i] = filePath
+	}
+	return files
+}
+
+// WithMemoryTracking runs benchmark with memory allocation tracking
+func WithMemoryTracking(b *testing.B, fn func()) {
+	b.Helper()
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		fn()
+	}
+
+	b.StopTimer()
+}
+
+// SetupBenchmarkRepo creates a temporary repository for benchmark testing
+func SetupBenchmarkRepo(b *testing.B) string {
+	b.Helper()
+	return b.TempDir()
 }

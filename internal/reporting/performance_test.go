@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,7 +34,7 @@ func TestDefaultReportConfig(t *testing.T) {
 }
 
 func TestPerformanceReporterLoadBaseline(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 
 	tests := []struct {
 		name        string
@@ -77,10 +78,8 @@ func TestPerformanceReporterLoadBaseline(t *testing.T) {
 
 			if tt.setupFile {
 				baselinePath := filepath.Join(outputDir, "test_baseline.json")
-				err := os.MkdirAll(filepath.Dir(baselinePath), 0o750)
-				require.NoError(t, err)
-				err = os.WriteFile(baselinePath, []byte(tt.fileContent), 0o600)
-				require.NoError(t, err)
+				testutil.CreateTestDirectory(t, filepath.Dir(baselinePath))
+				testutil.WriteTestFile(t, baselinePath, tt.fileContent)
 			}
 
 			err := reporter.LoadBaseline()
@@ -101,7 +100,7 @@ func TestPerformanceReporterLoadBaseline(t *testing.T) {
 }
 
 func TestPerformanceReporterSaveBaseline(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 
 	config := ReportConfig{
 		OutputDirectory: tempDir,
@@ -138,7 +137,7 @@ func TestPerformanceReporterSaveBaseline(t *testing.T) {
 }
 
 func TestPerformanceReporterGenerateReport(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 
 	tests := []struct {
 		name            string
@@ -546,7 +545,7 @@ func TestAnalyzeTestFailures(t *testing.T) {
 }
 
 func TestSaveReport(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.CreateTempDir(t)
 
 	config := ReportConfig{
 		OutputDirectory:  tempDir,

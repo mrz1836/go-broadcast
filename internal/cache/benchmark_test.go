@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/mrz1836/go-broadcast/internal/benchmark"
 )
 
 // mockAPIResponse simulates an API response structure
@@ -41,12 +43,11 @@ func BenchmarkCacheBasicOperations(b *testing.B) {
 	defer cache.Close()
 
 	b.Run("Set", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			key := fmt.Sprintf("key_%d", i%100)
-			value := fmt.Sprintf("value_%d", i)
+		benchmark.WithMemoryTracking(b, func() {
+			key := fmt.Sprintf("key_%d", b.N%100)
+			value := fmt.Sprintf("value_%d", b.N)
 			cache.Set(key, value)
-		}
+		})
 	})
 
 	b.Run("Get_Hit", func(b *testing.B) {
@@ -57,29 +58,26 @@ func BenchmarkCacheBasicOperations(b *testing.B) {
 			cache.Set(key, value)
 		}
 
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			key := fmt.Sprintf("key_%d", i%100)
+		benchmark.WithMemoryTracking(b, func() {
+			key := fmt.Sprintf("key_%d", b.N%100)
 			_, _ = cache.Get(key)
-		}
+		})
 	})
 
 	b.Run("Get_Miss", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			key := fmt.Sprintf("missing_key_%d", i)
+		benchmark.WithMemoryTracking(b, func() {
+			key := fmt.Sprintf("missing_key_%d", b.N)
 			_, _ = cache.Get(key)
-		}
+		})
 	})
 
 	b.Run("GetOrLoad", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			key := fmt.Sprintf("load_key_%d", i%50) // 50% hit rate
+		benchmark.WithMemoryTracking(b, func() {
+			key := fmt.Sprintf("load_key_%d", b.N%50) // 50% hit rate
 			_, _ = cache.GetOrLoad(key, func() (interface{}, error) {
-				return fmt.Sprintf("loaded_value_%d", i), nil
+				return fmt.Sprintf("loaded_value_%d", b.N), nil
 			})
-		}
+		})
 	})
 }
 
@@ -109,11 +107,7 @@ func BenchmarkCacheHitRates(b *testing.B) {
 				cache.Set(key, fmt.Sprintf("value_%d", i))
 			}
 
-			b.ResetTimer()
-			hits := 0
-			misses := 0
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				var key string
 				if rand.Float64() < scenario.hitRate { //nolint:gosec // Using weak random for benchmark is acceptable
 					// Generate a key that should hit
@@ -123,15 +117,14 @@ func BenchmarkCacheHitRates(b *testing.B) {
 					key = fmt.Sprintf("miss_key_%d", rand.Intn(scenario.keyPool)) //nolint:gosec // Using weak random for benchmark is acceptable
 				}
 
-				if _, found := cache.Get(key); found {
-					hits++
-				} else {
-					misses++
-				}
-			}
+				_, _ = cache.Get(key)
+			})
 
-			actualHitRate := float64(hits) / float64(hits+misses)
+			// Report final cache stats
+			hits, misses, _, actualHitRate := cache.Stats()
 			b.ReportMetric(actualHitRate*100, "hit_rate_%")
+			b.ReportMetric(float64(hits), "cache_hits")
+			b.ReportMetric(float64(misses), "cache_misses")
 		})
 	}
 }

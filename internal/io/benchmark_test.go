@@ -13,21 +13,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/benchmark"
 	"github.com/mrz1836/go-broadcast/internal/memory"
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 )
 
 // Test data generators for consistent benchmarking
 func generateTestFile(t *testing.B, size int, pattern string) string {
 	t.Helper()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateBenchmarkTempDir(t)
 	filename := filepath.Join(tmpDir, fmt.Sprintf("test_%d.txt", size))
 
 	data := strings.Repeat(pattern, size/len(pattern)+1)[:size]
 
-	if err := os.WriteFile(filename, []byte(data), 0o600); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	testutil.WriteBenchmarkFile(t, filename, data)
 
 	return filename
 }
@@ -35,7 +35,7 @@ func generateTestFile(t *testing.B, size int, pattern string) string {
 func generateTestJSONFile(t *testing.B, itemCount int) string {
 	t.Helper()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateBenchmarkTempDir(t)
 	filename := filepath.Join(tmpDir, fmt.Sprintf("test_%d.json", itemCount))
 
 	// Generate JSON array with test data
@@ -58,9 +58,7 @@ func generateTestJSONFile(t *testing.B, itemCount int) string {
 		t.Fatalf("Failed to marshal JSON: %v", err)
 	}
 
-	if err := os.WriteFile(filename, data, 0o600); err != nil {
-		t.Fatalf("Failed to write JSON file: %v", err)
-	}
+	testutil.WriteBenchmarkFile(t, filename, string(data))
 
 	return filename
 }
@@ -106,11 +104,9 @@ func BenchmarkFileProcessing(b *testing.B) {
 					DefaultBufferTimeout,
 				)
 
-				b.ResetTimer()
 				b.ReportAllocs()
-
-				for i := 0; i < b.N; i++ {
-					outputFile := filepath.Join(b.TempDir(), fmt.Sprintf("output_%d.txt", i))
+				benchmark.WithMemoryTracking(b, func() {
+					outputFile := filepath.Join(b.TempDir(), fmt.Sprintf("output_%d.txt", 1000))
 					err := testProcessor.ProcessFile(ctx, inputFile, outputFile, identityTransform)
 					if err != nil {
 						b.Fatalf("ProcessFile failed: %v", err)
@@ -118,7 +114,7 @@ func BenchmarkFileProcessing(b *testing.B) {
 
 					// Clean up output file to avoid disk space issues
 					_ = os.Remove(outputFile)
-				}
+				})
 			})
 
 			b.Run("Streaming", func(b *testing.B) {
@@ -129,11 +125,9 @@ func BenchmarkFileProcessing(b *testing.B) {
 					DefaultBufferTimeout,
 				)
 
-				b.ResetTimer()
 				b.ReportAllocs()
-
-				for i := 0; i < b.N; i++ {
-					outputFile := filepath.Join(b.TempDir(), fmt.Sprintf("output_%d.txt", i))
+				benchmark.WithMemoryTracking(b, func() {
+					outputFile := filepath.Join(b.TempDir(), fmt.Sprintf("output_%d.txt", 1000))
 					err := testProcessor.ProcessFile(ctx, inputFile, outputFile, identityTransform)
 					if err != nil {
 						b.Fatalf("ProcessFile failed: %v", err)
@@ -141,16 +135,14 @@ func BenchmarkFileProcessing(b *testing.B) {
 
 					// Clean up output file to avoid disk space issues
 					_ = os.Remove(outputFile)
-				}
+				})
 			})
 
 			b.Run("Auto", func(b *testing.B) {
 				// Use default processor with automatic selection
-				b.ResetTimer()
 				b.ReportAllocs()
-
-				for i := 0; i < b.N; i++ {
-					outputFile := filepath.Join(b.TempDir(), fmt.Sprintf("output_%d.txt", i))
+				benchmark.WithMemoryTracking(b, func() {
+					outputFile := filepath.Join(b.TempDir(), fmt.Sprintf("output_%d.txt", 1000))
 					err := processor.ProcessFile(ctx, inputFile, outputFile, identityTransform)
 					if err != nil {
 						b.Fatalf("ProcessFile failed: %v", err)
@@ -158,7 +150,7 @@ func BenchmarkFileProcessing(b *testing.B) {
 
 					// Clean up output file to avoid disk space issues
 					_ = os.Remove(outputFile)
-				}
+				})
 			})
 		})
 	}
@@ -191,11 +183,9 @@ func BenchmarkFileTransformation(b *testing.B) {
 			b.Run(fmt.Sprintf("%s_%s", size.name, transform.name), func(b *testing.B) {
 				inputFile := generateTestFile(b, size.size, "test data pattern ")
 
-				b.ResetTimer()
 				b.ReportAllocs()
-
-				for i := 0; i < b.N; i++ {
-					outputFile := filepath.Join(b.TempDir(), fmt.Sprintf("output_%d.txt", i))
+				benchmark.WithMemoryTracking(b, func() {
+					outputFile := filepath.Join(b.TempDir(), fmt.Sprintf("output_%d.txt", 1000))
 					err := processor.ProcessFile(ctx, inputFile, outputFile, transform.transform)
 					if err != nil {
 						b.Fatalf("ProcessFile failed: %v", err)
@@ -203,7 +193,7 @@ func BenchmarkFileTransformation(b *testing.B) {
 
 					// Clean up output file
 					_ = os.Remove(outputFile)
-				}
+				})
 			})
 		}
 	}
@@ -230,10 +220,8 @@ func BenchmarkJSONProcessing(b *testing.B) {
 			jsonFile := generateTestJSONFile(b, itemCount.count)
 
 			b.Run("StreamingJSON", func(b *testing.B) {
-				b.ResetTimer()
 				b.ReportAllocs()
-
-				for i := 0; i < b.N; i++ {
+				benchmark.WithMemoryTracking(b, func() {
 					processedCount := 0
 					handler := func(_ interface{}) error {
 						processedCount++
@@ -248,14 +236,12 @@ func BenchmarkJSONProcessing(b *testing.B) {
 					if processedCount != itemCount.count {
 						b.Fatalf("Expected %d items, got %d", itemCount.count, processedCount)
 					}
-				}
+				})
 			})
 
 			b.Run("StandardJSON", func(b *testing.B) {
-				b.ResetTimer()
 				b.ReportAllocs()
-
-				for i := 0; i < b.N; i++ {
+				benchmark.WithMemoryTracking(b, func() {
 					data, err := os.ReadFile(jsonFile) //nolint:gosec // Reading test file in benchmark
 					if err != nil {
 						b.Fatalf("Failed to read JSON file: %v", err)
@@ -274,7 +260,7 @@ func BenchmarkJSONProcessing(b *testing.B) {
 					if processedCount != itemCount.count {
 						b.Fatalf("Expected %d items, got %d", itemCount.count, processedCount)
 					}
-				}
+				})
 			})
 		})
 	}
@@ -310,13 +296,11 @@ func BenchmarkBatchProcessing(b *testing.B) {
 
 			batchProcessor := NewBatchFileProcessor(processor, 10, 5*time.Minute)
 
-			b.ResetTimer()
 			b.ReportAllocs()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				// Update output paths for each iteration to avoid conflicts
 				for j := range operations {
-					operations[j].OutputPath = filepath.Join(b.TempDir(), fmt.Sprintf("output_%d_%d.txt", i, j))
+					operations[j].OutputPath = filepath.Join(b.TempDir(), fmt.Sprintf("output_%d_%d.txt", 1000, j))
 				}
 
 				err := batchProcessor.ProcessBatch(ctx, operations)
@@ -328,7 +312,7 @@ func BenchmarkBatchProcessing(b *testing.B) {
 				for _, op := range operations {
 					_ = os.Remove(op.OutputPath) // Ignore cleanup errors
 				}
-			}
+			})
 		})
 	}
 }
@@ -344,28 +328,24 @@ func BenchmarkMemoryOperations(b *testing.B) {
 		b.Run("WithIntern", func(b *testing.B) {
 			intern := memory.NewStringIntern()
 
-			b.ResetTimer()
 			b.ReportAllocs()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				for _, s := range strings {
 					_ = intern.Intern(s)
 				}
-			}
+			})
 		})
 
 		b.Run("WithoutIntern", func(b *testing.B) {
-			b.ResetTimer()
 			b.ReportAllocs()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				for _, s := range strings {
 					// Simulate string copying that would normally happen
 					result := make([]byte, len(s))
 					copy(result, s)
 					_ = string(result)
 				}
-			}
+			})
 		})
 	})
 
@@ -376,26 +356,24 @@ func BenchmarkMemoryOperations(b *testing.B) {
 			b.Run(fmt.Sprintf("Size_%d", size), func(b *testing.B) {
 				b.Run("WithPrealloc", func(b *testing.B) {
 					b.ReportAllocs()
-
-					for i := 0; i < b.N; i++ {
+					benchmark.WithMemoryTracking(b, func() {
 						slice := memory.PreallocateSlice[int](size)
 						for j := 0; j < size; j++ {
 							slice = append(slice, j)
 						}
 						_ = slice
-					}
+					})
 				})
 
 				b.Run("WithoutPrealloc", func(b *testing.B) {
 					b.ReportAllocs()
-
-					for i := 0; i < b.N; i++ {
+					benchmark.WithMemoryTracking(b, func() {
 						var slice []int
 						for j := 0; j < size; j++ {
 							slice = append(slice, j)
 						}
 						_ = slice
-					}
+					})
 				})
 			})
 		}
@@ -408,26 +386,24 @@ func BenchmarkMemoryOperations(b *testing.B) {
 			b.Run(fmt.Sprintf("Size_%d", size), func(b *testing.B) {
 				b.Run("WithPrealloc", func(b *testing.B) {
 					b.ReportAllocs()
-
-					for i := 0; i < b.N; i++ {
+					benchmark.WithMemoryTracking(b, func() {
 						m := memory.PreallocateMap[string, int](size)
 						for j := 0; j < size; j++ {
 							m[fmt.Sprintf("key_%d", j)] = j
 						}
 						_ = m
-					}
+					})
 				})
 
 				b.Run("WithoutPrealloc", func(b *testing.B) {
 					b.ReportAllocs()
-
-					for i := 0; i < b.N; i++ {
+					benchmark.WithMemoryTracking(b, func() {
 						m := make(map[string]int)
 						for j := 0; j < size; j++ {
 							m[fmt.Sprintf("key_%d", j)] = j
 						}
 						_ = m
-					}
+					})
 				})
 			})
 		}
@@ -467,13 +443,11 @@ func BenchmarkRealWorldScenarios(b *testing.B) {
 
 		batchProcessor := NewBatchFileProcessor(processor, 10, 5*time.Minute)
 
-		b.ResetTimer()
 		b.ReportAllocs()
-
-		for i := 0; i < b.N; i++ {
+		benchmark.WithMemoryTracking(b, func() {
 			// Update output paths for each iteration
 			for j := range operations {
-				operations[j].OutputPath = filepath.Join(b.TempDir(), fmt.Sprintf("sync_%d_%s", i, repoFiles[j].name))
+				operations[j].OutputPath = filepath.Join(b.TempDir(), fmt.Sprintf("sync_%d_%s", 1000, repoFiles[j].name))
 			}
 
 			err := batchProcessor.ProcessBatch(ctx, operations)
@@ -485,17 +459,15 @@ func BenchmarkRealWorldScenarios(b *testing.B) {
 			for _, op := range operations {
 				_ = os.Remove(op.OutputPath) // Ignore cleanup errors
 			}
-		}
+		})
 	})
 
 	b.Run("GitHubAPIResponse", func(b *testing.B) {
 		// Simulate processing GitHub API response with many branches
 		jsonFile := generateTestJSONFile(b, 1000) // 1000 branches
 
-		b.ResetTimer()
 		b.ReportAllocs()
-
-		for i := 0; i < b.N; i++ {
+		benchmark.WithMemoryTracking(b, func() {
 			processedBranches := 0
 			intern := memory.NewStringIntern()
 			branches := memory.PreallocateSlice[string](1000)
@@ -520,7 +492,7 @@ func BenchmarkRealWorldScenarios(b *testing.B) {
 			if processedBranches != 1000 {
 				b.Fatalf("Expected 1000 branches, got %d", processedBranches)
 			}
-		}
+		})
 	})
 }
 
@@ -541,13 +513,11 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 		// Create a 10MB test file
 		inputFile := generateTestFile(b, 10*1024*1024, "memory efficiency test pattern ")
 
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
+		benchmark.WithMemoryTracking(b, func() {
 			// Capture memory stats before processing
 			startStats := monitor.GetCurrentMemStats()
 
-			outputFile := filepath.Join(b.TempDir(), fmt.Sprintf("memory_output_%d.txt", i))
+			outputFile := filepath.Join(b.TempDir(), fmt.Sprintf("memory_output_%d.txt", 1000))
 			err := processor.ProcessFile(ctx, inputFile, outputFile, identityTransform)
 			if err != nil {
 				b.Fatalf("ProcessFile failed: %v", err)
@@ -562,7 +532,7 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 
 			// Clean up
 			_ = os.Remove(outputFile)
-		}
+		})
 	})
 }
 
@@ -572,18 +542,15 @@ func TestStreamProcessorBasic(t *testing.T) {
 	ctx := context.Background()
 
 	// Create test file
-	tmpDir := t.TempDir()
+	tmpDir := testutil.CreateTempDir(t)
 	inputFile := filepath.Join(tmpDir, "input.txt")
 	outputFile := filepath.Join(tmpDir, "output.txt")
 
 	testContent := "hello world test content"
-	err := os.WriteFile(inputFile, []byte(testContent), 0o600)
-	if err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	testutil.WriteTestFile(t, inputFile, testContent)
 
 	// Process file with uppercase transformation
-	err = processor.ProcessFile(ctx, inputFile, outputFile, uppercaseTransform)
+	err := processor.ProcessFile(ctx, inputFile, outputFile, uppercaseTransform)
 	if err != nil {
 		t.Fatalf("ProcessFile failed: %v", err)
 	}

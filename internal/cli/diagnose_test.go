@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -243,12 +244,12 @@ func TestGetConfigInfo(t *testing.T) {
 
 	t.Run("ValidConfigFile", func(t *testing.T) {
 		// Create a temporary valid config file
-		tmpDir := t.TempDir()
+		tmpDir := testutil.CreateTempDir(t)
 		configPath := filepath.Join(tmpDir, "config.yml")
 
 		configContent := TestValidConfig
 
-		require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o600))
+		testutil.WriteTestFile(t, configPath, configContent)
 
 		logConfig := &LogConfig{
 			ConfigFile: configPath,
@@ -264,12 +265,12 @@ func TestGetConfigInfo(t *testing.T) {
 
 	t.Run("InvalidConfigFile", func(t *testing.T) {
 		// Create a temporary invalid config file
-		tmpDir := t.TempDir()
+		tmpDir := testutil.CreateTempDir(t)
 		configPath := filepath.Join(tmpDir, "config.yml")
 
 		invalidContent := `invalid: yaml: content:`
 
-		require.NoError(t, os.WriteFile(configPath, []byte(invalidContent), 0o600))
+		testutil.WriteTestFile(t, configPath, invalidContent)
 
 		logConfig := &LogConfig{
 			ConfigFile: configPath,

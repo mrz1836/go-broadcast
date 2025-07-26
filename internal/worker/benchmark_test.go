@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/mrz1836/go-broadcast/internal/benchmark"
 )
 
 // testTask implements the Task interface for benchmarking
@@ -64,9 +66,7 @@ func BenchmarkWorkerPool(b *testing.B) {
 	for _, workers := range workerCounts {
 		for _, tasks := range taskCounts {
 			b.Run(fmt.Sprintf("Workers_%d_Tasks_%d", workers, tasks), func(b *testing.B) {
-				b.ResetTimer()
-
-				for i := 0; i < b.N; i++ {
+				benchmark.WithMemoryTracking(b, func() {
 					pool := NewPool(workers, tasks)
 					pool.Start(context.Background())
 
@@ -94,7 +94,7 @@ func BenchmarkWorkerPool(b *testing.B) {
 					}
 
 					pool.Shutdown()
-				}
+				})
 			})
 		}
 	}
@@ -116,9 +116,7 @@ func BenchmarkWorkerPoolThroughput(b *testing.B) {
 
 	for _, scenario := range scenarios {
 		b.Run(scenario.name, func(b *testing.B) {
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				start := time.Now()
 
 				pool := NewPool(scenario.workers, scenario.taskCount)
@@ -147,7 +145,7 @@ func BenchmarkWorkerPoolThroughput(b *testing.B) {
 				duration := time.Since(start)
 				throughput := float64(scenario.taskCount) / duration.Seconds()
 				b.ReportMetric(throughput, "tasks/sec")
-			}
+			})
 		})
 	}
 }
@@ -162,9 +160,7 @@ func BenchmarkWorkerPoolCPUIntensive(b *testing.B) {
 			b.Run(fmt.Sprintf("Workers_%d_Iterations_%d", workers, iter), func(b *testing.B) {
 				taskCount := 20 // Fixed number of tasks
 
-				b.ResetTimer()
-
-				for i := 0; i < b.N; i++ {
+				benchmark.WithMemoryTracking(b, func() {
 					pool := NewPool(workers, taskCount)
 					pool.Start(context.Background())
 
@@ -187,7 +183,7 @@ func BenchmarkWorkerPoolCPUIntensive(b *testing.B) {
 					}
 
 					pool.Shutdown()
-				}
+				})
 			})
 		}
 	}
@@ -209,9 +205,7 @@ func BenchmarkWorkerPoolMemoryUsage(b *testing.B) {
 	for _, scenario := range scenarios {
 		b.Run(scenario.name, func(b *testing.B) {
 			b.ReportAllocs()
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				pool := NewPool(scenario.workers, scenario.queueSize)
 				pool.Start(context.Background())
 
@@ -234,7 +228,7 @@ func BenchmarkWorkerPoolMemoryUsage(b *testing.B) {
 				}
 
 				pool.Shutdown()
-			}
+			})
 		})
 	}
 }
@@ -246,9 +240,7 @@ func BenchmarkWorkerPoolScaling(b *testing.B) {
 
 	for _, workers := range workerCounts {
 		b.Run(fmt.Sprintf("Workers_%d", workers), func(b *testing.B) {
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				start := time.Now()
 
 				pool := NewPool(workers, taskCount)
@@ -277,7 +269,7 @@ func BenchmarkWorkerPoolScaling(b *testing.B) {
 				duration := time.Since(start)
 				b.ReportMetric(duration.Seconds(), "total_time")
 				b.ReportMetric(float64(taskCount)/duration.Seconds(), "tasks/sec")
-			}
+			})
 		})
 	}
 }
@@ -289,9 +281,7 @@ func BenchmarkWorkerPoolBatchSubmission(b *testing.B) {
 
 	for _, batchSize := range batchSizes {
 		b.Run(fmt.Sprintf("BatchSize_%d", batchSize), func(b *testing.B) {
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				pool := NewPool(workers, batchSize*2)
 				pool.Start(context.Background())
 
@@ -319,7 +309,7 @@ func BenchmarkWorkerPoolBatchSubmission(b *testing.B) {
 				}
 
 				pool.Shutdown()
-			}
+			})
 		})
 	}
 }
@@ -339,11 +329,9 @@ func BenchmarkWorkerPoolStats(b *testing.B) {
 		_ = pool.Submit(task) // Ignore error in benchmark
 	}
 
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		_, _, _ = pool.Stats()
-	}
+	})
 }
 
 // BenchmarkWorkerPoolContextCancellation tests cancellation performance
@@ -360,9 +348,7 @@ func BenchmarkWorkerPoolContextCancellation(b *testing.B) {
 
 	for _, scenario := range scenarios {
 		b.Run(scenario.name, func(b *testing.B) {
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				pool := NewPool(scenario.workers, scenario.taskCount)
 				pool.Start(context.Background())
 
@@ -381,7 +367,7 @@ func BenchmarkWorkerPoolContextCancellation(b *testing.B) {
 
 				// Wait for shutdown
 				pool.Shutdown()
-			}
+			})
 		})
 	}
 }
