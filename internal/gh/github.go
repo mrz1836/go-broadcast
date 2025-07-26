@@ -3,13 +3,13 @@ package gh
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
 
 	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
+	"github.com/mrz1836/go-broadcast/internal/jsonutil"
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/sirupsen/logrus"
 )
@@ -75,8 +75,8 @@ func (g *githubClient) ListBranches(ctx context.Context, repo string) ([]Branch,
 		return nil, appErrors.WrapWithContext(err, "list branches")
 	}
 
-	var branches []Branch
-	if err := json.Unmarshal(output, &branches); err != nil {
+	branches, err := jsonutil.UnmarshalJSON[[]Branch](output)
+	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "parse branches")
 	}
 
@@ -93,8 +93,8 @@ func (g *githubClient) GetBranch(ctx context.Context, repo, branch string) (*Bra
 		return nil, appErrors.WrapWithContext(err, "get branch")
 	}
 
-	var b Branch
-	if err := json.Unmarshal(output, &b); err != nil {
+	b, err := jsonutil.UnmarshalJSON[Branch](output)
+	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "parse branch")
 	}
 
@@ -114,7 +114,7 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 		"base":  req.Base,
 	}
 
-	jsonData, err := json.Marshal(prData)
+	jsonData, err := jsonutil.MarshalJSON(prData)
 	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "marshal PR data")
 	}
@@ -126,8 +126,8 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 		return nil, appErrors.WrapWithContext(err, "create PR")
 	}
 
-	var pr PR
-	if err := json.Unmarshal(output, &pr); err != nil {
+	pr, err := jsonutil.UnmarshalJSON[PR](output)
+	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "parse PR response")
 	}
 
@@ -147,8 +147,8 @@ func (g *githubClient) GetPR(ctx context.Context, repo string, number int) (*PR,
 		return nil, appErrors.WrapWithContext(err, "get PR")
 	}
 
-	var pr PR
-	if err := json.Unmarshal(output, &pr); err != nil {
+	pr, err := jsonutil.UnmarshalJSON[PR](output)
+	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "parse PR")
 	}
 
@@ -167,8 +167,8 @@ func (g *githubClient) ListPRs(ctx context.Context, repo, state string) ([]PR, e
 		return nil, appErrors.WrapWithContext(err, "list PRs")
 	}
 
-	var prs []PR
-	if err := json.Unmarshal(output, &prs); err != nil {
+	prs, err := jsonutil.UnmarshalJSON[[]PR](output)
+	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "parse PRs")
 	}
 
@@ -190,8 +190,8 @@ func (g *githubClient) GetFile(ctx context.Context, repo, path, ref string) (*Fi
 		return nil, appErrors.WrapWithContext(err, "get file")
 	}
 
-	var file File
-	if unmarshalErr := json.Unmarshal(output, &file); unmarshalErr != nil {
+	file, unmarshalErr := jsonutil.UnmarshalJSON[File](output)
+	if unmarshalErr != nil {
 		return nil, appErrors.WrapWithContext(unmarshalErr, "parse file")
 	}
 
@@ -218,8 +218,8 @@ func (g *githubClient) GetCommit(ctx context.Context, repo, sha string) (*Commit
 		return nil, appErrors.WrapWithContext(err, "get commit")
 	}
 
-	var commit Commit
-	if err := json.Unmarshal(output, &commit); err != nil {
+	commit, err := jsonutil.UnmarshalJSON[Commit](output)
+	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "parse commit")
 	}
 

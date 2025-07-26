@@ -1,13 +1,14 @@
 package benchmark
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/mrz1836/go-broadcast/internal/jsonutil"
 )
 
 // BaselineReport represents a complete performance baseline
@@ -50,10 +51,12 @@ type ComparisonSummary struct {
 
 // SaveBaseline saves benchmark results to a JSON file
 func SaveBaseline(filename string, report BaselineReport) error {
-	data, err := json.MarshalIndent(report, "", "  ")
+	// Use PrettyPrint to get formatted JSON
+	formatted, err := jsonutil.PrettyPrint(report)
 	if err != nil {
 		return fmt.Errorf("failed to marshal baseline: %w", err)
 	}
+	data := []byte(formatted)
 
 	if err := os.WriteFile(filename, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write baseline file: %w", err)
@@ -69,8 +72,8 @@ func LoadBaseline(filename string) (*BaselineReport, error) {
 		return nil, fmt.Errorf("failed to read baseline file: %w", err)
 	}
 
-	var report BaselineReport
-	if err := json.Unmarshal(data, &report); err != nil {
+	report, err := jsonutil.UnmarshalJSON[BaselineReport](data)
+	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal baseline: %w", err)
 	}
 

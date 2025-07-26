@@ -2,10 +2,10 @@
 package logging
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/jsonutil"
 	"github.com/sirupsen/logrus"
 )
 
@@ -56,9 +56,9 @@ func (f *StructuredFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	}
 
 	// Serialize to JSON
-	jsonBytes, err := json.Marshal(data)
+	jsonBytes, err := jsonutil.MarshalJSON(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal log entry to JSON: %w", err)
+		return nil, err // Error already wrapped by jsonutil
 	}
 
 	// Add newline for proper log formatting
