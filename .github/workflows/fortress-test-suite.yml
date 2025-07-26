@@ -332,6 +332,14 @@ jobs:
               # List all coverage files in directory
               echo "📋 All coverage files in current directory:"
               ls -la *.txt *.out 2>/dev/null | grep -E "(coverage|cover)" || echo "No other coverage files found"
+              
+              # Check codecov.yml
+              if [ -f codecov.yml ]; then
+                echo "📋 Found codecov.yml configuration"
+                echo "📋 Validating codecov.yml syntax..."
+                # Basic YAML syntax check
+                python3 -c "import yaml; yaml.safe_load(open('codecov.yml'))" && echo "✅ codecov.yml syntax is valid" || echo "❌ codecov.yml has syntax errors"
+              fi
             else
               echo "❌ Coverage file may be corrupted. First line should be 'mode: atomic' or 'mode: count' but got: $FIRST_LINE"
               echo "📋 First 10 lines of coverage file:"
@@ -357,8 +365,6 @@ jobs:
           flags: unittests
           token: ${{ secrets.codecov-token }}
           verbose: true
-          files: ./coverage.txt
-          disable_search: true
 
       # ————————————————————————————————————————————————————————————————
       # Debug codecov upload result
