@@ -307,11 +307,31 @@ jobs:
             echo "📊 Coverage file size: $(wc -c < coverage.txt) bytes"
             echo "📊 Coverage file lines: $(wc -l < coverage.txt)"
             echo "📊 First line: $(head -1 coverage.txt)"
+            echo "📊 Last line: $(tail -1 coverage.txt)"
             
             # Ensure the coverage file starts with valid coverage data
             FIRST_LINE=$(head -1 coverage.txt)
             if [[ "$FIRST_LINE" == "mode: atomic" ]] || [[ "$FIRST_LINE" == "mode: count" ]] || [[ "$FIRST_LINE" == "mode: set" ]]; then
               echo "✅ Coverage file format looks valid"
+              
+              # Additional debugging info
+              echo "📋 Sample coverage lines (lines 2-5):"
+              sed -n '2,5p' coverage.txt
+              
+              # Check for any non-ASCII characters
+              if file coverage.txt | grep -q "ASCII text"; then
+                echo "✅ File is pure ASCII text"
+              else
+                echo "⚠️ File may contain non-ASCII characters"
+                file coverage.txt
+              fi
+              
+              # Check file permissions
+              echo "📋 File permissions: $(ls -la coverage.txt)"
+              
+              # List all coverage files in directory
+              echo "📋 All coverage files in current directory:"
+              ls -la *.txt *.out 2>/dev/null | grep -E "(coverage|cover)" || echo "No other coverage files found"
             else
               echo "❌ Coverage file may be corrupted. First line should be 'mode: atomic' or 'mode: count' but got: $FIRST_LINE"
               echo "📋 First 10 lines of coverage file:"
@@ -320,6 +340,9 @@ jobs:
             fi
           else
             echo "❌ Coverage file not found!"
+            echo "📋 Current directory: $(pwd)"
+            echo "📋 Files in current directory:"
+            ls -la
             exit 1
           fi
 
@@ -334,9 +357,23 @@ jobs:
           flags: unittests
           token: ${{ secrets.codecov-token }}
           verbose: true
-          files: ./coverage.txt
-          name: codecov-${{ matrix.os }}-${{ matrix.go-version }}
-          disable_search: true
-          override_branch: ${{ github.head_ref || github.ref_name }}
-          override_commit: ${{ github.sha }}
-          working-directory: ./
+
+      # ————————————————————————————————————————————————————————————————
+      # Debug codecov upload result
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Debug Codecov result
+        if: inputs.code-coverage-enabled == 'true' && always()
+        run: |
+          echo "📋 Checking Codecov upload result..."
+          echo "📋 Current directory after upload: $(pwd)"
+          echo "📋 Coverage file still exists: $([ -f coverage.txt ] && echo 'Yes' || echo 'No')"
+
+          # Check if codecov created any output files
+          if ls codecov* 2>/dev/null; then
+            echo "📋 Codecov created these files:"
+            ls -la codecov*
+          fi
+
+          # Check environment variables that might affect codecov
+          echo "📋 Relevant environment variables:"
+          env | grep -E "(CODECOV|GITHUB_|CI)" | sort
