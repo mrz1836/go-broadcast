@@ -34,7 +34,7 @@
           <img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat" alt="Go Report Card">
         </a><br/>
 		<a href="https://codecov.io/gh/mrz1836/go-broadcast/tree/master">
-          <img src="https://codecov.io/gh/mrz1836/go-broadcast/branch/master/graph/badge.svg?style=flat" alt="Code Coverage">
+          <img src="https://codecov.io/gh/mrz1836/go-broadcast/branch/master/graph/badge.svg?token=OKAyV2Z6Yy" alt="Code Coverage">
         </a><br/>
 		<a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast">
           <img src="https://api.scorecard.dev/projects/github.com/mrz1836/go-broadcast/badge?logo=springsecurity&logoColor=white" alt="OpenSSF Scorecard">
