@@ -3,8 +3,10 @@ package errors
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -262,4 +264,339 @@ func TestErrorCategories(t *testing.T) {
 	for _, err := range append(append(append(syncErrors, stateErrors...), gitErrors...), testErrors...) {
 		require.Error(t, err)
 	}
+}
+
+// Test error utility functions added in Phase 3 refactoring
+
+func TestWrapWithContext(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       error
+		operation string
+		want      string
+		wantNil   bool
+	}{
+		{
+			name:      "wrap error with context",
+			err:       fmt.Errorf("original error"), //nolint:err113 // test-only errors
+			operation: "test operation",
+			want:      "failed to test operation: original error",
+		},
+		{
+			name:      "nil error returns nil",
+			err:       nil,
+			operation: "test operation",
+			wantNil:   true,
+		},
+		{
+			name:      "empty operation",
+			err:       fmt.Errorf("original error"), //nolint:err113 // test-only errors
+			operation: "",
+			want:      "failed to : original error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := WrapWithContext(tt.err, tt.operation)
+
+			if tt.wantNil {
+				assert.NoError(t, result)
+				return
+			}
+
+			require.Error(t, result)
+			assert.Equal(t, tt.want, result.Error())
+			assert.ErrorIs(t, result, tt.err)
+		})
+	}
+}
+
+func TestInvalidFieldError(t *testing.T) {
+	tests := []struct {
+		name  string
+		field string
+		value string
+		want  string
+	}{
+		{
+			name:  "standard invalid field",
+			field: "repository",
+			value: "invalid-repo",
+			want:  "invalid field: repository: invalid-repo",
+		},
+		{
+			name:  "empty field name",
+			field: "",
+			value: "value",
+			want:  "invalid field: : value",
+		},
+		{
+			name:  "empty value",
+			field: "field",
+			value: "",
+			want:  "invalid field: field: ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := InvalidFieldError(tt.field, tt.value)
+			assert.Equal(t, tt.want, result.Error())
+		})
+	}
+}
+
+func TestCommandFailedError(t *testing.T) {
+	tests := []struct {
+		name    string
+		cmd     string
+		err     error
+		want    string
+		wantNil bool
+	}{
+		{
+			name: "command with error",
+			cmd:  "git clone",
+			err:  fmt.Errorf("exit code 1"), //nolint:err113 // test-only errors
+			want: "command failed: 'git clone': exit code 1",
+		},
+		{
+			name:    "nil error returns nil",
+			cmd:     "git clone",
+			err:     nil,
+			wantNil: true,
+		},
+		{
+			name: "empty command",
+			cmd:  "",
+			err:  fmt.Errorf("some error"), //nolint:err113 // test-only errors
+			want: "command failed: '': some error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CommandFailedError(tt.cmd, tt.err)
+
+			if tt.wantNil {
+				assert.NoError(t, result)
+				return
+			}
+
+			require.Error(t, result)
+			assert.Equal(t, tt.want, result.Error())
+			assert.ErrorIs(t, result, tt.err)
+		})
+	}
+}
+
+func TestValidationError(t *testing.T) {
+	tests := []struct {
+		name   string
+		item   string
+		reason string
+		want   string
+	}{
+		{
+			name:   "standard validation error",
+			item:   "repository name",
+			reason: "must be in org/repo format",
+			want:   "validation failed for repository name: must be in org/repo format",
+		},
+		{
+			name:   "empty item",
+			item:   "",
+			reason: "some reason",
+			want:   "validation failed for : some reason",
+		},
+		{
+			name:   "empty reason",
+			item:   "field",
+			reason: "",
+			want:   "validation failed for field: ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidationError(tt.item, tt.reason)
+			assert.Equal(t, tt.want, result.Error())
+		})
+	}
+}
+
+func TestPathTraversalError(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{
+			name: "standard path traversal",
+			path: "../../../etc/passwd",
+			want: "path traversal detected: invalid path '../../../etc/passwd'",
+		},
+		{
+			name: "empty path",
+			path: "",
+			want: "path traversal detected: invalid path ''",
+		},
+		{
+			name: "simple dotdot",
+			path: "..",
+			want: "path traversal detected: invalid path '..'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := PathTraversalError(tt.path)
+			assert.Equal(t, tt.want, result.Error())
+		})
+	}
+}
+
+func TestEmptyFieldError(t *testing.T) {
+	tests := []struct {
+		name  string
+		field string
+		want  string
+	}{
+		{
+			name:  "standard empty field",
+			field: "repository name",
+			want:  "field cannot be empty: repository name",
+		},
+		{
+			name:  "empty field name",
+			field: "",
+			want:  "field cannot be empty: ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := EmptyFieldError(tt.field)
+			assert.Equal(t, tt.want, result.Error())
+		})
+	}
+}
+
+func TestRequiredFieldError(t *testing.T) {
+	tests := []struct {
+		name  string
+		field string
+		want  string
+	}{
+		{
+			name:  "standard required field",
+			field: "source repository",
+			want:  "field is required: source repository",
+		},
+		{
+			name:  "empty field name",
+			field: "",
+			want:  "field is required: ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := RequiredFieldError(tt.field)
+			assert.Equal(t, tt.want, result.Error())
+		})
+	}
+}
+
+func TestFormatError(t *testing.T) {
+	tests := []struct {
+		name           string
+		field          string
+		value          string
+		expectedFormat string
+		want           string
+	}{
+		{
+			name:           "standard format error",
+			field:          "repository name",
+			value:          "invalid-repo",
+			expectedFormat: "org/repo",
+			want:           "invalid format: repository name 'invalid-repo': expected org/repo",
+		},
+		{
+			name:           "empty field",
+			field:          "",
+			value:          "value",
+			expectedFormat: "format",
+			want:           "invalid format:  'value': expected format",
+		},
+		{
+			name:           "empty value",
+			field:          "field",
+			value:          "",
+			expectedFormat: "format",
+			want:           "invalid format: field '': expected format",
+		},
+		{
+			name:           "empty format",
+			field:          "field",
+			value:          "value",
+			expectedFormat: "",
+			want:           "invalid format: field 'value': expected ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FormatError(tt.field, tt.value, tt.expectedFormat)
+			assert.Equal(t, tt.want, result.Error())
+		})
+	}
+}
+
+// Test error wrapping behavior with new utilities
+func TestNewErrorUtilityWrapping(t *testing.T) {
+	originalErr := fmt.Errorf("original error") //nolint:err113 // test-only errors
+
+	t.Run("WrapWithContext preserves original error", func(t *testing.T) {
+		wrapped := WrapWithContext(originalErr, "operation")
+		require.ErrorIs(t, wrapped, originalErr)
+		assert.Contains(t, wrapped.Error(), "original error")
+		assert.Contains(t, wrapped.Error(), "failed to operation")
+	})
+
+	t.Run("CommandFailedError preserves original error", func(t *testing.T) {
+		wrapped := CommandFailedError("test command", originalErr)
+		require.ErrorIs(t, wrapped, originalErr)
+		assert.Contains(t, wrapped.Error(), "original error")
+		assert.Contains(t, wrapped.Error(), "command failed: 'test command'")
+	})
+}
+
+// Test edge cases for new utilities
+func TestNewUtilityEdgeCases(t *testing.T) {
+	t.Run("multiple wrapping", func(t *testing.T) {
+		original := fmt.Errorf("base error") //nolint:err113 // test-only errors
+		wrapped1 := WrapWithContext(original, "first operation")
+		wrapped2 := WrapWithContext(wrapped1, "second operation")
+
+		require.ErrorIs(t, wrapped2, original)
+		require.ErrorIs(t, wrapped2, wrapped1)
+		assert.Contains(t, wrapped2.Error(), "failed to second operation")
+		assert.Contains(t, wrapped2.Error(), "failed to first operation")
+		assert.Contains(t, wrapped2.Error(), "base error")
+	})
+
+	t.Run("special characters in messages", func(t *testing.T) {
+		result := InvalidFieldError("field with spaces", "value with special chars: @#$%")
+		expected := "invalid field: field with spaces: value with special chars: @#$%"
+		assert.Equal(t, expected, result.Error())
+	})
+
+	t.Run("unicode in messages", func(t *testing.T) {
+		result := ValidationError("файл", "должен быть валидным")
+		expected := "validation failed for файл: должен быть валидным"
+		assert.Equal(t, expected, result.Error())
+	})
 }
