@@ -3,92 +3,91 @@
 ## 🚀 Essential Commands
 
 ```bash
-# Basic verbose output
-go-broadcast sync -v                    # Debug level
-go-broadcast sync -vv                   # Trace level  
-go-broadcast sync -vvv                  # Trace with caller info
-
-# Component debugging
-go-broadcast sync --debug-git           # Git commands
-go-broadcast sync --debug-api           # GitHub API
-go-broadcast sync --debug-transform     # File transformations
-go-broadcast sync --debug-config        # Configuration validation
-go-broadcast sync --debug-state         # State discovery
-
-# JSON output
-go-broadcast sync --json -v             # Structured JSON output
-go-broadcast sync --log-format json     # Alternative syntax
+# Basic logging levels
+go-broadcast sync --log-level debug     # Debug level logging
+go-broadcast sync --log-level info      # Info level logging (default)
+go-broadcast sync --log-level warn      # Warning level logging
+go-broadcast sync --log-level error     # Error level logging
 
 # System diagnostics
 go-broadcast diagnose                   # Collect system info
+
+# Configuration validation and testing
+go-broadcast validate --config sync.yaml      # Validate configuration
+go-broadcast sync --dry-run --config sync.yaml   # Preview changes
+
+# Note: Enhanced verbose flags (-v, -vv, -vvv) and component-specific debug flags
+# (--debug-git, --debug-api, etc.) are planned features not yet implemented.
+# Current implementation supports --log-level for basic debugging.
 ```
 
 ## 📋 Flag Reference
 
 | Flag | Description | Output Level |
 |------|-------------|--------------|
-| `-v` | Debug level logging | DEBUG |
-| `-vv` | Trace level logging | TRACE |
-| `-vvv` | Trace with file:line info | TRACE + caller |
-| `--debug-git` | Git command details | DEBUG/TRACE |
-| `--debug-api` | GitHub API requests/responses | DEBUG/TRACE |
-| `--debug-transform` | File transformation details | DEBUG/TRACE |
-| `--debug-config` | Configuration validation | DEBUG/TRACE |
-| `--debug-state` | State discovery process | DEBUG/TRACE |
-| `--json` | JSON structured output | All levels |
-| `--log-format json` | JSON output (alternative) | All levels |
+| `--log-level debug` | Debug level logging | DEBUG |
+| `--log-level info` | Info level logging (default) | INFO |
+| `--log-level warn` | Warning level logging | WARN |
+| `--log-level error` | Error level logging | ERROR |
+| `--dry-run` | Preview changes without executing | All levels |
+| `--config <file>` | Specify configuration file | All levels |
+
+**Note**: Advanced verbose flags (`-v`, `-vv`, `-vvv`) and component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented in the current version.
 
 ## 🔧 Common Troubleshooting
 
 ```bash
 # Authentication issues
-go-broadcast sync --debug-git -v
-echo $GITHUB_TOKEN | cut -c1-10        # Check token
-gh auth status                          # Test GitHub CLI
+go-broadcast sync --log-level debug     # Enable debug logging
+echo $GITHUB_TOKEN | cut -c1-10         # Check token (first 10 chars)
+gh auth status                           # Test GitHub CLI
 
-# Performance analysis
-go-broadcast sync --log-format json 2>&1 | \
-  jq -r 'select(.duration_ms > 1000) | "\(.duration_ms)ms \(.operation)"'
+# Configuration validation
+go-broadcast validate --config sync.yaml
 
-# Find errors in logs
-go-broadcast sync --json 2>&1 | jq 'select(.level=="error")'
+# Test configuration without changes
+go-broadcast sync --dry-run --config sync.yaml
 
 # Save debug session
-go-broadcast sync -vvv --debug-git 2> debug-$(date +%Y%m%d-%H%M%S).log
+go-broadcast sync --log-level debug 2> debug-$(date +%Y%m%d-%H%M%S).log
 
-# Memory/performance monitoring
-go-broadcast sync --json --debug-api 2>&1 | \
-  jq 'select(.component=="github-api") | {operation, duration_ms, error}'
+# System diagnostics
+go-broadcast diagnose > diagnostics-$(date +%Y%m%d-%H%M%S).json
 ```
 
 ## 🌍 Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GO_BROADCAST_LOG_LEVEL` | `info` | Default log level |
-| `GO_BROADCAST_LOG_FORMAT` | `text` | Default output format |
-| `GO_BROADCAST_DEBUG` | `false` | Enable all debug flags |
-| `NO_COLOR` | - | Disable colored output |
 | `GITHUB_TOKEN` | - | GitHub authentication token |
+| `GH_TOKEN` | - | Alternative GitHub token variable |
+| `NO_COLOR` | - | Disable colored output |
+
+**Note**: Environment variables for log level and format are planned features not yet implemented.
 
 ## 📄 Output Examples
 
 ### Text Format (Default)
 ```
-15:04:05 INFO  Starting broadcast sync     version=1.2.3
-15:04:05 DEBUG Config loaded successfully  path=.broadcast.yaml targets=3
-15:04:06 WARN  Rate limit approaching      remaining=100
+time="13:32:17" level=info msg="Configuration changed" action=config_loaded component=audit
+time="13:32:17" level=info msg="Syncing all configured targets" command=sync
+time="13:32:17" level=debug msg="CLI initialized" config=examples/minimal.yaml dry_run=true
 ```
 
-### JSON Format
+### System Diagnostics (JSON)
 ```json
 {
-  "@timestamp": "2024-01-15T15:04:05.123Z",
-  "level": "info",
-  "message": "Starting broadcast sync",
-  "component": "cli",
-  "version": "1.2.3",
-  "correlation_id": "a1b2c3d4"
+  "timestamp": "2025-07-26T13:31:10.010068-04:00",
+  "version": {
+    "version": "dev",
+    "go_version": "go1.24.5",
+    "built_by": "source"
+  },
+  "system": {
+    "os": "darwin",
+    "arch": "arm64",
+    "num_cpu": 10
+  }
 }
 ```
 
@@ -99,72 +98,84 @@ go-broadcast sync --json --debug-api 2>&1 | \
 go-broadcast diagnose > diagnostics.json
 
 # Check configuration
-go-broadcast validate --debug-config -v
+go-broadcast validate --config sync.yaml
 
 # Test connectivity
 gh api user                             # GitHub API access
 git --version                           # Git availability
+gh auth status                          # GitHub CLI authentication
 
-# Log analysis pipeline
-go-broadcast sync --json 2>&1 | \
-  jq 'select(.duration_ms) | {operation, duration_ms}' | \
-  sort_by(.duration_ms) | reverse
+# Test configuration without changes
+go-broadcast sync --dry-run --config examples/minimal.yaml
 ```
 
-## 🎯 Debug Combinations
+## 🎯 Current Debugging Capabilities
 
 ```bash
-# Full debugging (maximum verbosity)
-go-broadcast sync -vvv --debug-git --debug-api --debug-transform --debug-config --debug-state
+# Basic debugging
+go-broadcast sync --log-level debug --config sync.yaml
 
-# Performance focus
-go-broadcast sync --json --debug-api 2>&1 | jq 'select(.duration_ms > 5000)'
+# Preview changes without executing
+go-broadcast sync --dry-run --config sync.yaml
 
-# Security audit
-go-broadcast sync --json 2>&1 | jq 'select(.component=="audit")'
+# Validate configuration syntax
+go-broadcast validate --config sync.yaml
 
-# Git troubleshooting
-go-broadcast sync --debug-git -vv 2>&1 | grep -E "(git|clone|push|branch)"
+# Collect comprehensive diagnostics
+go-broadcast diagnose
 
-# API rate limiting
-go-broadcast sync --debug-api --json 2>&1 | jq 'select(.rate_limit_remaining)'
+# Monitor authentication
+gh auth status
 ```
 
-## 🔍 Log Analysis Tips
+## 🔍 Basic Log Analysis
 
-### Find Bottlenecks
+### Debug Log Review
 ```bash
-# Operations taking >5 seconds
-jq 'select(.duration_ms > 5000) | {operation, duration_ms, repo}' < logs.json
+# Save debug session for analysis
+go-broadcast sync --log-level debug 2> debug.log
 
-# Most common operations
-jq -r 'select(.duration_ms) | .operation' < logs.json | sort | uniq -c | sort -rn
+# Review errors in debug log
+grep -i error debug.log
+
+# Check authentication events
+grep -i auth debug.log
+
+# Review configuration loading
+grep -i config debug.log
 ```
 
-### Error Analysis  
+### System Diagnostics Analysis
 ```bash
-# All errors with context
-jq 'select(.level=="error") | {message, component, operation, error}' < logs.json
+# Save diagnostics for support
+go-broadcast diagnose > diagnostics.json
 
-# Failed operations with timing
-jq 'select(.status=="failed") | {operation, duration_ms, error}' < logs.json
+# Extract version information
+jq '.version' diagnostics.json
+
+# Check system environment
+jq '.system' diagnostics.json
+
+# Review tool versions
+jq '.git_version, .gh_cli_version' diagnostics.json
 ```
 
-### Security Monitoring
-```bash
-# Authentication events
-jq 'select(.component=="audit" and .event=="authentication")' < logs.json
+## 📚 Developer Workflow Integration
 
-# Repository access
-jq 'select(.event=="repo_access") | {repo, action, user}' < logs.json
-```
+For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md#️-troubleshooting-quick-reference) which includes:
+- **Debugging go-broadcast procedures** with verbose logging examples
+- **Component-specific debugging workflows** for targeted investigation  
+- **Environment troubleshooting steps** for common setup issues
+- **Development workflow integration** for effective debugging
 
-## 📚 See Also
+## Related Documentation
 
-- **Comprehensive Guide**: [docs/logging.md](logging.md)
-- **Troubleshooting**: [docs/troubleshooting-runbook.md](troubleshooting-runbook.md)
-- **Main Documentation**: [README.md](../README.md#-logging-and-debugging)
+- **Comprehensive Guide**: [logging.md](logging.md) - Complete logging system documentation
+- **Troubleshooting Runbook**: [troubleshooting-runbook.md](troubleshooting-runbook.md) - Operational procedures
+- **General Troubleshooting**: [troubleshooting.md](troubleshooting.md) - Common issue resolution
+- **Main Documentation**: [README.md](../README.md#-logging-and-debugging) - Overview and quick start
+- **Developer Workflows**: [CLAUDE.md](../.github/CLAUDE.md) - Complete development workflow integration
 
 ---
 
-**💡 Pro Tip**: Start with `-v` for basic debugging, then add specific `--debug-*` flags for targeted investigation. Use `--json` when piping to analysis tools.
+**💡 Pro Tip**: Start with `-v` for basic debugging, then add specific `--debug-*` flags for targeted investigation. Use `--json` when piping to analysis tools. For complete workflows, see [CLAUDE.md](../.github/CLAUDE.md#️-troubleshooting-quick-reference).

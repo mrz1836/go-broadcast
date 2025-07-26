@@ -17,37 +17,43 @@ go-broadcast provides comprehensive logging capabilities designed for debugging,
 - **stdout**: User-facing messages only
 - **Files**: Via shell redirection or log rotation tools
 
-## Verbose Flags (-v, -vv, -vvv)
+## Log Levels
 
-The verbose flags provide intuitive control over logging detail:
+The current implementation provides basic log level control:
 
-### -v (Debug Level)
+### --log-level debug
 Shows detailed operation progress and debugging information:
 ```
-15:04:05 DEBUG Starting sync operation component=sync-engine
-15:04:05 DEBUG Discovering source repository state component=state-discovery
-15:04:06 DEBUG Git command completed duration_ms=1023 exit_code=0
+time="13:32:17" level=debug msg="CLI initialized" config=examples/minimal.yaml dry_run=true
+time="13:32:17" level=debug msg="Executing command" args="[auth status]" command=gh
+time="13:32:17" level=debug msg="Command completed successfully" args="[auth status]" command=gh
 ```
 
-### -vv (Trace Level)
-Shows very detailed debugging information including internal operations:
+### --log-level info (Default)
+Shows standard operational information:
 ```
-15:04:05 [TRACE] Validating config version version=1.0
-15:04:05 [TRACE] Variable replacement variable=REPO_NAME value=go-broadcast
-15:04:06 [TRACE] Response body response={"data":{"repository":{"name":"go-broadcast"}}}
-```
-
-### -vvv (Trace with Caller Info)
-Adds file:line information for deep debugging:
-```
-15:04:05.123 [TRACE] git.go:142 Executing git command args=[status --porcelain]
-15:04:05.234 [TRACE] transform.go:89 Content before size=1024
-15:04:05.235 [TRACE] transform.go:92 Content after size=1048 diff=24
+time="13:32:17" level=info msg="Configuration changed" action=config_loaded component=audit
+time="13:32:17" level=info msg="Syncing all configured targets" command=sync
+time="13:32:17" level=info msg="Starting sync operation" component=sync_engine
 ```
 
-## Debug Flags
+### --log-level warn
+Shows warnings and higher severity messages:
+```
+time="13:32:17" level=warning msg="DRY-RUN MODE: No changes will be made" component=sync_engine
+```
 
-### --debug-git
+### --log-level error
+Shows only error messages:
+```
+time="13:32:17" level=error msg="Command failed" args="[api repos/org/template-repo/branches/master]" command=gh
+```
+
+**Note**: Enhanced verbose flags (`-v`, `-vv`, `-vvv`) and component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented in the current version.
+
+## Current Debugging Capabilities
+
+### Basic Debugging
 Detailed git command execution logging:
 - Full command lines with arguments
 - Working directory and environment
@@ -420,3 +426,18 @@ output {
 - GitHub Issues: Include `go-broadcast diagnose` output
 - Community Forum: Share relevant log excerpts (redacted)
 - Enterprise Support: Provide full debug logs via secure channel
+
+## Developer Workflow Integration
+
+For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md#️-troubleshooting-quick-reference) which includes:
+- **Debug command procedures** for troubleshooting go-broadcast issues
+- **Verbose logging workflows** for development and debugging
+- **Component-specific debugging** for targeted investigation
+- **Environment troubleshooting** for setup and configuration issues
+
+## Related Documentation
+
+1. [Logging Quick Reference](logging-quick-ref.md) - Essential logging commands and flags
+2. [Troubleshooting Guide](troubleshooting.md) - General troubleshooting procedures  
+3. [Troubleshooting Runbook](troubleshooting-runbook.md) - Operational troubleshooting procedures
+4. [CLAUDE.md Developer Workflows](../.github/CLAUDE.md) - Complete development workflow integration

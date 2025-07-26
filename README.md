@@ -101,7 +101,7 @@
 Get up and running with go-broadcast in under 5 minutes!
 
 ### Prerequisites
-- [Go 1.21+](https://golang.org/doc/install) ([supported release](https://golang.org/doc/devel/release.html#policy)) and [GitHub CLI](https://cli.github.com/) installed
+- [Go 1.24+](https://golang.org/doc/install) ([supported release](https://golang.org/doc/devel/release.html#policy)) and [GitHub CLI](https://cli.github.com/) installed
 - GitHub authentication: `gh auth login`
 
 ### Installation
@@ -320,35 +320,24 @@ go-broadcast provides comprehensive logging capabilities designed for debugging,
 ### Quick Start
 
 ```bash
-# Basic verbose output (-v for debug, -vv for trace, -vvv for trace with line numbers)
-go-broadcast sync -v                    # Debug level logging
-go-broadcast sync -vv                   # Trace level logging  
-go-broadcast sync -vvv                  # Trace with caller info
-
-# Component-specific debugging
-go-broadcast sync --debug-git           # Show git command details
-go-broadcast sync --debug-api           # Show GitHub API requests/responses
-go-broadcast sync --debug-transform     # Show file transformation details
-go-broadcast sync --debug-config        # Show configuration validation
-go-broadcast sync --debug-state         # Show state discovery process
-
-# Combine for comprehensive debugging
-go-broadcast sync -vv --debug-git --debug-api
-
-# JSON output for log aggregation
-go-broadcast sync --log-format json
+# Basic logging levels
+go-broadcast sync --log-level debug     # Debug level logging
+go-broadcast sync --log-level info      # Info level logging (default)
+go-broadcast sync --log-level warn      # Warning level logging
+go-broadcast sync --log-level error     # Error level logging
 
 # Collect diagnostic information
 go-broadcast diagnose > diagnostics.json
 ```
+
+**Note**: Advanced verbose flags (`-v`, `-vv`, `-vvv`) and component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented. The current implementation supports `--log-level` for basic debugging.
 
 ### Log Levels
 
 - **ERROR**: Critical failures that prevent operation
 - **WARN**: Important issues that don't stop execution
 - **INFO**: High-level operation progress (default)
-- **DEBUG**: Detailed operation information (`-v`)
-- **TRACE**: Very detailed debugging information (`-vv`)
+- **DEBUG**: Detailed operation information (`--log-level debug`)
 
 ### Advanced Logging Features
 
@@ -369,8 +358,8 @@ go-broadcast sync --log-format json 2>&1 | \
 
 **Git Authentication Issues**
 ```bash
-# Debug git authentication problems
-go-broadcast sync -v --debug-git
+# Enable debug logging to see git operations
+go-broadcast sync --log-level debug
 
 # Common indicators:
 # - "Authentication failed" in git output
@@ -380,69 +369,52 @@ go-broadcast sync -v --debug-git
 
 **API Rate Limiting**
 ```bash
-# Monitor API usage
-go-broadcast sync --debug-api --log-format json 2>&1 | \
-  jq 'select(.component=="github-api") | {operation, duration_ms, error}'
+# Monitor operations with debug logging
+go-broadcast sync --log-level debug 2>&1 | grep -i "rate"
 ```
 
 **File Transformation Issues**
 ```bash
-# Debug variable replacements and transformations
-go-broadcast sync -vv --debug-transform
+# Use debug logging to see operation details
+go-broadcast sync --log-level debug
 
-# Shows:
-# - Variables being replaced
-# - File size changes
-# - Before/after content for small files (with -vvv)
+# Debug output shows:
+# - File operations
+# - Configuration processing
+# - Error details
 ```
 
 **State Discovery Problems**
 ```bash
-# Understand what go-broadcast sees in repositories
-go-broadcast sync --debug-state
+# Enable debug logging for repository state information
+go-broadcast sync --log-level debug
 
-# Shows:
-# - Source repository state
-# - Target repository states
-# - Existing PR detection
+# Debug output includes:
+# - Repository access attempts
+# - Branch discovery
 # - File discovery process
 ```
 
 ### Log Management
 
-#### Structured Logging
-JSON format is ideal for log aggregation systems:
+#### Debug Sessions
 ```bash
-# Send to log aggregation
-go-broadcast sync --log-format json 2>&1 | fluentd
-
-# Parse with jq
-go-broadcast sync --log-format json 2>&1 | jq '.level="error"'
-
 # Save debug session
-go-broadcast sync -vvv --debug-git 2> debug-$(date +%Y%m%d-%H%M%S).log
+go-broadcast sync --log-level debug 2> debug-$(date +%Y%m%d-%H%M%S).log
+
+# Review debug logs
+go-broadcast sync --log-level debug 2>&1 | tee sync-debug.log
 ```
 
-#### Performance Analysis
-```bash
-# Find slowest operations
-go-broadcast sync --log-format json 2>&1 | \
-  jq -r 'select(.duration_ms) | "\(.duration_ms)ms \(.operation)"' | \
-  sort -rn | head -20
-
-# Monitor memory usage (if implemented)
-go-broadcast sync --log-format json 2>&1 | \
-  jq 'select(.memory_mb) | {operation, memory_mb}'
-```
+**Note**: JSON log format (`--log-format json`) is a planned feature. The `diagnose` command provides JSON output for system information.
 
 ### Environment Variables
 
 | Variable                  | Description            | Example |
 |---------------------------|------------------------|---------|
-| `GO_BROADCAST_LOG_LEVEL`  | Default log level      | `debug` |
-| `GO_BROADCAST_LOG_FORMAT` | Default log format     | `json`  |
-| `GO_BROADCAST_DEBUG`      | Enable all debug flags | `true`  |
 | `NO_COLOR`                | Disable colored output | `1`     |
+
+**Note**: Environment variables for log level and format are planned features not yet implemented.
 
 For more detailed information, see the [comprehensive logging guide](docs/logging.md) and [troubleshooting runbook](docs/troubleshooting-runbook.md).
 
