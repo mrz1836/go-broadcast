@@ -308,16 +308,16 @@ jobs:
             echo "📊 Coverage file lines: $(wc -l < coverage.txt)"
             echo "📊 First line: $(head -1 coverage.txt)"
             echo "📊 Last line: $(tail -1 coverage.txt)"
-            
+
             # Ensure the coverage file starts with valid coverage data
             FIRST_LINE=$(head -1 coverage.txt)
             if [[ "$FIRST_LINE" == "mode: atomic" ]] || [[ "$FIRST_LINE" == "mode: count" ]] || [[ "$FIRST_LINE" == "mode: set" ]]; then
               echo "✅ Coverage file format looks valid"
-              
+
               # Additional debugging info
               echo "📋 Sample coverage lines (lines 2-5):"
               sed -n '2,5p' coverage.txt
-              
+
               # Check for any non-ASCII characters
               if file coverage.txt | grep -q "ASCII text"; then
                 echo "✅ File is pure ASCII text"
@@ -325,14 +325,14 @@ jobs:
                 echo "⚠️ File may contain non-ASCII characters"
                 file coverage.txt
               fi
-              
+
               # Check file permissions
               echo "📋 File permissions: $(ls -la coverage.txt)"
-              
+
               # List all coverage files in directory
               echo "📋 All coverage files in current directory:"
               ls -la *.txt *.out 2>/dev/null | grep -E "(coverage|cover)" || echo "No other coverage files found"
-              
+
               # Check codecov.yml
               if [ -f codecov.yml ]; then
                 echo "📋 Found codecov.yml configuration"
@@ -367,7 +367,7 @@ jobs:
           verbose: true
 
       # ————————————————————————————————————————————————————————————————
-      # Debug codecov upload result
+      # Debug the codecov upload result
       # ————————————————————————————————————————————————————————————————
       - name: 🔍 Debug Codecov result
         if: inputs.code-coverage-enabled == 'true' && always()
