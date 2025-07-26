@@ -357,6 +357,8 @@ jobs:
           flags: unittests
           token: ${{ secrets.codecov-token }}
           verbose: true
+          files: ./coverage.txt
+          disable_search: true
 
       # ————————————————————————————————————————————————————————————————
       # Debug codecov upload result
