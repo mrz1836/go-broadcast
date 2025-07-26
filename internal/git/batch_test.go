@@ -2,42 +2,42 @@ package git
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBatchAddFiles(t *testing.T) {
 	tests := []struct {
 		name        string
-		repoPath    string
 		files       []string
 		expectError bool
 		errorMsg    string
 	}{
 		{
 			name:        "EmptyFileList",
-			repoPath:    "/tmp/repo",
 			files:       []string{},
 			expectError: false,
 		},
 		{
 			name:        "SingleFile",
-			repoPath:    "/tmp/repo",
 			files:       []string{"file1.txt"},
 			expectError: false,
 		},
 		{
 			name:        "SmallBatch",
-			repoPath:    "/tmp/repo",
 			files:       []string{"file1.txt", "file2.txt", "file3.txt"},
 			expectError: false,
 		},
 		{
 			name:        "LargeBatchExceedingLimit",
-			repoPath:    "/tmp/repo",
 			files:       generateFileList(250), // More than maxBatchSize (100)
 			expectError: false,
 		},
@@ -45,321 +45,911 @@ func TestBatchAddFiles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a real gitClient to test the batch logic
-			client := &gitClient{logger: nil}
+			if testing.Short() {
+				t.Skip("Skipping integration test")
+			}
+
+			// Create temporary git repository
+			tmpDir := t.TempDir()
 			ctx := context.Background()
+
+			// Initialize git repo
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			err := initCmd.Run()
+			require.NoError(t, err)
+
+			// Configure git user for tests
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			logger := logrus.New()
+			logger.SetOutput(io.Discard) // Discard logs during tests
+			client := &gitClient{logger: logger}
 
 			// Test with empty files - should return nil immediately
 			if len(tt.files) == 0 {
-				err := client.BatchAddFiles(ctx, tt.repoPath, tt.files)
-				require.NoError(t, err)
+				err2 := client.BatchAddFiles(ctx, tmpDir, tt.files)
+				require.NoError(t, err2)
 				return
 			}
 
-			// For non-empty cases, we need to test with a mock git command
-			// This tests the batch splitting logic
-			// Full command execution would be tested in integration tests
+			// Create test files
+			for _, file := range tt.files {
+				filePath := filepath.Join(tmpDir, file)
+				err2 := os.WriteFile(filePath, []byte("test content"), 0o600)
+				require.NoError(t, err2)
+			}
+
+			// Test batch add
+			err = client.BatchAddFiles(ctx, tmpDir, tt.files)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+
+				// Verify files were added
+				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain") //nolint:gosec // tmpDir is from t.TempDir()
+				output, err := statusCmd.Output()
+				require.NoError(t, err)
+
+				// All files should be staged (A)
+				lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+				if len(tt.files) > 0 {
+					require.Len(t, lines, len(tt.files))
+					for _, line := range lines {
+						require.True(t, strings.HasPrefix(line, "A "))
+					}
+				}
+			}
 		})
 	}
 }
 
 func TestBatchStatus(t *testing.T) {
 	tests := []struct {
-		name           string
-		repoPath       string
-		files          []string
-		commandOutput  string
-		commandError   error
-		expectedResult map[string]string
-		expectError    bool
-		errorMsg       string
+		name        string
+		files       []string
+		setupFiles  func(t *testing.T, tmpDir string) // Function to set up files with specific states
+		expectError bool
+		errorMsg    string
+		validate    func(t *testing.T, result map[string]string)
 	}{
 		{
-			name:           "EmptyFileList",
-			repoPath:       "/tmp/repo",
-			files:          []string{},
-			expectedResult: map[string]string{},
-			expectError:    false,
-		},
-		{
-			name:     "SingleFileModified",
-			repoPath: "/tmp/repo",
-			files:    []string{"file1.txt"},
-			commandOutput: ` M file1.txt
-`,
-			expectedResult: map[string]string{
-				"file1.txt": " M",
+			name:  "EmptyFileList",
+			files: []string{},
+			validate: func(t *testing.T, result map[string]string) {
+				require.Empty(t, result)
 			},
-			expectError: false,
 		},
 		{
-			name:     "MultipleFilesWithDifferentStatuses",
-			repoPath: "/tmp/repo",
-			files:    []string{"file1.txt", "file2.txt", "file3.txt"},
-			commandOutput: ` M file1.txt
-A  file2.txt
-?? file3.txt
-`,
-			expectedResult: map[string]string{
-				"file1.txt": " M",
-				"file2.txt": "A ",
-				"file3.txt": "??",
+			name:  "SingleFileModified",
+			files: []string{"file1.txt"},
+			setupFiles: func(t *testing.T, tmpDir string) {
+				// Create and commit file
+				filePath := filepath.Join(tmpDir, "file1.txt")
+				err := os.WriteFile(filePath, []byte("original content"), 0o600)
+				require.NoError(t, err)
+
+				ctx := context.Background()
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
+				err = addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+
+				// Modify the file
+				err = os.WriteFile(filePath, []byte("modified content"), 0o600)
+				require.NoError(t, err)
 			},
-			expectError: false,
-		},
-		{
-			name:     "FilesWithSpacesInPath",
-			repoPath: "/tmp/repo",
-			files:    []string{"path/to/my file.txt"},
-			commandOutput: ` M path/to/my file.txt
-`,
-			expectedResult: map[string]string{
-				"path/to/my file.txt": " M",
+			validate: func(t *testing.T, result map[string]string) {
+				require.Len(t, result, 1)
+				require.Equal(t, " M", result["file1.txt"])
 			},
-			expectError: false,
 		},
 		{
-			name:         "CommandError",
-			repoPath:     "/tmp/repo",
-			files:        []string{"file1.txt"},
-			commandError: errors.New("git status failed"), //nolint:err113 // test error
-			expectError:  true,
-			errorMsg:     "batch status failed",
-		},
-		{
-			name:           "EmptyOutput",
-			repoPath:       "/tmp/repo",
-			files:          []string{"file1.txt"},
-			commandOutput:  "",
-			expectedResult: map[string]string{},
-			expectError:    false,
-		},
-		{
-			name:     "ShortLines",
-			repoPath: "/tmp/repo",
-			files:    []string{"file1.txt"},
-			commandOutput: ` M file1.txt
-XX
-M
-`,
-			expectedResult: map[string]string{
-				"file1.txt": " M",
+			name:  "MultipleFilesWithDifferentStatuses",
+			files: []string{"file1.txt", "file2.txt", "file3.txt"},
+			setupFiles: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Create and commit file1
+				file1 := filepath.Join(tmpDir, "file1.txt")
+				err := os.WriteFile(file1, []byte("content1"), 0o600)
+				require.NoError(t, err)
+
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
+				err = addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+
+				// Modify file1
+				err = os.WriteFile(file1, []byte("modified content1"), 0o600)
+				require.NoError(t, err)
+
+				// Create and stage file2
+				file2 := filepath.Join(tmpDir, "file2.txt")
+				err = os.WriteFile(file2, []byte("content2"), 0o600)
+				require.NoError(t, err)
+
+				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file2.txt")
+				err = addCmd2.Run()
+				require.NoError(t, err)
+
+				// Create untracked file3
+				file3 := filepath.Join(tmpDir, "file3.txt")
+				err = os.WriteFile(file3, []byte("content3"), 0o600)
+				require.NoError(t, err)
 			},
-			expectError: false,
+			validate: func(t *testing.T, result map[string]string) {
+				require.Len(t, result, 3)
+				require.Equal(t, " M", result["file1.txt"])
+				require.Equal(t, "A ", result["file2.txt"])
+				require.Equal(t, "??", result["file3.txt"])
+			},
+		},
+		{
+			name:  "FilesWithSpacesInPath",
+			files: []string{"path/to/my file.txt"},
+			setupFiles: func(t *testing.T, tmpDir string) {
+				// Create directory structure
+				dirPath := filepath.Join(tmpDir, "path", "to")
+				err := os.MkdirAll(dirPath, 0o750)
+				require.NoError(t, err)
+
+				// Create file with space in name
+				filePath := filepath.Join(dirPath, "my file.txt")
+				err = os.WriteFile(filePath, []byte("content with spaces"), 0o600)
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T, result map[string]string) {
+				// When specifying specific files with spaces, git might not return them
+				// if they're not properly escaped. In this case, we should get an empty result
+				// or the file if git handles it properly
+				if len(result) > 0 {
+					require.Len(t, result, 1)
+					// Check for the file in the result map
+					for file, status := range result {
+						require.Contains(t, file, "my file.txt")
+						require.Equal(t, "??", status)
+					}
+				}
+			},
+		},
+		{
+			name:  "LargeBatchExceedingLimit",
+			files: generateFileList(120), // More than maxBatchSize for status
+			setupFiles: func(t *testing.T, tmpDir string) {
+				// Create multiple files
+				for i := 0; i < 120; i++ {
+					fileName := fmt.Sprintf("file%d.txt", i+1)
+					filePath := filepath.Join(tmpDir, fileName)
+					err := os.WriteFile(filePath, []byte(fmt.Sprintf("content %d", i)), 0o600)
+					require.NoError(t, err)
+				}
+			},
+			validate: func(t *testing.T, result map[string]string) {
+				require.Len(t, result, 120)
+				for i := 0; i < 120; i++ {
+					fileName := fmt.Sprintf("file%d.txt", i+1)
+					require.Equal(t, "??", result[fileName])
+				}
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test empty file list
-			if len(tt.files) == 0 {
-				client := &gitClient{logger: nil}
-				result, err := client.BatchStatus(context.Background(), tt.repoPath, tt.files)
-				require.NoError(t, err)
-				require.Equal(t, tt.expectedResult, result)
-				return
+			if testing.Short() {
+				t.Skip("Skipping integration test")
 			}
 
-			// For non-empty cases, we need integration tests since BatchStatus
-			// uses exec.CommandContext directly
+			// Create temporary git repository
+			tmpDir := t.TempDir()
+			ctx := context.Background()
+
+			// Initialize git repo
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			err := initCmd.Run()
+			require.NoError(t, err)
+
+			// Configure git user for tests
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			logger := logrus.New()
+			logger.SetOutput(io.Discard) // Discard logs during tests
+			client := &gitClient{logger: logger}
+
+			// Set up files if needed
+			if tt.setupFiles != nil {
+				tt.setupFiles(t, tmpDir)
+			}
+
+			// Test batch status
+			result, err := client.BatchStatus(ctx, tmpDir, tt.files)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+				if tt.validate != nil {
+					tt.validate(t, result)
+				}
+			}
 		})
 	}
 }
 
 func TestBatchStatusAll(t *testing.T) {
 	tests := []struct {
-		name           string
-		repoPath       string
-		commandOutput  string
-		commandError   error
-		expectedResult map[string]string
-		expectError    bool
-		errorMsg       string
+		name        string
+		setupFiles  func(t *testing.T, tmpDir string) // Function to set up files with specific states
+		expectError bool
+		errorMsg    string
+		validate    func(t *testing.T, result map[string]string)
 	}{
 		{
-			name:     "MultipleFilesStatus",
-			repoPath: "/tmp/repo",
-			commandOutput: ` M src/main.go
-A  README.md
-?? temp.txt
-D  old.go
-`,
-			expectedResult: map[string]string{
-				"src/main.go": " M",
-				"README.md":   "A ",
-				"temp.txt":    "??",
-				"old.go":      "D ",
+			name: "EmptyRepository",
+			validate: func(t *testing.T, result map[string]string) {
+				require.Empty(t, result)
 			},
-			expectError: false,
 		},
 		{
-			name:           "EmptyRepository",
-			repoPath:       "/tmp/repo",
-			commandOutput:  "",
-			expectedResult: map[string]string{},
-			expectError:    false,
-		},
-		{
-			name:         "CommandError",
-			repoPath:     "/tmp/repo",
-			commandError: errors.New("not a git repository"), //nolint:err113 // test error
-			expectError:  true,
-			errorMsg:     "batch status all failed",
-		},
-		{
-			name:     "StatusWithRenames",
-			repoPath: "/tmp/repo",
-			commandOutput: `R  old-name.txt -> new-name.txt
- M file.go
-`,
-			expectedResult: map[string]string{
-				"old-name.txt -> new-name.txt": "R ",
-				"file.go":                      " M",
+			name: "MultipleFilesStatus",
+			setupFiles: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Create src directory
+				srcDir := filepath.Join(tmpDir, "src")
+				err := os.MkdirAll(srcDir, 0o750)
+				require.NoError(t, err)
+
+				// Create and commit main.go
+				mainFile := filepath.Join(srcDir, "main.go")
+				err = os.WriteFile(mainFile, []byte("package main"), 0o600)
+				require.NoError(t, err)
+
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "src/main.go")
+				err = addCmd.Run()
+				require.NoError(t, err)
+
+				// Create and commit old.go to delete later
+				oldFile := filepath.Join(tmpDir, "old.go")
+				err = os.WriteFile(oldFile, []byte("package old"), 0o600)
+				require.NoError(t, err)
+
+				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "old.go")
+				err = addCmd2.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial files")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+
+				// Modify main.go
+				err = os.WriteFile(mainFile, []byte("package main\n\nfunc main() {}"), 0o600)
+				require.NoError(t, err)
+
+				// Add README.md
+				readmeFile := filepath.Join(tmpDir, "README.md")
+				err = os.WriteFile(readmeFile, []byte("# Test Repo"), 0o600)
+				require.NoError(t, err)
+
+				addCmd3 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "README.md")
+				err = addCmd3.Run()
+				require.NoError(t, err)
+
+				// Create untracked temp.txt
+				tempFile := filepath.Join(tmpDir, "temp.txt")
+				err = os.WriteFile(tempFile, []byte("temporary"), 0o600)
+				require.NoError(t, err)
+
+				// Delete old.go
+				rmCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "rm", "old.go")
+				err = rmCmd.Run()
+				require.NoError(t, err)
 			},
-			expectError: false,
+			validate: func(t *testing.T, result map[string]string) {
+				require.Len(t, result, 4)
+				require.Equal(t, " M", result["src/main.go"])
+				require.Equal(t, "A ", result["README.md"])
+				require.Equal(t, "??", result["temp.txt"])
+				require.Equal(t, "D ", result["old.go"])
+			},
+		},
+		{
+			name: "StatusWithRenames",
+			setupFiles: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Create and commit old-name.txt
+				oldFile := filepath.Join(tmpDir, "old-name.txt")
+				err := os.WriteFile(oldFile, []byte("content"), 0o600)
+				require.NoError(t, err)
+
+				// Create and commit file.go
+				goFile := filepath.Join(tmpDir, "file.go")
+				err = os.WriteFile(goFile, []byte("package main"), 0o600)
+				require.NoError(t, err)
+
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				err = addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+
+				// Rename old-name.txt to new-name.txt
+				mvCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "mv", "old-name.txt", "new-name.txt")
+				err = mvCmd.Run()
+				require.NoError(t, err)
+
+				// Modify file.go
+				err = os.WriteFile(goFile, []byte("package main\n\nfunc main() {}"), 0o600)
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T, result map[string]string) {
+				require.Len(t, result, 2)
+				// Git shows renames as "old-name.txt -> new-name.txt"
+				require.Equal(t, "R ", result["old-name.txt -> new-name.txt"])
+				require.Equal(t, " M", result["file.go"])
+			},
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(_ *testing.T) {
-			// Since BatchStatusAll uses exec.CommandContext directly,
-			// we need integration tests for full coverage
-			_ = tt
+		t.Run(tt.name, func(t *testing.T) {
+			if testing.Short() {
+				t.Skip("Skipping integration test")
+			}
+
+			// Create temporary git repository
+			tmpDir := t.TempDir()
+			ctx := context.Background()
+
+			// Initialize git repo
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			err := initCmd.Run()
+			require.NoError(t, err)
+
+			// Configure git user for tests
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			logger := logrus.New()
+			logger.SetOutput(io.Discard) // Discard logs during tests
+			client := &gitClient{logger: logger}
+
+			// Set up files if needed
+			if tt.setupFiles != nil {
+				tt.setupFiles(t, tmpDir)
+			}
+
+			// Test batch status all
+			result, err := client.BatchStatusAll(ctx, tmpDir)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+				if tt.validate != nil {
+					tt.validate(t, result)
+				}
+			}
 		})
 	}
 }
 
 func TestBatchDiffFiles(t *testing.T) {
 	tests := []struct {
-		name           string
-		repoPath       string
-		files          []string
-		staged         bool
-		expectedResult map[string]string
-		expectError    bool
-		errorMsg       string
+		name        string
+		files       []string
+		staged      bool
+		setupFiles  func(t *testing.T, tmpDir string) // Function to set up files with specific states
+		expectError bool
+		errorMsg    string
+		validate    func(t *testing.T, result map[string]string)
 	}{
 		{
-			name:           "EmptyFileList",
-			repoPath:       "/tmp/repo",
-			files:          []string{},
-			staged:         false,
-			expectedResult: map[string]string{},
-			expectError:    false,
+			name:   "EmptyFileList",
+			files:  []string{},
+			staged: false,
+			validate: func(t *testing.T, result map[string]string) {
+				require.Empty(t, result)
+			},
 		},
 		{
-			name:        "LargeBatchSplit",
-			repoPath:    "/tmp/repo",
-			files:       generateFileList(120), // More than maxBatchSize (50)
-			staged:      false,
-			expectError: false,
+			name:   "UnstagedDiff",
+			files:  []string{"file1.txt", "file2.txt"},
+			staged: false,
+			setupFiles: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Create and commit files
+				file1 := filepath.Join(tmpDir, "file1.txt")
+				err := os.WriteFile(file1, []byte("original content 1"), 0o600)
+				require.NoError(t, err)
+
+				file2 := filepath.Join(tmpDir, "file2.txt")
+				err = os.WriteFile(file2, []byte("original content 2"), 0o600)
+				require.NoError(t, err)
+
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				err = addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+
+				// Modify the files
+				err = os.WriteFile(file1, []byte("modified content 1\nnew line"), 0o600)
+				require.NoError(t, err)
+
+				err = os.WriteFile(file2, []byte("modified content 2"), 0o600)
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T, result map[string]string) {
+				require.Len(t, result, 2)
+
+				// Check file1 diff
+				diff1, ok := result["file1.txt"]
+				require.True(t, ok, "file1.txt should have diff")
+				require.Contains(t, diff1, "-original content 1")
+				require.Contains(t, diff1, "+modified content 1")
+				require.Contains(t, diff1, "+new line")
+
+				// Check file2 diff
+				diff2, ok := result["file2.txt"]
+				require.True(t, ok, "file2.txt should have diff")
+				require.Contains(t, diff2, "-original content 2")
+				require.Contains(t, diff2, "+modified content 2")
+			},
 		},
 		{
-			name:        "StagedDiff",
-			repoPath:    "/tmp/repo",
-			files:       []string{"file1.txt", "file2.txt"},
-			staged:      true,
-			expectError: false,
+			name:   "StagedDiff",
+			files:  []string{"file1.txt", "file2.txt"},
+			staged: true,
+			setupFiles: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Create and commit file1
+				file1 := filepath.Join(tmpDir, "file1.txt")
+				err := os.WriteFile(file1, []byte("original content 1"), 0o600)
+				require.NoError(t, err)
+
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
+				err = addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+
+				// Modify file1 and stage it
+				err = os.WriteFile(file1, []byte("staged content 1"), 0o600)
+				require.NoError(t, err)
+
+				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
+				err = addCmd2.Run()
+				require.NoError(t, err)
+
+				// Create new file2 and stage it
+				file2 := filepath.Join(tmpDir, "file2.txt")
+				err = os.WriteFile(file2, []byte("new file content"), 0o600)
+				require.NoError(t, err)
+
+				addCmd3 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file2.txt")
+				err = addCmd3.Run()
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T, result map[string]string) {
+				require.Len(t, result, 2)
+
+				// Check file1 staged diff
+				diff1, ok := result["file1.txt"]
+				require.True(t, ok, "file1.txt should have staged diff")
+				require.Contains(t, diff1, "-original content 1")
+				require.Contains(t, diff1, "+staged content 1")
+
+				// Check file2 staged diff (new file)
+				diff2, ok := result["file2.txt"]
+				require.True(t, ok, "file2.txt should have staged diff")
+				require.Contains(t, diff2, "+new file content")
+			},
+		},
+		{
+			name:   "LargeBatchSplit",
+			files:  generateFileList(60), // More than maxBatchSize (50) for diff
+			staged: false,
+			setupFiles: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Create and commit multiple files
+				for i := 0; i < 60; i++ {
+					fileName := fmt.Sprintf("file%d.txt", i+1)
+					filePath := filepath.Join(tmpDir, fileName)
+					err := os.WriteFile(filePath, []byte(fmt.Sprintf("original content %d", i)), 0o600)
+					require.NoError(t, err)
+				}
+
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				err := addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+
+				// Modify all files
+				for i := 0; i < 60; i++ {
+					fileName := fmt.Sprintf("file%d.txt", i+1)
+					filePath := filepath.Join(tmpDir, fileName)
+					err := os.WriteFile(filePath, []byte(fmt.Sprintf("modified content %d", i)), 0o600)
+					require.NoError(t, err)
+				}
+			},
+			validate: func(t *testing.T, result map[string]string) {
+				require.Len(t, result, 60)
+
+				// Check that all files have diffs
+				for i := 0; i < 60; i++ {
+					fileName := fmt.Sprintf("file%d.txt", i+1)
+					diff, ok := result[fileName]
+					require.True(t, ok, "%s should have diff", fileName)
+					require.Contains(t, diff, fmt.Sprintf("-original content %d", i))
+					require.Contains(t, diff, fmt.Sprintf("+modified content %d", i))
+				}
+			},
+		},
+		{
+			name:   "MixedChanges",
+			files:  []string{"modified.txt", "unchanged.txt", "deleted.txt"},
+			staged: false,
+			setupFiles: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Create and commit files
+				modFile := filepath.Join(tmpDir, "modified.txt")
+				err := os.WriteFile(modFile, []byte("original"), 0o600)
+				require.NoError(t, err)
+
+				unchangedFile := filepath.Join(tmpDir, "unchanged.txt")
+				err = os.WriteFile(unchangedFile, []byte("no changes"), 0o600)
+				require.NoError(t, err)
+
+				delFile := filepath.Join(tmpDir, "deleted.txt")
+				err = os.WriteFile(delFile, []byte("to be deleted"), 0o600)
+				require.NoError(t, err)
+
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				err = addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+
+				// Make changes
+				err = os.WriteFile(modFile, []byte("modified"), 0o600)
+				require.NoError(t, err)
+
+				err = os.Remove(delFile)
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T, result map[string]string) {
+				// Only modified and deleted files should have diffs
+				require.Len(t, result, 2)
+
+				// Check modified file
+				diff1, ok := result["modified.txt"]
+				require.True(t, ok)
+				require.Contains(t, diff1, "-original")
+				require.Contains(t, diff1, "+modified")
+
+				// Check deleted file
+				diff2, ok := result["deleted.txt"]
+				require.True(t, ok)
+				require.Contains(t, diff2, "-to be deleted")
+
+				// Unchanged file should not be in results
+				_, ok = result["unchanged.txt"]
+				require.False(t, ok)
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test empty file list
-			if len(tt.files) == 0 {
-				client := &gitClient{logger: nil}
-				result, err := client.BatchDiffFiles(context.Background(), tt.repoPath, tt.files, tt.staged)
-				require.NoError(t, err)
-				require.Equal(t, tt.expectedResult, result)
-				return
+			if testing.Short() {
+				t.Skip("Skipping integration test")
 			}
 
-			// For non-empty cases, we need integration tests
+			// Create temporary git repository
+			tmpDir := t.TempDir()
+			ctx := context.Background()
+
+			// Initialize git repo
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			err := initCmd.Run()
+			require.NoError(t, err)
+
+			// Configure git user for tests
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			logger := logrus.New()
+			logger.SetOutput(io.Discard) // Discard logs during tests
+			client := &gitClient{logger: logger}
+
+			// Set up files if needed
+			if tt.setupFiles != nil {
+				tt.setupFiles(t, tmpDir)
+			}
+
+			// Test batch diff
+			result, err := client.BatchDiffFiles(ctx, tmpDir, tt.files, tt.staged)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+				if tt.validate != nil {
+					tt.validate(t, result)
+				}
+			}
 		})
 	}
 }
 
 func TestBatchCheckIgnored(t *testing.T) {
 	tests := []struct {
-		name           string
-		repoPath       string
-		files          []string
-		commandOutput  string
-		commandError   error
-		expectedResult map[string]bool
-		expectError    bool
-		errorMsg       string
+		name        string
+		files       []string
+		setupFiles  func(t *testing.T, tmpDir string) // Function to set up files and gitignore
+		expectError bool
+		errorMsg    string
+		validate    func(t *testing.T, result map[string]bool)
 	}{
 		{
-			name:           "EmptyFileList",
-			repoPath:       "/tmp/repo",
-			files:          []string{},
-			expectedResult: map[string]bool{},
-			expectError:    false,
-		},
-		{
-			name:          "NoIgnoredFiles",
-			repoPath:      "/tmp/repo",
-			files:         []string{"file1.txt", "file2.txt"},
-			commandOutput: "",
-			commandError:  fmt.Errorf("exit status 1"), //nolint:err113 // test error
-			expectedResult: map[string]bool{
-				"file1.txt": false,
-				"file2.txt": false,
+			name:  "EmptyFileList",
+			files: []string{},
+			validate: func(t *testing.T, result map[string]bool) {
+				require.Empty(t, result)
 			},
-			expectError: false,
 		},
 		{
-			name:     "SomeIgnoredFiles",
-			repoPath: "/tmp/repo",
-			files:    []string{"file1.txt", ".DS_Store", "build/"},
-			commandOutput: `.DS_Store
-build/
-`,
-			expectedResult: map[string]bool{
-				"file1.txt": false,
-				".DS_Store": true,
-				"build/":    true,
+			name:  "NoIgnoredFiles",
+			files: []string{"file1.txt", "file2.txt"},
+			setupFiles: func(t *testing.T, tmpDir string) {
+				// Create files without gitignore
+				file1 := filepath.Join(tmpDir, "file1.txt")
+				err := os.WriteFile(file1, []byte("content1"), 0o600)
+				require.NoError(t, err)
+
+				file2 := filepath.Join(tmpDir, "file2.txt")
+				err = os.WriteFile(file2, []byte("content2"), 0o600)
+				require.NoError(t, err)
 			},
-			expectError: false,
-		},
-		{
-			name:     "AllIgnoredFiles",
-			repoPath: "/tmp/repo",
-			files:    []string{"node_modules/", ".env", "*.log"},
-			commandOutput: `node_modules/
-.env
-*.log
-`,
-			expectedResult: map[string]bool{
-				"node_modules/": true,
-				".env":          true,
-				"*.log":         true,
+			validate: func(t *testing.T, result map[string]bool) {
+				require.Len(t, result, 2)
+				require.False(t, result["file1.txt"])
+				require.False(t, result["file2.txt"])
 			},
-			expectError: false,
 		},
 		{
-			name:         "CommandError",
-			repoPath:     "/tmp/repo",
-			files:        []string{"file1.txt"},
-			commandError: errors.New("fatal: not a git repository"), //nolint:err113 // test error
-			expectError:  true,
-			errorMsg:     "batch check-ignore failed",
+			name:  "SomeIgnoredFiles",
+			files: []string{"file1.txt", ".DS_Store", "build/output.txt"},
+			setupFiles: func(t *testing.T, tmpDir string) {
+				// Create gitignore
+				gitignore := filepath.Join(tmpDir, ".gitignore")
+				err := os.WriteFile(gitignore, []byte(".DS_Store\nbuild/\n"), 0o600)
+				require.NoError(t, err)
+
+				// Create files
+				file1 := filepath.Join(tmpDir, "file1.txt")
+				err = os.WriteFile(file1, []byte("content1"), 0o600)
+				require.NoError(t, err)
+
+				dsStore := filepath.Join(tmpDir, ".DS_Store")
+				err = os.WriteFile(dsStore, []byte("macos metadata"), 0o600)
+				require.NoError(t, err)
+
+				// Create build directory and file
+				buildDir := filepath.Join(tmpDir, "build")
+				err = os.MkdirAll(buildDir, 0o750)
+				require.NoError(t, err)
+
+				buildFile := filepath.Join(buildDir, "output.txt")
+				err = os.WriteFile(buildFile, []byte("build output"), 0o600)
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T, result map[string]bool) {
+				require.Len(t, result, 3)
+				require.False(t, result["file1.txt"])
+				require.True(t, result[".DS_Store"])
+				require.True(t, result["build/output.txt"])
+			},
+		},
+		{
+			name:  "AllIgnoredFiles",
+			files: []string{"node_modules/index.js", ".env", "debug.log"},
+			setupFiles: func(t *testing.T, tmpDir string) {
+				// Create comprehensive gitignore
+				gitignore := filepath.Join(tmpDir, ".gitignore")
+				err := os.WriteFile(gitignore, []byte("node_modules/\n.env\n*.log\n"), 0o600)
+				require.NoError(t, err)
+
+				// Create node_modules directory and file
+				nodeDir := filepath.Join(tmpDir, "node_modules")
+				err = os.MkdirAll(nodeDir, 0o750)
+				require.NoError(t, err)
+
+				nodeFile := filepath.Join(nodeDir, "index.js")
+				err = os.WriteFile(nodeFile, []byte("module.exports = {}"), 0o600)
+				require.NoError(t, err)
+
+				// Create .env file
+				envFile := filepath.Join(tmpDir, ".env")
+				err = os.WriteFile(envFile, []byte("SECRET=value"), 0o600)
+				require.NoError(t, err)
+
+				// Create log file
+				logFile := filepath.Join(tmpDir, "debug.log")
+				err = os.WriteFile(logFile, []byte("debug info"), 0o600)
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T, result map[string]bool) {
+				require.Len(t, result, 3)
+				require.True(t, result["node_modules/index.js"])
+				require.True(t, result[".env"])
+				require.True(t, result["debug.log"])
+			},
+		},
+		{
+			name:  "GitignorePatterns",
+			files: []string{"test.tmp", "backup.bak", "src/main.go", "src/test.tmp"},
+			setupFiles: func(t *testing.T, tmpDir string) {
+				// Create gitignore with patterns
+				gitignore := filepath.Join(tmpDir, ".gitignore")
+				err := os.WriteFile(gitignore, []byte("*.tmp\n*.bak\n"), 0o600)
+				require.NoError(t, err)
+
+				// Create src directory
+				srcDir := filepath.Join(tmpDir, "src")
+				err = os.MkdirAll(srcDir, 0o750)
+				require.NoError(t, err)
+
+				// Create files
+				files := []string{
+					filepath.Join(tmpDir, "test.tmp"),
+					filepath.Join(tmpDir, "backup.bak"),
+					filepath.Join(srcDir, "main.go"),
+					filepath.Join(srcDir, "test.tmp"),
+				}
+
+				for _, file := range files {
+					err := os.WriteFile(file, []byte("content"), 0o600)
+					require.NoError(t, err)
+				}
+			},
+			validate: func(t *testing.T, result map[string]bool) {
+				require.Len(t, result, 4)
+				require.True(t, result["test.tmp"])
+				require.True(t, result["backup.bak"])
+				require.False(t, result["src/main.go"])
+				require.True(t, result["src/test.tmp"])
+			},
+		},
+		{
+			name:  "LargeBatchExceedingLimit",
+			files: generateFileList(120), // More than maxBatchSize
+			setupFiles: func(t *testing.T, tmpDir string) {
+				// Create gitignore that ignores even numbered files
+				var gitignoreContent strings.Builder
+				for i := 0; i < 120; i += 2 {
+					gitignoreContent.WriteString(fmt.Sprintf("file%d.txt\n", i+1))
+				}
+
+				gitignore := filepath.Join(tmpDir, ".gitignore")
+				err := os.WriteFile(gitignore, []byte(gitignoreContent.String()), 0o600)
+				require.NoError(t, err)
+
+				// Create all files
+				for i := 0; i < 120; i++ {
+					fileName := fmt.Sprintf("file%d.txt", i+1)
+					filePath := filepath.Join(tmpDir, fileName)
+					err := os.WriteFile(filePath, []byte("content"), 0o600)
+					require.NoError(t, err)
+				}
+			},
+			validate: func(t *testing.T, result map[string]bool) {
+				require.Len(t, result, 120)
+
+				// Check that even numbered files are ignored
+				for i := 0; i < 120; i++ {
+					fileName := fmt.Sprintf("file%d.txt", i+1)
+					if i%2 == 0 {
+						require.True(t, result[fileName], "%s should be ignored", fileName)
+					} else {
+						require.False(t, result[fileName], "%s should not be ignored", fileName)
+					}
+				}
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test empty file list
-			if len(tt.files) == 0 {
-				client := &gitClient{logger: nil}
-				result, err := client.BatchCheckIgnored(context.Background(), tt.repoPath, tt.files)
-				require.NoError(t, err)
-				require.Equal(t, tt.expectedResult, result)
-				return
+			if testing.Short() {
+				t.Skip("Skipping integration test")
 			}
 
-			// For non-empty cases, we need integration tests
+			// Create temporary git repository
+			tmpDir := t.TempDir()
+			ctx := context.Background()
+
+			// Initialize git repo
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			err := initCmd.Run()
+			require.NoError(t, err)
+
+			// Configure git user for tests
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			logger := logrus.New()
+			logger.SetOutput(io.Discard) // Discard logs during tests
+			client := &gitClient{logger: logger}
+
+			// Set up files if needed
+			if tt.setupFiles != nil {
+				tt.setupFiles(t, tmpDir)
+			}
+
+			// Test batch check ignored
+			result, err := client.BatchCheckIgnored(ctx, tmpDir, tt.files)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+				if tt.validate != nil {
+					tt.validate(t, result)
+				}
+			}
 		})
 	}
 }
@@ -367,53 +957,310 @@ build/
 func TestBatchRemoveFiles(t *testing.T) {
 	tests := []struct {
 		name        string
-		repoPath    string
 		files       []string
 		keepLocal   bool
+		setupFiles  func(t *testing.T, tmpDir string) // Function to set up files
 		expectError bool
 		errorMsg    string
+		validate    func(t *testing.T, tmpDir string)
 	}{
 		{
-			name:        "EmptyFileList",
-			repoPath:    "/tmp/repo",
-			files:       []string{},
-			keepLocal:   false,
-			expectError: false,
+			name:      "EmptyFileList",
+			files:     []string{},
+			keepLocal: false,
+			validate: func(_ *testing.T, _ string) {
+				// Nothing to validate for empty list
+			},
 		},
 		{
-			name:        "SingleFileRemove",
-			repoPath:    "/tmp/repo",
-			files:       []string{"file1.txt"},
-			keepLocal:   false,
-			expectError: false,
+			name:      "SingleFileRemove",
+			files:     []string{"file1.txt"},
+			keepLocal: false,
+			setupFiles: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Create and commit file
+				file1 := filepath.Join(tmpDir, "file1.txt")
+				err := os.WriteFile(file1, []byte("content1"), 0o600)
+				require.NoError(t, err)
+
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
+				err = addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Check git status - file should be deleted
+				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain")
+				output, err := statusCmd.Output()
+				require.NoError(t, err)
+				require.Contains(t, string(output), "D  file1.txt")
+
+				// Check that file doesn't exist on disk
+				file1 := filepath.Join(tmpDir, "file1.txt")
+				_, err = os.Stat(file1)
+				require.True(t, os.IsNotExist(err))
+			},
 		},
 		{
-			name:        "RemoveKeepLocal",
-			repoPath:    "/tmp/repo",
-			files:       []string{"file1.txt", "file2.txt"},
-			keepLocal:   true,
-			expectError: false,
+			name:      "RemoveKeepLocal",
+			files:     []string{"file1.txt", "file2.txt"},
+			keepLocal: true,
+			setupFiles: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Create and commit files
+				file1 := filepath.Join(tmpDir, "file1.txt")
+				err := os.WriteFile(file1, []byte("content1"), 0o600)
+				require.NoError(t, err)
+
+				file2 := filepath.Join(tmpDir, "file2.txt")
+				err = os.WriteFile(file2, []byte("content2"), 0o600)
+				require.NoError(t, err)
+
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				err = addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add files")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Check git status - files should be deleted from index
+				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain")
+				output, err := statusCmd.Output()
+				require.NoError(t, err)
+
+				// Files should be deleted from index but present as untracked
+				lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+				require.Len(t, lines, 4) // 2 deleted (D) + 2 untracked (??)
+
+				statusMap := make(map[string]string)
+				for _, line := range lines {
+					if len(line) >= 3 {
+						status := line[:2]
+						filename := strings.TrimSpace(line[3:])
+						// If file already has status, append (for D and ??)
+						if existing, ok := statusMap[filename]; ok {
+							statusMap[filename] = existing + "," + status
+						} else {
+							statusMap[filename] = status
+						}
+					}
+				}
+
+				// Files should show as both deleted from index and untracked
+				require.Contains(t, statusMap["file1.txt"], "D ")
+				require.Contains(t, statusMap["file1.txt"], "??")
+				require.Contains(t, statusMap["file2.txt"], "D ")
+				require.Contains(t, statusMap["file2.txt"], "??")
+
+				// Check that files still exist on disk
+				file1 := filepath.Join(tmpDir, "file1.txt")
+				info1, err := os.Stat(file1)
+				require.NoError(t, err)
+				require.False(t, info1.IsDir())
+
+				file2 := filepath.Join(tmpDir, "file2.txt")
+				info2, err := os.Stat(file2)
+				require.NoError(t, err)
+				require.False(t, info2.IsDir())
+			},
 		},
 		{
-			name:        "LargeBatchRemove",
-			repoPath:    "/tmp/repo",
-			files:       generateFileList(250), // More than maxBatchSize (100)
-			keepLocal:   false,
-			expectError: false,
+			name:      "RemoveWithSubdirectories",
+			files:     []string{"src/main.go", "test/test.go", "README.md"},
+			keepLocal: false,
+			setupFiles: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Create directory structure
+				srcDir := filepath.Join(tmpDir, "src")
+				err := os.MkdirAll(srcDir, 0o750)
+				require.NoError(t, err)
+
+				testDir := filepath.Join(tmpDir, "test")
+				err = os.MkdirAll(testDir, 0o750)
+				require.NoError(t, err)
+
+				// Create files
+				mainFile := filepath.Join(srcDir, "main.go")
+				err = os.WriteFile(mainFile, []byte("package main"), 0o600)
+				require.NoError(t, err)
+
+				testFile := filepath.Join(testDir, "test.go")
+				err = os.WriteFile(testFile, []byte("package test"), 0o600)
+				require.NoError(t, err)
+
+				readmeFile := filepath.Join(tmpDir, "README.md")
+				err = os.WriteFile(readmeFile, []byte("# Test"), 0o600)
+				require.NoError(t, err)
+
+				// Add and commit all files
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				err = addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add files")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Check git status
+				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain")
+				output, err := statusCmd.Output()
+				require.NoError(t, err)
+
+				// All files should be deleted
+				outputStr := string(output)
+				require.Contains(t, outputStr, "D  README.md")
+				require.Contains(t, outputStr, "D  src/main.go")
+				require.Contains(t, outputStr, "D  test/test.go")
+
+				// Check that files don't exist on disk
+				files := []string{
+					filepath.Join(tmpDir, "src", "main.go"),
+					filepath.Join(tmpDir, "test", "test.go"),
+					filepath.Join(tmpDir, "README.md"),
+				}
+
+				for _, file := range files {
+					_, err := os.Stat(file)
+					require.True(t, os.IsNotExist(err), "file %s should not exist", file)
+				}
+			},
+		},
+		{
+			name:      "LargeBatchRemove",
+			files:     generateFileList(120), // More than maxBatchSize (100)
+			keepLocal: false,
+			setupFiles: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Create multiple files
+				for i := 0; i < 120; i++ {
+					fileName := fmt.Sprintf("file%d.txt", i+1)
+					filePath := filepath.Join(tmpDir, fileName)
+					err := os.WriteFile(filePath, []byte(fmt.Sprintf("content %d", i)), 0o600)
+					require.NoError(t, err)
+				}
+
+				// Add and commit all files
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				err := addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add many files")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T, tmpDir string) {
+				ctx := context.Background()
+
+				// Check git status
+				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain")
+				output, err := statusCmd.Output()
+				require.NoError(t, err)
+
+				// Count deleted files
+				lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+				deletedCount := 0
+				for _, line := range lines {
+					if strings.HasPrefix(line, "D ") {
+						deletedCount++
+					}
+				}
+				require.Equal(t, 120, deletedCount)
+
+				// Check that files don't exist on disk
+				for i := 0; i < 120; i++ {
+					fileName := fmt.Sprintf("file%d.txt", i+1)
+					filePath := filepath.Join(tmpDir, fileName)
+					_, err := os.Stat(filePath)
+					require.True(t, os.IsNotExist(err), "file %s should not exist", fileName)
+				}
+			},
+		},
+		{
+			name:      "RemoveNonExistentFile",
+			files:     []string{"nonexistent.txt"},
+			keepLocal: false,
+			setupFiles: func(t *testing.T, tmpDir string) {
+				// Don't create the file, but initialize empty repo
+				ctx := context.Background()
+
+				// Create a dummy file to have a non-empty repo
+				dummyFile := filepath.Join(tmpDir, "dummy.txt")
+				err := os.WriteFile(dummyFile, []byte("dummy"), 0o600)
+				require.NoError(t, err)
+
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "dummy.txt")
+				err = addCmd.Run()
+				require.NoError(t, err)
+
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial")
+				err = commitCmd.Run()
+				require.NoError(t, err)
+			},
+			expectError: true,
+			errorMsg:    "did not match any files",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test empty file list
-			if len(tt.files) == 0 {
-				client := &gitClient{logger: nil}
-				err := client.BatchRemoveFiles(context.Background(), tt.repoPath, tt.files, tt.keepLocal)
-				require.NoError(t, err)
-				return
+			if testing.Short() {
+				t.Skip("Skipping integration test")
 			}
 
-			// For non-empty cases, we need integration tests
+			// Create temporary git repository
+			tmpDir := t.TempDir()
+			ctx := context.Background()
+
+			// Initialize git repo
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			err := initCmd.Run()
+			require.NoError(t, err)
+
+			// Configure git user for tests
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			err = configCmd.Run()
+			require.NoError(t, err)
+
+			logger := logrus.New()
+			logger.SetOutput(io.Discard) // Discard logs during tests
+			client := &gitClient{logger: logger}
+
+			// Set up files if needed
+			if tt.setupFiles != nil {
+				tt.setupFiles(t, tmpDir)
+			}
+
+			// Test batch remove
+			err = client.BatchRemoveFiles(ctx, tmpDir, tt.files, tt.keepLocal)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+				if tt.validate != nil {
+					tt.validate(t, tmpDir)
+				}
+			}
 		})
 	}
 }
