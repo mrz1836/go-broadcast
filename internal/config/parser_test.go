@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,8 +37,8 @@ targets:
       - src: "README.md"
         dest: "README.md"
 `
-				tmpFile := filepath.Join(t.TempDir(), "config.yaml")
-				require.NoError(t, os.WriteFile(tmpFile, []byte(content), 0o600))
+				tmpFile := filepath.Join(testutil.CreateTempDir(t), "config.yaml")
+				testutil.WriteTestFile(t, tmpFile, content)
 				return tmpFile
 			},
 			expectError: false,
@@ -68,8 +69,8 @@ source:
   repo: "org/template-repo
   branch: "main"
 `
-				tmpFile := filepath.Join(t.TempDir(), "invalid.yaml")
-				require.NoError(t, os.WriteFile(tmpFile, []byte(content), 0o600))
+				tmpFile := filepath.Join(testutil.CreateTempDir(t), "invalid.yaml")
+				testutil.WriteTestFile(t, tmpFile, content)
 				return tmpFile
 			},
 			expectError: true,
@@ -78,8 +79,8 @@ source:
 		{
 			name: "empty file",
 			setupFile: func(t *testing.T) string {
-				tmpFile := filepath.Join(t.TempDir(), "empty.yaml")
-				require.NoError(t, os.WriteFile(tmpFile, []byte(""), 0o600))
+				tmpFile := filepath.Join(testutil.CreateTempDir(t), "empty.yaml")
+				testutil.WriteTestFile(t, tmpFile, "")
 				return tmpFile
 			},
 			expectError: true,
@@ -88,8 +89,9 @@ source:
 		{
 			name: "permission denied",
 			setupFile: func(t *testing.T) string {
-				tmpFile := filepath.Join(t.TempDir(), "noperm.yaml")
-				require.NoError(t, os.WriteFile(tmpFile, []byte("version: 1"), 0o000))
+				tmpFile := filepath.Join(testutil.CreateTempDir(t), "noperm.yaml")
+				err := os.WriteFile(tmpFile, []byte("version: 1"), 0o000)
+				require.NoError(t, err)
 				return tmpFile
 			},
 			expectError: true,

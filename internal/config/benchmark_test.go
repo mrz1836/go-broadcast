@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/mrz1836/go-broadcast/internal/benchmark"
 )
 
 //nolint:gochecknoglobals // Test data
@@ -79,33 +81,25 @@ targets:`)
 var testConfig *Config
 
 func BenchmarkLoadFromReader(b *testing.B) {
-	var cfg *Config
-	var err error
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		reader := bytes.NewReader(sampleYAML)
-		cfg, err = LoadFromReader(reader)
+		cfg, err := LoadFromReader(reader)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-	testConfig = cfg
+		testConfig = cfg
+	})
 }
 
 func BenchmarkLoadFromReader_Large(b *testing.B) {
-	var cfg *Config
-	var err error
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		reader := bytes.NewReader(largeYAML)
-		cfg, err = LoadFromReader(reader)
+		cfg, err := LoadFromReader(reader)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-	testConfig = cfg
+		testConfig = cfg
+	})
 }
 
 func BenchmarkValidate(b *testing.B) {
@@ -115,13 +109,12 @@ func BenchmarkValidate(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		err = cfg.ValidateWithLogging(context.Background(), nil)
+	benchmark.WithMemoryTracking(b, func() {
+		err := cfg.ValidateWithLogging(context.Background(), nil)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
+	})
 }
 
 func BenchmarkValidate_Large(b *testing.B) {
@@ -131,23 +124,18 @@ func BenchmarkValidate_Large(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		err = cfg.ValidateWithLogging(context.Background(), nil)
+	benchmark.WithMemoryTracking(b, func() {
+		err := cfg.ValidateWithLogging(context.Background(), nil)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
+	})
 }
 
 func BenchmarkLoadAndValidate(b *testing.B) {
-	var cfg *Config
-	var err error
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		reader := bytes.NewReader(sampleYAML)
-		cfg, err = LoadFromReader(reader)
+		cfg, err := LoadFromReader(reader)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -155,18 +143,14 @@ func BenchmarkLoadAndValidate(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-	testConfig = cfg
+		testConfig = cfg
+	})
 }
 
 func BenchmarkLoadAndValidate_Large(b *testing.B) {
-	var cfg *Config
-	var err error
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		reader := bytes.NewReader(largeYAML)
-		cfg, err = LoadFromReader(reader)
+		cfg, err := LoadFromReader(reader)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -174,6 +158,6 @@ func BenchmarkLoadAndValidate_Large(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-	testConfig = cfg
+		testConfig = cfg
+	})
 }

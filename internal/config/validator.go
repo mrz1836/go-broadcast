@@ -4,54 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/logging"
+	"github.com/mrz1836/go-broadcast/internal/validation"
 	"github.com/sirupsen/logrus"
 )
 
 var (
-	// repoRegex validates org/repo format
-	repoRegex = regexp.MustCompile(`^[a-zA-Z0-9][\w.-]*/[a-zA-Z0-9][\w.-]*$`)
-
-	// branchRegex validates branch names
-	branchRegex = regexp.MustCompile(`^[a-zA-Z0-9][\w./\-]*$`)
-
 	// ErrUnsupportedVersion indicates the configuration version is not supported
 	ErrUnsupportedVersion = errors.New("unsupported config version")
 	// ErrNoTargets indicates no target repositories were specified
 	ErrNoTargets = errors.New("at least one target repository must be specified")
 	// ErrDuplicateTarget indicates a target repository is specified multiple times
 	ErrDuplicateTarget = errors.New("duplicate target repository")
-	// ErrSourceRepoRequired indicates the source repository is missing
-	ErrSourceRepoRequired = errors.New("source repository is required")
-	// ErrInvalidRepoFormat indicates a repository name is not in org/repo format
-	ErrInvalidRepoFormat = errors.New("invalid repository format (expected: org/repo)")
-	// ErrSourceBranchRequired indicates the source branch is missing
-	ErrSourceBranchRequired = errors.New("source branch is required")
-	// ErrInvalidBranchName indicates a branch name contains invalid characters
-	ErrInvalidBranchName = errors.New("invalid branch name")
-	// ErrInvalidBranchPrefix indicates the branch prefix contains invalid characters
-	ErrInvalidBranchPrefix = errors.New("invalid branch prefix")
-	// ErrEmptyPRLabel indicates a PR label is empty or whitespace only
-	ErrEmptyPRLabel = errors.New("PR label cannot be empty")
-	// ErrRepoRequired indicates a target repository is missing
-	ErrRepoRequired = errors.New("repository is required")
-	// ErrNoFileMappings indicates a target has no file mappings
-	ErrNoFileMappings = errors.New("at least one file mapping is required")
-	// ErrDuplicateDestination indicates multiple files map to the same destination
-	ErrDuplicateDestination = errors.New("duplicate destination file")
-	// ErrSourcePathRequired indicates a file mapping has no source path
-	ErrSourcePathRequired = errors.New("source file path is required")
-	// ErrDestPathRequired indicates a file mapping has no destination path
-	ErrDestPathRequired = errors.New("destination file path is required")
-	// ErrInvalidSourcePath indicates a source path is absolute or escapes the repository
-	ErrInvalidSourcePath = errors.New("invalid source path (must be relative and within repository)")
-	// ErrInvalidDestPath indicates a destination path is absolute or escapes the repository
-	ErrInvalidDestPath = errors.New("invalid destination path (must be relative and within repository)")
 )
 
 // Validate checks if the configuration is valid
@@ -225,51 +191,20 @@ func (c *Config) validateSourceWithLogging(ctx context.Context, logConfig *loggi
 	default:
 	}
 
-	// Validate repository field
-	if c.Source.Repo == "" {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.Error("Source repository is required but not specified")
-		}
-		return ErrSourceRepoRequired
-	}
-
+	// Use centralized validation for source configuration
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.WithField("repo_format", c.Source.Repo).Trace("Validating source repository format")
 	}
 
-	if !repoRegex.MatchString(c.Source.Repo) {
+	if err := validation.ValidateSourceConfig(c.Source.Repo, c.Source.Branch); err != nil {
 		if logConfig != nil && logConfig.Debug.Config {
 			logger.WithFields(logrus.Fields{
-				logging.StandardFields.RepoName:  c.Source.Repo,
-				"expected_format":                "org/repo",
-				"regex_pattern":                  repoRegex.String(),
-				logging.StandardFields.ErrorType: "invalid_repo_format",
-			}).Error("Invalid source repository format")
-		}
-		return fmt.Errorf("%w: %s", ErrInvalidRepoFormat, c.Source.Repo)
-	}
-
-	// Validate branch field
-	if c.Source.Branch == "" {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.Error("Source branch is required but not specified")
-		}
-		return ErrSourceBranchRequired
-	}
-
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithField(logging.StandardFields.BranchName, c.Source.Branch).Trace("Validating source branch name")
-	}
-
-	if !branchRegex.MatchString(c.Source.Branch) {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.WithFields(logrus.Fields{
+				logging.StandardFields.RepoName:   c.Source.Repo,
 				logging.StandardFields.BranchName: c.Source.Branch,
-				"regex_pattern":                   branchRegex.String(),
-				logging.StandardFields.ErrorType:  "invalid_branch_name",
-			}).Error("Invalid source branch name")
+				logging.StandardFields.ErrorType:  "validation_failed",
+			}).Error("Source configuration validation failed")
 		}
-		return fmt.Errorf("%w: %s", ErrInvalidBranchName, c.Source.Branch)
+		return err
 	}
 
 	if logConfig != nil && logConfig.Debug.Config {
@@ -307,22 +242,19 @@ func (c *Config) validateDefaultsWithLogging(ctx context.Context, logConfig *log
 	default:
 	}
 
-	// Validate branch prefix
-	if c.Defaults.BranchPrefix != "" {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.WithField("branch_prefix", c.Defaults.BranchPrefix).Trace("Validating branch prefix format")
-		}
+	// Validate branch prefix using centralized validation
+	if logConfig != nil && logConfig.Debug.Config {
+		logger.WithField("branch_prefix", c.Defaults.BranchPrefix).Trace("Validating branch prefix format")
+	}
 
-		if !branchRegex.MatchString(c.Defaults.BranchPrefix) {
-			if logConfig != nil && logConfig.Debug.Config {
-				logger.WithFields(logrus.Fields{
-					"branch_prefix": c.Defaults.BranchPrefix,
-					"regex_pattern": branchRegex.String(),
-				}).Error("Invalid branch prefix format")
-			}
-			return fmt.Errorf("%w: %s", ErrInvalidBranchPrefix, c.Defaults.BranchPrefix)
+	if err := validation.ValidateBranchPrefix(c.Defaults.BranchPrefix); err != nil {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithField("branch_prefix", c.Defaults.BranchPrefix).Error("Invalid branch prefix format")
 		}
-	} else if logConfig != nil && logConfig.Debug.Config {
+		return err
+	}
+
+	if c.Defaults.BranchPrefix == "" && logConfig != nil && logConfig.Debug.Config {
 		logger.Trace("No branch prefix specified, will use default")
 	}
 
@@ -339,11 +271,11 @@ func (c *Config) validateDefaultsWithLogging(ctx context.Context, logConfig *log
 			}).Trace("Validating PR label")
 		}
 
-		if strings.TrimSpace(label) == "" {
+		if err := validation.ValidateNonEmpty("PR label", label); err != nil {
 			if logConfig != nil && logConfig.Debug.Config {
 				logger.WithField("label_index", i).Error("Empty PR label found")
 			}
-			return ErrEmptyPRLabel
+			return err
 		}
 	}
 
@@ -383,78 +315,32 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 	default:
 	}
 
-	// Validate repository field
-	if t.Repo == "" {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.Error("Target repository is required but not specified")
-		}
-		return ErrRepoRequired
+	// Convert file mappings to validation format
+	fileMappings := make([]validation.FileMapping, 0, len(t.Files))
+	for _, file := range t.Files {
+		fileMappings = append(fileMappings, validation.FileMapping{
+			Src:  file.Src,
+			Dest: file.Dest,
+		})
 	}
 
+	// Use centralized validation for target configuration
 	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithField("repo_format", t.Repo).Trace("Validating target repository format")
+		logger.WithField("repo_format", t.Repo).Trace("Validating target repository configuration")
 	}
 
-	if !repoRegex.MatchString(t.Repo) {
+	if err := validation.ValidateTargetConfig(t.Repo, fileMappings); err != nil {
 		if logConfig != nil && logConfig.Debug.Config {
 			logger.WithFields(logrus.Fields{
-				"repo":            t.Repo,
-				"expected_format": "org/repo",
-				"regex_pattern":   repoRegex.String(),
-			}).Error("Invalid target repository format")
+				"repo":       t.Repo,
+				"file_count": len(t.Files),
+			}).Error("Target repository validation failed")
 		}
-		return fmt.Errorf("%w: %s", ErrInvalidRepoFormat, t.Repo)
-	}
-
-	// Validate file mappings exist
-	if len(t.Files) == 0 {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.WithField("repo", t.Repo).Error("No file mappings specified for target repository")
-		}
-		return fmt.Errorf("%w for repository: %s", ErrNoFileMappings, t.Repo)
+		return err
 	}
 
 	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithField("file_count", len(t.Files)).Debug("Validating file mappings")
-	}
-
-	// Validate file mappings
-	seenDest := make(map[string]bool)
-
-	for i, file := range t.Files {
-		// Check for context cancellation
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("file mapping validation canceled: %w", ctx.Err())
-		default:
-		}
-
-		fileLogger := logger
-		if logConfig != nil && logConfig.Debug.Config {
-			fileLogger = logger.WithFields(logrus.Fields{
-				"file_index": i,
-				"src":        file.Src,
-				"dest":       file.Dest,
-			})
-			fileLogger.Trace("Validating file mapping")
-		}
-
-		if err := file.validateWithLogging(ctx, logConfig, fileLogger); err != nil {
-			return fmt.Errorf("invalid file mapping[%d]: %w", i, err)
-		}
-
-		// Check for duplicate destinations
-		if seenDest[file.Dest] {
-			if logConfig != nil && logConfig.Debug.Config {
-				logger.WithFields(logrus.Fields{
-					"duplicate_dest": file.Dest,
-					"file_index":     i,
-				}).Error("Duplicate destination file found")
-			}
-			return fmt.Errorf("%w: %s", ErrDuplicateDestination, file.Dest)
-		}
-
-		seenDest[file.Dest] = true
+		logger.WithField("file_count", len(t.Files)).Debug("File mappings validated via centralized validation")
 	}
 
 	// Log transform configuration if present
@@ -478,98 +364,6 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.Debug("Target configuration validation completed successfully")
-	}
-
-	return nil
-}
-
-// validateWithLogging validates a file mapping with debug logging support.
-//
-// Parameters:
-// - ctx: Context for cancellation control
-// - logConfig: Configuration for debug logging
-// - logger: Logger entry for output
-//
-// Returns:
-// - Error if file mapping is invalid
-//
-// Side Effects:
-// - Logs detailed file mapping validation when --debug-config flag is enabled
-func (f *FileMapping) validateWithLogging(ctx context.Context, logConfig *logging.LogConfig, logger *logrus.Entry) error {
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithFields(logrus.Fields{
-			"src":  f.Src,
-			"dest": f.Dest,
-		}).Trace("Validating file mapping")
-	}
-
-	// Check for context cancellation
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("file mapping validation canceled: %w", ctx.Err())
-	default:
-	}
-
-	// Validate source path
-	if f.Src == "" {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.Error("Source file path is required but not specified")
-		}
-		return ErrSourcePathRequired
-	}
-
-	// Validate destination path
-	if f.Dest == "" {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.Error("Destination file path is required but not specified")
-		}
-		return ErrDestPathRequired
-	}
-
-	// Ensure source path is clean and doesn't escape repository
-	cleanSrc := filepath.Clean(f.Src)
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithFields(logrus.Fields{
-			"original_src": f.Src,
-			"clean_src":    cleanSrc,
-		}).Trace("Validating source path safety")
-	}
-
-	if strings.HasPrefix(cleanSrc, "..") || filepath.IsAbs(cleanSrc) {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.WithFields(logrus.Fields{
-				"src":         f.Src,
-				"clean_src":   cleanSrc,
-				"is_absolute": filepath.IsAbs(cleanSrc),
-				"has_dotdot":  strings.HasPrefix(cleanSrc, ".."),
-			}).Error("Invalid source path: must be relative and within repository")
-		}
-		return fmt.Errorf("%w: %s", ErrInvalidSourcePath, f.Src)
-	}
-
-	// Ensure destination path is clean and doesn't escape repository
-	cleanDest := filepath.Clean(f.Dest)
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithFields(logrus.Fields{
-			"original_dest": f.Dest,
-			"clean_dest":    cleanDest,
-		}).Trace("Validating destination path safety")
-	}
-
-	if strings.HasPrefix(cleanDest, "..") || filepath.IsAbs(cleanDest) {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.WithFields(logrus.Fields{
-				"dest":        f.Dest,
-				"clean_dest":  cleanDest,
-				"is_absolute": filepath.IsAbs(cleanDest),
-				"has_dotdot":  strings.HasPrefix(cleanDest, ".."),
-			}).Error("Invalid destination path: must be relative and within repository")
-		}
-		return fmt.Errorf("%w: %s", ErrInvalidDestPath, f.Dest)
-	}
-
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.Debug("File mapping validation completed successfully")
 	}
 
 	return nil

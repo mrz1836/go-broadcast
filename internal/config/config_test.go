@@ -149,7 +149,7 @@ func TestValidate_MissingSourceRepo(t *testing.T) {
 
 	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "source repository is required")
+	assert.Contains(t, err.Error(), "field cannot be empty: repository name")
 }
 
 func TestValidate_InvalidRepoFormat(t *testing.T) {
@@ -175,7 +175,7 @@ func TestValidate_InvalidRepoFormat(t *testing.T) {
 
 			err := config.ValidateWithLogging(context.Background(), nil)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "invalid repository format")
+			assert.Contains(t, err.Error(), "invalid format: repository name")
 		})
 	}
 }
@@ -189,7 +189,7 @@ func TestValidate_InvalidBranch(t *testing.T) {
 
 	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "source branch is required")
+	assert.Contains(t, err.Error(), "field cannot be empty: branch name")
 }
 
 func TestValidate_NoTargets(t *testing.T) {
@@ -240,12 +240,12 @@ func TestValidate_InvalidFilePaths(t *testing.T) {
 		dest string
 		err  string
 	}{
-		{"empty src", "", "file", "source file path is required"},
-		{"empty dest", "file", "", "destination file path is required"},
-		{"absolute src", "/absolute/path", "file", "invalid source path"},
-		{"absolute dest", "file", "/absolute/path", "invalid destination path"},
-		{"escape src", "../escape", "file", "invalid source path"},
-		{"escape dest", "file", "../escape", "invalid destination path"},
+		{"empty src", "", "file", "field is required: source path"},
+		{"empty dest", "file", "", "field is required: destination path"},
+		{"absolute src", "/absolute/path", "file", "must be relative"},
+		{"absolute dest", "file", "/absolute/path", "must be relative"},
+		{"escape src", "../escape", "file", "path traversal detected"},
+		{"escape dest", "file", "../escape", "path traversal detected"},
 	}
 
 	for _, tc := range testCases {
@@ -285,7 +285,7 @@ func TestValidate_DuplicateDestinations(t *testing.T) {
 
 	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate destination file: same.txt")
+	assert.Contains(t, err.Error(), "duplicate destination: same.txt")
 }
 
 func TestValidate_EmptyPRLabel(t *testing.T) {
@@ -302,7 +302,7 @@ func TestValidate_EmptyPRLabel(t *testing.T) {
 
 	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "PR label cannot be empty")
+	assert.Contains(t, err.Error(), "cannot be empty")
 }
 
 func TestLoad_FileNotFound(t *testing.T) {

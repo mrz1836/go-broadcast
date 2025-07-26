@@ -2,9 +2,11 @@ package config
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/mrz1836/go-broadcast/internal/logging"
+	"github.com/mrz1836/go-broadcast/internal/validation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -230,8 +232,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 				Repo:   "",
 				Branch: "main",
 			},
-			wantError:   true,
-			expectedErr: ErrSourceRepoRequired,
+			wantError: true,
 		},
 		{
 			name: "invalid repository format - no slash",
@@ -239,8 +240,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 				Repo:   "orgtemplate",
 				Branch: "main",
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidRepoFormat,
+			wantError: true,
 		},
 		{
 			name: "invalid repository format - starts with slash",
@@ -248,8 +248,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 				Repo:   "/org/template",
 				Branch: "main",
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidRepoFormat,
+			wantError: true,
 		},
 		{
 			name: "invalid repository format - ends with slash",
@@ -257,8 +256,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 				Repo:   "org/template/",
 				Branch: "main",
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidRepoFormat,
+			wantError: true,
 		},
 		{
 			name: "invalid repository format - multiple slashes",
@@ -266,8 +264,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 				Repo:   "org/sub/template",
 				Branch: "main",
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidRepoFormat,
+			wantError: true,
 		},
 		{
 			name: "missing branch",
@@ -275,8 +272,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 				Repo:   "org/template",
 				Branch: "",
 			},
-			wantError:   true,
-			expectedErr: ErrSourceBranchRequired,
+			wantError: true,
 		},
 		{
 			name: "invalid branch name - starts with special character",
@@ -284,8 +280,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 				Repo:   "org/template",
 				Branch: "-main",
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidBranchName,
+			wantError: true,
 		},
 		{
 			name: "valid branch with slashes and dots",
@@ -356,8 +351,7 @@ func TestConfig_validateDefaultsWithLogging(t *testing.T) {
 				BranchPrefix: "-invalid",
 				PRLabels:     []string{"automated-sync"},
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidBranchPrefix,
+			wantError: true,
 		},
 		{
 			name: "empty PR label",
@@ -365,8 +359,7 @@ func TestConfig_validateDefaultsWithLogging(t *testing.T) {
 				BranchPrefix: "sync/template",
 				PRLabels:     []string{"automated-sync", "", "enhancement"},
 			},
-			wantError:   true,
-			expectedErr: ErrEmptyPRLabel,
+			wantError: true,
 		},
 		{
 			name: "whitespace only PR label",
@@ -374,8 +367,7 @@ func TestConfig_validateDefaultsWithLogging(t *testing.T) {
 				BranchPrefix: "sync/template",
 				PRLabels:     []string{"automated-sync", "   ", "enhancement"},
 			},
-			wantError:   true,
-			expectedErr: ErrEmptyPRLabel,
+			wantError: true,
 		},
 		{
 			name: "valid branch prefix with dots and hyphens",
@@ -438,8 +430,7 @@ func TestTargetConfig_validateWithLogging(t *testing.T) {
 					{Src: "src/file.txt", Dest: "dest/file.txt"},
 				},
 			},
-			wantError:   true,
-			expectedErr: ErrRepoRequired,
+			wantError: true,
 		},
 		{
 			name: "invalid repository format",
@@ -449,8 +440,7 @@ func TestTargetConfig_validateWithLogging(t *testing.T) {
 					{Src: "src/file.txt", Dest: "dest/file.txt"},
 				},
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidRepoFormat,
+			wantError: true,
 		},
 		{
 			name: "no file mappings",
@@ -458,8 +448,7 @@ func TestTargetConfig_validateWithLogging(t *testing.T) {
 				Repo:  "org/service",
 				Files: []FileMapping{},
 			},
-			wantError:   true,
-			expectedErr: ErrNoFileMappings,
+			wantError: true,
 		},
 		{
 			name: "duplicate destination files",
@@ -470,8 +459,7 @@ func TestTargetConfig_validateWithLogging(t *testing.T) {
 					{Src: "src/file2.txt", Dest: "dest/same.txt"},
 				},
 			},
-			wantError:   true,
-			expectedErr: ErrDuplicateDestination,
+			wantError: true,
 		},
 		{
 			name: "valid transform configuration",
@@ -509,16 +497,16 @@ func TestTargetConfig_validateWithLogging(t *testing.T) {
 	}
 }
 
-func TestFileMapping_validateWithLogging(t *testing.T) {
+// TestValidationPackageIntegration tests that the validation package functions work correctly
+func TestValidationPackageIntegration(t *testing.T) {
 	tests := []struct {
 		name        string
-		fileMapping FileMapping
+		fileMapping validation.FileMapping
 		wantError   bool
-		expectedErr error
 	}{
 		{
 			name: "valid file mapping",
-			fileMapping: FileMapping{
+			fileMapping: validation.FileMapping{
 				Src:  "src/file.txt",
 				Dest: "dest/file.txt",
 			},
@@ -526,61 +514,55 @@ func TestFileMapping_validateWithLogging(t *testing.T) {
 		},
 		{
 			name: "missing source path",
-			fileMapping: FileMapping{
+			fileMapping: validation.FileMapping{
 				Src:  "",
 				Dest: "dest/file.txt",
 			},
-			wantError:   true,
-			expectedErr: ErrSourcePathRequired,
+			wantError: true,
 		},
 		{
 			name: "missing destination path",
-			fileMapping: FileMapping{
+			fileMapping: validation.FileMapping{
 				Src:  "src/file.txt",
 				Dest: "",
 			},
-			wantError:   true,
-			expectedErr: ErrDestPathRequired,
+			wantError: true,
 		},
 		{
 			name: "absolute source path",
-			fileMapping: FileMapping{
+			fileMapping: validation.FileMapping{
 				Src:  "/absolute/path/file.txt",
 				Dest: "dest/file.txt",
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidSourcePath,
+			wantError: true,
 		},
 		{
 			name: "source path with parent directory traversal",
-			fileMapping: FileMapping{
+			fileMapping: validation.FileMapping{
 				Src:  "../outside/file.txt",
 				Dest: "dest/file.txt",
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidSourcePath,
+			wantError: true,
 		},
 		{
 			name: "absolute destination path",
-			fileMapping: FileMapping{
+			fileMapping: validation.FileMapping{
 				Src:  "src/file.txt",
 				Dest: "/absolute/dest/file.txt",
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidDestPath,
+			wantError: true,
 		},
 		{
 			name: "destination path with parent directory traversal",
-			fileMapping: FileMapping{
+			fileMapping: validation.FileMapping{
 				Src:  "src/file.txt",
 				Dest: "../outside/file.txt",
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidDestPath,
+			wantError: true,
 		},
 		{
 			name: "complex valid paths",
-			fileMapping: FileMapping{
+			fileMapping: validation.FileMapping{
 				Src:  "src/nested/deep/file.txt",
 				Dest: "dest/different/structure/file.txt",
 			},
@@ -588,7 +570,7 @@ func TestFileMapping_validateWithLogging(t *testing.T) {
 		},
 		{
 			name: "paths with dots in filename",
-			fileMapping: FileMapping{
+			fileMapping: validation.FileMapping{
 				Src:  "src/file.config.yaml",
 				Dest: "dest/app.config.yaml",
 			},
@@ -596,34 +578,28 @@ func TestFileMapping_validateWithLogging(t *testing.T) {
 		},
 		{
 			name: "source path with complex traversal attempt",
-			fileMapping: FileMapping{
+			fileMapping: validation.FileMapping{
 				Src:  "src/../../../etc/passwd",
 				Dest: "dest/file.txt",
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidSourcePath,
+			wantError: true,
 		},
 		{
 			name: "destination path with complex traversal attempt",
-			fileMapping: FileMapping{
+			fileMapping: validation.FileMapping{
 				Src:  "src/file.txt",
 				Dest: "dest/../../../tmp/malicious.txt",
 			},
-			wantError:   true,
-			expectedErr: ErrInvalidDestPath,
+			wantError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-			err := tt.fileMapping.validateWithLogging(ctx, nil, nil)
+			err := validation.ValidateFileMapping(tt.fileMapping)
 
 			if tt.wantError {
 				require.Error(t, err)
-				if tt.expectedErr != nil {
-					require.ErrorIs(t, err, tt.expectedErr)
-				}
 			} else {
 				require.NoError(t, err)
 			}
@@ -689,15 +665,16 @@ func TestValidationWithCancellation(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		fileMapping := config.Targets[0].Files[0]
-		err := fileMapping.validateWithLogging(ctx, nil, nil)
+		// Test cancellation through target validation which includes file mapping validation
+		target := config.Targets[0]
+		err := target.validateWithLogging(ctx, nil, nil)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "file mapping validation canceled")
+		assert.Contains(t, err.Error(), "target validation canceled")
 	})
 }
 
 func TestRegexValidation(t *testing.T) {
-	t.Run("repository regex validation", func(t *testing.T) {
+	t.Run("repository validation", func(t *testing.T) {
 		validRepos := []string{
 			"org/repo",
 			"my-org/my-repo",
@@ -709,7 +686,8 @@ func TestRegexValidation(t *testing.T) {
 
 		for _, repo := range validRepos {
 			t.Run("valid_repo_"+repo, func(t *testing.T) {
-				assert.True(t, repoRegex.MatchString(repo), "Expected %s to be valid", repo)
+				err := validation.ValidateRepoName(repo)
+				assert.NoError(t, err, "Expected %s to be valid", repo)
 			})
 		}
 
@@ -728,13 +706,14 @@ func TestRegexValidation(t *testing.T) {
 		}
 
 		for _, repo := range invalidRepos {
-			t.Run("invalid_repo_"+repo, func(t *testing.T) {
-				assert.False(t, repoRegex.MatchString(repo), "Expected %s to be invalid", repo)
+			t.Run("invalid_repo_"+strings.ReplaceAll(repo, "/", "_slash_"), func(t *testing.T) {
+				err := validation.ValidateRepoName(repo)
+				assert.Error(t, err, "Expected %s to be invalid", repo)
 			})
 		}
 	})
 
-	t.Run("branch regex validation", func(t *testing.T) {
+	t.Run("branch validation", func(t *testing.T) {
 		validBranches := []string{
 			"main",
 			"master",
@@ -749,7 +728,8 @@ func TestRegexValidation(t *testing.T) {
 
 		for _, branch := range validBranches {
 			t.Run("valid_branch_"+branch, func(t *testing.T) {
-				assert.True(t, branchRegex.MatchString(branch), "Expected %s to be valid", branch)
+				err := validation.ValidateBranchName(branch)
+				assert.NoError(t, err, "Expected %s to be valid", branch)
 			})
 		}
 
@@ -763,8 +743,9 @@ func TestRegexValidation(t *testing.T) {
 		}
 
 		for _, branch := range invalidBranches {
-			t.Run("invalid_branch_"+branch, func(t *testing.T) {
-				assert.False(t, branchRegex.MatchString(branch), "Expected %s to be invalid", branch)
+			t.Run("invalid_branch_"+strings.ReplaceAll(branch, " ", "_space_"), func(t *testing.T) {
+				err := validation.ValidateBranchName(branch)
+				assert.Error(t, err, "Expected %s to be invalid", branch)
 			})
 		}
 	})
@@ -812,7 +793,7 @@ func TestErrorMessages(t *testing.T) {
 					},
 				},
 			},
-			expectedMsg: "invalid repository format (expected: org/repo): invalid-repo-format",
+			expectedMsg: "invalid format: repository name",
 		},
 		{
 			name: "duplicate target error message",
