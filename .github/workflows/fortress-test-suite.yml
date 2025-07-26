@@ -297,6 +297,33 @@ jobs:
           retention-days: 1
 
       # ————————————————————————————————————————————————————————————————
+      # Verify coverage file before upload
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Verify coverage file
+        if: inputs.code-coverage-enabled == 'true'
+        run: |
+          if [ -f coverage.txt ]; then
+            echo "✅ Coverage file exists"
+            echo "📊 Coverage file size: $(wc -c < coverage.txt) bytes"
+            echo "📊 Coverage file lines: $(wc -l < coverage.txt)"
+            echo "📊 First line: $(head -1 coverage.txt)"
+            
+            # Ensure the coverage file starts with valid coverage data
+            FIRST_LINE=$(head -1 coverage.txt)
+            if [[ "$FIRST_LINE" == "mode: atomic" ]] || [[ "$FIRST_LINE" == "mode: count" ]] || [[ "$FIRST_LINE" == "mode: set" ]]; then
+              echo "✅ Coverage file format looks valid"
+            else
+              echo "❌ Coverage file may be corrupted. First line should be 'mode: atomic' or 'mode: count' but got: $FIRST_LINE"
+              echo "📋 First 10 lines of coverage file:"
+              head -10 coverage.txt
+              exit 1
+            fi
+          else
+            echo "❌ Coverage file not found!"
+            exit 1
+          fi
+
+      # ————————————————————————————————————————————————————————————————
       # Upload coverage only for race-cover tests
       # ————————————————————————————————————————————————————————————————
       - name: 📈 Upload coverage
@@ -312,3 +339,4 @@ jobs:
           disable_search: true
           override_branch: ${{ github.head_ref || github.ref_name }}
           override_commit: ${{ github.sha }}
+          working-directory: ./
