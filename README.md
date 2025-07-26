@@ -456,6 +456,7 @@ For more detailed information, see the [comprehensive logging guide](docs/loggin
 - **Troubleshooting** – Solve common issues with the [troubleshooting guide](docs/troubleshooting.md)
 - **API Reference** – Dive into the godocs at [pkg.go.dev/github.com/mrz1836/go-broadcast](https://pkg.go.dev/github.com/mrz1836/go-broadcast)
 - **Integration Tests** – End-to-end testing examples in [test/integration](test/integration)
+- **Internal Utilities** – Shared testing and validation utilities in [internal](internal) packages
 - **Benchmarks** – Check the latest numbers in the [benchmark results](#benchmark-results)
 
 <br/>
