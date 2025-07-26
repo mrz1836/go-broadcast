@@ -32,28 +32,15 @@ func (t *gitTask) Name() string {
 }
 
 // writeBenchmarkFile creates a single test file for benchmark usage
-func writeBenchmarkFile(b *testing.B, filePath, content string) error {
+func writeBenchmarkFile(b *testing.B, filePath, content string) {
 	b.Helper()
-	return os.WriteFile(filePath, []byte(content), 0o600)
+	testutil.WriteBenchmarkFile(b, filePath, content)
 }
 
 // createBenchmarkTestFiles creates multiple test files with "test_file_" pattern for benchmark usage
 func createBenchmarkTestFiles(b *testing.B, dir string, count int) []string {
 	b.Helper()
-
-	files := make([]string, count)
-	for i := 0; i < count; i++ {
-		fileName := fmt.Sprintf("test_file_%d.txt", i)
-		filePath := filepath.Join(dir, fileName)
-		content := fmt.Sprintf("Test content for file %d\n", i)
-
-		err := os.WriteFile(filePath, []byte(content), 0o600)
-		if err != nil {
-			b.Fatalf("failed to create test file %s: %v", filePath, err)
-		}
-		files[i] = filePath
-	}
-	return files
+	return benchmark.SetupBenchmarkFiles(b, dir, count)
 }
 
 // setupTestRepo creates a temporary git repository for testing
@@ -130,9 +117,7 @@ func BenchmarkConcurrentGitOperations(b *testing.B) {
 			// Create test files for each repo operation
 			createBenchmarkTestFiles(b, repoPath, scenario.repos)
 
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				pool := worker.NewPool(scenario.concurrent, scenario.repos)
 				pool.Start(context.Background())
 
@@ -163,12 +148,10 @@ func BenchmarkConcurrentGitOperations(b *testing.B) {
 							name: fmt.Sprintf("commit_%d", j),
 							operation: func(ctx context.Context) error {
 								// Add a unique file first
-								fileName := fmt.Sprintf("commit_file_%d_%d.txt", i, j)
+								fileName := fmt.Sprintf("commit_file_%d_%d.txt", b.N, j)
 								filePath := filepath.Join(repoPath, fileName)
 								content := fmt.Sprintf("commit content %d", j)
-								if err := writeBenchmarkFile(b, filePath, content); err != nil {
-									return fmt.Errorf("failed to write file: %w", err)
-								}
+								writeBenchmarkFile(b, filePath, content)
 
 								if err := client.Add(ctx, repoPath, fileName); err != nil {
 									return err
@@ -205,7 +188,7 @@ func BenchmarkConcurrentGitOperations(b *testing.B) {
 				if errorCount > scenario.repos/2 { // Allow some failures but not too many
 					b.Errorf("Too many errors: %d out of %d operations failed", errorCount, scenario.repos)
 				}
-			}
+			})
 		})
 	}
 }
@@ -229,13 +212,11 @@ func BenchmarkBatchOperations(b *testing.B) {
 
 			batchClient := client.(BatchClient)
 
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				if err := batchClient.BatchAddFiles(ctx, repoPath, files); err != nil {
 					b.Errorf("Batch add failed: %v", err)
 				}
-			}
+			})
 		})
 
 		b.Run(fmt.Sprintf("BatchStatus_%d_Files", fileCount), func(b *testing.B) {
@@ -252,14 +233,12 @@ func BenchmarkBatchOperations(b *testing.B) {
 
 			batchClient := client.(BatchClient)
 
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				_, err := batchClient.BatchStatus(ctx, repoPath, files)
 				if err != nil {
 					b.Errorf("Batch status failed: %v", err)
 				}
-			}
+			})
 		})
 	}
 }
@@ -357,9 +336,7 @@ func BenchmarkGitOperationScaling(b *testing.B) {
 
 	for _, workers := range workerCounts {
 		b.Run(fmt.Sprintf("Workers_%d", workers), func(b *testing.B) {
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				start := time.Now()
 
 				pool := worker.NewPool(workers, operationCount)
@@ -407,7 +384,7 @@ func BenchmarkGitOperationScaling(b *testing.B) {
 				duration := time.Since(start)
 				throughput := float64(operationCount) / duration.Seconds()
 				b.ReportMetric(throughput, "ops/sec")
-			}
+			})
 		})
 	}
 }
