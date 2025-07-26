@@ -398,5 +398,11 @@ func TestPoolBatchSubmitPartialFailure(t *testing.T) {
 	processed, _, queued := pool.Stats()
 	assert.GreaterOrEqual(t, int(processed)+queued, 1)
 
+	// Consume any pending results before shutdown to avoid deadlock
+	go func() {
+		for range pool.Results() { //nolint:revive // intentionally draining channel
+		}
+	}()
+
 	pool.Shutdown()
 }
