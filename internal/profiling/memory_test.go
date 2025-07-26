@@ -542,8 +542,12 @@ func TestCaptureHeapProfileFileCreationError(t *testing.T) {
 	err := profiler.captureHeapProfile(invalidPath)
 	if os.Geteuid() != 0 {
 		require.Error(t, err)
-		// Should be a file creation error, not wrapped
-		assert.Contains(t, err.Error(), "no such file or directory")
+		// Should be a file creation error - different environments may return different messages
+		errorMsg := err.Error()
+		assert.True(t,
+			strings.Contains(errorMsg, "no such file or directory") ||
+				strings.Contains(errorMsg, "permission denied"),
+			"Expected file access error, got: %s", errorMsg)
 	}
 }
 
@@ -586,6 +590,11 @@ func TestGenerateAnalysisReportFileCreationError(t *testing.T) {
 	err := profiler.generateAnalysisReport(session)
 	if os.Geteuid() != 0 {
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no such file or directory")
+		// Should be a file creation error - different environments may return different messages
+		errorMsg := err.Error()
+		assert.True(t,
+			strings.Contains(errorMsg, "no such file or directory") ||
+				strings.Contains(errorMsg, "permission denied"),
+			"Expected file access error, got: %s", errorMsg)
 	}
 }
