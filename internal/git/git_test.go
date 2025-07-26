@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -168,4 +169,204 @@ func TestNewClient_GitNotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, client)
 	assert.ErrorIs(t, err, ErrGitNotFound)
+}
+
+// TestGitClient_Push tests the Push method
+func TestGitClient_Push(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	repoPath := filepath.Join(tmpDir, "test-repo")
+
+	// Initialize a test repository
+	err = exec.CommandContext(ctx, "git", "-C", tmpDir, "init", "test-repo").Run() //nolint:gosec // Test uses hardcoded command
+	require.NoError(t, err)
+
+	// Create initial commit
+	testFile := filepath.Join(repoPath, "README.md")
+	err = os.WriteFile(testFile, []byte("# Test Repo"), 0o600)
+	require.NoError(t, err)
+
+	err = client.Add(ctx, repoPath, "README.md")
+	require.NoError(t, err)
+
+	err = client.Commit(ctx, repoPath, "Initial commit")
+	require.NoError(t, err)
+
+	// Test push without remote (should fail)
+	err = client.Push(ctx, repoPath, "origin", "main", false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to push")
+
+	// Test with force flag
+	err = client.Push(ctx, repoPath, "origin", "main", true)
+	require.Error(t, err) // Still fails without remote, but tests force flag handling
+	assert.Contains(t, err.Error(), "failed to push")
+}
+
+// TestGitClient_GetCurrentBranch_AlternativeMethod tests the fallback method for older git versions
+func TestGitClient_GetCurrentBranch_AlternativeMethod(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	repoPath := filepath.Join(tmpDir, "test-repo")
+
+	// Initialize repository
+	err = exec.CommandContext(ctx, "git", "-C", tmpDir, "init", "test-repo").Run() //nolint:gosec // Test uses hardcoded command
+	require.NoError(t, err)
+
+	// Create initial commit
+	testFile := filepath.Join(repoPath, "test.txt")
+	err = os.WriteFile(testFile, []byte("test"), 0o600)
+	require.NoError(t, err)
+
+	err = client.Add(ctx, repoPath, "test.txt")
+	require.NoError(t, err)
+
+	err = client.Commit(ctx, repoPath, "Initial commit")
+	require.NoError(t, err)
+
+	// Get current branch
+	branch, err := client.GetCurrentBranch(ctx, repoPath)
+	require.NoError(t, err)
+	// Git init creates main or master depending on configuration
+	assert.True(t, branch == "main" || branch == "master", "Expected main or master, got %s", branch)
+}
+
+// TestDebugWriter tests the debugWriter functionality
+func TestDebugWriter(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.TraceLevel)
+
+	// Create a buffer to capture log output
+	var buf strings.Builder
+	logger.SetOutput(&buf)
+	logger.SetFormatter(&logrus.TextFormatter{DisableTimestamp: true})
+
+	writer := &debugWriter{
+		logger: logger.WithField("test", "debug"),
+		prefix: "test-stream",
+	}
+
+	// Test Write method
+	testData := []byte("test debug output")
+	n, err := writer.Write(testData)
+
+	require.NoError(t, err)
+	assert.Equal(t, len(testData), n)
+
+	// Check that log was written
+	logOutput := buf.String()
+	assert.Contains(t, logOutput, "test debug output")
+	assert.Contains(t, logOutput, "stream=test-stream")
+}
+
+// TestFilterSensitiveEnv tests environment variable filtering
+func TestFilterSensitiveEnv(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name: "filters GH_TOKEN",
+			input: []string{
+				"PATH=/usr/bin",
+				"GH_TOKEN=secret123",
+				"HOME=/home/user",
+			},
+			expected: []string{
+				"PATH=/usr/bin",
+				"GH_TOKEN=REDACTED",
+				"HOME=/home/user",
+			},
+		},
+		{
+			name: "filters GITHUB_TOKEN",
+			input: []string{
+				"GITHUB_TOKEN=ghp_secret456",
+				"USER=testuser",
+			},
+			expected: []string{
+				"GITHUB_TOKEN=REDACTED",
+				"USER=testuser",
+			},
+		},
+		{
+			name: "filters case insensitive token",
+			input: []string{
+				"API_TOKEN=secret789",
+				"access_token=oauth123",
+				"TEST_VAR=normal",
+			},
+			expected: []string{
+				"API_TOKEN=REDACTED",
+				"access_token=REDACTED",
+				"TEST_VAR=normal",
+			},
+		},
+		{
+			name: "filters password variables",
+			input: []string{
+				"DB_PASSWORD=secretpass",
+				"admin_password=admin123",
+				"NORMAL_VAR=value",
+			},
+			expected: []string{
+				"DB_PASSWORD=REDACTED",
+				"admin_password=REDACTED",
+				"NORMAL_VAR=value",
+			},
+		},
+		{
+			name: "filters secret variables",
+			input: []string{
+				"API_SECRET=topsecret",
+				"CLIENT_SECRET=client123",
+				"CONFIG_FILE=config.yaml",
+			},
+			expected: []string{
+				"API_SECRET=REDACTED",
+				"CLIENT_SECRET=REDACTED",
+				"CONFIG_FILE=config.yaml",
+			},
+		},
+		{
+			name: "handles variables without equals sign",
+			input: []string{
+				"NORMAL_VAR",
+				"API_TOKEN=secret",
+				"ANOTHER_VAR",
+			},
+			expected: []string{
+				"NORMAL_VAR",
+				"API_TOKEN=REDACTED",
+				"ANOTHER_VAR",
+			},
+		},
+		{
+			name:     "empty input",
+			input:    []string{},
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filterSensitiveEnv(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
