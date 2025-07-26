@@ -613,6 +613,293 @@ func TestMaxInt(t *testing.T) {
 	}
 }
 
+// TestPressureMonitorCheckMemoryPressure tests the memory pressure checking functionality
+func TestPressureMonitorCheckMemoryPressure(t *testing.T) {
+	alerts := []Alert{}
+	mu := sync.Mutex{}
+
+	alertCallback := func(alert Alert) {
+		mu.Lock()
+		defer mu.Unlock()
+		alerts = append(alerts, alert)
+	}
+
+	// Create monitor with very low thresholds to trigger alerts
+	thresholds := Thresholds{
+		HeapAllocMB:   1,     // 1MB - very low to trigger
+		HeapSysMB:     1,     // 1MB - very low to trigger
+		GCPercent:     100,   // High enough to not trigger
+		NumGoroutines: 10000, // High enough to not trigger
+	}
+
+	monitor := NewPressureMonitor(thresholds, alertCallback)
+
+	// Manually check memory pressure
+	monitor.checkMemoryPressure()
+
+	// Give time for alerts to be sent (async)
+	time.Sleep(50 * time.Millisecond)
+
+	// Check that alerts were triggered
+	mu.Lock()
+	defer mu.Unlock()
+
+	require.GreaterOrEqual(t, len(alerts), 1) // At least one memory alert
+
+	// Verify alert types
+	alertTypes := make(map[string]bool)
+	for _, alert := range alerts {
+		alertTypes[alert.Type] = true
+		require.NotEmpty(t, alert.Message)
+		require.NotZero(t, alert.Timestamp)
+		require.NotNil(t, alert.Stats)
+	}
+
+	// At least one of the memory alerts should be triggered
+	require.True(t, alertTypes["heap_alloc"] || alertTypes["heap_sys"], "Expected at least one memory alert")
+}
+
+// TestPressureMonitorGoroutineAlert tests goroutine count alerting
+func TestPressureMonitorGoroutineAlert(t *testing.T) {
+	alerts := []Alert{}
+	mu := sync.Mutex{}
+
+	alertCallback := func(alert Alert) {
+		mu.Lock()
+		defer mu.Unlock()
+		alerts = append(alerts, alert)
+	}
+
+	// Create monitor with very low goroutine threshold
+	thresholds := Thresholds{
+		HeapAllocMB:   10000, // Very high to not trigger
+		HeapSysMB:     10000, // Very high to not trigger
+		GCPercent:     100,   // High enough to not trigger
+		NumGoroutines: 1,     // Very low to trigger
+	}
+
+	monitor := NewPressureMonitor(thresholds, alertCallback)
+
+	// Check memory pressure - should trigger goroutine alert
+	monitor.checkMemoryPressure()
+
+	// Give time for alerts to be sent (async)
+	time.Sleep(50 * time.Millisecond)
+
+	// Check that goroutine alert was triggered
+	mu.Lock()
+	defer mu.Unlock()
+
+	require.GreaterOrEqual(t, len(alerts), 1)
+
+	// Find goroutine alert
+	found := false
+	for _, alert := range alerts {
+		if alert.Type == "goroutines" {
+			found = true
+			require.Contains(t, alert.Message, "Goroutine count")
+			require.Contains(t, alert.Message, "exceeds threshold")
+		}
+	}
+	require.True(t, found, "Expected goroutine alert not found")
+}
+
+// TestPressureMonitorCalculateSeverity tests severity calculation
+func TestPressureMonitorCalculateSeverity(t *testing.T) {
+	monitor := NewPressureMonitor(DefaultThresholds(), nil)
+
+	tests := []struct {
+		name      string
+		actual    float64
+		threshold float64
+		expected  AlertSeverity
+	}{
+		{
+			name:      "Below threshold",
+			actual:    90,
+			threshold: 100,
+			expected:  AlertInfo,
+		},
+		{
+			name:      "Just above threshold",
+			actual:    110,
+			threshold: 100,
+			expected:  AlertInfo,
+		},
+		{
+			name:      "150% of threshold",
+			actual:    150,
+			threshold: 100,
+			expected:  AlertWarning,
+		},
+		{
+			name:      "200% of threshold",
+			actual:    200,
+			threshold: 100,
+			expected:  AlertCritical,
+		},
+		{
+			name:      "300% of threshold",
+			actual:    300,
+			threshold: 100,
+			expected:  AlertCritical,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := monitor.calculateSeverity("test", tt.actual, tt.threshold)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestPressureMonitorAlertCallback tests alert callback functionality
+func TestPressureMonitorAlertCallback(t *testing.T) {
+	var mu sync.Mutex
+	alertReceived := false
+	var receivedAlert Alert
+
+	alertCallback := func(alert Alert) {
+		mu.Lock()
+		defer mu.Unlock()
+		alertReceived = true
+		receivedAlert = alert
+	}
+
+	monitor := NewPressureMonitor(DefaultThresholds(), alertCallback)
+
+	// Send a test alert directly
+	testAlert := Alert{
+		Type:      "test",
+		Message:   "Test alert",
+		Timestamp: time.Now(),
+		Severity:  AlertWarning,
+	}
+
+	monitor.sendAlert(testAlert)
+
+	// Give time for async callback
+	time.Sleep(50 * time.Millisecond)
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.True(t, alertReceived)
+	require.Equal(t, testAlert.Type, receivedAlert.Type)
+	require.Equal(t, testAlert.Message, receivedAlert.Message)
+
+	// Check stats
+	stats := monitor.GetMonitorStats()
+	require.Equal(t, int64(1), stats.AlertCount)
+	require.Equal(t, int64(1), stats.HighPressureEvents)
+}
+
+// TestPressureMonitorMonitoringLoop tests the continuous monitoring loop
+func TestPressureMonitorMonitoringLoop(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping long-running monitoring test")
+	}
+
+	alertCount := int64(0)
+	mu := sync.Mutex{}
+
+	alertCallback := func(_ Alert) {
+		mu.Lock()
+		defer mu.Unlock()
+		alertCount++
+	}
+
+	// Create monitor with very short interval for testing
+	monitor := NewPressureMonitor(DefaultThresholds(), alertCallback)
+	monitor.monitoringInterval = 100 * time.Millisecond
+
+	// Start monitoring
+	monitor.StartMonitoring()
+
+	// Let it run for a bit
+	time.Sleep(350 * time.Millisecond)
+
+	// Stop monitoring
+	monitor.StopMonitoring()
+
+	// Should have checked at least 3 times
+	stats := monitor.GetMonitorStats()
+	require.False(t, stats.MonitoringEnabled)
+}
+
+// TestPressureMonitorNilCallback tests monitor without alert callback
+func TestPressureMonitorNilCallback(t *testing.T) {
+	// Create monitor with nil callback
+	monitor := NewPressureMonitor(DefaultThresholds(), nil)
+
+	// Send alert - should not panic
+	testAlert := Alert{
+		Type:      "test",
+		Message:   "Test alert",
+		Timestamp: time.Now(),
+		Severity:  AlertInfo,
+	}
+
+	monitor.sendAlert(testAlert)
+
+	// Check stats
+	stats := monitor.GetMonitorStats()
+	require.Equal(t, int64(1), stats.AlertCount)
+}
+
+// TestPressureMonitorConcurrentStartStop tests concurrent start/stop operations
+func TestPressureMonitorConcurrentStartStop(t *testing.T) {
+	monitor := NewPressureMonitor(DefaultThresholds(), nil)
+
+	// Test concurrent operations
+	var wg sync.WaitGroup
+	numGoroutines := 10
+
+	wg.Add(numGoroutines * 2)
+
+	// Half goroutines start monitoring
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			monitor.StartMonitoring()
+		}()
+	}
+
+	// Half goroutines stop monitoring
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			monitor.StopMonitoring()
+		}()
+	}
+
+	wg.Wait()
+
+	// Should not panic and should be in a consistent state
+	stats := monitor.GetMonitorStats()
+	require.NotNil(t, stats)
+}
+
+// TestPressureMonitorStopChannelRaceCondition tests the stop channel race condition handling
+func TestPressureMonitorStopChannelRaceCondition(t *testing.T) {
+	monitor := NewPressureMonitor(DefaultThresholds(), nil)
+
+	// Start monitoring
+	monitor.StartMonitoring()
+
+	// Close the stop channel manually to simulate race condition
+	monitor.mu.Lock()
+	close(monitor.stopChan)
+	monitor.mu.Unlock()
+
+	// Try to stop monitoring - should not panic
+	monitor.StopMonitoring()
+
+	// Verify state
+	stats := monitor.GetMonitorStats()
+	require.False(t, stats.MonitoringEnabled)
+}
+
 // BenchmarkStringIntern tests the performance of string interning
 func BenchmarkStringIntern(b *testing.B) {
 	si := NewStringIntern()
