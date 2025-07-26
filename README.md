@@ -716,56 +716,44 @@ go run ./cmd/profile_demo
 
 ### Performance Results
 
-The following benchmarks were run on Apple M1 Max:
+The following benchmarks were run on Apple M1 Max (updated January 2025):
 
 | Benchmark                    | Operations  | ns/op     | B/op      | allocs/op |
 |------------------------------|-------------|-----------|-----------|-----------|
-| **Configuration**            |
-| LoadFromReader               | 33,890      | 36,177    | 24,456    | 394       |
-| LoadFromReader (Large)       | 847         | 1,393,492 | 782,384   | 15,832    |
-| Validate                     | 814,417     | 1,498     | 0         | 0         |
-| Validate (Large)             | 22,536      | 52,727    | 6,699     | 9         |
-| LoadAndValidate              | 29,571      | 37,114    | 24,467    | 394       |
-| LoadAndValidate (Large)      | 820         | 1,471,844 | 789,436   | 15,842    |
-| **Transformations**          |
-| TemplateTransform (Small)    | 31,008      | 36,891    | 67,906    | 578       |
-| TemplateTransform (Large)    | 1,414       | 878,456   | 1,987,868 | 706       |
-| RepoTransform (GoFile)       | 86,752      | 14,035    | 21,813    | 133       |
-| RepoTransform (GoFile Large) | 2,055       | 564,035   | 279,377   | 352       |
-| RepoTransform (Markdown)     | 58,833      | 21,144    | 20,286    | 125       |
-| BinaryDetection (Text)       | 36,248,710  | 33        | 0         | 0         |
-| BinaryDetection (Binary)     | 77,023,261  | 16        | 0         | 0         |
-| BinaryDetection (Large Text) | 224,589     | 5,206     | 0         | 0         |
-| ChainTransform               | 42,822      | 27,943    | 44,461    | 348       |
-| ChainTransform (Binary)      | 374,011     | 3,239     | 6,045     | 56        |
-| **State Management**         |
-| BranchParsing                | 1,000,000   | 1,189     | 544       | 12        |
-| PRParsing                    | 26,086,176  | 47        | 0         | 0         |
-| StateComparison              | 26,370,776  | 45        | 0         | 0         |
-| SyncBranchGeneration         | 10,440,081  | 115       | 64        | 2         |
-| StateAggregation             | 523,197     | 2,285     | 0         | 0         |
-| **Sync Operations**          |
-| FilterTargets                | 321,801     | 3,858     | 16,208    | 8         |
-| FilterTargets (WithFilter)   | 7,323,346   | 164       | 352       | 4         |
-| NeedsSync (UpToDate)         | 145,035,962 | 8         | 0         | 0         |
-| NeedsSync (Behind)           | 142,666,467 | 8         | 0         | 0         |
-| NeedsSync (Pending)          | 135,936,728 | 9         | 0         | 0         |
-| OptionsValidation            | 371,356,402 | 3         | 0         | 0         |
+| **Core Algorithms**          |
+| BinaryDetection (Small Text) | 5,852,616   | 204.5     | 0         | 0         |
+| BinaryDetection (Large Text) | 179,217     | 6,606     | 0         | 0         |
+| BinaryDetection (Small Binary)| 335,143,730| 3.6       | 0         | 0         |
+| BinaryDetection (Large Binary)| 587,204,924| 2.0       | 0         | 0         |
+| DiffOptimized (Identical)    | 239,319,295 | 5.0       | 0         | 0         |
+| DiffOptimized (Different)    | 4,035,818   | 297.2     | 240       | 10        |
+| DiffOptimized (Large Similar)| 250,452     | 4,711     | 5,492     | 7         |
+| BatchProcessor               | 23,842,558  | 54.3      | 25        | 1         |
+| **Cache Operations**         |
+| Cache Set                    | 6,067,380   | 177.4     | 48        | 4         |
+| Cache Get (Hit)              | 11,481,175  | 103.8     | 7         | 1         |
+| Cache Get (Miss)             | 13,565,466  | 89.4      | 32        | 2         |
+| Cache GetOrLoad              | 11,330,936  | 106.2     | 16        | 1         |
+| **Performance Profiling**    |
+| CaptureMemStats              | 58,352      | 20,476    | 0         | 0         |
+| CaptureMemoryStats           | 3,475       | 302,402   | 107       | 4         |
+| MeasureOperation             | 4,032       | 316,467   | 107       | 4         |
 
 ### Performance Characteristics
 
 go-broadcast is designed for efficiency:
 
-- **Configuration parsing** handles ~34K operations/second for normal configs, ~850/second for large configs
-- **Template transformations** process ~31K small files/second, ~1.4K large files/second  
-- **Repository transformations** handle ~87K Go files/second, ~59K Markdown files/second
-- **Binary detection** executes 77M+ operations/second with zero allocations
-- **State comparisons** perform 26M+ operations/second with zero allocations
-- **Sync decisions** evaluate 135M+ operations/second with zero allocations
+- **Binary detection** executes 587M+ operations/second with zero allocations for binary files
+- **Content comparison** performs 239M+ operations/second for identical files with zero allocations  
+- **Cache operations** handle 13.5M+ get operations/second with minimal memory usage
+- **Batch processing** manages 23.8M+ operations/second for concurrent tasks
+- **Memory profiling** captures detailed statistics at 58K+ operations/second
+- **Performance monitoring** measures operations at 3K+ captures/second with comprehensive metrics
+- **Zero-allocation paths** optimized algorithms avoid memory allocation in critical operations
 - **Concurrent operations** sync multiple repositories simultaneously (configurable concurrency)
 - **GitHub API optimization** reduces API calls through intelligent state discovery
 - **Memory efficiency** most core operations use minimal allocations
-- **Test coverage** maintained at >80% across core packages
+- **Test coverage** maintained at >85% across core packages with comprehensive error handling
 
 > Performance varies based on GitHub API rate limits, network conditions, and repository sizes.
 
