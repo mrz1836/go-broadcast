@@ -506,10 +506,47 @@ func (ps *ProfileSuite) generateHTMLReport(ctx context.Context, session *Compreh
 	cpuProfile := filepath.Join(session.OutputDir, "cpu.prof")
 	htmlReport := filepath.Join(session.OutputDir, "cpu_profile.html")
 
-	cmd := exec.CommandContext(ctx, "go", "tool", "pprof", "-http=:0", "-no_browser", "-output", htmlReport, cpuProfile) //nolint:gosec // Go pprof tool with controlled arguments
+	// Check if CPU profile exists and has content before generating HTML report
+	if info, err := os.Stat(cpuProfile); err != nil || info.Size() == 0 {
+		// Create a placeholder HTML report if no valid CPU profile exists
+		placeholder := `<!DOCTYPE html>
+<html>
+<head><title>CPU Profile Report</title></head>
+<body>
+<h1>CPU Profile Report</h1>
+<p>No CPU profile data available for session: ` + session.Name + `</p>
+<p>This may be because the profiled function executed too quickly to capture meaningful CPU profile data.</p>
+</body>
+</html>`
+		return os.WriteFile(htmlReport, []byte(placeholder), 0o644) //nolint:gosec // HTML report file with standard permissions
+	}
+
+	// Use a simpler pprof command that generates SVG instead of starting HTTP server
+	cmd := exec.CommandContext(ctx, "go", "tool", "pprof", "-svg", "-output", htmlReport+".svg", cpuProfile) //nolint:gosec // Go pprof tool with controlled arguments
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to generate HTML report: %w", err)
+		// If SVG generation fails, create a simple HTML report with text output
+		textReport := filepath.Join(session.OutputDir, "cpu_profile.txt")
+		textCmd := exec.CommandContext(ctx, "go", "tool", "pprof", "-text", "-output", textReport, cpuProfile) //nolint:gosec // Go pprof tool with controlled arguments
+
+		if textErr := textCmd.Run(); textErr != nil {
+			return fmt.Errorf("failed to generate HTML or text report: HTML error: %w, Text error: %w", err, textErr)
+		}
+
+		// Create HTML wrapper for text report
+		if textContent, readErr := os.ReadFile(textReport); readErr == nil { //nolint:gosec // Reading generated text report file
+			htmlContent := `<!DOCTYPE html>
+<html>
+<head><title>CPU Profile Report</title></head>
+<body>
+<h1>CPU Profile Report - ` + session.Name + `</h1>
+<pre>` + string(textContent) + `</pre>
+</body>
+</html>`
+			return os.WriteFile(htmlReport, []byte(htmlContent), 0o644) //nolint:gosec // HTML report file with standard permissions
+		}
+
+		return fmt.Errorf("failed to generate HTML report and read text report: %w", err)
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"runtime"
 	"runtime/pprof"
 	"runtime/trace"
@@ -18,6 +19,11 @@ var errTestFuncError = errors.New("test function error")
 
 // configureForTesting configures a ProfileSuite for testing without CPU profiling conflicts
 func configureForTesting(suite *ProfileSuite) {
+	// Stop any existing CPU profiling to prevent conflicts
+	pprof.StopCPUProfile()
+	// Stop any existing trace to prevent conflicts
+	trace.Stop()
+
 	config := suite.config
 	config.EnableCPU = false       // Disable CPU profiling to avoid conflicts in tests
 	config.EnableMemory = false    // Disable memory profiling to avoid CPU conflicts
@@ -470,9 +476,13 @@ func TestProfileSuiteConcurrentSafety(t *testing.T) {
 // TestProfileSuiteGenerateHTMLReport tests HTML report generation
 func TestProfileSuiteGenerateHTMLReport(t *testing.T) {
 	// Skip this test if go tool is not available
-	if _, err := os.Stat("/usr/bin/go"); err != nil && os.IsNotExist(err) {
+	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go tool not available")
 	}
+
+	// Ensure clean state before test
+	pprof.StopCPUProfile()
+	trace.Stop()
 
 	tempDir := t.TempDir()
 	suite := NewProfileSuite(tempDir)
@@ -484,6 +494,12 @@ func TestProfileSuiteGenerateHTMLReport(t *testing.T) {
 	config.GenerateReports = true
 	config.ReportFormat = "html"
 	suite.Configure(config)
+
+	// Ensure cleanup after test
+	defer func() {
+		pprof.StopCPUProfile()
+		trace.Stop()
+	}()
 
 	// Run with a simple function - not actually testing CPU profiling
 	// Just testing the report generation flow
