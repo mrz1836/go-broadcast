@@ -635,3 +635,135 @@ func TestGetFile_WithBase64Whitespace(t *testing.T) {
 
 	mockRunner.AssertExpectations(t)
 }
+
+// TestNewClient_AuthCheckError tests when gh auth status command itself fails
+func TestNewClient_AuthCheckError(t *testing.T) {
+	// Save original PATH
+	oldPath := os.Getenv("PATH")
+	defer func() { _ = os.Setenv("PATH", oldPath) }()
+
+	// Create a temporary directory with a fake gh that returns auth error
+	tmpDir := t.TempDir()
+	fakeGH := filepath.Join(tmpDir, "gh")
+	script := `#!/bin/sh
+if [ "$1" = "auth" ] && [ "$2" = "status" ]; then
+    echo "authentication failed" >&2
+    exit 1
+fi
+`
+	err := os.WriteFile(fakeGH, []byte(script), 0o700) //nolint:gosec // Executable script needs execute permission
+	require.NoError(t, err)
+
+	// Add temp dir to PATH
+	err = os.Setenv("PATH", tmpDir+":"+oldPath)
+	require.NoError(t, err)
+
+	client, err := NewClient(context.Background(), logrus.New(), nil)
+	require.Error(t, err)
+	assert.Nil(t, client)
+	assert.Contains(t, err.Error(), "gh auth status failed")
+	assert.ErrorIs(t, err, ErrNotAuthenticated)
+}
+
+// TestNewClient_Success tests successful client creation
+func TestNewClient_Success(t *testing.T) {
+	// Save original PATH
+	oldPath := os.Getenv("PATH")
+	defer func() { _ = os.Setenv("PATH", oldPath) }()
+
+	// Create a temporary directory with a fake gh that succeeds
+	tmpDir := t.TempDir()
+	fakeGH := filepath.Join(tmpDir, "gh")
+	script := `#!/bin/sh
+if [ "$1" = "auth" ] && [ "$2" = "status" ]; then
+    echo "Logged in to github.com"
+    exit 0
+fi
+`
+	err := os.WriteFile(fakeGH, []byte(script), 0o700) //nolint:gosec // Executable script needs execute permission
+	require.NoError(t, err)
+
+	// Add temp dir to PATH
+	err = os.Setenv("PATH", tmpDir+":"+oldPath)
+	require.NoError(t, err)
+
+	client, err := NewClient(context.Background(), logrus.New(), nil)
+	require.NoError(t, err)
+	assert.NotNil(t, client)
+}
+
+// TestGetBranch_OtherCommandError tests GetBranch with non-404 command errors
+func TestGetBranch_OtherCommandError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Return a command error that's not a 404
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/branches/main"}).
+		Return(nil, &CommandError{Stderr: "500 Internal Server Error"})
+
+	result, err := client.GetBranch(ctx, "org/repo", "main")
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to get branch")
+	assert.NotEqual(t, ErrBranchNotFound, err) // Should be different from not found error
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPR_OtherCommandError tests GetPR with non-404 command errors
+func TestGetPR_OtherCommandError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Return a command error that's not a 404
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/42"}).
+		Return(nil, &CommandError{Stderr: "401 Unauthorized"})
+
+	result, err := client.GetPR(ctx, "org/repo", 42)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to get PR")
+	assert.NotEqual(t, ErrPRNotFound, err) // Should be different from not found error
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetFile_OtherCommandError tests GetFile with non-404 command errors
+func TestGetFile_OtherCommandError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Return a command error that's not a 404
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/contents/test.txt"}).
+		Return(nil, &CommandError{Stderr: "403 Forbidden"})
+
+	result, err := client.GetFile(ctx, "org/repo", "test.txt", "")
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to get file")
+	assert.NotEqual(t, ErrFileNotFound, err) // Should be different from not found error
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetCommit_OtherCommandError tests GetCommit with non-404 command errors
+func TestGetCommit_OtherCommandError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Return a command error that's not a 404
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/commits/abc123"}).
+		Return(nil, &CommandError{Stderr: "422 Unprocessable Entity"})
+
+	result, err := client.GetCommit(ctx, "org/repo", "abc123")
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to get commit")
+	assert.NotEqual(t, ErrCommitNotFound, err) // Should be different from not found error
+
+	mockRunner.AssertExpectations(t)
+}
