@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/errors"
+	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/state"
@@ -68,7 +68,7 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 	log.Info("Discovering current state from GitHub")
 	currentState, err := e.state.DiscoverState(ctx, e.config)
 	if err != nil {
-		return fmt.Errorf("failed to discover current state: %w", err)
+		return appErrors.WrapWithContext(err, "discover current state")
 	}
 
 	log.WithFields(logrus.Fields{
@@ -80,7 +80,7 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 	// 2. Determine which targets to sync
 	syncTargets, err := e.filterTargets(targetFilter, currentState)
 	if err != nil {
-		return fmt.Errorf("failed to filter targets: %w", err)
+		return appErrors.WrapWithContext(err, "filter targets")
 	}
 
 	if len(syncTargets) == 0 {
@@ -106,7 +106,7 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 	// 5. Wait for all syncs to complete
 	if err := g.Wait(); err != nil {
 		progress.SetError(err)
-		return fmt.Errorf("sync operation failed: %w", err)
+		return appErrors.WrapWithContext(err, "complete sync operation")
 	}
 
 	// 6. Report final results
@@ -119,7 +119,7 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 	}).Info("Sync operation completed")
 
 	if results.Failed > 0 {
-		return fmt.Errorf("%w: completed with %d failures", errors.ErrSyncFailed, results.Failed)
+		return fmt.Errorf("%w: completed with %d failures", appErrors.ErrSyncFailed, results.Failed)
 	}
 
 	return nil
@@ -144,7 +144,7 @@ func (e *Engine) filterTargets(targetFilter []string, currentState *state.State)
 		}
 
 		if len(targets) == 0 {
-			return nil, fmt.Errorf("%w: %v", errors.ErrNoMatchingTargets, targetFilter)
+			return nil, fmt.Errorf("%w: %v", appErrors.ErrNoMatchingTargets, targetFilter)
 		}
 	}
 
@@ -221,7 +221,7 @@ func (e *Engine) syncRepository(ctx context.Context, target config.TargetConfig,
 	if err != nil {
 		log.WithError(err).Error("Repository sync failed")
 		progress.RecordError(target.Repo, err)
-		return fmt.Errorf("failed to sync %s: %w", target.Repo, err)
+		return appErrors.WrapWithContext(err, fmt.Sprintf("sync %s", target.Repo))
 	}
 
 	log.Info("Repository sync completed successfully")

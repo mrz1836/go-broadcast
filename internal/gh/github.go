@@ -3,12 +3,13 @@ package gh
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
 
+	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
+	"github.com/mrz1836/go-broadcast/internal/jsonutil"
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/sirupsen/logrus"
 )
@@ -71,12 +72,12 @@ func NewClient(ctx context.Context, logger *logrus.Logger, logConfig *logging.Lo
 func (g *githubClient) ListBranches(ctx context.Context, repo string) ([]Branch, error) {
 	output, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s/branches", repo), "--paginate")
 	if err != nil {
-		return nil, fmt.Errorf("failed to list branches: %w", err)
+		return nil, appErrors.WrapWithContext(err, "list branches")
 	}
 
-	var branches []Branch
-	if err := json.Unmarshal(output, &branches); err != nil {
-		return nil, fmt.Errorf("failed to parse branches: %w", err)
+	branches, err := jsonutil.UnmarshalJSON[[]Branch](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse branches")
 	}
 
 	return branches, nil
@@ -89,12 +90,12 @@ func (g *githubClient) GetBranch(ctx context.Context, repo, branch string) (*Bra
 		if isNotFoundError(err) {
 			return nil, ErrBranchNotFound
 		}
-		return nil, fmt.Errorf("failed to get branch: %w", err)
+		return nil, appErrors.WrapWithContext(err, "get branch")
 	}
 
-	var b Branch
-	if err := json.Unmarshal(output, &b); err != nil {
-		return nil, fmt.Errorf("failed to parse branch: %w", err)
+	b, err := jsonutil.UnmarshalJSON[Branch](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse branch")
 	}
 
 	return &b, nil
@@ -113,21 +114,21 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 		"base":  req.Base,
 	}
 
-	jsonData, err := json.Marshal(prData)
+	jsonData, err := jsonutil.MarshalJSON(prData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal PR data: %w", err)
+		return nil, appErrors.WrapWithContext(err, "marshal PR data")
 	}
 
 	output, err := g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/pulls", repo), "--method", "POST", "--input", "-")
 	if err != nil {
 		// Log failed repository access
 		auditLogger.LogRepositoryAccess("github_cli", repo, "pr_create_failed")
-		return nil, fmt.Errorf("failed to create PR: %w", err)
+		return nil, appErrors.WrapWithContext(err, "create PR")
 	}
 
-	var pr PR
-	if err := json.Unmarshal(output, &pr); err != nil {
-		return nil, fmt.Errorf("failed to parse PR response: %w", err)
+	pr, err := jsonutil.UnmarshalJSON[PR](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse PR response")
 	}
 
 	// Log successful repository access for PR creation
@@ -143,12 +144,12 @@ func (g *githubClient) GetPR(ctx context.Context, repo string, number int) (*PR,
 		if isNotFoundError(err) {
 			return nil, ErrPRNotFound
 		}
-		return nil, fmt.Errorf("failed to get PR: %w", err)
+		return nil, appErrors.WrapWithContext(err, "get PR")
 	}
 
-	var pr PR
-	if err := json.Unmarshal(output, &pr); err != nil {
-		return nil, fmt.Errorf("failed to parse PR: %w", err)
+	pr, err := jsonutil.UnmarshalJSON[PR](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse PR")
 	}
 
 	return &pr, nil
@@ -163,12 +164,12 @@ func (g *githubClient) ListPRs(ctx context.Context, repo, state string) ([]PR, e
 
 	output, err := g.runner.Run(ctx, "gh", args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list PRs: %w", err)
+		return nil, appErrors.WrapWithContext(err, "list PRs")
 	}
 
-	var prs []PR
-	if err := json.Unmarshal(output, &prs); err != nil {
-		return nil, fmt.Errorf("failed to parse PRs: %w", err)
+	prs, err := jsonutil.UnmarshalJSON[[]PR](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse PRs")
 	}
 
 	return prs, nil
@@ -186,18 +187,18 @@ func (g *githubClient) GetFile(ctx context.Context, repo, path, ref string) (*Fi
 		if isNotFoundError(err) {
 			return nil, ErrFileNotFound
 		}
-		return nil, fmt.Errorf("failed to get file: %w", err)
+		return nil, appErrors.WrapWithContext(err, "get file")
 	}
 
-	var file File
-	if unmarshalErr := json.Unmarshal(output, &file); unmarshalErr != nil {
-		return nil, fmt.Errorf("failed to parse file: %w", unmarshalErr)
+	file, unmarshalErr := jsonutil.UnmarshalJSON[File](output)
+	if unmarshalErr != nil {
+		return nil, appErrors.WrapWithContext(unmarshalErr, "parse file")
 	}
 
 	// Decode base64 content
 	content, err := base64.StdEncoding.DecodeString(strings.TrimSpace(file.Content))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode file content: %w", err)
+		return nil, appErrors.WrapWithContext(err, "decode file content")
 	}
 
 	return &FileContent{
@@ -214,12 +215,12 @@ func (g *githubClient) GetCommit(ctx context.Context, repo, sha string) (*Commit
 		if isNotFoundError(err) {
 			return nil, ErrCommitNotFound
 		}
-		return nil, fmt.Errorf("failed to get commit: %w", err)
+		return nil, appErrors.WrapWithContext(err, "get commit")
 	}
 
-	var commit Commit
-	if err := json.Unmarshal(output, &commit); err != nil {
-		return nil, fmt.Errorf("failed to parse commit: %w", err)
+	commit, err := jsonutil.UnmarshalJSON[Commit](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse commit")
 	}
 
 	return &commit, nil

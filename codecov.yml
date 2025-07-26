@@ -20,9 +20,11 @@ ignore:
   - ".github/**"
   - ".make/**"
   - ".vscode/**"
-  - "examples/**"
-  - "test/**"
   - "cmd/**"
+  - "docs/**"
+  - "examples/**"
+  - "profiles/**"
+  - "test/**"
 
 # Parsers
 # --------------

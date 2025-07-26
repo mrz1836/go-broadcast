@@ -512,3 +512,360 @@ func TestLoggerService_ConcurrentUsage(t *testing.T) {
 		t.Errorf("both concurrent configurations failed: %v, %v", err1, err2)
 	}
 }
+
+func TestTraceHookFire(t *testing.T) {
+	tests := []struct {
+		name           string
+		entry          *logrus.Entry
+		expectedLevel  logrus.Level
+		expectedPrefix string
+	}{
+		{
+			name: "TraceLevel entry gets converted to debug with prefix",
+			entry: &logrus.Entry{
+				Level:   TraceLevel,
+				Message: "trace message",
+			},
+			expectedLevel:  logrus.DebugLevel,
+			expectedPrefix: "[TRACE] ",
+		},
+		{
+			name: "DebugLevel entry gets converted with prefix",
+			entry: &logrus.Entry{
+				Level:   logrus.DebugLevel,
+				Message: "debug message",
+			},
+			expectedLevel:  logrus.DebugLevel,
+			expectedPrefix: "[TRACE] ",
+		},
+		{
+			name: "InfoLevel entry gets converted with prefix",
+			entry: &logrus.Entry{
+				Level:   logrus.InfoLevel,
+				Message: "info message",
+			},
+			expectedLevel:  logrus.DebugLevel,
+			expectedPrefix: "[TRACE] ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hook := &TraceHook{Enabled: true}
+			err := hook.Fire(tt.entry)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedLevel, tt.entry.Level)
+
+			if tt.expectedPrefix != "" {
+				assert.Contains(t, tt.entry.Message, tt.expectedPrefix)
+			} else {
+				assert.NotContains(t, tt.entry.Message, "[TRACE]")
+			}
+		})
+	}
+}
+
+func TestTraceHookLevels(t *testing.T) {
+	tests := []struct {
+		name          string
+		enabled       bool
+		expectedCount int
+	}{
+		{
+			name:          "Enabled hook returns trace level",
+			enabled:       true,
+			expectedCount: 1,
+		},
+		{
+			name:          "Disabled hook returns empty levels",
+			enabled:       false,
+			expectedCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hook := &TraceHook{Enabled: tt.enabled}
+			levels := hook.Levels()
+
+			assert.Len(t, levels, tt.expectedCount)
+			if tt.enabled {
+				assert.Contains(t, levels, TraceLevel)
+			}
+		})
+	}
+}
+
+func TestLoggerServiceIsTraceEnabled(t *testing.T) {
+	tests := []struct {
+		name     string
+		verbose  int
+		expected bool
+	}{
+		{
+			name:     "Verbose 0 trace disabled",
+			verbose:  0,
+			expected: false,
+		},
+		{
+			name:     "Verbose 1 trace disabled",
+			verbose:  1,
+			expected: false,
+		},
+		{
+			name:     "Verbose 2 trace enabled",
+			verbose:  2,
+			expected: true,
+		},
+		{
+			name:     "Verbose 3 trace enabled",
+			verbose:  3,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &LogConfig{Verbose: tt.verbose}
+			service := NewLoggerService(config)
+
+			result := service.IsTraceEnabled()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestLoggerServiceIsDebugEnabled(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *LogConfig
+		expected bool
+	}{
+		{
+			name: "Verbose 0 with empty log level - uses default info level and enables debug",
+			config: &LogConfig{
+				Verbose:  0,
+				LogLevel: "",
+			},
+			expected: true,
+		},
+		{
+			name: "Verbose 0 and info level - debug enabled due to level ordering",
+			config: &LogConfig{
+				Verbose:  0,
+				LogLevel: "info",
+			},
+			expected: true,
+		},
+		{
+			name: "Verbose 1 - debug enabled",
+			config: &LogConfig{
+				Verbose:  1,
+				LogLevel: "info",
+			},
+			expected: true,
+		},
+		{
+			name: "Verbose 0 but debug log level - debug enabled",
+			config: &LogConfig{
+				Verbose:  0,
+				LogLevel: "debug",
+			},
+			expected: true,
+		},
+		{
+			name: "Verbose 0 but trace log level - debug disabled due to level ordering",
+			config: &LogConfig{
+				Verbose:  0,
+				LogLevel: "trace",
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := NewLoggerService(tt.config)
+			result := service.IsDebugEnabled()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestLoggerServiceGetDebugFlags(t *testing.T) {
+	tests := []struct {
+		name     string
+		flags    DebugFlags
+		validate func(t *testing.T, flags DebugFlags)
+	}{
+		{
+			name: "All flags enabled",
+			flags: DebugFlags{
+				Git:       true,
+				API:       true,
+				Transform: true,
+				Config:    true,
+				State:     true,
+			},
+			validate: func(t *testing.T, flags DebugFlags) {
+				assert.True(t, flags.Git)
+				assert.True(t, flags.API)
+				assert.True(t, flags.Transform)
+				assert.True(t, flags.Config)
+				assert.True(t, flags.State)
+			},
+		},
+		{
+			name: "Mixed flags",
+			flags: DebugFlags{
+				Git:       true,
+				API:       false,
+				Transform: true,
+				Config:    false,
+				State:     true,
+			},
+			validate: func(t *testing.T, flags DebugFlags) {
+				assert.True(t, flags.Git)
+				assert.False(t, flags.API)
+				assert.True(t, flags.Transform)
+				assert.False(t, flags.Config)
+				assert.True(t, flags.State)
+			},
+		},
+		{
+			name:  "All flags disabled (zero value)",
+			flags: DebugFlags{},
+			validate: func(t *testing.T, flags DebugFlags) {
+				assert.False(t, flags.Git)
+				assert.False(t, flags.API)
+				assert.False(t, flags.Transform)
+				assert.False(t, flags.Config)
+				assert.False(t, flags.State)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &LogConfig{Debug: tt.flags}
+			service := NewLoggerService(config)
+
+			result := service.GetDebugFlags()
+			tt.validate(t, result)
+		})
+	}
+}
+
+func TestLoggerServiceMapVerboseToLevel(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *LogConfig
+		expected logrus.Level
+	}{
+		{
+			name: "Verbose 0 with info log level",
+			config: &LogConfig{
+				Verbose:  0,
+				LogLevel: "info",
+			},
+			expected: logrus.InfoLevel,
+		},
+		{
+			name: "Verbose 1 overrides log level",
+			config: &LogConfig{
+				Verbose:  1,
+				LogLevel: "warn",
+			},
+			expected: logrus.DebugLevel,
+		},
+		{
+			name: "Verbose 2 sets trace level",
+			config: &LogConfig{
+				Verbose:  2,
+				LogLevel: "error",
+			},
+			expected: TraceLevel,
+		},
+		{
+			name: "Verbose 3 sets trace level",
+			config: &LogConfig{
+				Verbose:  3,
+				LogLevel: "info",
+			},
+			expected: TraceLevel,
+		},
+		{
+			name: "Verbose 0 with empty log level defaults to info",
+			config: &LogConfig{
+				Verbose:  0,
+				LogLevel: "",
+			},
+			expected: logrus.InfoLevel,
+		},
+		{
+			name: "Verbose 0 with debug log level",
+			config: &LogConfig{
+				Verbose:  0,
+				LogLevel: "debug",
+			},
+			expected: logrus.DebugLevel,
+		},
+		{
+			name: "Invalid log level defaults to info",
+			config: &LogConfig{
+				Verbose:  0,
+				LogLevel: "invalid",
+			},
+			expected: logrus.InfoLevel,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := NewLoggerService(tt.config)
+			result := service.mapVerboseToLevel()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestLoggerServiceConfigureLoggerContextCancellation(t *testing.T) {
+	config := &LogConfig{
+		LogLevel:  "info",
+		LogFormat: "text",
+		Verbose:   0,
+	}
+
+	service := NewLoggerService(config)
+
+	// Create a canceled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := service.ConfigureLogger(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "logger configuration canceled")
+}
+
+func TestLoggerServiceConfigureLoggerWithMaxVerbosity(t *testing.T) {
+	// Test that verbose level 3 enables caller information
+	config := &LogConfig{
+		LogLevel:  "info",
+		LogFormat: "text",
+		Verbose:   3,
+	}
+
+	service := NewLoggerService(config)
+	ctx := context.Background()
+
+	// Reset logger state
+	logrus.SetReportCaller(false)
+	logrus.StandardLogger().ReplaceHooks(make(logrus.LevelHooks))
+
+	err := service.ConfigureLogger(ctx)
+	require.NoError(t, err)
+
+	// Verify that report caller is enabled
+	assert.True(t, logrus.StandardLogger().ReportCaller)
+}

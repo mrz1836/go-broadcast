@@ -149,7 +149,7 @@ func TestValidate_MissingSourceRepo(t *testing.T) {
 
 	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "source repository is required")
+	assert.Contains(t, err.Error(), "field cannot be empty: repository name")
 }
 
 func TestValidate_InvalidRepoFormat(t *testing.T) {
@@ -175,7 +175,7 @@ func TestValidate_InvalidRepoFormat(t *testing.T) {
 
 			err := config.ValidateWithLogging(context.Background(), nil)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "invalid repository format")
+			assert.Contains(t, err.Error(), "invalid format: repository name")
 		})
 	}
 }
@@ -189,7 +189,7 @@ func TestValidate_InvalidBranch(t *testing.T) {
 
 	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "source branch is required")
+	assert.Contains(t, err.Error(), "field cannot be empty: branch name")
 }
 
 func TestValidate_NoTargets(t *testing.T) {
@@ -240,12 +240,12 @@ func TestValidate_InvalidFilePaths(t *testing.T) {
 		dest string
 		err  string
 	}{
-		{"empty src", "", "file", "source file path is required"},
-		{"empty dest", "file", "", "destination file path is required"},
-		{"absolute src", "/absolute/path", "file", "invalid source path"},
-		{"absolute dest", "file", "/absolute/path", "invalid destination path"},
-		{"escape src", "../escape", "file", "invalid source path"},
-		{"escape dest", "file", "../escape", "invalid destination path"},
+		{"empty src", "", "file", "field is required: source path"},
+		{"empty dest", "file", "", "field is required: destination path"},
+		{"absolute src", "/absolute/path", "file", "must be relative"},
+		{"absolute dest", "file", "/absolute/path", "must be relative"},
+		{"escape src", "../escape", "file", "path traversal detected"},
+		{"escape dest", "file", "../escape", "path traversal detected"},
 	}
 
 	for _, tc := range testCases {
@@ -285,7 +285,7 @@ func TestValidate_DuplicateDestinations(t *testing.T) {
 
 	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate destination file: same.txt")
+	assert.Contains(t, err.Error(), "duplicate destination: same.txt")
 }
 
 func TestValidate_EmptyPRLabel(t *testing.T) {
@@ -302,7 +302,7 @@ func TestValidate_EmptyPRLabel(t *testing.T) {
 
 	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "PR label cannot be empty")
+	assert.Contains(t, err.Error(), "cannot be empty")
 }
 
 func TestLoad_FileNotFound(t *testing.T) {
@@ -310,4 +310,165 @@ func TestLoad_FileNotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, config)
 	assert.Contains(t, err.Error(), "failed to open config file")
+}
+
+// TestApplyDefaults tests the applyDefaults function behavior
+func TestApplyDefaults(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected Config
+	}{
+		{
+			name: "ApplyAllDefaults",
+			input: `
+version: 1
+source:
+  repo: "org/template"
+targets:
+  - repo: "org/service"
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+`,
+			expected: Config{
+				Version: 1,
+				Source: SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
+				},
+				Defaults: DefaultConfig{
+					BranchPrefix: "sync/template",
+					PRLabels:     []string{"automated-sync"},
+				},
+			},
+		},
+		{
+			name: "KeepExistingValues",
+			input: `
+version: 1
+source:
+  repo: "org/template"
+  branch: "main"
+defaults:
+  branch_prefix: "custom/prefix"
+  pr_labels: ["custom-label", "another"]
+targets:
+  - repo: "org/service"
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+`,
+			expected: Config{
+				Version: 1,
+				Source: SourceConfig{
+					Repo:   "org/template",
+					Branch: "main",
+				},
+				Defaults: DefaultConfig{
+					BranchPrefix: "custom/prefix",
+					PRLabels:     []string{"custom-label", "another"},
+				},
+			},
+		},
+		{
+			name: "PartialDefaults",
+			input: `
+version: 1
+source:
+  repo: "org/template"
+  branch: "develop"
+defaults:
+  pr_labels: ["my-label"]
+targets:
+  - repo: "org/service"
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+`,
+			expected: Config{
+				Version: 1,
+				Source: SourceConfig{
+					Repo:   "org/template",
+					Branch: "develop",
+				},
+				Defaults: DefaultConfig{
+					BranchPrefix: "sync/template",
+					PRLabels:     []string{"my-label"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config, err := LoadFromReader(strings.NewReader(tc.input))
+			require.NoError(t, err)
+			require.NotNil(t, config)
+
+			assert.Equal(t, tc.expected.Version, config.Version)
+			assert.Equal(t, tc.expected.Source.Repo, config.Source.Repo)
+			assert.Equal(t, tc.expected.Source.Branch, config.Source.Branch)
+			assert.Equal(t, tc.expected.Defaults.BranchPrefix, config.Defaults.BranchPrefix)
+			assert.Equal(t, tc.expected.Defaults.PRLabels, config.Defaults.PRLabels)
+		})
+	}
+}
+
+// TestLoadFromReader_StrictParsing tests that strict YAML parsing is enforced
+func TestLoadFromReader_StrictParsing(t *testing.T) {
+	yamlContent := `
+version: 1
+unknown_field: "should fail"
+source:
+  repo: "org/repo"
+targets:
+  - repo: "org/target"
+    files:
+      - src: "file"
+        dest: "file"
+`
+
+	config, err := LoadFromReader(strings.NewReader(yamlContent))
+	require.Error(t, err)
+	assert.Nil(t, config)
+	assert.Contains(t, err.Error(), "failed to parse YAML")
+}
+
+// TestLoadFromReader_EmptyInput tests behavior with empty input
+func TestLoadFromReader_EmptyInput(t *testing.T) {
+	config, err := LoadFromReader(strings.NewReader(""))
+	require.Error(t, err)
+	assert.Nil(t, config)
+	assert.Contains(t, err.Error(), "failed to parse YAML")
+}
+
+// TestLoadFromReader_InvalidInput tests various invalid inputs
+func TestLoadFromReader_InvalidInput(t *testing.T) {
+	testCases := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "InvalidYAMLSyntax",
+			input: "version: 1\nsource:\n  repo: [invalid",
+		},
+		{
+			name:  "NotYAML",
+			input: "<xml>not yaml</xml>",
+		},
+		{
+			name:  "MixedTypes",
+			input: "version: \"string instead of int\"",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config, err := LoadFromReader(strings.NewReader(tc.input))
+			require.Error(t, err)
+			assert.Nil(t, config)
+			assert.Contains(t, err.Error(), "failed to parse YAML")
+		})
+	}
 }

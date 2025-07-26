@@ -45,11 +45,17 @@ var globalFlags = &Flags{
 
 // GetConfigFile returns the config file path
 func GetConfigFile() string {
+	if globalFlags == nil {
+		return "sync.yaml" // Default value
+	}
 	return globalFlags.ConfigFile
 }
 
 // IsDryRun returns whether dry-run mode is enabled
 func IsDryRun() bool {
+	if globalFlags == nil {
+		return false // Default value
+	}
 	return globalFlags.DryRun
 }
 

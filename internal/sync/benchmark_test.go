@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/benchmark"
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/sirupsen/logrus"
@@ -58,14 +59,13 @@ func BenchmarkFilterTargets(b *testing.B) {
 		logger: logrus.New(),
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		targets, err := engine.filterTargets(nil, currentState)
 		if err != nil {
 			b.Fatal(err)
 		}
 		_ = targets
-	}
+	})
 }
 
 func BenchmarkFilterTargets_WithFilter(b *testing.B) {
@@ -110,14 +110,13 @@ func BenchmarkFilterTargets_WithFilter(b *testing.B) {
 
 	targetFilter := []string{"org/target-1", "org/target-2"}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		targets, err := engine.filterTargets(targetFilter, currentState)
 		if err != nil {
 			b.Fatal(err)
 		}
 		_ = targets
-	}
+	})
 }
 
 func BenchmarkNeedsSync(b *testing.B) {
@@ -179,12 +178,10 @@ func BenchmarkNeedsSync(b *testing.B) {
 
 	for _, tc := range testCases {
 		b.Run(tc.name, func(b *testing.B) {
-			var result bool
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				result = engine.needsSync(target, tc.state)
-			}
-			_ = result
+			benchmark.WithMemoryTracking(b, func() {
+				result := engine.needsSync(target, tc.state)
+				_ = result
+			})
 		})
 	}
 }
@@ -201,8 +198,7 @@ func BenchmarkProgressTracking(b *testing.B) {
 
 	for _, tc := range testCases {
 		b.Run(tc.name, func(b *testing.B) {
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			benchmark.WithMemoryTracking(b, func() {
 				progress := NewProgressTracker(tc.targetCount, false)
 
 				// Simulate progress updates
@@ -221,7 +217,7 @@ func BenchmarkProgressTracking(b *testing.B) {
 
 				results := progress.GetResults()
 				_ = results
-			}
+			})
 		})
 	}
 }
@@ -229,8 +225,7 @@ func BenchmarkProgressTracking(b *testing.B) {
 func BenchmarkProgressConcurrent(b *testing.B) {
 	const targetCount = 100
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		progress := NewProgressTracker(targetCount, false)
 
 		// Simulate concurrent updates
@@ -265,7 +260,7 @@ func BenchmarkProgressConcurrent(b *testing.B) {
 
 		results := progress.GetResults()
 		_ = results
-	}
+	})
 }
 
 func BenchmarkOptionsValidation(b *testing.B) {
@@ -285,8 +280,7 @@ func BenchmarkOptionsValidation(b *testing.B) {
 		},
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		for _, opts := range testOptions {
 			// Validate options
 			_ = opts.MaxConcurrency > 0
@@ -297,5 +291,5 @@ func BenchmarkOptionsValidation(b *testing.B) {
 				opts.MaxConcurrency = 5
 			}
 		}
-	}
+	})
 }

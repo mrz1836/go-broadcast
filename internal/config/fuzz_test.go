@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/mrz1836/go-broadcast/internal/fuzz"
+	"github.com/mrz1836/go-broadcast/internal/validation"
 	"gopkg.in/yaml.v3"
 )
 
@@ -221,8 +222,9 @@ func FuzzRepoNameValidation(f *testing.F) {
 			}
 		}()
 
-		// Test against the actual regex used in validator.go
-		isValid := repoRegex.MatchString(repoName)
+		// Test against the validation package
+		err := validation.ValidateRepoName(repoName)
+		isValid := err == nil
 
 		if isValid {
 			checkRepoNameSecurity(t, repoName)
@@ -237,14 +239,14 @@ func FuzzRepoNameValidation(f *testing.F) {
 			},
 		}
 
-		err := cfg.ValidateWithLogging(context.Background(), nil)
-		if err == nil && !isValid {
+		validateErr := cfg.ValidateWithLogging(context.Background(), nil)
+		if validateErr == nil && !isValid {
 			t.Errorf("Validate() accepted invalid repo name: %q", repoName)
 		}
-		if err != nil && isValid {
+		if validateErr != nil && isValid {
 			// This is ok - Validate has other checks too
-			if !strings.Contains(err.Error(), "repository") {
-				t.Errorf("Unexpected error for valid repo name %q: %v", repoName, err)
+			if !strings.Contains(validateErr.Error(), "repository") {
+				t.Errorf("Unexpected error for valid repo name %q: %v", repoName, validateErr)
 			}
 		}
 	})
@@ -346,8 +348,9 @@ func FuzzBranchNameValidation(f *testing.F) {
 			}
 		}()
 
-		// Test against the actual regex used in validator.go
-		isValid := branchRegex.MatchString(branch)
+		// Test against the validation package
+		err := validation.ValidateBranchName(branch)
+		isValid := err == nil
 
 		if isValid {
 			checkBranchNameSecurity(t, branch)
@@ -362,8 +365,8 @@ func FuzzBranchNameValidation(f *testing.F) {
 			},
 		}
 
-		err := cfg.ValidateWithLogging(context.Background(), nil)
-		if err == nil && !isValid {
+		validateErr := cfg.ValidateWithLogging(context.Background(), nil)
+		if validateErr == nil && !isValid {
 			t.Errorf("Validate() accepted invalid branch name: %q", branch)
 		}
 

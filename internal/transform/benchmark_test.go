@@ -5,6 +5,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/mrz1836/go-broadcast/internal/benchmark"
 	"github.com/sirupsen/logrus"
 )
 
@@ -100,17 +101,13 @@ func BenchmarkTemplateTransform_Small(b *testing.B) {
 		},
 	}
 
-	var result []byte
-	var err error
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		result, err = transformer.Transform(templateContent, ctx)
+	benchmark.WithMemoryTracking(b, func() {
+		result, err := transformer.Transform(templateContent, ctx)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-	_ = result
+		_ = result
+	})
 }
 
 func BenchmarkTemplateTransform_Large(b *testing.B) {
@@ -136,17 +133,13 @@ func BenchmarkTemplateTransform_Large(b *testing.B) {
 		},
 	}
 
-	var result []byte
-	var err error
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		result, err = transformer.Transform(largeTemplate, ctx)
+	benchmark.WithMemoryTracking(b, func() {
+		result, err := transformer.Transform(largeTemplate, ctx)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-	_ = result
+		_ = result
+	})
 }
 
 func BenchmarkRepoTransform_GoFile(b *testing.B) {
@@ -157,17 +150,13 @@ func BenchmarkRepoTransform_GoFile(b *testing.B) {
 		TargetRepo: "myorg/my-service",
 	}
 
-	var result []byte
-	var err error
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		result, err = transformer.Transform(smallGoFile, ctx)
+	benchmark.WithMemoryTracking(b, func() {
+		result, err := transformer.Transform(smallGoFile, ctx)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-	_ = result
+		_ = result
+	})
 }
 
 func BenchmarkRepoTransform_GoFile_Large(b *testing.B) {
@@ -178,17 +167,13 @@ func BenchmarkRepoTransform_GoFile_Large(b *testing.B) {
 		TargetRepo: "myorg/my-service",
 	}
 
-	var result []byte
-	var err error
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		result, err = transformer.Transform(largeGoFile, ctx)
+	benchmark.WithMemoryTracking(b, func() {
+		result, err := transformer.Transform(largeGoFile, ctx)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-	_ = result
+		_ = result
+	})
 }
 
 func BenchmarkRepoTransform_Markdown(b *testing.B) {
@@ -199,17 +184,13 @@ func BenchmarkRepoTransform_Markdown(b *testing.B) {
 		TargetRepo: "myorg/my-service",
 	}
 
-	var result []byte
-	var err error
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		result, err = transformer.Transform(smallMarkdown, ctx)
+	benchmark.WithMemoryTracking(b, func() {
+		result, err := transformer.Transform(smallMarkdown, ctx)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-	_ = result
+		_ = result
+	})
 }
 
 func BenchmarkBinaryDetection(b *testing.B) {
@@ -225,12 +206,10 @@ func BenchmarkBinaryDetection(b *testing.B) {
 
 	for _, tc := range testCases {
 		b.Run(tc.name, func(b *testing.B) {
-			var result bool
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				result = IsBinary(tc.filePath, tc.content)
-			}
-			_ = result
+			benchmark.WithMemoryTracking(b, func() {
+				result := IsBinary(tc.filePath, tc.content)
+				_ = result
+			})
 		})
 	}
 }
@@ -268,17 +247,13 @@ func main() {
 	fmt.Println("Visit https://github.com/org/template-repo")
 }`)
 
-	var result []byte
-	var err error
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		result, err = chain.Transform(context.Background(), content, transformCtx)
+	benchmark.WithMemoryTracking(b, func() {
+		result, err := chain.Transform(context.Background(), content, transformCtx)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-	_ = result
+		_ = result
+	})
 }
 
 func BenchmarkChainTransform_Binary(b *testing.B) {
@@ -297,15 +272,11 @@ func BenchmarkChainTransform_Binary(b *testing.B) {
 		TargetRepo: "myorg/my-service",
 	}
 
-	var result []byte
-	var err error
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		result, err = chain.Transform(context.Background(), binaryContent, transformCtx)
+	benchmark.WithMemoryTracking(b, func() {
+		result, err := chain.Transform(context.Background(), binaryContent, transformCtx)
 		if err != nil {
 			b.Fatal(err)
 		}
-	}
-	_ = result
+		_ = result
+	})
 }

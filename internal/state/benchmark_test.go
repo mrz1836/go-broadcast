@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/benchmark"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 )
 
@@ -20,15 +21,14 @@ func BenchmarkBranchParsing(b *testing.B) {
 	// Create a discovery service to test parsing
 	discovery := NewDiscoverer(nil, nil, nil)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		for _, branch := range branches {
 			// Use the actual ParseBranchName method
 			metadata, err := discovery.ParseBranchName(branch)
 			_ = metadata
 			_ = err
 		}
-	}
+	})
 }
 
 func BenchmarkPRParsing(b *testing.B) {
@@ -80,15 +80,14 @@ func BenchmarkPRParsing(b *testing.B) {
 		},
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		for _, pr := range prs {
 			// Simulate PR parsing/analysis
 			_ = pr.State == "open"
 			_ = len(pr.Head.Ref) > 5 && pr.Head.Ref[:5] == "sync/"
 			_ = time.Since(pr.UpdatedAt)
 		}
-	}
+	})
 }
 
 func BenchmarkStateComparison(b *testing.B) {
@@ -117,8 +116,7 @@ func BenchmarkStateComparison(b *testing.B) {
 		},
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		for _, target := range targetStates {
 			// Compare commits
 			needsSync := target.LastSyncCommit != sourceState.LatestCommit
@@ -138,7 +136,7 @@ func BenchmarkStateComparison(b *testing.B) {
 				_ = true
 			}
 		}
-	}
+	})
 }
 
 func BenchmarkSyncBranchGeneration(b *testing.B) {
@@ -146,14 +144,13 @@ func BenchmarkSyncBranchGeneration(b *testing.B) {
 	timestamp := time.Now()
 	commit := "abc123def456789"
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		// Simulate branch name generation
 		branchName := "sync/template-" +
 			timestamp.Format("20060102-150405") + "-" +
 			commit[:7]
 		_ = branchName
-	}
+	})
 }
 
 func BenchmarkStateAggregation(b *testing.B) {
@@ -176,8 +173,7 @@ func BenchmarkStateAggregation(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchmark.WithMemoryTracking(b, func() {
 		// Count targets by status
 		statusCounts := make(map[SyncStatus]int)
 		for _, target := range state.Targets {
@@ -192,5 +188,5 @@ func BenchmarkStateAggregation(b *testing.B) {
 			}
 		}
 		_ = syncNeeded
-	}
+	})
 }

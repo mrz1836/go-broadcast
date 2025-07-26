@@ -393,6 +393,7 @@ targets:
 		}()
 
 		var buffer bytes.Buffer
+		var bufferMu sync.Mutex
 
 		// Run diagnose command which may log environment info
 		cmd := cli.NewRootCmdWithVerbose()
@@ -410,12 +411,16 @@ targets:
 		}()
 
 		// Read output
+		readerDone := make(chan struct{})
 		go func() {
+			defer close(readerDone)
 			buf := make([]byte, 4096)
 			for {
 				n, err := r.Read(buf)
 				if n > 0 {
+					bufferMu.Lock()
 					buffer.Write(buf[:n])
+					bufferMu.Unlock()
 				}
 				if err != nil {
 					break
@@ -439,8 +444,12 @@ targets:
 			t.Fatal("command timed out")
 		}
 
-		time.Sleep(100 * time.Millisecond)
+		// Wait for reader to finish
+		<-readerDone
+
+		bufferMu.Lock()
 		output := buffer.String()
+		bufferMu.Unlock()
 
 		// Validate redaction
 		if strings.Contains(output, "GITHUB_TOKEN") {
@@ -635,6 +644,7 @@ targets:
 		for i, cmdArgs := range commands {
 			t.Run("command_"+string(rune(i+'0')), func(t *testing.T) {
 				var buffer bytes.Buffer
+				var bufferMu sync.Mutex
 
 				cmd := cli.NewRootCmdWithVerbose()
 				cmd.SetArgs(cmdArgs)
@@ -662,12 +672,16 @@ targets:
 				}()
 
 				// Read output
+				readerDone := make(chan struct{})
 				go func() {
+					defer close(readerDone)
 					buf := make([]byte, 2048)
 					for {
 						n, err := r.Read(buf)
 						if n > 0 {
+							bufferMu.Lock()
 							buffer.Write(buf[:n])
+							bufferMu.Unlock()
 						}
 						if err != nil {
 							break
@@ -699,8 +713,12 @@ targets:
 					t.Fatal("command timed out")
 				}
 
-				time.Sleep(100 * time.Millisecond)
+				// Wait for reader to finish
+				<-readerDone
+
+				bufferMu.Lock()
 				output := buffer.String()
+				bufferMu.Unlock()
 
 				// Basic validation that command executed and produced output
 				// Test passes if command execution completes without error
