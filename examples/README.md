@@ -196,4 +196,19 @@ If you encounter issues with these examples:
    go-broadcast sync --config examples/sync.yaml --log-level debug
    ```
 
-For more detailed troubleshooting, see [docs/troubleshooting.md](../docs/troubleshooting.md).
+**Note**: Example configurations use placeholder repository names (e.g., "org/template-repo", "company/service-name"). Replace these with actual repository names in your organization when creating your configuration.
+
+## Developer Workflow Integration
+
+For comprehensive go-broadcast development workflows and testing procedures, see [CLAUDE.md](../.github/CLAUDE.md#-essential-development-commands) which includes:
+- **Configuration validation workflows** for testing your sync configurations
+- **Debugging procedures** for troubleshooting sync issues
+- **Testing commands** for validating changes before deployment
+- **Performance testing** for optimizing large-scale synchronizations
+
+## Related Documentation
+
+- [Main Documentation](../README.md) - Project overview and quick start guide
+- [Troubleshooting Guide](../docs/troubleshooting.md) - Detailed troubleshooting procedures
+- [Configuration Reference](../README.md#configuration) - Complete configuration options
+- [CLAUDE.md Developer Workflows](../.github/CLAUDE.md) - Comprehensive development workflows

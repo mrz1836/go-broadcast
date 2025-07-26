@@ -444,11 +444,21 @@ tar -czf "${SUPPORT_DIR}.tar.gz" "$SUPPORT_DIR"
 echo "Support package created: ${SUPPORT_DIR}.tar.gz"
 ```
 
-## 📚 Reference Links
+## Developer Workflow Integration
 
-- **Quick Reference**: [docs/logging-quick-ref.md](logging-quick-ref.md)
-- **Detailed Guide**: [docs/logging.md](logging.md)
-- **Main Documentation**: [README.md](../README.md)
+For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md#️-troubleshooting-quick-reference) which includes:
+- **Development environment troubleshooting** for build failures and test issues
+- **go-broadcast debugging workflows** with component-specific procedures
+- **Environment validation procedures** for GitHub authentication and Go setup
+- **Performance troubleshooting integration** with benchmarking and profiling
+
+## Reference Links
+
+- **General Troubleshooting**: [troubleshooting.md](troubleshooting.md) - Common issues and solutions
+- **Logging Quick Reference**: [logging-quick-ref.md](logging-quick-ref.md) - Essential logging commands
+- **Detailed Logging Guide**: [logging.md](logging.md) - Comprehensive logging documentation
+- **Developer Workflows**: [CLAUDE.md](../.github/CLAUDE.md) - Complete development workflow integration
+- **Main Documentation**: [README.md](../README.md) - Project overview and quick start
 - **GitHub Issues**: [Report a bug](https://github.com/mrz1836/go-broadcast/issues/new)
 - **Security Issues**: [Security Policy](../.github/SECURITY.md)
 

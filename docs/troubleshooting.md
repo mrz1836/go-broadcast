@@ -397,4 +397,19 @@ watch -n 30 "go-broadcast status --config sync.yaml"
 
 # Monitor logs in another terminal
 go-broadcast sync --log-level info --config sync.yaml 2>&1 | tee sync.log
+
+## Developer Workflow Integration
+
+For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md#️-troubleshooting-quick-reference) which includes:
+- **Troubleshooting development issues** with build failures, test failures, and linting errors
+- **go-broadcast debugging procedures** with verbose logging and component-specific debugging
+- **Environment troubleshooting steps** for GitHub authentication and Go environment issues
+- **Development workflow integration** for effective problem-solving
+
+## Related Documentation
+
+1. [Troubleshooting Runbook](troubleshooting-runbook.md) - Systematic operational troubleshooting procedures
+2. [Logging Guide](logging.md) - Comprehensive logging and debugging documentation
+3. [Logging Quick Reference](logging-quick-ref.md) - Essential logging commands and flags
+4. [CLAUDE.md Developer Workflows](../.github/CLAUDE.md) - Complete development workflow integration
 ```

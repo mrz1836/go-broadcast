@@ -488,11 +488,20 @@ func main() {
 }
 ```
 
-## Next Steps
+## Developer Workflow Integration
+
+For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md#-performance-testing-and-benchmarking) which includes:
+- **Performance profiling procedures** for systematic analysis
+- **Benchmark execution workflows** with memory profiling
+- **Profile analysis commands** for optimization
+- **Integration with development workflow** for continuous performance monitoring
+
+## Related Documentation
 
 1. [Benchmarking Guide](benchmarking-profiling.md) - Writing and running benchmarks
-2. [Performance Optimization](performance-optimization.md) - Optimization strategies
-3. [Troubleshooting Guide](troubleshooting.md) - Common performance issues
+2. [Performance Optimization](performance-optimization.md) - Optimization strategies based on profiling results
+3. [Troubleshooting Guide](troubleshooting.md) - Common performance issues and debugging
+4. [CLAUDE.md Developer Workflows](../.github/CLAUDE.md) - Complete development workflow integration
 
 ## Additional Resources
 

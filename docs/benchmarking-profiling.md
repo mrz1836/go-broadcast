@@ -387,11 +387,20 @@ func BenchmarkConcurrentOperation(b *testing.B) {
 - Run benchmarks in CI for regression detection
 - Compare results across Git commits
 
-## Next Steps
+## Developer Workflow Integration
+
+For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md#-performance-testing-and-benchmarking) which includes:
+- **Essential development commands** for performance testing
+- **Benchmark execution procedures** for different scenarios
+- **Performance analysis workflows** for optimization
+- **Troubleshooting quick reference** for performance issues
+
+## Related Documentation
 
 1. [Profiling Guide](profiling-guide.md) - Deep dive into CPU, memory, and goroutine profiling
 2. [Performance Optimization](performance-optimization.md) - Best practices based on benchmark results
 3. [Troubleshooting Guide](troubleshooting.md) - Debugging performance issues
+4. [CLAUDE.md Developer Workflows](../.github/CLAUDE.md) - Complete development workflow integration
 
 ## Example Workflow
 

@@ -479,10 +479,19 @@ syncDuration.WithLabelValues("full_sync").Observe(
    - Implement proper TTLs
    - Monitor cache effectiveness
 
-## Next Steps
+## Developer Workflow Integration
 
-1. [Benchmarking Guide](benchmarking-profiling.md) - Run your own benchmarks
-2. [Profiling Guide](profiling-guide.md) - Deep performance analysis
-3. [Troubleshooting Guide](troubleshooting.md) - Debug performance issues
+For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md#-performance-testing-and-benchmarking) which includes:
+- **Performance testing procedures** for optimization validation  
+- **Benchmark execution workflows** for measuring improvements
+- **Development workflow integration** for performance-conscious development
+- **Quality assurance commands** to maintain performance standards
 
-Remember: The best optimization is often better algorithms and data structures. Always measure the impact of your changes!
+## Related Documentation
+
+1. [Benchmarking Guide](benchmarking-profiling.md) - Run your own benchmarks and measure performance
+2. [Profiling Guide](profiling-guide.md) - Deep performance analysis and debugging
+3. [Troubleshooting Guide](troubleshooting.md) - Debug performance issues and bottlenecks
+4. [CLAUDE.md Developer Workflows](../.github/CLAUDE.md) - Complete development workflow integration
+
+**Remember:** The best optimization is often better algorithms and data structures. Always measure the impact of your changes!
