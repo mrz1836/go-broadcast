@@ -14,6 +14,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// configureGitUser sets up git user configuration for tests
+func configureGitUser(ctx context.Context, t *testing.T, repoPath string) {
+	t.Helper()
+
+	// Configure git user email
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.email", "test@example.com")
+	err := cmd.Run()
+	require.NoError(t, err)
+
+	// Configure git user name
+	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.name", "Test User")
+	err = cmd.Run()
+	require.NoError(t, err)
+}
+
 // These are integration tests that require git to be installed
 func TestGitClient_Clone(t *testing.T) {
 	if testing.Short() {
@@ -76,13 +91,7 @@ func TestGitClient_Operations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Configure git user for tests
-	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.email", "test@example.com") //nolint:gosec // Test uses hardcoded command
-	err = cmd.Run()
-	require.NoError(t, err)
-
-	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.name", "Test User") //nolint:gosec // Test uses hardcoded command
-	err = cmd.Run()
-	require.NoError(t, err)
+	configureGitUser(ctx, t, repoPath)
 
 	// Test GetCurrentBranch (should be on default branch)
 	branch, err := client.GetCurrentBranch(ctx, repoPath)
@@ -189,6 +198,9 @@ func TestGitClient_Push(t *testing.T) {
 	err = exec.CommandContext(ctx, "git", "-C", tmpDir, "init", "test-repo").Run() //nolint:gosec // Test uses hardcoded command
 	require.NoError(t, err)
 
+	// Configure git user for tests
+	configureGitUser(ctx, t, repoPath)
+
 	// Create initial commit
 	testFile := filepath.Join(repoPath, "README.md")
 	err = os.WriteFile(testFile, []byte("# Test Repo"), 0o600)
@@ -227,6 +239,9 @@ func TestGitClient_GetCurrentBranch_AlternativeMethod(t *testing.T) {
 	// Initialize repository
 	err = exec.CommandContext(ctx, "git", "-C", tmpDir, "init", "test-repo").Run() //nolint:gosec // Test uses hardcoded command
 	require.NoError(t, err)
+
+	// Configure git user for tests
+	configureGitUser(ctx, t, repoPath)
 
 	// Create initial commit
 	testFile := filepath.Join(repoPath, "test.txt")
@@ -532,14 +547,8 @@ func TestGitClient_RunCommandWithDebugLogging(t *testing.T) {
 	err = cmd.Run()
 	require.NoError(t, err)
 
-	// Configure git
-	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.email", "test@example.com") //nolint:gosec // Test uses hardcoded command
-	err = cmd.Run()
-	require.NoError(t, err)
-
-	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.name", "Test User") //nolint:gosec // Test uses hardcoded command
-	err = cmd.Run()
-	require.NoError(t, err)
+	// Configure git user for tests
+	configureGitUser(ctx, t, repoPath)
 
 	// Test operation with debug logging enabled
 	branch, err := client.GetCurrentBranch(ctx, repoPath)
@@ -565,14 +574,8 @@ func TestGitClient_CommitNoChangesVariations(t *testing.T) {
 	err = cmd.Run()
 	require.NoError(t, err)
 
-	// Configure git
-	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.email", "test@example.com") //nolint:gosec // Test uses hardcoded command
-	err = cmd.Run()
-	require.NoError(t, err)
-
-	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.name", "Test User") //nolint:gosec // Test uses hardcoded command
-	err = cmd.Run()
-	require.NoError(t, err)
+	// Configure git user for tests
+	configureGitUser(ctx, t, repoPath)
 
 	// Create and commit initial file
 	testFile := filepath.Join(repoPath, "test.txt")
