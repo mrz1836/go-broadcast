@@ -367,7 +367,6 @@ jobs:
           verbose: true
           files: coverage.txt # Specify the coverage file
           use_legacy_upload_endpoint: true # Use legacy endpoint for plain text format
-          disable_network: true # Don't upload network files list
           disable_file_fixes: true # Prevent automatic modifications
 
       # ————————————————————————————————————————————————————————————————
