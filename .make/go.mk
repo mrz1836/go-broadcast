@@ -34,7 +34,17 @@ export GOLANGCI_LINT_VERSION
 .PHONY: bench
 bench: ## Run all benchmarks in the Go application
 	@echo "Running benchmarks..."
-	@go test -bench=. -benchmem ./... $(TAGS)
+	@go test -bench=. -benchmem -benchtime=100ms -timeout=30s ./... $(TAGS)
+
+.PHONY: bench-quick
+bench-quick: ## Run quick benchmarks (skip slow packages)
+	@echo "Running quick benchmarks..."
+	@go test -bench=. -benchmem -benchtime=50ms -timeout=15s \
+		./internal/algorithms/... \
+		./internal/cache/... \
+		./internal/config/... \
+		./internal/transform/... \
+		$(TAGS)
 
 .PHONY: bench-full
 bench-full: ## Run comprehensive benchmarks with multiple iterations
