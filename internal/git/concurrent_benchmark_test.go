@@ -31,16 +31,23 @@ func (t *gitTask) Name() string {
 	return t.name
 }
 
-// writeBenchmarkFile creates a single test file for benchmark usage
-func writeBenchmarkFile(b *testing.B, filePath, content string) {
-	b.Helper()
-	testutil.WriteBenchmarkFile(b, filePath, content)
-}
-
 // createBenchmarkTestFiles creates multiple test files with "test_file_" pattern for benchmark usage
 func createBenchmarkTestFiles(b *testing.B, dir string, count int) []string {
 	b.Helper()
-	return benchmark.SetupBenchmarkFiles(b, dir, count)
+
+	files := make([]string, count)
+	for i := 0; i < count; i++ {
+		fileName := fmt.Sprintf("test_file_%d.txt", i)
+		filePath := filepath.Join(dir, fileName)
+		content := fmt.Sprintf("Test file content %d", i)
+
+		err := os.WriteFile(filePath, []byte(content), 0o600)
+		if err != nil {
+			b.Fatalf("failed to create test file %s: %v", filePath, err)
+		}
+		files[i] = filePath
+	}
+	return files
 }
 
 // setupTestRepo creates a temporary git repository for testing
@@ -111,82 +118,140 @@ func BenchmarkConcurrentGitOperations(b *testing.B) {
 	for _, scenario := range scenarios {
 		b.Run(scenario.name, func(b *testing.B) {
 			ctx := context.Background()
-			repoPath, client, cleanup := setupTestRepo(ctx, b)
-			defer cleanup()
-
-			// Create test files for each repo operation
-			createBenchmarkTestFiles(b, repoPath, scenario.repos)
 
 			benchmark.WithMemoryTracking(b, func() {
-				pool := worker.NewPool(scenario.concurrent, scenario.repos)
-				pool.Start(context.Background())
+				// For concurrent operations, create separate repos to avoid lock conflicts
+				if scenario.concurrent > 1 {
+					pool := worker.NewPool(scenario.concurrent, scenario.repos)
+					pool.Start(ctx)
 
-				// Create tasks based on operation type
-				var tasks []worker.Task
-				for j := 0; j < scenario.repos; j++ {
-					var task worker.Task
-					switch scenario.operation {
-					case "status":
-						task = &gitTask{
-							name: fmt.Sprintf("status_%d", j),
-							operation: func(ctx context.Context) error {
-								_, err := client.GetCurrentBranch(ctx, repoPath)
-								return err
-							},
-						}
-					case "add":
-						fileIndex := j
-						task = &gitTask{
-							name: fmt.Sprintf("add_%d", j),
-							operation: func(ctx context.Context) error {
-								fileName := fmt.Sprintf("test_file_%d.txt", fileIndex)
-								return client.Add(ctx, repoPath, fileName)
-							},
-						}
-					case "commit":
-						task = &gitTask{
-							name: fmt.Sprintf("commit_%d", j),
-							operation: func(ctx context.Context) error {
-								// Add a unique file first
-								fileName := fmt.Sprintf("commit_file_%d_%d.txt", b.N, j)
-								filePath := filepath.Join(repoPath, fileName)
-								content := fmt.Sprintf("commit content %d", j)
-								writeBenchmarkFile(b, filePath, content)
-
-								if err := client.Add(ctx, repoPath, fileName); err != nil {
+					// Create tasks - each with its own repo
+					var tasks []worker.Task
+					for j := 0; j < scenario.repos; j++ {
+						taskIndex := j
+						var task worker.Task
+						switch scenario.operation {
+						case "status":
+							task = &gitTask{
+								name: fmt.Sprintf("status_%d", taskIndex),
+								operation: func(ctx context.Context) error {
+									repoPath, client, cleanup := setupTestRepo(ctx, b)
+									defer cleanup()
+									_, err := client.GetCurrentBranch(ctx, repoPath)
 									return err
-								}
+								},
+							}
+						case "add":
+							task = &gitTask{
+								name: fmt.Sprintf("add_%d", taskIndex),
+								operation: func(ctx context.Context) error {
+									repoPath, client, cleanup := setupTestRepo(ctx, b)
+									defer cleanup()
 
-								message := fmt.Sprintf("Commit %d", j)
-								return client.Commit(ctx, repoPath, message)
-							},
+									// Create the test file
+									fileName := fmt.Sprintf("test_file_%d.txt", taskIndex)
+									filePath := filepath.Join(repoPath, fileName)
+									content := fmt.Sprintf("Test content %d", taskIndex)
+									if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
+										return err
+									}
+
+									return client.Add(ctx, repoPath, fileName)
+								},
+							}
+						case "commit":
+							task = &gitTask{
+								name: fmt.Sprintf("commit_%d", taskIndex),
+								operation: func(ctx context.Context) error {
+									repoPath, client, cleanup := setupTestRepo(ctx, b)
+									defer cleanup()
+
+									// Add a unique file first
+									fileName := fmt.Sprintf("commit_file_%d_%d.txt", b.N, taskIndex)
+									filePath := filepath.Join(repoPath, fileName)
+									content := fmt.Sprintf("commit content %d", taskIndex)
+									if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
+										return err
+									}
+
+									if err := client.Add(ctx, repoPath, fileName); err != nil {
+										return err
+									}
+
+									message := fmt.Sprintf("Commit %d", taskIndex)
+									return client.Commit(ctx, repoPath, message)
+								},
+							}
+						}
+						tasks = append(tasks, task)
+					}
+
+					// Submit all tasks
+					if err := pool.SubmitBatch(tasks); err != nil {
+						b.Fatalf("Failed to submit batch: %v", err)
+					}
+
+					// Wait for completion
+					completed := 0
+					errorCount := 0
+					for result := range pool.Results() {
+						if result.Error != nil && !errors.Is(result.Error, ErrNoChanges) {
+							errorCount++
+						}
+						completed++
+						if completed >= scenario.repos {
+							break
 						}
 					}
-					tasks = append(tasks, task)
-				}
 
-				// Submit all tasks
-				if err := pool.SubmitBatch(tasks); err != nil {
-					b.Fatalf("Failed to submit batch: %v", err)
-				}
+					pool.Shutdown()
 
-				// Wait for completion
-				completed := 0
-				errorCount := 0
-				for result := range pool.Results() {
-					if result.Error != nil && !errors.Is(result.Error, ErrNoChanges) {
-						errorCount++
+					if errorCount > scenario.repos/2 { // Allow some failures but not too many
+						b.Errorf("Too many errors: %d out of %d operations failed", errorCount, scenario.repos)
 					}
-					completed++
-					if completed >= scenario.repos {
-						break
+				} else {
+					// Sequential operations - use a single repo
+					repoPath, client, cleanup := setupTestRepo(ctx, b)
+					defer cleanup()
+
+					// Create test files for add operations
+					if scenario.operation == "add" {
+						createBenchmarkTestFiles(b, repoPath, scenario.repos)
 					}
-				}
 
-				pool.Shutdown()
+					// Execute operations sequentially
+					for j := 0; j < scenario.repos; j++ {
+						switch scenario.operation {
+						case "status":
+							if _, err := client.GetCurrentBranch(ctx, repoPath); err != nil {
+								b.Errorf("Status operation failed: %v", err)
+							}
+						case "add":
+							fileName := fmt.Sprintf("test_file_%d.txt", j)
+							if err := client.Add(ctx, repoPath, fileName); err != nil {
+								b.Errorf("Add operation failed: %v", err)
+							}
+						case "commit":
+							// Add a unique file first
+							fileName := fmt.Sprintf("commit_file_%d_%d.txt", b.N, j)
+							filePath := filepath.Join(repoPath, fileName)
+							content := fmt.Sprintf("commit content %d", j)
+							if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
+								b.Errorf("Failed to write file: %v", err)
+								continue
+							}
 
-				if errorCount > scenario.repos/2 { // Allow some failures but not too many
-					b.Errorf("Too many errors: %d out of %d operations failed", errorCount, scenario.repos)
+							if err := client.Add(ctx, repoPath, fileName); err != nil {
+								b.Errorf("Failed to add file: %v", err)
+								continue
+							}
+
+							message := fmt.Sprintf("Commit %d", j)
+							if err := client.Commit(ctx, repoPath, message); err != nil {
+								b.Errorf("Commit operation failed: %v", err)
+							}
+						}
+					}
 				}
 			})
 		})
