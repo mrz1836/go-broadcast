@@ -1,17 +1,18 @@
-# GoFortress Internal Coverage System - Complete Implementation Plan
+# GoFortress Internal Coverage System - Go-Native Implementation Plan
 
 ## Executive Summary
 
-This document outlines a comprehensive plan to replace Codecov with a self-hosted, enterprise-grade coverage badge and reporting system integrated directly into the GoFortress CI/CD pipeline. The solution leverages GitHub Pages for hosting, provides branch-specific badges, detailed coverage reports, and operates with zero external dependencies.
+This document outlines a comprehensive plan to replace Codecov with a self-hosted, Go-native coverage system integrated directly into the GoFortress CI/CD pipeline. Built entirely in Go, this solution provides professional coverage tracking, badge generation, and reporting while maintaining the simplicity and performance that Go developers expect. The system leverages GitHub Pages for hosting static content and operates with zero external service dependencies.
 
 ## Vision Statement
 
-Create a best-in-class coverage system that surpasses traditional third-party solutions by providing:
-- **Complete Control**: No external service dependencies or API rate limits
-- **Enhanced Visibility**: Rich, interactive coverage reports with historical tracking
-- **Professional Aesthetics**: GitHub-quality badges and beautiful report interfaces
-- **Developer Delight**: Fast, accurate, and insightful coverage analytics
-- **Cutting-Edge UX**: Modern, responsive, and delightful user experience that rivals industry leaders
+Create a best-in-class Go-native coverage system that embodies Go's philosophy of simplicity and performance:
+- **Go-First Design**: Built by Go developers, for Go developers
+- **Single Binary**: One compiled tool that does everything - no runtime dependencies
+- **Lightning Fast**: Leverage Go's performance for instant badge generation and reporting
+- **Professional Quality**: GitHub-style badges and clean, accessible reports
+- **Zero Dependencies**: Pure Go implementation with minimal external packages
+- **Developer Friendly**: Simple CLI interface following Unix philosophy
 
 ## System Architecture
 
@@ -20,21 +21,22 @@ Create a best-in-class coverage system that surpasses traditional third-party so
 │                     GoFortress CI/CD Pipeline                   │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
-│  │ Go Test      │───▶│ Coverage     │───▶│ Badge        │       │
-│  │ -coverprofile│    │ Processor    │    │ Generator    │       │
-│  └──────────────┘    └──────────────┘    └──────────────┘       │
-│                              │                     │            │
-│                              ▼                     ▼            │
-│                      ┌──────────────┐    ┌──────────────┐       │
-│                      │ Report       │    │ GitHub       │       │
-│                      │ Generator    │───▶│ Pages Deploy │       │
-│                      └──────────────┘    └──────────────┘       │
-│                              │                                  │
-│                              ▼                                  │
-│                      ┌──────────────┐                           │
-│                      │ PR Commenter │                           │
-│                      └──────────────┘                           │
+│  ┌──────────────┐    ┌──────────────────────────┐               │
+│  │ Go Test      │───▶│ gofortress-coverage      │               │
+│  │ -coverprofile│    │ (Single Go Binary)       │               │
+│  └──────────────┘    │                          │               │
+│                      │ ├─ parse                 │               │
+│                      │ ├─ badge                 │               │
+│                      │ ├─ report                │               │
+│                      │ ├─ history               │               │
+│                      │ └─ comment               │               │
+│                      └──────────┬───────────────┘               │
+│                                 │                               │
+│                                 ▼                               │
+│                      ┌──────────────────────┐                   │
+│                      │ GitHub Pages Deploy  │                   │
+│                      │ (Static Files Only)  │                   │
+│                      └──────────────────────┘                   │
 └─────────────────────────────────────────────────────────────────┘
 
 GitHub Pages Structure:
@@ -76,6 +78,7 @@ Each phase is designed to be completed in a single Claude Code session with clea
 - `.github/.env.shared` - Add new variables
 - `.github/workflows/fortress-test-suite.yml` - Remove codecov-action
 - `.github/workflows/fortress.yml` - Remove codecov-token secret
+- `.github/dependabot.yml` - Add coverage tool Go module monitoring
 - `README.md` - Update badge URLs
 - Delete: `codecov.yml`
 
@@ -143,7 +146,7 @@ COVERAGE_CLEANUP_PR_AFTER_DAYS=7                # Clean up PR coverage data afte
 COVERAGE_ENABLE_TREND_ANALYSIS=true             # Enable historical trend tracking
 COVERAGE_ENABLE_PACKAGE_BREAKDOWN=true          # Show package-level coverage
 COVERAGE_ENABLE_COMPLEXITY_ANALYSIS=false       # Analyze code complexity (future)
-ENABLE_INTERNAL_COVERAGE_TESTS=true             # Run JavaScript tests for coverage system
+ENABLE_INTERNAL_COVERAGE_TESTS=true             # Run coverage tool tests in CI
 
 # Coverage Exclusion Configuration
 COVERAGE_EXCLUDE_PATHS=test/,vendor/,examples/,third_party/,testdata/  # Comma-separated paths to exclude
@@ -180,48 +183,41 @@ COVERAGE_ERROR_RATE=0                           # Error injection rate (0-1)
 
 #### 1.2 Directory Structure Creation
 ```bash
+cmd/
+└── gofortress-coverage/          # Main CLI tool
+    └── main.go                   # Entry point with subcommands
+
+internal/
+└── coverage/                     # Internal packages (following Go conventions)
+    ├── parser/                   # Coverage parsing logic
+    │   ├── parser.go
+    │   └── parser_test.go
+    ├── badge/                    # SVG badge generation
+    │   ├── generator.go
+    │   ├── generator_test.go
+    │   └── templates.go          # Embedded SVG templates
+    ├── report/                   # HTML report generation
+    │   ├── generator.go
+    │   ├── generator_test.go
+    │   └── templates/            # Embedded HTML templates
+    ├── history/                  # Historical data tracking
+    │   ├── tracker.go
+    │   └── tracker_test.go
+    ├── github/                   # GitHub API integration
+    │   ├── client.go
+    │   ├── pr_comment.go
+    │   └── client_test.go
+    └── config/                   # Configuration handling
+        ├── config.go
+        └── config_test.go
+
 .github/
-├── coverage/
-│       ├── lib/
-│       │   ├── badge-generator.js      # SVG badge generation
-│       │   ├── coverage-parser.js      # Parse Go coverage data
-│       │   ├── report-generator.js     # HTML report generation
-│       │   ├── history-tracker.js      # Historical data management
-│       │   └── pr-commenter.js         # PR comment formatting
-│       ├── generate-badge.js           # Main badge generation script
-│       ├── process-coverage.js         # Main coverage processing script
-│       ├── generate-report.js          # Main report generation script
-│       ├── update-history.js           # History update script
-│       └── comment-pr.js               # PR commenting script
 └── workflows/
-    └── fortress-coverage.yml           # New coverage workflow
+    └── fortress-coverage.yml     # New coverage workflow
 ```
 
-#### 1.4 Dependabot Configuration Update
-Add to `.github/dependabot.yml`:
-```yaml
-  # JavaScript dependencies for coverage system
-  - package-ecosystem: "npm"
-    directory: "/.github/coverage"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "04:00"
-    reviewers:
-      - "YOUR_GITHUB_TEAM"
-    labels:
-      - "dependencies"
-      - "npm"
-      - "coverage-system"
-    open-pull-requests-limit: 5
-    groups:
-      coverage-deps:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-```
+#### 1.4 Label Configuration
+The Go coverage tool itself has no external dependencies to track, but we need to add a label for tracking coverage-related PRs.
 
 Add to `.github/labels.yml`:
 ```yaml
@@ -230,119 +226,164 @@ Add to `.github/labels.yml`:
   color: 1f6feb
 ```
 
+#### 1.5 Dependabot Configuration for Coverage Tool
+Since the coverage tool will be a separate Go module in `cmd/gofortress-coverage/`, we need to add it to dependabot monitoring.
+
+Add to `.github/dependabot.yml` after the main gomod entry:
+```yaml
+  # ──────────────────────────────────────────────────────────────
+  # 1b. Coverage Tool Go Module (cmd/gofortress-coverage)
+  # ──────────────────────────────────────────────────────────────
+  - package-ecosystem: "gomod"
+    directory: "/cmd/gofortress-coverage"
+    target-branch: "master"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    allow:
+      - dependency-type: "direct"
+    groups:
+      coverage-deps:
+        patterns:
+          - "*"
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5
+    assignees: ["mrz1836"]
+    labels: ["chore", "dependencies", "gomod", "coverage-system"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+```
+
+This ensures the coverage tool's dependencies (cobra, template libraries, etc.) stay up-to-date and secure.
+
 #### 1.3 Codecov Removal Tasks
 - Remove `codecov-token` from workflow secrets
 - Delete `codecov.yml` configuration file
 - Update README.md badge URLs
 - Remove codecov-action from fortress-test-suite.yml
 - Update documentation references
-- Update `.github/dependabot.yml` to include npm ecosystem for coverage scripts
+- Create comprehensive coverage tool as single Go binary
 
 ### Phase 2: Core Coverage Engine (Session 2)
-**Objective**: Build the coverage processing and badge generation system with comprehensive testing
+**Objective**: Build the Go-native coverage processing tool with comprehensive testing and benchmarking
 
 **Implementation Steps:**
-1. Create coverage parser module (`lib/coverage-parser.js`)
-2. Create badge generator module (`lib/badge-generator.js`)
-3. Create report generator module (`lib/report-generator.js`)
-4. Create main executable scripts
-5. Add package.json for Node.js dependencies
-6. Write comprehensive tests for all modules using Vitest
-7. Set up ESLint and Prettier for code quality
+1. Create main CLI application with cobra for subcommands
+2. Implement coverage parser package (`internal/coverage/parser`)
+3. Implement badge generator package (`internal/coverage/badge`)
+4. Implement report generator package (`internal/coverage/report`)
+5. Implement history tracker package (`internal/coverage/history`)
+6. Write comprehensive unit tests with >90% coverage
+7. Add benchmarks for all performance-critical paths
+8. Set up proper error handling with context wrapping
 
 **Files to Create:**
 ```
-.github/coverage/
-├── package.json                    # Node.js dependencies
-├── lib/
-│   ├── coverage-parser.js         # Parse Go coverage data
-│   ├── badge-generator.js         # Generate SVG badges
-│   ├── report-generator.js        # Generate HTML reports
-│   ├── history-tracker.js         # Track coverage history
-│   └── pr-commenter.js           # Format PR comments
-├── test/
-│   ├── coverage-parser.test.js   # Tests for coverage parser
-│   ├── badge-generator.test.js   # Tests for badge generator
-│   ├── report-generator.test.js  # Tests for report generator
-│   ├── history-tracker.test.js   # Tests for history tracker
-│   ├── pr-commenter.test.js      # Tests for PR commenter
-│   └── fixtures/                  # Test fixtures
-│       ├── coverage.txt           # Sample Go coverage data
-│       └── coverage-complex.txt   # Complex coverage scenarios
-├── generate-badge.js              # CLI: node generate-badge.js
-├── process-coverage.js            # CLI: node process-coverage.js
-├── generate-report.js             # CLI: node generate-report.js
-├── vitest.config.js               # Vitest configuration
-├── .eslintrc.json                 # ESLint configuration
-└── .prettierrc.json               # Prettier configuration
+cmd/gofortress-coverage/
+├── main.go                        # CLI entry point
+├── cmd/                          # Command implementations
+│   ├── root.go                   # Root command setup
+│   ├── parse.go                  # Parse coverage subcommand
+│   ├── badge.go                  # Generate badge subcommand
+│   ├── report.go                 # Generate report subcommand
+│   ├── history.go                # Update history subcommand
+│   └── comment.go                # PR comment subcommand
+└── cmd_test.go                   # CLI integration tests
+
+internal/coverage/
+├── parser/
+│   ├── parser.go                 # Coverage file parsing
+│   ├── parser_test.go           # Unit tests
+│   ├── parser_bench_test.go     # Benchmarks
+│   └── testdata/                # Test fixtures
+│       ├── coverage.txt         # Sample coverage data
+│       └── complex.txt          # Complex scenarios
+├── badge/
+│   ├── generator.go             # SVG badge generation
+│   ├── generator_test.go        # Unit tests
+│   ├── generator_bench_test.go  # Benchmarks
+│   └── templates.go             # Embedded SVG templates
+├── report/
+│   ├── generator.go             # HTML report generation
+│   ├── generator_test.go        # Unit tests
+│   ├── generator_bench_test.go  # Benchmarks
+│   └── templates/               # Embedded HTML templates
+│       ├── report.html.tmpl
+│       └── dashboard.html.tmpl
+├── history/
+│   ├── tracker.go               # Historical data management
+│   ├── tracker_test.go          # Unit tests
+│   └── tracker_bench_test.go    # Benchmarks
+├── github/
+│   ├── client.go                # GitHub API client
+│   ├── pr_comment.go            # PR commenting logic
+│   └── client_test.go           # Unit tests with mocks
+└── config/
+    ├── config.go                # Configuration handling
+    └── config_test.go           # Unit tests
 ```
 
-**package.json Dependencies:**
-```json
-{
-  "name": "gofortress-coverage",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui",
-    "lint": "eslint lib/*.js *.js",
-    "lint:fix": "eslint lib/*.js *.js --fix",
-    "format": "prettier --write \"**/*.{js,json,md}\"",
-    "format:check": "prettier --check \"**/*.{js,json,md}\""
-  },
-  "dependencies": {
-    "chart.js": "^4.4.0",
-    "handlebars": "^4.7.8"
-  },
-  "devDependencies": {
-    "@vitest/coverage-v8": "^1.2.0",
-    "@vitest/ui": "^1.2.0",
-    "eslint": "^8.56.0",
-    "eslint-config-prettier": "^9.1.0",
-    "jsdom": "^23.2.0",
-    "prettier": "^3.2.0",
-    "vitest": "^1.2.0"
-  }
-}
+**Go Module Dependencies:**
+```go
+// go.mod
+module github.com/YOUR_ORG/YOUR_REPO
+
+go 1.21
+
+require (
+    github.com/spf13/cobra v1.8.0
+    github.com/google/go-github/v58 v58.0.0
+    github.com/stretchr/testify v1.8.4
+)
 ```
 
 **Verification Steps:**
 ```bash
-# 1. Install dependencies
-cd .github/coverage && npm install
+# 1. Build the tool
+cd cmd/gofortress-coverage
+go build -o gofortress-coverage
 
-# 2. Run tests with coverage
-npm run test:coverage
+# 2. Run all tests with coverage
+go test -coverprofile=coverage.out -covermode=atomic ./...
+go tool cover -html=coverage.out -o coverage.html
 
-# 3. Run linting
-npm run lint
+# 3. Verify test coverage is >90%
+go tool cover -func=coverage.out | grep total | awk '{print $3}'
 
-# 4. Test coverage parser CLI
-echo "mode: set
-github.com/org/repo/main.go:10.2,12.16 2 1" > test.coverage
-node process-coverage.js < test.coverage
+# 4. Run benchmarks
+go test -bench=. -benchmem ./internal/coverage/...
 
-# 5. Test badge generation CLI
-COVERAGE=85 node generate-badge.js
-test -f coverage.svg && echo "Badge generated"
+# 5. Run linting
+golangci-lint run ./...
 
-# 6. Test report generation CLI
-node generate-report.js < test.coverage
-test -f coverage-report.html && echo "Report generated"
+# 6. Test CLI commands
+./gofortress-coverage parse --file testdata/coverage.txt
+./gofortress-coverage badge --coverage 85.5 --output badge.svg
+./gofortress-coverage report --file testdata/coverage.txt --output report.html
+
+# 7. Run race detector tests
+go test -race ./...
+
+# 8. Check for vulnerabilities
+govulncheck ./...
 ```
 
 **Success Criteria:**
-- ✅ All JavaScript modules created and syntax-valid
-- ✅ Coverage parser correctly processes Go coverage format
-- ✅ Badge generator creates valid SVG files
-- ✅ Report generator creates HTML with proper styling
-- ✅ All scripts executable with proper error handling
-- ✅ 100% test coverage for all JavaScript modules
-- ✅ All tests pass in CI environment
-- ✅ ESLint and Prettier checks pass
+- ✅ Single Go binary compiles without errors
+- ✅ All packages follow Go project layout standards
+- ✅ Coverage parser correctly processes Go coverage format with proper exclusions
+- ✅ Badge generator creates valid SVG files <100ms
+- ✅ Report generator creates clean HTML reports <500ms
+- ✅ All tests pass with >90% code coverage
+- ✅ Benchmarks show performance meets targets (<2s badge, <10s report)
+- ✅ No race conditions detected
+- ✅ Zero security vulnerabilities from govulncheck
+- ✅ All code passes golangci-lint with project settings
+- ✅ Context propagation throughout call stack
+- ✅ Proper error wrapping and handling
 
 **Status Update Required:**
 After completing this phase, update `plans/plan-09-status.md`:
@@ -350,211 +391,523 @@ After completing this phase, update `plans/plan-09-status.md`:
 - Document module performance metrics
 - Note any design decisions or changes
 
-#### 2.1 Coverage Parser (`lib/coverage-parser.js`)
-```javascript
-/**
- * Parse Go coverage profile and extract metrics
- * Supports multiple profile formats: set, count, atomic
- */
-class GoCoverageParser {
-  constructor(options = {}) {
-    this.options = {
-      excludePaths: this.parseExcludeList(process.env.COVERAGE_EXCLUDE_PATHS),
-      excludeFiles: this.parseExcludeList(process.env.COVERAGE_EXCLUDE_FILES),
-      excludePackages: this.parseExcludeList(process.env.COVERAGE_EXCLUDE_PACKAGES),
-      includeOnlyPaths: this.parseExcludeList(process.env.COVERAGE_INCLUDE_ONLY_PATHS),
-      excludeGenerated: process.env.COVERAGE_EXCLUDE_GENERATED === 'true',
-      excludeTestFiles: process.env.COVERAGE_EXCLUDE_TEST_FILES === 'true',
-      minimumFileLines: parseInt(process.env.COVERAGE_MIN_FILE_LINES) || 10,
-      ...options
-    };
-  }
+#### 2.1 Coverage Parser (`internal/coverage/parser/parser.go`)
+```go
+// Package parser handles parsing of Go coverage profiles
+package parser
 
-  parseExcludeList(envVar) {
-    return envVar ? envVar.split(',').map(s => s.trim()).filter(Boolean) : [];
-  }
+import (
+    "bufio"
+    "context"
+    "fmt"
+    "io"
+    "path/filepath"
+    "regexp"
+    "strings"
+)
 
-  shouldExcludeFile(filePath, fileContent) {
-    // Check exclude paths
-    if (this.options.excludePaths.some(path => filePath.includes(path))) {
-      return true;
+// Parser processes Go coverage profiles and calculates metrics
+type Parser struct {
+    config *Config
+}
+
+    ExcludePaths      []string
+    ExcludeFiles      []string  
+    ExcludePackages   []string
+    IncludeOnlyPaths  []string
+    ExcludeGenerated  bool
+    ExcludeTestFiles  bool
+    MinimumFileLines  int
+}
+
+// FileCoverage represents coverage data for a single file
+type FileCoverage struct {
+    Path       string
+    Statements int
+    Covered    int
+    Percentage float64
+}
+
+// New creates a new coverage parser
+func New(cfg *Config) *Parser {
+    if cfg == nil {
+        cfg = &Config{
+            MinimumFileLines: 10,
+        }
     }
+    return &Parser{config: cfg}
+}
 
-    // Check exclude file patterns
-    if (this.options.excludeFiles.some(pattern => {
-      const regex = new RegExp(pattern.replace('*', '.*'));
-      return regex.test(filePath);
-    })) {
-      return true;
+// Parse processes a coverage profile from the given reader
+func (p *Parser) Parse(ctx context.Context, r io.Reader) (*CoverageData, error) {
+    scanner := bufio.NewScanner(r)
+    
+    // Read mode line
+    if !scanner.Scan() {
+        return nil, fmt.Errorf("empty coverage profile")
     }
-
-    // Check include only paths (if specified)
-    if (this.options.includeOnlyPaths.length > 0) {
-      if (!this.options.includeOnlyPaths.some(path => filePath.includes(path))) {
-        return true;
-      }
+    
+    modeLine := scanner.Text()
+    mode := parseMode(modeLine)
+    if mode == "" {
+        return nil, fmt.Errorf("invalid mode line: %s", modeLine)
     }
-
-    // Check for generated files
-    if (this.options.excludeGenerated && this.isGeneratedFile(fileContent)) {
-      return true;
+    
+    data := &CoverageData{
+        Mode:  mode,
+        Files: make(map[string]*FileCoverage),
     }
-
-    // Check minimum file size
-    const lineCount = fileContent.split('\n').length;
-    if (lineCount < this.options.minimumFileLines) {
-      return true;
+    
+    // Parse coverage lines with context cancellation support
+    for scanner.Scan() {
+        select {
+        case <-ctx.Done():
+            return nil, ctx.Err()
+        default:
+        }
+        
+        line := strings.TrimSpace(scanner.Text())
+        if line == "" {
+            continue
+        }
+        
+        if err := p.parseLine(line, data); err != nil {
+            return nil, fmt.Errorf("parsing line: %w", err)
+        }
     }
-
-    return false;
-  }
-
-  isGeneratedFile(content) {
-    const generatedPatterns = [
-      /^\/\/ Code generated .* DO NOT EDIT\./m,
-      /^\/\/ @generated/m,
-      /^\/\* Generated by .* \*\//m,
-      /^# Generated by/m
-    ];
-    return generatedPatterns.some(pattern => pattern.test(content));
-  }
-
-  parse(coverageData) {
-    const lines = coverageData.split('\n');
-    const mode = lines[0].match(/^mode: (\w+)/)?.[1] || 'set';
-    const coverage = {};
-
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      const match = line.match(/^(.+?):(\d+)\.(\d+),(\d+)\.(\d+) (\d+) (\d+)$/);
-      if (!match) continue;
-
-      const [, file, startLine, startCol, endLine, endCol, stmts, count] = match;
-
-      // Apply exclusion rules
-      if (this.shouldExcludeFile(file, '')) {
-        continue;
-      }
-
-      if (!coverage[file]) {
-        coverage[file] = { lines: {}, statements: 0, covered: 0 };
-      }
-
-      // Track coverage data...
+    
+    if err := scanner.Err(); err != nil {
+        return nil, fmt.Errorf("reading coverage: %w", err)
     }
+    
+    return data, nil
+}
 
-    return coverage;
-  }
-
-  calculateMetrics(parsedData) {
-    // Total coverage percentage
-    // Package-level breakdown
-    // File-level statistics
-    // Uncovered line ranges
-  }
-
-  generateSummary(metrics) {
-    // Human-readable summary
-    // JSON API format
-    // Badge data format
-  }
+// parseLine processes a single coverage line
+func (p *Parser) parseLine(line string, data *CoverageData) error {
+    // Format: filename:start.col,end.col statements count
+    parts := strings.Fields(line)
+    if len(parts) != 3 {
+        return fmt.Errorf("invalid line format")
+    }
+    
+    // Extract filename and positions
+    filePos := strings.Split(parts[0], ":")
+    if len(filePos) != 2 {
+        return fmt.Errorf("invalid file position format")
+    }
+    
+    filename := filePos[0]
+    
+    // Check exclusions
+    if p.shouldExclude(filename) {
+        return nil
+    }
+    
+    // Parse statement count and coverage count
+    stmts, err := strconv.Atoi(parts[1])
+    if err != nil {
+        return fmt.Errorf("invalid statement count: %w", err)
+    }
+    
+    count, err := strconv.Atoi(parts[2])
+    if err != nil {
+        return fmt.Errorf("invalid coverage count: %w", err)
+    }
+    
+    // Update file coverage
+    if _, ok := data.Files[filename]; !ok {
+        data.Files[filename] = &FileCoverage{
+            Path: filename,
+        }
+    }
+    
+    file := data.Files[filename]
+    file.Statements += stmts
+    if count > 0 {
+        file.Covered += stmts
+    }
+    
+    return nil
 }
 ```
 
-#### 2.5 Test Infrastructure (Vitest + JSDOM)
+#### 2.2 Badge Generator (`internal/coverage/badge/generator.go`)
+```go
+// Package badge generates SVG coverage badges
+package badge
 
-**vitest.config.js:**
-```javascript
-import { defineConfig } from 'vitest/config';
+import (
+    "bytes"
+    "context"
+    "embed"
+    "fmt"
+    "html/template"
+    "io"
+)
 
-export default defineConfig({
-  test: {
-    environment: 'jsdom',
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'test/',
-        '*.config.js',
-        'coverage/'
-      ],
-      thresholds: {
-        lines: 100,
-        functions: 100,
-        branches: 100,
-        statements: 100
-      }
-    },
-    globals: true,
-    setupFiles: ['./test/setup.js']
-  }
-});
+//go:embed templates/*.svg
+var templates embed.FS
+
+// Generator creates coverage badges in SVG format
+type Generator struct {
+    tmpl *template.Template
+}
+
+// New creates a new badge generator
+func New() (*Generator, error) {
+    tmpl, err := template.ParseFS(templates, "templates/*.svg")
+    if err != nil {
+        return nil, fmt.Errorf("parsing templates: %w", err)
+    }
+    
+    return &Generator{tmpl: tmpl}, nil
+}
+
+// Generate creates an SVG badge for the given coverage percentage
+func (g *Generator) Generate(ctx context.Context, percentage float64, style string) ([]byte, error) {
+    color := g.getColor(percentage)
+    
+    data := struct {
+        Label      string
+        Percentage string
+        Color      string
+        Style      string
+    }{
+        Label:      "coverage",
+        Percentage: fmt.Sprintf("%.1f%%", percentage),
+        Color:      color,
+        Style:      style,
+    }
+    
+    var buf bytes.Buffer
+    templateName := fmt.Sprintf("%s.svg", style)
+    if err := g.tmpl.ExecuteTemplate(&buf, templateName, data); err != nil {
+        return nil, fmt.Errorf("executing template: %w", err)
+    }
+    
+    return buf.Bytes(), nil
+}
+
+// getColor returns the appropriate color based on coverage percentage
+func (g *Generator) getColor(percentage float64) string {
+    switch {
+    case percentage >= 90:
+        return "#3fb950" // Bright green
+    case percentage >= 80:
+        return "#90c978" // Green
+    case percentage >= 70:
+        return "#d29922" // Yellow
+    case percentage >= 60:
+        return "#f85149" // Orange
+    default:
+        return "#da3633" // Red
+    }
+}
 ```
 
-**Example Test - coverage-parser.test.js:**
-```javascript
-import { describe, it, expect, beforeEach } from 'vitest';
-import { GoCoverageParser } from '../lib/coverage-parser.js';
+#### 2.3 Report Generator (`internal/coverage/report/generator.go`)
+```go
+// Package report generates HTML coverage reports
+package report
 
-describe('GoCoverageParser', () => {
-  let parser;
-  
-  beforeEach(() => {
-    parser = new GoCoverageParser({
-      excludePaths: ['vendor/', 'test/'],
-      excludeFiles: ['*_test.go', '*.pb.go'],
-      minimumFileLines: 10
-    });
-  });
+import (
+    "context"
+    "embed"
+    "fmt"
+    "html/template"
+    "io"
+    "time"
+)
 
-  describe('parse()', () => {
-    it('should parse basic coverage data', () => {
-      const coverageData = `mode: set
+//go:embed templates/*
+var templates embed.FS
+
+// Generator creates HTML coverage reports
+type Generator struct {
+    tmpl *template.Template
+}
+
+// New creates a new report generator
+func New() (*Generator, error) {
+    funcs := template.FuncMap{
+        "formatTime": func(t time.Time) string {
+            return t.Format("2006-01-02 15:04:05")
+        },
+        "formatFloat": func(f float64) string {
+            return fmt.Sprintf("%.2f", f)
+        },
+    }
+    
+    tmpl, err := template.New("report").Funcs(funcs).ParseFS(templates, "templates/*.html")
+    if err != nil {
+        return nil, fmt.Errorf("parsing templates: %w", err)
+    }
+    
+    return &Generator{tmpl: tmpl}, nil
+}
+
+// Generate creates an HTML report from coverage data
+func (g *Generator) Generate(ctx context.Context, data *CoverageData, w io.Writer) error {
+    reportData := struct {
+        Title      string
+        Timestamp  time.Time
+        Coverage   *CoverageData
+        Metrics    *Metrics
+    }{
+        Title:     "Coverage Report",
+        Timestamp: time.Now(),
+        Coverage:  data,
+        Metrics:   calculateMetrics(data),
+    }
+    
+    if err := g.tmpl.ExecuteTemplate(w, "report.html", reportData); err != nil {
+        return fmt.Errorf("executing template: %w", err)
+    }
+    
+    return nil
+}
+```
+
+#### 2.4 Testing Requirements
+
+All Go packages must include comprehensive tests and benchmarks:
+
+**Example Test (`internal/coverage/parser/parser_test.go`):**
+```go
+package parser_test
+
+import (
+    "context"
+    "strings"
+    "testing"
+    
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+    
+    "github.com/YOUR_ORG/YOUR_REPO/internal/coverage/parser"
+)
+
+func TestParser_Parse(t *testing.T) {
+    tests := []struct {
+        name    string
+        input   string
+        want    *parser.CoverageData
+        wantErr bool
+    }{
+        {
+            name: "valid coverage data",
+            input: `mode: set
 github.com/org/repo/main.go:10.2,12.16 2 1
-github.com/org/repo/main.go:12.16,14.3 1 0`;
-      
-      const result = parser.parse(coverageData);
-      
-      expect(result['github.com/org/repo/main.go']).toBeDefined();
-      expect(result['github.com/org/repo/main.go'].statements).toBe(3);
-      expect(result['github.com/org/repo/main.go'].covered).toBe(2);
-    });
+github.com/org/repo/main.go:12.16,14.3 1 0`,
+            want: &parser.CoverageData{
+                Mode: "set",
+                Files: map[string]*parser.FileCoverage{
+                    "github.com/org/repo/main.go": {
+                        Path:       "github.com/org/repo/main.go",
+                        Statements: 3,
+                        Covered:    2,
+                        Percentage: 66.67,
+                    },
+                },
+            },
+        },
+        {
+            name:    "empty coverage",
+            input:   "",
+            wantErr: true,
+        },
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            p := parser.New(nil)
+            ctx := context.Background()
+            
+            got, err := p.Parse(ctx, strings.NewReader(tt.input))
+            if tt.wantErr {
+                require.Error(t, err)
+                return
+            }
+            
+            require.NoError(t, err)
+            assert.Equal(t, tt.want.Mode, got.Mode)
+            assert.Equal(t, len(tt.want.Files), len(got.Files))
+        })
+    }
+}
 
-    it('should exclude vendor files', () => {
-      const coverageData = `mode: set
+func TestParser_ShouldExclude(t *testing.T) {
+    cfg := &parser.Config{
+        ExcludePaths: []string{"vendor/", "test/"},
+        ExcludeFiles: []string{"*_test.go", "*.pb.go"},
+    }
+    
+    p := parser.New(cfg)
+    
+    tests := []struct {
+        path     string
+        excluded bool
+    }{
+        {"vendor/github.com/pkg/errors/errors.go", true},
+        {"internal/parser/parser_test.go", true},
+        {"internal/parser/parser.go", false},
+        {"api/v1/service.pb.go", true},
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.path, func(t *testing.T) {
+            got := p.ShouldExclude(tt.path)
+            assert.Equal(t, tt.excluded, got)
+        })
+    }
+}
+```
+
+**Example Benchmark (`internal/coverage/parser/parser_bench_test.go`):**
+```go
+package parser_test
+
+import (
+    "context"
+    "strings"
+    "testing"
+    
+    "github.com/YOUR_ORG/YOUR_REPO/internal/coverage/parser"
+)
+
+func BenchmarkParser_Parse(b *testing.B) {
+    // Generate test data
+    var sb strings.Builder
+    sb.WriteString("mode: set\n")
+    for i := 0; i < 1000; i++ {
+        fmt.Fprintf(&sb, "github.com/org/repo/file%d.go:10.2,12.16 2 1\n", i)
+    }
+    
+    input := sb.String()
+    p := parser.New(nil)
+    ctx := context.Background()
+    
+    b.ResetTimer()
+    b.ReportAllocs()
+    
+    for i := 0; i < b.N; i++ {
+        _, err := p.Parse(ctx, strings.NewReader(input))
+        if err != nil {
+            b.Fatal(err)
+        }
+    }
+}
+
+func BenchmarkBadgeGeneration(b *testing.B) {
+    g, err := badge.New()
+    if err != nil {
+        b.Fatal(err)
+    }
+    
+    ctx := context.Background()
+    
+    b.ResetTimer()
+    b.ReportAllocs()
+    
+    for i := 0; i < b.N; i++ {
+        _, err := g.Generate(ctx, 85.5, "flat")
+        if err != nil {
+            b.Fatal(err)
+        }
+    }
+}
+```
+
+#### 2.5 Fortress Integration Testing Requirements
+
+**Add to fortress-test-suite.yml:**
+```yaml
+- name: Test Coverage Tool
+  run: |
+    # Build the Go coverage tool
+    go build -o gofortress-coverage ./cmd/gofortress-coverage
+    
+    # Run unit tests for the coverage tool
+    go test -v -race ./internal/coverage/...
+    
+    # Run integration tests
+    go test -v -tags=integration ./tests/integration/...
+```
+
+**Example Test - parser_test.go:**
+```go
+package parser
+
+import (
+    "context"
+    "strings"
+    "testing"
+    
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
+func TestGoCoverageParser(t *testing.T) {
+    t.Run("Parse", func(t *testing.T) {
+        parser := NewParser(Config{
+            ExcludePaths: []string{"vendor/", "test/"},
+            ExcludeFiles: []string{"*_test.go", "*.pb.go"},
+            MinimumFileLines: 10,
+        })
+        
+        t.Run("should parse basic coverage data", func(t *testing.T) {
+            coverageData := `mode: set
+github.com/org/repo/main.go:10.2,12.16 2 1
+github.com/org/repo/main.go:12.16,14.3 1 0`
+            
+            result, err := parser.Parse(context.Background(), strings.NewReader(coverageData))
+            require.NoError(t, err)
+            
+            mainFile, exists := result.Files["github.com/org/repo/main.go"]
+            assert.True(t, exists)
+            assert.Equal(t, 3, mainFile.Statements)
+            assert.Equal(t, 2, mainFile.Covered)
+        })
+        
+        t.Run("should exclude vendor files", func(t *testing.T) {
+            coverageData := `mode: set
 github.com/org/repo/vendor/lib.go:10.2,12.16 2 1
-github.com/org/repo/main.go:10.2,12.16 2 1`;
-      
-      const result = parser.parse(coverageData);
-      
-      expect(result['github.com/org/repo/vendor/lib.go']).toBeUndefined();
-      expect(result['github.com/org/repo/main.go']).toBeDefined();
-    });
-
-    it('should detect generated files', () => {
-      const content = '// Code generated by protoc-gen-go. DO NOT EDIT.';
-      expect(parser.isGeneratedFile(content)).toBe(true);
-    });
-  });
-
-  describe('calculateMetrics()', () => {
-    it('should calculate correct coverage percentage', () => {
-      const parsedData = {
-        'main.go': { statements: 100, covered: 85 },
-        'util.go': { statements: 50, covered: 45 }
-      };
-      
-      const metrics = parser.calculateMetrics(parsedData);
-      
-      expect(metrics.totalStatements).toBe(150);
-      expect(metrics.totalCovered).toBe(130);
-      expect(metrics.percentage).toBe(86.67);
-    });
-  });
-});
+github.com/org/repo/main.go:10.2,12.16 2 1`
+            
+            result, err := parser.Parse(context.Background(), strings.NewReader(coverageData))
+            require.NoError(t, err)
+            
+            _, vendorExists := result.Files["github.com/org/repo/vendor/lib.go"]
+            assert.False(t, vendorExists)
+            
+            _, mainExists := result.Files["github.com/org/repo/main.go"]
+            assert.True(t, mainExists)
+        })
+        
+        t.Run("should detect generated files", func(t *testing.T) {
+            content := "// Code generated by protoc-gen-go. DO NOT EDIT."
+            assert.True(t, parser.isGeneratedFile(content))
+        })
+    })
+    
+    t.Run("CalculateMetrics", func(t *testing.T) {
+        t.Run("should calculate correct coverage percentage", func(t *testing.T) {
+            parsedData := &ParsedData{
+                Files: map[string]*FileData{
+                    "main.go": {Statements: 100, Covered: 85},
+                    "util.go": {Statements: 50, Covered: 45},
+                },
+            }
+            
+            metrics := CalculateMetrics(parsedData)
+            
+            assert.Equal(t, 150, metrics.TotalStatements)
+            assert.Equal(t, 130, metrics.TotalCovered)
+            assert.Equal(t, 86.67, metrics.Percentage)
+        })
+    })
+}
 ```
 
 **Testing Best Practices:**
@@ -566,103 +919,240 @@ github.com/org/repo/main.go:10.2,12.16 2 1`;
 - Test error conditions and edge cases
 - Performance benchmarks for large coverage files
 
-#### 2.2 Badge Generator (`lib/badge-generator.js`)
-```javascript
-/**
- * Generate professional SVG badges matching GitHub's design language
- */
-class CoverageBadgeGenerator {
-  constructor(style = 'flat') {
-    this.style = style;
-    this.colors = {
-      excellent: '#3fb950',  // Bright green (90%+)
-      good: '#90c978',       // Green (80%+)
-      acceptable: '#d29922', // Yellow (70%+)
-      low: '#f85149',        // Orange (60%+)
-      poor: '#da3633'        // Red (<60%)
-    };
-  }
+#### 2.2 Badge Generator (`internal/coverage/badge/generator.go`)
+```go
+package badge
 
-  generate(percentage, options = {}) {
-    // Calculate color based on thresholds
+import (
+    "fmt"
+    "strings"
+)
+
+// Generator creates professional SVG badges matching GitHub's design language
+type Generator struct {
+    style  string
+    colors map[string]string
+}
+
+// NewGenerator creates a badge generator with the specified style
+func NewGenerator(style string) *Generator {
+    return &Generator{
+        style: style,
+        colors: map[string]string{
+            "excellent":  "#3fb950", // Bright green (90%+)
+            "good":       "#90c978", // Green (80%+)
+            "acceptable": "#d29922", // Yellow (70%+)
+            "low":        "#f85149", // Orange (60%+)
+            "poor":       "#da3633", // Red (<60%)
+        },
+    }
+}
+
+// Generate creates an SVG badge for the given coverage percentage
+func (g *Generator) Generate(percentage float64, options Options) string {
+    color := g.getColorForPercentage(percentage)
+    label := options.Label
+    if label == "" {
+        label = "coverage"
+    }
+    
     // Generate SVG with proper styling
-    // Support for logos and custom labels
-    // Accessibility features (aria-labels)
-  }
+    return g.renderSVG(BadgeData{
+        Label:      label,
+        Message:    fmt.Sprintf("%.1f%%", percentage),
+        Color:      color,
+        Style:      g.style,
+        Logo:       options.Logo,
+        LogoColor:  options.LogoColor,
+        AriaLabel:  fmt.Sprintf("Code coverage: %.1f percent", percentage),
+    })
+}
 
-  generateTrendBadge(current, previous) {
-    // Show coverage trend (↑ ↓ →)
-    // Difference percentage
-    // Animated indicators (optional)
-  }
+// GenerateTrendBadge creates a badge showing coverage trend
+func (g *Generator) GenerateTrendBadge(current, previous float64) string {
+    diff := current - previous
+    var trend, color string
+    
+    switch {
+    case diff > 0:
+        trend = fmt.Sprintf("↑ +%.1f%%", diff)
+        color = g.colors["good"]
+    case diff < 0:
+        trend = fmt.Sprintf("↓ %.1f%%", diff)
+        color = g.colors["low"]
+    default:
+        trend = "→ 0%"
+        color = "#8b949e" // neutral gray
+    }
+    
+    return g.renderSVG(BadgeData{
+        Label:   "coverage trend",
+        Message: trend,
+        Color:   color,
+        Style:   g.style,
+    })
 }
 ```
 
-#### 2.3 Report Generator (`lib/report-generator.js`)
-```javascript
-/**
- * Generate beautiful, interactive HTML coverage reports with cutting-edge UX
- */
-class CoverageReportGenerator {
-  constructor(theme = 'github-dark') {
-    this.theme = theme;
-    this.templates = this.loadTemplates();
-    this.designSystem = {
-      colors: {
+#### 2.3 Report Generator (`internal/coverage/report/generator.go`)
+```go
+package report
+
+import (
+    "context"
+    "embed"
+    "fmt"
+    "html/template"
+    "strings"
+    
+    "github.com/go-broadcast/internal/coverage/parser"
+)
+
+//go:embed templates/*
+var templates embed.FS
+
+// Generator creates beautiful, interactive HTML coverage reports with cutting-edge UX
+type Generator struct {
+    theme       string
+    templates   *template.Template
+    designSystem DesignSystem
+}
+
+// DesignSystem defines the visual design tokens
+type DesignSystem struct {
+    Colors struct {
         // Modern color palette with proper contrast ratios
-        primary: '#1f6feb',
-        success: '#3fb950',
-        warning: '#d29922',
-        danger: '#f85149',
+        Primary    string
+        Success    string
+        Warning    string
+        Danger     string
         // Glassmorphism backgrounds
-        glass: 'rgba(255, 255, 255, 0.05)',
-        glassHover: 'rgba(255, 255, 255, 0.08)'
-      },
-      animations: {
-        // Smooth micro-interactions
-        fadeIn: 'fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        slideUp: 'slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        pulse: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-      }
-    };
-  }
+        Glass      string
+        GlassHover string
+    }
+    Animations struct {
+        // CSS animation definitions
+        FadeIn  string
+        SlideUp string
+        Pulse   string
+    }
+}
 
-  generateReport(coverageData, options = {}) {
-    // Modern dashboard with animated metrics
-    // Real-time search with instant results
-    // Keyboard navigation (j/k for files, / for search)
-    // Smooth transitions between views
-    // Progressive enhancement for performance
-    // Virtual scrolling for large file lists
-    // Code minimap for quick navigation
-  }
+// NewGenerator creates a report generator with the specified theme
+func NewGenerator(theme string) (*Generator, error) {
+    tmpl, err := template.ParseFS(templates, "templates/*.html")
+    if err != nil {
+        return nil, fmt.Errorf("parsing templates: %w", err)
+    }
+    
+    g := &Generator{
+        theme:     theme,
+        templates: tmpl,
+    }
+    
+    // Initialize design system based on theme
+    g.initDesignSystem()
+    
+    return g, nil
+}
 
-  generatePackageView(packageData) {
-    // Interactive package cards with hover effects
-    // Animated coverage rings (like GitHub's contribution graph)
-    // Sortable/filterable file tables
-    // Coverage heatmap visualization
-    // Quick actions menu on hover
-  }
+// GenerateReport creates a comprehensive coverage report
+func (g *Generator) GenerateReport(ctx context.Context, coverageData *parser.ParsedData, options ReportOptions) (string, error) {
+    // Modern dashboard with server-rendered content
+    // Progressive enhancement - works without JavaScript
+    // Accessible keyboard navigation hints
+    // Optimized for fast initial render
+    
+    data := struct {
+        Coverage     *parser.ParsedData
+        Options      ReportOptions
+        Theme        string
+        DesignSystem DesignSystem
+        Features     Features
+    }{
+        Coverage:     coverageData,
+        Options:      options,
+        Theme:        g.theme,
+        DesignSystem: g.designSystem,
+        Features: Features{
+            Search:           true,
+            KeyboardNav:      true,
+            VirtualScrolling: len(coverageData.Files) > 100,
+            CodeMinimap:      options.ShowMinimap,
+        },
+    }
+    
+    var buf strings.Builder
+    if err := g.templates.ExecuteTemplate(&buf, "report.html", data); err != nil {
+        return "", fmt.Errorf("executing template: %w", err)
+    }
+    
+    return buf.String(), nil
+}
 
-  generateFileView(fileData) {
-    // Syntax highlighting with VS Code themes
-    // Inline coverage annotations
-    // Gutter indicators with tooltips
-    // Coverage diff mode (show changes)
-    // Sticky file header while scrolling
-    // Line blame integration (who wrote uncovered code)
-    // Quick jump to test files
-  }
+// GeneratePackageView creates the package-level view
+func (g *Generator) GeneratePackageView(ctx context.Context, packageData PackageData) (string, error) {
+    // Server-rendered package cards with CSS hover effects
+    // SVG coverage rings (like GitHub's contribution graph)
+    // Sortable tables with data attributes
+    // Coverage heatmap using CSS gradients
+    // Accessible quick actions
+    
+    var buf strings.Builder
+    if err := g.templates.ExecuteTemplate(&buf, "package.html", packageData); err != nil {
+        return "", fmt.Errorf("executing package template: %w", err)
+    }
+    
+    return buf.String(), nil
+}
 
-  generateInteractiveElements() {
-    // Smooth scroll-spy navigation
-    // Breadcrumb trail with dropdowns
-    // Command palette (Cmd+K)
-    // Toast notifications for actions
-    // Contextual help tooltips
-    // Keyboard shortcut overlay (?)
-  }
+// GenerateFileView creates the file-level coverage view
+func (g *Generator) GenerateFileView(ctx context.Context, fileData FileData) (string, error) {
+    // Syntax highlighting using chroma (Go library)
+    // Coverage annotations in HTML
+    // Accessible gutter indicators
+    // Coverage diff mode support
+    // Semantic HTML structure
+    
+    highlighted, err := g.highlightCode(fileData.Content, fileData.Language)
+    if err != nil {
+        return "", fmt.Errorf("highlighting code: %w", err)
+    }
+    
+    fileData.HighlightedContent = highlighted
+    
+    var buf strings.Builder
+    if err := g.templates.ExecuteTemplate(&buf, "file.html", fileData); err != nil {
+        return "", fmt.Errorf("executing file template: %w", err)
+    }
+    
+    return buf.String(), nil
+}
+
+// initDesignSystem sets up the design tokens based on theme
+func (g *Generator) initDesignSystem() {
+    switch g.theme {
+    case "github-dark":
+        g.designSystem.Colors.Primary = "#1f6feb"
+        g.designSystem.Colors.Success = "#3fb950"
+        g.designSystem.Colors.Warning = "#d29922"
+        g.designSystem.Colors.Danger = "#f85149"
+        g.designSystem.Colors.Glass = "rgba(255, 255, 255, 0.05)"
+        g.designSystem.Colors.GlassHover = "rgba(255, 255, 255, 0.08)"
+    default:
+        // Light theme colors
+        g.designSystem.Colors.Primary = "#0969da"
+        g.designSystem.Colors.Success = "#1a7f37"
+        g.designSystem.Colors.Warning = "#9a6700"
+        g.designSystem.Colors.Danger = "#d1242f"
+        g.designSystem.Colors.Glass = "rgba(0, 0, 0, 0.03)"
+        g.designSystem.Colors.GlassHover = "rgba(0, 0, 0, 0.05)"
+    }
+    
+    // Animations are CSS strings embedded in templates
+    g.designSystem.Animations.FadeIn = "fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+    g.designSystem.Animations.SlideUp = "slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)"
+    g.designSystem.Animations.Pulse = "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite"
 }
 ```
 
@@ -798,51 +1288,82 @@ jobs:
       - name: 📥 Download coverage artifact
         # Get coverage data from test job
 
-      - name: 📦 Setup Node.js
-        uses: actions/setup-node@v4
+      - name: 📦 Setup Go
+        uses: actions/setup-go@v5
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: '.github/coverage/package-lock.json'
+          go-version: '1.21'
+          cache: true
 
-      - name: 📦 Install dependencies
+      - name: 🔨 Build coverage tool
         run: |
-          cd .github/coverage
-          npm ci
+          cd cmd/gofortress-coverage
+          go build -o gofortress-coverage
 
-      - name: 🧪 Run JavaScript tests
+      - name: 🧪 Run coverage tool tests
         if: env.ENABLE_INTERNAL_COVERAGE_TESTS == 'true'
         run: |
-          cd .github/coverage
-          npm run test:coverage
-          npm run lint
+          go test -race -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
 
       - name: 🔍 Parse coverage data
-        # Run coverage parser
-        # Calculate all metrics
+        run: |
+          ./cmd/gofortress-coverage/gofortress-coverage parse \
+            --file ${{ inputs.coverage-file }} \
+            --output coverage-data.json
+
+      - name: 🚨 Check coverage threshold
+        if: env.COVERAGE_ENFORCE_THRESHOLD == 'true'
+        run: |
+          COVERAGE=$(jq -r '.percentage' coverage-data.json)
+          THRESHOLD=${{ env.COVERAGE_FAIL_UNDER }}
+          
+          # Use awk for decimal comparison
+          if awk -v cov="$COVERAGE" -v thresh="$THRESHOLD" 'BEGIN {exit (cov >= thresh)}'; then
+            echo "❌ Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+            echo "::error::Coverage ${COVERAGE}% is below the required threshold of ${THRESHOLD}%"
+            exit 1
+          else
+            echo "✅ Coverage ${COVERAGE}% meets threshold ${THRESHOLD}%"
+          fi
 
       - name: 🎨 Generate badge
-        # Create SVG badge
-        # Multiple styles if configured
+        run: |
+          COVERAGE=$(jq -r '.percentage' coverage-data.json)
+          ./cmd/gofortress-coverage/gofortress-coverage badge \
+            --coverage $COVERAGE \
+            --style ${{ env.COVERAGE_BADGE_STYLE }} \
+            --output badge.svg
 
       - name: 📝 Generate report
-        # Create HTML report
-        # Package breakdown
-        # Historical comparison
+        run: |
+          ./cmd/gofortress-coverage/gofortress-coverage report \
+            --data coverage-data.json \
+            --output report.html \
+            --theme ${{ env.COVERAGE_REPORT_THEME }}
 
       - name: 📈 Update history
-        # Track coverage over time
-        # Maintain trend data
+        run: |
+          ./cmd/gofortress-coverage/gofortress-coverage history \
+            --add coverage-data.json \
+            --branch ${{ inputs.branch-name }} \
+            --commit ${{ inputs.commit-sha }}
 
       - name: 🚀 Deploy to GitHub Pages
-        # Commit to gh-pages branch
-        # Organize by branch/PR
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./coverage-output
+          destination_dir: ${{ inputs.branch-name }}
+          keep_files: true
 
       - name: 💬 Comment on PR
         if: inputs.pr-number != ''
-        # Post/update PR comment
-        # Show coverage changes
-        # Link to full report
+        run: |
+          ./cmd/gofortress-coverage/gofortress-coverage comment \
+            --pr ${{ inputs.pr-number }} \
+            --coverage coverage-data.json \
+            --badge-url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/badges/${{ inputs.branch-name }}.svg \
+            --report-url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/${{ inputs.branch-name }}/
 ```
 
 #### 3.2 Modify `fortress-test-suite.yml`
@@ -870,14 +1391,13 @@ jobs:
 5. Configure GitHub Pages in repository settings
 
 **Files to Create:**
+The Go coverage tool will handle GitHub Pages deployment directly. Static assets will be embedded in the binary:
 ```
-.github/coverage/
-├── setup-pages.js              # Initialize gh-pages branch
-├── deploy-to-pages.js          # Deploy coverage data
-└── templates/
-    ├── dashboard.html          # Main dashboard template
-    ├── dashboard.css           # Dashboard styling
-    └── dashboard.js            # Dashboard interactivity
+internal/coverage/report/templates/
+├── dashboard.html              # Main dashboard template (embedded)
+├── report.html                 # Coverage report template (embedded)
+└── assets/
+    └── style.css              # Minimal CSS (embedded in HTML)
 ```
 
 **Manual Setup Required:**
@@ -896,17 +1416,21 @@ git push origin gh-pages
 
 **Verification Steps:**
 ```bash
-# 1. Test setup script
-node .github/coverage/setup-pages.js
+# 1. Test GitHub Pages setup
+./gofortress-coverage pages setup --branch gh-pages
 
 # 2. Verify gh-pages branch exists
 git ls-remote --heads origin gh-pages
 
-# 3. Test deployment script
-BRANCH_NAME=test node .github/coverage/deploy-to-pages.js
+# 3. Test deployment
+./gofortress-coverage pages deploy \
+  --branch main \
+  --badge badge.svg \
+  --report report.html
 
 # 4. Check GitHub Pages URL
-curl -I https://USERNAME.github.io/REPO/
+curl -I https://USERNAME.github.io/REPO/badges/main.svg
+curl -I https://USERNAME.github.io/REPO/reports/main/
 ```
 
 **Success Criteria:**
@@ -922,15 +1446,35 @@ After completing this phase, update `plans/plan-09-status.md`:
 - Record GitHub Pages URLs
 - Note storage usage patterns
 
-#### 4.1 GitHub Pages Auto-Setup Script
-```javascript
-// scripts/coverage/setup-pages.js
-async function setupGitHubPages() {
-  // Check if gh-pages branch exists
-  // Create if missing with initial structure
-  // Set up directory hierarchy
-  // Create index.html dashboard
-  // Initialize history tracking
+#### 4.1 GitHub Pages Setup Command
+The Go tool includes a `pages` subcommand for GitHub Pages management:
+```go
+// cmd/gofortress-coverage/cmd/pages.go
+package cmd
+
+import (
+    "context"
+    "fmt"
+    
+    "github.com/spf13/cobra"
+)
+
+var pagesCmd = &cobra.Command{
+    Use:   "pages",
+    Short: "Manage GitHub Pages deployment",
+    Long:  `Setup and deploy coverage reports to GitHub Pages`,
+}
+
+var pagesSetupCmd = &cobra.Command{
+    Use:   "setup",
+    Short: "Initialize GitHub Pages branch",
+    RunE: func(cmd *cobra.Command, args []string) error {
+        ctx := context.Background()
+        // Initialize gh-pages branch with proper structure
+        // Create index.html dashboard
+        // Set up directory hierarchy
+        return setupGitHubPages(ctx)
+    },
 }
 ```
 
@@ -1356,47 +1900,57 @@ gh-pages/
 ```
 
 ### Phase 5: Pull Request Integration (Session 5)
-**Objective**: Enhance PR workflow with intelligent coverage feedback that avoids comment spam
+**Objective**: Enhance PR workflow with intelligent coverage feedback that avoids comment spam and provides status checks
 
 **Implementation Steps:**
-1. Create PR comment formatter (`lib/pr-commenter.js`)
-2. Implement coverage comparison logic
-3. Add PR-specific badge generation
-4. Create GitHub API integration for comments
-5. Test with mock PR data
+1. Implement PR comment formatter in `internal/coverage/github/pr_comment.go`
+2. Add coverage comparison logic with proper base branch handling
+3. Create PR-specific badge generation with unique naming
+4. Use go-github client for GitHub API integration
+5. Write comprehensive tests with mocked GitHub API
+6. Leverage the threshold enforcement from Phase 3 to create GitHub status checks that can block PR merging
 
 **Files to Create/Modify:**
-- Create: `.github/coverage/lib/pr-commenter.js`
-- Create: `.github/coverage/comment-pr.js`
-- Modify: `.github/workflows/fortress-coverage.yml` (add PR comment step)
+- Implement: `internal/coverage/github/pr_comment.go`
+- Add tests: `internal/coverage/github/pr_comment_test.go`
+- Already modified: `.github/workflows/fortress-coverage.yml` (PR comment step added)
 
 **Testing PR Comments:**
 ```bash
-# Mock PR comment generation
+# Test PR comment generation locally
 export GITHUB_TOKEN="test"
-export PR_NUMBER="123"
-export CURRENT_COVERAGE="85.5"
-export BASE_COVERAGE="83.2"
-node .github/coverage/comment-pr.js
+./gofortress-coverage comment \
+  --pr 123 \
+  --current 85.5 \
+  --base 83.2 \
+  --dry-run
 
-# Test coverage comparison
-echo '{"current": 85.5, "base": 83.2}' | \
-  node .github/coverage/lib/pr-commenter.js
+# Test with actual coverage data
+./gofortress-coverage comment \
+  --pr 123 \
+  --coverage coverage-data.json \
+  --base-branch main \
+  --dry-run
 ```
 
 **Verification Steps:**
 ```bash
 # 1. Test comment formatting
-node -e "
-  const commenter = require('.github/coverage/lib/pr-commenter.js');
-  console.log(commenter.format(85.5, 83.2));
-"
+./gofortress-coverage comment \
+  --pr 123 \
+  --current 85.5 \
+  --base 83.2 \
+  --format-only
 
-# 2. Verify GitHub API integration
-# Create a test PR and run the workflow
+# 2. Test GitHub API integration with mock
+go test ./internal/coverage/github -run TestPRComment
 
-# 3. Check comment updates vs new comments
-# Verify existing comments are updated, not duplicated
+# 3. Integration test with real PR (non-destructive)
+./gofortress-coverage comment \
+  --pr $TEST_PR_NUMBER \
+  --coverage coverage-data.json \
+  --dry-run \
+  --verbose
 ```
 
 **Success Criteria:**
@@ -1407,6 +1961,8 @@ node -e "
 - ✅ Links to full reports work
 - ✅ Handles first-time PRs gracefully
 - ✅ Smart comment updates: only update if coverage changes significantly (>0.1%)
+- ✅ GitHub status check created that can block PR merge when coverage drops below threshold
+- ✅ Status check shows as "Coverage Check" with pass/fail based on COVERAGE_ENFORCE_THRESHOLD and COVERAGE_FAIL_UNDER
 
 **Status Update Required:**
 After completing this phase, update `plans/plan-09-status.md`:
@@ -1472,48 +2028,77 @@ After completing this phase, update `plans/plan-09-status.md`:
 **Objective**: Add professional enhancements and analytics
 
 **Implementation Steps:**
-1. Create trend visualization with Chart.js
-2. Implement coverage history tracking
-3. Add notification system (optional)
-4. Create coverage prediction logic
-5. Build advanced analytics dashboard
+1. Add trend analysis to history tracker with JSON output
+2. Enhance coverage history with time-series data
+3. Add notification support via webhook (optional)
+4. Implement simple coverage prediction based on trends
+5. Generate static trend charts as SVG
 
 **Files to Create:**
 ```
-.github/coverage/
-├── lib/
-│   ├── trend-analyzer.js       # Analyze coverage trends
-│   ├── notifier.js            # Send notifications
-│   └── predictor.js           # Predict coverage impact
-└── templates/
-    └── trends.html            # Trend visualization page
+internal/coverage/
+├── history/
+│   ├── analyzer.go            # Analyze coverage trends
+│   └── analyzer_test.go       # Trend analysis tests
+├── notify/
+│   ├── notifier.go           # Send notifications (webhooks)
+│   └── notifier_test.go      # Notification tests
+└── report/templates/
+    └── trends.svg.tmpl       # SVG trend chart template
 ```
 
 **Feature Implementation:**
-```javascript
-// Test trend analysis
-const history = [
-  {date: '2024-01-01', coverage: 80},
-  {date: '2024-01-02', coverage: 82},
-  {date: '2024-01-03', coverage: 81}
-];
-node -e "
-  const analyzer = require('./lib/trend-analyzer.js');
-  console.log(analyzer.analyze(history));
-"
+```go
+// internal/coverage/history/analyzer.go
+package history
+
+import (
+    "context"
+    "time"
+)
+
+type TrendAnalyzer struct {
+    history []DataPoint
+}
+
+type DataPoint struct {
+    Date     time.Time
+    Coverage float64
+    Branch   string
+}
+
+// AnalyzeTrends calculates coverage trends and predictions
+func (ta *TrendAnalyzer) AnalyzeTrends(ctx context.Context) (*TrendReport, error) {
+    // Calculate moving averages
+    // Identify trend direction
+    // Simple linear regression for prediction
+    return &TrendReport{
+        Direction:   "improving",
+        Change:      2.3,
+        Prediction:  87.5,
+    }, nil
+}
 ```
 
 **Verification Steps:**
 ```bash
-# 1. Test trend visualization
-node .github/coverage/generate-trends.js
+# 1. Test trend analysis
+./gofortress-coverage history analyze \
+  --branch main \
+  --days 30 \
+  --output trend-report.json
 
-# 2. Verify Chart.js integration
-grep "Chart" .github/coverage/templates/dashboard.html
+# 2. Generate trend chart
+./gofortress-coverage report trends \
+  --data trend-report.json \
+  --output trends.svg
 
 # 3. Test notification system (if enabled)
 COVERAGE_SLACK_WEBHOOK_ENABLED=true \
-  node .github/coverage/lib/notifier.js
+COVERAGE_SLACK_WEBHOOK_URL=$TEST_WEBHOOK \
+  ./gofortress-coverage notify \
+  --event milestone \
+  --coverage 90.0
 ```
 
 **Success Criteria:**
@@ -1529,272 +2114,386 @@ After completing this phase, update `plans/plan-09-status.md`:
 - Record feature adoption metrics
 - Document user feedback
 
-#### 6.1 Interactive Trend Dashboard with Professional Visualizations
-```javascript
-// Coverage trend visualization with cutting-edge UX
-class CoverageTrendDashboard {
-  constructor(containerId) {
-    this.container = document.getElementById(containerId);
-    this.chart = null;
-    this.theme = this.detectTheme();
-    
-    // Professional chart configuration
-    this.chartConfig = {
-      type: 'line',
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
-        plugins: {
-          legend: {
-            display: false // Custom legend instead
-          },
-          tooltip: {
-            enabled: false // Custom tooltip
-          },
-          annotation: {
-            annotations: {} // Commit markers
-          }
-        },
-        scales: {
-          x: {
-            grid: {
-              color: 'rgba(255, 255, 255, 0.1)',
-              drawBorder: false
-            },
-            ticks: {
-              color: '#8b949e',
-              font: {
-                family: 'Inter',
-                size: 11
-              }
-            }
-          },
-          y: {
-            beginAtZero: true,
-            max: 100,
-            grid: {
-              color: 'rgba(255, 255, 255, 0.05)',
-              drawBorder: false
-            },
-            ticks: {
-              color: '#8b949e',
-              callback: value => value + '%'
-            }
-          }
-        },
-        elements: {
-          line: {
-            tension: 0.4, // Smooth curves
-            borderWidth: 3,
-            borderCapStyle: 'round',
-            borderJoinStyle: 'round'
-          },
-          point: {
-            radius: 0, // Hidden by default
-            hoverRadius: 6,
-            hitRadius: 30, // Large touch target
-            hoverBorderWidth: 2
-          }
-        },
-        animation: {
-          duration: 750,
-          easing: 'easeInOutQuart'
-        }
-      }
-    };
-  }
+#### 6.1 Trend Visualization with SVG Charts
+Since we're building a Go-native solution, trend visualization will be done through server-side generated SVG charts that are embedded in the static HTML reports:
 
-  async loadData() {
-    // Fetch with loading states
-    this.showLoadingState();
-    
-    try {
-      const data = await this.fetchHistoricalData();
-      
-      // Process with web workers for performance
-      const processed = await this.processInWorker(data);
-      
-      // Add smooth data interpolation
-      this.data = this.interpolateData(processed);
-      
-      // Calculate insights
-      this.insights = this.calculateInsights(this.data);
-      
-    } catch (error) {
-      this.showErrorState(error);
-    }
-  }
+```go
+// internal/coverage/report/chart.go
+package report
 
-  render() {
-    // Create gradient fills
-    const gradient = this.createGradient();
+import (
+    "context"
+    "fmt"
+    "math"
+    "strings"
+    "time"
     
-    // Initialize Chart.js with custom styling
-    this.chart = new Chart(this.container, {
-      ...this.chartConfig,
-      data: {
-        labels: this.data.labels,
-        datasets: [{
-          label: 'Total Coverage',
-          data: this.data.values,
-          borderColor: '#1f6feb',
-          backgroundColor: gradient,
-          fill: true
-        }, {
-          label: 'Target',
-          data: this.data.target,
-          borderColor: '#3fb950',
-          borderDash: [5, 5],
-          borderWidth: 2,
-          fill: false
-        }]
-      }
-    });
-    
-    // Add interactive features
-    this.addInteractivity();
-    this.renderCustomTooltip();
-    this.renderInsights();
-    this.addKeyboardNavigation();
-  }
+    "github.com/go-broadcast/internal/coverage/history"
+)
 
-  addInteractivity() {
-    // Smooth zoom with mouse wheel
-    this.container.addEventListener('wheel', (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        this.handleZoom(e.deltaY);
-      }
-    });
-    
-    // Pan with drag
-    let isPanning = false;
-    this.container.addEventListener('mousedown', () => isPanning = true);
-    this.container.addEventListener('mousemove', (e) => {
-      if (isPanning) this.handlePan(e.movementX);
-    });
-    this.container.addEventListener('mouseup', () => isPanning = false);
-    
-    // Touch gestures for mobile
-    this.addTouchGestures();
-  }
-
-  renderCustomTooltip() {
-    // Beautiful custom tooltip that follows cursor
-    const tooltip = document.createElement('div');
-    tooltip.className = 'chart-tooltip';
-    tooltip.innerHTML = `
-      <div class="tooltip-header">
-        <span class="tooltip-date"></span>
-        <span class="tooltip-time"></span>
-      </div>
-      <div class="tooltip-body">
-        <div class="tooltip-metric">
-          <span class="tooltip-label">Coverage</span>
-          <span class="tooltip-value"></span>
-        </div>
-        <div class="tooltip-commit">
-          <img class="tooltip-avatar" src="" alt="">
-          <div class="tooltip-commit-info">
-            <span class="tooltip-commit-message"></span>
-            <span class="tooltip-commit-author"></span>
-          </div>
-        </div>
-      </div>
-      <div class="tooltip-arrow"></div>
-    `;
-    
-    this.container.appendChild(tooltip);
-  }
-
-  renderInsights() {
-    // AI-powered insights panel
-    const insights = document.createElement('div');
-    insights.className = 'chart-insights';
-    
-    // Animated insight cards
-    this.insights.forEach((insight, index) => {
-      const card = this.createInsightCard(insight);
-      card.style.animationDelay = `${index * 100}ms`;
-      insights.appendChild(card);
-    });
-    
-    this.container.parentElement.appendChild(insights);
-  }
-
-  // Smooth theme transitions
-  detectTheme() {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    return {
-      background: isDark ? '#0d1117' : '#ffffff',
-      text: isDark ? '#c9d1d9' : '#24292f',
-      grid: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-    };
-  }
-
-  // Performance optimizations
-  processInWorker(data) {
-    return new Promise((resolve) => {
-      const worker = new Worker('assets/js/coverage-worker.js');
-      worker.postMessage({ type: 'process', data });
-      worker.onmessage = (e) => {
-        resolve(e.data);
-        worker.terminate();
-      };
-    });
-  }
+// ChartOptions configures SVG chart generation
+type ChartOptions struct {
+    Width      int
+    Height     int
+    ShowGrid   bool
+    ShowLegend bool
+    Theme      Theme
 }
 
-// Initialize with smooth loading
-document.addEventListener('DOMContentLoaded', () => {
-  // Intersection observer for lazy loading
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const dashboard = new CoverageTrendDashboard('trendChart');
-        dashboard.loadData().then(() => dashboard.render());
-        observer.unobserve(entry.target);
-      }
-    });
-  });
-  
-  observer.observe(document.getElementById('trendChart'));
-});
+// Theme defines chart colors and styles
+type Theme struct {
+    Background  string
+    Text        string
+    GridColor   string
+    LineColor   string
+    TargetColor string
+}
+
+// GenerateTrendChart creates an SVG trend chart from historical data
+func GenerateTrendChart(ctx context.Context, data []history.DataPoint, opts ChartOptions) (string, error) {
+    // Server-side SVG generation - no JavaScript dependencies
+    // Clean, accessible, performant
+    
+    if len(data) == 0 {
+        return "", fmt.Errorf("no data points provided")
+    }
+    
+    // Calculate chart dimensions and scaling
+    padding := 40
+    chartWidth := opts.Width - 2*padding
+    chartHeight := opts.Height - 2*padding
+    
+    // Find data bounds
+    minCov, maxCov := findCoverageBounds(data)
+    xScale := float64(chartWidth) / float64(len(data)-1)
+    yScale := float64(chartHeight) / (maxCov - minCov)
+    
+    // Build SVG
+    var svg strings.Builder
+    svg.WriteString(fmt.Sprintf(`<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">`, opts.Width, opts.Height))
+    
+    // Background
+    svg.WriteString(fmt.Sprintf(`<rect width="%d" height="%d" fill="%s"/>`, opts.Width, opts.Height, opts.Theme.Background))
+    
+    // Grid lines
+    if opts.ShowGrid {
+        svg.WriteString(generateGridLines(padding, chartWidth, chartHeight, opts.Theme.GridColor))
+    }
+    
+    // Coverage line path
+    path := generateLinePath(data, padding, xScale, yScale, minCov, chartHeight)
+    svg.WriteString(fmt.Sprintf(`<path d="%s" fill="none" stroke="%s" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`, path, opts.Theme.LineColor))
+    
+    // Data points
+    for i, point := range data {
+        x := padding + int(float64(i)*xScale)
+        y := padding + chartHeight - int((point.Coverage-minCov)*yScale)
+        
+        // Invisible larger hit area for accessibility
+        svg.WriteString(fmt.Sprintf(`<circle cx="%d" cy="%d" r="20" fill="transparent" class="hit-area"/>`, x, y))
+        
+        // Visible point on hover
+        svg.WriteString(fmt.Sprintf(`<circle cx="%d" cy="%d" r="4" fill="%s" class="data-point" opacity="0">`, x, y, opts.Theme.LineColor))
+        svg.WriteString(`<animate attributeName="opacity" begin="mouseover" dur="0.1s" fill="freeze" to="1"/>`)
+        svg.WriteString(`<animate attributeName="opacity" begin="mouseout" dur="0.1s" fill="freeze" to="0"/>`)
+        svg.WriteString(`</circle>`)
+        
+        // Tooltip text
+        tooltip := fmt.Sprintf("%.1f%% on %s", point.Coverage, point.Date.Format("Jan 2"))
+        svg.WriteString(fmt.Sprintf(`<title>%s</title>`, tooltip))
+    }
+    
+    // Axis labels
+    svg.WriteString(generateAxisLabels(data, padding, chartWidth, chartHeight, opts.Theme.Text))
+    
+    // Legend
+    if opts.ShowLegend {
+        svg.WriteString(generateLegend(opts.Width, padding, opts.Theme))
+    }
+    
+    svg.WriteString(`</svg>`)
+    return svg.String(), nil
+}
+
+// Helper functions for clean code organization
+func findCoverageBounds(data []history.DataPoint) (min, max float64) {
+    min, max = 100.0, 0.0
+    for _, point := range data {
+        if point.Coverage < min {
+            min = point.Coverage
+        }
+        if point.Coverage > max {
+            max = point.Coverage
+        }
+    }
+    // Add padding to bounds
+    min = math.Max(0, min-5)
+    max = math.Min(100, max+5)
+    return
+}
+
+func generateLinePath(data []history.DataPoint, padding int, xScale, yScale, minCov float64, chartHeight int) string {
+    var path strings.Builder
+    
+    for i, point := range data {
+        x := padding + int(float64(i)*xScale)
+        y := padding + chartHeight - int((point.Coverage-minCov)*yScale)
+        
+        if i == 0 {
+            path.WriteString(fmt.Sprintf("M %d %d", x, y))
+        } else {
+            // Smooth curve using quadratic bezier
+            prevX := padding + int(float64(i-1)*xScale)
+            midX := (prevX + x) / 2
+            prevY := padding + chartHeight - int((data[i-1].Coverage-minCov)*yScale)
+            path.WriteString(fmt.Sprintf(" Q %d %d %d %d", midX, prevY, x, y))
+        }
+    }
+    
+    return path.String()
+}
+
+// Generate interactive HTML report with embedded SVG charts
+func GenerateTrendReport(ctx context.Context, history []history.DataPoint, opts ReportOptions) (string, error) {
+    // Generate multiple views of the data
+    last30Days := filterLastNDays(history, 30)
+    last90Days := filterLastNDays(history, 90)
+    allTime := history
+    
+    // Generate charts for each time period
+    chart30, err := GenerateTrendChart(ctx, last30Days, ChartOptions{
+        Width: 800, Height: 400,
+        ShowGrid: true, ShowLegend: false,
+        Theme: opts.Theme,
+    })
+    if err != nil {
+        return "", fmt.Errorf("generating 30-day chart: %w", err)
+    }
+    
+    // Build HTML report with embedded charts
+    html := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Coverage Trends - %s</title>
+    <style>
+        %s
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Coverage Trend Analysis</h1>
+        
+        <div class="chart-container">
+            <h2>Last 30 Days</h2>
+            %s
+        </div>
+        
+        <div class="insights">
+            %s
+        </div>
+    </div>
+</body>
+</html>
+    `, opts.ProjectName, getCSSStyles(opts.Theme), chart30, generateInsights(last30Days))
+    
+    return html, nil
+}
 ```
 
 #### 6.2 Coverage Prediction Engine
-```javascript
-// ML-based coverage impact prediction
-class CoveragePrediction {
-  analyzeChanges(diffData) {
-    // Estimate coverage impact
-    // Suggest priority test areas
-    // Risk assessment score
-  }
+```go
+// internal/coverage/prediction/predictor.go
+package prediction
+
+import (
+    "context"
+    "fmt"
+    "math"
+    
+    "github.com/go-broadcast/internal/coverage/history"
+)
+
+// Predictor analyzes coverage trends and predicts future coverage
+type Predictor struct {
+    history []history.DataPoint
+}
+
+// AnalyzeImpact estimates coverage impact of proposed changes
+func (p *Predictor) AnalyzeImpact(ctx context.Context, diffData DiffData) (*ImpactAnalysis, error) {
+    analysis := &ImpactAnalysis{
+        EstimatedImpact: p.calculateImpact(diffData),
+        RiskScore:       p.assessRisk(diffData),
+        SuggestedTests:  p.suggestPriorityTests(diffData),
+    }
+    
+    return analysis, nil
+}
+
+// PredictTrend uses simple linear regression for coverage prediction
+func (p *Predictor) PredictTrend(days int) (float64, error) {
+    if len(p.history) < 2 {
+        return 0, fmt.Errorf("insufficient history for prediction")
+    }
+    
+    // Simple linear regression
+    var sumX, sumY, sumXY, sumX2 float64
+    n := float64(len(p.history))
+    
+    for i, point := range p.history {
+        x := float64(i)
+        y := point.Coverage
+        sumX += x
+        sumY += y
+        sumXY += x * y
+        sumX2 += x * x
+    }
+    
+    // Calculate slope and intercept
+    slope := (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
+    intercept := (sumY - slope*sumX) / n
+    
+    // Predict future value
+    futureX := float64(len(p.history) + days)
+    prediction := slope*futureX + intercept
+    
+    // Clamp between 0 and 100
+    return math.Max(0, math.Min(100, prediction)), nil
+}
+
+type ImpactAnalysis struct {
+    EstimatedImpact float64
+    RiskScore       int // 1-10
+    SuggestedTests  []string
+}
+
+type DiffData struct {
+    FilesChanged   []string
+    LinesAdded     int
+    LinesRemoved   int
+    TestsModified  bool
 }
 ```
 
 #### 6.3 Notification System
-```javascript
-// Multi-channel notifications
-class CoverageNotifications {
-  async notify(event, data) {
-    switch(event) {
-      case 'milestone_reached':
-        // Celebrate coverage milestones
-        break;
-      case 'coverage_dropped':
-        // Alert on significant drops
-        break;
-      case 'weekly_summary':
-        // Send weekly reports
-        break;
+```go
+// internal/coverage/notify/notifier.go
+package notify
+
+import (
+    "bytes"
+    "context"
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "os"
+    "time"
+)
+
+// Notifier handles multi-channel notifications
+type Notifier struct {
+    slackWebhook   string
+    slackEnabled   bool
+    emailEnabled   bool
+    webhookEnabled bool
+}
+
+// NewNotifier creates a notification handler from environment config
+func NewNotifier() *Notifier {
+    return &Notifier{
+        slackWebhook:   os.Getenv("COVERAGE_SLACK_WEBHOOK_URL"),
+        slackEnabled:   os.Getenv("COVERAGE_SLACK_WEBHOOK_ENABLED") == "true",
+        emailEnabled:   os.Getenv("COVERAGE_EMAIL_NOTIFICATIONS_ENABLED") == "true",
+        webhookEnabled: os.Getenv("COVERAGE_GENERIC_WEBHOOK_ENABLED") == "true",
     }
-  }
+}
+
+// NotifyEvent sends notifications for coverage events
+func (n *Notifier) NotifyEvent(ctx context.Context, event string, data NotificationData) error {
+    switch event {
+    case "milestone_reached":
+        return n.notifyMilestone(ctx, data)
+    case "coverage_dropped":
+        return n.notifyCoverageDrop(ctx, data)
+    case "weekly_summary":
+        return n.notifyWeeklySummary(ctx, data)
+    default:
+        return fmt.Errorf("unknown event type: %s", event)
+    }
+}
+
+func (n *Notifier) notifyMilestone(ctx context.Context, data NotificationData) error {
+    if !n.slackEnabled {
+        return nil
+    }
+    
+    message := SlackMessage{
+        Text: fmt.Sprintf("🎉 Coverage milestone reached: %.1f%%!", data.Coverage),
+        Attachments: []SlackAttachment{{
+            Color: "good",
+            Fields: []SlackField{
+                {Title: "Project", Value: data.Project, Short: true},
+                {Title: "Branch", Value: data.Branch, Short: true},
+                {Title: "Previous", Value: fmt.Sprintf("%.1f%%", data.PreviousCoverage), Short: true},
+                {Title: "Current", Value: fmt.Sprintf("%.1f%%", data.Coverage), Short: true},
+            },
+        }},
+    }
+    
+    return n.sendSlackMessage(ctx, message)
+}
+
+func (n *Notifier) sendSlackMessage(ctx context.Context, msg SlackMessage) error {
+    payload, err := json.Marshal(msg)
+    if err != nil {
+        return fmt.Errorf("marshaling slack message: %w", err)
+    }
+    
+    req, err := http.NewRequestWithContext(ctx, "POST", n.slackWebhook, bytes.NewReader(payload))
+    if err != nil {
+        return fmt.Errorf("creating request: %w", err)
+    }
+    
+    req.Header.Set("Content-Type", "application/json")
+    
+    client := &http.Client{Timeout: 10 * time.Second}
+    resp, err := client.Do(req)
+    if err != nil {
+        return fmt.Errorf("sending slack message: %w", err)
+    }
+    defer resp.Body.Close()
+    
+    if resp.StatusCode != http.StatusOK {
+        return fmt.Errorf("slack webhook returned status %d", resp.StatusCode)
+    }
+    
+    return nil
+}
+
+// Types for Slack integration
+type SlackMessage struct {
+    Text        string            `json:"text"`
+    Attachments []SlackAttachment `json:"attachments,omitempty"`
+}
+
+type SlackAttachment struct {
+    Color  string       `json:"color"`
+    Fields []SlackField `json:"fields"`
+}
+
+type SlackField struct {
+    Title string `json:"title"`
+    Value string `json:"value"`
+    Short bool   `json:"short"`
+}
+
+type NotificationData struct {
+    Project          string
+    Branch           string
+    Coverage         float64
+    PreviousCoverage float64
+    URL              string
+    Timestamp        time.Time
 }
 ```
 
@@ -1816,11 +2515,11 @@ class CoverageNotifications {
 # 1. Run full test suite with coverage
 make test-cover
 
-# 2. Verify coverage processing
-cat coverage.txt | node .github/coverage/process-coverage.js
+# 2. Verify coverage processing with Go tool
+./gofortress-coverage parse --input coverage.txt --output coverage.json
 
 # 3. Check badge generation
-COVERAGE=85 node .github/coverage/generate-badge.js
+./gofortress-coverage badge generate --coverage 85 --output coverage.svg
 test -f coverage.svg
 
 # 4. Test GitHub Pages deployment
@@ -1986,12 +2685,17 @@ Intelligently exclude non-production code:
 - Example code
 - Small utility files
 
-### 🔧 JavaScript Testing
+### 🔧 Go Testing
 
 100% test coverage for all coverage system modules:
 ```bash
-cd .github/coverage
-npm test -- --coverage
+# Run all tests with coverage
+go test -race -cover ./cmd/gofortress-coverage/...
+go test -race -cover ./internal/coverage/...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
 ```
 
 ### 📈 Performance
@@ -2066,7 +2770,6 @@ The system consists of several key components:
 ### Prerequisites
 
 - Go 1.21+
-- Node.js 20+
 - GitHub repository with Actions enabled
 - GitHub Pages enabled (automatic setup available)
 
@@ -2254,11 +2957,217 @@ We welcome contributions! See our [Contributing Guidelines](../CONTRIBUTING.md).
 - Automated test prioritization
 - Industry benchmarking
 
+### Phase 9: GoFortress Dashboard - Unified Project Health (Session 9)
+**Objective**: Transform the coverage dashboard into a comprehensive "GoFortress Dashboard" that aggregates all project health metrics
+
+**Implementation Steps:**
+1. Extend the dashboard architecture to support multiple metric types
+2. Integrate GitHub Actions API to pull workflow data
+3. Parse and display benchmark results from fortress-benchmarks.yml
+4. Aggregate security scan results (CodeQL, OSSAR, OpenSSF Scorecard)
+5. Create unified health score algorithm
+6. Implement plugin architecture for future metrics
+
+**Files to Create/Modify:**
+```
+internal/coverage/
+└── dashboard/                    # New dashboard package
+    ├── aggregator.go            # Metrics aggregation logic
+    ├── github_actions.go        # GitHub Actions API integration
+    ├── benchmarks.go            # Benchmark parsing and trending
+    ├── security.go              # Security scan aggregation
+    ├── health_score.go          # Unified project health scoring
+    └── templates/
+        ├── fortress-dashboard.html
+        └── components/          # Reusable dashboard components
+
+cmd/gofortress-coverage/cmd/
+└── dashboard.go                 # New dashboard subcommand
+```
+
+**Dashboard Features:**
+1. **Coverage Metrics** (existing)
+   - Test coverage trends
+   - Package-level breakdown
+   - PR impact analysis
+
+2. **Build & CI Metrics** (new)
+   - Build success rates
+   - Workflow execution times
+   - Failure patterns analysis
+   - Resource usage trends
+
+3. **Performance Metrics** (new)
+   - Benchmark results over time
+   - Performance regression detection
+   - Operation-specific trends
+   - Memory allocation patterns
+
+4. **Security Metrics** (new)
+   - CodeQL scan results
+   - OSSAR findings
+   - OpenSSF Scorecard trends
+   - Vulnerability timeline
+
+5. **Code Quality Metrics** (new)
+   - Go Report Card integration
+   - Linting statistics
+   - Complexity trends
+   - Technical debt indicators
+
+6. **Release Metrics** (new)
+   - Release frequency
+   - Changelog summaries
+   - Version adoption rates
+   - Breaking change tracking
+
+**Implementation Details:**
+```go
+// internal/coverage/dashboard/aggregator.go
+package dashboard
+
+import (
+    "context"
+    "time"
+)
+
+// MetricType defines the types of metrics we can aggregate
+type MetricType string
+
+const (
+    MetricTypeCoverage    MetricType = "coverage"
+    MetricTypeBuild       MetricType = "build"
+    MetricTypeBenchmark   MetricType = "benchmark"
+    MetricTypeSecurity    MetricType = "security"
+    MetricTypeQuality     MetricType = "quality"
+    MetricTypeRelease     MetricType = "release"
+)
+
+// DashboardAggregator collects metrics from various sources
+type DashboardAggregator struct {
+    githubClient *github.Client
+    metrics      map[MetricType]MetricCollector
+}
+
+// AggregateMetrics collects all metrics for the dashboard
+func (da *DashboardAggregator) AggregateMetrics(ctx context.Context) (*DashboardData, error) {
+    data := &DashboardData{
+        Timestamp: time.Now(),
+        Metrics:   make(map[MetricType]interface{}),
+    }
+    
+    // Collect from each metric source in parallel
+    for metricType, collector := range da.metrics {
+        metric, err := collector.Collect(ctx)
+        if err != nil {
+            // Log but don't fail - show what we can
+            continue
+        }
+        data.Metrics[metricType] = metric
+    }
+    
+    // Calculate unified health score
+    data.HealthScore = da.calculateHealthScore(data.Metrics)
+    
+    return data, nil
+}
+```
+
+**Dashboard UI Enhancements:**
+```html
+<!-- GoFortress Dashboard - Unified View -->
+<div class="fortress-dashboard">
+  <!-- Castle-themed health indicator -->
+  <div class="fortress-health">
+    <div class="castle-icon">
+      <svg><!-- Animated castle with health-based colors --></svg>
+    </div>
+    <div class="health-score">
+      <span class="score-value">92</span>
+      <span class="score-label">Fortress Health</span>
+    </div>
+  </div>
+  
+  <!-- Metric cards grid -->
+  <div class="metrics-overview">
+    <div class="metric-card coverage-card">
+      <h3>Coverage</h3>
+      <div class="metric-value">85.4%</div>
+      <div class="metric-trend">↑ 2.3%</div>
+    </div>
+    
+    <div class="metric-card build-card">
+      <h3>Build Success</h3>
+      <div class="metric-value">98.2%</div>
+      <div class="metric-trend">→ stable</div>
+    </div>
+    
+    <div class="metric-card benchmark-card">
+      <h3>Performance</h3>
+      <div class="metric-value">+5.2%</div>
+      <div class="metric-trend">↑ faster</div>
+    </div>
+    
+    <div class="metric-card security-card">
+      <h3>Security Score</h3>
+      <div class="metric-value">A+</div>
+      <div class="metric-trend">0 critical</div>
+    </div>
+  </div>
+  
+  <!-- Detailed metric sections -->
+  <div class="metric-details">
+    <!-- Each metric type gets its own detailed view -->
+  </div>
+</div>
+```
+
+**Verification Steps:**
+```bash
+# 1. Test metrics aggregation
+./gofortress-coverage dashboard aggregate \
+  --repo $GITHUB_REPOSITORY \
+  --token $GITHUB_TOKEN
+
+# 2. Generate dashboard
+./gofortress-coverage dashboard generate \
+  --data metrics.json \
+  --output dashboard.html
+
+# 3. Test GitHub Actions integration
+./gofortress-coverage dashboard actions \
+  --workflow fortress.yml \
+  --days 30
+
+# 4. Verify unified health score
+./gofortress-coverage dashboard health \
+  --verbose
+```
+
+**Success Criteria:**
+- ✅ Dashboard displays multiple metric types in unified view
+- ✅ GitHub Actions data successfully integrated
+- ✅ Benchmark trends visualized with performance indicators
+- ✅ Security scan results aggregated and displayed
+- ✅ Unified health score accurately reflects project state
+- ✅ Plugin architecture allows easy addition of new metrics
+- ✅ Dashboard remains performant with all metrics enabled
+- ✅ Mobile-responsive design maintained
+
+**Status Update Required:**
+After completing this phase, update `plans/plan-09-status.md`:
+- Mark Phase 9 as completed (✓)
+- Document integrated metric sources
+- Record performance impact
+- Note future metric opportunities
+
 ## Conclusion
 
 This comprehensive plan transforms coverage reporting from a third-party dependency into a powerful, integrated feature of the GoFortress CI/CD system. By controlling every aspect of the coverage pipeline, we can deliver a superior developer experience while maintaining complete data sovereignty and zero external dependencies.
 
 The phased approach ensures smooth implementation with minimal disruption, while the modular architecture allows for continuous enhancement and customization. This isn't just a replacement for Codecov—it's an evolution in how we think about code coverage in modern development workflows.
+
+With the addition of the GoFortress Dashboard in Phase 9, the system evolves beyond coverage into a comprehensive project health monitoring solution, showcasing the full power of the GoFortress CI/CD system.
 
 ## Implementation Timeline
 
@@ -2266,6 +3175,7 @@ The phased approach ensures smooth implementation with minimal disruption, while
 - **Phase 3-4**: Integration & Storage (2 sessions)
 - **Phase 5-6**: PR Features & Analytics (2 sessions)
 - **Phase 7-8**: Deployment & Documentation (2 sessions)
-- **Total**: 8 development sessions
+- **Phase 9**: GoFortress Dashboard (1 session)
+- **Total**: 9 development sessions
 
-Each phase builds upon the previous, ensuring a stable and tested system at every stage.
+Each phase builds upon the previous, ensuring a stable and tested system at every stage. The GoFortress Dashboard in Phase 9 can be implemented after the core coverage system is operational, allowing it to serve as a showcase for the entire GoFortress CI/CD ecosystem.
