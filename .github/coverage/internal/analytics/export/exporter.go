@@ -22,6 +22,7 @@ import (
 var (
 	// ErrUnsupportedExportFormat indicates an unsupported export format was requested
 	ErrUnsupportedExportFormat      = errors.New("unsupported export format")
+	// ErrScheduledExportsNotSupported indicates scheduled exports are not yet implemented
 	ErrScheduledExportsNotSupported = errors.New("scheduled exports not yet implemented")
 	ErrExportFormatRequired         = errors.New("export format is required")
 	ErrDataSourceRequired           = errors.New("at least one data source must be specified")
@@ -71,12 +72,17 @@ type ExportFormat string //nolint:revive // ExportFormat is clear and contextual
 
 const (
 	// FormatPDF represents PDF export format
-	FormatPDF   ExportFormat = "pdf"
-	FormatCSV   ExportFormat = "csv"
-	FormatJSON  ExportFormat = "json"
-	FormatXML   ExportFormat = "xml"
+	FormatPDF ExportFormat = "pdf"
+	// FormatCSV represents CSV export format
+	FormatCSV ExportFormat = "csv"
+	// FormatJSON represents JSON export format
+	FormatJSON ExportFormat = "json"
+	// FormatXML represents XML export format
+	FormatXML ExportFormat = "xml"
+	// FormatExcel represents Excel export format
 	FormatExcel ExportFormat = "excel"
-	FormatHTML  ExportFormat = "html"
+	// FormatHTML represents HTML export format
+	FormatHTML ExportFormat = "html"
 )
 
 // PDFSettings configures PDF export options
@@ -181,13 +187,21 @@ type DataSource string
 const (
 	// DataSourceCoverage exports coverage data
 	DataSourceCoverage        DataSource = "coverage"
-	DataSourceTrends          DataSource = "trends"
-	DataSourcePredictions     DataSource = "predictions"
-	DataSourceTeamMetrics     DataSource = "team_metrics"
-	DataSourceImpactAnalysis  DataSource = "impact_analysis"
-	DataSourceDashboard       DataSource = "dashboard"
-	DataSourceHistory         DataSource = "history"
-	DataSourceComparisons     DataSource = "comparisons"
+	// DataSourceTrends exports trend data
+	DataSourceTrends DataSource = "trends"
+	// DataSourcePredictions exports prediction data
+	DataSourcePredictions DataSource = "predictions"
+	// DataSourceTeamMetrics exports team metrics data
+	DataSourceTeamMetrics DataSource = "team_metrics"
+	// DataSourceImpactAnalysis exports impact analysis data
+	DataSourceImpactAnalysis DataSource = "impact_analysis"
+	// DataSourceDashboard exports dashboard data
+	DataSourceDashboard DataSource = "dashboard"
+	// DataSourceHistory exports history data
+	DataSourceHistory DataSource = "history"
+	// DataSourceComparisons exports comparison data
+	DataSourceComparisons DataSource = "comparisons"
+	// DataSourceRecommendations exports recommendation data
 	DataSourceRecommendations DataSource = "recommendations"
 )
 
@@ -736,14 +750,14 @@ func (e *AnalyticsExporter) GenerateReport(ctx context.Context, data *ExportData
 }
 
 // ScheduleExport schedules a recurring export operation
-func (e *AnalyticsExporter) ScheduleExport(ctx context.Context, schedule ExportSchedule) error {
+func (e *AnalyticsExporter) ScheduleExport(ctx context.Context, schedule Schedule) error {
 	// This would implement scheduling logic
 	// For now, return a placeholder implementation
 	return ErrScheduledExportsNotSupported
 }
 
-// ExportSchedule defines a scheduled export operation
-type ExportSchedule struct {
+// Schedule defines a scheduled export operation
+type Schedule struct {
 	ID            string        `json:"id"`
 	Name          string        `json:"name"`
 	Description   string        `json:"description"`
@@ -1141,7 +1155,7 @@ func (e *AnalyticsExporter) countRecords(data *ExportData) int {
 	count := 0
 
 	if data.CoverageMetrics != nil {
-		count += 1
+		count++
 	}
 	if data.CoverageTrends != nil {
 		count += len(data.CoverageTrends.DataPoints)

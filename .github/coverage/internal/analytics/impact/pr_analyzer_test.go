@@ -10,7 +10,7 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/prediction"
 )
 
-func TestNewPRImpactAnalyzer(t *testing.T) { //nolint:revive // function naming
+func TestNewPRImpactAnalyzer(t *testing.T) {
 	cfg := &AnalyzerConfig{
 		BaselinePeriod:      30 * 24 * time.Hour,
 		ConfidenceThreshold: 0.7,
@@ -187,7 +187,7 @@ func TestAssessRisk(t *testing.T) { //nolint:revive // function naming
 		},
 	}
 
-	analysis := &ImpactAnalysis{
+	analysis := &Analysis{
 		OverallImpact:    ImpactModerate,
 		CoverageChange:   -3.0,
 		BaselineCoverage: 80.0,
@@ -219,13 +219,13 @@ func TestQualityGateEvaluation(t *testing.T) { //nolint:revive // function namin
 
 	tests := []struct {
 		name             string
-		analysis         *ImpactAnalysis
+		analysis         *Analysis
 		baselineCoverage float64
 		expectPass       bool
 	}{
 		{
 			name: "passing quality gates",
-			analysis: &ImpactAnalysis{
+			analysis: &Analysis{
 				CoverageChange: 5.0,
 			},
 			baselineCoverage: 85.0,
@@ -233,7 +233,7 @@ func TestQualityGateEvaluation(t *testing.T) { //nolint:revive // function namin
 		},
 		{
 			name: "failing coverage regression gate",
-			analysis: &ImpactAnalysis{
+			analysis: &Analysis{
 				CoverageChange: -5.0, // Exceeds max regression
 			},
 			baselineCoverage: 85.0,
@@ -241,7 +241,7 @@ func TestQualityGateEvaluation(t *testing.T) { //nolint:revive // function namin
 		},
 		{
 			name: "failing minimum coverage gate",
-			analysis: &ImpactAnalysis{
+			analysis: &Analysis{
 				CoverageChange: -10.0,
 			},
 			baselineCoverage: 85.0, // Would drop to 75%, below minimum

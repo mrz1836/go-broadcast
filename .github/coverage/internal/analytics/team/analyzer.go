@@ -129,7 +129,7 @@ type Analysis struct {
 	PatternInsights []PatternInsight `json:"pattern_insights"`
 
 	// Recommendations
-	TeamRecommendations       []TeamRecommendation       `json:"team_recommendations"`
+	TeamRecommendations       []Recommendation       `json:"team_recommendations"`
 	IndividualRecommendations []IndividualRecommendation `json:"individual_recommendations"`
 
 	// Quality assessment
@@ -467,8 +467,8 @@ type PatternInsight struct {
 	Priority        string   `json:"priority"`
 }
 
-// TeamRecommendation provides team-level recommendations
-type TeamRecommendation struct {
+// Recommendation provides team-level recommendations
+type Recommendation struct {
 	RecommendationType   string   `json:"recommendation_type"`
 	TargetTeam           string   `json:"target_team"`
 	Title                string   `json:"title"`
@@ -554,7 +554,7 @@ func (ta *Analyzer) SetComponents(historyAnalyzer *history.TrendAnalyzer, impact
 }
 
 // AnalyzeTeamPerformance performs comprehensive team performance analysis
-func (ta *Analyzer) AnalyzeTeamPerformance(ctx context.Context, contributors []ContributorData, teams []TeamData) (*Analysis, error) {
+func (ta *Analyzer) AnalyzeTeamPerformance(ctx context.Context, contributors []ContributorData, teams []Data) (*Analysis, error) {
 	analysis := &Analysis{
 		AnalysisDate:              time.Now(),
 		AnalysisPeriod:            ta.config.AnalysisPeriod,
@@ -563,7 +563,7 @@ func (ta *Analyzer) AnalyzeTeamPerformance(ctx context.Context, contributors []C
 		TopPerformers:             make([]TopPerformer, 0),
 		Comparisons:               make([]Comparison, 0),
 		PatternInsights:           make([]PatternInsight, 0),
-		TeamRecommendations:       make([]TeamRecommendation, 0),
+		TeamRecommendations:       make([]Recommendation, 0),
 		IndividualRecommendations: make([]IndividualRecommendation, 0),
 	}
 
@@ -627,8 +627,8 @@ type ContributorData struct {
 	LastActive time.Time        `json:"last_active"`
 }
 
-// TeamData represents input data for a team
-type TeamData struct {
+// Data represents input data for a team
+type Data struct {
 	Name            string   `json:"name"`
 	Description     string   `json:"description"`
 	Members         []string `json:"members"`
@@ -702,7 +702,7 @@ func (ta *Analyzer) filterActiveContributors(contributors []ContributorData) []C
 	return active
 }
 
-func (ta *Analyzer) generateTeamOverview(analysis *Analysis, contributors []ContributorData, teams []TeamData) {
+func (ta *Analyzer) generateTeamOverview(analysis *Analysis, contributors []ContributorData, teams []Data) {
 	overview := Overview{
 		TotalTeams: len(teams),
 	}
@@ -749,7 +749,7 @@ func (ta *Analyzer) generateTeamOverview(analysis *Analysis, contributors []Cont
 	analysis.TeamOverview = overview
 }
 
-func (ta *Analyzer) generateTeamMetrics(analysis *Analysis, contributors []ContributorData, teams []TeamData) {
+func (ta *Analyzer) generateTeamMetrics(analysis *Analysis, contributors []ContributorData, teams []Data) {
 	metrics := Metrics{
 		CoverageByTeam:     make(map[string]CoverageMetrics),
 		ProductivityByTeam: make(map[string]ProductivityMetrics),
@@ -844,7 +844,7 @@ func (ta *Analyzer) identifyTopPerformers(analysis *Analysis) {
 	}
 }
 
-func (ta *Analyzer) generateComparisons(analysis *Analysis, teams []TeamData) {
+func (ta *Analyzer) generateComparisons(analysis *Analysis, teams []Data) {
 	comparisons := make([]Comparison, 0)
 
 	// Compare each pair of teams
@@ -930,7 +930,7 @@ func (ta *Analyzer) performBenchmarkAnalysis(analysis *Analysis) {
 	analysis.BenchmarkAnalysis = benchmarkAnalysis
 }
 
-func (ta *Analyzer) analyzeCollaborationInsights(analysis *Analysis, contributors []ContributorData, teams []TeamData) {
+func (ta *Analyzer) analyzeCollaborationInsights(analysis *Analysis, contributors []ContributorData, teams []Data) {
 	insights := CollaborationInsights{
 		CollaborationNetwork: make(map[string][]string),
 	}
@@ -1049,13 +1049,13 @@ func (ta *Analyzer) identifyPatternInsights(analysis *Analysis) {
 }
 
 func (ta *Analyzer) generateTeamRecommendations(analysis *Analysis) {
-	recommendations := make([]TeamRecommendation, 0)
+	recommendations := make([]Recommendation, 0)
 
 	// Analyze each team for improvement opportunities
 	for teamName, teamMetrics := range analysis.TeamMetrics.CoverageByTeam {
 		// Coverage improvement recommendations
 		if teamMetrics.CurrentCoverage < ta.config.QualityThresholds.GoodCoverage {
-			rec := TeamRecommendation{
+			rec := Recommendation{
 				RecommendationType:   "coverage_improvement",
 				TargetTeam:           teamName,
 				Title:                "Improve Test Coverage",
@@ -1077,7 +1077,7 @@ func (ta *Analyzer) generateTeamRecommendations(analysis *Analysis) {
 		// Quality improvement recommendations
 		qualityMetrics := analysis.TeamMetrics.QualityByTeam[teamName]
 		if qualityMetrics.QualityScore < ta.config.QualityThresholds.GoodQuality {
-			rec := TeamRecommendation{
+			rec := Recommendation{
 				RecommendationType:   "quality_improvement",
 				TargetTeam:           teamName,
 				Title:                "Enhance Code Quality",
@@ -1301,7 +1301,7 @@ func (ta *Analyzer) calculateCollaborationScore(contributors []ContributorData) 
 	return totalScore / float64(len(contributors))
 }
 
-func (ta *Analyzer) calculateCoverageMetrics(team TeamData, contributors []ContributorData) CoverageMetrics {
+func (ta *Analyzer) calculateCoverageMetrics(team Data, contributors []ContributorData) CoverageMetrics {
 	metrics := CoverageMetrics{
 		CurrentCoverage: team.CurrentCoverage,
 		Target:          team.CoverageTarget,
@@ -1454,16 +1454,16 @@ func (ta *Analyzer) identifySpecialRecognition(contributor ContributorAnalysis) 
 	return []string{}
 }
 func (ta *Analyzer) generateImpactDescription(contributor ContributorAnalysis) string { return "" }
-func (ta *Analyzer) generateComparisonMetrics(teamA, teamB TeamData, analysis *Analysis) ComparisonMetrics {
+func (ta *Analyzer) generateComparisonMetrics(teamA, teamB Data, analysis *Analysis) ComparisonMetrics {
 	return ComparisonMetrics{}
 }
 func (ta *Analyzer) determineWinnersByCategory(comparison *Comparison) {}
 func (ta *Analyzer) determineOverallWinner(comparison *Comparison)     {}
-func (ta *Analyzer) identifyKeyDifferences(teamA, teamB TeamData, analysis *Analysis) []string {
+func (ta *Analyzer) identifyKeyDifferences(teamA, teamB Data, analysis *Analysis) []string {
 	return []string{}
 }
 
-func (ta *Analyzer) generateComparisonRecommendations(teamA, teamB TeamData, analysis *Analysis) []string {
+func (ta *Analyzer) generateComparisonRecommendations(teamA, teamB Data, analysis *Analysis) []string {
 	return []string{}
 }
 
@@ -1483,7 +1483,7 @@ func (ta *Analyzer) identifyBestPractices(analysis *Analysis) []BestPractice {
 	return []BestPractice{}
 }
 
-func (ta *Analyzer) analyzeCrossTeamActivity(contributors []ContributorData, teams []TeamData) CrossTeamActivity {
+func (ta *Analyzer) analyzeCrossTeamActivity(contributors []ContributorData, teams []Data) CrossTeamActivity {
 	return CrossTeamActivity{}
 }
 
@@ -1495,7 +1495,7 @@ func (ta *Analyzer) analyzeCommunicationPatterns(contributors []ContributorData)
 	return CommunicationPatterns{}
 }
 
-func (ta *Analyzer) assessTeamDynamics(contributors []ContributorData, teams []TeamData) Dynamics {
+func (ta *Analyzer) assessTeamDynamics(contributors []ContributorData, teams []Data) Dynamics {
 	return Dynamics{}
 }
 

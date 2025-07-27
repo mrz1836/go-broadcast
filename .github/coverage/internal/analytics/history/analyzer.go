@@ -249,7 +249,8 @@ type InsightType string
 const (
 	// InsightTrend indicates a trend insight
 	InsightTrend       InsightType = "trend"
-	InsightAnomaly     InsightType = "anomaly"
+	// InsightAnomaly indicates an anomaly insight
+	InsightAnomaly InsightType = "anomaly"
 	InsightMilestone   InsightType = "milestone"
 	InsightRegression  InsightType = "regression"
 	InsightOpportunity InsightType = "opportunity"
@@ -260,8 +261,10 @@ type InsightSeverity string
 
 const (
 	// SeverityInfo indicates informational severity
-	SeverityInfo     InsightSeverity = "info"
-	SeverityWarning  InsightSeverity = "warning"
+	SeverityInfo InsightSeverity = "info"
+	// SeverityWarning indicates warning severity
+	SeverityWarning InsightSeverity = "warning"
+	// SeverityCritical indicates critical severity
 	SeverityCritical InsightSeverity = "critical"
 )
 
@@ -271,7 +274,8 @@ type RecommendationType string
 const (
 	// RecommendationProcess indicates a process recommendation
 	RecommendationProcess    RecommendationType = "process"
-	RecommendationTesting    RecommendationType = "testing"
+	// RecommendationTesting indicates a testing recommendation
+	RecommendationTesting RecommendationType = "testing"
 	RecommendationGoals      RecommendationType = "goals"
 	RecommendationMonitoring RecommendationType = "monitoring"
 )
@@ -281,9 +285,11 @@ type RecommendationPriority string
 
 const (
 	// PriorityHigh indicates high priority
-	PriorityHigh   RecommendationPriority = "high"
+	PriorityHigh RecommendationPriority = "high"
+	// PriorityMedium indicates medium priority
 	PriorityMedium RecommendationPriority = "medium"
-	PriorityLow    RecommendationPriority = "low"
+	// PriorityLow indicates low priority
+	PriorityLow RecommendationPriority = "low"
 )
 
 // NewTrendAnalyzer creates a new trend analyzer with default configuration

@@ -123,8 +123,8 @@ const (
 	ReviewDismissed ReviewStatus = "dismissed"
 )
 
-// ImpactAnalysis represents the comprehensive analysis of a PR's impact
-type ImpactAnalysis struct {
+// Analysis represents the comprehensive analysis of a PR's impact
+type Analysis struct {
 	// Summary
 	OverallImpact     ImpactLevel    `json:"overall_impact"`
 	PredictedCoverage float64        `json:"predicted_coverage"`
@@ -153,9 +153,13 @@ type ImpactAnalysis struct {
 type ImpactLevel string
 
 const (
-	ImpactMinor    ImpactLevel = "minor"
+	// ImpactMinor represents minor impact level
+	ImpactMinor ImpactLevel = "minor"
+	// ImpactModerate represents moderate impact level
 	ImpactModerate ImpactLevel = "moderate"
-	ImpactMajor    ImpactLevel = "major"
+	// ImpactMajor represents major impact level
+	ImpactMajor ImpactLevel = "major"
+	// ImpactCritical represents critical impact level
 	ImpactCritical ImpactLevel = "critical"
 )
 
@@ -163,9 +167,13 @@ const (
 type RiskLevel string
 
 const (
-	RiskLow      RiskLevel = "low"
+	// RiskLow represents low risk level
+	RiskLow RiskLevel = "low"
+	// RiskModerate represents moderate risk level
 	RiskModerate RiskLevel = "moderate"
-	RiskHigh     RiskLevel = "high"
+	// RiskHigh represents high risk level
+	RiskHigh RiskLevel = "high"
+	// RiskCritical represents critical risk level
 	RiskCritical RiskLevel = "critical"
 )
 
@@ -287,10 +295,15 @@ type Recommendation struct {
 type RecommendationType string
 
 const (
-	RecommendationTesting     RecommendationType = "testing"
-	RecommendationRefactor    RecommendationType = "refactor"
-	RecommendationDocs        RecommendationType = "documentation"
-	RecommendationSecurity    RecommendationType = "security"
+	// RecommendationTesting recommends adding or improving tests
+	RecommendationTesting RecommendationType = "testing"
+	// RecommendationRefactor recommends code refactoring
+	RecommendationRefactor RecommendationType = "refactor"
+	// RecommendationDocs recommends documentation improvements
+	RecommendationDocs RecommendationType = "documentation"
+	// RecommendationSecurity recommends security improvements
+	RecommendationSecurity RecommendationType = "security"
+	// RecommendationPerformance recommends performance improvements
 	RecommendationPerformance RecommendationType = "performance"
 )
 
@@ -298,9 +311,13 @@ const (
 type Priority string
 
 const (
-	PriorityLow      Priority = "low"
-	PriorityMedium   Priority = "medium"
-	PriorityHigh     Priority = "high"
+	// PriorityLow represents low priority
+	PriorityLow Priority = "low"
+	// PriorityMedium represents medium priority
+	PriorityMedium Priority = "medium"
+	// PriorityHigh represents high priority
+	PriorityHigh Priority = "high"
+	// PriorityCritical represents critical priority
 	PriorityCritical Priority = "critical"
 )
 
@@ -318,10 +335,15 @@ type Warning struct {
 type WarningType string
 
 const (
-	WarningCoverage    WarningType = "coverage"
-	WarningComplexity  WarningType = "complexity"
-	WarningTesting     WarningType = "testing"
-	WarningSecurity    WarningType = "security"
+	// WarningCoverage indicates coverage-related warning
+	WarningCoverage WarningType = "coverage"
+	// WarningComplexity indicates complexity-related warning
+	WarningComplexity WarningType = "complexity"
+	// WarningTesting indicates testing-related warning
+	WarningTesting WarningType = "testing"
+	// WarningSecurity indicates security-related warning
+	WarningSecurity WarningType = "security"
+	// WarningPerformance indicates performance-related warning
 	WarningPerformance WarningType = "performance"
 )
 
@@ -329,9 +351,13 @@ const (
 type Severity string
 
 const (
-	SeverityInfo     Severity = "info"
-	SeverityWarning  Severity = "warning"
-	SeverityError    Severity = "error"
+	// SeverityInfo represents informational severity
+	SeverityInfo Severity = "info"
+	// SeverityWarning represents warning severity
+	SeverityWarning Severity = "warning"
+	// SeverityError represents error severity
+	SeverityError Severity = "error"
+	// SeverityCritical represents critical severity
 	SeverityCritical Severity = "critical"
 )
 
@@ -380,8 +406,8 @@ func NewPRImpactAnalyzer(config *AnalyzerConfig, predictor *prediction.CoverageP
 }
 
 // AnalyzePRImpact performs comprehensive impact analysis on a pull request
-func (a *PRImpactAnalyzer) AnalyzePRImpact(ctx context.Context, changeSet *PRChangeSet, baselineCoverage float64) (*ImpactAnalysis, error) {
-	analysis := &ImpactAnalysis{
+func (a *PRImpactAnalyzer) AnalyzePRImpact(ctx context.Context, changeSet *PRChangeSet, baselineCoverage float64) (*Analysis, error) {
+	analysis := &Analysis{
 		AnalyzedAt:       time.Now(),
 		BaselineCoverage: baselineCoverage,
 		AnalysisVersion:  "1.0.0",
@@ -441,7 +467,7 @@ func (a *PRImpactAnalyzer) AnalyzePRImpact(ctx context.Context, changeSet *PRCha
 }
 
 // analyzeFileImpacts analyzes the impact of individual file changes
-func (a *PRImpactAnalyzer) analyzeFileImpacts(ctx context.Context, changeSet *PRChangeSet, analysis *ImpactAnalysis) error {
+func (a *PRImpactAnalyzer) analyzeFileImpacts(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
 	for _, fileChange := range changeSet.FilesChanged {
 		impact := FileImpact{
 			Filename:    fileChange.Filename,
@@ -472,7 +498,7 @@ func (a *PRImpactAnalyzer) analyzeFileImpacts(ctx context.Context, changeSet *PR
 }
 
 // generatePredictions creates coverage predictions based on the changes
-func (a *PRImpactAnalyzer) generatePredictions(ctx context.Context, changeSet *PRChangeSet, analysis *ImpactAnalysis) error {
+func (a *PRImpactAnalyzer) generatePredictions(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
 	if a.predictor == nil {
 		return ErrPredictorNotAvailable
 	}
@@ -514,7 +540,7 @@ func (a *PRImpactAnalyzer) generatePredictions(ctx context.Context, changeSet *P
 }
 
 // assessRisk performs comprehensive risk assessment
-func (a *PRImpactAnalyzer) assessRisk(ctx context.Context, changeSet *PRChangeSet, analysis *ImpactAnalysis) error {
+func (a *PRImpactAnalyzer) assessRisk(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
 	riskAssessment := RiskAssessment{
 		RiskFactors:           make([]RiskFactor, 0),
 		MitigationSuggestions: make([]string, 0),
@@ -577,7 +603,7 @@ func (a *PRImpactAnalyzer) assessRisk(ctx context.Context, changeSet *PRChangeSe
 }
 
 // runQualityGates executes quality gate checks
-func (a *PRImpactAnalyzer) runQualityGates(ctx context.Context, analysis *ImpactAnalysis) error {
+func (a *PRImpactAnalyzer) runQualityGates(ctx context.Context, analysis *Analysis) error {
 	gateResults := QualityGateResults{
 		Passed:      true,
 		FailedGates: make([]string, 0),
@@ -643,7 +669,7 @@ func (a *PRImpactAnalyzer) runQualityGates(ctx context.Context, analysis *Impact
 }
 
 // analyzePatterns performs historical pattern analysis
-func (a *PRImpactAnalyzer) analyzePatterns(ctx context.Context, changeSet *PRChangeSet, analysis *ImpactAnalysis) error {
+func (a *PRImpactAnalyzer) analyzePatterns(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
 	if a.history == nil {
 		return nil // Pattern analysis not available without history
 	}
@@ -679,7 +705,7 @@ func (a *PRImpactAnalyzer) analyzePatterns(ctx context.Context, changeSet *PRCha
 }
 
 // analyzeComplexity performs code complexity analysis
-func (a *PRImpactAnalyzer) analyzeComplexity(ctx context.Context, changeSet *PRChangeSet, analysis *ImpactAnalysis) error {
+func (a *PRImpactAnalyzer) analyzeComplexity(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
 	complexityAnalysis := &ComplexityAnalysis{
 		ComplexHotspots: make([]ComplexityHotspot, 0),
 	}
@@ -720,7 +746,7 @@ func (a *PRImpactAnalyzer) analyzeComplexity(ctx context.Context, changeSet *PRC
 }
 
 // generateRecommendations creates actionable recommendations
-func (a *PRImpactAnalyzer) generateRecommendations(ctx context.Context, changeSet *PRChangeSet, analysis *ImpactAnalysis) error {
+func (a *PRImpactAnalyzer) generateRecommendations(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
 	// Coverage improvement recommendations
 	if analysis.CoverageChange < 0 {
 		analysis.Recommendations = append(analysis.Recommendations, Recommendation{
@@ -912,7 +938,7 @@ func (a *PRImpactAnalyzer) calculateOverallRiskScore(riskFactors []RiskFactor) f
 	return math.Min(1.0, totalRisk/float64(len(riskFactors)))
 }
 
-func (a *PRImpactAnalyzer) calculateOverallImpact(analysis *ImpactAnalysis) {
+func (a *PRImpactAnalyzer) calculateOverallImpact(analysis *Analysis) {
 	impactMagnitude := math.Abs(analysis.CoverageChange)
 
 	if impactMagnitude < a.config.ImpactThresholds.MinorImpact {
@@ -957,7 +983,7 @@ func (a *PRImpactAnalyzer) calculateOverallImpact(analysis *ImpactAnalysis) {
 }
 
 // GenerateImpactSummary creates a human-readable summary of the impact analysis
-func (a *PRImpactAnalyzer) GenerateImpactSummary(analysis *ImpactAnalysis) string {
+func (a *PRImpactAnalyzer) GenerateImpactSummary(analysis *Analysis) string {
 	var summary strings.Builder
 
 	// Overall impact
@@ -998,7 +1024,7 @@ func (a *PRImpactAnalyzer) GenerateImpactSummary(analysis *ImpactAnalysis) strin
 	// Top recommendations
 	if len(analysis.Recommendations) > 0 {
 		summary.WriteString("💡 **Top Recommendations**:\n")
-		for i, rec := range analysis.Recommendations[:min(3, len(analysis.Recommendations))] {
+		for i, rec := range analysis.Recommendations[:minInt(3, len(analysis.Recommendations))] {
 			priority := map[Priority]string{
 				PriorityLow: "🔵", PriorityMedium: "🟡", PriorityHigh: "🟠", PriorityCritical: "🔴",
 			}[rec.Priority]
@@ -1010,7 +1036,7 @@ func (a *PRImpactAnalyzer) GenerateImpactSummary(analysis *ImpactAnalysis) strin
 }
 
 // Helper function
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}

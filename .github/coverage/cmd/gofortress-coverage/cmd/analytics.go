@@ -30,13 +30,13 @@ var (
 	// ErrMissingPROrBranch indicates that neither PR nor branch was specified
 	ErrMissingPROrBranch = errors.New("either --pr or --branch must be specified")
 	// ErrInvalidTimeRange indicates an invalid time range was specified
-	ErrInvalidTimeRange     = errors.New("invalid time range")
+	ErrInvalidTimeRange = errors.New("invalid time range")
 	// ErrUnsupportedTimeRange indicates the specified time range is not supported
 	ErrUnsupportedTimeRange = errors.New("unsupported time range")
 	// ErrInvalidHorizon indicates an invalid prediction horizon was specified
-	ErrInvalidHorizon       = errors.New("invalid horizon")
+	ErrInvalidHorizon = errors.New("invalid horizon")
 	// ErrMissingNotifyOption indicates no notification option was specified
-	ErrMissingNotifyOption  = errors.New("specify --status to check notification system or --test to send test notification")
+	ErrMissingNotifyOption = errors.New("specify --status to check notification system or --test to send test notification")
 )
 
 var analyticsCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
@@ -399,7 +399,7 @@ func runDashboard(cmd *cobra.Command, args []string) error { //nolint:revive // 
 
 	// Output result
 	if dashboardOutput != "" {
-		if err := os.WriteFile(dashboardOutput, []byte(output), 0600); err != nil {
+		if err := os.WriteFile(dashboardOutput, []byte(output), 0o600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		cmd.Printf("✅ Dashboard generated: %s\n", dashboardOutput)
@@ -449,7 +449,7 @@ func runTrends(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 
 	// Output result
 	if trendsOutput != "" {
-		if err := os.WriteFile(trendsOutput, []byte(output), 0600); err != nil {
+		if err := os.WriteFile(trendsOutput, []byte(output), 0o600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Printf("✅ Trend analysis saved: %s\n", trendsOutput) //nolint:forbidigo // CLI output
@@ -504,7 +504,7 @@ func runPredict(cmd *cobra.Command, args []string) error { //nolint:revive // fu
 
 	// Output result
 	if predictOutput != "" {
-		if err := os.WriteFile(predictOutput, jsonBytes, 0600); err != nil {
+		if err := os.WriteFile(predictOutput, jsonBytes, 0o600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Printf("✅ Predictions saved: %s\n", predictOutput) //nolint:forbidigo // CLI output
@@ -588,10 +588,10 @@ func runImpact(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 
 	// Output result
 	if impactOutput != "" {
-		if err := os.WriteFile(impactOutput, []byte(output), 0600); err != nil {
+		if err := os.WriteFile(impactOutput, []byte(output), 0o600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
-		fmt.Printf("✅ Impact analysis saved: %s\n", impactOutput)
+		fmt.Printf("✅ Impact analysis saved: %s\n", impactOutput) //nolint:forbidigo // CLI output
 	} else {
 		fmt.Println(output) //nolint:forbidigo // CLI output
 	}
@@ -685,10 +685,10 @@ func runTeam(cmd *cobra.Command, args []string) error { //nolint:revive // funct
 
 	// Output result
 	if teamOutput != "" {
-		if err := os.WriteFile(teamOutput, []byte(output), 0600); err != nil {
+		if err := os.WriteFile(teamOutput, []byte(output), 0o600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
-		fmt.Printf("✅ Team analysis saved: %s\n", teamOutput)
+		fmt.Printf("✅ Team analysis saved: %s\n", teamOutput) //nolint:forbidigo // CLI output
 	} else {
 		fmt.Println(output) //nolint:forbidigo // CLI output
 	}
@@ -699,7 +699,7 @@ func runTeam(cmd *cobra.Command, args []string) error { //nolint:revive // funct
 func runExport(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
 
-	fmt.Printf("📤 Exporting analytics data in %s format...\n", exportFormat)
+	fmt.Printf("📤 Exporting analytics data in %s format...\n", exportFormat) //nolint:forbidigo // CLI output
 
 	// Parse time range
 	timeRange, err := parseTimeRange(exportRange)
@@ -874,7 +874,7 @@ func runCharts(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 
 	// Output result
 	if chartsOutput != "" {
-		if err := os.WriteFile(chartsOutput, []byte(svgContent), 0600); err != nil {
+		if err := os.WriteFile(chartsOutput, []byte(svgContent), 0o600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Printf("✅ Chart saved: %s\n", chartsOutput)

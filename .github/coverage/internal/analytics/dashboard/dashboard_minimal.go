@@ -101,12 +101,18 @@ type TeamAnalytics struct {
 type TimePreset string
 
 const (
+	// PresetLast24Hours represents last 24 hours time range
 	PresetLast24Hours TimePreset = "24h"
-	PresetLast7Days   TimePreset = "7d"
-	PresetLast30Days  TimePreset = "30d"
-	PresetLast90Days  TimePreset = "90d"
-	PresetLastYear    TimePreset = "1y"
-	PresetCustom      TimePreset = "custom"
+	// PresetLast7Days represents last 7 days time range
+	PresetLast7Days TimePreset = "7d"
+	// PresetLast30Days represents last 30 days time range
+	PresetLast30Days TimePreset = "30d"
+	// PresetLast90Days represents last 90 days time range
+	PresetLast90Days TimePreset = "90d"
+	// PresetLastYear represents last year time range
+	PresetLastYear TimePreset = "1y"
+	// PresetCustom represents custom time range
+	PresetCustom TimePreset = "custom"
 )
 
 // CurrentMetrics represents current metrics
@@ -118,8 +124,8 @@ type CurrentMetrics struct {
 	LastUpdated    time.Time
 }
 
-// DashboardRequest represents a request for dashboard data
-type DashboardRequest struct {
+// Request represents a request for dashboard data
+type Request struct {
 	TimeRange          TimeRange
 	IncludePredictions bool
 	IncludeTeamData    bool
@@ -143,7 +149,7 @@ func (d *AnalyticsDashboard) SetComponents(chartGenerator interface{}, historyAn
 }
 
 // GenerateDashboard generates dashboard data
-func (d *AnalyticsDashboard) GenerateDashboard(ctx context.Context, request *DashboardRequest) (*DashboardData, error) {
+func (d *AnalyticsDashboard) GenerateDashboard(ctx context.Context, request *Request) (*DashboardData, error) {
 	data := &DashboardData{}
 	err := d.generateCurrentMetrics(ctx, data)
 	return data, err

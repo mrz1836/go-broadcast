@@ -24,9 +24,9 @@ var (
 	// ErrEnhancedGitHubOwnerRequired indicates repository owner was not provided
 	ErrEnhancedGitHubOwnerRequired = errors.New("GitHub repository owner is required")
 	// ErrEnhancedGitHubRepoRequired indicates repository name was not provided
-	ErrEnhancedGitHubRepoRequired  = errors.New("GitHub repository name is required")
+	ErrEnhancedGitHubRepoRequired = errors.New("GitHub repository name is required")
 	// ErrEnhancedPRNumberRequired indicates PR number was not provided
-	ErrEnhancedPRNumberRequired    = errors.New("pull request number is required")
+	ErrEnhancedPRNumberRequired = errors.New("pull request number is required")
 )
 
 var commentEnhancedCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
@@ -121,7 +121,7 @@ This enhanced version includes:
 		}
 
 		// Get trend information if history is enabled
-		var trend = "stable"
+		trend := "stable"
 		if cfg.History.Enabled {
 			historyConfig := &history.Config{
 				StoragePath:    cfg.History.StoragePath,
@@ -284,7 +284,7 @@ This enhanced version includes:
 			fmt.Printf("  - Merge Blocking: %v\n", blockOnFailure)
 			fmt.Printf("  - Anti-spam: %v\n", antiSpam)
 			fmt.Printf("=====================================\n")
-			fmt.Println(commentPreview)
+			fmt.Println(commentPreview) //nolint:forbidigo // CLI output
 			fmt.Printf("=====================================\n")
 
 			return nil

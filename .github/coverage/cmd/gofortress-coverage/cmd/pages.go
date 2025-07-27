@@ -102,7 +102,7 @@ func setupGitHubPages(_ context.Context, branch string, _ bool, verbose bool) er
 	// 4. Add initial dashboard files
 	// 5. Commit and push changes
 
-	fmt.Println("📁 Creating directory structure...")
+	fmt.Println("📁 Creating directory structure...") //nolint:forbidigo // CLI output
 
 	// Create the basic directory structure
 	dirs := []string{
@@ -124,7 +124,7 @@ func setupGitHubPages(_ context.Context, branch string, _ bool, verbose bool) er
 		// In real implementation, this would create dirs in gh-pages branch
 	}
 
-	fmt.Println("🏠 Creating dashboard template...")
+	fmt.Println("🏠 Creating dashboard template...") //nolint:forbidigo // CLI output
 
 	// TODO: Generate initial dashboard file
 	dashboardContent := generateInitialDashboard()

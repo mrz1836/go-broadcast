@@ -36,7 +36,7 @@ func TestNewAnalyticsDashboard(t *testing.T) {
 func TestGenerateDashboard(t *testing.T) {
 	dashboard := NewAnalyticsDashboard(nil)
 
-	request := &DashboardRequest{
+	request := &Request{
 		TimeRange: TimeRange{
 			Start: time.Now().Add(-24 * time.Hour),
 			End:   time.Now(),
@@ -111,7 +111,7 @@ func TestSetComponents(t *testing.T) { //nolint:revive // function naming
 	// If we get here without panic, the test passes
 }
 
-func TestTimePresets(t *testing.T) { //nolint:revive // function naming
+func TestTimePresets(t *testing.T) {
 	presets := []TimePreset{
 		PresetLast24Hours,
 		PresetLast7Days,
@@ -130,7 +130,7 @@ func TestTimePresets(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestDashboardThemes(t *testing.T) { //nolint:revive // function naming
+func TestDashboardThemes(t *testing.T) {
 	themes := []DashboardTheme{
 		ThemeAuto,
 		ThemeLight,

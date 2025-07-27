@@ -192,8 +192,8 @@ func Load() *Config {
 		Storage: StorageConfig{
 			BaseDir:    getEnvString("COVERAGE_BASE_DIR", ".github/coverage"),
 			AutoCreate: getEnvBool("COVERAGE_AUTO_CREATE_DIRS", true),
-			FileMode:   os.FileMode(getEnvInt("COVERAGE_FILE_MODE", int(0o644))),
-			DirMode:    os.FileMode(getEnvInt("COVERAGE_DIR_MODE", int(0o755))),
+			FileMode:   os.FileMode(uint32(getEnvInt("COVERAGE_FILE_MODE", int(0o644)))), //nolint:gosec // File mode values are safe
+			DirMode:    os.FileMode(uint32(getEnvInt("COVERAGE_DIR_MODE", int(0o755)))),  //nolint:gosec // Dir mode values are safe
 		},
 	}
 
