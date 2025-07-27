@@ -150,7 +150,7 @@ func TestPoolQueueFull(t *testing.T) {
 	// Submit tasks that take time
 	slowTask := &mockTask{
 		name:      "slow-task",
-		sleepTime: 100 * time.Millisecond,
+		sleepTime: 500 * time.Millisecond,
 	}
 
 	// Fill the queue
