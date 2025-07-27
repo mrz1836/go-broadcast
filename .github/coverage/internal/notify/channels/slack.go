@@ -5,11 +5,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/types"
+)
+
+// Static error definitions
+var (
+	ErrSlackAPIError         = errors.New("Slack API returned error status")
+	ErrSlackConfigNil        = errors.New("Slack config is nil")
+	ErrSlackWebhookRequired  = errors.New("Slack webhook URL is required")
+	ErrSlackWebhookInvalid   = errors.New("invalid Slack webhook URL format")
 )
 
 // SlackChannel implements Slack webhook notifications
@@ -134,7 +143,7 @@ func (s *SlackChannel) Send(ctx context.Context, notification *types.Notificatio
 		result.Success = true
 		result.MessageID = fmt.Sprintf("slack_%d", time.Now().Unix())
 	} else {
-		result.Error = fmt.Errorf("Slack API returned status %d", resp.StatusCode)
+		result.Error = fmt.Errorf("%w: %d", ErrSlackAPIError, resp.StatusCode)
 	}
 
 	return result, nil
@@ -143,16 +152,16 @@ func (s *SlackChannel) Send(ctx context.Context, notification *types.Notificatio
 // ValidateConfig validates the Slack channel configuration
 func (s *SlackChannel) ValidateConfig() error {
 	if s.config == nil {
-		return fmt.Errorf("Slack config is nil")
+		return ErrSlackConfigNil
 	}
 
 	if s.config.WebhookURL == "" {
-		return fmt.Errorf("Slack webhook URL is required")
+		return ErrSlackWebhookRequired
 	}
 
 	// Validate webhook URL format
 	if !isValidSlackWebhookURL(s.config.WebhookURL) {
-		return fmt.Errorf("invalid Slack webhook URL format")
+		return ErrSlackWebhookInvalid
 	}
 
 	return nil

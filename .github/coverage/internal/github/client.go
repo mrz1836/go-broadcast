@@ -5,10 +5,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
+)
+
+// Static error definitions
+var (
+	ErrGitHubAPIError = errors.New("GitHub API error")
 )
 
 // Client handles GitHub API operations for coverage reporting
@@ -132,7 +138,7 @@ func (c *Client) CreateStatus(ctx context.Context, owner, repo, sha string, stat
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("GitHub API error: %d %s", resp.StatusCode, string(body))
+		return fmt.Errorf("%w: %d %s", ErrGitHubAPIError, resp.StatusCode, string(body))
 	}
 
 	return nil
@@ -158,7 +164,7 @@ func (c *Client) GetPullRequest(ctx context.Context, owner, repo string, pr int)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("GitHub API error: %d %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("%w: %d %s", ErrGitHubAPIError, resp.StatusCode, string(body))
 	}
 
 	var pullRequest PullRequest
@@ -190,7 +196,7 @@ func (c *Client) findCoverageComment(ctx context.Context, owner, repo string, pr
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("GitHub API error: %d %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("%w: %d %s", ErrGitHubAPIError, resp.StatusCode, string(body))
 	}
 
 	var comments []Comment
@@ -234,7 +240,7 @@ func (c *Client) createComment(ctx context.Context, owner, repo string, pr int, 
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("GitHub API error: %d %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("%w: %d %s", ErrGitHubAPIError, resp.StatusCode, string(body))
 	}
 
 	var comment Comment
@@ -271,7 +277,7 @@ func (c *Client) updateComment(ctx context.Context, owner, repo string, commentI
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("GitHub API error: %d %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("%w: %d %s", ErrGitHubAPIError, resp.StatusCode, string(body))
 	}
 
 	var comment Comment

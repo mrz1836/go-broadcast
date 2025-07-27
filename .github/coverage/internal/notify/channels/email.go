@@ -4,6 +4,7 @@ package channels
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/smtp"
@@ -11,6 +12,17 @@ import (
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/types"
+)
+
+// Static error definitions
+var (
+	ErrEmailConfigNil        = errors.New("Email config is nil")
+	ErrSMTPHostRequired      = errors.New("SMTP host is required")
+	ErrInvalidSMTPPort       = errors.New("invalid SMTP port")
+	ErrFromEmailRequired     = errors.New("from email is required")
+	ErrRecipientRequired     = errors.New("at least one recipient email is required")
+	ErrInvalidFromEmail      = errors.New("invalid from email")
+	ErrInvalidRecipientEmail = errors.New("invalid recipient email")
 )
 
 // EmailChannel implements SMTP email notifications
@@ -113,33 +125,33 @@ func (e *EmailChannel) Send(ctx context.Context, notification *types.Notificatio
 // ValidateConfig validates the Email channel configuration
 func (e *EmailChannel) ValidateConfig() error {
 	if e.config == nil {
-		return fmt.Errorf("Email config is nil")
+		return ErrEmailConfigNil
 	}
 
 	if e.config.SMTPHost == "" {
-		return fmt.Errorf("SMTP host is required")
+		return ErrSMTPHostRequired
 	}
 
 	if e.config.SMTPPort <= 0 || e.config.SMTPPort > 65535 {
-		return fmt.Errorf("invalid SMTP port: %d", e.config.SMTPPort)
+		return fmt.Errorf("%w: %d", ErrInvalidSMTPPort, e.config.SMTPPort)
 	}
 
 	if e.config.FromEmail == "" {
-		return fmt.Errorf("from email is required")
+		return ErrFromEmailRequired
 	}
 
 	if len(e.config.ToEmails) == 0 {
-		return fmt.Errorf("at least one recipient email is required")
+		return ErrRecipientRequired
 	}
 
 	// Validate email addresses
 	if !isValidEmail(e.config.FromEmail) {
-		return fmt.Errorf("invalid from email: %s", e.config.FromEmail)
+		return fmt.Errorf("%w: %s", ErrInvalidFromEmail, e.config.FromEmail)
 	}
 
 	for _, addr := range e.config.ToEmails {
 		if !isValidEmail(addr) {
-			return fmt.Errorf("invalid recipient email: %s", addr)
+			return fmt.Errorf("%w: %s", ErrInvalidRecipientEmail, addr)
 		}
 	}
 

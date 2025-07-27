@@ -244,7 +244,7 @@ func (m *PRCommentManager) findExistingCoverageComments(ctx context.Context, own
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("GitHub API error: %d", resp.StatusCode)
+		return nil, fmt.Errorf("%w: %d", ErrGitHubAPIError, resp.StatusCode)
 	}
 
 	var allComments []Comment

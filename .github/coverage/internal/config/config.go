@@ -17,6 +17,10 @@ var (
 	ErrMissingGitHubToken       = errors.New("GitHub token is required for GitHub integration")
 	ErrMissingGitHubOwner       = errors.New("GitHub repository owner is required")
 	ErrMissingGitHubRepo        = errors.New("GitHub repository name is required")
+	ErrInvalidBadgeStyle        = errors.New("invalid badge style")
+	ErrInvalidReportTheme       = errors.New("invalid report theme")
+	ErrInvalidRetentionDays     = errors.New("history retention days must be positive")
+	ErrInvalidMaxEntries        = errors.New("history max entries must be positive")
 )
 
 // Config holds the main configuration for the coverage system
@@ -223,22 +227,22 @@ func (c *Config) Validate() error {
 	// Validate badge settings
 	validStyles := []string{"flat", "flat-square", "for-the-badge"}
 	if !contains(validStyles, c.Badge.Style) {
-		return fmt.Errorf("invalid badge style: %s, must be one of: %v", c.Badge.Style, validStyles)
+		return fmt.Errorf("%w: %s, must be one of: %v", ErrInvalidBadgeStyle, c.Badge.Style, validStyles)
 	}
 
 	// Validate report settings
 	validThemes := []string{"github-dark", "light", "github-light"}
 	if !contains(validThemes, c.Report.Theme) {
-		return fmt.Errorf("invalid report theme: %s, must be one of: %v", c.Report.Theme, validThemes)
+		return fmt.Errorf("%w: %s, must be one of: %v", ErrInvalidReportTheme, c.Report.Theme, validThemes)
 	}
 
 	// Validate history settings
 	if c.History.Enabled {
 		if c.History.RetentionDays <= 0 {
-			return fmt.Errorf("history retention days must be positive, got: %d", c.History.RetentionDays)
+			return fmt.Errorf("%w: got %d", ErrInvalidRetentionDays, c.History.RetentionDays)
 		}
 		if c.History.MaxEntries <= 0 {
-			return fmt.Errorf("history max entries must be positive, got: %d", c.History.MaxEntries)
+			return fmt.Errorf("%w: got %d", ErrInvalidMaxEntries, c.History.MaxEntries)
 		}
 	}
 

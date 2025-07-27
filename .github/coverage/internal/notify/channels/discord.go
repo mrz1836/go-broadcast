@@ -5,12 +5,21 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/types"
+)
+
+// Static error definitions
+var (
+	ErrDiscordAPIError         = errors.New("Discord API returned error status")
+	ErrDiscordConfigNil        = errors.New("Discord config is nil")
+	ErrDiscordWebhookRequired  = errors.New("Discord webhook URL is required")
+	ErrDiscordWebhookInvalid   = errors.New("invalid Discord webhook URL format")
 )
 
 // DiscordChannel implements Discord webhook notifications
@@ -129,7 +138,7 @@ func (d *DiscordChannel) Send(ctx context.Context, notification *types.Notificat
 		result.Success = true
 		result.MessageID = fmt.Sprintf("discord_%d", time.Now().Unix())
 	} else {
-		result.Error = fmt.Errorf("Discord API returned status %d", resp.StatusCode)
+		result.Error = fmt.Errorf("%w: %d", ErrDiscordAPIError, resp.StatusCode)
 	}
 
 	return result, nil
@@ -138,16 +147,16 @@ func (d *DiscordChannel) Send(ctx context.Context, notification *types.Notificat
 // ValidateConfig validates the Discord channel configuration
 func (d *DiscordChannel) ValidateConfig() error {
 	if d.config == nil {
-		return fmt.Errorf("Discord config is nil")
+		return ErrDiscordConfigNil
 	}
 
 	if d.config.WebhookURL == "" {
-		return fmt.Errorf("Discord webhook URL is required")
+		return ErrDiscordWebhookRequired
 	}
 
 	// Validate webhook URL format
 	if !isValidDiscordWebhookURL(d.config.WebhookURL) {
-		return fmt.Errorf("invalid Discord webhook URL format")
+		return ErrDiscordWebhookInvalid
 	}
 
 	return nil

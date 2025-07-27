@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,6 +13,15 @@ import (
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/types"
+)
+
+// Static error definitions
+var (
+	ErrWebhookConfigNil      = errors.New("webhook config is nil")
+	ErrWebhookURLRequired    = errors.New("webhook URL is required")
+	ErrWebhookURLInvalid     = errors.New("invalid webhook URL format")
+	ErrUnsupportedHTTPMethod = errors.New("unsupported HTTP method")
+	ErrWebhookStatusError    = errors.New("webhook endpoint returned error status")
 )
 
 // WebhookChannel implements generic webhook notifications
@@ -159,16 +169,16 @@ func (w *WebhookChannel) Send(ctx context.Context, notification *types.Notificat
 // ValidateConfig validates the webhook channel configuration
 func (w *WebhookChannel) ValidateConfig() error {
 	if w.config == nil {
-		return fmt.Errorf("webhook config is nil")
+		return ErrWebhookConfigNil
 	}
 
 	if w.config.URL == "" {
-		return fmt.Errorf("webhook URL is required")
+		return ErrWebhookURLRequired
 	}
 
 	// Validate URL format
 	if !isValidWebhookURL(w.config.URL) {
-		return fmt.Errorf("invalid webhook URL format")
+		return ErrWebhookURLInvalid
 	}
 
 	// Validate HTTP method
@@ -177,7 +187,7 @@ func (w *WebhookChannel) ValidateConfig() error {
 	} else {
 		method := strings.ToUpper(w.config.Method)
 		if method != "POST" && method != "PUT" && method != "PATCH" {
-			return fmt.Errorf("unsupported HTTP method: %s", w.config.Method)
+			return fmt.Errorf("%w: %s", ErrUnsupportedHTTPMethod, w.config.Method)
 		}
 	}
 
@@ -368,7 +378,7 @@ func (w *WebhookChannel) sendWebhookRequest(ctx context.Context, payload []byte)
 
 	// Check response status
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("webhook endpoint returned status %d", resp.StatusCode)
+		return fmt.Errorf("%w: %d", ErrWebhookStatusError, resp.StatusCode)
 	}
 
 	return nil

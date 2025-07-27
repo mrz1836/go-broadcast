@@ -5,11 +5,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/types"
+)
+
+// Static error definitions
+var (
+	ErrTeamsAPIError         = errors.New("Teams API returned error status")
+	ErrTeamsConfigNil        = errors.New("Teams config is nil")
+	ErrTeamsWebhookRequired  = errors.New("Teams webhook URL is required")
+	ErrTeamsWebhookInvalid   = errors.New("invalid Teams webhook URL format")
 )
 
 // TeamsChannel implements Microsoft Teams webhook notifications
@@ -118,7 +127,7 @@ func (t *TeamsChannel) Send(ctx context.Context, notification *types.Notificatio
 		result.Success = true
 		result.MessageID = fmt.Sprintf("teams_%d", time.Now().Unix())
 	} else {
-		result.Error = fmt.Errorf("Teams API returned status %d", resp.StatusCode)
+		result.Error = fmt.Errorf("%w: %d", ErrTeamsAPIError, resp.StatusCode)
 	}
 
 	return result, nil
@@ -127,16 +136,16 @@ func (t *TeamsChannel) Send(ctx context.Context, notification *types.Notificatio
 // ValidateConfig validates the Teams channel configuration
 func (t *TeamsChannel) ValidateConfig() error {
 	if t.config == nil {
-		return fmt.Errorf("Teams config is nil")
+		return ErrTeamsConfigNil
 	}
 
 	if t.config.WebhookURL == "" {
-		return fmt.Errorf("Teams webhook URL is required")
+		return ErrTeamsWebhookRequired
 	}
 
 	// Validate webhook URL format
 	if !isValidTeamsWebhookURL(t.config.WebhookURL) {
-		return fmt.Errorf("invalid Teams webhook URL format")
+		return ErrTeamsWebhookInvalid
 	}
 
 	return nil

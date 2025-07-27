@@ -4,6 +4,7 @@ package history
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,12 @@ import (
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
+)
+
+// Static error definitions
+var (
+	ErrNoEntriesFound       = errors.New("no entries found for branch")
+	ErrUnsupportedDataType  = errors.New("unsupported data type")
 )
 
 // Tracker manages coverage history and trend analysis
@@ -255,7 +262,7 @@ func (t *Tracker) GetLatestEntry(ctx context.Context, branch string) (*Entry, er
 	}
 
 	if len(entries) == 0 {
-		return nil, fmt.Errorf("no entries found for branch %s", branch)
+		return nil, fmt.Errorf("%w: %s", ErrNoEntriesFound, branch)
 	}
 
 	return &entries[0], nil
@@ -345,7 +352,7 @@ func (t *Tracker) Add(branch, commit string, data interface{}) error {
 		return t.Record(ctx, coverage, WithBranch(branch), WithCommit(commit, ""))
 	}
 
-	return fmt.Errorf("unsupported data type: %T", data)
+	return fmt.Errorf("%w: %T", ErrUnsupportedDataType, data)
 }
 
 // saveEntry saves a single entry to storage
