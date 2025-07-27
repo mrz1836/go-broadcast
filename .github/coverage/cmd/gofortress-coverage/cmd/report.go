@@ -127,7 +127,7 @@ var reportCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	},
 }
 
-func init() { //nolint:revive // function naming
+func init() { //nolint:revive,gochecknoinits // CLI command initialization
 	reportCmd.Flags().StringP("input", "i", "", "Input coverage file")
 	reportCmd.Flags().StringP("output", "o", "", "Output HTML file")
 	reportCmd.Flags().StringP("theme", "t", "", "Report theme (github-dark, light, github-light)")

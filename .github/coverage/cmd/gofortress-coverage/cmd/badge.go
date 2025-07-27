@@ -150,7 +150,7 @@ var badgeCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	},
 }
 
-func init() { //nolint:revive // function naming
+func init() { //nolint:revive,gochecknoinits // CLI command initialization
 	badgeCmd.Flags().Float64P("coverage", "c", 0, "Coverage percentage (0-100)")
 	badgeCmd.Flags().StringP("style", "s", "", "Badge style (flat, flat-square, for-the-badge)")
 	badgeCmd.Flags().StringP("output", "o", "", "Output SVG file")

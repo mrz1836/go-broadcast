@@ -351,7 +351,7 @@ func (m *PRCommentManager) generateEnhancedComment(comparison *CoverageCompariso
 		PRNumber:       prNumber,
 		HeadSHA:        headSHA,
 	}
-	metadataJSON, _ := json.Marshal(metadata)
+	metadataJSON, _ := json.Marshal(metadata) //nolint:errchkjson // Metadata marshaling is optional
 	comment.WriteString(string(metadataJSON))
 	comment.WriteString(" -->\n\n")
 

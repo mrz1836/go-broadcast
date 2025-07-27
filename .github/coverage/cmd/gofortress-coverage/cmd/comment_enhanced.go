@@ -574,7 +574,7 @@ func determineBadgeTrend(direction string) badge.TrendDirection {
 	}
 }
 
-func init() { //nolint:revive // function naming
+func init() { //nolint:revive,gochecknoinits // CLI command initialization
 	commentEnhancedCmd.Flags().IntP("pr", "p", 0, "Pull request number (defaults to GITHUB_PR_NUMBER)")
 	commentEnhancedCmd.Flags().StringP("coverage", "c", "", "Coverage data file")
 	commentEnhancedCmd.Flags().String("base-coverage", "", "Base coverage data file for comparison")

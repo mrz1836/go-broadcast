@@ -14,6 +14,13 @@ import (
 	"time"
 )
 
+// Coverage change direction constants
+const (
+	DirectionImproved = "improved"
+	DirectionDegraded = "degraded"
+	DirectionStable   = "stable"
+)
+
 // ComparisonEngine handles coverage comparison between base and PR branches
 type ComparisonEngine struct {
 	config *ComparisonConfig
@@ -114,7 +121,7 @@ type OverallChangeAnalysis struct {
 	PercentageChange       float64 `json:"percentage_change"`
 	StatementChange        int     `json:"statement_change"`
 	CoveredStatementChange int     `json:"covered_statement_change"`
-	Direction              string  `json:"direction"` // "improved", "degraded", "stable"
+	Direction              string  `json:"direction"` // DirectionImproved, DirectionDegraded, DirectionStable
 	Magnitude              string  `json:"magnitude"` // "significant", "moderate", "minor", "negligible"
 	IsSignificant          bool    `json:"is_significant"`
 }
@@ -150,7 +157,7 @@ type PackageChangeAnalysis struct {
 
 // TrendAnalysis represents trend analysis based on historical data
 type TrendAnalysis struct {
-	Direction         string            `json:"direction"`  // "upward", "downward", "stable", "volatile"
+	Direction         string            `json:"direction"`  // "upward", "downward", DirectionStable, "volatile"
 	Momentum          string            `json:"momentum"`   // "accelerating", "steady", "decelerating"
 	Volatility        float64           `json:"volatility"` // Standard deviation of recent changes
 	Prediction        Prediction        `json:"prediction"` // Predicted future trend
@@ -268,11 +275,11 @@ func (e *ComparisonEngine) analyzeOverallChange(base, pr *CoverageSnapshot) Over
 	statementChange := pr.OverallCoverage.TotalStatements - base.OverallCoverage.TotalStatements
 	coveredChange := pr.OverallCoverage.CoveredStatements - base.OverallCoverage.CoveredStatements
 
-	direction := "stable"
+	direction := DirectionStable
 	if percentageChange > 0.1 {
-		direction = "improved"
+		direction = DirectionImproved
 	} else if percentageChange < -0.1 {
-		direction = "degraded"
+		direction = DirectionDegraded
 	}
 
 	magnitude := e.calculateMagnitude(math.Abs(percentageChange))
@@ -351,11 +358,11 @@ func (e *ComparisonEngine) analyzeFileChanges(base, pr *CoverageSnapshot) []File
 			change.LinesRemoved = prMetrics.LinesRemoved
 
 			if change.PercentageChange > 0.1 {
-				change.Direction = "improved"
+				change.Direction = DirectionImproved
 			} else if change.PercentageChange < -0.1 {
-				change.Direction = "degraded"
+				change.Direction = DirectionDegraded
 			} else {
-				change.Direction = "stable"
+				change.Direction = DirectionStable
 			}
 		}
 
@@ -418,11 +425,11 @@ func (e *ComparisonEngine) analyzePackageChanges(base, pr *CoverageSnapshot) []P
 
 		percentageChange := prMetrics.Percentage - baseMetrics.Percentage
 
-		direction := "stable"
+		direction := DirectionStable
 		if percentageChange > 0.1 {
-			direction = "improved"
+			direction = DirectionImproved
 		} else if percentageChange < -0.1 {
-			direction = "degraded"
+			direction = DirectionDegraded
 		}
 
 		isSignificant := math.Abs(percentageChange) >= e.config.SignificantPercentageChange
@@ -458,7 +465,7 @@ func (e *ComparisonEngine) analyzeTrends(base, pr *CoverageSnapshot) TrendAnalys
 
 	percentageChange := pr.OverallCoverage.Percentage - base.OverallCoverage.Percentage
 
-	direction := "stable"
+	direction := DirectionStable
 	momentum := "steady"
 
 	if percentageChange > 1.0 {
@@ -576,7 +583,7 @@ func (e *ComparisonEngine) generateRecommendations(result *ComparisonResult) []R
 	}
 
 	// Trend recommendations
-	if result.OverallChange.Direction == "degraded" && result.OverallChange.IsSignificant {
+	if result.OverallChange.Direction == DirectionDegraded && result.OverallChange.IsSignificant {
 		recommendations = append(recommendations, Recommendation{
 			Type:        "process",
 			Priority:    "high",
@@ -606,9 +613,9 @@ func (e *ComparisonEngine) generateSummary(result *ComparisonResult) ComparisonS
 	overallImpact := "neutral"
 	if result.OverallChange.IsSignificant {
 		switch result.OverallChange.Direction {
-		case "improved":
+		case DirectionImproved:
 			overallImpact = "positive"
-		case "degraded":
+		case DirectionDegraded:
 			overallImpact = "negative"
 		}
 	}
@@ -636,7 +643,7 @@ func (e *ComparisonEngine) generateSummary(result *ComparisonResult) ComparisonS
 		criticalIssues = append(criticalIssues, fmt.Sprintf("Coverage %.1f%% below acceptable threshold", coverage))
 	}
 
-	if result.OverallChange.Direction == "degraded" && result.OverallChange.IsSignificant {
+	if result.OverallChange.Direction == DirectionDegraded && result.OverallChange.IsSignificant {
 		criticalIssues = append(criticalIssues, "Significant coverage regression detected")
 	}
 
@@ -645,7 +652,7 @@ func (e *ComparisonEngine) generateSummary(result *ComparisonResult) ComparisonS
 		highlights = append(highlights, "Excellent overall coverage maintained")
 	}
 
-	if result.OverallChange.Direction == "improved" && result.OverallChange.IsSignificant {
+	if result.OverallChange.Direction == DirectionImproved && result.OverallChange.IsSignificant {
 		highlights = append(highlights, "Significant coverage improvement achieved")
 	}
 
@@ -720,7 +727,7 @@ func (e *ComparisonEngine) calculateMagnitude(change float64) string {
 }
 
 func (e *ComparisonEngine) calculateRisk(change FileChangeAnalysis) string {
-	if change.PRPercentage < 50 && change.Direction == "degraded" {
+	if change.PRPercentage < 50 && change.Direction == DirectionDegraded {
 		return "high"
 	} else if change.PRPercentage < 70 || math.Abs(change.PercentageChange) > 10 {
 		return "medium"
@@ -746,13 +753,13 @@ func (e *ComparisonEngine) calculateCoverageGrade(coverage float64) string {
 }
 
 func (e *ComparisonEngine) calculateTrendGrade(change *OverallChangeAnalysis) string {
-	if change.Direction == "improved" && change.IsSignificant {
+	if change.Direction == DirectionImproved && change.IsSignificant {
 		return "A"
-	} else if change.Direction == "improved" {
+	} else if change.Direction == DirectionImproved {
 		return "B"
-	} else if change.Direction == "stable" {
+	} else if change.Direction == DirectionStable {
 		return "B"
-	} else if change.Direction == "degraded" && !change.IsSignificant {
+	} else if change.Direction == DirectionDegraded && !change.IsSignificant {
 		return "C"
 	}
 	return "D"
@@ -775,7 +782,7 @@ func (e *ComparisonEngine) calculateRiskLevel(coverage float64, change *OverallC
 		riskScore += 1
 	}
 
-	if change.Direction == "degraded" && change.IsSignificant {
+	if change.Direction == DirectionDegraded && change.IsSignificant {
 		riskScore += 2
 	}
 
@@ -806,9 +813,9 @@ func (e *ComparisonEngine) calculateQualityScore(coverage float64, change *Overa
 	score := coverage // Start with coverage percentage
 
 	// Adjust based on trend
-	if change.Direction == "improved" && change.IsSignificant {
+	if change.Direction == DirectionImproved && change.IsSignificant {
 		score += 5
-	} else if change.Direction == "degraded" && change.IsSignificant {
+	} else if change.Direction == DirectionDegraded && change.IsSignificant {
 		score -= 10
 	}
 
@@ -831,7 +838,7 @@ func (e *ComparisonEngine) identifyStrengthsAndWeaknesses(coverage float64, chan
 		strengths = append(strengths, "Excellent overall coverage")
 	}
 
-	if change.Direction == "improved" {
+	if change.Direction == DirectionImproved {
 		strengths = append(strengths, "Coverage trend is improving")
 	}
 
@@ -851,7 +858,7 @@ func (e *ComparisonEngine) identifyStrengthsAndWeaknesses(coverage float64, chan
 		weaknesses = append(weaknesses, "Overall coverage below acceptable threshold")
 	}
 
-	if change.Direction == "degraded" && change.IsSignificant {
+	if change.Direction == DirectionDegraded && change.IsSignificant {
 		weaknesses = append(weaknesses, "Significant coverage regression")
 	}
 

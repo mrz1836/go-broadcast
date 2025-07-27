@@ -20,9 +20,9 @@ var (
 	// ErrGitHubOwnerRequired indicates that a GitHub repository owner is required but not provided
 	ErrGitHubOwnerRequired = errors.New("GitHub repository owner is required")
 	// ErrGitHubRepoRequired indicates that a GitHub repository name is required but not provided
-	ErrGitHubRepoRequired  = errors.New("GitHub repository name is required")
+	ErrGitHubRepoRequired = errors.New("GitHub repository name is required")
 	// ErrPRNumberRequired indicates that a pull request number is required but not provided
-	ErrPRNumberRequired    = errors.New("pull request number is required")
+	ErrPRNumberRequired = errors.New("pull request number is required")
 )
 
 var commentCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
@@ -180,7 +180,7 @@ var commentCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	},
 }
 
-func init() { //nolint:revive // function naming
+func init() { //nolint:revive,gochecknoinits // CLI command initialization
 	commentCmd.Flags().IntP("pr", "p", 0, "Pull request number (defaults to GITHUB_PR_NUMBER)")
 	commentCmd.Flags().StringP("coverage", "c", "", "Coverage data file")
 	commentCmd.Flags().String("badge-url", "", "Badge URL (auto-generated if not provided)")

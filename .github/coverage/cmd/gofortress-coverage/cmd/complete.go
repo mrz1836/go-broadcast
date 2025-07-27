@@ -320,7 +320,7 @@ func getStatusIcon(coverage, threshold float64) string {
 	}
 }
 
-func init() { //nolint:revive // function naming
+func init() { //nolint:revive,gochecknoinits // CLI command initialization
 	completeCmd.Flags().StringP("input", "i", "", "Input coverage file")
 	completeCmd.Flags().StringP("output", "o", "", "Output directory")
 	completeCmd.Flags().Bool("skip-history", false, "Skip history tracking")

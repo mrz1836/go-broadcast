@@ -24,16 +24,16 @@ import (
 
 var (
 	// ErrUnsupportedFormat indicates an unsupported output format was requested
-	ErrUnsupportedFormat        = errors.New("unsupported format")
+	ErrUnsupportedFormat = errors.New("unsupported format")
 	// ErrUnsupportedChartType indicates an unsupported chart type was requested
-	ErrUnsupportedChartType     = errors.New("unsupported chart type")
+	ErrUnsupportedChartType = errors.New("unsupported chart type")
 	// ErrMissingPROrBranch indicates that neither PR nor branch was specified
-	ErrMissingPROrBranch        = errors.New("either --pr or --branch must be specified")
+	ErrMissingPROrBranch = errors.New("either --pr or --branch must be specified")
 	// ErrInvalidTimeRange indicates an invalid time range was specified
-	ErrInvalidTimeRange         = errors.New("invalid time range")
-	ErrUnsupportedTimeRange     = errors.New("unsupported time range")
-	ErrInvalidHorizon           = errors.New("invalid horizon")
-	ErrMissingNotifyOption      = errors.New("specify --status to check notification system or --test to send test notification")
+	ErrInvalidTimeRange     = errors.New("invalid time range")
+	ErrUnsupportedTimeRange = errors.New("unsupported time range")
+	ErrInvalidHorizon       = errors.New("invalid horizon")
+	ErrMissingNotifyOption  = errors.New("specify --status to check notification system or --test to send test notification")
 )
 
 var analyticsCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
@@ -258,7 +258,7 @@ var (
 	notifyStatus  bool
 )
 
-func init() { //nolint:revive // function naming
+func init() { //nolint:revive,gochecknoinits // CLI command initialization
 	// Add dashboard command flags
 	dashboardCmd.Flags().StringVarP(&dashboardOutput, "output", "o", "", "Output file path (default: stdout)")
 	dashboardCmd.Flags().StringVarP(&dashboardFormat, "format", "f", "html", "Output format (html, json)")

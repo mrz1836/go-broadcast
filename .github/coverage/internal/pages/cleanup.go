@@ -427,7 +427,7 @@ func (cm *CleanupManager) isDirExpired(dirPath string, cutoffTime time.Time) boo
 
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil // Skip errors
+			return err
 		}
 		if info.ModTime().After(mostRecent) {
 			mostRecent = info.ModTime()
@@ -452,9 +452,9 @@ func (cm *CleanupManager) getFileSize(filePath string) int64 {
 func (cm *CleanupManager) getDirSize(dirPath string) int64 {
 	var totalSize int64
 
-	filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 		if !info.IsDir() {
 			totalSize += info.Size()
@@ -476,9 +476,9 @@ func (cm *CleanupManager) getFileModTime(filePath string) time.Time {
 func (cm *CleanupManager) getDirModTime(dirPath string) time.Time {
 	var mostRecent time.Time
 
-	filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 		if info.ModTime().After(mostRecent) {
 			mostRecent = info.ModTime()

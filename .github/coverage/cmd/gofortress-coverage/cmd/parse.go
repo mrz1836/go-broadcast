@@ -126,7 +126,7 @@ var parseCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	},
 }
 
-func init() { //nolint:revive // function naming
+func init() { //nolint:revive,gochecknoinits // CLI command initialization
 	parseCmd.Flags().StringP("file", "f", "", "Coverage profile file (overrides config)")
 	parseCmd.Flags().StringP("output", "o", "", "Output file for parsed data")
 	parseCmd.Flags().String("format", "json", "Output format (json)")
