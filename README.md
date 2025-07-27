@@ -513,6 +513,10 @@ List of all current commands:
 <!-- make-help-start -->
 ```text
 bench                 ## Run all benchmarks in the Go application
+bench-compare         ## Run benchmarks and save results for comparison
+bench-cpu             ## Run benchmarks with CPU profiling
+bench-full            ## Run comprehensive benchmarks with multiple iterations
+bench-save            ## Save current benchmark results as baseline
 build-go              ## Build the Go application (locally)
 citation              ## Update version in CITATION.cff (use version=X.Y.Z)
 clean-mods            ## Remove all the Go mod cache

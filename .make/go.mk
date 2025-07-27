@@ -34,7 +34,37 @@ export GOLANGCI_LINT_VERSION
 .PHONY: bench
 bench: ## Run all benchmarks in the Go application
 	@echo "Running benchmarks..."
-	@go test -bench=. -benchmem $(TAGS)
+	@go test -bench=. -benchmem ./... $(TAGS)
+
+.PHONY: bench-full
+bench-full: ## Run comprehensive benchmarks with multiple iterations
+	@echo "Running comprehensive benchmarks (this may take a while)..."
+	@go test -bench=. -benchmem -benchtime=10s -count=3 ./... $(TAGS)
+
+.PHONY: bench-compare
+bench-compare: ## Run benchmarks and save results for comparison
+	@echo "Running benchmarks for comparison..."
+	@go test -bench=. -benchmem -count=5 ./... $(TAGS) | tee bench-new.txt
+	@if [ -f bench-old.txt ]; then \
+		echo ""; \
+		echo "Comparing with previous results..."; \
+		benchstat bench-old.txt bench-new.txt || echo "Install benchstat: go install golang.org/x/perf/cmd/benchstat@latest"; \
+	else \
+		echo ""; \
+		echo "No previous results found. Run 'make bench-save' to save current results."; \
+	fi
+
+.PHONY: bench-save
+bench-save: ## Save current benchmark results as baseline
+	@echo "Saving benchmark baseline..."
+	@go test -bench=. -benchmem -count=5 ./... $(TAGS) > bench-old.txt
+	@echo "Baseline saved to bench-old.txt"
+
+.PHONY: bench-cpu
+bench-cpu: ## Run benchmarks with CPU profiling
+	@echo "Running benchmarks with CPU profiling..."
+	@go test -bench=. -benchmem -cpuprofile=cpu.prof ./... $(TAGS)
+	@echo "CPU profile saved to cpu.prof. Use 'go tool pprof cpu.prof' to analyze."
 
 .PHONY: build-go
 build-go: ## Build the Go application (locally)

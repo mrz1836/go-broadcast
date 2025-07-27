@@ -25,6 +25,11 @@ coverage.out
 
 # Profiling data
 profiles/
+*.prof
+
+# Benchmark artifacts
+bench-old.txt
+bench-new.txt
 
 # Fuzz testing
 testdata
