@@ -33,12 +33,20 @@ export GOLANGCI_LINT_VERSION
 
 .PHONY: bench
 bench: ## Run all benchmarks in the Go application
-	@echo "Running benchmarks..."
+	@echo "🏃 Running benchmarks..."
+	@echo "📋 Mode: Normal (100ms per benchmark)"
+	@echo "⏱️  Timeout: 30 seconds"
+	@echo "📊 Running benchmarks across all packages..."
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@go test -bench=. -benchmem -benchtime=100ms -timeout=30s ./... $(TAGS)
 
 .PHONY: bench-quick
 bench-quick: ## Run quick benchmarks (skip slow packages)
-	@echo "Running quick benchmarks..."
+	@echo "⚡ Running quick benchmarks..."
+	@echo "📋 Mode: Quick (50ms per benchmark)"
+	@echo "⏱️  Timeout: 15 seconds"
+	@echo "📦 Packages: algorithms, cache, config, transform"
+	@echo "📊 Starting benchmark execution..."
 	@go test -bench=. -benchmem -benchtime=50ms -timeout=15s \
 		./internal/algorithms/... \
 		./internal/cache/... \
@@ -48,33 +56,51 @@ bench-quick: ## Run quick benchmarks (skip slow packages)
 
 .PHONY: bench-full
 bench-full: ## Run comprehensive benchmarks with multiple iterations
-	@echo "Running comprehensive benchmarks (this may take a while)..."
+	@echo "🔬 Running comprehensive benchmarks..."
+	@echo "📋 Mode: Full (10s per benchmark, 3 iterations)"
+	@echo "⏱️  Timeout: Default (10 minutes)"
+	@echo "⚠️  This may take several minutes to complete"
+	@echo "📊 Starting comprehensive benchmark analysis..."
 	@go test -bench=. -benchmem -benchtime=10s -count=3 ./... $(TAGS)
 
 .PHONY: bench-compare
 bench-compare: ## Run benchmarks and save results for comparison
-	@echo "Running benchmarks for comparison..."
+	@echo "📊 Running benchmarks for comparison..."
+	@echo "📋 Mode: Comparison (5 iterations for statistical analysis)"
+	@echo "💾 Results will be saved to: bench-new.txt"
+	@echo "🔄 Starting benchmark comparison run..."
 	@go test -bench=. -benchmem -count=5 ./... $(TAGS) | tee bench-new.txt
 	@if [ -f bench-old.txt ]; then \
 		echo ""; \
-		echo "Comparing with previous results..."; \
-		benchstat bench-old.txt bench-new.txt || echo "Install benchstat: go install golang.org/x/perf/cmd/benchstat@latest"; \
+		echo "📈 Comparing with previous results..."; \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		benchstat bench-old.txt bench-new.txt || echo "⚠️  Install benchstat: go install golang.org/x/perf/cmd/benchstat@latest"; \
 	else \
 		echo ""; \
-		echo "No previous results found. Run 'make bench-save' to save current results."; \
+		echo "ℹ️  No previous results found. Run 'make bench-save' to save current results."; \
 	fi
 
 .PHONY: bench-save
 bench-save: ## Save current benchmark results as baseline
-	@echo "Saving benchmark baseline..."
+	@echo "💾 Saving benchmark baseline..."
+	@echo "📋 Running 5 iterations for reliable baseline..."
+	@echo "📊 Collecting benchmark data..."
 	@go test -bench=. -benchmem -count=5 ./... $(TAGS) > bench-old.txt
-	@echo "Baseline saved to bench-old.txt"
+	@echo "✅ Baseline saved to bench-old.txt"
+	@echo "ℹ️  Use 'make bench-compare' to compare future results against this baseline"
 
 .PHONY: bench-cpu
 bench-cpu: ## Run benchmarks with CPU profiling
-	@echo "Running benchmarks with CPU profiling..."
+	@echo "🔍 Running benchmarks with CPU profiling..."
+	@echo "📋 Mode: CPU Profiling (100ms per benchmark)"
+	@echo "💾 Profile will be saved to: cpu.prof"
+	@echo "📊 Starting profiled benchmark run..."
 	@go test -bench=. -benchmem -cpuprofile=cpu.prof ./... $(TAGS)
-	@echo "CPU profile saved to cpu.prof. Use 'go tool pprof cpu.prof' to analyze."
+	@echo ""
+	@echo "✅ CPU profile saved to cpu.prof"
+	@echo "📈 To analyze the profile, run:"
+	@echo "   go tool pprof cpu.prof"
+	@echo "   Then use commands like: top10, list, web"
 
 .PHONY: build-go
 build-go: ## Build the Go application (locally)

@@ -172,6 +172,19 @@ jobs:
             if compgen -G "benchmark-stats-*.json" >/dev/null 2>&1; then
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### 🏃 Benchmark Performance" >> $GITHUB_STEP_SUMMARY
+              
+              # Get benchmark mode from the first stats file
+              BENCH_MODE="normal"
+              for stats_file in benchmark-stats-*.json; do
+                if [ -f "$stats_file" ]; then
+                  BENCH_MODE=$(jq -r '.benchmark_mode // "normal"' "$stats_file")
+                  break
+                fi
+              done
+              
+              echo "**Mode**: \`$BENCH_MODE\` $(case "$BENCH_MODE" in quick) echo "(Quick 50ms runs)" ;; full) echo "(Comprehensive 10s runs)" ;; *) echo "(Normal 100ms runs)" ;; esac)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              
               echo "| Benchmark Suite | Duration | Benchmarks | Status |" >> $GITHUB_STEP_SUMMARY
               echo "|-----------------|----------|------------|--------|" >> $GITHUB_STEP_SUMMARY
 

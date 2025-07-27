@@ -47,7 +47,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   benchmark-go:
     name: 🏃 Benchmark (${{ matrix.name }})
-    timeout-minutes: 30 # Prevent hung benchmarks
+    timeout-minutes: ${{ fromJSON(inputs.env-json).BENCHMARK_TIMEOUT || 30 }} # Configurable timeout with default
     strategy:
       fail-fast: false # Continue running other benchmarks if one fails
       matrix: ${{ fromJSON(inputs.benchmark-matrix) }}
@@ -179,12 +179,29 @@ jobs:
         id: run-benchmarks
         run: |
           echo "🏃 Running benchmarks..."
+          echo "📋 Benchmark Mode: ${{ env.BENCHMARK_MODE }}"
 
           # Create output file for raw benchmark results
           BENCH_OUTPUT_FILE="benchmark-results-${{ matrix.os }}-${{ matrix.go-version }}.txt"
 
+          # Determine which benchmark command to run based on mode
+          case "${{ env.BENCHMARK_MODE }}" in
+            quick)
+              echo "⚡ Running quick benchmarks (50ms runs)..."
+              BENCH_CMD="make bench-quick"
+              ;;
+            full)
+              echo "🔬 Running comprehensive benchmarks (10s runs)..."
+              BENCH_CMD="make bench-full"
+              ;;
+            normal|*)
+              echo "📊 Running normal benchmarks (100ms runs)..."
+              BENCH_CMD="make bench"
+              ;;
+          esac
+
           # Run benchmarks and capture output
-          if make bench > "$BENCH_OUTPUT_FILE" 2>&1; then
+          if $BENCH_CMD > "$BENCH_OUTPUT_FILE" 2>&1; then
             echo "✅ Benchmarks completed successfully"
             BENCH_STATUS="success"
           else
@@ -267,6 +284,7 @@ jobs:
             --argjson benchmark_count "$BENCHMARK_COUNT" \
             --arg status "${{ steps.run-benchmarks.outputs.bench_status }}" \
             --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg benchmark_mode "${{ env.BENCHMARK_MODE }}" \
             --argjson benchmark_summary "$BENCH_SUMMARY_JSON" \
             '{
               "name": $name,
@@ -274,6 +292,7 @@ jobs:
               "go_version": $go_version,
               "duration_seconds": $duration_seconds,
               "benchmark_count": $benchmark_count,
+              "benchmark_mode": $benchmark_mode,
               "status": $status,
               "timestamp": $timestamp,
               "benchmark_summary": $benchmark_summary
