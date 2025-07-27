@@ -254,7 +254,7 @@ jobs:
         if: ${{ always() }}
         run: |
           FAILED=false
-          
+
           # Check required jobs (these must pass)
           if [[ "${{ needs.setup.result }}" == "failure" || "${{ needs.setup.result }}" == "cancelled" ]]; then
             echo "❌ Setup failed or was cancelled" >&2
