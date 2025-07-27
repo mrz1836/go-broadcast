@@ -357,7 +357,7 @@ This ensures the coverage tool's dependencies (cobra, template libraries, etc.) 
 // go.mod - Separate module for coverage tool
 module github.com/mrz1836/go-broadcast/coverage
 
-go 1.21
+go 1.24
 
 require (
     github.com/spf13/cobra v1.8.0
