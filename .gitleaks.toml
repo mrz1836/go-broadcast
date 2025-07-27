@@ -3033,6 +3033,14 @@ id = "slack-webhook-url"
 description = "Discovered a Slack Webhook, which could lead to unauthorized message posting and data leakage in Slack channels."
 regex = '''(?:https?://)?hooks.slack.com/(?:services|workflows|triggers)/[A-Za-z0-9+/]{43,56}'''
 keywords = ["hooks.slack.com"]
+[[rules.allowlists]]
+description = "Allow test webhook URLs with placeholder values"
+regexes = [
+    '''https://hooks\.slack\.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX''',
+]
+paths = [
+    '''\.github/coverage/internal/notify/channels/slack_test\.go$''',
+]
 
 [[rules]]
 id = "snyk-api-token"
