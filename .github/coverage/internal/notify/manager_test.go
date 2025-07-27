@@ -293,8 +293,8 @@ func TestSendNotification(t *testing.T) { //nolint:revive // function naming
 	slackMock := &mockChannel{channelType: types.ChannelSlack}
 	emailMock := &mockChannel{channelType: types.ChannelEmail}
 
-	manager.RegisterChannel("slack", slackMock)
-	manager.RegisterChannel("email", emailMock)
+	_ = manager.RegisterChannel("slack", slackMock)
+	_ = manager.RegisterChannel("email", emailMock)
 
 	notification := &Notification{
 		ID:         "test-001",
@@ -363,7 +363,7 @@ func TestSendToAllChannels(t *testing.T) { //nolint:revive // function naming
 	}
 
 	for name, ch := range channels {
-		manager.RegisterChannel(name, ch)
+		_ = manager.RegisterChannel(name, ch)
 	}
 
 	notification := &Notification{
@@ -396,7 +396,7 @@ func TestSendToAllChannels(t *testing.T) { //nolint:revive // function naming
 func TestNotificationFiltering(t *testing.T) { //nolint:revive // function naming
 	manager := NewNotificationManager(nil)
 	slackMock := &mockChannel{channelType: types.ChannelSlack}
-	manager.RegisterChannel("slack", slackMock)
+	_ = manager.RegisterChannel("slack", slackMock)
 
 	tests := []struct {
 		name         string
@@ -451,7 +451,7 @@ func TestRateLimiting(t *testing.T) { //nolint:revive // function naming
 		}),
 	}
 
-	manager.RegisterChannel("slack", mockChan)
+	_ = manager.RegisterChannel("slack", mockChan)
 
 	notification := &Notification{
 		ID:        "rate-test",
@@ -512,7 +512,7 @@ func TestNotificationRetry(t *testing.T) { //nolint:revive // function naming
 		shouldFail:  true,
 	}
 
-	manager.RegisterChannel("slack", failingMock)
+	_ = manager.RegisterChannel("slack", failingMock)
 
 	notification := &Notification{
 		ID:        "retry-test",
@@ -546,7 +546,7 @@ func TestNotificationBatching(t *testing.T) { //nolint:revive // function naming
 	manager := NewNotificationManager(nil)
 
 	mockChan := &mockChannel{channelType: types.ChannelSlack}
-	manager.RegisterChannel("slack", mockChan)
+	_ = manager.RegisterChannel("slack", mockChan)
 
 	// Create multiple notifications
 	notifications := []*Notification{
@@ -617,7 +617,7 @@ func TestGetDeliveryStats(t *testing.T) { //nolint:revive // function naming
 	manager := NewNotificationManager(nil)
 
 	mockChan := &mockChannel{channelType: types.ChannelSlack}
-	manager.RegisterChannel("slack", mockChan)
+	_ = manager.RegisterChannel("slack", mockChan)
 
 	// Send a few notifications to generate stats
 	notification := &Notification{
@@ -628,7 +628,7 @@ func TestGetDeliveryStats(t *testing.T) { //nolint:revive // function naming
 	}
 
 	for i := 0; i < 3; i++ {
-		manager.SendNotification(context.Background(), notification, []string{"slack"})
+		_, _ = manager.SendNotification(context.Background(), notification, []string{"slack"})
 	}
 
 	stats, err := manager.GetDeliveryStats(context.Background(), time.Hour)
@@ -648,7 +648,7 @@ func TestGetDeliveryStats(t *testing.T) { //nolint:revive // function naming
 func BenchmarkSendNotification(b *testing.B) { //nolint:revive // function naming
 	manager := NewNotificationManager(nil)
 	mockChan := &mockChannel{channelType: types.ChannelSlack}
-	manager.RegisterChannel("slack", mockChan)
+	_ = manager.RegisterChannel("slack", mockChan)
 
 	notification := &Notification{
 		ID:        "bench-test",
@@ -671,7 +671,7 @@ func BenchmarkSendNotification(b *testing.B) { //nolint:revive // function namin
 func BenchmarkSendBatchNotifications(b *testing.B) { //nolint:revive // function naming
 	manager := NewNotificationManager(nil)
 	mockChan := &mockChannel{channelType: types.ChannelSlack}
-	manager.RegisterChannel("slack", mockChan)
+	_ = manager.RegisterChannel("slack", mockChan)
 
 	// Create batch of notifications
 	notifications := make([]*Notification, 10)

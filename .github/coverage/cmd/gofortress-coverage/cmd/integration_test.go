@@ -462,7 +462,7 @@ func TestHistoryCommand(t *testing.T) { //nolint:revive // function naming
 
 	// First, add some data to history for tests that need it
 	_ = os.Setenv("COVERAGE_HISTORY_PATH", historyDir)
-	defer os.Unsetenv("COVERAGE_HISTORY_PATH")
+	defer func() { _ = os.Unsetenv("COVERAGE_HISTORY_PATH") }()
 
 	// Add initial history entry
 	addCmd := &cobra.Command{Use: "test"}

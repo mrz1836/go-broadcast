@@ -201,7 +201,7 @@ func BenchmarkCleanup(b *testing.B) { //nolint:revive // function naming
 		}
 		b.StopTimer()
 
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 	}
 }
 

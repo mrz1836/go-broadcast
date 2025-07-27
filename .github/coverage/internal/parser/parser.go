@@ -92,7 +92,7 @@ func (p *Parser) ParseFile(ctx context.Context, filename string) (*CoverageData,
 	if err != nil {
 		return nil, fmt.Errorf("failed to open coverage file %q: %w", filename, err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	return p.Parse(ctx, file)
 }
@@ -300,7 +300,7 @@ func (p *Parser) isGeneratedFile(filename string) bool {
 	if err != nil {
 		return false
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	lineCount := 0

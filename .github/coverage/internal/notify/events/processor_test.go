@@ -369,11 +369,11 @@ func TestEventProcessorPublish(t *testing.T) { //nolint:revive // function namin
 	}
 
 	processor := NewTestEventProcessor(config)
-	processor.Start(context.Background())
-	defer processor.Stop()
+	_ = processor.Start(context.Background())
+	defer func() { _ = processor.Stop() }()
 
 	subscriber := &mockSubscriber{}
-	processor.Subscribe(EventCoverageThreshold, subscriber)
+	_ = processor.Subscribe(EventCoverageThreshold, subscriber)
 
 	// Create test event
 	event := Event{
@@ -417,11 +417,11 @@ func TestEventProcessorFiltering(t *testing.T) { //nolint:revive // function nam
 	}
 
 	processor := NewTestEventProcessor(config)
-	processor.Start(context.Background())
-	defer processor.Stop()
+	_ = processor.Start(context.Background())
+	defer func() { _ = processor.Stop() }()
 
 	subscriber := &mockSubscriber{}
-	processor.Subscribe(EventCoverageThreshold, subscriber)
+	_ = processor.Subscribe(EventCoverageThreshold, subscriber)
 
 	// Add filter
 	filter := TestEventFilter{
@@ -483,7 +483,7 @@ func TestEventProcessorFiltering(t *testing.T) { //nolint:revive // function nam
 		t.Run(tt.name, func(t *testing.T) {
 			subscriber.Reset()
 
-			processor.PublishEvent(context.Background(), tt.event)
+			_ = processor.PublishEvent(context.Background(), tt.event)
 			time.Sleep(time.Millisecond * 100)
 
 			receivedEvents := subscriber.GetReceivedEvents()
@@ -508,11 +508,11 @@ func TestEventProcessorMetrics(t *testing.T) { //nolint:revive // function namin
 	}
 
 	processor := NewTestEventProcessor(config)
-	processor.Start(context.Background())
-	defer processor.Stop()
+	_ = processor.Start(context.Background())
+	defer func() { _ = processor.Stop() }()
 
 	subscriber := &mockSubscriber{}
-	processor.Subscribe(EventCoverageThreshold, subscriber)
+	_ = processor.Subscribe(EventCoverageThreshold, subscriber)
 
 	// Publish some events
 	for i := 0; i < 3; i++ {
@@ -520,7 +520,7 @@ func TestEventProcessorMetrics(t *testing.T) { //nolint:revive // function namin
 			ID:   fmt.Sprintf("metrics-%d", i),
 			Type: EventCoverageThreshold,
 		}
-		processor.PublishEvent(context.Background(), event)
+		_ = processor.PublishEvent(context.Background(), event)
 	}
 
 	time.Sleep(time.Millisecond * 100)
@@ -551,19 +551,19 @@ func TestEventProcessorRetry(t *testing.T) { //nolint:revive // function naming
 	}
 
 	processor := NewTestEventProcessor(config)
-	processor.Start(context.Background())
-	defer processor.Stop()
+	_ = processor.Start(context.Background())
+	defer func() { _ = processor.Stop() }()
 
 	// Create failing subscriber
 	subscriber := &mockSubscriber{shouldFail: true}
-	processor.Subscribe(EventCoverageThreshold, subscriber)
+	_ = processor.Subscribe(EventCoverageThreshold, subscriber)
 
 	event := Event{
 		ID:   "retry-test",
 		Type: EventCoverageThreshold,
 	}
 
-	processor.PublishEvent(context.Background(), event)
+	_ = processor.PublishEvent(context.Background(), event)
 
 	// Wait for retries to complete
 	time.Sleep(time.Millisecond * 200)
@@ -583,11 +583,11 @@ func TestEventProcessorConcurrency(t *testing.T) { //nolint:revive // function n
 	}
 
 	processor := NewTestEventProcessor(config)
-	processor.Start(context.Background())
-	defer processor.Stop()
+	_ = processor.Start(context.Background())
+	defer func() { _ = processor.Stop() }()
 
 	subscriber := &mockSubscriber{}
-	processor.Subscribe(EventCoverageThreshold, subscriber)
+	_ = processor.Subscribe(EventCoverageThreshold, subscriber)
 
 	// Publish events concurrently
 	var wg sync.WaitGroup
@@ -601,7 +601,7 @@ func TestEventProcessorConcurrency(t *testing.T) { //nolint:revive // function n
 				ID:   fmt.Sprintf("concurrent-%d", id),
 				Type: EventCoverageThreshold,
 			}
-			processor.PublishEvent(context.Background(), event)
+			_ = processor.PublishEvent(context.Background(), event)
 		}(i)
 	}
 
@@ -622,11 +622,11 @@ func BenchmarkEventProcessorPublish(b *testing.B) { //nolint:revive // function 
 	}
 
 	processor := NewTestEventProcessor(config)
-	processor.Start(context.Background())
-	defer processor.Stop()
+	_ = processor.Start(context.Background())
+	defer func() { _ = processor.Stop() }()
 
 	subscriber := &mockSubscriber{}
-	processor.Subscribe(EventCoverageThreshold, subscriber)
+	_ = processor.Subscribe(EventCoverageThreshold, subscriber)
 
 	event := Event{
 		ID:   "benchmark",
@@ -638,7 +638,7 @@ func BenchmarkEventProcessorPublish(b *testing.B) { //nolint:revive // function 
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		processor.PublishEvent(context.Background(), event)
+		_ = processor.PublishEvent(context.Background(), event)
 	}
 }
 
@@ -650,11 +650,11 @@ func BenchmarkEventProcessorWithFiltering(b *testing.B) { //nolint:revive // fun
 	}
 
 	processor := NewTestEventProcessor(config)
-	processor.Start(context.Background())
-	defer processor.Stop()
+	_ = processor.Start(context.Background())
+	defer func() { _ = processor.Stop() }()
 
 	subscriber := &mockSubscriber{}
-	processor.Subscribe(EventCoverageThreshold, subscriber)
+	_ = processor.Subscribe(EventCoverageThreshold, subscriber)
 
 	// Add complex filter
 	filter := TestEventFilter{
@@ -675,6 +675,6 @@ func BenchmarkEventProcessorWithFiltering(b *testing.B) { //nolint:revive // fun
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		processor.PublishEvent(context.Background(), event)
+		_ = processor.PublishEvent(context.Background(), event)
 	}
 }

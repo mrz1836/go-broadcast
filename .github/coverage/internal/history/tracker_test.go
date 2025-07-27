@@ -44,7 +44,7 @@ func TestRecord(t *testing.T) { //nolint:revive // function naming
 	// Create temp directory for testing
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{
 		StoragePath:    tempDir,
@@ -75,7 +75,7 @@ func TestRecord(t *testing.T) { //nolint:revive // function naming
 func TestRecordContextCancellation(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
@@ -93,7 +93,7 @@ func TestRecordContextCancellation(t *testing.T) { //nolint:revive // function n
 func TestGetTrend(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
@@ -130,7 +130,7 @@ func TestGetTrend(t *testing.T) { //nolint:revive // function naming
 func TestGetTrendEmpty(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
@@ -148,7 +148,7 @@ func TestGetTrendEmpty(t *testing.T) { //nolint:revive // function naming
 func TestGetLatestEntry(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
@@ -178,7 +178,7 @@ func TestGetLatestEntry(t *testing.T) { //nolint:revive // function naming
 func TestGetLatestEntryNotFound(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
@@ -192,7 +192,7 @@ func TestGetLatestEntryNotFound(t *testing.T) { //nolint:revive // function nami
 func TestCleanup(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{
 		StoragePath:   tempDir,
@@ -232,7 +232,7 @@ func TestCleanup(t *testing.T) { //nolint:revive // function naming
 func TestCleanupDisabled(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{
 		StoragePath:   tempDir,
@@ -264,7 +264,7 @@ func TestCleanupDisabled(t *testing.T) { //nolint:revive // function naming
 func TestGetStatistics(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
@@ -312,7 +312,7 @@ func TestGetStatistics(t *testing.T) { //nolint:revive // function naming
 func TestGetStatisticsEmpty(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
@@ -330,7 +330,7 @@ func TestGetStatisticsEmpty(t *testing.T) { //nolint:revive // function naming
 func TestLegacyAdd(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
@@ -356,7 +356,7 @@ func TestLegacyAddInvalidType(t *testing.T) { //nolint:revive // function naming
 func TestTrendAnalysis(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
@@ -404,7 +404,7 @@ func TestTrendAnalysis(t *testing.T) { //nolint:revive // function naming
 func TestBuildInfo(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
@@ -440,7 +440,7 @@ func TestBuildInfo(t *testing.T) { //nolint:revive // function naming
 func TestPackageStats(t *testing.T) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)

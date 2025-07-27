@@ -184,7 +184,7 @@ func (d *Deployer) prepareWorkspace(ctx context.Context, opts DeploymentOptions)
 
 	// Clone gh-pages branch to temp directory
 	if err := d.clonePagesBranch(ctx, tempDir); err != nil {
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 		return "", fmt.Errorf("failed to clone pages branch: %w", err)
 	}
 
@@ -257,7 +257,7 @@ func (d *Deployer) commitAndPush(ctx context.Context, workspaceDir string, opts 
 	if err != nil {
 		return "", fmt.Errorf("failed to get current directory: %w", err)
 	}
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	if err := os.Chdir(workspaceDir); err != nil {
 		return "", fmt.Errorf("failed to change to workspace directory: %w", err)
@@ -325,7 +325,7 @@ func (d *Deployer) calculateDeploymentURL(opts DeploymentOptions) string {
 
 func (d *Deployer) countDeployedFiles(workspaceDir string) int {
 	count := 0
-	filepath.Walk(workspaceDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(workspaceDir, func(path string, info os.FileInfo, err error) error {
 		if err == nil && !info.IsDir() {
 			count++
 		}
@@ -335,7 +335,7 @@ func (d *Deployer) countDeployedFiles(workspaceDir string) int {
 }
 
 func (d *Deployer) cleanupWorkspace(tempDir string) {
-	os.RemoveAll(tempDir)
+	_ = os.RemoveAll(tempDir)
 }
 
 // Git helper methods

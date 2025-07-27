@@ -125,7 +125,7 @@ func (s *SlackChannel) Send(ctx context.Context, notification *types.Notificatio
 		result.Error = fmt.Errorf("failed to send request: %w", err)
 		return result, result.Error
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	result.DeliveryTime = time.Since(startTime)
 

@@ -482,7 +482,7 @@ func (e *EmailChannel) sendSMTP(ctx context.Context, message string) error {
 			return fmt.Errorf("failed to connect to SMTP server: %w", err)
 		}
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Authenticate if credentials provided
 	if e.auth != nil {
@@ -508,7 +508,7 @@ func (e *EmailChannel) sendSMTP(ctx context.Context, message string) error {
 	if err != nil {
 		return fmt.Errorf("failed to start data transfer: %w", err)
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 
 	_, err = writer.Write([]byte(message))
 	if err != nil {
