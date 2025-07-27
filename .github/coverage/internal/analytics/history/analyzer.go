@@ -196,11 +196,11 @@ type TrendDirection string
 
 const (
 	// TrendUp indicates an upward trend
-	TrendUp       TrendDirection = "up"
+	TrendUp TrendDirection = "up"
 	// TrendDown indicates a downward trend
-	TrendDown     TrendDirection = "down"
+	TrendDown TrendDirection = "down"
 	// TrendStable indicates a stable trend
-	TrendStable   TrendDirection = "stable"
+	TrendStable TrendDirection = "stable"
 	// TrendVolatile indicates a volatile trend
 	TrendVolatile TrendDirection = "volatile"
 )
@@ -212,11 +212,11 @@ const (
 	// MagnitudeSignificant indicates a significant magnitude
 	MagnitudeSignificant TrendMagnitude = "significant"
 	// MagnitudeModerate indicates a moderate magnitude
-	MagnitudeModerate    TrendMagnitude = "moderate"
+	MagnitudeModerate TrendMagnitude = "moderate"
 	// MagnitudeMinor indicates a minor magnitude
-	MagnitudeMinor       TrendMagnitude = "minor"
+	MagnitudeMinor TrendMagnitude = "minor"
 	// MagnitudeNegligible indicates a negligible magnitude
-	MagnitudeNegligible  TrendMagnitude = "negligible"
+	MagnitudeNegligible TrendMagnitude = "negligible"
 )
 
 // TrendMomentum represents the rate of change in a trend
@@ -226,7 +226,7 @@ const (
 	// MomentumAccelerating indicates an accelerating momentum
 	MomentumAccelerating TrendMomentum = "accelerating"
 	// MomentumSteady indicates a steady momentum
-	MomentumSteady       TrendMomentum = "steady"
+	MomentumSteady TrendMomentum = "steady"
 	// MomentumDecelerating indicates a decelerating momentum
 	MomentumDecelerating TrendMomentum = "decelerating"
 )
@@ -236,11 +236,11 @@ type VolatilityLevel string
 
 const (
 	// VolatilityLow indicates low volatility
-	VolatilityLow    VolatilityLevel = "low"
+	VolatilityLow VolatilityLevel = "low"
 	// VolatilityMedium indicates medium volatility
 	VolatilityMedium VolatilityLevel = "medium"
 	// VolatilityHigh indicates high volatility
-	VolatilityHigh   VolatilityLevel = "high"
+	VolatilityHigh VolatilityLevel = "high"
 )
 
 // InsightType represents the type of analytical insight

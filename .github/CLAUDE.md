@@ -473,6 +473,63 @@ Questions or ambiguities? Open a discussion or ping a maintainer instead of gues
 - Starting issues: 378
 - After round 1: 70 issues (81% reduction)
 - After round 2: 62 issues (baseline)
+- After round 3: 62 issues (maintained baseline)
 - Total fixed: 316 issues (84% reduction)
+
+### Final Round Learnings
+
+**Package Comments (revive):**
+- Every package needs a comment: `// Package <name> provides ...`
+- Place before the `package` declaration
+- Describe the package's primary purpose
+
+**Empty Code Blocks (revive):**
+- Remove empty blocks or add meaningful implementation
+- For TODOs, convert to single-line comments:
+  ```go
+  // Before:
+  if condition {
+      // TODO: implement
+  }
+  
+  // After:
+  // TODO: implement when condition is true
+  ```
+
+**More Type Stuttering Patterns:**
+- `badge.BadgeInfo` → `badge.Info`
+- `badge.BadgeOptions` → `badge.Options`  
+- `report.ReportData` → `report.Data`
+- Always check test files when renaming types
+
+**Unused Parameter Patterns:**
+- Context in template functions: `func Render(ctx context.Context, ...)` → `func Render(_ context.Context, ...)`
+- Unused range parameters: `func slice(items, start, end)` → `func slice(items, _, end)`
+- Interface implementations may require unused params
+
+**Built-in Function Names (revive):**
+- Don't redefine built-ins: `max`, `min`, `len`, `cap`, etc.
+- Use different names: `maxValue`, `minInt`, `length`
+
+**Linter Fix Strategies:**
+1. **Start with easy fixes**: formatting, unused directives
+2. **Fix by category**: group similar issues together
+3. **Update references**: when renaming types, update ALL files
+4. **Verify fixes**: run linter after each major change
+5. **Document learnings**: update this file to prevent recurrence
+
+**Common Linter Categories:**
+- **Formatting**: gofmt, gofumpt - use tools directly
+- **Unused code**: unused parameters, empty blocks, unused functions
+- **Naming**: stuttering, undefined names, exported without comments
+- **Style**: package comments, constant comments, error strings
+- **Directives**: nolintlint for unused nolint comments
+
+**Best Practices:**
+- Run linters frequently during development
+- Fix issues immediately - don't let them accumulate
+- Use specific nolint directives with explanations
+- Consider if the linter is highlighting a design issue
+- Keep a baseline of expected issues documented
 
 Happy hacking! 🚀

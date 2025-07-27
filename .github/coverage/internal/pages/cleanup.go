@@ -1,3 +1,4 @@
+// Package pages provides GitHub Pages deployment and management functionality
 package pages
 
 import (
@@ -75,9 +76,13 @@ type ExpiredContent struct {
 type ContentType string
 
 const (
+	// ContentTypePR represents pull request content
 	ContentTypePR     ContentType = "pr"
+	// ContentTypeBranch represents branch content
 	ContentTypeBranch ContentType = "branch"
+	// ContentTypeReport represents report content
 	ContentTypeReport ContentType = "report"
+	// ContentTypeBadge represents badge content
 	ContentTypeBadge  ContentType = "badge"
 )
 

@@ -452,7 +452,7 @@ func runTrends(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 		if err := os.WriteFile(trendsOutput, []byte(output), 0600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
-		fmt.Printf("✅ Trend analysis saved: %s\n", trendsOutput)
+		fmt.Printf("✅ Trend analysis saved: %s\n", trendsOutput) //nolint:forbidigo // CLI output
 	} else {
 		fmt.Println(output) //nolint:forbidigo // CLI output
 	}
@@ -507,7 +507,7 @@ func runPredict(cmd *cobra.Command, args []string) error { //nolint:revive // fu
 		if err := os.WriteFile(predictOutput, jsonBytes, 0600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
-		fmt.Printf("✅ Predictions saved: %s\n", predictOutput)
+		fmt.Printf("✅ Predictions saved: %s\n", predictOutput) //nolint:forbidigo // CLI output
 	} else {
 		fmt.Println(string(jsonBytes)) //nolint:forbidigo // CLI output
 	}
@@ -522,7 +522,7 @@ func runImpact(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 		return ErrMissingPROrBranch
 	}
 
-	fmt.Printf("🎯 Analyzing impact for %s...\n", getPROrBranchDescription(impactPR, impactBranch))
+	fmt.Printf("🎯 Analyzing impact for %s...\n", getPROrBranchDescription(impactPR, impactBranch)) //nolint:forbidigo // CLI output
 
 	// Initialize impact analyzer
 	predictor := prediction.NewCoveragePredictor(nil)
@@ -908,7 +908,7 @@ func showNotificationStatus(_ context.Context) error { //nolint:revive // functi
 	// Get channel status
 	channelStatus := notifier.GetChannelStatus()
 
-	fmt.Println("\nChannel Status:")
+	fmt.Println("\nChannel Status:") //nolint:forbidigo // CLI output
 	for channel, healthy := range channelStatus {
 		status := "❌ Unhealthy"
 		if healthy {
@@ -931,7 +931,7 @@ func showNotificationStatus(_ context.Context) error { //nolint:revive // functi
 }
 
 func sendTestNotification(ctx context.Context) error { //nolint:revive // function naming
-	fmt.Println("📤 Sending test notification...")
+	fmt.Println("📤 Sending test notification...") //nolint:forbidigo // CLI output
 
 	// Initialize notification engine
 	notifier := notify.NewNotificationEngine(nil)
@@ -960,7 +960,7 @@ func sendTestNotification(ctx context.Context) error { //nolint:revive // functi
 	}
 
 	// Report results
-	fmt.Println("📬 Notification sent successfully")
+	fmt.Println("📬 Notification sent successfully") //nolint:forbidigo // CLI output
 
 	return nil
 }

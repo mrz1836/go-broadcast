@@ -185,7 +185,7 @@ func (d *Deployer) validateDeployment(opts DeploymentOptions) error {
 	return nil
 }
 
-func (d *Deployer) prepareWorkspace(ctx context.Context, opts DeploymentOptions) (string, error) {
+func (d *Deployer) prepareWorkspace(ctx context.Context, _ DeploymentOptions) (string, error) {
 	// Create temporary directory for deployment workspace
 	tempDir, err := os.MkdirTemp("", "gofortress-deploy-*")
 	if err != nil {
@@ -381,9 +381,7 @@ func (d *Deployer) configureGitUser(ctx context.Context) error {
 func (d *Deployer) runGitCommand(ctx context.Context, args ...string) error {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
-	if d.Config.GitHubToken != "" {
-		// TODO: Configure authentication with GitHub token
-	}
+	// TODO: Configure authentication with GitHub token if d.Config.GitHubToken != ""
 	return cmd.Run()
 }
 

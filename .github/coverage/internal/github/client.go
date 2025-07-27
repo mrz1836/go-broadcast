@@ -14,7 +14,7 @@ import (
 
 // Static error definitions
 var (
-	ErrGitHubAPIError = errors.New("GitHub API error")
+	ErrGitHubAPIError  = errors.New("GitHub API error")
 	ErrCommentNotFound = errors.New("coverage comment not found")
 )
 

@@ -260,14 +260,14 @@ func sanitizePRNumber(prNumber string) string {
 }
 
 // shouldExpirePR determines if a PR should be expired based on age
-func shouldExpirePR(prNumber string, cutoffDate time.Time) bool {
+func shouldExpirePR(prNumber string, _ time.Time) bool {
 	// TODO: Implement actual age checking by examining file timestamps
 	// For now, simulate expiration logic
 	return len(prNumber) > 0 // Placeholder logic
 }
 
 // shouldExpireBranch determines if a branch should be expired based on age
-func shouldExpireBranch(branchName string, cutoffDate time.Time) bool {
+func shouldExpireBranch(branchName string, _ time.Time) bool {
 	// TODO: Implement actual age checking by examining file timestamps
 	// For now, simulate expiration logic
 	return strings.Contains(branchName, "old") || strings.Contains(branchName, "archived")

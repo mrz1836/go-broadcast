@@ -239,7 +239,7 @@ func (nm *NotificationManager) GetDeliveryStats(ctx context.Context, timeWindow 
 
 // Tests
 
-func TestNewNotificationManager(t *testing.T) { //nolint:revive // function naming
+func TestNewNotificationManager(t *testing.T) {
 	cfg := struct {
 		Notifications struct {
 			Enabled  bool
@@ -277,7 +277,7 @@ func TestNewNotificationManager(t *testing.T) { //nolint:revive // function nami
 	// Direct comparison of interface{} values containing structs is not supported
 }
 
-func TestRegisterChannel(t *testing.T) { //nolint:revive // function naming
+func TestRegisterChannel(t *testing.T) {
 	manager := NewNotificationManager(nil)
 
 	mockChan := &mockChannel{channelType: types.ChannelSlack}
@@ -293,7 +293,7 @@ func TestRegisterChannel(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestSendNotification(t *testing.T) { //nolint:revive // function naming
+func TestSendNotification(t *testing.T) {
 	manager := NewNotificationManager(nil)
 
 	// Register mock channels

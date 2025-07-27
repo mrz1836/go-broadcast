@@ -97,7 +97,7 @@ type PRBadgeRequest struct {
 // PRBadgeResult represents the result of PR badge generation
 type PRBadgeResult struct {
 	// Generated badges
-	Badges map[PRBadgeType][]BadgeInfo
+	Badges map[PRBadgeType][]Info
 
 	// URLs and paths
 	BaseURL    string
@@ -110,25 +110,25 @@ type PRBadgeResult struct {
 	Errors      []error
 }
 
-// BadgeInfo contains information about a generated badge
-type BadgeInfo struct {
+// Info contains information about a generated badge
+type Info struct {
 	Type       PRBadgeType
 	Style      string
 	FilePath   string
 	PublicURL  string
 	Size       int64
-	Dimensions BadgeDimensions
-	Metadata   BadgeMetadata
+	Dimensions Dimensions
+	Metadata   Metadata
 }
 
-// BadgeDimensions represents badge dimensions
-type BadgeDimensions struct {
+// Dimensions represents badge dimensions
+type Dimensions struct {
 	Width  int
 	Height int
 }
 
-// BadgeMetadata contains badge metadata
-type BadgeMetadata struct {
+// Metadata contains badge metadata
+type Metadata struct {
 	GeneratedAt  time.Time
 	Version      string
 	Coverage     float64
@@ -174,7 +174,7 @@ func NewPRBadgeManager(generator *Generator, config *PRBadgeConfig) *PRBadgeMana
 // GeneratePRBadges generates all requested PR badges
 func (m *PRBadgeManager) GeneratePRBadges(ctx context.Context, request *PRBadgeRequest) (*PRBadgeResult, error) {
 	result := &PRBadgeResult{
-		Badges:      make(map[PRBadgeType][]BadgeInfo),
+		Badges:      make(map[PRBadgeType][]Info),
 		LocalPaths:  make(map[PRBadgeType][]string),
 		PublicURLs:  make(map[PRBadgeType][]string),
 		BaseURL:     m.buildBaseURL(request.Owner, request.Repository, request.PRNumber),
@@ -219,7 +219,7 @@ func (m *PRBadgeManager) GeneratePRBadges(ctx context.Context, request *PRBadgeR
 }
 
 // generateSingleBadge generates a single badge
-func (m *PRBadgeManager) generateSingleBadge(ctx context.Context, request *PRBadgeRequest, badgeType PRBadgeType, style, outputDir string) (*BadgeInfo, error) {
+func (m *PRBadgeManager) generateSingleBadge(ctx context.Context, request *PRBadgeRequest, badgeType PRBadgeType, style, outputDir string) (*Info, error) {
 	// Generate badge content based on type
 	var badgeData []byte
 	var err error
@@ -287,10 +287,10 @@ func (m *PRBadgeManager) generateSingleBadge(ctx context.Context, request *PRBad
 	publicURL := m.buildPublicURL(request.Owner, request.Repository, request.PRNumber, fileName)
 
 	// Calculate dimensions (simplified)
-	dimensions := m.calculateBadgeDimensions(label, fmt.Sprintf("%.1f%%", coverage), style)
+	dimensions := m.calculateDimensions(label, fmt.Sprintf("%.1f%%", coverage), style)
 
 	// Create badge metadata
-	metadata := BadgeMetadata{
+	metadata := Metadata{
 		GeneratedAt:  time.Now(),
 		Version:      "2.0",
 		Coverage:     request.Coverage,
@@ -302,7 +302,7 @@ func (m *PRBadgeManager) generateSingleBadge(ctx context.Context, request *PRBad
 		CommitSHA:    request.CommitSHA,
 	}
 
-	return &BadgeInfo{
+	return &Info{
 		Type:       badgeType,
 		Style:      style,
 		FilePath:   filePath,
@@ -525,7 +525,7 @@ func (m *PRBadgeManager) getCustomLabel(request *PRBadgeRequest, badgeType PRBad
 	return defaultLabel
 }
 
-func (m *PRBadgeManager) calculateBadgeDimensions(label, message, style string) BadgeDimensions {
+func (m *PRBadgeManager) calculateDimensions(label, message, style string) Dimensions {
 	// Simplified calculation - in reality this would be more sophisticated
 	labelWidth := len(label) * 6
 	messageWidth := len(message) * 6
@@ -536,7 +536,7 @@ func (m *PRBadgeManager) calculateBadgeDimensions(label, message, style string) 
 		height = 28
 	}
 
-	return BadgeDimensions{
+	return Dimensions{
 		Width:  totalWidth,
 		Height: height,
 	}
@@ -563,12 +563,12 @@ func (m *PRBadgeManager) CleanupPRBadges(ctx context.Context, owner, repository 
 	return nil
 }
 
-// GetPRBadgeInfo returns information about existing PR badges
-func (m *PRBadgeManager) GetPRBadgeInfo(ctx context.Context, owner, repository string, prNumber int) (*PRBadgeResult, error) {
+// GetPRInfo returns information about existing PR badges
+func (m *PRBadgeManager) GetPRInfo(ctx context.Context, owner, repository string, prNumber int) (*PRBadgeResult, error) {
 	prDir := filepath.Join(m.config.OutputBasePath, "pr", fmt.Sprintf("%d", prNumber))
 
 	result := &PRBadgeResult{
-		Badges:     make(map[PRBadgeType][]BadgeInfo),
+		Badges:     make(map[PRBadgeType][]Info),
 		LocalPaths: make(map[PRBadgeType][]string),
 		PublicURLs: make(map[PRBadgeType][]string),
 		BaseURL:    m.buildBaseURL(owner, repository, prNumber),
@@ -605,13 +605,13 @@ func (m *PRBadgeManager) GetPRBadgeInfo(ctx context.Context, owner, repository s
 
 		publicURL := m.buildPublicURL(owner, repository, prNumber, entry.Name())
 
-		badgeInfo := BadgeInfo{
+		badgeInfo := Info{
 			Type:      PRBadgeType(badgeType),
 			Style:     style,
 			FilePath:  filePath,
 			PublicURL: publicURL,
 			Size:      fileInfo.Size(),
-			Metadata: BadgeMetadata{
+			Metadata: Metadata{
 				GeneratedAt: fileInfo.ModTime(),
 				PRNumber:    prNumber,
 			},

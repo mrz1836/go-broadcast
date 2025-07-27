@@ -221,8 +221,8 @@ func TestCalculateTextWidth(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestBadgeOptions(t *testing.T) { //nolint:revive // function naming
-	opts := &BadgeOptions{}
+func TestOptions(t *testing.T) { //nolint:revive // function naming
+	opts := &Options{}
 
 	WithStyle("flat-square")(opts)
 	assert.Equal(t, "flat-square", opts.Style)

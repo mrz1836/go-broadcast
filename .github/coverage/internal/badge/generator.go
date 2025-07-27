@@ -79,7 +79,7 @@ func NewWithConfig(config *Config) *Generator {
 
 // Generate creates an SVG badge for the given coverage percentage
 func (g *Generator) Generate(ctx context.Context, percentage float64, options ...Option) ([]byte, error) {
-	opts := &BadgeOptions{
+	opts := &Options{
 		Style:     g.config.Style,
 		Label:     g.config.Label,
 		Logo:      g.config.Logo,
@@ -125,7 +125,7 @@ func (g *Generator) GenerateTrendBadge(ctx context.Context, current, previous fl
 		color = "#8b949e" // neutral gray
 	}
 
-	opts := &BadgeOptions{
+	opts := &Options{
 		Style: g.config.Style,
 		Label: "trend",
 	}
@@ -333,8 +333,8 @@ func (g *Generator) calculateTextWidth(text string) int {
 	return int(math.Ceil(float64(len(text)) * 6.5))
 }
 
-// BadgeOptions represents options for badge generation
-type BadgeOptions struct {
+// Options represents options for badge generation
+type Options struct {
 	Style     string
 	Label     string
 	Logo      string
@@ -342,32 +342,32 @@ type BadgeOptions struct {
 }
 
 // Option is a function type for configuring badge options
-type Option func(*BadgeOptions)
+type Option func(*Options)
 
 // WithStyle sets the badge style
 func WithStyle(style string) Option {
-	return func(opts *BadgeOptions) {
+	return func(opts *Options) {
 		opts.Style = style
 	}
 }
 
 // WithLabel sets the badge label
 func WithLabel(label string) Option {
-	return func(opts *BadgeOptions) {
+	return func(opts *Options) {
 		opts.Label = label
 	}
 }
 
 // WithLogo sets the badge logo
 func WithLogo(logo string) Option {
-	return func(opts *BadgeOptions) {
+	return func(opts *Options) {
 		opts.Logo = logo
 	}
 }
 
 // WithLogoColor sets the logo color
 func WithLogoColor(color string) Option {
-	return func(opts *BadgeOptions) {
+	return func(opts *Options) {
 		opts.LogoColor = color
 	}
 }

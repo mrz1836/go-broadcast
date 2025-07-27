@@ -234,7 +234,7 @@ func NewPRTemplateEngine(config *TemplateConfig) *PRTemplateEngine {
 }
 
 // RenderComment renders a PR comment using the specified template
-func (e *PRTemplateEngine) RenderComment(ctx context.Context, templateName string, data *TemplateData) (string, error) {
+func (e *PRTemplateEngine) RenderComment(_ context.Context, templateName string, data *TemplateData) (string, error) {
 	// Use default template if none specified
 	if templateName == "" {
 		templateName = e.config.DefaultTemplate
@@ -686,7 +686,7 @@ func (e *PRTemplateEngine) round(value float64) float64 {
 	return math.Round(value*10) / 10
 }
 
-func (e *PRTemplateEngine) slice(items interface{}, start, end int) interface{} {
+func (e *PRTemplateEngine) slice(items interface{}, _, end int) interface{} {
 	// Implementation depends on the specific type
 	// This is a placeholder for slice operations
 	return items

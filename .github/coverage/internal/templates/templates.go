@@ -123,7 +123,7 @@ func NewTemplateManager() (*TemplateManager, error) {
 }
 
 // RenderDashboard renders the main dashboard HTML
-func (tm *TemplateManager) RenderDashboard(ctx context.Context, data DashboardData) (string, error) {
+func (tm *TemplateManager) RenderDashboard(_ context.Context, data DashboardData) (string, error) {
 	var buf bytes.Buffer
 
 	// Set default values if not provided
@@ -146,7 +146,7 @@ func (tm *TemplateManager) RenderDashboard(ctx context.Context, data DashboardDa
 }
 
 // RenderReport renders a coverage report HTML
-func (tm *TemplateManager) RenderReport(ctx context.Context, data ReportData) (string, error) {
+func (tm *TemplateManager) RenderReport(_ context.Context, data ReportData) (string, error) {
 	// Set default values if not provided
 	if data.Title == "" {
 		data.Title = "Coverage Report"

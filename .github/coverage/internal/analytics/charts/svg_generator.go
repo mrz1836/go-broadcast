@@ -86,11 +86,11 @@ type SeriesType string
 
 const (
 	// SeriesLine represents a line chart series
-	SeriesLine    SeriesType = "line"
+	SeriesLine SeriesType = "line"
 	// SeriesArea represents an area chart series
-	SeriesArea    SeriesType = "area"
+	SeriesArea SeriesType = "area"
 	// SeriesBar represents a bar chart series
-	SeriesBar     SeriesType = "bar"
+	SeriesBar SeriesType = "bar"
 	// SeriesScatter represents a scatter plot series
 	SeriesScatter SeriesType = "scatter"
 )
@@ -115,15 +115,15 @@ type ChartType string
 
 const (
 	// ChartTrendLine represents a trend line chart
-	ChartTrendLine   ChartType = "trend_line"
+	ChartTrendLine ChartType = "trend_line"
 	// ChartAreaChart represents an area chart
-	ChartAreaChart   ChartType = "area_chart"
+	ChartAreaChart ChartType = "area_chart"
 	// ChartBarChart represents a bar chart
-	ChartBarChart    ChartType = "bar_chart"
+	ChartBarChart ChartType = "bar_chart"
 	// ChartMultiSeries represents a multi-series chart
 	ChartMultiSeries ChartType = "multi_series"
 	// ChartHeatmap represents a heatmap chart
-	ChartHeatmap     ChartType = "heatmap"
+	ChartHeatmap ChartType = "heatmap"
 )
 
 // NewSVGChartGenerator creates a new SVG chart generator with default configuration
