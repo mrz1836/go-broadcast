@@ -2,7 +2,9 @@
 
 ## Executive Summary
 
-This document outlines a comprehensive plan to replace Codecov with a self-hosted, Go-native coverage system integrated directly into the GoFortress CI/CD pipeline. Built entirely in Go, this solution provides professional coverage tracking, badge generation, and reporting while maintaining the simplicity and performance that Go developers expect. The system leverages GitHub Pages for hosting static content and operates with zero external service dependencies.
+This document outlines a comprehensive plan to replace Codecov with a self-hosted, Go-native coverage system integrated directly into the GoFortress CI/CD pipeline. Built entirely in Go as a **bolt-on solution completely encapsulated within the `.github` folder**, this solution provides professional coverage tracking, badge generation, and reporting while maintaining the simplicity and performance that Go developers expect. The system leverages GitHub Pages for hosting static content and operates with zero external service dependencies.
+
+**Key Architecture Decision**: The entire coverage system resides within `.github/coverage/` making it a portable, self-contained bolt-on that can be copied to any repository without polluting the main codebase.
 
 ## Vision Statement
 
@@ -13,6 +15,9 @@ Create a best-in-class Go-native coverage system that embodies Go's philosophy o
 - **Professional Quality**: GitHub-style badges and clean, accessible reports
 - **Zero Dependencies**: Pure Go implementation with minimal external packages
 - **Developer Friendly**: Simple CLI interface following Unix philosophy
+- **Bolt-On Architecture**: Completely self-contained within `.github/coverage/`
+- **Portable**: Can be copied to any repository as a complete unit
+- **Non-Invasive**: Does not pollute the main repository structure
 
 ## System Architecture
 
@@ -181,40 +186,57 @@ COVERAGE_INJECT_ERRORS=                         # Error injection: parser,api,st
 COVERAGE_ERROR_RATE=0                           # Error injection rate (0-1)
 ```
 
-#### 1.2 Directory Structure Creation
+#### 1.2 Directory Structure Creation - Encapsulated Architecture
 ```bash
-cmd/
-└── gofortress-coverage/          # Main CLI tool
-    └── main.go                   # Entry point with subcommands
-
-internal/
-└── coverage/                     # Internal packages (following Go conventions)
-    ├── parser/                   # Coverage parsing logic
-    │   ├── parser.go
-    │   └── parser_test.go
-    ├── badge/                    # SVG badge generation
-    │   ├── generator.go
-    │   ├── generator_test.go
-    │   └── templates.go          # Embedded SVG templates
-    ├── report/                   # HTML report generation
-    │   ├── generator.go
-    │   ├── generator_test.go
-    │   └── templates/            # Embedded HTML templates
-    ├── history/                  # Historical data tracking
-    │   ├── tracker.go
-    │   └── tracker_test.go
-    ├── github/                   # GitHub API integration
-    │   ├── client.go
-    │   ├── pr_comment.go
-    │   └── client_test.go
-    └── config/                   # Configuration handling
-        ├── config.go
-        └── config_test.go
-
 .github/
+├── coverage/                     # Self-contained coverage system (bolt-on)
+│   ├── cmd/
+│   │   └── gofortress-coverage/  # Main CLI tool
+│   │       ├── main.go           # Entry point with subcommands
+│   │       ├── go.mod            # Separate Go module
+│   │       ├── go.sum
+│   │       └── cmd/              # Command implementations
+│   │           ├── root.go       # Root command setup
+│   │           ├── parse.go      # Parse coverage subcommand
+│   │           ├── badge.go      # Generate badge subcommand
+│   │           ├── report.go     # Generate report subcommand
+│   │           ├── history.go    # Update history subcommand
+│   │           └── comment.go    # PR comment subcommand
+│   ├── internal/                 # Internal packages (Go conventions)
+│   │   ├── parser/               # Coverage parsing logic
+│   │   │   ├── parser.go
+│   │   │   ├── parser_test.go
+│   │   │   └── testdata/         # Test fixtures
+│   │   ├── badge/                # SVG badge generation
+│   │   │   ├── generator.go
+│   │   │   ├── generator_test.go
+│   │   │   └── templates.go      # Embedded SVG templates
+│   │   ├── report/               # HTML report generation
+│   │   │   ├── generator.go
+│   │   │   ├── generator_test.go
+│   │   │   └── templates/        # Embedded HTML templates
+│   │   ├── history/              # Historical data tracking
+│   │   │   ├── tracker.go
+│   │   │   └── tracker_test.go
+│   │   ├── github/               # GitHub API integration
+│   │   │   ├── client.go
+│   │   │   ├── pr_comment.go
+│   │   │   └── client_test.go
+│   │   └── config/               # Configuration handling
+│   │       ├── config.go
+│   │       └── config_test.go
+│   └── README.md                 # Coverage system documentation
+├── .env.shared                   # Environment variables
 └── workflows/
     └── fortress-coverage.yml     # New coverage workflow
 ```
+
+**Key Benefits of This Structure:**
+- ✅ **Complete Encapsulation**: Everything coverage-related lives in `.github/coverage/`
+- ✅ **Portable**: The entire `coverage/` folder can be copied to any repository
+- ✅ **Separate Module**: Coverage tool has its own `go.mod` for isolated dependencies
+- ✅ **Clean Separation**: Main repository remains uncluttered
+- ✅ **Self-Documenting**: Coverage system includes its own README.md
 
 #### 1.4 Label Configuration
 The Go coverage tool itself has no external dependencies to track, but we need to add a label for tracking coverage-related PRs.
@@ -227,15 +249,15 @@ Add to `.github/labels.yml`:
 ```
 
 #### 1.5 Dependabot Configuration for Coverage Tool
-Since the coverage tool will be a separate Go module in `cmd/gofortress-coverage/`, we need to add it to dependabot monitoring.
+Since the coverage tool will be a separate Go module in `.github/coverage/cmd/gofortress-coverage/`, we need to add it to dependabot monitoring.
 
 Add to `.github/dependabot.yml` after the main gomod entry:
 ```yaml
   # ──────────────────────────────────────────────────────────────
-  # 1b. Coverage Tool Go Module (cmd/gofortress-coverage)
+  # 1b. Coverage Tool Go Module (.github/coverage/cmd/gofortress-coverage)
   # ──────────────────────────────────────────────────────────────
   - package-ecosystem: "gomod"
-    directory: "/cmd/gofortress-coverage"
+    directory: "/.github/coverage/cmd/gofortress-coverage"
     target-branch: "master"
     schedule:
       interval: "weekly"
@@ -280,56 +302,60 @@ This ensures the coverage tool's dependencies (cobra, template libraries, etc.) 
 7. Add benchmarks for all performance-critical paths
 8. Set up proper error handling with context wrapping
 
-**Files to Create:**
+**Files to Create (Encapsulated Structure):**
 ```
-cmd/gofortress-coverage/
-├── main.go                        # CLI entry point
-├── cmd/                          # Command implementations
-│   ├── root.go                   # Root command setup
-│   ├── parse.go                  # Parse coverage subcommand
-│   ├── badge.go                  # Generate badge subcommand
-│   ├── report.go                 # Generate report subcommand
-│   ├── history.go                # Update history subcommand
-│   └── comment.go                # PR comment subcommand
-└── cmd_test.go                   # CLI integration tests
-
-internal/coverage/
-├── parser/
-│   ├── parser.go                 # Coverage file parsing
-│   ├── parser_test.go           # Unit tests
-│   ├── parser_bench_test.go     # Benchmarks
-│   └── testdata/                # Test fixtures
-│       ├── coverage.txt         # Sample coverage data
-│       └── complex.txt          # Complex scenarios
-├── badge/
-│   ├── generator.go             # SVG badge generation
-│   ├── generator_test.go        # Unit tests
-│   ├── generator_bench_test.go  # Benchmarks
-│   └── templates.go             # Embedded SVG templates
-├── report/
-│   ├── generator.go             # HTML report generation
-│   ├── generator_test.go        # Unit tests
-│   ├── generator_bench_test.go  # Benchmarks
-│   └── templates/               # Embedded HTML templates
-│       ├── report.html.tmpl
-│       └── dashboard.html.tmpl
-├── history/
-│   ├── tracker.go               # Historical data management
-│   ├── tracker_test.go          # Unit tests
-│   └── tracker_bench_test.go    # Benchmarks
-├── github/
-│   ├── client.go                # GitHub API client
-│   ├── pr_comment.go            # PR commenting logic
-│   └── client_test.go           # Unit tests with mocks
-└── config/
-    ├── config.go                # Configuration handling
-    └── config_test.go           # Unit tests
+.github/coverage/
+├── cmd/
+│   └── gofortress-coverage/
+│       ├── main.go              # CLI entry point
+│       ├── go.mod               # Separate Go module
+│       ├── go.sum               # Module dependencies
+│       ├── cmd/                 # Command implementations
+│       │   ├── root.go          # Root command setup
+│       │   ├── parse.go         # Parse coverage subcommand
+│       │   ├── badge.go         # Generate badge subcommand
+│       │   ├── report.go        # Generate report subcommand
+│       │   ├── history.go       # Update history subcommand
+│       │   └── comment.go       # PR comment subcommand
+│       └── cmd_test.go          # CLI integration tests
+├── internal/
+│   ├── parser/
+│   │   ├── parser.go            # Coverage file parsing
+│   │   ├── parser_test.go       # Unit tests
+│   │   ├── parser_bench_test.go # Benchmarks
+│   │   └── testdata/            # Test fixtures
+│   │       ├── coverage.txt     # Sample coverage data
+│   │       └── complex.txt      # Complex scenarios
+│   ├── badge/
+│   │   ├── generator.go         # SVG badge generation
+│   │   ├── generator_test.go    # Unit tests
+│   │   ├── generator_bench_test.go # Benchmarks
+│   │   └── templates.go         # Embedded SVG templates
+│   ├── report/
+│   │   ├── generator.go         # HTML report generation
+│   │   ├── generator_test.go    # Unit tests
+│   │   ├── generator_bench_test.go # Benchmarks
+│   │   └── templates/           # Embedded HTML templates
+│   │       ├── report.html.tmpl
+│   │       └── dashboard.html.tmpl
+│   ├── history/
+│   │   ├── tracker.go           # Historical data management
+│   │   ├── tracker_test.go      # Unit tests
+│   │   └── tracker_bench_test.go # Benchmarks
+│   ├── github/
+│   │   ├── client.go            # GitHub API client
+│   │   ├── pr_comment.go        # PR commenting logic
+│   │   └── client_test.go       # Unit tests with mocks
+│   └── config/
+│       ├── config.go            # Configuration handling
+│       └── config_test.go       # Unit tests
+└── README.md                    # Coverage system documentation
 ```
 
-**Go Module Dependencies:**
+**Go Module Dependencies (.github/coverage/cmd/gofortress-coverage/go.mod):**
 ```go
-// go.mod
-module github.com/YOUR_ORG/YOUR_REPO
+// go.mod - Separate module for coverage tool
+module github.com/mrz1836/go-broadcast/coverage
 
 go 1.21
 
@@ -340,13 +366,20 @@ require (
 )
 ```
 
-**Verification Steps:**
+**Key Benefits of Separate Module:**
+- ✅ **Isolated Dependencies**: Coverage tool dependencies don't affect main project
+- ✅ **Version Independence**: Can update coverage tool dependencies separately
+- ✅ **Reduced Complexity**: Main go.mod stays clean
+- ✅ **Security**: Easier to audit coverage tool dependencies separately
+
+**Verification Steps (Updated Paths):**
 ```bash
-# 1. Build the tool
-cd cmd/gofortress-coverage
+# 1. Build the tool (from encapsulated location)
+cd .github/coverage/cmd/gofortress-coverage
 go build -o gofortress-coverage
 
-# 2. Run all tests with coverage
+# 2. Run all tests with coverage (from coverage root)
+cd .github/coverage
 go test -coverprofile=coverage.out -covermode=atomic ./...
 go tool cover -html=coverage.out -o coverage.html
 
@@ -354,13 +387,14 @@ go tool cover -html=coverage.out -o coverage.html
 go tool cover -func=coverage.out | grep total | awk '{print $3}'
 
 # 4. Run benchmarks
-go test -bench=. -benchmem ./internal/coverage/...
+go test -bench=. -benchmem ./internal/...
 
-# 5. Run linting
+# 5. Run linting (from coverage tool directory)
+cd cmd/gofortress-coverage
 golangci-lint run ./...
 
 # 6. Test CLI commands
-./gofortress-coverage parse --file testdata/coverage.txt
+./gofortress-coverage parse --file ../../internal/parser/testdata/coverage.txt
 ./gofortress-coverage badge --coverage 85.5 --output badge.svg
 ./gofortress-coverage report --file testdata/coverage.txt --output report.html
 
@@ -1296,7 +1330,7 @@ jobs:
 
       - name: 🔨 Build coverage tool
         run: |
-          cd cmd/gofortress-coverage
+          cd .github/coverage/cmd/gofortress-coverage
           go build -o gofortress-coverage
 
       - name: 🧪 Run coverage tool tests
@@ -1307,7 +1341,7 @@ jobs:
 
       - name: 🔍 Parse coverage data
         run: |
-          ./cmd/gofortress-coverage/gofortress-coverage parse \
+          ./.github/coverage/cmd/gofortress-coverage/gofortress-coverage parse \
             --file ${{ inputs.coverage-file }} \
             --output coverage-data.json
 
@@ -1329,21 +1363,21 @@ jobs:
       - name: 🎨 Generate badge
         run: |
           COVERAGE=$(jq -r '.percentage' coverage-data.json)
-          ./cmd/gofortress-coverage/gofortress-coverage badge \
+          ./.github/coverage/cmd/gofortress-coverage/gofortress-coverage badge \
             --coverage $COVERAGE \
             --style ${{ env.COVERAGE_BADGE_STYLE }} \
             --output badge.svg
 
       - name: 📝 Generate report
         run: |
-          ./cmd/gofortress-coverage/gofortress-coverage report \
+          ./.github/coverage/cmd/gofortress-coverage/gofortress-coverage report \
             --data coverage-data.json \
             --output report.html \
             --theme ${{ env.COVERAGE_REPORT_THEME }}
 
       - name: 📈 Update history
         run: |
-          ./cmd/gofortress-coverage/gofortress-coverage history \
+          ./.github/coverage/cmd/gofortress-coverage/gofortress-coverage history \
             --add coverage-data.json \
             --branch ${{ inputs.branch-name }} \
             --commit ${{ inputs.commit-sha }}
@@ -1359,7 +1393,7 @@ jobs:
       - name: 💬 Comment on PR
         if: inputs.pr-number != ''
         run: |
-          ./cmd/gofortress-coverage/gofortress-coverage comment \
+          ./.github/coverage/cmd/gofortress-coverage/gofortress-coverage comment \
             --pr ${{ inputs.pr-number }} \
             --coverage coverage-data.json \
             --badge-url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/badges/${{ inputs.branch-name }}.svg \
@@ -1390,10 +1424,10 @@ jobs:
 4. Implement automatic deployment in workflow
 5. Configure GitHub Pages in repository settings
 
-**Files to Create:**
+**Files to Create (Encapsulated Structure):**
 The Go coverage tool will handle GitHub Pages deployment directly. Static assets will be embedded in the binary:
 ```
-internal/coverage/report/templates/
+.github/coverage/internal/report/templates/
 ├── dashboard.html              # Main dashboard template (embedded)
 ├── report.html                 # Coverage report template (embedded)
 └── assets/
@@ -1449,7 +1483,7 @@ After completing this phase, update `plans/plan-09-status.md`:
 #### 4.1 GitHub Pages Setup Command
 The Go tool includes a `pages` subcommand for GitHub Pages management:
 ```go
-// cmd/gofortress-coverage/cmd/pages.go
+// .github/coverage/cmd/gofortress-coverage/cmd/pages.go
 package cmd
 
 import (
