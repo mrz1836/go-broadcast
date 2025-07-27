@@ -14,7 +14,9 @@ import (
 )
 
 var (
+	// ErrInsufficientTrainingData indicates there's not enough data for training the model
 	ErrInsufficientTrainingData     = errors.New("insufficient training data")
+	// ErrUnsupportedModelType indicates the requested model type is not supported
 	ErrUnsupportedModelType         = errors.New("unsupported model type")
 	ErrModelBelowThreshold          = errors.New("model R² below threshold")
 	ErrModelNotTrained              = errors.New("model not trained")
@@ -59,15 +61,20 @@ type PredictorConfig struct {
 type ModelType string
 
 const (
+	// ModelLinearRegression represents a linear regression prediction model
 	ModelLinearRegression     ModelType = "linear_regression"
+	// ModelExponentialSmoothing represents an exponential smoothing model
 	ModelExponentialSmoothing ModelType = "exponential_smoothing"
+	// ModelMovingAverage represents a moving average model
 	ModelMovingAverage        ModelType = "moving_average"
+	// ModelPolynomial represents a polynomial regression model
 	ModelPolynomial           ModelType = "polynomial"
+	// ModelSeasonal represents a seasonal adjustment model
 	ModelSeasonal             ModelType = "seasonal"
 )
 
 // PredictionModel contains the trained prediction model
-type PredictionModel struct {
+type PredictionModel struct { //nolint:revive // prediction.PredictionModel is appropriately descriptive
 	Type               ModelType         `json:"type"`
 	Parameters         ModelParameters   `json:"parameters"`
 	TrainingData       []TrainingPoint   `json:"training_data"`
@@ -128,13 +135,16 @@ type ValidationMetrics struct {
 type OverfittingRisk string
 
 const (
+	// OverfittingLow indicates low risk of model overfitting
 	OverfittingLow    OverfittingRisk = "low"
+	// OverfittingMedium indicates medium risk of model overfitting
 	OverfittingMedium OverfittingRisk = "medium"
+	// OverfittingHigh indicates high risk of model overfitting
 	OverfittingHigh   OverfittingRisk = "high"
 )
 
 // PredictionResult contains prediction results and analysis
-type PredictionResult struct {
+type PredictionResult struct { //nolint:revive // prediction.PredictionResult is appropriately descriptive
 	// Prediction metadata
 	PredictionDate     time.Time `json:"prediction_date"`
 	ModelUsed          ModelType `json:"model_used"`
@@ -198,51 +208,72 @@ type TurningPoint struct {
 	Description string           `json:"description"`
 }
 
-// Various enums for categorization
+// TrendDirection represents the direction of a coverage trend
 type TrendDirection string
 
 const (
+	// TrendDirectionUp indicates an upward trend
 	TrendDirectionUp       TrendDirection = "up"
+	// TrendDirectionDown indicates a downward trend
 	TrendDirectionDown     TrendDirection = "down"
+	// TrendDirectionStable indicates a stable trend
 	TrendDirectionStable   TrendDirection = "stable"
+	// TrendDirectionVolatile indicates a volatile trend
 	TrendDirectionVolatile TrendDirection = "volatile"
 )
 
+// TrendStrength represents the strength of a trend
 type TrendStrength string
 
 const (
+	// TrendStrengthWeak indicates a weak trend
 	TrendStrengthWeak     TrendStrength = "weak"
+	// TrendStrengthModerate indicates a moderate trend
 	TrendStrengthModerate TrendStrength = "moderate"
+	// TrendStrengthStrong indicates a strong trend
 	TrendStrengthStrong   TrendStrength = "strong"
 )
 
+// TrendIndicator represents the current trend indicator
 type TrendIndicator string
 
 const (
+	// TrendIndicatorRising indicates a rising trend
 	TrendIndicatorRising  TrendIndicator = "rising"
+	// TrendIndicatorFalling indicates a falling trend
 	TrendIndicatorFalling TrendIndicator = "falling"
+	// TrendIndicatorFlat indicates a flat trend
 	TrendIndicatorFlat    TrendIndicator = "flat"
 )
 
+// TurningPointType represents the type of turning point in a trend
 type TurningPointType string
 
 const (
+	// TurningPointPeak indicates a peak in the trend
 	TurningPointPeak       TurningPointType = "peak"
+	// TurningPointTrough indicates a trough in the trend
 	TurningPointTrough     TurningPointType = "trough"
+	// TurningPointInflection indicates an inflection point
 	TurningPointInflection TurningPointType = "inflection"
 )
 
-type PredictionQuality string
+// PredictionQuality represents the quality level of predictions
+type PredictionQuality string //nolint:revive // prediction.PredictionQuality is appropriately descriptive
 
 const (
+	// QualityExcellent indicates excellent prediction quality
 	QualityExcellent PredictionQuality = "excellent"
+	// QualityGood indicates good prediction quality
 	QualityGood      PredictionQuality = "good"
+	// QualityFair indicates fair prediction quality
 	QualityFair      PredictionQuality = "fair"
+	// QualityPoor indicates poor prediction quality
 	QualityPoor      PredictionQuality = "poor"
 )
 
 // PredictionInsight represents insights from prediction analysis
-type PredictionInsight struct {
+type PredictionInsight struct { //nolint:revive // prediction.PredictionInsight is appropriately descriptive
 	Type        InsightType `json:"type"`
 	Title       string      `json:"title"`
 	Description string      `json:"description"`
@@ -252,7 +283,7 @@ type PredictionInsight struct {
 }
 
 // PredictionRisk represents identified risks in predictions
-type PredictionRisk struct {
+type PredictionRisk struct { //nolint:revive // prediction.PredictionRisk is appropriately descriptive
 	Type        RiskType    `json:"type"`
 	Description string      `json:"description"`
 	Probability float64     `json:"probability"`
@@ -261,7 +292,7 @@ type PredictionRisk struct {
 }
 
 // PredictionRecommendation provides actionable recommendations
-type PredictionRecommendation struct {
+type PredictionRecommendation struct { //nolint:revive // prediction.PredictionRecommendation is appropriately descriptive
 	Type            RecommendationType `json:"type"`
 	Priority        Priority           `json:"priority"`
 	Title           string             `json:"title"`
@@ -271,10 +302,11 @@ type PredictionRecommendation struct {
 	Timeline        string             `json:"timeline"`
 }
 
-// Supporting enums
+// InsightType represents different types of insights
 type InsightType string
 
 const (
+	// InsightTypeTrend indicates trend-related insight
 	InsightTypeTrend       InsightType = "trend"
 	InsightTypeAnomaly     InsightType = "anomaly"
 	InsightTypeOpportunity InsightType = "opportunity"

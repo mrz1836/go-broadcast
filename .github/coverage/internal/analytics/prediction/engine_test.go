@@ -583,7 +583,7 @@ func generateTestCommitSHA(index int) string {
 }
 
 // Mock implementations of methods
-func (engine *PredictionEngine) PredictCoverage(ctx context.Context, data []CoverageDataPoint, options PredictionOptions) (interface{}, error) {
+func (engine *PredictionEngine) PredictCoverage(_ context.Context, data []CoverageDataPoint, options PredictionOptions) (interface{}, error) {
 	if len(data) < engine.config.MinTrainingPoints {
 		return nil, ErrInsufficientTestData
 	}
@@ -605,7 +605,7 @@ func (engine *PredictionEngine) PredictCoverage(ctx context.Context, data []Cove
 	}, nil
 }
 
-func (engine *PredictionEngine) trainLinearModel(data []CoverageDataPoint) (*LinearModel, error) {
+func (engine *PredictionEngine) trainLinearModel(_ []CoverageDataPoint) (*LinearModel, error) {
 	// Mock linear model training
 	return &LinearModel{
 		Slope:     2.0,
@@ -614,7 +614,7 @@ func (engine *PredictionEngine) trainLinearModel(data []CoverageDataPoint) (*Lin
 	}, nil
 }
 
-func (engine *PredictionEngine) trainPolynomialModel(data []CoverageDataPoint, degree int) (*PolynomialModel, error) {
+func (engine *PredictionEngine) trainPolynomialModel(_ []CoverageDataPoint, degree int) (*PolynomialModel, error) {
 	// Mock polynomial model training
 	coefficients := make([]float64, degree+1)
 	for i := 0; i <= degree; i++ {
@@ -627,7 +627,7 @@ func (engine *PredictionEngine) trainPolynomialModel(data []CoverageDataPoint, d
 	}, nil
 }
 
-func (engine *PredictionEngine) PerformCrossValidation(ctx context.Context, data []CoverageDataPoint, options CrossValidationOptions) (*CrossValidationResult, error) {
+func (engine *PredictionEngine) PerformCrossValidation(_ context.Context, _ []CoverageDataPoint, options CrossValidationOptions) (*CrossValidationResult, error) {
 	// Mock cross validation
 	foldScores := make([]float64, options.KFolds)
 	for i := 0; i < options.KFolds; i++ {
@@ -640,7 +640,7 @@ func (engine *PredictionEngine) PerformCrossValidation(ctx context.Context, data
 	}, nil
 }
 
-func (engine *PredictionEngine) calculateConfidenceIntervals(predictions []float64, residuals []float64, confidence float64) ([]ConfidenceInterval, error) {
+func (engine *PredictionEngine) calculateConfidenceIntervals(predictions []float64, _ []float64, _ float64) ([]ConfidenceInterval, error) {
 	// Mock confidence interval calculation
 	intervals := make([]ConfidenceInterval, len(predictions))
 	for i, pred := range predictions {
@@ -653,7 +653,7 @@ func (engine *PredictionEngine) calculateConfidenceIntervals(predictions []float
 	return intervals, nil
 }
 
-func (engine *PredictionEngine) extractFeatures(data []CoverageDataPoint) (map[string]float64, error) {
+func (engine *PredictionEngine) extractFeatures(_ []CoverageDataPoint) (map[string]float64, error) {
 	// Mock feature extraction
 	return map[string]float64{
 		"trend":           0.5,
@@ -666,7 +666,7 @@ func (engine *PredictionEngine) extractFeatures(data []CoverageDataPoint) (map[s
 	}, nil
 }
 
-func (engine *PredictionEngine) evaluateModel(actual, predicted []float64) (*ModelMetrics, error) {
+func (engine *PredictionEngine) evaluateModel(_, _ []float64) (*ModelMetrics, error) {
 	// Mock model evaluation
 	mse := 0.25
 	return &ModelMetrics{

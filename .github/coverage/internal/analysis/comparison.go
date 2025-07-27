@@ -779,7 +779,7 @@ func (e *ComparisonEngine) calculateRiskLevel(coverage float64, change *OverallC
 	} else if coverage < 70 {
 		riskScore += 2
 	} else if coverage < 80 {
-		riskScore += 1
+		riskScore++
 	}
 
 	if change.Direction == DirectionDegraded && change.IsSignificant {
@@ -796,7 +796,7 @@ func (e *ComparisonEngine) calculateRiskLevel(coverage float64, change *OverallC
 	if highRiskFiles > 5 {
 		riskScore += 2
 	} else if highRiskFiles > 2 {
-		riskScore += 1
+		riskScore++
 	}
 
 	if riskScore >= 5 {

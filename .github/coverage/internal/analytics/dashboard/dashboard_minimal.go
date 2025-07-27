@@ -12,7 +12,7 @@ type AnalyticsDashboard struct {
 }
 
 // DashboardConfig holds dashboard configuration
-type DashboardConfig struct {
+type DashboardConfig struct { //nolint:revive // dashboard.DashboardConfig is appropriately descriptive
 	Title                string
 	Theme                DashboardTheme
 	RefreshInterval      time.Duration
@@ -25,16 +25,19 @@ type DashboardConfig struct {
 }
 
 // DashboardTheme represents dashboard theme options
-type DashboardTheme string
+type DashboardTheme string //nolint:revive // dashboard.DashboardTheme is appropriately descriptive
 
 const (
+	// ThemeAuto automatically selects theme based on user preference
 	ThemeAuto  DashboardTheme = "auto"
+	// ThemeLight uses light theme
 	ThemeLight DashboardTheme = "light"
+	// ThemeDark uses dark theme
 	ThemeDark  DashboardTheme = "dark"
 )
 
 // DashboardData represents dashboard data
-type DashboardData struct {
+type DashboardData struct { //nolint:revive // dashboard.DashboardData is appropriately descriptive
 	CurrentMetrics     CurrentMetrics      `json:"current_metrics"`
 	Charts             []Chart             `json:"charts,omitempty"`
 	Predictions        []Prediction        `json:"predictions,omitempty"`
@@ -47,7 +50,7 @@ type DashboardData struct {
 	TeamAnalytics      *TeamAnalytics      `json:"team_analytics,omitempty"`
 }
 
-// Additional types needed by the export package
+// Chart represents a chart visualization
 type Chart struct {
 	ID      string `json:"id"`
 	Content string `json:"content"`

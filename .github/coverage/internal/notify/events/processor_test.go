@@ -11,7 +11,7 @@ import (
 
 // Test error definitions
 var (
-	ErrMockSubscriber = errors.New("mock subscriber error")
+	ErrMockSubscriber      = errors.New("mock subscriber error")
 	ErrProcessorNotRunning = errors.New("processor not running")
 )
 

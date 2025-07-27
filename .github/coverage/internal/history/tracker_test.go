@@ -104,11 +104,11 @@ func TestGetTrend(t *testing.T) { //nolint:revive // function naming
 		coverage := createTestCoverage()
 		coverage.Percentage = float64(70 + i*5) // 70%, 75%, 80%, 85%, 90%
 
-		err := tracker.Record(ctx, coverage,
+		recordErr := tracker.Record(ctx, coverage,
 			WithBranch("main"),
 			WithCommit("commit"+string(rune('1'+i)), ""),
 		)
-		require.NoError(t, err)
+		require.NoError(t, recordErr)
 		time.Sleep(10 * time.Millisecond) // Ensure different timestamps
 	}
 
@@ -206,11 +206,11 @@ func TestCleanup(t *testing.T) { //nolint:revive // function naming
 	// Record 3 entries (more than MaxEntries)
 	for i := 0; i < 3; i++ {
 		coverage := createTestCoverage()
-		err := tracker.Record(ctx, coverage,
+		recordErr := tracker.Record(ctx, coverage,
 			WithBranch("main"),
 			WithCommit("commit"+string(rune('1'+i)), ""),
 		)
-		require.NoError(t, err)
+		require.NoError(t, recordErr)
 		time.Sleep(10 * time.Millisecond)
 	}
 
@@ -368,11 +368,11 @@ func TestTrendAnalysis(t *testing.T) { //nolint:revive // function naming
 		coverage := createTestCoverage()
 		coverage.Percentage = percentage
 
-		err := tracker.Record(ctx, coverage,
+		recordErr := tracker.Record(ctx, coverage,
 			WithBranch("main"),
 			WithCommit("commit"+string(rune('1'+i)), ""),
 		)
-		require.NoError(t, err)
+		require.NoError(t, recordErr)
 		time.Sleep(10 * time.Millisecond)
 	}
 

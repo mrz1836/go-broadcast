@@ -16,7 +16,7 @@ import (
 
 // Static error definitions
 var (
-	ErrEmailConfigNil        = errors.New("Email config is nil")
+	ErrEmailConfigNil        = errors.New("email config is nil")
 	ErrSMTPHostRequired      = errors.New("SMTP host is required")
 	ErrInvalidSMTPPort       = errors.New("invalid SMTP port")
 	ErrFromEmailRequired     = errors.New("from email is required")
@@ -477,9 +477,12 @@ func (e *EmailChannel) sendSMTP(ctx context.Context, message string) error {
 			MinVersion: tls.VersionTLS12,
 		}
 
-		conn, err := tls.Dial("tcp", addr, tlsConfig)
-		if err != nil {
-			return fmt.Errorf("failed to connect with TLS: %w", err)
+		dialer := &tls.Dialer{
+			Config: tlsConfig,
+		}
+		conn, connErr := dialer.DialContext(ctx, "tcp", addr)
+		if connErr != nil {
+			return fmt.Errorf("failed to connect with TLS: %w", connErr)
 		}
 		defer func() { _ = conn.Close() }()
 
@@ -498,20 +501,20 @@ func (e *EmailChannel) sendSMTP(ctx context.Context, message string) error {
 
 	// Authenticate if credentials provided
 	if e.auth != nil {
-		if err := client.Auth(e.auth); err != nil {
-			return fmt.Errorf("SMTP authentication failed: %w", err)
+		if authErr := client.Auth(e.auth); authErr != nil {
+			return fmt.Errorf("SMTP authentication failed: %w", authErr)
 		}
 	}
 
 	// Set sender
-	if err := client.Mail(e.config.FromEmail); err != nil {
-		return fmt.Errorf("failed to set sender: %w", err)
+	if mailErr := client.Mail(e.config.FromEmail); mailErr != nil {
+		return fmt.Errorf("failed to set sender: %w", mailErr)
 	}
 
 	// Set recipients
 	for _, addr := range e.config.ToEmails {
-		if err := client.Rcpt(addr); err != nil {
-			return fmt.Errorf("failed to set recipient %s: %w", addr, err)
+		if rcptErr := client.Rcpt(addr); rcptErr != nil {
+			return fmt.Errorf("failed to set recipient %s: %w", addr, rcptErr)
 		}
 	}
 
@@ -522,9 +525,9 @@ func (e *EmailChannel) sendSMTP(ctx context.Context, message string) error {
 	}
 	defer func() { _ = writer.Close() }()
 
-	_, err = writer.Write([]byte(message))
-	if err != nil {
-		return fmt.Errorf("failed to write message: %w", err)
+	_, writeErr := writer.Write([]byte(message))
+	if writeErr != nil {
+		return fmt.Errorf("failed to write message: %w", writeErr)
 	}
 
 	return nil

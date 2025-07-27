@@ -297,7 +297,7 @@ func (w *WebhookChannel) buildWebhookPayload(notification *types.Notification) (
 	payload.Custom["format_version"] = "1.0"
 
 	// Marshal to JSON
-	return json.Marshal(payload)
+	return json.Marshal(payload) //nolint:musttag // WebhookPayload has JSON tags
 }
 
 // buildCustomPayload builds a custom payload using the configured template

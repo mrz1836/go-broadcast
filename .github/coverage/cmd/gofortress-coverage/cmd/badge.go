@@ -16,7 +16,9 @@ import (
 )
 
 var (
+	// ErrCoverageRequired indicates coverage percentage was not provided
 	ErrCoverageRequired = errors.New("coverage percentage is required (use --coverage or --input)")
+	// ErrInvalidCoverage indicates coverage percentage is out of valid range
 	ErrInvalidCoverage  = errors.New("coverage percentage must be between 0 and 100")
 )
 

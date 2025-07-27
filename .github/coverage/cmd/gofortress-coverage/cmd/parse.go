@@ -14,6 +14,7 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
+// ErrUnsupportedOutputFormat indicates the specified output format is not supported
 var ErrUnsupportedOutputFormat = errors.New("unsupported output format")
 
 var parseCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command

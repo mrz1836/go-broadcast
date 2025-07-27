@@ -191,6 +191,7 @@ type Recommendation struct {
 
 // Enums for categorization
 
+// TrendDirection represents the direction of a trend
 type TrendDirection string
 
 const (

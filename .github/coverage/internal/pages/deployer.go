@@ -87,15 +87,15 @@ func (d *Deployer) Deploy(ctx context.Context, opts DeploymentOptions) (*Deploym
 	defer d.cleanupWorkspace(tempDir)
 
 	// Organize artifacts
-	if err := d.organizeArtifacts(ctx, tempDir, opts); err != nil {
-		result.Message = fmt.Sprintf("Failed to organize artifacts: %v", err)
-		return result, err
+	if organizeErr := d.organizeArtifacts(ctx, tempDir, opts); organizeErr != nil {
+		result.Message = fmt.Sprintf("Failed to organize artifacts: %v", organizeErr)
+		return result, organizeErr
 	}
 
 	// Update dashboard
-	if err := d.updateDashboard(ctx, tempDir, opts); err != nil {
-		result.Message = fmt.Sprintf("Failed to update dashboard: %v", err)
-		return result, err
+	if updateErr := d.updateDashboard(ctx, tempDir, opts); updateErr != nil {
+		result.Message = fmt.Sprintf("Failed to update dashboard: %v", updateErr)
+		return result, updateErr
 	}
 
 	// Commit and push changes
@@ -131,8 +131,8 @@ func (d *Deployer) Setup(ctx context.Context, force bool) error {
 	}
 
 	// Create orphan gh-pages branch
-	if err := d.createOrphanBranch(ctx); err != nil {
-		return fmt.Errorf("failed to create orphan branch: %w", err)
+	if createErr := d.createOrphanBranch(ctx); createErr != nil {
+		return fmt.Errorf("failed to create orphan branch: %w", createErr)
 	}
 
 	// Initialize directory structure
@@ -269,18 +269,18 @@ func (d *Deployer) commitAndPush(ctx context.Context, workspaceDir string, opts 
 	}
 	defer func() { _ = os.Chdir(originalDir) }()
 
-	if err := os.Chdir(workspaceDir); err != nil {
-		return "", fmt.Errorf("failed to change to workspace directory: %w", err)
+	if chdirErr := os.Chdir(workspaceDir); chdirErr != nil {
+		return "", fmt.Errorf("failed to change to workspace directory: %w", chdirErr)
 	}
 
 	// Configure git user
-	if err := d.configureGitUser(); err != nil {
-		return "", fmt.Errorf("failed to configure git user: %w", err)
+	if configErr := d.configureGitUser(); configErr != nil {
+		return "", fmt.Errorf("failed to configure git user: %w", configErr)
 	}
 
 	// Add all changes
-	if err := d.runGitCommand("add", "."); err != nil {
-		return "", fmt.Errorf("failed to add changes: %w", err)
+	if addErr := d.runGitCommand("add", "."); addErr != nil {
+		return "", fmt.Errorf("failed to add changes: %w", addErr)
 	}
 
 	// Check if there are changes to commit
@@ -351,7 +351,8 @@ func (d *Deployer) cleanupWorkspace(tempDir string) {
 // Git helper methods
 
 func (d *Deployer) branchExists(branchName string) (bool, error) {
-	cmd := exec.Command("git", "ls-remote", "--heads", "origin", branchName)
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", "origin", branchName)
 	output, err := cmd.Output()
 	if err != nil {
 		return false, err
@@ -361,13 +362,13 @@ func (d *Deployer) branchExists(branchName string) (bool, error) {
 
 func (d *Deployer) createOrphanBranch(ctx context.Context) error {
 	// TODO: Implement orphan branch creation
-	fmt.Printf("Would create orphan branch: %s\n", d.Config.PagesBranch)
+	fmt.Printf("Would create orphan branch: %s\n", d.Config.PagesBranch) //nolint:forbidigo // TODO stub
 	return nil
 }
 
 func (d *Deployer) clonePagesBranch(ctx context.Context, targetDir string) error {
 	// TODO: Implement gh-pages branch cloning
-	fmt.Printf("Would clone %s branch to %s\n", d.Config.PagesBranch, targetDir)
+	fmt.Printf("Would clone %s branch to %s\n", d.Config.PagesBranch, targetDir) //nolint:forbidigo // TODO stub
 	return nil
 }
 
@@ -379,7 +380,8 @@ func (d *Deployer) configureGitUser() error {
 }
 
 func (d *Deployer) runGitCommand(args ...string) error {
-	cmd := exec.Command("git", args...)
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	if d.Config.GitHubToken != "" {
 		// TODO: Configure authentication with GitHub token
@@ -388,7 +390,8 @@ func (d *Deployer) runGitCommand(args ...string) error {
 }
 
 func (d *Deployer) hasChangesToCommit() (bool, error) {
-	cmd := exec.Command("git", "diff", "--cached", "--name-only")
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "git", "diff", "--cached", "--name-only")
 	output, err := cmd.Output()
 	if err != nil {
 		return false, err
@@ -397,7 +400,8 @@ func (d *Deployer) hasChangesToCommit() (bool, error) {
 }
 
 func (d *Deployer) getCommitSha() (string, error) {
-	cmd := exec.Command("git", "rev-parse", "HEAD")
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -407,7 +411,7 @@ func (d *Deployer) getCommitSha() (string, error) {
 
 func (d *Deployer) createInitialDashboard(ctx context.Context, structure *StorageStructure) error {
 	// TODO: Create initial dashboard using templates
-	fmt.Printf("Would create initial dashboard at %s\n", structure.DashboardPath)
+	fmt.Printf("Would create initial dashboard at %s\n", structure.DashboardPath) //nolint:forbidigo // TODO stub
 	return nil
 }
 

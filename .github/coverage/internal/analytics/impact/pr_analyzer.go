@@ -15,6 +15,7 @@ import (
 )
 
 var (
+	// ErrPredictorNotAvailable indicates that the coverage predictor is not available
 	ErrPredictorNotAvailable = errors.New("predictor not available")
 )
 
@@ -46,7 +47,7 @@ type AnalyzerConfig struct {
 }
 
 // ImpactThresholds defines thresholds for different impact levels
-type ImpactThresholds struct {
+type ImpactThresholds struct { //nolint:revive // impact.ImpactThresholds is appropriately descriptive
 	MinorImpact    float64 `json:"minor_impact"`    // < 1% change
 	ModerateImpact float64 `json:"moderate_impact"` // 1-5% change
 	MajorImpact    float64 `json:"major_impact"`    // 5-10% change
@@ -100,9 +101,13 @@ type FileChange struct {
 type ChangeStatus string
 
 const (
+	// StatusAdded indicates a file was added in the change
 	StatusAdded    ChangeStatus = "added"
+	// StatusModified indicates a file was modified in the change
 	StatusModified ChangeStatus = "modified"
+	// StatusDeleted indicates a file was deleted in the change
 	StatusDeleted  ChangeStatus = "deleted"
+	// StatusRenamed indicates a file was renamed in the change
 	StatusRenamed  ChangeStatus = "renamed"
 )
 
@@ -110,9 +115,13 @@ const (
 type ReviewStatus string
 
 const (
+	// ReviewPending indicates the PR review is pending
 	ReviewPending   ReviewStatus = "pending"
+	// ReviewApproved indicates the PR has been approved
 	ReviewApproved  ReviewStatus = "approved"
+	// ReviewRequested indicates changes have been requested for the PR
 	ReviewRequested ReviewStatus = "changes_requested"
+	// ReviewDismissed indicates the PR review was dismissed
 	ReviewDismissed ReviewStatus = "dismissed"
 )
 

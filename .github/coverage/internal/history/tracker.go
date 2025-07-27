@@ -16,8 +16,8 @@ import (
 
 // Static error definitions
 var (
-	ErrNoEntriesFound       = errors.New("no entries found for branch")
-	ErrUnsupportedDataType  = errors.New("unsupported data type")
+	ErrNoEntriesFound      = errors.New("no entries found for branch")
+	ErrUnsupportedDataType = errors.New("unsupported data type")
 )
 
 // Tracker manages coverage history and trend analysis

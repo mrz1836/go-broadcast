@@ -352,7 +352,7 @@ func (m *PRCommentManager) generateEnhancedComment(comparison *CoverageCompariso
 		HeadSHA:        headSHA,
 	}
 	metadataJSON, _ := json.Marshal(metadata) //nolint:errchkjson // Metadata marshaling is optional
-	comment.WriteString(string(metadataJSON))
+	comment.Write(metadataJSON)
 	comment.WriteString(" -->\n\n")
 
 	// Header with trend emoji

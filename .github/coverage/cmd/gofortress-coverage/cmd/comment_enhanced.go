@@ -19,9 +19,13 @@ import (
 )
 
 var (
+	// ErrEnhancedGitHubTokenRequired indicates GitHub token was not provided
 	ErrEnhancedGitHubTokenRequired = errors.New("GitHub token is required")
+	// ErrEnhancedGitHubOwnerRequired indicates repository owner was not provided
 	ErrEnhancedGitHubOwnerRequired = errors.New("GitHub repository owner is required")
+	// ErrEnhancedGitHubRepoRequired indicates repository name was not provided
 	ErrEnhancedGitHubRepoRequired  = errors.New("GitHub repository name is required")
+	// ErrEnhancedPRNumberRequired indicates PR number was not provided
 	ErrEnhancedPRNumberRequired    = errors.New("pull request number is required")
 )
 

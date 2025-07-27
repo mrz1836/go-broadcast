@@ -478,16 +478,16 @@ func (g *SVGChartGenerator) writeGrid(svg *strings.Builder, chartArea ChartArea,
 	gridLines := 5
 	for i := 0; i <= gridLines; i++ {
 		x := chartArea.X + int(float64(i)*float64(chartArea.Width)/float64(gridLines))
-		svg.WriteString(fmt.Sprintf(`  <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="%.1f"/>`,
-			x, chartArea.Y, x, chartArea.Y+chartArea.Height, g.config.GridColor, g.config.GridLineWidth))
+		fmt.Fprintf(svg, `  <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="%.1f"/>`,
+			x, chartArea.Y, x, chartArea.Y+chartArea.Height, g.config.GridColor, g.config.GridLineWidth)
 		svg.WriteString("\n")
 	}
 
 	// Horizontal grid lines (values)
 	for i := 0; i <= gridLines; i++ {
 		y := chartArea.Y + int(float64(i)*float64(chartArea.Height)/float64(gridLines))
-		svg.WriteString(fmt.Sprintf(`  <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="%.1f"/>`,
-			chartArea.X, y, chartArea.X+chartArea.Width, y, g.config.GridColor, g.config.GridLineWidth))
+		fmt.Fprintf(svg, `  <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="%.1f"/>`,
+			chartArea.X, y, chartArea.X+chartArea.Width, y, g.config.GridColor, g.config.GridLineWidth)
 		svg.WriteString("\n")
 	}
 }
@@ -495,8 +495,8 @@ func (g *SVGChartGenerator) writeGrid(svg *strings.Builder, chartArea ChartArea,
 func (g *SVGChartGenerator) writeAxes(svg *strings.Builder, chartArea ChartArea, xScale, yScale *Scale, data *ChartData) {
 	// X axis
 	if g.config.ShowXAxis {
-		svg.WriteString(fmt.Sprintf(`  <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="1"/>`,
-			chartArea.X, chartArea.Y+chartArea.Height, chartArea.X+chartArea.Width, chartArea.Y+chartArea.Height, g.config.TextColor))
+		fmt.Fprintf(svg, `  <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="1"/>`,
+			chartArea.X, chartArea.Y+chartArea.Height, chartArea.X+chartArea.Width, chartArea.Y+chartArea.Height, g.config.TextColor)
 		svg.WriteString("\n")
 
 		// X axis labels

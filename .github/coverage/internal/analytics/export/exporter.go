@@ -876,9 +876,9 @@ func (e *AnalyticsExporter) exportToJSON(ctx context.Context, data *ExportData, 
 	var err error
 
 	if e.config.JSONSettings.Pretty {
-		jsonData, err = json.MarshalIndent(data, "", "  ")
+		jsonData, err = json.MarshalIndent(data, "", "  ") //nolint:musttag // ExportData has JSON tags
 	} else {
-		jsonData, err = json.Marshal(data)
+		jsonData, err = json.Marshal(data) //nolint:musttag // ExportData has JSON tags
 	}
 
 	if err != nil {

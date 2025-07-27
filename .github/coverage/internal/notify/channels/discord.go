@@ -16,9 +16,9 @@ import (
 
 // Static error definitions
 var (
-	ErrDiscordAPIError         = errors.New("Discord API returned error status")
-	ErrDiscordConfigNil        = errors.New("Discord config is nil")
-	ErrDiscordWebhookRequired  = errors.New("Discord webhook URL is required")
+	ErrDiscordAPIError         = errors.New("discord API returned error status")
+	ErrDiscordConfigNil        = errors.New("discord config is nil")
+	ErrDiscordWebhookRequired  = errors.New("discord webhook URL is required")
 	ErrDiscordWebhookInvalid   = errors.New("invalid Discord webhook URL format")
 )
 

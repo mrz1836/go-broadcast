@@ -31,8 +31,11 @@ var (
 	ErrMissingPROrBranch = errors.New("either --pr or --branch must be specified")
 	// ErrInvalidTimeRange indicates an invalid time range was specified
 	ErrInvalidTimeRange     = errors.New("invalid time range")
+	// ErrUnsupportedTimeRange indicates the specified time range is not supported
 	ErrUnsupportedTimeRange = errors.New("unsupported time range")
+	// ErrInvalidHorizon indicates an invalid prediction horizon was specified
 	ErrInvalidHorizon       = errors.New("invalid horizon")
+	// ErrMissingNotifyOption indicates no notification option was specified
 	ErrMissingNotifyOption  = errors.New("specify --status to check notification system or --test to send test notification")
 )
 
@@ -410,7 +413,7 @@ func runDashboard(cmd *cobra.Command, args []string) error { //nolint:revive // 
 func runTrends(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
 
-	fmt.Println("📈 Analyzing coverage trends...")
+	fmt.Println("📈 Analyzing coverage trends...") //nolint:forbidigo // CLI output
 
 	// Parse time range
 	_, err := parseTimeRange(trendsRange)
@@ -451,7 +454,7 @@ func runTrends(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 		}
 		fmt.Printf("✅ Trend analysis saved: %s\n", trendsOutput)
 	} else {
-		fmt.Println(output)
+		fmt.Println(output) //nolint:forbidigo // CLI output
 	}
 
 	return nil
@@ -460,7 +463,7 @@ func runTrends(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 func runPredict(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
 
-	fmt.Println("🔮 Generating coverage predictions...")
+	fmt.Println("🔮 Generating coverage predictions...") //nolint:forbidigo // CLI output
 
 	// Parse prediction horizon
 	horizon, err := parseDuration(predictHorizon)
@@ -896,7 +899,7 @@ func runNotify(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 	return ErrMissingNotifyOption
 }
 
-func showNotificationStatus(ctx context.Context) error { //nolint:revive // function naming
+func showNotificationStatus(_ context.Context) error { //nolint:revive // function naming
 	fmt.Println("📢 Notification System Status")
 
 	// Initialize notification engine
@@ -944,10 +947,6 @@ func sendTestNotification(ctx context.Context) error { //nolint:revive // functi
 		Branch:     "main",
 		Priority:   types.PriorityNormal,
 		// Urgency field removed in types refactor
-	}
-
-	if notifyChannel != "" {
-		// Channel configuration moved to notification engine in types refactor
 	}
 
 	if notifyMessage != "" {

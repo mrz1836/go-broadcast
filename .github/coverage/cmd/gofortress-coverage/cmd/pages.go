@@ -90,7 +90,7 @@ type CleanOptions struct {
 }
 
 // setupGitHubPages initializes the gh-pages branch with proper structure
-func setupGitHubPages(ctx context.Context, branch string, force bool, verbose bool) error { //nolint:revive // function naming
+func setupGitHubPages(_ context.Context, branch string, _ bool, verbose bool) error { //nolint:revive // function naming
 	if verbose {
 		fmt.Printf("🚀 Setting up GitHub Pages on branch: %s\n", branch)
 	}
@@ -143,7 +143,7 @@ func setupGitHubPages(ctx context.Context, branch string, force bool, verbose bo
 }
 
 // deployToGitHubPages deploys coverage artifacts to GitHub Pages
-func deployToGitHubPages(ctx context.Context, opts DeployOptions) error { //nolint:revive // function naming
+func deployToGitHubPages(_ context.Context, opts DeployOptions) error { //nolint:revive // function naming
 	if opts.Verbose {
 		fmt.Printf("🚀 Deploying coverage artifacts to GitHub Pages\n")
 		fmt.Printf("  📍 Branch: %s\n", opts.Branch)
@@ -195,7 +195,7 @@ func deployToGitHubPages(ctx context.Context, opts DeployOptions) error { //noli
 }
 
 // cleanGitHubPages removes old PR data and expired content
-func cleanGitHubPages(ctx context.Context, opts CleanOptions) error { //nolint:revive // function naming
+func cleanGitHubPages(_ context.Context, opts CleanOptions) error { //nolint:revive // function naming
 	if opts.Verbose {
 		fmt.Printf("🧹 Cleaning up GitHub Pages content\n")
 		fmt.Printf("  📅 Max age: %d days\n", opts.MaxAgeDays)
