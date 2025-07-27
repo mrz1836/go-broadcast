@@ -197,7 +197,6 @@ jobs:
       test-matrix: ${{ needs.setup.outputs.test-matrix }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
-      codecov-token: ${{ secrets.CODECOV_TOKEN }}
   # ----------------------------------------------------------------------------------
   # Benchmark Suite
   # ----------------------------------------------------------------------------------

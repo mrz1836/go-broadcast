@@ -33,8 +33,8 @@
         <a href="https://goreportcard.com/report/github.com/mrz1836/go-broadcast">
           <img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat" alt="Go Report Card">
         </a><br/>
-		<a href="https://codecov.io/gh/mrz1836/go-broadcast/tree/master">
-          <img src="https://codecov.io/gh/mrz1836/go-broadcast/branch/master/graph/badge.svg?token=OKAyV2Z6Yy" alt="Code Coverage">
+		<a href="https://mrz1836.github.io/go-broadcast/reports/main/">
+          <img src="https://mrz1836.github.io/go-broadcast/badges/main.svg" alt="Code Coverage">
         </a><br/>
 		<a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast">
           <img src="https://api.scorecard.dev/projects/github.com/mrz1836/go-broadcast/badge?logo=springsecurity&logoColor=white" alt="OpenSSF Scorecard">
@@ -82,6 +82,7 @@
 
 ## 🗂️ Table of Contents
 * [Quick Start](#-quick-start)
+* [Coverage System Features](#-coverage-system-features)
 * [How It Works](#-how-it-works)
 * [Usage Examples](#-usage-examples)
 * [Logging and Debugging](#-logging-and-debugging)
@@ -147,6 +148,150 @@ go-broadcast sync --config sync.yaml
 - Creates a branch in each target repository
 - Commits synchronized files
 - Opens a pull request for review
+
+<br/>
+
+## 🚀 Coverage System Features
+
+**go-broadcast** includes a cutting-edge, self-hosted coverage system that completely replaces external services like Codecov. Built as a modern alternative with enterprise-grade features, zero external dependencies, and complete data privacy.
+
+### 🎯 Core Features
+
+#### Professional Coverage Badges
+- **GitHub-style badges** with multiple themes (flat, flat-square, for-the-badge)
+- **Real-time updates** on every push and pull request
+- **Branch-specific badges** for main, develop, and feature branches
+- **Trend indicators** showing coverage direction and momentum
+- **PR-specific badges** for pull request analysis
+
+<table>
+  <tr>
+    <td><img src="https://mrz1836.github.io/go-broadcast/badges/main.svg" alt="Main Branch Coverage" /></td>
+    <td><img src="https://img.shields.io/badge/coverage-87.2%25-brightgreen?style=flat-square" alt="Flat Square Style" /></td>
+    <td><img src="https://img.shields.io/badge/trend-%E2%86%97%20improving-green?style=for-the-badge" alt="Trend Badge" /></td>
+  </tr>
+</table>
+
+#### Interactive Coverage Dashboard
+- **Modern, responsive UI** with glass-morphism design and dark/light themes
+- **Real-time metrics** with animated progress indicators
+- **Command palette** (Cmd+K) for quick navigation and search
+- **Mobile-optimized** with touch gestures and responsive layouts
+- **Zero external dependencies** - fully self-contained
+
+[🔗 **View Live Demo**](https://mrz1836.github.io/go-broadcast/)
+
+#### Intelligent PR Coverage Comments
+- **Comprehensive coverage analysis** comparing base vs PR branches
+- **File-level breakdown** with uncovered lines highlighted
+- **Trend analysis** showing coverage direction and momentum
+- **Smart anti-spam logic** to prevent comment noise on multiple pushes
+- **Actionable insights** and improvement suggestions
+- **Multiple comment templates** (comprehensive, compact, detailed, summary, minimal)
+
+#### Advanced Analytics & Insights
+- **Historical trend tracking** with interactive charts and predictions
+- **Team analytics** showing individual and collaborative metrics
+- **Performance monitoring** with coverage velocity and quality scoring
+- **Anomaly detection** identifying unusual coverage patterns
+- **Predictive modeling** forecasting coverage trends and milestones
+
+#### Multi-Channel Notifications
+- **Slack integration** with rich message formatting and interactive elements
+- **Microsoft Teams** support with adaptive cards and threaded conversations
+- **Discord webhooks** with embed messages and role mentions
+- **Email notifications** with HTML templates and attachment support
+- **Custom webhooks** for integration with any service
+
+#### Enterprise-Grade Deployment
+- **GitHub Pages integration** with automatic setup and organized storage
+- **PR-specific deployments** with isolated coverage reports
+- **Automatic cleanup** of expired data with configurable retention policies
+- **Export capabilities** to PDF, CSV, JSON, and HTML formats
+- **CLI automation** with comprehensive command-line interface
+
+### 📊 Migration Benefits vs. External Services
+
+| Feature | GoFortress Coverage | Codecov | Coveralls |
+|---------|:------------------:|:-------:|:---------:|
+| **Zero External Dependencies** | ✅ | ❌ | ❌ |
+| **Complete Data Privacy** | ✅ | ❌ | ❌ |
+| **No Rate Limits** | ✅ | ❌ | ❌ |
+| **No Subscription Costs** | ✅ | ❌ | ❌ |
+| **Interactive Dashboard** | ✅ | ❌ | ❌ |
+| **Advanced Analytics** | ✅ | Basic | Basic |
+| **PR Impact Analysis** | ✅ | Limited | Limited |
+| **Team Collaboration** | ✅ | ❌ | ❌ |
+| **Multi-Format Export** | ✅ | ❌ | ❌ |
+| **Custom Notifications** | ✅ | Limited | Limited |
+
+### ⚡ Quick Coverage Setup
+
+Enable the internal coverage system by setting environment variables in [`.github/.env.shared`](.github/.env.shared):
+
+```bash
+# Enable internal coverage system
+ENABLE_INTERNAL_COVERAGE=true
+COVERAGE_FAIL_UNDER=80                    # Minimum acceptable coverage
+COVERAGE_BADGE_STYLE=flat                 # Badge style
+COVERAGE_PR_COMMENT_ENABLED=true          # Enable PR comments
+COVERAGE_PAGES_AUTO_CREATE=true           # Auto-create GitHub Pages
+```
+
+The coverage system is fully automated and integrates seamlessly with existing CI/CD workflows:
+
+```bash
+# 1. Tests run and generate coverage data
+go test -coverprofile=coverage.out ./...
+
+# 2. Coverage system processes data automatically
+# Creates badges, reports, and dashboard
+# Posts PR comments with analysis
+# Deploys to GitHub Pages
+
+# 3. View results
+curl -I https://your-org.github.io/your-repo/badges/main.svg
+```
+
+### 🔧 Advanced Configuration
+
+The coverage system includes 45+ configuration options for complete customization:
+
+<details>
+<summary><strong>🎨 Badge & Theme Configuration</strong></summary>
+
+```bash
+COVERAGE_BADGE_STYLE=flat                # flat, flat-square, for-the-badge
+COVERAGE_BADGE_LOGO=go                   # Logo: go, github, custom URL
+COVERAGE_REPORT_THEME=github-dark        # Dashboard theme
+COVERAGE_THRESHOLD_EXCELLENT=90          # Green badge threshold
+COVERAGE_THRESHOLD_GOOD=80               # Yellow-green threshold
+```
+</details>
+
+<details>
+<summary><strong>📊 Analytics & Reporting</strong></summary>
+
+```bash
+COVERAGE_ENABLE_TREND_ANALYSIS=true      # Historical trend tracking
+COVERAGE_ENABLE_PACKAGE_BREAKDOWN=true   # Package-level coverage
+COVERAGE_HISTORY_RETENTION_DAYS=90       # Data retention period
+COVERAGE_CLEANUP_PR_AFTER_DAYS=7         # PR cleanup schedule
+```
+</details>
+
+<details>
+<summary><strong>🔔 Notification Configuration</strong></summary>
+
+```bash
+COVERAGE_SLACK_WEBHOOK_ENABLED=true      # Enable Slack notifications
+COVERAGE_PR_COMMENT_SHOW_TREE=true       # Show file tree in PR comments
+COVERAGE_PR_COMMENT_SHOW_MISSING=true    # Highlight uncovered lines
+COVERAGE_PR_COMMENT_BEHAVIOR=update      # Comment behavior: new, update, delete-and-new
+```
+</details>
+
+[📚 **Complete Configuration Guide**](docs/coverage-configuration.md) | [🔧 **Migration Guide**](docs/migrating-from-codecov.md) | [📊 **API Documentation**](docs/coverage-api.md)
 
 <br/>
 
@@ -442,7 +587,7 @@ For more detailed information, see the [comprehensive logging guide](docs/loggin
 * **One‑Command Builds** powered by battle‑tested [Make](https://www.gnu.org/software/make) targets for linting, testing, releases, and more.
 * **First‑Class Dependency Management** using native [Go Modules](https://github.com/golang/go/wiki/Modules).
 * **Uniform Code Style** via [gofumpt](https://github.com/mvdan/gofumpt) plus zero‑noise linting with [golangci‑lint](https://github.com/golangci/golangci-lint).
-* **Confidence‑Boosting Tests** with [testify](https://github.com/stretchr/testify), the Go [race detector](https://blog.golang.org/race-detector), crystal‑clear [HTML coverage](https://blog.golang.org/cover) snapshots, and automatic uploads to [Codecov](https://codecov.io/).
+* **Confidence‑Boosting Tests** with [testify](https://github.com/stretchr/testify), the Go [race detector](https://blog.golang.org/race-detector), crystal‑clear [HTML coverage](https://blog.golang.org/cover) snapshots, and automatic reporting via internal coverage system.
 * **Hands‑Free Releases** delivered by [GoReleaser](https://github.com/goreleaser/goreleaser) whenever you create a [new Tag](https://git-scm.com/book/en/v2/Git-Basics-Tagging).
 * **Relentless Dependency & Vulnerability Scans** via [Dependabot](https://dependabot.com), [Nancy](https://github.com/sonatype-nexus-community/nancy), [govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck), and [OSSAR](https://github.com/github/ossar-action).
 * **Security Posture by Default** with [CodeQL](https://docs.github.com/en/github/finding-security-vulnerabilities-and-errors-in-your-code/about-code-scanning), [OpenSSF Scorecard](https://openssf.org), [OSSAR](https://github.com/github/ossar-action), and secret‑leak detection via [gitleaks](https://github.com/gitleaks/gitleaks).
