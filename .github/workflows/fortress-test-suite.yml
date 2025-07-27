@@ -373,4 +373,4 @@ jobs:
       commit-sha: ${{ github.sha }}
       env-json: ${{ inputs.env-json }}
     secrets:
-      github-token: ${{ secrets.github-token }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
