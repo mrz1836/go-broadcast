@@ -13,11 +13,11 @@ import (
 
 // Static error definitions
 var (
-	ErrBranchAlreadyExists         = errors.New("branch already exists")
-	ErrBranchOrPRRequired          = errors.New("either branch or PR number must be specified")
-	ErrInputDirectoryRequired      = errors.New("input directory is required")
-	ErrInputDirectoryNotExists     = errors.New("input directory does not exist")
-	ErrNoChangesToCommit          = errors.New("no changes to commit")
+	ErrBranchAlreadyExists     = errors.New("branch already exists")
+	ErrBranchOrPRRequired      = errors.New("either branch or PR number must be specified")
+	ErrInputDirectoryRequired  = errors.New("input directory is required")
+	ErrInputDirectoryNotExists = errors.New("input directory does not exist")
+	ErrNoChangesToCommit       = errors.New("no changes to commit")
 )
 
 // Deployer handles GitHub Pages deployment operations
@@ -121,7 +121,7 @@ func (d *Deployer) Deploy(ctx context.Context, opts DeploymentOptions) (*Deploym
 // Setup initializes the GitHub Pages branch and structure
 func (d *Deployer) Setup(ctx context.Context, force bool) error {
 	// Check if gh-pages branch exists
-	exists, err := d.branchExists(d.Config.PagesBranch)
+	exists, err := d.branchExists(ctx, d.Config.PagesBranch)
 	if err != nil {
 		return fmt.Errorf("failed to check branch existence: %w", err)
 	}
@@ -209,7 +209,7 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 		targetPath = filepath.Join(workspaceDir, "reports", "pr", sanitizePRNumber(opts.PRNumber))
 		badgeTargetPath := filepath.Join(workspaceDir, "badges", "pr", sanitizePRNumber(opts.PRNumber)+".svg")
 
-		if err := os.MkdirAll(filepath.Dir(badgeTargetPath), 0750); err != nil {
+		if err := os.MkdirAll(filepath.Dir(badgeTargetPath), 0o750); err != nil {
 			return fmt.Errorf("failed to create PR badge directory: %w", err)
 		}
 
@@ -222,7 +222,7 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 		targetPath = filepath.Join(workspaceDir, "reports", sanitizeBranchName(opts.Branch))
 		badgeTargetPath := filepath.Join(workspaceDir, "badges", sanitizeBranchName(opts.Branch)+".svg")
 
-		if err := os.MkdirAll(filepath.Dir(badgeTargetPath), 0750); err != nil {
+		if err := os.MkdirAll(filepath.Dir(badgeTargetPath), 0o750); err != nil {
 			return fmt.Errorf("failed to create branch badge directory: %w", err)
 		}
 
@@ -233,7 +233,7 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 	}
 
 	// Ensure target directory exists
-	if err := os.MkdirAll(targetPath, 0750); err != nil {
+	if err := os.MkdirAll(targetPath, 0o750); err != nil {
 		return fmt.Errorf("failed to create target directory: %w", err)
 	}
 
@@ -253,7 +253,7 @@ func (d *Deployer) updateDashboard(ctx context.Context, workspaceDir string, opt
 	if _, err := os.Stat(dashboardPath); os.IsNotExist(err) {
 		// Create basic dashboard if it doesn't exist
 		dashboardContent := generateBasicDashboard(opts)
-		if err := os.WriteFile(dashboardPath, []byte(dashboardContent), 0600); err != nil {
+		if err := os.WriteFile(dashboardPath, []byte(dashboardContent), 0o600); err != nil {
 			return fmt.Errorf("failed to create dashboard: %w", err)
 		}
 	}
@@ -274,17 +274,17 @@ func (d *Deployer) commitAndPush(ctx context.Context, workspaceDir string, opts 
 	}
 
 	// Configure git user
-	if configErr := d.configureGitUser(); configErr != nil {
+	if configErr := d.configureGitUser(ctx); configErr != nil {
 		return "", fmt.Errorf("failed to configure git user: %w", configErr)
 	}
 
 	// Add all changes
-	if addErr := d.runGitCommand("add", "."); addErr != nil {
+	if addErr := d.runGitCommand(ctx, "add", "."); addErr != nil {
 		return "", fmt.Errorf("failed to add changes: %w", addErr)
 	}
 
 	// Check if there are changes to commit
-	hasChanges, err := d.hasChangesToCommit()
+	hasChanges, err := d.hasChangesToCommit(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to check for changes: %w", err)
 	}
@@ -303,18 +303,18 @@ func (d *Deployer) commitAndPush(ctx context.Context, workspaceDir string, opts 
 		}
 	}
 
-	if err := d.runGitCommand("commit", "-m", commitMessage); err != nil {
+	if err := d.runGitCommand(ctx, "commit", "-m", commitMessage); err != nil {
 		return "", fmt.Errorf("failed to commit changes: %w", err)
 	}
 
 	// Get commit SHA
-	commitSha, err := d.getCommitSha()
+	commitSha, err := d.getCommitSha(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get commit SHA: %w", err)
 	}
 
 	// Push changes
-	if err := d.runGitCommand("push", "origin", d.Config.PagesBranch); err != nil {
+	if err := d.runGitCommand(ctx, "push", "origin", d.Config.PagesBranch); err != nil {
 		return "", fmt.Errorf("failed to push changes: %w", err)
 	}
 
@@ -350,8 +350,7 @@ func (d *Deployer) cleanupWorkspace(tempDir string) {
 
 // Git helper methods
 
-func (d *Deployer) branchExists(branchName string) (bool, error) {
-	ctx := context.Background()
+func (d *Deployer) branchExists(ctx context.Context, branchName string) (bool, error) {
 	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", "origin", branchName)
 	output, err := cmd.Output()
 	if err != nil {
@@ -372,15 +371,14 @@ func (d *Deployer) clonePagesBranch(ctx context.Context, targetDir string) error
 	return nil
 }
 
-func (d *Deployer) configureGitUser() error {
-	if err := d.runGitCommand("config", "user.name", d.Config.CommitAuthor); err != nil {
+func (d *Deployer) configureGitUser(ctx context.Context) error {
+	if err := d.runGitCommand(ctx, "config", "user.name", d.Config.CommitAuthor); err != nil {
 		return err
 	}
-	return d.runGitCommand("config", "user.email", d.Config.CommitEmail)
+	return d.runGitCommand(ctx, "config", "user.email", d.Config.CommitEmail)
 }
 
-func (d *Deployer) runGitCommand(args ...string) error {
-	ctx := context.Background()
+func (d *Deployer) runGitCommand(ctx context.Context, args ...string) error {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	if d.Config.GitHubToken != "" {
@@ -389,8 +387,7 @@ func (d *Deployer) runGitCommand(args ...string) error {
 	return cmd.Run()
 }
 
-func (d *Deployer) hasChangesToCommit() (bool, error) {
-	ctx := context.Background()
+func (d *Deployer) hasChangesToCommit(ctx context.Context) (bool, error) {
 	cmd := exec.CommandContext(ctx, "git", "diff", "--cached", "--name-only")
 	output, err := cmd.Output()
 	if err != nil {
@@ -399,8 +396,7 @@ func (d *Deployer) hasChangesToCommit() (bool, error) {
 	return len(strings.TrimSpace(string(output))) > 0, nil
 }
 
-func (d *Deployer) getCommitSha() (string, error) {
-	ctx := context.Background()
+func (d *Deployer) getCommitSha(ctx context.Context) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {

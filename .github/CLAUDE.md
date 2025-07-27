@@ -237,6 +237,11 @@ govulncheck ./...
 
 ### Common Linter Issues and How to Avoid Them
 
+**Formatting (gofmt/gofumpt):**
+- Always run `gofmt -w .` before committing
+- For stricter formatting, use `gofumpt -w .`
+- Gofumpt enforces additional rules like consistent import grouping
+
 **Security Issues (gosec):**
 - Use `0600` for file permissions, not `0644` for sensitive files
 - Use `0750` for directory permissions, not `0755`
@@ -286,17 +291,24 @@ This project uses 60+ linters via golangci-lint with strict standards. Key linte
 - **Performance**: prealloc, ineffassign, unparam
 - **Maintainability**: gochecknoglobals, unused
 - **Context awareness**: noctx, contextcheck
+- **JSON handling**: musttag
+- **Directive hygiene**: nolintlint
 
-**Major Linter Categories Fixed (378 → 84 issues, 78% reduction):**
+**Major Linter Categories Fixed (378 → 69 issues, 82% reduction):**
 1. **Security (gosec)**: Fixed 15 issues - file permissions (0600/0750), TLS MinVersion, controlled file paths
 2. **Error Handling (errcheck + err113)**: Fixed 75 issues - proper error checking with `_ =`, static error wrapping
 3. **Global Variables (gochecknoglobals)**: Fixed 40 issues - CLI flags with proper justification
 4. **Code Quality (revive)**: Fixed 50+ issues - export comments, naming, unused parameters, increment operators
-5. **Performance (prealloc + staticcheck)**: Pre-allocate slices, use fmt.Fprintf instead of WriteString+Sprintf
+5. **Performance (prealloc + staticcheck)**: Pre-allocate slices, use fmt.Fprintf for string building
 6. **Formatting (gofmt/gofumpt)**: Automatic formatting fixes
 7. **Variable Shadowing (govet)**: Fixed 12 issues - renamed shadowed variables
 8. **Context Usage (noctx)**: Use DialContext and CommandContext instead of Dial/Command
 9. **Memory Optimization (mirror)**: Use Write([]byte) instead of WriteString(string())
+10. **Test Mocks (unparam)**: Added nolint for test mocks that always return nil
+11. **CLI Output (forbidigo)**: Added nolint for legitimate CLI print statements
+12. **String Efficiency (staticcheck)**: Use fmt.Fprintf instead of WriteString(fmt.Sprintf())
+13. **JSON Marshaling (musttag)**: Added nolint when structs already have JSON tags
+14. **Directive Cleanup (nolintlint)**: Removed unused nolint directives
 
 The configuration prioritizes security and correctness over convenience. When adding `//nolint` comments, always include a specific reason.
 
@@ -313,6 +325,11 @@ The configuration prioritizes security and correctness over convenience. When ad
 - Used `exec.CommandContext` instead of `exec.Command`
 - Used `Write([]byte)` instead of `WriteString(string(data))` to avoid allocations
 - Added `//nolint:musttag` for structs that already have JSON tags in their type definition
+- Added `//nolint:unparam` for test mock methods that always return nil
+- Added `//nolint:forbidigo` for legitimate CLI output (fmt.Print*/println)
+- Cleaned up unused `//nolint` directives (detected by nolintlint)
+- Pass context parameters through all function calls (contextcheck)
+- Fixed error strings to be lowercase (staticcheck ST1005)
 
 ---
 
@@ -361,5 +378,36 @@ Before starting any development work:
 
 If you encounter conflicting guidance elsewhere, `AGENTS.md` wins.  
 Questions or ambiguities? Open a discussion or ping a maintainer instead of guessing.
+
+### Additional Linter-Specific Guidance
+
+**Context Best Practices (noctx + contextcheck):**
+- Always use context-aware functions: `DialContext`, `CommandContext`
+- Pass context through all function chains
+- When adding context to a function, update all callers
+- Example fix: `tls.Dial` → `(&tls.Dialer{Config: tlsConfig}).DialContext(ctx, ...)`
+
+**Test-Specific Patterns (unparam):**
+- Mock methods returning nil errors: `//nolint:unparam // mock always returns nil`
+- Consider if test interfaces really need error returns
+
+**CLI Development (forbidigo):**
+- CLI output is allowed: `//nolint:forbidigo // CLI output`
+- Use structured logging for library code
+
+**JSON Marshaling (musttag):**
+- Structs with existing tags: `//nolint:musttag // Type has JSON tags`
+- Verify the type definition has proper field tags
+
+**Performance Patterns:**
+- String building: `fmt.Fprintf(w, format, args...)` not `w.WriteString(fmt.Sprintf(...))`
+- Binary data: `writer.Write([]byte)` not `writer.WriteString(string(data))`
+- Slice allocation: `make([]T, 0, knownCapacity)` when size is predictable
+
+**Maintaining Code Quality:**
+- Run `make lint-all-modules` before committing
+- Address linter issues promptly - don't let them accumulate
+- Use specific nolint directives with clear reasons
+- Periodically audit nolint comments for relevance
 
 Happy hacking! 🚀

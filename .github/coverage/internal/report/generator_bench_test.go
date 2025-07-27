@@ -9,7 +9,7 @@ import (
 )
 
 // BenchmarkGenerate benchmarks basic report generation performance
-func BenchmarkGenerate(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGenerate(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createBenchmarkCoverageData(10, 50) // 10 packages, 50 files total
@@ -24,7 +24,7 @@ func BenchmarkGenerate(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkGenerateSmall benchmarks small report generation
-func BenchmarkGenerateSmall(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGenerateSmall(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createBenchmarkCoverageData(3, 10) // 3 packages, 10 files total
@@ -39,7 +39,7 @@ func BenchmarkGenerateSmall(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkGenerateLarge benchmarks large report generation
-func BenchmarkGenerateLarge(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGenerateLarge(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createBenchmarkCoverageData(50, 500) // 50 packages, 500 files total

@@ -605,7 +605,7 @@ func (engine *PredictionEngine) PredictCoverage(_ context.Context, data []Covera
 	}, nil
 }
 
-func (engine *PredictionEngine) trainLinearModel(_ []CoverageDataPoint) (*LinearModel, error) {
+func (engine *PredictionEngine) trainLinearModel(_ []CoverageDataPoint) (*LinearModel, error) { //nolint:unparam // mock always returns nil error
 	// Mock linear model training
 	return &LinearModel{
 		Slope:     2.0,
@@ -614,7 +614,7 @@ func (engine *PredictionEngine) trainLinearModel(_ []CoverageDataPoint) (*Linear
 	}, nil
 }
 
-func (engine *PredictionEngine) trainPolynomialModel(_ []CoverageDataPoint, degree int) (*PolynomialModel, error) {
+func (engine *PredictionEngine) trainPolynomialModel(_ []CoverageDataPoint, degree int) (*PolynomialModel, error) { //nolint:unparam // mock always returns nil error
 	// Mock polynomial model training
 	coefficients := make([]float64, degree+1)
 	for i := 0; i <= degree; i++ {
@@ -640,7 +640,7 @@ func (engine *PredictionEngine) PerformCrossValidation(_ context.Context, _ []Co
 	}, nil
 }
 
-func (engine *PredictionEngine) calculateConfidenceIntervals(predictions []float64, _ []float64, _ float64) ([]ConfidenceInterval, error) {
+func (engine *PredictionEngine) calculateConfidenceIntervals(predictions []float64, _ []float64, _ float64) ([]ConfidenceInterval, error) { //nolint:unparam // mock always returns nil error
 	// Mock confidence interval calculation
 	intervals := make([]ConfidenceInterval, len(predictions))
 	for i, pred := range predictions {
@@ -653,7 +653,7 @@ func (engine *PredictionEngine) calculateConfidenceIntervals(predictions []float
 	return intervals, nil
 }
 
-func (engine *PredictionEngine) extractFeatures(_ []CoverageDataPoint) (map[string]float64, error) {
+func (engine *PredictionEngine) extractFeatures(_ []CoverageDataPoint) (map[string]float64, error) { //nolint:unparam // mock always returns nil error
 	// Mock feature extraction
 	return map[string]float64{
 		"trend":           0.5,
@@ -666,7 +666,7 @@ func (engine *PredictionEngine) extractFeatures(_ []CoverageDataPoint) (map[stri
 	}, nil
 }
 
-func (engine *PredictionEngine) evaluateModel(_, _ []float64) (*ModelMetrics, error) {
+func (engine *PredictionEngine) evaluateModel(_, _ []float64) (*ModelMetrics, error) { //nolint:unparam // mock always returns nil error
 	// Mock model evaluation
 	mse := 0.25
 	return &ModelMetrics{

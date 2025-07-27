@@ -180,7 +180,7 @@ var commentCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	},
 }
 
-func init() { //nolint:revive,gochecknoinits // CLI command initialization
+func init() { //nolint:gochecknoinits // CLI command initialization
 	commentCmd.Flags().IntP("pr", "p", 0, "Pull request number (defaults to GITHUB_PR_NUMBER)")
 	commentCmd.Flags().StringP("coverage", "c", "", "Coverage data file")
 	commentCmd.Flags().String("badge-url", "", "Badge URL (auto-generated if not provided)")

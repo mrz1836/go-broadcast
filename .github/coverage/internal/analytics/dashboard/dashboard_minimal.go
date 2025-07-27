@@ -29,11 +29,11 @@ type DashboardTheme string //nolint:revive // dashboard.DashboardTheme is approp
 
 const (
 	// ThemeAuto automatically selects theme based on user preference
-	ThemeAuto  DashboardTheme = "auto"
+	ThemeAuto DashboardTheme = "auto"
 	// ThemeLight uses light theme
 	ThemeLight DashboardTheme = "light"
 	// ThemeDark uses dark theme
-	ThemeDark  DashboardTheme = "dark"
+	ThemeDark DashboardTheme = "dark"
 )
 
 // DashboardData represents dashboard data

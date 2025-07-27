@@ -15,18 +15,18 @@ import (
 
 var (
 	// ErrInsufficientTrainingData indicates there's not enough data for training the model
-	ErrInsufficientTrainingData     = errors.New("insufficient training data")
+	ErrInsufficientTrainingData = errors.New("insufficient training data")
 	// ErrUnsupportedModelType indicates the requested model type is not supported
-	ErrUnsupportedModelType         = errors.New("unsupported model type")
-	ErrModelBelowThreshold          = errors.New("model R² below threshold")
-	ErrModelNotTrained              = errors.New("model not trained")
-	ErrInsufficientPoints           = errors.New("insufficient points for calculation")
-	ErrZeroDenominator              = errors.New("cannot calculate: zero denominator")
-	ErrInsufficientValidationData   = errors.New("insufficient data for cross-validation")
-	ErrNoValidationErrors           = errors.New("no validation errors calculated")
-	ErrCoverageNotIncreasing        = errors.New("coverage is not increasing - target may not be reachable")
-	ErrInsufficientTargetData       = errors.New("insufficient data for target prediction")
-	ErrNoTimeSpanInData             = errors.New("no time span in training data")
+	ErrUnsupportedModelType       = errors.New("unsupported model type")
+	ErrModelBelowThreshold        = errors.New("model R² below threshold")
+	ErrModelNotTrained            = errors.New("model not trained")
+	ErrInsufficientPoints         = errors.New("insufficient points for calculation")
+	ErrZeroDenominator            = errors.New("cannot calculate: zero denominator")
+	ErrInsufficientValidationData = errors.New("insufficient data for cross-validation")
+	ErrNoValidationErrors         = errors.New("no validation errors calculated")
+	ErrCoverageNotIncreasing      = errors.New("coverage is not increasing - target may not be reachable")
+	ErrInsufficientTargetData     = errors.New("insufficient data for target prediction")
+	ErrNoTimeSpanInData           = errors.New("no time span in training data")
 )
 
 // CoveragePredictor provides sophisticated coverage prediction capabilities
@@ -62,15 +62,15 @@ type ModelType string
 
 const (
 	// ModelLinearRegression represents a linear regression prediction model
-	ModelLinearRegression     ModelType = "linear_regression"
+	ModelLinearRegression ModelType = "linear_regression"
 	// ModelExponentialSmoothing represents an exponential smoothing model
 	ModelExponentialSmoothing ModelType = "exponential_smoothing"
 	// ModelMovingAverage represents a moving average model
-	ModelMovingAverage        ModelType = "moving_average"
+	ModelMovingAverage ModelType = "moving_average"
 	// ModelPolynomial represents a polynomial regression model
-	ModelPolynomial           ModelType = "polynomial"
+	ModelPolynomial ModelType = "polynomial"
 	// ModelSeasonal represents a seasonal adjustment model
-	ModelSeasonal             ModelType = "seasonal"
+	ModelSeasonal ModelType = "seasonal"
 )
 
 // PredictionModel contains the trained prediction model
@@ -136,11 +136,11 @@ type OverfittingRisk string
 
 const (
 	// OverfittingLow indicates low risk of model overfitting
-	OverfittingLow    OverfittingRisk = "low"
+	OverfittingLow OverfittingRisk = "low"
 	// OverfittingMedium indicates medium risk of model overfitting
 	OverfittingMedium OverfittingRisk = "medium"
 	// OverfittingHigh indicates high risk of model overfitting
-	OverfittingHigh   OverfittingRisk = "high"
+	OverfittingHigh OverfittingRisk = "high"
 )
 
 // PredictionResult contains prediction results and analysis
@@ -213,11 +213,11 @@ type TrendDirection string
 
 const (
 	// TrendDirectionUp indicates an upward trend
-	TrendDirectionUp       TrendDirection = "up"
+	TrendDirectionUp TrendDirection = "up"
 	// TrendDirectionDown indicates a downward trend
-	TrendDirectionDown     TrendDirection = "down"
+	TrendDirectionDown TrendDirection = "down"
 	// TrendDirectionStable indicates a stable trend
-	TrendDirectionStable   TrendDirection = "stable"
+	TrendDirectionStable TrendDirection = "stable"
 	// TrendDirectionVolatile indicates a volatile trend
 	TrendDirectionVolatile TrendDirection = "volatile"
 )
@@ -227,11 +227,11 @@ type TrendStrength string
 
 const (
 	// TrendStrengthWeak indicates a weak trend
-	TrendStrengthWeak     TrendStrength = "weak"
+	TrendStrengthWeak TrendStrength = "weak"
 	// TrendStrengthModerate indicates a moderate trend
 	TrendStrengthModerate TrendStrength = "moderate"
 	// TrendStrengthStrong indicates a strong trend
-	TrendStrengthStrong   TrendStrength = "strong"
+	TrendStrengthStrong TrendStrength = "strong"
 )
 
 // TrendIndicator represents the current trend indicator
@@ -239,11 +239,11 @@ type TrendIndicator string
 
 const (
 	// TrendIndicatorRising indicates a rising trend
-	TrendIndicatorRising  TrendIndicator = "rising"
+	TrendIndicatorRising TrendIndicator = "rising"
 	// TrendIndicatorFalling indicates a falling trend
 	TrendIndicatorFalling TrendIndicator = "falling"
 	// TrendIndicatorFlat indicates a flat trend
-	TrendIndicatorFlat    TrendIndicator = "flat"
+	TrendIndicatorFlat TrendIndicator = "flat"
 )
 
 // TurningPointType represents the type of turning point in a trend
@@ -251,9 +251,9 @@ type TurningPointType string
 
 const (
 	// TurningPointPeak indicates a peak in the trend
-	TurningPointPeak       TurningPointType = "peak"
+	TurningPointPeak TurningPointType = "peak"
 	// TurningPointTrough indicates a trough in the trend
-	TurningPointTrough     TurningPointType = "trough"
+	TurningPointTrough TurningPointType = "trough"
 	// TurningPointInflection indicates an inflection point
 	TurningPointInflection TurningPointType = "inflection"
 )
@@ -265,11 +265,11 @@ const (
 	// QualityExcellent indicates excellent prediction quality
 	QualityExcellent PredictionQuality = "excellent"
 	// QualityGood indicates good prediction quality
-	QualityGood      PredictionQuality = "good"
+	QualityGood PredictionQuality = "good"
 	// QualityFair indicates fair prediction quality
-	QualityFair      PredictionQuality = "fair"
+	QualityFair PredictionQuality = "fair"
 	// QualityPoor indicates poor prediction quality
-	QualityPoor      PredictionQuality = "poor"
+	QualityPoor PredictionQuality = "poor"
 )
 
 // PredictionInsight represents insights from prediction analysis

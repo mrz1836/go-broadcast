@@ -16,10 +16,10 @@ import (
 
 // Static error definitions
 var (
-	ErrDiscordAPIError         = errors.New("discord API returned error status")
-	ErrDiscordConfigNil        = errors.New("discord config is nil")
-	ErrDiscordWebhookRequired  = errors.New("discord webhook URL is required")
-	ErrDiscordWebhookInvalid   = errors.New("invalid Discord webhook URL format")
+	ErrDiscordAPIError        = errors.New("discord API returned error status")
+	ErrDiscordConfigNil       = errors.New("discord config is nil")
+	ErrDiscordWebhookRequired = errors.New("discord webhook URL is required")
+	ErrDiscordWebhookInvalid  = errors.New("invalid Discord webhook URL format")
 )
 
 // DiscordChannel implements Discord webhook notifications

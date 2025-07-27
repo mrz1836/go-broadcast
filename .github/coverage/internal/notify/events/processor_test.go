@@ -281,7 +281,7 @@ func (p *mockEventProcessor) GetMetrics() Metrics {
 
 // Tests
 
-func TestNewEventProcessor(t *testing.T) { //nolint:revive // function naming
+func TestNewEventProcessor(t *testing.T) {
 	config := EventProcessorConfig{
 		BufferSize:    100,
 		BatchSize:     10,
@@ -302,7 +302,7 @@ func TestNewEventProcessor(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestEventProcessorStartStop(t *testing.T) { //nolint:revive // function naming
+func TestEventProcessorStartStop(t *testing.T) {
 	config := EventProcessorConfig{
 		BufferSize:   10,
 		WorkerCount:  1,
@@ -338,7 +338,7 @@ func TestEventProcessorStartStop(t *testing.T) { //nolint:revive // function nam
 	}
 }
 
-func TestEventProcessorSubscription(t *testing.T) { //nolint:revive // function naming
+func TestEventProcessorSubscription(t *testing.T) {
 	processor := NewTestEventProcessor(EventProcessorConfig{})
 
 	subscriber := &mockSubscriber{}

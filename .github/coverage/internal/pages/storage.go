@@ -153,9 +153,9 @@ func (sm *StorageManager) OrganizeArtifacts(ctx context.Context, opts ArtifactOp
 	// 4. Refresh dashboard with latest information
 
 	if opts.PRNumber != "" {
-		fmt.Printf("Organizing PR #%s artifacts:\n", opts.PRNumber)
-		fmt.Printf("  Badge: %s\n", structure.PRBadgePath)
-		fmt.Printf("  Report: %s\n", structure.PRReportPath)
+		fmt.Printf("Organizing PR #%s artifacts:\n", opts.PRNumber) //nolint:forbidigo // TODO: remove debug print
+		fmt.Printf("  Badge: %s\n", structure.PRBadgePath) //nolint:forbidigo // TODO: remove debug print
+		fmt.Printf("  Report: %s\n", structure.PRReportPath) //nolint:forbidigo // TODO: remove debug print
 	} else {
 		fmt.Printf("Organizing branch '%s' artifacts:\n", opts.Branch)
 		fmt.Printf("  Badge: %s\n", structure.BranchBadgePath)

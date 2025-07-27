@@ -257,7 +257,7 @@ func showLatestEntry(ctx context.Context, tracker *history.Tracker, branch, form
 	return nil
 }
 
-func init() { //nolint:revive,gochecknoinits // CLI command initialization
+func init() { //nolint:gochecknoinits // CLI command initialization
 	historyCmd.Flags().StringP("add", "a", "", "Add coverage data file to history")
 	historyCmd.Flags().StringP("branch", "b", "", "Branch name (defaults to main)")
 	historyCmd.Flags().StringP("commit", "c", "", "Commit SHA")

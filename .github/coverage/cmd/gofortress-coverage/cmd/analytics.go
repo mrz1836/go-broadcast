@@ -261,7 +261,7 @@ var (
 	notifyStatus  bool   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
 )
 
-func init() { //nolint:revive,gochecknoinits // CLI command initialization
+func init() { //nolint:gochecknoinits // CLI command initialization
 	// Add dashboard command flags
 	dashboardCmd.Flags().StringVarP(&dashboardOutput, "output", "o", "", "Output file path (default: stdout)")
 	dashboardCmd.Flags().StringVarP(&dashboardFormat, "format", "f", "html", "Output format (html, json)")
@@ -388,7 +388,7 @@ func runDashboard(cmd *cobra.Command, args []string) error { //nolint:revive // 
 			return fmt.Errorf("failed to generate HTML: %w", err)
 		}
 	case "json":
-		jsonBytes, err := json.MarshalIndent(dashboardData, "", "  ")
+		jsonBytes, err := json.MarshalIndent(dashboardData, "", "  ") //nolint:musttag // DashboardData has JSON tags
 		if err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
 		}
@@ -509,7 +509,7 @@ func runPredict(cmd *cobra.Command, args []string) error { //nolint:revive // fu
 		}
 		fmt.Printf("✅ Predictions saved: %s\n", predictOutput)
 	} else {
-		fmt.Println(string(jsonBytes))
+		fmt.Println(string(jsonBytes)) //nolint:forbidigo // CLI output
 	}
 
 	return nil
@@ -593,7 +593,7 @@ func runImpact(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 		}
 		fmt.Printf("✅ Impact analysis saved: %s\n", impactOutput)
 	} else {
-		fmt.Println(output)
+		fmt.Println(output) //nolint:forbidigo // CLI output
 	}
 
 	return nil
@@ -602,7 +602,7 @@ func runImpact(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 func runTeam(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
 
-	fmt.Println("👥 Analyzing team performance...")
+	fmt.Println("👥 Analyzing team performance...") //nolint:forbidigo // CLI output
 
 	// Parse time range
 	_, err := parseTimeRange(teamRange)
@@ -1078,7 +1078,7 @@ func formatImpactAnalysisHTML(analysis *impact.ImpactAnalysis) string {
 		analysis.RiskAssessment.OverallRisk)
 }
 
-func formatTeamAnalysisCSV(analysis *team.TeamAnalysis) string {
+func formatTeamAnalysisCSV(analysis *team.Analysis) string {
 	var output strings.Builder
 
 	output.WriteString("Team,Coverage,Quality,Productivity,Velocity\n")
@@ -1098,7 +1098,7 @@ func formatTeamAnalysisCSV(analysis *team.TeamAnalysis) string {
 	return output.String()
 }
 
-func formatTeamAnalysisHTML(analysis *team.TeamAnalysis) string {
+func formatTeamAnalysisHTML(analysis *team.Analysis) string {
 	return fmt.Sprintf(`
 <h2>Team Performance Analysis</h2>
 <div class="team-overview">

@@ -262,7 +262,7 @@ type ExportData struct { //nolint:revive // ExportData is clear and contextual
 	Predictions []PredictionData `json:"predictions,omitempty"`
 
 	// Team analytics
-	TeamAnalysis *team.TeamAnalysis `json:"team_analysis,omitempty"`
+	TeamAnalysis *team.Analysis `json:"team_analysis,omitempty"`
 
 	// Impact analysis
 	ImpactAnalyses []ImpactAnalysisData `json:"impact_analyses,omitempty"`
@@ -1061,7 +1061,7 @@ func (e *AnalyticsExporter) writeTrendsCSV(writer *csv.Writer, trends *CoverageT
 	return nil
 }
 
-func (e *AnalyticsExporter) writeTeamMetricsCSV(writer *csv.Writer, teamAnalysis *team.TeamAnalysis) error {
+func (e *AnalyticsExporter) writeTeamMetricsCSV(writer *csv.Writer, teamAnalysis *team.Analysis) error {
 	if teamAnalysis == nil {
 		return nil
 	}

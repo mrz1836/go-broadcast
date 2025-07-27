@@ -369,7 +369,7 @@ func (t *Tracker) saveEntry(ctx context.Context, entry *Entry) error {
 		return fmt.Errorf("failed to marshal entry: %w", err)
 	}
 
-	if err := os.WriteFile(filepath, data, 0600); err != nil {
+	if err := os.WriteFile(filepath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write entry file: %w", err)
 	}
 
@@ -479,7 +479,7 @@ func (t *Tracker) saveAllEntries(ctx context.Context, entries []Entry) error {
 // Helper functions
 
 func (t *Tracker) ensureStorageDir() error {
-	return os.MkdirAll(t.config.StoragePath, 0750)
+	return os.MkdirAll(t.config.StoragePath, 0o750)
 }
 
 func (t *Tracker) getEntryFilename(entry *Entry) string {
@@ -733,8 +733,10 @@ type TrendOptions struct {
 	MaxPoints int
 }
 
-type Option func(*RecordOptions)
-type TrendOption func(*TrendOptions)
+type (
+	Option      func(*RecordOptions)
+	TrendOption func(*TrendOptions)
+)
 
 // Configuration options
 func WithBranch(branch string) Option {

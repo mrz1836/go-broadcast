@@ -15,9 +15,9 @@ import (
 
 // Static error definitions
 var (
-	ErrSlackAPIError         = errors.New("Slack API returned error status")
-	ErrSlackConfigNil        = errors.New("Slack config is nil")
-	ErrSlackWebhookRequired  = errors.New("Slack webhook URL is required")
+	ErrSlackAPIError         = errors.New("slack API returned error status")
+	ErrSlackConfigNil        = errors.New("slack config is nil")
+	ErrSlackWebhookRequired  = errors.New("slack webhook URL is required")
 	ErrSlackWebhookInvalid   = errors.New("invalid Slack webhook URL format")
 )
 

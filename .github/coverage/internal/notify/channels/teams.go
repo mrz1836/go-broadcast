@@ -15,9 +15,9 @@ import (
 
 // Static error definitions
 var (
-	ErrTeamsAPIError         = errors.New("Teams API returned error status")
-	ErrTeamsConfigNil        = errors.New("Teams config is nil")
-	ErrTeamsWebhookRequired  = errors.New("Teams webhook URL is required")
+	ErrTeamsAPIError         = errors.New("teams API returned error status")
+	ErrTeamsConfigNil        = errors.New("teams config is nil")
+	ErrTeamsWebhookRequired  = errors.New("teams webhook URL is required")
 	ErrTeamsWebhookInvalid   = errors.New("invalid Teams webhook URL format")
 )
 

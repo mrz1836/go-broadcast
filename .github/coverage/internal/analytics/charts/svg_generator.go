@@ -505,8 +505,8 @@ func (g *SVGChartGenerator) writeAxes(svg *strings.Builder, chartArea ChartArea,
 
 	// Y axis
 	if g.config.ShowYAxis {
-		svg.WriteString(fmt.Sprintf(`  <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="1"/>`,
-			chartArea.X, chartArea.Y, chartArea.X, chartArea.Y+chartArea.Height, g.config.TextColor))
+		fmt.Fprintf(svg, `  <line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="1"/>`,
+			chartArea.X, chartArea.Y, chartArea.X, chartArea.Y+chartArea.Height, g.config.TextColor)
 		svg.WriteString("\n")
 
 		// Y axis labels
@@ -532,8 +532,8 @@ func (g *SVGChartGenerator) writeXAxisLabels(svg *strings.Builder, chartArea Cha
 
 		timeStr := data.Points[timeIndex].Timestamp.Format(g.config.TimeFormat)
 
-		svg.WriteString(fmt.Sprintf(`  <text x="%d" y="%d" text-anchor="middle" font-family="%s" font-size="%d" fill="%s">%s</text>`,
-			x, chartArea.Y+chartArea.Height+15, g.config.FontFamily, g.config.FontSize, g.config.TextColor, timeStr))
+		fmt.Fprintf(svg, `  <text x="%d" y="%d" text-anchor="middle" font-family="%s" font-size="%d" fill="%s">%s</text>`,
+			x, chartArea.Y+chartArea.Height+15, g.config.FontFamily, g.config.FontSize, g.config.TextColor, timeStr)
 		svg.WriteString("\n")
 	}
 }
@@ -547,8 +547,8 @@ func (g *SVGChartGenerator) writeYAxisLabels(svg *strings.Builder, chartArea Cha
 		value := yScale.Min + (ratio * yScale.Range)
 		valueStr := fmt.Sprintf(g.config.PercentFormat, value)
 
-		svg.WriteString(fmt.Sprintf(`  <text x="%d" y="%d" text-anchor="end" font-family="%s" font-size="%d" fill="%s">%s</text>`,
-			chartArea.X-5, y+4, g.config.FontFamily, g.config.FontSize, g.config.TextColor, valueStr))
+		fmt.Fprintf(svg, `  <text x="%d" y="%d" text-anchor="end" font-family="%s" font-size="%d" fill="%s">%s</text>`,
+			chartArea.X-5, y+4, g.config.FontFamily, g.config.FontSize, g.config.TextColor, valueStr)
 		svg.WriteString("\n")
 	}
 }
@@ -571,8 +571,8 @@ func (g *SVGChartGenerator) writeTrendLine(svg *strings.Builder, points []DataPo
 		}
 	}
 
-	svg.WriteString(fmt.Sprintf(`  <path d="%s" stroke="%s" stroke-width="%.1f" fill="none"/>`,
-		pathData.String(), g.config.LineColor, g.config.LineWidth))
+	fmt.Fprintf(svg, `  <path d="%s" stroke="%s" stroke-width="%.1f" fill="none"/>`,
+		pathData.String(), g.config.LineColor, g.config.LineWidth)
 	svg.WriteString("\n")
 }
 
@@ -604,8 +604,8 @@ func (g *SVGChartGenerator) writeAreaFill(svg *strings.Builder, points []DataPoi
 	pathData.WriteString(fmt.Sprintf(" L %d %d", lastX, bottomY))
 	pathData.WriteString(" Z")
 
-	svg.WriteString(fmt.Sprintf(`  <path d="%s" fill="%s"/>`,
-		pathData.String(), g.config.FillColor))
+	fmt.Fprintf(svg, `  <path d="%s" fill="%s"/>`,
+		pathData.String(), g.config.FillColor)
 	svg.WriteString("\n")
 }
 
@@ -614,8 +614,8 @@ func (g *SVGChartGenerator) writeDataPoints(svg *strings.Builder, points []DataP
 		x := g.mapTimeToX(point.Timestamp, points[0].Timestamp, xScale, chartArea)
 		y := g.mapValueToY(point.Value, yScale, chartArea)
 
-		svg.WriteString(fmt.Sprintf(`  <circle cx="%d" cy="%d" r="3" fill="%s"/>`,
-			x, y, g.config.LineColor))
+		fmt.Fprintf(svg, `  <circle cx="%d" cy="%d" r="3" fill="%s"/>`,
+			x, y, g.config.LineColor)
 		svg.WriteString("\n")
 	}
 }
