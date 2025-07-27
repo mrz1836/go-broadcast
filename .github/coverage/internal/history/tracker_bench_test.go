@@ -6,22 +6,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
 // BenchmarkRecord benchmarks recording coverage entries
-func BenchmarkRecord(b *testing.B) {
+func BenchmarkRecord(b *testing.B) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
-	
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
 	ctx := context.Background()
 	coverage := createBenchmarkCoverage()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		err := tracker.Record(ctx, coverage, WithBranch("main"))
@@ -32,25 +32,25 @@ func BenchmarkRecord(b *testing.B) {
 }
 
 // BenchmarkRecordWithOptions benchmarks recording with all options
-func BenchmarkRecordWithOptions(b *testing.B) {
+func BenchmarkRecordWithOptions(b *testing.B) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
-	
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
 	ctx := context.Background()
 	coverage := createBenchmarkCoverage()
-	
+
 	buildInfo := &BuildInfo{
 		GoVersion:    "1.21.0",
 		Platform:     "linux",
 		Architecture: "amd64",
 		BuildTime:    "2024-01-01T12:00:00Z",
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		err := tracker.Record(ctx, coverage,
@@ -67,17 +67,17 @@ func BenchmarkRecordWithOptions(b *testing.B) {
 }
 
 // BenchmarkGetTrend benchmarks trend retrieval
-func BenchmarkGetTrend(b *testing.B) {
+func BenchmarkGetTrend(b *testing.B) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
-	
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
 	ctx := context.Background()
-	
+
 	// Pre-populate with entries
 	for i := 0; i < 50; i++ {
 		coverage := createBenchmarkCoverage()
@@ -87,7 +87,7 @@ func BenchmarkGetTrend(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := tracker.GetTrend(ctx, WithTrendBranch("main"))
@@ -98,17 +98,17 @@ func BenchmarkGetTrend(b *testing.B) {
 }
 
 // BenchmarkGetTrendLarge benchmarks trend retrieval with large dataset
-func BenchmarkGetTrendLarge(b *testing.B) {
+func BenchmarkGetTrendLarge(b *testing.B) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
-	
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
 	ctx := context.Background()
-	
+
 	// Pre-populate with many entries
 	for i := 0; i < 500; i++ {
 		coverage := createBenchmarkCoverage()
@@ -121,7 +121,7 @@ func BenchmarkGetTrendLarge(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := tracker.GetTrend(ctx,
@@ -136,17 +136,17 @@ func BenchmarkGetTrendLarge(b *testing.B) {
 }
 
 // BenchmarkGetLatestEntry benchmarks latest entry retrieval
-func BenchmarkGetLatestEntry(b *testing.B) {
+func BenchmarkGetLatestEntry(b *testing.B) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
-	
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
 	ctx := context.Background()
-	
+
 	// Pre-populate with entries
 	for i := 0; i < 20; i++ {
 		coverage := createBenchmarkCoverage()
@@ -155,7 +155,7 @@ func BenchmarkGetLatestEntry(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := tracker.GetLatestEntry(ctx, "main")
@@ -166,66 +166,66 @@ func BenchmarkGetLatestEntry(b *testing.B) {
 }
 
 // BenchmarkCleanup benchmarks cleanup operations
-func BenchmarkCleanup(b *testing.B) {
+func BenchmarkCleanup(b *testing.B) { //nolint:revive // function naming
 	config := &Config{
 		RetentionDays: 30,
 		MaxEntries:    100,
 		AutoCleanup:   true,
 	}
-	
+
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		
+
 		tempDir, err := os.MkdirTemp("", "history_bench_*")
 		if err != nil {
 			b.Fatal(err)
 		}
-		
+
 		config.StoragePath = tempDir
 		tracker := NewWithConfig(config)
 		ctx := context.Background()
-		
+
 		// Create many entries for cleanup
 		for j := 0; j < 150; j++ {
 			coverage := createBenchmarkCoverage()
-			err := tracker.Record(ctx, coverage, WithBranch("main"))
-			if err != nil {
-				b.Fatal(err)
+			recordErr := tracker.Record(ctx, coverage, WithBranch("main"))
+			if recordErr != nil {
+				b.Fatal(recordErr)
 			}
 		}
-		
+
 		b.StartTimer()
 		err = tracker.Cleanup(ctx)
 		if err != nil {
 			b.Fatal(err)
 		}
 		b.StopTimer()
-		
+
 		os.RemoveAll(tempDir)
 	}
 }
 
 // BenchmarkGetStatistics benchmarks statistics calculation
-func BenchmarkGetStatistics(b *testing.B) {
+func BenchmarkGetStatistics(b *testing.B) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
-	
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
 	ctx := context.Background()
-	
+
 	// Pre-populate with entries across multiple branches and projects
 	branches := []string{"main", "develop", "feature-a", "feature-b"}
 	projects := []string{"project-1", "project-2", "project-3"}
-	
+
 	for i := 0; i < 100; i++ {
 		coverage := createBenchmarkCoverage()
 		branch := branches[i%len(branches)]
 		project := projects[i%len(projects)]
-		
+
 		err := tracker.Record(ctx, coverage,
 			WithBranch(branch),
 			WithMetadata("project", project),
@@ -234,7 +234,7 @@ func BenchmarkGetStatistics(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := tracker.GetStatistics(ctx)
@@ -245,10 +245,10 @@ func BenchmarkGetStatistics(b *testing.B) {
 }
 
 // BenchmarkCalculateFileHashes benchmarks file hash calculation
-func BenchmarkCalculateFileHashes(b *testing.B) {
+func BenchmarkCalculateFileHashes(b *testing.B) { //nolint:revive // function naming
 	tracker := New()
 	coverage := createBenchmarkCoverageComplex()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = tracker.calculateFileHashes(coverage)
@@ -256,10 +256,10 @@ func BenchmarkCalculateFileHashes(b *testing.B) {
 }
 
 // BenchmarkCalculatePackageStats benchmarks package statistics calculation
-func BenchmarkCalculatePackageStats(b *testing.B) {
+func BenchmarkCalculatePackageStats(b *testing.B) { //nolint:revive // function naming
 	tracker := New()
 	coverage := createBenchmarkCoverageComplex()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = tracker.calculatePackageStats(coverage, "main")
@@ -267,10 +267,10 @@ func BenchmarkCalculatePackageStats(b *testing.B) {
 }
 
 // BenchmarkCalculateSummary benchmarks summary calculation
-func BenchmarkCalculateSummary(b *testing.B) {
+func BenchmarkCalculateSummary(b *testing.B) { //nolint:revive // function naming
 	tracker := New()
 	entries := createBenchmarkEntries(100)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = tracker.calculateSummary(entries)
@@ -278,10 +278,10 @@ func BenchmarkCalculateSummary(b *testing.B) {
 }
 
 // BenchmarkAnalyzeEntries benchmarks trend analysis
-func BenchmarkAnalyzeEntries(b *testing.B) {
+func BenchmarkAnalyzeEntries(b *testing.B) { //nolint:revive // function naming
 	tracker := New()
 	entries := createBenchmarkEntries(50)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = tracker.analyzeEntries(entries)
@@ -289,10 +289,10 @@ func BenchmarkAnalyzeEntries(b *testing.B) {
 }
 
 // BenchmarkAnalyzePeriod benchmarks period analysis
-func BenchmarkAnalyzePeriod(b *testing.B) {
+func BenchmarkAnalyzePeriod(b *testing.B) { //nolint:revive // function naming
 	tracker := New()
 	entries := createBenchmarkEntries(30)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = tracker.analyzePeriod(entries, 7)
@@ -300,10 +300,10 @@ func BenchmarkAnalyzePeriod(b *testing.B) {
 }
 
 // BenchmarkCalculateVolatility benchmarks volatility calculation
-func BenchmarkCalculateVolatility(b *testing.B) {
+func BenchmarkCalculateVolatility(b *testing.B) { //nolint:revive // function naming
 	tracker := New()
 	entries := createBenchmarkEntries(100)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = tracker.calculateVolatility(entries)
@@ -311,10 +311,10 @@ func BenchmarkCalculateVolatility(b *testing.B) {
 }
 
 // BenchmarkCalculateMomentum benchmarks momentum calculation
-func BenchmarkCalculateMomentum(b *testing.B) {
+func BenchmarkCalculateMomentum(b *testing.B) { //nolint:revive // function naming
 	tracker := New()
 	entries := createBenchmarkEntries(20)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = tracker.calculateMomentum(entries)
@@ -322,10 +322,10 @@ func BenchmarkCalculateMomentum(b *testing.B) {
 }
 
 // BenchmarkGeneratePrediction benchmarks prediction generation
-func BenchmarkGeneratePrediction(b *testing.B) {
+func BenchmarkGeneratePrediction(b *testing.B) { //nolint:revive // function naming
 	tracker := New()
 	entries := createBenchmarkEntries(15)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = tracker.generatePrediction(entries)
@@ -333,17 +333,17 @@ func BenchmarkGeneratePrediction(b *testing.B) {
 }
 
 // BenchmarkLoadAllEntries benchmarks loading all entries from storage
-func BenchmarkLoadAllEntries(b *testing.B) {
+func BenchmarkLoadAllEntries(b *testing.B) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
-	
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
 	ctx := context.Background()
-	
+
 	// Pre-populate with entries
 	for i := 0; i < 100; i++ {
 		coverage := createBenchmarkCoverage()
@@ -352,7 +352,7 @@ func BenchmarkLoadAllEntries(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := tracker.loadAllEntries(ctx)
@@ -363,21 +363,21 @@ func BenchmarkLoadAllEntries(b *testing.B) {
 }
 
 // BenchmarkMemoryAllocation benchmarks memory allocation during operations
-func BenchmarkMemoryAllocation(b *testing.B) {
+func BenchmarkMemoryAllocation(b *testing.B) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
-	
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
 	ctx := context.Background()
 	coverage := createBenchmarkCoverage()
-	
+
 	b.ReportAllocs()
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		err := tracker.Record(ctx, coverage, WithBranch("main"))
 		if err != nil {
@@ -387,18 +387,18 @@ func BenchmarkMemoryAllocation(b *testing.B) {
 }
 
 // BenchmarkConcurrentRecord benchmarks concurrent recording
-func BenchmarkConcurrentRecord(b *testing.B) {
+func BenchmarkConcurrentRecord(b *testing.B) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
-	
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
 	ctx := context.Background()
 	coverage := createBenchmarkCoverage()
-	
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			err := tracker.Record(ctx, coverage, WithBranch("main"))
@@ -410,17 +410,17 @@ func BenchmarkConcurrentRecord(b *testing.B) {
 }
 
 // BenchmarkConcurrentGetTrend benchmarks concurrent trend retrieval
-func BenchmarkConcurrentGetTrend(b *testing.B) {
+func BenchmarkConcurrentGetTrend(b *testing.B) { //nolint:revive // function naming
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
-	
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
 	config := &Config{StoragePath: tempDir}
 	tracker := NewWithConfig(config)
 	ctx := context.Background()
-	
+
 	// Pre-populate with entries
 	for i := 0; i < 50; i++ {
 		coverage := createBenchmarkCoverage()
@@ -429,7 +429,7 @@ func BenchmarkConcurrentGetTrend(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			_, err := tracker.GetTrend(ctx, WithTrendBranch("main"))
@@ -475,11 +475,11 @@ func createBenchmarkCoverage() *parser.CoverageData {
 
 func createBenchmarkCoverageComplex() *parser.CoverageData {
 	packages := make(map[string]*parser.PackageCoverage)
-	
+
 	for i := 0; i < 10; i++ {
 		pkgName := "package" + string(rune('A'+i))
 		files := make(map[string]*parser.FileCoverage)
-		
+
 		for j := 0; j < 5; j++ {
 			fileName := pkgName + "/file" + string(rune('0'+j)) + ".go"
 			files[fileName] = &parser.FileCoverage{
@@ -495,7 +495,7 @@ func createBenchmarkCoverageComplex() *parser.CoverageData {
 				},
 			}
 		}
-		
+
 		packages[pkgName] = &parser.PackageCoverage{
 			Name:         pkgName,
 			Percentage:   75.0,
@@ -504,7 +504,7 @@ func createBenchmarkCoverageComplex() *parser.CoverageData {
 			Files:        files,
 		}
 	}
-	
+
 	return &parser.CoverageData{
 		Mode:         "atomic",
 		Percentage:   75.0,
@@ -517,7 +517,7 @@ func createBenchmarkCoverageComplex() *parser.CoverageData {
 
 func createBenchmarkEntries(count int) []Entry {
 	entries := make([]Entry, count)
-	
+
 	for i := 0; i < count; i++ {
 		entries[i] = Entry{
 			Timestamp: time.Now().Add(-time.Duration(i) * time.Hour),
@@ -534,6 +534,6 @@ func createBenchmarkEntries(count int) []Entry {
 			},
 		}
 	}
-	
+
 	return entries
 }

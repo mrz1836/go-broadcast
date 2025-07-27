@@ -9,12 +9,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/config"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/parser"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/report"
+	"github.com/mrz1836/go-broadcast/coverage/internal/config"
+	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/report"
 )
 
-var reportCmd = &cobra.Command{
+var reportCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "report",
 	Short: "Generate coverage report",
 	Long:  `Generate interactive HTML coverage reports for GitHub Pages.`,
@@ -57,27 +57,15 @@ var reportCmd = &cobra.Command{
 		}
 
 		// Create report generator with options
-		var options []report.Option
-		if title != "Coverage Report" {
-			options = append(options, report.WithTitle(title))
+		reportConfig := &report.Config{
+			Title:            title,
+			Theme:            theme,
+			ShowPackages:     showPackages,
+			ShowFiles:        showFiles,
+			ShowMissing:      showMissing,
+			InteractiveTrees: interactive,
 		}
-		if theme != "github-dark" {
-			options = append(options, report.WithTheme(theme))
-		}
-		if !showPackages {
-			options = append(options, report.WithShowPackages(false))
-		}
-		if !showFiles {
-			options = append(options, report.WithShowFiles(false))
-		}
-		if !showMissing {
-			options = append(options, report.WithShowMissing(false))
-		}
-		if !interactive {
-			options = append(options, report.WithInteractive(false))
-		}
-
-		generator := report.New(options...)
+		generator := report.NewWithConfig(reportConfig)
 
 		// Generate report
 		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
@@ -97,22 +85,22 @@ var reportCmd = &cobra.Command{
 		}
 
 		// Write report to file
-		if err := os.WriteFile(outputFile, []byte(htmlContent), cfg.Storage.FileMode); err != nil {
+		if err := os.WriteFile(outputFile, htmlContent, cfg.Storage.FileMode); err != nil {
 			return fmt.Errorf("failed to write report file: %w", err)
 		}
 
 		// Print success message
-		fmt.Printf("Coverage report generated successfully!\n")
-		fmt.Printf("Title: %s\n", title)
-		fmt.Printf("Theme: %s\n", theme)
-		fmt.Printf("Output: %s\n", outputFile)
-		fmt.Printf("Coverage: %.2f%% (%d/%d lines)\n", 
+		cmd.Printf("Coverage report generated successfully!\n")
+		cmd.Printf("Title: %s\n", title)
+		cmd.Printf("Theme: %s\n", theme)
+		cmd.Printf("Output: %s\n", outputFile)
+		cmd.Printf("Coverage: %.2f%% (%d/%d lines)\n",
 			coverage.Percentage, coverage.CoveredLines, coverage.TotalLines)
-		fmt.Printf("Packages: %d\n", len(coverage.Packages))
-		
+		cmd.Printf("Packages: %d\n", len(coverage.Packages))
+
 		if cfg.GitHub.Owner != "" && cfg.GitHub.Repository != "" {
 			reportURL := cfg.GetReportURL()
-			fmt.Printf("Public URL: %s\n", reportURL)
+			cmd.Printf("Public URL: %s\n", reportURL)
 		}
 
 		// Show coverage analysis
@@ -127,11 +115,11 @@ var reportCmd = &cobra.Command{
 		default:
 			status = "🔴 Coverage needs improvement"
 		}
-		fmt.Printf("Status: %s\n", status)
+		cmd.Printf("Status: %s\n", status)
 
 		// Check threshold
 		if coverage.Percentage < cfg.Coverage.Threshold {
-			fmt.Printf("⚠️  Coverage %.2f%% is below threshold %.2f%%\n", 
+			cmd.Printf("⚠️  Coverage %.2f%% is below threshold %.2f%%\n",
 				coverage.Percentage, cfg.Coverage.Threshold)
 		}
 
@@ -139,7 +127,7 @@ var reportCmd = &cobra.Command{
 	},
 }
 
-func init() {
+func init() { //nolint:revive // function naming
 	reportCmd.Flags().StringP("input", "i", "", "Input coverage file")
 	reportCmd.Flags().StringP("output", "o", "", "Output HTML file")
 	reportCmd.Flags().StringP("theme", "t", "", "Report theme (github-dark, light, github-light)")

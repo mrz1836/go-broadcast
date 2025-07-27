@@ -233,6 +233,60 @@ govulncheck ./...
 
 ---
 
+## 🔧 Linter Knowledge & Go Best Practices
+
+### Common Linter Issues and How to Avoid Them
+
+**Security Issues (gosec):**
+- Use `0600` for file permissions, not `0644` for sensitive files
+- Use `0750` for directory permissions, not `0755`
+- Always set `MinVersion: tls.VersionTLS12` for TLS configs
+- Be careful with file path variables - add `//nolint:gosec // reason` if controlled
+
+**Error Handling (errcheck):**
+- Always check error returns: `if err := foo(); err != nil { ... }`
+- For intentionally ignored errors, use `_ = foo()` 
+- For deferred cleanup, use `defer func() { _ = file.Close() }()`
+- Never ignore errors from `os.Setenv`, `os.Unsetenv`, or resource cleanup
+
+**Error Wrapping (err113):**
+- Create static error variables: `var ErrNotFound = errors.New("not found")`
+- Wrap with context: `fmt.Errorf("%w: additional context", ErrNotFound, details)`
+- Avoid dynamic error messages: use static errors + wrapping instead
+
+**Code Quality (revive):**
+- Add comments to exported variables: `// ErrFoo indicates that foo failed`
+- Remove empty blocks or add meaningful implementation
+- Remove unused parameters or rename to `_`
+- Use descriptive parameter names, avoid redefining builtins like `max`
+
+**Global Variables (gochecknoglobals):**
+- Minimize global state - prefer dependency injection
+- For legitimate globals (CLI commands, constants), add `//nolint:gochecknoglobals // reason`
+- Consider using `sync.Once` for initialization
+
+**Code Efficiency (staticcheck):**
+- Use `fmt.Fprintf(w, "text %s", arg)` instead of `w.WriteString(fmt.Sprintf("text %s", arg))`
+- Use tagged switch statements for enum-like comparisons
+- Expand `math.Pow(x, 2)` to `x * x`
+
+**Memory Optimization (prealloc):**
+- Pre-allocate slices when size is known: `make([]Type, 0, knownSize)`
+- Use capacity hints for better performance
+
+### Linter Configuration Insights
+
+This project uses 60+ linters via golangci-lint with strict standards. Key linters:
+- **Security**: gosec, forbidigo
+- **Correctness**: errcheck, govet, staticcheck
+- **Style**: revive, gofmt, gofumpt
+- **Performance**: prealloc, ineffassign
+- **Maintainability**: gochecknoglobals, unused
+
+The configuration prioritizes security and correctness over convenience. When adding `//nolint` comments, always include a specific reason.
+
+---
+
 ## ✅ Pre-Development Checklist
 
 Before starting any development work:

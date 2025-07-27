@@ -21,11 +21,11 @@ type Client struct {
 
 // Config holds GitHub client configuration
 type Config struct {
-	Token       string        // GitHub API token
-	BaseURL     string        // GitHub API base URL
-	Timeout     time.Duration // Request timeout
-	RetryCount  int           // Number of retries
-	UserAgent   string        // User agent string
+	Token      string        // GitHub API token
+	BaseURL    string        // GitHub API base URL
+	Timeout    time.Duration // Request timeout
+	RetryCount int           // Number of retries
+	UserAgent  string        // User agent string
 }
 
 // CommentRequest represents a PR comment request
@@ -109,7 +109,7 @@ func (c *Client) CreateComment(ctx context.Context, owner, repo string, pr int, 
 // CreateStatus creates a commit status for coverage
 func (c *Client) CreateStatus(ctx context.Context, owner, repo, sha string, status *StatusRequest) error {
 	url := fmt.Sprintf("%s/repos/%s/%s/statuses/%s", c.baseURL, owner, repo, sha)
-	
+
 	jsonData, err := json.Marshal(status)
 	if err != nil {
 		return fmt.Errorf("failed to marshal status: %w", err)
@@ -128,7 +128,7 @@ func (c *Client) CreateStatus(ctx context.Context, owner, repo, sha string, stat
 	if err != nil {
 		return fmt.Errorf("failed to create status: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
@@ -141,7 +141,7 @@ func (c *Client) CreateStatus(ctx context.Context, owner, repo, sha string, stat
 // GetPullRequest retrieves PR information
 func (c *Client) GetPullRequest(ctx context.Context, owner, repo string, pr int) (*PullRequest, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/pulls/%d", c.baseURL, owner, repo, pr)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -154,7 +154,7 @@ func (c *Client) GetPullRequest(ctx context.Context, owner, repo string, pr int)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PR: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
@@ -173,7 +173,7 @@ func (c *Client) GetPullRequest(ctx context.Context, owner, repo string, pr int)
 
 func (c *Client) findCoverageComment(ctx context.Context, owner, repo string, pr int) (*Comment, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments", c.baseURL, owner, repo, pr)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -186,7 +186,7 @@ func (c *Client) findCoverageComment(ctx context.Context, owner, repo string, pr
 	if err != nil {
 		return nil, fmt.Errorf("failed to get comments: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
@@ -210,7 +210,7 @@ func (c *Client) findCoverageComment(ctx context.Context, owner, repo string, pr
 
 func (c *Client) createComment(ctx context.Context, owner, repo string, pr int, body string) (*Comment, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments", c.baseURL, owner, repo, pr)
-	
+
 	commentReq := CommentRequest{Body: body}
 	jsonData, err := json.Marshal(commentReq)
 	if err != nil {
@@ -230,7 +230,7 @@ func (c *Client) createComment(ctx context.Context, owner, repo string, pr int, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create comment: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
@@ -247,7 +247,7 @@ func (c *Client) createComment(ctx context.Context, owner, repo string, pr int, 
 
 func (c *Client) updateComment(ctx context.Context, owner, repo string, commentID int, body string) (*Comment, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/issues/comments/%d", c.baseURL, owner, repo, commentID)
-	
+
 	commentReq := CommentRequest{Body: body}
 	jsonData, err := json.Marshal(commentReq)
 	if err != nil {
@@ -267,7 +267,7 @@ func (c *Client) updateComment(ctx context.Context, owner, repo string, commentI
 	if err != nil {
 		return nil, fmt.Errorf("failed to update comment: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
@@ -289,20 +289,20 @@ func containsCoverageMarker(body string) bool {
 		"<!-- coverage-comment -->",
 		"📊 **Coverage**",
 	}
-	
+
 	for _, marker := range markers {
 		if contains(body, marker) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && 
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
-		 indexOf(s, substr) >= 0))
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+			indexOf(s, substr) >= 0))
 }
 
 func indexOf(s, substr string) int {
@@ -318,7 +318,7 @@ func indexOf(s, substr string) int {
 func (c *Client) GenerateCoverageComment(percentage float64, trend string, badgeURL string) string {
 	var trendIcon string
 	var trendText string
-	
+
 	switch trend {
 	case "up":
 		trendIcon = "📈"
@@ -330,7 +330,7 @@ func (c *Client) GenerateCoverageComment(percentage float64, trend string, badge
 		trendIcon = "📊"
 		trendText = "Coverage stable"
 	}
-	
+
 	comment := fmt.Sprintf(`<!-- coverage-comment -->
 ## %s Coverage Report
 
@@ -364,7 +364,7 @@ func getPercentageEmoji(percentage float64) string {
 const (
 	StatusSuccess = "success"
 	StatusFailure = "failure"
-	StatusError   = "error" 
+	StatusError   = "error"
 	StatusPending = "pending"
 )
 

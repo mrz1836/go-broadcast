@@ -40,3 +40,27 @@ test-integration-all: ## Run all integration test scenarios (All Phases)
 	@$(MAKE) test-integration-complex
 	@$(MAKE) test-integration-advanced
 	@$(MAKE) test-integration-network
+
+.PHONY: test-all-modules
+test-all-modules: ## Run tests for main module and all submodules
+	@echo "Testing main module..."
+	@go test ./... \
+		$(if $(VERBOSE),-v) \
+		$(TAGS)
+	@echo ""
+	@echo "Finding and testing submodules..."
+	@for dir in $$(find . -name go.mod -not -path "./go.mod" -not -path "./vendor/*" | xargs -n1 dirname); do \
+		echo "Testing module in $$dir..."; \
+		(cd $$dir && go test ./... $(if $(VERBOSE),-v) $(TAGS)) || exit 1; \
+	done
+
+.PHONY: lint-all-modules
+lint-all-modules: ## Run lint for main module and all submodules
+	@echo "Linting main module..."
+	@golangci-lint run --verbose
+	@echo ""
+	@echo "Finding and linting submodules..."
+	@for dir in $$(find . -name go.mod -not -path "./go.mod" -not -path "./vendor/*" | xargs -n1 dirname); do \
+		echo "Linting module in $$dir..."; \
+		(cd $$dir && golangci-lint run --verbose) || exit 1; \
+	done

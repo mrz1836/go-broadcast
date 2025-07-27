@@ -3,20 +3,17 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"time"
 
 	"github.com/spf13/cobra"
 )
 
-var pagesCmd = &cobra.Command{
+var pagesCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "pages",
 	Short: "Manage GitHub Pages deployment",
 	Long:  `Setup and deploy coverage reports to GitHub Pages with organized storage structure.`,
 }
 
-var pagesSetupCmd = &cobra.Command{
+var pagesSetupCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "setup",
 	Short: "Initialize GitHub Pages branch and structure",
 	Long: `Create and configure the gh-pages branch with proper directory structure
@@ -31,7 +28,7 @@ for coverage badges, reports, and dashboard files.`,
 	},
 }
 
-var pagesDeployCmd = &cobra.Command{
+var pagesDeployCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "deploy",
 	Short: "Deploy coverage artifacts to GitHub Pages",
 	Long: `Deploy generated coverage artifacts (badges, reports, dashboard) to the 
@@ -56,7 +53,7 @@ gh-pages branch with proper organization and cleanup.`,
 	},
 }
 
-var pagesCleanCmd = &cobra.Command{
+var pagesCleanCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "clean",
 	Short: "Clean up old PR data and expired content",
 	Long: `Remove old PR-specific coverage data and expired content to manage
@@ -93,7 +90,7 @@ type CleanOptions struct {
 }
 
 // setupGitHubPages initializes the gh-pages branch with proper structure
-func setupGitHubPages(ctx context.Context, branch string, force bool, verbose bool) error {
+func setupGitHubPages(ctx context.Context, branch string, force bool, verbose bool) error { //nolint:revive // function naming
 	if verbose {
 		fmt.Printf("🚀 Setting up GitHub Pages on branch: %s\n", branch)
 	}
@@ -106,13 +103,13 @@ func setupGitHubPages(ctx context.Context, branch string, force bool, verbose bo
 	// 5. Commit and push changes
 
 	fmt.Println("📁 Creating directory structure...")
-	
+
 	// Create the basic directory structure
 	dirs := []string{
 		"badges",
 		"badges/pr",
 		"reports",
-		"reports/pr", 
+		"reports/pr",
 		"api",
 		"assets",
 		"assets/css",
@@ -128,7 +125,7 @@ func setupGitHubPages(ctx context.Context, branch string, force bool, verbose bo
 	}
 
 	fmt.Println("🏠 Creating dashboard template...")
-	
+
 	// TODO: Generate initial dashboard file
 	dashboardContent := generateInitialDashboard()
 	if verbose {
@@ -136,7 +133,7 @@ func setupGitHubPages(ctx context.Context, branch string, force bool, verbose bo
 	}
 
 	fmt.Println("✅ GitHub Pages setup completed successfully")
-	
+
 	if verbose {
 		fmt.Printf("🌐 Your coverage dashboard will be available at: https://{owner}.github.io/{repo}/\n")
 		fmt.Printf("📊 Coverage badges will be at: https://{owner}.github.io/{repo}/badges/{branch}.svg\n")
@@ -146,7 +143,7 @@ func setupGitHubPages(ctx context.Context, branch string, force bool, verbose bo
 }
 
 // deployToGitHubPages deploys coverage artifacts to GitHub Pages
-func deployToGitHubPages(ctx context.Context, opts DeployOptions) error {
+func deployToGitHubPages(ctx context.Context, opts DeployOptions) error { //nolint:revive // function naming
 	if opts.Verbose {
 		fmt.Printf("🚀 Deploying coverage artifacts to GitHub Pages\n")
 		fmt.Printf("  📍 Branch: %s\n", opts.Branch)
@@ -164,7 +161,7 @@ func deployToGitHubPages(ctx context.Context, opts DeployOptions) error {
 	// 5. Commit and push changes
 
 	fmt.Println("📦 Organizing artifacts...")
-	
+
 	if opts.PRNumber != "" {
 		fmt.Printf("  🔀 Deploying PR #%s artifacts\n", opts.PRNumber)
 		// Deploy to pr/{number}/ subdirectory
@@ -174,11 +171,11 @@ func deployToGitHubPages(ctx context.Context, opts DeployOptions) error {
 	}
 
 	fmt.Println("🏗️  Updating dashboard...")
-	
+
 	// TODO: Update dashboard with new coverage data
-	
+
 	fmt.Println("📤 Committing changes...")
-	
+
 	commitMessage := opts.Message
 	if commitMessage == "" {
 		if opts.PRNumber != "" {
@@ -187,18 +184,18 @@ func deployToGitHubPages(ctx context.Context, opts DeployOptions) error {
 			commitMessage = fmt.Sprintf("📊 Update coverage for %s branch", opts.Branch)
 		}
 	}
-	
+
 	if opts.Verbose {
 		fmt.Printf("  💬 Commit message: %s\n", commitMessage)
 	}
 
 	fmt.Println("✅ Deployment completed successfully")
-	
+
 	return nil
 }
 
 // cleanGitHubPages removes old PR data and expired content
-func cleanGitHubPages(ctx context.Context, opts CleanOptions) error {
+func cleanGitHubPages(ctx context.Context, opts CleanOptions) error { //nolint:revive // function naming
 	if opts.Verbose {
 		fmt.Printf("🧹 Cleaning up GitHub Pages content\n")
 		fmt.Printf("  📅 Max age: %d days\n", opts.MaxAgeDays)
@@ -215,11 +212,11 @@ func cleanGitHubPages(ctx context.Context, opts CleanOptions) error {
 	// 5. Commit cleanup changes
 
 	fmt.Println("🔍 Scanning for expired content...")
-	
+
 	// Simulate finding expired content
 	expiredPRs := []string{"pr/120", "pr/118", "pr/115"}
 	expiredReports := []string{"reports/old-branch", "reports/feature-archived"}
-	
+
 	totalSize := int64(0)
 	if len(expiredPRs) > 0 {
 		fmt.Printf("  📁 Found %d expired PR directories\n", len(expiredPRs))
@@ -230,7 +227,7 @@ func cleanGitHubPages(ctx context.Context, opts CleanOptions) error {
 			totalSize += 1024 * 512 // Simulate size calculation
 		}
 	}
-	
+
 	if len(expiredReports) > 0 {
 		fmt.Printf("  📊 Found %d expired report directories\n", len(expiredReports))
 		for _, report := range expiredReports {
@@ -243,7 +240,7 @@ func cleanGitHubPages(ctx context.Context, opts CleanOptions) error {
 
 	if totalSize > 0 {
 		fmt.Printf("💾 Total space to be freed: %.2f MB\n", float64(totalSize)/(1024*1024))
-		
+
 		if !opts.DryRun {
 			fmt.Println("🗑️  Removing expired content...")
 			// TODO: Actually remove the content
@@ -254,7 +251,7 @@ func cleanGitHubPages(ctx context.Context, opts CleanOptions) error {
 	}
 
 	fmt.Println("✅ Cleanup completed successfully")
-	
+
 	return nil
 }
 
@@ -301,7 +298,7 @@ func generateInitialDashboard() string {
 </html>`
 }
 
-func init() {
+func init() { //nolint:revive // function naming
 	// Setup command flags
 	pagesSetupCmd.Flags().StringP("branch", "b", "gh-pages", "GitHub Pages branch name")
 	pagesSetupCmd.Flags().Bool("force", false, "Force setup even if branch exists")

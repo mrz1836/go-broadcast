@@ -82,15 +82,15 @@ func (g *Generator) Generate(ctx context.Context, percentage float64, options ..
 		Logo:      g.config.Logo,
 		LogoColor: g.config.LogoColor,
 	}
-	
+
 	// Apply options
 	for _, opt := range options {
 		opt(opts)
 	}
-	
+
 	color := g.getColorForPercentage(percentage)
 	message := fmt.Sprintf("%.1f%%", percentage)
-	
+
 	badgeData := BadgeData{
 		Label:     opts.Label,
 		Message:   message,
@@ -100,7 +100,7 @@ func (g *Generator) Generate(ctx context.Context, percentage float64, options ..
 		LogoColor: opts.LogoColor,
 		AriaLabel: fmt.Sprintf("Code coverage: %.1f percent", percentage),
 	}
-	
+
 	return g.renderSVG(ctx, badgeData)
 }
 
@@ -109,7 +109,7 @@ func (g *Generator) GenerateTrendBadge(ctx context.Context, current, previous fl
 	diff := current - previous
 	var trend string
 	var color string
-	
+
 	switch {
 	case diff > 0.1:
 		trend = fmt.Sprintf("↑ +%.1f%%", diff)
@@ -121,16 +121,16 @@ func (g *Generator) GenerateTrendBadge(ctx context.Context, current, previous fl
 		trend = "→ stable"
 		color = "#8b949e" // neutral gray
 	}
-	
+
 	opts := &BadgeOptions{
 		Style: g.config.Style,
 		Label: "trend",
 	}
-	
+
 	for _, opt := range options {
 		opt(opts)
 	}
-	
+
 	badgeData := BadgeData{
 		Label:     opts.Label,
 		Message:   trend,
@@ -138,7 +138,7 @@ func (g *Generator) GenerateTrendBadge(ctx context.Context, current, previous fl
 		Style:     opts.Style,
 		AriaLabel: fmt.Sprintf("Coverage trend: %s", trend),
 	}
-	
+
 	return g.renderSVG(ctx, badgeData)
 }
 
@@ -183,7 +183,7 @@ func (g *Generator) renderSVG(ctx context.Context, data BadgeData) ([]byte, erro
 		return nil, ctx.Err()
 	default:
 	}
-	
+
 	// Calculate dimensions
 	labelWidth := g.calculateTextWidth(data.Label)
 	messageWidth := g.calculateTextWidth(data.Message)
@@ -191,10 +191,10 @@ func (g *Generator) renderSVG(ctx context.Context, data BadgeData) ([]byte, erro
 	if data.Logo != "" {
 		logoWidth = 16 // Standard logo width
 	}
-	
+
 	totalWidth := labelWidth + messageWidth + logoWidth + 20 // padding
 	height := 20
-	
+
 	// Generate SVG based on style
 	switch data.Style {
 	case "flat-square":
@@ -202,12 +202,13 @@ func (g *Generator) renderSVG(ctx context.Context, data BadgeData) ([]byte, erro
 	case "for-the-badge":
 		return g.renderForTheBadge(data, totalWidth, height+8, labelWidth, messageWidth, logoWidth), nil
 	default: // flat
-		return g.renderFlatBadge(data, totalWidth, height, labelWidth, messageWidth, logoWidth), nil
+		return g.renderFlatBadge(data, totalWidth, labelWidth, messageWidth, logoWidth), nil
 	}
 }
 
 // renderFlatBadge generates a flat-style badge
-func (g *Generator) renderFlatBadge(data BadgeData, width, height, labelWidth, messageWidth, logoWidth int) []byte {
+func (g *Generator) renderFlatBadge(data BadgeData, width, labelWidth, messageWidth, logoWidth int) []byte {
+	height := 20
 	template := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%d" height="%d" role="img" aria-label="%s">
   <title>%s</title>
   <linearGradient id="s" x2="0" y2="100%%">
@@ -234,11 +235,11 @@ func (g *Generator) renderFlatBadge(data BadgeData, width, height, labelWidth, m
 	labelX := logoWidth + labelWidth/2 + 6
 	messageX := logoWidth + labelWidth + messageWidth/2 + 8
 	logoSvg := ""
-	
+
 	if data.Logo != "" {
 		logoSvg = fmt.Sprintf(`<image x="5" y="3" width="14" height="14" xlink:href="%s"/>`, data.Logo)
 	}
-	
+
 	return []byte(fmt.Sprintf(template,
 		width, height, data.AriaLabel, data.AriaLabel,
 		width, height,
@@ -253,7 +254,7 @@ func (g *Generator) renderFlatBadge(data BadgeData, width, height, labelWidth, m
 	))
 }
 
-// renderFlatSquareBadge generates a flat-square style badge  
+// renderFlatSquareBadge generates a flat-square style badge
 func (g *Generator) renderFlatSquareBadge(data BadgeData, width, height, labelWidth, messageWidth, logoWidth int) []byte {
 	template := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%d" height="%d" role="img" aria-label="%s">
   <title>%s</title>
@@ -271,11 +272,11 @@ func (g *Generator) renderFlatSquareBadge(data BadgeData, width, height, labelWi
 	labelX := logoWidth + labelWidth/2 + 6
 	messageX := logoWidth + labelWidth + messageWidth/2 + 8
 	logoSvg := ""
-	
+
 	if data.Logo != "" {
 		logoSvg = fmt.Sprintf(`<image x="5" y="3" width="14" height="14" xlink:href="%s"/>`, data.Logo)
 	}
-	
+
 	return []byte(fmt.Sprintf(template,
 		width, height, data.AriaLabel, data.AriaLabel,
 		logoWidth+labelWidth+8, height,
@@ -304,15 +305,15 @@ func (g *Generator) renderForTheBadge(data BadgeData, width, height, labelWidth,
 	labelX := logoWidth + labelWidth/2 + 6
 	messageX := logoWidth + labelWidth + messageWidth/2 + 8
 	logoSvg := ""
-	
+
 	if data.Logo != "" {
 		logoSvg = fmt.Sprintf(`<image x="5" y="6" width="16" height="16" xlink:href="%s"/>`, data.Logo)
 	}
-	
+
 	// Convert to uppercase for "for-the-badge" style
 	label := strings.ToUpper(data.Label)
 	message := strings.ToUpper(data.Message)
-	
+
 	return []byte(fmt.Sprintf(template,
 		width, height, data.AriaLabel, data.AriaLabel,
 		logoWidth+labelWidth+8, height,

@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -23,16 +22,16 @@ type CleanupConfig struct {
 	PRDataRetentionDays     int
 	BranchDataRetentionDays int
 	ReportRetentionDays     int
-	
+
 	// Size limits
-	MaxTotalSizeMB      int64
-	MaxFilesPerType     int
-	
+	MaxTotalSizeMB  int64
+	MaxFilesPerType int
+
 	// Cleanup behavior
-	PreserveMainBranch  bool
+	PreserveMainBranch        bool
 	PreserveProtectedBranches []string
-	DryRunMode          bool
-	
+	DryRunMode                bool
+
 	// Patterns to match
 	PRPattern     *regexp.Regexp
 	BranchPattern *regexp.Regexp
@@ -41,24 +40,24 @@ type CleanupConfig struct {
 // CleanupStats contains statistics about a cleanup operation
 type CleanupStats struct {
 	// Files processed
-	TotalFilesScanned   int
-	FilesDeleted        int
-	DirectoriesDeleted  int
-	
+	TotalFilesScanned  int
+	FilesDeleted       int
+	DirectoriesDeleted int
+
 	// Size metrics
-	TotalSizeScanned    int64
-	SizeFreed          int64
-	
+	TotalSizeScanned int64
+	SizeFreed        int64
+
 	// Type breakdown
-	PRFilesDeleted      int
-	BranchFilesDeleted  int
-	ReportFilesDeleted  int
-	
+	PRFilesDeleted     int
+	BranchFilesDeleted int
+	ReportFilesDeleted int
+
 	// Time metrics
-	Duration           time.Duration
-	
+	Duration time.Duration
+
 	// Errors
-	Errors             []error
+	Errors []error
 }
 
 // ExpiredContent represents content that should be cleaned up
@@ -77,7 +76,7 @@ type ContentType string
 
 const (
 	ContentTypePR     ContentType = "pr"
-	ContentTypeBranch ContentType = "branch" 
+	ContentTypeBranch ContentType = "branch"
 	ContentTypeReport ContentType = "report"
 	ContentTypeBadge  ContentType = "badge"
 )
@@ -87,16 +86,16 @@ func NewCleanupManager(basePath string) *CleanupManager {
 	return &CleanupManager{
 		BasePath: basePath,
 		Config: &CleanupConfig{
-			PRDataRetentionDays:     30,
-			BranchDataRetentionDays: 90,
-			ReportRetentionDays:     365,
-			MaxTotalSizeMB:          500, // 500MB limit
-			MaxFilesPerType:         1000,
-			PreserveMainBranch:      true,
+			PRDataRetentionDays:       30,
+			BranchDataRetentionDays:   90,
+			ReportRetentionDays:       365,
+			MaxTotalSizeMB:            500, // 500MB limit
+			MaxFilesPerType:           1000,
+			PreserveMainBranch:        true,
 			PreserveProtectedBranches: []string{"main", "master", "develop"},
-			DryRunMode:              false,
-			PRPattern:               regexp.MustCompile(`^pr/(\d+)$`),
-			BranchPattern:          regexp.MustCompile(`^([^/]+)$`),
+			DryRunMode:                false,
+			PRPattern:                 regexp.MustCompile(`^pr/(\d+)$`),
+			BranchPattern:             regexp.MustCompile(`^([^/]+)$`),
 		},
 	}
 }
@@ -104,38 +103,38 @@ func NewCleanupManager(basePath string) *CleanupManager {
 // PerformCleanup executes a comprehensive cleanup operation
 func (cm *CleanupManager) PerformCleanup(ctx context.Context, maxAgeDays int) (*CleanupStats, error) {
 	startTime := time.Now()
-	
+
 	stats := &CleanupStats{
 		Errors: []error{},
 	}
-	
+
 	// Override config max age if provided
 	if maxAgeDays > 0 {
 		cm.Config.PRDataRetentionDays = maxAgeDays
 		cm.Config.BranchDataRetentionDays = maxAgeDays
 	}
-	
+
 	// Scan for expired content
 	expiredContent, err := cm.scanForExpiredContent(ctx)
 	if err != nil {
 		stats.Errors = append(stats.Errors, fmt.Errorf("failed to scan for expired content: %w", err))
 		return stats, err
 	}
-	
+
 	stats.TotalFilesScanned = len(expiredContent)
-	
+
 	// Calculate total size to be freed
 	for _, content := range expiredContent {
 		stats.TotalSizeScanned += content.Size
 	}
-	
+
 	// Remove expired content
 	if !cm.Config.DryRunMode {
 		removedStats, err := cm.removeExpiredContent(ctx, expiredContent)
 		if err != nil {
 			stats.Errors = append(stats.Errors, err)
 		}
-		
+
 		// Merge removal stats
 		stats.FilesDeleted = removedStats.FilesDeleted
 		stats.DirectoriesDeleted = removedStats.DirectoriesDeleted
@@ -158,7 +157,7 @@ func (cm *CleanupManager) PerformCleanup(ctx context.Context, maxAgeDays int) (*
 			}
 		}
 	}
-	
+
 	stats.Duration = time.Since(startTime)
 	return stats, nil
 }
@@ -167,54 +166,54 @@ func (cm *CleanupManager) PerformCleanup(ctx context.Context, maxAgeDays int) (*
 func (cm *CleanupManager) scanForExpiredContent(ctx context.Context) ([]ExpiredContent, error) {
 	var expired []ExpiredContent
 	cutoffTime := time.Now()
-	
+
 	// Scan PR directories
 	prExpired, err := cm.scanPRDirectories(ctx, cutoffTime.AddDate(0, 0, -cm.Config.PRDataRetentionDays))
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan PR directories: %w", err)
 	}
 	expired = append(expired, prExpired...)
-	
+
 	// Scan branch directories
 	branchExpired, err := cm.scanBranchDirectories(ctx, cutoffTime.AddDate(0, 0, -cm.Config.BranchDataRetentionDays))
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan branch directories: %w", err)
 	}
 	expired = append(expired, branchExpired...)
-	
+
 	// Scan report directories
 	reportExpired, err := cm.scanReportDirectories(ctx, cutoffTime.AddDate(0, 0, -cm.Config.ReportRetentionDays))
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan report directories: %w", err)
 	}
 	expired = append(expired, reportExpired...)
-	
+
 	return expired, nil
 }
 
 // scanPRDirectories scans for expired PR-specific content
 func (cm *CleanupManager) scanPRDirectories(ctx context.Context, cutoffTime time.Time) ([]ExpiredContent, error) {
 	var expired []ExpiredContent
-	
+
 	// Scan PR badges
 	prBadgesDir := filepath.Join(cm.BasePath, "badges", "pr")
 	if err := cm.scanDirectory(prBadgesDir, ContentTypePR, cutoffTime, &expired); err != nil {
 		return nil, fmt.Errorf("failed to scan PR badges: %w", err)
 	}
-	
+
 	// Scan PR reports
 	prReportsDir := filepath.Join(cm.BasePath, "reports", "pr")
 	if err := cm.scanDirectory(prReportsDir, ContentTypePR, cutoffTime, &expired); err != nil {
 		return nil, fmt.Errorf("failed to scan PR reports: %w", err)
 	}
-	
+
 	return expired, nil
 }
 
 // scanBranchDirectories scans for expired branch-specific content
 func (cm *CleanupManager) scanBranchDirectories(ctx context.Context, cutoffTime time.Time) ([]ExpiredContent, error) {
 	var expired []ExpiredContent
-	
+
 	// Scan branch badges
 	badgesDir := filepath.Join(cm.BasePath, "badges")
 	entries, err := os.ReadDir(badgesDir)
@@ -224,24 +223,24 @@ func (cm *CleanupManager) scanBranchDirectories(ctx context.Context, cutoffTime 
 		}
 		return nil, err
 	}
-	
+
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".svg") {
 			continue
 		}
-		
+
 		// Skip PR badges (handled separately)
 		if entry.Name() == "pr" {
 			continue
 		}
-		
+
 		branchName := strings.TrimSuffix(entry.Name(), ".svg")
-		
+
 		// Skip protected branches
 		if cm.shouldPreserveBranch(branchName) {
 			continue
 		}
-		
+
 		filePath := filepath.Join(badgesDir, entry.Name())
 		if cm.isFileExpired(filePath, cutoffTime) {
 			size := cm.getFileSize(filePath)
@@ -254,7 +253,7 @@ func (cm *CleanupManager) scanBranchDirectories(ctx context.Context, cutoffTime 
 			})
 		}
 	}
-	
+
 	// Scan branch reports
 	reportsDir := filepath.Join(cm.BasePath, "reports")
 	entries, err = os.ReadDir(reportsDir)
@@ -264,19 +263,19 @@ func (cm *CleanupManager) scanBranchDirectories(ctx context.Context, cutoffTime 
 		}
 		return nil, err
 	}
-	
+
 	for _, entry := range entries {
 		if !entry.IsDir() || entry.Name() == "pr" {
 			continue
 		}
-		
+
 		branchName := entry.Name()
-		
+
 		// Skip protected branches
 		if cm.shouldPreserveBranch(branchName) {
 			continue
 		}
-		
+
 		dirPath := filepath.Join(reportsDir, entry.Name())
 		if cm.isDirExpired(dirPath, cutoffTime) {
 			size := cm.getDirSize(dirPath)
@@ -289,17 +288,17 @@ func (cm *CleanupManager) scanBranchDirectories(ctx context.Context, cutoffTime 
 			})
 		}
 	}
-	
+
 	return expired, nil
 }
 
 // scanReportDirectories scans for expired report content
 func (cm *CleanupManager) scanReportDirectories(ctx context.Context, cutoffTime time.Time) ([]ExpiredContent, error) {
 	var expired []ExpiredContent
-	
+
 	// This would scan for very old reports that exceed the report retention period
 	// For now, we'll focus on PR and branch cleanup
-	
+
 	return expired, nil
 }
 
@@ -312,21 +311,21 @@ func (cm *CleanupManager) scanDirectory(dirPath string, contentType ContentType,
 		}
 		return err
 	}
-	
+
 	for _, entry := range entries {
 		filePath := filepath.Join(dirPath, entry.Name())
-		
+
 		var prNumber, branchName string
 		var size int64
 		var lastMod time.Time
-		
+
 		if entry.IsDir() {
 			if !cm.isDirExpired(filePath, cutoffTime) {
 				continue
 			}
 			size = cm.getDirSize(filePath)
 			lastMod = cm.getDirModTime(filePath)
-			
+
 			// Extract PR number or branch name from directory name
 			if contentType == ContentTypePR {
 				if matches := cm.Config.PRPattern.FindStringSubmatch(entry.Name()); len(matches) > 1 {
@@ -341,13 +340,13 @@ func (cm *CleanupManager) scanDirectory(dirPath string, contentType ContentType,
 			}
 			size = cm.getFileSize(filePath)
 			lastMod = cm.getFileModTime(filePath)
-			
+
 			// Extract PR number from filename for badges
 			if contentType == ContentTypePR && strings.HasSuffix(entry.Name(), ".svg") {
 				prNumber = strings.TrimSuffix(entry.Name(), ".svg")
 			}
 		}
-		
+
 		*expired = append(*expired, ExpiredContent{
 			Path:         filePath,
 			Type:         contentType,
@@ -358,23 +357,23 @@ func (cm *CleanupManager) scanDirectory(dirPath string, contentType ContentType,
 			Age:          time.Since(lastMod),
 		})
 	}
-	
+
 	return nil
 }
 
 // removeExpiredContent removes the identified expired content
 func (cm *CleanupManager) removeExpiredContent(ctx context.Context, expired []ExpiredContent) (*CleanupStats, error) {
 	stats := &CleanupStats{}
-	
+
 	for _, content := range expired {
 		if err := cm.removeContent(content); err != nil {
 			stats.Errors = append(stats.Errors, fmt.Errorf("failed to remove %s: %w", content.Path, err))
 			continue
 		}
-		
+
 		stats.FilesDeleted++
 		stats.SizeFreed += content.Size
-		
+
 		switch content.Type {
 		case ContentTypePR:
 			stats.PRFilesDeleted++
@@ -383,13 +382,13 @@ func (cm *CleanupManager) removeExpiredContent(ctx context.Context, expired []Ex
 		case ContentTypeReport:
 			stats.ReportFilesDeleted++
 		}
-		
+
 		// Check if it's a directory
 		if info, err := os.Stat(content.Path); err == nil && info.IsDir() {
 			stats.DirectoriesDeleted++
 		}
 	}
-	
+
 	return stats, nil
 }
 
@@ -404,13 +403,13 @@ func (cm *CleanupManager) shouldPreserveBranch(branchName string) bool {
 	if cm.Config.PreserveMainBranch && (branchName == "main" || branchName == "master") {
 		return true
 	}
-	
+
 	for _, protected := range cm.Config.PreserveProtectedBranches {
 		if branchName == protected {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -425,7 +424,7 @@ func (cm *CleanupManager) isFileExpired(filePath string, cutoffTime time.Time) b
 func (cm *CleanupManager) isDirExpired(dirPath string, cutoffTime time.Time) bool {
 	// For directories, check the most recent file modification time
 	var mostRecent time.Time
-	
+
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip errors
@@ -435,11 +434,10 @@ func (cm *CleanupManager) isDirExpired(dirPath string, cutoffTime time.Time) boo
 		}
 		return nil
 	})
-	
 	if err != nil {
 		return false
 	}
-	
+
 	return mostRecent.Before(cutoffTime)
 }
 
@@ -453,7 +451,7 @@ func (cm *CleanupManager) getFileSize(filePath string) int64 {
 
 func (cm *CleanupManager) getDirSize(dirPath string) int64 {
 	var totalSize int64
-	
+
 	filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -463,7 +461,7 @@ func (cm *CleanupManager) getDirSize(dirPath string) int64 {
 		}
 		return nil
 	})
-	
+
 	return totalSize
 }
 
@@ -477,7 +475,7 @@ func (cm *CleanupManager) getFileModTime(filePath string) time.Time {
 
 func (cm *CleanupManager) getDirModTime(dirPath string) time.Time {
 	var mostRecent time.Time
-	
+
 	filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -487,7 +485,7 @@ func (cm *CleanupManager) getDirModTime(dirPath string) time.Time {
 		}
 		return nil
 	})
-	
+
 	return mostRecent
 }
 
@@ -497,13 +495,13 @@ func FormatCleanupStats(stats *CleanupStats, dryRun bool) string {
 	if dryRun {
 		action = "Would remove"
 	}
-	
+
 	var result strings.Builder
-	
+
 	if stats.FilesDeleted > 0 {
-		result.WriteString(fmt.Sprintf("%s %d files (%s)\n", 
+		result.WriteString(fmt.Sprintf("%s %d files (%s)\n",
 			action, stats.FilesDeleted, formatBytes(stats.SizeFreed)))
-		
+
 		if stats.PRFilesDeleted > 0 {
 			result.WriteString(fmt.Sprintf("  - %d PR-related files\n", stats.PRFilesDeleted))
 		}
@@ -519,13 +517,13 @@ func FormatCleanupStats(stats *CleanupStats, dryRun bool) string {
 	} else {
 		result.WriteString("No expired content found\n")
 	}
-	
+
 	if len(stats.Errors) > 0 {
 		result.WriteString(fmt.Sprintf("\nErrors encountered: %d\n", len(stats.Errors)))
 	}
-	
+
 	result.WriteString(fmt.Sprintf("Cleanup completed in %v\n", stats.Duration))
-	
+
 	return result.String()
 }
 

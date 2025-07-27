@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
-func TestNew(t *testing.T) {
+func TestNew(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	assert.NotNil(t, generator)
 	assert.NotNil(t, generator.config)
@@ -26,7 +26,7 @@ func TestNew(t *testing.T) {
 	assert.True(t, generator.config.InteractiveTrees)
 }
 
-func TestNewWithConfig(t *testing.T) {
+func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
 	config := &Config{
 		Theme:            "light",
 		Title:            "Test Report",
@@ -43,16 +43,16 @@ func TestNewWithConfig(t *testing.T) {
 	assert.Equal(t, config, generator.config)
 }
 
-func TestGenerate(t *testing.T) {
+func TestGenerate(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
-	
+
 	coverage := createTestCoverageData()
-	
+
 	html, err := generator.Generate(ctx, coverage)
 	require.NoError(t, err)
 	assert.NotEmpty(t, html)
-	
+
 	htmlStr := string(html)
 	assert.Contains(t, htmlStr, "<!DOCTYPE html>")
 	assert.Contains(t, htmlStr, "Coverage Report")
@@ -60,94 +60,93 @@ func TestGenerate(t *testing.T) {
 	assert.Contains(t, htmlStr, "pkg1")
 	assert.Contains(t, htmlStr, "pkg2")
 	assert.Contains(t, htmlStr, "</html>")
-	
+
 	// Check for GitHub-dark theme styles
 	assert.Contains(t, htmlStr, "--bg-primary: #0d1117")
 	assert.Contains(t, htmlStr, "--text-primary: #f0f6fc")
-	
+
 	// Check for interactive features
 	assert.Contains(t, htmlStr, "toggleExpand")
 	assert.Contains(t, htmlStr, "expandable")
 }
 
-func TestGenerateWithOptions(t *testing.T) {
+func TestGenerateWithOptions(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
 	coverage := createTestCoverageData()
-	
-	html, err := generator.Generate(ctx, coverage, 
+
+	html, err := generator.Generate(ctx, coverage,
 		WithTitle("Custom Title"),
 		WithTheme("light"),
 		WithPackages(false),
 	)
 	require.NoError(t, err)
-	
+
 	htmlStr := string(html)
 	assert.Contains(t, htmlStr, "Custom Title")
 	assert.NotContains(t, htmlStr, "📦 Packages") // packages section should be hidden
 }
 
-func TestGenerateContextCancellation(t *testing.T) {
+func TestGenerateContextCancellation(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx, cancel := context.WithCancel(context.Background())
 	coverage := createTestCoverageData()
-	
+
 	// Cancel context immediately
 	cancel()
-	
+
 	_, err := generator.Generate(ctx, coverage)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, context.Canceled, err)
 }
 
-func TestBuildReportData(t *testing.T) {
+func TestBuildReportData(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	coverage := createTestCoverageData()
 	config := generator.config
-	
-	reportData, err := generator.buildReportData(coverage, config)
-	require.NoError(t, err)
-	
+
+	reportData := generator.buildReportData(coverage, config)
+
 	assert.Equal(t, coverage, reportData.Coverage)
 	assert.Equal(t, config, reportData.Config)
 	assert.WithinDuration(t, time.Now(), reportData.GeneratedAt, 5*time.Second)
 	assert.Equal(t, "1.0.0", reportData.Version)
 	assert.Equal(t, "Go Project", reportData.ProjectName)
-	
+
 	// Check summary
-	assert.Equal(t, 75.0, reportData.Summary.TotalPercentage)
+	assert.InDelta(t, 75.0, reportData.Summary.TotalPercentage, 0.001)
 	assert.Equal(t, 8, reportData.Summary.TotalLines)
 	assert.Equal(t, 6, reportData.Summary.CoveredLines)
 	assert.Equal(t, 2, reportData.Summary.UncoveredLines)
 	assert.Equal(t, 2, reportData.Summary.PackageCount)
 	assert.Equal(t, 2, reportData.Summary.FileCount)
 	assert.Equal(t, "stable", reportData.Summary.ChangeStatus)
-	
+
 	// Check packages
 	assert.Len(t, reportData.Packages, 2)
-	
+
 	// Check pkg1
 	pkg1 := reportData.Packages[0]
 	assert.Equal(t, "pkg1", pkg1.Name)
-	assert.Equal(t, 80.0, pkg1.Percentage)
+	assert.InDelta(t, 80.0, pkg1.Percentage, 0.001)
 	assert.Equal(t, 5, pkg1.TotalLines)
 	assert.Equal(t, 4, pkg1.CoveredLines)
 	assert.Equal(t, "good", pkg1.Status)
 	assert.Len(t, pkg1.Files, 1)
-	
+
 	// Check file1.go
 	file1 := pkg1.Files[0]
 	assert.Equal(t, "file1.go", file1.Name)
 	assert.Equal(t, "github.com/test/pkg1/file1.go", file1.Path)
-	assert.Equal(t, 80.0, file1.Percentage)
+	assert.InDelta(t, 80.0, file1.Percentage, 0.001)
 	assert.Equal(t, 5, file1.TotalLines)
 	assert.Equal(t, 4, file1.CoveredLines)
 	assert.Equal(t, "good", file1.Status)
 }
 
-func TestGetStatusClass(t *testing.T) {
+func TestGetStatusClass(t *testing.T) { //nolint:revive // function naming
 	generator := New()
-	
+
 	tests := []struct {
 		percentage float64
 		expected   string
@@ -160,7 +159,7 @@ func TestGetStatusClass(t *testing.T) {
 		{100.0, "excellent"},
 		{0.0, "poor"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%.1f%%", tt.percentage), func(t *testing.T) {
 			status := generator.getStatusClass(tt.percentage)
@@ -169,16 +168,16 @@ func TestGetStatusClass(t *testing.T) {
 	}
 }
 
-func TestGetLineClass(t *testing.T) {
+func TestGetLineClass(t *testing.T) { //nolint:revive // function naming
 	generator := New()
-	
+
 	assert.Equal(t, "covered", generator.getLineClass(true))
 	assert.Equal(t, "uncovered", generator.getLineClass(false))
 }
 
-func TestExtractFileName(t *testing.T) {
+func TestExtractFileName(t *testing.T) { //nolint:revive // function naming
 	generator := New()
-	
+
 	tests := []struct {
 		path     string
 		expected string
@@ -188,7 +187,7 @@ func TestExtractFileName(t *testing.T) {
 		{"internal/config/config.go", "config.go"},
 		{"", ""},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
 			result := generator.extractFileName(tt.path)
@@ -197,9 +196,9 @@ func TestExtractFileName(t *testing.T) {
 	}
 }
 
-func TestBuildLineReports(t *testing.T) {
+func TestBuildLineReports(t *testing.T) { //nolint:revive // function naming
 	generator := New()
-	
+
 	fileCov := &parser.FileCoverage{
 		Path: "test.go",
 		Statements: []parser.Statement{
@@ -208,18 +207,18 @@ func TestBuildLineReports(t *testing.T) {
 			{StartLine: 8, EndLine: 9, Count: 2},
 		},
 	}
-	
+
 	lines := generator.buildLineReports(fileCov)
-	
+
 	// Should be sorted by line number
 	assert.Len(t, lines, 6) // 3 lines (8,9) + 3 lines (10,11,12) + 1 line (15)
-	
+
 	// Check first line (line 8)
 	assert.Equal(t, 8, lines[0].Number)
 	assert.True(t, lines[0].Covered)
 	assert.Equal(t, 2, lines[0].Count)
 	assert.Equal(t, "covered", lines[0].Class)
-	
+
 	// Check uncovered line (line 15)
 	assert.Equal(t, 15, lines[5].Number)
 	assert.False(t, lines[5].Covered)
@@ -227,17 +226,17 @@ func TestBuildLineReports(t *testing.T) {
 	assert.Equal(t, "uncovered", lines[5].Class)
 }
 
-func TestRenderHTML(t *testing.T) {
+func TestRenderHTML(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
-	
+
 	reportData := &ReportData{
-		Coverage: createTestCoverageData(),
-		Config:   generator.config,
+		Coverage:    createTestCoverageData(),
+		Config:      generator.config,
 		GeneratedAt: time.Now(),
-		Version:  "1.0.0",
+		Version:     "1.0.0",
 		ProjectName: "Test Project",
-		BranchName: "main",
+		BranchName:  "main",
 		Summary: Summary{
 			TotalPercentage: 85.5,
 			TotalLines:      100,
@@ -256,11 +255,11 @@ func TestRenderHTML(t *testing.T) {
 			},
 		},
 	}
-	
+
 	html, err := generator.renderHTML(ctx, reportData)
 	require.NoError(t, err)
 	assert.NotEmpty(t, html)
-	
+
 	htmlStr := string(html)
 	assert.Contains(t, htmlStr, "85.5%")
 	assert.Contains(t, htmlStr, "Coverage Report") // Uses Config.Title, not ProjectName
@@ -268,21 +267,21 @@ func TestRenderHTML(t *testing.T) {
 	assert.Contains(t, htmlStr, "80.0%")
 }
 
-func TestRenderHTMLContextCancellation(t *testing.T) {
+func TestRenderHTMLContextCancellation(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx, cancel := context.WithCancel(context.Background())
 	reportData := &ReportData{}
-	
+
 	cancel()
-	
+
 	_, err := generator.renderHTML(ctx, reportData)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, context.Canceled, err)
 }
 
-func TestHTMLTemplateFunction(t *testing.T) {
+func TestHTMLTemplateFunction(t *testing.T) { //nolint:revive // function naming
 	generator := New()
-	
+
 	template := generator.getHTMLTemplate()
 	assert.NotEmpty(t, template)
 	assert.Contains(t, template, "<!DOCTYPE html>")
@@ -293,29 +292,29 @@ func TestHTMLTemplateFunction(t *testing.T) {
 	assert.Contains(t, template, "--bg-primary: #0d1117") // GitHub dark theme colors
 }
 
-func TestConfigurationOptions(t *testing.T) {
+func TestConfigurationOptions(t *testing.T) { //nolint:revive // function naming
 	config := &Config{}
-	
+
 	WithTheme("light")(config)
 	assert.Equal(t, "light", config.Theme)
-	
+
 	WithTitle("Test Title")(config)
 	assert.Equal(t, "Test Title", config.Title)
-	
+
 	WithPackages(false)(config)
 	assert.False(t, config.ShowPackages)
-	
+
 	WithFiles(false)(config)
 	assert.False(t, config.ShowFiles)
-	
+
 	WithMissing(false)(config)
 	assert.False(t, config.ShowMissing)
 }
 
-func TestGenerateComplexReport(t *testing.T) {
+func TestGenerateComplexReport(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
-	
+
 	// Create complex coverage data with multiple packages and files
 	coverage := &parser.CoverageData{
 		Mode:         "atomic",
@@ -366,44 +365,44 @@ func TestGenerateComplexReport(t *testing.T) {
 			},
 		},
 	}
-	
+
 	html, err := generator.Generate(ctx, coverage)
 	require.NoError(t, err)
-	
+
 	htmlStr := string(html)
-	
+
 	// Check overall structure
 	assert.Contains(t, htmlStr, "<!DOCTYPE html>")
 	assert.Contains(t, htmlStr, "73.5%")
 	assert.Contains(t, htmlStr, "</html>")
-	
+
 	// Check packages are present
 	assert.Contains(t, htmlStr, "config")
 	assert.Contains(t, htmlStr, "utils")
 	assert.Contains(t, htmlStr, "90.0%")
 	assert.Contains(t, htmlStr, "60.0%")
-	
+
 	// Check files are present
 	assert.Contains(t, htmlStr, "config.go")
 	assert.Contains(t, htmlStr, "loader.go")
 	assert.Contains(t, htmlStr, "helpers.go")
 	assert.Contains(t, htmlStr, "validators.go")
-	
+
 	// Check summary data
 	assert.Contains(t, htmlStr, "147") // covered lines
 	assert.Contains(t, htmlStr, "53")  // uncovered lines (200-147)
 	assert.Contains(t, htmlStr, "2")   // package count
 	assert.Contains(t, htmlStr, "4")   // file count
-	
+
 	// Check CSS classes for different coverage levels
 	assert.Contains(t, htmlStr, "excellent") // config package (90%)
 	assert.Contains(t, htmlStr, "low")       // utils package (60%)
 }
 
-func TestGenerateEdgeCases(t *testing.T) {
+func TestGenerateEdgeCases(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
-	
+
 	tests := []struct {
 		name     string
 		coverage *parser.CoverageData
@@ -472,13 +471,13 @@ func TestGenerateEdgeCases(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			html, err := generator.Generate(ctx, tt.coverage)
 			require.NoError(t, err)
 			assert.NotEmpty(t, html)
-			
+
 			htmlStr := string(html)
 			assert.Contains(t, htmlStr, "<!DOCTYPE html>")
 			assert.Contains(t, htmlStr, "</html>")
@@ -487,55 +486,55 @@ func TestGenerateEdgeCases(t *testing.T) {
 	}
 }
 
-func TestGenerateAccessibility(t *testing.T) {
+func TestGenerateAccessibility(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
 	coverage := createTestCoverageData()
-	
+
 	html, err := generator.Generate(ctx, coverage)
 	require.NoError(t, err)
-	
+
 	htmlStr := string(html)
-	
+
 	// Check for accessibility features
 	assert.Contains(t, htmlStr, `lang="en"`)
 	assert.Contains(t, htmlStr, `<title>`)
 	assert.Contains(t, htmlStr, `<meta charset="UTF-8">`)
 	assert.Contains(t, htmlStr, `viewport`)
-	
+
 	// Check for semantic HTML
 	assert.Contains(t, htmlStr, `<h1>`)
 	assert.Contains(t, htmlStr, `<h2 class="section-title">`)
-	
+
 	// Check for proper structure
 	assert.Contains(t, htmlStr, `<div class="container">`)
 	assert.Contains(t, htmlStr, `<div class="header">`)
 	assert.Contains(t, htmlStr, `<div class="summary">`)
 }
 
-func TestGenerateResponsiveDesign(t *testing.T) {
+func TestGenerateResponsiveDesign(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
 	coverage := createTestCoverageData()
-	
+
 	html, err := generator.Generate(ctx, coverage)
 	require.NoError(t, err)
-	
+
 	htmlStr := string(html)
-	
+
 	// Check for responsive CSS
 	assert.Contains(t, htmlStr, `@media (max-width: 768px)`)
 	assert.Contains(t, htmlStr, `grid-template-columns: repeat(auto-fit, minmax(`)
 	assert.Contains(t, htmlStr, `flex-direction: column`)
-	
+
 	// Check for mobile-friendly viewport
 	assert.Contains(t, htmlStr, `width=device-width, initial-scale=1.0`)
 }
 
-func TestRenderHTMLExecutionError(t *testing.T) {
+func TestRenderHTMLExecutionError(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
-	
+
 	// Create report data with nil config that will cause template execution to fail
 	reportData := &ReportData{
 		Coverage:    createTestCoverageData(),
@@ -549,17 +548,17 @@ func TestRenderHTMLExecutionError(t *testing.T) {
 		},
 		Packages: []PackageReport{},
 	}
-	
+
 	_, err := generator.renderHTML(ctx, reportData)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to execute template")
 }
 
-func TestGenerateAllOptionCombinations(t *testing.T) {
+func TestGenerateAllOptionCombinations(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
 	coverage := createTestCoverageData()
-	
+
 	// Test all combinations of options
 	optionsCombinations := [][]Option{
 		{WithTheme("light")},
@@ -571,7 +570,7 @@ func TestGenerateAllOptionCombinations(t *testing.T) {
 		{WithFiles(false), WithMissing(false)},
 		{WithTheme("custom"), WithTitle("Full Custom"), WithPackages(true), WithFiles(true), WithMissing(true)},
 	}
-	
+
 	for i, options := range optionsCombinations {
 		t.Run(fmt.Sprintf("combination_%d", i), func(t *testing.T) {
 			html, err := generator.Generate(ctx, coverage, options...)
@@ -581,9 +580,9 @@ func TestGenerateAllOptionCombinations(t *testing.T) {
 	}
 }
 
-func TestBuildReportDataEdgeCases(t *testing.T) {
+func TestBuildReportDataEdgeCases(t *testing.T) { //nolint:revive // function naming
 	generator := New()
-	
+
 	// Test with empty packages
 	coverage := &parser.CoverageData{
 		Mode:         "atomic",
@@ -593,26 +592,25 @@ func TestBuildReportDataEdgeCases(t *testing.T) {
 		Timestamp:    time.Now(),
 		Packages:     make(map[string]*parser.PackageCoverage),
 	}
-	
-	reportData, err := generator.buildReportData(coverage, generator.config)
-	require.NoError(t, err)
-	assert.Equal(t, 0, len(reportData.Packages))
+
+	reportData := generator.buildReportData(coverage, generator.config)
+	assert.Empty(t, reportData.Packages)
 	assert.Equal(t, 0, reportData.Summary.PackageCount)
 	assert.Equal(t, 0, reportData.Summary.FileCount)
 }
 
-func TestBuildLineReportsEdgeCases(t *testing.T) {
+func TestBuildLineReportsEdgeCases(t *testing.T) { //nolint:revive // function naming
 	generator := New()
-	
+
 	// Test with no statements
 	fileCov := &parser.FileCoverage{
 		Path:       "empty.go",
 		Statements: []parser.Statement{},
 	}
-	
+
 	lines := generator.buildLineReports(fileCov)
 	assert.Empty(t, lines)
-	
+
 	// Test with overlapping multi-line statements
 	fileCov = &parser.FileCoverage{
 		Path: "complex.go",
@@ -622,7 +620,7 @@ func TestBuildLineReportsEdgeCases(t *testing.T) {
 			{StartLine: 15, EndLine: 15, Count: 2}, // Single line
 		},
 	}
-	
+
 	lines = generator.buildLineReports(fileCov)
 	assert.NotEmpty(t, lines)
 	// Should have lines from 5-12 and 15
@@ -630,7 +628,7 @@ func TestBuildLineReportsEdgeCases(t *testing.T) {
 	for _, line := range lines {
 		lineNumbers[line.Number] = true
 	}
-	
+
 	// Check that all expected lines are present
 	for i := 5; i <= 12; i++ {
 		assert.True(t, lineNumbers[i], "Line %d should be present", i)
@@ -638,21 +636,21 @@ func TestBuildLineReportsEdgeCases(t *testing.T) {
 	assert.True(t, lineNumbers[15], "Line 15 should be present")
 }
 
-func TestRenderHTMLWithComplexData(t *testing.T) {
+func TestRenderHTMLWithComplexData(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
-	
+
 	// Create report data with all features enabled
 	reportData := &ReportData{
-		Coverage:     createTestCoverageData(),
-		Config:       generator.config,
-		GeneratedAt:  time.Now(),
-		Version:      "2.0.0",
-		ProjectName:  "Complex Project",
-		BranchName:   "feature/testing",
-		CommitSHA:    "abc123def456",
-		CommitURL:    "https://github.com/test/repo/commit/abc123def456",
-		BadgeURL:     "https://img.shields.io/badge/coverage-75%25-green",
+		Coverage:    createTestCoverageData(),
+		Config:      generator.config,
+		GeneratedAt: time.Now(),
+		Version:     "2.0.0",
+		ProjectName: "Complex Project",
+		BranchName:  "feature/testing",
+		CommitSHA:   "abc123def456",
+		CommitURL:   "https://github.com/test/repo/commit/abc123def456",
+		BadgeURL:    "https://img.shields.io/badge/coverage-75%25-green",
 		Summary: Summary{
 			TotalPercentage:  75.0,
 			TotalLines:       200,
@@ -687,11 +685,11 @@ func TestRenderHTMLWithComplexData(t *testing.T) {
 			},
 		},
 	}
-	
+
 	html, err := generator.renderHTML(ctx, reportData)
 	require.NoError(t, err)
 	assert.NotEmpty(t, html)
-	
+
 	htmlStr := string(html)
 	assert.Contains(t, htmlStr, "feature/testing")
 	assert.Contains(t, htmlStr, "abc123def456")

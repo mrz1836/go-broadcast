@@ -51,10 +51,10 @@ on:
         required: true
 
 permissions:
-  contents: write      # For GitHub Pages deployment and coverage processing
-  pages: write         # Deploy to GitHub Pages
+  contents: write # For GitHub Pages deployment and coverage processing
+  pages: write # Deploy to GitHub Pages
   pull-requests: write # Comment on PRs
-  id-token: write      # GitHub Pages deployment
+  id-token: write # GitHub Pages deployment
 
 jobs:
   # ----------------------------------------------------------------------------------

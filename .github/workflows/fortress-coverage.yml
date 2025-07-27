@@ -39,10 +39,10 @@ on:
         required: true
 
 permissions:
-  contents: write       # For GitHub Pages deployment
-  pull-requests: write  # For PR comments
-  pages: write          # For GitHub Pages
-  id-token: write       # For GitHub Pages deployment
+  contents: write # For GitHub Pages deployment
+  pull-requests: write # For PR comments
+  pages: write # For GitHub Pages
+  id-token: write # For GitHub Pages deployment
 
 jobs:
   # ----------------------------------------------------------------------------------
@@ -70,13 +70,49 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       # ————————————————————————————————————————————————————————————————
-      # Setup Go and build coverage tool
+      # Set Go cache paths and restore caches
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Set Go cache paths (cross-platform)
+        run: |
+          echo "🔧 Setting up Go cache paths..."
+          echo "GOCACHE=$HOME/.cache/go-build"        >> $GITHUB_ENV
+          echo "GOMODCACHE=$HOME/go/pkg/mod"          >> $GITHUB_ENV
+          echo "GOLANGCI_LINT_CACHE=$HOME/.cache/golangci-lint" >> $GITHUB_ENV
+
+      # ————————————————————————————————————————————————————————————————
+      # Restore Go module and build caches
+      # ————————————————————————————————————————————————————————————————
+      - name: 💾 Restore Go module cache
+        id: restore-gomod
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/go/pkg/mod
+          key: ubuntu-latest-gomod-${{ hashFiles('**/.github/coverage/cmd/gofortress-coverage/go.sum') }}
+          restore-keys: |
+            ubuntu-latest-gomod-
+
+      # ————————————————————————————————————————————————————————————————
+      # Restore the build cache and test cache
+      # ————————————————————————————————————————————————————————————————
+      - name: 💾 Restore Go build cache
+        id: restore-gobuild
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/.cache/go-build/test
+          key: ubuntu-latest-gobuild-${{ env.GO_PRIMARY_VERSION }}-${{ hashFiles('**/.github/coverage/cmd/gofortress-coverage/go.sum') }}
+          restore-keys: |
+            ubuntu-latest-gobuild-${{ env.GO_PRIMARY_VERSION }}-
+
+      # ————————————————————————————————————————————————————————————————
+      # Setup Go
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Setup Go
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.2.0
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
-          go-version: '1.21'
-          cache: true
+          go-version: ${{ env.GO_PRIMARY_VERSION }}
+          cache: false # we handle caches ourselves
 
       - name: 🔨 Build coverage tool
         working-directory: .github/coverage/cmd/gofortress-coverage
@@ -85,6 +121,58 @@ jobs:
           go build -v -o gofortress-coverage .
           chmod +x gofortress-coverage
           echo "✅ Coverage tool built successfully"
+
+      # ————————————————————————————————————————————————————————————————
+      # Collect cache statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Collect cache statistics
+        id: cache-stats
+        if: always()
+        run: |
+          echo "📊 Collecting cache statistics..."
+          
+          # Get cache hit information
+          GOMOD_HIT="${{ steps.restore-gomod.outputs.cache-hit }}"
+          GOBUILD_HIT="${{ steps.restore-gobuild.outputs.cache-hit }}"
+          
+          # Get cache sizes
+          GOMOD_SIZE="0B"
+          GOBUILD_SIZE="0B"
+          
+          if [ -d "$HOME/go/pkg/mod" ]; then
+            GOMOD_SIZE=$(du -sh "$HOME/go/pkg/mod" 2>/dev/null | cut -f1 || echo "0B")
+          fi
+          
+          if [ -d "$HOME/.cache/go-build" ]; then
+            GOBUILD_SIZE=$(du -sh "$HOME/.cache/go-build" 2>/dev/null | cut -f1 || echo "0B")
+          fi
+          
+          # Create cache statistics JSON
+          cat > "cache-stats-coverage.json" << EOF
+          {
+            "os": "ubuntu-latest",
+            "go_version": "${{ env.GO_PRIMARY_VERSION }}",
+            "gomod_cache_hit": "$GOMOD_HIT",
+            "gobuild_cache_hit": "$GOBUILD_HIT",
+            "cache_size_gomod": "$GOMOD_SIZE",
+            "cache_size_gobuild": "$GOBUILD_SIZE",
+            "workflow": "coverage",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          
+          echo "📊 Cache statistics collected"
+
+      # ————————————————————————————————————————————————————————————————
+      # Upload cache statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📤 Upload cache statistics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cache-stats-coverage
+          path: cache-stats-coverage.json
+          retention-days: 1
 
       # ————————————————————————————————————————————————————————————————
       # Download coverage artifact from test job
@@ -105,7 +193,7 @@ jobs:
         working-directory: .github/coverage/cmd/gofortress-coverage
         run: |
           echo "📊 Processing coverage data..."
-          
+
           # Check if coverage file exists
           if [[ -f "../../../../coverage-artifacts/${{ inputs.coverage-file }}" ]]; then
             COVERAGE_FILE="../../../../coverage-artifacts/${{ inputs.coverage-file }}"
@@ -115,9 +203,9 @@ jobs:
             echo "❌ Coverage file not found: ${{ inputs.coverage-file }}"
             exit 1
           fi
-          
+
           echo "📄 Using coverage file: $COVERAGE_FILE"
-          
+
           # Run complete coverage processing pipeline
           ./gofortress-coverage complete \
             --coverage "$COVERAGE_FILE" \
@@ -125,8 +213,29 @@ jobs:
             --commit "${{ inputs.commit-sha }}" \
             --output-dir "../../../../coverage-output" \
             --verbose
-          
+
           echo "✅ Coverage processing completed"
+
+          # Collect coverage processing statistics
+          if [[ -f "../../../../coverage-output/coverage-data.json" ]]; then
+            COVERAGE_PERCENT=$(jq -r '.percentage // "N/A"' "../../../../coverage-output/coverage-data.json")
+            TOTAL_STATEMENTS=$(jq -r '.total_statements // 0' "../../../../coverage-output/coverage-data.json")
+            COVERED_STATEMENTS=$(jq -r '.covered_statements // 0' "../../../../coverage-output/coverage-data.json")
+            
+            # Create coverage statistics for performance reporting
+            cat > "../../../../coverage-stats-${{ inputs.branch-name }}.json" << EOF
+            {
+              "coverage_percent": "$COVERAGE_PERCENT",
+              "processing_time_seconds": "$(( $(date +%s) - $(date -d "${{ inputs.commit-sha }}" +%s 2>/dev/null || echo "0") ))",
+              "files_processed": $(find ../../../../coverage-output -name "*.html" -o -name "*.json" | wc -l),
+              "badge_generated": "true",
+              "pages_deployed": "false",
+              "branch": "${{ inputs.branch-name }}",
+              "commit": "${{ inputs.commit-sha }}",
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            }
+            EOF
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Create PR comment if this is a pull request
@@ -138,7 +247,7 @@ jobs:
         working-directory: .github/coverage/cmd/gofortress-coverage
         run: |
           echo "💬 Creating PR comment for PR #${{ inputs.pr-number }}..."
-          
+
           # Check if coverage data exists
           if [[ -f "../../../../coverage-output/coverage-data.json" ]]; then
             ./gofortress-coverage comment \
@@ -240,7 +349,7 @@ jobs:
         working-directory: .github/coverage/cmd/gofortress-coverage
         run: |
           echo "📋 Setting coverage status check..."
-          
+
           # Extract coverage percentage from the processed data
           if [[ -f "../../../../coverage-output/coverage-data.json" ]]; then
             COVERAGE_PCT=$(jq -r '.percentage // 0' "../../../../coverage-output/coverage-data.json")
@@ -279,7 +388,7 @@ jobs:
         run: |
           echo "## 📊 Coverage Processing Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [[ -f "coverage-output/coverage-data.json" ]]; then
             COVERAGE_PCT=$(jq -r '.percentage // "N/A"' "coverage-output/coverage-data.json")
             TOTAL_STATEMENTS=$(jq -r '.total_statements // "N/A"' "coverage-output/coverage-data.json")
@@ -301,6 +410,6 @@ jobs:
           else
             echo "❌ Coverage processing failed or no data generated" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "_Processed by GoFortress Coverage System_" >> $GITHUB_STEP_SUMMARY

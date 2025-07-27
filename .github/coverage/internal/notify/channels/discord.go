@@ -7,15 +7,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/coverage/internal/notify"
+	"github.com/mrz1836/go-broadcast/coverage/internal/types"
 )
 
 // DiscordChannel implements Discord webhook notifications
 type DiscordChannel struct {
-	config    *notify.DiscordConfig
-	rateLimit *notify.RateLimit
+	config    *types.DiscordConfig
+	rateLimit *types.RateLimit
 	client    *http.Client
 }
 
@@ -71,14 +72,14 @@ type DiscordEmbedField struct {
 }
 
 // NewDiscordChannel creates a new Discord notification channel
-func NewDiscordChannel(config *notify.DiscordConfig) *DiscordChannel {
+func NewDiscordChannel(config *types.DiscordConfig) *DiscordChannel {
 	return &DiscordChannel{
 		config: config,
-		rateLimit: &notify.RateLimit{
-			RequestsPerMinute: 30,   // Discord rate limit (conservative)
+		rateLimit: &types.RateLimit{
+			RequestsPerMinute: 30, // Discord rate limit (conservative)
 			RequestsPerHour:   1800,
 			RequestsPerDay:    43200,
-			BurstSize:        5,
+			BurstSize:         5,
 		},
 		client: &http.Client{
 			Timeout: 30 * time.Second,
@@ -87,42 +88,42 @@ func NewDiscordChannel(config *notify.DiscordConfig) *DiscordChannel {
 }
 
 // Send implements the NotificationChannel interface for Discord
-func (d *DiscordChannel) Send(ctx context.Context, notification *notify.Notification) (*notify.DeliveryResult, error) {
+func (d *DiscordChannel) Send(ctx context.Context, notification *types.Notification) (*types.DeliveryResult, error) {
 	startTime := time.Now()
-	result := &notify.DeliveryResult{
-		Channel:   notify.ChannelDiscord,
+	result := &types.DeliveryResult{
+		Channel:   types.ChannelDiscord,
 		Timestamp: startTime,
 	}
-	
+
 	// Build Discord message
 	message := d.buildDiscordMessage(notification)
-	
+
 	// Marshal message to JSON
 	payload, err := json.Marshal(message)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to marshal Discord message: %w", err)
 		return result, result.Error
 	}
-	
+
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", d.config.WebhookURL, bytes.NewBuffer(payload))
 	if err != nil {
 		result.Error = fmt.Errorf("failed to create request: %w", err)
 		return result, result.Error
 	}
-	
+
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	// Send request
 	resp, err := d.client.Do(req)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to send request: %w", err)
 		return result, result.Error
 	}
-	defer resp.Body.Close()
-	
+	defer func() { _ = resp.Body.Close() }()
+
 	result.DeliveryTime = time.Since(startTime)
-	
+
 	// Check response
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		result.Success = true
@@ -130,7 +131,7 @@ func (d *DiscordChannel) Send(ctx context.Context, notification *notify.Notifica
 	} else {
 		result.Error = fmt.Errorf("Discord API returned status %d", resp.StatusCode)
 	}
-	
+
 	return result, nil
 }
 
@@ -139,22 +140,22 @@ func (d *DiscordChannel) ValidateConfig() error {
 	if d.config == nil {
 		return fmt.Errorf("Discord config is nil")
 	}
-	
+
 	if d.config.WebhookURL == "" {
 		return fmt.Errorf("Discord webhook URL is required")
 	}
-	
+
 	// Validate webhook URL format
 	if !isValidDiscordWebhookURL(d.config.WebhookURL) {
 		return fmt.Errorf("invalid Discord webhook URL format")
 	}
-	
+
 	return nil
 }
 
 // GetChannelType returns the channel type
-func (d *DiscordChannel) GetChannelType() notify.ChannelType {
-	return notify.ChannelDiscord
+func (d *DiscordChannel) GetChannelType() types.ChannelType {
+	return types.ChannelDiscord
 }
 
 // SupportsRichContent returns whether the channel supports rich content
@@ -163,32 +164,32 @@ func (d *DiscordChannel) SupportsRichContent() bool {
 }
 
 // GetRateLimit returns the rate limit configuration
-func (d *DiscordChannel) GetRateLimit() *notify.RateLimit {
+func (d *DiscordChannel) GetRateLimit() *types.RateLimit {
 	return d.rateLimit
 }
 
 // buildDiscordMessage builds a Discord message from a notification
-func (d *DiscordChannel) buildDiscordMessage(notification *notify.Notification) *DiscordMessage {
+func (d *DiscordChannel) buildDiscordMessage(notification *types.Notification) *DiscordMessage {
 	message := &DiscordMessage{
 		Username:  d.config.Username,
 		AvatarURL: d.config.AvatarURL,
 		TTS:       false,
 	}
-	
+
 	// Build embed
 	embed := d.buildDiscordEmbed(notification)
 	message.Embeds = []DiscordEmbed{*embed}
-	
+
 	// Add content if no rich content
 	if notification.RichContent == nil || notification.RichContent.Markdown == "" {
 		message.Content = fmt.Sprintf("**%s**\n%s", notification.Subject, notification.Message)
 	}
-	
+
 	return message
 }
 
 // buildDiscordEmbed builds a Discord embed from notification data
-func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *DiscordEmbed {
+func (d *DiscordChannel) buildDiscordEmbed(notification *types.Notification) *DiscordEmbed {
 	embed := &DiscordEmbed{
 		Title:       notification.Subject,
 		Description: notification.Message,
@@ -197,18 +198,18 @@ func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *D
 		Type:        "rich",
 		Fields:      make([]DiscordEmbedField, 0),
 	}
-	
+
 	// Set custom embed color if configured
 	if d.config.EmbedColor > 0 {
 		embed.Color = d.config.EmbedColor
 	}
-	
+
 	// Add footer
 	embed.Footer = &DiscordEmbedFooter{
 		Text:    "GoFortress Coverage",
 		IconURL: "https://github.com/favicon.ico",
 	}
-	
+
 	// Add author information
 	if notification.Author != "" {
 		embed.Author = &DiscordEmbedAuthor{
@@ -217,7 +218,7 @@ func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *D
 			URL:     fmt.Sprintf("https://github.com/%s", notification.Author),
 		}
 	}
-	
+
 	// Add repository field
 	if notification.Repository != "" {
 		repoURL := fmt.Sprintf("https://github.com/%s", notification.Repository)
@@ -227,7 +228,7 @@ func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *D
 			Inline: true,
 		})
 	}
-	
+
 	// Add branch field
 	if notification.Branch != "" {
 		branchURL := fmt.Sprintf("https://github.com/%s/tree/%s", notification.Repository, notification.Branch)
@@ -237,7 +238,7 @@ func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *D
 			Inline: true,
 		})
 	}
-	
+
 	// Add PR field
 	if notification.PRNumber > 0 {
 		prURL := fmt.Sprintf("https://github.com/%s/pull/%d", notification.Repository, notification.PRNumber)
@@ -247,12 +248,12 @@ func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *D
 			Inline: true,
 		})
 	}
-	
+
 	// Add coverage field
 	if notification.CoverageData != nil {
 		coverageIcon := d.getCoverageIcon(notification.CoverageData.Change)
 		coverageText := fmt.Sprintf("%.1f%%", notification.CoverageData.Current)
-		
+
 		if notification.CoverageData.Previous > 0 {
 			change := notification.CoverageData.Change
 			if change > 0 {
@@ -261,13 +262,13 @@ func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *D
 				coverageText += fmt.Sprintf(" (%.1f%%)", change)
 			}
 		}
-		
+
 		embed.Fields = append(embed.Fields, DiscordEmbedField{
 			Name:   fmt.Sprintf("%s Coverage", coverageIcon),
 			Value:  coverageText,
 			Inline: true,
 		})
-		
+
 		// Add target progress if available
 		if notification.CoverageData.Target > 0 {
 			progress := (notification.CoverageData.Current / notification.CoverageData.Target) * 100
@@ -279,7 +280,7 @@ func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *D
 			})
 		}
 	}
-	
+
 	// Add severity field
 	severityIcon := d.getSeverityIcon(notification.Severity)
 	embed.Fields = append(embed.Fields, DiscordEmbedField{
@@ -287,7 +288,7 @@ func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *D
 		Value:  string(notification.Severity),
 		Inline: true,
 	})
-	
+
 	// Add priority field
 	priorityIcon := d.getPriorityIcon(notification.Priority)
 	embed.Fields = append(embed.Fields, DiscordEmbedField{
@@ -295,7 +296,7 @@ func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *D
 		Value:  string(notification.Priority),
 		Inline: true,
 	})
-	
+
 	// Add trend information
 	if notification.TrendData != nil {
 		trendIcon := d.getTrendIcon(notification.TrendData.Direction)
@@ -305,7 +306,7 @@ func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *D
 			Inline: true,
 		})
 	}
-	
+
 	// Add commit information
 	if notification.CommitSHA != "" {
 		commitURL := fmt.Sprintf("https://github.com/%s/commit/%s", notification.Repository, notification.CommitSHA)
@@ -319,20 +320,20 @@ func (d *DiscordChannel) buildDiscordEmbed(notification *notify.Notification) *D
 			Inline: true,
 		})
 	}
-	
+
 	return embed
 }
 
 // getEmbedColor returns the embed color for a severity level
-func (d *DiscordChannel) getEmbedColor(severity notify.SeverityLevel) int {
+func (d *DiscordChannel) getEmbedColor(severity types.SeverityLevel) int {
 	switch severity {
-	case notify.SeverityInfo:
+	case types.SeverityInfo:
 		return 0x3498db // Blue
-	case notify.SeverityWarning:
+	case types.SeverityWarning:
 		return 0xf39c12 // Orange
-	case notify.SeverityCritical:
+	case types.SeverityCritical:
 		return 0xe74c3c // Red
-	case notify.SeverityEmergency:
+	case types.SeverityEmergency:
 		return 0x8b0000 // Dark Red
 	default:
 		return 0x9b59b6 // Purple
@@ -350,15 +351,15 @@ func (d *DiscordChannel) getCoverageIcon(change float64) string {
 }
 
 // getSeverityIcon returns an icon for severity level
-func (d *DiscordChannel) getSeverityIcon(severity notify.SeverityLevel) string {
+func (d *DiscordChannel) getSeverityIcon(severity types.SeverityLevel) string {
 	switch severity {
-	case notify.SeverityInfo:
+	case types.SeverityInfo:
 		return "ℹ️"
-	case notify.SeverityWarning:
+	case types.SeverityWarning:
 		return "⚠️"
-	case notify.SeverityCritical:
+	case types.SeverityCritical:
 		return "🚨"
-	case notify.SeverityEmergency:
+	case types.SeverityEmergency:
 		return "🔥"
 	default:
 		return "📢"
@@ -366,15 +367,15 @@ func (d *DiscordChannel) getSeverityIcon(severity notify.SeverityLevel) string {
 }
 
 // getPriorityIcon returns an icon for priority level
-func (d *DiscordChannel) getPriorityIcon(priority notify.Priority) string {
+func (d *DiscordChannel) getPriorityIcon(priority types.Priority) string {
 	switch priority {
-	case notify.PriorityLow:
+	case types.PriorityLow:
 		return "🔵"
-	case notify.PriorityNormal:
+	case types.PriorityNormal:
 		return "🟡"
-	case notify.PriorityHigh:
+	case types.PriorityHigh:
 		return "🟠"
-	case notify.PriorityUrgent:
+	case types.PriorityUrgent:
 		return "🔴"
 	default:
 		return "⚪"
@@ -402,11 +403,11 @@ func (d *DiscordChannel) generateProgressBar(percentage float64) string {
 	} else if percentage < 0 {
 		percentage = 0
 	}
-	
+
 	// Use Discord-compatible progress bar emojis
 	filled := int(percentage / 10)
 	empty := 10 - filled
-	
+
 	bar := ""
 	for i := 0; i < filled; i++ {
 		bar += "🟩"
@@ -414,11 +415,11 @@ func (d *DiscordChannel) generateProgressBar(percentage float64) string {
 	for i := 0; i < empty; i++ {
 		bar += "⬜"
 	}
-	
+
 	return bar
 }
 
 // isValidDiscordWebhookURL validates a Discord webhook URL
 func isValidDiscordWebhookURL(url string) bool {
-	return len(url) > 20 && containsString(url, "discord.com/api/webhooks/")
+	return len(url) > 20 && strings.Contains(url, "discord.com/api/webhooks/")
 }

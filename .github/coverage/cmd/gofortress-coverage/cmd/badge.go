@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,12 +10,17 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/badge"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/config"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/badge"
+	"github.com/mrz1836/go-broadcast/coverage/internal/config"
+	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
-var badgeCmd = &cobra.Command{
+var (
+	ErrCoverageRequired = errors.New("coverage percentage is required (use --coverage or --input)")
+	ErrInvalidCoverage  = errors.New("coverage percentage must be between 0 and 100")
+)
+
+var badgeCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "badge",
 	Short: "Generate coverage badge",
 	Long:  `Generate SVG coverage badges for README files and GitHub Pages.`,
@@ -31,12 +37,23 @@ var badgeCmd = &cobra.Command{
 		// Load configuration
 		cfg := config.Load()
 
+		// If no input file specified, try to use default from config
+		if inputFile == "" && coverage == 0 {
+			// Only use default if it's an absolute path or specifically configured
+			if cfg.Coverage.InputFile != "coverage.txt" && cfg.Coverage.InputFile != "" {
+				// Check if configured coverage file exists
+				if _, err := os.Stat(cfg.Coverage.InputFile); err == nil {
+					inputFile = cfg.Coverage.InputFile
+				}
+			}
+		}
+
 		// If no coverage percentage provided, try to parse from input file
 		if coverage == 0 && inputFile != "" {
 			p := parser.New()
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			
+
 			coverageData, err := p.ParseFile(ctx, inputFile)
 			if err != nil {
 				return fmt.Errorf("failed to parse coverage file: %w", err)
@@ -45,12 +62,12 @@ var badgeCmd = &cobra.Command{
 		}
 
 		if coverage == 0 {
-			return fmt.Errorf("coverage percentage is required (use --coverage or --input)")
+			return ErrCoverageRequired
 		}
 
 		// Validate coverage percentage
 		if coverage < 0 || coverage > 100 {
-			return fmt.Errorf("coverage percentage must be between 0 and 100, got %.2f", coverage)
+			return fmt.Errorf("%w, got %.2f", ErrInvalidCoverage, coverage)
 		}
 
 		// Set defaults from config
@@ -85,13 +102,13 @@ var badgeCmd = &cobra.Command{
 			options = append(options, badge.WithLogoColor(logoColor))
 		}
 
-		generator := badge.New(options...)
+		generator := badge.New()
 
 		// Generate badge
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		svgContent, err := generator.Generate(ctx, coverage)
+		svgContent, err := generator.Generate(ctx, coverage, options...)
 		if err != nil {
 			return fmt.Errorf("failed to generate badge: %w", err)
 		}
@@ -105,16 +122,16 @@ var badgeCmd = &cobra.Command{
 		}
 
 		// Write badge to file
-		if err := os.WriteFile(outputFile, []byte(svgContent), cfg.Storage.FileMode); err != nil {
+		if err := os.WriteFile(outputFile, svgContent, cfg.Storage.FileMode); err != nil {
 			return fmt.Errorf("failed to write badge file: %w", err)
 		}
 
 		// Print success message
-		fmt.Printf("Coverage badge generated successfully!\n")
-		fmt.Printf("Coverage: %.2f%%\n", coverage)
-		fmt.Printf("Style: %s\n", style)
-		fmt.Printf("Output: %s\n", outputFile)
-		
+		cmd.Printf("Coverage badge generated successfully!\n")
+		cmd.Printf("Coverage: %.2f%%\n", coverage)
+		cmd.Printf("Style: %s\n", style)
+		cmd.Printf("Output: %s\n", outputFile)
+
 		// Show color based on coverage
 		var status string
 		switch {
@@ -127,13 +144,13 @@ var badgeCmd = &cobra.Command{
 		default:
 			status = "🔴 Needs Improvement"
 		}
-		fmt.Printf("Status: %s\n", status)
+		cmd.Printf("Status: %s\n", status)
 
 		return nil
 	},
 }
 
-func init() {
+func init() { //nolint:revive // function naming
 	badgeCmd.Flags().Float64P("coverage", "c", 0, "Coverage percentage (0-100)")
 	badgeCmd.Flags().StringP("style", "s", "", "Badge style (flat, flat-square, for-the-badge)")
 	badgeCmd.Flags().StringP("output", "o", "", "Output SVG file")

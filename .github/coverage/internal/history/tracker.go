@@ -10,7 +10,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
 // Tracker manages coverage history and trend analysis
@@ -20,37 +20,37 @@ type Tracker struct {
 
 // Config holds history tracking configuration
 type Config struct {
-	StoragePath       string        // Path to store history files
-	RetentionDays     int           // Days to retain history data
-	MaxEntries        int           // Maximum number of entries to keep
-	CompressionLevel  int           // Compression level for stored data (0-9)
-	AutoCleanup       bool          // Automatically clean up old entries
-	BackupPath        string        // Optional backup storage path
-	MetricsEnabled    bool          // Enable detailed metrics collection
+	StoragePath      string // Path to store history files
+	RetentionDays    int    // Days to retain history data
+	MaxEntries       int    // Maximum number of entries to keep
+	CompressionLevel int    // Compression level for stored data (0-9)
+	AutoCleanup      bool   // Automatically clean up old entries
+	BackupPath       string // Optional backup storage path
+	MetricsEnabled   bool   // Enable detailed metrics collection
 }
 
 // Entry represents a single coverage history entry
 type Entry struct {
-	Timestamp    time.Time                         `json:"timestamp"`
-	Branch       string                           `json:"branch"`
-	CommitSHA    string                           `json:"commit_sha"`
-	CommitURL    string                           `json:"commit_url,omitempty"`
-	Coverage     *parser.CoverageData             `json:"coverage"`
-	Metadata     map[string]string                `json:"metadata,omitempty"`
-	BuildInfo    *BuildInfo                       `json:"build_info,omitempty"`
-	FileHashes   map[string]string                `json:"file_hashes,omitempty"`
-	PackageStats map[string]*PackageHistoryStats  `json:"package_stats,omitempty"`
+	Timestamp    time.Time                       `json:"timestamp"`
+	Branch       string                          `json:"branch"`
+	CommitSHA    string                          `json:"commit_sha"`
+	CommitURL    string                          `json:"commit_url,omitempty"`
+	Coverage     *parser.CoverageData            `json:"coverage"`
+	Metadata     map[string]string               `json:"metadata,omitempty"`
+	BuildInfo    *BuildInfo                      `json:"build_info,omitempty"`
+	FileHashes   map[string]string               `json:"file_hashes,omitempty"`
+	PackageStats map[string]*PackageHistoryStats `json:"package_stats,omitempty"`
 }
 
 // BuildInfo contains build-related information
 type BuildInfo struct {
-	GoVersion     string `json:"go_version"`
-	Platform      string `json:"platform"`
-	Architecture  string `json:"architecture"`
-	BuildTime     string `json:"build_time"`
-	BuildNumber   string `json:"build_number,omitempty"`
-	PullRequest   string `json:"pull_request,omitempty"`
-	WorkflowID    string `json:"workflow_id,omitempty"`
+	GoVersion    string `json:"go_version"`
+	Platform     string `json:"platform"`
+	Architecture string `json:"architecture"`
+	BuildTime    string `json:"build_time"`
+	BuildNumber  string `json:"build_number,omitempty"`
+	PullRequest  string `json:"pull_request,omitempty"`
+	WorkflowID   string `json:"workflow_id,omitempty"`
 }
 
 // PackageHistoryStats tracks package-level statistics over time
@@ -67,10 +67,10 @@ type PackageHistoryStats struct {
 
 // TrendData represents coverage trend over time
 type TrendData struct {
-	Entries     []Entry          `json:"entries"`
-	Summary     *TrendSummary    `json:"summary"`
-	Analysis    *TrendAnalysis   `json:"analysis"`
-	GeneratedAt time.Time        `json:"generated_at"`
+	Entries     []Entry        `json:"entries"`
+	Summary     *TrendSummary  `json:"summary"`
+	Analysis    *TrendAnalysis `json:"analysis"`
+	GeneratedAt time.Time      `json:"generated_at"`
 }
 
 // TrendSummary provides high-level trend statistics
@@ -81,7 +81,7 @@ type TrendSummary struct {
 	MinPercentage     float64   `json:"min_percentage"`
 	MaxPercentage     float64   `json:"max_percentage"`
 	CurrentTrend      string    `json:"current_trend"`
-	TrendStrength     string    `json:"trend_strength"` // "strong", "moderate", "weak"
+	TrendStrength     string    `json:"trend_strength"`  // "strong", "moderate", "weak"
 	StabilityScore    float64   `json:"stability_score"` // 0-100
 }
 
@@ -103,23 +103,23 @@ type TrendAnalysis struct {
 
 // PeriodAnalysis analyzes trends for a specific time period
 type PeriodAnalysis struct {
-	Period         string  `json:"period"`
-	StartCoverage  float64 `json:"start_coverage"`
-	EndCoverage    float64 `json:"end_coverage"`
-	Change         float64 `json:"change"`
-	ChangePercent  float64 `json:"change_percent"`
-	Direction      string  `json:"direction"`
-	Confidence     float64 `json:"confidence"`
-	DataPoints     int     `json:"data_points"`
+	Period        string  `json:"period"`
+	StartCoverage float64 `json:"start_coverage"`
+	EndCoverage   float64 `json:"end_coverage"`
+	Change        float64 `json:"change"`
+	ChangePercent float64 `json:"change_percent"`
+	Direction     string  `json:"direction"`
+	Confidence    float64 `json:"confidence"`
+	DataPoints    int     `json:"data_points"`
 }
 
 // Prediction provides coverage trend predictions
 type Prediction struct {
-	NextWeek      *PredictionPoint `json:"next_week,omitempty"`
-	NextMonth     *PredictionPoint `json:"next_month,omitempty"`
-	Confidence    float64          `json:"confidence"`
-	Model         string           `json:"model"`
-	Factors       []string         `json:"factors,omitempty"`
+	NextWeek   *PredictionPoint `json:"next_week,omitempty"`
+	NextMonth  *PredictionPoint `json:"next_month,omitempty"`
+	Confidence float64          `json:"confidence"`
+	Model      string           `json:"model"`
+	Factors    []string         `json:"factors,omitempty"`
 }
 
 // PredictionPoint represents a single prediction
@@ -274,7 +274,7 @@ func (t *Tracker) Cleanup(ctx context.Context) error {
 	}
 
 	cutoff := time.Now().AddDate(0, 0, -t.config.RetentionDays)
-	
+
 	entries, err := t.loadAllEntries(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load entries for cleanup: %w", err)
@@ -324,7 +324,7 @@ func (t *Tracker) GetStatistics(ctx context.Context) (*Statistics, error) {
 	if len(entries) > 0 {
 		stats.OldestEntry = entries[len(entries)-1].Timestamp
 		stats.NewestEntry = entries[0].Timestamp
-		
+
 		for _, entry := range entries {
 			if project, exists := entry.Metadata["project"]; exists {
 				stats.UniqueProjects[project]++
@@ -339,12 +339,12 @@ func (t *Tracker) GetStatistics(ctx context.Context) (*Statistics, error) {
 // Legacy method for backward compatibility
 func (t *Tracker) Add(branch, commit string, data interface{}) error {
 	ctx := context.Background()
-	
+
 	// Convert interface{} to CoverageData if possible
 	if coverage, ok := data.(*parser.CoverageData); ok {
 		return t.Record(ctx, coverage, WithBranch(branch), WithCommit(commit, ""))
 	}
-	
+
 	return fmt.Errorf("unsupported data type: %T", data)
 }
 
@@ -412,7 +412,7 @@ func (t *Tracker) loadAllEntries(ctx context.Context) ([]Entry, error) {
 		return nil, fmt.Errorf("failed to glob entry files: %w", err)
 	}
 
-	var entries []Entry
+	entries := make([]Entry, 0, len(files))
 	for _, file := range files {
 		select {
 		case <-ctx.Done():
@@ -420,7 +420,7 @@ func (t *Tracker) loadAllEntries(ctx context.Context) ([]Entry, error) {
 		default:
 		}
 
-		data, err := os.ReadFile(file)
+		data, err := os.ReadFile(file) //nolint:gosec // File path from controlled directory listing
 		if err != nil {
 			continue // Skip corrupted files
 		}
@@ -450,7 +450,7 @@ func (t *Tracker) saveAllEntries(ctx context.Context, entries []Entry) error {
 	}
 
 	for _, file := range files {
-		os.Remove(file)
+		_ = os.Remove(file)
 	}
 
 	// Save new entries
@@ -472,7 +472,7 @@ func (t *Tracker) saveAllEntries(ctx context.Context, entries []Entry) error {
 // Helper functions
 
 func (t *Tracker) ensureStorageDir() error {
-	return os.MkdirAll(t.config.StoragePath, 0755)
+	return os.MkdirAll(t.config.StoragePath, 0750)
 }
 
 func (t *Tracker) getEntryFilename(entry *Entry) string {
@@ -506,7 +506,7 @@ func (t *Tracker) calculateFileHashes(coverage *parser.CoverageData) map[string]
 
 func (t *Tracker) calculatePackageStats(coverage *parser.CoverageData, branch string) map[string]*PackageHistoryStats {
 	stats := make(map[string]*PackageHistoryStats)
-	
+
 	for name, pkg := range coverage.Packages {
 		stats[name] = &PackageHistoryStats{
 			PreviousPercentage: 0.0, // Would load from previous entry
@@ -519,7 +519,7 @@ func (t *Tracker) calculatePackageStats(coverage *parser.CoverageData, branch st
 			LinesRemoved:       0,
 		}
 	}
-	
+
 	return stats
 }
 
@@ -579,7 +579,7 @@ func (t *Tracker) analyzeEntries(entries []Entry) *TrendAnalysis {
 func (t *Tracker) analyzePeriod(entries []Entry, days int) *PeriodAnalysis {
 	cutoff := time.Now().AddDate(0, 0, -days)
 	var periodEntries []Entry
-	
+
 	for _, entry := range entries {
 		if entry.Timestamp.After(cutoff) {
 			periodEntries = append(periodEntries, entry)
@@ -588,9 +588,9 @@ func (t *Tracker) analyzePeriod(entries []Entry, days int) *PeriodAnalysis {
 
 	if len(periodEntries) < 2 {
 		return &PeriodAnalysis{
-			Period:        fmt.Sprintf("%d days", days),
-			DataPoints:    len(periodEntries),
-			Confidence:    0.0,
+			Period:     fmt.Sprintf("%d days", days),
+			DataPoints: len(periodEntries),
+			Confidence: 0.0,
 		}
 	}
 
@@ -702,13 +702,13 @@ func (t *Tracker) calculateStorageSize() int64 {
 
 // Statistics provides comprehensive history statistics
 type Statistics struct {
-	TotalEntries   int                `json:"total_entries"`
-	OldestEntry    time.Time          `json:"oldest_entry"`
-	NewestEntry    time.Time          `json:"newest_entry"`
-	UniqueProjects map[string]int     `json:"unique_projects"`
-	UniqueBranches map[string]int     `json:"unique_branches"`
-	StorageSize    int64              `json:"storage_size"`
-	GeneratedAt    time.Time          `json:"generated_at"`
+	TotalEntries   int            `json:"total_entries"`
+	OldestEntry    time.Time      `json:"oldest_entry"`
+	NewestEntry    time.Time      `json:"newest_entry"`
+	UniqueProjects map[string]int `json:"unique_projects"`
+	UniqueBranches map[string]int `json:"unique_branches"`
+	StorageSize    int64          `json:"storage_size"`
+	GeneratedAt    time.Time      `json:"generated_at"`
 }
 
 // Option types for configuration

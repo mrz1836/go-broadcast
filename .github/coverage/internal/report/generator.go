@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
 // Generator creates beautiful, interactive HTML coverage reports with cutting-edge UX
@@ -20,40 +20,40 @@ type Generator struct {
 
 // Config holds report generation configuration
 type Config struct {
-	Theme         string
-	Title         string
-	ShowPackages  bool
-	ShowFiles     bool
-	ShowMissing   bool
-	DarkMode      bool
-	Responsive    bool
+	Theme            string
+	Title            string
+	ShowPackages     bool
+	ShowFiles        bool
+	ShowMissing      bool
+	DarkMode         bool
+	Responsive       bool
 	InteractiveTrees bool
 }
 
 // ReportData represents the complete data needed for report generation
 type ReportData struct {
-	Coverage     *parser.CoverageData
-	Config       *Config
-	GeneratedAt  time.Time
-	Version      string
-	ProjectName  string
-	BranchName   string
-	CommitSHA    string
-	CommitURL    string
-	BadgeURL     string
-	Summary      Summary
-	Packages     []PackageReport
+	Coverage    *parser.CoverageData
+	Config      *Config
+	GeneratedAt time.Time
+	Version     string
+	ProjectName string
+	BranchName  string
+	CommitSHA   string
+	CommitURL   string
+	BadgeURL    string
+	Summary     Summary
+	Packages    []PackageReport
 }
 
 // Summary provides high-level coverage statistics
 type Summary struct {
-	TotalPercentage float64
-	TotalLines      int
-	CoveredLines    int
-	UncoveredLines  int
-	PackageCount    int
-	FileCount       int
-	ChangeStatus    string // "improved", "declined", "stable"
+	TotalPercentage  float64
+	TotalLines       int
+	CoveredLines     int
+	UncoveredLines   int
+	PackageCount     int
+	FileCount        int
+	ChangeStatus     string // "improved", "declined", "stable"
 	PreviousCoverage float64
 }
 
@@ -92,12 +92,12 @@ func New() *Generator {
 	return &Generator{
 		config: &Config{
 			Theme:            "github-dark",
-			Title:           "Coverage Report",
-			ShowPackages:    true,
-			ShowFiles:       true,
-			ShowMissing:     true,
-			DarkMode:        true,
-			Responsive:      true,
+			Title:            "Coverage Report",
+			ShowPackages:     true,
+			ShowFiles:        true,
+			ShowMissing:      true,
+			DarkMode:         true,
+			Responsive:       true,
 			InteractiveTrees: true,
 		},
 	}
@@ -115,46 +115,43 @@ func (g *Generator) Generate(ctx context.Context, coverage *parser.CoverageData,
 		return nil, ctx.Err()
 	default:
 	}
-	
+
 	// Apply options
 	config := *g.config // copy
 	for _, opt := range options {
 		opt(&config)
 	}
-	
+
 	// Build report data
-	reportData, err := g.buildReportData(coverage, &config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build report data: %w", err)
-	}
-	
+	reportData := g.buildReportData(coverage, &config)
+
 	// Generate HTML
 	return g.renderHTML(ctx, reportData)
 }
 
 // buildReportData constructs the report data structure
-func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Config) (*ReportData, error) {
+func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Config) *ReportData {
 	packages := make([]PackageReport, 0, len(coverage.Packages))
 	totalFiles := 0
-	
+
 	// Sort packages by name for consistent ordering
 	packageNames := make([]string, 0, len(coverage.Packages))
 	for name := range coverage.Packages {
 		packageNames = append(packageNames, name)
 	}
 	sort.Strings(packageNames)
-	
+
 	for _, name := range packageNames {
 		pkg := coverage.Packages[name]
 		files := make([]FileReport, 0, len(pkg.Files))
-		
+
 		// Sort files by name
 		fileNames := make([]string, 0, len(pkg.Files))
 		for fileName := range pkg.Files {
 			fileNames = append(fileNames, fileName)
 		}
 		sort.Strings(fileNames)
-		
+
 		for _, fileName := range fileNames {
 			file := pkg.Files[fileName]
 			files = append(files, FileReport{
@@ -168,7 +165,7 @@ func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Confi
 			})
 			totalFiles++
 		}
-		
+
 		packages = append(packages, PackageReport{
 			Name:         name,
 			Percentage:   pkg.Percentage,
@@ -178,7 +175,7 @@ func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Confi
 			Status:       g.getStatusClass(pkg.Percentage),
 		})
 	}
-	
+
 	summary := Summary{
 		TotalPercentage:  coverage.Percentage,
 		TotalLines:       coverage.TotalLines,
@@ -189,7 +186,7 @@ func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Confi
 		ChangeStatus:     "stable", // TODO: calculate from history
 		PreviousCoverage: 0.0,      // TODO: get from history
 	}
-	
+
 	return &ReportData{
 		Coverage:    coverage,
 		Config:      config,
@@ -202,7 +199,7 @@ func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Confi
 		BadgeURL:    "",           // TODO: build from config
 		Summary:     summary,
 		Packages:    packages,
-	}, nil
+	}
 }
 
 // buildLineReports creates line-by-line coverage reports (simplified for now)
@@ -210,7 +207,7 @@ func (g *Generator) buildLineReports(file *parser.FileCoverage) []LineReport {
 	// For now, create basic line reports from statements
 	// In a full implementation, we'd read the actual source file
 	lines := make([]LineReport, 0)
-	
+
 	for _, stmt := range file.Statements {
 		for line := stmt.StartLine; line <= stmt.EndLine; line++ {
 			lines = append(lines, LineReport{
@@ -222,12 +219,12 @@ func (g *Generator) buildLineReports(file *parser.FileCoverage) []LineReport {
 			})
 		}
 	}
-	
+
 	// Sort by line number
 	sort.Slice(lines, func(i, j int) bool {
 		return lines[i].Number < lines[j].Number
 	})
-	
+
 	return lines
 }
 
@@ -268,7 +265,7 @@ func (g *Generator) renderHTML(ctx context.Context, data *ReportData) ([]byte, e
 		return nil, ctx.Err()
 	default:
 	}
-	
+
 	tmpl := template.New("report").Funcs(template.FuncMap{
 		"formatPercentage": func(p float64) string {
 			return fmt.Sprintf("%.1f%%", p)
@@ -300,18 +297,18 @@ func (g *Generator) renderHTML(ctx context.Context, data *ReportData) ([]byte, e
 			return float64(covered) / float64(total) * 100
 		},
 	})
-	
+
 	// Parse the HTML template
 	tmpl, err := tmpl.Parse(g.getHTMLTemplate())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template: %w", err)
 	}
-	
+
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute template: %w", err)
 	}
-	
+
 	return buf.Bytes(), nil
 }
 

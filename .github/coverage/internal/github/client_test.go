@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNew(t *testing.T) {
+func TestNew(t *testing.T) { //nolint:revive // function naming
 	token := "test-token"
 	client := New(token)
-	
+
 	assert.NotNil(t, client)
 	assert.Equal(t, token, client.token)
 	assert.Equal(t, "https://api.github.com", client.baseURL)
@@ -27,7 +27,7 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, "go-broadcast-coverage/1.0", client.config.UserAgent)
 }
 
-func TestNewWithConfig(t *testing.T) {
+func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
 	config := &Config{
 		Token:      "custom-token",
 		BaseURL:    "https://custom.api.com",
@@ -35,9 +35,9 @@ func TestNewWithConfig(t *testing.T) {
 		RetryCount: 5,
 		UserAgent:  "custom-agent/2.0",
 	}
-	
+
 	client := NewWithConfig(config)
-	
+
 	assert.NotNil(t, client)
 	assert.Equal(t, config.Token, client.token)
 	assert.Equal(t, config.BaseURL, client.baseURL)
@@ -45,20 +45,20 @@ func TestNewWithConfig(t *testing.T) {
 	assert.Equal(t, config, client.config)
 }
 
-func TestCreateComment(t *testing.T) {
+func TestCreateComment(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
-		name           string
+		name             string
 		existingComments []Comment
-		body           string
-		expectedAction string
-		expectedComment *Comment
-		expectError    bool
+		body             string
+		expectedAction   string
+		expectedComment  *Comment
+		expectError      bool
 	}{
 		{
-			name:           "create new comment when none exists",
+			name:             "create new comment when none exists",
 			existingComments: []Comment{},
-			body:           "<!-- coverage-comment -->\nNew coverage report",
-			expectedAction: "create",
+			body:             "<!-- coverage-comment -->\nNew coverage report",
+			expectedAction:   "create",
 			expectedComment: &Comment{
 				ID:   123,
 				Body: "<!-- coverage-comment -->\nNew coverage report",
@@ -86,27 +86,27 @@ func TestCreateComment(t *testing.T) {
 				case r.Method == "GET" && strings.Contains(r.URL.Path, "/comments"):
 					// Return existing comments
 					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode(tt.existingComments)
+					_ = json.NewEncoder(w).Encode(tt.existingComments)
 				case r.Method == "POST" && strings.Contains(r.URL.Path, "/comments"):
 					// Create new comment
 					var req CommentRequest
-					json.NewDecoder(r.Body).Decode(&req)
+					_ = json.NewDecoder(r.Body).Decode(&req)
 					comment := Comment{
 						ID:   123,
 						Body: req.Body,
 					}
 					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode(comment)
+					_ = json.NewEncoder(w).Encode(comment)
 				case r.Method == "PATCH" && strings.Contains(r.URL.Path, "/comments/"):
 					// Update existing comment
 					var req CommentRequest
-					json.NewDecoder(r.Body).Decode(&req)
+					_ = json.NewDecoder(r.Body).Decode(&req)
 					comment := Comment{
 						ID:   456,
 						Body: req.Body,
 					}
 					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode(comment)
+					_ = json.NewEncoder(w).Encode(comment)
 				default:
 					t.Errorf("Unexpected request: %s %s", r.Method, r.URL.Path)
 					w.WriteHeader(http.StatusNotFound)
@@ -129,7 +129,7 @@ func TestCreateComment(t *testing.T) {
 			comment, err := client.CreateComment(ctx, "owner", "repo", 123, tt.body)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Nil(t, comment)
 			} else {
 				require.NoError(t, err)
@@ -141,30 +141,30 @@ func TestCreateComment(t *testing.T) {
 	}
 }
 
-func TestCreateCommentError(t *testing.T) {
+func TestCreateCommentError(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
-		name           string
-		statusCode     int
-		responseBody   string
-		expectedError  string
+		name          string
+		statusCode    int
+		responseBody  string
+		expectedError string
 	}{
 		{
-			name:           "unauthorized",
-			statusCode:     401,
-			responseBody:   `{"message": "Bad credentials"}`,
-			expectedError:  "GitHub API error: 401",
+			name:          "unauthorized",
+			statusCode:    401,
+			responseBody:  `{"message": "Bad credentials"}`,
+			expectedError: "GitHub API error: 401",
 		},
 		{
-			name:           "not found",
-			statusCode:     404,
-			responseBody:   `{"message": "Not Found"}`,
-			expectedError:  "GitHub API error: 404",
+			name:          "not found",
+			statusCode:    404,
+			responseBody:  `{"message": "Not Found"}`,
+			expectedError: "GitHub API error: 404",
 		},
 		{
-			name:           "rate limited",
-			statusCode:     429,
-			responseBody:   `{"message": "API rate limit exceeded"}`,
-			expectedError:  "GitHub API error: 429",
+			name:          "rate limited",
+			statusCode:    429,
+			responseBody:  `{"message": "API rate limit exceeded"}`,
+			expectedError: "GitHub API error: 429",
 		},
 	}
 
@@ -174,10 +174,10 @@ func TestCreateCommentError(t *testing.T) {
 				if r.Method == "GET" && strings.Contains(r.URL.Path, "/comments") {
 					// Return empty comments array
 					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode([]Comment{})
+					_ = json.NewEncoder(w).Encode([]Comment{})
 				} else {
 					w.WriteHeader(tt.statusCode)
-					w.Write([]byte(tt.responseBody))
+					_, _ = w.Write([]byte(tt.responseBody))
 				}
 			}))
 			defer server.Close()
@@ -196,14 +196,14 @@ func TestCreateCommentError(t *testing.T) {
 			ctx := context.Background()
 			comment, err := client.CreateComment(ctx, "owner", "repo", 123, "test body")
 
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Nil(t, comment)
 			assert.Contains(t, err.Error(), tt.expectedError)
 		})
 	}
 }
 
-func TestCreateStatus(t *testing.T) {
+func TestCreateStatus(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name         string
 		status       *StatusRequest
@@ -219,9 +219,9 @@ func TestCreateStatus(t *testing.T) {
 				Description: "Coverage: 85.0%",
 				Context:     ContextCoverage,
 			},
-			statusCode:  201,
+			statusCode:   201,
 			responseBody: `{"state": "success"}`,
-			expectError: false,
+			expectError:  false,
 		},
 		{
 			name: "failure status",
@@ -231,9 +231,9 @@ func TestCreateStatus(t *testing.T) {
 				Description: "Coverage below threshold",
 				Context:     ContextCoverage,
 			},
-			statusCode:  201,
+			statusCode:   201,
 			responseBody: `{"state": "failure"}`,
-			expectError: false,
+			expectError:  false,
 		},
 		{
 			name: "error response",
@@ -241,9 +241,9 @@ func TestCreateStatus(t *testing.T) {
 				State:   StatusSuccess,
 				Context: ContextCoverage,
 			},
-			statusCode:  422,
+			statusCode:   422,
 			responseBody: `{"message": "Validation Failed"}`,
-			expectError: true,
+			expectError:  true,
 		},
 	}
 
@@ -258,12 +258,12 @@ func TestCreateStatus(t *testing.T) {
 
 				var status StatusRequest
 				err := json.NewDecoder(r.Body).Decode(&status)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				assert.Equal(t, tt.status.State, status.State)
 				assert.Equal(t, tt.status.Context, status.Context)
 
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.responseBody))
+				_, _ = w.Write([]byte(tt.responseBody))
 			}))
 			defer server.Close()
 
@@ -282,7 +282,7 @@ func TestCreateStatus(t *testing.T) {
 			err := client.CreateStatus(ctx, "owner", "repo", "abc123", tt.status)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 			}
@@ -290,7 +290,7 @@ func TestCreateStatus(t *testing.T) {
 	}
 }
 
-func TestGetPullRequest(t *testing.T) {
+func TestGetPullRequest(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name         string
 		prNumber     int
@@ -315,7 +315,9 @@ func TestGetPullRequest(t *testing.T) {
 				Number: 123,
 				Title:  "Test PR",
 				State:  "open",
-				Head:   struct{ SHA string `json:"sha"` }{SHA: "abc123def456"},
+				Head: struct {
+					SHA string `json:"sha"`
+				}{SHA: "abc123def456"},
 			},
 			expectError: false,
 		},
@@ -338,7 +340,7 @@ func TestGetPullRequest(t *testing.T) {
 				assert.Equal(t, "test-agent", r.Header.Get("User-Agent"))
 
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.responseBody))
+				_, _ = w.Write([]byte(tt.responseBody))
 			}))
 			defer server.Close()
 
@@ -357,7 +359,7 @@ func TestGetPullRequest(t *testing.T) {
 			pr, err := client.GetPullRequest(ctx, "owner", "repo", tt.prNumber)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Nil(t, pr)
 			} else {
 				require.NoError(t, err)
@@ -371,12 +373,12 @@ func TestGetPullRequest(t *testing.T) {
 	}
 }
 
-func TestContextCancellation(t *testing.T) {
+func TestContextCancellation(t *testing.T) { //nolint:revive // function naming
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Simulate slow response
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(200)
-		w.Write([]byte(`{"id": 123}`))
+		_, _ = w.Write([]byte(`{"id": 123}`))
 	}))
 	defer server.Close()
 
@@ -395,11 +397,11 @@ func TestContextCancellation(t *testing.T) {
 	defer cancel()
 
 	_, err := client.CreateComment(ctx, "owner", "repo", 123, "test")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "context deadline exceeded")
 }
 
-func TestContainsCoverageMarker(t *testing.T) {
+func TestContainsCoverageMarker(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name     string
 		body     string
@@ -440,7 +442,7 @@ func TestContainsCoverageMarker(t *testing.T) {
 	}
 }
 
-func TestGenerateCoverageComment(t *testing.T) {
+func TestGenerateCoverageComment(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name       string
 		percentage float64
@@ -498,7 +500,7 @@ func TestGenerateCoverageComment(t *testing.T) {
 	}
 }
 
-func TestGetPercentageEmoji(t *testing.T) {
+func TestGetPercentageEmoji(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		percentage float64
 		expected   string
@@ -521,7 +523,7 @@ func TestGetPercentageEmoji(t *testing.T) {
 	}
 }
 
-func TestContainsHelper(t *testing.T) {
+func TestContainsHelper(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name     string
 		s        string
@@ -546,7 +548,7 @@ func TestContainsHelper(t *testing.T) {
 	}
 }
 
-func TestIndexOfHelper(t *testing.T) {
+func TestIndexOfHelper(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name     string
 		s        string
@@ -569,7 +571,7 @@ func TestIndexOfHelper(t *testing.T) {
 	}
 }
 
-func TestFindCoverageCommentIntegration(t *testing.T) {
+func TestFindCoverageCommentIntegration(t *testing.T) { //nolint:revive // function naming
 	comments := []Comment{
 		{ID: 1, Body: "Regular comment"},
 		{ID: 2, Body: "<!-- coverage-comment -->\nOld coverage data"},
@@ -579,9 +581,9 @@ func TestFindCoverageCommentIntegration(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Contains(t, r.URL.Path, "/comments")
-		
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(comments)
+		_ = json.NewEncoder(w).Encode(comments)
 	}))
 	defer server.Close()
 
@@ -605,12 +607,12 @@ func TestFindCoverageCommentIntegration(t *testing.T) {
 	assert.Contains(t, comment.Body, "<!-- coverage-comment -->")
 }
 
-func TestStatusConstants(t *testing.T) {
+func TestStatusConstants(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, "success", StatusSuccess)
 	assert.Equal(t, "failure", StatusFailure)
 	assert.Equal(t, "error", StatusError)
 	assert.Equal(t, "pending", StatusPending)
-	
+
 	assert.Equal(t, "coverage/total", ContextCoverage)
 	assert.Equal(t, "coverage/trend", ContextTrend)
 }

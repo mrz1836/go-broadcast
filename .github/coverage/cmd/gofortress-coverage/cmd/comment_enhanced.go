@@ -2,22 +2,30 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/analysis"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/badge"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/config"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/github"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/history"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/parser"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/templates"
+	"github.com/mrz1836/go-broadcast/coverage/internal/analysis"
+	"github.com/mrz1836/go-broadcast/coverage/internal/badge"
+	"github.com/mrz1836/go-broadcast/coverage/internal/config"
+	"github.com/mrz1836/go-broadcast/coverage/internal/github"
+	"github.com/mrz1836/go-broadcast/coverage/internal/history"
+	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
 )
 
-var commentEnhancedCmd = &cobra.Command{
+var (
+	ErrEnhancedGitHubTokenRequired = errors.New("GitHub token is required")
+	ErrEnhancedGitHubOwnerRequired = errors.New("GitHub repository owner is required")
+	ErrEnhancedGitHubRepoRequired  = errors.New("GitHub repository name is required")
+	ErrEnhancedPRNumberRequired    = errors.New("pull request number is required")
+)
+
+var commentEnhancedCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "comment-enhanced",
 	Short: "Create enhanced PR coverage comment with analysis and templates",
 	Long: `Create or update pull request comments with comprehensive coverage analysis,
@@ -51,13 +59,13 @@ This enhanced version includes:
 
 		// Validate GitHub configuration
 		if cfg.GitHub.Token == "" {
-			return fmt.Errorf("GitHub token is required (set GITHUB_TOKEN environment variable)")
+			return ErrEnhancedGitHubTokenRequired
 		}
 		if cfg.GitHub.Owner == "" {
-			return fmt.Errorf("GitHub repository owner is required (set GITHUB_REPOSITORY_OWNER)")
+			return ErrEnhancedGitHubOwnerRequired
 		}
 		if cfg.GitHub.Repository == "" {
-			return fmt.Errorf("GitHub repository name is required (set GITHUB_REPOSITORY)")
+			return ErrEnhancedGitHubRepoRequired
 		}
 
 		// Use PR number from config if not provided
@@ -65,7 +73,7 @@ This enhanced version includes:
 			prNumber = cfg.GitHub.PullRequest
 		}
 		if prNumber == 0 {
-			return fmt.Errorf("pull request number is required")
+			return ErrEnhancedPRNumberRequired
 		}
 
 		// Set defaults
@@ -78,6 +86,8 @@ This enhanced version includes:
 		if reportURL == "" {
 			reportURL = cfg.GetReportURL()
 		}
+		_ = badgeURL  // TODO: Use in PR comment template
+		_ = reportURL // TODO: Use in PR comment template
 		if templateName == "" {
 			if compactMode {
 				templateName = "compact"
@@ -107,7 +117,7 @@ This enhanced version includes:
 		}
 
 		// Get trend information if history is enabled
-		var trend string = "stable"
+		var trend = "stable"
 		if cfg.History.Enabled {
 			historyConfig := &history.Config{
 				StoragePath:    cfg.History.StoragePath,
@@ -123,8 +133,8 @@ This enhanced version includes:
 			if branch == "" {
 				branch = "main"
 			}
-			
-			if latest, err := tracker.GetLatestEntry(ctx, branch); err == nil {
+
+			if latest, latestErr := tracker.GetLatestEntry(ctx, branch); latestErr == nil {
 				if coverage.Percentage > latest.Coverage.Percentage {
 					trend = "up"
 				} else if coverage.Percentage < latest.Coverage.Percentage {
@@ -177,31 +187,31 @@ This enhanced version includes:
 		var comparison *github.CoverageComparison
 		if baseCoverage != nil && enableAnalysis {
 			comparisonEngine := analysis.NewComparisonEngine(nil)
-			
+
 			// Convert parser data to comparison snapshots
 			baseSnapshot := convertToSnapshot(baseCoverage, "main", "")
-			prSnapshot := convertToSnapshot(coverage, cfg.GitHub.Branch, cfg.GitHub.CommitSHA)
-			
-			comparisonResult, err := comparisonEngine.CompareCoverage(ctx, baseSnapshot, prSnapshot)
-			if err != nil {
-				fmt.Printf("Warning: failed to perform coverage comparison: %v\n", err)
+			prSnapshot := convertToSnapshot(coverage, "current", cfg.GitHub.CommitSHA)
+
+			comparisonResult, compErr := comparisonEngine.CompareCoverage(ctx, baseSnapshot, prSnapshot)
+			if compErr != nil {
+				fmt.Printf("Warning: failed to perform coverage comparison: %v\n", compErr)
 			} else {
 				// Convert comparison result to PR comment format
 				comparison = &github.CoverageComparison{
 					BaseCoverage: github.CoverageData{
 						Percentage:        baseCoverage.Percentage,
-						TotalStatements:   baseCoverage.TotalStatements,
-						CoveredStatements: baseCoverage.CoveredStatements,
+						TotalStatements:   baseCoverage.TotalLines,
+						CoveredStatements: baseCoverage.CoveredLines,
 						CommitSHA:         "",
 						Branch:            "main",
 						Timestamp:         time.Now(),
 					},
 					PRCoverage: github.CoverageData{
 						Percentage:        coverage.Percentage,
-						TotalStatements:   coverage.TotalStatements,
-						CoveredStatements: coverage.CoveredStatements,
+						TotalStatements:   coverage.TotalLines,
+						CoveredStatements: coverage.CoveredLines,
 						CommitSHA:         cfg.GitHub.CommitSHA,
-						Branch:            cfg.GitHub.Branch,
+						Branch:            "current",
 						Timestamp:         time.Now(),
 					},
 					Difference:       coverage.Percentage - baseCoverage.Percentage,
@@ -217,10 +227,10 @@ This enhanced version includes:
 			comparison = &github.CoverageComparison{
 				PRCoverage: github.CoverageData{
 					Percentage:        coverage.Percentage,
-					TotalStatements:   coverage.TotalStatements,
-					CoveredStatements: coverage.CoveredStatements,
+					TotalStatements:   coverage.TotalLines,
+					CoveredStatements: coverage.CoveredLines,
 					CommitSHA:         cfg.GitHub.CommitSHA,
-					Branch:            cfg.GitHub.Branch,
+					Branch:            "current",
 					Timestamp:         time.Now(),
 				},
 				TrendAnalysis: github.TrendData{
@@ -245,14 +255,14 @@ This enhanced version includes:
 				IncludeProgressBars:    true,
 				BrandingEnabled:        true,
 			})
-			
+
 			templateData := buildTemplateData(cfg, prNumber, comparison, coverage)
-			
-			commentPreview, err := templateEngine.RenderComment(ctx, templateName, templateData)
-			if err != nil {
-				commentPreview = fmt.Sprintf("Error generating template preview: %v", err)
+
+			commentPreview, renderErr := templateEngine.RenderComment(ctx, templateName, templateData)
+			if renderErr != nil {
+				commentPreview = fmt.Sprintf("Error generating template preview: %v", renderErr)
 			}
-			
+
 			fmt.Printf("Enhanced PR Comment Preview (Dry Run)\n")
 			fmt.Printf("=====================================\n")
 			fmt.Printf("Template: %s\n", templateName)
@@ -272,7 +282,7 @@ This enhanced version includes:
 			fmt.Printf("=====================================\n")
 			fmt.Println(commentPreview)
 			fmt.Printf("=====================================\n")
-			
+
 			return nil
 		}
 
@@ -297,12 +307,12 @@ This enhanced version includes:
 		if generateBadges {
 			badgeGenerator := badge.New()
 			prBadgeManager := badge.NewPRBadgeManager(badgeGenerator, nil)
-			
+
 			badgeRequest := &badge.PRBadgeRequest{
 				Repository:   cfg.GitHub.Repository,
 				Owner:        cfg.GitHub.Owner,
 				PRNumber:     prNumber,
-				Branch:       cfg.GitHub.Branch,
+				Branch:       "current",
 				CommitSHA:    cfg.GitHub.CommitSHA,
 				BaseBranch:   "main",
 				Coverage:     coverage.Percentage,
@@ -312,7 +322,7 @@ This enhanced version includes:
 				Types:        []badge.PRBadgeType{badge.PRBadgeCoverage, badge.PRBadgeTrend, badge.PRBadgeStatus},
 				Timestamp:    time.Now(),
 			}
-			
+
 			badgeResult, err := prBadgeManager.GenerateStandardPRBadges(ctx, badgeRequest)
 			if err != nil {
 				fmt.Printf("Warning: failed to generate PR badges: %v\n", err)
@@ -329,18 +339,18 @@ This enhanced version includes:
 		// Create enhanced status checks if requested
 		if createStatus && cfg.GitHub.CommitSHA != "" {
 			statusManager := github.NewStatusCheckManager(client, nil)
-			
+
 			statusRequest := &github.StatusCheckRequest{
 				Owner:      cfg.GitHub.Owner,
 				Repository: cfg.GitHub.Repository,
 				CommitSHA:  cfg.GitHub.CommitSHA,
 				PRNumber:   prNumber,
-				Branch:     cfg.GitHub.Branch,
+				Branch:     "current",
 				BaseBranch: "main",
 				Coverage: github.CoverageStatusData{
 					Percentage:        coverage.Percentage,
-					TotalStatements:   coverage.TotalStatements,
-					CoveredStatements: coverage.CoveredStatements,
+					TotalStatements:   coverage.TotalLines,
+					CoveredStatements: coverage.CoveredLines,
 					Change:            comparison.Difference,
 					Trend:             comparison.TrendAnalysis.Direction,
 				},
@@ -357,13 +367,13 @@ This enhanced version includes:
 					RiskLevel: calculateRiskLevel(coverage.Percentage),
 				},
 			}
-			
+
 			statusResult, err := statusManager.CreateStatusChecks(ctx, statusRequest)
 			if err != nil {
 				fmt.Printf("Warning: failed to create status checks: %v\n", err)
 			} else {
 				fmt.Printf("Created %d status checks\n", statusResult.TotalChecks)
-				fmt.Printf("Passed: %d, Failed: %d, Errors: %d\n", 
+				fmt.Printf("Passed: %d, Failed: %d, Errors: %d\n",
 					statusResult.PassedChecks, statusResult.FailedChecks, statusResult.ErrorChecks)
 				if statusResult.BlockingPR {
 					fmt.Printf("⚠️ PR merge is blocked due to failed required checks\n")
@@ -387,10 +397,10 @@ func convertToSnapshot(coverage *parser.CoverageData, branch, commitSHA string) 
 		Timestamp: time.Now(),
 		OverallCoverage: analysis.CoverageMetrics{
 			Percentage:        coverage.Percentage,
-			TotalStatements:   coverage.TotalStatements,
-			CoveredStatements: coverage.CoveredStatements,
-			TotalLines:        coverage.TotalStatements, // Approximation
-			CoveredLines:      coverage.CoveredStatements,
+			TotalStatements:   coverage.TotalLines,
+			CoveredStatements: coverage.CoveredLines,
+			TotalLines:        coverage.TotalLines, // Approximation
+			CoveredLines:      coverage.CoveredLines,
 		},
 		FileCoverage:    make(map[string]analysis.FileMetrics),
 		PackageCoverage: make(map[string]analysis.PackageMetrics),
@@ -411,7 +421,7 @@ func convertTrendData(trend analysis.TrendAnalysis) github.TrendData {
 }
 
 func convertFileChanges(changes []analysis.FileChangeAnalysis) []github.FileChange {
-	var fileChanges []github.FileChange
+	fileChanges := make([]github.FileChange, 0, len(changes))
 	for _, change := range changes {
 		fileChanges = append(fileChanges, github.FileChange{
 			Filename:      change.Filename,
@@ -447,7 +457,7 @@ func buildTemplateData(cfg *config.Config, prNumber int, comparison *github.Cove
 		PullRequest: templates.PullRequestInfo{
 			Number:     prNumber,
 			Title:      "",
-			Branch:     cfg.GitHub.Branch,
+			Branch:     "current",
 			BaseBranch: "main",
 			Author:     "",
 			CommitSHA:  cfg.GitHub.CommitSHA,
@@ -564,7 +574,7 @@ func determineBadgeTrend(direction string) badge.TrendDirection {
 	}
 }
 
-func init() {
+func init() { //nolint:revive // function naming
 	commentEnhancedCmd.Flags().IntP("pr", "p", 0, "Pull request number (defaults to GITHUB_PR_NUMBER)")
 	commentEnhancedCmd.Flags().StringP("coverage", "c", "", "Coverage data file")
 	commentEnhancedCmd.Flags().String("base-coverage", "", "Base coverage data file for comparison")

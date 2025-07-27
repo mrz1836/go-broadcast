@@ -4,25 +4,39 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/charts"
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/dashboard"
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/export"
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/history"
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/impact"
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/prediction"
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/team"
+	"github.com/mrz1836/go-broadcast/coverage/internal/notify"
+	"github.com/mrz1836/go-broadcast/coverage/internal/types"
 	"github.com/spf13/cobra"
-	"../../../internal/analytics/charts"
-	"../../../internal/analytics/dashboard"
-	"../../../internal/analytics/export"
-	"../../../internal/analytics/history"
-	"../../../internal/analytics/impact"
-	"../../../internal/analytics/prediction"
-	"../../../internal/analytics/team"
-	"../../../internal/notify"
 )
 
-var analyticsCmd = &cobra.Command{
+var (
+	// ErrUnsupportedFormat indicates an unsupported output format was requested
+	ErrUnsupportedFormat        = errors.New("unsupported format")
+	// ErrUnsupportedChartType indicates an unsupported chart type was requested
+	ErrUnsupportedChartType     = errors.New("unsupported chart type")
+	// ErrMissingPROrBranch indicates that neither PR nor branch was specified
+	ErrMissingPROrBranch        = errors.New("either --pr or --branch must be specified")
+	// ErrInvalidTimeRange indicates an invalid time range was specified
+	ErrInvalidTimeRange         = errors.New("invalid time range")
+	ErrUnsupportedTimeRange     = errors.New("unsupported time range")
+	ErrInvalidHorizon           = errors.New("invalid horizon")
+	ErrMissingNotifyOption      = errors.New("specify --status to check notification system or --test to send test notification")
+)
+
+var analyticsCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "analytics",
 	Short: "Advanced analytics and insights for coverage data",
 	Long: `The analytics command provides comprehensive analytics capabilities including:
@@ -38,7 +52,7 @@ This command integrates all Phase 6 advanced analytics features for deep insight
 into your coverage data and team performance.`,
 }
 
-var dashboardCmd = &cobra.Command{
+var dashboardCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "dashboard",
 	Short: "Generate interactive analytics dashboard",
 	Long: `Generate an interactive analytics dashboard with real-time metrics,
@@ -54,7 +68,7 @@ The dashboard includes:
 	RunE: runDashboard,
 }
 
-var trendsCmd = &cobra.Command{
+var trendsCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "trends",
 	Short: "Analyze coverage trends and patterns",
 	Long: `Analyze historical coverage trends to identify patterns, seasonality,
@@ -69,7 +83,7 @@ Features:
 	RunE: runTrends,
 }
 
-var predictCmd = &cobra.Command{
+var predictCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "predict",
 	Short: "Generate coverage predictions",
 	Long: `Generate coverage predictions using machine learning models
@@ -84,7 +98,7 @@ Prediction methods:
 	RunE: runPredict,
 }
 
-var impactCmd = &cobra.Command{
+var impactCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "impact",
 	Short: "Analyze PR impact on coverage",
 	Long: `Analyze the potential impact of pull request changes on coverage
@@ -99,7 +113,7 @@ Analysis includes:
 	RunE: runImpact,
 }
 
-var teamCmd = &cobra.Command{
+var teamCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "team",
 	Short: "Team performance analytics",
 	Long: `Comprehensive team performance analytics including individual
@@ -115,7 +129,7 @@ Analytics include:
 	RunE: runTeam,
 }
 
-var exportCmd = &cobra.Command{
+var exportCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "export",
 	Short: "Export analytics data",
 	Long: `Export analytics data in various formats for reporting,
@@ -135,7 +149,7 @@ Export options:
 	RunE: runExport,
 }
 
-var chartsCmd = &cobra.Command{
+var chartsCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "charts",
 	Short: "Generate coverage charts",
 	Long: `Generate SVG charts for coverage visualization without requiring
@@ -150,7 +164,7 @@ Chart types:
 	RunE: runCharts,
 }
 
-var notifyCmd = &cobra.Command{
+var notifyCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "notify",
 	Short: "Manage notification system",
 	Long: `Manage the multi-channel notification system for coverage events
@@ -174,11 +188,11 @@ Features:
 
 // Dashboard command flags
 var (
-	dashboardOutput   string
-	dashboardFormat   string
+	dashboardOutput    string
+	dashboardFormat    string
 	dashboardTimeRange string
-	dashboardRefresh  bool
-	dashboardTheme    string
+	dashboardRefresh   bool
+	dashboardTheme     string
 )
 
 // Trends command flags
@@ -191,60 +205,60 @@ var (
 
 // Predict command flags
 var (
-	predictHorizon    string
-	predictMethod     string
-	predictOutput     string
-	predictScenarios  []string
+	predictHorizon   string
+	predictMethod    string
+	predictOutput    string
+	predictScenarios []string
 )
 
 // Impact command flags
 var (
-	impactPR          int
-	impactBranch      string
-	impactOutput      string
-	impactFormat      string
-	impactVerbose     bool
+	impactPR      int
+	impactBranch  string
+	impactOutput  string
+	impactFormat  string
+	impactVerbose bool
 )
 
 // Team command flags
 var (
-	teamRange         string
-	teamOutput        string
-	teamFormat        string
+	teamRange             string
+	teamOutput            string
+	teamFormat            string
 	teamIncludeIndividual bool
-	teamComparisons   bool
+	teamComparisons       bool
 )
 
 // Export command flags
 var (
-	exportFormat      string
-	exportOutput      string
-	exportSources     []string
-	exportRange       string
-	exportTemplate    string
-	exportCompress    bool
+	exportFormat   string
+	exportOutput   string
+	exportSources  []string
+	exportRange    string
+	exportTemplate string
+	exportCompress bool
 )
 
 // Charts command flags
 var (
-	chartsType        string
-	chartsOutput      string
-	chartsRange       string
-	chartsWidth       int
-	chartsHeight      int
-	chartsTheme       string
+	chartsType   string
+	chartsOutput string
+	chartsRange  string
+	chartsWidth  int
+	chartsHeight int
+	chartsTheme  string
 )
 
 // Notify command flags
 var (
-	notifyChannel     string
-	notifyMessage     string
-	notifyEvent       string
-	notifyTest        bool
-	notifyStatus      bool
+	notifyChannel string
+	notifyMessage string
+	notifyEvent   string
+	notifyTest    bool
+	notifyStatus  bool
 )
 
-func init() {
+func init() { //nolint:revive // function naming
 	// Add dashboard command flags
 	dashboardCmd.Flags().StringVarP(&dashboardOutput, "output", "o", "", "Output file path (default: stdout)")
 	dashboardCmd.Flags().StringVarP(&dashboardFormat, "format", "f", "html", "Output format (html, json)")
@@ -312,42 +326,42 @@ func init() {
 	analyticsCmd.AddCommand(notifyCmd)
 }
 
-func runDashboard(cmd *cobra.Command, args []string) error {
+func runDashboard(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
-	
-	fmt.Println("🎯 Generating analytics dashboard...")
-	
+
+	cmd.Println("🎯 Generating analytics dashboard...")
+
 	// Parse time range
 	timeRange, err := parseTimeRange(dashboardTimeRange)
 	if err != nil {
 		return fmt.Errorf("invalid time range: %w", err)
 	}
-	
+
 	// Initialize dashboard configuration
 	dashboardConfig := &dashboard.DashboardConfig{
-		Title:               "Coverage Analytics Dashboard",
-		Theme:               dashboard.DashboardTheme(dashboardTheme),
-		RefreshInterval:     5 * time.Minute,
-		DefaultTimeRange:    timeRange,
-		EnablePredictions:   true,
+		Title:                "Coverage Analytics Dashboard",
+		Theme:                dashboard.DashboardTheme(dashboardTheme),
+		RefreshInterval:      5 * time.Minute,
+		DefaultTimeRange:     timeRange,
+		EnablePredictions:    true,
 		EnableImpactAnalysis: true,
-		EnableNotifications: true,
-		EnableExports:       true,
-		EnableTeamAnalytics: true,
+		EnableNotifications:  true,
+		EnableExports:        true,
+		EnableTeamAnalytics:  true,
 	}
-	
+
 	// Create dashboard
 	analyticsDashboard := dashboard.NewAnalyticsDashboard(dashboardConfig)
-	
+
 	// Initialize components
 	chartGen := charts.NewSVGChartGenerator(nil)
 	historyAnalyzer := history.NewTrendAnalyzer(nil)
 	predictor := prediction.NewCoveragePredictor(nil)
 	impactAnalyzer := impact.NewPRImpactAnalyzer(nil, predictor, historyAnalyzer)
 	notifier := notify.NewNotificationEngine(nil)
-	
+
 	analyticsDashboard.SetComponents(chartGen, historyAnalyzer, predictor, impactAnalyzer, notifier)
-	
+
 	// Create dashboard request
 	request := &dashboard.DashboardRequest{
 		TimeRange:          timeRange,
@@ -355,13 +369,13 @@ func runDashboard(cmd *cobra.Command, args []string) error {
 		IncludeTeamData:    true,
 		RefreshCache:       dashboardRefresh,
 	}
-	
+
 	// Generate dashboard data
 	dashboardData, err := analyticsDashboard.GenerateDashboard(ctx, request)
 	if err != nil {
 		return fmt.Errorf("failed to generate dashboard: %w", err)
 	}
-	
+
 	// Generate output based on format
 	var output string
 	switch dashboardFormat {
@@ -377,42 +391,42 @@ func runDashboard(cmd *cobra.Command, args []string) error {
 		}
 		output = string(jsonBytes)
 	default:
-		return fmt.Errorf("unsupported format: %s", dashboardFormat)
+		return fmt.Errorf("%w: %s", ErrUnsupportedFormat, dashboardFormat)
 	}
-	
+
 	// Output result
 	if dashboardOutput != "" {
-		if err := os.WriteFile(dashboardOutput, []byte(output), 0644); err != nil {
+		if err := os.WriteFile(dashboardOutput, []byte(output), 0600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
-		fmt.Printf("✅ Dashboard generated: %s\n", dashboardOutput)
+		cmd.Printf("✅ Dashboard generated: %s\n", dashboardOutput)
 	} else {
-		fmt.Println(output)
+		cmd.Println(output)
 	}
-	
+
 	return nil
 }
 
-func runTrends(cmd *cobra.Command, args []string) error {
+func runTrends(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
-	
+
 	fmt.Println("📈 Analyzing coverage trends...")
-	
+
 	// Parse time range
-	timeRange, err := parseTimeRange(trendsRange)
+	_, err := parseTimeRange(trendsRange)
 	if err != nil {
 		return fmt.Errorf("invalid time range: %w", err)
 	}
-	
+
 	// Initialize trend analyzer
 	analyzer := history.NewTrendAnalyzer(nil)
-	
+
 	// Perform trend analysis
 	trendReport, err := analyzer.AnalyzeTrends(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to analyze trends: %w", err)
 	}
-	
+
 	// Format output
 	var output string
 	switch trendsFormat {
@@ -427,117 +441,116 @@ func runTrends(cmd *cobra.Command, args []string) error {
 	case "csv":
 		output = formatTrendReportCSV(trendReport)
 	default:
-		return fmt.Errorf("unsupported format: %s", trendsFormat)
+		return fmt.Errorf("%w: %s", ErrUnsupportedFormat, trendsFormat)
 	}
-	
+
 	// Output result
 	if trendsOutput != "" {
-		if err := os.WriteFile(trendsOutput, []byte(output), 0644); err != nil {
+		if err := os.WriteFile(trendsOutput, []byte(output), 0600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Printf("✅ Trend analysis saved: %s\n", trendsOutput)
 	} else {
 		fmt.Println(output)
 	}
-	
+
 	return nil
 }
 
-func runPredict(cmd *cobra.Command, args []string) error {
+func runPredict(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
-	
+
 	fmt.Println("🔮 Generating coverage predictions...")
-	
+
 	// Parse prediction horizon
 	horizon, err := parseDuration(predictHorizon)
 	if err != nil {
 		return fmt.Errorf("invalid horizon: %w", err)
 	}
-	
+
 	// Initialize predictor
 	config := &prediction.PredictorConfig{
-		ModelType:           prediction.ModelType(predictMethod),
-		PredictionHorizon:   horizon,
-		ValidationMethod:    prediction.ValidationCrossValidation,
-		ConfidenceInterval:  0.95,
+		ModelType:             prediction.ModelType(predictMethod),
+		PredictionHorizonDays: int(horizon.Hours() / 24),
+		ConfidenceLevel:       0.95,
 	}
-	
+
 	predictor := prediction.NewCoveragePredictor(config)
-	
+
 	// Generate predictions
 	predictionResult, err := predictor.PredictCoverage(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to generate predictions: %w", err)
 	}
-	
+
 	// Create output data
 	outputData := map[string]interface{}{
-		"prediction":        predictionResult,
-		"horizon":           horizon.String(),
-		"method":            predictMethod,
-		"scenarios":         predictScenarios,
-		"generated_at":      time.Now(),
-		"confidence_interval": config.ConfidenceInterval,
+		"prediction":       predictionResult,
+		"horizon":          horizon.String(),
+		"method":           predictMethod,
+		"scenarios":        predictScenarios,
+		"generated_at":     time.Now(),
+		"confidence_level": config.ConfidenceLevel,
 	}
-	
+
 	// Format output
 	jsonBytes, err := json.MarshalIndent(outputData, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	
+
 	// Output result
 	if predictOutput != "" {
-		if err := os.WriteFile(predictOutput, jsonBytes, 0644); err != nil {
+		if err := os.WriteFile(predictOutput, jsonBytes, 0600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Printf("✅ Predictions saved: %s\n", predictOutput)
 	} else {
 		fmt.Println(string(jsonBytes))
 	}
-	
+
 	return nil
 }
 
-func runImpact(cmd *cobra.Command, args []string) error {
+func runImpact(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
-	
+
 	if impactPR == 0 && impactBranch == "" {
-		return fmt.Errorf("either --pr or --branch must be specified")
+		return ErrMissingPROrBranch
 	}
-	
+
 	fmt.Printf("🎯 Analyzing impact for %s...\n", getPROrBranchDescription(impactPR, impactBranch))
-	
+
 	// Initialize impact analyzer
 	predictor := prediction.NewCoveragePredictor(nil)
 	historyAnalyzer := history.NewTrendAnalyzer(nil)
 	analyzer := impact.NewPRImpactAnalyzer(nil, predictor, historyAnalyzer)
-	
+
 	// Create mock change set (in real implementation, this would fetch from Git/GitHub)
 	changeSet := &impact.PRChangeSet{
-		PRNumber:    impactPR,
-		Title:       "Sample PR for analysis",
-		Branch:      impactBranch,
-		BaseBranch:  "main",
+		PRNumber:   impactPR,
+		Title:      "Sample PR for analysis",
+		Branch:     impactBranch,
+		BaseBranch: "main",
 		FilesChanged: []impact.FileChange{
 			{
-				Filename:    "example.go",
-				Status:      impact.StatusModified,
-				Additions:   50,
-				Deletions:   20,
-				Changes:     70,
-				FileType:    ".go",
-				IsTestFile:  false,
+				Filename:        "example.go",
+				Status:          impact.StatusModified,
+				Additions:       50,
+				Deletions:       20,
+				Changes:         70,
+				FileType:        ".go",
+				IsTestFile:      false,
 				ComplexityScore: 3.5,
 			},
 			{
-				Filename:    "example_test.go",
-				Status:      impact.StatusModified,
-				Additions:   30,
-				Deletions:   5,
-				Changes:     35,
-				FileType:    ".go",
-				IsTestFile:  true,
+				Filename:        "example_test.go",
+				Status:          impact.StatusModified,
+				Additions:       30,
+				Deletions:       5,
+				Changes:         35,
+				FileType:        ".go",
+				IsTestFile:      true,
 				ComplexityScore: 2.0,
 			},
 		},
@@ -546,13 +559,13 @@ func runImpact(cmd *cobra.Command, args []string) error {
 		CreatedAt:      time.Now().Add(-2 * time.Hour),
 		UpdatedAt:      time.Now(),
 	}
-	
+
 	// Perform impact analysis
 	impactAnalysis, err := analyzer.AnalyzePRImpact(ctx, changeSet, 75.0) // 75% baseline coverage
 	if err != nil {
 		return fmt.Errorf("failed to analyze impact: %w", err)
 	}
-	
+
 	// Format output
 	var output string
 	switch impactFormat {
@@ -567,9 +580,9 @@ func runImpact(cmd *cobra.Command, args []string) error {
 	case "html":
 		output = formatImpactAnalysisHTML(impactAnalysis)
 	default:
-		return fmt.Errorf("unsupported format: %s", impactFormat)
+		return fmt.Errorf("%w: %s", ErrUnsupportedFormat, impactFormat)
 	}
-	
+
 	// Output result
 	if impactOutput != "" {
 		if err := os.WriteFile(impactOutput, []byte(output), 0644); err != nil {
@@ -579,77 +592,77 @@ func runImpact(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Println(output)
 	}
-	
+
 	return nil
 }
 
-func runTeam(cmd *cobra.Command, args []string) error {
+func runTeam(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
-	
+
 	fmt.Println("👥 Analyzing team performance...")
-	
+
 	// Parse time range
-	timeRange, err := parseTimeRange(teamRange)
+	_, err := parseTimeRange(teamRange)
 	if err != nil {
 		return fmt.Errorf("invalid time range: %w", err)
 	}
-	
+
 	// Initialize team analyzer
 	analyzer := team.NewTeamAnalyzer(nil)
-	
+
 	// Create mock team data (in real implementation, this would be fetched from Git/GitHub)
 	contributors := []team.ContributorData{
 		{
-			Name:     "alice",
-			Email:    "alice@example.com",
-			Team:     "backend",
-			Role:     "senior_developer",
-			PRs:      []team.PRContribution{},
-			Reviews:  []team.ReviewActivity{},
-			Commits:  []team.CommitActivity{},
-			JoinDate: time.Now().AddDate(0, -6, 0),
+			Name:       "alice",
+			Email:      "alice@example.com",
+			Team:       "backend",
+			Role:       "senior_developer",
+			PRs:        []team.PRContribution{},
+			Reviews:    []team.ReviewActivity{},
+			Commits:    []team.CommitActivity{},
+			JoinDate:   time.Now().AddDate(0, -6, 0),
 			LastActive: time.Now().Add(-time.Hour),
 		},
 		{
-			Name:     "bob",
-			Email:    "bob@example.com",
-			Team:     "frontend",
-			Role:     "developer",
-			PRs:      []team.PRContribution{},
-			Reviews:  []team.ReviewActivity{},
-			Commits:  []team.CommitActivity{},
-			JoinDate: time.Now().AddDate(0, -3, 0),
+			Name:       "bob",
+			Email:      "bob@example.com",
+			Team:       "frontend",
+			Role:       "developer",
+			PRs:        []team.PRContribution{},
+			Reviews:    []team.ReviewActivity{},
+			Commits:    []team.CommitActivity{},
+			JoinDate:   time.Now().AddDate(0, -3, 0),
 			LastActive: time.Now().Add(-2 * time.Hour),
 		},
 	}
-	
+
 	teams := []team.TeamData{
 		{
-			Name:           "backend",
-			Description:    "Backend development team",
-			Members:        []string{"alice"},
-			Lead:           "alice",
-			CoverageTarget: 80.0,
+			Name:            "backend",
+			Description:     "Backend development team",
+			Members:         []string{"alice"},
+			Lead:            "alice",
+			CoverageTarget:  80.0,
 			CurrentCoverage: 78.5,
-			Repositories:   []string{"main-api", "data-service"},
+			Repositories:    []string{"main-api", "data-service"},
 		},
 		{
-			Name:           "frontend",
-			Description:    "Frontend development team", 
-			Members:        []string{"bob"},
-			Lead:           "bob",
-			CoverageTarget: 75.0,
+			Name:            "frontend",
+			Description:     "Frontend development team",
+			Members:         []string{"bob"},
+			Lead:            "bob",
+			CoverageTarget:  75.0,
 			CurrentCoverage: 72.3,
-			Repositories:   []string{"web-app", "mobile-app"},
+			Repositories:    []string{"web-app", "mobile-app"},
 		},
 	}
-	
+
 	// Perform team analysis
 	teamAnalysis, err := analyzer.AnalyzeTeamPerformance(ctx, contributors, teams)
 	if err != nil {
 		return fmt.Errorf("failed to analyze team performance: %w", err)
 	}
-	
+
 	// Format output
 	var output string
 	switch teamFormat {
@@ -664,9 +677,9 @@ func runTeam(cmd *cobra.Command, args []string) error {
 	case "html":
 		output = formatTeamAnalysisHTML(teamAnalysis)
 	default:
-		return fmt.Errorf("unsupported format: %s", teamFormat)
+		return fmt.Errorf("%w: %s", ErrUnsupportedFormat, teamFormat)
 	}
-	
+
 	// Output result
 	if teamOutput != "" {
 		if err := os.WriteFile(teamOutput, []byte(output), 0644); err != nil {
@@ -676,30 +689,30 @@ func runTeam(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Println(output)
 	}
-	
+
 	return nil
 }
 
-func runExport(cmd *cobra.Command, args []string) error {
+func runExport(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
-	
+
 	fmt.Printf("📤 Exporting analytics data in %s format...\n", exportFormat)
-	
+
 	// Parse time range
 	timeRange, err := parseTimeRange(exportRange)
 	if err != nil {
 		return fmt.Errorf("invalid time range: %w", err)
 	}
-	
+
 	// Initialize exporter
 	exporter := export.NewAnalyticsExporter(nil)
-	
+
 	// Convert source strings to data sources
 	dataSources := make([]export.DataSource, 0)
 	for _, source := range exportSources {
 		dataSources = append(dataSources, export.DataSource(source))
 	}
-	
+
 	// Create export request
 	request := &export.ExportRequest{
 		Format:          export.ExportFormat(exportFormat),
@@ -714,14 +727,14 @@ func runExport(cmd *cobra.Command, args []string) error {
 		Author:          "GoFortress Coverage System",
 		Tags:            []string{"analytics", "coverage", "export"},
 	}
-	
+
 	request.Filters = export.ExportFilters{
 		DateRange: export.DateRange{
 			Start: timeRange.Start,
 			End:   timeRange.End,
 		},
 	}
-	
+
 	// Create mock export data
 	exportData := &export.ExportData{
 		CoverageMetrics: &export.CoverageMetrics{
@@ -746,13 +759,13 @@ func runExport(cmd *cobra.Command, args []string) error {
 			Tags:        request.Tags,
 		},
 	}
-	
+
 	// Perform export
 	result, err := exporter.ExportAnalytics(ctx, request, exportData)
 	if err != nil {
 		return fmt.Errorf("failed to export data: %w", err)
 	}
-	
+
 	// Report results
 	if result.Success {
 		fmt.Printf("✅ Export completed successfully\n")
@@ -761,7 +774,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 		fmt.Printf("   Records: %d\n", result.RecordCount)
 		fmt.Printf("   Size: %d bytes\n", result.FileSize)
 		fmt.Printf("   Time: %v\n", result.ProcessingTime)
-		
+
 		if len(result.Warnings) > 0 {
 			fmt.Printf("⚠️  Warnings: %d\n", len(result.Warnings))
 			for _, warning := range result.Warnings {
@@ -774,43 +787,43 @@ func runExport(cmd *cobra.Command, args []string) error {
 			fmt.Printf("   Error: %s - %s\n", err.Code, err.Message)
 		}
 	}
-	
+
 	return nil
 }
 
-func runCharts(cmd *cobra.Command, args []string) error {
+func runCharts(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
-	
+
 	fmt.Printf("📊 Generating %s chart...\n", chartsType)
-	
+
 	// Parse time range
 	timeRange, err := parseTimeRange(chartsRange)
 	if err != nil {
 		return fmt.Errorf("invalid time range: %w", err)
 	}
-	
+
 	// Initialize chart generator
 	config := &charts.ChartConfig{
-		Width:       chartsWidth,
-		Height:      chartsHeight,
-		ShowGrid:    true,
-		ShowLegend:  true,
-		LineWidth:   2.0,
-		TimeFormat:  "Jan 02",
-		Responsive:  true,
+		Width:      chartsWidth,
+		Height:     chartsHeight,
+		ShowGrid:   true,
+		ShowLegend: true,
+		LineWidth:  2.0,
+		TimeFormat: "Jan 02",
+		Responsive: true,
 	}
-	
+
 	generator := charts.NewSVGChartGenerator(config)
-	
+
 	// Create mock chart data
 	chartData := &charts.ChartData{
-		Title:      fmt.Sprintf("Coverage %s Chart", strings.Title(chartsType)),
+		Title:      fmt.Sprintf("Coverage %s Chart", strings.ToTitle(chartsType)),
 		XAxisLabel: "Time",
 		YAxisLabel: "Coverage %",
 		Points:     make([]charts.DataPoint, 0),
 		TimeRange:  charts.TimeRange{Start: timeRange.Start, End: timeRange.End},
 	}
-	
+
 	// Generate sample data points
 	days := int(timeRange.End.Sub(timeRange.Start).Hours() / 24)
 	for i := 0; i <= days; i++ {
@@ -823,7 +836,7 @@ func runCharts(cmd *cobra.Command, args []string) error {
 			Label:     fmt.Sprintf("Day %d", i),
 		})
 	}
-	
+
 	// Generate chart based on type
 	var svgContent string
 	switch chartsType {
@@ -849,13 +862,13 @@ func runCharts(cmd *cobra.Command, args []string) error {
 		}
 		svgContent, err = generator.GenerateMultiSeriesChart(ctx, chartData)
 	default:
-		return fmt.Errorf("unsupported chart type: %s", chartsType)
+		return fmt.Errorf("%w: %s", ErrUnsupportedChartType, chartsType)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to generate chart: %w", err)
 	}
-	
+
 	// Output result
 	if chartsOutput != "" {
 		if err := os.WriteFile(chartsOutput, []byte(svgContent), 0644); err != nil {
@@ -865,33 +878,33 @@ func runCharts(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Println(svgContent)
 	}
-	
+
 	return nil
 }
 
-func runNotify(cmd *cobra.Command, args []string) error {
+func runNotify(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
-	
+
 	if notifyStatus {
 		return showNotificationStatus(ctx)
 	}
-	
+
 	if notifyTest {
 		return sendTestNotification(ctx)
 	}
-	
-	return fmt.Errorf("specify --status to check notification system or --test to send test notification")
+
+	return ErrMissingNotifyOption
 }
 
-func showNotificationStatus(ctx context.Context) error {
+func showNotificationStatus(ctx context.Context) error { //nolint:revive // function naming
 	fmt.Println("📢 Notification System Status")
-	
+
 	// Initialize notification engine
 	notifier := notify.NewNotificationEngine(nil)
-	
+
 	// Get channel status
 	channelStatus := notifier.GetChannelStatus()
-	
+
 	fmt.Println("\nChannel Status:")
 	for channel, healthy := range channelStatus {
 		status := "❌ Unhealthy"
@@ -900,9 +913,9 @@ func showNotificationStatus(ctx context.Context) error {
 		}
 		fmt.Printf("  %s: %s\n", channel, status)
 	}
-	
+
 	fmt.Printf("\nTotal Channels: %d\n", len(channelStatus))
-	
+
 	healthyCount := 0
 	for _, healthy := range channelStatus {
 		if healthy {
@@ -910,54 +923,46 @@ func showNotificationStatus(ctx context.Context) error {
 		}
 	}
 	fmt.Printf("Healthy Channels: %d\n", healthyCount)
-	
+
 	return nil
 }
 
-func sendTestNotification(ctx context.Context) error {
+func sendTestNotification(ctx context.Context) error { //nolint:revive // function naming
 	fmt.Println("📤 Sending test notification...")
-	
+
 	// Initialize notification engine
 	notifier := notify.NewNotificationEngine(nil)
-	
+
 	// Create test notification
-	notification := &notify.Notification{
-		ID:        fmt.Sprintf("test_%d", time.Now().Unix()),
-		Timestamp: time.Now(),
-		EventType: notify.EventSystemAlert,
-		Severity:  notify.SeverityInfo,
-		Subject:   "Test Notification",
-		Message:   "This is a test notification from the GoFortress Coverage Analytics system.",
+	notification := &types.Notification{
+		ID:         fmt.Sprintf("test_%d", time.Now().Unix()),
+		Timestamp:  time.Now(),
+		Severity:   types.SeverityInfo,
+		Subject:    "Test Notification",
+		Message:    "This is a test notification from the GoFortress Coverage Analytics system.",
 		Repository: "test-repo",
-		Branch:    "main",
-		Priority:  notify.PriorityNormal,
-		Urgency:   notify.UrgencyNone,
+		Branch:     "main",
+		Priority:   types.PriorityNormal,
+		// Urgency field removed in types refactor
 	}
-	
+
 	if notifyChannel != "" {
-		notification.Channels = []notify.ChannelType{notify.ChannelType(notifyChannel)}
+		// Channel configuration moved to notification engine in types refactor
 	}
-	
+
 	if notifyMessage != "" {
 		notification.Message = notifyMessage
 	}
-	
+
 	// Send notification
-	results, err := notifier.SendNotification(ctx, notification)
+	err := notifier.Send(ctx, notification)
 	if err != nil {
 		return fmt.Errorf("failed to send notification: %w", err)
 	}
-	
+
 	// Report results
-	fmt.Printf("📬 Notification sent to %d channels:\n", len(results))
-	for _, result := range results {
-		status := "✅ Success"
-		if !result.Success {
-			status = fmt.Sprintf("❌ Failed: %v", result.Error)
-		}
-		fmt.Printf("  %s: %s (%.2fs)\n", result.Channel, status, result.DeliveryTime.Seconds())
-	}
-	
+	fmt.Println("📬 Notification sent successfully")
+
 	return nil
 }
 
@@ -966,38 +971,31 @@ func sendTestNotification(ctx context.Context) error {
 func parseTimeRange(rangeStr string) (dashboard.TimeRange, error) {
 	now := time.Now()
 	var start, end time.Time
-	var preset dashboard.TimePreset
-	
+	_ = dashboard.PresetLast24Hours // silence unused variable warning
+
 	switch rangeStr {
 	case "24h":
 		start = now.Add(-24 * time.Hour)
 		end = now
-		preset = dashboard.PresetLast24Hours
 	case "7d":
 		start = now.AddDate(0, 0, -7)
 		end = now
-		preset = dashboard.PresetLast7Days
 	case "30d":
 		start = now.AddDate(0, 0, -30)
 		end = now
-		preset = dashboard.PresetLast30Days
 	case "90d":
 		start = now.AddDate(0, 0, -90)
 		end = now
-		preset = dashboard.PresetLast90Days
 	case "1y":
 		start = now.AddDate(-1, 0, 0)
 		end = now
-		preset = dashboard.PresetLastYear
 	default:
-		return dashboard.TimeRange{}, fmt.Errorf("unsupported time range: %s", rangeStr)
+		return dashboard.TimeRange{}, fmt.Errorf("%w: %s", ErrUnsupportedTimeRange, rangeStr)
 	}
-	
+
 	return dashboard.TimeRange{
-		Start:  start,
-		End:    end,
-		Preset: preset,
-		Custom: false,
+		Start: start,
+		End:   end,
 	}, nil
 }
 
@@ -1026,40 +1024,42 @@ func getPROrBranchDescription(pr int, branch string) string {
 
 func formatTrendReportText(report *history.TrendReport, showDetails bool) string {
 	var output strings.Builder
-	
+
 	output.WriteString("📈 Coverage Trend Analysis\n")
 	output.WriteString("==========================\n\n")
-	
-	if report.TrendSummary != nil {
-		output.WriteString(fmt.Sprintf("Overall Trend: %s (%s)\n", report.TrendSummary.Direction, report.TrendSummary.Strength))
-		output.WriteString(fmt.Sprintf("Confidence: %.1f%%\n", report.TrendSummary.Confidence*100))
-		output.WriteString(fmt.Sprintf("Change Rate: %.2f%% per day\n", report.TrendSummary.ChangeRate))
-		output.WriteString(fmt.Sprintf("Volatility: %s\n", report.TrendSummary.Volatility))
+
+	if string(report.Summary.Direction) != "" {
+		output.WriteString(fmt.Sprintf("Overall Trend: %s (%s)\n", report.Summary.Direction, report.Summary.Magnitude))
+		output.WriteString(fmt.Sprintf("Confidence: %.1f%%\n", report.Summary.Confidence*100))
+		output.WriteString(fmt.Sprintf("Change: %.2f%%\n", report.Summary.ChangePercent))
+		output.WriteString(fmt.Sprintf("Quality Grade: %s\n", report.Summary.QualityGrade))
 	}
-	
-	if showDetails && report.StatisticalAnalysis != nil {
-		output.WriteString("\nStatistical Analysis:\n")
-		output.WriteString(fmt.Sprintf("  Mean: %.2f%%\n", report.StatisticalAnalysis.Mean))
-		output.WriteString(fmt.Sprintf("  Standard Deviation: %.2f\n", report.StatisticalAnalysis.StandardDeviation))
-		output.WriteString(fmt.Sprintf("  Minimum: %.2f%%\n", report.StatisticalAnalysis.Minimum))
-		output.WriteString(fmt.Sprintf("  Maximum: %.2f%%\n", report.StatisticalAnalysis.Maximum))
+
+	if showDetails {
+		output.WriteString("\nVolatility Analysis:\n")
+		output.WriteString(fmt.Sprintf("  Standard Deviation: %.2f%%\n", report.Volatility.StandardDeviation))
+		output.WriteString(fmt.Sprintf("  Variance: %.2f%%\n", report.Volatility.Variance))
+		if len(report.Insights) > 0 {
+			output.WriteString("\nInsights:\n")
+			for _, insight := range report.Insights {
+				output.WriteString(fmt.Sprintf("  - %s\n", insight.Description))
+			}
+		}
 	}
-	
+
 	return output.String()
 }
 
 func formatTrendReportCSV(report *history.TrendReport) string {
 	var output strings.Builder
-	
+
 	output.WriteString("Metric,Value\n")
-	if report.TrendSummary != nil {
-		output.WriteString(fmt.Sprintf("Direction,%s\n", report.TrendSummary.Direction))
-		output.WriteString(fmt.Sprintf("Strength,%s\n", report.TrendSummary.Strength))
-		output.WriteString(fmt.Sprintf("Confidence,%.3f\n", report.TrendSummary.Confidence))
-		output.WriteString(fmt.Sprintf("Change Rate,%.3f\n", report.TrendSummary.ChangeRate))
-		output.WriteString(fmt.Sprintf("Volatility,%s\n", report.TrendSummary.Volatility))
-	}
-	
+	output.WriteString(fmt.Sprintf("Direction,%s\n", report.Summary.Direction))
+	output.WriteString(fmt.Sprintf("Magnitude,%s\n", report.Summary.Magnitude))
+	output.WriteString(fmt.Sprintf("Confidence,%.3f\n", report.Summary.Confidence))
+	output.WriteString(fmt.Sprintf("Change,%.3f\n", report.Summary.ChangePercent))
+	output.WriteString(fmt.Sprintf("Quality Grade,%s\n", report.Summary.QualityGrade))
+
 	return output.String()
 }
 
@@ -1072,7 +1072,7 @@ func formatImpactAnalysisHTML(analysis *impact.ImpactAnalysis) string {
     <p><strong>Confidence:</strong> %.0f%%</p>
     <p><strong>Risk Level:</strong> %s</p>
 </div>
-`, 
+`,
 		analysis.OverallImpact,
 		analysis.CoverageChange,
 		analysis.ConfidenceScore*100,
@@ -1081,13 +1081,13 @@ func formatImpactAnalysisHTML(analysis *impact.ImpactAnalysis) string {
 
 func formatTeamAnalysisCSV(analysis *team.TeamAnalysis) string {
 	var output strings.Builder
-	
+
 	output.WriteString("Team,Coverage,Quality,Productivity,Velocity\n")
 	for teamName, coverageMetrics := range analysis.TeamMetrics.CoverageByTeam {
 		qualityMetrics := analysis.TeamMetrics.QualityByTeam[teamName]
 		productivityMetrics := analysis.TeamMetrics.ProductivityByTeam[teamName]
 		velocityMetrics := analysis.TeamMetrics.VelocityByTeam[teamName]
-		
+
 		output.WriteString(fmt.Sprintf("%s,%.2f,%.2f,%.2f,%.2f\n",
 			teamName,
 			coverageMetrics.CurrentCoverage,
@@ -1095,7 +1095,7 @@ func formatTeamAnalysisCSV(analysis *team.TeamAnalysis) string {
 			productivityMetrics.Throughput,
 			velocityMetrics.DeliveryVelocity))
 	}
-	
+
 	return output.String()
 }
 
@@ -1108,7 +1108,7 @@ func formatTeamAnalysisHTML(analysis *team.TeamAnalysis) string {
     <p><strong>Average Coverage:</strong> %.1f%%</p>
     <p><strong>Collaboration Score:</strong> %.1f</p>
 </div>
-`, 
+`,
 		analysis.TotalContributors,
 		analysis.ActiveContributors,
 		analysis.TeamOverview.AverageCoverage,

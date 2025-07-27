@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/coverage/internal/notify"
+	"github.com/mrz1836/go-broadcast/coverage/internal/types"
 )
 
 // SlackChannel implements Slack webhook notifications
 type SlackChannel struct {
-	config    *notify.SlackConfig
-	rateLimit *notify.RateLimit
+	config    *types.SlackConfig
+	rateLimit *types.RateLimit
 	client    *http.Client
 }
 
@@ -57,9 +57,9 @@ type SlackField struct {
 
 // SlackBlock represents a Slack block element
 type SlackBlock struct {
-	Type     string            `json:"type"`
-	Text     *SlackTextElement `json:"text,omitempty"`
-	Elements []SlackElement    `json:"elements,omitempty"`
+	Type     string             `json:"type"`
+	Text     *SlackTextElement  `json:"text,omitempty"`
+	Elements []SlackElement     `json:"elements,omitempty"`
 	Fields   []SlackTextElement `json:"fields,omitempty"`
 }
 
@@ -77,14 +77,14 @@ type SlackElement struct {
 }
 
 // NewSlackChannel creates a new Slack notification channel
-func NewSlackChannel(config *notify.SlackConfig) *SlackChannel {
+func NewSlackChannel(config *types.SlackConfig) *SlackChannel {
 	return &SlackChannel{
 		config: config,
-		rateLimit: &notify.RateLimit{
-			RequestsPerMinute: 60,  // Slack rate limit
+		rateLimit: &types.RateLimit{
+			RequestsPerMinute: 60, // Slack rate limit
 			RequestsPerHour:   3600,
 			RequestsPerDay:    86400,
-			BurstSize:        10,
+			BurstSize:         10,
 		},
 		client: &http.Client{
 			Timeout: 30 * time.Second,
@@ -93,32 +93,32 @@ func NewSlackChannel(config *notify.SlackConfig) *SlackChannel {
 }
 
 // Send implements the NotificationChannel interface for Slack
-func (s *SlackChannel) Send(ctx context.Context, notification *notify.Notification) (*notify.DeliveryResult, error) {
+func (s *SlackChannel) Send(ctx context.Context, notification *types.Notification) (*types.DeliveryResult, error) {
 	startTime := time.Now()
-	result := &notify.DeliveryResult{
-		Channel:   notify.ChannelSlack,
+	result := &types.DeliveryResult{
+		Channel:   types.ChannelSlack,
 		Timestamp: startTime,
 	}
-	
+
 	// Build Slack message
 	message := s.buildSlackMessage(notification)
-	
+
 	// Marshal message to JSON
 	payload, err := json.Marshal(message)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to marshal Slack message: %w", err)
 		return result, result.Error
 	}
-	
+
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", s.config.WebhookURL, bytes.NewBuffer(payload))
 	if err != nil {
 		result.Error = fmt.Errorf("failed to create request: %w", err)
 		return result, result.Error
 	}
-	
+
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	// Send request
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -126,9 +126,9 @@ func (s *SlackChannel) Send(ctx context.Context, notification *notify.Notificati
 		return result, result.Error
 	}
 	defer resp.Body.Close()
-	
+
 	result.DeliveryTime = time.Since(startTime)
-	
+
 	// Check response
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		result.Success = true
@@ -136,7 +136,7 @@ func (s *SlackChannel) Send(ctx context.Context, notification *notify.Notificati
 	} else {
 		result.Error = fmt.Errorf("Slack API returned status %d", resp.StatusCode)
 	}
-	
+
 	return result, nil
 }
 
@@ -145,22 +145,22 @@ func (s *SlackChannel) ValidateConfig() error {
 	if s.config == nil {
 		return fmt.Errorf("Slack config is nil")
 	}
-	
+
 	if s.config.WebhookURL == "" {
 		return fmt.Errorf("Slack webhook URL is required")
 	}
-	
+
 	// Validate webhook URL format
 	if !isValidSlackWebhookURL(s.config.WebhookURL) {
 		return fmt.Errorf("invalid Slack webhook URL format")
 	}
-	
+
 	return nil
 }
 
 // GetChannelType returns the channel type
-func (s *SlackChannel) GetChannelType() notify.ChannelType {
-	return notify.ChannelSlack
+func (s *SlackChannel) GetChannelType() types.ChannelType {
+	return types.ChannelSlack
 }
 
 // SupportsRichContent returns whether the channel supports rich content
@@ -169,38 +169,38 @@ func (s *SlackChannel) SupportsRichContent() bool {
 }
 
 // GetRateLimit returns the rate limit configuration
-func (s *SlackChannel) GetRateLimit() *notify.RateLimit {
+func (s *SlackChannel) GetRateLimit() *types.RateLimit {
 	return s.rateLimit
 }
 
 // buildSlackMessage builds a Slack message from a notification
-func (s *SlackChannel) buildSlackMessage(notification *notify.Notification) *SlackMessage {
+func (s *SlackChannel) buildSlackMessage(notification *types.Notification) *SlackMessage {
 	message := &SlackMessage{
 		Username:  s.config.Username,
 		IconEmoji: s.config.IconEmoji,
 		IconURL:   s.config.IconURL,
 		Channel:   s.config.Channel,
-		LinkNames: s.config.LinkNames,
+		LinkNames: true,
 	}
-	
+
 	// Use rich content if available
 	if notification.RichContent != nil && notification.RichContent.Markdown != "" {
 		message.Text = notification.RichContent.Markdown
 	} else {
 		message.Text = fmt.Sprintf("*%s*\n%s", notification.Subject, notification.Message)
 	}
-	
+
 	// Add attachment with detailed information
 	attachment := s.buildSlackAttachment(notification)
 	if attachment != nil {
 		message.Attachments = []SlackAttachment{*attachment}
 	}
-	
+
 	return message
 }
 
 // buildSlackAttachment builds a Slack attachment from notification data
-func (s *SlackChannel) buildSlackAttachment(notification *notify.Notification) *SlackAttachment {
+func (s *SlackChannel) buildSlackAttachment(notification *types.Notification) *SlackAttachment {
 	attachment := &SlackAttachment{
 		Color:     s.getSeverityColor(notification.Severity),
 		Title:     notification.Subject,
@@ -209,7 +209,7 @@ func (s *SlackChannel) buildSlackAttachment(notification *notify.Notification) *
 		Timestamp: notification.Timestamp.Unix(),
 		Fields:    make([]SlackField, 0),
 	}
-	
+
 	// Add repository information
 	if notification.Repository != "" {
 		attachment.Fields = append(attachment.Fields, SlackField{
@@ -218,7 +218,7 @@ func (s *SlackChannel) buildSlackAttachment(notification *notify.Notification) *
 			Short: true,
 		})
 	}
-	
+
 	// Add branch information
 	if notification.Branch != "" {
 		attachment.Fields = append(attachment.Fields, SlackField{
@@ -227,7 +227,7 @@ func (s *SlackChannel) buildSlackAttachment(notification *notify.Notification) *
 			Short: true,
 		})
 	}
-	
+
 	// Add PR information
 	if notification.PRNumber > 0 {
 		prLink := fmt.Sprintf("https://github.com/%s/pull/%d", notification.Repository, notification.PRNumber)
@@ -237,7 +237,7 @@ func (s *SlackChannel) buildSlackAttachment(notification *notify.Notification) *
 			Short: true,
 		})
 	}
-	
+
 	// Add coverage information
 	if notification.CoverageData != nil {
 		coverageText := fmt.Sprintf("%.1f%%", notification.CoverageData.Current)
@@ -251,21 +251,21 @@ func (s *SlackChannel) buildSlackAttachment(notification *notify.Notification) *
 			}
 			coverageText += fmt.Sprintf(" (%s %+.1f%%)", changeIcon, change)
 		}
-		
+
 		attachment.Fields = append(attachment.Fields, SlackField{
 			Title: "Coverage",
 			Value: coverageText,
 			Short: true,
 		})
 	}
-	
+
 	// Add author information
 	if notification.Author != "" {
 		attachment.AuthorName = notification.Author
 		attachment.AuthorIcon = fmt.Sprintf("https://github.com/%s.png", notification.Author)
 		attachment.AuthorLink = fmt.Sprintf("https://github.com/%s", notification.Author)
 	}
-	
+
 	// Add trend information
 	if notification.TrendData != nil {
 		trendIcon := "📊"
@@ -275,35 +275,41 @@ func (s *SlackChannel) buildSlackAttachment(notification *notify.Notification) *
 		case "downward":
 			trendIcon = "📉"
 		}
-		
+
 		attachment.Fields = append(attachment.Fields, SlackField{
 			Title: "Trend",
 			Value: fmt.Sprintf("%s %s (%.0f%% confidence)", trendIcon, notification.TrendData.Direction, notification.TrendData.Confidence*100),
 			Short: true,
 		})
 	}
-	
-	// Add actions
-	if len(notification.Actions) > 0 {
-		attachment.Text += "\n\n*Actions:*"
-		for _, action := range notification.Actions {
-			attachment.Text += fmt.Sprintf("\n• <%s|%s>", action.URL, action.Text)
+
+	// Add commit information
+	if notification.CommitSHA != "" {
+		commitURL := fmt.Sprintf("https://github.com/%s/commit/%s", notification.Repository, notification.CommitSHA)
+		shortSHA := notification.CommitSHA
+		if len(shortSHA) > 8 {
+			shortSHA = shortSHA[:8]
 		}
+		attachment.Fields = append(attachment.Fields, SlackField{
+			Title: "Commit",
+			Value: fmt.Sprintf("<%s|%s>", commitURL, shortSHA),
+			Short: true,
+		})
 	}
-	
+
 	return attachment
 }
 
 // getSeverityColor returns the color for a severity level
-func (s *SlackChannel) getSeverityColor(severity notify.SeverityLevel) string {
+func (s *SlackChannel) getSeverityColor(severity types.SeverityLevel) string {
 	switch severity {
-	case notify.SeverityInfo:
+	case types.SeverityInfo:
 		return "good"
-	case notify.SeverityWarning:
+	case types.SeverityWarning:
 		return "warning"
-	case notify.SeverityCritical:
+	case types.SeverityCritical:
 		return "danger"
-	case notify.SeverityEmergency:
+	case types.SeverityEmergency:
 		return "#ff0000"
 	default:
 		return "#cccccc"
@@ -312,8 +318,7 @@ func (s *SlackChannel) getSeverityColor(severity notify.SeverityLevel) string {
 
 // isValidSlackWebhookURL validates a Slack webhook URL
 func isValidSlackWebhookURL(url string) bool {
-	return len(url) > 20 && (
-		containsString(url, "hooks.slack.com/services/") ||
+	return len(url) > 20 && (containsString(url, "hooks.slack.com/services/") ||
 		containsString(url, "hooks.slack.com/workflows/"))
 }
 

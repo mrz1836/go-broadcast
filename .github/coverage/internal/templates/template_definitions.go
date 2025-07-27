@@ -31,7 +31,7 @@ const comprehensiveTemplate = `{{ with .Metadata }}<!-- {{ .Signature }} -->
 {{ if .Coverage.Packages }}
 **Top Packages:**
 {{ range $i, $pkg := (slice (filterPackages .Coverage.Packages) 0 5) }}
-- `{{ $pkg.Package }}`: {{ progressBar $pkg.Percentage 100.0 10 }} {{ if $pkg.Change }}({{ formatChange $pkg.Change }}){{ end }}
+- ` + "`" + `{{ $pkg.Package }}` + "`" + `: {{ progressBar $pkg.Percentage 100.0 10 }} {{ if $pkg.Change }}({{ formatChange $pkg.Change }}){{ end }}
 {{ end }}
 {{ end }}
 {{ end }}
@@ -48,7 +48,7 @@ const comprehensiveTemplate = `{{ with .Metadata }}<!-- {{ .Signature }} -->
 | File | Coverage | Change | Status |
 |------|----------|--------|--------|
 {{ range $file := (slice (sortByChange $significantFiles) 0 .Config.MaxFileChanges) }}
-| {{ if $file.IsNew }}🆕{{ else if $file.IsModified }}📝{{ end }} `{{ truncate $file.Filename 40 }}` | {{ formatPercent $file.Percentage }} | {{ if $file.Change }}{{ formatChange $file.Change }}{{ else }}-{{ end }} | {{ riskEmoji $file.Risk }} {{ humanize $file.Status }} |
+| {{ if $file.IsNew }}🆕{{ else if $file.IsModified }}📝{{ end }} ` + "`" + `{{ truncate $file.Filename 40 }}` + "`" + ` | {{ formatPercent $file.Percentage }} | {{ if $file.Change }}{{ formatChange $file.Change }}{{ else }}-{{ end }} | {{ riskEmoji $file.Risk }} {{ humanize $file.Status }} |
 {{ end }}
 
 {{ if .Config.UseCollapsibleSections }}
@@ -221,7 +221,7 @@ Based on current trends, next coverage is predicted to be **{{ formatPercent .Tr
 | Package | Coverage | Change | Files | Status |
 |---------|----------|--------|-------|--------|
 {{ range $pkg := $packages }}
-| `{{ $pkg.Package }}` | {{ formatPercent $pkg.Percentage }} | {{ if $pkg.Change }}{{ formatChange $pkg.Change }}{{ else }}-{{ end }} | {{ $pkg.FileCount }} | {{ statusEmoji $pkg.Status }} {{ humanize $pkg.Status }} |
+| ` + "`" + `{{ $pkg.Package }}` + "`" + ` | {{ formatPercent $pkg.Percentage }} | {{ if $pkg.Change }}{{ formatChange $pkg.Change }}{{ else }}-{{ end }} | {{ $pkg.FileCount }} | {{ statusEmoji $pkg.Status }} {{ humanize $pkg.Status }} |
 {{ end }}
 {{ else }}
 *No package-level changes detected*
@@ -241,7 +241,7 @@ Based on current trends, next coverage is predicted to be **{{ formatPercent .Tr
 ### High-Impact Files
 {{ range $file := (slice $files 0 10) }}
 {{ if or $file.IsNew (gt (abs $file.Change) 5.0) (lt $file.Percentage 50.0) }}
-#### {{ if $file.IsNew }}🆕{{ else if eq $file.Risk "high" }}🚨{{ else if eq $file.Risk "medium" }}⚠️{{ else }}✅{{ end }} `{{ $file.Filename }}`
+#### {{ if $file.IsNew }}🆕{{ else if eq $file.Risk "high" }}🚨{{ else if eq $file.Risk "medium" }}⚠️{{ else }}✅{{ end }} ` + "`" + `{{ $file.Filename }}` + "`" + `
 
 - **Coverage**: {{ formatPercent $file.Percentage }} {{ if $file.Change }}({{ formatChange $file.Change }}){{ end }}
 - **Risk Level**: {{ riskEmoji $file.Risk }} {{ humanize $file.Risk }}
@@ -259,7 +259,7 @@ Based on current trends, next coverage is predicted to be **{{ formatPercent .Tr
 | File | Coverage | Change | Risk | Status |
 |------|----------|--------|------|--------|
 {{ range $file := $files }}
-| {{ if $file.IsNew }}🆕{{ else if $file.IsModified }}📝{{ end }} `{{ truncate $file.Filename 50 }}` | {{ formatPercent $file.Percentage }} | {{ if $file.Change }}{{ formatChange $file.Change }}{{ else }}-{{ end }} | {{ riskEmoji $file.Risk }} | {{ humanize $file.Status }} |
+| {{ if $file.IsNew }}🆕{{ else if $file.IsModified }}📝{{ end }} ` + "`" + `{{ truncate $file.Filename 50 }}` + "`" + ` | {{ formatPercent $file.Percentage }} | {{ if $file.Change }}{{ formatChange $file.Change }}{{ else }}-{{ end }} | {{ riskEmoji $file.Risk }} | {{ humanize $file.Status }} |
 {{ end }}
 
 {{ if .Config.UseCollapsibleSections }}
@@ -362,7 +362,7 @@ const summaryTemplate = `{{ with .Metadata }}<!-- {{ .Signature }} -->{{ end }}
 {{ if $files }}
 ### Notable Changes
 {{ range $file := (slice (sortByChange $files) 0 3) }}
-- `{{ truncate $file.Filename 30 }}`: {{ formatPercent $file.Percentage }} {{ if $file.Change }}({{ formatChange $file.Change }}){{ end }}
+- ` + "`" + `{{ truncate $file.Filename 30 }}` + "`" + `: {{ formatPercent $file.Percentage }} {{ if $file.Change }}({{ formatChange $file.Change }}){{ end }}
 {{ end }}
 {{ end }}
 

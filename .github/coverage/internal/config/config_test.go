@@ -6,44 +6,45 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestLoad(t *testing.T) {
+func TestLoad(t *testing.T) { //nolint:revive // function naming
 	// Clear any existing environment variables
 	clearEnvironment()
 	defer clearEnvironment()
 
 	config := Load()
-	
+
 	assert.NotNil(t, config)
-	
+
 	// Test default values
 	assert.Equal(t, "coverage.txt", config.Coverage.InputFile)
 	assert.Equal(t, ".github/coverage", config.Coverage.OutputDir)
-	assert.Equal(t, 80.0, config.Coverage.Threshold)
+	assert.InDelta(t, 80.0, config.Coverage.Threshold, 0.001)
 	assert.Equal(t, []string{"vendor/", "test/", "testdata/"}, config.Coverage.ExcludePaths)
 	assert.Equal(t, []string{"*_test.go", "*.pb.go"}, config.Coverage.ExcludeFiles)
 	assert.True(t, config.Coverage.ExcludeTests)
 	assert.True(t, config.Coverage.ExcludeGenerated)
-	
+
 	// Test GitHub defaults
-	assert.Equal(t, "", config.GitHub.Token)
-	assert.Equal(t, "", config.GitHub.Owner)
-	assert.Equal(t, "", config.GitHub.Repository)
+	assert.Empty(t, config.GitHub.Token)
+	assert.Empty(t, config.GitHub.Owner)
+	assert.Empty(t, config.GitHub.Repository)
 	assert.Equal(t, 0, config.GitHub.PullRequest)
-	assert.Equal(t, "", config.GitHub.CommitSHA)
+	assert.Empty(t, config.GitHub.CommitSHA)
 	assert.True(t, config.GitHub.PostComments)
 	assert.True(t, config.GitHub.CreateStatuses)
 	assert.Equal(t, 30*time.Second, config.GitHub.Timeout)
-	
+
 	// Test badge defaults
 	assert.Equal(t, "flat", config.Badge.Style)
 	assert.Equal(t, "coverage", config.Badge.Label)
-	assert.Equal(t, "", config.Badge.Logo)
+	assert.Empty(t, config.Badge.Logo)
 	assert.Equal(t, "white", config.Badge.LogoColor)
 	assert.Equal(t, "coverage.svg", config.Badge.OutputFile)
 	assert.False(t, config.Badge.IncludeTrend)
-	
+
 	// Test report defaults
 	assert.Equal(t, "coverage.html", config.Report.OutputFile)
 	assert.Equal(t, "Coverage Report", config.Report.Title)
@@ -53,7 +54,7 @@ func TestLoad(t *testing.T) {
 	assert.True(t, config.Report.ShowMissing)
 	assert.True(t, config.Report.Responsive)
 	assert.True(t, config.Report.Interactive)
-	
+
 	// Test history defaults
 	assert.True(t, config.History.Enabled)
 	assert.Equal(t, ".github/coverage/history", config.History.StoragePath)
@@ -61,75 +62,75 @@ func TestLoad(t *testing.T) {
 	assert.Equal(t, 1000, config.History.MaxEntries)
 	assert.True(t, config.History.AutoCleanup)
 	assert.True(t, config.History.MetricsEnabled)
-	
+
 	// Test storage defaults
 	assert.Equal(t, ".github/coverage", config.Storage.BaseDir)
 	assert.True(t, config.Storage.AutoCreate)
-	assert.Equal(t, os.FileMode(0644), config.Storage.FileMode)
-	assert.Equal(t, os.FileMode(0755), config.Storage.DirMode)
+	assert.Equal(t, os.FileMode(0o644), config.Storage.FileMode)
+	assert.Equal(t, os.FileMode(0o755), config.Storage.DirMode)
 }
 
-func TestLoadWithEnvironmentVariables(t *testing.T) {
+func TestLoadWithEnvironmentVariables(t *testing.T) { //nolint:revive // function naming
 	clearEnvironment()
 	defer clearEnvironment()
-	
+
 	// Set environment variables
-	os.Setenv("COVERAGE_INPUT_FILE", "custom-coverage.txt")
-	os.Setenv("COVERAGE_OUTPUT_DIR", "/tmp/coverage")
-	os.Setenv("COVERAGE_THRESHOLD", "85.5")
-	os.Setenv("COVERAGE_EXCLUDE_PATHS", "vendor/,build/,dist/")
-	os.Setenv("COVERAGE_EXCLUDE_FILES", "*.test.go,*.mock.go")
-	os.Setenv("COVERAGE_EXCLUDE_TESTS", "false")
-	os.Setenv("COVERAGE_EXCLUDE_GENERATED", "false")
-	
-	os.Setenv("GITHUB_TOKEN", "test-token")
-	os.Setenv("GITHUB_REPOSITORY_OWNER", "test-owner")
-	os.Setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
-	os.Setenv("GITHUB_PR_NUMBER", "123")
-	os.Setenv("GITHUB_SHA", "abc123def456")
-	os.Setenv("COVERAGE_POST_COMMENTS", "false")
-	os.Setenv("COVERAGE_CREATE_STATUSES", "false")
-	os.Setenv("GITHUB_TIMEOUT", "60s")
-	
-	os.Setenv("COVERAGE_BADGE_STYLE", "flat-square")
-	os.Setenv("COVERAGE_BADGE_LABEL", "test coverage")
-	os.Setenv("COVERAGE_BADGE_LOGO", "go")
-	os.Setenv("COVERAGE_BADGE_LOGO_COLOR", "blue")
-	os.Setenv("COVERAGE_BADGE_OUTPUT", "test-coverage.svg")
-	os.Setenv("COVERAGE_BADGE_TREND", "true")
-	
-	os.Setenv("COVERAGE_REPORT_OUTPUT", "test-coverage.html")
-	os.Setenv("COVERAGE_REPORT_TITLE", "Test Coverage Report")
-	os.Setenv("COVERAGE_REPORT_THEME", "light")
-	os.Setenv("COVERAGE_REPORT_PACKAGES", "false")
-	os.Setenv("COVERAGE_REPORT_FILES", "false")
-	os.Setenv("COVERAGE_REPORT_MISSING", "false")
-	os.Setenv("COVERAGE_REPORT_RESPONSIVE", "false")
-	os.Setenv("COVERAGE_REPORT_INTERACTIVE", "false")
-	
-	os.Setenv("COVERAGE_HISTORY_ENABLED", "false")
-	os.Setenv("COVERAGE_HISTORY_PATH", "/tmp/history")
-	os.Setenv("COVERAGE_HISTORY_RETENTION", "30")
-	os.Setenv("COVERAGE_HISTORY_MAX_ENTRIES", "500")
-	os.Setenv("COVERAGE_HISTORY_CLEANUP", "false")
-	os.Setenv("COVERAGE_HISTORY_METRICS", "false")
-	
-	os.Setenv("COVERAGE_BASE_DIR", "/tmp/base")
-	os.Setenv("COVERAGE_AUTO_CREATE_DIRS", "false")
-	os.Setenv("COVERAGE_FILE_MODE", "600")
-	os.Setenv("COVERAGE_DIR_MODE", "700")
-	
+	_ = os.Setenv("COVERAGE_INPUT_FILE", "custom-coverage.txt")
+	_ = os.Setenv("COVERAGE_OUTPUT_DIR", "/tmp/coverage")
+	_ = os.Setenv("COVERAGE_THRESHOLD", "85.5")
+	_ = os.Setenv("COVERAGE_EXCLUDE_PATHS", "vendor/,build/,dist/")
+	_ = os.Setenv("COVERAGE_EXCLUDE_FILES", "*.test.go,*.mock.go")
+	_ = os.Setenv("COVERAGE_EXCLUDE_TESTS", "false")
+	_ = os.Setenv("COVERAGE_EXCLUDE_GENERATED", "false")
+
+	_ = os.Setenv("GITHUB_TOKEN", "test-token")
+	_ = os.Setenv("GITHUB_REPOSITORY_OWNER", "test-owner")
+	_ = os.Setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
+	_ = os.Setenv("GITHUB_PR_NUMBER", "123")
+	_ = os.Setenv("GITHUB_SHA", "abc123def456")
+	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
+	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
+	_ = os.Setenv("GITHUB_TIMEOUT", "60s")
+
+	_ = os.Setenv("COVERAGE_BADGE_STYLE", "flat-square")
+	_ = os.Setenv("COVERAGE_BADGE_LABEL", "test coverage")
+	_ = os.Setenv("COVERAGE_BADGE_LOGO", "go")
+	_ = os.Setenv("COVERAGE_BADGE_LOGO_COLOR", "blue")
+	_ = os.Setenv("COVERAGE_BADGE_OUTPUT", "test-coverage.svg")
+	_ = os.Setenv("COVERAGE_BADGE_TREND", "true")
+
+	_ = os.Setenv("COVERAGE_REPORT_OUTPUT", "test-coverage.html")
+	_ = os.Setenv("COVERAGE_REPORT_TITLE", "Test Coverage Report")
+	_ = os.Setenv("COVERAGE_REPORT_THEME", "light")
+	_ = os.Setenv("COVERAGE_REPORT_PACKAGES", "false")
+	_ = os.Setenv("COVERAGE_REPORT_FILES", "false")
+	_ = os.Setenv("COVERAGE_REPORT_MISSING", "false")
+	_ = os.Setenv("COVERAGE_REPORT_RESPONSIVE", "false")
+	_ = os.Setenv("COVERAGE_REPORT_INTERACTIVE", "false")
+
+	_ = os.Setenv("COVERAGE_HISTORY_ENABLED", "false")
+	_ = os.Setenv("COVERAGE_HISTORY_PATH", "/tmp/history")
+	_ = os.Setenv("COVERAGE_HISTORY_RETENTION", "30")
+	_ = os.Setenv("COVERAGE_HISTORY_MAX_ENTRIES", "500")
+	_ = os.Setenv("COVERAGE_HISTORY_CLEANUP", "false")
+	_ = os.Setenv("COVERAGE_HISTORY_METRICS", "false")
+
+	_ = os.Setenv("COVERAGE_BASE_DIR", "/tmp/base")
+	_ = os.Setenv("COVERAGE_AUTO_CREATE_DIRS", "false")
+	_ = os.Setenv("COVERAGE_FILE_MODE", "600")
+	_ = os.Setenv("COVERAGE_DIR_MODE", "700")
+
 	config := Load()
-	
+
 	// Test coverage settings
 	assert.Equal(t, "custom-coverage.txt", config.Coverage.InputFile)
 	assert.Equal(t, "/tmp/coverage", config.Coverage.OutputDir)
-	assert.Equal(t, 85.5, config.Coverage.Threshold)
+	assert.InDelta(t, 85.5, config.Coverage.Threshold, 0.001)
 	assert.Equal(t, []string{"vendor/", "build/", "dist/"}, config.Coverage.ExcludePaths)
 	assert.Equal(t, []string{"*.test.go", "*.mock.go"}, config.Coverage.ExcludeFiles)
 	assert.False(t, config.Coverage.ExcludeTests)
 	assert.False(t, config.Coverage.ExcludeGenerated)
-	
+
 	// Test GitHub settings
 	assert.Equal(t, "test-token", config.GitHub.Token)
 	assert.Equal(t, "test-owner", config.GitHub.Owner)
@@ -139,7 +140,7 @@ func TestLoadWithEnvironmentVariables(t *testing.T) {
 	assert.False(t, config.GitHub.PostComments)
 	assert.False(t, config.GitHub.CreateStatuses)
 	assert.Equal(t, 60*time.Second, config.GitHub.Timeout)
-	
+
 	// Test badge settings
 	assert.Equal(t, "flat-square", config.Badge.Style)
 	assert.Equal(t, "test coverage", config.Badge.Label)
@@ -147,7 +148,7 @@ func TestLoadWithEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, "blue", config.Badge.LogoColor)
 	assert.Equal(t, "test-coverage.svg", config.Badge.OutputFile)
 	assert.True(t, config.Badge.IncludeTrend)
-	
+
 	// Test report settings
 	assert.Equal(t, "test-coverage.html", config.Report.OutputFile)
 	assert.Equal(t, "Test Coverage Report", config.Report.Title)
@@ -157,7 +158,7 @@ func TestLoadWithEnvironmentVariables(t *testing.T) {
 	assert.False(t, config.Report.ShowMissing)
 	assert.False(t, config.Report.Responsive)
 	assert.False(t, config.Report.Interactive)
-	
+
 	// Test history settings
 	assert.False(t, config.History.Enabled)
 	assert.Equal(t, "/tmp/history", config.History.StoragePath)
@@ -165,15 +166,15 @@ func TestLoadWithEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, 500, config.History.MaxEntries)
 	assert.False(t, config.History.AutoCleanup)
 	assert.False(t, config.History.MetricsEnabled)
-	
+
 	// Test storage settings
 	assert.Equal(t, "/tmp/base", config.Storage.BaseDir)
 	assert.False(t, config.Storage.AutoCreate)
-	assert.Equal(t, os.FileMode(600), config.Storage.FileMode)
-	assert.Equal(t, os.FileMode(700), config.Storage.DirMode)
+	assert.Equal(t, os.FileMode(0600), config.Storage.FileMode)
+	assert.Equal(t, os.FileMode(0700), config.Storage.DirMode)
 }
 
-func TestValidate(t *testing.T) {
+func TestValidate(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name        string
 		config      *Config
@@ -368,9 +369,9 @@ func TestValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.config.Validate()
-			
+
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorMsg != "" {
 					assert.Contains(t, err.Error(), tt.errorMsg)
 				}
@@ -381,7 +382,7 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-func TestIsGitHubContext(t *testing.T) {
+func TestIsGitHubContext(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name     string
 		config   *Config
@@ -441,7 +442,7 @@ func TestIsGitHubContext(t *testing.T) {
 	}
 }
 
-func TestIsPullRequestContext(t *testing.T) {
+func TestIsPullRequestContext(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name     string
 		config   *Config
@@ -493,7 +494,7 @@ func TestIsPullRequestContext(t *testing.T) {
 	}
 }
 
-func TestGetBadgeURL(t *testing.T) {
+func TestGetBadgeURL(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name     string
 		config   *Config
@@ -545,7 +546,7 @@ func TestGetBadgeURL(t *testing.T) {
 	}
 }
 
-func TestGetReportURL(t *testing.T) {
+func TestGetReportURL(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name     string
 		config   *Config
@@ -597,107 +598,107 @@ func TestGetReportURL(t *testing.T) {
 	}
 }
 
-func TestEnvironmentHelpers(t *testing.T) {
+func TestEnvironmentHelpers(t *testing.T) { //nolint:revive // function naming
 	clearEnvironment()
 	defer clearEnvironment()
 
 	t.Run("getEnvString", func(t *testing.T) {
 		assert.Equal(t, "default", getEnvString("TEST_STRING", "default"))
-		
-		os.Setenv("TEST_STRING", "custom")
+
+		_ = os.Setenv("TEST_STRING", "custom")
 		assert.Equal(t, "custom", getEnvString("TEST_STRING", "default"))
 	})
 
 	t.Run("getEnvInt", func(t *testing.T) {
 		assert.Equal(t, 42, getEnvInt("TEST_INT", 42))
-		
-		os.Setenv("TEST_INT", "123")
+
+		_ = os.Setenv("TEST_INT", "123")
 		assert.Equal(t, 123, getEnvInt("TEST_INT", 42))
-		
-		os.Setenv("TEST_INT", "invalid")
+
+		_ = os.Setenv("TEST_INT", "invalid")
 		assert.Equal(t, 42, getEnvInt("TEST_INT", 42))
 	})
 
 	t.Run("getEnvFloat", func(t *testing.T) {
-		assert.Equal(t, 3.14, getEnvFloat("TEST_FLOAT", 3.14))
-		
-		os.Setenv("TEST_FLOAT", "2.71")
-		assert.Equal(t, 2.71, getEnvFloat("TEST_FLOAT", 3.14))
-		
-		os.Setenv("TEST_FLOAT", "invalid")
-		assert.Equal(t, 3.14, getEnvFloat("TEST_FLOAT", 3.14))
+		assert.InDelta(t, 3.14, getEnvFloat("TEST_FLOAT", 3.14), 0.001)
+
+		_ = os.Setenv("TEST_FLOAT", "2.71")
+		assert.InDelta(t, 2.71, getEnvFloat("TEST_FLOAT", 3.14), 0.001)
+
+		_ = os.Setenv("TEST_FLOAT", "invalid")
+		assert.InDelta(t, 3.14, getEnvFloat("TEST_FLOAT", 3.14), 0.001)
 	})
 
 	t.Run("getEnvBool", func(t *testing.T) {
 		assert.True(t, getEnvBool("TEST_BOOL", true))
-		
+
 		// Test true values
 		trueValues := []string{"true", "1", "yes", "on", "TRUE", "YES", "ON"}
 		for _, val := range trueValues {
-			os.Setenv("TEST_BOOL", val)
+			_ = os.Setenv("TEST_BOOL", val)
 			assert.True(t, getEnvBool("TEST_BOOL", false), "Value %s should be true", val)
 		}
-		
+
 		// Test false values
 		falseValues := []string{"false", "0", "no", "off", "FALSE", "NO", "OFF"}
 		for _, val := range falseValues {
-			os.Setenv("TEST_BOOL", val)
+			_ = os.Setenv("TEST_BOOL", val)
 			assert.False(t, getEnvBool("TEST_BOOL", true), "Value %s should be false", val)
 		}
-		
+
 		// Test invalid value (should return default)
-		os.Setenv("TEST_BOOL", "invalid")
+		_ = os.Setenv("TEST_BOOL", "invalid")
 		assert.True(t, getEnvBool("TEST_BOOL", true))
 	})
 
 	t.Run("getEnvDuration", func(t *testing.T) {
 		assert.Equal(t, 5*time.Second, getEnvDuration("TEST_DURATION", 5*time.Second))
-		
-		os.Setenv("TEST_DURATION", "10s")
+
+		_ = os.Setenv("TEST_DURATION", "10s")
 		assert.Equal(t, 10*time.Second, getEnvDuration("TEST_DURATION", 5*time.Second))
-		
-		os.Setenv("TEST_DURATION", "invalid")
+
+		_ = os.Setenv("TEST_DURATION", "invalid")
 		assert.Equal(t, 5*time.Second, getEnvDuration("TEST_DURATION", 5*time.Second))
 	})
 
 	t.Run("getEnvStringSlice", func(t *testing.T) {
 		defaultSlice := []string{"a", "b", "c"}
 		assert.Equal(t, defaultSlice, getEnvStringSlice("TEST_SLICE", defaultSlice))
-		
-		os.Setenv("TEST_SLICE", "x,y,z")
+
+		_ = os.Setenv("TEST_SLICE", "x,y,z")
 		assert.Equal(t, []string{"x", "y", "z"}, getEnvStringSlice("TEST_SLICE", defaultSlice))
-		
-		os.Setenv("TEST_SLICE", "single")
+
+		_ = os.Setenv("TEST_SLICE", "single")
 		assert.Equal(t, []string{"single"}, getEnvStringSlice("TEST_SLICE", defaultSlice))
 	})
 }
 
-func TestGetRepositoryFromEnv(t *testing.T) {
+func TestGetRepositoryFromEnv(t *testing.T) { //nolint:revive // function naming
 	clearEnvironment()
 	defer clearEnvironment()
 
 	t.Run("valid repository format", func(t *testing.T) {
-		os.Setenv("GITHUB_REPOSITORY", "owner/repository")
+		_ = os.Setenv("GITHUB_REPOSITORY", "owner/repository")
 		assert.Equal(t, "repository", getRepositoryFromEnv())
 	})
 
 	t.Run("invalid repository format", func(t *testing.T) {
-		os.Setenv("GITHUB_REPOSITORY", "invalid-format")
-		assert.Equal(t, "", getRepositoryFromEnv())
+		_ = os.Setenv("GITHUB_REPOSITORY", "invalid-format")
+		assert.Empty(t, getRepositoryFromEnv())
 	})
 
 	t.Run("empty repository", func(t *testing.T) {
-		os.Setenv("GITHUB_REPOSITORY", "")
-		assert.Equal(t, "", getRepositoryFromEnv())
+		_ = os.Setenv("GITHUB_REPOSITORY", "")
+		assert.Empty(t, getRepositoryFromEnv())
 	})
 
 	t.Run("missing repository", func(t *testing.T) {
-		os.Unsetenv("GITHUB_REPOSITORY")
-		assert.Equal(t, "", getRepositoryFromEnv())
+		_ = os.Unsetenv("GITHUB_REPOSITORY")
+		assert.Empty(t, getRepositoryFromEnv())
 	})
 }
 
-func TestContainsHelper(t *testing.T) {
+func TestContainsHelper(t *testing.T) { //nolint:revive // function naming
 	tests := []struct {
 		name     string
 		slice    []string
@@ -738,16 +739,16 @@ func TestContainsHelper(t *testing.T) {
 	}
 }
 
-func TestGitHubActionsIntegration(t *testing.T) {
+func TestGitHubActionsIntegration(t *testing.T) { //nolint:revive // function naming
 	clearEnvironment()
 	defer clearEnvironment()
 
 	// Set GitHub Actions environment variables
-	os.Setenv("GITHUB_TOKEN", "test-token")
-	os.Setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
-	os.Setenv("GITHUB_REPOSITORY_OWNER", "test-owner")
-	os.Setenv("GITHUB_SHA", "abc123def456")
-	os.Setenv("GITHUB_PR_NUMBER", "456")
+	_ = os.Setenv("GITHUB_TOKEN", "test-token")
+	_ = os.Setenv("GITHUB_REPOSITORY", "test-owner/test-repo")
+	_ = os.Setenv("GITHUB_REPOSITORY_OWNER", "test-owner")
+	_ = os.Setenv("GITHUB_SHA", "abc123def456")
+	_ = os.Setenv("GITHUB_PR_NUMBER", "456")
 
 	config := Load()
 
@@ -768,7 +769,7 @@ func TestGitHubActionsIntegration(t *testing.T) {
 	assert.Equal(t, expectedReportURL, config.GetReportURL())
 }
 
-func TestConfigurationEdgeCases(t *testing.T) {
+func TestConfigurationEdgeCases(t *testing.T) { //nolint:revive // function naming
 	t.Run("all GitHub integration disabled", func(t *testing.T) {
 		config := &Config{
 			Coverage: CoverageConfig{
@@ -816,7 +817,7 @@ func TestConfigurationEdgeCases(t *testing.T) {
 
 	t.Run("valid badge styles", func(t *testing.T) {
 		validStyles := []string{"flat", "flat-square", "for-the-badge"}
-		
+
 		for _, style := range validStyles {
 			config := &Config{
 				Coverage: CoverageConfig{
@@ -838,7 +839,7 @@ func TestConfigurationEdgeCases(t *testing.T) {
 
 	t.Run("valid report themes", func(t *testing.T) {
 		validThemes := []string{"github-dark", "light", "github-light"}
-		
+
 		for _, theme := range validThemes {
 			config := &Config{
 				Coverage: CoverageConfig{
@@ -860,7 +861,7 @@ func TestConfigurationEdgeCases(t *testing.T) {
 }
 
 // Helper function to clear environment variables
-func clearEnvironment() {
+func clearEnvironment() { //nolint:revive // function naming
 	envVars := []string{
 		"COVERAGE_INPUT_FILE", "COVERAGE_OUTPUT_DIR", "COVERAGE_THRESHOLD",
 		"COVERAGE_EXCLUDE_PATHS", "COVERAGE_EXCLUDE_FILES", "COVERAGE_EXCLUDE_TESTS", "COVERAGE_EXCLUDE_GENERATED",
@@ -878,6 +879,6 @@ func clearEnvironment() {
 	}
 
 	for _, envVar := range envVars {
-		os.Unsetenv(envVar)
+		_ = os.Unsetenv(envVar)
 	}
 }

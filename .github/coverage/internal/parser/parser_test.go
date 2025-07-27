@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNew(t *testing.T) {
+func TestNew(t *testing.T) { //nolint:revive // function naming
 	parser := New()
 	assert.NotNil(t, parser)
 	assert.NotNil(t, parser.config)
@@ -22,7 +22,7 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, 10, parser.config.MinFileLines)
 }
 
-func TestNewWithConfig(t *testing.T) {
+func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
 	config := &Config{
 		ExcludePaths:     []string{"custom/"},
 		ExcludeFiles:     []string{"*.custom"},
@@ -30,53 +30,53 @@ func TestNewWithConfig(t *testing.T) {
 		ExcludeTestFiles: false,
 		MinFileLines:     5,
 	}
-	
+
 	parser := NewWithConfig(config)
 	assert.NotNil(t, parser)
 	assert.Equal(t, config, parser.config)
 }
 
-func TestParseFile(t *testing.T) {
+func TestParseFile(t *testing.T) { //nolint:revive // function naming
 	parser := New()
 	ctx := context.Background()
-	
+
 	// Test valid coverage file
 	coverage, err := parser.ParseFile(ctx, "testdata/coverage.txt")
 	require.NoError(t, err)
 	assert.NotNil(t, coverage)
 	assert.Equal(t, "atomic", coverage.Mode)
 	assert.True(t, coverage.Percentage >= 0 && coverage.Percentage <= 100)
-	assert.True(t, coverage.TotalLines > 0)
+	assert.Positive(t, coverage.TotalLines)
 	assert.WithinDuration(t, time.Now(), coverage.Timestamp, 5*time.Second)
 }
 
-func TestParseFileNotExists(t *testing.T) {
+func TestParseFileNotExists(t *testing.T) { //nolint:revive // function naming
 	parser := New()
 	ctx := context.Background()
-	
+
 	_, err := parser.ParseFile(ctx, "testdata/nonexistent.txt")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to open coverage file")
 }
 
-func TestParseValidCoverage(t *testing.T) {
+func TestParseValidCoverage(t *testing.T) { //nolint:revive // function naming
 	parser := New()
 	ctx := context.Background()
-	
+
 	coverageData := `mode: atomic
 github.com/example/pkg/file.go:10.1,12.2 2 1
 github.com/example/pkg/file.go:15.1,17.16 2 0
 github.com/example/pkg/other.go:20.1,22.2 1 1`
-	
+
 	reader := strings.NewReader(coverageData)
 	coverage, err := parser.Parse(ctx, reader)
-	
+
 	require.NoError(t, err)
 	assert.Equal(t, "atomic", coverage.Mode)
-	assert.Equal(t, 5, coverage.TotalLines) // 2 + 2 + 1 = 5 total statements
-	assert.Equal(t, 3, coverage.CoveredLines) // 2 + 0 + 1 = 3 covered statements
+	assert.Equal(t, 5, coverage.TotalLines)            // 2 + 2 + 1 = 5 total statements
+	assert.Equal(t, 3, coverage.CoveredLines)          // 2 + 0 + 1 = 3 covered statements
 	assert.InDelta(t, 60.0, coverage.Percentage, 0.01) // 3/5 = 60%
-	
+
 	// Check packages
 	assert.Len(t, coverage.Packages, 1)
 	pkg, exists := coverage.Packages["pkg"]
@@ -85,39 +85,39 @@ github.com/example/pkg/other.go:20.1,22.2 1 1`
 	assert.Len(t, pkg.Files, 2)
 }
 
-func TestParseInvalidMode(t *testing.T) {
+func TestParseInvalidMode(t *testing.T) { //nolint:revive // function naming
 	parser := New()
 	ctx := context.Background()
-	
+
 	invalidData := `invalid mode line
 github.com/example/pkg/file.go:10.1,12.2 2 1`
-	
+
 	reader := strings.NewReader(invalidData)
 	_, err := parser.Parse(ctx, reader)
-	
-	assert.Error(t, err)
+
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid coverage file: first line must specify mode")
 }
 
-func TestParseInvalidStatement(t *testing.T) {
+func TestParseInvalidStatement(t *testing.T) { //nolint:revive // function naming
 	parser := New()
 	ctx := context.Background()
-	
+
 	invalidData := `mode: atomic
 invalid statement format`
-	
+
 	reader := strings.NewReader(invalidData)
 	_, err := parser.Parse(ctx, reader)
-	
-	assert.Error(t, err)
+
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse line")
 }
 
-func TestParseStatementValid(t *testing.T) {
+func TestParseStatementValid(t *testing.T) { //nolint:revive // function naming
 	parser := New()
-	
+
 	stmt, filename, err := parser.parseStatement("github.com/example/pkg/file.go:10.5,12.10 2 1")
-	
+
 	require.NoError(t, err)
 	assert.Equal(t, "github.com/example/pkg/file.go", filename)
 	assert.Equal(t, 10, stmt.StartLine)
@@ -128,9 +128,9 @@ func TestParseStatementValid(t *testing.T) {
 	assert.Equal(t, 1, stmt.Count)
 }
 
-func TestParseStatementInvalidFormat(t *testing.T) {
+func TestParseStatementInvalidFormat(t *testing.T) { //nolint:revive // function naming
 	parser := New()
-	
+
 	tests := []struct {
 		name string
 		line string
@@ -167,28 +167,28 @@ func TestParseStatementInvalidFormat(t *testing.T) {
 			want: "invalid count",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, _, err := parser.parseStatement(tt.line)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.want)
 		})
 	}
 }
 
-func TestParsePosition(t *testing.T) {
+func TestParsePosition(t *testing.T) { //nolint:revive // function naming
 	parser := New()
-	
+
 	line, col, err := parser.parsePosition("10.15")
 	require.NoError(t, err)
 	assert.Equal(t, 10, line)
 	assert.Equal(t, 15, col)
 }
 
-func TestParsePositionInvalid(t *testing.T) {
+func TestParsePositionInvalid(t *testing.T) { //nolint:revive // function naming
 	parser := New()
-	
+
 	tests := []struct {
 		name string
 		pos  string
@@ -210,19 +210,19 @@ func TestParsePositionInvalid(t *testing.T) {
 			want: "invalid column number",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, _, err := parser.parsePosition(tt.pos)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.want)
 		})
 	}
 }
 
-func TestShouldExcludeFile(t *testing.T) {
+func TestShouldExcludeFile(t *testing.T) { //nolint:revive // function naming
 	parser := New()
-	
+
 	tests := []struct {
 		name     string
 		filename string
@@ -259,7 +259,7 @@ func TestShouldExcludeFile(t *testing.T) {
 			want:     false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parser.shouldExcludeFile(tt.filename)
@@ -268,12 +268,12 @@ func TestShouldExcludeFile(t *testing.T) {
 	}
 }
 
-func TestShouldExcludeFileIncludeOnly(t *testing.T) {
+func TestShouldExcludeFileIncludeOnly(t *testing.T) { //nolint:revive // function naming
 	config := &Config{
 		IncludeOnlyPaths: []string{"internal/", "pkg/"},
 	}
 	parser := NewWithConfig(config)
-	
+
 	tests := []struct {
 		name     string
 		filename string
@@ -295,7 +295,7 @@ func TestShouldExcludeFileIncludeOnly(t *testing.T) {
 			want:     true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parser.shouldExcludeFile(tt.filename)
@@ -304,9 +304,9 @@ func TestShouldExcludeFileIncludeOnly(t *testing.T) {
 	}
 }
 
-func TestExtractPackageName(t *testing.T) {
+func TestExtractPackageName(t *testing.T) { //nolint:revive // function naming
 	parser := New()
-	
+
 	tests := []struct {
 		name     string
 		filename string
@@ -328,7 +328,7 @@ func TestExtractPackageName(t *testing.T) {
 			want:     "pkg",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parser.extractPackageName(tt.filename)
@@ -337,58 +337,58 @@ func TestExtractPackageName(t *testing.T) {
 	}
 }
 
-func TestCalculateFileCoverage(t *testing.T) {
+func TestCalculateFileCoverage(t *testing.T) { //nolint:revive // function naming
 	parser := New()
-	
+
 	statements := []Statement{
 		{StartLine: 10, NumStmt: 2, Count: 1},
 		{StartLine: 15, NumStmt: 3, Count: 0},
 		{StartLine: 20, NumStmt: 1, Count: 2},
 	}
-	
+
 	fileCov := parser.calculateFileCoverage("test.go", statements)
-	
+
 	assert.Equal(t, "test.go", fileCov.Path)
 	assert.Equal(t, 6, fileCov.TotalLines)
 	assert.Equal(t, 3, fileCov.CoveredLines)
 	assert.InDelta(t, 50.0, fileCov.Percentage, 0.01)
 	assert.Len(t, fileCov.Statements, 3)
-	
+
 	// Check statements are sorted by line number
 	assert.Equal(t, 10, fileCov.Statements[0].StartLine)
 	assert.Equal(t, 15, fileCov.Statements[1].StartLine)
 	assert.Equal(t, 20, fileCov.Statements[2].StartLine)
 }
 
-func TestParseContextCancellation(t *testing.T) {
+func TestParseContextCancellation(t *testing.T) { //nolint:revive // function naming
 	parser := New()
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Cancel context immediately
 	cancel()
-	
+
 	coverageData := `mode: atomic
 github.com/example/pkg/file.go:10.1,12.2 2 1`
-	
+
 	reader := strings.NewReader(coverageData)
 	_, err := parser.Parse(ctx, reader)
-	
-	assert.Error(t, err)
+
+	require.Error(t, err)
 	assert.Equal(t, context.Canceled, err)
 }
 
-func TestParseComplexCoverage(t *testing.T) {
+func TestParseComplexCoverage(t *testing.T) { //nolint:revive // function naming
 	parser := New()
 	ctx := context.Background()
-	
+
 	// Test with complex coverage file
 	coverage, err := parser.ParseFile(ctx, "testdata/complex.txt")
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, "count", coverage.Mode)
-	assert.True(t, coverage.Percentage > 0)
-	assert.True(t, len(coverage.Packages) > 0)
-	
+	assert.Positive(t, coverage.Percentage)
+	assert.NotEmpty(t, coverage.Packages)
+
 	// Verify vendor files are excluded
 	for _, pkg := range coverage.Packages {
 		for filename := range pkg.Files {
@@ -398,54 +398,54 @@ func TestParseComplexCoverage(t *testing.T) {
 	}
 }
 
-func TestIsGeneratedFile(t *testing.T) {
+func TestIsGeneratedFile(t *testing.T) { //nolint:revive // function naming
 	parser := New()
-	
+
 	// Create a temporary generated file
 	tmpFile, err := os.CreateTemp("", "generated_test_*.go")
 	require.NoError(t, err)
 	defer os.Remove(tmpFile.Name())
-	
+
 	// Write generated file content
 	_, err = tmpFile.WriteString("// Code generated by protoc-gen-go. DO NOT EDIT.\npackage test\n")
 	require.NoError(t, err)
 	tmpFile.Close()
-	
+
 	assert.True(t, parser.isGeneratedFile(tmpFile.Name()))
-	
+
 	// Test with non-generated file
 	tmpFile2, err := os.CreateTemp("", "regular_test_*.go")
 	require.NoError(t, err)
 	defer os.Remove(tmpFile2.Name())
-	
+
 	_, err = tmpFile2.WriteString("package test\n\nfunc main() {}\n")
 	require.NoError(t, err)
 	tmpFile2.Close()
-	
+
 	assert.False(t, parser.isGeneratedFile(tmpFile2.Name()))
 }
 
-func TestParseEmptyFile(t *testing.T) {
+func TestParseEmptyFile(t *testing.T) { //nolint:revive // function naming
 	parser := New()
 	ctx := context.Background()
-	
+
 	reader := strings.NewReader("")
 	_, err := parser.Parse(ctx, reader)
-	
-	assert.Error(t, err)
+
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid coverage file: missing mode declaration")
 }
 
-func TestParseOnlyMode(t *testing.T) {
+func TestParseOnlyMode(t *testing.T) { //nolint:revive // function naming
 	parser := New()
 	ctx := context.Background()
-	
+
 	reader := strings.NewReader("mode: atomic")
 	coverage, err := parser.Parse(ctx, reader)
-	
+
 	require.NoError(t, err)
 	assert.Equal(t, "atomic", coverage.Mode)
 	assert.Equal(t, 0, coverage.TotalLines)
 	assert.Equal(t, 0, coverage.CoveredLines)
-	assert.Equal(t, 0.0, coverage.Percentage)
+	assert.InDelta(t, 0.0, coverage.Percentage, 0.001)
 }

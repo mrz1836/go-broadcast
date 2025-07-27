@@ -3,11 +3,17 @@ package badge
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+)
+
+// Static error definitions
+var (
+	ErrUnsupportedBadgeType = errors.New("unsupported badge type")
 )
 
 // PRBadgeManager handles PR-specific badge generation and management
@@ -23,96 +29,96 @@ type PRBadgeConfig struct {
 	CreateDirectories    bool   // Auto-create directories
 	DirectoryPermissions os.FileMode
 	FilePermissions      os.FileMode
-	
+
 	// Naming patterns
-	CoveragePattern      string // Pattern for coverage badges
-	TrendPattern         string // Pattern for trend badges  
-	StatusPattern        string // Pattern for status badges
-	ComparisonPattern    string // Pattern for comparison badges
-	
+	CoveragePattern   string // Pattern for coverage badges
+	TrendPattern      string // Pattern for trend badges
+	StatusPattern     string // Pattern for status badges
+	ComparisonPattern string // Pattern for comparison badges
+
 	// Badge settings
-	Styles               []string // Available badge styles
-	DefaultStyle         string   // Default badge style
-	IncludeTimestamp     bool     // Include timestamp in badges
-	IncludeBranch        bool     // Include branch name in badges
-	
+	Styles           []string // Available badge styles
+	DefaultStyle     string   // Default badge style
+	IncludeTimestamp bool     // Include timestamp in badges
+	IncludeBranch    bool     // Include branch name in badges
+
 	// Cleanup settings
-	EnableCleanup        bool     // Enable automatic cleanup
-	MaxAge               time.Duration // Maximum age for PR badges
-	CleanupOnMerge       bool     // Cleanup badges when PR is merged
-	
+	EnableCleanup  bool          // Enable automatic cleanup
+	MaxAge         time.Duration // Maximum age for PR badges
+	CleanupOnMerge bool          // Cleanup badges when PR is merged
+
 	// Generation settings
-	GenerateMultipleStyles bool   // Generate badges in multiple styles
-	GenerateThumbnails     bool   // Generate thumbnail versions
-	GenerateRetina         bool   // Generate retina (2x) versions
+	GenerateMultipleStyles bool // Generate badges in multiple styles
+	GenerateThumbnails     bool // Generate thumbnail versions
+	GenerateRetina         bool // Generate retina (2x) versions
 }
 
 // PRBadgeType represents different types of PR badges
 type PRBadgeType string
 
 const (
-	PRBadgeCoverage    PRBadgeType = "coverage"
-	PRBadgeTrend       PRBadgeType = "trend"
-	PRBadgeStatus      PRBadgeType = "status"
-	PRBadgeComparison  PRBadgeType = "comparison"
-	PRBadgeDiff        PRBadgeType = "diff"
-	PRBadgeQuality     PRBadgeType = "quality"
+	PRBadgeCoverage   PRBadgeType = "coverage"
+	PRBadgeTrend      PRBadgeType = "trend"
+	PRBadgeStatus     PRBadgeType = "status"
+	PRBadgeComparison PRBadgeType = "comparison"
+	PRBadgeDiff       PRBadgeType = "diff"
+	PRBadgeQuality    PRBadgeType = "quality"
 )
 
 // PRBadgeRequest represents a request to generate PR badges
 type PRBadgeRequest struct {
 	// PR information
-	Repository   string
-	Owner        string
-	PRNumber     int
-	Branch       string
-	CommitSHA    string
-	BaseBranch   string
-	
+	Repository string
+	Owner      string
+	PRNumber   int
+	Branch     string
+	CommitSHA  string
+	BaseBranch string
+
 	// Coverage data
 	Coverage     float64
 	BaseCoverage float64
 	Trend        TrendDirection
-	
+
 	// Quality metrics
 	QualityGrade string
 	RiskLevel    string
-	
+
 	// Badge configuration
 	Types        []PRBadgeType
 	Styles       []string
 	CustomLabels map[PRBadgeType]string
-	
+
 	// Metadata
-	Timestamp    time.Time
-	Author       string
+	Timestamp time.Time
+	Author    string
 }
 
 // PRBadgeResult represents the result of PR badge generation
 type PRBadgeResult struct {
 	// Generated badges
-	Badges       map[PRBadgeType][]BadgeInfo
-	
+	Badges map[PRBadgeType][]BadgeInfo
+
 	// URLs and paths
-	BaseURL      string
-	LocalPaths   map[PRBadgeType][]string
-	PublicURLs   map[PRBadgeType][]string
-	
+	BaseURL    string
+	LocalPaths map[PRBadgeType][]string
+	PublicURLs map[PRBadgeType][]string
+
 	// Metadata
-	GeneratedAt  time.Time
-	TotalBadges  int
-	Errors       []error
+	GeneratedAt time.Time
+	TotalBadges int
+	Errors      []error
 }
 
 // BadgeInfo contains information about a generated badge
 type BadgeInfo struct {
-	Type         PRBadgeType
-	Style        string
-	FilePath     string
-	PublicURL    string
-	Size         int64
-	Dimensions   BadgeDimensions
-	Metadata     BadgeMetadata
+	Type       PRBadgeType
+	Style      string
+	FilePath   string
+	PublicURL  string
+	Size       int64
+	Dimensions BadgeDimensions
+	Metadata   BadgeMetadata
 }
 
 // BadgeDimensions represents badge dimensions
@@ -123,15 +129,15 @@ type BadgeDimensions struct {
 
 // BadgeMetadata contains badge metadata
 type BadgeMetadata struct {
-	GeneratedAt   time.Time
-	Version       string
-	Coverage      float64
-	BaseCoverage  float64
-	Change        float64
-	QualityGrade  string
-	PRNumber      int
-	Branch        string
-	CommitSHA     string
+	GeneratedAt  time.Time
+	Version      string
+	Coverage     float64
+	BaseCoverage float64
+	Change       float64
+	QualityGrade string
+	PRNumber     int
+	Branch       string
+	CommitSHA    string
 }
 
 // NewPRBadgeManager creates a new PR badge manager
@@ -140,8 +146,8 @@ func NewPRBadgeManager(generator *Generator, config *PRBadgeConfig) *PRBadgeMana
 		config = &PRBadgeConfig{
 			OutputBasePath:         "./coverage-badges",
 			CreateDirectories:      true,
-			DirectoryPermissions:   0755,
-			FilePermissions:        0644,
+			DirectoryPermissions:   0o755,
+			FilePermissions:        0o644,
 			CoveragePattern:        "badge-coverage-{style}.svg",
 			TrendPattern:           "badge-trend-{style}.svg",
 			StatusPattern:          "badge-status-{style}.svg",
@@ -158,7 +164,7 @@ func NewPRBadgeManager(generator *Generator, config *PRBadgeConfig) *PRBadgeMana
 			GenerateRetina:         false,
 		}
 	}
-	
+
 	return &PRBadgeManager{
 		generator: generator,
 		config:    config,
@@ -168,13 +174,13 @@ func NewPRBadgeManager(generator *Generator, config *PRBadgeConfig) *PRBadgeMana
 // GeneratePRBadges generates all requested PR badges
 func (m *PRBadgeManager) GeneratePRBadges(ctx context.Context, request *PRBadgeRequest) (*PRBadgeResult, error) {
 	result := &PRBadgeResult{
-		Badges:     make(map[PRBadgeType][]BadgeInfo),
-		LocalPaths: make(map[PRBadgeType][]string),
-		PublicURLs: make(map[PRBadgeType][]string),
-		BaseURL:    m.buildBaseURL(request.Owner, request.Repository, request.PRNumber),
+		Badges:      make(map[PRBadgeType][]BadgeInfo),
+		LocalPaths:  make(map[PRBadgeType][]string),
+		PublicURLs:  make(map[PRBadgeType][]string),
+		BaseURL:     m.buildBaseURL(request.Owner, request.Repository, request.PRNumber),
 		GeneratedAt: time.Now(),
 	}
-	
+
 	// Create output directory
 	outputDir := m.buildOutputDirectory(request)
 	if m.config.CreateDirectories {
@@ -182,7 +188,7 @@ func (m *PRBadgeManager) GeneratePRBadges(ctx context.Context, request *PRBadgeR
 			return nil, fmt.Errorf("failed to create output directory: %w", err)
 		}
 	}
-	
+
 	// Determine styles to generate
 	styles := request.Styles
 	if len(styles) == 0 {
@@ -192,7 +198,7 @@ func (m *PRBadgeManager) GeneratePRBadges(ctx context.Context, request *PRBadgeR
 			styles = []string{m.config.DefaultStyle}
 		}
 	}
-	
+
 	// Generate each requested badge type
 	for _, badgeType := range request.Types {
 		for _, style := range styles {
@@ -201,14 +207,14 @@ func (m *PRBadgeManager) GeneratePRBadges(ctx context.Context, request *PRBadgeR
 				result.Errors = append(result.Errors, fmt.Errorf("failed to generate %s badge in %s style: %w", badgeType, style, err))
 				continue
 			}
-			
+
 			result.Badges[badgeType] = append(result.Badges[badgeType], *badgeInfo)
 			result.LocalPaths[badgeType] = append(result.LocalPaths[badgeType], badgeInfo.FilePath)
 			result.PublicURLs[badgeType] = append(result.PublicURLs[badgeType], badgeInfo.PublicURL)
 			result.TotalBadges++
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -219,70 +225,70 @@ func (m *PRBadgeManager) generateSingleBadge(ctx context.Context, request *PRBad
 	var err error
 	var label string
 	var coverage float64
-	
+
 	switch badgeType {
 	case PRBadgeCoverage:
 		label = m.getCustomLabel(request, badgeType, "coverage")
 		coverage = request.Coverage
-		badgeData, err = m.generator.Generate(ctx, coverage, 
-			WithStyle(style), 
+		badgeData, err = m.generator.Generate(ctx, coverage,
+			WithStyle(style),
 			WithLabel(label))
-			
+
 	case PRBadgeTrend:
 		label = m.getCustomLabel(request, badgeType, "trend")
 		badgeData, err = m.generator.GenerateTrendBadge(ctx, request.Coverage, request.BaseCoverage,
 			WithStyle(style),
 			WithLabel(label))
-			
+
 	case PRBadgeStatus:
 		label = m.getCustomLabel(request, badgeType, "status")
 		badgeData, err = m.generateStatusBadge(ctx, request, style, label)
 		coverage = request.Coverage
-		
+
 	case PRBadgeComparison:
 		label = m.getCustomLabel(request, badgeType, "comparison")
 		badgeData, err = m.generateComparisonBadge(ctx, request, style, label)
 		coverage = request.Coverage
-		
+
 	case PRBadgeDiff:
 		label = m.getCustomLabel(request, badgeType, "diff")
 		badgeData, err = m.generateDiffBadge(ctx, request, style, label)
 		coverage = request.Coverage
-		
+
 	case PRBadgeQuality:
 		label = m.getCustomLabel(request, badgeType, "quality")
 		badgeData, err = m.generateQualityBadge(ctx, request, style, label)
 		coverage = request.Coverage
-		
+
 	default:
-		return nil, fmt.Errorf("unsupported badge type: %s", badgeType)
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedBadgeType, badgeType)
 	}
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate badge content: %w", err)
 	}
-	
+
 	// Build file path
 	fileName := m.buildFileName(badgeType, style, request)
 	filePath := filepath.Join(outputDir, fileName)
-	
+
 	// Write badge to file
-	if err := os.WriteFile(filePath, badgeData, m.config.FilePermissions); err != nil {
-		return nil, fmt.Errorf("failed to write badge file: %w", err)
+	if writeErr := os.WriteFile(filePath, badgeData, m.config.FilePermissions); writeErr != nil {
+		return nil, fmt.Errorf("failed to write badge file: %w", writeErr)
 	}
-	
+
 	// Get file info
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file info: %w", err)
 	}
-	
+
 	// Build public URL
 	publicURL := m.buildPublicURL(request.Owner, request.Repository, request.PRNumber, fileName)
-	
+
 	// Calculate dimensions (simplified)
 	dimensions := m.calculateBadgeDimensions(label, fmt.Sprintf("%.1f%%", coverage), style)
-	
+
 	// Create badge metadata
 	metadata := BadgeMetadata{
 		GeneratedAt:  time.Now(),
@@ -295,7 +301,7 @@ func (m *PRBadgeManager) generateSingleBadge(ctx context.Context, request *PRBad
 		Branch:       request.Branch,
 		CommitSHA:    request.CommitSHA,
 	}
-	
+
 	return &BadgeInfo{
 		Type:       badgeType,
 		Style:      style,
@@ -311,7 +317,7 @@ func (m *PRBadgeManager) generateSingleBadge(ctx context.Context, request *PRBad
 func (m *PRBadgeManager) generateStatusBadge(ctx context.Context, request *PRBadgeRequest, style, label string) ([]byte, error) {
 	var message string
 	var color string
-	
+
 	coverage := request.Coverage
 	switch {
 	case coverage >= 90:
@@ -330,7 +336,7 @@ func (m *PRBadgeManager) generateStatusBadge(ctx context.Context, request *PRBad
 		message = "critical"
 		color = "#f85149"
 	}
-	
+
 	badgeData := BadgeData{
 		Label:     label,
 		Message:   message,
@@ -338,7 +344,7 @@ func (m *PRBadgeManager) generateStatusBadge(ctx context.Context, request *PRBad
 		Style:     style,
 		AriaLabel: fmt.Sprintf("Coverage status: %s", message),
 	}
-	
+
 	return m.generator.renderSVG(ctx, badgeData)
 }
 
@@ -347,7 +353,7 @@ func (m *PRBadgeManager) generateComparisonBadge(ctx context.Context, request *P
 	diff := request.Coverage - request.BaseCoverage
 	var message string
 	var color string
-	
+
 	if diff > 0.1 {
 		message = fmt.Sprintf("+%.1f%%", diff)
 		color = "#3fb950"
@@ -358,7 +364,7 @@ func (m *PRBadgeManager) generateComparisonBadge(ctx context.Context, request *P
 		message = "±0.0%"
 		color = "#8b949e"
 	}
-	
+
 	badgeData := BadgeData{
 		Label:     label,
 		Message:   message,
@@ -366,7 +372,7 @@ func (m *PRBadgeManager) generateComparisonBadge(ctx context.Context, request *P
 		Style:     style,
 		AriaLabel: fmt.Sprintf("Coverage comparison: %s", message),
 	}
-	
+
 	return m.generator.renderSVG(ctx, badgeData)
 }
 
@@ -377,10 +383,10 @@ func (m *PRBadgeManager) generateDiffBadge(ctx context.Context, request *PRBadge
 	if absDiff < 0 {
 		absDiff = -absDiff
 	}
-	
+
 	var message string
 	var color string
-	
+
 	switch {
 	case absDiff >= 5.0:
 		message = "major"
@@ -395,7 +401,7 @@ func (m *PRBadgeManager) generateDiffBadge(ctx context.Context, request *PRBadge
 		message = "stable"
 		color = "#3fb950"
 	}
-	
+
 	if diff > 0 && absDiff >= 0.5 {
 		message = "+" + message
 		color = "#3fb950"
@@ -403,7 +409,7 @@ func (m *PRBadgeManager) generateDiffBadge(ctx context.Context, request *PRBadge
 		message = "-" + message
 		color = "#f85149"
 	}
-	
+
 	badgeData := BadgeData{
 		Label:     label,
 		Message:   message,
@@ -411,7 +417,7 @@ func (m *PRBadgeManager) generateDiffBadge(ctx context.Context, request *PRBadge
 		Style:     style,
 		AriaLabel: fmt.Sprintf("Coverage change: %s", message),
 	}
-	
+
 	return m.generator.renderSVG(ctx, badgeData)
 }
 
@@ -438,7 +444,7 @@ func (m *PRBadgeManager) generateQualityBadge(ctx context.Context, request *PRBa
 			grade = "F"
 		}
 	}
-	
+
 	// Set color based on grade
 	var color string
 	switch grade {
@@ -455,7 +461,7 @@ func (m *PRBadgeManager) generateQualityBadge(ctx context.Context, request *PRBa
 	default:
 		color = "#8b949e"
 	}
-	
+
 	badgeData := BadgeData{
 		Label:     label,
 		Message:   grade,
@@ -463,7 +469,7 @@ func (m *PRBadgeManager) generateQualityBadge(ctx context.Context, request *PRBa
 		Style:     style,
 		AriaLabel: fmt.Sprintf("Coverage quality grade: %s", grade),
 	}
-	
+
 	return m.generator.renderSVG(ctx, badgeData)
 }
 
@@ -475,7 +481,7 @@ func (m *PRBadgeManager) buildOutputDirectory(request *PRBadgeRequest) string {
 
 func (m *PRBadgeManager) buildFileName(badgeType PRBadgeType, style string, request *PRBadgeRequest) string {
 	var pattern string
-	
+
 	switch badgeType {
 	case PRBadgeCoverage:
 		pattern = m.config.CoveragePattern
@@ -488,17 +494,17 @@ func (m *PRBadgeManager) buildFileName(badgeType PRBadgeType, style string, requ
 	default:
 		pattern = fmt.Sprintf("badge-%s-{style}.svg", badgeType)
 	}
-	
+
 	fileName := strings.ReplaceAll(pattern, "{style}", style)
 	fileName = strings.ReplaceAll(fileName, "{type}", string(badgeType))
 	fileName = strings.ReplaceAll(fileName, "{pr}", fmt.Sprintf("%d", request.PRNumber))
 	fileName = strings.ReplaceAll(fileName, "{branch}", request.Branch)
-	
+
 	if m.config.IncludeTimestamp {
 		timestamp := request.Timestamp.Format("20060102-150405")
 		fileName = strings.ReplaceAll(fileName, "{timestamp}", timestamp)
 	}
-	
+
 	return fileName
 }
 
@@ -524,12 +530,12 @@ func (m *PRBadgeManager) calculateBadgeDimensions(label, message, style string) 
 	labelWidth := len(label) * 6
 	messageWidth := len(message) * 6
 	totalWidth := labelWidth + messageWidth + 20 // padding
-	
+
 	height := 20
 	if style == "for-the-badge" {
 		height = 28
 	}
-	
+
 	return BadgeDimensions{
 		Width:  totalWidth,
 		Height: height,
@@ -541,64 +547,64 @@ func (m *PRBadgeManager) CleanupPRBadges(ctx context.Context, owner, repository 
 	if !m.config.EnableCleanup {
 		return nil
 	}
-	
+
 	prDir := filepath.Join(m.config.OutputBasePath, "pr", fmt.Sprintf("%d", prNumber))
-	
+
 	// Check if directory exists
 	if _, err := os.Stat(prDir); os.IsNotExist(err) {
 		return nil // Nothing to clean up
 	}
-	
+
 	// Remove the entire PR directory
 	if err := os.RemoveAll(prDir); err != nil {
 		return fmt.Errorf("failed to remove PR badge directory: %w", err)
 	}
-	
+
 	return nil
 }
 
 // GetPRBadgeInfo returns information about existing PR badges
 func (m *PRBadgeManager) GetPRBadgeInfo(ctx context.Context, owner, repository string, prNumber int) (*PRBadgeResult, error) {
 	prDir := filepath.Join(m.config.OutputBasePath, "pr", fmt.Sprintf("%d", prNumber))
-	
+
 	result := &PRBadgeResult{
 		Badges:     make(map[PRBadgeType][]BadgeInfo),
 		LocalPaths: make(map[PRBadgeType][]string),
 		PublicURLs: make(map[PRBadgeType][]string),
 		BaseURL:    m.buildBaseURL(owner, repository, prNumber),
 	}
-	
+
 	// Check if directory exists
 	if _, err := os.Stat(prDir); os.IsNotExist(err) {
 		return result, nil // No badges exist
 	}
-	
+
 	// Read directory contents
 	entries, err := os.ReadDir(prDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read PR badge directory: %w", err)
 	}
-	
+
 	// Process each badge file
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".svg") {
 			continue
 		}
-		
+
 		filePath := filepath.Join(prDir, entry.Name())
 		fileInfo, err := entry.Info()
 		if err != nil {
 			continue
 		}
-		
+
 		// Parse badge type and style from filename
 		badgeType, style := m.parseBadgeFileName(entry.Name())
 		if badgeType == "" {
 			continue
 		}
-		
+
 		publicURL := m.buildPublicURL(owner, repository, prNumber, entry.Name())
-		
+
 		badgeInfo := BadgeInfo{
 			Type:      PRBadgeType(badgeType),
 			Style:     style,
@@ -610,13 +616,13 @@ func (m *PRBadgeManager) GetPRBadgeInfo(ctx context.Context, owner, repository s
 				PRNumber:    prNumber,
 			},
 		}
-		
+
 		result.Badges[PRBadgeType(badgeType)] = append(result.Badges[PRBadgeType(badgeType)], badgeInfo)
 		result.LocalPaths[PRBadgeType(badgeType)] = append(result.LocalPaths[PRBadgeType(badgeType)], filePath)
 		result.PublicURLs[PRBadgeType(badgeType)] = append(result.PublicURLs[PRBadgeType(badgeType)], publicURL)
 		result.TotalBadges++
 	}
-	
+
 	return result, nil
 }
 
@@ -624,22 +630,22 @@ func (m *PRBadgeManager) GetPRBadgeInfo(ctx context.Context, owner, repository s
 func (m *PRBadgeManager) parseBadgeFileName(fileName string) (string, string) {
 	// Remove .svg extension
 	name := strings.TrimSuffix(fileName, ".svg")
-	
+
 	// Extract style (last part after last dash)
 	parts := strings.Split(name, "-")
 	if len(parts) < 3 {
 		return "", ""
 	}
-	
+
 	style := parts[len(parts)-1]
-	
+
 	// Extract badge type
 	if strings.HasPrefix(name, "badge-") {
 		typeParts := parts[1 : len(parts)-1]
 		badgeType := strings.Join(typeParts, "-")
 		return badgeType, style
 	}
-	
+
 	return "", ""
 }
 
@@ -652,11 +658,11 @@ func (m *PRBadgeManager) GenerateStandardPRBadges(ctx context.Context, request *
 		PRBadgeStatus,
 		PRBadgeComparison,
 	}
-	
+
 	// Add quality badge if we have a grade
 	if request.QualityGrade != "" {
 		request.Types = append(request.Types, PRBadgeQuality)
 	}
-	
+
 	return m.GeneratePRBadges(ctx, request)
 }

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-//go:embed *.html *.css *.js
+//go:embed *.html
 var embeddedFiles embed.FS
 
 // TemplateManager handles template loading and rendering
@@ -23,24 +23,24 @@ type TemplateManager struct {
 type DashboardData struct {
 	// Project information
 	ProjectName string `json:"project_name"`
-	
+
 	// Overall metrics
-	TotalCoverage    float64 `json:"total_coverage"`
-	CoverageTrend    float64 `json:"coverage_trend"`
-	CoveredFiles     int     `json:"covered_files"`
-	TotalFiles       int     `json:"total_files"`
-	FilesTrend       int     `json:"files_trend"`
-	LinesToCover     int     `json:"lines_to_cover"`
-	LinesToCoverTrend int    `json:"lines_to_cover_trend"`
-	PackagesTracked  int     `json:"packages_tracked"`
-	
+	TotalCoverage     float64 `json:"total_coverage"`
+	CoverageTrend     float64 `json:"coverage_trend"`
+	CoveredFiles      int     `json:"covered_files"`
+	TotalFiles        int     `json:"total_files"`
+	FilesTrend        int     `json:"files_trend"`
+	LinesToCover      int     `json:"lines_to_cover"`
+	LinesToCoverTrend int     `json:"lines_to_cover_trend"`
+	PackagesTracked   int     `json:"packages_tracked"`
+
 	// Branch information
 	Branches []BranchData `json:"branches"`
-	
+
 	// Metadata
 	LastUpdated time.Time `json:"last_updated"`
 	CommitSha   string    `json:"commit_sha"`
-	
+
 	// UI settings
 	Theme       string `json:"theme"`
 	ShowTrends  bool   `json:"show_trends"`
@@ -61,16 +61,16 @@ type BranchData struct {
 // ReportData contains data for coverage report template rendering
 type ReportData struct {
 	// Report metadata
-	Title       string    `json:"title"`
-	Generated   time.Time `json:"generated"`
-	Branch      string    `json:"branch"`
-	CommitSha   string    `json:"commit_sha"`
-	
+	Title     string    `json:"title"`
+	Generated time.Time `json:"generated"`
+	Branch    string    `json:"branch"`
+	CommitSha string    `json:"commit_sha"`
+
 	// Coverage summary
-	OverallCoverage float64     `json:"overall_coverage"`
+	OverallCoverage float64        `json:"overall_coverage"`
 	PackageStats    []PackageStats `json:"package_stats"`
 	FileStats       []FileStats    `json:"file_stats"`
-	
+
 	// Configuration
 	Theme       string `json:"theme"`
 	ShowDetails bool   `json:"show_details"`
@@ -111,13 +111,13 @@ func NewTemplateManager() (*TemplateManager, error) {
 			"div":              div,
 		},
 	}
-	
+
 	// Parse embedded templates
 	tmpl, err := template.New("").Funcs(tm.funcs).ParseFS(embeddedFiles, "*.html")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse embedded templates: %w", err)
 	}
-	
+
 	tm.templates = tmpl
 	return tm, nil
 }
@@ -125,7 +125,7 @@ func NewTemplateManager() (*TemplateManager, error) {
 // RenderDashboard renders the main dashboard HTML
 func (tm *TemplateManager) RenderDashboard(ctx context.Context, data DashboardData) (string, error) {
 	var buf bytes.Buffer
-	
+
 	// Set default values if not provided
 	if data.ProjectName == "" {
 		data.ProjectName = "GoFortress Project"
@@ -136,19 +136,17 @@ func (tm *TemplateManager) RenderDashboard(ctx context.Context, data DashboardDa
 	if data.LastUpdated.IsZero() {
 		data.LastUpdated = time.Now()
 	}
-	
+
 	// Render the dashboard template
 	if err := tm.templates.ExecuteTemplate(&buf, "dashboard.html", data); err != nil {
 		return "", fmt.Errorf("failed to render dashboard template: %w", err)
 	}
-	
+
 	return buf.String(), nil
 }
 
 // RenderReport renders a coverage report HTML
 func (tm *TemplateManager) RenderReport(ctx context.Context, data ReportData) (string, error) {
-	var buf bytes.Buffer
-	
 	// Set default values if not provided
 	if data.Title == "" {
 		data.Title = "Coverage Report"
@@ -159,7 +157,7 @@ func (tm *TemplateManager) RenderReport(ctx context.Context, data ReportData) (s
 	if data.Generated.IsZero() {
 		data.Generated = time.Now()
 	}
-	
+
 	// TODO: Render the report template when created
 	// For now, create a basic report
 	basicReport := tm.generateBasicReport(data)
@@ -172,7 +170,7 @@ func (tm *TemplateManager) WriteDashboard(ctx context.Context, w io.Writer, data
 	if err != nil {
 		return err
 	}
-	
+
 	_, err = w.Write([]byte(content))
 	return err
 }
@@ -183,7 +181,7 @@ func (tm *TemplateManager) WriteReport(ctx context.Context, w io.Writer, data Re
 	if err != nil {
 		return err
 	}
-	
+
 	_, err = w.Write([]byte(content))
 	return err
 }
@@ -199,14 +197,14 @@ func (tm *TemplateManager) ListEmbeddedFiles() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var files []string
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			files = append(files, entry.Name())
 		}
 	}
-	
+
 	return files, nil
 }
 
@@ -296,10 +294,12 @@ func badgeColor(coverage float64) string {
 }
 
 // Math helper functions for templates
-func add(a, b int) int     { return a + b }
-func sub(a, b int) int     { return a - b }
-func mult(a, b int) int    { return a * b }
-func div(a, b int) float64 { 
-	if b == 0 { return 0 }
-	return float64(a) / float64(b) 
+func add(a, b int) int  { return a + b }
+func sub(a, b int) int  { return a - b }
+func mult(a, b int) int { return a * b }
+func div(a, b int) float64 {
+	if b == 0 {
+		return 0
+	}
+	return float64(a) / float64(b)
 }

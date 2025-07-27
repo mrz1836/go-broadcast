@@ -4,13 +4,20 @@ package history
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/analytics/charts"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/history"
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/charts"
+	"github.com/mrz1836/go-broadcast/coverage/internal/history"
+)
+
+// Static error definitions
+var (
+	ErrInsufficientDataPoints         = errors.New("insufficient data points for analysis")
+	ErrInsufficientDataForPredictions = errors.New("insufficient data for predictions")
 )
 
 // TrendAnalyzer provides sophisticated time-series analysis for coverage trends
@@ -22,177 +29,179 @@ type TrendAnalyzer struct {
 // AnalyzerConfig holds configuration for trend analysis
 type AnalyzerConfig struct {
 	// Analysis windows
-	ShortTermDays    int     // Short-term trend analysis (default: 7)
-	MediumTermDays   int     // Medium-term trend analysis (default: 30)
-	LongTermDays     int     // Long-term trend analysis (default: 90)
-	
+	ShortTermDays  int // Short-term trend analysis (default: 7)
+	MediumTermDays int // Medium-term trend analysis (default: 30)
+	LongTermDays   int // Long-term trend analysis (default: 90)
+
 	// Smoothing parameters
 	MovingAvgWindow  int     // Moving average window size
 	ExponentialAlpha float64 // Exponential smoothing alpha (0-1)
-	
+
 	// Significance thresholds
-	SignificantChange    float64 // Minimum change to be considered significant
-	VolatilityThreshold  float64 // Threshold for high volatility
-	TrendConfidence      float64 // Minimum confidence for trend detection
-	
+	SignificantChange   float64 // Minimum change to be considered significant
+	VolatilityThreshold float64 // Threshold for high volatility
+	TrendConfidence     float64 // Minimum confidence for trend detection
+
 	// Prediction settings
-	PredictionDays       int     // Number of days to predict ahead
-	SeasonalAdjustment   bool    // Enable seasonal adjustment
-	OutlierDetection     bool    // Enable outlier detection and filtering
-	
+	PredictionDays     int  // Number of days to predict ahead
+	SeasonalAdjustment bool // Enable seasonal adjustment
+	OutlierDetection   bool // Enable outlier detection and filtering
+
 	// Quality thresholds
-	MinDataPoints        int     // Minimum data points for analysis
-	MaxGapDays          int     // Maximum gap between data points
+	MinDataPoints int // Minimum data points for analysis
+	MaxGapDays    int // Maximum gap between data points
 }
 
 // AnalysisDataPoint represents an enhanced data point for analysis
 type AnalysisDataPoint struct {
-	Timestamp       time.Time   `json:"timestamp"`
-	Coverage        float64     `json:"coverage"`
-	Branch          string      `json:"branch"`
-	CommitSHA       string      `json:"commit_sha"`
-	PRNumber        int         `json:"pr_number,omitempty"`
-	Author          string      `json:"author,omitempty"`
-	FilesChanged    int         `json:"files_changed,omitempty"`
-	LinesAdded      int         `json:"lines_added,omitempty"`
-	LinesRemoved    int         `json:"lines_removed,omitempty"`
-	TestsAdded      int         `json:"tests_added,omitempty"`
-	IsOutlier       bool        `json:"is_outlier"`
-	Smoothed        float64     `json:"smoothed_value"`
-	Prediction      float64     `json:"prediction,omitempty"`
-	Confidence      float64     `json:"confidence,omitempty"`
+	Timestamp    time.Time `json:"timestamp"`
+	Coverage     float64   `json:"coverage"`
+	Branch       string    `json:"branch"`
+	CommitSHA    string    `json:"commit_sha"`
+	PRNumber     int       `json:"pr_number,omitempty"`
+	Author       string    `json:"author,omitempty"`
+	FilesChanged int       `json:"files_changed,omitempty"`
+	LinesAdded   int       `json:"lines_added,omitempty"`
+	LinesRemoved int       `json:"lines_removed,omitempty"`
+	TestsAdded   int       `json:"tests_added,omitempty"`
+	IsOutlier    bool      `json:"is_outlier"`
+	Smoothed     float64   `json:"smoothed_value"`
+	Prediction   float64   `json:"prediction,omitempty"`
+	Confidence   float64   `json:"confidence,omitempty"`
 }
 
 // TrendReport contains comprehensive trend analysis results
 type TrendReport struct {
 	// Summary
-	Summary              TrendSummary         `json:"summary"`
-	
+	Summary TrendSummary `json:"summary"`
+
 	// Trend analysis
-	ShortTermTrend       TrendAnalysis        `json:"short_term_trend"`
-	MediumTermTrend      TrendAnalysis        `json:"medium_term_trend"`
-	LongTermTrend        TrendAnalysis        `json:"long_term_trend"`
-	
+	ShortTermTrend  TrendAnalysis `json:"short_term_trend"`
+	MediumTermTrend TrendAnalysis `json:"medium_term_trend"`
+	LongTermTrend   TrendAnalysis `json:"long_term_trend"`
+
 	// Volatility analysis
-	Volatility           VolatilityAnalysis   `json:"volatility"`
-	
+	Volatility VolatilityAnalysis `json:"volatility"`
+
 	// Predictions
-	Predictions          []PredictionPoint    `json:"predictions"`
-	
+	Predictions []PredictionPoint `json:"predictions"`
+
 	// Quality metrics
-	QualityMetrics       QualityMetrics       `json:"quality_metrics"`
-	
+	QualityMetrics QualityMetrics `json:"quality_metrics"`
+
 	// Chart data
-	ChartData            *charts.ChartData    `json:"chart_data"`
-	
+	ChartData *charts.ChartData `json:"chart_data"`
+
 	// Insights and recommendations
-	Insights             []Insight            `json:"insights"`
-	Recommendations      []Recommendation     `json:"recommendations"`
-	
+	Insights        []Insight        `json:"insights"`
+	Recommendations []Recommendation `json:"recommendations"`
+
 	// Metadata
-	GeneratedAt          time.Time            `json:"generated_at"`
-	AnalysisWindow       time.Duration        `json:"analysis_window"`
-	DataPointCount       int                  `json:"data_point_count"`
+	GeneratedAt    time.Time     `json:"generated_at"`
+	AnalysisWindow time.Duration `json:"analysis_window"`
+	DataPointCount int           `json:"data_point_count"`
 }
 
 // TrendSummary provides high-level trend information
 type TrendSummary struct {
-	CurrentCoverage      float64              `json:"current_coverage"`
-	PreviousCoverage     float64              `json:"previous_coverage"`
-	Change               float64              `json:"change"`
-	ChangePercent        float64              `json:"change_percent"`
-	Direction            TrendDirection       `json:"direction"`
-	Magnitude            TrendMagnitude       `json:"magnitude"`
-	Confidence           float64              `json:"confidence"`
-	QualityGrade         string               `json:"quality_grade"`
+	CurrentCoverage  float64        `json:"current_coverage"`
+	PreviousCoverage float64        `json:"previous_coverage"`
+	Change           float64        `json:"change"`
+	ChangePercent    float64        `json:"change_percent"`
+	Direction        TrendDirection `json:"direction"`
+	Magnitude        TrendMagnitude `json:"magnitude"`
+	Confidence       float64        `json:"confidence"`
+	QualityGrade     string         `json:"quality_grade"`
 }
 
 // TrendAnalysis contains detailed trend analysis for a specific time period
 type TrendAnalysis struct {
-	Period               string               `json:"period"`
-	StartDate            time.Time            `json:"start_date"`
-	EndDate              time.Time            `json:"end_date"`
-	Direction            TrendDirection       `json:"direction"`
-	Slope                float64              `json:"slope"`
-	RSquared             float64              `json:"r_squared"`
-	Confidence           float64              `json:"confidence"`
-	AverageChange        float64              `json:"average_change"`
-	MaxIncrease          float64              `json:"max_increase"`
-	MaxDecrease          float64              `json:"max_decrease"`
-	ChangeVelocity       float64              `json:"change_velocity"`
-	Momentum             TrendMomentum        `json:"momentum"`
+	Period         string         `json:"period"`
+	StartDate      time.Time      `json:"start_date"`
+	EndDate        time.Time      `json:"end_date"`
+	Direction      TrendDirection `json:"direction"`
+	Slope          float64        `json:"slope"`
+	RSquared       float64        `json:"r_squared"`
+	Confidence     float64        `json:"confidence"`
+	AverageChange  float64        `json:"average_change"`
+	MaxIncrease    float64        `json:"max_increase"`
+	MaxDecrease    float64        `json:"max_decrease"`
+	ChangeVelocity float64        `json:"change_velocity"`
+	Momentum       TrendMomentum  `json:"momentum"`
 }
 
 // VolatilityAnalysis contains volatility metrics
 type VolatilityAnalysis struct {
-	StandardDeviation    float64              `json:"standard_deviation"`
-	Variance             float64              `json:"variance"`
-	CoefficientVariation float64              `json:"coefficient_variation"`
-	VolatilityLevel      VolatilityLevel      `json:"volatility_level"`
-	LargestFluctuation   float64              `json:"largest_fluctuation"`
-	AverageFluctuation   float64              `json:"average_fluctuation"`
-	StabilityScore       float64              `json:"stability_score"`
+	StandardDeviation    float64         `json:"standard_deviation"`
+	Variance             float64         `json:"variance"`
+	CoefficientVariation float64         `json:"coefficient_variation"`
+	VolatilityLevel      VolatilityLevel `json:"volatility_level"`
+	LargestFluctuation   float64         `json:"largest_fluctuation"`
+	AverageFluctuation   float64         `json:"average_fluctuation"`
+	StabilityScore       float64         `json:"stability_score"`
 }
 
 // PredictionPoint represents a predicted future data point
 type PredictionPoint struct {
-	Date                 time.Time            `json:"date"`
-	PredictedCoverage    float64              `json:"predicted_coverage"`
-	ConfidenceInterval   ConfidenceInterval   `json:"confidence_interval"`
-	Methodology          string               `json:"methodology"`
-	Reliability          float64              `json:"reliability"`
+	Date               time.Time          `json:"date"`
+	PredictedCoverage  float64            `json:"predicted_coverage"`
+	ConfidenceInterval ConfidenceInterval `json:"confidence_interval"`
+	Methodology        string             `json:"methodology"`
+	Reliability        float64            `json:"reliability"`
 }
 
 // ConfidenceInterval represents prediction confidence bounds
 type ConfidenceInterval struct {
-	Lower                float64              `json:"lower"`
-	Upper                float64              `json:"upper"`
-	Confidence           float64              `json:"confidence"`
+	Lower      float64 `json:"lower"`
+	Upper      float64 `json:"upper"`
+	Confidence float64 `json:"confidence"`
 }
 
 // QualityMetrics contains data quality assessment
 type QualityMetrics struct {
-	DataCompleteness     float64              `json:"data_completeness"`
-	DataConsistency      float64              `json:"data_consistency"`
-	OutlierCount         int                  `json:"outlier_count"`
-	MissingDataPoints    int                  `json:"missing_data_points"`
-	LargestGap           time.Duration        `json:"largest_gap"`
-	QualityScore         float64              `json:"quality_score"`
-	ReliabilityGrade     string               `json:"reliability_grade"`
+	DataCompleteness  float64       `json:"data_completeness"`
+	DataConsistency   float64       `json:"data_consistency"`
+	OutlierCount      int           `json:"outlier_count"`
+	MissingDataPoints int           `json:"missing_data_points"`
+	LargestGap        time.Duration `json:"largest_gap"`
+	QualityScore      float64       `json:"quality_score"`
+	ReliabilityGrade  string        `json:"reliability_grade"`
 }
 
 // Insight represents an analytical insight
 type Insight struct {
-	Type                 InsightType          `json:"type"`
-	Title                string               `json:"title"`
-	Description          string               `json:"description"`
-	Severity             InsightSeverity      `json:"severity"`
-	Confidence           float64              `json:"confidence"`
-	SupportingData       map[string]interface{} `json:"supporting_data"`
+	Type           InsightType            `json:"type"`
+	Title          string                 `json:"title"`
+	Description    string                 `json:"description"`
+	Severity       InsightSeverity        `json:"severity"`
+	Confidence     float64                `json:"confidence"`
+	SupportingData map[string]interface{} `json:"supporting_data"`
 }
 
 // Recommendation represents an actionable recommendation
 type Recommendation struct {
-	Type                 RecommendationType   `json:"type"`
-	Priority             RecommendationPriority `json:"priority"`
-	Title                string               `json:"title"`
-	Description          string               `json:"description"`
-	Actions              []string             `json:"actions"`
-	ExpectedImpact       float64              `json:"expected_impact"`
-	Timeline             string               `json:"timeline"`
+	Type           RecommendationType     `json:"type"`
+	Priority       RecommendationPriority `json:"priority"`
+	Title          string                 `json:"title"`
+	Description    string                 `json:"description"`
+	Actions        []string               `json:"actions"`
+	ExpectedImpact float64                `json:"expected_impact"`
+	Timeline       string                 `json:"timeline"`
 }
 
 // Enums for categorization
 
 type TrendDirection string
+
 const (
-	TrendUp      TrendDirection = "up"
-	TrendDown    TrendDirection = "down"
-	TrendStable  TrendDirection = "stable"
+	TrendUp       TrendDirection = "up"
+	TrendDown     TrendDirection = "down"
+	TrendStable   TrendDirection = "stable"
 	TrendVolatile TrendDirection = "volatile"
 )
 
 type TrendMagnitude string
+
 const (
 	MagnitudeSignificant TrendMagnitude = "significant"
 	MagnitudeModerate    TrendMagnitude = "moderate"
@@ -201,6 +210,7 @@ const (
 )
 
 type TrendMomentum string
+
 const (
 	MomentumAccelerating TrendMomentum = "accelerating"
 	MomentumSteady       TrendMomentum = "steady"
@@ -208,6 +218,7 @@ const (
 )
 
 type VolatilityLevel string
+
 const (
 	VolatilityLow    VolatilityLevel = "low"
 	VolatilityMedium VolatilityLevel = "medium"
@@ -215,30 +226,34 @@ const (
 )
 
 type InsightType string
+
 const (
-	InsightTrend         InsightType = "trend"
-	InsightAnomaly       InsightType = "anomaly"
-	InsightMilestone     InsightType = "milestone"
-	InsightRegression    InsightType = "regression"
-	InsightOpportunity   InsightType = "opportunity"
+	InsightTrend       InsightType = "trend"
+	InsightAnomaly     InsightType = "anomaly"
+	InsightMilestone   InsightType = "milestone"
+	InsightRegression  InsightType = "regression"
+	InsightOpportunity InsightType = "opportunity"
 )
 
 type InsightSeverity string
+
 const (
-	SeverityInfo    InsightSeverity = "info"
-	SeverityWarning InsightSeverity = "warning"
+	SeverityInfo     InsightSeverity = "info"
+	SeverityWarning  InsightSeverity = "warning"
 	SeverityCritical InsightSeverity = "critical"
 )
 
 type RecommendationType string
+
 const (
-	RecommendationProcess     RecommendationType = "process"
-	RecommendationTesting     RecommendationType = "testing"
-	RecommendationGoals       RecommendationType = "goals"
-	RecommendationMonitoring  RecommendationType = "monitoring"
+	RecommendationProcess    RecommendationType = "process"
+	RecommendationTesting    RecommendationType = "testing"
+	RecommendationGoals      RecommendationType = "goals"
+	RecommendationMonitoring RecommendationType = "monitoring"
 )
 
 type RecommendationPriority string
+
 const (
 	PriorityHigh   RecommendationPriority = "high"
 	PriorityMedium RecommendationPriority = "medium"
@@ -249,22 +264,22 @@ const (
 func NewTrendAnalyzer(config *AnalyzerConfig) *TrendAnalyzer {
 	if config == nil {
 		config = &AnalyzerConfig{
-			ShortTermDays:        7,
-			MediumTermDays:       30,
-			LongTermDays:         90,
-			MovingAvgWindow:      7,
-			ExponentialAlpha:     0.3,
-			SignificantChange:    1.0,
-			VolatilityThreshold:  5.0,
-			TrendConfidence:      0.7,
-			PredictionDays:       14,
-			SeasonalAdjustment:   true,
-			OutlierDetection:     true,
-			MinDataPoints:        5,
+			ShortTermDays:       7,
+			MediumTermDays:      30,
+			LongTermDays:        90,
+			MovingAvgWindow:     7,
+			ExponentialAlpha:    0.3,
+			SignificantChange:   1.0,
+			VolatilityThreshold: 5.0,
+			TrendConfidence:     0.7,
+			PredictionDays:      14,
+			SeasonalAdjustment:  true,
+			OutlierDetection:    true,
+			MinDataPoints:       5,
 			MaxGapDays:          7,
 		}
 	}
-	
+
 	return &TrendAnalyzer{
 		config: config,
 		data:   make([]AnalysisDataPoint, 0),
@@ -273,15 +288,23 @@ func NewTrendAnalyzer(config *AnalyzerConfig) *TrendAnalyzer {
 
 // LoadHistoryData loads historical data from the existing history system
 func (ta *TrendAnalyzer) LoadHistoryData(ctx context.Context, historyTracker *history.Tracker, branch string, days int) error {
-	// Get historical entries
-	entries, err := historyTracker.GetRecentEntries(ctx, branch, days)
+	// Get trend data which includes historical entries
+	trendData, err := historyTracker.GetTrend(ctx,
+		history.WithTrendBranch(branch),
+		history.WithTrendDays(days),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to load history data: %w", err)
 	}
-	
-	// Convert to analysis data points
-	ta.data = make([]AnalysisDataPoint, 0, len(entries))
-	for _, entry := range entries {
+
+	// Convert trend entries to analysis data points
+	if trendData.Entries == nil {
+		ta.data = make([]AnalysisDataPoint, 0)
+		return nil
+	}
+
+	ta.data = make([]AnalysisDataPoint, 0, len(trendData.Entries))
+	for _, entry := range trendData.Entries {
 		point := AnalysisDataPoint{
 			Timestamp: entry.Timestamp,
 			Coverage:  entry.Coverage.Percentage,
@@ -290,12 +313,12 @@ func (ta *TrendAnalyzer) LoadHistoryData(ctx context.Context, historyTracker *hi
 		}
 		ta.data = append(ta.data, point)
 	}
-	
+
 	// Sort by timestamp
 	sort.Slice(ta.data, func(i, j int) bool {
 		return ta.data[i].Timestamp.Before(ta.data[j].Timestamp)
 	})
-	
+
 	return nil
 }
 
@@ -303,7 +326,7 @@ func (ta *TrendAnalyzer) LoadHistoryData(ctx context.Context, historyTracker *hi
 func (ta *TrendAnalyzer) LoadCustomData(dataPoints []AnalysisDataPoint) {
 	ta.data = make([]AnalysisDataPoint, len(dataPoints))
 	copy(ta.data, dataPoints)
-	
+
 	// Sort by timestamp
 	sort.Slice(ta.data, func(i, j int) bool {
 		return ta.data[i].Timestamp.Before(ta.data[j].Timestamp)
@@ -313,70 +336,66 @@ func (ta *TrendAnalyzer) LoadCustomData(dataPoints []AnalysisDataPoint) {
 // AnalyzeTrends performs comprehensive trend analysis
 func (ta *TrendAnalyzer) AnalyzeTrends(ctx context.Context) (*TrendReport, error) {
 	if len(ta.data) < ta.config.MinDataPoints {
-		return nil, fmt.Errorf("insufficient data points for analysis: need at least %d, got %d", 
-			ta.config.MinDataPoints, len(ta.data))
+		return nil, fmt.Errorf("%w: need at least %d, got %d",
+			ErrInsufficientDataPoints, ta.config.MinDataPoints, len(ta.data))
 	}
-	
+
 	// Pre-process data
-	if err := ta.preprocessData(); err != nil {
-		return nil, fmt.Errorf("failed to preprocess data: %w", err)
-	}
-	
+	ta.preprocessData()
+
 	report := &TrendReport{
 		GeneratedAt:    time.Now(),
 		DataPointCount: len(ta.data),
 	}
-	
+
 	if len(ta.data) > 0 {
 		report.AnalysisWindow = ta.data[len(ta.data)-1].Timestamp.Sub(ta.data[0].Timestamp)
 	}
-	
+
 	// Generate summary
 	report.Summary = ta.generateSummary()
-	
+
 	// Analyze trends for different time periods
 	report.ShortTermTrend = ta.analyzePeriodTrend(ta.config.ShortTermDays, "short-term")
 	report.MediumTermTrend = ta.analyzePeriodTrend(ta.config.MediumTermDays, "medium-term")
 	report.LongTermTrend = ta.analyzePeriodTrend(ta.config.LongTermDays, "long-term")
-	
+
 	// Analyze volatility
 	report.Volatility = ta.analyzeVolatility()
-	
+
 	// Generate predictions
 	predictions, err := ta.generatePredictions()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate predictions: %w", err)
 	}
 	report.Predictions = predictions
-	
+
 	// Calculate quality metrics
 	report.QualityMetrics = ta.calculateQualityMetrics()
-	
+
 	// Generate chart data
 	report.ChartData = ta.generateChartData()
-	
+
 	// Generate insights and recommendations
 	report.Insights = ta.generateInsights(report)
 	report.Recommendations = ta.generateRecommendations(report)
-	
+
 	return report, nil
 }
 
 // preprocessData performs data preprocessing including outlier detection and smoothing
-func (ta *TrendAnalyzer) preprocessData() error {
+func (ta *TrendAnalyzer) preprocessData() {
 	if len(ta.data) == 0 {
-		return nil
+		return
 	}
-	
+
 	// Detect outliers if enabled
 	if ta.config.OutlierDetection {
 		ta.detectOutliers()
 	}
-	
+
 	// Apply smoothing
 	ta.applySmoothing()
-	
-	return nil
 }
 
 // detectOutliers identifies and marks outlier data points
@@ -384,21 +403,21 @@ func (ta *TrendAnalyzer) detectOutliers() {
 	if len(ta.data) < 3 {
 		return
 	}
-	
+
 	// Calculate mean and standard deviation
 	sum := 0.0
 	for _, point := range ta.data {
 		sum += point.Coverage
 	}
 	mean := sum / float64(len(ta.data))
-	
+
 	sumSquares := 0.0
 	for _, point := range ta.data {
 		diff := point.Coverage - mean
 		sumSquares += diff * diff
 	}
 	stdDev := math.Sqrt(sumSquares / float64(len(ta.data)))
-	
+
 	// Mark outliers (beyond 2 standard deviations)
 	threshold := 2.0
 	for i := range ta.data {
@@ -412,10 +431,10 @@ func (ta *TrendAnalyzer) applySmoothing() {
 	if len(ta.data) == 0 {
 		return
 	}
-	
+
 	// Initialize first smoothed value
 	ta.data[0].Smoothed = ta.data[0].Coverage
-	
+
 	// Apply exponential smoothing
 	alpha := ta.config.ExponentialAlpha
 	for i := 1; i < len(ta.data); i++ {
@@ -433,32 +452,32 @@ func (ta *TrendAnalyzer) generateSummary() TrendSummary {
 	if len(ta.data) == 0 {
 		return TrendSummary{}
 	}
-	
+
 	current := ta.data[len(ta.data)-1].Coverage
 	previous := current
 	if len(ta.data) > 1 {
 		previous = ta.data[len(ta.data)-2].Coverage
 	}
-	
+
 	change := current - previous
 	changePercent := 0.0
 	if previous != 0 {
 		changePercent = (change / previous) * 100
 	}
-	
+
 	direction := ta.determineDirection(change)
 	magnitude := ta.determineMagnitude(math.Abs(change))
 	confidence := ta.calculateTrendConfidence()
-	
+
 	return TrendSummary{
 		CurrentCoverage:  current,
 		PreviousCoverage: previous,
-		Change:          change,
-		ChangePercent:   changePercent,
-		Direction:       direction,
-		Magnitude:       magnitude,
-		Confidence:      confidence,
-		QualityGrade:    ta.calculateQualityGrade(current),
+		Change:           change,
+		ChangePercent:    changePercent,
+		Direction:        direction,
+		Magnitude:        magnitude,
+		Confidence:       confidence,
+		QualityGrade:     ta.calculateQualityGrade(current),
 	}
 }
 
@@ -467,29 +486,29 @@ func (ta *TrendAnalyzer) analyzePeriodTrend(days int, period string) TrendAnalys
 	// Filter data for the specified period
 	cutoff := time.Now().AddDate(0, 0, -days)
 	var periodData []AnalysisDataPoint
-	
+
 	for _, point := range ta.data {
 		if point.Timestamp.After(cutoff) {
 			periodData = append(periodData, point)
 		}
 	}
-	
+
 	if len(periodData) < 2 {
 		return TrendAnalysis{Period: period}
 	}
-	
+
 	// Calculate linear regression
 	slope, rSquared := ta.calculateLinearRegression(periodData)
-	
+
 	// Calculate other metrics
 	var changes []float64
 	maxIncrease := 0.0
 	maxDecrease := 0.0
-	
+
 	for i := 1; i < len(periodData); i++ {
 		change := periodData[i].Coverage - periodData[i-1].Coverage
 		changes = append(changes, change)
-		
+
 		if change > maxIncrease {
 			maxIncrease = change
 		}
@@ -497,7 +516,7 @@ func (ta *TrendAnalyzer) analyzePeriodTrend(days int, period string) TrendAnalys
 			maxDecrease = change
 		}
 	}
-	
+
 	averageChange := 0.0
 	if len(changes) > 0 {
 		sum := 0.0
@@ -506,24 +525,24 @@ func (ta *TrendAnalyzer) analyzePeriodTrend(days int, period string) TrendAnalys
 		}
 		averageChange = sum / float64(len(changes))
 	}
-	
+
 	direction := ta.determineDirection(slope)
 	momentum := ta.determineMomentum(periodData)
 	confidence := ta.calculatePeriodConfidence(rSquared, len(periodData))
-	
+
 	return TrendAnalysis{
-		Period:           period,
-		StartDate:        periodData[0].Timestamp,
-		EndDate:          periodData[len(periodData)-1].Timestamp,
-		Direction:        direction,
-		Slope:            slope,
-		RSquared:         rSquared,
-		Confidence:       confidence,
-		AverageChange:    averageChange,
-		MaxIncrease:      maxIncrease,
-		MaxDecrease:      maxDecrease,
-		ChangeVelocity:   ta.calculateChangeVelocity(periodData),
-		Momentum:         momentum,
+		Period:         period,
+		StartDate:      periodData[0].Timestamp,
+		EndDate:        periodData[len(periodData)-1].Timestamp,
+		Direction:      direction,
+		Slope:          slope,
+		RSquared:       rSquared,
+		Confidence:     confidence,
+		AverageChange:  averageChange,
+		MaxIncrease:    maxIncrease,
+		MaxDecrease:    maxDecrease,
+		ChangeVelocity: ta.calculateChangeVelocity(periodData),
+		Momentum:       momentum,
 	}
 }
 
@@ -532,47 +551,47 @@ func (ta *TrendAnalyzer) calculateLinearRegression(data []AnalysisDataPoint) (fl
 	if len(data) < 2 {
 		return 0, 0
 	}
-	
+
 	n := float64(len(data))
 	var sumX, sumY, sumXY, sumX2, sumY2 float64
-	
+
 	for i, point := range data {
 		x := float64(i)
 		y := point.Smoothed
-		
+
 		sumX += x
 		sumY += y
 		sumXY += x * y
 		sumX2 += x * x
 		sumY2 += y * y
 	}
-	
+
 	// Calculate slope (beta1)
 	denominator := n*sumX2 - sumX*sumX
 	if denominator == 0 {
 		return 0, 0
 	}
-	
+
 	slope := (n*sumXY - sumX*sumY) / denominator
-	
+
 	// Calculate R-squared
 	yMean := sumY / n
 	var ssr, sst float64
-	
+
 	for i, point := range data {
 		x := float64(i)
 		y := point.Smoothed
 		yPred := slope*x + (yMean - slope*(sumX/n))
-		
+
 		ssr += (yPred - yMean) * (yPred - yMean)
 		sst += (y - yMean) * (y - yMean)
 	}
-	
+
 	rSquared := 0.0
 	if sst != 0 {
 		rSquared = ssr / sst
 	}
-	
+
 	return slope, rSquared
 }
 
@@ -581,21 +600,21 @@ func (ta *TrendAnalyzer) analyzeVolatility() VolatilityAnalysis {
 	if len(ta.data) < 2 {
 		return VolatilityAnalysis{}
 	}
-	
+
 	// Calculate changes between consecutive points
 	var changes []float64
 	for i := 1; i < len(ta.data); i++ {
 		change := math.Abs(ta.data[i].Coverage - ta.data[i-1].Coverage)
 		changes = append(changes, change)
 	}
-	
+
 	// Calculate mean change
 	sum := 0.0
 	for _, change := range changes {
 		sum += change
 	}
 	meanChange := sum / float64(len(changes))
-	
+
 	// Calculate standard deviation
 	sumSquares := 0.0
 	for _, change := range changes {
@@ -603,16 +622,16 @@ func (ta *TrendAnalyzer) analyzeVolatility() VolatilityAnalysis {
 		sumSquares += diff * diff
 	}
 	stdDev := math.Sqrt(sumSquares / float64(len(changes)))
-	
+
 	// Calculate variance
 	variance := sumSquares / float64(len(changes))
-	
+
 	// Calculate coefficient of variation
 	coeffVar := 0.0
 	if meanChange != 0 {
 		coeffVar = stdDev / meanChange
 	}
-	
+
 	// Find largest fluctuation
 	maxChange := 0.0
 	for _, change := range changes {
@@ -620,7 +639,7 @@ func (ta *TrendAnalyzer) analyzeVolatility() VolatilityAnalysis {
 			maxChange = change
 		}
 	}
-	
+
 	// Determine volatility level
 	level := VolatilityLow
 	if stdDev > ta.config.VolatilityThreshold {
@@ -628,50 +647,50 @@ func (ta *TrendAnalyzer) analyzeVolatility() VolatilityAnalysis {
 	} else if stdDev > ta.config.VolatilityThreshold/2 {
 		level = VolatilityMedium
 	}
-	
+
 	// Calculate stability score (inverse of volatility)
 	stabilityScore := math.Max(0, 100-stdDev*10)
-	
+
 	return VolatilityAnalysis{
 		StandardDeviation:    stdDev,
-		Variance:            variance,
+		Variance:             variance,
 		CoefficientVariation: coeffVar,
-		VolatilityLevel:     level,
-		LargestFluctuation:  maxChange,
-		AverageFluctuation:  meanChange,
-		StabilityScore:      stabilityScore,
+		VolatilityLevel:      level,
+		LargestFluctuation:   maxChange,
+		AverageFluctuation:   meanChange,
+		StabilityScore:       stabilityScore,
 	}
 }
 
 // generatePredictions creates future coverage predictions
 func (ta *TrendAnalyzer) generatePredictions() ([]PredictionPoint, error) {
 	if len(ta.data) < 3 {
-		return nil, fmt.Errorf("insufficient data for predictions")
+		return nil, ErrInsufficientDataForPredictions
 	}
-	
+
 	var predictions []PredictionPoint
-	
+
 	// Use linear regression for simple prediction
 	slope, rSquared := ta.calculateLinearRegression(ta.data)
-	
+
 	lastPoint := ta.data[len(ta.data)-1]
-	
+
 	for i := 1; i <= ta.config.PredictionDays; i++ {
 		futureDate := lastPoint.Timestamp.AddDate(0, 0, i)
-		
+
 		// Simple linear prediction
 		predictedValue := lastPoint.Smoothed + slope*float64(i)
-		
+
 		// Clamp to reasonable bounds
 		predictedValue = math.Max(0, math.Min(100, predictedValue))
-		
+
 		// Calculate confidence based on R-squared and distance
 		confidence := rSquared * math.Exp(-float64(i)*0.1)
 		reliability := math.Max(0.1, confidence)
-		
+
 		// Calculate confidence interval
 		margin := (1.0 - confidence) * 10.0 // Simple margin calculation
-		
+
 		prediction := PredictionPoint{
 			Date:              futureDate,
 			PredictedCoverage: predictedValue,
@@ -683,10 +702,10 @@ func (ta *TrendAnalyzer) generatePredictions() ([]PredictionPoint, error) {
 			Methodology: "linear_regression",
 			Reliability: reliability,
 		}
-		
+
 		predictions = append(predictions, prediction)
 	}
-	
+
 	return predictions, nil
 }
 
@@ -695,7 +714,7 @@ func (ta *TrendAnalyzer) calculateQualityMetrics() QualityMetrics {
 	if len(ta.data) == 0 {
 		return QualityMetrics{}
 	}
-	
+
 	// Count outliers
 	outlierCount := 0
 	for _, point := range ta.data {
@@ -703,14 +722,14 @@ func (ta *TrendAnalyzer) calculateQualityMetrics() QualityMetrics {
 			outlierCount++
 		}
 	}
-	
+
 	// Calculate data completeness (simplified)
 	expectedDataPoints := int(ta.data[len(ta.data)-1].Timestamp.Sub(ta.data[0].Timestamp).Hours() / 24)
 	completeness := float64(len(ta.data)) / float64(expectedDataPoints) * 100
 	if completeness > 100 {
 		completeness = 100
 	}
-	
+
 	// Calculate largest gap
 	largestGap := time.Duration(0)
 	for i := 1; i < len(ta.data); i++ {
@@ -719,14 +738,14 @@ func (ta *TrendAnalyzer) calculateQualityMetrics() QualityMetrics {
 			largestGap = gap
 		}
 	}
-	
+
 	// Calculate consistency (based on volatility)
 	volatility := ta.analyzeVolatility()
 	consistency := math.Max(0, 100-volatility.StandardDeviation*5)
-	
+
 	// Calculate overall quality score
 	qualityScore := (completeness + consistency) / 2
-	
+
 	// Determine reliability grade
 	reliabilityGrade := "F"
 	switch {
@@ -739,7 +758,7 @@ func (ta *TrendAnalyzer) calculateQualityMetrics() QualityMetrics {
 	case qualityScore >= 60:
 		reliabilityGrade = "D"
 	}
-	
+
 	return QualityMetrics{
 		DataCompleteness:  completeness,
 		DataConsistency:   consistency,
@@ -753,8 +772,8 @@ func (ta *TrendAnalyzer) calculateQualityMetrics() QualityMetrics {
 
 // generateChartData creates chart data for visualization
 func (ta *TrendAnalyzer) generateChartData() *charts.ChartData {
-	var points []charts.DataPoint
-	
+	points := make([]charts.DataPoint, 0, len(ta.data))
+
 	for _, point := range ta.data {
 		chartPoint := charts.DataPoint{
 			Timestamp: point.Timestamp,
@@ -770,21 +789,21 @@ func (ta *TrendAnalyzer) generateChartData() *charts.ChartData {
 		}
 		points = append(points, chartPoint)
 	}
-	
+
 	chartData := &charts.ChartData{
 		Points:     points,
 		Title:      "Coverage Trend Analysis",
 		XAxisLabel: "Time",
 		YAxisLabel: "Coverage (%)",
 	}
-	
+
 	if len(ta.data) > 0 {
 		chartData.TimeRange = charts.TimeRange{
 			Start: ta.data[0].Timestamp,
 			End:   ta.data[len(ta.data)-1].Timestamp,
 		}
 	}
-	
+
 	return chartData
 }
 
@@ -794,11 +813,11 @@ func (ta *TrendAnalyzer) determineDirection(change float64) TrendDirection {
 	if math.Abs(change) < ta.config.SignificantChange {
 		return TrendStable
 	}
-	
+
 	if change > 0 {
 		return TrendUp
 	}
-	
+
 	return TrendDown
 }
 
@@ -819,22 +838,22 @@ func (ta *TrendAnalyzer) determineMomentum(data []AnalysisDataPoint) TrendMoment
 	if len(data) < 3 {
 		return MomentumSteady
 	}
-	
+
 	// Compare recent trend with earlier trend
 	mid := len(data) / 2
 	earlySlope, _ := ta.calculateLinearRegression(data[:mid])
 	recentSlope, _ := ta.calculateLinearRegression(data[mid:])
-	
+
 	slopeDiff := recentSlope - earlySlope
-	
+
 	if math.Abs(slopeDiff) < 0.1 {
 		return MomentumSteady
 	}
-	
+
 	if slopeDiff > 0 {
 		return MomentumAccelerating
 	}
-	
+
 	return MomentumDecelerating
 }
 
@@ -842,7 +861,7 @@ func (ta *TrendAnalyzer) calculateTrendConfidence() float64 {
 	if len(ta.data) < 2 {
 		return 0
 	}
-	
+
 	_, rSquared := ta.calculateLinearRegression(ta.data)
 	return rSquared
 }
@@ -857,14 +876,14 @@ func (ta *TrendAnalyzer) calculateChangeVelocity(data []AnalysisDataPoint) float
 	if len(data) < 2 {
 		return 0
 	}
-	
+
 	totalChange := data[len(data)-1].Coverage - data[0].Coverage
 	timeSpan := data[len(data)-1].Timestamp.Sub(data[0].Timestamp).Hours() / 24
-	
+
 	if timeSpan == 0 {
 		return 0
 	}
-	
+
 	return totalChange / timeSpan // Change per day
 }
 
@@ -890,51 +909,51 @@ func (ta *TrendAnalyzer) calculateQualityGrade(coverage float64) string {
 // generateInsights creates analytical insights based on the trend report
 func (ta *TrendAnalyzer) generateInsights(report *TrendReport) []Insight {
 	var insights []Insight
-	
+
 	// Trend insights
 	if report.Summary.Direction == TrendUp && report.Summary.Magnitude != MagnitudeNegligible {
 		insights = append(insights, Insight{
-			Type:        InsightTrend,
-			Title:       "Positive Coverage Trend",
-			Description: fmt.Sprintf("Coverage has increased by %.1f%% with %s confidence", 
+			Type:  InsightTrend,
+			Title: "Positive Coverage Trend",
+			Description: fmt.Sprintf("Coverage has increased by %.1f%% with %s confidence",
 				report.Summary.Change, report.Summary.Magnitude),
-			Severity:    SeverityInfo,
-			Confidence:  report.Summary.Confidence,
+			Severity:   SeverityInfo,
+			Confidence: report.Summary.Confidence,
 		})
 	}
-	
+
 	if report.Summary.Direction == TrendDown && report.Summary.Magnitude != MagnitudeNegligible {
 		severity := SeverityWarning
 		if report.Summary.Magnitude == MagnitudeSignificant {
 			severity = SeverityCritical
 		}
-		
+
 		insights = append(insights, Insight{
-			Type:        InsightRegression,
-			Title:       "Coverage Regression Detected",
-			Description: fmt.Sprintf("Coverage has decreased by %.1f%% - attention needed", 
+			Type:  InsightRegression,
+			Title: "Coverage Regression Detected",
+			Description: fmt.Sprintf("Coverage has decreased by %.1f%% - attention needed",
 				math.Abs(report.Summary.Change)),
-			Severity:    severity,
-			Confidence:  report.Summary.Confidence,
+			Severity:   severity,
+			Confidence: report.Summary.Confidence,
 		})
 	}
-	
+
 	// Volatility insights
 	if report.Volatility.VolatilityLevel == VolatilityHigh {
 		insights = append(insights, Insight{
-			Type:        InsightAnomaly,
-			Title:       "High Coverage Volatility",
-			Description: fmt.Sprintf("Coverage shows high volatility (σ=%.1f) - consider process improvements", 
+			Type:  InsightAnomaly,
+			Title: "High Coverage Volatility",
+			Description: fmt.Sprintf("Coverage shows high volatility (σ=%.1f) - consider process improvements",
 				report.Volatility.StandardDeviation),
-			Severity:    SeverityWarning,
-			Confidence:  0.9,
+			Severity:   SeverityWarning,
+			Confidence: 0.9,
 		})
 	}
-	
+
 	// Milestone insights
 	currentCoverage := report.Summary.CurrentCoverage
 	milestones := []float64{50, 60, 70, 80, 90, 95}
-	
+
 	for _, milestone := range milestones {
 		if currentCoverage >= milestone && currentCoverage < milestone+5 {
 			insights = append(insights, Insight{
@@ -947,14 +966,14 @@ func (ta *TrendAnalyzer) generateInsights(report *TrendReport) []Insight {
 			break
 		}
 	}
-	
+
 	return insights
 }
 
 // generateRecommendations creates actionable recommendations
 func (ta *TrendAnalyzer) generateRecommendations(report *TrendReport) []Recommendation {
 	var recommendations []Recommendation
-	
+
 	// Coverage improvement recommendations
 	if report.Summary.CurrentCoverage < 80 {
 		recommendations = append(recommendations, Recommendation{
@@ -971,7 +990,7 @@ func (ta *TrendAnalyzer) generateRecommendations(report *TrendReport) []Recommen
 			Timeline:       "2-3 weeks",
 		})
 	}
-	
+
 	// Volatility recommendations
 	if report.Volatility.VolatilityLevel == VolatilityHigh {
 		recommendations = append(recommendations, Recommendation{
@@ -988,7 +1007,7 @@ func (ta *TrendAnalyzer) generateRecommendations(report *TrendReport) []Recommen
 			Timeline:       "1-2 weeks",
 		})
 	}
-	
+
 	// Monitoring recommendations
 	if report.QualityMetrics.QualityScore < 70 {
 		recommendations = append(recommendations, Recommendation{
@@ -1005,7 +1024,7 @@ func (ta *TrendAnalyzer) generateRecommendations(report *TrendReport) []Recommen
 			Timeline:       "1 week",
 		})
 	}
-	
+
 	return recommendations
 }
 
@@ -1017,12 +1036,12 @@ func (ta *TrendAnalyzer) ExportToJSON() ([]byte, error) {
 // GetDataForPeriod returns data points for a specific time period
 func (ta *TrendAnalyzer) GetDataForPeriod(start, end time.Time) []AnalysisDataPoint {
 	var periodData []AnalysisDataPoint
-	
+
 	for _, point := range ta.data {
 		if point.Timestamp.After(start) && point.Timestamp.Before(end) {
 			periodData = append(periodData, point)
 		}
 	}
-	
+
 	return periodData
 }

@@ -12,7 +12,7 @@ import (
 
 // Deployer handles GitHub Pages deployment operations
 type Deployer struct {
-	Config *DeployConfig
+	Config  *DeployConfig
 	Storage *StorageManager
 }
 
@@ -21,16 +21,16 @@ type DeployConfig struct {
 	// Repository settings
 	RepoOwner string
 	RepoName  string
-	
+
 	// Branch settings
 	SourceBranch string
 	PagesBranch  string
-	
+
 	// Deployment settings
 	CommitAuthor string
 	CommitEmail  string
 	RemoteURL    string
-	
+
 	// GitHub token for authentication
 	GitHubToken string
 }
@@ -56,18 +56,18 @@ func NewDeployer(config *DeployConfig, storage *StorageManager) *Deployer {
 // Deploy deploys coverage artifacts to GitHub Pages
 func (d *Deployer) Deploy(ctx context.Context, opts DeploymentOptions) (*DeploymentResult, error) {
 	startTime := time.Now()
-	
+
 	result := &DeploymentResult{
 		Success: false,
 		Message: "",
 	}
-	
+
 	// Validate inputs
 	if err := d.validateDeployment(opts); err != nil {
 		result.Message = fmt.Sprintf("Validation failed: %v", err)
 		return result, err
 	}
-	
+
 	// Prepare deployment workspace
 	tempDir, err := d.prepareWorkspace(ctx, opts)
 	if err != nil {
@@ -75,36 +75,36 @@ func (d *Deployer) Deploy(ctx context.Context, opts DeploymentOptions) (*Deploym
 		return result, err
 	}
 	defer d.cleanupWorkspace(tempDir)
-	
+
 	// Organize artifacts
 	if err := d.organizeArtifacts(ctx, tempDir, opts); err != nil {
 		result.Message = fmt.Sprintf("Failed to organize artifacts: %v", err)
 		return result, err
 	}
-	
+
 	// Update dashboard
 	if err := d.updateDashboard(ctx, tempDir, opts); err != nil {
 		result.Message = fmt.Sprintf("Failed to update dashboard: %v", err)
 		return result, err
 	}
-	
+
 	// Commit and push changes
 	commitSha, err := d.commitAndPush(ctx, tempDir, opts)
 	if err != nil {
 		result.Message = fmt.Sprintf("Failed to commit and push: %v", err)
 		return result, err
 	}
-	
+
 	// Calculate deployment URL
 	deployedURL := d.calculateDeploymentURL(opts)
-	
+
 	result.Success = true
 	result.CommitSha = commitSha
 	result.DeployedURL = deployedURL
 	result.FilesCount = d.countDeployedFiles(tempDir)
 	result.Duration = time.Since(startTime)
 	result.Message = "Deployment completed successfully"
-	
+
 	return result, nil
 }
 
@@ -115,32 +115,32 @@ func (d *Deployer) Setup(ctx context.Context, force bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to check branch existence: %w", err)
 	}
-	
+
 	if exists && !force {
 		return fmt.Errorf("branch %s already exists (use --force to recreate)", d.Config.PagesBranch)
 	}
-	
+
 	// Create orphan gh-pages branch
 	if err := d.createOrphanBranch(ctx); err != nil {
 		return fmt.Errorf("failed to create orphan branch: %w", err)
 	}
-	
+
 	// Initialize directory structure
 	structure, err := d.Storage.InitializeStructure(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to initialize structure: %w", err)
 	}
-	
+
 	// Create initial dashboard
 	if err := d.createInitialDashboard(ctx, structure); err != nil {
 		return fmt.Errorf("failed to create initial dashboard: %w", err)
 	}
-	
+
 	// Initial commit and push
 	if err := d.initialCommitAndPush(ctx); err != nil {
 		return fmt.Errorf("failed to make initial commit: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -163,15 +163,15 @@ func (d *Deployer) validateDeployment(opts DeploymentOptions) error {
 	if opts.Branch == "" && opts.PRNumber == "" {
 		return fmt.Errorf("either branch or PR number must be specified")
 	}
-	
+
 	if opts.InputDir == "" {
 		return fmt.Errorf("input directory is required")
 	}
-	
+
 	if _, err := os.Stat(opts.InputDir); os.IsNotExist(err) {
 		return fmt.Errorf("input directory does not exist: %s", opts.InputDir)
 	}
-	
+
 	return nil
 }
 
@@ -181,63 +181,63 @@ func (d *Deployer) prepareWorkspace(ctx context.Context, opts DeploymentOptions)
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	
+
 	// Clone gh-pages branch to temp directory
 	if err := d.clonePagesBranch(ctx, tempDir); err != nil {
 		os.RemoveAll(tempDir)
 		return "", fmt.Errorf("failed to clone pages branch: %w", err)
 	}
-	
+
 	return tempDir, nil
 }
 
 func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, opts DeploymentOptions) error {
 	var targetPath string
-	
+
 	if opts.PRNumber != "" {
 		// PR-specific deployment
 		targetPath = filepath.Join(workspaceDir, "reports", "pr", sanitizePRNumber(opts.PRNumber))
 		badgeTargetPath := filepath.Join(workspaceDir, "badges", "pr", sanitizePRNumber(opts.PRNumber)+".svg")
-		
+
 		if err := os.MkdirAll(filepath.Dir(badgeTargetPath), 0755); err != nil {
 			return fmt.Errorf("failed to create PR badge directory: %w", err)
 		}
-		
+
 		// TODO: Copy badge file to PR-specific location
 		if opts.BadgeFile != "" {
-			fmt.Printf("Would copy badge from %s to %s\n", opts.BadgeFile, badgeTargetPath)
+			fmt.Printf("Would copy badge from %s to %s\n", opts.BadgeFile, badgeTargetPath) //nolint:forbidigo // TODO stub
 		}
 	} else {
 		// Branch-specific deployment
 		targetPath = filepath.Join(workspaceDir, "reports", sanitizeBranchName(opts.Branch))
 		badgeTargetPath := filepath.Join(workspaceDir, "badges", sanitizeBranchName(opts.Branch)+".svg")
-		
+
 		if err := os.MkdirAll(filepath.Dir(badgeTargetPath), 0755); err != nil {
 			return fmt.Errorf("failed to create branch badge directory: %w", err)
 		}
-		
+
 		// TODO: Copy badge file to branch-specific location
 		if opts.BadgeFile != "" {
-			fmt.Printf("Would copy badge from %s to %s\n", opts.BadgeFile, badgeTargetPath)
+			fmt.Printf("Would copy badge from %s to %s\n", opts.BadgeFile, badgeTargetPath) //nolint:forbidigo // TODO stub
 		}
 	}
-	
+
 	// Ensure target directory exists
 	if err := os.MkdirAll(targetPath, 0755); err != nil {
 		return fmt.Errorf("failed to create target directory: %w", err)
 	}
-	
+
 	// TODO: Copy report files to target location
 	for _, reportFile := range opts.ReportFiles {
-		fmt.Printf("Would copy report from %s to %s\n", reportFile, targetPath)
+		fmt.Printf("Would copy report from %s to %s\n", reportFile, targetPath) //nolint:forbidigo // TODO stub
 	}
-	
+
 	return nil
 }
 
 func (d *Deployer) updateDashboard(ctx context.Context, workspaceDir string, opts DeploymentOptions) error {
 	dashboardPath := filepath.Join(workspaceDir, "index.html")
-	
+
 	// TODO: Generate updated dashboard content with new coverage data
 	// For now, just ensure the dashboard file exists
 	if _, err := os.Stat(dashboardPath); os.IsNotExist(err) {
@@ -247,7 +247,7 @@ func (d *Deployer) updateDashboard(ctx context.Context, workspaceDir string, opt
 			return fmt.Errorf("failed to create dashboard: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -258,31 +258,31 @@ func (d *Deployer) commitAndPush(ctx context.Context, workspaceDir string, opts 
 		return "", fmt.Errorf("failed to get current directory: %w", err)
 	}
 	defer os.Chdir(originalDir)
-	
+
 	if err := os.Chdir(workspaceDir); err != nil {
 		return "", fmt.Errorf("failed to change to workspace directory: %w", err)
 	}
-	
+
 	// Configure git user
 	if err := d.configureGitUser(); err != nil {
 		return "", fmt.Errorf("failed to configure git user: %w", err)
 	}
-	
+
 	// Add all changes
 	if err := d.runGitCommand("add", "."); err != nil {
 		return "", fmt.Errorf("failed to add changes: %w", err)
 	}
-	
+
 	// Check if there are changes to commit
 	hasChanges, err := d.hasChangesToCommit()
 	if err != nil {
 		return "", fmt.Errorf("failed to check for changes: %w", err)
 	}
-	
+
 	if !hasChanges {
 		return "", fmt.Errorf("no changes to commit")
 	}
-	
+
 	// Commit changes
 	commitMessage := opts.Message
 	if commitMessage == "" {
@@ -292,34 +292,34 @@ func (d *Deployer) commitAndPush(ctx context.Context, workspaceDir string, opts 
 			commitMessage = fmt.Sprintf("📊 Update coverage for %s", opts.Branch)
 		}
 	}
-	
+
 	if err := d.runGitCommand("commit", "-m", commitMessage); err != nil {
 		return "", fmt.Errorf("failed to commit changes: %w", err)
 	}
-	
+
 	// Get commit SHA
 	commitSha, err := d.getCommitSha()
 	if err != nil {
 		return "", fmt.Errorf("failed to get commit SHA: %w", err)
 	}
-	
+
 	// Push changes
 	if err := d.runGitCommand("push", "origin", d.Config.PagesBranch); err != nil {
 		return "", fmt.Errorf("failed to push changes: %w", err)
 	}
-	
+
 	return commitSha, nil
 }
 
 func (d *Deployer) calculateDeploymentURL(opts DeploymentOptions) string {
 	baseURL := fmt.Sprintf("https://%s.github.io/%s", d.Config.RepoOwner, d.Config.RepoName)
-	
+
 	if opts.PRNumber != "" {
 		return fmt.Sprintf("%s/reports/pr/%s/", baseURL, sanitizePRNumber(opts.PRNumber))
 	} else if opts.Branch != "" {
 		return fmt.Sprintf("%s/reports/%s/", baseURL, sanitizeBranchName(opts.Branch))
 	}
-	
+
 	return baseURL
 }
 
@@ -403,7 +403,7 @@ func (d *Deployer) createInitialDashboard(ctx context.Context, structure *Storag
 
 func (d *Deployer) initialCommitAndPush(ctx context.Context) error {
 	// TODO: Make initial commit and push
-	fmt.Println("Would make initial commit and push")
+	fmt.Println("Would make initial commit and push") //nolint:forbidigo // TODO stub
 	return nil
 }
 
@@ -415,7 +415,7 @@ func generateBasicDashboard(opts DeploymentOptions) string {
 	} else {
 		target = fmt.Sprintf("branch '%s'", opts.Branch)
 	}
-	
+
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>

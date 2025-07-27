@@ -2,18 +2,30 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/config"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/github"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/history"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/config"
+	"github.com/mrz1836/go-broadcast/coverage/internal/github"
+	"github.com/mrz1836/go-broadcast/coverage/internal/history"
+	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
-var commentCmd = &cobra.Command{
+var (
+	// ErrGitHubTokenRequired indicates that a GitHub token is required but not provided
+	ErrGitHubTokenRequired = errors.New("GitHub token is required")
+	// ErrGitHubOwnerRequired indicates that a GitHub repository owner is required but not provided
+	ErrGitHubOwnerRequired = errors.New("GitHub repository owner is required")
+	// ErrGitHubRepoRequired indicates that a GitHub repository name is required but not provided
+	ErrGitHubRepoRequired  = errors.New("GitHub repository name is required")
+	// ErrPRNumberRequired indicates that a pull request number is required but not provided
+	ErrPRNumberRequired    = errors.New("pull request number is required")
+)
+
+var commentCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "comment",
 	Short: "Create PR coverage comment",
 	Long:  `Create or update pull request comments with coverage information.`,
@@ -31,13 +43,13 @@ var commentCmd = &cobra.Command{
 
 		// Validate GitHub configuration
 		if cfg.GitHub.Token == "" {
-			return fmt.Errorf("GitHub token is required (set GITHUB_TOKEN environment variable)")
+			return ErrGitHubTokenRequired
 		}
 		if cfg.GitHub.Owner == "" {
-			return fmt.Errorf("GitHub repository owner is required (set GITHUB_REPOSITORY_OWNER)")
+			return ErrGitHubOwnerRequired
 		}
 		if cfg.GitHub.Repository == "" {
-			return fmt.Errorf("GitHub repository name is required (set GITHUB_REPOSITORY)")
+			return ErrGitHubRepoRequired
 		}
 
 		// Use PR number from config if not provided
@@ -45,7 +57,7 @@ var commentCmd = &cobra.Command{
 			prNumber = cfg.GitHub.PullRequest
 		}
 		if prNumber == 0 {
-			return fmt.Errorf("pull request number is required")
+			return ErrPRNumberRequired
 		}
 
 		// Set defaults
@@ -70,7 +82,7 @@ var commentCmd = &cobra.Command{
 		}
 
 		// Get trend information if history is enabled
-		var trend string = "stable"
+		var trend = "stable"
 		if cfg.History.Enabled {
 			historyConfig := &history.Config{
 				StoragePath:    cfg.History.StoragePath,
@@ -86,8 +98,8 @@ var commentCmd = &cobra.Command{
 			if branch == "" {
 				branch = "main"
 			}
-			
-			if latest, err := tracker.GetLatestEntry(ctx, branch); err == nil {
+
+			if latest, latestErr := tracker.GetLatestEntry(ctx, branch); latestErr == nil {
 				if coverage.Percentage > latest.Coverage.Percentage {
 					trend = "up"
 				} else if coverage.Percentage < latest.Coverage.Percentage {
@@ -110,14 +122,14 @@ var commentCmd = &cobra.Command{
 		comment := client.GenerateCoverageComment(coverage.Percentage, trend, badgeURL)
 
 		if dryRun {
-			fmt.Printf("Dry run mode - would post the following comment:\n")
-			fmt.Printf("===============================================\n")
-			fmt.Println(comment)
-			fmt.Printf("===============================================\n")
-			fmt.Printf("PR: %d\n", prNumber)
-			fmt.Printf("Repository: %s/%s\n", cfg.GitHub.Owner, cfg.GitHub.Repository)
+			cmd.Printf("Dry run mode - would post the following comment:\n")
+			cmd.Printf("===============================================\n")
+			cmd.Println(comment)
+			cmd.Printf("===============================================\n")
+			cmd.Printf("PR: %d\n", prNumber)
+			cmd.Printf("Repository: %s/%s\n", cfg.GitHub.Owner, cfg.GitHub.Repository)
 			if createStatus {
-				fmt.Printf("Would also create commit status on: %s\n", cfg.GitHub.CommitSHA)
+				cmd.Printf("Would also create commit status on: %s\n", cfg.GitHub.CommitSHA)
 			}
 			return nil
 		}
@@ -131,9 +143,9 @@ var commentCmd = &cobra.Command{
 			return fmt.Errorf("failed to create PR comment: %w", err)
 		}
 
-		fmt.Printf("Coverage comment posted successfully!\n")
-		fmt.Printf("Comment ID: %d\n", result.ID)
-		fmt.Printf("Coverage: %.2f%% (%s trend)\n", coverage.Percentage, trend)
+		cmd.Printf("Coverage comment posted successfully!\n")
+		cmd.Printf("Comment ID: %d\n", result.ID)
+		cmd.Printf("Coverage: %.2f%% (%s trend)\n", coverage.Percentage, trend)
 
 		// Create commit status if requested
 		if createStatus && cfg.GitHub.CommitSHA != "" {
@@ -145,7 +157,7 @@ var commentCmd = &cobra.Command{
 				description = fmt.Sprintf("Coverage: %.2f%% ✅", coverage.Percentage)
 			} else {
 				state = github.StatusFailure
-				description = fmt.Sprintf("Coverage: %.2f%% (below %.2f%% threshold)", 
+				description = fmt.Sprintf("Coverage: %.2f%% (below %.2f%% threshold)",
 					coverage.Percentage, cfg.Coverage.Threshold)
 			}
 
@@ -158,9 +170,9 @@ var commentCmd = &cobra.Command{
 
 			err = client.CreateStatus(ctx, cfg.GitHub.Owner, cfg.GitHub.Repository, cfg.GitHub.CommitSHA, statusReq)
 			if err != nil {
-				fmt.Printf("Warning: failed to create commit status: %v\n", err)
+				cmd.Printf("Warning: failed to create commit status: %v\n", err)
 			} else {
-				fmt.Printf("Commit status created: %s\n", state)
+				cmd.Printf("Commit status created: %s\n", state)
 			}
 		}
 
@@ -168,7 +180,7 @@ var commentCmd = &cobra.Command{
 	},
 }
 
-func init() {
+func init() { //nolint:revive // function naming
 	commentCmd.Flags().IntP("pr", "p", 0, "Pull request number (defaults to GITHUB_PR_NUMBER)")
 	commentCmd.Flags().StringP("coverage", "c", "", "Coverage data file")
 	commentCmd.Flags().String("badge-url", "", "Badge URL (auto-generated if not provided)")

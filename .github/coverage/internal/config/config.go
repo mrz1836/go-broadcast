@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -9,122 +10,131 @@ import (
 	"time"
 )
 
+// Static error definitions
+var (
+	ErrInvalidCoverageThreshold = errors.New("coverage threshold must be between 0 and 100")
+	ErrEmptyCoverageInput       = errors.New("coverage input file cannot be empty")
+	ErrMissingGitHubToken       = errors.New("GitHub token is required for GitHub integration")
+	ErrMissingGitHubOwner       = errors.New("GitHub repository owner is required")
+	ErrMissingGitHubRepo        = errors.New("GitHub repository name is required")
+)
+
 // Config holds the main configuration for the coverage system
 type Config struct {
 	// Coverage settings
-	Coverage    CoverageConfig    `json:"coverage"`
-	// GitHub integration settings  
-	GitHub      GitHubConfig      `json:"github"`
+	Coverage CoverageConfig `json:"coverage"`
+	// GitHub integration settings
+	GitHub GitHubConfig `json:"github"`
 	// Badge generation settings
-	Badge       BadgeConfig       `json:"badge"`
+	Badge BadgeConfig `json:"badge"`
 	// Report generation settings
-	Report      ReportConfig      `json:"report"`
+	Report ReportConfig `json:"report"`
 	// History tracking settings
-	History     HistoryConfig     `json:"history"`
+	History HistoryConfig `json:"history"`
 	// Storage settings
-	Storage     StorageConfig     `json:"storage"`
+	Storage StorageConfig `json:"storage"`
 }
 
 // CoverageConfig holds coverage analysis settings
 type CoverageConfig struct {
 	// Input coverage file path
-	InputFile       string   `json:"input_file"`
+	InputFile string `json:"input_file"`
 	// Output directory for generated files
-	OutputDir       string   `json:"output_dir"`
+	OutputDir string `json:"output_dir"`
 	// Minimum coverage threshold
-	Threshold       float64  `json:"threshold"`
+	Threshold float64 `json:"threshold"`
 	// Paths to exclude from coverage
-	ExcludePaths    []string `json:"exclude_paths"`
+	ExcludePaths []string `json:"exclude_paths"`
 	// File patterns to exclude
-	ExcludeFiles    []string `json:"exclude_files"`
+	ExcludeFiles []string `json:"exclude_files"`
 	// Whether to exclude test files
-	ExcludeTests    bool     `json:"exclude_tests"`
+	ExcludeTests bool `json:"exclude_tests"`
 	// Whether to exclude generated files
-	ExcludeGenerated bool    `json:"exclude_generated"`
+	ExcludeGenerated bool `json:"exclude_generated"`
 }
 
 // GitHubConfig holds GitHub integration settings
 type GitHubConfig struct {
 	// GitHub API token
-	Token           string        `json:"token"`
+	Token string `json:"token"`
 	// Repository owner
-	Owner           string        `json:"owner"`
+	Owner string `json:"owner"`
 	// Repository name
-	Repository      string        `json:"repository"`
+	Repository string `json:"repository"`
 	// Pull request number (0 if not in PR context)
-	PullRequest     int           `json:"pull_request"`
+	PullRequest int `json:"pull_request"`
 	// Commit SHA
-	CommitSHA       string        `json:"commit_sha"`
+	CommitSHA string `json:"commit_sha"`
 	// Whether to post PR comments
-	PostComments    bool          `json:"post_comments"`
+	PostComments bool `json:"post_comments"`
 	// Whether to create commit statuses
-	CreateStatuses  bool          `json:"create_statuses"`
+	CreateStatuses bool `json:"create_statuses"`
 	// API timeout
-	Timeout         time.Duration `json:"timeout"`
+	Timeout time.Duration `json:"timeout"`
 }
 
 // BadgeConfig holds badge generation settings
 type BadgeConfig struct {
 	// Badge style (flat, flat-square, for-the-badge)
-	Style           string `json:"style"`
+	Style string `json:"style"`
 	// Label text
-	Label           string `json:"label"`
+	Label string `json:"label"`
 	// Logo URL
-	Logo            string `json:"logo"`
+	Logo string `json:"logo"`
 	// Logo color
-	LogoColor       string `json:"logo_color"`
+	LogoColor string `json:"logo_color"`
 	// Output file path
-	OutputFile      string `json:"output_file"`
+	OutputFile string `json:"output_file"`
 	// Whether to generate trend badge
-	IncludeTrend    bool   `json:"include_trend"`
+	IncludeTrend bool `json:"include_trend"`
 }
 
 // ReportConfig holds HTML report generation settings
 type ReportConfig struct {
 	// Output file path
-	OutputFile      string `json:"output_file"`
+	OutputFile string `json:"output_file"`
 	// Report title
-	Title           string `json:"title"`
+	Title string `json:"title"`
 	// Theme (github-dark, light, etc.)
-	Theme           string `json:"theme"`
+	Theme string `json:"theme"`
 	// Whether to show package breakdown
-	ShowPackages    bool   `json:"show_packages"`
+	ShowPackages bool `json:"show_packages"`
 	// Whether to show file breakdown
-	ShowFiles       bool   `json:"show_files"`
+	ShowFiles bool `json:"show_files"`
 	// Whether to show missing lines
-	ShowMissing     bool   `json:"show_missing"`
+	ShowMissing bool `json:"show_missing"`
 	// Whether to enable responsive design
-	Responsive      bool   `json:"responsive"`
+	Responsive bool `json:"responsive"`
 	// Whether to include interactive features
-	Interactive     bool   `json:"interactive"`
+	Interactive bool `json:"interactive"`
 }
 
 // HistoryConfig holds history tracking settings
 type HistoryConfig struct {
 	// Whether to enable history tracking
-	Enabled         bool          `json:"enabled"`
+	Enabled bool `json:"enabled"`
 	// Storage path for history files
-	StoragePath     string        `json:"storage_path"`
+	StoragePath string `json:"storage_path"`
 	// Number of days to retain history
-	RetentionDays   int           `json:"retention_days"`
+	RetentionDays int `json:"retention_days"`
 	// Maximum number of entries to keep
-	MaxEntries      int           `json:"max_entries"`
+	MaxEntries int `json:"max_entries"`
 	// Whether to enable automatic cleanup
-	AutoCleanup     bool          `json:"auto_cleanup"`
+	AutoCleanup bool `json:"auto_cleanup"`
 	// Whether to enable detailed metrics
-	MetricsEnabled  bool          `json:"metrics_enabled"`
+	MetricsEnabled bool `json:"metrics_enabled"`
 }
 
 // StorageConfig holds storage settings
 type StorageConfig struct {
 	// Base directory for all coverage files
-	BaseDir         string `json:"base_dir"`
+	BaseDir string `json:"base_dir"`
 	// Whether to create directories automatically
-	AutoCreate      bool   `json:"auto_create"`
+	AutoCreate bool `json:"auto_create"`
 	// File permissions for created files
-	FileMode        os.FileMode `json:"file_mode"`
+	FileMode os.FileMode `json:"file_mode"`
 	// Directory permissions for created directories
-	DirMode         os.FileMode `json:"dir_mode"`
+	DirMode os.FileMode `json:"dir_mode"`
 }
 
 // Load loads configuration from environment variables with defaults
@@ -178,8 +188,8 @@ func Load() *Config {
 		Storage: StorageConfig{
 			BaseDir:    getEnvString("COVERAGE_BASE_DIR", ".github/coverage"),
 			AutoCreate: getEnvBool("COVERAGE_AUTO_CREATE_DIRS", true),
-			FileMode:   os.FileMode(getEnvInt("COVERAGE_FILE_MODE", int(0644))),
-			DirMode:    os.FileMode(getEnvInt("COVERAGE_DIR_MODE", int(0755))),
+			FileMode:   os.FileMode(getEnvInt("COVERAGE_FILE_MODE", int(0600))), //nolint:gosec // Default permissions
+			DirMode:    os.FileMode(getEnvInt("COVERAGE_DIR_MODE", int(0750))), //nolint:gosec // Default permissions
 		},
 	}
 
@@ -190,23 +200,23 @@ func Load() *Config {
 func (c *Config) Validate() error {
 	// Validate coverage settings
 	if c.Coverage.Threshold < 0 || c.Coverage.Threshold > 100 {
-		return fmt.Errorf("coverage threshold must be between 0 and 100, got: %.1f", c.Coverage.Threshold)
+		return fmt.Errorf("%w, got: %.1f", ErrInvalidCoverageThreshold, c.Coverage.Threshold)
 	}
 
 	if c.Coverage.InputFile == "" {
-		return fmt.Errorf("coverage input file cannot be empty")
+		return ErrEmptyCoverageInput
 	}
 
 	// Validate GitHub settings if GitHub integration is enabled
 	if c.GitHub.PostComments || c.GitHub.CreateStatuses {
 		if c.GitHub.Token == "" {
-			return fmt.Errorf("GitHub token is required for GitHub integration")
+			return ErrMissingGitHubToken
 		}
 		if c.GitHub.Owner == "" {
-			return fmt.Errorf("GitHub repository owner is required")
+			return ErrMissingGitHubOwner
 		}
 		if c.GitHub.Repository == "" {
-			return fmt.Errorf("GitHub repository name is required")
+			return ErrMissingGitHubRepo
 		}
 	}
 
@@ -250,7 +260,7 @@ func (c *Config) GetBadgeURL() string {
 	if c.GitHub.Owner == "" || c.GitHub.Repository == "" {
 		return ""
 	}
-	return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/main/%s/%s", 
+	return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/main/%s/%s",
 		c.GitHub.Owner, c.GitHub.Repository, c.Storage.BaseDir, c.Badge.OutputFile)
 }
 
@@ -259,7 +269,7 @@ func (c *Config) GetReportURL() string {
 	if c.GitHub.Owner == "" || c.GitHub.Repository == "" {
 		return ""
 	}
-	return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/main/%s/%s", 
+	return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/main/%s/%s",
 		c.GitHub.Owner, c.GitHub.Repository, c.Storage.BaseDir, c.Report.OutputFile)
 }
 

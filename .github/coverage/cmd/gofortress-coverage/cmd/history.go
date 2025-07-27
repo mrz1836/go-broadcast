@@ -4,17 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/config"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/history"
-	"github.com/mrz1836/go-broadcast/.github/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/config"
+	"github.com/mrz1836/go-broadcast/coverage/internal/history"
+	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
-var historyCmd = &cobra.Command{
+var historyCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "history",
 	Short: "Manage coverage history",
 	Long:  `Manage historical coverage data for trend analysis and tracking.`,
@@ -35,11 +34,11 @@ var historyCmd = &cobra.Command{
 
 		// Create history tracker
 		historyConfig := &history.Config{
-			StoragePath:      cfg.History.StoragePath,
-			RetentionDays:    cfg.History.RetentionDays,
-			MaxEntries:       cfg.History.MaxEntries,
-			AutoCleanup:      cfg.History.AutoCleanup,
-			MetricsEnabled:   cfg.History.MetricsEnabled,
+			StoragePath:    cfg.History.StoragePath,
+			RetentionDays:  cfg.History.RetentionDays,
+			MaxEntries:     cfg.History.MaxEntries,
+			AutoCleanup:    cfg.History.AutoCleanup,
+			MetricsEnabled: cfg.History.MetricsEnabled,
 		}
 		tracker := history.NewWithConfig(historyConfig)
 
@@ -48,20 +47,20 @@ var historyCmd = &cobra.Command{
 		// Handle different operations
 		switch {
 		case inputFile != "":
-			return addToHistory(ctx, tracker, inputFile, branch, commit, commitURL, cfg)
+			return addToHistory(ctx, tracker, inputFile, branch, commit, commitURL, cfg, cmd)
 		case showTrend:
-			return showTrendData(ctx, tracker, branch, days, format)
+			return showTrendData(ctx, tracker, branch, days, format, cmd)
 		case showStats:
-			return showStatistics(ctx, tracker, format)
+			return showStatistics(ctx, tracker, format, cmd)
 		case cleanup:
-			return cleanupHistory(ctx, tracker)
+			return cleanupHistory(ctx, tracker, cmd)
 		default:
-			return showLatestEntry(ctx, tracker, branch, format)
+			return showLatestEntry(ctx, tracker, branch, format, cmd)
 		}
 	},
 }
 
-func addToHistory(ctx context.Context, tracker *history.Tracker, inputFile, branch, commit, commitURL string, cfg *config.Config) error {
+func addToHistory(ctx context.Context, tracker *history.Tracker, inputFile, branch, commit, commitURL string, cfg *config.Config, cmd *cobra.Command) error { //nolint:revive // function naming
 	// Parse coverage data
 	p := parser.New()
 	coverage, err := p.ParseFile(ctx, inputFile)
@@ -97,16 +96,16 @@ func addToHistory(ctx context.Context, tracker *history.Tracker, inputFile, bran
 		return fmt.Errorf("failed to record coverage in history: %w", err)
 	}
 
-	fmt.Printf("Coverage recorded successfully!\n")
-	fmt.Printf("Branch: %s\n", branch)
-	fmt.Printf("Commit: %s\n", commit)
-	fmt.Printf("Coverage: %.2f%% (%d/%d lines)\n", 
+	cmd.Printf("Coverage recorded successfully!\n")
+	cmd.Printf("Branch: %s\n", branch)
+	cmd.Printf("Commit: %s\n", commit)
+	cmd.Printf("Coverage: %.2f%% (%d/%d lines)\n",
 		coverage.Percentage, coverage.CoveredLines, coverage.TotalLines)
 
 	return nil
 }
 
-func showTrendData(ctx context.Context, tracker *history.Tracker, branch string, days int, format string) error {
+func showTrendData(ctx context.Context, tracker *history.Tracker, branch string, days int, format string, cmd *cobra.Command) error { //nolint:revive // function naming
 	if branch == "" {
 		branch = "main"
 	}
@@ -129,38 +128,38 @@ func showTrendData(ctx context.Context, tracker *history.Tracker, branch string,
 		if err != nil {
 			return fmt.Errorf("failed to marshal trend data: %w", err)
 		}
-		fmt.Println(string(data))
+		cmd.Println(string(data))
 	default:
-		fmt.Printf("Coverage Trend Analysis\n")
-		fmt.Printf("======================\n")
-		fmt.Printf("Branch: %s\n", branch)
-		fmt.Printf("Period: %d days\n", days)
-		fmt.Printf("Total Entries: %d\n", trendData.Summary.TotalEntries)
-		
+		cmd.Printf("Coverage Trend Analysis\n")
+		cmd.Printf("======================\n")
+		cmd.Printf("Branch: %s\n", branch)
+		cmd.Printf("Period: %d days\n", days)
+		cmd.Printf("Total Entries: %d\n", trendData.Summary.TotalEntries)
+
 		if trendData.Summary.TotalEntries > 0 {
-			fmt.Printf("Average Coverage: %.2f%%\n", trendData.Summary.AveragePercentage)
-			fmt.Printf("Min Coverage: %.2f%%\n", trendData.Summary.MinPercentage)
-			fmt.Printf("Max Coverage: %.2f%%\n", trendData.Summary.MaxPercentage)
-			fmt.Printf("Current Trend: %s\n", trendData.Summary.CurrentTrend)
-			
+			cmd.Printf("Average Coverage: %.2f%%\n", trendData.Summary.AveragePercentage)
+			cmd.Printf("Min Coverage: %.2f%%\n", trendData.Summary.MinPercentage)
+			cmd.Printf("Max Coverage: %.2f%%\n", trendData.Summary.MaxPercentage)
+			cmd.Printf("Current Trend: %s\n", trendData.Summary.CurrentTrend)
+
 			if trendData.Analysis.Volatility > 0 {
-				fmt.Printf("Volatility: %.2f\n", trendData.Analysis.Volatility)
+				cmd.Printf("Volatility: %.2f\n", trendData.Analysis.Volatility)
 			}
 			if trendData.Analysis.Momentum != 0 {
-				fmt.Printf("Momentum: %.2f\n", trendData.Analysis.Momentum)
+				cmd.Printf("Momentum: %.2f\n", trendData.Analysis.Momentum)
 			}
-			
+
 			if trendData.Analysis.Prediction != nil {
-				fmt.Printf("\nPrediction:\n")
+				cmd.Printf("\nPrediction:\n")
 				if pred := trendData.Analysis.Prediction.NextWeek; pred != nil {
-					fmt.Printf("  Next Week: %.2f%% (%.2f-%.2f)\n", 
+					cmd.Printf("  Next Week: %.2f%% (%.2f-%.2f)\n",
 						pred.Percentage, pred.Range.Min, pred.Range.Max)
 				}
 				if pred := trendData.Analysis.Prediction.NextMonth; pred != nil {
-					fmt.Printf("  Next Month: %.2f%% (%.2f-%.2f)\n", 
+					cmd.Printf("  Next Month: %.2f%% (%.2f-%.2f)\n",
 						pred.Percentage, pred.Range.Min, pred.Range.Max)
 				}
-				fmt.Printf("  Confidence: %.1f%%\n", trendData.Analysis.Prediction.Confidence)
+				cmd.Printf("  Confidence: %.1f%%\n", trendData.Analysis.Prediction.Confidence)
 			}
 		}
 	}
@@ -168,7 +167,7 @@ func showTrendData(ctx context.Context, tracker *history.Tracker, branch string,
 	return nil
 }
 
-func showStatistics(ctx context.Context, tracker *history.Tracker, format string) error {
+func showStatistics(ctx context.Context, tracker *history.Tracker, format string, cmd *cobra.Command) error { //nolint:revive // function naming
 	stats, err := tracker.GetStatistics(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get statistics: %w", err)
@@ -180,30 +179,30 @@ func showStatistics(ctx context.Context, tracker *history.Tracker, format string
 		if err != nil {
 			return fmt.Errorf("failed to marshal statistics: %w", err)
 		}
-		fmt.Println(string(data))
+		cmd.Println(string(data))
 	default:
-		fmt.Printf("Coverage History Statistics\n")
-		fmt.Printf("===========================\n")
-		fmt.Printf("Total Entries: %d\n", stats.TotalEntries)
-		fmt.Printf("Storage Size: %d bytes\n", stats.StorageSize)
-		
+		cmd.Printf("Coverage History Statistics\n")
+		cmd.Printf("===========================\n")
+		cmd.Printf("Total Entries: %d\n", stats.TotalEntries)
+		cmd.Printf("Storage Size: %d bytes\n", stats.StorageSize)
+
 		if stats.TotalEntries > 0 {
-			fmt.Printf("Date Range: %s to %s\n", 
-				stats.OldestEntry.Format("2006-01-02"), 
+			cmd.Printf("Date Range: %s to %s\n",
+				stats.OldestEntry.Format("2006-01-02"),
 				stats.NewestEntry.Format("2006-01-02"))
 		}
-		
+
 		if len(stats.UniqueProjects) > 0 {
-			fmt.Printf("\nProjects:\n")
+			cmd.Printf("\nProjects:\n")
 			for project, count := range stats.UniqueProjects {
-				fmt.Printf("  %s: %d entries\n", project, count)
+				cmd.Printf("  %s: %d entries\n", project, count)
 			}
 		}
-		
+
 		if len(stats.UniqueBranches) > 0 {
-			fmt.Printf("\nBranches:\n")
+			cmd.Printf("\nBranches:\n")
 			for branch, count := range stats.UniqueBranches {
-				fmt.Printf("  %s: %d entries\n", branch, count)
+				cmd.Printf("  %s: %d entries\n", branch, count)
 			}
 		}
 	}
@@ -211,17 +210,17 @@ func showStatistics(ctx context.Context, tracker *history.Tracker, format string
 	return nil
 }
 
-func cleanupHistory(ctx context.Context, tracker *history.Tracker) error {
+func cleanupHistory(ctx context.Context, tracker *history.Tracker, cmd *cobra.Command) error { //nolint:revive // function naming
 	err := tracker.Cleanup(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to cleanup history: %w", err)
 	}
 
-	fmt.Println("History cleanup completed successfully!")
+	cmd.Println("History cleanup completed successfully!")
 	return nil
 }
 
-func showLatestEntry(ctx context.Context, tracker *history.Tracker, branch, format string) error {
+func showLatestEntry(ctx context.Context, tracker *history.Tracker, branch, format string, cmd *cobra.Command) error { //nolint:revive // function naming
 	if branch == "" {
 		branch = "main"
 	}
@@ -237,20 +236,20 @@ func showLatestEntry(ctx context.Context, tracker *history.Tracker, branch, form
 		if err != nil {
 			return fmt.Errorf("failed to marshal entry: %w", err)
 		}
-		fmt.Println(string(data))
+		cmd.Println(string(data))
 	default:
-		fmt.Printf("Latest Coverage Entry\n")
-		fmt.Printf("====================\n")
-		fmt.Printf("Branch: %s\n", entry.Branch)
-		fmt.Printf("Commit: %s\n", entry.CommitSHA)
-		fmt.Printf("Timestamp: %s\n", entry.Timestamp.Format(time.RFC3339))
-		fmt.Printf("Coverage: %.2f%% (%d/%d lines)\n", 
+		cmd.Printf("Latest Coverage Entry\n")
+		cmd.Printf("====================\n")
+		cmd.Printf("Branch: %s\n", entry.Branch)
+		cmd.Printf("Commit: %s\n", entry.CommitSHA)
+		cmd.Printf("Timestamp: %s\n", entry.Timestamp.Format(time.RFC3339))
+		cmd.Printf("Coverage: %.2f%% (%d/%d lines)\n",
 			entry.Coverage.Percentage, entry.Coverage.CoveredLines, entry.Coverage.TotalLines)
-		
+
 		if len(entry.Metadata) > 0 {
-			fmt.Printf("\nMetadata:\n")
+			cmd.Printf("\nMetadata:\n")
 			for key, value := range entry.Metadata {
-				fmt.Printf("  %s: %s\n", key, value)
+				cmd.Printf("  %s: %s\n", key, value)
 			}
 		}
 	}
@@ -258,7 +257,7 @@ func showLatestEntry(ctx context.Context, tracker *history.Tracker, branch, form
 	return nil
 }
 
-func init() {
+func init() { //nolint:revive // function naming
 	historyCmd.Flags().StringP("add", "a", "", "Add coverage data file to history")
 	historyCmd.Flags().StringP("branch", "b", "", "Branch name (defaults to main)")
 	historyCmd.Flags().StringP("commit", "c", "", "Commit SHA")

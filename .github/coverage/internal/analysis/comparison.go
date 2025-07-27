@@ -24,16 +24,16 @@ type ComparisonConfig struct {
 	// Significance thresholds
 	SignificantPercentageChange float64 // Threshold for significant percentage change
 	SignificantLineChange       int     // Threshold for significant line count change
-	
+
 	// File analysis settings
-	AnalyzeFileChanges          bool    // Whether to analyze individual file changes
-	MaxFilesToAnalyze           int     // Maximum number of files to analyze in detail
-	IgnoreTestFiles             bool    // Whether to ignore test files in analysis
-	
+	AnalyzeFileChanges bool // Whether to analyze individual file changes
+	MaxFilesToAnalyze  int  // Maximum number of files to analyze in detail
+	IgnoreTestFiles    bool // Whether to ignore test files in analysis
+
 	// Trend analysis settings
-	EnableTrendAnalysis         bool    // Whether to perform trend analysis
-	TrendHistoryDays            int     // Number of days of history to consider for trends
-	
+	EnableTrendAnalysis bool // Whether to perform trend analysis
+	TrendHistoryDays    int  // Number of days of history to consider for trends
+
 	// Quality thresholds
 	ExcellentCoverageThreshold  float64 // Threshold for excellent coverage
 	GoodCoverageThreshold       float64 // Threshold for good coverage
@@ -42,13 +42,13 @@ type ComparisonConfig struct {
 
 // CoverageSnapshot represents a coverage snapshot for comparison
 type CoverageSnapshot struct {
-	Branch           string                 `json:"branch"`
-	CommitSHA        string                 `json:"commit_sha"`
-	Timestamp        time.Time              `json:"timestamp"`
-	OverallCoverage  CoverageMetrics        `json:"overall_coverage"`
-	FileCoverage     map[string]FileMetrics `json:"file_coverage"`
-	PackageCoverage  map[string]PackageMetrics `json:"package_coverage"`
-	TestMetadata     TestMetadata           `json:"test_metadata"`
+	Branch          string                    `json:"branch"`
+	CommitSHA       string                    `json:"commit_sha"`
+	Timestamp       time.Time                 `json:"timestamp"`
+	OverallCoverage CoverageMetrics           `json:"overall_coverage"`
+	FileCoverage    map[string]FileMetrics    `json:"file_coverage"`
+	PackageCoverage map[string]PackageMetrics `json:"package_coverage"`
+	TestMetadata    TestMetadata              `json:"test_metadata"`
 }
 
 // CoverageMetrics represents overall coverage metrics
@@ -72,10 +72,10 @@ type FileMetrics struct {
 	UncoveredLines    []int    `json:"uncovered_lines"`
 	Functions         []string `json:"functions"`
 	IsTestFile        bool     `json:"is_test_file"`
-	LinesAdded        int      `json:"lines_added"`        // For PR analysis
-	LinesRemoved      int      `json:"lines_removed"`      // For PR analysis
-	IsNewFile         bool     `json:"is_new_file"`        // For PR analysis
-	IsModified        bool     `json:"is_modified"`        // For PR analysis
+	LinesAdded        int      `json:"lines_added"`   // For PR analysis
+	LinesRemoved      int      `json:"lines_removed"` // For PR analysis
+	IsNewFile         bool     `json:"is_new_file"`   // For PR analysis
+	IsModified        bool     `json:"is_modified"`   // For PR analysis
 }
 
 // PackageMetrics represents coverage metrics for a package
@@ -89,120 +89,120 @@ type PackageMetrics struct {
 
 // TestMetadata represents metadata about test execution
 type TestMetadata struct {
-	TestDuration      time.Duration `json:"test_duration"`
-	TestCount         int           `json:"test_count"`
-	FailedTests       int           `json:"failed_tests"`
-	SkippedTests      int           `json:"skipped_tests"`
-	BenchmarkCount    int           `json:"benchmark_count"`
+	TestDuration   time.Duration `json:"test_duration"`
+	TestCount      int           `json:"test_count"`
+	FailedTests    int           `json:"failed_tests"`
+	SkippedTests   int           `json:"skipped_tests"`
+	BenchmarkCount int           `json:"benchmark_count"`
 }
 
 // ComparisonResult represents the result of comparing two coverage snapshots
 type ComparisonResult struct {
-	BaseSnapshot      CoverageSnapshot     `json:"base_snapshot"`
-	PRSnapshot        CoverageSnapshot     `json:"pr_snapshot"`
-	OverallChange     OverallChangeAnalysis `json:"overall_change"`
-	FileChanges       []FileChangeAnalysis  `json:"file_changes"`
+	BaseSnapshot      CoverageSnapshot        `json:"base_snapshot"`
+	PRSnapshot        CoverageSnapshot        `json:"pr_snapshot"`
+	OverallChange     OverallChangeAnalysis   `json:"overall_change"`
+	FileChanges       []FileChangeAnalysis    `json:"file_changes"`
 	PackageChanges    []PackageChangeAnalysis `json:"package_changes"`
-	TrendAnalysis     TrendAnalysis        `json:"trend_analysis"`
-	QualityAssessment QualityAssessment    `json:"quality_assessment"`
-	Recommendations   []Recommendation     `json:"recommendations"`
-	Summary           ComparisonSummary    `json:"summary"`
+	TrendAnalysis     TrendAnalysis           `json:"trend_analysis"`
+	QualityAssessment QualityAssessment       `json:"quality_assessment"`
+	Recommendations   []Recommendation        `json:"recommendations"`
+	Summary           ComparisonSummary       `json:"summary"`
 }
 
 // OverallChangeAnalysis represents analysis of overall coverage change
 type OverallChangeAnalysis struct {
-	PercentageChange      float64 `json:"percentage_change"`
-	StatementChange       int     `json:"statement_change"`
-	CoveredStatementChange int    `json:"covered_statement_change"`
-	Direction             string  `json:"direction"`    // "improved", "degraded", "stable"
-	Magnitude             string  `json:"magnitude"`    // "significant", "moderate", "minor", "negligible"
-	IsSignificant         bool    `json:"is_significant"`
+	PercentageChange       float64 `json:"percentage_change"`
+	StatementChange        int     `json:"statement_change"`
+	CoveredStatementChange int     `json:"covered_statement_change"`
+	Direction              string  `json:"direction"` // "improved", "degraded", "stable"
+	Magnitude              string  `json:"magnitude"` // "significant", "moderate", "minor", "negligible"
+	IsSignificant          bool    `json:"is_significant"`
 }
 
 // FileChangeAnalysis represents analysis of file-level coverage changes
 type FileChangeAnalysis struct {
-	Filename              string  `json:"filename"`
-	BasePercentage        float64 `json:"base_percentage"`
-	PRPercentage          float64 `json:"pr_percentage"`
-	PercentageChange      float64 `json:"percentage_change"`
-	StatementChange       int     `json:"statement_change"`
-	CoveredStatementChange int    `json:"covered_statement_change"`
-	Direction             string  `json:"direction"`
-	Magnitude             string  `json:"magnitude"`
-	IsSignificant         bool    `json:"is_significant"`
-	IsNewFile             bool    `json:"is_new_file"`
-	IsDeleted             bool    `json:"is_deleted"`
-	LinesAdded            int     `json:"lines_added"`
-	LinesRemoved          int     `json:"lines_removed"`
-	Risk                  string  `json:"risk"`         // "high", "medium", "low"
+	Filename               string  `json:"filename"`
+	BasePercentage         float64 `json:"base_percentage"`
+	PRPercentage           float64 `json:"pr_percentage"`
+	PercentageChange       float64 `json:"percentage_change"`
+	StatementChange        int     `json:"statement_change"`
+	CoveredStatementChange int     `json:"covered_statement_change"`
+	Direction              string  `json:"direction"`
+	Magnitude              string  `json:"magnitude"`
+	IsSignificant          bool    `json:"is_significant"`
+	IsNewFile              bool    `json:"is_new_file"`
+	IsDeleted              bool    `json:"is_deleted"`
+	LinesAdded             int     `json:"lines_added"`
+	LinesRemoved           int     `json:"lines_removed"`
+	Risk                   string  `json:"risk"` // "high", "medium", "low"
 }
 
 // PackageChangeAnalysis represents analysis of package-level coverage changes
 type PackageChangeAnalysis struct {
-	Package               string  `json:"package"`
-	BasePercentage        float64 `json:"base_percentage"`
-	PRPercentage          float64 `json:"pr_percentage"`
-	PercentageChange      float64 `json:"percentage_change"`
-	FileCount             int     `json:"file_count"`
-	Direction             string  `json:"direction"`
-	IsSignificant         bool    `json:"is_significant"`
+	Package          string  `json:"package"`
+	BasePercentage   float64 `json:"base_percentage"`
+	PRPercentage     float64 `json:"pr_percentage"`
+	PercentageChange float64 `json:"percentage_change"`
+	FileCount        int     `json:"file_count"`
+	Direction        string  `json:"direction"`
+	IsSignificant    bool    `json:"is_significant"`
 }
 
 // TrendAnalysis represents trend analysis based on historical data
 type TrendAnalysis struct {
-	Direction             string    `json:"direction"`        // "upward", "downward", "stable", "volatile"
-	Momentum              string    `json:"momentum"`         // "accelerating", "steady", "decelerating"
-	Volatility            float64   `json:"volatility"`       // Standard deviation of recent changes
-	Prediction            Prediction `json:"prediction"`      // Predicted future trend
-	HistoricalContext     HistoricalContext `json:"historical_context"`
+	Direction         string            `json:"direction"`  // "upward", "downward", "stable", "volatile"
+	Momentum          string            `json:"momentum"`   // "accelerating", "steady", "decelerating"
+	Volatility        float64           `json:"volatility"` // Standard deviation of recent changes
+	Prediction        Prediction        `json:"prediction"` // Predicted future trend
+	HistoricalContext HistoricalContext `json:"historical_context"`
 }
 
 // Prediction represents predicted coverage trends
 type Prediction struct {
-	NextCoverage          float64   `json:"next_coverage"`
-	Confidence            float64   `json:"confidence"`
-	TimeHorizon           string    `json:"time_horizon"`
-	PredictionModel       string    `json:"prediction_model"`
+	NextCoverage    float64 `json:"next_coverage"`
+	Confidence      float64 `json:"confidence"`
+	TimeHorizon     string  `json:"time_horizon"`
+	PredictionModel string  `json:"prediction_model"`
 }
 
 // HistoricalContext provides context based on historical data
 type HistoricalContext struct {
-	AverageCoverage       float64   `json:"average_coverage"`
-	BestCoverage          float64   `json:"best_coverage"`
-	WorstCoverage         float64   `json:"worst_coverage"`
-	TrendStartDate        time.Time `json:"trend_start_date"`
-	DataPoints            int       `json:"data_points"`
+	AverageCoverage float64   `json:"average_coverage"`
+	BestCoverage    float64   `json:"best_coverage"`
+	WorstCoverage   float64   `json:"worst_coverage"`
+	TrendStartDate  time.Time `json:"trend_start_date"`
+	DataPoints      int       `json:"data_points"`
 }
 
 // QualityAssessment represents overall quality assessment
 type QualityAssessment struct {
-	OverallGrade          string    `json:"overall_grade"`    // "A+", "A", "B+", "B", "C", "D", "F"
-	CoverageGrade         string    `json:"coverage_grade"`
-	TrendGrade            string    `json:"trend_grade"`
-	RiskLevel             string    `json:"risk_level"`       // "low", "medium", "high", "critical"
-	QualityScore          float64   `json:"quality_score"`    // 0-100
-	Strengths             []string  `json:"strengths"`
-	Weaknesses            []string  `json:"weaknesses"`
+	OverallGrade  string   `json:"overall_grade"` // "A+", "A", "B+", "B", "C", "D", "F"
+	CoverageGrade string   `json:"coverage_grade"`
+	TrendGrade    string   `json:"trend_grade"`
+	RiskLevel     string   `json:"risk_level"`    // "low", "medium", "high", "critical"
+	QualityScore  float64  `json:"quality_score"` // 0-100
+	Strengths     []string `json:"strengths"`
+	Weaknesses    []string `json:"weaknesses"`
 }
 
 // Recommendation represents actionable recommendations
 type Recommendation struct {
-	Type                  string    `json:"type"`             // "coverage", "testing", "refactoring", "process"
-	Priority              string    `json:"priority"`         // "high", "medium", "low"
-	Title                 string    `json:"title"`
-	Description           string    `json:"description"`
-	ActionItems           []string  `json:"action_items"`
-	EstimatedEffort       string    `json:"estimated_effort"` // "low", "medium", "high"
-	ExpectedImpact        string    `json:"expected_impact"`  // "high", "medium", "low"
+	Type            string   `json:"type"`     // "coverage", "testing", "refactoring", "process"
+	Priority        string   `json:"priority"` // "high", "medium", "low"
+	Title           string   `json:"title"`
+	Description     string   `json:"description"`
+	ActionItems     []string `json:"action_items"`
+	EstimatedEffort string   `json:"estimated_effort"` // "low", "medium", "high"
+	ExpectedImpact  string   `json:"expected_impact"`  // "high", "medium", "low"
 }
 
 // ComparisonSummary provides a high-level summary
 type ComparisonSummary struct {
-	OverallImpact         string    `json:"overall_impact"`   // "positive", "negative", "neutral"
-	KeyChanges            []string  `json:"key_changes"`
-	CriticalIssues        []string  `json:"critical_issues"`
-	Highlights            []string  `json:"highlights"`
-	NextSteps             []string  `json:"next_steps"`
+	OverallImpact  string   `json:"overall_impact"` // "positive", "negative", "neutral"
+	KeyChanges     []string `json:"key_changes"`
+	CriticalIssues []string `json:"critical_issues"`
+	Highlights     []string `json:"highlights"`
+	NextSteps      []string `json:"next_steps"`
 }
 
 // NewComparisonEngine creates a new comparison engine with configuration
@@ -215,13 +215,13 @@ func NewComparisonEngine(config *ComparisonConfig) *ComparisonEngine {
 			MaxFilesToAnalyze:           50,
 			IgnoreTestFiles:             false,
 			EnableTrendAnalysis:         true,
-			TrendHistoryDays:           30,
+			TrendHistoryDays:            30,
 			ExcellentCoverageThreshold:  90.0,
 			GoodCoverageThreshold:       80.0,
 			AcceptableCoverageThreshold: 70.0,
 		}
 	}
-	
+
 	return &ComparisonEngine{
 		config: config,
 	}
@@ -233,32 +233,32 @@ func (e *ComparisonEngine) CompareCoverage(ctx context.Context, baseSnapshot, pr
 		BaseSnapshot: *baseSnapshot,
 		PRSnapshot:   *prSnapshot,
 	}
-	
+
 	// Analyze overall changes
 	result.OverallChange = e.analyzeOverallChange(baseSnapshot, prSnapshot)
-	
+
 	// Analyze file-level changes
 	if e.config.AnalyzeFileChanges {
 		result.FileChanges = e.analyzeFileChanges(baseSnapshot, prSnapshot)
 	}
-	
+
 	// Analyze package-level changes
 	result.PackageChanges = e.analyzePackageChanges(baseSnapshot, prSnapshot)
-	
+
 	// Perform trend analysis if enabled
 	if e.config.EnableTrendAnalysis {
 		result.TrendAnalysis = e.analyzeTrends(baseSnapshot, prSnapshot)
 	}
-	
+
 	// Generate quality assessment
 	result.QualityAssessment = e.generateQualityAssessment(prSnapshot, &result.OverallChange, result.FileChanges)
-	
+
 	// Generate recommendations
 	result.Recommendations = e.generateRecommendations(result)
-	
+
 	// Generate summary
 	result.Summary = e.generateSummary(result)
-	
+
 	return result, nil
 }
 
@@ -267,17 +267,17 @@ func (e *ComparisonEngine) analyzeOverallChange(base, pr *CoverageSnapshot) Over
 	percentageChange := pr.OverallCoverage.Percentage - base.OverallCoverage.Percentage
 	statementChange := pr.OverallCoverage.TotalStatements - base.OverallCoverage.TotalStatements
 	coveredChange := pr.OverallCoverage.CoveredStatements - base.OverallCoverage.CoveredStatements
-	
+
 	direction := "stable"
 	if percentageChange > 0.1 {
 		direction = "improved"
 	} else if percentageChange < -0.1 {
 		direction = "degraded"
 	}
-	
+
 	magnitude := e.calculateMagnitude(math.Abs(percentageChange))
 	isSignificant := math.Abs(percentageChange) >= e.config.SignificantPercentageChange
-	
+
 	return OverallChangeAnalysis{
 		PercentageChange:       percentageChange,
 		StatementChange:        statementChange,
@@ -290,19 +290,19 @@ func (e *ComparisonEngine) analyzeOverallChange(base, pr *CoverageSnapshot) Over
 
 // analyzeFileChanges analyzes coverage changes at the file level
 func (e *ComparisonEngine) analyzeFileChanges(base, pr *CoverageSnapshot) []FileChangeAnalysis {
-	var changes []FileChangeAnalysis
-	
+	changes := make([]FileChangeAnalysis, 0, len(base.FileCoverage)+len(pr.FileCoverage))
+
 	// Create maps for efficient lookup
 	baseFiles := make(map[string]FileMetrics)
 	for filename, metrics := range base.FileCoverage {
 		baseFiles[filename] = metrics
 	}
-	
+
 	prFiles := make(map[string]FileMetrics)
 	for filename, metrics := range pr.FileCoverage {
 		prFiles[filename] = metrics
 	}
-	
+
 	// Analyze all files present in either snapshot
 	allFiles := make(map[string]bool)
 	for filename := range baseFiles {
@@ -311,21 +311,21 @@ func (e *ComparisonEngine) analyzeFileChanges(base, pr *CoverageSnapshot) []File
 	for filename := range prFiles {
 		allFiles[filename] = true
 	}
-	
+
 	for filename := range allFiles {
 		if e.config.IgnoreTestFiles && e.isTestFile(filename) {
 			continue
 		}
-		
+
 		baseMetrics, existsInBase := baseFiles[filename]
 		prMetrics, existsInPR := prFiles[filename]
-		
+
 		change := FileChangeAnalysis{
-			Filename:    filename,
-			IsNewFile:   !existsInBase && existsInPR,
-			IsDeleted:   existsInBase && !existsInPR,
+			Filename:  filename,
+			IsNewFile: !existsInBase && existsInPR,
+			IsDeleted: existsInBase && !existsInPR,
 		}
-		
+
 		if change.IsNewFile {
 			change.PRPercentage = prMetrics.Percentage
 			change.PercentageChange = prMetrics.Percentage
@@ -349,7 +349,7 @@ func (e *ComparisonEngine) analyzeFileChanges(base, pr *CoverageSnapshot) []File
 			change.CoveredStatementChange = prMetrics.CoveredStatements - baseMetrics.CoveredStatements
 			change.LinesAdded = prMetrics.LinesAdded
 			change.LinesRemoved = prMetrics.LinesRemoved
-			
+
 			if change.PercentageChange > 0.1 {
 				change.Direction = "improved"
 			} else if change.PercentageChange < -0.1 {
@@ -358,16 +358,16 @@ func (e *ComparisonEngine) analyzeFileChanges(base, pr *CoverageSnapshot) []File
 				change.Direction = "stable"
 			}
 		}
-		
+
 		change.Magnitude = e.calculateMagnitude(math.Abs(change.PercentageChange))
 		change.IsSignificant = math.Abs(change.PercentageChange) >= e.config.SignificantPercentageChange ||
 			math.Abs(float64(change.StatementChange)) >= float64(e.config.SignificantLineChange)
-		
+
 		change.Risk = e.calculateRisk(change)
-		
+
 		changes = append(changes, change)
 	}
-	
+
 	// Sort by significance and percentage change
 	sort.Slice(changes, func(i, j int) bool {
 		if changes[i].IsSignificant != changes[j].IsSignificant {
@@ -375,30 +375,30 @@ func (e *ComparisonEngine) analyzeFileChanges(base, pr *CoverageSnapshot) []File
 		}
 		return math.Abs(changes[i].PercentageChange) > math.Abs(changes[j].PercentageChange)
 	})
-	
+
 	// Limit the number of changes to analyze
 	if len(changes) > e.config.MaxFilesToAnalyze {
 		changes = changes[:e.config.MaxFilesToAnalyze]
 	}
-	
+
 	return changes
 }
 
 // analyzePackageChanges analyzes coverage changes at the package level
 func (e *ComparisonEngine) analyzePackageChanges(base, pr *CoverageSnapshot) []PackageChangeAnalysis {
-	var changes []PackageChangeAnalysis
-	
+	changes := make([]PackageChangeAnalysis, 0, len(base.PackageCoverage)+len(pr.PackageCoverage))
+
 	// Create maps for efficient lookup
 	basePackages := make(map[string]PackageMetrics)
 	for packageName, metrics := range base.PackageCoverage {
 		basePackages[packageName] = metrics
 	}
-	
+
 	prPackages := make(map[string]PackageMetrics)
 	for packageName, metrics := range pr.PackageCoverage {
 		prPackages[packageName] = metrics
 	}
-	
+
 	// Analyze all packages
 	allPackages := make(map[string]bool)
 	for packageName := range basePackages {
@@ -407,26 +407,26 @@ func (e *ComparisonEngine) analyzePackageChanges(base, pr *CoverageSnapshot) []P
 	for packageName := range prPackages {
 		allPackages[packageName] = true
 	}
-	
+
 	for packageName := range allPackages {
 		baseMetrics, existsInBase := basePackages[packageName]
 		prMetrics, existsInPR := prPackages[packageName]
-		
+
 		if !existsInBase || !existsInPR {
 			continue // Skip packages that don't exist in both snapshots
 		}
-		
+
 		percentageChange := prMetrics.Percentage - baseMetrics.Percentage
-		
+
 		direction := "stable"
 		if percentageChange > 0.1 {
 			direction = "improved"
 		} else if percentageChange < -0.1 {
 			direction = "degraded"
 		}
-		
+
 		isSignificant := math.Abs(percentageChange) >= e.config.SignificantPercentageChange
-		
+
 		change := PackageChangeAnalysis{
 			Package:          packageName,
 			BasePercentage:   baseMetrics.Percentage,
@@ -436,10 +436,10 @@ func (e *ComparisonEngine) analyzePackageChanges(base, pr *CoverageSnapshot) []P
 			Direction:        direction,
 			IsSignificant:    isSignificant,
 		}
-		
+
 		changes = append(changes, change)
 	}
-	
+
 	// Sort by significance and percentage change
 	sort.Slice(changes, func(i, j int) bool {
 		if changes[i].IsSignificant != changes[j].IsSignificant {
@@ -447,7 +447,7 @@ func (e *ComparisonEngine) analyzePackageChanges(base, pr *CoverageSnapshot) []P
 		}
 		return math.Abs(changes[i].PercentageChange) > math.Abs(changes[j].PercentageChange)
 	})
-	
+
 	return changes
 }
 
@@ -455,12 +455,12 @@ func (e *ComparisonEngine) analyzePackageChanges(base, pr *CoverageSnapshot) []P
 func (e *ComparisonEngine) analyzeTrends(base, pr *CoverageSnapshot) TrendAnalysis {
 	// This is a simplified implementation
 	// In a full implementation, this would analyze historical data
-	
+
 	percentageChange := pr.OverallCoverage.Percentage - base.OverallCoverage.Percentage
-	
+
 	direction := "stable"
 	momentum := "steady"
-	
+
 	if percentageChange > 1.0 {
 		direction = "upward"
 		momentum = "accelerating"
@@ -468,16 +468,16 @@ func (e *ComparisonEngine) analyzeTrends(base, pr *CoverageSnapshot) TrendAnalys
 		direction = "downward"
 		momentum = "accelerating"
 	}
-	
+
 	volatility := math.Abs(percentageChange) // Simplified volatility calculation
-	
+
 	prediction := Prediction{
 		NextCoverage:    pr.OverallCoverage.Percentage + (percentageChange * 0.5),
 		Confidence:      0.7,
 		TimeHorizon:     "1 week",
 		PredictionModel: "linear",
 	}
-	
+
 	historicalContext := HistoricalContext{
 		AverageCoverage: (base.OverallCoverage.Percentage + pr.OverallCoverage.Percentage) / 2,
 		BestCoverage:    math.Max(base.OverallCoverage.Percentage, pr.OverallCoverage.Percentage),
@@ -485,7 +485,7 @@ func (e *ComparisonEngine) analyzeTrends(base, pr *CoverageSnapshot) TrendAnalys
 		TrendStartDate:  base.Timestamp,
 		DataPoints:      2,
 	}
-	
+
 	return TrendAnalysis{
 		Direction:         direction,
 		Momentum:          momentum,
@@ -498,25 +498,25 @@ func (e *ComparisonEngine) analyzeTrends(base, pr *CoverageSnapshot) TrendAnalys
 // generateQualityAssessment generates a quality assessment
 func (e *ComparisonEngine) generateQualityAssessment(pr *CoverageSnapshot, overallChange *OverallChangeAnalysis, fileChanges []FileChangeAnalysis) QualityAssessment {
 	coverage := pr.OverallCoverage.Percentage
-	
+
 	// Calculate coverage grade
 	coverageGrade := e.calculateCoverageGrade(coverage)
-	
+
 	// Calculate trend grade
 	trendGrade := e.calculateTrendGrade(overallChange)
-	
+
 	// Calculate overall grade (weighted average)
 	overallGrade := e.calculateOverallGrade(coverageGrade, trendGrade)
-	
+
 	// Calculate risk level
 	riskLevel := e.calculateRiskLevel(coverage, overallChange, fileChanges)
-	
+
 	// Calculate quality score (0-100)
 	qualityScore := e.calculateQualityScore(coverage, overallChange)
-	
+
 	// Identify strengths and weaknesses
 	strengths, weaknesses := e.identifyStrengthsAndWeaknesses(coverage, overallChange, fileChanges)
-	
+
 	return QualityAssessment{
 		OverallGrade:  overallGrade,
 		CoverageGrade: coverageGrade,
@@ -531,9 +531,9 @@ func (e *ComparisonEngine) generateQualityAssessment(pr *CoverageSnapshot, overa
 // generateRecommendations generates actionable recommendations
 func (e *ComparisonEngine) generateRecommendations(result *ComparisonResult) []Recommendation {
 	var recommendations []Recommendation
-	
+
 	coverage := result.PRSnapshot.OverallCoverage.Percentage
-	
+
 	// Coverage recommendations
 	if coverage < e.config.AcceptableCoverageThreshold {
 		recommendations = append(recommendations, Recommendation{
@@ -550,7 +550,7 @@ func (e *ComparisonEngine) generateRecommendations(result *ComparisonResult) []R
 			ExpectedImpact:  "high",
 		})
 	}
-	
+
 	// File-specific recommendations
 	highRiskFiles := 0
 	for _, fileChange := range result.FileChanges {
@@ -558,7 +558,7 @@ func (e *ComparisonEngine) generateRecommendations(result *ComparisonResult) []R
 			highRiskFiles++
 		}
 	}
-	
+
 	if highRiskFiles > 0 {
 		recommendations = append(recommendations, Recommendation{
 			Type:        "testing",
@@ -574,7 +574,7 @@ func (e *ComparisonEngine) generateRecommendations(result *ComparisonResult) []R
 			ExpectedImpact:  "medium",
 		})
 	}
-	
+
 	// Trend recommendations
 	if result.OverallChange.Direction == "degraded" && result.OverallChange.IsSignificant {
 		recommendations = append(recommendations, Recommendation{
@@ -591,7 +591,7 @@ func (e *ComparisonEngine) generateRecommendations(result *ComparisonResult) []R
 			ExpectedImpact:  "high",
 		})
 	}
-	
+
 	return recommendations
 }
 
@@ -601,60 +601,61 @@ func (e *ComparisonEngine) generateSummary(result *ComparisonResult) ComparisonS
 	var criticalIssues []string
 	var highlights []string
 	var nextSteps []string
-	
+
 	// Overall impact
 	overallImpact := "neutral"
 	if result.OverallChange.IsSignificant {
-		if result.OverallChange.Direction == "improved" {
+		switch result.OverallChange.Direction {
+		case "improved":
 			overallImpact = "positive"
-		} else if result.OverallChange.Direction == "degraded" {
+		case "degraded":
 			overallImpact = "negative"
 		}
 	}
-	
+
 	// Key changes
 	if result.OverallChange.IsSignificant {
-		keyChanges = append(keyChanges, fmt.Sprintf("Overall coverage %s by %.1f%%", 
+		keyChanges = append(keyChanges, fmt.Sprintf("Overall coverage %s by %.1f%%",
 			result.OverallChange.Direction, math.Abs(result.OverallChange.PercentageChange)))
 	}
-	
+
 	significantFileChanges := 0
 	for _, fileChange := range result.FileChanges {
 		if fileChange.IsSignificant {
 			significantFileChanges++
 		}
 	}
-	
+
 	if significantFileChanges > 0 {
 		keyChanges = append(keyChanges, fmt.Sprintf("%d files with significant coverage changes", significantFileChanges))
 	}
-	
+
 	// Critical issues
 	coverage := result.PRSnapshot.OverallCoverage.Percentage
 	if coverage < e.config.AcceptableCoverageThreshold {
 		criticalIssues = append(criticalIssues, fmt.Sprintf("Coverage %.1f%% below acceptable threshold", coverage))
 	}
-	
+
 	if result.OverallChange.Direction == "degraded" && result.OverallChange.IsSignificant {
 		criticalIssues = append(criticalIssues, "Significant coverage regression detected")
 	}
-	
+
 	// Highlights
 	if coverage >= e.config.ExcellentCoverageThreshold {
 		highlights = append(highlights, "Excellent overall coverage maintained")
 	}
-	
+
 	if result.OverallChange.Direction == "improved" && result.OverallChange.IsSignificant {
 		highlights = append(highlights, "Significant coverage improvement achieved")
 	}
-	
+
 	// Next steps
 	for _, rec := range result.Recommendations {
 		if rec.Priority == "high" {
 			nextSteps = append(nextSteps, rec.Title)
 		}
 	}
-	
+
 	return ComparisonSummary{
 		OverallImpact:  overallImpact,
 		KeyChanges:     keyChanges,
@@ -670,18 +671,18 @@ func (e *ComparisonEngine) LoadCoverageSnapshot(ctx context.Context, filePath st
 	if err != nil {
 		return nil, fmt.Errorf("failed to open coverage file: %w", err)
 	}
-	defer file.Close()
-	
+	defer func() { _ = file.Close() }()
+
 	data, err := io.ReadAll(file)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read coverage file: %w", err)
 	}
-	
+
 	var snapshot CoverageSnapshot
 	if err := json.Unmarshal(data, &snapshot); err != nil {
 		return nil, fmt.Errorf("failed to parse coverage snapshot: %w", err)
 	}
-	
+
 	return &snapshot, nil
 }
 
@@ -691,17 +692,17 @@ func (e *ComparisonEngine) SaveComparisonResult(ctx context.Context, result *Com
 	if err != nil {
 		return fmt.Errorf("failed to marshal comparison result: %w", err)
 	}
-	
+
 	// Ensure directory exists
 	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
-	
+
 	if err := os.WriteFile(filePath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write comparison result: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -765,7 +766,7 @@ func (e *ComparisonEngine) calculateOverallGrade(coverageGrade, trendGrade strin
 
 func (e *ComparisonEngine) calculateRiskLevel(coverage float64, change *OverallChangeAnalysis, fileChanges []FileChangeAnalysis) string {
 	riskScore := 0
-	
+
 	if coverage < 60 {
 		riskScore += 3
 	} else if coverage < 70 {
@@ -773,24 +774,24 @@ func (e *ComparisonEngine) calculateRiskLevel(coverage float64, change *OverallC
 	} else if coverage < 80 {
 		riskScore += 1
 	}
-	
+
 	if change.Direction == "degraded" && change.IsSignificant {
 		riskScore += 2
 	}
-	
+
 	highRiskFiles := 0
 	for _, fileChange := range fileChanges {
 		if fileChange.Risk == "high" {
 			highRiskFiles++
 		}
 	}
-	
+
 	if highRiskFiles > 5 {
 		riskScore += 2
 	} else if highRiskFiles > 2 {
 		riskScore += 1
 	}
-	
+
 	if riskScore >= 5 {
 		return "critical"
 	} else if riskScore >= 3 {
@@ -803,73 +804,73 @@ func (e *ComparisonEngine) calculateRiskLevel(coverage float64, change *OverallC
 
 func (e *ComparisonEngine) calculateQualityScore(coverage float64, change *OverallChangeAnalysis) float64 {
 	score := coverage // Start with coverage percentage
-	
+
 	// Adjust based on trend
 	if change.Direction == "improved" && change.IsSignificant {
 		score += 5
 	} else if change.Direction == "degraded" && change.IsSignificant {
 		score -= 10
 	}
-	
+
 	// Cap at 100
 	if score > 100 {
 		score = 100
 	} else if score < 0 {
 		score = 0
 	}
-	
+
 	return score
 }
 
 func (e *ComparisonEngine) identifyStrengthsAndWeaknesses(coverage float64, change *OverallChangeAnalysis, fileChanges []FileChangeAnalysis) ([]string, []string) {
 	var strengths []string
 	var weaknesses []string
-	
+
 	// Strengths
 	if coverage >= e.config.ExcellentCoverageThreshold {
 		strengths = append(strengths, "Excellent overall coverage")
 	}
-	
+
 	if change.Direction == "improved" {
 		strengths = append(strengths, "Coverage trend is improving")
 	}
-	
+
 	goodFiles := 0
 	for _, fileChange := range fileChanges {
 		if fileChange.PRPercentage >= 80 {
 			goodFiles++
 		}
 	}
-	
+
 	if goodFiles > len(fileChanges)/2 {
 		strengths = append(strengths, "Majority of files have good coverage")
 	}
-	
+
 	// Weaknesses
 	if coverage < e.config.AcceptableCoverageThreshold {
 		weaknesses = append(weaknesses, "Overall coverage below acceptable threshold")
 	}
-	
+
 	if change.Direction == "degraded" && change.IsSignificant {
 		weaknesses = append(weaknesses, "Significant coverage regression")
 	}
-	
+
 	poorFiles := 0
 	for _, fileChange := range fileChanges {
 		if fileChange.PRPercentage < 50 {
 			poorFiles++
 		}
 	}
-	
+
 	if poorFiles > 0 {
 		weaknesses = append(weaknesses, fmt.Sprintf("%d files with poor coverage", poorFiles))
 	}
-	
+
 	return strengths, weaknesses
 }
 
 func (e *ComparisonEngine) isTestFile(filename string) bool {
-	return strings.HasSuffix(filename, "_test.go") || 
-		   strings.Contains(filename, "/test/") ||
-		   strings.Contains(filename, "/tests/")
+	return strings.HasSuffix(filename, "_test.go") ||
+		strings.Contains(filename, "/test/") ||
+		strings.Contains(filename, "/tests/")
 }
