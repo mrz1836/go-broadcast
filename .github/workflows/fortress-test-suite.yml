@@ -360,15 +360,14 @@ jobs:
       - name: 📈 Upload coverage
         if: inputs.code-coverage-enabled == 'true'
         uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
-        env:
-          CODECOV_LEGACY: true # Force legacy upload format
         with:
           fail_ci_if_error: true
           flags: unittests
           token: ${{ secrets.codecov-token }}
           verbose: true
-          file: coverage.txt # Explicitly specify the file (deprecated but still works)
-          files: coverage.txt # Ensure it matches the file we generated
+          files: coverage.txt # Specify the coverage file
+          use_legacy_upload_endpoint: true # Use legacy endpoint for plain text format
+          disable_network: true # Don't upload network files list
           disable_file_fixes: true # Prevent automatic modifications
 
       # ————————————————————————————————————————————————————————————————
