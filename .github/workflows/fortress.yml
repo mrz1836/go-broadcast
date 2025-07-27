@@ -44,7 +44,10 @@ on:
 # Permissions
 # ————————————————————————————————————————————————————————————————
 permissions:
-  contents: read
+  contents: write      # For releases and GitHub Pages deployment
+  pages: write         # For GitHub Pages deployment (coverage reports)
+  pull-requests: write # For PR comments (coverage reports)
+  id-token: write      # For GitHub Pages deployment
 
 # ————————————————————————————————————————————————————————————————
 # Concurrency Control
