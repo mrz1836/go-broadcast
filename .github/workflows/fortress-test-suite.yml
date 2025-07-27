@@ -51,7 +51,10 @@ on:
         required: true
 
 permissions:
-  contents: read
+  contents: read        # Read repository contents
+  pages: write         # Deploy to GitHub Pages
+  pull-requests: write # Comment on PRs
+  id-token: write      # GitHub Pages deployment
 
 jobs:
   # ----------------------------------------------------------------------------------
