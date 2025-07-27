@@ -13,7 +13,7 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/types"
 )
 
-func TestNewSlackChannel(t *testing.T) { //nolint:revive // function naming
+func TestNewSlackChannel(t *testing.T) {
 	config := &types.SlackConfig{
 		WebhookURL: "https://hooks.slack.com/test",
 		Channel:    "#coverage",
@@ -29,7 +29,7 @@ func TestNewSlackChannel(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestSlackChannelSend(t *testing.T) { //nolint:revive // function naming
+func TestSlackChannelSend(t *testing.T) {
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
@@ -104,7 +104,7 @@ func TestSlackChannelSend(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestSlackChannelValidateConfig(t *testing.T) { //nolint:revive // function naming
+func TestSlackChannelValidateConfig(t *testing.T) {
 	tests := []struct {
 		name      string
 		config    *types.SlackConfig
@@ -153,21 +153,21 @@ func TestSlackChannelValidateConfig(t *testing.T) { //nolint:revive // function 
 	}
 }
 
-func TestSlackChannelGetChannelType(t *testing.T) { //nolint:revive // function naming
+func TestSlackChannelGetChannelType(t *testing.T) {
 	channel := NewSlackChannel(&types.SlackConfig{})
 	if channel.GetChannelType() != types.ChannelSlack {
 		t.Errorf("Expected channel type %v, got %v", types.ChannelSlack, channel.GetChannelType())
 	}
 }
 
-func TestSlackChannelSupportsRichContent(t *testing.T) { //nolint:revive // function naming
+func TestSlackChannelSupportsRichContent(t *testing.T) {
 	channel := NewSlackChannel(&types.SlackConfig{})
 	if !channel.SupportsRichContent() {
 		t.Error("Slack channel should support rich content")
 	}
 }
 
-func TestBuildSlackMessage(t *testing.T) { //nolint:revive // function naming
+func TestBuildSlackMessage(t *testing.T) {
 	config := &types.SlackConfig{
 		Channel:  "#coverage",
 		Username: "coverage-bot",
@@ -244,7 +244,7 @@ func TestBuildSlackMessage(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestBuildSlackAttachment(t *testing.T) { //nolint:revive // function naming
+func TestBuildSlackAttachment(t *testing.T) {
 	channel := NewSlackChannel(&types.SlackConfig{})
 
 	notification := &types.Notification{
@@ -287,7 +287,7 @@ func TestBuildSlackAttachment(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGetSeverityColor(t *testing.T) { //nolint:revive // function naming
+func TestGetSeverityColor(t *testing.T) {
 	channel := NewSlackChannel(&types.SlackConfig{})
 
 	tests := []struct {
@@ -310,7 +310,7 @@ func TestGetSeverityColor(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestFormatCoverageChange(t *testing.T) { //nolint:revive // function naming
+func TestFormatCoverageChange(t *testing.T) {
 	tests := []struct {
 		name     string
 		change   float64
@@ -331,7 +331,7 @@ func TestFormatCoverageChange(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestIsValidSlackWebhookURL(t *testing.T) { //nolint:revive // function naming
+func TestIsValidSlackWebhookURL(t *testing.T) {
 	tests := []struct {
 		url   string
 		valid bool
@@ -354,7 +354,7 @@ func TestIsValidSlackWebhookURL(t *testing.T) { //nolint:revive // function nami
 	}
 }
 
-func TestSlackChannelWithCustomConfig(t *testing.T) { //nolint:revive // function naming
+func TestSlackChannelWithCustomConfig(t *testing.T) {
 	config := &types.SlackConfig{
 		WebhookURL: "https://hooks.slack.com/test",
 		Channel:    "#custom-channel",
@@ -386,7 +386,7 @@ func TestSlackChannelWithCustomConfig(t *testing.T) { //nolint:revive // functio
 	}
 }
 
-func TestSlackChannelErrorHandling(t *testing.T) { //nolint:revive // function naming
+func TestSlackChannelErrorHandling(t *testing.T) {
 	// Create server that returns error
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -421,7 +421,7 @@ func TestSlackChannelErrorHandling(t *testing.T) { //nolint:revive // function n
 	}
 }
 
-func TestSlackChannelWithRichContent(t *testing.T) { //nolint:revive // function naming
+func TestSlackChannelWithRichContent(t *testing.T) {
 	config := &types.SlackConfig{
 		WebhookURL: "https://hooks.slack.com/test",
 		Channel:    "#test",
@@ -450,7 +450,7 @@ func TestSlackChannelWithRichContent(t *testing.T) { //nolint:revive // function
 	}
 }
 
-func BenchmarkSlackChannelSend(b *testing.B) { //nolint:revive // function naming
+func BenchmarkSlackChannelSend(b *testing.B) {
 	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -485,7 +485,7 @@ func BenchmarkSlackChannelSend(b *testing.B) { //nolint:revive // function namin
 	}
 }
 
-func BenchmarkBuildSlackMessage(b *testing.B) { //nolint:revive // function naming
+func BenchmarkBuildSlackMessage(b *testing.B) {
 	config := &types.SlackConfig{
 		Channel:  "#test",
 		Username: "bot",

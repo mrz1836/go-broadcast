@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoad(t *testing.T) { //nolint:revive // function naming
+func TestLoad(t *testing.T) {
 	// Clear any existing environment variables
 	clearEnvironment()
 	defer clearEnvironment()
@@ -70,7 +70,7 @@ func TestLoad(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, os.FileMode(0o755), config.Storage.DirMode)
 }
 
-func TestLoadWithEnvironmentVariables(t *testing.T) { //nolint:revive // function naming
+func TestLoadWithEnvironmentVariables(t *testing.T) {
 	clearEnvironment()
 	defer clearEnvironment()
 
@@ -170,11 +170,11 @@ func TestLoadWithEnvironmentVariables(t *testing.T) { //nolint:revive // functio
 	// Test storage settings
 	assert.Equal(t, "/tmp/base", config.Storage.BaseDir)
 	assert.False(t, config.Storage.AutoCreate)
-	assert.Equal(t, os.FileMode(0600), config.Storage.FileMode)
-	assert.Equal(t, os.FileMode(0700), config.Storage.DirMode)
+	assert.Equal(t, os.FileMode(0o600), config.Storage.FileMode)
+	assert.Equal(t, os.FileMode(0o700), config.Storage.DirMode)
 }
 
-func TestValidate(t *testing.T) { //nolint:revive // function naming
+func TestValidate(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      *Config
@@ -382,7 +382,7 @@ func TestValidate(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestIsGitHubContext(t *testing.T) { //nolint:revive // function naming
+func TestIsGitHubContext(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
@@ -442,7 +442,7 @@ func TestIsGitHubContext(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestIsPullRequestContext(t *testing.T) { //nolint:revive // function naming
+func TestIsPullRequestContext(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
@@ -494,7 +494,7 @@ func TestIsPullRequestContext(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGetBadgeURL(t *testing.T) { //nolint:revive // function naming
+func TestGetBadgeURL(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
@@ -546,7 +546,7 @@ func TestGetBadgeURL(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGetReportURL(t *testing.T) { //nolint:revive // function naming
+func TestGetReportURL(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
@@ -598,7 +598,7 @@ func TestGetReportURL(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestEnvironmentHelpers(t *testing.T) { //nolint:revive // function naming
+func TestEnvironmentHelpers(t *testing.T) {
 	clearEnvironment()
 	defer clearEnvironment()
 
@@ -673,7 +673,7 @@ func TestEnvironmentHelpers(t *testing.T) { //nolint:revive // function naming
 	})
 }
 
-func TestGetRepositoryFromEnv(t *testing.T) { //nolint:revive // function naming
+func TestGetRepositoryFromEnv(t *testing.T) {
 	clearEnvironment()
 	defer clearEnvironment()
 
@@ -698,7 +698,7 @@ func TestGetRepositoryFromEnv(t *testing.T) { //nolint:revive // function naming
 	})
 }
 
-func TestContainsHelper(t *testing.T) { //nolint:revive // function naming
+func TestContainsHelper(t *testing.T) {
 	tests := []struct {
 		name     string
 		slice    []string
@@ -739,7 +739,7 @@ func TestContainsHelper(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGitHubActionsIntegration(t *testing.T) { //nolint:revive // function naming
+func TestGitHubActionsIntegration(t *testing.T) {
 	clearEnvironment()
 	defer clearEnvironment()
 
@@ -769,7 +769,7 @@ func TestGitHubActionsIntegration(t *testing.T) { //nolint:revive // function na
 	assert.Equal(t, expectedReportURL, config.GetReportURL())
 }
 
-func TestConfigurationEdgeCases(t *testing.T) { //nolint:revive // function naming
+func TestConfigurationEdgeCases(t *testing.T) {
 	t.Run("all GitHub integration disabled", func(t *testing.T) {
 		config := &Config{
 			Coverage: CoverageConfig{
@@ -861,7 +861,7 @@ func TestConfigurationEdgeCases(t *testing.T) { //nolint:revive // function nami
 }
 
 // Helper function to clear environment variables
-func clearEnvironment() { //nolint:revive // function naming
+func clearEnvironment() {
 	envVars := []string{
 		"COVERAGE_INPUT_FILE", "COVERAGE_OUTPUT_DIR", "COVERAGE_THRESHOLD",
 		"COVERAGE_EXCLUDE_PATHS", "COVERAGE_EXCLUDE_FILES", "COVERAGE_EXCLUDE_TESTS", "COVERAGE_EXCLUDE_GENERATED",

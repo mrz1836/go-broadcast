@@ -2,7 +2,6 @@ package pages
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -152,15 +151,8 @@ func (sm *StorageManager) OrganizeArtifacts(ctx context.Context, opts ArtifactOp
 	// 3. Update API endpoints with new data
 	// 4. Refresh dashboard with latest information
 
-	if opts.PRNumber != "" {
-		fmt.Printf("Organizing PR #%s artifacts:\n", opts.PRNumber) //nolint:forbidigo // TODO: remove debug print
-		fmt.Printf("  Badge: %s\n", structure.PRBadgePath)          //nolint:forbidigo // TODO: remove debug print
-		fmt.Printf("  Report: %s\n", structure.PRReportPath)        //nolint:forbidigo // TODO: remove debug print
-	} else {
-		fmt.Printf("Organizing branch '%s' artifacts:\n", opts.Branch) //nolint:forbidigo // TODO: remove debug print
-		fmt.Printf("  Badge: %s\n", structure.BranchBadgePath)         //nolint:forbidigo // TODO: remove debug print
-		fmt.Printf("  Report: %s\n", structure.BranchReportPath)       //nolint:forbidigo // TODO: remove debug print
-	}
+	// Placeholder to use structure variable
+	_ = structure
 
 	return nil
 }
@@ -205,7 +197,7 @@ func (sm *StorageManager) CleanupExpiredContent(ctx context.Context, maxAgeDays 
 
 	if !dryRun && (len(result.ExpiredPRs) > 0 || len(result.ExpiredBranches) > 0) {
 		// TODO: Actually remove the files
-		fmt.Printf("Cleaned up %d PRs and %d branches\n", len(result.ExpiredPRs), len(result.ExpiredBranches))
+		// TODO: Log cleanup results - cleaned up expired PRs and branches
 	}
 
 	return result, nil

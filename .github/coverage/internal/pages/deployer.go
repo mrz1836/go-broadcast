@@ -215,7 +215,8 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 
 		// TODO: Copy badge file to PR-specific location
 		if opts.BadgeFile != "" {
-			fmt.Printf("Would copy badge from %s to %s\n", opts.BadgeFile, badgeTargetPath) //nolint:forbidigo // TODO stub
+			// TODO: Copy badge file to PR-specific location
+			// Source: opts.BadgeFile, Target: badgeTargetPath
 		}
 	} else {
 		// Branch-specific deployment
@@ -228,7 +229,8 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 
 		// TODO: Copy badge file to branch-specific location
 		if opts.BadgeFile != "" {
-			fmt.Printf("Would copy badge from %s to %s\n", opts.BadgeFile, badgeTargetPath) //nolint:forbidigo // TODO stub
+			// TODO: Copy badge file to branch-specific location
+			// Source: opts.BadgeFile, Target: badgeTargetPath
 		}
 	}
 
@@ -239,7 +241,9 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 
 	// TODO: Copy report files to target location
 	for _, reportFile := range opts.ReportFiles {
-		fmt.Printf("Would copy report from %s to %s\n", reportFile, targetPath) //nolint:forbidigo // TODO stub
+		// TODO: Copy report file
+		// Source: reportFile, Target: targetPath
+		_ = reportFile // Placeholder to avoid unused variable
 	}
 
 	return nil
@@ -361,13 +365,14 @@ func (d *Deployer) branchExists(ctx context.Context, branchName string) (bool, e
 
 func (d *Deployer) createOrphanBranch(ctx context.Context) error {
 	// TODO: Implement orphan branch creation
-	fmt.Printf("Would create orphan branch: %s\n", d.Config.PagesBranch) //nolint:forbidigo // TODO stub
+	// TODO: Create orphan branch: d.Config.PagesBranch
 	return nil
 }
 
 func (d *Deployer) clonePagesBranch(ctx context.Context, targetDir string) error {
 	// TODO: Implement gh-pages branch cloning
-	fmt.Printf("Would clone %s branch to %s\n", d.Config.PagesBranch, targetDir) //nolint:forbidigo // TODO stub
+	// TODO: Clone d.Config.PagesBranch branch to targetDir
+	_ = targetDir // Placeholder to avoid unused variable
 	return nil
 }
 
@@ -405,13 +410,14 @@ func (d *Deployer) getCommitSha(ctx context.Context) (string, error) {
 
 func (d *Deployer) createInitialDashboard(ctx context.Context, structure *StorageStructure) error {
 	// TODO: Create initial dashboard using templates
-	fmt.Printf("Would create initial dashboard at %s\n", structure.DashboardPath) //nolint:forbidigo // TODO stub
+	// TODO: Create initial dashboard at structure.DashboardPath
+	_ = structure // Placeholder to avoid unused variable
 	return nil
 }
 
 func (d *Deployer) initialCommitAndPush(ctx context.Context) error {
 	// TODO: Make initial commit and push
-	fmt.Println("Would make initial commit and push") //nolint:forbidigo // TODO stub
+	// TODO: Make initial commit and push to remote repository
 	return nil
 }
 

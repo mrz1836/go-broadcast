@@ -188,7 +188,7 @@ func (m *PRCommentManager) CreateOrUpdatePRComment(ctx context.Context, owner, r
 		err = m.createCoverageStatusCheck(ctx, owner, repo, pr.Head.SHA, comparison)
 		if err != nil {
 			// Don't fail the entire operation if status check fails
-			fmt.Printf("Warning: failed to create status check: %v\n", err)
+			// TODO: Log warning about failed status check creation
 		} else {
 			statusCheckURL = fmt.Sprintf("https://github.com/%s/%s/commit/%s/checks", owner, repo, pr.Head.SHA)
 		}

@@ -14,10 +14,8 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/prediction"
 )
 
-var (
-	// ErrPredictorNotAvailable indicates that the coverage predictor is not available
-	ErrPredictorNotAvailable = errors.New("predictor not available")
-)
+// ErrPredictorNotAvailable indicates that the coverage predictor is not available
+var ErrPredictorNotAvailable = errors.New("predictor not available")
 
 // PRImpactAnalyzer analyzes the potential impact of pull requests on coverage
 type PRImpactAnalyzer struct {
