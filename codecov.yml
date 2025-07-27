@@ -8,6 +8,9 @@ codecov:
 coverage:
   status:
     patch: false
+    project:
+      default:
+        informational: true  # Don't fail builds due to missing base
   range: 70..90 # The First number represents red, and the second represents green
   # (default is 70..100)
   round: down # up, down, or nearest
@@ -20,11 +23,8 @@ ignore:
   - ".github/**"
   - ".make/**"
   - ".vscode/**"
-  - "cmd/**"
-  - "docs/**"
   - "examples/**"
-  - "profiles/**"
-  - "test/**"
+  - "docs/**"
 
 # Parsers
 # --------------
