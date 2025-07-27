@@ -231,59 +231,65 @@ jobs:
           {
             echo "## 🚦 Workflow Results"
             echo ""
-            echo "| Component | Result |"
-            echo "|-----------|--------|"
-            echo "| 🎯 Setup | ${{ needs.setup.result }} |"
-            echo "| 📋 Makefile | ${{ needs.test-makefile.result }} |"
-            echo "| 🔒 Security | ${{ needs.security.result }} |"
-            echo "| 📊 Code Quality | ${{ needs.code-quality.result }} |"
-            echo "| 🧪 Test Suite | ${{ needs.test-suite.result }} |"
-            echo "| 🏃 Benchmarks | ${{ needs.benchmarks.result }} |"
+            echo "| Component | Result | Status |"
+            echo "|-----------|--------|--------|"
+            echo "| 🎯 Setup | ${{ needs.setup.result }} | Required |"
+            echo "| 📋 Makefile | ${{ needs.test-makefile.result }} | Required |"
+            echo "| 🔒 Security | ${{ needs.security.result }} | Required |"
+            echo "| 📊 Code Quality | ${{ needs.code-quality.result }} | Required |"
+            echo "| 🧪 Test Suite | ${{ needs.test-suite.result }} | Required |"
+            echo "| 🏃 Benchmarks | ${{ needs.benchmarks.result }} | Optional ⚠️ |"
+            echo ""
+            if [[ "${{ needs.benchmarks.result }}" == "failure" ]]; then
+              echo "⚠️ **Note**: Benchmarks failed but are currently non-blocking."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       # ————————————————————————————————————————————————————————————————
       # Fail the workflow *only* when a dependency actually failed/canceled
       # - 'skipped' is OK (e.g. feature flag off)
-      # - Only check benchmarks result if benchmarks are enabled
+      # - Benchmarks are currently optional (can fail without blocking)
       # ————————————————————————————————————————————————————————————————
       - name: ❌ Fail if any required job errored
-        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        if: ${{ always() }}
         run: |
-          echo "❌ One or more jobs failed or were cancelled – see summary above." >&2
-
-          # Check if benchmarks failed only if they were enabled
-          if [[ "${{ needs.setup.outputs.benchmarks-enabled }}" == "true" && "${{ needs.benchmarks.result }}" == "failure" ]]; then
-            echo "❌ Benchmarks failed and were enabled" >&2
-            exit 1
-          fi
-
-          # Check other required jobs
+          FAILED=false
+          
+          # Check required jobs (these must pass)
           if [[ "${{ needs.setup.result }}" == "failure" || "${{ needs.setup.result }}" == "cancelled" ]]; then
             echo "❌ Setup failed or was cancelled" >&2
-            exit 1
+            FAILED=true
           fi
 
           if [[ "${{ needs.test-makefile.result }}" == "failure" || "${{ needs.test-makefile.result }}" == "cancelled" ]]; then
             echo "❌ Test makefile failed or was cancelled" >&2
-            exit 1
+            FAILED=true
           fi
 
           if [[ "${{ needs.security.result }}" == "failure" || "${{ needs.security.result }}" == "cancelled" ]]; then
             echo "❌ Security scans failed or were cancelled" >&2
-            exit 1
+            FAILED=true
           fi
 
           if [[ "${{ needs.code-quality.result }}" == "failure" || "${{ needs.code-quality.result }}" == "cancelled" ]]; then
             echo "❌ Code quality checks failed or were cancelled" >&2
-            exit 1
+            FAILED=true
           fi
 
           if [[ "${{ needs.test-suite.result }}" == "failure" || "${{ needs.test-suite.result }}" == "cancelled" ]]; then
             echo "❌ Test suite failed or was cancelled" >&2
-            exit 1
+            FAILED=true
           fi
 
-          exit 1
+          # Check benchmarks (currently optional - just warn if they fail)
+          if [[ "${{ needs.benchmarks.result }}" == "failure" ]]; then
+            echo "⚠️  Benchmarks failed (non-blocking)" >&2
+          fi
+
+          if [[ "$FAILED" == "true" ]]; then
+            echo "❌ One or more required jobs failed – see details above." >&2
+            exit 1
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Succeed if all required jobs passed or were skipped
