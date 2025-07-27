@@ -357,9 +357,32 @@ func modifyData(data []byte, ratio float64) []byte {
 	copy(result, data)
 
 	modifyCount := int(float64(len(data)) * ratio)
-	for i := 0; i < modifyCount; i++ {
-		pos := secureRandInt(len(result))
-		result[pos] = byte(secureRandInt(256))
+
+	// For small data or high ratios, ensure unique positions
+	if modifyCount > 0 && len(data) > 0 {
+		if modifyCount >= len(data) {
+			// Modify all positions
+			for i := range result {
+				result[i] = byte(secureRandInt(256))
+			}
+		} else {
+			// Create a list of all positions and shuffle to get unique positions
+			positions := make([]int, len(data))
+			for i := range positions {
+				positions[i] = i
+			}
+
+			// Fisher-Yates shuffle to randomize positions
+			for i := len(positions) - 1; i > 0; i-- {
+				j := secureRandInt(i + 1)
+				positions[i], positions[j] = positions[j], positions[i]
+			}
+
+			// Modify the first modifyCount positions from the shuffled list
+			for i := 0; i < modifyCount; i++ {
+				result[positions[i]] = byte(secureRandInt(256))
+			}
+		}
 	}
 
 	return result
