@@ -102,13 +102,13 @@ type ChangeStatus string
 
 const (
 	// StatusAdded indicates a file was added in the change
-	StatusAdded    ChangeStatus = "added"
+	StatusAdded ChangeStatus = "added"
 	// StatusModified indicates a file was modified in the change
 	StatusModified ChangeStatus = "modified"
 	// StatusDeleted indicates a file was deleted in the change
-	StatusDeleted  ChangeStatus = "deleted"
+	StatusDeleted ChangeStatus = "deleted"
 	// StatusRenamed indicates a file was renamed in the change
-	StatusRenamed  ChangeStatus = "renamed"
+	StatusRenamed ChangeStatus = "renamed"
 )
 
 // ReviewStatus represents the review status of a PR
@@ -116,9 +116,9 @@ type ReviewStatus string
 
 const (
 	// ReviewPending indicates the PR review is pending
-	ReviewPending   ReviewStatus = "pending"
+	ReviewPending ReviewStatus = "pending"
 	// ReviewApproved indicates the PR has been approved
-	ReviewApproved  ReviewStatus = "approved"
+	ReviewApproved ReviewStatus = "approved"
 	// ReviewRequested indicates changes have been requested for the PR
 	ReviewRequested ReviewStatus = "changes_requested"
 	// ReviewDismissed indicates the PR review was dismissed

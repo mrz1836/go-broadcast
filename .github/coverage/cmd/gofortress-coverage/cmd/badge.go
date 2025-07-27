@@ -26,7 +26,7 @@ var badgeCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "badge",
 	Short: "Generate coverage badge",
 	Long:  `Generate SVG coverage badges for README files and GitHub Pages.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Get flags
 		coverage, _ := cmd.Flags().GetFloat64("coverage")
 		style, _ := cmd.Flags().GetString("style")

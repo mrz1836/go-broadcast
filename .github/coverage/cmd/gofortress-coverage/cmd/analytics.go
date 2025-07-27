@@ -690,7 +690,7 @@ func runTeam(cmd *cobra.Command, args []string) error { //nolint:revive // funct
 		}
 		fmt.Printf("✅ Team analysis saved: %s\n", teamOutput)
 	} else {
-		fmt.Println(output)
+		fmt.Println(output) //nolint:forbidigo // CLI output
 	}
 
 	return nil
@@ -879,7 +879,7 @@ func runCharts(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 		}
 		fmt.Printf("✅ Chart saved: %s\n", chartsOutput)
 	} else {
-		fmt.Println(svgContent)
+		fmt.Println(svgContent) //nolint:forbidigo // CLI output
 	}
 
 	return nil
@@ -900,7 +900,7 @@ func runNotify(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 }
 
 func showNotificationStatus(_ context.Context) error { //nolint:revive // function naming
-	fmt.Println("📢 Notification System Status")
+	fmt.Println("📢 Notification System Status") //nolint:forbidigo // CLI output
 
 	// Initialize notification engine
 	notifier := notify.NewNotificationEngine(nil)

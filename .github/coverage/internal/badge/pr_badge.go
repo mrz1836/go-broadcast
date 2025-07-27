@@ -337,7 +337,7 @@ func (m *PRBadgeManager) generateStatusBadge(ctx context.Context, request *PRBad
 		color = "#f85149"
 	}
 
-	badgeData := BadgeData{
+	badgeData := Data{
 		Label:     label,
 		Message:   message,
 		Color:     color,
@@ -365,7 +365,7 @@ func (m *PRBadgeManager) generateComparisonBadge(ctx context.Context, request *P
 		color = "#8b949e"
 	}
 
-	badgeData := BadgeData{
+	badgeData := Data{
 		Label:     label,
 		Message:   message,
 		Color:     color,
@@ -410,7 +410,7 @@ func (m *PRBadgeManager) generateDiffBadge(ctx context.Context, request *PRBadge
 		color = "#f85149"
 	}
 
-	badgeData := BadgeData{
+	badgeData := Data{
 		Label:     label,
 		Message:   message,
 		Color:     color,
@@ -462,7 +462,7 @@ func (m *PRBadgeManager) generateQualityBadge(ctx context.Context, request *PRBa
 		color = "#8b949e"
 	}
 
-	badgeData := BadgeData{
+	badgeData := Data{
 		Label:     label,
 		Message:   grade,
 		Color:     color,

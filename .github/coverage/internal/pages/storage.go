@@ -154,12 +154,12 @@ func (sm *StorageManager) OrganizeArtifacts(ctx context.Context, opts ArtifactOp
 
 	if opts.PRNumber != "" {
 		fmt.Printf("Organizing PR #%s artifacts:\n", opts.PRNumber) //nolint:forbidigo // TODO: remove debug print
-		fmt.Printf("  Badge: %s\n", structure.PRBadgePath) //nolint:forbidigo // TODO: remove debug print
-		fmt.Printf("  Report: %s\n", structure.PRReportPath) //nolint:forbidigo // TODO: remove debug print
+		fmt.Printf("  Badge: %s\n", structure.PRBadgePath)          //nolint:forbidigo // TODO: remove debug print
+		fmt.Printf("  Report: %s\n", structure.PRReportPath)        //nolint:forbidigo // TODO: remove debug print
 	} else {
-		fmt.Printf("Organizing branch '%s' artifacts:\n", opts.Branch)
-		fmt.Printf("  Badge: %s\n", structure.BranchBadgePath)
-		fmt.Printf("  Report: %s\n", structure.BranchReportPath)
+		fmt.Printf("Organizing branch '%s' artifacts:\n", opts.Branch) //nolint:forbidigo // TODO: remove debug print
+		fmt.Printf("  Badge: %s\n", structure.BranchBadgePath)         //nolint:forbidigo // TODO: remove debug print
+		fmt.Printf("  Report: %s\n", structure.BranchReportPath)       //nolint:forbidigo // TODO: remove debug print
 	}
 
 	return nil

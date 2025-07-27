@@ -1420,12 +1420,6 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
 
 // Placeholder implementations for referenced methods (these would be fully implemented)
 func (ta *Analyzer) calculateContributionMetrics(_ ContributorData) ContributionMetrics {

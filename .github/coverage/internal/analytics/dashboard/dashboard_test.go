@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestNewAnalyticsDashboard(t *testing.T) { //nolint:revive // function naming
+func TestNewAnalyticsDashboard(t *testing.T) {
 	// Test with nil config
 	dashboard := NewAnalyticsDashboard(nil)
 	if dashboard == nil {
@@ -33,7 +33,7 @@ func TestNewAnalyticsDashboard(t *testing.T) { //nolint:revive // function namin
 	}
 }
 
-func TestGenerateDashboard(t *testing.T) { //nolint:revive // function naming
+func TestGenerateDashboard(t *testing.T) {
 	dashboard := NewAnalyticsDashboard(nil)
 
 	request := &DashboardRequest{
@@ -65,7 +65,7 @@ func TestGenerateDashboard(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGenerateHTML(t *testing.T) { //nolint:revive // function naming
+func TestGenerateHTML(t *testing.T) {
 	dashboard := NewAnalyticsDashboard(nil)
 
 	data := &DashboardData{

@@ -56,36 +56,43 @@ type Chart struct {
 	Content string `json:"content"`
 }
 
+// Prediction represents a forecasted value with confidence level
 type Prediction struct {
 	Value      float64 `json:"value"`
 	Confidence float64 `json:"confidence"`
 }
 
+// Activity represents a recent system activity or event
 type Activity struct {
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	Timestamp   time.Time `json:"timestamp"`
 }
 
+// QualityGates represents the status of quality checks
 type QualityGates struct {
 	Passed bool `json:"passed"`
 }
 
+// TimeRange represents a time period with start and end times
 type TimeRange struct {
 	Start time.Time `json:"start"`
 	End   time.Time `json:"end"`
 }
 
+// TrendAnalysis represents the analysis of data trends
 type TrendAnalysis struct {
 	Direction string   `json:"direction"`
 	Strength  string   `json:"strength"`
 	Insights  []string `json:"insights,omitempty"`
 }
 
+// NotificationStatus represents the current state of notifications
 type NotificationStatus struct {
 	Active bool `json:"active"`
 }
 
+// TeamAnalytics represents team-level analytics data
 type TeamAnalytics struct {
 	MemberCount int `json:"member_count"`
 }

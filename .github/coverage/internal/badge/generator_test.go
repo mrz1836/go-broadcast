@@ -172,7 +172,7 @@ func TestRenderSVGStyles(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
 
-	badgeData := BadgeData{
+	badgeData := Data{
 		Label:     "coverage",
 		Message:   "85.5%",
 		Color:     "#3fb950",
@@ -240,7 +240,7 @@ func TestBadgeOptions(t *testing.T) { //nolint:revive // function naming
 func TestRenderFlatBadge(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 
-	data := BadgeData{
+	data := Data{
 		Label:     "coverage",
 		Message:   "85.5%",
 		Color:     "#3fb950",
@@ -264,7 +264,7 @@ func TestRenderFlatBadge(t *testing.T) { //nolint:revive // function naming
 func TestRenderFlatSquareBadge(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 
-	data := BadgeData{
+	data := Data{
 		Label:     "coverage",
 		Message:   "85.5%",
 		Color:     "#3fb950",
@@ -286,7 +286,7 @@ func TestRenderFlatSquareBadge(t *testing.T) { //nolint:revive // function namin
 func TestRenderForTheBadge(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 
-	data := BadgeData{
+	data := Data{
 		Label:     "coverage",
 		Message:   "85.5%",
 		Color:     "#3fb950",
@@ -307,7 +307,7 @@ func TestRenderForTheBadge(t *testing.T) { //nolint:revive // function naming
 func TestRenderWithLogo(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 
-	data := BadgeData{
+	data := Data{
 		Label:     "coverage",
 		Message:   "85.5%",
 		Color:     "#3fb950",

@@ -450,7 +450,7 @@ func extractSignificantFiles(changes []analysis.FileChangeAnalysis) []string {
 	return significantFiles
 }
 
-func buildTemplateData(cfg *config.Config, prNumber int, comparison *github.CoverageComparison, coverage *parser.CoverageData) *templates.TemplateData {
+func buildTemplateData(cfg *config.Config, prNumber int, comparison *github.CoverageComparison, _ *parser.CoverageData) *templates.TemplateData {
 	return &templates.TemplateData{
 		Repository: templates.RepositoryInfo{
 			Owner:         cfg.GitHub.Owner,

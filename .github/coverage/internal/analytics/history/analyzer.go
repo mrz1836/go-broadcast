@@ -195,40 +195,59 @@ type Recommendation struct {
 type TrendDirection string
 
 const (
+	// TrendUp indicates an upward trend
 	TrendUp       TrendDirection = "up"
+	// TrendDown indicates a downward trend
 	TrendDown     TrendDirection = "down"
+	// TrendStable indicates a stable trend
 	TrendStable   TrendDirection = "stable"
+	// TrendVolatile indicates a volatile trend
 	TrendVolatile TrendDirection = "volatile"
 )
 
+// TrendMagnitude represents the strength of a trend
 type TrendMagnitude string
 
 const (
+	// MagnitudeSignificant indicates a significant magnitude
 	MagnitudeSignificant TrendMagnitude = "significant"
+	// MagnitudeModerate indicates a moderate magnitude
 	MagnitudeModerate    TrendMagnitude = "moderate"
+	// MagnitudeMinor indicates a minor magnitude
 	MagnitudeMinor       TrendMagnitude = "minor"
+	// MagnitudeNegligible indicates a negligible magnitude
 	MagnitudeNegligible  TrendMagnitude = "negligible"
 )
 
+// TrendMomentum represents the rate of change in a trend
 type TrendMomentum string
 
 const (
+	// MomentumAccelerating indicates an accelerating momentum
 	MomentumAccelerating TrendMomentum = "accelerating"
+	// MomentumSteady indicates a steady momentum
 	MomentumSteady       TrendMomentum = "steady"
+	// MomentumDecelerating indicates a decelerating momentum
 	MomentumDecelerating TrendMomentum = "decelerating"
 )
 
+// VolatilityLevel represents the level of variation in data
 type VolatilityLevel string
 
 const (
+	// VolatilityLow indicates low volatility
 	VolatilityLow    VolatilityLevel = "low"
+	// VolatilityMedium indicates medium volatility
 	VolatilityMedium VolatilityLevel = "medium"
+	// VolatilityHigh indicates high volatility
 	VolatilityHigh   VolatilityLevel = "high"
 )
 
+// InsightType represents the type of analytical insight
 type InsightType string
 
 const (
+	// InsightTrend indicates a trend insight
 	InsightTrend       InsightType = "trend"
 	InsightAnomaly     InsightType = "anomaly"
 	InsightMilestone   InsightType = "milestone"
@@ -236,26 +255,32 @@ const (
 	InsightOpportunity InsightType = "opportunity"
 )
 
+// InsightSeverity represents the severity level of an insight
 type InsightSeverity string
 
 const (
+	// SeverityInfo indicates informational severity
 	SeverityInfo     InsightSeverity = "info"
 	SeverityWarning  InsightSeverity = "warning"
 	SeverityCritical InsightSeverity = "critical"
 )
 
+// RecommendationType represents the type of recommendation
 type RecommendationType string
 
 const (
+	// RecommendationProcess indicates a process recommendation
 	RecommendationProcess    RecommendationType = "process"
 	RecommendationTesting    RecommendationType = "testing"
 	RecommendationGoals      RecommendationType = "goals"
 	RecommendationMonitoring RecommendationType = "monitoring"
 )
 
+// RecommendationPriority represents the priority level of a recommendation
 type RecommendationPriority string
 
 const (
+	// PriorityHigh indicates high priority
 	PriorityHigh   RecommendationPriority = "high"
 	PriorityMedium RecommendationPriority = "medium"
 	PriorityLow    RecommendationPriority = "low"

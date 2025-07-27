@@ -17,12 +17,12 @@ import (
 
 // Static error definitions
 var (
-	ErrInvalidCoverageMode      = errors.New("invalid coverage file: first line must specify mode")
-	ErrMissingModeDeclaration   = errors.New("invalid coverage file: missing mode declaration")
-	ErrInvalidStatementFormat   = errors.New("invalid statement format")
-	ErrMissingColon            = errors.New("invalid statement format: missing colon")
-	ErrMissingComma            = errors.New("invalid position format: missing comma")
-	ErrMissingDot              = errors.New("invalid position format: missing dot")
+	ErrInvalidCoverageMode    = errors.New("invalid coverage file: first line must specify mode")
+	ErrMissingModeDeclaration = errors.New("invalid coverage file: missing mode declaration")
+	ErrInvalidStatementFormat = errors.New("invalid statement format")
+	ErrMissingColon           = errors.New("invalid statement format: missing colon")
+	ErrMissingComma           = errors.New("invalid position format: missing comma")
+	ErrMissingDot             = errors.New("invalid position format: missing dot")
 )
 
 // CoverageData represents parsed coverage information

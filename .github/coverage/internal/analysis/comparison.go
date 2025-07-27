@@ -702,11 +702,11 @@ func (e *ComparisonEngine) SaveComparisonResult(_ context.Context, result *Compa
 
 	// Ensure directory exists
 	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	if err := os.WriteFile(filePath, data, 0600); err != nil {
+	if err := os.WriteFile(filePath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write comparison result: %w", err)
 	}
 
@@ -765,7 +765,7 @@ func (e *ComparisonEngine) calculateTrendGrade(change *OverallChangeAnalysis) st
 	return "D"
 }
 
-func (e *ComparisonEngine) calculateOverallGrade(coverageGrade, trendGrade string) string {
+func (e *ComparisonEngine) calculateOverallGrade(coverageGrade, _ string) string {
 	// Simplified overall grade calculation
 	// In practice, this would use a more sophisticated weighting system
 	return coverageGrade

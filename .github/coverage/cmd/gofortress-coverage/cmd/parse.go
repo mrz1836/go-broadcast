@@ -21,7 +21,7 @@ var parseCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "parse",
 	Short: "Parse Go coverage data",
 	Long:  `Parse Go coverage profile data and convert it to structured format for processing.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Get flags
 		inputFile, _ := cmd.Flags().GetString("file")
 		outputFile, _ := cmd.Flags().GetString("output")
@@ -127,7 +127,7 @@ var parseCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	},
 }
 
-func init() { //nolint:revive,gochecknoinits // CLI command initialization
+func init() { //nolint:gochecknoinits // CLI command initialization
 	parseCmd.Flags().StringP("file", "f", "", "Coverage profile file (overrides config)")
 	parseCmd.Flags().StringP("output", "o", "", "Output file for parsed data")
 	parseCmd.Flags().String("format", "json", "Output format (json)")

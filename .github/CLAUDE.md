@@ -410,4 +410,69 @@ Questions or ambiguities? Open a discussion or ping a maintainer instead of gues
 - Use specific nolint directives with clear reasons
 - Periodically audit nolint comments for relevance
 
+### Additional Linter Learnings (Round 2)
+
+**Type Naming (revive - stuttering):**
+- Avoid stuttering package/type names: `badge.BadgeData` → `badge.Data`
+- Common fixes:
+  - `team.TeamAnalyzer` → `team.Analyzer`
+  - `team.TeamMetrics` → `team.Metrics`
+  - Type names should be concise when package name provides context
+
+**Exported Types and Constants (revive):**
+- ALL exported types need comments starting with the type name
+- ALL exported constants need comments (can be grouped)
+- Examples:
+  ```go
+  // Data represents badge generation data
+  type Data struct { ... }
+  
+  const (
+      // TrendUp indicates upward trend
+      TrendUp TrendDirection = "up"
+      // TrendDown indicates downward trend  
+      TrendDown TrendDirection = "down"
+  )
+  ```
+
+**Unused Parameters (revive):**
+- Replace unused parameters with `_`
+- Common in interfaces and cobra commands:
+  - `func(cmd *cobra.Command, args []string)` → `func(cmd *cobra.Command, _ []string)`
+  - `func Process(data string, opts Options)` → `func Process(data string, _ Options)`
+
+**Variable Shadowing (govet):**
+- Rename inner scope variables that shadow outer ones
+- Common pattern: `err` → `connErr`, `configErr`, `cmdErr`
+
+**Unused Functions (unused):**
+- Remove completely unused functions
+- Common: helper functions like `min()` that were replaced by stdlib
+
+**Efficient String Building (staticcheck QF1012):**
+- Replace `WriteString(fmt.Sprintf(...))` with `fmt.Fprintf(...)`
+- Before: `svg.WriteString(fmt.Sprintf("<text>%s</text>", value))`
+- After: `fmt.Fprintf(svg, "<text>%s</text>", value)`
+
+**nolint Directive Hygiene (nolintlint):**
+- Remove unused linter names from nolint comments
+- `//nolint:revive,gochecknoinits` → `//nolint:gochecknoinits` if revive isn't triggered
+- Periodically audit and clean up nolint directives
+
+**Print Statements in Production Code (forbidigo):**
+- CLI commands can use print with nolint: `//nolint:forbidigo // CLI output`
+- Debug prints should be marked for removal: `//nolint:forbidigo // TODO: remove debug print`
+- Library code should use structured logging instead
+
+**Type References After Renaming:**
+- When renaming types, update ALL references across the codebase
+- Check: implementation files, test files, other packages
+- Use `replace_all` or grep to find all occurrences
+
+**Progress Tracking:**
+- Starting issues: 378
+- After round 1: 70 issues (81% reduction)
+- After round 2: 62 issues (baseline)
+- Total fixed: 316 issues (84% reduction)
+
 Happy hacking! 🚀

@@ -29,7 +29,7 @@ var commentCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "comment",
 	Short: "Create PR coverage comment",
 	Long:  `Create or update pull request comments with coverage information.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Get flags
 		prNumber, _ := cmd.Flags().GetInt("pr")
 		inputFile, _ := cmd.Flags().GetString("coverage")

@@ -303,8 +303,8 @@ func (d *Deployer) commitAndPush(ctx context.Context, workspaceDir string, opts 
 		}
 	}
 
-	if err := d.runGitCommand(ctx, "commit", "-m", commitMessage); err != nil {
-		return "", fmt.Errorf("failed to commit changes: %w", err)
+	if commitErr := d.runGitCommand(ctx, "commit", "-m", commitMessage); commitErr != nil {
+		return "", fmt.Errorf("failed to commit changes: %w", commitErr)
 	}
 
 	// Get commit SHA

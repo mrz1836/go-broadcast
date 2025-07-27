@@ -85,9 +85,13 @@ type Series struct {
 type SeriesType string
 
 const (
+	// SeriesLine represents a line chart series
 	SeriesLine    SeriesType = "line"
+	// SeriesArea represents an area chart series
 	SeriesArea    SeriesType = "area"
+	// SeriesBar represents a bar chart series
 	SeriesBar     SeriesType = "bar"
+	// SeriesScatter represents a scatter plot series
 	SeriesScatter SeriesType = "scatter"
 )
 
@@ -110,10 +114,15 @@ type Metadata struct {
 type ChartType string
 
 const (
+	// ChartTrendLine represents a trend line chart
 	ChartTrendLine   ChartType = "trend_line"
+	// ChartAreaChart represents an area chart
 	ChartAreaChart   ChartType = "area_chart"
+	// ChartBarChart represents a bar chart
 	ChartBarChart    ChartType = "bar_chart"
+	// ChartMultiSeries represents a multi-series chart
 	ChartMultiSeries ChartType = "multi_series"
+	// ChartHeatmap represents a heatmap chart
 	ChartHeatmap     ChartType = "heatmap"
 )
 
@@ -643,15 +652,15 @@ func (g *SVGChartGenerator) writeSeriesLine(svg *strings.Builder, series Series,
 		color = g.config.LineColor
 	}
 
-	svg.WriteString(fmt.Sprintf(`  <path d="%s" stroke="%s" stroke-width="%.1f" fill="none"/>`,
-		pathData.String(), color, g.config.LineWidth))
+	fmt.Fprintf(svg, `  <path d="%s" stroke="%s" stroke-width="%.1f" fill="none"/>`,
+		pathData.String(), color, g.config.LineWidth)
 	svg.WriteString("\n")
 }
 
 func (g *SVGChartGenerator) writeLegend(svg *strings.Builder, data *ChartData) {
 	legendY := 20
-	svg.WriteString(fmt.Sprintf(`  <text x="%d" y="%d" font-family="%s" font-size="%d" fill="%s">Coverage Trend</text>`,
-		g.config.Width-150, legendY, g.config.FontFamily, g.config.FontSize, g.config.TextColor))
+	fmt.Fprintf(svg, `  <text x="%d" y="%d" font-family="%s" font-size="%d" fill="%s">Coverage Trend</text>`,
+		g.config.Width-150, legendY, g.config.FontFamily, g.config.FontSize, g.config.TextColor)
 	svg.WriteString("\n")
 }
 
@@ -663,21 +672,21 @@ func (g *SVGChartGenerator) writeMultiSeriesLegend(svg *strings.Builder, data *C
 		y := legendY + (i * 20)
 
 		// Legend color box
-		svg.WriteString(fmt.Sprintf(`  <rect x="%d" y="%d" width="12" height="12" fill="%s"/>`,
-			legendX, y-10, series.Color))
+		fmt.Fprintf(svg, `  <rect x="%d" y="%d" width="12" height="12" fill="%s"/>`,
+			legendX, y-10, series.Color)
 		svg.WriteString("\n")
 
 		// Legend text
-		svg.WriteString(fmt.Sprintf(`  <text x="%d" y="%d" font-family="%s" font-size="%d" fill="%s">%s</text>`,
-			legendX+18, y, g.config.FontFamily, g.config.FontSize, g.config.TextColor, series.Name))
+		fmt.Fprintf(svg, `  <text x="%d" y="%d" font-family="%s" font-size="%d" fill="%s">%s</text>`,
+			legendX+18, y, g.config.FontFamily, g.config.FontSize, g.config.TextColor, series.Name)
 		svg.WriteString("\n")
 	}
 }
 
 func (g *SVGChartGenerator) writeTitle(svg *strings.Builder, title string) {
 	titleY := 25
-	svg.WriteString(fmt.Sprintf(`  <text x="%d" y="%d" text-anchor="middle" font-family="%s" font-size="%d" font-weight="bold" fill="%s">%s</text>`,
-		g.config.Width/2, titleY, g.config.FontFamily, g.config.FontSize+2, g.config.TextColor, title))
+	fmt.Fprintf(svg, `  <text x="%d" y="%d" text-anchor="middle" font-family="%s" font-size="%d" font-weight="bold" fill="%s">%s</text>`,
+		g.config.Width/2, titleY, g.config.FontFamily, g.config.FontSize+2, g.config.TextColor, title)
 	svg.WriteString("\n")
 }
 

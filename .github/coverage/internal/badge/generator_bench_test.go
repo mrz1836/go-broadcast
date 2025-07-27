@@ -115,7 +115,7 @@ func BenchmarkRenderSVG(b *testing.B) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
 
-	data := BadgeData{
+	data := Data{
 		Label:     "coverage",
 		Message:   "85.5%",
 		Color:     "#3fb950",
@@ -136,7 +136,7 @@ func BenchmarkRenderSVG(b *testing.B) { //nolint:revive // function naming
 func BenchmarkRenderFlatBadge(b *testing.B) { //nolint:revive // function naming
 	generator := New()
 
-	data := BadgeData{
+	data := Data{
 		Label:     "coverage",
 		Message:   "85.5%",
 		Color:     "#3fb950",
@@ -154,7 +154,7 @@ func BenchmarkRenderFlatBadge(b *testing.B) { //nolint:revive // function naming
 func BenchmarkRenderFlatSquareBadge(b *testing.B) { //nolint:revive // function naming
 	generator := New()
 
-	data := BadgeData{
+	data := Data{
 		Label:     "coverage",
 		Message:   "85.5%",
 		Color:     "#3fb950",
@@ -172,7 +172,7 @@ func BenchmarkRenderFlatSquareBadge(b *testing.B) { //nolint:revive // function 
 func BenchmarkRenderForTheBadge(b *testing.B) { //nolint:revive // function naming
 	generator := New()
 
-	data := BadgeData{
+	data := Data{
 		Label:     "coverage",
 		Message:   "85.5%",
 		Color:     "#3fb950",

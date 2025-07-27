@@ -15,10 +15,10 @@ import (
 
 // Static error definitions
 var (
-	ErrTeamsAPIError         = errors.New("teams API returned error status")
-	ErrTeamsConfigNil        = errors.New("teams config is nil")
-	ErrTeamsWebhookRequired  = errors.New("teams webhook URL is required")
-	ErrTeamsWebhookInvalid   = errors.New("invalid Teams webhook URL format")
+	ErrTeamsAPIError        = errors.New("teams API returned error status")
+	ErrTeamsConfigNil       = errors.New("teams config is nil")
+	ErrTeamsWebhookRequired = errors.New("teams webhook URL is required")
+	ErrTeamsWebhookInvalid  = errors.New("invalid Teams webhook URL format")
 )
 
 // TeamsChannel implements Microsoft Teams webhook notifications

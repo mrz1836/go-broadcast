@@ -31,8 +31,8 @@ type ThresholdConfig struct {
 	// Below Low = red
 }
 
-// BadgeData represents data needed to generate a badge
-type BadgeData struct {
+// Data represents data needed to generate a badge
+type Data struct {
 	Label     string
 	Message   string
 	Color     string
@@ -46,8 +46,11 @@ type BadgeData struct {
 type TrendDirection int
 
 const (
+	// TrendUp indicates coverage is trending upward
 	TrendUp TrendDirection = iota
+	// TrendDown indicates coverage is trending downward
 	TrendDown
+	// TrendStable indicates coverage is stable
 	TrendStable
 )
 
@@ -91,7 +94,7 @@ func (g *Generator) Generate(ctx context.Context, percentage float64, options ..
 	color := g.getColorForPercentage(percentage)
 	message := fmt.Sprintf("%.1f%%", percentage)
 
-	badgeData := BadgeData{
+	badgeData := Data{
 		Label:     opts.Label,
 		Message:   message,
 		Color:     color,
@@ -131,7 +134,7 @@ func (g *Generator) GenerateTrendBadge(ctx context.Context, current, previous fl
 		opt(opts)
 	}
 
-	badgeData := BadgeData{
+	badgeData := Data{
 		Label:     opts.Label,
 		Message:   trend,
 		Color:     color,
@@ -177,7 +180,7 @@ func (g *Generator) getColorByName(name string) string {
 }
 
 // renderSVG generates the actual SVG content
-func (g *Generator) renderSVG(ctx context.Context, data BadgeData) ([]byte, error) {
+func (g *Generator) renderSVG(ctx context.Context, data Data) ([]byte, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -207,7 +210,7 @@ func (g *Generator) renderSVG(ctx context.Context, data BadgeData) ([]byte, erro
 }
 
 // renderFlatBadge generates a flat-style badge
-func (g *Generator) renderFlatBadge(data BadgeData, width, labelWidth, messageWidth, logoWidth int) []byte {
+func (g *Generator) renderFlatBadge(data Data, width, labelWidth, messageWidth, logoWidth int) []byte {
 	height := 20
 	template := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%d" height="%d" role="img" aria-label="%s">
   <title>%s</title>
@@ -255,7 +258,7 @@ func (g *Generator) renderFlatBadge(data BadgeData, width, labelWidth, messageWi
 }
 
 // renderFlatSquareBadge generates a flat-square style badge
-func (g *Generator) renderFlatSquareBadge(data BadgeData, width, height, labelWidth, messageWidth, logoWidth int) []byte {
+func (g *Generator) renderFlatSquareBadge(data Data, width, height, labelWidth, messageWidth, logoWidth int) []byte {
 	template := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%d" height="%d" role="img" aria-label="%s">
   <title>%s</title>
   <g shape-rendering="crispEdges">
@@ -288,7 +291,7 @@ func (g *Generator) renderFlatSquareBadge(data BadgeData, width, height, labelWi
 }
 
 // renderForTheBadge generates a "for-the-badge" style badge
-func (g *Generator) renderForTheBadge(data BadgeData, width, height, labelWidth, messageWidth, logoWidth int) []byte {
+func (g *Generator) renderForTheBadge(data Data, width, height, labelWidth, messageWidth, logoWidth int) []byte {
 	template := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%d" height="%d" role="img" aria-label="%s">
   <title>%s</title>
   <g shape-rendering="crispEdges">

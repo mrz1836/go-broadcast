@@ -22,7 +22,7 @@ func Execute() error { //nolint:revive // function naming
 	return rootCmd.Execute()
 }
 
-func init() { //nolint:revive,gochecknoinits // CLI command initialization
+func init() { //nolint:gochecknoinits // CLI command initialization
 	// Global flags
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug mode")
 	rootCmd.PersistentFlags().StringP("log-level", "l", "info", "Log level (debug, info, warn, error)")

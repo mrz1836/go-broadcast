@@ -298,7 +298,7 @@ func generateInitialDashboard() string {
 </html>`
 }
 
-func init() { //nolint:revive,gochecknoinits // CLI command initialization
+func init() { //nolint:gochecknoinits // CLI command initialization
 	// Setup command flags
 	pagesSetupCmd.Flags().StringP("branch", "b", "gh-pages", "GitHub Pages branch name")
 	pagesSetupCmd.Flags().Bool("force", false, "Force setup even if branch exists")

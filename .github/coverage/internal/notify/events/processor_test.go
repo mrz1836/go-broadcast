@@ -368,7 +368,7 @@ func TestEventProcessorSubscription(t *testing.T) {
 	}
 }
 
-func TestEventProcessorPublish(t *testing.T) { //nolint:revive // function naming
+func TestEventProcessorPublish(t *testing.T) {
 	config := EventProcessorConfig{
 		BufferSize:   10,
 		WorkerCount:  1,
@@ -416,7 +416,7 @@ func TestEventProcessorPublish(t *testing.T) { //nolint:revive // function namin
 	}
 }
 
-func TestEventProcessorFiltering(t *testing.T) { //nolint:revive // function naming
+func TestEventProcessorFiltering(t *testing.T) {
 	config := EventProcessorConfig{
 		BufferSize:   10,
 		WorkerCount:  1,
@@ -507,7 +507,7 @@ func TestEventProcessorFiltering(t *testing.T) { //nolint:revive // function nam
 	}
 }
 
-func TestEventProcessorMetrics(t *testing.T) { //nolint:revive // function naming
+func TestEventProcessorMetrics(t *testing.T) {
 	config := EventProcessorConfig{
 		BufferSize:   10,
 		WorkerCount:  1,
