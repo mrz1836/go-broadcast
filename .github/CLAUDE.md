@@ -584,4 +584,66 @@ Questions or ambiguities? Open a discussion or ping a maintainer instead of gues
 
 The codebase is now clean of all critical linter issues, with only minor style suggestions remaining in the baseline.
 
+### Round 5 Learnings - Comprehensive Cleanup
+
+**gofmt/gofumpt Formatting:**
+- Fixed 3 files with formatting issues using `$(go env GOPATH)/bin/gofumpt -w`
+- Files: dashboard_test.go, engine_test.go, analyzer.go
+- Always use the full path to gofumpt to avoid command not found errors
+
+**revive - Exported Comments:**
+- ALL exported constants need comments starting with the constant name
+- Fixed in types.go, pr_badge.go, status_check.go
+- Example fixes:
+  ```go
+  // Before:
+  const (
+      ChannelSlack ChannelType = "slack"
+  )
+  
+  // After:
+  const (
+      // ChannelSlack represents Slack notification channel
+      ChannelSlack ChannelType = "slack"
+  )
+  ```
+
+**revive - Unused Parameters:**
+- Replace unused parameters with `_` to indicate they're intentionally unused
+- Common in HTTP handlers and test mocks
+- Example: `func(w http.ResponseWriter, r *http.Request)` → `func(w http.ResponseWriter, _ *http.Request)`
+
+**revive - Type Stuttering:**
+- Avoid package name repetition in type names
+- Fixed: `report.ReportData` → `report.Data`
+- Updated all references across multiple files
+- This improves API clarity: `report.Data` is cleaner than `report.ReportData`
+
+**revive - Built-in Redefinitions:**
+- Don't redefine built-in functions/types: `error`, `min`, `max`
+- Renamed:
+  - `min()` → `minInt()`
+  - `error` variable → `predictionError`
+  - `max` parameter → `maxValue`
+- Always check if you're shadowing Go built-ins
+
+**Key Learnings Summary:**
+1. **Formatting**: Always run gofumpt before committing
+2. **Documentation**: Export comments must start with the identifier name
+3. **Naming**: Avoid stuttering and built-in redefinitions
+4. **Parameters**: Use `_` for intentionally unused parameters
+5. **Consistency**: When renaming types, update ALL references
+
+**Linter Categories Fixed:**
+- **High Priority**: gofmt, gosec, nolintlint
+- **Medium Priority**: forbidigo
+- **Low Priority**: revive (comments, parameters, stuttering, built-ins)
+
+**Final Status:**
+- Started with significant linter issues
+- Systematically fixed from easy to hard
+- Most critical issues resolved
+- Remaining issues are minor style suggestions
+- Codebase is now much cleaner and more maintainable
+
 Happy hacking! 🚀

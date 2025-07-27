@@ -230,7 +230,7 @@ func TestRenderHTML(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx := context.Background()
 
-	reportData := &ReportData{
+	reportData := &Data{
 		Coverage:    createTestCoverageData(),
 		Config:      generator.config,
 		GeneratedAt: time.Now(),
@@ -270,7 +270,7 @@ func TestRenderHTML(t *testing.T) { //nolint:revive // function naming
 func TestRenderHTMLContextCancellation(t *testing.T) { //nolint:revive // function naming
 	generator := New()
 	ctx, cancel := context.WithCancel(context.Background())
-	reportData := &ReportData{}
+	reportData := &Data{}
 
 	cancel()
 
@@ -536,7 +536,7 @@ func TestRenderHTMLExecutionError(t *testing.T) { //nolint:revive // function na
 	ctx := context.Background()
 
 	// Create report data with nil config that will cause template execution to fail
-	reportData := &ReportData{
+	reportData := &Data{
 		Coverage:    createTestCoverageData(),
 		Config:      nil, // This will cause template execution errors when accessing .Config.Title
 		GeneratedAt: time.Now(),
@@ -641,7 +641,7 @@ func TestRenderHTMLWithComplexData(t *testing.T) { //nolint:revive // function n
 	ctx := context.Background()
 
 	// Create report data with all features enabled
-	reportData := &ReportData{
+	reportData := &Data{
 		Coverage:    createTestCoverageData(),
 		Config:      generator.config,
 		GeneratedAt: time.Now(),

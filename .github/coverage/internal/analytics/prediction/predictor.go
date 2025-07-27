@@ -629,7 +629,7 @@ func (p *CoveragePredictor) trainMovingAverage(model *PredictionModel) error {
 	bestWindow := 3
 	bestError := math.Inf(1)
 
-	maxWindow := min(len(points)/2, 14) // Max 2 weeks or half the data
+	maxWindow := minInt(len(points)/2, 14) // Max 2 weeks or half the data
 	for window := 3; window <= maxWindow; window++ {
 		error := p.calculateMovingAverageError(points, window)
 		if error < bestError {
@@ -805,7 +805,7 @@ func (p *CoveragePredictor) validateModel(model *PredictionModel) (ValidationMet
 
 		// Create training and validation sets
 		trainData := points[:trainEnd]
-		testData := points[trainEnd:min(trainEnd+foldSize, len(points))]
+		testData := points[trainEnd:minInt(trainEnd+foldSize, len(points))]
 
 		// Train model on subset
 		tempModel := &PredictionModel{
@@ -839,8 +839,8 @@ func (p *CoveragePredictor) validateModel(model *PredictionModel) (ValidationMet
 				predicted = testPoint.Coverage // Fallback
 			}
 
-			error := math.Abs(predicted - testPoint.Coverage)
-			errors = append(errors, error)
+			predictionError := math.Abs(predicted - testPoint.Coverage)
+			errors = append(errors, predictionError)
 		}
 	}
 
@@ -1236,7 +1236,7 @@ func (p *CoveragePredictor) generatePredictionRecommendations(result *Prediction
 }
 
 // Utility functions
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}

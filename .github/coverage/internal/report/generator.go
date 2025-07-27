@@ -30,8 +30,8 @@ type Config struct {
 	InteractiveTrees bool
 }
 
-// ReportData represents the complete data needed for report generation
-type ReportData struct {
+// Data represents the complete data needed for report generation
+type Data struct {
 	Coverage    *parser.CoverageData
 	Config      *Config
 	GeneratedAt time.Time
@@ -130,7 +130,7 @@ func (g *Generator) Generate(ctx context.Context, coverage *parser.CoverageData,
 }
 
 // buildReportData constructs the report data structure
-func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Config) *ReportData {
+func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Config) *Data {
 	packages := make([]PackageReport, 0, len(coverage.Packages))
 	totalFiles := 0
 
@@ -187,7 +187,7 @@ func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Confi
 		PreviousCoverage: 0.0,      // TODO: get from history
 	}
 
-	return &ReportData{
+	return &Data{
 		Coverage:    coverage,
 		Config:      config,
 		GeneratedAt: time.Now(),
@@ -259,7 +259,7 @@ func (g *Generator) extractFileName(path string) string {
 }
 
 // renderHTML generates the final HTML report
-func (g *Generator) renderHTML(ctx context.Context, data *ReportData) ([]byte, error) {
+func (g *Generator) renderHTML(ctx context.Context, data *Data) ([]byte, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()

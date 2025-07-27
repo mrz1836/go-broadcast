@@ -28,7 +28,7 @@ type AnalyzerConfig struct {
 	QualityThresholds    QualityThresholds `json:"quality_thresholds"`
 
 	// Team structure
-	TeamDefinitions []Definition `json:"team_definitions"`
+	TeamDefinitions []Definition     `json:"team_definitions"`
 	RoleDefinitions []RoleDefinition `json:"role_definitions"`
 
 	// Comparative analysis
@@ -79,15 +79,15 @@ type ComparisonMethod string
 
 const (
 	// ComparisonAbsolute represents absolute value comparison
-	ComparisonAbsolute   ComparisonMethod = "absolute"
+	ComparisonAbsolute ComparisonMethod = "absolute"
 	// ComparisonRelative represents relative value comparison
-	ComparisonRelative   ComparisonMethod = "relative"
+	ComparisonRelative ComparisonMethod = "relative"
 	// ComparisonPercentile represents percentile-based comparison
 	ComparisonPercentile ComparisonMethod = "percentile"
 	// ComparisonNormalized represents normalized value comparison
 	ComparisonNormalized ComparisonMethod = "normalized"
 	// ComparisonTrend represents trend-based comparison
-	ComparisonTrend      ComparisonMethod = "trend"
+	ComparisonTrend ComparisonMethod = "trend"
 )
 
 // ScoringWeights defines weights for different aspects of contribution quality
@@ -118,7 +118,7 @@ type Analysis struct {
 	TopPerformers       []TopPerformer        `json:"top_performers"`
 
 	// Comparative analysis
-	Comparisons   []Comparison  `json:"team_comparisons"`
+	Comparisons       []Comparison      `json:"team_comparisons"`
 	BenchmarkAnalysis BenchmarkAnalysis `json:"benchmark_analysis"`
 
 	// Collaboration insights
@@ -149,7 +149,7 @@ type Overview struct {
 
 // Metrics provides detailed team-level metrics
 type Metrics struct {
-	CoverageByTeam     map[string]CoverageMetrics `json:"coverage_by_team"`
+	CoverageByTeam     map[string]CoverageMetrics     `json:"coverage_by_team"`
 	ProductivityByTeam map[string]ProductivityMetrics `json:"productivity_by_team"`
 	QualityByTeam      map[string]QualityMetrics      `json:"quality_by_team"`
 	VelocityByTeam     map[string]VelocityMetrics     `json:"velocity_by_team"`
@@ -386,7 +386,7 @@ type CollaborationInsights struct {
 	CrossTeamActivity     CrossTeamActivity     `json:"cross_team_activity"`
 	KnowledgeFlow         KnowledgeFlow         `json:"knowledge_flow"`
 	CommunicationPatterns CommunicationPatterns `json:"communication_patterns"`
-	TeamDynamics          Dynamics          `json:"team_dynamics"`
+	TeamDynamics          Dynamics              `json:"team_dynamics"`
 }
 
 // CrossTeamActivity tracks collaboration across team boundaries
@@ -561,7 +561,7 @@ func (ta *Analyzer) AnalyzeTeamPerformance(ctx context.Context, contributors []C
 		TotalContributors:         len(contributors),
 		ContributorAnalysis:       make([]ContributorAnalysis, 0),
 		TopPerformers:             make([]TopPerformer, 0),
-		Comparisons:           make([]Comparison, 0),
+		Comparisons:               make([]Comparison, 0),
 		PatternInsights:           make([]PatternInsight, 0),
 		TeamRecommendations:       make([]TeamRecommendation, 0),
 		IndividualRecommendations: make([]IndividualRecommendation, 0),
@@ -1419,7 +1419,6 @@ func contains(slice []string, item string) bool {
 	}
 	return false
 }
-
 
 // Placeholder implementations for referenced methods (these would be fully implemented)
 func (ta *Analyzer) calculateContributionMetrics(_ ContributorData) ContributionMetrics {

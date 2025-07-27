@@ -61,20 +61,29 @@ type QualityGate struct {
 type GateType string
 
 const (
+	// GateCoveragePercentage checks minimum coverage percentage
 	GateCoveragePercentage GateType = "coverage_percentage"
-	GateCoverageChange     GateType = "coverage_change"
-	GateQualityGrade       GateType = "quality_grade"
-	GateRiskLevel          GateType = "risk_level"
-	GateFileCount          GateType = "file_count"
-	GateTrendDirection     GateType = "trend_direction"
+	// GateCoverageChange checks coverage change from base
+	GateCoverageChange GateType = "coverage_change"
+	// GateQualityGrade checks overall quality grade
+	GateQualityGrade GateType = "quality_grade"
+	// GateRiskLevel checks risk level assessment
+	GateRiskLevel GateType = "risk_level"
+	// GateFileCount checks number of files changed
+	GateFileCount GateType = "file_count"
+	// GateTrendDirection checks trend direction
+	GateTrendDirection GateType = "trend_direction"
 )
 
 // UpdateStrategy defines how to update existing status checks
 type UpdateStrategy string
 
 const (
-	UpdateAlways    UpdateStrategy = "always"     // Always update status
-	UpdateOnChange  UpdateStrategy = "on_change"  // Only update if value changed
+	// UpdateAlways always updates the status check
+	UpdateAlways UpdateStrategy = "always" // Always update status
+	// UpdateOnChange only updates if the value changed
+	UpdateOnChange UpdateStrategy = "on_change" // Only update if value changed
+	// UpdateOnFailure only updates on failure
 	UpdateOnFailure UpdateStrategy = "on_failure" // Only update on failure
 )
 

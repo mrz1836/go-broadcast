@@ -482,7 +482,7 @@ func (e *PRTemplateEngine) priorityEmoji(priority string) string {
 	}
 }
 
-func (e *PRTemplateEngine) progressBar(value, max float64, width int) string {
+func (e *PRTemplateEngine) progressBar(value, maxValue float64, width int) string {
 	if !e.config.IncludeProgressBars {
 		return ""
 	}
@@ -491,7 +491,7 @@ func (e *PRTemplateEngine) progressBar(value, max float64, width int) string {
 		width = 20
 	}
 
-	percentage := value / max
+	percentage := value / maxValue
 	if percentage > 1 {
 		percentage = 1
 	} else if percentage < 0 {

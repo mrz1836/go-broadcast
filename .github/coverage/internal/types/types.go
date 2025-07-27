@@ -10,10 +10,15 @@ import (
 type ChannelType string
 
 const (
-	ChannelSlack   ChannelType = "slack"
-	ChannelEmail   ChannelType = "email"
+	// ChannelSlack represents Slack notification channel
+	ChannelSlack ChannelType = "slack"
+	// ChannelEmail represents email notification channel
+	ChannelEmail ChannelType = "email"
+	// ChannelWebhook represents webhook notification channel
 	ChannelWebhook ChannelType = "webhook"
-	ChannelTeams   ChannelType = "teams"
+	// ChannelTeams represents Microsoft Teams notification channel
+	ChannelTeams ChannelType = "teams"
+	// ChannelDiscord represents Discord notification channel
 	ChannelDiscord ChannelType = "discord"
 )
 
@@ -21,9 +26,13 @@ const (
 type SeverityLevel string
 
 const (
-	SeverityInfo      SeverityLevel = "info"
-	SeverityWarning   SeverityLevel = "warning"
-	SeverityCritical  SeverityLevel = "critical"
+	// SeverityInfo represents informational severity level
+	SeverityInfo SeverityLevel = "info"
+	// SeverityWarning represents warning severity level
+	SeverityWarning SeverityLevel = "warning"
+	// SeverityCritical represents critical severity level
+	SeverityCritical SeverityLevel = "critical"
+	// SeverityEmergency represents emergency severity level
 	SeverityEmergency SeverityLevel = "emergency"
 )
 
@@ -31,9 +40,13 @@ const (
 type Priority string
 
 const (
-	PriorityLow    Priority = "low"
+	// PriorityLow represents low priority level
+	PriorityLow Priority = "low"
+	// PriorityNormal represents normal priority level
 	PriorityNormal Priority = "normal"
-	PriorityHigh   Priority = "high"
+	// PriorityHigh represents high priority level
+	PriorityHigh Priority = "high"
+	// PriorityUrgent represents urgent priority level
 	PriorityUrgent Priority = "urgent"
 )
 

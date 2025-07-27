@@ -57,12 +57,18 @@ type PRBadgeConfig struct {
 type PRBadgeType string
 
 const (
-	PRBadgeCoverage   PRBadgeType = "coverage"
-	PRBadgeTrend      PRBadgeType = "trend"
-	PRBadgeStatus     PRBadgeType = "status"
+	// PRBadgeCoverage represents coverage percentage badge
+	PRBadgeCoverage PRBadgeType = "coverage"
+	// PRBadgeTrend represents coverage trend badge
+	PRBadgeTrend PRBadgeType = "trend"
+	// PRBadgeStatus represents coverage status badge
+	PRBadgeStatus PRBadgeType = "status"
+	// PRBadgeComparison represents PR comparison badge
 	PRBadgeComparison PRBadgeType = "comparison"
-	PRBadgeDiff       PRBadgeType = "diff"
-	PRBadgeQuality    PRBadgeType = "quality"
+	// PRBadgeDiff represents coverage difference badge
+	PRBadgeDiff PRBadgeType = "diff"
+	// PRBadgeQuality represents code quality badge
+	PRBadgeQuality PRBadgeType = "quality"
 )
 
 // PRBadgeRequest represents a request to generate PR badges

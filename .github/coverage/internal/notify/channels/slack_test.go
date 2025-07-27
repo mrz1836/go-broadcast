@@ -388,7 +388,7 @@ func TestSlackChannelWithCustomConfig(t *testing.T) {
 
 func TestSlackChannelErrorHandling(t *testing.T) {
 	// Create server that returns error
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte("Bad Request"))
 	}))
@@ -452,7 +452,7 @@ func TestSlackChannelWithRichContent(t *testing.T) {
 
 func BenchmarkSlackChannelSend(b *testing.B) {
 	// Create mock server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	}))
