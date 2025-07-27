@@ -47,7 +47,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   benchmark-go:
     name: 🏃 Benchmark (${{ matrix.name }})
-    timeout-minutes: ${{ fromJSON(inputs.env-json).BENCHMARK_TIMEOUT || 30 }} # Configurable timeout with default
+    timeout-minutes: ${{ fromJSON(fromJSON(inputs.env-json).BENCHMARK_TIMEOUT || '30') }}
     strategy:
       fail-fast: false # Continue running other benchmarks if one fails
       matrix: ${{ fromJSON(inputs.benchmark-matrix) }}
