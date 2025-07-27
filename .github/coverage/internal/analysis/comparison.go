@@ -235,7 +235,7 @@ func NewComparisonEngine(config *ComparisonConfig) *ComparisonEngine {
 }
 
 // CompareCoverage compares coverage between base and PR snapshots
-func (e *ComparisonEngine) CompareCoverage(ctx context.Context, baseSnapshot, prSnapshot *CoverageSnapshot) (*ComparisonResult, error) {
+func (e *ComparisonEngine) CompareCoverage(_ context.Context, baseSnapshot, prSnapshot *CoverageSnapshot) (*ComparisonResult, error) {
 	result := &ComparisonResult{
 		BaseSnapshot: *baseSnapshot,
 		PRSnapshot:   *prSnapshot,
@@ -673,8 +673,8 @@ func (e *ComparisonEngine) generateSummary(result *ComparisonResult) ComparisonS
 }
 
 // LoadCoverageSnapshot loads a coverage snapshot from a file
-func (e *ComparisonEngine) LoadCoverageSnapshot(ctx context.Context, filePath string) (*CoverageSnapshot, error) {
-	file, err := os.Open(filePath)
+func (e *ComparisonEngine) LoadCoverageSnapshot(_ context.Context, filePath string) (*CoverageSnapshot, error) {
+	file, err := os.Open(filePath) //nolint:gosec // file path is controlled and validated by caller
 	if err != nil {
 		return nil, fmt.Errorf("failed to open coverage file: %w", err)
 	}
@@ -694,7 +694,7 @@ func (e *ComparisonEngine) LoadCoverageSnapshot(ctx context.Context, filePath st
 }
 
 // SaveComparisonResult saves a comparison result to a file
-func (e *ComparisonEngine) SaveComparisonResult(ctx context.Context, result *ComparisonResult, filePath string) error {
+func (e *ComparisonEngine) SaveComparisonResult(_ context.Context, result *ComparisonResult, filePath string) error {
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal comparison result: %w", err)
@@ -706,7 +706,7 @@ func (e *ComparisonEngine) SaveComparisonResult(ctx context.Context, result *Com
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := os.WriteFile(filePath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write comparison result: %w", err)
 	}
 

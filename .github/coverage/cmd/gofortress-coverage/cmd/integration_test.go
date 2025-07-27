@@ -37,7 +37,7 @@ func TestParseCommand(t *testing.T) { //nolint:revive // function naming
 
 	// Create test coverage file
 	coverageFile := filepath.Join(tempDir, "coverage.txt")
-	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0644)
+	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0600)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -146,7 +146,7 @@ func TestBadgeCommand(t *testing.T) { //nolint:revive // function naming
 
 	// Create test coverage file
 	coverageFile := filepath.Join(tempDir, "coverage.txt")
-	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0644)
+	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0600)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -301,7 +301,7 @@ func TestReportCommand(t *testing.T) { //nolint:revive // function naming
 
 	// Create test coverage file
 	coverageFile := filepath.Join(tempDir, "coverage.txt")
-	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0644)
+	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0600)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -452,7 +452,7 @@ func TestHistoryCommand(t *testing.T) { //nolint:revive // function naming
 
 	// Create test coverage file
 	coverageFile := filepath.Join(tempDir, "coverage.txt")
-	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0644)
+	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0600)
 	require.NoError(t, err)
 
 	// Create history directory
@@ -657,7 +657,7 @@ func TestCommentCommand(t *testing.T) { //nolint:revive // function naming
 
 	// Create test coverage file
 	coverageFile := filepath.Join(tempDir, "coverage.txt")
-	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0644)
+	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0600)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -781,7 +781,7 @@ func TestCompleteCommand(t *testing.T) { //nolint:revive // function naming
 
 	// Create test coverage file
 	coverageFile := filepath.Join(tempDir, "coverage.txt")
-	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0644)
+	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0600)
 	require.NoError(t, err)
 
 	// Create output directory

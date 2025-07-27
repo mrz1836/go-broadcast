@@ -2,10 +2,17 @@ package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
+)
+
+// Test error definitions
+var (
+	ErrMockSubscriber = errors.New("mock subscriber error")
+	ErrProcessorNotRunning = errors.New("processor not running")
 )
 
 // Event represents a notification event
@@ -83,7 +90,7 @@ func (m *mockSubscriber) HandleEvent(ctx context.Context, event Event) error {
 	defer m.mutex.Unlock()
 
 	if m.shouldFail {
-		return fmt.Errorf("mock subscriber error")
+		return ErrMockSubscriber
 	}
 
 	m.receivedEvents = append(m.receivedEvents, event)
@@ -179,7 +186,7 @@ func (p *mockEventProcessor) PublishEvent(ctx context.Context, event Event) erro
 	defer p.mu.RUnlock()
 
 	if !p.running {
-		return fmt.Errorf("processor not running")
+		return ErrProcessorNotRunning
 	}
 
 	// Apply filters

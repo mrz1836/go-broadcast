@@ -3,9 +3,14 @@ package events
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 	"time"
+)
+
+// Static error definitions
+var (
+	ErrEventBufferFull = errors.New("event buffer full")
 )
 
 // EventProcessor manages the processing and routing of coverage events
@@ -103,7 +108,7 @@ func (ep *EventProcessor) ProcessEvent(event *CoverageEvent) error {
 	case ep.eventCh <- event:
 		return nil
 	default:
-		return fmt.Errorf("event buffer full")
+		return ErrEventBufferFull
 	}
 }
 

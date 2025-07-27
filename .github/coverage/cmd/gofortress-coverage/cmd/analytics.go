@@ -188,74 +188,74 @@ Features:
 
 // Dashboard command flags
 var (
-	dashboardOutput    string
-	dashboardFormat    string
-	dashboardTimeRange string
-	dashboardRefresh   bool
-	dashboardTheme     string
+	dashboardOutput    string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	dashboardFormat    string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	dashboardTimeRange string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	dashboardRefresh   bool   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	dashboardTheme     string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
 )
 
 // Trends command flags
 var (
-	trendsRange       string
-	trendsFormat      string
-	trendsOutput      string
-	trendsShowDetails bool
+	trendsRange       string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	trendsFormat      string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	trendsOutput      string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	trendsShowDetails bool   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
 )
 
 // Predict command flags
 var (
-	predictHorizon   string
-	predictMethod    string
-	predictOutput    string
-	predictScenarios []string
+	predictHorizon   string   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	predictMethod    string   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	predictOutput    string   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	predictScenarios []string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
 )
 
 // Impact command flags
 var (
-	impactPR      int
-	impactBranch  string
-	impactOutput  string
-	impactFormat  string
-	impactVerbose bool
+	impactPR      int    //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	impactBranch  string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	impactOutput  string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	impactFormat  string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	impactVerbose bool   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
 )
 
 // Team command flags
 var (
-	teamRange             string
-	teamOutput            string
-	teamFormat            string
-	teamIncludeIndividual bool
-	teamComparisons       bool
+	teamRange             string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	teamOutput            string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	teamFormat            string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	teamIncludeIndividual bool   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	teamComparisons       bool   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
 )
 
 // Export command flags
 var (
-	exportFormat   string
-	exportOutput   string
-	exportSources  []string
-	exportRange    string
-	exportTemplate string
-	exportCompress bool
+	exportFormat   string   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	exportOutput   string   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	exportSources  []string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	exportRange    string   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	exportTemplate string   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	exportCompress bool     //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
 )
 
 // Charts command flags
 var (
-	chartsType   string
-	chartsOutput string
-	chartsRange  string
-	chartsWidth  int
-	chartsHeight int
-	chartsTheme  string
+	chartsType   string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	chartsOutput string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	chartsRange  string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	chartsWidth  int    //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	chartsHeight int    //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	chartsTheme  string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
 )
 
 // Notify command flags
 var (
-	notifyChannel string
-	notifyMessage string
-	notifyEvent   string
-	notifyTest    bool
-	notifyStatus  bool
+	notifyChannel string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	notifyMessage string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	notifyEvent   string //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	notifyTest    bool   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
+	notifyStatus  bool   //nolint:gochecknoglobals // CLI flags require global variables for cobra command parsing
 )
 
 func init() { //nolint:revive,gochecknoinits // CLI command initialization
@@ -585,7 +585,7 @@ func runImpact(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 
 	// Output result
 	if impactOutput != "" {
-		if err := os.WriteFile(impactOutput, []byte(output), 0644); err != nil {
+		if err := os.WriteFile(impactOutput, []byte(output), 0600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Printf("✅ Impact analysis saved: %s\n", impactOutput)
@@ -682,7 +682,7 @@ func runTeam(cmd *cobra.Command, args []string) error { //nolint:revive // funct
 
 	// Output result
 	if teamOutput != "" {
-		if err := os.WriteFile(teamOutput, []byte(output), 0644); err != nil {
+		if err := os.WriteFile(teamOutput, []byte(output), 0600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Printf("✅ Team analysis saved: %s\n", teamOutput)
@@ -871,7 +871,7 @@ func runCharts(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 
 	// Output result
 	if chartsOutput != "" {
-		if err := os.WriteFile(chartsOutput, []byte(svgContent), 0644); err != nil {
+		if err := os.WriteFile(chartsOutput, []byte(svgContent), 0600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Printf("✅ Chart saved: %s\n", chartsOutput)

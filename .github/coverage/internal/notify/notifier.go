@@ -3,11 +3,19 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/types"
+)
+
+// Static error definitions
+var (
+	ErrNotificationEngineDisabled = errors.New("notification engine is disabled")
+	ErrNoChannelsConfigured       = errors.New("no channels configured for notification")
+	ErrChannelSendFailures        = errors.New("failed to send to some channels")
 )
 
 // NotificationEngine manages multi-channel notifications for coverage events
@@ -59,7 +67,7 @@ func NewNotificationEngine(config *NotificationConfig) *NotificationEngine {
 // Send sends a notification through the specified channels
 func (ne *NotificationEngine) Send(ctx context.Context, notification *types.Notification) error {
 	if !ne.config.Enabled {
-		return fmt.Errorf("notification engine is disabled")
+		return ErrNotificationEngineDisabled
 	}
 
 	if len(notification.Metadata) == 0 {
@@ -71,7 +79,7 @@ func (ne *NotificationEngine) Send(ctx context.Context, notification *types.Noti
 	// Determine which channels to use
 	channels := ne.config.DefaultChannels
 	if len(channels) == 0 {
-		return fmt.Errorf("no channels configured for notification")
+		return ErrNoChannelsConfigured
 	}
 
 	// Send to each channel
@@ -86,7 +94,7 @@ func (ne *NotificationEngine) Send(ctx context.Context, notification *types.Noti
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf("failed to send to some channels: %s", strings.Join(errors, ", "))
+		return fmt.Errorf("%w: %s", ErrChannelSendFailures, strings.Join(errors, ", "))
 	}
 
 	return nil

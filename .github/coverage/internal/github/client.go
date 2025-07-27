@@ -15,6 +15,7 @@ import (
 // Static error definitions
 var (
 	ErrGitHubAPIError = errors.New("GitHub API error")
+	ErrCommentNotFound = errors.New("coverage comment not found")
 )
 
 // Client handles GitHub API operations for coverage reporting
@@ -211,7 +212,7 @@ func (c *Client) findCoverageComment(ctx context.Context, owner, repo string, pr
 		}
 	}
 
-	return nil, nil
+	return nil, ErrCommentNotFound
 }
 
 func (c *Client) createComment(ctx context.Context, owner, repo string, pr int, body string) (*Comment, error) {

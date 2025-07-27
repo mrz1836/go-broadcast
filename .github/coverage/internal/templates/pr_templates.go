@@ -4,12 +4,18 @@ package templates
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"math"
 	"sort"
 	"strings"
 	"time"
+)
+
+// Static error definitions
+var (
+	ErrTemplateNotFound = errors.New("template not found")
 )
 
 // PRTemplateEngine handles advanced PR comment template rendering
@@ -246,7 +252,7 @@ func (e *PRTemplateEngine) RenderComment(ctx context.Context, templateName strin
 	// Get the template
 	tmpl, exists := e.templates[templateName]
 	if !exists {
-		return "", fmt.Errorf("template %s not found", templateName)
+		return "", fmt.Errorf("%w: %s", ErrTemplateNotFound, templateName)
 	}
 
 	// Render the template
@@ -544,7 +550,7 @@ func (e *PRTemplateEngine) trendChart(values []float64) string {
 }
 
 func (e *PRTemplateEngine) filterFiles(files []FileCoverageData) []FileCoverageData {
-	var filtered []FileCoverageData
+	filtered := make([]FileCoverageData, 0, len(files))
 
 	for _, file := range files {
 		// Skip stable files if configured
@@ -564,7 +570,7 @@ func (e *PRTemplateEngine) filterFiles(files []FileCoverageData) []FileCoverageD
 }
 
 func (e *PRTemplateEngine) filterPackages(packages []PackageCoverageData) []PackageCoverageData {
-	var filtered []PackageCoverageData
+	filtered := make([]PackageCoverageData, 0, len(packages))
 
 	for _, pkg := range packages {
 		// Skip stable packages if configured
@@ -717,7 +723,7 @@ func (e *PRTemplateEngine) AddCustomTemplate(name, templateContent string) error
 
 // GetAvailableTemplates returns a list of available template names
 func (e *PRTemplateEngine) GetAvailableTemplates() []string {
-	var names []string
+	names := make([]string, 0, len(e.templates))
 	for name := range e.templates {
 		names = append(names, name)
 	}

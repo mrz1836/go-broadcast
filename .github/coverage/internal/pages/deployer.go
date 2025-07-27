@@ -2,12 +2,22 @@ package pages
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+)
+
+// Static error definitions
+var (
+	ErrBranchAlreadyExists         = errors.New("branch already exists")
+	ErrBranchOrPRRequired          = errors.New("either branch or PR number must be specified")
+	ErrInputDirectoryRequired      = errors.New("input directory is required")
+	ErrInputDirectoryNotExists     = errors.New("input directory does not exist")
+	ErrNoChangesToCommit          = errors.New("no changes to commit")
 )
 
 // Deployer handles GitHub Pages deployment operations
@@ -117,7 +127,7 @@ func (d *Deployer) Setup(ctx context.Context, force bool) error {
 	}
 
 	if exists && !force {
-		return fmt.Errorf("branch %s already exists (use --force to recreate)", d.Config.PagesBranch)
+		return fmt.Errorf("%w: %s (use --force to recreate)", ErrBranchAlreadyExists, d.Config.PagesBranch)
 	}
 
 	// Create orphan gh-pages branch
@@ -161,15 +171,15 @@ type DeploymentOptions struct {
 
 func (d *Deployer) validateDeployment(opts DeploymentOptions) error {
 	if opts.Branch == "" && opts.PRNumber == "" {
-		return fmt.Errorf("either branch or PR number must be specified")
+		return ErrBranchOrPRRequired
 	}
 
 	if opts.InputDir == "" {
-		return fmt.Errorf("input directory is required")
+		return ErrInputDirectoryRequired
 	}
 
 	if _, err := os.Stat(opts.InputDir); os.IsNotExist(err) {
-		return fmt.Errorf("input directory does not exist: %s", opts.InputDir)
+		return fmt.Errorf("%w: %s", ErrInputDirectoryNotExists, opts.InputDir)
 	}
 
 	return nil
@@ -199,7 +209,7 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 		targetPath = filepath.Join(workspaceDir, "reports", "pr", sanitizePRNumber(opts.PRNumber))
 		badgeTargetPath := filepath.Join(workspaceDir, "badges", "pr", sanitizePRNumber(opts.PRNumber)+".svg")
 
-		if err := os.MkdirAll(filepath.Dir(badgeTargetPath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(badgeTargetPath), 0750); err != nil {
 			return fmt.Errorf("failed to create PR badge directory: %w", err)
 		}
 
@@ -212,7 +222,7 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 		targetPath = filepath.Join(workspaceDir, "reports", sanitizeBranchName(opts.Branch))
 		badgeTargetPath := filepath.Join(workspaceDir, "badges", sanitizeBranchName(opts.Branch)+".svg")
 
-		if err := os.MkdirAll(filepath.Dir(badgeTargetPath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(badgeTargetPath), 0750); err != nil {
 			return fmt.Errorf("failed to create branch badge directory: %w", err)
 		}
 
@@ -223,7 +233,7 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 	}
 
 	// Ensure target directory exists
-	if err := os.MkdirAll(targetPath, 0755); err != nil {
+	if err := os.MkdirAll(targetPath, 0750); err != nil {
 		return fmt.Errorf("failed to create target directory: %w", err)
 	}
 
@@ -243,7 +253,7 @@ func (d *Deployer) updateDashboard(ctx context.Context, workspaceDir string, opt
 	if _, err := os.Stat(dashboardPath); os.IsNotExist(err) {
 		// Create basic dashboard if it doesn't exist
 		dashboardContent := generateBasicDashboard(opts)
-		if err := os.WriteFile(dashboardPath, []byte(dashboardContent), 0644); err != nil {
+		if err := os.WriteFile(dashboardPath, []byte(dashboardContent), 0600); err != nil {
 			return fmt.Errorf("failed to create dashboard: %w", err)
 		}
 	}
@@ -280,7 +290,7 @@ func (d *Deployer) commitAndPush(ctx context.Context, workspaceDir string, opts 
 	}
 
 	if !hasChanges {
-		return "", fmt.Errorf("no changes to commit")
+		return "", ErrNoChangesToCommit
 	}
 
 	// Commit changes

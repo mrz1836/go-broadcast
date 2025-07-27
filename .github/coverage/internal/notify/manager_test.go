@@ -2,11 +2,18 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/types"
+)
+
+// Test error definitions
+var (
+	ErrMockDeliveryFailed = errors.New("mock delivery failed")
+	ErrChannelNotFound    = errors.New("channel not found")
 )
 
 // Mock types for testing
@@ -88,7 +95,7 @@ func (m *mockChannel) Send(ctx context.Context, notification *types.Notification
 	}
 
 	if m.shouldFail {
-		result.Error = fmt.Errorf("mock delivery failed")
+		result.Error = ErrMockDeliveryFailed
 	}
 
 	m.deliveryResults = append(m.deliveryResults, result)
@@ -136,7 +143,7 @@ func (nm *NotificationManager) SendNotification(ctx context.Context, notificatio
 	for _, channelName := range channels {
 		channel, exists := nm.channels[channelName]
 		if !exists {
-			return nil, fmt.Errorf("channel %s not found", channelName)
+			return nil, fmt.Errorf("%w: %s", ErrChannelNotFound, channelName)
 		}
 
 		// Convert internal notification to types.Notification

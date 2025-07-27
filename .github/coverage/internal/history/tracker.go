@@ -369,7 +369,7 @@ func (t *Tracker) saveEntry(ctx context.Context, entry *Entry) error {
 		return fmt.Errorf("failed to marshal entry: %w", err)
 	}
 
-	if err := os.WriteFile(filepath, data, 0644); err != nil {
+	if err := os.WriteFile(filepath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write entry file: %w", err)
 	}
 

@@ -4,6 +4,7 @@ package parser
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
+
+// Static error definitions
+var (
+	ErrInvalidCoverageMode      = errors.New("invalid coverage file: first line must specify mode")
+	ErrMissingModeDeclaration   = errors.New("invalid coverage file: missing mode declaration")
+	ErrInvalidStatementFormat   = errors.New("invalid statement format")
+	ErrMissingColon            = errors.New("invalid statement format: missing colon")
+	ErrMissingComma            = errors.New("invalid position format: missing comma")
+	ErrMissingDot              = errors.New("invalid position format: missing dot")
 )
 
 // CoverageData represents parsed coverage information
@@ -88,7 +99,7 @@ func NewWithConfig(config *Config) *Parser {
 
 // ParseFile parses a coverage profile file and returns structured coverage data
 func (p *Parser) ParseFile(ctx context.Context, filename string) (*CoverageData, error) {
-	file, err := os.Open(filename)
+	file, err := os.Open(filename) //nolint:gosec // filename is controlled and validated by caller
 	if err != nil {
 		return nil, fmt.Errorf("failed to open coverage file %q: %w", filename, err)
 	}
@@ -125,7 +136,7 @@ func (p *Parser) Parse(ctx context.Context, reader io.Reader) (*CoverageData, er
 		if lineNum == 1 {
 			// Parse mode line: "mode: atomic" or "mode: count"
 			if !strings.HasPrefix(line, "mode:") {
-				return nil, fmt.Errorf("invalid coverage file: first line must specify mode, got %q", line)
+				return nil, fmt.Errorf("%w, got %q", ErrInvalidCoverageMode, line)
 			}
 			mode = strings.TrimSpace(strings.TrimPrefix(line, "mode:"))
 			continue
@@ -158,7 +169,7 @@ func (p *Parser) Parse(ctx context.Context, reader io.Reader) (*CoverageData, er
 
 	// Check if we got a valid mode
 	if mode == "" {
-		return nil, fmt.Errorf("invalid coverage file: missing mode declaration")
+		return nil, ErrMissingModeDeclaration
 	}
 
 	return p.buildCoverageData(mode, statements)
@@ -169,13 +180,13 @@ func (p *Parser) parseStatement(line string) (Statement, string, error) {
 	// Format: filename:startLine.startCol,endLine.endCol numStmt count
 	parts := strings.Fields(line)
 	if len(parts) != 3 {
-		return Statement{}, "", fmt.Errorf("invalid statement format: expected 3 fields, got %d", len(parts))
+		return Statement{}, "", fmt.Errorf("%w: expected 3 fields, got %d", ErrInvalidStatementFormat, len(parts))
 	}
 
 	// Parse filename and position
 	colonIdx := strings.LastIndex(parts[0], ":")
 	if colonIdx == -1 {
-		return Statement{}, "", fmt.Errorf("invalid statement format: missing colon in %q", parts[0])
+		return Statement{}, "", fmt.Errorf("%w in %q", ErrMissingColon, parts[0])
 	}
 
 	filename := parts[0][:colonIdx]
@@ -184,7 +195,7 @@ func (p *Parser) parseStatement(line string) (Statement, string, error) {
 	// Parse start and end positions
 	commaIdx := strings.Index(position, ",")
 	if commaIdx == -1 {
-		return Statement{}, "", fmt.Errorf("invalid position format: missing comma in %q", position)
+		return Statement{}, "", fmt.Errorf("%w in %q", ErrMissingComma, position)
 	}
 
 	startPos := position[:commaIdx]
@@ -226,7 +237,7 @@ func (p *Parser) parseStatement(line string) (Statement, string, error) {
 func (p *Parser) parsePosition(pos string) (int, int, error) {
 	dotIdx := strings.Index(pos, ".")
 	if dotIdx == -1 {
-		return 0, 0, fmt.Errorf("invalid position format: missing dot in %q", pos)
+		return 0, 0, fmt.Errorf("%w in %q", ErrMissingDot, pos)
 	}
 
 	line, err := strconv.Atoi(pos[:dotIdx])
@@ -296,7 +307,7 @@ func (p *Parser) isGeneratedFile(filename string) bool {
 		"// This file is generated",
 	}
 
-	file, err := os.Open(filename)
+	file, err := os.Open(filename) //nolint:gosec // filename is controlled and validated by caller
 	if err != nil {
 		return false
 	}
