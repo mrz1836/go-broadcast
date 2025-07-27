@@ -367,7 +367,8 @@ jobs:
           flags: unittests
           token: ${{ secrets.codecov-token }}
           verbose: true
-          file: coverage.txt # Explicitly specify the file
+          file: coverage.txt # Explicitly specify the file (deprecated but still works)
+          files: coverage.txt # Ensure it matches the file we generated
           disable_file_fixes: true # Prevent automatic modifications
 
       # ————————————————————————————————————————————————————————————————
