@@ -192,8 +192,8 @@ func Load() *Config {
 		Storage: StorageConfig{
 			BaseDir:    getEnvString("COVERAGE_BASE_DIR", ".github/coverage"),
 			AutoCreate: getEnvBool("COVERAGE_AUTO_CREATE_DIRS", true),
-			FileMode:   os.FileMode(uint32(getEnvInt("COVERAGE_FILE_MODE", int(0o644)))), //nolint:gosec // File mode values are safe
-			DirMode:    os.FileMode(uint32(getEnvInt("COVERAGE_DIR_MODE", int(0o755)))),  //nolint:gosec // Dir mode values are safe
+			FileMode:   os.FileMode(getEnvIntBounded("COVERAGE_FILE_MODE", 0o644, 0, 0o777)),
+			DirMode:    os.FileMode(getEnvIntBounded("COVERAGE_DIR_MODE", 0o755, 0, 0o777)),
 		},
 	}
 
@@ -293,6 +293,26 @@ func getEnvInt(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// getEnvIntBounded parses an integer from environment with min/max bounds
+func getEnvIntBounded(key string, defaultValue, minValue, maxValue int) uint32 {
+	value := defaultValue
+	if envValue := os.Getenv(key); envValue != "" {
+		if parsed, err := strconv.Atoi(envValue); err == nil {
+			value = parsed
+		}
+	}
+
+	// Apply bounds checking
+	if value < minValue {
+		value = minValue
+	} else if value > maxValue {
+		value = maxValue
+	}
+
+	// Safe conversion to uint32 after bounds checking (maxValue is guaranteed <= 0o777)
+	return uint32(value) //nolint:gosec // Bounds checked above with max value 0o777
 }
 
 func getEnvFloat(key string, defaultValue float64) float64 {
