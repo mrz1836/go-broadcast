@@ -90,7 +90,7 @@ func (g *Generator) prepareTemplateData(data *CoverageData) map[string]interface
 	filesPercent := float64(data.CoveredFiles) / float64(data.TotalFiles) * 100
 
 	// Calculate trends
-	hasHistory := data.TrendData != nil && len(data.History) > 1
+	hasHistory := data.TrendData != nil && len(data.History) > 0
 	coverageTrend := "0"
 	trendDirection := "stable"
 	filesTrend := "0"
