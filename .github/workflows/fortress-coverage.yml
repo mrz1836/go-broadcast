@@ -42,7 +42,9 @@ on:
         description: "GitHub token for API access"
         required: true
 
-# Security: Job-level permissions are set per job for least privilege access
+# Security: Restrictive default permissions with job-level overrides for least privilege access
+permissions:
+  contents: read
 
 jobs:
   # ----------------------------------------------------------------------------------
@@ -52,6 +54,9 @@ jobs:
     name: 📊 Process Coverage
     runs-on: ${{ inputs.primary-runner }}
     timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       contents: read # Read repository content
       pull-requests: write # Create PR comments
@@ -184,7 +189,7 @@ jobs:
       # Download coverage artifact from test job
       # ————————————————————————————————————————————————————————————————
       - name: 📥 Download coverage artifact
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: coverage-data
           path: ./coverage-artifacts/
@@ -332,7 +337,7 @@ jobs:
       # Upload coverage artifacts for other jobs
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload coverage artifacts
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ steps.safe-branch.outputs.artifact-name }}
           path: |
@@ -345,7 +350,7 @@ jobs:
       # Upload coverage statistics for performance summary
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload coverage statistics
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-stats-${{ steps.safe-branch.outputs.safe-name }}
           path: coverage-stats-${{ steps.safe-branch.outputs.safe-name }}.json

@@ -38,7 +38,9 @@ on:
         description: "GitHub token for API access"
         required: true
 
-# Security: Job-level permissions are set per job for least privilege access
+# Security: Restrictive default permissions with job-level overrides for least privilege access
+permissions:
+  contents: read
 
 jobs:
   # ----------------------------------------------------------------------------------
