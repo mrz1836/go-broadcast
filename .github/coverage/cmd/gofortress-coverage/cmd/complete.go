@@ -263,15 +263,35 @@ update history, and create GitHub PR comment if in PR context.`,
 				indexPath := filepath.Join(outputDir, "index.html")
 				dashboardPath := filepath.Join(outputDir, "dashboard.html")
 
+				// Verify index.html was created successfully
+				if _, statErr := os.Stat(indexPath); statErr != nil {
+					cmd.Printf("   ❌ index.html was not created successfully: %v\n", statErr)
+					return fmt.Errorf("index.html generation failed: %w", statErr)
+				}
+
 				// Read the generated index.html and copy it to dashboard.html
-				if indexContent, readErr := os.ReadFile(indexPath); readErr == nil { //nolint:gosec // path is constructed from validated config
-					if writeErr := os.WriteFile(dashboardPath, indexContent, cfg.Storage.FileMode); writeErr != nil {
-						cmd.Printf("   ⚠️  Failed to create dashboard.html: %v\n", writeErr)
-					} else {
-						cmd.Printf("   ✅ Dashboard also saved as: %s\n", dashboardPath)
-					}
+				indexContent, readErr := os.ReadFile(indexPath) //nolint:gosec // path is constructed from validated config
+				if readErr != nil {
+					cmd.Printf("   ❌ Failed to read index.html for dashboard.html creation: %v\n", readErr)
+					return fmt.Errorf("failed to read generated index.html: %w", readErr)
+				}
+
+				if len(indexContent) == 0 {
+					cmd.Printf("   ❌ index.html is empty, cannot create dashboard.html\n")
+					return fmt.Errorf("generated index.html is empty")
+				}
+
+				if writeErr := os.WriteFile(dashboardPath, indexContent, cfg.Storage.FileMode); writeErr != nil {
+					cmd.Printf("   ❌ Failed to create dashboard.html: %v\n", writeErr)
+					return fmt.Errorf("failed to create dashboard.html: %w", writeErr)
+				}
+
+				// Verify dashboard.html was created successfully
+				if dashboardStat, statErr := os.Stat(dashboardPath); statErr != nil {
+					cmd.Printf("   ❌ dashboard.html was not created successfully: %v\n", statErr)
+					return fmt.Errorf("dashboard.html creation verification failed: %w", statErr)
 				} else {
-					cmd.Printf("   ⚠️  Failed to read index.html for dashboard.html creation: %v\n", readErr)
+					cmd.Printf("   ✅ Dashboard also saved as: %s (%d bytes)\n", dashboardPath, dashboardStat.Size())
 				}
 
 				// Also save coverage data as JSON for pages deployment

@@ -225,38 +225,52 @@ jobs:
         run: |
           echo "📊 Processing coverage data..."
 
-          # Create output directory
-          mkdir -p "../../../../coverage-output"
+          # Debug: Show current working directory and paths
+          echo "🔍 Current working directory: $(pwd)"
+          echo "🔍 Repository root should be: $(realpath ../../../../)"
 
-          # Check if coverage file exists
-          if [[ -f "../../../../coverage-artifacts/${{ inputs.coverage-file }}" ]]; then
-            COVERAGE_FILE="../../../../coverage-artifacts/${{ inputs.coverage-file }}"
-          elif [[ -f "../../../../${{ inputs.coverage-file }}" ]]; then
-            COVERAGE_FILE="../../../../${{ inputs.coverage-file }}"
+          # Resolve absolute paths to avoid relative path issues
+          REPO_ROOT="$(realpath ../../../../)"
+          OUTPUT_DIR="$REPO_ROOT/coverage-output"
+
+          echo "🔍 Repository root: $REPO_ROOT"
+          echo "🔍 Output directory: $OUTPUT_DIR"
+
+          # Create output directory with absolute path
+          mkdir -p "$OUTPUT_DIR"
+          echo "📁 Created output directory: $OUTPUT_DIR"
+
+          # Check if coverage file exists using absolute paths
+          ARTIFACTS_DIR="$REPO_ROOT/coverage-artifacts"
+
+          if [[ -f "$ARTIFACTS_DIR/${{ inputs.coverage-file }}" ]]; then
+            COVERAGE_FILE="$ARTIFACTS_DIR/${{ inputs.coverage-file }}"
+          elif [[ -f "$REPO_ROOT/${{ inputs.coverage-file }}" ]]; then
+            COVERAGE_FILE="$REPO_ROOT/${{ inputs.coverage-file }}"
           else
             echo "❌ Coverage file not found: ${{ inputs.coverage-file }}"
             echo "🔍 Looking for coverage files in artifacts directory:"
-            ls -la ../../../../coverage-artifacts/ 2>/dev/null || echo "No coverage-artifacts directory found"
+            ls -la "$ARTIFACTS_DIR" 2>/dev/null || echo "No coverage-artifacts directory found at: $ARTIFACTS_DIR"
             echo "🔍 Looking for coverage files in root:"
-            ls -la ../../../../*.out 2>/dev/null || echo "No .out files found in root"
+            ls -la "$REPO_ROOT"/*.out 2>/dev/null || echo "No .out files found in root: $REPO_ROOT"
             exit 1
           fi
 
           echo "📄 Using coverage file: $COVERAGE_FILE"
 
-          # Run complete coverage processing pipeline
+          # Run complete coverage processing pipeline with absolute paths
           ./gofortress-coverage complete \
             --input "$COVERAGE_FILE" \
-            --output "../../../../coverage-output"
+            --output "$OUTPUT_DIR"
 
           echo "✅ Coverage processing completed"
 
           # Collect coverage processing statistics from generated files
-          if [[ -f "../../../../coverage-output/coverage.html" ]]; then
+          if [[ -f "$OUTPUT_DIR/coverage.html" ]]; then
             # Extract coverage percentage from generated badge or report
-            if [[ -f "../../../../coverage-output/coverage.svg" ]]; then
+            if [[ -f "$OUTPUT_DIR/coverage.svg" ]]; then
               # Extract coverage from SVG badge content
-              COVERAGE_PERCENT=$(grep -o '[0-9]\+\.[0-9]\+%' "../../../../coverage-output/coverage.svg" | head -1 | sed 's/%//')
+              COVERAGE_PERCENT=$(grep -o '[0-9]\+\.[0-9]\+%' "$OUTPUT_DIR/coverage.svg" | head -1 | sed 's/%//')
             else
               COVERAGE_PERCENT="N/A"
             fi
@@ -267,7 +281,11 @@ jobs:
             
             # Create coverage statistics for performance reporting
             PROCESSING_TIME=$(date +%s)
-            FILES_PROCESSED=$(find ../../../../coverage-output -name "*.html" -o -name "*.json" | wc -l)
+            FILES_PROCESSED=$(find "$OUTPUT_DIR" -name "*.html" -o -name "*.json" | wc -l)
+            
+            # Save statistics to repository root
+            STATS_FILE="$REPO_ROOT/coverage-stats-${{ steps.safe-branch.outputs.safe-name }}.json"
+            
             # Create coverage statistics JSON using printf to avoid heredoc issues
             printf '{
               "coverage_percent": "%s",
@@ -285,7 +303,9 @@ jobs:
               "${{ inputs.branch-name }}" \
               "${{ inputs.commit-sha }}" \
               "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-              > "../../../../coverage-stats-${{ steps.safe-branch.outputs.safe-name }}.json"
+              > "$STATS_FILE"
+              
+            echo "📊 Statistics saved to: $STATS_FILE"
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -333,6 +353,84 @@ jobs:
         continue-on-error: true
 
       # ————————————————————————————————————————————————————————————————
+      # Debug: Show repository state after coverage processing
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Debug repository state
+        if: always()
+        run: |
+          echo "🔍 Repository state after coverage processing:"
+          echo "📂 Repository root contents:"
+          ls -la .
+          echo ""
+          echo "📁 Coverage output directory:"
+          if [[ -d "coverage-output" ]]; then
+            ls -la coverage-output/
+            echo ""
+            echo "📊 Coverage output file sizes:"
+            du -h coverage-output/* 2>/dev/null || echo "No files to measure"
+          else
+            echo "❌ coverage-output directory does not exist"
+          fi
+          echo ""
+          echo "📄 Stats file:"
+          if [[ -f "coverage-stats-${{ steps.safe-branch.outputs.safe-name }}.json" ]]; then
+            echo "✅ Stats file exists:"
+            cat "coverage-stats-${{ steps.safe-branch.outputs.safe-name }}.json"
+          else
+            echo "❌ Stats file missing"
+          fi
+
+      # ————————————————————————————————————————————————————————————————
+      # Validate generated files before GitHub Pages deployment
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Validate coverage artifacts
+        working-directory: .github/coverage/cmd/gofortress-coverage
+        run: |
+          echo "🔍 Validating coverage artifacts before deployment..."
+
+          # Use absolute path resolution like in processing step
+          REPO_ROOT="$(realpath ../../../../)"
+          OUTPUT_DIR="$REPO_ROOT/coverage-output"
+
+          echo "🔍 Repository root: $REPO_ROOT"
+          echo "📂 Checking output directory: $OUTPUT_DIR"
+
+          # Check if output directory exists
+          if [[ ! -d "$OUTPUT_DIR" ]]; then
+            echo "❌ Output directory does not exist: $OUTPUT_DIR"
+            exit 1
+          fi
+
+          # List all files in output directory for debugging
+          echo "📋 Files in output directory:"
+          ls -la "$OUTPUT_DIR" || echo "Failed to list directory contents"
+
+          # Check for required files
+          REQUIRED_FILES=("dashboard.html" "coverage.html" "coverage.svg")
+          MISSING_FILES=()
+
+          for file in "${REQUIRED_FILES[@]}"; do
+            file_path="$OUTPUT_DIR/$file"
+            if [[ -f "$file_path" ]]; then
+              file_size=$(stat -c%s "$file_path" 2>/dev/null || stat -f%z "$file_path" 2>/dev/null || echo "unknown")
+              echo "✅ $file exists ($file_size bytes)"
+            else
+              echo "❌ $file is missing"
+              MISSING_FILES+=("$file")
+            fi
+          done
+
+          # Report missing files
+          if [[ ${#MISSING_FILES[@]} -gt 0 ]]; then
+            echo "❌ Missing required files: ${MISSING_FILES[*]}"
+            echo "🔍 Available files:"
+            find "$OUTPUT_DIR" -type f -exec basename {} \; 2>/dev/null || echo "No files found"
+            exit 1
+          fi
+
+          echo "✅ All required coverage artifacts are present"
+
+      # ————————————————————————————————————————————————————————————————
       # GitHub Pages deployment
       # ————————————————————————————————————————————————————————————————
       - name: 🚀 Deploy to GitHub Pages
@@ -347,6 +445,12 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Use absolute path for deployment
+          REPO_ROOT="$(realpath ../../../../)"
+          OUTPUT_DIR="$REPO_ROOT/coverage-output"
+
+          echo "🔍 Using output directory for deployment: $OUTPUT_DIR"
+
           # Deploy coverage artifacts
           if [[ -n "${{ inputs.pr-number }}" ]]; then
             # Deploy PR coverage
@@ -354,14 +458,14 @@ jobs:
               --branch "${{ inputs.branch-name }}" \
               --commit "${{ inputs.commit-sha }}" \
               --pr "${{ inputs.pr-number }}" \
-              --input "../../../../coverage-output" \
+              --input "$OUTPUT_DIR" \
               --verbose
           else
             # Deploy branch coverage
             ./gofortress-coverage pages deploy \
               --branch "${{ inputs.branch-name }}" \
               --commit "${{ inputs.commit-sha }}" \
-              --input "../../../../coverage-output" \
+              --input "$OUTPUT_DIR" \
               --verbose
           fi
 
@@ -377,9 +481,13 @@ jobs:
         run: |
           echo "📋 Setting coverage status check..."
 
+          # Use absolute path for status check
+          REPO_ROOT="$(realpath ../../../../)"
+          OUTPUT_DIR="$REPO_ROOT/coverage-output"
+
           # Extract coverage percentage from generated badge
-          if [[ -f "../../../../coverage-output/coverage.svg" ]]; then
-            COVERAGE_PCT=$(grep -o '[0-9]\+\.[0-9]\+%' "../../../../coverage-output/coverage.svg" | head -1 | sed 's/%//' || echo "0")
+          if [[ -f "$OUTPUT_DIR/coverage.svg" ]]; then
+            COVERAGE_PCT=$(grep -o '[0-9]\+\.[0-9]\+%' "$OUTPUT_DIR/coverage.svg" | head -1 | sed 's/%//' || echo "0")
             THRESHOLD=${COVERAGE_FAIL_UNDER:-80}
             
             # Use awk for floating point comparison (bc may not be available)
@@ -417,8 +525,50 @@ jobs:
           echo "## 📊 Coverage Processing Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [[ -f "coverage-output/coverage.svg" ]]; then
-            COVERAGE_PCT=$(grep -o '[0-9]\+\.[0-9]\+%' "coverage-output/coverage.svg" | head -1 | sed 's/%//' || echo "N/A")
+          # Use absolute path for summary  
+          REPO_ROOT="$(pwd)"  # We're at repository root for this step
+          OUTPUT_DIR="$REPO_ROOT/coverage-output"
+
+          # Debug: Show paths and directory structure
+          echo "### 🔍 Debug Information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository Root**: \`$REPO_ROOT\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Output Directory**: \`$OUTPUT_DIR\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Working Directory**: \`$(pwd)\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # List generated files
+          echo "### 📁 Generated Files" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [[ -d "$OUTPUT_DIR" ]]; then
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            ls -la "$OUTPUT_DIR" >> $GITHUB_STEP_SUMMARY 2>&1 || echo "Failed to list output directory" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Show file sizes
+            echo "### 📊 File Details" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            for file in dashboard.html coverage.html coverage.svg index.html coverage-data.json; do
+              file_path="$OUTPUT_DIR/$file"
+              if [[ -f "$file_path" ]]; then
+                file_size=$(stat -c%s "$file_path" 2>/dev/null || stat -f%z "$file_path" 2>/dev/null || echo "unknown")
+                echo "- **$file**: ${file_size} bytes ✅" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- **$file**: Missing ❌" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          else
+            echo "❌ Output directory does not exist: \`$OUTPUT_DIR\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Coverage metrics
+          echo "### 📈 Coverage Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ -f "$OUTPUT_DIR/coverage.svg" ]]; then
+            COVERAGE_PCT=$(grep -o '[0-9]\+\.[0-9]\+%' "$OUTPUT_DIR/coverage.svg" | head -1 | sed 's/%//' || echo "N/A")
             TOTAL_STATEMENTS="N/A"
             COVERED_STATEMENTS="N/A"
             
@@ -426,6 +576,7 @@ jobs:
             echo "- **Statements**: ${COVERED_STATEMENTS}/${TOTAL_STATEMENTS}" >> $GITHUB_STEP_SUMMARY
             echo "- **Branch**: ${{ inputs.branch-name }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Commit**: ${{ inputs.commit-sha }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Timestamp**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
             
             if [[ -n "${{ inputs.pr-number }}" ]]; then
               echo "- **PR**: #${{ inputs.pr-number }}" >> $GITHUB_STEP_SUMMARY
@@ -437,6 +588,11 @@ jobs:
             fi
           else
             echo "❌ Coverage processing failed or no data generated" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Troubleshooting Info:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Check if the complete command succeeded" >> $GITHUB_STEP_SUMMARY
+            echo "- Verify coverage input file exists" >> $GITHUB_STEP_SUMMARY
+            echo "- Check dashboard generation logs" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
