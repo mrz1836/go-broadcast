@@ -445,6 +445,20 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Configure Git authentication for GitHub Pages deployment
+          echo "🔐 Configuring Git authentication for GitHub Pages..."
+
+          # Set up credential helper to use the GitHub token
+          git config --global credential.helper store
+
+          # Create credentials file with the GitHub token
+          echo "https://x-access-token:${GITHUB_TOKEN}@github.com" > ~/.git-credentials
+
+          # Configure Git to use the token for GitHub operations
+          git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+
+          echo "✅ Git authentication configured"
+
           # Use absolute path for deployment
           REPO_ROOT="$(realpath ../../../../)"
           OUTPUT_DIR="$REPO_ROOT/coverage-output"
