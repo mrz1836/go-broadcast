@@ -56,10 +56,10 @@ updates:
       include: "scope"
 
   # ──────────────────────────────────────────────────────────────
-  # 1b. Coverage Tool Go Module (.github/coverage/cmd/gofortress-coverage)
+  # 1b. Coverage Tool Go Module (.github/coverage)
   # ──────────────────────────────────────────────────────────────
   - package-ecosystem: "gomod"
-    directory: "/.github/coverage/cmd/gofortress-coverage"
+    directory: "/.github/coverage"
     target-branch: "master"
     schedule:
       interval: "weekly"
