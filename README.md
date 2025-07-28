@@ -424,7 +424,7 @@ go-broadcast status --config sync.yaml
 ### Configuration Reference
 
 <details>
-<summary><strong>File Transformations</strong></summary>
+<summary><strong>🔄 File Transformations</strong></summary>
 
 ```yaml
 transform:
@@ -436,7 +436,7 @@ transform:
 </details>
 
 <details>
-<summary><strong>File Mapping Options</strong></summary>
+<summary><strong>📁 File Mapping Options</strong></summary>
 
 ```yaml
 files:
@@ -450,7 +450,7 @@ files:
 </details>
 
 <details>
-<summary><strong>Advanced Configuration</strong></summary>
+<summary><strong>⚙️ Advanced Configuration</strong></summary>
 
 ```yaml
 version: 1
@@ -488,7 +488,7 @@ targets:
 <br/>
 
 <details>
-<summary><strong><code>Repository Features</code></strong></summary>
+<summary><strong>📦 Repository Features</strong></summary>
 <br/>
 
 * **Continuous Integration on Autopilot** with [GitHub Actions](https://github.com/features/actions) – every push is built, tested, and reported in minutes.
@@ -519,7 +519,7 @@ targets:
 </details>
 
 <details>
-<summary><strong><code>Library Deployment</code></strong></summary>
+<summary><strong>🚀 Library Deployment</strong></summary>
 <br/>
 
 This project uses [goreleaser](https://github.com/goreleaser/goreleaser) for streamlined binary and library deployment to GitHub. To get started, install it via:
@@ -553,7 +553,7 @@ This process ensures consistent, repeatable releases with properly versioned art
 </details>
 
 <details>
-<summary><strong><code>Makefile Commands</code></strong></summary>
+<summary><strong>🔨 Makefile Commands</strong></summary>
 <br/>
 
 View all `makefile` commands
@@ -620,7 +620,7 @@ vet                   ## Run go vet only on your module packages
 </details>
 
 <details>
-<summary><strong><code>GitHub Workflows</code></strong></summary>
+<summary><strong>⚡ GitHub Workflows</strong></summary>
 <br/>
 
 
@@ -657,7 +657,7 @@ This magical file controls everything from:
 </details>
 
 <details>
-<summary><strong><code>Updating Dependencies</code></strong></summary>
+<summary><strong>📦 Updating Dependencies</strong></summary>
 <br/>
 
 To update all dependencies (Go modules, linters, and related tools), run:
@@ -671,7 +671,7 @@ This command ensures all dependencies are brought up to date in a single step, i
 </details>
 
 <details>
-<summary><strong><code>Pre-commit Hooks</code></strong></summary>
+<summary><strong>🔧 Pre-commit Hooks</strong></summary>
 <br/>
 
 Set up the optional [pre-commit](https://pre-commit.com) hooks to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
@@ -686,7 +686,7 @@ The hooks are configured in [.pre-commit-config.yaml](.pre-commit-config.yaml) a
 </details>
 
 <details>
-<summary><strong>Logging and Debugging</strong></summary>
+<summary><strong>🐛 Logging and Debugging</strong></summary>
 
 go-broadcast provides comprehensive logging capabilities designed for debugging, monitoring, and troubleshooting. The logging system features intuitive verbose flags, component-specific debug modes, and automatic sensitive data redaction.
 

@@ -190,6 +190,26 @@ jobs:
         continue-on-error: true
 
       # ————————————————————————————————————————————————————————————————
+      # Create safe branch name for file system usage
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Create safe branch name
+        id: safe-branch
+        run: |
+          # Sanitize branch name for file system usage by replacing invalid characters
+          SAFE_BRANCH_NAME="${{ inputs.branch-name }}"
+          # Replace forward slashes with hyphens
+          SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/\//-/g')
+          # Replace other invalid characters with hyphens
+          SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/[":*?<>|\\]/-/g')
+          # Remove any trailing/leading hyphens and collapse multiple hyphens
+          SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/^-*//;s/-*$//;s/-\+/-/g')
+
+          echo "Original branch: ${{ inputs.branch-name }}"
+          echo "Safe branch name: $SAFE_BRANCH_NAME"
+          echo "safe-name=$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "artifact-name=coverage-reports-$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      # ————————————————————————————————————————————————————————————————
       # Process coverage and generate outputs
       # ————————————————————————————————————————————————————————————————
       - name: 📊 Process coverage data
@@ -285,26 +305,6 @@ jobs:
           else
             echo "⚠️ No coverage data found for PR comment"
           fi
-
-      # ————————————————————————————————————————————————————————————————
-      # Create safe branch name for file system usage
-      # ————————————————————————————————————————————————————————————————
-      - name: 🔧 Create safe branch name
-        id: safe-branch
-        run: |
-          # Sanitize branch name for file system usage by replacing invalid characters
-          SAFE_BRANCH_NAME="${{ inputs.branch-name }}"
-          # Replace forward slashes with hyphens
-          SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/\//-/g')
-          # Replace other invalid characters with hyphens
-          SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/[":*?<>|\\]/-/g')
-          # Remove any trailing/leading hyphens and collapse multiple hyphens
-          SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/^-*//;s/-*$//;s/-\+/-/g')
-
-          echo "Original branch: ${{ inputs.branch-name }}"
-          echo "Safe branch name: $SAFE_BRANCH_NAME"
-          echo "safe-name=$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
-          echo "artifact-name=coverage-reports-$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
 
       # ————————————————————————————————————————————————————————————————
       # Upload coverage artifacts for other jobs
