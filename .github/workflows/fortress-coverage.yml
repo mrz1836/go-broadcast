@@ -266,12 +266,31 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
+      # Create safe artifact name by sanitizing branch name
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Create safe artifact name
+        id: artifact-name
+        run: |
+          # Sanitize branch name for artifact name by replacing invalid characters
+          SAFE_BRANCH_NAME="${{ inputs.branch-name }}"
+          # Replace forward slashes with hyphens
+          SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/\//-/g')
+          # Replace other invalid characters with hyphens
+          SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/[":*?<>|\\]/-/g')
+          # Remove any trailing/leading hyphens and collapse multiple hyphens
+          SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/^-*//;s/-*$//;s/-\+/-/g')
+
+          echo "Original branch: ${{ inputs.branch-name }}"
+          echo "Safe artifact name: coverage-reports-$SAFE_BRANCH_NAME"
+          echo "safe-name=coverage-reports-$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      # ————————————————————————————————————————————————————————————————
       # Upload coverage artifacts for other jobs
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload coverage artifacts
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: coverage-reports-${{ inputs.branch-name }}
+          name: ${{ steps.artifact-name.outputs.safe-name }}
           path: |
             coverage-output/
             !coverage-output/*.tmp
