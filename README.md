@@ -167,7 +167,7 @@ go-broadcast sync --config sync.yaml
 - **CodeCov replacement** - Zero external dependencies, complete data privacy
 - **Professional badges** - GitHub-style badges with real-time updates
 - **Interactive dashboard** - Modern UI with analytics and trends
-- **[🔗 Live Demo](https://mrz1836.github.io/go-broadcast/)**
+- **[🔗 Live Dashboard](https://mrz1836.github.io/go-broadcast/)**
 
 ### ⚡ **Enterprise Performance**
 - **587M+ ops/sec** - Binary detection with zero allocations
@@ -196,13 +196,13 @@ go-broadcast sync --config sync.yaml
 
 <table>
   <tr>
-    <td><img src="https://mrz1836.github.io/go-broadcast/coverage.svg" alt="Main Branch Coverage" /></td>
-    <td><img src="https://img.shields.io/badge/coverage-87.2%25-brightgreen?style=flat-square" alt="Flat Square Style" /></td>
-    <td><img src="https://img.shields.io/badge/trend-%E2%86%97%20improving-green?style=for-the-badge" alt="Trend Badge" /></td>
+    <td><a href="https://mrz1836.github.io/go-broadcast/"><img src="https://mrz1836.github.io/go-broadcast/coverage.svg" alt="Main Branch Coverage" /></a></td>
+    <td><a href="https://mrz1836.github.io/go-broadcast/"><img src="https://img.shields.io/badge/coverage-87.2%25-brightgreen?style=flat-square" alt="Flat Square Style" /></a></td>
+    <td><a href="https://mrz1836.github.io/go-broadcast/"><img src="https://img.shields.io/badge/trend-%E2%86%97%20improving-green?style=for-the-badge" alt="Trend Badge" /></a></td>
   </tr>
 </table>
 
-🔗 **[View Live Demo Dashboard](https://mrz1836.github.io/go-broadcast/)**
+🔗 **[View Dashboard](https://mrz1836.github.io/go-broadcast/)**
 
 ### ⚡ Quick Setup
 
