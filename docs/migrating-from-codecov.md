@@ -209,14 +209,14 @@ jobs:
           
       - name: Process Coverage
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
         run: |
           cd .github/coverage
           ./gofortress-coverage complete \
-            --input ../../${{ inputs.coverage-file }} \
-            --branch ${{ inputs.branch-name }} \
-            --commit ${{ inputs.commit-sha }} \
-            ${{ inputs.pr-number && format('--pr {0}', inputs.pr-number) || '' }} \
+            --input ../../{% raw %}${{ inputs.coverage-file }}{% endraw %} \
+            --branch {% raw %}${{ inputs.branch-name }}{% endraw %} \
+            --commit {% raw %}${{ inputs.commit-sha }}{% endraw %} \
+            {% raw %}${{ inputs.pr-number && format('--pr {0}', inputs.pr-number) || '' }}{% endraw %} \
             --verbose
             
       - name: Upload Pages artifact
@@ -249,9 +249,9 @@ Modify your existing test workflow (e.g., `.github/workflows/test.yml`):
   uses: ./.github/workflows/fortress-coverage.yml
   with:
     coverage-file: coverage.out
-    branch-name: ${{ github.ref_name }}
-    commit-sha: ${{ github.sha }}
-    pr-number: ${{ github.event.number }}
+    branch-name: {% raw %}${{ github.ref_name }}{% endraw %}
+    commit-sha: {% raw %}${{ github.sha }}{% endraw %}
+    pr-number: {% raw %}${{ github.event.number }}{% endraw %}
 ```
 
 ### Step 3: Configuration Mapping
