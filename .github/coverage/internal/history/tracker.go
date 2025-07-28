@@ -536,16 +536,16 @@ func (t *Tracker) calculateSummary(entries []Entry) *TrendSummary {
 	}
 
 	var total float64
-	min := entries[0].Coverage.Percentage
-	max := entries[0].Coverage.Percentage
+	minCov := entries[0].Coverage.Percentage
+	maxCov := entries[0].Coverage.Percentage
 
 	for _, entry := range entries {
 		total += entry.Coverage.Percentage
-		if entry.Coverage.Percentage < min {
-			min = entry.Coverage.Percentage
+		if entry.Coverage.Percentage < minCov {
+			minCov = entry.Coverage.Percentage
 		}
-		if entry.Coverage.Percentage > max {
-			max = entry.Coverage.Percentage
+		if entry.Coverage.Percentage > maxCov {
+			maxCov = entry.Coverage.Percentage
 		}
 	}
 
@@ -564,8 +564,8 @@ func (t *Tracker) calculateSummary(entries []Entry) *TrendSummary {
 		TotalEntries:      len(entries),
 		DateRange:         DateRange{Start: entries[len(entries)-1].Timestamp, End: entries[0].Timestamp},
 		AveragePercentage: total / float64(len(entries)),
-		MinPercentage:     min,
-		MaxPercentage:     max,
+		MinPercentage:     minCov,
+		MaxPercentage:     maxCov,
 		CurrentTrend:      trend,
 		TrendStrength:     "moderate",
 		StabilityScore:    85.0,

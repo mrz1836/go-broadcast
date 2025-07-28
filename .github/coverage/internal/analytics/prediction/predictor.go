@@ -629,9 +629,9 @@ func (p *CoveragePredictor) trainExponentialSmoothing(model *PredictionModel) er
 
 	// Grid search for optimal alpha
 	for alpha := 0.1; alpha <= 0.9; alpha += 0.1 {
-		error := p.calculateExponentialSmoothingError(points, alpha)
-		if error < bestError {
-			bestError = error
+		smoothingError := p.calculateExponentialSmoothingError(points, alpha)
+		if smoothingError < bestError {
+			bestError = smoothingError
 			bestAlpha = alpha
 		}
 	}
@@ -655,9 +655,9 @@ func (p *CoveragePredictor) trainMovingAverage(model *PredictionModel) error {
 
 	maxWindow := minInt(len(points)/2, 14) // Max 2 weeks or half the data
 	for window := 3; window <= maxWindow; window++ {
-		error := p.calculateMovingAverageError(points, window)
-		if error < bestError {
-			bestError = error
+		movingError := p.calculateMovingAverageError(points, window)
+		if movingError < bestError {
+			bestError = movingError
 			bestWindow = window
 		}
 	}
@@ -908,8 +908,8 @@ func (p *CoveragePredictor) calculateExponentialSmoothingError(points []Training
 	totalError := 0.0
 
 	for i := 1; i < len(points); i++ {
-		error := math.Abs(smoothed - points[i].Coverage)
-		totalError += error
+		predictionError := math.Abs(smoothed - points[i].Coverage)
+		totalError += predictionError
 		smoothed = alpha*points[i].Coverage + (1-alpha)*smoothed
 	}
 
@@ -931,8 +931,8 @@ func (p *CoveragePredictor) calculateMovingAverageError(points []TrainingPoint, 
 		}
 		avg := sum / float64(window)
 
-		error := math.Abs(avg - points[i].Coverage)
-		totalError += error
+		avgError := math.Abs(avg - points[i].Coverage)
+		totalError += avgError
 		count++
 	}
 
