@@ -33,8 +33,8 @@
         <a href="https://goreportcard.com/report/github.com/mrz1836/go-broadcast">
           <img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat" alt="Go Report Card">
         </a><br/>
-		<a href="https://mrz1836.github.io/go-broadcast/reports/main/">
-          <img src="https://mrz1836.github.io/go-broadcast/badges/main.svg" alt="Code Coverage">
+		<a href="https://mrz1836.github.io/go-broadcast/reports/master/">
+          <img src="https://mrz1836.github.io/go-broadcast/badges/master.svg" alt="Code Coverage">
         </a><br/>
 		<a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast">
           <img src="https://api.scorecard.dev/projects/github.com/mrz1836/go-broadcast/badge?logo=springsecurity&logoColor=white" alt="OpenSSF Scorecard">
