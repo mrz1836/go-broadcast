@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏰 GoFortress Coverage Dashboard | go-broadcast</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --text-accent: #58a6ff;
+            --border-color: #30363d;
+            --success-color: #238636;
+            --warning-color: #d29922;
+            --danger-color: #da3633;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            color: var(--text-accent);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .header .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+        
+        .header .repo-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 1rem;
+            background: var(--bg-secondary);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        
+        .metric-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+        
+        .metric-card h3 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        
+        .coverage-bar {
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        
+        .coverage-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-color), #2ea043);
+            border-radius: 4px;
+            transition: width 1s ease-out;
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: var(--success-color);
+            color: white;
+        }
+        
+        .links-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .link-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.2s;
+        }
+        
+        .link-item:hover {
+            background: var(--bg-primary);
+            border-color: var(--text-accent);
+            color: var(--text-accent);
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border-color);
+            margin-top: 3rem;
+        }
+        
+        .last-updated {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🏰 GoFortress Coverage Dashboard</h1>
+            <p class="subtitle">Coverage tracking and reporting for go-broadcast</p>
+            <div class="repo-info">
+                <span>📦 mrz1836/go-broadcast</span>
+                <span>•</span>
+                <span>🌿 feat/coverage</span>
+            </div>
+        </header>
+        
+        <main>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <h3>📊 Overall Coverage</h3>
+                    <div class="metric-value" style="color: var(--success-color);">90.58%</div>
+                    <div class="metric-label">125 of 138 lines covered</div>
+                    <div class="coverage-bar">
+                        <div class="coverage-fill" style="width: 90.58%;"></div>
+                    </div>
+                    <div class="status-badge">
+                        ✅ Excellent Coverage
+                    </div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>📁 Packages</h3>
+                    <div class="metric-value">1</div>
+                    <div class="metric-label">Package analyzed</div>
+                    <div style="margin-top: 1rem;">
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                            • config: 90.58%
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>🎯 Quality Gate</h3>
+                    <div class="metric-value" style="color: var(--success-color);">✅</div>
+                    <div class="metric-label">Threshold: 80% (exceeded)</div>
+                    <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--success-color);">
+                        Coverage meets quality standards
+                    </div>
+                </div>
+                
+                <div class="metric-card">
+                    <h3>🔄 Coverage Trend</h3>
+                    <div class="metric-value" style="color: var(--text-secondary);">—</div>
+                    <div class="metric-label">No historical data yet</div>
+                    <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-secondary);">
+                        Trend data will appear after multiple runs
+                    </div>
+                </div>
+            </div>
+            
+            <div class="links-section">
+                <h3 style="margin-bottom: 1rem;">📋 Coverage Reports & Tools</h3>
+                <div class="links-grid">
+                    <a href="./reports/coverage-report.html" class="link-item">
+                        📄 Detailed HTML Report
+                    </a>
+                    <a href="./badges/coverage-badge.svg" class="link-item">
+                        🏷️ Coverage Badge
+                    </a>
+                    <a href="https://github.com/mrz1836/go-broadcast" class="link-item">
+                        📦 Source Repository
+                    </a>
+                    <a href="https://github.com/mrz1836/go-broadcast/tree/feat/coverage" class="link-item">
+                        🌿 Coverage Branch
+                    </a>
+                </div>
+            </div>
+            
+            <div class="last-updated">
+                🕐 Last updated: <span id="last-updated"></span>
+            </div>
+        </main>
+        
+        <footer class="footer">
+            <p>📊 Generated by <strong>GoFortress Coverage System</strong></p>
+            <p>Self-contained, Go-native coverage tracking with zero external dependencies</p>
+        </footer>
+    </div>
+    
+    <script>
+        // Set the last updated time
+        document.getElementById('last-updated').textContent = new Date().toLocaleString();
+        
+        // Animate the coverage bar on load
+        window.addEventListener('load', () => {
+            const coverageFill = document.querySelector('.coverage-fill');
+            coverageFill.style.width = '0%';
+            setTimeout(() => {
+                coverageFill.style.width = '90.58%';
+            }, 500);
+        });
+    </script>
+</body>
+</html>
