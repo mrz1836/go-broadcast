@@ -282,6 +282,69 @@ COVERAGE_PR_COMMENT_SHOW_TREE=true      # Show file tree
 COVERAGE_PR_COMMENT_SHOW_MISSING=true   # Highlight missing coverage
 ```
 
+### Label-Based Threshold Overrides
+
+The coverage system supports temporarily overriding coverage thresholds using GitHub PR labels. This feature allows developers to bypass strict coverage requirements for specific scenarios (refactoring, legacy code updates, emergency fixes) while maintaining visibility and audit trails.
+
+#### `COVERAGE_ALLOW_LABEL_OVERRIDE`
+**Type**: Boolean  
+**Default**: `false`  
+**Description**: Enable coverage threshold overrides via PR labels
+
+#### `COVERAGE_MIN_OVERRIDE_THRESHOLD`
+**Type**: Float (0-100)  
+**Default**: `50.0`  
+**Description**: Minimum allowed override threshold (security boundary)
+
+#### `COVERAGE_MAX_OVERRIDE_THRESHOLD`
+**Type**: Float (0-100)  
+**Default**: `95.0`  
+**Description**: Maximum allowed override threshold (prevents abuse)
+
+```bash
+# Enable label-based overrides
+COVERAGE_ALLOW_LABEL_OVERRIDE=true    # Allow label overrides
+COVERAGE_MIN_OVERRIDE_THRESHOLD=50.0  # Must be ≥ 50%
+COVERAGE_MAX_OVERRIDE_THRESHOLD=95.0  # Must be ≤ 95%
+```
+
+#### Supported Labels
+
+The system recognizes these labels in PRs:
+
+- **`coverage-override`**: Generic override (uses 60% threshold by default, adjusted to `COVERAGE_MIN_OVERRIDE_THRESHOLD` if higher)
+- **`coverage-override-60`**: Override threshold to 60%
+- **`coverage-override-70`**: Override threshold to 70%
+- **`coverage-override-80`**: Override threshold to 80%
+- **`coverage-override-90`**: Override threshold to 90%
+
+**Label Precedence**: Specific threshold labels (e.g., `coverage-override-70`) take precedence over the generic `coverage-override` label.
+
+#### Usage Examples
+
+```bash
+# Basic override configuration
+COVERAGE_ALLOW_LABEL_OVERRIDE=true
+COVERAGE_MIN_OVERRIDE_THRESHOLD=60.0
+COVERAGE_MAX_OVERRIDE_THRESHOLD=90.0
+
+# Strict override boundaries
+COVERAGE_ALLOW_LABEL_OVERRIDE=true
+COVERAGE_MIN_OVERRIDE_THRESHOLD=70.0  # No overrides below 70%
+COVERAGE_MAX_OVERRIDE_THRESHOLD=85.0  # No overrides above 85%
+
+# Disable overrides (production security)
+COVERAGE_ALLOW_LABEL_OVERRIDE=false
+```
+
+#### Security Considerations
+
+- Labels are controlled by repository permissions
+- All overrides are visible in PR history and status checks
+- Override thresholds are bounded by min/max configuration
+- Status checks display `[override]` indicator when active
+- Repository admins can disable the feature entirely
+
 ## Analytics and History
 
 ### Trend Analysis

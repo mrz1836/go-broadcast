@@ -64,6 +64,13 @@ type PullRequest struct {
 	Head   struct {
 		SHA string `json:"sha"`
 	} `json:"head"`
+	Labels []Label `json:"labels"`
+}
+
+// Label represents a GitHub label
+type Label struct {
+	Name  string `json:"name"`
+	Color string `json:"color"`
 }
 
 // New creates a new GitHub client with default configuration

@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -44,6 +46,9 @@ type StatusCheckConfig struct {
 	CoverageThreshold      float64 // Minimum coverage threshold
 	QualityThreshold       string  // Minimum quality grade threshold
 	AllowThresholdOverride bool    // Allow threshold override via commit message
+	AllowLabelOverride     bool    // Allow threshold override via PR labels
+	MinOverrideThreshold   float64 // Minimum allowed override threshold
+	MaxOverrideThreshold   float64 // Maximum allowed override threshold
 
 	// Quality gates
 	EnableQualityGates bool          // Enable quality gate checks
@@ -214,6 +219,9 @@ func NewStatusCheckManager(client *Client, config *StatusCheckConfig) *StatusChe
 			CoverageThreshold:      80.0,
 			QualityThreshold:       "C",
 			AllowThresholdOverride: true,
+			AllowLabelOverride:     false,
+			MinOverrideThreshold:   50.0,
+			MaxOverrideThreshold:   95.0,
 			EnableQualityGates:     true,
 			IncludeTargetURLs:      true,
 			UpdateStrategy:         UpdateAlways,
@@ -261,7 +269,7 @@ func (m *StatusCheckManager) CreateStatusChecks(ctx context.Context, request *St
 	}
 
 	// Collect all status checks to create
-	statusChecks := m.buildStatusChecks(request)
+	statusChecks := m.buildStatusChecks(ctx, request)
 
 	// Create each status check
 	for context, statusInfo := range statusChecks {
@@ -305,12 +313,12 @@ func (m *StatusCheckManager) CreateStatusChecks(ctx context.Context, request *St
 }
 
 // buildStatusChecks builds all status checks that should be created
-func (m *StatusCheckManager) buildStatusChecks(request *StatusCheckRequest) map[string]StatusInfo {
+func (m *StatusCheckManager) buildStatusChecks(ctx context.Context, request *StatusCheckRequest) map[string]StatusInfo {
 	statuses := make(map[string]StatusInfo)
 
 	// Main coverage status
 	mainContext := m.buildContext(m.config.MainContext)
-	mainStatus := m.buildMainCoverageStatus(request)
+	mainStatus := m.buildMainCoverageStatus(ctx, request)
 	statuses[mainContext] = mainStatus
 
 	// Additional contexts
@@ -338,32 +346,94 @@ func (m *StatusCheckManager) buildStatusChecks(request *StatusCheckRequest) map[
 	return statuses
 }
 
+// parseCoverageOverrideFromLabels extracts coverage threshold override from PR labels
+func (m *StatusCheckManager) parseCoverageOverrideFromLabels(labels []Label) (float64, bool) {
+	if !m.config.AllowLabelOverride {
+		return 0, false
+	}
+
+	// Define patterns for coverage override labels
+	specificThresholdPattern := regexp.MustCompile(`^coverage-override-(\d+)$`)
+	genericOverridePattern := regexp.MustCompile(`^coverage-override$`)
+
+	var foundOverride bool
+	var overrideThreshold float64
+
+	for _, label := range labels {
+		// Check for specific threshold labels (e.g., "coverage-override-70")
+		if matches := specificThresholdPattern.FindStringSubmatch(label.Name); len(matches) > 1 {
+			if threshold, err := strconv.ParseFloat(matches[1], 64); err == nil {
+				// Validate threshold is within allowed bounds
+				if m.config.MinOverrideThreshold > 0 && threshold < m.config.MinOverrideThreshold {
+					continue // Skip thresholds below minimum
+				}
+				if m.config.MaxOverrideThreshold > 0 && threshold > m.config.MaxOverrideThreshold {
+					continue // Skip thresholds above maximum
+				}
+				overrideThreshold = threshold
+				foundOverride = true
+				break // Use the first valid specific threshold found
+			}
+		}
+		// Check for generic override label (uses a default lower threshold)
+		if genericOverridePattern.MatchString(label.Name) {
+			// Set a reasonable default override threshold (e.g., 60%)
+			defaultOverride := 60.0
+			if m.config.MinOverrideThreshold > 0 && defaultOverride < m.config.MinOverrideThreshold {
+				defaultOverride = m.config.MinOverrideThreshold
+			}
+			overrideThreshold = defaultOverride
+			foundOverride = true
+			// Don't break here - specific thresholds take precedence
+		}
+	}
+
+	return overrideThreshold, foundOverride
+}
+
 // buildMainCoverageStatus builds the main coverage status
-func (m *StatusCheckManager) buildMainCoverageStatus(request *StatusCheckRequest) StatusInfo {
+func (m *StatusCheckManager) buildMainCoverageStatus(ctx context.Context, request *StatusCheckRequest) StatusInfo {
 	coverage := request.Coverage.Percentage
 	threshold := m.config.CoverageThreshold
 
-	// Check for threshold override in commit message or request
+	// Check for threshold override via PR labels
+	if m.config.AllowLabelOverride && request.PRNumber > 0 {
+		// Fetch PR information to get labels
+		if pr, err := m.client.GetPullRequest(ctx, request.Owner, request.Repository, request.PRNumber); err == nil {
+			if overrideThreshold, hasOverride := m.parseCoverageOverrideFromLabels(pr.Labels); hasOverride {
+				threshold = overrideThreshold
+			}
+		}
+		// Silently continue if PR fetch fails - use default threshold
+	}
+
+	// Legacy support: Check for threshold override in commit message or request
 	if m.config.AllowThresholdOverride {
 		// Implementation would check commit message for override patterns
-		// For now, using the configured threshold
-		// TODO: Parse commit message for patterns like "[coverage-override]" or specific threshold values
+		// For now, using the configured threshold (or label override if applied above)
 		_ = threshold // Explicitly acknowledge we're not overriding for now
 	}
 
 	var state string
 	var description string
 
+	// Determine if threshold was overridden
+	isOverridden := threshold != m.config.CoverageThreshold
+	overrideIndicator := ""
+	if isOverridden {
+		overrideIndicator = " [override]"
+	}
+
 	if coverage >= threshold {
 		state = StatusStateSuccess
-		description = fmt.Sprintf("Coverage: %.1f%% ✅ (≥ %.1f%%)", coverage, threshold)
+		description = fmt.Sprintf("Coverage: %.1f%% ✅ (≥ %.1f%%%s)", coverage, threshold, overrideIndicator)
 	} else {
 		if m.config.BlockOnFailure {
 			state = StatusStateFailure
 		} else {
 			state = StatusStateSuccess
 		}
-		description = fmt.Sprintf("Coverage: %.1f%% ⚠️ (< %.1f%% threshold)", coverage, threshold)
+		description = fmt.Sprintf("Coverage: %.1f%% ⚠️ (< %.1f%% threshold%s)", coverage, threshold, overrideIndicator)
 	}
 
 	// Add trend information if available
