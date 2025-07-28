@@ -88,7 +88,7 @@ jobs:
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/go/pkg/mod
-          key: ubuntu-latest-gomod-${{ hashFiles('**/.github/coverage/cmd/gofortress-coverage/go.sum') }}
+          key: ubuntu-latest-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
           restore-keys: |
             ubuntu-latest-gomod-
 
@@ -102,7 +102,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/.cache/go-build/test
-          key: ubuntu-latest-gobuild-${{ env.GO_PRIMARY_VERSION }}-${{ hashFiles('**/.github/coverage/cmd/gofortress-coverage/go.sum') }}
+          key: ubuntu-latest-gobuild-${{ env.GO_PRIMARY_VERSION }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
           restore-keys: |
             ubuntu-latest-gobuild-${{ env.GO_PRIMARY_VERSION }}-
 
@@ -223,18 +223,24 @@ jobs:
             # Create coverage statistics for performance reporting
             PROCESSING_TIME=$(date +%s)
             FILES_PROCESSED=$(find ../../../../coverage-output -name "*.html" -o -name "*.json" | wc -l)
-            cat > "../../../../coverage-stats-${{ inputs.branch-name }}.json" << EOF
-            {
-              "coverage_percent": "$COVERAGE_PERCENT",
-              "processing_time_seconds": "$PROCESSING_TIME",
-              "files_processed": $FILES_PROCESSED,
+            # Create coverage statistics JSON using printf to avoid heredoc issues
+            printf '{
+              "coverage_percent": "%s",
+              "processing_time_seconds": "%s",
+              "files_processed": %s,
               "badge_generated": "true",
               "pages_deployed": "false",
-              "branch": "${{ inputs.branch-name }}",
-              "commit": "${{ inputs.commit-sha }}",
-              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            }
-            EOF
+              "branch": "%s",
+              "commit": "%s",
+              "timestamp": "%s"
+            }' \
+              "$COVERAGE_PERCENT" \
+              "$PROCESSING_TIME" \
+              "$FILES_PROCESSED" \
+              "${{ inputs.branch-name }}" \
+              "${{ inputs.commit-sha }}" \
+              "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              > "../../../../coverage-stats-${{ inputs.branch-name }}.json"
           fi
 
       # ————————————————————————————————————————————————————————————————
