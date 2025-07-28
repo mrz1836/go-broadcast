@@ -297,10 +297,30 @@ func getEnvInt(key string, defaultValue int) int {
 
 // getEnvIntBounded parses an integer from environment with min/max bounds
 func getEnvIntBounded(key string, defaultValue, minValue, maxValue int) uint32 {
+	// For file permissions, we know the valid range is 0-0777 (0-511 decimal)
+	// Ensure bounds are reasonable for uint32
+	const maxFileMode = 0o777
+
+	// Validate and adjust bounds
+	if minValue < 0 {
+		minValue = 0
+	}
+	if maxValue < 0 || maxValue > maxFileMode {
+		maxValue = maxFileMode
+	}
+	if minValue > maxValue {
+		minValue = 0
+		maxValue = maxFileMode
+	}
+
+	// Start with default value
 	value := defaultValue
+
+	// Parse environment variable if present
 	if envValue := os.Getenv(key); envValue != "" {
-		if parsed, err := strconv.Atoi(envValue); err == nil {
-			value = parsed
+		// Parse as uint to ensure non-negative
+		if parsed, err := strconv.ParseUint(envValue, 0, 32); err == nil && parsed <= uint64(maxFileMode) {
+			value = int(parsed)
 		}
 	}
 
@@ -311,8 +331,9 @@ func getEnvIntBounded(key string, defaultValue, minValue, maxValue int) uint32 {
 		value = maxValue
 	}
 
-	// Safe conversion to uint32 after bounds checking (maxValue is guaranteed <= 0o777)
-	return uint32(value) //nolint:gosec // Bounds checked above with max value 0o777
+	// At this point, value is guaranteed to be between 0 and maxFileMode (0o777 = 511)
+	// which safely fits in uint32
+	return uint32(value) //nolint:gosec // value is bounded between 0 and 511
 }
 
 func getEnvFloat(key string, defaultValue float64) float64 {
