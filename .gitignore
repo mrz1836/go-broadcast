@@ -46,6 +46,9 @@ coverage-output/
 # Coverage history files (generated during coverage processing)
 .github/coverage/history/
 .github/coverage/**/history/
+/.github/coverage/cmd/gofortress-coverage/gofortress-coverage
+examples/monitor/simple
+examples/monitor/advanced
 
 ########################
 # Development Tools    #
@@ -84,4 +87,3 @@ dist/
 
 # Database files
 *.db
-/.github/coverage/cmd/gofortress-coverage/gofortress-coverage
