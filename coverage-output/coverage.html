@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coverage Report</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border-primary: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --text-muted: #656d76;
+            --accent-emphasis: #1f6feb;
+            --success-emphasis: #3fb950;
+            --attention-emphasis: #d29922;
+            --danger-emphasis: #f85149;
+            --severe-emphasis: #fb8500;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-primary);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent-emphasis), var(--success-emphasis));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .summary-card {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-primary);
+            text-align: center;
+        }
+
+        .summary-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-card .label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .coverage-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .coverage-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-emphasis), var(--accent-emphasis));
+            transition: width 0.3s ease;
+        }
+
+        .packages {
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .package-item, .file-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .package-header, .file-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .package-header:hover, .file-header:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .package-name, .file-name {
+            font-weight: 600;
+            flex-grow: 1;
+        }
+
+        .coverage-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .coverage-badge.excellent {
+            background: var(--success-emphasis);
+            color: white;
+        }
+
+        .coverage-badge.good {
+            background: var(--accent-emphasis);
+            color: white;
+        }
+
+        .coverage-badge.acceptable {
+            background: var(--attention-emphasis);
+            color: white;
+        }
+
+        .coverage-badge.low, .coverage-badge.poor {
+            background: var(--danger-emphasis);
+            color: white;
+        }
+
+        .stats {
+            display: flex;
+            gap: 1rem;
+            margin-left: 1rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .files {
+            background: var(--bg-tertiary);
+            border-top: 1px solid var(--border-primary);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border-primary);
+            margin-top: 3rem;
+        }
+
+        .footer a {
+            color: var(--accent-emphasis);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .summary {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 1rem;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+        }
+
+        .expandable {
+            display: none;
+        }
+
+        .expandable.expanded {
+            display: block;
+        }
+
+        .expand-icon {
+            transition: transform 0.2s ease;
+        }
+
+        .expand-icon.rotated {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Coverage Report</h1>
+            <div class="subtitle">
+                Generated on 2025-07-28 15:39:04 EDT | 
+                Branch: main | 
+                
+            </div>
+        </div>
+
+        <div class="summary">
+            <div class="summary-card">
+                <div class="value">
+                    88.5%
+                </div>
+                <div class="label">Coverage</div>
+                <div class="coverage-bar">
+                    <div class="coverage-fill" style="width: 88.47549909255899%"></div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="value">3900</div>
+                <div class="label">Covered Lines</div>
+            </div>
+            <div class="summary-card">
+                <div class="value">508</div>
+                <div class="label">Uncovered Lines</div>
+            </div>
+            <div class="summary-card">
+                <div class="value">28</div>
+                <div class="label">Packages</div>
+            </div>
+            <div class="summary-card">
+                <div class="value">61</div>
+                <div class="label">Files</div>
+            </div>
+        </div>
+
+        
+        <div class="packages">
+            <h2 class="section-title">📦 Packages</h2>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-algorithms')">
+                    <span class="expand-icon" id="icon-pkg-algorithms">▶</span>
+                    <span class="package-name">algorithms</span>
+                    <div class="stats">
+                        <span>221/241 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">91.7%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-algorithms">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">optimized.go</span>
+                            <div class="stats">
+                                <span>221/241 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">91.7%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-benchmark')">
+                    <span class="expand-icon" id="icon-pkg-benchmark">▶</span>
+                    <span class="package-name">benchmark</span>
+                    <div class="stats">
+                        <span>209/235 lines</span>
+                        <span>3 files</span>
+                    </div>
+                    <span class="coverage-badge good">88.9%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-benchmark">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">fixtures.go</span>
+                            <div class="stats">
+                                <span>72/74 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">97.3%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">helpers.go</span>
+                            <div class="stats">
+                                <span>53/73 lines</span>
+                            </div>
+                            <span class="coverage-badge acceptable">72.6%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">reporter.go</span>
+                            <div class="stats">
+                                <span>84/88 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">95.5%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-cache')">
+                    <span class="expand-icon" id="icon-pkg-cache">▶</span>
+                    <span class="package-name">cache</span>
+                    <div class="stats">
+                        <span>65/67 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">97.0%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-cache">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">ttl_cache.go</span>
+                            <div class="stats">
+                                <span>65/67 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">97.0%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-cli')">
+                    <span class="expand-icon" id="icon-pkg-cli">▶</span>
+                    <span class="package-name">cli</span>
+                    <div class="stats">
+                        <span>476/548 lines</span>
+                        <span>8 files</span>
+                    </div>
+                    <span class="coverage-badge good">86.9%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-cli">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">diagnose.go</span>
+                            <div class="stats">
+                                <span>66/74 lines</span>
+                            </div>
+                            <span class="coverage-badge good">89.2%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">flags.go</span>
+                            <div class="stats">
+                                <span>10/10 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">logger.go</span>
+                            <div class="stats">
+                                <span>42/43 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">97.7%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">root.go</span>
+                            <div class="stats">
+                                <span>122/156 lines</span>
+                            </div>
+                            <span class="coverage-badge acceptable">78.2%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">status.go</span>
+                            <div class="stats">
+                                <span>66/66 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">sync.go</span>
+                            <div class="stats">
+                                <span>105/132 lines</span>
+                            </div>
+                            <span class="coverage-badge acceptable">79.5%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">validate.go</span>
+                            <div class="stats">
+                                <span>47/49 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">95.9%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">version.go</span>
+                            <div class="stats">
+                                <span>18/18 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-config')">
+                    <span class="expand-icon" id="icon-pkg-config">▶</span>
+                    <span class="package-name">config</span>
+                    <div class="stats">
+                        <span>125/138 lines</span>
+                        <span>2 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">90.6%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-config">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">parser.go</span>
+                            <div class="stats">
+                                <span>26/26 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">validator.go</span>
+                            <div class="stats">
+                                <span>99/112 lines</span>
+                            </div>
+                            <span class="coverage-badge good">88.4%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-errors')">
+                    <span class="expand-icon" id="icon-pkg-errors">▶</span>
+                    <span class="package-name">errors</span>
+                    <div class="stats">
+                        <span>12/12 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">100.0%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-errors">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">errors.go</span>
+                            <div class="stats">
+                                <span>12/12 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-fuzz')">
+                    <span class="expand-icon" id="icon-pkg-fuzz">▶</span>
+                    <span class="package-name">fuzz</span>
+                    <div class="stats">
+                        <span>109/115 lines</span>
+                        <span>2 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">94.8%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-fuzz">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">corpus_generator.go</span>
+                            <div class="stats">
+                                <span>53/56 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">94.6%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">helpers.go</span>
+                            <div class="stats">
+                                <span>56/59 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">94.9%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-generate-corpus')">
+                    <span class="expand-icon" id="icon-pkg-generate-corpus">▶</span>
+                    <span class="package-name">generate-corpus</span>
+                    <div class="stats">
+                        <span>0/9 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge poor">0.0%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-generate-corpus">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">main.go</span>
+                            <div class="stats">
+                                <span>0/9 lines</span>
+                            </div>
+                            <span class="coverage-badge poor">0.0%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-gh')">
+                    <span class="expand-icon" id="icon-pkg-gh">▶</span>
+                    <span class="package-name">gh</span>
+                    <div class="stats">
+                        <span>140/151 lines</span>
+                        <span>4 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">92.7%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-gh">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">command.go</span>
+                            <div class="stats">
+                                <span>39/41 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">95.1%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">command_mock.go</span>
+                            <div class="stats">
+                                <span>8/8 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">github.go</span>
+                            <div class="stats">
+                                <span>87/88 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">98.9%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">mock.go</span>
+                            <div class="stats">
+                                <span>6/14 lines</span>
+                            </div>
+                            <span class="coverage-badge poor">42.9%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-git')">
+                    <span class="expand-icon" id="icon-pkg-git">▶</span>
+                    <span class="package-name">git</span>
+                    <div class="stats">
+                        <span>220/240 lines</span>
+                        <span>3 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">91.7%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-git">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">batch.go</span>
+                            <div class="stats">
+                                <span>107/114 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">93.9%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">git.go</span>
+                            <div class="stats">
+                                <span>95/108 lines</span>
+                            </div>
+                            <span class="coverage-badge good">88.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">mock.go</span>
+                            <div class="stats">
+                                <span>18/18 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-go-broadcast')">
+                    <span class="expand-icon" id="icon-pkg-go-broadcast">▶</span>
+                    <span class="package-name">go-broadcast</span>
+                    <div class="stats">
+                        <span>0/6 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge poor">0.0%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-go-broadcast">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">main.go</span>
+                            <div class="stats">
+                                <span>0/6 lines</span>
+                            </div>
+                            <span class="coverage-badge poor">0.0%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-io')">
+                    <span class="expand-icon" id="icon-pkg-io">▶</span>
+                    <span class="package-name">io</span>
+                    <div class="stats">
+                        <span>173/206 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge good">84.0%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-io">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">streaming.go</span>
+                            <div class="stats">
+                                <span>173/206 lines</span>
+                            </div>
+                            <span class="coverage-badge good">84.0%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-jsonutil')">
+                    <span class="expand-icon" id="icon-pkg-jsonutil">▶</span>
+                    <span class="package-name">jsonutil</span>
+                    <div class="stats">
+                        <span>35/40 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge good">87.5%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-jsonutil">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">jsonutil.go</span>
+                            <div class="stats">
+                                <span>35/40 lines</span>
+                            </div>
+                            <span class="coverage-badge good">87.5%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-logging')">
+                    <span class="expand-icon" id="icon-pkg-logging">▶</span>
+                    <span class="package-name">logging</span>
+                    <div class="stats">
+                        <span>101/120 lines</span>
+                        <span>3 files</span>
+                    </div>
+                    <span class="coverage-badge good">84.2%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-logging">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">config.go</span>
+                            <div class="stats">
+                                <span>3/9 lines</span>
+                            </div>
+                            <span class="coverage-badge poor">33.3%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">formatter.go</span>
+                            <div class="stats">
+                                <span>39/42 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">92.9%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">redact.go</span>
+                            <div class="stats">
+                                <span>59/69 lines</span>
+                            </div>
+                            <span class="coverage-badge good">85.5%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-memory')">
+                    <span class="expand-icon" id="icon-pkg-memory">▶</span>
+                    <span class="package-name">memory</span>
+                    <div class="stats">
+                        <span>126/131 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">96.2%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-memory">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">efficient.go</span>
+                            <div class="stats">
+                                <span>126/131 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">96.2%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-metrics')">
+                    <span class="expand-icon" id="icon-pkg-metrics">▶</span>
+                    <span class="package-name">metrics</span>
+                    <div class="stats">
+                        <span>26/27 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">96.3%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-metrics">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">timing.go</span>
+                            <div class="stats">
+                                <span>26/27 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">96.3%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-monitoring')">
+                    <span class="expand-icon" id="icon-pkg-monitoring">▶</span>
+                    <span class="package-name">monitoring</span>
+                    <div class="stats">
+                        <span>95/112 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge good">84.8%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-monitoring">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">dashboard.go</span>
+                            <div class="stats">
+                                <span>95/112 lines</span>
+                            </div>
+                            <span class="coverage-badge good">84.8%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-output')">
+                    <span class="expand-icon" id="icon-pkg-output">▶</span>
+                    <span class="package-name">output</span>
+                    <div class="stats">
+                        <span>52/52 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">100.0%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-output">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">output.go</span>
+                            <div class="stats">
+                                <span>52/52 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-pool')">
+                    <span class="expand-icon" id="icon-pkg-pool">▶</span>
+                    <span class="package-name">pool</span>
+                    <div class="stats">
+                        <span>61/63 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">96.8%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-pool">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">buffer_pool.go</span>
+                            <div class="stats">
+                                <span>61/63 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">96.8%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-profile_demo')">
+                    <span class="expand-icon" id="icon-pkg-profile_demo">▶</span>
+                    <span class="package-name">profile_demo</span>
+                    <div class="stats">
+                        <span>95/140 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge low">67.9%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-profile_demo">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">main.go</span>
+                            <div class="stats">
+                                <span>95/140 lines</span>
+                            </div>
+                            <span class="coverage-badge low">67.9%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-profiling')">
+                    <span class="expand-icon" id="icon-pkg-profiling">▶</span>
+                    <span class="package-name">profiling</span>
+                    <div class="stats">
+                        <span>385/445 lines</span>
+                        <span>2 files</span>
+                    </div>
+                    <span class="coverage-badge good">86.5%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-profiling">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">memory.go</span>
+                            <div class="stats">
+                                <span>202/219 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">92.2%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">suite.go</span>
+                            <div class="stats">
+                                <span>183/226 lines</span>
+                            </div>
+                            <span class="coverage-badge good">81.0%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-reporting')">
+                    <span class="expand-icon" id="icon-pkg-reporting">▶</span>
+                    <span class="package-name">reporting</span>
+                    <div class="stats">
+                        <span>152/164 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">92.7%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-reporting">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">performance.go</span>
+                            <div class="stats">
+                                <span>152/164 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">92.7%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-state')">
+                    <span class="expand-icon" id="icon-pkg-state">▶</span>
+                    <span class="package-name">state</span>
+                    <div class="stats">
+                        <span>198/202 lines</span>
+                        <span>4 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">98.0%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-state">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">branch.go</span>
+                            <div class="stats">
+                                <span>18/19 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">94.7%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">discovery.go</span>
+                            <div class="stats">
+                                <span>137/139 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">98.6%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">mock.go</span>
+                            <div class="stats">
+                                <span>6/6 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">pr.go</span>
+                            <div class="stats">
+                                <span>37/38 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">97.4%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-sync')">
+                    <span class="expand-icon" id="icon-pkg-sync">▶</span>
+                    <span class="package-name">sync</span>
+                    <div class="stats">
+                        <span>290/341 lines</span>
+                        <span>4 files</span>
+                    </div>
+                    <span class="coverage-badge good">85.0%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-sync">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">engine.go</span>
+                            <div class="stats">
+                                <span>68/76 lines</span>
+                            </div>
+                            <span class="coverage-badge good">89.5%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">options.go</span>
+                            <div class="stats">
+                                <span>11/11 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">progress.go</span>
+                            <div class="stats">
+                                <span>52/52 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">repository.go</span>
+                            <div class="stats">
+                                <span>159/202 lines</span>
+                            </div>
+                            <span class="coverage-badge acceptable">78.7%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-testutil')">
+                    <span class="expand-icon" id="icon-pkg-testutil">▶</span>
+                    <span class="package-name">testutil</span>
+                    <div class="stats">
+                        <span>96/142 lines</span>
+                        <span>3 files</span>
+                    </div>
+                    <span class="coverage-badge low">67.6%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-testutil">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">files.go</span>
+                            <div class="stats">
+                                <span>37/60 lines</span>
+                            </div>
+                            <span class="coverage-badge low">61.7%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">mock.go</span>
+                            <div class="stats">
+                                <span>37/37 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">patterns.go</span>
+                            <div class="stats">
+                                <span>22/45 lines</span>
+                            </div>
+                            <span class="coverage-badge poor">48.9%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-transform')">
+                    <span class="expand-icon" id="icon-pkg-transform">▶</span>
+                    <span class="package-name">transform</span>
+                    <div class="stats">
+                        <span>341/363 lines</span>
+                        <span>7 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">93.9%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-transform">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">binary.go</span>
+                            <div class="stats">
+                                <span>23/23 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">chain.go</span>
+                            <div class="stats">
+                                <span>20/20 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">mock.go</span>
+                            <div class="stats">
+                                <span>15/18 lines</span>
+                            </div>
+                            <span class="coverage-badge good">83.3%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">regex_cache.go</span>
+                            <div class="stats">
+                                <span>65/69 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">94.2%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">repo.go</span>
+                            <div class="stats">
+                                <span>37/37 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">string_builder.go</span>
+                            <div class="stats">
+                                <span>119/120 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">99.2%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">template.go</span>
+                            <div class="stats">
+                                <span>62/76 lines</span>
+                            </div>
+                            <span class="coverage-badge good">81.6%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-validation')">
+                    <span class="expand-icon" id="icon-pkg-validation">▶</span>
+                    <span class="package-name">validation</span>
+                    <div class="stats">
+                        <span>66/66 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">100.0%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-validation">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">validation.go</span>
+                            <div class="stats">
+                                <span>66/66 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">100.0%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="package-item">
+                <div class="package-header" onclick="toggleExpand('pkg-worker')">
+                    <span class="expand-icon" id="icon-pkg-worker">▶</span>
+                    <span class="package-name">worker</span>
+                    <div class="stats">
+                        <span>31/32 lines</span>
+                        <span>1 files</span>
+                    </div>
+                    <span class="coverage-badge excellent">96.9%</span>
+                </div>
+                
+                <div class="files expandable" id="pkg-worker">
+                    
+                    <div class="file-item">
+                        <div class="file-header">
+                            <span class="file-name">pool.go</span>
+                            <div class="stats">
+                                <span>31/32 lines</span>
+                            </div>
+                            <span class="coverage-badge excellent">96.9%</span>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+        </div>
+        
+
+        <div class="footer">
+            Generated by <a href="https://github.com/mrz1836/go-broadcast" target="_blank">GoFortress Coverage</a> v1.0.0
+        </div>
+    </div>
+
+    <script>
+        function toggleExpand(id) {
+            const element = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            
+            if (element.classList.contains('expanded')) {
+                element.classList.remove('expanded');
+                icon.classList.remove('rotated');
+            } else {
+                element.classList.add('expanded');
+                icon.classList.add('rotated');
+            }
+        }
+
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const packages = document.querySelectorAll('.package-item');
+            packages.forEach(pkg => {
+                const badge = pkg.querySelector('.coverage-badge');
+                if (badge && (badge.classList.contains('poor') || badge.classList.contains('low'))) {
+                    const header = pkg.querySelector('.package-header');
+                    if (header) {
+                        header.click();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
