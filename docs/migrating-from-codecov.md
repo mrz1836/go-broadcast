@@ -414,7 +414,7 @@ go test -coverprofile=coverage.out ./...
 
 # Test coverage processing locally
 cd .github/coverage
-./gofortress-coverage complete --input ../../coverage.out --verbose
+./gofortress-coverage complete --input ../../coverage.out
 
 # Verify badge generation
 ./gofortress-coverage badge --coverage 87.2 --output test-badge.svg

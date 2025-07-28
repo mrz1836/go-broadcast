@@ -209,8 +209,7 @@ jobs:
           # Run complete coverage processing pipeline
           ./gofortress-coverage complete \
             --input "$COVERAGE_FILE" \
-            --output "../../../../coverage-output" \
-            --verbose
+            --output "../../../../coverage-output"
 
           echo "✅ Coverage processing completed"
 
@@ -250,9 +249,8 @@ jobs:
           if [[ -f "../../../../coverage-output/coverage-data.json" ]]; then
             ./gofortress-coverage comment \
               --pr "${{ inputs.pr-number }}" \
-              --coverage "../../../../coverage-output/coverage-data.json" \
-              --base-branch "master" \
-              --verbose
+              --data "../../../../coverage-output/coverage-data.json" \
+              --base-branch "master"
             echo "✅ PR comment created successfully"
           else
             echo "⚠️ No coverage data found for PR comment"
@@ -282,8 +280,7 @@ jobs:
         run: |
           echo "🏗️ Setting up GitHub Pages structure..."
           ./gofortress-coverage pages setup \
-            --branch gh-pages \
-            --verbose
+            --branch gh-pages
         continue-on-error: true
 
       # ————————————————————————————————————————————————————————————————
@@ -300,8 +297,7 @@ jobs:
             --branch "${{ inputs.branch-name }}" \
             --commit "${{ inputs.commit-sha }}" \
             --input "../../../../coverage-output" \
-            --message "📊 Update coverage for ${{ inputs.branch-name }} (${{ inputs.commit-sha }})" \
-            --verbose
+            --message "📊 Update coverage for ${{ inputs.branch-name }} (${{ inputs.commit-sha }})"
         continue-on-error: true
 
       # ————————————————————————————————————————————————————————————————
@@ -319,8 +315,7 @@ jobs:
             --commit "${{ inputs.commit-sha }}" \
             --pr "${{ inputs.pr-number }}" \
             --input "../../../../coverage-output" \
-            --message "📊 Update coverage for PR #${{ inputs.pr-number }}" \
-            --verbose
+            --message "📊 Update coverage for PR #${{ inputs.pr-number }}"
         continue-on-error: true
 
       # ————————————————————————————————————————————————————————————————
@@ -334,8 +329,7 @@ jobs:
         run: |
           echo "🧹 Cleaning up old coverage data..."
           ./gofortress-coverage pages clean \
-            --max-age 30 \
-            --verbose
+            --max-age 30
         continue-on-error: true
 
       # ————————————————————————————————————————————————————————————————

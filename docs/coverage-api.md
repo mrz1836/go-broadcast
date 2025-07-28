@@ -855,7 +855,7 @@ Debug mode provides:
 ### Verbose Logging
 
 ```bash
-gofortress-coverage --verbose [command]
+gofortress-coverage --log-level debug [command]
 ```
 
 Verbose mode includes:
@@ -890,13 +890,13 @@ Verbose mode includes:
 
 ```bash
 # Validate configuration
-gofortress-coverage config validate --verbose
+gofortress-coverage config validate --log-level debug
 
 # Test GitHub API connectivity
 gofortress-coverage --debug comment --pr 123 --dry-run
 
 # Verify file parsing
-gofortress-coverage parse --file coverage.out --verbose
+gofortress-coverage parse --file coverage.out --log-level debug
 ```
 
 ---
