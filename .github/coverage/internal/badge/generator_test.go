@@ -428,3 +428,101 @@ func TestGenerateEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveLogo(t *testing.T) {
+	generator := New()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		contains string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "go logo",
+			input:    "go",
+			contains: "data:image/svg+xml;base64,",
+		},
+		{
+			name:     "GitHub logo",
+			input:    "github",
+			contains: "data:image/svg+xml;base64,",
+		},
+		{
+			name:     "case insensitive go",
+			input:    "GO",
+			contains: "data:image/svg+xml;base64,",
+		},
+		{
+			name:     "valid HTTP URL",
+			input:    "https://example.com/logo.svg",
+			expected: "https://example.com/logo.svg",
+		},
+		{
+			name:     "valid data URI",
+			input:    "data:image/svg+xml;base64,PHN2Zw==",
+			expected: "data:image/svg+xml;base64,PHN2Zw==",
+		},
+		{
+			name:     "invalid logo name",
+			input:    "invalid-logo",
+			expected: "",
+		},
+		{
+			name:     "relative path - invalid",
+			input:    "./logo.svg",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := generator.resolveLogo(tt.input)
+			
+			if tt.expected != "" {
+				assert.Equal(t, tt.expected, result)
+			} else if tt.contains != "" {
+				assert.Contains(t, result, tt.contains)
+			} else {
+				assert.Empty(t, result)
+			}
+		})
+	}
+}
+
+func TestGenerateWithResolvedLogos(t *testing.T) {
+	generator := New()
+	ctx := context.Background()
+
+	tests := []struct {
+		name     string
+		logo     string
+		hasImage bool
+	}{
+		{"no logo", "", false},
+		{"go logo", "go", true},
+		{"github logo", "github", true},
+		{"invalid logo", "invalid", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svg, err := generator.Generate(ctx, 85.5, WithLogo(tt.logo))
+			require.NoError(t, err)
+			assert.NotEmpty(t, svg)
+
+			svgStr := string(svg)
+			if tt.hasImage {
+				assert.Contains(t, svgStr, "<image")
+				assert.Contains(t, svgStr, "xlink:href=\"data:")
+			} else {
+				assert.NotContains(t, svgStr, "<image")
+			}
+		})
+	}
+}

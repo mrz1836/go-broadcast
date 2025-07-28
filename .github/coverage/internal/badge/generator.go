@@ -99,7 +99,7 @@ func (g *Generator) Generate(ctx context.Context, percentage float64, options ..
 		Message:   message,
 		Color:     color,
 		Style:     opts.Style,
-		Logo:      opts.Logo,
+		Logo:      g.resolveLogo(opts.Logo),
 		LogoColor: opts.LogoColor,
 		AriaLabel: fmt.Sprintf("Code coverage: %.1f percent", percentage),
 	}
@@ -139,6 +139,8 @@ func (g *Generator) GenerateTrendBadge(ctx context.Context, current, previous fl
 		Message:   trend,
 		Color:     color,
 		Style:     opts.Style,
+		Logo:      g.resolveLogo(opts.Logo),
+		LogoColor: opts.LogoColor,
 		AriaLabel: fmt.Sprintf("Coverage trend: %s", trend),
 	}
 
@@ -176,6 +178,28 @@ func (g *Generator) getColorByName(name string) string {
 		return "#f85149"
 	default:
 		return "#8b949e" // neutral gray
+	}
+}
+
+// resolveLogo converts common logo names to SVG data URIs or URLs
+func (g *Generator) resolveLogo(logo string) string {
+	switch strings.ToLower(logo) {
+	case "go":
+		// Simple Go gopher icon as SVG data URI
+		return `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNCIgaGVpZ2h0PSIxNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjMDBBREQ4Ij48cGF0aCBkPSJNMS41IDEyQzEuNSA2LjIgNi4yIDEuNSAxMiAxLjVTMjIuNSA2LjIgMjIuNSAxMiAyMS41IDIyLjQgMTUuNyAyMy4zbC0xLjEtMS42YzUuMi0uOCA5LjEtNS4yIDkuMS0xMC43IDAtNi0xMC44LTYtMTAuOCAwIDAgLjQgMCAuOC4xIDEuMi4xLjctLjEgMS4yLS43IDEuMi0xIDAtMS42IDEuNS0xLjYgMS41QzEwIDguNSA5IDEwIDkgMTJzMSAzLjUgMi41IDMuNWMwIDAgMS42IDAgMS42LTEuNiAwLS42LS41LTEuMS0xLjItMS0xLjIuMS0xLjIuMS0xIDAtMi4zIDAtNi0yLjMtNi01LjkgMC0zLjYgMy4yLTUuNSA2LjMtNS41IDMuMSAwIDUuNSAxLjYgNS41IDMuOHptOSA5LjZjLS44LjQtMS42LjQtMi40IDAtLjcgMC0uNS0xLS41LTEgMC0uNi4zLTEgLjYtMS40LjMtLjQuNi0uOCAxLjMtLjhtLTEuNiAxLjJjMC0xLjUgMS4yLTEuNSAxLjItMS41IDAgMS41LTEuMiAxLjUtMS4yIDEuNXptLTEuNi0xLjljLS43LjYtMS4zIDEuNC0xLjMgMi4zIDAgLjktLjggMS42LTEuOCAxLjZzLTEuOC0uNy0xLjgtMS42YzAtLjkuNi0xLjcgMS4zLTIuMyIvPjwvc3ZnPg==`
+	case "github":
+		// Simple GitHub icon as SVG data URI
+		return `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNCIgaGVpZ2h0PSIxNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjZmZmIj48cGF0aCBkPSJNMTIgMGMtNi42MjYgMC0xMiA1LjM3My0xMiAxMiAwIDUuMzAyIDMuNDM4IDkuOCA4LjIwNyAxMS4zODcuNTk5LjExMS43OTMtLjI2MS43OTMtLjU3N3YtMi4yMzRjLTMuMzM4LjcyNi00LjAzMy0xLjQxNi00LjAzMy0xLjQxNi0uNTQ2LTEuMzg3LTEuMzMzLTEuNzU2LTEuMzMzLTEuNzU2LTEuMDg5LS43NDUuMDgzLS43MjkuMDgzLS43MjkgMS4yMDUuMDg0IDEuODM5IDEuMjM3IDEuODM5IDEuMjM3IDEuMDcgMS44MzQgMi44MDcgMS4zMDQgMy40OTIuOTk3LjEwNy0uNzc1LjQxOC0xLjMwNS43NjItMS42MDQtMi42NjUtLjMwNS01LjQ2Ny0xLjMzNC01LjQ2Ny01LjkzMSAwLTEuMzExLjQ2OS0yLjM4MSAxLjIzNi0zLjIyMS0uMTI0LS4zMDMtLjUzNS0xLjUyNC4xMTctMy4xNzYgMCAwIDEuMDA4LS4zMjIgMy4zMDEgMS4yMy45NTgtLjI2NiAxLjk4My0uMzk5IDMuMDAzLS40MDQgMS4wMi4wMDUgMi4wNDcuMTM4IDMuMDA2LjQwNCAyLjI5MS0xLjU1MiAzLjI5Ny0xLjIzIDMuMjk3LTEuMjMuNjUzIDEuNjUzLjI0MiAyLjg3NC4xMTggMy4xNzYuNzcuODQgMS4yMzUgMS45MTEgMS4yMzUgMy4yMjEgMCA0LjYwOS0yLjgwNyA1LjYyNC01LjQ3OSA1LjkyMS40My4zNzIuODIzIDEuMTAyLjgyMyAyLjIyMnYzLjI5M2MwIC4zMTkuMTkyLjY5NC44MDEuNTc2IDQuNzY1LTEuNTg5IDguMTk5LTYuMDg2IDguMTk5LTExLjM4NiAwLTYuNjI3LTUuMzczLTEyLTEyLTEyeiIvPjwvc3ZnPg==`
+	case "":
+		// Empty string means no logo
+		return ""
+	default:
+		// If it starts with http or data:, assume it's a valid URL/data URI
+		if strings.HasPrefix(logo, "http") || strings.HasPrefix(logo, "data:") {
+			return logo
+		}
+		// Otherwise, assume it's invalid and return empty string
+		return ""
 	}
 }
 

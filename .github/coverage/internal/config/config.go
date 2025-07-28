@@ -276,11 +276,11 @@ func (c *Config) GetBadgeURL() string {
 	// For branch-specific badges, get current branch (default to master)
 	branch := c.getCurrentBranch()
 	if branch == "master" || branch == "main" {
-		// Main branch badge at root badges directory
-		return fmt.Sprintf("%s/badges/coverage.svg", baseURL)
+		// Main branch badge deployed at root
+		return fmt.Sprintf("%s/coverage.svg", baseURL)
 	}
 
-	// Branch-specific badge
+	// Branch-specific badge (still uses subdirectory structure for branches)
 	return fmt.Sprintf("%s/badges/%s/coverage.svg", baseURL, branch)
 }
 
@@ -301,11 +301,11 @@ func (c *Config) GetReportURL() string {
 	// For branch-specific reports, get current branch (default to master)
 	branch := c.getCurrentBranch()
 	if branch == "master" || branch == "main" {
-		// Main branch report at root coverage directory
-		return fmt.Sprintf("%s/coverage/", baseURL)
+		// Main branch report deployed at root (dashboard at root, detailed report as coverage.html)
+		return fmt.Sprintf("%s/", baseURL)
 	}
 
-	// Branch-specific report
+	// Branch-specific report (still uses subdirectory structure for branches)
 	return fmt.Sprintf("%s/reports/branch/%s/coverage.html", baseURL, branch)
 }
 

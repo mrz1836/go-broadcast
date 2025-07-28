@@ -278,7 +278,7 @@ The coverage system includes 45+ configuration options for complete customizatio
 #### 🎨 Badge & Theme Configuration
 ```bash
 COVERAGE_BADGE_STYLE=flat                # flat, flat-square, for-the-badge
-COVERAGE_BADGE_LOGO=go                   # Logo: go, github, custom URL
+COVERAGE_BADGE_LOGO=                     # Logo: go, github, custom URL (empty for no logo)
 COVERAGE_REPORT_THEME=github-dark        # Dashboard theme
 COVERAGE_THRESHOLD_EXCELLENT=90          # Green badge threshold
 COVERAGE_THRESHOLD_GOOD=80               # Yellow-green threshold
