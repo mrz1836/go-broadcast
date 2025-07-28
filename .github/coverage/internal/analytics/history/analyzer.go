@@ -248,11 +248,14 @@ type InsightType string
 
 const (
 	// InsightTrend indicates a trend insight
-	InsightTrend       InsightType = "trend"
+	InsightTrend InsightType = "trend"
 	// InsightAnomaly indicates an anomaly insight
 	InsightAnomaly InsightType = "anomaly"
-	InsightMilestone   InsightType = "milestone"
-	InsightRegression  InsightType = "regression"
+	// InsightMilestone indicates a milestone insight
+	InsightMilestone InsightType = "milestone"
+	// InsightRegression indicates a regression insight
+	InsightRegression InsightType = "regression"
+	// InsightOpportunity indicates an opportunity insight
 	InsightOpportunity InsightType = "opportunity"
 )
 
@@ -273,10 +276,12 @@ type RecommendationType string
 
 const (
 	// RecommendationProcess indicates a process recommendation
-	RecommendationProcess    RecommendationType = "process"
+	RecommendationProcess RecommendationType = "process"
 	// RecommendationTesting indicates a testing recommendation
 	RecommendationTesting RecommendationType = "testing"
-	RecommendationGoals      RecommendationType = "goals"
+	// RecommendationGoals indicates a goals recommendation
+	RecommendationGoals RecommendationType = "goals"
+	// RecommendationMonitoring indicates a monitoring recommendation
 	RecommendationMonitoring RecommendationType = "monitoring"
 )
 

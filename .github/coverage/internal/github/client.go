@@ -100,7 +100,7 @@ func NewWithConfig(config *Config) *Client {
 func (c *Client) CreateComment(ctx context.Context, owner, repo string, pr int, body string) (*Comment, error) {
 	// First, try to find existing coverage comment
 	existing, err := c.findCoverageComment(ctx, owner, repo, pr)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrCommentNotFound) {
 		return nil, fmt.Errorf("failed to find existing comment: %w", err)
 	}
 

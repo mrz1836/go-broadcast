@@ -1,4 +1,4 @@
-// Package types defines configuration types for the notification system
+// Package types defines common types used throughout the coverage system
 package types
 
 // SlackConfig holds Slack-specific configuration

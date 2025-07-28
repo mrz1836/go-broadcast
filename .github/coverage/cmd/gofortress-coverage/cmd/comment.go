@@ -82,7 +82,7 @@ var commentCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 		}
 
 		// Get trend information if history is enabled
-		var trend = "stable"
+		trend := "stable"
 		if cfg.History.Enabled {
 			historyConfig := &history.Config{
 				StoragePath:    cfg.History.StoragePath,

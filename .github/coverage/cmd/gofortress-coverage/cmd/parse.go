@@ -111,7 +111,7 @@ var parseCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 				return fmt.Errorf("failed to marshal coverage data: %w", err)
 			}
 
-			if err := os.WriteFile(outputFile, data, 0600); err != nil {
+			if err := os.WriteFile(outputFile, data, 0o600); err != nil {
 				return fmt.Errorf("failed to write output file: %w", err)
 			}
 

@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestNewSVGChartGenerator(t *testing.T) { //nolint:revive // function naming
+func TestNewSVGChartGenerator(t *testing.T) {
 	// Test with nil config
 	generator := NewSVGChartGenerator(nil)
 	if generator == nil {
@@ -33,7 +33,7 @@ func TestNewSVGChartGenerator(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGenerateTrendChart(t *testing.T) { //nolint:revive // function naming
+func TestGenerateTrendChart(t *testing.T) {
 	generator := NewSVGChartGenerator(nil)
 
 	data := &ChartData{
@@ -65,7 +65,7 @@ func TestGenerateTrendChart(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGenerateAreaChart(t *testing.T) { //nolint:revive // function naming
+func TestGenerateAreaChart(t *testing.T) {
 	generator := NewSVGChartGenerator(nil)
 
 	data := &ChartData{

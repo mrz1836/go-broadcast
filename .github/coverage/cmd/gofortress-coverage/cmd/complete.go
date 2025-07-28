@@ -26,7 +26,7 @@ var completeCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Short: "Run complete coverage pipeline",
 	Long: `Run the complete coverage pipeline: parse coverage, generate badge and report, 
 update history, and create GitHub PR comment if in PR context.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Get flags
 		inputFile, _ := cmd.Flags().GetString("input")
 		outputDir, _ := cmd.Flags().GetString("output")
@@ -157,7 +157,7 @@ update history, and create GitHub PR comment if in PR context.`,
 		cmd.Printf("\n")
 
 		// Step 4: Update history (if enabled)
-		var trend = "stable"
+		trend := "stable"
 		if cfg.History.Enabled && !skipHistory {
 			cmd.Printf("📈 Step 4: Updating coverage history...\n")
 

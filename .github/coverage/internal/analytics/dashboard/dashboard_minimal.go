@@ -144,24 +144,24 @@ func NewAnalyticsDashboard(config *DashboardConfig) *AnalyticsDashboard {
 }
 
 // SetComponents sets dashboard components (placeholder for compatibility)
-func (d *AnalyticsDashboard) SetComponents(chartGenerator interface{}, historyAnalyzer interface{}, predictor interface{}, impactAnalyzer interface{}, notifier interface{}) {
+func (d *AnalyticsDashboard) SetComponents(_ interface{}, _ interface{}, _ interface{}, _ interface{}, _ interface{}) {
 	// Placeholder - components not used in minimal version
 }
 
 // GenerateDashboard generates dashboard data
-func (d *AnalyticsDashboard) GenerateDashboard(ctx context.Context, request *Request) (*DashboardData, error) {
+func (d *AnalyticsDashboard) GenerateDashboard(ctx context.Context, _ *Request) (*DashboardData, error) {
 	data := &DashboardData{}
 	err := d.generateCurrentMetrics(ctx, data)
 	return data, err
 }
 
 // GenerateHTML renders a minimal dashboard as HTML
-func (d *AnalyticsDashboard) GenerateHTML(ctx context.Context, data *DashboardData) (string, error) {
+func (d *AnalyticsDashboard) GenerateHTML(_ context.Context, _ *DashboardData) (string, error) {
 	return "<html><body><h1>Coverage Dashboard</h1><p>Coverage: " +
 		"75.5%</p><p>Status: Working</p></body></html>", nil
 }
 
-func (d *AnalyticsDashboard) generateCurrentMetrics(ctx context.Context, data *DashboardData) error {
+func (d *AnalyticsDashboard) generateCurrentMetrics(_ context.Context, data *DashboardData) error {
 	data.CurrentMetrics = CurrentMetrics{
 		Coverage:       78.5,
 		CoverageChange: 2.3,

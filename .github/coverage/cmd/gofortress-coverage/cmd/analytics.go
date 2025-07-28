@@ -366,7 +366,7 @@ func runDashboard(cmd *cobra.Command, args []string) error { //nolint:revive // 
 	analyticsDashboard.SetComponents(chartGen, historyAnalyzer, predictor, impactAnalyzer, notifier)
 
 	// Create dashboard request
-	request := &dashboard.DashboardRequest{
+	request := &dashboard.Request{
 		TimeRange:          timeRange,
 		IncludePredictions: true,
 		IncludeTeamData:    true,
@@ -639,7 +639,7 @@ func runTeam(cmd *cobra.Command, args []string) error { //nolint:revive // funct
 		},
 	}
 
-	teams := []team.TeamData{
+	teams := []team.Data{
 		{
 			Name:            "backend",
 			Description:     "Backend development team",
@@ -771,21 +771,21 @@ func runExport(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 
 	// Report results
 	if result.Success {
-		fmt.Printf("✅ Export completed successfully\n")
-		fmt.Printf("   Output: %s\n", result.OutputPath)
-		fmt.Printf("   Format: %s\n", result.Format)
-		fmt.Printf("   Records: %d\n", result.RecordCount)
-		fmt.Printf("   Size: %d bytes\n", result.FileSize)
-		fmt.Printf("   Time: %v\n", result.ProcessingTime)
+		fmt.Printf("✅ Export completed successfully\n")    //nolint:forbidigo // CLI output
+		fmt.Printf("   Output: %s\n", result.OutputPath)   //nolint:forbidigo // CLI output
+		fmt.Printf("   Format: %s\n", result.Format)       //nolint:forbidigo // CLI output
+		fmt.Printf("   Records: %d\n", result.RecordCount) //nolint:forbidigo // CLI output
+		fmt.Printf("   Size: %d bytes\n", result.FileSize) //nolint:forbidigo // CLI output
+		fmt.Printf("   Time: %v\n", result.ProcessingTime) //nolint:forbidigo // CLI output
 
 		if len(result.Warnings) > 0 {
-			fmt.Printf("⚠️  Warnings: %d\n", len(result.Warnings))
+			fmt.Printf("⚠️  Warnings: %d\n", len(result.Warnings)) //nolint:forbidigo // CLI output
 			for _, warning := range result.Warnings {
-				fmt.Printf("   - %s: %s\n", warning.Code, warning.Message)
+				fmt.Printf("   - %s: %s\n", warning.Code, warning.Message) //nolint:forbidigo // CLI output
 			}
 		}
 	} else {
-		fmt.Printf("❌ Export failed\n")
+		fmt.Printf("❌ Export failed\n") //nolint:forbidigo // CLI output
 		for _, err := range result.Errors {
 			fmt.Printf("   Error: %s - %s\n", err.Code, err.Message)
 		}
@@ -1062,7 +1062,7 @@ func formatTrendReportCSV(report *history.TrendReport) string {
 	return output.String()
 }
 
-func formatImpactAnalysisHTML(analysis *impact.ImpactAnalysis) string {
+func formatImpactAnalysisHTML(analysis *impact.Analysis) string {
 	return fmt.Sprintf(`
 <h2>PR Impact Analysis</h2>
 <div class="impact-summary">

@@ -21,7 +21,7 @@ import (
 
 var (
 	// ErrUnsupportedExportFormat indicates an unsupported export format was requested
-	ErrUnsupportedExportFormat      = errors.New("unsupported export format")
+	ErrUnsupportedExportFormat = errors.New("unsupported export format")
 	// ErrScheduledExportsNotSupported indicates scheduled exports are not yet implemented
 	ErrScheduledExportsNotSupported = errors.New("scheduled exports not yet implemented")
 	ErrExportFormatRequired         = errors.New("export format is required")
@@ -186,7 +186,7 @@ type DataSource string
 
 const (
 	// DataSourceCoverage exports coverage data
-	DataSourceCoverage        DataSource = "coverage"
+	DataSourceCoverage DataSource = "coverage"
 	// DataSourceTrends exports trend data
 	DataSourceTrends DataSource = "trends"
 	// DataSourcePredictions exports prediction data
@@ -432,7 +432,7 @@ type ImpactAnalysisData struct {
 	AnalysisID      string                  `json:"analysis_id"`
 	PRNumber        int                     `json:"pr_number"`
 	CreatedAt       time.Time               `json:"created_at"`
-	ImpactAnalysis  *impact.ImpactAnalysis  `json:"impact_analysis"`
+	ImpactAnalysis  *impact.Analysis        `json:"impact_analysis"`
 	Summary         ImpactSummary           `json:"summary"`
 	Recommendations []RecommendationSummary `json:"recommendations"`
 }

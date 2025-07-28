@@ -18,7 +18,7 @@ var pagesSetupCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Short: "Initialize GitHub Pages branch and structure",
 	Long: `Create and configure the gh-pages branch with proper directory structure
 for coverage badges, reports, and dashboard files.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		branch, _ := cmd.Flags().GetString("branch")
 		force, _ := cmd.Flags().GetBool("force")
 		verbose, _ := cmd.Flags().GetBool("verbose")
@@ -33,7 +33,7 @@ var pagesDeployCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Short: "Deploy coverage artifacts to GitHub Pages",
 	Long: `Deploy generated coverage artifacts (badges, reports, dashboard) to the 
 gh-pages branch with proper organization and cleanup.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		branch, _ := cmd.Flags().GetString("branch")
 		commitSha, _ := cmd.Flags().GetString("commit")
 		prNumber, _ := cmd.Flags().GetString("pr")
@@ -58,7 +58,7 @@ var pagesCleanCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Short: "Clean up old PR data and expired content",
 	Long: `Remove old PR-specific coverage data and expired content to manage
 storage usage and maintain organization.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		maxAge, _ := cmd.Flags().GetInt("max-age")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		verbose, _ := cmd.Flags().GetBool("verbose")
@@ -132,7 +132,7 @@ func setupGitHubPages(_ context.Context, branch string, _ bool, verbose bool) er
 		fmt.Printf("  📄 Dashboard content length: %d bytes\n", len(dashboardContent))
 	}
 
-	fmt.Println("✅ GitHub Pages setup completed successfully")
+	fmt.Println("✅ GitHub Pages setup completed successfully") //nolint:forbidigo // CLI output
 
 	if verbose {
 		fmt.Printf("🌐 Your coverage dashboard will be available at: https://{owner}.github.io/{repo}/\n")
@@ -160,7 +160,7 @@ func deployToGitHubPages(_ context.Context, opts DeployOptions) error { //nolint
 	// 4. Update dashboard with new data
 	// 5. Commit and push changes
 
-	fmt.Println("📦 Organizing artifacts...")
+	fmt.Println("📦 Organizing artifacts...") //nolint:forbidigo // CLI output
 
 	if opts.PRNumber != "" {
 		fmt.Printf("  🔀 Deploying PR #%s artifacts\n", opts.PRNumber)
@@ -170,11 +170,11 @@ func deployToGitHubPages(_ context.Context, opts DeployOptions) error { //nolint
 		// Deploy to branch-specific directory
 	}
 
-	fmt.Println("🏗️  Updating dashboard...")
+	fmt.Println("🏗️  Updating dashboard...") //nolint:forbidigo // CLI output
 
 	// TODO: Update dashboard with new coverage data
 
-	fmt.Println("📤 Committing changes...")
+	fmt.Println("📤 Committing changes...") //nolint:forbidigo // CLI output
 
 	commitMessage := opts.Message
 	if commitMessage == "" {
@@ -189,7 +189,7 @@ func deployToGitHubPages(_ context.Context, opts DeployOptions) error { //nolint
 		fmt.Printf("  💬 Commit message: %s\n", commitMessage)
 	}
 
-	fmt.Println("✅ Deployment completed successfully")
+	fmt.Println("✅ Deployment completed successfully") //nolint:forbidigo // CLI output
 
 	return nil
 }
@@ -200,7 +200,7 @@ func cleanGitHubPages(_ context.Context, opts CleanOptions) error { //nolint:rev
 		fmt.Printf("🧹 Cleaning up GitHub Pages content\n")
 		fmt.Printf("  📅 Max age: %d days\n", opts.MaxAgeDays)
 		if opts.DryRun {
-			fmt.Println("  🔍 Dry run mode - no changes will be made")
+			fmt.Println("  🔍 Dry run mode - no changes will be made") //nolint:forbidigo // CLI output
 		}
 	}
 
@@ -211,7 +211,7 @@ func cleanGitHubPages(_ context.Context, opts CleanOptions) error { //nolint:rev
 	// 4. Update dashboard to reflect changes
 	// 5. Commit cleanup changes
 
-	fmt.Println("🔍 Scanning for expired content...")
+	fmt.Println("🔍 Scanning for expired content...") //nolint:forbidigo // CLI output
 
 	// Simulate finding expired content
 	expiredPRs := []string{"pr/120", "pr/118", "pr/115"}
@@ -242,9 +242,9 @@ func cleanGitHubPages(_ context.Context, opts CleanOptions) error { //nolint:rev
 		fmt.Printf("💾 Total space to be freed: %.2f MB\n", float64(totalSize)/(1024*1024))
 
 		if !opts.DryRun {
-			fmt.Println("🗑️  Removing expired content...")
+			fmt.Println("🗑️  Removing expired content...") //nolint:forbidigo // CLI output
 			// TODO: Actually remove the content
-			fmt.Println("📤 Committing cleanup changes...")
+			fmt.Println("📤 Committing cleanup changes...") //nolint:forbidigo // CLI output
 		}
 	} else {
 		fmt.Println("✨ No expired content found - nothing to clean")

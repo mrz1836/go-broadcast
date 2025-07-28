@@ -16,6 +16,11 @@ var (
 	ErrUnsupportedBadgeType = errors.New("unsupported badge type")
 )
 
+// PRBadgeRenderer provides badge rendering capabilities for pull requests
+type PRBadgeRenderer interface {
+	RenderBadge(ctx context.Context, req *PRBadgeRequest) ([]byte, error)
+}
+
 // PRBadgeManager handles PR-specific badge generation and management
 type PRBadgeManager struct {
 	generator *Generator

@@ -186,7 +186,7 @@ func TestGetLatestEntryNotFound(t *testing.T) { //nolint:revive // function nami
 
 	_, err = tracker.GetLatestEntry(ctx, "nonexistent")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no entries found for branch nonexistent")
+	assert.Contains(t, err.Error(), "no entries found for branch: nonexistent")
 }
 
 func TestCleanup(t *testing.T) { //nolint:revive // function naming

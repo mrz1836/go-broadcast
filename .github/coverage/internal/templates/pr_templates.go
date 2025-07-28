@@ -686,9 +686,10 @@ func (e *PRTemplateEngine) round(value float64) float64 {
 	return math.Round(value*10) / 10
 }
 
-func (e *PRTemplateEngine) slice(items interface{}, _, end int) interface{} {
+func (e *PRTemplateEngine) slice(items interface{}, start, end int) interface{} {
 	// Implementation depends on the specific type
 	// This is a placeholder for slice operations
+	_ = start // Currently unused but kept for interface compatibility
 	return items
 }
 

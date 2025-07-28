@@ -6,7 +6,7 @@ import (
 )
 
 // BenchmarkGenerate benchmarks badge generation performance
-func BenchmarkGenerate(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGenerate(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -20,7 +20,7 @@ func BenchmarkGenerate(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkGenerateFlat benchmarks flat badge generation
-func BenchmarkGenerateFlat(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGenerateFlat(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -34,7 +34,7 @@ func BenchmarkGenerateFlat(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkGenerateFlatSquare benchmarks flat-square badge generation
-func BenchmarkGenerateFlatSquare(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGenerateFlatSquare(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -48,7 +48,7 @@ func BenchmarkGenerateFlatSquare(b *testing.B) { //nolint:revive // function nam
 }
 
 // BenchmarkGenerateForTheBadge benchmarks for-the-badge style generation
-func BenchmarkGenerateForTheBadge(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGenerateForTheBadge(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -62,7 +62,7 @@ func BenchmarkGenerateForTheBadge(b *testing.B) { //nolint:revive // function na
 }
 
 // BenchmarkGenerateWithLogo benchmarks badge generation with logo
-func BenchmarkGenerateWithLogo(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGenerateWithLogo(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -76,7 +76,7 @@ func BenchmarkGenerateWithLogo(b *testing.B) { //nolint:revive // function namin
 }
 
 // BenchmarkGenerateTrendBadge benchmarks trend badge generation
-func BenchmarkGenerateTrendBadge(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGenerateTrendBadge(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 

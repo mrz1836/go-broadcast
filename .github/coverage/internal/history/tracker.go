@@ -780,8 +780,8 @@ func WithTrendDays(days int) TrendOption {
 	}
 }
 
-func WithMaxDataPoints(max int) TrendOption {
+func WithMaxDataPoints(maxPoints int) TrendOption {
 	return func(opts *TrendOptions) {
-		opts.MaxPoints = max
+		opts.MaxPoints = maxPoints
 	}
 }

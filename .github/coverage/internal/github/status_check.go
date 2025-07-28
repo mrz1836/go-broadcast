@@ -15,6 +15,18 @@ type StatusCheckManager struct {
 	config *StatusCheckConfig
 }
 
+// StatusStateSuccess represents a successful status state
+const StatusStateSuccess = "success"
+
+// StatusStateFailure represents a failed status state
+const StatusStateFailure = "failure"
+
+// StatusStatePending represents a pending status state
+const StatusStatePending = "pending"
+
+// StatusStateError represents an error status state
+const StatusStateError = "error"
+
 // StatusCheckConfig holds configuration for status check management
 type StatusCheckConfig struct {
 	// Context settings
@@ -259,14 +271,14 @@ func (m *StatusCheckManager) CreateStatusChecks(ctx context.Context, request *St
 
 		if result.Success {
 			switch result.State {
-			case StatusSuccess:
+			case StatusStateSuccess:
 				response.PassedChecks++
-			case StatusFailure:
+			case StatusStateFailure:
 				response.FailedChecks++
 				if result.Required {
 					response.RequiredFailed = append(response.RequiredFailed, context)
 				}
-			case StatusError:
+			case StatusStateError:
 				response.ErrorChecks++
 				if result.Required {
 					response.RequiredFailed = append(response.RequiredFailed, context)
@@ -341,13 +353,13 @@ func (m *StatusCheckManager) buildMainCoverageStatus(request *StatusCheckRequest
 	var description string
 
 	if coverage >= threshold {
-		state = StatusSuccess
+		state = StatusStateSuccess
 		description = fmt.Sprintf("Coverage: %.1f%% ✅ (≥ %.1f%%)", coverage, threshold)
 	} else {
 		if m.config.BlockOnFailure {
-			state = StatusFailure
+			state = StatusStateFailure
 		} else {
-			state = StatusSuccess
+			state = StatusStateSuccess
 		}
 		description = fmt.Sprintf("Coverage: %.1f%% ⚠️ (< %.1f%% threshold)", coverage, threshold)
 	}
@@ -399,13 +411,13 @@ func (m *StatusCheckManager) buildTrendStatus(request *StatusCheckRequest) Statu
 
 	switch {
 	case change > 1.0:
-		state = StatusSuccess
+		state = StatusStateSuccess
 		description = fmt.Sprintf("📈 Coverage improved by %.1f%%", change)
 	case change < -1.0:
 		state = StatusFailure
 		description = fmt.Sprintf("📉 Coverage decreased by %.1f%%", math.Abs(change))
 	default:
-		state = StatusSuccess
+		state = StatusStateSuccess
 		description = fmt.Sprintf("📊 Coverage stable (%+.1f%%)", change)
 	}
 
@@ -434,16 +446,16 @@ func (m *StatusCheckManager) buildQualityStatus(request *StatusCheckRequest) Sta
 	// Determine state based on grade and risk
 	switch grade {
 	case "A+", "A", "B+", "B":
-		state = StatusSuccess
+		state = StatusStateSuccess
 		description = fmt.Sprintf("🏆 Quality Grade: %s (%.0f/100)", grade, score)
 	case "C":
-		state = StatusSuccess
+		state = StatusStateSuccess
 		description = fmt.Sprintf("⚠️ Quality Grade: %s (%.0f/100)", grade, score)
 	case "D", "F":
 		state = StatusFailure
 		description = fmt.Sprintf("🚨 Quality Grade: %s (%.0f/100)", grade, score)
 	default:
-		state = StatusPending
+		state = StatusStatePending
 		description = fmt.Sprintf("📊 Quality Score: %.0f/100", score)
 	}
 
@@ -470,13 +482,13 @@ func (m *StatusCheckManager) buildComparisonStatus(request *StatusCheckRequest) 
 	var description string
 
 	if diff > 0.1 {
-		state = StatusSuccess
+		state = StatusStateSuccess
 		description = fmt.Sprintf("📈 +%.1f%% vs base (%.1f%% → %.1f%%)", diff, base, current)
 	} else if diff < -0.1 {
 		state = StatusFailure
 		description = fmt.Sprintf("📉 %.1f%% vs base (%.1f%% → %.1f%%)", diff, base, current)
 	} else {
-		state = StatusSuccess
+		state = StatusStateSuccess
 		description = fmt.Sprintf("📊 ±0.0%% vs base (%.1f%%)", current)
 	}
 
@@ -497,13 +509,13 @@ func (m *StatusCheckManager) buildQualityGateStatus(request *StatusCheckRequest,
 	passed := m.evaluateQualityGate(request, gate)
 
 	if passed {
-		state = StatusSuccess
+		state = StatusStateSuccess
 		description = fmt.Sprintf("✅ %s: Passed", gate.Name)
 	} else {
 		if gate.Required {
-			state = StatusFailure
+			state = StatusStateFailure
 		} else {
-			state = StatusSuccess
+			state = StatusStateSuccess
 		}
 		description = fmt.Sprintf("❌ %s: %s", gate.Name, gate.Description)
 	}

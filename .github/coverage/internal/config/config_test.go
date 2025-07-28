@@ -117,8 +117,8 @@ func TestLoadWithEnvironmentVariables(t *testing.T) {
 
 	_ = os.Setenv("COVERAGE_BASE_DIR", "/tmp/base")
 	_ = os.Setenv("COVERAGE_AUTO_CREATE_DIRS", "false")
-	_ = os.Setenv("COVERAGE_FILE_MODE", "600")
-	_ = os.Setenv("COVERAGE_DIR_MODE", "700")
+	_ = os.Setenv("COVERAGE_FILE_MODE", "420")
+	_ = os.Setenv("COVERAGE_DIR_MODE", "493")
 
 	config := Load()
 
@@ -170,8 +170,8 @@ func TestLoadWithEnvironmentVariables(t *testing.T) {
 	// Test storage settings
 	assert.Equal(t, "/tmp/base", config.Storage.BaseDir)
 	assert.False(t, config.Storage.AutoCreate)
-	assert.Equal(t, os.FileMode(0o600), config.Storage.FileMode)
-	assert.Equal(t, os.FileMode(0o700), config.Storage.DirMode)
+	assert.Equal(t, os.FileMode(0o644), config.Storage.FileMode)
+	assert.Equal(t, os.FileMode(0o755), config.Storage.DirMode)
 }
 
 func TestValidate(t *testing.T) {

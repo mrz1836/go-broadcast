@@ -77,13 +77,13 @@ type ContentType string
 
 const (
 	// ContentTypePR represents pull request content
-	ContentTypePR     ContentType = "pr"
+	ContentTypePR ContentType = "pr"
 	// ContentTypeBranch represents branch content
 	ContentTypeBranch ContentType = "branch"
 	// ContentTypeReport represents report content
 	ContentTypeReport ContentType = "report"
 	// ContentTypeBadge represents badge content
-	ContentTypeBadge  ContentType = "badge"
+	ContentTypeBadge ContentType = "badge"
 )
 
 // NewCleanupManager creates a new cleanup manager with default configuration
@@ -197,7 +197,7 @@ func (cm *CleanupManager) scanForExpiredContent(ctx context.Context) ([]ExpiredC
 }
 
 // scanPRDirectories scans for expired PR-specific content
-func (cm *CleanupManager) scanPRDirectories(ctx context.Context, cutoffTime time.Time) ([]ExpiredContent, error) {
+func (cm *CleanupManager) scanPRDirectories(_ context.Context, cutoffTime time.Time) ([]ExpiredContent, error) {
 	var expired []ExpiredContent
 
 	// Scan PR badges
@@ -216,7 +216,7 @@ func (cm *CleanupManager) scanPRDirectories(ctx context.Context, cutoffTime time
 }
 
 // scanBranchDirectories scans for expired branch-specific content
-func (cm *CleanupManager) scanBranchDirectories(ctx context.Context, cutoffTime time.Time) ([]ExpiredContent, error) {
+func (cm *CleanupManager) scanBranchDirectories(_ context.Context, cutoffTime time.Time) ([]ExpiredContent, error) {
 	var expired []ExpiredContent
 
 	// Scan branch badges
@@ -298,7 +298,7 @@ func (cm *CleanupManager) scanBranchDirectories(ctx context.Context, cutoffTime 
 }
 
 // scanReportDirectories scans for expired report content
-func (cm *CleanupManager) scanReportDirectories(ctx context.Context, cutoffTime time.Time) ([]ExpiredContent, error) {
+func (cm *CleanupManager) scanReportDirectories(_ context.Context, cutoffTime time.Time) ([]ExpiredContent, error) {
 	var expired []ExpiredContent
 
 	// This would scan for very old reports that exceed the report retention period
@@ -367,7 +367,7 @@ func (cm *CleanupManager) scanDirectory(dirPath string, contentType ContentType,
 }
 
 // removeExpiredContent removes the identified expired content
-func (cm *CleanupManager) removeExpiredContent(ctx context.Context, expired []ExpiredContent) (*CleanupStats, error) {
+func (cm *CleanupManager) removeExpiredContent(_ context.Context, expired []ExpiredContent) (*CleanupStats, error) {
 	stats := &CleanupStats{}
 
 	for _, content := range expired {

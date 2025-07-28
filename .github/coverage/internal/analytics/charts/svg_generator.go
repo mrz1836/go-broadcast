@@ -161,7 +161,7 @@ func NewSVGChartGenerator(config *ChartConfig) *SVGChartGenerator {
 }
 
 // GenerateTrendChart creates a line chart showing coverage trends over time
-func (g *SVGChartGenerator) GenerateTrendChart(ctx context.Context, data *ChartData) (string, error) {
+func (g *SVGChartGenerator) GenerateTrendChart(_ context.Context, data *ChartData) (string, error) {
 	if len(data.Points) == 0 {
 		return "", ErrNoDataPoints
 	}
@@ -221,7 +221,7 @@ func (g *SVGChartGenerator) GenerateTrendChart(ctx context.Context, data *ChartD
 }
 
 // GenerateAreaChart creates an area chart with fill
-func (g *SVGChartGenerator) GenerateAreaChart(ctx context.Context, data *ChartData) (string, error) {
+func (g *SVGChartGenerator) GenerateAreaChart(_ context.Context, data *ChartData) (string, error) {
 	if len(data.Points) == 0 {
 		return "", ErrNoDataPoints
 	}
@@ -266,7 +266,7 @@ func (g *SVGChartGenerator) GenerateAreaChart(ctx context.Context, data *ChartDa
 }
 
 // GenerateMultiSeriesChart creates a chart with multiple data series
-func (g *SVGChartGenerator) GenerateMultiSeriesChart(ctx context.Context, data *ChartData) (string, error) {
+func (g *SVGChartGenerator) GenerateMultiSeriesChart(_ context.Context, data *ChartData) (string, error) {
 	if len(data.Series) == 0 {
 		return "", ErrNoDataSeries
 	}
@@ -482,7 +482,7 @@ func (g *SVGChartGenerator) writeBackground(svg *strings.Builder) {
 	svg.WriteString("\n")
 }
 
-func (g *SVGChartGenerator) writeGrid(svg *strings.Builder, chartArea ChartArea, xScale, yScale *Scale, data *ChartData) {
+func (g *SVGChartGenerator) writeGrid(svg *strings.Builder, chartArea ChartArea, _, _ *Scale, _ *ChartData) {
 	// Vertical grid lines (time)
 	gridLines := 5
 	for i := 0; i <= gridLines; i++ {
@@ -523,7 +523,7 @@ func (g *SVGChartGenerator) writeAxes(svg *strings.Builder, chartArea ChartArea,
 	}
 }
 
-func (g *SVGChartGenerator) writeXAxisLabels(svg *strings.Builder, chartArea ChartArea, xScale *Scale, data *ChartData) {
+func (g *SVGChartGenerator) writeXAxisLabels(svg *strings.Builder, chartArea ChartArea, _ *Scale, data *ChartData) {
 	if len(data.Points) == 0 {
 		return
 	}
@@ -657,7 +657,7 @@ func (g *SVGChartGenerator) writeSeriesLine(svg *strings.Builder, series Series,
 	svg.WriteString("\n")
 }
 
-func (g *SVGChartGenerator) writeLegend(svg *strings.Builder, data *ChartData) {
+func (g *SVGChartGenerator) writeLegend(svg *strings.Builder, _ *ChartData) {
 	legendY := 20
 	fmt.Fprintf(svg, `  <text x="%d" y="%d" font-family="%s" font-size="%d" fill="%s">Coverage Trend</text>`,
 		g.config.Width-150, legendY, g.config.FontFamily, g.config.FontSize, g.config.TextColor)

@@ -129,7 +129,7 @@ type Analysis struct {
 	PatternInsights []PatternInsight `json:"pattern_insights"`
 
 	// Recommendations
-	TeamRecommendations       []Recommendation       `json:"team_recommendations"`
+	TeamRecommendations       []Recommendation           `json:"team_recommendations"`
 	IndividualRecommendations []IndividualRecommendation `json:"individual_recommendations"`
 
 	// Quality assessment
@@ -1099,7 +1099,7 @@ func (ta *Analyzer) generateTeamRecommendations(analysis *Analysis) {
 
 	// Cross-team collaboration recommendations
 	if analysis.CollaborationInsights.CrossTeamActivity.SiloRisk > 0.7 {
-		rec := TeamRecommendation{
+		rec := Recommendation{
 			RecommendationType:   "collaboration_improvement",
 			TargetTeam:           "All Teams",
 			Title:                "Improve Cross-Team Collaboration",

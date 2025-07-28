@@ -17,7 +17,8 @@ var (
 	// ErrInsufficientTrainingData indicates there's not enough data for training the model
 	ErrInsufficientTrainingData = errors.New("insufficient training data")
 	// ErrUnsupportedModelType indicates the requested model type is not supported
-	ErrUnsupportedModelType       = errors.New("unsupported model type")
+	ErrUnsupportedModelType = errors.New("unsupported model type")
+	// ErrModelBelowThreshold indicates model R² is below threshold
 	ErrModelBelowThreshold        = errors.New("model R² below threshold")
 	ErrModelNotTrained            = errors.New("model not trained")
 	ErrInsufficientPoints         = errors.New("insufficient points for calculation")
@@ -307,45 +308,68 @@ type InsightType string
 
 const (
 	// InsightTypeTrend indicates trend-related insight
-	InsightTypeTrend       InsightType = "trend"
-	InsightTypeAnomaly     InsightType = "anomaly"
+	InsightTypeTrend InsightType = "trend"
+	// InsightTypeAnomaly indicates anomaly-related insight
+	InsightTypeAnomaly InsightType = "anomaly"
+	// InsightTypeOpportunity indicates opportunity-related insight
 	InsightTypeOpportunity InsightType = "opportunity"
-	InsightTypeWarning     InsightType = "warning"
+	// InsightTypeWarning indicates warning-related insight
+	InsightTypeWarning InsightType = "warning"
 )
 
+// RiskType represents different types of risk factors
 type RiskType string
 
 const (
+	// RiskTypeModelAccuracy indicates risk related to model accuracy
 	RiskTypeModelAccuracy RiskType = "model_accuracy"
-	RiskTypeDataQuality   RiskType = "data_quality"
-	RiskTypeTrendChange   RiskType = "trend_change"
-	RiskTypeExternal      RiskType = "external_factors"
+	// RiskTypeDataQuality indicates risk related to data quality
+	RiskTypeDataQuality RiskType = "data_quality"
+	// RiskTypeTrendChange indicates risk related to trend changes
+	RiskTypeTrendChange RiskType = "trend_change"
+	// RiskTypeExternal indicates risk from external factors
+	RiskTypeExternal RiskType = "external_factors"
 )
 
+// RecommendationType represents different types of recommendations
 type RecommendationType string
 
 const (
-	RecommendationTypeProcess    RecommendationType = "process"
-	RecommendationTypeTesting    RecommendationType = "testing"
+	// RecommendationTypeProcess indicates process-related recommendation
+	RecommendationTypeProcess RecommendationType = "process"
+	// RecommendationTypeTesting indicates testing-related recommendation
+	RecommendationTypeTesting RecommendationType = "testing"
+	// RecommendationTypeMonitoring indicates monitoring-related recommendation
 	RecommendationTypeMonitoring RecommendationType = "monitoring"
-	RecommendationTypeGoals      RecommendationType = "goals"
+	// RecommendationTypeGoals indicates goals-related recommendation
+	RecommendationTypeGoals RecommendationType = "goals"
 )
 
+// ImpactLevel represents different levels of impact
 type ImpactLevel string
 
 const (
-	ImpactLevelLow      ImpactLevel = "low"
-	ImpactLevelMedium   ImpactLevel = "medium"
-	ImpactLevelHigh     ImpactLevel = "high"
+	// ImpactLevelLow indicates low impact level
+	ImpactLevelLow ImpactLevel = "low"
+	// ImpactLevelMedium indicates medium impact level
+	ImpactLevelMedium ImpactLevel = "medium"
+	// ImpactLevelHigh indicates high impact level
+	ImpactLevelHigh ImpactLevel = "high"
+	// ImpactLevelCritical indicates critical impact level
 	ImpactLevelCritical ImpactLevel = "critical"
 )
 
+// Priority represents different priority levels
 type Priority string
 
 const (
-	PriorityLow    Priority = "low"
+	// PriorityLow indicates low priority level
+	PriorityLow Priority = "low"
+	// PriorityMedium indicates medium priority level
 	PriorityMedium Priority = "medium"
-	PriorityHigh   Priority = "high"
+	// PriorityHigh indicates high priority level
+	PriorityHigh Priority = "high"
+	// PriorityUrgent indicates urgent priority level
 	PriorityUrgent Priority = "urgent"
 )
 
@@ -708,7 +732,7 @@ func (p *CoveragePredictor) generatePointForecasts() ([]PointForecast, error) {
 		}
 
 		// Determine trend indicator
-		var trend TrendIndicator = TrendIndicatorFlat
+		trend := TrendIndicatorFlat
 		if i > 1 && len(forecasts) > 0 {
 			prevValue := forecasts[len(forecasts)-1].PredictedCoverage
 			if predictedValue > prevValue+0.1 {

@@ -17,7 +17,7 @@ var historyCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "history",
 	Short: "Manage coverage history",
 	Long:  `Manage historical coverage data for trend analysis and tracking.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Get flags
 		inputFile, _ := cmd.Flags().GetString("add")
 		branch, _ := cmd.Flags().GetString("branch")
