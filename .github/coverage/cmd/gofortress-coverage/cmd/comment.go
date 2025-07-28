@@ -14,6 +14,11 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
+const (
+	// defaultBranch is the default branch name used when no branch is specified
+	defaultBranch = "main"
+)
+
 var (
 	// ErrGitHubTokenRequired indicates that a GitHub token is required but not provided
 	ErrGitHubTokenRequired = errors.New("GitHub token is required")
@@ -96,7 +101,7 @@ var commentCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 			// Get latest entry to compare
 			branch := cfg.GitHub.CommitSHA
 			if branch == "" {
-				branch = "main"
+				branch = defaultBranch
 			}
 
 			if latest, latestErr := tracker.GetLatestEntry(ctx, branch); latestErr == nil {

@@ -72,7 +72,7 @@ func addToHistory(ctx context.Context, tracker *history.Tracker, inputFile, bran
 	if branch == "" {
 		branch = cfg.GitHub.CommitSHA
 		if branch == "" {
-			branch = "main"
+			branch = defaultBranch
 		}
 	}
 	if commit == "" {
@@ -107,7 +107,7 @@ func addToHistory(ctx context.Context, tracker *history.Tracker, inputFile, bran
 
 func showTrendData(ctx context.Context, tracker *history.Tracker, branch string, days int, format string, cmd *cobra.Command) error {
 	if branch == "" {
-		branch = "main"
+		branch = defaultBranch
 	}
 	if days == 0 {
 		days = 30
@@ -222,7 +222,7 @@ func cleanupHistory(ctx context.Context, tracker *history.Tracker, cmd *cobra.Co
 
 func showLatestEntry(ctx context.Context, tracker *history.Tracker, branch, format string, cmd *cobra.Command) error {
 	if branch == "" {
-		branch = "main"
+		branch = defaultBranch
 	}
 
 	entry, err := tracker.GetLatestEntry(ctx, branch)
