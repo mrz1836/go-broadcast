@@ -477,15 +477,15 @@ func TestGetEntryFilename(t *testing.T) {
 	filename := tracker.getEntryFilename(entry)
 	assert.Equal(t, "20240115-143045.123456-feature-branch-abc123de.json", filename)
 
-	// Test with empty branch (should default to main)
+	// Test with empty branch (should default to master)
 	entry.Branch = ""
 	filename = tracker.getEntryFilename(entry)
-	assert.Equal(t, "20240115-143045.123456-main-abc123de.json", filename)
+	assert.Equal(t, "20240115-143045.123456-master-abc123de.json", filename)
 
 	// Test with empty commit SHA (should default to nocommit)
 	entry.CommitSHA = ""
 	filename = tracker.getEntryFilename(entry)
-	assert.Equal(t, "20240115-143045.123456-main-nocommit.json", filename)
+	assert.Equal(t, "20240115-143045.123456-master-nocommit.json", filename)
 }
 
 func TestFileHashes(t *testing.T) {

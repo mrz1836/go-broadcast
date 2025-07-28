@@ -811,7 +811,7 @@ func TestCompleteCommand(t *testing.T) {
 				"Step 2: Generating coverage badge",
 				"Step 3: Generating HTML report",
 				"Step 4: Generating coverage dashboard",
-				"Step 5: Updating coverage history",
+				"Step 5: Coverage history analysis",
 				"Step 6: GitHub integration (skipped)",
 				"Pipeline Complete!",
 				"Mode: DRY RUN",

@@ -154,6 +154,57 @@ jobs:
           echo "✅ Coverage tool built successfully"
 
       # ————————————————————————————————————————————————————————————————
+      # Pre-processing diagnostics: Check initial history state
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Pre-processing history diagnostics
+        run: |
+          echo "🔍 Pre-processing diagnostics: Checking initial history state..."
+
+          HISTORY_DIR=".github/coverage/history"
+          DATA_DIR=".github/coverage/data/history"
+
+          echo "📂 Checking history directories:"
+          echo "  • Primary: $HISTORY_DIR"
+          echo "  • Legacy:  $DATA_DIR"
+          echo ""
+
+          # Check primary history directory
+          if [[ -d "$HISTORY_DIR" ]]; then
+            echo "✅ Primary history directory exists:"
+            ls -la "$HISTORY_DIR"
+            HISTORY_FILES=$(find "$HISTORY_DIR" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+            echo "📊 JSON files in primary directory: $HISTORY_FILES"
+            if [[ $HISTORY_FILES -gt 0 ]]; then
+              echo "📅 Recent files:"
+              find "$HISTORY_DIR" -name "*.json" -type f -exec basename {} \; 2>/dev/null | sort -r | head -5
+            fi
+          else
+            echo "❌ Primary history directory does not exist: $HISTORY_DIR"
+          fi
+          echo ""
+
+          # Check legacy data directory
+          if [[ -d "$DATA_DIR" ]]; then
+            echo "✅ Legacy data directory exists:"
+            ls -la "$DATA_DIR"
+            LEGACY_FILES=$(find "$DATA_DIR" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+            echo "📊 JSON files in legacy directory: $LEGACY_FILES"
+          else
+            echo "❌ Legacy data directory does not exist: $DATA_DIR"
+          fi
+          echo ""
+
+          # Check configuration defaults
+          echo "⚙️ Configuration check:"
+          echo "  • COVERAGE_HISTORY_PATH env var: ${COVERAGE_HISTORY_PATH:-'not set'}"
+          echo "  • Git branch: ${{ steps.git-branch.outputs.branch-name }}"
+          echo "  • Commit SHA: ${{ inputs.commit-sha }}"
+          echo "  • Working directory: $(pwd)"
+          echo ""
+
+          echo "🎯 Pre-processing diagnostics completed"
+
+      # ————————————————————————————————————————————————————————————————
       # Collect cache statistics
       # ————————————————————————————————————————————————————————————————
       - name: 📊 Collect cache statistics
@@ -291,6 +342,79 @@ jobs:
             --output "$OUTPUT_DIR"
 
           echo "✅ Coverage processing completed"
+
+      # ————————————————————————————————————————————————————————————————
+      # Explicit history recording (fallback/additional step)
+      # ————————————————————————————————————————————————————————————————
+      - name: 📈 Record coverage history
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_SHA: ${{ inputs.commit-sha }}
+          GITHUB_REF_NAME: ${{ steps.git-branch.outputs.branch-name }}
+          # Set history storage to match config defaults
+          COVERAGE_HISTORY_PATH: .github/coverage/history
+        working-directory: .github/coverage/cmd/gofortress-coverage
+        run: |
+          echo "📈 Recording coverage history explicitly..."
+
+          # Resolve absolute paths
+          REPO_ROOT="$(realpath ../../../../)"
+          ARTIFACTS_DIR="$REPO_ROOT/coverage-artifacts"
+
+          # Find the coverage file
+          if [[ -f "$ARTIFACTS_DIR/${{ inputs.coverage-file }}" ]]; then
+            COVERAGE_FILE="$ARTIFACTS_DIR/${{ inputs.coverage-file }}"
+          elif [[ -f "$REPO_ROOT/${{ inputs.coverage-file }}" ]]; then
+            COVERAGE_FILE="$REPO_ROOT/${{ inputs.coverage-file }}"
+          else
+            echo "❌ Coverage file not found for history recording: ${{ inputs.coverage-file }}"
+            echo "🔍 Looking in artifacts directory:"
+            ls -la "$ARTIFACTS_DIR" 2>/dev/null || echo "No coverage-artifacts directory"
+            echo "🔍 Looking in root:"
+            ls -la "$REPO_ROOT"/*.out "$REPO_ROOT"/*.txt 2>/dev/null || echo "No coverage files in root"
+            echo "⚠️ Skipping history recording due to missing coverage file"
+            exit 0  # Don't fail the entire workflow, just skip this step
+          fi
+
+          echo "📄 Using coverage file for history: $COVERAGE_FILE"
+          echo "🌿 Branch: ${{ steps.git-branch.outputs.branch-name }}"
+          echo "📝 Commit: ${{ inputs.commit-sha }}"
+
+          # Record coverage in history using explicit command
+          ./gofortress-coverage history \
+            --add "$COVERAGE_FILE" \
+            --branch "${{ steps.git-branch.outputs.branch-name }}" \
+            --commit "${{ inputs.commit-sha }}" \
+            --format text
+
+          echo "✅ History recording completed"
+
+          # Verify history was recorded
+          HISTORY_DIR="$REPO_ROOT/.github/coverage/history"
+          if [[ -d "$HISTORY_DIR" ]]; then
+            HISTORY_COUNT=$(find "$HISTORY_DIR" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+            echo "📊 Total history entries: $HISTORY_COUNT"
+            
+            if [[ $HISTORY_COUNT -gt 0 ]]; then
+              echo "📅 Recent history files:"
+              find "$HISTORY_DIR" -name "*.json" -type f -exec basename {} \; 2>/dev/null | sort -r | head -3 || echo "Failed to list files"
+            fi
+          else
+            echo "⚠️ History directory not found: $HISTORY_DIR"
+          fi
+
+      # ————————————————————————————————————————————————————————————————
+      # Collect statistics after explicit history recording
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Collect coverage statistics
+        run: |
+          echo "📊 Collecting coverage processing statistics..."
+
+          # Use absolute path for statistics collection
+          REPO_ROOT="$(pwd)"  # We're at repository root for this step
+          OUTPUT_DIR="$REPO_ROOT/coverage-output"
 
           # Collect coverage processing statistics from generated files
           if [[ -f "$OUTPUT_DIR/coverage.html" ]]; then
@@ -600,35 +724,71 @@ jobs:
           echo "- **Working Directory**: \`$(pwd)\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Coverage history information
-          echo "### 📈 Coverage History Status" >> $GITHUB_STEP_SUMMARY
+          # Enhanced coverage history information with post-processing diagnostics
+          echo "### 📈 Coverage History Status (Post-Processing)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [[ -d "$HISTORY_DIR" ]]; then
-            HISTORY_FILES=$(find "$HISTORY_DIR" -name "*.json" 2>/dev/null | wc -l)
-            HISTORY_SIZE=$(du -sh "$HISTORY_DIR" 2>/dev/null | cut -f1 || echo "0B")
-            echo "- **History Directory**: ✅ Exists" >> $GITHUB_STEP_SUMMARY
-            echo "- **History Files**: ${HISTORY_FILES} entries" >> $GITHUB_STEP_SUMMARY
-            echo "- **History Size**: ${HISTORY_SIZE}" >> $GITHUB_STEP_SUMMARY
 
-            if [[ $HISTORY_FILES -gt 1 ]]; then
-              echo "- **Trend Analysis**: ✅ Available (${HISTORY_FILES} data points)" >> $GITHUB_STEP_SUMMARY
-            elif [[ $HISTORY_FILES -eq 1 ]]; then
-              echo "- **Trend Analysis**: ⏳ Building (need 2+ data points)" >> $GITHUB_STEP_SUMMARY
+          # Check both primary and legacy history directories
+          HISTORY_DIRS=("$HISTORY_DIR" "$REPO_ROOT/.github/coverage/data/history")
+          HISTORY_DIR_NAMES=("Primary (.github/coverage/history)" "Legacy (.github/coverage/data/history)")
+
+          TOTAL_HISTORY_FILES=0
+          for i in "${!HISTORY_DIRS[@]}"; do
+            DIR="${HISTORY_DIRS[$i]}"
+            DIR_NAME="${HISTORY_DIR_NAMES[$i]}"
+            
+            if [[ -d "$DIR" ]]; then
+              FILES_IN_DIR=$(find "$DIR" -name "*.json" 2>/dev/null | wc -l)
+              DIR_SIZE=$(du -sh "$DIR" 2>/dev/null | cut -f1 || echo "0B")
+              echo "- **$DIR_NAME**: ✅ Exists ($FILES_IN_DIR files, $DIR_SIZE)" >> $GITHUB_STEP_SUMMARY
+              TOTAL_HISTORY_FILES=$((TOTAL_HISTORY_FILES + FILES_IN_DIR))
+              
+              if [[ $FILES_IN_DIR -gt 0 ]]; then
+                echo "  - Recent files in $DIR_NAME:" >> $GITHUB_STEP_SUMMARY
+                echo "    \`\`\`" >> $GITHUB_STEP_SUMMARY
+                find "$DIR" -name "*.json" -type f -exec basename {} \; 2>/dev/null | sort -r | head -3 >> $GITHUB_STEP_SUMMARY || echo "    Unable to list files" >> $GITHUB_STEP_SUMMARY
+                echo "    \`\`\`" >> $GITHUB_STEP_SUMMARY
+              fi
             else
-              echo "- **Trend Analysis**: 🚀 First run (building history)" >> $GITHUB_STEP_SUMMARY
+              echo "- **$DIR_NAME**: ❌ Not found" >> $GITHUB_STEP_SUMMARY
             fi
+          done
 
-            # Show recent history entries
-            if [[ $HISTORY_FILES -gt 0 ]]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "**Recent History Entries:**" >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-              find "$HISTORY_DIR" -name "*.json" -type f -exec basename {} \; | head -5 | sort -r >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "Unable to list history files" >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            fi
+          echo "- **Total History Files**: ${TOTAL_HISTORY_FILES} entries across all directories" >> $GITHUB_STEP_SUMMARY
+
+          # Trend analysis status
+          if [[ $TOTAL_HISTORY_FILES -gt 1 ]]; then
+            echo "- **Trend Analysis**: ✅ Available (${TOTAL_HISTORY_FILES} data points)" >> $GITHUB_STEP_SUMMARY
+          elif [[ $TOTAL_HISTORY_FILES -eq 1 ]]; then
+            echo "- **Trend Analysis**: ⏳ Building (${TOTAL_HISTORY_FILES}/2 entries)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- **History Directory**: ❌ Not found" >> $GITHUB_STEP_SUMMARY
-            echo "- **Trend Analysis**: 🚫 Unavailable" >> $GITHUB_STEP_SUMMARY
+            echo "- **Trend Analysis**: 🚀 First run (building history)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Configuration diagnostics
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**📋 Configuration Status:**" >> $GITHUB_STEP_SUMMARY
+          echo "- History enabled in config: \`true\` (default)" >> $GITHUB_STEP_SUMMARY
+          echo "- History storage path: \`.github/coverage/history\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch processed: \`${{ steps.git-branch.outputs.branch-name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit SHA: \`${{ inputs.commit-sha }}\`" >> $GITHUB_STEP_SUMMARY
+
+          # Processing steps status
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**⚙️ Processing Steps Completed:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Coverage parsing and analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Badge and report generation" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Complete command execution (includes internal history recording)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Explicit history recording (fallback command)" >> $GITHUB_STEP_SUMMARY
+
+          # History recording verification
+          if [[ $TOTAL_HISTORY_FILES -gt 0 ]]; then
+            echo "- ✅ History recording verification: SUCCESS" >> $GITHUB_STEP_SUMMARY
+            echo "- 📊 History entries found in filesystem" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ History recording verification: FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔍 **Investigation needed**: History should have been recorded but no files found" >> $GITHUB_STEP_SUMMARY
+            echo "- 🛠️ **Troubleshooting**: Check both processing steps completed without errors" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
 

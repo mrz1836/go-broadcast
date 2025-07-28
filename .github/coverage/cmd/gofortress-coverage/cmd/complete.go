@@ -21,6 +21,15 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/report"
 )
 
+// getDefaultBranch returns the default branch name, checking environment variables first
+func getDefaultBranch() string {
+	if branch := os.Getenv("GITHUB_REF_NAME"); branch != "" {
+		return branch
+	}
+	// Default to master (this repository's default branch)
+	return history.DefaultBranch
+}
+
 // ErrCoverageBelowThreshold indicates that coverage percentage is below the configured threshold
 var ErrCoverageBelowThreshold = errors.New("coverage is below threshold")
 
@@ -148,11 +157,7 @@ update history, and create GitHub PR comment if in PR context.`,
 		}
 
 		// Set GitHub branch for source links
-		if branch := os.Getenv("GITHUB_REF_NAME"); branch != "" {
-			reportConfig.GitHubBranch = branch
-		} else {
-			reportConfig.GitHubBranch = "main"
-		}
+		reportConfig.GitHubBranch = getDefaultBranch()
 		reportGen := report.NewWithConfig(reportConfig)
 		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
@@ -175,10 +180,7 @@ update history, and create GitHub PR comment if in PR context.`,
 		cmd.Printf("🎯 Step 4: Generating coverage dashboard...\n")
 
 		// Prepare coverage data for dashboard
-		branch := os.Getenv("GITHUB_REF_NAME")
-		if branch == "" {
-			branch = "main" // Default fallback for tests and local development
-		}
+		branch := getDefaultBranch()
 
 		coverageData := &dashboard.CoverageData{
 			ProjectName:    cfg.Report.Title,
@@ -266,10 +268,7 @@ update history, and create GitHub PR comment if in PR context.`,
 
 			// Add GitHub URL for package directory if we have GitHub info
 			if cfg.GitHub.Owner != "" && cfg.GitHub.Repository != "" {
-				branch := os.Getenv("GITHUB_REF_NAME")
-				if branch == "" {
-					branch = "main"
-				}
+				branch := getDefaultBranch()
 				pkgCoverage.GitHubURL = fmt.Sprintf("https://github.com/%s/%s/tree/%s/%s",
 					cfg.GitHub.Owner, cfg.GitHub.Repository, branch, pkgName)
 			}
@@ -287,10 +286,7 @@ update history, and create GitHub PR comment if in PR context.`,
 						MissedLines:  file.TotalLines - file.CoveredLines,
 					}
 					if cfg.GitHub.Owner != "" && cfg.GitHub.Repository != "" {
-						branch := os.Getenv("GITHUB_REF_NAME")
-						if branch == "" {
-							branch = "main"
-						}
+						branch := getDefaultBranch()
 						fileCoverage.GitHubURL = fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s",
 							cfg.GitHub.Owner, cfg.GitHub.Repository, branch, fileName)
 					}
@@ -308,10 +304,7 @@ update history, and create GitHub PR comment if in PR context.`,
 
 		// Populate history data for dashboard if history is enabled
 		if cfg.History.Enabled {
-			branch := os.Getenv("GITHUB_REF_NAME")
-			if branch == "" {
-				branch = "main"
-			}
+			branch := getDefaultBranch()
 
 			// Initialize history tracker to get historical data
 			historyConfig := &history.Config{
@@ -447,8 +440,13 @@ update history, and create GitHub PR comment if in PR context.`,
 
 		// Step 5: Update history (if enabled)
 		trend := "stable"
+		cmd.Printf("📈 Step 5: Coverage history analysis...\n")
+		cmd.Printf("   🔍 History enabled: %t\n", cfg.History.Enabled)
+		cmd.Printf("   🔍 Skip history flag: %t\n", skipHistory)
+		cmd.Printf("   🔍 History storage path: %s\n", cfg.History.StoragePath)
+
 		if cfg.History.Enabled && !skipHistory {
-			cmd.Printf("📈 Step 5: Updating coverage history...\n")
+			cmd.Printf("   📊 Proceeding with history update...\n")
 
 			historyConfig := &history.Config{
 				StoragePath:    cfg.History.StoragePath,
@@ -459,43 +457,106 @@ update history, and create GitHub PR comment if in PR context.`,
 			}
 			tracker := history.NewWithConfig(historyConfig)
 
-			// Get trend before adding new entry
-			branch := os.Getenv("GITHUB_REF_NAME")
-			if branch == "" {
-				branch = "main" // Default fallback
+			// Debug: Check if history directory exists and is writable
+			if dirInfo, dirErr := os.Stat(cfg.History.StoragePath); dirErr != nil {
+				cmd.Printf("   ⚠️  History directory check failed: %v\n", dirErr)
+				cmd.Printf("   🔧 Attempting to create history directory...\n")
+				if mkdirErr := os.MkdirAll(cfg.History.StoragePath, 0o750); mkdirErr != nil {
+					cmd.Printf("   ❌ Failed to create history directory: %v\n", mkdirErr)
+					return fmt.Errorf("failed to create history directory: %w", mkdirErr)
+				}
+				cmd.Printf("   ✅ History directory created\n")
+			} else {
+				cmd.Printf("   ✅ History directory exists (%s, %v)\n", dirInfo.Mode(), dirInfo.IsDir())
 			}
 
+			// Debug: List existing history files before adding new entry
+			if historyFiles, err := filepath.Glob(filepath.Join(cfg.History.StoragePath, "*.json")); err == nil {
+				cmd.Printf("   📊 Existing history entries: %d\n", len(historyFiles))
+				if len(historyFiles) > 0 {
+					cmd.Printf("   📝 Recent entries:\n")
+					for i, file := range historyFiles {
+						if i >= 3 { // Show only first 3 entries
+							break
+						}
+						cmd.Printf("      - %s\n", filepath.Base(file))
+					}
+				}
+			} else {
+				cmd.Printf("   ⚠️  Failed to list history files: %v\n", err)
+			}
+
+			// Get trend before adding new entry
+			branch := getDefaultBranch()
+			cmd.Printf("   🌿 Using branch: %s\n", branch)
+
 			if latest, err := tracker.GetLatestEntry(ctx, branch); err == nil {
+				cmd.Printf("   📊 Previous coverage: %.2f%% (commit: %s)\n", latest.Coverage.Percentage, latest.CommitSHA[:8])
 				if coverage.Percentage > latest.Coverage.Percentage {
 					trend = "up"
+					cmd.Printf("   📈 Trend: UP (+%.2f%%)\n", coverage.Percentage-latest.Coverage.Percentage)
 				} else if coverage.Percentage < latest.Coverage.Percentage {
 					trend = "down"
+					cmd.Printf("   📉 Trend: DOWN (%.2f%%)\n", coverage.Percentage-latest.Coverage.Percentage)
+				} else {
+					cmd.Printf("   ➡️  Trend: STABLE (no change)\n")
 				}
+			} else {
+				cmd.Printf("   🚀 No previous entry found (first run or new branch): %v\n", err)
 			}
 
 			// Add new entry
 			if !dryRun {
+				cmd.Printf("   📝 Recording new history entry...\n")
 				var historyOptions []history.Option
 				historyOptions = append(historyOptions, history.WithBranch(branch))
+				cmd.Printf("   🔧 Branch: %s\n", branch)
+
 				if cfg.GitHub.CommitSHA != "" {
 					historyOptions = append(historyOptions, history.WithCommit(cfg.GitHub.CommitSHA, ""))
-				}
-				if cfg.GitHub.Owner != "" {
-					historyOptions = append(historyOptions,
-						history.WithMetadata("project", cfg.GitHub.Owner+"/"+cfg.GitHub.Repository))
+					cmd.Printf("   🔧 Commit SHA: %s\n", cfg.GitHub.CommitSHA)
+				} else {
+					cmd.Printf("   ⚠️  No commit SHA available\n")
 				}
 
+				if cfg.GitHub.Owner != "" {
+					projectName := cfg.GitHub.Owner + "/" + cfg.GitHub.Repository
+					historyOptions = append(historyOptions,
+						history.WithMetadata("project", projectName))
+					cmd.Printf("   🔧 Project: %s\n", projectName)
+				} else {
+					cmd.Printf("   ⚠️  No GitHub owner/repository info available\n")
+				}
+
+				cmd.Printf("   💾 Coverage data: %.2f%% (%d/%d lines)\n", coverage.Percentage, coverage.CoveredLines, coverage.TotalLines)
+
 				if err := tracker.Record(ctx, coverage, historyOptions...); err != nil {
+					cmd.Printf("   ❌ Failed to record history: %v\n", err)
 					return fmt.Errorf("failed to record coverage history: %w", err)
 				}
 
-				cmd.Printf("   📊 History recorded for branch: %s\n", branch)
+				cmd.Printf("   ✅ History entry recorded successfully\n")
+
+				// Verify the entry was actually written
+				if historyFiles, err := filepath.Glob(filepath.Join(cfg.History.StoragePath, "*.json")); err == nil {
+					cmd.Printf("   📊 Total history entries after recording: %d\n", len(historyFiles))
+				} else {
+					cmd.Printf("   ⚠️  Failed to verify history files: %v\n", err)
+				}
+			} else {
+				cmd.Printf("   🧪 DRY RUN: Would record history entry for branch %s\n", branch)
 			}
 
-			cmd.Printf("   ✅ History updated (trend: %s)\n", trend)
+			cmd.Printf("   ✅ History update completed (trend: %s)\n", trend)
 			cmd.Printf("\n")
 		} else {
-			cmd.Printf("📈 Step 5: Coverage history (skipped)\n\n")
+			if !cfg.History.Enabled {
+				cmd.Printf("   ℹ️  History tracking is disabled in configuration\n")
+			}
+			if skipHistory {
+				cmd.Printf("   ℹ️  History tracking skipped by --skip-history flag\n")
+			}
+			cmd.Printf("   📈 Coverage history step skipped\n\n")
 		}
 
 		// Step 6: GitHub integration (if in GitHub context)

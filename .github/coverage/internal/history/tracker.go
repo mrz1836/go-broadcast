@@ -14,10 +14,26 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
+// Constants
+const (
+	DefaultBranch = "master" // Default branch for the repository
+)
+
 // Static error definitions
 var (
-	ErrNoEntriesFound      = errors.New("no entries found for branch")
-	ErrUnsupportedDataType = errors.New("unsupported data type")
+	ErrNoEntriesFound          = errors.New("no entries found for branch")
+	ErrUnsupportedDataType     = errors.New("unsupported data type")
+	ErrCoverageDataNil         = errors.New("coverage data cannot be nil")
+	ErrTrackerConfigNil        = errors.New("tracker configuration is nil")
+	ErrStoragePathEmpty        = errors.New("storage path is not configured")
+	ErrEntryNil                = errors.New("entry cannot be nil")
+	ErrEntryCoverageNil        = errors.New("entry coverage data cannot be nil")
+	ErrHistoryEntryExists      = errors.New("history entry already exists")
+	ErrMarshaledDataEmpty      = errors.New("marshaled data is empty")
+	ErrWrittenFileEmpty        = errors.New("written file is empty")
+	ErrWrittenFileSizeMismatch = errors.New("written file size mismatch")
+	ErrStoragePathNotDir       = errors.New("storage path exists but is not a directory")
+	ErrCreatedPathNotDir       = errors.New("created path is not a directory")
 )
 
 // Tracker manages coverage history and trend analysis
@@ -169,8 +185,19 @@ func (t *Tracker) Record(ctx context.Context, coverage *parser.CoverageData, opt
 	default:
 	}
 
+	// Enhanced validation
+	if coverage == nil {
+		return ErrCoverageDataNil
+	}
+	if t.config == nil {
+		return ErrTrackerConfigNil
+	}
+	if t.config.StoragePath == "" {
+		return ErrStoragePathEmpty
+	}
+
 	opts := &RecordOptions{
-		Branch:    "main",
+		Branch:    DefaultBranch,
 		CommitSHA: "",
 		Metadata:  make(map[string]string),
 	}
@@ -179,11 +206,17 @@ func (t *Tracker) Record(ctx context.Context, coverage *parser.CoverageData, opt
 		opt(opts)
 	}
 
+	// Validate branch name
+	if opts.Branch == "" {
+		opts.Branch = DefaultBranch
+	}
+
 	// Generate a unique commit SHA if none provided
 	if opts.CommitSHA == "" {
 		opts.CommitSHA = fmt.Sprintf("auto_%d", time.Now().UnixNano())
 	}
 
+	// Create entry with comprehensive error context
 	entry := &Entry{
 		Timestamp:    time.Now(),
 		Branch:       opts.Branch,
@@ -195,6 +228,14 @@ func (t *Tracker) Record(ctx context.Context, coverage *parser.CoverageData, opt
 		FileHashes:   t.calculateFileHashes(coverage),
 		PackageStats: t.calculatePackageStats(coverage, opts.Branch),
 	}
+
+	// Add debug logging context to metadata
+	if entry.Metadata == nil {
+		entry.Metadata = make(map[string]string)
+	}
+	entry.Metadata["tracker_version"] = "1.0"
+	entry.Metadata["storage_path"] = t.config.StoragePath
+	entry.Metadata["record_timestamp"] = time.Now().Format(time.RFC3339)
 
 	return t.saveEntry(ctx, entry)
 }
@@ -208,7 +249,7 @@ func (t *Tracker) GetTrend(ctx context.Context, options ...TrendOption) (*TrendD
 	}
 
 	opts := &TrendOptions{
-		Branch:    "main",
+		Branch:    DefaultBranch,
 		Days:      30,
 		MaxPoints: 100,
 	}
@@ -357,21 +398,58 @@ func (t *Tracker) Add(branch, commit string, data interface{}) error {
 }
 
 // saveEntry saves a single entry to storage
-func (t *Tracker) saveEntry(_ context.Context, entry *Entry) error {
-	if err := t.ensureStorageDir(); err != nil {
-		return fmt.Errorf("failed to ensure storage directory: %w", err)
+func (t *Tracker) saveEntry(ctx context.Context, entry *Entry) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
 	}
 
+	// Enhanced validation
+	if entry == nil {
+		return ErrEntryNil
+	}
+	if entry.Coverage == nil {
+		return ErrEntryCoverageNil
+	}
+
+	// Ensure storage directory exists with detailed error reporting
+	if err := t.ensureStorageDir(); err != nil {
+		return fmt.Errorf("failed to ensure storage directory '%s': %w", t.config.StoragePath, err)
+	}
+
+	// Generate filename and full path
 	filename := t.getEntryFilename(entry)
 	filepath := filepath.Join(t.config.StoragePath, filename)
 
-	data, err := json.MarshalIndent(entry, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal entry: %w", err)
+	// Check if file already exists to avoid duplicates
+	if _, err := os.Stat(filepath); err == nil {
+		return fmt.Errorf("%w: %s (this might indicate a duplicate recording)", ErrHistoryEntryExists, filename)
 	}
 
+	// Marshal with enhanced error context
+	data, err := json.MarshalIndent(entry, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal entry to JSON (branch: %s, commit: %s): %w", entry.Branch, entry.CommitSHA, err)
+	}
+
+	// Validate marshaled data
+	if len(data) == 0 {
+		return fmt.Errorf("%w for entry %s", ErrMarshaledDataEmpty, filename)
+	}
+
+	// Write file with enhanced error reporting
 	if err := os.WriteFile(filepath, data, 0o600); err != nil {
-		return fmt.Errorf("failed to write entry file: %w", err)
+		return fmt.Errorf("failed to write entry file '%s' (size: %d bytes): %w", filepath, len(data), err)
+	}
+
+	// Verify file was written correctly
+	if stat, err := os.Stat(filepath); err != nil {
+		return fmt.Errorf("failed to verify written file '%s': %w", filepath, err)
+	} else if stat.Size() == 0 {
+		return fmt.Errorf("%w: '%s'", ErrWrittenFileEmpty, filepath)
+	} else if stat.Size() != int64(len(data)) {
+		return fmt.Errorf("%w: '%s' expected %d, got %d", ErrWrittenFileSizeMismatch, filepath, len(data), stat.Size())
 	}
 
 	return nil
@@ -480,14 +558,44 @@ func (t *Tracker) saveAllEntries(ctx context.Context, entries []Entry) error {
 // Helper functions
 
 func (t *Tracker) ensureStorageDir() error {
-	return os.MkdirAll(t.config.StoragePath, 0o750)
+	if t.config.StoragePath == "" {
+		return ErrStoragePathEmpty
+	}
+
+	// Check if directory already exists
+	if info, err := os.Stat(t.config.StoragePath); err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("%w: '%s'", ErrStoragePathNotDir, t.config.StoragePath)
+		}
+		// Directory exists and is a directory - check if it's writable
+		testFile := filepath.Join(t.config.StoragePath, ".write_test")
+		if err := os.WriteFile(testFile, []byte("test"), 0o600); err != nil {
+			return fmt.Errorf("storage directory '%s' is not writable: %w", t.config.StoragePath, err)
+		}
+		_ = os.Remove(testFile) // Clean up test file
+		return nil
+	}
+
+	// Directory doesn't exist, create it
+	if err := os.MkdirAll(t.config.StoragePath, 0o750); err != nil {
+		return fmt.Errorf("failed to create storage directory '%s': %w", t.config.StoragePath, err)
+	}
+
+	// Verify the directory was created successfully
+	if info, err := os.Stat(t.config.StoragePath); err != nil {
+		return fmt.Errorf("failed to verify created directory '%s': %w", t.config.StoragePath, err)
+	} else if !info.IsDir() {
+		return fmt.Errorf("%w: '%s'", ErrCreatedPathNotDir, t.config.StoragePath)
+	}
+
+	return nil
 }
 
 func (t *Tracker) getEntryFilename(entry *Entry) string {
 	timestamp := entry.Timestamp.Format("20060102-150405.000000")
 	branch := entry.Branch
 	if branch == "" {
-		branch = "main"
+		branch = DefaultBranch
 	}
 	commitSHA := entry.CommitSHA
 	if commitSHA == "" {
