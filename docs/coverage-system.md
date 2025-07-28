@@ -76,7 +76,7 @@ Automated static site generation and deployment:
 Organized file structure on GitHub Pages:
 
 ```
-https://your-org.github.io/your-repo/
+https://mrz1836.github.io/go-broadcast/
 ├── badges/
 │   ├── main.svg                 # Main branch coverage badge
 │   ├── develop.svg              # Develop branch badge

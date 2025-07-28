@@ -212,18 +212,18 @@ go-broadcast sync --config sync.yaml
 
 ### 📊 Migration Benefits vs. External Services
 
-| Feature | GoFortress Coverage | Codecov | Coveralls |
-|---------|:------------------:|:-------:|:---------:|
-| **Zero External Dependencies** | ✅ | ❌ | ❌ |
-| **Complete Data Privacy** | ✅ | ❌ | ❌ |
-| **No Rate Limits** | ✅ | ❌ | ❌ |
-| **No Subscription Costs** | ✅ | ❌ | ❌ |
-| **Interactive Dashboard** | ✅ | ❌ | ❌ |
-| **Advanced Analytics** | ✅ | Basic | Basic |
-| **PR Impact Analysis** | ✅ | Limited | Limited |
-| **Team Collaboration** | ✅ | ❌ | ❌ |
-| **Multi-Format Export** | ✅ | ❌ | ❌ |
-| **Custom Notifications** | ✅ | Limited | Limited |
+| Feature                        | GoFortress Coverage | Codecov | Coveralls |
+|--------------------------------|:-------------------:|:-------:|:---------:|
+| **Zero External Dependencies** |          ✅          |    ❌    |     ❌     |
+| **Complete Data Privacy**      |          ✅          |    ❌    |     ❌     |
+| **No Rate Limits**             |          ✅          |    ❌    |     ❌     |
+| **No Subscription Costs**      |          ✅          |    ❌    |     ❌     |
+| **Interactive Dashboard**      |          ✅          |    ❌    |     ❌     |
+| **Advanced Analytics**         |          ✅          |  Basic  |   Basic   |
+| **PR Impact Analysis**         |          ✅          | Limited |  Limited  |
+| **Team Collaboration**         |          ✅          |    ❌    |     ❌     |
+| **Multi-Format Export**        |          ✅          |    ❌    |     ❌     |
+| **Custom Notifications**       |          ✅          | Limited |  Limited  |
 
 ### ⚡ Quick Coverage Setup
 
@@ -238,6 +238,31 @@ COVERAGE_PR_COMMENT_ENABLED=true          # Enable PR comments
 COVERAGE_PAGES_AUTO_CREATE=true           # Auto-create GitHub Pages
 ```
 
+### 📄 GitHub Pages Setup
+
+The coverage system automatically deploys to GitHub Pages with zero configuration:
+
+**1. Enable GitHub Pages** (one-time setup):
+```bash
+# Repository Settings → Pages → Source → "GitHub Actions"
+# Or visit: https://github.com/mrz1836/go-broadcast/settings/pages
+```
+
+**2. Push any commit** - the coverage system will:
+- ✅ Automatically create the `gh-pages` branch
+- ✅ Deploy coverage reports and badges
+- ✅ Set up organized directory structure
+- ✅ Configure proper permissions and access
+
+**3. Access your coverage dashboard**:
+```
+https://mrz1836.github.io/go-broadcast/
+├── badges/main.svg           # Main branch coverage badge
+├── reports/main/             # Latest coverage report
+├── coverage/                 # Interactive dashboard
+└── pr/123/                   # PR-specific coverage (auto-cleanup)
+```
+
 The coverage system is fully automated and integrates seamlessly with existing CI/CD workflows:
 
 ```bash
@@ -249,9 +274,14 @@ go test -coverprofile=coverage.out ./...
 # Posts PR comments with analysis
 # Deploys to GitHub Pages
 
-# 3. View results
-curl -I https://your-org.github.io/your-repo/badges/main.svg
+# 3. View results immediately
+curl -I https://mrz1836.github.io/go-broadcast/badges/main.svg
 ```
+
+**GitHub Pages URLs:**
+- **Coverage Badge**: `https://mrz1836.github.io/go-broadcast/badges/main.svg`
+- **Coverage Dashboard**: `https://mrz1836.github.io/go-broadcast/coverage/`
+- **Coverage Report**: `https://mrz1836.github.io/go-broadcast/reports/main/`
 
 ### 🔧 Advanced Configuration
 
@@ -336,7 +366,7 @@ sync/template-20250123-143052-abc123f
 
 Each PR includes structured metadata for complete traceability:
 
-```yaml
+```text
 <!-- go-broadcast metadata
 source:
   repo: company/template-repo
@@ -592,7 +622,7 @@ For more detailed information, see the [comprehensive logging guide](docs/loggin
 * **Relentless Dependency & Vulnerability Scans** via [Dependabot](https://dependabot.com), [Nancy](https://github.com/sonatype-nexus-community/nancy), [govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck), and [OSSAR](https://github.com/github/ossar-action).
 * **Security Posture by Default** with [CodeQL](https://docs.github.com/en/github/finding-security-vulnerabilities-and-errors-in-your-code/about-code-scanning), [OpenSSF Scorecard](https://openssf.org), [OSSAR](https://github.com/github/ossar-action), and secret‑leak detection via [gitleaks](https://github.com/gitleaks/gitleaks).
 * **Automatic Syndication** to [pkg.go.dev](https://pkg.go.dev/) on every release for instant godoc visibility.
-* **Polished Community Experience** using rich templates for [Issues & PRs](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository).
+* **Polished Community Experience** using rich templates for [Issues & PRs](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-go-broadcastsitory).
 * **All the Right Meta Files** (`LICENSE`, `CITATION.cff`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SUPPORT.md`, `SECURITY.md`) pre‑filled and ready.
 * **Code Ownership** clarified through a [CODEOWNERS](.github/CODEOWNERS) file, keeping reviews fast and focused.
 * **Zero‑Noise Dev Environments** with tuned editor settings (`.editorconfig`) plus curated *ignore* files for [VS Code](.editorconfig), [Docker](.dockerignore), and [Git](.gitignore).

@@ -190,12 +190,19 @@ runs:
         if [ -f ".github/coverage/go.mod" ]; then
           echo "📊 Warming coverage module cache..."
           cd .github/coverage
+          
+          echo "⬇️  Downloading coverage module dependencies..."
           go mod download
-          # Pre-build coverage tool to warm build cache
+          
+          echo "🔧 Pre-building coverage module packages..."
+          go build $(if [ "${{ inputs.enable-verbose }}" = "true" ]; then echo "-v"; fi) ./...
+          
+          echo "🏗️  Building coverage tool executable..."
           cd cmd/gofortress-coverage
           go build -o /tmp/gofortress-coverage .
-          cd ../../../..
-          echo "✅ Coverage module cache warmed"
+          cd ../../..
+          
+          echo "✅ Coverage module cache warmed comprehensively"
         fi
 
         echo "✅ Cache warmed for Go ${{ inputs.go-version }}"

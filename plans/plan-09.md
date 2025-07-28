@@ -2677,7 +2677,7 @@ After completing this phase, update `plans/plan-09-status.md`:
 - **Dark/light theme** with automatic detection
 - **Mobile-optimized** with touch gestures
 
-[View Live Demo](https://your-org.github.io/your-repo)
+[View Live Demo](https://mrz1836.github.io/go-broadcast)
 
 #### Intelligent PR Comments
 - **Smart updates** - edits existing comments instead of spamming

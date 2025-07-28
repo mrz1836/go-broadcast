@@ -360,8 +360,8 @@ Create a script to update badge URLs:
 #!/bin/bash
 # update-badges.sh
 
-ORG="your-org"
-REPO="your-repo"
+ORG="mrz1836"
+REPO="go-broadcast"
 
 # Replace in README.md
 sed -i.bak "s|https://codecov.io/gh/$ORG/$REPO/branch/main/graph/badge.svg|https://$ORG.github.io/$REPO/badges/main.svg|g" README.md
@@ -440,7 +440,7 @@ git push origin feature/migrate-to-gofortress-coverage
 
 After the workflow runs:
 
-1. **Check GitHub Pages**: Visit `https://your-org.github.io/your-repo/`
+1. **Check GitHub Pages**: Visit `https://mrz1836.github.io/go-broadcast/`
 2. **Verify Badges**: Ensure badge URLs work and display correctly
 3. **Test PR Comments**: Create a test PR and verify coverage comments
 4. **Validate Analytics**: Check dashboard and trend analysis
@@ -465,10 +465,10 @@ gh pr merge --squash
 gh run watch
 
 # Check GitHub Pages deployment
-curl -I https://your-org.github.io/your-repo/badges/main.svg
+curl -I https://mrz1836.github.io/go-broadcast/badges/main.svg
 
 # Verify API endpoints
-curl https://your-org.github.io/your-repo/api/coverage.json
+curl https://mrz1836.github.io/go-broadcast/api/coverage.json
 ```
 
 #### 7.3 Team Communication
@@ -489,11 +489,11 @@ We've successfully migrated from Codecov to our new self-hosted GoFortress Cover
 
 ### What's Changed:
 - Badge URLs updated (automatically in README)
-- Coverage reports now at: https://your-org.github.io/your-repo/
+- Coverage reports now at: https://mrz1836.github.io/go-broadcast/
 - Enhanced PR coverage comments with more insights
 
 ### Dashboard:
-Visit https://your-org.github.io/your-repo/ for the new interactive dashboard!
+Visit https://mrz1836.github.io/go-broadcast/ for the new interactive dashboard!
 ```
 
 ## Feature Comparison & Migration
@@ -530,7 +530,7 @@ Visit https://your-org.github.io/your-repo/ for the new interactive dashboard!
 1. **Badge URLs not updating immediately**
    ```bash
    # Solution: Clear browser cache or use curl to test
-   curl -I https://your-org.github.io/your-repo/badges/main.svg
+   curl -I https://mrz1836.github.io/go-broadcast/badges/main.svg
    ```
 
 2. **GitHub Pages not enabled**
@@ -598,7 +598,7 @@ mv README.md.bak README.md
 After migration, verify:
 
 - [ ] **Badges Work**: All badge URLs display correctly
-- [ ] **Dashboard Accessible**: `https://your-org.github.io/your-repo/` loads
+- [ ] **Dashboard Accessible**: `https://mrz1836.github.io/go-broadcast/` loads
 - [ ] **PR Comments**: Test PR shows coverage comment
 - [ ] **Workflow Success**: CI/CD pipeline completes without errors
 - [ ] **API Endpoints**: JSON endpoints return valid data
@@ -613,7 +613,7 @@ Set up monitoring for the new system:
 # Add health check to workflow
 - name: Health Check
   run: |
-    curl -f https://your-org.github.io/your-repo/api/health.json
+    curl -f https://mrz1836.github.io/go-broadcast/api/health.json
 ```
 
 ### Success Metrics
@@ -654,7 +654,7 @@ gh repo create new-repo --template coverage-template
 # migrate-multiple-repos.sh
 
 REPOS=("repo1" "repo2" "repo3")
-ORG="your-org"
+ORG="mrz1836"
 
 for repo in "${REPOS[@]}"; do
   echo "Migrating $repo..."

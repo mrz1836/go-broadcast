@@ -59,11 +59,11 @@ gofortress-coverage badge --coverage 87.2 --style flat-square --output badge-fla
 gofortress-coverage badge --coverage 87.2 --style for-the-badge --output badge-for-the-badge.svg
 
 # Generate dashboard (when system is running)
-# Navigate to: https://your-org.github.io/your-repo/
+# Navigate to: https://mrz1836.github.io/go-broadcast/
 # Take screenshot of main dashboard
 
 # Generate analytics views
-# Navigate to: https://your-org.github.io/your-repo/analytics
+# Navigate to: https://mrz1836.github.io/go-broadcast/analytics
 # Take screenshots of various analytics views
 ```
 
