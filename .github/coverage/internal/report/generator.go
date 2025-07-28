@@ -166,15 +166,14 @@ func (g *Generator) Generate(ctx context.Context, coverage *parser.CoverageData,
 	}
 
 	// Build report data
-	reportData := g.buildReportData(coverage, &config) //nolint:contextcheck // Coverage reporting context not critical
+	reportData := g.buildReportData(ctx, coverage, &config)
 
 	// Generate HTML
 	return g.renderHTML(ctx, reportData)
 }
 
 // getGitCommitSHA returns the current Git commit SHA
-func getGitCommitSHA() string {
-	ctx := context.Background()
+func getGitCommitSHA(ctx context.Context) string {
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {
@@ -184,8 +183,7 @@ func getGitCommitSHA() string {
 }
 
 // getGitRepositoryInfo extracts repository information from Git remote
-func getGitRepositoryInfo() *RepositoryInfo {
-	ctx := context.Background()
+func getGitRepositoryInfo(ctx context.Context) *RepositoryInfo {
 	cmd := exec.CommandContext(ctx, "git", "remote", "get-url", "origin")
 	output, err := cmd.Output()
 	if err != nil {
@@ -272,7 +270,7 @@ func buildGitHubCommitURL(owner, repo, commitSHA string) string {
 }
 
 // buildReportData constructs the report data structure
-func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Config) *Data {
+func (g *Generator) buildReportData(ctx context.Context, coverage *parser.CoverageData, config *Config) *Data {
 	packages := make([]PackageReport, 0, len(coverage.Packages))
 	totalFiles := 0
 
@@ -335,17 +333,17 @@ func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Confi
 
 	// Load global config to get current branch
 	globalConfig := globalconfig.Load()
-	branchName := globalConfig.GetCurrentBranch()
+	branchName := globalConfig.GetCurrentBranch() //nolint:contextcheck // Global config interface doesn't support context
 
 	// Get Git information
 	var projectName, commitSHA, commitURL, badgeURL string
 
 	// Get repository info
-	if repoInfo := getGitRepositoryInfo(); repoInfo != nil {
+	if repoInfo := getGitRepositoryInfo(ctx); repoInfo != nil {
 		projectName = repoInfo.Name
 
 		// Get current commit SHA
-		if sha := getGitCommitSHA(); sha != "" {
+		if sha := getGitCommitSHA(ctx); sha != "" {
 			commitSHA = sha
 
 			// Build commit URL if it's a GitHub repository
@@ -443,7 +441,7 @@ func (g *Generator) renderHTML(ctx context.Context, data *Data) ([]byte, error) 
 	}
 
 	// Convert internal Data to templates.ReportData format
-	reportData := g.convertToTemplateData(data)
+	reportData := g.convertToTemplateData(ctx, data)
 
 	// Use the template manager to render the modern coverage report
 	htmlContent, err := g.templateManager.RenderReport(ctx, reportData)
@@ -455,12 +453,17 @@ func (g *Generator) renderHTML(ctx context.Context, data *Data) ([]byte, error) 
 }
 
 // convertToTemplateData converts internal Data structure to templates.ReportData
-func (g *Generator) convertToTemplateData(data *Data) templates.ReportData {
+func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templates.ReportData {
 	// Handle nil data
 	if data == nil {
+		// Try to get project name from Git, fallback to generic name
+		projectName := "Coverage Report"
+		if repoInfo := getGitRepositoryInfo(ctx); repoInfo != nil {
+			projectName = repoInfo.Name
+		}
 		return templates.ReportData{
 			Title:            "Coverage Report",
-			ProjectName:      "go-broadcast",
+			ProjectName:      projectName,
 			Generated:        time.Now(),
 			Branch:           "main",
 			CommitSha:        "",
@@ -518,7 +521,7 @@ func (g *Generator) convertToTemplateData(data *Data) templates.ReportData {
 
 	return templates.ReportData{
 		Title:            data.Config.Title,
-		ProjectName:      "go-broadcast", // Set the correct project name
+		ProjectName:      data.ProjectName, // Use the dynamically determined project name
 		Generated:        data.GeneratedAt,
 		Branch:           data.BranchName,
 		CommitSha:        data.CommitSHA,

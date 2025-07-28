@@ -24,7 +24,7 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, client.httpClient)
 	assert.Equal(t, 30*time.Second, client.httpClient.Timeout)
 	assert.NotNil(t, client.config)
-	assert.Equal(t, "go-broadcast-coverage/1.0", client.config.UserAgent)
+	assert.Equal(t, "coverage-system/1.0", client.config.UserAgent)
 }
 
 func TestNewWithConfig(t *testing.T) {

@@ -97,7 +97,7 @@ func BenchmarkBuildReportData(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = generator.buildReportData(coverage, config)
+		_ = generator.buildReportData(context.Background(), coverage, config)
 	}
 }
 
@@ -106,7 +106,7 @@ func BenchmarkRenderHTML(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createBenchmarkCoverageData(20, 100)
-	reportData := generator.buildReportData(coverage, generator.config)
+	reportData := generator.buildReportData(context.Background(), coverage, generator.config)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -274,7 +274,7 @@ func BenchmarkHTMLTemplateExecution(b *testing.B) {
 
 	// Create large report data
 	coverage := createBenchmarkCoverageData(50, 500)
-	reportData := generator.buildReportData(coverage, generator.config)
+	reportData := generator.buildReportData(context.Background(), coverage, generator.config)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -293,7 +293,7 @@ func BenchmarkReportDataConstruction(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = generator.buildReportData(coverage, config)
+		_ = generator.buildReportData(context.Background(), coverage, config)
 	}
 }
 
@@ -304,7 +304,7 @@ func BenchmarkPackageSorting(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = generator.buildReportData(coverage, generator.config)
+		_ = generator.buildReportData(context.Background(), coverage, generator.config)
 	}
 }
 

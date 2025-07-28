@@ -105,14 +105,14 @@ func TestBuildReportData(t *testing.T) {
 	coverage := createTestCoverageData()
 	config := generator.config
 
-	reportData := generator.buildReportData(coverage, config)
+	reportData := generator.buildReportData(context.Background(), coverage, config)
 
 	assert.Equal(t, coverage, reportData.Coverage)
 	assert.Equal(t, config, reportData.Config)
 	assert.WithinDuration(t, time.Now(), reportData.GeneratedAt, 5*time.Second)
 	assert.Equal(t, "1.0.0", reportData.Version)
 	// Project name should be extracted from Git or default to "Go Project"
-	assert.True(t, reportData.ProjectName == "go-broadcast" || reportData.ProjectName == "Go Project")
+	assert.NotEmpty(t, reportData.ProjectName, "Project name should not be empty")
 
 	// Check summary
 	assert.InDelta(t, 75.0, reportData.Summary.TotalPercentage, 0.001)
@@ -582,7 +582,7 @@ func TestBuildReportDataEdgeCases(t *testing.T) {
 		Packages:     make(map[string]*parser.PackageCoverage),
 	}
 
-	reportData := generator.buildReportData(coverage, generator.config)
+	reportData := generator.buildReportData(context.Background(), coverage, generator.config)
 	assert.Empty(t, reportData.Packages)
 	assert.Equal(t, 0, reportData.Summary.PackageCount)
 	assert.Equal(t, 0, reportData.Summary.FileCount)
