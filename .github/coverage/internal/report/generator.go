@@ -4,6 +4,9 @@ package report
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os/exec"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -12,6 +15,25 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
 )
+
+// RepositoryInfo contains information extracted from a Git repository
+type RepositoryInfo struct {
+	Name     string // Repository name (e.g., "go-broadcast")
+	Owner    string // Repository owner (e.g., "mrz1836")
+	FullName string // Full repository name (e.g., "mrz1836/go-broadcast")
+	URL      string // Repository URL
+	IsGitHub bool   // Whether this is a GitHub repository
+}
+
+// CoverageRecord represents a single coverage measurement
+type CoverageRecord struct {
+	Timestamp    time.Time `json:"timestamp"`
+	CommitSHA    string    `json:"commit_sha"`
+	Branch       string    `json:"branch"`
+	Percentage   float64   `json:"percentage"`
+	TotalLines   int       `json:"total_lines"`
+	CoveredLines int       `json:"covered_lines"`
+}
 
 // Generator creates beautiful, interactive HTML coverage reports with cutting-edge UX
 type Generator struct {
@@ -150,6 +172,105 @@ func (g *Generator) Generate(ctx context.Context, coverage *parser.CoverageData,
 	return g.renderHTML(ctx, reportData)
 }
 
+// getGitCommitSHA returns the current Git commit SHA
+func getGitCommitSHA() string {
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+
+// getGitRepositoryInfo extracts repository information from Git remote
+func getGitRepositoryInfo() *RepositoryInfo {
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "git", "remote", "get-url", "origin")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+
+	remoteURL := strings.TrimSpace(string(output))
+	return parseRepositoryURL(remoteURL)
+}
+
+// parseRepositoryURL parses a Git remote URL and extracts repository information
+func parseRepositoryURL(remoteURL string) *RepositoryInfo {
+	// Handle SSH URLs (git@github.com:owner/repo.git)
+	sshPattern := regexp.MustCompile(`^git@([^:]+):([^/]+)/(.+?)(?:\.git)?$`)
+	if matches := sshPattern.FindStringSubmatch(remoteURL); len(matches) == 4 {
+		host := matches[1]
+		owner := matches[2]
+		repo := matches[3]
+
+		return &RepositoryInfo{
+			Name:     repo,
+			Owner:    owner,
+			FullName: fmt.Sprintf("%s/%s", owner, repo),
+			URL:      remoteURL,
+			IsGitHub: host == "github.com",
+		}
+	}
+
+	// Handle HTTPS URLs
+	parsedURL, err := url.Parse(remoteURL)
+	if err != nil {
+		return nil
+	}
+
+	// Extract owner and repository from path
+	path := strings.Trim(parsedURL.Path, "/")
+	path = strings.TrimSuffix(path, ".git")
+
+	parts := strings.Split(path, "/")
+	if len(parts) < 2 {
+		return nil
+	}
+
+	owner := parts[0]
+	repo := parts[1]
+
+	return &RepositoryInfo{
+		Name:     repo,
+		Owner:    owner,
+		FullName: fmt.Sprintf("%s/%s", owner, repo),
+		URL:      remoteURL,
+		IsGitHub: parsedURL.Host == "github.com",
+	}
+}
+
+// buildCoverageBadgeURL builds a coverage badge URL using shields.io
+func buildCoverageBadgeURL(percentage float64) string {
+	// Determine color based on percentage
+	var color string
+	switch {
+	case percentage >= 90:
+		color = "brightgreen"
+	case percentage >= 80:
+		color = "green"
+	case percentage >= 70:
+		color = "yellowgreen"
+	case percentage >= 60:
+		color = "yellow"
+	case percentage >= 50:
+		color = "orange"
+	default:
+		color = "red"
+	}
+
+	return fmt.Sprintf("https://img.shields.io/badge/coverage-%.1f%%25-%s", percentage, color)
+}
+
+// buildGitHubCommitURL builds a GitHub commit URL from repository info and commit SHA
+func buildGitHubCommitURL(owner, repo, commitSHA string) string {
+	if owner == "" || repo == "" || commitSHA == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://github.com/%s/%s/commit/%s", owner, repo, commitSHA)
+}
+
 // buildReportData constructs the report data structure
 func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Config) *Data {
 	packages := make([]PackageReport, 0, len(coverage.Packages))
@@ -197,6 +318,10 @@ func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Confi
 		})
 	}
 
+	// For now, use simple defaults for history (TODO: implement file-based history)
+	changeStatus := "stable"
+	previousCoverage := 0.0
+
 	summary := Summary{
 		TotalPercentage:  coverage.Percentage,
 		TotalLines:       coverage.TotalLines,
@@ -204,23 +329,50 @@ func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Confi
 		UncoveredLines:   coverage.TotalLines - coverage.CoveredLines,
 		PackageCount:     len(packages),
 		FileCount:        totalFiles,
-		ChangeStatus:     "stable", // TODO: calculate from history
-		PreviousCoverage: 0.0,      // TODO: get from history
+		ChangeStatus:     changeStatus,
+		PreviousCoverage: previousCoverage,
 	}
 
 	// Load global config to get current branch
 	globalConfig := globalconfig.Load()
+	branchName := globalConfig.GetCurrentBranch()
+
+	// Get Git information
+	var projectName, commitSHA, commitURL, badgeURL string
+
+	// Get repository info
+	if repoInfo := getGitRepositoryInfo(); repoInfo != nil {
+		projectName = repoInfo.Name
+
+		// Get current commit SHA
+		if sha := getGitCommitSHA(); sha != "" {
+			commitSHA = sha
+
+			// Build commit URL if it's a GitHub repository
+			if repoInfo.IsGitHub {
+				commitURL = buildGitHubCommitURL(repoInfo.Owner, repoInfo.Name, commitSHA)
+			}
+		}
+	}
+
+	// If we couldn't get the project name from Git, use a default
+	if projectName == "" {
+		projectName = "Go Project"
+	}
+
+	// Generate badge URL
+	badgeURL = buildCoverageBadgeURL(coverage.Percentage)
 
 	return &Data{
 		Coverage:    coverage,
 		Config:      config,
 		GeneratedAt: time.Now(),
 		Version:     "1.0.0",
-		ProjectName: "Go Project", // TODO: extract from git
-		BranchName:  globalConfig.GetCurrentBranch(),
-		CommitSHA:   "", // TODO: extract from git
-		CommitURL:   "", // TODO: build from git info
-		BadgeURL:    "", // TODO: build from config
+		ProjectName: projectName,
+		BranchName:  branchName,
+		CommitSHA:   commitSHA,
+		CommitURL:   commitURL,
+		BadgeURL:    badgeURL,
 		Summary:     summary,
 		Packages:    packages,
 	}

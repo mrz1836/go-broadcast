@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -22,6 +24,7 @@ var (
 	ErrRepositoryExists = errors.New("repository already exists")
 	ErrNoChanges        = errors.New("no changes to commit")
 	ErrGitCommand       = errors.New("git command failed")
+	ErrInvalidRepoURL   = errors.New("invalid repository URL format")
 )
 
 // gitClient implements the Client interface using git commands
@@ -187,6 +190,74 @@ func (g *gitClient) GetRemoteURL(ctx context.Context, repoPath, remote string) (
 	}
 
 	return strings.TrimSpace(string(output)), nil
+}
+
+// GetCurrentCommitSHA returns the SHA of the current commit
+func (g *gitClient) GetCurrentCommitSHA(ctx context.Context, repoPath string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "rev-parse", "HEAD")
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", appErrors.WrapWithContext(err, "get current commit SHA")
+	}
+
+	return strings.TrimSpace(string(output)), nil
+}
+
+// GetRepositoryInfo extracts repository information from Git remote
+func (g *gitClient) GetRepositoryInfo(ctx context.Context, repoPath string) (*RepositoryInfo, error) {
+	// Get the origin remote URL
+	remoteURL, err := g.GetRemoteURL(ctx, repoPath, "origin")
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "get repository info")
+	}
+
+	return parseRepositoryURL(remoteURL)
+}
+
+// parseRepositoryURL parses a Git remote URL and extracts repository information
+func parseRepositoryURL(remoteURL string) (*RepositoryInfo, error) {
+	// Handle SSH URLs (git@github.com:owner/repo.git)
+	sshPattern := regexp.MustCompile(`^git@([^:]+):([^/]+)/(.+?)(?:\.git)?$`)
+	if matches := sshPattern.FindStringSubmatch(remoteURL); len(matches) == 4 {
+		host := matches[1]
+		owner := matches[2]
+		repo := matches[3]
+
+		return &RepositoryInfo{
+			Name:     repo,
+			Owner:    owner,
+			FullName: fmt.Sprintf("%s/%s", owner, repo),
+			URL:      remoteURL,
+			IsGitHub: host == "github.com",
+		}, nil
+	}
+
+	// Handle HTTPS URLs
+	parsedURL, err := url.Parse(remoteURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse repository URL: %w", err)
+	}
+
+	// Extract owner and repository from path
+	path := strings.Trim(parsedURL.Path, "/")
+	path = strings.TrimSuffix(path, ".git")
+
+	parts := strings.Split(path, "/")
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidRepoURL, remoteURL)
+	}
+
+	owner := parts[0]
+	repo := parts[1]
+
+	return &RepositoryInfo{
+		Name:     repo,
+		Owner:    owner,
+		FullName: fmt.Sprintf("%s/%s", owner, repo),
+		URL:      remoteURL,
+		IsGitHub: parsedURL.Host == "github.com",
+	}, nil
 }
 
 // runCommand executes a git command with comprehensive debug logging support.

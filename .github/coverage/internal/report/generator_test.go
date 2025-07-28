@@ -111,7 +111,8 @@ func TestBuildReportData(t *testing.T) {
 	assert.Equal(t, config, reportData.Config)
 	assert.WithinDuration(t, time.Now(), reportData.GeneratedAt, 5*time.Second)
 	assert.Equal(t, "1.0.0", reportData.Version)
-	assert.Equal(t, "Go Project", reportData.ProjectName)
+	// Project name should be extracted from Git or default to "Go Project"
+	assert.True(t, reportData.ProjectName == "go-broadcast" || reportData.ProjectName == "Go Project")
 
 	// Check summary
 	assert.InDelta(t, 75.0, reportData.Summary.TotalPercentage, 0.001)

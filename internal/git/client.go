@@ -3,6 +3,15 @@ package git
 
 import "context"
 
+// RepositoryInfo contains information extracted from a Git repository
+type RepositoryInfo struct {
+	Name     string // Repository name (e.g., "go-broadcast")
+	Owner    string // Repository owner (e.g., "mrz1836")
+	FullName string // Full repository name (e.g., "mrz1836/go-broadcast")
+	URL      string // Repository URL
+	IsGitHub bool   // Whether this is a GitHub repository
+}
+
 // Client defines the interface for Git operations
 type Client interface {
 	// Clone clones a repository to the specified path
@@ -33,4 +42,10 @@ type Client interface {
 
 	// GetRemoteURL returns the URL of the specified remote
 	GetRemoteURL(ctx context.Context, repoPath, remote string) (string, error)
+
+	// GetCurrentCommitSHA returns the SHA of the current commit
+	GetCurrentCommitSHA(ctx context.Context, repoPath string) (string, error)
+
+	// GetRepositoryInfo extracts repository information from Git remote
+	GetRepositoryInfo(ctx context.Context, repoPath string) (*RepositoryInfo, error)
 }
