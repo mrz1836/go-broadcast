@@ -219,7 +219,7 @@ func (g *Generator) renderSVG(ctx context.Context, data Data) ([]byte, error) {
 		logoWidth = 16 // Standard logo width
 	}
 
-	totalWidth := labelWidth + messageWidth + logoWidth + 20 // padding
+	totalWidth := labelWidth + messageWidth + logoWidth + 28 // padding (increased for better spacing)
 	height := 20
 
 	// Generate SVG based on style
@@ -260,7 +260,7 @@ func (g *Generator) renderFlatBadge(data Data, width, labelWidth, messageWidth, 
 </svg>`
 
 	labelX := logoWidth + labelWidth/2 + 6
-	messageX := logoWidth + labelWidth + messageWidth/2 + 8
+	messageX := logoWidth + labelWidth + messageWidth/2 + 16
 	logoSvg := ""
 
 	if data.Logo != "" {
@@ -270,8 +270,8 @@ func (g *Generator) renderFlatBadge(data Data, width, labelWidth, messageWidth, 
 	return []byte(fmt.Sprintf(template,
 		width, height, data.AriaLabel, data.AriaLabel,
 		width, height,
-		logoWidth+labelWidth+8, height,
-		logoWidth+labelWidth+8, messageWidth+8, height, data.Color,
+		logoWidth+labelWidth+16, height,
+		logoWidth+labelWidth+16, messageWidth+12, height, data.Color,
 		width, height,
 		logoSvg,
 		labelX, data.Label,
@@ -297,7 +297,7 @@ func (g *Generator) renderFlatSquareBadge(data Data, width, height, labelWidth, 
 </svg>`
 
 	labelX := logoWidth + labelWidth/2 + 6
-	messageX := logoWidth + labelWidth + messageWidth/2 + 8
+	messageX := logoWidth + labelWidth + messageWidth/2 + 16
 	logoSvg := ""
 
 	if data.Logo != "" {
@@ -306,8 +306,8 @@ func (g *Generator) renderFlatSquareBadge(data Data, width, height, labelWidth, 
 
 	return []byte(fmt.Sprintf(template,
 		width, height, data.AriaLabel, data.AriaLabel,
-		logoWidth+labelWidth+8, height,
-		logoWidth+labelWidth+8, messageWidth+8, height, data.Color,
+		logoWidth+labelWidth+16, height,
+		logoWidth+labelWidth+16, messageWidth+12, height, data.Color,
 		logoSvg,
 		labelX, data.Label,
 		messageX, data.Message,
@@ -330,7 +330,7 @@ func (g *Generator) renderForTheBadge(data Data, width, height, labelWidth, mess
 </svg>`
 
 	labelX := logoWidth + labelWidth/2 + 6
-	messageX := logoWidth + labelWidth + messageWidth/2 + 8
+	messageX := logoWidth + labelWidth + messageWidth/2 + 16
 	logoSvg := ""
 
 	if data.Logo != "" {
@@ -343,8 +343,8 @@ func (g *Generator) renderForTheBadge(data Data, width, height, labelWidth, mess
 
 	return []byte(fmt.Sprintf(template,
 		width, height, data.AriaLabel, data.AriaLabel,
-		logoWidth+labelWidth+8, height,
-		logoWidth+labelWidth+8, messageWidth+8, height, data.Color,
+		logoWidth+labelWidth+16, height,
+		logoWidth+labelWidth+16, messageWidth+12, height, data.Color,
 		logoSvg,
 		labelX, label,
 		messageX, message,
