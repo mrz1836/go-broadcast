@@ -246,8 +246,8 @@ jobs:
           GITHUB_SHA: ${{ inputs.commit-sha }}
           GITHUB_PR_NUMBER: ${{ inputs.pr-number }}
           GITHUB_REF_NAME: ${{ steps.git-branch.outputs.branch-name }}
-          # Set history storage to a location that can be committed back to repo
-          COVERAGE_HISTORY_PATH: .github/coverage/data/history
+          # Set history storage to match config defaults
+          COVERAGE_HISTORY_PATH: .github/coverage/history
         working-directory: .github/coverage/cmd/gofortress-coverage
         run: |
           echo "📊 Processing coverage data..."
@@ -354,18 +354,18 @@ jobs:
 
           # Check if history directory exists and has data
           # Create directory if it doesn't exist to ensure history tool can write data
-          mkdir -p ".github/coverage/data/history"
+          mkdir -p ".github/coverage/history"
 
           # Check if any new history files were created (compare before and after coverage processing)
-          HISTORY_FILES_AFTER=$(find ".github/coverage/data/history" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+          HISTORY_FILES_AFTER=$(find ".github/coverage/history" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
 
-          if [[ -d ".github/coverage/data/history" ]] && [[ $HISTORY_FILES_AFTER -gt 0 ]]; then
+          if [[ -d ".github/coverage/history" ]] && [[ $HISTORY_FILES_AFTER -gt 0 ]]; then
             # Configure git
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
 
             # Add history files
-            git add .github/coverage/data/history/
+            git add .github/coverage/history/
 
             # Check if there are changes to commit
             if git diff --staged --quiet; then
@@ -383,7 +383,7 @@ jobs:
           else
             echo "ℹ️ No history data to commit (found $HISTORY_FILES_AFTER history files)"
             echo "🔍 History directory contents:"
-            ls -la ".github/coverage/data/history" 2>/dev/null || echo "Directory not accessible"
+            ls -la ".github/coverage/history" 2>/dev/null || echo "Directory not accessible"
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -589,7 +589,7 @@ jobs:
           # Use absolute path for summary
           REPO_ROOT="$(pwd)"  # We're at repository root for this step
           OUTPUT_DIR="$REPO_ROOT/coverage-output"
-          HISTORY_DIR="$REPO_ROOT/.github/coverage/data/history"
+          HISTORY_DIR="$REPO_ROOT/.github/coverage/history"
 
           # Debug: Show paths and directory structure
           echo "### 🔍 Debug Information" >> $GITHUB_STEP_SUMMARY

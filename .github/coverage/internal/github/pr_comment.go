@@ -9,12 +9,15 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/mrz1836/go-broadcast/coverage/internal/logger"
 )
 
 // PRCommentManager handles intelligent PR comment management with anti-spam and lifecycle features
 type PRCommentManager struct {
 	client *Client
 	config *PRCommentConfig
+	logger logger.Logger
 }
 
 // PRCommentConfig holds configuration for PR comment management
@@ -124,6 +127,7 @@ func NewPRCommentManager(client *Client, config *PRCommentConfig) *PRCommentMana
 	return &PRCommentManager{
 		client: client,
 		config: config,
+		logger: logger.NewFromEnv(),
 	}
 }
 
@@ -188,8 +192,12 @@ func (m *PRCommentManager) CreateOrUpdatePRComment(ctx context.Context, owner, r
 		err = m.createCoverageStatusCheck(ctx, owner, repo, pr.Head.SHA, comparison)
 		if err != nil {
 			// Don't fail the entire operation if status check fails
-			// TODO: Add proper logging when logger is available
-			_ = err // Explicitly ignore the error for now
+			m.logger.WithError(err).WithFields(map[string]interface{}{
+				"owner":     owner,
+				"repo":      repo,
+				"sha":       pr.Head.SHA,
+				"operation": "status_check_creation",
+			}).Warn("Failed to create GitHub status check")
 		} else {
 			statusCheckURL = fmt.Sprintf("https://github.com/%s/%s/commit/%s/checks", owner, repo, pr.Head.SHA)
 		}

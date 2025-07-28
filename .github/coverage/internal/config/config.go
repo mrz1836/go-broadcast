@@ -39,6 +39,8 @@ type Config struct {
 	History HistoryConfig `json:"history"`
 	// Storage settings
 	Storage StorageConfig `json:"storage"`
+	// Logging settings
+	Log LogConfig `json:"log"`
 }
 
 // CoverageConfig holds coverage analysis settings
@@ -143,6 +145,16 @@ type StorageConfig struct {
 	DirMode os.FileMode `json:"dir_mode"`
 }
 
+// LogConfig holds logging configuration settings
+type LogConfig struct {
+	// Log level (DEBUG, INFO, WARN, ERROR)
+	Level string `json:"level"`
+	// Log format (text, json)
+	Format string `json:"format"`
+	// Whether to enable logging
+	Enabled bool `json:"enabled"`
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() *Config {
 	config := &Config{
@@ -196,6 +208,11 @@ func Load() *Config {
 			AutoCreate: getEnvBool("COVERAGE_AUTO_CREATE_DIRS", true),
 			FileMode:   os.FileMode(getEnvIntBounded("COVERAGE_FILE_MODE", 0o644, 0, 0o777)),
 			DirMode:    os.FileMode(getEnvIntBounded("COVERAGE_DIR_MODE", 0o755, 0, 0o777)),
+		},
+		Log: LogConfig{
+			Level:   getEnvString("COVERAGE_LOG_LEVEL", "INFO"),
+			Format:  getEnvString("COVERAGE_LOG_FORMAT", "text"),
+			Enabled: getEnvBool("COVERAGE_LOG_ENABLED", true),
 		},
 	}
 
