@@ -298,7 +298,7 @@ func (cm *CleanupManager) scanBranchDirectories(_ context.Context, cutoffTime ti
 }
 
 // scanReportDirectories scans for expired report content
-func (cm *CleanupManager) scanReportDirectories(_ context.Context, cutoffTime time.Time) ([]ExpiredContent, error) {
+func (cm *CleanupManager) scanReportDirectories(_ context.Context, _ time.Time) ([]ExpiredContent, error) {
 	var expired []ExpiredContent
 
 	// This would scan for very old reports that exceed the report retention period
@@ -430,7 +430,7 @@ func (cm *CleanupManager) isDirExpired(dirPath string, cutoffTime time.Time) boo
 	// For directories, check the most recent file modification time
 	var mostRecent time.Time
 
-	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(dirPath, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -457,7 +457,7 @@ func (cm *CleanupManager) getFileSize(filePath string) int64 {
 func (cm *CleanupManager) getDirSize(dirPath string) int64 {
 	var totalSize int64
 
-	_ = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(dirPath, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -481,7 +481,7 @@ func (cm *CleanupManager) getFileModTime(filePath string) time.Time {
 func (cm *CleanupManager) getDirModTime(dirPath string) time.Time {
 	var mostRecent time.Time
 
-	_ = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(dirPath, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

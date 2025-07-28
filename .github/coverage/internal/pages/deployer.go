@@ -201,7 +201,7 @@ func (d *Deployer) prepareWorkspace(ctx context.Context, _ DeploymentOptions) (s
 	return tempDir, nil
 }
 
-func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, opts DeploymentOptions) error {
+func (d *Deployer) organizeArtifacts(_ context.Context, workspaceDir string, opts DeploymentOptions) error {
 	var targetPath string
 
 	if opts.PRNumber != "" {
@@ -251,7 +251,7 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 	return nil
 }
 
-func (d *Deployer) updateDashboard(ctx context.Context, workspaceDir string, opts DeploymentOptions) error {
+func (d *Deployer) updateDashboard(_ context.Context, workspaceDir string, opts DeploymentOptions) error {
 	dashboardPath := filepath.Join(workspaceDir, "index.html")
 
 	// TODO: Generate updated dashboard content with new coverage data
@@ -341,7 +341,7 @@ func (d *Deployer) calculateDeploymentURL(opts DeploymentOptions) string {
 
 func (d *Deployer) countDeployedFiles(workspaceDir string) int {
 	count := 0
-	_ = filepath.Walk(workspaceDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(workspaceDir, func(_ string, info os.FileInfo, err error) error {
 		if err == nil && !info.IsDir() {
 			count++
 		}
@@ -365,13 +365,13 @@ func (d *Deployer) branchExists(ctx context.Context, branchName string) (bool, e
 	return len(strings.TrimSpace(string(output))) > 0, nil
 }
 
-func (d *Deployer) createOrphanBranch(ctx context.Context) error {
+func (d *Deployer) createOrphanBranch(_ context.Context) error {
 	// TODO: Implement orphan branch creation
 	// TODO: Create orphan branch: d.Config.PagesBranch
 	return nil
 }
 
-func (d *Deployer) clonePagesBranch(ctx context.Context, targetDir string) error {
+func (d *Deployer) clonePagesBranch(_ context.Context, targetDir string) error {
 	// TODO: Implement gh-pages branch cloning
 	// TODO: Clone d.Config.PagesBranch branch to targetDir
 	_ = targetDir // Placeholder to avoid unused variable
@@ -410,14 +410,14 @@ func (d *Deployer) getCommitSha(ctx context.Context) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-func (d *Deployer) createInitialDashboard(ctx context.Context, structure *StorageStructure) error {
+func (d *Deployer) createInitialDashboard(_ context.Context, structure *StorageStructure) error {
 	// TODO: Create initial dashboard using templates
 	// TODO: Create initial dashboard at structure.DashboardPath
 	_ = structure // Placeholder to avoid unused variable
 	return nil
 }
 
-func (d *Deployer) initialCommitAndPush(ctx context.Context) error {
+func (d *Deployer) initialCommitAndPush(_ context.Context) error {
 	// TODO: Make initial commit and push
 	// TODO: Make initial commit and push to remote repository
 	return nil

@@ -23,7 +23,7 @@ github.com/mrz1836/go-broadcast/coverage/internal/badge/generator.go:47.2,48.12 
 github.com/mrz1836/go-broadcast/coverage/internal/badge/generator.go:44.16,46.3 1 1
 `
 
-func TestParseCommand(t *testing.T) { //nolint:revive // function naming
+func TestParseCommand(t *testing.T) {
 	// Disable GitHub integration for tests
 	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
 	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
@@ -132,7 +132,7 @@ func TestParseCommand(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestBadgeCommand(t *testing.T) { //nolint:revive // function naming
+func TestBadgeCommand(t *testing.T) {
 	// Disable GitHub integration for tests
 	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
 	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
@@ -287,7 +287,7 @@ func TestBadgeCommand(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestReportCommand(t *testing.T) { //nolint:revive // function naming
+func TestReportCommand(t *testing.T) {
 	// Disable GitHub integration for tests
 	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
 	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
@@ -438,7 +438,7 @@ func TestReportCommand(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestHistoryCommand(t *testing.T) { //nolint:revive // function naming
+func TestHistoryCommand(t *testing.T) {
 	// Disable GitHub integration for tests
 	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
 	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
@@ -642,7 +642,7 @@ func TestHistoryCommand(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestCommentCommand(t *testing.T) { //nolint:revive // function naming
+func TestCommentCommand(t *testing.T) {
 	// Disable GitHub integration for tests
 	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
 	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
@@ -773,7 +773,7 @@ func TestCommentCommand(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestCompleteCommand(t *testing.T) { //nolint:revive // function naming
+func TestCompleteCommand(t *testing.T) {
 	// Create temporary directory
 	tempDir, err := os.MkdirTemp("", "integration_test_*")
 	require.NoError(t, err)
@@ -952,7 +952,7 @@ update history, and create GitHub PR comment if in PR context.`,
 	}
 }
 
-func TestRootCommandHelp(t *testing.T) { //nolint:revive // function naming
+func TestRootCommandHelp(t *testing.T) {
 	// Disable GitHub integration for tests
 	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
 	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
@@ -981,7 +981,7 @@ func TestRootCommandHelp(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestCommandFlags(t *testing.T) { //nolint:revive // function naming
+func TestCommandFlags(t *testing.T) {
 	// Disable GitHub integration for tests
 	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
 	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
@@ -1058,7 +1058,7 @@ func TestCommandFlags(t *testing.T) { //nolint:revive // function naming
 }
 
 // Helper function to clear environment variables
-func clearTestEnv() { //nolint:revive // function naming
+func clearTestEnv() {
 	envVars := []string{
 		"COVERAGE_INPUT_FILE", "COVERAGE_OUTPUT_DIR", "COVERAGE_THRESHOLD",
 		"COVERAGE_AUTO_CREATE_DIRS", "COVERAGE_HISTORY_PATH",
@@ -1071,7 +1071,7 @@ func clearTestEnv() { //nolint:revive // function naming
 	}
 }
 
-func TestMain(m *testing.M) { //nolint:revive // function naming
+func TestMain(m *testing.M) {
 	// Setup
 	clearTestEnv()
 

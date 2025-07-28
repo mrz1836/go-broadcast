@@ -1,4 +1,6 @@
-// Package types defines common types used throughout the coverage system
+// Package types defines common data structures and configuration types used throughout the coverage system.
+// This package provides shared type definitions for notification channels, configuration objects,
+// and other data structures that need to be used across multiple packages.
 package types
 
 // SlackConfig holds Slack-specific configuration

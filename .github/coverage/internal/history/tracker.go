@@ -343,7 +343,8 @@ func (t *Tracker) GetStatistics(ctx context.Context) (*Statistics, error) {
 	return stats, nil
 }
 
-// Legacy method for backward compatibility
+// Add records coverage data for the specified branch and commit.
+// This is a legacy method for backward compatibility with existing code.
 func (t *Tracker) Add(branch, commit string, data interface{}) error {
 	ctx := context.Background()
 
@@ -356,7 +357,7 @@ func (t *Tracker) Add(branch, commit string, data interface{}) error {
 }
 
 // saveEntry saves a single entry to storage
-func (t *Tracker) saveEntry(ctx context.Context, entry *Entry) error {
+func (t *Tracker) saveEntry(_ context.Context, entry *Entry) error {
 	if err := t.ensureStorageDir(); err != nil {
 		return fmt.Errorf("failed to ensure storage directory: %w", err)
 	}
@@ -511,7 +512,7 @@ func (t *Tracker) calculateFileHashes(coverage *parser.CoverageData) map[string]
 	return hashes
 }
 
-func (t *Tracker) calculatePackageStats(coverage *parser.CoverageData, branch string) map[string]*PackageHistoryStats {
+func (t *Tracker) calculatePackageStats(coverage *parser.CoverageData, _ string) map[string]*PackageHistoryStats {
 	stats := make(map[string]*PackageHistoryStats)
 
 	for name, pkg := range coverage.Packages {
@@ -718,7 +719,7 @@ type Statistics struct {
 	GeneratedAt    time.Time      `json:"generated_at"`
 }
 
-// Option types for configuration
+// RecordOptions contains configuration options for recording coverage data.
 type RecordOptions struct {
 	Branch    string
 	CommitSHA string
@@ -727,6 +728,7 @@ type RecordOptions struct {
 	BuildInfo *BuildInfo
 }
 
+// TrendOptions contains configuration options for generating coverage trends.
 type TrendOptions struct {
 	Branch    string
 	Days      int
@@ -734,17 +736,20 @@ type TrendOptions struct {
 }
 
 type (
-	Option      func(*RecordOptions)
+	// Option represents a functional option for configuring RecordOptions.
+	Option func(*RecordOptions)
+	// TrendOption represents a functional option for configuring TrendOptions.
 	TrendOption func(*TrendOptions)
 )
 
-// Configuration options
+// WithBranch sets the branch name for recording coverage data.
 func WithBranch(branch string) Option {
 	return func(opts *RecordOptions) {
 		opts.Branch = branch
 	}
 }
 
+// WithCommit sets the commit SHA and URL for recording coverage data.
 func WithCommit(sha, url string) Option {
 	return func(opts *RecordOptions) {
 		opts.CommitSHA = sha
@@ -752,6 +757,7 @@ func WithCommit(sha, url string) Option {
 	}
 }
 
+// WithMetadata adds metadata key-value pairs for recording coverage data.
 func WithMetadata(key, value string) Option {
 	return func(opts *RecordOptions) {
 		if opts.Metadata == nil {
@@ -761,25 +767,28 @@ func WithMetadata(key, value string) Option {
 	}
 }
 
+// WithBuildInfo sets build information for recording coverage data.
 func WithBuildInfo(info *BuildInfo) Option {
 	return func(opts *RecordOptions) {
 		opts.BuildInfo = info
 	}
 }
 
-// Trend options
+// WithTrendBranch sets the branch name for generating coverage trends.
 func WithTrendBranch(branch string) TrendOption {
 	return func(opts *TrendOptions) {
 		opts.Branch = branch
 	}
 }
 
+// WithTrendDays sets the number of days to include in trend analysis.
 func WithTrendDays(days int) TrendOption {
 	return func(opts *TrendOptions) {
 		opts.Days = days
 	}
 }
 
+// WithMaxDataPoints sets the maximum number of data points in trend analysis.
 func WithMaxDataPoints(maxPoints int) TrendOption {
 	return func(opts *TrendOptions) {
 		opts.MaxPoints = maxPoints

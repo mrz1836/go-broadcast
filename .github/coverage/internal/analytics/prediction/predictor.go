@@ -23,13 +23,19 @@ var (
 	// ErrModelNotTrained indicates that the prediction model has not been trained yet
 	ErrModelNotTrained = errors.New("model not trained")
 	// ErrInsufficientPoints indicates that there are not enough data points for calculation
-	ErrInsufficientPoints         = errors.New("insufficient points for calculation")
-	ErrZeroDenominator            = errors.New("cannot calculate: zero denominator")
+	ErrInsufficientPoints = errors.New("insufficient points for calculation")
+	// ErrZeroDenominator indicates cannot calculate due to zero denominator
+	ErrZeroDenominator = errors.New("cannot calculate: zero denominator")
+	// ErrInsufficientValidationData indicates insufficient data for cross-validation
 	ErrInsufficientValidationData = errors.New("insufficient data for cross-validation")
-	ErrNoValidationErrors         = errors.New("no validation errors calculated")
-	ErrCoverageNotIncreasing      = errors.New("coverage is not increasing - target may not be reachable")
-	ErrInsufficientTargetData     = errors.New("insufficient data for target prediction")
-	ErrNoTimeSpanInData           = errors.New("no time span in training data")
+	// ErrNoValidationErrors indicates no validation errors were calculated
+	ErrNoValidationErrors = errors.New("no validation errors calculated")
+	// ErrCoverageNotIncreasing indicates coverage is not increasing and target may not be reachable
+	ErrCoverageNotIncreasing = errors.New("coverage is not increasing - target may not be reachable")
+	// ErrInsufficientTargetData indicates insufficient data for target prediction
+	ErrInsufficientTargetData = errors.New("insufficient data for target prediction")
+	// ErrNoTimeSpanInData indicates no time span in training data
+	ErrNoTimeSpanInData = errors.New("no time span in training data")
 )
 
 // CoveragePredictor provides sophisticated coverage prediction capabilities
@@ -400,7 +406,7 @@ func NewCoveragePredictor(config *PredictorConfig) *CoveragePredictor {
 }
 
 // TrainModel trains the prediction model using historical data
-func (p *CoveragePredictor) TrainModel(ctx context.Context, analyzer *history.TrendAnalyzer) error {
+func (p *CoveragePredictor) TrainModel(_ context.Context, analyzer *history.TrendAnalyzer) error {
 	// Get training data from analyzer
 	trainingData, err := p.prepareTrainingData(analyzer)
 	if err != nil {
@@ -454,7 +460,7 @@ func (p *CoveragePredictor) TrainModel(ctx context.Context, analyzer *history.Tr
 }
 
 // PredictCoverage generates coverage predictions for the specified horizon
-func (p *CoveragePredictor) PredictCoverage(ctx context.Context) (*PredictionResult, error) {
+func (p *CoveragePredictor) PredictCoverage(_ context.Context) (*PredictionResult, error) {
 	if p.model == nil {
 		return nil, ErrModelNotTrained
 	}

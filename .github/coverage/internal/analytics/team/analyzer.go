@@ -1454,90 +1454,90 @@ func (ta *Analyzer) identifySpecialRecognition(_ ContributorAnalysis) []string {
 	return []string{}
 }
 func (ta *Analyzer) generateImpactDescription(_ ContributorAnalysis) string { return "" }
-func (ta *Analyzer) generateComparisonMetrics(teamA, teamB Data, analysis *Analysis) ComparisonMetrics {
+func (ta *Analyzer) generateComparisonMetrics(_, _ Data, _ *Analysis) ComparisonMetrics {
 	return ComparisonMetrics{}
 }
-func (ta *Analyzer) determineWinnersByCategory(comparison *Comparison) {}
-func (ta *Analyzer) determineOverallWinner(comparison *Comparison)     {}
-func (ta *Analyzer) identifyKeyDifferences(teamA, teamB Data, analysis *Analysis) []string {
+func (ta *Analyzer) determineWinnersByCategory(_ *Comparison) {}
+func (ta *Analyzer) determineOverallWinner(_ *Comparison)     {}
+func (ta *Analyzer) identifyKeyDifferences(_, _ Data, _ *Analysis) []string {
 	return []string{}
 }
 
-func (ta *Analyzer) generateComparisonRecommendations(teamA, teamB Data, analysis *Analysis) []string {
+func (ta *Analyzer) generateComparisonRecommendations(_, _ Data, _ *Analysis) []string {
 	return []string{}
 }
 
-func (ta *Analyzer) getTeamAverageMetric(analysis *Analysis, metric string) float64 {
+func (ta *Analyzer) getTeamAverageMetric(_ *Analysis, _ string) float64 {
 	return 0.0
 }
 
-func (ta *Analyzer) generateBenchmarkRecommendations(metric string, comparison BenchmarkComparison) []string {
+func (ta *Analyzer) generateBenchmarkRecommendations(_ string, _ BenchmarkComparison) []string {
 	return []string{}
 }
 
-func (ta *Analyzer) identifyPerformanceGaps(analysis *Analysis, benchmarks map[string]float64) []PerformanceGap {
+func (ta *Analyzer) identifyPerformanceGaps(_ *Analysis, _ map[string]float64) []PerformanceGap {
 	return []PerformanceGap{}
 }
 
-func (ta *Analyzer) identifyBestPractices(analysis *Analysis) []BestPractice {
+func (ta *Analyzer) identifyBestPractices(_ *Analysis) []BestPractice {
 	return []BestPractice{}
 }
 
-func (ta *Analyzer) analyzeCrossTeamActivity(contributors []ContributorData, teams []Data) CrossTeamActivity {
+func (ta *Analyzer) analyzeCrossTeamActivity(_ []ContributorData, _ []Data) CrossTeamActivity {
 	return CrossTeamActivity{}
 }
 
-func (ta *Analyzer) analyzeKnowledgeFlow(contributors []ContributorData) KnowledgeFlow {
+func (ta *Analyzer) analyzeKnowledgeFlow(_ []ContributorData) KnowledgeFlow {
 	return KnowledgeFlow{}
 }
 
-func (ta *Analyzer) analyzeCommunicationPatterns(contributors []ContributorData) CommunicationPatterns {
+func (ta *Analyzer) analyzeCommunicationPatterns(_ []ContributorData) CommunicationPatterns {
 	return CommunicationPatterns{}
 }
 
-func (ta *Analyzer) assessTeamDynamics(contributors []ContributorData, teams []Data) Dynamics {
+func (ta *Analyzer) assessTeamDynamics(_ []ContributorData, _ []Data) Dynamics {
 	return Dynamics{}
 }
 
-func (ta *Analyzer) calculateTrendDirection(metric string, analysis *Analysis) string {
+func (ta *Analyzer) calculateTrendDirection(_ string, _ *Analysis) string {
 	return "upward"
 }
 
-func (ta *Analyzer) calculateTrendMagnitude(metric string, analysis *Analysis) float64 {
+func (ta *Analyzer) calculateTrendMagnitude(_ string, _ *Analysis) float64 {
 	return 0.0
 }
 
-func (ta *Analyzer) calculateTrendConfidence(metric string, analysis *Analysis) float64 {
+func (ta *Analyzer) calculateTrendConfidence(_ string, _ *Analysis) float64 {
 	return 0.8
 }
-func (ta *Analyzer) detectSeasonality(metric string, analysis *Analysis) bool { return false }
-func (ta *Analyzer) forecastMetric(metric string, analysis *Analysis) float64 { return 0.0 }
-func (ta *Analyzer) assessTrendSignificance(metric string, analysis *Analysis) string {
+func (ta *Analyzer) detectSeasonality(_ string, _ *Analysis) bool { return false }
+func (ta *Analyzer) forecastMetric(_ string, _ *Analysis) float64 { return 0.0 }
+func (ta *Analyzer) assessTrendSignificance(_ string, _ *Analysis) string {
 	return "moderate"
 }
 
-func (ta *Analyzer) identifyEmergingPatterns(analysis *Analysis) []EmergingPattern {
+func (ta *Analyzer) identifyEmergingPatterns(_ *Analysis) []EmergingPattern {
 	return []EmergingPattern{}
 }
-func (ta *Analyzer) findHighestPerformingTeam(analysis *Analysis) string { return "" }
-func (ta *Analyzer) getTeamPerformanceEvidence(team string, analysis *Analysis) []string {
+func (ta *Analyzer) findHighestPerformingTeam(_ *Analysis) string { return "" }
+func (ta *Analyzer) getTeamPerformanceEvidence(_ string, _ *Analysis) []string {
 	return []string{}
 }
 
-func (ta *Analyzer) identifyCollaborationPatterns(analysis *Analysis) *PatternInsight {
+func (ta *Analyzer) identifyCollaborationPatterns(_ *Analysis) *PatternInsight {
 	return nil
 }
-func (ta *Analyzer) identifySkillGapPatterns(analysis *Analysis) *PatternInsight { return nil }
-func (ta *Analyzer) identifyProductivityPatterns(analysis *Analysis) *PatternInsight {
+func (ta *Analyzer) identifySkillGapPatterns(_ *Analysis) *PatternInsight { return nil }
+func (ta *Analyzer) identifyProductivityPatterns(_ *Analysis) *PatternInsight {
 	return nil
 }
 
-func (ta *Analyzer) calculateRecommendationPriority(current, target float64) string {
+func (ta *Analyzer) calculateRecommendationPriority(_, _ float64) string {
 	return "medium"
 }
-func (ta *Analyzer) getSkillLevel(score float64) string                  { return "developing" }
-func (ta *Analyzer) getSkillLearningResources(skillArea string) []string { return []string{} }
-func (ta *Analyzer) identifyPotentialMentors(contributor ContributorAnalysis, allContributors []ContributorAnalysis) []string {
+func (ta *Analyzer) getSkillLevel(_ float64) string              { return "developing" }
+func (ta *Analyzer) getSkillLearningResources(_ string) []string { return []string{} }
+func (ta *Analyzer) identifyPotentialMentors(_ ContributorAnalysis, _ []ContributorAnalysis) []string {
 	return []string{}
 }
-func (ta *Analyzer) calculateOverallProductivityScore(analysis *Analysis) float64 { return 7.5 }
+func (ta *Analyzer) calculateOverallProductivityScore(_ *Analysis) float64 { return 7.5 }

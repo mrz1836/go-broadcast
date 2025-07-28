@@ -188,7 +188,8 @@ func (m *PRCommentManager) CreateOrUpdatePRComment(ctx context.Context, owner, r
 		err = m.createCoverageStatusCheck(ctx, owner, repo, pr.Head.SHA, comparison)
 		if err != nil {
 			// Don't fail the entire operation if status check fails
-			// TODO: Log warning about failed status check creation
+			// TODO: Add proper logging when logger is available
+			_ = err // Explicitly ignore the error for now
 		} else {
 			statusCheckURL = fmt.Sprintf("https://github.com/%s/%s/commit/%s/checks", owner, repo, pr.Head.SHA)
 		}
@@ -473,7 +474,7 @@ func (m *PRCommentManager) getPercentageEmoji(percentage float64) string {
 }
 
 // generatePRBadgeURLs generates PR-specific badge URLs
-func (m *PRCommentManager) generatePRBadgeURLs(owner, repo string, prNumber int, coverage float64) map[string]string {
+func (m *PRCommentManager) generatePRBadgeURLs(owner, repo string, prNumber int, _ float64) map[string]string {
 	baseURL := fmt.Sprintf("https://%s.github.io/%s/coverage/pr/%d", owner, repo, prNumber)
 
 	return map[string]string{
@@ -484,7 +485,7 @@ func (m *PRCommentManager) generatePRBadgeURLs(owner, repo string, prNumber int,
 }
 
 // generatePRBadgeURL generates a single PR badge URL
-func (m *PRCommentManager) generatePRBadgeURL(owner, repo string, prNumber int, coverage float64) string {
+func (m *PRCommentManager) generatePRBadgeURL(owner, repo string, prNumber int, _ float64) string {
 	return fmt.Sprintf("https://%s.github.io/%s/coverage/pr/%d/badge-coverage.svg", owner, repo, prNumber)
 }
 

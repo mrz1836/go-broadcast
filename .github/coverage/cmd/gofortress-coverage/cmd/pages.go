@@ -90,9 +90,9 @@ type CleanOptions struct {
 }
 
 // setupGitHubPages initializes the gh-pages branch with proper structure
-func setupGitHubPages(_ context.Context, branch string, _ bool, verbose bool) error { //nolint:revive // function naming
+func setupGitHubPages(_ context.Context, branch string, _ bool, verbose bool) error {
 	if verbose {
-		fmt.Printf("🚀 Setting up GitHub Pages on branch: %s\n", branch)
+		fmt.Printf("🚀 Setting up GitHub Pages on branch: %s\n", branch) //nolint:forbidigo // CLI output
 	}
 
 	// TODO: Implement GitHub Pages setup logic
@@ -119,7 +119,7 @@ func setupGitHubPages(_ context.Context, branch string, _ bool, verbose bool) er
 
 	for _, dir := range dirs {
 		if verbose {
-			fmt.Printf("  📂 Creating directory: %s\n", dir)
+			fmt.Printf("  📂 Creating directory: %s\n", dir) //nolint:forbidigo // CLI output
 		}
 		// In real implementation, this would create dirs in gh-pages branch
 	}
@@ -129,27 +129,27 @@ func setupGitHubPages(_ context.Context, branch string, _ bool, verbose bool) er
 	// TODO: Generate initial dashboard file
 	dashboardContent := generateInitialDashboard()
 	if verbose {
-		fmt.Printf("  📄 Dashboard content length: %d bytes\n", len(dashboardContent))
+		fmt.Printf("  📄 Dashboard content length: %d bytes\n", len(dashboardContent)) //nolint:forbidigo // CLI output
 	}
 
 	fmt.Println("✅ GitHub Pages setup completed successfully") //nolint:forbidigo // CLI output
 
 	if verbose {
-		fmt.Printf("🌐 Your coverage dashboard will be available at: https://{owner}.github.io/{repo}/\n")
-		fmt.Printf("📊 Coverage badges will be at: https://{owner}.github.io/{repo}/badges/{branch}.svg\n")
+		fmt.Printf("🌐 Your coverage dashboard will be available at: https://{owner}.github.io/{repo}/\n")  //nolint:forbidigo // CLI output
+		fmt.Printf("📊 Coverage badges will be at: https://{owner}.github.io/{repo}/badges/{branch}.svg\n") //nolint:forbidigo // CLI output
 	}
 
 	return nil
 }
 
 // deployToGitHubPages deploys coverage artifacts to GitHub Pages
-func deployToGitHubPages(_ context.Context, opts DeployOptions) error { //nolint:revive // function naming
+func deployToGitHubPages(_ context.Context, opts DeployOptions) error {
 	if opts.Verbose {
-		fmt.Printf("🚀 Deploying coverage artifacts to GitHub Pages\n")
-		fmt.Printf("  📍 Branch: %s\n", opts.Branch)
-		fmt.Printf("  📂 Input Directory: %s\n", opts.InputDir)
+		fmt.Printf("🚀 Deploying coverage artifacts to GitHub Pages\n") //nolint:forbidigo // CLI output
+		fmt.Printf("  📍 Branch: %s\n", opts.Branch)                    //nolint:forbidigo // CLI output
+		fmt.Printf("  📂 Input Directory: %s\n", opts.InputDir)         //nolint:forbidigo // CLI output
 		if opts.PRNumber != "" {
-			fmt.Printf("  🔀 PR Number: %s\n", opts.PRNumber)
+			fmt.Printf("  🔀 PR Number: %s\n", opts.PRNumber) //nolint:forbidigo // CLI output
 		}
 	}
 
@@ -163,10 +163,10 @@ func deployToGitHubPages(_ context.Context, opts DeployOptions) error { //nolint
 	fmt.Println("📦 Organizing artifacts...") //nolint:forbidigo // CLI output
 
 	if opts.PRNumber != "" {
-		fmt.Printf("  🔀 Deploying PR #%s artifacts\n", opts.PRNumber)
+		fmt.Printf("  🔀 Deploying PR #%s artifacts\n", opts.PRNumber) //nolint:forbidigo // CLI output
 		// Deploy to pr/{number}/ subdirectory
 	} else {
-		fmt.Printf("  🌿 Deploying branch '%s' artifacts\n", opts.Branch)
+		fmt.Printf("  🌿 Deploying branch '%s' artifacts\n", opts.Branch) //nolint:forbidigo // CLI output
 		// Deploy to branch-specific directory
 	}
 
@@ -186,7 +186,7 @@ func deployToGitHubPages(_ context.Context, opts DeployOptions) error { //nolint
 	}
 
 	if opts.Verbose {
-		fmt.Printf("  💬 Commit message: %s\n", commitMessage)
+		fmt.Printf("  💬 Commit message: %s\n", commitMessage) //nolint:forbidigo // CLI output
 	}
 
 	fmt.Println("✅ Deployment completed successfully") //nolint:forbidigo // CLI output
@@ -195,10 +195,10 @@ func deployToGitHubPages(_ context.Context, opts DeployOptions) error { //nolint
 }
 
 // cleanGitHubPages removes old PR data and expired content
-func cleanGitHubPages(_ context.Context, opts CleanOptions) error { //nolint:revive // function naming
+func cleanGitHubPages(_ context.Context, opts CleanOptions) error {
 	if opts.Verbose {
-		fmt.Printf("🧹 Cleaning up GitHub Pages content\n")
-		fmt.Printf("  📅 Max age: %d days\n", opts.MaxAgeDays)
+		fmt.Printf("🧹 Cleaning up GitHub Pages content\n")    //nolint:forbidigo // CLI output
+		fmt.Printf("  📅 Max age: %d days\n", opts.MaxAgeDays) //nolint:forbidigo // CLI output
 		if opts.DryRun {
 			fmt.Println("  🔍 Dry run mode - no changes will be made") //nolint:forbidigo // CLI output
 		}
@@ -219,27 +219,27 @@ func cleanGitHubPages(_ context.Context, opts CleanOptions) error { //nolint:rev
 
 	totalSize := int64(0)
 	if len(expiredPRs) > 0 {
-		fmt.Printf("  📁 Found %d expired PR directories\n", len(expiredPRs))
+		fmt.Printf("  📁 Found %d expired PR directories\n", len(expiredPRs)) //nolint:forbidigo // CLI output
 		for _, pr := range expiredPRs {
 			if opts.Verbose {
-				fmt.Printf("    🗑️  %s\n", pr)
+				fmt.Printf("    🗑️  %s\n", pr) //nolint:forbidigo // CLI output
 			}
 			totalSize += 1024 * 512 // Simulate size calculation
 		}
 	}
 
 	if len(expiredReports) > 0 {
-		fmt.Printf("  📊 Found %d expired report directories\n", len(expiredReports))
+		fmt.Printf("  📊 Found %d expired report directories\n", len(expiredReports)) //nolint:forbidigo // CLI output
 		for _, report := range expiredReports {
 			if opts.Verbose {
-				fmt.Printf("    🗑️  %s\n", report)
+				fmt.Printf("    🗑️  %s\n", report) //nolint:forbidigo // CLI output
 			}
 			totalSize += 1024 * 256 // Simulate size calculation
 		}
 	}
 
 	if totalSize > 0 {
-		fmt.Printf("💾 Total space to be freed: %.2f MB\n", float64(totalSize)/(1024*1024))
+		fmt.Printf("💾 Total space to be freed: %.2f MB\n", float64(totalSize)/(1024*1024)) //nolint:forbidigo // CLI output
 
 		if !opts.DryRun {
 			fmt.Println("🗑️  Removing expired content...") //nolint:forbidigo // CLI output

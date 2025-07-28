@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNew(t *testing.T) { //nolint:revive // function naming
+func TestNew(t *testing.T) {
 	generator := New()
 	assert.NotNil(t, generator)
 	assert.NotNil(t, generator.config)
@@ -22,7 +22,7 @@ func TestNew(t *testing.T) { //nolint:revive // function naming
 	assert.InDelta(t, 60.0, generator.config.ThresholdConfig.Low, 0.001)
 }
 
-func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
+func TestNewWithConfig(t *testing.T) {
 	config := &Config{
 		Style: "flat-square",
 		Label: "test",
@@ -38,7 +38,7 @@ func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, config, generator.config)
 }
 
-func TestGenerate(t *testing.T) { //nolint:revive // function naming
+func TestGenerate(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 
@@ -55,7 +55,7 @@ func TestGenerate(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, svgStr, `aria-label="Code coverage: 85.5 percent"`)
 }
 
-func TestGenerateWithOptions(t *testing.T) { //nolint:revive // function naming
+func TestGenerateWithOptions(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 
@@ -73,7 +73,7 @@ func TestGenerateWithOptions(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, svgStr, `shape-rendering="crispEdges"`) // flat-square style
 }
 
-func TestGenerateTrendBadge(t *testing.T) { //nolint:revive // function naming
+func TestGenerateTrendBadge(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 
@@ -121,7 +121,7 @@ func TestGenerateTrendBadge(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGetColorForPercentage(t *testing.T) { //nolint:revive // function naming
+func TestGetColorForPercentage(t *testing.T) {
 	generator := New()
 
 	tests := []struct {
@@ -145,7 +145,7 @@ func TestGetColorForPercentage(t *testing.T) { //nolint:revive // function namin
 	}
 }
 
-func TestGetColorByName(t *testing.T) { //nolint:revive // function naming
+func TestGetColorByName(t *testing.T) {
 	generator := New()
 
 	tests := []struct {
@@ -168,7 +168,7 @@ func TestGetColorByName(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestRenderSVGStyles(t *testing.T) { //nolint:revive // function naming
+func TestRenderSVGStyles(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 
@@ -200,7 +200,7 @@ func TestRenderSVGStyles(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestCalculateTextWidth(t *testing.T) { //nolint:revive // function naming
+func TestCalculateTextWidth(t *testing.T) {
 	generator := New()
 
 	tests := []struct {
@@ -221,7 +221,7 @@ func TestCalculateTextWidth(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestOptions(t *testing.T) { //nolint:revive // function naming
+func TestOptions(t *testing.T) {
 	opts := &Options{}
 
 	WithStyle("flat-square")(opts)
@@ -237,7 +237,7 @@ func TestOptions(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, "blue", opts.LogoColor)
 }
 
-func TestRenderFlatBadge(t *testing.T) { //nolint:revive // function naming
+func TestRenderFlatBadge(t *testing.T) {
 	generator := New()
 
 	data := Data{
@@ -261,7 +261,7 @@ func TestRenderFlatBadge(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, svgStr, `linearGradient`) // gradient effect
 }
 
-func TestRenderFlatSquareBadge(t *testing.T) { //nolint:revive // function naming
+func TestRenderFlatSquareBadge(t *testing.T) {
 	generator := New()
 
 	data := Data{
@@ -283,7 +283,7 @@ func TestRenderFlatSquareBadge(t *testing.T) { //nolint:revive // function namin
 	assert.NotContains(t, svgStr, `rx="3"`) // no rounded corners
 }
 
-func TestRenderForTheBadge(t *testing.T) { //nolint:revive // function naming
+func TestRenderForTheBadge(t *testing.T) {
 	generator := New()
 
 	data := Data{
@@ -304,7 +304,7 @@ func TestRenderForTheBadge(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, svgStr, "#3fb950")
 }
 
-func TestRenderWithLogo(t *testing.T) { //nolint:revive // function naming
+func TestRenderWithLogo(t *testing.T) {
 	generator := New()
 
 	data := Data{
@@ -325,7 +325,7 @@ func TestRenderWithLogo(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, svgStr, `height="14"`)
 }
 
-func TestGenerateContextCancellation(t *testing.T) { //nolint:revive // function naming
+func TestGenerateContextCancellation(t *testing.T) {
 	generator := New()
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -337,7 +337,7 @@ func TestGenerateContextCancellation(t *testing.T) { //nolint:revive // function
 	assert.Equal(t, context.Canceled, err)
 }
 
-func TestGenerateValidSVG(t *testing.T) { //nolint:revive // function naming
+func TestGenerateValidSVG(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 
@@ -363,7 +363,7 @@ func TestGenerateValidSVG(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGenerateCustomThresholds(t *testing.T) { //nolint:revive // function naming
+func TestGenerateCustomThresholds(t *testing.T) {
 	config := &Config{
 		Style: "flat",
 		Label: "coverage",
@@ -400,7 +400,7 @@ func TestGenerateCustomThresholds(t *testing.T) { //nolint:revive // function na
 	}
 }
 
-func TestGenerateEdgeCases(t *testing.T) { //nolint:revive // function naming
+func TestGenerateEdgeCases(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 

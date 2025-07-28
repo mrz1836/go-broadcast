@@ -554,7 +554,7 @@ func (m *PRBadgeManager) calculateDimensions(label, message, style string) Dimen
 }
 
 // CleanupPRBadges removes old PR badges based on configuration
-func (m *PRBadgeManager) CleanupPRBadges(ctx context.Context, owner, repository string, prNumber int) error {
+func (m *PRBadgeManager) CleanupPRBadges(_ context.Context, _, _ string, prNumber int) error {
 	if !m.config.EnableCleanup {
 		return nil
 	}
@@ -575,7 +575,7 @@ func (m *PRBadgeManager) CleanupPRBadges(ctx context.Context, owner, repository 
 }
 
 // GetPRInfo returns information about existing PR badges
-func (m *PRBadgeManager) GetPRInfo(ctx context.Context, owner, repository string, prNumber int) (*PRBadgeResult, error) {
+func (m *PRBadgeManager) GetPRInfo(_ context.Context, owner, repository string, prNumber int) (*PRBadgeResult, error) {
 	prDir := filepath.Join(m.config.OutputBasePath, "pr", fmt.Sprintf("%d", prNumber))
 
 	result := &PRBadgeResult{

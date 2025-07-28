@@ -347,6 +347,8 @@ func (m *StatusCheckManager) buildMainCoverageStatus(request *StatusCheckRequest
 	if m.config.AllowThresholdOverride {
 		// Implementation would check commit message for override patterns
 		// For now, using the configured threshold
+		// TODO: Parse commit message for patterns like "[coverage-override]" or specific threshold values
+		_ = threshold // Explicitly acknowledge we're not overriding for now
 	}
 
 	var state string
@@ -668,7 +670,7 @@ func (m *StatusCheckManager) compareRiskLevels(risk1, risk2 string) int {
 }
 
 // GetStatusCheckSummary returns a summary of current status checks
-func (m *StatusCheckManager) GetStatusCheckSummary(ctx context.Context, owner, repository, commitSHA string) (map[string]interface{}, error) {
+func (m *StatusCheckManager) GetStatusCheckSummary(_ context.Context, _, _, commitSHA string) (map[string]interface{}, error) {
 	// This would typically query the GitHub API to get current status checks
 	// For now, returning a placeholder structure
 

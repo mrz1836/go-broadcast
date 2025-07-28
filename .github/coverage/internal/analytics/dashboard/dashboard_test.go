@@ -103,7 +103,7 @@ func TestGenerateHTML(t *testing.T) {
 	}
 }
 
-func TestSetComponents(t *testing.T) { //nolint:revive // function naming
+func TestSetComponents(_ *testing.T) {
 	dashboard := NewAnalyticsDashboard(nil)
 
 	// Test that SetComponents doesn't panic (it's a placeholder)

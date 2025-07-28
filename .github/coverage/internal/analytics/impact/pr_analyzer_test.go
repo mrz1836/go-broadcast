@@ -265,7 +265,7 @@ func TestQualityGateEvaluation(t *testing.T) {
 	}
 }
 
-func TestComplexityAnalysis(t *testing.T) { //nolint:revive // function naming
+func TestComplexityAnalysis(t *testing.T) {
 	analyzer := NewPRImpactAnalyzer(&AnalyzerConfig{
 		EnableComplexityScore: true,
 	}, nil, nil)
@@ -303,7 +303,7 @@ func TestComplexityAnalysis(t *testing.T) { //nolint:revive // function naming
 	_ = analyzer
 }
 
-func BenchmarkAnalyzePRImpact(b *testing.B) { //nolint:revive // function naming
+func BenchmarkAnalyzePRImpact(b *testing.B) {
 	cfg := &AnalyzerConfig{
 		ImpactThresholds: ImpactThresholds{
 			MinorImpact:    1.0,
@@ -354,7 +354,7 @@ func BenchmarkAnalyzePRImpact(b *testing.B) { //nolint:revive // function naming
 	}
 }
 
-func BenchmarkRiskAssessment(b *testing.B) { //nolint:revive // function naming
+func BenchmarkRiskAssessment(b *testing.B) {
 	analyzer := NewPRImpactAnalyzer(&AnalyzerConfig{
 		EnableRiskAssessment: true,
 		RiskToleranceLevel:   RiskModerate,

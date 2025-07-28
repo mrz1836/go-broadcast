@@ -10,7 +10,7 @@ import (
 )
 
 // BenchmarkRecord benchmarks recording coverage entries
-func BenchmarkRecord(b *testing.B) { //nolint:revive // function naming
+func BenchmarkRecord(b *testing.B) {
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
@@ -32,7 +32,7 @@ func BenchmarkRecord(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkRecordWithOptions benchmarks recording with all options
-func BenchmarkRecordWithOptions(b *testing.B) { //nolint:revive // function naming
+func BenchmarkRecordWithOptions(b *testing.B) {
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
@@ -67,7 +67,7 @@ func BenchmarkRecordWithOptions(b *testing.B) { //nolint:revive // function nami
 }
 
 // BenchmarkGetTrend benchmarks trend retrieval
-func BenchmarkGetTrend(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGetTrend(b *testing.B) {
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
@@ -98,7 +98,7 @@ func BenchmarkGetTrend(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkGetTrendLarge benchmarks trend retrieval with large dataset
-func BenchmarkGetTrendLarge(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGetTrendLarge(b *testing.B) {
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
@@ -136,7 +136,7 @@ func BenchmarkGetTrendLarge(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkGetLatestEntry benchmarks latest entry retrieval
-func BenchmarkGetLatestEntry(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGetLatestEntry(b *testing.B) {
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
@@ -166,7 +166,7 @@ func BenchmarkGetLatestEntry(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkCleanup benchmarks cleanup operations
-func BenchmarkCleanup(b *testing.B) { //nolint:revive // function naming
+func BenchmarkCleanup(b *testing.B) {
 	config := &Config{
 		RetentionDays: 30,
 		MaxEntries:    100,
@@ -206,7 +206,7 @@ func BenchmarkCleanup(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkGetStatistics benchmarks statistics calculation
-func BenchmarkGetStatistics(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGetStatistics(b *testing.B) {
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
@@ -245,7 +245,7 @@ func BenchmarkGetStatistics(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkCalculateFileHashes benchmarks file hash calculation
-func BenchmarkCalculateFileHashes(b *testing.B) { //nolint:revive // function naming
+func BenchmarkCalculateFileHashes(b *testing.B) {
 	tracker := New()
 	coverage := createBenchmarkCoverageComplex()
 
@@ -256,7 +256,7 @@ func BenchmarkCalculateFileHashes(b *testing.B) { //nolint:revive // function na
 }
 
 // BenchmarkCalculatePackageStats benchmarks package statistics calculation
-func BenchmarkCalculatePackageStats(b *testing.B) { //nolint:revive // function naming
+func BenchmarkCalculatePackageStats(b *testing.B) {
 	tracker := New()
 	coverage := createBenchmarkCoverageComplex()
 
@@ -267,7 +267,7 @@ func BenchmarkCalculatePackageStats(b *testing.B) { //nolint:revive // function 
 }
 
 // BenchmarkCalculateSummary benchmarks summary calculation
-func BenchmarkCalculateSummary(b *testing.B) { //nolint:revive // function naming
+func BenchmarkCalculateSummary(b *testing.B) {
 	tracker := New()
 	entries := createBenchmarkEntries(100)
 
@@ -278,7 +278,7 @@ func BenchmarkCalculateSummary(b *testing.B) { //nolint:revive // function namin
 }
 
 // BenchmarkAnalyzeEntries benchmarks trend analysis
-func BenchmarkAnalyzeEntries(b *testing.B) { //nolint:revive // function naming
+func BenchmarkAnalyzeEntries(b *testing.B) {
 	tracker := New()
 	entries := createBenchmarkEntries(50)
 
@@ -289,7 +289,7 @@ func BenchmarkAnalyzeEntries(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkAnalyzePeriod benchmarks period analysis
-func BenchmarkAnalyzePeriod(b *testing.B) { //nolint:revive // function naming
+func BenchmarkAnalyzePeriod(b *testing.B) {
 	tracker := New()
 	entries := createBenchmarkEntries(30)
 
@@ -300,7 +300,7 @@ func BenchmarkAnalyzePeriod(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkCalculateVolatility benchmarks volatility calculation
-func BenchmarkCalculateVolatility(b *testing.B) { //nolint:revive // function naming
+func BenchmarkCalculateVolatility(b *testing.B) {
 	tracker := New()
 	entries := createBenchmarkEntries(100)
 
@@ -311,7 +311,7 @@ func BenchmarkCalculateVolatility(b *testing.B) { //nolint:revive // function na
 }
 
 // BenchmarkCalculateMomentum benchmarks momentum calculation
-func BenchmarkCalculateMomentum(b *testing.B) { //nolint:revive // function naming
+func BenchmarkCalculateMomentum(b *testing.B) {
 	tracker := New()
 	entries := createBenchmarkEntries(20)
 
@@ -322,7 +322,7 @@ func BenchmarkCalculateMomentum(b *testing.B) { //nolint:revive // function nami
 }
 
 // BenchmarkGeneratePrediction benchmarks prediction generation
-func BenchmarkGeneratePrediction(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGeneratePrediction(b *testing.B) {
 	tracker := New()
 	entries := createBenchmarkEntries(15)
 
@@ -333,7 +333,7 @@ func BenchmarkGeneratePrediction(b *testing.B) { //nolint:revive // function nam
 }
 
 // BenchmarkLoadAllEntries benchmarks loading all entries from storage
-func BenchmarkLoadAllEntries(b *testing.B) { //nolint:revive // function naming
+func BenchmarkLoadAllEntries(b *testing.B) {
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
@@ -363,7 +363,7 @@ func BenchmarkLoadAllEntries(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkMemoryAllocation benchmarks memory allocation during operations
-func BenchmarkMemoryAllocation(b *testing.B) { //nolint:revive // function naming
+func BenchmarkMemoryAllocation(b *testing.B) {
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
@@ -387,7 +387,7 @@ func BenchmarkMemoryAllocation(b *testing.B) { //nolint:revive // function namin
 }
 
 // BenchmarkConcurrentRecord benchmarks concurrent recording
-func BenchmarkConcurrentRecord(b *testing.B) { //nolint:revive // function naming
+func BenchmarkConcurrentRecord(b *testing.B) {
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)
@@ -410,7 +410,7 @@ func BenchmarkConcurrentRecord(b *testing.B) { //nolint:revive // function namin
 }
 
 // BenchmarkConcurrentGetTrend benchmarks concurrent trend retrieval
-func BenchmarkConcurrentGetTrend(b *testing.B) { //nolint:revive // function naming
+func BenchmarkConcurrentGetTrend(b *testing.B) {
 	tempDir, err := os.MkdirTemp("", "history_bench_*")
 	if err != nil {
 		b.Fatal(err)

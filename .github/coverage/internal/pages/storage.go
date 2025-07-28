@@ -69,7 +69,7 @@ func NewStorageManager(basePath string) *StorageManager {
 }
 
 // InitializeStructure creates the base directory structure for GitHub Pages
-func (sm *StorageManager) InitializeStructure(ctx context.Context) (*StorageStructure, error) {
+func (sm *StorageManager) InitializeStructure(_ context.Context) (*StorageStructure, error) {
 	structure := &StorageStructure{
 		BadgesDir:     filepath.Join(sm.BasePath, sm.Config.BadgeSubdir),
 		ReportsDir:    filepath.Join(sm.BasePath, sm.Config.ReportSubdir),
@@ -136,7 +136,7 @@ func (sm *StorageManager) GetPRPaths(prNumber string) *StorageStructure {
 }
 
 // OrganizeArtifacts moves coverage artifacts to their proper locations
-func (sm *StorageManager) OrganizeArtifacts(ctx context.Context, opts ArtifactOptions) error {
+func (sm *StorageManager) OrganizeArtifacts(_ context.Context, opts ArtifactOptions) error {
 	var structure *StorageStructure
 
 	if opts.PRNumber != "" {
@@ -158,7 +158,7 @@ func (sm *StorageManager) OrganizeArtifacts(ctx context.Context, opts ArtifactOp
 }
 
 // CleanupExpiredContent removes old PR data and expired content
-func (sm *StorageManager) CleanupExpiredContent(ctx context.Context, maxAgeDays int, dryRun bool) (*CleanupResult, error) {
+func (sm *StorageManager) CleanupExpiredContent(_ context.Context, maxAgeDays int, dryRun bool) (*CleanupResult, error) {
 	result := &CleanupResult{
 		ExpiredPRs:      []string{},
 		ExpiredBranches: []string{},

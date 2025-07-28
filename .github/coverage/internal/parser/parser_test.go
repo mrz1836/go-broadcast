@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNew(t *testing.T) { //nolint:revive // function naming
+func TestNew(t *testing.T) {
 	parser := New()
 	assert.NotNil(t, parser)
 	assert.NotNil(t, parser.config)
@@ -22,7 +22,7 @@ func TestNew(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, 10, parser.config.MinFileLines)
 }
 
-func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
+func TestNewWithConfig(t *testing.T) {
 	config := &Config{
 		ExcludePaths:     []string{"custom/"},
 		ExcludeFiles:     []string{"*.custom"},
@@ -36,7 +36,7 @@ func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, config, parser.config)
 }
 
-func TestParseFile(t *testing.T) { //nolint:revive // function naming
+func TestParseFile(t *testing.T) {
 	parser := New()
 	ctx := context.Background()
 
@@ -50,7 +50,7 @@ func TestParseFile(t *testing.T) { //nolint:revive // function naming
 	assert.WithinDuration(t, time.Now(), coverage.Timestamp, 5*time.Second)
 }
 
-func TestParseFileNotExists(t *testing.T) { //nolint:revive // function naming
+func TestParseFileNotExists(t *testing.T) {
 	parser := New()
 	ctx := context.Background()
 
@@ -59,7 +59,7 @@ func TestParseFileNotExists(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, err.Error(), "failed to open coverage file")
 }
 
-func TestParseValidCoverage(t *testing.T) { //nolint:revive // function naming
+func TestParseValidCoverage(t *testing.T) {
 	parser := New()
 	ctx := context.Background()
 
@@ -85,7 +85,7 @@ github.com/example/pkg/other.go:20.1,22.2 1 1`
 	assert.Len(t, pkg.Files, 2)
 }
 
-func TestParseInvalidMode(t *testing.T) { //nolint:revive // function naming
+func TestParseInvalidMode(t *testing.T) {
 	parser := New()
 	ctx := context.Background()
 
@@ -99,7 +99,7 @@ github.com/example/pkg/file.go:10.1,12.2 2 1`
 	assert.Contains(t, err.Error(), "invalid coverage file: first line must specify mode")
 }
 
-func TestParseInvalidStatement(t *testing.T) { //nolint:revive // function naming
+func TestParseInvalidStatement(t *testing.T) {
 	parser := New()
 	ctx := context.Background()
 
@@ -113,7 +113,7 @@ invalid statement format`
 	assert.Contains(t, err.Error(), "failed to parse line")
 }
 
-func TestParseStatementValid(t *testing.T) { //nolint:revive // function naming
+func TestParseStatementValid(t *testing.T) {
 	parser := New()
 
 	stmt, filename, err := parser.parseStatement("github.com/example/pkg/file.go:10.5,12.10 2 1")
@@ -128,7 +128,7 @@ func TestParseStatementValid(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, 1, stmt.Count)
 }
 
-func TestParseStatementInvalidFormat(t *testing.T) { //nolint:revive // function naming
+func TestParseStatementInvalidFormat(t *testing.T) {
 	parser := New()
 
 	tests := []struct {
@@ -177,7 +177,7 @@ func TestParseStatementInvalidFormat(t *testing.T) { //nolint:revive // function
 	}
 }
 
-func TestParsePosition(t *testing.T) { //nolint:revive // function naming
+func TestParsePosition(t *testing.T) {
 	parser := New()
 
 	line, col, err := parser.parsePosition("10.15")
@@ -186,7 +186,7 @@ func TestParsePosition(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, 15, col)
 }
 
-func TestParsePositionInvalid(t *testing.T) { //nolint:revive // function naming
+func TestParsePositionInvalid(t *testing.T) {
 	parser := New()
 
 	tests := []struct {
@@ -220,7 +220,7 @@ func TestParsePositionInvalid(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestShouldExcludeFile(t *testing.T) { //nolint:revive // function naming
+func TestShouldExcludeFile(t *testing.T) {
 	parser := New()
 
 	tests := []struct {
@@ -268,7 +268,7 @@ func TestShouldExcludeFile(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestShouldExcludeFileIncludeOnly(t *testing.T) { //nolint:revive // function naming
+func TestShouldExcludeFileIncludeOnly(t *testing.T) {
 	config := &Config{
 		IncludeOnlyPaths: []string{"internal/", "pkg/"},
 	}
@@ -304,7 +304,7 @@ func TestShouldExcludeFileIncludeOnly(t *testing.T) { //nolint:revive // functio
 	}
 }
 
-func TestExtractPackageName(t *testing.T) { //nolint:revive // function naming
+func TestExtractPackageName(t *testing.T) {
 	parser := New()
 
 	tests := []struct {
@@ -337,7 +337,7 @@ func TestExtractPackageName(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestCalculateFileCoverage(t *testing.T) { //nolint:revive // function naming
+func TestCalculateFileCoverage(t *testing.T) {
 	parser := New()
 
 	statements := []Statement{
@@ -360,7 +360,7 @@ func TestCalculateFileCoverage(t *testing.T) { //nolint:revive // function namin
 	assert.Equal(t, 20, fileCov.Statements[2].StartLine)
 }
 
-func TestParseContextCancellation(t *testing.T) { //nolint:revive // function naming
+func TestParseContextCancellation(t *testing.T) {
 	parser := New()
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -377,7 +377,7 @@ github.com/example/pkg/file.go:10.1,12.2 2 1`
 	assert.Equal(t, context.Canceled, err)
 }
 
-func TestParseComplexCoverage(t *testing.T) { //nolint:revive // function naming
+func TestParseComplexCoverage(t *testing.T) {
 	parser := New()
 	ctx := context.Background()
 
@@ -398,7 +398,7 @@ func TestParseComplexCoverage(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestIsGeneratedFile(t *testing.T) { //nolint:revive // function naming
+func TestIsGeneratedFile(t *testing.T) {
 	parser := New()
 
 	// Create a temporary generated file
@@ -425,7 +425,7 @@ func TestIsGeneratedFile(t *testing.T) { //nolint:revive // function naming
 	assert.False(t, parser.isGeneratedFile(tmpFile2.Name()))
 }
 
-func TestParseEmptyFile(t *testing.T) { //nolint:revive // function naming
+func TestParseEmptyFile(t *testing.T) {
 	parser := New()
 	ctx := context.Background()
 
@@ -436,7 +436,7 @@ func TestParseEmptyFile(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, err.Error(), "invalid coverage file: missing mode declaration")
 }
 
-func TestParseOnlyMode(t *testing.T) { //nolint:revive // function naming
+func TestParseOnlyMode(t *testing.T) {
 	parser := New()
 	ctx := context.Background()
 

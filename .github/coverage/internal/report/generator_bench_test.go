@@ -54,7 +54,7 @@ func BenchmarkGenerateLarge(b *testing.B) {
 }
 
 // BenchmarkGenerateVeryLarge benchmarks very large report generation
-func BenchmarkGenerateVeryLarge(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGenerateVeryLarge(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createBenchmarkCoverageData(100, 1000) // 100 packages, 1000 files total
@@ -69,7 +69,7 @@ func BenchmarkGenerateVeryLarge(b *testing.B) { //nolint:revive // function nami
 }
 
 // BenchmarkGenerateWithAllOptions benchmarks generation with all options
-func BenchmarkGenerateWithAllOptions(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGenerateWithAllOptions(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createBenchmarkCoverageData(20, 100)
@@ -90,7 +90,7 @@ func BenchmarkGenerateWithAllOptions(b *testing.B) { //nolint:revive // function
 }
 
 // BenchmarkBuildReportData benchmarks report data construction
-func BenchmarkBuildReportData(b *testing.B) { //nolint:revive // function naming
+func BenchmarkBuildReportData(b *testing.B) {
 	generator := New()
 	coverage := createBenchmarkCoverageData(20, 100)
 	config := generator.config
@@ -102,7 +102,7 @@ func BenchmarkBuildReportData(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkRenderHTML benchmarks HTML template rendering
-func BenchmarkRenderHTML(b *testing.B) { //nolint:revive // function naming
+func BenchmarkRenderHTML(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createBenchmarkCoverageData(20, 100)
@@ -118,7 +118,7 @@ func BenchmarkRenderHTML(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkBuildLineReports benchmarks line report construction
-func BenchmarkBuildLineReports(b *testing.B) { //nolint:revive // function naming
+func BenchmarkBuildLineReports(b *testing.B) {
 	generator := New()
 	fileCov := createBenchmarkFileCoverage(1000) // File with 1000 statements
 
@@ -129,7 +129,7 @@ func BenchmarkBuildLineReports(b *testing.B) { //nolint:revive // function namin
 }
 
 // BenchmarkGetStatusClass benchmarks status class calculation
-func BenchmarkGetStatusClass(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGetStatusClass(b *testing.B) {
 	generator := New()
 	percentages := []float64{0.0, 25.5, 50.0, 75.3, 100.0}
 
@@ -141,7 +141,7 @@ func BenchmarkGetStatusClass(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkExtractFileName benchmarks file name extraction
-func BenchmarkExtractFileName(b *testing.B) { //nolint:revive // function naming
+func BenchmarkExtractFileName(b *testing.B) {
 	generator := New()
 	paths := []string{
 		"github.com/example/internal/config/config.go",
@@ -159,7 +159,7 @@ func BenchmarkExtractFileName(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkGetHTMLTemplate benchmarks template retrieval
-func BenchmarkGetHTMLTemplate(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGetHTMLTemplate(b *testing.B) {
 	generator := New()
 
 	b.ResetTimer()
@@ -169,7 +169,7 @@ func BenchmarkGetHTMLTemplate(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkMemoryAllocation benchmarks memory allocation during report generation
-func BenchmarkMemoryAllocation(b *testing.B) { //nolint:revive // function naming
+func BenchmarkMemoryAllocation(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createBenchmarkCoverageData(10, 50)
@@ -187,7 +187,7 @@ func BenchmarkMemoryAllocation(b *testing.B) { //nolint:revive // function namin
 }
 
 // BenchmarkConcurrentGeneration benchmarks concurrent report generation
-func BenchmarkConcurrentGeneration(b *testing.B) { //nolint:revive // function naming
+func BenchmarkConcurrentGeneration(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createBenchmarkCoverageData(10, 50)
@@ -203,7 +203,7 @@ func BenchmarkConcurrentGeneration(b *testing.B) { //nolint:revive // function n
 }
 
 // BenchmarkDifferentConfigurations benchmarks generation with different configurations
-func BenchmarkDifferentConfigurations(b *testing.B) { //nolint:revive // function naming
+func BenchmarkDifferentConfigurations(b *testing.B) {
 	coverage := createBenchmarkCoverageData(10, 50)
 	ctx := context.Background()
 
@@ -226,7 +226,7 @@ func BenchmarkDifferentConfigurations(b *testing.B) { //nolint:revive // functio
 }
 
 // BenchmarkVariousReportSizes benchmarks generation with different report sizes
-func BenchmarkVariousReportSizes(b *testing.B) { //nolint:revive // function naming
+func BenchmarkVariousReportSizes(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -255,7 +255,7 @@ func BenchmarkVariousReportSizes(b *testing.B) { //nolint:revive // function nam
 }
 
 // BenchmarkComplexLineReports benchmarks line report generation with complex statements
-func BenchmarkComplexLineReports(b *testing.B) { //nolint:revive // function naming
+func BenchmarkComplexLineReports(b *testing.B) {
 	generator := New()
 
 	// Create file coverage with overlapping statements
@@ -276,7 +276,7 @@ func BenchmarkComplexLineReports(b *testing.B) { //nolint:revive // function nam
 }
 
 // BenchmarkHTMLTemplateExecution benchmarks template execution with large data
-func BenchmarkHTMLTemplateExecution(b *testing.B) { //nolint:revive // function naming
+func BenchmarkHTMLTemplateExecution(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -294,7 +294,7 @@ func BenchmarkHTMLTemplateExecution(b *testing.B) { //nolint:revive // function 
 }
 
 // BenchmarkReportDataConstruction benchmarks only the data construction phase
-func BenchmarkReportDataConstruction(b *testing.B) { //nolint:revive // function naming
+func BenchmarkReportDataConstruction(b *testing.B) {
 	generator := New()
 	coverage := createBenchmarkCoverageData(25, 125)
 	config := generator.config
@@ -306,7 +306,7 @@ func BenchmarkReportDataConstruction(b *testing.B) { //nolint:revive // function
 }
 
 // BenchmarkPackageSorting benchmarks package sorting performance
-func BenchmarkPackageSorting(b *testing.B) { //nolint:revive // function naming
+func BenchmarkPackageSorting(b *testing.B) {
 	generator := New()
 	coverage := createBenchmarkCoverageData(100, 1000) // 100 packages
 

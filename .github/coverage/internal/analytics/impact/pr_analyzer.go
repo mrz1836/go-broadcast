@@ -17,6 +17,12 @@ import (
 // ErrPredictorNotAvailable indicates that the coverage predictor is not available
 var ErrPredictorNotAvailable = errors.New("predictor not available")
 
+// ErrInvalidChangeSet indicates that the changeSet parameter is nil
+var ErrInvalidChangeSet = errors.New("changeSet cannot be nil")
+
+// ErrInvalidAnalysis indicates that the analysis parameter is nil
+var ErrInvalidAnalysis = errors.New("analysis cannot be nil")
+
 // PRImpactAnalyzer analyzes the potential impact of pull requests on coverage
 type PRImpactAnalyzer struct {
 	config    *AnalyzerConfig
@@ -669,7 +675,13 @@ func (a *PRImpactAnalyzer) runQualityGates(_ context.Context, analysis *Analysis
 }
 
 // analyzePatterns performs historical pattern analysis
-func (a *PRImpactAnalyzer) analyzePatterns(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
+func (a *PRImpactAnalyzer) analyzePatterns(_ context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
+	if changeSet == nil {
+		return ErrInvalidChangeSet
+	}
+	if analysis == nil {
+		return ErrInvalidAnalysis
+	}
 	if a.history == nil {
 		return nil // Pattern analysis not available without history
 	}
@@ -705,7 +717,13 @@ func (a *PRImpactAnalyzer) analyzePatterns(ctx context.Context, changeSet *PRCha
 }
 
 // analyzeComplexity performs code complexity analysis
-func (a *PRImpactAnalyzer) analyzeComplexity(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
+func (a *PRImpactAnalyzer) analyzeComplexity(_ context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
+	if changeSet == nil {
+		return ErrInvalidChangeSet
+	}
+	if analysis == nil {
+		return ErrInvalidAnalysis
+	}
 	complexityAnalysis := &ComplexityAnalysis{
 		ComplexHotspots: make([]ComplexityHotspot, 0),
 	}
@@ -746,7 +764,13 @@ func (a *PRImpactAnalyzer) analyzeComplexity(ctx context.Context, changeSet *PRC
 }
 
 // generateRecommendations creates actionable recommendations
-func (a *PRImpactAnalyzer) generateRecommendations(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
+func (a *PRImpactAnalyzer) generateRecommendations(_ context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
+	if changeSet == nil {
+		return ErrInvalidChangeSet
+	}
+	if analysis == nil {
+		return ErrInvalidAnalysis
+	}
 	// Coverage improvement recommendations
 	if analysis.CoverageChange < 0 {
 		analysis.Recommendations = append(analysis.Recommendations, Recommendation{

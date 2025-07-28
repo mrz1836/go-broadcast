@@ -97,7 +97,7 @@ func TestGenerateAreaChart(t *testing.T) {
 	}
 }
 
-func TestSeriesTypes(t *testing.T) { //nolint:revive // function naming
+func TestSeriesTypes(t *testing.T) {
 	types := []SeriesType{
 		SeriesLine,
 		SeriesArea,

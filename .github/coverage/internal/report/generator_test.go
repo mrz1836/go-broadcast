@@ -12,7 +12,7 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
-func TestNew(t *testing.T) { //nolint:revive // function naming
+func TestNew(t *testing.T) {
 	generator := New()
 	assert.NotNil(t, generator)
 	assert.NotNil(t, generator.config)
@@ -26,7 +26,7 @@ func TestNew(t *testing.T) { //nolint:revive // function naming
 	assert.True(t, generator.config.InteractiveTrees)
 }
 
-func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
+func TestNewWithConfig(t *testing.T) {
 	config := &Config{
 		Theme:            "light",
 		Title:            "Test Report",
@@ -43,7 +43,7 @@ func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, config, generator.config)
 }
 
-func TestGenerate(t *testing.T) { //nolint:revive // function naming
+func TestGenerate(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 
@@ -70,7 +70,7 @@ func TestGenerate(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, htmlStr, "expandable")
 }
 
-func TestGenerateWithOptions(t *testing.T) { //nolint:revive // function naming
+func TestGenerateWithOptions(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createTestCoverageData()
@@ -87,7 +87,7 @@ func TestGenerateWithOptions(t *testing.T) { //nolint:revive // function naming
 	assert.NotContains(t, htmlStr, "📦 Packages") // packages section should be hidden
 }
 
-func TestGenerateContextCancellation(t *testing.T) { //nolint:revive // function naming
+func TestGenerateContextCancellation(t *testing.T) {
 	generator := New()
 	ctx, cancel := context.WithCancel(context.Background())
 	coverage := createTestCoverageData()
@@ -100,7 +100,7 @@ func TestGenerateContextCancellation(t *testing.T) { //nolint:revive // function
 	assert.Equal(t, context.Canceled, err)
 }
 
-func TestBuildReportData(t *testing.T) { //nolint:revive // function naming
+func TestBuildReportData(t *testing.T) {
 	generator := New()
 	coverage := createTestCoverageData()
 	config := generator.config
@@ -144,7 +144,7 @@ func TestBuildReportData(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, "good", file1.Status)
 }
 
-func TestGetStatusClass(t *testing.T) { //nolint:revive // function naming
+func TestGetStatusClass(t *testing.T) {
 	generator := New()
 
 	tests := []struct {
@@ -168,14 +168,14 @@ func TestGetStatusClass(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGetLineClass(t *testing.T) { //nolint:revive // function naming
+func TestGetLineClass(t *testing.T) {
 	generator := New()
 
 	assert.Equal(t, "covered", generator.getLineClass(true))
 	assert.Equal(t, "uncovered", generator.getLineClass(false))
 }
 
-func TestExtractFileName(t *testing.T) { //nolint:revive // function naming
+func TestExtractFileName(t *testing.T) {
 	generator := New()
 
 	tests := []struct {
@@ -196,7 +196,7 @@ func TestExtractFileName(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestBuildLineReports(t *testing.T) { //nolint:revive // function naming
+func TestBuildLineReports(t *testing.T) {
 	generator := New()
 
 	fileCov := &parser.FileCoverage{
@@ -226,7 +226,7 @@ func TestBuildLineReports(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, "uncovered", lines[5].Class)
 }
 
-func TestRenderHTML(t *testing.T) { //nolint:revive // function naming
+func TestRenderHTML(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 
@@ -267,7 +267,7 @@ func TestRenderHTML(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, htmlStr, "80.0%")
 }
 
-func TestRenderHTMLContextCancellation(t *testing.T) { //nolint:revive // function naming
+func TestRenderHTMLContextCancellation(t *testing.T) {
 	generator := New()
 	ctx, cancel := context.WithCancel(context.Background())
 	reportData := &Data{}
@@ -279,7 +279,7 @@ func TestRenderHTMLContextCancellation(t *testing.T) { //nolint:revive // functi
 	assert.Equal(t, context.Canceled, err)
 }
 
-func TestHTMLTemplateFunction(t *testing.T) { //nolint:revive // function naming
+func TestHTMLTemplateFunction(t *testing.T) {
 	generator := New()
 
 	template := generator.getHTMLTemplate()
@@ -292,7 +292,7 @@ func TestHTMLTemplateFunction(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, template, "--bg-primary: #0d1117") // GitHub dark theme colors
 }
 
-func TestConfigurationOptions(t *testing.T) { //nolint:revive // function naming
+func TestConfigurationOptions(t *testing.T) {
 	config := &Config{}
 
 	WithTheme("light")(config)
@@ -311,7 +311,7 @@ func TestConfigurationOptions(t *testing.T) { //nolint:revive // function naming
 	assert.False(t, config.ShowMissing)
 }
 
-func TestGenerateComplexReport(t *testing.T) { //nolint:revive // function naming
+func TestGenerateComplexReport(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 
@@ -399,7 +399,7 @@ func TestGenerateComplexReport(t *testing.T) { //nolint:revive // function namin
 	assert.Contains(t, htmlStr, "low")       // utils package (60%)
 }
 
-func TestGenerateEdgeCases(t *testing.T) { //nolint:revive // function naming
+func TestGenerateEdgeCases(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 
@@ -486,7 +486,7 @@ func TestGenerateEdgeCases(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGenerateAccessibility(t *testing.T) { //nolint:revive // function naming
+func TestGenerateAccessibility(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createTestCoverageData()
@@ -512,7 +512,7 @@ func TestGenerateAccessibility(t *testing.T) { //nolint:revive // function namin
 	assert.Contains(t, htmlStr, `<div class="summary">`)
 }
 
-func TestGenerateResponsiveDesign(t *testing.T) { //nolint:revive // function naming
+func TestGenerateResponsiveDesign(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createTestCoverageData()
@@ -531,7 +531,7 @@ func TestGenerateResponsiveDesign(t *testing.T) { //nolint:revive // function na
 	assert.Contains(t, htmlStr, `width=device-width, initial-scale=1.0`)
 }
 
-func TestRenderHTMLExecutionError(t *testing.T) { //nolint:revive // function naming
+func TestRenderHTMLExecutionError(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 
@@ -554,7 +554,7 @@ func TestRenderHTMLExecutionError(t *testing.T) { //nolint:revive // function na
 	assert.Contains(t, err.Error(), "failed to execute template")
 }
 
-func TestGenerateAllOptionCombinations(t *testing.T) { //nolint:revive // function naming
+func TestGenerateAllOptionCombinations(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 	coverage := createTestCoverageData()
@@ -580,7 +580,7 @@ func TestGenerateAllOptionCombinations(t *testing.T) { //nolint:revive // functi
 	}
 }
 
-func TestBuildReportDataEdgeCases(t *testing.T) { //nolint:revive // function naming
+func TestBuildReportDataEdgeCases(t *testing.T) {
 	generator := New()
 
 	// Test with empty packages
@@ -599,7 +599,7 @@ func TestBuildReportDataEdgeCases(t *testing.T) { //nolint:revive // function na
 	assert.Equal(t, 0, reportData.Summary.FileCount)
 }
 
-func TestBuildLineReportsEdgeCases(t *testing.T) { //nolint:revive // function naming
+func TestBuildLineReportsEdgeCases(t *testing.T) {
 	generator := New()
 
 	// Test with no statements
@@ -636,7 +636,7 @@ func TestBuildLineReportsEdgeCases(t *testing.T) { //nolint:revive // function n
 	assert.True(t, lineNumbers[15], "Line 15 should be present")
 }
 
-func TestRenderHTMLWithComplexData(t *testing.T) { //nolint:revive // function naming
+func TestRenderHTMLWithComplexData(t *testing.T) {
 	generator := New()
 	ctx := context.Background()
 

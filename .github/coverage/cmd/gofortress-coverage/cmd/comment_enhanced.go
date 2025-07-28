@@ -267,25 +267,25 @@ This enhanced version includes:
 				commentPreview = fmt.Sprintf("Error generating template preview: %v", renderErr)
 			}
 
-			fmt.Printf("Enhanced PR Comment Preview (Dry Run)\n") //nolint:forbidigo // CLI output
-			fmt.Printf("=====================================\n") //nolint:forbidigo // CLI output
-			fmt.Printf("Template: %s\n", templateName)
-			fmt.Printf("PR: %d\n", prNumber)
-			fmt.Printf("Repository: %s/%s\n", cfg.GitHub.Owner, cfg.GitHub.Repository)
-			fmt.Printf("Coverage: %.2f%%\n", coverage.Percentage)
+			fmt.Printf("Enhanced PR Comment Preview (Dry Run)\n")                      //nolint:forbidigo // CLI output
+			fmt.Printf("=====================================\n")                      //nolint:forbidigo // CLI output
+			fmt.Printf("Template: %s\n", templateName)                                 //nolint:forbidigo // CLI output
+			fmt.Printf("PR: %d\n", prNumber)                                           //nolint:forbidigo // CLI output
+			fmt.Printf("Repository: %s/%s\n", cfg.GitHub.Owner, cfg.GitHub.Repository) //nolint:forbidigo // CLI output
+			fmt.Printf("Coverage: %.2f%%\n", coverage.Percentage)                      //nolint:forbidigo // CLI output
 			if comparison.BaseCoverage.Percentage > 0 {
-				fmt.Printf("Base Coverage: %.2f%%\n", comparison.BaseCoverage.Percentage)
-				fmt.Printf("Difference: %+.2f%%\n", comparison.Difference)
+				fmt.Printf("Base Coverage: %.2f%%\n", comparison.BaseCoverage.Percentage) //nolint:forbidigo // CLI output
+				fmt.Printf("Difference: %+.2f%%\n", comparison.Difference)                //nolint:forbidigo // CLI output
 			}
-			fmt.Printf("Features enabled:\n")
-			fmt.Printf("  - Analysis: %v\n", enableAnalysis)
-			fmt.Printf("  - Status Checks: %v\n", createStatus)
-			fmt.Printf("  - Badge Generation: %v\n", generateBadges)
-			fmt.Printf("  - Merge Blocking: %v\n", blockOnFailure)
-			fmt.Printf("  - Anti-spam: %v\n", antiSpam)
-			fmt.Printf("=====================================\n") //nolint:forbidigo // CLI output
-			fmt.Println(commentPreview)                           //nolint:forbidigo // CLI output
-			fmt.Printf("=====================================\n") //nolint:forbidigo // CLI output
+			fmt.Printf("Features enabled:\n")                        //nolint:forbidigo // CLI output
+			fmt.Printf("  - Analysis: %v\n", enableAnalysis)         //nolint:forbidigo // CLI output
+			fmt.Printf("  - Status Checks: %v\n", createStatus)      //nolint:forbidigo // CLI output
+			fmt.Printf("  - Badge Generation: %v\n", generateBadges) //nolint:forbidigo // CLI output
+			fmt.Printf("  - Merge Blocking: %v\n", blockOnFailure)   //nolint:forbidigo // CLI output
+			fmt.Printf("  - Anti-spam: %v\n", antiSpam)              //nolint:forbidigo // CLI output
+			fmt.Printf("=====================================\n")    //nolint:forbidigo // CLI output
+			fmt.Println(commentPreview)                              //nolint:forbidigo // CLI output
+			fmt.Printf("=====================================\n")    //nolint:forbidigo // CLI output
 
 			return nil
 		}
@@ -299,13 +299,13 @@ This enhanced version includes:
 			return fmt.Errorf("failed to create enhanced PR comment: %w", err)
 		}
 
-		fmt.Printf("Enhanced coverage comment %s successfully!\n", result.Action)
-		fmt.Printf("Comment ID: %d\n", result.CommentID)
-		fmt.Printf("Coverage: %.2f%%\n", comparison.PRCoverage.Percentage)
+		fmt.Printf("Enhanced coverage comment %s successfully!\n", result.Action) //nolint:forbidigo // CLI output
+		fmt.Printf("Comment ID: %d\n", result.CommentID)                          //nolint:forbidigo // CLI output
+		fmt.Printf("Coverage: %.2f%%\n", comparison.PRCoverage.Percentage)        //nolint:forbidigo // CLI output
 		if comparison.BaseCoverage.Percentage > 0 {
-			fmt.Printf("Change: %+.2f%% vs base\n", comparison.Difference)
+			fmt.Printf("Change: %+.2f%% vs base\n", comparison.Difference) //nolint:forbidigo // CLI output
 		}
-		fmt.Printf("Action taken: %s (%s)\n", result.Action, result.Reason)
+		fmt.Printf("Action taken: %s (%s)\n", result.Action, result.Reason) //nolint:forbidigo // CLI output
 
 		// Generate PR-specific badges if requested
 		if generateBadges {
@@ -329,12 +329,12 @@ This enhanced version includes:
 
 			badgeResult, err := prBadgeManager.GenerateStandardPRBadges(ctx, badgeRequest)
 			if err != nil {
-				fmt.Printf("Warning: failed to generate PR badges: %v\n", err)
+				fmt.Printf("Warning: failed to generate PR badges: %v\n", err) //nolint:forbidigo // CLI output
 			} else {
-				fmt.Printf("Generated %d PR-specific badges\n", badgeResult.TotalBadges)
+				fmt.Printf("Generated %d PR-specific badges\n", badgeResult.TotalBadges) //nolint:forbidigo // CLI output
 				for badgeType, urls := range badgeResult.PublicURLs {
 					if len(urls) > 0 {
-						fmt.Printf("  %s: %s\n", badgeType, urls[0])
+						fmt.Printf("  %s: %s\n", badgeType, urls[0]) //nolint:forbidigo // CLI output
 					}
 				}
 			}
@@ -374,16 +374,16 @@ This enhanced version includes:
 
 			statusResult, err := statusManager.CreateStatusChecks(ctx, statusRequest)
 			if err != nil {
-				fmt.Printf("Warning: failed to create status checks: %v\n", err)
+				fmt.Printf("Warning: failed to create status checks: %v\n", err) //nolint:forbidigo // CLI output
 			} else {
-				fmt.Printf("Created %d status checks\n", statusResult.TotalChecks)
-				fmt.Printf("Passed: %d, Failed: %d, Errors: %d\n",
+				fmt.Printf("Created %d status checks\n", statusResult.TotalChecks) //nolint:forbidigo // CLI output
+				fmt.Printf("Passed: %d, Failed: %d, Errors: %d\n",                 //nolint:forbidigo // CLI output
 					statusResult.PassedChecks, statusResult.FailedChecks, statusResult.ErrorChecks)
 				if statusResult.BlockingPR {
-					fmt.Printf("⚠️ PR merge is blocked due to failed required checks\n")
+					fmt.Printf("⚠️ PR merge is blocked due to failed required checks\n") //nolint:forbidigo // CLI output
 				}
 				if len(statusResult.RequiredFailed) > 0 {
-					fmt.Printf("Failed required checks: %v\n", statusResult.RequiredFailed)
+					fmt.Printf("Failed required checks: %v\n", statusResult.RequiredFailed) //nolint:forbidigo // CLI output
 				}
 			}
 		}

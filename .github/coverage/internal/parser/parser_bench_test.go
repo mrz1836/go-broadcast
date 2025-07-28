@@ -8,7 +8,7 @@ import (
 )
 
 // BenchmarkParse benchmarks the parsing of coverage data
-func BenchmarkParse(b *testing.B) { //nolint:revive // function naming
+func BenchmarkParse(b *testing.B) {
 	parser := New()
 	ctx := context.Background()
 
@@ -26,7 +26,7 @@ func BenchmarkParse(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkParseSmall benchmarks parsing small coverage files
-func BenchmarkParseSmall(b *testing.B) { //nolint:revive // function naming
+func BenchmarkParseSmall(b *testing.B) {
 	parser := New()
 	ctx := context.Background()
 
@@ -43,7 +43,7 @@ func BenchmarkParseSmall(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkParseLarge benchmarks parsing large coverage files
-func BenchmarkParseLarge(b *testing.B) { //nolint:revive // function naming
+func BenchmarkParseLarge(b *testing.B) {
 	parser := New()
 	ctx := context.Background()
 
@@ -60,7 +60,7 @@ func BenchmarkParseLarge(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkParseStatement benchmarks the parsing of individual statements
-func BenchmarkParseStatement(b *testing.B) { //nolint:revive // function naming
+func BenchmarkParseStatement(b *testing.B) {
 	parser := New()
 	statement := "github.com/example/pkg/file.go:10.5,12.10 2 1"
 
@@ -74,7 +74,7 @@ func BenchmarkParseStatement(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkParsePosition benchmarks position parsing
-func BenchmarkParsePosition(b *testing.B) { //nolint:revive // function naming
+func BenchmarkParsePosition(b *testing.B) {
 	parser := New()
 	position := "10.15"
 
@@ -88,7 +88,7 @@ func BenchmarkParsePosition(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkShouldExcludeFile benchmarks file exclusion logic
-func BenchmarkShouldExcludeFile(b *testing.B) { //nolint:revive // function naming
+func BenchmarkShouldExcludeFile(b *testing.B) {
 	parser := New()
 	filename := "internal/config/config.go"
 
@@ -99,7 +99,7 @@ func BenchmarkShouldExcludeFile(b *testing.B) { //nolint:revive // function nami
 }
 
 // BenchmarkExtractPackageName benchmarks package name extraction
-func BenchmarkExtractPackageName(b *testing.B) { //nolint:revive // function naming
+func BenchmarkExtractPackageName(b *testing.B) {
 	parser := New()
 	filename := "github.com/example/internal/config/config.go"
 
@@ -110,7 +110,7 @@ func BenchmarkExtractPackageName(b *testing.B) { //nolint:revive // function nam
 }
 
 // BenchmarkCalculateFileCoverage benchmarks coverage calculation
-func BenchmarkCalculateFileCoverage(b *testing.B) { //nolint:revive // function naming
+func BenchmarkCalculateFileCoverage(b *testing.B) {
 	parser := New()
 	statements := []Statement{
 		{StartLine: 10, NumStmt: 2, Count: 1},
@@ -127,7 +127,7 @@ func BenchmarkCalculateFileCoverage(b *testing.B) { //nolint:revive // function 
 }
 
 // BenchmarkBuildCoverageData benchmarks the final data structure building
-func BenchmarkBuildCoverageData(b *testing.B) { //nolint:revive // function naming
+func BenchmarkBuildCoverageData(b *testing.B) {
 	parser := New()
 	statements := generateStatements(100) // 100 statements across multiple files
 
@@ -141,7 +141,7 @@ func BenchmarkBuildCoverageData(b *testing.B) { //nolint:revive // function nami
 }
 
 // BenchmarkParseWithExclusions benchmarks parsing with various exclusion patterns
-func BenchmarkParseWithExclusions(b *testing.B) { //nolint:revive // function naming
+func BenchmarkParseWithExclusions(b *testing.B) {
 	config := &Config{
 		ExcludePaths:     []string{"test/", "vendor/", "examples/", "third_party/", "testdata/", "generated/"},
 		ExcludeFiles:     []string{"*_test.go", "*.pb.go", "*_mock.go", "mock_*.go", "*.gen.go"},
@@ -240,7 +240,7 @@ func generateStatements(numStatements int) []StatementWithFile {
 }
 
 // BenchmarkMemoryAllocation benchmarks memory allocation during parsing
-func BenchmarkMemoryAllocation(b *testing.B) { //nolint:revive // function naming
+func BenchmarkMemoryAllocation(b *testing.B) {
 	parser := New()
 	ctx := context.Background()
 	coverageData := generateCoverageData(50)
@@ -259,7 +259,7 @@ func BenchmarkMemoryAllocation(b *testing.B) { //nolint:revive // function namin
 }
 
 // BenchmarkConcurrentParsing benchmarks concurrent parsing operations
-func BenchmarkConcurrentParsing(b *testing.B) { //nolint:revive // function naming
+func BenchmarkConcurrentParsing(b *testing.B) {
 	parser := New()
 	ctx := context.Background()
 	coverageData := generateCoverageData(30)

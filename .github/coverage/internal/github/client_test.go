@@ -141,7 +141,7 @@ func TestCreateComment(t *testing.T) {
 	}
 }
 
-func TestCreateCommentError(t *testing.T) { //nolint:revive // function naming
+func TestCreateCommentError(t *testing.T) {
 	tests := []struct {
 		name          string
 		statusCode    int
@@ -203,7 +203,7 @@ func TestCreateCommentError(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestCreateStatus(t *testing.T) { //nolint:revive // function naming
+func TestCreateStatus(t *testing.T) {
 	tests := []struct {
 		name         string
 		status       *StatusRequest
@@ -290,7 +290,7 @@ func TestCreateStatus(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGetPullRequest(t *testing.T) { //nolint:revive // function naming
+func TestGetPullRequest(t *testing.T) {
 	tests := []struct {
 		name         string
 		prNumber     int
@@ -373,8 +373,8 @@ func TestGetPullRequest(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestContextCancellation(t *testing.T) { //nolint:revive // function naming
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestContextCancellation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Simulate slow response
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(200)
@@ -401,7 +401,7 @@ func TestContextCancellation(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, err.Error(), "context deadline exceeded")
 }
 
-func TestContainsCoverageMarker(t *testing.T) { //nolint:revive // function naming
+func TestContainsCoverageMarker(t *testing.T) {
 	tests := []struct {
 		name     string
 		body     string
@@ -442,7 +442,7 @@ func TestContainsCoverageMarker(t *testing.T) { //nolint:revive // function nami
 	}
 }
 
-func TestGenerateCoverageComment(t *testing.T) { //nolint:revive // function naming
+func TestGenerateCoverageComment(t *testing.T) {
 	tests := []struct {
 		name       string
 		percentage float64
@@ -500,7 +500,7 @@ func TestGenerateCoverageComment(t *testing.T) { //nolint:revive // function nam
 	}
 }
 
-func TestGetPercentageEmoji(t *testing.T) { //nolint:revive // function naming
+func TestGetPercentageEmoji(t *testing.T) {
 	tests := []struct {
 		percentage float64
 		expected   string
@@ -523,7 +523,7 @@ func TestGetPercentageEmoji(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestContainsHelper(t *testing.T) { //nolint:revive // function naming
+func TestContainsHelper(t *testing.T) {
 	tests := []struct {
 		name     string
 		s        string
@@ -548,7 +548,7 @@ func TestContainsHelper(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestIndexOfHelper(t *testing.T) { //nolint:revive // function naming
+func TestIndexOfHelper(t *testing.T) {
 	tests := []struct {
 		name     string
 		s        string
@@ -571,7 +571,7 @@ func TestIndexOfHelper(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestFindCoverageCommentIntegration(t *testing.T) { //nolint:revive // function naming
+func TestFindCoverageCommentIntegration(t *testing.T) {
 	comments := []Comment{
 		{ID: 1, Body: "Regular comment"},
 		{ID: 2, Body: "<!-- coverage-comment -->\nOld coverage data"},
@@ -607,7 +607,7 @@ func TestFindCoverageCommentIntegration(t *testing.T) { //nolint:revive // funct
 	assert.Contains(t, comment.Body, "<!-- coverage-comment -->")
 }
 
-func TestStatusConstants(t *testing.T) { //nolint:revive // function naming
+func TestStatusConstants(t *testing.T) {
 	assert.Equal(t, "success", StatusSuccess)
 	assert.Equal(t, "failure", StatusFailure)
 	assert.Equal(t, "error", StatusError)

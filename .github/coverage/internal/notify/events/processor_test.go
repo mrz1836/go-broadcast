@@ -85,7 +85,7 @@ type mockSubscriber struct {
 	shouldFail     bool
 }
 
-func (m *mockSubscriber) HandleEvent(ctx context.Context, event Event) error {
+func (m *mockSubscriber) HandleEvent(_ context.Context, event Event) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -136,7 +136,7 @@ func NewTestEventProcessor(config EventProcessorConfig) *mockEventProcessor {
 	}
 }
 
-func (p *mockEventProcessor) Start(ctx context.Context) error {
+func (p *mockEventProcessor) Start(_ context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.running = true
@@ -547,7 +547,7 @@ func TestEventProcessorMetrics(t *testing.T) {
 	}
 }
 
-func TestEventProcessorRetry(t *testing.T) { //nolint:revive // function naming
+func TestEventProcessorRetry(t *testing.T) {
 	config := EventProcessorConfig{
 		BufferSize:    10,
 		WorkerCount:   1,
@@ -582,7 +582,7 @@ func TestEventProcessorRetry(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestEventProcessorConcurrency(t *testing.T) { //nolint:revive // function naming
+func TestEventProcessorConcurrency(t *testing.T) {
 	config := EventProcessorConfig{
 		BufferSize:   100,
 		WorkerCount:  3,
@@ -621,7 +621,7 @@ func TestEventProcessorConcurrency(t *testing.T) { //nolint:revive // function n
 	}
 }
 
-func BenchmarkEventProcessorPublish(b *testing.B) { //nolint:revive // function naming
+func BenchmarkEventProcessorPublish(b *testing.B) {
 	config := EventProcessorConfig{
 		BufferSize:   1000,
 		WorkerCount:  2,
@@ -649,7 +649,7 @@ func BenchmarkEventProcessorPublish(b *testing.B) { //nolint:revive // function 
 	}
 }
 
-func BenchmarkEventProcessorWithFiltering(b *testing.B) { //nolint:revive // function naming
+func BenchmarkEventProcessorWithFiltering(b *testing.B) {
 	config := EventProcessorConfig{
 		BufferSize:   1000,
 		WorkerCount:  2,

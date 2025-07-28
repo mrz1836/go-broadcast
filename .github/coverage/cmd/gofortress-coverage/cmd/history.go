@@ -60,7 +60,7 @@ var historyCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	},
 }
 
-func addToHistory(ctx context.Context, tracker *history.Tracker, inputFile, branch, commit, commitURL string, cfg *config.Config, cmd *cobra.Command) error { //nolint:revive // function naming
+func addToHistory(ctx context.Context, tracker *history.Tracker, inputFile, branch, commit, commitURL string, cfg *config.Config, cmd *cobra.Command) error {
 	// Parse coverage data
 	p := parser.New()
 	coverage, err := p.ParseFile(ctx, inputFile)
@@ -105,7 +105,7 @@ func addToHistory(ctx context.Context, tracker *history.Tracker, inputFile, bran
 	return nil
 }
 
-func showTrendData(ctx context.Context, tracker *history.Tracker, branch string, days int, format string, cmd *cobra.Command) error { //nolint:revive // function naming
+func showTrendData(ctx context.Context, tracker *history.Tracker, branch string, days int, format string, cmd *cobra.Command) error {
 	if branch == "" {
 		branch = "main"
 	}
@@ -167,7 +167,7 @@ func showTrendData(ctx context.Context, tracker *history.Tracker, branch string,
 	return nil
 }
 
-func showStatistics(ctx context.Context, tracker *history.Tracker, format string, cmd *cobra.Command) error { //nolint:revive // function naming
+func showStatistics(ctx context.Context, tracker *history.Tracker, format string, cmd *cobra.Command) error {
 	stats, err := tracker.GetStatistics(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get statistics: %w", err)
@@ -210,7 +210,7 @@ func showStatistics(ctx context.Context, tracker *history.Tracker, format string
 	return nil
 }
 
-func cleanupHistory(ctx context.Context, tracker *history.Tracker, cmd *cobra.Command) error { //nolint:revive // function naming
+func cleanupHistory(ctx context.Context, tracker *history.Tracker, cmd *cobra.Command) error {
 	err := tracker.Cleanup(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to cleanup history: %w", err)
@@ -220,7 +220,7 @@ func cleanupHistory(ctx context.Context, tracker *history.Tracker, cmd *cobra.Co
 	return nil
 }
 
-func showLatestEntry(ctx context.Context, tracker *history.Tracker, branch, format string, cmd *cobra.Command) error { //nolint:revive // function naming
+func showLatestEntry(ctx context.Context, tracker *history.Tracker, branch, format string, cmd *cobra.Command) error {
 	if branch == "" {
 		branch = "main"
 	}

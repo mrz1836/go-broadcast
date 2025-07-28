@@ -899,7 +899,7 @@ func runNotify(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 	return ErrMissingNotifyOption
 }
 
-func showNotificationStatus(_ context.Context) error { //nolint:revive // function naming
+func showNotificationStatus(_ context.Context) error {
 	fmt.Println("📢 Notification System Status") //nolint:forbidigo // CLI output
 
 	// Initialize notification engine
@@ -930,7 +930,7 @@ func showNotificationStatus(_ context.Context) error { //nolint:revive // functi
 	return nil
 }
 
-func sendTestNotification(ctx context.Context) error { //nolint:revive // function naming
+func sendTestNotification(ctx context.Context) error {
 	fmt.Println("📤 Sending test notification...") //nolint:forbidigo // CLI output
 
 	// Initialize notification engine

@@ -90,7 +90,7 @@ func BenchmarkGenerateTrendBadge(b *testing.B) {
 }
 
 // BenchmarkGetColorForPercentage benchmarks color calculation
-func BenchmarkGetColorForPercentage(b *testing.B) { //nolint:revive // function naming
+func BenchmarkGetColorForPercentage(b *testing.B) {
 	generator := New()
 
 	b.ResetTimer()
@@ -100,7 +100,7 @@ func BenchmarkGetColorForPercentage(b *testing.B) { //nolint:revive // function 
 }
 
 // BenchmarkCalculateTextWidth benchmarks text width calculation
-func BenchmarkCalculateTextWidth(b *testing.B) { //nolint:revive // function naming
+func BenchmarkCalculateTextWidth(b *testing.B) {
 	generator := New()
 	text := "coverage 85.5%"
 
@@ -111,7 +111,7 @@ func BenchmarkCalculateTextWidth(b *testing.B) { //nolint:revive // function nam
 }
 
 // BenchmarkRenderSVG benchmarks SVG rendering
-func BenchmarkRenderSVG(b *testing.B) { //nolint:revive // function naming
+func BenchmarkRenderSVG(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -133,7 +133,7 @@ func BenchmarkRenderSVG(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkRenderFlatBadge benchmarks flat badge rendering
-func BenchmarkRenderFlatBadge(b *testing.B) { //nolint:revive // function naming
+func BenchmarkRenderFlatBadge(b *testing.B) {
 	generator := New()
 
 	data := Data{
@@ -151,7 +151,7 @@ func BenchmarkRenderFlatBadge(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkRenderFlatSquareBadge benchmarks flat-square badge rendering
-func BenchmarkRenderFlatSquareBadge(b *testing.B) { //nolint:revive // function naming
+func BenchmarkRenderFlatSquareBadge(b *testing.B) {
 	generator := New()
 
 	data := Data{
@@ -169,7 +169,7 @@ func BenchmarkRenderFlatSquareBadge(b *testing.B) { //nolint:revive // function 
 }
 
 // BenchmarkRenderForTheBadge benchmarks for-the-badge style rendering
-func BenchmarkRenderForTheBadge(b *testing.B) { //nolint:revive // function naming
+func BenchmarkRenderForTheBadge(b *testing.B) {
 	generator := New()
 
 	data := Data{
@@ -187,7 +187,7 @@ func BenchmarkRenderForTheBadge(b *testing.B) { //nolint:revive // function nami
 }
 
 // BenchmarkMemoryAllocation benchmarks memory allocation during badge generation
-func BenchmarkMemoryAllocation(b *testing.B) { //nolint:revive // function naming
+func BenchmarkMemoryAllocation(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -204,7 +204,7 @@ func BenchmarkMemoryAllocation(b *testing.B) { //nolint:revive // function namin
 }
 
 // BenchmarkConcurrentGeneration benchmarks concurrent badge generation
-func BenchmarkConcurrentGeneration(b *testing.B) { //nolint:revive // function naming
+func BenchmarkConcurrentGeneration(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -219,7 +219,7 @@ func BenchmarkConcurrentGeneration(b *testing.B) { //nolint:revive // function n
 }
 
 // BenchmarkMultipleStyles benchmarks generation of different badge styles
-func BenchmarkMultipleStyles(b *testing.B) { //nolint:revive // function naming
+func BenchmarkMultipleStyles(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -236,7 +236,7 @@ func BenchmarkMultipleStyles(b *testing.B) { //nolint:revive // function naming
 }
 
 // BenchmarkVariousCoverages benchmarks generation with different coverage values
-func BenchmarkVariousCoverages(b *testing.B) { //nolint:revive // function naming
+func BenchmarkVariousCoverages(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 
@@ -253,7 +253,7 @@ func BenchmarkVariousCoverages(b *testing.B) { //nolint:revive // function namin
 }
 
 // BenchmarkWithOptions benchmarks generation with various options
-func BenchmarkWithOptions(b *testing.B) { //nolint:revive // function naming
+func BenchmarkWithOptions(b *testing.B) {
 	generator := New()
 	ctx := context.Background()
 

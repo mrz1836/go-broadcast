@@ -99,7 +99,7 @@ func NewPredictionEngine(config *PredictorConfig) *PredictionEngine {
 	return &PredictionEngine{config: config}
 }
 
-func TestNewPredictionEngine(t *testing.T) { //nolint:revive // function naming
+func TestNewPredictionEngine(t *testing.T) {
 	cfg := &PredictorConfig{
 		ModelType:             ModelLinearRegression,
 		MinTrainingPoints:     10,
@@ -115,7 +115,7 @@ func TestNewPredictionEngine(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestPredictCoverage(t *testing.T) { //nolint:revive // function naming
+func TestPredictCoverage(t *testing.T) {
 	cfg := &PredictorConfig{
 		ModelType:             ModelLinearRegression,
 		MinTrainingPoints:     5,
@@ -219,7 +219,7 @@ func TestPredictCoverage(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestTrainLinearModel(t *testing.T) { //nolint:revive // function naming
+func TestTrainLinearModel(t *testing.T) {
 	engine := NewPredictionEngine(&PredictorConfig{})
 
 	// Generate linear training data
@@ -251,7 +251,7 @@ func TestTrainLinearModel(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestTrainPolynomialModel(t *testing.T) { //nolint:revive // function naming
+func TestTrainPolynomialModel(t *testing.T) {
 	engine := NewPredictionEngine(&PredictorConfig{})
 
 	// Generate quadratic training data
@@ -279,7 +279,7 @@ func TestTrainPolynomialModel(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestCrossValidation(t *testing.T) { //nolint:revive // function naming
+func TestCrossValidation(t *testing.T) {
 	engine := NewPredictionEngine(&PredictorConfig{})
 
 	// Generate test data
@@ -317,7 +317,7 @@ func TestCrossValidation(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestCalculateConfidenceIntervals(t *testing.T) { //nolint:revive // function naming
+func TestCalculateConfidenceIntervals(t *testing.T) {
 	engine := NewPredictionEngine(&PredictorConfig{})
 
 	// Generate predictions with some variance
@@ -346,7 +346,7 @@ func TestCalculateConfidenceIntervals(t *testing.T) { //nolint:revive // functio
 	}
 }
 
-func TestFeatureEngineering(t *testing.T) { //nolint:revive // function naming
+func TestFeatureEngineering(t *testing.T) {
 	engine := NewPredictionEngine(&PredictorConfig{})
 
 	data := []CoverageDataPoint{
@@ -394,7 +394,7 @@ func TestFeatureEngineering(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestModelEvaluation(t *testing.T) { //nolint:revive // function naming
+func TestModelEvaluation(t *testing.T) {
 	engine := NewPredictionEngine(&PredictorConfig{})
 
 	actual := []float64{85.0, 87.0, 83.0, 89.0, 86.0}
@@ -428,7 +428,7 @@ func TestModelEvaluation(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestPredictionExplainability(t *testing.T) { //nolint:revive // function naming
+func TestPredictionExplainability(t *testing.T) {
 	engine := NewPredictionEngine(&PredictorConfig{})
 
 	data := make([]CoverageDataPoint, 20)
@@ -465,7 +465,7 @@ func TestPredictionExplainability(t *testing.T) { //nolint:revive // function na
 	}
 }
 
-func TestAlertGeneration(t *testing.T) { //nolint:revive // function naming
+func TestAlertGeneration(t *testing.T) {
 	engine := NewPredictionEngine(&PredictorConfig{})
 
 	// Create prediction that will trigger alerts
@@ -507,7 +507,7 @@ func TestAlertGeneration(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func BenchmarkPredictCoverage(b *testing.B) { //nolint:revive // function naming
+func BenchmarkPredictCoverage(b *testing.B) {
 	cfg := &PredictorConfig{
 		ModelType:             ModelLinearRegression,
 		MinTrainingPoints:     10,
@@ -540,7 +540,7 @@ func BenchmarkPredictCoverage(b *testing.B) { //nolint:revive // function naming
 	}
 }
 
-func BenchmarkCrossValidation(b *testing.B) { //nolint:revive // function naming
+func BenchmarkCrossValidation(b *testing.B) {
 	engine := NewPredictionEngine(&PredictorConfig{})
 
 	// Generate test data
@@ -677,7 +677,7 @@ func (engine *PredictionEngine) evaluateModel(_, _ []float64) (*ModelMetrics, er
 	}, nil
 }
 
-func (engine *PredictionEngine) ExplainPrediction(ctx context.Context, data []CoverageDataPoint, options PredictionOptions) (*PredictionExplanation, error) {
+func (engine *PredictionEngine) ExplainPrediction(_ context.Context, _ []CoverageDataPoint, options PredictionOptions) (*PredictionExplanation, error) {
 	// Mock prediction explanation
 	return &PredictionExplanation{
 		ModelType: options.ModelType,
@@ -690,7 +690,7 @@ func (engine *PredictionEngine) ExplainPrediction(ctx context.Context, data []Co
 	}, nil
 }
 
-func (engine *PredictionEngine) GeneratePredictionAlerts(ctx context.Context, prediction interface{}, thresholds AlertThresholds) ([]PredictionAlert, error) {
+func (engine *PredictionEngine) GeneratePredictionAlerts(_ context.Context, prediction interface{}, thresholds AlertThresholds) ([]PredictionAlert, error) {
 	// Mock alert generation
 	alerts := []PredictionAlert{}
 

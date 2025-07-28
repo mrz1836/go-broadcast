@@ -18,7 +18,7 @@ this tool replaces Codecov with zero external service dependencies.`,
 }
 
 // Execute runs the root command
-func Execute() error { //nolint:revive // function naming
+func Execute() error {
 	return rootCmd.Execute()
 }
 

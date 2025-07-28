@@ -13,7 +13,7 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 )
 
-func TestNew(t *testing.T) { //nolint:revive // function naming
+func TestNew(t *testing.T) {
 	tracker := New()
 	assert.NotNil(t, tracker)
 	assert.NotNil(t, tracker.config)
@@ -25,7 +25,7 @@ func TestNew(t *testing.T) { //nolint:revive // function naming
 	assert.True(t, tracker.config.MetricsEnabled)
 }
 
-func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
+func TestNewWithConfig(t *testing.T) {
 	config := &Config{
 		StoragePath:      "/tmp/custom",
 		RetentionDays:    30,
@@ -40,7 +40,7 @@ func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, config, tracker.config)
 }
 
-func TestRecord(t *testing.T) { //nolint:revive // function naming
+func TestRecord(t *testing.T) {
 	// Create temp directory for testing
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
@@ -72,7 +72,7 @@ func TestRecord(t *testing.T) { //nolint:revive // function naming
 	assert.Len(t, files, 1)
 }
 
-func TestRecordContextCancellation(t *testing.T) { //nolint:revive // function naming
+func TestRecordContextCancellation(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -90,7 +90,7 @@ func TestRecordContextCancellation(t *testing.T) { //nolint:revive // function n
 	assert.Equal(t, context.Canceled, err)
 }
 
-func TestGetTrend(t *testing.T) { //nolint:revive // function naming
+func TestGetTrend(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -127,7 +127,7 @@ func TestGetTrend(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, "up", trendData.Summary.CurrentTrend)
 }
 
-func TestGetTrendEmpty(t *testing.T) { //nolint:revive // function naming
+func TestGetTrendEmpty(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -145,7 +145,7 @@ func TestGetTrendEmpty(t *testing.T) { //nolint:revive // function naming
 	assert.NotNil(t, trendData.Analysis)
 }
 
-func TestGetLatestEntry(t *testing.T) { //nolint:revive // function naming
+func TestGetLatestEntry(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -175,7 +175,7 @@ func TestGetLatestEntry(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, "commit2", latest.CommitSHA)
 }
 
-func TestGetLatestEntryNotFound(t *testing.T) { //nolint:revive // function naming
+func TestGetLatestEntryNotFound(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -189,7 +189,7 @@ func TestGetLatestEntryNotFound(t *testing.T) { //nolint:revive // function nami
 	assert.Contains(t, err.Error(), "no entries found for branch: nonexistent")
 }
 
-func TestCleanup(t *testing.T) { //nolint:revive // function naming
+func TestCleanup(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -229,7 +229,7 @@ func TestCleanup(t *testing.T) { //nolint:revive // function naming
 	assert.Len(t, files, 2)
 }
 
-func TestCleanupDisabled(t *testing.T) { //nolint:revive // function naming
+func TestCleanupDisabled(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -261,7 +261,7 @@ func TestCleanupDisabled(t *testing.T) { //nolint:revive // function naming
 	assert.Len(t, files, 2)
 }
 
-func TestGetStatistics(t *testing.T) { //nolint:revive // function naming
+func TestGetStatistics(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -309,7 +309,7 @@ func TestGetStatistics(t *testing.T) { //nolint:revive // function naming
 	assert.Positive(t, stats.StorageSize)
 }
 
-func TestGetStatisticsEmpty(t *testing.T) { //nolint:revive // function naming
+func TestGetStatisticsEmpty(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -327,7 +327,7 @@ func TestGetStatisticsEmpty(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, int64(0), stats.StorageSize)
 }
 
-func TestLegacyAdd(t *testing.T) { //nolint:revive // function naming
+func TestLegacyAdd(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -345,7 +345,7 @@ func TestLegacyAdd(t *testing.T) { //nolint:revive // function naming
 	assert.Len(t, files, 1)
 }
 
-func TestLegacyAddInvalidType(t *testing.T) { //nolint:revive // function naming
+func TestLegacyAddInvalidType(t *testing.T) {
 	tracker := New()
 
 	err := tracker.Add("main", "commit123", "invalid")
@@ -353,7 +353,7 @@ func TestLegacyAddInvalidType(t *testing.T) { //nolint:revive // function naming
 	assert.Contains(t, err.Error(), "unsupported data type")
 }
 
-func TestTrendAnalysis(t *testing.T) { //nolint:revive // function naming
+func TestTrendAnalysis(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -401,7 +401,7 @@ func TestTrendAnalysis(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, "linear_trend", prediction.Model)
 }
 
-func TestBuildInfo(t *testing.T) { //nolint:revive // function naming
+func TestBuildInfo(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -437,7 +437,7 @@ func TestBuildInfo(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, buildInfo.BuildNumber, latest.BuildInfo.BuildNumber)
 }
 
-func TestPackageStats(t *testing.T) { //nolint:revive // function naming
+func TestPackageStats(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "history_test_*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -465,7 +465,7 @@ func TestPackageStats(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestGetEntryFilename(t *testing.T) { //nolint:revive // function naming
+func TestGetEntryFilename(t *testing.T) {
 	tracker := New()
 
 	entry := &Entry{
@@ -488,7 +488,7 @@ func TestGetEntryFilename(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, "20240115-143045.123456-main-nocommit.json", filename)
 }
 
-func TestFileHashes(t *testing.T) { //nolint:revive // function naming
+func TestFileHashes(t *testing.T) {
 	tracker := New()
 	coverage := createTestCoverage()
 
@@ -502,7 +502,7 @@ func TestFileHashes(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestVolatilityCalculation(t *testing.T) { //nolint:revive // function naming
+func TestVolatilityCalculation(t *testing.T) {
 	tracker := New()
 
 	// Test with empty entries
@@ -527,7 +527,7 @@ func TestVolatilityCalculation(t *testing.T) { //nolint:revive // function namin
 	assert.Positive(t, volatility)
 }
 
-func TestMomentumCalculation(t *testing.T) { //nolint:revive // function naming
+func TestMomentumCalculation(t *testing.T) {
 	tracker := New()
 
 	// Test with insufficient entries
@@ -559,7 +559,7 @@ func TestMomentumCalculation(t *testing.T) { //nolint:revive // function naming
 	assert.InDelta(t, 0.0, momentum, 0.001)
 }
 
-func TestConfigurationOptions(t *testing.T) { //nolint:revive // function naming
+func TestConfigurationOptions(t *testing.T) {
 	// Test record options
 	opts := &RecordOptions{}
 
@@ -580,7 +580,7 @@ func TestConfigurationOptions(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, buildInfo, opts.BuildInfo)
 }
 
-func TestTrendOptions(t *testing.T) { //nolint:revive // function naming
+func TestTrendOptions(t *testing.T) {
 	opts := &TrendOptions{}
 
 	WithTrendBranch("feature")(opts)

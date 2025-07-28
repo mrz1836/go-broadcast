@@ -26,8 +26,14 @@ var (
 	ErrScheduledExportsNotSupported = errors.New("scheduled exports not yet implemented")
 	// ErrExportFormatRequired indicates that the export format is required but not provided
 	ErrExportFormatRequired = errors.New("export format is required")
-	ErrDataSourceRequired   = errors.New("at least one data source must be specified")
-	ErrNoTemplateAvailable  = errors.New("no template available for format and type")
+	// ErrDataSourceRequired indicates at least one data source must be specified
+	ErrDataSourceRequired = errors.New("at least one data source must be specified")
+	// ErrNilExportData indicates that export data cannot be nil
+	ErrNilExportData = errors.New("data cannot be nil")
+	// ErrNilExportRequest indicates that export request cannot be nil
+	ErrNilExportRequest = errors.New("request cannot be nil")
+	// ErrNoTemplateAvailable indicates no template is available for the specified format and type
+	ErrNoTemplateAvailable = errors.New("no template available for format and type")
 )
 
 // AnalyticsExporter provides comprehensive export capabilities for analytics data
@@ -657,7 +663,7 @@ func (e *AnalyticsExporter) ExportAnalytics(ctx context.Context, request *Export
 }
 
 // ExportToDashboard exports data specifically for dashboard consumption
-func (e *AnalyticsExporter) ExportToDashboard(ctx context.Context, dashboardData *dashboard.DashboardData) (map[string]interface{}, error) {
+func (e *AnalyticsExporter) ExportToDashboard(_ context.Context, dashboardData *dashboard.DashboardData) (map[string]interface{}, error) {
 	exportData := map[string]interface{}{
 		"current_metrics": dashboardData.CurrentMetrics,
 		"charts":          dashboardData.Charts,
@@ -684,7 +690,7 @@ func (e *AnalyticsExporter) ExportToDashboard(ctx context.Context, dashboardData
 }
 
 // ExportToCSVString exports data to CSV format as a string
-func (e *AnalyticsExporter) ExportToCSVString(ctx context.Context, data interface{}, headers []string) (string, error) {
+func (e *AnalyticsExporter) ExportToCSVString(_ context.Context, data interface{}, headers []string) (string, error) {
 	var buf bytes.Buffer
 	writer := csv.NewWriter(&buf)
 	writer.Comma = e.config.CSVSettings.Delimiter
@@ -717,7 +723,7 @@ func (e *AnalyticsExporter) ExportToCSVString(ctx context.Context, data interfac
 }
 
 // ExportToJSONString exports data to JSON format as a string
-func (e *AnalyticsExporter) ExportToJSONString(ctx context.Context, data interface{}) (string, error) {
+func (e *AnalyticsExporter) ExportToJSONString(_ context.Context, data interface{}) (string, error) {
 	var jsonData []byte
 	var err error
 
@@ -751,7 +757,7 @@ func (e *AnalyticsExporter) GenerateReport(ctx context.Context, data *ExportData
 }
 
 // ScheduleExport schedules a recurring export operation
-func (e *AnalyticsExporter) ScheduleExport(ctx context.Context, schedule Schedule) error {
+func (e *AnalyticsExporter) ScheduleExport(_ context.Context, _ Schedule) error {
 	// This would implement scheduling logic
 	// For now, return a placeholder implementation
 	return ErrScheduledExportsNotSupported
@@ -885,7 +891,7 @@ func (e *AnalyticsExporter) applyFilters(data *ExportData, filters ExportFilters
 	return filteredData
 }
 
-func (e *AnalyticsExporter) exportToJSON(ctx context.Context, data *ExportData, request *ExportRequest) ([]byte, error) {
+func (e *AnalyticsExporter) exportToJSON(_ context.Context, data *ExportData, _ *ExportRequest) ([]byte, error) {
 	// Configure JSON encoder based on settings
 	var jsonData []byte
 	var err error
@@ -903,7 +909,7 @@ func (e *AnalyticsExporter) exportToJSON(ctx context.Context, data *ExportData, 
 	return jsonData, nil
 }
 
-func (e *AnalyticsExporter) exportToCSV(ctx context.Context, data *ExportData, request *ExportRequest) ([]byte, error) {
+func (e *AnalyticsExporter) exportToCSV(_ context.Context, data *ExportData, request *ExportRequest) ([]byte, error) {
 	var buf bytes.Buffer
 	writer := csv.NewWriter(&buf)
 	writer.Comma = e.config.CSVSettings.Delimiter
@@ -935,7 +941,13 @@ func (e *AnalyticsExporter) exportToCSV(ctx context.Context, data *ExportData, r
 	return buf.Bytes(), nil
 }
 
-func (e *AnalyticsExporter) exportToPDF(ctx context.Context, data *ExportData, request *ExportRequest) ([]byte, error) {
+func (e *AnalyticsExporter) exportToPDF(_ context.Context, data *ExportData, request *ExportRequest) ([]byte, error) {
+	if data == nil {
+		return nil, ErrNilExportData
+	}
+	if request == nil {
+		return nil, ErrNilExportRequest
+	}
 	// This would use a PDF generation library like gofpdf or wkhtmltopdf
 	// For now, return a placeholder implementation
 	pdfContent := fmt.Sprintf("PDF Export - %s\n\nGenerated at: %s\n\nData: %+v",
@@ -944,7 +956,7 @@ func (e *AnalyticsExporter) exportToPDF(ctx context.Context, data *ExportData, r
 	return []byte(pdfContent), nil
 }
 
-func (e *AnalyticsExporter) exportToHTML(ctx context.Context, data *ExportData, request *ExportRequest) ([]byte, error) {
+func (e *AnalyticsExporter) exportToHTML(_ context.Context, data *ExportData, request *ExportRequest) ([]byte, error) {
 	// Generate HTML report using templates
 	templateStr := `<!DOCTYPE html>
 <html>
@@ -1201,7 +1213,7 @@ func (e *AnalyticsExporter) GetSupportedFormats() []ExportFormat {
 }
 
 // GetExportHistory returns a history of export operations
-func (e *AnalyticsExporter) GetExportHistory(ctx context.Context, limit int) ([]ExportResult, error) {
+func (e *AnalyticsExporter) GetExportHistory(_ context.Context, _ int) ([]ExportResult, error) {
 	// This would retrieve export history from storage
 	// For now, return empty history
 	return []ExportResult{}, nil

@@ -12,8 +12,9 @@ import (
 
 // Test error definitions
 var (
-	ErrMockDeliveryFailed = errors.New("mock delivery failed")
-	ErrChannelNotFound    = errors.New("channel not found")
+	ErrMockDeliveryFailed   = errors.New("mock delivery failed")
+	ErrChannelNotFound      = errors.New("channel not found")
+	ErrInvalidNotifications = errors.New("notifications cannot be nil")
 )
 
 // Mock types for testing
@@ -85,7 +86,7 @@ type mockChannel struct {
 	shouldFail      bool
 }
 
-func (m *mockChannel) Send(ctx context.Context, notification *types.Notification) (*types.DeliveryResult, error) {
+func (m *mockChannel) Send(_ context.Context, _ *types.Notification) (*types.DeliveryResult, error) {
 	result := &types.DeliveryResult{
 		Channel:      m.channelType,
 		Timestamp:    time.Now(),
@@ -183,7 +184,7 @@ func (nm *NotificationManager) SendToAllChannels(ctx context.Context, notificati
 	return nm.SendNotification(ctx, notification, channelNames)
 }
 
-func (nm *NotificationManager) shouldSendNotification(notification *Notification, channel string) bool {
+func (nm *NotificationManager) shouldSendNotification(notification *Notification, _ string) bool {
 	// Simplified filter logic for testing
 	return notification.Severity >= types.SeverityWarning
 }
@@ -196,7 +197,7 @@ func (nm *NotificationManager) renderNotificationTemplate(notification *Notifica
 	return &rendered
 }
 
-func (nm *NotificationManager) SendBatchNotifications(ctx context.Context, notifications []*Notification, channels []string, options BatchOptions) ([]*types.DeliveryResult, error) {
+func (nm *NotificationManager) SendBatchNotifications(ctx context.Context, notifications []*Notification, channels []string, _ BatchOptions) ([]*types.DeliveryResult, error) {
 	var allResults []*types.DeliveryResult
 	for _, notif := range notifications {
 		results, err := nm.SendNotification(ctx, notif, channels)
@@ -208,7 +209,10 @@ func (nm *NotificationManager) SendBatchNotifications(ctx context.Context, notif
 	return allResults, nil
 }
 
-func (nm *NotificationManager) aggregateNotifications(notifications []*Notification, options AggregationOptions) ([]*Notification, error) {
+func (nm *NotificationManager) aggregateNotifications(notifications []*Notification, _ AggregationOptions) ([]*Notification, error) {
+	if notifications == nil {
+		return nil, ErrInvalidNotifications
+	}
 	if len(notifications) == 0 {
 		return notifications, nil
 	}
@@ -230,7 +234,7 @@ func (nm *NotificationManager) aggregateNotifications(notifications []*Notificat
 	return []*Notification{aggregated}, nil
 }
 
-func (nm *NotificationManager) GetDeliveryStats(ctx context.Context, timeWindow time.Duration) (*DeliveryStats, error) {
+func (nm *NotificationManager) GetDeliveryStats(_ context.Context, _ time.Duration) (*DeliveryStats, error) {
 	return &DeliveryStats{
 		TotalNotifications: 3,
 		SuccessRate:        1.0,
@@ -359,7 +363,7 @@ func TestSendNotification(t *testing.T) {
 	}
 }
 
-func TestSendToAllChannels(t *testing.T) { //nolint:revive // function naming
+func TestSendToAllChannels(t *testing.T) {
 	manager := NewNotificationManager(nil)
 
 	// Register multiple mock channels
@@ -400,7 +404,7 @@ func TestSendToAllChannels(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestNotificationFiltering(t *testing.T) { //nolint:revive // function naming
+func TestNotificationFiltering(t *testing.T) {
 	manager := NewNotificationManager(nil)
 	slackMock := &mockChannel{channelType: types.ChannelSlack}
 	_ = manager.RegisterChannel("slack", slackMock)
@@ -440,7 +444,7 @@ func TestNotificationFiltering(t *testing.T) { //nolint:revive // function namin
 	}
 }
 
-func TestRateLimiting(t *testing.T) { //nolint:revive // function naming
+func TestRateLimiting(t *testing.T) {
 	manager := NewNotificationManager(nil)
 
 	// Set up channel with tight rate limits for testing
@@ -484,7 +488,7 @@ func TestRateLimiting(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestNotificationTemplating(t *testing.T) { //nolint:revive // function naming
+func TestNotificationTemplating(t *testing.T) {
 	manager := NewNotificationManager(nil)
 
 	notification := &Notification{
@@ -510,7 +514,7 @@ func TestNotificationTemplating(t *testing.T) { //nolint:revive // function nami
 	}
 }
 
-func TestNotificationRetry(t *testing.T) { //nolint:revive // function naming
+func TestNotificationRetry(t *testing.T) {
 	manager := NewNotificationManager(nil)
 
 	// Mock channel that fails initially then succeeds
@@ -549,7 +553,7 @@ func TestNotificationRetry(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestNotificationBatching(t *testing.T) { //nolint:revive // function naming
+func TestNotificationBatching(t *testing.T) {
 	manager := NewNotificationManager(nil)
 
 	mockChan := &mockChannel{channelType: types.ChannelSlack}
@@ -578,7 +582,7 @@ func TestNotificationBatching(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestNotificationAggregation(t *testing.T) { //nolint:revive // function naming
+func TestNotificationAggregation(t *testing.T) {
 	manager := NewNotificationManager(nil)
 
 	// Create similar notifications that should be aggregated
@@ -620,7 +624,7 @@ func TestNotificationAggregation(t *testing.T) { //nolint:revive // function nam
 	}
 }
 
-func TestGetDeliveryStats(t *testing.T) { //nolint:revive // function naming
+func TestGetDeliveryStats(t *testing.T) {
 	manager := NewNotificationManager(nil)
 
 	mockChan := &mockChannel{channelType: types.ChannelSlack}
@@ -652,7 +656,7 @@ func TestGetDeliveryStats(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func BenchmarkSendNotification(b *testing.B) { //nolint:revive // function naming
+func BenchmarkSendNotification(b *testing.B) {
 	manager := NewNotificationManager(nil)
 	mockChan := &mockChannel{channelType: types.ChannelSlack}
 	_ = manager.RegisterChannel("slack", mockChan)
@@ -675,7 +679,7 @@ func BenchmarkSendNotification(b *testing.B) { //nolint:revive // function namin
 	}
 }
 
-func BenchmarkSendBatchNotifications(b *testing.B) { //nolint:revive // function naming
+func BenchmarkSendBatchNotifications(b *testing.B) {
 	manager := NewNotificationManager(nil)
 	mockChan := &mockChannel{channelType: types.ChannelSlack}
 	_ = manager.RegisterChannel("slack", mockChan)
