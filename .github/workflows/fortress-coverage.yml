@@ -219,6 +219,7 @@ jobs:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           GITHUB_SHA: ${{ inputs.commit-sha }}
           GITHUB_PR_NUMBER: ${{ inputs.pr-number }}
+          GITHUB_REF_NAME: ${{ inputs.branch-name }}
         working-directory: .github/coverage/cmd/gofortress-coverage
         run: |
           echo "📊 Processing coverage data..."

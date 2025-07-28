@@ -1,7 +1,9 @@
+// Package cmd provides CLI commands for the GoFortress coverage tool
 package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/dashboard"
 	"github.com/mrz1836/go-broadcast/coverage/internal/badge"
 	"github.com/mrz1836/go-broadcast/coverage/internal/config"
 	"github.com/mrz1836/go-broadcast/coverage/internal/github"
@@ -156,10 +159,128 @@ update history, and create GitHub PR comment if in PR context.`,
 		cmd.Printf("   ✅ Report saved: %s\n", reportFile)
 		cmd.Printf("\n")
 
-		// Step 4: Update history (if enabled)
+		// Step 4: Generate dashboard
+		cmd.Printf("🎯 Step 4: Generating coverage dashboard...\n")
+
+		// Prepare coverage data for dashboard
+		coverageData := &dashboard.CoverageData{
+			ProjectName:    cfg.Report.Title,
+			RepositoryURL:  fmt.Sprintf("https://github.com/%s/%s", cfg.GitHub.Owner, cfg.GitHub.Repository),
+			Branch:         os.Getenv("GITHUB_REF_NAME"), // Get branch from GitHub Actions
+			CommitSHA:      cfg.GitHub.CommitSHA,
+			PRNumber:       "",
+			Timestamp:      time.Now(),
+			TotalCoverage:  coverage.Percentage,
+			TotalLines:     coverage.TotalLines,
+			CoveredLines:   coverage.CoveredLines,
+			MissedLines:    coverage.TotalLines - coverage.CoveredLines,
+			TotalFiles:     0,
+			CoveredFiles:   0,
+			PartialFiles:   0,
+			UncoveredFiles: 0,
+		}
+
+		// Count total files and coverage status
+		totalFiles := 0
+		for _, pkg := range coverage.Packages {
+			for _, file := range pkg.Files {
+				totalFiles++
+				if file.Percentage == 100 {
+					coverageData.CoveredFiles++
+				} else if file.Percentage > 0 {
+					coverageData.PartialFiles++
+				} else {
+					coverageData.UncoveredFiles++
+				}
+			}
+		}
+		coverageData.TotalFiles = totalFiles
+
+		// Add package data
+		coverageData.Packages = make([]dashboard.PackageCoverage, 0, len(coverage.Packages))
+		for pkgName, pkg := range coverage.Packages {
+			pkgCoverage := dashboard.PackageCoverage{
+				Name:         pkgName,
+				Path:         pkgName, // Use package name as path for now
+				Coverage:     pkg.Percentage,
+				TotalLines:   pkg.TotalLines,
+				CoveredLines: pkg.CoveredLines,
+				MissedLines:  pkg.TotalLines - pkg.CoveredLines,
+			}
+
+			// Add file coverage if available
+			if pkg.Files != nil {
+				pkgCoverage.Files = make([]dashboard.FileCoverage, 0, len(pkg.Files))
+				for fileName, file := range pkg.Files {
+					fileCoverage := dashboard.FileCoverage{
+						Name:         filepath.Base(fileName),
+						Path:         fileName,
+						Coverage:     file.Percentage,
+						TotalLines:   file.TotalLines,
+						CoveredLines: file.CoveredLines,
+						MissedLines:  file.TotalLines - file.CoveredLines,
+					}
+					if cfg.GitHub.Owner != "" && cfg.GitHub.Repository != "" {
+						branch := os.Getenv("GITHUB_REF_NAME")
+						if branch == "" {
+							branch = "main"
+						}
+						fileCoverage.GitHubURL = fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s",
+							cfg.GitHub.Owner, cfg.GitHub.Repository, branch, fileName)
+					}
+					pkgCoverage.Files = append(pkgCoverage.Files, fileCoverage)
+				}
+			}
+
+			coverageData.Packages = append(coverageData.Packages, pkgCoverage)
+		}
+
+		// Set PR number if in PR context
+		if cfg.IsPullRequestContext() {
+			coverageData.PRNumber = fmt.Sprintf("%d", cfg.GitHub.PullRequest)
+		}
+
+		// Generate dashboard
+		dashboardConfig := &dashboard.GeneratorConfig{
+			ProjectName:      cfg.Report.Title,
+			RepositoryOwner:  cfg.GitHub.Owner,
+			RepositoryName:   cfg.GitHub.Repository,
+			OutputDir:        outputDir,
+			GeneratorVersion: "1.0.0",
+		}
+
+		dashboardGen := dashboard.NewGenerator(dashboardConfig)
+		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if !dryRun {
+			if err := dashboardGen.Generate(ctx, coverageData); err != nil {
+				cmd.Printf("   ⚠️  Failed to generate dashboard: %v\n", err)
+			} else {
+				cmd.Printf("   ✅ Dashboard saved: %s/index.html\n", outputDir)
+
+				// Also save coverage data as JSON for pages deployment
+				dataPath := filepath.Join(outputDir, "coverage-data.json")
+				jsonData, err := json.Marshal(coverageData)
+				if err != nil {
+					cmd.Printf("   ⚠️  Failed to marshal coverage data: %v\n", err)
+				}
+				if err == nil && len(jsonData) > 0 {
+					if err := os.WriteFile(dataPath, jsonData, cfg.Storage.FileMode); err != nil {
+						cmd.Printf("   ⚠️  Failed to save coverage data: %v\n", err)
+					}
+				}
+			}
+		} else {
+			cmd.Printf("   📊 Would generate dashboard at: %s/index.html\n", outputDir)
+		}
+
+		cmd.Printf("\n")
+
+		// Step 5: Update history (if enabled)
 		trend := "stable"
 		if cfg.History.Enabled && !skipHistory {
-			cmd.Printf("📈 Step 4: Updating coverage history...\n")
+			cmd.Printf("📈 Step 5: Updating coverage history...\n")
 
 			historyConfig := &history.Config{
 				StoragePath:    cfg.History.StoragePath,
@@ -204,12 +325,12 @@ update history, and create GitHub PR comment if in PR context.`,
 			cmd.Printf("   ✅ History updated (trend: %s)\n", trend)
 			cmd.Printf("\n")
 		} else {
-			cmd.Printf("📈 Step 4: Coverage history (skipped)\n\n")
+			cmd.Printf("📈 Step 5: Coverage history (skipped)\n\n")
 		}
 
-		// Step 5: GitHub integration (if in GitHub context)
+		// Step 6: GitHub integration (if in GitHub context)
 		if cfg.IsGitHubContext() && !skipGitHub {
-			cmd.Printf("🐙 Step 5: GitHub integration...\n")
+			cmd.Printf("🐙 Step 6: GitHub integration...\n")
 
 			if cfg.GitHub.Token == "" {
 				cmd.Printf("   ⚠️  Skipped: No GitHub token provided\n\n")
@@ -279,7 +400,7 @@ update history, and create GitHub PR comment if in PR context.`,
 				cmd.Printf("\n")
 			}
 		} else {
-			cmd.Printf("🐙 Step 5: GitHub integration (skipped)\n\n")
+			cmd.Printf("🐙 Step 6: GitHub integration (skipped)\n\n")
 		}
 
 		// Final summary
