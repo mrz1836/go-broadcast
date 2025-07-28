@@ -97,13 +97,207 @@ const dashboardTemplate = `<!DOCTYPE html>
             padding: 2rem;
         }
         
-        /* Header */
+        /* Enhanced Header */
         .header {
-            text-align: center;
             margin-bottom: 3rem;
-            padding: 2rem 0;
+            padding: 2rem;
             position: relative;
             overflow: hidden;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--backdrop-blur));
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        
+        .header-main {
+            text-align: left;
+        }
+        
+        .header-status {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.5rem;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-text-secondary);
+        }
+        
+        .status-dot.active {
+            background: var(--color-success);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .status-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--color-text);
+        }
+        
+        .last-sync {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .repo-info-enhanced {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .repo-details {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .repo-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 1rem;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            min-width: 100px;
+            transition: var(--transition-smooth);
+        }
+        
+        .repo-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+        
+        .repo-icon {
+            font-size: 1.5rem;
+        }
+        
+        .repo-label {
+            font-size: 0.7rem;
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .repo-value {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--color-text);
+            font-family: 'JetBrains Mono', monospace;
+            text-align: center;
+        }
+        
+        .commit-link {
+            color: var(--color-primary);
+            text-decoration: none;
+            transition: var(--transition-base);
+        }
+        
+        .commit-link:hover {
+            text-decoration: underline;
+            opacity: 0.8;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        
+        .action-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            font-family: inherit;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .action-btn:hover::before {
+            left: 100%;
+        }
+        
+        .action-btn.primary {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
+        }
+        
+        .action-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(88, 166, 255, 0.4);
+        }
+        
+        .action-btn.secondary {
+            background: var(--color-bg-secondary);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+        }
+        
+        .action-btn.secondary:hover {
+            background: var(--color-bg-tertiary);
+            border-color: var(--color-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn-icon {
+            font-size: 1rem;
+        }
+        
+        .btn-text {
+            font-size: 0.85rem;
+            letter-spacing: 0.02em;
         }
         
         .header::before {
@@ -414,6 +608,9 @@ const dashboardTemplate = `<!DOCTYPE html>
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.9rem;
             color: var(--color-primary);
+            letter-spacing: 0.1em;
+            white-space: pre-wrap;
+            line-height: 1.4;
         }
         
         .package-coverage {
@@ -460,8 +657,52 @@ const dashboardTemplate = `<!DOCTYPE html>
                 padding: 1rem;
             }
             
+            .header {
+                padding: 1.5rem;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+            
+            .header-main {
+                text-align: center;
+            }
+            
             .header h1 {
                 font-size: 2rem;
+            }
+            
+            .header-status {
+                align-items: center;
+            }
+            
+            .repo-info-enhanced {
+                flex-direction: column;
+                gap: 1.5rem;
+                align-items: stretch;
+            }
+            
+            .repo-details {
+                justify-content: center;
+                gap: 1rem;
+            }
+            
+            .repo-item {
+                min-width: 80px;
+                padding: 0.75rem;
+            }
+            
+            .header-actions {
+                justify-content: center;
+                gap: 0.5rem;
+            }
+            
+            .action-btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.8rem;
             }
             
             .metrics-grid {
@@ -506,16 +747,60 @@ const dashboardTemplate = `<!DOCTYPE html>
     
     <div class="container">
         <header class="header">
-            <h1>🏰 GoFortress Coverage Dashboard</h1>
-            <p class="subtitle">Coverage tracking and reporting for {{.ProjectName}}</p>
-            <div class="repo-info">
-                <span>📦 {{.ProjectName}}</span>
-                <span>•</span>
-                <span>🌿 {{.Branch}}</span>
-                {{if .CommitURL}}
-                <span>•</span>
-                <span>🔗 <a href="{{.CommitURL}}" target="_blank">{{.CommitSHA}}</a></span>
-                {{end}}
+            <div class="header-content">
+                <div class="header-main">
+                    <h1>🏰 GoFortress Coverage Dashboard</h1>
+                    <p class="subtitle">Coverage tracking and reporting for {{.ProjectName}}</p>
+                </div>
+                
+                <div class="header-status">
+                    <div class="status-indicator">
+                        <span class="status-dot active"></span>
+                        <span class="status-text">Coverage Active</span>
+                    </div>
+                    <div class="last-sync">
+                        <span>🕐 {{.Timestamp}}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="repo-info-enhanced">
+                <div class="repo-details">
+                    <div class="repo-item">
+                        <span class="repo-icon">📦</span>
+                        <span class="repo-label">Project</span>
+                        <span class="repo-value">{{.ProjectName}}</span>
+                    </div>
+                    <div class="repo-item">
+                        <span class="repo-icon">🌿</span>
+                        <span class="repo-label">Branch</span>
+                        <span class="repo-value">{{.Branch}}</span>
+                    </div>
+                    {{if .CommitURL}}
+                    <div class="repo-item">
+                        <span class="repo-icon">🔗</span>
+                        <span class="repo-label">Commit</span>
+                        <span class="repo-value">
+                            <a href="{{.CommitURL}}" target="_blank" class="commit-link">{{.CommitSHA}}</a>
+                        </span>
+                    </div>
+                    {{end}}
+                </div>
+                
+                <div class="header-actions">
+                    <button class="action-btn primary" onclick="window.location.reload()">
+                        <span class="btn-icon">🔄</span>
+                        <span class="btn-text">Refresh</span>
+                    </button>
+                    <button class="action-btn secondary" onclick="window.open('./coverage.html', '_blank')">
+                        <span class="btn-icon">📄</span>
+                        <span class="btn-text">Detailed Report</span>
+                    </button>
+                    <button class="action-btn secondary" onclick="window.open('{{.RepositoryURL}}', '_blank')">
+                        <span class="btn-icon">📦</span>
+                        <span class="btn-text">Repository</span>
+                    </button>
+                </div>
             </div>
         </header>
         

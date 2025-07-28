@@ -166,10 +166,15 @@ update history, and create GitHub PR comment if in PR context.`,
 		cmd.Printf("🎯 Step 4: Generating coverage dashboard...\n")
 
 		// Prepare coverage data for dashboard
+		branch := os.Getenv("GITHUB_REF_NAME")
+		if branch == "" {
+			branch = "main" // Default fallback for tests and local development
+		}
+
 		coverageData := &dashboard.CoverageData{
 			ProjectName:    cfg.Report.Title,
 			RepositoryURL:  fmt.Sprintf("https://github.com/%s/%s", cfg.GitHub.Owner, cfg.GitHub.Repository),
-			Branch:         os.Getenv("GITHUB_REF_NAME"), // Get branch from GitHub Actions
+			Branch:         branch,
 			CommitSHA:      cfg.GitHub.CommitSHA,
 			PRNumber:       "",
 			Timestamp:      time.Now(),
@@ -282,6 +287,72 @@ update history, and create GitHub PR comment if in PR context.`,
 			coverageData.PRNumber = fmt.Sprintf("%d", cfg.GitHub.PullRequest)
 		}
 
+		// Populate history data for dashboard if history is enabled
+		if cfg.History.Enabled {
+			branch := os.Getenv("GITHUB_REF_NAME")
+			if branch == "" {
+				branch = "main"
+			}
+
+			// Initialize history tracker to get historical data
+			historyConfig := &history.Config{
+				StoragePath:    cfg.History.StoragePath,
+				RetentionDays:  cfg.History.RetentionDays,
+				MaxEntries:     cfg.History.MaxEntries,
+				AutoCleanup:    cfg.History.AutoCleanup,
+				MetricsEnabled: cfg.History.MetricsEnabled,
+			}
+			tracker := history.NewWithConfig(historyConfig)
+
+			// Get historical data for trends
+			historyCtx, historyCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer historyCancel()
+
+			if trendData, err := tracker.GetTrend(historyCtx, history.WithTrendBranch(branch), history.WithTrendDays(30)); err == nil && trendData != nil {
+				// Populate trend data if we have enough entries
+				if trendData.Summary.TotalEntries > 1 {
+					// Use short-term trend analysis if available
+					changePercent := 0.0
+					direction := trendData.Summary.CurrentTrend
+					if trendData.Analysis != nil && trendData.Analysis.ShortTermTrend != nil {
+						changePercent = trendData.Analysis.ShortTermTrend.ChangePercent
+						direction = trendData.Analysis.ShortTermTrend.Direction
+					}
+
+					coverageData.TrendData = &dashboard.TrendData{
+						Direction:     direction,
+						ChangePercent: changePercent,
+						ChangeLines:   int(changePercent * float64(coverage.TotalLines) / 100),
+					}
+				}
+
+				// Populate historical points from entries
+				if len(trendData.Entries) > 0 {
+					coverageData.History = make([]dashboard.HistoricalPoint, 0, len(trendData.Entries))
+					for _, entry := range trendData.Entries {
+						if entry.Coverage != nil {
+							coverageData.History = append(coverageData.History, dashboard.HistoricalPoint{
+								Timestamp:    entry.Timestamp,
+								CommitSHA:    entry.CommitSHA,
+								Coverage:     entry.Coverage.Percentage,
+								TotalLines:   entry.Coverage.TotalLines,
+								CoveredLines: entry.Coverage.CoveredLines,
+							})
+						}
+					}
+				}
+			}
+
+			cmd.Printf("   📊 History data loaded: %d entries, trend: %s\n",
+				len(coverageData.History),
+				func() string {
+					if coverageData.TrendData != nil {
+						return coverageData.TrendData.Direction
+					}
+					return "none"
+				}())
+		}
+
 		// Generate dashboard
 		dashboardConfig := &dashboard.GeneratorConfig{
 			ProjectName:      cfg.Report.Title,
@@ -370,9 +441,9 @@ update history, and create GitHub PR comment if in PR context.`,
 			tracker := history.NewWithConfig(historyConfig)
 
 			// Get trend before adding new entry
-			branch := "main"
-			if cfg.GitHub.CommitSHA != "" {
-				branch = cfg.GitHub.CommitSHA
+			branch := os.Getenv("GITHUB_REF_NAME")
+			if branch == "" {
+				branch = "main" // Default fallback
 			}
 
 			if latest, err := tracker.GetLatestEntry(ctx, branch); err == nil {
@@ -398,6 +469,8 @@ update history, and create GitHub PR comment if in PR context.`,
 				if err := tracker.Record(ctx, coverage, historyOptions...); err != nil {
 					return fmt.Errorf("failed to record coverage history: %w", err)
 				}
+
+				cmd.Printf("   📊 History recorded for branch: %s\n", branch)
 			}
 
 			cmd.Printf("   ✅ History updated (trend: %s)\n", trend)

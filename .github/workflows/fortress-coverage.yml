@@ -81,6 +81,26 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       # ————————————————————————————————————————————————————————————————
+      # Detect actual git branch name
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Detect actual branch name
+        id: git-branch
+        run: |
+          echo "🔍 Detecting actual git branch name..."
+          ACTUAL_BRANCH=$(git branch --show-current)
+          echo "Detected branch: $ACTUAL_BRANCH"
+          echo "GitHub ref_name: ${{ inputs.branch-name }}"
+
+          # Use actual git branch if it exists, otherwise fall back to input
+          if [ -n "$ACTUAL_BRANCH" ]; then
+            echo "branch-name=$ACTUAL_BRANCH" >> $GITHUB_OUTPUT
+            echo "✅ Using actual git branch: $ACTUAL_BRANCH"
+          else
+            echo "branch-name=${{ inputs.branch-name }}" >> $GITHUB_OUTPUT
+            echo "⚠️ Using input branch name: ${{ inputs.branch-name }}"
+          fi
+
+      # ————————————————————————————————————————————————————————————————
       # Set Go cache paths and restore caches
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Set Go cache paths (cross-platform)
@@ -202,7 +222,7 @@ jobs:
         id: safe-branch
         run: |
           # Sanitize branch name for file system usage by replacing invalid characters
-          SAFE_BRANCH_NAME="${{ inputs.branch-name }}"
+          SAFE_BRANCH_NAME="${{ steps.git-branch.outputs.branch-name }}"
           # Replace forward slashes with hyphens
           SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/\//-/g')
           # Replace other invalid characters with hyphens
@@ -210,7 +230,7 @@ jobs:
           # Remove any trailing/leading hyphens and collapse multiple hyphens
           SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/^-*//;s/-*$//;s/-\+/-/g')
 
-          echo "Original branch: ${{ inputs.branch-name }}"
+          echo "Original branch: ${{ steps.git-branch.outputs.branch-name }}"
           echo "Safe branch name: $SAFE_BRANCH_NAME"
           echo "safe-name=$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "artifact-name=coverage-reports-$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
@@ -225,7 +245,7 @@ jobs:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           GITHUB_SHA: ${{ inputs.commit-sha }}
           GITHUB_PR_NUMBER: ${{ inputs.pr-number }}
-          GITHUB_REF_NAME: ${{ inputs.branch-name }}
+          GITHUB_REF_NAME: ${{ steps.git-branch.outputs.branch-name }}
           # Set history storage to a location that can be committed back to repo
           COVERAGE_HISTORY_PATH: .github/coverage/data/history
         working-directory: .github/coverage/cmd/gofortress-coverage
@@ -307,7 +327,7 @@ jobs:
               "$COVERAGE_PERCENT" \
               "$PROCESSING_TIME" \
               "$FILES_PROCESSED" \
-              "${{ inputs.branch-name }}" \
+              "${{ steps.git-branch.outputs.branch-name }}" \
               "${{ inputs.commit-sha }}" \
               "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
               > "$STATS_FILE"
@@ -319,7 +339,7 @@ jobs:
       # Commit history data back to repository for persistence
       # ————————————————————————————————————————————————————————————————
       - name: 📝 Commit coverage history
-        if: github.event_name == 'push' && inputs.branch-name == 'master'
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
@@ -477,7 +497,7 @@ jobs:
       # Upload coverage artifacts for GitHub Pages deployment
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload Pages artifact
-        if: github.event_name == 'push' && inputs.branch-name == 'master'
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: coverage-output
@@ -486,7 +506,7 @@ jobs:
       # Deploy to GitHub Pages using official action
       # ————————————————————————————————————————————————————————————————
       - name: 🚀 Deploy to GitHub Pages
-        if: github.event_name == 'push' && inputs.branch-name == 'master'
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
 
@@ -521,7 +541,7 @@ jobs:
             echo "Setting status: $STATE - $DESCRIPTION"
 
             # Determine target URL based on deployment
-            if [[ "${{ inputs.branch-name }}" == "master" ]]; then
+            if [[ "${{ steps.git-branch.outputs.branch-name }}" == "master" ]]; then
               TARGET_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
             else
               TARGET_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -640,7 +660,7 @@ jobs:
 
             echo "- **Coverage**: ${COVERAGE_PCT}%" >> $GITHUB_STEP_SUMMARY
             echo "- **Lines**: ${COVERED_STATEMENTS}/${TOTAL_STATEMENTS}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Branch**: ${{ inputs.branch-name }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Branch**: ${{ steps.git-branch.outputs.branch-name }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Commit**: ${{ inputs.commit-sha }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Timestamp**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
 
@@ -655,7 +675,7 @@ jobs:
               echo "- **Trend Status**: ⏳ Building ($(find "$HISTORY_DIR" -name "*.json" 2>/dev/null | wc -l)/2 entries)" >> $GITHUB_STEP_SUMMARY
             fi
 
-            if [[ "${{ inputs.branch-name }}" == "master" || "${{ inputs.branch-name }}" == "main" ]]; then
+            if [[ "${{ steps.git-branch.outputs.branch-name }}" == "master" || "${{ steps.git-branch.outputs.branch-name }}" == "main" ]]; then
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "🚀 **Reports deployed to**: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
               echo "📊 **Deployment Status**: ${{ steps.deployment.outputs.page_url && '✅ Success' || '⏳ In Progress' }}" >> $GITHUB_STEP_SUMMARY
