@@ -91,8 +91,8 @@ jobs:
     needs: [load-env]
     runs-on: ubuntu-latest
     permissions:
-      contents: write # For creating branches and commits
-      pull-requests: write # For creating PRs
+      contents: write # Required: Create branches and commit pre-commit hook updates
+      pull-requests: write # Required: Create PRs for pre-commit hook updates
     outputs:
       has_changes: ${{ steps.check_changes.outputs.has_changes }}
       pr_exists: ${{ steps.check_branch.outputs.pr_exists }}

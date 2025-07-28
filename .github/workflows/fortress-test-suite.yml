@@ -50,12 +50,7 @@ on:
         description: "GitHub token for API access"
         required: true
 
-permissions:
-  contents: write # For GitHub Pages deployment and coverage processing
-  pages: write # Deploy to GitHub Pages
-  pull-requests: write # Comment on PRs
-  id-token: write # GitHub Pages deployment
-  statuses: write # For commit status creation in coverage workflow
+# Security: Job-level permissions are set per job for least privilege access
 
 jobs:
   # ----------------------------------------------------------------------------------
@@ -64,6 +59,8 @@ jobs:
   test-go:
     name: 🧪 Test (${{ matrix.name }})
     timeout-minutes: 30 # Prevent hung tests
+    permissions:
+      contents: read # Read repository content for testing
     strategy:
       fail-fast: true
       matrix: ${{ fromJSON(inputs.test-matrix) }}
@@ -366,6 +363,8 @@ jobs:
     name: 📊 Process Coverage
     needs: test-go
     if: inputs.code-coverage-enabled == 'true'
+    permissions:
+      contents: read # Read repository content for coverage processing
     uses: ./.github/workflows/fortress-coverage.yml
     with:
       coverage-file: coverage.txt

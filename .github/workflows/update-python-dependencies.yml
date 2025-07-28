@@ -45,11 +45,7 @@ on:
         default: true
         type: boolean
 
-# ————————————————————————————————————————————————————————————————
-# Permissions
-# ————————————————————————————————————————————————————————————————
-permissions:
-  contents: read
+# Security: Job-level permissions are set per job for least privilege access
 
 # ————————————————————————————————————————————————————————————————
 # Concurrency Control
@@ -70,6 +66,8 @@ jobs:
   load-env:
     name: 🌍 Load Environment Variables
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # Read repository content for environment config
     outputs:
       env-json: ${{ steps.load-env.outputs.env-json }}
     steps:
@@ -98,8 +96,8 @@ jobs:
     needs: [load-env]
     runs-on: ubuntu-latest
     permissions:
-      contents: write # For creating branches and commits
-      pull-requests: write # For creating PRs
+      contents: write # Required: Create branches and commit dependency updates
+      pull-requests: write # Required: Create PRs for dependency updates
     outputs:
       has_changes: ${{ steps.check_all_changes.outputs.has_changes }}
       pr_exists: ${{ steps.check_branch.outputs.pr_exists }}
@@ -610,6 +608,8 @@ jobs:
     name: 📊 Generate Summary
     if: always()
     needs: [load-env, update-dependencies]
+    permissions:
+      contents: read # Read repository content for summary generation
     runs-on: ubuntu-latest
     steps:
       # ————————————————————————————————————————————————————————————————

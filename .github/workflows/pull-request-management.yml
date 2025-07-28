@@ -534,8 +534,8 @@ jobs:
     needs: [load-env]
     runs-on: ubuntu-latest
     permissions:
-      actions: write
-      contents: read
+      actions: write # Required: Delete GitHub Actions caches for closed PRs
+      contents: read # Read repository content for cache management
     if: github.event.action == 'closed'
     outputs:
       caches-cleaned: ${{ steps.clean.outputs.caches-cleaned }}
@@ -637,7 +637,7 @@ jobs:
     needs: [load-env]
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Required: Delete merged PR branches from repository
     if: |
       github.event.action == 'closed' &&
       github.event.pull_request.merged == true &&

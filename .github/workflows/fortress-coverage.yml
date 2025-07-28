@@ -42,12 +42,7 @@ on:
         description: "GitHub token for API access"
         required: true
 
-permissions:
-  contents: write # For GitHub Pages deployment
-  pull-requests: write # For PR comments
-  pages: write # For GitHub Pages
-  id-token: write # For GitHub Pages deployment
-  statuses: write # For commit status creation
+# Security: Job-level permissions are set per job for least privilege access
 
 jobs:
   # ----------------------------------------------------------------------------------
@@ -57,6 +52,12 @@ jobs:
     name: 📊 Process Coverage
     runs-on: ${{ inputs.primary-runner }}
     timeout-minutes: 10
+    permissions:
+      contents: read # Read repository content
+      pull-requests: write # Create PR comments
+      pages: write # Deploy to GitHub Pages
+      id-token: write # GitHub Pages deployment authentication
+      statuses: write # Create commit status checks
 
     steps:
       # ————————————————————————————————————————————————————————————————

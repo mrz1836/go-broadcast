@@ -88,8 +88,8 @@ jobs:
     needs: [load-env]
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: write # Required: Merge approved PRs and update repository
+      pull-requests: write # Required: Update PR status and merge approved PRs
     outputs:
       action-taken: ${{ steps.process.outputs.action }}
       pr-number: ${{ github.event.pull_request.number }}
