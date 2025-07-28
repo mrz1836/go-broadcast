@@ -55,6 +55,7 @@ permissions:
   pages: write # Deploy to GitHub Pages
   pull-requests: write # Comment on PRs
   id-token: write # GitHub Pages deployment
+  statuses: write # For commit status creation in coverage workflow
 
 jobs:
   # ----------------------------------------------------------------------------------
