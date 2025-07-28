@@ -431,59 +431,21 @@ jobs:
           echo "✅ All required coverage artifacts are present"
 
       # ————————————————————————————————————————————————————————————————
-      # GitHub Pages deployment
+      # Upload coverage artifacts for GitHub Pages deployment
+      # ————————————————————————————————————————————————————————————————
+      - name: 📤 Upload Pages artifact
+        if: github.event_name == 'push' && inputs.branch-name == 'master'
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: coverage-output
+
+      # ————————————————————————————————————————————————————————————————
+      # Deploy to GitHub Pages using official action
       # ————————————————————————————————————————————————————————————————
       - name: 🚀 Deploy to GitHub Pages
-        if: github.event_name == 'push' || github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.github-token }}
-        working-directory: .github/coverage/cmd/gofortress-coverage
-        run: |
-          echo "🚀 Deploying coverage to GitHub Pages..."
-
-          # Configure git
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Configure Git authentication for GitHub Pages deployment
-          echo "🔐 Configuring Git authentication for GitHub Pages..."
-
-          # Set up credential helper to use the GitHub token
-          git config --global credential.helper store
-
-          # Create credentials file with the GitHub token
-          echo "https://x-access-token:${GITHUB_TOKEN}@github.com" > ~/.git-credentials
-
-          # Configure Git to use the token for GitHub operations
-          git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
-
-          echo "✅ Git authentication configured"
-
-          # Use absolute path for deployment
-          REPO_ROOT="$(realpath ../../../../)"
-          OUTPUT_DIR="$REPO_ROOT/coverage-output"
-
-          echo "🔍 Using output directory for deployment: $OUTPUT_DIR"
-
-          # Deploy coverage artifacts
-          if [[ -n "${{ inputs.pr-number }}" ]]; then
-            # Deploy PR coverage
-            ./gofortress-coverage pages deploy \
-              --branch "${{ inputs.branch-name }}" \
-              --commit "${{ inputs.commit-sha }}" \
-              --pr "${{ inputs.pr-number }}" \
-              --input "$OUTPUT_DIR" \
-              --verbose
-          else
-            # Deploy branch coverage
-            ./gofortress-coverage pages deploy \
-              --branch "${{ inputs.branch-name }}" \
-              --commit "${{ inputs.commit-sha }}" \
-              --input "$OUTPUT_DIR" \
-              --verbose
-          fi
-
-          echo "✅ Coverage deployed to GitHub Pages"
+        if: github.event_name == 'push' && inputs.branch-name == 'master'
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
 
       # ————————————————————————————————————————————————————————————————
       # Set coverage status check
@@ -515,6 +477,13 @@ jobs:
             
             echo "Setting status: $STATE - $DESCRIPTION"
             
+            # Determine target URL based on deployment
+            if [[ "${{ inputs.branch-name }}" == "master" ]]; then
+              TARGET_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+            else
+              TARGET_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            fi
+
             curl -L \
               -X POST \
               -H "Accept: application/vnd.github+json" \
@@ -523,7 +492,7 @@ jobs:
               "https://api.github.com/repos/${{ github.repository }}/statuses/${{ inputs.commit-sha }}" \
               -d "{
                 \"state\": \"$STATE\",
-                \"target_url\": \"https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/\",
+                \"target_url\": \"$TARGET_URL\",
                 \"description\": \"$DESCRIPTION\",
                 \"context\": \"GoFortress/Coverage\"
               }"
@@ -598,7 +567,8 @@ jobs:
             
             if [[ "${{ inputs.branch-name }}" == "master" || "${{ inputs.branch-name }}" == "main" ]]; then
               echo "" >> $GITHUB_STEP_SUMMARY
-              echo "🚀 **Reports deployed to**: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/" >> $GITHUB_STEP_SUMMARY
+              echo "🚀 **Reports deployed to**: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+              echo "📊 **Deployment Status**: ${{ steps.deployment.outputs.page_url && '✅ Success' || '⏳ In Progress' }}" >> $GITHUB_STEP_SUMMARY
             fi
           else
             echo "❌ Coverage processing failed or no data generated" >> $GITHUB_STEP_SUMMARY
