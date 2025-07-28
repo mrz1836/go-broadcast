@@ -173,7 +173,7 @@ This document tracks the progress of implementing fuzz testing for go-broadcast 
 - Malformed repository names without "/" caused index out of bounds errors (fixed with validation)
 - Config package tests were using t.Errorf instead of t.Logf (fixed for proper fuzzing behavior)
 - Balancing between detecting real security issues and handling expected fuzz edge cases
-- Template variable security detection needed to account for legitimate template syntax ({{}})
+- Template variable security detection needed to account for legitimate template syntax ({% raw %}{{}}{% endraw %})
 
 ### Integration
 - [x] Ran `make test-fuzz` - all 16 fuzz tests pass successfully

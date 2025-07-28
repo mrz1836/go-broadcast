@@ -205,7 +205,7 @@ targets:
         to: README.md`),
         []byte(`version: 999999`),
         []byte(`source: {repo: "../../etc/passwd"}`),
-        []byte(`{{{{{{{{{}`),
+        []byte(`{% raw %}{{{{{{{{{{% endraw %}`),
     }
     
     for _, seed := range seeds {
