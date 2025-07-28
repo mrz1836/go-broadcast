@@ -259,6 +259,21 @@ update history, and create GitHub PR comment if in PR context.`,
 			} else {
 				cmd.Printf("   ✅ Dashboard saved: %s/index.html\n", outputDir)
 
+				// Also create dashboard.html for GitHub Pages deployment compatibility
+				indexPath := filepath.Join(outputDir, "index.html")
+				dashboardPath := filepath.Join(outputDir, "dashboard.html")
+
+				// Read the generated index.html and copy it to dashboard.html
+				if indexContent, readErr := os.ReadFile(indexPath); readErr == nil { //nolint:gosec // path is constructed from validated config
+					if writeErr := os.WriteFile(dashboardPath, indexContent, cfg.Storage.FileMode); writeErr != nil {
+						cmd.Printf("   ⚠️  Failed to create dashboard.html: %v\n", writeErr)
+					} else {
+						cmd.Printf("   ✅ Dashboard also saved as: %s\n", dashboardPath)
+					}
+				} else {
+					cmd.Printf("   ⚠️  Failed to read index.html for dashboard.html creation: %v\n", readErr)
+				}
+
 				// Also save coverage data as JSON for pages deployment
 				dataPath := filepath.Join(outputDir, "coverage-data.json")
 				jsonData, err := json.Marshal(coverageData)
@@ -273,6 +288,7 @@ update history, and create GitHub PR comment if in PR context.`,
 			}
 		} else {
 			cmd.Printf("   📊 Would generate dashboard at: %s/index.html\n", outputDir)
+			cmd.Printf("   📊 Would also create: %s/dashboard.html\n", outputDir)
 		}
 
 		cmd.Printf("\n")
