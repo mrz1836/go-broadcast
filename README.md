@@ -305,7 +305,7 @@ COVERAGE_PR_COMMENT_BEHAVIOR=update      # Comment behavior: new, update, delete
 - **Coverage Dashboard**: `https://mrz1836.github.io/go-broadcast/`
 - **Coverage Report**: `https://mrz1836.github.io/go-broadcast/coverage.html`
 
-📚 **[Complete Configuration Guide](docs/coverage-configuration.md)** | 🔧 **[Migration Guide](docs/migrating-from-codecov.md)** | 📊 **[API Documentation](docs/coverage-api.md)**
+📚 **[Complete Configuration Guide](.github/coverage/docs/coverage-configuration.md)** | 🔧 **[Migration Guide](.github/coverage/docs/migrating-from-codecov.md)** | 📊 **[API Documentation](.github/coverage/docs/coverage-api.md)**
 
 </details>
 

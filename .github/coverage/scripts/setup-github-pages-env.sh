@@ -95,7 +95,6 @@ get_repository() {
                 show_usage
                 exit 1
             fi
-            print_status "Detected repository: $repo"
         else
             print_error "No repository specified and not in a Git repository"
             show_usage
@@ -134,7 +133,8 @@ setup_pages_environment() {
     print_status "Creating/updating github-pages environment..."
     
     if gh api "repos/$repo/environments/github-pages" --method PUT \
-        --field deployment_branch_policy='{"protected_branches":false,"custom_branch_policies":true}' \
+        --field deployment_branch_policy[protected_branches]=false \
+        --field deployment_branch_policy[custom_branch_policies]=true \
         --silent; then
         print_success "GitHub Pages environment configured"
     else
@@ -188,6 +188,18 @@ setup_deployment_branches() {
     else
         print_warning "dependabot/* branch pattern rule may already exist or failed to add"
     fi
+    
+    # Add development branch deployment rule
+    print_status "Adding development branch deployment rule..."
+    
+    if gh api "repos/$repo/environments/github-pages/deployment-branch-policies" --method POST \
+        --field name="development" \
+        --field type="branch" \
+        --silent 2>/dev/null; then
+        print_success "development branch deployment rule added"
+    else
+        print_warning "development branch rule may already exist or failed to add"
+    fi
 }
 
 # Function to verify the setup
@@ -230,6 +242,7 @@ show_next_steps() {
     echo "     - master branch (main deployments)"
     echo "     - gh-pages branch (GitHub Pages default)"
     echo "     - dependabot/* branches (automated dependency updates)"
+    echo "     - development branch (development deployments)"
     echo "  2. The GoFortress coverage workflow should now deploy successfully"
     echo "  3. Coverage reports will be available at: https://$(echo "$repo" | cut -d'/' -f1).github.io/$(echo "$repo" | cut -d'/' -f2)/"
     echo ""

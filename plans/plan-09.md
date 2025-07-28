@@ -2623,11 +2623,11 @@ After completing this phase, update `plans/plan-09-status.md`:
 
 **Files to Create/Modify:**
 - Modify: `README.md` - Add comprehensive feature section
-- Create: `docs/coverage-system.md` - Complete system documentation
-- Create: `docs/coverage-features.md` - Feature showcase with screenshots
-- Create: `docs/coverage-configuration.md` - Configuration reference
-- Create: `docs/coverage-api.md` - API documentation
-- Create: `docs/migrating-from-codecov.md` - Migration guide
+- Create: `.github/coverage/docs/coverage-system.md` - Complete system documentation
+- Create: `.github/coverage/docs/coverage-features.md` - Feature showcase with screenshots
+- Create: `.github/coverage/docs/coverage-configuration.md` - Configuration reference
+- Create: `.github/coverage/docs/coverage-api.md` - API documentation
+- Create: `.github/coverage/docs/migrating-from-codecov.md` - Migration guide
 - Modify: `CONTRIBUTING.md` - Add coverage guidelines
 
 **Verification Steps:**
@@ -2708,7 +2708,7 @@ COVERAGE_THRESHOLD_EXCELLENT=90
 COVERAGE_ENFORCE_THRESHOLD=true
 ```
 
-[Full Configuration Guide](docs/coverage-configuration.md)
+[Full Configuration Guide](.github/coverage/docs/coverage-configuration.md)
 
 ### 📊 Exclusion System
 
@@ -2771,7 +2771,7 @@ docs/
     └── architecture.png       # System architecture diagram
 ```
 
-#### 8.3 docs/coverage-system.md Template
+#### 8.3 .github/coverage/docs/coverage-system.md Template
 ```markdown
 # GoFortress Internal Coverage System
 

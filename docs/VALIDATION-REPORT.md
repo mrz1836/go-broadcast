@@ -15,11 +15,11 @@ Generated: July 27, 2025
 ### Core Documentation Files ✅
 - [x] `README.md` - Enhanced with GoFortress coverage features
 - [x] `CONTRIBUTING.md` - Comprehensive contributor guide with coverage requirements
-- [x] `docs/coverage-system.md` - System architecture and overview
-- [x] `docs/coverage-features.md` - Detailed feature showcase
-- [x] `docs/coverage-configuration.md` - Complete configuration reference
-- [x] `docs/coverage-api.md` - CLI and API documentation
-- [x] `docs/migrating-from-codecov.md` - Migration guide
+- [x] `.github/coverage/docs/coverage-system.md` - System architecture and overview
+- [x] `.github/coverage/docs/coverage-features.md` - Detailed feature showcase
+- [x] `.github/coverage/docs/coverage-configuration.md` - Complete configuration reference
+- [x] `.github/coverage/docs/coverage-api.md` - CLI and API documentation
+- [x] `.github/coverage/docs/migrating-from-codecov.md` - Migration guide
 
 ### Supporting Documentation Files ✅
 - [x] `docs/images/README.md` - Image requirements and guidelines
