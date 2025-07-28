@@ -264,8 +264,24 @@ func (c *Config) GetBadgeURL() string {
 	if c.GitHub.Owner == "" || c.GitHub.Repository == "" {
 		return ""
 	}
-	return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/main/%s/%s",
-		c.GitHub.Owner, c.GitHub.Repository, c.Storage.BaseDir, c.Badge.OutputFile)
+
+	// Use GitHub Pages URL structure
+	baseURL := fmt.Sprintf("https://%s.github.io/%s", c.GitHub.Owner, c.GitHub.Repository)
+
+	// If in PR context, return PR-specific badge URL
+	if c.IsPullRequestContext() {
+		return fmt.Sprintf("%s/badges/pr/%d/coverage.svg", baseURL, c.GitHub.PullRequest)
+	}
+
+	// For branch-specific badges, get current branch (default to master)
+	branch := c.getCurrentBranch()
+	if branch == "master" || branch == "main" {
+		// Main branch badge at root badges directory
+		return fmt.Sprintf("%s/badges/coverage.svg", baseURL)
+	}
+
+	// Branch-specific badge
+	return fmt.Sprintf("%s/badges/%s/coverage.svg", baseURL, branch)
 }
 
 // GetReportURL returns the URL for the coverage report
@@ -273,8 +289,40 @@ func (c *Config) GetReportURL() string {
 	if c.GitHub.Owner == "" || c.GitHub.Repository == "" {
 		return ""
 	}
-	return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/main/%s/%s",
-		c.GitHub.Owner, c.GitHub.Repository, c.Storage.BaseDir, c.Report.OutputFile)
+
+	// Use GitHub Pages URL structure
+	baseURL := fmt.Sprintf("https://%s.github.io/%s", c.GitHub.Owner, c.GitHub.Repository)
+
+	// If in PR context, return PR-specific report URL
+	if c.IsPullRequestContext() {
+		return fmt.Sprintf("%s/reports/pr/%d/coverage.html", baseURL, c.GitHub.PullRequest)
+	}
+
+	// For branch-specific reports, get current branch (default to master)
+	branch := c.getCurrentBranch()
+	if branch == "master" || branch == "main" {
+		// Main branch report at root coverage directory
+		return fmt.Sprintf("%s/coverage/", baseURL)
+	}
+
+	// Branch-specific report
+	return fmt.Sprintf("%s/reports/branch/%s/coverage.html", baseURL, branch)
+}
+
+// getCurrentBranch returns the current branch name, defaulting to master
+func (c *Config) getCurrentBranch() string {
+	// Try to get branch from environment variables (GitHub Actions context)
+	if branch := os.Getenv("GITHUB_REF_NAME"); branch != "" {
+		return branch
+	}
+	if ref := os.Getenv("GITHUB_REF"); ref != "" {
+		// Extract branch name from refs/heads/branch-name
+		if strings.HasPrefix(ref, "refs/heads/") {
+			return strings.TrimPrefix(ref, "refs/heads/")
+		}
+	}
+	// Default to master (this repo's default branch)
+	return "master"
 }
 
 // Helper functions for environment variable parsing

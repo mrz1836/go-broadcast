@@ -31,11 +31,7 @@ on:
   pull_request:
     types: [opened, reopened, ready_for_review, closed]
 
-# ————————————————————————————————————————————————————————————————
-# Permissions
-# ————————————————————————————————————————————————————————————————
-permissions:
-  contents: read
+# Security: Job-level permissions are set per job for least privilege access
 
 # ————————————————————————————————————————————————————————————————
 # Concurrency Control

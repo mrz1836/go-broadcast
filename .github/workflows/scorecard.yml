@@ -18,10 +18,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# Declare default permissions as read-only.
-permissions:
-  contents: read
-  security-events: read # For scorecard analysis
+# Security: Job-level permissions are set per job for least privilege access
 
 jobs:
   analysis:

@@ -27,11 +27,7 @@ on:
     - cron: "0 12 * * 1-5" # 7:00 AM EST (12:00 UTC)
   workflow_dispatch: # Allow manual triggering
 
-# ————————————————————————————————————————————————————————————————
-# Permissions
-# ————————————————————————————————————————————————————————————————
-permissions:
-  contents: read
+# Security: Job-level permissions are set per job for least privilege access
 
 # ————————————————————————————————————————————————————————————————
 # Concurrency Control

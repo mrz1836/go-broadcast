@@ -97,8 +97,7 @@ on:
         description: "Warm cache matrix JSON"
         value: ${{ jobs.setup-config.outputs.warm-cache-matrix }}
 
-permissions:
-  contents: read
+# Security: Job-level permissions are set per job for least privilege access
 
 jobs:
   # ----------------------------------------------------------------------------------
@@ -354,6 +353,7 @@ jobs:
           echo "| **Is Tag Push** | $([ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ] && echo "✅ Yes" || echo "❌ No") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Is Release Eligible** | $([ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ] && echo "🚀 **Yes - Release will run if tests pass**" || echo "❌ No") |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
           # Configuration Statistics (moved up for overview)
           echo "## 📈 Configuration Overview" >> $GITHUB_STEP_SUMMARY
@@ -369,6 +369,7 @@ jobs:
           echo "- **Unique Go Versions**: $(echo "$UNIQUE_GO_VERSIONS" | jq 'length')" >> $GITHUB_STEP_SUMMARY
           echo "- **Runner Operating Systems**: $([ "${{ env.PRIMARY_RUNNER }}" == "${{ env.SECONDARY_RUNNER }}" ] && echo "1" || echo "2")" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
           # Core Configuration
           echo "## 🎯 Core CI Configuration" >> $GITHUB_STEP_SUMMARY
@@ -380,6 +381,7 @@ jobs:
           echo "| **Secondary Go Version** | \`${{ env.GO_SECONDARY_VERSION }}\` | Additional Go version for testing |" >> $GITHUB_STEP_SUMMARY
           echo "| **Unique Go Versions** | $UNIQUE_GO_VERSIONS | Deduplicated list of Go versions |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
           # Test Matrix
           echo "## 🧪 Generated Test Matrix" >> $GITHUB_STEP_SUMMARY
@@ -391,6 +393,7 @@ jobs:
           echo "$MATRIX_JSON" | jq -r '.include | to_entries | .[] | "| \(.key + 1) | \(.value.os) | \(.value["go-version"]) | \(.value.name) | \(if .value["run-fuzz"] then "✅ Yes" else "❌ No" end) |"' >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
           # Feature Flags
           echo "## 🚀 Feature Flags" >> $GITHUB_STEP_SUMMARY
@@ -407,6 +410,7 @@ jobs:
           echo "| **Gitleaks (Secret Scan)** | $([ "${{ env.ENABLE_SECURITY_SCAN_GITLEAKS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Gitleaks will $([ "${{ env.ENABLE_SECURITY_SCAN_GITLEAKS }}" == "true" ] && echo "scan for leaked secrets" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Static Analysis** | $([ "${{ env.ENABLE_STATIC_ANALYSIS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Static analysis will $([ "${{ env.ENABLE_STATIC_ANALYSIS }}" == "true" ] && echo "check for code issues" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
           # Benchmark Configuration (only show if benchmarks are enabled)
           if [[ "${{ env.ENABLE_BENCHMARKS }}" == "true" ]]; then
@@ -417,6 +421,7 @@ jobs:
             echo "| **Benchmark Timeout** | \`${{ env.BENCHMARK_TIMEOUT }}\` minutes | Maximum time allowed for benchmark execution |" >> $GITHUB_STEP_SUMMARY
             echo "| **Available Modes** | quick, normal, full | Set via \`BENCHMARK_MODE\` in .env.shared |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
+            echo "<br><br>" >> $GITHUB_STEP_SUMMARY
           fi
 
           # Coverage Configuration (only show if coverage is enabled)
@@ -434,6 +439,7 @@ jobs:
             echo "| **Badge Branches** | \`${{ env.COVERAGE_BADGE_BRANCHES }}\` | Branches that generate badges |" >> $GITHUB_STEP_SUMMARY
             echo "| **Exclude Paths** | \`${{ env.COVERAGE_EXCLUDE_PATHS }}\` | Paths excluded from coverage |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
+            echo "<br><br>" >> $GITHUB_STEP_SUMMARY
           fi
 
           # Build Requirements
@@ -443,6 +449,7 @@ jobs:
           echo "| **Makefile** | $([ "${{ steps.config.outputs.makefile-exists }}" == "true" ] && echo "✅ Found" || echo "⚠️ Not Found") | Required: $([ "${{ env.MAKEFILE_REQUIRED }}" == "true" ] && echo "Yes" || echo "No") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Verbose Output** | $([ "${{ env.ENABLE_VERBOSE_TEST_OUTPUT }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Test output verbosity |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
           # Security Tools Configuration
           echo "## 🔒 Security Tools Configuration" >> $GITHUB_STEP_SUMMARY
@@ -452,6 +459,7 @@ jobs:
           echo "| **Govulncheck** | \`${{ env.GOVULNCHECK_VERSION }}\` | Go vulnerability scanner |" >> $GITHUB_STEP_SUMMARY
           echo "| **Nancy** | \`${{ env.NANCY_VERSION }}\` | Excludes: \`${{ env.NANCY_EXCLUDES }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
           # GitHub Token Configuration
           echo "## 🔑 Authentication" >> $GITHUB_STEP_SUMMARY
@@ -460,6 +468,7 @@ jobs:
           echo "| **Preferred Token** | \`${{ env.PREFERRED_GITHUB_TOKEN }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Token Type** | $([ "${{ env.PREFERRED_GITHUB_TOKEN }}" == "GH_PAT_TOKEN" ] && echo "Personal Access Token (5000 req/hour)" || echo "Default GITHUB_TOKEN (1000 req/hour)") |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
           # Custom Project Variables
           echo "## 🎨 Custom Project Configuration" >> $GITHUB_STEP_SUMMARY
@@ -474,6 +483,7 @@ jobs:
             echo "_No project-specific (CUSTOM_*) variables found._" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
           # All Environment Variables (moved to end as reference)
           echo "## 🔍 All Environment Variables" >> $GITHUB_STEP_SUMMARY
