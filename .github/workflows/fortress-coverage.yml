@@ -155,7 +155,7 @@ jobs:
           # Create cache statistics JSON
           cat > "cache-stats-coverage.json" << 'EOF'
           {
-            "os": "ubuntu-latest",
+            "os": "${{ inputs.primary-runner }}",
             "go_version": "${{ env.GO_PRIMARY_VERSION }}",
             "gomod_cache_hit": "$GOMOD_HIT",
             "gobuild_cache_hit": "$GOBUILD_HIT",
