@@ -166,9 +166,9 @@ func (g *TestRepoGenerator) CreateConflictingRepo(name, owner string) (*TestRepo
 		".github/workflows/ci.yml": `name: CI (Modified)
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master, development ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   test:
@@ -532,7 +532,7 @@ services:
       - "8080:8080"
     environment:
       - ENV=development
-  
+
   postgres:
     image: postgres:13
     environment:

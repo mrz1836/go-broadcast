@@ -146,7 +146,7 @@ COVERAGE_PR_COMMENT_SHOW_TREE=true              # Show file tree in PR comments
 COVERAGE_PR_COMMENT_SHOW_MISSING=true           # Highlight uncovered lines in PR
 COVERAGE_SLACK_WEBHOOK_ENABLED=false            # Enable Slack notifications
 COVERAGE_SLACK_WEBHOOK_URL=                     # Slack webhook URL (secret)
-COVERAGE_BADGE_BRANCHES=main,develop            # Branches to generate badges for
+COVERAGE_BADGE_BRANCHES=master,development      # Branches to generate badges for
 COVERAGE_CLEANUP_PR_AFTER_DAYS=7                # Clean up PR coverage data after merge
 COVERAGE_ENABLE_TREND_ANALYSIS=true             # Enable historical trend tracking
 COVERAGE_ENABLE_PACKAGE_BREAKDOWN=true          # Show package-level coverage
@@ -2666,7 +2666,7 @@ After completing this phase, update `plans/plan-09-status.md`:
 #### Professional Coverage Badges
 - **GitHub-style badges** with multiple themes
 - **Real-time updates** on every push
-- **Branch-specific badges** for main, develop, and PRs
+- **Branch-specific badges** for master, development, and PRs
 - **Trend indicators** showing coverage direction
 
 ![Coverage Demo](docs/images/badge-showcase.png)

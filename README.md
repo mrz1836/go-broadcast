@@ -231,7 +231,7 @@ That's it! Push any commit and get:
 #### Professional Coverage Badges
 - **GitHub-style badges** with multiple themes (flat, flat-square, for-the-badge)
 - **Real-time updates** on every push and pull request
-- **Branch-specific badges** for main, develop, and feature branches
+- **Branch-specific badges** for `master`, `development`, and feature branches
 - **Trend indicators** showing coverage direction and momentum
 - **PR-specific badges** for pull request analysis
 

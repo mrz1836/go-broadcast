@@ -36,7 +36,7 @@ For production use, add these additional settings:
 # Badge configuration
 COVERAGE_BADGE_STYLE=flat
 COVERAGE_BADGE_LOGO=go
-COVERAGE_BADGE_BRANCHES=main,develop
+COVERAGE_BADGE_BRANCHES=master,development
 
 # Analytics and trends
 COVERAGE_ENABLE_TREND_ANALYSIS=true
@@ -181,13 +181,13 @@ COVERAGE_BADGE_LOGO_COLOR=#ff0000 # Custom hex color
 
 #### `COVERAGE_BADGE_BRANCHES`
 **Type**: Comma-separated list  
-**Default**: `main,develop`  
+**Default**: `master,development`  
 **Description**: Branches to generate badges for
 
 ```bash
-COVERAGE_BADGE_BRANCHES=main,develop           # Standard branches
+COVERAGE_BADGE_BRANCHES=master,development           # Standard branches
 COVERAGE_BADGE_BRANCHES=master,staging,prod    # Custom branches
-COVERAGE_BADGE_BRANCHES=main                   # Single branch only
+COVERAGE_BADGE_BRANCHES=master                   # Single branch only
 ```
 
 ## GitHub Pages Configuration

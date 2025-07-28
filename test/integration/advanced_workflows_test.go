@@ -229,9 +229,9 @@ func testTemplateRepositoryUpdates(t *testing.T, generator *fixtures.TestRepoGen
 		".github/workflows/ci.yml": []byte(`name: CI (Updated)
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master, development ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   test:

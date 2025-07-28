@@ -82,7 +82,7 @@ COVERAGE_THRESHOLD_LOW=60
 # Badge configuration
 COVERAGE_BADGE_STYLE=flat
 COVERAGE_BADGE_LOGO=go
-COVERAGE_BADGE_BRANCHES=main,develop
+COVERAGE_BADGE_BRANCHES=master,development
 
 # GitHub Pages and PR integration
 COVERAGE_PAGES_AUTO_CREATE=true
