@@ -228,6 +228,32 @@ const dashboardTemplate = `<!DOCTYPE html>
             background-clip: text;
         }
         
+        .quality-gate-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: linear-gradient(135deg, var(--color-success), #4ade80);
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+        
+        .quality-gate-icon {
+            width: 24px;
+            height: 24px;
+            color: white;
+            flex-shrink: 0;
+        }
+        
+        .quality-gate-text {
+            color: white;
+            font-weight: 700;
+            font-size: 0.875rem;
+            letter-spacing: 0.05em;
+        }
+        
         .metric-label {
             color: var(--color-text-secondary);
             font-size: 0.9rem;
@@ -513,7 +539,14 @@ const dashboardTemplate = `<!DOCTYPE html>
                 
                 <div class="metric-card">
                     <h3>🎯 Quality Gate</h3>
-                    <div class="metric-value success">✅</div>
+                    <div class="quality-gate-badge">
+                        <svg class="quality-gate-icon" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" fill="currentColor" fill-opacity="0.1"/>
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M8.5 12.5L10.5 14.5L15.5 9.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span class="quality-gate-text">PASSED</span>
+                    </div>
                     <div class="metric-label">Threshold: 80% (exceeded)</div>
                     <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--color-success);">
                         Coverage meets quality standards
