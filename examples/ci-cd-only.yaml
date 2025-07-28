@@ -1,0 +1,109 @@
+# go-broadcast configuration for CI/CD pipeline synchronization
+# Syncs only GitHub Actions workflows and related CI/CD files
+
+version: 1
+
+source:
+  repo: "company/ci-cd-templates"
+  branch: "master"
+
+defaults:
+  branch_prefix: "sync/ci-cd"
+  pr_labels:
+    - "automated-sync"
+    - "ci-cd"
+    - "github-actions"
+
+targets:
+  # Frontend repositories
+  - repo: "company/react-dashboard"
+    files:
+      - src: "frontend/ci.yml"
+        dest: ".github/workflows/ci.yml"
+      - src: "frontend/deploy.yml"
+        dest: ".github/workflows/deploy.yml"
+      - src: "frontend/security.yml"
+        dest: ".github/workflows/security.yml"
+      - src: "frontend/dependabot.yml"
+        dest: ".github/dependabot.yml"
+    transform:
+      variables:
+        NODE_VERSION: "18"
+        DEPLOY_ENV: "staging"
+
+  - repo: "company/vue-admin-panel"
+    files:
+      - src: "frontend/ci.yml"
+        dest: ".github/workflows/ci.yml"
+      - src: "frontend/deploy.yml"
+        dest: ".github/workflows/deploy.yml"
+      - src: "frontend/security.yml"
+        dest: ".github/workflows/security.yml"
+      - src: "frontend/dependabot.yml"
+        dest: ".github/dependabot.yml"
+    transform:
+      variables:
+        NODE_VERSION: "16"
+        DEPLOY_ENV: "production"
+
+  # Backend repositories
+  - repo: "company/go-auth-service"
+    files:
+      - src: "backend/go/ci.yml"
+        dest: ".github/workflows/ci.yml"
+      - src: "backend/go/deploy.yml"
+        dest: ".github/workflows/deploy.yml"
+      - src: "backend/security.yml"
+        dest: ".github/workflows/security.yml"
+      - src: "common/dependabot.yml"
+        dest: ".github/dependabot.yml"
+    transform:
+      variables:
+        GO_VERSION: "1.21"
+        DEPLOY_ENV: "production"
+
+  - repo: "company/python-ml-service"
+    files:
+      - src: "backend/python/ci.yml"
+        dest: ".github/workflows/ci.yml"
+      - src: "backend/python/deploy.yml"
+        dest: ".github/workflows/deploy.yml"
+      - src: "backend/security.yml"
+        dest: ".github/workflows/security.yml"
+      - src: "common/dependabot.yml"
+        dest: ".github/dependabot.yml"
+    transform:
+      variables:
+        PYTHON_VERSION: "3.11"
+        DEPLOY_ENV: "staging"
+
+  # Infrastructure repositories
+  - repo: "company/terraform-infrastructure"
+    files:
+      - src: "infrastructure/terraform/ci.yml"
+        dest: ".github/workflows/ci.yml"
+      - src: "infrastructure/terraform/deploy.yml"
+        dest: ".github/workflows/deploy.yml"
+      - src: "infrastructure/security.yml"
+        dest: ".github/workflows/security.yml"
+      - src: "common/dependabot.yml"
+        dest: ".github/dependabot.yml"
+    transform:
+      variables:
+        TERRAFORM_VERSION: "1.5"
+        DEPLOY_ENV: "production"
+
+  - repo: "company/kubernetes-manifests"
+    files:
+      - src: "infrastructure/kubernetes/ci.yml"
+        dest: ".github/workflows/ci.yml"
+      - src: "infrastructure/kubernetes/deploy.yml"
+        dest: ".github/workflows/deploy.yml"
+      - src: "infrastructure/security.yml"
+        dest: ".github/workflows/security.yml"
+      - src: "common/dependabot.yml"
+        dest: ".github/dependabot.yml"
+    transform:
+      variables:
+        KUBECTL_VERSION: "1.28"
+        DEPLOY_ENV: "production"

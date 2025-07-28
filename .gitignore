@@ -1,0 +1,78 @@
+########################
+# Go Language          #
+########################
+
+# Binary files
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Project main binary
+go-broadcast
+
+# Test binaries
+*.test
+
+# Go tools
+go.list
+*.out
+
+# Coverage reports
+coverage.txt
+coverage.out
+
+# Profiling data
+profiles/
+*.prof
+
+# Benchmark artifacts
+bench-old.txt
+bench-new.txt
+
+# Fuzz testing
+testdata
+internal/fuzz/corpus/
+
+# Coverage
+.github/coverage/cmd/gofortress-coverage/gofortress-coverage
+.github/coverage/gofortress-coverage
+
+########################
+# Development Tools    #
+########################
+
+# IDEs and Editors
+.idea/
+.project
+
+# AI assistants
+.claude
+
+# Linting
+lint-output.txt
+
+########################
+# Dependencies         #
+########################
+
+# Node.js
+node_modules/
+
+########################
+# Build & Distribution #
+########################
+
+# Build artifacts
+dist/
+
+########################
+# Operating System     #
+########################
+
+# macOS
+.DS_Store
+
+# Database files
+*.db

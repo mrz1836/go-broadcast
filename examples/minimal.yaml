@@ -1,0 +1,14 @@
+# Minimal go-broadcast configuration
+# This is the simplest possible configuration for syncing files
+
+version: 1
+
+source:
+  repo: "org/template-repo"
+  branch: "master"
+
+targets:
+  - repo: "org/target-repo"
+    files:
+      - src: ".github/workflows/ci.yml"
+        dest: ".github/workflows/ci.yml"

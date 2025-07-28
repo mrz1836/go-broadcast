@@ -1,0 +1,145 @@
+# go-broadcast configuration for documentation synchronization
+# Syncs documentation templates and standards across repositories
+
+version: 1
+
+source:
+  repo: "company/documentation-templates"
+  branch: "master"
+
+defaults:
+  branch_prefix: "sync/docs"
+  pr_labels:
+    - "automated-sync"
+    - "documentation"
+    - "templates"
+
+targets:
+  # Core service repositories
+  - repo: "company/user-management-service"
+    files:
+      # Standard README template
+      - src: "templates/README.service.md"
+        dest: "README.md"
+      # Contributing guidelines
+      - src: "templates/CONTRIBUTING.md"
+        dest: "CONTRIBUTING.md"
+      # Code of conduct
+      - src: "templates/CODE_OF_CONDUCT.md"
+        dest: "CODE_OF_CONDUCT.md"
+      # Security policy
+      - src: "templates/SECURITY.md"
+        dest: "SECURITY.md"
+      # API documentation template
+      - src: "templates/API.md"
+        dest: "docs/API.md"
+      # Architecture decision records
+      - src: "templates/ADR-template.md"
+        dest: "docs/adr/ADR-template.md"
+    transform:
+      repo_name: true
+      variables:
+        SERVICE_NAME: "User Management Service"
+        SERVICE_DESCRIPTION: "Handles user authentication, authorization, and profile management"
+        TEAM_NAME: "Backend Team"
+        CONTACT_EMAIL: "backend@company.com"
+
+  - repo: "company/payment-processing-service"
+    files:
+      - src: "templates/README.service.md"
+        dest: "README.md"
+      - src: "templates/CONTRIBUTING.md"
+        dest: "CONTRIBUTING.md"
+      - src: "templates/CODE_OF_CONDUCT.md"
+        dest: "CODE_OF_CONDUCT.md"
+      - src: "templates/SECURITY.md"
+        dest: "SECURITY.md"
+      - src: "templates/API.md"
+        dest: "docs/API.md"
+      - src: "templates/ADR-template.md"
+        dest: "docs/adr/ADR-template.md"
+      # Additional compliance documentation for payment service
+      - src: "templates/COMPLIANCE.md"
+        dest: "docs/COMPLIANCE.md"
+    transform:
+      repo_name: true
+      variables:
+        SERVICE_NAME: "Payment Processing Service"
+        SERVICE_DESCRIPTION: "Handles payment transactions, billing, and financial operations"
+        TEAM_NAME: "Payments Team"
+        CONTACT_EMAIL: "payments@company.com"
+
+  # Frontend application repositories
+  - repo: "company/customer-dashboard"
+    files:
+      # Frontend-specific README template
+      - src: "templates/README.frontend.md"
+        dest: "README.md"
+      - src: "templates/CONTRIBUTING.md"
+        dest: "CONTRIBUTING.md"
+      - src: "templates/CODE_OF_CONDUCT.md"
+        dest: "CODE_OF_CONDUCT.md"
+      - src: "templates/SECURITY.md"
+        dest: "SECURITY.md"
+      # UI/UX documentation
+      - src: "templates/UI_GUIDELINES.md"
+        dest: "docs/UI_GUIDELINES.md"
+      - src: "templates/ACCESSIBILITY.md"
+        dest: "docs/ACCESSIBILITY.md"
+    transform:
+      repo_name: true
+      variables:
+        APP_NAME: "Customer Dashboard"
+        APP_DESCRIPTION: "Customer-facing web application for account management and service access"
+        TEAM_NAME: "Frontend Team"
+        CONTACT_EMAIL: "frontend@company.com"
+
+  # Library repositories
+  - repo: "company/shared-components-library"
+    files:
+      # Library-specific README template
+      - src: "templates/README.library.md"
+        dest: "README.md"
+      - src: "templates/CONTRIBUTING.md"
+        dest: "CONTRIBUTING.md"
+      - src: "templates/CODE_OF_CONDUCT.md"
+        dest: "CODE_OF_CONDUCT.md"
+      - src: "templates/SECURITY.md"
+        dest: "SECURITY.md"
+      # Library-specific documentation
+      - src: "templates/USAGE.md"
+        dest: "docs/USAGE.md"
+      - src: "templates/CHANGELOG.md"
+        dest: "CHANGELOG.md"
+    transform:
+      repo_name: true
+      variables:
+        LIBRARY_NAME: "Shared Components Library"
+        LIBRARY_DESCRIPTION: "Reusable UI components and utilities for internal applications"
+        TEAM_NAME: "Platform Team"
+        CONTACT_EMAIL: "platform@company.com"
+
+  # Infrastructure repositories
+  - repo: "company/deployment-infrastructure"
+    files:
+      # Infrastructure-specific README template
+      - src: "templates/README.infrastructure.md"
+        dest: "README.md"
+      - src: "templates/CONTRIBUTING.md"
+        dest: "CONTRIBUTING.md"
+      - src: "templates/CODE_OF_CONDUCT.md"
+        dest: "CODE_OF_CONDUCT.md"
+      - src: "templates/SECURITY.md"
+        dest: "SECURITY.md"
+      # Infrastructure-specific docs
+      - src: "templates/DEPLOYMENT.md"
+        dest: "docs/DEPLOYMENT.md"
+      - src: "templates/RUNBOOK.md"
+        dest: "docs/RUNBOOK.md"
+    transform:
+      repo_name: true
+      variables:
+        REPO_NAME: "Deployment Infrastructure"
+        REPO_DESCRIPTION: "Terraform configurations and deployment scripts for production infrastructure"
+        TEAM_NAME: "DevOps Team"
+        CONTACT_EMAIL: "devops@company.com"
