@@ -21,6 +21,9 @@ This coverage system is designed as a portable, self-contained unit that lives e
 │   ├── report/                     # HTML report generation
 │   ├── history/                    # Historical data tracking
 │   └── github/                     # GitHub API integration
+├── scripts/                        # Setup and maintenance scripts
+│   ├── setup-github-pages-env.sh   # GitHub Pages environment configuration
+│   └── README.md                   # Scripts documentation
 └── README.md                       # This file
 ```
 
@@ -40,6 +43,25 @@ This coverage system is designed as a portable, self-contained unit that lives e
 - **Phase 3**: ⏳ Fortress Workflow Integration
 - **Phase 4**: ⏳ GitHub Pages & Storage
 - **Phase 5**: ⏳ Pull Request Integration
+
+## Setup
+
+### New Repository Setup
+
+When setting up the GoFortress coverage system for a new repository, you'll need to configure GitHub Pages environment settings:
+
+```bash
+# From repository root
+./.github/coverage/scripts/setup-github-pages-env.sh
+```
+
+This script configures the necessary environment protection rules for GitHub Pages deployment. See [`scripts/README.md`](scripts/README.md) for detailed documentation.
+
+### Requirements
+
+- GitHub CLI (`gh`) installed and authenticated
+- Repository admin permissions
+- GitHub Pages enabled in repository settings
 
 ## Usage
 

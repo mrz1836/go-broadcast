@@ -206,6 +206,48 @@ go mod verify
 govulncheck ./...
 ```
 
+### 🚀 GitHub Pages Setup for New Repositories
+
+If you're setting up GoFortress coverage system for a new repository or encountering GitHub Pages deployment issues, you may need to configure environment protection rules.
+
+**Quick Setup:**
+```bash
+# Run the automated setup script
+./.github/coverage/scripts/setup-github-pages-env.sh
+
+# Or specify repository explicitly
+./.github/coverage/scripts/setup-github-pages-env.sh owner/repo-name
+```
+
+**What the script does:**
+1. Creates/configures the `github-pages` environment
+2. Sets up deployment branch policies for `master`, `gh-pages`, and `dependabot/*` branches
+3. Configures environment protection rules
+4. Verifies the setup
+
+**Manual Setup (if script fails):**
+1. Go to your repository Settings → Environments → github-pages
+2. Under "Deployment branches", select "Selected branches and tags"
+3. Add deployment branch rules for:
+   - `master` (for main deployments)
+   - `gh-pages` (GitHub Pages default)
+   - `dependabot/*` (for automated dependency updates)
+4. Save the changes
+
+**Requirements:**
+- GitHub CLI (`gh`) installed and authenticated
+- Repository admin permissions
+- Personal Access Token with repo scope (for private repos)
+
+**Troubleshooting:**
+- **"Branch not allowed to deploy"**: Run the setup script or manually configure branch rules
+- **"Environment protection rules"**: Ensure you have admin permissions to the repository
+- **Script fails**: Check GitHub CLI authentication with `gh auth status`
+
+**Verification:**
+After setup, coverage reports will be available at:
+`https://[owner].github.io/[repo-name]/`
+
 ### 📚 Documentation Navigation
 
 **Core Documentation:**
