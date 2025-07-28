@@ -533,10 +533,10 @@ const dashboardTemplate = `<!DOCTYPE html>
             <div class="links-section">
                 <h3 style="margin-bottom: 1rem;">📋 Coverage Reports & Tools</h3>
                 <div class="links-grid">
-                    <a href="./reports/coverage-report.html" class="link-item">
+                    <a href="./coverage.html" class="link-item">
                         📄 Detailed HTML Report
                     </a>
-                    <a href="./badges/coverage-badge.svg" class="link-item">
+                    <a href="./coverage.svg" class="link-item">
                         🏷️ Coverage Badge
                     </a>
                     <a href="{{.RepositoryURL}}" class="link-item">

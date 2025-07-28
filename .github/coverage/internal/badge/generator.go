@@ -63,9 +63,9 @@ func New() *Generator {
 			Logo:      "",
 			LogoColor: "white",
 			ThresholdConfig: ThresholdConfig{
-				Excellent:  90.0,
-				Good:       80.0,
-				Acceptable: 70.0,
+				Excellent:  95.0,
+				Good:       85.0,
+				Acceptable: 75.0,
 				Low:        60.0,
 			},
 		},
@@ -99,7 +99,7 @@ func (g *Generator) Generate(ctx context.Context, percentage float64, options ..
 		Message:   message,
 		Color:     color,
 		Style:     opts.Style,
-		Logo:      opts.Logo,
+		Logo:      g.resolveLogo(opts.Logo),
 		LogoColor: opts.LogoColor,
 		AriaLabel: fmt.Sprintf("Code coverage: %.1f percent", percentage),
 	}
@@ -139,6 +139,8 @@ func (g *Generator) GenerateTrendBadge(ctx context.Context, current, previous fl
 		Message:   trend,
 		Color:     color,
 		Style:     opts.Style,
+		Logo:      g.resolveLogo(opts.Logo),
+		LogoColor: opts.LogoColor,
 		AriaLabel: fmt.Sprintf("Coverage trend: %s", trend),
 	}
 
@@ -149,15 +151,15 @@ func (g *Generator) GenerateTrendBadge(ctx context.Context, current, previous fl
 func (g *Generator) getColorForPercentage(percentage float64) string {
 	switch {
 	case percentage >= g.config.ThresholdConfig.Excellent:
-		return "#3fb950" // Bright green (GitHub green)
+		return "#28a745" // Bright green (excellent coverage)
 	case percentage >= g.config.ThresholdConfig.Good:
-		return "#7c3aed" // Purple (GitHub purple)
+		return "#3fb950" // Green (good coverage)
 	case percentage >= g.config.ThresholdConfig.Acceptable:
-		return "#d29922" // Yellow (GitHub yellow)
+		return "#ffc107" // Yellow (acceptable coverage)
 	case percentage >= g.config.ThresholdConfig.Low:
-		return "#fb8500" // Orange
+		return "#fd7e14" // Orange (low coverage)
 	default:
-		return "#f85149" // Red (GitHub red)
+		return "#dc3545" // Red (poor coverage)
 	}
 }
 
@@ -165,17 +167,39 @@ func (g *Generator) getColorForPercentage(percentage float64) string {
 func (g *Generator) getColorByName(name string) string {
 	switch name {
 	case "excellent":
-		return "#3fb950"
+		return "#28a745"
 	case "good":
-		return "#7c3aed"
+		return "#3fb950"
 	case "acceptable":
-		return "#d29922"
+		return "#ffc107"
 	case "low":
-		return "#fb8500"
+		return "#fd7e14"
 	case "poor":
-		return "#f85149"
+		return "#dc3545"
 	default:
 		return "#8b949e" // neutral gray
+	}
+}
+
+// resolveLogo converts common logo names to SVG data URIs or URLs
+func (g *Generator) resolveLogo(logo string) string {
+	switch strings.ToLower(logo) {
+	case "go":
+		// Simple Go gopher icon as SVG data URI
+		return `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNCIgaGVpZ2h0PSIxNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjMDBBREQ4Ij48cGF0aCBkPSJNMS41IDEyQzEuNSA2LjIgNi4yIDEuNSAxMiAxLjVTMjIuNSA2LjIgMjIuNSAxMiAyMS41IDIyLjQgMTUuNyAyMy4zbC0xLjEtMS42YzUuMi0uOCA5LjEtNS4yIDkuMS0xMC43IDAtNi0xMC44LTYtMTAuOCAwIDAgLjQgMCAuOC4xIDEuMi4xLjctLjEgMS4yLS43IDEuMi0xIDAtMS42IDEuNS0xLjYgMS41QzEwIDguNSA5IDEwIDkgMTJzMSAzLjUgMi41IDMuNWMwIDAgMS42IDAgMS42LTEuNiAwLS42LS41LTEuMS0xLjItMS0xLjIuMS0xLjIuMS0xIDAtMi4zIDAtNi0yLjMtNi01LjkgMC0zLjYgMy4yLTUuNSA2LjMtNS41IDMuMSAwIDUuNSAxLjYgNS41IDMuOHptOSA5LjZjLS44LjQtMS42LjQtMi40IDAtLjcgMC0uNS0xLS41LTEgMC0uNi4zLTEgLjYtMS40LjMtLjQuNi0uOCAxLjMtLjhtLTEuNiAxLjJjMC0xLjUgMS4yLTEuNSAxLjItMS41IDAgMS41LTEuMiAxLjUtMS4yIDEuNXptLTEuNi0xLjljLS43LjYtMS4zIDEuNC0xLjMgMi4zIDAgLjktLjggMS42LTEuOCAxLjZzLTEuOC0uNy0xLjgtMS42YzAtLjkuNi0xLjcgMS4zLTIuMyIvPjwvc3ZnPg==`
+	case "github":
+		// Simple GitHub icon as SVG data URI
+		return `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNCIgaGVpZ2h0PSIxNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSIjZmZmIj48cGF0aCBkPSJNMTIgMGMtNi42MjYgMC0xMiA1LjM3My0xMiAxMiAwIDUuMzAyIDMuNDM4IDkuOCA4LjIwNyAxMS4zODcuNTk5LjExMS43OTMtLjI2MS43OTMtLjU3N3YtMi4yMzRjLTMuMzM4LjcyNi00LjAzMy0xLjQxNi00LjAzMy0xLjQxNi0uNTQ2LTEuMzg3LTEuMzMzLTEuNzU2LTEuMzMzLTEuNzU2LTEuMDg5LS43NDUuMDgzLS43MjkuMDgzLS43MjkgMS4yMDUuMDg0IDEuODM5IDEuMjM3IDEuODM5IDEuMjM3IDEuMDcgMS44MzQgMi44MDcgMS4zMDQgMy40OTIuOTk3LjEwNy0uNzc1LjQxOC0xLjMwNS43NjItMS42MDQtMi42NjUtLjMwNS01LjQ2Ny0xLjMzNC01LjQ2Ny01LjkzMSAwLTEuMzExLjQ2OS0yLjM4MSAxLjIzNi0zLjIyMS0uMTI0LS4zMDMtLjUzNS0xLjUyNC4xMTctMy4xNzYgMCAwIDEuMDA4LS4zMjIgMy4zMDEgMS4yMy45NTgtLjI2NiAxLjk4My0uMzk5IDMuMDAzLS40MDQgMS4wMi4wMDUgMi4wNDcuMTM4IDMuMDA2LjQwNCAyLjI5MS0xLjU1MiAzLjI5Ny0xLjIzIDMuMjk3LTEuMjMuNjUzIDEuNjUzLjI0MiAyLjg3NC4xMTggMy4xNzYuNzcuODQgMS4yMzUgMS45MTEgMS4yMzUgMy4yMjEgMCA0LjYwOS0yLjgwNyA1LjYyNC01LjQ3OSA1LjkyMS40My4zNzIuODIzIDEuMTAyLjgyMyAyLjIyMnYzLjI5M2MwIC4zMTkuMTkyLjY5NC44MDEuNTc2IDQuNzY1LTEuNTg5IDguMTk5LTYuMDg2IDguMTk5LTExLjM4NiAwLTYuNjI3LTUuMzczLTEyLTEyLTEyeiIvPjwvc3ZnPg==`
+	case "":
+		// Empty string means no logo
+		return ""
+	default:
+		// If it starts with http or data:, assume it's a valid URL/data URI
+		if strings.HasPrefix(logo, "http") || strings.HasPrefix(logo, "data:") {
+			return logo
+		}
+		// Otherwise, assume it's invalid and return empty string
+		return ""
 	}
 }
 
@@ -195,7 +219,7 @@ func (g *Generator) renderSVG(ctx context.Context, data Data) ([]byte, error) {
 		logoWidth = 16 // Standard logo width
 	}
 
-	totalWidth := labelWidth + messageWidth + logoWidth + 20 // padding
+	totalWidth := labelWidth + messageWidth + logoWidth + 28 // padding (extra space in percentage section)
 	height := 20
 
 	// Generate SVG based on style
@@ -236,7 +260,7 @@ func (g *Generator) renderFlatBadge(data Data, width, labelWidth, messageWidth, 
 </svg>`
 
 	labelX := logoWidth + labelWidth/2 + 6
-	messageX := logoWidth + labelWidth + messageWidth/2 + 8
+	messageX := logoWidth + labelWidth + messageWidth/2 + 16
 	logoSvg := ""
 
 	if data.Logo != "" {
@@ -247,7 +271,7 @@ func (g *Generator) renderFlatBadge(data Data, width, labelWidth, messageWidth, 
 		width, height, data.AriaLabel, data.AriaLabel,
 		width, height,
 		logoWidth+labelWidth+8, height,
-		logoWidth+labelWidth+8, messageWidth+8, height, data.Color,
+		logoWidth+labelWidth+8, messageWidth+20, height, data.Color,
 		width, height,
 		logoSvg,
 		labelX, data.Label,
@@ -273,7 +297,7 @@ func (g *Generator) renderFlatSquareBadge(data Data, width, height, labelWidth, 
 </svg>`
 
 	labelX := logoWidth + labelWidth/2 + 6
-	messageX := logoWidth + labelWidth + messageWidth/2 + 8
+	messageX := logoWidth + labelWidth + messageWidth/2 + 16
 	logoSvg := ""
 
 	if data.Logo != "" {
@@ -283,7 +307,7 @@ func (g *Generator) renderFlatSquareBadge(data Data, width, height, labelWidth, 
 	return []byte(fmt.Sprintf(template,
 		width, height, data.AriaLabel, data.AriaLabel,
 		logoWidth+labelWidth+8, height,
-		logoWidth+labelWidth+8, messageWidth+8, height, data.Color,
+		logoWidth+labelWidth+8, messageWidth+20, height, data.Color,
 		logoSvg,
 		labelX, data.Label,
 		messageX, data.Message,
@@ -306,7 +330,7 @@ func (g *Generator) renderForTheBadge(data Data, width, height, labelWidth, mess
 </svg>`
 
 	labelX := logoWidth + labelWidth/2 + 6
-	messageX := logoWidth + labelWidth + messageWidth/2 + 8
+	messageX := logoWidth + labelWidth + messageWidth/2 + 16
 	logoSvg := ""
 
 	if data.Logo != "" {
@@ -320,7 +344,7 @@ func (g *Generator) renderForTheBadge(data Data, width, height, labelWidth, mess
 	return []byte(fmt.Sprintf(template,
 		width, height, data.AriaLabel, data.AriaLabel,
 		logoWidth+labelWidth+8, height,
-		logoWidth+labelWidth+8, messageWidth+8, height, data.Color,
+		logoWidth+labelWidth+8, messageWidth+20, height, data.Color,
 		logoSvg,
 		labelX, label,
 		messageX, message,

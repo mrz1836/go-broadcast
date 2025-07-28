@@ -514,7 +514,7 @@ func TestGetBadgeURL(t *testing.T) {
 					OutputFile: "coverage.svg",
 				},
 			},
-			expected: "https://raw.githubusercontent.com/test-owner/test-repo/main/.github/coverage/coverage.svg",
+			expected: "https://test-owner.github.io/test-repo/coverage.svg",
 		},
 		{
 			name: "missing owner",
@@ -566,7 +566,7 @@ func TestGetReportURL(t *testing.T) {
 					OutputFile: "coverage.html",
 				},
 			},
-			expected: "https://raw.githubusercontent.com/test-owner/test-repo/main/.github/coverage/coverage.html",
+			expected: "https://test-owner.github.io/test-repo/",
 		},
 		{
 			name: "missing owner",
@@ -761,11 +761,11 @@ func TestGitHubActionsIntegration(t *testing.T) {
 	assert.True(t, config.IsGitHubContext())
 	assert.True(t, config.IsPullRequestContext())
 
-	// Test URL generation
-	expectedBadgeURL := "https://raw.githubusercontent.com/test-owner/test-repo/main/.github/coverage/coverage.svg"
+	// Test URL generation (in PR context, should return PR-specific URLs)
+	expectedBadgeURL := "https://test-owner.github.io/test-repo/badges/pr/456/coverage.svg"
 	assert.Equal(t, expectedBadgeURL, config.GetBadgeURL())
 
-	expectedReportURL := "https://raw.githubusercontent.com/test-owner/test-repo/main/.github/coverage/coverage.html"
+	expectedReportURL := "https://test-owner.github.io/test-repo/reports/pr/456/coverage.html"
 	assert.Equal(t, expectedReportURL, config.GetReportURL())
 }
 

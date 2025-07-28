@@ -33,8 +33,8 @@
         <a href="https://goreportcard.com/report/github.com/mrz1836/go-broadcast">
           <img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat" alt="Go Report Card">
         </a><br/>
-		<a href="https://mrz1836.github.io/go-broadcast/reports/master/">
-          <img src="https://mrz1836.github.io/go-broadcast/badges/master.svg" alt="Code Coverage">
+		<a href="https://mrz1836.github.io/go-broadcast/">
+          <img src="https://mrz1836.github.io/go-broadcast/coverage.svg" alt="Code Coverage">
         </a><br/>
 		<a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast">
           <img src="https://api.scorecard.dev/projects/github.com/mrz1836/go-broadcast/badge?logo=springsecurity&logoColor=white" alt="OpenSSF Scorecard">
@@ -81,19 +81,19 @@
 <br/>
 
 ## 🗂️ Table of Contents
-* [Quick Start](#-quick-start) - Get running in 5 minutes
-* [Key Features](#-key-features) - What makes go-broadcast special
-* [How It Works](#-how-it-works) - Stateless sync architecture
-* [Usage Examples](#-usage-examples) - Real-world patterns
-* [Coverage System](#-coverage-system) - Built-in CodeCov replacement
-* [Performance](#-performance) - Benchmarks & profiling
-* [Documentation](#-documentation) - Complete guides
-* [Examples & Tests](#-examples--tests) - Testing & validation
-* [Code Standards](#-code-standards) - Development guidelines
-* [AI Compliance](#-ai-compliance) - Assistant guidelines
-* [Maintainers](#-maintainers) - Project maintainers
-* [Contributing](#-contributing) - Join the community
-* [License](#-license) - MIT License
+* [Quick Start](#-quick-start)
+* [Key Features](#-key-features)
+* [How It Works](#-how-it-works)
+* [Usage Examples](#-usage-examples)
+* [Coverage System](#-coverage-system)
+* [Performance](#-performance)
+* [Documentation](#-documentation)
+* [Examples & Tests](#-examples--tests)
+* [Code Standards](#-code-standards)
+* [AI Compliance](#-ai-compliance)
+* [Maintainers](#-maintainers)
+* [Contributing](#-contributing)
+* [License](#-license)
 
 <br/>
 
@@ -196,7 +196,7 @@ go-broadcast sync --config sync.yaml
 
 <table>
   <tr>
-    <td><img src="https://mrz1836.github.io/go-broadcast/badges/main.svg" alt="Main Branch Coverage" /></td>
+    <td><img src="https://mrz1836.github.io/go-broadcast/coverage.svg" alt="Main Branch Coverage" /></td>
     <td><img src="https://img.shields.io/badge/coverage-87.2%25-brightgreen?style=flat-square" alt="Flat Square Style" /></td>
     <td><img src="https://img.shields.io/badge/trend-%E2%86%97%20improving-green?style=for-the-badge" alt="Trend Badge" /></td>
   </tr>
@@ -278,7 +278,7 @@ The coverage system includes 45+ configuration options for complete customizatio
 #### 🎨 Badge & Theme Configuration
 ```bash
 COVERAGE_BADGE_STYLE=flat                # flat, flat-square, for-the-badge
-COVERAGE_BADGE_LOGO=go                   # Logo: go, github, custom URL
+COVERAGE_BADGE_LOGO=                     # Logo: go, github, custom URL (empty for no logo)
 COVERAGE_REPORT_THEME=github-dark        # Dashboard theme
 COVERAGE_THRESHOLD_EXCELLENT=90          # Green badge threshold
 COVERAGE_THRESHOLD_GOOD=80               # Yellow-green threshold
@@ -301,9 +301,9 @@ COVERAGE_PR_COMMENT_BEHAVIOR=update      # Comment behavior: new, update, delete
 ```
 
 ### GitHub Pages URLs
-- **Coverage Badge**: `https://mrz1836.github.io/go-broadcast/badges/main.svg`
-- **Coverage Dashboard**: `https://mrz1836.github.io/go-broadcast/coverage/`
-- **Coverage Report**: `https://mrz1836.github.io/go-broadcast/reports/main/`
+- **Coverage Badge**: `https://mrz1836.github.io/go-broadcast/coverage.svg`
+- **Coverage Dashboard**: `https://mrz1836.github.io/go-broadcast/`
+- **Coverage Report**: `https://mrz1836.github.io/go-broadcast/coverage.html`
 
 📚 **[Complete Configuration Guide](docs/coverage-configuration.md)** | 🔧 **[Migration Guide](docs/migrating-from-codecov.md)** | 📊 **[API Documentation](docs/coverage-api.md)**
 
