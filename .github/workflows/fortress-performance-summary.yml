@@ -100,7 +100,30 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: "*-stats-*"
-          merge-multiple: true
+          path: ./performance-artifacts/
+
+      # ————————————————————————————————————————————————————————————————
+      # Flatten performance artifacts for processing
+      # ————————————————————————————————————————————————————————————————
+      - name: 🗂️ Flatten performance artifacts
+        if: always()
+        run: |
+          echo "🗂️ Flattening downloaded artifacts..."
+
+          # Find all JSON files in subdirectories and move them to current directory
+          if [ -d "./performance-artifacts/" ]; then
+            find ./performance-artifacts/ -name "*.json" -type f | while read -r file; do
+              filename=$(basename "$file")
+              echo "Moving $file to ./$filename"
+              cp "$file" "./$filename"
+            done
+            
+            # List all flattened files for debugging
+            echo "📋 Available stats files:"
+            ls -la *-stats-*.json 2>/dev/null || echo "No stats files found"
+          else
+            echo "⚠️ No performance-artifacts directory found"
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Generate performance report
@@ -267,6 +290,43 @@ jobs:
                   DISPLAYED_LOC_SUMMARY=true
                 fi
               done
+            fi
+
+            # Process coverage statistics if available
+            if compgen -G "coverage-stats-*.json" >/dev/null 2>&1; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### 📊 Coverage System Performance" >> $GITHUB_STEP_SUMMARY
+              
+              for stats_file in coverage-stats-*.json; do
+                if [ -f "$stats_file" ]; then
+                  echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+                  echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+                  
+                  COVERAGE_PERCENT=$(jq -r '.coverage_percent // "N/A"' "$stats_file")
+                  PROCESSING_TIME=$(jq -r '.processing_time_seconds // "N/A"' "$stats_file")
+                  FILES_PROCESSED=$(jq -r '.files_processed // "N/A"' "$stats_file")
+                  BADGE_GENERATED=$(jq -r '.badge_generated // "false"' "$stats_file")
+                  PAGES_DEPLOYED=$(jq -r '.pages_deployed // "false"' "$stats_file")
+                  
+                  echo "| **Coverage Percentage** | $COVERAGE_PERCENT% |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Processing Time** | ${PROCESSING_TIME}s |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Files Processed** | $FILES_PROCESSED |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Badge Generated** | $([ "$BADGE_GENERATED" == "true" ] && echo "✅ Yes" || echo "❌ No") |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Pages Deployed** | $([ "$PAGES_DEPLOYED" == "true" ] && echo "✅ Yes" || echo "❌ No") |" >> $GITHUB_STEP_SUMMARY
+                  
+                  break # Only show first coverage stats file
+                fi
+              done
+            elif [[ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ]]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### 📊 Coverage System Status" >> $GITHUB_STEP_SUMMARY
+              echo "| Status | Details |" >> $GITHUB_STEP_SUMMARY
+              echo "|--------|---------|" >> $GITHUB_STEP_SUMMARY
+              echo "| **System** | Internal GoFortress Coverage |" >> $GITHUB_STEP_SUMMARY
+              echo "| **Threshold** | ${{ env.COVERAGE_FAIL_UNDER }}% minimum |" >> $GITHUB_STEP_SUMMARY
+              echo "| **Badge Style** | ${{ env.COVERAGE_BADGE_STYLE }} |" >> $GITHUB_STEP_SUMMARY
+              echo "| **PR Comments** | $([ "${{ env.COVERAGE_PR_COMMENT_ENABLED }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") |" >> $GITHUB_STEP_SUMMARY
+              echo "| **Theme** | ${{ env.COVERAGE_REPORT_THEME }} |" >> $GITHUB_STEP_SUMMARY
             fi
 
             echo "### 🔧 Job Results Summary"

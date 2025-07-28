@@ -35,6 +35,10 @@ bench-new.txt
 testdata
 internal/fuzz/corpus/
 
+# Coverage
+.github/coverage/cmd/gofortress-coverage/gofortress-coverage
+.github/coverage/gofortress-coverage
+
 ########################
 # Development Tools    #
 ########################
@@ -72,3 +76,4 @@ dist/
 
 # Database files
 *.db
+/.github/coverage/cmd/gofortress-coverage/gofortress-coverage

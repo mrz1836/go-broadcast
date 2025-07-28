@@ -49,12 +49,13 @@ on:
       github-token:
         description: "GitHub token for API access"
         required: true
-      codecov-token:
-        description: "Codecov token for coverage uploads"
-        required: false
 
 permissions:
-  contents: read
+  contents: write # For GitHub Pages deployment and coverage processing
+  pages: write # Deploy to GitHub Pages
+  pull-requests: write # Comment on PRs
+  id-token: write # GitHub Pages deployment
+  statuses: write # For commit status creation in coverage workflow
 
 jobs:
   # ----------------------------------------------------------------------------------
@@ -333,13 +334,6 @@ jobs:
               echo "📋 All coverage files in current directory:"
               ls -la *.txt *.out 2>/dev/null | grep -E "(coverage|cover)" || echo "No other coverage files found"
 
-              # Check codecov.yml
-              if [ -f codecov.yml ]; then
-                echo "📋 Found codecov.yml configuration"
-                echo "📋 Validating codecov.yml syntax..."
-                # Basic YAML syntax check
-                python3 -c "import yaml; yaml.safe_load(open('codecov.yml'))" && echo "✅ codecov.yml syntax is valid" || echo "❌ codecov.yml has syntax errors"
-              fi
             else
               echo "❌ Coverage file may be corrupted. First line should be 'mode: atomic' or 'mode: count' but got: $FIRST_LINE"
               echo "📋 First 10 lines of coverage file:"
@@ -355,36 +349,30 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
-      # Upload coverage only for race-cover tests
+      # Upload coverage data for processing
       # ————————————————————————————————————————————————————————————————
-      - name: 📈 Upload coverage
-        if: inputs.code-coverage-enabled == 'true'
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
+      - name: 📤 Upload coverage data
+        if: inputs.code-coverage-enabled == 'true' && matrix.os == inputs.primary-runner && matrix.go-version == inputs.go-primary-version
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          fail_ci_if_error: true
-          flags: unittests
-          token: ${{ secrets.codecov-token }}
-          verbose: true
-          files: coverage.txt # Specify the coverage file
-          use_legacy_upload_endpoint: true # Use legacy endpoint for plain text format
-          disable_file_fixes: true # Prevent automatic modifications
+          name: coverage-data
+          path: coverage.txt
+          retention-days: 1
 
-      # ————————————————————————————————————————————————————————————————
-      # Debug the codecov upload result
-      # ————————————————————————————————————————————————————————————————
-      - name: 🔍 Debug Codecov result
-        if: inputs.code-coverage-enabled == 'true' && always()
-        run: |
-          echo "📋 Checking Codecov upload result..."
-          echo "📋 Current directory after upload: $(pwd)"
-          echo "📋 Coverage file still exists: $([ -f coverage.txt ] && echo 'Yes' || echo 'No')"
-
-          # Check if codecov created any output files
-          if ls codecov* 2>/dev/null; then
-            echo "📋 Codecov created these files:"
-            ls -la codecov*
-          fi
-
-          # Check environment variables that might affect codecov
-          echo "📋 Relevant environment variables:"
-          env | grep -E "(CODECOV|GITHUB_|CI)" | sort
+  # ----------------------------------------------------------------------------------
+  # Process Coverage (Internal System)
+  # ----------------------------------------------------------------------------------
+  process-coverage:
+    name: 📊 Process Coverage
+    needs: test-go
+    if: inputs.code-coverage-enabled == 'true'
+    uses: ./.github/workflows/fortress-coverage.yml
+    with:
+      coverage-file: coverage.txt
+      branch-name: ${{ github.ref_name }}
+      pr-number: ${{ github.event.pull_request.number || '' }}
+      commit-sha: ${{ github.sha }}
+      env-json: ${{ inputs.env-json }}
+      primary-runner: ${{ inputs.primary-runner }}
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}

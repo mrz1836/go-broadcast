@@ -1,0 +1,805 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>report: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/mrz1836/go-broadcast/.github/coverage/internal/report/generator.go (84.1%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">// Package report generates HTML coverage reports
+package report
+
+import (
+        "bytes"
+        "context"
+        "fmt"
+        "html/template"
+        "sort"
+        "strings"
+        "time"
+
+        "github.com/mrz1836/go-broadcast/.github/coverage/internal/parser"
+)
+
+// Generator creates beautiful, interactive HTML coverage reports with cutting-edge UX
+type Generator struct {
+        config *Config
+}
+
+// Config holds report generation configuration
+type Config struct {
+        Theme         string
+        Title         string
+        ShowPackages  bool
+        ShowFiles     bool
+        ShowMissing   bool
+        DarkMode      bool
+        Responsive    bool
+        InteractiveTrees bool
+}
+
+// ReportData represents the complete data needed for report generation
+type ReportData struct {
+        Coverage     *parser.CoverageData
+        Config       *Config
+        GeneratedAt  time.Time
+        Version      string
+        ProjectName  string
+        BranchName   string
+        CommitSHA    string
+        CommitURL    string
+        BadgeURL     string
+        Summary      Summary
+        Packages     []PackageReport
+}
+
+// Summary provides high-level coverage statistics
+type Summary struct {
+        TotalPercentage float64
+        TotalLines      int
+        CoveredLines    int
+        UncoveredLines  int
+        PackageCount    int
+        FileCount       int
+        ChangeStatus    string // "improved", "declined", "stable"
+        PreviousCoverage float64
+}
+
+// PackageReport represents coverage data for a package in the report
+type PackageReport struct {
+        Name         string
+        Percentage   float64
+        TotalLines   int
+        CoveredLines int
+        Files        []FileReport
+        Status       string // coverage status indicator
+}
+
+// FileReport represents coverage data for a file in the report
+type FileReport struct {
+        Name         string
+        Path         string
+        Percentage   float64
+        TotalLines   int
+        CoveredLines int
+        Status       string
+        Lines        []LineReport
+}
+
+// LineReport represents coverage data for a single line
+type LineReport struct {
+        Number  int
+        Content string
+        Covered bool
+        Count   int
+        Class   string // CSS class for styling
+}
+
+// New creates a new report generator with default configuration
+func New() *Generator <span class="cov8" title="1">{
+        return &amp;Generator{
+                config: &amp;Config{
+                        Theme:            "github-dark",
+                        Title:           "Coverage Report",
+                        ShowPackages:    true,
+                        ShowFiles:       true,
+                        ShowMissing:     true,
+                        DarkMode:        true,
+                        Responsive:      true,
+                        InteractiveTrees: true,
+                },
+        }
+}</span>
+
+// NewWithConfig creates a new report generator with custom configuration
+func NewWithConfig(config *Config) *Generator <span class="cov8" title="1">{
+        return &amp;Generator{config: config}
+}</span>
+
+// Generate creates an interactive HTML coverage report
+func (g *Generator) Generate(ctx context.Context, coverage *parser.CoverageData, options ...Option) ([]byte, error) <span class="cov8" title="1">{
+        select </span>{
+        case &lt;-ctx.Done():<span class="cov8" title="1">
+                return nil, ctx.Err()</span>
+        default:<span class="cov8" title="1"></span>
+        }
+        
+        // Apply options
+        <span class="cov8" title="1">config := *g.config // copy
+        for _, opt := range options </span><span class="cov8" title="1">{
+                opt(&amp;config)
+        }</span>
+        
+        // Build report data
+        <span class="cov8" title="1">reportData, err := g.buildReportData(coverage, &amp;config)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to build report data: %w", err)
+        }</span>
+        
+        // Generate HTML
+        <span class="cov8" title="1">return g.renderHTML(ctx, reportData)</span>
+}
+
+// buildReportData constructs the report data structure
+func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Config) (*ReportData, error) <span class="cov8" title="1">{
+        packages := make([]PackageReport, 0, len(coverage.Packages))
+        totalFiles := 0
+        
+        // Sort packages by name for consistent ordering
+        packageNames := make([]string, 0, len(coverage.Packages))
+        for name := range coverage.Packages </span><span class="cov8" title="1">{
+                packageNames = append(packageNames, name)
+        }</span>
+        <span class="cov8" title="1">sort.Strings(packageNames)
+        
+        for _, name := range packageNames </span><span class="cov8" title="1">{
+                pkg := coverage.Packages[name]
+                files := make([]FileReport, 0, len(pkg.Files))
+                
+                // Sort files by name
+                fileNames := make([]string, 0, len(pkg.Files))
+                for fileName := range pkg.Files </span><span class="cov8" title="1">{
+                        fileNames = append(fileNames, fileName)
+                }</span>
+                <span class="cov8" title="1">sort.Strings(fileNames)
+                
+                for _, fileName := range fileNames </span><span class="cov8" title="1">{
+                        file := pkg.Files[fileName]
+                        files = append(files, FileReport{
+                                Name:         g.extractFileName(fileName),
+                                Path:         fileName,
+                                Percentage:   file.Percentage,
+                                TotalLines:   file.TotalLines,
+                                CoveredLines: file.CoveredLines,
+                                Status:       g.getStatusClass(file.Percentage),
+                                Lines:        g.buildLineReports(file),
+                        })
+                        totalFiles++
+                }</span>
+                
+                <span class="cov8" title="1">packages = append(packages, PackageReport{
+                        Name:         name,
+                        Percentage:   pkg.Percentage,
+                        TotalLines:   pkg.TotalLines,
+                        CoveredLines: pkg.CoveredLines,
+                        Files:        files,
+                        Status:       g.getStatusClass(pkg.Percentage),
+                })</span>
+        }
+        
+        <span class="cov8" title="1">summary := Summary{
+                TotalPercentage:  coverage.Percentage,
+                TotalLines:       coverage.TotalLines,
+                CoveredLines:     coverage.CoveredLines,
+                UncoveredLines:   coverage.TotalLines - coverage.CoveredLines,
+                PackageCount:     len(packages),
+                FileCount:        totalFiles,
+                ChangeStatus:     "stable", // TODO: calculate from history
+                PreviousCoverage: 0.0,      // TODO: get from history
+        }
+        
+        return &amp;ReportData{
+                Coverage:    coverage,
+                Config:      config,
+                GeneratedAt: time.Now(),
+                Version:     "1.0.0",
+                ProjectName: "Go Project", // TODO: extract from git
+                BranchName:  "main",       // TODO: extract from git
+                CommitSHA:   "",           // TODO: extract from git
+                CommitURL:   "",           // TODO: build from git info
+                BadgeURL:    "",           // TODO: build from config
+                Summary:     summary,
+                Packages:    packages,
+        }, nil</span>
+}
+
+// buildLineReports creates line-by-line coverage reports (simplified for now)
+func (g *Generator) buildLineReports(file *parser.FileCoverage) []LineReport <span class="cov8" title="1">{
+        // For now, create basic line reports from statements
+        // In a full implementation, we'd read the actual source file
+        lines := make([]LineReport, 0)
+        
+        for _, stmt := range file.Statements </span><span class="cov8" title="1">{
+                for line := stmt.StartLine; line &lt;= stmt.EndLine; line++ </span><span class="cov8" title="1">{
+                        lines = append(lines, LineReport{
+                                Number:  line,
+                                Content: fmt.Sprintf("// Line %d content", line),
+                                Covered: stmt.Count &gt; 0,
+                                Count:   stmt.Count,
+                                Class:   g.getLineClass(stmt.Count &gt; 0),
+                        })
+                }</span>
+        }
+        
+        // Sort by line number
+        <span class="cov8" title="1">sort.Slice(lines, func(i, j int) bool </span><span class="cov8" title="1">{
+                return lines[i].Number &lt; lines[j].Number
+        }</span>)
+        
+        <span class="cov8" title="1">return lines</span>
+}
+
+// getStatusClass returns CSS class based on coverage percentage
+func (g *Generator) getStatusClass(percentage float64) string <span class="cov8" title="1">{
+        switch </span>{
+        case percentage &gt;= 90:<span class="cov8" title="1">
+                return "excellent"</span>
+        case percentage &gt;= 80:<span class="cov8" title="1">
+                return "good"</span>
+        case percentage &gt;= 70:<span class="cov8" title="1">
+                return "acceptable"</span>
+        case percentage &gt;= 60:<span class="cov8" title="1">
+                return "low"</span>
+        default:<span class="cov8" title="1">
+                return "poor"</span>
+        }
+}
+
+// getLineClass returns CSS class for line coverage
+func (g *Generator) getLineClass(covered bool) string <span class="cov8" title="1">{
+        if covered </span><span class="cov8" title="1">{
+                return "covered"
+        }</span>
+        <span class="cov8" title="1">return "uncovered"</span>
+}
+
+// extractFileName extracts the file name from a full path
+func (g *Generator) extractFileName(path string) string <span class="cov8" title="1">{
+        parts := strings.Split(path, "/")
+        return parts[len(parts)-1]
+}</span>
+
+// renderHTML generates the final HTML report
+func (g *Generator) renderHTML(ctx context.Context, data *ReportData) ([]byte, error) <span class="cov8" title="1">{
+        select </span>{
+        case &lt;-ctx.Done():<span class="cov8" title="1">
+                return nil, ctx.Err()</span>
+        default:<span class="cov8" title="1"></span>
+        }
+        
+        <span class="cov8" title="1">tmpl := template.New("report").Funcs(template.FuncMap{
+                "formatPercentage": func(p float64) string </span><span class="cov8" title="1">{
+                        return fmt.Sprintf("%.1f%%", p)
+                }</span>,
+                "formatTime": func(t time.Time) string <span class="cov8" title="1">{
+                        return t.Format("2006-01-02 15:04:05 MST")
+                }</span>,
+                "add": func(a, b int) int <span class="cov0" title="0">{
+                        return a + b
+                }</span>,
+                "statusColor": func(status string) string <span class="cov0" title="0">{
+                        switch status </span>{
+                        case "excellent":<span class="cov0" title="0">
+                                return "#3fb950"</span>
+                        case "good":<span class="cov0" title="0">
+                                return "#7c3aed"</span>
+                        case "acceptable":<span class="cov0" title="0">
+                                return "#d29922"</span>
+                        case "low":<span class="cov0" title="0">
+                                return "#fb8500"</span>
+                        default:<span class="cov0" title="0">
+                                return "#f85149"</span>
+                        }
+                },
+                "progressWidth": func(covered, total int) float64 <span class="cov0" title="0">{
+                        if total == 0 </span><span class="cov0" title="0">{
+                                return 0
+                        }</span>
+                        <span class="cov0" title="0">return float64(covered) / float64(total) * 100</span>
+                },
+        })
+        
+        // Parse the HTML template
+        <span class="cov8" title="1">tmpl, err := tmpl.Parse(g.getHTMLTemplate())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to parse template: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">var buf bytes.Buffer
+        if err := tmpl.Execute(&amp;buf, data); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to execute template: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">return buf.Bytes(), nil</span>
+}
+
+// getHTMLTemplate returns the HTML template for the report
+func (g *Generator) getHTMLTemplate() string <span class="cov8" title="1">{
+        return `&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;{{.Config.Title}}&lt;/title&gt;
+    &lt;style&gt;
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border-primary: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --text-muted: #656d76;
+            --accent-emphasis: #1f6feb;
+            --success-emphasis: #3fb950;
+            --attention-emphasis: #d29922;
+            --danger-emphasis: #f85149;
+            --severe-emphasis: #fb8500;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-primary);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent-emphasis), var(--success-emphasis));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .summary-card {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-primary);
+            text-align: center;
+        }
+
+        .summary-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-card .label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .coverage-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .coverage-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-emphasis), var(--accent-emphasis));
+            transition: width 0.3s ease;
+        }
+
+        .packages {
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .package-item, .file-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .package-header, .file-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .package-header:hover, .file-header:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .package-name, .file-name {
+            font-weight: 600;
+            flex-grow: 1;
+        }
+
+        .coverage-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .coverage-badge.excellent {
+            background: var(--success-emphasis);
+            color: white;
+        }
+
+        .coverage-badge.good {
+            background: var(--accent-emphasis);
+            color: white;
+        }
+
+        .coverage-badge.acceptable {
+            background: var(--attention-emphasis);
+            color: white;
+        }
+
+        .coverage-badge.low, .coverage-badge.poor {
+            background: var(--danger-emphasis);
+            color: white;
+        }
+
+        .stats {
+            display: flex;
+            gap: 1rem;
+            margin-left: 1rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .files {
+            background: var(--bg-tertiary);
+            border-top: 1px solid var(--border-primary);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border-primary);
+            margin-top: 3rem;
+        }
+
+        .footer a {
+            color: var(--accent-emphasis);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .summary {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 1rem;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+        }
+
+        .expandable {
+            display: none;
+        }
+
+        .expandable.expanded {
+            display: block;
+        }
+
+        .expand-icon {
+            transition: transform 0.2s ease;
+        }
+
+        .expand-icon.rotated {
+            transform: rotate(90deg);
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class="container"&gt;
+        &lt;div class="header"&gt;
+            &lt;h1&gt;{{.Config.Title}}&lt;/h1&gt;
+            &lt;div class="subtitle"&gt;
+                Generated on {{formatTime .GeneratedAt}} | 
+                Branch: {{.BranchName}} | 
+                {{if .CommitSHA}}Commit: {{.CommitSHA}}{{end}}
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div class="summary"&gt;
+            &lt;div class="summary-card"&gt;
+                &lt;div class="value"&gt;
+                    {{formatPercentage .Summary.TotalPercentage}}
+                &lt;/div&gt;
+                &lt;div class="label"&gt;Coverage&lt;/div&gt;
+                &lt;div class="coverage-bar"&gt;
+                    &lt;div class="coverage-fill" style="width: {{.Summary.TotalPercentage}}%"&gt;&lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class="summary-card"&gt;
+                &lt;div class="value"&gt;{{.Summary.CoveredLines}}&lt;/div&gt;
+                &lt;div class="label"&gt;Covered Lines&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class="summary-card"&gt;
+                &lt;div class="value"&gt;{{.Summary.UncoveredLines}}&lt;/div&gt;
+                &lt;div class="label"&gt;Uncovered Lines&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class="summary-card"&gt;
+                &lt;div class="value"&gt;{{.Summary.PackageCount}}&lt;/div&gt;
+                &lt;div class="label"&gt;Packages&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class="summary-card"&gt;
+                &lt;div class="value"&gt;{{.Summary.FileCount}}&lt;/div&gt;
+                &lt;div class="label"&gt;Files&lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        {{if .Config.ShowPackages}}
+        &lt;div class="packages"&gt;
+            &lt;h2 class="section-title"&gt;📦 Packages&lt;/h2&gt;
+            {{range .Packages}}
+            &lt;div class="package-item"&gt;
+                &lt;div class="package-header" onclick="toggleExpand('pkg-{{.Name}}')"&gt;
+                    &lt;span class="expand-icon" id="icon-pkg-{{.Name}}"&gt;▶&lt;/span&gt;
+                    &lt;span class="package-name"&gt;{{.Name}}&lt;/span&gt;
+                    &lt;div class="stats"&gt;
+                        &lt;span&gt;{{.CoveredLines}}/{{.TotalLines}} lines&lt;/span&gt;
+                        &lt;span&gt;{{len .Files}} files&lt;/span&gt;
+                    &lt;/div&gt;
+                    &lt;span class="coverage-badge {{.Status}}"&gt;{{formatPercentage .Percentage}}&lt;/span&gt;
+                &lt;/div&gt;
+                {{if $.Config.ShowFiles}}
+                &lt;div class="files expandable" id="pkg-{{.Name}}"&gt;
+                    {{range .Files}}
+                    &lt;div class="file-item"&gt;
+                        &lt;div class="file-header"&gt;
+                            &lt;span class="file-name"&gt;{{.Name}}&lt;/span&gt;
+                            &lt;div class="stats"&gt;
+                                &lt;span&gt;{{.CoveredLines}}/{{.TotalLines}} lines&lt;/span&gt;
+                            &lt;/div&gt;
+                            &lt;span class="coverage-badge {{.Status}}"&gt;{{formatPercentage .Percentage}}&lt;/span&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                    {{end}}
+                &lt;/div&gt;
+                {{end}}
+            &lt;/div&gt;
+            {{end}}
+        &lt;/div&gt;
+        {{end}}
+
+        &lt;div class="footer"&gt;
+            Generated by &lt;a href="https://github.com/mrz1836/go-broadcast" target="_blank"&gt;GoFortress Coverage&lt;/a&gt; v{{.Version}}
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;script&gt;
+        function toggleExpand(id) {
+            const element = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            
+            if (element.classList.contains('expanded')) {
+                element.classList.remove('expanded');
+                icon.classList.remove('rotated');
+            } else {
+                element.classList.add('expanded');
+                icon.classList.add('rotated');
+            }
+        }
+
+        // Auto-expand packages with low coverage
+        document.addEventListener('DOMContentLoaded', function() {
+            const packages = document.querySelectorAll('.package-item');
+            packages.forEach(pkg =&gt; {
+                const badge = pkg.querySelector('.coverage-badge');
+                if (badge &amp;&amp; (badge.classList.contains('poor') || badge.classList.contains('low'))) {
+                    const header = pkg.querySelector('.package-header');
+                    if (header) {
+                        header.click();
+                    }
+                }
+            });
+        });
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;`
+}</span>
+
+// Option represents a configuration option for report generation
+type Option func(*Config)
+
+// WithTheme sets the report theme
+func WithTheme(theme string) Option <span class="cov8" title="1">{
+        return func(config *Config) </span><span class="cov8" title="1">{
+                config.Theme = theme
+        }</span>
+}
+
+// WithTitle sets the report title
+func WithTitle(title string) Option <span class="cov8" title="1">{
+        return func(config *Config) </span><span class="cov8" title="1">{
+                config.Title = title
+        }</span>
+}
+
+// WithPackages enables/disables package display
+func WithPackages(show bool) Option <span class="cov8" title="1">{
+        return func(config *Config) </span><span class="cov8" title="1">{
+                config.ShowPackages = show
+        }</span>
+}
+
+// WithFiles enables/disables file display
+func WithFiles(show bool) Option <span class="cov8" title="1">{
+        return func(config *Config) </span><span class="cov8" title="1">{
+                config.ShowFiles = show
+        }</span>
+}
+
+// WithMissing enables/disables missing line display
+func WithMissing(show bool) Option <span class="cov8" title="1">{
+        return func(config *Config) </span><span class="cov8" title="1">{
+                config.ShowMissing = show
+        }</span>
+}</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

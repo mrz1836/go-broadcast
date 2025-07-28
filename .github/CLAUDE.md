@@ -233,6 +233,47 @@ govulncheck ./...
 
 ---
 
+## 🔧 Code Quality Guidelines
+
+This project uses 60+ linters via golangci-lint with strict standards. Key areas:
+
+### Essential Linting Practices
+
+**Security & Best Practices:**
+- Use appropriate file permissions: `0600` for sensitive files, `0750` for directories
+- Always check error returns: `if err := foo(); err != nil { ... }`
+- Use context-aware functions: `DialContext`, `CommandContext`
+- Create static error variables and wrap with context
+
+**Code Quality:**
+- Add comments to all exported functions, types, and constants
+- Use `_` for intentionally unused parameters
+- Avoid redefining built-in functions (`max`, `min`, etc.)
+- Pre-allocate slices when size is known: `make([]Type, 0, knownSize)`
+
+**Common Patterns:**
+- Format with `gofumpt` before committing
+- Use `fmt.Fprintf(w, format, args...)` for efficient string building
+- Add `//nolint:linter // reason` only when necessary with clear explanation
+
+### Running Linters
+
+```bash
+# Run all linters on main module
+make lint
+
+# Run linters on all modules (including coverage)
+make lint-all-modules
+
+# Fix common formatting issues
+make fumpt
+goimports -w .
+```
+
+The project maintains zero linter issues across all enabled linters. When adding code, follow existing patterns and address linter feedback promptly.
+
+---
+
 ## ✅ Pre-Development Checklist
 
 Before starting any development work:
@@ -278,5 +319,7 @@ Before starting any development work:
 
 If you encounter conflicting guidance elsewhere, `AGENTS.md` wins.  
 Questions or ambiguities? Open a discussion or ping a maintainer instead of guessing.
+
+---
 
 Happy hacking! 🚀

@@ -33,8 +33,8 @@
         <a href="https://goreportcard.com/report/github.com/mrz1836/go-broadcast">
           <img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat" alt="Go Report Card">
         </a><br/>
-		<a href="https://codecov.io/gh/mrz1836/go-broadcast/tree/master">
-          <img src="https://codecov.io/gh/mrz1836/go-broadcast/branch/master/graph/badge.svg?token=OKAyV2Z6Yy" alt="Code Coverage">
+		<a href="https://mrz1836.github.io/go-broadcast/reports/main/">
+          <img src="https://mrz1836.github.io/go-broadcast/badges/main.svg" alt="Code Coverage">
         </a><br/>
 		<a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast">
           <img src="https://api.scorecard.dev/projects/github.com/mrz1836/go-broadcast/badge?logo=springsecurity&logoColor=white" alt="OpenSSF Scorecard">
@@ -81,18 +81,19 @@
 <br/>
 
 ## 🗂️ Table of Contents
-* [Quick Start](#-quick-start)
-* [How It Works](#-how-it-works)
-* [Usage Examples](#-usage-examples)
-* [Logging and Debugging](#-logging-and-debugging)
-* [Documentation](#-documentation)
-* [Examples & Tests](#-examples--tests)
-* [Benchmarks](#-benchmarks)
-* [Code Standards](#-code-standards)
-* [AI Compliance](#-ai-compliance)
-* [Maintainers](#-maintainers)
-* [Contributing](#-contributing)
-* [License](#-license)
+* [Quick Start](#-quick-start) - Get running in 5 minutes
+* [Key Features](#-key-features) - What makes go-broadcast special
+* [How It Works](#-how-it-works) - Stateless sync architecture
+* [Usage Examples](#-usage-examples) - Real-world patterns
+* [Coverage System](#-coverage-system) - Built-in CodeCov replacement
+* [Performance](#-performance) - Benchmarks & profiling
+* [Documentation](#-documentation) - Complete guides
+* [Examples & Tests](#-examples--tests) - Testing & validation
+* [Code Standards](#-code-standards) - Development guidelines
+* [AI Compliance](#-ai-compliance) - Assistant guidelines
+* [Maintainers](#-maintainers) - Project maintainers
+* [Contributing](#-contributing) - Join the community
+* [License](#-license) - MIT License
 
 <br/>
 
@@ -117,10 +118,10 @@ Create a `sync.yaml` file:
 ```yaml
 version: 1
 source:
-  repo: "your-org/template-repo"
+  repo: "mrz1836/template-repo"
   branch: "master"
 targets:
-  - repo: "your-org/target-repo"
+  - repo: "mrz1836/target-repo"
     files:
       - src: ".github/workflows/ci.yml"
         dest: ".github/workflows/ci.yml"
@@ -147,6 +148,166 @@ go-broadcast sync --config sync.yaml
 - Creates a branch in each target repository
 - Commits synchronized files
 - Opens a pull request for review
+
+> **💡 Pro tip:** go-broadcast includes a [built-in coverage system](#-coverage-system), [enterprise performance](#-performance), and comprehensive logging & debugging - explore the features below!
+
+<br/>
+
+## ✨ Key Features
+
+**go-broadcast** is more than just file sync - it's a complete repository management platform:
+
+### 🔄 **Intelligent Sync Engine**
+- **Stateless architecture** - No databases, all state tracked via GitHub
+- **Smart diff detection** - Only syncs files that actually changed
+- **Zero-downtime operations** - Works at any scale without conflicts
+- **Full audit trail** - Every sync tracked in branches and PRs
+
+### 📊 **Built-in Coverage System** 
+- **CodeCov replacement** - Zero external dependencies, complete data privacy
+- **Professional badges** - GitHub-style badges with real-time updates
+- **Interactive dashboard** - Modern UI with analytics and trends
+- **[🔗 Live Demo](https://mrz1836.github.io/go-broadcast/)**
+
+### ⚡ **Enterprise Performance**
+- **587M+ ops/sec** - Binary detection with zero allocations
+- **239M+ ops/sec** - Content comparison for identical files  
+- **13.5M+ ops/sec** - Cache operations with minimal memory
+- **Concurrent sync** - Multiple repositories in parallel
+
+### 🛡️ **Security & Compliance**
+- **60+ linters** - Zero tolerance policy for code issues
+- **Vulnerability scanning** - govulncheck, OSSAR, CodeQL integration
+- **OpenSSF Scorecard** - Supply chain security assessment
+- **Secret detection** - gitleaks integration prevents leaks
+
+<br/>
+
+## 🚀 Coverage System
+
+**Replace CodeCov with a self-hosted solution** - Complete data privacy, zero external dependencies, and enterprise-grade features.
+
+| Feature                   | GoFortress Coverage |      CodeCov       | 
+|---------------------------|:-------------------:|:------------------:|
+| **Data Privacy**          |    ✅ Self-hosted    | ❌ External service |
+| **Cost**                  |     ✅ $0/month      |  ❌ $29-300+/month  |
+| **Interactive Dashboard** |     ✅ Modern UI     |  ❌ Basic reports   |
+| **Advanced Analytics**    |    ✅ Full suite     | ❌ Limited by plan  |
+
+<table>
+  <tr>
+    <td><img src="https://mrz1836.github.io/go-broadcast/badges/main.svg" alt="Main Branch Coverage" /></td>
+    <td><img src="https://img.shields.io/badge/coverage-87.2%25-brightgreen?style=flat-square" alt="Flat Square Style" /></td>
+    <td><img src="https://img.shields.io/badge/trend-%E2%86%97%20improving-green?style=for-the-badge" alt="Trend Badge" /></td>
+  </tr>
+</table>
+
+🔗 **[View Live Demo Dashboard](https://mrz1836.github.io/go-broadcast/)**
+
+### ⚡ Quick Setup
+
+Enable in 2 steps:
+
+```bash
+# 1. Enable in .github/.env.shared
+ENABLE_INTERNAL_COVERAGE=true
+COVERAGE_FAIL_UNDER=80
+
+# 2. Set GitHub Pages source to "GitHub Actions"
+# Repository Settings → Pages → Source → "GitHub Actions"
+```
+
+That's it! Push any commit and get:
+- ✅ Professional coverage badges
+- ✅ Interactive dashboard  
+- ✅ PR comments with analysis
+- ✅ GitHub Pages deployment
+
+<details>
+<summary><strong>🎯 Complete Feature List & Advanced Configuration</strong></summary>
+
+### Core Features
+
+#### Professional Coverage Badges
+- **GitHub-style badges** with multiple themes (flat, flat-square, for-the-badge)
+- **Real-time updates** on every push and pull request
+- **Branch-specific badges** for main, develop, and feature branches
+- **Trend indicators** showing coverage direction and momentum
+- **PR-specific badges** for pull request analysis
+
+#### Interactive Coverage Dashboard
+- **Modern, responsive UI** with glass-morphism design and dark/light themes
+- **Real-time metrics** with animated progress indicators
+- **Command palette** (Cmd+K) for quick navigation and search
+- **Mobile-optimized** with touch gestures and responsive layouts
+- **Zero external dependencies** - fully self-contained
+
+#### Intelligent PR Coverage Comments
+- **Comprehensive coverage analysis** comparing base vs PR branches
+- **File-level breakdown** with uncovered lines highlighted
+- **Trend analysis** showing coverage direction and momentum
+- **Smart anti-spam logic** to prevent comment noise on multiple pushes
+- **Actionable insights** and improvement suggestions
+- **Multiple comment templates** (comprehensive, compact, detailed, summary, minimal)
+
+#### Advanced Analytics & Insights
+- **Historical trend tracking** with interactive charts and predictions
+- **Team analytics** showing individual and collaborative metrics
+- **Performance monitoring** with coverage velocity and quality scoring
+- **Anomaly detection** identifying unusual coverage patterns
+- **Predictive modeling** forecasting coverage trends and milestones
+
+#### Multi-Channel Notifications
+- **Slack integration** with rich message formatting and interactive elements
+- **Microsoft Teams** support with adaptive cards and threaded conversations
+- **Discord webhooks** with embed messages and role mentions
+- **Email notifications** with HTML templates and attachment support
+- **Custom webhooks** for integration with any service
+
+#### Enterprise-Grade Deployment
+- **GitHub Pages integration** with automatic setup and organized storage
+- **PR-specific deployments** with isolated coverage reports
+- **Automatic cleanup** of expired data with configurable retention policies
+- **Export capabilities** to PDF, CSV, JSON, and HTML formats
+- **CLI automation** with comprehensive command-line interface
+
+### Advanced Configuration
+
+The coverage system includes 45+ configuration options for complete customization:
+
+#### 🎨 Badge & Theme Configuration
+```bash
+COVERAGE_BADGE_STYLE=flat                # flat, flat-square, for-the-badge
+COVERAGE_BADGE_LOGO=go                   # Logo: go, github, custom URL
+COVERAGE_REPORT_THEME=github-dark        # Dashboard theme
+COVERAGE_THRESHOLD_EXCELLENT=90          # Green badge threshold
+COVERAGE_THRESHOLD_GOOD=80               # Yellow-green threshold
+```
+
+#### 📊 Analytics & Reporting
+```bash
+COVERAGE_ENABLE_TREND_ANALYSIS=true      # Historical trend tracking
+COVERAGE_ENABLE_PACKAGE_BREAKDOWN=true   # Package-level coverage
+COVERAGE_HISTORY_RETENTION_DAYS=90       # Data retention period
+COVERAGE_CLEANUP_PR_AFTER_DAYS=7         # PR cleanup schedule
+```
+
+#### 🔔 Notification Configuration
+```bash
+COVERAGE_SLACK_WEBHOOK_ENABLED=true      # Enable Slack notifications
+COVERAGE_PR_COMMENT_SHOW_TREE=true       # Show file tree in PR comments
+COVERAGE_PR_COMMENT_SHOW_MISSING=true    # Highlight uncovered lines
+COVERAGE_PR_COMMENT_BEHAVIOR=update      # Comment behavior: new, update, delete-and-new
+```
+
+### GitHub Pages URLs
+- **Coverage Badge**: `https://mrz1836.github.io/go-broadcast/badges/main.svg`
+- **Coverage Dashboard**: `https://mrz1836.github.io/go-broadcast/coverage/`
+- **Coverage Report**: `https://mrz1836.github.io/go-broadcast/reports/main/`
+
+📚 **[Complete Configuration Guide](docs/coverage-configuration.md)** | 🔧 **[Migration Guide](docs/migrating-from-codecov.md)** | 📊 **[API Documentation](docs/coverage-api.md)**
+
+</details>
 
 <br/>
 
@@ -191,7 +352,7 @@ sync/template-20250123-143052-abc123f
 
 Each PR includes structured metadata for complete traceability:
 
-```yaml
+```text
 <!-- go-broadcast metadata
 source:
   repo: company/template-repo
@@ -263,7 +424,7 @@ go-broadcast status --config sync.yaml
 ### Configuration Reference
 
 <details>
-<summary><strong>File Transformations</strong></summary>
+<summary><strong>🔄 File Transformations</strong></summary>
 
 ```yaml
 transform:
@@ -275,7 +436,7 @@ transform:
 </details>
 
 <details>
-<summary><strong>File Mapping Options</strong></summary>
+<summary><strong>📁 File Mapping Options</strong></summary>
 
 ```yaml
 files:
@@ -289,7 +450,7 @@ files:
 </details>
 
 <details>
-<summary><strong>Advanced Configuration</strong></summary>
+<summary><strong>⚙️ Advanced Configuration</strong></summary>
 
 ```yaml
 version: 1
@@ -313,7 +474,219 @@ targets:
 
 <br/>
 
-## 🔍 Logging and Debugging
+## 📚 Documentation
+
+- **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
+- **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)
+- **Configuration Examples** – Browse practical patterns in the [examples directory](examples)
+- **Troubleshooting** – Solve common issues with the [troubleshooting guide](docs/troubleshooting.md)
+- **API Reference** – Dive into the godocs at [pkg.go.dev/github.com/mrz1836/go-broadcast](https://pkg.go.dev/github.com/mrz1836/go-broadcast)
+- **Integration Tests** – End-to-end testing examples in [test/integration](test/integration)
+- **Internal Utilities** – Shared testing and validation utilities in [internal](internal) packages
+- **Performance** – Check the latest numbers in the [Performance section](#-performance)
+
+<br/>
+
+<details>
+<summary><strong>📦 Repository Features</strong></summary>
+<br/>
+
+* **Continuous Integration on Autopilot** with [GitHub Actions](https://github.com/features/actions) – every push is built, tested, and reported in minutes.
+* **Pull‑Request Flow That Merges Itself** thanks to [auto‑merge](.github/workflows/auto-merge-on-approval.yml) and hands‑free [Dependabot auto‑merge](.github/workflows/dependabot-auto-merge.yml).
+* **One‑Command Builds** powered by battle‑tested [Make](https://www.gnu.org/software/make) targets for linting, testing, releases, and more.
+* **First‑Class Dependency Management** using native [Go Modules](https://github.com/golang/go/wiki/Modules).
+* **Uniform Code Style** via [gofumpt](https://github.com/mvdan/gofumpt) plus zero‑noise linting with [golangci‑lint](https://github.com/golangci/golangci-lint).
+* **Confidence‑Boosting Tests** with [testify](https://github.com/stretchr/testify), the Go [race detector](https://blog.golang.org/race-detector), crystal‑clear [HTML coverage](https://blog.golang.org/cover) snapshots, and automatic reporting via internal coverage system.
+* **Hands‑Free Releases** delivered by [GoReleaser](https://github.com/goreleaser/goreleaser) whenever you create a [new Tag](https://git-scm.com/book/en/v2/Git-Basics-Tagging).
+* **Relentless Dependency & Vulnerability Scans** via [Dependabot](https://dependabot.com), [Nancy](https://github.com/sonatype-nexus-community/nancy), [govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck), and [OSSAR](https://github.com/github/ossar-action).
+* **Security Posture by Default** with [CodeQL](https://docs.github.com/en/github/finding-security-vulnerabilities-and-errors-in-your-code/about-code-scanning), [OpenSSF Scorecard](https://openssf.org), [OSSAR](https://github.com/github/ossar-action), and secret‑leak detection via [gitleaks](https://github.com/gitleaks/gitleaks).
+* **Automatic Syndication** to [pkg.go.dev](https://pkg.go.dev/) on every release for instant godoc visibility.
+* **Polished Community Experience** using rich templates for [Issues & PRs](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-go-broadcastsitory).
+* **All the Right Meta Files** (`LICENSE`, `CITATION.cff`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SUPPORT.md`, `SECURITY.md`) pre‑filled and ready.
+* **Code Ownership** clarified through a [CODEOWNERS](.github/CODEOWNERS) file, keeping reviews fast and focused.
+* **Zero‑Noise Dev Environments** with tuned editor settings (`.editorconfig`) plus curated *ignore* files for [VS Code](.editorconfig), [Docker](.dockerignore), and [Git](.gitignore).
+* **Label Sync Magic**: your repo labels stay in lock‑step with [.github/labels.yml](.github/labels.yml).
+* **Friendly First PR Workflow** – newcomers get a warm welcome thanks to a dedicated [workflow](.github/workflows/pull-request-management.yml).
+* **Standards‑Compliant Docs** adhering to the [standard‑readme](https://github.com/RichardLitt/standard-readme/blob/master/spec.md) spec.
+* **Instant Cloud Workspaces** via [Gitpod](https://gitpod.io/) – spin up a fully configured dev environment with automatic linting and tests.
+* **Out‑of‑the‑Box VS Code Happiness** with a preconfigured [Go](https://code.visualstudio.com/docs/languages/go) workspace and [`.vscode`](.vscode) folder with all the right settings.
+* **Optional Release Broadcasts** to your community via [Slack](https://slack.com), [Discord](https://discord.com), or [Twitter](https://twitter.com) – plug in your webhook.
+* **AI Compliance Playbook** – machine‑readable guidelines ([AGENTS.md](.github/AGENTS.md), [CLAUDE.md](.github/CLAUDE.md), [.cursorrules](.cursorrules), [sweep.yaml](.github/sweep.yaml)) keep ChatGPT, Claude, Cursor & Sweep aligned with your repo's rules.
+* **Pre-commit Hooks for Consistency** powered by [pre-commit](https://pre-commit.com) and the [.pre-commit-config.yaml](.pre-commit-config.yaml) file—run the same formatting, linting, and tests before every commit, just like CI.
+* **Automated Hook Updates** keep the [.pre-commit-config.yaml](.pre-commit-config.yaml) current via a weekly [workflow](.github/workflows/update-pre-commit-hooks.yml).
+* **DevContainers for Instant Onboarding** – Launch a ready-to-code environment in seconds with [VS Code DevContainers](https://containers.dev/) and the included [.devcontainer.json](.devcontainer.json) config.
+
+</details>
+
+<details>
+<summary><strong>🚀 Library Deployment</strong></summary>
+<br/>
+
+This project uses [goreleaser](https://github.com/goreleaser/goreleaser) for streamlined binary and library deployment to GitHub. To get started, install it via:
+
+```bash
+brew install goreleaser
+```
+
+The release process is defined in the [.goreleaser.yml](.goreleaser.yml) configuration file.
+
+To generate a snapshot (non-versioned) release for testing purposes, run:
+
+```bash
+make release-snap
+```
+
+Before tagging a new version, update the release metadata (version) in the `CITATION.cff` file:
+
+```bash
+make citation version=0.2.1
+```
+
+Then create and push a new Git tag using:
+
+```bash
+make tag version=x.y.z
+```
+
+This process ensures consistent, repeatable releases with properly versioned artifacts and citation metadata.
+
+</details>
+
+<details>
+<summary><strong>🔨 Makefile Commands</strong></summary>
+<br/>
+
+View all `makefile` commands
+
+```bash script
+make help
+```
+
+List of all current commands:
+
+<!-- make-help-start -->
+```text
+bench                 ## Run all benchmarks in the Go application
+bench-compare         ## Run benchmarks and save results for comparison
+bench-cpu             ## Run benchmarks with CPU profiling
+bench-full            ## Run comprehensive benchmarks with multiple iterations
+bench-save            ## Save current benchmark results as baseline
+build-go              ## Build the Go application (locally)
+citation              ## Update version in CITATION.cff (use version=X.Y.Z)
+clean-mods            ## Remove all the Go mod cache
+coverage              ## Show test coverage
+diff                  ## Show git diff and fail if uncommitted changes exist
+fumpt                 ## Run fumpt to format Go code
+generate              ## Run go generate in the base of the repo
+godocs                ## Trigger GoDocs tag sync
+govulncheck-install   ## Install govulncheck (pass VERSION= to override)
+govulncheck           ## Scan for vulnerabilities
+help                  ## Display this help message
+install-go            ## Install using go install with specific version
+install-releaser      ## Install GoReleaser
+install-stdlib        ## Install the Go standard library for the host platform
+install               ## Install the application binary
+lint-version          ## Show the golangci-lint version
+lint                  ## Run the golangci-lint application (install if not found)
+loc                   ## Total lines of code table
+mod-download          ## Download Go module dependencies
+mod-tidy              ## Clean up go.mod and go.sum
+pre-build             ## Pre-build all packages to warm cache
+release-snap          ## Build snapshot binaries
+release-test          ## Run release dry-run (no publish)
+release               ## Run production release (requires github_token)
+tag-remove            ## Remove local and remote tag (use version=X.Y.Z)
+tag-update            ## Force-update tag to current commit (use version=X.Y.Z)
+tag                   ## Create and push a new tag (use version=X.Y.Z)
+test-ci-no-race       ## CI test suite without race detector
+test-ci               ## CI test runs tests with race detection and coverage (no lint - handled separately)
+test-cover-race       ## Runs unit tests with race detector and outputs coverage
+test-cover            ## Unit tests with coverage (no race)
+test-fuzz             ## Run fuzz tests only (no unit tests)
+test-no-lint          ## Run only tests (no lint)
+test-parallel         ## Run tests in parallel (faster for large repos)
+test-race             ## Unit tests with race detector (no coverage)
+test-short            ## Run tests excluding integration tests (no lint)
+test                  ## Default testing uses lint + unit tests (fast)
+uninstall             ## Uninstall the Go binary
+update-linter         ## Upgrade golangci-lint (macOS only)
+update-releaser       ## Reinstall GoReleaser
+update                ## Update dependencies
+vet-parallel          ## Run go vet in parallel (faster for large repos)
+vet                   ## Run go vet only on your module packages
+```
+<!-- make-help-end -->
+
+</details>
+
+<details>
+<summary><strong>⚡ GitHub Workflows</strong></summary>
+<br/>
+
+
+### 🎛️ The Workflow Control Center
+
+All GitHub Actions workflows in this repository are powered by a single configuration file: [**.env.shared**](.github/.env.shared) – your one-stop shop for tweaking CI/CD behavior without touching a single YAML file! 🎯
+
+This magical file controls everything from:
+- **⚙️ Go version matrix** (test on multiple versions or just one)
+- **🏃 Runner selection** (Ubuntu or macOS, your wallet decides)
+- **🔬 Feature toggles** (coverage, fuzzing, linting, race detection, benchmarks)
+- **🛡️ Security tool versions** (gitleaks, nancy, govulncheck)
+- **🤖 Auto-merge behaviors** (how aggressive should the bots be?)
+- **🏷️ PR management rules** (size labels, auto-assignment, welcome messages)
+
+> **Pro tip:** Want to disable code coverage? Just flip `ENABLE_CODE_COVERAGE=false` in [.env.shared](.github/.env.shared) and push. No YAML archaeology required! 
+
+<br/>
+
+| Workflow Name                                                                      | Description                                                                                                            |
+|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| [auto-merge-on-approval.yml](.github/workflows/auto-merge-on-approval.yml)         | Automatically merges PRs after approval and all required checks, following strict rules.                               |
+| [codeql-analysis.yml](.github/workflows/codeql-analysis.yml)                       | Analyzes code for security vulnerabilities using [GitHub CodeQL](https://codeql.github.com/).                          |
+| [dependabot-auto-merge.yml](.github/workflows/dependabot-auto-merge.yml)           | Automatically merges [Dependabot](https://github.com/dependabot) PRs that meet all requirements.                       |
+| [fortress.yml](.github/workflows/fortress.yml)                                     | Runs the GoFortress security and testing workflow, including linting, testing, releasing, and vulnerability checks.    |
+| [ossar.yml](.github/workflows/ossar.yml)                                           | Runs [OSSAR](https://github.com/github/ossar-action) static analysis workflow                                          |
+| [pull-request-management.yml](.github/workflows/pull-request-management.yml)       | Labels PRs by branch prefix, assigns a default user if none is assigned, and welcomes new contributors with a comment. |
+| [scorecard.yml](.github/workflows/scorecard.yml)                                   | Runs [OpenSSF](https://openssf.org/) Scorecard to assess supply chain security.                                        |
+| [stale.yml](.github/workflows/stale-check.yml)                                     | Warns about (and optionally closes) inactive issues and PRs on a schedule or manual trigger.                           |
+| [sync-labels.yml](.github/workflows/sync-labels.yml)                               | Keeps GitHub labels in sync with the declarative manifest at [`.github/labels.yml`](./.github/labels.yml).             |
+| [update-python-dependencies.yml](.github/workflows/update-python-dependencies.yml) | Updates Python dependencies for pre-commit hooks in the repository.                                                    |
+| [update-pre-commit-hooks.yml](.github/workflows/update-pre-commit-hooks.yml)       | Automatically update versions for [pre-commit](https://pre-commit.com/) hooks                                          |
+
+</details>
+
+<details>
+<summary><strong>📦 Updating Dependencies</strong></summary>
+<br/>
+
+To update all dependencies (Go modules, linters, and related tools), run:
+
+```bash
+make update
+```
+
+This command ensures all dependencies are brought up to date in a single step, including Go modules and any tools managed by the Makefile. It is the recommended way to keep your development environment and CI in sync with the latest versions.
+
+</details>
+
+<details>
+<summary><strong>🔧 Pre-commit Hooks</strong></summary>
+<br/>
+
+Set up the optional [pre-commit](https://pre-commit.com) hooks to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+The hooks are configured in [.pre-commit-config.yaml](.pre-commit-config.yaml) and mirror the CI pipeline.
+
+</details>
+
+<details>
+<summary><strong>🐛 Logging and Debugging</strong></summary>
 
 go-broadcast provides comprehensive logging capabilities designed for debugging, monitoring, and troubleshooting. The logging system features intuitive verbose flags, component-specific debug modes, and automatic sensitive data redaction.
 
@@ -418,217 +791,6 @@ go-broadcast sync --log-level debug 2>&1 | tee sync-debug.log
 
 For more detailed information, see the [comprehensive logging guide](docs/logging.md) and [troubleshooting runbook](docs/troubleshooting-runbook.md).
 
-<br/>
-
-## 📚 Documentation
-
-- **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
-- **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)
-- **Configuration Examples** – Browse practical patterns in the [examples directory](examples)
-- **Troubleshooting** – Solve common issues with the [troubleshooting guide](docs/troubleshooting.md)
-- **API Reference** – Dive into the godocs at [pkg.go.dev/github.com/mrz1836/go-broadcast](https://pkg.go.dev/github.com/mrz1836/go-broadcast)
-- **Integration Tests** – End-to-end testing examples in [test/integration](test/integration)
-- **Internal Utilities** – Shared testing and validation utilities in [internal](internal) packages
-- **Benchmarks** – Check the latest numbers in the [benchmark results](#benchmark-results)
-
-<br/>
-
-<details>
-<summary><strong><code>Repository Features</code></strong></summary>
-<br/>
-
-* **Continuous Integration on Autopilot** with [GitHub Actions](https://github.com/features/actions) – every push is built, tested, and reported in minutes.
-* **Pull‑Request Flow That Merges Itself** thanks to [auto‑merge](.github/workflows/auto-merge-on-approval.yml) and hands‑free [Dependabot auto‑merge](.github/workflows/dependabot-auto-merge.yml).
-* **One‑Command Builds** powered by battle‑tested [Make](https://www.gnu.org/software/make) targets for linting, testing, releases, and more.
-* **First‑Class Dependency Management** using native [Go Modules](https://github.com/golang/go/wiki/Modules).
-* **Uniform Code Style** via [gofumpt](https://github.com/mvdan/gofumpt) plus zero‑noise linting with [golangci‑lint](https://github.com/golangci/golangci-lint).
-* **Confidence‑Boosting Tests** with [testify](https://github.com/stretchr/testify), the Go [race detector](https://blog.golang.org/race-detector), crystal‑clear [HTML coverage](https://blog.golang.org/cover) snapshots, and automatic uploads to [Codecov](https://codecov.io/).
-* **Hands‑Free Releases** delivered by [GoReleaser](https://github.com/goreleaser/goreleaser) whenever you create a [new Tag](https://git-scm.com/book/en/v2/Git-Basics-Tagging).
-* **Relentless Dependency & Vulnerability Scans** via [Dependabot](https://dependabot.com), [Nancy](https://github.com/sonatype-nexus-community/nancy), [govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck), and [OSSAR](https://github.com/github/ossar-action).
-* **Security Posture by Default** with [CodeQL](https://docs.github.com/en/github/finding-security-vulnerabilities-and-errors-in-your-code/about-code-scanning), [OpenSSF Scorecard](https://openssf.org), [OSSAR](https://github.com/github/ossar-action), and secret‑leak detection via [gitleaks](https://github.com/gitleaks/gitleaks).
-* **Automatic Syndication** to [pkg.go.dev](https://pkg.go.dev/) on every release for instant godoc visibility.
-* **Polished Community Experience** using rich templates for [Issues & PRs](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository).
-* **All the Right Meta Files** (`LICENSE`, `CITATION.cff`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SUPPORT.md`, `SECURITY.md`) pre‑filled and ready.
-* **Code Ownership** clarified through a [CODEOWNERS](.github/CODEOWNERS) file, keeping reviews fast and focused.
-* **Zero‑Noise Dev Environments** with tuned editor settings (`.editorconfig`) plus curated *ignore* files for [VS Code](.editorconfig), [Docker](.dockerignore), and [Git](.gitignore).
-* **Label Sync Magic**: your repo labels stay in lock‑step with [.github/labels.yml](.github/labels.yml).
-* **Friendly First PR Workflow** – newcomers get a warm welcome thanks to a dedicated [workflow](.github/workflows/pull-request-management.yml).
-* **Standards‑Compliant Docs** adhering to the [standard‑readme](https://github.com/RichardLitt/standard-readme/blob/master/spec.md) spec.
-* **Instant Cloud Workspaces** via [Gitpod](https://gitpod.io/) – spin up a fully configured dev environment with automatic linting and tests.
-* **Out‑of‑the‑Box VS Code Happiness** with a preconfigured [Go](https://code.visualstudio.com/docs/languages/go) workspace and [`.vscode`](.vscode) folder with all the right settings.
-* **Optional Release Broadcasts** to your community via [Slack](https://slack.com), [Discord](https://discord.com), or [Twitter](https://twitter.com) – plug in your webhook.
-* **AI Compliance Playbook** – machine‑readable guidelines ([AGENTS.md](.github/AGENTS.md), [CLAUDE.md](.github/CLAUDE.md), [.cursorrules](.cursorrules), [sweep.yaml](.github/sweep.yaml)) keep ChatGPT, Claude, Cursor & Sweep aligned with your repo's rules.
-* **Pre-commit Hooks for Consistency** powered by [pre-commit](https://pre-commit.com) and the [.pre-commit-config.yaml](.pre-commit-config.yaml) file—run the same formatting, linting, and tests before every commit, just like CI.
-* **Automated Hook Updates** keep the [.pre-commit-config.yaml](.pre-commit-config.yaml) current via a weekly [workflow](.github/workflows/update-pre-commit-hooks.yml).
-* **DevContainers for Instant Onboarding** – Launch a ready-to-code environment in seconds with [VS Code DevContainers](https://containers.dev/) and the included [.devcontainer.json](.devcontainer.json) config.
-
-</details>
-
-<details>
-<summary><strong><code>Library Deployment</code></strong></summary>
-<br/>
-
-This project uses [goreleaser](https://github.com/goreleaser/goreleaser) for streamlined binary and library deployment to GitHub. To get started, install it via:
-
-```bash
-brew install goreleaser
-```
-
-The release process is defined in the [.goreleaser.yml](.goreleaser.yml) configuration file.
-
-To generate a snapshot (non-versioned) release for testing purposes, run:
-
-```bash
-make release-snap
-```
-
-Before tagging a new version, update the release metadata (version) in the `CITATION.cff` file:
-
-```bash
-make citation version=0.2.1
-```
-
-Then create and push a new Git tag using:
-
-```bash
-make tag version=x.y.z
-```
-
-This process ensures consistent, repeatable releases with properly versioned artifacts and citation metadata.
-
-</details>
-
-<details>
-<summary><strong><code>Makefile Commands</code></strong></summary>
-<br/>
-
-View all `makefile` commands
-
-```bash script
-make help
-```
-
-List of all current commands:
-
-<!-- make-help-start -->
-```text
-bench                 ## Run all benchmarks in the Go application
-bench-compare         ## Run benchmarks and save results for comparison
-bench-cpu             ## Run benchmarks with CPU profiling
-bench-full            ## Run comprehensive benchmarks with multiple iterations
-bench-save            ## Save current benchmark results as baseline
-build-go              ## Build the Go application (locally)
-citation              ## Update version in CITATION.cff (use version=X.Y.Z)
-clean-mods            ## Remove all the Go mod cache
-coverage              ## Show test coverage
-diff                  ## Show git diff and fail if uncommitted changes exist
-fumpt                 ## Run fumpt to format Go code
-generate              ## Run go generate in the base of the repo
-godocs                ## Trigger GoDocs tag sync
-govulncheck-install   ## Install govulncheck (pass VERSION= to override)
-govulncheck           ## Scan for vulnerabilities
-help                  ## Display this help message
-install-go            ## Install using go install with specific version
-install-releaser      ## Install GoReleaser
-install-stdlib        ## Install the Go standard library for the host platform
-install               ## Install the application binary
-lint-version          ## Show the golangci-lint version
-lint                  ## Run the golangci-lint application (install if not found)
-loc                   ## Total lines of code table
-mod-download          ## Download Go module dependencies
-mod-tidy              ## Clean up go.mod and go.sum
-pre-build             ## Pre-build all packages to warm cache
-release-snap          ## Build snapshot binaries
-release-test          ## Run release dry-run (no publish)
-release               ## Run production release (requires github_token)
-tag-remove            ## Remove local and remote tag (use version=X.Y.Z)
-tag-update            ## Force-update tag to current commit (use version=X.Y.Z)
-tag                   ## Create and push a new tag (use version=X.Y.Z)
-test-ci-no-race       ## CI test suite without race detector
-test-ci               ## CI test runs tests with race detection and coverage (no lint - handled separately)
-test-cover-race       ## Runs unit tests with race detector and outputs coverage
-test-cover            ## Unit tests with coverage (no race)
-test-fuzz             ## Run fuzz tests only (no unit tests)
-test-no-lint          ## Run only tests (no lint)
-test-parallel         ## Run tests in parallel (faster for large repos)
-test-race             ## Unit tests with race detector (no coverage)
-test-short            ## Run tests excluding integration tests (no lint)
-test                  ## Default testing uses lint + unit tests (fast)
-uninstall             ## Uninstall the Go binary
-update-linter         ## Upgrade golangci-lint (macOS only)
-update-releaser       ## Reinstall GoReleaser
-update                ## Update dependencies
-vet-parallel          ## Run go vet in parallel (faster for large repos)
-vet                   ## Run go vet only on your module packages
-```
-<!-- make-help-end -->
-
-</details>
-
-<details>
-<summary><strong><code>GitHub Workflows</code></strong></summary>
-<br/>
-
-
-### 🎛️ The Workflow Control Center
-
-All GitHub Actions workflows in this repository are powered by a single configuration file: [**.env.shared**](.github/.env.shared) – your one-stop shop for tweaking CI/CD behavior without touching a single YAML file! 🎯
-
-This magical file controls everything from:
-- **⚙️ Go version matrix** (test on multiple versions or just one)
-- **🏃 Runner selection** (Ubuntu or macOS, your wallet decides)
-- **🔬 Feature toggles** (coverage, fuzzing, linting, race detection, benchmarks)
-- **🛡️ Security tool versions** (gitleaks, nancy, govulncheck)
-- **🤖 Auto-merge behaviors** (how aggressive should the bots be?)
-- **🏷️ PR management rules** (size labels, auto-assignment, welcome messages)
-
-> **Pro tip:** Want to disable code coverage? Just flip `ENABLE_CODE_COVERAGE=false` in [.env.shared](.github/.env.shared) and push. No YAML archaeology required! 
-
-<br/>
-
-| Workflow Name                                                                      | Description                                                                                                            |
-|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
-| [auto-merge-on-approval.yml](.github/workflows/auto-merge-on-approval.yml)         | Automatically merges PRs after approval and all required checks, following strict rules.                               |
-| [codeql-analysis.yml](.github/workflows/codeql-analysis.yml)                       | Analyzes code for security vulnerabilities using [GitHub CodeQL](https://codeql.github.com/).                          |
-| [dependabot-auto-merge.yml](.github/workflows/dependabot-auto-merge.yml)           | Automatically merges [Dependabot](https://github.com/dependabot) PRs that meet all requirements.                       |
-| [fortress.yml](.github/workflows/fortress.yml)                                     | Runs the GoFortress security and testing workflow, including linting, testing, releasing, and vulnerability checks.    |
-| [ossar.yml](.github/workflows/ossar.yml)                                           | Runs [OSSAR](https://github.com/github/ossar-action) static analysis workflow                                          |
-| [pull-request-management.yml](.github/workflows/pull-request-management.yml)       | Labels PRs by branch prefix, assigns a default user if none is assigned, and welcomes new contributors with a comment. |
-| [scorecard.yml](.github/workflows/scorecard.yml)                                   | Runs [OpenSSF](https://openssf.org/) Scorecard to assess supply chain security.                                        |
-| [stale.yml](.github/workflows/stale-check.yml)                                     | Warns about (and optionally closes) inactive issues and PRs on a schedule or manual trigger.                           |
-| [sync-labels.yml](.github/workflows/sync-labels.yml)                               | Keeps GitHub labels in sync with the declarative manifest at [`.github/labels.yml`](./.github/labels.yml).             |
-| [update-python-dependencies.yml](.github/workflows/update-python-dependencies.yml) | Updates Python dependencies for pre-commit hooks in the repository.                                                    |
-| [update-pre-commit-hooks.yml](.github/workflows/update-pre-commit-hooks.yml)       | Automatically update versions for [pre-commit](https://pre-commit.com/) hooks                                          |
-
-</details>
-
-<details>
-<summary><strong><code>Updating Dependencies</code></strong></summary>
-<br/>
-
-To update all dependencies (Go modules, linters, and related tools), run:
-
-```bash
-make update
-```
-
-This command ensures all dependencies are brought up to date in a single step, including Go modules and any tools managed by the Makefile. It is the recommended way to keep your development environment and CI in sync with the latest versions.
-
-</details>
-
-<details>
-<summary><strong><code>Pre-commit Hooks</code></strong></summary>
-<br/>
-
-Set up the optional [pre-commit](https://pre-commit.com) hooks to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
-
-```bash
-pip install pre-commit
-pre-commit install
-```
-
-The hooks are configured in [.pre-commit-config.yaml](.pre-commit-config.yaml) and mirror the CI pipeline.
-
 </details>
 
 <br/>
@@ -650,33 +812,35 @@ make test-race
 
 <br/>
 
-## ⚡ Benchmarks & Profiling
+## ⚡ Performance
 
-go-broadcast includes comprehensive performance analysis tools with 100+ benchmarks and advanced profiling capabilities.
+**Enterprise-grade performance** - Designed for high-scale repository management with zero-allocation critical paths.
 
-### Quick Start
+### Performance Highlights
 
-Run all benchmarks:
+| Operation              | Performance    | Memory           |
+|------------------------|----------------|------------------|
+| **Binary Detection**   | 587M+ ops/sec  | Zero allocations |
+| **Content Comparison** | 239M+ ops/sec  | Zero allocations |
+| **Cache Operations**   | 13.5M+ ops/sec | Minimal memory   |
+| **Batch Processing**   | 23.8M+ ops/sec | Concurrent safe  |
+
+### Quick Benchmarks
+
 ```bash
+# Run all benchmarks
 make bench
-```
 
-Run specific benchmarks:
-```bash
-# Benchmark git operations
+# Benchmark specific components
 go test -bench=. -benchmem ./internal/git
+go test -bench=. -benchmem ./internal/worker
 
-# Benchmark with CPU profiling
-go test -bench=. -cpuprofile=cpu.prof ./internal/worker
-```
-
-### Profiling Demo
-
-Try the built-in profiling demo:
-```bash
+# Try the profiling demo
 go run ./cmd/profile_demo
-# Results in ./profiles/final_demo/
 ```
+
+<details>
+<summary><strong>📊 Complete Benchmark Results & Profiling Tools</strong></summary>
 
 ### Performance Analysis Tools
 
@@ -686,35 +850,30 @@ go run ./cmd/profile_demo
 - **🔍 Goroutine Analysis** for concurrency debugging
 - **⚡ Zero-Allocation** operations in critical paths
 
-📚 **Documentation:**
-- [Benchmarking Guide](docs/benchmarking-profiling.md) - Complete benchmarking reference
-- [Profiling Guide](docs/profiling-guide.md) - Advanced profiling techniques
-- [Performance Optimization](docs/performance-optimization.md) - Best practices and tips
-
-### Performance Results
+### Complete Performance Results
 
 The following benchmarks were run on Apple M1 Max (updated January 2025):
 
-| Benchmark                    | Operations  | ns/op     | B/op      | allocs/op |
-|------------------------------|-------------|-----------|-----------|-----------|
-| **Core Algorithms**          |
-| BinaryDetection (Small Text) | 5,852,616   | 204.5     | 0         | 0         |
-| BinaryDetection (Large Text) | 179,217     | 6,606     | 0         | 0         |
-| BinaryDetection (Small Binary)| 335,143,730| 3.6       | 0         | 0         |
-| BinaryDetection (Large Binary)| 587,204,924| 2.0       | 0         | 0         |
-| DiffOptimized (Identical)    | 239,319,295 | 5.0       | 0         | 0         |
-| DiffOptimized (Different)    | 4,035,818   | 297.2     | 240       | 10        |
-| DiffOptimized (Large Similar)| 250,452     | 4,711     | 5,492     | 7         |
-| BatchProcessor               | 23,842,558  | 54.3      | 25        | 1         |
-| **Cache Operations**         |
-| Cache Set                    | 6,067,380   | 177.4     | 48        | 4         |
-| Cache Get (Hit)              | 11,481,175  | 103.8     | 7         | 1         |
-| Cache Get (Miss)             | 13,565,466  | 89.4      | 32        | 2         |
-| Cache GetOrLoad              | 11,330,936  | 106.2     | 16        | 1         |
-| **Performance Profiling**    |
-| CaptureMemStats              | 58,352      | 20,476    | 0         | 0         |
-| CaptureMemoryStats           | 3,475       | 302,402   | 107       | 4         |
-| MeasureOperation             | 4,032       | 316,467   | 107       | 4         |
+| Benchmark                      | Operations  | ns/op   | B/op  | allocs/op |
+|--------------------------------|-------------|---------|-------|-----------|
+| **Core Algorithms**            |
+| BinaryDetection (Small Text)   | 5,852,616   | 204.5   | 0     | 0         |
+| BinaryDetection (Large Text)   | 179,217     | 6,606   | 0     | 0         |
+| BinaryDetection (Small Binary) | 335,143,730 | 3.6     | 0     | 0         |
+| BinaryDetection (Large Binary) | 587,204,924 | 2.0     | 0     | 0         |
+| DiffOptimized (Identical)      | 239,319,295 | 5.0     | 0     | 0         |
+| DiffOptimized (Different)      | 4,035,818   | 297.2   | 240   | 10        |
+| DiffOptimized (Large Similar)  | 250,452     | 4,711   | 5,492 | 7         |
+| BatchProcessor                 | 23,842,558  | 54.3    | 25    | 1         |
+| **Cache Operations**           |
+| Cache Set                      | 6,067,380   | 177.4   | 48    | 4         |
+| Cache Get (Hit)                | 11,481,175  | 103.8   | 7     | 1         |
+| Cache Get (Miss)               | 13,565,466  | 89.4    | 32    | 2         |
+| Cache GetOrLoad                | 11,330,936  | 106.2   | 16    | 1         |
+| **Performance Profiling**      |
+| CaptureMemStats                | 58,352      | 20,476  | 0     | 0         |
+| CaptureMemoryStats             | 3,475       | 302,402 | 107   | 4         |
+| MeasureOperation               | 4,032       | 316,467 | 107   | 4         |
 
 ### Performance Characteristics
 
@@ -733,6 +892,15 @@ go-broadcast is designed for efficiency:
 - **Test coverage** maintained at >85% across core packages with comprehensive error handling
 
 > Performance varies based on GitHub API rate limits, network conditions, and repository sizes.
+
+### Profiling Documentation
+
+📚 **Complete Guides:**
+- [Benchmarking Guide](docs/benchmarking-profiling.md) - Complete benchmarking reference
+- [Profiling Guide](docs/profiling-guide.md) - Advanced profiling techniques
+- [Performance Optimization](docs/performance-optimization.md) - Best practices and tips
+
+</details>
 
 <br/>
 

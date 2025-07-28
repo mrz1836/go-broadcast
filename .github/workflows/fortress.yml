@@ -44,7 +44,11 @@ on:
 # Permissions
 # ————————————————————————————————————————————————————————————————
 permissions:
-  contents: read
+  contents: write # For releases and GitHub Pages deployment
+  pages: write # For GitHub Pages deployment (coverage reports)
+  pull-requests: write # For PR comments (coverage reports)
+  id-token: write # For GitHub Pages deployment
+  statuses: write # For commit status creation in coverage workflow
 
 # ————————————————————————————————————————————————————————————————
 # Concurrency Control
@@ -124,6 +128,8 @@ jobs:
             .github/actions/warm-cache
             go.mod
             go.sum
+            .github/coverage/
+            Makefile
 
       # ————————————————————————————————————————————————————————————————
       # Extract verbose flag from env-json
@@ -197,7 +203,6 @@ jobs:
       test-matrix: ${{ needs.setup.outputs.test-matrix }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
-      codecov-token: ${{ secrets.CODECOV_TOKEN }}
   # ----------------------------------------------------------------------------------
   # Benchmark Suite
   # ----------------------------------------------------------------------------------

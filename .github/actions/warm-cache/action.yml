@@ -63,7 +63,7 @@ runs:
       with:
         path: |
           ~/go/pkg/mod
-        key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles('**/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
         restore-keys: |
           ${{ inputs.matrix-os }}-gomod-
 
@@ -139,7 +139,7 @@ runs:
           ~/.cache/go-build
           ~/.cache/go-build/test
         # Try and get the full cache first, which includes test cache
-        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
         restore-keys: |
           ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-
 
@@ -156,6 +156,17 @@ runs:
           echo "✅ go.sum generated successfully"
         else
           echo "✅ go.sum already exists"
+        fi
+
+        # Also ensure coverage module go.sum exists
+        if [ -f ".github/coverage/go.mod" ] && [ ! -f ".github/coverage/go.sum" ]; then
+          echo "⚠️ Coverage module go.sum not found, generating it..."
+          cd .github/coverage
+          go mod tidy
+          cd ../..
+          echo "✅ Coverage module go.sum generated successfully"
+        elif [ -f ".github/coverage/go.sum" ]; then
+          echo "✅ Coverage module go.sum already exists"
         fi
 
     # ────────────────────────────────────────────────────────────────────────────
@@ -175,6 +186,25 @@ runs:
         echo "🏗️  Building stdlib for host platform…"
         make install-stdlib
 
+        # Also warm coverage module dependencies
+        if [ -f ".github/coverage/go.mod" ]; then
+          echo "📊 Warming coverage module cache..."
+          cd .github/coverage
+          
+          echo "⬇️  Downloading coverage module dependencies..."
+          go mod download
+          
+          echo "🔧 Pre-building coverage module packages..."
+          go build $(if [ "${{ inputs.enable-verbose }}" = "true" ]; then echo "-v"; fi) ./...
+          
+          echo "🏗️  Building coverage tool executable..."
+          cd cmd/gofortress-coverage
+          go build -o /tmp/gofortress-coverage .
+          cd ../../..
+          
+          echo "✅ Coverage module cache warmed comprehensively"
+        fi
+
         echo "✅ Cache warmed for Go ${{ inputs.go-version }}"
 
     # ────────────────────────────────────────────────────────────────────────────
@@ -188,7 +218,7 @@ runs:
           ~/.cache/go-build
           ~/.cache/go-build/test
         # This is the first key, which does NOT have test cache, this will be used as a fail-over
-        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
 
     # ————————————————————————————————————————————————————————————————
     # Track cache performance (no outputs - use artifacts instead)
