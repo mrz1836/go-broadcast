@@ -33,6 +33,10 @@ on:
         description: "Environment configuration"
         required: true
         type: string
+      primary-runner:
+        description: "Primary runner OS"
+        required: true
+        type: string
     secrets:
       github-token:
         description: "GitHub token for API access"
@@ -51,7 +55,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   process-coverage:
     name: 📊 Process Coverage
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.primary-runner }}
     timeout-minutes: 10
 
     steps:
@@ -88,9 +92,9 @@ jobs:
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/go/pkg/mod
-          key: ubuntu-latest-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
+          key: ${{ inputs.primary-runner }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
           restore-keys: |
-            ubuntu-latest-gomod-
+            ${{ inputs.primary-runner }}-gomod-
 
       # ————————————————————————————————————————————————————————————————
       # Restore the build cache and test cache
@@ -102,9 +106,9 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/.cache/go-build/test
-          key: ubuntu-latest-gobuild-${{ env.GO_PRIMARY_VERSION }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
+          key: ${{ inputs.primary-runner }}-gobuild-${{ env.GO_PRIMARY_VERSION }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
           restore-keys: |
-            ubuntu-latest-gobuild-${{ env.GO_PRIMARY_VERSION }}-
+            ${{ inputs.primary-runner }}-gobuild-${{ env.GO_PRIMARY_VERSION }}-
 
       # ————————————————————————————————————————————————————————————————
       # Setup Go

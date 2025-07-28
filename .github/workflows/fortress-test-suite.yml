@@ -373,5 +373,6 @@ jobs:
       pr-number: ${{ github.event.pull_request.number || '' }}
       commit-sha: ${{ github.sha }}
       env-json: ${{ inputs.env-json }}
+      primary-runner: ${{ inputs.primary-runner }}
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
