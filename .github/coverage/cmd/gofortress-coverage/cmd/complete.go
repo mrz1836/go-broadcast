@@ -210,28 +210,33 @@ update history, and create GitHub PR comment if in PR context.`,
 		}
 
 		// Count coverage status for files that have coverage data
-		coveredFromProfile := 0
+		// Any file with >0% coverage is considered "covered"
+		filesInProfile := 0
 		for _, pkg := range coverage.Packages {
 			for _, file := range pkg.Files {
-				if file.Percentage == 100 {
+				filesInProfile++
+				if file.Percentage > 0 {
+					// Any coverage > 0% counts as "covered"
 					coverageData.CoveredFiles++
-					coveredFromProfile++
-				} else if file.Percentage > 0 {
-					coverageData.PartialFiles++
-					coveredFromProfile++
 				} else {
+					// 0% coverage files in profile are uncovered
 					coverageData.UncoveredFiles++
-					coveredFromProfile++
 				}
 			}
 		}
 
 		// Files not in coverage profile are considered uncovered
-		filesInProfile := coveredFromProfile
 		if coverageData.TotalFiles > filesInProfile {
 			additionalUncovered := coverageData.TotalFiles - filesInProfile
 			coverageData.UncoveredFiles += additionalUncovered
 		}
+
+		// Debug output for file counting
+		cmd.Printf("   📊 File Analysis:\n")
+		cmd.Printf("      Total eligible files: %d\n", coverageData.TotalFiles)
+		cmd.Printf("      Files in coverage profile: %d\n", filesInProfile)
+		cmd.Printf("      Files with coverage >0%%: %d\n", coverageData.CoveredFiles)
+		cmd.Printf("      Files with no coverage: %d\n", coverageData.UncoveredFiles)
 
 		// Add package data
 		coverageData.Packages = make([]dashboard.PackageCoverage, 0, len(coverage.Packages))

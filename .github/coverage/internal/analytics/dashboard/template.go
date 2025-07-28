@@ -228,6 +228,13 @@ const dashboardTemplate = `<!DOCTYPE html>
             background-clip: text;
         }
         
+        .metric-value.danger {
+            background: var(--gradient-danger);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
         .quality-gate-badge {
             display: flex;
             align-items: center;
@@ -555,11 +562,35 @@ const dashboardTemplate = `<!DOCTYPE html>
                 
                 <div class="metric-card">
                     <h3>🔄 Coverage Trend</h3>
-                    <div class="metric-value">{{.CoverageTrend}}%</div>
-                    <div class="metric-label">Change from previous</div>
-                    <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--color-text-secondary);">
-                        {{if .HasHistory}}Historical data available{{else}}Building history...{{end}}
-                    </div>
+                    {{if .HasHistory}}
+                        <div class="metric-value {{if eq .TrendDirection "up"}}success{{else if eq .TrendDirection "down"}}danger{{end}}">
+                            {{if eq .TrendDirection "up"}}+{{end}}{{.CoverageTrend}}%
+                        </div>
+                        <div class="metric-label">Change from previous</div>
+                        <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--color-text-secondary);">
+                            {{if eq .TrendDirection "up"}}📈 Improving{{else if eq .TrendDirection "down"}}📉 Declining{{else}}➡️ Stable{{end}}
+                        </div>
+                    {{else}}
+                        <div class="metric-value" style="font-size: 1.5rem;">📊</div>
+                        <div class="metric-label">Trend Analysis</div>
+                        <div style="margin-top: 1rem;">
+                            {{if .HasAnyData}}
+                                <div style="font-size: 0.9rem; color: var(--color-warning);">
+                                    🔄 Building trend data...
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.5rem;">
+                                    Need 2+ commits to show trends
+                                </div>
+                            {{else}}
+                                <div style="font-size: 0.9rem; color: var(--color-primary);">
+                                    🚀 First coverage run!
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.5rem;">
+                                    Trends will appear after more commits
+                                </div>
+                            {{end}}
+                        </div>
+                    {{end}}
                 </div>
             </div>
             
