@@ -22,8 +22,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
+# Security: Job-level permissions are set per job for least privilege access
 
 jobs:
   # ----------------------------------------------------------------------------------

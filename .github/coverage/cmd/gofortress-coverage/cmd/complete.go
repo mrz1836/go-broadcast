@@ -24,6 +24,9 @@ import (
 // ErrCoverageBelowThreshold indicates that coverage percentage is below the configured threshold
 var ErrCoverageBelowThreshold = errors.New("coverage is below threshold")
 
+// ErrEmptyIndexHTML indicates that the generated index.html file is empty
+var ErrEmptyIndexHTML = errors.New("generated index.html is empty")
+
 var completeCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "complete",
 	Short: "Run complete coverage pipeline",
@@ -278,7 +281,7 @@ update history, and create GitHub PR comment if in PR context.`,
 
 				if len(indexContent) == 0 {
 					cmd.Printf("   ❌ index.html is empty, cannot create dashboard.html\n")
-					return fmt.Errorf("generated index.html is empty")
+					return ErrEmptyIndexHTML
 				}
 
 				if writeErr := os.WriteFile(dashboardPath, indexContent, cfg.Storage.FileMode); writeErr != nil {
@@ -287,12 +290,12 @@ update history, and create GitHub PR comment if in PR context.`,
 				}
 
 				// Verify dashboard.html was created successfully
-				if dashboardStat, statErr := os.Stat(dashboardPath); statErr != nil {
+				dashboardStat, statErr := os.Stat(dashboardPath)
+				if statErr != nil {
 					cmd.Printf("   ❌ dashboard.html was not created successfully: %v\n", statErr)
 					return fmt.Errorf("dashboard.html creation verification failed: %w", statErr)
-				} else {
-					cmd.Printf("   ✅ Dashboard also saved as: %s (%d bytes)\n", dashboardPath, dashboardStat.Size())
 				}
+				cmd.Printf("   ✅ Dashboard also saved as: %s (%d bytes)\n", dashboardPath, dashboardStat.Size())
 
 				// Also save coverage data as JSON for pages deployment
 				dataPath := filepath.Join(outputDir, "coverage-data.json")

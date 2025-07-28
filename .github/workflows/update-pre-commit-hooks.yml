@@ -38,11 +38,7 @@ on:
         default: true
         type: boolean
 
-# ————————————————————————————————————————————————————————————————
-# Permissions
-# ————————————————————————————————————————————————————————————————
-permissions:
-  contents: read
+# Security: Job-level permissions are set per job for least privilege access
 
 # ————————————————————————————————————————————————————————————————
 # Concurrency Control

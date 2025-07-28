@@ -30,12 +30,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
-# ————————————————————————————————————————————————————————————————
-# Permissions
-# ————————————————————————————————————————————————————————————————
-permissions:
-  contents: read
-  pull-requests: read
+# Security: Job-level permissions are set per job for least privilege access
 
 # ————————————————————————————————————————————————————————————————
 # Concurrency Control

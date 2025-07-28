@@ -314,7 +314,7 @@ jobs:
       - name: 💬 Create PR comment
         if: inputs.pr-number != ''
         env:
-          GITHUB_TOKEN: ${{ secrets.github-token }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.github-token }}
         working-directory: .github/coverage/cmd/gofortress-coverage
         run: |
           echo "💬 Creating PR comment for PR #${{ inputs.pr-number }}..."
@@ -436,7 +436,7 @@ jobs:
       - name: 🚀 Deploy to GitHub Pages
         if: github.event_name == 'push' || github.event_name == 'pull_request'
         env:
-          GITHUB_TOKEN: ${{ secrets.github-token }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.github-token }}
         working-directory: .github/coverage/cmd/gofortress-coverage
         run: |
           echo "🚀 Deploying coverage to GitHub Pages..."
@@ -490,7 +490,7 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 📋 Set coverage status
         env:
-          GITHUB_TOKEN: ${{ secrets.github-token }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.github-token }}
         working-directory: .github/coverage/cmd/gofortress-coverage
         run: |
           echo "📋 Setting coverage status check..."

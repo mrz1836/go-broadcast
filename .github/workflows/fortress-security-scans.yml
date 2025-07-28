@@ -48,8 +48,7 @@ on:
         description: "Gitleaks license key"
         required: false
 
-permissions:
-  contents: read
+# Security: Job-level permissions are set per job for least privilege access
 
 jobs:
   # ----------------------------------------------------------------------------------

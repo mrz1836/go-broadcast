@@ -97,8 +97,7 @@ on:
         description: "Warm cache matrix JSON"
         value: ${{ jobs.setup-config.outputs.warm-cache-matrix }}
 
-permissions:
-  contents: read
+# Security: Job-level permissions are set per job for least privilege access
 
 jobs:
   # ----------------------------------------------------------------------------------
