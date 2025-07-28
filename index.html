@@ -544,10 +544,10 @@
     
     <div class="container">
         <header class="header">
-            <h1>🏰 GoFortress Coverage Dashboard</h1>
-            <p class="subtitle">Coverage tracking and reporting for Coverage Report</p>
+            <h1 id="main-title">🏰 GoFortress Coverage Dashboard</h1>
+            <p class="subtitle" id="main-subtitle">Coverage tracking and reporting for Coverage Report</p>
             <div class="repo-info">
-                <span>📦 Coverage Report</span>
+                <span id="repo-name">📦 Coverage Report</span>
                 <span>•</span>
                 <span>🌿 master</span>
                 
@@ -981,6 +981,65 @@
         
         // Initialize trend visualization
         updateTrendVisualization();
+        
+        // Function to extract repository name from GitHub URLs
+        function extractRepoName() {
+            // Look for GitHub URLs in the page
+            const githubLinks = document.querySelectorAll('a[href*="github.com"]');
+            for (const link of githubLinks) {
+                const url = link.href;
+                const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
+                if (match && match[2]) {
+                    return match[2].split('?')[0].split('#')[0]; // Remove query params and fragments
+                }
+            }
+            
+            // Fallback: try to extract from any text content that looks like a repo name
+            const packageItems = document.querySelectorAll('.package-name');
+            for (const item of packageItems) {
+                const text = item.textContent.trim();
+                if (text.includes('-') && text.length > 3) {
+                    return text;
+                }
+            }
+            
+            return 'Repository'; // Ultimate fallback
+        }
+        
+        // Function to update page branding
+        function updatePageBranding() {
+            const repoName = extractRepoName();
+            
+            // Update main title
+            const mainTitle = document.getElementById('main-title');
+            if (mainTitle) {
+                mainTitle.textContent = `${repoName} Coverage Report`;
+            }
+            
+            // Update subtitle
+            const subtitle = document.getElementById('main-subtitle');
+            if (subtitle) {
+                subtitle.textContent = `Powered by GoFortress CI • Coverage tracking and analytics`;
+            }
+            
+            // Update repo info
+            const repoInfo = document.getElementById('repo-name');
+            if (repoInfo) {
+                repoInfo.textContent = `📦 ${repoName}`;
+            }
+            
+            // Update page title
+            document.title = `${repoName} Coverage Dashboard`;
+            
+            // Update meta description
+            const metaDesc = document.querySelector('meta[name="description"]');
+            if (metaDesc) {
+                metaDesc.setAttribute('content', `Coverage tracking and analytics for ${repoName}`);
+            }
+        }
+        
+        // Initialize branding updates
+        updatePageBranding();
     </script>
 </body>
 </html>
