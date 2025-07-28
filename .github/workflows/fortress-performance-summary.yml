@@ -100,7 +100,30 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: "*-stats-*"
-          merge-multiple: true
+          path: ./performance-artifacts/
+
+      # ————————————————————————————————————————————————————————————————
+      # Flatten performance artifacts for processing
+      # ————————————————————————————————————————————————————————————————
+      - name: 🗂️ Flatten performance artifacts
+        if: always()
+        run: |
+          echo "🗂️ Flattening downloaded artifacts..."
+
+          # Find all JSON files in subdirectories and move them to current directory
+          if [ -d "./performance-artifacts/" ]; then
+            find ./performance-artifacts/ -name "*.json" -type f | while read -r file; do
+              filename=$(basename "$file")
+              echo "Moving $file to ./$filename"
+              cp "$file" "./$filename"
+            done
+            
+            # List all flattened files for debugging
+            echo "📋 Available stats files:"
+            ls -la *-stats-*.json 2>/dev/null || echo "No stats files found"
+          else
+            echo "⚠️ No performance-artifacts directory found"
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Generate performance report

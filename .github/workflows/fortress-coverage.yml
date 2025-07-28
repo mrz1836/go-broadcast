@@ -263,7 +263,7 @@ jobs:
               "${{ inputs.branch-name }}" \
               "${{ inputs.commit-sha }}" \
               "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-              > "../../../../coverage-stats-${{ inputs.branch-name }}.json"
+              > "../../../../coverage-stats-${{ steps.safe-branch.outputs.safe-name }}.json"
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -287,12 +287,12 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
-      # Create safe artifact name by sanitizing branch name
+      # Create safe branch name for file system usage
       # ————————————————————————————————————————————————————————————————
-      - name: 🔧 Create safe artifact name
-        id: artifact-name
+      - name: 🔧 Create safe branch name
+        id: safe-branch
         run: |
-          # Sanitize branch name for artifact name by replacing invalid characters
+          # Sanitize branch name for file system usage by replacing invalid characters
           SAFE_BRANCH_NAME="${{ inputs.branch-name }}"
           # Replace forward slashes with hyphens
           SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/\//-/g')
@@ -302,8 +302,9 @@ jobs:
           SAFE_BRANCH_NAME=$(echo "$SAFE_BRANCH_NAME" | sed 's/^-*//;s/-*$//;s/-\+/-/g')
 
           echo "Original branch: ${{ inputs.branch-name }}"
-          echo "Safe artifact name: coverage-reports-$SAFE_BRANCH_NAME"
-          echo "safe-name=coverage-reports-$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "Safe branch name: $SAFE_BRANCH_NAME"
+          echo "safe-name=$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "artifact-name=coverage-reports-$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
 
       # ————————————————————————————————————————————————————————————————
       # Upload coverage artifacts for other jobs
@@ -311,11 +312,22 @@ jobs:
       - name: 📤 Upload coverage artifacts
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: ${{ steps.artifact-name.outputs.safe-name }}
+          name: ${{ steps.safe-branch.outputs.artifact-name }}
           path: |
             coverage-output/
             !coverage-output/*.tmp
           retention-days: 7
+        continue-on-error: true
+
+      # ————————————————————————————————————————————————————————————————
+      # Upload coverage statistics for performance summary
+      # ————————————————————————————————————————————————————————————————
+      - name: 📤 Upload coverage statistics
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: coverage-stats-${{ steps.safe-branch.outputs.safe-name }}
+          path: coverage-stats-${{ steps.safe-branch.outputs.safe-name }}.json
+          retention-days: 1
         continue-on-error: true
 
       # ————————————————————————————————————————————————————————————————

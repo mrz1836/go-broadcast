@@ -474,116 +474,6 @@ targets:
 
 <br/>
 
-<details>
-<summary><strong>🔍 Logging and Debugging</strong></summary>
-
-go-broadcast provides comprehensive logging capabilities designed for debugging, monitoring, and troubleshooting. The logging system features intuitive verbose flags, component-specific debug modes, and automatic sensitive data redaction.
-
-### Quick Start
-
-```bash
-# Basic logging levels
-go-broadcast sync --log-level debug     # Debug level logging
-go-broadcast sync --log-level info      # Info level logging (default)
-go-broadcast sync --log-level warn      # Warning level logging
-go-broadcast sync --log-level error     # Error level logging
-
-# Collect diagnostic information
-go-broadcast diagnose > diagnostics.json
-```
-
-**Note**: Advanced verbose flags (`-v`, `-vv`, `-vvv`) and component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented. The current implementation supports `--log-level` for basic debugging.
-
-### Log Levels
-
-- **ERROR**: Critical failures that prevent operation
-- **WARN**: Important issues that don't stop execution
-- **INFO**: High-level operation progress (default)
-- **DEBUG**: Detailed operation information (`--log-level debug`)
-
-### Advanced Logging Features
-
-#### Performance Monitoring
-All operations are timed automatically. Look for `duration_ms` in logs:
-```bash
-# Find slow operations
-go-broadcast sync --log-format json 2>&1 | \
-  jq -r 'select(.duration_ms > 5000) | "\(.operation): \(.duration_ms)ms"'
-```
-
-#### Security and Compliance
-- All tokens and secrets are automatically redacted
-- Audit trail for configuration changes and repository access
-- No sensitive data is ever logged
-
-#### Troubleshooting Common Issues
-
-**Git Authentication Issues**
-```bash
-# Enable debug logging to see git operations
-go-broadcast sync --log-level debug
-
-# Common indicators:
-# - "Authentication failed" in git output
-# - "Permission denied" errors
-# - Check GH_TOKEN or GITHUB_TOKEN environment variables
-```
-
-**API Rate Limiting**
-```bash
-# Monitor operations with debug logging
-go-broadcast sync --log-level debug 2>&1 | grep -i "rate"
-```
-
-**File Transformation Issues**
-```bash
-# Use debug logging to see operation details
-go-broadcast sync --log-level debug
-
-# Debug output shows:
-# - File operations
-# - Configuration processing
-# - Error details
-```
-
-**State Discovery Problems**
-```bash
-# Enable debug logging for repository state information
-go-broadcast sync --log-level debug
-
-# Debug output includes:
-# - Repository access attempts
-# - Branch discovery
-# - File discovery process
-```
-
-### Log Management
-
-#### Debug Sessions
-```bash
-# Save debug session
-go-broadcast sync --log-level debug 2> debug-$(date +%Y%m%d-%H%M%S).log
-
-# Review debug logs
-go-broadcast sync --log-level debug 2>&1 | tee sync-debug.log
-```
-
-**Note**: JSON log format (`--log-format json`) is a planned feature. The `diagnose` command provides JSON output for system information.
-
-### Environment Variables
-
-| Variable                  | Description            | Example |
-|---------------------------|------------------------|---------|
-| `NO_COLOR`                | Disable colored output | `1`     |
-
-**Note**: Environment variables for log level and format are planned features not yet implemented.
-
-For more detailed information, see the [comprehensive logging guide](docs/logging.md) and [troubleshooting runbook](docs/troubleshooting-runbook.md).
-
-</details>
-
-<br/>
-
 ## 📚 Documentation
 
 - **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
@@ -792,6 +682,114 @@ pre-commit install
 ```
 
 The hooks are configured in [.pre-commit-config.yaml](.pre-commit-config.yaml) and mirror the CI pipeline.
+
+</details>
+
+<details>
+<summary><strong>Logging and Debugging</strong></summary>
+
+go-broadcast provides comprehensive logging capabilities designed for debugging, monitoring, and troubleshooting. The logging system features intuitive verbose flags, component-specific debug modes, and automatic sensitive data redaction.
+
+### Quick Start
+
+```bash
+# Basic logging levels
+go-broadcast sync --log-level debug     # Debug level logging
+go-broadcast sync --log-level info      # Info level logging (default)
+go-broadcast sync --log-level warn      # Warning level logging
+go-broadcast sync --log-level error     # Error level logging
+
+# Collect diagnostic information
+go-broadcast diagnose > diagnostics.json
+```
+
+**Note**: Advanced verbose flags (`-v`, `-vv`, `-vvv`) and component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented. The current implementation supports `--log-level` for basic debugging.
+
+### Log Levels
+
+- **ERROR**: Critical failures that prevent operation
+- **WARN**: Important issues that don't stop execution
+- **INFO**: High-level operation progress (default)
+- **DEBUG**: Detailed operation information (`--log-level debug`)
+
+### Advanced Logging Features
+
+#### Performance Monitoring
+All operations are timed automatically. Look for `duration_ms` in logs:
+```bash
+# Find slow operations
+go-broadcast sync --log-format json 2>&1 | \
+  jq -r 'select(.duration_ms > 5000) | "\(.operation): \(.duration_ms)ms"'
+```
+
+#### Security and Compliance
+- All tokens and secrets are automatically redacted
+- Audit trail for configuration changes and repository access
+- No sensitive data is ever logged
+
+#### Troubleshooting Common Issues
+
+**Git Authentication Issues**
+```bash
+# Enable debug logging to see git operations
+go-broadcast sync --log-level debug
+
+# Common indicators:
+# - "Authentication failed" in git output
+# - "Permission denied" errors
+# - Check GH_TOKEN or GITHUB_TOKEN environment variables
+```
+
+**API Rate Limiting**
+```bash
+# Monitor operations with debug logging
+go-broadcast sync --log-level debug 2>&1 | grep -i "rate"
+```
+
+**File Transformation Issues**
+```bash
+# Use debug logging to see operation details
+go-broadcast sync --log-level debug
+
+# Debug output shows:
+# - File operations
+# - Configuration processing
+# - Error details
+```
+
+**State Discovery Problems**
+```bash
+# Enable debug logging for repository state information
+go-broadcast sync --log-level debug
+
+# Debug output includes:
+# - Repository access attempts
+# - Branch discovery
+# - File discovery process
+```
+
+### Log Management
+
+#### Debug Sessions
+```bash
+# Save debug session
+go-broadcast sync --log-level debug 2> debug-$(date +%Y%m%d-%H%M%S).log
+
+# Review debug logs
+go-broadcast sync --log-level debug 2>&1 | tee sync-debug.log
+```
+
+**Note**: JSON log format (`--log-format json`) is a planned feature. The `diagnose` command provides JSON output for system information.
+
+### Environment Variables
+
+| Variable                  | Description            | Example |
+|---------------------------|------------------------|---------|
+| `NO_COLOR`                | Disable colored output | `1`     |
+
+**Note**: Environment variables for log level and format are planned features not yet implemented.
+
+For more detailed information, see the [comprehensive logging guide](docs/logging.md) and [troubleshooting runbook](docs/troubleshooting-runbook.md).
 
 </details>
 
