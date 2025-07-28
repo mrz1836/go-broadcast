@@ -61,10 +61,11 @@ type BranchData struct {
 // ReportData contains data for coverage report template rendering
 type ReportData struct {
 	// Report metadata
-	Title     string    `json:"title"`
-	Generated time.Time `json:"generated"`
-	Branch    string    `json:"branch"`
-	CommitSha string    `json:"commit_sha"`
+	Title       string    `json:"title"`
+	ProjectName string    `json:"project_name"`
+	Generated   time.Time `json:"generated"`
+	Branch      string    `json:"branch"`
+	CommitSha   string    `json:"commit_sha"`
 
 	// Coverage summary
 	OverallCoverage float64        `json:"overall_coverage"`
@@ -107,7 +108,7 @@ func NewTemplateManager() (*TemplateManager, error) {
 			"badgeColor":       badgeColor,
 			"add":              add,
 			"sub":              sub,
-			"mult":             mult,
+			"mul":              mul,
 			"div":              div,
 		},
 	}
@@ -147,9 +148,14 @@ func (tm *TemplateManager) RenderDashboard(_ context.Context, data DashboardData
 
 // RenderReport renders a coverage report HTML
 func (tm *TemplateManager) RenderReport(_ context.Context, data ReportData) (string, error) {
+	var buf bytes.Buffer
+
 	// Set default values if not provided
 	if data.Title == "" {
 		data.Title = "Coverage Report"
+	}
+	if data.ProjectName == "" {
+		data.ProjectName = "Go Project"
 	}
 	if data.Theme == "" {
 		data.Theme = "auto"
@@ -158,10 +164,12 @@ func (tm *TemplateManager) RenderReport(_ context.Context, data ReportData) (str
 		data.Generated = time.Now()
 	}
 
-	// TODO: Render the report template when created
-	// For now, create a basic report
-	basicReport := tm.generateBasicReport(data)
-	return basicReport, nil
+	// Render the coverage report template
+	if err := tm.templates.ExecuteTemplate(&buf, "coverage-report.html", data); err != nil {
+		return "", fmt.Errorf("failed to render coverage report template: %w", err)
+	}
+
+	return buf.String(), nil
 }
 
 // WriteDashboard writes the dashboard HTML to a writer
@@ -208,58 +216,6 @@ func (tm *TemplateManager) ListEmbeddedFiles() ([]string, error) {
 	return files, nil
 }
 
-// generateBasicReport creates a basic HTML report when the full template isn't available
-func (tm *TemplateManager) generateBasicReport(data ReportData) string {
-	return fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>%s | GoFortress</title>
-    <style>
-        body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem; background: #0d1117; color: #c9d1d9; }
-        h1 { color: #58a6ff; margin-bottom: 0.5rem; }
-        .metric { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; margin: 1rem 0; }
-        .coverage { font-size: 2rem; font-weight: bold; color: %s; }
-        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 2rem; }
-        .stat { text-align: center; }
-        .stat-value { font-size: 1.5rem; font-weight: bold; color: #58a6ff; }
-        .stat-label { color: #8b949e; font-size: 0.875rem; }
-    </style>
-</head>
-<body>
-    <h1>📊 %s</h1>
-    <div class="metric">
-        <h3>Overall Coverage</h3>
-        <div class="coverage">%.1f%%</div>
-        <p>Generated on %s</p>
-        <p>Branch: <code>%s</code></p>
-        <p>Commit: <code>%s</code></p>
-    </div>
-    
-    <div class="stats">
-        <div class="stat">
-            <div class="stat-value">%d</div>
-            <div class="stat-label">Packages</div>
-        </div>
-        <div class="stat">
-            <div class="stat-value">%d</div>
-            <div class="stat-label">Files</div>
-        </div>
-    </div>
-</body>
-</html>`,
-		data.Title,
-		colorForCoverage(data.OverallCoverage),
-		data.Title,
-		data.OverallCoverage,
-		data.Generated.Format("2006-01-02 15:04:05 UTC"),
-		data.Branch,
-		data.CommitSha,
-		len(data.PackageStats),
-		len(data.FileStats))
-}
-
 // Template helper functions
 
 func formatFloat(f float64) string {
@@ -294,9 +250,12 @@ func badgeColor(coverage float64) string {
 }
 
 // Math helper functions for templates
-func add(a, b int) int  { return a + b }
-func sub(a, b int) int  { return a - b }
-func mult(a, b int) int { return a * b }
+func add(a, b int) int { return a + b }
+
+func sub(a, b int) int { return a - b }
+
+func mul(a, b float64) float64 { return a * b }
+
 func div(a, b int) float64 {
 	if b == 0 {
 		return 0

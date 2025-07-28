@@ -158,15 +158,7 @@ func BenchmarkExtractFileName(b *testing.B) {
 	}
 }
 
-// BenchmarkGetHTMLTemplate benchmarks template retrieval
-func BenchmarkGetHTMLTemplate(b *testing.B) {
-	generator := New()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = generator.getHTMLTemplate()
-	}
-}
+// BenchmarkGetHTMLTemplate removed - template is now handled by templates.TemplateManager
 
 // BenchmarkMemoryAllocation benchmarks memory allocation during report generation
 func BenchmarkMemoryAllocation(b *testing.B) {

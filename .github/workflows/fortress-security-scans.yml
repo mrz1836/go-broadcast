@@ -312,7 +312,7 @@ jobs:
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
           GITLEAKS_ENABLE_SUMMARY: "true"
           GITLEAKS_VERSION: ${{ env.GITLEAKS_VERSION }}
-          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_CONFIG: .github/.gitleaks.toml
 
       - name: 📊 Job Summary
         if: steps.repo-check.outputs.is_same_repo == 'true'

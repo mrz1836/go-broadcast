@@ -313,13 +313,19 @@ jobs:
             # Save statistics to repository root
             STATS_FILE="$REPO_ROOT/coverage-stats-${{ steps.safe-branch.outputs.safe-name }}.json"
 
+            # Determine if pages will be deployed
+            PAGES_DEPLOYED="false"
+            if [[ "${{ github.event_name }}" == "push" && "${{ steps.git-branch.outputs.branch-name }}" == "master" ]]; then
+              PAGES_DEPLOYED="true"
+            fi
+
             # Create coverage statistics JSON using printf to avoid heredoc issues
             printf '{
               "coverage_percent": "%s",
               "processing_time_seconds": "%s",
               "files_processed": %s,
               "badge_generated": "true",
-              "pages_deployed": "false",
+              "pages_deployed": "%s",
               "branch": "%s",
               "commit": "%s",
               "timestamp": "%s"
@@ -327,6 +333,7 @@ jobs:
               "$COVERAGE_PERCENT" \
               "$PROCESSING_TIME" \
               "$FILES_PROCESSED" \
+              "$PAGES_DEPLOYED" \
               "${{ steps.git-branch.outputs.branch-name }}" \
               "${{ inputs.commit-sha }}" \
               "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -346,7 +353,13 @@ jobs:
           echo "📝 Committing coverage history data..."
 
           # Check if history directory exists and has data
-          if [[ -d ".github/coverage/data/history" ]] && [[ -n "$(ls -A .github/coverage/data/history 2>/dev/null)" ]]; then
+          # Create directory if it doesn't exist to ensure history tool can write data
+          mkdir -p ".github/coverage/data/history"
+
+          # Check if any new history files were created (compare before and after coverage processing)
+          HISTORY_FILES_AFTER=$(find ".github/coverage/data/history" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+
+          if [[ -d ".github/coverage/data/history" ]] && [[ $HISTORY_FILES_AFTER -gt 0 ]]; then
             # Configure git
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
@@ -368,7 +381,9 @@ jobs:
               echo "✅ History data committed and pushed"
             fi
           else
-            echo "ℹ️ No history data to commit"
+            echo "ℹ️ No history data to commit (found $HISTORY_FILES_AFTER history files)"
+            echo "🔍 History directory contents:"
+            ls -la ".github/coverage/data/history" 2>/dev/null || echo "Directory not accessible"
           fi
 
       # ————————————————————————————————————————————————————————————————

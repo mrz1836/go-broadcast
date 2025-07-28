@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} | Coverage Report</title>
+    <meta name="description" content="Detailed coverage analysis for {{.ProjectName}}">
+    
+    <!-- Preload critical resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Meta tags for social sharing -->
+    <meta property="og:title" content="{{.Title}} | Coverage Report">
+    <meta property="og:description" content="Code coverage analysis for {{.ProjectName}}">
+    <meta property="og:type" content="website">
+    
+    <style>
+        /* CSS Custom Properties for theming */
+        :root {
+            --color-bg: #0d1117;
+            --color-bg-secondary: #161b22;
+            --color-bg-tertiary: #21262d;
+            --color-text: #c9d1d9;
+            --color-text-secondary: #8b949e;
+            --color-text-muted: #656d76;
+            --color-primary: #58a6ff;
+            --color-success: #3fb950;
+            --color-warning: #d29922;
+            --color-danger: #f85149;
+            --color-border: #30363d;
+            --color-border-muted: #21262d;
+            
+            /* Glass morphism variables */
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --backdrop-blur: 20px;
+            
+            /* Animation variables */
+            --transition-base: 0.2s ease;
+            --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            
+            /* Gradient variables */
+            --gradient-primary: linear-gradient(135deg, #58a6ff, #79c0ff);
+            --gradient-success: linear-gradient(135deg, #3fb950, #56d364);
+            --gradient-danger: linear-gradient(135deg, #f85149, #da3633);
+            --gradient-warning: linear-gradient(135deg, #d29922, #f2cc60);
+        }
+        
+        /* Light theme */
+        [data-theme="light"] {
+            --color-bg: #ffffff;
+            --color-bg-secondary: #f6f8fa;
+            --color-bg-tertiary: #f0f6fc;
+            --color-text: #24292f;
+            --color-text-secondary: #656d76;
+            --color-text-muted: #8b949e;
+            --color-border: #d0d7de;
+            --color-border-muted: #f0f6fc;
+            --glass-bg: rgba(0, 0, 0, 0.03);
+            --glass-border: rgba(0, 0, 0, 0.06);
+        }
+        
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.6;
+            min-height: 100vh;
+            font-feature-settings: 'cv11', 'ss01';
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            position: relative;
+        }
+        
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(88, 166, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(63, 185, 80, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(248, 81, 73, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        /* Glass morphism navigation */
+        .nav-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--backdrop-blur));
+            border-bottom: 1px solid var(--glass-border);
+        }
+        
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 2rem;
+        }
+        
+        .nav-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .search-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .search-input {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 0.5rem 1rem 0.5rem 2.5rem;
+            color: var(--color-text);
+            font-size: 0.875rem;
+            width: 300px;
+            transition: var(--transition-base);
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
+        }
+        
+        .theme-toggle {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 0.5rem;
+            color: var(--color-text);
+            cursor: pointer;
+            transition: var(--transition-base);
+        }
+        
+        .theme-toggle:hover {
+            background: var(--color-bg-tertiary);
+            border-color: var(--color-primary);
+        }
+        
+        /* Main container */
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        /* Header section */
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, var(--color-primary) 0%, transparent 70%);
+            opacity: 0.05;
+            animation: rotate 30s linear infinite;
+        }
+        
+        @keyframes rotate {
+            to { transform: rotate(360deg); }
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+        
+        .header .subtitle {
+            font-size: 1.25rem;
+            color: var(--color-text-secondary);
+            margin-bottom: 1rem;
+        }
+        
+        .repo-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 1rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--backdrop-blur));
+            border: 1px solid var(--glass-border);
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+        
+        /* Summary metrics */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        
+        .summary-card {
+            position: relative;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: var(--transition-smooth);
+            overflow: hidden;
+        }
+        
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gradient-primary));
+            transform: translateX(-100%);
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            to { transform: translateX(100%); }
+        }
+        
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .summary-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .summary-label {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .summary-value-container {
+            display: flex;
+            align-items: baseline;
+            gap: 0.25rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .summary-value {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: var(--color-text);
+        }
+        
+        .summary-unit {
+            font-size: 1.125rem;
+            color: var(--color-text-secondary);
+        }
+        
+        .coverage-ring {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 60px;
+            height: 60px;
+        }
+        
+        .coverage-ring-bg {
+            fill: none;
+            stroke: var(--color-border);
+            stroke-width: 4;
+        }
+        
+        .coverage-ring-fill {
+            fill: none;
+            stroke: var(--color-success);
+            stroke-width: 4;
+            stroke-linecap: round;
+            transform: rotate(-90deg);
+            transform-origin: center;
+            transition: stroke-dasharray 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Coverage bar */
+        .coverage-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--color-border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0.75rem 0;
+        }
+        
+        .coverage-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .coverage-excellent { background: var(--gradient-success); }
+        .coverage-good { background: var(--gradient-primary); }
+        .coverage-warning { background: var(--gradient-warning); }
+        .coverage-danger { background: var(--gradient-danger); }
+        
+        /* Coverage badges */
+        .coverage-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .badge-excellent {
+            background: var(--color-success);
+            color: var(--color-bg);
+        }
+        
+        .badge-good {
+            background: var(--color-primary);
+            color: var(--color-bg);
+        }
+        
+        .badge-warning {
+            background: var(--color-warning);
+            color: var(--color-bg);
+        }
+        
+        .badge-danger {
+            background: var(--color-danger);
+            color: var(--color-bg);
+        }
+        
+        /* Package/File tree */
+        .section {
+            margin-bottom: 3rem;
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--color-text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .section-icon {
+            font-size: 1.25rem;
+        }
+        
+        .package-list {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .package-item {
+            border-bottom: 1px solid var(--color-border-muted);
+        }
+        
+        .package-item:last-child {
+            border-bottom: none;
+        }
+        
+        .package-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            transition: var(--transition-base);
+            background: transparent;
+            border: none;
+            width: 100%;
+            text-align: left;
+        }
+        
+        .package-header:hover {
+            background: var(--color-bg-tertiary);
+        }
+        
+        .package-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+        }
+        
+        .expand-icon {
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
+            transition: transform var(--transition-base);
+        }
+        
+        .expand-icon.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .package-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--color-text);
+        }
+        
+        .package-stats {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
+        }
+        
+        .file-list {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height var(--transition-smooth);
+            background: var(--color-bg-tertiary);
+        }
+        
+        .file-list.expanded {
+            max-height: 1000px;
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 3rem;
+            border-bottom: 1px solid var(--color-border-muted);
+            transition: var(--transition-base);
+        }
+        
+        .file-item:hover {
+            background: var(--color-bg);
+        }
+        
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        
+        .file-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--color-text);
+        }
+        
+        .file-stats {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: var(--color-text-secondary);
+            font-size: 0.8rem;
+        }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem 0;
+            color: var(--color-text-muted);
+            font-size: 0.875rem;
+            border-top: 1px solid var(--color-border-muted);
+            margin-top: 3rem;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .nav-container {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .search-input {
+                width: 100%;
+                min-width: 250px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .summary-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .package-header {
+                padding: 0.75rem 1rem;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+            
+            .package-info {
+                justify-content: space-between;
+            }
+            
+            .file-item {
+                padding: 0.5rem 2rem;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+        }
+        
+        /* Accessibility */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        
+        /* Focus styles */
+        .package-header:focus,
+        .search-input:focus,
+        .theme-toggle:focus {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+        }
+        
+        /* Loading states */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .skeleton {
+            background: linear-gradient(90deg, var(--color-bg-secondary) 25%, var(--color-bg-tertiary) 50%, var(--color-bg-secondary) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Header -->
+    <nav class="nav-header">
+        <div class="nav-container">
+            <div class="nav-title">{{.Title}}</div>
+            <div class="nav-actions">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" placeholder="Search packages and files..." id="searchInput">
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                    🌙
+                </button>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>{{.Title}}</h1>
+            <div class="subtitle">Code Coverage Analysis</div>
+            <div class="repo-info">
+                <span>📅 Generated: {{.Generated.Format "Jan 2, 2006 15:04 MST"}}</span>
+                <span>🌿 Branch: {{.Branch}}</span>
+                {{if .CommitSha}}<span>📝 {{printf "%.7s" .CommitSha}}</span>{{end}}
+            </div>
+        </header>
+        
+        <!-- Summary Metrics -->
+        <section class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-content">
+                    <div class="summary-label">Overall Coverage</div>
+                    <div class="summary-value-container">
+                        <div class="summary-value">{{printf "%.1f" .OverallCoverage}}</div>
+                        <div class="summary-unit">%</div>
+                    </div>
+                    <div class="coverage-bar">
+                        <div class="coverage-fill {{if ge .OverallCoverage 90.0}}coverage-excellent{{else if ge .OverallCoverage 80.0}}coverage-good{{else if ge .OverallCoverage 60.0}}coverage-warning{{else}}coverage-danger{{end}}" 
+                             style="width: {{.OverallCoverage}}%"></div>
+                    </div>
+                </div>
+                <svg class="coverage-ring" viewBox="0 0 60 60">
+                    <circle class="coverage-ring-bg" cx="30" cy="30" r="26"></circle>
+                    <circle class="coverage-ring-fill" cx="30" cy="30" r="26" 
+                            style="stroke-dasharray: {{mul .OverallCoverage 1.63}} 163"></circle>
+                </svg>
+            </div>
+            
+            <div class="summary-card">
+                <div class="summary-content">
+                    <div class="summary-label">Total Packages</div>
+                    <div class="summary-value-container">
+                        <div class="summary-value">{{len .PackageStats}}</div>
+                    </div>
+                    <div class="summary-label" style="margin-top: 0.5rem;">Tracked for coverage analysis</div>
+                </div>
+            </div>
+            
+            <div class="summary-card">
+                <div class="summary-content">
+                    <div class="summary-label">Total Files</div>
+                    <div class="summary-value-container">
+                        <div class="summary-value">{{len .FileStats}}</div>
+                    </div>
+                    <div class="summary-label" style="margin-top: 0.5rem;">Across all packages</div>
+                </div>
+            </div>
+            
+            <div class="summary-card">
+                <div class="summary-content">
+                    <div class="summary-label">Coverage Status</div>
+                    <div class="summary-value-container">
+                        <span class="coverage-badge {{if ge .OverallCoverage 90.0}}badge-excellent{{else if ge .OverallCoverage 80.0}}badge-good{{else if ge .OverallCoverage 60.0}}badge-warning{{else}}badge-danger{{end}}">
+                            {{if ge .OverallCoverage 90.0}}Excellent{{else if ge .OverallCoverage 80.0}}Good{{else if ge .OverallCoverage 60.0}}Acceptable{{else}}Needs Work{{end}}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Package Details -->
+        <section class="section">
+            <div class="section-header">
+                <h2 class="section-title">
+                    <span class="section-icon">📦</span>
+                    Package Coverage
+                </h2>
+            </div>
+            
+            <div class="package-list">
+                {{range $i, $pkg := .PackageStats}}
+                <div class="package-item">
+                    <button class="package-header" onclick="togglePackage('pkg-{{$i}}')" aria-expanded="false">
+                        <div class="package-info">
+                            <span class="expand-icon" id="icon-pkg-{{$i}}">▶</span>
+                            <span class="package-name">{{$pkg.Name}}</span>
+                            <div class="package-stats">
+                                <span>{{$pkg.CoveredLines}}/{{$pkg.Lines}} lines</span>
+                                <span>{{$pkg.Files}} files</span>
+                            </div>
+                        </div>
+                        <span class="coverage-badge {{if ge $pkg.Coverage 90.0}}badge-excellent{{else if ge $pkg.Coverage 80.0}}badge-good{{else if ge $pkg.Coverage 60.0}}badge-warning{{else}}badge-danger{{end}}">
+                            {{printf "%.1f" $pkg.Coverage}}%
+                        </span>
+                    </button>
+                    
+                    <div class="file-list" id="pkg-{{$i}}">
+                        {{range $.FileStats}}
+                        {{if eq .Package $pkg.Name}}
+                        <div class="file-item">
+                            <span class="file-name">{{.Name}}</span>
+                            <div class="file-stats">
+                                <span>{{.CoveredLines}}/{{.Lines}} lines</span>
+                                {{if .Functions}}<span>{{.CoveredFuncs}}/{{.Functions}} functions</span>{{end}}
+                                <span class="coverage-badge {{if ge .Coverage 90.0}}badge-excellent{{else if ge .Coverage 80.0}}badge-good{{else if ge .Coverage 60.0}}badge-warning{{else}}badge-danger{{end}}">
+                                    {{printf "%.1f" .Coverage}}%
+                                </span>
+                            </div>
+                        </div>
+                        {{end}}
+                        {{end}}
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </section>
+    </div>
+    
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Generated by GoFortress Coverage System • <a href="#" style="color: var(--color-primary);">View Dashboard</a></p>
+    </footer>
+    
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const htmlElement = document.documentElement;
+        
+        // Initialize theme
+        const savedTheme = localStorage.getItem('coverage-theme') || 'auto';
+        if (savedTheme !== 'auto') {
+            htmlElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        } else {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            htmlElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+            updateThemeIcon(prefersDark ? 'dark' : 'light');
+        }
+        
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = htmlElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            htmlElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('coverage-theme', newTheme);
+            updateThemeIcon(newTheme);
+        });
+        
+        function updateThemeIcon(theme) {
+            themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+        
+        // Package expansion functionality
+        function togglePackage(packageId) {
+            const packageElement = document.getElementById(packageId);
+            const iconElement = document.getElementById('icon-' + packageId);
+            const headerElement = packageElement.previousElementSibling;
+            
+            if (packageElement.classList.contains('expanded')) {
+                packageElement.classList.remove('expanded');
+                iconElement.classList.remove('expanded');
+                headerElement.setAttribute('aria-expanded', 'false');
+            } else {
+                packageElement.classList.add('expanded');
+                iconElement.classList.add('expanded');
+                headerElement.setAttribute('aria-expanded', 'true');
+            }
+        }
+        
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const packageItems = document.querySelectorAll('.package-item');
+        
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            
+            packageItems.forEach(item => {
+                const packageName = item.querySelector('.package-name').textContent.toLowerCase();
+                const fileNames = Array.from(item.querySelectorAll('.file-name'))
+                    .map(el => el.textContent.toLowerCase());
+                
+                const matches = packageName.includes(searchTerm) || 
+                                fileNames.some(fileName => fileName.includes(searchTerm));
+                
+                item.style.display = matches ? 'block' : 'none';
+            });
+        });
+        
+        // Auto-expand packages with low coverage
+        document.addEventListener('DOMContentLoaded', () => {
+            const badges = document.querySelectorAll('.badge-danger, .badge-warning');
+            badges.forEach(badge => {
+                const packageItem = badge.closest('.package-item');
+                if (packageItem) {
+                    const packageId = packageItem.querySelector('.file-list').id;
+                    togglePackage(packageId);
+                }
+            });
+        });
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.metaKey && e.key === 'k') {
+                e.preventDefault();
+                searchInput.focus();
+            }
+        });
+        
+        // Smooth scroll for better UX
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
