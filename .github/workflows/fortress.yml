@@ -197,6 +197,10 @@ jobs:
     needs: [load-env, setup, warm-cache, test-makefile]
     permissions:
       contents: read # Read repository content for test execution
+      pull-requests: write # Required: Coverage workflow needs to create PR comments
+      pages: write # Required: Coverage workflow needs to deploy to GitHub Pages
+      id-token: write # Required: Coverage workflow needs GitHub Pages authentication
+      statuses: write # Required: Coverage workflow needs to create commit status checks
     uses: ./.github/workflows/fortress-test-suite.yml
     with:
       code-coverage-enabled: ${{ needs.setup.outputs.code-coverage-enabled }}

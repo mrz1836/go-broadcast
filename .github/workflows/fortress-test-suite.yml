@@ -365,6 +365,10 @@ jobs:
     if: inputs.code-coverage-enabled == 'true'
     permissions:
       contents: read # Read repository content for coverage processing
+      pull-requests: write # Required: Coverage workflow needs to create PR comments
+      pages: write # Required: Coverage workflow needs to deploy to GitHub Pages
+      id-token: write # Required: Coverage workflow needs GitHub Pages authentication
+      statuses: write # Required: Coverage workflow needs to create commit status checks
     uses: ./.github/workflows/fortress-coverage.yml
     with:
       coverage-file: coverage.txt
