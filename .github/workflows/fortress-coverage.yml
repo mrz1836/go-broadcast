@@ -208,10 +208,8 @@ jobs:
 
           # Run complete coverage processing pipeline
           ./gofortress-coverage complete \
-            --coverage "$COVERAGE_FILE" \
-            --branch "${{ inputs.branch-name }}" \
-            --commit "${{ inputs.commit-sha }}" \
-            --output-dir "../../../../coverage-output" \
+            --input "$COVERAGE_FILE" \
+            --output "../../../../coverage-output" \
             --verbose
 
           echo "✅ Coverage processing completed"
