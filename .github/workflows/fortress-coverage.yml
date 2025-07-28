@@ -221,8 +221,8 @@ jobs:
             COVERED_STATEMENTS=$(jq -r '.covered_statements // 0' "../../../../coverage-output/coverage-data.json")
             
             # Create coverage statistics for performance reporting
-            PROCESSING_TIME="\$(date +%s)"
-            FILES_PROCESSED=\$(find ../../../../coverage-output -name "*.html" -o -name "*.json" | wc -l)
+            PROCESSING_TIME=$(date +%s)
+            FILES_PROCESSED=$(find ../../../../coverage-output -name "*.html" -o -name "*.json" | wc -l)
             cat > "../../../../coverage-stats-${{ inputs.branch-name }}.json" << EOF
             {
               "coverage_percent": "$COVERAGE_PERCENT",
