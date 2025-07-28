@@ -389,35 +389,30 @@ func (w *WebhookChannel) getCoverageStatus(coverageData *types.CoverageData) str
 	if coverageData.Target > 0 {
 		if coverageData.Current >= coverageData.Target {
 			return "target_met"
-		} else if coverageData.Current >= coverageData.Target*0.9 {
+		}
+		if coverageData.Current >= coverageData.Target*0.9 {
 			return "close_to_target"
-		} else if coverageData.Current >= coverageData.Target*0.8 {
+		}
+		if coverageData.Current >= coverageData.Target*0.8 {
 			return "below_target"
-		} else {
-			return "well_below_target"
 		}
-	}
-
-	if coverageData.Target > 0 {
-		if coverageData.Current >= coverageData.Target {
-			return "above_threshold"
-		} else {
-			return "below_threshold"
-		}
+		return "well_below_target"
 	}
 
 	// General coverage assessment
 	if coverageData.Current >= 90 {
 		return "excellent"
-	} else if coverageData.Current >= 80 {
-		return "good"
-	} else if coverageData.Current >= 70 {
-		return "acceptable"
-	} else if coverageData.Current >= 50 {
-		return "poor"
-	} else {
-		return "critical"
 	}
+	if coverageData.Current >= 80 {
+		return "good"
+	}
+	if coverageData.Current >= 70 {
+		return "acceptable"
+	}
+	if coverageData.Current >= 50 {
+		return "poor"
+	}
+	return "critical"
 }
 
 // isValidWebhookURL validates a webhook URL
@@ -476,7 +471,7 @@ func (b *WebhookChannelBuilder) AuthToken(token string) *WebhookChannelBuilder {
 }
 
 // CustomTemplate sets a custom payload template (not implemented in current config)
-func (b *WebhookChannelBuilder) CustomTemplate(template string) *WebhookChannelBuilder {
+func (b *WebhookChannelBuilder) CustomTemplate(_ string) *WebhookChannelBuilder {
 	// CustomTemplate field not available in current WebhookConfig
 	return b
 }

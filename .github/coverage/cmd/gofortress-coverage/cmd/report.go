@@ -18,7 +18,7 @@ var reportCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "report",
 	Short: "Generate coverage report",
 	Long:  `Generate interactive HTML coverage reports for GitHub Pages.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Get flags
 		inputFile, _ := cmd.Flags().GetString("input")
 		outputFile, _ := cmd.Flags().GetString("output")

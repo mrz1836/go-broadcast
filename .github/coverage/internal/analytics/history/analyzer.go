@@ -371,7 +371,7 @@ func (ta *TrendAnalyzer) LoadCustomData(dataPoints []AnalysisDataPoint) {
 }
 
 // AnalyzeTrends performs comprehensive trend analysis
-func (ta *TrendAnalyzer) AnalyzeTrends(ctx context.Context) (*TrendReport, error) {
+func (ta *TrendAnalyzer) AnalyzeTrends(_ context.Context) (*TrendReport, error) {
 	if len(ta.data) < ta.config.MinDataPoints {
 		return nil, fmt.Errorf("%w: need at least %d, got %d",
 			ErrInsufficientDataPoints, ta.config.MinDataPoints, len(ta.data))

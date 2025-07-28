@@ -797,7 +797,7 @@ func runExport(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 func runCharts(cmd *cobra.Command, args []string) error { //nolint:revive // function naming
 	ctx := context.Background()
 
-	fmt.Printf("📊 Generating %s chart...\n", chartsType)
+	fmt.Printf("📊 Generating %s chart...\n", chartsType) //nolint:forbidigo // CLI output
 
 	// Parse time range
 	timeRange, err := parseTimeRange(chartsRange)
@@ -877,7 +877,7 @@ func runCharts(cmd *cobra.Command, args []string) error { //nolint:revive // fun
 		if err := os.WriteFile(chartsOutput, []byte(svgContent), 0o600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
-		fmt.Printf("✅ Chart saved: %s\n", chartsOutput)
+		fmt.Printf("✅ Chart saved: %s\n", chartsOutput) //nolint:forbidigo // CLI output
 	} else {
 		fmt.Println(svgContent) //nolint:forbidigo // CLI output
 	}
@@ -914,10 +914,10 @@ func showNotificationStatus(_ context.Context) error { //nolint:revive // functi
 		if healthy {
 			status = "✅ Healthy"
 		}
-		fmt.Printf("  %s: %s\n", channel, status)
+		fmt.Printf("  %s: %s\n", channel, status) //nolint:forbidigo // CLI output
 	}
 
-	fmt.Printf("\nTotal Channels: %d\n", len(channelStatus))
+	fmt.Printf("\nTotal Channels: %d\n", len(channelStatus)) //nolint:forbidigo // CLI output
 
 	healthyCount := 0
 	for _, healthy := range channelStatus {
@@ -925,7 +925,7 @@ func showNotificationStatus(_ context.Context) error { //nolint:revive // functi
 			healthyCount++
 		}
 	}
-	fmt.Printf("Healthy Channels: %d\n", healthyCount)
+	fmt.Printf("Healthy Channels: %d\n", healthyCount) //nolint:forbidigo // CLI output
 
 	return nil
 }

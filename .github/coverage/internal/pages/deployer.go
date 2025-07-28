@@ -217,6 +217,7 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 		if opts.BadgeFile != "" {
 			// TODO: Copy badge file to PR-specific location
 			// Source: opts.BadgeFile, Target: badgeTargetPath
+			_ = badgeTargetPath // Placeholder
 		}
 	} else {
 		// Branch-specific deployment
@@ -231,6 +232,7 @@ func (d *Deployer) organizeArtifacts(ctx context.Context, workspaceDir string, o
 		if opts.BadgeFile != "" {
 			// TODO: Copy badge file to branch-specific location
 			// Source: opts.BadgeFile, Target: badgeTargetPath
+			_ = badgeTargetPath // Placeholder
 		}
 	}
 

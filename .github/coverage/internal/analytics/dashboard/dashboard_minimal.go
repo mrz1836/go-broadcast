@@ -161,7 +161,7 @@ func (d *AnalyticsDashboard) GenerateHTML(_ context.Context, _ *DashboardData) (
 		"75.5%</p><p>Status: Working</p></body></html>", nil
 }
 
-func (d *AnalyticsDashboard) generateCurrentMetrics(_ context.Context, data *DashboardData) error {
+func (d *AnalyticsDashboard) generateCurrentMetrics(_ context.Context, data *DashboardData) error { //nolint:unparam // Future error handling
 	data.CurrentMetrics = CurrentMetrics{
 		Coverage:       78.5,
 		CoverageChange: 2.3,

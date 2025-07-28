@@ -150,7 +150,7 @@ type Analysis struct {
 }
 
 // ImpactLevel represents the severity of impact
-type ImpactLevel string
+type ImpactLevel string //nolint:revive // impact.ImpactLevel is appropriately descriptive
 
 const (
 	// ImpactMinor represents minor impact level
@@ -467,7 +467,7 @@ func (a *PRImpactAnalyzer) AnalyzePRImpact(ctx context.Context, changeSet *PRCha
 }
 
 // analyzeFileImpacts analyzes the impact of individual file changes
-func (a *PRImpactAnalyzer) analyzeFileImpacts(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
+func (a *PRImpactAnalyzer) analyzeFileImpacts(_ context.Context, changeSet *PRChangeSet, analysis *Analysis) error { //nolint:unparam // Future error handling
 	for _, fileChange := range changeSet.FilesChanged {
 		impact := FileImpact{
 			Filename:    fileChange.Filename,
@@ -498,7 +498,7 @@ func (a *PRImpactAnalyzer) analyzeFileImpacts(ctx context.Context, changeSet *PR
 }
 
 // generatePredictions creates coverage predictions based on the changes
-func (a *PRImpactAnalyzer) generatePredictions(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
+func (a *PRImpactAnalyzer) generatePredictions(ctx context.Context, _ *PRChangeSet, analysis *Analysis) error {
 	if a.predictor == nil {
 		return ErrPredictorNotAvailable
 	}
@@ -540,7 +540,7 @@ func (a *PRImpactAnalyzer) generatePredictions(ctx context.Context, changeSet *P
 }
 
 // assessRisk performs comprehensive risk assessment
-func (a *PRImpactAnalyzer) assessRisk(ctx context.Context, changeSet *PRChangeSet, analysis *Analysis) error {
+func (a *PRImpactAnalyzer) assessRisk(_ context.Context, changeSet *PRChangeSet, analysis *Analysis) error { //nolint:unparam // Future error handling
 	riskAssessment := RiskAssessment{
 		RiskFactors:           make([]RiskFactor, 0),
 		MitigationSuggestions: make([]string, 0),
@@ -603,7 +603,7 @@ func (a *PRImpactAnalyzer) assessRisk(ctx context.Context, changeSet *PRChangeSe
 }
 
 // runQualityGates executes quality gate checks
-func (a *PRImpactAnalyzer) runQualityGates(ctx context.Context, analysis *Analysis) error {
+func (a *PRImpactAnalyzer) runQualityGates(_ context.Context, analysis *Analysis) error { //nolint:unparam // Future error handling
 	gateResults := QualityGateResults{
 		Passed:      true,
 		FailedGates: make([]string, 0),

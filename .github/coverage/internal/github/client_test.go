@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNew(t *testing.T) { //nolint:revive // function naming
+func TestNew(t *testing.T) {
 	token := "test-token"
 	client := New(token)
 
@@ -27,7 +27,7 @@ func TestNew(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, "go-broadcast-coverage/1.0", client.config.UserAgent)
 }
 
-func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
+func TestNewWithConfig(t *testing.T) {
 	config := &Config{
 		Token:      "custom-token",
 		BaseURL:    "https://custom.api.com",
@@ -45,7 +45,7 @@ func TestNewWithConfig(t *testing.T) { //nolint:revive // function naming
 	assert.Equal(t, config, client.config)
 }
 
-func TestCreateComment(t *testing.T) { //nolint:revive // function naming
+func TestCreateComment(t *testing.T) {
 	tests := []struct {
 		name             string
 		existingComments []Comment

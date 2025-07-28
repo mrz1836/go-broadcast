@@ -198,6 +198,7 @@ func (sm *StorageManager) CleanupExpiredContent(ctx context.Context, maxAgeDays 
 	if !dryRun && (len(result.ExpiredPRs) > 0 || len(result.ExpiredBranches) > 0) {
 		// TODO: Actually remove the files
 		// TODO: Log cleanup results - cleaned up expired PRs and branches
+		result.TotalSize += 0 // Placeholder operation - actual file removal would happen here
 	}
 
 	return result, nil

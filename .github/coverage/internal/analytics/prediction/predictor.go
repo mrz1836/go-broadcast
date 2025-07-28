@@ -19,8 +19,10 @@ var (
 	// ErrUnsupportedModelType indicates the requested model type is not supported
 	ErrUnsupportedModelType = errors.New("unsupported model type")
 	// ErrModelBelowThreshold indicates model R² is below threshold
-	ErrModelBelowThreshold        = errors.New("model R² below threshold")
-	ErrModelNotTrained            = errors.New("model not trained")
+	ErrModelBelowThreshold = errors.New("model R² below threshold")
+	// ErrModelNotTrained indicates that the prediction model has not been trained yet
+	ErrModelNotTrained = errors.New("model not trained")
+	// ErrInsufficientPoints indicates that there are not enough data points for calculation
 	ErrInsufficientPoints         = errors.New("insufficient points for calculation")
 	ErrZeroDenominator            = errors.New("cannot calculate: zero denominator")
 	ErrInsufficientValidationData = errors.New("insufficient data for cross-validation")
@@ -765,7 +767,7 @@ func (p *CoveragePredictor) predictLinear(x int) float64 {
 	return params.Slope*float64(x) + params.Intercept
 }
 
-func (p *CoveragePredictor) predictExponentialSmoothing(daysAhead int) float64 {
+func (p *CoveragePredictor) predictExponentialSmoothing(_ int) float64 {
 	// For simple exponential smoothing, prediction is the last smoothed value
 	if len(p.model.TrainingData) == 0 {
 		return 0
@@ -943,7 +945,7 @@ func (p *CoveragePredictor) calculateMovingAverageError(points []TrainingPoint, 
 	return totalError / float64(count)
 }
 
-func (p *CoveragePredictor) calculatePolynomialRegression(points []TrainingPoint, degree int) ([]float64, float64) {
+func (p *CoveragePredictor) calculatePolynomialRegression(points []TrainingPoint, _ int) ([]float64, float64) {
 	// Simplified polynomial regression - in practice would use matrix operations
 	// For now, return linear regression coefficients
 	n := float64(len(points))

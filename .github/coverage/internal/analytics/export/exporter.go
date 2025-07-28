@@ -24,9 +24,10 @@ var (
 	ErrUnsupportedExportFormat = errors.New("unsupported export format")
 	// ErrScheduledExportsNotSupported indicates scheduled exports are not yet implemented
 	ErrScheduledExportsNotSupported = errors.New("scheduled exports not yet implemented")
-	ErrExportFormatRequired         = errors.New("export format is required")
-	ErrDataSourceRequired           = errors.New("at least one data source must be specified")
-	ErrNoTemplateAvailable          = errors.New("no template available for format and type")
+	// ErrExportFormatRequired indicates that the export format is required but not provided
+	ErrExportFormatRequired = errors.New("export format is required")
+	ErrDataSourceRequired   = errors.New("at least one data source must be specified")
+	ErrNoTemplateAvailable  = errors.New("no template available for format and type")
 )
 
 // AnalyticsExporter provides comprehensive export capabilities for analytics data
@@ -1181,7 +1182,7 @@ func (e *AnalyticsExporter) countRecords(data *ExportData) int {
 	return count
 }
 
-func (e *AnalyticsExporter) convertToCSVRows(data interface{}) ([][]string, error) {
+func (e *AnalyticsExporter) convertToCSVRows(_ interface{}) ([][]string, error) {
 	// This would implement conversion logic based on data type
 	// For now, return a placeholder implementation
 	return [][]string{
@@ -1263,7 +1264,7 @@ func (e *AnalyticsExporter) GetExportTemplate(format ExportFormat, templateType 
 	}
 }
 
-func (e *AnalyticsExporter) getDefaultHTMLTemplate(templateType string) string {
+func (e *AnalyticsExporter) getDefaultHTMLTemplate(_ string) string {
 	// Return a basic HTML template
 	return `<!DOCTYPE html>
 <html>

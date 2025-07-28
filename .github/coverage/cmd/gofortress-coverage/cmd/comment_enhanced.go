@@ -42,7 +42,7 @@ This enhanced version includes:
 - PR-specific badge generation with unique naming
 - GitHub status check integration for blocking PR merges
 - Smart update logic and lifecycle management`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Get flags
 		prNumber, _ := cmd.Flags().GetInt("pr")
 		inputFile, _ := cmd.Flags().GetString("coverage")
@@ -115,7 +115,7 @@ This enhanced version includes:
 		if baseCoverageFile != "" {
 			baseCoverage, err = p.ParseFile(ctx, baseCoverageFile)
 			if err != nil {
-				fmt.Printf("Warning: failed to parse base coverage file: %v\n", err)
+				fmt.Printf("Warning: failed to parse base coverage file: %v\n", err) //nolint:forbidigo // CLI output
 				baseCoverage = nil
 			}
 		}
@@ -198,7 +198,7 @@ This enhanced version includes:
 
 			comparisonResult, compErr := comparisonEngine.CompareCoverage(ctx, baseSnapshot, prSnapshot)
 			if compErr != nil {
-				fmt.Printf("Warning: failed to perform coverage comparison: %v\n", compErr)
+				fmt.Printf("Warning: failed to perform coverage comparison: %v\n", compErr) //nolint:forbidigo // CLI output
 			} else {
 				// Convert comparison result to PR comment format
 				comparison = &github.CoverageComparison{
@@ -267,8 +267,8 @@ This enhanced version includes:
 				commentPreview = fmt.Sprintf("Error generating template preview: %v", renderErr)
 			}
 
-			fmt.Printf("Enhanced PR Comment Preview (Dry Run)\n")
-			fmt.Printf("=====================================\n")
+			fmt.Printf("Enhanced PR Comment Preview (Dry Run)\n") //nolint:forbidigo // CLI output
+			fmt.Printf("=====================================\n") //nolint:forbidigo // CLI output
 			fmt.Printf("Template: %s\n", templateName)
 			fmt.Printf("PR: %d\n", prNumber)
 			fmt.Printf("Repository: %s/%s\n", cfg.GitHub.Owner, cfg.GitHub.Repository)
@@ -283,9 +283,9 @@ This enhanced version includes:
 			fmt.Printf("  - Badge Generation: %v\n", generateBadges)
 			fmt.Printf("  - Merge Blocking: %v\n", blockOnFailure)
 			fmt.Printf("  - Anti-spam: %v\n", antiSpam)
-			fmt.Printf("=====================================\n")
-			fmt.Println(commentPreview) //nolint:forbidigo // CLI output
-			fmt.Printf("=====================================\n")
+			fmt.Printf("=====================================\n") //nolint:forbidigo // CLI output
+			fmt.Println(commentPreview)                           //nolint:forbidigo // CLI output
+			fmt.Printf("=====================================\n") //nolint:forbidigo // CLI output
 
 			return nil
 		}

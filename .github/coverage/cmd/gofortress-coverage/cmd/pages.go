@@ -247,10 +247,10 @@ func cleanGitHubPages(_ context.Context, opts CleanOptions) error { //nolint:rev
 			fmt.Println("📤 Committing cleanup changes...") //nolint:forbidigo // CLI output
 		}
 	} else {
-		fmt.Println("✨ No expired content found - nothing to clean")
+		fmt.Println("✨ No expired content found - nothing to clean") //nolint:forbidigo // CLI output
 	}
 
-	fmt.Println("✅ Cleanup completed successfully")
+	fmt.Println("✅ Cleanup completed successfully") //nolint:forbidigo // CLI output
 
 	return nil
 }

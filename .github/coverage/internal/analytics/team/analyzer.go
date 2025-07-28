@@ -783,7 +783,7 @@ func (ta *Analyzer) generateTeamMetrics(analysis *Analysis, contributors []Contr
 	analysis.TeamMetrics = metrics
 }
 
-func (ta *Analyzer) analyzeContributor(ctx context.Context, contributor ContributorData, allContributors []ContributorData) (*ContributorAnalysis, error) {
+func (ta *Analyzer) analyzeContributor(_ context.Context, contributor ContributorData, allContributors []ContributorData) (*ContributorAnalysis, error) { //nolint:unparam // Future error handling
 	analysis := &ContributorAnalysis{
 		Name:  contributor.Name,
 		Email: contributor.Email,
@@ -1433,27 +1433,27 @@ func (ta *Analyzer) calculateCollaborationMetrics(_ ContributorData, _ []Contrib
 	return CollaborationMetrics{} // Implementation details omitted for brevity
 }
 
-func (ta *Analyzer) calculatePerformanceIndicators(contributor ContributorData, allContributors []ContributorData) PerformanceIndicators {
+func (ta *Analyzer) calculatePerformanceIndicators(_ ContributorData, _ []ContributorData) PerformanceIndicators {
 	return PerformanceIndicators{} // Implementation details omitted for brevity
 }
 
-func (ta *Analyzer) calculateGrowthMetrics(contributor ContributorData) GrowthMetrics {
+func (ta *Analyzer) calculateGrowthMetrics(_ ContributorData) GrowthMetrics {
 	return GrowthMetrics{} // Implementation details omitted for brevity
 }
 
-func (ta *Analyzer) calculateContributorRankings(contributor ContributorData, allContributors []ContributorData) ContributorRankings {
+func (ta *Analyzer) calculateContributorRankings(_ ContributorData, _ []ContributorData) ContributorRankings {
 	return ContributorRankings{} // Implementation details omitted for brevity
 }
 
 // Additional placeholder methods would be implemented here...
-func (ta *Analyzer) identifyAchievements(contributor ContributorAnalysis) []Achievement {
+func (ta *Analyzer) identifyAchievements(_ ContributorAnalysis) []Achievement {
 	return []Achievement{}
 }
 
-func (ta *Analyzer) identifySpecialRecognition(contributor ContributorAnalysis) []string {
+func (ta *Analyzer) identifySpecialRecognition(_ ContributorAnalysis) []string {
 	return []string{}
 }
-func (ta *Analyzer) generateImpactDescription(contributor ContributorAnalysis) string { return "" }
+func (ta *Analyzer) generateImpactDescription(_ ContributorAnalysis) string { return "" }
 func (ta *Analyzer) generateComparisonMetrics(teamA, teamB Data, analysis *Analysis) ComparisonMetrics {
 	return ComparisonMetrics{}
 }

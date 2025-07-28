@@ -597,13 +597,14 @@ func (e *EmailChannel) getCoverageStatus(current, target float64) string {
 
 	if current >= target {
 		return "Target met"
-	} else if current >= target*0.9 {
-		return "Close to target"
-	} else if current >= target*0.8 {
-		return "Below target"
-	} else {
-		return "Well below target"
 	}
+	if current >= target*0.9 {
+		return "Close to target"
+	}
+	if current >= target*0.8 {
+		return "Below target"
+	}
+	return "Well below target"
 }
 
 func (e *EmailChannel) getSeverityPrefix(severity types.SeverityLevel) string {

@@ -367,7 +367,7 @@ func (cm *CleanupManager) scanDirectory(dirPath string, contentType ContentType,
 }
 
 // removeExpiredContent removes the identified expired content
-func (cm *CleanupManager) removeExpiredContent(_ context.Context, expired []ExpiredContent) (*CleanupStats, error) {
+func (cm *CleanupManager) removeExpiredContent(_ context.Context, expired []ExpiredContent) (*CleanupStats, error) { //nolint:unparam // Future error handling
 	stats := &CleanupStats{}
 
 	for _, content := range expired {

@@ -146,6 +146,7 @@ func (ne *NotificationEngine) initializeChannels() {
 	// This would initialize channels based on configuration
 	// For now, we'll leave it empty to avoid circular imports
 	// TODO: Implement proper channel initialization
+	ne.channels = make(map[types.ChannelType]types.NotificationChannel)
 }
 
 // GetChannelStatus returns the status of all configured channels

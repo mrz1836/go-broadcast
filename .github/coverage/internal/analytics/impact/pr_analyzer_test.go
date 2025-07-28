@@ -39,7 +39,7 @@ func TestNewPRImpactAnalyzer(t *testing.T) {
 	}
 }
 
-func TestAnalyzePRImpact(t *testing.T) { //nolint:revive // function naming
+func TestAnalyzePRImpact(t *testing.T) {
 	cfg := &AnalyzerConfig{
 		BaselinePeriod:      30 * 24 * time.Hour,
 		ConfidenceThreshold: 0.7,
@@ -163,7 +163,7 @@ func TestAnalyzePRImpact(t *testing.T) { //nolint:revive // function naming
 	}
 }
 
-func TestAssessRisk(t *testing.T) { //nolint:revive // function naming
+func TestAssessRisk(t *testing.T) {
 	analyzer := NewPRImpactAnalyzer(&AnalyzerConfig{
 		RiskToleranceLevel:   RiskModerate,
 		EnableRiskAssessment: true,
@@ -204,7 +204,7 @@ func TestAssessRisk(t *testing.T) { //nolint:revive // function naming
 	_ = changeSet
 }
 
-func TestQualityGateEvaluation(t *testing.T) { //nolint:revive // function naming
+func TestQualityGateEvaluation(t *testing.T) {
 	cfg := &AnalyzerConfig{
 		QualityGates: QualityGates{
 			MinimumCoverage:     80.0,
