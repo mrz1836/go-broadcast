@@ -29,6 +29,10 @@ type Config struct {
 	DarkMode         bool
 	Responsive       bool
 	InteractiveTrees bool
+	// GitHub integration for source links
+	GitHubOwner      string
+	GitHubRepository string
+	GitHubBranch     string
 }
 
 // Data represents the complete data needed for report generation
@@ -303,16 +307,19 @@ func (g *Generator) convertToTemplateData(data *Data) templates.ReportData {
 	// Handle nil data
 	if data == nil {
 		return templates.ReportData{
-			Title:           "Coverage Report",
-			ProjectName:     "go-broadcast",
-			Generated:       time.Now(),
-			Branch:          "main",
-			CommitSha:       "",
-			OverallCoverage: 0.0,
-			PackageStats:    []templates.PackageStats{},
-			FileStats:       []templates.FileStats{},
-			Theme:           "auto",
-			ShowDetails:     false,
+			Title:            "Coverage Report",
+			ProjectName:      "go-broadcast",
+			Generated:        time.Now(),
+			Branch:           "main",
+			CommitSha:        "",
+			OverallCoverage:  0.0,
+			PackageStats:     []templates.PackageStats{},
+			FileStats:        []templates.FileStats{},
+			Theme:            "auto",
+			ShowDetails:      false,
+			GitHubOwner:      "",
+			GitHubRepository: "",
+			GitHubBranch:     "",
 		}
 	}
 
@@ -346,6 +353,7 @@ func (g *Generator) convertToTemplateData(data *Data) templates.ReportData {
 		for _, file := range pkg.Files {
 			fileStats = append(fileStats, templates.FileStats{
 				Name:         file.Name,
+				Path:         file.Path,
 				Package:      pkg.Name,
 				Coverage:     file.Percentage,
 				Lines:        file.TotalLines,
@@ -357,16 +365,19 @@ func (g *Generator) convertToTemplateData(data *Data) templates.ReportData {
 	}
 
 	return templates.ReportData{
-		Title:           data.Config.Title,
-		ProjectName:     "go-broadcast", // Set the correct project name
-		Generated:       data.GeneratedAt,
-		Branch:          data.BranchName,
-		CommitSha:       data.CommitSHA,
-		OverallCoverage: data.Summary.TotalPercentage,
-		PackageStats:    packageStats,
-		FileStats:       fileStats,
-		Theme:           data.Config.Theme,
-		ShowDetails:     data.Config.ShowFiles,
+		Title:            data.Config.Title,
+		ProjectName:      "go-broadcast", // Set the correct project name
+		Generated:        data.GeneratedAt,
+		Branch:           data.BranchName,
+		CommitSha:        data.CommitSHA,
+		OverallCoverage:  data.Summary.TotalPercentage,
+		PackageStats:     packageStats,
+		FileStats:        fileStats,
+		Theme:            data.Config.Theme,
+		ShowDetails:      data.Config.ShowFiles,
+		GitHubOwner:      data.Config.GitHubOwner,
+		GitHubRepository: data.Config.GitHubRepository,
+		GitHubBranch:     data.Config.GitHubBranch,
 	}
 }
 

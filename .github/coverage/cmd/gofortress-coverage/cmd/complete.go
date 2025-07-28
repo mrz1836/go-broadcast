@@ -143,6 +143,15 @@ update history, and create GitHub PR comment if in PR context.`,
 			ShowFiles:        cfg.Report.ShowFiles,
 			ShowMissing:      cfg.Report.ShowMissing,
 			InteractiveTrees: cfg.Report.Interactive,
+			GitHubOwner:      cfg.GitHub.Owner,
+			GitHubRepository: cfg.GitHub.Repository,
+		}
+
+		// Set GitHub branch for source links
+		if branch := os.Getenv("GITHUB_REF_NAME"); branch != "" {
+			reportConfig.GitHubBranch = branch
+		} else {
+			reportConfig.GitHubBranch = "main"
 		}
 		reportGen := report.NewWithConfig(reportConfig)
 		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
@@ -253,6 +262,16 @@ update history, and create GitHub PR comment if in PR context.`,
 				TotalLines:   pkg.TotalLines,
 				CoveredLines: pkg.CoveredLines,
 				MissedLines:  pkg.TotalLines - pkg.CoveredLines,
+			}
+
+			// Add GitHub URL for package directory if we have GitHub info
+			if cfg.GitHub.Owner != "" && cfg.GitHub.Repository != "" {
+				branch := os.Getenv("GITHUB_REF_NAME")
+				if branch == "" {
+					branch = "main"
+				}
+				pkgCoverage.GitHubURL = fmt.Sprintf("https://github.com/%s/%s/tree/%s/%s",
+					cfg.GitHub.Owner, cfg.GitHub.Repository, branch, pkgName)
 			}
 
 			// Add file coverage if available

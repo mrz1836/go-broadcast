@@ -75,6 +75,11 @@ type ReportData struct {
 	// Configuration
 	Theme       string `json:"theme"`
 	ShowDetails bool   `json:"show_details"`
+
+	// GitHub integration
+	GitHubOwner      string `json:"github_owner,omitempty"`
+	GitHubRepository string `json:"github_repository,omitempty"`
+	GitHubBranch     string `json:"github_branch,omitempty"`
 }
 
 // PackageStats contains package-level coverage statistics
@@ -89,6 +94,7 @@ type PackageStats struct {
 // FileStats contains file-level coverage statistics
 type FileStats struct {
 	Name         string  `json:"name"`
+	Path         string  `json:"path"`
 	Package      string  `json:"package"`
 	Coverage     float64 `json:"coverage"`
 	Lines        int     `json:"lines"`

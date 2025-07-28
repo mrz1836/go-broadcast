@@ -611,6 +611,24 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
+        
+        /* Source link styling - subtle hover effect, keeps normal appearance */
+        .source-link {
+            color: inherit;
+            text-decoration: none;
+            transition: opacity 0.2s ease;
+        }
+        
+        .source-link:hover {
+            opacity: 0.8;
+            text-decoration: none;
+        }
+        
+        .source-link:focus {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
@@ -710,7 +728,13 @@
                     <button class="package-header" onclick="togglePackage('pkg-{{$i}}')" aria-expanded="false">
                         <div class="package-info">
                             <span class="expand-icon" id="icon-pkg-{{$i}}">▶</span>
-                            <span class="package-name">{{$pkg.Name}}</span>
+                            <span class="package-name">
+                                {{if and $.GitHubOwner $.GitHubRepository}}
+                                <a href="https://github.com/{{$.GitHubOwner}}/{{$.GitHubRepository}}/tree/{{$.GitHubBranch}}/{{$pkg.Name}}" target="_blank" rel="noopener" class="source-link">{{$pkg.Name}}</a>
+                                {{else}}
+                                {{$pkg.Name}}
+                                {{end}}
+                            </span>
                             <div class="package-stats">
                                 <span>{{$pkg.CoveredLines}}/{{$pkg.Lines}} lines</span>
                                 <span>{{$pkg.Files}} files</span>
@@ -725,7 +749,13 @@
                         {{range $.FileStats}}
                         {{if eq .Package $pkg.Name}}
                         <div class="file-item">
-                            <span class="file-name">{{.Name}}</span>
+                            <span class="file-name">
+                                {{if and $.GitHubOwner $.GitHubRepository}}
+                                <a href="https://github.com/{{$.GitHubOwner}}/{{$.GitHubRepository}}/blob/{{$.GitHubBranch}}/{{.Path}}" target="_blank" rel="noopener" class="source-link">{{.Name}}</a>
+                                {{else}}
+                                {{.Name}}
+                                {{end}}
+                            </span>
                             <div class="file-stats">
                                 <span>{{.CoveredLines}}/{{.Lines}} lines</span>
                                 {{if .Functions}}<span>{{.CoveredFuncs}}/{{.Functions}} functions</span>{{end}}

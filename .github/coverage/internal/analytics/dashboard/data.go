@@ -44,6 +44,7 @@ type PackageCoverage struct {
 	TotalLines   int                `json:"total_lines"`
 	CoveredLines int                `json:"covered_lines"`
 	MissedLines  int                `json:"missed_lines"`
+	GitHubURL    string             `json:"github_url,omitempty"`
 	Files        []FileCoverage     `json:"files"`
 	Functions    []FunctionCoverage `json:"functions,omitempty"`
 }
