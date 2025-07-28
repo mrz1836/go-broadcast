@@ -63,9 +63,9 @@ func New() *Generator {
 			Logo:      "",
 			LogoColor: "white",
 			ThresholdConfig: ThresholdConfig{
-				Excellent:  90.0,
-				Good:       80.0,
-				Acceptable: 70.0,
+				Excellent:  95.0,
+				Good:       85.0,
+				Acceptable: 75.0,
 				Low:        60.0,
 			},
 		},
@@ -151,15 +151,15 @@ func (g *Generator) GenerateTrendBadge(ctx context.Context, current, previous fl
 func (g *Generator) getColorForPercentage(percentage float64) string {
 	switch {
 	case percentage >= g.config.ThresholdConfig.Excellent:
-		return "#3fb950" // Bright green (GitHub green)
+		return "#28a745" // Bright green (excellent coverage)
 	case percentage >= g.config.ThresholdConfig.Good:
-		return "#7c3aed" // Purple (GitHub purple)
+		return "#3fb950" // Green (good coverage)
 	case percentage >= g.config.ThresholdConfig.Acceptable:
-		return "#d29922" // Yellow (GitHub yellow)
+		return "#ffc107" // Yellow (acceptable coverage)
 	case percentage >= g.config.ThresholdConfig.Low:
-		return "#fb8500" // Orange
+		return "#fd7e14" // Orange (low coverage)
 	default:
-		return "#f85149" // Red (GitHub red)
+		return "#dc3545" // Red (poor coverage)
 	}
 }
 
@@ -167,15 +167,15 @@ func (g *Generator) getColorForPercentage(percentage float64) string {
 func (g *Generator) getColorByName(name string) string {
 	switch name {
 	case "excellent":
-		return "#3fb950"
+		return "#28a745"
 	case "good":
-		return "#7c3aed"
+		return "#3fb950"
 	case "acceptable":
-		return "#d29922"
+		return "#ffc107"
 	case "low":
-		return "#fb8500"
+		return "#fd7e14"
 	case "poor":
-		return "#f85149"
+		return "#dc3545"
 	default:
 		return "#8b949e" // neutral gray
 	}

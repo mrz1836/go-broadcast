@@ -16,9 +16,9 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, generator.config)
 	assert.Equal(t, "flat", generator.config.Style)
 	assert.Equal(t, "coverage", generator.config.Label)
-	assert.InDelta(t, 90.0, generator.config.ThresholdConfig.Excellent, 0.001)
-	assert.InDelta(t, 80.0, generator.config.ThresholdConfig.Good, 0.001)
-	assert.InDelta(t, 70.0, generator.config.ThresholdConfig.Acceptable, 0.001)
+	assert.InDelta(t, 95.0, generator.config.ThresholdConfig.Excellent, 0.001)
+	assert.InDelta(t, 85.0, generator.config.ThresholdConfig.Good, 0.001)
+	assert.InDelta(t, 75.0, generator.config.ThresholdConfig.Acceptable, 0.001)
 	assert.InDelta(t, 60.0, generator.config.ThresholdConfig.Low, 0.001)
 }
 
@@ -128,13 +128,13 @@ func TestGetColorForPercentage(t *testing.T) {
 		percentage float64
 		expected   string
 	}{
-		{95.0, "#3fb950"},  // excellent (green)
-		{85.0, "#7c3aed"},  // good (purple)
-		{75.0, "#d29922"},  // acceptable (yellow)
-		{65.0, "#fb8500"},  // low (orange)
-		{55.0, "#f85149"},  // poor (red)
-		{100.0, "#3fb950"}, // perfect (green)
-		{0.0, "#f85149"},   // zero (red)
+		{96.0, "#28a745"},  // excellent (bright green)
+		{87.0, "#3fb950"},  // good (green)
+		{77.0, "#ffc107"},  // acceptable (yellow)
+		{67.0, "#fd7e14"},  // low (orange)
+		{55.0, "#dc3545"},  // poor (red)
+		{100.0, "#28a745"}, // perfect (bright green)
+		{0.0, "#dc3545"},   // zero (red)
 	}
 
 	for _, tt := range tests {
@@ -152,11 +152,11 @@ func TestGetColorByName(t *testing.T) {
 		name     string
 		expected string
 	}{
-		{"excellent", "#3fb950"},
-		{"good", "#7c3aed"},
-		{"acceptable", "#d29922"},
-		{"low", "#fb8500"},
-		{"poor", "#f85149"},
+		{"excellent", "#28a745"},
+		{"good", "#3fb950"},
+		{"acceptable", "#ffc107"},
+		{"low", "#fd7e14"},
+		{"poor", "#dc3545"},
 		{"unknown", "#8b949e"},
 	}
 
@@ -382,11 +382,11 @@ func TestGenerateCustomThresholds(t *testing.T) {
 		percentage float64
 		expected   string
 	}{
-		{96.0, "#3fb950"}, // excellent
-		{87.0, "#7c3aed"}, // good
-		{77.0, "#d29922"}, // acceptable
-		{67.0, "#fb8500"}, // low
-		{55.0, "#f85149"}, // poor
+		{96.0, "#28a745"}, // excellent
+		{87.0, "#3fb950"}, // good
+		{77.0, "#ffc107"}, // acceptable
+		{67.0, "#fd7e14"}, // low
+		{55.0, "#dc3545"}, // poor
 	}
 
 	for _, tt := range tests {
@@ -483,7 +483,7 @@ func TestResolveLogo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := generator.resolveLogo(tt.input)
-			
+
 			if tt.expected != "" {
 				assert.Equal(t, tt.expected, result)
 			} else if tt.contains != "" {
