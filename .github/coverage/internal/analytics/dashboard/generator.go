@@ -90,12 +90,15 @@ func (g *Generator) prepareTemplateData(data *CoverageData) map[string]interface
 	filesPercent := float64(data.CoveredFiles) / float64(data.TotalFiles) * 100
 
 	// Calculate trends
+	hasHistory := data.TrendData != nil && len(data.History) > 0
 	coverageTrend := "0"
+	trendDirection := "stable"
 	filesTrend := "0"
 	linesToCoverTrend := data.MissedLines
 
-	if data.TrendData != nil {
+	if hasHistory && data.TrendData != nil {
 		coverageTrend = fmt.Sprintf("%.2f", data.TrendData.ChangePercent)
+		trendDirection = data.TrendData.Direction
 		if data.TrendData.Direction == "up" {
 			filesTrend = fmt.Sprintf("+%d", data.TrendData.ChangeLines)
 		} else {
@@ -122,6 +125,7 @@ func (g *Generator) prepareTemplateData(data *CoverageData) map[string]interface
 		"Timestamp":         data.Timestamp.Format("2006-01-02 15:04:05 UTC"),
 		"TotalCoverage":     coveragePercent,
 		"CoverageTrend":     coverageTrend,
+		"TrendDirection":    trendDirection,
 		"CoveredFiles":      data.CoveredFiles,
 		"TotalFiles":        data.TotalFiles,
 		"FilesPercent":      fmt.Sprintf("%.1f", filesPercent),
@@ -131,7 +135,8 @@ func (g *Generator) prepareTemplateData(data *CoverageData) map[string]interface
 		"PackagesTracked":   len(data.Packages),
 		"Branches":          branches,
 		"Packages":          g.preparePackageData(data.Packages),
-		"HasHistory":        len(data.History) > 0,
+		"HasHistory":        hasHistory,
+		"HasAnyData":        len(data.History) > 0,
 		"HistoryJSON":       g.prepareHistoryJSON(data.History),
 	}
 }

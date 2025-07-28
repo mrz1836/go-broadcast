@@ -154,8 +154,8 @@ update history, and create GitHub PR comment if in PR context.`,
 		}
 
 		if !dryRun {
-			if err := os.WriteFile(reportFile, htmlContent, cfg.Storage.FileMode); err != nil {
-				return fmt.Errorf("failed to write report file: %w", err)
+			if writeErr := os.WriteFile(reportFile, htmlContent, cfg.Storage.FileMode); writeErr != nil {
+				return fmt.Errorf("failed to write report file: %w", writeErr)
 			}
 		}
 
@@ -183,21 +183,60 @@ update history, and create GitHub PR comment if in PR context.`,
 			UncoveredFiles: 0,
 		}
 
-		// Count total files and coverage status
-		totalFiles := 0
+		// Discover all eligible Go files to get accurate total count
+		// Get repository root path - we're in .github/coverage/cmd/gofortress-coverage
+		workingDir, wdErr := os.Getwd()
+		if wdErr != nil {
+			cmd.Printf("   ⚠️  Failed to get working directory: %v\n", wdErr)
+		}
+		repoRoot := filepath.Join(workingDir, "../../../../")
+		repoRoot, pathErr := filepath.Abs(repoRoot)
+		if pathErr != nil {
+			cmd.Printf("   ⚠️  Failed to resolve repository root: %v\n", pathErr)
+			repoRoot = "../../../../"
+		}
+
+		eligibleFiles, err := p.DiscoverEligibleFiles(ctx, repoRoot)
+		if err != nil {
+			cmd.Printf("   ⚠️  Failed to discover all Go files: %v\n", err)
+			// Fall back to counting only files in coverage data
+			totalFiles := 0
+			for _, pkg := range coverage.Packages {
+				totalFiles += len(pkg.Files)
+			}
+			coverageData.TotalFiles = totalFiles
+		} else {
+			coverageData.TotalFiles = len(eligibleFiles)
+		}
+
+		// Count coverage status for files that have coverage data
+		// Any file with >0% coverage is considered "covered"
+		filesInProfile := 0
 		for _, pkg := range coverage.Packages {
 			for _, file := range pkg.Files {
-				totalFiles++
-				if file.Percentage == 100 {
+				filesInProfile++
+				if file.Percentage > 0 {
+					// Any coverage > 0% counts as "covered"
 					coverageData.CoveredFiles++
-				} else if file.Percentage > 0 {
-					coverageData.PartialFiles++
 				} else {
+					// 0% coverage files in profile are uncovered
 					coverageData.UncoveredFiles++
 				}
 			}
 		}
-		coverageData.TotalFiles = totalFiles
+
+		// Files not in coverage profile are considered uncovered
+		if coverageData.TotalFiles > filesInProfile {
+			additionalUncovered := coverageData.TotalFiles - filesInProfile
+			coverageData.UncoveredFiles += additionalUncovered
+		}
+
+		// Debug output for file counting
+		cmd.Printf("   📊 File Analysis:\n")
+		cmd.Printf("      Total eligible files: %d\n", coverageData.TotalFiles)
+		cmd.Printf("      Files in coverage profile: %d\n", filesInProfile)
+		cmd.Printf("      Files with coverage >0%%: %d\n", coverageData.CoveredFiles)
+		cmd.Printf("      Files with no coverage: %d\n", coverageData.UncoveredFiles)
 
 		// Add package data
 		coverageData.Packages = make([]dashboard.PackageCoverage, 0, len(coverage.Packages))

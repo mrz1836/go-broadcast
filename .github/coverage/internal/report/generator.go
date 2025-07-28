@@ -462,6 +462,7 @@ func (g *Generator) getHTMLTemplate() string {
             border-radius: 4px;
             font-size: 0.85rem;
             font-weight: 600;
+            margin-left: 1rem;
         }
 
         .coverage-badge.excellent {

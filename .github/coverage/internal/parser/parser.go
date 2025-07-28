@@ -394,6 +394,51 @@ func (p *Parser) extractPackageName(filename string) string {
 	return filepath.Base(dir)
 }
 
+// DiscoverEligibleFiles discovers all Go files that should be included in coverage based on exclusion rules
+func (p *Parser) DiscoverEligibleFiles(ctx context.Context, rootPath string) ([]string, error) {
+	var eligibleFiles []string
+
+	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if err != nil {
+			return err
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
+		}
+
+		// Only consider Go files
+		if !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+
+		// Convert to relative path for consistent exclusion checking
+		relPath, err := filepath.Rel(rootPath, path)
+		if err != nil {
+			relPath = path
+		}
+
+		// Check if file should be excluded using the same logic as coverage parsing
+		if !p.shouldExcludeFile(relPath) {
+			eligibleFiles = append(eligibleFiles, relPath)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover Go files: %w", err)
+	}
+
+	return eligibleFiles, nil
+}
+
 // calculateFileCoverage calculates coverage statistics for a single file
 func (p *Parser) calculateFileCoverage(filename string, statements []Statement) *FileCoverage {
 	sort.Slice(statements, func(i, j int) bool {

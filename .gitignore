@@ -39,9 +39,16 @@ internal/fuzz/corpus/
 .github/coverage/cmd/gofortress-coverage/gofortress-coverage
 .github/coverage/gofortress-coverage
 
+# Coverage output directories (build artifacts)
+coverage-output/
+.github/coverage/coverage-output/
+
 # Coverage history files (generated during coverage processing)
 .github/coverage/history/
 .github/coverage/**/history/
+/.github/coverage/cmd/gofortress-coverage/gofortress-coverage
+examples/monitor/simple
+examples/monitor/advanced
 
 ########################
 # Development Tools    #
@@ -80,4 +87,3 @@ dist/
 
 # Database files
 *.db
-/.github/coverage/cmd/gofortress-coverage/gofortress-coverage

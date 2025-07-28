@@ -380,4 +380,4 @@ jobs:
       env-json: ${{ inputs.env-json }}
       primary-runner: ${{ inputs.primary-runner }}
     secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+      github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
