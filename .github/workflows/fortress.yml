@@ -48,6 +48,7 @@ permissions:
   pages: write # For GitHub Pages deployment (coverage reports)
   pull-requests: write # For PR comments (coverage reports)
   id-token: write # For GitHub Pages deployment
+  statuses: write # For commit status creation in coverage workflow
 
 # ————————————————————————————————————————————————————————————————
 # Concurrency Control
