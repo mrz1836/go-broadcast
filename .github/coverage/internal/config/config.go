@@ -2,9 +2,11 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -309,7 +311,7 @@ func (c *Config) GetReportURL() string {
 	return fmt.Sprintf("%s/reports/branch/%s/coverage.html", baseURL, branch)
 }
 
-// getCurrentBranch returns the current branch name, defaulting to master
+// getCurrentBranch returns the current branch name, with intelligent fallback detection
 func (c *Config) getCurrentBranch() string {
 	// Try to get branch from environment variables (GitHub Actions context)
 	if branch := os.Getenv("GITHUB_REF_NAME"); branch != "" {
@@ -321,8 +323,49 @@ func (c *Config) getCurrentBranch() string {
 			return strings.TrimPrefix(ref, "refs/heads/")
 		}
 	}
-	// Default to master (this repo's default branch)
+
+	// Try to get branch from Git command as fallback
+	if branch := c.getBranchFromGit(); branch != "" {
+		return branch
+	}
+
+	// Final fallback - use commit SHA if available, otherwise default to master
+	if commitSHA := os.Getenv("GITHUB_SHA"); commitSHA != "" && len(commitSHA) >= 7 {
+		return commitSHA[:7] // Use short SHA as identifier
+	}
+
+	// Last resort default to master (this repo's default branch)
 	return "master"
+}
+
+// GetCurrentBranch returns the current branch name with intelligent fallback detection (public method)
+func (c *Config) GetCurrentBranch() string {
+	return c.getCurrentBranch()
+}
+
+// getBranchFromGit attempts to get the current branch name using Git commands
+func (c *Config) getBranchFromGit() string {
+	ctx := context.Background()
+
+	// Try git rev-parse --abbrev-ref HEAD first (most reliable)
+	if output, err := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
+		branch := strings.TrimSpace(string(output))
+		// Ignore if we're in detached HEAD state
+		if branch != "" && branch != "HEAD" {
+			return branch
+		}
+	}
+
+	// Try git branch --show-current as alternative (Git 2.22+)
+	if output, err := exec.CommandContext(ctx, "git", "branch", "--show-current").Output(); err == nil {
+		branch := strings.TrimSpace(string(output))
+		if branch != "" {
+			return branch
+		}
+	}
+
+	// No branch detected
+	return ""
 }
 
 // Helper functions for environment variable parsing

@@ -269,7 +269,12 @@ targets:
 				ConfigFile: configPath,
 			}
 
-			err := runValidateWithFlags(flags)
+			// Create a mock command with flags
+			cmd := &cobra.Command{}
+			cmd.Flags().Bool("skip-remote-checks", false, "Skip remote checks")
+			cmd.Flags().Bool("source-only", false, "Source only")
+
+			err := runValidateWithFlags(flags, cmd)
 
 			if tc.expectError {
 				require.Error(t, err)
@@ -308,7 +313,12 @@ targets:
 		ConfigFile: tmpFile.Name(),
 	}
 
-	err = runValidateWithFlags(flags)
+	// Create a mock command with flags
+	cmd := &cobra.Command{}
+	cmd.Flags().Bool("skip-remote-checks", false, "Skip remote checks")
+	cmd.Flags().Bool("source-only", false, "Source only")
+
+	err = runValidateWithFlags(flags, cmd)
 	require.NoError(t, err)
 }
 
@@ -341,7 +351,12 @@ targets:
 		ConfigFile: "./test-config.yml",
 	}
 
-	err = runValidateWithFlags(flags)
+	// Create a mock command with flags
+	cmd := &cobra.Command{}
+	cmd.Flags().Bool("skip-remote-checks", false, "Skip remote checks")
+	cmd.Flags().Bool("source-only", false, "Source only")
+
+	err = runValidateWithFlags(flags, cmd)
 	require.NoError(t, err)
 }
 

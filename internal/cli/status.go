@@ -3,10 +3,16 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/output"
+	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -88,9 +94,11 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// TODO: Initialize state discovery with real implementations
-	// For now, we'll show mock status
-	status := getMockStatus(ctx, cfg)
+	// Initialize state discovery with real implementations
+	status, err := getRealStatus(ctx, cfg)
+	if err != nil {
+		return fmt.Errorf("failed to discover status: %w", err)
+	}
 
 	// Output status
 	if jsonOutput {
@@ -100,41 +108,107 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	return outputTextStatus(status)
 }
 
-func getMockStatus(_ context.Context, cfg *config.Config) *SyncStatus {
-	// Mock implementation - will be replaced with real state discovery
-	status := &SyncStatus{
-		Source: SourceStatus{
-			Repository:   cfg.Source.Repo,
-			Branch:       cfg.Source.Branch,
-			LatestCommit: "abc123def456",
+func getRealStatus(ctx context.Context, cfg *config.Config) (*SyncStatus, error) {
+	// Create logger for GitHub operations
+	logger := logrus.New()
+	logger.SetLevel(logrus.InfoLevel)
+
+	// Create logging config with minimal debug settings
+	logConfig := &logging.LogConfig{
+		Debug: logging.DebugFlags{
+			State: false,
+			API:   false,
 		},
-		Targets: []TargetStatus{},
+		Verbose: 0,
 	}
 
-	// Add mock status for each target
-	for _, target := range cfg.Targets {
+	// Initialize GitHub client with enhanced error handling
+	ghClient, err := gh.NewClient(ctx, logger, logConfig)
+	if err != nil {
+		// Provide specific error messages for common issues
+		switch {
+		case errors.Is(err, gh.ErrGHNotFound):
+			return nil, fmt.Errorf("%w: Please install GitHub CLI: https://cli.github.com/", gh.ErrGHNotFound)
+		case errors.Is(err, gh.ErrNotAuthenticated):
+			return nil, fmt.Errorf("%w: Please run: gh auth login", gh.ErrNotAuthenticated)
+		default:
+			return nil, fmt.Errorf("failed to initialize GitHub client: %w", err)
+		}
+	}
+
+	// Initialize state discoverer
+	discoverer := state.NewDiscoverer(ghClient, logger, logConfig)
+
+	// Discover current state with enhanced error handling
+	currentState, err := discoverer.DiscoverState(ctx, cfg)
+	if err != nil {
+		// Provide specific error messages for common GitHub API issues
+		switch {
+		case errors.Is(err, gh.ErrRateLimited):
+			return nil, fmt.Errorf("%w: Please try again later", gh.ErrRateLimited)
+		case errors.Is(err, gh.ErrBranchNotFound):
+			return nil, fmt.Errorf("%w: Please check your configuration", gh.ErrBranchNotFound)
+		default:
+			return nil, fmt.Errorf("failed to discover sync state: %w", err)
+		}
+	}
+
+	// Convert to CLI status format
+	return convertStateToStatus(currentState), nil
+}
+
+// convertStateToStatus converts internal state to CLI status format
+func convertStateToStatus(s *state.State) *SyncStatus {
+	status := &SyncStatus{
+		Source: SourceStatus{
+			Repository:   s.Source.Repo,
+			Branch:       s.Source.Branch,
+			LatestCommit: s.Source.LatestCommit,
+		},
+		Targets: make([]TargetStatus, 0, len(s.Targets)),
+	}
+
+	// Convert each target state
+	for _, targetState := range s.Targets {
 		targetStatus := TargetStatus{
-			Repository: target.Repo,
-			State:      "synced",
-			LastSync: &SyncInfo{
-				Timestamp: "2024-01-15T12:00:00Z",
-				Commit:    "abc123def456",
-			},
+			Repository: targetState.Repo,
+			State:      convertSyncStatus(targetState.Status),
 		}
 
-		// Mock different states for demo
-		switch target.Repo {
-		case cfg.Targets[0].Repo:
-			targetStatus.State = "synced"
-		default:
-			targetStatus.State = "outdated"
-			branch := "sync/template-20240115-120000-abc123"
-			targetStatus.SyncBranch = &branch
+		// Add last sync information if available
+		if targetState.LastSyncCommit != "" && targetState.LastSyncTime != nil {
+			targetStatus.LastSync = &SyncInfo{
+				Timestamp: targetState.LastSyncTime.Format(time.RFC3339),
+				Commit:    targetState.LastSyncCommit,
+			}
+		}
+
+		// Add sync branch if available (use the most recent one)
+		if len(targetState.SyncBranches) > 0 {
+			// Find the most recent sync branch
+			var mostRecent *state.SyncBranch
+			for i := range targetState.SyncBranches {
+				branch := &targetState.SyncBranches[i]
+				if branch.Metadata != nil {
+					if mostRecent == nil || branch.Metadata.Timestamp.After(mostRecent.Metadata.Timestamp) {
+						mostRecent = branch
+					}
+				}
+			}
+			if mostRecent != nil {
+				targetStatus.SyncBranch = &mostRecent.Name
+			}
+		}
+
+		// Add pull request information if available
+		if len(targetState.OpenPRs) > 0 {
+			// Use the first open PR (most recent)
+			pr := targetState.OpenPRs[0]
 			targetStatus.PullRequest = &PullRequestInfo{
-				Number: 42,
-				State:  "open",
-				URL:    fmt.Sprintf("https://github.com/%s/pull/42", target.Repo),
-				Title:  "Sync template updates",
+				Number: pr.Number,
+				State:  strings.ToLower(pr.State),
+				URL:    fmt.Sprintf("https://github.com/%s/pull/%d", targetState.Repo, pr.Number),
+				Title:  pr.Title,
 			}
 		}
 
@@ -142,6 +216,24 @@ func getMockStatus(_ context.Context, cfg *config.Config) *SyncStatus {
 	}
 
 	return status
+}
+
+// convertSyncStatus converts internal sync status to CLI display format
+func convertSyncStatus(s state.SyncStatus) string {
+	switch s {
+	case state.StatusUpToDate:
+		return "synced"
+	case state.StatusBehind:
+		return "outdated"
+	case state.StatusPending:
+		return "pending"
+	case state.StatusConflict:
+		return "error"
+	case state.StatusUnknown:
+		return "unknown"
+	default:
+		return "unknown"
+	}
 }
 
 func outputJSON(status *SyncStatus) error {

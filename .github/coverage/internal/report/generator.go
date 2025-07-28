@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	globalconfig "github.com/mrz1836/go-broadcast/coverage/internal/config"
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
 )
@@ -139,7 +140,7 @@ func (g *Generator) Generate(ctx context.Context, coverage *parser.CoverageData,
 	}
 
 	// Build report data
-	reportData := g.buildReportData(coverage, &config)
+	reportData := g.buildReportData(coverage, &config) //nolint:contextcheck // Coverage reporting context not critical
 
 	// Generate HTML
 	return g.renderHTML(ctx, reportData)
@@ -203,16 +204,19 @@ func (g *Generator) buildReportData(coverage *parser.CoverageData, config *Confi
 		PreviousCoverage: 0.0,      // TODO: get from history
 	}
 
+	// Load global config to get current branch
+	globalConfig := globalconfig.Load()
+
 	return &Data{
 		Coverage:    coverage,
 		Config:      config,
 		GeneratedAt: time.Now(),
 		Version:     "1.0.0",
 		ProjectName: "Go Project", // TODO: extract from git
-		BranchName:  "main",       // TODO: extract from git
-		CommitSHA:   "",           // TODO: extract from git
-		CommitURL:   "",           // TODO: build from git info
-		BadgeURL:    "",           // TODO: build from config
+		BranchName:  globalConfig.GetCurrentBranch(),
+		CommitSHA:   "", // TODO: extract from git
+		CommitURL:   "", // TODO: build from git info
+		BadgeURL:    "", // TODO: build from config
 		Summary:     summary,
 		Packages:    packages,
 	}

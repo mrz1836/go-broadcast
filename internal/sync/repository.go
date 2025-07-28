@@ -305,7 +305,7 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 	}
 
 	// Create branch in target repository
-	// TODO: We'll create the branch when we push, so just return the name for now
+	// We'll create the branch when we push, so just return the name for now
 	return branchName
 }
 
