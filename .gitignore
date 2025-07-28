@@ -76,3 +76,4 @@ dist/
 
 # Database files
 *.db
+/.github/coverage/cmd/gofortress-coverage/gofortress-coverage

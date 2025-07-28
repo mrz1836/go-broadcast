@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/mrz1836/go-broadcast/coverage/internal/pages"
 	"github.com/spf13/cobra"
 )
 
@@ -90,46 +92,23 @@ type CleanOptions struct {
 }
 
 // setupGitHubPages initializes the gh-pages branch with proper structure
-func setupGitHubPages(_ context.Context, branch string, _ bool, verbose bool) error {
+func setupGitHubPages(ctx context.Context, branch string, force bool, verbose bool) error {
 	if verbose {
 		fmt.Printf("🚀 Setting up GitHub Pages on branch: %s\n", branch) //nolint:forbidigo // CLI output
 	}
 
-	// TODO: Implement GitHub Pages setup logic
-	// 1. Check if gh-pages branch exists
-	// 2. Create orphan branch if it doesn't exist
-	// 3. Create directory structure
-	// 4. Add initial dashboard files
-	// 5. Commit and push changes
-
-	fmt.Println("📁 Creating directory structure...") //nolint:forbidigo // CLI output
-
-	// Create the basic directory structure
-	dirs := []string{
-		"badges",
-		"badges/pr",
-		"reports",
-		"reports/pr",
-		"api",
-		"assets",
-		"assets/css",
-		"assets/js",
-		"assets/fonts",
+	// Get current working directory (repository root)
+	repoPath, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting repository path: %w", err)
 	}
 
-	for _, dir := range dirs {
-		if verbose {
-			fmt.Printf("  📂 Creating directory: %s\n", dir) //nolint:forbidigo // CLI output
-		}
-		// In real implementation, this would create dirs in gh-pages branch
-	}
+	// Create deployer instance
+	deployer := pages.NewGitHubPagesDeployer(repoPath, branch, verbose)
 
-	fmt.Println("🏠 Creating dashboard template...") //nolint:forbidigo // CLI output
-
-	// TODO: Generate initial dashboard file
-	dashboardContent := generateInitialDashboard()
-	if verbose {
-		fmt.Printf("  📄 Dashboard content length: %d bytes\n", len(dashboardContent)) //nolint:forbidigo // CLI output
+	// Run setup
+	if err := deployer.Setup(ctx, force); err != nil {
+		return fmt.Errorf("setting up GitHub Pages: %w", err)
 	}
 
 	fmt.Println("✅ GitHub Pages setup completed successfully") //nolint:forbidigo // CLI output
@@ -143,7 +122,7 @@ func setupGitHubPages(_ context.Context, branch string, _ bool, verbose bool) er
 }
 
 // deployToGitHubPages deploys coverage artifacts to GitHub Pages
-func deployToGitHubPages(_ context.Context, opts DeployOptions) error {
+func deployToGitHubPages(ctx context.Context, opts DeployOptions) error {
 	if opts.Verbose {
 		fmt.Printf("🚀 Deploying coverage artifacts to GitHub Pages\n") //nolint:forbidigo // CLI output
 		fmt.Printf("  📍 Branch: %s\n", opts.Branch)                    //nolint:forbidigo // CLI output
@@ -153,40 +132,28 @@ func deployToGitHubPages(_ context.Context, opts DeployOptions) error {
 		}
 	}
 
-	// TODO: Implement deployment logic
-	// 1. Checkout gh-pages branch
-	// 2. Organize files by branch/PR
-	// 3. Copy artifacts to appropriate locations
-	// 4. Update dashboard with new data
-	// 5. Commit and push changes
-
-	fmt.Println("📦 Organizing artifacts...") //nolint:forbidigo // CLI output
-
-	if opts.PRNumber != "" {
-		fmt.Printf("  🔀 Deploying PR #%s artifacts\n", opts.PRNumber) //nolint:forbidigo // CLI output
-		// Deploy to pr/{number}/ subdirectory
-	} else {
-		fmt.Printf("  🌿 Deploying branch '%s' artifacts\n", opts.Branch) //nolint:forbidigo // CLI output
-		// Deploy to branch-specific directory
+	// Get current working directory (repository root)
+	repoPath, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting repository path: %w", err)
 	}
 
-	fmt.Println("🏗️  Updating dashboard...") //nolint:forbidigo // CLI output
+	// Create deployer instance
+	deployer := pages.NewGitHubPagesDeployer(repoPath, "gh-pages", opts.Verbose)
 
-	// TODO: Update dashboard with new coverage data
-
-	fmt.Println("📤 Committing changes...") //nolint:forbidigo // CLI output
-
-	commitMessage := opts.Message
-	if commitMessage == "" {
-		if opts.PRNumber != "" {
-			commitMessage = fmt.Sprintf("📊 Update coverage for PR #%s", opts.PRNumber)
-		} else {
-			commitMessage = fmt.Sprintf("📊 Update coverage for %s branch", opts.Branch)
-		}
+	// Convert local options to pages.DeployOptions
+	deployOpts := pages.DeployOptions{
+		Branch:    opts.Branch,
+		CommitSha: opts.CommitSha,
+		PRNumber:  opts.PRNumber,
+		InputDir:  opts.InputDir,
+		Message:   opts.Message,
+		Verbose:   opts.Verbose,
 	}
 
-	if opts.Verbose {
-		fmt.Printf("  💬 Commit message: %s\n", commitMessage) //nolint:forbidigo // CLI output
+	// Run deployment
+	if err := deployer.Deploy(ctx, deployOpts); err != nil {
+		return fmt.Errorf("deploying to GitHub Pages: %w", err)
 	}
 
 	fmt.Println("✅ Deployment completed successfully") //nolint:forbidigo // CLI output
@@ -195,7 +162,7 @@ func deployToGitHubPages(_ context.Context, opts DeployOptions) error {
 }
 
 // cleanGitHubPages removes old PR data and expired content
-func cleanGitHubPages(_ context.Context, opts CleanOptions) error {
+func cleanGitHubPages(ctx context.Context, opts CleanOptions) error {
 	if opts.Verbose {
 		fmt.Printf("🧹 Cleaning up GitHub Pages content\n")    //nolint:forbidigo // CLI output
 		fmt.Printf("  📅 Max age: %d days\n", opts.MaxAgeDays) //nolint:forbidigo // CLI output
@@ -204,98 +171,30 @@ func cleanGitHubPages(_ context.Context, opts CleanOptions) error {
 		}
 	}
 
-	// TODO: Implement cleanup logic
-	// 1. Scan for PR directories older than max age
-	// 2. Identify expired content
-	// 3. Remove expired files/directories
-	// 4. Update dashboard to reflect changes
-	// 5. Commit cleanup changes
-
-	fmt.Println("🔍 Scanning for expired content...") //nolint:forbidigo // CLI output
-
-	// Simulate finding expired content
-	expiredPRs := []string{"pr/120", "pr/118", "pr/115"}
-	expiredReports := []string{"reports/old-branch", "reports/feature-archived"}
-
-	totalSize := int64(0)
-	if len(expiredPRs) > 0 {
-		fmt.Printf("  📁 Found %d expired PR directories\n", len(expiredPRs)) //nolint:forbidigo // CLI output
-		for _, pr := range expiredPRs {
-			if opts.Verbose {
-				fmt.Printf("    🗑️  %s\n", pr) //nolint:forbidigo // CLI output
-			}
-			totalSize += 1024 * 512 // Simulate size calculation
-		}
+	// Get current working directory (repository root)
+	repoPath, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting repository path: %w", err)
 	}
 
-	if len(expiredReports) > 0 {
-		fmt.Printf("  📊 Found %d expired report directories\n", len(expiredReports)) //nolint:forbidigo // CLI output
-		for _, report := range expiredReports {
-			if opts.Verbose {
-				fmt.Printf("    🗑️  %s\n", report) //nolint:forbidigo // CLI output
-			}
-			totalSize += 1024 * 256 // Simulate size calculation
-		}
+	// Create deployer instance
+	deployer := pages.NewGitHubPagesDeployer(repoPath, "gh-pages", opts.Verbose)
+
+	// Convert local options to pages.CleanOptions
+	cleanOpts := pages.CleanOptions{
+		MaxAgeDays: opts.MaxAgeDays,
+		DryRun:     opts.DryRun,
+		Verbose:    opts.Verbose,
 	}
 
-	if totalSize > 0 {
-		fmt.Printf("💾 Total space to be freed: %.2f MB\n", float64(totalSize)/(1024*1024)) //nolint:forbidigo // CLI output
-
-		if !opts.DryRun {
-			fmt.Println("🗑️  Removing expired content...") //nolint:forbidigo // CLI output
-			// TODO: Actually remove the content
-			fmt.Println("📤 Committing cleanup changes...") //nolint:forbidigo // CLI output
-		}
-	} else {
-		fmt.Println("✨ No expired content found - nothing to clean") //nolint:forbidigo // CLI output
+	// Run cleanup
+	if err := deployer.Clean(ctx, cleanOpts); err != nil {
+		return fmt.Errorf("cleaning GitHub Pages: %w", err)
 	}
 
 	fmt.Println("✅ Cleanup completed successfully") //nolint:forbidigo // CLI output
 
 	return nil
-}
-
-// generateInitialDashboard creates the initial dashboard HTML content
-func generateInitialDashboard() string {
-	return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coverage Dashboard | GoFortress</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 2rem; background: #0d1117; color: #c9d1d9; }
-        h1 { color: #58a6ff; margin-bottom: 0.5rem; }
-        .subtitle { color: #8b949e; margin-bottom: 2rem; }
-        .metric { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
-        .metric h3 { margin: 0 0 0.5rem 0; color: #f0f6fc; }
-        .metric p { margin: 0; color: #8b949e; }
-        .status { padding: 1rem; background: #1f2937; border-radius: 8px; margin-top: 2rem; text-align: center; }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>🏰 GoFortress Coverage Dashboard</h1>
-        <p class="subtitle">Coverage tracking and reporting for your Go projects</p>
-    </header>
-    
-    <main>
-        <div class="metric">
-            <h3>📊 Getting Started</h3>
-            <p>Your coverage dashboard is being set up. Coverage data will appear here after your first CI run.</p>
-        </div>
-        
-        <div class="metric">
-            <h3>🚀 Features</h3>
-            <p>• Real-time coverage badges • Interactive reports • Branch comparison • PR analysis</p>
-        </div>
-        
-        <div class="status">
-            <p>🔄 Waiting for coverage data...</p>
-        </div>
-    </main>
-</body>
-</html>`
 }
 
 func init() { //nolint:gochecknoinits // CLI command initialization

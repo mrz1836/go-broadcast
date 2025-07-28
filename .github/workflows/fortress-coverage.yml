@@ -331,20 +331,39 @@ jobs:
         continue-on-error: true
 
       # ————————————————————————————————————————————————————————————————
-      # GitHub Pages deployment (placeholder - pages commands not yet implemented)
+      # GitHub Pages deployment
       # ————————————————————————————————————————————————————————————————
-      - name: 📋 GitHub Pages deployment status
+      - name: 🚀 Deploy to GitHub Pages
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+        working-directory: .github/coverage/cmd/gofortress-coverage
         run: |
-          echo "📋 GitHub Pages deployment..."
-          echo "⚠️ GitHub Pages commands (pages setup/deploy/clean) are placeholder implementations"
-          echo "📊 Coverage artifacts generated successfully in coverage-output/"
-          echo "🔧 Manual GitHub Pages setup required until pages commands are implemented"
+          echo "🚀 Deploying coverage to GitHub Pages..."
 
-          # List generated artifacts for verification
-          if [[ -d "coverage-output" ]]; then
-            echo "📁 Generated coverage artifacts:"
-            find coverage-output -type f -name "*.svg" -o -name "*.html" -o -name "*.json" | head -10
+          # Configure git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Deploy coverage artifacts
+          if [[ -n "${{ inputs.pr-number }}" ]]; then
+            # Deploy PR coverage
+            ./gofortress-coverage pages deploy \
+              --branch "${{ inputs.branch-name }}" \
+              --commit "${{ inputs.commit-sha }}" \
+              --pr "${{ inputs.pr-number }}" \
+              --input "../../../../coverage-output" \
+              --verbose
+          else
+            # Deploy branch coverage
+            ./gofortress-coverage pages deploy \
+              --branch "${{ inputs.branch-name }}" \
+              --commit "${{ inputs.commit-sha }}" \
+              --input "../../../../coverage-output" \
+              --verbose
           fi
+
+          echo "✅ Coverage deployed to GitHub Pages"
 
       # ————————————————————————————————————————————————————————————————
       # Set coverage status check
