@@ -1386,7 +1386,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./coverage-output
+          publish_dir: ./.github/coverage/coverage-output
           destination_dir: ${{ inputs.branch-name }}
           keep_files: true
 

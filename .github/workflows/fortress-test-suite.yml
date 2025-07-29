@@ -366,7 +366,7 @@ jobs:
     needs: test-go
     if: inputs.code-coverage-enabled == 'true'
     permissions:
-      contents: read # Read repository content for coverage processing
+      contents: write # Read repository content and push commits for coverage history
       pull-requests: write # Required: Coverage workflow needs to create PR comments
       pages: write # Required: Coverage workflow needs to deploy to GitHub Pages
       id-token: write # Required: Coverage workflow needs GitHub Pages authentication

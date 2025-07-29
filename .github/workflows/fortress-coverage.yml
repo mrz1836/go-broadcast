@@ -58,7 +58,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     permissions:
-      contents: read # Read repository content
+      contents: write # Read repository content and push commits
       pull-requests: write # Create PR comments
       pages: write # Deploy to GitHub Pages
       id-token: write # GitHub Pages deployment authentication
@@ -309,7 +309,7 @@ jobs:
 
           # Resolve absolute paths to avoid relative path issues
           REPO_ROOT="$(realpath ../../../../)"
-          OUTPUT_DIR="$REPO_ROOT/coverage-output"
+          OUTPUT_DIR="$REPO_ROOT/.github/coverage/coverage-output"
 
           echo "🔍 Repository root: $REPO_ROOT"
           echo "🔍 Output directory: $OUTPUT_DIR"
@@ -414,7 +414,7 @@ jobs:
 
           # Use absolute path for statistics collection
           REPO_ROOT="$(pwd)"  # We're at repository root for this step
-          OUTPUT_DIR="$REPO_ROOT/coverage-output"
+          OUTPUT_DIR="$REPO_ROOT/.github/coverage/coverage-output"
 
           # Collect coverage processing statistics from generated files
           if [[ -f "$OUTPUT_DIR/coverage.html" ]]; then
@@ -522,7 +522,7 @@ jobs:
           echo "💬 Creating PR comment for PR #${{ inputs.pr-number }}..."
 
           # Check if coverage files exist for PR comment
-          if [[ -f "../../../../coverage-output/coverage.html" ]]; then
+          if [[ -f "../../../../.github/coverage/coverage-output/coverage.html" ]]; then
             # The comment command expects coverage data - let's skip for now since it needs implementation
             echo "⚠️ PR comment functionality requires coverage data JSON format - skipping"
             # TODO: Implement PR comment generation from HTML/SVG files
@@ -538,8 +538,8 @@ jobs:
         with:
           name: ${{ steps.safe-branch.outputs.artifact-name }}
           path: |
-            coverage-output/
-            !coverage-output/*.tmp
+            .github/coverage/coverage-output/
+            !.github/coverage/coverage-output/*.tmp
           retention-days: 7
         continue-on-error: true
 
@@ -565,13 +565,13 @@ jobs:
           ls -la .
           echo ""
           echo "📁 Coverage output directory:"
-          if [[ -d "coverage-output" ]]; then
-            ls -la coverage-output/
+          if [[ -d ".github/coverage/coverage-output" ]]; then
+            ls -la .github/coverage/coverage-output/
             echo ""
             echo "📊 Coverage output file sizes:"
-            du -h coverage-output/* 2>/dev/null || echo "No files to measure"
+            du -h .github/coverage/coverage-output/* 2>/dev/null || echo "No files to measure"
           else
-            echo "❌ coverage-output directory does not exist"
+            echo "❌ .github/coverage/coverage-output directory does not exist"
           fi
           echo ""
           echo "📄 Stats file:"
@@ -592,7 +592,7 @@ jobs:
 
           # Use absolute path resolution like in processing step
           REPO_ROOT="$(realpath ../../../../)"
-          OUTPUT_DIR="$REPO_ROOT/coverage-output"
+          OUTPUT_DIR="$REPO_ROOT/.github/coverage/coverage-output"
 
           echo "🔍 Repository root: $REPO_ROOT"
           echo "📂 Checking output directory: $OUTPUT_DIR"
@@ -639,7 +639,7 @@ jobs:
         if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
-          path: coverage-output
+          path: .github/coverage/coverage-output
 
       # ————————————————————————————————————————————————————————————————
       # Deploy to GitHub Pages using official action
@@ -661,7 +661,7 @@ jobs:
 
           # Use absolute path for status check
           REPO_ROOT="$(realpath ../../../../)"
-          OUTPUT_DIR="$REPO_ROOT/coverage-output"
+          OUTPUT_DIR="$REPO_ROOT/.github/coverage/coverage-output"
 
           # Extract coverage percentage from generated badge
           if [[ -f "$OUTPUT_DIR/coverage.svg" ]]; then
@@ -712,7 +712,7 @@ jobs:
 
           # Use absolute path for summary
           REPO_ROOT="$(pwd)"  # We're at repository root for this step
-          OUTPUT_DIR="$REPO_ROOT/coverage-output"
+          OUTPUT_DIR="$REPO_ROOT/.github/coverage/coverage-output"
           HISTORY_DIR="$REPO_ROOT/.github/coverage/history"
 
           # Debug: Show paths and directory structure

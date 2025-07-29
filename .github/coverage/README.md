@@ -20,12 +20,23 @@ This coverage system is designed as a portable, self-contained unit that lives e
 │   ├── badge/                      # SVG badge generation
 │   ├── report/                     # HTML report generation
 │   ├── history/                    # Historical data tracking
-│   └── github/                     # GitHub API integration
+│   ├── github/                     # GitHub API integration
+│   └── templates/                  # HTML templates (source files)
+│       ├── coverage-report.html    # Template for detailed coverage reports
+│       ├── dashboard.html          # Template for coverage dashboard
+│       └── favicon.ico             # Favicon for web interface
 ├── scripts/                        # Setup and maintenance scripts
 │   ├── setup-github-pages-env.sh   # GitHub Pages environment configuration
 │   └── README.md                   # Scripts documentation
+├── history/                        # Coverage history tracking (generated)
 └── README.md                       # This file
+
+# Generated directories (not in repository)
+coverage-output/                    # Generated coverage reports
+test-coverage-output/               # Generated test coverage reports
 ```
+
+**Note**: The `coverage-output/` and `test-coverage-output/` directories are generated during the build process and are excluded from version control via `.gitignore`. Only the template source files in `internal/templates/` are stored in the repository.
 
 ## Features
 
@@ -87,6 +98,20 @@ The CLI tool will be built and used in GitHub Actions workflows:
 ## Configuration
 
 The system is configured through environment variables in `.github/.env.shared`. See the main repository documentation for complete configuration options.
+
+## Template System
+
+The coverage system uses two main HTML templates stored in `internal/templates/`:
+
+1. **`coverage-report.html`** - Generates detailed coverage reports showing line-by-line coverage
+2. **`dashboard.html`** - Creates an interactive dashboard with coverage trends and metrics
+
+During the coverage generation process:
+- Templates are processed with coverage data
+- Output files are generated in `coverage-output/` directory
+- For GitHub Pages deployment, `dashboard.html` is also copied as `index.html` for convenience
+
+All generated HTML files are excluded from version control and created fresh during each build.
 
 ## Development
 
