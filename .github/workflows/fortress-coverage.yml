@@ -784,6 +784,75 @@ jobs:
           echo "✅ All required coverage artifacts are present"
 
       # ————————————————————————————————————————————————————————————————
+      # Setup GitHub Pages branch if needed
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Setup GitHub Pages branch
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        working-directory: .github/coverage/cmd/gofortress-coverage
+        run: |
+          echo "🔧 Checking if gh-pages branch needs setup..."
+
+          # Check if gh-pages branch exists
+          if git ls-remote --heads origin gh-pages | grep -q gh-pages; then
+            echo "✅ gh-pages branch already exists"
+          else
+            echo "📦 Setting up gh-pages branch..."
+            ./gofortress-coverage pages setup --verbose
+            echo "✅ gh-pages branch setup complete"
+          fi
+
+      # ————————————————————————————————————————————————————————————————
+      # Deploy coverage to GitHub Pages with proper organization
+      # ————————————————————————————————————————————————————————————————
+      - name: 🚀 Deploy PR Coverage to GitHub Pages
+        if: inputs.pr-number != ''
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        working-directory: .github/coverage/cmd/gofortress-coverage
+        run: |
+          echo "🚀 Deploying PR coverage to GitHub Pages..."
+
+          # Use absolute path resolution
+          REPO_ROOT="$(realpath ../../../../)"
+          OUTPUT_DIR="$REPO_ROOT/.github/coverage/coverage-output"
+
+          # Deploy coverage for PR
+          ./gofortress-coverage pages deploy \
+            --branch "${{ steps.git-branch.outputs.branch-name }}" \
+            --commit "${{ inputs.commit-sha }}" \
+            --pr "${{ inputs.pr-number }}" \
+            --input "$OUTPUT_DIR" \
+            --verbose
+
+          echo "✅ PR coverage deployed to: /pr/${{ inputs.pr-number }}/"
+
+      - name: 🚀 Deploy Branch Coverage to GitHub Pages
+        if: inputs.pr-number == ''
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        working-directory: .github/coverage/cmd/gofortress-coverage
+        run: |
+          echo "🚀 Deploying branch coverage to GitHub Pages..."
+
+          # Use absolute path resolution
+          REPO_ROOT="$(realpath ../../../../)"
+          OUTPUT_DIR="$REPO_ROOT/.github/coverage/coverage-output"
+
+          # Deploy coverage for branch
+          ./gofortress-coverage pages deploy \
+            --branch "${{ steps.git-branch.outputs.branch-name }}" \
+            --commit "${{ inputs.commit-sha }}" \
+            --input "$OUTPUT_DIR" \
+            --verbose
+
+          echo "✅ Branch coverage deployed to: /reports/branch/${{ steps.git-branch.outputs.branch-name }}/"
+
+      # ————————————————————————————————————————————————————————————————
       # Upload coverage artifacts for GitHub Pages deployment
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload Pages artifact

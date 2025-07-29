@@ -839,8 +839,11 @@ func TestCompleteCommand(t *testing.T) {
 				"Report:",
 			},
 			checkFiles: []string{
-				filepath.Join(outputDir, "coverage.svg"),
-				filepath.Join(outputDir, "coverage.html"),
+				filepath.Join(outputDir, "reports", "branch", "master", "coverage.svg"),
+				filepath.Join(outputDir, "reports", "branch", "master", "coverage.html"),
+				filepath.Join(outputDir, "reports", "branch", "master", "index.html"),
+				filepath.Join(outputDir, "reports", "branch", "master", "dashboard.html"),
+				filepath.Join(outputDir, "coverage.svg"), // Also check root badge
 			},
 			envVars: map[string]string{
 				"COVERAGE_AUTO_CREATE_DIRS": "true",

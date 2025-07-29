@@ -1,0 +1,159 @@
+# ------------------------------------------------------------------------------------
+#  Coverage Cleanup (GoFortress)
+#
+#  Purpose: Periodically clean up old PR coverage data from GitHub Pages to manage
+#  storage usage and maintain organization.
+#
+#  Maintainer: @mrz1836
+#
+# ------------------------------------------------------------------------------------
+
+name: GoFortress (Coverage Cleanup)
+
+on:
+  schedule:
+    # Run every Sunday at 2:00 AM UTC
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+    inputs:
+      max-age:
+        description: "Maximum age in days for PR data"
+        required: false
+        default: "30"
+        type: string
+      dry-run:
+        description: "Dry run mode (show what would be cleaned)"
+        required: false
+        default: "false"
+        type: boolean
+
+# Security: Restrictive default permissions
+permissions:
+  contents: write # Need to push to gh-pages branch
+
+jobs:
+  # ----------------------------------------------------------------------------------
+  # Load environment configuration
+  # ----------------------------------------------------------------------------------
+  load-env:
+    name: 🔧 Load Environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      env-json: ${{ steps.load-env.outputs.env-json }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: 🔧 Load environment configuration
+        id: load-env
+        run: |
+          if [[ -f .github/.env.shared ]]; then
+            echo "📄 Loading environment from .github/.env.shared"
+            
+            ENV_JSON=$(cat .github/.env.shared | grep -v '^#' | grep '=' | jq -R -s 'split("\n") | 
+              map(select(. != "") | split("=") | {(.[0]): (.[1:] | join("="))}) | add // {}')
+            
+            echo "env-json<<EOF" >> $GITHUB_OUTPUT
+            echo "$ENV_JSON" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            
+            echo "✅ Environment loaded successfully"
+          else
+            echo "❌ .github/.env.shared not found"
+            exit 1
+          fi
+
+  # ----------------------------------------------------------------------------------
+  # Clean up old PR coverage data
+  # ----------------------------------------------------------------------------------
+  cleanup-coverage:
+    name: 🧹 Clean PR Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [load-env]
+
+    steps:
+      # ————————————————————————————————————————————————————————————————
+      # Parse environment variables
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Parse environment variables
+        env:
+          ENV_JSON: ${{ needs.load-env.outputs.env-json }}
+        run: |
+          echo "📋 Setting environment variables..."
+          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+            echo "$key=$value" >> $GITHUB_ENV
+          done
+
+      - name: 📥 Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # ————————————————————————————————————————————————————————————————
+      # Setup Go and build coverage tool
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Setup Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: ${{ env.GO_PRIMARY_VERSION }}
+          cache: false
+
+      - name: 🔨 Build coverage tool
+        working-directory: .github/coverage/cmd/gofortress-coverage
+        run: |
+          echo "🔨 Building GoFortress coverage tool..."
+          go build -v -o gofortress-coverage .
+          chmod +x gofortress-coverage
+          echo "✅ Coverage tool built successfully"
+
+      # ————————————————————————————————————————————————————————————————
+      # Run cleanup
+      # ————————————————————————————————————————————————————————————————
+      - name: 🧹 Clean old PR coverage data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: .github/coverage/cmd/gofortress-coverage
+        run: |
+          echo "🧹 Cleaning old PR coverage data..."
+
+          # Determine max age and dry run settings
+          MAX_AGE="${{ github.event.inputs.max-age || '30' }}"
+          DRY_RUN_FLAG=""
+          if [[ "${{ github.event.inputs.dry-run }}" == "true" ]]; then
+            DRY_RUN_FLAG="--dry-run"
+            echo "🔍 Running in DRY RUN mode - no changes will be made"
+          fi
+
+          echo "📅 Removing PR data older than $MAX_AGE days"
+
+          # Run cleanup
+          ./gofortress-coverage pages clean \
+            --max-age "$MAX_AGE" \
+            $DRY_RUN_FLAG \
+            --verbose
+
+          echo "✅ Cleanup completed"
+
+      # ————————————————————————————————————————————————————————————————
+      # Summary
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Cleanup summary
+        if: always()
+        run: |
+          echo "## 🧹 Coverage Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Max Age**: ${{ github.event.inputs.max-age || '30' }} days" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dry Run**: ${{ github.event.inputs.dry-run || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ github.event.inputs.dry-run }}" == "true" ]]; then
+            echo "ℹ️ This was a dry run - no files were actually deleted" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ Old PR coverage data has been cleaned up" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Maintained by GoFortress Coverage System_" >> $GITHUB_STEP_SUMMARY

@@ -101,16 +101,36 @@ update history, and create GitHub PR comment if in PR context.`,
 		}
 		cmd.Printf("\n")
 
-		// Create output directory if needed
+		// Create output directory structure for GitHub Pages
+		// Structure depends on context:
+		// - Branch: outputDir/reports/branch/{branchName}/
+		// - PR: outputDir/pr/{prNumber}/
+		branch := getDefaultBranch()
+		var targetOutputDir string
+		if cfg.IsPullRequestContext() {
+			// PR context: outputDir/pr/{prNumber}/
+			targetOutputDir = filepath.Join(outputDir, "pr", fmt.Sprintf("%d", cfg.GitHub.PullRequest))
+		} else {
+			// Branch context: outputDir/reports/branch/{branchName}/
+			targetOutputDir = filepath.Join(outputDir, "reports", "branch", branch)
+		}
+
 		if cfg.Storage.AutoCreate && !dryRun {
+			// Create the full directory structure
+			if mkdirErr := os.MkdirAll(targetOutputDir, cfg.Storage.DirMode); mkdirErr != nil {
+				return fmt.Errorf("failed to create output directory structure: %w", mkdirErr)
+			}
+			// Also ensure root output directory exists for root index.html
 			if mkdirErr := os.MkdirAll(outputDir, cfg.Storage.DirMode); mkdirErr != nil {
-				return fmt.Errorf("failed to create output directory: %w", mkdirErr)
+				return fmt.Errorf("failed to create root output directory: %w", mkdirErr)
 			}
 		}
 
 		// Step 2: Generate badge
 		cmd.Printf("🏷️  Step 2: Generating coverage badge...\n")
-		badgeFile := filepath.Join(outputDir, cfg.Badge.OutputFile)
+		// Badge goes in target directory and also at root for easy access
+		badgeFile := filepath.Join(targetOutputDir, cfg.Badge.OutputFile)
+		rootBadgeFile := filepath.Join(outputDir, cfg.Badge.OutputFile)
 
 		var badgeOptions []badge.Option
 		if cfg.Badge.Label != "coverage" {
@@ -136,6 +156,10 @@ update history, and create GitHub PR comment if in PR context.`,
 			if writeErr := os.WriteFile(badgeFile, svgContent, cfg.Storage.FileMode); writeErr != nil {
 				return fmt.Errorf("failed to write badge file: %w", writeErr)
 			}
+			// Also write badge to root for easy access
+			if writeErr := os.WriteFile(rootBadgeFile, svgContent, cfg.Storage.FileMode); writeErr != nil {
+				cmd.Printf("   ⚠️  Failed to write root badge file: %v\n", writeErr)
+			}
 		}
 
 		cmd.Printf("   ✅ Badge saved: %s\n", badgeFile)
@@ -143,7 +167,7 @@ update history, and create GitHub PR comment if in PR context.`,
 
 		// Step 3: Generate HTML report
 		cmd.Printf("📊 Step 3: Generating HTML report...\n")
-		reportFile := filepath.Join(outputDir, cfg.Report.OutputFile)
+		reportFile := filepath.Join(targetOutputDir, cfg.Report.OutputFile)
 
 		reportConfig := &report.Config{
 			Title:            cfg.Report.Title,
@@ -180,7 +204,7 @@ update history, and create GitHub PR comment if in PR context.`,
 		cmd.Printf("🎯 Step 4: Generating coverage dashboard...\n")
 
 		// Prepare coverage data for dashboard
-		branch := getDefaultBranch()
+		// branch already declared earlier
 
 		coverageData := &dashboard.CoverageData{
 			ProjectName:    cfg.Report.Title,
@@ -268,7 +292,6 @@ update history, and create GitHub PR comment if in PR context.`,
 
 			// Add GitHub URL for package directory if we have GitHub info
 			if cfg.GitHub.Owner != "" && cfg.GitHub.Repository != "" {
-				branch := getDefaultBranch()
 				pkgCoverage.GitHubURL = fmt.Sprintf("https://github.com/%s/%s/tree/%s/%s",
 					cfg.GitHub.Owner, cfg.GitHub.Repository, branch, pkgName)
 			}
@@ -286,7 +309,6 @@ update history, and create GitHub PR comment if in PR context.`,
 						MissedLines:  file.TotalLines - file.CoveredLines,
 					}
 					if cfg.GitHub.Owner != "" && cfg.GitHub.Repository != "" {
-						branch := getDefaultBranch()
 						fileCoverage.GitHubURL = fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s",
 							cfg.GitHub.Owner, cfg.GitHub.Repository, branch, fileName)
 					}
@@ -304,7 +326,7 @@ update history, and create GitHub PR comment if in PR context.`,
 
 		// Populate history data for dashboard if history is enabled
 		if cfg.History.Enabled {
-			branch := getDefaultBranch()
+			// branch already declared at function level
 
 			// Resolve absolute path for history storage (same logic as Step 5)
 			dashboardHistoryPath := cfg.History.StoragePath
@@ -376,7 +398,7 @@ update history, and create GitHub PR comment if in PR context.`,
 			ProjectName:      cfg.Report.Title,
 			RepositoryOwner:  cfg.GitHub.Owner,
 			RepositoryName:   cfg.GitHub.Repository,
-			OutputDir:        outputDir,
+			OutputDir:        targetOutputDir, // Dashboard goes in target directory
 			GeneratorVersion: "1.0.0",
 		}
 
@@ -388,11 +410,11 @@ update history, and create GitHub PR comment if in PR context.`,
 			if err := dashboardGen.Generate(ctx, coverageData); err != nil {
 				cmd.Printf("   ⚠️  Failed to generate dashboard: %v\n", err)
 			} else {
-				cmd.Printf("   ✅ Dashboard saved: %s/index.html\n", outputDir)
+				cmd.Printf("   ✅ Dashboard saved: %s/index.html\n", targetOutputDir)
 
 				// Also create dashboard.html for GitHub Pages deployment compatibility
-				indexPath := filepath.Join(outputDir, "index.html")
-				dashboardPath := filepath.Join(outputDir, "dashboard.html")
+				indexPath := filepath.Join(targetOutputDir, "index.html")
+				dashboardPath := filepath.Join(targetOutputDir, "dashboard.html")
 
 				// Verify index.html was created successfully
 				if _, statErr := os.Stat(indexPath); statErr != nil {
@@ -504,7 +526,7 @@ update history, and create GitHub PR comment if in PR context.`,
 			}
 
 			// Get trend before adding new entry
-			branch := getDefaultBranch()
+			// branch already declared at function level
 			cmd.Printf("   🌿 Using branch: %s\n", branch)
 
 			if latest, err := tracker.GetLatestEntry(ctx, branch); err == nil {
@@ -656,6 +678,30 @@ update history, and create GitHub PR comment if in PR context.`,
 			}
 		} else {
 			cmd.Printf("🐙 Step 6: GitHub integration (skipped)\n\n")
+		}
+
+		// Step 7: Create root index.html redirect
+		if !dryRun && branch == "master" && !cfg.IsPullRequestContext() {
+			cmd.Printf("🏠 Step 7: Creating root index.html redirect...\n")
+			rootIndexPath := filepath.Join(outputDir, "index.html")
+			redirectHTML := `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Coverage Report - Redirecting...</title>
+    <meta http-equiv="refresh" content="0; url=reports/branch/master/">
+    <script>window.location.href = "reports/branch/master/";</script>
+</head>
+<body>
+    <p>Redirecting to <a href="reports/branch/master/">coverage report</a>...</p>
+</body>
+</html>`
+			if err := os.WriteFile(rootIndexPath, []byte(redirectHTML), cfg.Storage.FileMode); err != nil {
+				cmd.Printf("   ⚠️  Failed to create root index.html: %v\n", err)
+			} else {
+				cmd.Printf("   ✅ Root index.html redirect created\n")
+			}
+			cmd.Printf("\n")
 		}
 
 		// Final summary
