@@ -539,6 +539,20 @@ func (d *GitHubPagesDeployer) copyArtifacts(srcDir, destPrefix string) error {
 		}
 	}
 
+	// Copy data directory (contains build-status.json)
+	srcDataDir := filepath.Join(srcDir, "data")
+	if _, err := os.Stat(srcDataDir); err == nil {
+		var destDataDir string
+		if destPrefix == "" {
+			destDataDir = "data"
+		} else {
+			destDataDir = filepath.Join(destPrefix, "data")
+		}
+		if err := d.copyDirectory(srcDataDir, destDataDir); err != nil {
+			return fmt.Errorf("copying data directory: %w", err)
+		}
+	}
+
 	// Copy favicon files if deploying to root (destPrefix is empty)
 	if destPrefix == "" {
 		if err := d.createAndCopyFavicons(); err != nil {
@@ -867,6 +881,39 @@ func (d *GitHubPagesDeployer) copyFile(src, dst string) error {
 	// Copy content
 	if _, err := io.Copy(dstFile, srcFile); err != nil {
 		return fmt.Errorf("copying file content: %w", err)
+	}
+
+	return nil
+}
+
+func (d *GitHubPagesDeployer) copyDirectory(src, dst string) error {
+	// Create destination directory
+	if err := os.MkdirAll(dst, 0o750); err != nil {
+		return fmt.Errorf("creating destination directory: %w", err)
+	}
+
+	// Read source directory
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return fmt.Errorf("reading source directory: %w", err)
+	}
+
+	// Copy each entry
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			// Recursively copy subdirectory
+			if err := d.copyDirectory(srcPath, dstPath); err != nil {
+				return fmt.Errorf("copying subdirectory %s: %w", entry.Name(), err)
+			}
+		} else {
+			// Copy file
+			if err := d.copyFile(srcPath, dstPath); err != nil {
+				return fmt.Errorf("copying file %s: %w", entry.Name(), err)
+			}
+		}
 	}
 
 	return nil
