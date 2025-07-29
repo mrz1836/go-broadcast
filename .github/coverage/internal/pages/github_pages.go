@@ -259,6 +259,72 @@ func (d *GitHubPagesDeployer) Clean(ctx context.Context, opts CleanOptions) erro
 	return nil
 }
 
+// createAndCopyFavicons creates favicon files and copies them to the deployment root
+func (d *GitHubPagesDeployer) createAndCopyFavicons() error {
+	if d.verbose {
+		fmt.Printf("🎨 Creating and deploying favicon files...\n") //nolint:forbidigo // CLI output
+	}
+
+	// SVG favicon content (GoFortress fortress icon)
+	svgFavicon := `<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="fortressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#58a6ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#79c0ff;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3fb950;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#56d364;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <circle cx="16" cy="16" r="15" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+  <rect x="8" y="18" width="16" height="10" fill="url(#fortressGradient)" rx="1"/>
+  <rect x="6" y="14" width="4" height="14" fill="url(#fortressGradient)" rx="1"/>
+  <rect x="22" y="14" width="4" height="14" fill="url(#fortressGradient)" rx="1"/>
+  <rect x="14" y="12" width="4" height="16" fill="url(#fortressGradient)" rx="1"/>
+  <rect x="6" y="12" width="1" height="3" fill="url(#fortressGradient)"/>
+  <rect x="8" y="12" width="1" height="3" fill="url(#fortressGradient)"/>
+  <rect x="9" y="12" width="1" height="3" fill="url(#fortressGradient)"/>
+  <rect x="22" y="12" width="1" height="3" fill="url(#fortressGradient)"/>
+  <rect x="24" y="12" width="1" height="3" fill="url(#fortressGradient)"/>
+  <rect x="25" y="12" width="1" height="3" fill="url(#fortressGradient)"/>
+  <rect x="14" y="10" width="1" height="3" fill="url(#fortressGradient)"/>
+  <rect x="16" y="10" width="1" height="3" fill="url(#fortressGradient)"/>
+  <rect x="17" y="10" width="1" height="3" fill="url(#fortressGradient)"/>
+  <path d="M16 6 L12 8 L12 14 Q12 16 16 18 Q20 16 20 14 L20 8 Z" fill="url(#shieldGradient)" opacity="0.9"/>
+  <path d="M14 12 L15.5 13.5 L18 11" stroke="#0d1117" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="16" cy="16" r="14" fill="none" stroke="url(#fortressGradient)" stroke-width="0.5" opacity="0.3"/>
+</svg>`
+
+	// Write SVG favicon
+	if err := os.WriteFile("favicon.svg", []byte(svgFavicon), 0o600); err != nil {
+		return fmt.Errorf("creating favicon.svg: %w", err)
+	}
+
+	// Create a basic ICO favicon (simplified for compatibility)
+	icoContent := []byte{
+		0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x10, 0x10, 0x00, 0x00, 0x01, 0x00, 0x20, 0x00,
+		0x68, 0x04, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00, 0x10, 0x00,
+		0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x01, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+	// Fill with basic pixel data (simplified blue gradient)
+	for i := 0; i < 256; i++ {
+		icoContent = append(icoContent, 0x58, 0xa6, 0xff, 0xff) // Blue pixel
+	}
+
+	if err := os.WriteFile("favicon.ico", icoContent, 0o600); err != nil {
+		return fmt.Errorf("creating favicon.ico: %w", err)
+	}
+
+	if d.verbose {
+		fmt.Printf("✅ Favicon files created successfully\n") //nolint:forbidigo // CLI output
+	}
+
+	return nil
+}
+
 // Helper methods
 
 func (d *GitHubPagesDeployer) branchExists(ctx context.Context) (bool, error) {
@@ -372,18 +438,58 @@ func (d *GitHubPagesDeployer) deployBranchArtifacts(opts DeployOptions) error {
 	// Sanitize branch name for filesystem
 	safeBranch := strings.ReplaceAll(opts.Branch, "/", "-")
 
-	// Copy main artifacts
+	if d.verbose {
+		fmt.Printf("📁 Deploying artifacts for branch: %s\n", opts.Branch) //nolint:forbidigo // CLI output
+	}
+
+	// Copy main artifacts to root (for compatibility)
 	if err := d.copyArtifacts(opts.InputDir, ""); err != nil {
 		return err
 	}
 
-	// Also copy to branch-specific location
-	branchDir := filepath.Join("reports", "branch", safeBranch)
-	if err := os.MkdirAll(branchDir, 0o750); err != nil {
-		return fmt.Errorf("creating branch directory: %w", err)
+	// Create proper branch directory structure for reports
+	var branchReportsDir string
+	if opts.Branch == "main" || opts.Branch == "master" {
+		// For main branch, create both master and main directories for maximum compatibility
+		branchReportsDir = "reports/master"
+		if d.verbose {
+			fmt.Printf("📂 Creating main/master branch directory: %s\n", branchReportsDir) //nolint:forbidigo // CLI output
+		}
+		if err := os.MkdirAll(branchReportsDir, 0o750); err != nil {
+			return fmt.Errorf("creating master branch directory: %w", err)
+		}
+		if err := d.copyArtifacts(opts.InputDir, branchReportsDir); err != nil {
+			return err
+		}
+
+		// Also create main directory if branch is actually "main"
+		if opts.Branch == "main" {
+			mainReportsDir := "reports/main"
+			if d.verbose {
+				fmt.Printf("📂 Creating additional main branch directory: %s\n", mainReportsDir) //nolint:forbidigo // CLI output
+			}
+			if err := os.MkdirAll(mainReportsDir, 0o750); err != nil {
+				return fmt.Errorf("creating main branch directory: %w", err)
+			}
+			if err := d.copyArtifacts(opts.InputDir, mainReportsDir); err != nil {
+				return err
+			}
+		}
+	} else {
+		// For other branches, use the branch-specific directory structure
+		branchReportsDir = filepath.Join("reports", "branch", safeBranch)
+		if d.verbose {
+			fmt.Printf("📂 Creating feature branch directory: %s\n", branchReportsDir) //nolint:forbidigo // CLI output
+		}
+		if err := os.MkdirAll(branchReportsDir, 0o750); err != nil {
+			return fmt.Errorf("creating branch directory: %w", err)
+		}
+		if err := d.copyArtifacts(opts.InputDir, branchReportsDir); err != nil {
+			return err
+		}
 	}
 
-	return d.copyArtifacts(opts.InputDir, branchDir)
+	return nil
 }
 
 func (d *GitHubPagesDeployer) copyArtifacts(srcDir, destPrefix string) error {
@@ -402,8 +508,13 @@ func (d *GitHubPagesDeployer) copyArtifacts(srcDir, destPrefix string) error {
 	// Copy HTML report
 	srcReport := filepath.Join(srcDir, "coverage.html")
 	if _, err := os.Stat(srcReport); err == nil {
-		destReport := "reports/coverage.html"
-		if destPrefix != "" {
+		var destReport string
+		if destPrefix == "" {
+			destReport = "reports/coverage.html"
+		} else if strings.HasPrefix(destPrefix, "reports/") {
+			// destPrefix already includes "reports/" path
+			destReport = filepath.Join(destPrefix, "coverage.html")
+		} else {
 			destReport = filepath.Join("reports", destPrefix, "coverage.html")
 		}
 		if err := d.copyFile(srcReport, destReport); err != nil {
@@ -414,12 +525,27 @@ func (d *GitHubPagesDeployer) copyArtifacts(srcDir, destPrefix string) error {
 	// Copy any dashboard files
 	srcDashboard := filepath.Join(srcDir, "dashboard.html")
 	if _, err := os.Stat(srcDashboard); err == nil {
-		destDashboard := "coverage/index.html"
-		if destPrefix != "" {
+		var destDashboard string
+		if destPrefix == "" {
+			destDashboard = "coverage/index.html"
+		} else if strings.HasPrefix(destPrefix, "reports/") {
+			// For reports directory, create index.html in the same location
+			destDashboard = filepath.Join(destPrefix, "index.html")
+		} else {
 			destDashboard = filepath.Join("coverage", destPrefix, "index.html")
 		}
 		if err := d.copyFile(srcDashboard, destDashboard); err != nil {
 			return fmt.Errorf("copying dashboard: %w", err)
+		}
+	}
+
+	// Copy favicon files if deploying to root (destPrefix is empty)
+	if destPrefix == "" {
+		if err := d.createAndCopyFavicons(); err != nil {
+			if d.verbose {
+				fmt.Printf("⚠️ Warning: Failed to copy favicon files: %v\n", err) //nolint:forbidigo // CLI output
+			}
+			// Don't fail the entire deployment for favicon issues
 		}
 	}
 
