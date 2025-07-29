@@ -1316,23 +1316,23 @@ jobs:
         run: |
           echo "🔍 PRE-UPLOAD VERIFICATION: Checking files before GitHub Pages artifact upload"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
+
           FILTERED_DIR=".github/coverage/coverage-output-filtered"
-          
+
           # Check if directory exists
           if [[ ! -d "$FILTERED_DIR" ]]; then
             echo "❌ CRITICAL ERROR: Filtered directory does not exist: $FILTERED_DIR"
             exit 1
           fi
-          
+
           echo "✅ Filtered directory exists: $FILTERED_DIR"
           echo ""
-          
+
           # Show complete directory structure
           echo "📁 COMPLETE DIRECTORY STRUCTURE TO BE UPLOADED:"
           find "$FILTERED_DIR" -type f -exec ls -la {} \; | sort
           echo ""
-          
+
           # Check for critical files specifically
           echo "🎯 CRITICAL FILES CHECK:"
           CRITICAL_FILES=(
@@ -1342,7 +1342,7 @@ jobs:
             "dashboard.html"
             "data/build-status.json"
           )
-          
+
           ALL_CRITICAL_EXIST=true
           for file in "${CRITICAL_FILES[@]}"; do
             file_path="$FILTERED_DIR/$file"
@@ -1360,9 +1360,9 @@ jobs:
               ALL_CRITICAL_EXIST=false
             fi
           done
-          
+
           echo ""
-          
+
           if [[ "$ALL_CRITICAL_EXIST" != "true" ]]; then
             echo "❌ CRITICAL ERROR: Missing required files for GitHub Pages deployment"
             echo "🔍 Available files in directory:"
@@ -1371,21 +1371,21 @@ jobs:
             echo "🚨 This will cause 404 errors on the deployed site!"
             exit 1
           fi
-          
+
           # Show total file count and size
           TOTAL_FILES=$(find "$FILTERED_DIR" -type f | wc -l)
           TOTAL_SIZE=$(du -sh "$FILTERED_DIR" 2>/dev/null | cut -f1 || echo "unknown")
-          
+
           echo "📊 UPLOAD SUMMARY:"
           echo "  - Total files to upload: $TOTAL_FILES"
           echo "  - Total size: $TOTAL_SIZE"
           echo "  - Target path: $FILTERED_DIR"
           echo ""
-          
+
           # Check file permissions
           echo "🔒 FILE PERMISSIONS CHECK:"
           find "$FILTERED_DIR" -type f -not -perm -444 -exec echo "  ⚠️ Not readable: {}" \; || echo "  ✅ All files are readable"
-          
+
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Pre-upload verification completed - ready for GitHub Pages artifact upload"
 
@@ -1396,27 +1396,27 @@ jobs:
         if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
         run: |
           echo "📦 Creating GitHub Pages tarball manually for better control..."
-          
+
           FILTERED_DIR=".github/coverage/coverage-output-filtered"
           TARBALL_PATH="github-pages.tar.gz"
-          
+
           # Ensure we're in the filtered directory
           cd "$FILTERED_DIR"
-          
+
           echo "📁 Current directory: $(pwd)"
           echo "🔍 Files to be included in tarball:"
           find . -type f -exec echo "  - {}" \;
-          
+
           # Create tarball with all files, preserving directory structure
           echo "📦 Creating tarball..."
           tar -czf "../../$TARBALL_PATH" .
-          
+
           # Return to root directory
           cd ../..
-          
+
           echo "✅ Tarball created: $TARBALL_PATH"
           echo "📊 Tarball size: $(ls -lh "$TARBALL_PATH" | awk '{print $5}')"
-          
+
           # Verify tarball contents
           echo "🔍 Tarball contents verification:"
           tar -tzf "$TARBALL_PATH" | head -20
@@ -1431,7 +1431,7 @@ jobs:
           name: github-pages
           path: github-pages.tar.gz
           retention-days: 1
-          compression-level: 0  # Already compressed
+          compression-level: 0 # Already compressed
         continue-on-error: false
 
       # ————————————————————————————————————————————————————————————————
@@ -1444,18 +1444,18 @@ jobs:
         run: |
           echo "🔍 POST-UPLOAD VERIFICATION: Checking what was uploaded to GitHub Pages artifact"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
+
           # Get the workflow run ID
           RUN_ID="${{ github.run_id }}"
           echo "📋 Workflow Run ID: $RUN_ID"
           echo "📋 Repository: ${{ github.repository }}"
-          
+
           # Wait a moment for the artifact to be fully processed
           sleep 5
-          
+
           # List artifacts for this workflow run
           echo "📦 Checking artifacts for this workflow run..."
-          
+
           if command -v gh &> /dev/null; then
             echo "🔍 Available artifacts:"
             gh api repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts --jq '.artifacts[] | "  - \(.name) (\(.size_in_bytes) bytes) - \(.created_at)"' || echo "  ❌ Failed to list artifacts"
@@ -1478,14 +1478,14 @@ jobs:
           else
             echo "⚠️ GitHub CLI not available for artifact verification"
           fi
-          
+
           echo ""
           echo "🌐 Expected deployment URLs after successful deployment:"
           echo "  - https://mrz1836.github.io/go-broadcast/ (should load index.html)"
           echo "  - https://mrz1836.github.io/go-broadcast/coverage.html (detailed coverage)"
           echo "  - https://mrz1836.github.io/go-broadcast/data/build-status.json (build status)"
           echo "  - https://mrz1836.github.io/go-broadcast/coverage.svg (coverage badge)"
-          
+
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Post-upload verification completed"
 
@@ -1505,17 +1505,17 @@ jobs:
         run: |
           echo "🔍 POST-DEPLOYMENT VERIFICATION: Testing deployed URLs"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
+
           # Base URL for the deployed site
           BASE_URL="https://mrz1836.github.io/go-broadcast"
-          
+
           echo "🌐 Base URL: $BASE_URL"
           echo "🕐 Deployment URL from action: ${{ steps.deployment.outputs.page_url }}"
-          
+
           # Give GitHub Pages a moment to fully deploy
           echo "⏳ Waiting 30 seconds for GitHub Pages deployment to fully propagate..."
           sleep 30
-          
+
           # Test critical URLs
           URLS_TO_TEST=(
             "$BASE_URL/"
@@ -1525,11 +1525,11 @@ jobs:
             "$BASE_URL/data/build-status.json"
             "$BASE_URL/dashboard.html"
           )
-          
+
           echo "🎯 Testing critical URLs..."
           SUCCESS_COUNT=0
           TOTAL_COUNT=${#URLS_TO_TEST[@]}
-          
+
           for url in "${URLS_TO_TEST[@]}"; do
             echo ""
             echo "🔗 Testing: $url"
@@ -1565,12 +1565,12 @@ jobs:
               fi
             done
           done
-          
+
           echo ""
           echo "📊 VERIFICATION SUMMARY:"
           echo "  - Successful URLs: $SUCCESS_COUNT/$TOTAL_COUNT"
           echo "  - Success rate: $((SUCCESS_COUNT * 100 / TOTAL_COUNT))%"
-          
+
           if [[ $SUCCESS_COUNT -eq $TOTAL_COUNT ]]; then
             echo "  🎉 ALL URLS WORKING! The deployment fix was successful."
             echo ""
