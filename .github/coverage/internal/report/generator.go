@@ -16,6 +16,8 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
 )
 
+const coverageReport = "Coverage Report"
+
 // RepositoryInfo contains information extracted from a Git repository
 type RepositoryInfo struct {
 	Name     string // Repository name (e.g., "go-broadcast")
@@ -125,7 +127,7 @@ func New() *Generator {
 	return &Generator{
 		config: &Config{
 			Theme:            "github-dark",
-			Title:            "Coverage Report",
+			Title:            coverageReport,
 			ShowPackages:     true,
 			ShowFiles:        true,
 			ShowMissing:      true,
@@ -460,10 +462,10 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 	// Handle nil data
 	if data == nil {
 		// Try to get project name from Git, fallback to generic name
-		projectName := "Coverage Report"
+		projectName := coverageReport
 		gitHubOwner := ""
 		gitHubRepo := ""
-		title := "Coverage Report"
+		title := coverageReport
 
 		if repoInfo != nil {
 			projectName = repoInfo.Name
@@ -498,7 +500,7 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 	// Add nil checks for data fields
 	if data.Config == nil {
 		data.Config = &Config{
-			Title:     "Coverage Report",
+			Title:     coverageReport,
 			Theme:     "auto",
 			ShowFiles: true,
 		}
@@ -543,7 +545,7 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 		gitHubOwner = repoInfo.Owner
 		gitHubRepo = repoInfo.Name
 		// Use repository-focused title if no custom title was set (empty or default)
-		if data.Config.Title == "" || data.Config.Title == "Coverage Report" {
+		if data.Config.Title == "" || data.Config.Title == coverageReport {
 			title = fmt.Sprintf("%s/%s Coverage Report", repoInfo.Owner, repoInfo.Name)
 		}
 	}

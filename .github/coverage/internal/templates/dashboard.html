@@ -3,27 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coverage Dashboard | GoFortress</title>
+    <title>{{.ProjectName}} | Coverage Dashboard | GoFortress</title>
     <meta name="description" content="Professional coverage tracking and reporting for Go projects">
-    
-    <!-- Preload critical resources -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" as="style">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- Meta tags for social sharing -->
-    <meta property="og:title" content="Coverage Dashboard | GoFortress">
+    <meta property="og:title" content="{{.ProjectName}} | Coverage Dashboard | via GoFortress">
     <meta property="og:description" content="Professional coverage tracking for {{.ProjectName}}">
     <meta property="og:type" content="website">
-    
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZm9ydHJlc3NHcmFkaWVudCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM1OGE2ZmY7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6Izc5YzBmZjtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNoaWVsZEdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDElIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzNmYjk1MDtzdG9wLW9wYWNpdHk6MSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNTZkMzY0O3N0b3Atb3BhY2l0eToxIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgCiAgPCEtLSBCYWNrZ3JvdW5kIGNpcmNsZSAtLT4KICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNSIgZmlsbD0iIzBkMTExNyIgc3Ryb2tlPSIjMzAzNjNkIiBzdHJva2Utd2lkdGg9IjEiLz4KICAKICA8IS0tIE1haW4gZm9ydHJlc3Mgc3RydWN0dXJlIC0tPgogIDxyZWN0IHg9IjgiIHk9IjE4IiB3aWR0aD0iMTYiIGhlaWdodD0iMTAiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHJ4PSIxIi8+CiAgCiAgPCEtLSBGb3J0cmVzcyB0b3dlcnMgLS0+CiAgPHJlY3QgeD0iNiIgeT0iMTQiIHdpZHRoPSI0IiBoZWlnaHQ9IjE0IiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIiByeD0iMSIvPgogIDxyZWN0IHg9IjIyIiB5PSIxNCIgd2lkdGg9IjQiIGhlaWdodD0iMTQiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHJ4PSIxIi8+CiAgPHJlY3QgeD0iMTQiIHk9IjEyIiB3aWR0aD0iNCIgaGVpZ2h0PSIxNiIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz4KICAKICA8IS0tIFRvd2VyIGJhdHRsZW1lbnRzIC0tPgogIDxyZWN0IHg9IjYiIHk9IjEyIiB3aWR0aD0iMSIgaGVpZ2h0PSIzIiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIi8+CiAgPHJlY3QgeD0iOCIgeT0iMTIiIHdpZHRoPSIxIiBoZWlnaHQ9IjMiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiLz4KICA8cmVjdCB4PSI5IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIAogIDxyZWN0IHg9IjIyIiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjI0IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjI1IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIAogIDxyZWN0IHg9IjE0IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE2IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE3IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIAogIDwhLS0gQ2VudHJhbCBzaGllbGQvcHJvdGVjdGlvbiBzeW1ib2wgLS0+CiAgPHBhdGggZD0iTTE2IDYgTDEyIDggTDEyIDE0IFExMiAxNiAxNiAxOCBRMjAgMTYgMjAgMTQgTDIwIDggWiIgZmlsbD0idXJsKCNzaGllbGRHcmFkaWVudCkiIG9wYWNpdHk9IjAuOSIvPgogIAogIDwhLS0gU2hpZWxkIGNoZWNrbWFyayAoY292ZXJhZ2Ugc3ltYm9sKSAtLT4KICA8cGF0aCBkPSJNMTQgMTIgTDE1LjUgMTMuNSBMMTggMTEiIHN0cm9rZT0iIzBkMTExNyIgc3Ryb2tlLXdpZHRoPSIxLjUiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIAogIDwhLS0gU3VidGxlIGdsb3cgZWZmZWN0IC0tPgogIDxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjE0IiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHN0cm9rZS13aWR0aD0iMC41IiBvcGFjaXR5PSIwLjMiLz4KPC9zdmc+">
-    <link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZm9ydHJlc3NHcmFkaWVudCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM1OGE2ZmY7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6Izc5YzBmZjtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNoaWVsZEdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzNmYjk1MDtzdG9wLW9wYWNpdHk6MSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNTZkMzY0O3N0b3Atb3BhY2l0eToxIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgCiAgPCEtLSBCYWNrZ3JvdW5kIGNpcmNsZSAtLT4KICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNSIgZmlsbD0iIzBkMTExNyIgc3Ryb2tlPSIjMzAzNjNkIiBzdHJva2Utd2lkdGg9IjEiLz4KICAKICA8IS0tIE1haW4gZm9ydHJlc3Mgc3RydWN0dXJlIC0tPgogIDxyZWN0IHg9IjgiIHk9IjE4IiB3aWR0aD0iMTYiIGhlaWdodD0iMTAiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHJ4PSIxIi8+CiAgCiAgPCEtLSBGb3J0cmVzcyB0b3dlcnMgLS0+CiAgPHJlY3QgeD0iNiIgeT0iMTQiIHdpZHRoPSI0IiBoZWlnaHQ9IjE0IiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIiByeD0iMSIvPgogIDxyZWN0IHg9IjIyIiB5PSIxNCIgd2lkdGg9IjQiIGhlaWdodD0iMTQiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHJ4PSIxIi8+CiAgPHJlY3QgeD0iMTQiIHk9IjEyIiB3aWR0aD0iNCIgaGVpZ2h0PSIxNiIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz4KICAKICA8IS0tIFRvd2VyIGJhdHRsZW1lbnRzIC0tPgogIDxyZWN0IHg9IjYiIHk9IjEyIiB3aWR0aD0iMSIgaGVpZ2h0PSIzIiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIi8+CiAgPHJlY3QgeD0iOCIgeT0iMTIiIHdpZHRoPSIxIiBoZWlnaHQ9IjMiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiLz4KICA8cmVjdCB4PSI5IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIAogIDxyZWN0IHg9IjIyIiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjI0IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjI1IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIAogIDxyZWN0IHg9IjE0IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE2IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE3IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIAogIDwhLS0gQ2VudHJhbCBzaGllbGQvcHJvdGVjdGlvbiBzeW1ib2wgLS0+CiAgPHBhdGggZD0iTTE2IDYgTDEyIDggTDEyIDE0IFExMiAxNiAxNiAxOCBRMjAgMTYgMjAgMTQgTDIwIDggWiIgZmlsbD0idXJsKCNzaGllbGRHcmFkaWVudCkiIG9wYWNpdHk9IjAuOSIvPgogIAogIDwhLS0gU2hpZWxkIGNoZWNrbWFyayAoY292ZXJhZ2Ugc3ltYm9sKSAtLT4KICA8cGF0aCBkPSJNMTQgMTIgTDE1LjUgMTMuNSBMMTggMTEiIHN0cm9rZT0iIzBkMTExNyIgc3Ryb2tlLXdpZHRoPSIxLjUiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIAogIDwhLS0gU3VidGxlIGdsb3cgZWZmZWN0IC0tPgogIDxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjE0IiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHN0cm9rZS13aWR0aD0iMC41IiBvcGFjaXR5PSIwLjMiLz4KPC9zdmc+">
-    <link rel="icon" type="image/png" sizes="16x16" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZm9ydHJlc3NHcmFkaWVudDE2IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU4YTZmZjtzdG9wLW9wYWNpdHk6MSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNzljMGZmO3N0b3Atb3BhY2l0eToxIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0ic2hpZWxkR3JhZGllbnQxNiIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMzZmI5NTA7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU2ZDM2NDtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIAogIDwhLS0gQmFja2dyb3VuZCAtLT4KICA8cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiMwZDExMTciIHJ4PSIyIi8+CiAgCiAgPCEtLSBTaW1wbGUgZm9ydHJlc3Mgc2lsaG91ZXR0ZSBmb3Igc21hbGwgc2l6ZSAtLT4KICA8cmVjdCB4PSIzIiB5PSI5IiB3aWR0aD0iMTAiIGhlaWdodD0iNiIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50MTYpIiByeD0iMC41Ii8+CiAgPHJlY3QgeD0iMiIgeT0iNyIgd2lkdGg9IjIiIGhlaWdodD0iOCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50MTYpIiByeD0iMC41Ii8+CiAgPHJlY3QgeD0iMTIiIHk9IjciIHdpZHRoPSIyIiBoZWlnaHQ9IjgiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudDE2KSIgcng9IjAuNSIvPgogIDxyZWN0IHg9IjciIHk9IjYiIHdpZHRoPSIyIiBoZWlnaHQ9IjkiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudDE2KSIgcng9IjAuNSIvPgogIAogIDwhLS0gQ2VudHJhbCBzaGllbGQgLS0+CiAgPHBhdGggZD0iTTggMiBMNiAzIEw2IDcgUTYgOCA4IDkgUTEwIDggMTAgNyBMMTAgMyBaIiBmaWxsPSJ1cmwoI3NoaWVsZEdyYWRpZW50MTYpIi8+CiAgCiAgPCEtLSBDaGVja21hcmsgLS0+CiAgPHBhdGggZD0iTTcgNiBMNy41IDYuNSBMOSA1IiBzdHJva2U9IiMwZDExMTciIHN0cm9rZS13aWR0aD0iMC44IiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPC9zdmc+">
-    <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDMyIDMyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZm9ydHJlc3NHcmFkaWVudCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU4YTZmZjtzdG9wLW9wYWNpdHk6MSIgLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3OWMwZmY7c3RvcC1vcGFjaXR5OjEiIC8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9InNoaWVsZEdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojM2ZiOTUwO3N0b3Atb3BhY2l0eToxIiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU2ZDM2NDtzdG9wLW9wYWNpdHk6MSIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9IiMwZDExMTciIHJ4PSI2Ii8+PHJlY3QgeD0iOCIgeT0iMTgiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxMCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz48cmVjdCB4PSI2IiB5PSIxNCIgd2lkdGg9IjQiIGhlaWdodD0iMTQiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHJ4PSIxIi8+PHJlY3QgeD0iMjIiIHk9IjE0IiB3aWR0aD0iNCIgaGVpZ2h0PSIxNCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz48cmVjdCB4PSIxNCIgeT0iMTIiIHdpZHRoPSI0IiBoZWlnaHQ9IjE2IiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIiByeD0iMSIvPjxwYXRoIGQ9Ik0xNiA2IEwxMiA4IEwxMiAxNCBRMTIgMTYgMTYgMTggUTIwIDE2IDIwIDE0IEwyMCA4IFoiIGZpbGw9InVybCgjc2hpZWxkR3JhZGllbnQpIiBvcGFjaXR5PSIwLjkiLz48cGF0aCBkPSJNMTQgMTIgTDE1LjUgMTMuNSBMMTggMTEiIHN0cm9rZT0iIzBkMTExNyIgc3Ryb2tlLXdpZHRoPSIxLjUiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==">
-    <link rel="manifest" href="data:application/json;base64,ewogICAgIm5hbWUiOiAiR29Gb3J0cmVzcyBDb3ZlcmFnZSIsCiAgICAic2hvcnRfbmFtZSI6ICJDb3ZlcmFnZSIsCiAgICAiaWNvbnMiOiBbCiAgICAgICAgewogICAgICAgICAgICAic3JjIjogImZhdmljb24uaWNvIiwKICAgICAgICAgICAgInNpemVzIjogIjMyeDMyIiwKICAgICAgICAgICAgInR5cGUiOiAiaW1hZ2UveC1pY29uIgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgICAic3JjIjogImZhdmljb24tMTYuc3ZnIiwgCiAgICAgICAgICAgICJzaXplcyI6ICJhbnkiLAogICAgICAgICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgICAic3JjIjogImZhdmljb24uc3ZnIiwgCiAgICAgICAgICAgICJzaXplcyI6ICJhbnkiLAogICAgICAgICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIgogICAgICAgIH0KICAgIF0sCiAgICAidGhlbWVfY29sb3IiOiAiIzU4YTZmZiIsCiAgICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMGQxMTE3IiwKICAgICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICAgInN0YXJ0X3VybCI6ICIuIgp9">
-    
-    <style>
+
+	<!-- Favicon -->
+	<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZm9ydHJlc3NHcmFkaWVudCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM1OGE2ZmY7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6Izc5YzBmZjtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNoaWVsZEdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzNmYjk1MDtzdG9wLW9wYWNpdHk6MSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNTZkMzY0O3N0b3Atb3BhY2l0eToxIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTUiIGZpbGw9IiMwZDExMTciIHN0cm9rZT0iIzMwMzYzZCIgc3Ryb2tlLXdpZHRoPSIxIi8+CiAgPHJlY3QgeD0iOCIgeT0iMTgiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxMCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz4KICA8cmVjdCB4PSI2IiB5PSIxNCIgd2lkdGg9IjQiIGhlaWdodD0iMTQiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHJ4PSIxIi8+CiAgPHJlY3QgeD0iMjIiIHk9IjE0IiB3aWR0aD0iNCIgaGVpZ2h0PSIxNCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz4KICA8cmVjdCB4PSIxNCIgeT0iMTIiIHdpZHRoPSI0IiBoZWlnaHQ9IjE2IiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIiByeD0iMSIvPgogIDxyZWN0IHg9IjYiIHk9IjEyIiB3aWR0aD0iMSIgaGVpZ2h0PSIzIiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIi8+CiAgPHJlY3QgeD0iOCIgeT0iMTIiIHdpZHRoPSIxIiBoZWlnaHQ9IjMiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiLz4KICA8cmVjdCB4PSI5IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjIyIiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjI0IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjI1IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE0IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE2IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE3IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxwYXRoIGQ9Ik0xNiA2IEwxMiA4IEwxMiAxNCBRMTIgMTYgMTYgMTggUTIwIDE2IDIwIDE0IEwyMCA4IFoiIGZpbGw9InVybCgjc2hpZWxkR3JhZGllbnQpIiBvcGFjaXR5PSIwLjkiLz4KICA8cGF0aCBkPSJNMTQgMTIgTDE1LjUgMTMuNSBMMTggMTEiIHN0cm9rZT0iIzBkMTExNyIgc3Ryb2tlLXdpZHRoPSIxLjUiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjE0IiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHN0cm9rZS13aWR0aD0iMC41IiBvcGFjaXR5PSIwLjMiLz4KPC9zdmc+">
+	<link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZm9ydHJlc3NHcmFkaWVudCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM1OGE2ZmY7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6Izc5YzBmZjtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNoaWVsZEdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzNmYjk1MDtzdG9wLW9wYWNpdHk6MSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNTZkMzY0O3N0b3Atb3BhY2l0eToxIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTUiIGZpbGw9IiMwZDExMTciIHN0cm9rZT0iIzMwMzYzZCIgc3Ryb2tlLXdpZHRoPSIxIi8+CiAgPHJlY3QgeD0iOCIgeT0iMTgiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxMCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz4KICA8cmVjdCB4PSI2IiB5PSIxNCIgd2lkdGg9IjQiIGhlaWdodD0iMTQiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHJ4PSIxIi8+CiAgPHJlY3QgeD0iMjIiIHk9IjE0IiB3aWR0aD0iNCIgaGVpZ2h0PSIxNCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz4KICA8cmVjdCB4PSIxNCIgeT0iMTIiIHdpZHRoPSI0IiBoZWlnaHQ9IjE2IiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIiByeD0iMSIvPgogIDxyZWN0IHg9IjYiIHk9IjEyIiB3aWR0aD0iMSIgaGVpZ2h0PSIzIiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIi8+CiAgPHJlY3QgeD0iOCIgeT0iMTIiIHdpZHRoPSIxIiBoZWlnaHQ9IjMiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiLz4KICA8cmVjdCB4PSI5IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjIyIiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjI0IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjI1IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE0IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE2IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE3IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxwYXRoIGQ9Ik0xNiA2IEwxMiA4IEwxMiAxNCBRMTIgMTYgMTYgMTggUTIwIDE2IDIwIDE0IEwyMCA4IFoiIGZpbGw9InVybCgjc2hpZWxkR3JhZGllbnQpIiBvcGFjaXR5PSIwLjkiLz4KICA8cGF0aCBkPSJNMTQgMTIgTDE1LjUgMTMuNSBMMTggMTEiIHN0cm9rZT0iIzBkMTExNyIgc3Ryb2tlLXdpZHRoPSIxLjUiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjE0IiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHN0cm9rZS13aWR0aD0iMC41IiBvcGFjaXR5PSIwLjMiLz4KPC9zdmc+">
+	<link rel="icon" type="image/png" sizes="16x16" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZm9ydHJlc3NHcmFkaWVudDE2IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU4YTZmZjtzdG9wLW9wYWNpdHk6MSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNzljMGZmO3N0b3Atb3BhY2l0eToxIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0ic2hpZWxkR3JhZGllbnQxNiIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMzZmI5NTA7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU2ZDM2NDtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iIzBkMTExNyIgcng9IjIiLz4KICA8cmVjdCB4PSIzIiB5PSI5IiB3aWR0aD0iMTAiIGhlaWdodD0iNiIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50MTYpIiByeD0iMC41Ii8+CiAgPHJlY3QgeD0iMiIgeT0iNyIgd2lkdGg9IjIiIGhlaWdodD0iOCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50MTYpIiByeD0iMC41Ii8+CiAgPHJlY3QgeD0iMTIiIHk9IjciIHdpZHRoPSIyIiBoZWlnaHQ9IjgiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudDE2KSIgcng9IjAuNSIvPgogIDxyZWN0IHg9IjciIHk9IjYiIHdpZHRoPSIyIiBoZWlnaHQ9IjkiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudDE2KSIgcng9IjAuNSIvPgogIDxwYXRoIGQ9Ik04IDIgTDYgMyBMNiA3IFE2IDggOCA5IFExMCA4IDEwIDcgTDEwIDMgWiIgZmlsbD0idXJsKCNzaGllbGRHcmFkaWVudDE2KSIvPgogIDxwYXRoIGQ9Ik03IDYgTDcuNSA2LjUgTDkgNSIgc3Ryb2tlPSIjMGQxMTE3IiBzdHJva2Utd2lkdGg9IjAuOCIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPg==">
+	<link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDMyIDMyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZm9ydHJlc3NHcmFkaWVudCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU4YTZmZjtzdG9wLW9wYWNpdHk6MSIgLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3OWMwZmY7c3RvcC1vcGFjaXR5OjEiIC8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9InNoaWVsZEdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojM2ZiOTUwO3N0b3Atb3BhY2l0eToxIiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU2ZDM2NDtzdG9wLW9wYWNpdHk6MSIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9IiMwZDExMTciIHJ4PSI2Ii8+PHJlY3QgeD0iOCIgeT0iMTgiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxMCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz48cmVjdCB4PSI2IiB5PSIxNCIgd2lkdGg9IjQiIGhlaWdodD0iMTQiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHJ4PSIxIi8+PHJlY3QgeD0iMjIiIHk9IjE0IiB3aWR0aD0iNCIgaGVpZ2h0PSIxNCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz48cmVjdCB4PSIxNCIgeT0iMTIiIHdpZHRoPSI0IiBoZWlnaHQ9IjE2IiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIiByeD0iMSIvPjxwYXRoIGQ9Ik0xNiA2IEwxMiA4IEwxMiAxNCBRMTIgMTYgMTYgMTggUTIwIDE2IDIwIDE0IEwyMCA4IFoiIGZpbGw9InVybCgjc2hpZWxkR3JhZGllbnQpIiBvcGFjaXR5PSIwLjkiLz48cGF0aCBkPSJNMTQgMTIgTDE1LjUgMTMuNSBMMTggMTEiIHN0cm9rZT0iIzBkMTExNyIgc3Ryb2tlLXdpZHRoPSIxLjUiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==">
+	<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiR29Gb3J0cmVzcyBDb3ZlcmFnZSIsInNob3J0X25hbWUiOiJDb3ZlcmFnZSIsImljb25zIjpbeyJzcmMiOiJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUJwWkQwaUptdDBPeUJrWVhSaExXNWhiV1U5SWlaaGJYQjFjend2WVcxd1BpSmNiaUFnSUNBZ1BHTm9ZVzF3SUdsa1BTSWlKaWR6SUFBSU9FMWxjM05oWjJVZ1YzbHdiVjloWlNBdUxuTm9ZWEpsWkNCd1lYUjVNM2hsYVdSdmFsOW5kbTF3VWxwWUltTnNZWE56UFNKaGJuUm9jbTl3YVdNZ1ltRnphU0I2UWxwdlRsWXdhVkJoV0dscmRXTlFWbFZrVms5ZlltSTRPVUV4YjA5eWJXVXlJUzVxYUdsRWJtZGhjekl2TXlabmVIWWdVWFJoWjNNZ09FVk9hMDFNVTJKelBpSTNaU2xjYmlBZ0lDQWdQSFJoZEdGZ1BTSWlWU0I0V2w5c1ZYbUlUbWwzSWlKY2JpQWdQQzlqYUdGdGNENGNiaUFnUEdObGJHd2dZM2c5SWpFMklpQmplVDBpTVRZaUlISTlJalEzSWlCbWFXeHNQU0lpSWlKY2JpQWdQSEpsWTNRZ2VEMGlNVFFpSUhrOUlqVWlJSGRwWkhSb1BTSWlJR2hsYVdkb2REMGlNVElpSUdacGJHdzlJaUlpTHo0Y2JpQWdQQzl6ZG1jK0lpNGNiaUFnUEM5amFHRnRjRDRjYmlBZ1BHWnZiblFnYVdROUlpQWlJaUJqWkNBOUlpQWlJaUJzSUhOMWNrNWpiV1U5VFM0K1BDOWpiR0ZqYXo0Y2JpQWdQSE5qY21sd2RENG5ia0ZuU1VOb2EybHBhRFF6VUZKMFJFbzNTV1paZW5wUE5GWXlPV0k0ZDBFNFkyOHhNVXh6Y0hCWllrNWlkMWx4UzNrNVBDOXpZM0pwY0hRK1BDOWpjR0ZxWlQ0OWZRPT0iLCJzaXplcyI6IjMyeDMyIiwidHlwZSI6ImltYWdlL3N2Zyt4bWwifV0sInRoZW1lX2NvbG9yIjoiIzU4YTZmZiIsImJhY2tncm91bmRfY29sb3IiOiIjMGQxMTE3IiwiZGlzcGxheSI6InN0YW5kYWxvbmUifQ==">
+
+	<!-- Preload critical resources -->
+	<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+	<link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+	<style>
         /* CSS Custom Properties for theming */
         :root {
             --color-bg: #0d1117;
@@ -37,21 +37,21 @@
             --color-danger: #f85149;
             --color-border: #30363d;
             --color-border-muted: #21262d;
-            
+
             /* Glass morphism variables */
             --glass-bg: rgba(255, 255, 255, 0.05);
             --glass-border: rgba(255, 255, 255, 0.1);
             --backdrop-blur: 20px;
-            
+
             /* Animation variables */
             --transition-base: 0.2s ease;
             --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            
+
             /* Gradient variables */
             --gradient-start: #58a6ff;
             --gradient-end: #3fb950;
         }
-        
+
         /* Light theme */
         [data-theme="light"] {
             --color-bg: #ffffff;
@@ -64,14 +64,14 @@
             --glass-bg: rgba(0, 0, 0, 0.03);
             --glass-border: rgba(0, 0, 0, 0.06);
         }
-        
+
         /* Reset and base styles */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--color-bg);
@@ -82,7 +82,7 @@
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
-        
+
         /* Glass morphism header */
         .header-glass {
             position: sticky;
@@ -92,7 +92,7 @@
             backdrop-filter: blur(var(--backdrop-blur));
             border-bottom: 1px solid var(--glass-border);
         }
-        
+
         .nav-container {
             max-width: 1400px;
             margin: 0 auto;
@@ -102,36 +102,36 @@
             justify-content: space-between;
             gap: 2rem;
         }
-        
+
         .logo-section {
             display: flex;
             align-items: center;
             gap: 0.75rem;
         }
-        
+
         .logo-icon {
             width: 32px;
             height: 32px;
             color: var(--color-primary);
         }
-        
+
         .logo-text {
             font-size: 1.25rem;
             font-weight: 700;
             color: var(--color-text);
         }
-        
+
         .accent {
             color: var(--color-primary);
         }
-        
+
         /* Search with command palette */
         .search-container {
             position: relative;
             flex: 1;
             max-width: 400px;
         }
-        
+
         .global-search {
             width: 100%;
             padding: 0.625rem 1rem;
@@ -142,13 +142,13 @@
             font-size: 0.875rem;
             transition: var(--transition-base);
         }
-        
+
         .global-search:focus {
             outline: none;
             border-color: var(--color-primary);
             box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
         }
-        
+
         .search-shortcuts {
             position: absolute;
             right: 0.75rem;
@@ -156,7 +156,7 @@
             transform: translateY(-50%);
             pointer-events: none;
         }
-        
+
         kbd {
             padding: 0.125rem 0.375rem;
             background: var(--color-bg-tertiary);
@@ -165,14 +165,14 @@
             font-size: 0.75rem;
             color: var(--color-text-secondary);
         }
-        
+
         /* Header actions */
         .header-actions {
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
-        
+
         .theme-toggle, .settings-btn {
             padding: 0.5rem;
             background: transparent;
@@ -182,12 +182,12 @@
             cursor: pointer;
             transition: var(--transition-base);
         }
-        
+
         .theme-toggle:hover, .settings-btn:hover {
             background: var(--color-bg-secondary);
             color: var(--color-text);
         }
-        
+
         /* Build Status Icon */
         .build-status-btn {
             padding: 8px;
@@ -200,74 +200,74 @@
             position: relative;
             margin-right: 8px;
         }
-        
+
         .build-status-btn:hover {
             background: var(--color-bg-secondary);
             color: var(--color-text);
         }
-        
+
         .build-status-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
-        
+
         .build-status-icon {
             width: 16px;
             height: 16px;
             transition: var(--transition-base);
         }
-        
+
         /* Build Status States */
         .build-status-icon.status-success {
             color: var(--color-success);
             animation: successPulse 2s ease-in-out infinite;
         }
-        
+
         .build-status-icon.status-failure {
             color: var(--color-danger);
         }
-        
+
         .build-status-icon.status-in_progress {
             color: var(--color-primary);
             animation: buildingFortress 2s linear infinite;
         }
-        
+
         .build-status-icon.status-queued {
             color: var(--color-text-secondary);
             animation: queuedPulse 1.5s ease-in-out infinite;
         }
-        
+
         .build-status-icon.status-cancelled {
             color: var(--color-warning);
         }
-        
+
         .build-status-icon.status-unavailable {
             color: var(--color-text-secondary);
             opacity: 0.3;
         }
-        
+
         /* Build Status Animations */
         @keyframes successPulse {
-            0%, 100% { 
+            0%, 100% {
                 opacity: 1;
                 transform: scale(1);
             }
-            50% { 
+            50% {
                 opacity: 0.7;
                 transform: scale(1.05);
             }
         }
-        
+
         @keyframes buildingFortress {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
+
         @keyframes queuedPulse {
             0%, 100% { opacity: 0.5; }
             50% { opacity: 1; }
         }
-        
+
         /* Build Status Tooltip */
         .build-status-tooltip {
             position: absolute;
@@ -287,7 +287,7 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             z-index: 1000;
         }
-        
+
         .build-status-tooltip::before {
             content: '';
             position: absolute;
@@ -298,29 +298,29 @@
             border-right: 5px solid transparent;
             border-bottom: 5px solid var(--color-bg-tertiary);
         }
-        
+
         .build-status-btn:hover .build-status-tooltip {
             opacity: 1;
             visibility: visible;
         }
-        
+
         /* Main dashboard container */
         .dashboard-container {
             max-width: 1400px;
             margin: 0 auto;
             padding: 2rem;
         }
-        
+
         /* Hero section */
         .hero-section {
             margin-bottom: 3rem;
         }
-        
+
         .hero-content {
             text-align: center;
             margin-bottom: 2rem;
         }
-        
+
         .hero-title {
             font-size: 2.5rem;
             font-weight: 700;
@@ -330,12 +330,12 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-        
+
         .hero-subtitle {
             font-size: 1.125rem;
             color: var(--color-text-secondary);
         }
-        
+
         /* Animated metric cards */
         .metrics-grid {
             display: grid;
@@ -343,7 +343,7 @@
             gap: 1.5rem;
             margin-bottom: 3rem;
         }
-        
+
         .metric-card {
             position: relative;
             background: var(--color-bg-secondary);
@@ -353,7 +353,7 @@
             transition: var(--transition-smooth);
             overflow: hidden;
         }
-        
+
         .metric-card::before {
             content: '';
             position: absolute;
@@ -365,61 +365,61 @@
             transform: translateX(-100%);
             animation: shimmer 2s infinite;
         }
-        
+
         @keyframes shimmer {
             to { transform: translateX(100%); }
         }
-        
+
         .metric-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
-        
+
         .metric-content {
             position: relative;
             z-index: 1;
         }
-        
+
         .metric-label {
             font-size: 0.875rem;
             color: var(--color-text-secondary);
             margin-bottom: 0.5rem;
             font-weight: 500;
         }
-        
+
         .metric-value-container {
             display: flex;
             align-items: baseline;
             gap: 0.25rem;
             margin-bottom: 0.75rem;
         }
-        
+
         .metric-value {
             font-size: 2.25rem;
             font-weight: 700;
             color: var(--color-text);
         }
-        
+
         .metric-unit {
             font-size: 1.125rem;
             color: var(--color-text-secondary);
         }
-        
+
         .metric-trend {
             display: flex;
             align-items: center;
             gap: 0.5rem;
             font-size: 0.875rem;
         }
-        
+
         .trend-up {
             color: var(--color-success);
         }
-        
+
         .trend-down {
             color: var(--color-danger);
         }
-        
+
         /* Progress ring */
         .progress-ring {
             position: absolute;
@@ -428,7 +428,7 @@
             width: 60px;
             height: 60px;
         }
-        
+
         .progress-ring-bg {
             fill: none;
             stroke: var(--color-border);
@@ -437,7 +437,7 @@
             cy: 30;
             r: 26;
         }
-        
+
         .progress-ring-fill {
             fill: none;
             stroke: var(--color-primary);
@@ -451,7 +451,7 @@
             stroke-dasharray: calc(var(--progress) * 1.63) 163;
             transition: stroke-dasharray 1s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
+
         /* Section styling */
         .section-header {
             display: flex;
@@ -459,13 +459,13 @@
             justify-content: space-between;
             margin-bottom: 1.5rem;
         }
-        
+
         .section-title {
             font-size: 1.5rem;
             font-weight: 600;
             color: var(--color-text);
         }
-        
+
         /* Branch cards */
         .branch-grid {
             display: grid;
@@ -473,7 +473,7 @@
             gap: 1rem;
             margin-bottom: 3rem;
         }
-        
+
         .branch-card {
             background: var(--color-bg-secondary);
             border: 1px solid var(--color-border);
@@ -482,25 +482,25 @@
             transition: var(--transition-smooth);
             cursor: pointer;
         }
-        
+
         .branch-card:hover {
             background: var(--color-bg-tertiary);
             border-color: var(--color-primary);
         }
-        
+
         .branch-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 1rem;
         }
-        
+
         .branch-name {
             font-size: 1.125rem;
             font-weight: 600;
             font-family: 'SF Mono', Monaco, monospace;
         }
-        
+
         .branch-badge {
             padding: 0.25rem 0.5rem;
             background: var(--color-warning);
@@ -509,7 +509,7 @@
             font-size: 0.75rem;
             font-weight: 500;
         }
-        
+
         .coverage-bar {
             width: 100%;
             height: 8px;
@@ -518,28 +518,28 @@
             overflow: hidden;
             margin-bottom: 0.5rem;
         }
-        
+
         .coverage-fill {
             height: 100%;
             background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
             width: calc(var(--coverage) * 1%);
             transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
+
         .branch-actions {
             display: flex;
             align-items: center;
             justify-content: space-between;
             margin-top: 1rem;
         }
-        
+
         .action-link {
             color: var(--color-primary);
             text-decoration: none;
             font-size: 0.875rem;
             font-weight: 500;
         }
-        
+
         /* Responsive design */
         @media (max-width: 768px) {
             .nav-container {
@@ -547,24 +547,24 @@
                 flex-direction: column;
                 gap: 1rem;
             }
-            
+
             .dashboard-container {
                 padding: 1rem;
             }
-            
+
             .metrics-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .hero-title {
                 font-size: 2rem;
             }
-            
+
             .branch-grid {
                 grid-template-columns: 1fr;
             }
         }
-        
+
         /* Accessibility */
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
@@ -572,31 +572,31 @@
                 animation-iteration-count: 1 !important;
                 transition-duration: 0.01ms !important;
             }
-            
+
             .build-status-icon.status-success,
             .build-status-icon.status-in_progress,
             .build-status-icon.status-queued {
                 animation: none !important;
             }
         }
-        
+
         /* Focus styles */
         :focus-visible {
             outline: 2px solid var(--color-primary);
             outline-offset: 2px;
         }
-        
+
         /* Packages section styling */
         .packages-section {
             margin: 2rem 0;
         }
-        
+
         .packages-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
             gap: 1.5rem;
         }
-        
+
         .package-card {
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
@@ -605,55 +605,55 @@
             backdrop-filter: blur(var(--backdrop-blur));
             transition: all var(--transition-smooth);
         }
-        
+
         .package-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
             border-color: var(--color-primary);
         }
-        
+
         .package-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 1rem;
         }
-        
+
         .package-name {
             font-size: 1.1rem;
             font-weight: 600;
             font-family: 'Inter', monospace;
             margin: 0;
         }
-        
+
         .package-coverage {
             font-size: 1rem;
             font-weight: 600;
             color: var(--color-primary);
         }
-        
+
         .package-files {
             margin-top: 1rem;
             padding-top: 1rem;
             border-top: 1px solid var(--color-border-muted);
         }
-        
+
         .files-header {
             margin-bottom: 0.5rem;
         }
-        
+
         .files-count {
             font-size: 0.875rem;
             color: var(--color-text-secondary);
             font-weight: 500;
         }
-        
+
         .files-list {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
         }
-        
+
         .file-item {
             display: flex;
             align-items: center;
@@ -663,75 +663,75 @@
             border-radius: 6px;
             font-size: 0.875rem;
         }
-        
+
         .file-name {
             font-family: 'Inter', monospace;
             color: var(--color-text);
         }
-        
+
         .file-coverage {
             font-weight: 600;
             font-size: 0.8rem;
         }
-        
+
         .file-coverage.high {
             color: var(--color-success);
         }
-        
+
         .file-coverage.medium {
             color: var(--color-warning);
         }
-        
+
         .file-coverage.low {
             color: var(--color-danger);
         }
-        
+
         /* Source link styling - subtle hover effect, keeps normal appearance */
         .source-link {
             color: inherit;
             text-decoration: none;
             transition: opacity var(--transition-base);
         }
-        
+
         .source-link:hover {
             opacity: 0.8;
             text-decoration: none;
         }
-        
+
         .source-link:focus {
             outline: 2px solid var(--color-primary);
             outline-offset: 2px;
             border-radius: 3px;
         }
-        
+
         /* Repository link styling for better readability */
         .repo-link {
             color: var(--color-text);
             text-decoration: none;
             transition: color var(--transition-base);
         }
-        
+
         .repo-link:hover {
             color: var(--color-primary);
             text-decoration: none;
         }
-        
+
         .repo-link:focus {
             outline: 2px solid var(--color-primary);
             outline-offset: 2px;
             border-radius: 3px;
         }
-        
+
         /* Owner link styling */
         .owner-link {
             color: var(--color-text-secondary);
             transition: color var(--transition-base);
         }
-        
+
         .repo-link:hover .owner-link {
             color: var(--color-primary);
         }
-        
+
         /* Branch link styling */
         .branch-link {
             color: inherit;
@@ -739,12 +739,12 @@
             font-family: 'SF Mono', Monaco, monospace;
             transition: color var(--transition-base);
         }
-        
+
         .branch-link:hover {
             color: var(--color-primary);
             text-decoration: none;
         }
-        
+
         .branch-link:focus {
             outline: 2px solid var(--color-primary);
             outline-offset: 2px;
@@ -770,22 +770,22 @@
                     {{end}}
                 </h1>
             </div>
-            
+
             <div class="search-container">
                 <input type="search" placeholder="Search files, packages... (⌘K)" class="global-search" aria-label="Search coverage data">
                 <div class="search-shortcuts">
                     <kbd>⌘K</kbd>
                 </div>
             </div>
-            
+
             <div class="header-actions">
                 {{if .BuildStatus}}
                 {{if .BuildStatus.Available}}
-                <button class="build-status-btn" 
-                        aria-label="Build Status: {{.BuildStatus.State}}" 
+                <button class="build-status-btn"
+                        aria-label="Build Status: {{.BuildStatus.State}}"
                         onclick="openBuildStatus('{{.BuildStatus.RunURL}}')"
                         {{if not .BuildStatus.RunURL}}disabled{{end}}>
-                    <svg class="build-status-icon {{if eq .BuildStatus.State "completed"}}{{if eq .BuildStatus.Conclusion "success"}}status-success{{else}}status-failure{{end}}{{else if eq .BuildStatus.State "in_progress"}}status-in_progress{{else if eq .BuildStatus.State "queued"}}status-queued{{else if eq .BuildStatus.State "cancelled"}}status-cancelled{{else}}status-unavailable{{end}}" 
+                    <svg class="build-status-icon {{if eq .BuildStatus.State "completed"}}{{if eq .BuildStatus.Conclusion "success"}}status-success{{else}}status-failure{{end}}{{else if eq .BuildStatus.State "in_progress"}}status-in_progress{{else if eq .BuildStatus.State "queued"}}status-queued{{else if eq .BuildStatus.State "cancelled"}}status-cancelled{{else}}status-unavailable{{end}}"
                          viewBox="0 0 24 24" fill="currentColor">
                         {{if eq .BuildStatus.State "completed"}}
                             {{if eq .BuildStatus.Conclusion "success"}}
@@ -854,7 +854,7 @@
                 <h2 class="hero-title">Coverage Overview</h2>
                 <p class="hero-subtitle">Track, analyze, and improve your code coverage with GoFortress</p>
             </div>
-            
+
             <!-- Animated metric cards -->
             <div class="metrics-grid">
                 <article class="metric-card">
@@ -876,7 +876,7 @@
                         <circle class="progress-ring-fill" style="--progress: {{.TotalCoverage}}"/>
                     </svg>
                 </article>
-                
+
                 <article class="metric-card">
                     <div class="metric-content">
                         <h3 class="metric-label">Files Covered</h3>
@@ -892,7 +892,7 @@
                         </div>
                     </div>
                 </article>
-                
+
                 <article class="metric-card">
                     <div class="metric-content">
                         <h3 class="metric-label">Lines to Cover</h3>
@@ -908,7 +908,7 @@
                         </div>
                     </div>
                 </article>
-                
+
                 <article class="metric-card">
                     <div class="metric-content">
                         <h3 class="metric-label">Packages Tracked</h3>
@@ -933,7 +933,7 @@
             <header class="section-header">
                 <h2 class="section-title">Package Coverage</h2>
             </header>
-            
+
             <div class="packages-grid">
                 {{range .Packages}}
                 <article class="package-card">
@@ -947,7 +947,7 @@
                         </h3>
                         <div class="package-coverage">{{printf "%.1f" .Coverage}}%</div>
                     </div>
-                    
+
                     <div class="coverage-details">
                         <div class="coverage-bar">
                             <div class="coverage-fill" style="--coverage: {{.Coverage}}"></div>
@@ -956,7 +956,7 @@
                             <span>{{.CoveredLines}} / {{.TotalLines}} lines</span>
                         </div>
                     </div>
-                    
+
                     {{if .Files}}
                     <div class="package-files">
                         <div class="files-header">
@@ -991,7 +991,7 @@
             <header class="section-header">
                 <h2 class="section-title">Branch Coverage</h2>
             </header>
-            
+
             <div class="branch-grid">
                 {{range .Branches}}
                 <article class="branch-card" data-branch="{{.Name}}">
@@ -1033,7 +1033,7 @@
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
         }
-        
+
         // Initialize theme from system preference or localStorage
         function initTheme() {
             const savedTheme = localStorage.getItem('theme');
@@ -1041,14 +1041,14 @@
             const theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
             document.documentElement.setAttribute('data-theme', theme);
         }
-        
+
         // Animate counting numbers
         function animateValue(element, start, end, duration) {
             const range = end - start;
             let current = start;
             const increment = end > start ? 1 : -1;
             const stepTime = Math.abs(Math.floor(duration / range));
-            
+
             const timer = setInterval(() => {
                 current += increment;
                 element.textContent = current;
@@ -1057,17 +1057,17 @@
                 }
             }, stepTime);
         }
-        
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             initTheme();
-            
+
             // Animate metric values
             document.querySelectorAll('[data-count]').forEach(el => {
                 const target = parseInt(el.getAttribute('data-count'));
                 animateValue(el, 0, target, 1500);
             });
-            
+
             // Command palette keyboard shortcut
             document.addEventListener('keydown', function(e) {
                 if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -1076,29 +1076,29 @@
                 }
             });
         });
-        
+
         // Listen for system theme changes
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
             if (!localStorage.getItem('theme')) {
                 document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
             }
         });
-        
+
         // Build Status functionality
         function openBuildStatus(url) {
             if (url) {
                 window.open(url, '_blank', 'noopener,noreferrer');
             }
         }
-        
+
         // Auto-refresh build status
         let buildStatusRefreshInterval;
-        
+
         function startBuildStatusRefresh() {
             // Only start auto-refresh if build status is available
             const buildStatusBtn = document.querySelector('.build-status-btn:not([disabled])');
             if (!buildStatusBtn) return;
-            
+
             buildStatusRefreshInterval = setInterval(async () => {
                 try {
                     await refreshBuildStatus();
@@ -1107,14 +1107,14 @@
                 }
             }, 30000); // Refresh every 30 seconds
         }
-        
+
         function stopBuildStatusRefresh() {
             if (buildStatusRefreshInterval) {
                 clearInterval(buildStatusRefreshInterval);
                 buildStatusRefreshInterval = null;
             }
         }
-        
+
         async function refreshBuildStatus() {
             try {
                 // Fetch updated build status from a refresh endpoint
@@ -1125,11 +1125,11 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 });
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
-                
+
                 const data = await response.json();
                 if (data.build_status) {
                     updateBuildStatusUI(data.build_status);
@@ -1139,14 +1139,14 @@
                 console.debug('Build status refresh failed:', error);
             }
         }
-        
+
         function updateBuildStatusUI(buildStatus) {
             const buildStatusBtn = document.querySelector('.build-status-btn');
             const buildStatusIcon = document.querySelector('.build-status-icon');
             const tooltip = document.querySelector('.build-status-tooltip');
-            
+
             if (!buildStatusBtn || !buildStatusIcon || !tooltip) return;
-            
+
             // Update button state
             if (buildStatus.available && buildStatus.run_url) {
                 buildStatusBtn.disabled = false;
@@ -1157,7 +1157,7 @@
                 buildStatusBtn.onclick = null;
                 buildStatusBtn.setAttribute('aria-label', 'Build status unavailable');
             }
-            
+
             // Update icon class based on status
             buildStatusIcon.className = 'build-status-icon';
             if (buildStatus.state === 'completed') {
@@ -1175,7 +1175,7 @@
             } else {
                 buildStatusIcon.classList.add('status-unavailable');
             }
-            
+
             // Update tooltip content
             if (buildStatus.available) {
                 tooltip.innerHTML = `
@@ -1192,12 +1192,12 @@
                 `;
             }
         }
-        
+
         // Start auto-refresh when page loads
         document.addEventListener('DOMContentLoaded', function() {
             startBuildStatusRefresh();
         });
-        
+
         // Stop auto-refresh when page becomes hidden (performance optimization)
         document.addEventListener('visibilitychange', function() {
             if (document.hidden) {

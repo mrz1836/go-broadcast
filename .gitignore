@@ -45,8 +45,7 @@ coverage-output/
 .github/coverage/coverage-output/
 
 # Coverage history files (generated during coverage processing)
-.github/coverage/history/
-.github/coverage/**/history/
+# Note: History files are now tracked to maintain coverage evolution
 /.github/coverage/cmd/gofortress-coverage/gofortress-coverage
 examples/monitor/simple
 examples/monitor/advanced
