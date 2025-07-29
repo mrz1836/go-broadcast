@@ -1,16 +1,16 @@
 package templates
 
 import (
-	"bytes"
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
 	"time"
 )
 
-//go:embed *.html favicon.ico *.svg site.webmanifest
+//go:embed favicon.ico *.svg site.webmanifest
 var embeddedFiles embed.FS
 
 // TemplateManager handles template loading and rendering
@@ -178,85 +178,36 @@ func NewTemplateManager() (*TemplateManager, error) {
 		},
 	}
 
-	// Parse embedded templates
-	tmpl, err := template.New("").Funcs(tm.funcs).ParseFS(embeddedFiles, "*.html")
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse embedded templates: %w", err)
-	}
-
-	tm.templates = tmpl
+	// No templates to parse for now, just set up the funcs
+	tm.templates = template.New("").Funcs(tm.funcs)
 	return tm, nil
 }
 
-// RenderDashboard renders the main dashboard HTML
-func (tm *TemplateManager) RenderDashboard(_ context.Context, data DashboardData) (string, error) {
-	var buf bytes.Buffer
+var (
+	// ErrDashboardDeprecated indicates the dashboard rendering method is deprecated
+	ErrDashboardDeprecated = errors.New("RenderDashboard is deprecated - use dashboard package's embedded template")
+	// ErrReportDeprecated indicates the report rendering method is deprecated
+	ErrReportDeprecated = errors.New("RenderReport is deprecated - use report package's embedded template")
+)
 
-	// Set default values if not provided
-	if data.ProjectName == "" {
-		data.ProjectName = "GoFortress Project"
-	}
-	if data.Theme == "" {
-		data.Theme = "auto"
-	}
-	if data.LastUpdated.IsZero() {
-		data.LastUpdated = time.Now()
-	}
-
-	// Render the dashboard template
-	if err := tm.templates.ExecuteTemplate(&buf, "dashboard.html", data); err != nil {
-		return "", fmt.Errorf("failed to render dashboard template: %w", err)
-	}
-
-	return buf.String(), nil
+// RenderDashboard is deprecated - dashboard generator uses embedded template
+func (tm *TemplateManager) RenderDashboard(_ context.Context, _ DashboardData) (string, error) {
+	return "", ErrDashboardDeprecated
 }
 
-// RenderReport renders a coverage report HTML
-func (tm *TemplateManager) RenderReport(_ context.Context, data ReportData) (string, error) {
-	var buf bytes.Buffer
-
-	// Set default values if not provided
-	if data.Title == "" {
-		data.Title = "Coverage Report"
-	}
-	if data.ProjectName == "" {
-		data.ProjectName = "Go Project"
-	}
-	if data.Theme == "" {
-		data.Theme = "auto"
-	}
-	if data.Generated.IsZero() {
-		data.Generated = time.Now()
-	}
-
-	// Render the coverage report template
-	if err := tm.templates.ExecuteTemplate(&buf, "coverage-report.html", data); err != nil {
-		return "", fmt.Errorf("failed to render coverage report template: %w", err)
-	}
-
-	return buf.String(), nil
+// RenderReport is deprecated - report generator uses embedded template
+func (tm *TemplateManager) RenderReport(_ context.Context, _ ReportData) (string, error) {
+	return "", ErrReportDeprecated
 }
 
-// WriteDashboard writes the dashboard HTML to a writer
-func (tm *TemplateManager) WriteDashboard(ctx context.Context, w io.Writer, data DashboardData) error {
-	content, err := tm.RenderDashboard(ctx, data)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write([]byte(content))
-	return err
+// WriteDashboard is deprecated - dashboard generator uses embedded template
+func (tm *TemplateManager) WriteDashboard(_ context.Context, _ io.Writer, _ DashboardData) error {
+	return ErrDashboardDeprecated
 }
 
-// WriteReport writes a coverage report HTML to a writer
-func (tm *TemplateManager) WriteReport(ctx context.Context, w io.Writer, data ReportData) error {
-	content, err := tm.RenderReport(ctx, data)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write([]byte(content))
-	return err
+// WriteReport is deprecated - report generator uses embedded template
+func (tm *TemplateManager) WriteReport(_ context.Context, _ io.Writer, _ ReportData) error {
+	return ErrReportDeprecated
 }
 
 // GetEmbeddedFile returns the content of an embedded file

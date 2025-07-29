@@ -523,16 +523,21 @@ func (g *Generator) generateDataJSON(_ context.Context, data *CoverageData) erro
 	}
 
 	metadataPath := filepath.Join(dataDir, "metadata.json")
-	if err := os.WriteFile(metadataPath, metadataJSON, 0o600); err != nil {
-		return fmt.Errorf("writing metadata: %w", err)
+	if writeErr := os.WriteFile(metadataPath, metadataJSON, 0o600); writeErr != nil {
+		return fmt.Errorf("writing metadata: %w", writeErr)
 	}
 
 	// Generate and write build status data
-	// This is fetched from template data which includes build status
+	// Always create build-status.json to avoid 404 errors
+	buildStatusData := map[string]interface{}{
+		"available": false,
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+
+	// Override with actual build status if available
 	if templateData, ok := g.lastTemplateData["BuildStatus"]; ok && templateData != nil {
 		if buildStatus, ok := templateData.(*BuildStatus); ok && buildStatus.Available {
-			// Add timestamp to the build status for freshness checking
-			buildStatusData := map[string]interface{}{
+			buildStatusData = map[string]interface{}{
 				"state":         buildStatus.State,
 				"conclusion":    buildStatus.Conclusion,
 				"workflow_name": buildStatus.WorkflowName,
@@ -544,17 +549,17 @@ func (g *Generator) generateDataJSON(_ context.Context, data *CoverageData) erro
 				"available":     buildStatus.Available,
 				"timestamp":     time.Now().Format(time.RFC3339),
 			}
-
-			buildStatusJSON, err := json.MarshalIndent(buildStatusData, "", "  ")
-			if err != nil {
-				return fmt.Errorf("marshaling build status: %w", err)
-			}
-
-			buildStatusPath := filepath.Join(dataDir, "build-status.json")
-			if err := os.WriteFile(buildStatusPath, buildStatusJSON, 0o600); err != nil {
-				return fmt.Errorf("writing build status: %w", err)
-			}
 		}
+	}
+
+	buildStatusJSON, err := json.MarshalIndent(buildStatusData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling build status: %w", err)
+	}
+
+	buildStatusPath := filepath.Join(dataDir, "build-status.json")
+	if writeErr := os.WriteFile(buildStatusPath, buildStatusJSON, 0o600); writeErr != nil {
+		return fmt.Errorf("writing build status: %w", writeErr)
 	}
 
 	return nil

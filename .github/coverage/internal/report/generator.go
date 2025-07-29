@@ -13,7 +13,6 @@ import (
 
 	globalconfig "github.com/mrz1836/go-broadcast/coverage/internal/config"
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
-	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
 )
 
 const coverageReport = "Coverage Report"
@@ -39,8 +38,8 @@ type CoverageRecord struct {
 
 // Generator creates beautiful, interactive HTML coverage reports with cutting-edge UX
 type Generator struct {
-	config          *Config
-	templateManager *templates.TemplateManager
+	config   *Config
+	renderer *Renderer
 }
 
 // Config holds report generation configuration
@@ -118,12 +117,6 @@ type LineReport struct {
 
 // New creates a new report generator with default configuration
 func New() *Generator {
-	tm, err := templates.NewTemplateManager()
-	if err != nil {
-		// For now, panic - in production we'd handle this better
-		panic(fmt.Sprintf("failed to create template manager: %v", err))
-	}
-
 	return &Generator{
 		config: &Config{
 			Theme:            "github-dark",
@@ -135,21 +128,15 @@ func New() *Generator {
 			Responsive:       true,
 			InteractiveTrees: true,
 		},
-		templateManager: tm,
+		renderer: NewRenderer(),
 	}
 }
 
 // NewWithConfig creates a new report generator with custom configuration
 func NewWithConfig(config *Config) *Generator {
-	tm, err := templates.NewTemplateManager()
-	if err != nil {
-		// For now, panic - in production we'd handle this better
-		panic(fmt.Sprintf("failed to create template manager: %v", err))
-	}
-
 	return &Generator{
-		config:          config,
-		templateManager: tm,
+		config:   config,
+		renderer: NewRenderer(),
 	}
 }
 
@@ -442,11 +429,11 @@ func (g *Generator) renderHTML(ctx context.Context, data *Data) ([]byte, error) 
 	default:
 	}
 
-	// Convert internal Data to templates.ReportData format
+	// Convert internal Data to ReportData format
 	reportData := g.convertToTemplateData(ctx, data)
 
-	// Use the template manager to render the modern coverage report
-	htmlContent, err := g.templateManager.RenderReport(ctx, reportData)
+	// Use the renderer to render the modern coverage report
+	htmlContent, err := g.renderer.RenderReport(ctx, reportData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render modern coverage report: %w", err)
 	}
@@ -454,8 +441,8 @@ func (g *Generator) renderHTML(ctx context.Context, data *Data) ([]byte, error) 
 	return []byte(htmlContent), nil
 }
 
-// convertToTemplateData converts internal Data structure to templates.ReportData
-func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templates.ReportData {
+// convertToTemplateData converts internal Data structure to ReportData
+func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) ReportData {
 	// Get dynamic repository information
 	repoInfo := getGitRepositoryInfo(ctx)
 
@@ -474,15 +461,15 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 			title = fmt.Sprintf("%s/%s Coverage Report", repoInfo.Owner, repoInfo.Name)
 		}
 
-		return templates.ReportData{
+		return ReportData{
 			Title:            title,
 			ProjectName:      projectName,
 			Generated:        time.Now(),
 			Branch:           "main",
 			CommitSha:        "",
 			OverallCoverage:  0.0,
-			PackageStats:     []templates.PackageStats{},
-			FileStats:        []templates.FileStats{},
+			PackageStats:     []PackageStats{},
+			FileStats:        []FileStats{},
 			Theme:            "auto",
 			ShowDetails:      false,
 			GitHubOwner:      gitHubOwner,
@@ -494,8 +481,8 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 	}
 
 	// Convert package reports to template format
-	packageStats := make([]templates.PackageStats, 0, len(data.Packages))
-	fileStats := make([]templates.FileStats, 0)
+	packageStats := make([]PackageStats, 0, len(data.Packages))
+	fileStats := make([]FileStats, 0)
 
 	// Add nil checks for data fields
 	if data.Config == nil {
@@ -511,7 +498,7 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 			pkg.Files = []FileReport{}
 		}
 
-		packageStats = append(packageStats, templates.PackageStats{
+		packageStats = append(packageStats, PackageStats{
 			Name:         pkg.Name,
 			Coverage:     pkg.Percentage,
 			Files:        len(pkg.Files),
@@ -521,7 +508,7 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 
 		// Add file stats for this package
 		for _, file := range pkg.Files {
-			fileStats = append(fileStats, templates.FileStats{
+			fileStats = append(fileStats, FileStats{
 				Name:         file.Name,
 				Path:         file.Path,
 				Package:      pkg.Name,
@@ -555,7 +542,7 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 		gitHubBranch = data.BranchName
 	}
 
-	return templates.ReportData{
+	return ReportData{
 		Title:            title,
 		ProjectName:      data.ProjectName, // Use the dynamically determined project name
 		Generated:        data.GeneratedAt,

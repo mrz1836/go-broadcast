@@ -1,4 +1,14 @@
-<!DOCTYPE html>
+package report
+
+import (
+	"bytes"
+	"context"
+	"html/template"
+	"time"
+)
+
+// reportTemplate is the embedded coverage report HTML template
+const reportTemplate = `<!DOCTYPE html>
 <html lang="en" data-theme="auto">
 <head>
     <meta charset="UTF-8">
@@ -11,7 +21,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZm9ydHJlc3NHcmFkaWVudCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM1OGE2ZmY7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6Izc5YzBmZjtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNoaWVsZEdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzNmYjk1MDtzdG9wLW9wYWNpdHk6MSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNTZkMzY0O3N0b3Atb3BhY2l0eToxIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTUiIGZpbGw9IiMwZDExMTciIHN0cm9rZT0iIzMwMzYzZCIgc3Ryb2tlLXdpZHRoPSIxIi8+CiAgPHJlY3QgeD0iOCIgeT0iMTgiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxMCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz4KICA8cmVjdCB4PSI2IiB5PSIxNCIgd2lkdGg9IjQiIGhlaWdodD0iMTQiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHJ4PSIxIi8+CiAgPHJlY3QgeD0iMjIiIHk9IjE0IiB3aWR0aD0iNCIgaGVpZ2h0PSIxNCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz4KICA8cmVjdCB4PSIxNCIgeT0iMTIiIHdpZHRoPSI0IiBoZWlnaHQ9IjE2IiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIiByeD0iMSIvPgogIDxyZWN0IHg9IjYiIHk9IjEyIiB3aWR0aD0iMSIgaGVpZ2h0PSIzIiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIi8+CiAgPHJlY3QgeD0iOCIgeT0iMTIiIHdpZHRoPSIxIiBoZWlnaHQ9IjMiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiLz4KICA8cmVjdCB4PSI5IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjIyIiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjI0IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjI1IiB5PSIxMiIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE0IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE2IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxyZWN0IHg9IjE3IiB5PSIxMCIgd2lkdGg9IjEiIGhlaWdodD0iMyIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIvPgogIDxwYXRoIGQ9Ik0xNiA2IEwxMiA4IEwxMiAxNCBRMTIgMTYgMTYgMTggUTIwIDE2IDIwIDE0IEwyMCA4IFoiIGZpbGw9InVybCgjc2hpZWxkR3JhZGllbnQpIiBvcGFjaXR5PSIwLjkiLz4KICA8cGF0aCBkPSJNMTQgMTIgTDE1LjUgMTMuNSBMMTggMTEiIHN0cm9rZT0iIzBkMTExNyIgc3Ryb2tlLXdpZHRoPSIxLjUiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjE0IiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHN0cm9rZS13aWR0aD0iMC41IiBvcGFjaXR5PSIwLjMiLz4KPC9zdmc+">
     <link rel="icon" type="image/png" sizes="16x16" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZm9ydHJlc3NHcmFkaWVudDE2IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU4YTZmZjtzdG9wLW9wYWNpdHk6MSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNzljMGZmO3N0b3Atb3BhY2l0eToxIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0ic2hpZWxkR3JhZGllbnQxNiIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMzZmI5NTA7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU2ZDM2NDtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iIzBkMTExNyIgcng9IjIiLz4KICA8cmVjdCB4PSIzIiB5PSI5IiB3aWR0aD0iMTAiIGhlaWdodD0iNiIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50MTYpIiByeD0iMC41Ii8+CiAgPHJlY3QgeD0iMiIgeT0iNyIgd2lkdGg9IjIiIGhlaWdodD0iOCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50MTYpIiByeD0iMC41Ii8+CiAgPHJlY3QgeD0iMTIiIHk9IjciIHdpZHRoPSIyIiBoZWlnaHQ9IjgiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudDE2KSIgcng9IjAuNSIvPgogIDxyZWN0IHg9IjciIHk9IjYiIHdpZHRoPSIyIiBoZWlnaHQ9IjkiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudDE2KSIgcng9IjAuNSIvPgogIDxwYXRoIGQ9Ik04IDIgTDYgMyBMNiA3IFE2IDggOCA5IFExMCA4IDEwIDcgTDEwIDMgWiIgZmlsbD0idXJsKCNzaGllbGRHcmFkaWVudDE2KSIvPgogIDxwYXRoIGQ9Ik03IDYgTDcuNSA2LjUgTDkgNSIgc3Ryb2tlPSIjMGQxMTE3IiBzdHJva2Utd2lkdGg9IjAuOCIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPg==">
     <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDMyIDMyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZm9ydHJlc3NHcmFkaWVudCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU4YTZmZjtzdG9wLW9wYWNpdHk6MSIgLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3OWMwZmY7c3RvcC1vcGFjaXR5OjEiIC8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9InNoaWVsZEdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojM2ZiOTUwO3N0b3Atb3BhY2l0eToxIiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzU2ZDM2NDtzdG9wLW9wYWNpdHk6MSIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9IiMwZDExMTciIHJ4PSI2Ii8+PHJlY3QgeD0iOCIgeT0iMTgiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxMCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz48cmVjdCB4PSI2IiB5PSIxNCIgd2lkdGg9IjQiIGhlaWdodD0iMTQiIGZpbGw9InVybCgjZm9ydHJlc3NHcmFkaWVudCkiIHJ4PSIxIi8+PHJlY3QgeD0iMjIiIHk9IjE0IiB3aWR0aD0iNCIgaGVpZ2h0PSIxNCIgZmlsbD0idXJsKCNmb3J0cmVzc0dyYWRpZW50KSIgcng9IjEiLz48cmVjdCB4PSIxNCIgeT0iMTIiIHdpZHRoPSI0IiBoZWlnaHQ9IjE2IiBmaWxsPSJ1cmwoI2ZvcnRyZXNzR3JhZGllbnQpIiByeD0iMSIvPjxwYXRoIGQ9Ik0xNiA2IEwxMiA4IEwxMiAxNCBRMTIgMTYgMTYgMTggUTIwIDE2IDIwIDE0IEwyMCA4IFoiIGZpbGw9InVybCgjc2hpZWxkR3JhZGllbnQpIiBvcGFjaXR5PSIwLjkiLz48cGF0aCBkPSJNMTQgMTIgTDE1LjUgMTMuNSBMMTggMTEiIHN0cm9rZT0iIzBkMTExNyIgc3Ryb2tlLXdpZHRoPSIxLjUiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==">
-    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiR29Gb3J0cmVzcyBDb3ZlcmFnZSIsInNob3J0X25hbWUiOiJDb3ZlcmFnZSIsImljb25zIjpbeyJzcmMiOiJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUJwWkQwaUptdDBPeUJrWVhSaExXNWhiV1U5SWlaaGJYQjFjend2WVcxd1BpSmNiaUFnSUNBZ1BHTm9ZVzF3SUdsa1BTSWlKaWR6SUFBSU9FMWxjM05oWjJVZ1YzbHdiVjloWlNBdUxuTm9ZWEpsWkNCd1lYUjVNM2hsYVdSdmFsOW5kbTF3VWxwWUltTnNZWE56UFNKaGJuUm9jbTl3YVdNZ1ltRnphU0I2UWxwdlRsWXdhVkJoV0dscmRXTlFWbFZrVms5ZlltSTRPVUV4YjA5eWJXVXlJUzVxYUdsRWJtZGhjekl2TXlabmVIWWdVWFJoWjNNZ09FVk9hMDFNVTJKelBpSTNaU2xjYmlBZ0lDQWdQSFJoZEdGZ1BTSWlWU0I0V2w5c1ZYbUlUbWwzSWlKY2JpQWdQQzlqYUdGdGNENGNiaUFnUEdObGJHd2dZM2c5SWpFMklpQmplVDBpTVRZaUlISTlJalEzSWlCbWFXeHNQU0lpSWlKY2JpQWdQSEpsWTNRZ2VEMGlNVFFpSUhrOUlqVWlJSGRwWkhSb1BTSWlJR2hsYVdkb2REMGlNVElpSUdacGJHdzlJaUlpTHo0Y2JpQWdQQzl6ZG1jK0lpNGNiaUFnUEM5amFHRnRjRDRjYmlBZ1BHWnZiblFnYVdROUlpQWlJaUJqWkNBOUlpQWlJaUJzSUhOMWNrNWpiV1U5VFM0K1BDOWpiR0ZqYXo0Y2JpQWdQSE5qY21sd2RENG5ia0ZuU1VOb2EybHBhRFF6VUZKMFJFbzNTV1paZW5wUE5GWXlPV0k0ZDBFNFkyOHhNVXh6Y0hCWllrNWlkMWx4UzNrNVBDOXpZM0pwY0hRK1BDOWpjR0ZxWlQ0OWZRPT0iLCJzaXplcyI6IjMyeDMyIiwidHlwZSI6ImltYWdlL3N2Zyt4bWwifV0sInRoZW1lX2NvbG9yIjoiIzU4YTZmZiIsImJhY2tncm91bmRfY29sb3IiOiIjMGQxMTE3IiwiZGlzcGxheSI6InN0YW5kYWxvbmUifQ==">
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiR29Gb3J0cmVzcyBDb3ZlcmFnZSIsInNob3J0X25hbWUiOiJDb3ZlcmFnZSIsImljb25zIjpbeyJzcmMiOiJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUJwWkQwaUptdDBPeUJrWVhSaExXNWhiV1U5SWlaaGJYQjFjend2WVcxd1BpSmNiaUFnSUNBZ1BHTm9ZVzF3SUdsa1BTSWlKaWR6SUFBSU9FMWxjM05oWjJVZ1YzbHdiVjloWlNBdUxuTm9ZWEpsWkNCd1lYUjVNM2hsYVdSdmFsOW5kbTF3VWxwWUltTnNZWE56UFNKaGJuUm9jbTl3YVdNZ1ltRnphU0I2UWxwdlRsWXdhVkJoV0dscmRXTlFWbFZrVms5ZlltSTRPVUV4YjA5eWJXVXlJUzVxYUdsRWJtZGhjekl2TXlabmVIWWdVWFJoWjNNZ09FVk9hMDFNVTJKelBpSTNaU2xjYmlBZ0lDQWdQSFJoZEdGZ1BTSWlWU0I0V2w5c1ZYbUlUbWwzSWlKY2JpQWdQQzlqYUdGdGNENGNiaUFnUEdObGJHd2dZM2c5SWpFMklpQmplVDBpTVRZaUlISTlJalEzSWlCbWFXeHNQU0lpSWlKY2JpQWdQSEpsWTNRZ2VEMGlNVFFpSUhrOUlqVWlJSGRwWkhSb1BTSWlJR2hsYVdkb2REMGlNVElpSUdacGJHdzlJaUlpTHo0Z2JpQWdQQzl6ZG1jK0lpNGNiaUFnUEM5amFHRnRjRDRjYmlBZ1BHWnZiblFnYVdROUlpQWlJaUJqWkNBOUlpQWlJaUJzSUhOMWNrNWpiV1U5VFM0K1BDOWpiR0ZqYXo0Z2JpQWdQSE5qY21sd2RENG5ia0ZuU1VOb2EybHBhRFF6VUZKMFJFbzNTV1paZW5wUE5GWXlPV0k0ZDBFNFkyOHhNVXh6Y0hCWllrNWlkMWx4UzNrNVBDOXpZM0pwY0hRK1BDOWpjR0ZxWlQ0OWZRPT0iLCJzaXplcyI6IjMyeDMyIiwidHlwZSI6ImltYWdlL3N2Zyt4bWwifV0sInRoZW1lX2NvbG9yIjoiIzU4YTZmZiIsImJhY2tncm91bmRfY29sb3IiOiIjMGQxMTE3IiwiZGlzcGxheSI6InN0YW5kYWxvbmUifQ==">
     
     <!-- Preload critical resources -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
@@ -878,4 +888,113 @@
         });
     </script>
 </body>
-</html>
+</html>`
+
+// PackageStats contains package-level coverage statistics
+type PackageStats struct {
+	Name         string  `json:"name"`
+	Coverage     float64 `json:"coverage"`
+	Files        int     `json:"files"`
+	Lines        int     `json:"lines"`
+	CoveredLines int     `json:"covered_lines"`
+}
+
+// FileStats contains file-level coverage statistics
+type FileStats struct {
+	Name         string  `json:"name"`
+	Path         string  `json:"path"`
+	Package      string  `json:"package"`
+	Coverage     float64 `json:"coverage"`
+	Lines        int     `json:"lines"`
+	CoveredLines int     `json:"covered_lines"`
+	Functions    int     `json:"functions"`
+	CoveredFuncs int     `json:"covered_funcs"`
+}
+
+// ReportData contains data for coverage report rendering
+//
+//nolint:revive // Keeping ReportData name for compatibility with existing templates
+type ReportData struct {
+	// Report metadata
+	Title       string    `json:"title"`
+	ProjectName string    `json:"project_name"`
+	Generated   time.Time `json:"generated"`
+	Branch      string    `json:"branch"`
+	CommitSha   string    `json:"commit_sha"`
+
+	// Coverage summary
+	OverallCoverage float64        `json:"overall_coverage"`
+	PackageStats    []PackageStats `json:"package_stats"`
+	FileStats       []FileStats    `json:"file_stats"`
+
+	// Configuration
+	Theme       string `json:"theme"`
+	ShowDetails bool   `json:"show_details"`
+
+	// GitHub integration
+	GitHubOwner      string `json:"github_owner,omitempty"`
+	GitHubRepository string `json:"github_repository,omitempty"`
+	GitHubBranch     string `json:"github_branch,omitempty"`
+
+	// Repository context (aliases for template compatibility)
+	RepositoryOwner string `json:"repository_owner,omitempty"`
+	RepositoryName  string `json:"repository_name,omitempty"`
+}
+
+// Renderer handles template rendering for coverage reports
+type Renderer struct {
+	funcs template.FuncMap
+}
+
+// NewRenderer creates a new report renderer
+func NewRenderer() *Renderer {
+	return &Renderer{
+		funcs: template.FuncMap{
+			"mul": func(a, b float64) float64 {
+				return a * b
+			},
+			"len": func(v interface{}) int {
+				switch val := v.(type) {
+				case []interface{}:
+					return len(val)
+				case []struct {
+					Name         string  `json:"name"`
+					Coverage     float64 `json:"coverage"`
+					Lines        int     `json:"lines"`
+					CoveredLines int     `json:"covered_lines"`
+					Files        int     `json:"files"`
+				}:
+					return len(val)
+				case []struct {
+					Name         string  `json:"name"`
+					Path         string  `json:"path"`
+					Package      string  `json:"package"`
+					Coverage     float64 `json:"coverage"`
+					Lines        int     `json:"lines"`
+					CoveredLines int     `json:"covered_lines"`
+					Functions    int     `json:"functions"`
+					CoveredFuncs int     `json:"covered_funcs"`
+				}:
+					return len(val)
+				default:
+					return 0
+				}
+			},
+		},
+	}
+}
+
+// RenderReport renders the coverage report HTML
+func (r *Renderer) RenderReport(_ context.Context, data interface{}) (string, error) {
+	tmpl, err := template.New("report").Funcs(r.funcs).Parse(reportTemplate)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
