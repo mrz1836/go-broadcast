@@ -989,12 +989,20 @@ const dashboardTemplate = `<!DOCTYPE html>
                         <span class="repo-value">{{.Branch}}</span>
                     </div>
                     {{end}}
-                    {{if .CommitURL}}
-                    <a href="{{.CommitURL}}" target="_blank" class="repo-item repo-item-clickable">
-                        <span class="repo-icon">🔗</span>
-                        <span class="repo-label">Commit</span>
-                        <span class="repo-value commit-link">{{.CommitSHA}}</span>
-                    </a>
+                    {{if .CommitSHA}}
+                        {{if .CommitURL}}
+                        <a href="{{.CommitURL}}" target="_blank" class="repo-item repo-item-clickable">
+                            <span class="repo-icon">🔗</span>
+                            <span class="repo-label">Commit</span>
+                            <span class="repo-value commit-link">{{.CommitSHA}}</span>
+                        </a>
+                        {{else}}
+                        <div class="repo-item">
+                            <span class="repo-icon">🔗</span>
+                            <span class="repo-label">Commit</span>
+                            <span class="repo-value">{{.CommitSHA}}</span>
+                        </div>
+                        {{end}}
                     {{end}}
                 </div>
                 

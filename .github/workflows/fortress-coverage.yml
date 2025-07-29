@@ -154,15 +154,138 @@ jobs:
           echo "✅ Coverage tool built successfully"
 
       # ————————————————————————————————————————————————————————————————
-      # Download previous coverage history artifacts
+      # Download previous coverage history artifacts using GitHub API
       # ————————————————————————————————————————————————————————————————
       - name: 📥 Download previous coverage history
         if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          pattern: coverage-history-*
-          path: .github/coverage/history-artifacts/
-          merge-multiple: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          echo "📥 Downloading previous coverage history using GitHub API..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          # Create history artifacts directory
+          mkdir -p .github/coverage/history-artifacts/
+
+          # Get recent successful workflow runs (last 10) from master branch
+          echo "🔍 Fetching recent successful workflow runs..."
+
+          # Check GitHub CLI availability and authentication
+          if ! command -v gh &> /dev/null; then
+            echo "❌ GitHub CLI (gh) not available"
+            echo "ℹ️ Skipping history download - this will not affect coverage processing"
+            exit 0
+          fi
+
+          if ! gh auth status &> /dev/null; then
+            echo "❌ GitHub CLI not authenticated"
+            echo "ℹ️ Skipping history download - this will not affect coverage processing"
+            exit 0
+          fi
+
+          # Fetch workflow runs with better error handling
+          WORKFLOW_RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
+            --jq '.workflow_runs[] | select(.status == "completed" and .conclusion == "success" and .head_branch == "master") | .id' \
+            --paginate 2>/dev/null | head -10 || echo "")
+
+          if [[ -z "$WORKFLOW_RUNS" ]]; then
+            echo "ℹ️ No recent successful workflow runs found"
+            echo "📝 This is normal for:"
+            echo "  - First run on this repository"
+            echo "  - First successful run after setup"
+            echo "  - GitHub API rate limiting or connectivity issues"
+            exit 0
+          fi
+
+          echo "📊 Found $(echo "$WORKFLOW_RUNS" | wc -l) recent successful runs"
+
+          # Counter for downloaded artifacts
+          DOWNLOADED_COUNT=0
+          MAX_ARTIFACTS=5  # Limit to prevent excessive downloads
+
+          # Download coverage history artifacts from recent runs
+          for run_id in $WORKFLOW_RUNS; do
+            if [[ $DOWNLOADED_COUNT -ge $MAX_ARTIFACTS ]]; then
+              echo "📊 Reached maximum artifact limit ($MAX_ARTIFACTS), stopping download"
+              break
+            fi
+            
+            echo "🔍 Checking run $run_id for coverage history artifacts..."
+            
+            # Get artifacts for this run
+            ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/$run_id/artifacts \
+              --jq '.artifacts[] | select(.name | startswith("coverage-history-")) | {name: .name, download_url: .archive_download_url}' \
+              2>/dev/null || echo "")
+            
+            if [[ -n "$ARTIFACTS" ]]; then
+              echo "✅ Found coverage history artifacts in run $run_id"
+              
+              # Download each artifact
+              echo "$ARTIFACTS" | jq -r '.download_url' | while read -r download_url; do
+                if [[ -n "$download_url" ]]; then
+                  ARTIFACT_NAME=$(echo "$ARTIFACTS" | jq -r 'select(.download_url == "'$download_url'") | .name')
+                  echo "📥 Downloading artifact: $ARTIFACT_NAME"
+                  
+                  # Download and extract artifact with timeout and retries
+                  cd .github/coverage/history-artifacts/
+                  
+                  # Download with timeout and retry
+                  DOWNLOAD_SUCCESS=false
+                  for attempt in 1 2 3; do
+                    echo "    📥 Download attempt $attempt/3..."
+                    if curl -L -H "Authorization: Bearer $GITHUB_TOKEN" \
+                            -H "Accept: application/vnd.github+json" \
+                            --max-time 30 --connect-timeout 10 \
+                            "$download_url" -o "${ARTIFACT_NAME}.zip" 2>/dev/null; then
+                      DOWNLOAD_SUCCESS=true
+                      break
+                    else
+                      echo "    ⚠️ Download attempt $attempt failed"
+                      rm -f "${ARTIFACT_NAME}.zip"
+                      sleep 2
+                    fi
+                  done
+                  
+                  if [[ "$DOWNLOAD_SUCCESS" != "true" ]]; then
+                    echo "    ❌ Failed to download $ARTIFACT_NAME after 3 attempts"
+                    continue
+                  fi
+                  
+                  # Verify downloaded file is not empty
+                  if [[ ! -s "${ARTIFACT_NAME}.zip" ]]; then
+                    echo "    ❌ Downloaded file is empty: $ARTIFACT_NAME"
+                    rm -f "${ARTIFACT_NAME}.zip"
+                    continue
+                  fi
+                  
+                  # Extract the zip file
+                  if [[ -f "${ARTIFACT_NAME}.zip" ]]; then
+                    if unzip -q "${ARTIFACT_NAME}.zip" 2>/dev/null; then
+                      rm -f "${ARTIFACT_NAME}.zip"
+                      echo "    ✅ Extracted $ARTIFACT_NAME"
+                    else
+                      echo "    ⚠️ Failed to extract ${ARTIFACT_NAME}.zip (possibly corrupted)"
+                      rm -f "${ARTIFACT_NAME}.zip"
+                      continue
+                    fi
+                  fi
+                  
+                  cd - > /dev/null
+                done
+              done
+              
+              DOWNLOADED_COUNT=$((DOWNLOADED_COUNT + 1))
+            else
+              echo "ℹ️ No coverage history artifacts found in run $run_id"
+            fi
+          done
+
+          if [[ $DOWNLOADED_COUNT -gt 0 ]]; then
+            echo "✅ Successfully downloaded $DOWNLOADED_COUNT coverage history artifacts"
+          else
+            echo "ℹ️ No coverage history artifacts available from previous runs"
+            echo "📝 This is normal for the first few runs of the coverage system"
+          fi
         continue-on-error: true
 
       # ————————————————————————————————————————————————————————————————
@@ -184,6 +307,12 @@ jobs:
           echo "📁 Creating history directory..."
           mkdir -pv .github/coverage/history
           echo "✅ History directory created/verified"
+          echo ""
+
+          # Clean up any existing test files (files with test commit SHAs)
+          echo "🧹 Cleaning up test history files..."
+          find .github/coverage/history -name "*-test*-*.json" -type f -exec rm -v {} \; 2>/dev/null || true
+          echo "✅ Test files cleaned up"
           echo ""
 
           # Check if artifacts were downloaded
@@ -211,10 +340,27 @@ jobs:
 
               # Copy all JSON files from artifacts to history directory with verbose output
               echo "📑 Copying files to history directory..."
-              find .github/coverage/history-artifacts -name "*.json" -type f -exec cp -v {} .github/coverage/history/ \; 2>/dev/null || {
-                echo "⚠️ Some files could not be copied"
-                true
-              }
+              COPY_SUCCESS=0
+              COPY_FAILED=0
+              
+              # Process each JSON file individually to handle errors better
+              find .github/coverage/history-artifacts -name "*.json" -type f | while read -r file; do
+                filename=$(basename "$file")
+                destination=".github/coverage/history/$filename"
+                
+                # Check if file already exists and is different
+                if [[ -f "$destination" ]]; then
+                  if ! cmp -s "$file" "$destination"; then
+                    echo "  📝 Updating existing file: $filename"
+                    cp "$file" "$destination" && echo "    ✅ Updated" || echo "    ❌ Failed to update"
+                  else
+                    echo "  📋 File already exists and is identical: $filename"
+                  fi
+                else
+                  echo "  📥 Copying new file: $filename"
+                  cp "$file" "$destination" && echo "    ✅ Copied" || echo "    ❌ Failed to copy"
+                fi
+              done
 
               echo ""
               echo "✅ Restoration complete. Restored $ARTIFACT_FILES history files"
