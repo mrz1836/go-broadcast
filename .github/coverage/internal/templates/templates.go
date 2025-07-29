@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-//go:embed *.html
+//go:embed *.html favicon.ico *.svg site.webmanifest
 var embeddedFiles embed.FS
 
 // TemplateManager handles template loading and rendering

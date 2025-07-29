@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/github"
+	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
 )
 
 // Generator handles dashboard generation
@@ -485,8 +486,22 @@ func (g *Generator) generateDataJSON(_ context.Context, data *CoverageData) erro
 
 // copyAssets copies static assets to output directory
 func (g *Generator) copyAssets(_ context.Context) error {
-	// For now, we'll embed assets in the HTML
-	// In future, this could copy CSS, JS, and image files
+	// Copy favicon.ico from embedded templates
+	tm, err := templates.NewTemplateManager()
+	if err != nil {
+		return fmt.Errorf("creating template manager: %w", err)
+	}
+	faviconData, err := tm.GetEmbeddedFile("favicon.ico")
+	if err != nil {
+		// Favicon is optional, so we don't fail if it's missing
+		return nil //nolint:nilerr // Favicon is optional, we ignore the error intentionally
+	}
+
+	faviconPath := filepath.Join(g.config.OutputDir, "favicon.ico")
+	if err := os.WriteFile(faviconPath, faviconData, 0o600); err != nil {
+		return fmt.Errorf("writing favicon.ico: %w", err)
+	}
+
 	return nil
 }
 
