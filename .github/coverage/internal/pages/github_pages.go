@@ -1,3 +1,4 @@
+// Package pages provides GitHub Pages deployment functionality for coverage reports.
 package pages
 
 import (
@@ -19,6 +20,8 @@ var (
 	ErrBranchExists = errors.New("branch already exists")
 	// ErrInvalidBranchName indicates the branch name is invalid
 	ErrInvalidBranchName = errors.New("invalid branch name")
+	// ErrUnsupportedURLFormat indicates an unsupported remote URL format
+	ErrUnsupportedURLFormat = errors.New("unsupported remote URL format")
 )
 
 // GitHubPagesDeployer handles deployment to GitHub Pages
@@ -292,6 +295,22 @@ func (d *GitHubPagesDeployer) clonePagesBranch(ctx context.Context, destDir stri
 		return fmt.Errorf("getting remote URL: %w", err)
 	}
 	remoteURL := strings.TrimSpace(string(output))
+
+	// Get GitHub token with fallback mechanism (GH_PAT_TOKEN || GITHUB_TOKEN)
+	token := d.getGitHubToken()
+	if token != "" {
+		// Convert HTTPS URL to authenticated URL
+		if authenticatedURL, authErr := d.addTokenToURL(remoteURL, token); authErr == nil {
+			remoteURL = authenticatedURL
+			if d.verbose {
+				fmt.Printf("🔐 Using authenticated URL for git operations\n") //nolint:forbidigo // CLI output
+			}
+		} else if d.verbose {
+			fmt.Printf("⚠️ Could not add token to URL, using original: %v\n", authErr) //nolint:forbidigo // CLI output
+		}
+	} else if d.verbose {
+		fmt.Printf("⚠️ No GitHub token found, using unauthenticated URL\n") //nolint:forbidigo // CLI output
+	}
 
 	// Clone only gh-pages branch
 	cmd = exec.CommandContext(ctx, "git", "clone", //nolint:gosec // inputs validated
@@ -654,6 +673,11 @@ func (d *GitHubPagesDeployer) commitAndPush(ctx context.Context, message string)
 		return fmt.Errorf("git commit: %w", err)
 	}
 
+	// Ensure origin remote is set with authentication for push
+	if err := d.ensureAuthenticatedRemote(ctx); err != nil {
+		return fmt.Errorf("setting up authenticated remote: %w", err)
+	}
+
 	// Push changes
 	cmd = exec.CommandContext(ctx, "git", "push", "origin", d.pagesBranch) //nolint:gosec // branch validated
 	if err := d.runCommand(cmd); err != nil {
@@ -706,6 +730,85 @@ func (d *GitHubPagesDeployer) runCommand(cmd *exec.Cmd) error {
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%w: %s", err, stderr.String())
+	}
+
+	return nil
+}
+
+// getGitHubToken retrieves GitHub token with fallback mechanism (GH_PAT_TOKEN || GITHUB_TOKEN)
+func (d *GitHubPagesDeployer) getGitHubToken() string {
+	// Try GH_PAT_TOKEN first (personal access token with broader permissions)
+	if token := os.Getenv("GH_PAT_TOKEN"); token != "" {
+		if d.verbose {
+			fmt.Printf("🔑 Using GH_PAT_TOKEN for authentication\n") //nolint:forbidigo // CLI output
+		}
+		return token
+	}
+
+	// Fall back to GITHUB_TOKEN (standard GitHub Actions token)
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		if d.verbose {
+			fmt.Printf("🔑 Using GITHUB_TOKEN for authentication\n") //nolint:forbidigo // CLI output
+		}
+		return token
+	}
+
+	return ""
+}
+
+// addTokenToURL converts a Git URL to an authenticated HTTPS URL with the provided token
+func (d *GitHubPagesDeployer) addTokenToURL(remoteURL, token string) (string, error) {
+	// Handle different URL formats
+	if strings.HasPrefix(remoteURL, "git@github.com:") {
+		// Convert SSH URL to HTTPS: git@github.com:owner/repo.git -> https://github.com/owner/repo.git
+		parts := strings.TrimPrefix(remoteURL, "git@github.com:")
+		return fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts), nil
+	}
+
+	if strings.HasPrefix(remoteURL, "https://github.com/") {
+		// Add token to existing HTTPS URL: https://github.com/owner/repo.git -> https://x-access-token:TOKEN@github.com/owner/repo.git
+		parts := strings.TrimPrefix(remoteURL, "https://github.com/")
+		return fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts), nil
+	}
+
+	// Return error for unsupported URL formats
+	return "", fmt.Errorf("%w: %s", ErrUnsupportedURLFormat, remoteURL)
+}
+
+// ensureAuthenticatedRemote ensures the origin remote is set with authentication
+func (d *GitHubPagesDeployer) ensureAuthenticatedRemote(ctx context.Context) error {
+	// Get GitHub token
+	token := d.getGitHubToken()
+	if token == "" {
+		// No token available, skip authentication setup
+		if d.verbose {
+			fmt.Printf("⚠️ No GitHub token available for push authentication\n") //nolint:forbidigo // CLI output
+		}
+		return nil
+	}
+
+	// Get current origin URL
+	cmd := exec.CommandContext(ctx, "git", "config", "--get", "remote.origin.url")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("getting origin URL: %w", err)
+	}
+	currentURL := strings.TrimSpace(string(output))
+
+	// Convert to authenticated URL
+	authenticatedURL, err := d.addTokenToURL(currentURL, token)
+	if err != nil {
+		return fmt.Errorf("converting URL to authenticated: %w", err)
+	}
+
+	// Set the authenticated URL as origin
+	cmd = exec.CommandContext(ctx, "git", "remote", "set-url", "origin", authenticatedURL) //nolint:gosec // authenticatedURL is controlled and validated
+	if err := d.runCommand(cmd); err != nil {
+		return fmt.Errorf("setting authenticated origin URL: %w", err)
+	}
+
+	if d.verbose {
+		fmt.Printf("🔐 Updated origin remote with authentication\n") //nolint:forbidigo // CLI output
 	}
 
 	return nil
