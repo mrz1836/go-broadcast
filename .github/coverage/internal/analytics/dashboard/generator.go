@@ -527,40 +527,9 @@ func (g *Generator) generateDataJSON(_ context.Context, data *CoverageData) erro
 		return fmt.Errorf("writing metadata: %w", writeErr)
 	}
 
-	// Generate and write build status data
-	// Always create build-status.json to avoid 404 errors
-	buildStatusData := map[string]interface{}{
-		"available": false,
-		"timestamp": time.Now().Format(time.RFC3339),
-	}
-
-	// Override with actual build status if available
-	if templateData, ok := g.lastTemplateData["BuildStatus"]; ok && templateData != nil {
-		if buildStatus, ok := templateData.(*BuildStatus); ok && buildStatus.Available {
-			buildStatusData = map[string]interface{}{
-				"state":         buildStatus.State,
-				"conclusion":    buildStatus.Conclusion,
-				"workflow_name": buildStatus.WorkflowName,
-				"run_id":        buildStatus.RunID,
-				"run_number":    buildStatus.RunNumber,
-				"run_url":       buildStatus.RunURL,
-				"duration":      buildStatus.Duration,
-				"head_branch":   buildStatus.HeadBranch,
-				"available":     buildStatus.Available,
-				"timestamp":     time.Now().Format(time.RFC3339),
-			}
-		}
-	}
-
-	buildStatusJSON, err := json.MarshalIndent(buildStatusData, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshaling build status: %w", err)
-	}
-
-	buildStatusPath := filepath.Join(dataDir, "build-status.json")
-	if writeErr := os.WriteFile(buildStatusPath, buildStatusJSON, 0o600); writeErr != nil {
-		return fmt.Errorf("writing build status: %w", writeErr)
-	}
+	// Note: Build status JSON is not generated for static deployments
+	// The build status shown in the dashboard is embedded at generation time
+	// to avoid showing stale "in_progress" status on GitHub Pages
 
 	return nil
 }

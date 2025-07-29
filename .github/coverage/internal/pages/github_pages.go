@@ -539,7 +539,7 @@ func (d *GitHubPagesDeployer) copyArtifacts(srcDir, destPrefix string) error {
 		}
 	}
 
-	// Copy data directory (contains build-status.json)
+	// Copy data directory (contains coverage.json and metadata.json)
 	srcDataDir := filepath.Join(srcDir, "data")
 	if _, err := os.Stat(srcDataDir); err == nil {
 		var destDataDir string

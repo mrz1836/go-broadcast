@@ -455,7 +455,7 @@ jobs:
           # Verify outputs were created
           echo ""
           echo "🔍 Verifying generated outputs..."
-          EXPECTED_FILES=("index.html" "coverage.html" "coverage.svg" "reports/branch/${{ inputs.branch-name }}/data/build-status.json")
+          EXPECTED_FILES=("index.html" "coverage.html" "coverage.svg")
 
           ALL_GENERATED=true
           for file in "${EXPECTED_FILES[@]}"; do
@@ -556,7 +556,7 @@ jobs:
           echo ""
 
           # Verify critical files exist with detailed reporting
-          CRITICAL_FILES=("index.html" "coverage.html" "coverage.svg" "reports/branch/${{ inputs.branch-name }}/data/build-status.json" ".nojekyll")
+          CRITICAL_FILES=("index.html" "coverage.html" "coverage.svg" ".nojekyll")
           echo "🎯 Verifying critical files for GitHub Pages:"
 
           ALL_EXIST=true
@@ -646,7 +646,6 @@ jobs:
             "$BASE_URL/index.html"
             "$BASE_URL/coverage.html"
             "$BASE_URL/coverage.svg"
-            "$BASE_URL/reports/branch/master/data/build-status.json"
           )
 
           echo "🌐 Base URL: $BASE_URL"
@@ -690,7 +689,6 @@ jobs:
             echo "🌐 Live Coverage Dashboard: $BASE_URL/"
             echo "📊 Live Coverage Report: $BASE_URL/coverage.html"
             echo "🏷️ Live Coverage Badge: $BASE_URL/coverage.svg"
-            echo "📈 Live Build Status: $BASE_URL/reports/branch/master/data/build-status.json"
           else
             echo "❌ DEPLOYMENT VERIFICATION FAILED"
             echo "🚨 Not all URLs are accessible - failing workflow"
