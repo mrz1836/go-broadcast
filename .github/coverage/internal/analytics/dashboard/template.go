@@ -46,7 +46,7 @@ const dashboardTemplate = `<!DOCTYPE html>
             --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             
             /* Gradients */
-            --gradient-primary: linear-gradient(135deg, #58a6ff, #79c0ff);
+            --gradient-primary: linear-gradient(135deg, #4a90d9, #6ba3e3);
             --gradient-success: linear-gradient(135deg, #3fb950, #56d364);
             --gradient-danger: linear-gradient(135deg, #f85149, #da3633);
         }
@@ -88,7 +88,7 @@ const dashboardTemplate = `<!DOCTYPE html>
             right: 0;
             bottom: 0;
             background: 
-                radial-gradient(circle at 20% 50%, rgba(88, 166, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 20% 50%, rgba(74, 144, 217, 0.1) 0%, transparent 50%),
                 radial-gradient(circle at 80% 80%, rgba(63, 185, 80, 0.1) 0%, transparent 50%),
                 radial-gradient(circle at 40% 20%, rgba(248, 81, 73, 0.05) 0%, transparent 50%);
             pointer-events: none;
@@ -159,7 +159,7 @@ const dashboardTemplate = `<!DOCTYPE html>
             right: 0;
             bottom: 0;
             background: linear-gradient(135deg, 
-                rgba(88, 166, 255, 0.05) 0%, 
+                rgba(74, 144, 217, 0.05) 0%, 
                 rgba(63, 185, 80, 0.05) 100%);
             opacity: 0;
             transition: opacity var(--transition-smooth);
@@ -384,12 +384,12 @@ const dashboardTemplate = `<!DOCTYPE html>
         .action-btn.primary {
             background: var(--gradient-primary);
             color: white;
-            box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
+            box-shadow: 0 4px 12px rgba(74, 144, 217, 0.3);
         }
         
         .action-btn.primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(88, 166, 255, 0.4);
+            box-shadow: 0 6px 20px rgba(74, 144, 217, 0.4);
         }
         
         .action-btn.secondary {
