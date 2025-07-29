@@ -57,6 +57,7 @@ jobs:
       contents: write
       pages: write
       id-token: write
+      statuses: write
 
     steps:
       # ————————————————————————————————————————————————————————————————
@@ -454,7 +455,7 @@ jobs:
           # Verify outputs were created
           echo ""
           echo "🔍 Verifying generated outputs..."
-          EXPECTED_FILES=("index.html" "coverage.html" "coverage.svg" "data/build-status.json")
+          EXPECTED_FILES=("index.html" "coverage.html" "coverage.svg" "reports/branch/${{ inputs.branch-name }}/data/build-status.json")
 
           ALL_GENERATED=true
           for file in "${EXPECTED_FILES[@]}"; do
@@ -555,7 +556,7 @@ jobs:
           echo ""
 
           # Verify critical files exist with detailed reporting
-          CRITICAL_FILES=("index.html" "coverage.html" "coverage.svg" "data/build-status.json" ".nojekyll")
+          CRITICAL_FILES=("index.html" "coverage.html" "coverage.svg" "reports/branch/${{ inputs.branch-name }}/data/build-status.json" ".nojekyll")
           echo "🎯 Verifying critical files for GitHub Pages:"
 
           ALL_EXIST=true
