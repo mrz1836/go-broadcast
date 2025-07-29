@@ -531,10 +531,10 @@ jobs:
           echo "🔍 Verifying history files are in the correct location..."
           echo "📍 Working directory: $(pwd)"
           echo "📍 GitHub workspace: $GITHUB_WORKSPACE"
-          
+
           HISTORY_DIR="${GITHUB_WORKSPACE}/.github/coverage/history"
           echo "📂 Checking history directory: $HISTORY_DIR"
-          
+
           if [[ -d "$HISTORY_DIR" ]]; then
             echo "✅ History directory exists"
             echo "📊 Contents:"
@@ -857,7 +857,6 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 🚀 Deploy PR Coverage to GitHub Pages
         if: inputs.pr-number != ''
-        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
         working-directory: .github/coverage/cmd/gofortress-coverage
@@ -880,7 +879,6 @@ jobs:
 
       - name: 🚀 Deploy Branch Coverage to GitHub Pages
         if: inputs.pr-number == ''
-        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
         working-directory: .github/coverage/cmd/gofortress-coverage
@@ -907,7 +905,7 @@ jobs:
         if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
         run: |
           echo "🔄 Updating build status before deployment..."
-          
+
           # Check if build-status.json exists
           BUILD_STATUS_FILE=".github/coverage/coverage-output/data/build-status.json"
           if [[ -f "$BUILD_STATUS_FILE" ]]; then

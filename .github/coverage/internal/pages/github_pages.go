@@ -57,6 +57,11 @@ func (d *GitHubPagesDeployer) Setup(ctx context.Context, force bool) error {
 		return fmt.Errorf("creating orphan branch: %w", err)
 	}
 
+	// Configure git identity for commits
+	if err := d.configureGitIdentity(ctx); err != nil {
+		return fmt.Errorf("configuring git identity: %w", err)
+	}
+
 	// Create directory structure
 	dirs := []string{
 		"badges",
@@ -141,6 +146,11 @@ func (d *GitHubPagesDeployer) Deploy(ctx context.Context, opts DeployOptions) er
 		_ = os.Chdir(originalDir)
 	}()
 
+	// Configure git identity for commits
+	if err := d.configureGitIdentity(ctx); err != nil {
+		return fmt.Errorf("configuring git identity: %w", err)
+	}
+
 	// Copy artifacts based on type (PR or branch)
 	if opts.PRNumber != "" {
 		if err := d.deployPRArtifacts(opts); err != nil {
@@ -203,6 +213,11 @@ func (d *GitHubPagesDeployer) Clean(ctx context.Context, opts CleanOptions) erro
 	defer func() {
 		_ = os.Chdir(originalDir)
 	}()
+
+	// Configure git identity for commits
+	if identityErr := d.configureGitIdentity(ctx); identityErr != nil {
+		return fmt.Errorf("configuring git identity: %w", identityErr)
+	}
 
 	// Find and remove expired PR directories
 	prDirs, err := filepath.Glob("*/pr/*")
@@ -558,6 +573,62 @@ func (d *GitHubPagesDeployer) generateInitialDashboardHTML() string {
     </div>
 </body>
 </html>`
+}
+
+// configureGitIdentity sets up git user identity for commits
+func (d *GitHubPagesDeployer) configureGitIdentity(ctx context.Context) error {
+	var userName, userEmail string
+
+	// Detect environment and set appropriate identity
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		// GitHub Actions environment - use GitHub Actions bot
+		userName = "github-actions[bot]"
+		userEmail = "41898282+github-actions[bot]@users.noreply.github.com"
+		if d.verbose {
+			fmt.Println("🤖 Detected GitHub Actions environment, using bot identity") //nolint:forbidigo // CLI output
+		}
+	} else if os.Getenv("CI") == "true" {
+		// Generic CI environment
+		userName = "CI Bot"
+		userEmail = "ci-bot@users.noreply.github.com"
+		if d.verbose {
+			fmt.Println("🤖 Detected CI environment, using generic bot identity") //nolint:forbidigo // CLI output
+		}
+	} else {
+		// Local development - check if git config exists
+		cmd := exec.CommandContext(ctx, "git", "config", "--get", "user.name")
+		if output, err := cmd.Output(); err == nil && len(output) > 0 {
+			// User already has git config, skip configuration
+			if d.verbose {
+				fmt.Println("✅ Git identity already configured") //nolint:forbidigo // CLI output
+			}
+			return nil
+		}
+		// Use default values for local development
+		userName = "GoFortress Coverage"
+		userEmail = "coverage@gofortress.local"
+		if d.verbose {
+			fmt.Println("💻 Local environment, using default identity") //nolint:forbidigo // CLI output
+		}
+	}
+
+	// Configure git user name
+	cmd := exec.CommandContext(ctx, "git", "config", "user.name", userName) //nolint:gosec // userName is controlled and validated
+	if err := d.runCommand(cmd); err != nil {
+		return fmt.Errorf("setting git user name: %w", err)
+	}
+
+	// Configure git user email
+	cmd = exec.CommandContext(ctx, "git", "config", "user.email", userEmail) //nolint:gosec // userEmail is controlled and validated
+	if err := d.runCommand(cmd); err != nil {
+		return fmt.Errorf("setting git user email: %w", err)
+	}
+
+	if d.verbose {
+		fmt.Printf("✅ Git identity configured: %s <%s>\n", userName, userEmail) //nolint:forbidigo // CLI output
+	}
+
+	return nil
 }
 
 func (d *GitHubPagesDeployer) commitAndPush(ctx context.Context, message string) error {
