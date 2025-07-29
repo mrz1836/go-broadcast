@@ -1390,49 +1390,201 @@ jobs:
           echo "✅ Pre-upload verification completed - ready for GitHub Pages artifact upload"
 
       # ————————————————————————————————————————————————————————————————
-      # Create tarball manually for GitHub Pages (more control over what gets included)
+      # Ensure GitHub Pages configuration is correct
       # ————————————————————————————————————————————————————————————————
-      - name: 📦 Create GitHub Pages tarball manually
+      - name: 🔧 Verify GitHub Pages configuration
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔧 Verifying GitHub Pages configuration..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          if command -v gh &> /dev/null; then
+            echo "🔍 Checking repository Pages settings..."
+            
+            # Check if Pages is enabled and what the source is
+            PAGES_INFO=$(gh api repos/${{ github.repository }}/pages 2>/dev/null || echo "not_configured")
+            
+            if [[ "$PAGES_INFO" == "not_configured" ]]; then
+              echo "⚠️ GitHub Pages may not be configured for this repository"
+              echo "🔧 Attempting to configure Pages with GitHub Actions source..."
+              
+              # Try to enable Pages with Actions source
+              if gh api repos/${{ github.repository }}/pages --method POST \
+                  --field source.branch=master \
+                  --field source.path=/ \
+                  --field build_type=workflow >/dev/null 2>&1; then
+                echo "✅ GitHub Pages configured successfully"
+              else
+                echo "⚠️ Could not automatically configure Pages (may already be configured)"
+              fi
+            else
+              echo "✅ GitHub Pages is configured"
+              echo "📋 Pages configuration:"
+              echo "$PAGES_INFO" | jq -r '"  - URL: \(.html_url)\n  - Source: \(.source.branch) branch\n  - Build type: \(.build_type)"' 2>/dev/null || echo "  - Details not available"
+            fi
+            
+            echo ""
+            echo "🔍 Checking github-pages environment..."
+            ENV_INFO=$(gh api repos/${{ github.repository }}/environments/github-pages 2>/dev/null || echo "not_configured")
+            
+            if [[ "$ENV_INFO" == "not_configured" ]]; then
+              echo "⚠️ github-pages environment not configured"
+              echo "🔧 Running GitHub Pages environment setup..."
+              
+              # Run the setup script
+              if [[ -f ".github/coverage/scripts/setup-github-pages-env.sh" ]]; then
+                bash .github/coverage/scripts/setup-github-pages-env.sh "${{ github.repository }}" || echo "⚠️ Setup script failed, continuing anyway"
+              else
+                echo "⚠️ Setup script not found, manual configuration may be needed"
+              fi
+            else
+              echo "✅ github-pages environment exists"
+            fi
+          else
+            echo "⚠️ GitHub CLI not available, skipping configuration check"
+          fi
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ GitHub Pages configuration check completed"
+
+      # ————————————————————————————————————————————————————————————————
+      # Prepare directory for upload-pages-artifact (address potential exclusions)
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Prepare directory for Pages artifact upload
         if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
         run: |
-          echo "📦 Creating GitHub Pages tarball manually for better control..."
+          echo "🔧 Preparing directory for upload-pages-artifact action..."
 
           FILTERED_DIR=".github/coverage/coverage-output-filtered"
-          TARBALL_PATH="github-pages.tar.gz"
+          UPLOAD_DIR=".github/coverage/pages-upload"
 
-          # Ensure we're in the filtered directory
-          cd "$FILTERED_DIR"
+          # Create a clean upload directory
+          rm -rf "$UPLOAD_DIR"
+          mkdir -p "$UPLOAD_DIR"
 
-          echo "📁 Current directory: $(pwd)"
-          echo "🔍 Files to be included in tarball:"
-          find . -type f -exec echo "  - {}" \;
+          echo "📁 Copying files to clean upload directory..."
 
-          # Create tarball with all files, preserving directory structure
-          echo "📦 Creating tarball..."
-          tar -czf "../../$TARBALL_PATH" .
+          # Copy all files, ensuring proper permissions
+          cp -r "$FILTERED_DIR"/* "$UPLOAD_DIR"/
 
-          # Return to root directory
-          cd ../..
+          # Ensure all files are readable
+          find "$UPLOAD_DIR" -type f -exec chmod 644 {} \;
+          find "$UPLOAD_DIR" -type d -exec chmod 755 {} \;
 
-          echo "✅ Tarball created: $TARBALL_PATH"
-          echo "📊 Tarball size: $(ls -lh "$TARBALL_PATH" | awk '{print $5}')"
+          echo "📊 Upload directory contents:"
+          find "$UPLOAD_DIR" -type f -exec ls -la {} \;
 
-          # Verify tarball contents
-          echo "🔍 Tarball contents verification:"
-          tar -tzf "$TARBALL_PATH" | head -20
+          # Check for any potential exclusion patterns
+          echo ""
+          echo "🔍 Checking for potential exclusion patterns..."
+
+          # Common patterns that might be excluded by GitHub Pages
+          POTENTIAL_ISSUES=(
+            "*.json files in data/"
+            "Large files (>25MB)"
+            "Hidden files (.* pattern)"
+            "Executable files"
+            "Symlinks"
+          )
+
+          echo "📋 File analysis:"
+          find "$UPLOAD_DIR" -name "*.json" -exec echo "  JSON: {}" \;
+          find "$UPLOAD_DIR" -size +25M -exec echo "  LARGE: {}" \; 2>/dev/null || echo "  ✅ No large files found"
+          find "$UPLOAD_DIR" -name ".*" -exec echo "  HIDDEN: {}" \; 2>/dev/null || echo "  ✅ No hidden files found"
+          find "$UPLOAD_DIR" -type l -exec echo "  SYMLINK: {}" \; 2>/dev/null || echo "  ✅ No symlinks found"
+
+          echo "✅ Directory prepared for upload"
 
       # ————————————————————————————————————————————————————————————————
-      # Upload the manual tarball as GitHub Pages artifact
+      # Upload coverage artifacts for GitHub Pages deployment with debugging
       # ————————————————————————————————————————————————————————————————
-      - name: 📤 Upload manual Pages artifact
+      - name: 📤 Upload Pages artifact with debugging
         if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        run: |
+          echo "📤 Attempting to upload Pages artifact with full debugging..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          UPLOAD_DIR=".github/coverage/pages-upload"
+
+          echo "🔍 Final verification before upload:"
+          echo "  - Upload directory: $UPLOAD_DIR"
+          echo "  - Directory exists: $(test -d "$UPLOAD_DIR" && echo "YES" || echo "NO")"
+          echo "  - File count: $(find "$UPLOAD_DIR" -type f | wc -l)"
+          echo "  - Total size: $(du -sh "$UPLOAD_DIR" 2>/dev/null | cut -f1 || echo "unknown")"
+
+          echo ""
+          echo "📋 Critical files check before upload:"
+          CRITICAL_FILES=("index.html" "coverage.html" "coverage.svg" "data/build-status.json")
+          for file in "${CRITICAL_FILES[@]}"; do
+            if [[ -f "$UPLOAD_DIR/$file" ]]; then
+              echo "  ✅ $file ($(stat -c%s "$UPLOAD_DIR/$file" 2>/dev/null || stat -f%z "$UPLOAD_DIR/$file" 2>/dev/null) bytes)"
+            else
+              echo "  ❌ MISSING: $file"
+            fi
+          done
+
+          echo ""
+          echo "🔍 Action environment check:"
+          echo "  - GITHUB_TOKEN available: $(test -n "$GITHUB_TOKEN" && echo "YES" || echo "NO")"
+          echo "  - Workflow permissions: pages: write, id-token: write"
+          echo "  - Repository: ${{ github.repository }}"
+          echo "  - Event: ${{ github.event_name }}"
+          echo "  - Branch: ${{ steps.git-branch.outputs.branch-name }}"
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🚀 Proceeding with upload-pages-artifact action..."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: 📤 Upload Pages artifact (official action)
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
-          name: github-pages
-          path: github-pages.tar.gz
+          path: .github/coverage/pages-upload
           retention-days: 1
-          compression-level: 0 # Already compressed
         continue-on-error: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      # ————————————————————————————————————————————————————————————————
+      # Debug upload result
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Debug upload result
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
+        run: |
+          echo "🔍 Checking upload result immediately after upload-pages-artifact..."
+
+          # Wait a moment for artifact processing
+          sleep 3
+
+          # Check if github-pages artifact was created
+          if command -v gh &> /dev/null; then
+            echo "📦 Re-checking artifacts after upload attempt:"
+            gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts --jq '.artifacts[] | "  - \(.name) (\(.size_in_bytes) bytes)"' || echo "  ❌ Failed to list artifacts"
+            
+            PAGES_ARTIFACT=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts --jq '.artifacts[] | select(.name == "github-pages") | .id' || echo "")
+            
+            if [[ -n "$PAGES_ARTIFACT" ]]; then
+              echo "🎉 SUCCESS: github-pages artifact was created (ID: $PAGES_ARTIFACT)"
+            else
+              echo "❌ FAILURE: github-pages artifact was still not created"
+              echo "🚨 The upload-pages-artifact action failed silently"
+              
+              # Show action logs if possible
+              echo "🔍 This suggests one of these issues:"
+              echo "  1. GitHub Pages not enabled for this repository"
+              echo "  2. Repository doesn't have proper permissions"
+              echo "  3. Upload action encountered validation errors"
+              echo "  4. File size or content issues"
+              echo "  5. Repository environment configuration problems"
+            fi
+          else
+            echo "⚠️ GitHub CLI not available for verification"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
 
       # ————————————————————————————————————————————————————————————————
       # Post-upload verification: Check what was actually uploaded
