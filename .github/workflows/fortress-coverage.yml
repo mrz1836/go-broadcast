@@ -271,7 +271,7 @@ jobs:
                   fi
                   
                   cd - > /dev/null
-                done
+                fi
               done
               
               DOWNLOADED_COUNT=$((DOWNLOADED_COUNT + 1))
@@ -1045,19 +1045,19 @@ jobs:
           echo "✅ Branch coverage deployed to: /reports/branch/${{ steps.git-branch.outputs.branch-name }}/"
 
       # ————————————————————————————————————————————————————————————————
-      # Update build status before deployment
+      # Update build status before filtering and deployment
       # ————————————————————————————————————————————————————————————————
-      - name: 🔄 Update build status before deployment
+      - name: 🔄 Update build status before filtering
         if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
         run: |
-          echo "🔄 Updating build status before deployment..."
+          echo "🔄 Updating build status before filtering and deployment..."
 
           # Ensure data directory exists in output
           DATA_DIR=".github/coverage/coverage-output/data"
           mkdir -p "$DATA_DIR"
           echo "📁 Created data directory: $DATA_DIR"
 
-          # Create build status file
+          # Create build status file (this needs to be done before filtering)
           BUILD_STATUS_FILE="$DATA_DIR/build-status.json"
           echo "📄 Creating build-status.json at: $BUILD_STATUS_FILE"
 
@@ -1090,13 +1090,107 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
+      # Filter coverage output to exclude docs and README files
+      # ————————————————————————————————————————————————————————————————
+      - name: 🧹 Filter coverage output for deployment
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
+        run: |
+          echo "🧹 Filtering coverage output for GitHub Pages deployment..."
+
+          # Create filtered output directory
+          FILTERED_OUTPUT_DIR=".github/coverage/coverage-output-filtered"
+          OUTPUT_DIR=".github/coverage/coverage-output"
+
+          echo "📁 Creating filtered output directory: $FILTERED_OUTPUT_DIR"
+          mkdir -p "$FILTERED_OUTPUT_DIR"
+
+          # Copy all files except docs and README
+          echo "📋 Copying coverage files (excluding docs and README)..."
+
+          # Debug: Show what files exist in source before copying
+          echo "🔍 Files in source directory before copying:"
+          find "$OUTPUT_DIR" -type f | head -20
+          echo "🔍 Looking specifically for build-status.json:"
+          find "$OUTPUT_DIR" -name "build-status.json" -type f || echo "build-status.json not found in source"
+
+          # Use rsync to copy with exclusions
+          if command -v rsync &> /dev/null; then
+            echo "📋 Using rsync to copy files..."
+            rsync -av \
+              --exclude='docs/' \
+              --exclude='README.md' \
+              --exclude='LICENSE' \
+              "$OUTPUT_DIR/" "$FILTERED_OUTPUT_DIR/"
+          else
+            # Fallback: copy manually with find
+            echo "📋 Using find-based copying (rsync not available)..."
+            
+            # Copy all files except excluded ones
+            find "$OUTPUT_DIR" -type f \
+              ! -path "*/docs/*" \
+              ! -name "README.md" \
+              ! -name "LICENSE" \
+              -exec sh -c '
+                rel_path="${1#'"$OUTPUT_DIR"'/}"
+                target_dir="'"$FILTERED_OUTPUT_DIR"'/$(dirname "$rel_path")"
+                mkdir -p "$target_dir"
+                cp "$1" "$target_dir/"
+              ' _ {} \;
+            
+            # Copy directory structure for non-excluded directories
+            find "$OUTPUT_DIR" -type d \
+              ! -path "*/docs" \
+              ! -path "*/docs/*" \
+              -exec sh -c '
+                rel_path="${1#'"$OUTPUT_DIR"'/}"
+                [ -n "$rel_path" ] && mkdir -p "'"$FILTERED_OUTPUT_DIR"'/$rel_path"
+              ' _ {} \;
+          fi
+
+          echo "✅ Filtering completed"
+
+          # Verify critical files were included
+          echo "🔍 Verifying critical files in filtered deployment:"
+          CRITICAL_FILES=("data/build-status.json" "coverage.svg" "coverage.html" "dashboard.html")
+          MISSING_FILES=()
+
+          for file in "${CRITICAL_FILES[@]}"; do
+            if [[ -f "$FILTERED_OUTPUT_DIR/$file" ]]; then
+              echo "  ✅ $file"
+            else
+              echo "  ❌ Missing: $file"
+              MISSING_FILES+=("$file")
+            fi
+          done
+
+          if [[ ${#MISSING_FILES[@]} -gt 0 ]]; then
+            echo "⚠️ WARNING: Missing critical files: ${MISSING_FILES[*]}"
+            echo "📋 All files in filtered directory:"
+            find "$FILTERED_OUTPUT_DIR" -type f
+            echo "📋 All files in original directory:"  
+            find "$OUTPUT_DIR" -type f
+          fi
+
+          # Show what was included
+          echo "📊 Files included in filtered deployment:"
+          find "$FILTERED_OUTPUT_DIR" -type f | head -20
+
+          # Show directory size comparison
+          if command -v du &> /dev/null; then
+            echo ""
+            echo "📏 Size comparison:"
+            echo "  Original: $(du -sh "$OUTPUT_DIR" 2>/dev/null | cut -f1 || echo 'unknown')"
+            echo "  Filtered: $(du -sh "$FILTERED_OUTPUT_DIR" 2>/dev/null | cut -f1 || echo 'unknown')"
+          fi
+
+      # ————————————————————————————————————————————————————————————————
       # Upload coverage artifacts for GitHub Pages deployment
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload Pages artifact
         if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
-          path: .github/coverage/coverage-output
+          path: .github/coverage/coverage-output-filtered
 
       # ————————————————————————————————————————————————————————————————
       # Deploy to GitHub Pages using official action
