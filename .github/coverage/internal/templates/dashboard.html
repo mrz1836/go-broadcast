@@ -358,6 +358,7 @@
             transition: var(--transition-smooth);
             overflow: hidden;
             cursor: pointer;
+            isolation: isolate;
         }
 
         .metric-card-link {
@@ -366,7 +367,9 @@
             color: inherit;
             text-decoration: none;
             position: relative;
-            z-index: 1;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
         }
 
         .metric-card::before {
@@ -400,6 +403,7 @@
         .metric-content {
             position: relative;
             z-index: 1;
+            pointer-events: none;
         }
 
         .metric-label {
@@ -449,7 +453,7 @@
             right: 1rem;
             width: 60px;
             height: 60px;
-            z-index: 0;
+            z-index: 1;
             pointer-events: none;
         }
 
@@ -617,13 +621,13 @@
             outline-offset: 2px;
         }
 
-        .metric-card-link:focus-visible {
-            outline: none;
-        }
-
-        .metric-card-link:focus-visible .metric-card {
+        .metric-card:focus-within {
             outline: 2px solid var(--color-primary);
             outline-offset: 2px;
+        }
+
+        .metric-card-link:focus {
+            outline: none;
         }
 
         /* Packages section styling */

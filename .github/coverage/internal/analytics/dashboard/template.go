@@ -896,6 +896,14 @@ const dashboardTemplate = `<!DOCTYPE html>
                                         <span class="status-workflow">{{.BuildStatus.WorkflowName}}</span>
                                     </div>
                                 </a>
+                                {{else if eq .BuildStatus.Conclusion "stale"}}
+                                <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator" title="Build appears to be stuck">
+                                    <span class="status-icon">⚠️</span>
+                                    <div class="status-details">
+                                        <span class="status-text">Build Stale</span>
+                                        <span class="status-workflow">{{.BuildStatus.WorkflowName}} • May be stuck</span>
+                                    </div>
+                                </a>
                                 {{else}}
                                 <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator" title="View build on GitHub Actions">
                                     <span class="status-icon">🟡</span>

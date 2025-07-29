@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.RepositoryOwner}}/{{.RepositoryName}} Coverage Report</title>
+    <title>{{if .Title}}{{.Title}}{{else}}{{.RepositoryOwner}}/{{.RepositoryName}} Coverage Report{{end}}</title>
     <meta name="description" content="Detailed coverage analysis for {{.RepositoryOwner}}/{{.RepositoryName}}">
     
     <!-- Favicon -->

@@ -544,8 +544,8 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 	if repoInfo != nil {
 		gitHubOwner = repoInfo.Owner
 		gitHubRepo = repoInfo.Name
-		// Use repository-focused title if no custom title was set (empty or default)
-		if data.Config.Title == "" || data.Config.Title == coverageReport {
+		// Use repository-focused title only if no custom title was set (empty or using default constant)
+		if title == "" || title == coverageReport {
 			title = fmt.Sprintf("%s/%s Coverage Report", repoInfo.Owner, repoInfo.Name)
 		}
 	}

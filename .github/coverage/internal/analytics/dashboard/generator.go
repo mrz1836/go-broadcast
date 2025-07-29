@@ -376,6 +376,16 @@ func (g *Generator) getBuildStatus(ctx context.Context, repoInfo *RepositoryInfo
 	// Find the most recent relevant workflow run
 	var latestRun *github.WorkflowRun
 	for _, run := range workflowRuns.WorkflowRuns {
+		// Skip if the run is too old to be considered "in_progress"
+		// GitHub Actions typically times out after 6 hours
+		if run.Status == "in_progress" {
+			timeSinceStart := time.Since(run.RunStartedAt)
+			if timeSinceStart > 6*time.Hour {
+				// This is likely stale data, skip it
+				continue
+			}
+		}
+
 		// Prioritize coverage-related workflows
 		if strings.Contains(strings.ToLower(run.Name), "coverage") ||
 			strings.Contains(strings.ToLower(run.Name), "fortress") ||
@@ -400,9 +410,24 @@ func (g *Generator) getBuildStatus(ctx context.Context, repoInfo *RepositoryInfo
 	// Calculate duration
 	duration := g.formatDuration(latestRun.RunStartedAt, latestRun.UpdatedAt, latestRun.Status)
 
+	// Additional validation for "in_progress" status
+	// If a build shows as "in_progress" but hasn't been updated in over 30 minutes,
+	// it's likely stale or stuck
+	actualStatus := latestRun.Status
+	actualConclusion := latestRun.Conclusion
+
+	if actualStatus == "in_progress" {
+		timeSinceUpdate := time.Since(latestRun.UpdatedAt)
+		if timeSinceUpdate > 30*time.Minute {
+			// Override to show as completed with unknown conclusion
+			actualStatus = "completed"
+			actualConclusion = "stale"
+		}
+	}
+
 	return &BuildStatus{
-		State:        latestRun.Status,
-		Conclusion:   latestRun.Conclusion,
+		State:        actualStatus,
+		Conclusion:   actualConclusion,
 		WorkflowName: latestRun.Name,
 		RunID:        latestRun.ID,
 		RunNumber:    latestRun.RunNumber,
