@@ -1160,7 +1160,7 @@ jobs:
 
           # Verify critical files were included
           echo "🔍 Verifying critical files in filtered deployment:"
-          CRITICAL_FILES=("data/build-status.json" "coverage.svg" "coverage.html" "dashboard.html")
+          CRITICAL_FILES=("data/build-status.json" "coverage.svg" "coverage.html" "dashboard.html" "index.html")
           MISSING_FILES=()
 
           for file in "${CRITICAL_FILES[@]}"; do
@@ -1205,6 +1205,108 @@ jobs:
             echo "  Original: $(du -sh "$OUTPUT_DIR" 2>/dev/null | cut -f1 || echo 'unknown')"
             echo "  Filtered: $(du -sh "$FILTERED_OUTPUT_DIR" 2>/dev/null | cut -f1 || echo 'unknown')"
           fi
+
+          # Critical debugging: Show exact structure that will be deployed to GitHub Pages
+          echo ""
+          echo "🔍 DEPLOYMENT STRUCTURE DEBUG:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📁 Complete filtered directory structure for GitHub Pages:"
+          echo "   (This is exactly what will be deployed to https://mrz1836.github.io/go-broadcast/)"
+          find "$FILTERED_OUTPUT_DIR" -type f -exec echo "   {}" \; | sort
+          echo ""
+          echo "🔍 CRITICAL: Checking index.html locations:"
+          find "$FILTERED_OUTPUT_DIR" -name "index.html" -exec echo "   INDEX: {}" \;
+          echo ""
+          echo "🔍 CRITICAL: Checking build-status.json locations:"
+          find "$FILTERED_OUTPUT_DIR" -name "build-status.json" -exec echo "   BUILD-STATUS: {}" \;
+          echo ""
+          echo "🌐 Expected URLs after deployment:"
+          echo "   - Root: https://mrz1836.github.io/go-broadcast/"
+          echo "   - Data: https://mrz1836.github.io/go-broadcast/data/build-status.json"
+          echo "   - Coverage: https://mrz1836.github.io/go-broadcast/coverage.svg"
+          echo ""
+          echo "🔗 Relative paths from index.html:"
+          echo "   - data/build-status.json (current fetch path)"
+          echo "   - coverage.svg"
+          echo ""
+          echo "⚠️  POTENTIAL ISSUE ANALYSIS:"
+          if [[ -f "$FILTERED_OUTPUT_DIR/index.html" ]]; then
+            echo "   ✅ Root index.html exists - GOOD"
+          else
+            echo "   ❌ Root index.html missing - PROBLEM!"
+            echo "   🔧 Available index.html files:"
+            find "$FILTERED_OUTPUT_DIR" -name "index.html" -exec echo "      {}" \;
+          fi
+          if [[ -f "$FILTERED_OUTPUT_DIR/data/build-status.json" ]]; then
+            echo "   ✅ Root data/build-status.json exists - GOOD"
+          else
+            echo "   ❌ Root data/build-status.json missing - PROBLEM!"
+          fi
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          # FINAL FIX: Ensure root index.html and data structure are correct
+          echo "🔧 APPLYING FINAL FIXES:"
+
+          # Ensure root index.html exists (should be the main dashboard)
+          if [[ ! -f "$FILTERED_OUTPUT_DIR/index.html" ]]; then
+            echo "🔧 Root index.html missing, trying to create from dashboard.html..."
+            if [[ -f "$FILTERED_OUTPUT_DIR/dashboard.html" ]]; then
+              cp "$FILTERED_OUTPUT_DIR/dashboard.html" "$FILTERED_OUTPUT_DIR/index.html"
+              echo "   ✅ Copied dashboard.html to index.html"
+            elif [[ -f "$FILTERED_OUTPUT_DIR/reports/branch/master/index.html" ]]; then
+              cp "$FILTERED_OUTPUT_DIR/reports/branch/master/index.html" "$FILTERED_OUTPUT_DIR/index.html"
+              echo "   ✅ Copied branch master index.html to root"
+            else
+              echo "   ❌ No suitable index.html found to copy"
+            fi
+          else
+            echo "   ✅ Root index.html already exists"
+          fi
+
+          # Ensure data/build-status.json is at root level
+          if [[ ! -f "$FILTERED_OUTPUT_DIR/data/build-status.json" ]]; then
+            echo "🔧 Root data/build-status.json missing, trying to fix..."
+            # Look for build-status.json in subdirectories
+            BUILD_STATUS_FOUND=$(find "$FILTERED_OUTPUT_DIR" -name "build-status.json" -type f | head -1)
+            if [[ -n "$BUILD_STATUS_FOUND" ]]; then
+              echo "   📁 Found build-status.json at: $BUILD_STATUS_FOUND"
+              mkdir -p "$FILTERED_OUTPUT_DIR/data"
+              cp "$BUILD_STATUS_FOUND" "$FILTERED_OUTPUT_DIR/data/build-status.json"
+              echo "   ✅ Copied to root data/build-status.json"
+            else
+              echo "   ❌ No build-status.json found anywhere"
+            fi
+          else
+            echo "   ✅ Root data/build-status.json already exists"
+          fi
+
+          # Ensure coverage.html is at root level for dashboard links
+          if [[ ! -f "$FILTERED_OUTPUT_DIR/coverage.html" ]]; then
+            echo "🔧 Root coverage.html missing, trying to fix..."
+            # Look for coverage.html in subdirectories
+            COVERAGE_HTML_FOUND=$(find "$FILTERED_OUTPUT_DIR" -name "coverage.html" -type f | head -1)
+            if [[ -n "$COVERAGE_HTML_FOUND" ]]; then
+              echo "   📁 Found coverage.html at: $COVERAGE_HTML_FOUND"
+              cp "$COVERAGE_HTML_FOUND" "$FILTERED_OUTPUT_DIR/coverage.html"
+              echo "   ✅ Copied to root coverage.html"
+            else
+              echo "   ❌ No coverage.html found anywhere"
+            fi
+          else
+            echo "   ✅ Root coverage.html already exists"
+          fi
+
+          echo "🎯 FINAL VERIFICATION:"
+          echo "   Root index.html: $(test -f "$FILTERED_OUTPUT_DIR/index.html" && echo "✅ EXISTS" || echo "❌ MISSING")"
+          echo "   Root coverage.html: $(test -f "$FILTERED_OUTPUT_DIR/coverage.html" && echo "✅ EXISTS" || echo "❌ MISSING")"
+          echo "   Root data/build-status.json: $(test -f "$FILTERED_OUTPUT_DIR/data/build-status.json" && echo "✅ EXISTS" || echo "❌ MISSING")"
+          echo "   Root coverage.svg: $(test -f "$FILTERED_OUTPUT_DIR/coverage.svg" && echo "✅ EXISTS" || echo "❌ MISSING")"
+
+          echo "🌐 URLs that should work after deployment:"
+          echo "   ✅ https://mrz1836.github.io/go-broadcast/ (dashboard)"
+          echo "   ✅ https://mrz1836.github.io/go-broadcast/coverage.html (detailed report)"
+          echo "   ✅ https://mrz1836.github.io/go-broadcast/data/build-status.json (build status)"
+          echo "   ✅ https://mrz1836.github.io/go-broadcast/coverage.svg (coverage badge)"
 
       # ————————————————————————————————————————————————————————————————
       # Upload coverage artifacts for GitHub Pages deployment
