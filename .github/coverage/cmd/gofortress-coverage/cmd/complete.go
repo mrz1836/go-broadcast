@@ -680,11 +680,42 @@ update history, and create GitHub PR comment if in PR context.`,
 			cmd.Printf("🐙 Step 6: GitHub integration (skipped)\n\n")
 		}
 
-		// Step 7: Create root index.html redirect
-		if !dryRun && branch == "master" && !cfg.IsPullRequestContext() {
-			cmd.Printf("🏠 Step 7: Creating root index.html redirect...\n")
-			rootIndexPath := filepath.Join(outputDir, "index.html")
-			redirectHTML := `<!DOCTYPE html>
+		// Step 7: Copy critical files to root for GitHub Actions validation
+		if !dryRun {
+			cmd.Printf("📋 Step 7: Copying critical files to root output directory...\n")
+
+			// Files to copy from target directory to root
+			filesToCopy := []struct {
+				filename string
+				source   string
+			}{
+				{"dashboard.html", filepath.Join(targetOutputDir, "dashboard.html")},
+				{"coverage.html", filepath.Join(targetOutputDir, cfg.Report.OutputFile)},
+			}
+
+			for _, file := range filesToCopy {
+				sourceFile := file.source
+				destFile := filepath.Join(outputDir, file.filename)
+
+				// Read source file
+				content, err := os.ReadFile(sourceFile) //nolint:gosec // sourceFile is constructed from validated config paths
+				if err != nil {
+					cmd.Printf("   ⚠️  Failed to read %s: %v\n", file.filename, err)
+					continue
+				}
+
+				// Write to root output directory
+				if err := os.WriteFile(destFile, content, cfg.Storage.FileMode); err != nil {
+					cmd.Printf("   ⚠️  Failed to copy %s to root: %v\n", file.filename, err)
+				} else {
+					cmd.Printf("   ✅ Copied %s to root output directory\n", file.filename)
+				}
+			}
+
+			// Create root index.html redirect for master branch
+			if branch == "master" && !cfg.IsPullRequestContext() {
+				rootIndexPath := filepath.Join(outputDir, "index.html")
+				redirectHTML := `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -696,10 +727,11 @@ update history, and create GitHub PR comment if in PR context.`,
     <p>Redirecting to <a href="reports/branch/master/">coverage report</a>...</p>
 </body>
 </html>`
-			if err := os.WriteFile(rootIndexPath, []byte(redirectHTML), cfg.Storage.FileMode); err != nil {
-				cmd.Printf("   ⚠️  Failed to create root index.html: %v\n", err)
-			} else {
-				cmd.Printf("   ✅ Root index.html redirect created\n")
+				if err := os.WriteFile(rootIndexPath, []byte(redirectHTML), cfg.Storage.FileMode); err != nil {
+					cmd.Printf("   ⚠️  Failed to create root index.html: %v\n", err)
+				} else {
+					cmd.Printf("   ✅ Root index.html redirect created\n")
+				}
 			}
 			cmd.Printf("\n")
 		}
