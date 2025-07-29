@@ -10,8 +10,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Static errors
@@ -288,6 +290,11 @@ func (d *GitHubPagesDeployer) createOrphanBranch(ctx context.Context) error {
 }
 
 func (d *GitHubPagesDeployer) clonePagesBranch(ctx context.Context, destDir string) error {
+	if d.verbose {
+		fmt.Printf("🔧 Starting clonePagesBranch process\n")    //nolint:forbidigo // CLI output
+		fmt.Printf("  📂 Destination directory: %s\n", destDir) //nolint:forbidigo // CLI output
+	}
+
 	// Get remote URL
 	cmd := exec.CommandContext(ctx, "git", "config", "--get", "remote.origin.url")
 	output, err := cmd.Output()
@@ -296,23 +303,42 @@ func (d *GitHubPagesDeployer) clonePagesBranch(ctx context.Context, destDir stri
 	}
 	remoteURL := strings.TrimSpace(string(output))
 
+	if d.verbose {
+		fmt.Printf("🔍 Retrieved remote URL: %q (raw length: %d)\n", remoteURL, len(remoteURL)) //nolint:forbidigo // CLI output
+	}
+
 	// Get GitHub token with fallback mechanism (GH_PAT_TOKEN || GITHUB_TOKEN)
 	token := d.getGitHubToken()
 	if token != "" {
+		if d.verbose {
+			fmt.Printf("🔑 Token available, attempting URL authentication\n") //nolint:forbidigo // CLI output
+		}
 		// Convert HTTPS URL to authenticated URL
 		if authenticatedURL, authErr := d.addTokenToURL(remoteURL, token); authErr == nil {
-			remoteURL = authenticatedURL
 			if d.verbose {
-				fmt.Printf("🔐 Using authenticated URL for git operations\n") //nolint:forbidigo // CLI output
+				fmt.Printf("✅ Successfully converted to authenticated URL\n") //nolint:forbidigo // CLI output
+				fmt.Printf("🔐 Original URL: %q\n", remoteURL)                 //nolint:forbidigo // CLI output
+				// Don't log the full authenticated URL as it contains the token
+				fmt.Printf("🔐 Authenticated URL format: https://x-access-token:***@github.com/...\n") //nolint:forbidigo // CLI output
 			}
-		} else if d.verbose {
-			fmt.Printf("⚠️ Could not add token to URL, using original: %v\n", authErr) //nolint:forbidigo // CLI output
+			remoteURL = authenticatedURL
+		} else {
+			if d.verbose {
+				fmt.Printf("❌ Failed to convert URL to authenticated format: %v\n", authErr) //nolint:forbidigo // CLI output
+				fmt.Printf("⚠️ Will attempt clone with original URL: %q\n", remoteURL)       //nolint:forbidigo // CLI output
+			}
 		}
 	} else if d.verbose {
 		fmt.Printf("⚠️ No GitHub token found, using unauthenticated URL\n") //nolint:forbidigo // CLI output
 	}
 
 	// Clone only gh-pages branch
+	if d.verbose {
+		fmt.Printf("🔧 Executing git clone command\n") //nolint:forbidigo // CLI output
+		fmt.Printf("  📦 Branch: %s\n", d.pagesBranch) //nolint:forbidigo // CLI output
+		fmt.Printf("  📂 Target: %s\n", destDir)       //nolint:forbidigo // CLI output
+	}
+
 	cmd = exec.CommandContext(ctx, "git", "clone", //nolint:gosec // inputs validated
 		"--single-branch",
 		"--branch", d.pagesBranch,
@@ -723,13 +749,38 @@ func (d *GitHubPagesDeployer) copyFile(src, dst string) error {
 func (d *GitHubPagesDeployer) runCommand(cmd *exec.Cmd) error {
 	if d.verbose {
 		fmt.Printf("🔧 Running: %s\n", strings.Join(cmd.Args, " ")) //nolint:forbidigo // CLI output
+		fmt.Printf("  📂 Working directory: %s\n", cmd.Dir)         //nolint:forbidigo // CLI output
+		if len(cmd.Env) > 0 {
+			fmt.Printf("  🌍 Environment variables: %d set\n", len(cmd.Env)) //nolint:forbidigo // CLI output
+		}
 	}
 
 	var stderr bytes.Buffer
+	var stdout bytes.Buffer
 	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%w: %s", err, stderr.String())
+		if d.verbose {
+			fmt.Printf("❌ Command failed: %s\n", err) //nolint:forbidigo // CLI output
+			if stdout.Len() > 0 {
+				fmt.Printf("📤 STDOUT: %s\n", stdout.String()) //nolint:forbidigo // CLI output
+			}
+			if stderr.Len() > 0 {
+				fmt.Printf("📥 STDERR: %s\n", stderr.String()) //nolint:forbidigo // CLI output
+			}
+		}
+		return fmt.Errorf("%w: stderr=%s stdout=%s", err, stderr.String(), stdout.String())
+	}
+
+	if d.verbose {
+		fmt.Printf("✅ Command completed successfully\n") //nolint:forbidigo // CLI output
+		if stdout.Len() > 0 {
+			fmt.Printf("📤 STDOUT: %s\n", stdout.String()) //nolint:forbidigo // CLI output
+		}
+		if stderr.Len() > 0 {
+			fmt.Printf("📥 STDERR (info): %s\n", stderr.String()) //nolint:forbidigo // CLI output
+		}
 	}
 
 	return nil
@@ -758,78 +809,139 @@ func (d *GitHubPagesDeployer) getGitHubToken() string {
 
 // addTokenToURL converts a Git URL to an authenticated HTTPS URL with the provided token
 func (d *GitHubPagesDeployer) addTokenToURL(remoteURL, token string) (string, error) {
-	// Sanitize the URL by trimming whitespace and normalizing
-	sanitizedURL := strings.TrimSpace(remoteURL)
+	// Sanitize the URL by cleaning control characters and GitHub Actions masking
+	sanitizedURL := d.sanitizeURL(remoteURL)
 
 	// Add debug logging to help troubleshoot URL issues
 	if d.verbose {
 		fmt.Printf("🔍 Converting URL to authenticated format: %q\n", sanitizedURL) //nolint:forbidigo // CLI output
+		if len(remoteURL) != len(sanitizedURL) {
+			fmt.Printf("🧹 URL sanitization removed %d characters\n", len(remoteURL)-len(sanitizedURL)) //nolint:forbidigo // CLI output
+		}
 	}
 
 	// Handle empty URL
 	if sanitizedURL == "" {
-		return "", fmt.Errorf("%w: empty URL", ErrUnsupportedURLFormat)
+		return "", fmt.Errorf("%w: empty URL after sanitization", ErrUnsupportedURLFormat)
 	}
 
-	// Handle different URL formats
-	if strings.HasPrefix(sanitizedURL, "git@github.com:") {
-		// Convert SSH URL to HTTPS: git@github.com:owner/repo.git -> https://github.com/owner/repo.git
-		parts := strings.TrimPrefix(sanitizedURL, "git@github.com:")
-		return fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts), nil
-	}
-
-	if strings.HasPrefix(sanitizedURL, "https://github.com/") {
-		// Add token to existing HTTPS URL: https://github.com/owner/repo.git -> https://x-access-token:TOKEN@github.com/owner/repo.git
-		parts := strings.TrimPrefix(sanitizedURL, "https://github.com/")
-		return fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts), nil
-	}
-
-	// Handle GitHub Actions masked URLs (more robust matching)
-	if strings.HasPrefix(sanitizedURL, "***github.com/") {
-		// Handle masked GitHub Actions URL: ***github.com/owner/repo -> https://x-access-token:TOKEN@github.com/owner/repo
-		parts := strings.TrimPrefix(sanitizedURL, "***github.com/")
-		// Ensure .git suffix for proper repository access
-		if !strings.HasSuffix(parts, ".git") {
-			parts += ".git"
-		}
-		authenticatedURL := fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts)
+	// Try to extract GitHub repository path using multiple approaches
+	repoPath := d.extractGitHubRepoPath(sanitizedURL)
+	if repoPath == "" {
+		// Show detailed debugging information if extraction fails
 		if d.verbose {
-			fmt.Printf("✅ Converted masked URL to authenticated format\n") //nolint:forbidigo // CLI output
+			d.debugURLFormat(remoteURL, sanitizedURL)
 		}
-		return authenticatedURL, nil
+		return "", fmt.Errorf("%w: %s", ErrUnsupportedURLFormat, sanitizedURL)
 	}
 
-	// Handle alternative GitHub Actions URL patterns that might occur
-	if strings.Contains(sanitizedURL, "github.com/") && !strings.HasPrefix(sanitizedURL, "http") {
-		// Extract the owner/repo part from various formats
-		githubIndex := strings.Index(sanitizedURL, "github.com/")
-		if githubIndex >= 0 {
-			parts := sanitizedURL[githubIndex+len("github.com/"):]
-			// Ensure .git suffix for proper repository access
-			if !strings.HasSuffix(parts, ".git") {
-				parts += ".git"
-			}
-			authenticatedURL := fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts)
-			if d.verbose {
-				fmt.Printf("✅ Converted non-standard GitHub URL to authenticated format\n") //nolint:forbidigo // CLI output
-			}
-			return authenticatedURL, nil
-		}
+	// Ensure .git suffix for proper repository access
+	if !strings.HasSuffix(repoPath, ".git") {
+		repoPath += ".git"
 	}
 
-	// Return error for unsupported URL formats with better debugging info
+	// Create authenticated URL
+	authenticatedURL := fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, repoPath)
 	if d.verbose {
-		fmt.Printf("❌ Unsupported URL format. URL: %q, Length: %d, Prefix check results:\n", sanitizedURL, len(sanitizedURL)) //nolint:forbidigo // CLI output
-		fmt.Printf("  - Starts with 'git@github.com:': %v\n", strings.HasPrefix(sanitizedURL, "git@github.com:"))             //nolint:forbidigo // CLI output
-		fmt.Printf("  - Starts with 'https://github.com/': %v\n", strings.HasPrefix(sanitizedURL, "https://github.com/"))     //nolint:forbidigo // CLI output
-		fmt.Printf("  - Starts with '***github.com/': %v\n", strings.HasPrefix(sanitizedURL, "***github.com/"))               //nolint:forbidigo // CLI output
-		fmt.Printf("  - Contains 'github.com/': %v\n", strings.Contains(sanitizedURL, "github.com/"))                         //nolint:forbidigo // CLI output
+		fmt.Printf("✅ Converted to authenticated format: %s\n", authenticatedURL) //nolint:forbidigo // CLI output
 	}
-	return "", fmt.Errorf("%w: %s", ErrUnsupportedURLFormat, sanitizedURL)
+
+	return authenticatedURL, nil
+}
+
+// sanitizeURL removes ANSI escape codes, control characters, and GitHub Actions masking artifacts
+func (d *GitHubPagesDeployer) sanitizeURL(url string) string {
+	// Remove leading/trailing whitespace
+	cleaned := strings.TrimSpace(url)
+
+	// Remove ANSI escape codes (e.g., \x1b[31m for colors)
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+	cleaned = ansiRegex.ReplaceAllString(cleaned, "")
+
+	// Remove other control characters but preserve printable ASCII
+	cleaned = strings.Map(func(r rune) rune {
+		if unicode.IsPrint(r) || r == '\t' || r == '\n' || r == '\r' {
+			return r
+		}
+		return -1 // Remove the character
+	}, cleaned)
+
+	// Clean up any remaining whitespace
+	cleaned = strings.TrimSpace(cleaned)
+
+	return cleaned
+}
+
+// extractGitHubRepoPath extracts the owner/repo path from various GitHub URL formats
+func (d *GitHubPagesDeployer) extractGitHubRepoPath(url string) string {
+	// Handle standard SSH format: git@github.com:owner/repo.git
+	if strings.HasPrefix(url, "git@github.com:") {
+		return strings.TrimPrefix(url, "git@github.com:")
+	}
+
+	// Handle standard HTTPS format: https://github.com/owner/repo.git
+	if strings.HasPrefix(url, "https://github.com/") {
+		return strings.TrimPrefix(url, "https://github.com/")
+	}
+
+	// Handle GitHub Actions masked format: ***github.com/owner/repo
+	if strings.Contains(url, "github.com/") {
+		// Use regex to extract owner/repo from any format containing github.com/
+		githubRegex := regexp.MustCompile(`github\.com/([^/\s]+/[^/\s]+)`)
+		matches := githubRegex.FindStringSubmatch(url)
+		if len(matches) >= 2 {
+			return matches[1]
+		}
+	}
+
+	return ""
+}
+
+// debugURLFormat provides detailed debugging information for unsupported URL formats
+func (d *GitHubPagesDeployer) debugURLFormat(originalURL, sanitizedURL string) {
+	fmt.Printf("❌ Unsupported URL format debugging:\n")                               //nolint:forbidigo // CLI output
+	fmt.Printf("  Original URL: %q (length: %d)\n", originalURL, len(originalURL))    //nolint:forbidigo // CLI output
+	fmt.Printf("  Sanitized URL: %q (length: %d)\n", sanitizedURL, len(sanitizedURL)) //nolint:forbidigo // CLI output
+
+	// Show hex dump for the first 50 characters to identify hidden characters
+	hexDump := func(s string, label string) {
+		fmt.Printf("  %s hex dump: ", label) //nolint:forbidigo // CLI output
+		maxLen := len(s)
+		if maxLen > 50 {
+			maxLen = 50
+		}
+		for i := 0; i < maxLen; i++ {
+			fmt.Printf("%02x ", s[i]) //nolint:forbidigo // CLI output
+		}
+		if len(s) > 50 {
+			fmt.Printf("... (+%d more)", len(s)-50) //nolint:forbidigo // CLI output
+		}
+		fmt.Printf("\n") //nolint:forbidigo // CLI output
+	}
+
+	hexDump(originalURL, "Original")
+	if originalURL != sanitizedURL {
+		hexDump(sanitizedURL, "Sanitized")
+	}
+
+	// Show pattern matching results
+	fmt.Printf("  Pattern matching results:\n")                                                                         //nolint:forbidigo // CLI output
+	fmt.Printf("    - Starts with 'git@github.com:': %v\n", strings.HasPrefix(sanitizedURL, "git@github.com:"))         //nolint:forbidigo // CLI output
+	fmt.Printf("    - Starts with 'https://github.com/': %v\n", strings.HasPrefix(sanitizedURL, "https://github.com/")) //nolint:forbidigo // CLI output
+	fmt.Printf("    - Contains 'github.com/': %v\n", strings.Contains(sanitizedURL, "github.com/"))                     //nolint:forbidigo // CLI output
+
+	// Try regex extraction
+	githubRegex := regexp.MustCompile(`github\.com/([^/\s]+/[^/\s]+)`)
+	matches := githubRegex.FindStringSubmatch(sanitizedURL)
+	fmt.Printf("    - Regex extraction result: %v\n", matches) //nolint:forbidigo // CLI output
 }
 
 // ensureAuthenticatedRemote ensures the origin remote is set with authentication
 func (d *GitHubPagesDeployer) ensureAuthenticatedRemote(ctx context.Context) error {
+	if d.verbose {
+		fmt.Printf("🔧 Starting ensureAuthenticatedRemote process\n") //nolint:forbidigo // CLI output
+	}
+
 	// Get GitHub token
 	token := d.getGitHubToken()
 	if token == "" {
@@ -840,28 +952,56 @@ func (d *GitHubPagesDeployer) ensureAuthenticatedRemote(ctx context.Context) err
 		return nil
 	}
 
+	if d.verbose {
+		fmt.Printf("🔑 GitHub token found, proceeding with authentication setup\n") //nolint:forbidigo // CLI output
+	}
+
 	// Get current origin URL
+	if d.verbose {
+		fmt.Printf("🔍 Retrieving current origin URL from git config\n") //nolint:forbidigo // CLI output
+	}
 	cmd := exec.CommandContext(ctx, "git", "config", "--get", "remote.origin.url")
 	output, err := cmd.Output()
 	if err != nil {
+		if d.verbose {
+			fmt.Printf("❌ Failed to get origin URL: %v\n", err) //nolint:forbidigo // CLI output
+		}
 		return fmt.Errorf("getting origin URL: %w", err)
 	}
 	currentURL := strings.TrimSpace(string(output))
 
+	if d.verbose {
+		fmt.Printf("🔍 Current origin URL: %q (raw length: %d)\n", currentURL, len(currentURL)) //nolint:forbidigo // CLI output
+	}
+
 	// Convert to authenticated URL
+	if d.verbose {
+		fmt.Printf("🔄 Converting URL to authenticated format\n") //nolint:forbidigo // CLI output
+	}
 	authenticatedURL, err := d.addTokenToURL(currentURL, token)
 	if err != nil {
+		if d.verbose {
+			fmt.Printf("❌ Failed to convert URL to authenticated format: %v\n", err) //nolint:forbidigo // CLI output
+		}
 		return fmt.Errorf("converting URL to authenticated: %w", err)
+	}
+
+	if d.verbose {
+		fmt.Printf("✅ Successfully created authenticated URL\n") //nolint:forbidigo // CLI output
+		fmt.Printf("🔄 Setting new origin URL in git config\n")   //nolint:forbidigo // CLI output
 	}
 
 	// Set the authenticated URL as origin
 	cmd = exec.CommandContext(ctx, "git", "remote", "set-url", "origin", authenticatedURL) //nolint:gosec // authenticatedURL is controlled and validated
 	if err := d.runCommand(cmd); err != nil {
+		if d.verbose {
+			fmt.Printf("❌ Failed to set authenticated origin URL: %v\n", err) //nolint:forbidigo // CLI output
+		}
 		return fmt.Errorf("setting authenticated origin URL: %w", err)
 	}
 
 	if d.verbose {
-		fmt.Printf("🔐 Updated origin remote with authentication\n") //nolint:forbidigo // CLI output
+		fmt.Printf("🔐 Successfully updated origin remote with authentication\n") //nolint:forbidigo // CLI output
 	}
 
 	return nil
