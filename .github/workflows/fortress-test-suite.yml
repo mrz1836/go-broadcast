@@ -62,7 +62,7 @@ jobs:
     name: 🧪 Test (${{ matrix.name }})
     timeout-minutes: 30 # Prevent hung tests
     permissions:
-      contents: read # Read repository content for testing
+      contents: write # Read repository content for testing
     strategy:
       fail-fast: true
       matrix: ${{ fromJSON(inputs.test-matrix) }}
@@ -366,7 +366,7 @@ jobs:
     needs: test-go
     if: inputs.code-coverage-enabled == 'true'
     permissions:
-      contents: read # Read repository content for coverage processing
+      contents: write # Write repository content and push to gh-pages branch for coverage processing
       pull-requests: write # Required: Coverage workflow needs to create PR comments
       pages: write # Required: Coverage workflow needs to deploy to GitHub Pages
       id-token: write # Required: Coverage workflow needs GitHub Pages authentication

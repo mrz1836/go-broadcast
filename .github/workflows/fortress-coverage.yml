@@ -44,7 +44,7 @@ on:
 
 # Security: Restrictive default permissions with job-level overrides for least privilege access
 permissions:
-  contents: read
+  contents: read # Read repository content
 
 jobs:
   # ----------------------------------------------------------------------------------
@@ -58,7 +58,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     permissions:
-      contents: read # Read repository content
+      contents: write # Write to repository content and push to gh-pages branch
       pull-requests: write # Create PR comments
       pages: write # Deploy to GitHub Pages
       id-token: write # GitHub Pages deployment authentication
@@ -193,44 +193,44 @@ jobs:
             echo "📋 Contents of artifacts directory:"
             ls -la .github/coverage/history-artifacts/ || echo "Unable to list directory"
             echo ""
-            
+
             # Count downloaded files
             echo "📊 Counting JSON files in artifacts..."
             ARTIFACT_FILES=$(find .github/coverage/history-artifacts -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
             echo "📦 Found $ARTIFACT_FILES history files in artifacts"
-            
+
             if [[ $ARTIFACT_FILES -gt 0 ]]; then
               echo ""
               echo "🔄 Starting file restoration process..."
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-              
+
               # List all JSON files found
               echo "📋 JSON files to be restored:"
               find .github/coverage/history-artifacts -name "*.json" -type f -exec echo "  - {}" \; 2>/dev/null
               echo ""
-              
+
               # Copy all JSON files from artifacts to history directory with verbose output
               echo "📑 Copying files to history directory..."
               find .github/coverage/history-artifacts -name "*.json" -type f -exec cp -v {} .github/coverage/history/ \; 2>/dev/null || {
                 echo "⚠️ Some files could not be copied"
                 true
               }
-              
+
               echo ""
               echo "✅ Restoration complete. Restored $ARTIFACT_FILES history files"
               echo ""
-              
+
               # Verify restoration
               echo "🔍 Verifying restored files..."
               RESTORED_COUNT=$(find .github/coverage/history -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
               echo "📊 History directory now contains $RESTORED_COUNT files"
-              
+
               # List restored files with details
               echo ""
               echo "📋 Restored history files (newest first):"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
               ls -lt .github/coverage/history/*.json 2>/dev/null | head -20 || echo "No files to list"
-              
+
               # Show disk usage
               echo ""
               echo "💾 History directory disk usage:"
@@ -513,7 +513,7 @@ jobs:
           if [[ -d "$HISTORY_DIR" ]]; then
             HISTORY_COUNT=$(find "$HISTORY_DIR" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
             echo "📊 Total history entries: $HISTORY_COUNT"
-            
+
             if [[ $HISTORY_COUNT -gt 0 ]]; then
               echo "📅 Recent history files:"
               find "$HISTORY_DIR" -name "*.json" -type f -exec basename {} \; 2>/dev/null | sort -r | head -3 || echo "Failed to list files"
@@ -539,11 +539,11 @@ jobs:
             echo "✅ History directory exists"
             echo "📊 Contents:"
             ls -la "$HISTORY_DIR" || echo "Failed to list directory"
-            
+
             # Count JSON files
             JSON_COUNT=$(find "$HISTORY_DIR" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
             echo "📄 JSON files found: $JSON_COUNT"
-            
+
             if [[ $JSON_COUNT -gt 0 ]]; then
               echo "✅ History files ready for artifact upload"
               echo "📋 Files to be uploaded:"
@@ -656,32 +656,32 @@ jobs:
           if [[ -d "$HISTORY_DIR" ]]; then
             echo "✅ History directory exists"
             echo ""
-            
+
             # Count files
             echo "📊 Analyzing history contents..."
             HISTORY_FILES=$(find "$HISTORY_DIR" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
             echo "📁 Found $HISTORY_FILES JSON files in history directory"
-            
+
             if [[ $HISTORY_FILES -gt 0 ]]; then
               echo ""
               echo "📋 History files details:"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-              
+
               # List all history files with size
               echo "📄 All history files (newest first):"
               ls -lht "$HISTORY_DIR"/*.json 2>/dev/null || echo "Unable to list files"
-              
+
               echo ""
               echo "📋 Recent history entries (by filename):"
               find "$HISTORY_DIR" -name "*.json" -type f -exec basename {} \; 2>/dev/null | sort -r | head -10
-              
+
               echo ""
               echo "📊 History statistics:"
               # Show total size of history data
               HISTORY_SIZE=$(du -sh "$HISTORY_DIR" 2>/dev/null | cut -f1 || echo "0B")
               echo "  - Total size: $HISTORY_SIZE"
               echo "  - Total files: $HISTORY_FILES"
-              
+
               # Show oldest and newest files
               echo ""
               echo "📅 Time range:"
@@ -689,7 +689,7 @@ jobs:
               NEWEST=$(ls -t "$HISTORY_DIR"/*.json 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "unknown")
               echo "  - Oldest: $OLDEST"
               echo "  - Newest: $NEWEST"
-              
+
               echo ""
               echo "🎯 Files to be uploaded as artifacts:"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -910,7 +910,7 @@ jobs:
           BUILD_STATUS_FILE=".github/coverage/coverage-output/data/build-status.json"
           if [[ -f "$BUILD_STATUS_FILE" ]]; then
             echo "📄 Found build-status.json, updating..."
-            
+
             # Create a temporary updated build status
             # Since this step runs near the end of the workflow, we can assume it will complete successfully
             cat > "$BUILD_STATUS_FILE.tmp" <<EOF
@@ -926,7 +926,7 @@ jobs:
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF
-            
+
             # Replace the original file
             mv "$BUILD_STATUS_FILE.tmp" "$BUILD_STATUS_FILE"
             echo "✅ Build status updated to show completed"
@@ -1038,13 +1038,13 @@ jobs:
           for i in "${!HISTORY_DIRS[@]}"; do
             DIR="${HISTORY_DIRS[$i]}"
             DIR_NAME="${HISTORY_DIR_NAMES[$i]}"
-            
+
             if [[ -d "$DIR" ]]; then
               FILES_IN_DIR=$(find "$DIR" -name "*.json" 2>/dev/null | wc -l)
               DIR_SIZE=$(du -sh "$DIR" 2>/dev/null | cut -f1 || echo "0B")
               echo "- **$DIR_NAME**: ✅ Exists ($FILES_IN_DIR files, $DIR_SIZE)" >> $GITHUB_STEP_SUMMARY
               TOTAL_HISTORY_FILES=$((TOTAL_HISTORY_FILES + FILES_IN_DIR))
-              
+
               if [[ $FILES_IN_DIR -gt 0 ]]; then
                 echo "  - Recent files in $DIR_NAME:" >> $GITHUB_STEP_SUMMARY
                 echo "    \`\`\`" >> $GITHUB_STEP_SUMMARY

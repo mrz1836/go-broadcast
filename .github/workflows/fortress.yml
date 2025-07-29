@@ -198,7 +198,7 @@ jobs:
     name: 🧪 Test Suite
     needs: [load-env, setup, warm-cache, test-makefile]
     permissions:
-      contents: read # Read repository content for test execution
+      contents: write # Write repository content and push to gh-pages branch for test execution
       pull-requests: write # Required: Coverage workflow needs to create PR comments
       pages: write # Required: Coverage workflow needs to deploy to GitHub Pages
       id-token: write # Required: Coverage workflow needs GitHub Pages authentication
