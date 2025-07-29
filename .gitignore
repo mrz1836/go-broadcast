@@ -44,6 +44,9 @@ coverage-output/
 test-coverage-output/
 .github/coverage/coverage-output/
 .github/coverage/test-coverage-output/
+# But allow the data directory for build status
+!.github/coverage/coverage-output/data/
+!.github/coverage/coverage-output/data/build-status.json
 
 # Generated coverage HTML files
 .github/coverage/**/coverage.html
