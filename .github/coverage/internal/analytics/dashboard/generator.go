@@ -117,6 +117,8 @@ func (g *Generator) prepareTemplateData(data *CoverageData) map[string]interface
 
 	return map[string]interface{}{
 		"ProjectName":       g.config.ProjectName,
+		"RepositoryOwner":   g.config.RepositoryOwner,
+		"RepositoryName":    g.config.RepositoryName,
 		"RepositoryURL":     data.RepositoryURL,
 		"Branch":            data.Branch,
 		"CommitSHA":         g.formatCommitSHA(data.CommitSHA),

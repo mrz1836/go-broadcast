@@ -6,8 +6,8 @@ const dashboardTemplate = `<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coverage Dashboard | {{.ProjectName}}</title>
-    <meta name="description" content="Coverage tracking and analytics for {{.ProjectName}}">
+    <title>{{.RepositoryOwner}}/{{.RepositoryName}} Coverage Dashboard</title>
+    <meta name="description" content="Coverage tracking and analytics for {{.RepositoryOwner}}/{{.RepositoryName}}">
     
     <!-- Preload critical resources -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
@@ -749,8 +749,8 @@ const dashboardTemplate = `<!DOCTYPE html>
         <header class="header">
             <div class="header-content">
                 <div class="header-main">
-                    <h1>🏰 GoFortress Coverage Dashboard</h1>
-                    <p class="subtitle">Coverage tracking and reporting for {{.ProjectName}}</p>
+                    <h1>{{.RepositoryOwner}}/{{.RepositoryName}} Coverage</h1>
+                    <p class="subtitle">Code coverage dashboard • Powered by GoFortress</p>
                 </div>
                 
                 <div class="header-status">
@@ -768,8 +768,15 @@ const dashboardTemplate = `<!DOCTYPE html>
                 <div class="repo-details">
                     <div class="repo-item">
                         <span class="repo-icon">📦</span>
-                        <span class="repo-label">Project</span>
-                        <span class="repo-value">{{.ProjectName}}</span>
+                        <span class="repo-label">Repository</span>
+                        <span class="repo-value">
+                            <a href="{{.RepositoryURL}}" target="_blank" class="repo-link">{{.RepositoryOwner}}/{{.RepositoryName}}</a>
+                        </span>
+                    </div>
+                    <div class="repo-item">
+                        <span class="repo-icon">👤</span>
+                        <span class="repo-label">Owner</span>
+                        <span class="repo-value">{{.RepositoryOwner}}</span>
                     </div>
                     <div class="repo-item">
                         <span class="repo-icon">🌿</span>
@@ -916,6 +923,12 @@ const dashboardTemplate = `<!DOCTYPE html>
                 🕐 Last updated: {{.Timestamp}}
             </div>
         </main>
+        
+        <footer class="footer">
+            <div class="footer-content">
+                <p>Powered by <a href="https://github.com/mrz1836/go-broadcast" target="_blank" class="gofortress-link">GoFortress Coverage</a></p>
+            </div>
+        </footer>
     </div>
     
     <script>

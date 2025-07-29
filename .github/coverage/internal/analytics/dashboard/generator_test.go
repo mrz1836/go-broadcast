@@ -242,6 +242,8 @@ func TestRenderer_RenderDashboard(t *testing.T) {
 	testBranch := "master" // Use master as test case since that's what you use
 	data := map[string]interface{}{
 		"ProjectName":     "test-project",
+		"RepositoryOwner": "owner",
+		"RepositoryName":  "repo",
 		"Branch":          testBranch,
 		"CommitSHA":       "abc123d",
 		"TotalCoverage":   "85.50",
@@ -263,7 +265,7 @@ func TestRenderer_RenderDashboard(t *testing.T) {
 
 	// Check that HTML contains expected content
 	expectedStrings := []string{
-		"<title>Coverage Dashboard | test-project</title>",
+		"<title>owner/repo Coverage Dashboard</title>",
 		"🌿",        // Branch icon
 		testBranch, // Branch name (dynamic based on test data)
 		"85.50%",

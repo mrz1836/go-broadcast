@@ -80,6 +80,10 @@ type ReportData struct {
 	GitHubOwner      string `json:"github_owner,omitempty"`
 	GitHubRepository string `json:"github_repository,omitempty"`
 	GitHubBranch     string `json:"github_branch,omitempty"`
+
+	// Repository context (aliases for template compatibility)
+	RepositoryOwner string `json:"repository_owner,omitempty"`
+	RepositoryName  string `json:"repository_name,omitempty"`
 }
 
 // PackageStats contains package-level coverage statistics

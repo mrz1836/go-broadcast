@@ -533,6 +533,8 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 		GitHubOwner:      data.Config.GitHubOwner,
 		GitHubRepository: data.Config.GitHubRepository,
 		GitHubBranch:     data.Config.GitHubBranch,
+		RepositoryOwner:  data.Config.GitHubOwner,      // Alias for template compatibility
+		RepositoryName:   data.Config.GitHubRepository, // Alias for template compatibility
 	}
 }
 
