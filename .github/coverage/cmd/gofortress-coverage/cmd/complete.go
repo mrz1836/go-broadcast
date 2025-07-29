@@ -306,9 +306,15 @@ update history, and create GitHub PR comment if in PR context.`,
 		if cfg.History.Enabled {
 			branch := getDefaultBranch()
 
+			// Resolve absolute path for history storage (same logic as Step 5)
+			dashboardHistoryPath := cfg.History.StoragePath
+			if resolvedPath, err := cfg.ResolveHistoryStoragePath(); err == nil {
+				dashboardHistoryPath = resolvedPath
+			}
+
 			// Initialize history tracker to get historical data
 			historyConfig := &history.Config{
-				StoragePath:    cfg.History.StoragePath,
+				StoragePath:    dashboardHistoryPath,
 				RetentionDays:  cfg.History.RetentionDays,
 				MaxEntries:     cfg.History.MaxEntries,
 				AutoCleanup:    cfg.History.AutoCleanup,
@@ -448,8 +454,19 @@ update history, and create GitHub PR comment if in PR context.`,
 		if cfg.History.Enabled && !skipHistory {
 			cmd.Printf("   📊 Proceeding with history update...\n")
 
+			// Resolve absolute path for history storage to fix working directory issues
+			historyStoragePath, pathErr := cfg.ResolveHistoryStoragePath()
+			if pathErr != nil {
+				cmd.Printf("   ⚠️  Failed to resolve history storage path: %v\n", pathErr)
+				return fmt.Errorf("failed to resolve history storage path: %w", pathErr)
+			}
+
+			if historyStoragePath != cfg.History.StoragePath {
+				cmd.Printf("   🔧 Resolved history path: %s -> %s\n", cfg.History.StoragePath, historyStoragePath)
+			}
+
 			historyConfig := &history.Config{
-				StoragePath:    cfg.History.StoragePath,
+				StoragePath:    historyStoragePath,
 				RetentionDays:  cfg.History.RetentionDays,
 				MaxEntries:     cfg.History.MaxEntries,
 				AutoCleanup:    cfg.History.AutoCleanup,
@@ -458,20 +475,20 @@ update history, and create GitHub PR comment if in PR context.`,
 			tracker := history.NewWithConfig(historyConfig)
 
 			// Debug: Check if history directory exists and is writable
-			if dirInfo, dirErr := os.Stat(cfg.History.StoragePath); dirErr != nil {
+			if dirInfo, dirErr := os.Stat(historyStoragePath); dirErr != nil {
 				cmd.Printf("   ⚠️  History directory check failed: %v\n", dirErr)
-				cmd.Printf("   🔧 Attempting to create history directory...\n")
-				if mkdirErr := os.MkdirAll(cfg.History.StoragePath, 0o750); mkdirErr != nil {
+				cmd.Printf("   🔧 Attempting to create history directory: %s\n", historyStoragePath)
+				if mkdirErr := os.MkdirAll(historyStoragePath, 0o750); mkdirErr != nil {
 					cmd.Printf("   ❌ Failed to create history directory: %v\n", mkdirErr)
 					return fmt.Errorf("failed to create history directory: %w", mkdirErr)
 				}
-				cmd.Printf("   ✅ History directory created\n")
+				cmd.Printf("   ✅ History directory created: %s\n", historyStoragePath)
 			} else {
-				cmd.Printf("   ✅ History directory exists (%s, %v)\n", dirInfo.Mode(), dirInfo.IsDir())
+				cmd.Printf("   ✅ History directory exists: %s (%s, %v)\n", historyStoragePath, dirInfo.Mode(), dirInfo.IsDir())
 			}
 
 			// Debug: List existing history files before adding new entry
-			if historyFiles, err := filepath.Glob(filepath.Join(cfg.History.StoragePath, "*.json")); err == nil {
+			if historyFiles, err := filepath.Glob(filepath.Join(historyStoragePath, "*.json")); err == nil {
 				cmd.Printf("   📊 Existing history entries: %d\n", len(historyFiles))
 				if len(historyFiles) > 0 {
 					cmd.Printf("   📝 Recent entries:\n")
@@ -491,7 +508,11 @@ update history, and create GitHub PR comment if in PR context.`,
 			cmd.Printf("   🌿 Using branch: %s\n", branch)
 
 			if latest, err := tracker.GetLatestEntry(ctx, branch); err == nil {
-				cmd.Printf("   📊 Previous coverage: %.2f%% (commit: %s)\n", latest.Coverage.Percentage, latest.CommitSHA[:8])
+				commitDisplay := latest.CommitSHA
+				if len(commitDisplay) > 8 {
+					commitDisplay = commitDisplay[:8]
+				}
+				cmd.Printf("   📊 Previous coverage: %.2f%% (commit: %s)\n", latest.Coverage.Percentage, commitDisplay)
 				if coverage.Percentage > latest.Coverage.Percentage {
 					trend = "up"
 					cmd.Printf("   📈 Trend: UP (+%.2f%%)\n", coverage.Percentage-latest.Coverage.Percentage)
@@ -538,8 +559,11 @@ update history, and create GitHub PR comment if in PR context.`,
 				cmd.Printf("   ✅ History entry recorded successfully\n")
 
 				// Verify the entry was actually written
-				if historyFiles, err := filepath.Glob(filepath.Join(cfg.History.StoragePath, "*.json")); err == nil {
+				if historyFiles, err := filepath.Glob(filepath.Join(historyStoragePath, "*.json")); err == nil {
 					cmd.Printf("   📊 Total history entries after recording: %d\n", len(historyFiles))
+					if len(historyFiles) > 0 {
+						cmd.Printf("   📁 History files are located at: %s\n", historyStoragePath)
+					}
 				} else {
 					cmd.Printf("   ⚠️  Failed to verify history files: %v\n", err)
 				}

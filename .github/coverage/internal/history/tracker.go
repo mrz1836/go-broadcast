@@ -237,6 +237,11 @@ func (t *Tracker) Record(ctx context.Context, coverage *parser.CoverageData, opt
 	entry.Metadata["storage_path"] = t.config.StoragePath
 	entry.Metadata["record_timestamp"] = time.Now().Format(time.RFC3339)
 
+	// Add working directory info for debugging
+	if workingDir, err := os.Getwd(); err == nil {
+		entry.Metadata["working_directory"] = workingDir
+	}
+
 	return t.saveEntry(ctx, entry)
 }
 
@@ -420,10 +425,18 @@ func (t *Tracker) saveEntry(ctx context.Context, entry *Entry) error {
 
 	// Generate filename and full path
 	filename := t.getEntryFilename(entry)
-	filepath := filepath.Join(t.config.StoragePath, filename)
+	filePath := filepath.Join(t.config.StoragePath, filename)
+
+	// Add detailed path information to metadata for debugging
+	if entry.Metadata == nil {
+		entry.Metadata = make(map[string]string)
+	}
+	entry.Metadata["entry_filename"] = filename
+	entry.Metadata["entry_filepath"] = filePath
+	entry.Metadata["resolved_storage_path"] = t.config.StoragePath
 
 	// Check if file already exists to avoid duplicates
-	if _, err := os.Stat(filepath); err == nil {
+	if _, err := os.Stat(filePath); err == nil {
 		return fmt.Errorf("%w: %s (this might indicate a duplicate recording)", ErrHistoryEntryExists, filename)
 	}
 
@@ -439,17 +452,17 @@ func (t *Tracker) saveEntry(ctx context.Context, entry *Entry) error {
 	}
 
 	// Write file with enhanced error reporting
-	if err := os.WriteFile(filepath, data, 0o600); err != nil {
-		return fmt.Errorf("failed to write entry file '%s' (size: %d bytes): %w", filepath, len(data), err)
+	if err := os.WriteFile(filePath, data, 0o600); err != nil {
+		return fmt.Errorf("failed to write entry file '%s' (size: %d bytes): %w", filePath, len(data), err)
 	}
 
 	// Verify file was written correctly
-	if stat, err := os.Stat(filepath); err != nil {
-		return fmt.Errorf("failed to verify written file '%s': %w", filepath, err)
+	if stat, err := os.Stat(filePath); err != nil {
+		return fmt.Errorf("failed to verify written file '%s': %w", filePath, err)
 	} else if stat.Size() == 0 {
-		return fmt.Errorf("%w: '%s'", ErrWrittenFileEmpty, filepath)
+		return fmt.Errorf("%w: '%s'", ErrWrittenFileEmpty, filePath)
 	} else if stat.Size() != int64(len(data)) {
-		return fmt.Errorf("%w: '%s' expected %d, got %d", ErrWrittenFileSizeMismatch, filepath, len(data), stat.Size())
+		return fmt.Errorf("%w: '%s' expected %d, got %d", ErrWrittenFileSizeMismatch, filePath, len(data), stat.Size())
 	}
 
 	return nil
@@ -562,30 +575,41 @@ func (t *Tracker) ensureStorageDir() error {
 		return ErrStoragePathEmpty
 	}
 
+	// Resolve to absolute path to avoid working directory issues
+	storagePath := t.config.StoragePath
+	if !filepath.IsAbs(storagePath) {
+		// Convert to absolute path
+		if absPath, err := filepath.Abs(storagePath); err == nil {
+			storagePath = absPath
+		}
+		// Update config to avoid repeated resolution
+		t.config.StoragePath = storagePath
+	}
+
 	// Check if directory already exists
-	if info, err := os.Stat(t.config.StoragePath); err == nil {
+	if info, err := os.Stat(storagePath); err == nil {
 		if !info.IsDir() {
-			return fmt.Errorf("%w: '%s'", ErrStoragePathNotDir, t.config.StoragePath)
+			return fmt.Errorf("%w: '%s'", ErrStoragePathNotDir, storagePath)
 		}
 		// Directory exists and is a directory - check if it's writable
-		testFile := filepath.Join(t.config.StoragePath, ".write_test")
+		testFile := filepath.Join(storagePath, ".write_test")
 		if err := os.WriteFile(testFile, []byte("test"), 0o600); err != nil {
-			return fmt.Errorf("storage directory '%s' is not writable: %w", t.config.StoragePath, err)
+			return fmt.Errorf("storage directory '%s' is not writable: %w", storagePath, err)
 		}
 		_ = os.Remove(testFile) // Clean up test file
 		return nil
 	}
 
-	// Directory doesn't exist, create it
-	if err := os.MkdirAll(t.config.StoragePath, 0o750); err != nil {
-		return fmt.Errorf("failed to create storage directory '%s': %w", t.config.StoragePath, err)
+	// Directory doesn't exist, create it with parent directories
+	if err := os.MkdirAll(storagePath, 0o750); err != nil {
+		return fmt.Errorf("failed to create storage directory '%s': %w", storagePath, err)
 	}
 
 	// Verify the directory was created successfully
-	if info, err := os.Stat(t.config.StoragePath); err != nil {
-		return fmt.Errorf("failed to verify created directory '%s': %w", t.config.StoragePath, err)
+	if info, err := os.Stat(storagePath); err != nil {
+		return fmt.Errorf("failed to verify created directory '%s': %w", storagePath, err)
 	} else if !info.IsDir() {
-		return fmt.Errorf("%w: '%s'", ErrCreatedPathNotDir, t.config.StoragePath)
+		return fmt.Errorf("%w: '%s'", ErrCreatedPathNotDir, storagePath)
 	}
 
 	return nil

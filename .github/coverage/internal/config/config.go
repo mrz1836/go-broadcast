@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -384,6 +385,82 @@ func (c *Config) getCurrentBranch() string {
 // GetCurrentBranch returns the current branch name with intelligent fallback detection (public method)
 func (c *Config) GetCurrentBranch() string {
 	return c.getCurrentBranch()
+}
+
+// GetRepositoryRoot attempts to find the repository root directory
+func (c *Config) GetRepositoryRoot() (string, error) {
+	// Try to get working directory first
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	// Check if we're already in repo root (has .git directory)
+	if _, err := os.Stat(filepath.Join(workingDir, ".git")); err == nil {
+		return workingDir, nil
+	}
+
+	// Try to use git command to find repo root
+	if repoRoot := c.getRepoRootFromGit(); repoRoot != "" {
+		return repoRoot, nil
+	}
+
+	// Fallback: if we're in .github/coverage/cmd/gofortress-coverage, go up 4 levels
+	if strings.Contains(workingDir, ".github/coverage/cmd/gofortress-coverage") ||
+		strings.Contains(workingDir, ".github"+string(filepath.Separator)+"coverage"+string(filepath.Separator)+"cmd"+string(filepath.Separator)+"gofortress-coverage") {
+		repoRoot := filepath.Join(workingDir, "../../../../")
+		if absPath, err := filepath.Abs(repoRoot); err == nil {
+			// Verify this looks like a repo root
+			if _, err := os.Stat(filepath.Join(absPath, ".git")); err == nil {
+				return absPath, nil
+			}
+			// Return it anyway as best guess
+			return absPath, nil
+		}
+	}
+
+	// Final fallback - return working directory
+	return workingDir, nil
+}
+
+// getRepoRootFromGit attempts to get repository root using git commands
+func (c *Config) getRepoRootFromGit() string {
+	ctx := context.Background()
+
+	// Try git rev-parse --show-toplevel
+	if output, err := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel").Output(); err == nil {
+		repoRoot := strings.TrimSpace(string(output))
+		if repoRoot != "" {
+			return repoRoot
+		}
+	}
+
+	return ""
+}
+
+// ResolveHistoryStoragePath resolves the history storage path to an absolute path
+func (c *Config) ResolveHistoryStoragePath() (string, error) {
+	historyPath := c.History.StoragePath
+
+	// If already absolute, return as-is
+	if filepath.IsAbs(historyPath) {
+		return historyPath, nil
+	}
+
+	// Get repository root
+	repoRoot, err := c.GetRepositoryRoot()
+	if err != nil {
+		return "", fmt.Errorf("failed to get repository root: %w", err)
+	}
+
+	// Join with repo root and make absolute
+	resolvedPath := filepath.Join(repoRoot, historyPath)
+	absPath, err := filepath.Abs(resolvedPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
+	}
+
+	return absPath, nil
 }
 
 // getBranchFromGit attempts to get the current branch name using Git commands

@@ -199,6 +199,18 @@ const dashboardTemplate = `<!DOCTYPE html>
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
         }
         
+        .repo-item-clickable {
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+        }
+        
+        .repo-item-clickable:hover {
+            border-color: var(--color-primary);
+            transform: translateY(-4px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+        
         .repo-icon {
             font-size: 1.5rem;
         }
@@ -228,6 +240,15 @@ const dashboardTemplate = `<!DOCTYPE html>
         .commit-link:hover {
             text-decoration: underline;
             opacity: 0.8;
+        }
+        
+        .repo-link-light {
+            color: var(--color-text-secondary);
+            transition: var(--transition-base);
+        }
+        
+        .repo-item-clickable:hover .repo-link-light {
+            color: var(--color-primary);
         }
         
         .header-actions {
@@ -766,31 +787,51 @@ const dashboardTemplate = `<!DOCTYPE html>
             
             <div class="repo-info-enhanced">
                 <div class="repo-details">
+                    {{if .RepositoryURL}}
+                    <a href="{{.RepositoryURL}}" target="_blank" class="repo-item repo-item-clickable">
+                        <span class="repo-icon">📦</span>
+                        <span class="repo-label">Repository</span>
+                        <span class="repo-value repo-link-light">{{.RepositoryOwner}}/{{.RepositoryName}}</span>
+                    </a>
+                    {{else}}
                     <div class="repo-item">
                         <span class="repo-icon">📦</span>
                         <span class="repo-label">Repository</span>
-                        <span class="repo-value">
-                            <a href="{{.RepositoryURL}}" target="_blank" class="repo-link">{{.RepositoryOwner}}/{{.RepositoryName}}</a>
-                        </span>
+                        <span class="repo-value">{{.RepositoryOwner}}/{{.RepositoryName}}</span>
                     </div>
+                    {{end}}
+                    {{if .OwnerURL}}
+                    <a href="{{.OwnerURL}}" target="_blank" class="repo-item repo-item-clickable">
+                        <span class="repo-icon">👤</span>
+                        <span class="repo-label">Owner</span>
+                        <span class="repo-value">{{.RepositoryOwner}}</span>
+                    </a>
+                    {{else}}
                     <div class="repo-item">
                         <span class="repo-icon">👤</span>
                         <span class="repo-label">Owner</span>
                         <span class="repo-value">{{.RepositoryOwner}}</span>
                     </div>
+                    {{end}}
+                    {{if .BranchURL}}
+                    <a href="{{.BranchURL}}" target="_blank" class="repo-item repo-item-clickable">
+                        <span class="repo-icon">🌿</span>
+                        <span class="repo-label">Branch</span>
+                        <span class="repo-value">{{.Branch}}</span>
+                    </a>
+                    {{else}}
                     <div class="repo-item">
                         <span class="repo-icon">🌿</span>
                         <span class="repo-label">Branch</span>
                         <span class="repo-value">{{.Branch}}</span>
                     </div>
+                    {{end}}
                     {{if .CommitURL}}
-                    <div class="repo-item">
+                    <a href="{{.CommitURL}}" target="_blank" class="repo-item repo-item-clickable">
                         <span class="repo-icon">🔗</span>
                         <span class="repo-label">Commit</span>
-                        <span class="repo-value">
-                            <a href="{{.CommitURL}}" target="_blank" class="commit-link">{{.CommitSHA}}</a>
-                        </span>
-                    </div>
+                        <span class="repo-value commit-link">{{.CommitSHA}}</span>
+                    </a>
                     {{end}}
                 </div>
                 

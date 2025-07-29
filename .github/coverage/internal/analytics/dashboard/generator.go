@@ -191,12 +191,6 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 	// Prepare branch data
 	branches := g.prepareBranchData(ctx, data)
 
-	// Build commit URL
-	commitURL := ""
-	if data.RepositoryURL != "" && data.CommitSHA != "" {
-		commitURL = fmt.Sprintf("%s/commit/%s", strings.TrimSuffix(data.RepositoryURL, ".git"), data.CommitSHA)
-	}
-
 	// Use dynamic repository information, with config fallbacks
 	repositoryOwner := g.config.RepositoryOwner
 	repositoryName := g.config.RepositoryName
@@ -217,6 +211,22 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		repositoryURL = fmt.Sprintf("https://github.com/%s/%s", repositoryOwner, repositoryName)
 	}
 
+	// Build commit URL
+	commitURL := ""
+	if repositoryURL != "" && data.CommitSHA != "" {
+		commitURL = fmt.Sprintf("%s/commit/%s", strings.TrimSuffix(repositoryURL, ".git"), data.CommitSHA)
+	}
+
+	// Build owner and branch URLs
+	ownerURL := ""
+	branchURL := ""
+	if repositoryOwner != "" {
+		ownerURL = fmt.Sprintf("https://github.com/%s", repositoryOwner)
+	}
+	if repositoryURL != "" && data.Branch != "" {
+		branchURL = fmt.Sprintf("%s/tree/%s", strings.TrimSuffix(repositoryURL, ".git"), data.Branch)
+	}
+
 	// Get build status if available
 	buildStatus := g.getBuildStatus(ctx, repoInfo)
 
@@ -225,6 +235,8 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		"RepositoryOwner":   repositoryOwner,
 		"RepositoryName":    repositoryName,
 		"RepositoryURL":     repositoryURL,
+		"OwnerURL":          ownerURL,
+		"BranchURL":         branchURL,
 		"DefaultBranch":     data.Branch,
 		"Branch":            data.Branch,
 		"CommitSHA":         g.formatCommitSHA(data.CommitSHA),
