@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -27,6 +30,15 @@ type GeneratorConfig struct {
 	OutputDir        string
 	AssetsDir        string
 	GeneratorVersion string
+}
+
+// RepositoryInfo contains information extracted from a Git repository
+type RepositoryInfo struct {
+	Name     string // Repository name (e.g., "go-broadcast")
+	Owner    string // Repository owner (e.g., "mrz1836")
+	FullName string // Full repository name (e.g., "mrz1836/go-broadcast")
+	URL      string // Repository URL
+	IsGitHub bool   // Whether this is a GitHub repository
 }
 
 // NewGenerator creates a new dashboard generator
@@ -72,7 +84,7 @@ func (g *Generator) Generate(ctx context.Context, data *CoverageData) error {
 // generateDashboardHTML generates the main dashboard HTML
 func (g *Generator) generateDashboardHTML(ctx context.Context, data *CoverageData) (string, error) {
 	// Prepare template data
-	templateData := g.prepareTemplateData(data)
+	templateData := g.prepareTemplateData(ctx, data)
 
 	// Render dashboard
 	html, err := g.renderer.RenderDashboard(ctx, templateData)
@@ -83,10 +95,69 @@ func (g *Generator) generateDashboardHTML(ctx context.Context, data *CoverageDat
 	return html, nil
 }
 
+// getGitRepositoryInfo extracts repository information from Git remote
+func getGitRepositoryInfo(ctx context.Context) *RepositoryInfo {
+	cmd := exec.CommandContext(ctx, "git", "remote", "get-url", "origin")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+
+	remoteURL := strings.TrimSpace(string(output))
+	return parseRepositoryURL(remoteURL)
+}
+
+// parseRepositoryURL parses a Git remote URL and extracts repository information
+func parseRepositoryURL(remoteURL string) *RepositoryInfo {
+	// Handle SSH URLs (git@github.com:owner/repo.git)
+	sshPattern := regexp.MustCompile(`^git@([^:]+):([^/]+)/(.+?)(?:\.git)?$`)
+	if matches := sshPattern.FindStringSubmatch(remoteURL); len(matches) == 4 {
+		host := matches[1]
+		owner := matches[2]
+		repo := matches[3]
+
+		return &RepositoryInfo{
+			Name:     repo,
+			Owner:    owner,
+			FullName: fmt.Sprintf("%s/%s", owner, repo),
+			URL:      remoteURL,
+			IsGitHub: host == "github.com",
+		}
+	}
+
+	// Handle HTTPS URLs
+	parsedURL, err := url.Parse(remoteURL)
+	if err != nil {
+		return nil
+	}
+
+	// Extract owner and repository from path
+	path := strings.Trim(parsedURL.Path, "/")
+	path = strings.TrimSuffix(path, ".git")
+
+	parts := strings.Split(path, "/")
+	if len(parts) < 2 {
+		return nil
+	}
+
+	owner := parts[0]
+	repo := parts[1]
+
+	return &RepositoryInfo{
+		Name:     repo,
+		Owner:    owner,
+		FullName: fmt.Sprintf("%s/%s", owner, repo),
+		URL:      remoteURL,
+		IsGitHub: parsedURL.Host == "github.com",
+	}
+}
+
 // prepareTemplateData prepares data for template rendering
-func (g *Generator) prepareTemplateData(data *CoverageData) map[string]interface{} {
+func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData) map[string]interface{} {
+	// Get dynamic repository information
+	repoInfo := getGitRepositoryInfo(ctx)
+
 	// Calculate additional metrics
-	coveragePercent := fmt.Sprintf("%.2f", data.TotalCoverage)
 	filesPercent := float64(data.CoveredFiles) / float64(data.TotalFiles) * 100
 
 	// Calculate trends
@@ -107,7 +178,7 @@ func (g *Generator) prepareTemplateData(data *CoverageData) map[string]interface
 	}
 
 	// Prepare branch data
-	branches := g.prepareBranchData(data)
+	branches := g.prepareBranchData(ctx, data)
 
 	// Build commit URL
 	commitURL := ""
@@ -115,17 +186,38 @@ func (g *Generator) prepareTemplateData(data *CoverageData) map[string]interface
 		commitURL = fmt.Sprintf("%s/commit/%s", strings.TrimSuffix(data.RepositoryURL, ".git"), data.CommitSHA)
 	}
 
+	// Use dynamic repository information, with config fallbacks
+	repositoryOwner := g.config.RepositoryOwner
+	repositoryName := g.config.RepositoryName
+	projectName := g.config.ProjectName
+
+	// Override with dynamic Git info if available
+	if repoInfo != nil {
+		repositoryOwner = repoInfo.Owner
+		repositoryName = repoInfo.Name
+		if projectName == "" {
+			projectName = repoInfo.Name
+		}
+	}
+
+	// Build repository URL if not provided
+	repositoryURL := data.RepositoryURL
+	if repositoryURL == "" && repositoryOwner != "" && repositoryName != "" {
+		repositoryURL = fmt.Sprintf("https://github.com/%s/%s", repositoryOwner, repositoryName)
+	}
+
 	return map[string]interface{}{
-		"ProjectName":       g.config.ProjectName,
-		"RepositoryOwner":   g.config.RepositoryOwner,
-		"RepositoryName":    g.config.RepositoryName,
-		"RepositoryURL":     data.RepositoryURL,
+		"ProjectName":       projectName,
+		"RepositoryOwner":   repositoryOwner,
+		"RepositoryName":    repositoryName,
+		"RepositoryURL":     repositoryURL,
+		"DefaultBranch":     data.Branch,
 		"Branch":            data.Branch,
 		"CommitSHA":         g.formatCommitSHA(data.CommitSHA),
 		"CommitURL":         commitURL,
 		"PRNumber":          data.PRNumber,
 		"Timestamp":         data.Timestamp.Format("2006-01-02 15:04:05 UTC"),
-		"TotalCoverage":     coveragePercent,
+		"TotalCoverage":     data.TotalCoverage,
 		"CoverageTrend":     coverageTrend,
 		"TrendDirection":    trendDirection,
 		"CoveredFiles":      data.CoveredFiles,
@@ -152,7 +244,26 @@ func (g *Generator) formatCommitSHA(sha string) string {
 }
 
 // prepareBranchData prepares branch information for display
-func (g *Generator) prepareBranchData(data *CoverageData) []map[string]interface{} {
+func (g *Generator) prepareBranchData(ctx context.Context, data *CoverageData) []map[string]interface{} {
+	// Get dynamic repository information
+	repoInfo := getGitRepositoryInfo(ctx)
+
+	// Use dynamic repository info with config fallbacks
+	repositoryOwner := g.config.RepositoryOwner
+	repositoryName := g.config.RepositoryName
+
+	if repoInfo != nil {
+		repositoryOwner = repoInfo.Owner
+		repositoryName = repoInfo.Name
+	}
+
+	// Generate GitHub URL for branch if repository info is available
+	var githubURL string
+	if repositoryOwner != "" && repositoryName != "" && data.Branch != "" {
+		githubURL = fmt.Sprintf("https://github.com/%s/%s/tree/%s",
+			repositoryOwner, repositoryName, data.Branch)
+	}
+
 	// For now, return current branch info
 	// In future, this could load from metadata
 	branches := []map[string]interface{}{
@@ -162,6 +273,7 @@ func (g *Generator) prepareBranchData(data *CoverageData) []map[string]interface
 			"CoveredLines": data.CoveredLines,
 			"TotalLines":   data.TotalLines,
 			"Protected":    data.Branch == "master" || data.Branch == "main",
+			"GitHubURL":    githubURL,
 		},
 	}
 	return branches
@@ -171,13 +283,25 @@ func (g *Generator) prepareBranchData(data *CoverageData) []map[string]interface
 func (g *Generator) preparePackageData(packages []PackageCoverage) []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(packages))
 	for _, pkg := range packages {
+		// Prepare files data
+		files := make([]map[string]interface{}, 0, len(pkg.Files))
+		for _, file := range pkg.Files {
+			files = append(files, map[string]interface{}{
+				"Name":      file.Name,
+				"Coverage":  file.Coverage,
+				"GitHubURL": file.GitHubURL,
+			})
+		}
+
 		result = append(result, map[string]interface{}{
 			"Name":         pkg.Name,
 			"Path":         pkg.Path,
-			"Coverage":     fmt.Sprintf("%.2f", pkg.Coverage),
+			"Coverage":     pkg.Coverage,
 			"CoveredLines": pkg.CoveredLines,
 			"TotalLines":   pkg.TotalLines,
 			"MissedLines":  pkg.MissedLines,
+			"GitHubURL":    pkg.GitHubURL,
+			"Files":        files,
 		})
 	}
 	return result

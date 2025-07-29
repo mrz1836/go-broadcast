@@ -200,7 +200,7 @@ func TestGenerator_prepareTemplateData(t *testing.T) {
 		},
 	}
 
-	result := gen.prepareTemplateData(data)
+	result := gen.prepareTemplateData(context.Background(), data)
 
 	// Check key fields
 	if result["ProjectName"] != "test-project" {
@@ -212,8 +212,8 @@ func TestGenerator_prepareTemplateData(t *testing.T) {
 	if result["CommitSHA"] != "abc123d" {
 		t.Errorf("CommitSHA = %v, want abc123d", result["CommitSHA"])
 	}
-	if result["TotalCoverage"] != "85.50" {
-		t.Errorf("TotalCoverage = %v, want 85.50", result["TotalCoverage"])
+	if result["TotalCoverage"] != 85.5 {
+		t.Errorf("TotalCoverage = %v, want 85.5", result["TotalCoverage"])
 	}
 	if result["CoveredFiles"] != 8 {
 		t.Errorf("CoveredFiles = %v, want 8", result["CoveredFiles"])
@@ -246,7 +246,7 @@ func TestRenderer_RenderDashboard(t *testing.T) {
 		"RepositoryName":  "repo",
 		"Branch":          testBranch,
 		"CommitSHA":       "abc123d",
-		"TotalCoverage":   "85.50",
+		"TotalCoverage":   85.5,
 		"CoveredFiles":    8,
 		"TotalFiles":      10,
 		"PackagesTracked": 2,
@@ -268,7 +268,7 @@ func TestRenderer_RenderDashboard(t *testing.T) {
 		"<title>owner/repo Coverage Dashboard</title>",
 		"🌿",        // Branch icon
 		testBranch, // Branch name (dynamic based on test data)
-		"85.50%",
+		"85.5%",
 		"8 of 10 files covered",
 		"Packages analyzed",
 		"2024-01-15 10:30:00 UTC",

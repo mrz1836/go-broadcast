@@ -38,6 +38,7 @@ internal/fuzz/corpus/
 # Coverage
 .github/coverage/cmd/gofortress-coverage/gofortress-coverage
 .github/coverage/gofortress-coverage
+test-coverage-output
 
 # Coverage output directories (build artifacts)
 coverage-output/

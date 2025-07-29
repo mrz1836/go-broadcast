@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -168,8 +169,16 @@ func convertStateToStatus(s *state.State) *SyncStatus {
 		Targets: make([]TargetStatus, 0, len(s.Targets)),
 	}
 
-	// Convert each target state
-	for _, targetState := range s.Targets {
+	// Get sorted list of target repositories for deterministic order
+	repos := make([]string, 0, len(s.Targets))
+	for repo := range s.Targets {
+		repos = append(repos, repo)
+	}
+	sort.Strings(repos)
+
+	// Convert each target state in sorted order
+	for _, repo := range repos {
+		targetState := s.Targets[repo]
 		targetStatus := TargetStatus{
 			Repository: targetState.Repo,
 			State:      convertSyncStatus(targetState.Status),

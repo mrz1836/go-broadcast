@@ -581,6 +581,53 @@
             outline-offset: 2px;
             border-radius: 3px;
         }
+        
+        /* Repository link styling for better readability */
+        .repo-link {
+            color: var(--color-text);
+            text-decoration: none;
+            transition: color var(--transition-base);
+        }
+        
+        .repo-link:hover {
+            color: var(--color-primary);
+            text-decoration: none;
+        }
+        
+        .repo-link:focus {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+            border-radius: 3px;
+        }
+        
+        /* Owner link styling */
+        .owner-link {
+            color: var(--color-text-secondary);
+            transition: color var(--transition-base);
+        }
+        
+        .repo-link:hover .owner-link {
+            color: var(--color-primary);
+        }
+        
+        /* Branch link styling */
+        .branch-link {
+            color: inherit;
+            text-decoration: none;
+            font-family: 'SF Mono', Monaco, monospace;
+            transition: color var(--transition-base);
+        }
+        
+        .branch-link:hover {
+            color: var(--color-primary);
+            text-decoration: none;
+        }
+        
+        .branch-link:focus {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
@@ -591,7 +638,15 @@
                 <svg class="logo-icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2L2 7v10c0 5.55 3.84 9.739 9 11 5.16-1.261 9-5.45 9-11V7l-10-5z"/>
                 </svg>
-                <h1 class="logo-text">Coverage<span class="accent">Hub</span></h1>
+                <h1 class="logo-text">
+                    {{if .RepositoryURL}}
+                    <a href="{{.RepositoryURL}}" target="_blank" rel="noopener" class="repo-link">
+                        {{if .RepositoryOwner}}<span class="owner-link">{{.RepositoryOwner}}</span>/{{end}}{{.ProjectName}}
+                    </a>
+                    {{else}}
+                    Coverage<span class="accent">Hub</span>
+                    {{end}}
+                </h1>
             </div>
             
             <div class="search-container">
@@ -766,7 +821,13 @@
                 {{range .Branches}}
                 <article class="branch-card" data-branch="{{.Name}}">
                     <div class="branch-header">
-                        <h3 class="branch-name">{{.Name}}</h3>
+                        <h3 class="branch-name">
+                            {{if .GitHubURL}}
+                            <a href="{{.GitHubURL}}" target="_blank" rel="noopener" class="branch-link">{{.Name}}</a>
+                            {{else}}
+                            {{.Name}}
+                            {{end}}
+                        </h3>
                         {{if .Protected}}
                         <div class="branch-badge">Protected</div>
                         {{end}}

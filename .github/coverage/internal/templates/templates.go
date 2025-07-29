@@ -24,6 +24,12 @@ type DashboardData struct {
 	// Project information
 	ProjectName string `json:"project_name"`
 
+	// Repository information
+	RepositoryOwner string `json:"repository_owner,omitempty"`
+	RepositoryName  string `json:"repository_name,omitempty"`
+	RepositoryURL   string `json:"repository_url,omitempty"`
+	DefaultBranch   string `json:"default_branch,omitempty"`
+
 	// Overall metrics
 	TotalCoverage     float64 `json:"total_coverage"`
 	CoverageTrend     float64 `json:"coverage_trend"`
@@ -36,6 +42,9 @@ type DashboardData struct {
 
 	// Branch information
 	Branches []BranchData `json:"branches"`
+
+	// Package information with GitHub URLs
+	Packages []Package `json:"packages,omitempty"`
 
 	// Metadata
 	LastUpdated time.Time `json:"last_updated"`
@@ -56,6 +65,7 @@ type BranchData struct {
 	Protected    bool      `json:"protected"`
 	LastCommit   time.Time `json:"last_commit"`
 	Trend        float64   `json:"trend"`
+	GitHubURL    string    `json:"github_url,omitempty"`
 }
 
 // ReportData contains data for coverage report template rendering
@@ -107,6 +117,23 @@ type FileStats struct {
 	CoveredFuncs int     `json:"covered_funcs"`
 }
 
+// Package represents a package with coverage data for dashboard display
+type Package struct {
+	Name         string  `json:"name"`
+	Coverage     float64 `json:"coverage"`
+	CoveredLines int     `json:"covered_lines"`
+	TotalLines   int     `json:"total_lines"`
+	Files        []File  `json:"files,omitempty"`
+	GitHubURL    string  `json:"github_url,omitempty"`
+}
+
+// File represents a file with coverage data for dashboard display
+type File struct {
+	Name      string  `json:"name"`
+	Coverage  float64 `json:"coverage"`
+	GitHubURL string  `json:"github_url,omitempty"`
+}
+
 // NewTemplateManager creates a new template manager with embedded templates
 func NewTemplateManager() (*TemplateManager, error) {
 	tm := &TemplateManager{
@@ -120,6 +147,12 @@ func NewTemplateManager() (*TemplateManager, error) {
 			"sub":              sub,
 			"mul":              mul,
 			"div":              div,
+			"githubRepoURL":    githubRepoURL,
+			"githubUserURL":    githubUserURL,
+			"githubBranchURL":  githubBranchURL,
+			"githubCommitURL":  githubCommitURL,
+			"githubFileURL":    githubFileURL,
+			"githubDirURL":     githubDirURL,
 		},
 	}
 
@@ -271,4 +304,54 @@ func div(a, b int) float64 {
 		return 0
 	}
 	return float64(a) / float64(b)
+}
+
+// GitHub URL helper functions for templates
+
+// githubRepoURL generates a GitHub repository URL
+func githubRepoURL(owner, repo string) string {
+	if owner == "" || repo == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://github.com/%s/%s", owner, repo)
+}
+
+// githubUserURL generates a GitHub user profile URL
+func githubUserURL(username string) string {
+	if username == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://github.com/%s", username)
+}
+
+// githubBranchURL generates a GitHub branch URL
+func githubBranchURL(owner, repo, branch string) string {
+	if owner == "" || repo == "" || branch == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://github.com/%s/%s/tree/%s", owner, repo, branch)
+}
+
+// githubCommitURL generates a GitHub commit URL
+func githubCommitURL(owner, repo, sha string) string {
+	if owner == "" || repo == "" || sha == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://github.com/%s/%s/commit/%s", owner, repo, sha)
+}
+
+// githubFileURL generates a GitHub file URL
+func githubFileURL(owner, repo, branch, filepath string) string {
+	if owner == "" || repo == "" || branch == "" || filepath == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s", owner, repo, branch, filepath)
+}
+
+// githubDirURL generates a GitHub directory URL
+func githubDirURL(owner, repo, branch, dirpath string) string {
+	if owner == "" || repo == "" || branch == "" || dirpath == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://github.com/%s/%s/tree/%s/%s", owner, repo, branch, dirpath)
 }

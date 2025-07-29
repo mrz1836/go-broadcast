@@ -454,15 +454,26 @@ func (g *Generator) renderHTML(ctx context.Context, data *Data) ([]byte, error) 
 
 // convertToTemplateData converts internal Data structure to templates.ReportData
 func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templates.ReportData {
+	// Get dynamic repository information
+	repoInfo := getGitRepositoryInfo(ctx)
+
 	// Handle nil data
 	if data == nil {
 		// Try to get project name from Git, fallback to generic name
 		projectName := "Coverage Report"
-		if repoInfo := getGitRepositoryInfo(ctx); repoInfo != nil {
+		gitHubOwner := ""
+		gitHubRepo := ""
+		title := "Coverage Report"
+
+		if repoInfo != nil {
 			projectName = repoInfo.Name
+			gitHubOwner = repoInfo.Owner
+			gitHubRepo = repoInfo.Name
+			title = fmt.Sprintf("%s/%s Coverage Report", repoInfo.Owner, repoInfo.Name)
 		}
+
 		return templates.ReportData{
-			Title:            "Coverage Report",
+			Title:            title,
 			ProjectName:      projectName,
 			Generated:        time.Now(),
 			Branch:           "main",
@@ -472,9 +483,11 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 			FileStats:        []templates.FileStats{},
 			Theme:            "auto",
 			ShowDetails:      false,
-			GitHubOwner:      "",
-			GitHubRepository: "",
-			GitHubBranch:     "",
+			GitHubOwner:      gitHubOwner,
+			GitHubRepository: gitHubRepo,
+			GitHubBranch:     "main",
+			RepositoryOwner:  gitHubOwner,
+			RepositoryName:   gitHubRepo,
 		}
 	}
 
@@ -519,8 +532,29 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 		}
 	}
 
+	// Use dynamic repository information, with config fallbacks
+	gitHubOwner := data.Config.GitHubOwner
+	gitHubRepo := data.Config.GitHubRepository
+	gitHubBranch := data.Config.GitHubBranch
+	title := data.Config.Title
+
+	// Override with dynamic Git info if available
+	if repoInfo != nil {
+		gitHubOwner = repoInfo.Owner
+		gitHubRepo = repoInfo.Name
+		// Use repository-focused title if no custom title was set (empty or default)
+		if data.Config.Title == "" || data.Config.Title == "Coverage Report" {
+			title = fmt.Sprintf("%s/%s Coverage Report", repoInfo.Owner, repoInfo.Name)
+		}
+	}
+
+	// Use current branch if not specified in config
+	if gitHubBranch == "" {
+		gitHubBranch = data.BranchName
+	}
+
 	return templates.ReportData{
-		Title:            data.Config.Title,
+		Title:            title,
 		ProjectName:      data.ProjectName, // Use the dynamically determined project name
 		Generated:        data.GeneratedAt,
 		Branch:           data.BranchName,
@@ -530,11 +564,11 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) templ
 		FileStats:        fileStats,
 		Theme:            data.Config.Theme,
 		ShowDetails:      data.Config.ShowFiles,
-		GitHubOwner:      data.Config.GitHubOwner,
-		GitHubRepository: data.Config.GitHubRepository,
-		GitHubBranch:     data.Config.GitHubBranch,
-		RepositoryOwner:  data.Config.GitHubOwner,      // Alias for template compatibility
-		RepositoryName:   data.Config.GitHubRepository, // Alias for template compatibility
+		GitHubOwner:      gitHubOwner,
+		GitHubRepository: gitHubRepo,
+		GitHubBranch:     gitHubBranch,
+		RepositoryOwner:  gitHubOwner, // Alias for template compatibility
+		RepositoryName:   gitHubRepo,  // Alias for template compatibility
 	}
 }
 
