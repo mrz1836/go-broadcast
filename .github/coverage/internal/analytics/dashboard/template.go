@@ -270,6 +270,8 @@ const dashboardTemplate = `<!DOCTYPE html>
             display: flex;
             gap: 1.5rem;
             flex-wrap: wrap;
+            position: relative;
+            z-index: 10;
         }
         
         .repo-item {
@@ -422,6 +424,8 @@ const dashboardTemplate = `<!DOCTYPE html>
             background: radial-gradient(circle, var(--color-primary) 0%, transparent 70%);
             opacity: 0.05;
             animation: rotate 30s linear infinite;
+            pointer-events: none;
+            z-index: -1;
         }
         
         @keyframes rotate {
