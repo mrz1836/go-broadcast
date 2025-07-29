@@ -58,7 +58,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     permissions:
-      contents: write # Read repository content and push commits
+      contents: read # Read repository content
       pull-requests: write # Create PR comments
       pages: write # Deploy to GitHub Pages
       id-token: write # GitHub Pages deployment authentication
