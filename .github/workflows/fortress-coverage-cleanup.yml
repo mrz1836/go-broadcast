@@ -29,7 +29,7 @@ on:
 
 # Security: Restrictive default permissions
 permissions:
-  contents: write # Need to push to gh-pages branch
+  contents: read
 
 jobs:
   # ----------------------------------------------------------------------------------
@@ -73,6 +73,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [load-env]
+    permissions:
+      contents: write # Need to push to gh-pages branch
 
     steps:
       # ————————————————————————————————————————————————————————————————

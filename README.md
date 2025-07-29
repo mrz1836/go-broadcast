@@ -163,12 +163,6 @@ go-broadcast sync --config sync.yaml
 - **Zero-downtime operations** - Works at any scale without conflicts
 - **Full audit trail** - Every sync tracked in branches and PRs
 
-### 📊 **Built-in Coverage System** 
-- **CodeCov replacement** - Zero external dependencies, complete data privacy
-- **Professional badges** - GitHub-style badges with real-time updates
-- **Interactive dashboard** - Modern UI with analytics and trends
-- **[🔗 Live Dashboard](https://mrz1836.github.io/go-broadcast/)**
-
 ### ⚡ **Enterprise Performance**
 - **587M+ ops/sec** - Binary detection with zero allocations
 - **239M+ ops/sec** - Content comparison for identical files  
@@ -180,6 +174,77 @@ go-broadcast sync --config sync.yaml
 - **Vulnerability scanning** - govulncheck, OSSAR, CodeQL integration
 - **OpenSSF Scorecard** - Supply chain security assessment
 - **Secret detection** - gitleaks integration prevents leaks
+
+### 📊 **Built-in Coverage System**
+- **Third-party replacement** - Zero external dependencies, complete data privacy
+- **Professional badges** - GitHub-style badges with real-time updates
+- **Interactive dashboard** - Modern UI with analytics and trends
+- **[🔗 Live Dashboard](https://mrz1836.github.io/go-broadcast/)**
+
+<br/>
+
+
+## 🔍 How It Works
+
+**go-broadcast** uses a **stateless architecture** that tracks synchronization state through GitHub itself - no databases or state files needed!
+
+### State Tracking Through Branch Names
+
+Every sync operation creates a branch with encoded metadata:
+
+```
+sync/template-20250123-143052-abc123f
+│    │         │                │
+│    │         │                └─── Source commit SHA (7 chars)
+│    │         └──────────────────── Timestamp (YYYYMMDD-HHMMSS)
+│    └────────────────────────────── Template identifier
+└─────────────────────────────────── Configurable prefix
+```
+
+### How go-broadcast Determines What to Sync
+
+1. **State Discovery** - Queries GitHub to find:
+   - Latest commit in source repository
+   - All sync branches in target repositories
+   - Open sync pull requests
+
+2. **Smart Comparison** - For each target:
+   ```
+   Source commit: abc123f (latest)
+   Target's last sync: def456g (from branch name)
+   Status: Behind → Needs sync ✓
+   ```
+
+3. **Content-Based Sync** - Only syncs files that actually changed:
+   - Fetches current file from target
+   - Applies transformations to source
+   - Compares content byte-by-byte
+   - Skips unchanged files
+
+### Pull Request Metadata
+
+Each PR includes structured metadata for complete traceability:
+
+```text
+<!-- go-broadcast metadata
+source:
+  repo: company/template-repo
+  branch: master
+  commit: abc123f7890
+files:
+  - src: .github/workflows/ci.yml
+    dest: .github/workflows/ci.yml
+timestamp: 2025-01-23T14:30:52Z
+-->
+```
+
+### Why This Approach is Powerful
+
+✅ **No State Files** - Everything lives in GitHub  
+✅ **Atomic Operations** - Each sync is self-contained  
+✅ **Full Audit Trail** - Branch and PR history shows all syncs  
+✅ **Disaster Recovery** - State can be reconstructed from GitHub  
+✅ **Works at Scale** - No state corruption with concurrent syncs  
 
 <br/>
 
@@ -219,7 +284,7 @@ COVERAGE_FAIL_UNDER=80
 
 That's it! Push any commit and get:
 - ✅ Professional coverage badges
-- ✅ Interactive dashboard  
+- ✅ Interactive dashboard
 - ✅ PR comments with analysis
 - ✅ GitHub Pages deployment
 
@@ -311,69 +376,6 @@ COVERAGE_PR_COMMENT_BEHAVIOR=update      # Comment behavior: new, update, delete
 
 <br/>
 
-## 🔍 How It Works
-
-**go-broadcast** uses a **stateless architecture** that tracks synchronization state through GitHub itself - no databases or state files needed!
-
-### State Tracking Through Branch Names
-
-Every sync operation creates a branch with encoded metadata:
-
-```
-sync/template-20250123-143052-abc123f
-│    │         │                │
-│    │         │                └─── Source commit SHA (7 chars)
-│    │         └──────────────────── Timestamp (YYYYMMDD-HHMMSS)
-│    └────────────────────────────── Template identifier
-└─────────────────────────────────── Configurable prefix
-```
-
-### How go-broadcast Determines What to Sync
-
-1. **State Discovery** - Queries GitHub to find:
-   - Latest commit in source repository
-   - All sync branches in target repositories
-   - Open sync pull requests
-
-2. **Smart Comparison** - For each target:
-   ```
-   Source commit: abc123f (latest)
-   Target's last sync: def456g (from branch name)
-   Status: Behind → Needs sync ✓
-   ```
-
-3. **Content-Based Sync** - Only syncs files that actually changed:
-   - Fetches current file from target
-   - Applies transformations to source
-   - Compares content byte-by-byte
-   - Skips unchanged files
-
-### Pull Request Metadata
-
-Each PR includes structured metadata for complete traceability:
-
-```text
-<!-- go-broadcast metadata
-source:
-  repo: company/template-repo
-  branch: master
-  commit: abc123f7890
-files:
-  - src: .github/workflows/ci.yml
-    dest: .github/workflows/ci.yml
-timestamp: 2025-01-23T14:30:52Z
--->
-```
-
-### Why This Approach is Powerful
-
-✅ **No State Files** - Everything lives in GitHub  
-✅ **Atomic Operations** - Each sync is self-contained  
-✅ **Full Audit Trail** - Branch and PR history shows all syncs  
-✅ **Disaster Recovery** - State can be reconstructed from GitHub  
-✅ **Works at Scale** - No state corruption with concurrent syncs  
-
-<br/>
 
 ## 💡 Usage Examples
 

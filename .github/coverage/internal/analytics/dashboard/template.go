@@ -1,6 +1,8 @@
 package dashboard
 
 // dashboardTemplate is the embedded dashboard HTML template
+//
+//nolint:misspell // GitHub Actions API uses British spelling for "cancelled"
 const dashboardTemplate = `<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -131,11 +133,73 @@ const dashboardTemplate = `<!DOCTYPE html>
         .status-indicator {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: 12px;
+            gap: 0.75rem;
+            padding: 0.75rem 1.25rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--backdrop-blur));
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            text-decoration: none;
+            transition: all var(--transition-smooth);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .status-indicator::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(88, 166, 255, 0.05) 0%, 
+                rgba(63, 185, 80, 0.05) 100%);
+            opacity: 0;
+            transition: opacity var(--transition-smooth);
+        }
+        
+        .status-indicator:hover::before {
+            opacity: 1;
+        }
+        
+        .status-indicator:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            border-color: var(--color-primary);
+        }
+        
+        .status-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .status-icon.spinning {
+            animation: spin 1s linear infinite;
+        }
+        
+        .status-indicator.build-success .status-icon {
+            filter: drop-shadow(0 0 4px rgba(63, 185, 80, 0.5));
+        }
+        
+        .status-indicator.build-failed .status-icon {
+            filter: drop-shadow(0 0 4px rgba(248, 81, 73, 0.5));
+        }
+        
+        .status-indicator.build-running .status-icon {
+            filter: drop-shadow(0 0 4px rgba(210, 153, 34, 0.5));
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
         
         .status-dot {
@@ -150,6 +214,15 @@ const dashboardTemplate = `<!DOCTYPE html>
             animation: pulse 2s infinite;
         }
         
+        .status-dot.in-progress {
+            background: var(--color-warning);
+            animation: pulse 1s infinite;
+        }
+        
+        .status-dot.failed {
+            background: var(--color-danger);
+        }
+        
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -159,6 +232,19 @@ const dashboardTemplate = `<!DOCTYPE html>
             font-size: 0.9rem;
             font-weight: 500;
             color: var(--color-text);
+        }
+        
+        .status-details {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.1rem;
+        }
+        
+        .status-workflow {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+            font-family: 'JetBrains Mono', monospace;
         }
         
         .last-sync {
@@ -775,10 +861,79 @@ const dashboardTemplate = `<!DOCTYPE html>
                 </div>
                 
                 <div class="header-status">
-                    <div class="status-indicator">
-                        <span class="status-dot active"></span>
-                        <span class="status-text">Coverage Active</span>
-                    </div>
+                    {{if .BuildStatus}}
+                        {{if .BuildStatus.Available}}
+                            {{if eq .BuildStatus.State "in_progress"}}
+                            <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator build-running" title="View running build on GitHub Actions">
+                                <span class="status-icon spinning">🔄</span>
+                                <div class="status-details">
+                                    <span class="status-text">Build Running</span>
+                                    <span class="status-workflow">{{.BuildStatus.WorkflowName}} #{{.BuildStatus.RunNumber}}</span>
+                                </div>
+                            </a>
+                            {{else if eq .BuildStatus.State "completed"}}
+                                {{if eq .BuildStatus.Conclusion "success"}}
+                                <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator build-success" title="View successful build on GitHub Actions">
+                                    <span class="status-icon">✅</span>
+                                    <div class="status-details">
+                                        <span class="status-text">Build Passed</span>
+                                        <span class="status-workflow">{{.BuildStatus.WorkflowName}} • {{.BuildStatus.Duration}}</span>
+                                    </div>
+                                </a>
+                                {{else if eq .BuildStatus.Conclusion "failure"}}
+                                <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator build-failed" title="View failed build on GitHub Actions">
+                                    <span class="status-icon">❌</span>
+                                    <div class="status-details">
+                                        <span class="status-text">Build Failed</span>
+                                        <span class="status-workflow">{{.BuildStatus.WorkflowName}} • {{.BuildStatus.Duration}}</span>
+                                    </div>
+                                </a>
+                                {{else if eq .BuildStatus.Conclusion "cancelled"}} {{/* GitHub Actions uses British spelling */}}
+                                <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator" title="View canceled build on GitHub Actions">
+                                    <span class="status-icon">⚪</span>
+                                    <div class="status-details">
+                                        <span class="status-text">Build Canceled</span>
+                                        <span class="status-workflow">{{.BuildStatus.WorkflowName}}</span>
+                                    </div>
+                                </a>
+                                {{else}}
+                                <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator" title="View build on GitHub Actions">
+                                    <span class="status-icon">🟡</span>
+                                    <div class="status-details">
+                                        <span class="status-text">Build {{.BuildStatus.Conclusion}}</span>
+                                        <span class="status-workflow">{{.BuildStatus.WorkflowName}}</span>
+                                    </div>
+                                </a>
+                                {{end}}
+                            {{else if eq .BuildStatus.State "queued"}}
+                            <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator" title="View queued build on GitHub Actions">
+                                <span class="status-icon">⏳</span>
+                                <div class="status-details">
+                                    <span class="status-text">Build Queued</span>
+                                    <span class="status-workflow">{{.BuildStatus.WorkflowName}}</span>
+                                </div>
+                            </a>
+                            {{else}}
+                            <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator" title="View build on GitHub Actions">
+                                <span class="status-icon">🔨</span>
+                                <div class="status-details">
+                                    <span class="status-text">{{.BuildStatus.State}}</span>
+                                    <span class="status-workflow">{{.BuildStatus.WorkflowName}}</span>
+                                </div>
+                            </a>
+                            {{end}}
+                        {{else}}
+                            <div class="status-indicator">
+                                <span class="status-dot active"></span>
+                                <span class="status-text">Coverage Active</span>
+                            </div>
+                        {{end}}
+                    {{else}}
+                        <div class="status-indicator">
+                            <span class="status-dot active"></span>
+                            <span class="status-text">Coverage Active</span>
+                        </div>
+                    {{end}}
                     <div class="last-sync">
                         <span>🕐 {{.Timestamp}}</span>
                     </div>

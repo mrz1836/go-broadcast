@@ -400,6 +400,7 @@ update history, and create GitHub PR comment if in PR context.`,
 			RepositoryName:   cfg.GitHub.Repository,
 			OutputDir:        targetOutputDir, // Dashboard goes in target directory
 			GeneratorVersion: "1.0.0",
+			GitHubToken:      cfg.GitHub.Token,
 		}
 
 		dashboardGen := dashboard.NewGenerator(dashboardConfig)
