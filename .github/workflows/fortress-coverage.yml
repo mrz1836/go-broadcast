@@ -411,11 +411,9 @@ jobs:
           echo "🔍 Pre-processing diagnostics: Checking initial history state..."
 
           HISTORY_DIR=".github/coverage/history"
-          DATA_DIR=".github/coverage/data/history"
 
-          echo "📂 Checking history directories:"
+          echo "📂 Checking history directory:"
           echo "  • Primary: $HISTORY_DIR"
-          echo "  • Legacy:  $DATA_DIR"
           echo ""
 
           # Check primary history directory
@@ -433,16 +431,6 @@ jobs:
           fi
           echo ""
 
-          # Check legacy data directory
-          if [[ -d "$DATA_DIR" ]]; then
-            echo "✅ Legacy data directory exists:"
-            ls -la "$DATA_DIR"
-            LEGACY_FILES=$(find "$DATA_DIR" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
-            echo "📊 JSON files in legacy directory: $LEGACY_FILES"
-          else
-            echo "❌ Legacy data directory does not exist: $DATA_DIR"
-          fi
-          echo ""
 
           # Check configuration defaults
           echo "⚙️ Configuration check:"
@@ -1125,6 +1113,10 @@ jobs:
             # Fallback: copy manually with find
             echo "📋 Using find-based copying (rsync not available)..."
             
+            # First, ensure the data directory structure exists
+            echo "📁 Ensuring data directory structure exists..."
+            mkdir -p "$FILTERED_OUTPUT_DIR/data"
+            
             # Copy all files except excluded ones
             find "$OUTPUT_DIR" -type f \
               ! -path "*/docs/*" \
@@ -1149,6 +1141,23 @@ jobs:
 
           echo "✅ Filtering completed"
 
+          # Additional verification: Check if data directory was created and files copied
+          echo "🔍 Verifying data directory structure after filtering:"
+          if [[ -d "$FILTERED_OUTPUT_DIR/data" ]]; then
+            echo "  ✅ data/ directory exists in filtered output"
+            echo "  📋 Contents of data/ directory:"
+            ls -la "$FILTERED_OUTPUT_DIR/data/" || echo "  ❌ Unable to list data directory contents"
+          else
+            echo "  ❌ data/ directory missing in filtered output"
+            echo "  🔧 Manually copying data directory..."
+            if [[ -d "$OUTPUT_DIR/data" ]]; then
+              cp -r "$OUTPUT_DIR/data" "$FILTERED_OUTPUT_DIR/"
+              echo "  ✅ data/ directory manually copied"
+            else
+              echo "  ❌ data/ directory not found in source either"
+            fi
+          fi
+
           # Verify critical files were included
           echo "🔍 Verifying critical files in filtered deployment:"
           CRITICAL_FILES=("data/build-status.json" "coverage.svg" "coverage.html" "dashboard.html")
@@ -1160,6 +1169,20 @@ jobs:
             else
               echo "  ❌ Missing: $file"
               MISSING_FILES+=("$file")
+              
+              # Try to manually copy missing data files
+              if [[ "$file" == "data/build-status.json" && -f "$OUTPUT_DIR/$file" ]]; then
+                echo "  🔧 Manually copying missing build-status.json..."
+                mkdir -p "$FILTERED_OUTPUT_DIR/data"
+                cp "$OUTPUT_DIR/$file" "$FILTERED_OUTPUT_DIR/$file"
+                if [[ -f "$FILTERED_OUTPUT_DIR/$file" ]]; then
+                  echo "  ✅ build-status.json manually copied successfully"
+                  # Remove from missing files array since we fixed it
+                  MISSING_FILES=("${MISSING_FILES[@]/$file}")
+                else
+                  echo "  ❌ Failed to manually copy build-status.json"
+                fi
+              fi
             fi
           done
 
@@ -1279,33 +1302,24 @@ jobs:
           echo "### 📈 Coverage History Status (Post-Processing)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Check both primary and legacy history directories
-          HISTORY_DIRS=("$HISTORY_DIR" "$REPO_ROOT/.github/coverage/data/history")
-          HISTORY_DIR_NAMES=("Primary (.github/coverage/history)" "Legacy (.github/coverage/data/history)")
+          # Check primary history directory
+          if [[ -d "$HISTORY_DIR" ]]; then
+            TOTAL_HISTORY_FILES=$(find "$HISTORY_DIR" -name "*.json" 2>/dev/null | wc -l)
+            DIR_SIZE=$(du -sh "$HISTORY_DIR" 2>/dev/null | cut -f1 || echo "0B")
+            echo "- **History Directory**: ✅ Exists ($TOTAL_HISTORY_FILES files, $DIR_SIZE)" >> $GITHUB_STEP_SUMMARY
 
-          TOTAL_HISTORY_FILES=0
-          for i in "${!HISTORY_DIRS[@]}"; do
-            DIR="${HISTORY_DIRS[$i]}"
-            DIR_NAME="${HISTORY_DIR_NAMES[$i]}"
-
-            if [[ -d "$DIR" ]]; then
-              FILES_IN_DIR=$(find "$DIR" -name "*.json" 2>/dev/null | wc -l)
-              DIR_SIZE=$(du -sh "$DIR" 2>/dev/null | cut -f1 || echo "0B")
-              echo "- **$DIR_NAME**: ✅ Exists ($FILES_IN_DIR files, $DIR_SIZE)" >> $GITHUB_STEP_SUMMARY
-              TOTAL_HISTORY_FILES=$((TOTAL_HISTORY_FILES + FILES_IN_DIR))
-
-              if [[ $FILES_IN_DIR -gt 0 ]]; then
-                echo "  - Recent files in $DIR_NAME:" >> $GITHUB_STEP_SUMMARY
-                echo "    \`\`\`" >> $GITHUB_STEP_SUMMARY
-                find "$DIR" -name "*.json" -type f -exec basename {} \; 2>/dev/null | sort -r | head -3 >> $GITHUB_STEP_SUMMARY || echo "    Unable to list files" >> $GITHUB_STEP_SUMMARY
-                echo "    \`\`\`" >> $GITHUB_STEP_SUMMARY
-              fi
-            else
-              echo "- **$DIR_NAME**: ❌ Not found" >> $GITHUB_STEP_SUMMARY
+            if [[ $TOTAL_HISTORY_FILES -gt 0 ]]; then
+              echo "  - Recent files:" >> $GITHUB_STEP_SUMMARY
+              echo "    \`\`\`" >> $GITHUB_STEP_SUMMARY
+              find "$HISTORY_DIR" -name "*.json" -type f -exec basename {} \; 2>/dev/null | sort -r | head -3 >> $GITHUB_STEP_SUMMARY || echo "    Unable to list files" >> $GITHUB_STEP_SUMMARY
+              echo "    \`\`\`" >> $GITHUB_STEP_SUMMARY
             fi
-          done
+          else
+            TOTAL_HISTORY_FILES=0
+            echo "- **History Directory**: ❌ Not found" >> $GITHUB_STEP_SUMMARY
+          fi
 
-          echo "- **Total History Files**: ${TOTAL_HISTORY_FILES} entries across all directories" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total History Files**: ${TOTAL_HISTORY_FILES} entries" >> $GITHUB_STEP_SUMMARY
 
           # Trend analysis status
           if [[ $TOTAL_HISTORY_FILES -gt 1 ]]; then
