@@ -439,7 +439,7 @@ func (d *Deployer) initialCommitAndPush(_ context.Context) error {
 }
 
 // loadCoverageData loads coverage data from input directory
-func (d *Deployer) loadCoverageData(_ context.Context, opts DeploymentOptions) (*dashboard.CoverageData, error) {
+func (d *Deployer) loadCoverageData(ctx context.Context, opts DeploymentOptions) (*dashboard.CoverageData, error) {
 	// Try to load coverage data JSON if it exists
 	coverageDataPath := filepath.Clean(filepath.Join(opts.InputDir, "coverage-data.json"))
 	if _, err := os.Stat(coverageDataPath); err == nil {
@@ -471,6 +471,22 @@ func (d *Deployer) loadCoverageData(_ context.Context, opts DeploymentOptions) (
 		MissedLines:   0,
 		TotalFiles:    0,
 		CoveredFiles:  0,
+	}
+
+	// If branch is empty, try to get it from git
+	if coverageData.Branch == "" {
+		cmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
+		if output, err := cmd.Output(); err == nil {
+			coverageData.Branch = strings.TrimSpace(string(output))
+		}
+	}
+
+	// If CommitSHA is empty, try to get it from git
+	if coverageData.CommitSHA == "" {
+		cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
+		if output, err := cmd.Output(); err == nil {
+			coverageData.CommitSHA = strings.TrimSpace(string(output))
+		}
 	}
 
 	// Try to load coverage percentage from badge SVG
