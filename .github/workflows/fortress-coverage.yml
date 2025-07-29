@@ -646,7 +646,7 @@ jobs:
             "$BASE_URL/index.html"
             "$BASE_URL/coverage.html"
             "$BASE_URL/coverage.svg"
-            "$BASE_URL/data/build-status.json"
+            "$BASE_URL/reports/branch/master/data/build-status.json"
           )
 
           echo "🌐 Base URL: $BASE_URL"
@@ -690,7 +690,7 @@ jobs:
             echo "🌐 Live Coverage Dashboard: $BASE_URL/"
             echo "📊 Live Coverage Report: $BASE_URL/coverage.html"
             echo "🏷️ Live Coverage Badge: $BASE_URL/coverage.svg"
-            echo "📈 Live Build Status: $BASE_URL/data/build-status.json"
+            echo "📈 Live Build Status: $BASE_URL/reports/branch/master/data/build-status.json"
           else
             echo "❌ DEPLOYMENT VERIFICATION FAILED"
             echo "🚨 Not all URLs are accessible - failing workflow"

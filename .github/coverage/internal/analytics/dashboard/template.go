@@ -1207,18 +1207,9 @@ const dashboardTemplate = `<!DOCTYPE html>
         
         async function refreshBuildStatus() {
             try {
-                // Determine the correct path to the build-status.json file
-                // Handle both root and nested directory structures
-                let basePath = '';
-                const pathname = window.location.pathname;
-                if (pathname.includes('/reports/')) {
-                    // We're in a nested directory, need to go back to root
-                    const depth = pathname.split('/').filter(p => p).length - 1;
-                    basePath = '../'.repeat(depth);
-                }
-                
-                // Try to fetch build status from a static JSON file
-                const response = await fetch(basePath + 'data/build-status.json', {
+                // The build-status.json file is always in the data subdirectory
+                // relative to the current dashboard location
+                const response = await fetch('data/build-status.json', {
                     method: 'GET',
                     headers: {
                         'Accept': 'application/json',
