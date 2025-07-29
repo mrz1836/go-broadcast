@@ -771,6 +771,16 @@ func (d *GitHubPagesDeployer) addTokenToURL(remoteURL, token string) (string, er
 		return fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts), nil
 	}
 
+	if strings.HasPrefix(remoteURL, "***github.com/") {
+		// Handle masked GitHub Actions URL: ***github.com/owner/repo -> https://x-access-token:TOKEN@github.com/owner/repo
+		parts := strings.TrimPrefix(remoteURL, "***github.com/")
+		// Ensure .git suffix for proper repository access
+		if !strings.HasSuffix(parts, ".git") {
+			parts += ".git"
+		}
+		return fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts), nil
+	}
+
 	// Return error for unsupported URL formats
 	return "", fmt.Errorf("%w: %s", ErrUnsupportedURLFormat, remoteURL)
 }
