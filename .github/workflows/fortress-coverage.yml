@@ -154,6 +154,110 @@ jobs:
           echo "✅ Coverage tool built successfully"
 
       # ————————————————————————————————————————————————————————————————
+      # Download previous coverage history artifacts
+      # ————————————————————————————————————————————————————————————————
+      - name: 📥 Download previous coverage history
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: coverage-history-*
+          path: .github/coverage/history-artifacts/
+          merge-multiple: true
+        continue-on-error: true
+
+      # ————————————————————————————————————————————————————————————————
+      # Restore history from artifacts
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔄 Restore history from artifacts
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
+        run: |
+          echo "🔄 Restoring coverage history from artifacts..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          # Log current directory and structure
+          echo "📍 Current directory: $(pwd)"
+          echo "📂 Repository structure before restoration:"
+          ls -la .github/coverage/ 2>/dev/null || echo "Coverage directory not found"
+          echo ""
+
+          # Create history directory if it doesn't exist
+          echo "📁 Creating history directory..."
+          mkdir -pv .github/coverage/history
+          echo "✅ History directory created/verified"
+          echo ""
+
+          # Check if artifacts were downloaded
+          echo "🔍 Checking for downloaded artifacts..."
+          if [[ -d ".github/coverage/history-artifacts" ]]; then
+            echo "✅ Artifacts directory found: .github/coverage/history-artifacts"
+            echo "📋 Contents of artifacts directory:"
+            ls -la .github/coverage/history-artifacts/ || echo "Unable to list directory"
+            echo ""
+            
+            # Count downloaded files
+            echo "📊 Counting JSON files in artifacts..."
+            ARTIFACT_FILES=$(find .github/coverage/history-artifacts -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+            echo "📦 Found $ARTIFACT_FILES history files in artifacts"
+            
+            if [[ $ARTIFACT_FILES -gt 0 ]]; then
+              echo ""
+              echo "🔄 Starting file restoration process..."
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              # List all JSON files found
+              echo "📋 JSON files to be restored:"
+              find .github/coverage/history-artifacts -name "*.json" -type f -exec echo "  - {}" \; 2>/dev/null
+              echo ""
+              
+              # Copy all JSON files from artifacts to history directory with verbose output
+              echo "📑 Copying files to history directory..."
+              find .github/coverage/history-artifacts -name "*.json" -type f -exec cp -v {} .github/coverage/history/ \; 2>/dev/null || {
+                echo "⚠️ Some files could not be copied"
+                true
+              }
+              
+              echo ""
+              echo "✅ Restoration complete. Restored $ARTIFACT_FILES history files"
+              echo ""
+              
+              # Verify restoration
+              echo "🔍 Verifying restored files..."
+              RESTORED_COUNT=$(find .github/coverage/history -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+              echo "📊 History directory now contains $RESTORED_COUNT files"
+              
+              # List restored files with details
+              echo ""
+              echo "📋 Restored history files (newest first):"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              ls -lt .github/coverage/history/*.json 2>/dev/null | head -20 || echo "No files to list"
+              
+              # Show disk usage
+              echo ""
+              echo "💾 History directory disk usage:"
+              du -sh .github/coverage/history 2>/dev/null || echo "Unable to calculate"
+            else
+              echo "ℹ️ No history files found in artifacts"
+              echo "📝 This is expected if:"
+              echo "  - This is the first coverage run"
+              echo "  - Previous artifacts have expired (>90 days)"
+              echo "  - Previous runs were on different branches"
+            fi
+          else
+            echo "ℹ️ No history artifacts downloaded"
+            echo "📝 This is normal for:"
+            echo "  - First run on this repository"
+            echo "  - First run after enabling artifact-based history"
+            echo "  - Runs on non-master branches"
+            echo ""
+            echo "📂 Current .github/coverage contents:"
+            ls -la .github/coverage/ 2>/dev/null || echo "Directory not found"
+          fi
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ History restoration process completed"
+
+      # ————————————————————————————————————————————————————————————————
       # Pre-processing diagnostics: Check initial history state
       # ————————————————————————————————————————————————————————————————
       - name: 🔍 Pre-processing history diagnostics
@@ -467,48 +571,95 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
-      # Commit history data back to repository for persistence
+      # Upload coverage history as artifacts instead of committing
       # ————————————————————————————————————————————————————————————————
-      - name: 📝 Commit coverage history
+      - name: 📤 Upload coverage history artifacts
         if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-history-${{ inputs.commit-sha }}
+          path: |
+            .github/coverage/history/*.json
+          retention-days: 90
+          compression-level: 9
+        continue-on-error: true
+
+      # ————————————————————————————————————————————————————————————————
+      # Log history status for debugging
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Coverage history status
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
         run: |
-          echo "📝 Committing coverage history data..."
+          echo "📊 Coverage history status before artifact upload..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          # Log environment info
+          echo "🔍 Environment Information:"
+          echo "  - Working directory: $(pwd)"
+          echo "  - Branch: ${{ steps.git-branch.outputs.branch-name }}"
+          echo "  - Commit SHA: ${{ inputs.commit-sha }}"
+          echo "  - Event: ${{ github.event_name }}"
+          echo ""
 
           # Check if history directory exists and has data
-          # Create directory if it doesn't exist to ensure history tool can write data
-          mkdir -p ".github/coverage/history"
+          HISTORY_DIR=".github/coverage/history"
+          echo "📂 Checking history directory: $HISTORY_DIR"
 
-          # Check if any new history files were created (compare before and after coverage processing)
-          HISTORY_FILES_AFTER=$(find ".github/coverage/history" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
-
-          if [[ -d ".github/coverage/history" ]] && [[ $HISTORY_FILES_AFTER -gt 0 ]]; then
-            # Configure git
-            git config --local user.email "action@github.com"
-            git config --local user.name "GitHub Action"
-
-            # Add history files
-            git add .github/coverage/history/
-
-            # Check if there are changes to commit
-            if git diff --staged --quiet; then
-              echo "ℹ️ No changes to history data"
+          if [[ -d "$HISTORY_DIR" ]]; then
+            echo "✅ History directory exists"
+            echo ""
+            
+            # Count files
+            echo "📊 Analyzing history contents..."
+            HISTORY_FILES=$(find "$HISTORY_DIR" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+            echo "📁 Found $HISTORY_FILES JSON files in history directory"
+            
+            if [[ $HISTORY_FILES -gt 0 ]]; then
+              echo ""
+              echo "📋 History files details:"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              # List all history files with size
+              echo "📄 All history files (newest first):"
+              ls -lht "$HISTORY_DIR"/*.json 2>/dev/null || echo "Unable to list files"
+              
+              echo ""
+              echo "📋 Recent history entries (by filename):"
+              find "$HISTORY_DIR" -name "*.json" -type f -exec basename {} \; 2>/dev/null | sort -r | head -10
+              
+              echo ""
+              echo "📊 History statistics:"
+              # Show total size of history data
+              HISTORY_SIZE=$(du -sh "$HISTORY_DIR" 2>/dev/null | cut -f1 || echo "0B")
+              echo "  - Total size: $HISTORY_SIZE"
+              echo "  - Total files: $HISTORY_FILES"
+              
+              # Show oldest and newest files
+              echo ""
+              echo "📅 Time range:"
+              OLDEST=$(ls -t "$HISTORY_DIR"/*.json 2>/dev/null | tail -1 | xargs basename 2>/dev/null || echo "unknown")
+              NEWEST=$(ls -t "$HISTORY_DIR"/*.json 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "unknown")
+              echo "  - Oldest: $OLDEST"
+              echo "  - Newest: $NEWEST"
+              
+              echo ""
+              echo "🎯 Files to be uploaded as artifacts:"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              find "$HISTORY_DIR" -name "*.json" -type f -exec echo "  ✓ {}" \; 2>/dev/null
             else
-              echo "📝 Committing history data..."
-              git commit -m "chore: update coverage history data
-
-              Updated coverage history for commit ${{ inputs.commit-sha }}
-
-              🤖 Generated by GoFortress Coverage System"
-              git push
-              echo "✅ History data committed and pushed"
+              echo "⚠️ No history files found in $HISTORY_DIR"
+              echo "📝 This could mean:"
+              echo "  - Coverage processing hasn't created history yet"
+              echo "  - History recording failed in previous steps"
             fi
           else
-            echo "ℹ️ No history data to commit (found $HISTORY_FILES_AFTER history files)"
-            echo "🔍 History directory contents:"
-            ls -la ".github/coverage/history" 2>/dev/null || echo "Directory not accessible"
+            echo "❌ History directory does not exist: $HISTORY_DIR"
+            echo "📝 This indicates a problem with history generation"
           fi
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ History status check completed"
 
       # ————————————————————————————————————————————————————————————————
       # Create PR comment if this is a pull request
@@ -785,11 +936,20 @@ jobs:
           if [[ $TOTAL_HISTORY_FILES -gt 0 ]]; then
             echo "- ✅ History recording verification: SUCCESS" >> $GITHUB_STEP_SUMMARY
             echo "- 📊 History entries found in filesystem" >> $GITHUB_STEP_SUMMARY
+            echo "- 📤 History will be uploaded as GitHub Actions artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "- 💾 Artifact retention: 90 days" >> $GITHUB_STEP_SUMMARY
           else
             echo "- ❌ History recording verification: FAILED" >> $GITHUB_STEP_SUMMARY
             echo "- 🔍 **Investigation needed**: History should have been recorded but no files found" >> $GITHUB_STEP_SUMMARY
             echo "- 🛠️ **Troubleshooting**: Check both processing steps completed without errors" >> $GITHUB_STEP_SUMMARY
           fi
+
+          # Note about new artifact-based storage
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**📦 Storage Method:** GitHub Actions Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- History data is now stored as artifacts to avoid branch protection conflicts" >> $GITHUB_STEP_SUMMARY
+          echo "- Previous history is restored from artifacts at the start of each run" >> $GITHUB_STEP_SUMMARY
+          echo "- No direct commits to the repository are made" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # List generated files
