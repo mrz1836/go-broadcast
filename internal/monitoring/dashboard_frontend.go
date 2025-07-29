@@ -108,6 +108,12 @@ const dashboardHTML = `
         </div>
     </div>
 
+    <!-- Footer -->
+    <footer style="text-align: center; margin-top: 3rem; padding: 2rem 0; color: #7f8c8d; font-size: 0.875rem; border-top: 1px solid #ecf0f1; display: flex; justify-content: center; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 1.1rem;">🏰</span>
+        <span>Powered by <a href="https://github.com/mrz1836/go-broadcast" target="_blank" style="color: #7f8c8d; text-decoration: none; transition: color 0.2s ease;" onmouseover="this.style.color='#3498db'" onmouseout="this.style.color='#7f8c8d'">GoFortress Coverage</a></span>
+    </footer>
+
     <script src="/dashboard.js"></script>
 </body>
 </html>

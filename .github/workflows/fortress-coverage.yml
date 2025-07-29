@@ -1469,31 +1469,61 @@ jobs:
           # Copy all files, ensuring proper permissions
           cp -r "$FILTERED_DIR"/* "$UPLOAD_DIR"/
 
+          # CRITICAL FIX: Add .nojekyll file to disable Jekyll processing
+          echo "🔧 Adding .nojekyll file to disable Jekyll processing..."
+          touch "$UPLOAD_DIR/.nojekyll"
+          echo "✅ .nojekyll file created - this disables Jekyll's file filtering"
+
           # Ensure all files are readable
           find "$UPLOAD_DIR" -type f -exec chmod 644 {} \;
           find "$UPLOAD_DIR" -type d -exec chmod 755 {} \;
 
-          echo "📊 Upload directory contents:"
-          find "$UPLOAD_DIR" -type f -exec ls -la {} \;
+          echo "📊 Upload directory contents (complete file tree):"
+          find "$UPLOAD_DIR" -type f -exec ls -la {} \; | sort
 
-          # Check for any potential exclusion patterns
           echo ""
-          echo "🔍 Checking for potential exclusion patterns..."
+          echo "🌳 Directory tree structure:"
+          find "$UPLOAD_DIR" -type d -exec echo "DIR: {}" \; | sort
+          echo ""
 
-          # Common patterns that might be excluded by GitHub Pages
-          POTENTIAL_ISSUES=(
-            "*.json files in data/"
-            "Large files (>25MB)"
-            "Hidden files (.* pattern)"
-            "Executable files"
-            "Symlinks"
-          )
+          # Verify critical files and .nojekyll
+          echo "🎯 CRITICAL FILES VERIFICATION:"
+          CRITICAL_FILES=("index.html" "coverage.html" "coverage.svg" "data/build-status.json" "dashboard.html" ".nojekyll")
+          for file in "${CRITICAL_FILES[@]}"; do
+            if [[ -f "$UPLOAD_DIR/$file" ]]; then
+              echo "  ✅ $file ($(stat -c%s "$UPLOAD_DIR/$file" 2>/dev/null || stat -f%z "$UPLOAD_DIR/$file" 2>/dev/null) bytes)"
+            else
+              echo "  ❌ MISSING: $file"
+            fi
+          done
 
-          echo "📋 File analysis:"
-          find "$UPLOAD_DIR" -name "*.json" -exec echo "  JSON: {}" \;
-          find "$UPLOAD_DIR" -size +25M -exec echo "  LARGE: {}" \; 2>/dev/null || echo "  ✅ No large files found"
-          find "$UPLOAD_DIR" -name ".*" -exec echo "  HIDDEN: {}" \; 2>/dev/null || echo "  ✅ No hidden files found"
-          find "$UPLOAD_DIR" -type l -exec echo "  SYMLINK: {}" \; 2>/dev/null || echo "  ✅ No symlinks found"
+          echo ""
+          echo "📋 File analysis by type:"
+          echo "  HTML files:"
+          find "$UPLOAD_DIR" -name "*.html" -exec echo "    - {}" \;
+          echo "  JSON files:"
+          find "$UPLOAD_DIR" -name "*.json" -exec echo "    - {}" \;
+          echo "  SVG files:"
+          find "$UPLOAD_DIR" -name "*.svg" -exec echo "    - {}" \;
+          echo "  Hidden files (.*):"
+          find "$UPLOAD_DIR" -name ".*" -exec echo "    - {}" \; 2>/dev/null || echo "    - (none)"
+
+          # Check for potential exclusion patterns
+          echo ""
+          echo "🔍 Jekyll exclusion pattern check:"
+          find "$UPLOAD_DIR" -size +25M -exec echo "  LARGE: {}" \; 2>/dev/null || echo "  ✅ No large files (>25MB)"
+          find "$UPLOAD_DIR" -type l -exec echo "  SYMLINK: {}" \; 2>/dev/null || echo "  ✅ No symlinks"
+          find "$UPLOAD_DIR" -name "_*" -exec echo "  UNDERSCORE: {}" \; 2>/dev/null || echo "  ✅ No underscore files"
+
+          echo ""
+          echo "🚀 JEKYLL BYPASS VERIFICATION:"
+          if [[ -f "$UPLOAD_DIR/.nojekyll" ]]; then
+            echo "  ✅ .nojekyll file present - Jekyll processing DISABLED"
+            echo "  📝 This should allow all files to be served as static content"
+          else
+            echo "  ❌ .nojekyll file missing - Jekyll will process files"
+            echo "  🚨 This is likely the cause of file filtering issues"
+          fi
 
           echo "✅ Directory prepared for upload"
 
@@ -1678,6 +1708,16 @@ jobs:
             "$BASE_URL/dashboard.html"
           )
 
+          # First, check if .nojekyll is accessible (indicates Jekyll bypass worked)
+          echo "🔧 Checking if Jekyll bypass (.nojekyll) worked..."
+          NOJEKYLL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "$BASE_URL/.nojekyll" 2>/dev/null || echo "000")
+          if [[ "$NOJEKYLL_STATUS" == "200" ]]; then
+            echo "  ✅ .nojekyll file is accessible - Jekyll processing bypassed successfully"
+          else
+            echo "  ⚠️ .nojekyll file not accessible (HTTP $NOJEKYLL_STATUS) - Jekyll may still be processing"
+          fi
+
+          echo ""
           echo "🎯 Testing critical URLs..."
           SUCCESS_COUNT=0
           TOTAL_COUNT=${#URLS_TO_TEST[@]}
