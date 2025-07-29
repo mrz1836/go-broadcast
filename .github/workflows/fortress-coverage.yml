@@ -1052,14 +1052,18 @@ jobs:
         run: |
           echo "🔄 Updating build status before deployment..."
 
-          # Check if build-status.json exists
-          BUILD_STATUS_FILE=".github/coverage/coverage-output/data/build-status.json"
-          if [[ -f "$BUILD_STATUS_FILE" ]]; then
-            echo "📄 Found build-status.json, updating..."
+          # Ensure data directory exists in output
+          DATA_DIR=".github/coverage/coverage-output/data"
+          mkdir -p "$DATA_DIR"
+          echo "📁 Created data directory: $DATA_DIR"
 
-            # Create a temporary updated build status
-            # Since this step runs near the end of the workflow, we can assume it will complete successfully
-            cat > "$BUILD_STATUS_FILE.tmp" <<EOF
+          # Create build status file
+          BUILD_STATUS_FILE="$DATA_DIR/build-status.json"
+          echo "📄 Creating build-status.json at: $BUILD_STATUS_FILE"
+
+          # Create the build status JSON
+          # Since this step runs near the end of the workflow, we can assume it will complete successfully
+          cat > "$BUILD_STATUS_FILE" <<EOF
           {
             "state": "completed",
             "conclusion": "success",
@@ -1073,11 +1077,16 @@ jobs:
           }
           EOF
 
-            # Replace the original file
-            mv "$BUILD_STATUS_FILE.tmp" "$BUILD_STATUS_FILE"
-            echo "✅ Build status updated to show completed"
+          echo "✅ Build status created successfully"
+
+          # Verify the file was created
+          if [[ -f "$BUILD_STATUS_FILE" ]]; then
+            echo "📊 Build status file size: $(wc -c < "$BUILD_STATUS_FILE") bytes"
+            echo "📋 Build status content:"
+            cat "$BUILD_STATUS_FILE"
           else
-            echo "⚠️ No build-status.json found, skipping update"
+            echo "❌ Failed to create build status file"
+            exit 1
           fi
 
       # ————————————————————————————————————————————————————————————————

@@ -50,6 +50,8 @@ test-coverage-output/
 .github/coverage/**/dashboard.html
 .github/coverage/**/index.html
 
+artifact
+
 # Coverage history files (generated during coverage processing)
 # Note: History files are now tracked to maintain coverage evolution
 /.github/coverage/cmd/gofortress-coverage/gofortress-coverage

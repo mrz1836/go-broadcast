@@ -11,6 +11,11 @@ const dashboardTemplate = `<!DOCTYPE html>
     <title>{{.RepositoryOwner}}/{{.RepositoryName}} Coverage Dashboard</title>
     <meta name="description" content="Coverage tracking and analytics for {{.RepositoryOwner}}/{{.RepositoryName}}">
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="./favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="shortcut icon" href="./favicon.ico">
+    
     <!-- Preload critical resources -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" as="style">

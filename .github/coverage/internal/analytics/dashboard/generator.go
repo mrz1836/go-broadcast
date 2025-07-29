@@ -567,20 +567,31 @@ func (g *Generator) generateDataJSON(_ context.Context, data *CoverageData) erro
 
 // copyAssets copies static assets to output directory
 func (g *Generator) copyAssets(_ context.Context) error {
-	// Copy favicon.ico from embedded templates
 	tm, err := templates.NewTemplateManager()
 	if err != nil {
 		return fmt.Errorf("creating template manager: %w", err)
 	}
+
+	// Copy favicon.ico from embedded templates
 	faviconData, err := tm.GetEmbeddedFile("favicon.ico")
 	if err != nil {
 		// Favicon is optional, so we don't fail if it's missing
 		return nil //nolint:nilerr // Favicon is optional, we ignore the error intentionally
 	}
-
 	faviconPath := filepath.Join(g.config.OutputDir, "favicon.ico")
 	if err := os.WriteFile(faviconPath, faviconData, 0o600); err != nil {
 		return fmt.Errorf("writing favicon.ico: %w", err)
+	}
+
+	// Copy favicon.svg from embedded templates  
+	faviconSVGData, err := tm.GetEmbeddedFile("favicon.svg")
+	if err != nil {
+		// Favicon SVG is optional, continue if missing
+		return nil //nolint:nilerr // Favicon SVG is optional, we ignore the error intentionally
+	}
+	faviconSVGPath := filepath.Join(g.config.OutputDir, "favicon.svg")
+	if err := os.WriteFile(faviconSVGPath, faviconSVGData, 0o600); err != nil {
+		return fmt.Errorf("writing favicon.svg: %w", err)
 	}
 
 	return nil
