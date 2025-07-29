@@ -579,19 +579,19 @@ func (g *Generator) copyAssets(_ context.Context) error {
 		return nil //nolint:nilerr // Favicon is optional, we ignore the error intentionally
 	}
 	faviconPath := filepath.Join(g.config.OutputDir, "favicon.ico")
-	if err := os.WriteFile(faviconPath, faviconData, 0o600); err != nil {
-		return fmt.Errorf("writing favicon.ico: %w", err)
+	if writeErr := os.WriteFile(faviconPath, faviconData, 0o600); writeErr != nil {
+		return fmt.Errorf("writing favicon.ico: %w", writeErr)
 	}
 
-	// Copy favicon.svg from embedded templates  
+	// Copy favicon.svg from embedded templates
 	faviconSVGData, err := tm.GetEmbeddedFile("favicon.svg")
 	if err != nil {
 		// Favicon SVG is optional, continue if missing
 		return nil //nolint:nilerr // Favicon SVG is optional, we ignore the error intentionally
 	}
 	faviconSVGPath := filepath.Join(g.config.OutputDir, "favicon.svg")
-	if err := os.WriteFile(faviconSVGPath, faviconSVGData, 0o600); err != nil {
-		return fmt.Errorf("writing favicon.svg: %w", err)
+	if writeErr := os.WriteFile(faviconSVGPath, faviconSVGData, 0o600); writeErr != nil {
+		return fmt.Errorf("writing favicon.svg: %w", writeErr)
 	}
 
 	return nil
