@@ -202,7 +202,7 @@ go-broadcast sync --config sync.yaml
   </tr>
 </table>
 
-🔗 **[View Dashboard](https://mrz1836.github.io/go-broadcast/)**
+🔗 **[View Dashboard](https://mrz1836.github.io/go-broadcast/?v=1)**
 
 ### ⚡ Quick Setup
 
