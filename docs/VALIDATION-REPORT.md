@@ -19,7 +19,6 @@ Generated: July 27, 2025
 - [x] `.github/coverage/docs/coverage-features.md` - Detailed feature showcase
 - [x] `.github/coverage/docs/coverage-configuration.md` - Complete configuration reference
 - [x] `.github/coverage/docs/coverage-api.md` - CLI and API documentation
-- [x] `.github/coverage/docs/migrating-from-codecov.md` - Migration guide
 
 ### Supporting Documentation Files ✅
 - [x] `docs/images/README.md` - Image requirements and guidelines
@@ -32,7 +31,6 @@ All internal documentation links have been validated:
 
 #### From `coverage-system.md`:
 - ✅ `coverage-configuration.md` → EXISTS
-- ✅ `migrating-from-codecov.md` → EXISTS  
 - ✅ `coverage-features.md` → EXISTS
 - ✅ `coverage-api.md` → EXISTS
 - ✅ `../CONTRIBUTING.md` → EXISTS
@@ -40,12 +38,10 @@ All internal documentation links have been validated:
 #### From `coverage-configuration.md`:
 - ✅ `coverage-system.md` → EXISTS
 - ✅ `coverage-features.md` → EXISTS
-- ✅ `migrating-from-codecov.md` → EXISTS
 - ✅ `coverage-api.md` → EXISTS
 
 #### From `coverage-features.md`:
 - ✅ `coverage-configuration.md` → EXISTS
-- ✅ `migrating-from-codecov.md` → EXISTS
 - ✅ `coverage-api.md` → EXISTS
 - ✅ `coverage-system.md` → EXISTS
 
@@ -53,9 +49,7 @@ All internal documentation links have been validated:
 - ✅ `coverage-system.md` → EXISTS
 - ✅ `coverage-features.md` → EXISTS
 - ✅ `coverage-configuration.md` → EXISTS
-- ✅ `migrating-from-codecov.md` → EXISTS
 
-#### From `migrating-from-codecov.md`:
 - ✅ `coverage-system.md` → EXISTS
 - ✅ `coverage-features.md` → EXISTS
 - ✅ `coverage-configuration.md` → EXISTS

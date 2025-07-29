@@ -906,7 +906,6 @@ gofortress-coverage parse --file coverage.out --log-level debug
 - [📖 System Overview](coverage-system.md) - Architecture and components
 - [🎯 Feature Showcase](coverage-features.md) - Detailed feature examples  
 - [⚙️ Configuration Guide](coverage-configuration.md) - Complete configuration reference
-- [🔧 Migration Guide](migrating-from-codecov.md) - Migrate from external services
 
 ## Support & Contributing
 

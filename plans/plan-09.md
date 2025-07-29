@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document outlines a comprehensive plan to replace Codecov with a self-hosted, Go-native coverage system integrated directly into the GoFortress CI/CD pipeline. Built entirely in Go as a **bolt-on solution completely encapsulated within the `.github` folder**, this solution provides professional coverage tracking, badge generation, and reporting while maintaining the simplicity and performance that Go developers expect. The system leverages GitHub Pages for hosting static content and operates with zero external service dependencies.
+This document outlines a comprehensive plan for a self-hosted, Go-native coverage system integrated directly into the GoFortress CI/CD pipeline. Built entirely in Go as a **bolt-on solution completely encapsulated within the `.github` folder**, this solution provides professional coverage tracking, badge generation, and reporting while maintaining the simplicity and performance that Go developers expect. The system leverages GitHub Pages for hosting static content and operates with zero external service dependencies.
 
 **Key Architecture Decision**: The entire coverage system resides within `.github/coverage/` making it a portable, self-contained bolt-on that can be copied to any repository without polluting the main codebase.
 

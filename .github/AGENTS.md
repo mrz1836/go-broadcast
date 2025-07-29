@@ -587,7 +587,7 @@ Use `make help` to view the full list of supported commands.
 
 ## 📈 Code Coverage
 
-* Code coverage thresholds and rules are defined in `codecov.yml`
+* Code coverage thresholds are configured in the GoFortress coverage system
 * Aim to provide meaningful test coverage for all new logic and edge cases
 * Cover every public function with at least one test
 * Aim for >= 90% coverage across the codebase (ideally 100%)

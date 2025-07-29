@@ -274,8 +274,7 @@ The system provides automated migration tools and guides for:
 Ready to implement the GoFortress Coverage System? Start with our guides:
 
 - [📚 Configuration Guide](coverage-configuration.md) - Complete setup instructions
-- [🔧 Migration Guide](migrating-from-codecov.md) - Step-by-step migration from external services
-- [📊 Feature Showcase](coverage-features.md) - Explore all available features
+- [🎯 Feature Showcase](coverage-features.md) - Explore all available features
 - [🛠️ API Documentation](coverage-api.md) - CLI commands and automation
 
 ## Support

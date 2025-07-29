@@ -250,14 +250,7 @@ timestamp: 2025-01-23T14:30:52Z
 
 ## 🚀 Coverage System
 
-**Replace CodeCov with a self-hosted solution** - Complete data privacy, zero external dependencies, and enterprise-grade features.
-
-| Feature                   | GoFortress Coverage |      CodeCov       | 
-|---------------------------|:-------------------:|:------------------:|
-| **Data Privacy**          |    ✅ Self-hosted    | ❌ External service |
-| **Cost**                  |     ✅ $0/month      |  ❌ $29-300+/month  |
-| **Interactive Dashboard** |     ✅ Modern UI     |  ❌ Basic reports   |
-| **Advanced Analytics**    |    ✅ Full suite     | ❌ Limited by plan  |
+**Self-hosted coverage solution** - Complete data privacy, zero external dependencies, and enterprise-grade features.
 
 <table>
   <tr>
@@ -370,7 +363,7 @@ COVERAGE_PR_COMMENT_BEHAVIOR=update      # Comment behavior: new, update, delete
 - **Coverage Dashboard**: `https://mrz1836.github.io/go-broadcast/`
 - **Coverage Report**: `https://mrz1836.github.io/go-broadcast/coverage.html`
 
-📚 **[Complete Configuration Guide](.github/coverage/docs/coverage-configuration.md)** | 🔧 **[Migration Guide](.github/coverage/docs/migrating-from-codecov.md)** | 📊 **[API Documentation](.github/coverage/docs/coverage-api.md)**
+📚 **[Complete Configuration Guide](.github/coverage/docs/coverage-configuration.md)** | 📊 **[API Documentation](.github/coverage/docs/coverage-api.md)** | 🎯 **[Feature Guide](.github/coverage/docs/coverage-features.md)**
 
 </details>
 

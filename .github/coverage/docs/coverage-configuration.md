@@ -731,5 +731,4 @@ COVERAGE_LOG_RETENTION_DAYS=14       # 2 weeks of logs
 
 - [📖 System Overview](coverage-system.md) - Architecture and components
 - [🎯 Feature Showcase](coverage-features.md) - Detailed feature examples
-- [🔧 Migration Guide](migrating-from-codecov.md) - Migrate from external services
 - [🛠️ API Reference](coverage-api.md) - CLI commands and automation

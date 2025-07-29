@@ -580,9 +580,8 @@ aws s3 sync ./coverage-reports s3://my-bucket/coverage/
 Ready to explore these features? Check out our guides:
 
 - [📚 Complete Configuration Guide](coverage-configuration.md)
-- [🔧 Migration from External Services](migrating-from-codecov.md)
-- [🛠️ API Reference](coverage-api.md)
 - [📖 System Architecture](coverage-system.md)
+- [🛠️ API Reference](coverage-api.md)
 
 ## Visual Examples
 

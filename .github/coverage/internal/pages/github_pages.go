@@ -758,31 +758,74 @@ func (d *GitHubPagesDeployer) getGitHubToken() string {
 
 // addTokenToURL converts a Git URL to an authenticated HTTPS URL with the provided token
 func (d *GitHubPagesDeployer) addTokenToURL(remoteURL, token string) (string, error) {
+	// Sanitize the URL by trimming whitespace and normalizing
+	sanitizedURL := strings.TrimSpace(remoteURL)
+
+	// Add debug logging to help troubleshoot URL issues
+	if d.verbose {
+		fmt.Printf("🔍 Converting URL to authenticated format: %q\n", sanitizedURL) //nolint:forbidigo // CLI output
+	}
+
+	// Handle empty URL
+	if sanitizedURL == "" {
+		return "", fmt.Errorf("%w: empty URL", ErrUnsupportedURLFormat)
+	}
+
 	// Handle different URL formats
-	if strings.HasPrefix(remoteURL, "git@github.com:") {
+	if strings.HasPrefix(sanitizedURL, "git@github.com:") {
 		// Convert SSH URL to HTTPS: git@github.com:owner/repo.git -> https://github.com/owner/repo.git
-		parts := strings.TrimPrefix(remoteURL, "git@github.com:")
+		parts := strings.TrimPrefix(sanitizedURL, "git@github.com:")
 		return fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts), nil
 	}
 
-	if strings.HasPrefix(remoteURL, "https://github.com/") {
+	if strings.HasPrefix(sanitizedURL, "https://github.com/") {
 		// Add token to existing HTTPS URL: https://github.com/owner/repo.git -> https://x-access-token:TOKEN@github.com/owner/repo.git
-		parts := strings.TrimPrefix(remoteURL, "https://github.com/")
+		parts := strings.TrimPrefix(sanitizedURL, "https://github.com/")
 		return fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts), nil
 	}
 
-	if strings.HasPrefix(remoteURL, "***github.com/") {
+	// Handle GitHub Actions masked URLs (more robust matching)
+	if strings.HasPrefix(sanitizedURL, "***github.com/") {
 		// Handle masked GitHub Actions URL: ***github.com/owner/repo -> https://x-access-token:TOKEN@github.com/owner/repo
-		parts := strings.TrimPrefix(remoteURL, "***github.com/")
+		parts := strings.TrimPrefix(sanitizedURL, "***github.com/")
 		// Ensure .git suffix for proper repository access
 		if !strings.HasSuffix(parts, ".git") {
 			parts += ".git"
 		}
-		return fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts), nil
+		authenticatedURL := fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts)
+		if d.verbose {
+			fmt.Printf("✅ Converted masked URL to authenticated format\n") //nolint:forbidigo // CLI output
+		}
+		return authenticatedURL, nil
 	}
 
-	// Return error for unsupported URL formats
-	return "", fmt.Errorf("%w: %s", ErrUnsupportedURLFormat, remoteURL)
+	// Handle alternative GitHub Actions URL patterns that might occur
+	if strings.Contains(sanitizedURL, "github.com/") && !strings.HasPrefix(sanitizedURL, "http") {
+		// Extract the owner/repo part from various formats
+		githubIndex := strings.Index(sanitizedURL, "github.com/")
+		if githubIndex >= 0 {
+			parts := sanitizedURL[githubIndex+len("github.com/"):]
+			// Ensure .git suffix for proper repository access
+			if !strings.HasSuffix(parts, ".git") {
+				parts += ".git"
+			}
+			authenticatedURL := fmt.Sprintf("https://x-access-token:%s@github.com/%s", token, parts)
+			if d.verbose {
+				fmt.Printf("✅ Converted non-standard GitHub URL to authenticated format\n") //nolint:forbidigo // CLI output
+			}
+			return authenticatedURL, nil
+		}
+	}
+
+	// Return error for unsupported URL formats with better debugging info
+	if d.verbose {
+		fmt.Printf("❌ Unsupported URL format. URL: %q, Length: %d, Prefix check results:\n", sanitizedURL, len(sanitizedURL)) //nolint:forbidigo // CLI output
+		fmt.Printf("  - Starts with 'git@github.com:': %v\n", strings.HasPrefix(sanitizedURL, "git@github.com:"))             //nolint:forbidigo // CLI output
+		fmt.Printf("  - Starts with 'https://github.com/': %v\n", strings.HasPrefix(sanitizedURL, "https://github.com/"))     //nolint:forbidigo // CLI output
+		fmt.Printf("  - Starts with '***github.com/': %v\n", strings.HasPrefix(sanitizedURL, "***github.com/"))               //nolint:forbidigo // CLI output
+		fmt.Printf("  - Contains 'github.com/': %v\n", strings.Contains(sanitizedURL, "github.com/"))                         //nolint:forbidigo // CLI output
+	}
+	return "", fmt.Errorf("%w: %s", ErrUnsupportedURLFormat, sanitizedURL)
 }
 
 // ensureAuthenticatedRemote ensures the origin remote is set with authentication
