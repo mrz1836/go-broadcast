@@ -375,7 +375,6 @@ jobs:
     with:
       coverage-file: coverage.txt
       branch-name: ${{ github.head_ref || github.ref_name }}
-      pr-number: ${{ github.event.pull_request.number || '' }}
       commit-sha: ${{ github.sha }}
       env-json: ${{ inputs.env-json }}
       primary-runner: ${{ inputs.primary-runner }}
