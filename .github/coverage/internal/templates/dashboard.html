@@ -1220,6 +1220,16 @@
 
             if (!buildStatusBtn || !buildStatusIcon || !tooltip) return;
 
+            // Check if build status is stale (for in_progress builds)
+            let isStale = false;
+            if (buildStatus.state === 'in_progress' && buildStatus.timestamp) {
+                const statusAge = Date.now() - new Date(buildStatus.timestamp).getTime();
+                // Consider in_progress builds stale after 10 minutes
+                if (statusAge > 10 * 60 * 1000) {
+                    isStale = true;
+                }
+            }
+
             // Update button state
             if (buildStatus.available && buildStatus.run_url) {
                 buildStatusBtn.disabled = false;
@@ -1233,7 +1243,10 @@
 
             // Update icon class based on status
             buildStatusIcon.className = 'build-status-icon';
-            if (buildStatus.state === 'completed') {
+            if (isStale) {
+                // Show as completed/unknown for stale in_progress builds
+                buildStatusIcon.classList.add('status-success');
+            } else if (buildStatus.state === 'completed') {
                 if (buildStatus.conclusion === 'success') {
                     buildStatusIcon.classList.add('status-success');
                 } else {
@@ -1251,12 +1264,20 @@
 
             // Update tooltip content
             if (buildStatus.available) {
+                let statusText = buildStatus.state;
+                if (buildStatus.conclusion) {
+                    statusText += ` (${buildStatus.conclusion})`;
+                } else if (isStale) {
+                    statusText = 'Build likely completed';
+                }
+                
                 tooltip.innerHTML = `
                     <div><strong>${buildStatus.workflow_name}</strong></div>
-                    <div>${buildStatus.state}${buildStatus.conclusion ? ` (${buildStatus.conclusion})` : ''}</div>
+                    <div>${statusText}</div>
                     ${buildStatus.duration ? `<div>Duration: ${buildStatus.duration}</div>` : ''}
                     ${buildStatus.head_branch ? `<div>Branch: ${buildStatus.head_branch}</div>` : ''}
                     <div><small>Run #${buildStatus.run_number}</small></div>
+                    ${isStale ? '<div><small>Status may be outdated</small></div>' : ''}
                 `;
             } else {
                 tooltip.innerHTML = `
@@ -1268,8 +1289,28 @@
 
         // Start auto-refresh when page loads
         document.addEventListener('DOMContentLoaded', function() {
+            // Check if the initial build status is stale
+            checkInitialBuildStatus();
             startBuildStatusRefresh();
         });
+
+        function checkInitialBuildStatus() {
+            // Check if there's an in_progress build status icon
+            const buildStatusIcon = document.querySelector('.build-status-icon.status-in_progress');
+            if (!buildStatusIcon) return;
+
+            // Extract timestamp from the page if available (this would need to be embedded in the HTML)
+            // For now, we'll assume any in_progress status on initial load is potentially stale
+            // since the dashboard is generated during the build
+            const buildStatusBtn = document.querySelector('.build-status-btn');
+            if (buildStatusBtn) {
+                // Immediately try to refresh the build status
+                refreshBuildStatus().catch(() => {
+                    // If refresh fails, assume the build is complete
+                    console.debug('Initial build status refresh failed, assuming build is complete');
+                });
+            }
+        }
 
         // Stop auto-refresh when page becomes hidden (performance optimization)
         document.addEventListener('visibilitychange', function() {

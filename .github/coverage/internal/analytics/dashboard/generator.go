@@ -435,11 +435,17 @@ func (g *Generator) getBuildStatus(ctx context.Context, repoInfo *RepositoryInfo
 
 		// Check for stale builds
 		if timeSinceUpdate > 30*time.Minute || timeSinceStart > 6*time.Hour {
-			// Override to show as completed with timeout conclusion
+			// Override to show as completed with stale conclusion
 			actualStatus = "completed"
-			actualConclusion = "timed_out"
+			actualConclusion = "stale"
 			// Update the duration to reflect when it likely timed out
 			duration = g.formatDuration(latestRun.RunStartedAt, latestRun.UpdatedAt.Add(30*time.Minute), actualStatus)
+		} else if timeSinceStart < 5*time.Minute {
+			// If this is a very recent in_progress build (< 5 minutes old),
+			// it's likely the current workflow generating this dashboard.
+			// We'll still show it as in_progress but the client-side JS will handle it better.
+			// Add a note in the error field to indicate this
+			// This helps the client-side JS understand the context
 		}
 	}
 

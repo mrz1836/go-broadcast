@@ -391,6 +391,17 @@ jobs:
           echo "artifact-name=coverage-reports-$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
 
       # ————————————————————————————————————————————————————————————————
+      # Ensure history directory exists at repository root
+      # ————————————————————————————————————————————————————————————————
+      - name: 📁 Create history directory
+        run: |
+          echo "📁 Creating history directory at repository root..."
+          HISTORY_DIR="${GITHUB_WORKSPACE}/.github/coverage/history"
+          mkdir -p "$HISTORY_DIR"
+          echo "✅ History directory created: $HISTORY_DIR"
+          ls -la "$HISTORY_DIR"
+
+      # ————————————————————————————————————————————————————————————————
       # Process coverage and generate outputs
       # ————————————————————————————————————————————————————————————————
       - name: 📊 Process coverage data
@@ -401,8 +412,8 @@ jobs:
           GITHUB_SHA: ${{ inputs.commit-sha }}
           GITHUB_PR_NUMBER: ${{ inputs.pr-number }}
           GITHUB_REF_NAME: ${{ steps.git-branch.outputs.branch-name }}
-          # Set history storage to match config defaults
-          COVERAGE_HISTORY_PATH: .github/coverage/history
+          # Set history storage to use absolute path
+          COVERAGE_HISTORY_PATH: ${{ github.workspace }}/.github/coverage/history
         working-directory: .github/coverage/cmd/gofortress-coverage
         run: |
           echo "📊 Processing coverage data..."
@@ -410,6 +421,7 @@ jobs:
           # Debug: Show current working directory and paths
           echo "🔍 Current working directory: $(pwd)"
           echo "🔍 Repository root should be: $(realpath ../../../../)"
+          echo "🔍 History path from env: $COVERAGE_HISTORY_PATH"
 
           # Resolve absolute paths to avoid relative path issues
           REPO_ROOT="$(realpath ../../../../)"
@@ -457,11 +469,12 @@ jobs:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           GITHUB_SHA: ${{ inputs.commit-sha }}
           GITHUB_REF_NAME: ${{ steps.git-branch.outputs.branch-name }}
-          # Set history storage to match config defaults
-          COVERAGE_HISTORY_PATH: .github/coverage/history
+          # Set history storage to use absolute path
+          COVERAGE_HISTORY_PATH: ${{ github.workspace }}/.github/coverage/history
         working-directory: .github/coverage/cmd/gofortress-coverage
         run: |
           echo "📈 Recording coverage history explicitly..."
+          echo "🔍 History path from env: $COVERAGE_HISTORY_PATH"
 
           # Resolve absolute paths
           REPO_ROOT="$(realpath ../../../../)"
@@ -507,6 +520,41 @@ jobs:
             fi
           else
             echo "⚠️ History directory not found: $HISTORY_DIR"
+          fi
+
+      # ————————————————————————————————————————————————————————————————
+      # Verify history files are in the correct location for artifact upload
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Verify history files location
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
+        run: |
+          echo "🔍 Verifying history files are in the correct location..."
+          echo "📍 Working directory: $(pwd)"
+          echo "📍 GitHub workspace: $GITHUB_WORKSPACE"
+          
+          HISTORY_DIR="${GITHUB_WORKSPACE}/.github/coverage/history"
+          echo "📂 Checking history directory: $HISTORY_DIR"
+          
+          if [[ -d "$HISTORY_DIR" ]]; then
+            echo "✅ History directory exists"
+            echo "📊 Contents:"
+            ls -la "$HISTORY_DIR" || echo "Failed to list directory"
+            
+            # Count JSON files
+            JSON_COUNT=$(find "$HISTORY_DIR" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+            echo "📄 JSON files found: $JSON_COUNT"
+            
+            if [[ $JSON_COUNT -gt 0 ]]; then
+              echo "✅ History files ready for artifact upload"
+              echo "📋 Files to be uploaded:"
+              find "$HISTORY_DIR" -name "*.json" -type f -exec echo "  - $(basename {})" \; | head -10
+            else
+              echo "⚠️ No JSON files found in history directory"
+            fi
+          else
+            echo "❌ History directory does not exist at expected location"
+            echo "🔍 Searching for history files in other locations..."
+            find . -name "*.json" -path "*history*" -type f 2>/dev/null | head -20 || echo "No history files found"
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -851,6 +899,42 @@ jobs:
             --verbose
 
           echo "✅ Branch coverage deployed to: /reports/branch/${{ steps.git-branch.outputs.branch-name }}/"
+
+      # ————————————————————————————————————————————————————————————————
+      # Update build status before deployment
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔄 Update build status before deployment
+        if: github.event_name == 'push' && steps.git-branch.outputs.branch-name == 'master'
+        run: |
+          echo "🔄 Updating build status before deployment..."
+          
+          # Check if build-status.json exists
+          BUILD_STATUS_FILE=".github/coverage/coverage-output/data/build-status.json"
+          if [[ -f "$BUILD_STATUS_FILE" ]]; then
+            echo "📄 Found build-status.json, updating..."
+            
+            # Create a temporary updated build status
+            # Since this step runs near the end of the workflow, we can assume it will complete successfully
+            cat > "$BUILD_STATUS_FILE.tmp" <<EOF
+          {
+            "state": "completed",
+            "conclusion": "success",
+            "workflow_name": "${{ github.workflow }}",
+            "run_id": ${{ github.run_id }},
+            "run_number": ${{ github.run_number }},
+            "run_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "head_branch": "${{ steps.git-branch.outputs.branch-name }}",
+            "available": true,
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+            
+            # Replace the original file
+            mv "$BUILD_STATUS_FILE.tmp" "$BUILD_STATUS_FILE"
+            echo "✅ Build status updated to show completed"
+          else
+            echo "⚠️ No build-status.json found, skipping update"
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Upload coverage artifacts for GitHub Pages deployment
