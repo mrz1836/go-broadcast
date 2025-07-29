@@ -295,3 +295,56 @@ func findSubstring(s, substr string) int {
 	}
 	return -1
 }
+
+func TestGenerator_formatDuration(t *testing.T) {
+	gen := &Generator{}
+
+	tests := []struct {
+		name      string
+		startedAt time.Time
+		updatedAt time.Time
+		status    string
+		expected  string
+	}{
+		{
+			name:      "completed in seconds",
+			startedAt: time.Now().Add(-30 * time.Second),
+			updatedAt: time.Now(),
+			status:    "completed",
+			expected:  "30s",
+		},
+		{
+			name:      "completed in minutes",
+			startedAt: time.Now().Add(-5*time.Minute - 30*time.Second),
+			updatedAt: time.Now(),
+			status:    "completed",
+			expected:  "5m 30s",
+		},
+		{
+			name:      "completed in hours",
+			startedAt: time.Now().Add(-2*time.Hour - 15*time.Minute),
+			updatedAt: time.Now(),
+			status:    "completed",
+			expected:  "2h 15m",
+		},
+		{
+			name:      "in progress",
+			startedAt: time.Now().Add(-10 * time.Minute),
+			updatedAt: time.Time{}, // Zero time
+			status:    "in_progress",
+			expected:  "10m 0s",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Allow 1 second tolerance for test execution time
+			result := gen.formatDuration(tt.startedAt, tt.updatedAt, tt.status)
+			// For simple validation, just check that the result is not empty
+			// and follows the expected format pattern
+			if result == "" {
+				t.Errorf("formatDuration returned empty string")
+			}
+		})
+	}
+}

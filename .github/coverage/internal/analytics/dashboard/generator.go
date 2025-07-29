@@ -21,9 +21,10 @@ import (
 
 // Generator handles dashboard generation
 type Generator struct {
-	config       *GeneratorConfig
-	renderer     *Renderer
-	githubClient *github.Client
+	config           *GeneratorConfig
+	renderer         *Renderer
+	githubClient     *github.Client
+	lastTemplateData map[string]interface{} // Store template data for build status generation
 }
 
 // GeneratorConfig contains configuration for dashboard generation
@@ -97,6 +98,9 @@ func (g *Generator) Generate(ctx context.Context, data *CoverageData) error {
 func (g *Generator) generateDashboardHTML(ctx context.Context, data *CoverageData) (string, error) {
 	// Prepare template data
 	templateData := g.prepareTemplateData(ctx, data)
+
+	// Store template data for later use (e.g., build status generation)
+	g.lastTemplateData = templateData
 
 	// Render dashboard
 	html, err := g.renderer.RenderDashboard(ctx, templateData)
@@ -216,6 +220,9 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 	commitURL := ""
 	if repositoryURL != "" && data.CommitSHA != "" {
 		commitURL = fmt.Sprintf("%s/commit/%s", strings.TrimSuffix(repositoryURL, ".git"), data.CommitSHA)
+	} else if repositoryOwner != "" && repositoryName != "" && data.CommitSHA != "" {
+		// Fallback: build from owner/name if repositoryURL is empty
+		commitURL = fmt.Sprintf("https://github.com/%s/%s/commit/%s", repositoryOwner, repositoryName, data.CommitSHA)
 	}
 
 	// Build owner and branch URLs
@@ -226,6 +233,9 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 	}
 	if repositoryURL != "" && data.Branch != "" {
 		branchURL = fmt.Sprintf("%s/tree/%s", strings.TrimSuffix(repositoryURL, ".git"), data.Branch)
+	} else if repositoryOwner != "" && repositoryName != "" && data.Branch != "" {
+		// Fallback: build from owner/name if repositoryURL is empty
+		branchURL = fmt.Sprintf("https://github.com/%s/%s/tree/%s", repositoryOwner, repositoryName, data.Branch)
 	}
 
 	// Get build status if available
@@ -380,7 +390,10 @@ func (g *Generator) getBuildStatus(ctx context.Context, repoInfo *RepositoryInfo
 		// GitHub Actions typically times out after 6 hours
 		if run.Status == "in_progress" {
 			timeSinceStart := time.Since(run.RunStartedAt)
-			if timeSinceStart > 6*time.Hour {
+			timeSinceUpdate := time.Since(run.UpdatedAt)
+
+			// Skip stale in-progress runs (>6 hours old or not updated in >30 minutes)
+			if timeSinceStart > 6*time.Hour || timeSinceUpdate > 30*time.Minute {
 				// This is likely stale data, skip it
 				continue
 			}
@@ -418,10 +431,15 @@ func (g *Generator) getBuildStatus(ctx context.Context, repoInfo *RepositoryInfo
 
 	if actualStatus == "in_progress" {
 		timeSinceUpdate := time.Since(latestRun.UpdatedAt)
-		if timeSinceUpdate > 30*time.Minute {
-			// Override to show as completed with unknown conclusion
+		timeSinceStart := time.Since(latestRun.RunStartedAt)
+
+		// Check for stale builds
+		if timeSinceUpdate > 30*time.Minute || timeSinceStart > 6*time.Hour {
+			// Override to show as completed with timeout conclusion
 			actualStatus = "completed"
-			actualConclusion = "stale"
+			actualConclusion = "timed_out"
+			// Update the duration to reflect when it likely timed out
+			duration = g.formatDuration(latestRun.RunStartedAt, latestRun.UpdatedAt.Add(30*time.Minute), actualStatus)
 		}
 	}
 
@@ -504,6 +522,36 @@ func (g *Generator) generateDataJSON(_ context.Context, data *CoverageData) erro
 	metadataPath := filepath.Join(dataDir, "metadata.json")
 	if err := os.WriteFile(metadataPath, metadataJSON, 0o600); err != nil {
 		return fmt.Errorf("writing metadata: %w", err)
+	}
+
+	// Generate and write build status data
+	// This is fetched from template data which includes build status
+	if templateData, ok := g.lastTemplateData["BuildStatus"]; ok && templateData != nil {
+		if buildStatus, ok := templateData.(*BuildStatus); ok && buildStatus.Available {
+			// Add timestamp to the build status for freshness checking
+			buildStatusData := map[string]interface{}{
+				"state":         buildStatus.State,
+				"conclusion":    buildStatus.Conclusion,
+				"workflow_name": buildStatus.WorkflowName,
+				"run_id":        buildStatus.RunID,
+				"run_number":    buildStatus.RunNumber,
+				"run_url":       buildStatus.RunURL,
+				"duration":      buildStatus.Duration,
+				"head_branch":   buildStatus.HeadBranch,
+				"available":     buildStatus.Available,
+				"timestamp":     time.Now().Format(time.RFC3339),
+			}
+
+			buildStatusJSON, err := json.MarshalIndent(buildStatusData, "", "  ")
+			if err != nil {
+				return fmt.Errorf("marshaling build status: %w", err)
+			}
+
+			buildStatusPath := filepath.Join(dataDir, "build-status.json")
+			if err := os.WriteFile(buildStatusPath, buildStatusJSON, 0o600); err != nil {
+				return fmt.Errorf("writing build status: %w", err)
+			}
+		}
 	}
 
 	return nil
