@@ -34,6 +34,9 @@ type CoverageData struct {
 
 	// Historical data
 	History []HistoricalPoint `json:"history,omitempty"`
+
+	// Build status information
+	BuildStatus *BuildStatus `json:"build_status,omitempty"`
 }
 
 // PackageCoverage represents coverage data for a single package
@@ -150,4 +153,23 @@ type DataSeries struct {
 	Name   string    `json:"name"`
 	Values []float64 `json:"values"`
 	Color  string    `json:"color,omitempty"`
+}
+
+// BuildStatus represents the current build status for live updates
+type BuildStatus struct {
+	State        string    `json:"state"`           // "queued", "in_progress", "completed"
+	Conclusion   string    `json:"conclusion"`      // "success", "failure", "canceled", "skipped", "timed_out", "action_required", "neutral"
+	WorkflowName string    `json:"workflow_name"`   // Name of the workflow
+	RunID        int64     `json:"run_id"`          // GitHub Actions run ID
+	RunNumber    int       `json:"run_number"`      // Run number for display
+	RunURL       string    `json:"run_url"`         // URL to the GitHub Actions run
+	StartedAt    time.Time `json:"started_at"`      // When the run started
+	UpdatedAt    time.Time `json:"updated_at"`      // Last update time
+	Duration     string    `json:"duration"`        // Human-readable duration
+	HeadSHA      string    `json:"head_sha"`        // Commit SHA being built
+	HeadBranch   string    `json:"head_branch"`     // Branch being built
+	Event        string    `json:"event"`           // Event that triggered the run (push, pull_request, etc.)
+	DisplayTitle string    `json:"display_title"`   // Display title for the run
+	Available    bool      `json:"available"`       // Whether build status is available
+	Error        string    `json:"error,omitempty"` // Error message if status fetch failed
 }

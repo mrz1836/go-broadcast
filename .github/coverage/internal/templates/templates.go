@@ -54,6 +54,9 @@ type DashboardData struct {
 	Theme       string `json:"theme"`
 	ShowTrends  bool   `json:"show_trends"`
 	ShowDetails bool   `json:"show_details"`
+
+	// Build status information
+	BuildStatus *BuildStatus `json:"build_status,omitempty"`
 }
 
 // BranchData contains branch-specific coverage information
@@ -132,6 +135,25 @@ type File struct {
 	Name      string  `json:"name"`
 	Coverage  float64 `json:"coverage"`
 	GitHubURL string  `json:"github_url,omitempty"`
+}
+
+// BuildStatus represents the current build status for live updates
+type BuildStatus struct {
+	State        string    `json:"state"`           // "queued", "in_progress", "completed"
+	Conclusion   string    `json:"conclusion"`      // "success", "failure", "canceled", "skipped", "timed_out", "action_required", "neutral"
+	WorkflowName string    `json:"workflow_name"`   // Name of the workflow
+	RunID        int64     `json:"run_id"`          // GitHub Actions run ID
+	RunNumber    int       `json:"run_number"`      // Run number for display
+	RunURL       string    `json:"run_url"`         // URL to the GitHub Actions run
+	StartedAt    time.Time `json:"started_at"`      // When the run started
+	UpdatedAt    time.Time `json:"updated_at"`      // Last update time
+	Duration     string    `json:"duration"`        // Human-readable duration
+	HeadSHA      string    `json:"head_sha"`        // Commit SHA being built
+	HeadBranch   string    `json:"head_branch"`     // Branch being built
+	Event        string    `json:"event"`           // Event that triggered the run (push, pull_request, etc.)
+	DisplayTitle string    `json:"display_title"`   // Display title for the run
+	Available    bool      `json:"available"`       // Whether build status is available
+	Error        string    `json:"error,omitempty"` // Error message if status fetch failed
 }
 
 // NewTemplateManager creates a new template manager with embedded templates

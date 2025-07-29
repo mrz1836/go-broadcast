@@ -188,6 +188,122 @@
             color: var(--color-text);
         }
         
+        /* Build Status Icon */
+        .build-status-btn {
+            padding: 8px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            transition: var(--transition-base);
+            position: relative;
+            margin-right: 8px;
+        }
+        
+        .build-status-btn:hover {
+            background: var(--color-bg-secondary);
+            color: var(--color-text);
+        }
+        
+        .build-status-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .build-status-icon {
+            width: 16px;
+            height: 16px;
+            transition: var(--transition-base);
+        }
+        
+        /* Build Status States */
+        .build-status-icon.status-success {
+            color: var(--color-success);
+            animation: successPulse 2s ease-in-out infinite;
+        }
+        
+        .build-status-icon.status-failure {
+            color: var(--color-danger);
+        }
+        
+        .build-status-icon.status-in_progress {
+            color: var(--color-primary);
+            animation: buildingFortress 2s linear infinite;
+        }
+        
+        .build-status-icon.status-queued {
+            color: var(--color-text-secondary);
+            animation: queuedPulse 1.5s ease-in-out infinite;
+        }
+        
+        .build-status-icon.status-cancelled {
+            color: var(--color-warning);
+        }
+        
+        .build-status-icon.status-unavailable {
+            color: var(--color-text-secondary);
+            opacity: 0.3;
+        }
+        
+        /* Build Status Animations */
+        @keyframes successPulse {
+            0%, 100% { 
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% { 
+                opacity: 0.7;
+                transform: scale(1.05);
+            }
+        }
+        
+        @keyframes buildingFortress {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes queuedPulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        
+        /* Build Status Tooltip */
+        .build-status-tooltip {
+            position: absolute;
+            bottom: -45px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--color-bg-tertiary);
+            color: var(--color-text);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition-base);
+            border: 1px solid var(--color-border);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+        }
+        
+        .build-status-tooltip::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 5px solid var(--color-bg-tertiary);
+        }
+        
+        .build-status-btn:hover .build-status-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+        
         /* Main dashboard container */
         .dashboard-container {
             max-width: 1400px;
@@ -456,6 +572,12 @@
                 animation-iteration-count: 1 !important;
                 transition-duration: 0.01ms !important;
             }
+            
+            .build-status-icon.status-success,
+            .build-status-icon.status-in_progress,
+            .build-status-icon.status-queued {
+                animation: none !important;
+            }
         }
         
         /* Focus styles */
@@ -657,6 +779,59 @@
             </div>
             
             <div class="header-actions">
+                {{if .BuildStatus}}
+                {{if .BuildStatus.Available}}
+                <button class="build-status-btn" 
+                        aria-label="Build Status: {{.BuildStatus.State}}" 
+                        onclick="openBuildStatus('{{.BuildStatus.RunURL}}')"
+                        {{if not .BuildStatus.RunURL}}disabled{{end}}>
+                    <svg class="build-status-icon {{if eq .BuildStatus.State "completed"}}{{if eq .BuildStatus.Conclusion "success"}}status-success{{else}}status-failure{{end}}{{else if eq .BuildStatus.State "in_progress"}}status-in_progress{{else if eq .BuildStatus.State "queued"}}status-queued{{else if eq .BuildStatus.State "cancelled"}}status-cancelled{{else}}status-unavailable{{end}}" 
+                         viewBox="0 0 24 24" fill="currentColor">
+                        {{if eq .BuildStatus.State "completed"}}
+                            {{if eq .BuildStatus.Conclusion "success"}}
+                                <!-- Success Fortress -->
+                                <path d="M12 2L2 7v10c0 5.55 3.84 9.739 9 11 5.16-1.261 9-5.45 9-11V7l-10-5z"/>
+                                <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                            {{else}}
+                                <!-- Failed Fortress -->
+                                <path d="M12 2L2 7v10c0 5.55 3.84 9.739 9 11 5.16-1.261 9-5.45 9-11V7l-10-5z"/>
+                                <path d="M15 9l-6 6m0-6l6 6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                            {{end}}
+                        {{else if eq .BuildStatus.State "in_progress"}}
+                            <!-- Building Fortress -->
+                            <path d="M12 2L2 7v10c0 5.55 3.84 9.739 9 11 5.16-1.261 9-5.45 9-11V7l-10-5z"/>
+                            <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M12 9v3l2 2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                        {{else if eq .BuildStatus.State "queued"}}
+                            <!-- Queued Fortress -->
+                            <path d="M12 2L2 7v10c0 5.55 3.84 9.739 9 11 5.16-1.261 9-5.45 9-11V7l-10-5z"/>
+                            <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                        {{else}}
+                            <!-- Default/Unknown Fortress -->
+                            <path d="M12 2L2 7v10c0 5.55 3.84 9.739 9 11 5.16-1.261 9-5.45 9-11V7l-10-5z"/>
+                        {{end}}
+                    </svg>
+                    <div class="build-status-tooltip">
+                        <div><strong>{{.BuildStatus.WorkflowName}}</strong></div>
+                        <div>{{.BuildStatus.State}}{{if .BuildStatus.Conclusion}} ({{.BuildStatus.Conclusion}}){{end}}</div>
+                        {{if .BuildStatus.Duration}}<div>Duration: {{.BuildStatus.Duration}}</div>{{end}}
+                        {{if .BuildStatus.HeadBranch}}<div>Branch: {{.BuildStatus.HeadBranch}}</div>{{end}}
+                        <div><small>Run #{{.BuildStatus.RunNumber}}</small></div>
+                    </div>
+                </button>
+                {{else}}
+                <button class="build-status-btn" disabled aria-label="Build status unavailable">
+                    <svg class="build-status-icon status-unavailable" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L2 7v10c0 5.55 3.84 9.739 9 11 5.16-1.261 9-5.45 9-11V7l-10-5z"/>
+                    </svg>
+                    <div class="build-status-tooltip">
+                        <div>Build status unavailable</div>
+                        {{if .BuildStatus.Error}}<div><small>{{.BuildStatus.Error}}</small></div>{{end}}
+                    </div>
+                </button>
+                {{end}}
+                {{end}}
                 <button class="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="sun-icon">
                         <path d="M12 18c-3.3 0-6-2.7-6-6s2.7-6 6-6 6 2.7 6 6-2.7 6-6 6zm0-10c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4z"/>
@@ -906,6 +1081,129 @@
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
             if (!localStorage.getItem('theme')) {
                 document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+            }
+        });
+        
+        // Build Status functionality
+        function openBuildStatus(url) {
+            if (url) {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }
+        }
+        
+        // Auto-refresh build status
+        let buildStatusRefreshInterval;
+        
+        function startBuildStatusRefresh() {
+            // Only start auto-refresh if build status is available
+            const buildStatusBtn = document.querySelector('.build-status-btn:not([disabled])');
+            if (!buildStatusBtn) return;
+            
+            buildStatusRefreshInterval = setInterval(async () => {
+                try {
+                    await refreshBuildStatus();
+                } catch (error) {
+                    console.warn('Failed to refresh build status:', error);
+                }
+            }, 30000); // Refresh every 30 seconds
+        }
+        
+        function stopBuildStatusRefresh() {
+            if (buildStatusRefreshInterval) {
+                clearInterval(buildStatusRefreshInterval);
+                buildStatusRefreshInterval = null;
+            }
+        }
+        
+        async function refreshBuildStatus() {
+            try {
+                // Fetch updated build status from a refresh endpoint
+                const response = await fetch(window.location.pathname + '?refresh=build_status', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                if (data.build_status) {
+                    updateBuildStatusUI(data.build_status);
+                }
+            } catch (error) {
+                // Silently fail to avoid spamming console
+                console.debug('Build status refresh failed:', error);
+            }
+        }
+        
+        function updateBuildStatusUI(buildStatus) {
+            const buildStatusBtn = document.querySelector('.build-status-btn');
+            const buildStatusIcon = document.querySelector('.build-status-icon');
+            const tooltip = document.querySelector('.build-status-tooltip');
+            
+            if (!buildStatusBtn || !buildStatusIcon || !tooltip) return;
+            
+            // Update button state
+            if (buildStatus.available && buildStatus.run_url) {
+                buildStatusBtn.disabled = false;
+                buildStatusBtn.onclick = () => openBuildStatus(buildStatus.run_url);
+                buildStatusBtn.setAttribute('aria-label', `Build Status: ${buildStatus.state}`);
+            } else {
+                buildStatusBtn.disabled = true;
+                buildStatusBtn.onclick = null;
+                buildStatusBtn.setAttribute('aria-label', 'Build status unavailable');
+            }
+            
+            // Update icon class based on status
+            buildStatusIcon.className = 'build-status-icon';
+            if (buildStatus.state === 'completed') {
+                if (buildStatus.conclusion === 'success') {
+                    buildStatusIcon.classList.add('status-success');
+                } else {
+                    buildStatusIcon.classList.add('status-failure');
+                }
+            } else if (buildStatus.state === 'in_progress') {
+                buildStatusIcon.classList.add('status-in_progress');
+            } else if (buildStatus.state === 'queued') {
+                buildStatusIcon.classList.add('status-queued');
+            } else if (buildStatus.state === 'cancelled') {
+                buildStatusIcon.classList.add('status-cancelled');
+            } else {
+                buildStatusIcon.classList.add('status-unavailable');
+            }
+            
+            // Update tooltip content
+            if (buildStatus.available) {
+                tooltip.innerHTML = `
+                    <div><strong>${buildStatus.workflow_name}</strong></div>
+                    <div>${buildStatus.state}${buildStatus.conclusion ? ` (${buildStatus.conclusion})` : ''}</div>
+                    ${buildStatus.duration ? `<div>Duration: ${buildStatus.duration}</div>` : ''}
+                    ${buildStatus.head_branch ? `<div>Branch: ${buildStatus.head_branch}</div>` : ''}
+                    <div><small>Run #${buildStatus.run_number}</small></div>
+                `;
+            } else {
+                tooltip.innerHTML = `
+                    <div>Build status unavailable</div>
+                    ${buildStatus.error ? `<div><small>${buildStatus.error}</small></div>` : ''}
+                `;
+            }
+        }
+        
+        // Start auto-refresh when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            startBuildStatusRefresh();
+        });
+        
+        // Stop auto-refresh when page becomes hidden (performance optimization)
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopBuildStatusRefresh();
+            } else {
+                startBuildStatusRefresh();
             }
         });
     </script>

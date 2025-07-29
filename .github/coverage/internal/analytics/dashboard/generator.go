@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"math"
 	"net/url"
 	"os"
 	"os/exec"
@@ -13,12 +14,15 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/mrz1836/go-broadcast/coverage/internal/github"
 )
 
 // Generator handles dashboard generation
 type Generator struct {
-	config   *GeneratorConfig
-	renderer *Renderer
+	config       *GeneratorConfig
+	renderer     *Renderer
+	githubClient *github.Client
 }
 
 // GeneratorConfig contains configuration for dashboard generation
@@ -30,6 +34,7 @@ type GeneratorConfig struct {
 	OutputDir        string
 	AssetsDir        string
 	GeneratorVersion string
+	GitHubToken      string // GitHub token for API access (optional)
 }
 
 // RepositoryInfo contains information extracted from a Git repository
@@ -43,9 +48,15 @@ type RepositoryInfo struct {
 
 // NewGenerator creates a new dashboard generator
 func NewGenerator(config *GeneratorConfig) *Generator {
+	var githubClient *github.Client
+	if config.GitHubToken != "" {
+		githubClient = github.New(config.GitHubToken)
+	}
+
 	return &Generator{
-		config:   config,
-		renderer: NewRenderer(config.TemplateDir),
+		config:       config,
+		renderer:     NewRenderer(config.TemplateDir),
+		githubClient: githubClient,
 	}
 }
 
@@ -206,6 +217,9 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		repositoryURL = fmt.Sprintf("https://github.com/%s/%s", repositoryOwner, repositoryName)
 	}
 
+	// Get build status if available
+	buildStatus := g.getBuildStatus(ctx, repoInfo)
+
 	return map[string]interface{}{
 		"ProjectName":       projectName,
 		"RepositoryOwner":   repositoryOwner,
@@ -217,7 +231,7 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		"CommitURL":         commitURL,
 		"PRNumber":          data.PRNumber,
 		"Timestamp":         data.Timestamp.Format("2006-01-02 15:04:05 UTC"),
-		"TotalCoverage":     data.TotalCoverage,
+		"TotalCoverage":     roundToDecimals(data.TotalCoverage, 2),
 		"CoverageTrend":     coverageTrend,
 		"TrendDirection":    trendDirection,
 		"CoveredFiles":      data.CoveredFiles,
@@ -232,6 +246,7 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		"HasHistory":        hasHistory,
 		"HasAnyData":        len(data.History) > 0,
 		"HistoryJSON":       g.prepareHistoryJSON(data.History),
+		"BuildStatus":       buildStatus,
 	}
 }
 
@@ -279,6 +294,12 @@ func (g *Generator) prepareBranchData(ctx context.Context, data *CoverageData) [
 	return branches
 }
 
+// roundToDecimals rounds a float64 to the specified number of decimal places
+func roundToDecimals(value float64, decimals int) float64 {
+	multiplier := math.Pow(10, float64(decimals))
+	return math.Round(value*multiplier) / multiplier
+}
+
 // preparePackageData prepares package data for display
 func (g *Generator) preparePackageData(packages []PackageCoverage) []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(packages))
@@ -288,7 +309,7 @@ func (g *Generator) preparePackageData(packages []PackageCoverage) []map[string]
 		for _, file := range pkg.Files {
 			files = append(files, map[string]interface{}{
 				"Name":      file.Name,
-				"Coverage":  file.Coverage,
+				"Coverage":  roundToDecimals(file.Coverage, 2),
 				"GitHubURL": file.GitHubURL,
 			})
 		}
@@ -296,7 +317,7 @@ func (g *Generator) preparePackageData(packages []PackageCoverage) []map[string]
 		result = append(result, map[string]interface{}{
 			"Name":         pkg.Name,
 			"Path":         pkg.Path,
-			"Coverage":     pkg.Coverage,
+			"Coverage":     roundToDecimals(pkg.Coverage, 2),
 			"CoveredLines": pkg.CoveredLines,
 			"TotalLines":   pkg.TotalLines,
 			"MissedLines":  pkg.MissedLines,
@@ -318,6 +339,95 @@ func (g *Generator) prepareHistoryJSON(history []HistoricalPoint) string {
 		return "[]"
 	}
 	return string(data)
+}
+
+// getBuildStatus fetches the current build status from GitHub Actions
+func (g *Generator) getBuildStatus(ctx context.Context, repoInfo *RepositoryInfo) *BuildStatus {
+	// If GitHub client is not available or repository info is missing, return unavailable status
+	if g.githubClient == nil || repoInfo == nil || !repoInfo.IsGitHub {
+		return &BuildStatus{
+			Available: false,
+			Error:     "GitHub API access not configured or not a GitHub repository",
+		}
+	}
+
+	// Get the latest workflow runs for the repository
+	workflowRuns, err := g.githubClient.GetWorkflowRuns(ctx, repoInfo.Owner, repoInfo.Name, 5)
+	if err != nil {
+		return &BuildStatus{
+			Available: false,
+			Error:     fmt.Sprintf("Failed to fetch workflow runs: %v", err),
+		}
+	}
+
+	// Find the most recent relevant workflow run
+	var latestRun *github.WorkflowRun
+	for _, run := range workflowRuns.WorkflowRuns {
+		// Prioritize coverage-related workflows
+		if strings.Contains(strings.ToLower(run.Name), "coverage") ||
+			strings.Contains(strings.ToLower(run.Name), "fortress") ||
+			strings.Contains(strings.ToLower(run.Path), "coverage") {
+			latestRun = &run
+			break
+		}
+		// Fallback to any recent workflow if no coverage workflow found
+		if latestRun == nil {
+			latestRun = &run
+		}
+	}
+
+	// If no workflow runs found, return unavailable status
+	if latestRun == nil {
+		return &BuildStatus{
+			Available: false,
+			Error:     "No workflow runs found",
+		}
+	}
+
+	// Calculate duration
+	duration := g.formatDuration(latestRun.RunStartedAt, latestRun.UpdatedAt, latestRun.Status)
+
+	return &BuildStatus{
+		State:        latestRun.Status,
+		Conclusion:   latestRun.Conclusion,
+		WorkflowName: latestRun.Name,
+		RunID:        latestRun.ID,
+		RunNumber:    latestRun.RunNumber,
+		RunURL:       latestRun.HTMLURL,
+		StartedAt:    latestRun.RunStartedAt,
+		UpdatedAt:    latestRun.UpdatedAt,
+		Duration:     duration,
+		HeadSHA:      latestRun.HeadSHA,
+		HeadBranch:   latestRun.HeadBranch,
+		Event:        latestRun.Event,
+		DisplayTitle: latestRun.DisplayTitle,
+		Available:    true,
+	}
+}
+
+// formatDuration formats the duration of a workflow run
+func (g *Generator) formatDuration(startedAt, updatedAt time.Time, status string) string {
+	if startedAt.IsZero() {
+		return "Unknown"
+	}
+
+	var endTime time.Time
+	if status == "completed" && !updatedAt.IsZero() {
+		endTime = updatedAt
+	} else {
+		endTime = time.Now()
+	}
+
+	duration := endTime.Sub(startedAt)
+
+	// Format duration in human-readable format
+	if duration < time.Minute {
+		return fmt.Sprintf("%ds", int(duration.Seconds()))
+	}
+	if duration < time.Hour {
+		return fmt.Sprintf("%dm %ds", int(duration.Minutes()), int(duration.Seconds())%60)
+	}
+	return fmt.Sprintf("%dh %dm", int(duration.Hours()), int(duration.Minutes())%60)
 }
 
 // generateDataJSON generates the data JSON file

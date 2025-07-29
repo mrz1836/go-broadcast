@@ -14,8 +14,9 @@ import (
 
 // Static error definitions
 var (
-	ErrGitHubAPIError  = errors.New("GitHub API error")
-	ErrCommentNotFound = errors.New("coverage comment not found")
+	ErrGitHubAPIError   = errors.New("GitHub API error")
+	ErrCommentNotFound  = errors.New("coverage comment not found")
+	ErrWorkflowNotFound = errors.New("workflow not found")
 )
 
 // Client handles GitHub API operations for coverage reporting
@@ -71,6 +72,56 @@ type PullRequest struct {
 type Label struct {
 	Name  string `json:"name"`
 	Color string `json:"color"`
+}
+
+// WorkflowRun represents a GitHub Actions workflow run
+type WorkflowRun struct {
+	ID               int64     `json:"id"`
+	NodeID           string    `json:"node_id"`
+	Name             string    `json:"name"`
+	HeadBranch       string    `json:"head_branch"`
+	HeadSHA          string    `json:"head_sha"`
+	Path             string    `json:"path"`
+	DisplayTitle     string    `json:"display_title"`
+	RunNumber        int       `json:"run_number"`
+	Event            string    `json:"event"`
+	Status           string    `json:"status"`     // "queued", "in_progress", "completed"
+	Conclusion       string    `json:"conclusion"` // "success", "failure", "neutral", "canceled", "skipped", "timed_out", "action_required"
+	WorkflowID       int64     `json:"workflow_id"`
+	CheckSuiteID     int64     `json:"check_suite_id"`
+	CheckSuiteNodeID string    `json:"check_suite_node_id"`
+	URL              string    `json:"url"`
+	HTMLURL          string    `json:"html_url"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	RunStartedAt     time.Time `json:"run_started_at"`
+	JobsURL          string    `json:"jobs_url"`
+	LogsURL          string    `json:"logs_url"`
+	CheckSuiteURL    string    `json:"check_suite_url"`
+	ArtifactsURL     string    `json:"artifacts_url"`
+	CancelURL        string    `json:"cancel_url"`
+	RerunURL         string    `json:"rerun_url"`
+	WorkflowURL      string    `json:"workflow_url"`
+}
+
+// WorkflowRunsResponse represents the response from listing workflow runs
+type WorkflowRunsResponse struct {
+	TotalCount   int           `json:"total_count"`
+	WorkflowRuns []WorkflowRun `json:"workflow_runs"`
+}
+
+// Workflow represents a GitHub Actions workflow
+type Workflow struct {
+	ID        int64     `json:"id"`
+	NodeID    string    `json:"node_id"`
+	Name      string    `json:"name"`
+	Path      string    `json:"path"`
+	State     string    `json:"state"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	URL       string    `json:"url"`
+	HTMLURL   string    `json:"html_url"`
+	BadgeURL  string    `json:"badge_url"`
 }
 
 // New creates a new GitHub client with default configuration
@@ -387,3 +438,152 @@ const (
 	ContextCoverage = "coverage/total"
 	ContextTrend    = "coverage/trend"
 )
+
+// GetWorkflowRuns retrieves the latest workflow runs for a repository
+func (c *Client) GetWorkflowRuns(ctx context.Context, owner, repo string, limit int) (*WorkflowRunsResponse, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/actions/runs", c.baseURL, owner, repo)
+	if limit > 0 {
+		url += fmt.Sprintf("?per_page=%d", limit)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "token "+c.token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", c.config.UserAgent)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow runs: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("%w: %d %s", ErrGitHubAPIError, resp.StatusCode, string(body))
+	}
+
+	var response WorkflowRunsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode workflow runs response: %w", err)
+	}
+
+	return &response, nil
+}
+
+// GetWorkflowRunsByWorkflow retrieves workflow runs for a specific workflow
+func (c *Client) GetWorkflowRunsByWorkflow(ctx context.Context, owner, repo, workflowName string, limit int) (*WorkflowRunsResponse, error) {
+	// First, get the workflow ID by name
+	workflowID, err := c.getWorkflowIDByName(ctx, owner, repo, workflowName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow ID: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/actions/workflows/%d/runs", c.baseURL, owner, repo, workflowID)
+	if limit > 0 {
+		url += fmt.Sprintf("?per_page=%d", limit)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "token "+c.token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", c.config.UserAgent)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow runs: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("%w: %d %s", ErrGitHubAPIError, resp.StatusCode, string(body))
+	}
+
+	var response WorkflowRunsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode workflow runs response: %w", err)
+	}
+
+	return &response, nil
+}
+
+// GetWorkflowRun retrieves a specific workflow run by ID
+func (c *Client) GetWorkflowRun(ctx context.Context, owner, repo string, runID int64) (*WorkflowRun, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/actions/runs/%d", c.baseURL, owner, repo, runID)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "token "+c.token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", c.config.UserAgent)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow run: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("%w: %d %s", ErrGitHubAPIError, resp.StatusCode, string(body))
+	}
+
+	var workflowRun WorkflowRun
+	if err := json.NewDecoder(resp.Body).Decode(&workflowRun); err != nil {
+		return nil, fmt.Errorf("failed to decode workflow run response: %w", err)
+	}
+
+	return &workflowRun, nil
+}
+
+// getWorkflowIDByName finds a workflow ID by its name
+func (c *Client) getWorkflowIDByName(ctx context.Context, owner, repo, workflowName string) (int64, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/actions/workflows", c.baseURL, owner, repo)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "token "+c.token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", c.config.UserAgent)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get workflows: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return 0, fmt.Errorf("%w: %d %s", ErrGitHubAPIError, resp.StatusCode, string(body))
+	}
+
+	var response struct {
+		TotalCount int        `json:"total_count"`
+		Workflows  []Workflow `json:"workflows"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return 0, fmt.Errorf("failed to decode workflows response: %w", err)
+	}
+
+	for _, workflow := range response.Workflows {
+		if workflow.Name == workflowName {
+			return workflow.ID, nil
+		}
+	}
+
+	return 0, fmt.Errorf("%w: %s", ErrWorkflowNotFound, workflowName)
+}
