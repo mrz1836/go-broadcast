@@ -72,6 +72,10 @@
             box-sizing: border-box;
         }
 
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--color-bg);
@@ -349,9 +353,19 @@
             background: var(--color-bg-secondary);
             border: 1px solid var(--color-border);
             border-radius: 12px;
-            padding: 1.5rem;
+            padding: 0;
             transition: var(--transition-smooth);
             overflow: hidden;
+            cursor: pointer;
+        }
+
+        .metric-card-link {
+            display: block;
+            padding: 1.5rem;
+            color: inherit;
+            text-decoration: none;
+            position: relative;
+            z-index: 1;
         }
 
         .metric-card::before {
@@ -364,6 +378,8 @@
             background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
             transform: translateX(-100%);
             animation: shimmer 2s infinite;
+            z-index: 0;
+            pointer-events: none;
         }
 
         @keyframes shimmer {
@@ -373,6 +389,11 @@
         .metric-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border-color: var(--color-primary);
+        }
+
+        .metric-card:active {
+            transform: translateY(-1px);
         }
 
         .metric-content {
@@ -427,6 +448,8 @@
             right: 1rem;
             width: 60px;
             height: 60px;
+            z-index: 0;
+            pointer-events: none;
         }
 
         .progress-ring-bg {
@@ -481,11 +504,18 @@
             padding: 1.25rem;
             transition: var(--transition-smooth);
             cursor: pointer;
+            position: relative;
         }
 
         .branch-card:hover {
             background: var(--color-bg-tertiary);
             border-color: var(--color-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .branch-card:active {
+            transform: translateY(-1px);
         }
 
         .branch-header {
@@ -586,6 +616,15 @@
             outline-offset: 2px;
         }
 
+        .metric-card-link:focus-visible {
+            outline: none;
+        }
+
+        .metric-card-link:focus-visible .metric-card {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+        }
+
         /* Packages section styling */
         .packages-section {
             margin: 2rem 0;
@@ -604,12 +643,19 @@
             padding: 1.5rem;
             backdrop-filter: blur(var(--backdrop-blur));
             transition: all var(--transition-smooth);
+            cursor: pointer;
+            position: relative;
         }
 
         .package-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
             border-color: var(--color-primary);
+            background: var(--color-bg-secondary);
+        }
+
+        .package-card:active {
+            transform: translateY(-1px);
         }
 
         .package-header {
@@ -858,78 +904,86 @@
             <!-- Animated metric cards -->
             <div class="metrics-grid">
                 <article class="metric-card">
-                    <div class="metric-content">
-                        <h3 class="metric-label">Total Coverage</h3>
-                        <div class="metric-value-container">
-                            <span class="metric-value" data-count="{{.TotalCoverage}}">0</span>
-                            <span class="metric-unit">%</span>
+                    <a href="./" class="metric-card-link">
+                        <div class="metric-content">
+                            <h3 class="metric-label">Total Coverage</h3>
+                            <div class="metric-value-container">
+                                <span class="metric-value" data-count="{{.TotalCoverage}}">0</span>
+                                <span class="metric-unit">%</span>
+                            </div>
+                            <div class="metric-trend trend-up">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7 14l5-5 5 5z"/>
+                                </svg>
+                                <span>+{{.CoverageTrend}}% from last week</span>
+                            </div>
                         </div>
-                        <div class="metric-trend trend-up">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M7 14l5-5 5 5z"/>
-                            </svg>
-                            <span>+{{.CoverageTrend}}% from last week</span>
-                        </div>
-                    </div>
-                    <svg class="progress-ring" viewBox="0 0 60 60">
-                        <circle class="progress-ring-bg"/>
-                        <circle class="progress-ring-fill" style="--progress: {{.TotalCoverage}}"/>
-                    </svg>
+                        <svg class="progress-ring" viewBox="0 0 60 60">
+                            <circle class="progress-ring-bg"/>
+                            <circle class="progress-ring-fill" style="--progress: {{.TotalCoverage}}"/>
+                        </svg>
+                    </a>
                 </article>
 
                 <article class="metric-card">
-                    <div class="metric-content">
-                        <h3 class="metric-label">Files Covered</h3>
-                        <div class="metric-value-container">
-                            <span class="metric-value">{{.CoveredFiles}}</span>
-                            <span class="metric-unit">/ {{.TotalFiles}}</span>
+                    <a href="#packages-section" class="metric-card-link">
+                        <div class="metric-content">
+                            <h3 class="metric-label">Files Covered</h3>
+                            <div class="metric-value-container">
+                                <span class="metric-value">{{.CoveredFiles}}</span>
+                                <span class="metric-unit">/ {{.TotalFiles}}</span>
+                            </div>
+                            <div class="metric-trend trend-up">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7 14l5-5 5 5z"/>
+                                </svg>
+                                <span>{{.FilesTrend}} files added</span>
+                            </div>
                         </div>
-                        <div class="metric-trend trend-up">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M7 14l5-5 5 5z"/>
-                            </svg>
-                            <span>{{.FilesTrend}} files added</span>
-                        </div>
-                    </div>
+                    </a>
                 </article>
 
                 <article class="metric-card">
-                    <div class="metric-content">
-                        <h3 class="metric-label">Lines to Cover</h3>
-                        <div class="metric-value-container">
-                            <span class="metric-value">{{.LinesToCover}}</span>
-                            <span class="metric-unit">lines</span>
+                    <a href="#branch-section" class="metric-card-link">
+                        <div class="metric-content">
+                            <h3 class="metric-label">Lines to Cover</h3>
+                            <div class="metric-value-container">
+                                <span class="metric-value">{{.LinesToCover}}</span>
+                                <span class="metric-unit">lines</span>
+                            </div>
+                            <div class="metric-trend trend-down">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7 10l5 5 5-5z"/>
+                                </svg>
+                                <span>{{.LinesToCoverTrend}} lines remaining</span>
+                            </div>
                         </div>
-                        <div class="metric-trend trend-down">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M7 10l5 5 5-5z"/>
-                            </svg>
-                            <span>{{.LinesToCoverTrend}} lines remaining</span>
-                        </div>
-                    </div>
+                    </a>
                 </article>
 
                 <article class="metric-card">
-                    <div class="metric-content">
-                        <h3 class="metric-label">Packages Tracked</h3>
-                        <div class="metric-value-container">
-                            <span class="metric-value">{{.PackagesTracked}}</span>
-                            <span class="metric-unit">pkgs</span>
+                    <a href="#packages-section" class="metric-card-link">
+                        <div class="metric-content">
+                            <h3 class="metric-label">Packages Tracked</h3>
+                            <div class="metric-value-container">
+                                <span class="metric-value">{{.PackagesTracked}}</span>
+                                <span class="metric-unit">pkgs</span>
+                            </div>
+                            <div class="metric-trend trend-up">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7 14l5-5 5 5z"/>
+                                </svg>
+                                <span>All packages healthy</span>
+                            </div>
                         </div>
-                        <div class="metric-trend trend-up">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M7 14l5-5 5 5z"/>
-                            </svg>
-                            <span>All packages healthy</span>
-                        </div>
-                    </div>
+                    </a>
                 </article>
             </div>
         </section>
 
         <!-- Package coverage section -->
         {{if .Packages}}
-        <section class="packages-section">
+        <section class="packages-section" id="packages-section">
             <header class="section-header">
                 <h2 class="section-title">Package Coverage</h2>
             </header>
@@ -987,7 +1041,7 @@
         {{end}}
 
         <!-- Branch coverage section -->
-        <section class="branch-section">
+        <section class="branch-section" id="branch-section">
             <header class="section-header">
                 <h2 class="section-title">Branch Coverage</h2>
             </header>
