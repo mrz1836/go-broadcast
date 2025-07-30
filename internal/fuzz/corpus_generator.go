@@ -104,7 +104,7 @@ source:
   branch: develop
 defaults:
   branch_prefix: sync/update
-  pr_labels: ["automated", "sync", "template-update"]
+  pr_labels: ["automated", "sync", "chore"]
 targets:
   - repo: org/service-a
     files:

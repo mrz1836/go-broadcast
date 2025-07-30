@@ -16,7 +16,7 @@ source:
   branch: "master"
 defaults:
   branch_prefix: "sync/template"
-  pr_labels: ["automated-sync", "template-update"]
+  pr_labels: ["automated-sync", "chore"]
 targets:
   - repo: "org/target-repo-1"
     files:

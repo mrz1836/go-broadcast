@@ -31,7 +31,7 @@ source:
   branch: "master"
 defaults:
   branch_prefix: "sync/template"
-  pr_labels: ["automated-sync", "template-update"]
+  pr_labels: ["automated-sync", "chore"]
 targets:`)
 
 	for i := 0; i < targetCount; i++ {
