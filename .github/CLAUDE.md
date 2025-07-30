@@ -77,6 +77,10 @@ make test-integration-all        # All integration test phases
 
 # Check configuration status
 ./go-broadcast status --config examples/minimal.yaml
+
+# Cancel active sync operations
+./go-broadcast cancel --dry-run --config examples/minimal.yaml
+./go-broadcast cancel --config examples/minimal.yaml
 ```
 
 ### 🧪 Fuzz Testing Workflow
@@ -188,6 +192,11 @@ go tool pprof mem.prof
 
 # Collect diagnostic information
 ./go-broadcast diagnose > diagnostics.json
+
+# Cancel active sync operations when needed
+./go-broadcast cancel --dry-run --config examples/minimal.yaml  # Preview cancellations
+./go-broadcast cancel --config examples/minimal.yaml            # Cancel all active syncs
+./go-broadcast cancel org/repo1 --config examples/minimal.yaml  # Cancel specific repository
 ```
 
 **Note**: Component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented.
@@ -349,6 +358,7 @@ Before starting any development work:
    ```bash
    ./go-broadcast validate --config examples/minimal.yaml
    ./go-broadcast sync --dry-run --config examples/minimal.yaml
+   ./go-broadcast cancel --dry-run --config examples/minimal.yaml
    ```
 
 ## 🚨 Important Reminders

@@ -401,6 +401,24 @@ targets:
       repo_name: true
 ```
 
+**Cancel sync operations when issues arise:**
+```bash
+# Cancel all active syncs (closes PRs and deletes branches)
+go-broadcast cancel --config sync.yaml
+
+# Cancel syncs for specific repositories only
+go-broadcast cancel company/service1 company/service2
+
+# Preview what would be cancelled without making changes
+go-broadcast cancel --dry-run --config sync.yaml
+
+# Close PRs but keep sync branches for later cleanup
+go-broadcast cancel --keep-branches --config sync.yaml
+
+# Add custom comment when closing PRs
+go-broadcast cancel --comment "Cancelling due to template update" --config sync.yaml
+```
+
 ### Essential Commands
 
 ```bash
@@ -414,6 +432,15 @@ go-broadcast sync org/specific-repo --config sync.yaml
 
 # Monitor status
 go-broadcast status --config sync.yaml
+
+# Troubleshooting and diagnostics
+go-broadcast diagnose                    # Collect system diagnostic information
+go-broadcast diagnose > diagnostics.json # Save diagnostics to file
+
+# Cancel active syncs
+go-broadcast cancel                      # Cancel all active sync operations
+go-broadcast cancel org/repo1            # Cancel syncs for specific repository
+go-broadcast cancel --dry-run            # Preview what would be cancelled
 ```
 
 ### Configuration Reference
@@ -694,8 +721,9 @@ go-broadcast sync --log-level info      # Info level logging (default)
 go-broadcast sync --log-level warn      # Warning level logging
 go-broadcast sync --log-level error     # Error level logging
 
-# Collect diagnostic information
-go-broadcast diagnose > diagnostics.json
+# Collect comprehensive diagnostic information
+go-broadcast diagnose                    # Display diagnostic info to stdout
+go-broadcast diagnose > diagnostics.json # Save diagnostics to file for support
 ```
 
 **Note**: Advanced verbose flags (`-v`, `-vv`, `-vvv`) and component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented. The current implementation supports `--log-level` for basic debugging.
@@ -772,6 +800,23 @@ go-broadcast sync --log-level debug 2> debug-$(date +%Y%m%d-%H%M%S).log
 
 # Review debug logs
 go-broadcast sync --log-level debug 2>&1 | tee sync-debug.log
+```
+
+#### Diagnostic Information Collection
+
+The `diagnose` command collects comprehensive system information for troubleshooting:
+
+```bash
+# Collect all diagnostic information (JSON format)
+go-broadcast diagnose
+
+# Information collected includes:
+# - System details (OS, architecture, CPU count, hostname)
+# - go-broadcast version and build information
+# - Git and GitHub CLI versions
+# - Environment variables (sensitive data automatically redacted)
+# - Configuration file status and validation results
+# - Timestamp and runtime information
 ```
 
 **Note**: JSON log format (`--log-format json`) is a planned feature. The `diagnose` command provides JSON output for system information.
