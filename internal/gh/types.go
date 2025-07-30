@@ -40,10 +40,13 @@ type PR struct {
 
 // PRRequest represents a request to create a pull request
 type PRRequest struct {
-	Title string `json:"title"`
-	Body  string `json:"body"`
-	Head  string `json:"head"` // source branch
-	Base  string `json:"base"` // target branch
+	Title         string   `json:"title"`
+	Body          string   `json:"body"`
+	Head          string   `json:"head"`                     // source branch
+	Base          string   `json:"base"`                     // target branch
+	Assignees     []string `json:"assignees,omitempty"`      // GitHub usernames to assign
+	Reviewers     []string `json:"reviewers,omitempty"`      // GitHub usernames to request reviews from
+	TeamReviewers []string `json:"team_reviewers,omitempty"` // GitHub team slugs to request reviews from
 }
 
 // PRUpdate represents updates to an existing pull request

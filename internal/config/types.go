@@ -16,15 +16,21 @@ type SourceConfig struct {
 
 // DefaultConfig contains default settings applied to all targets
 type DefaultConfig struct {
-	BranchPrefix string   `yaml:"branch_prefix,omitempty"` // Default: sync/template
-	PRLabels     []string `yaml:"pr_labels,omitempty"`     // Default: ["automated-sync"]
+	BranchPrefix    string   `yaml:"branch_prefix,omitempty"`     // Default: sync/template
+	PRLabels        []string `yaml:"pr_labels,omitempty"`         // Default: ["automated-sync"]
+	PRAssignees     []string `yaml:"pr_assignees,omitempty"`      // GitHub usernames to assign to PRs
+	PRReviewers     []string `yaml:"pr_reviewers,omitempty"`      // GitHub usernames to request reviews from
+	PRTeamReviewers []string `yaml:"pr_team_reviewers,omitempty"` // GitHub team slugs to request reviews from
 }
 
 // TargetConfig defines a target repository and its file mappings
 type TargetConfig struct {
-	Repo      string        `yaml:"repo"`                // Format: org/repo
-	Files     []FileMapping `yaml:"files"`               // Files to sync
-	Transform Transform     `yaml:"transform,omitempty"` // Optional transformations
+	Repo            string        `yaml:"repo"`                        // Format: org/repo
+	Files           []FileMapping `yaml:"files"`                       // Files to sync
+	Transform       Transform     `yaml:"transform,omitempty"`         // Optional transformations
+	PRAssignees     []string      `yaml:"pr_assignees,omitempty"`      // Override default PR assignees
+	PRReviewers     []string      `yaml:"pr_reviewers,omitempty"`      // Override default PR reviewers
+	PRTeamReviewers []string      `yaml:"pr_team_reviewers,omitempty"` // Override default PR team reviewers
 }
 
 // FileMapping defines source to destination file mapping
