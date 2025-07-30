@@ -10,9 +10,15 @@
 - name: "bug-P3"
   description: "Lowest rated bug, affects nearly none or low-impact"
   color: f44336
+- name: "broadcast"
+  description: "Used for referencing the Broadcast deployment"
+  color: FEF2C0
 - name: "chore"
   description: "Simple dependency updates or version bumps"
   color: 006b75
+- name: "coverage-override"
+  description: "Override coverage requirements for this PR"
+  color: ff8c00
 - name: "dependencies"
   description: "Dependency updates, version bumps, etc."
   color: 006b75
@@ -94,18 +100,3 @@
 - name: "work-in-progress"
   description: "Used for denoting a WIP, stops auto-merge"
   color: FBCA04
-- name: "coverage-override"
-  description: "Override coverage requirements for this PR"
-  color: ff8c00
-- name: "coverage-override-60"
-  description: "Override coverage threshold to 60% for this PR"
-  color: ff8c00
-- name: "coverage-override-70"
-  description: "Override coverage threshold to 70% for this PR"
-  color: ff8c00
-- name: "coverage-override-80"
-  description: "Override coverage threshold to 80% for this PR"
-  color: ff8c00
-- name: "coverage-override-90"
-  description: "Override coverage threshold to 90% for this PR"
-  color: ff8c00

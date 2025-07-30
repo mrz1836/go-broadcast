@@ -33,102 +33,18 @@ func TestStatusCheckManager_parseCoverageOverrideFromLabels(t *testing.T) {
 				{Name: "coverage-override", Color: "ff8c00"},
 			},
 			config: &StatusCheckConfig{
-				AllowLabelOverride:   true,
-				MinOverrideThreshold: 50.0,
-				MaxOverrideThreshold: 95.0,
+				AllowLabelOverride: true,
 			},
-			expectedThreshold:   60.0, // Default override threshold
+			expectedThreshold:   0.0, // Completely ignores coverage
 			expectedHasOverride: true,
-		},
-		{
-			name: "specific coverage-override-70 label",
-			labels: []Label{
-				{Name: "coverage-override-70", Color: "ff8c00"},
-			},
-			config: &StatusCheckConfig{
-				AllowLabelOverride:   true,
-				MinOverrideThreshold: 50.0,
-				MaxOverrideThreshold: 95.0,
-			},
-			expectedThreshold:   70.0,
-			expectedHasOverride: true,
-		},
-		{
-			name: "multiple override labels - specific takes precedence",
-			labels: []Label{
-				{Name: "coverage-override", Color: "ff8c00"},
-				{Name: "coverage-override-80", Color: "ff8c00"},
-			},
-			config: &StatusCheckConfig{
-				AllowLabelOverride:   true,
-				MinOverrideThreshold: 50.0,
-				MaxOverrideThreshold: 95.0,
-			},
-			expectedThreshold:   80.0, // Specific threshold takes precedence
-			expectedHasOverride: true,
-		},
-		{
-			name: "threshold below minimum - ignored",
-			labels: []Label{
-				{Name: "coverage-override-40", Color: "ff8c00"},
-			},
-			config: &StatusCheckConfig{
-				AllowLabelOverride:   true,
-				MinOverrideThreshold: 50.0,
-				MaxOverrideThreshold: 95.0,
-			},
-			expectedThreshold:   0,
-			expectedHasOverride: false,
-		},
-		{
-			name: "threshold above maximum - ignored",
-			labels: []Label{
-				{Name: "coverage-override-98", Color: "ff8c00"},
-			},
-			config: &StatusCheckConfig{
-				AllowLabelOverride:   true,
-				MinOverrideThreshold: 50.0,
-				MaxOverrideThreshold: 95.0,
-			},
-			expectedThreshold:   0,
-			expectedHasOverride: false,
 		},
 		{
 			name: "label override disabled",
 			labels: []Label{
-				{Name: "coverage-override-70", Color: "ff8c00"},
-			},
-			config: &StatusCheckConfig{
-				AllowLabelOverride:   false,
-				MinOverrideThreshold: 50.0,
-				MaxOverrideThreshold: 95.0,
-			},
-			expectedThreshold:   0,
-			expectedHasOverride: false,
-		},
-		{
-			name: "generic override with minimum threshold adjustment",
-			labels: []Label{
 				{Name: "coverage-override", Color: "ff8c00"},
 			},
 			config: &StatusCheckConfig{
-				AllowLabelOverride:   true,
-				MinOverrideThreshold: 65.0, // Higher than default 60%
-				MaxOverrideThreshold: 95.0,
-			},
-			expectedThreshold:   65.0, // Should use minimum threshold
-			expectedHasOverride: true,
-		},
-		{
-			name: "invalid label format - ignored",
-			labels: []Label{
-				{Name: "coverage-override-abc", Color: "ff8c00"},
-				{Name: "coverage-override-", Color: "ff8c00"},
-			},
-			config: &StatusCheckConfig{
-				AllowLabelOverride:   true,
-				MinOverrideThreshold: 50.0,
-				MaxOverrideThreshold: 95.0,
+				AllowLabelOverride: false,
 			},
 			expectedThreshold:   0,
 			expectedHasOverride: false,
@@ -137,15 +53,13 @@ func TestStatusCheckManager_parseCoverageOverrideFromLabels(t *testing.T) {
 			name: "mixed labels with valid override",
 			labels: []Label{
 				{Name: "bug", Color: "d73a4a"},
-				{Name: "coverage-override-75", Color: "ff8c00"},
+				{Name: "coverage-override", Color: "ff8c00"},
 				{Name: "documentation", Color: "0075ca"},
 			},
 			config: &StatusCheckConfig{
-				AllowLabelOverride:   true,
-				MinOverrideThreshold: 50.0,
-				MaxOverrideThreshold: 95.0,
+				AllowLabelOverride: true,
 			},
-			expectedThreshold:   75.0,
+			expectedThreshold:   0.0, // Completely ignores coverage
 			expectedHasOverride: true,
 		},
 	}

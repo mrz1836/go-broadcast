@@ -310,15 +310,9 @@ COVERAGE_MAX_OVERRIDE_THRESHOLD=95.0  # Must be ≤ 95%
 
 #### Supported Labels
 
-The system recognizes these labels in PRs:
+The system recognizes this label in PRs:
 
-- **`coverage-override`**: Generic override (uses 60% threshold by default, adjusted to `COVERAGE_MIN_OVERRIDE_THRESHOLD` if higher)
-- **`coverage-override-60`**: Override threshold to 60%
-- **`coverage-override-70`**: Override threshold to 70%
-- **`coverage-override-80`**: Override threshold to 80%
-- **`coverage-override-90`**: Override threshold to 90%
-
-**Label Precedence**: Specific threshold labels (e.g., `coverage-override-70`) take precedence over the generic `coverage-override` label.
+- **`coverage-override`**: Completely ignores coverage requirements for this PR
 
 #### Usage Examples
 

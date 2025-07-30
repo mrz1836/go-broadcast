@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -347,48 +345,21 @@ func (m *StatusCheckManager) buildStatusChecks(ctx context.Context, request *Sta
 }
 
 // parseCoverageOverrideFromLabels extracts coverage threshold override from PR labels
+//
+//nolint:unparam // threshold is always 0 for the simplified override implementation
 func (m *StatusCheckManager) parseCoverageOverrideFromLabels(labels []Label) (float64, bool) {
 	if !m.config.AllowLabelOverride {
 		return 0, false
 	}
 
-	// Define patterns for coverage override labels
-	specificThresholdPattern := regexp.MustCompile(`^coverage-override-(\d+)$`)
-	genericOverridePattern := regexp.MustCompile(`^coverage-override$`)
-
-	var foundOverride bool
-	var overrideThreshold float64
-
+	// Check for generic override label that completely ignores coverage requirements
 	for _, label := range labels {
-		// Check for specific threshold labels (e.g., "coverage-override-70")
-		if matches := specificThresholdPattern.FindStringSubmatch(label.Name); len(matches) > 1 {
-			if threshold, err := strconv.ParseFloat(matches[1], 64); err == nil {
-				// Validate threshold is within allowed bounds
-				if m.config.MinOverrideThreshold > 0 && threshold < m.config.MinOverrideThreshold {
-					continue // Skip thresholds below minimum
-				}
-				if m.config.MaxOverrideThreshold > 0 && threshold > m.config.MaxOverrideThreshold {
-					continue // Skip thresholds above maximum
-				}
-				overrideThreshold = threshold
-				foundOverride = true
-				break // Use the first valid specific threshold found
-			}
-		}
-		// Check for generic override label (uses a default lower threshold)
-		if genericOverridePattern.MatchString(label.Name) {
-			// Set a reasonable default override threshold (e.g., 60%)
-			defaultOverride := 60.0
-			if m.config.MinOverrideThreshold > 0 && defaultOverride < m.config.MinOverrideThreshold {
-				defaultOverride = m.config.MinOverrideThreshold
-			}
-			overrideThreshold = defaultOverride
-			foundOverride = true
-			// Don't break here - specific thresholds take precedence
+		if label.Name == "coverage-override" {
+			return 0, true // Return 0% threshold (completely ignores coverage)
 		}
 	}
 
-	return overrideThreshold, foundOverride
+	return 0, false
 }
 
 // buildMainCoverageStatus builds the main coverage status
