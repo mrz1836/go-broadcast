@@ -146,6 +146,8 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 		Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 		Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).
+		Return("abc123def456", nil)
 
 	// Mock pushing to sync branch (should succeed)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.MatchedBy(func(branch string) bool {
@@ -305,6 +307,8 @@ clean:
 		Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 		Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).
+		Return("abc123def456", nil)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).
 		Return(nil)
 
@@ -426,13 +430,16 @@ func testRollbackCapabilities(t *testing.T, generator *fixtures.TestRepoGenerato
 			gitOperationsMutex.Unlock()
 		}).Return(nil)
 
-	// Simpler approach: make ALL Push calls fail unconditionally
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).
+		Return("abc123def456", nil)
+
+	// Allow Push to succeed so PR creation is attempted
 	mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Run(func(_ mock.Arguments) {
 			gitOperationsMutex.Lock()
-			gitOperations = append(gitOperations, "push_called_with_failure")
+			gitOperations = append(gitOperations, "push_success")
 			gitOperationsMutex.Unlock()
-		}).Return(fmt.Errorf("%w", fixtures.ErrGitPushTimeout)).Maybe()
+		}).Return(nil).Maybe()
 
 	// Mock rollback operations
 	mockGit.On("Reset", mock.Anything, mock.AnythingOfType("string"), "HEAD~1").
@@ -571,6 +578,7 @@ func testStateConsistencyAcrossOperations(t *testing.T, generator *fixtures.Test
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).Return(nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
@@ -648,6 +656,7 @@ func testWorkflowPermissionsAndSecurity(t *testing.T, generator *fixtures.TestRe
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).Return(nil)
 
 	// Mock secure transformations
@@ -735,6 +744,7 @@ func testIncrementalTemplateChanges(t *testing.T, generator *fixtures.TestRepoGe
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).Return(nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).

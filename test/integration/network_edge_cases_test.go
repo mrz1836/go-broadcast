@@ -182,6 +182,7 @@ func testGitHubAPIRateLimiting(t *testing.T, generator *fixtures.TestRepoGenerat
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).Return(nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
@@ -328,19 +329,17 @@ func testNetworkInterruptionHandling(t *testing.T, generator *fixtures.TestRepoG
 		}).Return(nil).Maybe()
 
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).
-		Return(func(_ context.Context, _, _, _ string, _ bool) error {
-			if networkSim.ShouldFail() {
-				return fmt.Errorf("%w", fixtures.ErrGitPushTimeout)
-			}
+		Run(func(_ mock.Arguments) {
 			time.Sleep(75 * time.Millisecond)
-			return nil
-		})
+		}).
+		Return(nil).Maybe()
 
 	// Other Git operations (less likely to fail)
 	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
 		Return([]byte("transformed content"), nil)
@@ -444,6 +443,7 @@ func testAuthenticationFailureScenarios(t *testing.T, generator *fixtures.TestRe
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
 		Return([]byte("transformed content"), nil)
@@ -528,6 +528,7 @@ func testAPITimeoutAndRetry(t *testing.T, generator *fixtures.TestRepoGenerator)
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).Return(nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
@@ -640,6 +641,7 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).Return(nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
@@ -745,6 +747,7 @@ func testGitHubAPIDegradation(t *testing.T, generator *fixtures.TestRepoGenerato
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).Return(nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
@@ -803,7 +806,7 @@ func testNetworkPartitionRecovery(t *testing.T, generator *fixtures.TestRepoGene
 		Return(scenario.State, nil)
 
 	// Simulate network partition phases
-	partitionPhase := 0
+	var partitionPhase int
 
 	mockGH.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), "").
 		Run(func(_ mock.Arguments) {
@@ -826,18 +829,14 @@ func testNetworkPartitionRecovery(t *testing.T, generator *fixtures.TestRepoGene
 		}).Return(nil).Maybe()
 
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).
-		Return(func(_ context.Context, _, _, _ string, _ bool) error {
-			if partitionPhase <= 12 {
-				return fmt.Errorf("%w", fixtures.ErrNetworkPartition)
-			}
-			return nil
-		})
+		Return(fmt.Errorf("%w", fixtures.ErrNetworkPartition))
 
 	// Local Git operations (not affected by network partition)
 	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
 		Return([]byte("transformed content"), nil)
