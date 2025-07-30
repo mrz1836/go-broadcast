@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/history"
-	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/prediction"
 )
 
 func TestNewPRImpactAnalyzer(t *testing.T) {
@@ -27,7 +26,7 @@ func TestNewPRImpactAnalyzer(t *testing.T) {
 		},
 	}
 
-	predictor := &prediction.CoveragePredictor{}
+	var predictor interface{}
 	historyAnalyzer := &history.TrendAnalyzer{}
 
 	analyzer := NewPRImpactAnalyzer(cfg, predictor, historyAnalyzer)
@@ -60,7 +59,7 @@ func TestAnalyzePRImpact(t *testing.T) {
 		EnableRecommendations: true,
 	}
 
-	predictor := &prediction.CoveragePredictor{}
+	var predictor interface{}
 	historyAnalyzer := &history.TrendAnalyzer{}
 	analyzer := NewPRImpactAnalyzer(cfg, predictor, historyAnalyzer)
 

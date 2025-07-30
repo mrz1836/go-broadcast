@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/history"
-	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/prediction"
 )
 
 // ErrPredictorNotAvailable indicates that the coverage predictor is not available
@@ -26,7 +25,7 @@ var ErrInvalidAnalysis = errors.New("analysis cannot be nil")
 // PRImpactAnalyzer analyzes the potential impact of pull requests on coverage
 type PRImpactAnalyzer struct {
 	config    *AnalyzerConfig
-	predictor *prediction.CoveragePredictor
+	predictor interface{} // CoveragePredictor not implemented
 	history   *history.TrendAnalyzer
 }
 
@@ -368,7 +367,7 @@ const (
 )
 
 // NewPRImpactAnalyzer creates a new PR impact analyzer
-func NewPRImpactAnalyzer(config *AnalyzerConfig, predictor *prediction.CoveragePredictor, history *history.TrendAnalyzer) *PRImpactAnalyzer {
+func NewPRImpactAnalyzer(config *AnalyzerConfig, predictor interface{}, history *history.TrendAnalyzer) *PRImpactAnalyzer {
 	if config == nil {
 		config = &AnalyzerConfig{
 			BaselinePeriod:        30 * 24 * time.Hour,
@@ -429,9 +428,7 @@ func (a *PRImpactAnalyzer) AnalyzePRImpact(ctx context.Context, changeSet *PRCha
 	}
 
 	// Step 2: Generate coverage predictions
-	if err := a.generatePredictions(ctx, changeSet, analysis); err != nil {
-		return nil, fmt.Errorf("failed to generate predictions: %w", err)
-	}
+	a.generatePredictions(ctx, changeSet, analysis)
 
 	// Step 3: Assess risk factors
 	if a.config.EnableRiskAssessment {
@@ -504,29 +501,27 @@ func (a *PRImpactAnalyzer) analyzeFileImpacts(_ context.Context, changeSet *PRCh
 }
 
 // generatePredictions creates coverage predictions based on the changes
-func (a *PRImpactAnalyzer) generatePredictions(ctx context.Context, _ *PRChangeSet, analysis *Analysis) error {
-	if a.predictor == nil {
-		return ErrPredictorNotAvailable
-	}
+func (a *PRImpactAnalyzer) generatePredictions(_ context.Context, _ *PRChangeSet, analysis *Analysis) {
+	// Skip prediction generation if predictor is not available
+	// This allows the analyzer to work without a predictor
 
-	// Generate short-term prediction (1 day)
-	shortTermPrediction, err := a.predictor.PredictCoverage(ctx)
-	if err == nil && len(shortTermPrediction.PointForecasts) > 0 {
-		// Use the first point forecast for short-term prediction
-		forecast := shortTermPrediction.PointForecasts[0]
+	// Generate short-term prediction (1 day) - placeholder implementation
+	if a.predictor != nil {
+		// Predictor functionality not implemented - using default values
+		defaultPrediction := analysis.BaselineCoverage // Assume no change for now
 
 		analysis.Predictions = append(analysis.Predictions, CoveragePrediction{
 			TimeHorizon: 24 * time.Hour,
-			Prediction:  forecast.PredictedCoverage,
-			Confidence:  shortTermPrediction.OverallConfidence,
+			Prediction:  defaultPrediction,
+			Confidence:  0.5, // Default confidence
 			Scenario:    "short_term_after_merge",
-			Assumptions: []string{"PR merged without additional changes", "Current trend continues"},
+			Assumptions: []string{"PR merged without additional changes", "No prediction model available"},
 		})
 
 		// Set main prediction values
-		analysis.PredictedCoverage = forecast.PredictedCoverage
-		analysis.CoverageChange = forecast.PredictedCoverage - analysis.BaselineCoverage
-		analysis.ConfidenceScore = shortTermPrediction.OverallConfidence
+		analysis.PredictedCoverage = defaultPrediction
+		analysis.CoverageChange = defaultPrediction - analysis.BaselineCoverage
+		analysis.ConfidenceScore = 0.5
 	}
 
 	// Generate medium-term prediction (7 days)
@@ -541,8 +536,6 @@ func (a *PRImpactAnalyzer) generatePredictions(ctx context.Context, _ *PRChangeS
 			Assumptions: []string{"Development velocity remains constant", "No major refactoring"},
 		})
 	}
-
-	return nil
 }
 
 // assessRisk performs comprehensive risk assessment

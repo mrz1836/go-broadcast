@@ -10,7 +10,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/charts"
 	"github.com/mrz1836/go-broadcast/coverage/internal/history"
 )
 
@@ -90,7 +89,7 @@ type TrendReport struct {
 	QualityMetrics QualityMetrics `json:"quality_metrics"`
 
 	// Chart data
-	ChartData *charts.ChartData `json:"chart_data"`
+	ChartData interface{} `json:"chart_data,omitempty"`
 
 	// Insights and recommendations
 	Insights        []Insight        `json:"insights"`
@@ -808,40 +807,10 @@ func (ta *TrendAnalyzer) calculateQualityMetrics() QualityMetrics {
 }
 
 // generateChartData creates chart data for visualization
-func (ta *TrendAnalyzer) generateChartData() *charts.ChartData {
-	points := make([]charts.DataPoint, 0, len(ta.data))
-
-	for _, point := range ta.data {
-		chartPoint := charts.DataPoint{
-			Timestamp: point.Timestamp,
-			Value:     point.Coverage,
-			Label:     fmt.Sprintf("%.1f%%", point.Coverage),
-			Metadata: charts.Metadata{
-				Branch:    point.Branch,
-				CommitSHA: point.CommitSHA,
-				PRNumber:  point.PRNumber,
-				Coverage:  point.Coverage,
-				Author:    point.Author,
-			},
-		}
-		points = append(points, chartPoint)
-	}
-
-	chartData := &charts.ChartData{
-		Points:     points,
-		Title:      "Coverage Trend Analysis",
-		XAxisLabel: "Time",
-		YAxisLabel: "Coverage (%)",
-	}
-
-	if len(ta.data) > 0 {
-		chartData.TimeRange = charts.TimeRange{
-			Start: ta.data[0].Timestamp,
-			End:   ta.data[len(ta.data)-1].Timestamp,
-		}
-	}
-
-	return chartData
+func (ta *TrendAnalyzer) generateChartData() interface{} {
+	// Chart functionality not implemented - return nil for now
+	// This could be implemented later with a proper charting library
+	return nil
 }
 
 // Helper methods for calculations and determinations
