@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/errors"
+	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/metrics"
@@ -213,6 +214,16 @@ func (rs *RepositorySync) processFiles(ctx context.Context) ([]FileChange, error
 	for _, fileMapping := range rs.target.Files {
 		change, err := rs.processFile(ctx, sourcePath, fileMapping)
 		if err != nil {
+			// Handle recoverable errors gracefully
+			if errors.Is(err, internalerrors.ErrTransformNotFound) {
+				rs.logger.WithField("file", fileMapping.Dest).Debug("File content unchanged, skipping")
+				continue
+			}
+			if errors.Is(err, internalerrors.ErrFileNotFound) {
+				rs.logger.WithField("file", fileMapping.Src).Debug("Source file not found, skipping")
+				continue
+			}
+			// For any other error, fail the operation
 			return nil, fmt.Errorf("failed to process file %s: %w", fileMapping.Src, err)
 		}
 
@@ -234,7 +245,7 @@ func (rs *RepositorySync) processFile(ctx context.Context, sourcePath string, fi
 	if err != nil {
 		if os.IsNotExist(err) {
 			rs.logger.WithField("file", fileMapping.Src).Warn("Source file not found, skipping")
-			return nil, errors.ErrFileNotFound
+			return nil, internalerrors.ErrFileNotFound
 		}
 		return nil, err
 	}
@@ -259,7 +270,7 @@ func (rs *RepositorySync) processFile(ctx context.Context, sourcePath string, fi
 	existingContent, err := rs.getExistingFileContent(ctx, fileMapping.Dest)
 	if err == nil && string(existingContent) == string(transformedContent) {
 		rs.logger.WithField("file", fileMapping.Dest).Debug("File content unchanged, skipping")
-		return nil, errors.ErrTransformNotFound
+		return nil, internalerrors.ErrTransformNotFound
 	}
 
 	return &FileChange{
@@ -312,7 +323,7 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 // commitChanges creates a commit with the changed files
 func (rs *RepositorySync) commitChanges(_ context.Context, branchName string, changedFiles []FileChange) (string, error) {
 	if len(changedFiles) == 0 {
-		return "", errors.ErrNoFilesToCommit
+		return "", internalerrors.ErrNoFilesToCommit
 	}
 
 	// Generate commit message

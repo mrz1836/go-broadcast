@@ -157,10 +157,12 @@ func (g *githubClient) GetPR(ctx context.Context, repo string, number int) (*PR,
 
 // ListPRs lists pull requests for a repository
 func (g *githubClient) ListPRs(ctx context.Context, repo, state string) ([]PR, error) {
-	args := []string{"api", fmt.Sprintf("repos/%s/pulls", repo), "--paginate"}
+	apiURL := fmt.Sprintf("repos/%s/pulls", repo)
 	if state != "" && state != "all" {
-		args = append(args, "-f", fmt.Sprintf("state=%s", state))
+		apiURL += fmt.Sprintf("?state=%s", state)
 	}
+
+	args := []string{"api", apiURL, "--paginate"}
 
 	output, err := g.runner.Run(ctx, "gh", args...)
 	if err != nil {

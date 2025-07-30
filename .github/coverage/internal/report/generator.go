@@ -316,7 +316,7 @@ func (g *Generator) buildReportData(ctx context.Context, coverage *parser.Covera
 		})
 	}
 
-	// For now, use simple defaults for history (TODO: implement file-based history)
+	// For now, use simple defaults for history
 	changeStatus := "stable"
 	previousCoverage := 0.0
 

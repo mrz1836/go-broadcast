@@ -161,7 +161,7 @@ func TestListPRs(t *testing.T) {
 	output, err := json.Marshal(prs)
 	require.NoError(t, err)
 
-	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls", "--paginate", "-f", "state=open"}).
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls?state=open", "--paginate"}).
 		Return(output, nil)
 
 	result, err := client.ListPRs(ctx, "org/repo", "open")

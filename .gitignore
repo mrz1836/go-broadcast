@@ -1,33 +1,33 @@
 ########################
+# Project Configuration #
+########################
+
+# Sync configuration files
+sync.yaml
+sync.yaml
+
+########################
 # Go Language          #
 ########################
 
-# Binary files
+# Binaries
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
-# Project main binary
 go-broadcast
 
-# Test binaries
+# Test files
 *.test
+*.out
 
 # Go tools
 go.list
-*.out
 
-# Coverage reports
-coverage.txt
-coverage.out
-
-# Profiling data
+# Profiling and benchmarks
 profiles/
 *.prof
-
-# Benchmark artifacts
 bench-old.txt
 bench-new.txt
 
@@ -35,11 +35,20 @@ bench-new.txt
 testdata
 internal/fuzz/corpus/
 
-# Coverage
+########################
+# Coverage & Testing   #
+########################
+
+# Coverage reports
+coverage.txt
+coverage.out
+
+# Coverage binaries
 .github/coverage/cmd/gofortress-coverage/gofortress-coverage
 .github/coverage/gofortress-coverage
+/.github/coverage/cmd/gofortress-coverage/gofortress-coverage
 
-# Coverage output directories (build artifacts)
+# Coverage output directories
 coverage-output/
 test-coverage-output/
 .github/coverage/coverage-output/
@@ -53,19 +62,18 @@ test-coverage-output/
 .github/coverage/**/dashboard.html
 .github/coverage/**/index.html
 
-artifact
-
-# Coverage history files (generated during coverage processing)
-# Note: History files are now tracked to maintain coverage evolution
-/.github/coverage/cmd/gofortress-coverage/gofortress-coverage
+# Example binaries
 examples/monitor/simple
 examples/monitor/advanced
+
+# Artifacts
+artifact
 
 ########################
 # Development Tools    #
 ########################
 
-# IDEs and Editors
+# IDEs and editors
 .idea/
 .project
 
