@@ -61,6 +61,7 @@ func init() {
 	// Initialize command flags
 	initStatus()
 	initVersion()
+	initCancel()
 
 	// Add commands
 	rootCmd.AddCommand(syncCmd)
@@ -68,6 +69,7 @@ func init() {
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(diagnoseCmd)
+	rootCmd.AddCommand(cancelCmd)
 }
 
 // NewRootCmd creates a new isolated root command instance for testing
@@ -104,6 +106,7 @@ state locally. It supports file transformations and provides progress tracking.`
 	cmd.AddCommand(createValidateCmd(flags))
 	cmd.AddCommand(createVersionCmd(flags))
 	cmd.AddCommand(createDiagnoseCmd(flags))
+	cmd.AddCommand(createCancelCmd(flags))
 
 	return cmd
 }
@@ -141,6 +144,7 @@ state locally. It supports file transformations and provides progress tracking.`
 	cmd.AddCommand(createValidateCmdWithVerbose(logConfig))
 	cmd.AddCommand(createVersionCmdWithVerbose(logConfig))
 	cmd.AddCommand(createDiagnoseCmdWithVerbose(logConfig))
+	cmd.AddCommand(createCancelCmdWithVerbose(logConfig))
 
 	return cmd
 }
@@ -762,5 +766,86 @@ func createRunVersionWithVerbose(_ *LogConfig) func(*cobra.Command, []string) er
 
 		// Use the same implementation as the global version command
 		return runVersion(cmd, []string{})
+	}
+}
+
+// createCancelCmd creates an isolated cancel command with the given flags
+func createCancelCmd(flags *Flags) *cobra.Command {
+	return &cobra.Command{
+		Use:   "cancel [targets...]",
+		Short: "Cancel active sync operations",
+		Long: `Cancel active sync operations by closing open pull requests and optionally deleting sync branches.
+
+This command finds all open sync pull requests for the specified targets (or all targets if none specified)
+and closes them with a descriptive comment. By default, it also deletes the associated sync branches
+to clean up the repositories.`,
+		Example: `  # Cancel all active syncs
+  go-broadcast cancel --config sync.yaml
+
+  # Cancel syncs for specific repositories  
+  go-broadcast cancel org/repo1 org/repo2
+
+  # Preview what would be canceled (dry run)
+  go-broadcast cancel --dry-run --config sync.yaml
+
+  # Close PRs but keep sync branches
+  go-broadcast cancel --keep-branches --config sync.yaml`,
+		Aliases: []string{"c"},
+		RunE:    createRunCancel(flags),
+	}
+}
+
+// createCancelCmdWithVerbose creates a cancel command with verbose logging support
+func createCancelCmdWithVerbose(config *LogConfig) *cobra.Command {
+	return &cobra.Command{
+		Use:   "cancel [targets...]",
+		Short: "Cancel active sync operations",
+		Long: `Cancel active sync operations by closing open pull requests and optionally deleting sync branches.
+
+This command finds all open sync pull requests for the specified targets (or all targets if none specified)
+and closes them with a descriptive comment. By default, it also deletes the associated sync branches
+to clean up the repositories.`,
+		Example: `  # Cancel all active syncs
+  go-broadcast cancel --config sync.yaml
+
+  # Cancel syncs for specific repositories  
+  go-broadcast cancel org/repo1 org/repo2
+
+  # Preview what would be canceled (dry run)
+  go-broadcast cancel --dry-run --config sync.yaml
+
+  # Debug cancel operations
+  go-broadcast cancel -v --debug-api --config sync.yaml`,
+		Aliases: []string{"c"},
+		RunE:    createRunCancelWithVerbose(config),
+	}
+}
+
+// createRunCancel creates an isolated cancel run function with the given flags
+func createRunCancel(_ *Flags) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+
+		// Get isolated logger from context, fallback to global if not available
+		logger, ok := ctx.Value(loggerContextKey{}).(*logrus.Logger)
+		if !ok {
+			logger = logrus.StandardLogger()
+		}
+		_ = logger.WithField("command", "cancel")
+
+		// For now, delegate to the global cancel implementation
+		// This maintains functionality while providing isolated flag support
+		return runCancel(cmd, args)
+	}
+}
+
+// createRunCancelWithVerbose creates a cancel run function with verbose logging support
+func createRunCancelWithVerbose(_ *LogConfig) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		log := logrus.WithField("command", "cancel")
+		_ = log
+
+		// For Phase 1, delegate to existing cancel implementation
+		return runCancel(cmd, args)
 	}
 }
