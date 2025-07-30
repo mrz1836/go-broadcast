@@ -7,22 +7,27 @@ source:
   repo: "company/microservices-template"
   branch: "master"
 
-defaults:
-  branch_prefix: "sync/tooling"
+global:
+  # Global PR settings applied to all microservices
   pr_labels:
     - "automated-sync"
     - "tooling-update"
-    - "ci-cd"
   pr_assignees:
     - "platform-team-lead"
-  pr_reviewers:
-    - "senior-developer"
-    - "devops-engineer"
   pr_team_reviewers:
     - "platform-team"
 
+defaults:
+  branch_prefix: "sync/tooling"
+  # Fallback settings (used only if no global or target settings)
+  pr_labels:
+    - "maintenance"
+  pr_reviewers:
+    - "senior-developer"
+    - "devops-engineer"
+
 targets:
-  # User service
+  # User service (uses global PR settings only)
   - repo: "company/user-service"
     files:
       # CI/CD pipeline
@@ -46,8 +51,12 @@ targets:
         SERVICE_NAME: "user-service"
         SERVICE_PORT: "8001"
         DATABASE_NAME: "users"
+    # Inherits global settings:
+    # Labels: ["automated-sync", "tooling-update"]
+    # Assignees: ["platform-team-lead"]
+    # Team reviewers: ["platform-team"]
 
-  # Order service
+  # Order service (uses global PR settings only)
   - repo: "company/order-service"
     files:
       - src: ".github/workflows/ci.yml"
@@ -68,6 +77,10 @@ targets:
         SERVICE_NAME: "order-service"
         SERVICE_PORT: "8002"
         DATABASE_NAME: "orders"
+    # Inherits global settings:
+    # Labels: ["automated-sync", "tooling-update"]
+    # Assignees: ["platform-team-lead"]
+    # Team reviewers: ["platform-team"]
 
   # Payment service (critical service with security team review)
   - repo: "company/payment-service"
@@ -94,21 +107,25 @@ targets:
         SERVICE_PORT: "8003"
         DATABASE_NAME: "payments"
         SECURITY_LEVEL: "high"
-    # Payment service requires additional security review
+    # Payment service requires additional security review (merged with global)
+    # Final labels: ["automated-sync", "tooling-update", "security-critical", "payment-service", "requires-security-review"]
     pr_labels:
       - "security-critical"
       - "payment-service"
       - "requires-security-review"
+    # Final assignees: ["platform-team-lead", "payment-team-lead"]
     pr_assignees:
       - "payment-team-lead"
+    # Final reviewers: ["security-engineer", "senior-developer"] (no global reviewers set)
     pr_reviewers:
       - "security-engineer"
       - "senior-developer"
+    # Final team reviewers: ["platform-team", "security-team", "payment-team"]
     pr_team_reviewers:
       - "security-team"
       - "payment-team"
 
-  # Gateway service (different file structure)
+  # Gateway service (different file structure, uses global PR settings only)
   - repo: "company/api-gateway"
     files:
       - src: ".github/workflows/ci.yml"
@@ -130,3 +147,7 @@ targets:
         SERVICE_NAME: "api-gateway"
         SERVICE_PORT: "8000"
         UPSTREAM_SERVICES: "user-service,order-service,payment-service"
+    # Inherits global settings:
+    # Labels: ["automated-sync", "tooling-update"]
+    # Assignees: ["platform-team-lead"]
+    # Team reviewers: ["platform-team"]

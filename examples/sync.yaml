@@ -9,29 +9,42 @@ source:
   # Branch to sync from (defaults to "master" if not specified)
   branch: "master"
 
-# Default settings applied to all targets
+# Global settings applied to all PRs (merged with target-specific settings)
+global:
+  # Global labels applied to ALL PRs (merged with target-specific labels)
+  pr_labels:
+    - "automated-sync"
+    - "chore"
+  # Global assignees for ALL PRs (merged with target-specific assignees)
+  pr_assignees:
+    - "platform-team"
+  # Global reviewers for ALL PRs (merged with target-specific reviewers)
+  pr_reviewers:
+    - "platform-lead"
+  # Global team reviewers for ALL PRs (merged with target-specific team reviewers)
+  pr_team_reviewers:
+    - "infrastructure-team"
+
+# Default settings applied to all targets (fallback when no global or target settings)
 defaults:
   # Prefix for sync branches (defaults to "sync/template")
   branch_prefix: "sync/template"
-  # Labels to apply to PRs (defaults to ["automated-sync"])
+  # Default labels (used only if no global or target labels specified)
   pr_labels:
-    - "automated-sync"
-    - "template-update"
-  # Default assignees for all PRs
+    - "maintenance"
+  # Default assignees (used only if no global or target assignees specified)
   pr_assignees:
     - "maintainer1"
-    - "maintainer2"
-  # Default reviewers for all PRs
+  # Default reviewers (used only if no global or target reviewers specified)
   pr_reviewers:
-    - "reviewer1"
-    - "reviewer2"
-  # Default team reviewers for all PRs
+    - "default-reviewer"
+  # Default team reviewers (used only if no global or target team reviewers specified)
   pr_team_reviewers:
-    - "platform-team"
+    - "default-team"
 
 # Target repositories to sync to
 targets:
-  # First target repository
+  # First target repository (uses only global PR settings)
   - repo: "org/service-a"
     # Files to sync from source to target
     files:
@@ -52,26 +65,35 @@ targets:
       variables:
         SERVICE_NAME: "service-a"
         PORT: "8080"
+    # This repository inherits global PR settings:
+    # Labels: ["automated-sync", "chore"]
+    # Assignees: ["platform-team"]
+    # Reviewers: ["platform-lead"]
+    # Team reviewers: ["infrastructure-team"]
 
-  # Second target repository with overridden PR settings
+  # Second target repository with additional PR settings (merged with global)
   - repo: "org/service-b"
     files:
       - src: ".github/workflows/ci.yml"
         dest: ".github/workflows/ci.yml"
       - src: "scripts/test.sh"
         dest: "scripts/test.sh"
-    # Override default PR settings for this specific repository
+    # Additional PR settings for this specific repository (merged with global)
+    # Final labels will be: ["automated-sync", "chore", "service-b", "high-priority"]
     pr_labels:
       - "service-b"
       - "high-priority"
+    # Final assignees will be: ["platform-team", "service-b-owner"]
     pr_assignees:
       - "service-b-owner"
+    # Final reviewers will be: ["platform-lead", "service-b-lead"]
     pr_reviewers:
       - "service-b-lead"
+    # Final team reviewers will be: ["infrastructure-team", "service-b-team"]
     pr_team_reviewers:
       - "service-b-team"
 
-  # Third target repository with different destination paths
+  # Third target repository with different destination paths (uses only global settings)
   - repo: "org/service-c"
     files:
       # Can rename files during sync
@@ -80,3 +102,8 @@ targets:
       # Can sync to different directory structure
       - src: "configs/default.yaml"
         dest: "config/app.yaml"
+    # This repository also inherits global PR settings:
+    # Labels: ["automated-sync", "chore"]
+    # Assignees: ["platform-team"]
+    # Reviewers: ["platform-lead"]
+    # Team reviewers: ["infrastructure-team"]
