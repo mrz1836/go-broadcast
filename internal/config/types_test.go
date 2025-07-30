@@ -75,6 +75,10 @@ func TestTargetConfigDefaults(t *testing.T) {
 	assert.Nil(t, target.Files)
 	assert.False(t, target.Transform.RepoName)
 	assert.Nil(t, target.Transform.Variables)
+	assert.Nil(t, target.PRLabels)
+	assert.Nil(t, target.PRAssignees)
+	assert.Nil(t, target.PRReviewers)
+	assert.Nil(t, target.PRTeamReviewers)
 }
 
 // TestFileMappingDefaults tests FileMapping zero values
@@ -204,4 +208,83 @@ func TestTransformVariablesModification(t *testing.T) {
 	assert.Len(t, transform.Variables, 1)
 	_, exists := transform.Variables["KEY2"]
 	assert.False(t, exists)
+}
+
+// TestTargetConfigPRFields tests TargetConfig PR-related fields
+func TestTargetConfigPRFields(t *testing.T) {
+	t.Run("all PR fields can be set and accessed", func(t *testing.T) {
+		target := TargetConfig{
+			Repo:            "org/service",
+			PRLabels:        []string{"label1", "label2"},
+			PRAssignees:     []string{"user1", "user2"},
+			PRReviewers:     []string{"reviewer1"},
+			PRTeamReviewers: []string{"team1", "team2"},
+		}
+
+		assert.Equal(t, "org/service", target.Repo)
+		assert.Equal(t, []string{"label1", "label2"}, target.PRLabels)
+		assert.Equal(t, []string{"user1", "user2"}, target.PRAssignees)
+		assert.Equal(t, []string{"reviewer1"}, target.PRReviewers)
+		assert.Equal(t, []string{"team1", "team2"}, target.PRTeamReviewers)
+	})
+
+	t.Run("PR fields can be empty slices", func(t *testing.T) {
+		target := TargetConfig{
+			Repo:            "org/service",
+			PRLabels:        []string{},
+			PRAssignees:     []string{},
+			PRReviewers:     []string{},
+			PRTeamReviewers: []string{},
+		}
+
+		assert.Empty(t, target.PRLabels)
+		assert.Empty(t, target.PRAssignees)
+		assert.Empty(t, target.PRReviewers)
+		assert.Empty(t, target.PRTeamReviewers)
+	})
+
+	t.Run("single element PR fields", func(t *testing.T) {
+		target := TargetConfig{
+			Repo:            "org/service",
+			PRLabels:        []string{"single-label"},
+			PRAssignees:     []string{"single-user"},
+			PRReviewers:     []string{"single-reviewer"},
+			PRTeamReviewers: []string{"single-team"},
+		}
+
+		assert.Len(t, target.PRLabels, 1)
+		assert.Equal(t, "single-label", target.PRLabels[0])
+		assert.Len(t, target.PRAssignees, 1)
+		assert.Equal(t, "single-user", target.PRAssignees[0])
+		assert.Len(t, target.PRReviewers, 1)
+		assert.Equal(t, "single-reviewer", target.PRReviewers[0])
+		assert.Len(t, target.PRTeamReviewers, 1)
+		assert.Equal(t, "single-team", target.PRTeamReviewers[0])
+	})
+
+	t.Run("PR fields can be modified after creation", func(t *testing.T) {
+		target := TargetConfig{
+			Repo: "org/service",
+		}
+
+		// Initially nil/empty
+		assert.Nil(t, target.PRLabels)
+		assert.Nil(t, target.PRAssignees)
+
+		// Add labels
+		target.PRLabels = append(target.PRLabels, "new-label")
+		target.PRAssignees = append(target.PRAssignees, "new-assignee")
+
+		assert.Len(t, target.PRLabels, 1)
+		assert.Equal(t, "new-label", target.PRLabels[0])
+		assert.Len(t, target.PRAssignees, 1)
+		assert.Equal(t, "new-assignee", target.PRAssignees[0])
+
+		// Add more
+		target.PRLabels = append(target.PRLabels, "another-label")
+		target.PRAssignees = append(target.PRAssignees, "another-assignee")
+
+		assert.Len(t, target.PRLabels, 2)
+		assert.Len(t, target.PRAssignees, 2)
+	})
 }

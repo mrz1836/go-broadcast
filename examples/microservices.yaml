@@ -95,6 +95,10 @@ targets:
         DATABASE_NAME: "payments"
         SECURITY_LEVEL: "high"
     # Payment service requires additional security review
+    pr_labels:
+      - "security-critical"
+      - "payment-service"
+      - "requires-security-review"
     pr_assignees:
       - "payment-team-lead"
     pr_reviewers:

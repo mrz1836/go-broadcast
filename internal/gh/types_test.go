@@ -125,10 +125,14 @@ func TestPR_NilMergedAt(t *testing.T) {
 
 func TestPRRequest_JSONMarshaling(t *testing.T) {
 	req := PRRequest{
-		Title: "New Feature",
-		Body:  "This PR adds a new feature",
-		Head:  "feature-branch",
-		Base:  "main",
+		Title:         "New Feature",
+		Body:          "This PR adds a new feature",
+		Head:          "feature-branch",
+		Base:          "main",
+		Labels:        []string{"enhancement", "bug-fix"},
+		Assignees:     []string{"user1", "user2"},
+		Reviewers:     []string{"reviewer1"},
+		TeamReviewers: []string{"team1"},
 	}
 
 	// Test marshaling
@@ -138,6 +142,8 @@ func TestPRRequest_JSONMarshaling(t *testing.T) {
 	require.Contains(t, string(data), `"body":"This PR adds a new feature"`)
 	require.Contains(t, string(data), `"head":"feature-branch"`)
 	require.Contains(t, string(data), `"base":"main"`)
+	require.Contains(t, string(data), `"labels":["enhancement","bug-fix"]`)
+	require.Contains(t, string(data), `"assignees":["user1","user2"]`)
 
 	// Test unmarshaling
 	var decoded PRRequest
@@ -147,6 +153,88 @@ func TestPRRequest_JSONMarshaling(t *testing.T) {
 	require.Equal(t, req.Body, decoded.Body)
 	require.Equal(t, req.Head, decoded.Head)
 	require.Equal(t, req.Base, decoded.Base)
+	require.Equal(t, req.Labels, decoded.Labels)
+	require.Equal(t, req.Assignees, decoded.Assignees)
+	require.Equal(t, req.Reviewers, decoded.Reviewers)
+	require.Equal(t, req.TeamReviewers, decoded.TeamReviewers)
+}
+
+// TestPRRequest_LabelsHandling tests various scenarios for PR labels
+func TestPRRequest_LabelsHandling(t *testing.T) {
+	t.Run("empty labels are omitted from JSON", func(t *testing.T) {
+		req := PRRequest{
+			Title: "Test PR",
+			Body:  "Test body",
+			Head:  "test-branch",
+			Base:  "main",
+			// Labels is nil/empty
+		}
+
+		data, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		// Should not contain labels field due to omitempty
+		require.NotContains(t, string(data), `"labels"`)
+	})
+
+	t.Run("single label works correctly", func(t *testing.T) {
+		req := PRRequest{
+			Title:  "Test PR",
+			Body:   "Test body",
+			Head:   "test-branch",
+			Base:   "main",
+			Labels: []string{"single-label"},
+		}
+
+		data, err := json.Marshal(req)
+		require.NoError(t, err)
+		require.Contains(t, string(data), `"labels":["single-label"]`)
+
+		var decoded PRRequest
+		err = json.Unmarshal(data, &decoded)
+		require.NoError(t, err)
+		require.Equal(t, []string{"single-label"}, decoded.Labels)
+	})
+
+	t.Run("multiple labels work correctly", func(t *testing.T) {
+		req := PRRequest{
+			Title:  "Test PR",
+			Body:   "Test body",
+			Head:   "test-branch",
+			Base:   "main",
+			Labels: []string{"label1", "label2", "label3"},
+		}
+
+		data, err := json.Marshal(req)
+		require.NoError(t, err)
+		require.Contains(t, string(data), `"labels":["label1","label2","label3"]`)
+
+		var decoded PRRequest
+		err = json.Unmarshal(data, &decoded)
+		require.NoError(t, err)
+		require.Equal(t, []string{"label1", "label2", "label3"}, decoded.Labels)
+	})
+
+	t.Run("empty slice is omitted due to omitempty", func(t *testing.T) {
+		req := PRRequest{
+			Title:  "Test PR",
+			Body:   "Test body",
+			Head:   "test-branch",
+			Base:   "main",
+			Labels: []string{}, // Explicitly empty slice - will be omitted due to omitempty
+		}
+
+		data, err := json.Marshal(req)
+		require.NoError(t, err)
+		// Empty slice with omitempty is omitted from JSON
+		require.NotContains(t, string(data), `"labels"`)
+
+		var decoded PRRequest
+		err = json.Unmarshal(data, &decoded)
+		require.NoError(t, err)
+		// After unmarshaling without labels field, slice will be nil
+		require.Nil(t, decoded.Labels)
+	})
 }
 
 func TestCommit_JSONMarshaling(t *testing.T) {

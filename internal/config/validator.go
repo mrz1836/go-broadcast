@@ -362,6 +362,27 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 		}
 	}
 
+	// Validate PR labels for this target
+	if logConfig != nil && logConfig.Debug.Config {
+		logger.WithField("label_count", len(t.PRLabels)).Trace("Validating target-specific PR labels")
+	}
+
+	for i, label := range t.PRLabels {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithFields(logrus.Fields{
+				"label_index": i,
+				"label":       label,
+			}).Trace("Validating target PR label")
+		}
+
+		if err := validation.ValidateNonEmpty("target PR label", label); err != nil {
+			if logConfig != nil && logConfig.Debug.Config {
+				logger.WithField("label_index", i).Error("Empty target PR label found")
+			}
+			return err
+		}
+	}
+
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.Debug("Target configuration validation completed successfully")
 	}

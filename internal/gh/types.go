@@ -44,6 +44,7 @@ type PRRequest struct {
 	Body          string   `json:"body"`
 	Head          string   `json:"head"`                     // source branch
 	Base          string   `json:"base"`                     // target branch
+	Labels        []string `json:"labels,omitempty"`         // Labels to apply to PR
 	Assignees     []string `json:"assignees,omitempty"`      // GitHub usernames to assign
 	Reviewers     []string `json:"reviewers,omitempty"`      // GitHub usernames to request reviews from
 	TeamReviewers []string `json:"team_reviewers,omitempty"` // GitHub team slugs to request reviews from

@@ -402,6 +402,126 @@ targets:
 	assert.Equal(t, "true", vars["ENABLED"])
 }
 
+// TestLoadFromReader_TargetPRLabels tests parsing of target-level PR labels
+func TestLoadFromReader_TargetPRLabels(t *testing.T) {
+	t.Run("target with pr_labels overrides defaults", func(t *testing.T) {
+		input := `
+version: 1
+source:
+  repo: "org/source"
+  branch: "main"
+defaults:
+  pr_labels: ["default-label1", "default-label2"]
+targets:
+  - repo: "org/target1"
+    pr_labels: ["custom-label1", "custom-label2"]
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+  - repo: "org/target2"
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+`
+
+		reader := strings.NewReader(input)
+		cfg, err := LoadFromReader(reader)
+		require.NoError(t, err)
+		require.NotNil(t, cfg)
+
+		// Verify defaults
+		assert.Equal(t, []string{"default-label1", "default-label2"}, cfg.Defaults.PRLabels)
+
+		// Verify targets
+		require.Len(t, cfg.Targets, 2)
+
+		// First target should have custom labels
+		assert.Equal(t, "org/target1", cfg.Targets[0].Repo)
+		assert.Equal(t, []string{"custom-label1", "custom-label2"}, cfg.Targets[0].PRLabels)
+
+		// Second target should have no labels (will use defaults at runtime)
+		assert.Equal(t, "org/target2", cfg.Targets[1].Repo)
+		assert.Nil(t, cfg.Targets[1].PRLabels)
+	})
+
+	t.Run("target with empty pr_labels array", func(t *testing.T) {
+		input := `
+version: 1
+source:
+  repo: "org/source"
+defaults:
+  pr_labels: ["default-label"]
+targets:
+  - repo: "org/target"
+    pr_labels: []
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+`
+
+		reader := strings.NewReader(input)
+		cfg, err := LoadFromReader(reader)
+		require.NoError(t, err)
+		require.NotNil(t, cfg)
+
+		// Target should have empty slice (not nil)
+		require.Len(t, cfg.Targets, 1)
+		assert.NotNil(t, cfg.Targets[0].PRLabels)
+		assert.Empty(t, cfg.Targets[0].PRLabels)
+	})
+
+	t.Run("target with single pr_label", func(t *testing.T) {
+		input := `
+version: 1
+source:
+  repo: "org/source"
+targets:
+  - repo: "org/target"
+    pr_labels: ["single-label"]
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+`
+
+		reader := strings.NewReader(input)
+		cfg, err := LoadFromReader(reader)
+		require.NoError(t, err)
+		require.NotNil(t, cfg)
+
+		require.Len(t, cfg.Targets, 1)
+		assert.Equal(t, []string{"single-label"}, cfg.Targets[0].PRLabels)
+	})
+
+	t.Run("target with all PR fields", func(t *testing.T) {
+		input := `
+version: 1
+source:
+  repo: "org/source"
+targets:
+  - repo: "org/target"
+    pr_labels: ["label1", "label2"]
+    pr_assignees: ["user1", "user2"]
+    pr_reviewers: ["reviewer1"]
+    pr_team_reviewers: ["team1", "team2"]
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+`
+
+		reader := strings.NewReader(input)
+		cfg, err := LoadFromReader(reader)
+		require.NoError(t, err)
+		require.NotNil(t, cfg)
+
+		require.Len(t, cfg.Targets, 1)
+		target := cfg.Targets[0]
+		assert.Equal(t, []string{"label1", "label2"}, target.PRLabels)
+		assert.Equal(t, []string{"user1", "user2"}, target.PRAssignees)
+		assert.Equal(t, []string{"reviewer1"}, target.PRReviewers)
+		assert.Equal(t, []string{"team1", "team2"}, target.PRTeamReviewers)
+	})
+}
+
 // errorReader is a mock reader that always returns an error
 type errorReader struct {
 	err error

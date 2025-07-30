@@ -781,3 +781,114 @@ func TestRepositorySync_getPRTeamReviewers(t *testing.T) {
 		assert.Equal(t, []string{"default-team1", "default-team2"}, teamReviewers)
 	})
 }
+
+// TestRepositorySync_getPRLabels tests the PR labels resolution logic
+func TestRepositorySync_getPRLabels(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+
+	t.Run("uses target-specific labels when present", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{
+				PRLabels: []string{"default-label1", "default-label2"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo:     "org/target",
+			PRLabels: []string{"target-label1", "target-label2"},
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		labels := rs.getPRLabels()
+		assert.Equal(t, []string{"target-label1", "target-label2"}, labels)
+	})
+
+	t.Run("uses default labels when target has none", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{
+				PRLabels: []string{"automated-sync", "maintenance"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo: "org/target",
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		labels := rs.getPRLabels()
+		assert.Equal(t, []string{"automated-sync", "maintenance"}, labels)
+	})
+
+	t.Run("returns empty slice when neither target nor defaults have labels", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{},
+		}
+
+		target := config.TargetConfig{
+			Repo: "org/target",
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		labels := rs.getPRLabels()
+		assert.Empty(t, labels)
+	})
+
+	t.Run("target empty slice overrides defaults", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{
+				PRLabels: []string{"default-label"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo:     "org/target",
+			PRLabels: []string{}, // Explicitly empty
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		labels := rs.getPRLabels()
+		assert.Equal(t, []string{"default-label"}, labels) // Should use defaults since target slice is empty
+	})
+
+	t.Run("single label works correctly", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{
+				PRLabels: []string{"automated-sync"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo:     "org/target",
+			PRLabels: []string{"custom-label"},
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		labels := rs.getPRLabels()
+		assert.Equal(t, []string{"custom-label"}, labels)
+	})
+}

@@ -305,6 +305,28 @@ func TestValidate_EmptyPRLabel(t *testing.T) {
 	assert.Contains(t, err.Error(), "cannot be empty")
 }
 
+func TestValidate_EmptyTargetPRLabel(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
+		Defaults: DefaultConfig{
+			PRLabels: []string{"default-label"},
+		},
+		Targets: []TargetConfig{
+			{
+				Repo:     "org/target",
+				Files:    []FileMapping{{Src: "f", Dest: "f"}},
+				PRLabels: []string{"valid", "  ", "another"}, // Empty label should cause validation error
+			},
+		},
+	}
+
+	err := config.ValidateWithLogging(context.Background(), nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target PR label")
+	assert.Contains(t, err.Error(), "cannot be empty")
+}
+
 func TestLoad_FileNotFound(t *testing.T) {
 	config, err := Load("/non/existent/file.yaml")
 	require.Error(t, err)

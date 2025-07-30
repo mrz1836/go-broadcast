@@ -486,6 +486,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 		Body:          body,
 		Head:          branchName,
 		Base:          baseBranch,
+		Labels:        rs.getPRLabels(),
 		Assignees:     rs.getPRAssignees(),
 		Reviewers:     rs.getPRReviewers(),
 		TeamReviewers: rs.getPRTeamReviewers(),
@@ -773,6 +774,14 @@ func (rs *RepositorySync) getPRReviewers() []string {
 		return rs.target.PRReviewers
 	}
 	return rs.engine.config.Defaults.PRReviewers
+}
+
+// getPRLabels returns the labels to use for PRs, with target overriding defaults
+func (rs *RepositorySync) getPRLabels() []string {
+	if len(rs.target.PRLabels) > 0 {
+		return rs.target.PRLabels
+	}
+	return rs.engine.config.Defaults.PRLabels
 }
 
 // getPRTeamReviewers returns the team reviewers to use for PRs, with target overriding defaults

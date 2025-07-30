@@ -61,6 +61,9 @@ targets:
       - src: "scripts/test.sh"
         dest: "scripts/test.sh"
     # Override default PR settings for this specific repository
+    pr_labels:
+      - "service-b"
+      - "high-priority"
     pr_assignees:
       - "service-b-owner"
     pr_reviewers:

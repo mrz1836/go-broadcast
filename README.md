@@ -429,9 +429,10 @@ targets:
       repo_name: true
 ```
 
-**Automated PR management with assignees and reviewers:**
+**Automated PR management with assignees, reviewers, and labels:**
 ```yaml
 defaults:
+  pr_labels: ["automated-sync", "template-update"]
   pr_assignees: ["tech-lead", "platform-team"]
   pr_reviewers: ["senior-dev1", "senior-dev2"]  
   pr_team_reviewers: ["architecture-team"]
@@ -441,6 +442,7 @@ targets:
       - src: "security/policies.yml"
         dest: "security/policies.yml"
     # Critical service needs security team review
+    pr_labels: ["security-update", "high-priority"]
     pr_assignees: ["security-lead"]
     pr_reviewers: ["security-engineer"]
     pr_team_reviewers: ["security-team"]

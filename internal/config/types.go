@@ -28,6 +28,7 @@ type TargetConfig struct {
 	Repo            string        `yaml:"repo"`                        // Format: org/repo
 	Files           []FileMapping `yaml:"files"`                       // Files to sync
 	Transform       Transform     `yaml:"transform,omitempty"`         // Optional transformations
+	PRLabels        []string      `yaml:"pr_labels,omitempty"`         // Override default PR labels
 	PRAssignees     []string      `yaml:"pr_assignees,omitempty"`      // Override default PR assignees
 	PRReviewers     []string      `yaml:"pr_reviewers,omitempty"`      // Override default PR reviewers
 	PRTeamReviewers []string      `yaml:"pr_team_reviewers,omitempty"` // Override default PR team reviewers
