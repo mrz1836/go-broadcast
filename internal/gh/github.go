@@ -147,7 +147,65 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 	// Log successful repository access for PR creation
 	auditLogger.LogRepositoryAccess("github_cli", repo, "pr_create")
 
+	// Set assignees if provided
+	if len(req.Assignees) > 0 {
+		if err := g.setAssignees(ctx, repo, pr.Number, req.Assignees); err != nil {
+			g.logger.WithError(err).Warn("Failed to set PR assignees")
+		}
+	}
+
+	// Set reviewers if provided
+	if len(req.Reviewers) > 0 || len(req.TeamReviewers) > 0 {
+		if err := g.setReviewers(ctx, repo, pr.Number, req.Reviewers, req.TeamReviewers); err != nil {
+			g.logger.WithError(err).Warn("Failed to set PR reviewers")
+		}
+	}
+
 	return &pr, nil
+}
+
+// setAssignees sets assignees for a pull request
+func (g *githubClient) setAssignees(ctx context.Context, repo string, prNumber int, assignees []string) error {
+	assigneeData := map[string]interface{}{
+		"assignees": assignees,
+	}
+
+	jsonData, err := jsonutil.MarshalJSON(assigneeData)
+	if err != nil {
+		return appErrors.WrapWithContext(err, "marshal assignee data")
+	}
+
+	_, err = g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/issues/%d/assignees", repo, prNumber), "--method", "POST", "--input", "-")
+	if err != nil {
+		return appErrors.WrapWithContext(err, "set PR assignees")
+	}
+
+	return nil
+}
+
+// setReviewers sets reviewers and team reviewers for a pull request
+func (g *githubClient) setReviewers(ctx context.Context, repo string, prNumber int, reviewers, teamReviewers []string) error {
+	reviewerData := map[string]interface{}{}
+
+	if len(reviewers) > 0 {
+		reviewerData["reviewers"] = reviewers
+	}
+
+	if len(teamReviewers) > 0 {
+		reviewerData["team_reviewers"] = teamReviewers
+	}
+
+	jsonData, err := jsonutil.MarshalJSON(reviewerData)
+	if err != nil {
+		return appErrors.WrapWithContext(err, "marshal reviewer data")
+	}
+
+	_, err = g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/pulls/%d/requested_reviewers", repo, prNumber), "--method", "POST", "--input", "-")
+	if err != nil {
+		return appErrors.WrapWithContext(err, "set PR reviewers")
+	}
+
+	return nil
 }
 
 // GetPR retrieves a pull request by number
