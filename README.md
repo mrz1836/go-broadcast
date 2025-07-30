@@ -202,6 +202,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 - **Smart diff detection** - Only syncs files that actually changed
 - **Zero-downtime operations** - Works at any scale without conflicts
 - **Full audit trail** - Every sync tracked in branches and PRs
+- **Automated PR management** - Auto-assign reviewers, assignees, and labels
 
 ### ⚡ **Enterprise Performance**
 - **587M+ ops/sec** - Binary detection with zero allocations
@@ -428,6 +429,23 @@ targets:
       repo_name: true
 ```
 
+**Automated PR management with assignees and reviewers:**
+```yaml
+defaults:
+  pr_assignees: ["tech-lead", "platform-team"]
+  pr_reviewers: ["senior-dev1", "senior-dev2"]  
+  pr_team_reviewers: ["architecture-team"]
+targets:
+  - repo: "company/critical-service"
+    files:
+      - src: "security/policies.yml"
+        dest: "security/policies.yml"
+    # Critical service needs security team review
+    pr_assignees: ["security-lead"]
+    pr_reviewers: ["security-engineer"]
+    pr_team_reviewers: ["security-team"]
+```
+
 **Cancel sync operations when issues arise:**
 ```bash
 # Cancel all active syncs (closes PRs and deletes branches)
@@ -507,8 +525,11 @@ source:
   repo: "org/template-repo"
   branch: "master"
 defaults:
-  branch_prefix: "sync/template"
+  branch_prefix: "sync/template"  
   pr_labels: ["automated-sync"]
+  pr_assignees: ["maintainer1", "maintainer2"]
+  pr_reviewers: ["reviewer1", "reviewer2"]
+  pr_team_reviewers: ["platform-team"]
 targets:
   - repo: "org/target-repo"
     files:
@@ -518,6 +539,9 @@ targets:
       repo_name: true
       variables:
         ENVIRONMENT: "production"
+    # Override PR settings for this specific repo
+    pr_assignees: ["service-owner"]
+    pr_reviewers: ["service-reviewer"]
 ```
 </details>
 

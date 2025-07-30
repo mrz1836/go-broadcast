@@ -17,6 +17,17 @@ defaults:
   pr_labels:
     - "automated-sync"
     - "template-update"
+  # Default assignees for all PRs
+  pr_assignees:
+    - "maintainer1"
+    - "maintainer2"
+  # Default reviewers for all PRs
+  pr_reviewers:
+    - "reviewer1"
+    - "reviewer2"
+  # Default team reviewers for all PRs
+  pr_team_reviewers:
+    - "platform-team"
 
 # Target repositories to sync to
 targets:
@@ -42,13 +53,20 @@ targets:
         SERVICE_NAME: "service-a"
         PORT: "8080"
 
-  # Second target repository with minimal configuration
+  # Second target repository with overridden PR settings
   - repo: "org/service-b"
     files:
       - src: ".github/workflows/ci.yml"
         dest: ".github/workflows/ci.yml"
       - src: "scripts/test.sh"
         dest: "scripts/test.sh"
+    # Override default PR settings for this specific repository
+    pr_assignees:
+      - "service-b-owner"
+    pr_reviewers:
+      - "service-b-lead"
+    pr_team_reviewers:
+      - "service-b-team"
 
   # Third target repository with different destination paths
   - repo: "org/service-c"

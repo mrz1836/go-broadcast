@@ -13,6 +13,13 @@ defaults:
     - "automated-sync"
     - "tooling-update"
     - "ci-cd"
+  pr_assignees:
+    - "platform-team-lead"
+  pr_reviewers:
+    - "senior-developer"
+    - "devops-engineer"
+  pr_team_reviewers:
+    - "platform-team"
 
 targets:
   # User service
@@ -62,7 +69,7 @@ targets:
         SERVICE_PORT: "8002"
         DATABASE_NAME: "orders"
 
-  # Payment service
+  # Payment service (critical service with security team review)
   - repo: "company/payment-service"
     files:
       - src: ".github/workflows/ci.yml"
@@ -87,6 +94,15 @@ targets:
         SERVICE_PORT: "8003"
         DATABASE_NAME: "payments"
         SECURITY_LEVEL: "high"
+    # Payment service requires additional security review
+    pr_assignees:
+      - "payment-team-lead"
+    pr_reviewers:
+      - "security-engineer"
+      - "senior-developer"
+    pr_team_reviewers:
+      - "security-team"
+      - "payment-team"
 
   # Gateway service (different file structure)
   - repo: "company/api-gateway"
