@@ -324,8 +324,10 @@ update history, and create GitHub PR comment if in PR context.`,
 			coverageData.PRNumber = fmt.Sprintf("%d", cfg.GitHub.PullRequest)
 		}
 
-		// Populate history data for dashboard if history is enabled
-		if cfg.History.Enabled {
+		// Populate history data for dashboard
+		// Always try to load history for display, even if history tracking is disabled
+		// This ensures trends are shown when history data exists from previous runs
+		{
 			// branch already declared at function level
 
 			// Resolve absolute path for history storage (same logic as Step 5)
@@ -339,8 +341,8 @@ update history, and create GitHub PR comment if in PR context.`,
 				StoragePath:    dashboardHistoryPath,
 				RetentionDays:  cfg.History.RetentionDays,
 				MaxEntries:     cfg.History.MaxEntries,
-				AutoCleanup:    cfg.History.AutoCleanup,
-				MetricsEnabled: cfg.History.MetricsEnabled,
+				AutoCleanup:    false, // Don't cleanup when just reading for display
+				MetricsEnabled: false, // Don't track metrics when just reading
 			}
 			tracker := history.NewWithConfig(historyConfig)
 
@@ -348,7 +350,19 @@ update history, and create GitHub PR comment if in PR context.`,
 			historyCtx, historyCancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer historyCancel()
 
-			if trendData, err := tracker.GetTrend(historyCtx, history.WithTrendBranch(branch), history.WithTrendDays(30)); err == nil && trendData != nil {
+			trendData, err := tracker.GetTrend(historyCtx, history.WithTrendBranch(branch), history.WithTrendDays(30))
+
+			// If no history for current branch and it's not master, try to get master branch history
+			if (err != nil || trendData == nil || trendData.Summary.TotalEntries == 0) && branch != "master" {
+				cmd.Printf("   📊 No history for branch '%s', checking master branch...\n", branch)
+				if masterTrendData, masterErr := tracker.GetTrend(historyCtx, history.WithTrendBranch("master"), history.WithTrendDays(30)); masterErr == nil && masterTrendData != nil {
+					// Use master branch data for comparison
+					trendData = masterTrendData
+					cmd.Printf("   ✅ Found %d history entries from master branch\n", trendData.Summary.TotalEntries)
+				}
+			}
+
+			if err == nil && trendData != nil {
 				// Populate trend data if we have enough entries
 				if trendData.Summary.TotalEntries > 1 {
 					// Use short-term trend analysis if available

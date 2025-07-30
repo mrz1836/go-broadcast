@@ -284,6 +284,8 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		"Packages":          g.preparePackageData(data.Packages),
 		"HasHistory":        hasHistory,
 		"HasAnyData":        len(data.History) > 0,
+		"HistoryDataPoints": len(data.History),
+		"IsFeatureBranch":   data.Branch != "master" && data.Branch != "main",
 		"HistoryJSON":       g.prepareHistoryJSON(data.History),
 		"BuildStatus":       buildStatus,
 		"LatestTag":         latestTag,

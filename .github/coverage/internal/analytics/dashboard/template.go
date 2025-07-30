@@ -1104,14 +1104,30 @@ const dashboardTemplate = `<!DOCTYPE html>
                                     🔄 Building trend data...
                                 </div>
                                 <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.5rem;">
-                                    Need 2+ commits to show trends
+                                    {{if .PRNumber}}
+                                        Comparing against base branch
+                                    {{else if .IsFeatureBranch}}
+                                        {{.HistoryDataPoints}} data point{{if ne .HistoryDataPoints 1}}s{{end}} for this branch
+                                    {{else}}
+                                        Need 2+ commits to show trends
+                                    {{end}}
                                 </div>
                             {{else}}
                                 <div style="font-size: 0.9rem; color: var(--color-primary);">
-                                    🚀 First coverage run!
+                                    {{if .PRNumber}}
+                                        📊 PR Coverage Analysis
+                                    {{else if .IsFeatureBranch}}
+                                        🌿 New branch coverage
+                                    {{else}}
+                                        🚀 First coverage run!
+                                    {{end}}
                                 </div>
                                 <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.5rem;">
-                                    Trends will appear after more commits
+                                    {{if .PRNumber}}
+                                        Base branch comparison pending
+                                    {{else}}
+                                        Trends will appear after more commits
+                                    {{end}}
                                 </div>
                             {{end}}
                         </div>
