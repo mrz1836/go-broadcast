@@ -733,6 +733,14 @@ func (rs *RepositorySync) showDryRunFileChanges(changedFiles []FileChange) {
 	}
 }
 
+// formatAssignmentList formats a slice of strings into a comma-separated list or returns "none"
+func (rs *RepositorySync) formatAssignmentList(items []string) string {
+	if len(items) == 0 {
+		return "none"
+	}
+	return strings.Join(items, ", ")
+}
+
 // showDryRunPRPreview displays full PR preview with formatting
 func (rs *RepositorySync) showDryRunPRPreview(branchName, commitSHA string, changedFiles []FileChange) {
 	rs.logger.WithFields(logrus.Fields{
@@ -751,6 +759,14 @@ func (rs *RepositorySync) showDryRunPRPreview(branchName, commitSHA string, chan
 	out.Field("Title", title)
 	out.Separator()
 
+	// Show PR assignment details
+	out.Content("Assignment Details:")
+	out.Content(fmt.Sprintf("• Assignees: %s", rs.formatAssignmentList(rs.getPRAssignees())))
+	out.Content(fmt.Sprintf("• Labels: %s", rs.formatAssignmentList(rs.getPRLabels())))
+	out.Content(fmt.Sprintf("• Reviewers: %s", rs.formatAssignmentList(rs.getPRReviewers())))
+	out.Content(fmt.Sprintf("• Team Reviewers: %s", rs.formatAssignmentList(rs.getPRTeamReviewers())))
+	out.Separator()
+
 	// Split body into lines and display with proper formatting
 	bodyLines := strings.Split(body, "\n")
 	for _, line := range bodyLines {
@@ -760,34 +776,98 @@ func (rs *RepositorySync) showDryRunPRPreview(branchName, commitSHA string, chan
 	out.Footer()
 }
 
-// getPRAssignees returns the assignees to use for PRs, with target overriding defaults
+// mergeUniqueStrings merges two string slices, removing duplicates while preserving order
+// Items from the first slice take precedence in ordering
+func (rs *RepositorySync) mergeUniqueStrings(slice1, slice2 []string) []string {
+	if len(slice1) == 0 && len(slice2) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	result := make([]string, 0, len(slice1)+len(slice2))
+
+	// Add items from first slice
+	for _, item := range slice1 {
+		if item != "" && !seen[item] {
+			result = append(result, item)
+			seen[item] = true
+		}
+	}
+
+	// Add items from second slice that haven't been seen
+	for _, item := range slice2 {
+		if item != "" && !seen[item] {
+			result = append(result, item)
+			seen[item] = true
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+// getPRAssignees returns the assignees to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRAssignees() []string {
-	if len(rs.target.PRAssignees) > 0 {
-		return rs.target.PRAssignees
+	global := rs.engine.config.Global.PRAssignees
+	target := rs.target.PRAssignees
+	defaults := rs.engine.config.Defaults.PRAssignees
+
+	// Merge global + target (unique)
+	combined := rs.mergeUniqueStrings(global, target)
+
+	// Fall back to defaults if no assignments
+	if len(combined) == 0 {
+		return defaults
 	}
-	return rs.engine.config.Defaults.PRAssignees
+	return combined
 }
 
-// getPRReviewers returns the reviewers to use for PRs, with target overriding defaults
+// getPRReviewers returns the reviewers to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRReviewers() []string {
-	if len(rs.target.PRReviewers) > 0 {
-		return rs.target.PRReviewers
+	global := rs.engine.config.Global.PRReviewers
+	target := rs.target.PRReviewers
+	defaults := rs.engine.config.Defaults.PRReviewers
+
+	// Merge global + target (unique)
+	combined := rs.mergeUniqueStrings(global, target)
+
+	// Fall back to defaults if no assignments
+	if len(combined) == 0 {
+		return defaults
 	}
-	return rs.engine.config.Defaults.PRReviewers
+	return combined
 }
 
-// getPRLabels returns the labels to use for PRs, with target overriding defaults
+// getPRLabels returns the labels to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRLabels() []string {
-	if len(rs.target.PRLabels) > 0 {
-		return rs.target.PRLabels
+	global := rs.engine.config.Global.PRLabels
+	target := rs.target.PRLabels
+	defaults := rs.engine.config.Defaults.PRLabels
+
+	// Merge global + target (unique)
+	combined := rs.mergeUniqueStrings(global, target)
+
+	// Fall back to defaults if no assignments
+	if len(combined) == 0 {
+		return defaults
 	}
-	return rs.engine.config.Defaults.PRLabels
+	return combined
 }
 
-// getPRTeamReviewers returns the team reviewers to use for PRs, with target overriding defaults
+// getPRTeamReviewers returns the team reviewers to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRTeamReviewers() []string {
-	if len(rs.target.PRTeamReviewers) > 0 {
-		return rs.target.PRTeamReviewers
+	global := rs.engine.config.Global.PRTeamReviewers
+	target := rs.target.PRTeamReviewers
+	defaults := rs.engine.config.Defaults.PRTeamReviewers
+
+	// Merge global + target (unique)
+	combined := rs.mergeUniqueStrings(global, target)
+
+	// Fall back to defaults if no assignments
+	if len(combined) == 0 {
+		return defaults
 	}
-	return rs.engine.config.Defaults.PRTeamReviewers
+	return combined
 }

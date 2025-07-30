@@ -4,6 +4,7 @@ package config
 type Config struct {
 	Version  int            `yaml:"version"`
 	Source   SourceConfig   `yaml:"source"`
+	Global   GlobalConfig   `yaml:"global,omitempty"`
 	Defaults DefaultConfig  `yaml:"defaults,omitempty"`
 	Targets  []TargetConfig `yaml:"targets"`
 }
@@ -12,6 +13,15 @@ type Config struct {
 type SourceConfig struct {
 	Repo   string `yaml:"repo"`   // Format: org/repo
 	Branch string `yaml:"branch"` // Default: master
+}
+
+// GlobalConfig contains global settings applied across all targets
+// These settings are merged with target-specific settings rather than overridden
+type GlobalConfig struct {
+	PRLabels        []string `yaml:"pr_labels,omitempty"`         // Global PR labels to apply to all PRs
+	PRAssignees     []string `yaml:"pr_assignees,omitempty"`      // Global GitHub usernames to assign to all PRs
+	PRReviewers     []string `yaml:"pr_reviewers,omitempty"`      // Global GitHub usernames to request reviews from
+	PRTeamReviewers []string `yaml:"pr_team_reviewers,omitempty"` // Global GitHub team slugs to request reviews from
 }
 
 // DefaultConfig contains default settings applied to all targets

@@ -1043,8 +1043,8 @@ func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
 				Branch: "production/stable/v2.1.3",
 			},
 			Defaults: DefaultConfig{
-				BranchPrefix: "automated-sync/template-update",
-				PRLabels:     []string{"automated-sync", "template-update", "critical-infrastructure", "security-patch"},
+				BranchPrefix: "automated-sync/chore",
+				PRLabels:     []string{"automated-sync", "chore", "critical-infrastructure", "security-patch"},
 			},
 			Targets: []TargetConfig{
 				{
@@ -1112,7 +1112,7 @@ func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
 				BranchPrefix: "sync.automated-updates",
 				PRLabels: []string{
 					"automated-sync",
-					"template-update",
+					"chore",
 					"infrastructure-change",
 					"security-enhancement",
 					"performance-optimization",

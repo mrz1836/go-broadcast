@@ -87,6 +87,15 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 		return fmt.Errorf("invalid source configuration: %w", err)
 	}
 
+	// Validate global
+	if logConfig != nil && logConfig.Debug.Config {
+		logger.Debug("Validating global configuration")
+	}
+
+	if err := c.validateGlobalWithLogging(ctx, logConfig); err != nil {
+		return fmt.Errorf("invalid global configuration: %w", err)
+	}
+
 	// Validate defaults
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.Debug("Validating defaults configuration")
@@ -209,6 +218,94 @@ func (c *Config) validateSourceWithLogging(ctx context.Context, logConfig *loggi
 
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.Debug("Source configuration validation completed successfully")
+	}
+
+	return nil
+}
+
+// validateGlobalWithLogging validates global configuration with debug logging support.
+//
+// Parameters:
+// - ctx: Context for cancellation control
+// - logConfig: Configuration for debug logging
+//
+// Returns:
+// - Error if global configuration is invalid
+//
+// Side Effects:
+// - Logs detailed global validation when --debug-config flag is enabled
+func (c *Config) validateGlobalWithLogging(ctx context.Context, logConfig *logging.LogConfig) error {
+	logger := logrus.WithField("component", "config-global")
+
+	if logConfig != nil && logConfig.Debug.Config {
+		logger.WithFields(logrus.Fields{
+			"pr_labels":         c.Global.PRLabels,
+			"pr_assignees":      c.Global.PRAssignees,
+			"pr_reviewers":      c.Global.PRReviewers,
+			"pr_team_reviewers": c.Global.PRTeamReviewers,
+		}).Trace("Validating global configuration")
+	}
+
+	// Check for context cancellation
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("global validation canceled: %w", ctx.Err())
+	default:
+	}
+
+	// Validate PR labels
+	if logConfig != nil && logConfig.Debug.Config {
+		logger.WithField("label_count", len(c.Global.PRLabels)).Trace("Validating global PR labels")
+	}
+
+	for i, label := range c.Global.PRLabels {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithFields(logrus.Fields{
+				"label_index": i,
+				"label":       label,
+			}).Trace("Validating global PR label")
+		}
+
+		if err := validation.ValidateNonEmpty("global PR label", label); err != nil {
+			if logConfig != nil && logConfig.Debug.Config {
+				logger.WithField("label_index", i).Error("Empty global PR label found")
+			}
+			return err
+		}
+	}
+
+	// Validate PR assignees (basic non-empty validation)
+	for i, assignee := range c.Global.PRAssignees {
+		if err := validation.ValidateNonEmpty("global PR assignee", assignee); err != nil {
+			if logConfig != nil && logConfig.Debug.Config {
+				logger.WithField("assignee_index", i).Error("Empty global PR assignee found")
+			}
+			return err
+		}
+	}
+
+	// Validate PR reviewers (basic non-empty validation)
+	for i, reviewer := range c.Global.PRReviewers {
+		if err := validation.ValidateNonEmpty("global PR reviewer", reviewer); err != nil {
+			if logConfig != nil && logConfig.Debug.Config {
+				logger.WithField("reviewer_index", i).Error("Empty global PR reviewer found")
+			}
+			return err
+		}
+	}
+
+	// Validate PR team reviewers (basic non-empty validation)
+	for i, teamReviewer := range c.Global.PRTeamReviewers {
+		if err := validation.ValidateNonEmpty("global PR team reviewer", teamReviewer); err != nil {
+			if logConfig != nil && logConfig.Debug.Config {
+				logger.WithField("team_reviewer_index", i).Error("Empty global PR team reviewer found")
+			}
+			return err
+		}
+	}
+
+	if logConfig != nil && logConfig.Debug.Config {
+		logger.Debug("Global configuration validation completed successfully")
 	}
 
 	return nil

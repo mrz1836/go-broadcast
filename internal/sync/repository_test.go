@@ -619,12 +619,82 @@ func TestDryRunOutput(t *testing.T) {
 	})
 }
 
-// TestRepositorySync_getPRAssignees tests the PR assignees resolution logic
+// TestRepositorySync_mergeUniqueStrings tests the merge unique strings functionality
+func TestRepositorySync_mergeUniqueStrings(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+	rs := &RepositorySync{
+		logger: logger,
+	}
+
+	t.Run("merges two non-empty slices with unique elements", func(t *testing.T) {
+		slice1 := []string{"a", "b", "c"}
+		slice2 := []string{"d", "e", "f"}
+		result := rs.mergeUniqueStrings(slice1, slice2)
+		expected := []string{"a", "b", "c", "d", "e", "f"}
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("removes duplicates while preserving order", func(t *testing.T) {
+		slice1 := []string{"a", "b", "c"}
+		slice2 := []string{"b", "d", "a", "e"}
+		result := rs.mergeUniqueStrings(slice1, slice2)
+		expected := []string{"a", "b", "c", "d", "e"}
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("handles empty first slice", func(t *testing.T) {
+		slice1 := []string{}
+		slice2 := []string{"a", "b", "c"}
+		result := rs.mergeUniqueStrings(slice1, slice2)
+		expected := []string{"a", "b", "c"}
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("handles empty second slice", func(t *testing.T) {
+		slice1 := []string{"a", "b", "c"}
+		slice2 := []string{}
+		result := rs.mergeUniqueStrings(slice1, slice2)
+		expected := []string{"a", "b", "c"}
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("handles both slices empty", func(t *testing.T) {
+		slice1 := []string{}
+		slice2 := []string{}
+		result := rs.mergeUniqueStrings(slice1, slice2)
+		assert.Nil(t, result)
+	})
+
+	t.Run("handles nil slices", func(t *testing.T) {
+		result := rs.mergeUniqueStrings(nil, nil)
+		assert.Nil(t, result)
+	})
+
+	t.Run("filters out empty strings", func(t *testing.T) {
+		slice1 := []string{"a", "", "b"}
+		slice2 := []string{"", "c", "d"}
+		result := rs.mergeUniqueStrings(slice1, slice2)
+		expected := []string{"a", "b", "c", "d"}
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("handles all empty strings", func(t *testing.T) {
+		slice1 := []string{"", ""}
+		slice2 := []string{"", ""}
+		result := rs.mergeUniqueStrings(slice1, slice2)
+		assert.Nil(t, result)
+	})
+}
+
+// TestRepositorySync_getPRAssignees tests the PR assignees resolution logic with global merging
 func TestRepositorySync_getPRAssignees(t *testing.T) {
 	logger := logrus.NewEntry(logrus.New())
 
-	t.Run("uses target-specific assignees when present", func(t *testing.T) {
+	t.Run("merges global and target assignees", func(t *testing.T) {
 		cfg := &config.Config{
+			Global: config.GlobalConfig{
+				PRAssignees: []string{"global1", "global2"},
+			},
 			Defaults: config.DefaultConfig{
 				PRAssignees: []string{"default1", "default2"},
 			},
@@ -642,11 +712,41 @@ func TestRepositorySync_getPRAssignees(t *testing.T) {
 		}
 
 		assignees := rs.getPRAssignees()
-		assert.Equal(t, []string{"target1", "target2"}, assignees)
+		expected := []string{"global1", "global2", "target1", "target2"}
+		assert.Equal(t, expected, assignees)
 	})
 
-	t.Run("uses default assignees when target has none", func(t *testing.T) {
+	t.Run("removes duplicates when merging global and target", func(t *testing.T) {
 		cfg := &config.Config{
+			Global: config.GlobalConfig{
+				PRAssignees: []string{"user1", "user2"},
+			},
+			Defaults: config.DefaultConfig{
+				PRAssignees: []string{"default1", "default2"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo:        "org/target",
+			PRAssignees: []string{"user2", "user3"},
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		assignees := rs.getPRAssignees()
+		expected := []string{"user1", "user2", "user3"}
+		assert.Equal(t, expected, assignees)
+	})
+
+	t.Run("uses only global when target has none", func(t *testing.T) {
+		cfg := &config.Config{
+			Global: config.GlobalConfig{
+				PRAssignees: []string{"global1", "global2"},
+			},
 			Defaults: config.DefaultConfig{
 				PRAssignees: []string{"default1", "default2"},
 			},
@@ -663,11 +763,60 @@ func TestRepositorySync_getPRAssignees(t *testing.T) {
 		}
 
 		assignees := rs.getPRAssignees()
-		assert.Equal(t, []string{"default1", "default2"}, assignees)
+		expected := []string{"global1", "global2"}
+		assert.Equal(t, expected, assignees)
 	})
 
-	t.Run("returns empty when no assignees configured", func(t *testing.T) {
+	t.Run("uses only target when global has none", func(t *testing.T) {
 		cfg := &config.Config{
+			Global: config.GlobalConfig{},
+			Defaults: config.DefaultConfig{
+				PRAssignees: []string{"default1", "default2"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo:        "org/target",
+			PRAssignees: []string{"target1", "target2"},
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		assignees := rs.getPRAssignees()
+		expected := []string{"target1", "target2"}
+		assert.Equal(t, expected, assignees)
+	})
+
+	t.Run("falls back to defaults when neither global nor target have assignees", func(t *testing.T) {
+		cfg := &config.Config{
+			Global: config.GlobalConfig{},
+			Defaults: config.DefaultConfig{
+				PRAssignees: []string{"default1", "default2"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo: "org/target",
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		assignees := rs.getPRAssignees()
+		expected := []string{"default1", "default2"}
+		assert.Equal(t, expected, assignees)
+	})
+
+	t.Run("returns empty when no assignees configured anywhere", func(t *testing.T) {
+		cfg := &config.Config{
+			Global:   config.GlobalConfig{},
 			Defaults: config.DefaultConfig{},
 		}
 

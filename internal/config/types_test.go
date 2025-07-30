@@ -210,6 +210,121 @@ func TestTransformVariablesModification(t *testing.T) {
 	assert.False(t, exists)
 }
 
+// TestGlobalConfigDefaults tests GlobalConfig zero values
+func TestGlobalConfigDefaults(t *testing.T) {
+	global := GlobalConfig{}
+
+	assert.Nil(t, global.PRLabels)
+	assert.Nil(t, global.PRAssignees)
+	assert.Nil(t, global.PRReviewers)
+	assert.Nil(t, global.PRTeamReviewers)
+}
+
+// TestGlobalConfigFields tests GlobalConfig PR-related fields
+func TestGlobalConfigFields(t *testing.T) {
+	t.Run("all PR fields can be set and accessed", func(t *testing.T) {
+		global := GlobalConfig{
+			PRLabels:        []string{"global-label1", "global-label2"},
+			PRAssignees:     []string{"global-user1", "global-user2"},
+			PRReviewers:     []string{"global-reviewer1"},
+			PRTeamReviewers: []string{"global-team1", "global-team2"},
+		}
+
+		assert.Equal(t, []string{"global-label1", "global-label2"}, global.PRLabels)
+		assert.Equal(t, []string{"global-user1", "global-user2"}, global.PRAssignees)
+		assert.Equal(t, []string{"global-reviewer1"}, global.PRReviewers)
+		assert.Equal(t, []string{"global-team1", "global-team2"}, global.PRTeamReviewers)
+	})
+
+	t.Run("PR fields can be empty slices", func(t *testing.T) {
+		global := GlobalConfig{
+			PRLabels:        []string{},
+			PRAssignees:     []string{},
+			PRReviewers:     []string{},
+			PRTeamReviewers: []string{},
+		}
+
+		assert.Empty(t, global.PRLabels)
+		assert.Empty(t, global.PRAssignees)
+		assert.Empty(t, global.PRReviewers)
+		assert.Empty(t, global.PRTeamReviewers)
+	})
+
+	t.Run("single element PR fields", func(t *testing.T) {
+		global := GlobalConfig{
+			PRLabels:        []string{"single-global-label"},
+			PRAssignees:     []string{"single-global-user"},
+			PRReviewers:     []string{"single-global-reviewer"},
+			PRTeamReviewers: []string{"single-global-team"},
+		}
+
+		assert.Len(t, global.PRLabels, 1)
+		assert.Equal(t, "single-global-label", global.PRLabels[0])
+		assert.Len(t, global.PRAssignees, 1)
+		assert.Equal(t, "single-global-user", global.PRAssignees[0])
+		assert.Len(t, global.PRReviewers, 1)
+		assert.Equal(t, "single-global-reviewer", global.PRReviewers[0])
+		assert.Len(t, global.PRTeamReviewers, 1)
+		assert.Equal(t, "single-global-team", global.PRTeamReviewers[0])
+	})
+
+	t.Run("PR fields can be modified after creation", func(t *testing.T) {
+		global := GlobalConfig{}
+
+		// Initially nil/empty
+		assert.Nil(t, global.PRLabels)
+		assert.Nil(t, global.PRAssignees)
+
+		// Add labels
+		global.PRLabels = append(global.PRLabels, "new-global-label")
+		global.PRAssignees = append(global.PRAssignees, "new-global-assignee")
+
+		assert.Len(t, global.PRLabels, 1)
+		assert.Equal(t, "new-global-label", global.PRLabels[0])
+		assert.Len(t, global.PRAssignees, 1)
+		assert.Equal(t, "new-global-assignee", global.PRAssignees[0])
+
+		// Add more
+		global.PRLabels = append(global.PRLabels, "another-global-label")
+		global.PRAssignees = append(global.PRAssignees, "another-global-assignee")
+
+		assert.Len(t, global.PRLabels, 2)
+		assert.Len(t, global.PRAssignees, 2)
+	})
+}
+
+// TestConfigWithGlobalSection tests Config with GlobalConfig field
+func TestConfigWithGlobalSection(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Source: SourceConfig{
+			Repo:   "org/template",
+			Branch: "main",
+		},
+		Global: GlobalConfig{
+			PRLabels:    []string{"automated-sync", "chore"},
+			PRAssignees: []string{"platform-team"},
+		},
+		Targets: []TargetConfig{
+			{
+				Repo: "org/service",
+				Files: []FileMapping{
+					{Src: "file.txt", Dest: "dest.txt"},
+				},
+				PRLabels: []string{"critical"},
+			},
+		},
+	}
+
+	require.NotNil(t, config)
+	assert.Equal(t, 1, config.Version)
+	assert.Equal(t, "org/template", config.Source.Repo)
+	assert.Equal(t, []string{"automated-sync", "chore"}, config.Global.PRLabels)
+	assert.Equal(t, []string{"platform-team"}, config.Global.PRAssignees)
+	assert.Len(t, config.Targets, 1)
+	assert.Equal(t, []string{"critical"}, config.Targets[0].PRLabels)
+}
+
 // TestTargetConfigPRFields tests TargetConfig PR-related fields
 func TestTargetConfigPRFields(t *testing.T) {
 	t.Run("all PR fields can be set and accessed", func(t *testing.T) {
