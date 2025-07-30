@@ -299,39 +299,56 @@ Flags:
 
 ### `comment` - PR Comment Management
 
-Manages pull request coverage comments.
+Manages pull request coverage comments with comprehensive analysis and templates.
 
 ```bash
 gofortress-coverage comment [flags]
 
 Flags:
-  --pr string         Pull request number (required)
-  --data string       Coverage data JSON file (required)
-  --base-data string  Base branch coverage data for comparison
-  --template string   Comment template: comprehensive, compact, detailed, summary, minimal
-  --behavior string   Update behavior: update, new, delete-and-new (default: "update")
-  --repo string       Repository name (default: from git)
-  --token string      GitHub token (default: from environment)
+  -p, --pr int              Pull request number (defaults to GITHUB_PR_NUMBER)
+  -c, --coverage string     Coverage data file
+  --base-coverage string    Base coverage data file for comparison
+  --badge-url string        Badge URL (auto-generated if not provided)
+  --report-url string       Report URL (auto-generated if not provided)
+  --template string         Comment template (comprehensive, compact, detailed, summary, minimal)
+  --status                  Create enhanced status checks
+  --block-merge             Block PR merge on coverage failure
+  --generate-badges         Generate PR-specific badges
+  --enable-analysis         Enable detailed coverage analysis and comparison (default true)
+  --compact                 Use compact mode (shorter comments)
+  --anti-spam               Enable anti-spam features (default true)
+  --dry-run                 Show preview of comment without posting
+  --simple                  Use simple mode (basic coverage comment only)
   
 Examples:
-  # Basic PR comment
+  # Simple mode (basic coverage comment)
   gofortress-coverage comment \
     --pr 123 \
-    --data coverage.json
+    --coverage coverage.json \
+    --simple
     
-  # Detailed comparison comment
+  # Enhanced comment with analysis
   gofortress-coverage comment \
     --pr 123 \
-    --data pr-coverage.json \
-    --base-data main-coverage.json \
-    --template comprehensive
+    --coverage pr-coverage.json \
+    --base-coverage main-coverage.json \
+    --template comprehensive \
+    --enable-analysis \
+    --generate-badges
     
-  # Minimal update
+  # Compact mode with status checks
   gofortress-coverage comment \
     --pr 123 \
-    --data coverage.json \
-    --template minimal \
-    --behavior update
+    --coverage coverage.json \
+    --compact \
+    --status \
+    --block-merge
+    
+  # Dry run preview
+  gofortress-coverage comment \
+    --pr 123 \
+    --coverage coverage.json \
+    --dry-run
 ```
 
 #### Comment Templates

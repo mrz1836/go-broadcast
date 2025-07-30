@@ -520,7 +520,7 @@ gofortress-coverage complete --input coverage.out --output reports/
 gofortress-coverage parse --file coverage.out --output data.json
 gofortress-coverage badge --coverage 87.2 --output badge.svg
 gofortress-coverage report --data data.json --output report.html
-gofortress-coverage comment --pr 123 --data data.json
+gofortress-coverage comment --pr 123 --coverage data.json
 
 # Analytics and insights
 gofortress-coverage analytics trends --days 30

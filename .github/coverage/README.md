@@ -46,6 +46,10 @@ test-coverage-output/               # Generated test coverage reports
 - **Zero External Dependencies**: No reliance on external services
 - **Professional Quality**: GitHub-style badges and clean reports
 - **CI/CD Integration**: Seamless integration with GitHub Actions
+- **Enhanced PR Comments**: Beautiful, spam-free PR coverage comments with intelligent updates
+- **Anti-Spam Protection**: Only one comment per PR with smart update logic
+- **Multiple Templates**: Comprehensive, detailed, compact, summary, and minimal styles
+- **Coverage Comparison**: Visual diff between base and PR branch coverage
 
 ## Implementation Status
 
@@ -91,8 +95,14 @@ The CLI tool will be built and used in GitHub Actions workflows:
 # Update history
 ./gofortress-coverage history --add coverage.json --branch main --commit abc123
 
-# Create PR comment
-./gofortress-coverage comment --pr 123 --coverage coverage.json
+# Create basic PR comment (simple mode)
+./gofortress-coverage comment --pr 123 --coverage coverage.json --simple
+
+# Create enhanced PR comment with anti-spam and templates
+./gofortress-coverage comment --pr 123 --coverage coverage.out \
+  --template comprehensive \
+  --badge-url "https://owner.github.io/repo/coverage/badge.svg" \
+  --report-url "https://owner.github.io/repo/coverage/"
 ```
 
 ## Configuration
@@ -112,6 +122,57 @@ During the coverage generation process:
 - For GitHub Pages deployment, `dashboard.html` is also copied as `index.html` for convenience
 
 All generated HTML files are excluded from version control and created fresh during each build.
+
+## Enhanced PR Comments
+
+The enhanced PR comment feature provides beautiful, informative coverage comments with anti-spam protection:
+
+### Features
+- **Single Comment Per PR**: Automatically updates existing comments instead of creating new ones
+- **Anti-Spam Protection**: 
+  - Maximum 1 comment per PR
+  - Minimum 5-minute update interval
+  - Only updates on significant changes (>1% coverage change)
+- **Multiple Templates**:
+  - `comprehensive`: Full details with badges, metrics, and trends
+  - `detailed`: Deep analysis with file-level breakdowns
+  - `compact`: Clean, minimal design
+  - `summary`: High-level overview
+  - `minimal`: Just the essentials
+- **Beautiful Design**: Matches GitHub's style with emojis, progress bars, and tables
+- **Coverage Comparison**: Shows diff between base branch and PR branch
+- **Inline Badge**: Displays coverage badge directly in the comment
+- **Direct Links**: Quick access to full reports and PR-specific coverage
+
+### Usage Examples
+
+```bash
+# Basic usage (auto-detects PR context from environment)
+./gofortress-coverage comment --coverage coverage.out
+
+# With specific template
+./gofortress-coverage comment --pr 123 --coverage coverage.out --template detailed
+
+# With base comparison
+./gofortress-coverage comment --pr 123 \
+  --coverage pr-coverage.out \
+  --base-coverage main-coverage.out \
+  --template comprehensive
+
+# Dry run to preview comment
+./gofortress-coverage comment --pr 123 --coverage coverage.out --dry-run
+```
+
+### Template Examples
+
+The comprehensive template includes:
+- Overall coverage percentage with trend emoji
+- Coverage metrics table with grades
+- Progress bar visualization
+- File-level changes (significant files only)
+- Quality assessment with strengths/weaknesses
+- Actionable recommendations
+- Resource links with inline badge
 
 ## Development
 
