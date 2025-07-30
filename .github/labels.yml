@@ -1,6 +1,9 @@
 - name: "automerge"
   description: "Used for automatic merging"
   color: FEF2C0
+- name: "automated-sync"
+  description: "Used for referencing the automated sync process"
+  color: FEF2C0
 - name: "bug-P1"
   description: "Highest rated bug or issue, affects all"
   color: b23128
@@ -10,9 +13,6 @@
 - name: "bug-P3"
   description: "Lowest rated bug, affects nearly none or low-impact"
   color: f44336
-- name: "broadcast"
-  description: "Used for referencing the Broadcast deployment"
-  color: FEF2C0
 - name: "chore"
   description: "Simple dependency updates or version bumps"
   color: 006b75
