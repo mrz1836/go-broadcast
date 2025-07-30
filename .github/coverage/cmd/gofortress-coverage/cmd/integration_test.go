@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,6 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// errCommandRemoved is used for test commands that have been removed
+var errCommandRemoved = errors.New("command removed")
 
 // Test coverage data for integration tests
 const testCoverageData = `mode: atomic
@@ -108,7 +112,7 @@ func TestParseCommand(t *testing.T) {
 
 			// Create a new root command for each test
 			testCmd := &cobra.Command{Use: "test"}
-			testCmd.AddCommand(parseCmd)
+			// testCmd.AddCommand(parseCmd) // Command removed
 			testCmd.SetOut(&buf)
 			testCmd.SetErr(&buf)
 			testCmd.SetArgs(tt.args)
@@ -243,7 +247,7 @@ func TestBadgeCommand(t *testing.T) {
 				Use:   "badge",
 				Short: "Generate coverage badge",
 				Long:  `Generate SVG coverage badges for README files and GitHub Pages.`,
-				RunE:  badgeCmd.RunE,
+				RunE:  func(_ *cobra.Command, _ []string) error { return errCommandRemoved },
 			}
 			testBadgeCmd.Flags().Float64P("coverage", "c", 0, "Coverage percentage")
 			testBadgeCmd.Flags().StringP("style", "s", "", "Badge style")
@@ -392,7 +396,7 @@ func TestReportCommand(t *testing.T) {
 				Use:   "report",
 				Short: "Generate HTML coverage report",
 				Long:  `Generate comprehensive HTML coverage reports with detailed analysis.`,
-				RunE:  reportCmd.RunE,
+				RunE:  func(_ *cobra.Command, _ []string) error { return errCommandRemoved },
 			}
 			testReportCmd.Flags().StringP("input", "i", "", "Input coverage file")
 			testReportCmd.Flags().StringP("output", "o", "", "Output HTML file")
@@ -968,7 +972,7 @@ func TestRootCommandHelp(t *testing.T) {
 
 	// Create a new root command
 	testCmd := &cobra.Command{Use: "test"}
-	testCmd.AddCommand(parseCmd, badgeCmd, reportCmd, historyCmd, commentCmd, completeCmd)
+	testCmd.AddCommand(historyCmd, commentCmd, completeCmd)
 	testCmd.SetOut(&buf)
 	testCmd.SetErr(&buf)
 	testCmd.SetArgs([]string{"--help"})
@@ -998,24 +1002,24 @@ func TestCommandFlags(t *testing.T) {
 		helpArgs []string
 		contains []string
 	}{
-		{
-			name:     "parse command flags",
-			cmd:      parseCmd,
-			helpArgs: []string{"parse", "--help"},
-			contains: []string{"--file", "--output", "--format", "--exclude-tests", "--threshold"},
-		},
-		{
-			name:     "badge command flags",
-			cmd:      badgeCmd,
-			helpArgs: []string{"badge", "--help"},
-			contains: []string{"--coverage", "--style", "--output", "--input", "--label", "--logo"},
-		},
-		{
-			name:     "report command flags",
-			cmd:      reportCmd,
-			helpArgs: []string{"report", "--help"},
-			contains: []string{"--input", "--output", "--theme", "--title", "--show-packages"},
-		},
+		// {
+		// 	name:     "parse command flags",
+		// 	cmd:      parseCmd,
+		// 	helpArgs: []string{"parse", "--help"},
+		// 	contains: []string{"--file", "--output", "--format", "--exclude-tests", "--threshold"},
+		// },
+		// {
+		// 	name:     "badge command flags",
+		// 	cmd:      badgeCmd,
+		// 	helpArgs: []string{"badge", "--help"},
+		// 	contains: []string{"--coverage", "--style", "--output", "--input", "--label", "--logo"},
+		// },
+		// {
+		// 	name:     "report command flags",
+		// 	cmd:      reportCmd,
+		// 	helpArgs: []string{"report", "--help"},
+		// 	contains: []string{"--input", "--output", "--theme", "--title", "--show-packages"},
+		// },
 		{
 			name:     "history command flags",
 			cmd:      historyCmd,

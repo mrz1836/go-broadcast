@@ -30,11 +30,7 @@ func init() { //nolint:gochecknoinits // CLI command initialization
 
 	// Add subcommands
 	rootCmd.AddCommand(completeCmd)
-	rootCmd.AddCommand(parseCmd)
-	rootCmd.AddCommand(badgeCmd)
-	rootCmd.AddCommand(reportCmd)
 	rootCmd.AddCommand(historyCmd)
 	rootCmd.AddCommand(commentCmd)
 	rootCmd.AddCommand(pagesCmd)
-	rootCmd.AddCommand(analyticsCmd)
 }
