@@ -817,3 +817,169 @@ func TestGetCommit_OtherCommandError(t *testing.T) {
 
 	mockRunner.AssertExpectations(t)
 }
+
+// TestCreatePR_WithAssignees tests PR creation with assignees
+func TestCreatePR_WithAssignees(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	req := PRRequest{
+		Title:     "Test PR",
+		Body:      "Test description",
+		Head:      "feature",
+		Base:      "main",
+		Assignees: []string{"user1", "user2"},
+	}
+
+	pr := PR{
+		Number: 42,
+		Title:  req.Title,
+		Body:   req.Body,
+		State:  "open",
+	}
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Expect PR creation call
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls", "--method", "POST", "--input", "-"}).
+		Return(prOutput, nil)
+
+	// Expect assignees call
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/issues/42/assignees", "--method", "POST", "--input", "-"}).
+		Return([]byte("{}"), nil)
+
+	result, err := client.CreatePR(ctx, "org/repo", req)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 42, result.Number)
+	assert.Equal(t, "Test PR", result.Title)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestCreatePR_WithReviewers tests PR creation with reviewers
+func TestCreatePR_WithReviewers(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	req := PRRequest{
+		Title:         "Test PR",
+		Body:          "Test description",
+		Head:          "feature",
+		Base:          "main",
+		Reviewers:     []string{"reviewer1", "reviewer2"},
+		TeamReviewers: []string{"team1"},
+	}
+
+	pr := PR{
+		Number: 42,
+		Title:  req.Title,
+		Body:   req.Body,
+		State:  "open",
+	}
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Expect PR creation call
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls", "--method", "POST", "--input", "-"}).
+		Return(prOutput, nil)
+
+	// Expect reviewers call
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls/42/requested_reviewers", "--method", "POST", "--input", "-"}).
+		Return([]byte("{}"), nil)
+
+	result, err := client.CreatePR(ctx, "org/repo", req)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 42, result.Number)
+	assert.Equal(t, "Test PR", result.Title)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestCreatePR_WithAssigneesAndReviewers tests PR creation with both assignees and reviewers
+func TestCreatePR_WithAssigneesAndReviewers(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	req := PRRequest{
+		Title:         "Test PR",
+		Body:          "Test description",
+		Head:          "feature",
+		Base:          "main",
+		Assignees:     []string{"assignee1"},
+		Reviewers:     []string{"reviewer1"},
+		TeamReviewers: []string{"team1"},
+	}
+
+	pr := PR{
+		Number: 42,
+		Title:  req.Title,
+		Body:   req.Body,
+		State:  "open",
+	}
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Expect PR creation call
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls", "--method", "POST", "--input", "-"}).
+		Return(prOutput, nil)
+
+	// Expect assignees call
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/issues/42/assignees", "--method", "POST", "--input", "-"}).
+		Return([]byte("{}"), nil)
+
+	// Expect reviewers call
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls/42/requested_reviewers", "--method", "POST", "--input", "-"}).
+		Return([]byte("{}"), nil)
+
+	result, err := client.CreatePR(ctx, "org/repo", req)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 42, result.Number)
+	assert.Equal(t, "Test PR", result.Title)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestCreatePR_AssigneesFailure tests that PR creation succeeds even if setting assignees fails
+func TestCreatePR_AssigneesFailure(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	req := PRRequest{
+		Title:     "Test PR",
+		Body:      "Test description",
+		Head:      "feature",
+		Base:      "main",
+		Assignees: []string{"user1"},
+	}
+
+	pr := PR{
+		Number: 42,
+		Title:  req.Title,
+		Body:   req.Body,
+		State:  "open",
+	}
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Expect PR creation call
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls", "--method", "POST", "--input", "-"}).
+		Return(prOutput, nil)
+
+	// Expect assignees call to fail
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/issues/42/assignees", "--method", "POST", "--input", "-"}).
+		Return(nil, errors2.ErrTest)
+
+	result, err := client.CreatePR(ctx, "org/repo", req)
+	require.NoError(t, err) // Should still succeed
+	require.NotNil(t, result)
+	assert.Equal(t, 42, result.Number)
+
+	mockRunner.AssertExpectations(t)
+}

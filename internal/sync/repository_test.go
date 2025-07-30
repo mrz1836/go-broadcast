@@ -618,3 +618,166 @@ func TestDryRunOutput(t *testing.T) {
 		assert.Less(t, footerPos, successPos, "Footer should come before success message")
 	})
 }
+
+// TestRepositorySync_getPRAssignees tests the PR assignees resolution logic
+func TestRepositorySync_getPRAssignees(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+
+	t.Run("uses target-specific assignees when present", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{
+				PRAssignees: []string{"default1", "default2"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo:        "org/target",
+			PRAssignees: []string{"target1", "target2"},
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		assignees := rs.getPRAssignees()
+		assert.Equal(t, []string{"target1", "target2"}, assignees)
+	})
+
+	t.Run("uses default assignees when target has none", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{
+				PRAssignees: []string{"default1", "default2"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo: "org/target",
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		assignees := rs.getPRAssignees()
+		assert.Equal(t, []string{"default1", "default2"}, assignees)
+	})
+
+	t.Run("returns empty when no assignees configured", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{},
+		}
+
+		target := config.TargetConfig{
+			Repo: "org/target",
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		assignees := rs.getPRAssignees()
+		assert.Empty(t, assignees)
+	})
+}
+
+// TestRepositorySync_getPRReviewers tests the PR reviewers resolution logic
+func TestRepositorySync_getPRReviewers(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+
+	t.Run("uses target-specific reviewers when present", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{
+				PRReviewers: []string{"reviewer1", "reviewer2"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo:        "org/target",
+			PRReviewers: []string{"target-reviewer1", "target-reviewer2"},
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		reviewers := rs.getPRReviewers()
+		assert.Equal(t, []string{"target-reviewer1", "target-reviewer2"}, reviewers)
+	})
+
+	t.Run("uses default reviewers when target has none", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{
+				PRReviewers: []string{"reviewer1", "reviewer2"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo: "org/target",
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		reviewers := rs.getPRReviewers()
+		assert.Equal(t, []string{"reviewer1", "reviewer2"}, reviewers)
+	})
+}
+
+// TestRepositorySync_getPRTeamReviewers tests the PR team reviewers resolution logic
+func TestRepositorySync_getPRTeamReviewers(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+
+	t.Run("uses target-specific team reviewers when present", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{
+				PRTeamReviewers: []string{"default-team"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo:            "org/target",
+			PRTeamReviewers: []string{"target-team1", "target-team2"},
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		teamReviewers := rs.getPRTeamReviewers()
+		assert.Equal(t, []string{"target-team1", "target-team2"}, teamReviewers)
+	})
+
+	t.Run("uses default team reviewers when target has none", func(t *testing.T) {
+		cfg := &config.Config{
+			Defaults: config.DefaultConfig{
+				PRTeamReviewers: []string{"default-team1", "default-team2"},
+			},
+		}
+
+		target := config.TargetConfig{
+			Repo: "org/target",
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{config: cfg},
+			target: target,
+			logger: logger,
+		}
+
+		teamReviewers := rs.getPRTeamReviewers()
+		assert.Equal(t, []string{"default-team1", "default-team2"}, teamReviewers)
+	})
+}
