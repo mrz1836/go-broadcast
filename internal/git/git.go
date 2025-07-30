@@ -192,6 +192,17 @@ func (g *gitClient) GetRemoteURL(ctx context.Context, repoPath, remote string) (
 	return strings.TrimSpace(string(output)), nil
 }
 
+// AddRemote adds a new remote to the repository
+func (g *gitClient) AddRemote(ctx context.Context, repoPath, remoteName, remoteURL string) error {
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "remote", "add", remoteName, remoteURL)
+
+	if err := g.runCommand(cmd); err != nil {
+		return appErrors.WrapWithContext(err, "add remote")
+	}
+
+	return nil
+}
+
 // GetCurrentCommitSHA returns the SHA of the current commit
 func (g *gitClient) GetCurrentCommitSHA(ctx context.Context, repoPath string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "rev-parse", "HEAD")

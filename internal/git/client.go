@@ -43,6 +43,9 @@ type Client interface {
 	// GetRemoteURL returns the URL of the specified remote
 	GetRemoteURL(ctx context.Context, repoPath, remote string) (string, error)
 
+	// AddRemote adds a new remote to the repository
+	AddRemote(ctx context.Context, repoPath, remoteName, remoteURL string) error
+
 	// GetCurrentCommitSHA returns the SHA of the current commit
 	GetCurrentCommitSHA(ctx context.Context, repoPath string) (string, error)
 

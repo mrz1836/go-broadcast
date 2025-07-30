@@ -116,7 +116,11 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 			AddField(logging.StandardFields.BranchName, branchName).
 			AddField("commit_sha", commitSHA)
 
-		rs.pushChanges(ctx, branchName)
+		if err := rs.pushChanges(ctx, branchName); err != nil {
+			pushTimer.StopWithError(err)
+			syncTimer.StopWithError(err)
+			return fmt.Errorf("failed to push changes: %w", err)
+		}
 		pushTimer.Stop()
 	} else {
 		rs.logger.Debug("DRY-RUN: Skipping branch push")
@@ -321,7 +325,7 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 }
 
 // commitChanges creates a commit with the changed files
-func (rs *RepositorySync) commitChanges(_ context.Context, branchName string, changedFiles []FileChange) (string, error) {
+func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, changedFiles []FileChange) (string, error) {
 	if len(changedFiles) == 0 {
 		return "", internalerrors.ErrNoFilesToCommit
 	}
@@ -340,20 +344,69 @@ func (rs *RepositorySync) commitChanges(_ context.Context, branchName string, ch
 		return "dry-run-commit-sha", nil
 	}
 
-	// Create commit via GitHub API
-	// This is a simplified version - in practice, you'd need to create a tree first
-	// For now, we'll simulate this
-	commitSHA := fmt.Sprintf("commit-%d", time.Now().Unix())
+	// Clone the target repository for making changes
+	targetPath := filepath.Join(rs.tempDir, "target")
+	targetURL := fmt.Sprintf("https://github.com/%s.git", rs.target.Repo)
+
+	if err := rs.engine.git.Clone(ctx, targetURL, targetPath); err != nil {
+		return "", fmt.Errorf("failed to clone target repository: %w", err)
+	}
+
+	// Create and checkout the new branch
+	if err := rs.engine.git.CreateBranch(ctx, targetPath, branchName); err != nil {
+		return "", fmt.Errorf("failed to create branch %s: %w", branchName, err)
+	}
+
+	if err := rs.engine.git.Checkout(ctx, targetPath, branchName); err != nil {
+		return "", fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
+	}
+
+	// Apply file changes to the target repository
+	for _, fileChange := range changedFiles {
+		destPath := filepath.Join(targetPath, fileChange.Path)
+
+		// Ensure parent directory exists
+		if err := os.MkdirAll(filepath.Dir(destPath), 0o750); err != nil {
+			return "", fmt.Errorf("failed to create directory for %s: %w", fileChange.Path, err)
+		}
+
+		// Write the file content
+		if err := os.WriteFile(destPath, fileChange.Content, 0o600); err != nil {
+			return "", fmt.Errorf("failed to write file %s: %w", fileChange.Path, err)
+		}
+	}
+
+	// Stage all changes
+	if err := rs.engine.git.Add(ctx, targetPath, "."); err != nil {
+		return "", fmt.Errorf("failed to stage changes: %w", err)
+	}
+
+	// Create the commit
+	if err := rs.engine.git.Commit(ctx, targetPath, commitMsg); err != nil {
+		return "", fmt.Errorf("failed to create commit: %w", err)
+	}
+
+	// Get the commit SHA
+	commitSHA, err := rs.engine.git.GetCurrentCommitSHA(ctx, targetPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get commit SHA: %w", err)
+	}
 
 	return commitSHA, nil
 }
 
 // pushChanges pushes the branch to the target repository
-func (rs *RepositorySync) pushChanges(_ context.Context, branchName string) {
+func (rs *RepositorySync) pushChanges(ctx context.Context, branchName string) error {
 	rs.logger.WithField("branch", branchName).Info("Pushing changes to target repository")
 
-	// In a real implementation, this would push the branch
-	// For now, we'll simulate this
+	targetPath := filepath.Join(rs.tempDir, "target")
+
+	// Push the branch to the origin remote (which is the target repository)
+	if err := rs.engine.git.Push(ctx, targetPath, "origin", branchName, false); err != nil {
+		return fmt.Errorf("failed to push branch %s to target repository: %w", branchName, err)
+	}
+
+	return nil
 }
 
 // createOrUpdatePR creates a new PR or updates an existing one

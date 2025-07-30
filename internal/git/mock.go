@@ -66,6 +66,12 @@ func (m *MockClient) GetRemoteURL(ctx context.Context, repoPath, remote string) 
 	return testutil.ExtractStringResult(args)
 }
 
+// AddRemote mock implementation
+func (m *MockClient) AddRemote(ctx context.Context, repoPath, remoteName, remoteURL string) error {
+	args := m.Called(ctx, repoPath, remoteName, remoteURL)
+	return testutil.ExtractError(args)
+}
+
 // GetCurrentCommitSHA mock implementation
 func (m *MockClient) GetCurrentCommitSHA(ctx context.Context, repoPath string) (string, error) {
 	args := m.Called(ctx, repoPath)

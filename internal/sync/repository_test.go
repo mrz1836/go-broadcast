@@ -75,6 +75,16 @@ func TestRepositorySync_Execute(t *testing.T) {
 			testutil.WriteTestFile(t, filepath.Join(destPath, "file1.txt"), string(srcContent1)) // Test setup
 			testutil.WriteTestFile(t, filepath.Join(destPath, "file2.txt"), string(srcContent2)) // Test setup
 		})
+
+		// Mock target repository clone
+		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.HasSuffix(path, "/target")
+		})).Return(nil).Run(func(args mock.Arguments) {
+			// Create target directory structure for cloning
+			destPath := args[2].(string)
+			testutil.CreateTestDirectory(t, destPath)
+		})
+
 		gitClient.On("Checkout", mock.Anything, mock.Anything, "abc123").Return(nil)
 
 		// Mock file operations
@@ -82,6 +92,14 @@ func TestRepositorySync_Execute(t *testing.T) {
 			Return(&gh.FileContent{Content: []byte("old content 1")}, nil)
 		ghClient.On("GetFile", mock.Anything, "org/target", "file2.txt", "").
 			Return(&gh.FileContent{Content: []byte("old content 2")}, nil)
+
+		// Mock target repository git operations
+		gitClient.On("CreateBranch", mock.Anything, mock.Anything, mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("Checkout", mock.Anything, mock.Anything, mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		gitClient.On("Commit", mock.Anything, mock.Anything, mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("new123", nil)
+		gitClient.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// Mock transformations (return different content to trigger changes)
 		transformChain.On("Transform", mock.Anything, []byte("content 1"), mock.Anything).
