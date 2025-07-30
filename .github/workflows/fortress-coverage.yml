@@ -122,7 +122,8 @@ jobs:
       # Download and restore coverage history (WORKING SYSTEM - PRESERVED)
       # ————————————————————————————————————————————————————————————————
       - name: 📥 Download previous coverage history
-        if: github.event_name == 'push' && inputs.branch-name == 'master'
+        # Download history for all branches to enable trend analysis
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
@@ -148,11 +149,23 @@ jobs:
 
           echo "✅ GitHub CLI is available and authenticated"
 
-          # Get recent successful workflow runs from master branch
-          echo "🔍 Fetching recent successful workflow runs from master branch..."
+          # Get recent successful workflow runs (prioritize current branch, then master)
+          echo "🔍 Fetching recent successful workflow runs..."
+          CURRENT_BRANCH="${{ inputs.branch-name }}"
+          echo "📌 Current branch: $CURRENT_BRANCH"
+
+          # First try to get runs from current branch
           WORKFLOW_RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
-            --jq '.workflow_runs[] | select(.status == "completed" and .conclusion == "success" and .head_branch == "master") | .id' \
+            --jq ".workflow_runs[] | select(.status == \"completed\" and .conclusion == \"success\" and .head_branch == \"$CURRENT_BRANCH\") | .id" \
             --paginate 2>/dev/null | head -5 || echo "")
+
+          # If no runs found for current branch and it's not master, also get master branch history
+          if [[ -z "$WORKFLOW_RUNS" ]] && [[ "$CURRENT_BRANCH" != "master" ]]; then
+            echo "ℹ️ No history found for branch '$CURRENT_BRANCH', checking master branch..."
+            WORKFLOW_RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
+              --jq '.workflow_runs[] | select(.status == "completed" and .conclusion == "success" and .head_branch == "master") | .id' \
+              --paginate 2>/dev/null | head -3 || echo "")
+          fi
 
           if [[ -z "$WORKFLOW_RUNS" ]]; then
             echo "ℹ️ No recent successful workflow runs found"
@@ -264,7 +277,8 @@ jobs:
         continue-on-error: true
 
       - name: 🔄 Restore history from artifacts
-        if: github.event_name == 'push' && inputs.branch-name == 'master'
+        # Restore history for all branches to enable trend analysis
+        if: github.event_name == 'push'
         run: |
           echo "🔄 Restoring coverage history from artifacts..."
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -491,7 +505,8 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       - name: 📈 Record coverage history
-        if: github.event_name == 'push' && inputs.branch-name == 'master'
+        # Record history for all branches to enable trend tracking
+        if: github.event_name == 'push'
         env:
           COVERAGE_HISTORY_PATH: ${{ github.workspace }}/.github/coverage/history
         working-directory: .github/coverage/cmd/gofortress-coverage
@@ -832,7 +847,8 @@ jobs:
       # Upload coverage history for future runs (WORKING SYSTEM - PRESERVED)
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload coverage history artifacts
-        if: github.event_name == 'push' && inputs.branch-name == 'master'
+        # Upload history for all branches to preserve trend data
+        if: github.event_name == 'push'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-history-${{ inputs.commit-sha }}
