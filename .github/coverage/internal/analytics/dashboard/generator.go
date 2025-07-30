@@ -168,6 +168,18 @@ func parseRepositoryURL(remoteURL string) *RepositoryInfo {
 	}
 }
 
+// getLatestGitTag gets the latest git tag in the repository
+func getLatestGitTag(ctx context.Context) string {
+	// Try to get the latest tag
+	cmd := exec.CommandContext(ctx, "git", "describe", "--tags", "--abbrev=0")
+	output, err := cmd.Output()
+	if err != nil {
+		// If no tags exist, return empty string
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+
 // prepareTemplateData prepares data for template rendering
 func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData) map[string]interface{} {
 	// Get dynamic repository information
@@ -238,8 +250,12 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		branchURL = fmt.Sprintf("https://github.com/%s/%s/tree/%s", repositoryOwner, repositoryName, data.Branch)
 	}
 
-	// Get build status if available
-	buildStatus := g.getBuildStatus(ctx, repoInfo)
+	// Build status is not generated for static deployments
+	// to avoid showing stale information on GitHub Pages
+	var buildStatus *BuildStatus
+
+	// Get the latest git tag
+	latestTag := getLatestGitTag(ctx)
 
 	return map[string]interface{}{
 		"ProjectName":       projectName,
@@ -270,6 +286,7 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		"HasAnyData":        len(data.History) > 0,
 		"HistoryJSON":       g.prepareHistoryJSON(data.History),
 		"BuildStatus":       buildStatus,
+		"LatestTag":         latestTag,
 	}
 }
 
@@ -364,106 +381,6 @@ func (g *Generator) prepareHistoryJSON(history []HistoricalPoint) string {
 	return string(data)
 }
 
-// getBuildStatus fetches the current build status from GitHub Actions
-func (g *Generator) getBuildStatus(ctx context.Context, repoInfo *RepositoryInfo) *BuildStatus {
-	// If GitHub client is not available or repository info is missing, return unavailable status
-	if g.githubClient == nil || repoInfo == nil || !repoInfo.IsGitHub {
-		return &BuildStatus{
-			Available: false,
-			Error:     "GitHub API access not configured or not a GitHub repository",
-		}
-	}
-
-	// Get the latest workflow runs for the repository
-	workflowRuns, err := g.githubClient.GetWorkflowRuns(ctx, repoInfo.Owner, repoInfo.Name, 5)
-	if err != nil {
-		return &BuildStatus{
-			Available: false,
-			Error:     fmt.Sprintf("Failed to fetch workflow runs: %v", err),
-		}
-	}
-
-	// Find the most recent relevant workflow run
-	var latestRun *github.WorkflowRun
-	for _, run := range workflowRuns.WorkflowRuns {
-		// Skip if the run is too old to be considered "in_progress"
-		// GitHub Actions typically times out after 6 hours
-		if run.Status == "in_progress" {
-			timeSinceStart := time.Since(run.RunStartedAt)
-			timeSinceUpdate := time.Since(run.UpdatedAt)
-
-			// Skip stale in-progress runs (>6 hours old or not updated in >30 minutes)
-			if timeSinceStart > 6*time.Hour || timeSinceUpdate > 30*time.Minute {
-				// This is likely stale data, skip it
-				continue
-			}
-		}
-
-		// Prioritize coverage-related workflows
-		if strings.Contains(strings.ToLower(run.Name), "coverage") ||
-			strings.Contains(strings.ToLower(run.Name), "fortress") ||
-			strings.Contains(strings.ToLower(run.Path), "coverage") {
-			latestRun = &run
-			break
-		}
-		// Fallback to any recent workflow if no coverage workflow found
-		if latestRun == nil {
-			latestRun = &run
-		}
-	}
-
-	// If no workflow runs found, return unavailable status
-	if latestRun == nil {
-		return &BuildStatus{
-			Available: false,
-			Error:     "No workflow runs found",
-		}
-	}
-
-	// Calculate duration
-	duration := g.formatDuration(latestRun.RunStartedAt, latestRun.UpdatedAt, latestRun.Status)
-
-	// Additional validation for "in_progress" status
-	// If a build shows as "in_progress" but hasn't been updated in over 30 minutes,
-	// it's likely stale or stuck
-	actualStatus := latestRun.Status
-	actualConclusion := latestRun.Conclusion
-
-	if actualStatus == "in_progress" {
-		timeSinceUpdate := time.Since(latestRun.UpdatedAt)
-		timeSinceStart := time.Since(latestRun.RunStartedAt)
-
-		// Check for stale builds
-		if timeSinceUpdate > 30*time.Minute || timeSinceStart > 6*time.Hour {
-			// Override to show as completed with stale conclusion
-			actualStatus = "completed"
-			actualConclusion = "stale"
-			// Update the duration to reflect when it likely timed out
-			duration = g.formatDuration(latestRun.RunStartedAt, latestRun.UpdatedAt.Add(30*time.Minute), actualStatus)
-		}
-		// If this is a very recent in_progress build (< 5 minutes old),
-		// it's likely the current workflow generating this dashboard.
-		// We'll still show it as in_progress but the client-side JS will handle it better.
-	}
-
-	return &BuildStatus{
-		State:        actualStatus,
-		Conclusion:   actualConclusion,
-		WorkflowName: latestRun.Name,
-		RunID:        latestRun.ID,
-		RunNumber:    latestRun.RunNumber,
-		RunURL:       latestRun.HTMLURL,
-		StartedAt:    latestRun.RunStartedAt,
-		UpdatedAt:    latestRun.UpdatedAt,
-		Duration:     duration,
-		HeadSHA:      latestRun.HeadSHA,
-		HeadBranch:   latestRun.HeadBranch,
-		Event:        latestRun.Event,
-		DisplayTitle: latestRun.DisplayTitle,
-		Available:    true,
-	}
-}
-
 // formatDuration formats the duration of a workflow run
 func (g *Generator) formatDuration(startedAt, updatedAt time.Time, status string) string {
 	if startedAt.IsZero() {
@@ -527,9 +444,9 @@ func (g *Generator) generateDataJSON(_ context.Context, data *CoverageData) erro
 		return fmt.Errorf("writing metadata: %w", writeErr)
 	}
 
-	// Note: Build status JSON is not generated for static deployments
+	// Build status JSON is not generated for static deployments.
 	// The build status shown in the dashboard is embedded at generation time
-	// to avoid showing stale "in_progress" status on GitHub Pages
+	// to avoid showing stale "in_progress" status on GitHub Pages.
 
 	return nil
 }

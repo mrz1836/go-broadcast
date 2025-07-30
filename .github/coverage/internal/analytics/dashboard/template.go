@@ -186,27 +186,6 @@ const dashboardTemplate = `<!DOCTYPE html>
             z-index: 1;
         }
         
-        .status-icon.spinning {
-            animation: spin 1s linear infinite;
-        }
-        
-        .status-indicator.build-success .status-icon {
-            filter: drop-shadow(0 0 4px rgba(63, 185, 80, 0.5));
-        }
-        
-        .status-indicator.build-failed .status-icon {
-            filter: drop-shadow(0 0 4px rgba(248, 81, 73, 0.5));
-        }
-        
-        .status-indicator.build-running .status-icon {
-            filter: drop-shadow(0 0 4px rgba(210, 153, 34, 0.5));
-        }
-        
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        
         .status-dot {
             width: 8px;
             height: 8px;
@@ -382,14 +361,15 @@ const dashboardTemplate = `<!DOCTYPE html>
         }
         
         .action-btn.primary {
-            background: var(--gradient-primary);
+            background: linear-gradient(135deg, #2563eb, #1e40af);
             color: white;
-            box-shadow: 0 4px 12px rgba(74, 144, 217, 0.3);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
         }
         
         .action-btn.primary:hover {
+            background: linear-gradient(135deg, #1d4ed8, #1e3a8a);
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(74, 144, 217, 0.4);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
         }
         
         .action-btn.secondary {
@@ -691,6 +671,94 @@ const dashboardTemplate = `<!DOCTYPE html>
             font-size: 0.9rem;
         }
         
+        /* Footer */
+        .footer {
+            margin-top: 4rem;
+            padding: 2rem 0;
+            border-top: 1px solid var(--color-border);
+            background: var(--color-bg-secondary);
+        }
+        
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+        
+        .footer-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+        
+        .footer-version,
+        .footer-powered,
+        .footer-timestamp {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .footer-separator {
+            color: var(--color-border);
+            font-size: 0.8rem;
+        }
+        
+        .version-icon,
+        .timestamp-icon {
+            font-size: 1.1rem;
+        }
+        
+        .version-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            color: var(--color-primary);
+        }
+        
+        .powered-text {
+            color: var(--color-text-secondary);
+        }
+        
+        .gofortress-link {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--color-primary);
+            text-decoration: none;
+            transition: all var(--transition-base);
+            padding: 0.25rem 0.75rem;
+            border-radius: 8px;
+        }
+        
+        .gofortress-link:hover {
+            background: var(--color-bg-tertiary);
+            transform: translateY(-1px);
+            color: var(--color-text);
+        }
+        
+        .fortress-icon {
+            font-size: 1.2rem;
+        }
+        
+        .fortress-text {
+            font-weight: 600;
+        }
+        
+        @media (max-width: 768px) {
+            .footer-separator {
+                display: none;
+            }
+            
+            .footer-info {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+        
         /* Package list */
         .package-list {
             background: var(--glass-bg);
@@ -870,87 +938,10 @@ const dashboardTemplate = `<!DOCTYPE html>
                 </div>
                 
                 <div class="header-status">
-                    {{if .BuildStatus}}
-                        {{if .BuildStatus.Available}}
-                            {{if eq .BuildStatus.State "in_progress"}}
-                            <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator build-running" title="View running build on GitHub Actions">
-                                <span class="status-icon spinning">🔄</span>
-                                <div class="status-details">
-                                    <span class="status-text">Build Running</span>
-                                    <span class="status-workflow">{{.BuildStatus.WorkflowName}} #{{.BuildStatus.RunNumber}}</span>
-                                </div>
-                            </a>
-                            {{else if eq .BuildStatus.State "completed"}}
-                                {{if eq .BuildStatus.Conclusion "success"}}
-                                <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator build-success" title="View successful build on GitHub Actions">
-                                    <span class="status-icon">✅</span>
-                                    <div class="status-details">
-                                        <span class="status-text">Build Passed</span>
-                                        <span class="status-workflow">{{.BuildStatus.WorkflowName}} • {{.BuildStatus.Duration}}</span>
-                                    </div>
-                                </a>
-                                {{else if eq .BuildStatus.Conclusion "failure"}}
-                                <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator build-failed" title="View failed build on GitHub Actions">
-                                    <span class="status-icon">❌</span>
-                                    <div class="status-details">
-                                        <span class="status-text">Build Failed</span>
-                                        <span class="status-workflow">{{.BuildStatus.WorkflowName}} • {{.BuildStatus.Duration}}</span>
-                                    </div>
-                                </a>
-                                {{else if eq .BuildStatus.Conclusion "cancelled"}} {{/* GitHub Actions uses British spelling */}}
-                                <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator" title="View canceled build on GitHub Actions">
-                                    <span class="status-icon">⚪</span>
-                                    <div class="status-details">
-                                        <span class="status-text">Build Canceled</span>
-                                        <span class="status-workflow">{{.BuildStatus.WorkflowName}}</span>
-                                    </div>
-                                </a>
-                                {{else if eq .BuildStatus.Conclusion "stale"}}
-                                <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator" title="Build appears to be stuck">
-                                    <span class="status-icon">⚠️</span>
-                                    <div class="status-details">
-                                        <span class="status-text">Build Stale</span>
-                                        <span class="status-workflow">{{.BuildStatus.WorkflowName}} • May be stuck</span>
-                                    </div>
-                                </a>
-                                {{else}}
-                                <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator" title="View build on GitHub Actions">
-                                    <span class="status-icon">🟡</span>
-                                    <div class="status-details">
-                                        <span class="status-text">Build {{.BuildStatus.Conclusion}}</span>
-                                        <span class="status-workflow">{{.BuildStatus.WorkflowName}}</span>
-                                    </div>
-                                </a>
-                                {{end}}
-                            {{else if eq .BuildStatus.State "queued"}}
-                            <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator" title="View queued build on GitHub Actions">
-                                <span class="status-icon">⏳</span>
-                                <div class="status-details">
-                                    <span class="status-text">Build Queued</span>
-                                    <span class="status-workflow">{{.BuildStatus.WorkflowName}}</span>
-                                </div>
-                            </a>
-                            {{else}}
-                            <a href="{{.BuildStatus.RunURL}}" target="_blank" class="status-indicator" title="View build on GitHub Actions">
-                                <span class="status-icon">🔨</span>
-                                <div class="status-details">
-                                    <span class="status-text">{{.BuildStatus.State}}</span>
-                                    <span class="status-workflow">{{.BuildStatus.WorkflowName}}</span>
-                                </div>
-                            </a>
-                            {{end}}
-                        {{else}}
-                            <div class="status-indicator">
-                                <span class="status-dot active"></span>
-                                <span class="status-text">Coverage Active</span>
-                            </div>
-                        {{end}}
-                    {{else}}
-                        <div class="status-indicator">
-                            <span class="status-dot active"></span>
-                            <span class="status-text">Coverage Active</span>
-                        </div>
-                    {{end}}
+                    <div class="status-indicator">
+                        <span class="status-dot active"></span>
+                        <span class="status-text">Coverage Active</span>
+                    </div>
                     <div class="last-sync">
                         <span>🕐 {{.Timestamp}}</span>
                     </div>
@@ -1147,7 +1138,27 @@ const dashboardTemplate = `<!DOCTYPE html>
         
         <footer class="footer">
             <div class="footer-content">
-                <p>Powered by <a href="https://github.com/mrz1836/go-broadcast" target="_blank" class="gofortress-link">GoFortress Coverage</a></p>
+                <div class="footer-info">
+                    {{if .LatestTag}}
+                    <div class="footer-version">
+                        <span class="version-icon">🏷️</span>
+                        <span class="version-text">{{.LatestTag}}</span>
+                    </div>
+                    <span class="footer-separator">•</span>
+                    {{end}}
+                    <div class="footer-powered">
+                        <span class="powered-text">Powered by</span>
+                        <a href="https://github.com/mrz1836/go-broadcast" target="_blank" class="gofortress-link">
+                            <span class="fortress-icon">🏰</span>
+                            <span class="fortress-text">GoFortress Coverage</span>
+                        </a>
+                    </div>
+                    <span class="footer-separator">•</span>
+                    <div class="footer-timestamp">
+                        <span class="timestamp-icon">🕐</span>
+                        <span class="timestamp-text">{{.Timestamp}}</span>
+                    </div>
+                </div>
             </div>
         </footer>
     </div>

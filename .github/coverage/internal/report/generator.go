@@ -71,6 +71,7 @@ type Data struct {
 	BadgeURL    string
 	Summary     Summary
 	Packages    []PackageReport
+	LatestTag   string
 }
 
 // Summary provides high-level coverage statistics
@@ -164,6 +165,16 @@ func (g *Generator) Generate(ctx context.Context, coverage *parser.CoverageData,
 // getGitCommitSHA returns the current Git commit SHA
 func getGitCommitSHA(ctx context.Context) string {
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+
+// getLatestGitTag gets the latest git tag in the repository
+func getLatestGitTag(ctx context.Context) string {
+	cmd := exec.CommandContext(ctx, "git", "describe", "--tags", "--abbrev=0")
 	output, err := cmd.Output()
 	if err != nil {
 		return ""
@@ -350,6 +361,9 @@ func (g *Generator) buildReportData(ctx context.Context, coverage *parser.Covera
 	// Generate badge URL
 	badgeURL = buildCoverageBadgeURL(coverage.Percentage)
 
+	// Get latest tag
+	latestTag := getLatestGitTag(ctx)
+
 	return &Data{
 		Coverage:    coverage,
 		Config:      config,
@@ -362,6 +376,7 @@ func (g *Generator) buildReportData(ctx context.Context, coverage *parser.Covera
 		BadgeURL:    badgeURL,
 		Summary:     summary,
 		Packages:    packages,
+		LatestTag:   latestTag,
 	}
 }
 
@@ -558,6 +573,7 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) Repor
 		GitHubBranch:     gitHubBranch,
 		RepositoryOwner:  gitHubOwner, // Alias for template compatibility
 		RepositoryName:   gitHubRepo,  // Alias for template compatibility
+		LatestTag:        data.LatestTag,
 	}
 }
 
