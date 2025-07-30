@@ -285,7 +285,7 @@ func TestParserApplyDefaults(t *testing.T) {
 					Branch: "master",
 				},
 				Defaults: DefaultConfig{
-					BranchPrefix: "sync/template",
+					BranchPrefix: "chore/sync-files",
 					PRLabels:     []string{"automated-sync"},
 				},
 			},
@@ -324,7 +324,7 @@ func TestParserApplyDefaults(t *testing.T) {
 					Branch: "master",
 				},
 				Defaults: DefaultConfig{
-					BranchPrefix: "sync/template",
+					BranchPrefix: "chore/sync-files",
 					PRLabels:     []string{"custom", "labels"}, // Not overwritten
 				},
 			},
@@ -341,7 +341,7 @@ func TestParserApplyDefaults(t *testing.T) {
 					Branch: "master",
 				},
 				Defaults: DefaultConfig{
-					BranchPrefix: "sync/template",
+					BranchPrefix: "chore/sync-files",
 					PRLabels:     []string{"automated-sync"},
 				},
 			},

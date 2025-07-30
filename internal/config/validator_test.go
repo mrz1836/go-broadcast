@@ -29,7 +29,7 @@ func TestConfig_Validate(t *testing.T) {
 					Branch: "main",
 				},
 				Defaults: DefaultConfig{
-					BranchPrefix: "sync/template",
+					BranchPrefix: "chore/sync-files",
 					PRLabels:     []string{"automated-sync"},
 				},
 				Targets: []TargetConfig{
@@ -334,7 +334,7 @@ func TestConfig_validateDefaultsWithLogging(t *testing.T) {
 		{
 			name: "valid defaults",
 			defaults: DefaultConfig{
-				BranchPrefix: "sync/template",
+				BranchPrefix: "chore/sync-files",
 				PRLabels:     []string{"automated-sync", "enhancement"},
 			},
 			wantError: false,
@@ -358,7 +358,7 @@ func TestConfig_validateDefaultsWithLogging(t *testing.T) {
 		{
 			name: "empty PR label",
 			defaults: DefaultConfig{
-				BranchPrefix: "sync/template",
+				BranchPrefix: "chore/sync-files",
 				PRLabels:     []string{"automated-sync", "", "enhancement"},
 			},
 			wantError: true,
@@ -366,7 +366,7 @@ func TestConfig_validateDefaultsWithLogging(t *testing.T) {
 		{
 			name: "whitespace only PR label",
 			defaults: DefaultConfig{
-				BranchPrefix: "sync/template",
+				BranchPrefix: "chore/sync-files",
 				PRLabels:     []string{"automated-sync", "   ", "enhancement"},
 			},
 			wantError: true,
@@ -843,7 +843,7 @@ func TestConfigValidateContextCancellation(t *testing.T) {
 			Branch: "main",
 		},
 		Defaults: DefaultConfig{
-			BranchPrefix: "sync/template",
+			BranchPrefix: "chore/sync-files",
 			PRLabels:     []string{"automated-sync"},
 		},
 		Targets: []TargetConfig{
@@ -1158,7 +1158,7 @@ func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
 				Branch: "main",
 			},
 			Defaults: DefaultConfig{
-				BranchPrefix: "sync/template",
+				BranchPrefix: "chore/sync-files",
 				PRLabels:     []string{"automated-sync", "", "valid-label"}, // Empty label in middle
 			},
 			Targets: []TargetConfig{
@@ -1536,7 +1536,7 @@ func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
 				Branch: "main",
 			},
 			Defaults: DefaultConfig{
-				BranchPrefix: "sync/template",
+				BranchPrefix: "chore/sync-files",
 				PRLabels:     []string{"automated-sync", "performance-test"},
 			},
 			Targets: make([]TargetConfig, 100), // 100 targets

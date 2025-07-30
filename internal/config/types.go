@@ -26,7 +26,7 @@ type GlobalConfig struct {
 
 // DefaultConfig contains default settings applied to all targets
 type DefaultConfig struct {
-	BranchPrefix    string   `yaml:"branch_prefix,omitempty"`     // Default: sync/template
+	BranchPrefix    string   `yaml:"branch_prefix,omitempty"`     // Default: chore/sync-files
 	PRLabels        []string `yaml:"pr_labels,omitempty"`         // Default: ["automated-sync"]
 	PRAssignees     []string `yaml:"pr_assignees,omitempty"`      // GitHub usernames to assign to PRs
 	PRReviewers     []string `yaml:"pr_reviewers,omitempty"`      // GitHub usernames to request reviews from

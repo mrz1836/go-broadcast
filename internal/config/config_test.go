@@ -17,7 +17,7 @@ source:
   repo: "org/template-repo"
   branch: "master"
 defaults:
-  branch_prefix: "sync/template"
+  branch_prefix: "chore/sync-files"
   pr_labels: ["automated-sync", "template"]
 targets:
   - repo: "org/service-a"
@@ -38,7 +38,7 @@ targets:
 	assert.Equal(t, 1, config.Version)
 	assert.Equal(t, "org/template-repo", config.Source.Repo)
 	assert.Equal(t, "master", config.Source.Branch)
-	assert.Equal(t, "sync/template", config.Defaults.BranchPrefix)
+	assert.Equal(t, "chore/sync-files", config.Defaults.BranchPrefix)
 	assert.Equal(t, []string{"automated-sync", "template"}, config.Defaults.PRLabels)
 
 	require.Len(t, config.Targets, 1)
@@ -68,7 +68,7 @@ targets:
 
 	// Check defaults were applied
 	assert.Equal(t, "master", config.Source.Branch)
-	assert.Equal(t, "sync/template", config.Defaults.BranchPrefix)
+	assert.Equal(t, "chore/sync-files", config.Defaults.BranchPrefix)
 	assert.Equal(t, []string{"automated-sync"}, config.Defaults.PRLabels)
 }
 
@@ -111,7 +111,7 @@ func TestValidate_ValidConfig(t *testing.T) {
 			Branch: "master",
 		},
 		Defaults: DefaultConfig{
-			BranchPrefix: "sync/template",
+			BranchPrefix: "chore/sync-files",
 			PRLabels:     []string{"automated"},
 		},
 		Targets: []TargetConfig{
@@ -360,7 +360,7 @@ targets:
 					Branch: "master",
 				},
 				Defaults: DefaultConfig{
-					BranchPrefix: "sync/template",
+					BranchPrefix: "chore/sync-files",
 					PRLabels:     []string{"automated-sync"},
 				},
 			},
@@ -415,7 +415,7 @@ targets:
 					Branch: "develop",
 				},
 				Defaults: DefaultConfig{
-					BranchPrefix: "sync/template",
+					BranchPrefix: "chore/sync-files",
 					PRLabels:     []string{"my-label"},
 				},
 			},

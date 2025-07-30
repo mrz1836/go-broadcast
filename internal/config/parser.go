@@ -62,7 +62,7 @@ func applyDefaults(config *Config) {
 
 	// Set default branch prefix if not specified
 	if config.Defaults.BranchPrefix == "" {
-		config.Defaults.BranchPrefix = "sync/template"
+		config.Defaults.BranchPrefix = "chore/sync-files"
 	}
 
 	// Set default PR labels if not specified

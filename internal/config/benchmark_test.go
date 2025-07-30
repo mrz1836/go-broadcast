@@ -15,7 +15,7 @@ source:
   repo: "org/template-repo"
   branch: "master"
 defaults:
-  branch_prefix: "sync/template"
+  branch_prefix: "chore/sync-files"
   pr_labels: ["automated-sync", "chore"]
 targets:
   - repo: "org/target-repo-1"
@@ -50,7 +50,7 @@ source:
   repo: "org/template-repo"
   branch: "master"
 defaults:
-  branch_prefix: "sync/template"
+  branch_prefix: "chore/sync-files"
   pr_labels: ["automated-sync"]
 targets:`)
 
