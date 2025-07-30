@@ -83,9 +83,9 @@ func TestMockDiscovererImplementation(t *testing.T) {
 				SyncBranches: []SyncBranch{{Name: "sync-123"}},
 			}
 
-			mock.On("DiscoverTargetState", ctx, "target/repo").Return(expectedState, nil)
+			mock.On("DiscoverTargetState", ctx, "target/repo", "chore/sync-files").Return(expectedState, nil)
 
-			state, err := mock.DiscoverTargetState(ctx, "target/repo")
+			state, err := mock.DiscoverTargetState(ctx, "target/repo", "chore/sync-files")
 			require.NoError(t, err)
 			require.Equal(t, expectedState, state)
 			mock.AssertExpectations(t)
@@ -93,9 +93,9 @@ func TestMockDiscovererImplementation(t *testing.T) {
 
 		t.Run("error case", func(t *testing.T) {
 			mock := &MockDiscoverer{}
-			mock.On("DiscoverTargetState", ctx, "target/repo").Return((*TargetState)(nil), errTargetDiscoveryFailed)
+			mock.On("DiscoverTargetState", ctx, "target/repo", "chore/sync-files").Return((*TargetState)(nil), errTargetDiscoveryFailed)
 
-			state, err := mock.DiscoverTargetState(ctx, "target/repo")
+			state, err := mock.DiscoverTargetState(ctx, "target/repo", "chore/sync-files")
 			require.Error(t, err)
 			require.Equal(t, errTargetDiscoveryFailed, err)
 			require.Nil(t, state)
@@ -106,9 +106,9 @@ func TestMockDiscovererImplementation(t *testing.T) {
 			mock := &MockDiscoverer{}
 
 			// Simulate improper mock configuration
-			mock.On("DiscoverTargetState", ctx, "target/repo").Return()
+			mock.On("DiscoverTargetState", ctx, "target/repo", "chore/sync-files").Return()
 
-			state, err := mock.DiscoverTargetState(ctx, "target/repo")
+			state, err := mock.DiscoverTargetState(ctx, "target/repo", "chore/sync-files")
 			require.Error(t, err)
 			require.Nil(t, state)
 			require.Contains(t, err.Error(), "mock not properly configured")
@@ -121,7 +121,7 @@ func TestMockDiscovererImplementation(t *testing.T) {
 			expectedMetadata := &BranchMetadata{
 				Timestamp: time.Now(),
 				CommitSHA: "abc123",
-				Prefix:    "sync/template",
+				Prefix:    "chore/sync-files",
 			}
 
 			mock.On("ParseBranchName", "sync-123-source-repo-main").Return(expectedMetadata, nil)
@@ -171,8 +171,8 @@ func TestMockDiscovererDefensiveProgramming(t *testing.T) {
 		require.Nil(t, state)
 
 		// Test nil target state with nil error
-		mock.On("DiscoverTargetState", ctx, "repo").Return(nil, nil).Once()
-		targetState, err := mock.DiscoverTargetState(ctx, "repo")
+		mock.On("DiscoverTargetState", ctx, "repo", "chore/sync-files").Return(nil, nil).Once()
+		targetState, err := mock.DiscoverTargetState(ctx, "repo", "chore/sync-files")
 		require.NoError(t, err)
 		require.Nil(t, targetState)
 
@@ -193,7 +193,7 @@ func TestMockDiscovererConcurrency(_ *testing.T) {
 
 	// Set up expectations for concurrent calls
 	mock.On("DiscoverState", ctx, (*config.Config)(nil)).Return(&State{}, nil).Maybe()
-	mock.On("DiscoverTargetState", ctx, "repo").Return(&TargetState{}, nil).Maybe()
+	mock.On("DiscoverTargetState", ctx, "repo", "chore/sync-files").Return(&TargetState{}, nil).Maybe()
 	mock.On("ParseBranchName", "branch").Return(&BranchMetadata{}, nil).Maybe()
 
 	// Run concurrent operations
@@ -208,7 +208,7 @@ func TestMockDiscovererConcurrency(_ *testing.T) {
 
 	go func() {
 		for i := 0; i < 10; i++ {
-			_, _ = mock.DiscoverTargetState(ctx, "repo")
+			_, _ = mock.DiscoverTargetState(ctx, "repo", "chore/sync-files")
 		}
 		done <- true
 	}()

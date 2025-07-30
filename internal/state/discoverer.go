@@ -13,7 +13,7 @@ type Discoverer interface {
 	DiscoverState(ctx context.Context, cfg *config.Config) (*State, error)
 
 	// DiscoverTargetState discovers the state of a specific target repository
-	DiscoverTargetState(ctx context.Context, repo string) (*TargetState, error)
+	DiscoverTargetState(ctx context.Context, repo string, branchPrefix string) (*TargetState, error)
 
 	// ParseBranchName parses a branch name to extract sync metadata
 	// Returns nil if the branch is not a sync branch

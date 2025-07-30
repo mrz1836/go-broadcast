@@ -28,6 +28,9 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 			{Repo: "org/service-a"},
 			{Repo: "org/service-b"},
 		},
+		Defaults: config.DefaultConfig{
+			BranchPrefix: "chore/sync-files",
+		},
 	}
 
 	t.Run("successful discovery", func(t *testing.T) {
@@ -51,7 +54,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "def456"}},
-				{Name: "sync/template-20240115-120000-abc123", Commit: struct {
+				{Name: "chore/sync-files-20240115-120000-abc123", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "ghi789"}},
@@ -72,7 +75,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "mno345"}},
-				{Name: "sync/template-20240114-100000-def789", Commit: struct {
+				{Name: "chore/sync-files-20240114-100000-def789", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "pqr678"}},
@@ -89,7 +92,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 						Ref string `json:"ref"`
 						SHA string `json:"sha"`
 					}{
-						Ref: "sync/template-20240115-140000-abc123",
+						Ref: "chore/sync-files-20240115-140000-abc123",
 						SHA: "stu901",
 					},
 				},
@@ -112,7 +115,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 		assert.NotNil(t, serviceA)
 		assert.Equal(t, "org/service-a", serviceA.Repo)
 		assert.Len(t, serviceA.SyncBranches, 1)
-		assert.Equal(t, "sync/template-20240115-120000-abc123", serviceA.SyncBranches[0].Name)
+		assert.Equal(t, "chore/sync-files-20240115-120000-abc123", serviceA.SyncBranches[0].Name)
 		assert.Equal(t, StatusUpToDate, serviceA.Status)
 		assert.Equal(t, "abc123", serviceA.LastSyncCommit)
 
@@ -158,15 +161,15 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "abc123"}},
-				{Name: "sync/template-20240114-100000-abc123", Commit: struct {
+				{Name: "chore/sync-files-20240114-100000-abc123", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "def456"}},
-				{Name: "sync/template-20240115-120000-def456", Commit: struct {
+				{Name: "chore/sync-files-20240115-120000-def456", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "ghi789"}},
-				{Name: "sync/template-invalid-format", Commit: struct {
+				{Name: "chore/sync-files-invalid-format", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "jkl012"}}, // Invalid format
@@ -182,12 +185,12 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 						Ref string `json:"ref"`
 						SHA string `json:"sha"`
 					}{
-						Ref: "sync/template-20240115-120000-def456",
+						Ref: "chore/sync-files-20240115-120000-def456",
 					},
 				},
 			}, nil)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
 		require.NoError(t, err)
 		assert.NotNil(t, state)
 
@@ -221,7 +224,7 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 		mockGH.On("ListPRs", mock.Anything, "org/service", "open").
 			Return([]gh.PR{}, nil)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
 		require.NoError(t, err)
 		assert.NotNil(t, state)
 
@@ -242,7 +245,7 @@ func TestDiscoveryService_ParseBranchName(t *testing.T) {
 	discoverer := NewDiscoverer(mockGH, logger, nil)
 
 	t.Run("valid sync branch", func(t *testing.T) {
-		metadata, err := discoverer.ParseBranchName("sync/template-20240115-120530-abc123")
+		metadata, err := discoverer.ParseBranchName("chore/sync-files-20240115-120530-abc123")
 		require.NoError(t, err)
 		assert.NotNil(t, metadata)
 		assert.Equal(t, "abc123", metadata.CommitSHA)
@@ -338,6 +341,9 @@ func TestDiscoveryService_DiscoverStateWithDebugLogging(t *testing.T) {
 		Targets: []config.TargetConfig{
 			{Repo: "org/service-a"},
 		},
+		Defaults: config.DefaultConfig{
+			BranchPrefix: "chore/sync-files",
+		},
 	}
 
 	t.Run("successful discovery with debug logging", func(t *testing.T) {
@@ -426,6 +432,9 @@ func TestDiscoveryService_DiscoverStateContextCancellation(t *testing.T) {
 		Targets: []config.TargetConfig{
 			{Repo: "org/service-a"},
 		},
+		Defaults: config.DefaultConfig{
+			BranchPrefix: "chore/sync-files",
+		},
 	}
 
 	t.Run("context canceled at start", func(t *testing.T) {
@@ -493,11 +502,11 @@ func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "abc123"}},
-				{Name: "sync/template-20240115-120000-def456", Commit: struct {
+				{Name: "chore/sync-files-20240115-120000-def456", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "ghi789"}},
-				{Name: "sync/template-invalid", Commit: struct {
+				{Name: "chore/sync-files-invalid", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "jkl012"}}, // Invalid format - will trigger parse error logging
@@ -513,12 +522,12 @@ func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
 						Ref string `json:"ref"`
 						SHA string `json:"sha"`
 					}{
-						Ref: "sync/template-20240115-120000-def456",
+						Ref: "chore/sync-files-20240115-120000-def456",
 					},
 				},
 			}, nil)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
 		require.NoError(t, err)
 		assert.NotNil(t, state)
 		assert.Len(t, state.SyncBranches, 1) // Only valid sync branch
@@ -534,7 +543,7 @@ func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
 		mockGH.On("ListBranches", mock.Anything, "org/service").
 			Return(nil, assert.AnError)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to list branches")
 		assert.Nil(t, state)
@@ -559,7 +568,7 @@ func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
 		mockGH.On("ListPRs", mock.Anything, "org/service", "open").
 			Return(nil, assert.AnError)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to list PRs")
 		assert.Nil(t, state)
@@ -579,7 +588,7 @@ func TestDiscoveryService_DiscoverTargetStateContextCancellation(t *testing.T) {
 		mockGH := &gh.MockClient{}
 		discoverer := NewDiscoverer(mockGH, logger, nil)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "target discovery canceled")
 		assert.Nil(t, state)
@@ -602,18 +611,18 @@ func TestDiscoveryService_ComplexSyncBranchScenarios(t *testing.T) {
 		mockGH := &gh.MockClient{}
 		discoverer := NewDiscoverer(mockGH, logger, logConfig)
 
-		// Mock branches with multiple sync branches - note that sync/template-invalid will be filtered out
+		// Mock branches with multiple sync branches - note that chore/sync-files-invalid will be filtered out
 		mockGH.On("ListBranches", mock.Anything, "org/service").
 			Return([]gh.Branch{
-				{Name: "sync/template-20240114-100000-abc123", Commit: struct {
+				{Name: "chore/sync-files-20240114-100000-abc123", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "def456"}},
-				{Name: "sync/template-20240115-110000-abc123", Commit: struct {
+				{Name: "chore/sync-files-20240115-110000-abc123", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "ghi789"}},
-				{Name: "sync/template-invalid", Commit: struct {
+				{Name: "chore/sync-files-invalid", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "invalid"}}, // This will be filtered out due to invalid format
@@ -629,12 +638,12 @@ func TestDiscoveryService_ComplexSyncBranchScenarios(t *testing.T) {
 						Ref string `json:"ref"`
 						SHA string `json:"sha"`
 					}{
-						Ref: "sync/template-20240115-110000-abc123",
+						Ref: "chore/sync-files-20240115-110000-abc123",
 					},
 				},
 			}, nil)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
 		require.NoError(t, err)
 		assert.NotNil(t, state)
 		assert.Len(t, state.SyncBranches, 2) // Only 2 valid sync branches

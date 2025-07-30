@@ -41,11 +41,11 @@ func TestState_Structure(t *testing.T) {
 				Repo: "org/service-a",
 				SyncBranches: []SyncBranch{
 					{
-						Name: "sync/template-20240101-120000-abc123",
+						Name: "chore/sync-files-20240101-120000-abc123",
 						Metadata: &BranchMetadata{
 							Timestamp: now.Add(-24 * time.Hour),
 							CommitSHA: "abc123",
-							Prefix:    "sync/template",
+							Prefix:    "chore/sync-files",
 						},
 					},
 				},
@@ -122,26 +122,26 @@ func TestTargetState_DefaultValues(t *testing.T) {
 func TestSyncBranch_Structure(t *testing.T) {
 	timestamp := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	branch := SyncBranch{
-		Name: "sync/template-20240101-120000-abc123",
+		Name: "chore/sync-files-20240101-120000-abc123",
 		Metadata: &BranchMetadata{
 			Timestamp: timestamp,
 			CommitSHA: "abc123",
-			Prefix:    "sync/template",
+			Prefix:    "chore/sync-files",
 		},
 	}
 
-	require.Equal(t, "sync/template-20240101-120000-abc123", branch.Name)
+	require.Equal(t, "chore/sync-files-20240101-120000-abc123", branch.Name)
 	require.NotNil(t, branch.Metadata)
 	require.Equal(t, timestamp, branch.Metadata.Timestamp)
 	require.Equal(t, "abc123", branch.Metadata.CommitSHA)
-	require.Equal(t, "sync/template", branch.Metadata.Prefix)
+	require.Equal(t, "chore/sync-files", branch.Metadata.Prefix)
 }
 
 func TestBranchMetadata_Structure(t *testing.T) {
 	metadata := &BranchMetadata{
 		Timestamp: time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
 		CommitSHA: "abc123def456",
-		Prefix:    "sync/template",
+		Prefix:    "chore/sync-files",
 	}
 
 	require.Equal(t, 2024, metadata.Timestamp.Year())
@@ -151,7 +151,7 @@ func TestBranchMetadata_Structure(t *testing.T) {
 	require.Equal(t, 0, metadata.Timestamp.Minute())
 	require.Equal(t, 0, metadata.Timestamp.Second())
 	require.Equal(t, "abc123def456", metadata.CommitSHA)
-	require.Equal(t, "sync/template", metadata.Prefix)
+	require.Equal(t, "chore/sync-files", metadata.Prefix)
 }
 
 func TestState_EmptyTargets(t *testing.T) {
@@ -201,27 +201,27 @@ func TestTargetState_MultipleSyncBranches(t *testing.T) {
 		Repo: "org/service",
 		SyncBranches: []SyncBranch{
 			{
-				Name: "sync/template-20240101-120000-abc123",
+				Name: "chore/sync-files-20240101-120000-abc123",
 				Metadata: &BranchMetadata{
 					Timestamp: now.Add(-48 * time.Hour),
 					CommitSHA: "abc123",
-					Prefix:    "sync/template",
+					Prefix:    "chore/sync-files",
 				},
 			},
 			{
-				Name: "sync/template-20240102-120000-def456",
+				Name: "chore/sync-files-20240102-120000-def456",
 				Metadata: &BranchMetadata{
 					Timestamp: now.Add(-24 * time.Hour),
 					CommitSHA: "def456",
-					Prefix:    "sync/template",
+					Prefix:    "chore/sync-files",
 				},
 			},
 			{
-				Name: "sync/template-20240103-120000-ghi789",
+				Name: "chore/sync-files-20240103-120000-ghi789",
 				Metadata: &BranchMetadata{
 					Timestamp: now,
 					CommitSHA: "ghi789",
-					Prefix:    "sync/template",
+					Prefix:    "chore/sync-files",
 				},
 			},
 		},
@@ -237,11 +237,11 @@ func TestTargetState_MultipleSyncBranches(t *testing.T) {
 
 func TestSyncBranch_NilMetadata(t *testing.T) {
 	branch := SyncBranch{
-		Name:     "sync/template-invalid",
+		Name:     "chore/sync-files-invalid",
 		Metadata: nil,
 	}
 
-	require.Equal(t, "sync/template-invalid", branch.Name)
+	require.Equal(t, "chore/sync-files-invalid", branch.Name)
 	require.Nil(t, branch.Metadata)
 }
 
@@ -249,11 +249,11 @@ func TestBranchMetadata_EmptyCommitSHA(t *testing.T) {
 	metadata := &BranchMetadata{
 		Timestamp: time.Now(),
 		CommitSHA: "",
-		Prefix:    "sync/template",
+		Prefix:    "chore/sync-files",
 	}
 
 	require.Empty(t, metadata.CommitSHA)
-	require.Equal(t, "sync/template", metadata.Prefix)
+	require.Equal(t, "chore/sync-files", metadata.Prefix)
 	require.False(t, metadata.Timestamp.IsZero())
 }
 
@@ -310,11 +310,11 @@ func TestState_ComplexScenario(t *testing.T) {
 				Status:         StatusPending,
 				SyncBranches: []SyncBranch{
 					{
-						Name: "sync/template-20240101-120000-latest123",
+						Name: "chore/sync-files-20240101-120000-latest123",
 						Metadata: &BranchMetadata{
 							Timestamp: yesterday,
 							CommitSHA: "latest123",
-							Prefix:    "sync/template",
+							Prefix:    "chore/sync-files",
 						},
 					},
 				},
@@ -327,7 +327,7 @@ func TestState_ComplexScenario(t *testing.T) {
 							Ref string `json:"ref"`
 							SHA string `json:"sha"`
 						}{
-							Ref: "sync/template-20240101-120000-latest123",
+							Ref: "chore/sync-files-20240101-120000-latest123",
 						},
 					},
 				},
@@ -340,11 +340,11 @@ func TestState_ComplexScenario(t *testing.T) {
 				Status:         StatusConflict,
 				SyncBranches: []SyncBranch{
 					{
-						Name: "sync/template-20240101-120000-latest123",
+						Name: "chore/sync-files-20240101-120000-latest123",
 						Metadata: &BranchMetadata{
 							Timestamp: now,
 							CommitSHA: "latest123",
-							Prefix:    "sync/template",
+							Prefix:    "chore/sync-files",
 						},
 					},
 				},

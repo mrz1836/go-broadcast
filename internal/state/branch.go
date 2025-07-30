@@ -14,11 +14,19 @@ var (
 	ErrNotSyncBranch       = errors.New("not a sync branch")
 )
 
-// branchPattern matches sync branch names: sync/template-YYYYMMDD-HHMMSS-{commit}
-var branchPattern = regexp.MustCompile(`^(sync/template)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`)
-
 // parseSyncBranchName parses a branch name to extract sync metadata
 func parseSyncBranchName(name string) (*BranchMetadata, error) {
+	// Legacy support for hardcoded chore/sync-files prefix
+	return parseSyncBranchNameWithPrefix(name, "chore/sync-files")
+}
+
+// parseSyncBranchNameWithPrefix parses a branch name with a specific prefix to extract sync metadata
+func parseSyncBranchNameWithPrefix(name string, prefix string) (*BranchMetadata, error) {
+	// Create pattern for the given prefix: prefix-YYYYMMDD-HHMMSS-{commit}
+	escapedPrefix := regexp.QuoteMeta(prefix)
+	pattern := fmt.Sprintf(`^(%s)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`, escapedPrefix)
+	branchPattern := regexp.MustCompile(pattern)
+
 	matches := branchPattern.FindStringSubmatch(name)
 	if matches == nil {
 		// Not a sync branch
@@ -26,7 +34,7 @@ func parseSyncBranchName(name string) (*BranchMetadata, error) {
 	}
 
 	// Extract components
-	prefix := matches[1]
+	extractedPrefix := matches[1]
 	dateStr := matches[2]
 	timeStr := matches[3]
 	commitSHA := matches[4]
@@ -42,7 +50,7 @@ func parseSyncBranchName(name string) (*BranchMetadata, error) {
 	return &BranchMetadata{
 		Timestamp: timestamp,
 		CommitSHA: commitSHA,
-		Prefix:    prefix,
+		Prefix:    extractedPrefix,
 	}, nil
 }
 

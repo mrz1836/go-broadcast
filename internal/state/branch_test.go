@@ -18,22 +18,22 @@ func TestParseSyncBranchName(t *testing.T) {
 	}{
 		{
 			name:       "valid sync branch",
-			branchName: "sync/template-20240115-120530-abc123def",
+			branchName: "chore/sync-files-20240115-120530-abc123def",
 			expectNil:  false,
 			expected: &BranchMetadata{
 				Timestamp: time.Date(2024, 1, 15, 12, 5, 30, 0, time.UTC),
 				CommitSHA: "abc123def",
-				Prefix:    "sync/template",
+				Prefix:    "chore/sync-files",
 			},
 		},
 		{
 			name:       "valid sync branch with full SHA",
-			branchName: "sync/template-20240115-235959-1234567890abcdef1234567890abcdef12345678",
+			branchName: "chore/sync-files-20240115-235959-1234567890abcdef1234567890abcdef12345678",
 			expectNil:  false,
 			expected: &BranchMetadata{
 				Timestamp: time.Date(2024, 1, 15, 23, 59, 59, 0, time.UTC),
 				CommitSHA: "1234567890abcdef1234567890abcdef12345678",
-				Prefix:    "sync/template",
+				Prefix:    "chore/sync-files",
 			},
 		},
 		{
@@ -50,25 +50,25 @@ func TestParseSyncBranchName(t *testing.T) {
 		},
 		{
 			name:        "invalid format - missing timestamp",
-			branchName:  "sync/template-abc123def",
+			branchName:  "chore/sync-files-abc123def",
 			expectNil:   true,
 			expectError: true,
 		},
 		{
 			name:        "invalid format - wrong date format",
-			branchName:  "sync/template-2024-01-15-120530-abc123def",
+			branchName:  "chore/sync-files-2024-01-15-120530-abc123def",
 			expectNil:   true,
 			expectError: true,
 		},
 		{
 			name:        "invalid format - missing commit",
-			branchName:  "sync/template-20240115-120530",
+			branchName:  "chore/sync-files-20240115-120530",
 			expectNil:   true,
 			expectError: true,
 		},
 		{
 			name:        "invalid format - extra components",
-			branchName:  "sync/template-20240115-120530-abc123def-extra",
+			branchName:  "chore/sync-files-20240115-120530-abc123def-extra",
 			expectNil:   true,
 			expectError: true,
 		},
@@ -108,24 +108,24 @@ func TestFormatSyncBranchName(t *testing.T) {
 	}{
 		{
 			name:      "standard format",
-			prefix:    "sync/template",
+			prefix:    "chore/sync-files",
 			timestamp: time.Date(2024, 1, 15, 12, 5, 30, 0, time.UTC),
 			commitSHA: "abc123def",
-			expected:  "sync/template-20240115-120530-abc123def",
+			expected:  "chore/sync-files-20240115-120530-abc123def",
 		},
 		{
 			name:      "midnight timestamp",
-			prefix:    "sync/template",
+			prefix:    "chore/sync-files",
 			timestamp: time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC),
 			commitSHA: "xyz789",
-			expected:  "sync/template-20241231-000000-xyz789",
+			expected:  "chore/sync-files-20241231-000000-xyz789",
 		},
 		{
 			name:      "full SHA",
-			prefix:    "sync/template",
+			prefix:    "chore/sync-files",
 			timestamp: time.Date(2024, 6, 15, 14, 30, 45, 0, time.UTC),
 			commitSHA: "1234567890abcdef1234567890abcdef12345678",
-			expected:  "sync/template-20240615-143045-1234567890abcdef1234567890abcdef12345678",
+			expected:  "chore/sync-files-20240615-143045-1234567890abcdef1234567890abcdef12345678",
 		},
 	}
 
@@ -145,17 +145,17 @@ func TestValidateBranchPrefix(t *testing.T) {
 	}{
 		{
 			name:        "valid prefix",
-			prefix:      "sync/template",
+			prefix:      "chore/sync-files",
 			expectError: false,
 		},
 		{
 			name:        "valid with underscore",
-			prefix:      "sync/template_v2",
+			prefix:      "chore/sync-files_v2",
 			expectError: false,
 		},
 		{
 			name:        "valid with dash",
-			prefix:      "sync/template-prod",
+			prefix:      "chore/sync-files-prod",
 			expectError: false,
 		},
 		{
@@ -165,12 +165,12 @@ func TestValidateBranchPrefix(t *testing.T) {
 		},
 		{
 			name:        "invalid characters - space",
-			prefix:      "sync/template prod",
+			prefix:      "chore/sync-files prod",
 			expectError: true,
 		},
 		{
 			name:        "invalid characters - special",
-			prefix:      "sync/template@prod",
+			prefix:      "chore/sync-files@prod",
 			expectError: true,
 		},
 	}
@@ -189,7 +189,7 @@ func TestValidateBranchPrefix(t *testing.T) {
 
 func TestBranchParsingRoundTrip(t *testing.T) {
 	// Test that formatting and parsing are inverse operations
-	prefix := "sync/template"
+	prefix := "chore/sync-files"
 	timestamp := time.Date(2024, 3, 15, 9, 30, 0, 0, time.UTC)
 	commitSHA := "deadbeef123"
 

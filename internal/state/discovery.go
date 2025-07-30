@@ -153,7 +153,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 		}
 
 		targetStart := time.Now()
-		targetState, err := d.DiscoverTargetState(ctx, target.Repo)
+		targetState, err := d.DiscoverTargetState(ctx, target.Repo, cfg.Defaults.BranchPrefix)
 		targetDuration := time.Since(targetStart)
 
 		if err != nil {
@@ -208,6 +208,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 // Parameters:
 // - ctx: Context for cancellation and timeout control
 // - repo: Target repository name to analyze
+// - branchPrefix: The branch prefix to use for sync branch detection
 //
 // Returns:
 // - Target repository state information
@@ -216,7 +217,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 // Side Effects:
 // - Logs detailed target analysis progress when --debug-state flag is enabled
 // - Records API call timing and branch analysis metrics
-func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo string) (*TargetState, error) {
+func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo string, branchPrefix string) (*TargetState, error) {
 	logger := logging.WithStandardFields(d.logger, d.logConfig, "target-discovery")
 	logger = logger.WithField(logging.StandardFields.TargetRepo, repo)
 	start := time.Now()
@@ -274,15 +275,16 @@ func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo string)
 	}
 
 	syncBranchCount := 0
+	syncBranchPrefix := branchPrefix + "-"
 	for _, branch := range branches {
-		if strings.HasPrefix(branch.Name, "sync/template-") {
+		if strings.HasPrefix(branch.Name, syncBranchPrefix) {
 			syncBranchCount++
 
 			if d.logConfig != nil && d.logConfig.Debug.State {
 				logger.WithField(logging.StandardFields.BranchName, branch.Name).Trace("Found potential sync branch")
 			}
 
-			metadata, parseErr := d.ParseBranchName(branch.Name)
+			metadata, parseErr := d.ParseBranchNameWithPrefix(branch.Name, branchPrefix)
 			if parseErr != nil {
 				if d.logConfig != nil && d.logConfig.Debug.State {
 					logger.WithFields(logrus.Fields{
@@ -391,7 +393,7 @@ func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo string)
 	syncPrCount := 0
 	for _, pr := range prs {
 		// Check if PR is from a sync branch
-		if strings.HasPrefix(pr.Head.Ref, "sync/template-") {
+		if strings.HasPrefix(pr.Head.Ref, syncBranchPrefix) {
 			syncPrCount++
 			targetState.OpenPRs = append(targetState.OpenPRs, pr)
 
@@ -431,6 +433,11 @@ func (d *discoveryService) ParseBranchName(name string) (*BranchMetadata, error)
 	// This will be implemented in branch.go
 	// For now, return a placeholder
 	return parseSyncBranchName(name)
+}
+
+// ParseBranchNameWithPrefix parses a branch name with a specific prefix to extract sync metadata
+func (d *discoveryService) ParseBranchNameWithPrefix(name string, branchPrefix string) (*BranchMetadata, error) {
+	return parseSyncBranchNameWithPrefix(name, branchPrefix)
 }
 
 // determineSyncStatus determines the sync status based on source and target state

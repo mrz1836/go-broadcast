@@ -62,7 +62,7 @@ type SyncBranch struct {
 }
 
 // BranchMetadata contains information parsed from sync branch names
-// Format: sync/template-YYYYMMDD-HHMMSS-{commit}
+// Format: chore/sync-files-YYYYMMDD-HHMMSS-{commit}
 type BranchMetadata struct {
 	// Timestamp is when this sync branch was created
 	Timestamp time.Time
@@ -70,7 +70,7 @@ type BranchMetadata struct {
 	// CommitSHA is the source commit this branch was created from
 	CommitSHA string
 
-	// Prefix is the branch prefix (e.g., "sync/template")
+	// Prefix is the branch prefix (e.g., "chore/sync-files")
 	Prefix string
 }
 
