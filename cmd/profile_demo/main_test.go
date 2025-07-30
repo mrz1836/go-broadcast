@@ -317,10 +317,18 @@ func TestDataGenerationEdgeCases(t *testing.T) {
 
 	t.Run("modify single byte data", func(t *testing.T) {
 		original := []byte{42}
-		result := modifyData(original, 1.0)
-		assert.Len(t, result, 1)
+		// Try up to 10 times to get a different value (probability of failure: (1/256)^10 ≈ 0)
+		modified := false
+		for i := 0; i < 10; i++ {
+			result := modifyData(original, 1.0)
+			assert.Len(t, result, 1)
+			if result[0] != original[0] {
+				modified = true
+				break
+			}
+		}
 		// With 100% modification ratio, the single byte should change
-		assert.NotEqual(t, original[0], result[0])
+		assert.True(t, modified, "Expected byte to be modified after multiple attempts")
 	})
 }
 
