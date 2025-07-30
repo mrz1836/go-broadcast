@@ -106,11 +106,24 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 	// Initialize audit logger for security event tracking
 	auditLogger := logging.NewAuditLogger()
 
+	// Extract owner from repo (format: owner/repo)
+	parts := strings.Split(repo, "/")
+	if len(parts) != 2 {
+		return nil, appErrors.WrapWithContext(appErrors.FormatError("repository", repo, "owner/repo"), "parse repo")
+	}
+	owner := parts[0]
+
+	// Format head branch with owner prefix for cross-repository PRs
+	headRef := req.Head
+	if !strings.Contains(headRef, ":") {
+		headRef = fmt.Sprintf("%s:%s", owner, req.Head)
+	}
+
 	// Create PR using gh api
 	prData := map[string]interface{}{
 		"title": req.Title,
 		"body":  req.Body,
-		"head":  req.Head,
+		"head":  headRef,
 		"base":  req.Base,
 	}
 
@@ -123,7 +136,7 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 	if err != nil {
 		// Log failed repository access
 		auditLogger.LogRepositoryAccess("github_cli", repo, "pr_create_failed")
-		return nil, appErrors.WrapWithContext(err, "create PR")
+		return nil, appErrors.WrapWithContext(fmt.Errorf("failed to create PR with head '%s' and base '%s': %w", headRef, req.Base, err), "create PR")
 	}
 
 	pr, err := jsonutil.UnmarshalJSON[PR](output)
@@ -226,6 +239,74 @@ func (g *githubClient) GetCommit(ctx context.Context, repo, sha string) (*Commit
 	}
 
 	return &commit, nil
+}
+
+// ClosePR closes a pull request with an optional comment
+func (g *githubClient) ClosePR(ctx context.Context, repo string, number int, comment string) error {
+	// First, add a comment if provided
+	if comment != "" {
+		if err := g.addPRComment(ctx, repo, number, comment); err != nil {
+			g.logger.WithError(err).Warn("Failed to add comment before closing PR")
+		}
+	}
+
+	// Close the PR by updating its state
+	closed := "closed"
+	updates := PRUpdate{
+		State: &closed,
+	}
+
+	return g.UpdatePR(ctx, repo, number, updates)
+}
+
+// DeleteBranch deletes a branch from the repository
+func (g *githubClient) DeleteBranch(ctx context.Context, repo, branch string) error {
+	_, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s/git/refs/heads/%s", repo, branch), "--method", "DELETE")
+	if err != nil {
+		if isNotFoundError(err) {
+			return ErrBranchNotFound
+		}
+		return appErrors.WrapWithContext(err, "delete branch")
+	}
+
+	return nil
+}
+
+// UpdatePR updates a pull request
+func (g *githubClient) UpdatePR(ctx context.Context, repo string, number int, updates PRUpdate) error {
+	jsonData, err := jsonutil.MarshalJSON(updates)
+	if err != nil {
+		return appErrors.WrapWithContext(err, "marshal PR update")
+	}
+
+	_, err = g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/pulls/%d", repo, number), "--method", "PATCH", "--input", "-")
+	if err != nil {
+		if isNotFoundError(err) {
+			return ErrPRNotFound
+		}
+		return appErrors.WrapWithContext(err, "update PR")
+	}
+
+	return nil
+}
+
+// addPRComment adds a comment to a pull request
+func (g *githubClient) addPRComment(ctx context.Context, repo string, number int, comment string) error {
+	commentData := map[string]string{
+		"body": comment,
+	}
+
+	jsonData, err := jsonutil.MarshalJSON(commentData)
+	if err != nil {
+		return appErrors.WrapWithContext(err, "marshal comment")
+	}
+
+	_, err = g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/issues/%d/comments", repo, number), "--method", "POST", "--input", "-")
+	if err != nil {
+		return appErrors.WrapWithContext(err, "add PR comment")
+	}
+
+	return nil
 }
 
 // isNotFoundError checks if the error is a 404 from GitHub API

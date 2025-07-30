@@ -46,6 +46,12 @@ type PRRequest struct {
 	Base  string `json:"base"` // target branch
 }
 
+// PRUpdate represents updates to an existing pull request
+type PRUpdate struct {
+	State *string `json:"state,omitempty"` // "open" or "closed"
+	Body  *string `json:"body,omitempty"`  // Updated body content
+}
+
 // Commit represents a GitHub commit
 type Commit struct {
 	SHA    string `json:"sha"`

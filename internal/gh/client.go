@@ -26,4 +26,13 @@ type Client interface {
 
 	// GetCommit retrieves commit details
 	GetCommit(ctx context.Context, repo, sha string) (*Commit, error)
+
+	// ClosePR closes a pull request with an optional comment
+	ClosePR(ctx context.Context, repo string, number int, comment string) error
+
+	// DeleteBranch deletes a branch from the repository
+	DeleteBranch(ctx context.Context, repo, branch string) error
+
+	// UpdatePR updates a pull request (e.g., to add comments)
+	UpdatePR(ctx context.Context, repo string, number int, updates PRUpdate) error
 }

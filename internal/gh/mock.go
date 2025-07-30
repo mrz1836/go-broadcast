@@ -53,3 +53,21 @@ func (m *MockClient) GetCommit(ctx context.Context, repo, sha string) (*Commit, 
 	args := m.Called(ctx, repo, sha)
 	return testutil.HandleTwoValueReturn[*Commit](args)
 }
+
+// ClosePR mock implementation
+func (m *MockClient) ClosePR(ctx context.Context, repo string, number int, comment string) error {
+	args := m.Called(ctx, repo, number, comment)
+	return args.Error(0)
+}
+
+// DeleteBranch mock implementation
+func (m *MockClient) DeleteBranch(ctx context.Context, repo, branch string) error {
+	args := m.Called(ctx, repo, branch)
+	return args.Error(0)
+}
+
+// UpdatePR mock implementation
+func (m *MockClient) UpdatePR(ctx context.Context, repo string, number int, updates PRUpdate) error {
+	args := m.Called(ctx, repo, number, updates)
+	return args.Error(0)
+}

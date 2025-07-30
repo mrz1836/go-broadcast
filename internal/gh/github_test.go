@@ -124,6 +124,56 @@ func TestCreatePR(t *testing.T) {
 	mockRunner.AssertExpectations(t)
 }
 
+// TestCreatePR_HeadFormatting tests that the head branch is properly formatted with owner prefix
+func TestCreatePR_HeadFormatting(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	req := PRRequest{
+		Title: "Test PR",
+		Body:  "Test description",
+		Head:  "feature-branch",
+		Base:  "main",
+	}
+
+	pr := PR{
+		Number: 42,
+		Title:  req.Title,
+		Body:   req.Body,
+		State:  "open",
+	}
+	output, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Capture the JSON data to verify head formatting
+	var capturedJSON []byte
+	mockRunner.On("RunWithInput", ctx, mock.MatchedBy(func(jsonData []byte) bool {
+		capturedJSON = jsonData
+		var prData map[string]interface{}
+		if unmarshalErr := json.Unmarshal(jsonData, &prData); unmarshalErr != nil {
+			return false
+		}
+		// Verify that head is formatted as "org:feature-branch"
+		head, ok := prData["head"].(string)
+		return ok && head == "org:feature-branch"
+	}), "gh", []string{"api", "repos/org/repo/pulls", "--method", "POST", "--input", "-"}).
+		Return(output, nil)
+
+	result, err := client.CreatePR(ctx, "org/repo", req)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 42, result.Number)
+
+	// Verify the captured JSON has the correctly formatted head
+	var prData map[string]interface{}
+	err = json.Unmarshal(capturedJSON, &prData)
+	require.NoError(t, err)
+	assert.Equal(t, "org:feature-branch", prData["head"])
+
+	mockRunner.AssertExpectations(t)
+}
+
 func TestGetPR(t *testing.T) {
 	ctx := context.Background()
 	mockRunner := new(MockCommandRunner)
