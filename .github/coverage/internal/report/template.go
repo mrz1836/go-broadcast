@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"html/template"
+	"reflect"
 	"time"
 )
 
@@ -134,6 +135,15 @@ const reportTemplate = `<!DOCTYPE html>
             gap: 2rem;
         }
         
+        .nav-title-link {
+            text-decoration: none;
+            transition: transform var(--transition-base);
+        }
+        
+        .nav-title-link:hover {
+            transform: translateX(2px);
+        }
+        
         .nav-title {
             font-size: 1.25rem;
             font-weight: 600;
@@ -141,6 +151,11 @@ const reportTemplate = `<!DOCTYPE html>
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            transition: opacity var(--transition-base);
+        }
+        
+        .nav-title-link:hover .nav-title {
+            opacity: 0.8;
         }
         
         .nav-actions {
@@ -290,12 +305,15 @@ const reportTemplate = `<!DOCTYPE html>
             content: '';
             position: absolute;
             top: 0;
+            left: -100%;
+            width: 100%;
+            height: 2px;
+            background: var(--gradient-primary);
+            transition: left 0.5s ease;
+        }
+        
+        .summary-card:hover::before {
             left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--gradient-primary));
-            transform: translateX(-100%);
-            animation: shimmer 2s infinite;
         }
         
         @keyframes shimmer {
@@ -303,8 +321,23 @@ const reportTemplate = `<!DOCTYPE html>
         }
         
         .summary-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+            border-color: var(--color-primary);
+        }
+        
+        .summary-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 12px;
+            background: linear-gradient(135deg, transparent, rgba(88, 166, 255, 0.1));
+            opacity: 0;
+            transition: opacity var(--transition-smooth);
+        }
+        
+        .summary-card:hover::after {
+            opacity: 1;
         }
         
         .summary-content {
@@ -734,7 +767,9 @@ const reportTemplate = `<!DOCTYPE html>
     <!-- Navigation Header -->
     <nav class="nav-header">
         <div class="nav-container">
-            <div class="nav-title">{{.RepositoryOwner}}/{{.RepositoryName}}</div>
+            <a href="https://{{.RepositoryOwner}}.github.io/{{.RepositoryName}}/" class="nav-title-link">
+                <div class="nav-title">{{.RepositoryOwner}}/{{.RepositoryName}}</div>
+            </a>
             <div class="nav-actions">
                 <div class="search-box">
                     <span class="search-icon">🔍</span>
@@ -1071,26 +1106,15 @@ func NewRenderer() *Renderer {
 				switch val := v.(type) {
 				case []interface{}:
 					return len(val)
-				case []struct {
-					Name         string  `json:"name"`
-					Coverage     float64 `json:"coverage"`
-					Lines        int     `json:"lines"`
-					CoveredLines int     `json:"covered_lines"`
-					Files        int     `json:"files"`
-				}:
+				case []PackageStats:
 					return len(val)
-				case []struct {
-					Name         string  `json:"name"`
-					Path         string  `json:"path"`
-					Package      string  `json:"package"`
-					Coverage     float64 `json:"coverage"`
-					Lines        int     `json:"lines"`
-					CoveredLines int     `json:"covered_lines"`
-					Functions    int     `json:"functions"`
-					CoveredFuncs int     `json:"covered_funcs"`
-				}:
+				case []FileStats:
 					return len(val)
 				default:
+					// Fall back to reflection for other slice types
+					if reflect.TypeOf(v).Kind() == reflect.Slice {
+						return reflect.ValueOf(v).Len()
+					}
 					return 0
 				}
 			},
