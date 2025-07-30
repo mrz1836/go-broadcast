@@ -432,7 +432,7 @@ targets:
 **Automated PR management with assignees, reviewers, and labels:**
 ```yaml
 defaults:
-  pr_labels: ["automated-sync", "template-update"]
+  pr_labels: ["automated-sync", "chore"]
   pr_assignees: ["tech-lead", "platform-team"]
   pr_reviewers: ["senior-dev1", "senior-dev2"]  
   pr_team_reviewers: ["architecture-team"]
@@ -526,9 +526,16 @@ version: 1
 source:
   repo: "org/template-repo"
   branch: "master"
+# Global PR settings applied to ALL targets (merged with target-specific settings)
+global:
+  pr_labels: ["automated-sync", "chore"]
+  pr_assignees: ["platform-team"]
+  pr_reviewers: ["platform-lead"]
+  pr_team_reviewers: ["infrastructure-team"]
+# Default settings (fallback when no global or target settings)
 defaults:
   branch_prefix: "sync/template"  
-  pr_labels: ["automated-sync"]
+  pr_labels: ["maintenance"]
   pr_assignees: ["maintainer1", "maintainer2"]
   pr_reviewers: ["reviewer1", "reviewer2"]
   pr_team_reviewers: ["platform-team"]
@@ -541,10 +548,81 @@ targets:
       repo_name: true
       variables:
         ENVIRONMENT: "production"
-    # Override PR settings for this specific repo
+    # Additional PR settings merged with global settings
+    # Final labels: ["automated-sync", "chore", "service-specific"]
+    pr_labels: ["service-specific"]
+    # Final assignees: ["platform-team", "service-owner"]  
     pr_assignees: ["service-owner"]
+    # Final reviewers: ["platform-lead", "service-reviewer"]
     pr_reviewers: ["service-reviewer"]
 ```
+</details>
+
+<details>
+<summary><strong>🌐 Global PR Assignment Configuration</strong></summary>
+
+The `global` section allows you to define PR assignments (labels, assignees, reviewers, team reviewers) that are **merged** with target-specific assignments rather than overridden. This provides powerful control over PR workflows across all repositories.
+
+#### How It Works
+
+**Merge Priority**: `global` + `target` → `defaults` (fallback)
+
+- **Global settings** apply to ALL target repositories
+- **Target settings** are merged with global settings (duplicates removed)  
+- **Default settings** are used only when neither global nor target settings exist
+
+#### Example Configuration
+
+```yaml
+version: 1
+source:
+  repo: "org/template-repo"
+  branch: "master"
+
+# Applied to ALL PRs across all targets
+global:
+  pr_labels: ["automated-sync", "chore"]
+  pr_assignees: ["platform-team"]
+  pr_reviewers: ["platform-lead"]
+  pr_team_reviewers: ["infrastructure-team"]
+
+# Fallback settings (used only if no global/target assignments)
+defaults:
+  branch_prefix: "sync/template"
+  pr_labels: ["maintenance"]
+
+targets:
+  # This repo gets ONLY global settings
+  - repo: "org/service-a"
+    files:
+      - src: ".github/workflows/ci.yml"
+        dest: ".github/workflows/ci.yml"
+    # Effective PR settings:
+    # Labels: ["automated-sync", "chore"]
+    # Assignees: ["platform-team"]
+    # Reviewers: ["platform-lead"]
+    # Team reviewers: ["infrastructure-team"]
+
+  # This repo gets global + target merged
+  - repo: "org/service-b"
+    files:
+      - src: ".github/workflows/ci.yml"
+        dest: ".github/workflows/ci.yml"
+    pr_labels: ["critical", "service-b"]
+    pr_assignees: ["service-b-owner"]
+    # Effective PR settings (merged):
+    # Labels: ["automated-sync", "chore", "critical", "service-b"]
+    # Assignees: ["platform-team", "service-b-owner"]
+    # Reviewers: ["platform-lead"] (from global)
+    # Team reviewers: ["infrastructure-team"] (from global)
+```
+
+#### Use Cases
+
+- **Organization-wide standards**: Apply consistent labels and assignees across all repositories
+- **Platform team oversight**: Ensure platform team is always assigned to infrastructure changes
+- **Security requirements**: Add security team reviewers to all template updates
+- **Compliance labeling**: Automatically tag all PRs with audit/compliance labels
 </details>
 
 <br/>
@@ -553,6 +631,7 @@ targets:
 
 - **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
 - **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)
+- **Configuration Reference** – Comprehensive configuration options including [global PR assignment merging](#configuration-reference)
 - **Configuration Examples** – Browse practical patterns in the [examples directory](examples)
 - **Troubleshooting** – Solve common issues with the [troubleshooting guide](docs/troubleshooting.md)
 - **API Reference** – Dive into the godocs at [pkg.go.dev/github.com/mrz1836/go-broadcast](https://pkg.go.dev/github.com/mrz1836/go-broadcast)
