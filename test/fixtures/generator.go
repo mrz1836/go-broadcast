@@ -249,7 +249,7 @@ func (g *TestRepoGenerator) CreateComplexScenario() (*TestScenario, error) {
 			Branch: "main",
 		},
 		Defaults: config.DefaultConfig{
-			BranchPrefix: "sync/template",
+			BranchPrefix: "chore/sync-files",
 			PRLabels:     []string{"automated-sync", "integration-test"},
 		},
 		Targets: []config.TargetConfig{

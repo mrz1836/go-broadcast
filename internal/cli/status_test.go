@@ -58,7 +58,7 @@ func TestSyncStatusJSON(t *testing.T) {
 			{
 				Repository: "org/target2",
 				State:      "outdated",
-				SyncBranch: strPtr("sync/template-20240115-120000-abc123"),
+				SyncBranch: strPtr("chore/sync-files-20240115-120000-abc123"),
 				PullRequest: &PullRequestInfo{
 					Number: 42,
 					State:  "open",
@@ -212,7 +212,7 @@ func TestOutputTextStatus(t *testing.T) {
 					{
 						Repository: "org/target2",
 						State:      "outdated",
-						SyncBranch: strPtr("sync/template-branch"),
+						SyncBranch: strPtr("chore/sync-files-branch"),
 						PullRequest: &PullRequestInfo{
 							Number: 10,
 							State:  "open",
@@ -525,11 +525,11 @@ func createMockState() *state.State {
 				LastSyncTime:   &now,
 				SyncBranches: []state.SyncBranch{
 					{
-						Name: "sync/template-20240115-120000-abc123",
+						Name: "chore/sync-files-20240115-120000-abc123",
 						Metadata: &state.BranchMetadata{
 							Timestamp: now,
 							CommitSHA: commitSHA,
-							Prefix:    "sync/template",
+							Prefix:    "chore/sync-files",
 						},
 					},
 				},
@@ -542,11 +542,11 @@ func createMockState() *state.State {
 				LastSyncTime:   &now,
 				SyncBranches: []state.SyncBranch{
 					{
-						Name: "sync/template-20240116-120000-abc124",
+						Name: "chore/sync-files-20240116-120000-abc124",
 						Metadata: &state.BranchMetadata{
 							Timestamp: now.Add(time.Hour),
 							CommitSHA: "abc124",
-							Prefix:    "sync/template",
+							Prefix:    "chore/sync-files",
 						},
 					},
 				},
@@ -559,7 +559,7 @@ func createMockState() *state.State {
 							Ref string `json:"ref"`
 							SHA string `json:"sha"`
 						}{
-							Ref: "sync/template-20240116-120000-abc124",
+							Ref: "chore/sync-files-20240116-120000-abc124",
 							SHA: "abc124",
 						},
 					},
@@ -572,11 +572,11 @@ func createMockState() *state.State {
 				LastSyncTime:   &now,
 				SyncBranches: []state.SyncBranch{
 					{
-						Name: "sync/template-20240117-120000-abc125",
+						Name: "chore/sync-files-20240117-120000-abc125",
 						Metadata: &state.BranchMetadata{
 							Timestamp: now.Add(2 * time.Hour),
 							CommitSHA: "abc125",
-							Prefix:    "sync/template",
+							Prefix:    "chore/sync-files",
 						},
 					},
 				},
@@ -589,7 +589,7 @@ func createMockState() *state.State {
 							Ref string `json:"ref"`
 							SHA string `json:"sha"`
 						}{
-							Ref: "sync/template-20240117-120000-abc125",
+							Ref: "chore/sync-files-20240117-120000-abc125",
 							SHA: "abc125",
 						},
 					},

@@ -176,6 +176,7 @@ func testGitHubAPIRateLimiting(t *testing.T, generator *fixtures.TestRepoGenerat
 		}).Return(&gh.FileContent{Content: []byte("content")}, nil).Maybe()
 
 	// Mock CreatePR with rate limiting - simulate rate limit after a few calls
+	mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 	prCallCount := 0
 	mockGH.On("CreatePR", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("gh.PRRequest")).
 		Run(func(_ mock.Arguments) {
@@ -331,6 +332,7 @@ func testNetworkInterruptionHandling(t *testing.T, generator *fixtures.TestRepoG
 	// Setup separate mocks for success and failure cases
 	for _, target := range scenario.TargetRepos {
 		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
 			Return(&gh.PR{Number: 456}, nil).Maybe()
 	}
@@ -440,6 +442,7 @@ func testAuthenticationFailureScenarios(t *testing.T, generator *fixtures.TestRe
 	// Setup CreatePR mocks for auth scenarios
 	for _, target := range scenario.TargetRepos {
 		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
 			Return(&gh.PR{Number: 789}, nil).Maybe()
 	}
@@ -528,6 +531,7 @@ func testAPITimeoutAndRetry(t *testing.T, generator *fixtures.TestRepoGenerator)
 	// Setup CreatePR mocks for timeout scenarios
 	for _, target := range scenario.TargetRepos {
 		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
 			Return(&gh.PR{Number: 101}, nil).Maybe()
 	}
@@ -630,6 +634,7 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 			atomic.AddInt64(&concurrentOps, -1)
 		}).Return(&gh.FileContent{Content: []byte("content")}, nil).Maybe()
 
+	mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 	mockGH.On("CreatePR", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("gh.PRRequest")).
 		Run(func(_ mock.Arguments) {
 			current := atomic.AddInt64(&concurrentOps, 1)
@@ -749,6 +754,7 @@ func testGitHubAPIDegradation(t *testing.T, generator *fixtures.TestRepoGenerato
 	// Setup CreatePR mocks for degradation scenarios
 	for _, target := range scenario.TargetRepos {
 		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
 			Return(&gh.PR{Number: 303}, nil).Maybe()
 	}
@@ -833,6 +839,7 @@ func testNetworkPartitionRecovery(t *testing.T, generator *fixtures.TestRepoGene
 	// Setup CreatePR mocks for partition recovery scenarios
 	for _, target := range scenario.TargetRepos {
 		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
 			Return(&gh.PR{Number: 404}, nil).Maybe()
 	}
@@ -928,6 +935,7 @@ func testDNSResolutionFailures(t *testing.T, generator *fixtures.TestRepoGenerat
 	// Mock CreatePR with intermittent DNS issues
 	for _, target := range scenario.TargetRepos {
 		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
 			Return(nil, fixtures.ErrNetworkTimeout).Maybe()
 	}
@@ -1023,6 +1031,7 @@ func testSSLCertificateErrors(t *testing.T, generator *fixtures.TestRepoGenerato
 	// Mock other operations with various SSL errors
 	for _, target := range scenario.TargetRepos {
 		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
 			Return(nil, fixtures.ErrUnauthorized).Maybe()
 	}
@@ -1108,6 +1117,7 @@ func testProxyConnectionIssues(t *testing.T, generator *fixtures.TestRepoGenerat
 	// Mock other operations with proxy authentication issues
 	for _, target := range scenario.TargetRepos {
 		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
 			Return(nil, &APIError{
 				StatusCode: http.StatusProxyAuthRequired,
@@ -1205,10 +1215,12 @@ func testGitHubWebhookSimulation(t *testing.T, generator *fixtures.TestRepoGener
 
 		// Simulate PR state changes during sync
 		// First PR creation succeeds
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
 			Return(&gh.PR{Number: 555}, nil).Once()
 
 		// Subsequent PR creations fail with conflict
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
 			Return(nil, &APIError{
 				StatusCode: http.StatusConflict,

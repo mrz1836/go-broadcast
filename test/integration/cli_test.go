@@ -30,7 +30,7 @@ source:
   repo: "org/template"
   branch: "master"
 defaults:
-  branch_prefix: "sync/template"
+  branch_prefix: "chore/sync-files"
   pr_labels: ["automated-sync"]
 targets:
   - repo: "org/service-a"
@@ -199,7 +199,7 @@ func TestCLIFlags(t *testing.T) {
 	configContent := `version: 1
 source:
   repo: "org/template"
-  branch: "master"  
+  branch: "master"
 targets:
   - repo: "org/service"
     files:

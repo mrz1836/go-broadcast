@@ -274,7 +274,7 @@ func TestValidateBranchPrefix(t *testing.T) {
 		},
 		{
 			name:    "prefix with slash",
-			prefix:  "sync/template",
+			prefix:  "chore/sync-files",
 			wantErr: false,
 		},
 		{

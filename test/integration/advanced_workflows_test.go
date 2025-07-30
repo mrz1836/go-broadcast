@@ -94,9 +94,11 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 		// Mock successful PR creation (the proper way to update protected branches)
 		mockGH.On("ListBranches", mock.Anything, repoName).
 			Return([]gh.Branch{}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).
+			Return(&gh.User{Login: "testuser", ID: 123}, nil)
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.MatchedBy(func(req gh.PRRequest) bool {
 			// Verify PR is created with proper branch (not main)
-			return req.Head != "main" && strings.Contains(req.Head, "sync/template")
+			return req.Head != "main" && strings.Contains(req.Head, "chore/sync-files")
 		})).Return(&gh.PR{
 			Number: 123,
 			Title:  "Sync from source repository",
@@ -134,12 +136,12 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 
 	// Mock creating sync branch (should succeed)
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.MatchedBy(func(branch string) bool {
-		return strings.Contains(branch, "sync/template")
+		return strings.Contains(branch, "chore/sync-files")
 	})).Return(nil)
 
 	// Mock checkout to sync branch
 	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.MatchedBy(func(branch string) bool {
-		return strings.Contains(branch, "sync/template")
+		return strings.Contains(branch, "chore/sync-files")
 	})).Return(nil)
 
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).
@@ -151,7 +153,7 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 
 	// Mock pushing to sync branch (should succeed)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.MatchedBy(func(branch string) bool {
-		return strings.Contains(branch, "sync/template")
+		return strings.Contains(branch, "chore/sync-files")
 	}), false).Return(nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
@@ -322,6 +324,8 @@ clean:
 
 		mockGH.On("ListBranches", mock.Anything, repoName).
 			Return([]gh.Branch{}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).
+			Return(&gh.User{Login: "testuser", ID: 123}, nil)
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
 			Return(&gh.PR{
 				Number: 456,
@@ -465,6 +469,8 @@ func testRollbackCapabilities(t *testing.T, generator *fixtures.TestRepoGenerato
 	// Mock branch listing and PR creation - PR creation should fail
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
 		Return([]gh.Branch{}, nil).Maybe()
+	mockGH.On("GetCurrentUser", mock.Anything).
+		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 
 	// Make PR creation fail to simulate the rollback scenario
 	mockGH.On("CreatePR", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("gh.PRRequest")).
@@ -586,6 +592,8 @@ func testStateConsistencyAcrossOperations(t *testing.T, generator *fixtures.Test
 
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
 		Return([]gh.Branch{}, nil).Maybe()
+	mockGH.On("GetCurrentUser", mock.Anything).
+		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 	mockGH.On("CreatePR", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("gh.PRRequest")).
 		Return(&gh.PR{Number: 999}, nil).Maybe()
 
@@ -639,6 +647,8 @@ func testWorkflowPermissionsAndSecurity(t *testing.T, generator *fixtures.TestRe
 		Return(&gh.FileContent{Content: []byte("secure content")}, nil).Maybe()
 
 	// Mock permission validation
+	mockGH.On("GetCurrentUser", mock.Anything).
+		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 	mockGH.On("CreatePR", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("gh.PRRequest")).
 		Return(&gh.PR{Number: 111}, nil).Maybe()
 
@@ -752,6 +762,8 @@ func testIncrementalTemplateChanges(t *testing.T, generator *fixtures.TestRepoGe
 
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
 		Return([]gh.Branch{}, nil).Maybe()
+	mockGH.On("GetCurrentUser", mock.Anything).
+		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 	mockGH.On("CreatePR", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("gh.PRRequest")).
 		Return(&gh.PR{Number: 555}, nil).Maybe()
 

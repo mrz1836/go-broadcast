@@ -624,7 +624,7 @@ func TestConfigGeneration(t *testing.T) {
 	assert.Equal(t, "main", cfg.Source.Branch)
 
 	// Verify defaults
-	assert.Equal(t, "sync/template", cfg.Defaults.BranchPrefix)
+	assert.Equal(t, "chore/sync-files", cfg.Defaults.BranchPrefix)
 	assert.Contains(t, cfg.Defaults.PRLabels, "automated-sync")
 	assert.Contains(t, cfg.Defaults.PRLabels, "integration-test")
 

@@ -29,7 +29,7 @@ func TestEndToEndSync(t *testing.T) {
 			Branch: "master",
 		},
 		Defaults: config.DefaultConfig{
-			BranchPrefix: "sync/template",
+			BranchPrefix: "chore/sync-files",
 			PRLabels:     []string{"automated-sync"},
 		},
 		Targets: []config.TargetConfig{
@@ -291,6 +291,10 @@ func TestEndToEndSync(t *testing.T) {
 		mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
 			Return([]byte("transformed content"), nil).Maybe()
 
+		// Mock GetCurrentUser for dry-run PR preview
+		mockGH.On("GetCurrentUser", mock.Anything).
+			Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
+
 		// Create sync engine with high concurrency
 		opts := sync.DefaultOptions().WithDryRun(true).WithMaxConcurrency(10)
 		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
@@ -317,7 +321,7 @@ source:
   repo: "org/template"
   branch: "master"
 defaults:
-  branch_prefix: "sync/template"
+  branch_prefix: "chore/sync-files"
   pr_labels: ["automated-sync"]
 targets:
   - repo: "org/service"
@@ -382,10 +386,10 @@ func TestStateDiscovery(t *testing.T) {
 		// Test branch name formatting
 		timestamp := time.Date(2024, 1, 15, 12, 5, 30, 0, time.UTC)
 		commitSHA := "abc123def456"
-		prefix := "sync/template"
+		prefix := "chore/sync-files"
 
 		branchName := state.FormatSyncBranchName(prefix, timestamp, commitSHA)
-		expected := "sync/template-20240115-120530-abc123def456"
+		expected := "chore/sync-files-20240115-120530-abc123def456"
 
 		assert.Equal(t, expected, branchName)
 	})
@@ -398,7 +402,7 @@ func TestStateDiscovery(t *testing.T) {
 		}{
 			{
 				name:      "valid prefix",
-				prefix:    "sync/template",
+				prefix:    "chore/sync-files",
 				expectErr: false,
 			},
 			{
@@ -408,7 +412,7 @@ func TestStateDiscovery(t *testing.T) {
 			},
 			{
 				name:      "invalid characters",
-				prefix:    "sync/template@invalid",
+				prefix:    "chore/sync-files@invalid",
 				expectErr: true,
 			},
 		}

@@ -30,7 +30,7 @@ source:
   repo: "org/template-repo"
   branch: "master"
 defaults:
-  branch_prefix: "sync/template"
+  branch_prefix: "chore/sync-files"
   pr_labels: ["automated-sync", "chore"]
 targets:`)
 
