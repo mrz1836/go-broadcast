@@ -129,7 +129,7 @@ source:
   branch: "main"
 
 defaults:
-  branch_prefix: "sync/template"
+  branch_prefix: "chore/sync-files"
   pr_labels: ["automated-sync"]
   transforms:
     - type: "smart-repo"

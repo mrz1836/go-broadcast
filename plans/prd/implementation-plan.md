@@ -136,7 +136,7 @@ source:
   branch: "master"
   
 defaults:
-  branch_prefix: "sync/template"
+  branch_prefix: "chore/sync-files"
   pr_labels: ["automated-sync"]
   
 targets:
@@ -474,7 +474,7 @@ go test ./internal/gh -tags=integration
 ## Part 6: State Discovery System (1.5 hours) - Claude Code Task
 
 **Context:**
-You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 6 of a 9-part implementation plan. The KEY INNOVATION is that the system stores NO local state - everything is derived from GitHub (branch names, PR metadata, commits). Parts 1-5 have built the foundation through to GitHub/Git clients. Now you'll implement state discovery that reconstructs the complete sync state by parsing branch names (sync/template-YYYYMMDD-HHMMSS-{commit}) and PR metadata. This enables resuming interrupted syncs and understanding current state.
+You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 6 of a 9-part implementation plan. The KEY INNOVATION is that the system stores NO local state - everything is derived from GitHub (branch names, PR metadata, commits). Parts 1-5 have built the foundation through to GitHub/Git clients. Now you'll implement state discovery that reconstructs the complete sync state by parsing branch names (chore/sync-files-YYYYMMDD-HHMMSS-{commit}) and PR metadata. This enables resuming interrupted syncs and understanding current state.
 
 **Prerequisites:**
 - Part 5 completed successfully  
@@ -490,7 +490,7 @@ You are building go-broadcast, a stateless File Sync Orchestrator that synchroni
 - Support resuming interrupted syncs"
 
 **Implementation Requirements:**
-- Branch naming: sync/template-YYYYMMDD-HHMMSS-{commit}
+- Branch naming: chore/sync-files-YYYYMMDD-HHMMSS-{commit}
 - Store metadata in PR descriptions as YAML
 - Handle missing or corrupted metadata
 - Detect outdated syncs
@@ -521,8 +521,8 @@ func (d *discoveryService) DiscoverState(ctx context.Context, config *config.Con
 
 // Branch name parsing
 func parseSyncBranch(name string) (*BranchMetadata, error) {
-    // sync/template-20240115-120530-abc123def
-    pattern := regexp.MustCompile(`^sync/template-(\d{8})-(\d{6})-([a-f0-9]+)$`)
+    // chore/sync-files-20240115-120530-abc123def
+    pattern := regexp.MustCompile(`^chore/sync-files-(\d{8})-(\d{6})-([a-f0-9]+)$`)
     matches := pattern.FindStringSubmatch(name)
     if matches == nil {
         return nil, nil // Not a sync branch

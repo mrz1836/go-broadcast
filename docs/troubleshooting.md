@@ -154,7 +154,7 @@ targets:
 **Solutions**:
 1. **Delete existing branch** (if safe):
    ```bash
-   git push origin --delete sync/template-YYYYMMDD-HHMMSS-commit
+   git push origin --delete chore/sync-files-YYYYMMDD-HHMMSS-commit
    ```
 2. **Wait for branch name to change**: Branch names include timestamps
 3. **Check for stuck sync processes**: Multiple sync processes might conflict
@@ -339,7 +339,7 @@ gh api repos/owner/target-repo/branches
 gh pr list --repo owner/target-repo --label automated-sync
 
 # View specific branch
-gh api repos/owner/target-repo/branches/sync/template-YYYYMMDD-HHMMSS-commit
+gh api repos/owner/target-repo/branches/chore/sync-files-YYYYMMDD-HHMMSS-commit
 ```
 
 ## Getting Help

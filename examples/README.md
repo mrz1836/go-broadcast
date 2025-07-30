@@ -99,7 +99,7 @@ source:     # Required: source repository
   branch: "master"
 
 defaults:   # Optional: default settings
-  branch_prefix: "sync/template"
+  branch_prefix: "chore/sync-files"
   pr_labels: ["automated-sync"]
 
 targets:    # Required: target repositories

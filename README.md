@@ -161,7 +161,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 🔍 DRY-RUN: Pull Request Preview
 ┌─────────────────────────────────────────────────────────────────
 │ Repository: company/service-name
-│ Branch: sync/template-20250130-143052-abc123f
+│ Branch: chore/sync-files-20250130-143052-abc123f
 ├─────────────────────────────────────────────────────────────────
 │ Title: [Sync] Update project files from source repository (abc123f)
 ├─────────────────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 
 ✅ DRY-RUN SUMMARY: Repository sync preview completed successfully
    📁 Repository: company/service-name
-   🌿 Branch: sync/template-20250130-143052-abc123f
+   🌿 Branch: chore/sync-files-20250130-143052-abc123f
    📝 Files: 2 would be changed
    🔗 Commit: dry-run-commit-sha
    💡 Run without --dry-run to execute these changes
@@ -234,7 +234,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 Every sync operation creates a branch with encoded metadata:
 
 ```
-sync/template-20250123-143052-abc123f
+chore/sync-files-20250123-143052-abc123f
 │    │         │                │
 │    │         │                └─── Source commit SHA (7 chars)
 │    │         └──────────────────── Timestamp (YYYYMMDD-HHMMSS)
@@ -534,7 +534,7 @@ global:
   pr_team_reviewers: ["infrastructure-team"]
 # Default settings (fallback when no global or target settings)
 defaults:
-  branch_prefix: "sync/template"  
+  branch_prefix: "chore/sync-files"  
   pr_labels: ["maintenance"]
   pr_assignees: ["maintainer1", "maintainer2"]
   pr_reviewers: ["reviewer1", "reviewer2"]
@@ -588,7 +588,7 @@ global:
 
 # Fallback settings (used only if no global/target assignments)
 defaults:
-  branch_prefix: "sync/template"
+  branch_prefix: "chore/sync-files"
   pr_labels: ["maintenance"]
 
 targets:

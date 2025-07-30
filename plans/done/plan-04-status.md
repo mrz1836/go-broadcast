@@ -706,7 +706,7 @@ With comprehensive timing enabled:
 [DEBUG] Operation completed: operation=sync_check force_sync=false needs_sync=true duration_ms=12
 [DEBUG] Operation completed: operation=source_clone source_repo=template/repo commit_sha=abc123 duration_ms=1850
 [DEBUG] Operation completed: operation=file_processing file_count=5 changed_files=3 duration_ms=45
-[DEBUG] Operation completed: operation=pr_management branch_name=sync/template-20250724-123456-abc123 changed_files=3 duration_ms=890
+[DEBUG] Operation completed: operation=pr_management branch_name=chore/sync-files-20250724-123456-abc123 changed_files=3 duration_ms=890
 ```
 
 ### Security Features

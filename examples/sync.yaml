@@ -27,8 +27,8 @@ global:
 
 # Default settings applied to all targets (fallback when no global or target settings)
 defaults:
-  # Prefix for sync branches (defaults to "sync/template")
-  branch_prefix: "sync/template"
+  # Prefix for sync branches (defaults to "chore/sync-files")
+  branch_prefix: "chore/sync-files"
   # Default labels (used only if no global or target labels specified)
   pr_labels:
     - "maintenance"

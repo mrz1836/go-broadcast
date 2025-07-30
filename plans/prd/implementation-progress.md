@@ -84,7 +84,7 @@
 - [x] Completed: 2025-07-23
 - [x] Notes:
   - Implemented state discoverer that derives all state from GitHub
-  - Created branch name parser for sync/template-YYYYMMDD-HHMMSS-{commit} format
+  - Created branch name parser for chore/sync-files-YYYYMMDD-HHMMSS-{commit} format
   - Added PR metadata extraction from YAML blocks in descriptions
   - Implemented sync status determination (up-to-date, behind, pending, etc.)
   - Comprehensive tests with mocked GitHub client
