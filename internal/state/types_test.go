@@ -53,7 +53,7 @@ func TestState_Structure(t *testing.T) {
 					{
 						Number: 42,
 						State:  "open",
-						Title:  "Sync from template",
+						Title:  "Sync from source repository",
 					},
 				},
 				LastSyncCommit: "abc123",
@@ -322,7 +322,7 @@ func TestState_ComplexScenario(t *testing.T) {
 					{
 						Number: 99,
 						State:  "open",
-						Title:  "Sync from template",
+						Title:  "Sync from source repository",
 						Head: struct {
 							Ref string `json:"ref"`
 							SHA string `json:"sha"`
@@ -352,7 +352,7 @@ func TestState_ComplexScenario(t *testing.T) {
 					{
 						Number: 100,
 						State:  "open",
-						Title:  "Sync from template (conflicts)",
+						Title:  "Sync from source repository (conflicts)",
 						Labels: []struct {
 							Name string `json:"name"`
 						}{

@@ -324,7 +324,7 @@ func TestRepositorySync_generateCommitMessage(t *testing.T) {
 		}
 
 		msg := repoSync.generateCommitMessage(files)
-		assert.Equal(t, "sync: update README.md from template", msg)
+		assert.Equal(t, "sync: update README.md from source repository", msg)
 	})
 
 	t.Run("multiple files", func(t *testing.T) {
@@ -335,7 +335,7 @@ func TestRepositorySync_generateCommitMessage(t *testing.T) {
 		}
 
 		msg := repoSync.generateCommitMessage(files)
-		assert.Equal(t, "sync: update 3 files from template", msg)
+		assert.Equal(t, "sync: update 3 files from source repository", msg)
 	})
 }
 

@@ -541,10 +541,10 @@ func (rs *RepositorySync) updateExistingPR(ctx context.Context, pr *gh.PR, commi
 // generateCommitMessage creates a descriptive commit message
 func (rs *RepositorySync) generateCommitMessage(changedFiles []FileChange) string {
 	if len(changedFiles) == 1 {
-		return fmt.Sprintf("sync: update %s from template", changedFiles[0].Path)
+		return fmt.Sprintf("sync: update %s from source repository", changedFiles[0].Path)
 	}
 
-	return fmt.Sprintf("sync: update %d files from template", len(changedFiles))
+	return fmt.Sprintf("sync: update %d files from source repository", len(changedFiles))
 }
 
 // generatePRTitle creates a descriptive PR title

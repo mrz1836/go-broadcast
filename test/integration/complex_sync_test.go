@@ -153,7 +153,7 @@ func testMultiRepoSyncWithConflicts(t *testing.T, generator *fixtures.TestRepoGe
 			mockGH.On("CreatePR", mock.Anything, fmt.Sprintf("org/%s", target.Name), mock.AnythingOfType("gh.PRRequest")).
 				Return(&gh.PR{
 					Number: 123,
-					Title:  "Sync from template",
+					Title:  "Sync from source repository",
 				}, nil).Maybe()
 		}
 	}

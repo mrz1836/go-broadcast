@@ -17,7 +17,7 @@ import (
 func TestNewRootCmd(t *testing.T) {
 	cmd := NewRootCmd()
 	assert.Equal(t, "go-broadcast", cmd.Use)
-	assert.Equal(t, "Synchronize files from template repos to multiple targets", cmd.Short)
+	assert.Equal(t, "Synchronize files from source repos to multiple targets", cmd.Short)
 	assert.NotNil(t, cmd.PersistentPreRunE)
 	assert.True(t, cmd.SilenceUsage)
 	assert.True(t, cmd.SilenceErrors)

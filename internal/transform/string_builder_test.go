@@ -201,9 +201,9 @@ func TestBuildCommitMessage(t *testing.T) {
 		{
 			name:     "simple commit message",
 			action:   "sync",
-			subject:  "update files from template",
+			subject:  "update files from source repository",
 			details:  []string{},
-			expected: "sync: update files from template",
+			expected: "sync: update files from source repository",
 		},
 		{
 			name:     "commit message with single detail",
@@ -215,9 +215,9 @@ func TestBuildCommitMessage(t *testing.T) {
 		{
 			name:     "commit message with multiple details",
 			action:   "sync",
-			subject:  "files from template",
+			subject:  "files from source repository",
 			details:  []string{"Modified: README.md", "Added: .gitignore", "Updated: package.json"},
-			expected: "sync: files from template\n\nModified: README.md\nAdded: .gitignore\nUpdated: package.json",
+			expected: "sync: files from source repository\n\nModified: README.md\nAdded: .gitignore\nUpdated: package.json",
 		},
 		{
 			name:     "commit message with empty details",
@@ -624,7 +624,7 @@ func BenchmarkBuildCommitMessage(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_ = BuildCommitMessage("sync", "update files from template", details...)
+		_ = BuildCommitMessage("sync", "update files from source repository", details...)
 	}
 }
 

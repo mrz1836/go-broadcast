@@ -184,7 +184,7 @@ func TestGeneratePRDescription(t *testing.T) {
 		},
 	}
 
-	summary := "Sync latest changes from template repository"
+	summary := "Sync latest changes from source repository"
 	result := GeneratePRDescription(metadata, summary)
 
 	// Check structure

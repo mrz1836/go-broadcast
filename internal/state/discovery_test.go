@@ -83,7 +83,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 			Return([]gh.PR{
 				{
 					Number: 42,
-					Title:  "Sync from template",
+					Title:  "Sync from source repository",
 					State:  "open",
 					Head: struct {
 						Ref string `json:"ref"`

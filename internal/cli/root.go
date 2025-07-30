@@ -26,7 +26,7 @@ var (
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var rootCmd = &cobra.Command{
 	Use:   "go-broadcast",
-	Short: "Synchronize files from template repos to multiple targets",
+	Short: "Synchronize files from source repos to multiple targets",
 	Long: `go-broadcast is a stateless File Sync Orchestrator that synchronizes
 files from a template repository to multiple target repositories.
 
@@ -84,7 +84,7 @@ func NewRootCmd() *cobra.Command {
 	// Create new command instance with isolated setup function
 	cmd := &cobra.Command{
 		Use:   "go-broadcast",
-		Short: "Synchronize files from template repos to multiple targets",
+		Short: "Synchronize files from source repos to multiple targets",
 		Long: `go-broadcast is a stateless File Sync Orchestrator that synchronizes
 files from a template repository to multiple target repositories.
 
@@ -124,7 +124,7 @@ func NewRootCmdWithVerbose() *cobra.Command {
 	// Create new command instance with enhanced setup function
 	cmd := &cobra.Command{
 		Use:   "go-broadcast",
-		Short: "Synchronize files from template repos to multiple targets",
+		Short: "Synchronize files from source repos to multiple targets",
 		Long: `go-broadcast is a stateless File Sync Orchestrator that synchronizes
 files from a template repository to multiple target repositories.
 
@@ -254,7 +254,7 @@ func addVerboseFlags(cmd *cobra.Command, config *LogConfig) {
 	cmd.PersistentFlags().CountVarP(&config.Verbose, "verbose", "v",
 		`Increase output verbosity for debugging and monitoring:
   -v    Debug level (detailed operations, timing, status)
-  -vv   Trace level (internal operations, API calls)  
+  -vv   Trace level (internal operations, API calls)
   -vvv  Trace with caller info (file:line for deep debugging)`)
 
 	// Add component-specific debug flags
@@ -363,33 +363,33 @@ Target repositories can be specified as arguments to sync only specific repos.`,
   go-broadcast sync                        # Sync all targets
   go-broadcast sync org/repo1 org/repo2    # Sync specific repositories
   go-broadcast sync --dry-run              # Preview changes only
-  
+
   # Debugging and monitoring
   go-broadcast sync -v                     # Debug level output
   go-broadcast sync -vv                    # Trace level with details
   go-broadcast sync -vvv                   # Trace with caller info
-  
+
   # Component-specific debugging
   go-broadcast sync --debug-git            # Show git commands and output
   go-broadcast sync --debug-api            # Show GitHub API requests
   go-broadcast sync --debug-transform      # Show file transformations
   go-broadcast sync --debug-config         # Show configuration validation
   go-broadcast sync --debug-state          # Show state discovery process
-  
+
   # Structured logging for automation
   go-broadcast sync --json -v              # JSON output for log analysis
   go-broadcast sync --log-format json      # Alternative JSON syntax
-  
+
   # Comprehensive debugging sessions
   go-broadcast sync -vv --debug-git --debug-api    # Multiple components
   go-broadcast sync -vvv --debug-git 2> debug.log # Save to file
-  
+
   # Performance monitoring
   go-broadcast sync --json 2>&1 | jq 'select(.duration_ms > 1000)'
-  
+
   # Troubleshooting authentication
   go-broadcast sync --debug-git -v         # Debug git auth issues
-  
+
   # Production monitoring with structured logs
   go-broadcast sync --json 2>&1 | fluentd`,
 		Aliases: []string{"s"},
@@ -419,15 +419,15 @@ Shows comprehensive status information including:
 		Example: `  # Basic status check
   go-broadcast status                    # Show status for all targets
   go-broadcast status --config sync.yaml # Use specific config file
-  
+
   # Detailed status with debugging
   go-broadcast status -v                 # Debug level status details
   go-broadcast status --debug-state -v   # Debug state discovery process
-  
+
   # Automation and monitoring
   go-broadcast status --json             # Machine-readable status output
   go-broadcast status --json | jq .      # Pretty-print JSON status
-  
+
   # Common status workflows
   go-broadcast status 2>&1 | tee status.log     # Save status to file
   go-broadcast status && go-broadcast sync       # Check status then sync`,
@@ -452,22 +452,22 @@ func createValidateCmdWithVerbose(config *LogConfig) *cobra.Command {
 Performs comprehensive validation including:
 - YAML syntax verification
 - Required field presence
-- Repository name format validation  
+- Repository name format validation
 - File path safety checks
 - Transform configuration validation
 - Duplicate detection across targets and file mappings`,
 		Example: `  # Basic validation
   go-broadcast validate                    # Validate default config file
   go-broadcast validate --config sync.yaml # Validate specific file
-  
+
   # Detailed validation debugging
   go-broadcast validate --debug-config -v  # Show validation steps
   go-broadcast validate -vv               # Trace level validation details
-  
+
   # Automation and CI/CD
   go-broadcast validate && echo "Config OK" # Exit code validation
   go-broadcast validate --json            # Machine-readable output
-  
+
   # Common validation workflows
   go-broadcast validate --config prod.yaml --debug-config  # Debug production config
   go-broadcast validate 2>&1 | tee validation.log         # Save validation output`,
@@ -497,10 +497,10 @@ Displays detailed information about:
 - Runtime environment details`,
 		Example: `  # Basic version information
   go-broadcast version                   # Show version details
-  
+
   # Include version in diagnostic collection
   go-broadcast version && go-broadcast diagnose > full-info.json
-  
+
   # Automation and scripting
   go-broadcast version --json            # Machine-readable version output
   VERSION=$(go-broadcast version --json | jq -r '.version')  # Extract version`,
@@ -522,15 +522,15 @@ Target repositories can be specified as arguments to sync only specific repos.`,
   go-broadcast sync --config sync.yaml     # Use specific config file
   go-broadcast sync org/repo1 org/repo2    # Sync only specified repositories
   go-broadcast sync --dry-run              # Preview changes without making them
-  
+
   # Debugging and troubleshooting
   go-broadcast sync --log-level debug      # Enable debug logging
   go-broadcast sync --log-level trace      # Maximum verbosity
-  
+
   # Common workflows
   go-broadcast validate && go-broadcast sync --dry-run  # Validate then preview
   go-broadcast sync --dry-run | tee preview.log        # Save preview output
-  
+
   # For troubleshooting, use enhanced verbose commands:
   # go-broadcast sync -v --debug-git (requires go-broadcast with verbose support)`,
 		Aliases: []string{"s"},
@@ -561,7 +561,7 @@ func createValidateCmd(flags *Flags) *cobra.Command {
 
 Performs comprehensive validation including:
 - YAML syntax verification
-- Required field presence  
+- Required field presence
 - Repository name format validation
 - File path safety checks
 - Transform configuration validation
@@ -569,14 +569,14 @@ Performs comprehensive validation including:
 		Example: `  # Basic validation
   go-broadcast validate                    # Validate default config file
   go-broadcast validate --config sync.yaml # Validate specific file
-  
+
   # Debug validation issues
   go-broadcast validate --log-level debug  # Show detailed validation steps
-  
+
   # Automation workflows
   go-broadcast validate && echo "Config valid"      # Use exit code
   go-broadcast validate 2>&1 | tee validation.log  # Save output
-  
+
   # For detailed debugging, use enhanced validate command:
   # go-broadcast validate --debug-config -v (requires verbose support)`,
 		Aliases: []string{"v", "check"},
@@ -782,7 +782,7 @@ to clean up the repositories.`,
 		Example: `  # Cancel all active syncs
   go-broadcast cancel --config sync.yaml
 
-  # Cancel syncs for specific repositories  
+  # Cancel syncs for specific repositories
   go-broadcast cancel org/repo1 org/repo2
 
   # Preview what would be canceled (dry run)
@@ -808,7 +808,7 @@ to clean up the repositories.`,
 		Example: `  # Cancel all active syncs
   go-broadcast cancel --config sync.yaml
 
-  # Cancel syncs for specific repositories  
+  # Cancel syncs for specific repositories
   go-broadcast cancel org/repo1 org/repo2
 
   # Preview what would be canceled (dry run)

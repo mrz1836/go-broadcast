@@ -141,7 +141,7 @@ func BenchmarkStringBuilding(b *testing.B) {
 			"Commit_Message_Building",
 			func(b *testing.B) {
 				action := "sync"
-				subject := "update files from template"
+				subject := "update files from source repository"
 				details := []string{
 					"Modified: README.md, .github/workflows/ci.yml",
 					"Added: docs/api.md",

@@ -123,7 +123,7 @@ func BuildBranchName(prefix, timestamp, commitSHA string) string {
 //
 // Parameters:
 // - action: Primary action (e.g., "sync", "update", "add")
-// - subject: Subject of the action (e.g., "files from template")
+// - subject: Subject of the action (e.g., "files from source repository")
 // - details: Optional additional details
 //
 // Returns:
@@ -131,8 +131,8 @@ func BuildBranchName(prefix, timestamp, commitSHA string) string {
 //
 // Example:
 //
-//	msg := BuildCommitMessage("sync", "update files from template", "Modified: README.md, .github/workflows/ci.yml")
-//	// Result: "sync: update files from template\n\nModified: README.md, .github/workflows/ci.yml"
+//	msg := BuildCommitMessage("sync", "update files from source repository", "Modified: README.md, .github/workflows/ci.yml")
+//	// Result: "sync: update files from source repository\n\nModified: README.md, .github/workflows/ci.yml"
 func BuildCommitMessage(action, subject string, details ...string) string {
 	// Base size: action + ": " + subject
 	baseSize := len(action) + 2 + len(subject)

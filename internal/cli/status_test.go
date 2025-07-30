@@ -217,7 +217,7 @@ func TestOutputTextStatus(t *testing.T) {
 							Number: 10,
 							State:  "open",
 							URL:    "https://github.com/org/target2/pull/10",
-							Title:  "Update from template",
+							Title:  "Update from source repository",
 						},
 					},
 					{

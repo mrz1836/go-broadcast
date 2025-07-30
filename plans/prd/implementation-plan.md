@@ -18,7 +18,7 @@ The File Sync Orchestrator (`go-broadcast`) is a stateless CLI tool that:
 ## Part 1: Project Foundation & Cleanup (45 minutes) - Claude Code Task
 
 **Context:**
-You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from template repositories to multiple targets. This is Part 1 of a 9-part implementation plan. The system derives all state from GitHub (branches, PRs, commits) and never stores state locally. It uses interface-driven design for testability and supports file transformations. The complete architecture includes: CLI commands, Configuration parser, GitHub/Git clients, State Discovery, Transform Engine, and Sync Engine. This first part sets up the project foundation.
+You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 1 of a 9-part implementation plan. The system derives all state from GitHub (branches, PRs, commits) and never stores state locally. It uses interface-driven design for testability and supports file transformations. The complete architecture includes: CLI commands, Configuration parser, GitHub/Git clients, State Discovery, Transform Engine, and Sync Engine. This first part sets up the project foundation.
 
 **Prerequisites:**
 - Working directory is `/Users/mrz/projects/go-broadcast`
@@ -79,7 +79,7 @@ grep -E "(cobra|logrus|yaml)" go.mod || echo "Dependencies need to be added"
 ## Part 2: Configuration System & Types (1 hour) - Claude Code Task
 
 **Context:**
-You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from template repositories to multiple targets. This is Part 2 of a 9-part implementation plan. The system derives all state from GitHub (branches, PRs, commits) and uses interface-driven design. Part 1 has set up the project foundation with directory structure and dependencies. Now you'll implement the configuration system that defines how files are synchronized between repositories. The config system is central to all other components.
+You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 2 of a 9-part implementation plan. The system derives all state from GitHub (branches, PRs, commits) and uses interface-driven design. Part 1 has set up the project foundation with directory structure and dependencies. Now you'll implement the configuration system that defines how files are synchronized between repositories. The config system is central to all other components.
 
 **Prerequisites:**
 - Part 1 completed successfully
@@ -179,7 +179,7 @@ go run cmd/go-broadcast/main.go validate --config examples/sync.yaml
 ## Part 3: Core Interfaces & Mocks (1.5 hours) - Claude Code Task
 
 **Context:**
-You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from template repositories to multiple targets. This is Part 3 of a 9-part implementation plan. The system's architecture is interface-driven to enable testing and modularity. Parts 1-2 have established the foundation and configuration system. Now you'll define all core interfaces that abstract external dependencies (GitHub API, Git operations, etc.) and create mock implementations for testing. These interfaces are crucial for the remaining components.
+You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 3 of a 9-part implementation plan. The system's architecture is interface-driven to enable testing and modularity. Parts 1-2 have established the foundation and configuration system. Now you'll define all core interfaces that abstract external dependencies (GitHub API, Git operations, etc.) and create mock implementations for testing. These interfaces are crucial for the remaining components.
 
 **Prerequisites:**
 - Part 2 completed successfully
@@ -270,7 +270,7 @@ go test ./internal/gh ./internal/git ./internal/transform ./internal/state -v
 ## Part 4: CLI Foundation & Commands (2 hours) - Claude Code Task
 
 **Context:**
-You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from template repositories to multiple targets. This is Part 4 of a 9-part implementation plan. The system uses GitHub as the source of truth and supports file transformations. Parts 1-3 have created the foundation, configuration system, and core interfaces. Now you'll build the CLI using Cobra, implementing commands: sync (main operation), status (show state), validate (check config), and version. The CLI is the primary user interface.
+You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 4 of a 9-part implementation plan. The system uses GitHub as the source of truth and supports file transformations. Parts 1-3 have created the foundation, configuration system, and core interfaces. Now you'll build the CLI using Cobra, implementing commands: sync (main operation), status (show state), validate (check config), and version. The CLI is the primary user interface.
 
 **Prerequisites:**
 - Parts 1-3 completed successfully
@@ -313,7 +313,7 @@ func main() {
 // internal/cli/root.go
 var rootCmd = &cobra.Command{
     Use:   "go-broadcast",
-    Short: "Synchronize files from template repos to multiple targets",
+    Short: "Synchronize files from source repository repos to multiple targets",
     PersistentPreRun: func(cmd *cobra.Command, args []string) {
         // Set up logging level
         // Load configuration
@@ -377,7 +377,7 @@ go build -o go-broadcast cmd/go-broadcast/main.go
 ## Part 5: GitHub & Git Clients (2 hours) - Claude Code Task
 
 **Context:**
-You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from template repositories to multiple targets. This is Part 5 of a 9-part implementation plan. The system relies on GitHub as the single source of truth, using the gh CLI and git commands. Parts 1-4 have built the foundation, config, interfaces, and CLI structure. Now you'll implement the actual GitHub and Git clients that fulfill the interfaces from Part 3. These clients wrap the gh CLI and git commands to interact with repositories.
+You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 5 of a 9-part implementation plan. The system relies on GitHub as the single source of truth, using the gh CLI and git commands. Parts 1-4 have built the foundation, config, interfaces, and CLI structure. Now you'll implement the actual GitHub and Git clients that fulfill the interfaces from Part 3. These clients wrap the gh CLI and git commands to interact with repositories.
 
 **Prerequisites:**
 - Part 4 completed successfully
@@ -474,7 +474,7 @@ go test ./internal/gh -tags=integration
 ## Part 6: State Discovery System (1.5 hours) - Claude Code Task
 
 **Context:**
-You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from template repositories to multiple targets. This is Part 6 of a 9-part implementation plan. The KEY INNOVATION is that the system stores NO local state - everything is derived from GitHub (branch names, PR metadata, commits). Parts 1-5 have built the foundation through to GitHub/Git clients. Now you'll implement state discovery that reconstructs the complete sync state by parsing branch names (sync/template-YYYYMMDD-HHMMSS-{commit}) and PR metadata. This enables resuming interrupted syncs and understanding current state.
+You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 6 of a 9-part implementation plan. The KEY INNOVATION is that the system stores NO local state - everything is derived from GitHub (branch names, PR metadata, commits). Parts 1-5 have built the foundation through to GitHub/Git clients. Now you'll implement state discovery that reconstructs the complete sync state by parsing branch names (sync/template-YYYYMMDD-HHMMSS-{commit}) and PR metadata. This enables resuming interrupted syncs and understanding current state.
 
 **Prerequisites:**
 - Part 5 completed successfully  
@@ -565,7 +565,7 @@ go run cmd/go-broadcast/main.go status --config examples/sync.yaml
 ## Part 7: Transform Engine (1.5 hours) - Claude Code Task
 
 **Context:**
-You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from template repositories to multiple targets. This is Part 7 of a 9-part implementation plan. The system supports intelligent file transformations when syncing. Parts 1-6 have built everything up to state discovery. Now you'll implement the transform engine that modifies file contents during sync - like replacing repository names in go.mod files or substituting template variables. The engine uses a chain pattern to apply multiple transformations.
+You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 7 of a 9-part implementation plan. The system supports intelligent file transformations when syncing. Parts 1-6 have built everything up to state discovery. Now you'll implement the transform engine that modifies file contents during sync - like replacing repository names in go.mod files or substituting template variables. The engine uses a chain pattern to apply multiple transformations.
 
 **Prerequisites:**
 - Part 6 completed successfully
@@ -661,7 +661,7 @@ echo "module github.com/org/template" | go run cmd/transform-test/main.go
 ## Part 8: Sync Engine Core (2 hours) - Claude Code Task
 
 **Context:**
-You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from template repositories to multiple targets. This is Part 8 of a 9-part implementation plan. This is the CORE component that orchestrates everything. Parts 1-7 have built all supporting components: config, CLI, GitHub/Git clients, state discovery, and transforms. Now you'll implement the sync engine that ties it all together - loading config, discovering state, calculating changes, applying transforms, creating branches/commits, and opening PRs. This makes the tool functional end-to-end.
+You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 8 of a 9-part implementation plan. This is the CORE component that orchestrates everything. Parts 1-7 have built all supporting components: config, CLI, GitHub/Git clients, state discovery, and transforms. Now you'll implement the sync engine that ties it all together - loading config, discovering state, calculating changes, applying transforms, creating branches/commits, and opening PRs. This makes the tool functional end-to-end.
 
 **Prerequisites:**
 - Parts 1-7 completed successfully
@@ -763,7 +763,7 @@ GO_BROADCAST_MOCK=true go run cmd/go-broadcast/main.go sync
 ## Part 9: Testing & Documentation (2 hours) - Claude Code Task
 
 **Context:**
-You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from template repositories to multiple targets. This is Part 9 of a 9-part implementation plan - the FINAL part. The system is fully functional after Parts 1-8, which built: foundation, config, interfaces, CLI, GitHub/Git clients, state discovery, transforms, and the sync engine. Now you'll add comprehensive testing, documentation, and examples to make the project production-ready. Target >80% test coverage and clear user documentation.
+You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 9 of a 9-part implementation plan - the FINAL part. The system is fully functional after Parts 1-8, which built: foundation, config, interfaces, CLI, GitHub/Git clients, state discovery, transforms, and the sync engine. Now you'll add comprehensive testing, documentation, and examples to make the project production-ready. Target >80% test coverage and clear user documentation.
 
 **Prerequisites:**
 - Parts 1-8 completed successfully

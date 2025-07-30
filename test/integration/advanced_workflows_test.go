@@ -99,7 +99,7 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 			return req.Head != "main" && strings.Contains(req.Head, "sync/template")
 		})).Return(&gh.PR{
 			Number: 123,
-			Title:  "Sync from template",
+			Title:  "Sync from source repository",
 		}, nil)
 	}
 
