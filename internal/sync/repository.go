@@ -482,10 +482,13 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 	}
 
 	prRequest := gh.PRRequest{
-		Title: title,
-		Body:  body,
-		Head:  branchName,
-		Base:  baseBranch,
+		Title:         title,
+		Body:          body,
+		Head:          branchName,
+		Base:          baseBranch,
+		Assignees:     rs.getPRAssignees(),
+		Reviewers:     rs.getPRReviewers(),
+		TeamReviewers: rs.getPRTeamReviewers(),
 	}
 
 	pr, err := rs.engine.gh.CreatePR(ctx, rs.target.Repo, prRequest)
@@ -754,4 +757,28 @@ func (rs *RepositorySync) showDryRunPRPreview(branchName, commitSHA string, chan
 	}
 
 	out.Footer()
+}
+
+// getPRAssignees returns the assignees to use for PRs, with target overriding defaults
+func (rs *RepositorySync) getPRAssignees() []string {
+	if len(rs.target.PRAssignees) > 0 {
+		return rs.target.PRAssignees
+	}
+	return rs.engine.config.Defaults.PRAssignees
+}
+
+// getPRReviewers returns the reviewers to use for PRs, with target overriding defaults
+func (rs *RepositorySync) getPRReviewers() []string {
+	if len(rs.target.PRReviewers) > 0 {
+		return rs.target.PRReviewers
+	}
+	return rs.engine.config.Defaults.PRReviewers
+}
+
+// getPRTeamReviewers returns the team reviewers to use for PRs, with target overriding defaults
+func (rs *RepositorySync) getPRTeamReviewers() []string {
+	if len(rs.target.PRTeamReviewers) > 0 {
+		return rs.target.PRTeamReviewers
+	}
+	return rs.engine.config.Defaults.PRTeamReviewers
 }
