@@ -347,7 +347,7 @@ func TestRepositorySync_generatePRTitle(t *testing.T) {
 	}
 
 	title := repoSync.generatePRTitle()
-	assert.Equal(t, "Sync files from template repository (abc123d)", title)
+	assert.Equal(t, "[Sync] Update project files from source repository (abc123d)", title)
 }
 
 func TestRepositorySync_generatePRBody(t *testing.T) {
@@ -370,16 +370,16 @@ func TestRepositorySync_generatePRBody(t *testing.T) {
 	body := repoSync.generatePRBody("commit456", files)
 
 	// Verify key components are present
-	assert.Contains(t, body, "This pull request synchronizes files")
+	assert.Contains(t, body, "## What Changed")
+	assert.Contains(t, body, "## Why It Was Necessary")
+	assert.Contains(t, body, "## Testing Performed")
+	assert.Contains(t, body, "## Impact / Risk")
+	assert.Contains(t, body, "Updated project files to synchronize")
 	assert.Contains(t, body, "go-broadcast-metadata")
 	assert.Contains(t, body, "source_repo: org/template")
 	assert.Contains(t, body, "source_commit: abc123")
 	assert.Contains(t, body, "target_repo: org/target")
 	assert.Contains(t, body, "sync_commit: commit456")
-	assert.Contains(t, body, "## Changed Files")
-	assert.Contains(t, body, "`README.md` (modified)")
-	assert.Contains(t, body, "`new-file.txt` (added)")
-	assert.Contains(t, body, "## Source Information")
 }
 
 func TestRepositorySync_findExistingPR(t *testing.T) {

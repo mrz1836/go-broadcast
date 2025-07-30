@@ -163,9 +163,10 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 │ Repository: company/service-name
 │ Branch: sync/template-20250130-143052-abc123f
 ├─────────────────────────────────────────────────────────────────
-│ Title: Sync files from template repository (abc123f)
+│ Title: [Sync] Update project files from source repository (abc123f)
 ├─────────────────────────────────────────────────────────────────
-│ This pull request synchronizes files from the template repo...
+│ ## What Changed
+│ * Updated project files to synchronize with the latest ch...
 │
 │ ## Changed Files
 │
