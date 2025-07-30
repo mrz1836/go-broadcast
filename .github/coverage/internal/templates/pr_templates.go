@@ -76,6 +76,9 @@ type TemplateData struct {
 	// Configuration
 	Config TemplateConfig `json:"config"`
 
+	// Resources and links
+	Resources ResourceLinks `json:"resources"`
+
 	// Metadata
 	Metadata TemplateMetadata `json:"metadata"`
 }
@@ -189,6 +192,16 @@ type RecommendationData struct {
 	Impact      string   `json:"impact"`
 }
 
+// ResourceLinks contains URLs and links for the PR comment
+type ResourceLinks struct {
+	BadgeURL      string `json:"badge_url"`
+	ReportURL     string `json:"report_url"`
+	DashboardURL  string `json:"dashboard_url"`
+	PRBadgeURL    string `json:"pr_badge_url"`
+	PRReportURL   string `json:"pr_report_url"`
+	HistoricalURL string `json:"historical_url"`
+}
+
 // TemplateMetadata contains template metadata
 type TemplateMetadata struct {
 	Version      string    `json:"version"`
@@ -242,11 +255,20 @@ func (e *PRTemplateEngine) RenderComment(_ context.Context, templateName string,
 
 	// Add configuration to template data
 	data.Config = *e.config
-	data.Metadata = TemplateMetadata{
-		Version:      "2.0",
-		GeneratedAt:  time.Now(),
-		TemplateUsed: templateName,
-		Signature:    "gofortress-coverage-v2",
+
+	// Set metadata if not already set
+	if data.Metadata.Signature == "" {
+		data.Metadata = TemplateMetadata{
+			Version:      "2.0",
+			GeneratedAt:  time.Now(),
+			TemplateUsed: templateName,
+			Signature:    "gofortress-coverage-v2",
+		}
+	} else {
+		// Update template used if not set
+		if data.Metadata.TemplateUsed == "" {
+			data.Metadata.TemplateUsed = templateName
+		}
 	}
 
 	// Get the template
@@ -331,6 +353,8 @@ func (e *PRTemplateEngine) createTemplateFuncMap() template.FuncMap {
 		"max":   math.Max,
 		"min":   math.Min,
 		"round": e.round,
+		"mul":   e.multiply,
+		"add":   e.add,
 
 		// Collections
 		"slice":  e.slice,
@@ -509,8 +533,30 @@ func (e *PRTemplateEngine) coverageBar(percentage float64) string {
 	return e.progressBar(percentage, 100, 15)
 }
 
-func (e *PRTemplateEngine) trendChart(values []float64) string {
-	if !e.config.IncludeCharts || len(values) == 0 {
+func (e *PRTemplateEngine) trendChart(value interface{}) string {
+	if !e.config.IncludeCharts {
+		return ""
+	}
+
+	// Handle both single value and slice of values
+	var values []float64
+	switch v := value.(type) {
+	case float64:
+		// Single value - just show indicator
+		if v >= 90 {
+			return "📈"
+		}
+		if v >= 70 {
+			return "📊"
+		}
+		return "📉"
+	case []float64:
+		values = v
+	default:
+		return ""
+	}
+
+	if len(values) == 0 {
 		return ""
 	}
 
@@ -686,11 +732,63 @@ func (e *PRTemplateEngine) round(value float64) float64 {
 	return math.Round(value*10) / 10
 }
 
-func (e *PRTemplateEngine) slice(items interface{}, start, _ int) interface{} {
-	// Implementation depends on the specific type
-	// This is a placeholder for slice operations
-	_ = start // Currently unused but kept for interface compatibility
-	return items
+func (e *PRTemplateEngine) multiply(a, b float64) float64 {
+	return a * b
+}
+
+func (e *PRTemplateEngine) add(a, b int) int {
+	return a + b
+}
+
+func (e *PRTemplateEngine) slice(items interface{}, start, end int) interface{} {
+	switch v := items.(type) {
+	case []FileCoverageData:
+		if end > len(v) {
+			end = len(v)
+		}
+		if start < 0 {
+			start = 0
+		}
+		if start >= end {
+			return []FileCoverageData{}
+		}
+		return v[start:end]
+	case []PackageCoverageData:
+		if end > len(v) {
+			end = len(v)
+		}
+		if start < 0 {
+			start = 0
+		}
+		if start >= end {
+			return []PackageCoverageData{}
+		}
+		return v[start:end]
+	case []RecommendationData:
+		if end > len(v) {
+			end = len(v)
+		}
+		if start < 0 {
+			start = 0
+		}
+		if start >= end {
+			return []RecommendationData{}
+		}
+		return v[start:end]
+	case []string:
+		if end > len(v) {
+			end = len(v)
+		}
+		if start < 0 {
+			start = 0
+		}
+		if start >= end {
+			return []string{}
+		}
+		return v[start:end]
+	default:
+		return items
+	}
 }
 
 func (e *PRTemplateEngine) length(items interface{}) int {

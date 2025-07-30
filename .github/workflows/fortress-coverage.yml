@@ -519,6 +519,85 @@ jobs:
           echo "✅ History recording completed"
 
       # ————————————————————————————————————————————————————————————————
+      # Create PR comment (if in PR context)
+      # ————————————————————————————————————————————————————————————————
+      - name: 💬 Create or update PR coverage comment
+        if: github.event_name == 'pull_request' && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
+        working-directory: .github/coverage/cmd/gofortress-coverage
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "💬 Creating or updating PR coverage comment..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📋 PR Information:"
+          echo "  - PR Number: $GITHUB_PR_NUMBER"
+          echo "  - Head SHA: $GITHUB_SHA"
+          echo "  - Repository: $GITHUB_REPOSITORY"
+          echo "  - Comment behavior: ${{ env.COVERAGE_PR_COMMENT_BEHAVIOR }}"
+          echo ""
+
+          # Get the coverage file path
+          REPO_ROOT="$(realpath ../../../../)"
+          COVERAGE_FILE="$REPO_ROOT/coverage-artifacts/${{ inputs.coverage-file }}"
+
+          if [[ ! -f "$COVERAGE_FILE" ]]; then
+            # Try alternate path
+            COVERAGE_FILE="$REPO_ROOT/${{ inputs.coverage-file }}"
+          fi
+
+          if [[ ! -f "$COVERAGE_FILE" ]]; then
+            echo "❌ Coverage file not found: ${{ inputs.coverage-file }}"
+            echo "🔍 Searched in:"
+            echo "  - $REPO_ROOT/coverage-artifacts/"
+            echo "  - $REPO_ROOT/"
+            exit 1
+          fi
+
+          echo "✅ Found coverage file: $COVERAGE_FILE"
+
+          # Check if we have a base coverage file for comparison (in PR context)
+          BASE_COVERAGE_ARG=""
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # TODO: Implement base branch coverage fetching for comparison
+            echo "📊 Note: Base coverage comparison not yet implemented"
+          fi
+
+          # Determine template based on configuration
+          TEMPLATE="comprehensive"
+          if [[ "${{ env.COVERAGE_PR_COMMENT_BEHAVIOR }}" == "update" ]]; then
+            # Use comprehensive template but rely on anti-spam to minimize updates
+            TEMPLATE="comprehensive"
+          fi
+
+          # Get URLs for the comment
+          BADGE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage.svg"
+          REPORT_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/"
+
+          # Create enhanced PR comment
+          ./gofortress-coverage comment \
+            --pr "$GITHUB_PR_NUMBER" \
+            --coverage "$COVERAGE_FILE" \
+            $BASE_COVERAGE_ARG \
+            --template "$TEMPLATE" \
+            --badge-url "$BADGE_URL" \
+            --report-url "$REPORT_URL" \
+            --enable-analysis \
+            --anti-spam \
+            --generate-badges
+
+          if [[ $? -eq 0 ]]; then
+            echo "✅ PR comment created/updated successfully"
+          else
+            echo "⚠️ Failed to create PR comment (non-fatal)"
+          fi
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # ————————————————————————————————————————————————————————————————
       # Prepare for GitHub Pages deployment
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Prepare GitHub Pages deployment
