@@ -15,7 +15,7 @@ rebuild: ## Clean and rebuild the project
 	@echo "Cleaning build artifacts..."
 	@go clean -i ./...
 	@echo "Rebuilding project..."
-	@go install ./cmd/go-broadcast
+	@go build -o go-broadcast ./cmd/go-broadcast
 
 .PHONY: test-integration-complex
 test-integration-complex: ## Run complex integration test scenarios (Phase 1)
