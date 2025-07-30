@@ -10,6 +10,13 @@ REPO_OWNER ?= mrz1836
 
 # Custom functions for this project
 
+.PHONY: rebuild
+rebuild: ## Clean and rebuild the project
+	@echo "Cleaning build artifacts..."
+	@go clean -i ./...
+	@echo "Rebuilding project..."
+	@go install ./cmd/go-broadcast
+
 .PHONY: test-integration-complex
 test-integration-complex: ## Run complex integration test scenarios (Phase 1)
 	@echo "Running complex integration tests..."
