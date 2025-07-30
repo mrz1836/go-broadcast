@@ -95,6 +95,8 @@ var (
 	ErrGitPermissionDenied  = errors.New("git push failed: permission denied")
 	ErrRequestTimeout       = errors.New("request timeout")
 	ErrServiceDegradation   = errors.New("partial service degradation")
+	ErrSSLCertificate       = errors.New("git clone failed: x509: certificate signed by unknown authority")
+	ErrProxyConnection      = errors.New("git clone failed: proxy connection failed (407 Proxy Authentication Required)")
 )
 
 // CreateRepo generates a test repository with the specified files

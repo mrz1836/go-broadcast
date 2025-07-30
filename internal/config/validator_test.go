@@ -2,8 +2,10 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/validation"
@@ -1028,5 +1030,549 @@ func TestConfigValidateContextCancellationEdgeCases(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "validation canceled")
+	})
+}
+
+// TestComplexConfigurationValidationEdgeCases tests complex nested configuration scenarios
+func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
+	t.Run("deeply nested file structures with complex transforms", func(t *testing.T) {
+		config := &Config{
+			Version: 1,
+			Source: SourceConfig{
+				Repo:   "enterprise-org/master-template-repository",
+				Branch: "production/stable/v2.1.3",
+			},
+			Defaults: DefaultConfig{
+				BranchPrefix: "automated-sync/template-update",
+				PRLabels:     []string{"automated-sync", "template-update", "critical-infrastructure", "security-patch"},
+			},
+			Targets: []TargetConfig{
+				{
+					Repo: "enterprise-org/microservice-payment-gateway",
+					Files: []FileMapping{
+						{Src: "infrastructure/kubernetes/base/deployment.yaml", Dest: "k8s/overlays/production/deployment.yaml"},
+						{Src: "infrastructure/kubernetes/base/service.yaml", Dest: "k8s/overlays/production/service.yaml"},
+						{Src: "infrastructure/monitoring/prometheus/rules.yaml", Dest: "monitoring/prometheus/payment-gateway-rules.yaml"},
+						{Src: "infrastructure/security/network-policies.yaml", Dest: "security/network/payment-gateway-policies.yaml"},
+						{Src: "docs/api/openapi-spec-template.yaml", Dest: "docs/api/payment-gateway-openapi.yaml"},
+						{Src: "testing/integration/test-framework.config.json", Dest: "tests/integration/payment-gateway.config.json"},
+					},
+					Transform: Transform{
+						RepoName: true,
+						Variables: map[string]string{
+							"SERVICE_NAME":        "payment-gateway",
+							"NAMESPACE":           "payment-services",
+							"DATABASE_CONNECTION": "postgresql://payment-db:5432/payments",
+							"REDIS_ENDPOINT":      "redis://payment-cache:6379",
+							"API_VERSION":         "v2",
+							"SECURITY_PROFILE":    "PCI-DSS-COMPLIANT",
+							"MONITORING_LABELS":   "payment,gateway,financial",
+							"REPLICAS":            "3",
+							"RESOURCE_LIMITS":     "cpu=2,memory=4Gi",
+							"HEALTH_CHECK_PATH":   "/health/payment-gateway",
+						},
+					},
+				},
+				{
+					Repo: "enterprise-org/microservice-user-authentication",
+					Files: []FileMapping{
+						{Src: "infrastructure/kubernetes/base/deployment.yaml", Dest: "k8s/overlays/staging/deployment.yaml"},
+						{Src: "infrastructure/kubernetes/base/configmap.yaml", Dest: "k8s/overlays/staging/auth-configmap.yaml"},
+						{Src: "infrastructure/security/rbac-template.yaml", Dest: "security/rbac/auth-service-rbac.yaml"},
+						{Src: "infrastructure/monitoring/grafana/dashboard-template.json", Dest: "monitoring/grafana/auth-service-dashboard.json"},
+					},
+					Transform: Transform{
+						RepoName: true,
+						Variables: map[string]string{
+							"SERVICE_NAME":    "user-authentication",
+							"NAMESPACE":       "auth-services",
+							"JWT_SECRET_KEY":  "${AUTH_JWT_SECRET}",
+							"OAUTH_PROVIDERS": "google,github,microsoft",
+							"SESSION_TIMEOUT": "3600",
+							"RATE_LIMIT":      "1000req/min",
+							"ENCRYPTION_ALGO": "AES-256-GCM",
+						},
+					},
+				},
+			},
+		}
+
+		err := config.ValidateWithLogging(context.Background(), nil)
+		require.NoError(t, err, "Complex nested configuration should be valid")
+	})
+
+	t.Run("maximum complexity configuration with edge case names", func(t *testing.T) {
+		config := &Config{
+			Version: 1,
+			Source: SourceConfig{
+				Repo:   "edge-case.org/repo_with.special-chars123",
+				Branch: "feature/complex.branch-name_with_underscores",
+			},
+			Defaults: DefaultConfig{
+				BranchPrefix: "sync.automated-updates",
+				PRLabels: []string{
+					"automated-sync",
+					"template-update",
+					"infrastructure-change",
+					"security-enhancement",
+					"performance-optimization",
+					"documentation-update",
+					"ci-cd-improvement",
+					"dependency-update",
+					"monitoring-enhancement",
+					"logging-improvement",
+				},
+			},
+			Targets: make([]TargetConfig, 50), // Create 50 targets to test scale
+		}
+
+		// Populate targets with complex file mappings
+		for i := range config.Targets {
+			config.Targets[i] = TargetConfig{
+				Repo: fmt.Sprintf("edge-case.org/service-%d_special.name", i+1),
+				Files: []FileMapping{
+					{Src: fmt.Sprintf("templates/service-%d/config.yaml", i+1), Dest: fmt.Sprintf("configs/service-%d.yaml", i+1)},
+					{Src: fmt.Sprintf("templates/service-%d/deployment.yaml", i+1), Dest: fmt.Sprintf("k8s/service-%d-deployment.yaml", i+1)},
+					{Src: "shared/monitoring/base.yaml", Dest: fmt.Sprintf("monitoring/service-%d-monitoring.yaml", i+1)},
+				},
+				Transform: Transform{
+					RepoName: true,
+					Variables: map[string]string{
+						"SERVICE_NAME":  fmt.Sprintf("service-%d", i+1),
+						"SERVICE_PORT":  fmt.Sprintf("%d", 8000+i),
+						"DATABASE_NAME": fmt.Sprintf("service_%d_db", i+1),
+					},
+				},
+			}
+		}
+
+		err := config.ValidateWithLogging(context.Background(), nil)
+		require.NoError(t, err, "Maximum complexity configuration should be valid")
+	})
+
+	t.Run("error recovery with partially invalid complex configuration", func(t *testing.T) {
+		config := &Config{
+			Version: 1,
+			Source: SourceConfig{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Defaults: DefaultConfig{
+				BranchPrefix: "sync/template",
+				PRLabels:     []string{"automated-sync", "", "valid-label"}, // Empty label in middle
+			},
+			Targets: []TargetConfig{
+				{
+					Repo: "org/valid-service-1",
+					Files: []FileMapping{
+						{Src: "valid/file1.yaml", Dest: "dest/file1.yaml"},
+						{Src: "valid/file2.yaml", Dest: "dest/file2.yaml"},
+					},
+				},
+				{
+					Repo: "invalid-repo-format", // Invalid repo format
+					Files: []FileMapping{
+						{Src: "file.yaml", Dest: "dest.yaml"},
+					},
+				},
+				{
+					Repo: "org/valid-service-2",
+					Files: []FileMapping{
+						{Src: "../traversal-attempt", Dest: "dest.yaml"}, // Path traversal
+					},
+				},
+				{
+					Repo: "org/duplicate-dest-service",
+					Files: []FileMapping{
+						{Src: "src1.yaml", Dest: "same-dest.yaml"},
+						{Src: "src2.yaml", Dest: "same-dest.yaml"}, // Duplicate destination
+					},
+				},
+				{
+					Repo: "org/valid-service-3",
+					Files: []FileMapping{
+						{Src: "valid/final.yaml", Dest: "dest/final.yaml"},
+					},
+					Transform: Transform{
+						Variables: map[string]string{
+							"VALID_VAR":   "valid-value",
+							"EMPTY_VAR":   "", // Empty variable value (should be allowed)
+							"COMPLEX_VAR": "${DATABASE_URL}/api/v1/endpoint?timeout=30s&retries=3",
+						},
+					},
+				},
+			},
+		}
+
+		err := config.ValidateWithLogging(context.Background(), nil)
+		require.Error(t, err, "Configuration with multiple errors should fail")
+
+		// Should catch the first error encountered (empty PR label)
+		errorMsg := err.Error()
+		isExpectedError := strings.Contains(errorMsg, "cannot be empty") ||
+			strings.Contains(errorMsg, "invalid format: repository name") ||
+			strings.Contains(errorMsg, "path traversal detected") ||
+			strings.Contains(errorMsg, "duplicate destination")
+
+		assert.True(t, isExpectedError, "Should contain one of the expected error messages: %s", errorMsg)
+	})
+
+	t.Run("repository discovery edge cases with complex naming patterns", func(t *testing.T) {
+		// Test complex but valid repository naming patterns
+		validComplexRepos := []string{
+			"enterprise.corporation/microservice.payment-gateway_v2",
+			"github-org123/repo-name_with.multiple-separators",
+			"a1b2c3.org/x9y8z7.repo",
+			"org_with_underscores/repo.with.dots-and-hyphens_123",
+			"12345.numbers/67890.in.names",
+		}
+
+		for i, repo := range validComplexRepos {
+			t.Run(fmt.Sprintf("valid_complex_repo_%d", i+1), func(t *testing.T) {
+				config := &Config{
+					Version: 1,
+					Source: SourceConfig{
+						Repo:   repo,
+						Branch: "main",
+					},
+					Targets: []TargetConfig{
+						{
+							Repo: "org/target",
+							Files: []FileMapping{
+								{Src: "file.txt", Dest: "dest.txt"},
+							},
+						},
+					},
+				}
+
+				err := config.ValidateWithLogging(context.Background(), nil)
+				assert.NoError(t, err, "Complex but valid repository name should pass: %s", repo)
+			})
+		}
+
+		// Test edge cases that should fail
+		invalidComplexRepos := []struct {
+			repo   string
+			reason string
+		}{
+			{"org/repo/extra/parts", "too many slashes"},
+			{"org//double-slash", "double slash"},
+			{"org/", "empty repo name"},
+			{"/repo", "empty org name"},
+			{"_org/repo", "org starts with underscore"},
+			{"org/_repo", "repo starts with underscore"},
+			{"org with spaces/repo", "org contains spaces"},
+			{"org/repo with spaces", "repo contains spaces"},
+		}
+
+		for i, testCase := range invalidComplexRepos {
+			t.Run(fmt.Sprintf("invalid_complex_repo_%d_%s", i+1, strings.ReplaceAll(testCase.reason, " ", "_")), func(t *testing.T) {
+				config := &Config{
+					Version: 1,
+					Source: SourceConfig{
+						Repo:   testCase.repo,
+						Branch: "main",
+					},
+					Targets: []TargetConfig{
+						{
+							Repo: "org/target",
+							Files: []FileMapping{
+								{Src: "file.txt", Dest: "dest.txt"},
+							},
+						},
+					},
+				}
+
+				err := config.ValidateWithLogging(context.Background(), nil)
+				require.Error(t, err, "Invalid repository name should fail (%s): %s", testCase.reason, testCase.repo)
+				assert.Contains(t, err.Error(), "repository name", "Error should mention repository name validation")
+			})
+		}
+	})
+
+	t.Run("complex branch name validation edge cases", func(t *testing.T) {
+		// Test complex but valid branch names
+		validComplexBranches := []string{
+			"feature/JIRA-12345_implement.complex-feature_v2.1.0",
+			"hotfix/urgent.security-patch_CVE-2023-12345",
+			"release/v1.2.3-beta.4_pre-release.candidate",
+			"maintenance/database.migration_phase-1_rollback.safe",
+			"experiment/ai-ml.model_training-v3.2_gpu.optimization",
+			"integration/third-party.api_v2.auth.oauth2-implementation",
+		}
+
+		for i, branch := range validComplexBranches {
+			t.Run(fmt.Sprintf("valid_complex_branch_%d", i+1), func(t *testing.T) {
+				config := &Config{
+					Version: 1,
+					Source: SourceConfig{
+						Repo:   "org/template",
+						Branch: branch,
+					},
+					Targets: []TargetConfig{
+						{
+							Repo: "org/target",
+							Files: []FileMapping{
+								{Src: "file.txt", Dest: "dest.txt"},
+							},
+						},
+					},
+				}
+
+				err := config.ValidateWithLogging(context.Background(), nil)
+				assert.NoError(t, err, "Complex but valid branch name should pass: %s", branch)
+			})
+		}
+
+		// Test invalid complex branch names
+		invalidComplexBranches := []struct {
+			branch string
+			reason string
+		}{
+			{"-feature/invalid-start", "starts with hyphen"},
+			{".feature/invalid-start", "starts with dot"},
+			{"/feature/invalid-start", "starts with slash"},
+			{"feature branch with spaces", "contains spaces"},
+			{"feature@branch#invalid", "contains special characters"},
+			{"feature\\branch\\backslashes", "contains backslashes"},
+			{"feature|branch|pipes", "contains pipes"},
+			{"feature<branch>brackets", "contains angle brackets"},
+		}
+
+		for i, testCase := range invalidComplexBranches {
+			t.Run(fmt.Sprintf("invalid_complex_branch_%d_%s", i+1, strings.ReplaceAll(testCase.reason, " ", "_")), func(t *testing.T) {
+				config := &Config{
+					Version: 1,
+					Source: SourceConfig{
+						Repo:   "org/template",
+						Branch: testCase.branch,
+					},
+					Targets: []TargetConfig{
+						{
+							Repo: "org/target",
+							Files: []FileMapping{
+								{Src: "file.txt", Dest: "dest.txt"},
+							},
+						},
+					},
+				}
+
+				err := config.ValidateWithLogging(context.Background(), nil)
+				require.Error(t, err, "Invalid branch name should fail (%s): %s", testCase.reason, testCase.branch)
+				assert.Contains(t, err.Error(), "branch name", "Error should mention branch name validation")
+			})
+		}
+	})
+
+	t.Run("extreme file path validation scenarios", func(t *testing.T) {
+		// Test complex but valid file paths
+		validComplexPaths := []struct {
+			src  string
+			dest string
+		}{
+			{
+				"infrastructure/kubernetes/overlays/production/microservices/payment-gateway/deployment.v2.1.3.yaml",
+				"k8s/production/services/payment/gateway-deployment.yaml",
+			},
+			{
+				"docs/api-specifications/openapi/v3.0/payment-service/endpoints.swagger.json",
+				"documentation/api/payment-service-openapi-v3.json",
+			},
+			{
+				"testing/integration/data/fixtures/payment.gateway.test-data.large-volume.json",
+				"tests/integration/fixtures/payment-gateway-bulk-data.json",
+			},
+			{
+				"configuration/environments/production/secrets-template.encrypted.yaml",
+				"config/prod/secrets-template.yaml",
+			},
+			{
+				"monitoring/prometheus/rules/alerts/payment-gateway.high-availability.rules.yaml",
+				"monitoring/alerts/payment-gateway-ha.yaml",
+			},
+		}
+
+		for i, pathPair := range validComplexPaths {
+			t.Run(fmt.Sprintf("valid_complex_paths_%d", i+1), func(t *testing.T) {
+				config := &Config{
+					Version: 1,
+					Source: SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []TargetConfig{
+						{
+							Repo: "org/target",
+							Files: []FileMapping{
+								{Src: pathPair.src, Dest: pathPair.dest},
+							},
+						},
+					},
+				}
+
+				err := config.ValidateWithLogging(context.Background(), nil)
+				assert.NoError(t, err, "Complex but valid file paths should pass: %s -> %s", pathPair.src, pathPair.dest)
+			})
+		}
+
+		// Test sophisticated path traversal attempts
+		sophisticatedTraversalAttempts := []struct {
+			src    string
+			dest   string
+			reason string
+		}{
+			{
+				"legitimate/path/../../../../../../../etc/passwd",
+				"dest/file.txt",
+				"multiple parent directory traversal in source",
+			},
+			{
+				"src/file.txt",
+				"legitimate/path/../../../../../../../tmp/malicious.sh",
+				"multiple parent directory traversal in destination",
+			},
+			{
+				"src/normal/../../../secret.file",
+				"dest/file.txt",
+				"traversal mixed with legitimate path in source",
+			},
+			{
+				"src/file.txt",
+				"dest/normal/../../../sensitive.data",
+				"traversal mixed with legitimate path in destination",
+			},
+			{
+				"configs/../configs/../configs/../../../root/.ssh/id_rsa",
+				"dest/file.txt",
+				"repeated directory traversal pattern in source",
+			},
+			{
+				"src/file.txt",
+				"data/../data/../data/../../../var/log/sensitive.log",
+				"repeated directory traversal pattern in destination",
+			},
+		}
+
+		for i, testCase := range sophisticatedTraversalAttempts {
+			t.Run(fmt.Sprintf("sophisticated_traversal_%d", i+1), func(t *testing.T) {
+				config := &Config{
+					Version: 1,
+					Source: SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []TargetConfig{
+						{
+							Repo: "org/target",
+							Files: []FileMapping{
+								{Src: testCase.src, Dest: testCase.dest},
+							},
+						},
+					},
+				}
+
+				err := config.ValidateWithLogging(context.Background(), nil)
+				require.Error(t, err, "Sophisticated path traversal should be detected (%s)", testCase.reason)
+				assert.Contains(t, err.Error(), "path traversal detected", "Error should mention path traversal detection")
+			})
+		}
+	})
+
+	t.Run("transform variable validation with complex scenarios", func(t *testing.T) {
+		// Test complex but valid transform variables
+		complexValidVariables := map[string]string{
+			"SIMPLE_VAR":                   "simple-value",
+			"EMPTY_VAR":                    "", // Empty values should be allowed
+			"URL_VAR":                      "https://api.example.com/v1/endpoint?timeout=30s&retries=3",
+			"DATABASE_CONNECTION_STRING":   "postgresql://user:password@hostname:5432/database?sslmode=require&pool_max_conns=10",
+			"KUBERNETES_RESOURCE_TEMPLATE": "memory: ${MEMORY_LIMIT}Mi, cpu: ${CPU_LIMIT}m, replicas: ${REPLICA_COUNT}",
+			"JSON_CONFIG":                  `{"timeout": 30, "retries": 3, "endpoints": ["api1", "api2"]}`,
+			"YAML_FRAGMENT":                "key: value\nnested:\n  key: value",
+			"ENVIRONMENT_SPECIFIC":         "${ENVIRONMENT}_${SERVICE_NAME}_${VERSION}",
+			"MONITORING_LABELS":            "app=${APP_NAME},version=${VERSION},environment=${ENV},team=platform",
+			"SECURITY_POLICY":              "network-policy: default-deny, ingress: allow-from-namespace, egress: allow-to-internet",
+			"PERFORMANCE_TUNING":           "gc-percent=100,max-procs=${CPU_COUNT},gomaxprocs=${GOMAXPROCS}",
+			"FEATURE_FLAGS":                "flag1=true,flag2=false,flag3=${EXPERIMENTAL_FEATURES}",
+			"API_VERSIONS":                 "v1=/api/v1,v2=/api/v2,health=/health,metrics=/metrics",
+			"REGEX_PATTERN":                "^[a-zA-Z0-9]([a-zA-Z0-9-_.])*[a-zA-Z0-9]$",
+			"SPECIAL_CHARACTERS":           "!@#$%^&*()_+-=[]{}|;':,.<>?",
+			"UNICODE_CONTENT":              "Service: 💳 Payment Gateway, Status: ✅ Active, Performance: 🚀 High",
+			"MULTI_LINE_SCRIPT":            "#!/bin/bash\nset -e\necho 'Starting service'\n./start-service.sh",
+			"BASE64_ENCODED":               "dGVzdC1kYXRhLWZvci12YWxpZGF0aW9uLXB1cnBvc2Vz",
+			"XML_FRAGMENT":                 "<config><database>prod-db</database><timeout>30</timeout></config>",
+			"SQL_QUERY_TEMPLATE":           "SELECT * FROM ${TABLE_NAME} WHERE environment = '${ENVIRONMENT}' AND active = true",
+		}
+
+		config := &Config{
+			Version: 1,
+			Source: SourceConfig{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: []TargetConfig{
+				{
+					Repo: "org/target",
+					Files: []FileMapping{
+						{Src: "template.yaml", Dest: "output.yaml"},
+					},
+					Transform: Transform{
+						RepoName:  true,
+						Variables: complexValidVariables,
+					},
+				},
+			},
+		}
+
+		err := config.ValidateWithLogging(context.Background(), nil)
+		assert.NoError(t, err, "Complex but valid transform variables should pass")
+	})
+
+	t.Run("validation performance with large configuration", func(t *testing.T) {
+		// Create a configuration with many targets to test validation performance
+		config := &Config{
+			Version: 1,
+			Source: SourceConfig{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Defaults: DefaultConfig{
+				BranchPrefix: "sync/template",
+				PRLabels:     []string{"automated-sync", "performance-test"},
+			},
+			Targets: make([]TargetConfig, 100), // 100 targets
+		}
+
+		// Populate targets with unique configurations
+		for i := range config.Targets {
+			config.Targets[i] = TargetConfig{
+				Repo: fmt.Sprintf("org/service-%03d", i+1),
+				Files: []FileMapping{
+					{Src: fmt.Sprintf("templates/service-%d.yaml", i+1), Dest: fmt.Sprintf("services/service-%d.yaml", i+1)},
+					{Src: fmt.Sprintf("configs/service-%d.json", i+1), Dest: fmt.Sprintf("configs/service-%d-config.json", i+1)},
+					{Src: "shared/monitoring.yaml", Dest: fmt.Sprintf("monitoring/service-%d-monitoring.yaml", i+1)},
+					{Src: "shared/security.yaml", Dest: fmt.Sprintf("security/service-%d-security.yaml", i+1)},
+					{Src: "shared/deployment.yaml", Dest: fmt.Sprintf("k8s/service-%d-deployment.yaml", i+1)},
+				},
+				Transform: Transform{
+					RepoName: true,
+					Variables: map[string]string{
+						"SERVICE_NAME":  fmt.Sprintf("service-%d", i+1),
+						"SERVICE_PORT":  fmt.Sprintf("%d", 8000+i),
+						"SERVICE_INDEX": fmt.Sprintf("%d", i+1),
+						"DATABASE_NAME": fmt.Sprintf("service_%d_db", i+1),
+						"NAMESPACE":     fmt.Sprintf("services-group-%d", (i/10)+1),
+					},
+				},
+			}
+		}
+
+		// Measure validation time
+		start := time.Now()
+		err := config.ValidateWithLogging(context.Background(), nil)
+		duration := time.Since(start)
+
+		require.NoError(t, err, "Large configuration should validate successfully")
+		assert.Less(t, duration, 5*time.Second, "Validation should complete within reasonable time")
+		t.Logf("Validation of 100 targets with 500 files completed in %v", duration)
 	})
 }

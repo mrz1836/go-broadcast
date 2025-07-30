@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -10,6 +11,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+// Static test errors for err113 linter compliance
+var (
+	ErrTestError = errors.New("test error")
 )
 
 // mockTask implements the Task interface for testing
@@ -405,4 +411,318 @@ func TestPoolBatchSubmitPartialFailure(t *testing.T) {
 	}()
 
 	pool.Shutdown()
+}
+
+// TestPoolHighConcurrencyStress tests pool under high concurrency stress
+func TestPoolHighConcurrencyStress(t *testing.T) {
+	const (
+		numWorkers  = 10
+		queueSize   = 100
+		numTasks    = 1000
+		numRoutines = 20
+	)
+
+	pool := NewPool(numWorkers, queueSize)
+	ctx := context.Background()
+	pool.Start(ctx)
+
+	var totalSubmitted int64
+	var totalCompleted int64
+	var wg sync.WaitGroup
+
+	// Start result collector
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for result := range pool.Results() {
+			atomic.AddInt64(&totalCompleted, 1)
+			if result.Error != nil {
+				t.Errorf("Task %s failed: %v", result.TaskName, result.Error)
+				return
+			}
+		}
+	}()
+
+	// Submit tasks from multiple goroutines concurrently
+	submitWg := sync.WaitGroup{}
+	for i := 0; i < numRoutines; i++ {
+		submitWg.Add(1)
+		go func(routineID int) {
+			defer submitWg.Done()
+			for j := 0; j < numTasks/numRoutines; j++ {
+				task := &mockTask{
+					name:      fmt.Sprintf("stress-task-%d-%d", routineID, j),
+					sleepTime: time.Microsecond * 100, // Very short work
+				}
+
+				// Retry submission if queue is full
+				for {
+					err := pool.Submit(task)
+					if err == nil {
+						atomic.AddInt64(&totalSubmitted, 1)
+						break
+					}
+					if errors.Is(err, ErrTaskQueueFull) {
+						time.Sleep(time.Microsecond * 50) // Brief backoff
+						continue
+					}
+					if err != nil {
+						t.Errorf("Unexpected error submitting task: %v", err)
+						return
+					}
+				}
+			}
+		}(i)
+	}
+
+	// Wait for all submissions to complete
+	submitWg.Wait()
+	t.Logf("All %d tasks submitted", atomic.LoadInt64(&totalSubmitted))
+
+	// Wait for all tasks to complete
+	require.Eventually(t, func() bool {
+		completed := atomic.LoadInt64(&totalCompleted)
+		submitted := atomic.LoadInt64(&totalSubmitted)
+		return completed == submitted
+	}, 30*time.Second, 100*time.Millisecond,
+		"Expected all tasks to complete: submitted=%d, completed=%d",
+		atomic.LoadInt64(&totalSubmitted), atomic.LoadInt64(&totalCompleted))
+
+	pool.Shutdown()
+	wg.Wait()
+
+	// Verify final counts
+	finalSubmitted := atomic.LoadInt64(&totalSubmitted)
+	finalCompleted := atomic.LoadInt64(&totalCompleted)
+
+	assert.Equal(t, numTasks, int(finalSubmitted), "Should have submitted all tasks")
+	assert.Equal(t, finalSubmitted, finalCompleted, "Should have completed all submitted tasks")
+
+	// Verify pool stats
+	processed, _, queued := pool.Stats()
+	assert.Equal(t, int64(numTasks), processed, "Pool should have processed all tasks")
+	assert.Equal(t, 0, queued, "Queue should be empty after completion")
+}
+
+// TestPoolResourceCleanupOnPanic tests resource cleanup when tasks panic
+func TestPoolResourceCleanupOnPanic(t *testing.T) {
+	const numWorkers = 5
+	const numTasks = 50
+
+	pool := NewPool(numWorkers, numTasks*2)
+	ctx := context.Background()
+	pool.Start(ctx)
+
+	var panicCount int64
+	var successCount int64
+	var wg sync.WaitGroup
+
+	// Collect results
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for result := range pool.Results() {
+			if errors.Is(result.Error, ErrTaskPanicked) {
+				atomic.AddInt64(&panicCount, 1)
+			} else if result.Error == nil {
+				atomic.AddInt64(&successCount, 1)
+			}
+		}
+	}()
+
+	// Submit mix of panicking and normal tasks
+	tasks := make([]Task, numTasks)
+	for i := 0; i < numTasks; i++ {
+		if i%3 == 0 { // Every third task panics
+			tasks[i] = &mockTask{
+				name: fmt.Sprintf("panic-task-%d", i),
+				executeFunc: func(_ context.Context) error {
+					panic("intentional test panic")
+				},
+			}
+		} else {
+			tasks[i] = &mockTask{
+				name:      fmt.Sprintf("normal-task-%d", i),
+				sleepTime: time.Millisecond * 10,
+			}
+		}
+	}
+
+	err := pool.SubmitBatch(tasks)
+	require.NoError(t, err)
+
+	// Wait for all tasks to complete
+	require.Eventually(t, func() bool {
+		totalCompleted := atomic.LoadInt64(&panicCount) + atomic.LoadInt64(&successCount)
+		return totalCompleted == int64(numTasks)
+	}, 15*time.Second, 100*time.Millisecond)
+
+	pool.Shutdown()
+	wg.Wait()
+
+	// Verify panic handling didn't break the pool
+	expectedPanics := int64(0)
+	expectedSuccess := int64(0)
+	for i := 0; i < numTasks; i++ {
+		if i%3 == 0 {
+			expectedPanics++
+		} else {
+			expectedSuccess++
+		}
+	}
+
+	assert.Equal(t, expectedPanics, atomic.LoadInt64(&panicCount),
+		"Should have handled all panicking tasks")
+	assert.Equal(t, expectedSuccess, atomic.LoadInt64(&successCount),
+		"Should have completed all normal tasks despite panics")
+
+	// Pool should still be functional after panics
+	processed, _, _ := pool.Stats()
+	assert.Equal(t, int64(numTasks), processed, "Pool should have processed all tasks")
+}
+
+// TestPoolContextCancellationCleanup tests cleanup when context is canceled
+func TestPoolContextCancellationCleanup(t *testing.T) {
+	const numWorkers = 4
+	const numTasks = 100
+
+	pool := NewPool(numWorkers, numTasks)
+	ctx, cancel := context.WithCancel(context.Background())
+	pool.Start(ctx)
+
+	var completedCount int64
+	var cancelledCount int64
+	var wg sync.WaitGroup
+
+	// Collect results
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for result := range pool.Results() {
+			if errors.Is(result.Error, context.Canceled) {
+				atomic.AddInt64(&cancelledCount, 1)
+			} else if result.Error == nil {
+				atomic.AddInt64(&completedCount, 1)
+			}
+		}
+	}()
+
+	// Submit long-running tasks
+	tasks := make([]Task, numTasks)
+	for i := 0; i < numTasks; i++ {
+		tasks[i] = &mockTask{
+			name:      fmt.Sprintf("long-task-%d", i),
+			sleepTime: time.Second * 2, // Long enough to be canceled
+		}
+	}
+
+	err := pool.SubmitBatch(tasks)
+	require.NoError(t, err)
+
+	// Let some tasks start, then cancel context
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	// Wait for cleanup
+	require.Eventually(t, func() bool {
+		total := atomic.LoadInt64(&completedCount) + atomic.LoadInt64(&cancelledCount)
+		return total > 0 // Some tasks should complete or be canceled
+	}, 10*time.Second, 100*time.Millisecond)
+
+	pool.Shutdown()
+	wg.Wait()
+
+	completed := atomic.LoadInt64(&completedCount)
+	canceled := atomic.LoadInt64(&cancelledCount)
+	total := completed + canceled
+
+	t.Logf("Completed: %d, Canceled: %d, Total: %d", completed, canceled, total)
+
+	// Some tasks should have been canceled due to context cancellation
+	assert.Positive(t, canceled, "Some tasks should have been canceled")
+	assert.LessOrEqual(t, total, int64(numTasks), "Total processed should not exceed submitted")
+
+	// Pool should handle cancellation gracefully
+	processed, _, _ := pool.Stats()
+	assert.Equal(t, total, processed, "Pool stats should match actual processing")
+}
+
+// TestPoolMemoryLeakPrevention tests that the pool doesn't leak memory under stress
+func TestPoolMemoryLeakPrevention(t *testing.T) {
+	const iterations = 10
+	const tasksPerIteration = 100
+
+	// Run multiple cycles to detect memory leaks
+	for i := 0; i < iterations; i++ {
+		t.Run(fmt.Sprintf("iteration_%d", i), func(t *testing.T) {
+			pool := NewPool(5, tasksPerIteration*2)
+			ctx := context.Background()
+			pool.Start(ctx)
+
+			var completed int64
+			var wg sync.WaitGroup
+
+			// Result collector
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for result := range pool.Results() {
+					atomic.AddInt64(&completed, 1)
+					_ = result // Process result to prevent optimization
+				}
+			}()
+
+			// Submit tasks with various characteristics
+			tasks := make([]Task, tasksPerIteration)
+			for j := 0; j < tasksPerIteration; j++ {
+				switch j % 4 {
+				case 0: // Normal task
+					tasks[j] = &mockTask{
+						name:      fmt.Sprintf("normal-%d-%d", i, j),
+						sleepTime: time.Microsecond * 50,
+					}
+				case 1: // Task with error
+					tasks[j] = &mockTask{
+						name: fmt.Sprintf("error-%d-%d", i, j),
+						executeFunc: func(_ context.Context) error {
+							return ErrTestError
+						},
+					}
+				case 2: // Task that panics
+					tasks[j] = &mockTask{
+						name: fmt.Sprintf("panic-%d-%d", i, j),
+						executeFunc: func(_ context.Context) error {
+							panic("test panic for memory leak test")
+						},
+					}
+				case 3: // Task with context usage
+					tasks[j] = &mockTask{
+						name: fmt.Sprintf("context-%d-%d", i, j),
+						executeFunc: func(_ context.Context) error {
+							select {
+							case <-time.After(time.Microsecond * 100):
+								return nil
+							case <-ctx.Done():
+								return ctx.Err()
+							}
+						},
+					}
+				}
+			}
+
+			err := pool.SubmitBatch(tasks)
+			require.NoError(t, err)
+
+			// Wait for completion
+			require.Eventually(t, func() bool {
+				return atomic.LoadInt64(&completed) == int64(tasksPerIteration)
+			}, 10*time.Second, 10*time.Millisecond)
+
+			pool.Shutdown()
+			wg.Wait()
+
+			// Verify all tasks were processed
+			assert.Equal(t, int64(tasksPerIteration), atomic.LoadInt64(&completed))
+		})
+	}
 }

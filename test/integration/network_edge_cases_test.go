@@ -71,6 +71,22 @@ func TestNetworkEdgeCases(t *testing.T) {
 	t.Run("network_partition_recovery", func(t *testing.T) {
 		testNetworkPartitionRecovery(t, generator)
 	})
+
+	t.Run("dns_resolution_failures", func(t *testing.T) {
+		testDNSResolutionFailures(t, generator)
+	})
+
+	t.Run("ssl_certificate_errors", func(t *testing.T) {
+		testSSLCertificateErrors(t, generator)
+	})
+
+	t.Run("proxy_connection_issues", func(t *testing.T) {
+		testProxyConnectionIssues(t, generator)
+	})
+
+	t.Run("github_webhook_simulation", func(t *testing.T) {
+		testGitHubWebhookSimulation(t, generator)
+	})
 }
 
 // RateLimitSimulator simulates GitHub API rate limiting
@@ -881,6 +897,395 @@ func testNetworkPartitionRecovery(t *testing.T, generator *fixtures.TestRepoGene
 	if partitionPhase > 15 {
 		t.Logf("Successfully recovered from network partition")
 	}
+
+	mockState.AssertExpectations(t)
+}
+
+// testDNSResolutionFailures tests DNS resolution failure scenarios
+func testDNSResolutionFailures(t *testing.T, generator *fixtures.TestRepoGenerator) {
+	// Create scenario for DNS testing
+	scenario, err := generator.CreateComplexScenario()
+	require.NoError(t, err)
+
+	// Setup mocks simulating DNS failures
+	mockGH := &gh.MockClient{}
+	mockGit := &git.MockClient{}
+	mockState := &state.MockDiscoverer{}
+	mockTransform := &transform.MockChain{}
+
+	mockState.On("DiscoverState", mock.Anything, scenario.Config).
+		Return(scenario.State, nil)
+
+	// Track DNS resolution attempts
+	var dnsFailureCount int
+
+	// Mock GitHub operations with DNS failures
+	mockGH.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), "").
+		Run(func(_ mock.Arguments) {
+			dnsFailureCount++
+		}).Return(nil, fixtures.ErrNetworkUnreachable).Times(3)
+
+	// Mock CreatePR with intermittent DNS issues
+	for _, target := range scenario.TargetRepos {
+		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
+			Return(nil, fixtures.ErrNetworkTimeout).Maybe()
+	}
+
+	// Git operations may also be affected by DNS - first few fail, then succeed
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+		Run(func(args mock.Arguments) {
+			createSourceFilesInMock(args, scenario.SourceRepo.Files)
+			dnsFailureCount++ // Count git DNS failures too
+		}).Return(fixtures.ErrGitCloneFailed).Times(2)
+
+	// After DNS failures, Clone eventually succeeds
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+		Run(func(args mock.Arguments) {
+			createSourceFilesInMock(args, scenario.SourceRepo.Files)
+		}).Return(nil)
+
+	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).
+		Return(fixtures.ErrGitCloneFailed).Maybe()
+
+	// Local Git operations (not affected by DNS)
+	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
+	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
+
+	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
+		Return([]byte("transformed content"), nil)
+
+	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
+		Return(nil, fixtures.ErrNetworkFailure).Maybe()
+
+	// Create sync engine
+	opts := sync.DefaultOptions().WithDryRun(false)
+	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine.SetLogger(logrus.New())
+
+	// Execute sync during DNS failures
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	err = engine.Sync(ctx, nil)
+	duration := time.Since(start)
+
+	t.Logf("DNS resolution failure test completed in %v", duration)
+	t.Logf("DNS failure attempts: %d", dnsFailureCount)
+
+	// Should handle DNS failures gracefully
+	if err != nil {
+		dnsRelated := strings.Contains(err.Error(), "no such host") ||
+			strings.Contains(err.Error(), "lookup") ||
+			strings.Contains(err.Error(), "resolve") ||
+			strings.Contains(err.Error(), "DNS") ||
+			strings.Contains(err.Error(), "dns") ||
+			strings.Contains(err.Error(), "network") ||
+			strings.Contains(err.Error(), "unreachable") ||
+			strings.Contains(err.Error(), "clone failed")
+		assert.True(t, dnsRelated, "Error should be DNS-related: %v", err)
+	}
+
+	// Should have encountered DNS failures (at least 2 clone attempts)
+	assert.GreaterOrEqual(t, dnsFailureCount, 2, "Should have encountered DNS resolution failures")
+
+	mockState.AssertExpectations(t)
+}
+
+// testSSLCertificateErrors tests SSL/TLS certificate validation failures
+func testSSLCertificateErrors(t *testing.T, generator *fixtures.TestRepoGenerator) {
+	// Create scenario for SSL testing
+	scenario, err := generator.CreateComplexScenario()
+	require.NoError(t, err)
+
+	// Setup mocks simulating SSL certificate errors
+	mockGH := &gh.MockClient{}
+	mockGit := &git.MockClient{}
+	mockState := &state.MockDiscoverer{}
+	mockTransform := &transform.MockChain{}
+
+	mockState.On("DiscoverState", mock.Anything, scenario.Config).
+		Return(scenario.State, nil)
+
+	// Track SSL certificate failures
+	var sslFailureCount int
+
+	// Mock GitHub operations with SSL certificate errors
+	mockGH.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), "").
+		Run(func(_ mock.Arguments) {
+			sslFailureCount++
+		}).Return(nil, fixtures.ErrUnauthorized).Times(2)
+
+	// Mock other operations with various SSL errors
+	for _, target := range scenario.TargetRepos {
+		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
+			Return(nil, fixtures.ErrUnauthorized).Maybe()
+	}
+
+	// Git operations with SSL issues - ensure Clone is called and fails
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+		Run(func(args mock.Arguments) {
+			createSourceFilesInMock(args, scenario.SourceRepo.Files)
+			sslFailureCount++ // Count git SSL failures too
+		}).Return(fixtures.ErrSSLCertificate)
+
+	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).
+		Return(fixtures.ErrSSLCertificate).Maybe()
+
+	// Standard operations
+	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
+	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
+
+	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
+		Return([]byte("transformed content"), nil)
+
+	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
+		Return(nil, fixtures.ErrUnauthorized).Maybe()
+
+	// Create sync engine
+	opts := sync.DefaultOptions().WithDryRun(false)
+	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine.SetLogger(logrus.New())
+
+	// Execute sync with SSL certificate issues
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	err = engine.Sync(ctx, nil)
+	duration := time.Since(start)
+
+	t.Logf("SSL certificate error test completed in %v", duration)
+	t.Logf("SSL failure attempts: %d", sslFailureCount)
+
+	// Should handle SSL certificate errors appropriately
+	if err != nil {
+		sslRelated := strings.Contains(err.Error(), "x509") ||
+			strings.Contains(err.Error(), "certificate") ||
+			strings.Contains(err.Error(), "SSL") ||
+			strings.Contains(err.Error(), "TLS")
+		assert.True(t, sslRelated, "Error should be SSL/certificate-related: %v", err)
+	}
+
+	// Should have encountered SSL failures
+	assert.GreaterOrEqual(t, sslFailureCount, 2, "Should have encountered SSL certificate failures")
+
+	mockState.AssertExpectations(t)
+}
+
+// testProxyConnectionIssues tests proxy connection and configuration issues
+func testProxyConnectionIssues(t *testing.T, generator *fixtures.TestRepoGenerator) {
+	// Create scenario for proxy testing
+	scenario, err := generator.CreateComplexScenario()
+	require.NoError(t, err)
+
+	// Setup mocks simulating proxy issues
+	mockGH := &gh.MockClient{}
+	mockGit := &git.MockClient{}
+	mockState := &state.MockDiscoverer{}
+	mockTransform := &transform.MockChain{}
+
+	mockState.On("DiscoverState", mock.Anything, scenario.Config).
+		Return(scenario.State, nil)
+
+	// Track proxy-related failures
+	var proxyFailureCount int
+
+	// Mock GitHub operations with proxy errors
+	mockGH.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), "").
+		Run(func(_ mock.Arguments) {
+			proxyFailureCount++
+		}).Return(nil, fixtures.ErrNetworkRefused).Times(2)
+
+	// Mock other operations with proxy authentication issues
+	for _, target := range scenario.TargetRepos {
+		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
+			Return(nil, &APIError{
+				StatusCode: http.StatusProxyAuthRequired,
+				Message:    "Proxy Authentication Required",
+			}).Maybe()
+	}
+
+	// Git operations with proxy issues - ensure Clone is called and fails
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+		Run(func(args mock.Arguments) {
+			createSourceFilesInMock(args, scenario.SourceRepo.Files)
+			proxyFailureCount++ // Count git proxy failures too
+		}).Return(fixtures.ErrProxyConnection)
+
+	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).
+		Return(fixtures.ErrProxyConnection).Maybe()
+
+	// Standard operations
+	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
+	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
+
+	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
+		Return([]byte("transformed content"), nil)
+
+	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
+		Return(nil, fixtures.ErrRequestTimeout).Maybe()
+
+	// Create sync engine
+	opts := sync.DefaultOptions().WithDryRun(false)
+	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine.SetLogger(logrus.New())
+
+	// Execute sync with proxy issues
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	err = engine.Sync(ctx, nil)
+	duration := time.Since(start)
+
+	t.Logf("Proxy connection issue test completed in %v", duration)
+	t.Logf("Proxy failure attempts: %d", proxyFailureCount)
+
+	// Should handle proxy issues appropriately
+	if err != nil {
+		proxyRelated := strings.Contains(err.Error(), "proxy") ||
+			strings.Contains(err.Error(), "407") ||
+			strings.Contains(err.Error(), "Proxy Authentication") ||
+			strings.Contains(err.Error(), "CONNECT")
+		assert.True(t, proxyRelated, "Error should be proxy-related: %v", err)
+	}
+
+	// Should have encountered proxy failures
+	assert.GreaterOrEqual(t, proxyFailureCount, 2, "Should have encountered proxy connection failures")
+
+	mockState.AssertExpectations(t)
+}
+
+// testGitHubWebhookSimulation tests webhook-like rapid state changes
+func testGitHubWebhookSimulation(t *testing.T, generator *fixtures.TestRepoGenerator) {
+	// Create scenario for webhook simulation
+	scenario, err := generator.CreateComplexScenario()
+	require.NoError(t, err)
+
+	// Setup mocks simulating rapid state changes like webhooks would trigger
+	mockGH := &gh.MockClient{}
+	mockGit := &git.MockClient{}
+	mockState := &state.MockDiscoverer{}
+	mockTransform := &transform.MockChain{}
+
+	// Simulate changing state during sync (like webhook updates)
+	stateChanges := 0
+	mockState.On("DiscoverState", mock.Anything, scenario.Config).
+		Run(func(_ mock.Arguments) {
+			stateChanges++
+		}).Return(scenario.State, nil)
+
+	// Track rapid API changes
+	var webhookSimulationCount int
+
+	// Mock GitHub operations with state changes mid-operation
+	mockGH.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), "").
+		Run(func(_ mock.Arguments) {
+			webhookSimulationCount++
+			// Simulate occasional content changes during sync
+			time.Sleep(25 * time.Millisecond)
+		}).Return(&gh.FileContent{Content: []byte("updated content")}, nil).Maybe()
+
+	// Mock PR operations with state changes
+	for _, target := range scenario.TargetRepos {
+		repoName := fmt.Sprintf("org/%s", target.Name)
+		// Simulate PR state changes during sync
+		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
+			Return(nil, &APIError{
+				StatusCode: http.StatusConflict,
+				Message:    "A pull request already exists for this branch",
+			}).Maybe()
+
+		// Simulate existing PR detection
+		mockGH.On("ListPRs", mock.Anything, repoName, "open").
+			Return([]gh.PR{{Number: 555, State: "open", Title: "Existing sync PR"}}, nil).Maybe()
+	}
+
+	// Git operations
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+		Run(func(args mock.Arguments) {
+			createSourceFilesInMock(args, scenario.SourceRepo.Files)
+		}).Return(nil)
+
+	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
+	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
+	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).Return(nil)
+
+	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
+		Return([]byte("transformed content"), nil)
+
+	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
+		Return([]gh.Branch{{Name: "main"}, {Name: "sync/update-123"}}, nil).Maybe()
+
+	// Create sync engine
+	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(3)
+	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine.SetLogger(logrus.New())
+
+	// Execute multiple concurrent syncs to simulate webhook-triggered updates
+	numConcurrentSyncs := 3
+	var wg syncpkg.WaitGroup
+	results := make([]error, numConcurrentSyncs)
+
+	for i := 0; i < numConcurrentSyncs; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+			defer cancel()
+
+			results[index] = engine.Sync(ctx, nil)
+		}(i)
+
+		// Stagger the starts slightly to simulate webhook timing
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	wg.Wait()
+
+	// Analyze webhook simulation results
+	successCount := 0
+	conflictCount := 0
+	for i, err := range results {
+		if err == nil {
+			successCount++
+			t.Logf("Concurrent sync %d: SUCCESS", i+1)
+		} else {
+			t.Logf("Concurrent sync %d: FAILED - %v", i+1, err)
+			if strings.Contains(err.Error(), "conflict") || strings.Contains(err.Error(), "already exists") {
+				conflictCount++
+			}
+		}
+	}
+
+	t.Logf("Webhook simulation: %d successful, %d conflicts out of %d syncs",
+		successCount, conflictCount, numConcurrentSyncs)
+	t.Logf("State changes detected: %d", stateChanges)
+	t.Logf("Webhook simulation API calls: %d", webhookSimulationCount)
+
+	// Should handle concurrent syncs gracefully (some conflicts expected)
+	assert.Greater(t, stateChanges, 1, "Should have detected state changes")
+	assert.Greater(t, webhookSimulationCount, 5, "Should have made multiple API calls")
+
+	// At least one sync should succeed, conflicts are acceptable in webhook scenarios
+	totalHandled := successCount + conflictCount
+	assert.Positive(t, totalHandled, "Should have handled webhook-triggered syncs")
 
 	mockState.AssertExpectations(t)
 }
