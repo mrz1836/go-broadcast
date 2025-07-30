@@ -871,7 +871,7 @@ func TestCompleteCommand(t *testing.T) {
 			contains: []string{
 				"Starting GoFortress Coverage Pipeline",
 				"Step 6: GitHub integration",
-				"Would post PR comment",
+				"PR comment creation is deprecated in complete command",
 				"Would create commit status",
 				"Pipeline Complete!",
 			},

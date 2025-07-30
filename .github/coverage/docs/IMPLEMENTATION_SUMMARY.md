@@ -70,7 +70,6 @@ Successfully implemented the enhanced PR comment feature for the GoFortress cove
   --pr 123 \
   --coverage coverage.out \
   --base-coverage main-coverage.out \
-  --template comprehensive \
   --badge-url "https://owner.github.io/repo/coverage/badge.svg" \
   --report-url "https://owner.github.io/repo/coverage/"
 ```

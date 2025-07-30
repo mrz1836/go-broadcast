@@ -329,45 +329,32 @@ That's it! Push any commit and get:
 #### Professional Coverage Badges
 - **GitHub-style badges** with multiple themes (flat, flat-square, for-the-badge)
 - **Real-time updates** on every push and pull request
-- **Branch-specific badges** for `master`, `development`, and feature branches
-- **Trend indicators** showing coverage direction and momentum
+- **Branch-specific badges** for `master` and PR branches
 - **PR-specific badges** for pull request analysis
 
 #### Interactive Coverage Dashboard
-- **Modern, responsive UI** with glass-morphism design and dark/light themes
+- **Modern, responsive UI** with dark/light theme support
 - **Real-time metrics** with animated progress indicators
-- **Command palette** (Cmd+K) for quick navigation and search
-- **Mobile-optimized** with touch gestures and responsive layouts
+- **Historical coverage charts** showing trends over time
+- **Responsive design** that works on desktop and mobile
 - **Zero external dependencies** - fully self-contained
 
 #### Intelligent PR Coverage Comments
-- **Comprehensive coverage analysis** comparing base vs PR branches
-- **File-level breakdown** with uncovered lines highlighted
-- **Trend analysis** showing coverage direction and momentum
+- **Coverage analysis** comparing base vs PR branches
+- **File-level breakdown** showing coverage changes
 - **Smart anti-spam logic** to prevent comment noise on multiple pushes
-- **Actionable insights** and improvement suggestions
-- **Multiple comment templates** (comprehensive, compact, detailed, summary, minimal)
+- **Comprehensive PR comments** with detailed coverage analysis
 
-#### Advanced Analytics & Insights
-- **Historical trend tracking** with interactive charts and predictions
-- **Team analytics** showing individual and collaborative metrics
-- **Performance monitoring** with coverage velocity and quality scoring
-- **Anomaly detection** identifying unusual coverage patterns
-- **Predictive modeling** forecasting coverage trends and milestones
+#### Analytics & Insights
+- **Historical trend tracking** with basic trend analysis
+- **Coverage history** stored in JSON format
+- **Retention policies** for automatic data cleanup
 
-#### Multi-Channel Notifications
-- **Slack integration** with rich message formatting and interactive elements
-- **Microsoft Teams** support with adaptive cards and threaded conversations
-- **Discord webhooks** with embed messages and role mentions
-- **Email notifications** with HTML templates and attachment support
-- **Custom webhooks** for integration with any service
-
-#### Enterprise-Grade Deployment
-- **GitHub Pages integration** with automatic setup and organized storage
+#### GitHub Pages Deployment
+- **Automatic GitHub Pages integration** with organized storage
 - **PR-specific deployments** with isolated coverage reports
-- **Automatic cleanup** of expired data with configurable retention policies
-- **Export capabilities** to PDF, CSV, JSON, and HTML formats
-- **CLI automation** with comprehensive command-line interface
+- **Automatic cleanup** of expired PR data
+- **Simple CLI** with 4 core commands (complete, comment, history, pages)
 
 ### Advanced Configuration
 
@@ -390,9 +377,9 @@ COVERAGE_HISTORY_RETENTION_DAYS=90       # Data retention period
 COVERAGE_CLEANUP_PR_AFTER_DAYS=7         # PR cleanup schedule
 ```
 
-#### 🔔 Notification Configuration
+#### 🔔 PR Comment Configuration
 ```bash
-COVERAGE_SLACK_WEBHOOK_ENABLED=true      # Enable Slack notifications
+COVERAGE_PR_COMMENT_ENABLED=true         # Enable PR comments
 COVERAGE_PR_COMMENT_SHOW_TREE=true       # Show file tree in PR comments
 COVERAGE_PR_COMMENT_SHOW_MISSING=true    # Highlight uncovered lines
 COVERAGE_PR_COMMENT_BEHAVIOR=update      # Comment behavior: new, update, delete-and-new

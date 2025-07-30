@@ -289,6 +289,9 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		"HistoryJSON":       g.prepareHistoryJSON(data.History),
 		"BuildStatus":       buildStatus,
 		"LatestTag":         latestTag,
+		"WorkflowRunNumber": data.WorkflowRunNumber,
+		"IsFirstRun":        data.IsFirstRun,
+		"HasPreviousRuns":   data.HasPreviousRuns,
 	}
 }
 

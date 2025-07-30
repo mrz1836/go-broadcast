@@ -40,8 +40,7 @@ Features:
 - Dynamic template rendering with multiple template options
 - PR-specific badge generation with unique naming
 - GitHub status check integration for blocking PR merges
-- Smart update logic and lifecycle management
-- Simple mode available with --simple flag for basic comments`,
+- Smart update logic and lifecycle management`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Get flags
 		prNumber, _ := cmd.Flags().GetInt("pr")
@@ -49,15 +48,12 @@ Features:
 		baseCoverageFile, _ := cmd.Flags().GetString("base-coverage")
 		badgeURL, _ := cmd.Flags().GetString("badge-url")
 		reportURL, _ := cmd.Flags().GetString("report-url")
-		templateName, _ := cmd.Flags().GetString("template")
 		createStatus, _ := cmd.Flags().GetBool("status")
 		blockOnFailure, _ := cmd.Flags().GetBool("block-merge")
 		generateBadges, _ := cmd.Flags().GetBool("generate-badges")
 		enableAnalysis, _ := cmd.Flags().GetBool("enable-analysis")
-		compactMode, _ := cmd.Flags().GetBool("compact")
 		antiSpam, _ := cmd.Flags().GetBool("anti-spam")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		simpleMode, _ := cmd.Flags().GetBool("simple")
 
 		// Load configuration
 		cfg := config.Load()
@@ -92,13 +88,6 @@ Features:
 			reportURL = cfg.GetReportURL()
 		}
 		// URLs will be passed to template data below
-		if templateName == "" {
-			if compactMode {
-				templateName = "compact"
-			} else {
-				templateName = "comprehensive"
-			}
-		}
 
 		// Parse current coverage data
 		p := parser.New()
@@ -172,28 +161,6 @@ Features:
 			BlockMergeOnFailure:      blockOnFailure,
 		}
 
-		// Adjust settings for simple mode
-		if simpleMode {
-			// Simple mode overrides all other settings
-			enableAnalysis = false
-			generateBadges = false
-			blockOnFailure = false
-			compactMode = true
-			templateName = "minimal"
-			prCommentConfig.IncludeTrend = true
-			prCommentConfig.IncludeCoverageDetails = false
-			prCommentConfig.IncludeFileAnalysis = false
-			prCommentConfig.ShowCoverageHistory = false
-			prCommentConfig.GeneratePRBadges = false
-			prCommentConfig.EnableStatusChecks = createStatus
-			prCommentConfig.BlockMergeOnFailure = false
-		} else if compactMode {
-			// Adjust settings for compact mode
-			prCommentConfig.IncludeCoverageDetails = false
-			prCommentConfig.IncludeFileAnalysis = false
-			prCommentConfig.ShowCoverageHistory = false
-		}
-
 		// Adjust settings for anti-spam mode
 		if antiSpam {
 			prCommentConfig.MinUpdateIntervalMinutes = 15
@@ -261,73 +228,9 @@ Features:
 			}
 		}
 
-		// Handle simple mode
-		if simpleMode {
-			// Generate simple coverage comment like the old basic version
-			comment := client.GenerateCoverageComment(coverage.Percentage, trend, badgeURL)
-
-			if dryRun {
-				cmd.Printf("Dry run mode - would post the following comment:\n")
-				cmd.Printf("===============================================\n")
-				cmd.Println(comment)
-				cmd.Printf("===============================================\n")
-				cmd.Printf("PR: %d\n", prNumber)
-				cmd.Printf("Repository: %s/%s\n", cfg.GitHub.Owner, cfg.GitHub.Repository)
-				if createStatus {
-					cmd.Printf("Would also create commit status on: %s\n", cfg.GitHub.CommitSHA)
-				}
-				return nil
-			}
-
-			// Create or update PR comment
-			ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-
-			commentResult, commentErr := client.CreateComment(ctx, cfg.GitHub.Owner, cfg.GitHub.Repository, prNumber, comment)
-			if commentErr != nil {
-				return fmt.Errorf("failed to create PR comment: %w", commentErr)
-			}
-
-			cmd.Printf("Coverage comment posted successfully!\n")
-			cmd.Printf("Comment ID: %d\n", commentResult.ID)
-			cmd.Printf("Coverage: %.2f%% (%s trend)\n", coverage.Percentage, trend)
-
-			// Create commit status if requested
-			if createStatus && cfg.GitHub.CommitSHA != "" {
-				var state string
-				var description string
-
-				if coverage.Percentage >= cfg.Coverage.Threshold {
-					state = github.StatusSuccess
-					description = fmt.Sprintf("Coverage: %.2f%% ✅", coverage.Percentage)
-				} else {
-					state = github.StatusFailure
-					description = fmt.Sprintf("Coverage: %.2f%% (below %.2f%% threshold)",
-						coverage.Percentage, cfg.Coverage.Threshold)
-				}
-
-				statusReq := &github.StatusRequest{
-					State:       state,
-					TargetURL:   reportURL,
-					Description: description,
-					Context:     github.ContextCoverage,
-				}
-
-				statusErr := client.CreateStatus(ctx, cfg.GitHub.Owner, cfg.GitHub.Repository, cfg.GitHub.CommitSHA, statusReq)
-				if statusErr != nil {
-					cmd.Printf("Warning: failed to create commit status: %v\n", statusErr)
-				} else {
-					cmd.Printf("Commit status created: %s\n", state)
-				}
-			}
-
-			return nil
-		}
-
 		if dryRun {
 			// Generate template preview for dry run
 			templateEngine := templates.NewPRTemplateEngine(&templates.TemplateConfig{
-				CompactMode:            compactMode,
 				IncludeEmojis:          true,
 				IncludeCharts:          true,
 				MaxFileChanges:         20,
@@ -340,14 +243,14 @@ Features:
 
 			templateData := buildTemplateData(cfg, prNumber, comparison, coverage, badgeURL, reportURL)
 
-			commentPreview, renderErr := templateEngine.RenderComment(ctx, templateName, templateData)
+			commentPreview, renderErr := templateEngine.RenderComment(ctx, "", templateData)
 			if renderErr != nil {
 				commentPreview = fmt.Sprintf("Error generating template preview: %v", renderErr)
 			}
 
 			fmt.Printf("PR Comment Preview (Dry Run)\n")                               //nolint:forbidigo // CLI output
 			fmt.Printf("=====================================\n")                      //nolint:forbidigo // CLI output
-			fmt.Printf("Template: %s\n", templateName)                                 //nolint:forbidigo // CLI output
+			fmt.Printf("Template: comprehensive\n")                                    //nolint:forbidigo // CLI output
 			fmt.Printf("PR: %d\n", prNumber)                                           //nolint:forbidigo // CLI output
 			fmt.Printf("Repository: %s/%s\n", cfg.GitHub.Owner, cfg.GitHub.Repository) //nolint:forbidigo // CLI output
 			fmt.Printf("Coverage: %.2f%%\n", coverage.Percentage)                      //nolint:forbidigo // CLI output
@@ -670,13 +573,10 @@ func init() { //nolint:gochecknoinits // CLI command initialization
 	commentCmd.Flags().String("base-coverage", "", "Base coverage data file for comparison")
 	commentCmd.Flags().String("badge-url", "", "Badge URL (auto-generated if not provided)")
 	commentCmd.Flags().String("report-url", "", "Report URL (auto-generated if not provided)")
-	commentCmd.Flags().String("template", "", "Comment template (comprehensive, compact, detailed, summary, minimal)")
 	commentCmd.Flags().Bool("status", false, "Create enhanced status checks")
 	commentCmd.Flags().Bool("block-merge", false, "Block PR merge on coverage failure")
 	commentCmd.Flags().Bool("generate-badges", false, "Generate PR-specific badges")
 	commentCmd.Flags().Bool("enable-analysis", true, "Enable detailed coverage analysis and comparison")
-	commentCmd.Flags().Bool("compact", false, "Use compact mode (shorter comments)")
 	commentCmd.Flags().Bool("anti-spam", true, "Enable anti-spam features")
 	commentCmd.Flags().Bool("dry-run", false, "Show preview of comment without posting")
-	commentCmd.Flags().Bool("simple", false, "Use simple mode (basic coverage comment only)")
 }

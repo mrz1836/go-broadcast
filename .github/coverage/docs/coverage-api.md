@@ -310,37 +310,31 @@ Flags:
   --base-coverage string    Base coverage data file for comparison
   --badge-url string        Badge URL (auto-generated if not provided)
   --report-url string       Report URL (auto-generated if not provided)
-  --template string         Comment template (comprehensive, compact, detailed, summary, minimal)
   --status                  Create enhanced status checks
   --block-merge             Block PR merge on coverage failure
   --generate-badges         Generate PR-specific badges
   --enable-analysis         Enable detailed coverage analysis and comparison (default true)
-  --compact                 Use compact mode (shorter comments)
   --anti-spam               Enable anti-spam features (default true)
   --dry-run                 Show preview of comment without posting
-  --simple                  Use simple mode (basic coverage comment only)
   
 Examples:
-  # Simple mode (basic coverage comment)
+  # Basic coverage comment
   gofortress-coverage comment \
     --pr 123 \
-    --coverage coverage.json \
-    --simple
+    --coverage coverage.json
     
   # Enhanced comment with analysis
   gofortress-coverage comment \
     --pr 123 \
     --coverage pr-coverage.json \
     --base-coverage main-coverage.json \
-    --template comprehensive \
     --enable-analysis \
     --generate-badges
     
-  # Compact mode with status checks
+  # Comment with status checks
   gofortress-coverage comment \
     --pr 123 \
     --coverage coverage.json \
-    --compact \
     --status \
     --block-merge
     

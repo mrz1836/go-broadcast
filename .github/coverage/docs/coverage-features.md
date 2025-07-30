@@ -227,12 +227,6 @@ Quick overview for routine updates:
 📊 Coverage: 87.2% (+2.1%) | Files: 3 changed | Quality: 🟢 PASS
 ```
 
-#### 5. Minimal Template
-Ultra-compact for automated PRs:
-
-```markdown
-📊 87.2% (+2.1%)
-```
 
 ### Smart Anti-Spam Logic
 Comments are intelligently managed to prevent noise:

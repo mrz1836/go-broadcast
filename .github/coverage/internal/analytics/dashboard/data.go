@@ -37,6 +37,11 @@ type CoverageData struct {
 
 	// Build status information
 	BuildStatus *BuildStatus `json:"build_status,omitempty"`
+
+	// Workflow run context
+	WorkflowRunNumber int  `json:"workflow_run_number,omitempty"`
+	IsFirstRun        bool `json:"is_first_run,omitempty"`
+	HasPreviousRuns   bool `json:"has_previous_runs,omitempty"`
 }
 
 // PackageCoverage represents coverage data for a single package

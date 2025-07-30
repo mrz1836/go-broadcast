@@ -26,11 +26,9 @@ type PRTemplateEngine struct {
 
 // TemplateConfig holds configuration for template rendering
 type TemplateConfig struct {
-	// Template selection
-	DefaultTemplate string // Default template to use
-	CompactMode     bool   // Use compact template variants
-	IncludeEmojis   bool   // Include emojis in templates
-	IncludeCharts   bool   // Include ASCII charts
+	// Content options
+	IncludeEmojis bool // Include emojis in templates
+	IncludeCharts bool // Include ASCII charts
 
 	// Content filtering
 	MaxFileChanges     int  // Maximum file changes to show
@@ -214,8 +212,6 @@ type TemplateMetadata struct {
 func NewPRTemplateEngine(config *TemplateConfig) *PRTemplateEngine {
 	if config == nil {
 		config = &TemplateConfig{
-			DefaultTemplate:        "comprehensive",
-			CompactMode:            false,
 			IncludeEmojis:          true,
 			IncludeCharts:          true,
 			MaxFileChanges:         20,
@@ -246,12 +242,10 @@ func NewPRTemplateEngine(config *TemplateConfig) *PRTemplateEngine {
 	return engine
 }
 
-// RenderComment renders a PR comment using the specified template
-func (e *PRTemplateEngine) RenderComment(_ context.Context, templateName string, data *TemplateData) (string, error) {
-	// Use default template if none specified
-	if templateName == "" {
-		templateName = e.config.DefaultTemplate
-	}
+// RenderComment renders a PR comment using the comprehensive template
+func (e *PRTemplateEngine) RenderComment(_ context.Context, _ string, data *TemplateData) (string, error) {
+	// Always use comprehensive template (only template available)
+	templateName := "comprehensive"
 
 	// Add configuration to template data
 	data.Config = *e.config
@@ -265,13 +259,11 @@ func (e *PRTemplateEngine) RenderComment(_ context.Context, templateName string,
 			Signature:    "gofortress-coverage-v2",
 		}
 	} else {
-		// Update template used if not set
-		if data.Metadata.TemplateUsed == "" {
-			data.Metadata.TemplateUsed = templateName
-		}
+		// Update template used
+		data.Metadata.TemplateUsed = templateName
 	}
 
-	// Get the template
+	// Get the comprehensive template (only one available)
 	tmpl, exists := e.templates[templateName]
 	if !exists {
 		return "", fmt.Errorf("%w: %s", ErrTemplateNotFound, templateName)
@@ -290,20 +282,8 @@ func (e *PRTemplateEngine) RenderComment(_ context.Context, templateName string,
 func (e *PRTemplateEngine) initializeTemplates() {
 	funcMap := e.createTemplateFuncMap()
 
-	// Comprehensive template (default)
+	// Comprehensive template (only template)
 	e.templates["comprehensive"] = template.Must(template.New("comprehensive").Funcs(funcMap).Parse(comprehensiveTemplate))
-
-	// Compact template
-	e.templates["compact"] = template.Must(template.New("compact").Funcs(funcMap).Parse(compactTemplate))
-
-	// Detailed template
-	e.templates["detailed"] = template.Must(template.New("detailed").Funcs(funcMap).Parse(detailedTemplate))
-
-	// Summary template
-	e.templates["summary"] = template.Must(template.New("summary").Funcs(funcMap).Parse(summaryTemplate))
-
-	// Minimal template
-	e.templates["minimal"] = template.Must(template.New("minimal").Funcs(funcMap).Parse(minimalTemplate))
 }
 
 // createTemplateFuncMap creates the function map for templates
@@ -822,10 +802,5 @@ func (e *PRTemplateEngine) AddCustomTemplate(name, templateContent string) error
 
 // GetAvailableTemplates returns a list of available template names
 func (e *PRTemplateEngine) GetAvailableTemplates() []string {
-	names := make([]string, 0, len(e.templates))
-	for name := range e.templates {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return []string{"comprehensive"}
 }

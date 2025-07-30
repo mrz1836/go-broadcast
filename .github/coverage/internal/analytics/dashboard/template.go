@@ -1118,15 +1118,27 @@ const dashboardTemplate = `<!DOCTYPE html>
                                         📊 PR Coverage Analysis
                                     {{else if .IsFeatureBranch}}
                                         🌿 New branch coverage
-                                    {{else}}
+                                    {{else if .IsFirstRun}}
                                         🚀 First coverage run!
+                                    {{else if .HasPreviousRuns}}
+                                        ⏳ Building history data...
+                                    {{else if .WorkflowRunNumber}}
+                                        📊 Coverage tracking resumed
+                                    {{else}}
+                                        📊 Coverage baseline established
                                     {{end}}
                                 </div>
                                 <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.5rem;">
                                     {{if .PRNumber}}
                                         Base branch comparison pending
-                                    {{else}}
+                                    {{else if .IsFirstRun}}
                                         Trends will appear after more commits
+                                    {{else if .HasPreviousRuns}}
+                                        Previous workflow runs failed to record history
+                                    {{else if .WorkflowRunNumber}}
+                                        Workflow run #{{.WorkflowRunNumber}} {{if gt .WorkflowRunNumber 10}}(history may be incomplete){{end}}
+                                    {{else}}
+                                        Collecting baseline coverage data
                                     {{end}}
                                 </div>
                             {{end}}

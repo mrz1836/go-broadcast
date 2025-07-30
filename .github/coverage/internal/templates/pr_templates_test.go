@@ -18,12 +18,10 @@ func TestNewPRTemplateEngine(t *testing.T) {
 
 	// Test with custom config
 	config := &TemplateConfig{
-		CompactMode:    true,
 		IncludeEmojis:  false,
 		MaxFileChanges: 10,
 	}
 	engine = NewPRTemplateEngine(config)
-	assert.True(t, engine.config.CompactMode)
 	assert.False(t, engine.config.IncludeEmojis)
 	assert.Equal(t, 10, engine.config.MaxFileChanges)
 }
@@ -103,34 +101,30 @@ func TestRenderComment(t *testing.T) {
 		},
 	}
 
-	// Test all templates
-	templates := []string{"comprehensive", "compact", "detailed", "summary", "minimal"}
-	for _, tmpl := range templates {
-		t.Run(tmpl, func(t *testing.T) {
-			result, err := engine.RenderComment(ctx, tmpl, testData)
-			require.NoError(t, err)
-			assert.NotEmpty(t, result)
+	// Test comprehensive template (only template available)
+	t.Run("comprehensive", func(t *testing.T) {
+		result, err := engine.RenderComment(ctx, "comprehensive", testData)
+		require.NoError(t, err)
+		assert.NotEmpty(t, result)
 
-			// Check for key elements
-			// Only comprehensive and detailed templates include metadata
-			// TODO: Fix metadata rendering issue - currently the templates don't include the metadata comment
-			// trimmedResult := strings.TrimSpace(result)
-			// if tmpl == "comprehensive" || tmpl == "detailed" {
-			// 	assert.Contains(t, trimmedResult, "<!-- gofortress-coverage-v2 -->")
-			// }
-			assert.Contains(t, result, "85.5%") // Coverage percentage
+		// Check for key elements
+		assert.Contains(t, result, "85.5%") // Coverage percentage
+		assert.Contains(t, result, testData.Resources.BadgeURL)
+	})
 
-			// Check Resources are properly rendered in appropriate templates
-			if tmpl == "comprehensive" || tmpl == "detailed" {
-				assert.Contains(t, result, testData.Resources.BadgeURL)
-			}
-		})
-	}
+	// Test empty template name (should default to comprehensive)
+	t.Run("default", func(t *testing.T) {
+		result, err := engine.RenderComment(ctx, "", testData)
+		require.NoError(t, err)
+		assert.NotEmpty(t, result)
+		assert.Contains(t, result, "85.5%") // Coverage percentage
+	})
 
-	// Test invalid template
-	_, err := engine.RenderComment(ctx, "nonexistent", testData)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "template not found")
+	// Test any template name (should always work since we ignore the parameter)
+	result, err := engine.RenderComment(ctx, "nonexistent", testData)
+	require.NoError(t, err)
+	assert.NotEmpty(t, result)
+	assert.Contains(t, result, "85.5%") // Coverage percentage
 }
 
 func TestTemplateHelperFunctions(t *testing.T) {
@@ -163,12 +157,8 @@ func TestGetAvailableTemplates(t *testing.T) {
 	engine := NewPRTemplateEngine(nil)
 	templates := engine.GetAvailableTemplates()
 
-	assert.Len(t, templates, 5)
+	assert.Len(t, templates, 1)
 	assert.Contains(t, templates, "comprehensive")
-	assert.Contains(t, templates, "compact")
-	assert.Contains(t, templates, "detailed")
-	assert.Contains(t, templates, "summary")
-	assert.Contains(t, templates, "minimal")
 }
 
 func TestProgressBar(t *testing.T) {

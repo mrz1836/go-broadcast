@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -221,6 +222,20 @@ update history, and create GitHub PR comment if in PR context.`,
 			CoveredFiles:   0,
 			PartialFiles:   0,
 			UncoveredFiles: 0,
+		}
+
+		// Detect workflow run context
+		if runNumberStr := os.Getenv("GITHUB_RUN_NUMBER"); runNumberStr != "" {
+			if runNumber, parseErr := strconv.Atoi(runNumberStr); parseErr == nil {
+				coverageData.WorkflowRunNumber = runNumber
+				// Consider it the first run if run number is 1-3 (allowing for a few initial failures)
+				coverageData.IsFirstRun = runNumber <= 3
+				coverageData.HasPreviousRuns = runNumber > 1
+				cmd.Printf("   📊 Workflow run #%d detected\n", runNumber)
+				if coverageData.IsFirstRun {
+					cmd.Printf("   🚀 This appears to be one of the first workflow runs\n")
+				}
+			}
 		}
 
 		// Discover all eligible Go files to get accurate total count
@@ -637,22 +652,10 @@ update history, and create GitHub PR comment if in PR context.`,
 				}
 				client := github.NewWithConfig(githubConfig)
 
-				// Create PR comment if in PR context
+				// Create PR comment if in PR context - this is deprecated in favor of the comment command
 				if cfg.IsPullRequestContext() && cfg.GitHub.PostComments {
-					badgeURL := cfg.GetBadgeURL()
-					comment := client.GenerateCoverageComment(coverage.Percentage, trend, badgeURL)
-
-					if dryRun {
-						cmd.Printf("   📝 Would post PR comment to #%d\n", cfg.GitHub.PullRequest)
-					} else {
-						_, err := client.CreateComment(ctx, cfg.GitHub.Owner, cfg.GitHub.Repository,
-							cfg.GitHub.PullRequest, comment)
-						if err != nil {
-							cmd.Printf("   ⚠️  Failed to post PR comment: %v\n", err)
-						} else {
-							cmd.Printf("   ✅ PR comment posted to #%d\n", cfg.GitHub.PullRequest)
-						}
-					}
+					cmd.Printf("   ℹ️  PR comment creation is deprecated in complete command\n")
+					cmd.Printf("   💡 Use 'gofortress-coverage comment' command for advanced PR comments\n")
 				}
 
 				// Create commit status

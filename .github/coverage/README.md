@@ -95,8 +95,8 @@ The CLI tool will be built and used in GitHub Actions workflows:
 # Update history
 ./gofortress-coverage history --add coverage.json --branch main --commit abc123
 
-# Create basic PR comment (simple mode)
-./gofortress-coverage comment --pr 123 --coverage coverage.json --simple
+# Create basic PR comment (compact template)
+./gofortress-coverage comment --pr 123 --coverage coverage.json --template compact
 
 # Create enhanced PR comment with anti-spam and templates
 ./gofortress-coverage comment --pr 123 --coverage coverage.out \

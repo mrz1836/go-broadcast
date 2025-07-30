@@ -55,6 +55,7 @@ make test-short     # Skip integration tests
 # Comprehensive testing
 make test-ci        # Full CI test suite with race detection
 make test-cover     # Unit tests with coverage report
+make test-all-modules-race  # Test all modules with race detection
 ```
 
 **Integration Testing:**
@@ -315,6 +316,9 @@ make lint
 
 # Run linters on all modules (including coverage)
 make lint-all-modules
+
+# Run tests on all modules with race detection
+make test-all-modules-race
 
 # Fix common formatting issues
 make fumpt
