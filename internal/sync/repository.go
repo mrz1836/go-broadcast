@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -139,7 +140,21 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	}
 	prTimer.Stop()
 
-	rs.logger.WithField("branch", branchName).Info("Repository sync completed")
+	if rs.engine.options.DryRun {
+		rs.logger.Debug("Dry-run completed successfully")
+
+		out := NewDryRunOutput(nil)
+		out.Success("DRY-RUN SUMMARY: Repository sync preview completed successfully")
+		out.Info(fmt.Sprintf("📁 Repository: %s", rs.target.Repo))
+		out.Info(fmt.Sprintf("🌿 Branch: %s", branchName))
+		out.Info(fmt.Sprintf("📝 Files: %d would be changed", len(changedFiles)))
+		out.Info(fmt.Sprintf("🔗 Commit: %s", commitSHA))
+		out.Info("💡 Run without --dry-run to execute these changes")
+		_, _ = fmt.Fprintln(out.writer)
+	} else {
+		rs.logger.WithField("branch", branchName).Info("Repository sync completed")
+	}
+
 	syncTimer.AddField(logging.StandardFields.Status, "completed").
 		AddField(logging.StandardFields.BranchName, branchName).
 		AddField("final_commit_sha", commitSHA).
@@ -340,7 +355,8 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 	}).Info("Creating commit")
 
 	if rs.engine.options.DryRun {
-		rs.logger.Info("DRY-RUN: Would create commit with changes")
+		rs.showDryRunCommitInfo(changedFiles)
+		rs.showDryRunFileChanges(changedFiles)
 		return "dry-run-commit-sha", nil
 	}
 
@@ -447,7 +463,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 	}).Info("Creating new pull request")
 
 	if rs.engine.options.DryRun {
-		rs.logger.Info("DRY-RUN: Would create new PR")
+		rs.showDryRunPRPreview(branchName, commitSHA, changedFiles)
 		return nil
 	}
 
@@ -483,10 +499,23 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 
 // updateExistingPR updates an existing pull request
 func (rs *RepositorySync) updateExistingPR(_ context.Context, pr *gh.PR, commitSHA string, changedFiles []FileChange) error {
-	rs.logger.WithField("pr_number", pr.Number).Info("Updating existing pull request")
+	rs.logger.WithField("pr_number", pr.Number).Debug("Updating existing pull request")
 
 	if rs.engine.options.DryRun {
-		rs.logger.Info("DRY-RUN: Would update existing PR")
+		out := NewDryRunOutput(nil)
+
+		out.Header("🔄 DRY-RUN: Existing Pull Request Update Preview")
+		out.Field("Repository", rs.target.Repo)
+		out.Field("PR Number", fmt.Sprintf("#%d", pr.Number))
+		out.Field("Current Title", pr.Title)
+		out.Separator()
+		out.Success("PR would be updated with new file changes")
+		out.Field("Files to sync", fmt.Sprintf("%d", len(changedFiles)))
+		out.Field("New commit", commitSHA)
+		out.Footer()
+
+		// Show the files that would be updated
+		rs.showDryRunFileChanges(changedFiles)
 		return nil
 	}
 
@@ -554,10 +583,159 @@ func (rs *RepositorySync) generatePRBody(commitSHA string, changedFiles []FileCh
 	return sb.String()
 }
 
+// DryRunOutput handles clean console output for dry-run mode
+type DryRunOutput struct {
+	writer io.Writer
+}
+
+// NewDryRunOutput creates a new DryRunOutput instance
+func NewDryRunOutput(writer io.Writer) *DryRunOutput {
+	if writer == nil {
+		writer = os.Stdout
+	}
+	return &DryRunOutput{writer: writer}
+}
+
+// Header prints a formatted header
+func (d *DryRunOutput) Header(title string) {
+	_, _ = fmt.Fprintln(d.writer)
+	_, _ = fmt.Fprintf(d.writer, "🔍 %s\n", title)
+	_, _ = fmt.Fprintln(d.writer, "┌─────────────────────────────────────────────────────────────────")
+}
+
+// Field prints a formatted field with label and value
+func (d *DryRunOutput) Field(label, value string) {
+	_, _ = fmt.Fprintf(d.writer, "│ %s: %s\n", label, value)
+}
+
+// Separator prints a horizontal separator line
+func (d *DryRunOutput) Separator() {
+	_, _ = fmt.Fprintln(d.writer, "├─────────────────────────────────────────────────────────────────")
+}
+
+// Content prints content with proper formatting
+func (d *DryRunOutput) Content(line string) {
+	if strings.TrimSpace(line) == "" {
+		_, _ = fmt.Fprintln(d.writer, "│")
+	} else {
+		if len(line) > 60 {
+			_, _ = fmt.Fprintf(d.writer, "│ %s\n", line[:57]+"...")
+		} else {
+			_, _ = fmt.Fprintf(d.writer, "│ %s\n", line)
+		}
+	}
+}
+
+// Footer prints the closing border
+func (d *DryRunOutput) Footer() {
+	_, _ = fmt.Fprintln(d.writer, "└─────────────────────────────────────────────────────────────────")
+}
+
+// Info prints an informational message
+func (d *DryRunOutput) Info(message string) {
+	_, _ = fmt.Fprintf(d.writer, "   %s\n", message)
+}
+
+// Warning prints a warning message
+func (d *DryRunOutput) Warning(message string) {
+	_, _ = fmt.Fprintf(d.writer, "⚠️  %s\n", message)
+}
+
+// Success prints a success message
+func (d *DryRunOutput) Success(message string) {
+	_, _ = fmt.Fprintf(d.writer, "✅ %s\n", message)
+}
+
 // FileChange represents a change to a file
 type FileChange struct {
 	Path            string
 	Content         []byte
 	OriginalContent []byte
 	IsNew           bool
+}
+
+// showDryRunCommitInfo displays commit information preview for dry-run
+func (rs *RepositorySync) showDryRunCommitInfo(changedFiles []FileChange) {
+	rs.logger.Debug("Showing dry-run commit preview")
+
+	commitMsg := rs.generateCommitMessage(changedFiles)
+	out := NewDryRunOutput(nil)
+
+	out.Header("📋 COMMIT PREVIEW")
+	out.Field("Message", commitMsg)
+	out.Field("Files", fmt.Sprintf("%d changed", len(changedFiles)))
+
+	// Show file summary
+	fileNames := make([]string, 0, len(changedFiles))
+	for _, file := range changedFiles {
+		fileNames = append(fileNames, file.Path)
+	}
+	if len(fileNames) <= 3 {
+		out.Field("", strings.Join(fileNames, ", "))
+	} else {
+		out.Field("", fmt.Sprintf("%s, ... and %d more",
+			strings.Join(fileNames[:3], ", "), len(fileNames)-3))
+	}
+	out.Footer()
+}
+
+// showDryRunFileChanges displays file changes in a readable format
+func (rs *RepositorySync) showDryRunFileChanges(changedFiles []FileChange) {
+	rs.logger.WithField("changed_files", len(changedFiles)).Debug("Showing file changes preview")
+
+	out := NewDryRunOutput(nil)
+	_, _ = fmt.Fprintln(out.writer, "📄 FILE CHANGES:")
+
+	for _, file := range changedFiles {
+		status := "modified"
+		icon := "📝"
+		if file.IsNew {
+			status = "added"
+			icon = "✨"
+		}
+
+		// Calculate size info if content is available
+		sizeInfo := ""
+		if len(file.Content) > 0 {
+			if file.IsNew {
+				sizeInfo = fmt.Sprintf(" (+%d bytes)", len(file.Content))
+			} else if len(file.OriginalContent) > 0 {
+				sizeDiff := len(file.Content) - len(file.OriginalContent)
+				if sizeDiff > 0 {
+					sizeInfo = fmt.Sprintf(" (+%d bytes)", sizeDiff)
+				} else if sizeDiff < 0 {
+					sizeInfo = fmt.Sprintf(" (%d bytes)", sizeDiff)
+				}
+			}
+		}
+
+		out.Info(fmt.Sprintf("%s %s (%s)%s", icon, file.Path, status, sizeInfo))
+	}
+}
+
+// showDryRunPRPreview displays full PR preview with formatting
+func (rs *RepositorySync) showDryRunPRPreview(branchName, commitSHA string, changedFiles []FileChange) {
+	rs.logger.WithFields(logrus.Fields{
+		"branch": branchName,
+		"files":  len(changedFiles),
+	}).Debug("Showing PR preview")
+
+	title := rs.generatePRTitle()
+	body := rs.generatePRBody(commitSHA, changedFiles)
+	out := NewDryRunOutput(nil)
+
+	out.Header("DRY-RUN: Pull Request Preview")
+	out.Field("Repository", rs.target.Repo)
+	out.Field("Branch", branchName)
+	out.Separator()
+	out.Field("Title", title)
+	out.Separator()
+
+	// Split body into lines and display with proper formatting
+	bodyLines := strings.Split(body, "\n")
+	for _, line := range bodyLines {
+		out.Content(line)
+	}
+
+	out.Footer()
 }

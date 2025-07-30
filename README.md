@@ -142,6 +142,45 @@ go-broadcast sync --dry-run --config sync.yaml
 go-broadcast sync --config sync.yaml
 ```
 
+#### Example Dry-Run Output
+
+When using `--dry-run`, go-broadcast provides clean, readable output showing exactly what would happen:
+
+```
+🔍 📋 COMMIT PREVIEW
+┌─────────────────────────────────────────────────────────────────
+│ Message: sync: update 2 files from template
+│ Files: 2 changed
+│ README.md, Makefile
+└─────────────────────────────────────────────────────────────────
+
+📄 FILE CHANGES:
+   ✨ README.md (added) (+1249 bytes)
+   📝 Makefile (modified) (+45 bytes)
+
+🔍 DRY-RUN: Pull Request Preview
+┌─────────────────────────────────────────────────────────────────
+│ Repository: company/service-name
+│ Branch: sync/template-20250130-143052-abc123f
+├─────────────────────────────────────────────────────────────────
+│ Title: Sync files from template repository (abc123f)
+├─────────────────────────────────────────────────────────────────
+│ This pull request synchronizes files from the template repo...
+│
+│ ## Changed Files
+│
+│ - `README.md` (added)
+│ - `Makefile` (modified)
+└─────────────────────────────────────────────────────────────────
+
+✅ DRY-RUN SUMMARY: Repository sync preview completed successfully
+   📁 Repository: company/service-name
+   🌿 Branch: sync/template-20250130-143052-abc123f
+   📝 Files: 2 would be changed
+   🔗 Commit: dry-run-commit-sha
+   💡 Run without --dry-run to execute these changes
+```
+
 **That's it!** 🎉 go-broadcast automatically:
 - Clones your template repository
 - Applies configured transformations  

@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -434,5 +435,186 @@ func TestRepositorySync_findExistingPR(t *testing.T) {
 		require.NotNil(t, pr)
 		assert.Equal(t, 123, pr.Number)
 		assert.Equal(t, branchName, pr.Head.Ref)
+	})
+}
+
+func TestDryRunOutput(t *testing.T) {
+	t.Run("NewDryRunOutput with nil writer", func(t *testing.T) {
+		output := NewDryRunOutput(nil)
+		assert.NotNil(t, output)
+		assert.Equal(t, os.Stdout, output.writer)
+	})
+
+	t.Run("NewDryRunOutput with custom writer", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+		assert.NotNil(t, output)
+		assert.Equal(t, buf, output.writer)
+	})
+
+	t.Run("Header", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Header("Test Header")
+
+		expected := "\n🔍 Test Header\n┌─────────────────────────────────────────────────────────────────\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Field", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Field("Label", "Value")
+
+		expected := "│ Label: Value\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Field with empty label", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Field("", "Value only")
+
+		expected := "│ : Value only\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Separator", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Separator()
+
+		expected := "├─────────────────────────────────────────────────────────────────\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Content with short line", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Content("Short content")
+
+		expected := "│ Short content\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Content with empty line", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Content("")
+
+		expected := "│\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Content with whitespace only", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Content("   ")
+
+		expected := "│\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Content with long line", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		longLine := "This is a very long line that exceeds sixty characters and should be truncated"
+		output.Content(longLine)
+
+		expected := "│ This is a very long line that exceeds sixty characters an...\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Footer", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Footer()
+
+		expected := "└─────────────────────────────────────────────────────────────────\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Info", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Info("Info message")
+
+		expected := "   Info message\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Warning", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Warning("Warning message")
+
+		expected := "⚠️  Warning message\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Success("Success message")
+
+		expected := "✅ Success message\n"
+		assert.Equal(t, expected, buf.String())
+	})
+
+	t.Run("Complete usage pattern", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		output := NewDryRunOutput(buf)
+
+		output.Header("Complete Test")
+		output.Field("Repository", "org/repo")
+		output.Field("Branch", "feature/test")
+		output.Separator()
+		output.Content("This is some content")
+		output.Content("") // Empty line
+		output.Content("More content here")
+		output.Footer()
+		output.Success("Operation completed")
+		output.Info("Additional info")
+		output.Warning("Warning note")
+
+		result := buf.String()
+
+		// Verify all components are present in expected order
+		assert.Contains(t, result, "🔍 Complete Test")
+		assert.Contains(t, result, "┌─────────────────────────────────────────────────────────────────")
+		assert.Contains(t, result, "│ Repository: org/repo")
+		assert.Contains(t, result, "│ Branch: feature/test")
+		assert.Contains(t, result, "├─────────────────────────────────────────────────────────────────")
+		assert.Contains(t, result, "│ This is some content")
+		assert.Contains(t, result, "│") // Empty content line
+		assert.Contains(t, result, "│ More content here")
+		assert.Contains(t, result, "└─────────────────────────────────────────────────────────────────")
+		assert.Contains(t, result, "✅ Operation completed")
+		assert.Contains(t, result, "   Additional info")
+		assert.Contains(t, result, "⚠️  Warning note")
+
+		// Verify proper ordering by checking positions
+		headerPos := strings.Index(result, "🔍 Complete Test")
+		repoPos := strings.Index(result, "│ Repository: org/repo")
+		separatorPos := strings.Index(result, "├─────────────────────────────────────────────────────────────────")
+		footerPos := strings.Index(result, "└─────────────────────────────────────────────────────────────────")
+		successPos := strings.Index(result, "✅ Operation completed")
+
+		assert.Less(t, headerPos, repoPos, "Header should come before repository field")
+		assert.Less(t, repoPos, separatorPos, "Repository field should come before separator")
+		assert.Less(t, separatorPos, footerPos, "Separator should come before footer")
+		assert.Less(t, footerPos, successPos, "Footer should come before success message")
 	})
 }
