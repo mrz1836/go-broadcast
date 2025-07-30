@@ -95,3 +95,11 @@ type FileContent struct {
 	Content []byte `json:"content"`
 	SHA     string `json:"sha"`
 }
+
+// User represents a GitHub user
+type User struct {
+	Login string `json:"login"`
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}

@@ -312,7 +312,7 @@ func (rs *RepositorySync) getExistingFileContent(ctx context.Context, filePath s
 
 // createSyncBranch creates a new sync branch or returns existing one
 func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
-	// Generate branch name: sync/template-YYYYMMDD-HHMMSS-{commit}
+	// Generate branch name: chore/sync-files-YYYYMMDD-HHMMSS-{commit}
 	now := time.Now()
 	timestamp := now.Format("20060102-150405")
 	commitSHA := rs.sourceState.LatestCommit
@@ -322,7 +322,7 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 
 	branchPrefix := rs.engine.config.Defaults.BranchPrefix
 	if branchPrefix == "" {
-		branchPrefix = "sync/template"
+		branchPrefix = "chore/sync-files"
 	}
 
 	branchName := fmt.Sprintf("%s-%s-%s", branchPrefix, timestamp, commitSHA)
@@ -463,7 +463,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 	}).Info("Creating new pull request")
 
 	if rs.engine.options.DryRun {
-		rs.showDryRunPRPreview(branchName, commitSHA, changedFiles)
+		rs.showDryRunPRPreview(ctx, branchName, commitSHA, changedFiles)
 		return nil
 	}
 
@@ -481,6 +481,26 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 		}
 	}
 
+	// Get current user to filter out from reviewers
+	currentUser, err := rs.engine.gh.GetCurrentUser(ctx)
+	if err != nil {
+		rs.logger.WithError(err).Warn("Failed to get current user for reviewer filtering")
+	}
+
+	// Filter author from reviewers
+	reviewers := rs.getPRReviewers()
+	if currentUser != nil && len(reviewers) > 0 {
+		filteredReviewers := make([]string, 0, len(reviewers))
+		for _, reviewer := range reviewers {
+			if reviewer != currentUser.Login {
+				filteredReviewers = append(filteredReviewers, reviewer)
+			} else {
+				rs.logger.WithField("reviewer", reviewer).Info("Filtering PR author from reviewers list")
+			}
+		}
+		reviewers = filteredReviewers
+	}
+
 	prRequest := gh.PRRequest{
 		Title:         title,
 		Body:          body,
@@ -488,7 +508,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 		Base:          baseBranch,
 		Labels:        rs.getPRLabels(),
 		Assignees:     rs.getPRAssignees(),
-		Reviewers:     rs.getPRReviewers(),
+		Reviewers:     reviewers,
 		TeamReviewers: rs.getPRTeamReviewers(),
 	}
 
@@ -741,8 +761,25 @@ func (rs *RepositorySync) formatAssignmentList(items []string) string {
 	return strings.Join(items, ", ")
 }
 
+// formatReviewersWithFiltering formats reviewers list showing which ones will be filtered
+func (rs *RepositorySync) formatReviewersWithFiltering(reviewers []string, currentUserLogin string) string {
+	if len(reviewers) == 0 {
+		return "none"
+	}
+
+	formatted := make([]string, 0, len(reviewers))
+	for _, reviewer := range reviewers {
+		if currentUserLogin != "" && reviewer == currentUserLogin {
+			formatted = append(formatted, fmt.Sprintf("%s (author - will be filtered)", reviewer))
+		} else {
+			formatted = append(formatted, reviewer)
+		}
+	}
+	return strings.Join(formatted, ", ")
+}
+
 // showDryRunPRPreview displays full PR preview with formatting
-func (rs *RepositorySync) showDryRunPRPreview(branchName, commitSHA string, changedFiles []FileChange) {
+func (rs *RepositorySync) showDryRunPRPreview(ctx context.Context, branchName, commitSHA string, changedFiles []FileChange) {
 	rs.logger.WithFields(logrus.Fields{
 		"branch": branchName,
 		"files":  len(changedFiles),
@@ -759,11 +796,20 @@ func (rs *RepositorySync) showDryRunPRPreview(branchName, commitSHA string, chan
 	out.Field("Title", title)
 	out.Separator()
 
+	// Get current user for reviewer filtering display
+	var currentUserLogin string
+	currentUser, err := rs.engine.gh.GetCurrentUser(ctx)
+	if err != nil {
+		rs.logger.WithError(err).Debug("Failed to get current user for dry-run display")
+	} else if currentUser != nil {
+		currentUserLogin = currentUser.Login
+	}
+
 	// Show PR assignment details
 	out.Content("Assignment Details:")
 	out.Content(fmt.Sprintf("• Assignees: %s", rs.formatAssignmentList(rs.getPRAssignees())))
 	out.Content(fmt.Sprintf("• Labels: %s", rs.formatAssignmentList(rs.getPRLabels())))
-	out.Content(fmt.Sprintf("• Reviewers: %s", rs.formatAssignmentList(rs.getPRReviewers())))
+	out.Content(fmt.Sprintf("• Reviewers: %s", rs.formatReviewersWithFiltering(rs.getPRReviewers(), currentUserLogin)))
 	out.Content(fmt.Sprintf("• Team Reviewers: %s", rs.formatAssignmentList(rs.getPRTeamReviewers())))
 	out.Separator()
 

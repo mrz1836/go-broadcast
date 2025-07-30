@@ -35,4 +35,7 @@ type Client interface {
 
 	// UpdatePR updates a pull request (e.g., to add comments)
 	UpdatePR(ctx context.Context, repo string, number int, updates PRUpdate) error
+
+	// GetCurrentUser returns the authenticated user
+	GetCurrentUser(ctx context.Context) (*User, error)
 }

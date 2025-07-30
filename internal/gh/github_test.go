@@ -3,16 +3,19 @@ package gh
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
-	errors2 "github.com/mrz1836/go-broadcast/internal/errors"
+	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+var errTestAPIError = errors.New("API error")
 
 func TestListBranches(t *testing.T) {
 	ctx := context.Background()
@@ -44,7 +47,7 @@ func TestListBranches_Error(t *testing.T) {
 	client := NewClientWithRunner(mockRunner, logrus.New())
 
 	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/branches", "--paginate"}).
-		Return(nil, errors2.ErrTest)
+		Return(nil, internalerrors.ErrTest)
 
 	result, err := client.ListBranches(ctx, "org/repo")
 	require.Error(t, err)
@@ -395,7 +398,7 @@ func TestCreatePR_RunWithInputError(t *testing.T) {
 	}
 
 	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls", "--method", "POST", "--input", "-"}).
-		Return(nil, errors2.ErrTest)
+		Return(nil, internalerrors.ErrTest)
 
 	result, err := client.CreatePR(ctx, "org/repo", req)
 	require.Error(t, err)
@@ -446,7 +449,7 @@ func TestListPRs_Error(t *testing.T) {
 	client := NewClientWithRunner(mockRunner, logrus.New())
 
 	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls", "--paginate"}).
-		Return(nil, errors2.ErrTest)
+		Return(nil, internalerrors.ErrTest)
 
 	result, err := client.ListPRs(ctx, "org/repo", "all")
 	require.Error(t, err)
@@ -648,7 +651,7 @@ func TestIsNotFoundError(t *testing.T) {
 		},
 		{
 			name:     "Regular error",
-			err:      errors2.ErrTest,
+			err:      internalerrors.ErrTest,
 			expected: false,
 		},
 	}
@@ -945,6 +948,57 @@ func TestCreatePR_WithAssigneesAndReviewers(t *testing.T) {
 	mockRunner.AssertExpectations(t)
 }
 
+// TestGetCurrentUser tests getting the authenticated user
+func TestGetCurrentUser(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	user := User{
+		Login: "testuser",
+		ID:    12345,
+		Name:  "Test User",
+		Email: "test@example.com",
+	}
+	userOutput, err := json.Marshal(user)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "user"}).
+		Return(userOutput, nil)
+
+	result, err := client.GetCurrentUser(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, "testuser", result.Login)
+	assert.Equal(t, 12345, result.ID)
+	assert.Equal(t, "Test User", result.Name)
+	assert.Equal(t, "test@example.com", result.Email)
+
+	// Second call should use cached value
+	result2, err := client.GetCurrentUser(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, result2)
+	assert.Equal(t, result.Login, result2.Login)
+
+	// Verify API was only called once due to caching
+	mockRunner.AssertNumberOfCalls(t, "Run", 1)
+}
+
+// TestGetCurrentUser_Error tests error handling when getting current user fails
+func TestGetCurrentUser_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "user"}).
+		Return([]byte{}, errTestAPIError)
+
+	result, err := client.GetCurrentUser(ctx)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "get current user")
+}
+
 // TestCreatePR_AssigneesFailure tests that PR creation succeeds even if setting assignees fails
 func TestCreatePR_AssigneesFailure(t *testing.T) {
 	ctx := context.Background()
@@ -974,7 +1028,7 @@ func TestCreatePR_AssigneesFailure(t *testing.T) {
 
 	// Expect assignees call to fail
 	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/issues/42/assignees", "--method", "POST", "--input", "-"}).
-		Return(nil, errors2.ErrTest)
+		Return(nil, internalerrors.ErrTest)
 
 	result, err := client.CreatePR(ctx, "org/repo", req)
 	require.NoError(t, err) // Should still succeed

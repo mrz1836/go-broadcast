@@ -71,3 +71,9 @@ func (m *MockClient) UpdatePR(ctx context.Context, repo string, number int, upda
 	args := m.Called(ctx, repo, number, updates)
 	return args.Error(0)
 }
+
+// GetCurrentUser mock implementation
+func (m *MockClient) GetCurrentUser(ctx context.Context) (*User, error) {
+	args := m.Called(ctx)
+	return testutil.HandleTwoValueReturn[*User](args)
+}

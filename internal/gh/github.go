@@ -27,8 +27,9 @@ var (
 
 // githubClient implements the Client interface using gh CLI
 type githubClient struct {
-	runner CommandRunner
-	logger *logrus.Logger
+	runner      CommandRunner
+	logger      *logrus.Logger
+	currentUser *User // Cache for current user
 }
 
 // NewClient creates a new GitHub client using gh CLI.
@@ -63,8 +64,9 @@ func NewClient(ctx context.Context, logger *logrus.Logger, logConfig *logging.Lo
 	auditLogger.LogAuthentication("github_cli", "github_token", true)
 
 	return &githubClient{
-		runner: runner,
-		logger: logger,
+		runner:      runner,
+		logger:      logger,
+		currentUser: nil,
 	}, nil
 }
 
@@ -367,6 +369,29 @@ func (g *githubClient) addPRComment(ctx context.Context, repo string, number int
 	return nil
 }
 
+// GetCurrentUser returns the authenticated user
+func (g *githubClient) GetCurrentUser(ctx context.Context) (*User, error) {
+	// Return cached user if available
+	if g.currentUser != nil {
+		return g.currentUser, nil
+	}
+
+	output, err := g.runner.Run(ctx, "gh", "api", "user")
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "get current user")
+	}
+
+	user, err := jsonutil.UnmarshalJSON[User](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse user")
+	}
+
+	// Cache the user for future calls
+	g.currentUser = &user
+
+	return &user, nil
+}
+
 // isNotFoundError checks if the error is a 404 from GitHub API
 func isNotFoundError(err error) bool {
 	if err == nil {
@@ -383,7 +408,8 @@ func isNotFoundError(err error) bool {
 // NewClientWithRunner creates a GitHub client with a custom command runner (for testing)
 func NewClientWithRunner(runner CommandRunner, logger *logrus.Logger) Client {
 	return &githubClient{
-		runner: runner,
-		logger: logger,
+		runner:      runner,
+		logger:      logger,
+		currentUser: nil,
 	}
 }

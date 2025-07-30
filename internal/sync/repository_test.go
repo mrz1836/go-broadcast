@@ -3,13 +3,14 @@ package sync
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/errors"
+	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/state"
@@ -20,6 +21,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+var errTestAuthError = errors.New("auth error")
 
 func TestRepositorySync_Execute(t *testing.T) {
 	// Setup test configuration
@@ -109,6 +112,7 @@ func TestRepositorySync_Execute(t *testing.T) {
 			Return([]byte("new content 2"), nil)
 
 		// Mock GitHub operations for PR creation
+		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil)
 		ghClient.On("ListBranches", mock.Anything, "org/target").
 			Return([]gh.Branch{{Name: "master"}}, nil)
 		ghClient.On("CreatePR", mock.Anything, "org/target", mock.Anything).
@@ -119,7 +123,7 @@ func TestRepositorySync_Execute(t *testing.T) {
 		engine := &Engine{
 			config: &config.Config{
 				Defaults: config.DefaultConfig{
-					BranchPrefix: "sync/template",
+					BranchPrefix: "chore/sync-files",
 				},
 			},
 			gh:        ghClient,
@@ -184,7 +188,7 @@ func TestRepositorySync_Execute(t *testing.T) {
 
 		// Mock git clone failure
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).
-			Return(errors.ErrTest)
+			Return(internalerrors.ErrTest)
 
 		engine := &Engine{
 			gh:        ghClient,
@@ -252,12 +256,15 @@ func TestRepositorySync_Execute(t *testing.T) {
 		transformChain.On("Transform", mock.Anything, []byte("content 2"), mock.Anything).
 			Return([]byte("new content 2"), nil)
 
+		// Mock GetCurrentUser for dry-run PR preview
+		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
+
 		// Create engine with dry-run enabled
 		opts := DefaultOptions().WithDryRun(true)
 		engine := &Engine{
 			config: &config.Config{
 				Defaults: config.DefaultConfig{
-					BranchPrefix: "sync/template",
+					BranchPrefix: "chore/sync-files",
 				},
 			},
 			gh:        ghClient,
@@ -383,7 +390,7 @@ func TestRepositorySync_generatePRBody(t *testing.T) {
 }
 
 func TestRepositorySync_findExistingPR(t *testing.T) {
-	branchName := "sync/template-20240115-120530-abc123"
+	branchName := "chore/sync-files-20240115-120530-abc123"
 
 	t.Run("no target state", func(t *testing.T) {
 		repoSync := &RepositorySync{
@@ -1040,4 +1047,170 @@ func TestRepositorySync_getPRLabels(t *testing.T) {
 		labels := rs.getPRLabels()
 		assert.Equal(t, []string{"custom-label"}, labels)
 	})
+}
+
+// TestFormatReviewersWithFiltering tests the formatReviewersWithFiltering method
+func TestFormatReviewersWithFiltering(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+	cfg := &config.Config{}
+	rs := &RepositorySync{
+		engine: &Engine{config: cfg},
+		logger: logger,
+	}
+
+	t.Run("no reviewers returns none", func(t *testing.T) {
+		result := rs.formatReviewersWithFiltering([]string{}, "currentuser")
+		assert.Equal(t, "none", result)
+	})
+
+	t.Run("reviewers without current user", func(t *testing.T) {
+		reviewers := []string{"user1", "user2", "user3"}
+		result := rs.formatReviewersWithFiltering(reviewers, "currentuser")
+		assert.Equal(t, "user1, user2, user3", result)
+	})
+
+	t.Run("reviewers with current user filtered", func(t *testing.T) {
+		reviewers := []string{"user1", "currentuser", "user3"}
+		result := rs.formatReviewersWithFiltering(reviewers, "currentuser")
+		assert.Equal(t, "user1, currentuser (author - will be filtered), user3", result)
+	})
+
+	t.Run("all reviewers are current user", func(t *testing.T) {
+		reviewers := []string{"currentuser"}
+		result := rs.formatReviewersWithFiltering(reviewers, "currentuser")
+		assert.Equal(t, "currentuser (author - will be filtered)", result)
+	})
+
+	t.Run("empty current user login", func(t *testing.T) {
+		reviewers := []string{"user1", "user2"}
+		result := rs.formatReviewersWithFiltering(reviewers, "")
+		assert.Equal(t, "user1, user2", result)
+	})
+}
+
+// TestCreateNewPR_WithReviewerFiltering tests PR creation with reviewer filtering
+func TestCreateNewPR_WithReviewerFiltering(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.NewEntry(logrus.New())
+
+	gitClient := &git.MockClient{}
+	ghClient := &gh.MockClient{}
+
+	// Mock getting current user
+	currentUser := &gh.User{
+		Login: "authoruser",
+		ID:    123,
+	}
+	ghClient.On("GetCurrentUser", ctx).Return(currentUser, nil)
+
+	// Mock branch listing
+	branches := []gh.Branch{
+		{Name: "main", Protected: true},
+		{Name: "master", Protected: false},
+	}
+	ghClient.On("ListBranches", ctx, "org/target").Return(branches, nil)
+
+	// Configure with reviewers including the author
+	cfg := &config.Config{
+		Global: config.GlobalConfig{
+			PRReviewers: []string{"reviewer1", "authoruser", "reviewer3"},
+		},
+	}
+
+	target := config.TargetConfig{
+		Repo: "org/target",
+	}
+
+	// Expected PR request should have filtered reviewers
+	expectedPRReq := mock.MatchedBy(func(req gh.PRRequest) bool {
+		// Check that authoruser is filtered out
+		return len(req.Reviewers) == 2 &&
+			req.Reviewers[0] == "reviewer1" &&
+			req.Reviewers[1] == "reviewer3"
+	})
+
+	ghClient.On("CreatePR", ctx, "org/target", expectedPRReq).
+		Return(&gh.PR{Number: 123}, nil)
+
+	// Create engine with dry-run disabled
+	engine := &Engine{
+		config:  cfg,
+		git:     gitClient,
+		gh:      ghClient,
+		logger:  logrus.New(),
+		options: DefaultOptions().WithDryRun(false),
+	}
+
+	rs := &RepositorySync{
+		engine:      engine,
+		target:      target,
+		logger:      logger,
+		sourceState: &state.SourceState{LatestCommit: "abc123"},
+		targetState: &state.TargetState{},
+	}
+
+	// Test creating PR
+	err := rs.createNewPR(ctx, "test-branch", "abc123", []FileChange{})
+	require.NoError(t, err)
+
+	ghClient.AssertExpectations(t)
+}
+
+// TestCreateNewPR_GetCurrentUserFailure tests PR creation when getting current user fails
+func TestCreateNewPR_GetCurrentUserFailure(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.NewEntry(logrus.New())
+
+	gitClient := &git.MockClient{}
+	ghClient := &gh.MockClient{}
+
+	// Mock getting current user fails
+	ghClient.On("GetCurrentUser", ctx).Return(nil, errTestAuthError)
+
+	// Mock branch listing
+	branches := []gh.Branch{{Name: "main", Protected: true}}
+	ghClient.On("ListBranches", ctx, "org/target").Return(branches, nil)
+
+	// Configure with reviewers
+	cfg := &config.Config{
+		Global: config.GlobalConfig{
+			PRReviewers: []string{"reviewer1", "reviewer2"},
+		},
+	}
+
+	target := config.TargetConfig{
+		Repo: "org/target",
+	}
+
+	// Should still create PR with all reviewers when current user lookup fails
+	expectedPRReq := mock.MatchedBy(func(req gh.PRRequest) bool {
+		return len(req.Reviewers) == 2 &&
+			req.Reviewers[0] == "reviewer1" &&
+			req.Reviewers[1] == "reviewer2"
+	})
+
+	ghClient.On("CreatePR", ctx, "org/target", expectedPRReq).
+		Return(&gh.PR{Number: 123}, nil)
+
+	engine := &Engine{
+		config:  cfg,
+		git:     gitClient,
+		gh:      ghClient,
+		logger:  logrus.New(),
+		options: DefaultOptions().WithDryRun(false),
+	}
+
+	rs := &RepositorySync{
+		engine:      engine,
+		target:      target,
+		logger:      logger,
+		sourceState: &state.SourceState{LatestCommit: "abc123"},
+		targetState: &state.TargetState{},
+	}
+
+	// Test creating PR - should succeed despite GetCurrentUser failure
+	err := rs.createNewPR(ctx, "test-branch", "abc123", []FileChange{})
+	require.NoError(t, err)
+
+	ghClient.AssertExpectations(t)
 }
