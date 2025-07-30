@@ -61,10 +61,10 @@ The GoFortress coverage system generates coverage reports, badges, and dashboard
 
 ℹ️  Checking GitHub CLI authentication...
 ✅ GitHub CLI is properly authenticated
-ℹ️  Detected repository: mrz1836/go-broadcast
-ℹ️  Checking repository access: mrz1836/go-broadcast
+ℹ️  Detected repository: owner/repo
+ℹ️  Checking repository access: owner/repo
 ✅ Repository access confirmed
-ℹ️  Setting up GitHub Pages environment for mrz1836/go-broadcast...
+ℹ️  Setting up GitHub Pages environment for owner/repo...
 ℹ️  Creating/updating github-pages environment...
 ✅ GitHub Pages environment configured
 ℹ️  Configuring deployment branch rules...
@@ -90,7 +90,7 @@ Next steps:
      - gh-pages branch (GitHub Pages default)
      - dependabot/* branches (automated dependency updates)
   2. The GoFortress coverage workflow should now deploy successfully
-  3. Coverage reports will be available at: https://mrz1836.github.io/go-broadcast/
+  3. Coverage reports will be available at: https://owner.github.io/repo/
 ```
 
 ### Integration with Coverage Workflow

@@ -8,7 +8,7 @@
 #  coverage reports and badges to GitHub Pages.
 #
 #  Usage: ./.github/coverage/scripts/setup-github-pages-env.sh [repository]
-#  Example: ./.github/coverage/scripts/setup-github-pages-env.sh mrz1836/go-broadcast
+#  Example: ./.github/coverage/scripts/setup-github-pages-env.sh owner/repo
 #
 #  Requirements:
 #  - GitHub CLI (gh) installed and authenticated
@@ -54,7 +54,7 @@ show_usage() {
     echo ""
     echo "Examples:"
     echo "  $0                           # Use current repository"
-    echo "  $0 mrz1836/go-broadcast      # Specify repository explicitly"
+    echo "  $0 owner/repo               # Specify repository explicitly"
     echo ""
     echo "Requirements:"
     echo "  - GitHub CLI (gh) installed and authenticated"

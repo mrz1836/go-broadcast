@@ -768,7 +768,7 @@ const reportTemplate = `<!DOCTYPE html>
     <nav class="nav-header">
         <div class="nav-container">
             <a href="https://{{.RepositoryOwner}}.github.io/{{.RepositoryName}}/" class="nav-title-link">
-                <div class="nav-title">{{.RepositoryOwner}}/{{.RepositoryName}}</div>
+                <div class="nav-title">{{.RepositoryName}}</div>
             </a>
             <div class="nav-actions">
                 <div class="search-box">
@@ -922,7 +922,7 @@ const reportTemplate = `<!DOCTYPE html>
             {{end}}
             <div class="footer-item">
                 <span class="footer-text">Powered by</span>
-                <a href="https://github.com/mrz1836/go-broadcast" target="_blank" class="footer-link">
+                <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}" target="_blank" class="footer-link">
                     <span class="footer-icon">🏰</span>
                     <span class="footer-brand">GoFortress Coverage</span>
                 </a>

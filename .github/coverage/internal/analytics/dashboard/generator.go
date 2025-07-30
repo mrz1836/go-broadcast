@@ -41,9 +41,9 @@ type GeneratorConfig struct {
 
 // RepositoryInfo contains information extracted from a Git repository
 type RepositoryInfo struct {
-	Name     string // Repository name (e.g., "go-broadcast")
-	Owner    string // Repository owner (e.g., "mrz1836")
-	FullName string // Full repository name (e.g., "mrz1836/go-broadcast")
+	Name     string // Repository name (e.g., "my-repo")
+	Owner    string // Repository owner (e.g., "owner")
+	FullName string // Full repository name (e.g., "owner/my-repo")
 	URL      string // Repository URL
 	IsGitHub bool   // Whether this is a GitHub repository
 }

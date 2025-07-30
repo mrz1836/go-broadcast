@@ -718,6 +718,27 @@ const dashboardTemplate = `<!DOCTYPE html>
             font-weight: 500;
             color: var(--color-primary);
         }
+        
+        .version-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            color: inherit;
+            transition: all var(--transition-base);
+            padding: 0.25rem 0.5rem;
+            margin: -0.25rem -0.5rem;
+            border-radius: 6px;
+        }
+        
+        .version-link:hover {
+            background: var(--color-bg-tertiary);
+            transform: translateY(-1px);
+        }
+        
+        .version-link:hover .version-text {
+            color: var(--color-text);
+        }
 
         .powered-text {
             color: var(--color-text-secondary);
@@ -933,7 +954,7 @@ const dashboardTemplate = `<!DOCTYPE html>
         <header class="header">
             <div class="header-content">
                 <div class="header-main">
-                    <h1>{{.RepositoryOwner}}/{{.RepositoryName}} Coverage</h1>
+                    <h1>{{.RepositoryName}} Coverage</h1>
                     <p class="subtitle">Code coverage dashboard • Powered by GoFortress</p>
                 </div>
 
@@ -1141,8 +1162,10 @@ const dashboardTemplate = `<!DOCTYPE html>
                 <div class="footer-info">
                     {{if .LatestTag}}
                     <div class="footer-version">
-                        <span class="version-icon">🏷️</span>
-                        <span class="version-text">{{.LatestTag}}</span>
+                        <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}/releases/tag/{{.LatestTag}}" target="_blank" class="version-link">
+                            <span class="version-icon">🏷️</span>
+                            <span class="version-text">{{.LatestTag}}</span>
+                        </a>
                     </div>
                     <span class="footer-separator">•</span>
                     {{end}}
