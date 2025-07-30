@@ -35,8 +35,8 @@ func BenchmarkRegexCache(b *testing.B) {
 		},
 		{
 			"Branch_Pattern",
-			`^(sync/template)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`,
-			"sync/template-20240101-120000-abc123def456",
+			`^(chore/sync-files)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`,
+			"chore/sync-files-20240101-120000-abc123def456",
 		},
 	}
 
@@ -118,7 +118,7 @@ func BenchmarkStringBuilding(b *testing.B) {
 		{
 			"Branch_Name_Building",
 			func(b *testing.B) {
-				prefix := "sync/template"
+				prefix := "chore/sync-files"
 				timestamp := "20240101-120000"
 				commitSHA := "abc123def456"
 
@@ -394,7 +394,7 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 			`\{\{([A-Z_][A-Z0-9_]*)\}\}`,
 			`ghp_[a-zA-Z0-9]{4,}`,
 			`^[a-zA-Z0-9][\w.-]*/[a-zA-Z0-9][\w.-]*$`,
-			`^(sync/template)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`,
+			`^(chore/sync-files)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`,
 		}
 
 		b.Run("Without_Cache", func(b *testing.B) {

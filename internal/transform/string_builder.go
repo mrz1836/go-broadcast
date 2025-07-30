@@ -92,7 +92,7 @@ func BuildGitHubURL(repo string, pathParts ...string) string {
 // BuildBranchName constructs a sync branch name with timestamp and commit SHA.
 //
 // Parameters:
-// - prefix: Branch prefix (e.g., "sync/template")
+// - prefix: Branch prefix (e.g., "chore/sync-files")
 // - timestamp: Timestamp string (e.g., "20240101-120000")
 // - commitSHA: Short commit SHA (e.g., "abc123")
 //
@@ -101,8 +101,8 @@ func BuildGitHubURL(repo string, pathParts ...string) string {
 //
 // Example:
 //
-//	branch := BuildBranchName("sync/template", "20240101-120000", "abc123")
-//	// Result: "sync/template-20240101-120000-abc123"
+//	branch := BuildBranchName("chore/sync-files", "20240101-120000", "abc123")
+//	// Result: "chore/sync-files-20240101-120000-abc123"
 func BuildBranchName(prefix, timestamp, commitSHA string) string {
 	// Pre-calculate size: prefix + "-" + timestamp + "-" + commitSHA
 	totalSize := len(prefix) + 1 + len(timestamp) + 1 + len(commitSHA)

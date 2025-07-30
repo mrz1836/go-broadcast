@@ -147,10 +147,10 @@ func TestBuildBranchName(t *testing.T) {
 	}{
 		{
 			name:      "standard branch name",
-			prefix:    "sync/template",
+			prefix:    "chore/sync-files",
 			timestamp: "20240101-120000",
 			commitSHA: "abc123",
-			expected:  "sync/template-20240101-120000-abc123",
+			expected:  "chore/sync-files-20240101-120000-abc123",
 		},
 		{
 			name:      "short prefix",

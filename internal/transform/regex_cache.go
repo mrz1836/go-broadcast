@@ -34,8 +34,8 @@ func NewRegexCache() *RegexCache {
 			`^[a-zA-Z0-9][\w.-]*/[a-zA-Z0-9][\w.-]*$`, // Repository validation
 
 			// Branch patterns
-			`^[a-zA-Z0-9][\w./\-]*$`,                           // Branch validation
-			`^(sync/template)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`, // Sync branch pattern
+			`^[a-zA-Z0-9][\w./\-]*$`,                              // Branch validation
+			`^(chore/sync-files)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`, // Sync branch pattern
 
 			// Template variable patterns
 			`\{\{([A-Z_][A-Z0-9_]*)\}\}`, // {{VARIABLE}} format
