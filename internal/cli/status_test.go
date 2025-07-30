@@ -243,6 +243,60 @@ func TestOutputTextStatus(t *testing.T) {
 	}
 }
 
+// TestGetRealStatus tests getRealStatus function with various scenarios
+func TestGetRealStatus(t *testing.T) {
+	// Skip these tests if we're not in an environment with proper GitHub access
+	// The getRealStatus function requires real GitHub API access which isn't available in test environments
+	t.Skip("Skipping getRealStatus tests - requires real GitHub API access and dependency injection")
+}
+
+// TestConvertSyncStatus tests the convertSyncStatus function
+func TestConvertSyncStatus(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    state.SyncStatus
+		expected string
+	}{
+		{
+			name:     "StatusUpToDate",
+			input:    state.StatusUpToDate,
+			expected: "synced",
+		},
+		{
+			name:     "StatusBehind",
+			input:    state.StatusBehind,
+			expected: "outdated",
+		},
+		{
+			name:     "StatusPending",
+			input:    state.StatusPending,
+			expected: "pending",
+		},
+		{
+			name:     "StatusUnknown",
+			input:    state.StatusUnknown,
+			expected: "unknown",
+		},
+		{
+			name:     "StatusConflict",
+			input:    state.StatusConflict,
+			expected: "error",
+		},
+		{
+			name:     "InvalidStatus",
+			input:    state.SyncStatus("invalid-status"),
+			expected: "unknown",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := convertSyncStatus(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
 // TestRunStatus tests the main status command execution
 func TestRunStatus(t *testing.T) {
 	t.Run("ConfigNotFound", func(t *testing.T) {
@@ -258,6 +312,79 @@ func TestRunStatus(t *testing.T) {
 
 		err := runStatus(cmd, []string{})
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to load configuration")
+	})
+
+	t.Run("ConfigLoadError", func(t *testing.T) {
+		// Create a temporary file with invalid YAML
+		tmpFile, err := os.CreateTemp("", "invalid-config-*.yml")
+		require.NoError(t, err)
+		defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+		_, err = tmpFile.WriteString("invalid: yaml: content:\n  - broken")
+		require.NoError(t, err)
+		require.NoError(t, tmpFile.Close())
+
+		// Save original config file path
+		originalConfig := globalFlags.ConfigFile
+		globalFlags.ConfigFile = tmpFile.Name()
+		defer func() {
+			globalFlags.ConfigFile = originalConfig
+		}()
+
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+
+		err = runStatus(cmd, []string{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to load configuration")
+	})
+
+	t.Run("ValidConfigWithMockStatus", func(t *testing.T) {
+		// Create a valid temporary config
+		tmpFile, err := os.CreateTemp("", "valid-config-*.yml")
+		require.NoError(t, err)
+		defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+		_, err = tmpFile.WriteString(TestValidConfig)
+		require.NoError(t, err)
+		require.NoError(t, tmpFile.Close())
+
+		// Save original config file path
+		originalConfig := globalFlags.ConfigFile
+		globalFlags.ConfigFile = tmpFile.Name()
+		defer func() {
+			globalFlags.ConfigFile = originalConfig
+		}()
+
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+
+		// This will fail due to lack of GitHub access, but we're testing the flow
+		err = runStatus(cmd, []string{})
+		// We expect an error because we can't mock getRealStatus without dependency injection
+		require.Error(t, err)
+		// But it should get past config loading
+		assert.Contains(t, err.Error(), "failed to discover status")
+	})
+
+	t.Run("JSONOutputFlag", func(t *testing.T) {
+		// Save original flags
+		originalConfig := globalFlags.ConfigFile
+		originalJSON := jsonOutput
+		globalFlags.ConfigFile = "/non/existent/config.yml"
+		jsonOutput = true
+		defer func() {
+			globalFlags.ConfigFile = originalConfig
+			jsonOutput = originalJSON
+		}()
+
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+
+		err := runStatus(cmd, []string{})
+		require.Error(t, err)
+		// Should still fail on config, regardless of output format
 		assert.Contains(t, err.Error(), "failed to load configuration")
 	})
 

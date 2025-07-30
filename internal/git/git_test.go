@@ -30,6 +30,489 @@ func configureGitUser(ctx context.Context, t *testing.T, repoPath string) {
 	require.NoError(t, err)
 }
 
+// TestGetCurrentCommitSHA tests the GetCurrentCommitSHA function
+func TestGetCurrentCommitSHA(t *testing.T) {
+	client, err := NewClient(logrus.New(), &logging.LogConfig{})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	t.Run("ValidRepository", func(t *testing.T) {
+		// Create a test repository
+		tmpDir := testutil.CreateTempDir(t)
+		repoPath := filepath.Join(tmpDir, "test-repo")
+
+		// Initialize repository
+		cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		// Configure git user
+		configureGitUser(ctx, t, repoPath)
+
+		// Create a file and commit
+		testFile := filepath.Join(repoPath, "test.txt")
+		require.NoError(t, os.WriteFile(testFile, []byte("test content"), 0o600))
+
+		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "test.txt") //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "Initial commit") //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		// Get commit SHA
+		sha, err := client.GetCurrentCommitSHA(ctx, repoPath)
+		require.NoError(t, err)
+		assert.NotEmpty(t, sha)
+		assert.Len(t, sha, 40) // Git SHA-1 is 40 characters
+		assert.Regexp(t, "^[a-f0-9]{40}$", sha)
+	})
+
+	t.Run("NonExistentRepository", func(t *testing.T) {
+		sha, err := client.GetCurrentCommitSHA(ctx, "/non/existent/path")
+		require.Error(t, err)
+		assert.Empty(t, sha)
+		assert.Contains(t, err.Error(), "get current commit SHA")
+	})
+
+	t.Run("EmptyRepository", func(t *testing.T) {
+		// Create an empty repository
+		tmpDir := testutil.CreateTempDir(t)
+		repoPath := filepath.Join(tmpDir, "empty-repo")
+
+		cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		sha, err := client.GetCurrentCommitSHA(ctx, repoPath)
+		require.Error(t, err)
+		assert.Empty(t, sha)
+	})
+}
+
+// TestGetRepositoryInfo tests the GetRepositoryInfo function
+func TestGetRepositoryInfo(t *testing.T) {
+	client, err := NewClient(logrus.New(), &logging.LogConfig{})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	t.Run("GitHubSSHURL", func(t *testing.T) {
+		// Create a test repository with remote
+		tmpDir := testutil.CreateTempDir(t)
+		repoPath := filepath.Join(tmpDir, "test-repo")
+
+		cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		// Add a remote
+		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "remote", "add", "origin", "git@github.com:owner/repo.git") //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		info, err := client.GetRepositoryInfo(ctx, repoPath)
+		require.NoError(t, err)
+		assert.Equal(t, "repo", info.Name)
+		assert.Equal(t, "owner", info.Owner)
+		assert.Equal(t, "owner/repo", info.FullName)
+		assert.Equal(t, "git@github.com:owner/repo.git", info.URL)
+		assert.True(t, info.IsGitHub)
+	})
+
+	t.Run("GitHubHTTPSURL", func(t *testing.T) {
+		// Create a test repository with HTTPS remote
+		tmpDir := testutil.CreateTempDir(t)
+		repoPath := filepath.Join(tmpDir, "test-repo")
+
+		cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		// Add a remote
+		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "remote", "add", "origin", "https://github.com/owner/repo.git") //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		info, err := client.GetRepositoryInfo(ctx, repoPath)
+		require.NoError(t, err)
+		assert.Equal(t, "repo", info.Name)
+		assert.Equal(t, "owner", info.Owner)
+		assert.Equal(t, "owner/repo", info.FullName)
+		assert.Equal(t, "https://github.com/owner/repo.git", info.URL)
+		assert.True(t, info.IsGitHub)
+	})
+
+	t.Run("NoRemote", func(t *testing.T) {
+		// Create a repository without remote
+		tmpDir := testutil.CreateTempDir(t)
+		repoPath := filepath.Join(tmpDir, "test-repo")
+
+		cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		info, err := client.GetRepositoryInfo(ctx, repoPath)
+		require.Error(t, err)
+		assert.Nil(t, info)
+		assert.Contains(t, err.Error(), "get repository info")
+	})
+
+	t.Run("NonExistentRepository", func(t *testing.T) {
+		info, err := client.GetRepositoryInfo(ctx, "/non/existent/path")
+		require.Error(t, err)
+		assert.Nil(t, info)
+	})
+}
+
+// TestParseRepositoryURL tests the parseRepositoryURL function
+func TestParseRepositoryURL(t *testing.T) {
+	testCases := []struct {
+		name     string
+		url      string
+		expected *RepositoryInfo
+		wantErr  bool
+	}{
+		{
+			name: "GitHubSSH",
+			url:  "git@github.com:owner/repo.git",
+			expected: &RepositoryInfo{
+				Name:     "repo",
+				Owner:    "owner",
+				FullName: "owner/repo",
+				URL:      "git@github.com:owner/repo.git",
+				IsGitHub: true,
+			},
+		},
+		{
+			name: "GitHubSSHWithoutGitExtension",
+			url:  "git@github.com:owner/repo",
+			expected: &RepositoryInfo{
+				Name:     "repo",
+				Owner:    "owner",
+				FullName: "owner/repo",
+				URL:      "git@github.com:owner/repo",
+				IsGitHub: true,
+			},
+		},
+		{
+			name: "GitHubHTTPS",
+			url:  "https://github.com/owner/repo.git",
+			expected: &RepositoryInfo{
+				Name:     "repo",
+				Owner:    "owner",
+				FullName: "owner/repo",
+				URL:      "https://github.com/owner/repo.git",
+				IsGitHub: true,
+			},
+		},
+		{
+			name: "GitHubHTTPSWithoutGitExtension",
+			url:  "https://github.com/owner/repo",
+			expected: &RepositoryInfo{
+				Name:     "repo",
+				Owner:    "owner",
+				FullName: "owner/repo",
+				URL:      "https://github.com/owner/repo",
+				IsGitHub: true,
+			},
+		},
+		{
+			name: "GitLabSSH",
+			url:  "git@gitlab.com:owner/repo.git",
+			expected: &RepositoryInfo{
+				Name:     "repo",
+				Owner:    "owner",
+				FullName: "owner/repo",
+				URL:      "git@gitlab.com:owner/repo.git",
+				IsGitHub: false,
+			},
+		},
+		{
+			name: "BitbucketHTTPS",
+			url:  "https://bitbucket.org/owner/repo.git",
+			expected: &RepositoryInfo{
+				Name:     "repo",
+				Owner:    "owner",
+				FullName: "owner/repo",
+				URL:      "https://bitbucket.org/owner/repo.git",
+				IsGitHub: false,
+			},
+		},
+		{
+			name:    "InvalidURL",
+			url:     "not-a-valid-url",
+			wantErr: true,
+		},
+		{
+			name:    "EmptyURL",
+			url:     "",
+			wantErr: true,
+		},
+		{
+			name: "ComplexRepoName",
+			url:  "git@github.com:owner/repo-with-dashes_and_underscores.git",
+			expected: &RepositoryInfo{
+				Name:     "repo-with-dashes_and_underscores",
+				Owner:    "owner",
+				FullName: "owner/repo-with-dashes_and_underscores",
+				URL:      "git@github.com:owner/repo-with-dashes_and_underscores.git",
+				IsGitHub: true,
+			},
+		},
+		{
+			name: "NestedOwner",
+			url:  "git@github.com:org/team/repo.git",
+			expected: &RepositoryInfo{
+				Name:     "team/repo",
+				Owner:    "org",
+				FullName: "org/team/repo",
+				URL:      "git@github.com:org/team/repo.git",
+				IsGitHub: true,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			info, err := parseRepositoryURL(tc.url)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.Nil(t, info)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, info)
+				assert.Equal(t, tc.expected.Name, info.Name)
+				assert.Equal(t, tc.expected.Owner, info.Owner)
+				assert.Equal(t, tc.expected.FullName, info.FullName)
+				assert.Equal(t, tc.expected.URL, info.URL)
+				assert.Equal(t, tc.expected.IsGitHub, info.IsGitHub)
+			}
+		})
+	}
+}
+
+// TestGitClient_Checkout tests the Checkout function
+func TestGitClient_Checkout(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	testCases := []struct {
+		name         string
+		logConfig    *logging.LogConfig
+		setupRepo    func(t *testing.T, ctx context.Context, repoPath string)
+		branchName   string
+		expectError  bool
+		errorMessage string
+	}{
+		{
+			name: "CheckoutExistingBranch",
+			logConfig: &logging.LogConfig{
+				Debug: logging.DebugFlags{Git: false},
+			},
+			setupRepo: func(t *testing.T, ctx context.Context, repoPath string) {
+				// Initialize repository
+				cmd := exec.CommandContext(ctx, "git", "init", repoPath)
+				require.NoError(t, cmd.Run())
+
+				// Configure git user
+				configureGitUser(ctx, t, repoPath)
+
+				// Create initial commit
+				testFile := filepath.Join(repoPath, "test.txt")
+				require.NoError(t, os.WriteFile(testFile, []byte("test content"), 0o600))
+
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "test.txt")
+				require.NoError(t, cmd.Run())
+
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "Initial commit")
+				require.NoError(t, cmd.Run())
+
+				// Create a new branch
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", "test-branch")
+				require.NoError(t, cmd.Run())
+
+				// Switch back to main/master
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-")
+				require.NoError(t, cmd.Run())
+			},
+			branchName:  "test-branch",
+			expectError: false,
+		},
+		{
+			name: "CheckoutWithDebugLogging",
+			logConfig: &logging.LogConfig{
+				Debug: logging.DebugFlags{Git: true},
+			},
+			setupRepo: func(t *testing.T, ctx context.Context, repoPath string) {
+				// Initialize repository
+				cmd := exec.CommandContext(ctx, "git", "init", repoPath)
+				require.NoError(t, cmd.Run())
+
+				// Configure git user
+				configureGitUser(ctx, t, repoPath)
+
+				// Create initial commit
+				testFile := filepath.Join(repoPath, "test.txt")
+				require.NoError(t, os.WriteFile(testFile, []byte("test content"), 0o600))
+
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "test.txt")
+				require.NoError(t, cmd.Run())
+
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "Initial commit")
+				require.NoError(t, cmd.Run())
+
+				// Create a new branch
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", "debug-branch")
+				require.NoError(t, cmd.Run())
+
+				// Switch back to main/master
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-")
+				require.NoError(t, cmd.Run())
+			},
+			branchName:  "debug-branch",
+			expectError: false,
+		},
+		{
+			name: "CheckoutNonExistentBranch",
+			logConfig: &logging.LogConfig{
+				Debug: logging.DebugFlags{Git: false},
+			},
+			setupRepo: func(t *testing.T, ctx context.Context, repoPath string) {
+				// Initialize repository
+				cmd := exec.CommandContext(ctx, "git", "init", repoPath)
+				require.NoError(t, cmd.Run())
+
+				// Configure git user
+				configureGitUser(ctx, t, repoPath)
+
+				// Create initial commit
+				testFile := filepath.Join(repoPath, "test.txt")
+				require.NoError(t, os.WriteFile(testFile, []byte("test content"), 0o600))
+
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "test.txt")
+				require.NoError(t, cmd.Run())
+
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "Initial commit")
+				require.NoError(t, cmd.Run())
+			},
+			branchName:   "non-existent-branch",
+			expectError:  true,
+			errorMessage: "checkout branch non-existent-branch",
+		},
+		{
+			name: "CheckoutInNonGitRepository",
+			logConfig: &logging.LogConfig{
+				Debug: logging.DebugFlags{Git: false},
+			},
+			setupRepo: func(t *testing.T, _ context.Context, repoPath string) {
+				// Just create an empty directory, not a git repo
+				require.NoError(t, os.MkdirAll(repoPath, 0o750))
+			},
+			branchName:   "any-branch",
+			expectError:  true,
+			errorMessage: "checkout branch any-branch",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			client, err := NewClient(logger, tc.logConfig)
+			require.NoError(t, err)
+
+			ctx := context.Background()
+			tmpDir := testutil.CreateTempDir(t)
+			repoPath := filepath.Join(tmpDir, "test-repo")
+
+			tc.setupRepo(t, ctx, repoPath)
+
+			err = client.Checkout(ctx, repoPath, tc.branchName)
+
+			if tc.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errorMessage)
+			} else {
+				require.NoError(t, err)
+
+				// Verify we're on the correct branch
+				cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD") //nolint:gosec // Git command with safe static args
+				output, err := cmd.Output()
+				require.NoError(t, err)
+				assert.Equal(t, tc.branchName, strings.TrimSpace(string(output)))
+			}
+		})
+	}
+}
+
+// TestRunCommand tests the runCommand method with various logging configurations
+func TestRunCommand(t *testing.T) {
+	testCases := []struct {
+		name        string
+		logConfig   *logging.LogConfig
+		loggerLevel logrus.Level
+		command     []string
+		expectError bool
+	}{
+		{
+			name: "SuccessWithoutDebug",
+			logConfig: &logging.LogConfig{
+				Debug: logging.DebugFlags{Git: false},
+			},
+			loggerLevel: logrus.InfoLevel,
+			command:     []string{"echo", "test"},
+			expectError: false,
+		},
+		{
+			name: "SuccessWithDebugGit",
+			logConfig: &logging.LogConfig{
+				Debug: logging.DebugFlags{Git: true},
+			},
+			loggerLevel: logrus.DebugLevel,
+			command:     []string{"echo", "test with debug"},
+			expectError: false,
+		},
+		{
+			name:        "SuccessWithDebugLogLevel",
+			logConfig:   nil,
+			loggerLevel: logrus.DebugLevel,
+			command:     []string{"echo", "test debug level"},
+			expectError: false,
+		},
+		{
+			name: "FailureWithDebug",
+			logConfig: &logging.LogConfig{
+				Debug: logging.DebugFlags{Git: true},
+			},
+			loggerLevel: logrus.DebugLevel,
+			command:     []string{"false"}, // Command that always fails
+			expectError: true,
+		},
+		{
+			name: "FailureWithoutDebug",
+			logConfig: &logging.LogConfig{
+				Debug: logging.DebugFlags{Git: false},
+			},
+			loggerLevel: logrus.InfoLevel,
+			command:     []string{"false"}, // Command that always fails
+			expectError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			logger := logrus.New()
+			logger.SetLevel(tc.loggerLevel)
+
+			client, err := NewClient(logger, tc.logConfig)
+			require.NoError(t, err)
+
+			ctx := context.Background()
+			cmd := exec.CommandContext(ctx, tc.command[0], tc.command[1:]...) //nolint:gosec // Test code with controlled input
+			err = client.(*gitClient).runCommand(cmd)
+
+			if tc.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 // These are integration tests that require git to be installed
 func TestGitClient_Clone(t *testing.T) {
 	if testing.Short() {
