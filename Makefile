@@ -61,6 +61,19 @@ test-all-modules: ## Run tests for main module and all submodules
 		(cd $$dir && go test ./... $(if $(VERBOSE),-v) $(TAGS)) || exit 1; \
 	done
 
+.PHONY: test-all-modules-race
+test-all-modules-race: ## Run tests for main module and all submodules with race detection
+	@echo "Testing main module with race detection..."
+	@go test -race ./... \
+		$(if $(VERBOSE),-v) \
+		$(TAGS)
+	@echo ""
+	@echo "Finding and testing submodules with race detection..."
+	@for dir in $$(find . -name go.mod -not -path "./go.mod" -not -path "./vendor/*" | xargs -n1 dirname); do \
+		echo "Testing module in $$dir with race detection..."; \
+		(cd $$dir && go test -race ./... $(if $(VERBOSE),-v) $(TAGS)) || exit 1; \
+	done
+
 .PHONY: lint-all-modules
 lint-all-modules: ## Run lint for main module and all submodules
 	@echo "Linting main module..."
