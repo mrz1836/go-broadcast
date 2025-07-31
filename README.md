@@ -336,7 +336,7 @@ That's it! Push any commit and get:
 #### Interactive Coverage Dashboard
 - **Modern, responsive UI** with dark/light theme support
 - **Real-time metrics** with animated progress indicators
-- **Historical coverage charts** showing trends over time
+- **Historical trend** showing trends over time
 - **Responsive design** that works on desktop and mobile
 - **Zero external dependencies** - fully self-contained
 
@@ -347,6 +347,7 @@ That's it! Push any commit and get:
 - **Comprehensive PR comments** with detailed coverage analysis
 
 #### Analytics & Insights
+- **Google Analytics integration** for detailed usage tracking
 - **Historical trend tracking** with basic trend analysis
 - **Coverage history** stored in JSON format
 - **Retention policies** for automatic data cleanup
