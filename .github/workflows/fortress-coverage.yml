@@ -1427,7 +1427,7 @@ jobs:
       # Deploy to GitHub Pages (Incremental, Non-Destructive)
       # ————————————————————————————————————————————————————————————————
       - name: 🚀 Deploy to GitHub Pages (Incremental)
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.github-token }}
         run: |
@@ -1890,7 +1890,7 @@ jobs:
       # Test deployed URLs (30 second timeout max)
       # ————————————————————————————————————————————————————————————————
       - name: 🔍 Test deployed URLs
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
         run: |
           echo "🔍 Testing deployed URLs..."
 
@@ -1915,8 +1915,23 @@ jobs:
             sleep 30
           fi
 
-          # Define URLs to test based on branch and deployment status
-          if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
+          # Define URLs to test based on event type and branch
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # PR deployment - test PR-specific URLs
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            CRITICAL_URLS=(
+              "$BASE_URL/coverage/pr/$PR_NUMBER/"
+              "$BASE_URL/coverage/pr/$PR_NUMBER/index.html"
+              "$BASE_URL/coverage/pr/$PR_NUMBER/badge-coverage-flat.svg"
+              "$BASE_URL/coverage/pr/$PR_NUMBER/badge.svg"
+            )
+            OPTIONAL_URLS=(
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/"
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/index.html"
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/coverage.html"
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/coverage.svg"
+            )
+          elif [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
             # Main branch deployment - test root URLs
             CRITICAL_URLS=(
               "$BASE_URL/"
@@ -2021,7 +2036,18 @@ jobs:
             echo ""
             echo "🎉 DEPLOYMENT SUCCESSFUL! All critical URLs are accessible."
             echo ""
-            if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              PR_NUMBER="${{ github.event.pull_request.number }}"
+              echo "🔀 PR Coverage Report: $BASE_URL/coverage/pr/$PR_NUMBER/"
+              echo "📊 PR Coverage HTML: $BASE_URL/coverage/pr/$PR_NUMBER/index.html"
+              echo "🏷️ PR Coverage Badge: $BASE_URL/coverage/pr/$PR_NUMBER/badge.svg"
+              echo "📈 PR Badges:"
+              echo "    - Coverage: $BASE_URL/coverage/pr/$PR_NUMBER/badge-coverage-flat.svg"
+              echo "    - Status: $BASE_URL/coverage/pr/$PR_NUMBER/badge-status-flat.svg"
+              echo "    - Trend: $BASE_URL/coverage/pr/$PR_NUMBER/badge-trend-flat.svg"
+              echo "    - Quality: $BASE_URL/coverage/pr/$PR_NUMBER/badge-quality-flat.svg"
+              echo "    - Comparison: $BASE_URL/coverage/pr/$PR_NUMBER/badge-comparison-flat.svg"
+            elif [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
               echo "🌐 Main Coverage Dashboard: $BASE_URL/"
               echo "📊 Main Coverage Report: $BASE_URL/coverage.html"
               echo "🏷️ Main Coverage Badge: $BASE_URL/coverage.svg"
@@ -2031,10 +2057,13 @@ jobs:
               echo "    - $BASE_URL/coverage/coverage.html"
               echo "    - $BASE_URL/coverage/index.html"
             fi
-            echo ""
-            echo "🌲 Branch Coverage Dashboard: $BASE_URL/coverage/branch/$BRANCH_NAME/"
-            echo "📈 Branch Coverage Report: $BASE_URL/coverage/branch/$BRANCH_NAME/coverage.html"
-            echo "🏷️ Branch Coverage Badge: $BASE_URL/coverage/branch/$BRANCH_NAME/coverage.svg"
+            
+            if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+              echo ""
+              echo "🌲 Branch Coverage Dashboard: $BASE_URL/coverage/branch/$BRANCH_NAME/"
+              echo "📈 Branch Coverage Report: $BASE_URL/coverage/branch/$BRANCH_NAME/coverage.html"
+              echo "🏷️ Branch Coverage Badge: $BASE_URL/coverage/branch/$BRANCH_NAME/coverage.svg"
+            fi
           else
             echo ""
             echo "❌ DEPLOYMENT VERIFICATION FAILED"
