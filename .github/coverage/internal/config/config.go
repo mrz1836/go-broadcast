@@ -369,6 +369,10 @@ func (c *Config) GetReportURL() string {
 // getCurrentBranch returns the current branch name, with intelligent fallback detection
 func (c *Config) getCurrentBranch() string {
 	// Try to get branch from environment variables (GitHub Actions context)
+	// For pull requests, prefer GITHUB_HEAD_REF (source branch)
+	if branch := os.Getenv("GITHUB_HEAD_REF"); branch != "" {
+		return branch
+	}
 	if branch := os.Getenv("GITHUB_REF_NAME"); branch != "" {
 		return branch
 	}
@@ -384,12 +388,8 @@ func (c *Config) getCurrentBranch() string {
 		return branch
 	}
 
-	// Final fallback - use commit SHA if available, otherwise default to master
-	if commitSHA := os.Getenv("GITHUB_SHA"); commitSHA != "" && len(commitSHA) >= 7 {
-		return commitSHA[:7] // Use short SHA as identifier
-	}
-
-	// Last resort default to master (this repo's default branch)
+	// Final fallback - default to master (this repo's default branch)
+	// We avoid using commit SHA as branch name since it creates invalid GitHub URLs
 	return "master"
 }
 

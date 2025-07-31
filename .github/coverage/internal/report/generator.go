@@ -351,18 +351,16 @@ func (g *Generator) buildReportData(ctx context.Context, coverage *parser.Covera
 	// Get Git information
 	var projectName, commitSHA, commitURL, badgeURL string
 
+	// Always try to get commit SHA first (GitHub Actions priority)
+	commitSHA = getGitCommitSHA(ctx)
+
 	// Get repository info
 	if repoInfo := getGitRepositoryInfo(ctx); repoInfo != nil {
 		projectName = repoInfo.Name
 
-		// Get current commit SHA
-		if sha := getGitCommitSHA(ctx); sha != "" {
-			commitSHA = sha
-
-			// Build commit URL if it's a GitHub repository
-			if repoInfo.IsGitHub {
-				commitURL = buildGitHubCommitURL(repoInfo.Owner, repoInfo.Name, commitSHA)
-			}
+		// Build commit URL if it's a GitHub repository and we have commit SHA
+		if repoInfo.IsGitHub && commitSHA != "" {
+			commitURL = buildGitHubCommitURL(repoInfo.Owner, repoInfo.Name, commitSHA)
 		}
 	}
 
@@ -647,11 +645,11 @@ func WithGitHub(owner, repository, branch string) Option {
 
 // WithCommit sets the commit SHA
 func WithCommit(commitSHA string) Option {
-	return func(config *Config) {
+	return func(_ *Config) {
 		// We'll store this in a way that can be accessed by buildReportData
 		// For now, we'll use an environment variable override approach
 		if commitSHA != "" {
-			os.Setenv("GOFORTRESS_COMMIT_SHA", commitSHA)
+			_ = os.Setenv("GOFORTRESS_COMMIT_SHA", commitSHA)
 		}
 	}
 }

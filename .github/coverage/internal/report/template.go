@@ -213,11 +213,29 @@ const reportTemplate = `<!DOCTYPE html>
             color: var(--color-text);
             cursor: pointer;
             transition: var(--transition-base);
+            position: relative;
+            overflow: hidden;
         }
 
         .theme-toggle:hover {
             background: var(--color-bg-tertiary);
             border-color: var(--color-primary);
+            transform: scale(1.1);
+        }
+
+        .theme-toggle::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .theme-toggle:hover::before {
+            left: 100%;
         }
 
         /* Main container */
@@ -310,6 +328,8 @@ const reportTemplate = `<!DOCTYPE html>
             padding: 1.5rem;
             transition: var(--transition-smooth);
             overflow: hidden;
+            animation: fadeIn 0.5s ease forwards;
+            opacity: 0;
         }
 
         .summary-card::before {
@@ -328,7 +348,8 @@ const reportTemplate = `<!DOCTYPE html>
         }
 
         @keyframes shimmer {
-            to { transform: translateX(100%); }
+            0% { transform: translateX(-100px); }
+            100% { transform: translateX(100px); }
         }
 
         .summary-card:hover {
@@ -418,7 +439,19 @@ const reportTemplate = `<!DOCTYPE html>
         .coverage-fill {
             height: 100%;
             border-radius: 4px;
+            position: relative;
             transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .coverage-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 100px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 2s infinite;
         }
 
         .coverage-excellent { background: var(--gradient-success); }
@@ -483,10 +516,12 @@ const reportTemplate = `<!DOCTYPE html>
         }
 
         .package-list {
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: 12px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--backdrop-blur));
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
             overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
 
         .package-item {
@@ -508,10 +543,29 @@ const reportTemplate = `<!DOCTYPE html>
             border: none;
             width: 100%;
             text-align: left;
+            position: relative;
+            overflow: hidden;
         }
 
         .package-header:hover {
             background: var(--color-bg-tertiary);
+            transform: translateX(2px);
+        }
+
+        .package-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--gradient-primary);
+            opacity: 0.05;
+            transition: left 0.3s ease;
+        }
+
+        .package-header:hover::before {
+            left: 0;
         }
 
         .package-info {
@@ -568,6 +622,7 @@ const reportTemplate = `<!DOCTYPE html>
 
         .file-item:hover {
             background: var(--color-bg);
+            transform: translateX(4px);
         }
 
         .file-item:last-child {
@@ -656,6 +711,7 @@ const reportTemplate = `<!DOCTYPE html>
         .footer-link:hover {
             background: var(--color-bg-tertiary);
             transform: translateY(-1px);
+            color: var(--color-text);
         }
 
         .footer-brand {
@@ -739,6 +795,23 @@ const reportTemplate = `<!DOCTYPE html>
             outline-offset: 2px;
         }
 
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .summary-card:nth-child(1) { animation-delay: 0.1s; }
+        .summary-card:nth-child(2) { animation-delay: 0.2s; }
+        .summary-card:nth-child(3) { animation-delay: 0.3s; }
+        .summary-card:nth-child(4) { animation-delay: 0.4s; }
+
         /* Loading states */
         .loading {
             opacity: 0.6;
@@ -754,6 +827,11 @@ const reportTemplate = `<!DOCTYPE html>
         @keyframes loading {
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         /* Source link styling - subtle hover effect, keeps normal appearance */
