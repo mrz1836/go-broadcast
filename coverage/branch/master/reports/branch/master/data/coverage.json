@@ -2,466 +2,17 @@
   "project_name": "Coverage for: go-broadcast",
   "repository_url": "https://github.com/mrz1836/go-broadcast",
   "branch": "master",
-  "commit_sha": "27da8e7fd65d31423beba3dcb98067aff16471c9",
-  "timestamp": "2025-07-31T10:24:28.729719721Z",
-  "total_coverage": 86.64957602050877,
+  "commit_sha": "26659ef47dbce411e3c1432dcf6ae105459bd020",
+  "timestamp": "2025-07-31T10:59:06.100363198Z",
+  "total_coverage": 87.06369552356537,
   "total_lines": 5071,
-  "covered_lines": 4394,
-  "missed_lines": 677,
+  "covered_lines": 4415,
+  "missed_lines": 656,
   "total_files": 106,
   "covered_files": 59,
   "partial_files": 0,
   "uncovered_files": 47,
   "packages": [
-    {
-      "name": "transform",
-      "path": "transform",
-      "coverage": 94.76584022038568,
-      "total_lines": 363,
-      "covered_lines": 344,
-      "missed_lines": 19,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/transform",
-      "files": [
-        {
-          "name": "chain.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/transform/chain.go",
-          "coverage": 100,
-          "total_lines": 20,
-          "covered_lines": 20,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/chain.go"
-        },
-        {
-          "name": "string_builder.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/transform/string_builder.go",
-          "coverage": 99.16666666666667,
-          "total_lines": 120,
-          "covered_lines": 119,
-          "missed_lines": 1,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/string_builder.go"
-        },
-        {
-          "name": "template.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/transform/template.go",
-          "coverage": 81.57894736842105,
-          "total_lines": 76,
-          "covered_lines": 62,
-          "missed_lines": 14,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/template.go"
-        },
-        {
-          "name": "binary.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/transform/binary.go",
-          "coverage": 100,
-          "total_lines": 23,
-          "covered_lines": 23,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/binary.go"
-        },
-        {
-          "name": "repo.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/transform/repo.go",
-          "coverage": 100,
-          "total_lines": 37,
-          "covered_lines": 37,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/repo.go"
-        },
-        {
-          "name": "mock.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/transform/mock.go",
-          "coverage": 100,
-          "total_lines": 18,
-          "covered_lines": 18,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/mock.go"
-        },
-        {
-          "name": "regex_cache.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/transform/regex_cache.go",
-          "coverage": 94.20289855072464,
-          "total_lines": 69,
-          "covered_lines": 65,
-          "missed_lines": 4,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/regex_cache.go"
-        }
-      ]
-    },
-    {
-      "name": "monitoring",
-      "path": "monitoring",
-      "coverage": 84.82142857142857,
-      "total_lines": 112,
-      "covered_lines": 95,
-      "missed_lines": 17,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/monitoring",
-      "files": [
-        {
-          "name": "dashboard.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/monitoring/dashboard.go",
-          "coverage": 84.82142857142857,
-          "total_lines": 112,
-          "covered_lines": 95,
-          "missed_lines": 17,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/monitoring/dashboard.go"
-        }
-      ]
-    },
-    {
-      "name": "go-broadcast",
-      "path": "go-broadcast",
-      "coverage": 0,
-      "total_lines": 6,
-      "covered_lines": 0,
-      "missed_lines": 6,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/go-broadcast",
-      "files": [
-        {
-          "name": "main.go",
-          "path": "github.com/mrz1836/go-broadcast/cmd/go-broadcast/main.go",
-          "coverage": 0,
-          "total_lines": 6,
-          "covered_lines": 0,
-          "missed_lines": 6,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/cmd/go-broadcast/main.go"
-        }
-      ]
-    },
-    {
-      "name": "io",
-      "path": "io",
-      "coverage": 83.98058252427184,
-      "total_lines": 206,
-      "covered_lines": 173,
-      "missed_lines": 33,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/io",
-      "files": [
-        {
-          "name": "streaming.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/io/streaming.go",
-          "coverage": 83.98058252427184,
-          "total_lines": 206,
-          "covered_lines": 173,
-          "missed_lines": 33,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/io/streaming.go"
-        }
-      ]
-    },
-    {
-      "name": "jsonutil",
-      "path": "jsonutil",
-      "coverage": 87.5,
-      "total_lines": 40,
-      "covered_lines": 35,
-      "missed_lines": 5,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/jsonutil",
-      "files": [
-        {
-          "name": "jsonutil.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/jsonutil/jsonutil.go",
-          "coverage": 87.5,
-          "total_lines": 40,
-          "covered_lines": 35,
-          "missed_lines": 5,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/jsonutil/jsonutil.go"
-        }
-      ]
-    },
-    {
-      "name": "reporting",
-      "path": "reporting",
-      "coverage": 92.6829268292683,
-      "total_lines": 164,
-      "covered_lines": 152,
-      "missed_lines": 12,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/reporting",
-      "files": [
-        {
-          "name": "performance.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/reporting/performance.go",
-          "coverage": 92.6829268292683,
-          "total_lines": 164,
-          "covered_lines": 152,
-          "missed_lines": 12,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/reporting/performance.go"
-        }
-      ]
-    },
-    {
-      "name": "generate-corpus",
-      "path": "generate-corpus",
-      "coverage": 0,
-      "total_lines": 9,
-      "covered_lines": 0,
-      "missed_lines": 9,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/generate-corpus",
-      "files": [
-        {
-          "name": "main.go",
-          "path": "github.com/mrz1836/go-broadcast/cmd/generate-corpus/main.go",
-          "coverage": 0,
-          "total_lines": 9,
-          "covered_lines": 0,
-          "missed_lines": 9,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/cmd/generate-corpus/main.go"
-        }
-      ]
-    },
-    {
-      "name": "logging",
-      "path": "logging",
-      "coverage": 84.16666666666667,
-      "total_lines": 120,
-      "covered_lines": 101,
-      "missed_lines": 19,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/logging",
-      "files": [
-        {
-          "name": "formatter.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/logging/formatter.go",
-          "coverage": 92.85714285714286,
-          "total_lines": 42,
-          "covered_lines": 39,
-          "missed_lines": 3,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/logging/formatter.go"
-        },
-        {
-          "name": "redact.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/logging/redact.go",
-          "coverage": 85.5072463768116,
-          "total_lines": 69,
-          "covered_lines": 59,
-          "missed_lines": 10,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/logging/redact.go"
-        },
-        {
-          "name": "config.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/logging/config.go",
-          "coverage": 33.33333333333333,
-          "total_lines": 9,
-          "covered_lines": 3,
-          "missed_lines": 6,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/logging/config.go"
-        }
-      ]
-    },
-    {
-      "name": "testutil",
-      "path": "testutil",
-      "coverage": 81.5068493150685,
-      "total_lines": 146,
-      "covered_lines": 119,
-      "missed_lines": 27,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/testutil",
-      "files": [
-        {
-          "name": "patterns.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/testutil/patterns.go",
-          "coverage": 61.224489795918366,
-          "total_lines": 49,
-          "covered_lines": 30,
-          "missed_lines": 19,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/testutil/patterns.go"
-        },
-        {
-          "name": "mock.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/testutil/mock.go",
-          "coverage": 100,
-          "total_lines": 37,
-          "covered_lines": 37,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/testutil/mock.go"
-        },
-        {
-          "name": "files.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/testutil/files.go",
-          "coverage": 86.66666666666667,
-          "total_lines": 60,
-          "covered_lines": 52,
-          "missed_lines": 8,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/testutil/files.go"
-        }
-      ]
-    },
-    {
-      "name": "worker",
-      "path": "worker",
-      "coverage": 100,
-      "total_lines": 32,
-      "covered_lines": 32,
-      "missed_lines": 0,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/worker",
-      "files": [
-        {
-          "name": "pool.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/worker/pool.go",
-          "coverage": 100,
-          "total_lines": 32,
-          "covered_lines": 32,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/worker/pool.go"
-        }
-      ]
-    },
-    {
-      "name": "cli",
-      "path": "cli",
-      "coverage": 74.01668653158522,
-      "total_lines": 839,
-      "covered_lines": 621,
-      "missed_lines": 218,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/cli",
-      "files": [
-        {
-          "name": "logger.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/cli/logger.go",
-          "coverage": 97.67441860465115,
-          "total_lines": 43,
-          "covered_lines": 42,
-          "missed_lines": 1,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/logger.go"
-        },
-        {
-          "name": "flags.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/cli/flags.go",
-          "coverage": 100,
-          "total_lines": 10,
-          "covered_lines": 10,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/flags.go"
-        },
-        {
-          "name": "diagnose.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/cli/diagnose.go",
-          "coverage": 89.1891891891892,
-          "total_lines": 74,
-          "covered_lines": 66,
-          "missed_lines": 8,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/diagnose.go"
-        },
-        {
-          "name": "validate.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/cli/validate.go",
-          "coverage": 53.78787878787878,
-          "total_lines": 132,
-          "covered_lines": 71,
-          "missed_lines": 61,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/validate.go"
-        },
-        {
-          "name": "sync.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/cli/sync.go",
-          "coverage": 50,
-          "total_lines": 132,
-          "covered_lines": 66,
-          "missed_lines": 66,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/sync.go"
-        },
-        {
-          "name": "version.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/cli/version.go",
-          "coverage": 100,
-          "total_lines": 18,
-          "covered_lines": 18,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/version.go"
-        },
-        {
-          "name": "root.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/cli/root.go",
-          "coverage": 75.14450867052022,
-          "total_lines": 173,
-          "covered_lines": 130,
-          "missed_lines": 43,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/root.go"
-        },
-        {
-          "name": "status.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/cli/status.go",
-          "coverage": 87.61904761904762,
-          "total_lines": 105,
-          "covered_lines": 92,
-          "missed_lines": 13,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/status.go"
-        },
-        {
-          "name": "cancel.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/cli/cancel.go",
-          "coverage": 82.89473684210526,
-          "total_lines": 152,
-          "covered_lines": 126,
-          "missed_lines": 26,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/cancel.go"
-        }
-      ]
-    },
-    {
-      "name": "pool",
-      "path": "pool",
-      "coverage": 96.82539682539682,
-      "total_lines": 63,
-      "covered_lines": 61,
-      "missed_lines": 2,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/pool",
-      "files": [
-        {
-          "name": "buffer_pool.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/pool/buffer_pool.go",
-          "coverage": 96.82539682539682,
-          "total_lines": 63,
-          "covered_lines": 61,
-          "missed_lines": 2,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/pool/buffer_pool.go"
-        }
-      ]
-    },
-    {
-      "name": "sync",
-      "path": "sync",
-      "coverage": 84.09506398537478,
-      "total_lines": 547,
-      "covered_lines": 460,
-      "missed_lines": 87,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/sync",
-      "files": [
-        {
-          "name": "engine.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/sync/engine.go",
-          "coverage": 89.47368421052632,
-          "total_lines": 76,
-          "covered_lines": 68,
-          "missed_lines": 8,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/engine.go"
-        },
-        {
-          "name": "progress.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/sync/progress.go",
-          "coverage": 100,
-          "total_lines": 52,
-          "covered_lines": 52,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/progress.go"
-        },
-        {
-          "name": "options.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/sync/options.go",
-          "coverage": 100,
-          "total_lines": 11,
-          "covered_lines": 11,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/options.go"
-        },
-        {
-          "name": "repository.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/sync/repository.go",
-          "coverage": 80.63725490196079,
-          "total_lines": 408,
-          "covered_lines": 329,
-          "missed_lines": 79,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/repository.go"
-        }
-      ]
-    },
     {
       "name": "profiling",
       "path": "profiling",
@@ -492,198 +43,6 @@
       ]
     },
     {
-      "name": "benchmark",
-      "path": "benchmark",
-      "coverage": 97.02127659574468,
-      "total_lines": 235,
-      "covered_lines": 228,
-      "missed_lines": 7,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/benchmark",
-      "files": [
-        {
-          "name": "helpers.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/benchmark/helpers.go",
-          "coverage": 98.63013698630137,
-          "total_lines": 73,
-          "covered_lines": 72,
-          "missed_lines": 1,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/benchmark/helpers.go"
-        },
-        {
-          "name": "reporter.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/benchmark/reporter.go",
-          "coverage": 95.45454545454545,
-          "total_lines": 88,
-          "covered_lines": 84,
-          "missed_lines": 4,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/benchmark/reporter.go"
-        },
-        {
-          "name": "fixtures.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/benchmark/fixtures.go",
-          "coverage": 97.2972972972973,
-          "total_lines": 74,
-          "covered_lines": 72,
-          "missed_lines": 2,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/benchmark/fixtures.go"
-        }
-      ]
-    },
-    {
-      "name": "output",
-      "path": "output",
-      "coverage": 100,
-      "total_lines": 52,
-      "covered_lines": 52,
-      "missed_lines": 0,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/output",
-      "files": [
-        {
-          "name": "output.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/output/output.go",
-          "coverage": 100,
-          "total_lines": 52,
-          "covered_lines": 52,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/output/output.go"
-        }
-      ]
-    },
-    {
-      "name": "git",
-      "path": "git",
-      "coverage": 92.08633093525181,
-      "total_lines": 278,
-      "covered_lines": 256,
-      "missed_lines": 22,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/git",
-      "files": [
-        {
-          "name": "batch.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/git/batch.go",
-          "coverage": 93.85964912280701,
-          "total_lines": 114,
-          "covered_lines": 107,
-          "missed_lines": 7,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/git/batch.go"
-        },
-        {
-          "name": "git.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/git/git.go",
-          "coverage": 94.92753623188406,
-          "total_lines": 138,
-          "covered_lines": 131,
-          "missed_lines": 7,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/git/git.go"
-        },
-        {
-          "name": "mock.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/git/mock.go",
-          "coverage": 69.23076923076923,
-          "total_lines": 26,
-          "covered_lines": 18,
-          "missed_lines": 8,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/git/mock.go"
-        }
-      ]
-    },
-    {
-      "name": "validation",
-      "path": "validation",
-      "coverage": 100,
-      "total_lines": 66,
-      "covered_lines": 66,
-      "missed_lines": 0,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/validation",
-      "files": [
-        {
-          "name": "validation.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/validation/validation.go",
-          "coverage": 100,
-          "total_lines": 66,
-          "covered_lines": 66,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/validation/validation.go"
-        }
-      ]
-    },
-    {
-      "name": "state",
-      "path": "state",
-      "coverage": 98.07692307692307,
-      "total_lines": 208,
-      "covered_lines": 204,
-      "missed_lines": 4,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/state",
-      "files": [
-        {
-          "name": "mock.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/state/mock.go",
-          "coverage": 100,
-          "total_lines": 6,
-          "covered_lines": 6,
-          "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/mock.go"
-        },
-        {
-          "name": "pr.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/state/pr.go",
-          "coverage": 97.36842105263158,
-          "total_lines": 38,
-          "covered_lines": 37,
-          "missed_lines": 1,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/pr.go"
-        },
-        {
-          "name": "branch.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/state/branch.go",
-          "coverage": 95.65217391304348,
-          "total_lines": 23,
-          "covered_lines": 22,
-          "missed_lines": 1,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/branch.go"
-        },
-        {
-          "name": "discovery.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/state/discovery.go",
-          "coverage": 98.58156028368793,
-          "total_lines": 141,
-          "covered_lines": 139,
-          "missed_lines": 2,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/discovery.go"
-        }
-      ]
-    },
-    {
-      "name": "fuzz",
-      "path": "fuzz",
-      "coverage": 94.78260869565217,
-      "total_lines": 115,
-      "covered_lines": 109,
-      "missed_lines": 6,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/fuzz",
-      "files": [
-        {
-          "name": "corpus_generator.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/fuzz/corpus_generator.go",
-          "coverage": 94.64285714285714,
-          "total_lines": 56,
-          "covered_lines": 53,
-          "missed_lines": 3,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/fuzz/corpus_generator.go"
-        },
-        {
-          "name": "helpers.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/fuzz/helpers.go",
-          "coverage": 94.91525423728814,
-          "total_lines": 59,
-          "covered_lines": 56,
-          "missed_lines": 3,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/fuzz/helpers.go"
-        }
-      ]
-    },
-    {
       "name": "cache",
       "path": "cache",
       "coverage": 97.01492537313433,
@@ -704,102 +63,22 @@
       ]
     },
     {
-      "name": "metrics",
-      "path": "metrics",
-      "coverage": 96.29629629629629,
-      "total_lines": 27,
-      "covered_lines": 26,
-      "missed_lines": 1,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/metrics",
-      "files": [
-        {
-          "name": "timing.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/metrics/timing.go",
-          "coverage": 96.29629629629629,
-          "total_lines": 27,
-          "covered_lines": 26,
-          "missed_lines": 1,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/metrics/timing.go"
-        }
-      ]
-    },
-    {
-      "name": "memory",
-      "path": "memory",
-      "coverage": 96.18320610687023,
-      "total_lines": 131,
-      "covered_lines": 126,
-      "missed_lines": 5,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/memory",
-      "files": [
-        {
-          "name": "efficient.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/memory/efficient.go",
-          "coverage": 96.18320610687023,
-          "total_lines": 131,
-          "covered_lines": 126,
-          "missed_lines": 5,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/memory/efficient.go"
-        }
-      ]
-    },
-    {
-      "name": "algorithms",
-      "path": "algorithms",
-      "coverage": 91.70124481327801,
-      "total_lines": 241,
-      "covered_lines": 221,
-      "missed_lines": 20,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/algorithms",
-      "files": [
-        {
-          "name": "optimized.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/algorithms/optimized.go",
-          "coverage": 91.70124481327801,
-          "total_lines": 241,
-          "covered_lines": 221,
-          "missed_lines": 20,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/algorithms/optimized.go"
-        }
-      ]
-    },
-    {
-      "name": "profile_demo",
-      "path": "profile_demo",
-      "coverage": 67.85714285714286,
-      "total_lines": 140,
-      "covered_lines": 95,
-      "missed_lines": 45,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/profile_demo",
-      "files": [
-        {
-          "name": "main.go",
-          "path": "github.com/mrz1836/go-broadcast/cmd/profile_demo/main.go",
-          "coverage": 67.85714285714286,
-          "total_lines": 140,
-          "covered_lines": 95,
-          "missed_lines": 45,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/cmd/profile_demo/main.go"
-        }
-      ]
-    },
-    {
-      "name": "errors",
-      "path": "errors",
+      "name": "output",
+      "path": "output",
       "coverage": 100,
-      "total_lines": 12,
-      "covered_lines": 12,
+      "total_lines": 52,
+      "covered_lines": 52,
       "missed_lines": 0,
-      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/errors",
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/output",
       "files": [
         {
-          "name": "errors.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/errors/errors.go",
+          "name": "output.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/output/output.go",
           "coverage": 100,
-          "total_lines": 12,
-          "covered_lines": 12,
+          "total_lines": 52,
+          "covered_lines": 52,
           "missed_lines": 0,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/errors/errors.go"
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/output/output.go"
         }
       ]
     },
@@ -833,6 +112,549 @@
       ]
     },
     {
+      "name": "testutil",
+      "path": "testutil",
+      "coverage": 81.5068493150685,
+      "total_lines": 146,
+      "covered_lines": 119,
+      "missed_lines": 27,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/testutil",
+      "files": [
+        {
+          "name": "files.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/testutil/files.go",
+          "coverage": 86.66666666666667,
+          "total_lines": 60,
+          "covered_lines": 52,
+          "missed_lines": 8,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/testutil/files.go"
+        },
+        {
+          "name": "mock.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/testutil/mock.go",
+          "coverage": 100,
+          "total_lines": 37,
+          "covered_lines": 37,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/testutil/mock.go"
+        },
+        {
+          "name": "patterns.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/testutil/patterns.go",
+          "coverage": 61.224489795918366,
+          "total_lines": 49,
+          "covered_lines": 30,
+          "missed_lines": 19,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/testutil/patterns.go"
+        }
+      ]
+    },
+    {
+      "name": "fuzz",
+      "path": "fuzz",
+      "coverage": 94.78260869565217,
+      "total_lines": 115,
+      "covered_lines": 109,
+      "missed_lines": 6,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/fuzz",
+      "files": [
+        {
+          "name": "corpus_generator.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/fuzz/corpus_generator.go",
+          "coverage": 94.64285714285714,
+          "total_lines": 56,
+          "covered_lines": 53,
+          "missed_lines": 3,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/fuzz/corpus_generator.go"
+        },
+        {
+          "name": "helpers.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/fuzz/helpers.go",
+          "coverage": 94.91525423728814,
+          "total_lines": 59,
+          "covered_lines": 56,
+          "missed_lines": 3,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/fuzz/helpers.go"
+        }
+      ]
+    },
+    {
+      "name": "generate-corpus",
+      "path": "generate-corpus",
+      "coverage": 0,
+      "total_lines": 9,
+      "covered_lines": 0,
+      "missed_lines": 9,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/generate-corpus",
+      "files": [
+        {
+          "name": "main.go",
+          "path": "github.com/mrz1836/go-broadcast/cmd/generate-corpus/main.go",
+          "coverage": 0,
+          "total_lines": 9,
+          "covered_lines": 0,
+          "missed_lines": 9,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/cmd/generate-corpus/main.go"
+        }
+      ]
+    },
+    {
+      "name": "io",
+      "path": "io",
+      "coverage": 86.89320388349515,
+      "total_lines": 206,
+      "covered_lines": 179,
+      "missed_lines": 27,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/io",
+      "files": [
+        {
+          "name": "streaming.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/io/streaming.go",
+          "coverage": 86.89320388349515,
+          "total_lines": 206,
+          "covered_lines": 179,
+          "missed_lines": 27,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/io/streaming.go"
+        }
+      ]
+    },
+    {
+      "name": "metrics",
+      "path": "metrics",
+      "coverage": 96.29629629629629,
+      "total_lines": 27,
+      "covered_lines": 26,
+      "missed_lines": 1,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/metrics",
+      "files": [
+        {
+          "name": "timing.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/metrics/timing.go",
+          "coverage": 96.29629629629629,
+          "total_lines": 27,
+          "covered_lines": 26,
+          "missed_lines": 1,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/metrics/timing.go"
+        }
+      ]
+    },
+    {
+      "name": "reporting",
+      "path": "reporting",
+      "coverage": 92.6829268292683,
+      "total_lines": 164,
+      "covered_lines": 152,
+      "missed_lines": 12,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/reporting",
+      "files": [
+        {
+          "name": "performance.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/reporting/performance.go",
+          "coverage": 92.6829268292683,
+          "total_lines": 164,
+          "covered_lines": 152,
+          "missed_lines": 12,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/reporting/performance.go"
+        }
+      ]
+    },
+    {
+      "name": "jsonutil",
+      "path": "jsonutil",
+      "coverage": 87.5,
+      "total_lines": 40,
+      "covered_lines": 35,
+      "missed_lines": 5,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/jsonutil",
+      "files": [
+        {
+          "name": "jsonutil.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/jsonutil/jsonutil.go",
+          "coverage": 87.5,
+          "total_lines": 40,
+          "covered_lines": 35,
+          "missed_lines": 5,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/jsonutil/jsonutil.go"
+        }
+      ]
+    },
+    {
+      "name": "pool",
+      "path": "pool",
+      "coverage": 96.82539682539682,
+      "total_lines": 63,
+      "covered_lines": 61,
+      "missed_lines": 2,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/pool",
+      "files": [
+        {
+          "name": "buffer_pool.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/pool/buffer_pool.go",
+          "coverage": 96.82539682539682,
+          "total_lines": 63,
+          "covered_lines": 61,
+          "missed_lines": 2,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/pool/buffer_pool.go"
+        }
+      ]
+    },
+    {
+      "name": "state",
+      "path": "state",
+      "coverage": 98.07692307692307,
+      "total_lines": 208,
+      "covered_lines": 204,
+      "missed_lines": 4,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/state",
+      "files": [
+        {
+          "name": "branch.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/state/branch.go",
+          "coverage": 95.65217391304348,
+          "total_lines": 23,
+          "covered_lines": 22,
+          "missed_lines": 1,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/branch.go"
+        },
+        {
+          "name": "discovery.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/state/discovery.go",
+          "coverage": 98.58156028368793,
+          "total_lines": 141,
+          "covered_lines": 139,
+          "missed_lines": 2,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/discovery.go"
+        },
+        {
+          "name": "pr.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/state/pr.go",
+          "coverage": 97.36842105263158,
+          "total_lines": 38,
+          "covered_lines": 37,
+          "missed_lines": 1,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/pr.go"
+        },
+        {
+          "name": "mock.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/state/mock.go",
+          "coverage": 100,
+          "total_lines": 6,
+          "covered_lines": 6,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/mock.go"
+        }
+      ]
+    },
+    {
+      "name": "benchmark",
+      "path": "benchmark",
+      "coverage": 97.02127659574468,
+      "total_lines": 235,
+      "covered_lines": 228,
+      "missed_lines": 7,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/benchmark",
+      "files": [
+        {
+          "name": "fixtures.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/benchmark/fixtures.go",
+          "coverage": 97.2972972972973,
+          "total_lines": 74,
+          "covered_lines": 72,
+          "missed_lines": 2,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/benchmark/fixtures.go"
+        },
+        {
+          "name": "reporter.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/benchmark/reporter.go",
+          "coverage": 95.45454545454545,
+          "total_lines": 88,
+          "covered_lines": 84,
+          "missed_lines": 4,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/benchmark/reporter.go"
+        },
+        {
+          "name": "helpers.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/benchmark/helpers.go",
+          "coverage": 98.63013698630137,
+          "total_lines": 73,
+          "covered_lines": 72,
+          "missed_lines": 1,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/benchmark/helpers.go"
+        }
+      ]
+    },
+    {
+      "name": "sync",
+      "path": "sync",
+      "coverage": 84.09506398537478,
+      "total_lines": 547,
+      "covered_lines": 460,
+      "missed_lines": 87,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/sync",
+      "files": [
+        {
+          "name": "progress.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/sync/progress.go",
+          "coverage": 100,
+          "total_lines": 52,
+          "covered_lines": 52,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/progress.go"
+        },
+        {
+          "name": "engine.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/sync/engine.go",
+          "coverage": 89.47368421052632,
+          "total_lines": 76,
+          "covered_lines": 68,
+          "missed_lines": 8,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/engine.go"
+        },
+        {
+          "name": "options.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/sync/options.go",
+          "coverage": 100,
+          "total_lines": 11,
+          "covered_lines": 11,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/options.go"
+        },
+        {
+          "name": "repository.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/sync/repository.go",
+          "coverage": 80.63725490196079,
+          "total_lines": 408,
+          "covered_lines": 329,
+          "missed_lines": 79,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/repository.go"
+        }
+      ]
+    },
+    {
+      "name": "transform",
+      "path": "transform",
+      "coverage": 98.89807162534436,
+      "total_lines": 363,
+      "covered_lines": 359,
+      "missed_lines": 4,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/transform",
+      "files": [
+        {
+          "name": "binary.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/transform/binary.go",
+          "coverage": 100,
+          "total_lines": 23,
+          "covered_lines": 23,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/binary.go"
+        },
+        {
+          "name": "chain.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/transform/chain.go",
+          "coverage": 100,
+          "total_lines": 20,
+          "covered_lines": 20,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/chain.go"
+        },
+        {
+          "name": "repo.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/transform/repo.go",
+          "coverage": 100,
+          "total_lines": 37,
+          "covered_lines": 37,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/repo.go"
+        },
+        {
+          "name": "string_builder.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/transform/string_builder.go",
+          "coverage": 99.16666666666667,
+          "total_lines": 120,
+          "covered_lines": 119,
+          "missed_lines": 1,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/string_builder.go"
+        },
+        {
+          "name": "mock.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/transform/mock.go",
+          "coverage": 100,
+          "total_lines": 18,
+          "covered_lines": 18,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/mock.go"
+        },
+        {
+          "name": "regex_cache.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/transform/regex_cache.go",
+          "coverage": 100,
+          "total_lines": 69,
+          "covered_lines": 69,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/regex_cache.go"
+        },
+        {
+          "name": "template.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/transform/template.go",
+          "coverage": 96.05263157894737,
+          "total_lines": 76,
+          "covered_lines": 73,
+          "missed_lines": 3,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/template.go"
+        }
+      ]
+    },
+    {
+      "name": "cli",
+      "path": "cli",
+      "coverage": 74.01668653158522,
+      "total_lines": 839,
+      "covered_lines": 621,
+      "missed_lines": 218,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/cli",
+      "files": [
+        {
+          "name": "flags.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/cli/flags.go",
+          "coverage": 100,
+          "total_lines": 10,
+          "covered_lines": 10,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/flags.go"
+        },
+        {
+          "name": "root.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/cli/root.go",
+          "coverage": 75.14450867052022,
+          "total_lines": 173,
+          "covered_lines": 130,
+          "missed_lines": 43,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/root.go"
+        },
+        {
+          "name": "validate.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/cli/validate.go",
+          "coverage": 53.78787878787878,
+          "total_lines": 132,
+          "covered_lines": 71,
+          "missed_lines": 61,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/validate.go"
+        },
+        {
+          "name": "sync.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/cli/sync.go",
+          "coverage": 50,
+          "total_lines": 132,
+          "covered_lines": 66,
+          "missed_lines": 66,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/sync.go"
+        },
+        {
+          "name": "version.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/cli/version.go",
+          "coverage": 100,
+          "total_lines": 18,
+          "covered_lines": 18,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/version.go"
+        },
+        {
+          "name": "diagnose.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/cli/diagnose.go",
+          "coverage": 89.1891891891892,
+          "total_lines": 74,
+          "covered_lines": 66,
+          "missed_lines": 8,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/diagnose.go"
+        },
+        {
+          "name": "logger.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/cli/logger.go",
+          "coverage": 97.67441860465115,
+          "total_lines": 43,
+          "covered_lines": 42,
+          "missed_lines": 1,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/logger.go"
+        },
+        {
+          "name": "status.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/cli/status.go",
+          "coverage": 87.61904761904762,
+          "total_lines": 105,
+          "covered_lines": 92,
+          "missed_lines": 13,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/status.go"
+        },
+        {
+          "name": "cancel.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/cli/cancel.go",
+          "coverage": 82.89473684210526,
+          "total_lines": 152,
+          "covered_lines": 126,
+          "missed_lines": 26,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/cancel.go"
+        }
+      ]
+    },
+    {
+      "name": "git",
+      "path": "git",
+      "coverage": 92.08633093525181,
+      "total_lines": 278,
+      "covered_lines": 256,
+      "missed_lines": 22,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/git",
+      "files": [
+        {
+          "name": "batch.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/git/batch.go",
+          "coverage": 93.85964912280701,
+          "total_lines": 114,
+          "covered_lines": 107,
+          "missed_lines": 7,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/git/batch.go"
+        },
+        {
+          "name": "mock.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/git/mock.go",
+          "coverage": 69.23076923076923,
+          "total_lines": 26,
+          "covered_lines": 18,
+          "missed_lines": 8,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/git/mock.go"
+        },
+        {
+          "name": "git.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/git/git.go",
+          "coverage": 94.92753623188406,
+          "total_lines": 138,
+          "covered_lines": 131,
+          "missed_lines": 7,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/git/git.go"
+        }
+      ]
+    },
+    {
+      "name": "algorithms",
+      "path": "algorithms",
+      "coverage": 91.70124481327801,
+      "total_lines": 241,
+      "covered_lines": 221,
+      "missed_lines": 20,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/algorithms",
+      "files": [
+        {
+          "name": "optimized.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/algorithms/optimized.go",
+          "coverage": 91.70124481327801,
+          "total_lines": 241,
+          "covered_lines": 221,
+          "missed_lines": 20,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/algorithms/optimized.go"
+        }
+      ]
+    },
+    {
       "name": "gh",
       "path": "gh",
       "coverage": 90.625,
@@ -842,15 +664,6 @@
       "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/gh",
       "files": [
         {
-          "name": "mock.go",
-          "path": "github.com/mrz1836/go-broadcast/internal/gh/mock.go",
-          "coverage": 63.63636363636363,
-          "total_lines": 22,
-          "covered_lines": 14,
-          "missed_lines": 8,
-          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/gh/mock.go"
-        },
-        {
           "name": "github.go",
           "path": "github.com/mrz1836/go-broadcast/internal/gh/github.go",
           "coverage": 93.16770186335404,
@@ -858,6 +671,15 @@
           "covered_lines": 150,
           "missed_lines": 11,
           "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/gh/github.go"
+        },
+        {
+          "name": "mock.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/gh/mock.go",
+          "coverage": 63.63636363636363,
+          "total_lines": 22,
+          "covered_lines": 14,
+          "missed_lines": 8,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/gh/mock.go"
         },
         {
           "name": "command.go",
@@ -869,16 +691,215 @@
           "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/gh/command.go"
         }
       ]
+    },
+    {
+      "name": "go-broadcast",
+      "path": "go-broadcast",
+      "coverage": 0,
+      "total_lines": 6,
+      "covered_lines": 0,
+      "missed_lines": 6,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/go-broadcast",
+      "files": [
+        {
+          "name": "main.go",
+          "path": "github.com/mrz1836/go-broadcast/cmd/go-broadcast/main.go",
+          "coverage": 0,
+          "total_lines": 6,
+          "covered_lines": 0,
+          "missed_lines": 6,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/cmd/go-broadcast/main.go"
+        }
+      ]
+    },
+    {
+      "name": "errors",
+      "path": "errors",
+      "coverage": 100,
+      "total_lines": 12,
+      "covered_lines": 12,
+      "missed_lines": 0,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/errors",
+      "files": [
+        {
+          "name": "errors.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/errors/errors.go",
+          "coverage": 100,
+          "total_lines": 12,
+          "covered_lines": 12,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/errors/errors.go"
+        }
+      ]
+    },
+    {
+      "name": "monitoring",
+      "path": "monitoring",
+      "coverage": 84.82142857142857,
+      "total_lines": 112,
+      "covered_lines": 95,
+      "missed_lines": 17,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/monitoring",
+      "files": [
+        {
+          "name": "dashboard.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/monitoring/dashboard.go",
+          "coverage": 84.82142857142857,
+          "total_lines": 112,
+          "covered_lines": 95,
+          "missed_lines": 17,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/monitoring/dashboard.go"
+        }
+      ]
+    },
+    {
+      "name": "memory",
+      "path": "memory",
+      "coverage": 96.18320610687023,
+      "total_lines": 131,
+      "covered_lines": 126,
+      "missed_lines": 5,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/memory",
+      "files": [
+        {
+          "name": "efficient.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/memory/efficient.go",
+          "coverage": 96.18320610687023,
+          "total_lines": 131,
+          "covered_lines": 126,
+          "missed_lines": 5,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/memory/efficient.go"
+        }
+      ]
+    },
+    {
+      "name": "profile_demo",
+      "path": "profile_demo",
+      "coverage": 67.85714285714286,
+      "total_lines": 140,
+      "covered_lines": 95,
+      "missed_lines": 45,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/profile_demo",
+      "files": [
+        {
+          "name": "main.go",
+          "path": "github.com/mrz1836/go-broadcast/cmd/profile_demo/main.go",
+          "coverage": 67.85714285714286,
+          "total_lines": 140,
+          "covered_lines": 95,
+          "missed_lines": 45,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/cmd/profile_demo/main.go"
+        }
+      ]
+    },
+    {
+      "name": "worker",
+      "path": "worker",
+      "coverage": 100,
+      "total_lines": 32,
+      "covered_lines": 32,
+      "missed_lines": 0,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/worker",
+      "files": [
+        {
+          "name": "pool.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/worker/pool.go",
+          "coverage": 100,
+          "total_lines": 32,
+          "covered_lines": 32,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/worker/pool.go"
+        }
+      ]
+    },
+    {
+      "name": "validation",
+      "path": "validation",
+      "coverage": 100,
+      "total_lines": 66,
+      "covered_lines": 66,
+      "missed_lines": 0,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/validation",
+      "files": [
+        {
+          "name": "validation.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/validation/validation.go",
+          "coverage": 100,
+          "total_lines": 66,
+          "covered_lines": 66,
+          "missed_lines": 0,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/validation/validation.go"
+        }
+      ]
+    },
+    {
+      "name": "logging",
+      "path": "logging",
+      "coverage": 84.16666666666667,
+      "total_lines": 120,
+      "covered_lines": 101,
+      "missed_lines": 19,
+      "github_url": "https://github.com/mrz1836/go-broadcast/tree/master/logging",
+      "files": [
+        {
+          "name": "config.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/logging/config.go",
+          "coverage": 33.33333333333333,
+          "total_lines": 9,
+          "covered_lines": 3,
+          "missed_lines": 6,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/logging/config.go"
+        },
+        {
+          "name": "formatter.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/logging/formatter.go",
+          "coverage": 92.85714285714286,
+          "total_lines": 42,
+          "covered_lines": 39,
+          "missed_lines": 3,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/logging/formatter.go"
+        },
+        {
+          "name": "redact.go",
+          "path": "github.com/mrz1836/go-broadcast/internal/logging/redact.go",
+          "coverage": 85.5072463768116,
+          "total_lines": 69,
+          "covered_lines": 59,
+          "missed_lines": 10,
+          "github_url": "https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/logging/redact.go"
+        }
+      ]
     }
   ],
   "trend_data": {
     "direction": "up",
-    "change_percent": 0.7696584108143147,
-    "change_lines": 39,
+    "change_percent": 1.2512612389042335,
+    "change_lines": 63,
     "compared_to": "",
     "compared_to_value": ""
   },
   "history": [
+    {
+      "timestamp": "2025-07-31T10:59:05.674745616Z",
+      "commit_sha": "26659ef47dbce411e3c1432dcf6ae105459bd020",
+      "coverage": 87.06369552356537,
+      "total_lines": 5071,
+      "covered_lines": 4415
+    },
+    {
+      "timestamp": "2025-07-31T10:24:29.318777225Z",
+      "commit_sha": "27da8e7fd65d31423beba3dcb98067aff16471c9",
+      "coverage": 86.64957602050877,
+      "total_lines": 5071,
+      "covered_lines": 4394
+    },
+    {
+      "timestamp": "2025-07-31T10:24:28.807600231Z",
+      "commit_sha": "27da8e7fd65d31423beba3dcb98067aff16471c9",
+      "coverage": 86.64957602050877,
+      "total_lines": 5071,
+      "covered_lines": 4394
+    },
     {
       "timestamp": "2025-07-31T10:24:28.055406401Z",
       "commit_sha": "27da8e7fd65d31423beba3dcb98067aff16471c9",
@@ -908,6 +929,6 @@
       "covered_lines": 4357
     }
   ],
-  "workflow_run_number": 248,
+  "workflow_run_number": 249,
   "has_previous_runs": true
 }
