@@ -57,6 +57,7 @@ jobs:
       contents: write
       pages: write
       id-token: write
+      pull-requests: write  # Required for creating PR comments
       statuses: write
 
     steps:
