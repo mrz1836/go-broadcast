@@ -38,7 +38,7 @@ Target repositories can be specified as arguments to sync only specific repos.`,
   go-broadcast validate && go-broadcast sync --dry-run  # Validate then preview
   go-broadcast sync --dry-run | tee preview.log        # Save preview output
   
-  # For enhanced debugging capabilities, use:
+  # For debugging capabilities, use:
   # go-broadcast sync -v --debug-git --debug-api (requires verbose support)`,
 	Aliases: []string{"s"},
 	RunE:    runSync,
@@ -280,7 +280,7 @@ func createSyncEngineWithFlags(ctx context.Context, cfg *config.Config, flags *F
 
 // loadConfigWithLogConfig loads configuration using LogConfig instead of Flags.
 //
-// This function provides enhanced configuration loading with verbose logging
+// This function provides configuration loading with verbose logging
 // support and component-specific debug settings.
 //
 // Parameters:
@@ -325,7 +325,7 @@ func loadConfigWithLogConfig(logConfig *LogConfig) (*config.Config, error) {
 
 // createSyncEngineWithLogConfig initializes the sync engine with LogConfig.
 //
-// This function creates a sync engine using the enhanced LogConfig for
+// This function creates a sync engine using the LogConfig for
 // component-specific debugging and verbose logging capabilities.
 //
 // Parameters:
@@ -343,13 +343,13 @@ func loadConfigWithLogConfig(logConfig *LogConfig) (*config.Config, error) {
 func createSyncEngineWithLogConfig(ctx context.Context, cfg *config.Config, logConfig *LogConfig) (*sync.Engine, error) {
 	logger := logrus.StandardLogger()
 
-	// Initialize GitHub client with enhanced logging
+	// Initialize GitHub client with verbose logging
 	ghClient, err := gh.NewClient(ctx, logger, logConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GitHub client: %w", err)
 	}
 
-	// Initialize Git client with enhanced logging
+	// Initialize Git client with verbose logging
 	gitClient, err := git.NewClient(logger, logConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Git client: %w", err)

@@ -494,7 +494,7 @@ func TestCreateSyncEngineWithFlags(t *testing.T) {
 func TestCreateSyncEngineWithLogConfig(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("WithEnhancedLogging", func(t *testing.T) {
+	t.Run("WithVerboseLogging", func(t *testing.T) {
 		cfg := &config.Config{
 			Source: config.SourceConfig{
 				Repo:   "org/template",

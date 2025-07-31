@@ -65,7 +65,7 @@ func (r *realCommandRunner) RunWithInput(ctx context.Context, input []byte, name
 	cmd := exec.CommandContext(ctx, name, args...)
 	logger := logging.WithStandardFields(r.logger, r.logConfig, logging.ComponentNames.API)
 
-	// Enhanced debug logging when --debug-api flag is enabled
+	// Debug logging when --debug-api flag is enabled
 	if r.logConfig != nil && r.logConfig.Debug.API {
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.Operation: logging.OperationTypes.APIRequest,
@@ -109,7 +109,7 @@ func (r *realCommandRunner) RunWithInput(ctx context.Context, input []byte, name
 	err := cmd.Run()
 	duration := time.Since(start)
 
-	// Enhanced response logging when --debug-api flag is enabled
+	// Response logging when --debug-api flag is enabled
 	if r.logConfig != nil && r.logConfig.Debug.API {
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.DurationMs:  duration.Milliseconds(),
@@ -134,7 +134,7 @@ func (r *realCommandRunner) RunWithInput(ctx context.Context, input []byte, name
 		if stderr.Len() > 0 {
 			if r.logger != nil {
 				if r.logConfig != nil && r.logConfig.Debug.API {
-					// Enhanced error logging with timing context
+					// Error logging with timing context
 					logger.WithFields(logrus.Fields{
 						"command":                         name,
 						"args":                            args,

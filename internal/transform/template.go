@@ -56,7 +56,7 @@ func (t *templateTransformer) Transform(content []byte, ctx Context) ([]byte, er
 	logger := logging.WithStandardFields(t.logger, t.logConfig, logging.ComponentNames.Transform)
 	start := time.Now()
 
-	// Enhanced debug logging when --debug-transform flag is enabled
+	// Debug logging when --debug-transform flag is enabled
 	if t.logConfig != nil && t.logConfig.Debug.Transform {
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.Operation:     logging.OperationTypes.FileTransform,
@@ -149,7 +149,7 @@ func (t *templateTransformer) Transform(content []byte, ctx Context) ([]byte, er
 			replacedVars = append(replacedVars, varName)
 			replacementCount += patternReplacements
 
-			// Enhanced debug logging for individual variable replacements
+			// Debug logging for individual variable replacements
 			if t.logConfig != nil && t.logConfig.Debug.Transform {
 				logger.WithFields(logrus.Fields{
 					logging.StandardFields.Variable:      varName,
@@ -166,7 +166,7 @@ func (t *templateTransformer) Transform(content []byte, ctx Context) ([]byte, er
 
 	if len(replacedVars) > 0 {
 		if t.logConfig != nil && t.logConfig.Debug.Transform {
-			// Enhanced transformation completion logging
+			// Transformation completion logging
 			logger.WithFields(logrus.Fields{
 				logging.StandardFields.FilePath:   ctx.FilePath,
 				"variables":                       strings.Join(replacedVars, ", "),
@@ -206,7 +206,7 @@ func (t *templateTransformer) Transform(content []byte, ctx Context) ([]byte, er
 	remainingVars := t.findUnreplacedVariables(result)
 	if len(remainingVars) > 0 {
 		if t.logConfig != nil && t.logConfig.Debug.Transform {
-			// Enhanced unreplaced variable warning
+			// Unreplaced variable warning
 			logger.WithFields(logrus.Fields{
 				logging.StandardFields.FilePath: ctx.FilePath,
 				"unreplaced_vars":               strings.Join(remainingVars, ", "),

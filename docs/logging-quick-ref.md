@@ -16,21 +16,21 @@ go-broadcast diagnose                   # Collect system info
 go-broadcast validate --config sync.yaml      # Validate configuration
 go-broadcast sync --dry-run --config sync.yaml   # Preview changes
 
-# Note: Enhanced verbose flags (-v, -vv, -vvv) and component-specific debug flags
+# Note: Verbose flags (-v, -vv, -vvv) and component-specific debug flags
 # (--debug-git, --debug-api, etc.) are planned features not yet implemented.
 # Current implementation supports --log-level for basic debugging.
 ```
 
 ## 📋 Flag Reference
 
-| Flag | Description | Output Level |
-|------|-------------|--------------|
-| `--log-level debug` | Debug level logging | DEBUG |
-| `--log-level info` | Info level logging (default) | INFO |
-| `--log-level warn` | Warning level logging | WARN |
-| `--log-level error` | Error level logging | ERROR |
-| `--dry-run` | Preview changes without executing | All levels |
-| `--config <file>` | Specify configuration file | All levels |
+| Flag                | Description                       | Output Level |
+|---------------------|-----------------------------------|--------------|
+| `--log-level debug` | Debug level logging               | DEBUG        |
+| `--log-level info`  | Info level logging (default)      | INFO         |
+| `--log-level warn`  | Warning level logging             | WARN         |
+| `--log-level error` | Error level logging               | ERROR        |
+| `--dry-run`         | Preview changes without executing | All levels   |
+| `--config <file>`   | Specify configuration file        | All levels   |
 
 **Note**: Advanced verbose flags (`-v`, `-vv`, `-vvv`) and component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented in the current version.
 
@@ -57,11 +57,11 @@ go-broadcast diagnose > diagnostics-$(date +%Y%m%d-%H%M%S).json
 
 ## 🌍 Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GITHUB_TOKEN` | - | GitHub authentication token |
-| `GH_TOKEN` | - | Alternative GitHub token variable |
-| `NO_COLOR` | - | Disable colored output |
+| Variable       | Default | Description                       |
+|----------------|---------|-----------------------------------|
+| `GITHUB_TOKEN` | -       | GitHub authentication token       |
+| `GH_TOKEN`     | -       | Alternative GitHub token variable |
+| `NO_COLOR`     | -       | Disable colored output            |
 
 **Note**: Environment variables for log level and format are planned features not yet implemented.
 
@@ -162,7 +162,7 @@ jq '.git_version, .gh_cli_version' diagnostics.json
 
 ## 📚 Developer Workflow Integration
 
-For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md#️-troubleshooting-quick-reference) which includes:
+For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md) which includes:
 - **Debugging go-broadcast procedures** with verbose logging examples
 - **Component-specific debugging workflows** for targeted investigation  
 - **Environment troubleshooting steps** for common setup issues
@@ -173,9 +173,9 @@ For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github
 - **Comprehensive Guide**: [logging.md](logging.md) - Complete logging system documentation
 - **Troubleshooting Runbook**: [troubleshooting-runbook.md](troubleshooting-runbook.md) - Operational procedures
 - **General Troubleshooting**: [troubleshooting.md](troubleshooting.md) - Common issue resolution
-- **Main Documentation**: [README.md](../README.md#-logging-and-debugging) - Overview and quick start
+- **Main Documentation**: [README.md](../README.md) - Overview and quick start
 - **Developer Workflows**: [CLAUDE.md](../.github/CLAUDE.md) - Complete development workflow integration
 
 ---
 
-**💡 Pro Tip**: Start with `-v` for basic debugging, then add specific `--debug-*` flags for targeted investigation. Use `--json` when piping to analysis tools. For complete workflows, see [CLAUDE.md](../.github/CLAUDE.md#️-troubleshooting-quick-reference).
+**💡 Pro Tip**: Start with `-v` for basic debugging, then add specific `--debug-*` flags for targeted investigation. Use `--json` when piping to analysis tools. For complete workflows, see [CLAUDE.md](../.github/CLAUDE.md).

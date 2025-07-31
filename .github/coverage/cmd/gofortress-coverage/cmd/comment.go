@@ -19,14 +19,14 @@ import (
 )
 
 var (
-	// ErrEnhancedGitHubTokenRequired indicates GitHub token was not provided
-	ErrEnhancedGitHubTokenRequired = errors.New("GitHub token is required")
-	// ErrEnhancedGitHubOwnerRequired indicates repository owner was not provided
-	ErrEnhancedGitHubOwnerRequired = errors.New("GitHub repository owner is required")
-	// ErrEnhancedGitHubRepoRequired indicates repository name was not provided
-	ErrEnhancedGitHubRepoRequired = errors.New("GitHub repository name is required")
-	// ErrEnhancedPRNumberRequired indicates PR number was not provided
-	ErrEnhancedPRNumberRequired = errors.New("pull request number is required")
+	// ErrGitHubTokenRequired indicates GitHub token was not provided
+	ErrGitHubTokenRequired = errors.New("GitHub token is required")
+	// ErrGitHubOwnerRequired indicates repository owner was not provided
+	ErrGitHubOwnerRequired = errors.New("GitHub repository owner is required")
+	// ErrGitHubRepoRequired indicates repository name was not provided
+	ErrGitHubRepoRequired = errors.New("GitHub repository name is required")
+	// ErrPRNumberRequired indicates PR number was not provided
+	ErrPRNumberRequired = errors.New("pull request number is required")
 )
 
 var commentCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
@@ -60,13 +60,13 @@ Features:
 
 		// Validate GitHub configuration
 		if cfg.GitHub.Token == "" {
-			return ErrEnhancedGitHubTokenRequired
+			return ErrGitHubTokenRequired
 		}
 		if cfg.GitHub.Owner == "" {
-			return ErrEnhancedGitHubOwnerRequired
+			return ErrGitHubOwnerRequired
 		}
 		if cfg.GitHub.Repository == "" {
-			return ErrEnhancedGitHubRepoRequired
+			return ErrGitHubRepoRequired
 		}
 
 		// Use PR number from config if not provided
@@ -74,7 +74,7 @@ Features:
 			prNumber = cfg.GitHub.PullRequest
 		}
 		if prNumber == 0 {
-			return ErrEnhancedPRNumberRequired
+			return ErrPRNumberRequired
 		}
 
 		// Set defaults
@@ -158,7 +158,7 @@ Features:
 			}
 		}
 
-		// Initialize enhanced PR comment system
+		// Initialize PR comment system
 		prCommentConfig := &github.PRCommentConfig{
 			MinUpdateIntervalMinutes: 5,
 			MaxCommentsPerPR:         1,
@@ -254,26 +254,29 @@ Features:
 			}
 		}
 
+		// Initialize template engine for comment generation
+		templateEngine := templates.NewPRTemplateEngine(&templates.TemplateConfig{
+			IncludeEmojis:          true,
+			IncludeCharts:          true,
+			MaxFileChanges:         20,
+			MaxRecommendations:     5,
+			UseMarkdownTables:      true,
+			UseCollapsibleSections: true,
+			IncludeProgressBars:    true,
+			BrandingEnabled:        true,
+		})
+
+		// Build template data
+		templateData := buildTemplateData(cfg, prNumber, comparison, coverage, badgeURL, reportURL)
+
+		// Render comment using template engine
+		commentBody, renderErr := templateEngine.RenderComment(ctx, "", templateData)
+		if renderErr != nil {
+			return fmt.Errorf("failed to render comment template: %w", renderErr)
+		}
+
 		if dryRun {
-			// Generate template preview for dry run
-			templateEngine := templates.NewPRTemplateEngine(&templates.TemplateConfig{
-				IncludeEmojis:          true,
-				IncludeCharts:          true,
-				MaxFileChanges:         20,
-				MaxRecommendations:     5,
-				UseMarkdownTables:      true,
-				UseCollapsibleSections: true,
-				IncludeProgressBars:    true,
-				BrandingEnabled:        true,
-			})
-
-			templateData := buildTemplateData(cfg, prNumber, comparison, coverage, badgeURL, reportURL)
-
-			commentPreview, renderErr := templateEngine.RenderComment(ctx, "", templateData)
-			if renderErr != nil {
-				commentPreview = fmt.Sprintf("Error generating template preview: %v", renderErr)
-			}
-
+			// Display preview for dry run
 			fmt.Printf("PR Comment Preview (Dry Run)\n")                               //nolint:forbidigo // CLI output
 			fmt.Printf("=====================================\n")                      //nolint:forbidigo // CLI output
 			fmt.Printf("Template: comprehensive\n")                                    //nolint:forbidigo // CLI output
@@ -291,17 +294,17 @@ Features:
 			fmt.Printf("  - Merge Blocking: %v\n", blockOnFailure)   //nolint:forbidigo // CLI output
 			fmt.Printf("  - Anti-spam: %v\n", antiSpam)              //nolint:forbidigo // CLI output
 			fmt.Printf("=====================================\n")    //nolint:forbidigo // CLI output
-			fmt.Println(commentPreview)                              //nolint:forbidigo // CLI output
+			fmt.Println(commentBody)                                 //nolint:forbidigo // CLI output
 			fmt.Printf("=====================================\n")    //nolint:forbidigo // CLI output
 
 			return nil
 		}
 
-		// Create or update enhanced PR comment
+		// Create or update PR comment
 		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		result, err := prCommentManager.CreateOrUpdatePRComment(ctx, cfg.GitHub.Owner, cfg.GitHub.Repository, prNumber, comparison)
+		result, err := prCommentManager.CreateOrUpdatePRComment(ctx, cfg.GitHub.Owner, cfg.GitHub.Repository, prNumber, commentBody, comparison)
 		if err != nil {
 			return fmt.Errorf("failed to create PR comment: %w", err)
 		}
@@ -347,7 +350,7 @@ Features:
 			}
 		}
 
-		// Create enhanced status checks if requested
+		// Create status checks if requested
 		if createStatus && cfg.GitHub.CommitSHA != "" {
 			statusManager := github.NewStatusCheckManager(client, nil)
 
@@ -651,7 +654,7 @@ func init() { //nolint:gochecknoinits // CLI command initialization
 	commentCmd.Flags().String("base-coverage", "", "Base coverage data file for comparison")
 	commentCmd.Flags().String("badge-url", "", "Badge URL (auto-generated if not provided)")
 	commentCmd.Flags().String("report-url", "", "Report URL (auto-generated if not provided)")
-	commentCmd.Flags().Bool("status", false, "Create enhanced status checks")
+	commentCmd.Flags().Bool("status", false, "Create status checks")
 	commentCmd.Flags().Bool("block-merge", false, "Block PR merge on coverage failure")
 	commentCmd.Flags().Bool("generate-badges", false, "Generate PR-specific badges")
 	commentCmd.Flags().Bool("enable-analysis", true, "Enable detailed coverage analysis and comparison")

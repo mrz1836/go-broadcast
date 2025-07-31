@@ -56,7 +56,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 	logger := logging.WithStandardFields(d.logger, d.logConfig, logging.ComponentNames.State)
 	start := time.Now()
 
-	// Enhanced debug logging when --debug-state flag is enabled
+	// Debug logging when --debug-state flag is enabled
 	if d.logConfig != nil && d.logConfig.Debug.State {
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.Operation:   logging.OperationTypes.StateDiscover,
@@ -222,7 +222,7 @@ func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo string,
 	logger = logger.WithField(logging.StandardFields.TargetRepo, repo)
 	start := time.Now()
 
-	// Enhanced debug logging when --debug-state flag is enabled
+	// Debug logging when --debug-state flag is enabled
 	if d.logConfig != nil && d.logConfig.Debug.State {
 		logger.Debug("Starting target repository state discovery")
 	}

@@ -290,7 +290,7 @@ func parseRepositoryURL(remoteURL string) (*RepositoryInfo, error) {
 func (g *gitClient) runCommand(cmd *exec.Cmd) error {
 	logger := logging.WithStandardFields(g.logger, g.logConfig, logging.ComponentNames.Git)
 
-	// Enhanced debug logging when --debug-git flag is enabled
+	// Debug logging when --debug-git flag is enabled
 	if g.logConfig != nil && g.logConfig.Debug.Git {
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.Operation: logging.OperationTypes.GitCommand,

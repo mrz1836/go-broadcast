@@ -13,15 +13,15 @@ This guide provides performance optimization strategies based on go-broadcast's 
 
 Based on comprehensive benchmarks, go-broadcast achieves:
 
-| Component | Performance | Key Metric |
-|-----------|-------------|------------|
-| Binary Detection | 77M+ ops/sec | Zero allocations |
-| State Comparison | 26M+ ops/sec | Zero allocations |
-| Config Validation | 371M+ ops/sec | Zero allocations |
-| Git Operations | ~40K ops/sec | Varies by operation |
-| Transform Operations | ~31K files/sec | For small files |
-| Cache Operations | Sub-microsecond | For hits |
-| Worker Pool | ~10K tasks/sec | With 8 workers |
+| Component            | Performance     | Key Metric          |
+|----------------------|-----------------|---------------------|
+| Binary Detection     | 77M+ ops/sec    | Zero allocations    |
+| State Comparison     | 26M+ ops/sec    | Zero allocations    |
+| Config Validation    | 371M+ ops/sec   | Zero allocations    |
+| Git Operations       | ~40K ops/sec    | Varies by operation |
+| Transform Operations | ~31K files/sec  | For small files     |
+| Cache Operations     | Sub-microsecond | For hits            |
+| Worker Pool          | ~10K tasks/sec  | With 8 workers      |
 
 ## Component-Specific Optimizations
 

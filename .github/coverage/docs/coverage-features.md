@@ -202,7 +202,7 @@ Minimal comment for clean PRs:
 ```
 
 #### 3. Detailed Template
-Enhanced analysis with file-level insights:
+Detailed analysis with file-level insights:
 
 ```markdown
 ## 📊 Coverage Analysis for PR #123

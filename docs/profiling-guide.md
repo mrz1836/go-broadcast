@@ -61,17 +61,17 @@ if err != nil {
 
 ### Configuration Options
 
-| Option | Description | Default | Performance Impact |
-|--------|-------------|---------|-------------------|
-| `EnableCPU` | CPU profiling | false | Medium |
-| `EnableMemory` | Heap profiling | false | Low |
-| `EnableTrace` | Execution trace | false | High |
-| `EnableBlock` | Blocking profiling | false | Medium |
-| `EnableMutex` | Mutex contention | false | Medium |
-| `BlockProfileRate` | Block sampling rate | 1 | Higher = more overhead |
-| `MutexProfileFraction` | Mutex sampling rate | 1 | Higher = more overhead |
-| `GenerateReports` | Auto-generate reports | true | Low (post-execution) |
-| `ReportFormat` | Output format | "text" | None |
+| Option                 | Description           | Default | Performance Impact     |
+|------------------------|-----------------------|---------|------------------------|
+| `EnableCPU`            | CPU profiling         | false   | Medium                 |
+| `EnableMemory`         | Heap profiling        | false   | Low                    |
+| `EnableTrace`          | Execution trace       | false   | High                   |
+| `EnableBlock`          | Blocking profiling    | false   | Medium                 |
+| `EnableMutex`          | Mutex contention      | false   | Medium                 |
+| `BlockProfileRate`     | Block sampling rate   | 1       | Higher = more overhead |
+| `MutexProfileFraction` | Mutex sampling rate   | 1       | Higher = more overhead |
+| `GenerateReports`      | Auto-generate reports | true    | Low (post-execution)   |
+| `ReportFormat`         | Output format         | "text"  | None                   |
 
 ## Running the Profile Demo
 

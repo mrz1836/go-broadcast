@@ -46,7 +46,7 @@ test-coverage-output/               # Generated test coverage reports
 - **Zero External Dependencies**: No reliance on external services
 - **Professional Quality**: GitHub-style badges and clean reports
 - **CI/CD Integration**: Seamless integration with GitHub Actions
-- **Enhanced PR Comments**: Beautiful, spam-free PR coverage comments with intelligent updates
+- **PR Comments**: Beautiful, spam-free PR coverage comments with intelligent updates
 - **Anti-Spam Protection**: Only one comment per PR with smart update logic
 - **Multiple Templates**: Comprehensive, detailed, compact, summary, and minimal styles
 - **Coverage Comparison**: Visual diff between base and PR branch coverage
@@ -98,7 +98,7 @@ The CLI tool will be built and used in GitHub Actions workflows:
 # Create basic PR comment (compact template)
 ./gofortress-coverage comment --pr 123 --coverage coverage.json --template compact
 
-# Create enhanced PR comment with anti-spam and templates
+# Create PR comment with anti-spam and templates
 ./gofortress-coverage comment --pr 123 --coverage coverage.out \
   --template comprehensive \
   --badge-url "https://owner.github.io/repo/coverage/badge.svg" \
@@ -123,9 +123,9 @@ During the coverage generation process:
 
 All generated HTML files are excluded from version control and created fresh during each build.
 
-## Enhanced PR Comments
+## PR Comments
 
-The enhanced PR comment feature provides beautiful, informative coverage comments with anti-spam protection:
+The PR comment feature provides beautiful, informative coverage comments with anti-spam protection:
 
 ### Features
 - **Single Comment Per PR**: Automatically updates existing comments instead of creating new ones
