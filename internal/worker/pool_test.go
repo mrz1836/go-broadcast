@@ -160,7 +160,7 @@ func TestPoolQueueFull(t *testing.T) {
 	// Create a blocking task that signals when it starts and waits for release
 	blockingTask := &mockTask{
 		name: "blocking-task",
-		executeFunc: func(ctx context.Context) error {
+		executeFunc: func(_ context.Context) error {
 			taskStarted <- struct{}{} // Signal that task has started
 			<-blockTask               // Wait for test to release
 			return nil
