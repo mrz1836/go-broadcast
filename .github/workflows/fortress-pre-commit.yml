@@ -112,7 +112,7 @@ jobs:
         id: check-hooks
         run: |
           echo "🔍 Checking for pre-commit hooks system..."
-          
+
           if [ -d ".github/pre-commit" ]; then
             echo "✅ Found .github/pre-commit directory"
             echo "exists=true" >> $GITHUB_OUTPUT
@@ -185,15 +185,15 @@ jobs:
         run: |
           echo "🔨 Building gofortress-hooks tool..."
           cd .github/pre-commit
-          
+
           # Download dependencies
           echo "📦 Downloading dependencies..."
           go mod download
-          
+
           # Build the tool
           echo "🏗️ Building binary..."
           go build -o gofortress-hooks ./cmd/gofortress-hooks
-          
+
           if [ -f "gofortress-hooks" ]; then
             echo "✅ Build successful"
             echo "build_success=true" >> $GITHUB_OUTPUT
@@ -231,32 +231,32 @@ jobs:
         run: |
           echo "🚀 Running pre-commit hooks..."
           echo "================================"
-          
+
           cd .github/pre-commit
-          
+
           # Set environment for CI
           export CI=true
-          
+
           # List available hooks
           echo "📋 Available hooks:"
           ./gofortress-hooks list || echo "  (list command not implemented)"
           echo ""
-          
+
           # Run all hooks on all files (CI mode)
           echo "🪝 Executing hooks on all files..."
           HOOKS_OUTPUT=$(./gofortress-hooks run pre-commit --all-files 2>&1) || HOOKS_EXIT=$?
-          
+
           echo "$HOOKS_OUTPUT"
-          
+
           # Extract executed hooks from output (if format allows)
           EXECUTED_HOOKS=$(echo "$HOOKS_OUTPUT" | grep -E "Running:|Executing:|✓" | sed 's/.*Running: //;s/.*Executing: //;s/.*✓ //' | tr '\n' ',' | sed 's/,$//' || echo "fumpt,lint,mod-tidy,whitespace,eof-fixer")
           echo "executed=$EXECUTED_HOOKS" >> $GITHUB_OUTPUT
-          
+
           if [ "${HOOKS_EXIT:-0}" -ne 0 ]; then
             echo "❌ Pre-commit hooks failed with exit code: ${HOOKS_EXIT}"
             exit ${HOOKS_EXIT}
           fi
-          
+
           echo ""
           echo "✅ All pre-commit hooks passed successfully"
 
@@ -269,23 +269,23 @@ jobs:
           echo "ℹ️ Using fallback make commands (hooks system not available)"
           echo "============================================================"
           echo ""
-          
+
           # Set outputs for consistency
           echo "version=make-fallback" >> $GITHUB_OUTPUT
           echo "executed=fumpt,lint,mod-tidy" >> $GITHUB_OUTPUT
-          
+
           # Run essential make commands that would be run by hooks
           echo "🔧 Running make fumpt..."
           make fumpt || true
-          
+
           echo ""
           echo "✨ Running make lint..."
           make lint
-          
+
           echo ""
           echo "📦 Running make mod-tidy..."
           make mod-tidy
-          
+
           echo ""
           echo "✅ Fallback commands completed"
 
@@ -297,7 +297,7 @@ jobs:
         run: |
           echo "## 🪝 Pre-commit Hooks Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ steps.check-hooks.outputs.exists }}" == "true" ]; then
             echo "| 🔍 Hook System Details | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|---|---|" >> $GITHUB_STEP_SUMMARY
