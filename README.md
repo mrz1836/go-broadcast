@@ -387,9 +387,20 @@ COVERAGE_PR_COMMENT_BEHAVIOR=update      # Comment behavior: new, update, delete
 ```
 
 ### GitHub Pages URLs
+
+#### Main Branch Coverage
 - **Coverage Badge**: `https://mrz1836.github.io/go-broadcast/coverage.svg`
 - **Coverage Dashboard**: `https://mrz1836.github.io/go-broadcast/`
 - **Coverage Report**: `https://mrz1836.github.io/go-broadcast/coverage.html`
+
+#### Branch-Specific Coverage
+- **Branch Badge**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/coverage.svg`
+- **Branch Dashboard**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/`
+- **Branch Report**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/coverage.html`
+
+#### Pull Request Coverage
+- **PR Badge**: `https://mrz1836.github.io/go-broadcast/coverage/pr/{pr-number}/coverage.svg`
+- **All Branches Index**: `https://mrz1836.github.io/go-broadcast/branches.html` (when deployed from main)
 
 📚 **[Complete Configuration Guide](.github/coverage/docs/coverage-configuration.md)** | 📊 **[API Documentation](.github/coverage/docs/coverage-api.md)** | 🎯 **[Feature Guide](.github/coverage/docs/coverage-features.md)**
 

@@ -954,18 +954,215 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       # ————————————————————————————————————————————————————————————————
-      # Deploy to GitHub Pages
+      # Deploy to GitHub Pages (Incremental, Non-Destructive)
       # ————————————————————————————————————————————————————————————————
-      - name: 📤 Upload Pages artifact
+      - name: 🚀 Deploy to GitHub Pages (Incremental)
         if: github.event_name == 'push'
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
-        with:
-          path: pages-deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+        run: |
+          echo "🚀 Starting incremental GitHub Pages deployment..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-      - name: 🚀 Deploy to GitHub Pages
-        if: github.event_name == 'push'
-        id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+          REPO_ROOT="$(pwd)"
+          DEPLOY_DIR="$REPO_ROOT/pages-deploy"
+          BRANCH_NAME="${{ inputs.branch-name }}"
+          TEMP_PAGES_DIR="/tmp/gh-pages-deploy-$$"
+
+          # Verify deployment directory
+          if [[ ! -d "$DEPLOY_DIR" ]]; then
+            echo "❌ Deployment directory does not exist: $DEPLOY_DIR"
+            exit 1
+          fi
+
+          echo "📁 Deployment source: $DEPLOY_DIR"
+          echo "🌿 Current branch: $BRANCH_NAME"
+
+          # Configure git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Clone existing gh-pages branch (or create new)
+          echo "📥 Cloning gh-pages branch..."
+          if git clone --depth 1 --branch gh-pages "https://x-access-token:$GITHUB_TOKEN@github.com/${{ github.repository }}.git" "$TEMP_PAGES_DIR" 2>/dev/null; then
+            echo "✅ Successfully cloned existing gh-pages branch"
+            cd "$TEMP_PAGES_DIR"
+            
+            # Show current content summary
+            echo "📊 Current gh-pages content:"
+            echo "  - Total files: $(find . -type f -not -path './.git/*' | wc -l)"
+            echo "  - Coverage branches: $(find coverage/branch -maxdepth 1 -type d 2>/dev/null | wc -l || echo "0")"
+            echo "  - PR badges: $(find coverage/pr -name "*.svg" 2>/dev/null | wc -l || echo "0")"
+          else
+            echo "📝 Creating new gh-pages branch..."
+            mkdir -p "$TEMP_PAGES_DIR"
+            cd "$TEMP_PAGES_DIR"
+            git init
+            git checkout -b gh-pages
+            echo "✅ Created new gh-pages branch"
+          fi
+
+          # Preserve existing content structure
+          echo ""
+          echo "🔄 Merging new content..."
+
+          # Update root files (main branch deployments)
+          if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
+            echo "📋 Updating root coverage files for main branch..."
+            # Copy root files but preserve existing branch/pr directories
+            for file in index.html coverage.html coverage.svg .nojekyll data; do
+              if [[ -e "$DEPLOY_DIR/$file" ]]; then
+                cp -r "$DEPLOY_DIR/$file" .
+                echo "  ✅ Updated: $file"
+              fi
+            done
+          fi
+
+          # Update branch-specific content
+          BRANCH_DIR="coverage/branch/$BRANCH_NAME"
+          echo "📋 Updating branch-specific content: $BRANCH_DIR"
+          mkdir -p "$BRANCH_DIR"
+          
+          # Copy branch-specific files from deployment directory
+          if [[ -d "$DEPLOY_DIR/coverage/branch/$BRANCH_NAME" ]]; then
+            cp -r "$DEPLOY_DIR/coverage/branch/$BRANCH_NAME"/* "$BRANCH_DIR/" 2>/dev/null || true
+            echo "  ✅ Updated branch coverage: $BRANCH_NAME"
+          else
+            # If no branch-specific dir, copy from root (backwards compatibility)
+            for file in index.html coverage.html coverage.svg; do
+              if [[ -f "$DEPLOY_DIR/$file" ]]; then
+                cp "$DEPLOY_DIR/$file" "$BRANCH_DIR/"
+              fi
+            done
+            if [[ -d "$DEPLOY_DIR/data" ]]; then
+              cp -r "$DEPLOY_DIR/data" "$BRANCH_DIR/"
+            fi
+          fi
+
+          # Ensure .nojekyll exists
+          touch .nojekyll
+
+          # Create index.html with branch/PR listing if on main branch
+          if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
+            echo "📝 Generating branch/PR index..."
+            cat > branches.html << 'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coverage Reports - All Branches</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 40px; background: #f6f8fa; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        h1 { color: #24292e; border-bottom: 1px solid #e1e4e8; padding-bottom: 10px; }
+        h2 { color: #586069; margin-top: 30px; }
+        .branch-list, .pr-list { list-style: none; padding: 0; }
+        .branch-list li, .pr-list li { padding: 10px; margin: 5px 0; background: #f6f8fa; border-radius: 6px; }
+        .branch-list a, .pr-list a { color: #0366d6; text-decoration: none; font-weight: 500; }
+        .branch-list a:hover, .pr-list a:hover { text-decoration: underline; }
+        .badge { display: inline-block; margin-left: 10px; }
+        .main-link { display: inline-block; margin: 20px 0; padding: 10px 20px; background: #0366d6; color: white; border-radius: 6px; text-decoration: none; }
+        .main-link:hover { background: #0256c7; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Coverage Reports</h1>
+        <a href="/" class="main-link">View Main Coverage Dashboard</a>
+        
+        <h2>🌿 Branch Coverage</h2>
+        <ul class="branch-list">
+EOF
+
+            # List all branch coverage reports
+            if [[ -d coverage/branch ]]; then
+              for branch_dir in coverage/branch/*/; do
+                if [[ -d "$branch_dir" ]]; then
+                  branch=$(basename "$branch_dir")
+                  echo "            <li>📁 <a href=\"/coverage/branch/$branch/\">$branch</a> <img src=\"/coverage/branch/$branch/coverage.svg\" alt=\"Coverage\" class=\"badge\"></li>" >> branches.html
+                fi
+              done
+            fi
+
+            cat >> branches.html << 'EOF'
+        </ul>
+        
+        <h2>🔀 Pull Request Coverage</h2>
+        <ul class="pr-list">
+EOF
+
+            # List all PR coverage badges
+            if [[ -d coverage/pr ]]; then
+              for pr_dir in coverage/pr/*/; do
+                if [[ -d "$pr_dir" ]]; then
+                  pr_num=$(basename "$pr_dir")
+                  echo "            <li>PR #$pr_num: <img src=\"/coverage/pr/$pr_num/coverage.svg\" alt=\"PR Coverage\" class=\"badge\"></li>" >> branches.html
+                fi
+              done
+            fi
+
+            cat >> branches.html << 'EOF'
+        </ul>
+    </div>
+</body>
+</html>
+EOF
+            echo "  ✅ Generated branch/PR index"
+          fi
+
+          # Show deployment summary
+          echo ""
+          echo "📊 Deployment content summary:"
+          echo "  - Total files: $(find . -type f -not -path './.git/*' | wc -l)"
+          echo "  - Branch coverage reports: $(find coverage/branch -maxdepth 1 -type d 2>/dev/null | tail -n +2 | wc -l || echo "0")"
+          echo "  - PR badges: $(find coverage/pr -name "*.svg" 2>/dev/null | wc -l || echo "0")"
+          
+          # Stage all changes
+          git add .
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "ℹ️ No changes to deploy"
+            cd "$REPO_ROOT"
+            rm -rf "$TEMP_PAGES_DIR"
+            exit 0
+          fi
+
+          # Commit changes
+          COMMIT_MSG="Deploy coverage for branch '$BRANCH_NAME' (commit ${{ inputs.commit-sha }})"
+          if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
+            COMMIT_MSG="Deploy main coverage dashboard (commit ${{ inputs.commit-sha }})"
+          fi
+          
+          git commit -m "$COMMIT_MSG
+
+🏷️ Generated with Claude Code
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+          # Push to GitHub Pages
+          if git push origin gh-pages --force; then
+            echo "✅ Successfully deployed to GitHub Pages"
+            echo ""
+            echo "🌐 Deployment URLs:"
+            echo "  - Main dashboard: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+            echo "  - Branch coverage: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/branch/$BRANCH_NAME/"
+            if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
+              echo "  - All branches: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/branches.html"
+            fi
+          else
+            echo "❌ Failed to push to GitHub Pages"
+            cd "$REPO_ROOT"
+            rm -rf "$TEMP_PAGES_DIR"
+            exit 1
+          fi
+
+          # Cleanup
+          cd "$REPO_ROOT"
+          rm -rf "$TEMP_PAGES_DIR"
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       # ————————————————————————————————————————————————————————————————
       # Test deployed URLs (30 second timeout max)
@@ -978,66 +1175,158 @@ jobs:
           BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
           BRANCH_NAME="${{ inputs.branch-name }}"
 
-          # URLs to test - both main and branch-specific
-          URLS=(
-            "$BASE_URL/"
-            "$BASE_URL/index.html"
-            "$BASE_URL/coverage.html"
-            "$BASE_URL/coverage.svg"
-            "$BASE_URL/coverage/branch/$BRANCH_NAME/"
-            "$BASE_URL/coverage/branch/$BRANCH_NAME/index.html"
-            "$BASE_URL/coverage/branch/$BRANCH_NAME/coverage.html"
-            "$BASE_URL/coverage/branch/$BRANCH_NAME/coverage.svg"
-          )
+          # First, check if this is likely a first deployment
+          echo "🔍 Checking deployment status..."
+          IS_FIRST_RUN=false
+          MAIN_SITE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "$BASE_URL/" 2>/dev/null || echo "000")
+          
+          if [[ "$MAIN_SITE_STATUS" == "404" ]] || [[ "$MAIN_SITE_STATUS" == "000" ]]; then
+            echo "📝 This appears to be a first deployment (main site returned $MAIN_SITE_STATUS)"
+            IS_FIRST_RUN=true
+            
+            # For first run, wait longer for GitHub Pages to initialize
+            echo "⏳ First deployment detected - waiting 60 seconds for GitHub Pages initialization..."
+            sleep 60
+          else
+            echo "✅ Existing deployment detected (main site returned $MAIN_SITE_STATUS)"
+            echo "⏳ Waiting 30 seconds for deployment to propagate..."
+            sleep 30
+          fi
+
+          # Define URLs to test based on branch and deployment status
+          if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
+            # Main branch deployment - test root URLs
+            CRITICAL_URLS=(
+              "$BASE_URL/"
+              "$BASE_URL/index.html"
+              "$BASE_URL/coverage.html"
+              "$BASE_URL/coverage.svg"
+            )
+            OPTIONAL_URLS=(
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/"
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/index.html"
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/coverage.html"
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/coverage.svg"
+            )
+          else
+            # Feature branch deployment - only branch URLs are critical
+            CRITICAL_URLS=(
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/"
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/index.html"
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/coverage.html"
+              "$BASE_URL/coverage/branch/$BRANCH_NAME/coverage.svg"
+            )
+            OPTIONAL_URLS=(
+              "$BASE_URL/"
+              "$BASE_URL/index.html"
+              "$BASE_URL/coverage.html"
+              "$BASE_URL/coverage.svg"
+            )
+          fi
 
           echo "🌐 Base URL: $BASE_URL"
-          echo "⏳ Waiting 30 seconds for deployment to propagate..."
-          sleep 30
+          echo "🌿 Branch: $BRANCH_NAME"
+          echo "🚀 First run: $IS_FIRST_RUN"
 
-          SUCCESS_COUNT=0
-          TOTAL_COUNT=${#URLS[@]}
+          # Test critical URLs (must pass)
+          CRITICAL_SUCCESS=0
+          CRITICAL_TOTAL=${#CRITICAL_URLS[@]}
 
-          for url in "${URLS[@]}"; do
+          echo ""
+          echo "📋 Testing critical URLs..."
+          for url in "${CRITICAL_URLS[@]}"; do
             echo ""
             echo "🔗 Testing: $url"
 
-            # Test with 3 attempts, 10 second intervals
+            # Test with 3 attempts, with longer waits for first run
             HTTP_STATUS=""
             for attempt in 1 2 3; do
               HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "$url" 2>/dev/null || echo "000")
 
               if [[ "$HTTP_STATUS" == "200" ]]; then
                 echo "  ✅ SUCCESS ($HTTP_STATUS)"
-                SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+                CRITICAL_SUCCESS=$((CRITICAL_SUCCESS + 1))
                 break
               else
                 echo "  ❌ FAILED ($HTTP_STATUS)"
                 if [[ $attempt -lt 3 ]]; then
-                  echo "  ⏳ Retrying in 5 seconds..."
-                  sleep 5
+                  if [[ "$IS_FIRST_RUN" == "true" ]]; then
+                    echo "  ⏳ First run - retrying in 20 seconds..."
+                    sleep 20
+                  else
+                    echo "  ⏳ Retrying in 5 seconds..."
+                    sleep 5
+                  fi
                 fi
               fi
             done
           done
 
+          # Test optional URLs (failures are warnings only)
+          OPTIONAL_SUCCESS=0
+          OPTIONAL_TOTAL=${#OPTIONAL_URLS[@]}
+
+          if [[ $OPTIONAL_TOTAL -gt 0 ]]; then
+            echo ""
+            echo "📋 Testing optional URLs..."
+            for url in "${OPTIONAL_URLS[@]}"; do
+              echo ""
+              echo "🔗 Testing: $url"
+
+              HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "$url" 2>/dev/null || echo "000")
+
+              if [[ "$HTTP_STATUS" == "200" ]]; then
+                echo "  ✅ SUCCESS ($HTTP_STATUS)"
+                OPTIONAL_SUCCESS=$((OPTIONAL_SUCCESS + 1))
+              else
+                echo "  ⚠️ NOT AVAILABLE ($HTTP_STATUS) - This is expected for feature branches"
+              fi
+            done
+          fi
+
+          # Summary
           echo ""
           echo "📊 RESULTS:"
-          echo "  - Successful URLs: $SUCCESS_COUNT/$TOTAL_COUNT"
-          echo "  - Success rate: $((SUCCESS_COUNT * 100 / TOTAL_COUNT))%"
+          echo "  - Critical URLs: $CRITICAL_SUCCESS/$CRITICAL_TOTAL (must be 100%)"
+          echo "  - Optional URLs: $OPTIONAL_SUCCESS/$OPTIONAL_TOTAL (informational)"
+          
+          if [[ "$IS_FIRST_RUN" == "true" ]]; then
+            echo "  - First deployment: Some URLs may take time to propagate"
+          fi
 
-          if [[ $SUCCESS_COUNT -eq $TOTAL_COUNT ]]; then
-            echo "🎉 ALL URLS WORKING! Deployment successful."
+          # Determine success based on critical URLs only
+          if [[ $CRITICAL_SUCCESS -eq $CRITICAL_TOTAL ]]; then
             echo ""
-            echo "🌐 Main Coverage Dashboard: $BASE_URL/"
-            echo "📊 Main Coverage Report: $BASE_URL/coverage.html"
-            echo "🏷️ Main Coverage Badge: $BASE_URL/coverage.svg"
+            echo "🎉 DEPLOYMENT SUCCESSFUL! All critical URLs are accessible."
+            echo ""
+            if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
+              echo "🌐 Main Coverage Dashboard: $BASE_URL/"
+              echo "📊 Main Coverage Report: $BASE_URL/coverage.html"
+              echo "🏷️ Main Coverage Badge: $BASE_URL/coverage.svg"
+              echo "📑 All Branches Index: $BASE_URL/branches.html"
+            fi
             echo ""
             echo "🌲 Branch Coverage Dashboard: $BASE_URL/coverage/branch/$BRANCH_NAME/"
             echo "📈 Branch Coverage Report: $BASE_URL/coverage/branch/$BRANCH_NAME/coverage.html"
             echo "🏷️ Branch Coverage Badge: $BASE_URL/coverage/branch/$BRANCH_NAME/coverage.svg"
           else
+            echo ""
             echo "❌ DEPLOYMENT VERIFICATION FAILED"
-            echo "🚨 Not all URLs are accessible - failing workflow"
+            echo "🚨 Critical URLs are not accessible after multiple retries"
+            
+            # Provide helpful debugging information
+            echo ""
+            echo "🔍 Debugging information:"
+            echo "  - Is this a first deployment? $IS_FIRST_RUN"
+            echo "  - Branch being deployed: $BRANCH_NAME"
+            echo "  - Failed critical URLs: $((CRITICAL_TOTAL - CRITICAL_SUCCESS))"
+            echo ""
+            echo "💡 Common causes:"
+            echo "  - GitHub Pages not enabled for the repository"
+            echo "  - Deployment still propagating (can take up to 10 minutes)"
+            echo "  - Branch protection rules blocking deployment"
+            echo "  - Previous deployment failed"
+            
             exit 1
           fi
 

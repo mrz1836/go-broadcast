@@ -258,6 +258,38 @@ If you're setting up GoFortress coverage system for a new repository or encounte
 After setup, coverage reports will be available at:
 `https://[owner].github.io/[repo-name]/`
 
+### 📊 Coverage System URLs and Deployment
+
+The GoFortress coverage system uses an **incremental deployment strategy** that preserves coverage data across different branches and pull requests.
+
+**Coverage URLs Structure:**
+
+**Main Branch Coverage (deployed from master):**
+- Dashboard: `https://[owner].github.io/[repo-name]/`
+- Report: `https://[owner].github.io/[repo-name]/coverage.html`
+- Badge: `https://[owner].github.io/[repo-name]/coverage.svg`
+
+**Branch-Specific Coverage:**
+- Dashboard: `https://[owner].github.io/[repo-name]/coverage/branch/[branch-name]/`
+- Report: `https://[owner].github.io/[repo-name]/coverage/branch/[branch-name]/coverage.html`
+- Badge: `https://[owner].github.io/[repo-name]/coverage/branch/[branch-name]/coverage.svg`
+
+**Pull Request Coverage:**
+- Badge: `https://[owner].github.io/[repo-name]/coverage/pr/[pr-number]/coverage.svg`
+- All branches index: `https://[owner].github.io/[repo-name]/branches.html`
+
+**Important Deployment Notes:**
+- The deployment is **incremental** - new deployments don't overwrite existing branch/PR data
+- Each branch gets its own persistent directory under `/coverage/branch/`
+- PR badges are stored under `/coverage/pr/` and persist across deployments
+- The main branch deployment updates the root files while preserving all subdirectories
+- A `branches.html` index is generated when deploying from the main branch
+
+**Troubleshooting Coverage Issues:**
+- **404 on main badge**: Wait for next push to master branch
+- **Missing branch coverage**: Ensure the branch has pushed after coverage setup
+- **PR badge not showing**: Check that `COVERAGE_PR_COMMENT_ENABLED=true` in `.env.shared`
+
 ### 📚 Documentation Navigation
 
 **Core Documentation:**
