@@ -149,31 +149,58 @@ func TestPoolTaskError(t *testing.T) {
 
 // TestPoolQueueFull tests behavior when queue is full
 func TestPoolQueueFull(t *testing.T) {
-	pool := NewPool(1, 2) // Small queue
+	pool := NewPool(1, 2) // Small queue: 1 worker, 2 queue slots
 	ctx := context.Background()
 	pool.Start(ctx)
 
-	// Submit tasks that take time
-	slowTask := &mockTask{
-		name:      "slow-task",
-		sleepTime: 500 * time.Millisecond,
+	// Use channels to coordinate task execution timing
+	taskStarted := make(chan struct{})
+	blockTask := make(chan struct{})
+
+	// Create a blocking task that signals when it starts and waits for release
+	blockingTask := &mockTask{
+		name: "blocking-task",
+		executeFunc: func(ctx context.Context) error {
+			taskStarted <- struct{}{} // Signal that task has started
+			<-blockTask               // Wait for test to release
+			return nil
+		},
 	}
 
-	// Fill the queue
-	err := pool.Submit(slowTask)
-	require.NoError(t, err)
-	err = pool.Submit(slowTask)
+	// Submit first task - will be picked up by worker and block
+	err := pool.Submit(blockingTask)
 	require.NoError(t, err)
 
-	// Queue should be full now
-	err = pool.Submit(slowTask)
+	// Wait for the worker to start processing the first task
+	select {
+	case <-taskStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for first task to start")
+	}
+
+	// Now submit tasks to fill the queue
+	// Since worker is blocked, these will stay in queue
+	normalTask := &mockTask{name: "queued-task-1"}
+	err = pool.Submit(normalTask)
+	require.NoError(t, err)
+
+	normalTask2 := &mockTask{name: "queued-task-2"}
+	err = pool.Submit(normalTask2)
+	require.NoError(t, err)
+
+	// Queue should be full now - next submit should fail
+	normalTask3 := &mockTask{name: "should-fail"}
+	err = pool.Submit(normalTask3)
 	assert.Equal(t, ErrTaskQueueFull, err)
 
-	// Wait for tasks to complete
-	for i := 0; i < 2; i++ {
+	// Release the blocking task to allow completion
+	close(blockTask)
+
+	// Wait for all tasks to complete (1 blocking + 2 queued = 3 total)
+	for i := 0; i < 3; i++ {
 		select {
 		case <-pool.Results():
-		case <-time.After(time.Second):
+		case <-time.After(2 * time.Second):
 			t.Fatal("timeout waiting for results")
 		}
 	}
