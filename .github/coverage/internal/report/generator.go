@@ -166,7 +166,12 @@ func (g *Generator) Generate(ctx context.Context, coverage *parser.CoverageData,
 
 // getGitCommitSHA returns the current Git commit SHA
 func getGitCommitSHA(ctx context.Context) string {
-	// First check if GITHUB_SHA environment variable is set (for CI environments)
+	// First check if we have a commit SHA override from WithCommit option
+	if sha := os.Getenv("GOFORTRESS_COMMIT_SHA"); sha != "" {
+		return sha
+	}
+
+	// Then check if GITHUB_SHA environment variable is set (for CI environments)
 	if sha := os.Getenv("GITHUB_SHA"); sha != "" {
 		return sha
 	}
@@ -636,6 +641,17 @@ func WithGitHub(owner, repository, branch string) Option {
 		config.GitHubRepository = repository
 		if branch != "" {
 			config.GitHubBranch = branch
+		}
+	}
+}
+
+// WithCommit sets the commit SHA
+func WithCommit(commitSHA string) Option {
+	return func(config *Config) {
+		// We'll store this in a way that can be accessed by buildReportData
+		// For now, we'll use an environment variable override approach
+		if commitSHA != "" {
+			os.Setenv("GOFORTRESS_COMMIT_SHA", commitSHA)
 		}
 	}
 }

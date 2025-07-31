@@ -818,7 +818,7 @@ const reportTemplate = `<!DOCTYPE html>
                         <div class="summary-unit">%</div>
                     </div>
                     <div class="coverage-bar">
-                        <div class="coverage-fill {{- if ge .OverallCoverage 90.0}}coverage-excellent{{else if ge .OverallCoverage 80.0}}coverage-good{{else if ge .OverallCoverage 60.0}}coverage-warning{{else}}coverage-danger{{end -}}"
+                        <div class="coverage-fill {{- if ge .OverallCoverage 90.0}} coverage-excellent{{else if ge .OverallCoverage 80.0}} coverage-good {{else if ge .OverallCoverage 60.0}} coverage-warning {{else}} coverage-danger {{end -}}"
                              style="width: {{.OverallCoverage}}%"></div>
                     </div>
                 </div>
@@ -853,7 +853,7 @@ const reportTemplate = `<!DOCTYPE html>
                 <div class="summary-content">
                     <div class="summary-label">Coverage Status</div>
                     <div class="summary-value-container">
-                        <span class="coverage-badge {{- if ge .OverallCoverage 90.0}}badge-excellent{{else if ge .OverallCoverage 80.0}}badge-good{{else if ge .OverallCoverage 60.0}}badge-warning{{else}}badge-danger{{end -}}">
+                        <span class="coverage-badge  {{- if ge .OverallCoverage 90.0}} badge-excellent {{else if ge .OverallCoverage 80.0}} badge-good {{else if ge .OverallCoverage 60.0}} badge-warning {{else}} badge-danger {{end -}}">
                             {{- if ge .OverallCoverage 90.0}}Excellent{{else if ge .OverallCoverage 80.0}}Good{{else if ge .OverallCoverage 60.0}}Acceptable{{else}}Needs Work{{end -}}
                         </span>
                     </div>
@@ -888,7 +888,7 @@ const reportTemplate = `<!DOCTYPE html>
                                 <span>{{$pkg.Files}} files</span>
                             </div>
                         </div>
-                        <span class="coverage-badge {{- if ge $pkg.Coverage 90.0}}badge-excellent{{else if ge $pkg.Coverage 80.0}}badge-good{{else if ge $pkg.Coverage 60.0}}badge-warning{{else}}badge-danger{{end -}}">
+                        <span class="coverage-badge  {{- if ge $pkg.Coverage 90.0}} badge-excellent {{else if ge $pkg.Coverage 80.0}} badge-good {{else if ge $pkg.Coverage 60.0}} badge-warning {{else}} badge-danger {{end -}}">
                             {{printf "%.1f" $pkg.Coverage}}%
                         </span>
                     </button>
@@ -907,7 +907,7 @@ const reportTemplate = `<!DOCTYPE html>
                             <div class="file-stats">
                                 <span>{{.CoveredLines}}/{{.Lines}} lines</span>
                                 {{- if .Functions}}<span>{{.CoveredFuncs}}/{{.Functions}} functions</span>{{- end}}
-                                <span class="coverage-badge {{- if ge .Coverage 90.0}}badge-excellent{{else if ge .Coverage 80.0}}badge-good{{else if ge .Coverage 60.0}}badge-warning{{else}}badge-danger{{end -}}">
+                                <span class="coverage-badge  {{- if ge .Coverage 90.0}} badge-excellent {{else if ge .Coverage 80.0}} badge-good {{else if ge .Coverage 60.0}} badge-warning {{else}} badge-danger {{end -}}">
                                     {{printf "%.1f" .Coverage}}%
                                 </span>
                             </div>

@@ -378,6 +378,7 @@ Features:
 			reportHTML, err := reportGenerator.Generate(ctx, coverage,
 				report.WithTitle(fmt.Sprintf("PR #%d Coverage Report", prNumber)),
 				report.WithGitHub(cfg.GitHub.Owner, cfg.GitHub.Repository, branchName),
+				report.WithCommit(cfg.GitHub.CommitSHA),
 				report.WithPackages(true),
 				report.WithFiles(true),
 			)
