@@ -581,12 +581,6 @@ jobs:
             echo "📊 Note: Base coverage comparison not yet implemented"
           fi
 
-          # Determine template based on configuration
-          TEMPLATE="comprehensive"
-          if [[ "${{ env.COVERAGE_PR_COMMENT_BEHAVIOR }}" == "update" ]]; then
-            # Use comprehensive template but rely on anti-spam to minimize updates
-            TEMPLATE="comprehensive"
-          fi
 
           # Get URLs for the comment
           BADGE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage.svg"
@@ -597,7 +591,6 @@ jobs:
             --pr "$GITHUB_PR_NUMBER" \
             --coverage "$COVERAGE_FILE" \
             $BASE_COVERAGE_ARG \
-            --template "$TEMPLATE" \
             --badge-url "$BADGE_URL" \
             --report-url "$REPORT_URL" \
             --enable-analysis \
