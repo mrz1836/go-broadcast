@@ -632,26 +632,26 @@ jobs:
 
           if [[ $? -eq 0 ]]; then
             echo "✅ PR comment created/updated successfully"
-            
+
             # Debug: Search for generated badges in current working directory
             echo ""
             echo "🔍 Debug: Searching for generated PR badges..."
             echo "  - Current working directory: $(pwd)"
             echo "  - Repository root: $REPO_ROOT"
-            
+
             # Search for any SVG files that might be badges
             echo "  - Searching for *.svg files in current directory tree:"
             find . -name "*.svg" -type f 2>/dev/null | head -10 | while read svg_file; do
               echo "    Found: $svg_file"
             done
-            
+
             # Check specific badge directories
             BADGE_SEARCH_DIRS=(
               "./coverage-badges"
-              "$HOME/.gofortress/badges" 
+              "$HOME/.gofortress/badges"
               "/tmp/pr-badges"
             )
-            
+
             for search_dir in "${BADGE_SEARCH_DIRS[@]}"; do
               if [[ -d "$search_dir" ]]; then
                 echo "  - Contents of $search_dir:"
@@ -662,7 +662,7 @@ jobs:
                 echo "  - Directory not found: $search_dir"
               fi
             done
-            
+
           else
             echo "⚠️ Failed to create PR comment (non-fatal)"
           fi
@@ -815,7 +815,7 @@ jobs:
                 🏷️ Generated with Claude Code
 
                 Co-Authored-By: Claude <noreply@anthropic.com>"
-                
+
                 if git push origin gh-pages; then
                   echo "✅ Successfully pushed PR badges to GitHub Pages"
                   echo "🌐 Badges will be available within 1-2 minutes at:"
@@ -987,7 +987,7 @@ jobs:
           if git clone --depth 1 --branch gh-pages "https://x-access-token:$GITHUB_TOKEN@github.com/${{ github.repository }}.git" "$TEMP_PAGES_DIR" 2>/dev/null; then
             echo "✅ Successfully cloned existing gh-pages branch"
             cd "$TEMP_PAGES_DIR"
-            
+
             # Show current content summary
             echo "📊 Current gh-pages content:"
             echo "  - Total files: $(find . -type f -not -path './.git/*' | wc -l)"
@@ -1022,7 +1022,7 @@ jobs:
           BRANCH_DIR="coverage/branch/$BRANCH_NAME"
           echo "📋 Updating branch-specific content: $BRANCH_DIR"
           mkdir -p "$BRANCH_DIR"
-          
+
           # Copy branch-specific files from deployment directory
           if [[ -d "$DEPLOY_DIR/coverage/branch/$BRANCH_NAME" ]]; then
             cp -r "$DEPLOY_DIR/coverage/branch/$BRANCH_NAME"/* "$BRANCH_DIR/" 2>/dev/null || true
@@ -1046,68 +1046,68 @@ jobs:
           if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
             echo "📝 Generating branch/PR index..."
             cat > branches.html << 'EOF'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coverage Reports - All Branches</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 40px; background: #f6f8fa; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        h1 { color: #24292e; border-bottom: 1px solid #e1e4e8; padding-bottom: 10px; }
-        h2 { color: #586069; margin-top: 30px; }
-        .branch-list, .pr-list { list-style: none; padding: 0; }
-        .branch-list li, .pr-list li { padding: 10px; margin: 5px 0; background: #f6f8fa; border-radius: 6px; }
-        .branch-list a, .pr-list a { color: #0366d6; text-decoration: none; font-weight: 500; }
-        .branch-list a:hover, .pr-list a:hover { text-decoration: underline; }
-        .badge { display: inline-block; margin-left: 10px; }
-        .main-link { display: inline-block; margin: 20px 0; padding: 10px 20px; background: #0366d6; color: white; border-radius: 6px; text-decoration: none; }
-        .main-link:hover { background: #0256c7; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>📊 Coverage Reports</h1>
-        <a href="/" class="main-link">View Main Coverage Dashboard</a>
-        
-        <h2>🌿 Branch Coverage</h2>
-        <ul class="branch-list">
-EOF
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Coverage Reports - All Branches</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 40px; background: #f6f8fa; }
+                    .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+                    h1 { color: #24292e; border-bottom: 1px solid #e1e4e8; padding-bottom: 10px; }
+                    h2 { color: #586069; margin-top: 30px; }
+                    .branch-list, .pr-list { list-style: none; padding: 0; }
+                    .branch-list li, .pr-list li { padding: 10px; margin: 5px 0; background: #f6f8fa; border-radius: 6px; }
+                    .branch-list a, .pr-list a { color: #0366d6; text-decoration: none; font-weight: 500; }
+                    .branch-list a:hover, .pr-list a:hover { text-decoration: underline; }
+                    .badge { display: inline-block; margin-left: 10px; }
+                    .main-link { display: inline-block; margin: 20px 0; padding: 10px 20px; background: #0366d6; color: white; border-radius: 6px; text-decoration: none; }
+                    .main-link:hover { background: #0256c7; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>📊 Coverage Reports</h1>
+                    <a href="/" class="main-link">View Main Coverage Dashboard</a>
 
-            # List all branch coverage reports
-            if [[ -d coverage/branch ]]; then
-              for branch_dir in coverage/branch/*/; do
-                if [[ -d "$branch_dir" ]]; then
-                  branch=$(basename "$branch_dir")
-                  echo "            <li>📁 <a href=\"/coverage/branch/$branch/\">$branch</a> <img src=\"/coverage/branch/$branch/coverage.svg\" alt=\"Coverage\" class=\"badge\"></li>" >> branches.html
-                fi
-              done
-            fi
+                    <h2>🌿 Branch Coverage</h2>
+                    <ul class="branch-list">
+            EOF
 
-            cat >> branches.html << 'EOF'
-        </ul>
-        
-        <h2>🔀 Pull Request Coverage</h2>
-        <ul class="pr-list">
-EOF
+                        # List all branch coverage reports
+                        if [[ -d coverage/branch ]]; then
+                          for branch_dir in coverage/branch/*/; do
+                            if [[ -d "$branch_dir" ]]; then
+                              branch=$(basename "$branch_dir")
+                              echo "            <li>📁 <a href=\"/coverage/branch/$branch/\">$branch</a> <img src=\"/coverage/branch/$branch/coverage.svg\" alt=\"Coverage\" class=\"badge\"></li>" >> branches.html
+                            fi
+                          done
+                        fi
 
-            # List all PR coverage badges
-            if [[ -d coverage/pr ]]; then
-              for pr_dir in coverage/pr/*/; do
-                if [[ -d "$pr_dir" ]]; then
-                  pr_num=$(basename "$pr_dir")
-                  echo "            <li>PR #$pr_num: <img src=\"/coverage/pr/$pr_num/coverage.svg\" alt=\"PR Coverage\" class=\"badge\"></li>" >> branches.html
-                fi
-              done
-            fi
+                        cat >> branches.html << 'EOF'
+                    </ul>
 
-            cat >> branches.html << 'EOF'
-        </ul>
-    </div>
-</body>
-</html>
-EOF
+                    <h2>🔀 Pull Request Coverage</h2>
+                    <ul class="pr-list">
+            EOF
+
+                        # List all PR coverage badges
+                        if [[ -d coverage/pr ]]; then
+                          for pr_dir in coverage/pr/*/; do
+                            if [[ -d "$pr_dir" ]]; then
+                              pr_num=$(basename "$pr_dir")
+                              echo "            <li>PR #$pr_num: <img src=\"/coverage/pr/$pr_num/coverage.svg\" alt=\"PR Coverage\" class=\"badge\"></li>" >> branches.html
+                            fi
+                          done
+                        fi
+
+                        cat >> branches.html << 'EOF'
+                    </ul>
+                </div>
+            </body>
+            </html>
+            EOF
             echo "  ✅ Generated branch/PR index"
           fi
 
@@ -1117,7 +1117,7 @@ EOF
           echo "  - Total files: $(find . -type f -not -path './.git/*' | wc -l)"
           echo "  - Branch coverage reports: $(find coverage/branch -maxdepth 1 -type d 2>/dev/null | tail -n +2 | wc -l || echo "0")"
           echo "  - PR badges: $(find coverage/pr -name "*.svg" 2>/dev/null | wc -l || echo "0")"
-          
+
           # Stage all changes
           git add .
 
@@ -1134,12 +1134,12 @@ EOF
           if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
             COMMIT_MSG="Deploy main coverage dashboard (commit ${{ inputs.commit-sha }})"
           fi
-          
+
           git commit -m "$COMMIT_MSG
 
-🏷️ Generated with Claude Code
+          🏷️ Generated with Claude Code
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+          Co-Authored-By: Claude <noreply@anthropic.com>"
 
           # Push to GitHub Pages
           if git push origin gh-pages --force; then
@@ -1179,11 +1179,11 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
           echo "🔍 Checking deployment status..."
           IS_FIRST_RUN=false
           MAIN_SITE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "$BASE_URL/" 2>/dev/null || echo "000")
-          
+
           if [[ "$MAIN_SITE_STATUS" == "404" ]] || [[ "$MAIN_SITE_STATUS" == "000" ]]; then
             echo "📝 This appears to be a first deployment (main site returned $MAIN_SITE_STATUS)"
             IS_FIRST_RUN=true
-            
+
             # For first run, wait longer for GitHub Pages to initialize
             echo "⏳ First deployment detected - waiting 60 seconds for GitHub Pages initialization..."
             sleep 60
@@ -1289,7 +1289,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
           echo "📊 RESULTS:"
           echo "  - Critical URLs: $CRITICAL_SUCCESS/$CRITICAL_TOTAL (must be 100%)"
           echo "  - Optional URLs: $OPTIONAL_SUCCESS/$OPTIONAL_TOTAL (informational)"
-          
+
           if [[ "$IS_FIRST_RUN" == "true" ]]; then
             echo "  - First deployment: Some URLs may take time to propagate"
           fi
@@ -1313,7 +1313,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
             echo ""
             echo "❌ DEPLOYMENT VERIFICATION FAILED"
             echo "🚨 Critical URLs are not accessible after multiple retries"
-            
+
             # Provide helpful debugging information
             echo ""
             echo "🔍 Debugging information:"
@@ -1326,7 +1326,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
             echo "  - Deployment still propagating (can take up to 10 minutes)"
             echo "  - Branch protection rules blocking deployment"
             echo "  - Previous deployment failed"
-            
+
             exit 1
           fi
 
