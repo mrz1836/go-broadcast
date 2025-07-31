@@ -882,3 +882,428 @@ func TestStreamProcessorEdgeCase(t *testing.T) {
 		require.Empty(t, result)
 	})
 }
+
+func TestStreamProcessorEdgeCases(t *testing.T) {
+	tempDir := testutil.CreateTempDir(t)
+	processor := NewStreamProcessor()
+	ctx := context.Background()
+
+	t.Run("ProcessFile_WithSymlink", func(t *testing.T) {
+		// Create a real file
+		realFile := filepath.Join(tempDir, "real.txt")
+		testutil.WriteTestFile(t, realFile, "real content")
+
+		// Create a symlink
+		symlinkFile := filepath.Join(tempDir, "symlink.txt")
+		err := os.Symlink(realFile, symlinkFile)
+		if err != nil {
+			t.Skip("Cannot create symlinks on this system")
+		}
+
+		outputFile := filepath.Join(tempDir, "output.txt")
+		err = processor.ProcessFile(ctx, symlinkFile, outputFile, func(data []byte) ([]byte, error) {
+			return []byte(strings.ToUpper(string(data))), nil
+		})
+		require.NoError(t, err)
+
+		content, err := os.ReadFile(outputFile) //nolint:gosec // Test file read
+		require.NoError(t, err)
+		require.Equal(t, "REAL CONTENT", string(content))
+	})
+
+	t.Run("ProcessFile_EmptyFile", func(t *testing.T) {
+		inputFile := filepath.Join(tempDir, "empty.txt")
+		outputFile := filepath.Join(tempDir, "empty_out.txt")
+		testutil.WriteTestFile(t, inputFile, "")
+
+		err := processor.ProcessFile(ctx, inputFile, outputFile, func(data []byte) ([]byte, error) {
+			return data, nil
+		})
+		require.NoError(t, err)
+
+		content, err := os.ReadFile(outputFile) //nolint:gosec // Test file read
+		require.NoError(t, err)
+		require.Empty(t, string(content))
+	})
+
+	t.Run("ProcessFile_BinaryData", func(t *testing.T) {
+		inputFile := filepath.Join(tempDir, "binary.dat")
+		outputFile := filepath.Join(tempDir, "binary_out.dat")
+
+		// Create binary data
+		binaryData := make([]byte, 256)
+		for i := range binaryData {
+			binaryData[i] = byte(i)
+		}
+		err := os.WriteFile(inputFile, binaryData, 0o600)
+		require.NoError(t, err)
+
+		// Process with identity transform
+		err = processor.ProcessFile(ctx, inputFile, outputFile, func(data []byte) ([]byte, error) {
+			return data, nil
+		})
+		require.NoError(t, err)
+
+		// Verify output
+		outputData, err := os.ReadFile(outputFile) //nolint:gosec // Test file read
+		require.NoError(t, err)
+		require.Equal(t, binaryData, outputData)
+	})
+
+	t.Run("ProcessFile_TransformError", func(t *testing.T) {
+		inputFile := filepath.Join(tempDir, "error_transform.txt")
+		outputFile := filepath.Join(tempDir, "error_out.txt")
+		testutil.WriteTestFile(t, inputFile, "test content")
+
+		err := processor.ProcessFile(ctx, inputFile, outputFile, func(_ []byte) ([]byte, error) {
+			return nil, errTransformError
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "transform error")
+
+		// Verify stats counted the error
+		stats := processor.GetStats()
+		require.Positive(t, stats.ErrorCount)
+	})
+
+	t.Run("ProcessFile_InvalidOutputPath", func(t *testing.T) {
+		inputFile := filepath.Join(tempDir, "valid_input.txt")
+		testutil.WriteTestFile(t, inputFile, "test content")
+
+		invalidOutputPath := "/nonexistent/directory/output.txt"
+		err := processor.ProcessFile(ctx, inputFile, invalidOutputPath, func(data []byte) ([]byte, error) {
+			return data, nil
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("ProcessFile_ReadOnlyOutputDir", func(t *testing.T) {
+		if os.Getuid() == 0 {
+			t.Skip("Cannot test read-only directory as root")
+		}
+
+		inputFile := filepath.Join(tempDir, "input_readonly.txt")
+		testutil.WriteTestFile(t, inputFile, "test content")
+
+		readOnlyDir := filepath.Join(tempDir, "readonly")
+		err := os.Mkdir(readOnlyDir, 0o750)
+		require.NoError(t, err)
+
+		// Make directory read-only
+		err = os.Chmod(readOnlyDir, 0o555) //nolint:gosec // Setting read-only for test
+		require.NoError(t, err)
+		defer func() { _ = os.Chmod(readOnlyDir, 0o755) }() //nolint:gosec // Restore permissions
+
+		outputFile := filepath.Join(readOnlyDir, "output.txt")
+		err = processor.ProcessFile(ctx, inputFile, outputFile, func(data []byte) ([]byte, error) {
+			return data, nil
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("ProcessFile_LargeChunkTransform", func(t *testing.T) {
+		// Use a custom processor with small chunk size
+		customProcessor := NewStreamProcessorWithConfig(1024, 2048, 30*time.Second)
+
+		inputFile := filepath.Join(tempDir, "large_chunk.txt")
+		outputFile := filepath.Join(tempDir, "large_chunk_out.txt")
+
+		// Create content larger than chunk size
+		content := strings.Repeat("ABCDEFGHIJ", 300) // 3000 bytes
+		testutil.WriteTestFile(t, inputFile, content)
+
+		// Transform that doubles the size
+		err := customProcessor.ProcessFile(ctx, inputFile, outputFile, func(data []byte) ([]byte, error) {
+			doubled := make([]byte, len(data)*2)
+			copy(doubled, data)
+			copy(doubled[len(data):], data)
+			return doubled, nil
+		})
+		require.NoError(t, err)
+
+		outputContent, err := os.ReadFile(outputFile) //nolint:gosec // Test file read
+		require.NoError(t, err)
+		require.Len(t, outputContent, len(content)*2)
+	})
+}
+
+func TestProcessLargeJSONEdgeCases(t *testing.T) {
+	tempDir := testutil.CreateTempDir(t)
+	processor := NewStreamProcessor()
+	ctx := context.Background()
+
+	t.Run("JSONArray_EmptyArray", func(t *testing.T) {
+		jsonFile := filepath.Join(tempDir, "empty_array.json")
+		testutil.WriteTestFile(t, jsonFile, "[]")
+
+		var processedItems []interface{}
+		handler := func(item interface{}) error {
+			processedItems = append(processedItems, item)
+			return nil
+		}
+
+		err := processor.ProcessLargeJSON(ctx, jsonFile, handler)
+		require.NoError(t, err)
+		require.Empty(t, processedItems)
+	})
+
+	t.Run("JSONObject_EmptyObject", func(t *testing.T) {
+		jsonFile := filepath.Join(tempDir, "empty_object.json")
+		testutil.WriteTestFile(t, jsonFile, "{}")
+
+		var processedItems []interface{}
+		handler := func(item interface{}) error {
+			processedItems = append(processedItems, item)
+			return nil
+		}
+
+		err := processor.ProcessLargeJSON(ctx, jsonFile, handler)
+		require.NoError(t, err)
+		require.Empty(t, processedItems)
+	})
+
+	t.Run("JSONArray_NestedStructures", func(t *testing.T) {
+		testData := []interface{}{
+			map[string]interface{}{
+				"id": 1,
+				"nested": map[string]interface{}{
+					"level2": map[string]interface{}{
+						"level3": []interface{}{1, 2, 3},
+					},
+				},
+			},
+			[]interface{}{
+				map[string]interface{}{"a": 1},
+				map[string]interface{}{"b": 2},
+			},
+		}
+
+		jsonFile := filepath.Join(tempDir, "nested.json")
+		data, err := json.Marshal(testData)
+		require.NoError(t, err)
+		testutil.WriteTestFile(t, jsonFile, string(data))
+
+		var processedItems []interface{}
+		handler := func(item interface{}) error {
+			processedItems = append(processedItems, item)
+			return nil
+		}
+
+		err = processor.ProcessLargeJSON(ctx, jsonFile, handler)
+		require.NoError(t, err)
+		require.Len(t, processedItems, 2)
+	})
+
+	t.Run("JSONArray_LargeStrings", func(t *testing.T) {
+		// Create array with large string values
+		largeString := strings.Repeat("a", 100000)
+		testData := []map[string]interface{}{
+			{"id": 1, "data": largeString},
+			{"id": 2, "data": largeString},
+		}
+
+		jsonFile := filepath.Join(tempDir, "large_strings.json")
+		data, err := json.Marshal(testData)
+		require.NoError(t, err)
+		testutil.WriteTestFile(t, jsonFile, string(data))
+
+		processedCount := 0
+		handler := func(item interface{}) error {
+			processedCount++
+			// Verify we got the large string
+			if m, ok := item.(map[string]interface{}); ok {
+				if str, ok := m["data"].(string); ok {
+					require.Len(t, str, len(largeString))
+				}
+			}
+			return nil
+		}
+
+		err = processor.ProcessLargeJSON(ctx, jsonFile, handler)
+		require.NoError(t, err)
+		require.Equal(t, 2, processedCount)
+	})
+
+	t.Run("JSON_MalformedContent", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			content string
+		}{
+			{"truncated array", "[{\"id\": 1},"},
+			{"truncated object", "{\"prop1\": \"value1\","},
+			{"invalid delimiter", "[{\"id\": 1},,{\"id\": 2}]"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				jsonFile := filepath.Join(tempDir, "malformed.json")
+				testutil.WriteTestFile(t, jsonFile, tt.content)
+
+				handler := func(_ interface{}) error {
+					return nil
+				}
+
+				err := processor.ProcessLargeJSON(ctx, jsonFile, handler)
+				require.Error(t, err)
+			})
+		}
+	})
+
+	t.Run("JSON_SpecialCharacters", func(t *testing.T) {
+		testData := []map[string]interface{}{
+			{
+				"id":        1,
+				"unicode":   "Hello 世界 🌍", //nolint:gosmopolitan // Testing Unicode support
+				"escaped":   "Line1\nLine2\tTabbed",
+				"quotes":    "She said \"Hello\"",
+				"backslash": "C:\\Users\\Test",
+				"null_char": "before\x00after",
+			},
+		}
+
+		jsonFile := filepath.Join(tempDir, "special_chars.json")
+		data, err := json.Marshal(testData)
+		require.NoError(t, err)
+		testutil.WriteTestFile(t, jsonFile, string(data))
+
+		var processedItems []interface{}
+		handler := func(item interface{}) error {
+			processedItems = append(processedItems, item)
+			return nil
+		}
+
+		err = processor.ProcessLargeJSON(ctx, jsonFile, handler)
+		require.NoError(t, err)
+		require.Len(t, processedItems, 1)
+
+		// Verify special characters were preserved
+		item := processedItems[0].(map[string]interface{})
+		require.Equal(t, "Hello 世界 🌍", item["unicode"]) //nolint:gosmopolitan // Testing Unicode support
+		require.Equal(t, "Line1\nLine2\tTabbed", item["escaped"])
+	})
+}
+
+func TestBatchFileProcessorEdgeCases(t *testing.T) {
+	tempDir := testutil.CreateTempDir(t)
+	processor := NewStreamProcessor()
+	batchProcessor := NewBatchFileProcessor(processor, 5, 30*time.Second)
+	ctx := context.Background()
+
+	t.Run("EmptyBatch", func(t *testing.T) {
+		err := batchProcessor.ProcessBatch(ctx, []FileOperation{})
+		require.NoError(t, err)
+	})
+
+	t.Run("SingleItemBatch", func(t *testing.T) {
+		inputFile := filepath.Join(tempDir, "single_input.txt")
+		outputFile := filepath.Join(tempDir, "single_output.txt")
+		testutil.WriteTestFile(t, inputFile, "single content")
+
+		operations := []FileOperation{
+			{
+				InputPath:  inputFile,
+				OutputPath: outputFile,
+				Transform: func(data []byte) ([]byte, error) {
+					return []byte(strings.ToUpper(string(data))), nil
+				},
+			},
+		}
+
+		err := batchProcessor.ProcessBatch(ctx, operations)
+		require.NoError(t, err)
+
+		content, err := os.ReadFile(outputFile) //nolint:gosec // Test file read
+		require.NoError(t, err)
+		require.Equal(t, "SINGLE CONTENT", string(content))
+	})
+
+	t.Run("BatchWithErrors", func(t *testing.T) {
+		operations := []FileOperation{
+			{
+				InputPath:  filepath.Join(tempDir, "exists1.txt"),
+				OutputPath: filepath.Join(tempDir, "out1.txt"),
+				Transform:  func(data []byte) ([]byte, error) { return data, nil },
+			},
+			{
+				InputPath:  filepath.Join(tempDir, "nonexistent.txt"), // This will fail
+				OutputPath: filepath.Join(tempDir, "out2.txt"),
+				Transform:  func(data []byte) ([]byte, error) { return data, nil },
+			},
+			{
+				InputPath:  filepath.Join(tempDir, "exists3.txt"),
+				OutputPath: filepath.Join(tempDir, "out3.txt"),
+				Transform:  func(data []byte) ([]byte, error) { return data, nil },
+			},
+		}
+
+		// Create the files that should exist
+		testutil.WriteTestFile(t, operations[0].InputPath, "content1")
+		testutil.WriteTestFile(t, operations[2].InputPath, "content3")
+
+		err := batchProcessor.ProcessBatch(ctx, operations)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "operation 1 failed")
+	})
+
+	t.Run("BatchTimeout", func(t *testing.T) {
+		// Create batch processor with very short timeout
+		shortTimeoutProcessor := NewBatchFileProcessor(processor, 2, 10*time.Millisecond)
+
+		operations := make([]FileOperation, 5)
+		for i := range operations {
+			inputFile := filepath.Join(tempDir, fmt.Sprintf("timeout_input%d.txt", i))
+			outputFile := filepath.Join(tempDir, fmt.Sprintf("timeout_output%d.txt", i))
+			testutil.WriteTestFile(t, inputFile, "content")
+
+			operations[i] = FileOperation{
+				InputPath:  inputFile,
+				OutputPath: outputFile,
+				Transform: func(data []byte) ([]byte, error) {
+					// Slow transform
+					time.Sleep(20 * time.Millisecond)
+					return data, nil
+				},
+			}
+		}
+
+		err := shortTimeoutProcessor.ProcessBatch(ctx, operations)
+		// The test may or may not timeout depending on execution speed
+		// If it doesn't timeout, all operations complete successfully
+		if err != nil {
+			require.Contains(t, err.Error(), "context deadline exceeded")
+		}
+	})
+
+	t.Run("ContextCancellationBetweenBatches", func(t *testing.T) {
+		// Create many operations to ensure multiple batches
+		operations := make([]FileOperation, 20)
+		for i := range operations {
+			inputFile := filepath.Join(tempDir, fmt.Sprintf("cancel_input%d.txt", i))
+			outputFile := filepath.Join(tempDir, fmt.Sprintf("cancel_output%d.txt", i))
+			testutil.WriteTestFile(t, inputFile, "content")
+
+			operations[i] = FileOperation{
+				InputPath:  inputFile,
+				OutputPath: outputFile,
+				Transform: func(data []byte) ([]byte, error) {
+					return data, nil
+				},
+			}
+		}
+
+		cancelCtx, cancel := context.WithCancel(context.Background())
+
+		// Cancel context after a short delay
+		go func() {
+			time.Sleep(5 * time.Millisecond)
+			cancel()
+		}()
+
+		err := batchProcessor.ProcessBatch(cancelCtx, operations)
+		// The test may or may not get canceled depending on timing
+		// If canceled, the error should contain context.Canceled
+		if err != nil {
+			require.Contains(t, err.Error(), "context canceled")
+		}
+	})
+}

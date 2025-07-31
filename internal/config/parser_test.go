@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -529,4 +530,432 @@ type errorReader struct {
 
 func (r *errorReader) Read(_ []byte) (n int, err error) {
 	return 0, r.err
+}
+
+func TestParserEdgeCases(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+		errorMsg    string
+		validate    func(t *testing.T, cfg *Config)
+	}{
+		{
+			name: "deeply nested YAML structure",
+			input: `
+version: 1
+source:
+  repo: "org/source"
+targets:
+  - repo: "org/target"
+    transform:
+      variables:
+        LEVEL1:
+          LEVEL2:
+            LEVEL3:
+              LEVEL4: "deep_value"
+`,
+			expectError: true,
+			errorMsg:    "failed to parse YAML", // Variables expects map[string]string
+		},
+		{
+			name: "very large number of targets",
+			input: func() string {
+				var sb strings.Builder
+				sb.WriteString("version: 1\nsource:\n  repo: \"org/source\"\ntargets:\n")
+				for i := 0; i < 100; i++ {
+					sb.WriteString(fmt.Sprintf("  - repo: \"org/target%d\"\n", i))
+				}
+				return sb.String()
+			}(),
+			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Len(t, cfg.Targets, 100)
+			},
+		},
+		{
+			name: "malformed YAML with tabs",
+			input: `
+version: 1
+source:
+	repo: "org/source"  # Tab instead of spaces
+targets:
+  - repo: "org/target"
+`,
+			expectError: true,
+			errorMsg:    "failed to parse YAML",
+		},
+		{
+			name: "YAML with duplicate keys",
+			input: `
+version: 1
+source:
+  repo: "org/source"
+  repo: "org/duplicate"
+targets:
+  - repo: "org/target"
+`,
+			expectError: true, // Strict YAML parser rejects duplicate keys
+			errorMsg:    "failed to parse YAML",
+		},
+		{
+			name: "YAML with null values",
+			input: `
+version: 1
+source:
+  repo: "org/source"
+  branch: null
+defaults:
+  branch_prefix: null
+  pr_labels: null
+targets:
+  - repo: "org/target"
+`,
+			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, "master", cfg.Source.Branch) // Default applied
+				assert.Equal(t, "chore/sync-files", cfg.Defaults.BranchPrefix)
+				assert.Equal(t, []string{"automated-sync"}, cfg.Defaults.PRLabels)
+			},
+		},
+		{
+			name: "YAML with special characters in strings",
+			input: `
+version: 1
+source:
+  repo: "org/source-with-special-@#$%"
+  branch: "feature/test-&-deploy"
+targets:
+  - repo: "org/target!@#"
+    transform:
+      variables:
+        SPECIAL: |
+          value with spaces, tabs	and newlines
+          and special chars: !@#$%^&*()
+`,
+			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, "org/source-with-special-@#$%", cfg.Source.Repo)
+				assert.Equal(t, "feature/test-&-deploy", cfg.Source.Branch)
+				assert.Equal(t, "org/target!@#", cfg.Targets[0].Repo)
+				// Using | preserves newlines exactly
+				assert.Contains(t, cfg.Targets[0].Transform.Variables["SPECIAL"], "value with spaces, tabs\tand newlines\n")
+				assert.Contains(t, cfg.Targets[0].Transform.Variables["SPECIAL"], "and special chars: !@#$%^&*()")
+			},
+		},
+		{
+			name: "YAML with Unicode characters",
+			//nolint:gosmopolitan // Testing Unicode support
+			input: `
+version: 1
+source:
+  repo: "org/source-世界"
+targets:
+  - repo: "org/target-🚀"
+    transform:
+      variables:
+        GREETING: "Hello 世界 🌍"
+        EMOJI: "🎉🎊🎈"
+`,
+			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, "org/source-世界", cfg.Source.Repo) //nolint:gosmopolitan // Testing Unicode support
+				assert.Equal(t, "org/target-🚀", cfg.Targets[0].Repo)
+				assert.Equal(t, "Hello 世界 🌍", cfg.Targets[0].Transform.Variables["GREETING"]) //nolint:gosmopolitan // Testing Unicode support
+				assert.Equal(t, "🎉🎊🎈", cfg.Targets[0].Transform.Variables["EMOJI"])
+			},
+		},
+		{
+			name: "YAML with very long strings",
+			input: func() string {
+				longString := strings.Repeat("a", 10000)
+				return fmt.Sprintf(`
+version: 1
+source:
+  repo: "org/source"
+targets:
+  - repo: "org/target"
+    transform:
+      variables:
+        LONG: "%s"
+`, longString)
+			}(),
+			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Len(t, cfg.Targets[0].Transform.Variables["LONG"], 10000)
+			},
+		},
+		{
+			name: "YAML with anchors and aliases",
+			input: `
+version: 1
+source:
+  repo: "org/source"
+defaults: &defaults
+  branch_prefix: "sync/files"
+  pr_labels: ["automated"]
+targets:
+  - repo: "org/target1"
+    pr_labels: *defaults.pr_labels
+  - repo: "org/target2"
+    pr_labels: ["custom"]
+`,
+			expectError: true, // YAML doesn't support partial anchor references
+			errorMsg:    "failed to parse YAML",
+		},
+		{
+			name: "YAML with flow style",
+			input: `
+version: 1
+source: {repo: "org/source", branch: "main"}
+defaults: {branch_prefix: "sync", pr_labels: ["auto", "sync"]}
+targets:
+  - {repo: "org/target", files: [{src: "a.txt", dest: "b.txt"}]}
+`,
+			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, "org/source", cfg.Source.Repo)
+				assert.Equal(t, "main", cfg.Source.Branch)
+				assert.Equal(t, []string{"auto", "sync"}, cfg.Defaults.PRLabels)
+				assert.Len(t, cfg.Targets[0].Files, 1)
+			},
+		},
+		{
+			name: "YAML with comments everywhere",
+			input: `
+# Main config file
+version: 1 # Version number
+source: # Source repository
+  repo: "org/source" # Repository name
+  branch: "main" # Branch to use
+# Default settings
+defaults:
+  branch_prefix: "sync" # Prefix for branches
+  pr_labels: # Labels to add
+    - "automated" # First label
+    - "sync" # Second label
+targets: # Target repositories
+  # First target
+  - repo: "org/target1" # Target repo name
+    files: # Files to sync
+      - src: "file.txt" # Source file
+        dest: "file.txt" # Destination
+`,
+			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, 1, cfg.Version)
+				assert.Equal(t, "org/source", cfg.Source.Repo)
+				assert.Len(t, cfg.Targets, 1)
+			},
+		},
+		{
+			name: "YAML with multiline strings",
+			input: `
+version: 1
+source:
+  repo: "org/source"
+targets:
+  - repo: "org/target"
+    transform:
+      variables:
+        LITERAL: |
+          This is a literal block scalar
+          It preserves newlines
+          And indentation
+        FOLDED: >
+          This is a folded block scalar
+          It folds newlines into spaces
+          Unless there's a blank line
+`,
+			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				literal := cfg.Targets[0].Transform.Variables["LITERAL"]
+				assert.Contains(t, literal, "It preserves newlines\n")
+
+				folded := cfg.Targets[0].Transform.Variables["FOLDED"]
+				assert.Contains(t, folded, "It folds newlines into spaces")
+				// Folded scalars keep final newline
+				assert.True(t, strings.HasSuffix(folded, "\n"))
+			},
+		},
+		{
+			name: "empty targets array",
+			input: `
+version: 1
+source:
+  repo: "org/source"
+targets: []
+`,
+			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				assert.NotNil(t, cfg.Targets)
+				assert.Empty(t, cfg.Targets)
+			},
+		},
+		{
+			name: "version as string instead of int",
+			input: `
+version: "1"
+source:
+  repo: "org/source"
+targets:
+  - repo: "org/target"
+`,
+			expectError: true,
+			errorMsg:    "failed to parse YAML",
+		},
+		{
+			name: "missing required version field",
+			input: `
+source:
+  repo: "org/source"
+targets:
+  - repo: "org/target"
+`,
+			expectError: false, // Version will be 0
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, 0, cfg.Version)
+			},
+		},
+		{
+			name: "circular reference attempt",
+			input: `
+version: 1
+source: &source
+  repo: "org/source"
+  branch: "main"
+targets:
+  - repo: "org/target"
+    source: *source
+`,
+			expectError: true, // Unknown field 'source' in target
+			errorMsg:    "failed to parse YAML",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.input)
+			cfg, err := LoadFromReader(reader)
+
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, cfg)
+				if tt.validate != nil {
+					tt.validate(t, cfg)
+				}
+			}
+		})
+	}
+}
+
+func TestLoadSecurityEdgeCases(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupFile   func(t *testing.T) string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "symlink to sensitive file",
+			setupFile: func(t *testing.T) string {
+				tmpDir := testutil.CreateTempDir(t)
+				configPath := filepath.Join(tmpDir, "config.yaml")
+				sensitiveFile := filepath.Join(tmpDir, "sensitive.txt")
+
+				// Create a sensitive file
+				testutil.WriteTestFile(t, sensitiveFile, "sensitive data")
+
+				// Create symlink
+				err := os.Symlink(sensitiveFile, configPath)
+				if err != nil {
+					t.Skip("Cannot create symlinks on this system")
+				}
+				return configPath
+			},
+			expectError: true,
+			errorMsg:    "failed to parse YAML",
+		},
+		{
+			name: "directory instead of file",
+			setupFile: func(t *testing.T) string {
+				tmpDir := testutil.CreateTempDir(t)
+				return tmpDir // Return directory path instead of file
+			},
+			expectError: true,
+			errorMsg:    "failed to parse YAML", // os.Open succeeds but YAML parsing fails
+		},
+		{
+			name: "file with null bytes",
+			setupFile: func(t *testing.T) string {
+				tmpFile := filepath.Join(testutil.CreateTempDir(t), "null.yaml")
+				content := "version: 1\x00\nsource:\n  repo: \"org/source\""
+				testutil.WriteTestFile(t, tmpFile, content)
+				return tmpFile
+			},
+			expectError: true,
+			errorMsg:    "failed to parse YAML",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configPath := tt.setupFile(t)
+			cfg, err := Load(configPath)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+				assert.Nil(t, cfg)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, cfg)
+			}
+		})
+	}
+}
+
+func TestLoadFromReaderPanicRecovery(t *testing.T) {
+	// Test that panics in YAML parsing are handled gracefully
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name: "recursive alias",
+			input: `
+version: 1
+source: &a
+  repo: "org/source"
+  extra: *a
+targets:
+  - repo: "org/target"
+`,
+		},
+		{
+			name:  "malformed unicode",
+			input: "version: 1\nsource:\n  repo: \"org/source\xc3\x28\"\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.input)
+
+			// Should not panic
+			cfg, err := LoadFromReader(reader)
+
+			// May or may not error depending on YAML parser behavior
+			if err != nil {
+				assert.Contains(t, err.Error(), "failed to parse YAML")
+			} else {
+				assert.NotNil(t, cfg)
+			}
+		})
+	}
 }
