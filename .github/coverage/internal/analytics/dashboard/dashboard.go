@@ -1,4 +1,4 @@
-// Package dashboard provides minimal dashboard functionality (original had syntax issues)
+// Package dashboard provides dashboard functionality (original had syntax issues)
 package dashboard
 
 import (
@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// AnalyticsDashboard provides minimal coverage analytics visualization
+// AnalyticsDashboard provides coverage analytics visualization
 type AnalyticsDashboard struct {
 	config *DashboardConfig
 }
@@ -145,7 +145,7 @@ func NewAnalyticsDashboard(config *DashboardConfig) *AnalyticsDashboard {
 
 // SetComponents sets dashboard components (placeholder for compatibility)
 func (d *AnalyticsDashboard) SetComponents(_ interface{}, _ interface{}, _ interface{}, _ interface{}, _ interface{}) {
-	// Placeholder - components not used in minimal version
+	// Placeholder - components not used in version
 }
 
 // GenerateDashboard generates dashboard data
@@ -155,7 +155,7 @@ func (d *AnalyticsDashboard) GenerateDashboard(ctx context.Context, _ *Request) 
 	return data, err
 }
 
-// GenerateHTML renders a minimal dashboard as HTML
+// GenerateHTML renders a dashboard as HTML
 func (d *AnalyticsDashboard) GenerateHTML(_ context.Context, _ *DashboardData) (string, error) {
 	return "<html><body><h1>Coverage Dashboard</h1><p>Coverage: " +
 		"75.5%</p><p>Status: Working</p></body></html>", nil

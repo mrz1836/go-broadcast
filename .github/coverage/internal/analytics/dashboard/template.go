@@ -1,6 +1,6 @@
 package dashboard
 
-// dashboardTemplate is the embedded dashboard HTML template
+// dashboardTemplate is the embedded dashboard HTML template (this is the "DASHBOARD, this is NOT a coverage report" template).
 //
 //nolint:misspell // GitHub Actions API uses British spelling for "cancelled"
 const dashboardTemplate = `<!DOCTYPE html>
@@ -729,7 +729,7 @@ const dashboardTemplate = `<!DOCTYPE html>
             font-weight: 500;
             color: var(--color-primary);
         }
-        
+
         .version-link {
             display: flex;
             align-items: center;
@@ -741,12 +741,12 @@ const dashboardTemplate = `<!DOCTYPE html>
             margin: -0.25rem -0.5rem;
             border-radius: 6px;
         }
-        
+
         .version-link:hover {
             background: var(--color-bg-tertiary);
             transform: translateY(-1px);
         }
-        
+
         .version-link:hover .version-text {
             color: var(--color-text);
         }
@@ -1081,7 +1081,7 @@ const dashboardTemplate = `<!DOCTYPE html>
                             </div>
                             {{- else if lt .TotalCoverage .BaselineCoverage}}
                             <div class="status-badge warning">
-                                📉 Coverage Decreased  
+                                📉 Coverage Decreased
                             </div>
                             {{- else}}
                             <div class="status-badge">
