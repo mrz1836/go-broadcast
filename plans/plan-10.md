@@ -66,6 +66,7 @@ Each phase is designed to be completed in a single Claude Code session with clea
 **IMPORTANT**: 
 1. **All files must be created within the `.github` directory** - the entire GoFortress Pre-commit System is self-contained in `.github/pre-commit/`
 2. After completing each phase, update the status tracking document at `plans/plan-10-status.md` with:
+   - Use the expert Go sub-agent to implement the phases
    - Mark the phase as completed (✓)
    - Note any deviations from the plan
    - Record actual metrics and timings
@@ -74,6 +75,8 @@ Each phase is designed to be completed in a single Claude Code session with clea
 
 ### Phase 1: Foundation & Configuration (Session 1)
 **Objective**: Establish infrastructure for the new GoFortress Pre-commit System
+
+**Sub-Agent**: Go Sub-Agent
 
 **Implementation Steps:**
 1. Add pre-commit system environment variables to `.github/.env.shared`
@@ -323,6 +326,8 @@ This ensures the GoFortress Pre-commit tool's dependencies (cobra, godotenv, etc
 ### Phase 2: Core Pre-commit Engine (Session 2)
 **Objective**: Build the MVP Go-native pre-commit processing tool
 
+**Sub-Agent**: Go Sub-Agent
+
 **Implementation Steps:**
 1. Create simple CLI with just 3 commands: install, run, uninstall
 2. Implement env-based configuration parser (`internal/config`)
@@ -436,6 +441,8 @@ After completing this phase, update `plans/plan-10-status.md`:
 ### Phase 3: Pre-commit Hook Implementations (Session 3)
 **Objective**: Implement MVP pre-commit hooks only
 
+**Sub-Agent**: Go Sub-Agent
+
 **Implementation Steps:**
 1. Implement 3 make command wrappers (fumpt, lint, mod-tidy)
 2. Implement 2 built-in hooks (whitespace, EOF)
@@ -501,6 +508,8 @@ After completing this phase, update `plans/plan-10-status.md`:
 ### Phase 4: Git Integration & Installation (Session 4)
 **Objective**: Simple git integration for MVP
 
+**Sub-Agent**: Go Sub-Agent
+
 **Implementation Steps:**
 1. Create basic installer that sets up pre-commit hook
 2. Create simple uninstaller
@@ -554,6 +563,8 @@ After completing this phase, update `plans/plan-10-status.md`:
 
 ### Phase 5: CI/CD Integration (Session 5)
 **Objective**: Create dedicated fortress-pre-commit.yml workflow
+
+**Sub-Agent**: Go Sub-Agent
 
 **Implementation Steps:**
 1. Create new fortress-pre-commit.yml reusable workflow
@@ -651,6 +662,8 @@ After completing this phase, update `plans/plan-10-status.md`:
 
 ### Phase 6: Documentation & Release (Session 6)
 **Objective**: Document MVP and prepare for release
+
+**Sub-Agent**: Go Sub-Agent
 
 **Implementation Steps:**
 1. Write clear README.md in .github/pre-commit/

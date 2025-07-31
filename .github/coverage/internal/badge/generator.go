@@ -24,11 +24,11 @@ type Config struct {
 
 // ThresholdConfig defines coverage thresholds for color coding
 type ThresholdConfig struct {
-	Excellent  float64 // 90%+ - bright green
-	Good       float64 // 80%+ - green
-	Acceptable float64 // 70%+ - yellow
-	Low        float64 // 60%+ - orange
-	// Below Low = red
+	Excellent  float64 // 90%+ - green
+	Good       float64 // 80%+ - blue
+	Acceptable float64 // 60%+ - yellow/warning
+	Low        float64 // Below 60% - red
+	// Low is not used as a threshold, anything below Acceptable is red
 }
 
 // Data represents data needed to generate a badge
@@ -151,15 +151,15 @@ func (g *Generator) GenerateTrendBadge(ctx context.Context, current, previous fl
 func (g *Generator) getColorForPercentage(percentage float64) string {
 	switch {
 	case percentage >= g.config.ThresholdConfig.Excellent:
-		return "#28a745" // Bright green (excellent coverage)
+		return "#28a745" // Bright green (excellent coverage 95%+)
 	case percentage >= g.config.ThresholdConfig.Good:
-		return "#3fb950" // Green (good coverage)
+		return "#3fb950" // Green (good coverage 85-94%)
 	case percentage >= g.config.ThresholdConfig.Acceptable:
-		return "#ffc107" // Yellow (acceptable coverage)
+		return "#ffc107" // Yellow (acceptable coverage 75-84%)
 	case percentage >= g.config.ThresholdConfig.Low:
-		return "#fd7e14" // Orange (low coverage)
+		return "#fd7e14" // Orange (low coverage 65-74%)
 	default:
-		return "#dc3545" // Red (poor coverage)
+		return "#dc3545" // Red (poor coverage below 65%)
 	}
 }
 
@@ -167,15 +167,15 @@ func (g *Generator) getColorForPercentage(percentage float64) string {
 func (g *Generator) getColorByName(name string) string {
 	switch name {
 	case "excellent":
-		return "#28a745"
+		return "#28a745" // Bright green
 	case "good":
-		return "#3fb950"
+		return "#3fb950" // Green
 	case "acceptable":
-		return "#ffc107"
+		return "#ffc107" // Yellow
 	case "low":
-		return "#fd7e14"
+		return "#fd7e14" // Orange
 	case "poor":
-		return "#dc3545"
+		return "#dc3545" // Red
 	default:
 		return "#8b949e" // neutral gray
 	}

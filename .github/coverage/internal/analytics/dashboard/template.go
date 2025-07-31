@@ -59,6 +59,7 @@ const dashboardTemplate = `<!DOCTYPE html>
             /* Gradients */
             --gradient-primary: linear-gradient(135deg, #4a90d9, #6ba3e3);
             --gradient-success: linear-gradient(135deg, #3fb950, #56d364);
+            --gradient-warning: linear-gradient(135deg, #d29922, #f2cc60);
             --gradient-danger: linear-gradient(135deg, #f85149, #da3633);
         }
 
@@ -579,7 +580,6 @@ const dashboardTemplate = `<!DOCTYPE html>
 
         .coverage-fill {
             height: 100%;
-            background: var(--gradient-success);
             border-radius: 8px;
             position: relative;
             transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1071,7 +1071,7 @@ const dashboardTemplate = `<!DOCTYPE html>
                     <div class="metric-label">{{.CoveredFiles}} of {{.TotalFiles}} files covered</div>
                     {{- end}}
                     <div class="coverage-bar">
-                        <div class="coverage-fill" style="width: {{.TotalCoverage}}%"></div>
+                        <div class="coverage-fill" style="width: {{.TotalCoverage}}%; background: {{- if ge .TotalCoverage 90.0}}var(--gradient-success){{else if ge .TotalCoverage 80.0}}var(--gradient-primary){{else if ge .TotalCoverage 60.0}}var(--gradient-warning){{else}}var(--gradient-danger){{end -}};"></div>
                     </div>
                     {{- if .PRNumber}}
                         {{- if .BaselineCoverage}}
@@ -1213,9 +1213,9 @@ const dashboardTemplate = `<!DOCTYPE html>
                 {{- range .Packages}}
                 <div class="package-item">
                     <div class="package-name">{{.Name}}</div>
-                    <div class="package-coverage" style="color: {{- if ge .Coverage 90.0}}#3fb950{{else if ge .Coverage 80.0}}#90c978{{else if ge .Coverage 70.0}}#d29922{{else if ge .Coverage 60.0}}#f85149{{else}}#da3633{{end -}};">{{.Coverage}}%</div>
+                    <div class="package-coverage" style="color: {{- if ge .Coverage 90.0}}#3fb950{{else if ge .Coverage 80.0}}#58a6ff{{else if ge .Coverage 60.0}}#d29922{{else}}#f85149{{end -}};">{{.Coverage}}%</div>
                     <div class="package-bar">
-                        <div class="package-bar-fill" style="width: {{.Coverage}}%"></div>
+                        <div class="package-bar-fill" style="width: {{.Coverage}}%; background: {{- if ge .Coverage 90.0}}var(--gradient-success){{else if ge .Coverage 80.0}}var(--gradient-primary){{else if ge .Coverage 60.0}}var(--gradient-warning){{else}}var(--gradient-danger){{end -}};"></div>
                     </div>
                 </div>
                 {{- end}}
