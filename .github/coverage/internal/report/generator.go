@@ -492,7 +492,7 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) Repor
 			Title:             title,
 			ProjectName:       projectName,
 			Generated:         time.Now(),
-			Branch:            "main",
+			Branch:            "master",
 			CommitSha:         "",
 			OverallCoverage:   0.0,
 			PackageStats:      []PackageStats{},
@@ -501,7 +501,7 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) Repor
 			ShowDetails:       false,
 			GitHubOwner:       gitHubOwner,
 			GitHubRepository:  gitHubRepo,
-			GitHubBranch:      "main",
+			GitHubBranch:      "master",
 			RepositoryOwner:   gitHubOwner,
 			RepositoryName:    gitHubRepo,
 			GoogleAnalyticsID: "",
@@ -549,14 +549,14 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) Repor
 		}
 	}
 
-	// Use dynamic repository information, with config fallbacks
+	// Use config repository information first, with dynamic Git info as fallback
 	gitHubOwner := data.Config.GitHubOwner
 	gitHubRepo := data.Config.GitHubRepository
 	gitHubBranch := data.Config.GitHubBranch
 	title := data.Config.Title
 
-	// Override with dynamic Git info if available
-	if repoInfo != nil {
+	// Only use dynamic Git info if config doesn't have GitHub info
+	if gitHubOwner == "" && gitHubRepo == "" && repoInfo != nil {
 		gitHubOwner = repoInfo.Owner
 		gitHubRepo = repoInfo.Name
 		// Use repository-focused title only if no custom title was set (empty or using default constant)
@@ -626,5 +626,16 @@ func WithFiles(show bool) Option {
 func WithMissing(show bool) Option {
 	return func(config *Config) {
 		config.ShowMissing = show
+	}
+}
+
+// WithGitHub sets GitHub repository information
+func WithGitHub(owner, repository, branch string) Option {
+	return func(config *Config) {
+		config.GitHubOwner = owner
+		config.GitHubRepository = repository
+		if branch != "" {
+			config.GitHubBranch = branch
+		}
 	}
 }

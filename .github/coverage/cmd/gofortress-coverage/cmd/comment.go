@@ -369,8 +369,15 @@ Features:
 			fmt.Printf("Generating PR coverage report...\n") //nolint:forbidigo // CLI output
 			reportGenerator := report.New()
 
+			// Get branch name from environment or config
+			branchName := os.Getenv("GITHUB_REF_NAME")
+			if branchName == "" {
+				branchName = "master"
+			}
+
 			reportHTML, err := reportGenerator.Generate(ctx, coverage,
 				report.WithTitle(fmt.Sprintf("PR #%d Coverage Report", prNumber)),
+				report.WithGitHub(cfg.GitHub.Owner, cfg.GitHub.Repository, branchName),
 				report.WithPackages(true),
 				report.WithFiles(true),
 			)

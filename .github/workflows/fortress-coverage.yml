@@ -613,7 +613,8 @@ jobs:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
-          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_SHA: ${{ inputs.commit-sha || github.event.pull_request.head.sha }}
+          GITHUB_REF_NAME: ${{ inputs.branch-name || github.event.pull_request.head.ref }}
         run: |
           echo "💬 Creating or updating PR coverage comment..."
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
