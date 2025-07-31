@@ -118,6 +118,8 @@ jobs:
         run: |
           go build -v -o gofortress-coverage .
           chmod +x gofortress-coverage
+          # Store the full path for later use
+          echo "GOFORTRESS_BINARY=$(pwd)/gofortress-coverage" >> $GITHUB_ENV
 
       # ————————————————————————————————————————————————————————————————
       # Download and restore coverage history (WORKING SYSTEM - PRESERVED)
@@ -463,7 +465,7 @@ jobs:
           echo "🚀 Running GoFortress coverage complete command for main output..."
           echo "  Command: ./gofortress-coverage complete --input \"$COVERAGE_FILE\" --output \"$OUTPUT_DIR\""
 
-          if ./gofortress-coverage complete \
+          if "$GOFORTRESS_BINARY" complete \
             --input "$COVERAGE_FILE" \
             --output "$OUTPUT_DIR"; then
             echo "✅ Main coverage processing completed successfully"
@@ -477,7 +479,7 @@ jobs:
           echo "🚀 Running GoFortress coverage complete command for branch-specific output..."
           echo "  Command: ./gofortress-coverage complete --input \"$COVERAGE_FILE\" --output \"$BRANCH_OUTPUT_DIR\""
 
-          if ./gofortress-coverage complete \
+          if "$GOFORTRESS_BINARY" complete \
             --input "$COVERAGE_FILE" \
             --output "$BRANCH_OUTPUT_DIR"; then
             echo "✅ Branch-specific coverage processing completed successfully"
@@ -558,7 +560,7 @@ jobs:
           fi
 
           # Record coverage in history
-          ./gofortress-coverage history \
+          "$GOFORTRESS_BINARY" history \
             --add "$COVERAGE_FILE" \
             --branch "${{ inputs.branch-name }}" \
             --commit "${{ inputs.commit-sha }}" \
@@ -732,7 +734,7 @@ jobs:
           REPORT_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/"
 
           # Create enhanced PR comment
-          ./gofortress-coverage comment \
+          "$GOFORTRESS_BINARY" comment \
             --pr "$GITHUB_PR_NUMBER" \
             --coverage "$COVERAGE_FILE" \
             $BASE_COVERAGE_ARG \
