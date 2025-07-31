@@ -615,6 +615,8 @@ jobs:
           GITHUB_PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
           GITHUB_SHA: ${{ inputs.commit-sha || github.event.pull_request.head.sha }}
           GITHUB_REF_NAME: ${{ inputs.branch-name || github.event.pull_request.head.ref }}
+          COVERAGE_PR_COMMENT_BEHAVIOR: ${{ env.COVERAGE_PR_COMMENT_BEHAVIOR }}
+          COVERAGE_LOG_LEVEL: debug
         run: |
           echo "💬 Creating or updating PR coverage comment..."
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
