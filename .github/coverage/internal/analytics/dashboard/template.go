@@ -1284,5 +1284,6 @@ const dashboardTemplate = `<!DOCTYPE html>
         // Static deployments on GitHub Pages cannot provide live updates
         // The build status shown is a snapshot from when the report was generated
     </script>
+
 </body>
 </html>`

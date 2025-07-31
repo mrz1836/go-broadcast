@@ -348,6 +348,7 @@ func (e *PRTemplateEngine) convertToDashboardData(data *TemplateData) map[string
 		"DefaultBranch":   data.Repository.DefaultBranch,
 		"Branch":          data.PullRequest.Branch,
 		"CommitSHA":       e.formatCommitSHA(data.PullRequest.CommitSHA),
+		"CommitSHAFull":   data.PullRequest.CommitSHA, // Full SHA for metadata
 		"CommitURL":       fmt.Sprintf("%s/commit/%s", data.Repository.URL, data.PullRequest.CommitSHA),
 
 		// PR-specific information
