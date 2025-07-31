@@ -810,7 +810,7 @@ jobs:
               if git diff --staged --quiet; then
                 echo "ℹ️ No changes to commit - badges are already up to date"
               else
-                git commit -m "Add PR #$PR_NUMBER coverage badges"$'\n\n🏷️ Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>'
+                git commit -m "Add PR #$PR_NUMBER coverage badges"$'\n\n🏷️ Generated with GoFortress'
 
                 if git push origin gh-pages; then
                   echo "✅ Successfully pushed PR badges to GitHub Pages"
@@ -1041,7 +1041,7 @@ jobs:
           # Create index.html with branch/PR listing if on main branch
           if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
             echo "📝 Generating branch/PR index..."
-            
+
             # Create the HTML file using echo commands to avoid heredoc indentation issues
             echo '<!DOCTYPE html>' > branches.html
             echo '<html lang="en">' >> branches.html
@@ -1100,7 +1100,7 @@ jobs:
             echo '    </div>' >> branches.html
             echo '</body>' >> branches.html
             echo '</html>' >> branches.html
-            
+
             echo "  ✅ Generated branch/PR index"
           fi
 
@@ -1128,7 +1128,7 @@ jobs:
             COMMIT_MSG="Deploy main coverage dashboard (commit ${{ inputs.commit-sha }})"
           fi
 
-          git commit -m "$COMMIT_MSG"$'\n\n🏷️ Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>'
+          git commit -m "$COMMIT_MSG"$'\n\n🏷️ Generated with GoFortress'
 
           # Push to GitHub Pages
           if git push origin gh-pages --force; then
