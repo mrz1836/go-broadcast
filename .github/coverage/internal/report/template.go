@@ -34,6 +34,17 @@ const reportTemplate = `<!DOCTYPE html>
     <meta property="og:description" content="Code coverage analysis for {{.RepositoryOwner}}/{{.RepositoryName}}">
     <meta property="og:type" content="website">
     
+    {{if .GoogleAnalyticsID}}
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{.GoogleAnalyticsID}}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '{{.GoogleAnalyticsID}}');
+    </script>
+    {{end}}
+    
     <style>
         /* CSS Custom Properties for theming */
         :root {
@@ -1087,7 +1098,8 @@ type ReportData struct {
 	RepositoryName  string `json:"repository_name,omitempty"`
 
 	// Additional metadata
-	LatestTag string `json:"latest_tag,omitempty"`
+	LatestTag         string `json:"latest_tag,omitempty"`
+	GoogleAnalyticsID string `json:"google_analytics_id,omitempty"`
 }
 
 // Renderer handles template rendering for coverage reports

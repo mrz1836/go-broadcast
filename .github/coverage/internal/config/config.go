@@ -45,6 +45,8 @@ type Config struct {
 	Storage StorageConfig `json:"storage"`
 	// Logging settings
 	Log LogConfig `json:"log"`
+	// Analytics settings
+	Analytics AnalyticsConfig `json:"analytics"`
 }
 
 // CoverageConfig holds coverage analysis settings
@@ -165,6 +167,12 @@ type LogConfig struct {
 	Enabled bool `json:"enabled"`
 }
 
+// AnalyticsConfig holds analytics tracking settings
+type AnalyticsConfig struct {
+	// Google Analytics tracking ID
+	GoogleAnalyticsID string `json:"google_analytics_id"`
+}
+
 // Load loads configuration from environment variables with defaults
 func Load() *Config {
 	config := &Config{
@@ -226,6 +234,9 @@ func Load() *Config {
 			Level:   getEnvString("COVERAGE_LOG_LEVEL", "INFO"),
 			Format:  getEnvString("COVERAGE_LOG_FORMAT", "text"),
 			Enabled: getEnvBool("COVERAGE_LOG_ENABLED", true),
+		},
+		Analytics: AnalyticsConfig{
+			GoogleAnalyticsID: getEnvString("GOOGLE_ANALYTICS_ID", ""),
 		},
 	}
 

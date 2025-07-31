@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	globalconfig "github.com/mrz1836/go-broadcast/coverage/internal/config"
 	"github.com/mrz1836/go-broadcast/coverage/internal/github"
 	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
 )
@@ -257,6 +258,9 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 	// Get the latest git tag
 	latestTag := getLatestGitTag(ctx)
 
+	// Load global config to get analytics settings
+	globalConfig := globalconfig.Load()
+
 	return map[string]interface{}{
 		"ProjectName":       projectName,
 		"RepositoryOwner":   repositoryOwner,
@@ -292,6 +296,7 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		"WorkflowRunNumber": data.WorkflowRunNumber,
 		"IsFirstRun":        data.IsFirstRun,
 		"HasPreviousRuns":   data.HasPreviousRuns,
+		"GoogleAnalyticsID": globalConfig.Analytics.GoogleAnalyticsID,
 	}
 }
 

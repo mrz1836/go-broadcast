@@ -60,18 +60,19 @@ type Config struct {
 
 // Data represents the complete data needed for report generation
 type Data struct {
-	Coverage    *parser.CoverageData
-	Config      *Config
-	GeneratedAt time.Time
-	Version     string
-	ProjectName string
-	BranchName  string
-	CommitSHA   string
-	CommitURL   string
-	BadgeURL    string
-	Summary     Summary
-	Packages    []PackageReport
-	LatestTag   string
+	Coverage          *parser.CoverageData
+	Config            *Config
+	GeneratedAt       time.Time
+	Version           string
+	ProjectName       string
+	BranchName        string
+	CommitSHA         string
+	CommitURL         string
+	BadgeURL          string
+	Summary           Summary
+	Packages          []PackageReport
+	LatestTag         string
+	GoogleAnalyticsID string
 }
 
 // Summary provides high-level coverage statistics
@@ -364,19 +365,23 @@ func (g *Generator) buildReportData(ctx context.Context, coverage *parser.Covera
 	// Get latest tag
 	latestTag := getLatestGitTag(ctx)
 
+	// Load analytics configuration
+	analytics := globalconfig.Load().Analytics
+
 	return &Data{
-		Coverage:    coverage,
-		Config:      config,
-		GeneratedAt: time.Now(),
-		Version:     "1.0.0",
-		ProjectName: projectName,
-		BranchName:  branchName,
-		CommitSHA:   commitSHA,
-		CommitURL:   commitURL,
-		BadgeURL:    badgeURL,
-		Summary:     summary,
-		Packages:    packages,
-		LatestTag:   latestTag,
+		Coverage:          coverage,
+		Config:            config,
+		GeneratedAt:       time.Now(),
+		Version:           "1.0.0",
+		ProjectName:       projectName,
+		BranchName:        branchName,
+		CommitSHA:         commitSHA,
+		CommitURL:         commitURL,
+		BadgeURL:          badgeURL,
+		Summary:           summary,
+		Packages:          packages,
+		LatestTag:         latestTag,
+		GoogleAnalyticsID: analytics.GoogleAnalyticsID,
 	}
 }
 
@@ -477,21 +482,22 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) Repor
 		}
 
 		return ReportData{
-			Title:            title,
-			ProjectName:      projectName,
-			Generated:        time.Now(),
-			Branch:           "main",
-			CommitSha:        "",
-			OverallCoverage:  0.0,
-			PackageStats:     []PackageStats{},
-			FileStats:        []FileStats{},
-			Theme:            "auto",
-			ShowDetails:      false,
-			GitHubOwner:      gitHubOwner,
-			GitHubRepository: gitHubRepo,
-			GitHubBranch:     "main",
-			RepositoryOwner:  gitHubOwner,
-			RepositoryName:   gitHubRepo,
+			Title:             title,
+			ProjectName:       projectName,
+			Generated:         time.Now(),
+			Branch:            "main",
+			CommitSha:         "",
+			OverallCoverage:   0.0,
+			PackageStats:      []PackageStats{},
+			FileStats:         []FileStats{},
+			Theme:             "auto",
+			ShowDetails:       false,
+			GitHubOwner:       gitHubOwner,
+			GitHubRepository:  gitHubRepo,
+			GitHubBranch:      "main",
+			RepositoryOwner:   gitHubOwner,
+			RepositoryName:    gitHubRepo,
+			GoogleAnalyticsID: "",
 		}
 	}
 
@@ -558,22 +564,23 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) Repor
 	}
 
 	return ReportData{
-		Title:            title,
-		ProjectName:      data.ProjectName, // Use the dynamically determined project name
-		Generated:        data.GeneratedAt,
-		Branch:           data.BranchName,
-		CommitSha:        data.CommitSHA,
-		OverallCoverage:  data.Summary.TotalPercentage,
-		PackageStats:     packageStats,
-		FileStats:        fileStats,
-		Theme:            data.Config.Theme,
-		ShowDetails:      data.Config.ShowFiles,
-		GitHubOwner:      gitHubOwner,
-		GitHubRepository: gitHubRepo,
-		GitHubBranch:     gitHubBranch,
-		RepositoryOwner:  gitHubOwner, // Alias for template compatibility
-		RepositoryName:   gitHubRepo,  // Alias for template compatibility
-		LatestTag:        data.LatestTag,
+		Title:             title,
+		ProjectName:       data.ProjectName, // Use the dynamically determined project name
+		Generated:         data.GeneratedAt,
+		Branch:            data.BranchName,
+		CommitSha:         data.CommitSHA,
+		OverallCoverage:   data.Summary.TotalPercentage,
+		PackageStats:      packageStats,
+		FileStats:         fileStats,
+		Theme:             data.Config.Theme,
+		ShowDetails:       data.Config.ShowFiles,
+		GitHubOwner:       gitHubOwner,
+		GitHubRepository:  gitHubRepo,
+		GitHubBranch:      gitHubBranch,
+		RepositoryOwner:   gitHubOwner, // Alias for template compatibility
+		RepositoryName:    gitHubRepo,  // Alias for template compatibility
+		LatestTag:         data.LatestTag,
+		GoogleAnalyticsID: data.GoogleAnalyticsID,
 	}
 }
 
