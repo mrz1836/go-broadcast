@@ -875,10 +875,34 @@ jobs:
           echo "📁 Creating PR badge deployment directory: $PR_BADGE_DEPLOY_DIR"
           mkdir -p "$PR_BADGE_DEPLOY_DIR"
 
-          # Copy PR badges to deployment directory
-          echo "📋 Copying PR badges to deployment directory..."
+          # Copy PR badges AND HTML report to deployment directory
+          echo "📋 Copying PR badges and HTML report to deployment directory..."
           if cp -r "$BADGE_SOURCE_DIR"/* "$PR_BADGE_DEPLOY_DIR/" 2>/dev/null; then
             echo "✅ PR badges copied successfully"
+            
+            # CRITICAL FIX: Ensure PR HTML report is also copied
+            # The HTML report might be generated separately from badges
+            if [[ -f "/tmp/pr-badges/pr/$PR_NUMBER/index.html" ]]; then
+              cp "/tmp/pr-badges/pr/$PR_NUMBER/index.html" "$PR_BADGE_DEPLOY_DIR/"
+              html_size=$(ls -lah "$PR_BADGE_DEPLOY_DIR/index.html" | awk '{print $5}')
+              echo "✅ PR HTML report copied: index.html ($html_size)"
+              echo "🌐 Will be available at: https://mrz1836.github.io/go-broadcast/coverage/pr/$PR_NUMBER/"
+            else
+              echo "⚠️ PR HTML report not found at: /tmp/pr-badges/pr/$PR_NUMBER/index.html"
+              echo "🔍 Searching for PR HTML report..."
+              
+              # Search for any HTML files in the PR badge source directory
+              HTML_FILES=$(find "$BADGE_SOURCE_DIR" -name "*.html" 2>/dev/null)
+              if [[ -n "$HTML_FILES" ]]; then
+                echo "$HTML_FILES" | while read html_file; do
+                  filename=$(basename "$html_file")
+                  html_size=$(ls -lah "$html_file" | awk '{print $5}')
+                  echo "✅ Found HTML file: $filename ($html_size)"
+                done
+              else
+                echo "⚠️ No HTML files found in badge source directory"
+              fi
+            fi
 
             # List deployed badges
             echo "🏷️ Deployed PR badges:"
@@ -890,10 +914,14 @@ jobs:
               echo "✅ Created badge.svg symlink"
             fi
 
-            # Show expected URLs
-            echo "🌐 PR badges will be available at:"
+            # Show expected URLs for both badges and HTML report
+            echo "🌐 PR coverage will be available at:"
+            if [[ -f "$PR_BADGE_DEPLOY_DIR/index.html" ]]; then
+              echo "  📄 Coverage Report: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/pr/$PR_NUMBER/"
+            fi
+            echo "  🏷️ Badges:"
             find "$PR_BADGE_DEPLOY_DIR" -name "*.svg" -exec basename {} \; | while read badge_file; do
-              echo "  - https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/pr/$PR_NUMBER/$badge_file"
+              echo "    - https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/pr/$PR_NUMBER/$badge_file"
             done
 
           else
@@ -944,18 +972,29 @@ jobs:
             mkdir -p "$GH_PAGES_PR_DIR"
             echo "📁 Created directory: $GH_PAGES_PR_DIR"
 
-            # Copy badges to gh-pages
-            if cp "$PR_BADGE_DIR"/*.svg "$GH_PAGES_PR_DIR/" 2>/dev/null; then
-              echo "✅ Copied PR badges to gh-pages branch"
+            # Copy badges AND HTML report to gh-pages
+            if cp "$PR_BADGE_DIR"/* "$GH_PAGES_PR_DIR/" 2>/dev/null; then
+              echo "✅ Copied PR badges and HTML report to gh-pages branch"
+              
+              # Verify HTML report was copied
+              if [[ -f "$GH_PAGES_PR_DIR/index.html" ]]; then
+                html_size=$(ls -lah "$GH_PAGES_PR_DIR/index.html" | awk '{print $5}')
+                echo "✅ PR HTML report deployed: index.html ($html_size)"
+                echo "🌐 Available at: https://mrz1836.github.io/go-broadcast/coverage/pr/$PR_NUMBER/"
+              else
+                echo "⚠️ WARNING: PR HTML report not found in gh-pages deployment"
+                echo "🔍 Contents of $GH_PAGES_PR_DIR:"
+                ls -la "$GH_PAGES_PR_DIR" 2>/dev/null || echo "Directory not accessible"
+              fi
 
               # Commit and push changes
               cd "$TEMP_PAGES_DIR"
-              git add coverage/pr/$PR_NUMBER/*.svg
+              git add coverage/pr/$PR_NUMBER/*
 
               if git diff --staged --quiet; then
                 echo "ℹ️ No changes to commit - badges are already up to date"
               else
-                git commit -m "Add PR #$PR_NUMBER coverage badges"$'\n\n🏷️ Generated with GoFortress'
+                git commit -m "Add PR #$PR_NUMBER coverage badges and report"$'\n\n🏷️ Generated with GoFortress'
 
                 if git push origin gh-pages; then
                   echo "✅ Successfully pushed PR badges to GitHub Pages"
@@ -1139,13 +1178,30 @@ jobs:
               done
             fi
             
-            # Copy PR directories if they exist
+            # Copy PR directories if they exist (INCLUDING PR HTML REPORTS)
             if [[ -d "$SOURCE_DIR/coverage/pr" ]]; then
-              echo "    📁 Copying PR coverage..."
+              echo "    📁 Copying PR coverage (badges + HTML reports)..."
               cp -r "$SOURCE_DIR/coverage/pr" "$CLEAN_DEPLOY_DIR/coverage/"
               pr_size=$(du -sh "$CLEAN_DEPLOY_DIR/coverage/pr" 2>/dev/null | cut -f1 || echo "unknown")
               pr_files=$(find "$CLEAN_DEPLOY_DIR/coverage/pr" -type f | wc -l)
               echo "      ✅ Copied PR coverage ($pr_size, $pr_files files)"
+              
+              # CRITICAL: Verify PR HTML reports are included
+              echo "      🔍 Verifying PR HTML reports:"
+              for pr_dir in "$CLEAN_DEPLOY_DIR/coverage/pr"/*; do
+                if [[ -d "$pr_dir" ]]; then
+                  pr_num=$(basename "$pr_dir")
+                  if [[ -f "$pr_dir/index.html" ]]; then
+                    html_size=$(ls -lah "$pr_dir/index.html" | awk '{print $5}')
+                    echo "        ✅ PR #$pr_num HTML report: index.html ($html_size)"
+                    echo "        🌐 Will be available at: https://mrz1836.github.io/go-broadcast/coverage/pr/$pr_num/"
+                  else
+                    echo "        ⚠️ PR #$pr_num missing HTML report: index.html"
+                    echo "        🔍 Contents of PR directory:"
+                    ls -la "$pr_dir" 2>/dev/null | sed 's/^/          /' || echo "          Directory not accessible"
+                  fi
+                fi
+              done
             fi
             
             # Show size comparison
