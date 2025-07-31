@@ -2,6 +2,7 @@ package history
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -483,6 +484,112 @@ func TestGetEntryFilename(t *testing.T) {
 	entry.CommitSHA = ""
 	filename = tracker.getEntryFilename(entry)
 	assert.Equal(t, "20240115-143045.123456-master-nocommit.json", filename)
+}
+
+func TestBranchNameSanitization(t *testing.T) {
+	tracker := New()
+
+	testCases := []struct {
+		name           string
+		branchName     string
+		expectedSuffix string // Expected sanitized branch name in filename
+	}{
+		{
+			name:           "branch with forward slash",
+			branchName:     "6/merge",
+			expectedSuffix: "6-merge",
+		},
+		{
+			name:           "branch with backslash",
+			branchName:     "feature\\branch",
+			expectedSuffix: "feature-branch",
+		},
+		{
+			name:           "branch with colon",
+			branchName:     "feature:branch",
+			expectedSuffix: "feature-branch",
+		},
+		{
+			name:           "branch with multiple special characters",
+			branchName:     "feature/test*branch?name",
+			expectedSuffix: "feature-test-branch-name",
+		},
+		{
+			name:           "branch with Windows forbidden characters",
+			branchName:     "feature<branch>name|test",
+			expectedSuffix: "feature-branch-name-test",
+		},
+		{
+			name:           "normal branch name unchanged",
+			branchName:     "feature-branch",
+			expectedSuffix: "feature-branch",
+		},
+		{
+			name:           "master branch unchanged",
+			branchName:     "master",
+			expectedSuffix: "master",
+		},
+		{
+			name:           "empty branch name defaults to master",
+			branchName:     "",
+			expectedSuffix: "master",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := &Entry{
+				Timestamp: time.Date(2024, 1, 15, 14, 30, 45, 123456000, time.UTC),
+				Branch:    tc.branchName,
+				CommitSHA: "abc123def456",
+			}
+
+			filename := tracker.getEntryFilename(entry)
+			expectedFilename := fmt.Sprintf("20240115-143045.123456-%s-abc123de.json", tc.expectedSuffix)
+			assert.Equal(t, expectedFilename, filename, "Branch '%s' should be sanitized to '%s'", tc.branchName, tc.expectedSuffix)
+
+			// Verify the filename doesn't contain filesystem-unsafe characters
+			assert.NotContains(t, filename, "/", "Filename should not contain forward slash")
+			assert.NotContains(t, filename, "\\", "Filename should not contain backslash")
+			assert.NotContains(t, filename, ":", "Filename should not contain colon")
+			assert.NotContains(t, filename, "*", "Filename should not contain asterisk")
+			assert.NotContains(t, filename, "?", "Filename should not contain question mark")
+			assert.NotContains(t, filename, "\"", "Filename should not contain quote")
+			assert.NotContains(t, filename, "<", "Filename should not contain less than")
+			assert.NotContains(t, filename, ">", "Filename should not contain greater than")
+			assert.NotContains(t, filename, "|", "Filename should not contain pipe")
+		})
+	}
+}
+
+func TestSanitizeBranchName(t *testing.T) {
+	tracker := New()
+
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		{"6/merge", "6-merge"},
+		{"feature/branch-name", "feature-branch-name"},
+		{"feature\\branch", "feature-branch"},
+		{"feature:branch", "feature-branch"},
+		{"feature*branch", "feature-branch"},
+		{"feature?branch", "feature-branch"},
+		{"feature\"branch", "feature-branch"},
+		{"feature<branch>", "feature-branch-"},
+		{"feature|branch", "feature-branch"},
+		{"normal-branch", "normal-branch"},
+		{"master", "master"},
+		{"", "master"}, // empty should default to master
+		{"///", "---"}, // multiple slashes become multiple dashes
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("input_%s", tc.input), func(t *testing.T) {
+			result := tracker.sanitizeBranchName(tc.input)
+			assert.Equal(t, tc.expected, result, "Input '%s' should be sanitized to '%s'", tc.input, tc.expected)
+		})
+	}
 }
 
 func TestFileHashes(t *testing.T) {
