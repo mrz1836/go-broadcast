@@ -14,7 +14,7 @@ This report summarizes the performance analysis results for go-broadcast.
 - **Total Tests:** {{.TotalTests}}
 - **Passed Tests:** {{.PassedTests}}
 - **Failed Tests:** {{.FailedTests}}
-{{if .BaselineMetrics}}- **Compared Against:** Baseline from {{.Timestamp.Format "2006-01-02"}}{{end}}
+{{- if .BaselineMetrics}}- **Compared Against:** Baseline from {{.Timestamp.Format "2006-01-02"}}{{- end}}
 
 ## System Information
 
@@ -27,57 +27,57 @@ This report summarizes the performance analysis results for go-broadcast.
 ## Performance Metrics
 
 ### Current Performance
-{{range $key, $value := .CurrentMetrics}}
+{{- range $key, $value := .CurrentMetrics}}
 - **{{$key | title}}:** {{$value | formatFloat}}
-{{end}}
+{{- end}}
 
-{{if .BaselineMetrics}}
+{{- if .BaselineMetrics}}
 ### Performance Changes
 
-{{if .Improvements}}
+{{- if .Improvements}}
 #### Improvements ✅
-{{range $key, $value := .Improvements}}
+{{- range $key, $value := .Improvements}}
 - **{{$key | title}}:** {{$value | formatPercent}} improvement
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}
 
-{{if .Regressions}}
+{{- if .Regressions}}
 #### Regressions ⚠️
-{{range $key, $value := .Regressions}}
+{{- range $key, $value := .Regressions}}
 - **{{$key | title}}:** {{$value | formatPercent}} regression
-{{end}}
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}
+{{- end}}
 
 ## Test Results
 
-{{range .TestResults}}
+{{- range .TestResults}}
 ### {{.Name}}
 - **Status:** {{if .Success}}✅ PASS{{else}}❌ FAIL{{end}}
 - **Duration:** {{.Duration}}
-{{if .Throughput}}- **Throughput:** {{.Throughput | formatFloat}} ops/sec{{end}}
-{{if .MemoryUsed}}- **Memory Used:** {{.MemoryUsed}} MB{{end}}
-{{if .Error}}- **Error:** {{.Error}}{{end}}
+{{- if .Throughput}}- **Throughput:** {{.Throughput | formatFloat}} ops/sec{{- end}}
+{{- if .MemoryUsed}}- **Memory Used:** {{.MemoryUsed}} MB{{- end}}
+{{- if .Error}}- **Error:** {{.Error}}{{- end}}
 
-{{end}}
+{{- end}}
 
 ## Profiling Summary
 
-{{if .ProfileSummary.CPUProfile.Available}}
+{{- if .ProfileSummary.CPUProfile.Available}}
 - **CPU Profile:** {{.ProfileSummary.CPUProfile.Size | formatBytes}} ({{.ProfileSummary.CPUProfile.Path}})
-{{end}}
-{{if .ProfileSummary.MemoryProfile.Available}}
+{{- end}}
+{{- if .ProfileSummary.MemoryProfile.Available}}
 - **Memory Profile:** {{.ProfileSummary.MemoryProfile.Size | formatBytes}} ({{.ProfileSummary.MemoryProfile.Path}})
-{{end}}
-{{if .ProfileSummary.GoroutineProfile.Available}}
+{{- end}}
+{{- if .ProfileSummary.GoroutineProfile.Available}}
 - **Goroutine Profile:** {{.ProfileSummary.GoroutineProfile.Size | formatBytes}} ({{.ProfileSummary.GoroutineProfile.Path}})
-{{end}}
+{{- end}}
 - **Total Profile Size:** {{.ProfileSummary.TotalProfileSize | formatBytes}}
 
 ## Recommendations
 
-{{if .Recommendations}}
-{{range .Recommendations}}
+{{- if .Recommendations}}
+{{- range .Recommendations}}
 ### {{.Title}}
 
 **Priority:** {{.Priority | title}}  
@@ -89,41 +89,41 @@ This report summarizes the performance analysis results for go-broadcast.
 
 **Impact:** {{.Impact}}
 
-{{if .Evidence}}
+{{- if .Evidence}}
 **Evidence:**
-{{range .Evidence}}
+{{- range .Evidence}}
 - {{.}}
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}
 
-{{if .References}}
+{{- if .References}}
 **References:**
-{{range .References}}
+{{- range .References}}
 - {{.}}
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}
 
 ---
-{{end}}
-{{else}}
+{{- end}}
+{{- else}}
 No specific recommendations at this time. All performance metrics are within acceptable ranges.
-{{end}}
+{{- end}}
 
 ## Conclusion
 
-{{if and .Improvements (not .Regressions)}}
+{{- if and .Improvements (not .Regressions)}}
 Performance has improved across all measured metrics. The system is performing better than baseline.
-{{else if and .Regressions (not .Improvements)}}
+{{- else if and .Regressions (not .Improvements)}}
 Performance has regressed in several areas. Investigation and optimization are recommended.
-{{else if and .Improvements .Regressions}}
+{{- else if and .Improvements .Regressions}}
 Mixed performance results with both improvements and regressions. Review specific metrics for optimization opportunities.
-{{else}}
+{{- else}}
 Performance is stable with no significant changes from baseline.
-{{end}}
+{{- end}}
 
-{{if gt .FailedTests 0}}
+{{- if gt .FailedTests 0}}
 **Note:** {{.FailedTests}} performance test(s) failed. These failures should be investigated and resolved.
-{{end}}
+{{- end}}
 
 ---
 🏰 *Powered by GoFortress Coverage*
