@@ -494,7 +494,7 @@ func (m *PRCommentManager) generatePRBadgeURLs(owner, repo string, prNumber int,
 
 // generatePRBadgeURL generates a single PR badge URL
 func (m *PRCommentManager) generatePRBadgeURL(owner, repo string, prNumber int, _ float64) string {
-	return fmt.Sprintf("https://%s.github.io/%s/coverage/pr/%d/badge-coverage.svg", owner, repo, prNumber)
+	return fmt.Sprintf("https://%s.github.io/%s/coverage/pr/%d/badge-coverage-flat.svg", owner, repo, prNumber)
 }
 
 // createCoverageStatusCheck creates GitHub status check for coverage

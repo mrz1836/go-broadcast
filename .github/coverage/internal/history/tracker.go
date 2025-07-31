@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
@@ -621,6 +622,9 @@ func (t *Tracker) getEntryFilename(entry *Entry) string {
 	if branch == "" {
 		branch = DefaultBranch
 	}
+	// Sanitize branch name to prevent filesystem path issues
+	branch = t.sanitizeBranchName(branch)
+
 	commitSHA := entry.CommitSHA
 	if commitSHA == "" {
 		commitSHA = "nocommit"
@@ -631,6 +635,28 @@ func (t *Tracker) getEntryFilename(entry *Entry) string {
 		commitSHA = commitSHA[:8]
 	}
 	return fmt.Sprintf("%s-%s-%s.json", timestamp, branch, commitSHA)
+}
+
+// sanitizeBranchName sanitizes branch names to be filesystem-safe
+func (t *Tracker) sanitizeBranchName(branch string) string {
+	// Replace filesystem-unsafe characters with safe alternatives
+	// Forward slash is the main issue, but also handle other common problematic characters
+	sanitized := strings.ReplaceAll(branch, "/", "-")
+	sanitized = strings.ReplaceAll(sanitized, "\\", "-")
+	sanitized = strings.ReplaceAll(sanitized, ":", "-")
+	sanitized = strings.ReplaceAll(sanitized, "*", "-")
+	sanitized = strings.ReplaceAll(sanitized, "?", "-")
+	sanitized = strings.ReplaceAll(sanitized, "\"", "-")
+	sanitized = strings.ReplaceAll(sanitized, "<", "-")
+	sanitized = strings.ReplaceAll(sanitized, ">", "-")
+	sanitized = strings.ReplaceAll(sanitized, "|", "-")
+
+	// Handle edge cases
+	if sanitized == "" {
+		return DefaultBranch
+	}
+
+	return sanitized
 }
 
 func (t *Tracker) calculateFileHashes(coverage *parser.CoverageData) map[string]string {

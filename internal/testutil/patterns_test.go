@@ -125,6 +125,121 @@ func TestRunBenchmarkCases(t *testing.T) {
 	}
 }
 
+// BenchmarkRunBenchmarkCases tests the actual RunBenchmarkCases function
+func BenchmarkRunBenchmarkCases(b *testing.B) {
+	setupCalled := false
+	cleanupCalled := false
+
+	cases := []BenchmarkCase{
+		{
+			Name: "WithSetup",
+			Size: 10,
+			Setup: func() func() {
+				setupCalled = true
+				return func() {
+					cleanupCalled = true
+				}
+			},
+		},
+		{
+			Name: "WithoutSetup",
+			Size: 20,
+		},
+	}
+
+	RunBenchmarkCases(b, cases, func(b *testing.B, bc BenchmarkCase) {
+		// Simple operation for benchmarking
+		for i := 0; i < b.N; i++ {
+			_ = bc.Size * 2
+		}
+	})
+
+	// Verify setup and cleanup were called
+	if !setupCalled {
+		b.Error("setup function was not called")
+	}
+	if !cleanupCalled {
+		b.Error("cleanup function was not called")
+	}
+}
+
+// TestTestCaseStructure verifies the TestCase structure works correctly
+func TestTestCaseStructure(t *testing.T) {
+	// Test with string input/output
+	stringCase := TestCase[string, int]{
+		Name:     "string_length",
+		Input:    "hello",
+		Expected: 5,
+		WantErr:  false,
+		ErrMsg:   "",
+	}
+
+	AssertEqual(t, "string_length", stringCase.Name)
+	AssertEqual(t, "hello", stringCase.Input)
+	AssertEqual(t, 5, stringCase.Expected)
+	AssertEqual(t, false, stringCase.WantErr)
+
+	// Test with complex types
+	type ComplexInput struct {
+		Name  string
+		Value int
+	}
+	type ComplexOutput struct {
+		Result string
+	}
+
+	complexCase := TestCase[ComplexInput, ComplexOutput]{
+		Name: "complex_test",
+		Input: ComplexInput{
+			Name:  "test",
+			Value: 42,
+		},
+		Expected: ComplexOutput{
+			Result: "test:42",
+		},
+		WantErr: true,
+		ErrMsg:  "validation error",
+	}
+
+	AssertEqual(t, "complex_test", complexCase.Name)
+	AssertEqual(t, "test", complexCase.Input.Name)
+	AssertEqual(t, 42, complexCase.Input.Value)
+	AssertEqual(t, "test:42", complexCase.Expected.Result)
+	AssertEqual(t, true, complexCase.WantErr)
+	AssertEqual(t, "validation error", complexCase.ErrMsg)
+}
+
+// TestBenchmarkCaseStructure verifies the BenchmarkCase structure
+func TestBenchmarkCaseStructure(t *testing.T) {
+	setupCalled := false
+	cleanupCalled := false
+
+	bc := BenchmarkCase{
+		Name: "test_benchmark",
+		Size: 100,
+		Setup: func() func() {
+			setupCalled = true
+			return func() {
+				cleanupCalled = true
+			}
+		},
+	}
+
+	AssertEqual(t, "test_benchmark", bc.Name)
+	AssertEqual(t, 100, bc.Size)
+
+	// Test setup function
+	if bc.Setup != nil {
+		cleanup := bc.Setup()
+		AssertEqual(t, true, setupCalled)
+
+		if cleanup != nil {
+			cleanup()
+			AssertEqual(t, true, cleanupCalled)
+		}
+	}
+}
+
 func TestSkipFunctions(t *testing.T) {
 	// These functions will skip in certain conditions
 	// We're just verifying they compile and can be called

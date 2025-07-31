@@ -115,6 +115,10 @@ func runCancel(cmd *cobra.Command, args []string) error {
 }
 
 func performCancel(ctx context.Context, cfg *config.Config, targetRepos []string) (*CancelSummary, error) {
+	if cfg == nil {
+		panic("config cannot be nil")
+	}
+
 	// Create logger for GitHub operations
 	logger := logrus.New()
 	logger.SetLevel(logrus.InfoLevel)

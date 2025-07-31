@@ -540,6 +540,13 @@ func TestGetBadgeURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Set environment variable to mock master branch for complete configuration test
+			if tt.name == "complete configuration" {
+				require.NoError(t, os.Setenv("GITHUB_REF_NAME", "master"))
+				defer func() {
+					require.NoError(t, os.Unsetenv("GITHUB_REF_NAME"))
+				}()
+			}
 			result := tt.config.GetBadgeURL()
 			assert.Equal(t, tt.expected, result)
 		})
@@ -592,6 +599,13 @@ func TestGetReportURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Set environment variable to mock master branch for complete configuration test
+			if tt.name == "complete configuration" {
+				require.NoError(t, os.Setenv("GITHUB_REF_NAME", "master"))
+				defer func() {
+					require.NoError(t, os.Unsetenv("GITHUB_REF_NAME"))
+				}()
+			}
 			result := tt.config.GetReportURL()
 			assert.Equal(t, tt.expected, result)
 		})

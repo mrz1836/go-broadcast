@@ -177,6 +177,42 @@ setup_deployment_branches() {
         print_warning "gh-pages branch rule may already exist or failed to add"
     fi
     
+    # Add wildcard deployment rules for maximum flexibility
+    print_status "Adding * (any branch) deployment rule..."
+    
+    if gh api "repos/$repo/environments/github-pages/deployment-branch-policies" --method POST \
+        --field name="*" \
+        --field type="branch" \
+        --silent 2>/dev/null; then
+        print_success "* (any branch) deployment rule added"
+    else
+        print_warning "* (any branch) rule may already exist or failed to add"
+    fi
+    
+    # Add two-level wildcard deployment rule (e.g., feature/branch-name)
+    print_status "Adding */* (two-level) branch pattern deployment rule..."
+    
+    if gh api "repos/$repo/environments/github-pages/deployment-branch-policies" --method POST \
+        --field name="*/*" \
+        --field type="branch" \
+        --silent 2>/dev/null; then
+        print_success "*/* (two-level) branch pattern deployment rule added"
+    else
+        print_warning "*/* (two-level) branch pattern rule may already exist or failed to add"
+    fi
+    
+    # Add three-level wildcard deployment rule (e.g., feature/category/branch-name)
+    print_status "Adding */*/* (three-level) branch pattern deployment rule..."
+    
+    if gh api "repos/$repo/environments/github-pages/deployment-branch-policies" --method POST \
+        --field name="*/*/*" \
+        --field type="branch" \
+        --silent 2>/dev/null; then
+        print_success "*/*/* (three-level) branch pattern deployment rule added"
+    else
+        print_warning "*/*/* (three-level) branch pattern rule may already exist or failed to add"
+    fi
+    
     # Add dependabot/* branch pattern deployment rule
     print_status "Adding dependabot/* branch pattern deployment rule..."
     
@@ -241,6 +277,9 @@ show_next_steps() {
     echo "  1. Your repository is now configured to deploy to GitHub Pages from:"
     echo "     - master branch (main deployments)"
     echo "     - gh-pages branch (GitHub Pages default)"
+    echo "     - * (any single branch name)"
+    echo "     - */* (two-level branch patterns like feature/branch-name)"
+    echo "     - */*/* (three-level branch patterns like feature/category/branch-name)"
     echo "     - dependabot/* branches (automated dependency updates)"
     echo "     - development branch (development deployments)"
     echo "  2. The GoFortress coverage workflow should now deploy successfully"
