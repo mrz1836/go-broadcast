@@ -33,6 +33,14 @@ on:
         description: "Primary runner OS"
         required: true
         type: string
+      event-name:
+        description: "GitHub event name (push, pull_request, etc)"
+        required: false
+        type: string
+      pr-number:
+        description: "Pull request number if applicable"
+        required: false
+        type: string
     secrets:
       github-token:
         description: "GitHub token for API access"
@@ -595,13 +603,13 @@ jobs:
       # Create PR comment (if in PR context)
       # ————————————————————————————————————————————————————————————————
       - name: 💬 Create or update PR coverage comment
-        if: github.event_name == 'pull_request' && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
+        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
         working-directory: .github/coverage/cmd/gofortress-coverage
         env:
           GITHUB_TOKEN: ${{ secrets.github-token }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           echo "💬 Creating or updating PR coverage comment..."
@@ -810,7 +818,7 @@ jobs:
       # Deploy PR badges to make them accessible via GitHub Pages
       # ————————————————————————————————————————————————————————————————
       - name: 🏷️ Deploy PR badges to GitHub Pages
-        if: github.event_name == 'pull_request' && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
+        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
         working-directory: .github/coverage/cmd/gofortress-coverage
         env:
           GITHUB_TOKEN: ${{ secrets.github-token }}
@@ -819,7 +827,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
           REPO_ROOT="$(realpath ../../../../)"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_NUMBER="${{ inputs.pr-number || github.event.pull_request.number }}"
 
           echo "🔍 Debug Information:"
           echo "  - Current working directory: $(pwd)"
@@ -937,7 +945,7 @@ jobs:
       # Deploy PR badges directly to GitHub Pages (immediate availability)
       # ————————————————————————————————————————————————————————————————
       - name: 🚀 Deploy PR badges to live GitHub Pages
-        if: github.event_name == 'pull_request' && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
+        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.github-token }}
         run: |
@@ -945,7 +953,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
           REPO_ROOT="$(pwd)"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_NUMBER="${{ inputs.pr-number || github.event.pull_request.number }}"
           PR_BADGE_DIR="$REPO_ROOT/pages-deploy/coverage/pr/$PR_NUMBER"
 
           # Check if we have badges to deploy
@@ -1025,11 +1033,11 @@ jobs:
       # Upload PR badge deployment as artifact for backup availability
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload PR badges as artifact
-        if: github.event_name == 'pull_request' && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
+        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: pr-badges-${{ github.event.pull_request.number }}
-          path: pages-deploy/coverage/pr/${{ github.event.pull_request.number }}/*.svg
+          name: pr-badges-${{ inputs.pr-number || github.event.pull_request.number }}
+          path: pages-deploy/coverage/pr/${{ inputs.pr-number || github.event.pull_request.number }}/*.svg
           retention-days: 30
         continue-on-error: true
 
@@ -1439,6 +1447,17 @@ jobs:
           BRANCH_NAME="${{ inputs.branch-name }}"
           TEMP_PAGES_DIR="/tmp/gh-pages-deploy-$$"
 
+          # Determine if we're in PR context
+          EVENT_NAME="${{ inputs.event-name || github.event_name }}"
+          PR_NUMBER="${{ inputs.pr-number || github.event.pull_request.number }}"
+
+          echo "📋 Deployment context:"
+          echo "  - Event: $EVENT_NAME"
+          echo "  - Branch: $BRANCH_NAME"
+          if [[ -n "$PR_NUMBER" ]]; then
+            echo "  - PR Number: $PR_NUMBER"
+          fi
+
           # Verify deployment directory
           if [[ ! -d "$DEPLOY_DIR" ]]; then
             echo "❌ Deployment directory does not exist: $DEPLOY_DIR"
@@ -1681,7 +1700,23 @@ jobs:
             fi
           fi
 
-          # Update branch-specific content with filtering
+          # Deploy PR or branch content based on event type
+          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ -n "$PR_NUMBER" ]]; then
+            # PR deployment - copy PR-specific content
+            PR_DIR="coverage/pr/$PR_NUMBER"
+            echo "📋 Updating PR-specific content: $PR_DIR"
+            mkdir -p "$PR_DIR"
+            
+            if [[ -d "$DEPLOY_DIR/coverage/pr/$PR_NUMBER" ]]; then
+              echo "  📋 Copying PR coverage files..."
+              cp -r "$DEPLOY_DIR/coverage/pr/$PR_NUMBER"/* "$PR_DIR/" 2>/dev/null || true
+              echo "  ✅ Updated PR coverage: PR #$PR_NUMBER"
+            else
+              echo "  ⚠️ No PR coverage files found at: $DEPLOY_DIR/coverage/pr/$PR_NUMBER"
+            fi
+          fi
+
+          # Always update branch-specific content as well
           BRANCH_DIR="coverage/branch/$BRANCH_NAME"
           echo "📋 Updating branch-specific content: $BRANCH_DIR (with filtering)"
           mkdir -p "$BRANCH_DIR"
@@ -1856,9 +1891,12 @@ jobs:
           fi
 
           # Commit changes
-          COMMIT_MSG="Deploy coverage for branch '$BRANCH_NAME' (commit ${{ inputs.commit-sha }})"
-          if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ -n "$PR_NUMBER" ]]; then
+            COMMIT_MSG="Deploy PR #$PR_NUMBER coverage (commit ${{ inputs.commit-sha }})"
+          elif [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
             COMMIT_MSG="Deploy main coverage dashboard (commit ${{ inputs.commit-sha }})"
+          else
+            COMMIT_MSG="Deploy coverage for branch '$BRANCH_NAME' (commit ${{ inputs.commit-sha }})"
           fi
 
           git commit -m "$COMMIT_MSG"$'\n\n🏷️ Generated with GoFortress'
@@ -1869,6 +1907,9 @@ jobs:
             echo ""
             echo "🌐 Deployment URLs:"
             echo "  - Main dashboard: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+            if [[ "$EVENT_NAME" == "pull_request" ]] && [[ -n "$PR_NUMBER" ]]; then
+              echo "  - PR coverage: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/pr/$PR_NUMBER/"
+            fi
             echo "  - Branch coverage: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/branch/$BRANCH_NAME/"
             if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
               echo "  - All branches: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/branches.html"
@@ -1916,9 +1957,10 @@ jobs:
           fi
 
           # Define URLs to test based on event type and branch
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          EVENT_NAME="${{ inputs.event-name || github.event_name }}"
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
             # PR deployment - test PR-specific URLs
-            PR_NUMBER="${{ github.event.pull_request.number }}"
+            PR_NUMBER="${{ inputs.pr-number || github.event.pull_request.number }}"
             CRITICAL_URLS=(
               "$BASE_URL/coverage/pr/$PR_NUMBER/"
               "$BASE_URL/coverage/pr/$PR_NUMBER/index.html"
@@ -2036,8 +2078,9 @@ jobs:
             echo ""
             echo "🎉 DEPLOYMENT SUCCESSFUL! All critical URLs are accessible."
             echo ""
-            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-              PR_NUMBER="${{ github.event.pull_request.number }}"
+            EVENT_NAME="${{ inputs.event-name || github.event_name }}"
+            if [[ "$EVENT_NAME" == "pull_request" ]]; then
+              PR_NUMBER="${{ inputs.pr-number || github.event.pull_request.number }}"
               echo "🔀 PR Coverage Report: $BASE_URL/coverage/pr/$PR_NUMBER/"
               echo "📊 PR Coverage HTML: $BASE_URL/coverage/pr/$PR_NUMBER/index.html"
               echo "🏷️ PR Coverage Badge: $BASE_URL/coverage/pr/$PR_NUMBER/badge.svg"
@@ -2058,7 +2101,7 @@ jobs:
               echo "    - $BASE_URL/coverage/index.html"
             fi
             
-            if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            if [[ "$EVENT_NAME" != "pull_request" ]]; then
               echo ""
               echo "🌲 Branch Coverage Dashboard: $BASE_URL/coverage/branch/$BRANCH_NAME/"
               echo "📈 Branch Coverage Report: $BASE_URL/coverage/branch/$BRANCH_NAME/coverage.html"

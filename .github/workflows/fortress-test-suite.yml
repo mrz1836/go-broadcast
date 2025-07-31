@@ -378,5 +378,7 @@ jobs:
       commit-sha: ${{ github.sha }}
       env-json: ${{ inputs.env-json }}
       primary-runner: ${{ inputs.primary-runner }}
+      event-name: ${{ github.event_name }}
+      pr-number: ${{ github.event.pull_request.number }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
