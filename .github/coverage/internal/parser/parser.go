@@ -26,11 +26,14 @@ var (
 )
 
 // CoverageData represents parsed coverage information
+// IMPORTANT: Despite the field names, TotalLines and CoveredLines actually contain
+// statement counts, not line counts. This is because Go coverage works at the
+// statement level, not the line level. Each statement can span multiple lines.
 type CoverageData struct {
 	Mode         string                      `json:"mode"`
 	Packages     map[string]*PackageCoverage `json:"packages"`
-	TotalLines   int                         `json:"total_lines"`
-	CoveredLines int                         `json:"covered_lines"`
+	TotalLines   int                         `json:"total_lines"`   // Actually contains total statement count
+	CoveredLines int                         `json:"covered_lines"` // Actually contains covered statement count
 	Percentage   float64                     `json:"percentage"`
 	Timestamp    time.Time                   `json:"timestamp"`
 }
@@ -39,8 +42,8 @@ type CoverageData struct {
 type PackageCoverage struct {
 	Name         string                   `json:"name"`
 	Files        map[string]*FileCoverage `json:"files"`
-	TotalLines   int                      `json:"total_lines"`
-	CoveredLines int                      `json:"covered_lines"`
+	TotalLines   int                      `json:"total_lines"`   // Actually contains total statement count
+	CoveredLines int                      `json:"covered_lines"` // Actually contains covered statement count
 	Percentage   float64                  `json:"percentage"`
 }
 
@@ -48,8 +51,8 @@ type PackageCoverage struct {
 type FileCoverage struct {
 	Path         string      `json:"path"`
 	Statements   []Statement `json:"statements"`
-	TotalLines   int         `json:"total_lines"`
-	CoveredLines int         `json:"covered_lines"`
+	TotalLines   int         `json:"total_lines"`   // Actually contains total statement count
+	CoveredLines int         `json:"covered_lines"` // Actually contains covered statement count
 	Percentage   float64     `json:"percentage"`
 }
 
