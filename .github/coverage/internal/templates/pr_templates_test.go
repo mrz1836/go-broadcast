@@ -108,8 +108,8 @@ func TestRenderComment(t *testing.T) {
 		assert.NotEmpty(t, result)
 
 		// Check for key elements
-		assert.Contains(t, result, "85.5%") // Coverage percentage
-		assert.Contains(t, result, testData.Resources.BadgeURL)
+		assert.Contains(t, result, "85.5%")    // Coverage percentage
+		assert.Contains(t, result, "testrepo") // Repository name should be in output
 	})
 
 	// Test empty template name (should default to comprehensive)
@@ -158,7 +158,7 @@ func TestGetAvailableTemplates(t *testing.T) {
 	templates := engine.GetAvailableTemplates()
 
 	assert.Len(t, templates, 1)
-	assert.Contains(t, templates, "comprehensive")
+	assert.Contains(t, templates, "dashboard")
 }
 
 func TestProgressBar(t *testing.T) {

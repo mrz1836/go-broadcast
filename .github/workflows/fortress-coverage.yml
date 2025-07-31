@@ -541,7 +541,7 @@ jobs:
           echo ""
           echo "🔍 CRITICAL: Pre-deployment content verification"
           echo "   This shows EXACTLY what will be deployed to GitHub Pages"
-          echo "   Current artifact size reported as 742KB - should be <100KB"
+          echo "   Expected size: <100KB for optimal performance"
           echo ""
 
           DEPLOY_DIR="$OUTPUT_DIR"
@@ -555,7 +555,7 @@ jobs:
             if [[ "$ACTUAL_SIZE" =~ ^[0-9]+M ]]; then
               echo ""
               echo "🚨 CRITICAL ISSUE: Deployment size is $ACTUAL_SIZE (MB range)"
-              echo "   This confirms the artifact contains the entire repository!"
+              echo "   This indicates the deployment contains too many files"
               echo "   Expected size: <100KB for coverage files only"
             fi
           fi
@@ -880,7 +880,7 @@ jobs:
           if cp -r "$BADGE_SOURCE_DIR"/* "$PR_BADGE_DEPLOY_DIR/" 2>/dev/null; then
             echo "✅ PR badges copied successfully"
             
-            # CRITICAL FIX: Ensure PR HTML report is also copied
+            # Ensure PR HTML report is also copied
             # The HTML report might be generated separately from badges
             if [[ -f "/tmp/pr-badges/pr/$PR_NUMBER/index.html" ]]; then
               cp "/tmp/pr-badges/pr/$PR_NUMBER/index.html" "$PR_BADGE_DEPLOY_DIR/"
@@ -1034,13 +1034,13 @@ jobs:
         continue-on-error: true
 
       # ————————————————————————————————————————————————————————————————
-      # CRITICAL FIX: Create clean deployment directory (addresses 742KB artifact issue)
-      # The issue is that GitHub Pages deploys the entire repo instead of just coverage files
+      # Create clean deployment directory for GitHub Pages
+      # Ensures only coverage files are deployed, not the entire repository
       # ————————————————————————————————————————————————————————————————
-      - name: 🧹 Create clean Pages deployment (CRITICAL FIX)
+      - name: 🧹 Create clean Pages deployment
         run: |
-          echo "🧹 CRITICAL FIX: Creating clean GitHub Pages deployment"
-          echo "Issue: GitHub Pages artifact was 742KB (entire repo) instead of <100KB (coverage only)"
+          echo "🧹 Creating clean GitHub Pages deployment"
+          echo "Filtering deployment to include only coverage files"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
           # Create a completely clean deployment directory
@@ -1069,8 +1069,7 @@ jobs:
             ".nojekyll"
           )
 
-          # CRITICAL FIX: Instead of copying entire coverage directory (which has 540KB duplication),
-          # selectively copy only essential coverage files to eliminate nested duplication
+          # Selectively copy coverage files to avoid nested directory structures
           COVERAGE_DIRS_TO_COPY=(
             "data"
             "badges"
@@ -1104,10 +1103,9 @@ jobs:
             fi
           done
 
-          # CRITICAL FIX: Selectively copy coverage directory to eliminate duplication
-          # Issue: coverage directory has nested paths like coverage/branch/master/reports/branch/master/
-          # This creates 540KB for 13 files due to path duplication
-          echo "  🔧 SELECTIVE COVERAGE COPY: Eliminating nested duplication..."
+          # Selectively copy coverage directory with clean structure
+          # Avoids nested paths and ensures efficient file organization
+          echo "  🔧 SELECTIVE COVERAGE COPY: Organizing coverage files..."
 
           if [[ -d "$SOURCE_DIR/coverage" ]]; then
             echo "    📋 Original coverage directory structure:"
@@ -1211,7 +1209,7 @@ jobs:
               ORIGINAL_FILES=$(find "$SOURCE_DIR/coverage" -type f | wc -l)
               CLEAN_FILES=$(find "$CLEAN_DEPLOY_DIR/coverage" -type f | wc -l)
               
-              echo "    📊 Coverage directory optimization:"
+              echo "    📊 Coverage directory structure:"
               echo "      📉 Before: $ORIGINAL_SIZE ($ORIGINAL_FILES files)"
               echo "      📈 After: $CLEAN_SIZE ($CLEAN_FILES files)"
               
@@ -1252,7 +1250,7 @@ jobs:
           rm -rf "$SOURCE_DIR"
           mv "$CLEAN_DEPLOY_DIR" "$SOURCE_DIR"
 
-          echo "✅ Clean deployment ready - GitHub Pages should now deploy <100KB instead of 742KB"
+          echo "✅ Clean deployment ready - GitHub Pages should deploy optimally sized content"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       # ————————————————————————————————————————————————————————————————
@@ -1275,9 +1273,9 @@ jobs:
 
           echo "✅ Deployment directory found"
 
-          # STRICT SIZE VERIFICATION: Ensure deployment stays under reasonable limits
+          # Size verification: Ensure deployment stays under reasonable limits
           echo ""
-          echo "📉 STRICT SIZE VERIFICATION: Checking deployment size limits..."
+          echo "📉 Size verification: Checking deployment size limits..."
           CURRENT_SIZE=$(du -sh "$DEPLOY_DIR" 2>/dev/null | cut -f1 || echo "unknown")
           CURRENT_FILES=$(find "$DEPLOY_DIR" -type f | wc -l)
 
@@ -1312,12 +1310,12 @@ jobs:
             echo "  ✅ EXCELLENT: Deployment size is optimal (<${TARGET_LIMIT_KB}KB)"
           elif [[ $SIZE_KB -le $WARNING_LIMIT_KB ]]; then
             echo "  ⚠️ WARNING: Deployment size is acceptable but could be optimized (${SIZE_KB}KB)"
-            echo "  💡 Optimization suggestions:"
+            echo "  💡 Size reduction suggestions:"
             echo "    - Check for large coverage files"
             echo "    - Verify no duplicated content"
             echo "    - Review file compression"
           elif [[ $SIZE_KB -le $HARD_LIMIT_KB ]]; then
-            echo "  🚨 ALERT: Deployment size is large (${SIZE_KB}KB) - needs optimization"
+            echo "  🚨 ALERT: Deployment size is large (${SIZE_KB}KB) - exceeds recommended limits"
             echo "  🔍 Analyzing large files:"
             find "$DEPLOY_DIR" -type f -exec ls -lah {} \; | sort -k5 -hr | head -10 | while read line; do
               echo "    $line"
@@ -1325,24 +1323,24 @@ jobs:
             echo "  ⚠️ Consider optimizing before deployment"
           else
             echo "  ❌ CRITICAL: Deployment size (${SIZE_KB}KB) exceeds hard limit (${HARD_LIMIT_KB}KB)"
-            echo "  🚨 DEPLOYMENT BLOCKED - Size optimization required"
+            echo "  🚨 DEPLOYMENT BLOCKED - Size reduction required"
             echo ""
             echo "  🔍 Large files analysis:"
             find "$DEPLOY_DIR" -type f -exec ls -lah {} \; | sort -k5 -hr | head -15 | while read line; do
               echo "    $line"
             done
             echo ""
-            echo "  🛠️ Required optimizations:"
+            echo "  🛠️ Required actions:"
             echo "    1. Review coverage directory structure for duplication"
             echo "    2. Compress large HTML/JSON files"
             echo "    3. Remove unnecessary data files"
             echo "    4. Check for embedded assets that should be external"
             echo ""
-            echo "  🐛 This prevents the 742KB artifact issue from recurring"
+            echo "  🐛 This ensures deployments remain within size limits"
             exit 1
           fi
 
-          # Add .nojekyll to disable Jekyll processing (CRITICAL FIX)
+          # Add .nojekyll to disable Jekyll processing
           echo ""
           echo "🔧 Adding .nojekyll file to disable Jekyll processing..."
           touch "$DEPLOY_DIR/.nojekyll"
@@ -2055,9 +2053,9 @@ jobs:
               fi
             done
 
-            # Provide helpful debugging information
+            # Provide helpful diagnostic information
             echo ""
-            echo "🔍 Debugging information:"
+            echo "🔍 Diagnostic information:"
             echo "  - Is this a first deployment? $IS_FIRST_RUN"
             echo "  - Branch being deployed: $BRANCH_NAME"
             echo "  - Failed critical URLs: $((CRITICAL_TOTAL - CRITICAL_SUCCESS))"
