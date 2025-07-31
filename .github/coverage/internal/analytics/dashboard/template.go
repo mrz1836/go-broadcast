@@ -970,7 +970,7 @@ const dashboardTemplate = `<!DOCTYPE html>
                     <p class="subtitle">{{- if .PRTitle}}{{.PRTitle}} • {{end}}Coverage analysis for this pull request</p>
                     {{- else}}
                     <h1>{{.RepositoryName}} Coverage</h1>
-                    <p class="subtitle">Code coverage dashboard • Powered by GoFortress</p>
+                    <p class="subtitle">Code coverage dashboard • Powered by 🏰 GoFortress</p>
                     {{- end}}
                 </div>
 
@@ -1213,7 +1213,7 @@ const dashboardTemplate = `<!DOCTYPE html>
                 {{- range .Packages}}
                 <div class="package-item">
                     <div class="package-name">{{.Name}}</div>
-                    <div class="package-coverage">{{.Coverage}}%</div>
+                    <div class="package-coverage" style="color: {{- if ge .Coverage 90.0}}#3fb950{{else if ge .Coverage 80.0}}#90c978{{else if ge .Coverage 70.0}}#d29922{{else if ge .Coverage 60.0}}#f85149{{else}}#da3633{{end -}};">{{.Coverage}}%</div>
                     <div class="package-bar">
                         <div class="package-bar-fill" style="width: {{.Coverage}}%"></div>
                     </div>
@@ -1221,10 +1221,6 @@ const dashboardTemplate = `<!DOCTYPE html>
                 {{- end}}
             </div>
             {{- end}}
-
-            <div class="last-updated">
-                🕐 Last updated: {{.Timestamp}}
-            </div>
         </main>
 
         <footer class="footer">
