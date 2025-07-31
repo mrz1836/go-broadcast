@@ -48,7 +48,7 @@ func TestAddWithPatterns(t *testing.T) {
 	}
 
 	// Run table-driven tests with consistent patterns
-	testutil.RunTableTests(t, tests, func(t *testing.T, tc testutil.TestCase[struct{ a, b int }, int]) {
+	testutil.RunTableTests(t, tests, func(t testing.TB, tc testutil.TestCase[struct{ a, b int }, int]) {
 		result, err := Add(tc.Input.a, tc.Input.b)
 
 		if tc.WantErr {

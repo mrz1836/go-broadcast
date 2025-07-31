@@ -18,22 +18,28 @@ type TestCase[TInput any, TExpected any] struct {
 // RunTableTests runs table-driven tests with consistent patterns.
 // It provides a standard way to execute multiple test cases.
 func RunTableTests[TInput any, TExpected any](
-	t *testing.T,
+	t testing.TB,
 	tests []TestCase[TInput, TExpected],
-	runner func(*testing.T, TestCase[TInput, TExpected]),
+	runner func(testing.TB, TestCase[TInput, TExpected]),
 ) {
 	t.Helper()
 
 	for _, tt := range tests {
-		t.Run(tt.Name, func(t *testing.T) {
-			runner(t, tt)
-		})
+		if tRunner, ok := t.(*testing.T); ok {
+			tRunner.Run(tt.Name, func(t *testing.T) {
+				runner(t, tt)
+			})
+		} else if bRunner, ok := t.(*testing.B); ok {
+			bRunner.Run(tt.Name, func(b *testing.B) {
+				runner(b, tt)
+			})
+		}
 	}
 }
 
 // AssertNoError fails the test if err is not nil.
 // It provides a consistent way to check for unexpected errors.
-func AssertNoError(t *testing.T, err error, msgAndArgs ...interface{}) {
+func AssertNoError(t testing.TB, err error, msgAndArgs ...interface{}) {
 	t.Helper()
 	if err != nil {
 		if len(msgAndArgs) > 0 {
@@ -46,7 +52,7 @@ func AssertNoError(t *testing.T, err error, msgAndArgs ...interface{}) {
 
 // AssertError fails the test if err is nil when error is expected.
 // It provides a consistent way to check that an error occurred.
-func AssertError(t *testing.T, err error, msgAndArgs ...interface{}) {
+func AssertError(t testing.TB, err error, msgAndArgs ...interface{}) {
 	t.Helper()
 	if err == nil {
 		if len(msgAndArgs) > 0 {
@@ -59,7 +65,7 @@ func AssertError(t *testing.T, err error, msgAndArgs ...interface{}) {
 
 // AssertErrorContains checks that an error occurred and contains the expected message.
 // It provides a consistent way to validate error messages.
-func AssertErrorContains(t *testing.T, err error, expectedMsg string) {
+func AssertErrorContains(t testing.TB, err error, expectedMsg string) {
 	t.Helper()
 	if err == nil {
 		t.Fatalf("expected error containing '%s' but got nil", expectedMsg)
@@ -71,7 +77,7 @@ func AssertErrorContains(t *testing.T, err error, expectedMsg string) {
 
 // AssertEqual checks that two values are equal.
 // It provides a simple equality check with clear error messages.
-func AssertEqual[T comparable](t *testing.T, expected, actual T, msgAndArgs ...interface{}) {
+func AssertEqual[T comparable](t testing.TB, expected, actual T, msgAndArgs ...interface{}) {
 	t.Helper()
 	if expected != actual {
 		if len(msgAndArgs) > 0 {
@@ -84,7 +90,7 @@ func AssertEqual[T comparable](t *testing.T, expected, actual T, msgAndArgs ...i
 
 // AssertNotEqual checks that two values are not equal.
 // It provides a simple inequality check with clear error messages.
-func AssertNotEqual[T comparable](t *testing.T, unexpected, actual T, msgAndArgs ...interface{}) {
+func AssertNotEqual[T comparable](t testing.TB, unexpected, actual T, msgAndArgs ...interface{}) {
 	t.Helper()
 	if unexpected == actual {
 		if len(msgAndArgs) > 0 {
