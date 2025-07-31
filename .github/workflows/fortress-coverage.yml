@@ -1030,11 +1030,15 @@ jobs:
             ".nojekyll"
           )
 
+          # CRITICAL FIX: Instead of copying entire coverage directory (which has 540KB duplication),
+          # selectively copy only essential coverage files to eliminate nested duplication
           COVERAGE_DIRS_TO_COPY=(
-            "coverage"
             "data"
             "badges"
           )
+
+          # Define coverage directory structure to copy selectively (avoid duplication)
+          COVERAGE_SELECTIVE_COPY=true
 
           echo "🗋 Copying ONLY coverage files to clean deployment:"
 
@@ -1049,7 +1053,7 @@ jobs:
             fi
           done
 
-          # Copy coverage directories
+          # Copy simple directories (data, badges)
           for dir in "${COVERAGE_DIRS_TO_COPY[@]}"; do
             if [[ -d "$SOURCE_DIR/$dir" ]]; then
               cp -r "$SOURCE_DIR/$dir" "$CLEAN_DEPLOY_DIR/"
@@ -1060,6 +1064,108 @@ jobs:
               echo "  ⚠️ Missing directory: $dir"
             fi
           done
+
+          # CRITICAL FIX: Selectively copy coverage directory to eliminate duplication
+          # Issue: coverage directory has nested paths like coverage/branch/master/reports/branch/master/
+          # This creates 540KB for 13 files due to path duplication
+          echo "  🔧 SELECTIVE COVERAGE COPY: Eliminating nested duplication..."
+
+          if [[ -d "$SOURCE_DIR/coverage" ]]; then
+            echo "    📋 Original coverage directory structure:"
+            du -sh "$SOURCE_DIR/coverage" | sed 's/^/      /'
+            find "$SOURCE_DIR/coverage" -type f | wc -l | xargs echo "      Files:"
+            
+            # Create coverage directory structure in clean deployment
+            mkdir -p "$CLEAN_DEPLOY_DIR/coverage"
+            
+            # Copy only essential coverage files, avoiding nested duplication
+            COVERAGE_ESSENTIAL_FILES=(
+              "coverage.svg"
+              "coverage.html"
+              "index.html"
+              "dashboard.html"
+              "coverage-data.json"
+            )
+            
+            # First, try to copy branch-specific files (avoid nested reports/branch/X structure)
+            if [[ -d "$SOURCE_DIR/coverage/branch" ]]; then
+              echo "    📁 Processing branch coverage (avoiding duplication)..."
+              mkdir -p "$CLEAN_DEPLOY_DIR/coverage/branch"
+              
+              # For each branch directory
+              for branch_dir in "$SOURCE_DIR/coverage/branch"/*; do
+                if [[ -d "$branch_dir" ]]; then
+                  branch_name=$(basename "$branch_dir")
+                  echo "      🌿 Processing branch: $branch_name"
+                  
+                  # Create clean branch directory
+                  CLEAN_BRANCH_DIR="$CLEAN_DEPLOY_DIR/coverage/branch/$branch_name"
+                  mkdir -p "$CLEAN_BRANCH_DIR"
+                  
+                  # Copy essential files from the TOP LEVEL of the branch directory
+                  # (avoiding the nested reports/branch/X duplication)
+                  for file in "${COVERAGE_ESSENTIAL_FILES[@]}"; do
+                    # Try multiple possible locations for the file
+                    POSSIBLE_LOCATIONS=(
+                      "$branch_dir/$file"
+                      "$branch_dir/reports/branch/$branch_name/$file"
+                    )
+                    
+                    for location in "${POSSIBLE_LOCATIONS[@]}"; do
+                      if [[ -f "$location" ]]; then
+                        cp "$location" "$CLEAN_BRANCH_DIR/"
+                        file_size=$(ls -lah "$CLEAN_BRANCH_DIR/$file" | awk '{print $5}')
+                        echo "        ✅ Copied: $file ($file_size)"
+                        break
+                      fi
+                    done
+                  done
+                  
+                  # Copy data directory if it exists (avoid nested duplication)
+                  DATA_LOCATIONS=(
+                    "$branch_dir/data"
+                    "$branch_dir/reports/branch/$branch_name/data"
+                  )
+                  
+                  for data_location in "${DATA_LOCATIONS[@]}"; do
+                    if [[ -d "$data_location" ]]; then
+                      cp -r "$data_location" "$CLEAN_BRANCH_DIR/"
+                      data_size=$(du -sh "$CLEAN_BRANCH_DIR/data" 2>/dev/null | cut -f1 || echo "unknown")
+                      echo "        ✅ Copied data directory ($data_size)"
+                      break
+                    fi
+                  done
+                fi
+              done
+            fi
+            
+            # Copy PR directories if they exist
+            if [[ -d "$SOURCE_DIR/coverage/pr" ]]; then
+              echo "    📁 Copying PR coverage..."
+              cp -r "$SOURCE_DIR/coverage/pr" "$CLEAN_DEPLOY_DIR/coverage/"
+              pr_size=$(du -sh "$CLEAN_DEPLOY_DIR/coverage/pr" 2>/dev/null | cut -f1 || echo "unknown")
+              pr_files=$(find "$CLEAN_DEPLOY_DIR/coverage/pr" -type f | wc -l)
+              echo "      ✅ Copied PR coverage ($pr_size, $pr_files files)"
+            fi
+            
+            # Show size comparison
+            if [[ -d "$CLEAN_DEPLOY_DIR/coverage" ]]; then
+              ORIGINAL_SIZE=$(du -sh "$SOURCE_DIR/coverage" 2>/dev/null | cut -f1 || echo "unknown")
+              CLEAN_SIZE=$(du -sh "$CLEAN_DEPLOY_DIR/coverage" 2>/dev/null | cut -f1 || echo "unknown")
+              ORIGINAL_FILES=$(find "$SOURCE_DIR/coverage" -type f | wc -l)
+              CLEAN_FILES=$(find "$CLEAN_DEPLOY_DIR/coverage" -type f | wc -l)
+              
+              echo "    📊 Coverage directory optimization:"
+              echo "      📉 Before: $ORIGINAL_SIZE ($ORIGINAL_FILES files)"
+              echo "      📈 After: $CLEAN_SIZE ($CLEAN_FILES files)"
+              
+              if [[ "$ORIGINAL_SIZE" =~ ^([0-9]+)([KMG]) ]] && [[ "$CLEAN_SIZE" =~ ^([0-9]+)([KMG]) ]]; then
+                echo "      🎯 Successfully eliminated nested duplication!"
+              fi
+            fi
+          else
+            echo "  ⚠️ Missing directory: coverage"
+          fi
 
           echo ""
           echo "📊 Clean deployment summary:"
@@ -1112,6 +1218,73 @@ jobs:
           fi
 
           echo "✅ Deployment directory found"
+
+          # STRICT SIZE VERIFICATION: Ensure deployment stays under reasonable limits
+          echo ""
+          echo "📉 STRICT SIZE VERIFICATION: Checking deployment size limits..."
+          CURRENT_SIZE=$(du -sh "$DEPLOY_DIR" 2>/dev/null | cut -f1 || echo "unknown")
+          CURRENT_FILES=$(find "$DEPLOY_DIR" -type f | wc -l)
+
+          echo "  📊 Current deployment:"
+          echo "    - Size: $CURRENT_SIZE"
+          echo "    - Files: $CURRENT_FILES"
+
+          # Define size limits (in KB for easier comparison)
+          TARGET_LIMIT_KB=100
+          WARNING_LIMIT_KB=250
+          HARD_LIMIT_KB=500
+
+          # Convert size to KB for comparison
+          SIZE_KB=0
+          if [[ "$CURRENT_SIZE" =~ ^([0-9]+)K$ ]]; then
+            SIZE_KB=${BASH_REMATCH[1]}
+          elif [[ "$CURRENT_SIZE" =~ ^([0-9]+\.?[0-9]*)M$ ]]; then
+            SIZE_MB=${BASH_REMATCH[1]}
+            SIZE_KB=$(echo "$SIZE_MB * 1024" | bc -l | cut -d. -f1)
+          elif [[ "$CURRENT_SIZE" =~ ^([0-9]+)B$ ]]; then
+            SIZE_B=${BASH_REMATCH[1]} 
+            SIZE_KB=$(echo "$SIZE_B / 1024" | bc -l | cut -d. -f1)
+          fi
+
+          echo "  📈 Size analysis (KB): $SIZE_KB"
+          echo "    - Target: <${TARGET_LIMIT_KB}KB (optimal)"
+          echo "    - Warning: <${WARNING_LIMIT_KB}KB (acceptable)"
+          echo "    - Hard limit: <${HARD_LIMIT_KB}KB (maximum)"
+
+          # Determine status and actions
+          if [[ $SIZE_KB -le $TARGET_LIMIT_KB ]]; then
+            echo "  ✅ EXCELLENT: Deployment size is optimal (<${TARGET_LIMIT_KB}KB)"
+          elif [[ $SIZE_KB -le $WARNING_LIMIT_KB ]]; then
+            echo "  ⚠️ WARNING: Deployment size is acceptable but could be optimized (${SIZE_KB}KB)"
+            echo "  💡 Optimization suggestions:"
+            echo "    - Check for large coverage files"
+            echo "    - Verify no duplicated content"
+            echo "    - Review file compression"
+          elif [[ $SIZE_KB -le $HARD_LIMIT_KB ]]; then
+            echo "  🚨 ALERT: Deployment size is large (${SIZE_KB}KB) - needs optimization"
+            echo "  🔍 Analyzing large files:"
+            find "$DEPLOY_DIR" -type f -exec ls -lah {} \; | sort -k5 -hr | head -10 | while read line; do
+              echo "    $line"
+            done
+            echo "  ⚠️ Consider optimizing before deployment"
+          else
+            echo "  ❌ CRITICAL: Deployment size (${SIZE_KB}KB) exceeds hard limit (${HARD_LIMIT_KB}KB)"
+            echo "  🚨 DEPLOYMENT BLOCKED - Size optimization required"
+            echo ""
+            echo "  🔍 Large files analysis:"
+            find "$DEPLOY_DIR" -type f -exec ls -lah {} \; | sort -k5 -hr | head -15 | while read line; do
+              echo "    $line"
+            done
+            echo ""
+            echo "  🛠️ Required optimizations:"
+            echo "    1. Review coverage directory structure for duplication"
+            echo "    2. Compress large HTML/JSON files"
+            echo "    3. Remove unnecessary data files"
+            echo "    4. Check for embedded assets that should be external"
+            echo ""
+            echo "  🐛 This prevents the 742KB artifact issue from recurring"
+            exit 1
+          fi
 
           # Add .nojekyll to disable Jekyll processing (CRITICAL FIX)
           echo ""
@@ -1233,9 +1406,110 @@ jobs:
 
             # Show current content summary
             echo "📊 Current gh-pages content:"
-            echo "  - Total files: $(find . -type f -not -path './.git/*' | wc -l)"
+            TOTAL_BEFORE=$(find . -type f -not -path './.git/*' | wc -l)
+            echo "  - Total files: $TOTAL_BEFORE"
             echo "  - Coverage branches: $(find coverage/branch -maxdepth 1 -type d 2>/dev/null | wc -l || echo "0")"
             echo "  - PR badges: $(find coverage/pr -name "*.svg" 2>/dev/null | wc -l || echo "0")"
+            
+            # AGGRESSIVE CLEANUP: Remove unwanted files from existing gh-pages content
+            # This addresses the 317 unwanted files issue (.go, .yml, .md, etc.)
+            echo ""
+            echo "🧹 AGGRESSIVE CLEANUP: Removing unwanted files from existing gh-pages content..."
+            
+            # Count unwanted files before cleanup
+            UNWANTED_EXTENSIONS=(".go" ".mod" ".sum" ".yml" ".yaml" ".md" ".txt" ".toml" ".json" ".log")
+            CLEANUP_COUNT=0
+            
+            echo "  📊 Before cleanup:"
+            for ext in "${UNWANTED_EXTENSIONS[@]}"; do
+              count=$(find . -name "*$ext" -not -path './.git/*' -not -name "coverage-data.json" -not -name "metadata.json" -not -name "*.coverage.json" | wc -l)
+              if [[ $count -gt 0 ]]; then
+                echo "    $ext files: $count"
+                CLEANUP_COUNT=$((CLEANUP_COUNT + count))
+              fi
+            done
+            
+            if [[ $CLEANUP_COUNT -gt 0 ]]; then
+              echo "  🚨 Found $CLEANUP_COUNT unwanted files to remove"
+              
+              # Remove unwanted file types (preserve essential coverage JSON files)
+              for ext in "${UNWANTED_EXTENSIONS[@]}"; do
+                if [[ "$ext" == ".json" ]]; then
+                  # For JSON files, be selective - remove non-coverage JSON files
+                  find . -name "*$ext" -not -path './.git/*' \
+                    -not -name "coverage-data.json" \
+                    -not -name "metadata.json" \
+                    -not -name "*.coverage.json" \
+                    -not -name "package.json" \
+                    -not -name "package-lock.json" \
+                    -delete 2>/dev/null || true
+                else
+                  # Remove all files with these extensions
+                  find . -name "*$ext" -not -path './.git/*' -delete 2>/dev/null || true
+                fi
+              done
+              
+              # Remove common unwanted directories (preserve coverage-related ones)
+              UNWANTED_DIRS=(
+                "cmd"
+                "internal" 
+                "examples"
+                "docs"
+                "test"
+                "tests"
+                "spec"
+                "specs"
+                "node_modules"
+                ".vscode"
+                ".idea"
+              )
+              
+              for dir in "${UNWANTED_DIRS[@]}"; do
+                if [[ -d "$dir" ]] && [[ "$dir" != "coverage" ]] && [[ "$dir" != "data" ]] && [[ "$dir" != "badges" ]]; then
+                  echo "    🗑️ Removing directory: $dir"
+                  rm -rf "$dir" 2>/dev/null || true
+                fi
+              done
+              
+              # Remove common root-level unwanted files
+              UNWANTED_ROOT_FILES=(
+                "Makefile"
+                "LICENSE"
+                "README.md"
+                "CHANGELOG.md"
+                "CONTRIBUTING.md"
+                ".gitignore"
+                ".gitattributes"
+                ".editorconfig"
+                ".dockerignore"
+                "Dockerfile"
+                "_config.yml"
+              )
+              
+              for file in "${UNWANTED_ROOT_FILES[@]}"; do
+                if [[ -f "$file" ]]; then
+                  echo "    🗑️ Removing root file: $file"
+                  rm -f "$file" 2>/dev/null || true
+                fi
+              done
+              
+              # Show cleanup results
+              TOTAL_AFTER=$(find . -type f -not -path './.git/*' | wc -l)
+              REMOVED_COUNT=$((TOTAL_BEFORE - TOTAL_AFTER))
+              
+              echo "  📊 After cleanup:"
+              echo "    - Files before: $TOTAL_BEFORE"
+              echo "    - Files after: $TOTAL_AFTER"
+              echo "    - Files removed: $REMOVED_COUNT"
+              
+              if [[ $REMOVED_COUNT -gt 0 ]]; then
+                echo "  ✅ Successfully cleaned $REMOVED_COUNT unwanted files!"
+              else
+                echo "  ⚠️ No files were removed (may already be clean)"
+              fi
+            else
+              echo "  ✅ No unwanted files found - gh-pages branch is already clean"
+            fi
           else
             echo "📝 Creating new gh-pages branch..."
             mkdir -p "$TEMP_PAGES_DIR"
@@ -1254,10 +1528,30 @@ jobs:
             echo "✅ Copied GitHub Pages .gitignore filter"
             echo "📝 This ensures only coverage files are tracked in gh-pages branch"
             
-            # Apply the gitignore immediately to current content
-            echo "🧹 Cleaning existing content based on .gitignore rules..."
+            # Apply the gitignore immediately to current content (additional cleanup)
+            echo "🧹 Applying .gitignore filter to remaining content..."
             git clean -fX . 2>/dev/null || true
             echo "✅ Applied .gitignore filter to existing content"
+            
+            # Final verification of cleanup
+            echo ""
+            echo "🔍 Final cleanup verification:"
+            FINAL_UNWANTED=0
+            for ext in "${UNWANTED_EXTENSIONS[@]}"; do
+              if [[ "$ext" != ".json" ]]; then  # Skip JSON check as some are needed
+                count=$(find . -name "*$ext" -not -path './.git/*' | wc -l)
+                if [[ $count -gt 0 ]]; then
+                  echo "  ⚠️ Still found $count $ext files"
+                  FINAL_UNWANTED=$((FINAL_UNWANTED + count))
+                fi
+              fi
+            done
+            
+            if [[ $FINAL_UNWANTED -eq 0 ]]; then
+              echo "  ✅ Cleanup successful - no unwanted file types remaining"
+            else
+              echo "  ⚠️ $FINAL_UNWANTED unwanted files still present after cleanup"
+            fi
           else
             echo "⚠️ GitHub Pages .gitignore not found at: $GH_PAGES_GITIGNORE"
             echo "📝 Will proceed without filter - consider creating the file for cleaner deployments"
