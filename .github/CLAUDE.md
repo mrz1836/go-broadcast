@@ -2,15 +2,17 @@
 
 ## 🤖 Welcome, Claude
 
-This repository uses **`AGENTS.md`** as the single source of truth for:
+This repository uses **`AGENTS.md`** as the entry point to our modular technical conventions:
 
-* Coding conventions (naming, formatting, commenting, testing)
-* Contribution workflows (branch prefixes, commit message style, PR templates)
-* Release, CI, and dependency‑management policies
-* Security reporting and governance links
+* The main **`AGENTS.md`** provides an overview and directory structure
+* Technical standards are organized in **`.github/tech-conventions/`** for portability:
+  * **Core Development**: Go essentials, testing, documentation
+  * **Version Control**: Commits, branches, pull requests, releases
+  * **Infrastructure**: CI/CD, dependencies, security, workflows
+  * **Project Management**: Labeling conventions
 
-> **TL;DR:** **Read `AGENTS.md` first.**  
-> All technical or procedural questions are answered there.
+> **TL;DR:** **Start with `AGENTS.md`**, then explore specific conventions in **`tech-conventions/`**.  
+> All technical questions are answered in these focused documents.
 
 ---
 
@@ -310,7 +312,7 @@ The GoFortress coverage system uses an **incremental deployment strategy** that 
 - [`docs/performance-optimization.md`](../docs/performance-optimization.md) - Optimization best practices
 
 **Configuration Examples:**
-- [`examples/`](../examples/) - Complete configuration examples directory
+- [`examples/`](../examples) - Complete configuration examples directory
 - [`examples/README.md`](../examples/README.md) - Example configurations overview
 - [`examples/minimal.yaml`](../examples/minimal.yaml) - Simplest configuration
 - [`examples/sync.yaml`](../examples/sync.yaml) - Comprehensive example
