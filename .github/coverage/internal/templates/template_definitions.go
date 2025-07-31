@@ -14,8 +14,10 @@ const comprehensiveTemplate = `<!-- {{ .Metadata.Signature }} -->
 
 {{ statusEmoji .Coverage.Overall.Status }} **Overall Coverage: {{ formatPercent .Coverage.Overall.Percentage }}** {{ gradeEmoji .Coverage.Overall.Grade }}
 
-{{ if .Comparison.IsSignificant }}
+{{ if and (ne .Comparison.BasePercentage 0.0) (.Comparison.IsSignificant) }}
 {{ if isImproved .Comparison.Direction }}{{ trendEmoji "up" }} Coverage **improved** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }}){{ else if isDegraded .Comparison.Direction }}{{ trendEmoji "down" }} Coverage **decreased** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }}){{ else }}{{ trendEmoji "stable" }} Coverage remained **stable** at {{ formatPercent .Coverage.Overall.Percentage }}{{ end }}
+{{ else if eq .Comparison.BasePercentage 0.0 }}
+{{ trendEmoji "stable" }} **Initial coverage report** - no baseline for comparison
 {{ else }}
 {{ trendEmoji "stable" }} Coverage remained stable with {{ formatChange .Comparison.Change }} change
 {{ end }}
@@ -25,7 +27,7 @@ const comprehensiveTemplate = `<!-- {{ .Metadata.Signature }} -->
 | Metric | Value | Grade | Trend |
 |--------|-------|-------|--------|
 | **Percentage** | {{ formatPercent .Coverage.Overall.Percentage }} | {{ formatGrade .Quality.CoverageGrade }} | {{ trendEmoji .Trends.Direction }} {{ .Trends.Direction }} |
-| **Statements** | {{ formatNumber .Coverage.Overall.CoveredStatements }}/{{ formatNumber .Coverage.Overall.TotalStatements }} | {{ formatGrade .Quality.OverallGrade }} | {{ formatChange .Comparison.Change }} |
+| **Statements** | {{ formatNumber .Coverage.Overall.CoveredStatements }}/{{ formatNumber .Coverage.Overall.TotalStatements }} | {{ formatGrade .Quality.OverallGrade }} | {{ if and (ne .Comparison.BasePercentage 0.0) (.Comparison.IsSignificant) }}{{ formatChange .Comparison.Change }}{{ else }}{{ if eq .Comparison.BasePercentage 0.0 }}First report{{ else }}{{ formatChange .Comparison.Change }}{{ end }}{{ end }} |
 | **Quality Score** | {{ round .Quality.Score }}/100 | {{ formatGrade .Quality.OverallGrade }} | {{ if gt .Quality.Score 80.0 }}📈{{ else if lt .Quality.Score 60.0 }}📉{{ else }}📊{{ end }} |
 
 {{ if .Config.IncludeProgressBars }}
