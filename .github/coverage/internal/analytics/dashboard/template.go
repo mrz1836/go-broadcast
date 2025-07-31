@@ -21,7 +21,7 @@ const dashboardTemplate = `<!DOCTYPE html>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-    {{if .GoogleAnalyticsID}}
+    {{- if .GoogleAnalyticsID}}
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id={{.GoogleAnalyticsID}}"></script>
     <script>
@@ -30,7 +30,7 @@ const dashboardTemplate = `<!DOCTYPE html>
       gtag('js', new Date());
       gtag('config', '{{.GoogleAnalyticsID}}');
     </script>
-    {{end}}
+    {{- end}}
 
     <style>
         /* CSS Custom Properties */
@@ -982,60 +982,60 @@ const dashboardTemplate = `<!DOCTYPE html>
 
             <div class="repo-info-enhanced">
                 <div class="repo-details">
-                    {{if .RepositoryURL}}
+                    {{- if .RepositoryURL}}
                     <a href="{{.RepositoryURL}}" target="_blank" class="repo-item repo-item-clickable">
                         <span class="repo-icon">📦</span>
                         <span class="repo-label">Repository</span>
                         <span class="repo-value repo-link-light">{{.RepositoryOwner}}/{{.RepositoryName}}</span>
                     </a>
-                    {{else}}
+                    {{- else}}
                     <div class="repo-item">
                         <span class="repo-icon">📦</span>
                         <span class="repo-label">Repository</span>
                         <span class="repo-value">{{.RepositoryOwner}}/{{.RepositoryName}}</span>
                     </div>
-                    {{end}}
-                    {{if .OwnerURL}}
+                    {{- end}}
+                    {{- if .OwnerURL}}
                     <a href="{{.OwnerURL}}" target="_blank" class="repo-item repo-item-clickable">
                         <span class="repo-icon">👤</span>
                         <span class="repo-label">Owner</span>
                         <span class="repo-value">{{.RepositoryOwner}}</span>
                     </a>
-                    {{else}}
+                    {{- else}}
                     <div class="repo-item">
                         <span class="repo-icon">👤</span>
                         <span class="repo-label">Owner</span>
                         <span class="repo-value">{{.RepositoryOwner}}</span>
                     </div>
-                    {{end}}
-                    {{if .BranchURL}}
+                    {{- end}}
+                    {{- if .BranchURL}}
                     <a href="{{.BranchURL}}" target="_blank" class="repo-item repo-item-clickable">
                         <span class="repo-icon">🌿</span>
                         <span class="repo-label">Branch</span>
                         <span class="repo-value">{{.Branch}}</span>
                     </a>
-                    {{else}}
+                    {{- else}}
                     <div class="repo-item">
                         <span class="repo-icon">🌿</span>
                         <span class="repo-label">Branch</span>
                         <span class="repo-value">{{.Branch}}</span>
                     </div>
-                    {{end}}
-                    {{if .CommitSHA}}
-                        {{if .CommitURL}}
+                    {{- end}}
+                    {{- if .CommitSHA}}
+                        {{- if .CommitURL}}
                         <a href="{{.CommitURL}}" target="_blank" class="repo-item repo-item-clickable">
                             <span class="repo-icon">🔗</span>
                             <span class="repo-label">Commit</span>
                             <span class="repo-value commit-link">{{.CommitSHA}}</span>
                         </a>
-                        {{else}}
+                        {{- else}}
                         <div class="repo-item">
                             <span class="repo-icon">🔗</span>
                             <span class="repo-label">Commit</span>
                             <span class="repo-value">{{.CommitSHA}}</span>
                         </div>
-                        {{end}}
-                    {{end}}
+                        {{- end}}
+                    {{- end}}
                 </div>
 
                 <div class="header-actions">
@@ -1099,12 +1099,12 @@ const dashboardTemplate = `<!DOCTYPE html>
                 <div class="metric-card">
                     <h3>🔄 Coverage Trend</h3>
                     {{if .HasHistory}}
-                        <div class="metric-value {{if eq .TrendDirection "up"}}success{{else if eq .TrendDirection "down"}}danger{{end}}">
-                            {{if eq .TrendDirection "up"}}+{{end}}{{.CoverageTrend}}%
+                        <div class="metric-value {{- if eq .TrendDirection "up"}}success{{else if eq .TrendDirection "down"}}danger{{end -}}">
+                            {{- if eq .TrendDirection "up"}}+{{end}}{{.CoverageTrend}}%
                         </div>
                         <div class="metric-label">Change from previous</div>
                         <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--color-text-secondary);">
-                            {{if eq .TrendDirection "up"}}📈 Improving{{else if eq .TrendDirection "down"}}📉 Declining{{else}}➡️ Stable{{end}}
+                            {{- if eq .TrendDirection "up"}}📈 Improving{{else if eq .TrendDirection "down"}}📉 Declining{{else}}➡️ Stable{{end -}}
                         </div>
                     {{else}}
                         <div class="metric-value" style="font-size: 1.5rem;">📊</div>
@@ -1118,7 +1118,7 @@ const dashboardTemplate = `<!DOCTYPE html>
                                     {{if .PRNumber}}
                                         Comparing against base branch
                                     {{else if .IsFeatureBranch}}
-                                        {{.HistoryDataPoints}} data point{{if ne .HistoryDataPoints 1}}s{{end}} for this branch
+                                        {{.HistoryDataPoints}} data point{{- if ne .HistoryDataPoints 1}}s{{end -}} for this branch
                                     {{else}}
                                         Need 2+ commits to show trends
                                     {{end}}
@@ -1147,7 +1147,7 @@ const dashboardTemplate = `<!DOCTYPE html>
                                     {{else if .HasPreviousRuns}}
                                         Previous workflow runs failed to record history
                                     {{else if .WorkflowRunNumber}}
-                                        Workflow run #{{.WorkflowRunNumber}} {{if gt .WorkflowRunNumber 10}}(history may be incomplete){{end}}
+                                        Workflow run #{{.WorkflowRunNumber}} {{- if gt .WorkflowRunNumber 10}}(history may be incomplete){{end -}}
                                     {{else}}
                                         Collecting baseline coverage data
                                     {{end}}
@@ -1176,10 +1176,10 @@ const dashboardTemplate = `<!DOCTYPE html>
                 </div>
             </div>
 
-            {{if .Packages}}
+            {{- if .Packages}}
             <div class="package-list">
                 <h3 style="margin-bottom: 1rem;">📦 Package Coverage</h3>
-                {{range .Packages}}
+                {{- range .Packages}}
                 <div class="package-item">
                     <div class="package-name">{{.Name}}</div>
                     <div class="package-coverage">{{.Coverage}}%</div>
@@ -1187,9 +1187,9 @@ const dashboardTemplate = `<!DOCTYPE html>
                         <div class="package-bar-fill" style="width: {{.Coverage}}%"></div>
                     </div>
                 </div>
-                {{end}}
+                {{- end}}
             </div>
-            {{end}}
+            {{- end}}
 
             <div class="last-updated">
                 🕐 Last updated: {{.Timestamp}}
@@ -1199,7 +1199,7 @@ const dashboardTemplate = `<!DOCTYPE html>
         <footer class="footer">
             <div class="footer-content">
                 <div class="footer-info">
-                    {{if .LatestTag}}
+                    {{- if .LatestTag}}
                     <div class="footer-version">
                         <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}/releases/tag/{{.LatestTag}}" target="_blank" class="version-link">
                             <span class="version-icon">🏷️</span>
@@ -1207,7 +1207,7 @@ const dashboardTemplate = `<!DOCTYPE html>
                         </a>
                     </div>
                     <span class="footer-separator">•</span>
-                    {{end}}
+                    {{- end}}
                     <div class="footer-powered">
                         <span class="powered-text">Powered by</span>
                         <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}" target="_blank" class="gofortress-link">

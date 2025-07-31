@@ -814,7 +814,9 @@ jobs:
               "./badges/pr/$PR_NUMBER"
               "$REPO_ROOT/badges/pr/$PR_NUMBER"
               "./coverage-badges/pr/$PR_NUMBER"
+              "$REPO_ROOT/coverage-badges/pr/$PR_NUMBER"
               "$REPO_ROOT/.github/coverage/cmd/gofortress-coverage/coverage-badges/pr/$PR_NUMBER"
+              "$GOFORTRESS_DIR/coverage-badges/pr/$PR_NUMBER"
             )
 
             for alt_path in "${ALT_PATHS[@]}"; do
@@ -858,6 +860,12 @@ jobs:
             # List deployed badges
             echo "🏷️ Deployed PR badges:"
             find "$PR_BADGE_DEPLOY_DIR" -name "*.svg" -exec echo "  - {}" \;
+            
+            # Create a simple badge.svg symlink to the main coverage badge
+            if [[ -f "$PR_BADGE_DEPLOY_DIR/badge-coverage-flat.svg" ]]; then
+              ln -sf "badge-coverage-flat.svg" "$PR_BADGE_DEPLOY_DIR/badge.svg"
+              echo "✅ Created badge.svg symlink"
+            fi
 
             # Show expected URLs
             echo "🌐 PR badges will be available at:"
@@ -1110,6 +1118,19 @@ jobs:
             git init
             git checkout -b gh-pages
             echo "✅ Created new gh-pages branch"
+          fi
+
+          # Install GitHub Pages .gitignore filter to prevent pushing unwanted files
+          echo ""
+          echo "🔧 Installing GitHub Pages .gitignore filter..."
+          GH_PAGES_GITIGNORE="$REPO_ROOT/.github/coverage/gh-pages.gitignore"
+          if [[ -f "$GH_PAGES_GITIGNORE" ]]; then
+            cp "$GH_PAGES_GITIGNORE" .gitignore
+            echo "✅ Copied GitHub Pages .gitignore filter"
+            echo "📝 This ensures only coverage files are tracked in gh-pages branch"
+          else
+            echo "⚠️ GitHub Pages .gitignore not found at: $GH_PAGES_GITIGNORE"
+            echo "📝 Will proceed without filter - consider creating the file for cleaner deployments"
           fi
 
           # Preserve existing content structure

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/github"
 	"github.com/mrz1836/go-broadcast/coverage/internal/history"
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/report"
 	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
 )
 
@@ -320,7 +322,21 @@ Features:
 		// Generate PR-specific badges if requested
 		if generateBadges {
 			badgeGenerator := badge.New()
-			prBadgeManager := badge.NewPRBadgeManager(badgeGenerator, nil)
+			// Configure badge manager to use /tmp/pr-badges for workflow compatibility
+			badgeConfig := &badge.PRBadgeConfig{
+				OutputBasePath:         "/tmp/pr-badges",
+				CreateDirectories:      true,
+				DirectoryPermissions:   0o755,
+				FilePermissions:        0o644,
+				CoveragePattern:        "badge-coverage-{style}.svg",
+				TrendPattern:           "badge-trend-{style}.svg",
+				StatusPattern:          "badge-status-{style}.svg",
+				ComparisonPattern:      "badge-comparison-{style}.svg",
+				Styles:                 []string{"flat"},
+				DefaultStyle:           "flat",
+				GenerateMultipleStyles: false,
+			}
+			prBadgeManager := badge.NewPRBadgeManager(badgeGenerator, badgeConfig)
 
 			badgeRequest := &badge.PRBadgeRequest{
 				Repository:   cfg.GitHub.Repository,
@@ -346,6 +362,27 @@ Features:
 					if len(urls) > 0 {
 						fmt.Printf("  %s: %s\n", badgeType, urls[0]) //nolint:forbidigo // CLI output
 					}
+				}
+			}
+
+			// Generate PR-specific coverage report
+			fmt.Printf("Generating PR coverage report...\n") //nolint:forbidigo // CLI output
+			reportGenerator := report.New()
+
+			reportHTML, err := reportGenerator.Generate(ctx, coverage,
+				report.WithTitle(fmt.Sprintf("PR #%d Coverage Report", prNumber)),
+				report.WithPackages(true),
+				report.WithFiles(true),
+			)
+			if err != nil {
+				fmt.Printf("Warning: failed to generate PR report: %v\n", err) //nolint:forbidigo // CLI output
+			} else {
+				// Save PR report to /tmp/pr-badges for workflow
+				prReportPath := fmt.Sprintf("/tmp/pr-badges/pr/%d/index.html", prNumber)
+				if err := os.WriteFile(prReportPath, reportHTML, 0o600); err != nil {
+					fmt.Printf("Warning: failed to save PR report: %v\n", err) //nolint:forbidigo // CLI output
+				} else {
+					fmt.Printf("PR report saved to: %s\n", prReportPath) //nolint:forbidigo // CLI output
 				}
 			}
 		}
