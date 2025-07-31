@@ -707,6 +707,7 @@ update history, and create GitHub PR comment if in PR context.`,
 				filename string
 				source   string
 			}{
+				{"index.html", filepath.Join(targetOutputDir, "index.html")},
 				{"dashboard.html", filepath.Join(targetOutputDir, "dashboard.html")},
 				{"coverage.html", filepath.Join(targetOutputDir, cfg.Report.OutputFile)},
 			}
@@ -730,9 +731,10 @@ update history, and create GitHub PR comment if in PR context.`,
 				}
 			}
 
-			// Create root index.html redirect for master branch
-			if branch == "master" && !cfg.IsPullRequestContext() {
-				rootIndexPath := filepath.Join(outputDir, "index.html")
+			// Create root index.html redirect only if index.html copy failed and we're on master
+			rootIndexPath := filepath.Join(outputDir, "index.html")
+			if _, err := os.Stat(rootIndexPath); os.IsNotExist(err) && branch == "master" && !cfg.IsPullRequestContext() {
+				cmd.Printf("   ℹ️  Creating fallback redirect for master branch\n")
 				redirectHTML := `<!DOCTYPE html>
 <html>
 <head>
@@ -746,9 +748,9 @@ update history, and create GitHub PR comment if in PR context.`,
 </body>
 </html>`
 				if err := os.WriteFile(rootIndexPath, []byte(redirectHTML), cfg.Storage.FileMode); err != nil {
-					cmd.Printf("   ⚠️  Failed to create root index.html: %v\n", err)
+					cmd.Printf("   ⚠️  Failed to create fallback root index.html: %v\n", err)
 				} else {
-					cmd.Printf("   ✅ Root index.html redirect created\n")
+					cmd.Printf("   ✅ Fallback root index.html redirect created\n")
 				}
 			}
 			cmd.Printf("\n")
