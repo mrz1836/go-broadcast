@@ -1,78 +1,47 @@
-########################
-# Go Language          #
-########################
+# GitHub Pages Deployment Filter
+# This file is used to control what gets deployed to the gh-pages branch
+# It ensures only coverage-related files are included in GitHub Pages
 
-# Binary files
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
+# Ignore everything by default
+/*
 
-# Project main binary
-go-broadcast
+# Allow essential coverage files
+!/.gitignore
+!/.nojekyll
+!/index.html
+!/dashboard.html
+!/coverage.html
+!/coverage.svg
+!/branches.html
+!/coverage-data.json
 
-# Test binaries
-*.test
+# Allow favicon and manifest files
+!/favicon.ico
+!/favicon.svg
+!/favicon-16.svg
+!/*.png
+!/site.webmanifest
 
-# Go tools
-go.list
-*.out
+# Allow coverage-related directories
+!/coverage/
+!/data/
 
-# Coverage reports
-coverage.txt
-coverage.out
+# Allow all subdirectories and their contents
+# This ensures branch-specific and PR coverage is included
+!**/
 
-# Profiling data
-profiles/
-*.prof
-
-# Benchmark artifacts
-bench-old.txt
-bench-new.txt
-
-# Fuzz testing
-testdata
-internal/fuzz/corpus/
-
-# Coverage
-.github/coverage/cmd/gofortress-coverage/gofortress-coverage
-.github/coverage/gofortress-coverage
-
-########################
-# Development Tools    #
-########################
-
-# IDEs and Editors
-.idea/
-.project
-
-# AI assistants
-.claude
-
-# Linting
-lint-output.txt
-
-########################
-# Dependencies         #
-########################
-
-# Node.js
-node_modules/
-
-########################
-# Build & Distribution #
-########################
-
-# Build artifacts
-dist/
-
-########################
-# Operating System     #
-########################
-
-# macOS
+# Explicitly ignore common non-coverage files that might sneak in
 .DS_Store
-
-# Database files
-*.db
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*.swo
+node_modules/
+.git/
+.github/
+*.md
+go.mod
+go.sum
+*.go
+Makefile
