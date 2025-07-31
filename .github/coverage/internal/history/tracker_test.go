@@ -599,8 +599,8 @@ func TestFileHashes(t *testing.T) {
 	hashes := tracker.calculateFileHashes(coverage)
 	assert.NotEmpty(t, hashes)
 
-	for filepath, hash := range hashes {
-		assert.NotEmpty(t, filepath)
+	for fp, hash := range hashes {
+		assert.NotEmpty(t, fp)
 		assert.NotEmpty(t, hash)
 		assert.Contains(t, hash, "hash_")
 	}
