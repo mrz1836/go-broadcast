@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"os/exec"
 	"regexp"
 	"sort"
@@ -165,6 +166,12 @@ func (g *Generator) Generate(ctx context.Context, coverage *parser.CoverageData,
 
 // getGitCommitSHA returns the current Git commit SHA
 func getGitCommitSHA(ctx context.Context) string {
+	// First check if GITHUB_SHA environment variable is set (for CI environments)
+	if sha := os.Getenv("GITHUB_SHA"); sha != "" {
+		return sha
+	}
+
+	// Fall back to git command
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {

@@ -560,7 +560,7 @@ jobs:
             FILE_COUNT=$(find "$DEPLOY_DIR" -type f | wc -l)
             echo "   - Size: $ACTUAL_SIZE"
             echo "   - Files: $FILE_COUNT"
-            
+
             if [[ "$ACTUAL_SIZE" =~ ^[0-9]+M ]]; then
               echo ""
               echo "🚨 CRITICAL ISSUE: Deployment size is $ACTUAL_SIZE (MB range)"
@@ -602,9 +602,11 @@ jobs:
 
       # ————————————————————————————————————————————————————————————————
       # Create PR comment (if in PR context)
+      # Note: This handles both pull_request events AND push events to PR branches
+      # when a PR number is provided via inputs
       # ————————————————————————————————————————————————————————————————
       - name: 💬 Create or update PR coverage comment
-        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
+        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request' || inputs.pr-number != '') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
         working-directory: .github/coverage/cmd/gofortress-coverage
         env:
           GITHUB_TOKEN: ${{ secrets.github-token }}
@@ -645,65 +647,65 @@ jobs:
           BASE_COVERAGE_ARG=""
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "📊 Attempting to fetch base branch coverage for comparison..."
-            
+
             BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
             echo "📋 Base branch: $BASE_BRANCH (SHA: $BASE_SHA)"
-            
+
             # Define repository root for consistent path handling
             REPO_ROOT="$(realpath ../../../../)"
             echo "📁 Repository root: $REPO_ROOT"
-            
+
             # Try to fetch base coverage profile from recent workflow artifacts
             echo "🔍 Searching for base coverage in recent workflow artifacts..."
-            
+
             BASE_COVERAGE_FILE=""
             # Look for recent successful workflow runs on the base branch
             if command -v gh &> /dev/null && gh auth status &> /dev/null; then
               echo "📋 Searching for recent artifacts with base coverage..."
-              
+
               # Get recent successful runs on base branch
               RECENT_RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
                 --jq ".workflow_runs[] | select(.status == \"completed\" and .conclusion == \"success\" and .head_branch == \"$BASE_BRANCH\") | .id" \
                 --paginate 2>/dev/null | head -3 || echo "")
-              
+
               if [[ -n "$RECENT_RUNS" ]]; then
                 for run_id in $RECENT_RUNS; do
                   echo "🔍 Checking run $run_id for coverage artifacts..."
-                  
+
                   # Look for coverage-data artifact
                   COVERAGE_ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/$run_id/artifacts \
                     --jq '.artifacts[] | select(.name == "coverage-data") | .archive_download_url' \
                     2>/dev/null || echo "")
-                  
+
                   if [[ -n "$COVERAGE_ARTIFACTS" ]]; then
                     echo "✅ Found coverage-data artifact in run $run_id"
-                    
+
                     # Create temporary directory for extraction
                     TEMP_EXTRACT_DIR="/tmp/base-coverage-extract-$$"
                     mkdir -p "$TEMP_EXTRACT_DIR"
                     cd "$TEMP_EXTRACT_DIR"
-                    
+
                     # Download the artifact
                     if curl -L -H "Authorization: Bearer $GITHUB_TOKEN" \
                             -H "Accept: application/vnd.github+json" \
                             --connect-timeout 10 --max-time 30 \
                             "$COVERAGE_ARTIFACTS" -o "base-coverage-artifact.zip" 2>/dev/null; then
-                      
+
                       if [[ -s "base-coverage-artifact.zip" ]]; then
                         echo "✅ Downloaded base coverage artifact ($(wc -c < base-coverage-artifact.zip) bytes)"
-                        
+
                         # Extract and find coverage file
                         if unzip -q "base-coverage-artifact.zip" 2>/dev/null; then
                           # Look for coverage files with common extensions
                           BASE_PROFILE=$(find . -name "*.out" -o -name "*.txt" -o -name "coverage.*" | grep -E '\.(out|txt)$' | head -1)
                           if [[ -n "$BASE_PROFILE" ]] && [[ -f "$BASE_PROFILE" ]]; then
                             echo "✅ Extracted base coverage profile: $BASE_PROFILE"
-                            
+
                             # Copy to working directory
                             cp "$BASE_PROFILE" "$REPO_ROOT/base-coverage.out"
                             BASE_COVERAGE_FILE="$REPO_ROOT/base-coverage.out"
-                            
+
                             # Verify the file has content
                             if [[ -s "$BASE_COVERAGE_FILE" ]]; then
                               echo "✅ Base coverage file ready: $(wc -c < "$BASE_COVERAGE_FILE") bytes"
@@ -727,11 +729,11 @@ jobs:
                     else
                       echo "⚠️ Failed to download artifact from: $COVERAGE_ARTIFACTS"
                     fi
-                    
+
                     # Cleanup temp directory
                     cd "$REPO_ROOT"
                     rm -rf "$TEMP_EXTRACT_DIR"
-                    
+
                     # If we found a valid base coverage file, break out of the loop
                     if [[ -n "$BASE_COVERAGE_FILE" ]]; then
                       break
@@ -746,7 +748,7 @@ jobs:
             else
               echo "⚠️ GitHub CLI not available or not authenticated - skipping artifact search"
             fi
-            
+
             # Set BASE_COVERAGE_ARG if we have base coverage
             if [[ -n "$BASE_COVERAGE_FILE" ]] && [[ -f "$BASE_COVERAGE_FILE" ]]; then
               echo "✅ Base coverage available for comparison: $BASE_COVERAGE_FILE"
@@ -778,6 +780,20 @@ jobs:
 
           if [[ $? -eq 0 ]]; then
             echo "✅ PR comment created/updated successfully"
+            
+            # Wait a moment for file I/O operations to complete
+            sleep 2
+            
+            # Verify PR HTML report was generated
+            PR_NUMBER="${{ inputs.pr-number || github.event.pull_request.number }}"
+            if [[ -f "/tmp/pr-badges/pr/$PR_NUMBER/index.html" ]]; then
+              html_size=$(ls -lah "/tmp/pr-badges/pr/$PR_NUMBER/index.html" | awk '{print $5}')
+              echo "✅ PR HTML report generated successfully: index.html ($html_size)"
+            else
+              echo "❌ ERROR: PR HTML report was not generated at /tmp/pr-badges/pr/$PR_NUMBER/index.html"
+              echo "🔍 Checking for HTML files in /tmp/pr-badges/:"
+              find /tmp/pr-badges -name "*.html" -type f 2>/dev/null || echo "No HTML files found"
+            fi
 
             # Debug: Search for generated badges in current working directory
             echo ""
@@ -819,7 +835,7 @@ jobs:
       # Deploy PR badges to make them accessible via GitHub Pages
       # ————————————————————————————————————————————————————————————————
       - name: 🏷️ Deploy PR badges to GitHub Pages
-        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
+        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request' || inputs.pr-number != '') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
         working-directory: .github/coverage/cmd/gofortress-coverage
         env:
           GITHUB_TOKEN: ${{ secrets.github-token }}
@@ -888,35 +904,28 @@ jobs:
           echo "📋 Copying PR badges and HTML report to deployment directory..."
           if cp -r "$BADGE_SOURCE_DIR"/* "$PR_BADGE_DEPLOY_DIR/" 2>/dev/null; then
             echo "✅ PR badges copied successfully"
-            
-            # Ensure PR HTML report is also copied
-            # The HTML report might be generated separately from badges
-            if [[ -f "/tmp/pr-badges/pr/$PR_NUMBER/index.html" ]]; then
-              cp "/tmp/pr-badges/pr/$PR_NUMBER/index.html" "$PR_BADGE_DEPLOY_DIR/"
+
+            # Verify PR HTML report is included
+            if [[ -f "$PR_BADGE_DEPLOY_DIR/index.html" ]]; then
               html_size=$(ls -lah "$PR_BADGE_DEPLOY_DIR/index.html" | awk '{print $5}')
-              echo "✅ PR HTML report copied: index.html ($html_size)"
+              echo "✅ PR HTML report included: index.html ($html_size)"
               echo "🌐 Will be available at: https://mrz1836.github.io/go-broadcast/coverage/pr/$PR_NUMBER/"
             else
-              echo "⚠️ PR HTML report not found at: /tmp/pr-badges/pr/$PR_NUMBER/index.html"
-              echo "🔍 Searching for PR HTML report..."
+              echo "⚠️ WARNING: PR HTML report not found in deployment directory"
+              echo "🔍 Contents of PR badge deployment directory:"
+              ls -la "$PR_BADGE_DEPLOY_DIR" 2>/dev/null || echo "Directory not accessible"
               
-              # Search for any HTML files in the PR badge source directory
-              HTML_FILES=$(find "$BADGE_SOURCE_DIR" -name "*.html" 2>/dev/null)
-              if [[ -n "$HTML_FILES" ]]; then
-                echo "$HTML_FILES" | while read html_file; do
-                  filename=$(basename "$html_file")
-                  html_size=$(ls -lah "$html_file" | awk '{print $5}')
-                  echo "✅ Found HTML file: $filename ($html_size)"
-                done
-              else
-                echo "⚠️ No HTML files found in badge source directory"
-              fi
+              # This is critical - the HTML report should have been generated by the comment command
+              echo ""
+              echo "❌ CRITICAL: PR HTML report is missing!"
+              echo "   Expected at: $PR_BADGE_DEPLOY_DIR/index.html"
+              echo "   This indicates the gofortress-coverage comment command may not be generating HTML"
             fi
 
             # List deployed badges
             echo "🏷️ Deployed PR badges:"
             find "$PR_BADGE_DEPLOY_DIR" -name "*.svg" -exec echo "  - {}" \;
-            
+
             # Create a simple badge.svg symlink to the main coverage badge
             if [[ -f "$PR_BADGE_DEPLOY_DIR/badge-coverage-flat.svg" ]]; then
               ln -sf "badge-coverage-flat.svg" "$PR_BADGE_DEPLOY_DIR/badge.svg"
@@ -942,103 +951,19 @@ jobs:
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-      # ————————————————————————————————————————————————————————————————
-      # Deploy PR badges directly to GitHub Pages (immediate availability)
-      # ————————————————————————————————————————————————————————————————
-      - name: 🚀 Deploy PR badges to live GitHub Pages
-        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.github-token }}
-        run: |
-          echo "🚀 Deploying PR badges directly to GitHub Pages..."
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-          REPO_ROOT="$(pwd)"
-          PR_NUMBER="${{ inputs.pr-number || github.event.pull_request.number }}"
-          PR_BADGE_DIR="$REPO_ROOT/pages-deploy/coverage/pr/$PR_NUMBER"
-
-          # Check if we have badges to deploy
-          if [[ ! -d "$PR_BADGE_DIR" ]] || [[ -z "$(find "$PR_BADGE_DIR" -name "*.svg" 2>/dev/null)" ]]; then
-            echo "⚠️ No PR badges found to deploy - skipping GitHub Pages deployment"
-            exit 0
-          fi
-
-          echo "✅ Found PR badges to deploy:"
-          find "$PR_BADGE_DIR" -name "*.svg" -exec echo "  - {}" \;
-
-          # Clone the gh-pages branch to a temporary directory
-          TEMP_PAGES_DIR="/tmp/gh-pages-$$"
-          echo "📥 Cloning gh-pages branch to: $TEMP_PAGES_DIR"
-
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if git clone --depth 1 --branch gh-pages "https://x-access-token:$GITHUB_TOKEN@github.com/${{ github.repository }}.git" "$TEMP_PAGES_DIR" 2>/dev/null; then
-            echo "✅ Successfully cloned gh-pages branch"
-
-            # Create PR badge directory in gh-pages
-            GH_PAGES_PR_DIR="$TEMP_PAGES_DIR/coverage/pr/$PR_NUMBER"
-            mkdir -p "$GH_PAGES_PR_DIR"
-            echo "📁 Created directory: $GH_PAGES_PR_DIR"
-
-            # Copy badges AND HTML report to gh-pages
-            if cp "$PR_BADGE_DIR"/* "$GH_PAGES_PR_DIR/" 2>/dev/null; then
-              echo "✅ Copied PR badges and HTML report to gh-pages branch"
-              
-              # Verify HTML report was copied
-              if [[ -f "$GH_PAGES_PR_DIR/index.html" ]]; then
-                html_size=$(ls -lah "$GH_PAGES_PR_DIR/index.html" | awk '{print $5}')
-                echo "✅ PR HTML report deployed: index.html ($html_size)"
-                echo "🌐 Available at: https://mrz1836.github.io/go-broadcast/coverage/pr/$PR_NUMBER/"
-              else
-                echo "⚠️ WARNING: PR HTML report not found in gh-pages deployment"
-                echo "🔍 Contents of $GH_PAGES_PR_DIR:"
-                ls -la "$GH_PAGES_PR_DIR" 2>/dev/null || echo "Directory not accessible"
-              fi
-
-              # Commit and push changes
-              cd "$TEMP_PAGES_DIR"
-              git add coverage/pr/$PR_NUMBER/*
-
-              if git diff --staged --quiet; then
-                echo "ℹ️ No changes to commit - badges are already up to date"
-              else
-                git commit -m "Add PR #$PR_NUMBER coverage badges and report"$'\n\n🏷️ Generated with GoFortress'
-
-                if git push origin gh-pages; then
-                  echo "✅ Successfully pushed PR badges to GitHub Pages"
-                  echo "🌐 Badges will be available within 1-2 minutes at:"
-                  find "$GH_PAGES_PR_DIR" -name "*.svg" -exec basename {} \; | while read badge_file; do
-                    echo "  - https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/pr/$PR_NUMBER/$badge_file"
-                  done
-                else
-                  echo "❌ Failed to push PR badges to GitHub Pages"
-                fi
-              fi
-            else
-              echo "❌ Failed to copy badges to gh-pages directory"
-            fi
-
-            # Cleanup
-            cd "$REPO_ROOT"
-            rm -rf "$TEMP_PAGES_DIR"
-
-          else
-            echo "⚠️ Could not clone gh-pages branch - it may not exist yet"
-            echo "📝 PR badges will be available after the first main branch deployment"
-          fi
-
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      # NOTE: Removed duplicate PR badge deployment step
+      # The main incremental deployment at line 1440 already handles PR content properly
+      # Having multiple deployments to gh-pages can cause race conditions
 
       # ————————————————————————————————————————————————————————————————
-      # Upload PR badge deployment as artifact for backup availability
+      # Upload PR assets deployment as artifact for backup availability
       # ————————————————————————————————————————————————————————————————
-      - name: 📤 Upload PR badges as artifact
-        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
+      - name: 📤 Upload PR coverage (badges + HTML report) as artifact
+        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request' || inputs.pr-number != '') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pr-badges-${{ inputs.pr-number || github.event.pull_request.number }}
-          path: pages-deploy/coverage/pr/${{ inputs.pr-number || github.event.pull_request.number }}/*.svg
+          path: pages-deploy/coverage/pr/${{ inputs.pr-number || github.event.pull_request.number }}/
           retention-days: 30
         continue-on-error: true
 
@@ -1070,7 +995,7 @@ jobs:
           # Define ONLY the files we want to deploy (coverage files only)
           COVERAGE_FILES_TO_COPY=(
             "index.html"
-            "coverage.html" 
+            "coverage.html"
             "coverage.svg"
             "branches.html"
             "favicon.ico"
@@ -1120,10 +1045,10 @@ jobs:
             echo "    📋 Original coverage directory structure:"
             du -sh "$SOURCE_DIR/coverage" | sed 's/^/      /'
             find "$SOURCE_DIR/coverage" -type f | wc -l | xargs echo "      Files:"
-            
+
             # Create coverage directory structure in clean deployment
             mkdir -p "$CLEAN_DEPLOY_DIR/coverage"
-            
+
             # Copy only essential coverage files, avoiding nested duplication
             COVERAGE_ESSENTIAL_FILES=(
               "coverage.svg"
@@ -1132,22 +1057,22 @@ jobs:
               "dashboard.html"
               "coverage-data.json"
             )
-            
+
             # First, try to copy branch-specific files (avoid nested reports/branch/X structure)
             if [[ -d "$SOURCE_DIR/coverage/branch" ]]; then
               echo "    📁 Processing branch coverage (avoiding duplication)..."
               mkdir -p "$CLEAN_DEPLOY_DIR/coverage/branch"
-              
+
               # For each branch directory
               for branch_dir in "$SOURCE_DIR/coverage/branch"/*; do
                 if [[ -d "$branch_dir" ]]; then
                   branch_name=$(basename "$branch_dir")
                   echo "      🌿 Processing branch: $branch_name"
-                  
+
                   # Create clean branch directory
                   CLEAN_BRANCH_DIR="$CLEAN_DEPLOY_DIR/coverage/branch/$branch_name"
                   mkdir -p "$CLEAN_BRANCH_DIR"
-                  
+
                   # Copy essential files from the TOP LEVEL of the branch directory
                   # (avoiding the nested reports/branch/X duplication)
                   for file in "${COVERAGE_ESSENTIAL_FILES[@]}"; do
@@ -1156,7 +1081,7 @@ jobs:
                       "$branch_dir/$file"
                       "$branch_dir/reports/branch/$branch_name/$file"
                     )
-                    
+
                     for location in "${POSSIBLE_LOCATIONS[@]}"; do
                       if [[ -f "$location" ]]; then
                         cp "$location" "$CLEAN_BRANCH_DIR/"
@@ -1166,13 +1091,13 @@ jobs:
                       fi
                     done
                   done
-                  
+
                   # Copy data directory if it exists (avoid nested duplication)
                   DATA_LOCATIONS=(
                     "$branch_dir/data"
                     "$branch_dir/reports/branch/$branch_name/data"
                   )
-                  
+
                   for data_location in "${DATA_LOCATIONS[@]}"; do
                     if [[ -d "$data_location" ]]; then
                       cp -r "$data_location" "$CLEAN_BRANCH_DIR/"
@@ -1184,7 +1109,7 @@ jobs:
                 fi
               done
             fi
-            
+
             # Copy PR directories if they exist (INCLUDING PR HTML REPORTS)
             if [[ -d "$SOURCE_DIR/coverage/pr" ]]; then
               echo "    📁 Copying PR coverage (badges + HTML reports)..."
@@ -1192,7 +1117,7 @@ jobs:
               pr_size=$(du -sh "$CLEAN_DEPLOY_DIR/coverage/pr" 2>/dev/null | cut -f1 || echo "unknown")
               pr_files=$(find "$CLEAN_DEPLOY_DIR/coverage/pr" -type f | wc -l)
               echo "      ✅ Copied PR coverage ($pr_size, $pr_files files)"
-              
+
               # CRITICAL: Verify PR HTML reports are included
               echo "      🔍 Verifying PR HTML reports:"
               for pr_dir in "$CLEAN_DEPLOY_DIR/coverage/pr"/*; do
@@ -1210,18 +1135,18 @@ jobs:
                 fi
               done
             fi
-            
+
             # Show size comparison
             if [[ -d "$CLEAN_DEPLOY_DIR/coverage" ]]; then
               ORIGINAL_SIZE=$(du -sh "$SOURCE_DIR/coverage" 2>/dev/null | cut -f1 || echo "unknown")
               CLEAN_SIZE=$(du -sh "$CLEAN_DEPLOY_DIR/coverage" 2>/dev/null | cut -f1 || echo "unknown")
               ORIGINAL_FILES=$(find "$SOURCE_DIR/coverage" -type f | wc -l)
               CLEAN_FILES=$(find "$CLEAN_DEPLOY_DIR/coverage" -type f | wc -l)
-              
+
               echo "    📊 Coverage directory structure:"
               echo "      📉 Before: $ORIGINAL_SIZE ($ORIGINAL_FILES files)"
               echo "      📈 After: $CLEAN_SIZE ($CLEAN_FILES files)"
-              
+
               if [[ "$ORIGINAL_SIZE" =~ ^([0-9]+)([KMG]) ]] && [[ "$CLEAN_SIZE" =~ ^([0-9]+)([KMG]) ]]; then
                 echo "      🎯 Successfully eliminated nested duplication!"
               fi
@@ -1305,7 +1230,7 @@ jobs:
             SIZE_MB=${BASH_REMATCH[1]}
             SIZE_KB=$(echo "$SIZE_MB * 1024" | bc -l | cut -d. -f1)
           elif [[ "$CURRENT_SIZE" =~ ^([0-9]+)B$ ]]; then
-            SIZE_B=${BASH_REMATCH[1]} 
+            SIZE_B=${BASH_REMATCH[1]}
             SIZE_KB=$(echo "$SIZE_B / 1024" | bc -l | cut -d. -f1)
           fi
 
@@ -1484,16 +1409,16 @@ jobs:
             echo "  - Total files: $TOTAL_BEFORE"
             echo "  - Coverage branches: $(find coverage/branch -maxdepth 1 -type d 2>/dev/null | wc -l || echo "0")"
             echo "  - PR badges: $(find coverage/pr -name "*.svg" 2>/dev/null | wc -l || echo "0")"
-            
+
             # AGGRESSIVE CLEANUP: Remove unwanted files from existing gh-pages content
             # This addresses the 317 unwanted files issue (.go, .yml, .md, etc.)
             echo ""
             echo "🧹 AGGRESSIVE CLEANUP: Removing unwanted files from existing gh-pages content..."
-            
+
             # Count unwanted files before cleanup
             UNWANTED_EXTENSIONS=(".go" ".mod" ".sum" ".yml" ".yaml" ".md" ".txt" ".toml" ".json" ".log")
             CLEANUP_COUNT=0
-            
+
             echo "  📊 Before cleanup:"
             for ext in "${UNWANTED_EXTENSIONS[@]}"; do
               count=$(find . -name "*$ext" -not -path './.git/*' -not -name "coverage-data.json" -not -name "metadata.json" -not -name "*.coverage.json" | wc -l)
@@ -1502,10 +1427,10 @@ jobs:
                 CLEANUP_COUNT=$((CLEANUP_COUNT + count))
               fi
             done
-            
+
             if [[ $CLEANUP_COUNT -gt 0 ]]; then
               echo "  🚨 Found $CLEANUP_COUNT unwanted files to remove"
-              
+
               # Remove unwanted file types (preserve essential coverage JSON files)
               for ext in "${UNWANTED_EXTENSIONS[@]}"; do
                 if [[ "$ext" == ".json" ]]; then
@@ -1522,11 +1447,11 @@ jobs:
                   find . -name "*$ext" -not -path './.git/*' -delete 2>/dev/null || true
                 fi
               done
-              
+
               # Remove common unwanted directories (preserve coverage-related ones)
               UNWANTED_DIRS=(
                 "cmd"
-                "internal" 
+                "internal"
                 "examples"
                 "docs"
                 "test"
@@ -1537,14 +1462,14 @@ jobs:
                 ".vscode"
                 ".idea"
               )
-              
+
               for dir in "${UNWANTED_DIRS[@]}"; do
                 if [[ -d "$dir" ]] && [[ "$dir" != "coverage" ]] && [[ "$dir" != "data" ]] && [[ "$dir" != "badges" ]]; then
                   echo "    🗑️ Removing directory: $dir"
                   rm -rf "$dir" 2>/dev/null || true
                 fi
               done
-              
+
               # Remove common root-level unwanted files
               UNWANTED_ROOT_FILES=(
                 "Makefile"
@@ -1559,23 +1484,23 @@ jobs:
                 "Dockerfile"
                 "_config.yml"
               )
-              
+
               for file in "${UNWANTED_ROOT_FILES[@]}"; do
                 if [[ -f "$file" ]]; then
                   echo "    🗑️ Removing root file: $file"
                   rm -f "$file" 2>/dev/null || true
                 fi
               done
-              
+
               # Show cleanup results
               TOTAL_AFTER=$(find . -type f -not -path './.git/*' | wc -l)
               REMOVED_COUNT=$((TOTAL_BEFORE - TOTAL_AFTER))
-              
+
               echo "  📊 After cleanup:"
               echo "    - Files before: $TOTAL_BEFORE"
               echo "    - Files after: $TOTAL_AFTER"
               echo "    - Files removed: $REMOVED_COUNT"
-              
+
               if [[ $REMOVED_COUNT -gt 0 ]]; then
                 echo "  ✅ Successfully cleaned $REMOVED_COUNT unwanted files!"
               else
@@ -1601,12 +1526,12 @@ jobs:
             cp "$GH_PAGES_GITIGNORE" .gitignore
             echo "✅ Copied GitHub Pages .gitignore filter"
             echo "📝 This ensures only coverage files are tracked in gh-pages branch"
-            
+
             # Apply the gitignore immediately to current content (additional cleanup)
             echo "🧹 Applying .gitignore filter to remaining content..."
             git clean -fX . 2>/dev/null || true
             echo "✅ Applied .gitignore filter to existing content"
-            
+
             # Final verification of cleanup
             echo ""
             echo "🔍 Final cleanup verification:"
@@ -1620,7 +1545,7 @@ jobs:
                 fi
               fi
             done
-            
+
             if [[ $FINAL_UNWANTED -eq 0 ]]; then
               echo "  ✅ Cleanup successful - no unwanted file types remaining"
             else
@@ -1643,10 +1568,10 @@ jobs:
           # Update root files (main branch deployments) with filtering
           if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
             echo "📋 Updating root coverage files for main branch (with filtering)..."
-            
+
             # Define allowed root files explicitly
             ALLOWED_ROOT_FILES=("index.html" "coverage.html" "coverage.svg" ".nojekyll" "data")
-            
+
             # Copy only allowed root files
             for file in "${ALLOWED_ROOT_FILES[@]}"; do
               if [[ -e "$DEPLOY_DIR/$file" ]]; then
@@ -1655,11 +1580,11 @@ jobs:
                 echo "  📋 Staged: $file"
               fi
             done
-            
+
             # Verify staged content matches filter rules
             echo "🔍 Verifying staged content against .gitignore rules..."
             cd "$TEMP_STAGING"
-            
+
             # Count files that would be ignored
             IGNORED_COUNT=0
             if [[ -f "$GH_PAGES_GITIGNORE" ]]; then
@@ -1677,7 +1602,7 @@ jobs:
                 fi
               done < "$GH_PAGES_GITIGNORE"
             fi
-            
+
             if [[ $IGNORED_COUNT -gt 0 ]]; then
               echo "⚠️ Found $IGNORED_COUNT files that match ignore patterns"
               echo "🧹 Removing ignored files from staging..."
@@ -1690,9 +1615,9 @@ jobs:
               git clean -fX . >/dev/null 2>&1
               rm -rf .git
             fi
-            
+
             cd "$TEMP_PAGES_DIR"
-            
+
             # Copy verified content from staging
             echo "📋 Copying verified content to deployment..."
             if [[ -d "$TEMP_STAGING" ]]; then
@@ -1707,7 +1632,7 @@ jobs:
             PR_DIR="coverage/pr/$PR_NUMBER"
             echo "📋 Updating PR-specific content: $PR_DIR"
             mkdir -p "$PR_DIR"
-            
+
             if [[ -d "$DEPLOY_DIR/coverage/pr/$PR_NUMBER" ]]; then
               echo "  📋 Copying PR coverage files..."
               cp -r "$DEPLOY_DIR/coverage/pr/$PR_NUMBER"/* "$PR_DIR/" 2>/dev/null || true
@@ -2101,7 +2026,7 @@ jobs:
               echo "    - $BASE_URL/coverage/coverage.html"
               echo "    - $BASE_URL/coverage/index.html"
             fi
-            
+
             if [[ "$EVENT_NAME" != "pull_request" ]]; then
               echo ""
               echo "🌲 Branch Coverage Dashboard: $BASE_URL/coverage/branch/$BRANCH_NAME/"
@@ -2112,7 +2037,7 @@ jobs:
             echo ""
             echo "❌ DEPLOYMENT VERIFICATION FAILED"
             echo "🚨 Critical URLs are not accessible after multiple retries"
-            
+
             # Add detailed URL failure analysis
             echo ""
             echo "📝 Specific URL failures (main issues):"
@@ -2140,19 +2065,19 @@ jobs:
             echo "  - File structure mismatch (files in wrong directories)"
             echo "  - Jekyll processing despite .nojekyll (check file extensions)"
             echo "  - Previous deployment failed"
-            
+
             # Add file structure diagnosis
             echo ""
             echo "🔍 File structure diagnosis:"
             echo "  Checking what was actually deployed to identify path issues..."
-            
+
             # Test alternative paths that might exist
             ALT_PATHS=(
               "$BASE_URL/coverage/coverage.html"
               "$BASE_URL/coverage/index.html"
               "$BASE_URL/index.html"
             )
-            
+
             echo "  Alternative paths found:"
             for alt_url in "${ALT_PATHS[@]}"; do
               ALT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 5 "$alt_url" 2>/dev/null || echo "000")

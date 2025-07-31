@@ -804,7 +804,7 @@ const reportTemplate = `<!DOCTYPE html>
             <div class="repo-info">
                 <span>📅 {{.Generated.Format "Jan 2, 2006 15:04 MST"}}</span>
                 <span>🌿 Branch: {{.Branch}}</span>
-                {{- if .CommitSha}}<span>📝 {{printf "%.7s" .CommitSha}}</span>{{- end}}
+                <span>🔗 Commit: {{- if .CommitSha}}{{printf "%.7s" .CommitSha}}{{- else}}unknown{{- end}}</span>
             </div>
         </header>
 
