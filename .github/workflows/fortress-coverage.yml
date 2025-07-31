@@ -610,8 +610,116 @@ jobs:
           # Check if we have a base coverage file for comparison (in PR context)
           BASE_COVERAGE_ARG=""
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            # TODO: Implement base branch coverage fetching for comparison
-            echo "📊 Note: Base coverage comparison not yet implemented"
+            echo "📊 Attempting to fetch base branch coverage for comparison..."
+            
+            BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            echo "📋 Base branch: $BASE_BRANCH (SHA: $BASE_SHA)"
+            
+            # Try to fetch base coverage profile from recent workflow artifacts (most reliable)
+            echo "🔍 Searching for base coverage in recent workflow artifacts..."
+            
+            BASE_COVERAGE_FILE=""
+            # Look for recent successful workflow runs on the base branch
+            if command -v gh &> /dev/null && gh auth status &> /dev/null; then
+              echo "📋 Searching for recent artifacts with base coverage..."
+              
+              # Get recent successful runs on base branch
+              RECENT_RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
+                --jq ".workflow_runs[] | select(.status == \"completed\" and .conclusion == \"success\" and .head_branch == \"$BASE_BRANCH\") | .id" \
+                --paginate 2>/dev/null | head -3 || echo "")
+              
+              if [[ -n "$RECENT_RUNS" ]]; then
+                for run_id in $RECENT_RUNS; do
+                  echo "🔍 Checking run $run_id for coverage artifacts..."
+                  
+                  # Look for coverage-data artifact
+                  COVERAGE_ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/$run_id/artifacts \
+                    --jq '.artifacts[] | select(.name == "coverage-data") | .archive_download_url' \
+                    2>/dev/null || echo "")
+                  
+                  if [[ -n "$COVERAGE_ARTIFACTS" ]]; then
+                    echo "✅ Found coverage-data artifact in run $run_id"
+                    
+                    # Download the artifact
+                    if curl -L -H "Authorization: Bearer $GITHUB_TOKEN" \
+                            -H "Accept: application/vnd.github+json" \
+                            --connect-timeout 10 --max-time 30 \
+                            "$COVERAGE_ARTIFACTS" -o "base-coverage-artifact.zip" 2>/dev/null; then
+                      
+                      if [[ -s "base-coverage-artifact.zip" ]]; then
+                        echo "✅ Downloaded base coverage artifact"
+                        
+                        # Extract and find coverage file
+                        if unzip -q "base-coverage-artifact.zip" 2>/dev/null; then
+                          BASE_PROFILE=$(find . -name "*.out" -type f | head -1)
+                          if [[ -n "$BASE_PROFILE" ]] && [[ -f "$BASE_PROFILE" ]]; then
+                            echo "✅ Extracted base coverage profile: $BASE_PROFILE"
+                            cp "$BASE_PROFILE" "base-coverage.out"
+                            BASE_COVERAGE_FILE="base-coverage.out"
+                            break
+                          fi
+                        fi
+                        
+                        rm -f "base-coverage-artifact.zip"
+                      fi
+                    fi
+                  fi
+                done
+              else
+                echo "ℹ️ No recent successful runs found on base branch: $BASE_BRANCH"
+              fi
+            else
+              echo "⚠️ GitHub CLI not available or not authenticated - skipping artifact search"
+            fi
+            
+            # If GitHub Pages fetch failed, try to checkout base and generate coverage
+            if [[ -z "$BASE_COVERAGE_FILE" ]]; then
+              echo "🔄 Attempting to generate base coverage by checking out base branch..."
+              
+              # Create temporary directory for base branch checkout
+              BASE_TEMP_DIR="/tmp/base-branch-$$"
+              mkdir -p "$BASE_TEMP_DIR"
+              
+              # Clone and checkout base branch
+              if git clone --depth 1 --branch "$BASE_BRANCH" "https://github.com/${{ github.repository }}.git" "$BASE_TEMP_DIR" 2>/dev/null; then
+                echo "✅ Successfully checked out base branch: $BASE_BRANCH"
+                
+                cd "$BASE_TEMP_DIR"
+                
+                # Try to generate coverage for base branch
+                echo "🧪 Generating coverage for base branch..."
+                if make test-cover 2>/dev/null; then
+                  # Look for coverage file
+                  BASE_COVERAGE_PROFILE=$(find . -name "*.out" -type f | head -1)
+                  if [[ -n "$BASE_COVERAGE_PROFILE" ]] && [[ -f "$BASE_COVERAGE_PROFILE" ]]; then
+                    echo "✅ Generated base coverage profile: $BASE_COVERAGE_PROFILE"
+                    cp "$BASE_COVERAGE_PROFILE" "$REPO_ROOT/base-coverage.out"
+                    BASE_COVERAGE_FILE="$REPO_ROOT/base-coverage.out"
+                  else
+                    echo "⚠️ No coverage profile generated for base branch"
+                  fi
+                else
+                  echo "⚠️ Failed to generate coverage for base branch"
+                fi
+                
+                # Return to original directory
+                cd "$REPO_ROOT"
+                
+                # Cleanup
+                rm -rf "$BASE_TEMP_DIR"
+              else
+                echo "⚠️ Failed to checkout base branch for coverage generation"
+              fi
+            fi
+            
+            # Set BASE_COVERAGE_ARG if we have base coverage
+            if [[ -n "$BASE_COVERAGE_FILE" ]] && [[ -f "$BASE_COVERAGE_FILE" ]]; then
+              echo "✅ Base coverage available for comparison: $BASE_COVERAGE_FILE"
+              BASE_COVERAGE_ARG="--base-coverage \"$BASE_COVERAGE_FILE\""
+            else
+              echo "ℹ️ No base coverage available - PR comment will show as initial coverage report"
+            fi
           fi
 
 
