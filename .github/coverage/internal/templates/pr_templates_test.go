@@ -158,7 +158,7 @@ func TestGetAvailableTemplates(t *testing.T) {
 	templates := engine.GetAvailableTemplates()
 
 	assert.Len(t, templates, 1)
-	assert.Contains(t, templates, "dashboard")
+	assert.Contains(t, templates, "comprehensive")
 }
 
 func TestProgressBar(t *testing.T) {
