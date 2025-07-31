@@ -616,7 +616,11 @@ jobs:
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
             echo "📋 Base branch: $BASE_BRANCH (SHA: $BASE_SHA)"
             
-            # Try to fetch base coverage profile from recent workflow artifacts (most reliable)
+            # Define repository root for consistent path handling
+            REPO_ROOT="$(realpath ../../../../)"
+            echo "📁 Repository root: $REPO_ROOT"
+            
+            # Try to fetch base coverage profile from recent workflow artifacts
             echo "🔍 Searching for base coverage in recent workflow artifacts..."
             
             BASE_COVERAGE_FILE=""
@@ -641,6 +645,11 @@ jobs:
                   if [[ -n "$COVERAGE_ARTIFACTS" ]]; then
                     echo "✅ Found coverage-data artifact in run $run_id"
                     
+                    # Create temporary directory for extraction
+                    TEMP_EXTRACT_DIR="/tmp/base-coverage-extract-$$"
+                    mkdir -p "$TEMP_EXTRACT_DIR"
+                    cd "$TEMP_EXTRACT_DIR"
+                    
                     # Download the artifact
                     if curl -L -H "Authorization: Bearer $GITHUB_TOKEN" \
                             -H "Accept: application/vnd.github+json" \
@@ -648,22 +657,53 @@ jobs:
                             "$COVERAGE_ARTIFACTS" -o "base-coverage-artifact.zip" 2>/dev/null; then
                       
                       if [[ -s "base-coverage-artifact.zip" ]]; then
-                        echo "✅ Downloaded base coverage artifact"
+                        echo "✅ Downloaded base coverage artifact ($(wc -c < base-coverage-artifact.zip) bytes)"
                         
                         # Extract and find coverage file
                         if unzip -q "base-coverage-artifact.zip" 2>/dev/null; then
-                          BASE_PROFILE=$(find . -name "*.out" -type f | head -1)
+                          # Look for coverage files with common extensions
+                          BASE_PROFILE=$(find . -name "*.out" -o -name "*.txt" -o -name "coverage.*" | grep -E '\.(out|txt)$' | head -1)
                           if [[ -n "$BASE_PROFILE" ]] && [[ -f "$BASE_PROFILE" ]]; then
                             echo "✅ Extracted base coverage profile: $BASE_PROFILE"
-                            cp "$BASE_PROFILE" "base-coverage.out"
-                            BASE_COVERAGE_FILE="base-coverage.out"
-                            break
+                            
+                            # Copy to working directory
+                            cp "$BASE_PROFILE" "$REPO_ROOT/base-coverage.out"
+                            BASE_COVERAGE_FILE="$REPO_ROOT/base-coverage.out"
+                            
+                            # Verify the file has content
+                            if [[ -s "$BASE_COVERAGE_FILE" ]]; then
+                              echo "✅ Base coverage file ready: $(wc -c < "$BASE_COVERAGE_FILE") bytes"
+                              break
+                            else
+                              echo "⚠️ Base coverage file is empty"
+                              rm -f "$BASE_COVERAGE_FILE"
+                              BASE_COVERAGE_FILE=""
+                            fi
+                          else
+                            echo "⚠️ No coverage profile found in artifact"
+                            echo "📋 Available files in artifact:"
+                            find . -type f | head -10
                           fi
+                        else
+                          echo "⚠️ Failed to extract artifact (may be corrupted)"
                         fi
-                        
-                        rm -f "base-coverage-artifact.zip"
+                      else
+                        echo "⚠️ Downloaded artifact is empty"
                       fi
+                    else
+                      echo "⚠️ Failed to download artifact from: $COVERAGE_ARTIFACTS"
                     fi
+                    
+                    # Cleanup temp directory
+                    cd "$REPO_ROOT"
+                    rm -rf "$TEMP_EXTRACT_DIR"
+                    
+                    # If we found a valid base coverage file, break out of the loop
+                    if [[ -n "$BASE_COVERAGE_FILE" ]]; then
+                      break
+                    fi
+                  else
+                    echo "ℹ️ No coverage-data artifact found in run $run_id"
                   fi
                 done
               else
@@ -673,52 +713,16 @@ jobs:
               echo "⚠️ GitHub CLI not available or not authenticated - skipping artifact search"
             fi
             
-            # If GitHub Pages fetch failed, try to checkout base and generate coverage
-            if [[ -z "$BASE_COVERAGE_FILE" ]]; then
-              echo "🔄 Attempting to generate base coverage by checking out base branch..."
-              
-              # Create temporary directory for base branch checkout
-              BASE_TEMP_DIR="/tmp/base-branch-$$"
-              mkdir -p "$BASE_TEMP_DIR"
-              
-              # Clone and checkout base branch
-              if git clone --depth 1 --branch "$BASE_BRANCH" "https://github.com/${{ github.repository }}.git" "$BASE_TEMP_DIR" 2>/dev/null; then
-                echo "✅ Successfully checked out base branch: $BASE_BRANCH"
-                
-                cd "$BASE_TEMP_DIR"
-                
-                # Try to generate coverage for base branch
-                echo "🧪 Generating coverage for base branch..."
-                if make test-cover 2>/dev/null; then
-                  # Look for coverage file
-                  BASE_COVERAGE_PROFILE=$(find . -name "*.out" -type f | head -1)
-                  if [[ -n "$BASE_COVERAGE_PROFILE" ]] && [[ -f "$BASE_COVERAGE_PROFILE" ]]; then
-                    echo "✅ Generated base coverage profile: $BASE_COVERAGE_PROFILE"
-                    cp "$BASE_COVERAGE_PROFILE" "$REPO_ROOT/base-coverage.out"
-                    BASE_COVERAGE_FILE="$REPO_ROOT/base-coverage.out"
-                  else
-                    echo "⚠️ No coverage profile generated for base branch"
-                  fi
-                else
-                  echo "⚠️ Failed to generate coverage for base branch"
-                fi
-                
-                # Return to original directory
-                cd "$REPO_ROOT"
-                
-                # Cleanup
-                rm -rf "$BASE_TEMP_DIR"
-              else
-                echo "⚠️ Failed to checkout base branch for coverage generation"
-              fi
-            fi
-            
             # Set BASE_COVERAGE_ARG if we have base coverage
             if [[ -n "$BASE_COVERAGE_FILE" ]] && [[ -f "$BASE_COVERAGE_FILE" ]]; then
               echo "✅ Base coverage available for comparison: $BASE_COVERAGE_FILE"
               BASE_COVERAGE_ARG="--base-coverage \"$BASE_COVERAGE_FILE\""
             else
               echo "ℹ️ No base coverage available - PR comment will show as initial coverage report"
+              echo "📝 This is normal for:"
+              echo "  - First PR on this repository"
+              echo "  - PRs where base branch has no recent successful coverage runs"
+              echo "  - Temporary GitHub API issues"
             fi
           fi
 
