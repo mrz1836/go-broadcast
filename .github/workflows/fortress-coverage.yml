@@ -810,11 +810,7 @@ jobs:
               if git diff --staged --quiet; then
                 echo "ℹ️ No changes to commit - badges are already up to date"
               else
-                git commit -m "Add PR #$PR_NUMBER coverage badges
-
-                🏷️ Generated with Claude Code
-
-                Co-Authored-By: Claude <noreply@anthropic.com>"
+                git commit -m "Add PR #$PR_NUMBER coverage badges"$'\n\n🏷️ Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>'
 
                 if git push origin gh-pages; then
                   echo "✅ Successfully pushed PR badges to GitHub Pages"
@@ -1045,69 +1041,66 @@ jobs:
           # Create index.html with branch/PR listing if on main branch
           if [[ "$BRANCH_NAME" == "master" || "$BRANCH_NAME" == "main" ]]; then
             echo "📝 Generating branch/PR index..."
-            cat > branches.html << 'EOF'
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Coverage Reports - All Branches</title>
-                <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 40px; background: #f6f8fa; }
-                    .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-                    h1 { color: #24292e; border-bottom: 1px solid #e1e4e8; padding-bottom: 10px; }
-                    h2 { color: #586069; margin-top: 30px; }
-                    .branch-list, .pr-list { list-style: none; padding: 0; }
-                    .branch-list li, .pr-list li { padding: 10px; margin: 5px 0; background: #f6f8fa; border-radius: 6px; }
-                    .branch-list a, .pr-list a { color: #0366d6; text-decoration: none; font-weight: 500; }
-                    .branch-list a:hover, .pr-list a:hover { text-decoration: underline; }
-                    .badge { display: inline-block; margin-left: 10px; }
-                    .main-link { display: inline-block; margin: 20px 0; padding: 10px 20px; background: #0366d6; color: white; border-radius: 6px; text-decoration: none; }
-                    .main-link:hover { background: #0256c7; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>📊 Coverage Reports</h1>
-                    <a href="/" class="main-link">View Main Coverage Dashboard</a>
+            
+            # Create the HTML file using echo commands to avoid heredoc indentation issues
+            echo '<!DOCTYPE html>' > branches.html
+            echo '<html lang="en">' >> branches.html
+            echo '<head>' >> branches.html
+            echo '    <meta charset="UTF-8">' >> branches.html
+            echo '    <meta name="viewport" content="width=device-width, initial-scale=1.0">' >> branches.html
+            echo '    <title>Coverage Reports - All Branches</title>' >> branches.html
+            echo '    <style>' >> branches.html
+            echo '        body { font-family: -apple-system, BlinkMacSystemFont, '"'"'Segoe UI'"'"', Roboto, sans-serif; margin: 40px; background: #f6f8fa; }' >> branches.html
+            echo '        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }' >> branches.html
+            echo '        h1 { color: #24292e; border-bottom: 1px solid #e1e4e8; padding-bottom: 10px; }' >> branches.html
+            echo '        h2 { color: #586069; margin-top: 30px; }' >> branches.html
+            echo '        .branch-list, .pr-list { list-style: none; padding: 0; }' >> branches.html
+            echo '        .branch-list li, .pr-list li { padding: 10px; margin: 5px 0; background: #f6f8fa; border-radius: 6px; }' >> branches.html
+            echo '        .branch-list a, .pr-list a { color: #0366d6; text-decoration: none; font-weight: 500; }' >> branches.html
+            echo '        .branch-list a:hover, .pr-list a:hover { text-decoration: underline; }' >> branches.html
+            echo '        .badge { display: inline-block; margin-left: 10px; }' >> branches.html
+            echo '        .main-link { display: inline-block; margin: 20px 0; padding: 10px 20px; background: #0366d6; color: white; border-radius: 6px; text-decoration: none; }' >> branches.html
+            echo '        .main-link:hover { background: #0256c7; }' >> branches.html
+            echo '    </style>' >> branches.html
+            echo '</head>' >> branches.html
+            echo '<body>' >> branches.html
+            echo '    <div class="container">' >> branches.html
+            echo '        <h1>📊 Coverage Reports</h1>' >> branches.html
+            echo '        <a href="/" class="main-link">View Main Coverage Dashboard</a>' >> branches.html
+            echo '' >> branches.html
+            echo '        <h2>🌿 Branch Coverage</h2>' >> branches.html
+            echo '        <ul class="branch-list">' >> branches.html
 
-                    <h2>🌿 Branch Coverage</h2>
-                    <ul class="branch-list">
-            EOF
+            # List all branch coverage reports
+            if [[ -d coverage/branch ]]; then
+              for branch_dir in coverage/branch/*/; do
+                if [[ -d "$branch_dir" ]]; then
+                  branch=$(basename "$branch_dir")
+                  echo "            <li>📁 <a href=\"/coverage/branch/$branch/\">$branch</a> <img src=\"/coverage/branch/$branch/coverage.svg\" alt=\"Coverage\" class=\"badge\"></li>" >> branches.html
+                fi
+              done
+            fi
 
-                        # List all branch coverage reports
-                        if [[ -d coverage/branch ]]; then
-                          for branch_dir in coverage/branch/*/; do
-                            if [[ -d "$branch_dir" ]]; then
-                              branch=$(basename "$branch_dir")
-                              echo "            <li>📁 <a href=\"/coverage/branch/$branch/\">$branch</a> <img src=\"/coverage/branch/$branch/coverage.svg\" alt=\"Coverage\" class=\"badge\"></li>" >> branches.html
-                            fi
-                          done
-                        fi
+            echo '        </ul>' >> branches.html
+            echo '' >> branches.html
+            echo '        <h2>🔀 Pull Request Coverage</h2>' >> branches.html
+            echo '        <ul class="pr-list">' >> branches.html
 
-                        cat >> branches.html << 'EOF'
-                    </ul>
+            # List all PR coverage badges
+            if [[ -d coverage/pr ]]; then
+              for pr_dir in coverage/pr/*/; do
+                if [[ -d "$pr_dir" ]]; then
+                  pr_num=$(basename "$pr_dir")
+                  echo "            <li>PR #$pr_num: <img src=\"/coverage/pr/$pr_num/coverage.svg\" alt=\"PR Coverage\" class=\"badge\"></li>" >> branches.html
+                fi
+              done
+            fi
 
-                    <h2>🔀 Pull Request Coverage</h2>
-                    <ul class="pr-list">
-            EOF
-
-                        # List all PR coverage badges
-                        if [[ -d coverage/pr ]]; then
-                          for pr_dir in coverage/pr/*/; do
-                            if [[ -d "$pr_dir" ]]; then
-                              pr_num=$(basename "$pr_dir")
-                              echo "            <li>PR #$pr_num: <img src=\"/coverage/pr/$pr_num/coverage.svg\" alt=\"PR Coverage\" class=\"badge\"></li>" >> branches.html
-                            fi
-                          done
-                        fi
-
-                        cat >> branches.html << 'EOF'
-                    </ul>
-                </div>
-            </body>
-            </html>
-            EOF
+            echo '        </ul>' >> branches.html
+            echo '    </div>' >> branches.html
+            echo '</body>' >> branches.html
+            echo '</html>' >> branches.html
+            
             echo "  ✅ Generated branch/PR index"
           fi
 
@@ -1135,11 +1128,7 @@ jobs:
             COMMIT_MSG="Deploy main coverage dashboard (commit ${{ inputs.commit-sha }})"
           fi
 
-          git commit -m "$COMMIT_MSG
-
-          🏷️ Generated with Claude Code
-
-          Co-Authored-By: Claude <noreply@anthropic.com>"
+          git commit -m "$COMMIT_MSG"$'\n\n🏷️ Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>'
 
           # Push to GitHub Pages
           if git push origin gh-pages --force; then
@@ -1356,18 +1345,16 @@ jobs:
           fi
 
           # Create cache statistics JSON
-          cat > "cache-stats-coverage.json" << 'EOF'
-          {
-            "os": "${{ inputs.primary-runner }}",
-            "go_version": "${{ env.GO_PRIMARY_VERSION }}",
-            "gomod_cache_hit": "$GOMOD_HIT",
-            "gobuild_cache_hit": "$GOBUILD_HIT",
-            "cache_size_gomod": "$GOMOD_SIZE",
-            "cache_size_gobuild": "$GOBUILD_SIZE",
-            "workflow": "coverage",
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          }
-          EOF
+          echo '{' > "cache-stats-coverage.json"
+          echo '  "os": "${{ inputs.primary-runner }}",' >> "cache-stats-coverage.json"
+          echo '  "go_version": "${{ env.GO_PRIMARY_VERSION }}",' >> "cache-stats-coverage.json"
+          echo "  \"gomod_cache_hit\": \"$GOMOD_HIT\"," >> "cache-stats-coverage.json"
+          echo "  \"gobuild_cache_hit\": \"$GOBUILD_HIT\"," >> "cache-stats-coverage.json"
+          echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "cache-stats-coverage.json"
+          echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "cache-stats-coverage.json"
+          echo '  "workflow": "coverage",' >> "cache-stats-coverage.json"
+          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "cache-stats-coverage.json"
+          echo '}' >> "cache-stats-coverage.json"
 
           echo "📊 Cache statistics collected"
 
