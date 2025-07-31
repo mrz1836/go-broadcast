@@ -146,6 +146,18 @@ Features:
 		}
 		client := github.NewWithConfig(githubConfig)
 
+		// Analyze PR files to understand the impact
+		var prFileAnalysis *github.PRFileAnalysis
+		if enableAnalysis {
+			prDiff, diffErr := client.GetPRDiff(ctx, cfg.GitHub.Owner, cfg.GitHub.Repository, prNumber)
+			if diffErr != nil {
+				fmt.Printf("Warning: failed to get PR diff: %v\n", diffErr) //nolint:forbidigo // CLI output
+			} else {
+				prFileAnalysis = github.AnalyzePRFiles(prDiff)
+				fmt.Printf("📋 PR Analysis: %s\n", prFileAnalysis.Summary.GetSummaryText()) //nolint:forbidigo // CLI output
+			}
+		}
+
 		// Initialize enhanced PR comment system
 		prCommentConfig := &github.PRCommentConfig{
 			MinUpdateIntervalMinutes: 5,
@@ -204,6 +216,7 @@ Features:
 					TrendAnalysis:    convertTrendData(comparisonResult.TrendAnalysis),
 					FileChanges:      convertFileChanges(comparisonResult.FileChanges),
 					SignificantFiles: extractSignificantFiles(comparisonResult.FileChanges),
+					PRFileAnalysis:   prFileAnalysis,
 				}
 			}
 		}
@@ -237,6 +250,7 @@ Features:
 					PercentageChange: 0,
 					Momentum:         "steady",
 				},
+				PRFileAnalysis: prFileAnalysis, // Include PR file analysis even without baseline
 			}
 		}
 
@@ -493,6 +507,7 @@ func buildTemplateData(cfg *config.Config, prNumber int, comparison *github.Cove
 			RiskLevel:     calculateRiskLevel(comparison.PRCoverage.Percentage),
 			Score:         comparison.PRCoverage.Percentage,
 		},
+		PRFiles: convertPRFileAnalysis(comparison.PRFileAnalysis),
 		Resources: templates.ResourceLinks{
 			BadgeURL:      badgeURL,
 			ReportURL:     reportURL,
@@ -580,6 +595,54 @@ func determineBadgeTrend(direction string) badge.TrendDirection {
 	default:
 		return badge.TrendStable
 	}
+}
+
+// convertPRFileAnalysis converts GitHub PR file analysis to template data format
+func convertPRFileAnalysis(analysis *github.PRFileAnalysis) *templates.PRFileAnalysisData {
+	if analysis == nil {
+		return nil
+	}
+
+	return &templates.PRFileAnalysisData{
+		Summary: templates.PRFileSummaryData{
+			TotalFiles:          analysis.Summary.TotalFiles,
+			GoFilesCount:        analysis.Summary.GoFilesCount,
+			TestFilesCount:      analysis.Summary.TestFilesCount,
+			ConfigFilesCount:    analysis.Summary.ConfigFilesCount,
+			DocumentationCount:  analysis.Summary.DocumentationCount,
+			GeneratedFilesCount: analysis.Summary.GeneratedFilesCount,
+			OtherFilesCount:     analysis.Summary.OtherFilesCount,
+			HasGoChanges:        analysis.Summary.HasGoChanges,
+			HasTestChanges:      analysis.Summary.HasTestChanges,
+			HasConfigChanges:    analysis.Summary.HasConfigChanges,
+			TotalAdditions:      analysis.Summary.TotalAdditions,
+			TotalDeletions:      analysis.Summary.TotalDeletions,
+			GoAdditions:         analysis.Summary.GoAdditions,
+			GoDeletions:         analysis.Summary.GoDeletions,
+			SummaryText:         analysis.Summary.GetSummaryText(),
+		},
+		GoFiles:            convertPRFiles(analysis.GoFiles),
+		TestFiles:          convertPRFiles(analysis.TestFiles),
+		ConfigFiles:        convertPRFiles(analysis.ConfigFiles),
+		DocumentationFiles: convertPRFiles(analysis.DocumentationFiles),
+		GeneratedFiles:     convertPRFiles(analysis.GeneratedFiles),
+		OtherFiles:         convertPRFiles(analysis.OtherFiles),
+	}
+}
+
+// convertPRFiles converts PR files to template format
+func convertPRFiles(files []github.PRFile) []templates.PRFileData {
+	result := make([]templates.PRFileData, len(files))
+	for i, file := range files {
+		result[i] = templates.PRFileData{
+			Filename:  file.Filename,
+			Status:    file.Status,
+			Additions: file.Additions,
+			Deletions: file.Deletions,
+			Changes:   file.Changes,
+		}
+	}
+	return result
 }
 
 func init() { //nolint:gochecknoinits // CLI command initialization

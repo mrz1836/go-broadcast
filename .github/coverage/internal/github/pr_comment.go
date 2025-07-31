@@ -45,12 +45,13 @@ type PRCommentConfig struct {
 
 // CoverageComparison represents coverage comparison between base and PR branches
 type CoverageComparison struct {
-	BaseCoverage     CoverageData `json:"base_coverage"`
-	PRCoverage       CoverageData `json:"pr_coverage"`
-	Difference       float64      `json:"difference"`
-	TrendAnalysis    TrendData    `json:"trend_analysis"`
-	FileChanges      []FileChange `json:"file_changes"`
-	SignificantFiles []string     `json:"significant_files"`
+	BaseCoverage     CoverageData    `json:"base_coverage"`
+	PRCoverage       CoverageData    `json:"pr_coverage"`
+	Difference       float64         `json:"difference"`
+	TrendAnalysis    TrendData       `json:"trend_analysis"`
+	FileChanges      []FileChange    `json:"file_changes"`
+	SignificantFiles []string        `json:"significant_files"`
+	PRFileAnalysis   *PRFileAnalysis `json:"pr_file_analysis,omitempty"`
 }
 
 // CoverageData represents coverage information for a specific commit

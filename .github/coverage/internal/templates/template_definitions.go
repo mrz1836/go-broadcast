@@ -14,6 +14,11 @@ const comprehensiveTemplate = `<!-- {{ .Metadata.Signature }} -->
 
 {{ statusEmoji .Coverage.Overall.Status }} **Overall Coverage: {{ formatPercent .Coverage.Overall.Percentage }}** {{ gradeEmoji .Coverage.Overall.Grade }}
 
+{{ if .PRFiles }}{{ if not .PRFiles.Summary.HasGoChanges }}
+{{ trendEmoji "stable" }} **No Go files modified in this PR**  
+Project coverage remains at {{ formatPercent .Coverage.Overall.Percentage }} ({{ formatNumber .Coverage.Overall.CoveredStatements }}/{{ formatNumber .Coverage.Overall.TotalStatements }} statements)  
+Changes: {{ .PRFiles.Summary.SummaryText }}
+{{ else }}
 {{ if and (ne .Comparison.BasePercentage 0.0) (.Comparison.IsSignificant) }}
 {{ if isImproved .Comparison.Direction }}{{ trendEmoji "up" }} Coverage **improved** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }}){{ else if isDegraded .Comparison.Direction }}{{ trendEmoji "down" }} Coverage **decreased** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }}){{ else }}{{ trendEmoji "stable" }} Coverage remained **stable** at {{ formatPercent .Coverage.Overall.Percentage }}{{ end }}
 {{ else if eq .Comparison.BasePercentage 0.0 }}
@@ -21,13 +26,21 @@ const comprehensiveTemplate = `<!-- {{ .Metadata.Signature }} -->
 {{ else }}
 {{ trendEmoji "stable" }} Coverage remained stable with {{ formatChange .Comparison.Change }} change
 {{ end }}
+{{ end }}{{ else }}
+{{ if and (ne .Comparison.BasePercentage 0.0) (.Comparison.IsSignificant) }}
+{{ if isImproved .Comparison.Direction }}{{ trendEmoji "up" }} Coverage **improved** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }}){{ else if isDegraded .Comparison.Direction }}{{ trendEmoji "down" }} Coverage **decreased** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }}){{ else }}{{ trendEmoji "stable" }} Coverage remained **stable** at {{ formatPercent .Coverage.Overall.Percentage }}{{ end }}
+{{ else if eq .Comparison.BasePercentage 0.0 }}
+{{ trendEmoji "stable" }} **Initial coverage report** - no baseline available for comparison
+{{ else }}
+{{ trendEmoji "stable" }} Coverage remained stable with {{ formatChange .Comparison.Change }} change
+{{ end }}{{ end }}
 
 ## 📊 Coverage Metrics
 
 | Metric | Value | Grade | Trend |
 |--------|-------|-------|--------|
 | **Percentage** | {{ formatPercent .Coverage.Overall.Percentage }} | {{ formatGrade .Quality.CoverageGrade }} | {{ trendEmoji .Trends.Direction }} {{ .Trends.Direction }} |
-| **Statements** | {{ formatNumber .Coverage.Overall.CoveredStatements }}/{{ formatNumber .Coverage.Overall.TotalStatements }} | {{ formatGrade .Quality.OverallGrade }} | {{ if ne .Comparison.BasePercentage 0.0 }}{{ formatChange .Comparison.Change }}{{ else }}First report{{ end }} |
+| **Statements** | {{ formatNumber .Coverage.Overall.CoveredStatements }}/{{ formatNumber .Coverage.Overall.TotalStatements }} | {{ formatGrade .Quality.OverallGrade }} | {{ if .PRFiles }}{{ if not .PRFiles.Summary.HasGoChanges }}No change{{ else }}{{ if ne .Comparison.BasePercentage 0.0 }}{{ formatChange .Comparison.Change }}{{ else }}First report{{ end }}{{ end }}{{ else }}{{ if ne .Comparison.BasePercentage 0.0 }}{{ formatChange .Comparison.Change }}{{ else }}First report{{ end }}{{ end }} |
 | **Quality Score** | {{ round .Quality.Score }}/100 | {{ formatGrade .Quality.OverallGrade }} | {{ if gt .Quality.Score 80.0 }}📈{{ else if lt .Quality.Score 60.0 }}📉{{ else }}📊{{ end }} |
 
 {{ if .Config.IncludeProgressBars }}

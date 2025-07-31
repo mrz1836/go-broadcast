@@ -71,6 +71,9 @@ type TemplateData struct {
 	Quality         QualityData          `json:"quality"`
 	Recommendations []RecommendationData `json:"recommendations"`
 
+	// PR file analysis
+	PRFiles *PRFileAnalysisData `json:"pr_files,omitempty"`
+
 	// Configuration
 	Config TemplateConfig `json:"config"`
 
@@ -206,6 +209,45 @@ type TemplateMetadata struct {
 	GeneratedAt  time.Time `json:"generated_at"`
 	TemplateUsed string    `json:"template_used"`
 	Signature    string    `json:"signature"`
+}
+
+// PRFileAnalysisData represents PR file analysis data for templates
+type PRFileAnalysisData struct {
+	Summary            PRFileSummaryData `json:"summary"`
+	GoFiles            []PRFileData      `json:"go_files"`
+	TestFiles          []PRFileData      `json:"test_files"`
+	ConfigFiles        []PRFileData      `json:"config_files"`
+	DocumentationFiles []PRFileData      `json:"documentation_files"`
+	GeneratedFiles     []PRFileData      `json:"generated_files"`
+	OtherFiles         []PRFileData      `json:"other_files"`
+}
+
+// PRFileSummaryData represents summary of PR file changes
+type PRFileSummaryData struct {
+	TotalFiles          int    `json:"total_files"`
+	GoFilesCount        int    `json:"go_files_count"`
+	TestFilesCount      int    `json:"test_files_count"`
+	ConfigFilesCount    int    `json:"config_files_count"`
+	DocumentationCount  int    `json:"documentation_count"`
+	GeneratedFilesCount int    `json:"generated_files_count"`
+	OtherFilesCount     int    `json:"other_files_count"`
+	HasGoChanges        bool   `json:"has_go_changes"`
+	HasTestChanges      bool   `json:"has_test_changes"`
+	HasConfigChanges    bool   `json:"has_config_changes"`
+	TotalAdditions      int    `json:"total_additions"`
+	TotalDeletions      int    `json:"total_deletions"`
+	GoAdditions         int    `json:"go_additions"`
+	GoDeletions         int    `json:"go_deletions"`
+	SummaryText         string `json:"summary_text"`
+}
+
+// PRFileData represents individual file data for templates
+type PRFileData struct {
+	Filename  string `json:"filename"`
+	Status    string `json:"status"`
+	Additions int    `json:"additions"`
+	Deletions int    `json:"deletions"`
+	Changes   int    `json:"changes"`
 }
 
 // NewPRTemplateEngine creates a new PR template engine
