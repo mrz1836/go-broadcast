@@ -63,6 +63,7 @@ Each phase is designed to be completed in a single Claude Code session with clea
 **IMPORTANT**: 
 1. **All files must be created within the `.github` directory** - the entire hooks system is self-contained in `.github/hooks/`
 2. After completing each phase, update the status tracking document at `plans/plan-10-status.md` with:
+   - Use the expert Go sub-agent to implement the phases
    - Mark the phase as completed (✓)
    - Note any deviations from the plan
    - Record actual metrics and timings
@@ -71,6 +72,8 @@ Each phase is designed to be completed in a single Claude Code session with clea
 
 ### Phase 1: Foundation & Configuration (Session 1)
 **Objective**: Establish infrastructure for the new hooks system
+
+**Sub-Agent**: Go Sub-Agent
 
 **Implementation Steps:**
 1. Add hook system environment variables to `.github/.env.shared`
@@ -444,6 +447,8 @@ This ensures the hooks tool's dependencies (cobra, YAML parser, etc.) stay up-to
 ### Phase 2: Core Hooks Engine (Session 2)
 **Objective**: Build the Go-native hooks processing tool with comprehensive testing
 
+**Sub-Agent**: Go Sub-Agent
+
 **Implementation Steps:**
 1. Create main CLI application with cobra for subcommands
 2. Implement configuration parser (`internal/config`)
@@ -571,6 +576,8 @@ After completing this phase, update `plans/plan-10-status.md`:
 ### Phase 3: Hook Implementations (Session 3)
 **Objective**: Implement all built-in hooks with make command integration
 
+**Sub-Agent**: Go Sub-Agent
+
 **Implementation Steps:**
 1. Implement make command wrapper hooks (fumpt, lint, vet-parallel, mod-tidy)
 2. Implement general hooks (whitespace, EOF, merge conflicts)
@@ -649,6 +656,8 @@ After completing this phase, update `plans/plan-10-status.md`:
 ### Phase 4: Git Integration & Installation (Session 4)
 **Objective**: Seamlessly integrate with git workflow
 
+**Sub-Agent**: Go Sub-Agent
+
 **Implementation Steps:**
 1. Create git hook installer with template generation
 2. Implement smart hook detection (detect existing hooks)
@@ -720,6 +729,8 @@ After completing this phase, update `plans/plan-10-status.md`:
 ### Phase 5: CI/CD & Workflow Integration (Session 5)
 **Objective**: Integrate hooks system with CI/CD pipeline
 
+**Sub-Agent**: Go Sub-Agent
+
 **Implementation Steps:**
 1. Create fortress-hooks.yml workflow
 2. Update existing workflows to use new system
@@ -784,6 +795,8 @@ After completing this phase, update `plans/plan-10-status.md`:
 
 ### Phase 6: Developer Experience & Polish (Session 6)
 **Objective**: Create exceptional developer experience
+
+**Sub-Agent**: Go Sub-Agent
 
 **Implementation Steps:**
 1. Add colored output with progress indicators

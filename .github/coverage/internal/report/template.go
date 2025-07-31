@@ -426,38 +426,47 @@ const reportTemplate = `<!DOCTYPE html>
         .coverage-warning { background: var(--gradient-warning); }
         .coverage-danger { background: var(--gradient-danger); }
         
-        /* Coverage badges */
+        /* Coverage badges - using gradient text style like dashboard */
         .coverage-badge {
             padding: 0.25rem 0.75rem;
             border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
+            font-size: 0.875rem;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            display: inline-block;
         }
         
         .badge-excellent {
-            background: transparent;
-            color: var(--color-success);
-            border: 1px solid var(--color-success);
+            background: var(--gradient-success);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            border: none;
         }
         
         .badge-good {
-            background: transparent;
-            color: var(--color-primary);
-            border: 1px solid var(--color-primary);
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            border: none;
         }
         
         .badge-warning {
-            background: transparent;
-            color: var(--color-warning);
-            border: 1px solid var(--color-warning);
+            background: var(--gradient-warning);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            border: none;
         }
         
         .badge-danger {
-            background: transparent;
-            color: var(--color-danger);
-            border: 1px solid var(--color-danger);
+            background: var(--gradient-danger);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            border: none;
         }
         
         /* Package/File tree */
