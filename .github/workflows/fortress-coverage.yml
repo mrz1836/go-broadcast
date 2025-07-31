@@ -381,6 +381,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           GITHUB_SHA: ${{ inputs.commit-sha }}
           GITHUB_REF_NAME: ${{ inputs.branch-name }}
           COVERAGE_HISTORY_PATH: ${{ github.workspace }}/.github/coverage/history
