@@ -186,16 +186,16 @@ Features:
 				comparison = &github.CoverageComparison{
 					BaseCoverage: github.CoverageData{
 						Percentage:        baseCoverage.Percentage,
-						TotalStatements:   baseCoverage.TotalLines,
-						CoveredStatements: baseCoverage.CoveredLines,
+						TotalStatements:   baseCoverage.TotalLines,   // Actually statement count, not line count
+						CoveredStatements: baseCoverage.CoveredLines, // Actually covered statement count, not line count
 						CommitSHA:         "",
 						Branch:            "main",
 						Timestamp:         time.Now(),
 					},
 					PRCoverage: github.CoverageData{
 						Percentage:        coverage.Percentage,
-						TotalStatements:   coverage.TotalLines,
-						CoveredStatements: coverage.CoveredLines,
+						TotalStatements:   coverage.TotalLines,   // Actually statement count, not line count
+						CoveredStatements: coverage.CoveredLines, // Actually covered statement count, not line count
 						CommitSHA:         cfg.GitHub.CommitSHA,
 						Branch:            "current",
 						Timestamp:         time.Now(),
@@ -211,14 +211,26 @@ Features:
 		// Fall back to simple comparison if no base coverage or analysis disabled
 		if comparison == nil {
 			comparison = &github.CoverageComparison{
+				// Only set base coverage if we actually have base data
+				BaseCoverage: github.CoverageData{
+					// Leave base coverage empty when no baseline is available
+					// This prevents misleading "0 → current" comparisons
+					Percentage:        0,
+					TotalStatements:   0,
+					CoveredStatements: 0,
+					CommitSHA:         "",
+					Branch:            "",
+					Timestamp:         time.Time{}, // Empty timestamp indicates no baseline
+				},
 				PRCoverage: github.CoverageData{
 					Percentage:        coverage.Percentage,
-					TotalStatements:   coverage.TotalLines,
-					CoveredStatements: coverage.CoveredLines,
+					TotalStatements:   coverage.TotalLines,   // Actually contains statement count, not line count
+					CoveredStatements: coverage.CoveredLines, // Actually contains covered statement count, not line count
 					CommitSHA:         cfg.GitHub.CommitSHA,
 					Branch:            "current",
 					Timestamp:         time.Now(),
 				},
+				Difference: 0, // No meaningful difference without baseline
 				TrendAnalysis: github.TrendData{
 					Direction:        trend,
 					Magnitude:        "minor",
@@ -381,11 +393,14 @@ func convertToSnapshot(coverage *parser.CoverageData, branch, commitSHA string) 
 		CommitSHA: commitSHA,
 		Timestamp: time.Now(),
 		OverallCoverage: analysis.CoverageMetrics{
-			Percentage:        coverage.Percentage,
-			TotalStatements:   coverage.TotalLines,
-			CoveredStatements: coverage.CoveredLines,
-			TotalLines:        coverage.TotalLines, // Approximation
-			CoveredLines:      coverage.CoveredLines,
+			Percentage: coverage.Percentage,
+			// parser.CoverageData fields are confusingly named:
+			// TotalLines actually contains total STATEMENTS
+			// CoveredLines actually contains covered STATEMENTS
+			TotalStatements:   coverage.TotalLines,   // Actually statement count from parser
+			CoveredStatements: coverage.CoveredLines, // Actually covered statement count from parser
+			TotalLines:        coverage.TotalLines,   // Using statement count as approximation for lines
+			CoveredLines:      coverage.CoveredLines, // Using covered statement count as approximation for covered lines
 		},
 		FileCoverage:    make(map[string]analysis.FileMetrics),
 		PackageCoverage: make(map[string]analysis.PackageMetrics),
