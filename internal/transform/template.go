@@ -135,7 +135,7 @@ func (t *templateTransformer) Transform(content []byte, ctx Context) ([]byte, er
 			re := regexp.MustCompile(escapedPattern)
 
 			oldResult := result
-			result = re.ReplaceAllString(result, value)
+			result = re.ReplaceAllLiteralString(result, value)
 
 			if result != oldResult {
 				replaced = true
