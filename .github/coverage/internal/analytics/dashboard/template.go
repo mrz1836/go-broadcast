@@ -965,8 +965,13 @@ const dashboardTemplate = `<!DOCTYPE html>
         <header class="header">
             <div class="header-content">
                 <div class="header-main">
+                    {{- if .PRNumber}}
+                    <h1>PR #{{.PRNumber}} Coverage</h1>
+                    <p class="subtitle">{{- if .PRTitle}}{{.PRTitle}} • {{end}}Coverage analysis for this pull request</p>
+                    {{- else}}
                     <h1>{{.RepositoryName}} Coverage</h1>
                     <p class="subtitle">Code coverage dashboard • Powered by GoFortress</p>
+                    {{- end}}
                 </div>
 
                 <div class="header-status">
@@ -1060,13 +1065,39 @@ const dashboardTemplate = `<!DOCTYPE html>
                 <div class="metric-card">
                     <h3>📊 Overall Coverage</h3>
                     <div class="metric-value success">{{.TotalCoverage}}%</div>
+                    {{- if .PRNumber}}
+                    <div class="metric-label">PR Coverage{{- if .BaselineCoverage}} ({{if gt .TotalCoverage .BaselineCoverage}}+{{else if lt .TotalCoverage .BaselineCoverage}}-{{end}}{{printf "%.1f" (sub .TotalCoverage .BaselineCoverage)}}% vs base){{end}}</div>
+                    {{- else}}
                     <div class="metric-label">{{.CoveredFiles}} of {{.TotalFiles}} files covered</div>
+                    {{- end}}
                     <div class="coverage-bar">
                         <div class="coverage-fill" style="width: {{.TotalCoverage}}%"></div>
                     </div>
+                    {{- if .PRNumber}}
+                        {{- if .BaselineCoverage}}
+                            {{- if gt .TotalCoverage .BaselineCoverage}}
+                            <div class="status-badge">
+                                📈 Coverage Improved
+                            </div>
+                            {{- else if lt .TotalCoverage .BaselineCoverage}}
+                            <div class="status-badge warning">
+                                📉 Coverage Decreased  
+                            </div>
+                            {{- else}}
+                            <div class="status-badge">
+                                ➡️ Coverage Stable
+                            </div>
+                            {{- end}}
+                        {{- else}}
+                        <div class="status-badge">
+                            🆕 New PR Coverage
+                        </div>
+                        {{- end}}
+                    {{- else}}
                     <div class="status-badge">
                         ✅ Excellent Coverage
                     </div>
+                    {{- end}}
                 </div>
 
                 <div class="metric-card">
@@ -1253,5 +1284,6 @@ const dashboardTemplate = `<!DOCTYPE html>
         // Static deployments on GitHub Pages cannot provide live updates
         // The build status shown is a snapshot from when the report was generated
     </script>
+
 </body>
 </html>`

@@ -273,6 +273,8 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		"CommitSHA":         g.formatCommitSHA(data.CommitSHA),
 		"CommitURL":         commitURL,
 		"PRNumber":          data.PRNumber,
+		"PRTitle":           data.PRTitle,
+		"BaselineCoverage":  data.BaselineCoverage,
 		"Timestamp":         data.Timestamp.Format("2006-01-02 15:04:05 UTC"),
 		"TotalCoverage":     roundToDecimals(data.TotalCoverage, 2),
 		"CoverageTrend":     coverageTrend,
@@ -507,9 +509,17 @@ func NewRenderer(templateDir string) *Renderer {
 
 // RenderDashboard renders the dashboard template
 func (r *Renderer) RenderDashboard(_ context.Context, data map[string]interface{}) (string, error) {
+	// Create template function map
+	funcMap := template.FuncMap{
+		"sub": func(a, b float64) float64 {
+			return a - b
+		},
+		"printf": fmt.Sprintf,
+	}
+
 	// For now, use embedded template
 	// In future, load from file
-	tmpl := template.Must(template.New("dashboard").Parse(dashboardTemplate))
+	tmpl := template.Must(template.New("dashboard").Funcs(funcMap).Parse(dashboardTemplate))
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {

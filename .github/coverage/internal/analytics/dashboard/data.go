@@ -7,12 +7,14 @@ import (
 // CoverageData represents the complete coverage data for dashboard generation
 type CoverageData struct {
 	// Project information
-	ProjectName   string    `json:"project_name"`
-	RepositoryURL string    `json:"repository_url"`
-	Branch        string    `json:"branch"`
-	CommitSHA     string    `json:"commit_sha"`
-	PRNumber      string    `json:"pr_number,omitempty"`
-	Timestamp     time.Time `json:"timestamp"`
+	ProjectName      string    `json:"project_name"`
+	RepositoryURL    string    `json:"repository_url"`
+	Branch           string    `json:"branch"`
+	CommitSHA        string    `json:"commit_sha"`
+	PRNumber         string    `json:"pr_number,omitempty"`
+	PRTitle          string    `json:"pr_title,omitempty"`
+	BaselineCoverage float64   `json:"baseline_coverage,omitempty"`
+	Timestamp        time.Time `json:"timestamp"`
 
 	// Overall metrics
 	TotalCoverage float64 `json:"total_coverage"`
