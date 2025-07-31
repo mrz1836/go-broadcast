@@ -259,7 +259,7 @@ func TestAddVerboseFlags(t *testing.T) {
 	assert.Equal(t, "false", dryRunFlag.DefValue)
 }
 
-// TestCreateSetupLoggingWithVerbose tests enhanced logging setup
+// TestCreateSetupLoggingWithVerbose tests verbose logging setup
 func TestCreateSetupLoggingWithVerbose(t *testing.T) {
 	// Save original logger state
 	originalLevel := logrus.GetLevel()

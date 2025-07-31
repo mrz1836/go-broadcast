@@ -123,7 +123,7 @@ func getRealStatus(ctx context.Context, cfg *config.Config) (*SyncStatus, error)
 		Verbose: 0,
 	}
 
-	// Initialize GitHub client with enhanced error handling
+	// Initialize GitHub client with comprehensive error handling
 	ghClient, err := gh.NewClient(ctx, logger, logConfig)
 	if err != nil {
 		// Provide specific error messages for common issues
@@ -140,7 +140,7 @@ func getRealStatus(ctx context.Context, cfg *config.Config) (*SyncStatus, error)
 	// Initialize state discoverer
 	discoverer := state.NewDiscoverer(ghClient, logger, logConfig)
 
-	// Discover current state with enhanced error handling
+	// Discover current state with comprehensive error handling
 	currentState, err := discoverer.DiscoverState(ctx, cfg)
 	if err != nil {
 		// Provide specific error messages for common GitHub API issues

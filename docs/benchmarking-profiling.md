@@ -259,14 +259,14 @@ BenchmarkGitCommand_Simple-8        50000      23456 ns/op     1024 B/op       1
 
 Based on current benchmarks, here are performance targets:
 
-| Operation Type | Target Performance | Notes |
-|----------------|-------------------|-------|
-| Config Parsing | <40μs for small configs | ~34K ops/sec |
-| Binary Detection | <50ns per check | 77M+ ops/sec, zero allocs |
-| State Comparison | <10ns per comparison | 26M+ ops/sec, zero allocs |
-| Git Commands | <25ms for simple commands | Includes process overhead |
-| API Calls | <100ms per call | Network dependent |
-| Transform Operations | <40μs for small files | ~31K files/sec |
+| Operation Type       | Target Performance        | Notes                     |
+|----------------------|---------------------------|---------------------------|
+| Config Parsing       | <40μs for small configs   | ~34K ops/sec              |
+| Binary Detection     | <50ns per check           | 77M+ ops/sec, zero allocs |
+| State Comparison     | <10ns per comparison      | 26M+ ops/sec, zero allocs |
+| Git Commands         | <25ms for simple commands | Includes process overhead |
+| API Calls            | <100ms per call           | Network dependent         |
+| Transform Operations | <40μs for small files     | ~31K files/sec            |
 
 ## Writing Custom Benchmarks
 

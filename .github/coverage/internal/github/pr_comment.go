@@ -1,4 +1,4 @@
-// Package github provides enhanced PR comment management for coverage reporting
+// Package github provides PR comment management for coverage reporting
 package github
 
 import (
@@ -132,8 +132,8 @@ func NewPRCommentManager(client *Client, config *PRCommentConfig) *PRCommentMana
 	}
 }
 
-// CreateOrUpdatePRComment creates or intelligently updates a PR comment with coverage information
-func (m *PRCommentManager) CreateOrUpdatePRComment(ctx context.Context, owner, repo string, prNumber int, comparison *CoverageComparison) (*PRCommentResponse, error) {
+// CreateOrUpdatePRComment creates or updates a PR comment with coverage information
+func (m *PRCommentManager) CreateOrUpdatePRComment(ctx context.Context, owner, repo string, prNumber int, commentBody string, comparison *CoverageComparison) (*PRCommentResponse, error) {
 	// Get PR information first
 	pr, err := m.client.GetPullRequest(ctx, owner, repo, prNumber)
 	if err != nil {
@@ -157,9 +157,6 @@ func (m *PRCommentManager) CreateOrUpdatePRComment(ctx context.Context, owner, r
 		}, nil
 	}
 
-	// Generate comment content
-	commentBody := m.generateEnhancedComment(comparison, owner, repo, prNumber, pr.Head.SHA)
-
 	var comment *Comment
 	var commentID int
 
@@ -181,11 +178,8 @@ func (m *PRCommentManager) CreateOrUpdatePRComment(ctx context.Context, owner, r
 		action = "created"
 	}
 
-	// Generate PR-specific badges if enabled
+	// Badge URLs are now handled by the badge generation system separately
 	badgeURLs := make(map[string]string)
-	if m.config.GeneratePRBadges {
-		badgeURLs = m.generatePRBadgeURLs(owner, repo, prNumber, comparison.PRCoverage.Percentage)
-	}
 
 	// Create status check if enabled
 	statusCheckURL := ""
@@ -344,158 +338,6 @@ func (m *PRCommentManager) hasSignificantCoverageChange(comparison *CoverageComp
 	}
 
 	return false
-}
-
-// generateEnhancedComment generates the enhanced comment body with all features
-func (m *PRCommentManager) generateEnhancedComment(comparison *CoverageComparison, owner, repo string, prNumber int, headSHA string) string {
-	var comment strings.Builder
-
-	// Add signature and metadata
-	comment.WriteString(fmt.Sprintf("<!-- %s -->\n", m.config.CommentSignature))
-	comment.WriteString("<!-- metadata: ")
-	metadata := CommentMetadata{
-		Signature:      m.config.CommentSignature,
-		CommentVersion: "2.0",
-		CreatedAt:      time.Now(),
-		LastUpdatedAt:  time.Now(),
-		PRNumber:       prNumber,
-		HeadSHA:        headSHA,
-	}
-	metadataJSON, _ := json.Marshal(metadata) //nolint:errchkjson // Metadata marshaling is optional
-	comment.Write(metadataJSON)
-	comment.WriteString(" -->\n\n")
-
-	// Header with trend emoji
-	trendEmoji := m.getTrendEmoji(comparison.TrendAnalysis.Direction)
-	comment.WriteString(fmt.Sprintf("## %s Coverage Report\n\n", trendEmoji))
-
-	// Main coverage summary
-	comment.WriteString(fmt.Sprintf("**Overall Coverage: %.1f%%** %s\n\n",
-		comparison.PRCoverage.Percentage,
-		m.getPercentageEmoji(comparison.PRCoverage.Percentage)))
-
-	// Coverage change analysis
-	if comparison.Difference != 0 {
-		changeDirection := "increased"
-		changeEmoji := "📈"
-		if comparison.Difference < 0 {
-			changeDirection = "decreased"
-			changeEmoji = "📉"
-		}
-
-		comment.WriteString(fmt.Sprintf("%s Coverage %s by **%.2f%%** (%.1f%% → %.1f%%)\n\n",
-			changeEmoji, changeDirection, comparison.Difference,
-			comparison.BaseCoverage.Percentage, comparison.PRCoverage.Percentage))
-	} else {
-		comment.WriteString("📊 Coverage remained stable\n\n")
-	}
-
-	// Coverage details
-	if m.config.IncludeCoverageDetails {
-		comment.WriteString("### 📋 Coverage Details\n\n")
-		comment.WriteString("| Metric | Base | Current | Change |\n")
-		comment.WriteString("|--------|------|---------|--------|\n")
-		comment.WriteString(fmt.Sprintf("| **Percentage** | %.1f%% | %.1f%% | %+.1f%% |\n",
-			comparison.BaseCoverage.Percentage, comparison.PRCoverage.Percentage, comparison.Difference))
-		comment.WriteString(fmt.Sprintf("| **Covered** | %d | %d | %+d |\n",
-			comparison.BaseCoverage.CoveredStatements, comparison.PRCoverage.CoveredStatements,
-			comparison.PRCoverage.CoveredStatements-comparison.BaseCoverage.CoveredStatements))
-		comment.WriteString(fmt.Sprintf("| **Total** | %d | %d | %+d |\n\n",
-			comparison.BaseCoverage.TotalStatements, comparison.PRCoverage.TotalStatements,
-			comparison.PRCoverage.TotalStatements-comparison.BaseCoverage.TotalStatements))
-	}
-
-	// Trend analysis
-	if m.config.IncludeTrend && comparison.TrendAnalysis.Direction != "" {
-		comment.WriteString("### 📈 Trend Analysis\n\n")
-		comment.WriteString(fmt.Sprintf("- **Direction**: %s %s\n",
-			m.getTrendEmoji(comparison.TrendAnalysis.Direction),
-			comparison.TrendAnalysis.Direction))
-		comment.WriteString(fmt.Sprintf("- **Magnitude**: %s\n", comparison.TrendAnalysis.Magnitude))
-		comment.WriteString(fmt.Sprintf("- **Momentum**: %s\n\n", comparison.TrendAnalysis.Momentum))
-	}
-
-	// File-level analysis
-	if m.config.IncludeFileAnalysis && len(comparison.FileChanges) > 0 {
-		comment.WriteString("### 📁 File Changes\n\n")
-
-		significantChanges := make([]FileChange, 0)
-		for _, change := range comparison.FileChanges {
-			if change.IsSignificant {
-				significantChanges = append(significantChanges, change)
-			}
-		}
-
-		if len(significantChanges) > 0 {
-			comment.WriteString("| File | Base | Current | Change |\n")
-			comment.WriteString("|------|------|---------|--------|\n")
-
-			for _, change := range significantChanges {
-				if len(significantChanges) > 10 {
-					break // Limit to prevent overly long comments
-				}
-				comment.WriteString(fmt.Sprintf("| `%s` | %.1f%% | %.1f%% | %+.1f%% |\n",
-					change.Filename, change.BaseCoverage, change.PRCoverage, change.Difference))
-			}
-			comment.WriteString("\n")
-		}
-	}
-
-	// PR-specific badges
-	if m.config.GeneratePRBadges {
-		comment.WriteString("### 🏷️ PR Coverage Badge\n\n")
-		badgeURL := m.generatePRBadgeURL(owner, repo, prNumber, comparison.PRCoverage.Percentage)
-		comment.WriteString(fmt.Sprintf("![PR Coverage Badge](%s)\n\n", badgeURL))
-	}
-
-	// Footer
-	comment.WriteString("---\n")
-	comment.WriteString(fmt.Sprintf("*Generated by [GoFortress Coverage](https://github.com/%s/%s) 🤖*\n", owner, repo))
-	comment.WriteString(fmt.Sprintf("*Updated: %s*", time.Now().Format("2006-01-02 15:04:05 UTC")))
-
-	return comment.String()
-}
-
-// getTrendEmoji returns emoji for trend direction
-func (m *PRCommentManager) getTrendEmoji(direction string) string {
-	switch direction {
-	case "up":
-		return "📈"
-	case "down":
-		return "📉"
-	default:
-		return "📊"
-	}
-}
-
-// getPercentageEmoji returns emoji based on coverage percentage
-func (m *PRCommentManager) getPercentageEmoji(percentage float64) string {
-	switch {
-	case percentage >= 90:
-		return "🟢"
-	case percentage >= 80:
-		return "🟡"
-	case percentage >= 70:
-		return "🟠"
-	default:
-		return "🔴"
-	}
-}
-
-// generatePRBadgeURLs generates PR-specific badge URLs
-func (m *PRCommentManager) generatePRBadgeURLs(owner, repo string, prNumber int, _ float64) map[string]string {
-	baseURL := fmt.Sprintf("https://%s.github.io/%s/coverage/pr/%d", owner, repo, prNumber)
-
-	return map[string]string{
-		"coverage": fmt.Sprintf("%s/badge-coverage.svg", baseURL),
-		"trend":    fmt.Sprintf("%s/badge-trend.svg", baseURL),
-		"status":   fmt.Sprintf("%s/badge-status.svg", baseURL),
-	}
-}
-
-// generatePRBadgeURL generates a single PR badge URL
-func (m *PRCommentManager) generatePRBadgeURL(owner, repo string, prNumber int, _ float64) string {
-	return fmt.Sprintf("https://%s.github.io/%s/coverage/pr/%d/badge-coverage-flat.svg", owner, repo, prNumber)
 }
 
 // createCoverageStatusCheck creates GitHub status check for coverage

@@ -186,7 +186,7 @@ func (t *Tracker) Record(ctx context.Context, coverage *parser.CoverageData, opt
 	default:
 	}
 
-	// Enhanced validation
+	// Validation
 	if coverage == nil {
 		return ErrCoverageDataNil
 	}
@@ -411,7 +411,7 @@ func (t *Tracker) saveEntry(ctx context.Context, entry *Entry) error {
 	default:
 	}
 
-	// Enhanced validation
+	// Validation
 	if entry == nil {
 		return ErrEntryNil
 	}
@@ -441,7 +441,7 @@ func (t *Tracker) saveEntry(ctx context.Context, entry *Entry) error {
 		return fmt.Errorf("%w: %s (this might indicate a duplicate recording)", ErrHistoryEntryExists, filename)
 	}
 
-	// Marshal with enhanced error context
+	// Marshal with detailed error context
 	data, err := json.MarshalIndent(entry, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal entry to JSON (branch: %s, commit: %s): %w", entry.Branch, entry.CommitSHA, err)
@@ -452,7 +452,7 @@ func (t *Tracker) saveEntry(ctx context.Context, entry *Entry) error {
 		return fmt.Errorf("%w for entry %s", ErrMarshaledDataEmpty, filename)
 	}
 
-	// Write file with enhanced error reporting
+	// Write file with detailed error reporting
 	if err := os.WriteFile(filePath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write entry file '%s' (size: %d bytes): %w", filePath, len(data), err)
 	}

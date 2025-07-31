@@ -112,16 +112,16 @@ state locally. It supports file transformations and provides progress tracking.`
 }
 
 // NewRootCmdWithVerbose creates a new root command with verbose flag support
-// This provides the enhanced logging capabilities from Phase 1
+// This provides verbose logging capabilities from Phase 1
 func NewRootCmdWithVerbose() *cobra.Command {
-	// Create LogConfig for enhanced logging support
+	// Create LogConfig for verbose logging support
 	logConfig := &LogConfig{
 		ConfigFile: "sync.yaml",
 		LogLevel:   "info",
 		LogFormat:  "text",
 	}
 
-	// Create new command instance with enhanced setup function
+	// Create new command instance with logging setup function
 	cmd := &cobra.Command{
 		Use:   "go-broadcast",
 		Short: "Synchronize files from source repos to multiple targets",
@@ -135,7 +135,7 @@ state locally. It supports file transformations and provides progress tracking.`
 		SilenceErrors:     true,
 	}
 
-	// Add enhanced flags with verbose support
+	// Add verbose flags with debug support
 	addVerboseFlags(cmd, logConfig)
 
 	// Add commands with LogConfig
@@ -286,7 +286,7 @@ func addVerboseFlags(cmd *cobra.Command, config *LogConfig) {
 		"Log level (debug, info, warn, error) - overridden by verbose flags")
 }
 
-// createSetupLoggingWithVerbose creates an enhanced logging setup function.
+// createSetupLoggingWithVerbose creates a verbose logging setup function.
 //
 // This function creates a setup function that uses the LoggerService to configure
 // logging with support for verbose flags, trace level, and component-specific debugging.
@@ -313,7 +313,7 @@ func createSetupLoggingWithVerbose(config *LogConfig) func(*cobra.Command, []str
 		// Create logger service with the configuration
 		loggerService := NewLoggerService(config)
 
-		// Configure logrus with enhanced logging capabilities
+		// Configure logrus with verbose logging capabilities
 		if err := loggerService.ConfigureLogger(ctx); err != nil {
 			return fmt.Errorf("failed to configure logger: %w", err)
 		}
@@ -343,7 +343,7 @@ func createSetupLoggingWithVerbose(config *LogConfig) func(*cobra.Command, []str
 
 // createSyncCmdWithVerbose creates a sync command with verbose logging support.
 //
-// This function creates a sync command that uses LogConfig for enhanced logging
+// This function creates a sync command that uses LogConfig for verbose logging
 // capabilities including verbose flags and component-specific debug settings.
 //
 // Parameters:
@@ -531,7 +531,7 @@ Target repositories can be specified as arguments to sync only specific repos.`,
   go-broadcast validate && go-broadcast sync --dry-run  # Validate then preview
   go-broadcast sync --dry-run | tee preview.log        # Save preview output
 
-  # For troubleshooting, use enhanced verbose commands:
+  # For troubleshooting, use verbose commands:
   # go-broadcast sync -v --debug-git (requires go-broadcast with verbose support)`,
 		Aliases: []string{"s"},
 		RunE:    createRunSync(flags),
@@ -577,7 +577,7 @@ Performs comprehensive validation including:
   go-broadcast validate && echo "Config valid"      # Use exit code
   go-broadcast validate 2>&1 | tee validation.log  # Save output
 
-  # For detailed debugging, use enhanced validate command:
+  # For detailed debugging, use verbose validate command:
   # go-broadcast validate --debug-config -v (requires verbose support)`,
 		Aliases: []string{"v", "check"},
 		RunE:    createRunValidate(flags),
@@ -657,7 +657,7 @@ func createRunVersion(_ *Flags) func(*cobra.Command, []string) error {
 
 // createRunSyncWithVerbose creates a sync run function with verbose logging support.
 //
-// This function creates a run function that uses LogConfig for enhanced sync operations
+// This function creates a run function that uses LogConfig for verbose sync operations
 // with component-specific debugging and verbose logging capabilities.
 //
 // Parameters:
@@ -672,7 +672,7 @@ func createRunSyncWithVerbose(config *LogConfig) func(*cobra.Command, []string) 
 
 		// For Phase 1, delegate to existing sync implementation
 		// This maintains functionality while adding verbose flag support
-		// In later phases, this will be enhanced with component-specific debugging
+		// In later phases, this will include component-specific debugging
 
 		// Load configuration using LogConfig
 		cfg, err := loadConfigWithLogConfig(config)

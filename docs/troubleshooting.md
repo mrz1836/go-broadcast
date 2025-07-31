@@ -37,7 +37,7 @@ export GITHUB_TOKEN="your_personal_access_token"
 
 ### "gh: Not Found (HTTP 404)"
 
-**Problem**: Repository doesn't exist or you don't have access.
+**Problem**: Repository doesn't exist, or you don't have access.
 
 **Solutions**:
 1. **Check repository name format**: Must be `owner/repository`, not just `repository`

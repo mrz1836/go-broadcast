@@ -49,7 +49,7 @@ Shows only error messages:
 time="13:32:17" level=error msg="Command failed" args="[api repos/org/template-repo/branches/master]" command=gh
 ```
 
-**Note**: Enhanced verbose flags (`-v`, `-vv`, `-vvv`) and component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented in the current version.
+**Note**: Verbose flags (`-v`, `-vv`, `-vvv`) and component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented in the current version.
 
 ## Current Debugging Capabilities
 
@@ -429,7 +429,7 @@ output {
 
 ## Developer Workflow Integration
 
-For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md#️-troubleshooting-quick-reference) which includes:
+For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md) which includes:
 - **Debug command procedures** for troubleshooting go-broadcast issues
 - **Verbose logging workflows** for development and debugging
 - **Component-specific debugging** for targeted investigation

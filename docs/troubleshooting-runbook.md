@@ -412,7 +412,7 @@ go-broadcast sync --debug-api --json --config test-config.yaml --dry-run 2>&1 | 
 - Verify configuration and authentication
 - Test with `--dry-run` flag
 
-### Level 2: Enhanced Debugging
+### Level 2: Advanced Debugging
 - Collect comprehensive logs (`-vvv` with all debug flags)
 - Run `go-broadcast diagnose`
 - Performance analysis with JSON output
@@ -446,7 +446,7 @@ echo "Support package created: ${SUPPORT_DIR}.tar.gz"
 
 ## Developer Workflow Integration
 
-For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md#️-troubleshooting-quick-reference) which includes:
+For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md) which includes:
 - **Development environment troubleshooting** for build failures and test issues
 - **go-broadcast debugging workflows** with component-specific procedures
 - **Environment validation procedures** for GitHub authentication and Go setup

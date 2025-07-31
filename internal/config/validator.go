@@ -44,7 +44,7 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 	logger := logging.WithStandardFields(logrus.StandardLogger(), logConfig, logging.ComponentNames.Config)
 	start := time.Now()
 
-	// Enhanced debug logging when --debug-config flag is enabled
+	// Debug logging when --debug-config flag is enabled
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.Operation:   logging.OperationTypes.ConfigValidate,

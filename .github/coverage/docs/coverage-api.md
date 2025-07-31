@@ -310,7 +310,7 @@ Flags:
   --base-coverage string    Base coverage data file for comparison
   --badge-url string        Badge URL (auto-generated if not provided)
   --report-url string       Report URL (auto-generated if not provided)
-  --status                  Create enhanced status checks
+  --status                  Create status checks
   --block-merge             Block PR merge on coverage failure
   --generate-badges         Generate PR-specific badges
   --enable-analysis         Enable detailed coverage analysis and comparison (default true)
@@ -323,7 +323,7 @@ Examples:
     --pr 123 \
     --coverage coverage.json
     
-  # Enhanced comment with analysis
+  # Comment with analysis
   gofortress-coverage comment \
     --pr 123 \
     --coverage pr-coverage.json \
@@ -349,7 +349,7 @@ Examples:
 
 - **Comprehensive**: Full analysis with file details, quality gates, and recommendations
 - **Compact**: Single line with coverage and link to detailed report
-- **Detailed**: Enhanced analysis with risk assessment and complexity metrics
+- **Detailed**: Detailed analysis with risk assessment and complexity metrics
 - **Summary**: Quick overview with key metrics and status
 - **Minimal**: Ultra-compact coverage percentage only
 

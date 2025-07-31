@@ -1,6 +1,6 @@
 // Package cli provides logging configuration and trace level support for go-broadcast.
 //
-// This file implements the LoggerService which provides enhanced logging capabilities
+// This file implements the LoggerService which provides verbose logging capabilities
 // including trace level support beyond standard logrus levels and component-specific
 // debug flag handling.
 //
@@ -91,7 +91,7 @@ func (h *TraceHook) Fire(entry *logrus.Entry) error {
 // This function performs the following steps:
 // - Maps verbose count to appropriate log levels
 // - Configures trace level support when needed
-// - Sets up enhanced formatting for different verbose levels
+// - Sets up custom formatting for different verbose levels
 // - Enables caller information for maximum verbosity (-vvv)
 //
 // Parameters:
