@@ -249,7 +249,7 @@ func getDashboardTemplate() string {
             <div class="links-section">
                 <h3 style="margin-bottom: 1rem;">📋 Coverage Reports & Tools</h3>
                 <div class="links-grid">
-                    <a href="./coverage.html" class="link-item">
+                    <a href="./coverage.html" class="link-item" target="_blank">
                         📄 Detailed HTML Report
                     </a>
                     {{- if .BadgeURL}}
@@ -261,10 +261,10 @@ func getDashboardTemplate() string {
                         🏷️ Coverage Badge
                     </a>
                     {{- end}}
-                    <a href="{{.RepositoryURL}}" class="link-item">
+                    <a href="{{.RepositoryURL}}" class="link-item" target="_blank">
                         📦 Source Repository
                     </a>
-                    <a href="{{.RepositoryURL}}/actions" class="link-item">
+                    <a href="{{.RepositoryURL}}/actions" class="link-item" target="_blank">
                         🚀 GitHub Actions
                     </a>
                 </div>

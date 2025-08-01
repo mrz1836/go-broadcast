@@ -47,12 +47,10 @@ func getReportTemplate() string {
                 </p>
             </div>
 
-        </div>
-
-        <!-- Repository Info Bar -->
-        <div class="repo-info">
+            <!-- Repository Info Bar -->
+            <div class="repo-info">
             {{- if and .RepositoryOwner .RepositoryName}}
-            <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}" class="repo-link">
+            <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}" class="repo-link" target="_blank">
                 <span class="repo-icon">📦</span>
                 {{.RepositoryOwner}}/{{.RepositoryName}}
             </a>
@@ -74,7 +72,7 @@ func getReportTemplate() string {
             {{- if .PRNumber}}
             <span class="repo-separator">•</span>
             {{- if .PRURL}}
-            <a href="{{.PRURL}}" class="commit-link">
+            <a href="{{.PRURL}}" class="commit-link" target="_blank">
                 <span class="commit-icon">🔀</span>
                 PR #{{.PRNumber}}
             </a>
@@ -89,7 +87,7 @@ func getReportTemplate() string {
             {{- if .CommitSHA}}
             <span class="repo-separator">•</span>
             {{- if .CommitURL}}
-            <a href="{{.CommitURL}}" class="commit-link">
+            <a href="{{.CommitURL}}" class="commit-link" target="_blank">
                 <span class="commit-icon">🔗</span>
                 {{truncate .CommitSHA 7}}
             </a>
@@ -112,6 +110,7 @@ func getReportTemplate() string {
                     <span class="btn-icon">🔄</span>
                     <span class="btn-text">Refresh</span>
                 </button>
+            </div>
             </div>
         </div>
     </header>
