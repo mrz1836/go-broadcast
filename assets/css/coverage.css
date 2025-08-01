@@ -310,7 +310,7 @@ body::before {
 }
 
 .header-main {
-    text-align: left;
+    text-align: center;
 }
 
 .header-status {
@@ -1466,9 +1466,6 @@ body::before {
         align-items: stretch;
     }
 
-    .header-main {
-        text-align: center;
-    }
 
     .header-status {
         align-items: center;
