@@ -25,6 +25,7 @@
 # Allow coverage-related directories
 !/coverage/
 !/data/
+!/assets/
 
 # Allow all subdirectories and their contents
 # This ensures branch-specific and PR coverage is included
