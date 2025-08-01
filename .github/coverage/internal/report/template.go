@@ -1013,7 +1013,7 @@ const reportTemplate = `<!DOCTYPE html>
                 <span class="footer-text">Powered by</span>
                 <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}" target="_blank" class="footer-link">
                     <span class="footer-icon">🏰</span>
-                    <span class="footer-brand">GoFortress Coverage</span>
+                    <span class="footer-brand">GoFortress</span>
                 </a>
             </div>
             <span class="footer-separator">•</span>
