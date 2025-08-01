@@ -1,0 +1,690 @@
+package sync
+
+import (
+	"context"
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+)
+
+// GitHubAPISuite provides a test suite for GitHub Tree API integration
+type GitHubAPISuite struct {
+	suite.Suite
+	mockClient *gh.MockClient
+	api        *GitHubAPI
+	logger     *logrus.Logger
+	ctx        context.Context
+}
+
+// SetupTest sets up each test with fresh mocks and API instance
+func (suite *GitHubAPISuite) SetupTest() {
+	suite.mockClient = &gh.MockClient{}
+	suite.logger = logrus.New()
+	suite.logger.SetLevel(logrus.ErrorLevel) // Reduce noise in tests
+	suite.ctx = context.Background()
+
+	// Create API with short TTL for testing
+	opts := GitHubAPIOptions{
+		CacheTTL:       100 * time.Millisecond,
+		MaxCacheSize:   10,
+		MaxRetries:     2,
+		BaseRetryDelay: 10 * time.Millisecond,
+	}
+	suite.api = NewGitHubAPIWithOptions(suite.mockClient, suite.logger, opts)
+}
+
+// TearDownTest cleans up after each test
+func (suite *GitHubAPISuite) TearDownTest() {
+	suite.api.Close()
+	suite.mockClient.AssertExpectations(suite.T())
+}
+
+// TestNewGitHubAPI tests constructor functions
+func (suite *GitHubAPISuite) TestNewGitHubAPI() {
+	// Test default constructor
+	api := NewGitHubAPI(suite.mockClient, suite.logger)
+	assert.NotNil(suite.T(), api)
+	assert.Equal(suite.T(), 5*time.Minute, api.cacheTTL)
+	assert.Equal(suite.T(), 3, api.maxRetries)
+	api.Close()
+
+	// Test with custom options
+	opts := GitHubAPIOptions{
+		CacheTTL:       10 * time.Minute,
+		MaxCacheSize:   500,
+		MaxRetries:     5,
+		BaseRetryDelay: 2 * time.Second,
+	}
+	api2 := NewGitHubAPIWithOptions(suite.mockClient, suite.logger, opts)
+	assert.NotNil(suite.T(), api2)
+	assert.Equal(suite.T(), 10*time.Minute, api2.cacheTTL)
+	assert.Equal(suite.T(), 5, api2.maxRetries)
+	api2.Close()
+}
+
+// TestGetTree tests tree fetching functionality
+func (suite *GitHubAPISuite) TestGetTree() {
+	repo := "owner/repo"
+	ref := "main"
+	treeSHA := "abc123"
+
+	// Mock commit response
+	commit := &gh.Commit{
+		SHA: treeSHA,
+	}
+
+	// Mock git tree response
+	gitTree := &gh.GitTree{
+		SHA: treeSHA,
+		Tree: []gh.GitTreeNode{
+			{Path: "README.md", Type: "blob", SHA: "file1", Mode: "100644"},
+			{Path: "src/main.go", Type: "blob", SHA: "file2", Mode: "100644"},
+			{Path: "src/util/helper.go", Type: "blob", SHA: "file3", Mode: "100644"},
+			{Path: "src", Type: "tree", SHA: "dir1", Mode: "040000"},
+			{Path: "src/util", Type: "tree", SHA: "dir2", Mode: "040000"},
+		},
+		Truncated: false,
+	}
+
+	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+
+	// Test successful tree fetch
+	treeMap, err := suite.api.GetTree(suite.ctx, repo, ref)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), treeMap)
+
+	// Verify tree structure
+	assert.Equal(suite.T(), treeSHA, treeMap.sha)
+	assert.Len(suite.T(), treeMap.files, 3)
+	assert.Len(suite.T(), treeMap.directories, 2)
+
+	// Verify files are correctly indexed
+	assert.True(suite.T(), treeMap.HasFile("README.md"))
+	assert.True(suite.T(), treeMap.HasFile("src/main.go"))
+	assert.True(suite.T(), treeMap.HasFile("src/util/helper.go"))
+	assert.False(suite.T(), treeMap.HasFile("nonexistent.txt"))
+
+	// Verify directories are correctly indexed
+	assert.True(suite.T(), treeMap.HasDirectory("src"))
+	assert.True(suite.T(), treeMap.HasDirectory("src/util"))
+	assert.False(suite.T(), treeMap.HasDirectory("nonexistent"))
+
+	// Test file retrieval
+	file, exists := treeMap.GetFile("src/main.go")
+	assert.True(suite.T(), exists)
+	assert.Equal(suite.T(), "src/main.go", file.Path)
+	assert.Equal(suite.T(), "blob", file.Type)
+
+	// Verify stats
+	stats := treeMap.GetStats()
+	assert.Equal(suite.T(), 3, stats.TotalFiles)
+	assert.Equal(suite.T(), 2, stats.TotalDirectories)
+	assert.Equal(suite.T(), 2, stats.MaxDepth) // src/util/helper.go has depth 2
+	assert.Equal(suite.T(), treeSHA, stats.TreeSHA)
+}
+
+// TestGetTreeWithCache tests caching behavior
+func (suite *GitHubAPISuite) TestGetTreeWithCache() {
+	repo := "owner/repo"
+	ref := "main"
+	treeSHA := "abc123"
+
+	commit := &gh.Commit{SHA: treeSHA}
+	gitTree := &gh.GitTree{
+		SHA:  treeSHA,
+		Tree: []gh.GitTreeNode{{Path: "README.md", Type: "blob", SHA: "file1"}},
+	}
+
+	// Set up mocks for first call only
+	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil).Once()
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil).Once()
+
+	// First call should hit the API
+	treeMap1, err := suite.api.GetTree(suite.ctx, repo, ref)
+	require.NoError(suite.T(), err)
+
+	// Second call should hit the cache
+	treeMap2, err := suite.api.GetTree(suite.ctx, repo, ref)
+	require.NoError(suite.T(), err)
+
+	// Verify both return the same data
+	assert.Equal(suite.T(), treeMap1.sha, treeMap2.sha)
+	assert.Equal(suite.T(), len(treeMap1.files), len(treeMap2.files))
+
+	// Verify cache stats
+	hits, misses, size, hitRate := suite.api.GetCacheStats()
+	assert.Equal(suite.T(), int64(1), hits)
+	assert.Equal(suite.T(), int64(1), misses)
+	assert.Equal(suite.T(), 1, size)
+	assert.Equal(suite.T(), 0.5, hitRate)
+}
+
+// TestGetTreeCacheExpiration tests cache TTL behavior
+func (suite *GitHubAPISuite) TestGetTreeCacheExpiration() {
+	repo := "owner/repo"
+	ref := "main"
+	treeSHA := "abc123"
+
+	commit := &gh.Commit{SHA: treeSHA}
+	gitTree := &gh.GitTree{
+		SHA:  treeSHA,
+		Tree: []gh.GitTreeNode{{Path: "README.md", Type: "blob", SHA: "file1"}},
+	}
+
+	// Set up mocks for two API calls
+	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil).Twice()
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil).Twice()
+
+	// First call
+	_, err := suite.api.GetTree(suite.ctx, repo, ref)
+	require.NoError(suite.T(), err)
+
+	// Wait for cache to expire
+	time.Sleep(150 * time.Millisecond)
+
+	// Second call should hit API again
+	_, err = suite.api.GetTree(suite.ctx, repo, ref)
+	require.NoError(suite.T(), err)
+
+	// Verify both calls were made
+	suite.mockClient.AssertExpectations(suite.T())
+}
+
+// TestBatchCheckFiles tests batch file checking functionality
+func (suite *GitHubAPISuite) TestBatchCheckFiles() {
+	repo := "owner/repo"
+	ref := "main"
+	treeSHA := "abc123"
+
+	commit := &gh.Commit{SHA: treeSHA}
+	gitTree := &gh.GitTree{
+		SHA: treeSHA,
+		Tree: []gh.GitTreeNode{
+			{Path: "README.md", Type: "blob", SHA: "file1"},
+			{Path: "src/main.go", Type: "blob", SHA: "file2"},
+			{Path: "docs/guide.md", Type: "blob", SHA: "file3"},
+		},
+	}
+
+	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+
+	filePaths := []string{
+		"README.md",
+		"src/main.go",
+		"nonexistent.txt",
+		"docs/guide.md",
+		"missing/file.go",
+	}
+
+	results, err := suite.api.BatchCheckFiles(suite.ctx, repo, ref, filePaths)
+	require.NoError(suite.T(), err)
+	require.Len(suite.T(), results, 5)
+
+	// Verify results
+	assert.True(suite.T(), results["README.md"])
+	assert.True(suite.T(), results["src/main.go"])
+	assert.False(suite.T(), results["nonexistent.txt"])
+	assert.True(suite.T(), results["docs/guide.md"])
+	assert.False(suite.T(), results["missing/file.go"])
+}
+
+// TestBatchCheckDirectories tests batch directory checking functionality
+func (suite *GitHubAPISuite) TestBatchCheckDirectories() {
+	repo := "owner/repo"
+	ref := "main"
+	treeSHA := "abc123"
+
+	commit := &gh.Commit{SHA: treeSHA}
+	gitTree := &gh.GitTree{
+		SHA: treeSHA,
+		Tree: []gh.GitTreeNode{
+			{Path: "src/main.go", Type: "blob", SHA: "file1"},
+			{Path: "src/util/helper.go", Type: "blob", SHA: "file2"},
+			{Path: "docs/README.md", Type: "blob", SHA: "file3"},
+		},
+	}
+
+	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+
+	dirPaths := []string{
+		"src",
+		"src/util",
+		"docs",
+		"nonexistent",
+		"",
+	}
+
+	results, err := suite.api.BatchCheckDirectories(suite.ctx, repo, ref, dirPaths)
+	require.NoError(suite.T(), err)
+	require.Len(suite.T(), results, 5)
+
+	// Verify results
+	assert.True(suite.T(), results["src"])
+	assert.True(suite.T(), results["src/util"])
+	assert.True(suite.T(), results["docs"])
+	assert.False(suite.T(), results["nonexistent"])
+	assert.True(suite.T(), results[""]) // Root directory always exists
+}
+
+// TestGetFilesInDirectory tests directory file listing
+func (suite *GitHubAPISuite) TestGetFilesInDirectory() {
+	repo := "owner/repo"
+	ref := "main"
+	treeSHA := "abc123"
+
+	commit := &gh.Commit{SHA: treeSHA}
+	gitTree := &gh.GitTree{
+		SHA: treeSHA,
+		Tree: []gh.GitTreeNode{
+			{Path: "README.md", Type: "blob", SHA: "file1"},
+			{Path: "src/main.go", Type: "blob", SHA: "file2"},
+			{Path: "src/helper.go", Type: "blob", SHA: "file3"},
+			{Path: "src/util/deep.go", Type: "blob", SHA: "file4"},
+		},
+	}
+
+	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+
+	// Test root directory
+	rootFiles, err := suite.api.GetFilesInDirectory(suite.ctx, repo, ref, "")
+	require.NoError(suite.T(), err)
+	assert.Len(suite.T(), rootFiles, 1) // Only README.md
+	assert.Equal(suite.T(), "README.md", rootFiles[0].Path)
+
+	// Test src directory
+	srcFiles, err := suite.api.GetFilesInDirectory(suite.ctx, repo, ref, "src")
+	require.NoError(suite.T(), err)
+	assert.Len(suite.T(), srcFiles, 2) // main.go and helper.go, not deep.go
+
+	paths := make([]string, len(srcFiles))
+	for i, file := range srcFiles {
+		paths[i] = file.Path
+	}
+	assert.Contains(suite.T(), paths, "src/main.go")
+	assert.Contains(suite.T(), paths, "src/helper.go")
+	assert.NotContains(suite.T(), paths, "src/util/deep.go")
+}
+
+// TestRetryLogic tests retry behavior on failures
+func (suite *GitHubAPISuite) TestRetryLogic() {
+	repo := "owner/repo"
+	ref := "main"
+	treeSHA := "abc123"
+
+	commit := &gh.Commit{SHA: treeSHA}
+	gitTree := &gh.GitTree{SHA: treeSHA, Tree: []gh.GitTreeNode{}}
+
+	// First call succeeds for commit
+	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
+
+	// First tree call fails with retryable error
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).
+		Return(nil, fmt.Errorf("network timeout")).Once()
+
+	// Second tree call succeeds
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).
+		Return(gitTree, nil).Once()
+
+	// Should succeed after retry
+	treeMap, err := suite.api.GetTree(suite.ctx, repo, ref)
+	require.NoError(suite.T(), err)
+	assert.NotNil(suite.T(), treeMap)
+
+	// Verify retry stats
+	_, _, _, retries, _, _ := suite.api.GetAPIStats()
+	assert.Equal(suite.T(), int64(1), retries)
+}
+
+// TestRateLimitHandling tests rate limit error handling
+func (suite *GitHubAPISuite) TestRateLimitHandling() {
+	repo := "owner/repo"
+	ref := "main"
+	treeSHA := "abc123"
+
+	commit := &gh.Commit{SHA: treeSHA}
+
+	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
+
+	// All calls fail with rate limit
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).
+		Return(nil, fmt.Errorf("rate limit exceeded")).Times(3) // Initial + 2 retries
+
+	// Should fail after all retries
+	_, err := suite.api.GetTree(suite.ctx, repo, ref)
+	require.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "failed after 2 retries")
+
+	// Verify rate limit stats
+	_, _, _, retries, rateLimits, _ := suite.api.GetAPIStats()
+	assert.Equal(suite.T(), int64(2), retries)
+	assert.Equal(suite.T(), int64(3), rateLimits) // Initial + 2 retries
+}
+
+// TestInvalidateCache tests cache invalidation
+func (suite *GitHubAPISuite) TestInvalidateCache() {
+	repo := "owner/repo"
+	ref := "main"
+	treeSHA := "abc123"
+
+	commit := &gh.Commit{SHA: treeSHA}
+	gitTree := &gh.GitTree{SHA: treeSHA, Tree: []gh.GitTreeNode{}}
+
+	// Set up for two API calls
+	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil).Twice()
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil).Twice()
+
+	// First call
+	_, err := suite.api.GetTree(suite.ctx, repo, ref)
+	require.NoError(suite.T(), err)
+
+	// Invalidate cache
+	suite.api.InvalidateCache(repo, ref)
+
+	// Second call should hit API again
+	_, err = suite.api.GetTree(suite.ctx, repo, ref)
+	require.NoError(suite.T(), err)
+
+	// Verify both API calls were made
+	suite.mockClient.AssertExpectations(suite.T())
+}
+
+// TestEmptyFilePaths tests batch operations with empty input
+func (suite *GitHubAPISuite) TestEmptyFilePaths() {
+	repo := "owner/repo"
+	ref := "main"
+
+	// Should return empty results without API calls
+	fileResults, err := suite.api.BatchCheckFiles(suite.ctx, repo, ref, []string{})
+	require.NoError(suite.T(), err)
+	assert.Empty(suite.T(), fileResults)
+
+	dirResults, err := suite.api.BatchCheckDirectories(suite.ctx, repo, ref, []string{})
+	require.NoError(suite.T(), err)
+	assert.Empty(suite.T(), dirResults)
+
+	// No API calls should have been made
+	suite.mockClient.AssertExpectations(suite.T())
+}
+
+// TestTreeMapEdgeCases tests edge cases in TreeMap functionality
+func (suite *GitHubAPISuite) TestTreeMapEdgeCases() {
+	treeMap := &TreeMap{
+		files: map[string]*GitTreeNode{
+			"file.txt":            {Path: "file.txt", Type: "blob"},
+			"dir/subfile.txt":     {Path: "dir/subfile.txt", Type: "blob"},
+			"deep/nested/file.go": {Path: "deep/nested/file.go", Type: "blob"},
+		},
+		directories: map[string]bool{
+			"dir":         true,
+			"deep":        true,
+			"deep/nested": true,
+		},
+		sha:       "test-sha",
+		fetchedAt: time.Now(),
+	}
+
+	// Test file paths with leading/trailing slashes
+	assert.True(suite.T(), treeMap.HasFile("/file.txt"))
+	assert.True(suite.T(), treeMap.HasFile("file.txt"))
+	assert.True(suite.T(), treeMap.HasFile("/dir/subfile.txt"))
+
+	// Test directory paths with trailing slashes
+	assert.True(suite.T(), treeMap.HasDirectory("dir/"))
+	assert.True(suite.T(), treeMap.HasDirectory("dir"))
+	assert.True(suite.T(), treeMap.HasDirectory("/deep/nested/"))
+	assert.True(suite.T(), treeMap.HasDirectory("")) // Root always exists
+
+	// Test GetFilesInDirectory with various path formats
+	rootFiles := treeMap.GetFilesInDirectory("")
+	assert.Len(suite.T(), rootFiles, 1) // Only file.txt
+
+	dirFiles := treeMap.GetFilesInDirectory("dir")
+	assert.Len(suite.T(), dirFiles, 1) // Only subfile.txt
+	assert.Equal(suite.T(), "dir/subfile.txt", dirFiles[0].Path)
+
+	deepFiles := treeMap.GetFilesInDirectory("deep/nested/")
+	assert.Len(suite.T(), deepFiles, 1) // Only file.go
+	assert.Equal(suite.T(), "deep/nested/file.go", deepFiles[0].Path)
+}
+
+// TestAPIStats tests API statistics tracking
+func (suite *GitHubAPISuite) TestAPIStats() {
+	// Initial stats should be zero
+	treeFetches, cacheHits, cacheMisses, retries, rateLimits, avgTreeSize := suite.api.GetAPIStats()
+	assert.Equal(suite.T(), int64(0), treeFetches)
+	assert.Equal(suite.T(), int64(0), cacheHits)
+	assert.Equal(suite.T(), int64(0), cacheMisses)
+	assert.Equal(suite.T(), int64(0), retries)
+	assert.Equal(suite.T(), int64(0), rateLimits)
+	assert.Equal(suite.T(), int64(0), avgTreeSize)
+
+	// After some operations, stats should be updated
+	repo := "owner/repo"
+	ref := "main"
+	treeSHA := "abc123"
+
+	commit := &gh.Commit{SHA: treeSHA}
+	gitTree := &gh.GitTree{
+		SHA:  treeSHA,
+		Tree: []gh.GitTreeNode{{Path: "file.txt", Type: "blob"}},
+	}
+
+	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+
+	_, err := suite.api.GetTree(suite.ctx, repo, ref)
+	require.NoError(suite.T(), err)
+
+	// Check updated stats
+	treeFetches, cacheHits, cacheMisses, _, _, avgTreeSize = suite.api.GetAPIStats()
+	assert.Equal(suite.T(), int64(1), treeFetches)
+	assert.Equal(suite.T(), int64(0), cacheHits)
+	assert.Equal(suite.T(), int64(1), cacheMisses)
+	assert.Greater(suite.T(), avgTreeSize, int64(0))
+}
+
+// TestTruncatedTree tests handling of truncated trees
+func (suite *GitHubAPISuite) TestTruncatedTree() {
+	repo := "owner/repo"
+	ref := "main"
+	treeSHA := "abc123"
+
+	commit := &gh.Commit{SHA: treeSHA}
+	gitTree := &gh.GitTree{
+		SHA:       treeSHA,
+		Tree:      []gh.GitTreeNode{{Path: "file.txt", Type: "blob"}},
+		Truncated: true, // Tree was truncated
+	}
+
+	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+
+	// Should still succeed but log a warning
+	treeMap, err := suite.api.GetTree(suite.ctx, repo, ref)
+	require.NoError(suite.T(), err)
+	assert.NotNil(suite.T(), treeMap)
+	assert.Equal(suite.T(), treeSHA, treeMap.sha)
+}
+
+// TestRunSuite runs the complete test suite
+func TestGitHubAPISuite(t *testing.T) {
+	suite.Run(t, new(GitHubAPISuite))
+}
+
+// TestTreeMapMethods tests TreeMap methods independently
+func TestTreeMapMethods(t *testing.T) {
+	// Create a sample tree map
+	treeMap := &TreeMap{
+		files: map[string]*GitTreeNode{
+			"README.md":          {Path: "README.md", Type: "blob", SHA: "file1"},
+			"src/main.go":        {Path: "src/main.go", Type: "blob", SHA: "file2"},
+			"src/util/helper.go": {Path: "src/util/helper.go", Type: "blob", SHA: "file3"},
+		},
+		directories: map[string]bool{
+			"src":      true,
+			"src/util": true,
+		},
+		sha:       "tree-sha",
+		fetchedAt: time.Now(),
+	}
+
+	t.Run("HasFile", func(t *testing.T) {
+		assert.True(t, treeMap.HasFile("README.md"))
+		assert.True(t, treeMap.HasFile("src/main.go"))
+		assert.True(t, treeMap.HasFile("src/util/helper.go"))
+		assert.False(t, treeMap.HasFile("nonexistent.txt"))
+
+		// Test with leading slash
+		assert.True(t, treeMap.HasFile("/README.md"))
+		assert.True(t, treeMap.HasFile("/src/main.go"))
+	})
+
+	t.Run("HasDirectory", func(t *testing.T) {
+		assert.True(t, treeMap.HasDirectory("src"))
+		assert.True(t, treeMap.HasDirectory("src/util"))
+		assert.False(t, treeMap.HasDirectory("nonexistent"))
+		assert.True(t, treeMap.HasDirectory("")) // Root always exists
+
+		// Test with trailing slash
+		assert.True(t, treeMap.HasDirectory("src/"))
+		assert.True(t, treeMap.HasDirectory("src/util/"))
+	})
+
+	t.Run("GetFile", func(t *testing.T) {
+		file, exists := treeMap.GetFile("src/main.go")
+		assert.True(t, exists)
+		assert.NotNil(t, file)
+		assert.Equal(t, "src/main.go", file.Path)
+		assert.Equal(t, "blob", file.Type)
+		assert.Equal(t, "file2", file.SHA)
+
+		_, exists = treeMap.GetFile("nonexistent.txt")
+		assert.False(t, exists)
+	})
+
+	t.Run("GetFilesInDirectory", func(t *testing.T) {
+		// Root directory
+		rootFiles := treeMap.GetFilesInDirectory("")
+		assert.Len(t, rootFiles, 1)
+		assert.Equal(t, "README.md", rootFiles[0].Path)
+
+		// src directory
+		srcFiles := treeMap.GetFilesInDirectory("src")
+		assert.Len(t, srcFiles, 1) // Only main.go, not helper.go (which is in src/util)
+		assert.Equal(t, "src/main.go", srcFiles[0].Path)
+
+		// src/util directory
+		utilFiles := treeMap.GetFilesInDirectory("src/util")
+		assert.Len(t, utilFiles, 1)
+		assert.Equal(t, "src/util/helper.go", utilFiles[0].Path)
+
+		// Nonexistent directory
+		emptyFiles := treeMap.GetFilesInDirectory("nonexistent")
+		assert.Empty(t, emptyFiles)
+	})
+
+	t.Run("GetStats", func(t *testing.T) {
+		stats := treeMap.GetStats()
+		assert.Equal(t, 3, stats.TotalFiles)
+		assert.Equal(t, 2, stats.TotalDirectories)
+		assert.Equal(t, 2, stats.MaxDepth) // src/util/helper.go has depth 2
+		assert.Equal(t, "tree-sha", stats.TreeSHA)
+		assert.False(t, stats.FetchedAt.IsZero())
+	})
+}
+
+// TestErrorCases tests various error scenarios
+func TestErrorCases(t *testing.T) {
+	mockClient := &gh.MockClient{}
+	logger := logrus.New()
+	logger.SetLevel(logrus.ErrorLevel)
+	ctx := context.Background()
+
+	api := NewGitHubAPI(mockClient, logger)
+	defer api.Close()
+
+	repo := "owner/repo"
+	ref := "main"
+
+	t.Run("GetCommit error", func(t *testing.T) {
+		mockClient.On("GetCommit", ctx, repo, ref).
+			Return(nil, fmt.Errorf("commit not found")).Once()
+
+		_, err := api.GetTree(ctx, repo, ref)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "get commit for ref")
+	})
+
+	t.Run("GetGitTree error", func(t *testing.T) {
+		commit := &gh.Commit{SHA: "abc123"}
+		mockClient.On("GetCommit", ctx, repo, ref).Return(commit, nil).Once()
+		mockClient.On("GetGitTree", ctx, repo, "abc123", true).
+			Return(nil, fmt.Errorf("tree not found")).Once()
+
+		_, err := api.GetTree(ctx, repo, ref)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "fetch git tree")
+	})
+
+	mockClient.AssertExpectations(t)
+}
+
+// Benchmark tests for performance verification
+func BenchmarkTreeMapOperations(b *testing.B) {
+	// Create a large tree map for benchmarking
+	treeMap := &TreeMap{
+		files:       make(map[string]*GitTreeNode, 10000),
+		directories: make(map[string]bool, 1000),
+		sha:         "benchmark-sha",
+		fetchedAt:   time.Now(),
+	}
+
+	// Populate with test data
+	for i := 0; i < 10000; i++ {
+		path := fmt.Sprintf("dir%d/subdir%d/file%d.go", i%100, i%10, i)
+		treeMap.files[path] = &GitTreeNode{
+			Path: path,
+			Type: "blob",
+			SHA:  fmt.Sprintf("sha%d", i),
+		}
+	}
+
+	for i := 0; i < 1000; i++ {
+		dirPath := fmt.Sprintf("dir%d", i%100)
+		treeMap.directories[dirPath] = true
+	}
+
+	b.Run("HasFile", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			path := fmt.Sprintf("dir%d/subdir%d/file%d.go", i%100, i%10, i%10000)
+			treeMap.HasFile(path)
+		}
+	})
+
+	b.Run("HasDirectory", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dirPath := fmt.Sprintf("dir%d", i%100)
+			treeMap.HasDirectory(dirPath)
+		}
+	})
+
+	b.Run("GetFile", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			path := fmt.Sprintf("dir%d/subdir%d/file%d.go", i%100, i%10, i%10000)
+			treeMap.GetFile(path)
+		}
+	})
+}

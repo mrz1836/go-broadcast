@@ -984,6 +984,10 @@ func (m *DirectoryMockGHClient) GetCurrentUser(ctx context.Context) (*gh.User, e
 	return nil, nil
 }
 
+func (m *DirectoryMockGHClient) GetGitTree(ctx context.Context, repo, treeSHA string, recursive bool) (*gh.GitTree, error) {
+	return nil, nil
+}
+
 // DirectoryMockFileContent represents mock file content
 type DirectoryMockFileContent struct {
 	Content []byte

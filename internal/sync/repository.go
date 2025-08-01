@@ -28,10 +28,38 @@ type RepositorySync struct {
 	targetState *state.TargetState
 	logger      *logrus.Entry
 	tempDir     string
+	// Performance metrics tracking
+	syncMetrics *SyncPerformanceMetrics
+}
+
+// SyncPerformanceMetrics tracks performance metrics for the entire sync operation
+type SyncPerformanceMetrics struct {
+	StartTime        time.Time
+	EndTime          time.Time
+	DirectoryMetrics map[string]DirectoryMetrics // keyed by source directory path
+	FileMetrics      FileProcessingMetrics
+	APICallsSaved    int // Total API calls saved by using tree API or caching
+	CacheHits        int // Number of cache hits
+	CacheMisses      int // Number of cache misses
+	TotalAPIRequests int // Total API requests made
+}
+
+// FileProcessingMetrics tracks metrics for individual file processing
+type FileProcessingMetrics struct {
+	FilesProcessed   int
+	FilesChanged     int
+	FilesSkipped     int
+	ProcessingTimeMs int64
 }
 
 // Execute performs the complete sync operation for this repository
 func (rs *RepositorySync) Execute(ctx context.Context) error {
+	// Initialize performance metrics tracking
+	rs.syncMetrics = &SyncPerformanceMetrics{
+		StartTime:        time.Now(),
+		DirectoryMetrics: make(map[string]DirectoryMetrics),
+	}
+
 	// Start overall operation timer
 	syncTimer := metrics.StartTimer(ctx, rs.logger, "repository_sync").
 		AddField(logging.StandardFields.SourceRepo, rs.sourceState.Repo).
@@ -78,20 +106,35 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	processTimer := metrics.StartTimer(ctx, rs.logger, "file_processing").
 		AddField("file_count", len(rs.target.Files))
 
+	fileProcessingStart := time.Now()
 	changedFiles, err := rs.processFiles(ctx)
 	if err != nil {
 		processTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
 		return fmt.Errorf("failed to process files: %w", err)
 	}
+	fileProcessingDuration := time.Since(fileProcessingStart)
+
+	// Update file processing metrics
+	rs.syncMetrics.FileMetrics = FileProcessingMetrics{
+		FilesProcessed:   len(rs.target.Files),
+		FilesChanged:     len(changedFiles),
+		FilesSkipped:     len(rs.target.Files) - len(changedFiles),
+		ProcessingTimeMs: fileProcessingDuration.Milliseconds(),
+	}
 
 	processTimer.AddField("changed_files", len(changedFiles)).Stop()
 
-	// 5. Process directories
-	directoryChanges, err := rs.processDirectories(ctx)
+	// 5. Process directories with metrics collection
+	directoryChanges, directoryMetrics, err := rs.processDirectoriesWithMetrics(ctx)
 	if err != nil {
 		syncTimer.StopWithError(err)
 		return fmt.Errorf("failed to process directories: %w", err)
+	}
+
+	// Store directory metrics for PR metadata
+	if rs.syncMetrics != nil {
+		rs.syncMetrics.DirectoryMetrics = directoryMetrics
 	}
 
 	// Combine file and directory changes
@@ -155,6 +198,9 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		return fmt.Errorf("failed to create/update PR: %w", err)
 	}
 	prTimer.Stop()
+
+	// Finalize performance metrics
+	rs.syncMetrics.EndTime = time.Now()
 
 	if rs.engine.options.DryRun {
 		rs.logger.Debug("Dry-run completed successfully")
@@ -318,6 +364,9 @@ func (rs *RepositorySync) processFile(ctx context.Context, sourcePath string, fi
 
 // getExistingFileContent retrieves the current content of a file from the target repo
 func (rs *RepositorySync) getExistingFileContent(ctx context.Context, filePath string) ([]byte, error) {
+	// Track API request
+	rs.TrackAPIRequest()
+
 	// Try to get file from the target repository's default branch
 	fileContent, err := rs.engine.gh.GetFile(ctx, rs.target.Repo, filePath, "")
 	if err != nil {
@@ -484,6 +533,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 	}
 
 	// Get default branch for base
+	rs.TrackAPIRequest()
 	branches, err := rs.engine.gh.ListBranches(ctx, rs.target.Repo)
 	if err != nil {
 		return fmt.Errorf("failed to get branches: %w", err)
@@ -498,6 +548,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 	}
 
 	// Get current user to filter out from reviewers
+	rs.TrackAPIRequest()
 	currentUser, err := rs.engine.gh.GetCurrentUser(ctx)
 	if err != nil {
 		rs.logger.WithError(err).Warn("Failed to get current user for reviewer filtering")
@@ -528,6 +579,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 		TeamReviewers: rs.getPRTeamReviewers(),
 	}
 
+	rs.TrackAPIRequest()
 	pr, err := rs.engine.gh.CreatePR(ctx, rs.target.Repo, prRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create PR: %w", err)
@@ -567,6 +619,7 @@ func (rs *RepositorySync) updateExistingPR(ctx context.Context, pr *gh.PR, commi
 		Body: &newBody,
 	}
 
+	rs.TrackAPIRequest()
 	if err := rs.engine.gh.UpdatePR(ctx, rs.target.Repo, pr.Number, updates); err != nil {
 		return fmt.Errorf("failed to update PR: %w", err)
 	}
@@ -593,19 +646,26 @@ func (rs *RepositorySync) generatePRTitle() string {
 	return fmt.Sprintf("[Sync] Update project files from source repository (%s)", commitSHA)
 }
 
-// generatePRBody creates a detailed PR description with metadata
-func (rs *RepositorySync) generatePRBody(commitSHA string, _ []FileChange) string {
+// generatePRBody creates a detailed PR description with metadata including directory sync info
+func (rs *RepositorySync) generatePRBody(commitSHA string, changedFiles []FileChange) string {
 	var sb strings.Builder
 
-	// What Changed section
+	// What Changed section with enhanced details
 	sb.WriteString("## What Changed\n")
-	sb.WriteString("* Updated project files to synchronize with the latest changes from the source repository\n")
-	sb.WriteString("* Applied file transformations and updates based on sync configuration\n")
+	rs.writeChangeSummary(&sb, changedFiles)
 	shortSHA := commitSHA
 	if len(commitSHA) > 7 {
 		shortSHA = commitSHA[:7]
 	}
 	sb.WriteString(fmt.Sprintf("* Brought target repository in line with source repository state at commit %s\n\n", shortSHA))
+
+	// Directory synchronization details (if directories are configured)
+	if len(rs.target.Directories) > 0 {
+		rs.writeDirectorySyncDetails(&sb)
+	}
+
+	// Performance metrics section
+	rs.writePerformanceMetrics(&sb)
 
 	// Why It Was Necessary section
 	sb.WriteString("## Why It Was Necessary\n")
@@ -626,7 +686,140 @@ func (rs *RepositorySync) generatePRBody(commitSHA string, _ []FileChange) strin
 	sb.WriteString("* **Performance**: No impact on application performance\n")
 	sb.WriteString("* **Dependencies**: No dependency changes included in this sync\n\n")
 
-	// Add metadata as YAML block
+	// Add enhanced metadata as YAML block
+	rs.writeMetadataBlock(&sb, commitSHA, changedFiles)
+
+	return sb.String()
+}
+
+// writeChangeSummary writes a detailed summary of what changed in the sync
+func (rs *RepositorySync) writeChangeSummary(sb *strings.Builder, changedFiles []FileChange) {
+	// Distinguish between file changes and directory changes
+	fileChanges := 0
+	directoryChanges := 0
+
+	// Count changes by type - files vs directories
+	for _, change := range changedFiles {
+		if rs.isDirectoryFile(change.Path) {
+			directoryChanges++
+		} else {
+			fileChanges++
+		}
+	}
+
+	if fileChanges > 0 {
+		sb.WriteString(fmt.Sprintf("* Updated %d individual file(s) to synchronize with the source repository\n", fileChanges))
+	}
+
+	if directoryChanges > 0 {
+		sb.WriteString(fmt.Sprintf("* Synchronized %d file(s) from directory mappings\n", directoryChanges))
+	}
+
+	if len(rs.target.Files) > 0 || len(rs.target.Directories) > 0 {
+		sb.WriteString("* Applied file transformations and updates based on sync configuration\n")
+	}
+}
+
+// writeDirectorySyncDetails writes detailed information about directory synchronization
+func (rs *RepositorySync) writeDirectorySyncDetails(sb *strings.Builder) {
+	sb.WriteString("## Directory Synchronization Details\n")
+	sb.WriteString("The following directories were synchronized:\n\n")
+
+	for _, dirMapping := range rs.target.Directories {
+		sb.WriteString(fmt.Sprintf("### `%s` → `%s`\n", dirMapping.Src, dirMapping.Dest))
+
+		// Get metrics for this directory if available
+		if rs.syncMetrics != nil && rs.syncMetrics.DirectoryMetrics != nil {
+			if metrics, exists := rs.syncMetrics.DirectoryMetrics[dirMapping.Src]; exists {
+				sb.WriteString(fmt.Sprintf("* **Files synced**: %d\n", metrics.FilesProcessed))
+				sb.WriteString(fmt.Sprintf("* **Files excluded**: %d\n", metrics.FilesExcluded))
+
+				if metrics.EndTime.After(metrics.StartTime) {
+					duration := metrics.EndTime.Sub(metrics.StartTime)
+					sb.WriteString(fmt.Sprintf("* **Processing time**: %dms\n", duration.Milliseconds()))
+				}
+
+				if metrics.BinaryFilesSkipped > 0 {
+					sb.WriteString(fmt.Sprintf("* **Binary files skipped**: %d (%.2f KB)\n",
+						metrics.BinaryFilesSkipped, float64(metrics.BinaryFilesSize)/1024))
+				}
+			}
+		}
+
+		// Show exclusion patterns if any
+		if len(dirMapping.Exclude) > 0 {
+			sb.WriteString("* **Exclusion patterns**: ")
+			for i, pattern := range dirMapping.Exclude {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString(fmt.Sprintf("`%s`", pattern))
+			}
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\n")
+	}
+}
+
+// writePerformanceMetrics writes performance metrics for the sync operation
+func (rs *RepositorySync) writePerformanceMetrics(sb *strings.Builder) {
+	if rs.syncMetrics == nil {
+		return
+	}
+
+	sb.WriteString("## Performance Metrics\n")
+
+	// Overall timing
+	if rs.syncMetrics.EndTime.After(rs.syncMetrics.StartTime) {
+		totalDuration := rs.syncMetrics.EndTime.Sub(rs.syncMetrics.StartTime)
+		sb.WriteString(fmt.Sprintf("* **Total sync time**: %s\n", totalDuration.Round(time.Millisecond)))
+	}
+
+	// File processing metrics
+	if rs.syncMetrics.FileMetrics.FilesProcessed > 0 {
+		sb.WriteString(fmt.Sprintf("* **Files processed**: %d (%d changed, %d skipped)\n",
+			rs.syncMetrics.FileMetrics.FilesProcessed,
+			rs.syncMetrics.FileMetrics.FilesChanged,
+			rs.syncMetrics.FileMetrics.FilesSkipped))
+
+		if rs.syncMetrics.FileMetrics.ProcessingTimeMs > 0 {
+			sb.WriteString(fmt.Sprintf("* **File processing time**: %dms\n", rs.syncMetrics.FileMetrics.ProcessingTimeMs))
+		}
+	}
+
+	// Directory processing metrics
+	totalDirectoryFiles := 0
+	totalDirectoryExcluded := 0
+	if rs.syncMetrics.DirectoryMetrics != nil {
+		for _, metrics := range rs.syncMetrics.DirectoryMetrics {
+			totalDirectoryFiles += metrics.FilesProcessed
+			totalDirectoryExcluded += metrics.FilesExcluded
+		}
+	}
+
+	if totalDirectoryFiles > 0 {
+		sb.WriteString(fmt.Sprintf("* **Directory files processed**: %d (%d excluded)\n",
+			totalDirectoryFiles, totalDirectoryExcluded))
+	}
+
+	// API efficiency metrics
+	if rs.syncMetrics.APICallsSaved > 0 {
+		sb.WriteString(fmt.Sprintf("* **API calls saved**: %d (through optimization)\n", rs.syncMetrics.APICallsSaved))
+	}
+
+	// Cache performance
+	if rs.syncMetrics.CacheHits > 0 || rs.syncMetrics.CacheMisses > 0 {
+		total := rs.syncMetrics.CacheHits + rs.syncMetrics.CacheMisses
+		hitRate := float64(rs.syncMetrics.CacheHits) / float64(total) * 100
+		sb.WriteString(fmt.Sprintf("* **Cache hit rate**: %.1f%% (%d hits, %d misses)\n",
+			hitRate, rs.syncMetrics.CacheHits, rs.syncMetrics.CacheMisses))
+	}
+
+	sb.WriteString("\n")
+}
+
+// writeMetadataBlock writes the machine-parseable metadata block
+func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA string, changedFiles []FileChange) {
 	sb.WriteString("<!-- go-broadcast-metadata\n")
 	sb.WriteString("sync_metadata:\n")
 	sb.WriteString(fmt.Sprintf("  source_repo: %s\n", rs.sourceState.Repo))
@@ -634,9 +827,168 @@ func (rs *RepositorySync) generatePRBody(commitSHA string, _ []FileChange) strin
 	sb.WriteString(fmt.Sprintf("  target_repo: %s\n", rs.target.Repo))
 	sb.WriteString(fmt.Sprintf("  sync_commit: %s\n", commitSHA))
 	sb.WriteString(fmt.Sprintf("  sync_time: %s\n", time.Now().Format(time.RFC3339)))
-	sb.WriteString("-->\n")
 
-	return sb.String()
+	// Add directory information if directories are configured
+	if len(rs.target.Directories) > 0 {
+		sb.WriteString("directories:\n")
+		for _, dirMapping := range rs.target.Directories {
+			sb.WriteString(fmt.Sprintf("  - src: %s\n", dirMapping.Src))
+			sb.WriteString(fmt.Sprintf("    dest: %s\n", dirMapping.Dest))
+
+			// Add exclusion patterns
+			if len(dirMapping.Exclude) > 0 {
+				sb.WriteString("    excluded: [")
+				for i, pattern := range dirMapping.Exclude {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString(fmt.Sprintf("\"%s\"", pattern))
+				}
+				sb.WriteString("]\n")
+			}
+
+			// Add metrics if available
+			if rs.syncMetrics != nil && rs.syncMetrics.DirectoryMetrics != nil {
+				if metrics, exists := rs.syncMetrics.DirectoryMetrics[dirMapping.Src]; exists {
+					sb.WriteString(fmt.Sprintf("    files_synced: %d\n", metrics.FilesProcessed))
+					sb.WriteString(fmt.Sprintf("    files_excluded: %d\n", metrics.FilesExcluded))
+					if metrics.EndTime.After(metrics.StartTime) {
+						duration := metrics.EndTime.Sub(metrics.StartTime)
+						sb.WriteString(fmt.Sprintf("    processing_time_ms: %d\n", duration.Milliseconds()))
+					}
+				}
+			}
+		}
+	}
+
+	// Add performance metrics
+	if rs.syncMetrics != nil {
+		sb.WriteString("performance:\n")
+
+		// Total file counts
+		totalFiles := rs.syncMetrics.FileMetrics.FilesProcessed
+		if rs.syncMetrics.DirectoryMetrics != nil {
+			for _, metrics := range rs.syncMetrics.DirectoryMetrics {
+				totalFiles += metrics.FilesProcessed
+			}
+		}
+		if totalFiles > 0 {
+			sb.WriteString(fmt.Sprintf("  total_files: %d\n", totalFiles))
+		}
+
+		if rs.syncMetrics.APICallsSaved > 0 {
+			sb.WriteString(fmt.Sprintf("  api_calls_saved: %d\n", rs.syncMetrics.APICallsSaved))
+		}
+
+		if rs.syncMetrics.CacheHits > 0 {
+			sb.WriteString(fmt.Sprintf("  cache_hits: %d\n", rs.syncMetrics.CacheHits))
+		}
+	}
+
+	sb.WriteString("-->\n")
+}
+
+// isDirectoryFile determines if a file change is from directory processing
+func (rs *RepositorySync) isDirectoryFile(filePath string) bool {
+	// Check if the file path matches any of the configured directory destinations
+	for _, dirMapping := range rs.target.Directories {
+		if strings.HasPrefix(filePath, dirMapping.Dest+"/") || filePath == dirMapping.Dest {
+			return true
+		}
+	}
+	return false
+}
+
+// processDirectoriesWithMetrics processes directories and collects detailed metrics
+func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]FileChange, map[string]DirectoryMetrics, error) {
+	if len(rs.target.Directories) == 0 {
+		rs.logger.Debug("No directories configured for sync")
+		return nil, make(map[string]DirectoryMetrics), nil
+	}
+
+	processTimer := metrics.StartTimer(ctx, rs.logger, "directory_processing_with_metrics").
+		AddField("directory_count", len(rs.target.Directories))
+
+	rs.logger.WithField("directory_count", len(rs.target.Directories)).Info("Processing directories with metrics collection")
+
+	// Create directory processor
+	processor := NewDirectoryProcessor(rs.logger, 10) // Use default worker count
+
+	sourcePath := filepath.Join(rs.tempDir, "source")
+	var allChanges []FileChange
+	collectedMetrics := make(map[string]DirectoryMetrics)
+
+	// Process each directory mapping and collect metrics
+	for _, dirMapping := range rs.target.Directories {
+		dirProcessingStart := time.Now()
+
+		changes, err := processor.ProcessDirectoryMapping(ctx, sourcePath, dirMapping, rs.target, rs.sourceState, rs.engine)
+		if err != nil {
+			// Log error but continue processing other directories
+			rs.logger.WithError(err).WithField("directory", dirMapping.Src).Error("Failed to process directory")
+			continue
+		}
+
+		// Collect metrics for this directory
+		dirStats := processor.GetDirectoryStats()
+		if dirMetrics, exists := dirStats[dirMapping.Src]; exists {
+			// Ensure timing is set if not already
+			if dirMetrics.EndTime.IsZero() {
+				dirMetrics.EndTime = time.Now()
+			}
+			if dirMetrics.StartTime.IsZero() {
+				dirMetrics.StartTime = dirProcessingStart
+			}
+			collectedMetrics[dirMapping.Src] = dirMetrics
+		} else {
+			// Create basic metrics if not available from processor
+			collectedMetrics[dirMapping.Src] = DirectoryMetrics{
+				StartTime:      dirProcessingStart,
+				EndTime:        time.Now(),
+				FilesProcessed: len(changes),
+			}
+		}
+
+		allChanges = append(allChanges, changes...)
+	}
+
+	processTimer.AddField("total_changes", len(allChanges)).
+		AddField("directories_processed", len(collectedMetrics)).Stop()
+
+	rs.logger.WithFields(logrus.Fields{
+		"total_changes":         len(allChanges),
+		"directories_processed": len(collectedMetrics),
+	}).Info("Directory processing with metrics completed")
+
+	return allChanges, collectedMetrics, nil
+}
+
+// TrackAPICallSaved increments the API calls saved counter
+func (rs *RepositorySync) TrackAPICallSaved(count int) {
+	if rs.syncMetrics != nil {
+		rs.syncMetrics.APICallsSaved += count
+	}
+}
+
+// TrackCacheHit increments the cache hit counter
+func (rs *RepositorySync) TrackCacheHit() {
+	if rs.syncMetrics != nil {
+		rs.syncMetrics.CacheHits++
+	}
+}
+
+// TrackCacheMiss increments the cache miss counter
+func (rs *RepositorySync) TrackCacheMiss() {
+	if rs.syncMetrics != nil {
+		rs.syncMetrics.CacheMisses++
+	}
+}
+
+// TrackAPIRequest increments the total API requests counter
+func (rs *RepositorySync) TrackAPIRequest() {
+	if rs.syncMetrics != nil {
+		rs.syncMetrics.TotalAPIRequests++
+	}
 }
 
 // DryRunOutput handles clean console output for dry-run mode
@@ -814,6 +1166,7 @@ func (rs *RepositorySync) showDryRunPRPreview(ctx context.Context, branchName, c
 
 	// Get current user for reviewer filtering display
 	var currentUserLogin string
+	rs.TrackAPIRequest()
 	currentUser, err := rs.engine.gh.GetCurrentUser(ctx)
 	if err != nil {
 		rs.logger.WithError(err).Debug("Failed to get current user for dry-run display")

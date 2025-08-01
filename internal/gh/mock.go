@@ -77,3 +77,9 @@ func (m *MockClient) GetCurrentUser(ctx context.Context) (*User, error) {
 	args := m.Called(ctx)
 	return testutil.HandleTwoValueReturn[*User](args)
 }
+
+// GetGitTree mock implementation
+func (m *MockClient) GetGitTree(ctx context.Context, repo, treeSHA string, recursive bool) (*GitTree, error) {
+	args := m.Called(ctx, repo, treeSHA, recursive)
+	return testutil.HandleTwoValueReturn[*GitTree](args)
+}

@@ -367,6 +367,13 @@ func TestRepositorySync_generatePRBody(t *testing.T) {
 		target: config.TargetConfig{
 			Repo: "org/target",
 		},
+		syncMetrics: &SyncPerformanceMetrics{
+			FileMetrics: FileProcessingMetrics{
+				FilesProcessed: 2,
+				FilesChanged:   2,
+				FilesSkipped:   0,
+			},
+		},
 	}
 
 	files := []FileChange{
@@ -381,7 +388,9 @@ func TestRepositorySync_generatePRBody(t *testing.T) {
 	assert.Contains(t, body, "## Why It Was Necessary")
 	assert.Contains(t, body, "## Testing Performed")
 	assert.Contains(t, body, "## Impact / Risk")
-	assert.Contains(t, body, "Updated project files to synchronize")
+	assert.Contains(t, body, "## Performance Metrics")
+	// Check for the enhanced change description
+	assert.Contains(t, body, "Updated 2 individual file(s) to synchronize with the source repository")
 	assert.Contains(t, body, "go-broadcast-metadata")
 	assert.Contains(t, body, "source_repo: org/template")
 	assert.Contains(t, body, "source_commit: abc123")
