@@ -9,37 +9,8 @@ import (
 //nolint:misspell // GitHub Actions API uses British spelling for "cancelled"
 func getDashboardTemplate() string {
 	return `<!DOCTYPE html>
-<html lang="en" data-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.RepositoryOwner}}/{{.RepositoryName}} Coverage Dashboard</title>
-    <meta name="description" content="Coverage tracking and analytics for {{.RepositoryOwner}}/{{.RepositoryName}}">
-
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="./assets/images/favicon.ico">
-    <link rel="icon" type="image/svg+xml" href="./assets/images/favicon.svg">
-    <link rel="shortcut icon" href="./assets/images/favicon.ico">
-
-    <!-- Preload critical resources -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-    <!-- Coverage styles -->
-    <link rel="stylesheet" href="./assets/css/coverage.css">
-
-    {{- if .GoogleAnalyticsID}}
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{.GoogleAnalyticsID}}"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', '{{.GoogleAnalyticsID}}');
-    </script>
-    {{- end}}
-</head>
+<html lang="en" data-theme="auto">
+` + templates.GetSharedHead("{{.RepositoryOwner}}/{{.RepositoryName}} Coverage Dashboard", "Coverage tracking and analytics for {{.RepositoryOwner}}/{{.RepositoryName}}") + `
 <body>
     <div class="theme-toggle fixed" onclick="toggleTheme()" aria-label="Toggle theme">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">

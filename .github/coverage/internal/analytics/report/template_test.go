@@ -174,7 +174,7 @@ func (suite *TemplateTestSuite) TestReportTemplateCSSClasses() {
 	}
 }
 
-// TestReportTemplateJavaScriptFunctions tests JavaScript function definitions
+// TestReportTemplateJavaScriptFunctions tests JavaScript function references
 func (suite *TemplateTestSuite) TestReportTemplateJavaScriptFunctions() {
 	expectedJSFunctions := []string{
 		"toggleTheme",
@@ -184,11 +184,14 @@ func (suite *TemplateTestSuite) TestReportTemplateJavaScriptFunctions() {
 
 	for _, jsFunction := range expectedJSFunctions {
 		suite.Contains(getReportTemplate(), jsFunction,
-			"Template should define JavaScript function %s", jsFunction)
+			"Template should reference JavaScript function %s", jsFunction)
 	}
 
-	// Check for event listeners
-	suite.Contains(getReportTemplate(), "addEventListener")
+	// Check for external JavaScript files
+	suite.Contains(getReportTemplate(), "./assets/js/theme.js")
+	suite.Contains(getReportTemplate(), "./assets/js/coverage-time.js")
+
+	// Check for onclick handlers
 	suite.Contains(getReportTemplate(), "onclick")
 }
 
@@ -393,8 +396,7 @@ func (suite *TemplateTestSuite) TestReportTemplateThemeSupport() {
 	themeFeatures := []string{
 		`data-theme="auto"`,
 		"toggleTheme",
-		"prefers-color-scheme",
-		"localStorage.getItem('theme')",
+		"./assets/js/theme.js",
 	}
 
 	for _, feature := range themeFeatures {

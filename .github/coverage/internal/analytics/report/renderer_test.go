@@ -446,9 +446,8 @@ func (suite *RendererTestSuite) TestRenderReportSearchFunctionality() {
 	suite.Contains(htmlStr, `id="searchInput"`)
 	suite.Contains(htmlStr, `placeholder="Search packages and files..."`)
 
-	// Verify search JavaScript functionality
-	suite.Contains(htmlStr, "addEventListener('input'")
-	suite.Contains(htmlStr, "searchTerm")
+	// Verify search JavaScript files are loaded
+	suite.Contains(htmlStr, "./assets/js/theme.js")
 }
 
 // TestRenderReportThemeToggle tests theme toggle functionality
@@ -466,9 +465,9 @@ func (suite *RendererTestSuite) TestRenderReportThemeToggle() {
 	suite.Contains(htmlStr, "theme-toggle")
 	suite.Contains(htmlStr, `data-theme="auto"`)
 
-	// Verify theme JavaScript functionality
-	suite.Contains(htmlStr, "localStorage.getItem('theme')")
-	suite.Contains(htmlStr, "prefers-color-scheme")
+	// Verify theme JavaScript files are loaded
+	suite.Contains(htmlStr, "./assets/js/theme.js")
+	suite.Contains(htmlStr, "./assets/js/coverage-time.js")
 }
 
 // TestRenderReportErrorHandling tests error handling in template rendering
