@@ -164,7 +164,7 @@ Features:
 		prCommentConfig := &github.PRCommentConfig{
 			MinUpdateIntervalMinutes: 5,
 			MaxCommentsPerPR:         1,
-			CommentSignature:         "gofortress-coverage-v2",
+			CommentSignature:         "gofortress-coverage-v1",
 			IncludeTrend:             true,
 			IncludeCoverageDetails:   true,
 			IncludeFileAnalysis:      enableAnalysis,
@@ -369,8 +369,19 @@ Features:
 			fmt.Printf("Generating PR coverage report...\n") //nolint:forbidigo // CLI output
 			reportGenerator := report.New()
 
+			// Get branch name from environment with PR context awareness
+			branchName := os.Getenv("GITHUB_HEAD_REF") // PR branch name
+			if branchName == "" {
+				branchName = os.Getenv("GITHUB_REF_NAME") // Push branch name
+			}
+			if branchName == "" {
+				branchName = "master" // Fallback
+			}
+
 			reportHTML, err := reportGenerator.Generate(ctx, coverage,
 				report.WithTitle(fmt.Sprintf("PR #%d Coverage Report", prNumber)),
+				report.WithGitHub(cfg.GitHub.Owner, cfg.GitHub.Repository, branchName),
+				report.WithCommit(cfg.GitHub.CommitSHA),
 				report.WithPackages(true),
 				report.WithFiles(true),
 			)

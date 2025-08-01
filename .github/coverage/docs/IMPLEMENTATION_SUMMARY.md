@@ -11,7 +11,7 @@ Successfully implemented the PR comment feature for the GoFortress coverage syst
 - **Smart Update Logic**: 
   - Minimum 5-minute interval between updates
   - Only updates on significant changes (>1% coverage difference)
-  - Uses metadata signature `gofortress-coverage-v2` to identify comments
+  - Uses metadata signature `gofortress-coverage-v1` to identify comments
 
 ### 2. Beautiful Template System
 - **Multiple Templates**: 

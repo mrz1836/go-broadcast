@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"os/exec"
 	"regexp"
 	"sort"
@@ -165,6 +166,17 @@ func (g *Generator) Generate(ctx context.Context, coverage *parser.CoverageData,
 
 // getGitCommitSHA returns the current Git commit SHA
 func getGitCommitSHA(ctx context.Context) string {
+	// First check if we have a commit SHA override from WithCommit option
+	if sha := os.Getenv("GOFORTRESS_COMMIT_SHA"); sha != "" {
+		return sha
+	}
+
+	// Then check if GITHUB_SHA environment variable is set (for CI environments)
+	if sha := os.Getenv("GITHUB_SHA"); sha != "" {
+		return sha
+	}
+
+	// Fall back to git command
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {
@@ -339,18 +351,16 @@ func (g *Generator) buildReportData(ctx context.Context, coverage *parser.Covera
 	// Get Git information
 	var projectName, commitSHA, commitURL, badgeURL string
 
+	// Always try to get commit SHA first (GitHub Actions priority)
+	commitSHA = getGitCommitSHA(ctx)
+
 	// Get repository info
 	if repoInfo := getGitRepositoryInfo(ctx); repoInfo != nil {
 		projectName = repoInfo.Name
 
-		// Get current commit SHA
-		if sha := getGitCommitSHA(ctx); sha != "" {
-			commitSHA = sha
-
-			// Build commit URL if it's a GitHub repository
-			if repoInfo.IsGitHub {
-				commitURL = buildGitHubCommitURL(repoInfo.Owner, repoInfo.Name, commitSHA)
-			}
+		// Build commit URL if it's a GitHub repository and we have commit SHA
+		if repoInfo.IsGitHub && commitSHA != "" {
+			commitURL = buildGitHubCommitURL(repoInfo.Owner, repoInfo.Name, commitSHA)
 		}
 	}
 
@@ -485,7 +495,7 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) Repor
 			Title:             title,
 			ProjectName:       projectName,
 			Generated:         time.Now(),
-			Branch:            "main",
+			Branch:            "master",
 			CommitSha:         "",
 			OverallCoverage:   0.0,
 			PackageStats:      []PackageStats{},
@@ -494,7 +504,7 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) Repor
 			ShowDetails:       false,
 			GitHubOwner:       gitHubOwner,
 			GitHubRepository:  gitHubRepo,
-			GitHubBranch:      "main",
+			GitHubBranch:      "master",
 			RepositoryOwner:   gitHubOwner,
 			RepositoryName:    gitHubRepo,
 			GoogleAnalyticsID: "",
@@ -542,14 +552,14 @@ func (g *Generator) convertToTemplateData(ctx context.Context, data *Data) Repor
 		}
 	}
 
-	// Use dynamic repository information, with config fallbacks
+	// Use config repository information first, with dynamic Git info as fallback
 	gitHubOwner := data.Config.GitHubOwner
 	gitHubRepo := data.Config.GitHubRepository
 	gitHubBranch := data.Config.GitHubBranch
 	title := data.Config.Title
 
-	// Override with dynamic Git info if available
-	if repoInfo != nil {
+	// Only use dynamic Git info if config doesn't have GitHub info
+	if gitHubOwner == "" && gitHubRepo == "" && repoInfo != nil {
 		gitHubOwner = repoInfo.Owner
 		gitHubRepo = repoInfo.Name
 		// Use repository-focused title only if no custom title was set (empty or using default constant)
@@ -619,5 +629,27 @@ func WithFiles(show bool) Option {
 func WithMissing(show bool) Option {
 	return func(config *Config) {
 		config.ShowMissing = show
+	}
+}
+
+// WithGitHub sets GitHub repository information
+func WithGitHub(owner, repository, branch string) Option {
+	return func(config *Config) {
+		config.GitHubOwner = owner
+		config.GitHubRepository = repository
+		if branch != "" {
+			config.GitHubBranch = branch
+		}
+	}
+}
+
+// WithCommit sets the commit SHA
+func WithCommit(commitSHA string) Option {
+	return func(_ *Config) {
+		// We'll store this in a way that can be accessed by buildReportData
+		// For now, we'll use an environment variable override approach
+		if commitSHA != "" {
+			_ = os.Setenv("GOFORTRESS_COMMIT_SHA", commitSHA)
+		}
 	}
 }

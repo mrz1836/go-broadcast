@@ -298,7 +298,7 @@ func (e *PRTemplateEngine) RenderComment(_ context.Context, _ string, data *Temp
 			Version:      "2.0",
 			GeneratedAt:  time.Now(),
 			TemplateUsed: templateName,
-			Signature:    "gofortress-coverage-v2",
+			Signature:    "gofortress-coverage-v1",
 		}
 	} else {
 		// Update template used

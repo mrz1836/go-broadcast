@@ -1,6 +1,6 @@
 # GoFortress Pre-commit Hook Manager - Implementation Status
 
-This document tracks the implementation progress of the Go-native pre-commit hook system as defined in `plan-10.md`.
+This document tracks the implementation progress of the GoFortress Pre-commit System as defined in `plan-10.md`.
 
 ## Overview
 
@@ -17,12 +17,12 @@ This document tracks the implementation progress of the Go-native pre-commit hoo
 **Completed**: [ ]
 
 **Tasks**:
-- [ ] Add hook system environment variables to `.github/.env.shared`
-- [ ] Create directory structure at `.github/hooks/`
-- [ ] Create initial `hooks.yaml` configuration schema
-- [ ] Add `hook-system` label to `.github/labels.yml`
-- [ ] Add hooks tool to `.github/dependabot.yml`
-- [ ] Create this status tracking document
+- [ ] Add MVP pre-commit environment variables to `.github/.env.shared`
+- [ ] Create directory structure at `.github/pre-commit/`
+- [ ] Create `.github/pre-commit/.gitignore` for build artifacts
+- [ ] Add `pre-commit-system` label to `.github/labels.yml`
+- [ ] Add GoFortress Pre-commit tool to `.github/dependabot.yml`
+- [ ] Update this status tracking document
 
 **Verification**:
 - [ ] Environment variables present and documented
@@ -31,9 +31,11 @@ This document tracks the implementation progress of the Go-native pre-commit hoo
 - [ ] Labels and dependabot configured
 
 **Notes**:
-- 
+- Following coverage system pattern with .env.shared configuration
+- No YAML files in MVP - all config from environment
+- Ensure .gitignore includes all build artifacts
 
-### Phase 2: Core Hooks Engine ⏳
+### Phase 2: Core Pre-commit Engine ⏳
 **Status**: Not Started  
 **Target**: Session 2  
 **Completed**: [ ]
@@ -63,39 +65,39 @@ This document tracks the implementation progress of the Go-native pre-commit hoo
 **Notes**:
 - 
 
-### Phase 3: Hook Implementations ⏳
+### Phase 3: Pre-commit Hook Implementations ⏳
 **Status**: Not Started  
 **Target**: Session 3  
 **Completed**: [ ]
 
 **Tasks**:
-- [ ] Implement go-fumpt hook (via make fumpt)
-- [ ] Implement go-lint hook (via make lint)
-- [ ] Implement go-vet hook (via make vet-parallel)
-- [ ] Implement go-mod-tidy hook (via make mod-tidy)
-- [ ] Implement gitleaks hook
-- [ ] Implement govulncheck hook (via make govulncheck)
-- [ ] Implement general hooks (whitespace, EOF, conflicts)
+- [ ] Implement go-fumpt pre-commit hook (via make fumpt)
+- [ ] Implement go-lint pre-commit hook (via make lint)
+- [ ] Implement go-vet pre-commit hook (via make vet-parallel)
+- [ ] Implement go-mod-tidy pre-commit hook (via make mod-tidy)
+- [ ] Implement gitleaks pre-commit hook
+- [ ] Implement govulncheck pre-commit hook (via make govulncheck)
+- [ ] Implement general pre-commit hooks (whitespace, EOF, conflicts)
 - [ ] Implement commit message validation (AGENTS.md format)
 - [ ] Create make command wrapper for consistent execution
-- [ ] Create hook-specific tests
+- [ ] Create pre-commit hook-specific tests
 - [ ] Add caching layer (especially for make lint)
 
 **Verification**:
-- [ ] All hooks match pre-commit output
+- [ ] MVP pre-commit hooks work correctly
+- [ ] Make commands execute properly
 - [ ] Performance <2s for typical commit
-- [ ] Caching reduces repeated work >50%
-- [ ] Custom hooks supported
-- [ ] All edge cases handled
+- [ ] Built-in pre-commit hooks fix issues
+- [ ] Output matches CI behavior
 
 **Hook Performance**:
-| Hook | Time (ms) | Cached (ms) |
-|------|-----------|-------------|
-| go-fumpt | TBD | TBD |
-| go-lint (make) | TBD | TBD |
-| go-vet (make) | TBD | TBD |
-| govulncheck | TBD | TBD |
-| gitleaks | TBD | TBD |
+| Hook | Time (ms) |
+|------|-----------|
+| fumpt | TBD |
+| lint | TBD |
+| mod-tidy | TBD |
+| whitespace | TBD |
+| eof-fixer | TBD |
 
 **Notes**:
 - 
@@ -106,96 +108,121 @@ This document tracks the implementation progress of the Go-native pre-commit hoo
 **Completed**: [ ]
 
 **Tasks**:
-- [ ] Create hook installer
-- [ ] Implement template generation
-- [ ] Add smart hook detection
-- [ ] Create uninstaller with backup
+- [ ] Create simple pre-commit hook installer
+- [ ] Generate pre-commit hook script
+- [ ] Create uninstaller
 - [ ] Support SKIP environment variable
-- [ ] Add CI detection
+- [ ] Respect ENABLE_PRE_COMMIT setting
 
 **Verification**:
 - [ ] Single command installation works
-- [ ] Git triggers hooks correctly
-- [ ] Existing hooks backed up
+- [ ] Git triggers pre-commit hooks correctly
 - [ ] SKIP functionality works
-- [ ] CI mode functions properly
-- [ ] Uninstall restores state
+- [ ] Respects ENABLE_PRE_COMMIT
+- [ ] Clean uninstall
 
 **Notes**:
 - 
 
-### Phase 5: CI/CD & Workflow Integration ⏳
+### Phase 5: CI/CD Integration ⏳
 **Status**: Not Started  
 **Target**: Session 5  
 **Completed**: [ ]
 
 **Tasks**:
-- [ ] Create fortress-hooks.yml workflow
-- [ ] Update existing workflows
-- [ ] Add workflow documentation
-- [ ] Test CI/CD integration
-- [ ] Add performance monitoring
-- [ ] Create deployment scripts
+- [x] Create fortress-pre-commit.yml reusable workflow
+- [ ] Follow GoFortress patterns (verbose logging, status checks, summaries)
+- [ ] Implement status checks for GoFortress Pre-commit System presence
+- [ ] Add fallback to make commands when pre-commit system not available
+- [ ] Test CI integration with ENABLE_PRE_COMMIT setting
+- [ ] Verify job summaries and configuration display
 
 **Verification**:
-- [ ] CI workflow passes all checks
-- [ ] Hooks run successfully in CI
-- [ ] Performance monitoring operational
-- [ ] Documentation complete
-- [ ] All workflows updated
-- [ ] Deployment automated
+- [ ] Workflow follows GoFortress patterns
+- [ ] Status checks detect GoFortress Pre-commit System presence
+- [ ] Configuration displayed clearly from .env.shared
+- [ ] Graceful fallback to make commands
+- [ ] Detailed job summaries generated
+- [ ] Respects ENABLE_PRE_COMMIT setting
 
 **CI/CD Metrics**:
-- Workflow Status: Not Started
+- Workflow Status: fortress-pre-commit.yml created
 - Performance Baseline: TBD
 - Integration Issues: None
 
 **Notes**:
-- 
+- Created fortress-pre-commit.yml following fortress-code-quality.yml pattern
+- Includes comprehensive status checks and verbose logging
+- Graceful handling when hooks system not yet implemented
 
-### Phase 6: Developer Experience & Polish ⏳
+### Phase 6: Documentation & Release ⏳
 **Status**: Not Started  
 **Target**: Session 6  
 **Completed**: [ ]
 
 **Tasks**:
-- [ ] Add colored output
-- [ ] Implement progress indicators
-- [ ] Enhance error messages
-- [ ] Create interactive mode
-- [ ] Add performance profiling
-- [ ] Generate shell completions
-- [ ] Write comprehensive docs
-- [ ] Update README.md with brief getting started
-- [ ] Create docs/hooks-system.md with full documentation
+- [ ] Write .github/pre-commit/README.md
+- [ ] Document configuration via .env.shared
+- [ ] Add usage examples
+- [ ] Create troubleshooting section
+- [ ] Update main README.md with brief mention
+- [ ] Update CLAUDE.md if needed
 
 **Verification**:
-- [ ] Output is beautiful and informative
-- [ ] Errors include solutions
-- [ ] Interactive mode intuitive
-- [ ] Shell completions work
-- [ ] Documentation comprehensive
-- [ ] README.md updated with getting started
-- [ ] docs/hooks-system.md created
+- [ ] Documentation clear and complete
+- [ ] Installation process documented
+- [ ] Configuration explained
+- [ ] Examples provided
+- [ ] Troubleshooting included
 
 **Notes**:
 - 
 
+### Phase 7: Python/Pre-commit Removal ⏳
+**Status**: Not Started  
+**Target**: Post-MVP  
+**Completed**: [ ]
+
+**Tasks**:
+- [ ] Verify GoFortress Pre-commit System is stable
+- [ ] Remove `.pre-commit-config.yaml`
+- [ ] Remove `.github/pip/` directory
+- [ ] Remove `.github/workflows/update-pre-commit-hooks.yml`
+- [ ] Remove `.github/workflows/update-python-dependencies.yml`
+- [ ] Remove any Python scripts (e.g., comment_lint.py)
+- [ ] Update `.env.shared` to remove Python variables
+- [ ] Update any remaining workflow references
+
+**Verification**:
+- [ ] No Python dependencies remain
+- [ ] No old pre-commit references in workflows
+- [ ] CI/CD continues to work correctly
+- [ ] All quality checks still enforced
+
+**Notes**:
+- Only remove after GoFortress Pre-commit System proven stable
+- Run both systems side-by-side initially
+
 ## Key Decisions
 
 ### Architecture Decisions
-- Use make commands instead of direct tool invocations to match fortress workflows
-- Integrate with existing project tooling (golangci-lint v2.3.0, gofumpt, etc.)
-- Align commit message validation with AGENTS.md conventions
+- Configuration via .env.shared (like coverage system)
+- MVP with just 5 essential hooks
+- Use make commands to match fortress workflows
+- No YAML configuration files
+- Simple 3-command CLI
 
 ### Design Choices
-- Wrap make commands to ensure consistent behavior between local hooks and CI
-- Use built-in implementations for simple hooks (whitespace, EOF)
-- Cache expensive operations like linting
+- Environment-driven configuration
+- Direct make command execution
+- Built-in implementations for text fixes
+- Parallel execution by default
+- Clear error messages
 
 ### Trade-offs
-- Make command wrapper adds slight overhead but ensures consistency
-- Less granular control but better alignment with project standards
+- No hook-specific config in MVP (use env vars)
+- Limited to pre-commit hook initially
+- No caching in MVP (add later if needed)
 
 ## Issues Encountered
 
@@ -219,44 +246,45 @@ This document tracks the implementation progress of the Go-native pre-commit hoo
 
 ## Performance Comparison
 
-### Pre-commit vs GoFortress Hooks
-| Metric | Pre-commit | GoFortress | Improvement |
-|--------|------------|------------|-------------|
-| Typical commit time | TBD | TBD | TBD |
-| All files time | TBD | TBD | TBD |
-| Memory usage | TBD | TBD | TBD |
-| Binary size | N/A | TBD | N/A |
+### Pre-commit vs GoFortress Hooks (MVP)
+| Metric                   | Pre-commit | GoFortress MVP | Improvement |
+|--------------------------|------------|----------------|-------------|
+| Typical commit time      | TBD        | TBD            | TBD         |
+| Installation time        | TBD        | TBD            | TBD         |
+| Configuration complexity | YAML files | Env vars       | Simpler     |
+| Binary size              | N/A        | <10MB          | Single file |
 
-### Individual Hook Performance
-| Hook | Pre-commit (ms) | GoFortress (ms) | Improvement |
-|------|-----------------|-----------------|-------------|
-| gofumpt | TBD | TBD | TBD |
-| golangci-lint | TBD | TBD | TBD |
-| go vet | TBD | TBD | TBD |
-| govulncheck | N/A | TBD | New feature |
-| gitleaks | TBD | TBD | TBD |
+### MVP Hook Performance
+| Hook       | Pre-commit (ms) | GoFortress MVP (ms) | Notes    |
+|------------|-----------------|---------------------|----------|
+| fumpt      | TBD             | TBD                 | via make |
+| lint       | TBD             | TBD                 | via make |
+| mod-tidy   | TBD             | TBD                 | via make |
+| whitespace | TBD             | TBD                 | built-in |
+| eof-fixer  | TBD             | TBD                 | built-in |
 
 ## Implementation Notes
 
-### Design Decisions
+### MVP Design Decisions
 - Pure Go implementation
-- Separate module in .github/hooks/
-- No external service dependencies
+- Separate module in .github/pre-commit/
+- Configuration via .env.shared
 - Integration with fortress make commands
-- Alignment with AGENTS.md conventions
+- Start with 5 essential pre-commit hooks only
 
-### Key Features
+### MVP Features
 - Parallel execution
-- Built-in caching
+- Environment-based configuration
 - CI/CD integration
-- Make command wrapper for consistency
-- Commit message validation per AGENTS.md
+- Make command consistency
+- Simple install/uninstall
 
 ### Changes from Original Plan
-- Removed pre-commit migration features (ground-up build)
-- Added gofumpt instead of gofmt (project uses gofumpt)
-- All Go tools run via make commands
-- Added govulncheck for security scanning
+- Simplified to MVP with 5 pre-commit hooks only
+- Configuration via .env.shared (no YAML)
+- Just 3 CLI commands (install, run, uninstall)
+- No caching or progress bars in MVP
+- Following coverage system pattern
 
 ### User Feedback
 - TBD
@@ -265,32 +293,34 @@ This document tracks the implementation progress of the Go-native pre-commit hoo
 
 ### Immediate (Current Phase)
 1. Begin Phase 1 implementation
-2. Set up development environment
-3. Create initial directory structure
+2. Add MVP configuration to .env.shared
+3. Create simplified directory structure
 
 ### Upcoming
-1. TBD based on Phase 1 completion
+1. Build core pre-commit engine with env config
+2. Implement 5 MVP pre-commit hooks
+3. Test with team before expanding
 
-### Post-Implementation
-1. Team training sessions
-2. Documentation review
-3. Performance optimization
-4. Feature requests
+### Post-MVP
+1. Gather team feedback
+2. Add most requested pre-commit hooks
+3. Consider caching for expensive operations
+4. Expand to other git hooks (pre-push, commit-msg)
 
 ## References
 
-- Main Plan: `plan-10.md`
-- Hooks Config: `.github/hooks/config/hooks.yaml`
-- Environment Config: `.github/.env.shared`
-- Related Plans: `plan-09.md` (coverage system)
+- Main Plan: `plan-10.md` (updated for MVP)
+- Environment Config: `.github/.env.shared` (all configuration)
+- Related Implementation: `.github/coverage/` (pattern to follow)
+- No YAML config files in MVP
 
 ## Appendix
 
 ### Command Reference
 ```bash
 # Build
-cd .github/hooks/cmd/gofortress-hooks
-go build -o gofortress-hooks
+cd .github/pre-commit
+go build -o gofortress-hooks ./cmd/gofortress-hooks
 
 # Test
 go test -v ./...
@@ -310,5 +340,5 @@ go test -bench=. ./...
 
 ---
 
-**Last Updated**: [TBD]  
-**Updated By**: [TBD]
+**Last Updated**: 2025-01-07  
+**Updated By**: Claude (plan update for MVP approach)

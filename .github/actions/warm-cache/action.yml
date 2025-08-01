@@ -63,7 +63,7 @@ runs:
       with:
         path: |
           ~/go/pkg/mod
-        key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
         restore-keys: |
           ${{ inputs.matrix-os }}-gomod-
 
@@ -139,7 +139,7 @@ runs:
           ~/.cache/go-build
           ~/.cache/go-build/test
         # Try and get the full cache first, which includes test cache
-        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
         restore-keys: |
           ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-
 
@@ -167,6 +167,17 @@ runs:
           echo "✅ Coverage module go.sum generated successfully"
         elif [ -f ".github/coverage/go.sum" ]; then
           echo "✅ Coverage module go.sum already exists"
+        fi
+
+        # Also ensure pre-commit module go.sum exists
+        if [ -f ".github/pre-commit/go.mod" ] && [ ! -f ".github/pre-commit/go.sum" ]; then
+          echo "⚠️ Pre-commit module go.sum not found, generating it..."
+          cd .github/pre-commit
+          go mod tidy
+          cd ../..
+          echo "✅ Pre-commit module go.sum generated successfully"
+        elif [ -f ".github/pre-commit/go.sum" ]; then
+          echo "✅ Pre-commit module go.sum already exists"
         fi
 
     # ────────────────────────────────────────────────────────────────────────────
@@ -205,6 +216,25 @@ runs:
           echo "✅ Coverage module cache warmed comprehensively"
         fi
 
+        # Also warm pre-commit module dependencies
+        if [ -f ".github/pre-commit/go.mod" ]; then
+          echo "🪝 Warming pre-commit module cache..."
+          cd .github/pre-commit
+          
+          echo "⬇️  Downloading pre-commit module dependencies..."
+          go mod download
+          
+          echo "🔧 Pre-building pre-commit module packages..."
+          go build $(if [ "${{ inputs.enable-verbose }}" = "true" ]; then echo "-v"; fi) ./...
+          
+          echo "🏗️  Building pre-commit tool executable..."
+          cd cmd/gofortress-hooks
+          go build -o /tmp/gofortress-hooks .
+          cd ../../..
+          
+          echo "✅ Pre-commit module cache warmed comprehensively"
+        fi
+
         echo "✅ Cache warmed for Go ${{ inputs.go-version }}"
 
     # ────────────────────────────────────────────────────────────────────────────
@@ -218,7 +248,7 @@ runs:
           ~/.cache/go-build
           ~/.cache/go-build/test
         # This is the first key, which does NOT have test cache, this will be used as a fail-over
-        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
 
     # ————————————————————————————————————————————————————————————————
     # Track cache performance (no outputs - use artifacts instead)

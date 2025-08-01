@@ -178,6 +178,42 @@ func (p *Parser) Parse(ctx context.Context, reader io.Reader) (*CoverageData, er
 	return p.buildCoverageData(mode, statements)
 }
 
+// normalizeFilePath removes the module prefix from file paths to create relative paths.
+// For example: "github.com/mrz1836/go-broadcast/internal/config/config.go" becomes "internal/config/config.go"
+func normalizeFilePath(fullPath string) string {
+	// Common Go module prefixes to strip
+	modulePrefixes := []string{
+		"github.com/mrz1836/go-broadcast/",
+		"github.com/mrz1836/go-broadcast\\", // Windows path separator
+	}
+
+	for _, prefix := range modulePrefixes {
+		if strings.HasPrefix(fullPath, prefix) {
+			return strings.TrimPrefix(fullPath, prefix)
+		}
+	}
+
+	// Generic pattern matching for any Go module path
+	// Look for pattern like "domain.com/owner/repo/path..."
+	parts := strings.Split(fullPath, "/")
+	if len(parts) >= 3 {
+		// Find the first part that contains a dot (likely a domain)
+		for i := 0; i < len(parts); i++ {
+			if strings.Contains(parts[i], ".") {
+				// Skip domain/owner and return the rest (including repo)
+				// For domain.com/owner/repo/path..., we want to keep from "repo/path" onwards
+				if i+2 < len(parts) {
+					// We have domain/owner/something... - return from something onwards
+					return strings.Join(parts[i+2:], "/")
+				}
+			}
+		}
+	}
+
+	// Fallback: return the original path if no pattern matched
+	return fullPath
+}
+
 // parseStatement parses a single coverage statement line
 func (p *Parser) parseStatement(line string) (Statement, string, error) {
 	// Format: filename:startLine.startCol,endLine.endCol numStmt count
@@ -335,10 +371,11 @@ func (p *Parser) isGeneratedFile(filename string) bool {
 func (p *Parser) buildCoverageData(mode string, statements []StatementWithFile) (*CoverageData, error) {
 	packages := make(map[string]*PackageCoverage)
 
-	// Group statements by file
+	// Group statements by file (normalize filenames for relative paths)
 	fileStatements := make(map[string][]Statement)
 	for _, stmt := range statements {
-		fileStatements[stmt.Filename] = append(fileStatements[stmt.Filename], stmt.Statement)
+		normalizedFilename := normalizeFilePath(stmt.Filename)
+		fileStatements[normalizedFilename] = append(fileStatements[normalizedFilename], stmt.Statement)
 	}
 
 	// Build coverage data structure
