@@ -123,13 +123,18 @@ func (dp *DirectoryProcessor) ProcessDirectoryMapping(ctx context.Context, sourc
 	}
 
 	// Complete progress reporting
-	metrics := progressReporter.Complete()
+	directoryMetrics := progressReporter.Complete()
 
 	logger.WithFields(logrus.Fields{
-		"files_discovered": metrics.FilesDiscovered,
-		"files_processed":  metrics.FilesProcessed,
-		"files_excluded":   metrics.FilesExcluded,
-		"changes":          len(changes),
+		"files_discovered":          directoryMetrics.FilesDiscovered,
+		"files_processed":           directoryMetrics.FilesProcessed,
+		"files_excluded":            directoryMetrics.FilesExcluded,
+		"binary_files_skipped":      directoryMetrics.BinaryFilesSkipped,
+		"binary_files_size_bytes":   directoryMetrics.BinaryFilesSize,
+		"transform_errors":          directoryMetrics.TransformErrors,
+		"transform_successes":       directoryMetrics.TransformSuccesses,
+		"avg_transform_duration_ms": progressReporter.GetAverageTransformDuration().Milliseconds(),
+		"changes":                   len(changes),
 	}).Info("Directory mapping processed successfully")
 
 	return changes, nil
@@ -244,9 +249,18 @@ func (dp *DirectoryProcessor) discoverFiles(ctx context.Context, sourceDir strin
 	return files, nil
 }
 
-// createFileJobs converts discovered files into processing jobs
+// createFileJobs converts discovered files into processing jobs with directory-specific metadata
 func (dp *DirectoryProcessor) createFileJobs(files []DiscoveredFile, dirMapping config.DirectoryMapping) []FileJob {
-	jobs := make([]FileJob, 0, len(files))
+	// First, count non-directory files to get total count
+	totalFiles := 0
+	for _, file := range files {
+		if !file.IsDir {
+			totalFiles++
+		}
+	}
+
+	jobs := make([]FileJob, 0, totalFiles)
+	fileIndex := 0
 
 	for _, file := range files {
 		// Skip directories
@@ -257,20 +271,26 @@ func (dp *DirectoryProcessor) createFileJobs(files []DiscoveredFile, dirMapping 
 		// Determine destination path
 		destPath := dp.calculateDestinationPath(file.RelativePath, dirMapping)
 
-		// Create job
-		job := FileJob{
-			SourcePath: filepath.Join(dirMapping.Src, file.RelativePath),
-			DestPath:   destPath,
-			Transform:  dirMapping.Transform,
-		}
+		// Create directory-aware job using the new helper function
+		job := NewDirectoryFileJob(
+			filepath.Join(dirMapping.Src, file.RelativePath),
+			destPath,
+			dirMapping.Transform,
+			&dirMapping, // Pass reference to directory mapping
+			file.RelativePath,
+			fileIndex,
+			totalFiles,
+		)
 
 		jobs = append(jobs, job)
+		fileIndex++
 	}
 
 	dp.logger.WithFields(logrus.Fields{
 		"source_directory": dirMapping.Src,
 		"jobs_created":     len(jobs),
-	}).Debug("File jobs created")
+		"total_files":      totalFiles,
+	}).Debug("Directory file jobs created with enhanced metadata")
 
 	return jobs
 }
@@ -357,9 +377,9 @@ func (rs *RepositorySync) ProcessDirectoriesWithMetrics(ctx context.Context) ([]
 	// Get metrics from the processor if available
 	// Note: This is a simplified version. In a full implementation,
 	// we'd need to track the processor instance to get metrics.
-	metrics := make(map[string]DirectoryMetrics)
+	m := make(map[string]DirectoryMetrics)
 
-	return changes, metrics, nil
+	return changes, m, nil
 }
 
 // DirectoryProcessingOptions configures directory processing behavior

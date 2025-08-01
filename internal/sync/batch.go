@@ -2,13 +2,16 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
 	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
+	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/transform"
 	"github.com/sirupsen/logrus"
@@ -29,6 +32,13 @@ type FileJob struct {
 	SourcePath string
 	DestPath   string
 	Transform  config.Transform
+
+	// Directory-specific fields
+	IsFromDirectory  bool
+	DirectoryMapping *config.DirectoryMapping
+	RelativePath     string
+	FileIndex        int
+	TotalFiles       int
 }
 
 // NewBatchProcessor creates a new batch processor with the specified worker count
@@ -125,21 +135,64 @@ func (bp *BatchProcessor) worker(ctx context.Context, workerID int, sourcePath s
 			}
 
 		case <-ctx.Done():
-			workerLogger.Debug("Context cancelled, worker exiting")
+			workerLogger.Debug("Context canceled, worker exiting")
 			return ctx.Err()
 		}
 	}
 }
 
-// processFileJob processes a single file job with error handling
+// TransformMetrics tracks transformation performance and outcomes
+type TransformMetrics struct {
+	BinaryFilesSkipped int
+	TransformDuration  time.Duration
+	TransformErrors    int
+	TransformSuccess   int
+	TotalFilesChecked  int
+}
+
+// processFileJob processes a single file job with enhanced error handling, binary detection, and metrics
 func (bp *BatchProcessor) processFileJob(ctx context.Context, sourcePath string, job FileJob, logger *logrus.Entry) fileProcessResult {
+	return bp.processFileJobWithReporter(ctx, sourcePath, job, logger, nil)
+}
+
+// processFileJobWithReporter processes a single file job with enhanced progress reporting
+func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, sourcePath string, job FileJob, logger *logrus.Entry, progressReporter EnhancedProgressReporter) fileProcessResult {
+	processStart := time.Now()
+	metrics := &TransformMetrics{}
+	defer func() {
+		metrics.TransformDuration = time.Since(processStart)
+		if bp.logger.Level >= logrus.DebugLevel {
+			bp.logger.WithFields(logrus.Fields{
+				"file":                  job.DestPath,
+				"binary_files_skipped":  metrics.BinaryFilesSkipped,
+				"transform_duration_ms": metrics.TransformDuration.Milliseconds(),
+				"transform_errors":      metrics.TransformErrors,
+				"transform_success":     metrics.TransformSuccess,
+				"total_files_checked":   metrics.TotalFilesChecked,
+			}).Debug("File job processing metrics")
+		}
+	}()
+
 	logger = logger.WithFields(logrus.Fields{
-		"source_path": job.SourcePath,
-		"dest_path":   job.DestPath,
+		"source_path":       job.SourcePath,
+		"dest_path":         job.DestPath,
+		"is_from_directory": job.IsFromDirectory,
 	})
+
+	if job.IsFromDirectory {
+		logger = logger.WithFields(logrus.Fields{
+			"relative_path": job.RelativePath,
+			"file_index":    job.FileIndex,
+			"total_files":   job.TotalFiles,
+		})
+		logger.Debug("Processing directory file job")
+	} else {
+		logger.Debug("Processing regular file job")
+	}
 
 	// Build full source path
 	fullSourcePath := filepath.Join(sourcePath, job.SourcePath)
+	logger.WithField("full_source_path", fullSourcePath).Debug("Reading source file")
 
 	// Check if source file exists
 	srcContent, err := os.ReadFile(fullSourcePath) //nolint:gosec // Path is constructed from trusted configuration
@@ -160,31 +213,181 @@ func (bp *BatchProcessor) processFileJob(ctx context.Context, sourcePath string,
 		}
 	}
 
-	// Apply transformations
-	transformCtx := transform.Context{
-		SourceRepo: bp.sourceState.Repo,
-		TargetRepo: bp.target.Repo,
-		FilePath:   job.DestPath,
-		Variables:  job.Transform.Variables,
-	}
+	metrics.TotalFilesChecked++
+	logger.WithField("content_size", len(srcContent)).Debug("Source file content loaded")
 
-	transformedContent := srcContent
-	if job.Transform.RepoName || len(job.Transform.Variables) > 0 {
-		transformedContent, err = bp.engine.transform.Transform(ctx, srcContent, transformCtx)
-		if err != nil {
-			logger.WithError(err).Error("Transformation failed")
+	// Check for binary content before applying transformations
+	if transform.IsBinary(job.SourcePath, srcContent) {
+		metrics.BinaryFilesSkipped++
+
+		// Report binary file metrics to progress reporter
+		if progressReporter != nil {
+			progressReporter.RecordBinaryFileSkipped(int64(len(srcContent)))
+		}
+
+		logger.WithFields(logrus.Fields{
+			"file_path":    job.SourcePath,
+			"content_size": len(srcContent),
+		}).Info("Binary file detected, skipping transformations")
+
+		// Check if content actually changed (for existing files)
+		existingContent, existingErr := bp.getExistingFileContent(ctx, job.DestPath)
+		if existingErr == nil && string(existingContent) == string(srcContent) {
+			logger.Debug("Binary file content unchanged, skipping")
 			return fileProcessResult{
 				Change: nil,
-				Error:  fmt.Errorf("transformation failed for %s: %w", job.DestPath, err),
+				Error:  internalerrors.ErrTransformNotFound,
 				Job:    job,
 			}
+		}
+
+		// Create file change for binary file (no transformation)
+		change := &FileChange{
+			Path:            job.DestPath,
+			Content:         srcContent, // Use original content for binary files
+			OriginalContent: srcContent,
+			IsNew:           existingErr != nil, // existingErr means file doesn't exist
+		}
+
+		logger.Debug("Binary file processed successfully (no transformation)")
+		metrics.TransformSuccess++
+
+		// Report successful processing
+		if progressReporter != nil {
+			progressReporter.RecordTransformSuccess(time.Since(processStart))
+		}
+
+		return fileProcessResult{
+			Change: change,
+			Error:  nil,
+			Job:    job,
+		}
+	}
+
+	logger.Debug("Text file detected, applying transformations")
+
+	// Apply transformations with enhanced context and error isolation
+	transformedContent := srcContent
+	if job.Transform.RepoName || len(job.Transform.Variables) > 0 {
+		transformStart := time.Now()
+		logger.WithFields(logrus.Fields{
+			"repo_name_transform": job.Transform.RepoName,
+			"variables_count":     len(job.Transform.Variables),
+			"variables":           job.Transform.Variables,
+		}).Debug("Starting content transformation")
+
+		// Create appropriate transform context based on job type
+		var transformContext transform.Context
+		if job.IsFromDirectory && job.DirectoryMapping != nil {
+			// Use DirectoryTransformContext for directory-aware transformations
+			baseCtx := transform.Context{
+				SourceRepo: bp.sourceState.Repo,
+				TargetRepo: bp.target.Repo,
+				FilePath:   job.DestPath,
+				Variables:  job.Transform.Variables,
+				LogConfig: &logging.LogConfig{
+					Debug: logging.DebugFlags{
+						Transform: bp.logger.Level >= logrus.DebugLevel,
+					},
+					Verbose: func() int {
+						if bp.logger.Level >= logrus.DebugLevel {
+							return 2
+						}
+						return 0
+					}(),
+				},
+			}
+
+			dirTransformCtx := transform.NewDirectoryTransformContext(
+				baseCtx,
+				job.DirectoryMapping,
+				job.RelativePath,
+				job.FileIndex,
+				job.TotalFiles,
+			)
+
+			logger.WithFields(logrus.Fields{
+				"directory_context": dirTransformCtx.String(),
+				"source_dir":        job.DirectoryMapping.Src,
+				"dest_dir":          job.DirectoryMapping.Dest,
+			}).Debug("Using DirectoryTransformContext")
+
+			// DirectoryTransformContext embeds Context, so we can use it directly
+			transformContext = dirTransformCtx.Context
+		} else {
+			// Use regular Context for single file transformations
+			transformContext = transform.Context{
+				SourceRepo: bp.sourceState.Repo,
+				TargetRepo: bp.target.Repo,
+				FilePath:   job.DestPath,
+				Variables:  job.Transform.Variables,
+				LogConfig: &logging.LogConfig{
+					Debug: logging.DebugFlags{
+						Transform: bp.logger.Level >= logrus.DebugLevel,
+					},
+					Verbose: func() int {
+						if bp.logger.Level >= logrus.DebugLevel {
+							return 2
+						}
+						return 0
+					}(),
+				},
+			}
+
+			logger.WithField("transform_context", fmt.Sprintf("%+v", transformContext)).Debug("Using regular TransformContext")
+		}
+
+		// Apply transformation with error isolation - don't fail entire batch on transform errors
+		transformedContent, err = bp.engine.transform.Transform(ctx, srcContent, transformContext)
+		transformDuration := time.Since(transformStart)
+
+		logger.WithFields(logrus.Fields{
+			"transform_duration_ms": transformDuration.Milliseconds(),
+			"content_size_before":   len(srcContent),
+			"content_size_after":    len(transformedContent),
+			"content_changed":       len(srcContent) != len(transformedContent) || string(srcContent) != string(transformedContent),
+		}).Debug("Transformation completed")
+
+		if err != nil {
+			metrics.TransformErrors++
+
+			// Report transformation error to progress reporter
+			if progressReporter != nil {
+				progressReporter.RecordTransformError()
+			}
+
+			// Log error but don't fail the entire batch - use original content as fallback
+			logger.WithError(err).WithFields(logrus.Fields{
+				"fallback_strategy":     "use_original_content",
+				"transform_duration_ms": transformDuration.Milliseconds(),
+			}).Warn("Transformation failed, using original content as fallback")
+
+			// Use original content if transformation fails
+			transformedContent = srcContent
+		} else {
+			metrics.TransformSuccess++
+
+			// Report transformation success to progress reporter
+			if progressReporter != nil {
+				progressReporter.RecordTransformSuccess(transformDuration)
+			}
+
+			logger.Debug("Transformation successful")
+		}
+	} else {
+		logger.Debug("No transformations configured, using original content")
+		metrics.TransformSuccess++
+
+		// Report success for no-transform case (instantaneous)
+		if progressReporter != nil {
+			progressReporter.RecordTransformSuccess(0)
 		}
 	}
 
 	// Check if content actually changed (for existing files)
 	existingContent, err := bp.getExistingFileContent(ctx, job.DestPath)
 	if err == nil && string(existingContent) == string(transformedContent) {
-		logger.Debug("File content unchanged, skipping")
+		logger.Debug("File content unchanged after transformation, skipping")
 		return fileProcessResult{
 			Change: nil,
 			Error:  internalerrors.ErrTransformNotFound,
@@ -200,7 +403,12 @@ func (bp *BatchProcessor) processFileJob(ctx context.Context, sourcePath string,
 		IsNew:           err != nil, // err means file doesn't exist
 	}
 
-	logger.Debug("File processed successfully")
+	logger.WithFields(logrus.Fields{
+		"is_new_file":           change.IsNew,
+		"final_content_size":    len(change.Content),
+		"original_content_size": len(change.OriginalContent),
+	}).Debug("File processed successfully")
+
 	return fileProcessResult{
 		Change: change,
 		Error:  nil,
@@ -213,16 +421,34 @@ func (bp *BatchProcessor) collectResults(resultChan <-chan fileProcessResult) []
 	var changes []FileChange
 	var errorCount int
 	var skipCount int
+	var directoryFilesCount int
 
 	for result := range resultChan {
+		// Track directory vs regular files
+		if result.Job.IsFromDirectory {
+			directoryFilesCount++
+		}
+
+		// Track binary files processed (successful results that might have been binary)
+		if result.Error == nil && result.Change != nil {
+			// We can't easily detect if it was binary here, but we can log it was processed
+			if result.Job.IsFromDirectory {
+				bp.logger.WithFields(logrus.Fields{
+					"file":          result.Job.DestPath,
+					"relative_path": result.Job.RelativePath,
+					"directory":     result.Job.DirectoryMapping.Src,
+				}).Debug("Directory file processed successfully")
+			}
+		}
+
 		if result.Error != nil {
 			// Handle different error types gracefully
-			if result.Error == internalerrors.ErrTransformNotFound {
+			if errors.Is(result.Error, internalerrors.ErrTransformNotFound) {
 				skipCount++
 				bp.logger.WithField("file", result.Job.DestPath).Debug("File content unchanged, skipping")
 				continue
 			}
-			if result.Error == internalerrors.ErrFileNotFound {
+			if errors.Is(result.Error, internalerrors.ErrFileNotFound) {
 				skipCount++
 				bp.logger.WithField("file", result.Job.SourcePath).Debug("Source file not found, skipping")
 				continue
@@ -230,7 +456,10 @@ func (bp *BatchProcessor) collectResults(resultChan <-chan fileProcessResult) []
 
 			// For other errors, log but continue processing other files
 			errorCount++
-			bp.logger.WithError(result.Error).WithField("file", result.Job.SourcePath).Error("File processing failed")
+			bp.logger.WithError(result.Error).WithFields(logrus.Fields{
+				"file":              result.Job.SourcePath,
+				"is_from_directory": result.Job.IsFromDirectory,
+			}).Error("File processing failed")
 			continue
 		}
 
@@ -240,10 +469,12 @@ func (bp *BatchProcessor) collectResults(resultChan <-chan fileProcessResult) []
 	}
 
 	bp.logger.WithFields(logrus.Fields{
-		"processed": len(changes),
-		"skipped":   skipCount,
-		"errors":    errorCount,
-	}).Info("Batch processing completed")
+		"processed":       len(changes),
+		"skipped":         skipCount,
+		"errors":          errorCount,
+		"directory_files": directoryFilesCount,
+		"regular_files":   len(changes) + skipCount + errorCount - directoryFilesCount,
+	}).Info("Batch processing completed with enhanced metrics")
 
 	return changes
 }
@@ -260,11 +491,16 @@ func (bp *BatchProcessor) getExistingFileContent(ctx context.Context, filePath s
 
 // ProcessorStats provides statistics about batch processing performance
 type ProcessorStats struct {
-	TotalJobs     int
-	ProcessedJobs int
-	SkippedJobs   int
-	FailedJobs    int
-	WorkerCount   int
+	TotalJobs          int
+	ProcessedJobs      int
+	SkippedJobs        int
+	FailedJobs         int
+	WorkerCount        int
+	BinaryFilesSkipped int
+	DirectoryFiles     int
+	RegularFiles       int
+	TransformErrors    int
+	TransformSuccess   int
 }
 
 // GetStats returns processing statistics
@@ -283,6 +519,40 @@ func (bp *BatchProcessor) ConfiguredWorkerCount() int {
 func (bp *BatchProcessor) SetWorkerCount(count int) {
 	if count > 0 {
 		bp.workerCount = count
+	}
+}
+
+// NewFileJob creates a new FileJob for regular file processing
+func NewFileJob(sourcePath, destPath string, transform config.Transform) FileJob {
+	return FileJob{
+		SourcePath:       sourcePath,
+		DestPath:         destPath,
+		Transform:        transform,
+		IsFromDirectory:  false,
+		DirectoryMapping: nil,
+		RelativePath:     "",
+		FileIndex:        0,
+		TotalFiles:       1,
+	}
+}
+
+// NewDirectoryFileJob creates a new FileJob for directory file processing
+func NewDirectoryFileJob(
+	sourcePath, destPath string,
+	transform config.Transform,
+	directoryMapping *config.DirectoryMapping,
+	relativePath string,
+	fileIndex, totalFiles int,
+) FileJob {
+	return FileJob{
+		SourcePath:       sourcePath,
+		DestPath:         destPath,
+		Transform:        transform,
+		IsFromDirectory:  true,
+		DirectoryMapping: directoryMapping,
+		RelativePath:     relativePath,
+		FileIndex:        fileIndex,
+		TotalFiles:       totalFiles,
 	}
 }
 
@@ -351,6 +621,9 @@ func (bp *BatchProcessor) workerWithProgress(ctx context.Context, workerID int, 
 	workerLogger := bp.logger.WithField("worker_id", workerID)
 	workerLogger.Debug("Starting batch processor worker with progress tracking")
 
+	// Try to cast to enhanced progress reporter
+	enhancedReporter, _ := progressReporter.(EnhancedProgressReporter)
+
 	for {
 		select {
 		case job, ok := <-jobChan:
@@ -359,8 +632,13 @@ func (bp *BatchProcessor) workerWithProgress(ctx context.Context, workerID int, 
 				return nil
 			}
 
-			// Process the file job
-			result := bp.processFileJob(ctx, sourcePath, job, workerLogger)
+			// Process the file job with enhanced reporting if available
+			var result fileProcessResult
+			if enhancedReporter != nil {
+				result = bp.processFileJobWithReporter(ctx, sourcePath, job, workerLogger, enhancedReporter)
+			} else {
+				result = bp.processFileJob(ctx, sourcePath, job, workerLogger)
+			}
 
 			// Send result (non-blocking)
 			select {
@@ -380,7 +658,7 @@ func (bp *BatchProcessor) workerWithProgress(ctx context.Context, workerID int, 
 			}
 
 		case <-ctx.Done():
-			workerLogger.Debug("Context cancelled, worker exiting")
+			workerLogger.Debug("Context canceled, worker exiting")
 			return ctx.Err()
 		}
 	}
@@ -389,4 +667,12 @@ func (bp *BatchProcessor) workerWithProgress(ctx context.Context, workerID int, 
 // ProgressReporter defines the interface for progress reporting
 type ProgressReporter interface {
 	UpdateProgress(current, total int, message string)
+}
+
+// EnhancedProgressReporter extends ProgressReporter with binary file metrics support
+type EnhancedProgressReporter interface {
+	ProgressReporter
+	RecordBinaryFileSkipped(size int64)
+	RecordTransformError()
+	RecordTransformSuccess(duration time.Duration)
 }

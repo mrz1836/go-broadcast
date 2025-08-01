@@ -31,6 +31,14 @@ type DirectoryMetrics struct {
 	ProcessedSize     int64
 	StartTime         time.Time
 	EndTime           time.Time
+
+	// Binary file metrics
+	BinaryFilesSkipped     int
+	BinaryFilesSize        int64
+	TransformErrors        int
+	TransformSuccesses     int
+	TotalTransformDuration time.Duration
+	TransformCount         int // Track number of transforms for averaging
 }
 
 // NewDirectoryProgressReporter creates a new directory progress reporter
@@ -160,17 +168,29 @@ func (dpr *DirectoryProgressReporter) Complete() DirectoryMetrics {
 	dpr.metrics.EndTime = time.Now()
 	duration := dpr.metrics.EndTime.Sub(dpr.metrics.StartTime)
 
+	// Calculate average transform duration
+	var avgTransformDuration time.Duration
+	if dpr.metrics.TransformCount > 0 {
+		avgTransformDuration = dpr.metrics.TotalTransformDuration / time.Duration(dpr.metrics.TransformCount)
+	}
+
 	fields := logrus.Fields{
-		"directory":            dpr.directoryPath,
-		"files_discovered":     dpr.metrics.FilesDiscovered,
-		"files_processed":      dpr.metrics.FilesProcessed,
-		"files_excluded":       dpr.metrics.FilesExcluded,
-		"files_skipped":        dpr.metrics.FilesSkipped,
-		"files_errored":        dpr.metrics.FilesErrored,
-		"directories_walked":   dpr.metrics.DirectoriesWalked,
-		"total_size_bytes":     dpr.metrics.TotalSize,
-		"processed_size_bytes": dpr.metrics.ProcessedSize,
-		"duration":             duration,
+		"directory":                   dpr.directoryPath,
+		"files_discovered":            dpr.metrics.FilesDiscovered,
+		"files_processed":             dpr.metrics.FilesProcessed,
+		"files_excluded":              dpr.metrics.FilesExcluded,
+		"files_skipped":               dpr.metrics.FilesSkipped,
+		"files_errored":               dpr.metrics.FilesErrored,
+		"directories_walked":          dpr.metrics.DirectoriesWalked,
+		"total_size_bytes":            dpr.metrics.TotalSize,
+		"processed_size_bytes":        dpr.metrics.ProcessedSize,
+		"binary_files_skipped":        dpr.metrics.BinaryFilesSkipped,
+		"binary_files_size_bytes":     dpr.metrics.BinaryFilesSize,
+		"transform_errors":            dpr.metrics.TransformErrors,
+		"transform_successes":         dpr.metrics.TransformSuccesses,
+		"avg_transform_duration_ms":   avgTransformDuration.Milliseconds(),
+		"total_transform_duration_ms": dpr.metrics.TotalTransformDuration.Milliseconds(),
+		"duration":                    duration,
 	}
 
 	if dpr.enabled {
@@ -208,6 +228,40 @@ func (dpr *DirectoryProgressReporter) SetUpdateInterval(interval time.Duration) 
 	dpr.mu.Lock()
 	defer dpr.mu.Unlock()
 	dpr.updateInterval = interval
+}
+
+// RecordBinaryFileSkipped records that a binary file was skipped with its size
+func (dpr *DirectoryProgressReporter) RecordBinaryFileSkipped(size int64) {
+	dpr.mu.Lock()
+	defer dpr.mu.Unlock()
+	dpr.metrics.BinaryFilesSkipped++
+	dpr.metrics.BinaryFilesSize += size
+}
+
+// RecordTransformError records a transformation error
+func (dpr *DirectoryProgressReporter) RecordTransformError() {
+	dpr.mu.Lock()
+	defer dpr.mu.Unlock()
+	dpr.metrics.TransformErrors++
+}
+
+// RecordTransformSuccess records a successful transformation with its duration
+func (dpr *DirectoryProgressReporter) RecordTransformSuccess(duration time.Duration) {
+	dpr.mu.Lock()
+	defer dpr.mu.Unlock()
+	dpr.metrics.TransformSuccesses++
+	dpr.metrics.TotalTransformDuration += duration
+	dpr.metrics.TransformCount++
+}
+
+// GetAverageTransformDuration returns the average transform duration
+func (dpr *DirectoryProgressReporter) GetAverageTransformDuration() time.Duration {
+	dpr.mu.RLock()
+	defer dpr.mu.RUnlock()
+	if dpr.metrics.TransformCount == 0 {
+		return 0
+	}
+	return dpr.metrics.TotalTransformDuration / time.Duration(dpr.metrics.TransformCount)
 }
 
 // IsProgressReportingNeeded determines if progress reporting should be enabled
@@ -258,6 +312,27 @@ func NewBatchProgressWrapper(reporter *DirectoryProgressReporter) *BatchProgress
 func (bpw *BatchProgressWrapper) UpdateProgress(current, total int, message string) {
 	if bpw.reporter != nil {
 		bpw.reporter.UpdateProgress(current, total, message)
+	}
+}
+
+// RecordBinaryFileSkipped implements EnhancedProgressReporter interface
+func (bpw *BatchProgressWrapper) RecordBinaryFileSkipped(size int64) {
+	if bpw.reporter != nil {
+		bpw.reporter.RecordBinaryFileSkipped(size)
+	}
+}
+
+// RecordTransformError implements EnhancedProgressReporter interface
+func (bpw *BatchProgressWrapper) RecordTransformError() {
+	if bpw.reporter != nil {
+		bpw.reporter.RecordTransformError()
+	}
+}
+
+// RecordTransformSuccess implements EnhancedProgressReporter interface
+func (bpw *BatchProgressWrapper) RecordTransformSuccess(duration time.Duration) {
+	if bpw.reporter != nil {
+		bpw.reporter.RecordTransformSuccess(duration)
 	}
 }
 

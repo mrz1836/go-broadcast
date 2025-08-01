@@ -650,7 +650,7 @@ func TestRepositorySync_mergeUniqueStrings(t *testing.T) {
 	})
 
 	t.Run("handles empty first slice", func(t *testing.T) {
-		slice1 := []string{}
+		var slice1 []string
 		slice2 := []string{"a", "b", "c"}
 		result := rs.mergeUniqueStrings(slice1, slice2)
 		expected := []string{"a", "b", "c"}
@@ -659,15 +659,15 @@ func TestRepositorySync_mergeUniqueStrings(t *testing.T) {
 
 	t.Run("handles empty second slice", func(t *testing.T) {
 		slice1 := []string{"a", "b", "c"}
-		slice2 := []string{}
+		var slice2 []string
 		result := rs.mergeUniqueStrings(slice1, slice2)
 		expected := []string{"a", "b", "c"}
 		assert.Equal(t, expected, result)
 	})
 
 	t.Run("handles both slices empty", func(t *testing.T) {
-		slice1 := []string{}
-		slice2 := []string{}
+		var slice1 []string
+		var slice2 []string
 		result := rs.mergeUniqueStrings(slice1, slice2)
 		assert.Nil(t, result)
 	})
