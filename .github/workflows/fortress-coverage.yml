@@ -1032,6 +1032,7 @@ jobs:
           COVERAGE_DIRS_TO_COPY=(
             "data"
             "badges"
+            "assets"
           )
 
           # Define coverage directory structure to copy selectively (avoid duplication)
