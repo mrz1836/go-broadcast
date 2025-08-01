@@ -903,6 +903,18 @@ jobs:
           echo "📁 Creating PR badge deployment directory: $PR_BADGE_DEPLOY_DIR"
           mkdir -p "$PR_BADGE_DEPLOY_DIR"
 
+          # Show what's in the source directory before copying
+          echo "📁 Source directory structure before copy:"
+          if [[ -d "$BADGE_SOURCE_DIR" ]]; then
+            if command -v tree >/dev/null 2>&1; then
+              tree "$BADGE_SOURCE_DIR" || ls -laR "$BADGE_SOURCE_DIR"
+            else
+              ls -laR "$BADGE_SOURCE_DIR"
+            fi
+          else
+            echo "⚠️ Source directory does not exist: $BADGE_SOURCE_DIR"
+          fi
+          
           # Copy PR badges AND HTML report to deployment directory
           echo "📋 Copying PR badges and HTML report to deployment directory..."
           if cp -r "$BADGE_SOURCE_DIR"/* "$PR_BADGE_DEPLOY_DIR/" 2>/dev/null; then
@@ -925,6 +937,14 @@ jobs:
               echo "   This indicates the gofortress-coverage comment command may not be generating HTML"
             fi
 
+            # Show complete PR directory structure
+            echo "📁 Complete PR deployment directory structure:"
+            if command -v tree >/dev/null 2>&1; then
+              tree "$PR_BADGE_DEPLOY_DIR" || ls -laR "$PR_BADGE_DEPLOY_DIR"
+            else
+              ls -laR "$PR_BADGE_DEPLOY_DIR"
+            fi
+            
             # List deployed badges
             echo "🏷️ Deployed PR badges:"
             find "$PR_BADGE_DEPLOY_DIR" -name "*.svg" -exec echo "  - {}" \;
