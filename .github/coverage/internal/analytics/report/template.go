@@ -73,7 +73,7 @@ const reportTemplate = `<!DOCTYPE html>
                     {{else}}
                         {{.RepositoryOwner}}/{{.RepositoryName}} • 
                     {{end -}}
-                    Detailed coverage analysis • Generated {{.GeneratedAt.Format "2006-01-02 15:04:05 UTC"}}
+                    Detailed coverage analysis • <span class="dynamic-timestamp" data-timestamp="{{.GeneratedAt.Format "2006-01-02T15:04:05Z07:00"}}">Generated {{.GeneratedAt.Format "2006-01-02 15:04:05 UTC"}}</span>
                 </p>
             </div>
 
@@ -306,7 +306,7 @@ const reportTemplate = `<!DOCTYPE html>
                 <span class="footer-separator">•</span>
                 <div class="footer-timestamp">
                     <span class="timestamp-icon">🕐</span>
-                    <span class="timestamp-text">{{.GeneratedAt.Format "2006-01-02 15:04:05 UTC"}}</span>
+                    <span class="timestamp-text dynamic-timestamp" data-timestamp="{{.GeneratedAt.Format "2006-01-02T15:04:05Z07:00"}}">Generated {{.GeneratedAt.Format "2006-01-02 15:04:05 UTC"}}</span>
                 </div>
             </div>
         </div>
@@ -389,5 +389,8 @@ const reportTemplate = `<!DOCTYPE html>
             });
         }
     </script>
+    
+    <!-- Dynamic timestamp management -->
+    <script src="./assets/js/coverage-time.js"></script>
 </body>
 </html>`

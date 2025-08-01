@@ -13,7 +13,7 @@ import (
 // This includes CSS, images, and web manifest files that are deployed
 // alongside generated coverage reports.
 //
-//go:embed css/*.css images/*.ico images/*.svg *.webmanifest
+//go:embed css/*.css images/*.ico images/*.svg js/*.js *.webmanifest
 var FS embed.FS
 
 // CopyAssetsTo copies all embedded assets to the specified output directory,

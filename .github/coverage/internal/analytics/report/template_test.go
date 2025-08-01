@@ -56,6 +56,8 @@ func (suite *TemplateTestSuite) TestReportTemplateGoTemplateVariables() {
 		"{{.Summary.CoveredLines | commas}}",
 		"{{.Summary.TotalLines | commas}}",
 		"{{.GeneratedAt.Format",
+		"data-timestamp=",
+		"dynamic-timestamp",
 		"{{.GoogleAnalyticsID}}",
 		"{{.Title}}",
 	}
@@ -137,6 +139,7 @@ func (suite *TemplateTestSuite) TestReportTemplateAssetReferences() {
 		"./assets/css/coverage.css",
 		"./assets/images/favicon.ico",
 		"./assets/images/favicon.svg",
+		"./assets/js/coverage-time.js",
 		"./assets/site.webmanifest",
 	}
 
