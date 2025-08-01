@@ -199,11 +199,29 @@
             color: var(--color-text);
             cursor: pointer;
             transition: var(--transition-base);
+            position: relative;
+            overflow: hidden;
         }
 
         .theme-toggle:hover {
             background: var(--color-bg-tertiary);
             border-color: var(--color-primary);
+            transform: scale(1.1);
+        }
+
+        .theme-toggle::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .theme-toggle:hover::before {
+            left: 100%;
         }
 
          
@@ -296,6 +314,8 @@
             padding: 1.5rem;
             transition: var(--transition-smooth);
             overflow: hidden;
+            animation: fadeIn 0.5s ease forwards;
+            opacity: 0;
         }
 
         .summary-card::before {
@@ -314,7 +334,8 @@
         }
 
         @keyframes shimmer {
-            to { transform: translateX(100%); }
+            0% { transform: translateX(-100px); }
+            100% { transform: translateX(100px); }
         }
 
         .summary-card:hover {
@@ -404,7 +425,19 @@
         .coverage-fill {
             height: 100%;
             border-radius: 4px;
+            position: relative;
             transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .coverage-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 100px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 2s infinite;
         }
 
         .coverage-excellent { background: var(--gradient-success); }
@@ -469,10 +502,12 @@
         }
 
         .package-list {
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: 12px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--backdrop-blur));
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
             overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
 
         .package-item {
@@ -494,10 +529,29 @@
             border: none;
             width: 100%;
             text-align: left;
+            position: relative;
+            overflow: hidden;
         }
 
         .package-header:hover {
             background: var(--color-bg-tertiary);
+            transform: translateX(2px);
+        }
+
+        .package-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--gradient-primary);
+            opacity: 0.05;
+            transition: left 0.3s ease;
+        }
+
+        .package-header:hover::before {
+            left: 0;
         }
 
         .package-info {
@@ -554,6 +608,7 @@
 
         .file-item:hover {
             background: var(--color-bg);
+            transform: translateX(4px);
         }
 
         .file-item:last-child {
@@ -642,6 +697,7 @@
         .footer-link:hover {
             background: var(--color-bg-tertiary);
             transform: translateY(-1px);
+            color: var(--color-text);
         }
 
         .footer-brand {
@@ -726,6 +782,23 @@
         }
 
          
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .summary-card:nth-child(1) { animation-delay: 0.1s; }
+        .summary-card:nth-child(2) { animation-delay: 0.2s; }
+        .summary-card:nth-child(3) { animation-delay: 0.3s; }
+        .summary-card:nth-child(4) { animation-delay: 0.4s; }
+
+         
         .loading {
             opacity: 0.6;
             pointer-events: none;
@@ -740,6 +813,11 @@
         @keyframes loading {
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
          
@@ -788,8 +866,9 @@
             </a>
             <div class="subtitle">Coverage Report</div>
             <div class="repo-info">
-                <span>📅 Jul 31, 2025 21:05 UTC</span>
-                <span>🌿 Branch: master</span><span>📝 3d7e8c4</span>
+                <span>📅 Aug 1, 2025 00:25 UTC</span>
+                <span>🌿 Branch: master</span>
+                <span>🔗 Commit:34f4ef7</span>
             </div>
         </header>
 
@@ -803,7 +882,7 @@
                         <div class="summary-unit">%</div>
                     </div>
                     <div class="coverage-bar">
-                        <div class="coverage-fillcoverage-good"
+                        <div class="coverage-fill coverage-good "
                              style="width: 86.98481561822126%"></div>
                     </div>
                 </div>
@@ -838,7 +917,7 @@
                 <div class="summary-content">
                     <div class="summary-label">Coverage Status</div>
                     <div class="summary-value-container">
-                        <span class="coverage-badgebadge-good">Good</span>
+                        <span class="coverage-badge badge-good ">Good</span>
                     </div>
                 </div>
             </div>
@@ -866,7 +945,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             91.7%
                         </span>
                     </button>
@@ -874,11 +953,11 @@
                     <div class="file-list" id="pkg-0">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/algorithms/optimized.go" target="_blank" rel="noopener" class="source-link">optimized.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/algorithms/optimized.go" target="_blank" rel="noopener" class="source-link">optimized.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>221/241 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     91.7%
                                 </span>
                             </div>
@@ -897,7 +976,7 @@
                                 <span>3 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             97.0%
                         </span>
                     </button>
@@ -905,33 +984,33 @@
                     <div class="file-list" id="pkg-1">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/benchmark/fixtures.go" target="_blank" rel="noopener" class="source-link">fixtures.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/benchmark/fixtures.go" target="_blank" rel="noopener" class="source-link">fixtures.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>72/74 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     97.3%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/benchmark/helpers.go" target="_blank" rel="noopener" class="source-link">helpers.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/benchmark/helpers.go" target="_blank" rel="noopener" class="source-link">helpers.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>72/73 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     98.6%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/benchmark/reporter.go" target="_blank" rel="noopener" class="source-link">reporter.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/benchmark/reporter.go" target="_blank" rel="noopener" class="source-link">reporter.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>84/88 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     95.5%
                                 </span>
                             </div>
@@ -950,7 +1029,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             97.0%
                         </span>
                     </button>
@@ -958,11 +1037,11 @@
                     <div class="file-list" id="pkg-2">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cache/ttl_cache.go" target="_blank" rel="noopener" class="source-link">ttl_cache.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/cache/ttl_cache.go" target="_blank" rel="noopener" class="source-link">ttl_cache.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>65/67 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     97.0%
                                 </span>
                             </div>
@@ -981,7 +1060,7 @@
                                 <span>9 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-warning">
+                        <span class="coverage-badge badge-warning ">
                             74.0%
                         </span>
                     </button>
@@ -989,99 +1068,99 @@
                     <div class="file-list" id="pkg-3">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/cancel.go" target="_blank" rel="noopener" class="source-link">cancel.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/cancel.go" target="_blank" rel="noopener" class="source-link">cancel.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>126/152 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     82.9%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/diagnose.go" target="_blank" rel="noopener" class="source-link">diagnose.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/diagnose.go" target="_blank" rel="noopener" class="source-link">diagnose.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>66/74 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     89.2%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/flags.go" target="_blank" rel="noopener" class="source-link">flags.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/flags.go" target="_blank" rel="noopener" class="source-link">flags.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>10/10 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/logger.go" target="_blank" rel="noopener" class="source-link">logger.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/logger.go" target="_blank" rel="noopener" class="source-link">logger.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>42/43 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     97.7%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/root.go" target="_blank" rel="noopener" class="source-link">root.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/root.go" target="_blank" rel="noopener" class="source-link">root.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>130/173 lines</span>
-                                <span class="coverage-badgebadge-warning">
+                                <span class="coverage-badge badge-warning ">
                                     75.1%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/status.go" target="_blank" rel="noopener" class="source-link">status.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/status.go" target="_blank" rel="noopener" class="source-link">status.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>92/105 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     87.6%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/sync.go" target="_blank" rel="noopener" class="source-link">sync.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/sync.go" target="_blank" rel="noopener" class="source-link">sync.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>66/132 lines</span>
-                                <span class="coverage-badgebadge-danger">
+                                <span class="coverage-badge badge-danger ">
                                     50.0%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/validate.go" target="_blank" rel="noopener" class="source-link">validate.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/validate.go" target="_blank" rel="noopener" class="source-link">validate.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>71/132 lines</span>
-                                <span class="coverage-badgebadge-danger">
+                                <span class="coverage-badge badge-danger ">
                                     53.8%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/cli/version.go" target="_blank" rel="noopener" class="source-link">version.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/version.go" target="_blank" rel="noopener" class="source-link">version.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>18/18 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
@@ -1100,7 +1179,7 @@
                                 <span>2 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-good">
+                        <span class="coverage-badge badge-good ">
                             83.6%
                         </span>
                     </button>
@@ -1108,22 +1187,22 @@
                     <div class="file-list" id="pkg-4">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/config/parser.go" target="_blank" rel="noopener" class="source-link">parser.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/config/parser.go" target="_blank" rel="noopener" class="source-link">parser.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>26/26 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/config/validator.go" target="_blank" rel="noopener" class="source-link">validator.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/config/validator.go" target="_blank" rel="noopener" class="source-link">validator.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>127/157 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     80.9%
                                 </span>
                             </div>
@@ -1142,7 +1221,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             100.0%
                         </span>
                     </button>
@@ -1150,11 +1229,11 @@
                     <div class="file-list" id="pkg-5">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/errors/errors.go" target="_blank" rel="noopener" class="source-link">errors.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/errors/errors.go" target="_blank" rel="noopener" class="source-link">errors.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>12/12 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
@@ -1173,7 +1252,7 @@
                                 <span>2 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             94.8%
                         </span>
                     </button>
@@ -1181,22 +1260,22 @@
                     <div class="file-list" id="pkg-6">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/fuzz/corpus_generator.go" target="_blank" rel="noopener" class="source-link">corpus_generator.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/fuzz/corpus_generator.go" target="_blank" rel="noopener" class="source-link">corpus_generator.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>53/56 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     94.6%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/fuzz/helpers.go" target="_blank" rel="noopener" class="source-link">helpers.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/fuzz/helpers.go" target="_blank" rel="noopener" class="source-link">helpers.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>56/59 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     94.9%
                                 </span>
                             </div>
@@ -1215,7 +1294,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-danger">
+                        <span class="coverage-badge badge-danger ">
                             0.0%
                         </span>
                     </button>
@@ -1223,11 +1302,11 @@
                     <div class="file-list" id="pkg-7">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/cmd/generate-corpus/main.go" target="_blank" rel="noopener" class="source-link">main.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/cmd/generate-corpus/main.go" target="_blank" rel="noopener" class="source-link">main.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>0/9 lines</span>
-                                <span class="coverage-badgebadge-danger">
+                                <span class="coverage-badge badge-danger ">
                                     0.0%
                                 </span>
                             </div>
@@ -1246,7 +1325,7 @@
                                 <span>3 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             90.6%
                         </span>
                     </button>
@@ -1254,33 +1333,33 @@
                     <div class="file-list" id="pkg-8">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/gh/command.go" target="_blank" rel="noopener" class="source-link">command.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/gh/command.go" target="_blank" rel="noopener" class="source-link">command.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>39/41 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     95.1%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/gh/github.go" target="_blank" rel="noopener" class="source-link">github.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/gh/github.go" target="_blank" rel="noopener" class="source-link">github.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>150/161 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     93.2%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/gh/mock.go" target="_blank" rel="noopener" class="source-link">mock.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/gh/mock.go" target="_blank" rel="noopener" class="source-link">mock.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>14/22 lines</span>
-                                <span class="coverage-badgebadge-warning">
+                                <span class="coverage-badge badge-warning ">
                                     63.6%
                                 </span>
                             </div>
@@ -1299,7 +1378,7 @@
                                 <span>3 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             92.1%
                         </span>
                     </button>
@@ -1307,33 +1386,33 @@
                     <div class="file-list" id="pkg-9">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/git/batch.go" target="_blank" rel="noopener" class="source-link">batch.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/git/batch.go" target="_blank" rel="noopener" class="source-link">batch.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>107/114 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     93.9%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/git/git.go" target="_blank" rel="noopener" class="source-link">git.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/git/git.go" target="_blank" rel="noopener" class="source-link">git.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>131/138 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     94.9%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/git/mock.go" target="_blank" rel="noopener" class="source-link">mock.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/git/mock.go" target="_blank" rel="noopener" class="source-link">mock.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>18/26 lines</span>
-                                <span class="coverage-badgebadge-warning">
+                                <span class="coverage-badge badge-warning ">
                                     69.2%
                                 </span>
                             </div>
@@ -1352,7 +1431,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-danger">
+                        <span class="coverage-badge badge-danger ">
                             0.0%
                         </span>
                     </button>
@@ -1360,11 +1439,11 @@
                     <div class="file-list" id="pkg-10">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/cmd/go-broadcast/main.go" target="_blank" rel="noopener" class="source-link">main.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/cmd/go-broadcast/main.go" target="_blank" rel="noopener" class="source-link">main.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>0/6 lines</span>
-                                <span class="coverage-badgebadge-danger">
+                                <span class="coverage-badge badge-danger ">
                                     0.0%
                                 </span>
                             </div>
@@ -1383,7 +1462,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-good">
+                        <span class="coverage-badge badge-good ">
                             86.9%
                         </span>
                     </button>
@@ -1391,11 +1470,11 @@
                     <div class="file-list" id="pkg-11">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/io/streaming.go" target="_blank" rel="noopener" class="source-link">streaming.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/io/streaming.go" target="_blank" rel="noopener" class="source-link">streaming.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>179/206 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     86.9%
                                 </span>
                             </div>
@@ -1414,7 +1493,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-good">
+                        <span class="coverage-badge badge-good ">
                             87.5%
                         </span>
                     </button>
@@ -1422,11 +1501,11 @@
                     <div class="file-list" id="pkg-12">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/jsonutil/jsonutil.go" target="_blank" rel="noopener" class="source-link">jsonutil.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/jsonutil/jsonutil.go" target="_blank" rel="noopener" class="source-link">jsonutil.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>35/40 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     87.5%
                                 </span>
                             </div>
@@ -1445,7 +1524,7 @@
                                 <span>3 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-good">
+                        <span class="coverage-badge badge-good ">
                             84.2%
                         </span>
                     </button>
@@ -1453,33 +1532,33 @@
                     <div class="file-list" id="pkg-13">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/logging/config.go" target="_blank" rel="noopener" class="source-link">config.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/logging/config.go" target="_blank" rel="noopener" class="source-link">config.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>3/9 lines</span>
-                                <span class="coverage-badgebadge-danger">
+                                <span class="coverage-badge badge-danger ">
                                     33.3%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/logging/formatter.go" target="_blank" rel="noopener" class="source-link">formatter.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/logging/formatter.go" target="_blank" rel="noopener" class="source-link">formatter.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>39/42 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     92.9%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/logging/redact.go" target="_blank" rel="noopener" class="source-link">redact.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/logging/redact.go" target="_blank" rel="noopener" class="source-link">redact.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>59/69 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     85.5%
                                 </span>
                             </div>
@@ -1498,7 +1577,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             96.2%
                         </span>
                     </button>
@@ -1506,11 +1585,11 @@
                     <div class="file-list" id="pkg-14">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/memory/efficient.go" target="_blank" rel="noopener" class="source-link">efficient.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/memory/efficient.go" target="_blank" rel="noopener" class="source-link">efficient.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>126/131 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     96.2%
                                 </span>
                             </div>
@@ -1529,7 +1608,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             96.3%
                         </span>
                     </button>
@@ -1537,11 +1616,11 @@
                     <div class="file-list" id="pkg-15">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/metrics/timing.go" target="_blank" rel="noopener" class="source-link">timing.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/metrics/timing.go" target="_blank" rel="noopener" class="source-link">timing.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>26/27 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     96.3%
                                 </span>
                             </div>
@@ -1560,7 +1639,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-good">
+                        <span class="coverage-badge badge-good ">
                             84.8%
                         </span>
                     </button>
@@ -1568,11 +1647,11 @@
                     <div class="file-list" id="pkg-16">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/monitoring/dashboard.go" target="_blank" rel="noopener" class="source-link">dashboard.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/monitoring/dashboard.go" target="_blank" rel="noopener" class="source-link">dashboard.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>95/112 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     84.8%
                                 </span>
                             </div>
@@ -1591,7 +1670,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             100.0%
                         </span>
                     </button>
@@ -1599,11 +1678,11 @@
                     <div class="file-list" id="pkg-17">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/output/output.go" target="_blank" rel="noopener" class="source-link">output.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/output/output.go" target="_blank" rel="noopener" class="source-link">output.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>52/52 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
@@ -1622,7 +1701,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             96.8%
                         </span>
                     </button>
@@ -1630,11 +1709,11 @@
                     <div class="file-list" id="pkg-18">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/pool/buffer_pool.go" target="_blank" rel="noopener" class="source-link">buffer_pool.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/pool/buffer_pool.go" target="_blank" rel="noopener" class="source-link">buffer_pool.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>61/63 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     96.8%
                                 </span>
                             </div>
@@ -1653,7 +1732,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-warning">
+                        <span class="coverage-badge badge-warning ">
                             67.9%
                         </span>
                     </button>
@@ -1661,11 +1740,11 @@
                     <div class="file-list" id="pkg-19">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/cmd/profile_demo/main.go" target="_blank" rel="noopener" class="source-link">main.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/cmd/profile_demo/main.go" target="_blank" rel="noopener" class="source-link">main.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>95/140 lines</span>
-                                <span class="coverage-badgebadge-warning">
+                                <span class="coverage-badge badge-warning ">
                                     67.9%
                                 </span>
                             </div>
@@ -1684,7 +1763,7 @@
                                 <span>2 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-good">
+                        <span class="coverage-badge badge-good ">
                             86.5%
                         </span>
                     </button>
@@ -1692,22 +1771,22 @@
                     <div class="file-list" id="pkg-20">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/profiling/memory.go" target="_blank" rel="noopener" class="source-link">memory.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/profiling/memory.go" target="_blank" rel="noopener" class="source-link">memory.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>202/219 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     92.2%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/profiling/suite.go" target="_blank" rel="noopener" class="source-link">suite.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/profiling/suite.go" target="_blank" rel="noopener" class="source-link">suite.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>183/226 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     81.0%
                                 </span>
                             </div>
@@ -1726,7 +1805,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             92.7%
                         </span>
                     </button>
@@ -1734,11 +1813,11 @@
                     <div class="file-list" id="pkg-21">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/reporting/performance.go" target="_blank" rel="noopener" class="source-link">performance.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/reporting/performance.go" target="_blank" rel="noopener" class="source-link">performance.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>152/164 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     92.7%
                                 </span>
                             </div>
@@ -1757,7 +1836,7 @@
                                 <span>4 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             98.1%
                         </span>
                     </button>
@@ -1765,44 +1844,44 @@
                     <div class="file-list" id="pkg-22">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/branch.go" target="_blank" rel="noopener" class="source-link">branch.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/state/branch.go" target="_blank" rel="noopener" class="source-link">branch.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>22/23 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     95.7%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/discovery.go" target="_blank" rel="noopener" class="source-link">discovery.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/state/discovery.go" target="_blank" rel="noopener" class="source-link">discovery.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>139/141 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     98.6%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/mock.go" target="_blank" rel="noopener" class="source-link">mock.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/state/mock.go" target="_blank" rel="noopener" class="source-link">mock.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>6/6 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/state/pr.go" target="_blank" rel="noopener" class="source-link">pr.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/state/pr.go" target="_blank" rel="noopener" class="source-link">pr.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>37/38 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     97.4%
                                 </span>
                             </div>
@@ -1821,7 +1900,7 @@
                                 <span>4 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-good">
+                        <span class="coverage-badge badge-good ">
                             84.1%
                         </span>
                     </button>
@@ -1829,44 +1908,44 @@
                     <div class="file-list" id="pkg-23">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/engine.go" target="_blank" rel="noopener" class="source-link">engine.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/sync/engine.go" target="_blank" rel="noopener" class="source-link">engine.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>68/76 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     89.5%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/options.go" target="_blank" rel="noopener" class="source-link">options.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/sync/options.go" target="_blank" rel="noopener" class="source-link">options.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>11/11 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/progress.go" target="_blank" rel="noopener" class="source-link">progress.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/sync/progress.go" target="_blank" rel="noopener" class="source-link">progress.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>52/52 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/sync/repository.go" target="_blank" rel="noopener" class="source-link">repository.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/sync/repository.go" target="_blank" rel="noopener" class="source-link">repository.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>329/408 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     80.6%
                                 </span>
                             </div>
@@ -1885,7 +1964,7 @@
                                 <span>3 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-good">
+                        <span class="coverage-badge badge-good ">
                             81.5%
                         </span>
                     </button>
@@ -1893,33 +1972,33 @@
                     <div class="file-list" id="pkg-24">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/testutil/files.go" target="_blank" rel="noopener" class="source-link">files.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/testutil/files.go" target="_blank" rel="noopener" class="source-link">files.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>52/60 lines</span>
-                                <span class="coverage-badgebadge-good">
+                                <span class="coverage-badge badge-good ">
                                     86.7%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/testutil/mock.go" target="_blank" rel="noopener" class="source-link">mock.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/testutil/mock.go" target="_blank" rel="noopener" class="source-link">mock.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>37/37 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/testutil/patterns.go" target="_blank" rel="noopener" class="source-link">patterns.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/testutil/patterns.go" target="_blank" rel="noopener" class="source-link">patterns.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>30/49 lines</span>
-                                <span class="coverage-badgebadge-warning">
+                                <span class="coverage-badge badge-warning ">
                                     61.2%
                                 </span>
                             </div>
@@ -1938,7 +2017,7 @@
                                 <span>7 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             97.8%
                         </span>
                     </button>
@@ -1946,77 +2025,77 @@
                     <div class="file-list" id="pkg-25">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/binary.go" target="_blank" rel="noopener" class="source-link">binary.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/transform/binary.go" target="_blank" rel="noopener" class="source-link">binary.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>23/23 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/chain.go" target="_blank" rel="noopener" class="source-link">chain.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/transform/chain.go" target="_blank" rel="noopener" class="source-link">chain.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>20/20 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/mock.go" target="_blank" rel="noopener" class="source-link">mock.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/transform/mock.go" target="_blank" rel="noopener" class="source-link">mock.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>18/18 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/regex_cache.go" target="_blank" rel="noopener" class="source-link">regex_cache.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/transform/regex_cache.go" target="_blank" rel="noopener" class="source-link">regex_cache.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>65/69 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     94.2%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/repo.go" target="_blank" rel="noopener" class="source-link">repo.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/transform/repo.go" target="_blank" rel="noopener" class="source-link">repo.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>37/37 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/string_builder.go" target="_blank" rel="noopener" class="source-link">string_builder.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/transform/string_builder.go" target="_blank" rel="noopener" class="source-link">string_builder.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>119/120 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     99.2%
                                 </span>
                             </div>
                         </div>
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/transform/template.go" target="_blank" rel="noopener" class="source-link">template.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/transform/template.go" target="_blank" rel="noopener" class="source-link">template.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>73/76 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     96.1%
                                 </span>
                             </div>
@@ -2035,7 +2114,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             100.0%
                         </span>
                     </button>
@@ -2043,11 +2122,11 @@
                     <div class="file-list" id="pkg-26">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/validation/validation.go" target="_blank" rel="noopener" class="source-link">validation.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/validation/validation.go" target="_blank" rel="noopener" class="source-link">validation.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>66/66 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
@@ -2066,7 +2145,7 @@
                                 <span>1 files</span>
                             </div>
                         </div>
-                        <span class="coverage-badgebadge-excellent">
+                        <span class="coverage-badge badge-excellent ">
                             100.0%
                         </span>
                     </button>
@@ -2074,11 +2153,11 @@
                     <div class="file-list" id="pkg-27">
                         <div class="file-item">
                             <span class="file-name">
-                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/github.com/mrz1836/go-broadcast/internal/worker/pool.go" target="_blank" rel="noopener" class="source-link">pool.go</a>
+                                <a href="https://github.com/mrz1836/go-broadcast/blob/master/internal/worker/pool.go" target="_blank" rel="noopener" class="source-link">pool.go</a>
                             </span>
                             <div class="file-stats">
                                 <span>32/32 lines</span>
-                                <span class="coverage-badgebadge-excellent">
+                                <span class="coverage-badge badge-excellent ">
                                     100.0%
                                 </span>
                             </div>
@@ -2107,7 +2186,7 @@
             <span class="footer-separator">•</span>
             <div class="footer-item">
                 <span class="footer-icon">🕐</span>
-                <span class="footer-time">2025-07-31 21:05:05 UTC</span>
+                <span class="footer-time">2025-08-01 00:25:49 UTC</span>
             </div>
         </div>
     </footer>
