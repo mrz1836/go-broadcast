@@ -3,17 +3,17 @@
     "short_name": "Coverage",
     "icons": [
         {
-            "src": "favicon.ico",
+            "src": "./images/favicon.ico",
             "sizes": "32x32",
             "type": "image/x-icon"
         },
         {
-            "src": "favicon-16.svg", 
+            "src": "./images/favicon-16.svg", 
             "sizes": "any",
             "type": "image/svg+xml"
         },
         {
-            "src": "favicon.svg", 
+            "src": "./images/favicon.svg", 
             "sizes": "any",
             "type": "image/svg+xml"
         }
