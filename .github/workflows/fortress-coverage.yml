@@ -914,7 +914,7 @@ jobs:
           else
             echo "⚠️ Source directory does not exist: $BADGE_SOURCE_DIR"
           fi
-          
+
           # Copy PR badges AND HTML report to deployment directory
           echo "📋 Copying PR badges and HTML report to deployment directory..."
           if cp -r "$BADGE_SOURCE_DIR"/* "$PR_BADGE_DEPLOY_DIR/" 2>/dev/null; then
