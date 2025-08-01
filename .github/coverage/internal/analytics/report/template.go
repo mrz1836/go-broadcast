@@ -66,7 +66,7 @@ const reportTemplate = `<!DOCTYPE html>
     <header class="header">
         <div class="header-content">
             <div class="header-main">
-                <h1>Coverage Report</h1>
+                <h1>{{- if .PRNumber}}PR #{{.PRNumber}} {{end -}}Coverage Report</h1>
                 <p class="subtitle">
                     {{- if .ProjectName}}
                         {{.ProjectName}} • 
@@ -125,6 +125,21 @@ const reportTemplate = `<!DOCTYPE html>
                 <span class="branch-icon">🌿</span>
                 {{.BranchName}}
             </span>
+            {{- end}}
+            
+            {{- if .PRNumber}}
+            <span class="repo-separator">•</span>
+            {{- if .PRURL}}
+            <a href="{{.PRURL}}" class="commit-link">
+                <span class="commit-icon">🔀</span>
+                PR #{{.PRNumber}}
+            </a>
+            {{- else}}
+            <span class="commit-link">
+                <span class="commit-icon">🔀</span>
+                PR #{{.PRNumber}}
+            </span>
+            {{- end}}
             {{- end}}
             
             {{- if .CommitSHA}}
@@ -240,7 +255,11 @@ const reportTemplate = `<!DOCTYPE html>
                         <div class="file-item">
                             <div class="file-info">
                                 <span class="file-icon">📄</span>
+                                {{- if .URL}}
+                                <a href="{{.URL}}" class="file-name" target="_blank" rel="noopener noreferrer">{{.Name}}</a>
+                                {{- else}}
                                 <span class="file-name">{{.Name}}</span>
+                                {{- end}}
                                 <span class="file-stats">{{.CoveredLines}} / {{.TotalLines}} lines</span>
                             </div>
                             <div class="file-coverage">

@@ -26,6 +26,7 @@ type Config struct {
 	RepositoryName    string
 	BranchName        string
 	CommitSHA         string
+	PRNumber          string
 	GoogleAnalyticsID string
 }
 
@@ -40,6 +41,8 @@ type Data struct {
 	BranchName        string
 	CommitSHA         string
 	CommitURL         string
+	PRNumber          string
+	PRURL             string
 	BadgeURL          string
 	Summary           Summary
 	Packages          []PackageReport
@@ -72,6 +75,7 @@ type PackageReport struct {
 type FileReport struct {
 	Name         string
 	Path         string
+	URL          string
 	Percentage   float64
 	TotalLines   int
 	CoveredLines int
@@ -162,9 +166,19 @@ func (g *Generator) buildReportData(_ context.Context, coverage *parser.Coverage
 					percentage = float64(coveredLines) / float64(totalLines) * 100
 				}
 
+				// Generate GitHub file URL
+				fileURL := ""
+				if g.config != nil && g.config.RepositoryOwner != "" && g.config.RepositoryName != "" && g.config.BranchName != "" {
+					// Use the full path including package name
+					fullPath := filepath.Join(name, fileName)
+					fileURL = fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s",
+						g.config.RepositoryOwner, g.config.RepositoryName, g.config.BranchName, fullPath)
+				}
+
 				files = append(files, FileReport{
 					Name:         fileName,
 					Path:         filepath.Join(name, fileName),
+					URL:          fileURL,
 					Percentage:   percentage,
 					TotalLines:   totalLines,
 					CoveredLines: coveredLines,
@@ -217,23 +231,43 @@ func (g *Generator) buildReportData(_ context.Context, coverage *parser.Coverage
 			g.config.RepositoryOwner, g.config.RepositoryName, g.config.CommitSHA)
 	}
 
+	// Build PR URL if we have PR info
+	prURL := ""
+	if g.config != nil && g.config.RepositoryOwner != "" && g.config.RepositoryName != "" && g.config.PRNumber != "" {
+		prURL = fmt.Sprintf("https://github.com/%s/%s/pull/%s",
+			g.config.RepositoryOwner, g.config.RepositoryName, g.config.PRNumber)
+	}
+
 	// Build title
 	title := "Coverage Report"
 	if g.config != nil {
-		if g.config.RepositoryOwner != "" && g.config.RepositoryName != "" {
-			title = fmt.Sprintf("%s/%s Coverage Report", g.config.RepositoryOwner, g.config.RepositoryName)
-		} else if g.config.RepositoryName != "" {
-			title = fmt.Sprintf("%s Coverage Report", g.config.RepositoryName)
+		if g.config.PRNumber != "" {
+			// PR context - include PR number in title
+			if g.config.RepositoryOwner != "" && g.config.RepositoryName != "" {
+				title = fmt.Sprintf("PR #%s - %s/%s Coverage Report", g.config.PRNumber, g.config.RepositoryOwner, g.config.RepositoryName)
+			} else if g.config.RepositoryName != "" {
+				title = fmt.Sprintf("PR #%s - %s Coverage Report", g.config.PRNumber, g.config.RepositoryName)
+			} else {
+				title = fmt.Sprintf("PR #%s Coverage Report", g.config.PRNumber)
+			}
+		} else {
+			// Regular context without PR
+			if g.config.RepositoryOwner != "" && g.config.RepositoryName != "" {
+				title = fmt.Sprintf("%s/%s Coverage Report", g.config.RepositoryOwner, g.config.RepositoryName)
+			} else if g.config.RepositoryName != "" {
+				title = fmt.Sprintf("%s Coverage Report", g.config.RepositoryName)
+			}
 		}
 	}
 
 	// Safely extract config values
-	var repositoryOwner, repositoryName, branchName, commitSHA string
+	var repositoryOwner, repositoryName, branchName, commitSHA, prNumber string
 	if g.config != nil {
 		repositoryOwner = g.config.RepositoryOwner
 		repositoryName = g.config.RepositoryName
 		branchName = g.config.BranchName
 		commitSHA = g.config.CommitSHA
+		prNumber = g.config.PRNumber
 	}
 
 	return &Data{
@@ -246,6 +280,8 @@ func (g *Generator) buildReportData(_ context.Context, coverage *parser.Coverage
 		BranchName:        branchName,
 		CommitSHA:         commitSHA,
 		CommitURL:         commitURL,
+		PRNumber:          prNumber,
+		PRURL:             prURL,
 		BadgeURL:          "", // Badge is generated separately
 		Summary:           summary,
 		Packages:          packages,

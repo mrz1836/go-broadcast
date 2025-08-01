@@ -169,12 +169,19 @@ update history, and create GitHub PR comment if in PR context.`,
 		// Step 3: Generate HTML report
 		cmd.Printf("📊 Step 3: Generating HTML report...\n")
 
+		// Get PR number if in PR context
+		var prNumber string
+		if cfg.IsPullRequestContext() && cfg.GitHub.PullRequest > 0 {
+			prNumber = fmt.Sprintf("%d", cfg.GitHub.PullRequest)
+		}
+
 		reportConfig := &report.Config{
 			OutputDir:       targetOutputDir,
 			RepositoryOwner: cfg.GitHub.Owner,
 			RepositoryName:  cfg.GitHub.Repository,
 			BranchName:      getDefaultBranch(),
 			CommitSHA:       cfg.GitHub.CommitSHA,
+			PRNumber:        prNumber,
 		}
 
 		reportGen := report.NewGenerator(reportConfig)
