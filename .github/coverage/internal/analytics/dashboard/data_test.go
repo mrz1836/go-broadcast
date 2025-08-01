@@ -13,6 +13,7 @@ func TestCoverageData_JSON(t *testing.T) {
 		Branch:         "main",
 		CommitSHA:      "abc123",
 		PRNumber:       "42",
+		BadgeURL:       "https://owner.github.io/repo/coverage.svg",
 		Timestamp:      time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
 		TotalCoverage:  85.5,
 		TotalLines:     1000,

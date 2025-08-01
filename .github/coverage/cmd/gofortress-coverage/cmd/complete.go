@@ -210,6 +210,7 @@ update history, and create GitHub PR comment if in PR context.`,
 			Branch:         branch,
 			CommitSHA:      cfg.GitHub.CommitSHA,
 			PRNumber:       "",
+			BadgeURL:       fmt.Sprintf("https://%s.github.io/%s/coverage.svg", cfg.GitHub.Owner, cfg.GitHub.Repository),
 			Timestamp:      time.Now(),
 			TotalCoverage:  coverage.Percentage,
 			TotalLines:     coverage.TotalLines,
@@ -334,6 +335,8 @@ update history, and create GitHub PR comment if in PR context.`,
 		// Set PR number if in PR context
 		if cfg.IsPullRequestContext() {
 			coverageData.PRNumber = fmt.Sprintf("%d", cfg.GitHub.PullRequest)
+			// Update badge URL for PR context
+			coverageData.BadgeURL = fmt.Sprintf("https://%s.github.io/%s/coverage/pr/%s/coverage.svg", cfg.GitHub.Owner, cfg.GitHub.Repository, coverageData.PRNumber)
 		}
 
 		// Populate history data for dashboard

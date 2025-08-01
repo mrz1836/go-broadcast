@@ -14,6 +14,7 @@ type CoverageData struct {
 	PRNumber         string    `json:"pr_number,omitempty"`
 	PRTitle          string    `json:"pr_title,omitempty"`
 	BaselineCoverage float64   `json:"baseline_coverage,omitempty"`
+	BadgeURL         string    `json:"badge_url,omitempty"`
 	Timestamp        time.Time `json:"timestamp"`
 
 	// Overall metrics
