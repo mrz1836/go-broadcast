@@ -140,25 +140,31 @@ func (suite *RendererTestSuite) TestRenderReportCoverageThresholds() {
 		shouldContainClass bool
 	}{
 		{
-			name:               "High coverage (>=90%)",
-			coverage:           95.0,
+			name:               "Excellent coverage (>=95%)",
+			coverage:           96.0,
+			expectedClass:      "excellent",
+			shouldContainClass: true,
+		},
+		{
+			name:               "Good coverage (>=85%)",
+			coverage:           87.0,
 			expectedClass:      "success",
 			shouldContainClass: true,
 		},
 		{
-			name:               "Good coverage (>=80%)",
-			coverage:           85.0,
-			expectedClass:      "primary",
-			shouldContainClass: true,
-		},
-		{
-			name:               "Moderate coverage (>=60%)",
-			coverage:           65.0,
+			name:               "Acceptable coverage (>=75%)",
+			coverage:           78.0,
 			expectedClass:      "warning",
 			shouldContainClass: true,
 		},
 		{
-			name:               "Low coverage (<60%)",
+			name:               "Low coverage (>=65%)",
+			coverage:           68.0,
+			expectedClass:      "low",
+			shouldContainClass: true,
+		},
+		{
+			name:               "Poor coverage (<65%)",
 			coverage:           45.0,
 			expectedClass:      "danger",
 			shouldContainClass: true,

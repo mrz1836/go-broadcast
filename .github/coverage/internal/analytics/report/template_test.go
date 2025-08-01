@@ -157,9 +157,10 @@ func (suite *TemplateTestSuite) TestReportTemplateCSSClasses() {
 		"coverage-bar",
 		"package-card",
 		"file-item",
+		"excellent",
 		"success",
-		"primary",
 		"warning",
+		"low",
 		"danger",
 	}
 

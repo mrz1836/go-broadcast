@@ -78,7 +78,7 @@ const reportTemplate = `<!DOCTYPE html>
             </div>
 
             <div class="header-stats">
-                <div class="coverage-circle {{- if ge .Summary.TotalPercentage 90.0}} success{{else if ge .Summary.TotalPercentage 80.0}} primary{{else if ge .Summary.TotalPercentage 60.0}} warning{{else}} danger{{end -}}">
+                <div class="coverage-circle {{- if ge .Summary.TotalPercentage 95.0}} excellent{{else if ge .Summary.TotalPercentage 85.0}} success{{else if ge .Summary.TotalPercentage 75.0}} warning{{else if ge .Summary.TotalPercentage 65.0}} low{{else}} danger{{end -}}">
                     <svg viewBox="0 0 100 100">
                         <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="6" opacity="0.2"/>
                         <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="6" 
@@ -87,7 +87,7 @@ const reportTemplate = `<!DOCTYPE html>
                                 stroke-dashoffset="0" 
                                 transform="rotate(-90 50 50)"/>
                     </svg>
-                    <div class="coverage-percentage {{- if ge .Summary.TotalPercentage 90.0}} success{{else if ge .Summary.TotalPercentage 80.0}} primary{{else if ge .Summary.TotalPercentage 60.0}} warning{{else}} danger{{end -}}">{{.Summary.TotalPercentage | printf "%.1f"}}%</div>
+                    <div class="coverage-percentage {{- if ge .Summary.TotalPercentage 95.0}} excellent{{else if ge .Summary.TotalPercentage 85.0}} success{{else if ge .Summary.TotalPercentage 75.0}} warning{{else if ge .Summary.TotalPercentage 65.0}} low{{else}} danger{{end -}}">{{.Summary.TotalPercentage | printf "%.1f"}}%</div>
                 </div>
                 <div class="header-metrics">
                     <div class="metric">
@@ -182,7 +182,7 @@ const reportTemplate = `<!DOCTYPE html>
                 <div class="summary-card">
                     <h3>Overall Coverage</h3>
                     <div class="coverage-bar large">
-                        <div class="coverage-fill {{- if ge .Summary.TotalPercentage 90.0}} success{{else if ge .Summary.TotalPercentage 80.0}} primary{{else if ge .Summary.TotalPercentage 60.0}} warning{{else}} danger{{end -}}" 
+                        <div class="coverage-fill {{- if ge .Summary.TotalPercentage 95.0}} excellent{{else if ge .Summary.TotalPercentage 85.0}} success{{else if ge .Summary.TotalPercentage 75.0}} warning{{else if ge .Summary.TotalPercentage 65.0}} low{{else}} danger{{end -}}" 
                              style="width: {{.Summary.TotalPercentage}}%"></div>
                     </div>
                     <div class="coverage-stats">
@@ -240,11 +240,11 @@ const reportTemplate = `<!DOCTYPE html>
                             <span class="package-stats">{{.CoveredLines}} / {{.TotalLines}} lines</span>
                         </div>
                         <div class="package-coverage">
-                            <span class="coverage-percentage {{- if ge .Percentage 90.0}} success{{else if ge .Percentage 80.0}} primary{{else if ge .Percentage 60.0}} warning{{else}} danger{{end -}}">
+                            <span class="coverage-percentage {{- if ge .Percentage 95.0}} excellent{{else if ge .Percentage 85.0}} success{{else if ge .Percentage 75.0}} warning{{else if ge .Percentage 65.0}} low{{else}} danger{{end -}}">
                                 {{.Percentage | printf "%.1f"}}%
                             </span>
                             <div class="coverage-bar mini">
-                                <div class="coverage-fill {{- if ge .Percentage 90.0}} success{{else if ge .Percentage 80.0}} primary{{else if ge .Percentage 60.0}} warning{{else}} danger{{end -}}" 
+                                <div class="coverage-fill {{- if ge .Percentage 95.0}} excellent{{else if ge .Percentage 85.0}} success{{else if ge .Percentage 75.0}} warning{{else if ge .Percentage 65.0}} low{{else}} danger{{end -}}" 
                                      style="width: {{.Percentage}}%"></div>
                             </div>
                         </div>
@@ -264,11 +264,11 @@ const reportTemplate = `<!DOCTYPE html>
                                 <span class="file-stats">{{.CoveredLines}} / {{.TotalLines}} lines</span>
                             </div>
                             <div class="file-coverage">
-                                <span class="coverage-percentage {{- if ge .Percentage 90.0}} success{{else if ge .Percentage 80.0}} primary{{else if ge .Percentage 60.0}} warning{{else}} danger{{end -}}">
+                                <span class="coverage-percentage {{- if ge .Percentage 95.0}} excellent{{else if ge .Percentage 85.0}} success{{else if ge .Percentage 75.0}} warning{{else if ge .Percentage 65.0}} low{{else}} danger{{end -}}">
                                     {{.Percentage | printf "%.1f"}}%
                                 </span>
                                 <div class="coverage-bar mini">
-                                    <div class="coverage-fill {{- if ge .Percentage 90.0}} success{{else if ge .Percentage 80.0}} primary{{else if ge .Percentage 60.0}} warning{{else}} danger{{end -}}" 
+                                    <div class="coverage-fill {{- if ge .Percentage 95.0}} excellent{{else if ge .Percentage 85.0}} success{{else if ge .Percentage 75.0}} warning{{else if ge .Percentage 65.0}} low{{else}} danger{{end -}}" 
                                          style="width: {{.Percentage}}%"></div>
                                 </div>
                             </div>

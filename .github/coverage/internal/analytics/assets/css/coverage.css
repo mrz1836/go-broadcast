@@ -15,9 +15,13 @@
     --color-text-secondary: #8b949e;
     --color-text-muted: #656d76;
     --color-primary: #58a6ff;
-    --color-success: #3fb950;
-    --color-warning: #d29922;
-    --color-danger: #f85149;
+    
+    /* Coverage colors matching badge system exactly */
+    --color-excellent: #28a745;  /* 95%+ bright green */
+    --color-success: #3fb950;    /* 85%+ green */
+    --color-warning: #ffc107;    /* 75%+ yellow */
+    --color-low: #fd7e14;        /* 65%+ orange */
+    --color-danger: #dc3545;     /* <65% red */
     --color-border: #30363d;
     --color-border-muted: #21262d;
 
@@ -30,11 +34,13 @@
     --transition-base: 0.2s ease;
     --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Gradient variables */
+    /* Coverage gradient variables matching badge colors */
     --gradient-primary: linear-gradient(135deg, #58a6ff, #79c0ff);
+    --gradient-excellent: linear-gradient(135deg, #28a745, #34ce57);
     --gradient-success: linear-gradient(135deg, #3fb950, #56d364);
-    --gradient-danger: linear-gradient(135deg, #f85149, #da3633);
-    --gradient-warning: linear-gradient(135deg, #d29922, #f2cc60);
+    --gradient-warning: linear-gradient(135deg, #ffc107, #ffcd3c);
+    --gradient-low: linear-gradient(135deg, #fd7e14, #ff922b);
+    --gradient-danger: linear-gradient(135deg, #dc3545, #e74c5c);
 }
 
 /* Light theme */
@@ -824,10 +830,11 @@ body::before {
 .coverage-warning { background: var(--gradient-warning); }
 .coverage-danger { background: var(--gradient-danger); }
 
-/* Coverage fill colors matching template classes */
+/* Coverage fill colors matching badge system exactly */
+.coverage-fill.excellent { background: var(--gradient-excellent); }
 .coverage-fill.success { background: var(--gradient-success); }
-.coverage-fill.primary { background: var(--gradient-primary); }
 .coverage-fill.warning { background: var(--gradient-warning); }
+.coverage-fill.low { background: var(--gradient-low); }
 .coverage-fill.danger { background: var(--gradient-danger); }
 
 /* Coverage badges */
@@ -1671,6 +1678,14 @@ body::before {
 }
 
 
+.coverage-circle.excellent {
+    color: var(--color-excellent);
+}
+
+.coverage-circle.excellent .circle-progress {
+    stroke: var(--color-excellent);
+}
+
 .coverage-circle.success {
     color: var(--color-success);
 }
@@ -1679,20 +1694,20 @@ body::before {
     stroke: var(--color-success);
 }
 
-.coverage-circle.primary {
-    color: var(--color-primary);
-}
-
-.coverage-circle.primary .circle-progress {
-    stroke: var(--color-primary);
-}
-
 .coverage-circle.warning {
     color: var(--color-warning);
 }
 
 .coverage-circle.warning .circle-progress {
     stroke: var(--color-warning);
+}
+
+.coverage-circle.low {
+    color: var(--color-low);
+}
+
+.coverage-circle.low .circle-progress {
+    stroke: var(--color-low);
 }
 
 .coverage-circle.danger {
@@ -2084,24 +2099,29 @@ main {
     border-radius: 4px;
 }
 
+.coverage-percentage.excellent {
+    color: var(--color-excellent);
+    background: rgba(40, 167, 69, 0.1);
+}
+
 .coverage-percentage.success {
     color: var(--color-success);
     background: rgba(63, 185, 80, 0.1);
 }
 
-.coverage-percentage.primary {
-    color: var(--color-primary);
-    background: rgba(88, 166, 255, 0.1);
-}
-
 .coverage-percentage.warning {
     color: var(--color-warning);
-    background: rgba(210, 153, 34, 0.1);
+    background: rgba(255, 193, 7, 0.1);
+}
+
+.coverage-percentage.low {
+    color: var(--color-low);
+    background: rgba(253, 126, 20, 0.1);
 }
 
 .coverage-percentage.danger {
     color: var(--color-danger);
-    background: rgba(248, 81, 73, 0.1);
+    background: rgba(220, 53, 69, 0.1);
 }
 
 /* Mini coverage bar */
