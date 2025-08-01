@@ -21,6 +21,7 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/github"
 	"github.com/mrz1836/go-broadcast/coverage/internal/history"
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/urlutil"
 )
 
 // getDefaultBranch returns the default branch name, checking environment variables first
@@ -322,7 +323,7 @@ update history, and create GitHub PR comment if in PR context.`,
 						MissedLines:  file.TotalLines - file.CoveredLines,
 					}
 					if cfg.GitHub.Owner != "" && cfg.GitHub.Repository != "" {
-						fileCoverage.GitHubURL = fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s",
+						fileCoverage.GitHubURL = urlutil.BuildGitHubFileURL(
 							cfg.GitHub.Owner, cfg.GitHub.Repository, branch, fileName)
 					}
 					pkgCoverage.Files = append(pkgCoverage.Files, fileCoverage)

@@ -2,11 +2,11 @@ package report
 
 import (
 	"testing"
+
+	"github.com/mrz1836/go-broadcast/coverage/internal/urlutil"
 )
 
-func TestGenerator_stripModulePrefix(t *testing.T) {
-	g := &Generator{}
-
+func TestCleanModulePath(t *testing.T) {
 	tests := []struct {
 		name     string
 		fullPath string
@@ -47,13 +47,33 @@ func TestGenerator_stripModulePrefix(t *testing.T) {
 			fullPath: "gitlab.com/user/repo/internal/file.go",
 			expected: "gitlab.com/user/repo/internal/file.go",
 		},
+		{
+			name:     "problematic path with cli prefix",
+			fullPath: "github.com/mrz1836/go-broadcast/cli/internal/cli/cancel.go",
+			expected: "internal/cli/cancel.go",
+		},
+		{
+			name:     "path with cmd prefix repetition",
+			fullPath: "github.com/mrz1836/go-broadcast/cmd/internal/cmd/main.go",
+			expected: "internal/cmd/main.go",
+		},
+		{
+			name:     "path with no repetition should remain unchanged",
+			fullPath: "github.com/mrz1836/go-broadcast/cli/different/path.go",
+			expected: "cli/different/path.go",
+		},
+		{
+			name:     "path with repetition at end should remain unchanged",
+			fullPath: "github.com/mrz1836/go-broadcast/internal/cli/cli",
+			expected: "internal/cli/cli",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := g.stripModulePrefix(tt.fullPath)
+			result := urlutil.CleanModulePath(tt.fullPath)
 			if result != tt.expected {
-				t.Errorf("stripModulePrefix(%q) = %q, want %q", tt.fullPath, result, tt.expected)
+				t.Errorf("CleanModulePath(%q) = %q, want %q", tt.fullPath, result, tt.expected)
 			}
 		})
 	}
@@ -92,12 +112,9 @@ func TestGenerator_FileURLConstruction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := &Generator{}
-
-			// Simulate the logic from generateData
+			// Simulate the logic from generateData using the new utility function
 			fullPath := tt.packagePath + "/" + tt.fileName
-			relativePath := g.stripModulePrefix(fullPath)
-			fileURL := "https://github.com/" + tt.owner + "/" + tt.repo + "/blob/" + tt.branch + "/" + relativePath
+			fileURL := urlutil.BuildGitHubFileURL(tt.owner, tt.repo, tt.branch, fullPath)
 
 			if fileURL != tt.expectedURL {
 				t.Errorf("File URL construction failed:\ngot:  %q\nwant: %q", fileURL, tt.expectedURL)

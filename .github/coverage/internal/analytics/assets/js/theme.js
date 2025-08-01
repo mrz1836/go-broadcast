@@ -65,11 +65,19 @@ if (searchInput) {
 }
 
 // Copy badge URL
-function copyBadgeURL(url) {
+function copyBadgeURL(event, url) {
   navigator.clipboard.writeText(url).then(() => {
     const btn = event.target.closest('button');
     const originalText = btn.querySelector('.btn-text').textContent;
     btn.querySelector('.btn-text').textContent = 'Copied!';
+    setTimeout(() => {
+      btn.querySelector('.btn-text').textContent = originalText;
+    }, 2000);
+  }).catch(err => {
+    console.error('Failed to copy badge URL:', err);
+    const btn = event.target.closest('button');
+    const originalText = btn.querySelector('.btn-text').textContent;
+    btn.querySelector('.btn-text').textContent = 'Copy failed';
     setTimeout(() => {
       btn.querySelector('.btn-text').textContent = originalText;
     }, 2000);

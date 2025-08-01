@@ -13,6 +13,7 @@ import (
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/assets"
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
+	"github.com/mrz1836/go-broadcast/coverage/internal/urlutil"
 )
 
 // Generator creates HTML coverage reports
@@ -174,12 +175,8 @@ func (g *Generator) buildReportData(ctx context.Context, coverage *parser.Covera
 					// Use the full path including package name
 					fullPath := filepath.Join(name, fileName)
 
-					// Strip the module prefix to get the correct GitHub path
-					// e.g., "github.com/mrz1836/go-broadcast/internal/algorithms" -> "internal/algorithms"
-					relativePath := g.stripModulePrefix(fullPath)
-
-					fileURL = fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s",
-						g.config.RepositoryOwner, g.config.RepositoryName, g.config.BranchName, relativePath)
+					fileURL = urlutil.BuildGitHubFileURL(
+						g.config.RepositoryOwner, g.config.RepositoryName, g.config.BranchName, fullPath)
 				}
 
 				files = append(files, FileReport{
@@ -307,27 +304,6 @@ func (g *Generator) buildReportData(ctx context.Context, coverage *parser.Covera
 		LatestTag:         getLatestGitTag(ctx),
 		GoogleAnalyticsID: googleAnalyticsID,
 	}
-}
-
-// stripModulePrefix removes the Go module prefix from a file path
-// e.g., "github.com/mrz1836/go-broadcast/internal/algorithms/file.go" -> "internal/algorithms/file.go"
-func (g *Generator) stripModulePrefix(fullPath string) string {
-	// Try to match the pattern github.com/owner/repo/...
-	// We want to strip everything up to and including the repo name
-	parts := strings.Split(fullPath, "/")
-
-	// Look for github.com pattern
-	for i := 0; i < len(parts); i++ {
-		if parts[i] == "github.com" && i+2 < len(parts) {
-			// Skip github.com/owner/repo and return the rest
-			if i+3 < len(parts) {
-				return strings.Join(parts[i+3:], "/")
-			}
-		}
-	}
-
-	// If no github.com pattern found, return the original path
-	return fullPath
 }
 
 // getLatestGitTag gets the latest git tag in the repository

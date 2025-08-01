@@ -290,3 +290,134 @@ func TestExtractRepoNameFromURL(t *testing.T) {
 		})
 	}
 }
+
+func TestCleanModulePath(t *testing.T) {
+	tests := []struct {
+		name     string
+		fullPath string
+		expected string
+	}{
+		{
+			name:     "standard github module path",
+			fullPath: "github.com/mrz1836/go-broadcast/internal/algorithms/optimized.go",
+			expected: "internal/algorithms/optimized.go",
+		},
+		{
+			name:     "path without module prefix",
+			fullPath: "internal/algorithms/optimized.go",
+			expected: "internal/algorithms/optimized.go",
+		},
+		{
+			name:     "problematic path with cli prefix",
+			fullPath: "github.com/mrz1836/go-broadcast/cli/internal/cli/cancel.go",
+			expected: "internal/cli/cancel.go",
+		},
+		{
+			name:     "path with cmd prefix repetition",
+			fullPath: "github.com/mrz1836/go-broadcast/cmd/internal/cmd/main.go",
+			expected: "internal/cmd/main.go",
+		},
+		{
+			name:     "path with no repetition should remain unchanged",
+			fullPath: "github.com/mrz1836/go-broadcast/cli/different/path.go",
+			expected: "cli/different/path.go",
+		},
+		{
+			name:     "non-github module",
+			fullPath: "gitlab.com/user/repo/internal/file.go",
+			expected: "gitlab.com/user/repo/internal/file.go",
+		},
+		{
+			name:     "root level file",
+			fullPath: "github.com/mrz1836/go-broadcast/main.go",
+			expected: "main.go",
+		},
+		{
+			name:     "empty string",
+			fullPath: "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CleanModulePath(tt.fullPath)
+			require.Equal(t, tt.expected, result, "CleanModulePath(%q)", tt.fullPath)
+		})
+	}
+}
+
+func TestBuildGitHubFileURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		owner    string
+		repo     string
+		branch   string
+		filePath string
+		expected string
+	}{
+		{
+			name:     "standard file URL with module path",
+			owner:    "mrz1836",
+			repo:     "go-broadcast",
+			branch:   "master",
+			filePath: "github.com/mrz1836/go-broadcast/internal/cli/cancel.go",
+			expected: "https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/cancel.go",
+		},
+		{
+			name:     "problematic path with cli prefix",
+			owner:    "mrz1836",
+			repo:     "go-broadcast",
+			branch:   "master",
+			filePath: "github.com/mrz1836/go-broadcast/cli/internal/cli/cancel.go",
+			expected: "https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/cancel.go",
+		},
+		{
+			name:     "clean path without module prefix",
+			owner:    "mrz1836",
+			repo:     "go-broadcast",
+			branch:   "main",
+			filePath: "internal/cli/cancel.go",
+			expected: "https://github.com/mrz1836/go-broadcast/blob/main/internal/cli/cancel.go",
+		},
+		{
+			name:     "empty owner returns empty string",
+			owner:    "",
+			repo:     "go-broadcast",
+			branch:   "master",
+			filePath: "internal/cli/cancel.go",
+			expected: "",
+		},
+		{
+			name:     "empty repo returns empty string",
+			owner:    "mrz1836",
+			repo:     "",
+			branch:   "master",
+			filePath: "internal/cli/cancel.go",
+			expected: "",
+		},
+		{
+			name:     "empty branch returns empty string",
+			owner:    "mrz1836",
+			repo:     "go-broadcast",
+			branch:   "",
+			filePath: "internal/cli/cancel.go",
+			expected: "",
+		},
+		{
+			name:     "empty filePath returns empty string",
+			owner:    "mrz1836",
+			repo:     "go-broadcast",
+			branch:   "master",
+			filePath: "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildGitHubFileURL(tt.owner, tt.repo, tt.branch, tt.filePath)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}

@@ -130,7 +130,7 @@ func getReportTemplate() string {
 
             <div class="repo-actions">
                 {{- if .BadgeURL}}
-                <button class="action-btn secondary small" onclick="copyBadgeURL('{{.BadgeURL}}')">
+                <button class="action-btn secondary small" onclick="copyBadgeURL(event, '{{.BadgeURL}}')">
                     <span class="btn-icon">🏷️</span>
                     <span class="btn-text">Badge</span>
                 </button>
