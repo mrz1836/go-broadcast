@@ -2124,6 +2124,17 @@ main {
     color: var(--color-text);
 }
 
+a.file-name {
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: var(--transition-base);
+}
+
+a.file-name:hover {
+    text-decoration: underline;
+    opacity: 0.8;
+}
+
 .file-stats {
     color: var(--color-text-secondary);
     font-size: 0.8rem;
