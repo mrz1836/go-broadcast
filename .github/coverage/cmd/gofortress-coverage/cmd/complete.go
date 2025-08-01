@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -727,6 +728,21 @@ update history, and create GitHub PR comment if in PR context.`,
 				}
 			}
 
+			// Copy assets directory to root
+			sourceAssetsDir := filepath.Join(targetOutputDir, "assets")
+			destAssetsDir := filepath.Join(outputDir, "assets")
+
+			if _, err := os.Stat(sourceAssetsDir); err == nil {
+				cmd.Printf("   📁 Copying assets directory to root...\n")
+				if err := copyDir(sourceAssetsDir, destAssetsDir); err != nil {
+					cmd.Printf("   ⚠️  Failed to copy assets directory: %v\n", err)
+				} else {
+					cmd.Printf("   ✅ Copied assets directory to root output directory\n")
+				}
+			} else {
+				cmd.Printf("   ⚠️  No assets directory found at: %s\n", sourceAssetsDir)
+			}
+
 			// Create root index.html redirect only if index.html copy failed and we're on master
 			rootIndexPath := filepath.Join(outputDir, "index.html")
 			if _, err := os.Stat(rootIndexPath); os.IsNotExist(err) && branch == "master" && !cfg.IsPullRequestContext() {
@@ -788,6 +804,86 @@ func getStatusIcon(coverage, threshold float64) string {
 	default:
 		return "🔴 Needs Improvement"
 	}
+}
+
+// copyDir recursively copies a directory from src to dst
+func copyDir(src, dst string) error {
+	// Get source directory info
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("failed to stat source directory: %w", err)
+	}
+
+	// Create destination directory with same permissions
+	if mkdirErr := os.MkdirAll(dst, srcInfo.Mode()); mkdirErr != nil {
+		return fmt.Errorf("failed to create destination directory: %w", mkdirErr)
+	}
+
+	// Read source directory
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return fmt.Errorf("failed to read source directory: %w", err)
+	}
+
+	// Copy each entry
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			// Recursively copy subdirectory
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return fmt.Errorf("failed to copy subdirectory %s: %w", entry.Name(), err)
+			}
+		} else {
+			// Copy file
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return fmt.Errorf("failed to copy file %s: %w", entry.Name(), err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// copyFile copies a single file from src to dst
+func copyFile(src, dst string) error {
+	// Open source file
+	srcFile, err := os.Open(src) //nolint:gosec // src is constructed from validated paths
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %w", err)
+	}
+	defer func() {
+		if closeErr := srcFile.Close(); closeErr != nil {
+			// Log the error but don't override the main error
+			fmt.Fprintf(os.Stderr, "Warning: failed to close source file: %v\n", closeErr)
+		}
+	}()
+
+	// Get source file info
+	srcInfo, err := srcFile.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to stat source file: %w", err)
+	}
+
+	// Create destination file
+	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode()) //nolint:gosec // dst is constructed from validated paths
+	if err != nil {
+		return fmt.Errorf("failed to create destination file: %w", err)
+	}
+	defer func() {
+		if closeErr := dstFile.Close(); closeErr != nil {
+			// Log the error but don't override the main error
+			fmt.Fprintf(os.Stderr, "Warning: failed to close destination file: %v\n", closeErr)
+		}
+	}()
+
+	// Copy content
+	if _, err := io.Copy(dstFile, srcFile); err != nil {
+		return fmt.Errorf("failed to copy file content: %w", err)
+	}
+
+	return nil
 }
 
 func init() { //nolint:gochecknoinits // CLI command initialization
