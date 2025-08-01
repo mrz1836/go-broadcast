@@ -7,14 +7,17 @@
     <meta name="description" content="Coverage tracking and analytics for mrz1836/go-broadcast">
 
     
-    <link rel="icon" type="image/x-icon" href="./favicon.ico">
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-    <link rel="shortcut icon" href="./favicon.ico">
+    <link rel="icon" type="image/x-icon" href="./assets/images/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="./assets/images/favicon.svg">
+    <link rel="shortcut icon" href="./assets/images/favicon.ico">
 
     
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    
+    <link rel="stylesheet" href="./assets/css/coverage.css">
     
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-VKFVWG6GXM"></script>
     <script>
@@ -23,938 +26,16 @@
       gtag('js', new Date());
       gtag('config', 'G-VKFVWG6GXM');
     </script>
-
-    <style>
-         
-        :root {
-            --color-bg: #0d1117;
-            --color-bg-secondary: #161b22;
-            --color-bg-tertiary: #21262d;
-            --color-text: #c9d1d9;
-            --color-text-secondary: #8b949e;
-            --color-primary: #58a6ff;
-            --color-success: #3fb950;
-            --color-warning: #d29922;
-            --color-danger: #f85149;
-            --color-border: #30363d;
-            --color-border-muted: #21262d;
-
-             
-            --glass-bg: rgba(22, 27, 34, 0.8);
-            --glass-border: rgba(48, 54, 61, 0.5);
-            --backdrop-blur: 10px;
-
-             
-            --transition-base: 0.2s ease;
-            --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-             
-            --gradient-primary: linear-gradient(135deg, #4a90d9, #6ba3e3);
-            --gradient-success: linear-gradient(135deg, #3fb950, #56d364);
-            --gradient-warning: linear-gradient(135deg, #d29922, #f2cc60);
-            --gradient-danger: linear-gradient(135deg, #f85149, #da3633);
-        }
-
-         
-        [data-theme="light"] {
-            --color-bg: #ffffff;
-            --color-bg-secondary: #f6f8fa;
-            --color-bg-tertiary: #f0f6fc;
-            --color-text: #24292f;
-            --color-text-secondary: #656d76;
-            --color-border: #d0d7de;
-            --color-border-muted: #f0f6fc;
-            --glass-bg: rgba(246, 248, 250, 0.8);
-            --glass-border: rgba(208, 215, 222, 0.5);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--color-bg);
-            color: var(--color-text);
-            line-height: 1.6;
-            min-height: 100vh;
-            position: relative;
-        }
-
-         
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background:
-                radial-gradient(circle at 20% 50%, rgba(74, 144, 217, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(63, 185, 80, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, rgba(248, 81, 73, 0.05) 0%, transparent 50%);
-            pointer-events: none;
-            z-index: 1;
-        }
-
-         
-        .container {
-            position: relative;
-            z-index: 2;
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-         
-        .header {
-            margin-bottom: 3rem;
-            padding: 2rem;
-            position: relative;
-            overflow: hidden;
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--backdrop-blur));
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .header-main {
-            text-align: left;
-        }
-
-        .header-status {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 0.5rem;
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem 1.25rem;
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--backdrop-blur));
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            text-decoration: none;
-            transition: all var(--transition-smooth);
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .status-indicator::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg,
-                rgba(74, 144, 217, 0.05) 0%,
-                rgba(63, 185, 80, 0.05) 100%);
-            opacity: 0;
-            transition: opacity var(--transition-smooth);
-        }
-
-        .status-indicator:hover::before {
-            opacity: 1;
-        }
-
-        .status-indicator:hover {
-            transform: translateY(-2px) scale(1.02);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-            border-color: var(--color-primary);
-        }
-
-        .status-icon {
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--color-text-secondary);
-        }
-
-        .status-dot.active {
-            background: var(--color-success);
-            animation: pulse 2s infinite;
-        }
-
-        .status-dot.in-progress {
-            background: var(--color-warning);
-            animation: pulse 1s infinite;
-        }
-
-        .status-dot.failed {
-            background: var(--color-danger);
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .status-text {
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--color-text);
-        }
-
-        .status-details {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.1rem;
-        }
-
-        .status-workflow {
-            font-size: 0.8rem;
-            color: var(--color-text-secondary);
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        .last-sync {
-            font-size: 0.8rem;
-            color: var(--color-text-secondary);
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        .repo-info-enhanced {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 2rem;
-            flex-wrap: wrap;
-        }
-
-        .repo-details {
-            display: flex;
-            gap: 1.5rem;
-            flex-wrap: wrap;
-            position: relative;
-            z-index: 10;
-        }
-
-        .repo-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 1rem;
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: 12px;
-            min-width: 100px;
-            transition: var(--transition-smooth);
-        }
-
-        .repo-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-        }
-
-        .repo-item-clickable {
-            text-decoration: none;
-            color: inherit;
-            cursor: pointer;
-        }
-
-        .repo-item-clickable:hover {
-            border-color: var(--color-primary);
-            transform: translateY(-4px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        .repo-icon {
-            font-size: 1.5rem;
-        }
-
-        .repo-label {
-            font-size: 0.7rem;
-            color: var(--color-text-secondary);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .repo-value {
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--color-text);
-            font-family: 'JetBrains Mono', monospace;
-            text-align: center;
-        }
-
-        .commit-link {
-            color: var(--color-primary);
-            text-decoration: none;
-            transition: var(--transition-base);
-        }
-
-        .commit-link:hover {
-            text-decoration: underline;
-            opacity: 0.8;
-        }
-
-        .repo-link-light {
-            color: var(--color-text-secondary);
-            transition: var(--transition-base);
-        }
-
-        .repo-item-clickable:hover .repo-link-light {
-            color: var(--color-primary);
-        }
-
-        .header-actions {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-
-        .action-btn {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.25rem;
-            border: none;
-            border-radius: 12px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition-smooth);
-            font-family: inherit;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .action-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .action-btn:hover::before {
-            left: 100%;
-        }
-
-        .action-btn.primary {
-            background: linear-gradient(135deg, #2563eb, #1e40af);
-            color: white;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-        }
-
-        .action-btn.primary:hover {
-            background: linear-gradient(135deg, #1d4ed8, #1e3a8a);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
-        }
-
-        .action-btn.secondary {
-            background: var(--color-bg-secondary);
-            color: var(--color-text);
-            border: 1px solid var(--color-border);
-        }
-
-        .action-btn.secondary:hover {
-            background: var(--color-bg-tertiary);
-            border-color: var(--color-primary);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-icon {
-            font-size: 1rem;
-        }
-
-        .btn-text {
-            font-size: 0.85rem;
-            letter-spacing: 0.02em;
-        }
-
-        .header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, var(--color-primary) 0%, transparent 70%);
-            opacity: 0.05;
-            animation: rotate 30s linear infinite;
-            pointer-events: none;
-            z-index: -1;
-        }
-
-        @keyframes rotate {
-            to { transform: rotate(360deg); }
-        }
-
-        .header h1 {
-            font-size: 3rem;
-            font-weight: 700;
-            background: var(--gradient-primary);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 0.5rem;
-            position: relative;
-        }
-
-        .header .subtitle {
-            font-size: 1.25rem;
-            color: var(--color-text-secondary);
-            margin-bottom: 1rem;
-        }
-
-        .repo-info {
-            display: inline-flex;
-            align-items: center;
-            gap: 1rem;
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--backdrop-blur));
-            border: 1px solid var(--glass-border);
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
-        }
-
-        .repo-info a {
-            color: var(--color-primary);
-            text-decoration: none;
-            transition: var(--transition-base);
-        }
-
-        .repo-info a:hover {
-            text-decoration: underline;
-        }
-
-         
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 3rem;
-        }
-
-        .metric-card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--backdrop-blur));
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 2rem;
-            position: relative;
-            overflow: hidden;
-            transition: var(--transition-smooth);
-        }
-
-        .metric-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 2px;
-            background: var(--gradient-primary);
-            transition: left 0.5s ease;
-        }
-
-        .metric-card:hover::before {
-            left: 0;
-        }
-
-        .metric-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-        }
-
-        .metric-card h3 {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 1rem;
-            color: var(--color-text-secondary);
-            margin-bottom: 1rem;
-            font-weight: 600;
-        }
-
-        .metric-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            background: var(--gradient-primary);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 0.5rem;
-        }
-
-        .metric-value.success {
-            background: var(--gradient-success);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .metric-value.danger {
-            background: var(--gradient-danger);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .quality-gate-badge {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem 1rem;
-            background: linear-gradient(135deg, var(--color-success), #4ade80);
-            border-radius: 12px;
-            margin-bottom: 0.5rem;
-            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
-            border: 1px solid rgba(34, 197, 94, 0.2);
-        }
-
-        .quality-gate-icon {
-            width: 24px;
-            height: 24px;
-            color: white;
-            flex-shrink: 0;
-        }
-
-        .quality-gate-text {
-            color: white;
-            font-weight: 700;
-            font-size: 0.875rem;
-            letter-spacing: 0.05em;
-        }
-
-        .metric-label {
-            color: var(--color-text-secondary);
-            font-size: 0.9rem;
-            margin-bottom: 1rem;
-        }
-
-        .coverage-bar {
-            height: 8px;
-            background: var(--color-bg-tertiary);
-            border-radius: 8px;
-            overflow: hidden;
-            margin: 1rem 0;
-            position: relative;
-        }
-
-        .coverage-fill {
-            height: 100%;
-            border-radius: 8px;
-            position: relative;
-            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .coverage-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            width: 100px;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100px); }
-            100% { transform: translateX(100px); }
-        }
-
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: 24px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            background: var(--gradient-success);
-            color: white;
-        }
-
-        .status-badge.warning {
-            background: var(--gradient-danger);
-        }
-
-         
-        .links-section {
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--backdrop-blur));
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .links-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .link-item {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem;
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: 12px;
-            text-decoration: none;
-            color: var(--color-text);
-            transition: var(--transition-smooth);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .link-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: var(--gradient-primary);
-            opacity: 0.1;
-            transition: left 0.3s ease;
-        }
-
-        .link-item:hover::before {
-            left: 0;
-        }
-
-        .link-item:hover {
-            border-color: var(--color-primary);
-            transform: translateX(4px);
-        }
-
-         
-        .last-updated {
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--backdrop-blur));
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 1rem;
-            text-align: center;
-            color: var(--color-text-secondary);
-            font-size: 0.9rem;
-        }
-
-         
-        .footer {
-            margin-top: 4rem;
-            padding: 2rem 0;
-            border-top: 1px solid var(--color-border);
-            background: var(--color-bg-secondary);
-        }
-
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-        }
-
-        .footer-info {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1.5rem;
-            flex-wrap: wrap;
-            font-size: 0.9rem;
-            color: var(--color-text-secondary);
-        }
-
-        .footer-version,
-        .footer-powered,
-        .footer-timestamp {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .footer-separator {
-            color: var(--color-border);
-            font-size: 0.8rem;
-        }
-
-        .version-icon,
-        .timestamp-icon {
-            font-size: 1.1rem;
-        }
-
-        .version-text {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 500;
-            color: var(--color-primary);
-        }
-
-        .version-link {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            text-decoration: none;
-            color: inherit;
-            transition: all var(--transition-base);
-            padding: 0.25rem 0.5rem;
-            margin: -0.25rem -0.5rem;
-            border-radius: 6px;
-        }
-
-        .version-link:hover {
-            background: var(--color-bg-tertiary);
-            transform: translateY(-1px);
-        }
-
-        .version-link:hover .version-text {
-            color: var(--color-text);
-        }
-
-        .powered-text {
-            color: var(--color-text-secondary);
-        }
-
-        .gofortress-link {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            color: var(--color-primary);
-            text-decoration: none;
-            transition: all var(--transition-base);
-            padding: 0.25rem 0.75rem;
-            border-radius: 8px;
-        }
-
-        .gofortress-link:hover {
-            background: var(--color-bg-tertiary);
-            transform: translateY(-1px);
-            color: var(--color-text);
-        }
-
-        .fortress-icon {
-            font-size: 1.2rem;
-        }
-
-        .fortress-text {
-            font-weight: 600;
-        }
-
-        @media (max-width: 768px) {
-            .footer-separator {
-                display: none;
-            }
-
-            .footer-info {
-                flex-direction: column;
-                gap: 1rem;
-            }
-        }
-
-         
-        .package-list {
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--backdrop-blur));
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 2rem;
-            margin-top: 2rem;
-        }
-
-        .package-item {
-            display: grid;
-            grid-template-columns: 1fr auto 150px;
-            gap: 1rem;
-            align-items: center;
-            padding: 1rem;
-            border-bottom: 1px solid var(--color-border);
-            transition: var(--transition-base);
-        }
-
-        .package-item:last-child {
-            border-bottom: none;
-        }
-
-        .package-item:hover {
-            background: var(--color-bg-secondary);
-            border-radius: 8px;
-        }
-
-        .package-name {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.9rem;
-            color: var(--color-primary);
-            letter-spacing: 0.1em;
-            white-space: pre-wrap;
-            line-height: 1.4;
-        }
-
-        .package-coverage {
-            font-weight: 600;
-            color: var(--color-success);
-        }
-
-        .package-bar {
-            height: 6px;
-            background: var(--color-bg-tertiary);
-            border-radius: 6px;
-            overflow: hidden;
-        }
-
-        .package-bar-fill {
-            height: 100%;
-            background: var(--gradient-success);
-            border-radius: 6px;
-            transition: width 0.5s ease;
-        }
-
-         
-        .theme-toggle {
-            position: fixed;
-            top: 2rem;
-            right: 2rem;
-            z-index: 100;
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--backdrop-blur));
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 0.75rem;
-            cursor: pointer;
-            transition: var(--transition-base);
-        }
-
-        .theme-toggle:hover {
-            transform: scale(1.1);
-        }
-
-         
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
-            }
-
-            .header {
-                padding: 1.5rem;
-            }
-
-            .header-content {
-                flex-direction: column;
-                gap: 1rem;
-                align-items: stretch;
-            }
-
-            .header-main {
-                text-align: center;
-            }
-
-            .header h1 {
-                font-size: 2rem;
-            }
-
-            .header-status {
-                align-items: center;
-            }
-
-            .repo-info-enhanced {
-                flex-direction: column;
-                gap: 1.5rem;
-                align-items: stretch;
-            }
-
-            .repo-details {
-                justify-content: center;
-                gap: 1rem;
-            }
-
-            .repo-item {
-                min-width: 80px;
-                padding: 0.75rem;
-            }
-
-            .header-actions {
-                justify-content: center;
-                gap: 0.5rem;
-            }
-
-            .action-btn {
-                padding: 0.5rem 1rem;
-                font-size: 0.8rem;
-            }
-
-            .metrics-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .package-item {
-                grid-template-columns: 1fr;
-                gap: 0.5rem;
-            }
-        }
-
-         
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .metric-card {
-            animation: fadeIn 0.5s ease forwards;
-            opacity: 0;
-        }
-
-        .metric-card:nth-child(1) { animation-delay: 0.1s; }
-        .metric-card:nth-child(2) { animation-delay: 0.2s; }
-        .metric-card:nth-child(3) { animation-delay: 0.3s; }
-        .metric-card:nth-child(4) { animation-delay: 0.4s; }
-    </style>
 </head>
 <body>
-    <div class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+    <div class="theme-toggle fixed" onclick="toggleTheme()" aria-label="Toggle theme">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 18c-3.3 0-6-2.7-6-6s2.7-6 6-6 6 2.7 6 6-2.7 6-6 6z"/>
         </svg>
     </div>
 
     <div class="container">
-        <header class="header">
+        <header class="header enhanced">
             <div class="header-content">
                 <div class="header-main">
                     <h1>go-broadcast Coverage</h1>
@@ -967,7 +48,7 @@
                         <span class="status-text">Coverage Active</span>
                     </div>
                     <div class="last-sync">
-                        <span>🕐 2025-08-01 00:25:50 UTC</span>
+                        <span>🕐 2025-08-01 16:27:30 UTC</span>
                     </div>
                 </div>
             </div>
@@ -989,10 +70,10 @@
                         <span class="repo-label">Branch</span>
                         <span class="repo-value">master</span>
                     </a>
-                        <a href="https://github.com/mrz1836/go-broadcast/commit/34f4ef7b5750a048fd1b0d4d2ca835b0990f871e" target="_blank" class="repo-item repo-item-clickable">
+                        <a href="https://github.com/mrz1836/go-broadcast/commit/f485fe1b2caa5b0783bc200635313f70f7957248" target="_blank" class="repo-item repo-item-clickable">
                             <span class="repo-icon">🔗</span>
                             <span class="repo-label">Commit</span>
-                            <span class="repo-value commit-link">34f4ef7</span>
+                            <span class="repo-value commit-link">f485fe1</span>
                         </a>
                 </div>
 
@@ -1018,7 +99,7 @@
                 <div class="metric-card">
                     <h3>📊 Overall Coverage</h3>
                     <div class="metric-value success">86.98%</div>
-                    <div class="metric-label">59 of 107 files covered</div>
+                    <div class="metric-label">59 of 105 files covered</div>
                     <div class="coverage-bar">
                         <div class="coverage-fill" style="width: 86.98%; background:var(--gradient-primary);"></div>
                     </div>
@@ -1057,10 +138,20 @@
                 <div class="metric-card">
                     <h3>🔄 Coverage Trend</h3>
                     
-                        <div class="metric-value">0.00%
+                        <div class="metric-value" style="font-size: 1.5rem;">📊</div>
+                        <div class="metric-label">Trend Analysis</div>
+                        <div style="margin-top: 1rem;">
+                            
+                                <div style="font-size: 0.9rem; color: var(--color-warning);">
+                                    🔄 Building trend data...
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.5rem;">
+                                    
+                                        Need 2+ commits to show trends
+                                    
+                                </div>
+                            
                         </div>
-                        <div class="metric-label">Change from previous</div>
-                        <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--color-text-secondary);">➡️ Stable</div>
                     
                 </div>
             </div>
@@ -1082,199 +173,199 @@
                     </a>
                 </div>
             </div>
-            <div class="package-list">
+            <div class="package-list dashboard">
                 <h3 style="margin-bottom: 1rem;">📦 Package Coverage</h3>
-                <div class="package-item">
-                    <div class="package-name">profiling</div>
-                    <div class="package-coverage" style="color:#58a6ff;">86.52%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 86.52%; background:var(--gradient-primary);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">monitoring</div>
-                    <div class="package-coverage" style="color:#58a6ff;">84.82%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 84.82%; background:var(--gradient-primary);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">metrics</div>
-                    <div class="package-coverage" style="color:#3fb950;">96.3%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 96.3%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">reporting</div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">reporting</div>
                     <div class="package-coverage" style="color:#3fb950;">92.68%</div>
                     <div class="package-bar">
                         <div class="package-bar-fill" style="width: 92.68%; background:var(--gradient-success);"></div>
                     </div>
                 </div>
-                <div class="package-item">
-                    <div class="package-name">algorithms</div>
-                    <div class="package-coverage" style="color:#3fb950;">91.7%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 91.7%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">errors</div>
-                    <div class="package-coverage" style="color:#3fb950;">100%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">gh</div>
-                    <div class="package-coverage" style="color:#3fb950;">90.63%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 90.63%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">profile_demo</div>
-                    <div class="package-coverage" style="color:#d29922;">67.86%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 67.86%; background:var(--gradient-warning);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">logging</div>
-                    <div class="package-coverage" style="color:#58a6ff;">84.17%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 84.17%; background:var(--gradient-primary);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">go-broadcast</div>
-                    <div class="package-coverage" style="color:#f85149;">0%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 0%; background:var(--gradient-danger);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">output</div>
-                    <div class="package-coverage" style="color:#3fb950;">100%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">sync</div>
-                    <div class="package-coverage" style="color:#58a6ff;">84.1%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 84.1%; background:var(--gradient-primary);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">validation</div>
-                    <div class="package-coverage" style="color:#3fb950;">100%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">memory</div>
-                    <div class="package-coverage" style="color:#3fb950;">96.18%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 96.18%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">testutil</div>
-                    <div class="package-coverage" style="color:#58a6ff;">81.51%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 81.51%; background:var(--gradient-primary);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">cache</div>
-                    <div class="package-coverage" style="color:#3fb950;">97.01%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 97.01%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">generate-corpus</div>
-                    <div class="package-coverage" style="color:#f85149;">0%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 0%; background:var(--gradient-danger);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">pool</div>
-                    <div class="package-coverage" style="color:#3fb950;">96.83%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 96.83%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">transform</div>
-                    <div class="package-coverage" style="color:#3fb950;">97.8%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 97.8%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">cli</div>
-                    <div class="package-coverage" style="color:#d29922;">74.02%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 74.02%; background:var(--gradient-warning);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">config</div>
-                    <div class="package-coverage" style="color:#58a6ff;">83.61%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 83.61%; background:var(--gradient-primary);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">io</div>
-                    <div class="package-coverage" style="color:#58a6ff;">86.89%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 86.89%; background:var(--gradient-primary);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">jsonutil</div>
-                    <div class="package-coverage" style="color:#58a6ff;">87.5%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 87.5%; background:var(--gradient-primary);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">benchmark</div>
-                    <div class="package-coverage" style="color:#3fb950;">97.02%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 97.02%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">state</div>
-                    <div class="package-coverage" style="color:#3fb950;">98.08%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 98.08%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">worker</div>
-                    <div class="package-coverage" style="color:#3fb950;">100%</div>
-                    <div class="package-bar">
-                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
-                    </div>
-                </div>
-                <div class="package-item">
-                    <div class="package-name">fuzz</div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">fuzz</div>
                     <div class="package-coverage" style="color:#3fb950;">94.78%</div>
                     <div class="package-bar">
                         <div class="package-bar-fill" style="width: 94.78%; background:var(--gradient-success);"></div>
                     </div>
                 </div>
-                <div class="package-item">
-                    <div class="package-name">git</div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">errors</div>
+                    <div class="package-coverage" style="color:#3fb950;">100%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">pool</div>
+                    <div class="package-coverage" style="color:#3fb950;">96.83%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 96.83%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">metrics</div>
+                    <div class="package-coverage" style="color:#3fb950;">96.3%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 96.3%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">profiling</div>
+                    <div class="package-coverage" style="color:#58a6ff;">86.52%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 86.52%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">config</div>
+                    <div class="package-coverage" style="color:#58a6ff;">83.61%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 83.61%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">profile_demo</div>
+                    <div class="package-coverage" style="color:#d29922;">67.86%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 67.86%; background:var(--gradient-warning);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">generate-corpus</div>
+                    <div class="package-coverage" style="color:#f85149;">0%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 0%; background:var(--gradient-danger);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">cache</div>
+                    <div class="package-coverage" style="color:#3fb950;">97.01%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 97.01%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">go-broadcast</div>
+                    <div class="package-coverage" style="color:#f85149;">0%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 0%; background:var(--gradient-danger);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">output</div>
+                    <div class="package-coverage" style="color:#3fb950;">100%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">state</div>
+                    <div class="package-coverage" style="color:#3fb950;">98.08%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 98.08%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">sync</div>
+                    <div class="package-coverage" style="color:#58a6ff;">84.1%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 84.1%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">cli</div>
+                    <div class="package-coverage" style="color:#d29922;">74.02%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 74.02%; background:var(--gradient-warning);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">worker</div>
+                    <div class="package-coverage" style="color:#3fb950;">100%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">transform</div>
+                    <div class="package-coverage" style="color:#3fb950;">97.8%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 97.8%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">benchmark</div>
+                    <div class="package-coverage" style="color:#3fb950;">97.02%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 97.02%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">logging</div>
+                    <div class="package-coverage" style="color:#58a6ff;">84.17%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 84.17%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">gh</div>
+                    <div class="package-coverage" style="color:#3fb950;">90.63%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 90.63%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">testutil</div>
+                    <div class="package-coverage" style="color:#58a6ff;">81.51%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 81.51%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">algorithms</div>
+                    <div class="package-coverage" style="color:#3fb950;">91.7%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 91.7%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">io</div>
+                    <div class="package-coverage" style="color:#58a6ff;">86.89%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 86.89%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">validation</div>
+                    <div class="package-coverage" style="color:#3fb950;">100%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">monitoring</div>
+                    <div class="package-coverage" style="color:#58a6ff;">84.82%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 84.82%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">memory</div>
+                    <div class="package-coverage" style="color:#3fb950;">96.18%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 96.18%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">jsonutil</div>
+                    <div class="package-coverage" style="color:#58a6ff;">87.5%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 87.5%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">git</div>
                     <div class="package-coverage" style="color:#3fb950;">92.09%</div>
                     <div class="package-bar">
                         <div class="package-bar-fill" style="width: 92.09%; background:var(--gradient-success);"></div>
@@ -1284,12 +375,12 @@
         </main>
 
         <footer class="footer">
-            <div class="footer-content">
+            <div class="footer-content dashboard">
                 <div class="footer-info">
                     <div class="footer-version">
-                        <a href="https://github.com/mrz1836/go-broadcast/releases/tag/v1.1.2" target="_blank" class="version-link">
+                        <a href="https://github.com/mrz1836/go-broadcast/releases/tag/v1.1.3" target="_blank" class="version-link">
                             <span class="version-icon">🏷️</span>
-                            <span class="version-text">v1.1.2</span>
+                            <span class="version-text">v1.1.3</span>
                         </a>
                     </div>
                     <span class="footer-separator">•</span>
@@ -1303,7 +394,7 @@
                     <span class="footer-separator">•</span>
                     <div class="footer-timestamp">
                         <span class="timestamp-icon">🕐</span>
-                        <span class="timestamp-text">2025-08-01 00:25:50 UTC</span>
+                        <span class="timestamp-text">2025-08-01 16:27:30 UTC</span>
                     </div>
                 </div>
             </div>
@@ -1327,7 +418,7 @@
         document.documentElement.setAttribute('data-theme', theme);
 
         
-        const historyData = "[{\"timestamp\":\"2025-08-01T00:25:50.206101049Z\",\"commit_sha\":\"34f4ef7b5750a048fd1b0d4d2ca835b0990f871e\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T21:05:07.576154291Z\",\"commit_sha\":\"3d7e8c4e961bbecdda26a66b030b1c37c01efee1\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T21:05:07.29883526Z\",\"commit_sha\":\"3d7e8c4e961bbecdda26a66b030b1c37c01efee1\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T21:05:06.185987862Z\",\"commit_sha\":\"3d7e8c4e961bbecdda26a66b030b1c37c01efee1\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T20:48:08.997040864Z\",\"commit_sha\":\"7fb2d385d671a765a26dc4b7057939788f99d3ec\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T20:48:08.617921439Z\",\"commit_sha\":\"7fb2d385d671a765a26dc4b7057939788f99d3ec\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T20:48:07.361800099Z\",\"commit_sha\":\"7fb2d385d671a765a26dc4b7057939788f99d3ec\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T20:29:14.011606129Z\",\"commit_sha\":\"03db74a93c218c76a7c2e0ebd63239711bf09281\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T20:29:13.63917916Z\",\"commit_sha\":\"03db74a93c218c76a7c2e0ebd63239711bf09281\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T20:29:12.500202372Z\",\"commit_sha\":\"03db74a93c218c76a7c2e0ebd63239711bf09281\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T19:57:47.870506105Z\",\"commit_sha\":\"0fa5269d30e01979252bcec96bcbea2505cef0c4\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T19:57:47.400760575Z\",\"commit_sha\":\"0fa5269d30e01979252bcec96bcbea2505cef0c4\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T19:57:46.358802885Z\",\"commit_sha\":\"0fa5269d30e01979252bcec96bcbea2505cef0c4\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T19:22:55.074058774Z\",\"commit_sha\":\"14015735b07aaa2d7e46a0638dc412459928767d\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T19:22:54.626744596Z\",\"commit_sha\":\"14015735b07aaa2d7e46a0638dc412459928767d\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T19:22:53.578829151Z\",\"commit_sha\":\"14015735b07aaa2d7e46a0638dc412459928767d\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T18:47:14.766931236Z\",\"commit_sha\":\"3ef3b1f5a6d5be5edc07fe47b2e1dcd4bf6444a0\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T18:47:14.383856638Z\",\"commit_sha\":\"3ef3b1f5a6d5be5edc07fe47b2e1dcd4bf6444a0\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T18:47:13.419403581Z\",\"commit_sha\":\"3ef3b1f5a6d5be5edc07fe47b2e1dcd4bf6444a0\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T18:16:45.139022205Z\",\"commit_sha\":\"2251ce66b1ecf6fcf95e8902cd9384a565373dae\",\"coverage\":87.06369552356537,\"total_lines\":5071,\"covered_lines\":4415},{\"timestamp\":\"2025-07-31T18:16:44.685202961Z\",\"commit_sha\":\"2251ce66b1ecf6fcf95e8902cd9384a565373dae\",\"coverage\":87.06369552356537,\"total_lines\":5071,\"covered_lines\":4415},{\"timestamp\":\"2025-07-31T18:16:43.666765673Z\",\"commit_sha\":\"2251ce66b1ecf6fcf95e8902cd9384a565373dae\",\"coverage\":87.06369552356537,\"total_lines\":5071,\"covered_lines\":4415},{\"timestamp\":\"2025-07-31T17:44:46.852335984Z\",\"commit_sha\":\"1771c14624452b530aeb6421c33f0e49f1764e16\",\"coverage\":87.06369552356537,\"total_lines\":5071,\"covered_lines\":4415},{\"timestamp\":\"2025-07-31T17:44:46.483761366Z\",\"commit_sha\":\"1771c14624452b530aeb6421c33f0e49f1764e16\",\"coverage\":87.06369552356537,\"total_lines\":5071,\"covered_lines\":4415},{\"timestamp\":\"2025-07-31T17:44:45.68141854Z\",\"commit_sha\":\"1771c14624452b530aeb6421c33f0e49f1764e16\",\"coverage\":87.06369552356537,\"total_lines\":5071,\"covered_lines\":4415},{\"timestamp\":\"2025-07-31T17:25:38.653724589Z\",\"commit_sha\":\"501c95b7ec0dcf13871e56f2b4f04cb99247aa24\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T17:25:38.359769196Z\",\"commit_sha\":\"501c95b7ec0dcf13871e56f2b4f04cb99247aa24\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T17:25:37.627665658Z\",\"commit_sha\":\"501c95b7ec0dcf13871e56f2b4f04cb99247aa24\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T17:13:33.222363297Z\",\"commit_sha\":\"2b9d7ea874c06d977f53b88b137a23f00e40e598\",\"coverage\":87.06369552356537,\"total_lines\":5071,\"covered_lines\":4415},{\"timestamp\":\"2025-07-31T17:13:32.662030803Z\",\"commit_sha\":\"2b9d7ea874c06d977f53b88b137a23f00e40e598\",\"coverage\":87.06369552356537,\"total_lines\":5071,\"covered_lines\":4415},{\"timestamp\":\"2025-07-31T17:13:31.884781128Z\",\"commit_sha\":\"2b9d7ea874c06d977f53b88b137a23f00e40e598\",\"coverage\":87.06369552356537,\"total_lines\":5071,\"covered_lines\":4415},{\"timestamp\":\"2025-07-31T16:53:03.169282147Z\",\"commit_sha\":\"6602fc8a2cbbb1073b54c7dd1b029fa481c1c4e7\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T16:53:02.836071211Z\",\"commit_sha\":\"6602fc8a2cbbb1073b54c7dd1b029fa481c1c4e7\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T16:53:02.059023376Z\",\"commit_sha\":\"6602fc8a2cbbb1073b54c7dd1b029fa481c1c4e7\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T15:47:21.98721361Z\",\"commit_sha\":\"72423bf37ee2b8bbc4b06ffb925f387fb9edb665\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T15:47:21.655238253Z\",\"commit_sha\":\"72423bf37ee2b8bbc4b06ffb925f387fb9edb665\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T15:47:21.049201938Z\",\"commit_sha\":\"72423bf37ee2b8bbc4b06ffb925f387fb9edb665\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T15:09:03.931054923Z\",\"commit_sha\":\"fd22805ab8cbf96fc60b6751531c4fb1c3de40d2\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T15:09:03.451596866Z\",\"commit_sha\":\"fd22805ab8cbf96fc60b6751531c4fb1c3de40d2\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T15:09:02.691276562Z\",\"commit_sha\":\"fd22805ab8cbf96fc60b6751531c4fb1c3de40d2\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T14:24:29.619360849Z\",\"commit_sha\":\"21fea608cb34e1150c62adbb80696834e44c1c10\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T14:24:29.245767957Z\",\"commit_sha\":\"21fea608cb34e1150c62adbb80696834e44c1c10\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T14:24:28.665921535Z\",\"commit_sha\":\"21fea608cb34e1150c62adbb80696834e44c1c10\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T13:54:27.836200878Z\",\"commit_sha\":\"2556e24a7a786fc70a867fd8c312b9fa80a33cbd\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T13:54:27.455885485Z\",\"commit_sha\":\"2556e24a7a786fc70a867fd8c312b9fa80a33cbd\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T13:54:26.972511471Z\",\"commit_sha\":\"2556e24a7a786fc70a867fd8c312b9fa80a33cbd\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T13:43:24.988158955Z\",\"commit_sha\":\"f1f69cfd4dc6eceb41472acb8a286aa9d245805e\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T13:43:24.430707051Z\",\"commit_sha\":\"f1f69cfd4dc6eceb41472acb8a286aa9d245805e\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T13:43:23.898097922Z\",\"commit_sha\":\"f1f69cfd4dc6eceb41472acb8a286aa9d245805e\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T13:14:49.638614061Z\",\"commit_sha\":\"c6d88963c6bbd2981e846a81c6b810ea713bd303\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T13:14:49.350789245Z\",\"commit_sha\":\"c6d88963c6bbd2981e846a81c6b810ea713bd303\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411},{\"timestamp\":\"2025-07-31T13:14:49.004859609Z\",\"commit_sha\":\"c6d88963c6bbd2981e846a81c6b810ea713bd303\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411}]";
+        const historyData = "[{\"timestamp\":\"2025-08-01T16:27:30.415806494Z\",\"commit_sha\":\"f485fe1b2caa5b0783bc200635313f70f7957248\",\"coverage\":86.98481561822126,\"total_lines\":5071,\"covered_lines\":4411}]";
 
         
         if (historyData && historyData.length > 0) {
