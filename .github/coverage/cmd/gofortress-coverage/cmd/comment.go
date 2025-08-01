@@ -164,7 +164,7 @@ Features:
 		prCommentConfig := &github.PRCommentConfig{
 			MinUpdateIntervalMinutes: 5,
 			MaxCommentsPerPR:         1,
-			CommentSignature:         "gofortress-coverage-v2",
+			CommentSignature:         "gofortress-coverage-v1",
 			IncludeTrend:             true,
 			IncludeCoverageDetails:   true,
 			IncludeFileAnalysis:      enableAnalysis,

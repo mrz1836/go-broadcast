@@ -7,8 +7,8 @@ func ComprehensiveTemplateDebug() string {
 }
 
 // Comprehensive template - detailed coverage report with all features
-const comprehensiveTemplate = `<!-- {{ .Metadata.Signature }} -->
-<!-- metadata: {"version":"{{ .Metadata.Version }}","generated_at":"{{ .Metadata.GeneratedAt.Format "2006-01-02T15:04:05Z07:00" }}","template":"{{ .Metadata.TemplateUsed }}"} -->
+const comprehensiveTemplate = `[//]: # ({{ .Metadata.Signature }})
+[//]: # (metadata: {"version":"{{ .Metadata.Version }}","generated_at":"{{ .Metadata.GeneratedAt.Format "2006-01-02T15:04:05Z07:00" }}","template":"{{ .Metadata.TemplateUsed }}"})
 
 # {{ trendEmoji .Coverage.Summary.Direction }} Coverage Report
 

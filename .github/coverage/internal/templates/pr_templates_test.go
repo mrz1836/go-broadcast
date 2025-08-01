@@ -49,7 +49,7 @@ func TestRenderComment(t *testing.T) {
 		},
 		Timestamp: now,
 		Metadata: TemplateMetadata{
-			Signature:    "gofortress-coverage-v2",
+			Signature:    "gofortress-coverage-v1",
 			Version:      "2.0.0",
 			GeneratedAt:  now,
 			TemplateUsed: "test",
