@@ -521,10 +521,6 @@ gofortress-coverage analytics trends --days 30
 gofortress-coverage analytics predict --horizon 7
 gofortress-coverage analytics team --output team-report.html
 
-# GitHub Pages management
-gofortress-coverage pages setup --branch gh-pages
-gofortress-coverage pages deploy --input reports/ --branch main
-gofortress-coverage pages clean --max-age 30
 ```
 
 #### Advanced Features

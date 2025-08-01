@@ -615,6 +615,8 @@ jobs:
           GITHUB_PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
           GITHUB_SHA: ${{ inputs.commit-sha || github.event.pull_request.head.sha }}
           GITHUB_REF_NAME: ${{ inputs.branch-name || github.event.pull_request.head.ref }}
+          GITHUB_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref || 'master' }}
           COVERAGE_PR_COMMENT_BEHAVIOR: ${{ env.COVERAGE_PR_COMMENT_BEHAVIOR }}
           COVERAGE_LOG_LEVEL: debug
         run: |
@@ -903,6 +905,18 @@ jobs:
           echo "📁 Creating PR badge deployment directory: $PR_BADGE_DEPLOY_DIR"
           mkdir -p "$PR_BADGE_DEPLOY_DIR"
 
+          # Show what's in the source directory before copying
+          echo "📁 Source directory structure before copy:"
+          if [[ -d "$BADGE_SOURCE_DIR" ]]; then
+            if command -v tree >/dev/null 2>&1; then
+              tree "$BADGE_SOURCE_DIR" || ls -laR "$BADGE_SOURCE_DIR"
+            else
+              ls -laR "$BADGE_SOURCE_DIR"
+            fi
+          else
+            echo "⚠️ Source directory does not exist: $BADGE_SOURCE_DIR"
+          fi
+
           # Copy PR badges AND HTML report to deployment directory
           echo "📋 Copying PR badges and HTML report to deployment directory..."
           if cp -r "$BADGE_SOURCE_DIR"/* "$PR_BADGE_DEPLOY_DIR/" 2>/dev/null; then
@@ -925,6 +939,14 @@ jobs:
               echo "   This indicates the gofortress-coverage comment command may not be generating HTML"
             fi
 
+            # Show complete PR directory structure
+            echo "📁 Complete PR deployment directory structure:"
+            if command -v tree >/dev/null 2>&1; then
+              tree "$PR_BADGE_DEPLOY_DIR" || ls -laR "$PR_BADGE_DEPLOY_DIR"
+            else
+              ls -laR "$PR_BADGE_DEPLOY_DIR"
+            fi
+            
             # List deployed badges
             echo "🏷️ Deployed PR badges:"
             find "$PR_BADGE_DEPLOY_DIR" -name "*.svg" -exec echo "  - {}" \;
@@ -1059,6 +1081,7 @@ jobs:
               "index.html"
               "dashboard.html"
               "coverage-data.json"
+              "assets"
             )
 
             # First, try to copy branch-specific files (avoid nested reports/branch/X structure)
@@ -1573,7 +1596,7 @@ jobs:
             echo "📋 Updating root coverage files for main branch (with filtering)..."
 
             # Define allowed root files explicitly
-            ALLOWED_ROOT_FILES=("index.html" "coverage.html" "coverage.svg" ".nojekyll" "data")
+            ALLOWED_ROOT_FILES=("index.html" "coverage.html" "coverage.svg" ".nojekyll" "data" "assets")
 
             # Copy only allowed root files
             for file in "${ALLOWED_ROOT_FILES[@]}"; do
@@ -1654,7 +1677,7 @@ jobs:
           rm -rf "$TEMP_STAGING"/*
 
           # Define allowed branch files
-          ALLOWED_BRANCH_FILES=("index.html" "coverage.html" "coverage.svg" "data")
+          ALLOWED_BRANCH_FILES=("index.html" "coverage.html" "coverage.svg" "data" "assets")
 
           # Copy branch-specific files from deployment directory to staging first
           if [[ -d "$DEPLOY_DIR/coverage/branch/$BRANCH_NAME" ]]; then

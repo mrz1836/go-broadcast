@@ -11,12 +11,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/analysis"
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/report"
 	"github.com/mrz1836/go-broadcast/coverage/internal/badge"
 	"github.com/mrz1836/go-broadcast/coverage/internal/config"
 	"github.com/mrz1836/go-broadcast/coverage/internal/github"
 	"github.com/mrz1836/go-broadcast/coverage/internal/history"
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
-	"github.com/mrz1836/go-broadcast/coverage/internal/report"
 	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
 )
 
@@ -367,10 +367,11 @@ Features:
 
 			// Generate PR-specific coverage report
 			fmt.Printf("Generating PR coverage report...\n") //nolint:forbidigo // CLI output
-			reportGenerator := report.New()
 
 			// Get branch name from environment with PR context awareness
-			branchName := os.Getenv("GITHUB_HEAD_REF") // PR branch name
+			// For file URLs in PRs, we want to use the base branch (master) not the PR branch
+			// This ensures the URLs remain valid after the PR is merged
+			branchName := os.Getenv("GITHUB_BASE_REF") // Base branch for PRs
 			if branchName == "" {
 				branchName = os.Getenv("GITHUB_REF_NAME") // Push branch name
 			}
@@ -378,22 +379,32 @@ Features:
 				branchName = "master" // Fallback
 			}
 
-			reportHTML, err := reportGenerator.Generate(ctx, coverage,
-				report.WithTitle(fmt.Sprintf("PR #%d Coverage Report", prNumber)),
-				report.WithGitHub(cfg.GitHub.Owner, cfg.GitHub.Repository, branchName),
-				report.WithCommit(cfg.GitHub.CommitSHA),
-				report.WithPackages(true),
-				report.WithFiles(true),
-			)
-			if err != nil {
+			// Create PR report directory
+			prReportDir := fmt.Sprintf("/tmp/pr-badges/pr/%d", prNumber)
+			if err := os.MkdirAll(prReportDir, 0o750); err != nil {
+				fmt.Printf("Warning: failed to create PR report directory: %v\n", err) //nolint:forbidigo // CLI output
+			}
+
+			reportConfig := &report.Config{
+				OutputDir:       prReportDir,
+				RepositoryOwner: cfg.GitHub.Owner,
+				RepositoryName:  cfg.GitHub.Repository,
+				BranchName:      branchName,
+				CommitSHA:       cfg.GitHub.CommitSHA,
+				PRNumber:        fmt.Sprintf("%d", prNumber),
+			}
+
+			reportGen := report.NewGenerator(reportConfig)
+			if err := reportGen.Generate(ctx, coverage); err != nil {
 				fmt.Printf("Warning: failed to generate PR report: %v\n", err) //nolint:forbidigo // CLI output
 			} else {
-				// Save PR report to /tmp/pr-badges for workflow
-				prReportPath := fmt.Sprintf("/tmp/pr-badges/pr/%d/index.html", prNumber)
-				if err := os.WriteFile(prReportPath, reportHTML, 0o600); err != nil {
-					fmt.Printf("Warning: failed to save PR report: %v\n", err) //nolint:forbidigo // CLI output
-				} else {
-					fmt.Printf("PR report saved to: %s\n", prReportPath) //nolint:forbidigo // CLI output
+				fmt.Printf("PR report saved to: %s/coverage.html\n", prReportDir) //nolint:forbidigo // CLI output
+
+				// Also copy index.html to support both coverage.html and index.html access
+				if htmlData, err := os.ReadFile(fmt.Sprintf("%s/coverage.html", prReportDir)); err == nil {
+					if err := os.WriteFile(fmt.Sprintf("%s/index.html", prReportDir), htmlData, 0o600); err != nil {
+						fmt.Printf("Warning: failed to create index.html copy: %v\n", err) //nolint:forbidigo // CLI output
+					}
 				}
 			}
 		}

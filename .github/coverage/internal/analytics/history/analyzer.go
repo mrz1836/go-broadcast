@@ -914,7 +914,7 @@ func (ta *TrendAnalyzer) calculateQualityGrade(coverage float64) string {
 
 // generateInsights creates analytical insights based on the trend report
 func (ta *TrendAnalyzer) generateInsights(report *TrendReport) []Insight {
-	var insights []Insight
+	insights := make([]Insight, 0)
 
 	// Trend insights
 	if report.Summary.Direction == TrendUp && report.Summary.Magnitude != MagnitudeNegligible {
@@ -978,7 +978,7 @@ func (ta *TrendAnalyzer) generateInsights(report *TrendReport) []Insight {
 
 // generateRecommendations creates actionable recommendations
 func (ta *TrendAnalyzer) generateRecommendations(report *TrendReport) []Recommendation {
-	var recommendations []Recommendation
+	recommendations := make([]Recommendation, 0)
 
 	// Coverage improvement recommendations
 	if report.Summary.CurrentCoverage < 80 {

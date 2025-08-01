@@ -2,7 +2,6 @@ package templates
 
 import (
 	"context"
-	"embed"
 	"errors"
 	"fmt"
 	"html/template"
@@ -10,8 +9,7 @@ import (
 	"time"
 )
 
-//go:embed favicon.ico *.svg site.webmanifest
-var embeddedFiles embed.FS
+// embeddedFiles removed - assets are now in analytics/assets package
 
 // TemplateManager handles template loading and rendering
 type TemplateManager struct {
@@ -188,6 +186,8 @@ var (
 	ErrDashboardDeprecated = errors.New("RenderDashboard is deprecated - use dashboard package's embedded template")
 	// ErrReportDeprecated indicates the report rendering method is deprecated
 	ErrReportDeprecated = errors.New("RenderReport is deprecated - use report package's embedded template")
+	// ErrEmbeddedFilesMoved indicates embedded files have been moved to analytics/assets package
+	ErrEmbeddedFilesMoved = errors.New("embedded files have been moved to analytics/assets package")
 )
 
 // RenderDashboard is deprecated - dashboard generator uses embedded template
@@ -210,26 +210,15 @@ func (tm *TemplateManager) WriteReport(_ context.Context, _ io.Writer, _ ReportD
 	return ErrReportDeprecated
 }
 
-// GetEmbeddedFile returns the content of an embedded file
+// GetEmbeddedFile is deprecated - assets are now in analytics/assets package
 func (tm *TemplateManager) GetEmbeddedFile(filename string) ([]byte, error) {
-	return embeddedFiles.ReadFile(filename)
+	_ = filename // Avoid unused parameter warning
+	return nil, ErrEmbeddedFilesMoved
 }
 
-// ListEmbeddedFiles returns a list of embedded file names
+// ListEmbeddedFiles is deprecated - assets are now in analytics/assets package
 func (tm *TemplateManager) ListEmbeddedFiles() ([]string, error) {
-	entries, err := embeddedFiles.ReadDir(".")
-	if err != nil {
-		return nil, err
-	}
-
-	var files []string
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			files = append(files, entry.Name())
-		}
-	}
-
-	return files, nil
+	return nil, ErrEmbeddedFilesMoved
 }
 
 // Template helper functions
