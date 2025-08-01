@@ -4,7 +4,7 @@
 
 # Sync configuration files
 sync.yaml
-sync.yaml
+sync-bk.yaml
 
 ########################
 # Go Language          #

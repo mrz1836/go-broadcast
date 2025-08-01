@@ -285,127 +285,7 @@ timestamp: 2025-01-23T14:30:52Z
 ✅ **Atomic Operations** - Each sync is self-contained  
 ✅ **Full Audit Trail** - Branch and PR history shows all syncs  
 ✅ **Disaster Recovery** - State can be reconstructed from GitHub  
-✅ **Works at Scale** - No state corruption with concurrent syncs  
-
-<br/>
-
-## 🚀 Coverage System
-
-**Self-hosted coverage solution** - Complete data privacy, zero external dependencies, and enterprise-grade features.
-
-<table>
-  <tr>
-    <td><a href="https://mrz1836.github.io/go-broadcast/" target="_blank"><img src="https://mrz1836.github.io/go-broadcast/coverage.svg" alt="Main Branch Coverage" /></a></td>
-    <td><a href="https://mrz1836.github.io/go-broadcast/" target="_blank"><img src="https://img.shields.io/badge/coverage-87.2%25-brightgreen?style=flat-square" alt="Flat Square Style" /></a></td>
-    <td><a href="https://mrz1836.github.io/go-broadcast/" target="_blank"><img src="https://img.shields.io/badge/trend-%E2%86%97%20improving-green?style=for-the-badge" alt="Trend Badge" /></a></td>
-  </tr>
-</table>
-
-🔗 **[View Dashboard](https://mrz1836.github.io/go-broadcast/?v=1)**
-
-### ⚡ Quick Setup
-
-Enable in 2 steps:
-
-```bash
-# 1. Enable in .github/.env.shared
-ENABLE_INTERNAL_COVERAGE=true
-COVERAGE_FAIL_UNDER=80
-
-# 2. Set GitHub Pages source to "GitHub Actions"
-# Repository Settings → Pages → Source → "GitHub Actions"
-```
-
-That's it! Push any commit and get:
-- ✅ Professional coverage badges
-- ✅ Interactive dashboard
-- ✅ PR comments with analysis
-- ✅ GitHub Pages deployment
-
-<details>
-<summary><strong>🎯 Complete Feature List & Advanced Configuration</strong></summary>
-
-### Core Features
-
-#### Professional Coverage Badges
-- **GitHub-style badges** with multiple themes (flat, flat-square, for-the-badge)
-- **Real-time updates** on every push and pull request
-- **Branch-specific badges** for `master` and PR branches
-- **PR-specific badges** for pull request analysis
-
-#### Interactive Coverage Dashboard
-- **Modern, responsive UI** with dark/light theme support
-- **Real-time metrics** with animated progress indicators
-- **Historical trend** showing trends over time
-- **Responsive design** that works on desktop and mobile
-- **Zero external dependencies** - fully self-contained
-
-#### Intelligent PR Coverage Comments
-- **Coverage analysis** comparing base vs PR branches
-- **File-level breakdown** showing coverage changes
-- **Smart anti-spam logic** to prevent comment noise on multiple pushes
-- **Comprehensive PR comments** with detailed coverage analysis
-
-#### Analytics & Insights
-- **Google Analytics integration** for detailed usage tracking
-- **Historical trend tracking** with basic trend analysis
-- **Coverage history** stored in JSON format
-- **Retention policies** for automatic data cleanup
-
-#### GitHub Pages Deployment
-- **Automatic GitHub Pages integration** with organized storage
-- **PR-specific deployments** with isolated coverage reports
-- **Automatic cleanup** of expired PR data
-- **Simple CLI** with 4 core commands (complete, comment, history, pages)
-
-### Advanced Configuration
-
-The coverage system includes 45+ configuration options for complete customization:
-
-#### 🎨 Badge & Theme Configuration
-```bash
-COVERAGE_BADGE_STYLE=flat                # flat, flat-square, for-the-badge
-COVERAGE_BADGE_LOGO=                     # Logo: go, github, custom URL (empty for no logo)
-COVERAGE_REPORT_THEME=github-dark        # Dashboard theme
-COVERAGE_THRESHOLD_EXCELLENT=90          # Green badge threshold
-COVERAGE_THRESHOLD_GOOD=80               # Yellow-green threshold
-```
-
-#### 📊 Analytics & Reporting
-```bash
-COVERAGE_ENABLE_TREND_ANALYSIS=true      # Historical trend tracking
-COVERAGE_ENABLE_PACKAGE_BREAKDOWN=true   # Package-level coverage
-COVERAGE_HISTORY_RETENTION_DAYS=90       # Data retention period
-COVERAGE_CLEANUP_PR_AFTER_DAYS=7         # PR cleanup schedule
-```
-
-#### 🔔 PR Comment Configuration
-```bash
-COVERAGE_PR_COMMENT_ENABLED=true         # Enable PR comments
-COVERAGE_PR_COMMENT_SHOW_TREE=true       # Show file tree in PR comments
-COVERAGE_PR_COMMENT_SHOW_MISSING=true    # Highlight uncovered lines
-COVERAGE_PR_COMMENT_BEHAVIOR=update      # Comment behavior: new, update, delete-and-new
-```
-
-### GitHub Pages URLs
-
-#### Main Branch Coverage
-- **Coverage Badge**: `https://mrz1836.github.io/go-broadcast/coverage.svg`
-- **Coverage Dashboard**: `https://mrz1836.github.io/go-broadcast/`
-- **Coverage Report**: `https://mrz1836.github.io/go-broadcast/coverage.html`
-
-#### Branch-Specific Coverage
-- **Branch Badge**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/coverage.svg`
-- **Branch Dashboard**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/`
-- **Branch Report**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/coverage.html`
-
-#### Pull Request Coverage
-- **PR Badge**: `https://mrz1836.github.io/go-broadcast/coverage/pr/{pr-number}/coverage.svg`
-- **All Branches Index**: `https://mrz1836.github.io/go-broadcast/branches.html` (when deployed from main)
-
-📚 **[Complete Configuration Guide](.github/coverage/docs/coverage-configuration.md)** | 📊 **[API Documentation](.github/coverage/docs/coverage-api.md)** | 🎯 **[Feature Guide](.github/coverage/docs/coverage-features.md)**
-
-</details>
+✅ **Works at Scale** - No state corruption with concurrent syncs
 
 <br/>
 
@@ -458,24 +338,6 @@ targets:
     pr_assignees: ["security-lead"]
     pr_reviewers: ["security-engineer"]
     pr_team_reviewers: ["security-team"]
-```
-
-**Cancel sync operations when issues arise:**
-```bash
-# Cancel all active syncs (closes PRs and deletes branches)
-go-broadcast cancel --config sync.yaml
-
-# Cancel syncs for specific repositories only
-go-broadcast cancel company/service1 company/service2
-
-# Preview what would be cancelled without making changes
-go-broadcast cancel --dry-run --config sync.yaml
-
-# Close PRs but keep sync branches for later cleanup
-go-broadcast cancel --keep-branches --config sync.yaml
-
-# Add custom comment when closing PRs
-go-broadcast cancel --comment "Cancelling due to template update" --config sync.yaml
 ```
 
 ### Essential Commands
@@ -568,6 +430,31 @@ targets:
     # Final reviewers: ["platform-lead", "service-reviewer"]
     pr_reviewers: ["service-reviewer"]
 ```
+</details>
+
+<details>
+<summary><strong>❌ Cancel Sync Operations</strong></summary>
+
+When issues arise, you can cancel active sync operations to prevent unwanted changes.
+
+**Cancel sync operations when issues arise:**
+```bash
+# Cancel all active syncs (closes PRs and deletes branches)
+go-broadcast cancel --config sync.yaml
+
+# Cancel syncs for specific repositories only
+go-broadcast cancel company/service1 company/service2
+
+# Preview what would be cancelled without making changes
+go-broadcast cancel --dry-run --config sync.yaml
+
+# Close PRs but keep sync branches for later cleanup
+go-broadcast cancel --keep-branches --config sync.yaml
+
+# Add custom comment when closing PRs
+go-broadcast cancel --comment "Cancelling due to template update" --config sync.yaml
+```
+
 </details>
 
 <details>
@@ -976,6 +863,138 @@ go-broadcast diagnose
 For more detailed information, see the [comprehensive logging guide](docs/logging.md) and [troubleshooting runbook](docs/troubleshooting-runbook.md).
 
 </details>
+
+<details>
+<summary><strong>📊 Coverage System</strong></summary>
+
+## 🚀 Coverage System
+
+**Self-hosted coverage solution** - Complete data privacy, zero external dependencies, and enterprise-grade features.
+
+<table>
+  <tr>
+    <td><a href="https://mrz1836.github.io/go-broadcast/" target="_blank"><img src="https://mrz1836.github.io/go-broadcast/coverage.svg" alt="Main Branch Coverage" /></a></td>
+    <td><a href="https://mrz1836.github.io/go-broadcast/" target="_blank"><img src="https://img.shields.io/badge/coverage-87.2%25-brightgreen?style=flat-square" alt="Flat Square Style" /></a></td>
+    <td><a href="https://mrz1836.github.io/go-broadcast/" target="_blank"><img src="https://img.shields.io/badge/trend-%E2%86%97%20improving-green?style=for-the-badge" alt="Trend Badge" /></a></td>
+  </tr>
+</table>
+
+🔗 **[View Dashboard](https://mrz1836.github.io/go-broadcast/?v=1)**
+
+
+<details>
+<summary><strong>📊 Quick Setup</strong></summary>
+
+### ⚡ Quick Setup
+
+Enable in 2 steps:
+
+```bash
+# 1. Enable in .github/.env.shared
+ENABLE_INTERNAL_COVERAGE=true
+COVERAGE_FAIL_UNDER=80
+
+# 2. Set GitHub Pages source to "GitHub Actions"
+# Repository Settings → Pages → Source → "GitHub Actions"
+```
+
+That's it! Push any commit and get:
+- ✅ Professional coverage badges
+- ✅ Interactive dashboard
+- ✅ PR comments with analysis
+- ✅ GitHub Pages deployment
+
+</details>
+
+<details>
+<summary><strong>🎯 Complete Feature List & Advanced Configuration</strong></summary>
+
+### Core Features
+
+#### Professional Coverage Badges
+- **GitHub-style badges** with multiple themes (flat, flat-square, for-the-badge)
+- **Real-time updates** on every push and pull request
+- **Branch-specific badges** for `master` and PR branches
+- **PR-specific badges** for pull request analysis
+
+#### Interactive Coverage Dashboard
+- **Modern, responsive UI** with dark/light theme support
+- **Real-time metrics** with animated progress indicators
+- **Historical trend** showing trend from last push
+- **Responsive design** that works on desktop and mobile
+- **Zero external dependencies** - fully self-contained
+
+#### Intelligent PR Coverage Comments
+- **Coverage analysis** comparing base vs PR branches
+- **File-level breakdown** showing coverage changes
+- **Smart anti-spam logic** to prevent comment noise on multiple pushes
+- **Comprehensive PR comments** with detailed coverage analysis
+
+#### Analytics & Insights
+- **Google Analytics integration** for detailed usage tracking
+- **Historical trend tracking** with basic trend analysis
+- **Coverage history** stored in JSON format
+- **Retention policies** for automatic data cleanup
+
+#### GitHub Pages Deployment
+- **Automatic GitHub Pages integration** with organized storage
+- **PR-specific deployments** with isolated coverage reports
+- **Automatic cleanup** of expired PR data
+- **Simple CLI** with 3 core commands (complete, comment, history)
+
+### Advanced Configuration
+
+The coverage system includes 45+ configuration options for complete customization:
+
+#### 🎨 Badge & Theme Configuration
+```bash
+COVERAGE_BADGE_STYLE=flat                # flat, flat-square, for-the-badge
+COVERAGE_BADGE_LOGO=                     # Logo: go, github, custom URL (empty for no logo)
+COVERAGE_REPORT_THEME=github-dark        # Dashboard theme
+COVERAGE_THRESHOLD_EXCELLENT=90          # Green badge threshold
+COVERAGE_THRESHOLD_GOOD=80               # Yellow-green threshold
+```
+
+#### 📊 Analytics & Reporting
+```bash
+COVERAGE_ENABLE_TREND_ANALYSIS=true      # Historical trend tracking
+COVERAGE_ENABLE_PACKAGE_BREAKDOWN=true   # Package-level coverage
+COVERAGE_HISTORY_RETENTION_DAYS=90       # Data retention period
+COVERAGE_CLEANUP_PR_AFTER_DAYS=7         # PR cleanup schedule
+```
+
+#### 🔔 PR Comment Configuration
+```bash
+COVERAGE_PR_COMMENT_ENABLED=true         # Enable PR comments
+COVERAGE_PR_COMMENT_SHOW_TREE=true       # Show file tree in PR comments
+COVERAGE_PR_COMMENT_SHOW_MISSING=true    # Highlight uncovered lines
+COVERAGE_PR_COMMENT_BEHAVIOR=update      # Comment behavior: new, update, delete-and-new
+```
+
+### GitHub Pages URLs
+
+#### Main Branch Coverage
+- **Coverage Badge**: `https://mrz1836.github.io/go-broadcast/coverage.svg`
+- **Coverage Dashboard**: `https://mrz1836.github.io/go-broadcast/`
+- **Coverage Report**: `https://mrz1836.github.io/go-broadcast/coverage.html`
+
+#### Branch-Specific Coverage
+- **Branch Badge**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/coverage.svg`
+- **Branch Dashboard**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/`
+- **Branch Report**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/coverage.html`
+
+#### Pull Request Coverage
+- **PR Badge**: `https://mrz1836.github.io/go-broadcast/coverage/pr/{pr-number}/coverage.svg`
+- **PR Coverage Report**: `https://mrz1836.github.io/go-broadcast/coverage/pr/{pr-number}/`
+- **All Branches Index**: `https://mrz1836.github.io/go-broadcast/branches.html` (when deployed from main)
+
+📚 **[Complete Configuration Guide](.github/coverage/docs/coverage-configuration.md)** | 📊 **[API Documentation](.github/coverage/docs/coverage-api.md)** | 🎯 **[Feature Guide](.github/coverage/docs/coverage-features.md)**
+
+</details>
+
+</details>
+
+
 
 <br/>
 
