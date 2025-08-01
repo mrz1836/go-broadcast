@@ -14,12 +14,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/dashboard"
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/report"
 	"github.com/mrz1836/go-broadcast/coverage/internal/badge"
 	"github.com/mrz1836/go-broadcast/coverage/internal/config"
 	"github.com/mrz1836/go-broadcast/coverage/internal/github"
 	"github.com/mrz1836/go-broadcast/coverage/internal/history"
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
-	"github.com/mrz1836/go-broadcast/coverage/internal/report"
 )
 
 // getDefaultBranch returns the default branch name, checking environment variables first
@@ -168,37 +168,26 @@ update history, and create GitHub PR comment if in PR context.`,
 
 		// Step 3: Generate HTML report
 		cmd.Printf("📊 Step 3: Generating HTML report...\n")
-		reportFile := filepath.Join(targetOutputDir, cfg.Report.OutputFile)
 
 		reportConfig := &report.Config{
-			Title:            cfg.Report.Title,
-			Theme:            cfg.Report.Theme,
-			ShowPackages:     cfg.Report.ShowPackages,
-			ShowFiles:        cfg.Report.ShowFiles,
-			ShowMissing:      cfg.Report.ShowMissing,
-			InteractiveTrees: cfg.Report.Interactive,
-			GitHubOwner:      cfg.GitHub.Owner,
-			GitHubRepository: cfg.GitHub.Repository,
+			OutputDir:       targetOutputDir,
+			RepositoryOwner: cfg.GitHub.Owner,
+			RepositoryName:  cfg.GitHub.Repository,
+			BranchName:      getDefaultBranch(),
+			CommitSHA:       cfg.GitHub.CommitSHA,
 		}
 
-		// Set GitHub branch for source links
-		reportConfig.GitHubBranch = getDefaultBranch()
-		reportGen := report.NewWithConfig(reportConfig)
+		reportGen := report.NewGenerator(reportConfig)
 		ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		htmlContent, err := reportGen.Generate(ctx, coverage)
-		if err != nil {
-			return fmt.Errorf("failed to generate report: %w", err)
-		}
-
 		if !dryRun {
-			if writeErr := os.WriteFile(reportFile, htmlContent, cfg.Storage.FileMode); writeErr != nil {
-				return fmt.Errorf("failed to write report file: %w", writeErr)
+			if reportErr := reportGen.Generate(ctx, coverage); reportErr != nil {
+				return fmt.Errorf("failed to generate report: %w", reportErr)
 			}
 		}
 
-		cmd.Printf("   ✅ Report saved: %s\n", reportFile)
+		cmd.Printf("   ✅ Report saved: %s/coverage.html\n", targetOutputDir)
 		cmd.Printf("\n")
 
 		// Step 4: Generate dashboard
@@ -762,7 +751,7 @@ update history, and create GitHub PR comment if in PR context.`,
 		cmd.Printf("Coverage: %.2f%% (%s)\n", coverage.Percentage,
 			getStatusIcon(coverage.Percentage, cfg.Coverage.Threshold))
 		cmd.Printf("Badge: %s\n", badgeFile)
-		cmd.Printf("Report: %s\n", reportFile)
+		cmd.Printf("Report: %s/coverage.html\n", targetOutputDir)
 
 		if cfg.GitHub.Owner != "" && cfg.GitHub.Repository != "" {
 			cmd.Printf("Badge URL: %s\n", cfg.GetBadgeURL())
