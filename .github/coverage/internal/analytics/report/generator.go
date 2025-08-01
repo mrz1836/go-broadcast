@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/assets"
@@ -120,7 +122,7 @@ func (g *Generator) Generate(ctx context.Context, coverage *parser.CoverageData)
 }
 
 // buildReportData constructs the report data structure
-func (g *Generator) buildReportData(_ context.Context, coverage *parser.CoverageData) *Data {
+func (g *Generator) buildReportData(ctx context.Context, coverage *parser.CoverageData) *Data {
 	var packages []PackageReport
 	totalFiles := 0
 
@@ -171,8 +173,13 @@ func (g *Generator) buildReportData(_ context.Context, coverage *parser.Coverage
 				if g.config != nil && g.config.RepositoryOwner != "" && g.config.RepositoryName != "" && g.config.BranchName != "" {
 					// Use the full path including package name
 					fullPath := filepath.Join(name, fileName)
+
+					// Strip the module prefix to get the correct GitHub path
+					// e.g., "github.com/mrz1836/go-broadcast/internal/algorithms" -> "internal/algorithms"
+					relativePath := g.stripModulePrefix(fullPath)
+
 					fileURL = fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s",
-						g.config.RepositoryOwner, g.config.RepositoryName, g.config.BranchName, fullPath)
+						g.config.RepositoryOwner, g.config.RepositoryName, g.config.BranchName, relativePath)
 				}
 
 				files = append(files, FileReport{
@@ -285,7 +292,43 @@ func (g *Generator) buildReportData(_ context.Context, coverage *parser.Coverage
 		BadgeURL:          "", // Badge is generated separately
 		Summary:           summary,
 		Packages:          packages,
-		LatestTag:         "", // Could be fetched from git
+		LatestTag:         getLatestGitTag(ctx),
 		GoogleAnalyticsID: googleAnalyticsID,
 	}
+}
+
+// stripModulePrefix removes the Go module prefix from a file path
+// e.g., "github.com/mrz1836/go-broadcast/internal/algorithms/file.go" -> "internal/algorithms/file.go"
+func (g *Generator) stripModulePrefix(fullPath string) string {
+	// Try to match the pattern github.com/owner/repo/...
+	// We want to strip everything up to and including the repo name
+	parts := strings.Split(fullPath, "/")
+
+	// Look for github.com pattern
+	for i := 0; i < len(parts); i++ {
+		if parts[i] == "github.com" && i+2 < len(parts) {
+			// Skip github.com/owner/repo and return the rest
+			if i+3 < len(parts) {
+				return strings.Join(parts[i+3:], "/")
+			}
+		}
+	}
+
+	// If no github.com pattern found, return the original path
+	return fullPath
+}
+
+// getLatestGitTag gets the latest git tag in the repository
+func getLatestGitTag(ctx context.Context) string {
+	// Try to get the latest tag
+	cmd := exec.CommandContext(ctx, "git", "describe", "--tags", "--abbrev=0")
+	output, err := cmd.Output()
+	if err != nil {
+		// If no tags found or git not available, return empty string
+		return ""
+	}
+
+	// Clean up the output
+	tag := strings.TrimSpace(string(output))
+	return tag
 }

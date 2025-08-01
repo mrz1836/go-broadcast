@@ -32,5 +32,4 @@ func init() { //nolint:gochecknoinits // CLI command initialization
 	rootCmd.AddCommand(completeCmd)
 	rootCmd.AddCommand(historyCmd)
 	rootCmd.AddCommand(commentCmd)
-	rootCmd.AddCommand(pagesCmd)
 }

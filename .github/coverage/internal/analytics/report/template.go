@@ -82,11 +82,12 @@ const reportTemplate = `<!DOCTYPE html>
                     <svg viewBox="0 0 100 100">
                         <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="6" opacity="0.2"/>
                         <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="6" 
+                                class="circle-progress"
                                 stroke-dasharray="{{.Summary.TotalPercentage | multiply 2.827}} 282.7" 
                                 stroke-dashoffset="0" 
                                 transform="rotate(-90 50 50)"/>
                     </svg>
-                    <div class="coverage-percentage">{{.Summary.TotalPercentage | printf "%.1f"}}%</div>
+                    <div class="coverage-percentage {{- if ge .Summary.TotalPercentage 90.0}} success{{else if ge .Summary.TotalPercentage 80.0}} primary{{else if ge .Summary.TotalPercentage 60.0}} warning{{else}} danger{{end -}}">{{.Summary.TotalPercentage | printf "%.1f"}}%</div>
                 </div>
                 <div class="header-metrics">
                     <div class="metric">
@@ -288,8 +289,10 @@ const reportTemplate = `<!DOCTYPE html>
             <div class="footer-info">
                 {{- if .LatestTag}}
                 <div class="footer-version">
-                    <span class="version-icon">🏷️</span>
-                    <span class="version-text">{{.LatestTag}}</span>
+                    <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}/releases/tag/{{.LatestTag}}" target="_blank" class="version-link">
+                        <span class="version-icon">🏷️</span>
+                        <span class="version-text">{{.LatestTag}}</span>
+                    </a>
                 </div>
                 <span class="footer-separator">•</span>
                 {{- end}}

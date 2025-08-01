@@ -45,7 +45,6 @@ COVERAGE_HISTORY_RETENTION_DAYS=90
 
 # Cleanup and maintenance
 COVERAGE_CLEANUP_PR_AFTER_DAYS=7
-COVERAGE_PAGES_BRANCH=gh-pages
 ```
 
 ## Core Configuration
@@ -190,29 +189,6 @@ COVERAGE_BADGE_BRANCHES=master,staging,prod    # Custom branches
 COVERAGE_BADGE_BRANCHES=master                   # Single branch only
 ```
 
-## GitHub Pages Configuration
-
-### Pages Setup
-
-#### `COVERAGE_PAGES_BRANCH`
-**Type**: String  
-**Default**: `gh-pages`  
-**Description**: GitHub Pages branch name
-
-```bash
-COVERAGE_PAGES_BRANCH=gh-pages    # Standard Pages branch
-COVERAGE_PAGES_BRANCH=docs        # Custom Pages branch
-```
-
-#### `COVERAGE_PAGES_AUTO_CREATE`
-**Type**: Boolean  
-**Default**: `true`  
-**Description**: Automatically create GitHub Pages branch if missing
-
-```bash
-COVERAGE_PAGES_AUTO_CREATE=true   # Auto-create branch
-COVERAGE_PAGES_AUTO_CREATE=false  # Manual setup required
-```
 
 ## Report Configuration
 

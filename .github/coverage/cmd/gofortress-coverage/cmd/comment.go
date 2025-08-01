@@ -369,7 +369,9 @@ Features:
 			fmt.Printf("Generating PR coverage report...\n") //nolint:forbidigo // CLI output
 
 			// Get branch name from environment with PR context awareness
-			branchName := os.Getenv("GITHUB_HEAD_REF") // PR branch name
+			// For file URLs in PRs, we want to use the base branch (master) not the PR branch
+			// This ensures the URLs remain valid after the PR is merged
+			branchName := os.Getenv("GITHUB_BASE_REF") // Base branch for PRs
 			if branchName == "" {
 				branchName = os.Getenv("GITHUB_REF_NAME") // Push branch name
 			}
@@ -389,6 +391,7 @@ Features:
 				RepositoryName:  cfg.GitHub.Repository,
 				BranchName:      branchName,
 				CommitSHA:       cfg.GitHub.CommitSHA,
+				PRNumber:        fmt.Sprintf("%d", prNumber),
 			}
 
 			reportGen := report.NewGenerator(reportConfig)

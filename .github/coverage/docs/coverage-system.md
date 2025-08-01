@@ -52,8 +52,7 @@ The heart of the system, implemented as a separate Go module with isolated depen
 │   ├── github/                  # GitHub API integration and PR management
 │   ├── config/                  # Configuration management and validation
 │   ├── analytics/               # Advanced analytics and predictions
-│   ├── notify/                  # Multi-channel notification system
-│   └── pages/                   # GitHub Pages deployment and management
+│   └── notify/                  # Multi-channel notification system
 └── go.mod                       # Isolated dependency management
 ```
 

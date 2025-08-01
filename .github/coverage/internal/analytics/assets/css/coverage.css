@@ -1671,16 +1671,32 @@ body::before {
 }
 
 
+.coverage-circle.success {
+    color: var(--color-success);
+}
+
 .coverage-circle.success .circle-progress {
     stroke: var(--color-success);
+}
+
+.coverage-circle.primary {
+    color: var(--color-primary);
 }
 
 .coverage-circle.primary .circle-progress {
     stroke: var(--color-primary);
 }
 
+.coverage-circle.warning {
+    color: var(--color-warning);
+}
+
 .coverage-circle.warning .circle-progress {
     stroke: var(--color-warning);
+}
+
+.coverage-circle.danger {
+    color: var(--color-danger);
 }
 
 .coverage-circle.danger .circle-progress {
