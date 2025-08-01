@@ -1632,7 +1632,7 @@ body::before {
     z-index: 1;
 }
 
-.header-main {
+.header:not(.enhanced) .header-main {
     margin-bottom: 2rem;
 }
 
