@@ -1548,14 +1548,21 @@ body::before {
    15. Report Template Specific Styles
    ================================================================= */
 
-/* Navigation Header */
+/* Main content wrapper for report */
+.main-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Report-specific navigation header */
 .nav-header {
-    background: var(--color-bg-secondary);
-    border-bottom: 1px solid var(--color-border);
     position: sticky;
     top: 0;
     z-index: 100;
-    backdrop-filter: blur(10px);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--backdrop-blur));
+    border-bottom: 1px solid var(--glass-border);
 }
 
 .nav-container {
@@ -1584,12 +1591,14 @@ body::before {
     gap: 1rem;
 }
 
-/* Header Section */
-.header {
-    background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg) 100%);
-    padding: 3rem 0;
+/* Report-specific header styles */
+.header:not(.enhanced) {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding: 2rem 0;
     position: relative;
     overflow: hidden;
+    background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg) 100%);
 }
 
 .header::before {
@@ -1654,15 +1663,6 @@ body::before {
     stroke-width: 8;
 }
 
-.coverage-circle .circle-bg {
-    stroke: var(--color-bg-tertiary);
-}
-
-.coverage-circle .circle-progress {
-    stroke-dasharray: 283;
-    stroke-dashoffset: 283;
-    transition: stroke-dashoffset 1s ease-in-out;
-}
 
 .coverage-circle.success .circle-progress {
     stroke: var(--color-success);
@@ -1680,7 +1680,7 @@ body::before {
     stroke: var(--color-danger);
 }
 
-.coverage-percentage {
+.coverage-circle .coverage-percentage {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -1711,13 +1711,19 @@ body::before {
     color: var(--color-text);
 }
 
-/* Repository Info Bar */
-.repo-info {
-    background: var(--color-bg-secondary);
-    border-top: 1px solid var(--color-border);
-    border-bottom: 1px solid var(--color-border);
-    padding: 1rem 0;
-    margin-top: 2rem;
+/* Repository Info Bar - Report style (inline) */
+.header + .repo-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--backdrop-blur));
+    border: 1px solid var(--glass-border);
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    margin: 0 auto 2rem;
 }
 
 .repo-info-content {
@@ -1743,12 +1749,32 @@ body::before {
     text-decoration: underline;
 }
 
-.repo-icon {
-    font-size: 1.1rem;
+.repo-icon,
+.branch-icon,
+.commit-icon {
+    font-size: 1rem;
 }
 
-.repo-divider {
+.repo-separator {
     color: var(--color-text-muted);
+}
+
+.branch-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-text-secondary);
+}
+
+.repo-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.action-btn.small {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
 }
 
 /* Main Content */
@@ -1758,17 +1784,15 @@ main {
     padding: 2rem;
 }
 
-/* Coverage Summary Section */
-.coverage-summary {
+/* Summary Section (Report style) */
+.summary-section {
     margin-bottom: 3rem;
 }
 
-.coverage-summary h2 {
+.summary-section h2 {
     font-size: 1.75rem;
     margin-bottom: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    color: var(--color-text);
 }
 
 .summary-grid {
@@ -1796,26 +1820,117 @@ main {
     margin-bottom: 0.75rem;
 }
 
-.summary-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--color-primary);
-    margin-bottom: 0.25rem;
+/* Coverage bar for summary card (large) */
+.coverage-bar.large {
+    height: 12px;
+    margin: 1rem 0;
 }
 
-.summary-detail {
+.coverage-bar.large .coverage-fill {
+    height: 100%;
+}
+
+/* Coverage stats display */
+.coverage-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 0.5rem;
+}
+
+.coverage-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.coverage-label {
     color: var(--color-text-secondary);
     font-size: 0.875rem;
 }
 
-/* Package Coverage Section */
-.package-coverage {
+/* Trend indicator */
+.trend-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--color-bg-tertiary);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.trend-indicator.improved {
+    background: rgba(63, 185, 80, 0.1);
+    color: var(--color-success);
+}
+
+.trend-indicator.declined {
+    background: rgba(248, 81, 73, 0.1);
+    color: var(--color-danger);
+}
+
+.trend-indicator.stable {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+}
+
+.trend-icon {
+    font-size: 1.5rem;
+}
+
+.trend-text {
+    font-weight: 600;
+}
+
+.trend-details {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+/* Distribution chart placeholder */
+.distribution-chart {
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-tertiary);
+    border-radius: 8px;
+}
+
+.chart-placeholder {
+    text-align: center;
+}
+
+.chart-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.chart-text {
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Packages Section (Report style) */
+.packages-section {
     margin-bottom: 3rem;
 }
 
-.package-coverage h2 {
+.packages-section h2 {
     font-size: 1.75rem;
     margin-bottom: 1.5rem;
+    color: var(--color-text);
+}
+
+.packages-container {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--backdrop-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .package-list {
@@ -1911,6 +2026,68 @@ main {
     display: block;
 }
 
+/* Package card (Report style) */
+.package-card {
+    border-bottom: 1px solid var(--color-border-muted);
+    transition: background-color 0.2s ease;
+}
+
+.package-card:last-child {
+    border-bottom: none;
+}
+
+.package-card:hover {
+    background: var(--color-bg-tertiary);
+}
+
+/* Package toggle icon */
+.package-toggle {
+    display: inline-block;
+    width: 1rem;
+    color: var(--color-text-secondary);
+    transition: transform var(--transition-base);
+}
+
+/* Package files (expanded state) */
+.package-files {
+    background: var(--color-bg-tertiary);
+    border-top: 1px solid var(--color-border-muted);
+}
+
+/* Coverage percentage styles */
+.coverage-percentage {
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+}
+
+.coverage-percentage.success {
+    color: var(--color-success);
+    background: rgba(63, 185, 80, 0.1);
+}
+
+.coverage-percentage.primary {
+    color: var(--color-primary);
+    background: rgba(88, 166, 255, 0.1);
+}
+
+.coverage-percentage.warning {
+    color: var(--color-warning);
+    background: rgba(210, 153, 34, 0.1);
+}
+
+.coverage-percentage.danger {
+    color: var(--color-danger);
+    background: rgba(248, 81, 73, 0.1);
+}
+
+/* Mini coverage bar */
+.coverage-bar.mini {
+    height: 4px;
+    width: 100px;
+    margin-left: 0.5rem;
+}
+
 .file-item {
     display: flex;
     justify-content: space-between;
@@ -1928,15 +2105,33 @@ main {
     border-bottom: none;
 }
 
+.file-icon {
+    font-size: 1rem;
+    margin-right: 0.5rem;
+}
+
 .file-name {
-    font-family: var(--font-mono);
+    font-family: 'JetBrains Mono', monospace;
     font-size: 0.875rem;
+    color: var(--color-text);
+}
+
+.file-stats {
     color: var(--color-text-secondary);
+    font-size: 0.8rem;
+    margin-left: 0.5rem;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    flex: 1;
 }
 
 .file-coverage {
-    font-weight: 600;
-    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 .file-coverage.high {
@@ -2017,30 +2212,6 @@ main {
     fill: var(--color-primary);
 }
 
-/* Footer */
-footer {
-    background: var(--color-bg-secondary);
-    border-top: 1px solid var(--color-border);
-    padding: 2rem 0;
-    margin-top: 4rem;
-}
-
-.footer-content {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 2rem;
-    text-align: center;
-    color: var(--color-text-secondary);
-}
-
-.footer-content a {
-    color: var(--color-primary);
-    text-decoration: none;
-}
-
-.footer-content a:hover {
-    text-decoration: underline;
-}
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
