@@ -87,23 +87,39 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 
 	processTimer.AddField("changed_files", len(changedFiles)).Stop()
 
-	if len(changedFiles) == 0 {
-		rs.logger.Info("No file changes detected, skipping sync")
+	// 5. Process directories
+	directoryChanges, err := rs.processDirectories(ctx)
+	if err != nil {
+		syncTimer.StopWithError(err)
+		return fmt.Errorf("failed to process directories: %w", err)
+	}
+
+	// Combine file and directory changes
+	allChanges := append(changedFiles, directoryChanges...)
+
+	rs.logger.WithFields(logrus.Fields{
+		"file_changes":      len(changedFiles),
+		"directory_changes": len(directoryChanges),
+		"total_changes":     len(allChanges),
+	}).Info("File and directory processing completed")
+
+	if len(allChanges) == 0 {
+		rs.logger.Info("No file or directory changes detected, skipping sync")
 		syncTimer.AddField(logging.StandardFields.Status, "no_changes").Stop()
 		return nil
 	}
 
-	// 5. Create sync branch (or use existing one)
+	// 6. Create sync branch (or use existing one)
 	branchTimer := metrics.StartTimer(ctx, rs.logger, "branch_creation")
 	branchName := rs.createSyncBranch(ctx)
 	branchTimer.AddField(logging.StandardFields.BranchName, branchName).Stop()
 
-	// 6. Commit changes
+	// 7. Commit changes
 	commitTimer := metrics.StartTimer(ctx, rs.logger, "commit_creation").
 		AddField(logging.StandardFields.BranchName, branchName).
-		AddField("changed_files", len(changedFiles))
+		AddField("changed_files", len(allChanges))
 
-	commitSHA, err := rs.commitChanges(ctx, branchName, changedFiles)
+	commitSHA, err := rs.commitChanges(ctx, branchName, allChanges)
 	if err != nil {
 		commitTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
@@ -111,7 +127,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	}
 	commitTimer.AddField("commit_sha", commitSHA).Stop()
 
-	// 7. Push changes (unless dry-run)
+	// 8. Push changes (unless dry-run)
 	if !rs.engine.options.DryRun {
 		pushTimer := metrics.StartTimer(ctx, rs.logger, "branch_push").
 			AddField(logging.StandardFields.BranchName, branchName).
@@ -127,13 +143,13 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		rs.logger.Debug("DRY-RUN: Skipping branch push")
 	}
 
-	// 8. Create or update pull request
+	// 9. Create or update pull request
 	prTimer := metrics.StartTimer(ctx, rs.logger, "pr_management").
 		AddField(logging.StandardFields.BranchName, branchName).
 		AddField("commit_sha", commitSHA).
-		AddField("changed_files", len(changedFiles))
+		AddField("changed_files", len(allChanges))
 
-	if err := rs.createOrUpdatePR(ctx, branchName, commitSHA, changedFiles); err != nil {
+	if err := rs.createOrUpdatePR(ctx, branchName, commitSHA, allChanges); err != nil {
 		prTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
 		return fmt.Errorf("failed to create/update PR: %w", err)
@@ -147,7 +163,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		out.Success("DRY-RUN SUMMARY: Repository sync preview completed successfully")
 		out.Info(fmt.Sprintf("📁 Repository: %s", rs.target.Repo))
 		out.Info(fmt.Sprintf("🌿 Branch: %s", branchName))
-		out.Info(fmt.Sprintf("📝 Files: %d would be changed", len(changedFiles)))
+		out.Info(fmt.Sprintf("📝 Files: %d would be changed", len(allChanges)))
 		out.Info(fmt.Sprintf("🔗 Commit: %s", commitSHA))
 		out.Info("💡 Run without --dry-run to execute these changes")
 		_, _ = fmt.Fprintln(out.writer)
@@ -158,7 +174,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	syncTimer.AddField(logging.StandardFields.Status, "completed").
 		AddField(logging.StandardFields.BranchName, branchName).
 		AddField("final_commit_sha", commitSHA).
-		AddField("total_changed_files", len(changedFiles)).Stop()
+		AddField("total_changed_files", len(allChanges)).Stop()
 
 	return nil
 }

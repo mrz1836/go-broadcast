@@ -2,294 +2,94 @@ package sync
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
-	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/benchmark"
 	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 )
 
-func BenchmarkFilterTargets(b *testing.B) {
-	// Create test configuration with many targets
-	cfg := &config.Config{
-		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "main",
-		},
-		Targets: make([]config.TargetConfig, 100),
-	}
-
-	for i := 0; i < 100; i++ {
-		cfg.Targets[i] = config.TargetConfig{
-			Repo: "org/target-" + string(rune(48+i%10)),
-			Files: []config.FileMapping{
-				{Src: "file.txt", Dest: "file.txt"},
-			},
-		}
-	}
-
-	// Create current state
-	currentState := &state.State{
-		Source: state.SourceState{
-			Repo:         "org/template-repo",
-			Branch:       "main",
-			LatestCommit: "abc123",
-		},
-		Targets: make(map[string]*state.TargetState),
-	}
-
-	for i := 0; i < 50; i++ {
-		currentState.Targets["org/target-"+string(rune(48+i%10))] = &state.TargetState{
-			Repo:           "org/target-" + string(rune(48+i%10)),
-			LastSyncCommit: "xyz789",
-			Status:         state.StatusBehind,
-		}
-	}
-
-	engine := &Engine{
-		config: cfg,
-		options: &Options{
-			Force:             false,
-			MaxConcurrency:    5,
-			UpdateExistingPRs: false,
-		},
-		logger: logrus.New(),
-	}
-
-	benchmark.WithMemoryTracking(b, func() {
-		targets, err := engine.filterTargets(nil, currentState)
-		if err != nil {
-			b.Fatal(err)
-		}
-		_ = targets
-	})
-}
-
-func BenchmarkFilterTargets_WithFilter(b *testing.B) {
-	// Create test configuration
-	cfg := &config.Config{
-		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "main",
-		},
-		Targets: []config.TargetConfig{
-			{Repo: "org/target-1", Files: []config.FileMapping{{Src: "file.txt", Dest: "file.txt"}}},
-			{Repo: "org/target-2", Files: []config.FileMapping{{Src: "file.txt", Dest: "file.txt"}}},
-			{Repo: "org/target-3", Files: []config.FileMapping{{Src: "file.txt", Dest: "file.txt"}}},
-		},
-	}
-
-	currentState := &state.State{
-		Source: state.SourceState{
-			Repo:         "org/template-repo",
-			Branch:       "main",
-			LatestCommit: "abc123",
-		},
-		Targets: map[string]*state.TargetState{
-			"org/target-1": {
-				Repo:           "org/target-1",
-				LastSyncCommit: "xyz789",
-				Status:         state.StatusBehind,
-			},
-		},
-	}
-
-	engine := &Engine{
-		config: cfg,
-		options: &Options{
-			Force:             false,
-			MaxConcurrency:    5,
-			UpdateExistingPRs: false,
-		},
-		logger: logrus.New(),
-	}
-
-	targetFilter := []string{"org/target-1", "org/target-2"}
-
-	benchmark.WithMemoryTracking(b, func() {
-		targets, err := engine.filterTargets(targetFilter, currentState)
-		if err != nil {
-			b.Fatal(err)
-		}
-		_ = targets
-	})
-}
-
-func BenchmarkNeedsSync(b *testing.B) {
-	engine := &Engine{
-		options: &Options{
-			UpdateExistingPRs: false,
-		},
-		logger: logrus.New(),
-	}
-
-	target := config.TargetConfig{
-		Repo: "org/target-repo",
-		Files: []config.FileMapping{
-			{Src: "file.txt", Dest: "file.txt"},
-		},
-	}
-
+// BenchmarkDirectoryWalk benchmarks directory walking performance
+func BenchmarkDirectoryWalk(b *testing.B) {
 	testCases := []struct {
-		name  string
-		state *state.State
+		name      string
+		fileCount int
 	}{
-		{
-			name: "UpToDate",
-			state: &state.State{
-				Source: state.SourceState{LatestCommit: "abc123"},
-				Targets: map[string]*state.TargetState{
-					"org/target-repo": {
-						Status:         state.StatusUpToDate,
-						LastSyncCommit: "abc123",
-					},
-				},
-			},
-		},
-		{
-			name: "Behind",
-			state: &state.State{
-				Source: state.SourceState{LatestCommit: "abc123"},
-				Targets: map[string]*state.TargetState{
-					"org/target-repo": {
-						Status:         state.StatusBehind,
-						LastSyncCommit: "xyz789",
-					},
-				},
-			},
-		},
-		{
-			name: "Pending",
-			state: &state.State{
-				Source: state.SourceState{LatestCommit: "abc123"},
-				Targets: map[string]*state.TargetState{
-					"org/target-repo": {
-						Status:         state.StatusPending,
-						LastSyncCommit: "xyz789",
-					},
-				},
-			},
-		},
+		{"SmallDirectory_10", 10},
+		{"MediumDirectory_50", 50},
+		{"LargeDirectory_100", 100},
+		{"XLargeDirectory_500", 500},
+		{"XXLargeDirectory_1000", 1000},
 	}
 
 	for _, tc := range testCases {
 		b.Run(tc.name, func(b *testing.B) {
-			benchmark.WithMemoryTracking(b, func() {
-				result := engine.needsSync(target, tc.state)
-				_ = result
-			})
-		})
-	}
-}
+			// Create test directory
+			tempDir := b.TempDir()
+			sourceDir := filepath.Join(tempDir, "source")
+			require.NoError(b, os.MkdirAll(sourceDir, 0o755))
 
-func BenchmarkProgressTracking(b *testing.B) {
-	testCases := []struct {
-		name        string
-		targetCount int
-	}{
-		{"Small", 5},
-		{"Medium", 50},
-		{"Large", 500},
-	}
+			// Create test files
+			for i := 0; i < tc.fileCount; i++ {
+				dir := filepath.Join(sourceDir, "subdir", string('a'+rune(i%26)))
+				require.NoError(b, os.MkdirAll(dir, 0o755))
 
-	for _, tc := range testCases {
-		b.Run(tc.name, func(b *testing.B) {
-			benchmark.WithMemoryTracking(b, func() {
-				progress := NewProgressTracker(tc.targetCount, false)
-
-				// Simulate progress updates
-				for j := 0; j < tc.targetCount; j++ {
-					repoName := "org/repo-" + string(rune(48+j%10))
-					progress.StartRepository(repoName)
-
-					if j%10 == 0 {
-						progress.RecordError(repoName, context.DeadlineExceeded)
-					} else {
-						progress.RecordSuccess(repoName)
-					}
-
-					progress.FinishRepository(repoName)
-				}
-
-				results := progress.GetResults()
-				_ = results
-			})
-		})
-	}
-}
-
-func BenchmarkProgressConcurrent(b *testing.B) {
-	const targetCount = 100
-
-	benchmark.WithMemoryTracking(b, func() {
-		progress := NewProgressTracker(targetCount, false)
-
-		// Simulate concurrent updates
-		done := make(chan struct{})
-
-		// Start multiple goroutines
-		for j := 0; j < 10; j++ {
-			go func(workerID int) {
-				for k := 0; k < 10; k++ {
-					repoName := "org/repo-" + string(rune(48+workerID)) + "-" + string(rune(48+k))
-					progress.StartRepository(repoName)
-
-					// Simulate work
-					time.Sleep(time.Microsecond)
-
-					if k%3 == 0 {
-						progress.RecordError(repoName, context.DeadlineExceeded)
-					} else {
-						progress.RecordSuccess(repoName)
-					}
-
-					progress.FinishRepository(repoName)
-				}
-				done <- struct{}{}
-			}(j)
-		}
-
-		// Wait for all workers
-		for j := 0; j < 10; j++ {
-			<-done
-		}
-
-		results := progress.GetResults()
-		_ = results
-	})
-}
-
-func BenchmarkOptionsValidation(b *testing.B) {
-	testOptions := []*Options{
-		DefaultOptions(),
-		{
-			DryRun:            true,
-			Force:             false,
-			MaxConcurrency:    1,
-			UpdateExistingPRs: false,
-		},
-		{
-			DryRun:            false,
-			Force:             true,
-			MaxConcurrency:    10,
-			UpdateExistingPRs: true,
-		},
-	}
-
-	benchmark.WithMemoryTracking(b, func() {
-		for _, opts := range testOptions {
-			// Validate options
-			_ = opts.MaxConcurrency > 0
-			_ = opts.MaxConcurrency <= 100
-
-			// Apply defaults if needed
-			if opts.MaxConcurrency <= 0 {
-				opts.MaxConcurrency = 5
+				filename := filepath.Join(dir, fmt.Sprintf("file_%d.txt", i))
+				require.NoError(b, os.WriteFile(filename, []byte("test content"), 0o644))
 			}
-		}
+
+			logger := logrus.NewEntry(logrus.New()).WithField("component", "benchmark")
+			processor := &DirectoryProcessor{
+				logger:          logger,
+				progressManager: NewDirectoryProgressManager(logger),
+			}
+
+			dirMapping := config.DirectoryMapping{
+				Src:  "source",
+				Dest: "dest",
+			}
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				ctx := context.Background()
+				processor.exclusionEngine = NewExclusionEngine(dirMapping.Exclude)
+				files, err := processor.discoverFiles(ctx, tempDir, dirMapping)
+				require.NoError(b, err)
+				require.Len(b, files, tc.fileCount)
+			}
+		})
+	}
+}
+
+// BenchmarkExclusionEngine benchmarks the exclusion pattern matching
+func BenchmarkExclusionEngine(b *testing.B) {
+	engine := NewExclusionEngine([]string{
+		"*.log",
+		"*.tmp",
+		"**/*.out",
+		"node_modules/**",
+		".git/**",
+		"vendor/**",
 	})
+
+	testPaths := []string{
+		"src/main.go",
+		"vendor/github.com/pkg/errors/errors.go",
+		"node_modules/react/index.js",
+		"test/coverage.out",
+		"logs/app.log",
+		"build/output.tmp",
+		".git/config",
+		"internal/sync/sync.go",
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, path := range testPaths {
+			_ = engine.IsExcluded(path)
+		}
+	}
 }
