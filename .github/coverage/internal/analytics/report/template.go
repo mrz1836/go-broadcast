@@ -47,33 +47,6 @@ func getReportTemplate() string {
                 </p>
             </div>
 
-            <div class="header-stats">
-                <div class="coverage-circle {{- if ge .Summary.TotalPercentage 95.0}} excellent{{else if ge .Summary.TotalPercentage 85.0}} success{{else if ge .Summary.TotalPercentage 75.0}} warning{{else if ge .Summary.TotalPercentage 65.0}} low{{else}} danger{{end -}}">
-                    <svg viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="6" opacity="0.2"/>
-                        <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="6"
-                                class="circle-progress"
-                                stroke-dasharray="{{.Summary.TotalPercentage | multiply 2.827}} 282.7"
-                                stroke-dashoffset="0"
-                                transform="rotate(-90 50 50)"/>
-                    </svg>
-                    <div class="coverage-percentage {{- if ge .Summary.TotalPercentage 95.0}} excellent{{else if ge .Summary.TotalPercentage 85.0}} success{{else if ge .Summary.TotalPercentage 75.0}} warning{{else if ge .Summary.TotalPercentage 65.0}} low{{else}} danger{{end -}}">{{.Summary.TotalPercentage | printf "%.1f"}}%</div>
-                </div>
-                <div class="header-metrics">
-                    <div class="metric">
-                        <span class="metric-label">Lines Covered</span>
-                        <span class="metric-value">{{.Summary.CoveredLines | commas}} / {{.Summary.TotalLines | commas}}</span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-label">Files</span>
-                        <span class="metric-value">{{.Summary.FileCount}}</span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-label">Packages</span>
-                        <span class="metric-value">{{.Summary.PackageCount}}</span>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- Repository Info Bar -->
@@ -157,7 +130,7 @@ func getReportTemplate() string {
                     </div>
                     <div class="coverage-stats">
                         <span class="coverage-value">{{.Summary.TotalPercentage | printf "%.1f"}}%</span>
-                        <span class="coverage-label">{{.Summary.CoveredLines | commas}} of {{.Summary.TotalLines | commas}} lines</span>
+                        <span class="coverage-label">{{.Summary.CoveredLines | commas}} of {{.Summary.TotalLines | commas}} lines across {{.Summary.FileCount}} files</span>
                     </div>
                 </div>
 

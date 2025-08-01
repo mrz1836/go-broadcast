@@ -124,7 +124,6 @@ func (suite *TemplateTestSuite) TestReportTemplateFunctionCalls() {
 		"commas",
 		"truncate",
 		"ge",
-		"multiply",
 	}
 
 	for _, function := range expectedFunctions {
@@ -157,7 +156,6 @@ func (suite *TemplateTestSuite) TestReportTemplateCSSClasses() {
 		"header",
 		"main-content",
 		"footer",
-		"coverage-circle",
 		"coverage-bar",
 		"package-card",
 		"file-item",

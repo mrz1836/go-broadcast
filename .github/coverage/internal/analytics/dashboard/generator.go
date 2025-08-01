@@ -251,6 +251,32 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		branchURL = fmt.Sprintf("https://github.com/%s/%s/tree/%s", repositoryOwner, repositoryName, data.Branch)
 	}
 
+	// Build PR URL if we have PR info
+	prURL := ""
+	if repositoryOwner != "" && repositoryName != "" && data.PRNumber != "" {
+		prURL = fmt.Sprintf("https://github.com/%s/%s/pull/%s", repositoryOwner, repositoryName, data.PRNumber)
+	}
+
+	// Build title - similar to coverage report
+	title := "Coverage Dashboard"
+	if data.PRNumber != "" {
+		// PR context - include PR number in title
+		if repositoryOwner != "" && repositoryName != "" {
+			title = fmt.Sprintf("PR #%s - %s/%s Coverage Dashboard", data.PRNumber, repositoryOwner, repositoryName)
+		} else if repositoryName != "" {
+			title = fmt.Sprintf("PR #%s - %s Coverage Dashboard", data.PRNumber, repositoryName)
+		} else {
+			title = fmt.Sprintf("PR #%s Coverage Dashboard", data.PRNumber)
+		}
+	} else {
+		// Regular context without PR
+		if repositoryOwner != "" && repositoryName != "" {
+			title = fmt.Sprintf("%s/%s Coverage Dashboard", repositoryOwner, repositoryName)
+		} else if repositoryName != "" {
+			title = fmt.Sprintf("%s Coverage Dashboard", repositoryName)
+		}
+	}
+
 	// Build status is not generated for static deployments
 	// to avoid showing stale information on GitHub Pages
 	var buildStatus *BuildStatus
@@ -262,44 +288,50 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 	globalConfig := globalconfig.Load()
 
 	return map[string]interface{}{
-		"ProjectName":        projectName,
-		"RepositoryOwner":    repositoryOwner,
-		"RepositoryName":     repositoryName,
-		"RepositoryURL":      repositoryURL,
-		"OwnerURL":           ownerURL,
-		"BranchURL":          branchURL,
-		"DefaultBranch":      data.Branch,
+		"BaselineCoverage":   data.BaselineCoverage,
 		"Branch":             data.Branch,
+		"BranchURL":          branchURL,
+		"Branches":           branches,
+		"BuildStatus":        buildStatus,
 		"CommitSHA":          g.formatCommitSHA(data.CommitSHA),
 		"CommitURL":          commitURL,
+		"CoverageTrend":      coverageTrend,
+		"CoveredFiles":       data.CoveredFiles,
+		"DefaultBranch":      data.Branch,
+		"FilesPercent":       fmt.Sprintf("%.1f", filesPercent),
+		"FilesTrend":         filesTrend,
+		"GoogleAnalyticsID":  globalConfig.Analytics.GoogleAnalyticsID,
+		"HasAnyData":         len(data.History) > 0,
+		"HasHistory":         hasHistory,
+		"HasPreviousRuns":    data.HasPreviousRuns,
+		"HistoryDataPoints":  len(data.History),
+		"HistoryJSON":        g.prepareHistoryJSON(data.History),
+		"IsFeatureBranch":    data.Branch != "master" && data.Branch != "main",
+		"IsFirstRun":         data.IsFirstRun,
+		"LatestTag":          latestTag,
+		"LinesToCover":       data.MissedLines,
+		"LinesToCoverTrend":  linesToCoverTrend,
+		"OwnerURL":           ownerURL,
 		"PRNumber":           data.PRNumber,
 		"PRTitle":            data.PRTitle,
-		"BaselineCoverage":   data.BaselineCoverage,
+		"Packages":           g.preparePackageData(data.Packages),
+		"PackagesTracked":    len(data.Packages),
+		"ProjectName":        projectName,
+		"RepositoryName":     repositoryName,
+		"RepositoryOwner":    repositoryOwner,
+		"RepositoryURL":      repositoryURL,
 		"Timestamp":          data.Timestamp,
 		"TimestampFormatted": data.Timestamp.Format("2006-01-02 15:04:05 UTC"),
 		"TotalCoverage":      roundToDecimals(data.TotalCoverage, 2),
-		"CoverageTrend":      coverageTrend,
-		"TrendDirection":     trendDirection,
-		"CoveredFiles":       data.CoveredFiles,
 		"TotalFiles":         data.TotalFiles,
-		"FilesPercent":       fmt.Sprintf("%.1f", filesPercent),
-		"FilesTrend":         filesTrend,
-		"LinesToCover":       data.MissedLines,
-		"LinesToCoverTrend":  linesToCoverTrend,
-		"PackagesTracked":    len(data.Packages),
-		"Branches":           branches,
-		"Packages":           g.preparePackageData(data.Packages),
-		"HasHistory":         hasHistory,
-		"HasAnyData":         len(data.History) > 0,
-		"HistoryDataPoints":  len(data.History),
-		"IsFeatureBranch":    data.Branch != "master" && data.Branch != "main",
-		"HistoryJSON":        g.prepareHistoryJSON(data.History),
-		"BuildStatus":        buildStatus,
-		"LatestTag":          latestTag,
+		"TrendDirection":     trendDirection,
 		"WorkflowRunNumber":  data.WorkflowRunNumber,
-		"IsFirstRun":         data.IsFirstRun,
-		"HasPreviousRuns":    data.HasPreviousRuns,
-		"GoogleAnalyticsID":  globalConfig.Analytics.GoogleAnalyticsID,
+		// Missing fields for template consistency with coverage report
+		"BadgeURL":    data.BadgeURL,
+		"BranchName":  data.Branch, // Alias for compatibility between both templates
+		"GeneratedAt": data.Timestamp,
+		"PRURL":       prURL,
+		"Title":       title,
 	}
 }
 
