@@ -250,7 +250,7 @@ func TestRenderer_RenderDashboard(t *testing.T) {
 		"CoveredFiles":    8,
 		"TotalFiles":      10,
 		"PackagesTracked": 2,
-		"Timestamp":       "2024-01-15 10:30:00 UTC",
+		"Timestamp":       time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
 		"RepositoryURL":   "https://github.com/owner/repo",
 		"CoverageTrend":   "2.5",
 		"HasHistory":      false,

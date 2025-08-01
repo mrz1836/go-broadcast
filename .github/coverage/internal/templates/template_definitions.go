@@ -1,10 +1,9 @@
-// Package templates provides template definitions for PR comments
+// Package templates provides template definitions for PR comments and shared HTML components
 package templates
 
-// ComprehensiveTemplateDebug returns the comprehensive template for debugging
-func ComprehensiveTemplateDebug() string {
-	return comprehensiveTemplate
-}
+import (
+	"fmt"
+)
 
 // Comprehensive template - detailed coverage report with all features
 const comprehensiveTemplate = `[//]: # ({{ .Metadata.Signature }})
@@ -14,26 +13,43 @@ const comprehensiveTemplate = `[//]: # ({{ .Metadata.Signature }})
 
 {{ statusEmoji .Coverage.Overall.Status }} **Overall Coverage: {{ formatPercent .Coverage.Overall.Percentage }}** {{ gradeEmoji .Coverage.Overall.Grade }}
 
-{{ if .PRFiles }}{{ if not .PRFiles.Summary.HasGoChanges }}
+{{- if .PRFiles -}}
+    {{- if not .PRFiles.Summary.HasGoChanges -}}
 {{ trendEmoji "stable" }} **No Go files modified in this PR**
+
 Project coverage remains at {{ formatPercent .Coverage.Overall.Percentage }} ({{ formatNumber .Coverage.Overall.CoveredStatements }}/{{ formatNumber .Coverage.Overall.TotalStatements }} statements)
+
 Changes: {{ .PRFiles.Summary.SummaryText }}
-{{ else }}
-{{ if and (ne .Comparison.BasePercentage 0.0) (.Comparison.IsSignificant) }}
-{{ if isImproved .Comparison.Direction }}{{ trendEmoji "up" }} Coverage **improved** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }}){{ else if isDegraded .Comparison.Direction }}{{ trendEmoji "down" }} Coverage **decreased** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }}){{ else }}{{ trendEmoji "stable" }} Coverage remained **stable** at {{ formatPercent .Coverage.Overall.Percentage }}{{ end }}
-{{ else if eq .Comparison.BasePercentage 0.0 }}
+    {{- else -}}
+        {{- if and (ne .Comparison.BasePercentage 0.0) (.Comparison.IsSignificant) -}}
+            {{- if isImproved .Comparison.Direction -}}
+{{ trendEmoji "up" }} Coverage **improved** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }})
+            {{- else if isDegraded .Comparison.Direction -}}
+{{ trendEmoji "down" }} Coverage **decreased** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }})
+            {{- else -}}
+{{ trendEmoji "stable" }} Coverage remained **stable** at {{ formatPercent .Coverage.Overall.Percentage }}
+            {{- end -}}
+        {{- else if eq .Comparison.BasePercentage 0.0 -}}
 {{ trendEmoji "stable" }} **Initial coverage report** - no baseline available for comparison
-{{ else }}
+        {{- else -}}
 {{ trendEmoji "stable" }} Coverage remained stable with {{ formatChange .Comparison.Change }} change
-{{ end }}
-{{ end }}{{ else }}
-{{ if and (ne .Comparison.BasePercentage 0.0) (.Comparison.IsSignificant) }}
-{{ if isImproved .Comparison.Direction }}{{ trendEmoji "up" }} Coverage **improved** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }}){{ else if isDegraded .Comparison.Direction }}{{ trendEmoji "down" }} Coverage **decreased** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }}){{ else }}{{ trendEmoji "stable" }} Coverage remained **stable** at {{ formatPercent .Coverage.Overall.Percentage }}{{ end }}
-{{ else if eq .Comparison.BasePercentage 0.0 }}
+        {{- end -}}
+    {{- end -}}
+{{- else -}}
+    {{- if and (ne .Comparison.BasePercentage 0.0) (.Comparison.IsSignificant) -}}
+        {{- if isImproved .Comparison.Direction -}}
+{{ trendEmoji "up" }} Coverage **improved** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }})
+        {{- else if isDegraded .Comparison.Direction -}}
+{{ trendEmoji "down" }} Coverage **decreased** by {{ formatChange .Comparison.Change }} ({{ formatPercent .Comparison.BasePercentage }} → {{ formatPercent .Comparison.CurrentPercentage }})
+        {{- else -}}
+{{ trendEmoji "stable" }} Coverage remained **stable** at {{ formatPercent .Coverage.Overall.Percentage }}
+        {{- end -}}
+    {{- else if eq .Comparison.BasePercentage 0.0 -}}
 {{ trendEmoji "stable" }} **Initial coverage report** - no baseline available for comparison
-{{ else }}
+    {{- else -}}
 {{ trendEmoji "stable" }} Coverage remained stable with {{ formatChange .Comparison.Change }} change
-{{ end }}{{ end }}
+    {{- end -}}
+{{- end -}}
 
 ## 📊 Coverage Metrics
 
@@ -68,7 +84,7 @@ Changes: {{ .PRFiles.Summary.SummaryText }}
 | File | Coverage | Change | Status |
 |------|----------|--------|--------|
 {{ $sortedFiles := sortByChange $significantFiles }}{{ range $file := slice $sortedFiles 0 .Config.MaxFileChanges }}
-| {{ if $file.IsNew }}🆕{{ else if $file.IsModified }}📝{{ end }} ` + "`" + `{{ truncate $file.Filename 40 }}` + "`" + ` | {{ formatPercent $file.Percentage }} | {{ if $file.Change }}{{ formatChange $file.Change }}{{ else }}-{{ end }} | {{ riskEmoji $file.Risk }} {{ humanize $file.Status }} |
+| {{- if $file.IsNew }}🆕{{- else if $file.IsModified }}📝{{- end }} ` + "`" + `{{ truncate $file.Filename 40 }}` + "`" + ` | {{ formatPercent $file.Percentage }} | {{- if $file.Change }}{{ formatChange $file.Change }}{{- else }}-{{- end }} | {{ riskEmoji $file.Risk }} {{ humanize $file.Status }} |
 {{ end }}
 
 {{ if .Config.UseCollapsibleSections }}
@@ -118,12 +134,12 @@ Changes: {{ .PRFiles.Summary.SummaryText }}
 
 - **Direction**: {{ trendEmoji .Trends.Direction }} {{ humanize .Trends.Direction }}
 - **Momentum**: {{ .Trends.Momentum }}
-{{ if .Trends.Prediction }}
+{{- if .Trends.Prediction }}
 - **Prediction**: {{ formatPercent .Trends.Prediction }} ({{ round (mul .Trends.Confidence 100) }}% confidence)
-{{ end }}
-{{ if .Config.IncludeCharts }}
+{{- end }}
+{{- if .Config.IncludeCharts }}
 - **Trend**: {{ trendChart .Coverage.Overall.Percentage }}
-{{ end }}
+{{- end }}
 {{ end }}
 
 ## 🔗 Resources
@@ -155,3 +171,39 @@ Changes: {{ .PRFiles.Summary.SummaryText }}
 {{ else }}
 *Coverage report generated at {{ .Metadata.GeneratedAt.Format "2006-01-02 15:04:05 UTC" }}*
 {{ end }}`
+
+// GetSharedFooter returns the standardized footer HTML with configurable CSS class and timestamp field
+// cssClass: pass " dashboard" for dashboard styling, or "" for regular styling
+// timestampField: pass "Timestamp" or "GeneratedAt" for the appropriate timestamp field
+func GetSharedFooter(cssClass, timestampField string) string {
+	return fmt.Sprintf(`    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content%s">
+            <div class="footer-info">
+                {{- if .LatestTag}}
+                <div class="footer-version">
+                    <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}/releases/tag/{{.LatestTag}}" target="_blank" class="version-link">
+                        <span class="version-icon">🏷️</span>
+                        <span class="version-text">{{.LatestTag}}</span>
+                    </a>
+                </div>
+                <span class="footer-separator">•</span>
+                {{- end}}
+                <div class="footer-powered">
+                    <span class="powered-text">Powered by</span>
+                    <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}" target="_blank" class="gofortress-link">
+                        <span class="fortress-icon">🏰</span>
+                        <span class="fortress-text">GoFortress Coverage</span>
+                    </a>
+                </div>
+                <span class="footer-separator">•</span>
+                <div class="footer-timestamp">
+                    <span class="timestamp-icon">🕐</span>
+                    <span class="timestamp-text dynamic-timestamp" data-timestamp="{{.%s.Format "2006-01-02T15:04:05Z07:00"}}">Generated {{.%s.Format "2006-01-02 15:04:05 UTC"}}</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+    <script src="./assets/js/coverage-time.js"></script>
+	<script src="./assets/js/theme.js"></script>`, cssClass, timestampField, timestampField)
+}

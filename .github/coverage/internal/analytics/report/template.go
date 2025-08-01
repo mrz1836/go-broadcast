@@ -1,9 +1,14 @@
 package report
 
-// reportTemplate is the embedded coverage report HTML template (this IS A Coverage Report) (this is NOT a Dashboard)
+import (
+	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
+)
+
+// getReportTemplate returns the embedded coverage report HTML template (this IS A Coverage Report) (this is NOT a Dashboard)
 //
 //nolint:misspell // British spelling for "cancelled"
-const reportTemplate = `<!DOCTYPE html>
+func getReportTemplate() string {
+	return `<!DOCTYPE html>
 <html lang="en" data-theme="auto">
 <head>
     <meta charset="UTF-8">
@@ -21,7 +26,7 @@ const reportTemplate = `<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
+
     <!-- Coverage styles -->
     <link rel="stylesheet" href="./assets/css/coverage.css">
 
@@ -69,9 +74,9 @@ const reportTemplate = `<!DOCTYPE html>
                 <h1>{{- if .PRNumber}}PR #{{.PRNumber}} {{end -}}Coverage Report</h1>
                 <p class="subtitle">
                     {{- if .ProjectName}}
-                        {{.ProjectName}} • 
+                        {{.ProjectName}} •
                     {{else}}
-                        {{.RepositoryOwner}}/{{.RepositoryName}} • 
+                        {{.RepositoryOwner}}/{{.RepositoryName}} •
                     {{end -}}
                     Detailed coverage analysis • <span class="dynamic-timestamp" data-timestamp="{{.GeneratedAt.Format "2006-01-02T15:04:05Z07:00"}}">Generated {{.GeneratedAt.Format "2006-01-02 15:04:05 UTC"}}</span>
                 </p>
@@ -81,10 +86,10 @@ const reportTemplate = `<!DOCTYPE html>
                 <div class="coverage-circle {{- if ge .Summary.TotalPercentage 95.0}} excellent{{else if ge .Summary.TotalPercentage 85.0}} success{{else if ge .Summary.TotalPercentage 75.0}} warning{{else if ge .Summary.TotalPercentage 65.0}} low{{else}} danger{{end -}}">
                     <svg viewBox="0 0 100 100">
                         <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="6" opacity="0.2"/>
-                        <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="6" 
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="6"
                                 class="circle-progress"
-                                stroke-dasharray="{{.Summary.TotalPercentage | multiply 2.827}} 282.7" 
-                                stroke-dashoffset="0" 
+                                stroke-dasharray="{{.Summary.TotalPercentage | multiply 2.827}} 282.7"
+                                stroke-dashoffset="0"
                                 transform="rotate(-90 50 50)"/>
                     </svg>
                     <div class="coverage-percentage {{- if ge .Summary.TotalPercentage 95.0}} excellent{{else if ge .Summary.TotalPercentage 85.0}} success{{else if ge .Summary.TotalPercentage 75.0}} warning{{else if ge .Summary.TotalPercentage 65.0}} low{{else}} danger{{end -}}">{{.Summary.TotalPercentage | printf "%.1f"}}%</div>
@@ -119,7 +124,7 @@ const reportTemplate = `<!DOCTYPE html>
                 {{.RepositoryOwner}}/{{.RepositoryName}}
             </span>
             {{- end}}
-            
+
             {{- if .BranchName}}
             <span class="repo-separator">•</span>
             <span class="branch-info">
@@ -127,7 +132,7 @@ const reportTemplate = `<!DOCTYPE html>
                 {{.BranchName}}
             </span>
             {{- end}}
-            
+
             {{- if .PRNumber}}
             <span class="repo-separator">•</span>
             {{- if .PRURL}}
@@ -142,7 +147,7 @@ const reportTemplate = `<!DOCTYPE html>
             </span>
             {{- end}}
             {{- end}}
-            
+
             {{- if .CommitSHA}}
             <span class="repo-separator">•</span>
             {{- if .CommitURL}}
@@ -182,7 +187,7 @@ const reportTemplate = `<!DOCTYPE html>
                 <div class="summary-card">
                     <h3>Overall Coverage</h3>
                     <div class="coverage-bar large">
-                        <div class="coverage-fill {{- if ge .Summary.TotalPercentage 95.0}} excellent{{else if ge .Summary.TotalPercentage 85.0}} success{{else if ge .Summary.TotalPercentage 75.0}} warning{{else if ge .Summary.TotalPercentage 65.0}} low{{else}} danger{{end -}}" 
+                        <div class="coverage-fill {{- if ge .Summary.TotalPercentage 95.0}} excellent{{else if ge .Summary.TotalPercentage 85.0}} success{{else if ge .Summary.TotalPercentage 75.0}} warning{{else if ge .Summary.TotalPercentage 65.0}} low{{else}} danger{{end -}}"
                              style="width: {{.Summary.TotalPercentage}}%"></div>
                     </div>
                     <div class="coverage-stats">
@@ -244,7 +249,7 @@ const reportTemplate = `<!DOCTYPE html>
                                 {{.Percentage | printf "%.1f"}}%
                             </span>
                             <div class="coverage-bar mini">
-                                <div class="coverage-fill {{- if ge .Percentage 95.0}} excellent{{else if ge .Percentage 85.0}} success{{else if ge .Percentage 75.0}} warning{{else if ge .Percentage 65.0}} low{{else}} danger{{end -}}" 
+                                <div class="coverage-fill {{- if ge .Percentage 95.0}} excellent{{else if ge .Percentage 85.0}} success{{else if ge .Percentage 75.0}} warning{{else if ge .Percentage 65.0}} low{{else}} danger{{end -}}"
                                      style="width: {{.Percentage}}%"></div>
                             </div>
                         </div>
@@ -268,7 +273,7 @@ const reportTemplate = `<!DOCTYPE html>
                                     {{.Percentage | printf "%.1f"}}%
                                 </span>
                                 <div class="coverage-bar mini">
-                                    <div class="coverage-fill {{- if ge .Percentage 95.0}} excellent{{else if ge .Percentage 85.0}} success{{else if ge .Percentage 75.0}} warning{{else if ge .Percentage 65.0}} low{{else}} danger{{end -}}" 
+                                    <div class="coverage-fill {{- if ge .Percentage 95.0}} excellent{{else if ge .Percentage 85.0}} success{{else if ge .Percentage 75.0}} warning{{else if ge .Percentage 65.0}} low{{else}} danger{{end -}}"
                                          style="width: {{.Percentage}}%"></div>
                                 </div>
                             </div>
@@ -283,114 +288,8 @@ const reportTemplate = `<!DOCTYPE html>
         {{- end}}
     </main>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-content">
-            <div class="footer-info">
-                {{- if .LatestTag}}
-                <div class="footer-version">
-                    <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}/releases/tag/{{.LatestTag}}" target="_blank" class="version-link">
-                        <span class="version-icon">🏷️</span>
-                        <span class="version-text">{{.LatestTag}}</span>
-                    </a>
-                </div>
-                <span class="footer-separator">•</span>
-                {{- end}}
-                <div class="footer-powered">
-                    <span class="powered-text">Powered by</span>
-                    <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}" class="gofortress-link">
-                        <span class="fortress-icon">🏰</span>
-                        <span class="fortress-text">GoFortress Coverage</span>
-                    </a>
-                </div>
-                <span class="footer-separator">•</span>
-                <div class="footer-timestamp">
-                    <span class="timestamp-icon">🕐</span>
-                    <span class="timestamp-text dynamic-timestamp" data-timestamp="{{.GeneratedAt.Format "2006-01-02T15:04:05Z07:00"}}">Generated {{.GeneratedAt.Format "2006-01-02 15:04:05 UTC"}}</span>
-                </div>
-            </div>
-        </div>
-    </footer>
+` + templates.GetSharedFooter("", "GeneratedAt") + `
 
-    <script>
-        // Theme management
-        function toggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-        }
-
-        // Initialize theme
-        const savedTheme = localStorage.getItem('theme');
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-theme', theme);
-
-        // Package toggle
-        function togglePackage(packageName) {
-            const packageEl = document.getElementById('package-' + packageName);
-            const toggleIcon = document.querySelector('[data-package="' + packageName + '"] .package-toggle');
-            
-            if (packageEl.style.display === 'none' || !packageEl.style.display) {
-                packageEl.style.display = 'block';
-                toggleIcon.textContent = '▼';
-            } else {
-                packageEl.style.display = 'none';
-                toggleIcon.textContent = '▶';
-            }
-        }
-
-        // Search functionality
-        const searchInput = document.getElementById('searchInput');
-        searchInput.addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase();
-            const packages = document.querySelectorAll('.package-card');
-            
-            packages.forEach(pkg => {
-                const packageName = pkg.querySelector('.package-name').textContent.toLowerCase();
-                const files = pkg.querySelectorAll('.file-item');
-                let hasMatch = packageName.includes(searchTerm);
-                
-                files.forEach(file => {
-                    const fileName = file.querySelector('.file-name').textContent.toLowerCase();
-                    if (fileName.includes(searchTerm)) {
-                        hasMatch = true;
-                        file.style.display = 'flex';
-                    } else if (searchTerm) {
-                        file.style.display = 'none';
-                    } else {
-                        file.style.display = 'flex';
-                    }
-                });
-                
-                pkg.style.display = hasMatch || !searchTerm ? 'block' : 'none';
-                
-                // Auto-expand packages with matching files
-                if (hasMatch && searchTerm) {
-                    const filesContainer = pkg.querySelector('.package-files');
-                    if (filesContainer && filesContainer.style.display === 'none') {
-                        togglePackage(pkg.dataset.package);
-                    }
-                }
-            });
-        });
-
-        // Copy badge URL
-        function copyBadgeURL(url) {
-            navigator.clipboard.writeText(url).then(() => {
-                const btn = event.target.closest('button');
-                const originalText = btn.querySelector('.btn-text').textContent;
-                btn.querySelector('.btn-text').textContent = 'Copied!';
-                setTimeout(() => {
-                    btn.querySelector('.btn-text').textContent = originalText;
-                }, 2000);
-            });
-        }
-    </script>
-    
-    <!-- Dynamic timestamp management -->
-    <script src="./assets/js/coverage-time.js"></script>
 </body>
 </html>`
+}

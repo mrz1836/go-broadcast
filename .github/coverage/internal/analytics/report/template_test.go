@@ -17,32 +17,33 @@ type TemplateTestSuite struct {
 	suite.Suite
 }
 
-// TestReportTemplateConstant tests that the template constant is not empty
+// TestReportTemplateConstant tests that the template function returns valid content
 func (suite *TemplateTestSuite) TestReportTemplateConstant() {
-	suite.NotEmpty(reportTemplate, "Report template should not be empty")
-	suite.Greater(len(reportTemplate), 1000, "Report template should be substantial")
+	template := getReportTemplate()
+	suite.NotEmpty(template, "Report template should not be empty")
+	suite.Greater(len(template), 1000, "Report template should be substantial")
 }
 
 // TestReportTemplateValidHTML tests that the template contains valid HTML structure
 func (suite *TemplateTestSuite) TestReportTemplateValidHTML() {
 	// Basic HTML structure checks
-	suite.Contains(reportTemplate, "<!DOCTYPE html>")
-	suite.Contains(reportTemplate, "<html")
-	suite.Contains(reportTemplate, "</html>")
-	suite.Contains(reportTemplate, "<head>")
-	suite.Contains(reportTemplate, "</head>")
-	suite.Contains(reportTemplate, "<body>")
-	suite.Contains(reportTemplate, "</body>")
+	suite.Contains(getReportTemplate(), "<!DOCTYPE html>")
+	suite.Contains(getReportTemplate(), "<html")
+	suite.Contains(getReportTemplate(), "</html>")
+	suite.Contains(getReportTemplate(), "<head>")
+	suite.Contains(getReportTemplate(), "</head>")
+	suite.Contains(getReportTemplate(), "<body>")
+	suite.Contains(getReportTemplate(), "</body>")
 
 	// Meta tags
-	suite.Contains(reportTemplate, `<meta charset="UTF-8">`)
-	suite.Contains(reportTemplate, `name="viewport"`)
-	suite.Contains(reportTemplate, `name="description"`)
+	suite.Contains(getReportTemplate(), `<meta charset="UTF-8">`)
+	suite.Contains(getReportTemplate(), `name="viewport"`)
+	suite.Contains(getReportTemplate(), `name="description"`)
 
 	// CSS and JavaScript
-	suite.Contains(reportTemplate, `<link rel="stylesheet"`)
-	suite.Contains(reportTemplate, `<script>`)
-	suite.Contains(reportTemplate, `</script>`)
+	suite.Contains(getReportTemplate(), `<link rel="stylesheet"`)
+	suite.Contains(getReportTemplate(), `<script>`)
+	suite.Contains(getReportTemplate(), `</script>`)
 }
 
 // TestReportTemplateGoTemplateVariables tests that template contains expected Go template variables
@@ -63,7 +64,7 @@ func (suite *TemplateTestSuite) TestReportTemplateGoTemplateVariables() {
 	}
 
 	for _, variable := range expectedVariables {
-		suite.Contains(reportTemplate, variable,
+		suite.Contains(getReportTemplate(), variable,
 			"Template should contain variable %s", variable)
 	}
 }
@@ -84,13 +85,13 @@ func (suite *TemplateTestSuite) TestReportTemplateConditionals() {
 	}
 
 	for _, conditional := range expectedConditionals {
-		suite.Contains(reportTemplate, conditional,
+		suite.Contains(getReportTemplate(), conditional,
 			"Template should contain conditional %s", conditional)
 	}
 
 	// Check for corresponding endif blocks (count both {{- end}} and {{end -}} formats)
-	endifCount := strings.Count(reportTemplate, "{{- end}}") + strings.Count(reportTemplate, "{{end -}}")
-	ifCount := strings.Count(reportTemplate, "{{- if")
+	endifCount := strings.Count(getReportTemplate(), "{{- end}}") + strings.Count(getReportTemplate(), "{{end -}}")
+	ifCount := strings.Count(getReportTemplate(), "{{- if")
 
 	// Should have at least as many ends as ifs (some might be range ends)
 	suite.GreaterOrEqual(endifCount, ifCount,
@@ -105,12 +106,12 @@ func (suite *TemplateTestSuite) TestReportTemplateRangeBlocks() {
 	}
 
 	for _, rangeBlock := range expectedRanges {
-		suite.Contains(reportTemplate, rangeBlock,
+		suite.Contains(getReportTemplate(), rangeBlock,
 			"Template should contain range block %s", rangeBlock)
 	}
 
 	// Count range blocks and their corresponding ends
-	rangeCount := strings.Count(reportTemplate, "{{- range")
+	rangeCount := strings.Count(getReportTemplate(), "{{- range")
 
 	// All ranges should have corresponding ends
 	suite.Positive(rangeCount, "Template should have range blocks")
@@ -128,7 +129,7 @@ func (suite *TemplateTestSuite) TestReportTemplateFunctionCalls() {
 
 	for _, function := range expectedFunctions {
 		// Functions can be called in various ways, so check for the function name
-		suite.Contains(reportTemplate, function,
+		suite.Contains(getReportTemplate(), function,
 			"Template should use function %s", function)
 	}
 }
@@ -144,7 +145,7 @@ func (suite *TemplateTestSuite) TestReportTemplateAssetReferences() {
 	}
 
 	for _, assetRef := range expectedAssetReferences {
-		suite.Contains(reportTemplate, assetRef,
+		suite.Contains(getReportTemplate(), assetRef,
 			"Template should reference asset %s", assetRef)
 	}
 }
@@ -168,7 +169,7 @@ func (suite *TemplateTestSuite) TestReportTemplateCSSClasses() {
 	}
 
 	for _, class := range expectedClasses {
-		suite.Contains(reportTemplate, class,
+		suite.Contains(getReportTemplate(), class,
 			"Template should use CSS class %s", class)
 	}
 }
@@ -182,13 +183,13 @@ func (suite *TemplateTestSuite) TestReportTemplateJavaScriptFunctions() {
 	}
 
 	for _, jsFunction := range expectedJSFunctions {
-		suite.Contains(reportTemplate, jsFunction,
+		suite.Contains(getReportTemplate(), jsFunction,
 			"Template should define JavaScript function %s", jsFunction)
 	}
 
 	// Check for event listeners
-	suite.Contains(reportTemplate, "addEventListener")
-	suite.Contains(reportTemplate, "onclick")
+	suite.Contains(getReportTemplate(), "addEventListener")
+	suite.Contains(getReportTemplate(), "onclick")
 }
 
 // TestReportTemplateAccessibility tests accessibility features
@@ -202,7 +203,7 @@ func (suite *TemplateTestSuite) TestReportTemplateAccessibility() {
 
 	foundAccessibilityFeatures := 0
 	for _, feature := range accessibilityFeatures {
-		if strings.Contains(reportTemplate, feature) {
+		if strings.Contains(getReportTemplate(), feature) {
 			foundAccessibilityFeatures++
 		}
 	}
@@ -211,10 +212,10 @@ func (suite *TemplateTestSuite) TestReportTemplateAccessibility() {
 		"Template should include accessibility features")
 
 	// Language attribute
-	suite.Contains(reportTemplate, `lang="en"`)
+	suite.Contains(getReportTemplate(), `lang="en"`)
 
 	// Viewport meta tag for responsive design
-	suite.Contains(reportTemplate, `name="viewport"`)
+	suite.Contains(getReportTemplate(), `name="viewport"`)
 }
 
 // TestReportTemplateSEOFeatures tests SEO-related features
@@ -228,7 +229,7 @@ func (suite *TemplateTestSuite) TestReportTemplateSEOFeatures() {
 	}
 
 	for _, feature := range seoFeatures {
-		suite.Contains(reportTemplate, feature,
+		suite.Contains(getReportTemplate(), feature,
 			"Template should include SEO feature %s", feature)
 	}
 }
@@ -264,7 +265,7 @@ func (suite *TemplateTestSuite) TestReportTemplateParsingSuccess() {
 	}
 
 	// Parse template
-	tmpl, err := template.New("test").Funcs(funcMap).Parse(reportTemplate)
+	tmpl, err := template.New("test").Funcs(funcMap).Parse(getReportTemplate())
 	suite.Require().NoError(err, "Template should parse without errors")
 	suite.NotNil(tmpl)
 }
@@ -307,7 +308,7 @@ func (suite *TemplateTestSuite) TestReportTemplateExecutionWithSampleData() {
 	}
 
 	// Parse template
-	tmpl, err := template.New("test").Funcs(funcMap).Parse(reportTemplate)
+	tmpl, err := template.New("test").Funcs(funcMap).Parse(getReportTemplate())
 	suite.Require().NoError(err)
 
 	// Create sample data
@@ -382,7 +383,7 @@ func (suite *TemplateTestSuite) TestReportTemplateResponsiveDesign() {
 	}
 
 	for _, feature := range responsiveFeatures {
-		suite.Contains(reportTemplate, feature,
+		suite.Contains(getReportTemplate(), feature,
 			"Template should include responsive design feature %s", feature)
 	}
 }
@@ -397,7 +398,7 @@ func (suite *TemplateTestSuite) TestReportTemplateThemeSupport() {
 	}
 
 	for _, feature := range themeFeatures {
-		suite.Contains(reportTemplate, feature,
+		suite.Contains(getReportTemplate(), feature,
 			"Template should support theme feature %s", feature)
 	}
 }
@@ -405,19 +406,19 @@ func (suite *TemplateTestSuite) TestReportTemplateThemeSupport() {
 // TestReportTemplateExternalResources tests external resource loading
 func (suite *TemplateTestSuite) TestReportTemplateExternalResources() {
 	// Font loading
-	suite.Contains(reportTemplate, "fonts.googleapis.com")
-	suite.Contains(reportTemplate, "preconnect")
-	suite.Contains(reportTemplate, "preload")
+	suite.Contains(getReportTemplate(), "fonts.googleapis.com")
+	suite.Contains(getReportTemplate(), "preconnect")
+	suite.Contains(getReportTemplate(), "preload")
 
 	// Google Analytics (conditional)
-	suite.Contains(reportTemplate, "googletagmanager.com")
-	suite.Contains(reportTemplate, "gtag")
+	suite.Contains(getReportTemplate(), "googletagmanager.com")
+	suite.Contains(getReportTemplate(), "gtag")
 }
 
 // TestReportTemplateSecurityFeatures tests security-related features
 func (suite *TemplateTestSuite) TestReportTemplateSecurityFeatures() {
 	// Cross-origin attributes
-	suite.Contains(reportTemplate, "crossorigin")
+	suite.Contains(getReportTemplate(), "crossorigin")
 
 	// External links should be secure
 	externalLinks := []string{
@@ -426,7 +427,7 @@ func (suite *TemplateTestSuite) TestReportTemplateSecurityFeatures() {
 	}
 
 	for _, link := range externalLinks {
-		if strings.Contains(reportTemplate, link) {
+		if strings.Contains(getReportTemplate(), link) {
 			// Ensure it's HTTPS
 			suite.True(strings.HasPrefix(link, "https://"),
 				"External link should use HTTPS: %s", link)
@@ -445,7 +446,7 @@ func (suite *TemplateTestSuite) TestReportTemplateStructure() {
 	}
 
 	for _, section := range sections {
-		suite.Contains(reportTemplate, section,
+		suite.Contains(getReportTemplate(), section,
 			"Template should contain section %s", section)
 	}
 
@@ -454,8 +455,8 @@ func (suite *TemplateTestSuite) TestReportTemplateStructure() {
 	closeTags := []string{"</html>", "</head>", "</body>", "</nav>", "</header>", "</main>", "</footer>"}
 
 	for i, openTag := range openTags {
-		openCount := strings.Count(reportTemplate, openTag)
-		closeCount := strings.Count(reportTemplate, closeTags[i])
+		openCount := strings.Count(getReportTemplate(), openTag)
+		closeCount := strings.Count(getReportTemplate(), closeTags[i])
 
 		suite.Equal(openCount, closeCount,
 			"Template should have balanced %s and %s tags", openTag, closeTags[i])
@@ -465,8 +466,8 @@ func (suite *TemplateTestSuite) TestReportTemplateStructure() {
 // TestReportTemplateComments tests template comments and documentation
 func (suite *TemplateTestSuite) TestReportTemplateComments() {
 	// Should have HTML comments for documentation
-	suite.Contains(reportTemplate, "<!--")
-	suite.Contains(reportTemplate, "-->")
+	suite.Contains(getReportTemplate(), "<!--")
+	suite.Contains(getReportTemplate(), "-->")
 
 	// Should have template comments for sections
 	templateCommentTypes := []string{
@@ -476,7 +477,7 @@ func (suite *TemplateTestSuite) TestReportTemplateComments() {
 	}
 
 	for _, commentType := range templateCommentTypes {
-		suite.Contains(reportTemplate, commentType)
+		suite.Contains(getReportTemplate(), commentType)
 	}
 }
 
@@ -490,26 +491,26 @@ func TestTemplateTestSuite(t *testing.T) {
 // TestReportTemplateLength tests template length constraints
 func TestReportTemplateLength(t *testing.T) {
 	// Should be substantial but not excessive
-	assert.Greater(t, len(reportTemplate), 5000, "Template should be substantial")
-	assert.Less(t, len(reportTemplate), 100000, "Template should not be excessively large")
+	assert.Greater(t, len(getReportTemplate()), 5000, "Template should be substantial")
+	assert.Less(t, len(getReportTemplate()), 100000, "Template should not be excessively large")
 }
 
 // TestReportTemplateEncoding tests character encoding
 func TestReportTemplateEncoding(t *testing.T) {
 	// Should contain charset declaration
-	assert.Contains(t, reportTemplate, `charset="UTF-8"`)
+	assert.Contains(t, getReportTemplate(), `charset="UTF-8"`)
 
 	// Should not contain invalid characters that could cause parsing issues
 	invalidChars := []string{"\x00", "\x01", "\x02", "\x03", "\x04", "\x05", "\x06", "\x07", "\x08"}
 	for _, char := range invalidChars {
-		assert.NotContains(t, reportTemplate, char, "Template should not contain invalid character")
+		assert.NotContains(t, getReportTemplate(), char, "Template should not contain invalid character")
 	}
 }
 
 // TestReportTemplateMinification tests that template is reasonably compact
 func TestReportTemplateMinification(t *testing.T) {
 	// Count excessive whitespace
-	lines := strings.Split(reportTemplate, "\n")
+	lines := strings.Split(getReportTemplate(), "\n")
 	emptyLines := 0
 
 	for _, line := range lines {

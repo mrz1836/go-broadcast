@@ -1,9 +1,14 @@
 package dashboard
 
+import (
+	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
+)
+
 // dashboardTemplate is the embedded dashboard HTML template (this is the "DASHBOARD, this is NOT a coverage report" template).
 //
 //nolint:misspell // GitHub Actions API uses British spelling for "cancelled"
-const dashboardTemplate = `<!DOCTYPE html>
+func getDashboardTemplate() string {
+	return `<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
@@ -20,7 +25,7 @@ const dashboardTemplate = `<!DOCTYPE html>
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
+
     <!-- Coverage styles -->
     <link rel="stylesheet" href="./assets/css/coverage.css">
 
@@ -61,7 +66,7 @@ const dashboardTemplate = `<!DOCTYPE html>
                         <span class="status-text">Coverage Active</span>
                     </div>
                     <div class="last-sync">
-                        <span>🕐 {{.Timestamp}}</span>
+                        <span>🕐 <span class="dynamic-timestamp" data-timestamp="{{.Timestamp.Format "2006-01-02T15:04:05Z07:00"}}">{{.Timestamp.Format "2006-01-02 15:04:05 UTC"}}</span></span>
                     </div>
                 </div>
             </div>
@@ -304,63 +309,9 @@ const dashboardTemplate = `<!DOCTYPE html>
             {{- end}}
         </main>
 
-        <footer class="footer">
-            <div class="footer-content dashboard">
-                <div class="footer-info">
-                    {{- if .LatestTag}}
-                    <div class="footer-version">
-                        <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}/releases/tag/{{.LatestTag}}" target="_blank" class="version-link">
-                            <span class="version-icon">🏷️</span>
-                            <span class="version-text">{{.LatestTag}}</span>
-                        </a>
-                    </div>
-                    <span class="footer-separator">•</span>
-                    {{- end}}
-                    <div class="footer-powered">
-                        <span class="powered-text">Powered by</span>
-                        <a href="https://github.com/{{.RepositoryOwner}}/{{.RepositoryName}}" target="_blank" class="gofortress-link">
-                            <span class="fortress-icon">🏰</span>
-                            <span class="fortress-text">GoFortress Coverage</span>
-                        </a>
-                    </div>
-                    <span class="footer-separator">•</span>
-                    <div class="footer-timestamp">
-                        <span class="timestamp-icon">🕐</span>
-                        <span class="timestamp-text">{{.Timestamp}}</span>
-                    </div>
-                </div>
-            </div>
-        </footer>
+` + templates.GetSharedFooter(" dashboard", "Timestamp") + `
     </div>
-
-    <script>
-        // Theme toggle
-        function toggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-        }
-
-        // Initialize theme
-        const savedTheme = localStorage.getItem('theme');
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-theme', theme);
-
-        // History data
-        const historyData = {{.HistoryJSON}};
-
-        // Initialize charts if history data exists
-        if (historyData && historyData.length > 0) {
-            // Future: Add chart rendering here
-        }
-
-        // Note: Build status refresh functionality has been removed
-        // Static deployments on GitHub Pages cannot provide live updates
-        // The build status shown is a snapshot from when the report was generated
-    </script>
 
 </body>
 </html>`
+}

@@ -50,7 +50,7 @@ func (r *Renderer) RenderReport(_ context.Context, data interface{}) ([]byte, er
 	}
 
 	// Parse template with functions
-	tmpl, err := template.New("report").Funcs(funcMap).Parse(reportTemplate)
+	tmpl, err := template.New("report").Funcs(funcMap).Parse(getReportTemplate())
 	if err != nil {
 		return nil, fmt.Errorf("parsing template: %w", err)
 	}
