@@ -83,3 +83,53 @@ function copyBadgeURL(event, url) {
     }, 2000);
   });
 }
+
+// GitHub API function to fetch latest release
+async function fetchLatestGitHubTag() {
+  try {
+    // Extract owner and repo from the page
+    const repoLinks = document.querySelectorAll('a[href*="github.com"]');
+    if (repoLinks.length === 0) return null;
+    
+    const repoUrl = repoLinks[0].href;
+    const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+    if (!match) return null;
+    
+    const [, owner, repo] = match;
+    
+    // Fetch latest release from GitHub API
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`);
+    if (!response.ok) return null;
+    
+    const release = await response.json();
+    return {
+      tag: release.tag_name,
+      url: release.html_url
+    };
+  } catch (error) {
+    console.warn('Failed to fetch latest GitHub tag:', error);
+    return null;
+  }
+}
+
+// Update version display in footer
+function updateVersionDisplay(tagInfo) {
+  if (!tagInfo) return;
+  
+  const versionLink = document.querySelector('.version-link');
+  const versionText = document.querySelector('.version-text');
+  
+  if (versionLink && versionText) {
+    versionLink.href = tagInfo.url;
+    versionText.textContent = tagInfo.tag;
+  }
+}
+
+// Initialize dynamic version update on page load
+document.addEventListener('DOMContentLoaded', async () => {
+  // Only update if there's a version element present
+  if (document.querySelector('.version-text')) {
+    const latestTag = await fetchLatestGitHubTag();
+    updateVersionDisplay(latestTag);
+  }
+});
