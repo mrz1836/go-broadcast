@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/logging"
@@ -412,6 +414,11 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 	default:
 	}
 
+	// Validate that we have at least one file or directory mapping
+	if len(t.Files) == 0 && len(t.Directories) == 0 {
+		return fmt.Errorf("at least one file or directory mapping is required")
+	}
+
 	// Convert file mappings to validation format
 	fileMappings := make([]validation.FileMapping, 0, len(t.Files))
 	for _, file := range t.Files {
@@ -421,19 +428,26 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 		})
 	}
 
-	// Use centralized validation for target configuration
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithField("repo_format", t.Repo).Trace("Validating target repository configuration")
-	}
-
-	if err := validation.ValidateTargetConfig(t.Repo, fileMappings); err != nil {
+	// Use centralized validation for target configuration only if we have files
+	if len(fileMappings) > 0 {
 		if logConfig != nil && logConfig.Debug.Config {
-			logger.WithFields(logrus.Fields{
-				"repo":       t.Repo,
-				"file_count": len(t.Files),
-			}).Error("Target repository validation failed")
+			logger.WithField("repo_format", t.Repo).Trace("Validating target repository configuration")
 		}
-		return err
+
+		if err := validation.ValidateTargetConfig(t.Repo, fileMappings); err != nil {
+			if logConfig != nil && logConfig.Debug.Config {
+				logger.WithFields(logrus.Fields{
+					"repo":       t.Repo,
+					"file_count": len(t.Files),
+				}).Error("Target repository validation failed")
+			}
+			return err
+		}
+	} else {
+		// Validate repo name when we only have directories
+		if err := validation.ValidateRepoName(t.Repo); err != nil {
+			return err
+		}
 	}
 
 	if logConfig != nil && logConfig.Debug.Config {
@@ -480,8 +494,68 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 		}
 	}
 
+	// Validate directories if present
+	if len(t.Directories) > 0 {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithField("directory_count", len(t.Directories)).Debug("Validating directory mappings")
+		}
+
+		if err := t.validateDirectories(ctx, logger); err != nil {
+			return fmt.Errorf("invalid directory configuration: %w", err)
+		}
+	}
+
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.Debug("Target configuration validation completed successfully")
+	}
+
+	return nil
+}
+
+// validateDirectories validates directory mappings
+func (t *TargetConfig) validateDirectories(ctx context.Context, logger *logrus.Entry) error {
+	// Check for empty directories
+	for i, dir := range t.Directories {
+		if dir.Src == "" {
+			return fmt.Errorf("directory[%d]: source path cannot be empty", i)
+		}
+		if dir.Dest == "" {
+			return fmt.Errorf("directory[%d]: destination path cannot be empty", i)
+		}
+
+		// Validate paths don't contain path traversal
+		if strings.Contains(dir.Src, "..") || strings.Contains(dir.Dest, "..") {
+			return fmt.Errorf("directory[%d]: path traversal not allowed", i)
+		}
+
+		// Validate exclusion patterns
+		for _, pattern := range dir.Exclude {
+			if _, err := filepath.Match(pattern, "test"); err != nil {
+				return fmt.Errorf("directory[%d]: invalid exclusion pattern %q: %w", i, pattern, err)
+			}
+		}
+	}
+
+	// Check for conflicts between files and directories
+	return t.validateFileDirectoryConflicts()
+}
+
+// validateFileDirectoryConflicts ensures no conflicts between file and directory mappings
+func (t *TargetConfig) validateFileDirectoryConflicts() error {
+	// Build map of all destination paths
+	destPaths := make(map[string]string)
+
+	// Add file destinations
+	for _, file := range t.Files {
+		destPaths[file.Dest] = "file"
+	}
+
+	// Check directory destinations don't conflict
+	for _, dir := range t.Directories {
+		if existing, exists := destPaths[dir.Dest]; exists {
+			return fmt.Errorf("destination path %q used by both %s and directory", dir.Dest, existing)
+		}
+		destPaths[dir.Dest] = "directory"
 	}
 
 	return nil

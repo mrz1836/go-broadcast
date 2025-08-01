@@ -69,4 +69,11 @@ func applyDefaults(config *Config) {
 	if len(config.Defaults.PRLabels) == 0 {
 		config.Defaults.PRLabels = []string{"automated-sync"}
 	}
+
+	// Apply directory defaults
+	for i := range config.Targets {
+		for j := range config.Targets[i].Directories {
+			ApplyDirectoryDefaults(&config.Targets[i].Directories[j])
+		}
+	}
 }

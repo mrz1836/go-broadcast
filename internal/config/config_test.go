@@ -230,7 +230,7 @@ func TestValidate_NoFileMappings(t *testing.T) {
 
 	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "at least one file mapping is required")
+	assert.Contains(t, err.Error(), "at least one file or directory mapping is required")
 }
 
 func TestValidate_InvalidFilePaths(t *testing.T) {
@@ -491,6 +491,120 @@ func TestLoadFromReader_InvalidInput(t *testing.T) {
 			require.Error(t, err)
 			assert.Nil(t, config)
 			assert.Contains(t, err.Error(), "failed to parse YAML")
+		})
+	}
+}
+
+func TestLoadFromReader_DirectoryConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr bool
+		check   func(t *testing.T, cfg *Config)
+	}{
+		{
+			name: "valid directory config with defaults",
+			yaml: `
+version: 1
+source:
+  repo: "org/template"
+targets:
+  - repo: "org/service"
+    directories:
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+`,
+			check: func(t *testing.T, cfg *Config) {
+				require.Len(t, cfg.Targets[0].Directories, 1)
+				dir := cfg.Targets[0].Directories[0]
+				assert.Equal(t, ".github/workflows", dir.Src)
+				assert.Equal(t, ".github/workflows", dir.Dest)
+				assert.Equal(t, DefaultExclusions(), dir.Exclude)
+				require.NotNil(t, dir.PreserveStructure)
+				assert.True(t, *dir.PreserveStructure)
+				require.NotNil(t, dir.IncludeHidden)
+				assert.True(t, *dir.IncludeHidden)
+			},
+		},
+		{
+			name: "directory with custom exclusions",
+			yaml: `
+version: 1
+source:
+  repo: "org/template"
+targets:
+  - repo: "org/service"
+    directories:
+      - src: "configs"
+        dest: "configs"
+        exclude: ["*.local", "*.secret"]
+        preserve_structure: false
+        include_hidden: false
+`,
+			check: func(t *testing.T, cfg *Config) {
+				dir := cfg.Targets[0].Directories[0]
+				assert.Equal(t, []string{"*.local", "*.secret"}, dir.Exclude)
+				require.NotNil(t, dir.PreserveStructure)
+				assert.False(t, *dir.PreserveStructure)
+				require.NotNil(t, dir.IncludeHidden)
+				assert.False(t, *dir.IncludeHidden)
+			},
+		},
+		{
+			name: "directory with transform",
+			yaml: `
+version: 1
+source:
+  repo: "org/template"
+targets:
+  - repo: "org/service"
+    directories:
+      - src: "templates"
+        dest: "templates"
+        transform:
+          repo_name: true
+          variables:
+            ENV: "prod"
+`,
+			check: func(t *testing.T, cfg *Config) {
+				dir := cfg.Targets[0].Directories[0]
+				assert.True(t, dir.Transform.RepoName)
+				assert.Equal(t, "prod", dir.Transform.Variables["ENV"])
+			},
+		},
+		{
+			name: "mixed files and directories",
+			yaml: `
+version: 1
+source:
+  repo: "org/template"
+targets:
+  - repo: "org/service"
+    files:
+      - src: "Makefile"
+        dest: "Makefile"
+    directories:
+      - src: ".github"
+        dest: ".github"
+`,
+			check: func(t *testing.T, cfg *Config) {
+				assert.Len(t, cfg.Targets[0].Files, 1)
+				assert.Len(t, cfg.Targets[0].Directories, 1)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := LoadFromReader(strings.NewReader(tt.yaml))
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if tt.check != nil {
+				tt.check(t, cfg)
+			}
 		})
 	}
 }
