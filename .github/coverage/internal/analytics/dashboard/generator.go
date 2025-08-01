@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/coverage/internal/analytics/assets"
 	globalconfig "github.com/mrz1836/go-broadcast/coverage/internal/config"
 	"github.com/mrz1836/go-broadcast/coverage/internal/github"
-	"github.com/mrz1836/go-broadcast/coverage/internal/templates"
 )
 
 // Generator handles dashboard generation
@@ -332,7 +332,7 @@ func (g *Generator) prepareBranchData(ctx context.Context, data *CoverageData) [
 	}
 
 	// For now, return current branch info
-	// In future, this could load from metadata
+	// In the future, this could load from metadata
 	branches := []map[string]interface{}{
 		{
 			"Name":         data.Branch,
@@ -465,34 +465,8 @@ func (g *Generator) generateDataJSON(_ context.Context, data *CoverageData) erro
 
 // copyAssets copies static assets to output directory
 func (g *Generator) copyAssets(_ context.Context) error {
-	tm, err := templates.NewTemplateManager()
-	if err != nil {
-		return fmt.Errorf("creating template manager: %w", err)
-	}
-
-	// Copy favicon.ico from embedded templates
-	faviconData, err := tm.GetEmbeddedFile("favicon.ico")
-	if err != nil {
-		// Favicon is optional, so we don't fail if it's missing
-		return nil //nolint:nilerr // Favicon is optional, we ignore the error intentionally
-	}
-	faviconPath := filepath.Join(g.config.OutputDir, "favicon.ico")
-	if writeErr := os.WriteFile(faviconPath, faviconData, 0o600); writeErr != nil {
-		return fmt.Errorf("writing favicon.ico: %w", writeErr)
-	}
-
-	// Copy favicon.svg from embedded templates
-	faviconSVGData, err := tm.GetEmbeddedFile("favicon.svg")
-	if err != nil {
-		// Favicon SVG is optional, continue if missing
-		return nil //nolint:nilerr // Favicon SVG is optional, we ignore the error intentionally
-	}
-	faviconSVGPath := filepath.Join(g.config.OutputDir, "favicon.svg")
-	if writeErr := os.WriteFile(faviconSVGPath, faviconSVGData, 0o600); writeErr != nil {
-		return fmt.Errorf("writing favicon.svg: %w", writeErr)
-	}
-
-	return nil
+	// Use the embedded assets from the analytics package
+	return assets.CopyAssetsTo(g.config.OutputDir)
 }
 
 // Renderer handles template rendering
@@ -518,7 +492,7 @@ func (r *Renderer) RenderDashboard(_ context.Context, data map[string]interface{
 	}
 
 	// For now, use embedded template
-	// In future, load from file
+	// In the future, load from file
 	tmpl := template.Must(template.New("dashboard").Funcs(funcMap).Parse(dashboardTemplate))
 
 	var buf bytes.Buffer
