@@ -371,7 +371,6 @@ targets:
 version: 1
 source:
   repo: "org/template"
-  branch: "main"
 defaults:
   branch_prefix: "custom/prefix"
   pr_labels: ["custom-label", "another"]
@@ -385,7 +384,6 @@ targets:
 				Version: 1,
 				Source: SourceConfig{
 					Repo:   "org/template",
-					Branch: "main",
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "custom/prefix",

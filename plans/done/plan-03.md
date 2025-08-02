@@ -300,7 +300,7 @@ func FuzzRepoNameValidation(f *testing.F) {
 
 func FuzzBranchNameValidation(f *testing.F) {
     seeds := []string{
-        "main",
+        "master",
         "feature/test",
         "feature/test; rm -rf /",
         "feat`whoami`",
@@ -398,7 +398,7 @@ func FuzzGitURLSafety(f *testing.F) {
             },
         }
         
-        _ = client.Clone(context.Background(), url, "/tmp/test", "main", nil)
+        _ = client.Clone(context.Background(), url, "/tmp/test", "master", nil)
     })
 }
 

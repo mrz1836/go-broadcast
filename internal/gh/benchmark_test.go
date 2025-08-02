@@ -17,7 +17,7 @@ func BenchmarkGHCommand_Simple(b *testing.B) {
 
 	// Mock simple branch retrieval
 	branch := &Branch{
-		Name:      "main",
+		Name:      "master",
 		Protected: true,
 		Commit: struct {
 			SHA string `json:"sha"`
@@ -30,7 +30,7 @@ func BenchmarkGHCommand_Simple(b *testing.B) {
 	mockClient.On("GetBranch", mock.Anything, mock.Anything, mock.Anything).Return(branch, nil)
 
 	benchmark.WithMemoryTracking(b, func() {
-		_, _ = mockClient.GetBranch(ctx, "user/repo", "main")
+		_, _ = mockClient.GetBranch(ctx, "user/repo", "master")
 	})
 }
 
@@ -104,7 +104,7 @@ func BenchmarkDecodeBase64_Sizes(b *testing.B) {
 			mockClient.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fileContent, nil)
 
 			benchmark.WithMemoryTracking(b, func() {
-				_, _ = mockClient.GetFile(ctx, "user/repo", "test/file.txt", "main")
+				_, _ = mockClient.GetFile(ctx, "user/repo", "test/file.txt", "master")
 			})
 		})
 	}
@@ -120,7 +120,7 @@ func BenchmarkPROperations_Scenarios(b *testing.B) {
 				Title: "Add new feature",
 				Body:  "This PR adds a new feature with comprehensive tests",
 				Head:  "feature-branch",
-				Base:  "main",
+				Base:  "master",
 			}
 			_, err := client.CreatePR(ctx, "user/repo", req)
 			return err
@@ -159,14 +159,14 @@ func BenchmarkConcurrentAPICalls(b *testing.B) {
 	for _, level := range concurrencyLevels {
 		b.Run(fmt.Sprintf("Concurrent_%d", level), func(b *testing.B) {
 			mockClient := &MockClient{}
-			branch := generateTestBranch("main")
+			branch := generateTestBranch("master")
 			mockClient.On("GetBranch", mock.Anything, mock.Anything, mock.Anything).Return(branch, nil)
 
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
 				ctx := context.Background()
 				for pb.Next() {
-					_, _ = mockClient.GetBranch(ctx, "user/repo", "main")
+					_, _ = mockClient.GetBranch(ctx, "user/repo", "master")
 				}
 			})
 		})
@@ -199,7 +199,7 @@ func BenchmarkFileOperations_Sizes(b *testing.B) {
 			mockClient.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fileContent, nil)
 
 			benchmark.WithMemoryTracking(b, func() {
-				_, _ = mockClient.GetFile(ctx, "user/repo", "test/large-file.txt", "main")
+				_, _ = mockClient.GetFile(ctx, "user/repo", "test/large-file.txt", "master")
 			})
 		})
 	}
@@ -241,7 +241,7 @@ func BenchmarkJSONSerialization_ComplexStructures(b *testing.B) {
 		name string
 		data interface{}
 	}{
-		{"Branch", generateTestBranch("main")},
+		{"Branch", generateTestBranch("master")},
 		{"PR_Simple", generateTestPR(1, false)},
 		{"PR_Complex", generateTestPR(1, true)},
 		{"Commit", generateTestCommit("abc123")},
@@ -365,7 +365,7 @@ func generateTestPR(number int, withLabels bool) *PR {
 			Ref string `json:"ref"`
 			SHA string `json:"sha"`
 		}{
-			Ref: "main",
+			Ref: "master",
 			SHA: "base-sha-main",
 		},
 		User: struct {

@@ -375,7 +375,6 @@ func FuzzBranchNameValidation(f *testing.F) {
 			Version: 1,
 			Source: SourceConfig{
 				Repo:   "org/repo",
-				Branch: "main",
 			},
 			Defaults: DefaultConfig{
 				BranchPrefix: branch,

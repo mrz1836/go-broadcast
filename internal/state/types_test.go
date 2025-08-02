@@ -32,7 +32,7 @@ func TestState_Structure(t *testing.T) {
 	state := State{
 		Source: SourceState{
 			Repo:         "org/template-repo",
-			Branch:       "main",
+			Branch:       "master",
 			LatestCommit: "abc123",
 			LastChecked:  now,
 		},
@@ -73,7 +73,7 @@ func TestState_Structure(t *testing.T) {
 
 	// Verify source state
 	require.Equal(t, "org/template-repo", state.Source.Repo)
-	require.Equal(t, "main", state.Source.Branch)
+	require.Equal(t, "master", state.Source.Branch)
 	require.Equal(t, "abc123", state.Source.LatestCommit)
 	require.Equal(t, now, state.Source.LastChecked)
 

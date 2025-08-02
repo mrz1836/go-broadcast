@@ -106,7 +106,7 @@ func TestExclusionEnginePatterns(t *testing.T) {
 	retrievedPatterns := engine.GetPatterns()
 
 	// Should include default patterns plus user patterns
-	assert.True(t, len(retrievedPatterns) > len(patterns), "Should include default patterns")
+	assert.Greater(t, len(retrievedPatterns), len(patterns), "Should include default patterns")
 
 	// Check that user patterns are included
 	foundLog := false

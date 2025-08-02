@@ -10,7 +10,7 @@ import (
 
 func TestBranch_JSONMarshaling(t *testing.T) {
 	branch := Branch{
-		Name:      "main",
+		Name:      "master",
 		Protected: true,
 		Commit: struct {
 			SHA string `json:"sha"`
@@ -24,7 +24,7 @@ func TestBranch_JSONMarshaling(t *testing.T) {
 	// Test marshaling
 	data, err := json.Marshal(branch)
 	require.NoError(t, err)
-	require.Contains(t, string(data), `"name":"main"`)
+	require.Contains(t, string(data), `"name":"master"`)
 	require.Contains(t, string(data), `"protected":true`)
 	require.Contains(t, string(data), `"sha":"abc123"`)
 
@@ -58,7 +58,7 @@ func TestPR_JSONMarshaling(t *testing.T) {
 			Ref string `json:"ref"`
 			SHA string `json:"sha"`
 		}{
-			Ref: "main",
+			Ref: "master",
 			SHA: "abc123",
 		},
 		User: struct {
@@ -128,7 +128,7 @@ func TestPRRequest_JSONMarshaling(t *testing.T) {
 		Title:         "New Feature",
 		Body:          "This PR adds a new feature",
 		Head:          "feature-branch",
-		Base:          "main",
+		Base:          "master",
 		Labels:        []string{"enhancement", "bug-fix"},
 		Assignees:     []string{"user1", "user2"},
 		Reviewers:     []string{"reviewer1"},
@@ -141,7 +141,7 @@ func TestPRRequest_JSONMarshaling(t *testing.T) {
 	require.Contains(t, string(data), `"title":"New Feature"`)
 	require.Contains(t, string(data), `"body":"This PR adds a new feature"`)
 	require.Contains(t, string(data), `"head":"feature-branch"`)
-	require.Contains(t, string(data), `"base":"main"`)
+	require.Contains(t, string(data), `"base":"master"`)
 	require.Contains(t, string(data), `"labels":["enhancement","bug-fix"]`)
 	require.Contains(t, string(data), `"assignees":["user1","user2"]`)
 
@@ -166,7 +166,7 @@ func TestPRRequest_LabelsHandling(t *testing.T) {
 			Title: "Test PR",
 			Body:  "Test body",
 			Head:  "test-branch",
-			Base:  "main",
+			Base:  "master",
 			// Labels is nil/empty
 		}
 
@@ -182,7 +182,7 @@ func TestPRRequest_LabelsHandling(t *testing.T) {
 			Title:  "Test PR",
 			Body:   "Test body",
 			Head:   "test-branch",
-			Base:   "main",
+			Base:   "master",
 			Labels: []string{"single-label"},
 		}
 
@@ -201,7 +201,7 @@ func TestPRRequest_LabelsHandling(t *testing.T) {
 			Title:  "Test PR",
 			Body:   "Test body",
 			Head:   "test-branch",
-			Base:   "main",
+			Base:   "master",
 			Labels: []string{"label1", "label2", "label3"},
 		}
 
@@ -220,7 +220,7 @@ func TestPRRequest_LabelsHandling(t *testing.T) {
 			Title:  "Test PR",
 			Body:   "Test body",
 			Head:   "test-branch",
-			Base:   "main",
+			Base:   "master",
 			Labels: []string{}, // Explicitly empty slice - will be omitted due to omitempty
 		}
 

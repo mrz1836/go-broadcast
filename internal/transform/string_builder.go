@@ -27,7 +27,7 @@ import (
 //
 // Example:
 //
-//	path := BuildPath("/", "github.com", "user", "repo", "blob", "main", "README.md")
+//	path := BuildPath("/", "github.com", "user", "repo", "blob", "master", "README.md")
 //	// Result: "github.com/user/repo/blob/main/README.md"
 func BuildPath(separator string, parts ...string) string {
 	if len(parts) == 0 {
@@ -60,14 +60,14 @@ func BuildPath(separator string, parts ...string) string {
 //
 // Parameters:
 // - repo: Repository in format "org/repo"
-// - pathParts: Optional path components (e.g., "blob", "main", "README.md")
+// - pathParts: Optional path components (e.g., "blob", "master", "README.md")
 //
 // Returns:
 // - Complete GitHub URL
 //
 // Example:
 //
-//	url := BuildGitHubURL("user/repo", "blob", "main", "README.md")
+//	url := BuildGitHubURL("user/repo", "blob", "master", "README.md")
 //	// Result: "https://github.com/user/repo/blob/main/README.md"
 func BuildGitHubURL(repo string, pathParts ...string) string {
 	baseSize := len("https://github.com/") + len(repo)
@@ -216,7 +216,7 @@ func BuildFileList(files []string, prefix, separator string) string {
 //
 // Example:
 //
-//	kvs := BuildKeyValuePairs(map[string]string{"repo": "user/repo", "branch": "main"}, ": ", "\n")
+//	kvs := BuildKeyValuePairs(map[string]string{"repo": "user/repo", "branch": "master"}, ": ", "\n")
 //	// Result: "repo: user/repo\nbranch: main"
 func BuildKeyValuePairs(pairs map[string]string, keyValueSep, pairSep string) string {
 	if len(pairs) == 0 {

@@ -523,7 +523,7 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 }
 
 // validateDirectories validates directory mappings
-func (t *TargetConfig) validateDirectories(_ context.Context, logger *logrus.Entry) error {
+func (t *TargetConfig) validateDirectories(_ context.Context, _ *logrus.Entry) error {
 	// Check for empty directories
 	for i, dir := range t.Directories {
 		if dir.Src == "" {

@@ -22,6 +22,13 @@ var (
 	ErrTreeNotFound      = errors.New("tree not found")
 )
 
+// Test constants for common string literals
+const (
+	ownerRepoConst = "owner/repo"
+	treeHashConst  = "abc123"
+	mainBranchRef  = "main"
+)
+
 // GitHubAPISuite provides a test suite for GitHub Tree API integration
 type GitHubAPISuite struct {
 	suite.Suite
@@ -29,7 +36,6 @@ type GitHubAPISuite struct {
 	mockClient *gh.MockClient
 	api        *GitHubAPI
 	logger     *logrus.Logger
-	ctx        context.Context
 }
 
 // SetupTest sets up each test with fresh mocks and API instance
@@ -37,7 +43,6 @@ func (suite *GitHubAPISuite) SetupTest() {
 	suite.mockClient = &gh.MockClient{}
 	suite.logger = logrus.New()
 	suite.logger.SetLevel(logrus.ErrorLevel) // Reduce noise in tests
-	suite.ctx = context.Background()
 
 	// Create API with short TTL for testing
 	opts := GitHubAPIOptions{
@@ -80,9 +85,9 @@ func (suite *GitHubAPISuite) TestNewGitHubAPI() {
 
 // TestGetTree tests tree fetching functionality
 func (suite *GitHubAPISuite) TestGetTree() {
-	repo := "owner/repo"
-	ref := "main"
-	treeSHA := "abc123"
+	repo := ownerRepoConst
+	ref := mainBranchRef
+	treeSHA := treeHashConst
 
 	// Mock commit response
 	commit := &gh.Commit{
@@ -102,12 +107,12 @@ func (suite *GitHubAPISuite) TestGetTree() {
 		Truncated: false,
 	}
 
-	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+	suite.mockClient.On("GetCommit", context.Background(), repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).Return(gitTree, nil)
 
 	// Test successful tree fetch
-	treeMap, err := suite.api.GetTree(suite.ctx, repo, ref)
-	require.NoError(suite.T(), err)
+	treeMap, err := suite.api.GetTree(context.Background(), repo, ref)
+	suite.Require().NoError(err)
 	suite.Require().NotNil(treeMap)
 
 	// Verify tree structure
@@ -117,34 +122,34 @@ func (suite *GitHubAPISuite) TestGetTree() {
 
 	// Verify files are correctly indexed
 	suite.True(treeMap.HasFile("README.md"))
-	assert.True(suite.T(), treeMap.HasFile("src/main.go"))
-	assert.True(suite.T(), treeMap.HasFile("src/util/helper.go"))
-	assert.False(suite.T(), treeMap.HasFile("nonexistent.txt"))
+	suite.True(treeMap.HasFile("src/main.go"))
+	suite.True(treeMap.HasFile("src/util/helper.go"))
+	suite.False(treeMap.HasFile("nonexistent.txt"))
 
 	// Verify directories are correctly indexed
-	assert.True(suite.T(), treeMap.HasDirectory("src"))
-	assert.True(suite.T(), treeMap.HasDirectory("src/util"))
-	assert.False(suite.T(), treeMap.HasDirectory("nonexistent"))
+	suite.True(treeMap.HasDirectory("src"))
+	suite.True(treeMap.HasDirectory("src/util"))
+	suite.False(treeMap.HasDirectory("nonexistent"))
 
 	// Test file retrieval
 	file, exists := treeMap.GetFile("src/main.go")
-	assert.True(suite.T(), exists)
-	assert.Equal(suite.T(), "src/main.go", file.Path)
-	assert.Equal(suite.T(), "blob", file.Type)
+	suite.True(exists)
+	suite.Equal("src/main.go", file.Path)
+	suite.Equal("blob", file.Type)
 
 	// Verify stats
 	stats := treeMap.GetStats()
-	assert.Equal(suite.T(), 3, stats.TotalFiles)
-	assert.Equal(suite.T(), 2, stats.TotalDirectories)
-	assert.Equal(suite.T(), 2, stats.MaxDepth) // src/util/helper.go has depth 2
-	assert.Equal(suite.T(), treeSHA, stats.TreeSHA)
+	suite.Equal(3, stats.TotalFiles)
+	suite.Equal(2, stats.TotalDirectories)
+	suite.Equal(2, stats.MaxDepth) // src/util/helper.go has depth 2
+	suite.Equal(treeSHA, stats.TreeSHA)
 }
 
 // TestGetTreeWithCache tests caching behavior
 func (suite *GitHubAPISuite) TestGetTreeWithCache() {
-	repo := "owner/repo"
-	ref := "main"
-	treeSHA := "abc123"
+	repo := ownerRepoConst
+	ref := mainBranchRef
+	treeSHA := treeHashConst
 
 	commit := &gh.Commit{SHA: treeSHA}
 	gitTree := &gh.GitTree{
@@ -153,34 +158,34 @@ func (suite *GitHubAPISuite) TestGetTreeWithCache() {
 	}
 
 	// Set up mocks for first call only
-	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil).Once()
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil).Once()
+	suite.mockClient.On("GetCommit", context.Background(), repo, ref).Return(commit, nil).Once()
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).Return(gitTree, nil).Once()
 
 	// First call should hit the API
-	treeMap1, err := suite.api.GetTree(suite.ctx, repo, ref)
-	require.NoError(suite.T(), err)
+	treeMap1, err := suite.api.GetTree(context.Background(), repo, ref)
+	suite.Require().NoError(err)
 
 	// Second call should hit the cache
-	treeMap2, err := suite.api.GetTree(suite.ctx, repo, ref)
-	require.NoError(suite.T(), err)
+	treeMap2, err := suite.api.GetTree(context.Background(), repo, ref)
+	suite.Require().NoError(err)
 
 	// Verify both return the same data
-	assert.Equal(suite.T(), treeMap1.sha, treeMap2.sha)
-	assert.Equal(suite.T(), len(treeMap1.files), len(treeMap2.files))
+	suite.Equal(treeMap1.sha, treeMap2.sha)
+	suite.Len(treeMap1.files, len(treeMap2.files))
 
 	// Verify cache stats
 	hits, misses, size, hitRate := suite.api.GetCacheStats()
-	assert.Equal(suite.T(), int64(1), hits)
-	assert.Equal(suite.T(), int64(1), misses)
-	assert.Equal(suite.T(), 1, size)
-	assert.Equal(suite.T(), 0.5, hitRate)
+	suite.Equal(int64(1), hits)
+	suite.Equal(int64(1), misses)
+	suite.Equal(1, size)
+	suite.InEpsilon(0.5, hitRate, 0.01)
 }
 
 // TestGetTreeCacheExpiration tests cache TTL behavior
 func (suite *GitHubAPISuite) TestGetTreeCacheExpiration() {
-	repo := "owner/repo"
-	ref := "main"
-	treeSHA := "abc123"
+	repo := ownerRepoConst
+	ref := mainBranchRef
+	treeSHA := treeHashConst
 
 	commit := &gh.Commit{SHA: treeSHA}
 	gitTree := &gh.GitTree{
@@ -189,19 +194,19 @@ func (suite *GitHubAPISuite) TestGetTreeCacheExpiration() {
 	}
 
 	// Set up mocks for two API calls
-	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil).Twice()
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil).Twice()
+	suite.mockClient.On("GetCommit", context.Background(), repo, ref).Return(commit, nil).Twice()
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).Return(gitTree, nil).Twice()
 
 	// First call
-	_, err := suite.api.GetTree(suite.ctx, repo, ref)
-	require.NoError(suite.T(), err)
+	_, err := suite.api.GetTree(context.Background(), repo, ref)
+	suite.Require().NoError(err)
 
 	// Wait for cache to expire
 	time.Sleep(150 * time.Millisecond)
 
 	// Second call should hit API again
-	_, err = suite.api.GetTree(suite.ctx, repo, ref)
-	require.NoError(suite.T(), err)
+	_, err = suite.api.GetTree(context.Background(), repo, ref)
+	suite.Require().NoError(err)
 
 	// Verify both calls were made
 	suite.mockClient.AssertExpectations(suite.T())
@@ -209,9 +214,9 @@ func (suite *GitHubAPISuite) TestGetTreeCacheExpiration() {
 
 // TestBatchCheckFiles tests batch file checking functionality
 func (suite *GitHubAPISuite) TestBatchCheckFiles() {
-	repo := "owner/repo"
-	ref := "main"
-	treeSHA := "abc123"
+	repo := ownerRepoConst
+	ref := mainBranchRef
+	treeSHA := treeHashConst
 
 	commit := &gh.Commit{SHA: treeSHA}
 	gitTree := &gh.GitTree{
@@ -223,8 +228,8 @@ func (suite *GitHubAPISuite) TestBatchCheckFiles() {
 		},
 	}
 
-	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+	suite.mockClient.On("GetCommit", context.Background(), repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).Return(gitTree, nil)
 
 	filePaths := []string{
 		"README.md",
@@ -234,23 +239,23 @@ func (suite *GitHubAPISuite) TestBatchCheckFiles() {
 		"missing/file.go",
 	}
 
-	results, err := suite.api.BatchCheckFiles(suite.ctx, repo, ref, filePaths)
-	require.NoError(suite.T(), err)
-	require.Len(suite.T(), results, 5)
+	results, err := suite.api.BatchCheckFiles(context.Background(), repo, ref, filePaths)
+	suite.Require().NoError(err)
+	suite.Require().Len(results, 5)
 
 	// Verify results
-	assert.True(suite.T(), results["README.md"])
-	assert.True(suite.T(), results["src/main.go"])
-	assert.False(suite.T(), results["nonexistent.txt"])
-	assert.True(suite.T(), results["docs/guide.md"])
-	assert.False(suite.T(), results["missing/file.go"])
+	suite.True(results["README.md"])
+	suite.True(results["src/main.go"])
+	suite.False(results["nonexistent.txt"])
+	suite.True(results["docs/guide.md"])
+	suite.False(results["missing/file.go"])
 }
 
 // TestBatchCheckDirectories tests batch directory checking functionality
 func (suite *GitHubAPISuite) TestBatchCheckDirectories() {
-	repo := "owner/repo"
-	ref := "main"
-	treeSHA := "abc123"
+	repo := ownerRepoConst
+	ref := mainBranchRef
+	treeSHA := treeHashConst
 
 	commit := &gh.Commit{SHA: treeSHA}
 	gitTree := &gh.GitTree{
@@ -262,8 +267,8 @@ func (suite *GitHubAPISuite) TestBatchCheckDirectories() {
 		},
 	}
 
-	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+	suite.mockClient.On("GetCommit", context.Background(), repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).Return(gitTree, nil)
 
 	dirPaths := []string{
 		"src",
@@ -273,23 +278,23 @@ func (suite *GitHubAPISuite) TestBatchCheckDirectories() {
 		"",
 	}
 
-	results, err := suite.api.BatchCheckDirectories(suite.ctx, repo, ref, dirPaths)
-	require.NoError(suite.T(), err)
-	require.Len(suite.T(), results, 5)
+	results, err := suite.api.BatchCheckDirectories(context.Background(), repo, ref, dirPaths)
+	suite.Require().NoError(err)
+	suite.Require().Len(results, 5)
 
 	// Verify results
-	assert.True(suite.T(), results["src"])
-	assert.True(suite.T(), results["src/util"])
-	assert.True(suite.T(), results["docs"])
-	assert.False(suite.T(), results["nonexistent"])
-	assert.True(suite.T(), results[""]) // Root directory always exists
+	suite.True(results["src"])
+	suite.True(results["src/util"])
+	suite.True(results["docs"])
+	suite.False(results["nonexistent"])
+	suite.True(results[""]) // Root directory always exists
 }
 
 // TestGetFilesInDirectory tests directory file listing
 func (suite *GitHubAPISuite) TestGetFilesInDirectory() {
-	repo := "owner/repo"
-	ref := "main"
-	treeSHA := "abc123"
+	repo := ownerRepoConst
+	ref := mainBranchRef
+	treeSHA := treeHashConst
 
 	commit := &gh.Commit{SHA: treeSHA}
 	gitTree := &gh.GitTree{
@@ -302,107 +307,116 @@ func (suite *GitHubAPISuite) TestGetFilesInDirectory() {
 		},
 	}
 
-	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+	suite.mockClient.On("GetCommit", context.Background(), repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).Return(gitTree, nil)
 
 	// Test root directory
-	rootFiles, err := suite.api.GetFilesInDirectory(suite.ctx, repo, ref, "")
-	require.NoError(suite.T(), err)
-	assert.Len(suite.T(), rootFiles, 1) // Only README.md
-	assert.Equal(suite.T(), "README.md", rootFiles[0].Path)
+	rootFiles, err := suite.api.GetFilesInDirectory(context.Background(), repo, ref, "")
+	suite.Require().NoError(err)
+	suite.Len(rootFiles, 1) // Only README.md
+	suite.Equal("README.md", rootFiles[0].Path)
 
 	// Test src directory
-	srcFiles, err := suite.api.GetFilesInDirectory(suite.ctx, repo, ref, "src")
-	require.NoError(suite.T(), err)
-	assert.Len(suite.T(), srcFiles, 2) // main.go and helper.go, not deep.go
+	srcFiles, err := suite.api.GetFilesInDirectory(context.Background(), repo, ref, "src")
+	suite.Require().NoError(err)
+	suite.Len(srcFiles, 2) // main.go and helper.go, not deep.go
 
 	paths := make([]string, len(srcFiles))
 	for i, file := range srcFiles {
 		paths[i] = file.Path
 	}
-	assert.Contains(suite.T(), paths, "src/main.go")
-	assert.Contains(suite.T(), paths, "src/helper.go")
-	assert.NotContains(suite.T(), paths, "src/util/deep.go")
+	suite.Contains(paths, "src/main.go")
+	suite.Contains(paths, "src/helper.go")
+	suite.NotContains(paths, "src/util/deep.go")
 }
 
 // TestRetryLogic tests retry behavior on failures
 func (suite *GitHubAPISuite) TestRetryLogic() {
-	repo := "owner/repo"
-	ref := "main"
-	treeSHA := "abc123"
+	repo := ownerRepoConst
+	ref := mainBranchRef
+	treeSHA := treeHashConst
 
 	commit := &gh.Commit{SHA: treeSHA}
 	gitTree := &gh.GitTree{SHA: treeSHA, Tree: []gh.GitTreeNode{}}
 
 	// First call succeeds for commit
-	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetCommit", context.Background(), repo, ref).Return(commit, nil)
 
 	// First tree call fails with retryable error
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).
 		Return(nil, ErrNetworkTimeout).Once()
 
 	// Second tree call succeeds
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).
 		Return(gitTree, nil).Once()
 
 	// Should succeed after retry
-	treeMap, err := suite.api.GetTree(suite.ctx, repo, ref)
-	require.NoError(suite.T(), err)
-	assert.NotNil(suite.T(), treeMap)
+	treeMap, err := suite.api.GetTree(context.Background(), repo, ref)
+	suite.Require().NoError(err)
+	suite.NotNil(treeMap)
 
 	// Verify retry stats
-	_, _, _, retries, _, _ := suite.api.GetAPIStats()
-	assert.Equal(suite.T(), int64(1), retries)
+	treeFetches, cacheHits, cacheMisses, retries, rateLimits, avgTreeSize := suite.api.GetAPIStats()
+	_ = treeFetches
+	_ = cacheHits
+	_ = cacheMisses
+	_ = rateLimits
+	_ = avgTreeSize
+	suite.Equal(int64(1), retries)
 }
 
 // TestRateLimitHandling tests rate limit error handling
 func (suite *GitHubAPISuite) TestRateLimitHandling() {
-	repo := "owner/repo"
-	ref := "main"
-	treeSHA := "abc123"
+	repo := ownerRepoConst
+	ref := mainBranchRef
+	treeSHA := treeHashConst
 
 	commit := &gh.Commit{SHA: treeSHA}
 
-	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetCommit", context.Background(), repo, ref).Return(commit, nil)
 
 	// All calls fail with rate limit
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).
 		Return(nil, ErrRateLimitExceeded).Times(3) // Initial + 2 retries
 
 	// Should fail after all retries
-	_, err := suite.api.GetTree(suite.ctx, repo, ref)
-	require.Error(suite.T(), err)
-	assert.Contains(suite.T(), err.Error(), "failed after 2 retries")
+	_, err := suite.api.GetTree(context.Background(), repo, ref)
+	suite.Require().Error(err)
+	suite.Contains(err.Error(), "failed after 2 retries")
 
 	// Verify rate limit stats
-	_, _, _, retries, rateLimits, _ := suite.api.GetAPIStats()
-	assert.Equal(suite.T(), int64(2), retries)
-	assert.Equal(suite.T(), int64(3), rateLimits) // Initial + 2 retries
+	treeFetches, cacheHits, cacheMisses, retries, rateLimits, avgTreeSize := suite.api.GetAPIStats()
+	_ = treeFetches
+	_ = cacheHits
+	_ = cacheMisses
+	_ = avgTreeSize
+	suite.Equal(int64(2), retries)
+	suite.Equal(int64(3), rateLimits) // Initial + 2 retries
 }
 
 // TestInvalidateCache tests cache invalidation
 func (suite *GitHubAPISuite) TestInvalidateCache() {
-	repo := "owner/repo"
-	ref := "main"
-	treeSHA := "abc123"
+	repo := ownerRepoConst
+	ref := mainBranchRef
+	treeSHA := treeHashConst
 
 	commit := &gh.Commit{SHA: treeSHA}
 	gitTree := &gh.GitTree{SHA: treeSHA, Tree: []gh.GitTreeNode{}}
 
 	// Set up for two API calls
-	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil).Twice()
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil).Twice()
+	suite.mockClient.On("GetCommit", context.Background(), repo, ref).Return(commit, nil).Twice()
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).Return(gitTree, nil).Twice()
 
 	// First call
-	_, err := suite.api.GetTree(suite.ctx, repo, ref)
-	require.NoError(suite.T(), err)
+	_, err := suite.api.GetTree(context.Background(), repo, ref)
+	suite.Require().NoError(err)
 
 	// Invalidate cache
 	suite.api.InvalidateCache(repo, ref)
 
 	// Second call should hit API again
-	_, err = suite.api.GetTree(suite.ctx, repo, ref)
-	require.NoError(suite.T(), err)
+	_, err = suite.api.GetTree(context.Background(), repo, ref)
+	suite.Require().NoError(err)
 
 	// Verify both API calls were made
 	suite.mockClient.AssertExpectations(suite.T())
@@ -410,17 +424,17 @@ func (suite *GitHubAPISuite) TestInvalidateCache() {
 
 // TestEmptyFilePaths tests batch operations with empty input
 func (suite *GitHubAPISuite) TestEmptyFilePaths() {
-	repo := "owner/repo"
-	ref := "main"
+	repo := ownerRepoConst
+	ref := mainBranchRef
 
 	// Should return empty results without API calls
-	fileResults, err := suite.api.BatchCheckFiles(suite.ctx, repo, ref, []string{})
-	require.NoError(suite.T(), err)
-	assert.Empty(suite.T(), fileResults)
+	fileResults, err := suite.api.BatchCheckFiles(context.Background(), repo, ref, []string{})
+	suite.Require().NoError(err)
+	suite.Empty(fileResults)
 
-	dirResults, err := suite.api.BatchCheckDirectories(suite.ctx, repo, ref, []string{})
-	require.NoError(suite.T(), err)
-	assert.Empty(suite.T(), dirResults)
+	dirResults, err := suite.api.BatchCheckDirectories(context.Background(), repo, ref, []string{})
+	suite.Require().NoError(err)
+	suite.Empty(dirResults)
 
 	// No API calls should have been made
 	suite.mockClient.AssertExpectations(suite.T())
@@ -444,44 +458,44 @@ func (suite *GitHubAPISuite) TestTreeMapEdgeCases() {
 	}
 
 	// Test file paths with leading/trailing slashes
-	assert.True(suite.T(), treeMap.HasFile("/file.txt"))
-	assert.True(suite.T(), treeMap.HasFile("file.txt"))
-	assert.True(suite.T(), treeMap.HasFile("/dir/subfile.txt"))
+	suite.True(treeMap.HasFile("/file.txt"))
+	suite.True(treeMap.HasFile("file.txt"))
+	suite.True(treeMap.HasFile("/dir/subfile.txt"))
 
 	// Test directory paths with trailing slashes
-	assert.True(suite.T(), treeMap.HasDirectory("dir/"))
-	assert.True(suite.T(), treeMap.HasDirectory("dir"))
-	assert.True(suite.T(), treeMap.HasDirectory("/deep/nested/"))
-	assert.True(suite.T(), treeMap.HasDirectory("")) // Root always exists
+	suite.True(treeMap.HasDirectory("dir/"))
+	suite.True(treeMap.HasDirectory("dir"))
+	suite.True(treeMap.HasDirectory("/deep/nested/"))
+	suite.True(treeMap.HasDirectory("")) // Root always exists
 
 	// Test GetFilesInDirectory with various path formats
 	rootFiles := treeMap.GetFilesInDirectory("")
-	assert.Len(suite.T(), rootFiles, 1) // Only file.txt
+	suite.Len(rootFiles, 1) // Only file.txt
 
 	dirFiles := treeMap.GetFilesInDirectory("dir")
-	assert.Len(suite.T(), dirFiles, 1) // Only subfile.txt
-	assert.Equal(suite.T(), "dir/subfile.txt", dirFiles[0].Path)
+	suite.Len(dirFiles, 1) // Only subfile.txt
+	suite.Equal("dir/subfile.txt", dirFiles[0].Path)
 
 	deepFiles := treeMap.GetFilesInDirectory("deep/nested/")
-	assert.Len(suite.T(), deepFiles, 1) // Only file.go
-	assert.Equal(suite.T(), "deep/nested/file.go", deepFiles[0].Path)
+	suite.Len(deepFiles, 1) // Only file.go
+	suite.Equal("deep/nested/file.go", deepFiles[0].Path)
 }
 
 // TestAPIStats tests API statistics tracking
 func (suite *GitHubAPISuite) TestAPIStats() {
 	// Initial stats should be zero
 	treeFetches, cacheHits, cacheMisses, retries, rateLimits, avgTreeSize := suite.api.GetAPIStats()
-	assert.Equal(suite.T(), int64(0), treeFetches)
-	assert.Equal(suite.T(), int64(0), cacheHits)
-	assert.Equal(suite.T(), int64(0), cacheMisses)
-	assert.Equal(suite.T(), int64(0), retries)
-	assert.Equal(suite.T(), int64(0), rateLimits)
-	assert.Equal(suite.T(), int64(0), avgTreeSize)
+	suite.Equal(int64(0), treeFetches)
+	suite.Equal(int64(0), cacheHits)
+	suite.Equal(int64(0), cacheMisses)
+	suite.Equal(int64(0), retries)
+	suite.Equal(int64(0), rateLimits)
+	suite.Equal(int64(0), avgTreeSize)
 
 	// After some operations, stats should be updated
-	repo := "owner/repo"
-	ref := "main"
-	treeSHA := "abc123"
+	repo := ownerRepoConst
+	ref := mainBranchRef
+	treeSHA := treeHashConst
 
 	commit := &gh.Commit{SHA: treeSHA}
 	gitTree := &gh.GitTree{
@@ -489,25 +503,25 @@ func (suite *GitHubAPISuite) TestAPIStats() {
 		Tree: []gh.GitTreeNode{{Path: "file.txt", Type: "blob"}},
 	}
 
-	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+	suite.mockClient.On("GetCommit", context.Background(), repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).Return(gitTree, nil)
 
-	_, err := suite.api.GetTree(suite.ctx, repo, ref)
-	require.NoError(suite.T(), err)
+	_, err := suite.api.GetTree(context.Background(), repo, ref)
+	suite.Require().NoError(err)
 
 	// Check updated stats
 	treeFetches, cacheHits, cacheMisses, _, _, avgTreeSize = suite.api.GetAPIStats()
-	assert.Equal(suite.T(), int64(1), treeFetches)
-	assert.Equal(suite.T(), int64(0), cacheHits)
-	assert.Equal(suite.T(), int64(1), cacheMisses)
-	assert.Greater(suite.T(), avgTreeSize, int64(0))
+	suite.Equal(int64(1), treeFetches)
+	suite.Equal(int64(0), cacheHits)
+	suite.Equal(int64(1), cacheMisses)
+	suite.Positive(avgTreeSize)
 }
 
 // TestTruncatedTree tests handling of truncated trees
 func (suite *GitHubAPISuite) TestTruncatedTree() {
-	repo := "owner/repo"
-	ref := "main"
-	treeSHA := "abc123"
+	repo := ownerRepoConst
+	ref := mainBranchRef
+	treeSHA := treeHashConst
 
 	commit := &gh.Commit{SHA: treeSHA}
 	gitTree := &gh.GitTree{
@@ -516,14 +530,14 @@ func (suite *GitHubAPISuite) TestTruncatedTree() {
 		Truncated: true, // Tree was truncated
 	}
 
-	suite.mockClient.On("GetCommit", suite.ctx, repo, ref).Return(commit, nil)
-	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).Return(gitTree, nil)
+	suite.mockClient.On("GetCommit", context.Background(), repo, ref).Return(commit, nil)
+	suite.mockClient.On("GetGitTree", context.Background(), repo, treeSHA, true).Return(gitTree, nil)
 
 	// Should still succeed but log a warning
-	treeMap, err := suite.api.GetTree(suite.ctx, repo, ref)
-	require.NoError(suite.T(), err)
-	assert.NotNil(suite.T(), treeMap)
-	assert.Equal(suite.T(), treeSHA, treeMap.sha)
+	treeMap, err := suite.api.GetTree(context.Background(), repo, ref)
+	suite.Require().NoError(err)
+	suite.NotNil(treeMap)
+	suite.Equal(treeSHA, treeMap.sha)
 }
 
 // TestRunSuite runs the complete test suite
@@ -623,26 +637,26 @@ func TestErrorCases(t *testing.T) {
 	api := NewGitHubAPI(mockClient, logger)
 	defer api.Close()
 
-	repo := "owner/repo"
-	ref := "main"
+	repo := ownerRepoConst
+	ref := mainBranchRef
 
 	t.Run("GetCommit error", func(t *testing.T) {
 		mockClient.On("GetCommit", ctx, repo, ref).
 			Return(nil, ErrCommitNotFound).Once()
 
 		_, err := api.GetTree(ctx, repo, ref)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "get commit for ref")
 	})
 
 	t.Run("GetGitTree error", func(t *testing.T) {
-		commit := &gh.Commit{SHA: "abc123"}
+		commit := &gh.Commit{SHA: treeHashConst}
 		mockClient.On("GetCommit", ctx, repo, ref).Return(commit, nil).Once()
-		mockClient.On("GetGitTree", ctx, repo, "abc123", true).
+		mockClient.On("GetGitTree", ctx, repo, treeHashConst, true).
 			Return(nil, ErrTreeNotFound).Once()
 
 		_, err := api.GetTree(ctx, repo, ref)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "fetch git tree")
 	})
 

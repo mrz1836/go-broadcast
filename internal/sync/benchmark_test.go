@@ -110,7 +110,7 @@ type mockTreeAPIClient struct {
 	failureRate     float64 // 0.0 to 1.0
 }
 
-func (m *mockTreeAPIClient) GetTree(ctx context.Context, repo, ref string) (*TreeMap, error) {
+func (m *mockTreeAPIClient) GetTree(_ context.Context, _, _ string) (*TreeMap, error) {
 	atomic.AddInt64(&m.getTreeCalls, 1)
 
 	if m.callDelay > 0 {
@@ -152,7 +152,7 @@ func (m *mockTreeAPIClient) GetTree(ctx context.Context, repo, ref string) (*Tre
 	}, nil
 }
 
-func (m *mockTreeAPIClient) BatchCheckFiles(ctx context.Context, repo, ref string, filePaths []string) (map[string]bool, error) {
+func (m *mockTreeAPIClient) BatchCheckFiles(_ context.Context, _, _ string, filePaths []string) (map[string]bool, error) {
 	atomic.AddInt64(&m.getContentCalls, int64(len(filePaths)))
 
 	if m.callDelay > 0 {
@@ -166,7 +166,7 @@ func (m *mockTreeAPIClient) BatchCheckFiles(ctx context.Context, repo, ref strin
 	return result, nil
 }
 
-func (m *mockTreeAPIClient) BatchCheckDirectories(ctx context.Context, repo, ref string, dirPaths []string) (map[string]bool, error) {
+func (m *mockTreeAPIClient) BatchCheckDirectories(_ context.Context, _, _ string, dirPaths []string) (map[string]bool, error) {
 	atomic.AddInt64(&m.getContentCalls, int64(len(dirPaths)))
 
 	if m.callDelay > 0 {
@@ -180,7 +180,7 @@ func (m *mockTreeAPIClient) BatchCheckDirectories(ctx context.Context, repo, ref
 	return result, nil
 }
 
-func (m *mockTreeAPIClient) GetFilesInDirectory(ctx context.Context, repo, ref, dirPath string) ([]*GitTreeNode, error) {
+func (m *mockTreeAPIClient) GetFilesInDirectory(_ context.Context, _, _, dirPath string) ([]*GitTreeNode, error) {
 	atomic.AddInt64(&m.getContentCalls, 1)
 
 	if m.callDelay > 0 {
@@ -262,7 +262,7 @@ func BenchmarkAPIEfficiency(b *testing.B) {
 
 				if tc.useTreeAPI {
 					// Benchmark tree API approach
-					_, err := mockClient.GetTree(ctx, "owner/repo", "main")
+					_, err := mockClient.GetTree(ctx, "owner/repo", "master")
 					if err != nil && tc.failureRate == 0.0 {
 						b.Fatalf("Tree API call failed: %v", err)
 					}
@@ -272,7 +272,7 @@ func BenchmarkAPIEfficiency(b *testing.B) {
 					for j := 0; j < tc.fileCount; j++ {
 						filePaths[j] = fmt.Sprintf("file_%d.txt", j)
 					}
-					_, err := mockClient.BatchCheckFiles(ctx, "owner/repo", "main", filePaths)
+					_, err := mockClient.BatchCheckFiles(ctx, "owner/repo", "master", filePaths)
 					if err != nil && tc.failureRate == 0.0 {
 						b.Fatalf("Individual API call failed: %v", err)
 					}
@@ -317,7 +317,7 @@ func BenchmarkCacheHitRates(b *testing.B) {
 				ctx := context.Background()
 				for i := 0; i < 10; i++ {
 					key := fmt.Sprintf("hotspot-file-%d.txt", i)
-					err := cache.Put(ctx, "owner/repo", "main", key, fmt.Sprintf("content-%d", i))
+					err := cache.Put(ctx, "owner/repo", "master", key, fmt.Sprintf("content-%d", i))
 					require.NoError(b, err)
 				}
 			}
@@ -343,7 +343,7 @@ func BenchmarkCacheHitRates(b *testing.B) {
 
 				fileName := fmt.Sprintf("file-%d.txt", fileIndex)
 				ctx := context.Background()
-				_, hit, err := cache.Get(ctx, "owner/repo", "main", fileName)
+				_, hit, err := cache.Get(ctx, "owner/repo", "master", fileName)
 				require.NoError(b, err)
 
 				if hit {
@@ -351,7 +351,7 @@ func BenchmarkCacheHitRates(b *testing.B) {
 				} else {
 					atomic.AddInt64(&misses, 1)
 					// Simulate cache miss by setting the content
-					err := cache.Put(ctx, "owner/repo", "main", fileName, fmt.Sprintf("content-%d", fileIndex))
+					err := cache.Put(ctx, "owner/repo", "master", fileName, fmt.Sprintf("content-%d", fileIndex))
 					require.NoError(b, err)
 				}
 			}
@@ -399,7 +399,7 @@ func BenchmarkConcurrentAPIRequests(b *testing.B) {
 						defer wg.Done()
 
 						for req := 0; req < tc.requestsPerWorker; req++ {
-							_, err := mockClient.GetTree(ctx, "owner/repo", "main")
+							_, err := mockClient.GetTree(ctx, "owner/repo", "master")
 							if err != nil {
 								// Log error but don't fail benchmark
 								b.Logf("API request failed: %v", err)
@@ -578,7 +578,10 @@ func BenchmarkConcurrentDirectoryProcessing(b *testing.B) {
 			// Report memory statistics
 			var allocPerOp uint64
 			if b.N > 0 {
-				allocPerOp = (m2.TotalAlloc - m1.TotalAlloc) / uint64(b.N)
+				bNUint64 := uint64(b.N) //nolint:gosec // G115: Safe conversion in benchmark test
+				if bNUint64 > 0 {
+					allocPerOp = (m2.TotalAlloc - m1.TotalAlloc) / bNUint64
+				}
 				b.ReportMetric(float64(allocPerOp), "bytes-alloc-per-op")
 				b.ReportMetric(float64(m2.Mallocs-m1.Mallocs)/float64(b.N), "mallocs-per-op")
 			}
@@ -651,7 +654,10 @@ func BenchmarkExclusionPatternMemory(b *testing.B) {
 			// Report memory statistics
 			var allocPerOp uint64
 			if b.N > 0 {
-				allocPerOp = (m2.TotalAlloc - m1.TotalAlloc) / uint64(b.N)
+				bNUint64 := uint64(b.N)
+				if bNUint64 > 0 {
+					allocPerOp = (m2.TotalAlloc - m1.TotalAlloc) / bNUint64
+				}
 				b.ReportMetric(float64(allocPerOp), "bytes-alloc-per-op")
 				b.ReportMetric(float64(m2.Mallocs-m1.Mallocs)/float64(b.N), "mallocs-per-op")
 			}
@@ -775,7 +781,7 @@ func BenchmarkPerformanceRegression(b *testing.B) {
 		for i := 0; i < baselineScenario.fileCount; i++ {
 			// Create nested directories
 			depth := i % baselineScenario.dirDepth
-			var dirPath string = sourceDir
+			dirPath := sourceDir
 			for d := 0; d < depth; d++ {
 				dirPath = filepath.Join(dirPath, fmt.Sprintf("level_%d", d))
 			}
@@ -854,7 +860,7 @@ func main() {
 
 			// Simulate using tree API vs individual calls
 			treeAPIStart := time.Now()
-			_, err := mockClient.GetTree(ctx, "owner/repo", "main")
+			_, err := mockClient.GetTree(ctx, "owner/repo", "master")
 			treeAPIDuration := time.Since(treeAPIStart)
 			require.NoError(b, err)
 
@@ -867,7 +873,7 @@ func main() {
 			for j := 0; j < 50; j++ {
 				filePaths[j] = fmt.Sprintf("file_%d.txt", j)
 			}
-			_, err = mockClient.BatchCheckFiles(ctx, "owner/repo", "main", filePaths)
+			_, err = mockClient.BatchCheckFiles(ctx, "owner/repo", "master", filePaths)
 			require.NoError(b, err)
 			individualDuration := time.Since(individualStart)
 			individualCalls := mockClient.GetContentCalls()

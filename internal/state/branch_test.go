@@ -44,7 +44,7 @@ func TestParseSyncBranchName(t *testing.T) {
 		},
 		{
 			name:        "not a sync branch - main",
-			branchName:  "main",
+			branchName:  "master",
 			expectNil:   true,
 			expectError: true,
 		},

@@ -18,11 +18,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Import the types from gh package
-type (
-	GitTreeNode = gh.GitTreeNode
-	GitTree     = gh.GitTree
-)
+// GitTreeNode represents a single node in a Git tree
+type GitTreeNode = gh.GitTreeNode
+
+// GitTree represents a Git tree structure
+type GitTree = gh.GitTree
 
 // TreeMap provides O(1) file existence checks
 type TreeMap struct {
@@ -73,7 +73,7 @@ func (tm *TreeMap) GetFilesInDirectory(dirPath string) []*GitTreeNode {
 	return files
 }
 
-// Stats provides statistics about the tree
+// TreeStats provides statistics about the tree
 type TreeStats struct {
 	TotalFiles       int
 	TotalDirectories int
@@ -390,7 +390,8 @@ func (api *GitHubAPI) fetchTree(ctx context.Context, repo, ref string) (*TreeMap
 	for i := range gitTree.Tree {
 		node := &gitTree.Tree[i]
 
-		if node.Type == "blob" {
+		switch node.Type {
+		case "blob":
 			// It's a file
 			treeMap.files[node.Path] = node
 
@@ -401,7 +402,7 @@ func (api *GitHubAPI) fetchTree(ctx context.Context, repo, ref string) (*TreeMap
 				treeMap.directories[dir] = true
 				dir = filepath.Dir(dir)
 			}
-		} else if node.Type == "tree" {
+		case "tree":
 			// It's a directory
 			treeMap.directories[node.Path] = true
 		}

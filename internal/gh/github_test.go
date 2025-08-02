@@ -23,7 +23,7 @@ func TestListBranches(t *testing.T) {
 	client := NewClientWithRunner(mockRunner, logrus.New())
 
 	branches := []Branch{
-		{Name: "main", Protected: true},
+		{Name: "master", Protected: true},
 		{Name: "develop", Protected: false},
 	}
 	output, err := json.Marshal(branches)
@@ -35,7 +35,7 @@ func TestListBranches(t *testing.T) {
 	result, err := client.ListBranches(ctx, "org/repo")
 	require.NoError(t, err)
 	assert.Len(t, result, 2)
-	assert.Equal(t, "main", result[0].Name)
+	assert.Equal(t, "master", result[0].Name)
 	assert.True(t, result[0].Protected)
 
 	mockRunner.AssertExpectations(t)
@@ -62,17 +62,17 @@ func TestGetBranch(t *testing.T) {
 	mockRunner := new(MockCommandRunner)
 	client := NewClientWithRunner(mockRunner, logrus.New())
 
-	branch := Branch{Name: "main", Protected: true}
+	branch := Branch{Name: "master", Protected: true}
 	output, err := json.Marshal(branch)
 	require.NoError(t, err)
 
 	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/branches/main"}).
 		Return(output, nil)
 
-	result, err := client.GetBranch(ctx, "org/repo", "main")
+	result, err := client.GetBranch(ctx, "org/repo", "master")
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.Equal(t, "main", result.Name)
+	assert.Equal(t, "master", result.Name)
 	assert.True(t, result.Protected)
 
 	mockRunner.AssertExpectations(t)
@@ -103,7 +103,7 @@ func TestCreatePR(t *testing.T) {
 		Title: "Test PR",
 		Body:  "Test description",
 		Head:  "feature",
-		Base:  "main",
+		Base:  "master",
 	}
 
 	pr := PR{
@@ -137,7 +137,7 @@ func TestCreatePR_HeadFormatting(t *testing.T) {
 		Title: "Test PR",
 		Body:  "Test description",
 		Head:  "feature-branch",
-		Base:  "main",
+		Base:  "master",
 	}
 
 	pr := PR{
@@ -241,7 +241,7 @@ func TestGetFile(t *testing.T) {
 	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/contents/README.md?ref=main"}).
 		Return(output, nil)
 
-	result, err := client.GetFile(ctx, "org/repo", "README.md", "main")
+	result, err := client.GetFile(ctx, "org/repo", "README.md", "master")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, "README.md", result.Path)
@@ -348,7 +348,7 @@ func TestGetBranch_JSONUnmarshalError(t *testing.T) {
 	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/branches/main"}).
 		Return([]byte("invalid json"), nil)
 
-	result, err := client.GetBranch(ctx, "org/repo", "main")
+	result, err := client.GetBranch(ctx, "org/repo", "master")
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to parse branch")
@@ -369,7 +369,7 @@ func TestCreatePR_JSONMarshalError(t *testing.T) {
 		Title: "Test PR",
 		Body:  "Test description",
 		Head:  "feature",
-		Base:  "main",
+		Base:  "master",
 	}
 
 	// For this test, we'll override the marshaling by testing the response parsing error instead
@@ -394,7 +394,7 @@ func TestCreatePR_RunWithInputError(t *testing.T) {
 		Title: "Test PR",
 		Body:  "Test description",
 		Head:  "feature",
-		Base:  "main",
+		Base:  "master",
 	}
 
 	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls", "--method", "POST", "--input", "-"}).
@@ -755,7 +755,7 @@ func TestGetBranch_OtherCommandError(t *testing.T) {
 	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/branches/main"}).
 		Return(nil, &CommandError{Stderr: "500 Internal Server Error"})
 
-	result, err := client.GetBranch(ctx, "org/repo", "main")
+	result, err := client.GetBranch(ctx, "org/repo", "master")
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to get branch")
@@ -831,7 +831,7 @@ func TestCreatePR_WithAssignees(t *testing.T) {
 		Title:     "Test PR",
 		Body:      "Test description",
 		Head:      "feature",
-		Base:      "main",
+		Base:      "master",
 		Assignees: []string{"user1", "user2"},
 	}
 
@@ -871,7 +871,7 @@ func TestCreatePR_WithReviewers(t *testing.T) {
 		Title:         "Test PR",
 		Body:          "Test description",
 		Head:          "feature",
-		Base:          "main",
+		Base:          "master",
 		Reviewers:     []string{"reviewer1", "reviewer2"},
 		TeamReviewers: []string{"team1"},
 	}
@@ -912,7 +912,7 @@ func TestCreatePR_WithAssigneesAndReviewers(t *testing.T) {
 		Title:         "Test PR",
 		Body:          "Test description",
 		Head:          "feature",
-		Base:          "main",
+		Base:          "master",
 		Assignees:     []string{"assignee1"},
 		Reviewers:     []string{"reviewer1"},
 		TeamReviewers: []string{"team1"},
@@ -1009,7 +1009,7 @@ func TestCreatePR_AssigneesFailure(t *testing.T) {
 		Title:     "Test PR",
 		Body:      "Test description",
 		Head:      "feature",
-		Base:      "main",
+		Base:      "master",
 		Assignees: []string{"user1"},
 	}
 

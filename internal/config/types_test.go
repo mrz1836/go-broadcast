@@ -14,7 +14,6 @@ func TestConfigStructCreation(t *testing.T) {
 			Version: 1,
 			Source: SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
 			},
 			Defaults: DefaultConfig{
 				BranchPrefix: "sync/",
@@ -42,7 +41,6 @@ func TestConfigStructCreation(t *testing.T) {
 		require.NotNil(t, config)
 		assert.Equal(t, 1, config.Version)
 		assert.Equal(t, "org/template", config.Source.Repo)
-		assert.Equal(t, "main", config.Source.Branch)
 		assert.Equal(t, "sync/", config.Defaults.BranchPrefix)
 		assert.Len(t, config.Defaults.PRLabels, 1)
 		assert.Len(t, config.Targets, 1)
@@ -103,7 +101,6 @@ func TestConfigWithEmptySlices(t *testing.T) {
 		Version: 1,
 		Source: SourceConfig{
 			Repo:   "org/repo",
-			Branch: "main",
 		},
 		Defaults: DefaultConfig{
 			BranchPrefix: "prefix",
@@ -299,7 +296,6 @@ func TestConfigWithGlobalSection(t *testing.T) {
 		Version: 1,
 		Source: SourceConfig{
 			Repo:   "org/template",
-			Branch: "main",
 		},
 		Global: GlobalConfig{
 			PRLabels:    []string{"automated-sync", "chore"},

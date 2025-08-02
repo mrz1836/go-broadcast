@@ -6,7 +6,7 @@ import (
 
 // dashboardTemplate is the embedded dashboard HTML template (this is the "DASHBOARD, this is NOT a coverage report" template).
 //
-//nolint:misspell // GitHub Actions API uses British spelling for "cancelled"
+//nolint:misspell // GitHub Actions API uses British spelling for "canceled"
 func getDashboardTemplate() string {
 	return `<!DOCTYPE html>
 <html lang="en" data-theme="auto">

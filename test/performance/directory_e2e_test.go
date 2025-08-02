@@ -16,7 +16,6 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/profiling"
 	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -195,11 +194,11 @@ func (suite *DirectoryE2EPerformanceSuite) SetupSuite() {
 	// Setup temporary directory
 	var err error
 	suite.tempDir, err = os.MkdirTemp("", "go-broadcast-dir-e2e-*")
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	// Setup profiles directory
 	suite.profilesDir = filepath.Join(suite.tempDir, "profiles")
-	require.NoError(suite.T(), os.MkdirAll(suite.profilesDir, 0o750))
+	suite.Require().NoError(os.MkdirAll(suite.profilesDir, 0o750))
 
 	// Initialize profiling suite
 	suite.profileSuite = profiling.NewProfileSuite(suite.profilesDir)
@@ -218,12 +217,12 @@ func (suite *DirectoryE2EPerformanceSuite) SetupSuite() {
 
 	// Locate test fixtures
 	wd, err := os.Getwd()
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	suite.fixturesDir = filepath.Join(wd, "..", "fixtures", "directories")
 
 	// Verify fixtures exist
 	_, err = os.Stat(suite.fixturesDir)
-	require.NoError(suite.T(), err, "Test fixtures directory not found: %s", suite.fixturesDir)
+	suite.Require().NoError(err, "Test fixtures directory not found: %s", suite.fixturesDir)
 
 	// Initialize network simulator
 	suite.networkSimulator = NewNetworkSimulator(0, 0)
@@ -432,14 +431,14 @@ func (suite *DirectoryE2EPerformanceSuite) TestNetworkResilienceScenarios() {
 			suite.LessOrEqual(result.Duration, netScenario.maxDuration, "Duration should meet resilience target")
 
 			if netScenario.expectRetries {
-				suite.Greater(result.RetryAttempts, int64(0), "Retries should occur with network failures")
+				suite.Positive(result.RetryAttempts, "Retries should occur with network failures")
 			}
 
 			calls, failures := suite.networkSimulator.GetStats()
-			suite.Greater(calls, int64(0), "Network calls should be made")
+			suite.Positive(calls, "Network calls should be made")
 
 			if netScenario.failRate > 0 {
-				suite.Greater(failures, int64(0), "Network failures should be simulated")
+				suite.Positive(failures, "Network failures should be simulated")
 			}
 
 			suite.logger.WithFields(logrus.Fields{
@@ -491,7 +490,10 @@ func (suite *DirectoryE2EPerformanceSuite) TestMemoryLeakDetection() {
 		runtime.ReadMemStats(&m2)
 		finalGoroutines := runtime.NumGoroutine()
 
-		memoryReadings[i] = int64(m2.Alloc) / 1024 / 1024 // Convert to MB
+		// Safe conversion with bounds check
+		if m2.Alloc <= math.MaxInt64 {
+			memoryReadings[i] = int64(m2.Alloc) / 1024 / 1024 // Convert to MB
+		}
 		goroutineReadings[i] = finalGoroutines - initialGoroutines
 
 		suite.logger.WithFields(logrus.Fields{
@@ -598,7 +600,7 @@ func (suite *DirectoryE2EPerformanceSuite) runDirectoryPerformanceScenario(scena
 
 	// Build fixture path
 	fixturePath := filepath.Join(suite.fixturesDir, scenario.FixturePath)
-	if _, err := os.Stat(fixturePath); os.IsNotExist(err) {
+	if _, statErr := os.Stat(fixturePath); os.IsNotExist(statErr) {
 		result.ErrorMessage = fmt.Sprintf("Fixture path does not exist: %s", fixturePath)
 		return result
 	}
@@ -647,13 +649,31 @@ func (suite *DirectoryE2EPerformanceSuite) runDirectoryPerformanceScenario(scena
 	// Calculate metrics
 	result.Success = err == nil
 	result.ProcessingRate = float64(result.FilesProcessed) / result.Duration.Seconds()
-	result.MemoryUsedMB = int64(endSnapshot.MemStats.Alloc) / 1024 / 1024
-	result.PeakMemoryMB = int64(endSnapshot.MemStats.Sys) / 1024 / 1024
+	// Safe conversion with bounds check
+	if endSnapshot.MemStats.Alloc <= math.MaxInt64 {
+		memUsedBytes := endSnapshot.MemStats.Alloc
+		if memUsedBytes <= math.MaxInt64 {
+			result.MemoryUsedMB = int64(memUsedBytes) / 1024 / 1024
+		}
+	}
+	if endSnapshot.MemStats.Sys <= math.MaxInt64 {
+		peakMemBytes := endSnapshot.MemStats.Sys
+		if peakMemBytes <= math.MaxInt64 {
+			result.PeakMemoryMB = int64(peakMemBytes) / 1024 / 1024
+		}
+	}
 	result.PeakGoroutines = endGoroutines
 
 	// Calculate memory growth rate (MB per 100 files)
 	if result.FilesProcessed > 0 {
-		memoryDelta := int64(endSnapshot.MemStats.Alloc - startSnapshot.MemStats.Alloc)
+		// Safe memory delta calculation with bounds check
+		var memoryDelta int64
+		if endSnapshot.MemStats.Alloc >= startSnapshot.MemStats.Alloc {
+			memoryDiff := endSnapshot.MemStats.Alloc - startSnapshot.MemStats.Alloc
+			if memoryDiff <= math.MaxInt64 {
+				memoryDelta = int64(memoryDiff)
+			}
+		}
 		result.MemoryGrowthRate = float64(memoryDelta) / 1024 / 1024 / float64(result.FilesProcessed) * 100
 	}
 
@@ -828,7 +848,13 @@ func (suite *DirectoryE2EPerformanceSuite) runConcurrentDirectoryTest(dirCount, 
 	result.Success = processingErrors == 0
 	result.FilesProcessed = int(processedCount)
 	result.ProcessingRate = float64(result.FilesProcessed) / result.Duration.Seconds()
-	result.MemoryUsedMB = int64(endSnapshot.MemStats.Alloc) / 1024 / 1024
+	// Safe conversion with bounds check
+	if endSnapshot.MemStats.Alloc <= math.MaxInt64 {
+		memUsedBytes := endSnapshot.MemStats.Alloc
+		if memUsedBytes <= math.MaxInt64 {
+			result.MemoryUsedMB = int64(memUsedBytes) / 1024 / 1024
+		}
+	}
 	result.PeakGoroutines = endGoroutines - startGoroutines
 
 	// Cleanup
@@ -953,7 +979,7 @@ func (suite *DirectoryE2EPerformanceSuite) processDirectoryFiles(ctx context.Con
 }
 
 // processFile simulates processing a single file with retry logic
-func (suite *DirectoryE2EPerformanceSuite) processFile(ctx context.Context, filePath string) error {
+func (suite *DirectoryE2EPerformanceSuite) processFile(ctx context.Context, _ string) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -1118,8 +1144,10 @@ func (suite *DirectoryE2EPerformanceSuite) analyzeMemoryLeaks(memoryReadings []i
 // generateComprehensiveReport generates a detailed performance report
 func (suite *DirectoryE2EPerformanceSuite) generateComprehensiveReport() {
 	reportFile := filepath.Join(suite.profilesDir, "directory_e2e_performance_report.txt")
+	// Clean the report file path to prevent directory traversal
+	cleanReportFile := filepath.Clean(reportFile)
 
-	f, err := os.Create(reportFile)
+	f, err := os.Create(cleanReportFile)
 	if err != nil {
 		suite.logger.WithError(err).Error("Failed to create comprehensive report")
 		return

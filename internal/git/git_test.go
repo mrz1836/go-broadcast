@@ -695,12 +695,12 @@ func TestGitClient_Push(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test push without remote (should fail)
-	err = client.Push(ctx, repoPath, "origin", "main", false)
+	err = client.Push(ctx, repoPath, "origin", "master", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to push")
 
 	// Test with force flag
-	err = client.Push(ctx, repoPath, "origin", "main", true)
+	err = client.Push(ctx, repoPath, "origin", "master", true)
 	require.Error(t, err) // Still fails without remote, but tests force flag handling
 	assert.Contains(t, err.Error(), "failed to push")
 }
@@ -791,7 +791,7 @@ func TestGitClient_CheckoutError(t *testing.T) {
 	ctx := context.Background()
 
 	// Test checkout on non-existent repository
-	err = client.Checkout(ctx, "/nonexistent/repo", "main")
+	err = client.Checkout(ctx, "/nonexistent/repo", "master")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to checkout branch main")
 }
@@ -843,7 +843,7 @@ func TestGitClient_PushError(t *testing.T) {
 	ctx := context.Background()
 
 	// Test push on non-existent repository
-	err = client.Push(ctx, "/nonexistent/repo", "origin", "main", false)
+	err = client.Push(ctx, "/nonexistent/repo", "origin", "master", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to push")
 }
@@ -896,7 +896,7 @@ func TestGitClient_RunCommandNotARepository(t *testing.T) {
 	tmpDir := testutil.CreateTempDir(t)
 
 	// Try to run git command in directory that's not a repository
-	err = client.Checkout(ctx, tmpDir, "main")
+	err = client.Checkout(ctx, tmpDir, "master")
 	require.Error(t, err)
 	// The error should be recognized as "not a git repository"
 	assert.ErrorIs(t, err, ErrNotARepository)

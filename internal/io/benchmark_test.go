@@ -321,8 +321,8 @@ func BenchmarkBatchProcessing(b *testing.B) {
 func BenchmarkMemoryOperations(b *testing.B) {
 	b.Run("StringIntern", func(b *testing.B) {
 		strings := []string{
-			"repo1", "repo2", "repo3", "main", "develop", "feature/branch",
-			"repo1", "repo2", "repo3", "main", "develop", "feature/branch", // Duplicates for cache hits
+			"repo1", "repo2", "repo3", "master", "develop", "feature/branch",
+			"repo1", "repo2", "repo3", "master", "develop", "feature/branch", // Duplicates for cache hits
 		}
 
 		b.Run("WithIntern", func(b *testing.B) {
@@ -435,7 +435,7 @@ func BenchmarkRealWorldScenarios(b *testing.B) {
 				Transform: func(data []byte) ([]byte, error) {
 					// Simulate template transformation
 					content := strings.ReplaceAll(string(data), "{{REPO}}", "go-broadcast")
-					content = strings.ReplaceAll(content, "{{BRANCH}}", "main")
+					content = strings.ReplaceAll(content, "{{BRANCH}}", "master")
 					return []byte(content), nil
 				},
 			}

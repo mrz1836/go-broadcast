@@ -45,7 +45,7 @@ transforms_applied:
 			expected: &PRMetadata{
 				SourceCommit: "abc123def",
 				SourceRepo:   "org/template",
-				SourceBranch: "main",
+				SourceBranch: "master",
 				CreatedAt:    time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC),
 				Files: []string{
 					".github/workflows/ci.yml",
@@ -74,7 +74,7 @@ files: []
 			expected: &PRMetadata{
 				SourceCommit: "xyz789",
 				SourceRepo:   "org/template",
-				SourceBranch: "main",
+				SourceBranch: "master",
 				CreatedAt:    time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC),
 				Files:        []string{},
 			},
@@ -143,7 +143,7 @@ func TestFormatPRMetadata(t *testing.T) {
 	metadata := &PRMetadata{
 		SourceCommit: "abc123def",
 		SourceRepo:   "org/template",
-		SourceBranch: "main",
+		SourceBranch: "master",
 		CreatedAt:    time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC),
 		Files: []string{
 			".github/workflows/ci.yml",
@@ -172,7 +172,7 @@ func TestGeneratePRDescription(t *testing.T) {
 	metadata := &PRMetadata{
 		SourceCommit: "abc123def",
 		SourceRepo:   "org/template",
-		SourceBranch: "main",
+		SourceBranch: "master",
 		CreatedAt:    time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC),
 		Files: []string{
 			".github/workflows/ci.yml",

@@ -332,14 +332,14 @@ With `--debug-config` enabled:
 [DEBUG] [config] Starting configuration validation: version=1 source_repo="org/template" target_count=3
 [TRACE] [config] Validating configuration version: version=1
 [DEBUG] [config] Validating source configuration
-[TRACE] [config-source] Validating source repository configuration: repo="org/template" branch="main"
+[TRACE] [config-source] Validating source repository configuration: repo="org/template" branch="master"
 [DEBUG] [config] Configuration validation completed successfully: duration_ms=15 targets_valid=3
 ```
 
 With `--debug-state` enabled:
 ```
 [DEBUG] [state-discovery] Starting sync state discovery: source_repo="org/template" target_count=3
-[DEBUG] [state-discovery] Discovering source repository state: repo="org/template" branch="main"
+[DEBUG] [state-discovery] Discovering source repository state: repo="org/template" branch="master"
 [DEBUG] [state-discovery] Source repository state discovered: commit="abc123" duration_ms=250
 [DEBUG] [target-discovery] Starting target repository state discovery: target_repo="org/service-a"
 [DEBUG] [target-discovery] Branch analysis completed: total_branches=15 valid_sync_branches=3

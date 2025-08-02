@@ -11,8 +11,6 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -33,12 +31,12 @@ type DirectoryTestSuite struct {
 func (suite *DirectoryTestSuite) SetupSuite() {
 	// Create temporary directory
 	tempDir, err := os.MkdirTemp("", "directory-sync-test-*")
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	suite.tempDir = tempDir
 
 	// Create source directory structure
 	suite.sourceDir = filepath.Join(tempDir, "source")
-	require.NoError(suite.T(), os.MkdirAll(suite.sourceDir, 0o750))
+	suite.Require().NoError(os.MkdirAll(suite.sourceDir, 0o750))
 
 	// Create test files and directories
 	suite.createTestStructure()
@@ -76,7 +74,7 @@ func (suite *DirectoryTestSuite) SetupSuite() {
 func (suite *DirectoryTestSuite) TearDownSuite() {
 	if suite.tempDir != "" {
 		err := os.RemoveAll(suite.tempDir)
-		require.NoError(suite.T(), err)
+		suite.Require().NoError(err)
 	}
 }
 
@@ -105,10 +103,10 @@ func (suite *DirectoryTestSuite) createTestStructure() {
 	for filePath, content := range testFiles {
 		fullPath := filepath.Join(suite.sourceDir, filePath)
 		err := os.MkdirAll(filepath.Dir(fullPath), 0o750)
-		require.NoError(suite.T(), err)
+		suite.Require().NoError(err)
 
 		err = os.WriteFile(fullPath, []byte(content), 0o600)
-		require.NoError(suite.T(), err)
+		suite.Require().NoError(err)
 	}
 
 	// Create some hidden files
@@ -122,10 +120,10 @@ func (suite *DirectoryTestSuite) createTestStructure() {
 	for filePath, content := range hiddenFiles {
 		fullPath := filepath.Join(suite.sourceDir, filePath)
 		err := os.MkdirAll(filepath.Dir(fullPath), 0o750)
-		require.NoError(suite.T(), err)
+		suite.Require().NoError(err)
 
 		err = os.WriteFile(fullPath, []byte(content), 0o600)
-		require.NoError(suite.T(), err)
+		suite.Require().NoError(err)
 	}
 }
 
@@ -142,10 +140,10 @@ func (suite *DirectoryTestSuite) TestDirectoryDiscovery() {
 	suite.processor.exclusionEngine = NewExclusionEngine(dirMapping.Exclude)
 
 	files, err := suite.processor.discoverFiles(ctx, filepath.Join(suite.sourceDir, "src"), dirMapping)
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	// Should discover files in src directory
-	suite.True(len(files) > 0, "Should discover files in src directory")
+	suite.NotEmpty(files, "Should discover files in src directory")
 
 	// Check for expected files
 	foundMainGo := false
@@ -182,7 +180,7 @@ func (suite *DirectoryTestSuite) TestDirectoryDiscoveryWithExclusions() {
 	suite.processor.exclusionEngine = NewExclusionEngine(dirMapping.Exclude)
 
 	files, err := suite.processor.discoverFiles(ctx, suite.sourceDir, dirMapping)
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	// Check that excluded files are not present
 	for _, file := range files {
@@ -211,7 +209,7 @@ func (suite *DirectoryTestSuite) TestDirectoryDiscoveryHiddenFiles() {
 	suite.processor.exclusionEngine = NewExclusionEngine(dirMapping.Exclude)
 
 	files, err := suite.processor.discoverFiles(ctx, suite.sourceDir, dirMapping)
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	foundHidden := false
 	for _, file := range files {
@@ -230,7 +228,7 @@ func (suite *DirectoryTestSuite) TestDirectoryDiscoveryHiddenFiles() {
 	suite.processor.exclusionEngine = NewExclusionEngine(dirMapping.Exclude)
 
 	files, err = suite.processor.discoverFiles(ctx, suite.sourceDir, dirMapping)
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	foundHidden = false
 	for _, file := range files {
@@ -260,7 +258,7 @@ func (suite *DirectoryTestSuite) TestFileJobCreation() {
 	}
 
 	jobs := suite.processor.createFileJobs(files, dirMapping)
-	require.Len(suite.T(), jobs, 3)
+	suite.Require().Len(jobs, 3)
 
 	// Check that paths are preserved
 	expectedJobs := map[string]string{
@@ -271,7 +269,7 @@ func (suite *DirectoryTestSuite) TestFileJobCreation() {
 
 	for _, job := range jobs {
 		expectedDest, exists := expectedJobs[job.SourcePath]
-		require.True(suite.T(), exists, "Unexpected source path: %s", job.SourcePath)
+		suite.Require().True(exists, "Unexpected source path: %s", job.SourcePath)
 		suite.Equal(expectedDest, job.DestPath, "Incorrect destination path")
 		suite.True(job.Transform.RepoName, "Transform should be applied")
 	}
@@ -293,7 +291,7 @@ func (suite *DirectoryTestSuite) TestFileJobCreationFlattened() {
 	}
 
 	jobs := suite.processor.createFileJobs(files, dirMapping)
-	require.Len(suite.T(), jobs, 2)
+	suite.Require().Len(jobs, 2)
 
 	// Check that files are flattened
 	expectedJobs := map[string]string{
@@ -303,7 +301,7 @@ func (suite *DirectoryTestSuite) TestFileJobCreationFlattened() {
 
 	for _, job := range jobs {
 		expectedDest, exists := expectedJobs[job.SourcePath]
-		require.True(suite.T(), exists, "Unexpected source path: %s", job.SourcePath)
+		suite.Require().True(exists, "Unexpected source path: %s", job.SourcePath)
 		suite.Equal(expectedDest, job.DestPath, "Incorrect flattened destination path")
 	}
 }
@@ -327,7 +325,7 @@ func (suite *DirectoryTestSuite) TestProgressReporting() {
 	reporter.AddTotalSize(1000)
 
 	metrics := reporter.GetMetrics()
-	assert.Equal(suite.T(), 10, metrics.FilesDiscovered, "Should track discovered files from Start() call")
+	suite.Equal(10, metrics.FilesDiscovered, "Should track discovered files from Start() call")
 	suite.Equal(1, metrics.FilesProcessed, "Should track processed files")
 	suite.Equal(1, metrics.FilesExcluded, "Should track excluded files")
 	suite.Equal(1, metrics.FilesSkipped, "Should track skipped files")
@@ -432,7 +430,7 @@ func (suite *DirectoryTestSuite) TestValidateDirectoryMapping() {
 		Exclude: []string{"*.tmp", "vendor/"},
 	}
 	err := ValidateDirectoryMapping(validMapping)
-	suite.NoError(err, "Valid mapping should pass validation")
+	suite.Require().NoError(err, "Valid mapping should pass validation")
 
 	// Invalid mappings
 	invalidMappings := []struct {
@@ -506,8 +504,8 @@ func (suite *DirectoryTestSuite) TestPerformanceRequirements() {
 	duration := time.Since(start)
 
 	// Allow for some test overhead, but should generally be fast
-	suite.NoError(err)
-	suite.True(len(files) > 0, "Should discover files")
+	suite.Require().NoError(err)
+	suite.NotEmpty(files, "Should discover files")
 	suite.Less(duration, 2*time.Second, "Small directory discovery should be fast")
 
 	suite.logger.WithFields(logrus.Fields{
@@ -539,7 +537,7 @@ func NewMockEngine() *MockEngine {
 type MockGHClient struct{}
 
 // GetFile implements a mock GetFile method
-func (m *MockGHClient) GetFile(ctx context.Context, repo, path, branch string) (*MockFileContent, error) {
+func (m *MockGHClient) GetFile(_ context.Context, _, _, _ string) (*MockFileContent, error) {
 	return nil, os.ErrNotExist // Simulate file not found
 }
 
@@ -552,7 +550,7 @@ type MockFileContent struct {
 type MockTransformChain struct{}
 
 // Transform implements a mock Transform method
-func (m *MockTransformChain) Transform(ctx context.Context, content []byte, transformCtx interface{}) ([]byte, error) {
+func (m *MockTransformChain) Transform(_ context.Context, content []byte, _ interface{}) ([]byte, error) {
 	// Simple mock transformation - just return the content unchanged
 	return content, nil
 }

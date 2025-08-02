@@ -26,6 +26,11 @@ var (
 	ErrAllDirectoryProcessingWithMetricsFailed = errors.New("all directory processing with metrics failed")
 )
 
+// Constants
+const (
+	mainBranch = "master"
+)
+
 // RepositorySync handles synchronization for a single repository
 type RepositorySync struct {
 	engine      *Engine
@@ -35,11 +40,11 @@ type RepositorySync struct {
 	logger      *logrus.Entry
 	tempDir     string
 	// Performance metrics tracking
-	syncMetrics *SyncPerformanceMetrics
+	syncMetrics *PerformanceMetrics
 }
 
-// SyncPerformanceMetrics tracks performance metrics for the entire sync operation
-type SyncPerformanceMetrics struct {
+// PerformanceMetrics tracks performance metrics for the entire sync operation
+type PerformanceMetrics struct {
 	StartTime        time.Time
 	EndTime          time.Time
 	DirectoryMetrics map[string]DirectoryMetrics // keyed by source directory path
@@ -61,7 +66,7 @@ type FileProcessingMetrics struct {
 // Execute performs the complete sync operation for this repository
 func (rs *RepositorySync) Execute(ctx context.Context) error {
 	// Initialize performance metrics tracking
-	rs.syncMetrics = &SyncPerformanceMetrics{
+	rs.syncMetrics = &PerformanceMetrics{
 		StartTime:        time.Now(),
 		DirectoryMetrics: make(map[string]DirectoryMetrics),
 	}
@@ -260,7 +265,7 @@ func (rs *RepositorySync) cleanup() {
 	}
 
 	// Force cleanup even if there are permission issues
-	if err := os.Chmod(rs.tempDir, 0o755); err != nil {
+	if err := os.Chmod(rs.tempDir, 0o600); err != nil {
 		rs.logger.WithError(err).Debug("Failed to change temp directory permissions for cleanup")
 	}
 
@@ -554,8 +559,8 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 
 	baseBranch := "master" // default
 	for _, branch := range branches {
-		if branch.Name == "main" {
-			baseBranch = "main"
+		if branch.Name == mainBranch {
+			baseBranch = mainBranch
 			break
 		}
 	}
@@ -721,11 +726,11 @@ func (rs *RepositorySync) writeChangeSummary(sb *strings.Builder, changedFiles [
 	}
 
 	if fileChanges > 0 {
-		sb.WriteString(fmt.Sprintf("* Updated %d individual file(s) to synchronize with the source repository\n", fileChanges))
+		fmt.Fprintf(sb, "* Updated %d individual file(s) to synchronize with the source repository\n", fileChanges)
 	}
 
 	if directoryChanges > 0 {
-		sb.WriteString(fmt.Sprintf("* Synchronized %d file(s) from directory mappings\n", directoryChanges))
+		fmt.Fprintf(sb, "* Synchronized %d file(s) from directory mappings\n", directoryChanges)
 	}
 
 	if len(rs.target.Files) > 0 || len(rs.target.Directories) > 0 {
@@ -739,22 +744,22 @@ func (rs *RepositorySync) writeDirectorySyncDetails(sb *strings.Builder) {
 	sb.WriteString("The following directories were synchronized:\n\n")
 
 	for _, dirMapping := range rs.target.Directories {
-		sb.WriteString(fmt.Sprintf("### `%s` → `%s`\n", dirMapping.Src, dirMapping.Dest))
+		fmt.Fprintf(sb, "### `%s` → `%s`\n", dirMapping.Src, dirMapping.Dest)
 
 		// Get metrics for this directory if available
 		if rs.syncMetrics != nil && rs.syncMetrics.DirectoryMetrics != nil {
 			if metrics, exists := rs.syncMetrics.DirectoryMetrics[dirMapping.Src]; exists {
-				sb.WriteString(fmt.Sprintf("* **Files synced**: %d\n", metrics.FilesProcessed))
-				sb.WriteString(fmt.Sprintf("* **Files excluded**: %d\n", metrics.FilesExcluded))
+				fmt.Fprintf(sb, "* **Files synced**: %d\n", metrics.FilesProcessed)
+				fmt.Fprintf(sb, "* **Files excluded**: %d\n", metrics.FilesExcluded)
 
 				if metrics.EndTime.After(metrics.StartTime) {
 					duration := metrics.EndTime.Sub(metrics.StartTime)
-					sb.WriteString(fmt.Sprintf("* **Processing time**: %dms\n", duration.Milliseconds()))
+					fmt.Fprintf(sb, "* **Processing time**: %dms\n", duration.Milliseconds())
 				}
 
 				if metrics.BinaryFilesSkipped > 0 {
-					sb.WriteString(fmt.Sprintf("* **Binary files skipped**: %d (%.2f KB)\n",
-						metrics.BinaryFilesSkipped, float64(metrics.BinaryFilesSize)/1024))
+					fmt.Fprintf(sb, "* **Binary files skipped**: %d (%.2f KB)\n",
+						metrics.BinaryFilesSkipped, float64(metrics.BinaryFilesSize)/1024)
 				}
 			}
 		}
@@ -766,7 +771,7 @@ func (rs *RepositorySync) writeDirectorySyncDetails(sb *strings.Builder) {
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				sb.WriteString(fmt.Sprintf("`%s`", pattern))
+				fmt.Fprintf(sb, "`%s`", pattern)
 			}
 			sb.WriteString("\n")
 		}
@@ -785,18 +790,18 @@ func (rs *RepositorySync) writePerformanceMetrics(sb *strings.Builder) {
 	// Overall timing
 	if rs.syncMetrics.EndTime.After(rs.syncMetrics.StartTime) {
 		totalDuration := rs.syncMetrics.EndTime.Sub(rs.syncMetrics.StartTime)
-		sb.WriteString(fmt.Sprintf("* **Total sync time**: %s\n", totalDuration.Round(time.Millisecond)))
+		fmt.Fprintf(sb, "* **Total sync time**: %s\n", totalDuration.Round(time.Millisecond))
 	}
 
 	// File processing metrics
 	if rs.syncMetrics.FileMetrics.FilesProcessed > 0 {
-		sb.WriteString(fmt.Sprintf("* **Files processed**: %d (%d changed, %d skipped)\n",
+		fmt.Fprintf(sb, "* **Files processed**: %d (%d changed, %d skipped)\n",
 			rs.syncMetrics.FileMetrics.FilesProcessed,
 			rs.syncMetrics.FileMetrics.FilesChanged,
-			rs.syncMetrics.FileMetrics.FilesSkipped))
+			rs.syncMetrics.FileMetrics.FilesSkipped)
 
 		if rs.syncMetrics.FileMetrics.ProcessingTimeMs > 0 {
-			sb.WriteString(fmt.Sprintf("* **File processing time**: %dms\n", rs.syncMetrics.FileMetrics.ProcessingTimeMs))
+			fmt.Fprintf(sb, "* **File processing time**: %dms\n", rs.syncMetrics.FileMetrics.ProcessingTimeMs)
 		}
 	}
 
@@ -811,42 +816,42 @@ func (rs *RepositorySync) writePerformanceMetrics(sb *strings.Builder) {
 	}
 
 	if totalDirectoryFiles > 0 {
-		sb.WriteString(fmt.Sprintf("* **Directory files processed**: %d (%d excluded)\n",
-			totalDirectoryFiles, totalDirectoryExcluded))
+		fmt.Fprintf(sb, "* **Directory files processed**: %d (%d excluded)\n",
+			totalDirectoryFiles, totalDirectoryExcluded)
 	}
 
 	// API efficiency metrics
 	if rs.syncMetrics.APICallsSaved > 0 {
-		sb.WriteString(fmt.Sprintf("* **API calls saved**: %d (through optimization)\n", rs.syncMetrics.APICallsSaved))
+		fmt.Fprintf(sb, "* **API calls saved**: %d (through optimization)\n", rs.syncMetrics.APICallsSaved)
 	}
 
 	// Cache performance
 	if rs.syncMetrics.CacheHits > 0 || rs.syncMetrics.CacheMisses > 0 {
 		total := rs.syncMetrics.CacheHits + rs.syncMetrics.CacheMisses
 		hitRate := float64(rs.syncMetrics.CacheHits) / float64(total) * 100
-		sb.WriteString(fmt.Sprintf("* **Cache hit rate**: %.1f%% (%d hits, %d misses)\n",
-			hitRate, rs.syncMetrics.CacheHits, rs.syncMetrics.CacheMisses))
+		fmt.Fprintf(sb, "* **Cache hit rate**: %.1f%% (%d hits, %d misses)\n",
+			hitRate, rs.syncMetrics.CacheHits, rs.syncMetrics.CacheMisses)
 	}
 
 	sb.WriteString("\n")
 }
 
 // writeMetadataBlock writes the machine-parseable metadata block
-func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA string, changedFiles []FileChange) {
+func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA string, _ []FileChange) {
 	sb.WriteString("<!-- go-broadcast-metadata\n")
 	sb.WriteString("sync_metadata:\n")
-	sb.WriteString(fmt.Sprintf("  source_repo: %s\n", rs.sourceState.Repo))
-	sb.WriteString(fmt.Sprintf("  source_commit: %s\n", rs.sourceState.LatestCommit))
-	sb.WriteString(fmt.Sprintf("  target_repo: %s\n", rs.target.Repo))
-	sb.WriteString(fmt.Sprintf("  sync_commit: %s\n", commitSHA))
-	sb.WriteString(fmt.Sprintf("  sync_time: %s\n", time.Now().Format(time.RFC3339)))
+	fmt.Fprintf(sb, "  source_repo: %s\n", rs.sourceState.Repo)
+	fmt.Fprintf(sb, "  source_commit: %s\n", rs.sourceState.LatestCommit)
+	fmt.Fprintf(sb, "  target_repo: %s\n", rs.target.Repo)
+	fmt.Fprintf(sb, "  sync_commit: %s\n", commitSHA)
+	fmt.Fprintf(sb, "  sync_time: %s\n", time.Now().Format(time.RFC3339))
 
 	// Add directory information if directories are configured
 	if len(rs.target.Directories) > 0 {
 		sb.WriteString("directories:\n")
 		for _, dirMapping := range rs.target.Directories {
-			sb.WriteString(fmt.Sprintf("  - src: %s\n", dirMapping.Src))
-			sb.WriteString(fmt.Sprintf("    dest: %s\n", dirMapping.Dest))
+			fmt.Fprintf(sb, "  - src: %s\n", dirMapping.Src)
+			fmt.Fprintf(sb, "    dest: %s\n", dirMapping.Dest)
 
 			// Add exclusion patterns
 			if len(dirMapping.Exclude) > 0 {
@@ -855,7 +860,7 @@ func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA stri
 					if i > 0 {
 						sb.WriteString(", ")
 					}
-					sb.WriteString(fmt.Sprintf("\"%s\"", pattern))
+					fmt.Fprintf(sb, "\"%s\"", pattern)
 				}
 				sb.WriteString("]\n")
 			}
@@ -863,11 +868,11 @@ func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA stri
 			// Add metrics if available
 			if rs.syncMetrics != nil && rs.syncMetrics.DirectoryMetrics != nil {
 				if metrics, exists := rs.syncMetrics.DirectoryMetrics[dirMapping.Src]; exists {
-					sb.WriteString(fmt.Sprintf("    files_synced: %d\n", metrics.FilesProcessed))
-					sb.WriteString(fmt.Sprintf("    files_excluded: %d\n", metrics.FilesExcluded))
+					fmt.Fprintf(sb, "    files_synced: %d\n", metrics.FilesProcessed)
+					fmt.Fprintf(sb, "    files_excluded: %d\n", metrics.FilesExcluded)
 					if metrics.EndTime.After(metrics.StartTime) {
 						duration := metrics.EndTime.Sub(metrics.StartTime)
-						sb.WriteString(fmt.Sprintf("    processing_time_ms: %d\n", duration.Milliseconds()))
+						fmt.Fprintf(sb, "    processing_time_ms: %d\n", duration.Milliseconds())
 					}
 				}
 			}
@@ -886,15 +891,15 @@ func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA stri
 			}
 		}
 		if totalFiles > 0 {
-			sb.WriteString(fmt.Sprintf("  total_files: %d\n", totalFiles))
+			fmt.Fprintf(sb, "  total_files: %d\n", totalFiles)
 		}
 
 		if rs.syncMetrics.APICallsSaved > 0 {
-			sb.WriteString(fmt.Sprintf("  api_calls_saved: %d\n", rs.syncMetrics.APICallsSaved))
+			fmt.Fprintf(sb, "  api_calls_saved: %d\n", rs.syncMetrics.APICallsSaved)
 		}
 
 		if rs.syncMetrics.CacheHits > 0 {
-			sb.WriteString(fmt.Sprintf("  cache_hits: %d\n", rs.syncMetrics.CacheHits))
+			fmt.Fprintf(sb, "  cache_hits: %d\n", rs.syncMetrics.CacheHits)
 		}
 	}
 
@@ -921,7 +926,7 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 
 	// Check for context cancellation early
 	if err := ctx.Err(); err != nil {
-		return nil, nil, fmt.Errorf("context cancelled before directory processing with metrics: %w", err)
+		return nil, nil, fmt.Errorf("context canceled before directory processing with metrics: %w", err)
 	}
 
 	processTimer := metrics.StartTimer(ctx, rs.logger, "directory_processing_with_metrics").
@@ -947,7 +952,7 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 	for _, dirMapping := range rs.target.Directories {
 		// Check for context cancellation during processing
 		if err := ctx.Err(); err != nil {
-			return nil, nil, fmt.Errorf("context cancelled during directory processing with metrics: %w", err)
+			return nil, nil, fmt.Errorf("context canceled during directory processing with metrics: %w", err)
 		}
 
 		dirProcessingStart := time.Now()

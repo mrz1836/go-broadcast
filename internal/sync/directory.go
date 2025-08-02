@@ -56,7 +56,7 @@ func (rs *RepositorySync) processDirectories(ctx context.Context) ([]FileChange,
 
 	// Check for context cancellation early
 	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("context cancelled before directory processing: %w", err)
+		return nil, fmt.Errorf("context canceled before directory processing: %w", err)
 	}
 
 	processTimer := metrics.StartTimer(ctx, rs.logger, "directory_processing").
@@ -81,7 +81,7 @@ func (rs *RepositorySync) processDirectories(ctx context.Context) ([]FileChange,
 	for _, dirMapping := range rs.target.Directories {
 		// Check for context cancellation during processing
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("context cancelled during directory processing: %w", err)
+			return nil, fmt.Errorf("context canceled during directory processing: %w", err)
 		}
 
 		changes, err := processor.ProcessDirectoryMapping(ctx, sourcePath, dirMapping, rs.target, rs.sourceState, rs.engine)

@@ -98,7 +98,7 @@ func (suite *TransformErrorTestSuite) TestTransformErrorIs() {
 	te2 := NewTransformError(errors.New("other error"), "/path/file.go", "org/source", "org/target", "repo_name")
 
 	// Should match if categories are the same
-	suite.ErrorIs(te1, te2)
+	suite.Require().ErrorIs(te1, te2)
 
 	// Should match underlying error
 	suite.ErrorIs(te1, baseErr)
@@ -453,7 +453,7 @@ func (suite *TransformErrorTestSuite) TestWrapTransformError() {
 	wrapped := WrapTransformError(baseErr, "/file.go", "org/source", "org/target", "repo_name")
 
 	var te *TransformError
-	suite.ErrorAs(wrapped, &te)
+	suite.Require().ErrorAs(wrapped, &te)
 	suite.Equal(baseErr, te.err)
 
 	// Test wrapping already wrapped error
@@ -471,7 +471,7 @@ func (suite *TransformErrorTestSuite) TestWrapDirectoryTransformError() {
 	wrapped := WrapDirectoryTransformError(baseErr, "/full/file.go", "rel/file.go", "org/source", "org/target", "template")
 
 	var te *TransformError
-	suite.ErrorAs(wrapped, &te)
+	suite.Require().ErrorAs(wrapped, &te)
 	suite.True(te.IsFromDirectory())
 	suite.Equal("rel/file.go", te.GetRelativePath())
 
@@ -480,7 +480,7 @@ func (suite *TransformErrorTestSuite) TestWrapDirectoryTransformError() {
 	dirWrapped := WrapDirectoryTransformError(regularTE, "/full/file.go", "rel/file.go", "org/source", "org/target", "template")
 
 	var dirTE *TransformError
-	suite.ErrorAs(dirWrapped, &dirTE)
+	suite.Require().ErrorAs(dirWrapped, &dirTE)
 	suite.True(dirTE.IsFromDirectory())
 	suite.Equal("rel/file.go", dirTE.GetRelativePath())
 }
@@ -685,7 +685,7 @@ func BenchmarkTransformError(b *testing.B) {
 func (suite *TransformErrorTestSuite) TestTransformErrorIntegration() {
 	// Test integration with internal errors
 	te := NewTransformError(internalerrors.ErrTransformNotFound, "/file.go", "org/source", "org/target", "repo_name")
-	suite.True(errors.Is(te, internalerrors.ErrTransformNotFound))
+	suite.Require().ErrorIs(te, internalerrors.ErrTransformNotFound)
 
 	// Test context integration
 	ctx, cancel := context.WithCancel(context.Background())

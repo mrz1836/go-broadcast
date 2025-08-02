@@ -24,6 +24,30 @@ type exclusionPattern struct {
 
 // NewExclusionEngine creates a new exclusion engine with default patterns
 func NewExclusionEngine(patterns []string) *ExclusionEngine {
+	// defaultExclusions contains common patterns that should typically be excluded
+	defaultExclusions := []string{
+		".git/",
+		".git/**",
+		"**/.git/",
+		"**/.git/**",
+		"node_modules/",
+		"node_modules/**",
+		"**/node_modules/",
+		"**/node_modules/**",
+		".DS_Store",
+		"**/.DS_Store",
+		"Thumbs.db",
+		"**/Thumbs.db",
+		"*.tmp",
+		"*.temp",
+		"**/*.tmp",
+		"**/*.temp",
+		".env",
+		".env.*",
+		"**/.env",
+		"**/.env.*",
+	}
+
 	engine := &ExclusionEngine{
 		patterns: make([]exclusionPattern, 0, len(patterns)+len(defaultExclusions)),
 	}
@@ -39,30 +63,6 @@ func NewExclusionEngine(patterns []string) *ExclusionEngine {
 	}
 
 	return engine
-}
-
-// defaultExclusions contains common patterns that should typically be excluded
-var defaultExclusions = []string{
-	".git/",
-	".git/**",
-	"**/.git/",
-	"**/.git/**",
-	"node_modules/",
-	"node_modules/**",
-	"**/node_modules/",
-	"**/node_modules/**",
-	".DS_Store",
-	"**/.DS_Store",
-	"Thumbs.db",
-	"**/Thumbs.db",
-	"*.tmp",
-	"*.temp",
-	"**/*.tmp",
-	"**/*.temp",
-	".env",
-	".env.*",
-	"**/.env",
-	"**/.env.*",
 }
 
 // IsExcluded checks if a file path should be excluded based on the configured patterns
@@ -110,7 +110,7 @@ func (e *ExclusionEngine) IsDirectoryExcluded(dirPath string) bool {
 
 // ClearCache clears the pattern matching cache
 func (e *ExclusionEngine) ClearCache() {
-	e.cache.Range(func(key, value interface{}) bool {
+	e.cache.Range(func(key, _ interface{}) bool {
 		e.cache.Delete(key)
 		return true
 	})

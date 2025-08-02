@@ -48,14 +48,14 @@ func TestGitHubClient_Integration(t *testing.T) {
 	})
 
 	t.Run("GetBranch", func(t *testing.T) {
-		branch, err := client.GetBranch(ctx, repo, "main")
+		branch, err := client.GetBranch(ctx, repo, "master")
 		require.NoError(t, err)
 		require.NotNil(t, branch)
-		assert.Equal(t, "main", branch.Name)
+		assert.Equal(t, "master", branch.Name)
 	})
 
 	t.Run("GetFile", func(t *testing.T) {
-		file, err := client.GetFile(ctx, repo, "README.md", "main")
+		file, err := client.GetFile(ctx, repo, "README.md", "master")
 		require.NoError(t, err)
 		require.NotNil(t, file)
 		assert.Equal(t, "README.md", file.Path)

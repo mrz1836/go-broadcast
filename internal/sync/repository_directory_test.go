@@ -31,7 +31,7 @@ func TestRepositorySync_generatePRBodyWithDirectories(t *testing.T) {
 				},
 			},
 		},
-		syncMetrics: &SyncPerformanceMetrics{
+		syncMetrics: &PerformanceMetrics{
 			StartTime: time.Now().Add(-30 * time.Second),
 			EndTime:   time.Now(),
 			FileMetrics: FileProcessingMetrics{
@@ -178,7 +178,7 @@ func TestRepositorySync_TrackingMethods(t *testing.T) {
 	repoSync.TrackAPIRequest()
 
 	// Test with initialized syncMetrics
-	repoSync.syncMetrics = &SyncPerformanceMetrics{}
+	repoSync.syncMetrics = &PerformanceMetrics{}
 
 	repoSync.TrackAPICallSaved(10)
 	repoSync.TrackCacheHit()
@@ -197,7 +197,7 @@ func TestRepositorySync_TrackingMethods(t *testing.T) {
 func TestRepositorySync_writePerformanceMetricsEdgeCases(t *testing.T) {
 	tests := []struct {
 		name        string
-		syncMetrics *SyncPerformanceMetrics
+		syncMetrics *PerformanceMetrics
 		expected    []string
 		notExpected []string
 	}{
@@ -209,7 +209,7 @@ func TestRepositorySync_writePerformanceMetricsEdgeCases(t *testing.T) {
 		},
 		{
 			name: "empty metrics",
-			syncMetrics: &SyncPerformanceMetrics{
+			syncMetrics: &PerformanceMetrics{
 				FileMetrics: FileProcessingMetrics{},
 			},
 			expected:    []string{"## Performance Metrics"},
@@ -217,7 +217,7 @@ func TestRepositorySync_writePerformanceMetricsEdgeCases(t *testing.T) {
 		},
 		{
 			name: "only file metrics",
-			syncMetrics: &SyncPerformanceMetrics{
+			syncMetrics: &PerformanceMetrics{
 				FileMetrics: FileProcessingMetrics{
 					FilesProcessed:   3,
 					FilesChanged:     2,

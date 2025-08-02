@@ -1641,7 +1641,7 @@ gh-pages/
       
       <!-- Branch cards with hover effects and quick actions -->
       <div class="branch-grid">
-        <article class="branch-card" data-branch="main">
+        <article class="branch-card" data-branch="master">
           <div class="branch-header">
             <h3 class="branch-name">main</h3>
             <div class="branch-badge">Protected</div>

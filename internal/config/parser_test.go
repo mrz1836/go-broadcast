@@ -28,7 +28,6 @@ func TestLoad(t *testing.T) {
 version: 1
 source:
   repo: "org/template-repo"
-  branch: "main"
 defaults:
   branch_prefix: "sync/custom"
   pr_labels: ["sync", "automated"]
@@ -46,7 +45,6 @@ targets:
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 1, cfg.Version)
 				assert.Equal(t, "org/template-repo", cfg.Source.Repo)
-				assert.Equal(t, "main", cfg.Source.Branch)
 				assert.Equal(t, "sync/custom", cfg.Defaults.BranchPrefix)
 				assert.Equal(t, []string{"sync", "automated"}, cfg.Defaults.PRLabels)
 				require.Len(t, cfg.Targets, 1)
@@ -68,7 +66,6 @@ targets:
 version: 1
 source:
   repo: "org/template-repo
-  branch: "main"
 `
 				tmpFile := filepath.Join(testutil.CreateTempDir(t), "invalid.yaml")
 				testutil.WriteTestFile(t, tmpFile, content)
@@ -296,7 +293,6 @@ func TestParserApplyDefaults(t *testing.T) {
 			input: &Config{
 				Source: SourceConfig{
 					Repo:   "org/repo",
-					Branch: "main",
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "custom/prefix",
@@ -305,7 +301,7 @@ func TestParserApplyDefaults(t *testing.T) {
 			expected: &Config{
 				Source: SourceConfig{
 					Repo:   "org/repo",
-					Branch: "main", // Not overwritten
+					Branch: Final, // Not overwritten
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "custom/prefix",            // Not overwritten
@@ -410,7 +406,7 @@ func TestLoadFromReader_TargetPRLabels(t *testing.T) {
 version: 1
 source:
   repo: "org/source"
-  branch: "main"
+  branch: Final
 defaults:
   pr_labels: ["default-label1", "default-label2"]
 targets:
@@ -707,7 +703,7 @@ targets:
 			name: "YAML with flow style",
 			input: `
 version: 1
-source: {repo: "org/source", branch: "main"}
+source: {repo: "org/source", branch: Final}
 defaults: {branch_prefix: "sync", pr_labels: ["auto", "sync"]}
 targets:
   - {repo: "org/target", files: [{src: "a.txt", dest: "b.txt"}]}
@@ -715,7 +711,7 @@ targets:
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "org/source", cfg.Source.Repo)
-				assert.Equal(t, "main", cfg.Source.Branch)
+				assert.Equal(t, Final, cfg.Source.Branch)
 				assert.Equal(t, []string{"auto", "sync"}, cfg.Defaults.PRLabels)
 				assert.Len(t, cfg.Targets[0].Files, 1)
 			},
@@ -727,7 +723,7 @@ targets:
 version: 1 # Version number
 source: # Source repository
   repo: "org/source" # Repository name
-  branch: "main" # Branch to use
+  branch: Final # Branch to use
 # Default settings
 defaults:
   branch_prefix: "sync" # Prefix for branches
@@ -823,7 +819,7 @@ targets:
 version: 1
 source: &source
   repo: "org/source"
-  branch: "main"
+  branch: Final
 targets:
   - repo: "org/target"
     source: *source

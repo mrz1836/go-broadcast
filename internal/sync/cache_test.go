@@ -337,12 +337,12 @@ func (suite *ContentCacheTestSuite) TestCacheWarmingWithCancellation() {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	defer cancel()
 
-	// Add a small delay to ensure context is definitely cancelled
+	// Add a small delay to ensure context is definitely canceled
 	time.Sleep(1 * time.Millisecond)
 
-	// Warm cache (should be cancelled)
+	// Warm cache (should be canceled)
 	err := suite.cache.Warm(ctx, repo, branch, files)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, context.DeadlineExceeded, err)
 }
 
@@ -371,11 +371,11 @@ func (suite *ContentCacheTestSuite) TestThreadSafety() {
 
 				// Put content
 				err := suite.cache.Put(ctx, repo, branch, path, content)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 
 				// Get content
 				result, hit, err := suite.cache.Get(ctx, repo, branch, path)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				if hit {
 					assert.Equal(t, content, result)
 				}
@@ -433,19 +433,19 @@ func (suite *ContentCacheTestSuite) TestMemoryLimits() {
 func (suite *ContentCacheTestSuite) TestContextCancellation() {
 	t := suite.T()
 
-	// Test Get with cancelled context
+	// Test Get with canceled context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	result, hit, err := suite.cache.Get(ctx, "repo", "branch", "file.txt")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, context.Canceled, err)
 	assert.False(t, hit)
 	assert.Empty(t, result)
 
-	// Test Put with cancelled context
+	// Test Put with canceled context
 	err = suite.cache.Put(ctx, "repo", "branch", "file.txt", "content")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, context.Canceled, err)
 }
 

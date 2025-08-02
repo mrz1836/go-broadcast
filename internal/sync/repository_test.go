@@ -367,7 +367,7 @@ func TestRepositorySync_generatePRBody(t *testing.T) {
 		target: config.TargetConfig{
 			Repo: "org/target",
 		},
-		syncMetrics: &SyncPerformanceMetrics{
+		syncMetrics: &PerformanceMetrics{
 			FileMetrics: FileProcessingMetrics{
 				FilesProcessed: 2,
 				FilesChanged:   2,
@@ -1177,7 +1177,7 @@ func TestCreateNewPR_GetCurrentUserFailure(t *testing.T) {
 	ghClient.On("GetCurrentUser", ctx).Return(nil, errTestAuthError)
 
 	// Mock branch listing
-	branches := []gh.Branch{{Name: "main", Protected: true}}
+	branches := []gh.Branch{{Name: "master", Protected: true}}
 	ghClient.On("ListBranches", ctx, "org/target").Return(branches, nil)
 
 	// Configure with reviewers

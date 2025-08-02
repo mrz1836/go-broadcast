@@ -126,7 +126,7 @@ file-sync logs tail
 version: 1
 source:
   repo: "org/template-repo"
-  branch: "main"
+  branch: "master"
 
 defaults:
   branch_prefix: "chore/sync-files"

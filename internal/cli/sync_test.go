@@ -229,7 +229,7 @@ targets:
 		require.NotNil(t, cfg)
 
 		assert.Equal(t, "org/template", cfg.Source.Repo)
-		assert.Equal(t, "main", cfg.Source.Branch)
+		assert.Equal(t, "master", cfg.Source.Branch)
 		assert.Len(t, cfg.Targets, 1)
 		assert.Equal(t, "org/target1", cfg.Targets[0].Repo)
 	})
@@ -426,7 +426,7 @@ func TestCreateSyncEngine(t *testing.T) {
 		cfg := &config.Config{
 			Source: config.SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []config.TargetConfig{
 				{
@@ -458,7 +458,7 @@ func TestCreateSyncEngineWithFlags(t *testing.T) {
 		cfg := &config.Config{
 			Source: config.SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []config.TargetConfig{
 				{
@@ -498,7 +498,7 @@ func TestCreateSyncEngineWithLogConfig(t *testing.T) {
 		cfg := &config.Config{
 			Source: config.SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []config.TargetConfig{
 				{
