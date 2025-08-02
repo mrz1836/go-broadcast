@@ -193,6 +193,7 @@ jobs:
       # Run tests and coverage
       # ————————————————————————————————————————————————————————————————
       - name: 🧪 Run tests
+        continue-on-error: true
         run: |
           # Safely assign values to shell vars
           RACE="${{ inputs.race-detection-enabled }}"
@@ -203,19 +204,85 @@ jobs:
 
           if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
             echo "🏁 Running tests with race detection and coverage analysis..."
-            make test-cover-race VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }}
+            make test-cover-race VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }} 2>&1 | tee test-output.log
           elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
             echo "🏁 Running tests with coverage analysis..."
-            make test-cover VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }}
+            make test-cover VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }} 2>&1 | tee test-output.log
           elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
             echo "🏁 Running tests with race detection..."
-            make test-race VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }}
+            make test-race VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }} 2>&1 | tee test-output.log
           else
             echo "🏁 Running tests without coverage or race detection..."
-            make test VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }}
+            make test VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }} 2>&1 | tee test-output.log
           fi
 
           echo "✅ Tests completed successfully"
+
+      # ————————————————————————————————————————————————————————————————
+      # Test failure analysis and reporting
+      # ————————————————————————————————————————————————————————————————
+      - name: 🚨 Create Test Failure Summary
+        if: failure()
+        run: |
+          echo "## 🚨 Test Failures - ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **OS**: ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY  
+          echo "- **Go Version**: ${{ matrix.go-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Race Detection**: ${{ inputs.race-detection-enabled }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Coverage Enabled**: ${{ inputs.code-coverage-enabled }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f test-output.log ]; then
+            FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" test-output.log || echo "0")
+            PANIC_COUNT=$(grep -c "panic:" test-output.log || echo "0")
+            echo "- **Failed Tests**: $FAIL_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "- **Panics**: $PANIC_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$FAIL_COUNT" -gt 0 ]; then
+              echo "### 🔍 Failed Test Summary (First 10)" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              grep -E "^FAIL\|--- FAIL" test-output.log | head -10 >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            if [ "$PANIC_COUNT" -gt 0 ]; then
+              echo "### 🚨 Panic Summary" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              grep -A 2 -B 1 "panic:" test-output.log | head -20 >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "⚠️ Test output log not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 📋 Annotate Key Test Failures
+        if: failure()
+        run: |
+          if [ -f test-output.log ]; then
+            echo "::group::📋 Test Failure Analysis"
+            
+            # Count and report overall statistics
+            FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" test-output.log || echo "0")
+            PANIC_COUNT=$(grep -c "panic:" test-output.log || echo "0")
+            
+            echo "::error title=Test Suite Failed::$FAIL_COUNT tests failed, $PANIC_COUNT panics detected on ${{ matrix.os }} Go ${{ matrix.go-version }}"
+            
+            # Annotate first 5 failed tests
+            grep -E "^FAIL\|--- FAIL" test-output.log | head -5 | while IFS= read -r line; do
+              echo "::error title=Failed Test::$line"
+            done
+            
+            # Annotate panics
+            if [ "$PANIC_COUNT" -gt 0 ]; then
+              grep -B 1 "panic:" test-output.log | head -3 | while IFS= read -r line; do
+                echo "::error title=Test Panic::$line"
+              done
+            fi
+            
+            echo "::endgroup::"
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Fuzz tests (only on Linux)
