@@ -23,6 +23,7 @@ var (
 	ErrPRNotFound       = errors.New("pull request not found")
 	ErrFileNotFound     = errors.New("file not found")
 	ErrCommitNotFound   = errors.New("commit not found")
+	ErrGitTreeNotFound  = errors.New("git tree not found")
 )
 
 // githubClient implements the Client interface using gh CLI
@@ -402,7 +403,7 @@ func (g *githubClient) GetGitTree(ctx context.Context, repo, treeSHA string, rec
 	output, err := g.runner.Run(ctx, "gh", "api", apiURL)
 	if err != nil {
 		if isNotFoundError(err) {
-			return nil, fmt.Errorf("git tree not found: %s", treeSHA)
+			return nil, fmt.Errorf("%w: %s", ErrGitTreeNotFound, treeSHA)
 		}
 		return nil, appErrors.WrapWithContext(err, "get git tree")
 	}

@@ -38,7 +38,7 @@ func (suite *DirectoryTestSuite) SetupSuite() {
 
 	// Create source directory structure
 	suite.sourceDir = filepath.Join(tempDir, "source")
-	require.NoError(suite.T(), os.MkdirAll(suite.sourceDir, 0o755))
+	require.NoError(suite.T(), os.MkdirAll(suite.sourceDir, 0o750))
 
 	// Create test files and directories
 	suite.createTestStructure()
@@ -104,10 +104,10 @@ func (suite *DirectoryTestSuite) createTestStructure() {
 	// Create directories and files
 	for filePath, content := range testFiles {
 		fullPath := filepath.Join(suite.sourceDir, filePath)
-		err := os.MkdirAll(filepath.Dir(fullPath), 0o755)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0o750)
 		require.NoError(suite.T(), err)
 
-		err = os.WriteFile(fullPath, []byte(content), 0o644)
+		err = os.WriteFile(fullPath, []byte(content), 0o600)
 		require.NoError(suite.T(), err)
 	}
 
@@ -121,10 +121,10 @@ func (suite *DirectoryTestSuite) createTestStructure() {
 
 	for filePath, content := range hiddenFiles {
 		fullPath := filepath.Join(suite.sourceDir, filePath)
-		err := os.MkdirAll(filepath.Dir(fullPath), 0o755)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0o750)
 		require.NoError(suite.T(), err)
 
-		err = os.WriteFile(fullPath, []byte(content), 0o644)
+		err = os.WriteFile(fullPath, []byte(content), 0o600)
 		require.NoError(suite.T(), err)
 	}
 }
@@ -145,7 +145,7 @@ func (suite *DirectoryTestSuite) TestDirectoryDiscovery() {
 	require.NoError(suite.T(), err)
 
 	// Should discover files in src directory
-	assert.True(suite.T(), len(files) > 0, "Should discover files in src directory")
+	suite.True(len(files) > 0, "Should discover files in src directory")
 
 	// Check for expected files
 	foundMainGo := false
@@ -163,9 +163,9 @@ func (suite *DirectoryTestSuite) TestDirectoryDiscovery() {
 		}
 	}
 
-	assert.True(suite.T(), foundMainGo, "Should find main.go")
-	assert.True(suite.T(), foundHelperGo, "Should find utils/helper.go")
-	assert.True(suite.T(), foundHidden, "Should find hidden files by default")
+	suite.True(foundMainGo, "Should find main.go")
+	suite.True(foundHelperGo, "Should find utils/helper.go")
+	suite.True(foundHidden, "Should find hidden files by default")
 }
 
 // TestDirectoryDiscoveryWithExclusions tests file discovery with exclusion patterns
@@ -186,11 +186,11 @@ func (suite *DirectoryTestSuite) TestDirectoryDiscoveryWithExclusions() {
 
 	// Check that excluded files are not present
 	for _, file := range files {
-		assert.False(suite.T(), strings.Contains(file.RelativePath, "vendor/"),
+		suite.NotContains(file.RelativePath, "vendor/",
 			"Vendor files should be excluded: %s", file.RelativePath)
-		assert.False(suite.T(), strings.HasSuffix(file.RelativePath, ".yml"),
+		suite.False(strings.HasSuffix(file.RelativePath, ".yml"),
 			"YAML files should be excluded: %s", file.RelativePath)
-		assert.False(suite.T(), strings.Contains(file.RelativePath, ".secret/"),
+		suite.NotContains(file.RelativePath, ".secret/",
 			"Secret files should be excluded: %s", file.RelativePath)
 	}
 }
@@ -220,7 +220,7 @@ func (suite *DirectoryTestSuite) TestDirectoryDiscoveryHiddenFiles() {
 			break
 		}
 	}
-	assert.True(suite.T(), foundHidden, "Should find hidden files when included")
+	suite.True(foundHidden, "Should find hidden files when included")
 
 	// Test with hidden files excluded
 	includeHidden = false
@@ -239,7 +239,7 @@ func (suite *DirectoryTestSuite) TestDirectoryDiscoveryHiddenFiles() {
 			break
 		}
 	}
-	assert.False(suite.T(), foundHidden, "Should not find hidden files when excluded")
+	suite.False(foundHidden, "Should not find hidden files when excluded")
 }
 
 // TestFileJobCreation tests file job creation from discovered files
@@ -272,8 +272,8 @@ func (suite *DirectoryTestSuite) TestFileJobCreation() {
 	for _, job := range jobs {
 		expectedDest, exists := expectedJobs[job.SourcePath]
 		require.True(suite.T(), exists, "Unexpected source path: %s", job.SourcePath)
-		assert.Equal(suite.T(), expectedDest, job.DestPath, "Incorrect destination path")
-		assert.True(suite.T(), job.Transform.RepoName, "Transform should be applied")
+		suite.Equal(expectedDest, job.DestPath, "Incorrect destination path")
+		suite.True(job.Transform.RepoName, "Transform should be applied")
 	}
 }
 
@@ -304,7 +304,7 @@ func (suite *DirectoryTestSuite) TestFileJobCreationFlattened() {
 	for _, job := range jobs {
 		expectedDest, exists := expectedJobs[job.SourcePath]
 		require.True(suite.T(), exists, "Unexpected source path: %s", job.SourcePath)
-		assert.Equal(suite.T(), expectedDest, job.DestPath, "Incorrect flattened destination path")
+		suite.Equal(expectedDest, job.DestPath, "Incorrect flattened destination path")
 	}
 }
 
@@ -312,11 +312,11 @@ func (suite *DirectoryTestSuite) TestFileJobCreationFlattened() {
 func (suite *DirectoryTestSuite) TestProgressReporting() {
 	// Test progress reporter creation
 	reporter := NewDirectoryProgressReporter(suite.logger, "test-dir", 5)
-	assert.NotNil(suite.T(), reporter)
+	suite.NotNil(reporter)
 
 	// Test with file count above threshold
 	reporter.Start(10)
-	assert.True(suite.T(), reporter.isEnabled(), "Should be enabled for file count above threshold")
+	suite.True(reporter.isEnabled(), "Should be enabled for file count above threshold")
 
 	// Test metrics tracking
 	reporter.RecordFileProcessed(100)
@@ -328,17 +328,17 @@ func (suite *DirectoryTestSuite) TestProgressReporting() {
 
 	metrics := reporter.GetMetrics()
 	assert.Equal(suite.T(), 10, metrics.FilesDiscovered, "Should track discovered files from Start() call")
-	assert.Equal(suite.T(), 1, metrics.FilesProcessed, "Should track processed files")
-	assert.Equal(suite.T(), 1, metrics.FilesExcluded, "Should track excluded files")
-	assert.Equal(suite.T(), 1, metrics.FilesSkipped, "Should track skipped files")
-	assert.Equal(suite.T(), 1, metrics.FilesErrored, "Should track errored files")
-	assert.Equal(suite.T(), 1, metrics.DirectoriesWalked, "Should track walked directories")
-	assert.Equal(suite.T(), int64(1000), metrics.TotalSize, "Should track total size")
-	assert.Equal(suite.T(), int64(100), metrics.ProcessedSize, "Should track processed size")
+	suite.Equal(1, metrics.FilesProcessed, "Should track processed files")
+	suite.Equal(1, metrics.FilesExcluded, "Should track excluded files")
+	suite.Equal(1, metrics.FilesSkipped, "Should track skipped files")
+	suite.Equal(1, metrics.FilesErrored, "Should track errored files")
+	suite.Equal(1, metrics.DirectoriesWalked, "Should track walked directories")
+	suite.Equal(int64(1000), metrics.TotalSize, "Should track total size")
+	suite.Equal(int64(100), metrics.ProcessedSize, "Should track processed size")
 
 	// Test completion
 	finalMetrics := reporter.Complete()
-	assert.False(suite.T(), finalMetrics.EndTime.IsZero(), "Should have end time")
+	suite.False(finalMetrics.EndTime.IsZero(), "Should have end time")
 }
 
 // TestProgressReportingThreshold tests progress reporting threshold behavior
@@ -346,17 +346,17 @@ func (suite *DirectoryTestSuite) TestProgressReportingThreshold() {
 	// Test with file count below threshold
 	reporter := NewDirectoryProgressReporter(suite.logger, "test-dir", 10)
 	reporter.Start(5) // Below threshold of 10
-	assert.False(suite.T(), reporter.isEnabled(), "Should be disabled for file count below threshold")
+	suite.False(reporter.isEnabled(), "Should be disabled for file count below threshold")
 
 	// Test with file count at threshold
 	reporter2 := NewDirectoryProgressReporter(suite.logger, "test-dir", 10)
 	reporter2.Start(10) // At threshold
-	assert.True(suite.T(), reporter2.isEnabled(), "Should be enabled for file count at threshold")
+	suite.True(reporter2.isEnabled(), "Should be enabled for file count at threshold")
 
 	// Test with file count above threshold
 	reporter3 := NewDirectoryProgressReporter(suite.logger, "test-dir", 10)
 	reporter3.Start(15) // Above threshold
-	assert.True(suite.T(), reporter3.isEnabled(), "Should be enabled for file count above threshold")
+	suite.True(reporter3.isEnabled(), "Should be enabled for file count above threshold")
 }
 
 // TestExclusionEngine tests the exclusion engine functionality
@@ -370,7 +370,7 @@ func (suite *DirectoryTestSuite) TestExclusionEngine() {
 	}
 
 	engine := NewExclusionEngine(patterns)
-	assert.NotNil(suite.T(), engine)
+	suite.NotNil(engine)
 
 	// Test file exclusions
 	testCases := []struct {
@@ -389,7 +389,7 @@ func (suite *DirectoryTestSuite) TestExclusionEngine() {
 
 	for _, tc := range testCases {
 		result := engine.IsExcluded(tc.path)
-		assert.Equal(suite.T(), tc.excluded, result, "%s: %s", tc.desc, tc.path)
+		suite.Equal(tc.excluded, result, "%s: %s", tc.desc, tc.path)
 	}
 }
 
@@ -419,7 +419,7 @@ func (suite *DirectoryTestSuite) TestExclusionEngineDirectories() {
 
 	for _, tc := range testCases {
 		result := engine.IsDirectoryExcluded(tc.path)
-		assert.Equal(suite.T(), tc.excluded, result, "%s: %s", tc.desc, tc.path)
+		suite.Equal(tc.excluded, result, "%s: %s", tc.desc, tc.path)
 	}
 }
 
@@ -432,7 +432,7 @@ func (suite *DirectoryTestSuite) TestValidateDirectoryMapping() {
 		Exclude: []string{"*.tmp", "vendor/"},
 	}
 	err := ValidateDirectoryMapping(validMapping)
-	assert.NoError(suite.T(), err, "Valid mapping should pass validation")
+	suite.NoError(err, "Valid mapping should pass validation")
 
 	// Invalid mappings
 	invalidMappings := []struct {
@@ -459,7 +459,7 @@ func (suite *DirectoryTestSuite) TestValidateDirectoryMapping() {
 
 	for _, tc := range invalidMappings {
 		err := ValidateDirectoryMapping(tc.mapping)
-		assert.Error(suite.T(), err, tc.desc)
+		suite.Error(err, tc.desc)
 	}
 }
 
@@ -480,7 +480,7 @@ func (suite *DirectoryTestSuite) TestHiddenFileDetection() {
 
 	for _, tc := range testCases {
 		result := suite.processor.isHidden(tc.path)
-		assert.Equal(suite.T(), tc.hidden, result, "%s: %s", tc.desc, tc.path)
+		suite.Equal(tc.hidden, result, "%s: %s", tc.desc, tc.path)
 	}
 }
 
@@ -489,8 +489,8 @@ func (suite *DirectoryTestSuite) TestPerformanceRequirements() {
 	ctx := context.Background()
 
 	// Test with small directory (< 50 files) - should be < 500ms
-	// Note: This test is simplified since we need a real Engine instance for full testing
-	// In a real implementation, this would use the actual Engine with all dependencies
+	// This test focuses on file discovery performance as the main component
+	// Full testing would require Engine integration with all dependencies
 
 	// For now, just test the file discovery part which is the main performance component
 	smallDirMapping := config.DirectoryMapping{
@@ -506,9 +506,9 @@ func (suite *DirectoryTestSuite) TestPerformanceRequirements() {
 	duration := time.Since(start)
 
 	// Allow for some test overhead, but should generally be fast
-	assert.NoError(suite.T(), err)
-	assert.True(suite.T(), len(files) > 0, "Should discover files")
-	assert.Less(suite.T(), duration, 2*time.Second, "Small directory discovery should be fast")
+	suite.NoError(err)
+	suite.True(len(files) > 0, "Should discover files")
+	suite.Less(duration, 2*time.Second, "Small directory discovery should be fast")
 
 	suite.logger.WithFields(logrus.Fields{
 		"duration":   duration,

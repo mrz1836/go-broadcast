@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+)
+
+// Test error variables
+var (
+	ErrGitTreeNotImplemented = errors.New("git tree not implemented in mock")
 )
 
 // DirectoryTransformTestSuite tests comprehensive directory transformation scenarios
@@ -44,11 +50,11 @@ func (suite *DirectoryTransformTestSuite) SetupSuite() {
 
 	// Create source directory structure
 	suite.sourceDir = filepath.Join(tempDir, "source")
-	require.NoError(suite.T(), os.MkdirAll(suite.sourceDir, 0o755))
+	require.NoError(suite.T(), os.MkdirAll(suite.sourceDir, 0o750))
 
 	// Create performance test directory with many files
 	suite.performanceTestDir = filepath.Join(tempDir, "performance")
-	require.NoError(suite.T(), os.MkdirAll(suite.performanceTestDir, 0o755))
+	require.NoError(suite.T(), os.MkdirAll(suite.performanceTestDir, 0o750))
 
 	// Generate binary test data
 	suite.generateBinaryTestData()
@@ -256,10 +262,10 @@ And also contains repo reference: test/source-repo`,
 	// Create text files
 	for filePath, content := range textFiles {
 		fullPath := filepath.Join(suite.sourceDir, filePath)
-		err := os.MkdirAll(filepath.Dir(fullPath), 0o755)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0o750)
 		require.NoError(suite.T(), err)
 
-		err = os.WriteFile(fullPath, []byte(content), 0o644)
+		err = os.WriteFile(fullPath, []byte(content), 0o600)
 		require.NoError(suite.T(), err)
 	}
 
@@ -278,10 +284,10 @@ And also contains repo reference: test/source-repo`,
 	// Create binary files
 	for filePath, content := range binaryFiles {
 		fullPath := filepath.Join(suite.sourceDir, filePath)
-		err := os.MkdirAll(filepath.Dir(fullPath), 0o755)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0o750)
 		require.NoError(suite.T(), err)
 
-		err = os.WriteFile(fullPath, content, 0o644)
+		err = os.WriteFile(fullPath, content, 0o600)
 		require.NoError(suite.T(), err)
 	}
 
@@ -296,7 +302,7 @@ And also contains repo reference: test/source-repo`,
 
 	for filePath, content := range hiddenFiles {
 		fullPath := filepath.Join(suite.sourceDir, filePath)
-		err := os.MkdirAll(filepath.Dir(fullPath), 0o755)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0o750)
 		require.NoError(suite.T(), err)
 
 		var data []byte
@@ -307,7 +313,7 @@ And also contains repo reference: test/source-repo`,
 			data = v
 		}
 
-		err = os.WriteFile(fullPath, data, 0o644)
+		err = os.WriteFile(fullPath, data, 0o600)
 		require.NoError(suite.T(), err)
 	}
 
@@ -320,7 +326,7 @@ And also contains repo reference: test/source-repo`,
 
 	for _, dirPath := range emptyDirs {
 		fullPath := filepath.Join(suite.sourceDir, dirPath)
-		err := os.MkdirAll(fullPath, 0o755)
+		err := os.MkdirAll(fullPath, 0o750)
 		require.NoError(suite.T(), err)
 	}
 }
@@ -335,7 +341,7 @@ func (suite *DirectoryTransformTestSuite) createPerformanceTestStructure() {
 		dirIndex := i % dirCount
 		dirPath := filepath.Join(suite.performanceTestDir, fmt.Sprintf("dir_%02d", dirIndex))
 
-		err := os.MkdirAll(dirPath, 0o755)
+		err := os.MkdirAll(dirPath, 0o750)
 		require.NoError(suite.T(), err)
 
 		fileName := fmt.Sprintf("file_%03d.txt", i)
@@ -354,9 +360,9 @@ Directory: dir_%02d
 		if i%20 == 0 {
 			fileName = fmt.Sprintf("binary_%03d.dat", i)
 			filePath = filepath.Join(dirPath, fileName)
-			err = os.WriteFile(filePath, suite.binaryData, 0o644)
+			err = os.WriteFile(filePath, suite.binaryData, 0o600)
 		} else {
-			err = os.WriteFile(filePath, []byte(content), 0o644)
+			err = os.WriteFile(filePath, []byte(content), 0o600)
 		}
 		require.NoError(suite.T(), err)
 	}
@@ -380,7 +386,7 @@ func (suite *DirectoryTransformTestSuite) TestRepoNameTransformOnMultipleFiles()
 	)
 
 	require.NoError(suite.T(), err)
-	assert.True(suite.T(), len(changes) > 0, "Should process files and create changes")
+	suite.True(len(changes) > 0, "Should process files and create changes")
 
 	// Verify that repo name transformations were applied
 	for _, change := range changes {
@@ -390,14 +396,14 @@ func (suite *DirectoryTransformTestSuite) TestRepoNameTransformOnMultipleFiles()
 		// Verify transformation happened (original content should be different from transformed)
 		originalContent := string(change.OriginalContent)
 		if strings.Contains(originalContent, "test/source-repo") {
-			assert.Contains(suite.T(), transformedContent, "test/target-repo",
+			suite.Contains(transformedContent, "test/target-repo",
 				"File %s should have repo name transformed", change.Path)
-			assert.NotContains(suite.T(), transformedContent, "test/source-repo",
+			suite.NotContains(transformedContent, "test/source-repo",
 				"File %s should not contain original repo name", change.Path)
 		}
 
 		// Verify path mapping is correct
-		assert.True(suite.T(), strings.HasPrefix(change.Path, "transformed/src/"),
+		suite.True(strings.HasPrefix(change.Path, "transformed/src/"),
 			"Change path should have correct destination prefix: %s", change.Path)
 	}
 
@@ -430,7 +436,7 @@ func (suite *DirectoryTransformTestSuite) TestVariableSubstitutionAcrossDirector
 	)
 
 	require.NoError(suite.T(), err)
-	assert.True(suite.T(), len(changes) > 0, "Should process files and create changes")
+	suite.True(len(changes) > 0, "Should process files and create changes")
 
 	// Track which variables were found and transformed
 	variablesFound := make(map[string]int)
@@ -446,22 +452,22 @@ func (suite *DirectoryTransformTestSuite) TestVariableSubstitutionAcrossDirector
 
 			if strings.Contains(originalContent, templateVar) {
 				variablesFound[varName]++
-				assert.Contains(suite.T(), transformedContent, expectedValue,
+				suite.Contains(transformedContent, expectedValue,
 					"File %s should contain substituted value for %s", change.Path, varName)
-				assert.NotContains(suite.T(), transformedContent, templateVar,
+				suite.NotContains(transformedContent, templateVar,
 					"File %s should not contain template variable %s", change.Path, varName)
 			}
 		}
 
 		// Verify repo name transformation if enabled
 		if dirMapping.Transform.RepoName && strings.Contains(originalContent, "test/source-repo") {
-			assert.Contains(suite.T(), transformedContent, "test/target-repo",
+			suite.Contains(transformedContent, "test/target-repo",
 				"File %s should have repo name transformed", change.Path)
 		}
 	}
 
 	// Assert that we found and transformed multiple variables across files
-	assert.True(suite.T(), len(variablesFound) >= 5,
+	suite.True(len(variablesFound) >= 5,
 		"Should find at least 5 different variables across files, found: %v", variablesFound)
 
 	suite.logger.WithFields(logrus.Fields{
@@ -501,11 +507,11 @@ func (suite *DirectoryTransformTestSuite) TestBinaryFileDetectionAndSkipping() {
 	}
 
 	// Verify binary files were detected and content preserved
-	assert.True(suite.T(), len(binaryChanges) > 0, "Should detect binary files")
+	suite.True(len(binaryChanges) > 0, "Should detect binary files")
 
 	for path, change := range binaryChanges {
 		// Binary files should have unchanged content
-		assert.Equal(suite.T(), change.OriginalContent, change.Content,
+		suite.Equal(change.OriginalContent, change.Content,
 			"Binary file %s should have unchanged content", path)
 
 		// Verify specific binary files we created
@@ -520,7 +526,7 @@ func (suite *DirectoryTransformTestSuite) TestBinaryFileDetectionAndSkipping() {
 	}
 
 	// Verify text files were transformed
-	assert.True(suite.T(), len(textChanges) > 0, "Should process text files")
+	suite.True(len(textChanges) > 0, "Should process text files")
 
 	for path, change := range textChanges {
 		originalContent := string(change.OriginalContent)
@@ -561,7 +567,7 @@ func (suite *DirectoryTransformTestSuite) TestErrorIsolation() {
 
 	// Verify that files were processed (even if some had errors, they use fallback content)
 	for _, change := range changes {
-		assert.NotNil(suite.T(), change.Content, "All changes should have content")
+		suite.NotNil(change.Content, "All changes should have content")
 		assert.NotNil(suite.T(), change.OriginalContent, "All changes should have original content")
 	}
 
@@ -585,7 +591,7 @@ func (suite *DirectoryTransformTestSuite) TestMixedTextAndBinaryInSameDirectory(
 	)
 
 	require.NoError(suite.T(), err)
-	assert.True(suite.T(), len(changes) > 0, "Should process mixed directory")
+	suite.True(len(changes) > 0, "Should process mixed directory")
 
 	binaryCount := 0
 	textCount := 0
@@ -594,7 +600,7 @@ func (suite *DirectoryTransformTestSuite) TestMixedTextAndBinaryInSameDirectory(
 		if transform.IsBinary(change.Path, change.OriginalContent) {
 			binaryCount++
 			// Binary content should be unchanged
-			assert.Equal(suite.T(), change.OriginalContent, change.Content,
+			suite.Equal(change.OriginalContent, change.Content,
 				"Binary file in mixed directory should be unchanged")
 		} else {
 			textCount++
@@ -603,14 +609,14 @@ func (suite *DirectoryTransformTestSuite) TestMixedTextAndBinaryInSameDirectory(
 			transformedStr := string(change.Content)
 
 			if strings.Contains(originalStr, "{{.") || strings.Contains(originalStr, "test/source-repo") {
-				assert.NotEqual(suite.T(), originalStr, transformedStr,
+				suite.NotEqual(originalStr, transformedStr,
 					"Text file in mixed directory should be transformed")
 			}
 		}
 	}
 
-	assert.True(suite.T(), binaryCount > 0, "Should find binary files in mixed directory")
-	assert.True(suite.T(), textCount > 0, "Should find text files in mixed directory")
+	suite.True(binaryCount > 0, "Should find binary files in mixed directory")
+	suite.True(textCount > 0, "Should find text files in mixed directory")
 
 	suite.logger.WithFields(logrus.Fields{
 		"binary_count": binaryCount,
@@ -656,7 +662,7 @@ func (suite *DirectoryTransformTestSuite) TestNestedDirectoryStructures() {
 				transformedContent := string(change.Content)
 				assert.Contains(suite.T(), transformedContent, "nested-test",
 					"Nested JSON file should have variable substitution")
-				assert.Contains(suite.T(), transformedContent, "test/target-repo",
+				suite.Contains(transformedContent, "test/target-repo",
 					"Nested JSON file should have repo name transformation")
 			}
 		}
@@ -733,7 +739,7 @@ func (suite *DirectoryTransformTestSuite) TestEmptyDirectoriesAndBinaryOnlyDirec
 	for _, change := range binaryChanges {
 		assert.True(suite.T(), transform.IsBinary(change.Path, change.OriginalContent),
 			"Should detect all files as binary in binary-only directory")
-		assert.Equal(suite.T(), change.OriginalContent, change.Content,
+		suite.Equal(change.OriginalContent, change.Content,
 			"Binary files should have unchanged content")
 	}
 
@@ -826,7 +832,7 @@ func (suite *DirectoryTransformTestSuite) TestMetricsAccuracy() {
 		assert.True(suite.T(), metrics.TransformSuccesses > 0, "Should have successful transforms")
 
 		// Verify that we have reasonable metrics relationships
-		// Note: The exact count relationship can vary due to excluded files and discovery timing
+		// Exact counts may vary due to excluded files and discovery timing
 		assert.True(suite.T(), metrics.BinaryFilesSkipped+metrics.TransformSuccesses > 0,
 			"Should have processed some files (binary or transformed)")
 		assert.True(suite.T(), metrics.BinaryFilesSkipped > 0 || metrics.TransformSuccesses > 0,
@@ -879,7 +885,7 @@ func (suite *DirectoryTransformTestSuite) BenchmarkBinaryDetection() {
 	}
 
 	for _, tf := range testFiles {
-		suite.T().Run(tf.name, func(t *testing.T) {
+		suite.T().Run(tf.name, func(_ *testing.T) {
 			for i := 0; i < 1000; i++ {
 				_ = transform.IsBinary("test.dat", tf.data)
 			}
@@ -949,15 +955,15 @@ func (m *DirectoryMockGHClient) ListBranches(ctx context.Context, repo string) (
 }
 
 func (m *DirectoryMockGHClient) GetBranch(ctx context.Context, repo, branch string) (*gh.Branch, error) {
-	return nil, nil
+	return &gh.Branch{Name: branch}, nil
 }
 
 func (m *DirectoryMockGHClient) CreatePR(ctx context.Context, repo string, req gh.PRRequest) (*gh.PR, error) {
-	return nil, nil
+	return &gh.PR{Number: 1, Title: req.Title}, nil
 }
 
 func (m *DirectoryMockGHClient) GetPR(ctx context.Context, repo string, number int) (*gh.PR, error) {
-	return nil, nil
+	return &gh.PR{Number: number}, nil
 }
 
 func (m *DirectoryMockGHClient) ListPRs(ctx context.Context, repo, state string) ([]gh.PR, error) {
@@ -965,7 +971,7 @@ func (m *DirectoryMockGHClient) ListPRs(ctx context.Context, repo, state string)
 }
 
 func (m *DirectoryMockGHClient) GetCommit(ctx context.Context, repo, sha string) (*gh.Commit, error) {
-	return nil, nil
+	return &gh.Commit{SHA: sha}, nil
 }
 
 func (m *DirectoryMockGHClient) ClosePR(ctx context.Context, repo string, number int, comment string) error {
@@ -981,11 +987,11 @@ func (m *DirectoryMockGHClient) UpdatePR(ctx context.Context, repo string, numbe
 }
 
 func (m *DirectoryMockGHClient) GetCurrentUser(ctx context.Context) (*gh.User, error) {
-	return nil, nil
+	return &gh.User{Login: "test-user"}, nil
 }
 
 func (m *DirectoryMockGHClient) GetGitTree(ctx context.Context, repo, treeSHA string, recursive bool) (*gh.GitTree, error) {
-	return nil, nil
+	return nil, ErrGitTreeNotImplemented
 }
 
 // DirectoryMockFileContent represents mock file content

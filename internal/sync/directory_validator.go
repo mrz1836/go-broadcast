@@ -2,7 +2,8 @@ package sync
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -16,6 +17,13 @@ import (
 
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/sirupsen/logrus"
+)
+
+// Static error variables
+var (
+	ErrValidationFailed          = errors.New("validation failed")
+	ErrTransformValidationFailed = errors.New("transform validation failed")
+	ErrEncodingValidationFailed  = errors.New("encoding validation failed")
 )
 
 // ValidationResult represents the outcome of a validation operation
@@ -868,7 +876,7 @@ func (dv *DirectoryValidator) validateTransformResult(original, transformed stri
 	if transform.RepoName {
 		// This is a simplified check - in practice, you'd need access to the actual repo names
 		if original == transformed {
-			return fmt.Errorf("repo_name transform enabled but content unchanged: %w", fmt.Errorf("validation failed"))
+			return fmt.Errorf("repo_name transform enabled but content unchanged: %w", ErrValidationFailed)
 		}
 	}
 
@@ -876,13 +884,13 @@ func (dv *DirectoryValidator) validateTransformResult(original, transformed stri
 	for variable := range transform.Variables {
 		placeholder := fmt.Sprintf("{{%s}}", variable)
 		if strings.Contains(original, placeholder) && strings.Contains(transformed, placeholder) {
-			return fmt.Errorf("variable %s not substituted: %w", variable, fmt.Errorf("transform validation failed"))
+			return fmt.Errorf("variable %s not substituted: %w", variable, ErrTransformValidationFailed)
 		}
 	}
 
 	// Validate UTF-8 encoding
 	if !utf8.ValidString(transformed) {
-		return fmt.Errorf("transformed content contains invalid UTF-8: %w", fmt.Errorf("encoding validation failed"))
+		return fmt.Errorf("transformed content contains invalid UTF-8: %w", ErrEncodingValidationFailed)
 	}
 
 	return nil
@@ -900,8 +908,8 @@ func (dv *DirectoryValidator) validateFileIntegrityJob(job integrityJob, results
 	}
 
 	// Compare content checksums
-	sourceHash := fmt.Sprintf("%x", md5.Sum([]byte(job.sourceContent)))
-	destHash := fmt.Sprintf("%x", md5.Sum([]byte(job.destContent)))
+	sourceHash := fmt.Sprintf("%x", sha256.Sum256([]byte(job.sourceContent)))
+	destHash := fmt.Sprintf("%x", sha256.Sum256([]byte(job.destContent)))
 
 	if sourceHash != destHash {
 		results <- FileValidationError{
@@ -926,7 +934,7 @@ func (dv *DirectoryValidator) calculateFileChecksum(filePath string) (string, er
 		}
 	}()
 
-	hash := md5.New()
+	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
 		return "", err
 	}

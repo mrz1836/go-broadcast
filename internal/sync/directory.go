@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -14,6 +15,15 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/metrics"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/sirupsen/logrus"
+)
+
+// Static error variables
+var (
+	ErrSourceDirectoryNotExist      = errors.New("source directory does not exist")
+	ErrAllDirectoryProcessingFailed = errors.New("all directory processing failed")
+	ErrSourceDirectoryEmpty         = errors.New("source directory cannot be empty")
+	ErrDestinationDirectoryEmpty    = errors.New("destination directory cannot be empty")
+	ErrEmptyExclusionPattern        = errors.New("empty exclusion pattern not allowed")
 )
 
 // DirectoryProcessor handles concurrent directory processing with worker pools
@@ -44,6 +54,11 @@ func (rs *RepositorySync) processDirectories(ctx context.Context) ([]FileChange,
 		return nil, nil
 	}
 
+	// Check for context cancellation early
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled before directory processing: %w", err)
+	}
+
 	processTimer := metrics.StartTimer(ctx, rs.logger, "directory_processing").
 		AddField("directory_count", len(rs.target.Directories))
 
@@ -53,17 +68,35 @@ func (rs *RepositorySync) processDirectories(ctx context.Context) ([]FileChange,
 	processor := NewDirectoryProcessor(rs.logger, 10) // Use default worker count
 
 	sourcePath := filepath.Join(rs.tempDir, "source")
+
+	// Verify source path exists
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("%w: %s", ErrSourceDirectoryNotExist, sourcePath)
+	}
+
 	var allChanges []FileChange
+	var processingErrors []error
 
 	// Process each directory mapping
 	for _, dirMapping := range rs.target.Directories {
+		// Check for context cancellation during processing
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("context cancelled during directory processing: %w", err)
+		}
+
 		changes, err := processor.ProcessDirectoryMapping(ctx, sourcePath, dirMapping, rs.target, rs.sourceState, rs.engine)
 		if err != nil {
-			// Log error but continue processing other directories
+			// Log error and collect for potential failure decision
 			rs.logger.WithError(err).WithField("directory", dirMapping.Src).Error("Failed to process directory")
+			processingErrors = append(processingErrors, err)
 			continue
 		}
 		allChanges = append(allChanges, changes...)
+	}
+
+	// If all directories failed, return an error
+	if len(processingErrors) > 0 && len(allChanges) == 0 {
+		return nil, fmt.Errorf("%w: %d errors occurred", ErrAllDirectoryProcessingFailed, len(processingErrors))
 	}
 
 	processTimer.AddField("total_changes", len(allChanges)).Stop()
@@ -328,17 +361,17 @@ func (dp *DirectoryProcessor) isHidden(path string) bool {
 // ValidateDirectoryMapping validates a directory mapping configuration
 func ValidateDirectoryMapping(dirMapping config.DirectoryMapping) error {
 	if dirMapping.Src == "" {
-		return fmt.Errorf("source directory cannot be empty")
+		return ErrSourceDirectoryEmpty
 	}
 
 	if dirMapping.Dest == "" {
-		return fmt.Errorf("destination directory cannot be empty")
+		return ErrDestinationDirectoryEmpty
 	}
 
 	// Validate exclusion patterns
 	for _, pattern := range dirMapping.Exclude {
 		if pattern == "" {
-			return fmt.Errorf("empty exclusion pattern not allowed")
+			return ErrEmptyExclusionPattern
 		}
 	}
 
@@ -375,8 +408,7 @@ func (rs *RepositorySync) ProcessDirectoriesWithMetrics(ctx context.Context) ([]
 	}
 
 	// Get metrics from the processor if available
-	// Note: This is a simplified version. In a full implementation,
-	// we'd need to track the processor instance to get metrics.
+	// Metrics collection requires tracking the processor instance
 	m := make(map[string]DirectoryMetrics)
 
 	return changes, m, nil

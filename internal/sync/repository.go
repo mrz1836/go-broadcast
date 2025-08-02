@@ -20,6 +20,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Static error variables
+var (
+	ErrSourceDirectoryNotExistForMetrics       = errors.New("source directory does not exist for metrics processing")
+	ErrAllDirectoryProcessingWithMetricsFailed = errors.New("all directory processing with metrics failed")
+)
+
 // RepositorySync handles synchronization for a single repository
 type RepositorySync struct {
 	engine      *Engine
@@ -253,8 +259,15 @@ func (rs *RepositorySync) cleanup() {
 		return
 	}
 
+	// Force cleanup even if there are permission issues
+	if err := os.Chmod(rs.tempDir, 0o755); err != nil {
+		rs.logger.WithError(err).Debug("Failed to change temp directory permissions for cleanup")
+	}
+
 	if err := os.RemoveAll(rs.tempDir); err != nil {
 		rs.logger.WithError(err).Warn("Failed to cleanup temporary directory")
+		// Try one more time with forced removal
+		_ = os.RemoveAll(rs.tempDir) // Ignore error on second attempt
 	} else {
 		rs.logger.Debug("Cleaned up temporary directory")
 	}
@@ -906,6 +919,11 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 		return nil, make(map[string]DirectoryMetrics), nil
 	}
 
+	// Check for context cancellation early
+	if err := ctx.Err(); err != nil {
+		return nil, nil, fmt.Errorf("context cancelled before directory processing with metrics: %w", err)
+	}
+
 	processTimer := metrics.StartTimer(ctx, rs.logger, "directory_processing_with_metrics").
 		AddField("directory_count", len(rs.target.Directories))
 
@@ -915,17 +933,30 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 	processor := NewDirectoryProcessor(rs.logger, 10) // Use default worker count
 
 	sourcePath := filepath.Join(rs.tempDir, "source")
+
+	// Verify source path exists
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return nil, nil, fmt.Errorf("%w: %s", ErrSourceDirectoryNotExistForMetrics, sourcePath)
+	}
+
 	var allChanges []FileChange
 	collectedMetrics := make(map[string]DirectoryMetrics)
+	var processingErrors []error
 
 	// Process each directory mapping and collect metrics
 	for _, dirMapping := range rs.target.Directories {
+		// Check for context cancellation during processing
+		if err := ctx.Err(); err != nil {
+			return nil, nil, fmt.Errorf("context cancelled during directory processing with metrics: %w", err)
+		}
+
 		dirProcessingStart := time.Now()
 
 		changes, err := processor.ProcessDirectoryMapping(ctx, sourcePath, dirMapping, rs.target, rs.sourceState, rs.engine)
 		if err != nil {
-			// Log error but continue processing other directories
+			// Log error and collect for potential failure decision
 			rs.logger.WithError(err).WithField("directory", dirMapping.Src).Error("Failed to process directory")
+			processingErrors = append(processingErrors, err)
 			continue
 		}
 
@@ -950,6 +981,11 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 		}
 
 		allChanges = append(allChanges, changes...)
+	}
+
+	// If all directories failed, return an error
+	if len(processingErrors) > 0 && len(allChanges) == 0 {
+		return nil, nil, fmt.Errorf("%w: %d errors occurred", ErrAllDirectoryProcessingWithMetricsFailed, len(processingErrors))
 	}
 
 	processTimer.AddField("total_changes", len(allChanges)).

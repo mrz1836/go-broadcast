@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -13,9 +14,18 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+// Test error variables
+var (
+	ErrNetworkTimeout    = errors.New("network timeout")
+	ErrRateLimitExceeded = errors.New("rate limit exceeded")
+	ErrCommitNotFound    = errors.New("commit not found")
+	ErrTreeNotFound      = errors.New("tree not found")
+)
+
 // GitHubAPISuite provides a test suite for GitHub Tree API integration
 type GitHubAPISuite struct {
 	suite.Suite
+
 	mockClient *gh.MockClient
 	api        *GitHubAPI
 	logger     *logrus.Logger
@@ -49,9 +59,9 @@ func (suite *GitHubAPISuite) TearDownTest() {
 func (suite *GitHubAPISuite) TestNewGitHubAPI() {
 	// Test default constructor
 	api := NewGitHubAPI(suite.mockClient, suite.logger)
-	assert.NotNil(suite.T(), api)
-	assert.Equal(suite.T(), 5*time.Minute, api.cacheTTL)
-	assert.Equal(suite.T(), 3, api.maxRetries)
+	suite.NotNil(api)
+	suite.Equal(5*time.Minute, api.cacheTTL)
+	suite.Equal(3, api.maxRetries)
 	api.Close()
 
 	// Test with custom options
@@ -62,9 +72,9 @@ func (suite *GitHubAPISuite) TestNewGitHubAPI() {
 		BaseRetryDelay: 2 * time.Second,
 	}
 	api2 := NewGitHubAPIWithOptions(suite.mockClient, suite.logger, opts)
-	assert.NotNil(suite.T(), api2)
-	assert.Equal(suite.T(), 10*time.Minute, api2.cacheTTL)
-	assert.Equal(suite.T(), 5, api2.maxRetries)
+	suite.NotNil(api2)
+	suite.Equal(10*time.Minute, api2.cacheTTL)
+	suite.Equal(5, api2.maxRetries)
 	api2.Close()
 }
 
@@ -98,15 +108,15 @@ func (suite *GitHubAPISuite) TestGetTree() {
 	// Test successful tree fetch
 	treeMap, err := suite.api.GetTree(suite.ctx, repo, ref)
 	require.NoError(suite.T(), err)
-	require.NotNil(suite.T(), treeMap)
+	suite.Require().NotNil(treeMap)
 
 	// Verify tree structure
-	assert.Equal(suite.T(), treeSHA, treeMap.sha)
-	assert.Len(suite.T(), treeMap.files, 3)
-	assert.Len(suite.T(), treeMap.directories, 2)
+	suite.Equal(treeSHA, treeMap.sha)
+	suite.Len(treeMap.files, 3)
+	suite.Len(treeMap.directories, 2)
 
 	// Verify files are correctly indexed
-	assert.True(suite.T(), treeMap.HasFile("README.md"))
+	suite.True(treeMap.HasFile("README.md"))
 	assert.True(suite.T(), treeMap.HasFile("src/main.go"))
 	assert.True(suite.T(), treeMap.HasFile("src/util/helper.go"))
 	assert.False(suite.T(), treeMap.HasFile("nonexistent.txt"))
@@ -329,7 +339,7 @@ func (suite *GitHubAPISuite) TestRetryLogic() {
 
 	// First tree call fails with retryable error
 	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).
-		Return(nil, fmt.Errorf("network timeout")).Once()
+		Return(nil, ErrNetworkTimeout).Once()
 
 	// Second tree call succeeds
 	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).
@@ -357,7 +367,7 @@ func (suite *GitHubAPISuite) TestRateLimitHandling() {
 
 	// All calls fail with rate limit
 	suite.mockClient.On("GetGitTree", suite.ctx, repo, treeSHA, true).
-		Return(nil, fmt.Errorf("rate limit exceeded")).Times(3) // Initial + 2 retries
+		Return(nil, ErrRateLimitExceeded).Times(3) // Initial + 2 retries
 
 	// Should fail after all retries
 	_, err := suite.api.GetTree(suite.ctx, repo, ref)
@@ -618,7 +628,7 @@ func TestErrorCases(t *testing.T) {
 
 	t.Run("GetCommit error", func(t *testing.T) {
 		mockClient.On("GetCommit", ctx, repo, ref).
-			Return(nil, fmt.Errorf("commit not found")).Once()
+			Return(nil, ErrCommitNotFound).Once()
 
 		_, err := api.GetTree(ctx, repo, ref)
 		assert.Error(t, err)
@@ -629,7 +639,7 @@ func TestErrorCases(t *testing.T) {
 		commit := &gh.Commit{SHA: "abc123"}
 		mockClient.On("GetCommit", ctx, repo, ref).Return(commit, nil).Once()
 		mockClient.On("GetGitTree", ctx, repo, "abc123", true).
-			Return(nil, fmt.Errorf("tree not found")).Once()
+			Return(nil, ErrTreeNotFound).Once()
 
 		_, err := api.GetTree(ctx, repo, ref)
 		assert.Error(t, err)

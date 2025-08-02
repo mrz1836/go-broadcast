@@ -16,6 +16,7 @@ import (
 // ContentCacheTestSuite provides comprehensive cache testing
 type ContentCacheTestSuite struct {
 	suite.Suite
+
 	cache  *ContentCache
 	logger *logrus.Entry
 }
@@ -32,7 +33,7 @@ func (suite *ContentCacheTestSuite) SetupTest() {
 func (suite *ContentCacheTestSuite) TearDownTest() {
 	if suite.cache != nil {
 		err := suite.cache.Close()
-		require.NoError(suite.T(), err)
+		suite.Require().NoError(err)
 	}
 }
 
@@ -72,7 +73,7 @@ func (suite *ContentCacheTestSuite) TestBasicGetPutOperations() {
 	assert.Equal(t, int64(1), stats.Misses)
 	assert.Equal(t, int64(1), stats.Size)
 	assert.Equal(t, int64(len(content)), stats.MemoryUsage)
-	assert.Equal(t, 0.5, stats.HitRate)
+	assert.InEpsilon(t, 0.5, stats.HitRate, 0.001)
 }
 
 // TestContentDeduplication verifies that identical content is deduplicated
@@ -215,7 +216,7 @@ func (suite *ContentCacheTestSuite) TestLRUEviction() {
 
 	// Verify eviction stats
 	stats := cache.GetStats()
-	assert.True(t, stats.Evictions > 0)
+	assert.Positive(t, stats.Evictions)
 }
 
 // TestCacheInvalidation verifies cache invalidation functionality
@@ -282,7 +283,7 @@ func (suite *ContentCacheTestSuite) TestCacheInvalidation() {
 	stats := suite.cache.GetStats()
 	assert.Equal(t, int64(0), stats.Size)
 	assert.Equal(t, int64(0), stats.MemoryUsage)
-	assert.True(t, stats.InvalidationID > 0)
+	assert.Positive(t, stats.InvalidationID)
 }
 
 // TestCacheWarming verifies cache warming functionality
@@ -394,8 +395,8 @@ func (suite *ContentCacheTestSuite) TestThreadSafety() {
 
 	// Verify cache is still functional
 	stats := suite.cache.GetStats()
-	assert.True(t, stats.Hits+stats.Misses > 0)
-	assert.True(t, stats.InvalidationID > 0)
+	suite.Positive(stats.Hits + stats.Misses)
+	suite.Positive(stats.InvalidationID)
 }
 
 // TestMemoryLimits verifies memory limit enforcement
@@ -425,7 +426,7 @@ func (suite *ContentCacheTestSuite) TestMemoryLimits() {
 	// Verify memory usage is tracked
 	stats := cache.GetStats()
 	assert.Equal(t, int64(len(smallContent)), stats.MemoryUsage)
-	assert.True(t, stats.MemoryUsage <= memoryLimit)
+	assert.LessOrEqual(t, stats.MemoryUsage, memoryLimit)
 }
 
 // TestContextCancellation verifies context cancellation is respected
@@ -462,7 +463,7 @@ func (suite *ContentCacheTestSuite) TestCacheStatsAccuracy() {
 	assert.Equal(t, int64(0), stats.Misses)
 	assert.Equal(t, int64(0), stats.Size)
 	assert.Equal(t, int64(0), stats.MemoryUsage)
-	assert.Equal(t, float64(0), stats.HitRate)
+	assert.InDelta(t, float64(0), stats.HitRate, 0.001)
 
 	// Generate some cache misses
 	for i := 0; i < 5; i++ {
@@ -474,7 +475,7 @@ func (suite *ContentCacheTestSuite) TestCacheStatsAccuracy() {
 	stats = suite.cache.GetStats()
 	assert.Equal(t, int64(0), stats.Hits)
 	assert.Equal(t, int64(5), stats.Misses)
-	assert.Equal(t, float64(0), stats.HitRate)
+	assert.InDelta(t, float64(0), stats.HitRate, 0.001)
 
 	// Add some content
 	for i := 0; i < 3; i++ {
@@ -497,14 +498,14 @@ func (suite *ContentCacheTestSuite) TestCacheStatsAccuracy() {
 	stats = suite.cache.GetStats()
 	assert.Equal(t, int64(3), stats.Hits)
 	assert.Equal(t, int64(5), stats.Misses)
-	assert.Equal(t, float64(3)/float64(8), stats.HitRate) // 3 hits out of 8 total
+	assert.InDelta(t, float64(3)/float64(8), stats.HitRate, 0.001) // 3 hits out of 8 total
 
 	// Test invalidation increments ID
 	oldInvalidationID := stats.InvalidationID
 	suite.cache.Invalidate(repo, branch)
 
 	stats = suite.cache.GetStats()
-	assert.True(t, stats.InvalidationID > oldInvalidationID)
+	assert.Greater(t, stats.InvalidationID, oldInvalidationID)
 	assert.Equal(t, int64(0), stats.Size)
 	assert.Equal(t, int64(0), stats.MemoryUsage)
 }

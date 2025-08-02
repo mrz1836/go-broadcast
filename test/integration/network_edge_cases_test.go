@@ -282,7 +282,8 @@ func (n *NetworkSimulator) ShouldFail() bool {
 	}
 
 	// Random failure based on rate
-	shouldFail := (time.Now().UnixNano() % 1000) < int64(n.failureRate*1000)
+	failureThreshold := int64(n.failureRate * 1000)
+	shouldFail := (time.Now().UnixNano() % 1000) < failureThreshold
 
 	if shouldFail {
 		n.consecutiveFails++
@@ -705,7 +706,8 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 				concurrency, duration, finalMaxConcurrent)
 
 			// Should respect concurrency limits (within reasonable bounds)
-			assert.LessOrEqual(t, finalMaxConcurrent, int64(concurrency*2),
+			maxAllowed := int64(concurrency) * 2
+			assert.LessOrEqual(t, finalMaxConcurrent, maxAllowed,
 				"Should not exceed reasonable concurrency bounds")
 
 			// Higher concurrency should generally utilize more concurrent operations

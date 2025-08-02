@@ -20,6 +20,16 @@ var (
 	ErrNoTargets = errors.New("at least one target repository must be specified")
 	// ErrDuplicateTarget indicates a target repository is specified multiple times
 	ErrDuplicateTarget = errors.New("duplicate target repository")
+	// ErrNoMappings indicates no file or directory mappings were specified
+	ErrNoMappings = errors.New("at least one file or directory mapping is required")
+	// ErrEmptySourcePath indicates a directory source path is empty
+	ErrEmptySourcePath = errors.New("source path cannot be empty")
+	// ErrEmptyDestPath indicates a directory destination path is empty
+	ErrEmptyDestPath = errors.New("destination path cannot be empty")
+	// ErrPathTraversal indicates path traversal is not allowed
+	ErrPathTraversal = errors.New("path traversal not allowed")
+	// ErrDuplicateDestPath indicates destination path is used by multiple mappings
+	ErrDuplicateDestPath = errors.New("destination path already in use")
 )
 
 // Validate checks if the configuration is valid
@@ -416,7 +426,7 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 
 	// Validate that we have at least one file or directory mapping
 	if len(t.Files) == 0 && len(t.Directories) == 0 {
-		return fmt.Errorf("at least one file or directory mapping is required")
+		return ErrNoMappings
 	}
 
 	// Convert file mappings to validation format
@@ -513,19 +523,19 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 }
 
 // validateDirectories validates directory mappings
-func (t *TargetConfig) validateDirectories(ctx context.Context, logger *logrus.Entry) error {
+func (t *TargetConfig) validateDirectories(_ context.Context, logger *logrus.Entry) error {
 	// Check for empty directories
 	for i, dir := range t.Directories {
 		if dir.Src == "" {
-			return fmt.Errorf("directory[%d]: source path cannot be empty", i)
+			return fmt.Errorf("directory[%d]: %w", i, ErrEmptySourcePath)
 		}
 		if dir.Dest == "" {
-			return fmt.Errorf("directory[%d]: destination path cannot be empty", i)
+			return fmt.Errorf("directory[%d]: %w", i, ErrEmptyDestPath)
 		}
 
 		// Validate paths don't contain path traversal
 		if strings.Contains(dir.Src, "..") || strings.Contains(dir.Dest, "..") {
-			return fmt.Errorf("directory[%d]: path traversal not allowed", i)
+			return fmt.Errorf("directory[%d]: %w", i, ErrPathTraversal)
 		}
 
 		// Validate exclusion patterns
@@ -553,7 +563,7 @@ func (t *TargetConfig) validateFileDirectoryConflicts() error {
 	// Check directory destinations don't conflict
 	for _, dir := range t.Directories {
 		if existing, exists := destPaths[dir.Dest]; exists {
-			return fmt.Errorf("destination path %q used by both %s and directory", dir.Dest, existing)
+			return fmt.Errorf("destination path %q used by both %s and directory: %w", dir.Dest, existing, ErrDuplicateDestPath)
 		}
 		destPaths[dir.Dest] = "directory"
 	}

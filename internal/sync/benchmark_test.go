@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
+
+// ErrSimulatedAPIFailure is used for testing API failure scenarios
+var ErrSimulatedAPIFailure = errors.New("simulated API failure")
 
 // BenchmarkDirectoryWalk benchmarks directory walking performance
 func BenchmarkDirectoryWalk(b *testing.B) {
@@ -34,15 +38,15 @@ func BenchmarkDirectoryWalk(b *testing.B) {
 			// Create test directory
 			tempDir := b.TempDir()
 			sourceDir := filepath.Join(tempDir, "source")
-			require.NoError(b, os.MkdirAll(sourceDir, 0o755))
+			require.NoError(b, os.MkdirAll(sourceDir, 0o750))
 
 			// Create test files
 			for i := 0; i < tc.fileCount; i++ {
 				dir := filepath.Join(sourceDir, "subdir", string('a'+rune(i%26)))
-				require.NoError(b, os.MkdirAll(dir, 0o755))
+				require.NoError(b, os.MkdirAll(dir, 0o750))
 
 				filename := filepath.Join(dir, fmt.Sprintf("file_%d.txt", i))
-				require.NoError(b, os.WriteFile(filename, []byte("test content"), 0o644))
+				require.NoError(b, os.WriteFile(filename, []byte("test content"), 0o600))
 			}
 
 			logger := logrus.NewEntry(logrus.New()).WithField("component", "benchmark")
@@ -115,7 +119,7 @@ func (m *mockTreeAPIClient) GetTree(ctx context.Context, repo, ref string) (*Tre
 
 	// Simulate failures based on failure rate
 	if m.failureRate > 0 && float64(atomic.LoadInt64(&m.getTreeCalls))/(float64(atomic.LoadInt64(&m.getTreeCalls)+atomic.LoadInt64(&m.getContentCalls))) < m.failureRate {
-		return nil, fmt.Errorf("simulated API failure")
+		return nil, ErrSimulatedAPIFailure
 	}
 
 	// Return a mock TreeMap with various file types
@@ -190,7 +194,7 @@ func (m *mockTreeAPIClient) GetFilesInDirectory(ctx context.Context, repo, ref, 
 	}, nil
 }
 
-func (m *mockTreeAPIClient) InvalidateCache(repo, ref string) {
+func (m *mockTreeAPIClient) InvalidateCache(_, _ string) {
 	// No-op for mock
 }
 
@@ -391,7 +395,7 @@ func BenchmarkConcurrentAPIRequests(b *testing.B) {
 
 				for worker := 0; worker < tc.workerCount; worker++ {
 					wg.Add(1)
-					go func(workerID int) {
+					go func(_ int) {
 						defer wg.Done()
 
 						for req := 0; req < tc.requestsPerWorker; req++ {
@@ -434,7 +438,7 @@ func BenchmarkMemoryAllocationPatterns(b *testing.B) {
 			// Create test directory structure
 			tempDir := b.TempDir()
 			sourceDir := filepath.Join(tempDir, "source")
-			require.NoError(b, os.MkdirAll(sourceDir, 0o755))
+			require.NoError(b, os.MkdirAll(sourceDir, 0o750))
 
 			// Create files with specified depth
 			for i := 0; i < tc.fileCount; i++ {
@@ -450,11 +454,11 @@ func BenchmarkMemoryAllocationPatterns(b *testing.B) {
 					dirPath = sourceDir
 				}
 
-				require.NoError(b, os.MkdirAll(dirPath, 0o755))
+				require.NoError(b, os.MkdirAll(dirPath, 0o750))
 
 				filename := filepath.Join(dirPath, fmt.Sprintf("file_%d.txt", i))
 				content := fmt.Sprintf("test content for file %d\nwith multiple lines\nto simulate realistic file sizes", i)
-				require.NoError(b, os.WriteFile(filename, []byte(content), 0o644))
+				require.NoError(b, os.WriteFile(filename, []byte(content), 0o600))
 			}
 
 			logger := logrus.NewEntry(logrus.New()).WithField("component", "benchmark")
@@ -486,9 +490,11 @@ func BenchmarkMemoryAllocationPatterns(b *testing.B) {
 			runtime.ReadMemStats(&m2)
 
 			// Report memory statistics
-			allocPerOp := (m2.TotalAlloc - m1.TotalAlloc) / uint64(b.N)
-			b.ReportMetric(float64(allocPerOp), "bytes-alloc-per-op")
-			b.ReportMetric(float64(m2.Mallocs-m1.Mallocs)/float64(b.N), "mallocs-per-op")
+			if b.N > 0 {
+				allocPerOp := (m2.TotalAlloc - m1.TotalAlloc) / uint64(b.N)
+				b.ReportMetric(float64(allocPerOp), "bytes-alloc-per-op")
+				b.ReportMetric(float64(m2.Mallocs-m1.Mallocs)/float64(b.N), "mallocs-per-op")
+			}
 		})
 	}
 }
@@ -518,13 +524,13 @@ func BenchmarkConcurrentDirectoryProcessing(b *testing.B) {
 				destDir := fmt.Sprintf("dest_%d", d)
 
 				fullSrcDir := filepath.Join(tempDir, srcDir)
-				require.NoError(b, os.MkdirAll(fullSrcDir, 0o755))
+				require.NoError(b, os.MkdirAll(fullSrcDir, 0o750))
 
 				// Create files in each directory
 				for f := 0; f < tc.filesPerDir; f++ {
 					filename := filepath.Join(fullSrcDir, fmt.Sprintf("file_%d.txt", f))
 					content := fmt.Sprintf("content for file %d in directory %d", f, d)
-					require.NoError(b, os.WriteFile(filename, []byte(content), 0o644))
+					require.NoError(b, os.WriteFile(filename, []byte(content), 0o600))
 				}
 
 				dirMappings = append(dirMappings, config.DirectoryMapping{
@@ -570,7 +576,12 @@ func BenchmarkConcurrentDirectoryProcessing(b *testing.B) {
 			runtime.ReadMemStats(&m2)
 
 			// Report memory statistics
-			allocPerOp := (m2.TotalAlloc - m1.TotalAlloc) / uint64(b.N)
+			var allocPerOp uint64
+			if b.N > 0 {
+				allocPerOp = (m2.TotalAlloc - m1.TotalAlloc) / uint64(b.N)
+				b.ReportMetric(float64(allocPerOp), "bytes-alloc-per-op")
+				b.ReportMetric(float64(m2.Mallocs-m1.Mallocs)/float64(b.N), "mallocs-per-op")
+			}
 			peakMemory := m2.Sys
 
 			b.ReportMetric(float64(allocPerOp), "bytes-alloc-per-op")
@@ -638,7 +649,12 @@ func BenchmarkExclusionPatternMemory(b *testing.B) {
 			runtime.ReadMemStats(&m2)
 
 			// Report memory statistics
-			allocPerOp := (m2.TotalAlloc - m1.TotalAlloc) / uint64(b.N)
+			var allocPerOp uint64
+			if b.N > 0 {
+				allocPerOp = (m2.TotalAlloc - m1.TotalAlloc) / uint64(b.N)
+				b.ReportMetric(float64(allocPerOp), "bytes-alloc-per-op")
+				b.ReportMetric(float64(m2.Mallocs-m1.Mallocs)/float64(b.N), "mallocs-per-op")
+			}
 			b.ReportMetric(float64(allocPerOp), "bytes-alloc-per-op")
 			b.ReportMetric(float64(tc.patternCount), "pattern-count")
 			b.ReportMetric(float64(tc.testPaths), "test-path-count")
@@ -700,7 +716,7 @@ func BenchmarkRealWorldScenarios(b *testing.B) {
 
 			// Count total files for validation
 			var expectedFiles int
-			err := filepath.WalkDir(tc.fixturePath, func(path string, d os.DirEntry, err error) error {
+			err := filepath.WalkDir(tc.fixturePath, func(_ string, d os.DirEntry, err error) error {
 				if err != nil {
 					return err
 				}
@@ -753,7 +769,7 @@ func BenchmarkPerformanceRegression(b *testing.B) {
 		// Create test directory structure
 		tempDir := b.TempDir()
 		sourceDir := filepath.Join(tempDir, "source")
-		require.NoError(b, os.MkdirAll(sourceDir, 0o755))
+		require.NoError(b, os.MkdirAll(sourceDir, 0o750))
 
 		// Create realistic directory structure
 		for i := 0; i < baselineScenario.fileCount; i++ {
@@ -763,7 +779,7 @@ func BenchmarkPerformanceRegression(b *testing.B) {
 			for d := 0; d < depth; d++ {
 				dirPath = filepath.Join(dirPath, fmt.Sprintf("level_%d", d))
 			}
-			require.NoError(b, os.MkdirAll(dirPath, 0o755))
+			require.NoError(b, os.MkdirAll(dirPath, 0o750))
 
 			// Create file with realistic content
 			filename := filepath.Join(dirPath, fmt.Sprintf("file_%d.go", i))
@@ -787,7 +803,7 @@ func main() {
 	}
 }
 `, i, i, i, i)
-			require.NoError(b, os.WriteFile(filename, []byte(content), 0o644))
+			require.NoError(b, os.WriteFile(filename, []byte(content), 0o600))
 		}
 
 		// Create realistic exclusion patterns

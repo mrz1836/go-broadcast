@@ -429,7 +429,8 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 	} else {
 		memoryGrowth = 0 // Memory decreased due to GC
 	}
-	assert.Less(t, memoryGrowth, uint64(200*1024*1024),
+	memoryLimit := uint64(200) * 1024 * 1024
+	assert.Less(t, memoryGrowth, memoryLimit,
 		"Memory growth should be reasonable")
 
 	// Performance should be acceptable (less than 60 seconds for 50MB)
@@ -695,11 +696,13 @@ func testMemoryUsageMonitoring(t *testing.T, generator *fixtures.TestRepoGenerat
 	heapGrowth := maxHeap - minHeap
 
 	// Memory growth should be reasonable
-	assert.Less(t, heapGrowth, uint64(100*1024*1024),
+	heapLimit := uint64(100) * 1024 * 1024
+	assert.Less(t, heapGrowth, heapLimit,
 		"Heap growth should be reasonable")
 
 	// Total allocations should not be excessive
-	assert.Less(t, totalAllocGrowth, uint64(500*1024*1024),
+	allocLimit := uint64(500) * 1024 * 1024
+	assert.Less(t, totalAllocGrowth, allocLimit,
 		"Total allocation growth should be reasonable")
 
 	t.Logf("Memory usage: heap growth = %d bytes, total alloc growth = %d bytes, samples = %d",

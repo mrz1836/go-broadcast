@@ -3,12 +3,12 @@ package sync
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/big"
 	"path/filepath"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -130,7 +130,6 @@ type GitHubAPI struct {
 	baseDelay  time.Duration
 	logger     *logrus.Logger
 	stats      *APIStats
-	mu         sync.RWMutex
 }
 
 // NewGitHubAPI creates a new GitHub API client with tree caching support
@@ -312,7 +311,14 @@ func (api *GitHubAPI) fetchTreeWithRetry(ctx context.Context, repo, ref string) 
 		if attempt > 0 {
 			// Exponential backoff with jitter
 			delay := time.Duration(float64(api.baseDelay) * math.Pow(2, float64(attempt-1)))
-			jitter := time.Duration(rand.Int63n(int64(delay / 4))) // Up to 25% jitter
+			// Use crypto/rand for secure jitter calculation
+			jitterMax := big.NewInt(int64(delay / 4))
+			jitterBig, err := rand.Int(rand.Reader, jitterMax)
+			if err != nil {
+				// Fallback to 10% of delay if crypto/rand fails
+				jitterBig = big.NewInt(int64(delay / 10))
+			}
+			jitter := time.Duration(jitterBig.Int64())
 			delay += jitter
 
 			api.logger.WithFields(logrus.Fields{

@@ -3,12 +3,18 @@ package sync
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
+)
+
+// Static error variables
+var (
+	ErrContentSizeExceedsCache = errors.New("content size exceeds maximum cache size")
 )
 
 // CacheStats provides cache performance metrics
@@ -384,7 +390,7 @@ func (c *ContentCache) ensureMemoryLimit(newSize int64) error {
 	// Calculate how much memory we need to free
 	targetMemory := c.maxMemoryBytes - newSize
 	if targetMemory < 0 {
-		return fmt.Errorf("content size %d exceeds maximum cache size %d", newSize, c.maxMemoryBytes)
+		return fmt.Errorf("%w: content size %d exceeds maximum cache size %d", ErrContentSizeExceedsCache, newSize, c.maxMemoryBytes)
 	}
 
 	// Evict LRU entries until we're under the limit
