@@ -13,6 +13,11 @@ type MockDiscoverer struct {
 	mock.Mock
 }
 
+// NewMockDiscoverer creates a new MockDiscoverer (backward compatibility)
+func NewMockDiscoverer() *MockDiscoverer {
+	return &MockDiscoverer{}
+}
+
 // DiscoverState mock implementation
 func (m *MockDiscoverer) DiscoverState(ctx context.Context, cfg *config.Config) (*State, error) {
 	args := m.Called(ctx, cfg)

@@ -11,6 +11,11 @@ type MockTransformer struct {
 	mock.Mock
 }
 
+// NewMockTransformer creates a new MockTransformer (backward compatibility)
+func NewMockTransformer() *MockTransformer {
+	return &MockTransformer{}
+}
+
 // Name mock implementation
 func (m *MockTransformer) Name() string {
 	args := m.Called()
@@ -29,6 +34,11 @@ func (m *MockTransformer) Transform(content []byte, ctx Context) ([]byte, error)
 // MockChain is a mock implementation of the Chain interface
 type MockChain struct {
 	mock.Mock
+}
+
+// NewMockChain creates a new MockChain (backward compatibility)
+func NewMockChain() *MockChain {
+	return &MockChain{}
 }
 
 // Add mock implementation

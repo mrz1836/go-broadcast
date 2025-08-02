@@ -22,7 +22,7 @@ func TestValidateRepositoryAccessibility(t *testing.T) {
 	baseConfig := &config.Config{
 		Source: config.SourceConfig{
 			Repo:   "org/source-repo",
-			Branch: "main",
+			Branch: "master",
 		},
 		Targets: []config.TargetConfig{
 			{Repo: "org/target1"},
@@ -70,7 +70,7 @@ func TestValidateRepositoryAccessibility(t *testing.T) {
 			name:       "Source branch not found",
 			sourceOnly: false,
 			setupMocks: func(mockClient *gh.MockClient) {
-				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "main").
+				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "master").
 					Return(nil, fmt.Errorf("branch not found")) //nolint:err113 // test-only error
 			},
 			expectedError: ErrSourceBranchNotFound,
@@ -82,7 +82,7 @@ func TestValidateRepositoryAccessibility(t *testing.T) {
 			name:       "Source repository not found (404)",
 			sourceOnly: false,
 			setupMocks: func(mockClient *gh.MockClient) {
-				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "main").
+				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "master").
 					Return(nil, fmt.Errorf("404 Not Found")) //nolint:err113 // test-only error
 			},
 			expectedError: ErrSourceRepoNotFound,
@@ -95,7 +95,7 @@ func TestValidateRepositoryAccessibility(t *testing.T) {
 			name:       "Source repository other error",
 			sourceOnly: false,
 			setupMocks: func(mockClient *gh.MockClient) {
-				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "main").
+				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "master").
 					Return(nil, fmt.Errorf("API rate limit exceeded")) //nolint:err113 // test-only error
 			},
 			errorContains: "source repository check failed: API rate limit exceeded",
@@ -107,8 +107,8 @@ func TestValidateRepositoryAccessibility(t *testing.T) {
 			name:       "Source repository accessible with source-only flag",
 			sourceOnly: true,
 			setupMocks: func(mockClient *gh.MockClient) {
-				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "main").
-					Return(&gh.Branch{Name: "main", Commit: struct {
+				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "master").
+					Return(&gh.Branch{Name: "master", Commit: struct {
 						SHA string `json:"sha"`
 						URL string `json:"url"`
 					}{SHA: "abc123"}}, nil)
@@ -123,25 +123,25 @@ func TestValidateRepositoryAccessibility(t *testing.T) {
 			sourceOnly: false,
 			setupMocks: func(mockClient *gh.MockClient) {
 				// Source repository
-				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "main").
-					Return(&gh.Branch{Name: "main", Commit: struct {
+				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "master").
+					Return(&gh.Branch{Name: "master", Commit: struct {
 						SHA string `json:"sha"`
 						URL string `json:"url"`
 					}{SHA: "abc123"}}, nil)
 
 				// Target repositories
 				mockClient.On("ListBranches", mock.Anything, "org/target1").
-					Return([]gh.Branch{{Name: "main", Commit: struct {
+					Return([]gh.Branch{{Name: "master", Commit: struct {
 						SHA string `json:"sha"`
 						URL string `json:"url"`
 					}{SHA: "def456"}}}, nil)
 				mockClient.On("ListBranches", mock.Anything, "org/target2").
-					Return([]gh.Branch{{Name: "main", Commit: struct {
+					Return([]gh.Branch{{Name: "master", Commit: struct {
 						SHA string `json:"sha"`
 						URL string `json:"url"`
 					}{SHA: "ghi789"}}}, nil)
 				mockClient.On("ListBranches", mock.Anything, "org/target3").
-					Return([]gh.Branch{{Name: "main", Commit: struct {
+					Return([]gh.Branch{{Name: "master", Commit: struct {
 						SHA string `json:"sha"`
 						URL string `json:"url"`
 					}{SHA: "jkl012"}}}, nil)
@@ -158,15 +158,15 @@ func TestValidateRepositoryAccessibility(t *testing.T) {
 			sourceOnly: false,
 			setupMocks: func(mockClient *gh.MockClient) {
 				// Source repository
-				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "main").
-					Return(&gh.Branch{Name: "main", Commit: struct {
+				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "master").
+					Return(&gh.Branch{Name: "master", Commit: struct {
 						SHA string `json:"sha"`
 						URL string `json:"url"`
 					}{SHA: "abc123"}}, nil)
 
 				// Target repositories with mixed results
 				mockClient.On("ListBranches", mock.Anything, "org/target1").
-					Return([]gh.Branch{{Name: "main", Commit: struct {
+					Return([]gh.Branch{{Name: "master", Commit: struct {
 						SHA string `json:"sha"`
 						URL string `json:"url"`
 					}{SHA: "def456"}}}, nil)
@@ -185,8 +185,8 @@ func TestValidateRepositoryAccessibility(t *testing.T) {
 			name:       "Empty targets list",
 			sourceOnly: false,
 			setupMocks: func(mockClient *gh.MockClient) {
-				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "main").
-					Return(&gh.Branch{Name: "main", Commit: struct {
+				mockClient.On("GetBranch", mock.Anything, "org/source-repo", "master").
+					Return(&gh.Branch{Name: "master", Commit: struct {
 						SHA string `json:"sha"`
 						URL string `json:"url"`
 					}{SHA: "abc123"}}, nil)
@@ -216,7 +216,7 @@ func TestValidateRepositoryAccessibility(t *testing.T) {
 				cfg = &config.Config{
 					Source: config.SourceConfig{
 						Repo:   "org/source-repo",
-						Branch: "main",
+						Branch: "master",
 					},
 					Targets: []config.TargetConfig{},
 				}
@@ -266,7 +266,7 @@ func TestValidateRepositoryAccessibilityEdgeCases(t *testing.T) {
 		cfg := &config.Config{
 			Source: config.SourceConfig{
 				Repo:   "org/source-repo",
-				Branch: "main",
+				Branch: "master",
 			},
 		}
 

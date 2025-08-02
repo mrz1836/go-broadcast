@@ -29,6 +29,23 @@ var (
 	ErrInvalidOverrideThresholdRange = errors.New("min override threshold cannot be greater than max override threshold")
 )
 
+// isMainBranch checks if a branch name is one of the configured main branches
+func isMainBranch(branchName string) bool {
+	mainBranches := os.Getenv("MAIN_BRANCHES")
+	if mainBranches == "" {
+		mainBranches = "master,main"
+	}
+
+	branches := strings.Split(mainBranches, ",")
+	for _, branch := range branches {
+		if strings.TrimSpace(branch) == branchName {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Config holds the main configuration for the coverage system
 type Config struct {
 	// Coverage settings
@@ -332,7 +349,7 @@ func (c *Config) GetBadgeURL() string {
 
 	// For branch-specific badges, get current branch (default to master)
 	branch := c.getCurrentBranch()
-	if branch == "master" || branch == "main" {
+	if isMainBranch(branch) {
 		// Main branch badge deployed at root
 		return fmt.Sprintf("%s/coverage.svg", baseURL)
 	}
@@ -357,7 +374,7 @@ func (c *Config) GetReportURL() string {
 
 	// For branch-specific reports, get current branch (default to master)
 	branch := c.getCurrentBranch()
-	if branch == "master" || branch == "main" {
+	if isMainBranch(branch) {
 		// Main branch report deployed at root (dashboard at root, detailed report as coverage.html)
 		return fmt.Sprintf("%s/", baseURL)
 	}

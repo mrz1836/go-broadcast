@@ -12,6 +12,11 @@ type MockClient struct {
 	mock.Mock
 }
 
+// NewMockClient creates a new MockClient (backward compatibility)
+func NewMockClient() *MockClient {
+	return &MockClient{}
+}
+
 // Clone mock implementation
 func (m *MockClient) Clone(ctx context.Context, url, path string) error {
 	args := m.Called(ctx, url, path)

@@ -30,7 +30,7 @@ Changes: {{ .PRFiles.Summary.SummaryText }}
 {{ trendEmoji "stable" }} Coverage remained **stable** at {{ formatPercent .Coverage.Overall.Percentage }}
             {{- end -}}
         {{- else if eq .Comparison.BasePercentage 0.0 -}}
-{{ trendEmoji "stable" }} **Initial coverage report** - no baseline available for comparison
+<br>{{ trendEmoji "stable" }} **Initial coverage report** - no baseline available for comparison
         {{- else -}}
 {{ trendEmoji "stable" }} Coverage remained stable with {{ formatChange .Comparison.Change }} change
         {{- end -}}
@@ -45,7 +45,7 @@ Changes: {{ .PRFiles.Summary.SummaryText }}
 {{ trendEmoji "stable" }} Coverage remained **stable** at {{ formatPercent .Coverage.Overall.Percentage }}
         {{- end -}}
     {{- else if eq .Comparison.BasePercentage 0.0 -}}
-{{ trendEmoji "stable" }} **Initial coverage report** - no baseline available for comparison
+<br>{{ trendEmoji "stable" }} **Initial coverage report** - no baseline available for comparison
     {{- else -}}
 {{ trendEmoji "stable" }} Coverage remained stable with {{ formatChange .Comparison.Change }} change
     {{- end -}}

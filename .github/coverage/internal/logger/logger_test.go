@@ -255,10 +255,10 @@ func TestWithContext(t *testing.T) {
 
 	// Canceled context should skip logging
 	buf.Reset()
-	cancelledCtx, cancel := context.WithCancel(ctx)
+	canceledCtx, cancel := context.WithCancel(ctx)
 	cancel()
 
-	logger.WithContext(cancelledCtx).Info("canceled message")
+	logger.WithContext(canceledCtx).Info("canceled message")
 
 	output = buf.String()
 	if strings.Contains(output, "canceled message") {

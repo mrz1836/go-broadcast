@@ -103,10 +103,10 @@ func TestGenerator_FileURLConstruction(t *testing.T) {
 			name:        "nested package URL",
 			owner:       "mrz1836",
 			repo:        "go-broadcast",
-			branch:      "main",
+			branch:      "master",
 			packagePath: "github.com/mrz1836/go-broadcast/cmd/go-broadcast",
 			fileName:    "main.go",
-			expectedURL: "https://github.com/mrz1836/go-broadcast/blob/main/cmd/go-broadcast/main.go",
+			expectedURL: "https://github.com/mrz1836/go-broadcast/blob/master/cmd/go-broadcast/main.go",
 		},
 	}
 

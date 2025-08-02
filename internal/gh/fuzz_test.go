@@ -145,9 +145,9 @@ func FuzzJSONParsing(f *testing.F) {
 	// Add seed corpus for different JSON scenarios
 	seeds := []string{
 		// Valid GitHub API responses
-		`{"name": "main", "protected": false, "commit": {"sha": "abc123", "url": "https://api.github.com/repos/org/repo/commits/abc123"}}`,
-		`[{"name": "main"}, {"name": "develop"}]`,
-		`{"number": 1, "state": "open", "title": "Test PR", "body": "Description", "head": {"ref": "feature", "sha": "def456"}, "base": {"ref": "main", "sha": "abc123"}}`,
+		`{"name": "master", "protected": false, "commit": {"sha": "abc123", "url": "https://api.github.com/repos/org/repo/commits/abc123"}}`,
+		`[{"name": "master"}, {"name": "develop"}]`,
+		`{"number": 1, "state": "open", "title": "Test PR", "body": "Description", "head": {"ref": "feature", "sha": "def456"}, "base": {"ref": "master", "sha": "abc123"}}`,
 		`{"sha": "abc123", "commit": {"message": "Initial commit", "author": {"name": "John Doe", "email": "john@example.com"}}}`,
 		`{"path": "README.md", "content": "SGVsbG8gV29ybGQ=", "encoding": "base64", "sha": "abc123"}`,
 
@@ -159,7 +159,7 @@ func FuzzJSONParsing(f *testing.F) {
 		`{"name": }`,
 		`{"name": "value"`,
 		`{"name": "value",}`,
-		`[{"name": "main"`,
+		`[{"name": "master"`,
 		`]`,
 
 		// Command injection attempts in JSON values

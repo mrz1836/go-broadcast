@@ -12,6 +12,11 @@ type MockClient struct {
 	mock.Mock
 }
 
+// NewMockClient creates a new MockClient (backward compatibility)
+func NewMockClient() *MockClient {
+	return &MockClient{}
+}
+
 // ListBranches mock implementation
 func (m *MockClient) ListBranches(ctx context.Context, repo string) ([]Branch, error) {
 	args := m.Called(ctx, repo)
@@ -76,4 +81,10 @@ func (m *MockClient) UpdatePR(ctx context.Context, repo string, number int, upda
 func (m *MockClient) GetCurrentUser(ctx context.Context) (*User, error) {
 	args := m.Called(ctx)
 	return testutil.HandleTwoValueReturn[*User](args)
+}
+
+// GetGitTree mock implementation
+func (m *MockClient) GetGitTree(ctx context.Context, repo, treeSHA string, recursive bool) (*GitTree, error) {
+	args := m.Called(ctx, repo, treeSHA, recursive)
+	return testutil.HandleTwoValueReturn[*GitTree](args)
 }

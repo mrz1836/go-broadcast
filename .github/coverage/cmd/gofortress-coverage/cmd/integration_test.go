@@ -491,7 +491,7 @@ func TestHistoryCommand(t *testing.T) {
 	setupHistoryCmd.Flags().StringP("format", "f", "text", "Output format (text, json)")
 
 	addCmd.AddCommand(setupHistoryCmd)
-	addCmd.SetArgs([]string{"history", "--add", coverageFile, "--branch", "main", "--commit", "abc123"})
+	addCmd.SetArgs([]string{"history", "--add", coverageFile, "--branch", "master", "--commit", "abc123"})
 	var addBuf bytes.Buffer
 	addCmd.SetOut(&addBuf)
 	addCmd.SetErr(&addBuf)
@@ -510,13 +510,13 @@ func TestHistoryCommand(t *testing.T) {
 			args: []string{
 				"history",
 				"--add", coverageFile,
-				"--branch", "main",
+				"--branch", "master",
 				"--commit", "abc123",
 			},
 			expectError: false,
 			contains: []string{
 				"Coverage recorded successfully!",
-				"Branch: main",
+				"Branch: master",
 				"Commit: abc123",
 			},
 			envVars: map[string]string{
@@ -544,13 +544,13 @@ func TestHistoryCommand(t *testing.T) {
 			args: []string{
 				"history",
 				"--trend",
-				"--branch", "main",
+				"--branch", "master",
 				"--days", "30",
 			},
 			expectError: false,
 			contains: []string{
 				"Coverage Trend Analysis",
-				"Branch: main",
+				"Branch: master",
 				"Period: 30 days",
 			},
 			envVars: map[string]string{
@@ -562,12 +562,12 @@ func TestHistoryCommand(t *testing.T) {
 			name: "show latest entry",
 			args: []string{
 				"history",
-				"--branch", "main",
+				"--branch", "master",
 			},
 			expectError: false,
 			contains: []string{
 				"Latest Coverage Entry",
-				"Branch: main",
+				"Branch: master",
 			},
 			envVars: map[string]string{
 				"COVERAGE_HISTORY_PATH": historyDir,
@@ -925,7 +925,7 @@ func TestCompleteCommand(t *testing.T) {
 			testCompleteCmd := &cobra.Command{
 				Use:   "complete",
 				Short: "Run complete coverage pipeline",
-				Long: `Run the complete coverage pipeline: parse coverage, generate badge and report, 
+				Long: `Run the complete coverage pipeline: parse coverage, generate badge and report,
 update history, and create GitHub PR comment if in PR context.`,
 				RunE: completeCmd.RunE,
 			}

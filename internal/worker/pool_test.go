@@ -618,7 +618,7 @@ func TestPoolContextCancellationCleanup(t *testing.T) {
 	pool.Start(ctx)
 
 	var completedCount int64
-	var cancelledCount int64
+	var canceledCount int64
 	var wg sync.WaitGroup
 
 	// Collect results
@@ -627,7 +627,7 @@ func TestPoolContextCancellationCleanup(t *testing.T) {
 		defer wg.Done()
 		for result := range pool.Results() {
 			if errors.Is(result.Error, context.Canceled) {
-				atomic.AddInt64(&cancelledCount, 1)
+				atomic.AddInt64(&canceledCount, 1)
 			} else if result.Error == nil {
 				atomic.AddInt64(&completedCount, 1)
 			}
@@ -652,7 +652,7 @@ func TestPoolContextCancellationCleanup(t *testing.T) {
 
 	// Wait for cleanup
 	require.Eventually(t, func() bool {
-		total := atomic.LoadInt64(&completedCount) + atomic.LoadInt64(&cancelledCount)
+		total := atomic.LoadInt64(&completedCount) + atomic.LoadInt64(&canceledCount)
 		return total > 0 // Some tasks should complete or be canceled
 	}, 10*time.Second, 100*time.Millisecond)
 
@@ -660,7 +660,7 @@ func TestPoolContextCancellationCleanup(t *testing.T) {
 	wg.Wait()
 
 	completed := atomic.LoadInt64(&completedCount)
-	canceled := atomic.LoadInt64(&cancelledCount)
+	canceled := atomic.LoadInt64(&canceledCount)
 	total := completed + canceled
 
 	t.Logf("Completed: %d, Canceled: %d, Total: %d", completed, canceled, total)

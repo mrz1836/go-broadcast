@@ -36,14 +36,14 @@ func TestCreateRepo(t *testing.T) {
 		".github/workflows/ci.yml": "name: CI\non: push",
 	}
 
-	repo, err := generator.CreateRepo("test-repo", "testowner", "main", files)
+	repo, err := generator.CreateRepo("test-repo", "testowner", "master", files)
 	require.NoError(t, err)
 	require.NotNil(t, repo)
 
 	// Verify repository metadata
 	assert.Equal(t, "test-repo", repo.Name)
 	assert.Equal(t, "testowner", repo.Owner)
-	assert.Equal(t, "main", repo.Branch)
+	assert.Equal(t, "master", repo.Branch)
 	assert.NotEmpty(t, repo.CommitSHA)
 	assert.Len(t, repo.Files, len(files))
 	assert.False(t, repo.HasConflict)
@@ -81,7 +81,7 @@ func TestCreateRepoEmptyFiles(t *testing.T) {
 		"another-empty": "",
 	}
 
-	repo, err := generator.CreateRepo("empty-test", "owner", "main", files)
+	repo, err := generator.CreateRepo("empty-test", "owner", "master", files)
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(6), repo.Size) // Only "# Test" contributes to size
@@ -103,7 +103,7 @@ func TestCreateRepoDirectoryCreation(t *testing.T) {
 		"single-level.md":                       "# Single level",
 	}
 
-	repo, err := generator.CreateRepo("nested-test", "owner", "main", files)
+	repo, err := generator.CreateRepo("nested-test", "owner", "master", files)
 	require.NoError(t, err)
 
 	// Verify all nested directories were created
@@ -132,7 +132,7 @@ func TestCreateLargeFileRepo(t *testing.T) {
 	// Verify repository structure
 	assert.Equal(t, "large-test", repo.Name)
 	assert.Equal(t, "owner", repo.Owner)
-	assert.Equal(t, "main", repo.Branch)
+	assert.Equal(t, "master", repo.Branch)
 
 	// Verify large file was created
 	largeFileName := "large_file_1mb.txt"
@@ -169,7 +169,7 @@ func TestCreateConflictingRepo(t *testing.T) {
 	assert.True(t, repo.HasConflict)
 	assert.Equal(t, "conflict-test", repo.Name)
 	assert.Equal(t, "owner", repo.Owner)
-	assert.Equal(t, "main", repo.Branch)
+	assert.Equal(t, "master", repo.Branch)
 
 	// Verify expected files exist
 	expectedFiles := []string{"README.md", ".github/workflows/ci.yml", "Makefile"}
@@ -205,7 +205,7 @@ func TestCreateComplexScenario(t *testing.T) {
 	require.NotNil(t, scenario.SourceRepo)
 	assert.Equal(t, "template-repo", scenario.SourceRepo.Name)
 	assert.Equal(t, "org", scenario.SourceRepo.Owner)
-	assert.Equal(t, "main", scenario.SourceRepo.Branch)
+	assert.Equal(t, "master", scenario.SourceRepo.Branch)
 
 	// Verify source repo has expected files
 	expectedSourceFiles := []string{
@@ -240,13 +240,13 @@ func TestCreateComplexScenario(t *testing.T) {
 	require.NotNil(t, scenario.Config)
 	assert.Equal(t, 1, scenario.Config.Version)
 	assert.Equal(t, "org/template-repo", scenario.Config.Source.Repo)
-	assert.Equal(t, "main", scenario.Config.Source.Branch)
+	assert.Equal(t, "master", scenario.Config.Source.Branch)
 	assert.Len(t, scenario.Config.Targets, 3)
 
 	// Verify state
 	require.NotNil(t, scenario.State)
 	assert.Equal(t, "org/template-repo", scenario.State.Source.Repo)
-	assert.Equal(t, "main", scenario.State.Source.Branch)
+	assert.Equal(t, "master", scenario.State.Source.Branch)
 	assert.Equal(t, scenario.SourceRepo.CommitSHA, scenario.State.Source.LatestCommit)
 	assert.Len(t, scenario.State.Targets, 3)
 
@@ -461,10 +461,10 @@ func TestCleanup(t *testing.T) {
 
 	// Create some test repositories
 	files := map[string]string{"README.md": "test"}
-	_, err := generator.CreateRepo("test1", "owner", "main", files)
+	_, err := generator.CreateRepo("test1", "owner", "master", files)
 	require.NoError(t, err)
 
-	_, err = generator.CreateRepo("test2", "owner", "main", files)
+	_, err = generator.CreateRepo("test2", "owner", "master", files)
 	require.NoError(t, err)
 
 	// Verify directories exist
@@ -621,7 +621,7 @@ func TestConfigGeneration(t *testing.T) {
 
 	// Verify source configuration
 	assert.Equal(t, "org/template-repo", cfg.Source.Repo)
-	assert.Equal(t, "main", cfg.Source.Branch)
+	assert.Equal(t, "master", cfg.Source.Branch)
 
 	// Verify defaults
 	assert.Equal(t, "chore/sync-files", cfg.Defaults.BranchPrefix)
@@ -659,7 +659,7 @@ func TestStateGeneration(t *testing.T) {
 
 	// Verify source state
 	assert.Equal(t, "org/template-repo", currentState.Source.Repo)
-	assert.Equal(t, "main", currentState.Source.Branch)
+	assert.Equal(t, "master", currentState.Source.Branch)
 	assert.Equal(t, scenario.SourceRepo.CommitSHA, currentState.Source.LatestCommit)
 	assert.WithinDuration(t, time.Now(), currentState.Source.LastChecked, time.Minute)
 

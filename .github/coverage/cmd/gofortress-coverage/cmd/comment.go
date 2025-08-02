@@ -126,7 +126,7 @@ Features:
 			// Get latest entry to compare
 			branch := cfg.GitHub.CommitSHA
 			if branch == "" {
-				branch = "main"
+				branch = "master"
 			}
 
 			if latest, latestErr := tracker.GetLatestEntry(ctx, branch); latestErr == nil {
@@ -189,7 +189,7 @@ Features:
 			comparisonEngine := analysis.NewComparisonEngine(nil)
 
 			// Convert parser data to comparison snapshots
-			baseSnapshot := convertToSnapshot(baseCoverage, "main", "")
+			baseSnapshot := convertToSnapshot(baseCoverage, "master", "")
 			prSnapshot := convertToSnapshot(coverage, "current", cfg.GitHub.CommitSHA)
 
 			comparisonResult, compErr := comparisonEngine.CompareCoverage(ctx, baseSnapshot, prSnapshot)
@@ -203,7 +203,7 @@ Features:
 						TotalStatements:   baseCoverage.TotalLines,   // Actually statement count, not line count
 						CoveredStatements: baseCoverage.CoveredLines, // Actually covered statement count, not line count
 						CommitSHA:         "",
-						Branch:            "main",
+						Branch:            "master",
 						Timestamp:         time.Now(),
 					},
 					PRCoverage: github.CoverageData{
@@ -344,7 +344,7 @@ Features:
 				PRNumber:     prNumber,
 				Branch:       "current",
 				CommitSHA:    cfg.GitHub.CommitSHA,
-				BaseBranch:   "main",
+				BaseBranch:   "master",
 				Coverage:     coverage.Percentage,
 				BaseCoverage: comparison.BaseCoverage.Percentage,
 				Trend:        determineBadgeTrend(comparison.TrendAnalysis.Direction),
@@ -419,7 +419,7 @@ Features:
 				CommitSHA:  cfg.GitHub.CommitSHA,
 				PRNumber:   prNumber,
 				Branch:     "current",
-				BaseBranch: "main",
+				BaseBranch: "master",
 				Coverage: github.CoverageStatusData{
 					Percentage:        coverage.Percentage,
 					TotalStatements:   coverage.TotalLines,
@@ -527,14 +527,14 @@ func buildTemplateData(cfg *config.Config, prNumber int, comparison *github.Cove
 		Repository: templates.RepositoryInfo{
 			Owner:         cfg.GitHub.Owner,
 			Name:          cfg.GitHub.Repository,
-			DefaultBranch: "main",
+			DefaultBranch: "master",
 			URL:           fmt.Sprintf("https://github.com/%s/%s", cfg.GitHub.Owner, cfg.GitHub.Repository),
 		},
 		PullRequest: templates.PullRequestInfo{
 			Number:     prNumber,
 			Title:      "",
 			Branch:     "current",
-			BaseBranch: "main",
+			BaseBranch: "master",
 			Author:     "",
 			CommitSHA:  cfg.GitHub.CommitSHA,
 			URL:        fmt.Sprintf("https://github.com/%s/%s/pull/%d", cfg.GitHub.Owner, cfg.GitHub.Repository, prNumber),

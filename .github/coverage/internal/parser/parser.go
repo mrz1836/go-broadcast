@@ -429,7 +429,7 @@ func (p *Parser) buildCoverageData(mode string, statements []StatementWithFile) 
 func (p *Parser) extractPackageName(filename string) string {
 	dir := filepath.Dir(filename)
 	if dir == "." {
-		return "main"
+		return "master"
 	}
 	return filepath.Base(dir)
 }

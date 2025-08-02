@@ -11,6 +11,11 @@ type MockCommandRunner struct {
 	mock.Mock
 }
 
+// NewMockCommandRunner creates a new MockCommandRunner (backward compatibility)
+func NewMockCommandRunner() *MockCommandRunner {
+	return &MockCommandRunner{}
+}
+
 // Run mocks command execution
 func (m *MockCommandRunner) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
 	called := m.Called(ctx, name, args)

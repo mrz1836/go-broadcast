@@ -14,7 +14,7 @@ func BenchmarkBranchParsing(b *testing.B) {
 		"chore/sync-files-20240115-142530-abc123",
 		"chore/sync-files-20240115-142530-def456",
 		"feature/new-feature",
-		"main",
+		"master",
 		"sync/custom-prefix-20240115-142530-ghi789",
 	}
 
@@ -50,7 +50,7 @@ func BenchmarkPRParsing(b *testing.B) {
 				Ref string `json:"ref"`
 				SHA string `json:"sha"`
 			}{
-				Ref: "main",
+				Ref: "master",
 				SHA: "def456",
 			},
 			CreatedAt: time.Now().Add(-24 * time.Hour),
@@ -72,7 +72,7 @@ func BenchmarkPRParsing(b *testing.B) {
 				Ref string `json:"ref"`
 				SHA string `json:"sha"`
 			}{
-				Ref: "main",
+				Ref: "master",
 				SHA: "ghi123",
 			},
 			CreatedAt: time.Now().Add(-48 * time.Hour),
@@ -94,7 +94,7 @@ func BenchmarkStateComparison(b *testing.B) {
 	// Benchmark comparing source and target states
 	sourceState := &SourceState{
 		Repo:         "org/template-repo",
-		Branch:       "main",
+		Branch:       "master",
 		LatestCommit: "abc123def456789",
 	}
 
@@ -158,7 +158,7 @@ func BenchmarkStateAggregation(b *testing.B) {
 	state := &State{
 		Source: SourceState{
 			Repo:         "org/template-repo",
-			Branch:       "main",
+			Branch:       "master",
 			LatestCommit: "abc123def456789",
 		},
 		Targets: make(map[string]*TargetState),

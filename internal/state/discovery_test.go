@@ -22,7 +22,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 	cfg := &config.Config{
 		Source: config.SourceConfig{
 			Repo:   "org/template",
-			Branch: "main",
+			Branch: "master",
 		},
 		Targets: []config.TargetConfig{
 			{Repo: "org/service-a"},
@@ -38,9 +38,9 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 		discoverer := NewDiscoverer(mockGH, logger, nil)
 
 		// Mock source branch
-		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
+		mockGH.On("GetBranch", mock.Anything, "org/template", "master").
 			Return(&gh.Branch{
-				Name: "main",
+				Name: "master",
 				Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
@@ -50,7 +50,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 		// Mock branches for service-a
 		mockGH.On("ListBranches", mock.Anything, "org/service-a").
 			Return([]gh.Branch{
-				{Name: "main", Commit: struct {
+				{Name: "master", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "def456"}},
@@ -71,7 +71,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 		// Mock branches for service-b
 		mockGH.On("ListBranches", mock.Anything, "org/service-b").
 			Return([]gh.Branch{
-				{Name: "main", Commit: struct {
+				{Name: "master", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "mno345"}},
@@ -104,7 +104,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 
 		// Verify source state
 		assert.Equal(t, "org/template", state.Source.Repo)
-		assert.Equal(t, "main", state.Source.Branch)
+		assert.Equal(t, "master", state.Source.Branch)
 		assert.Equal(t, "abc123", state.Source.LatestCommit)
 
 		// Verify target states
@@ -134,7 +134,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 		mockGH := &gh.MockClient{}
 		discoverer := NewDiscoverer(mockGH, logger, nil)
 
-		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
+		mockGH.On("GetBranch", mock.Anything, "org/template", "master").
 			Return(nil, assert.AnError)
 
 		state, err := discoverer.DiscoverState(ctx, cfg)
@@ -157,7 +157,7 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 		// Mock branches
 		mockGH.On("ListBranches", mock.Anything, "org/service").
 			Return([]gh.Branch{
-				{Name: "main", Commit: struct {
+				{Name: "master", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "abc123"}},
@@ -210,7 +210,7 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 		// Mock branches - no sync branches
 		mockGH.On("ListBranches", mock.Anything, "org/service").
 			Return([]gh.Branch{
-				{Name: "main", Commit: struct {
+				{Name: "master", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "abc123"}},
@@ -267,7 +267,7 @@ func TestDetermineSyncStatus(t *testing.T) {
 
 	source := SourceState{
 		Repo:         "org/template",
-		Branch:       "main",
+		Branch:       "master",
 		LatestCommit: "abc123",
 	}
 
@@ -336,7 +336,7 @@ func TestDiscoveryService_DiscoverStateWithDebugLogging(t *testing.T) {
 	cfg := &config.Config{
 		Source: config.SourceConfig{
 			Repo:   "org/template",
-			Branch: "main",
+			Branch: "master",
 		},
 		Targets: []config.TargetConfig{
 			{Repo: "org/service-a"},
@@ -351,9 +351,9 @@ func TestDiscoveryService_DiscoverStateWithDebugLogging(t *testing.T) {
 		discoverer := NewDiscoverer(mockGH, logger, logConfig)
 
 		// Mock source branch
-		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
+		mockGH.On("GetBranch", mock.Anything, "org/template", "master").
 			Return(&gh.Branch{
-				Name: "main",
+				Name: "master",
 				Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
@@ -363,7 +363,7 @@ func TestDiscoveryService_DiscoverStateWithDebugLogging(t *testing.T) {
 		// Mock branches for service-a
 		mockGH.On("ListBranches", mock.Anything, "org/service-a").
 			Return([]gh.Branch{
-				{Name: "main", Commit: struct {
+				{Name: "master", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "def456"}},
@@ -384,7 +384,7 @@ func TestDiscoveryService_DiscoverStateWithDebugLogging(t *testing.T) {
 		mockGH := &gh.MockClient{}
 		discoverer := NewDiscoverer(mockGH, logger, logConfig)
 
-		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
+		mockGH.On("GetBranch", mock.Anything, "org/template", "master").
 			Return(nil, assert.AnError)
 
 		state, err := discoverer.DiscoverState(ctx, cfg)
@@ -399,9 +399,9 @@ func TestDiscoveryService_DiscoverStateWithDebugLogging(t *testing.T) {
 		discoverer := NewDiscoverer(mockGH, logger, logConfig)
 
 		// Mock successful source branch
-		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
+		mockGH.On("GetBranch", mock.Anything, "org/template", "master").
 			Return(&gh.Branch{
-				Name: "main",
+				Name: "master",
 				Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
@@ -427,7 +427,7 @@ func TestDiscoveryService_DiscoverStateContextCancellation(t *testing.T) {
 	cfg := &config.Config{
 		Source: config.SourceConfig{
 			Repo:   "org/template",
-			Branch: "main",
+			Branch: "master",
 		},
 		Targets: []config.TargetConfig{
 			{Repo: "org/service-a"},
@@ -457,9 +457,9 @@ func TestDiscoveryService_DiscoverStateContextCancellation(t *testing.T) {
 		discoverer := NewDiscoverer(mockGH, logger, nil)
 
 		// Mock source branch
-		mockGH.On("GetBranch", mock.Anything, "org/template", "main").
+		mockGH.On("GetBranch", mock.Anything, "org/template", "master").
 			Return(&gh.Branch{
-				Name: "main",
+				Name: "master",
 				Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
@@ -498,7 +498,7 @@ func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
 		// Mock branches with sync branches
 		mockGH.On("ListBranches", mock.Anything, "org/service").
 			Return([]gh.Branch{
-				{Name: "main", Commit: struct {
+				{Name: "master", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "abc123"}},
@@ -558,7 +558,7 @@ func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
 		// Mock successful branch listing
 		mockGH.On("ListBranches", mock.Anything, "org/service").
 			Return([]gh.Branch{
-				{Name: "main", Commit: struct {
+				{Name: "master", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "abc123"}},

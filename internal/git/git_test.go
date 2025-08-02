@@ -15,6 +15,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// getMainBranches returns the list of main branches from environment variable or default
+func getMainBranches() []string {
+	mainBranches := os.Getenv("MAIN_BRANCHES")
+	if mainBranches == "" {
+		mainBranches = "master,main"
+	}
+
+	branches := strings.Split(mainBranches, ",")
+	for i, branch := range branches {
+		branches[i] = strings.TrimSpace(branch)
+	}
+
+	return branches
+}
+
 // configureGitUser sets up git user configuration for tests
 func configureGitUser(ctx context.Context, t *testing.T, repoPath string) {
 	t.Helper()
@@ -695,12 +710,12 @@ func TestGitClient_Push(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test push without remote (should fail)
-	err = client.Push(ctx, repoPath, "origin", "main", false)
+	err = client.Push(ctx, repoPath, "origin", "master", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to push")
 
 	// Test with force flag
-	err = client.Push(ctx, repoPath, "origin", "main", true)
+	err = client.Push(ctx, repoPath, "origin", "master", true)
 	require.Error(t, err) // Still fails without remote, but tests force flag handling
 	assert.Contains(t, err.Error(), "failed to push")
 }
@@ -739,7 +754,15 @@ func TestGitClient_GetCurrentBranch_AlternativeMethod(t *testing.T) {
 	branch, err := client.GetCurrentBranch(ctx, repoPath)
 	require.NoError(t, err)
 	// Git init creates main or master depending on configuration
-	assert.True(t, branch == "main" || branch == "master", "Expected main or master, got %s", branch)
+	mainBranches := getMainBranches()
+	isMainBranch := false
+	for _, mainBranch := range mainBranches {
+		if branch == mainBranch {
+			isMainBranch = true
+			break
+		}
+	}
+	assert.True(t, isMainBranch, "Expected one of %v, got %s", mainBranches, branch)
 }
 
 // TestDebugWriter tests the debugWriter functionality
@@ -843,7 +866,7 @@ func TestGitClient_PushError(t *testing.T) {
 	ctx := context.Background()
 
 	// Test push on non-existent repository
-	err = client.Push(ctx, "/nonexistent/repo", "origin", "main", false)
+	err = client.Push(ctx, "/nonexistent/repo", "origin", "master", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to push")
 }
@@ -896,7 +919,7 @@ func TestGitClient_RunCommandNotARepository(t *testing.T) {
 	tmpDir := testutil.CreateTempDir(t)
 
 	// Try to run git command in directory that's not a repository
-	err = client.Checkout(ctx, tmpDir, "main")
+	err = client.Checkout(ctx, tmpDir, "master")
 	require.Error(t, err)
 	// The error should be recognized as "not a git repository"
 	assert.ErrorIs(t, err, ErrNotARepository)

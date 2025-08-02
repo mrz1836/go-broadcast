@@ -426,7 +426,7 @@ func TestCreateSyncEngine(t *testing.T) {
 		cfg := &config.Config{
 			Source: config.SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []config.TargetConfig{
 				{
@@ -458,7 +458,7 @@ func TestCreateSyncEngineWithFlags(t *testing.T) {
 		cfg := &config.Config{
 			Source: config.SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []config.TargetConfig{
 				{
@@ -498,7 +498,7 @@ func TestCreateSyncEngineWithLogConfig(t *testing.T) {
 		cfg := &config.Config{
 			Source: config.SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []config.TargetConfig{
 				{

@@ -320,7 +320,7 @@ func TestExtractPackageName(t *testing.T) {
 		{
 			name:     "root package",
 			filename: "main.go",
-			want:     "main",
+			want:     "master",
 		},
 		{
 			name:     "single level",

@@ -41,7 +41,7 @@ func TestBuildPath(t *testing.T) {
 		{
 			name:      "multiple parts with slash",
 			separator: "/",
-			parts:     []string{"github.com", "user", "repo", "blob", "main", "README.md"},
+			parts:     []string{"github.com", "user", "repo", "blob", "master", "README.md"},
 			expected:  "github.com/user/repo/blob/main/README.md",
 		},
 		{
@@ -100,13 +100,13 @@ func TestBuildGitHubURL(t *testing.T) {
 		{
 			name:      "repository with blob path",
 			repo:      "user/repo",
-			pathParts: []string{"blob", "main", "README.md"},
+			pathParts: []string{"blob", "master", "README.md"},
 			expected:  "https://github.com/user/repo/blob/main/README.md",
 		},
 		{
 			name:      "repository with tree path",
 			repo:      "organization/project",
-			pathParts: []string{"tree", "develop", "src", "main", "java"},
+			pathParts: []string{"tree", "develop", "src", "master", "java"},
 			expected:  "https://github.com/organization/project/tree/develop/src/main/java",
 		},
 		{
@@ -334,7 +334,7 @@ func TestBuildKeyValuePairs(t *testing.T) {
 		},
 		{
 			name:        "multiple pairs with colon separator",
-			pairs:       map[string]string{"repo": "user/repo", "branch": "main"},
+			pairs:       map[string]string{"repo": "user/repo", "branch": "master"},
 			keyValueSep: ": ",
 			pairSep:     "\n",
 			expected:    []string{"repo: user/repo\nbranch: main", "branch: main\nrepo: user/repo"},
@@ -597,7 +597,7 @@ func TestBuildProgressMessage(t *testing.T) {
 
 // Benchmark tests to validate performance optimizations
 func BenchmarkBuildPath(b *testing.B) {
-	parts := []string{"github.com", "user", "repository", "blob", "main", "path", "to", "file.go"}
+	parts := []string{"github.com", "user", "repository", "blob", "master", "path", "to", "file.go"}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -606,7 +606,7 @@ func BenchmarkBuildPath(b *testing.B) {
 }
 
 func BenchmarkBuildGitHubURL(b *testing.B) {
-	pathParts := []string{"blob", "main", "src", "package", "file.go"}
+	pathParts := []string{"blob", "master", "src", "package", "file.go"}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -673,7 +673,7 @@ func TestStringBuilderCapacityOptimization(t *testing.T) {
 
 	t.Run("BuildGitHubURL capacity optimization", func(t *testing.T) {
 		repo := "organization/very-long-repository-name"
-		pathParts := []string{"blob", "feature/very-long-branch-name", "src", "main", "java", "com", "example", "VeryLongClassName.java"}
+		pathParts := []string{"blob", "feature/very-long-branch-name", "src", "master", "java", "com", "example", "VeryLongClassName.java"}
 		result := BuildGitHubURL(repo, pathParts...)
 
 		expected := "https://github.com/organization/very-long-repository-name/blob/feature/very-long-branch-name/src/main/java/com/example/VeryLongClassName.java"
