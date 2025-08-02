@@ -61,8 +61,27 @@ func (suite *DirectorySyncTestSuite) SetupSuite() {
 // TearDownSuite cleans up temporary directories
 func (suite *DirectorySyncTestSuite) TearDownSuite() {
 	if suite.tempDir != "" {
-		err := os.RemoveAll(suite.tempDir)
-		suite.Require().NoError(err)
+		// Try to fix permissions recursively before removal
+		//nolint:gosec // Test cleanup needs broader permissions to remove files
+		_ = filepath.Walk(suite.tempDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err // Return the actual error for proper handling
+			}
+			if info.IsDir() {
+				//nolint:gosec // Directories need execute permission to be removed in tests
+				_ = os.Chmod(path, 0o755)
+			} else {
+				//nolint:gosec // Files need write permission to be removed in tests
+				_ = os.Chmod(path, 0o644)
+			}
+			return nil
+		})
+
+		if err := os.RemoveAll(suite.tempDir); err != nil {
+			suite.T().Logf("Failed to cleanup temp directory: %v", err)
+			// Try one more time with forced removal
+			_ = os.RemoveAll(suite.tempDir) // Ignore error on second attempt
+		}
 	}
 }
 
@@ -147,8 +166,16 @@ func (suite *DirectorySyncTestSuite) setupMocksForDirectory(mockGH *gh.MockClien
 
 	mockState.On("DiscoverState", mock.Anything, mock.Anything).Return(currentState, nil)
 
-	// Mock git operations
-	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	// Mock git operations - create the source directory structure when cloning
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		destPath := args[2].(string)
+		// Create the source directory structure that the sync engine expects
+		sourcePath := filepath.Join(destPath)
+		err := os.MkdirAll(sourcePath, 0o750)
+		if err != nil {
+			suite.T().Logf("Failed to create source directory %s: %v", sourcePath, err)
+		}
+	}).Maybe()
 	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 	// Mock transformations
@@ -286,8 +313,8 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MixedConfiguration() {
 
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
-	// Create mixed structure
-	suite.createTestStructure(suite.sourceDir, map[string]string{
+	// Create mixed structure using git mock
+	testFiles := map[string]string{
 		"Makefile":             "all:\n\tgo build ./...",
 		"docker-compose.yml":   "version: '3'\nservices:\n  app:\n    build: .",
 		"scripts/build.sh":     "#!/bin/bash\necho 'Building...'",
@@ -296,7 +323,8 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MixedConfiguration() {
 		"config/database.yaml": "database:\n  host: localhost",
 		"config/secrets/key":   "secret-key", // Should be excluded
 		"config/local.env":     "LOCAL=true", // Should be excluded
-	})
+	}
+	suite.setupGitMockWithFiles(mockGit, testFiles)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
@@ -411,8 +439,8 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ComplexExclusions() {
 
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
-	// Create complex directory structure with files that should and shouldn't be excluded
-	suite.createTestStructure(suite.sourceDir, map[string]string{
+	// Create complex directory structure with files that should and shouldn't be excluded using git mock
+	testFiles := map[string]string{
 		// Files that should be included
 		"project/README.md":         "# Project Documentation",
 		"project/src/main.go":       "package main",
@@ -435,7 +463,8 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ComplexExclusions() {
 		"project/secrets.env":                  "secret env",
 		"project/data/cache/file.txt":          "cached file",
 		"project/src/cache/nested/data.txt":    "nested cache",
-	})
+	}
+	suite.setupGitMockWithFiles(mockGit, testFiles)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
@@ -624,15 +653,16 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_APIOptimization() {
 			apiCallCount++
 		}).Maybe()
 
-	// Create moderate-sized directory structure
-	suite.createTestStructure(suite.sourceDir, map[string]string{
+	// Create moderate-sized directory structure using git mock
+	testFiles := map[string]string{
 		"shared/utils/helper1.go": "package utils",
 		"shared/utils/helper2.go": "package utils",
 		"shared/config/app.yaml":  "app: config",
 		"shared/config/db.yaml":   "db: config",
 		"shared/scripts/build.sh": "#!/bin/bash",
 		"shared/scripts/test.sh":  "#!/bin/bash",
-	})
+	}
+	suite.setupGitMockWithFiles(mockGit, testFiles)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
@@ -730,14 +760,15 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_OnlyExcludedFiles() {
 
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
-	// Create directory with only excluded files
-	suite.createTestStructure(suite.sourceDir, map[string]string{
+	// Create directory with only excluded files using git mock
+	testFiles := map[string]string{
 		"filtered-dir/app.log":         "log content",
 		"filtered-dir/debug.log":       "debug content",
 		"filtered-dir/temp.tmp":        "temporary content",
 		"filtered-dir/cache/data.txt":  "cached data",
 		"filtered-dir/cache/index.dat": "cache index",
-	})
+	}
+	suite.setupGitMockWithFiles(mockGit, testFiles)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
@@ -835,23 +866,30 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_SymbolicLinks() {
 
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
-	// Create directory with symbolic links
-	linksDir := filepath.Join(suite.sourceDir, "links-dir")
-	err := os.MkdirAll(linksDir, 0o750)
-	suite.Require().NoError(err)
-
-	// Create regular files
-	suite.createTestStructure(suite.sourceDir, map[string]string{
+	// Create directory with symbolic links using git mock with special handling
+	testFiles := map[string]string{
 		"links-dir/regular.txt": "regular file content",
 		"links-dir/target.txt":  "target file content",
-	})
+	}
 
-	// Create symbolic links
-	err = os.Symlink(
-		filepath.Join(linksDir, "target.txt"),
-		filepath.Join(linksDir, "symlink.txt"),
-	)
-	suite.Require().NoError(err)
+	// Override git mock to create actual files and symlinks for this test
+	mockGit.ExpectedCalls = nil
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		destPath := args[2].(string)
+		// Create the test files
+		suite.createTestStructure(destPath, testFiles)
+
+		// Create symbolic link
+		linksDir := filepath.Join(destPath, "links-dir")
+		err := os.Symlink(
+			filepath.Join(linksDir, "target.txt"),
+			filepath.Join(linksDir, "symlink.txt"),
+		)
+		if err != nil {
+			suite.T().Logf("Failed to create symlink: %v", err)
+		}
+	})
+	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
@@ -859,7 +897,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_SymbolicLinks() {
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
-	err = engine.Sync(context.Background(), nil)
+	err := engine.Sync(context.Background(), nil)
 
 	// Verify results - should handle symbolic links appropriately
 	suite.Require().NoError(err)
@@ -896,7 +934,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_UnicodeFilenames() {
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
 	// Create files with unicode names
-	suite.createTestStructure(suite.sourceDir, map[string]string{
+	unicodeFiles := map[string]string{
 		"unicode-dir/docs.txt":      "Chinese documentation",
 		"unicode-dir/файл.txt":      "Russian file",
 		"unicode-dir/émoji_🚀.txt":   "French with emoji",
@@ -905,7 +943,10 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_UnicodeFilenames() {
 		"unicode-dir/हिंदी.txt":     "Hindi file",
 		"unicode-dir/sub/ñame.txt":  "Spanish with tilde",
 		"unicode-dir/test/file.txt": "Nested Chinese",
-	})
+	}
+
+	// Set up git mock with the test files to create proper directory structure
+	suite.setupGitMockWithFiles(mockGit, unicodeFiles)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
@@ -949,21 +990,21 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeFiles() {
 
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
-	// Create directory with large files
-	largeFilesDir := filepath.Join(suite.sourceDir, "large-files")
-	err := os.MkdirAll(largeFilesDir, 0o750)
-	suite.Require().NoError(err)
-
-	// Create a 12MB file
+	// Create directory with large files using git mock with special handling for large files
 	largeContent := strings.Repeat("This is test data for a large file. ", 350000) // ~12MB
-	err = os.WriteFile(filepath.Join(largeFilesDir, "large-file.txt"), []byte(largeContent), 0o600)
-	suite.Require().NoError(err)
+	testFiles := map[string]string{
+		"large-files/large-file.txt": largeContent,
+		"large-files/small.txt":      "small file content",
+		"large-files/medium.txt":     strings.Repeat("medium content ", 1000), // ~15KB
+	}
 
-	// Create smaller files too
-	suite.createTestStructure(suite.sourceDir, map[string]string{
-		"large-files/small.txt":  "small file content",
-		"large-files/medium.txt": strings.Repeat("medium content ", 1000), // ~15KB
+	// Override git mock to create actual large files for this test
+	mockGit.ExpectedCalls = nil
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		destPath := args[2].(string)
+		suite.createTestStructure(destPath, testFiles)
 	})
+	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
@@ -971,7 +1012,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeFiles() {
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
-	err = engine.Sync(context.Background(), nil)
+	err := engine.Sync(context.Background(), nil)
 
 	// Verify results
 	suite.Require().NoError(err)
@@ -1012,20 +1053,27 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PermissionErrors() {
 
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
-	// Create directory structure with permission issues
-	restrictedDir := filepath.Join(suite.sourceDir, "restricted-dir")
-	err := os.MkdirAll(restrictedDir, 0o750)
-	suite.Require().NoError(err)
+	// Create directory structure with permission issues using git mock with special handling
+	testFiles := map[string]string{
+		"restricted-dir/readable.txt":   "readable content",
+		"restricted-dir/unreadable.txt": "unreadable content",
+	}
 
-	// Create some readable files
-	suite.createTestStructure(suite.sourceDir, map[string]string{
-		"restricted-dir/readable.txt": "readable content",
+	// Override git mock to create files with permission issues for this test
+	mockGit.ExpectedCalls = nil
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		destPath := args[2].(string)
+		// Create the test files
+		suite.createTestStructure(destPath, testFiles)
+
+		// Create an unreadable file (remove read permissions)
+		unreadableFile := filepath.Join(destPath, "restricted-dir", "unreadable.txt")
+		err := os.Chmod(unreadableFile, 0o200) // write-only
+		if err != nil {
+			suite.T().Logf("Failed to set file permissions: %v", err)
+		}
 	})
-
-	// Create an unreadable file (remove read permissions)
-	unreadableFile := filepath.Join(restrictedDir, "unreadable.txt")
-	err = os.WriteFile(unreadableFile, []byte("unreadable content"), 0o200) // write-only
-	suite.Require().NoError(err)
+	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
@@ -1033,15 +1081,11 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PermissionErrors() {
 	engine.SetLogger(suite.logger)
 
 	// Execute sync - should handle permission errors gracefully
-	err = engine.Sync(context.Background(), nil)
+	err := engine.Sync(context.Background(), nil)
 
 	// Verify results - should not fail completely due to permission errors
 	suite.Require().NoError(err)
 	mockState.AssertExpectations(suite.T())
-
-	// Restore permissions for cleanup
-	err = os.Chmod(unreadableFile, 0o600)
-	suite.Require().NoError(err)
 }
 
 // TestDirectorySync_NetworkFailures tests handling of network failures
@@ -1075,11 +1119,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_NetworkFailures() {
 	mockState.On("DiscoverState", mock.Anything, mock.Anything).
 		Return(nil, ErrNetworkConnectionTimeout)
 
-	// Create test structure
-	suite.createTestStructure(suite.sourceDir, map[string]string{
-		"network-dir/file1.txt": "content 1",
-		"network-dir/file2.txt": "content 2",
-	})
+	// Test fails at state discovery level, so no git mock setup needed
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
@@ -1131,8 +1171,8 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_GithubDirectory() {
 
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
-	// Create realistic .github structure
-	suite.createTestStructure(suite.sourceDir, map[string]string{
+	// Create realistic .github structure using git mock
+	testFiles := map[string]string{
 		".github/workflows/ci.yml": `name: CI
 on:
   push:
@@ -1194,7 +1234,8 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"`,
-	})
+	}
+	suite.setupGitMockWithFiles(mockGit, testFiles)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
@@ -1253,8 +1294,8 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_CoverageModule() {
 
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
-	// Create .github/coverage structure with binaries and scripts
-	suite.createTestStructure(suite.sourceDir, map[string]string{
+	// Create .github/coverage structure with binaries and scripts using git mock
+	testFiles := map[string]string{
 		// Scripts and configs that should be included
 		".github/coverage/coverage.sh":           "#!/bin/bash\necho 'Running {{COVERAGE_TOOL}} with {{MIN_COVERAGE}}% threshold'",
 		".github/coverage/config.yaml":           "tool: {{COVERAGE_TOOL}}\nthreshold: {{MIN_COVERAGE}}%",
@@ -1271,7 +1312,8 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_CoverageModule() {
 		// Node modules that should be excluded
 		".github/coverage/node_modules/package/index.js": "node module",
 		".github/coverage/dist/bundle.js":                "bundled js",
-	})
+	}
+	suite.setupGitMockWithFiles(mockGit, testFiles)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
@@ -1332,8 +1374,8 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MultipleDirectories() {
 
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
-	// Create multiple directories with some overlapping content
-	suite.createTestStructure(suite.sourceDir, map[string]string{
+	// Create multiple directories with some overlapping content using git mock
+	testFiles := map[string]string{
 		// shared/config directory
 		"shared/config/app.yaml":      "app:\n  env: {{ENV}}\n  name: shared-app",
 		"shared/config/database.yaml": "database:\n  env: {{ENV}}\n  host: localhost",
@@ -1348,7 +1390,8 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MultipleDirectories() {
 		"templates/service.yaml":    "service:\n  name: {{SERVICE}}\n  env: production",
 		"templates/deployment.yaml": "deployment:\n  service: {{SERVICE}}\n  replicas: 3",
 		"templates/common.env":      "SERVICE_NAME={{SERVICE}}\nDEFAULT_ENV=production", // Same name as in shared/config
-	})
+	}
+	suite.setupGitMockWithFiles(mockGit, testFiles)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
