@@ -22,7 +22,7 @@
 //	// Timer with additional context
 //	timer := metrics.StartTimer(ctx, logger, "git_clone").
 //	  AddField("repo", "owner/repo").
-//	  AddField("branch", "main")
+//	  AddField("branch", "master")
 //	defer timer.Stop()
 //
 // Important notes:

@@ -54,7 +54,7 @@ func (suite *RendererTestSuite) TestRenderReportSuccess() {
 	// Verify coverage data is rendered
 	suite.Contains(htmlStr, "85.5%") // Coverage percentage
 	suite.Contains(htmlStr, "test-owner/test-repo")
-	suite.Contains(htmlStr, "main") // Branch name
+	suite.Contains(htmlStr, "master") // Branch name
 
 	// Verify packages are rendered
 	suite.Contains(htmlStr, "test/package1")
@@ -554,7 +554,7 @@ func (suite *RendererTestSuite) createSampleReportData() *Data {
 		ProjectName:     "Test Project",
 		RepositoryOwner: "test-owner",
 		RepositoryName:  "test-repo",
-		BranchName:      "main",
+		BranchName:      "master",
 		CommitSHA:       "abc123def456",
 		CommitURL:       "https://github.com/test-owner/test-repo/commit/abc123def456",
 		Summary: Summary{

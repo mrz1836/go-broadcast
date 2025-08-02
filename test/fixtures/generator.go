@@ -158,7 +158,7 @@ func (g *TestRepoGenerator) CreateLargeFileRepo(name, owner string, fileSizeMB i
 	files["README.md"] = fmt.Sprintf("# Large File Test Repository\n\nThis repository contains a %dMB test file.", fileSizeMB)
 	files[".github/workflows/ci.yml"] = getStandardCIWorkflow()
 
-	return g.CreateRepo(name, owner, "main", files)
+	return g.CreateRepo(name, owner, "master", files)
 }
 
 // CreateConflictingRepo creates a repository that will have conflicts when synced
@@ -187,7 +187,7 @@ build:
 	go build -o bin/app ./cmd/app`,
 	}
 
-	repo, err := g.CreateRepo(name, owner, "main", files)
+	repo, err := g.CreateRepo(name, owner, "master", files)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func (g *TestRepoGenerator) CreateComplexScenario() (*TestScenario, error) {
 		"docs/API.md":                   "# API Documentation\n\nTemplate API documentation.",
 	}
 
-	sourceRepo, err := g.CreateRepo("template-repo", "org", "main", sourceFiles)
+	sourceRepo, err := g.CreateRepo("template-repo", "org", "master", sourceFiles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create source repo: %w", err)
 	}
@@ -218,7 +218,7 @@ func (g *TestRepoGenerator) CreateComplexScenario() (*TestScenario, error) {
 	var targetRepos []*TestRepository
 
 	// Normal target repo
-	normalRepo, err := g.CreateRepo("service-a", "org", "main", map[string]string{
+	normalRepo, err := g.CreateRepo("service-a", "org", "master", map[string]string{
 		"README.md": "# Service A\n\nA microservice.",
 		"main.go":   "package main\n\nfunc main() {\n\tprintln(\"Service A\")\n}",
 	})
@@ -246,7 +246,7 @@ func (g *TestRepoGenerator) CreateComplexScenario() (*TestScenario, error) {
 		Version: 1,
 		Source: config.SourceConfig{
 			Repo:   "org/template-repo",
-			Branch: "main",
+			Branch: "master",
 		},
 		Defaults: config.DefaultConfig{
 			BranchPrefix: "chore/sync-files",
@@ -294,7 +294,7 @@ func (g *TestRepoGenerator) CreateComplexScenario() (*TestScenario, error) {
 	currentState := &state.State{
 		Source: state.SourceState{
 			Repo:         "org/template-repo",
-			Branch:       "main",
+			Branch:       "master",
 			LatestCommit: sourceRepo.CommitSHA,
 			LastChecked:  time.Now(),
 		},

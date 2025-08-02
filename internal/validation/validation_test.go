@@ -160,7 +160,7 @@ func TestValidateBranchName(t *testing.T) {
 		// Valid cases
 		{
 			name:    "simple branch name",
-			branch:  "main",
+			branch:  "master",
 			wantErr: false,
 		},
 		{
@@ -616,20 +616,20 @@ func TestValidateSourceConfig(t *testing.T) {
 		{
 			name:    "valid source config",
 			repo:    "org/repo",
-			branch:  "main",
+			branch:  "master",
 			wantErr: false,
 		},
 		{
 			name:    "invalid repo",
 			repo:    "invalid-repo",
-			branch:  "main",
+			branch:  "master",
 			wantErr: true,
 			errMsg:  "repository name",
 		},
 		{
 			name:    "empty repo",
 			repo:    "",
-			branch:  "main",
+			branch:  "master",
 			wantErr: true,
 			errMsg:  "field cannot be empty: repository name",
 		},
@@ -1517,7 +1517,7 @@ func TestValidationPatternPerformance(t *testing.T) {
 		// Run validation multiple times to ensure regex patterns are properly cached
 		for i := 0; i < 1000; i++ {
 			_ = ValidateRepoName("org/repo")
-			_ = ValidateBranchName("main")
+			_ = ValidateBranchName("master")
 			_ = ValidateBranchPrefix("sync")
 		}
 		// This test ensures patterns are compiled once and reused

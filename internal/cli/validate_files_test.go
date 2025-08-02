@@ -19,7 +19,7 @@ func TestValidateSourceFilesExist(t *testing.T) {
 	baseConfig := &config.Config{
 		Source: config.SourceConfig{
 			Repo:   "org/source-repo",
-			Branch: "main",
+			Branch: "master",
 		},
 		Targets: []config.TargetConfig{
 			{
@@ -51,7 +51,7 @@ func TestValidateSourceFilesExist(t *testing.T) {
 			config: &config.Config{
 				Source: config.SourceConfig{
 					Repo:   "org/source-repo",
-					Branch: "main",
+					Branch: "master",
 				},
 				Targets: []config.TargetConfig{},
 			},
@@ -72,11 +72,11 @@ func TestValidateSourceFilesExist(t *testing.T) {
 			config: baseConfig,
 			setupMocks: func(mockClient *gh.MockClient) {
 				// All files exist
-				mockClient.On("GetFile", mock.Anything, "org/source-repo", "README.md", "main").
+				mockClient.On("GetFile", mock.Anything, "org/source-repo", "README.md", "master").
 					Return(&gh.FileContent{Path: "README.md", Content: []byte("# README")}, nil)
-				mockClient.On("GetFile", mock.Anything, "org/source-repo", "LICENSE", "main").
+				mockClient.On("GetFile", mock.Anything, "org/source-repo", "LICENSE", "master").
 					Return(&gh.FileContent{Path: "LICENSE", Content: []byte("MIT License")}, nil)
-				mockClient.On("GetFile", mock.Anything, "org/source-repo", ".github/workflows/ci.yml", "main").
+				mockClient.On("GetFile", mock.Anything, "org/source-repo", ".github/workflows/ci.yml", "master").
 					Return(&gh.FileContent{Path: ".github/workflows/ci.yml", Content: []byte("name: CI")}, nil)
 			},
 			verifyOutput: func(t *testing.T, output string) {
@@ -88,13 +88,13 @@ func TestValidateSourceFilesExist(t *testing.T) {
 			config: baseConfig,
 			setupMocks: func(mockClient *gh.MockClient) {
 				// README exists
-				mockClient.On("GetFile", mock.Anything, "org/source-repo", "README.md", "main").
+				mockClient.On("GetFile", mock.Anything, "org/source-repo", "README.md", "master").
 					Return(&gh.FileContent{Path: "README.md", Content: []byte("# README")}, nil)
 				// LICENSE missing
-				mockClient.On("GetFile", mock.Anything, "org/source-repo", "LICENSE", "main").
+				mockClient.On("GetFile", mock.Anything, "org/source-repo", "LICENSE", "master").
 					Return(nil, fmt.Errorf("file not found")) //nolint:err113 // test-only error
 				// CI workflow exists
-				mockClient.On("GetFile", mock.Anything, "org/source-repo", ".github/workflows/ci.yml", "main").
+				mockClient.On("GetFile", mock.Anything, "org/source-repo", ".github/workflows/ci.yml", "master").
 					Return(&gh.FileContent{Path: ".github/workflows/ci.yml", Content: []byte("name: CI")}, nil)
 			},
 			verifyOutput: func(t *testing.T, output string) {
@@ -107,13 +107,13 @@ func TestValidateSourceFilesExist(t *testing.T) {
 			config: baseConfig,
 			setupMocks: func(mockClient *gh.MockClient) {
 				// README exists
-				mockClient.On("GetFile", mock.Anything, "org/source-repo", "README.md", "main").
+				mockClient.On("GetFile", mock.Anything, "org/source-repo", "README.md", "master").
 					Return(&gh.FileContent{Path: "README.md", Content: []byte("# README")}, nil)
 				// LICENSE - API error
-				mockClient.On("GetFile", mock.Anything, "org/source-repo", "LICENSE", "main").
+				mockClient.On("GetFile", mock.Anything, "org/source-repo", "LICENSE", "master").
 					Return(nil, fmt.Errorf("API rate limit exceeded")) //nolint:err113 // test-only error
 				// CI workflow - permission error
-				mockClient.On("GetFile", mock.Anything, "org/source-repo", ".github/workflows/ci.yml", "main").
+				mockClient.On("GetFile", mock.Anything, "org/source-repo", ".github/workflows/ci.yml", "master").
 					Return(nil, fmt.Errorf("permission denied")) //nolint:err113 // test-only error
 			},
 			verifyOutput: func(t *testing.T, output string) {
@@ -127,7 +127,7 @@ func TestValidateSourceFilesExist(t *testing.T) {
 			config: &config.Config{
 				Source: config.SourceConfig{
 					Repo:   "org/source-repo",
-					Branch: "main",
+					Branch: "master",
 				},
 				Targets: []config.TargetConfig{
 					{
@@ -147,7 +147,7 @@ func TestValidateSourceFilesExist(t *testing.T) {
 			},
 			setupMocks: func(mockClient *gh.MockClient) {
 				// Should only check README.md once due to deduplication
-				mockClient.On("GetFile", mock.Anything, "org/source-repo", "README.md", "main").
+				mockClient.On("GetFile", mock.Anything, "org/source-repo", "README.md", "master").
 					Return(&gh.FileContent{Path: "README.md", Content: []byte("# README")}, nil).Once()
 			},
 			verifyOutput: func(t *testing.T, output string) {
@@ -169,7 +169,7 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 		cfg := &config.Config{
 			Source: config.SourceConfig{
 				Repo:   "org/source-repo",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []config.TargetConfig{
 				{
@@ -190,7 +190,7 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 		cfg := &config.Config{
 			Source: config.SourceConfig{
 				Repo:   "org/source-repo",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []config.TargetConfig{
 				{
@@ -215,7 +215,7 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 		cfg := &config.Config{
 			Source: config.SourceConfig{
 				Repo:   "org/source-repo",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []config.TargetConfig{
 				{
@@ -243,17 +243,17 @@ func TestValidateCommandWithMockedGitHub(t *testing.T) {
 		mockClient := new(gh.MockClient)
 
 		// Setup expectations
-		mockClient.On("GetBranch", mock.Anything, "org/source", "main").
-			Return(&gh.Branch{Name: "main", Commit: struct {
+		mockClient.On("GetBranch", mock.Anything, "org/source", "master").
+			Return(&gh.Branch{Name: "master", Commit: struct {
 				SHA string `json:"sha"`
 				URL string `json:"url"`
 			}{SHA: "abc123"}}, nil)
 		mockClient.On("ListBranches", mock.Anything, "org/target1").
-			Return([]gh.Branch{{Name: "main", Commit: struct {
+			Return([]gh.Branch{{Name: "master", Commit: struct {
 				SHA string `json:"sha"`
 				URL string `json:"url"`
 			}{SHA: "def456"}}}, nil)
-		mockClient.On("GetFile", mock.Anything, "org/source", "README.md", "main").
+		mockClient.On("GetFile", mock.Anything, "org/source", "README.md", "master").
 			Return(&gh.FileContent{Path: "README.md", Content: []byte("# README")}, nil)
 
 		// In an ideal world, we would pass the client to the validate functions:

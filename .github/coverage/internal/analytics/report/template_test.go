@@ -324,7 +324,7 @@ func (suite *TemplateTestSuite) TestReportTemplateExecutionWithSampleData() {
 		ProjectName:       "Test Project",
 		RepositoryOwner:   "test-owner",
 		RepositoryName:    "test-repo",
-		BranchName:        "main",
+		BranchName:        "master",
 		CommitSHA:         "abc123def456789",
 		CommitURL:         "https://github.com/test-owner/test-repo/commit/abc123def456789",
 		GoogleAnalyticsID: "GA-123456789",
@@ -371,7 +371,7 @@ func (suite *TemplateTestSuite) TestReportTemplateExecutionWithSampleData() {
 
 	// Verify some data made it into the output
 	suite.Contains(output, "test-owner/test-repo")
-	suite.Contains(output, "main")
+	suite.Contains(output, "master")
 	suite.Contains(output, "package1")
 }
 

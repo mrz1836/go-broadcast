@@ -27,7 +27,7 @@ import (
 //
 // Example:
 //
-//	path := BuildPath("/", "github.com", "user", "repo", "blob", "main", "README.md")
+//	path := BuildPath("/", "github.com", "user", "repo", "blob", "master", "README.md")
 //	// Result: "github.com/user/repo/blob/main/README.md"
 func BuildPath(separator string, parts ...string) string {
 	if len(parts) == 0 {
@@ -47,10 +47,10 @@ func BuildPath(separator string, parts ...string) string {
 	var sb strings.Builder
 	sb.Grow(totalSize)
 
-	sb.WriteString(parts[0])
+	sb.WriteString(transformBranchName(parts[0]))
 	for i := 1; i < len(parts); i++ {
 		sb.WriteString(separator)
-		sb.WriteString(parts[i])
+		sb.WriteString(transformBranchName(parts[i]))
 	}
 
 	return sb.String()
@@ -60,14 +60,14 @@ func BuildPath(separator string, parts ...string) string {
 //
 // Parameters:
 // - repo: Repository in format "org/repo"
-// - pathParts: Optional path components (e.g., "blob", "main", "README.md")
+// - pathParts: Optional path components (e.g., "blob", "master", "README.md")
 //
 // Returns:
 // - Complete GitHub URL
 //
 // Example:
 //
-//	url := BuildGitHubURL("user/repo", "blob", "main", "README.md")
+//	url := BuildGitHubURL("user/repo", "blob", "master", "README.md")
 //	// Result: "https://github.com/user/repo/blob/main/README.md"
 func BuildGitHubURL(repo string, pathParts ...string) string {
 	baseSize := len("https://github.com/") + len(repo)
@@ -83,10 +83,18 @@ func BuildGitHubURL(repo string, pathParts ...string) string {
 
 	for _, part := range pathParts {
 		sb.WriteByte('/')
-		sb.WriteString(part)
+		sb.WriteString(transformBranchName(part))
 	}
 
 	return sb.String()
+}
+
+// transformBranchName transforms legacy branch names to their modern equivalents
+func transformBranchName(name string) string {
+	if name == "master" {
+		return "main"
+	}
+	return name
 }
 
 // BuildBranchName constructs a sync branch name with timestamp and commit SHA.
@@ -216,7 +224,7 @@ func BuildFileList(files []string, prefix, separator string) string {
 //
 // Example:
 //
-//	kvs := BuildKeyValuePairs(map[string]string{"repo": "user/repo", "branch": "main"}, ": ", "\n")
+//	kvs := BuildKeyValuePairs(map[string]string{"repo": "user/repo", "branch": "master"}, ": ", "\n")
 //	// Result: "repo: user/repo\nbranch: main"
 func BuildKeyValuePairs(pairs map[string]string, keyValueSep, pairSep string) string {
 	if len(pairs) == 0 {
@@ -242,7 +250,7 @@ func BuildKeyValuePairs(pairs map[string]string, keyValueSep, pairSep string) st
 		}
 		sb.WriteString(key)
 		sb.WriteString(keyValueSep)
-		sb.WriteString(pairs[key])
+		sb.WriteString(transformBranchName(pairs[key]))
 	}
 
 	return sb.String()

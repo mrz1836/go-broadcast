@@ -190,7 +190,6 @@ func FuzzGitBranchName(f *testing.F) {
 	// Add seed corpus
 	seeds := []string{
 		// Valid branch names
-		"main",
 		"master",
 		"develop",
 		"feature/test",

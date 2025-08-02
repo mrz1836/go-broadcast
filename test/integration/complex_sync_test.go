@@ -145,7 +145,7 @@ func testMultiRepoSyncWithConflicts(t *testing.T, generator *fixtures.TestRepoGe
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 
@@ -256,7 +256,7 @@ func testPartialSyncFailureRecovery(t *testing.T, generator *fixtures.TestRepoGe
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil)
 
@@ -301,7 +301,7 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 		Version: 1,
 		Source: config.SourceConfig{
 			Repo:   "org/template-repo",
-			Branch: "main",
+			Branch: "master",
 		},
 		Targets: []config.TargetConfig{
 			{
@@ -324,7 +324,7 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 	currentState := &state.State{
 		Source: state.SourceState{
 			Repo:         "org/template-repo",
-			Branch:       "main",
+			Branch:       "master",
 			LatestCommit: "latest123",
 			LastChecked:  time.Now(),
 		},
@@ -394,7 +394,7 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil)
 
@@ -429,7 +429,8 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 	} else {
 		memoryGrowth = 0 // Memory decreased due to GC
 	}
-	assert.Less(t, memoryGrowth, uint64(200*1024*1024),
+	memoryLimit := uint64(200) * 1024 * 1024
+	assert.Less(t, memoryGrowth, memoryLimit,
 		"Memory growth should be reasonable")
 
 	// Performance should be acceptable (less than 60 seconds for 50MB)
@@ -501,7 +502,7 @@ func testConcurrentSyncOperations(t *testing.T, generator *fixtures.TestRepoGene
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil)
 
@@ -621,7 +622,7 @@ func testMemoryUsageMonitoring(t *testing.T, generator *fixtures.TestRepoGenerat
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 
@@ -695,11 +696,13 @@ func testMemoryUsageMonitoring(t *testing.T, generator *fixtures.TestRepoGenerat
 	heapGrowth := maxHeap - minHeap
 
 	// Memory growth should be reasonable
-	assert.Less(t, heapGrowth, uint64(100*1024*1024),
+	heapLimit := uint64(100) * 1024 * 1024
+	assert.Less(t, heapGrowth, heapLimit,
 		"Heap growth should be reasonable")
 
 	// Total allocations should not be excessive
-	assert.Less(t, totalAllocGrowth, uint64(500*1024*1024),
+	allocLimit := uint64(500) * 1024 * 1024
+	assert.Less(t, totalAllocGrowth, allocLimit,
 		"Total allocation growth should be reasonable")
 
 	t.Logf("Memory usage: heap growth = %d bytes, total alloc growth = %d bytes, samples = %d",
@@ -771,7 +774,7 @@ func testStateConsistencyAcrossFailures(t *testing.T, generator *fixtures.TestRe
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 

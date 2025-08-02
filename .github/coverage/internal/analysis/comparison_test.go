@@ -77,7 +77,7 @@ func TestCompareCoverage(t *testing.T) {
 	engine := NewComparisonEngine(nil)
 
 	baseSnapshot := &CoverageSnapshot{
-		Branch:    "main",
+		Branch:    "master",
 		CommitSHA: "abc123",
 		Timestamp: time.Now().Add(-time.Hour),
 		OverallCoverage: CoverageMetrics{
@@ -92,17 +92,17 @@ func TestCompareCoverage(t *testing.T) {
 		FileCoverage: map[string]FileMetrics{
 			"main.go": {
 				Filename:          "main.go",
-				Package:           "main",
+				Package:           "master",
 				Percentage:        75.0,
 				TotalStatements:   100,
 				CoveredStatements: 75,
 				UncoveredLines:    []int{10, 15, 20},
-				Functions:         []string{"main", "init"},
+				Functions:         []string{"master", "init"},
 				IsTestFile:        false,
 			},
 			"helper.go": {
 				Filename:          "helper.go",
-				Package:           "main",
+				Package:           "master",
 				Percentage:        90.0,
 				TotalStatements:   50,
 				CoveredStatements: 45,
@@ -112,8 +112,8 @@ func TestCompareCoverage(t *testing.T) {
 			},
 		},
 		PackageCoverage: map[string]PackageMetrics{
-			"main": {
-				Package:           "main",
+			"master": {
+				Package:           "master",
 				Percentage:        80.0,
 				TotalStatements:   150,
 				CoveredStatements: 120,
@@ -145,12 +145,12 @@ func TestCompareCoverage(t *testing.T) {
 		FileCoverage: map[string]FileMetrics{
 			"main.go": {
 				Filename:          "main.go",
-				Package:           "main",
+				Package:           "master",
 				Percentage:        80.0,
 				TotalStatements:   110,
 				CoveredStatements: 88,
 				UncoveredLines:    []int{10, 15},
-				Functions:         []string{"main", "init", "newFunc"},
+				Functions:         []string{"master", "init", "newFunc"},
 				IsTestFile:        false,
 				LinesAdded:        10,
 				LinesRemoved:      0,
@@ -158,7 +158,7 @@ func TestCompareCoverage(t *testing.T) {
 			},
 			"helper.go": {
 				Filename:          "helper.go",
-				Package:           "main",
+				Package:           "master",
 				Percentage:        90.0,
 				TotalStatements:   50,
 				CoveredStatements: 45,
@@ -168,7 +168,7 @@ func TestCompareCoverage(t *testing.T) {
 			},
 			"new_file.go": {
 				Filename:          "new_file.go",
-				Package:           "main",
+				Package:           "master",
 				Percentage:        70.0,
 				TotalStatements:   30,
 				CoveredStatements: 21,
@@ -180,8 +180,8 @@ func TestCompareCoverage(t *testing.T) {
 			},
 		},
 		PackageCoverage: map[string]PackageMetrics{
-			"main": {
-				Package:           "main",
+			"master": {
+				Package:           "master",
 				Percentage:        82.0,
 				TotalStatements:   190,
 				CoveredStatements: 156,
@@ -456,8 +456,8 @@ func TestAnalyzePackageChanges(t *testing.T) {
 
 	baseSnapshot := &CoverageSnapshot{
 		PackageCoverage: map[string]PackageMetrics{
-			"main": {
-				Package:    "main",
+			"master": {
+				Package:    "master",
 				Percentage: 80.0,
 				FileCount:  2,
 			},
@@ -476,8 +476,8 @@ func TestAnalyzePackageChanges(t *testing.T) {
 
 	prSnapshot := &CoverageSnapshot{
 		PackageCoverage: map[string]PackageMetrics{
-			"main": {
-				Package:    "main",
+			"master": {
+				Package:    "master",
 				Percentage: 85.0,
 				FileCount:  2,
 			},
@@ -503,7 +503,7 @@ func TestAnalyzePackageChanges(t *testing.T) {
 	var mainChange, utilsChange *PackageChangeAnalysis
 	for i := range changes {
 		switch changes[i].Package {
-		case "main":
+		case "master":
 			mainChange = &changes[i]
 		case "utils":
 			utilsChange = &changes[i]
@@ -905,7 +905,7 @@ func TestSaveComparisonResult(t *testing.T) {
 
 	result := &ComparisonResult{
 		BaseSnapshot: CoverageSnapshot{
-			Branch: "main",
+			Branch: "master",
 			OverallCoverage: CoverageMetrics{
 				Percentage: 80.0,
 			},

@@ -1,0 +1,231 @@
+# Complete .github Directory Sync Example
+# Real-world enterprise setup for syncing complete GitHub repository infrastructure
+
+version: 1
+
+source:
+  repo: "company/github-templates"
+  branch: "master"
+
+# Enterprise-wide settings
+global:
+  pr_labels: ["infrastructure", "automated-sync", "github-ops"]
+  pr_assignees: ["devops-team", "platform-team"]
+  pr_reviewers: ["infrastructure-lead"]
+  pr_team_reviewers: ["platform-engineering", "security-team"]
+
+defaults:
+  branch_prefix: "infra/github-sync"
+
+targets:
+  # Production Service - Complete .github sync with all features
+  - repo: "company/payment-service"
+    directories:
+      # Complete .github directory (149 files) - Performance: ~7ms
+      - src: ".github"
+        dest: ".github"
+        exclude:
+          # Exclude what we sync separately for better control
+          - "coverage/**" # Synced separately (87 files)
+          - "workflows/**" # Synced separately (24 files)
+          - "pip/**" # Python deps not needed (38 files)
+          # Development exclusions
+          - "**/*.local.*"
+          - "**/*-dev.*"
+          - "**/draft/**"
+          - "**/experimental/**"
+        transform:
+          repo_name: true
+          variables:
+            SERVICE: "payment-service"
+            TIER: "critical"
+            COMPLIANCE: "pci-dss"
+
+      # GitHub Workflows - Selective sync with transforms
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude:
+          - "*-local.yml" # Local development workflows
+          - "experimental-*" # Experimental workflows
+          - "*-draft.yml" # Draft workflows
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_TYPE: "payment"
+            SECURITY_LEVEL: "high"
+            DEPLOY_ENV: "production"
+            MONITORING: "enhanced"
+        # Expected: 24 files in ~1.5ms
+
+      # Coverage System - High-performance sync
+      - src: ".github/coverage"
+        dest: ".github/coverage"
+        exclude:
+          - "*.out" # Coverage output files
+          - "*.test" # Go test binaries
+          - "gofortress-coverage" # Main binary
+          - "**/testdata/**" # Test fixtures
+          - "**/*.prof" # Profiling files
+        # Expected: 87 files in ~4ms with 90%+ API call reduction
+
+    # Critical service needs additional security review
+    pr_labels: ["critical-service", "security-review"]
+    pr_team_reviewers: ["security-team", "compliance-team"]
+
+  # Development Service - Standard .github sync
+  - repo: "company/user-service"
+    directories:
+      # Standard workflow sync
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude:
+          - "*-local.yml"
+          - "production-*" # Dev service doesn't need prod workflows
+          - "compliance-*" # No compliance requirements
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_TYPE: "api"
+            DEPLOY_ENV: "development"
+            MONITORING: "standard"
+
+      # Basic coverage system
+      - src: ".github/coverage"
+        dest: ".github/coverage"
+        exclude:
+          - "*.out"
+          - "*.test"
+          - "gofortress-coverage"
+
+  # Frontend Application - Customized GitHub setup
+  - repo: "company/webapp-frontend"
+    directories:
+      # Frontend-specific workflows
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude:
+          - "go-*" # Skip Go-specific workflows
+          - "*-api-*" # Skip API workflows
+          - "docker-build-*" # Different containerization
+          - "security-scan-*" # Different security tools
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_TYPE: "frontend"
+            NODE_VERSION: "18"
+            BUILD_TOOL: "vite"
+            DEPLOY_TARGET: "cdn"
+
+      # Frontend issue templates
+      - src: ".github/ISSUE_TEMPLATE/frontend"
+        dest: ".github/ISSUE_TEMPLATE"
+        preserve_structure: true
+
+      # Custom PR templates for frontend
+      - src: ".github/PULL_REQUEST_TEMPLATE/frontend.md"
+        dest: ".github/PULL_REQUEST_TEMPLATE.md"
+
+  # Infrastructure Repository - DevOps focused
+  - repo: "company/infrastructure"
+    directories:
+      # Infrastructure-specific workflows
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude:
+          - "app-*" # Skip application workflows
+          - "service-*" # Skip service workflows
+        include_only: # Only infrastructure workflows
+          - "terraform-*"
+          - "kubernetes-*"
+          - "security-*"
+          - "compliance-*"
+        transform:
+          repo_name: true
+          variables:
+            REPO_TYPE: "infrastructure"
+            TERRAFORM_VERSION: "1.6"
+            KUBERNETES_VERSION: "1.28"
+
+      # Infrastructure issue templates
+      - src: ".github/ISSUE_TEMPLATE/infrastructure"
+        dest: ".github/ISSUE_TEMPLATE"
+
+      # Security policies for infrastructure
+      - src: ".github/security"
+        dest: ".github/security"
+        transform:
+          variables:
+            SECURITY_CONTACT: "security@company.com"
+            INCIDENT_RESPONSE: "soc@company.com"
+
+  # Legacy System - Minimal sync for gradual modernization
+  - repo: "company/legacy-monolith"
+    directories:
+      # Only essential modern workflows
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude:
+          - "*" # Exclude everything by default
+        include_only:
+          - "security-*.yml" # Only security scanning
+          - "dependency-*.yml" # Only dependency updates
+          - "codeql-*.yml" # Only code analysis
+        transform:
+          repo_name: true
+          variables:
+            LEGACY_MODE: "true"
+            GRADUAL_MIGRATION: "enabled"
+
+    # Legacy system has different approval requirements
+    pr_reviewers: ["legacy-team-lead", "modernization-lead"]
+    pr_team_reviewers: ["legacy-maintainers"]
+
+  # Documentation Repository - Docs-focused GitHub setup
+  - repo: "company/documentation"
+    directories:
+      # Documentation workflows
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude:
+          - "build-*" # Skip build workflows
+          - "test-*" # Skip test workflows
+          - "deploy-*" # Skip deployment workflows
+        include_only:
+          - "docs-*" # Only documentation workflows
+          - "spell-check-*" # Spell checking
+          - "link-check-*" # Link validation
+        transform:
+          variables:
+            DOCS_GENERATOR: "mkdocs"
+            PUBLISH_BRANCH: "gh-pages"
+
+      # Documentation issue templates
+      - src: ".github/ISSUE_TEMPLATE/docs"
+        dest: ".github/ISSUE_TEMPLATE"
+# Expected Performance Metrics for this Configuration:
+#
+# Per Repository Sync Times:
+# - payment-service: ~12ms total (149 + 24 + 87 files)
+# - user-service: ~6ms total (24 + 87 files)
+# - webapp-frontend: ~3ms total (custom subset)
+# - infrastructure: ~2ms total (security workflows only)
+# - legacy-monolith: ~1ms total (minimal sync)
+# - documentation: ~2ms total (docs workflows only)
+#
+# API Efficiency:
+# - Traditional approach: ~400 API calls for all repositories
+# - With tree API optimization: ~40 API calls (90% reduction)
+# - Memory usage: ~2MB total for all repositories
+# - Concurrent processing: All repositories sync in parallel
+#
+# GitHub API Rate Limits:
+# - Primary rate limit: 5000 requests/hour
+# - This config uses: ~40 requests (~0.8% of limit)
+# - Search API: 30 requests/minute (used for state discovery)
+# - This config uses: ~6 search requests
+#
+# Audit Trail:
+# - All syncs tracked in branches: infra/github-sync-YYYYMMDD-HHMMSS-COMMIT
+# - PR metadata includes performance metrics and file counts
+# - Complete Git history shows all infrastructure changes
+# - Rollback capability through Git revert operations

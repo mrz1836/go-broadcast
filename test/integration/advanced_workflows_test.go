@@ -75,7 +75,7 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 
 	// Mock branch protection information
 	protectedBranch := &gh.Branch{
-		Name:      "main",
+		Name:      "master",
 		Protected: true,
 	}
 
@@ -84,7 +84,7 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 		repoName := fmt.Sprintf("org/%s", target.Name)
 
 		// Mock getting branch protection status
-		mockGH.On("GetBranch", mock.Anything, repoName, "main").
+		mockGH.On("GetBranch", mock.Anything, repoName, "master").
 			Return(protectedBranch, nil)
 
 		// Mock that direct pushes are not allowed
@@ -98,7 +98,7 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 			Return(&gh.User{Login: "testuser", ID: 123}, nil)
 		mockGH.On("CreatePR", mock.Anything, repoName, mock.MatchedBy(func(req gh.PRRequest) bool {
 			// Verify PR is created with proper branch (not main)
-			return req.Head != "main" && strings.Contains(req.Head, "chore/sync-files")
+			return req.Head != "master" && strings.Contains(req.Head, "chore/sync-files")
 		})).Return(&gh.PR{
 			Number: 123,
 			Title:  "Sync from source repository",
@@ -184,7 +184,7 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 	}
 
 	// Verify no attempts to push directly to main
-	mockGit.AssertNotCalled(t, "Push", mock.Anything, mock.AnythingOfType("string"), "origin", "main", mock.AnythingOfType("bool"))
+	mockGit.AssertNotCalled(t, "Push", mock.Anything, mock.AnythingOfType("string"), "origin", "master", mock.AnythingOfType("bool"))
 
 	mockState.AssertExpectations(t)
 }

@@ -282,7 +282,7 @@ Flags:
 ##### `history analyze`
 ```bash
 Flags:
-  --branch string     Branch to analyze (default: "main")
+  --branch string     Branch to analyze (default: "master")
   --days int          Days of history to analyze (default: 30)
   --output string     Output analysis file
   --format string     Output format: json, yaml, table (default: "json")
@@ -291,7 +291,7 @@ Flags:
 ##### `history predict`
 ```bash
 Flags:
-  --branch string     Branch to predict for (default: "main")
+  --branch string     Branch to predict for (default: "master")
   --horizon int       Prediction horizon in days (default: 7)
   --model string      Prediction model: linear, polynomial, seasonal (default: "linear")
   --confidence float  Confidence interval (default: 0.95)
@@ -379,7 +379,7 @@ gofortress-coverage analytics dashboard [flags]
 
 Flags:
   --output string     Output directory (default: "analytics")
-  --branch string     Branch to analyze (default: "main")
+  --branch string     Branch to analyze (default: "master")
   --days int          Days of data to include (default: 90)
   --theme string      Dashboard theme (default: "github-dark")
   --include-team      Include team analytics
@@ -399,7 +399,7 @@ Examples:
 gofortress-coverage analytics trends [flags]
 
 Flags:
-  --branch string     Branch to analyze (default: "main")
+  --branch string     Branch to analyze (default: "master")
   --days int          Days of history (default: 30)
   --output string     Output file for trend data
   --chart             Generate trend chart
@@ -480,7 +480,7 @@ GET /api/coverage.json?branch=main
 ```json
 {
   "overall_coverage": 87.2,
-  "branch": "main",
+  "branch": "master",
   "commit": "abc123def456",
   "timestamp": "2025-01-27T10:30:00Z",
   "quality_score": 92,
@@ -514,7 +514,7 @@ GET /api/history.json?branch=main&days=30
 **Response:**
 ```json
 {
-  "branch": "main",
+  "branch": "master",
   "period": {
     "start": "2024-12-28T00:00:00Z",
     "end": "2025-01-27T00:00:00Z",
@@ -552,7 +552,7 @@ GET /api/analytics.json?branch=main
 **Response:**
 ```json
 {
-  "branch": "main",
+  "branch": "master",
   "generated_at": "2025-01-27T10:30:00Z",
   "quality_assessment": {
     "overall_score": 92,

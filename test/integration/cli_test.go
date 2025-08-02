@@ -172,12 +172,22 @@ func TestConfigurationExamples(t *testing.T) {
 			// Verify each target has required fields
 			for i, target := range cfg.Targets {
 				assert.NotEmpty(t, target.Repo, "Target %d repo should not be empty", i)
-				assert.NotEmpty(t, target.Files, "Target %d files should not be empty", i)
 
-				// Verify each file mapping
+				// Target must have either files or directories (or both)
+				hasFiles := len(target.Files) > 0
+				hasDirectories := len(target.Directories) > 0
+				assert.True(t, hasFiles || hasDirectories, "Target %d must have either files or directories", i)
+
+				// Verify each file mapping if present
 				for j, file := range target.Files {
 					assert.NotEmpty(t, file.Src, "Target %d file %d src should not be empty", i, j)
 					assert.NotEmpty(t, file.Dest, "Target %d file %d dest should not be empty", i, j)
+				}
+
+				// Verify each directory mapping if present
+				for j, dir := range target.Directories {
+					assert.NotEmpty(t, dir.Src, "Target %d directory %d src should not be empty", i, j)
+					assert.NotEmpty(t, dir.Dest, "Target %d directory %d dest should not be empty", i, j)
 				}
 			}
 		})

@@ -28,7 +28,7 @@ func TestMockDiscovererImplementation(t *testing.T) {
 			expectedState := &State{
 				Source: SourceState{
 					Repo:   "test/repo",
-					Branch: "main",
+					Branch: "master",
 				},
 			}
 

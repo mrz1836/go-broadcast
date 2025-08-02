@@ -90,17 +90,17 @@ func (suite *AnalyzerTestSuite) TestLoadCustomDataUnsorted() {
 		{
 			Timestamp: time.Now().Add(-2 * time.Hour),
 			Coverage:  75.0,
-			Branch:    "main",
+			Branch:    "master",
 		},
 		{
 			Timestamp: time.Now().Add(-4 * time.Hour),
 			Coverage:  70.0,
-			Branch:    "main",
+			Branch:    "master",
 		},
 		{
 			Timestamp: time.Now().Add(-1 * time.Hour),
 			Coverage:  80.0,
-			Branch:    "main",
+			Branch:    "master",
 		},
 	}
 
@@ -164,7 +164,7 @@ func (suite *AnalyzerTestSuite) TestAnalyzeTrendsInsufficientData() {
 		{
 			Timestamp: time.Now(),
 			Coverage:  75.0,
-			Branch:    "main",
+			Branch:    "master",
 		},
 	}
 	suite.analyzer.LoadCustomData(dataPoints)
@@ -700,37 +700,37 @@ func (suite *AnalyzerTestSuite) createSampleDataPoints() []AnalysisDataPoint {
 		{
 			Timestamp: now.Add(-10 * time.Hour),
 			Coverage:  70.0,
-			Branch:    "main",
+			Branch:    "master",
 			CommitSHA: "abc123",
 		},
 		{
 			Timestamp: now.Add(-8 * time.Hour),
 			Coverage:  72.5,
-			Branch:    "main",
+			Branch:    "master",
 			CommitSHA: "def456",
 		},
 		{
 			Timestamp: now.Add(-6 * time.Hour),
 			Coverage:  75.0,
-			Branch:    "main",
+			Branch:    "master",
 			CommitSHA: "ghi789",
 		},
 		{
 			Timestamp: now.Add(-4 * time.Hour),
 			Coverage:  77.5,
-			Branch:    "main",
+			Branch:    "master",
 			CommitSHA: "jkl012",
 		},
 		{
 			Timestamp: now.Add(-2 * time.Hour),
 			Coverage:  80.0,
-			Branch:    "main",
+			Branch:    "master",
 			CommitSHA: "mno345",
 		},
 		{
 			Timestamp: now.Add(-1 * time.Hour),
 			Coverage:  82.5,
-			Branch:    "main",
+			Branch:    "master",
 			CommitSHA: "pqr678",
 		},
 	}
@@ -790,7 +790,7 @@ func BenchmarkAnalyzeTrends(b *testing.B) {
 		dataPoints[i] = AnalysisDataPoint{
 			Timestamp: now.Add(-time.Duration(i) * time.Hour),
 			Coverage:  70.0 + float64(i)*0.5,
-			Branch:    "main",
+			Branch:    "master",
 		}
 	}
 

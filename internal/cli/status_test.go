@@ -43,7 +43,7 @@ func TestSyncStatusJSON(t *testing.T) {
 	status := &SyncStatus{
 		Source: SourceStatus{
 			Repository:   "org/source-repo",
-			Branch:       "main",
+			Branch:       "master",
 			LatestCommit: "abc123def456789",
 		},
 		Targets: []TargetStatus{
@@ -103,7 +103,7 @@ func TestStatusConversion(t *testing.T) {
 
 	// Verify source status
 	assert.Equal(t, "org/template", status.Source.Repository)
-	assert.Equal(t, "main", status.Source.Branch)
+	assert.Equal(t, "master", status.Source.Branch)
 	assert.NotEmpty(t, status.Source.LatestCommit)
 
 	// Verify targets
@@ -131,7 +131,7 @@ func TestOutputJSON(t *testing.T) {
 	status := &SyncStatus{
 		Source: SourceStatus{
 			Repository:   "org/source",
-			Branch:       "main",
+			Branch:       "master",
 			LatestCommit: "abc123",
 		},
 		Targets: []TargetStatus{
@@ -173,7 +173,7 @@ func TestOutputTextStatus(t *testing.T) {
 			status: &SyncStatus{
 				Source: SourceStatus{
 					Repository:   "org/source",
-					Branch:       "main",
+					Branch:       "master",
 					LatestCommit: "abc123def456789",
 				},
 				Targets: []TargetStatus{
@@ -201,7 +201,7 @@ func TestOutputTextStatus(t *testing.T) {
 			status: &SyncStatus{
 				Source: SourceStatus{
 					Repository:   "org/source",
-					Branch:       "main",
+					Branch:       "master",
 					LatestCommit: "xyz789",
 				},
 				Targets: []TargetStatus{
@@ -448,7 +448,7 @@ func TestStatusSummaryCalculation(t *testing.T) {
 	status := &SyncStatus{
 		Source: SourceStatus{
 			Repository:   "org/source",
-			Branch:       "main",
+			Branch:       "master",
 			LatestCommit: "abc123",
 		},
 		Targets: []TargetStatus{
@@ -482,7 +482,7 @@ func TestStatusOutputIcons(t *testing.T) {
 			status := &SyncStatus{
 				Source: SourceStatus{
 					Repository:   "org/source",
-					Branch:       "main",
+					Branch:       "master",
 					LatestCommit: "abc123",
 				},
 				Targets: []TargetStatus{
@@ -513,7 +513,7 @@ func createMockState() *state.State {
 	return &state.State{
 		Source: state.SourceState{
 			Repo:         "org/template",
-			Branch:       "main",
+			Branch:       "master",
 			LatestCommit: commitSHA,
 			LastChecked:  now,
 		},

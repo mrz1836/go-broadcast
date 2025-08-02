@@ -60,7 +60,7 @@ func TestRecord(t *testing.T) {
 	coverage := createTestCoverage()
 
 	err = tracker.Record(ctx, coverage,
-		WithBranch("main"),
+		WithBranch("master"),
 		WithCommit("abc123", "https://github.com/test/repo/commit/abc123"),
 		WithMetadata("project", "test-project"),
 	)
@@ -106,7 +106,7 @@ func TestGetTrend(t *testing.T) {
 		coverage.Percentage = float64(70 + i*5) // 70%, 75%, 80%, 85%, 90%
 
 		recordErr := tracker.Record(ctx, coverage,
-			WithBranch("main"),
+			WithBranch("master"),
 			WithCommit("commit"+string(rune('1'+i)), ""),
 		)
 		require.NoError(t, recordErr)
@@ -115,7 +115,7 @@ func TestGetTrend(t *testing.T) {
 
 	// Get trend data
 	trendData, err := tracker.GetTrend(ctx,
-		WithTrendBranch("main"),
+		WithTrendBranch("master"),
 		WithTrendDays(7),
 		WithMaxDataPoints(10),
 	)
@@ -158,18 +158,18 @@ func TestGetLatestEntry(t *testing.T) {
 	// Record entries
 	coverage1 := createTestCoverage()
 	coverage1.Percentage = 75.0
-	err = tracker.Record(ctx, coverage1, WithBranch("main"), WithCommit("commit1", ""))
+	err = tracker.Record(ctx, coverage1, WithBranch("master"), WithCommit("commit1", ""))
 	require.NoError(t, err)
 
 	time.Sleep(10 * time.Millisecond)
 
 	coverage2 := createTestCoverage()
 	coverage2.Percentage = 85.0
-	err = tracker.Record(ctx, coverage2, WithBranch("main"), WithCommit("commit2", ""))
+	err = tracker.Record(ctx, coverage2, WithBranch("master"), WithCommit("commit2", ""))
 	require.NoError(t, err)
 
 	// Get latest entry
-	latest, err := tracker.GetLatestEntry(ctx, "main")
+	latest, err := tracker.GetLatestEntry(ctx, "master")
 	require.NoError(t, err)
 	assert.NotNil(t, latest)
 	assert.InDelta(t, 85.0, latest.Coverage.Percentage, 0.001)
@@ -208,7 +208,7 @@ func TestCleanup(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		coverage := createTestCoverage()
 		recordErr := tracker.Record(ctx, coverage,
-			WithBranch("main"),
+			WithBranch("master"),
 			WithCommit("commit"+string(rune('1'+i)), ""),
 		)
 		require.NoError(t, recordErr)
@@ -275,7 +275,7 @@ func TestGetStatistics(t *testing.T) {
 	coverage := createTestCoverage()
 
 	err = tracker.Record(ctx, coverage,
-		WithBranch("main"),
+		WithBranch("master"),
 		WithMetadata("project", "project1"),
 	)
 	require.NoError(t, err)
@@ -291,7 +291,7 @@ func TestGetStatistics(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	err = tracker.Record(ctx, coverage,
-		WithBranch("main"),
+		WithBranch("master"),
 		WithMetadata("project", "project1"),
 	)
 	require.NoError(t, err)
@@ -305,7 +305,7 @@ func TestGetStatistics(t *testing.T) {
 	assert.Len(t, stats.UniqueBranches, 2)
 	assert.Equal(t, 2, stats.UniqueProjects["project1"])
 	assert.Equal(t, 1, stats.UniqueProjects["project2"])
-	assert.Equal(t, 2, stats.UniqueBranches["main"])
+	assert.Equal(t, 2, stats.UniqueBranches["master"])
 	assert.Equal(t, 1, stats.UniqueBranches["feature"])
 	assert.Positive(t, stats.StorageSize)
 }
@@ -337,7 +337,7 @@ func TestLegacyAdd(t *testing.T) {
 	tracker := NewWithConfig(config)
 
 	coverage := createTestCoverage()
-	err = tracker.Add("main", "commit123", coverage)
+	err = tracker.Add("master", "commit123", coverage)
 	require.NoError(t, err)
 
 	// Verify entry was created
@@ -349,7 +349,7 @@ func TestLegacyAdd(t *testing.T) {
 func TestLegacyAddInvalidType(t *testing.T) {
 	tracker := New()
 
-	err := tracker.Add("main", "commit123", "invalid")
+	err := tracker.Add("master", "commit123", "invalid")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported data type")
 }
@@ -370,14 +370,14 @@ func TestTrendAnalysis(t *testing.T) {
 		coverage.Percentage = percentage
 
 		recordErr := tracker.Record(ctx, coverage,
-			WithBranch("main"),
+			WithBranch("master"),
 			WithCommit("commit"+string(rune('1'+i)), ""),
 		)
 		require.NoError(t, recordErr)
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	trendData, err := tracker.GetTrend(ctx, WithTrendBranch("main"))
+	trendData, err := tracker.GetTrend(ctx, WithTrendBranch("master"))
 	require.NoError(t, err)
 
 	// Verify summary
@@ -420,14 +420,14 @@ func TestBuildInfo(t *testing.T) {
 
 	coverage := createTestCoverage()
 	err = tracker.Record(ctx, coverage,
-		WithBranch("main"),
+		WithBranch("master"),
 		WithCommit("abc123", "https://github.com/test/repo/commit/abc123"),
 		WithBuildInfo(buildInfo),
 	)
 	require.NoError(t, err)
 
 	// Retrieve and verify
-	latest, err := tracker.GetLatestEntry(ctx, "main")
+	latest, err := tracker.GetLatestEntry(ctx, "master")
 	require.NoError(t, err)
 
 	assert.Equal(t, buildInfo.GoVersion, latest.BuildInfo.GoVersion)
@@ -445,10 +445,10 @@ func TestPackageStats(t *testing.T) {
 	ctx := context.Background()
 
 	coverage := createTestCoverage()
-	err = tracker.Record(ctx, coverage, WithBranch("main"))
+	err = tracker.Record(ctx, coverage, WithBranch("master"))
 	require.NoError(t, err)
 
-	latest, err := tracker.GetLatestEntry(ctx, "main")
+	latest, err := tracker.GetLatestEntry(ctx, "master")
 	require.NoError(t, err)
 
 	assert.NotNil(t, latest.PackageStats)
@@ -706,8 +706,8 @@ func createTestCoverage() *parser.CoverageData {
 		CoveredLines: 75,
 		Timestamp:    time.Now(),
 		Packages: map[string]*parser.PackageCoverage{
-			"main": {
-				Name:         "main",
+			"master": {
+				Name:         "master",
 				Percentage:   75.0,
 				TotalLines:   100,
 				CoveredLines: 75,

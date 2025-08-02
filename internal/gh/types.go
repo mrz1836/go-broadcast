@@ -103,3 +103,21 @@ type User struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 }
+
+// GitTreeNode represents a node in the GitHub Git tree
+type GitTreeNode struct {
+	Path string `json:"path"`
+	Mode string `json:"mode"`
+	Type string `json:"type"` // "blob", "tree", "commit"
+	SHA  string `json:"sha"`
+	Size *int   `json:"size,omitempty"`
+	URL  string `json:"url,omitempty"`
+}
+
+// GitTree represents the GitHub Git tree response
+type GitTree struct {
+	SHA       string        `json:"sha"`
+	URL       string        `json:"url"`
+	Tree      []GitTreeNode `json:"tree"`
+	Truncated bool          `json:"truncated"`
+}

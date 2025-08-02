@@ -10,7 +10,7 @@ func TestCoverageData_JSON(t *testing.T) {
 	data := &CoverageData{
 		ProjectName:    "test-project",
 		RepositoryURL:  "https://github.com/owner/repo",
-		Branch:         "main",
+		Branch:         "master",
 		CommitSHA:      "abc123",
 		PRNumber:       "42",
 		BadgeURL:       "https://owner.github.io/repo/coverage.svg",
@@ -194,7 +194,7 @@ func TestDashboardMetadata(t *testing.T) {
 		DataVersion:      "1.0",
 		Branches: []BranchInfo{
 			{
-				Name:     "main",
+				Name:     "master",
 				Coverage: 85.5,
 			},
 			{

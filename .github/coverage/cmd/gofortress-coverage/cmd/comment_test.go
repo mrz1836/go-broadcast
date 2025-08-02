@@ -229,12 +229,12 @@ func TestBuildTemplateData(t *testing.T) {
 	require.NotNil(t, result)
 	require.Equal(t, "testowner", result.Repository.Owner)
 	require.Equal(t, "testrepo", result.Repository.Name)
-	require.Equal(t, "main", result.Repository.DefaultBranch)
+	require.Equal(t, "master", result.Repository.DefaultBranch)
 	require.Equal(t, "https://github.com/testowner/testrepo", result.Repository.URL)
 
 	require.Equal(t, prNumber, result.PullRequest.Number)
 	require.Equal(t, "current", result.PullRequest.Branch)
-	require.Equal(t, "main", result.PullRequest.BaseBranch)
+	require.Equal(t, "master", result.PullRequest.BaseBranch)
 	require.Equal(t, cfg.GitHub.CommitSHA, result.PullRequest.CommitSHA)
 	require.Equal(t, "https://github.com/testowner/testrepo/pull/123", result.PullRequest.URL)
 

@@ -249,7 +249,7 @@ func generateTestConfig(repositories, filesPerRepo int) *config.Config {
 		Version: 1,
 		Source: config.SourceConfig{
 			Repo:   "test/source-repo",
-			Branch: "main",
+			Branch: "master",
 		},
 		Targets: make([]config.TargetConfig, repositories),
 	}

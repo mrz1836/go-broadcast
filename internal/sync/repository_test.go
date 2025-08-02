@@ -367,6 +367,13 @@ func TestRepositorySync_generatePRBody(t *testing.T) {
 		target: config.TargetConfig{
 			Repo: "org/target",
 		},
+		syncMetrics: &PerformanceMetrics{
+			FileMetrics: FileProcessingMetrics{
+				FilesProcessed: 2,
+				FilesChanged:   2,
+				FilesSkipped:   0,
+			},
+		},
 	}
 
 	files := []FileChange{
@@ -381,7 +388,9 @@ func TestRepositorySync_generatePRBody(t *testing.T) {
 	assert.Contains(t, body, "## Why It Was Necessary")
 	assert.Contains(t, body, "## Testing Performed")
 	assert.Contains(t, body, "## Impact / Risk")
-	assert.Contains(t, body, "Updated project files to synchronize")
+	assert.Contains(t, body, "## Performance Metrics")
+	// Check for the enhanced change description
+	assert.Contains(t, body, "Updated 2 individual file(s) to synchronize with the source repository")
 	assert.Contains(t, body, "go-broadcast-metadata")
 	assert.Contains(t, body, "source_repo: org/template")
 	assert.Contains(t, body, "source_commit: abc123")
@@ -650,7 +659,7 @@ func TestRepositorySync_mergeUniqueStrings(t *testing.T) {
 	})
 
 	t.Run("handles empty first slice", func(t *testing.T) {
-		slice1 := []string{}
+		var slice1 []string
 		slice2 := []string{"a", "b", "c"}
 		result := rs.mergeUniqueStrings(slice1, slice2)
 		expected := []string{"a", "b", "c"}
@@ -659,15 +668,15 @@ func TestRepositorySync_mergeUniqueStrings(t *testing.T) {
 
 	t.Run("handles empty second slice", func(t *testing.T) {
 		slice1 := []string{"a", "b", "c"}
-		slice2 := []string{}
+		var slice2 []string
 		result := rs.mergeUniqueStrings(slice1, slice2)
 		expected := []string{"a", "b", "c"}
 		assert.Equal(t, expected, result)
 	})
 
 	t.Run("handles both slices empty", func(t *testing.T) {
-		slice1 := []string{}
-		slice2 := []string{}
+		var slice1 []string
+		var slice2 []string
 		result := rs.mergeUniqueStrings(slice1, slice2)
 		assert.Nil(t, result)
 	})
@@ -1105,7 +1114,7 @@ func TestCreateNewPR_WithReviewerFiltering(t *testing.T) {
 
 	// Mock branch listing
 	branches := []gh.Branch{
-		{Name: "main", Protected: true},
+		{Name: "master", Protected: true},
 		{Name: "master", Protected: false},
 	}
 	ghClient.On("ListBranches", ctx, "org/target").Return(branches, nil)
@@ -1168,7 +1177,7 @@ func TestCreateNewPR_GetCurrentUserFailure(t *testing.T) {
 	ghClient.On("GetCurrentUser", ctx).Return(nil, errTestAuthError)
 
 	// Mock branch listing
-	branches := []gh.Branch{{Name: "main", Protected: true}}
+	branches := []gh.Branch{{Name: "master", Protected: true}}
 	ghClient.On("ListBranches", ctx, "org/target").Return(branches, nil)
 
 	// Configure with reviewers

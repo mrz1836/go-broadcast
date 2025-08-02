@@ -9,6 +9,7 @@ This guide helps resolve common issues when using go-broadcast.
 - [GitHub API Issues](#github-api-issues)
 - [Git Operations](#git-operations)
 - [File Synchronization](#file-synchronization)
+- [Directory Synchronization](#directory-synchronization)
 - [Performance Issues](#performance-issues)
 - [Debugging](#debugging)
 
@@ -246,6 +247,347 @@ targets:
        SERVICE_NAME: "my-service"  # Must be defined if used in templates
    ```
 3. **Test transformations locally**: Create small test files to debug transforms
+
+## Directory Synchronization
+
+### "Directory sync completed but no files were synced"
+
+**Problem**: Directory mapping completes successfully but results in 0 files synchronized.
+
+**Common Causes & Solutions**:
+
+1. **All files excluded by patterns**:
+   ```bash
+   # Use debug logging to see exclusion details
+   go-broadcast sync --log-level debug --config sync.yaml 2>&1 | grep -i "excluded"
+   ```
+   
+   Check smart defaults (automatically applied):
+   ```yaml
+   # These are ALWAYS excluded for safety:
+   # *.out, *.test, *.exe, **/.DS_Store, **/tmp/*, **/.git
+   
+   # Review your additional exclusions
+   directories:
+     - src: "src"
+       dest: "src"
+       exclude:
+         - "*.go"  # This would exclude all Go files!
+   ```
+
+2. **Source directory doesn't exist**:
+   ```bash
+   # Verify source directory exists in template repo
+   gh api repos/company/template-repo/contents/source-directory
+   ```
+
+3. **Empty source directory**:
+   ```bash
+   # Check if source directory is empty
+   gh api repos/company/template-repo/git/trees/main --recursive | \
+   jq '.tree[] | select(.path | startswith("source-directory/"))'
+   ```
+
+**Fix**: Review exclusion patterns and verify source directory content.
+
+### "Directory sync is extremely slow"
+
+**Problem**: Directory synchronization takes much longer than expected performance targets.
+
+**Expected Performance**:
+- <50 files: <3ms
+- 50-150 files: 1-7ms
+- 500+ files: 16-32ms
+- 1000+ files: ~32ms
+
+**Diagnosis**:
+```bash
+# Check actual processing time
+go-broadcast sync --log-level debug --config sync.yaml 2>&1 | \
+grep -E "(processing_time_ms|duration)"
+```
+
+**Performance Issues & Solutions**:
+
+1. **Large individual files**:
+   ```yaml
+   # Exclude large files that don't need sync
+   directories:
+     - src: "assets"
+       dest: "assets"  
+       exclude:
+         - "**/*.zip"        # Large archives
+         - "**/*.tar.gz"     # Compressed files
+         - "**/*.iso"        # Disk images
+         - "**/*.dmg"        # macOS images
+   ```
+
+2. **Too many excluded files** (paradoxically slow):
+   ```yaml
+   # Instead of excluding many files, sync specific subdirectories
+   directories:
+     # Instead of this (slow):
+     # - src: "large-dir"
+     #   exclude: ["sub1/**", "sub2/**", "sub3/**", ...]
+     
+     # Do this (fast):
+     - src: "large-dir/wanted-subdir"
+       dest: "large-dir/wanted-subdir"
+   ```
+
+3. **Deep directory nesting**:
+   ```yaml
+   # Avoid very deep recursion in exclusion patterns
+   exclude:
+     - "**/deeply/nested/path/**"  # Can be slow
+   # Prefer specific patterns:
+     - "deeply/nested/path/**"     # Faster
+   ```
+
+### "Exclusion patterns not working as expected"
+
+**Problem**: Files that should be excluded are still being synchronized.
+
+**Common Pattern Issues**:
+
+1. **Case sensitivity**:
+   ```yaml
+   # Patterns are case-sensitive
+   exclude:
+     - "*.TMP"    # Won't match *.tmp
+     - "*.tmp"    # Won't match *.TMP
+     - "*.[Tt][Mm][Pp]"  # Matches both
+   ```
+
+2. **Directory vs file patterns**:
+   ```yaml
+   exclude:
+     - "temp"      # Matches files named 'temp'
+     - "temp/"     # Matches directories named 'temp'
+     - "temp/**"   # Matches everything under temp directories
+     - "**/temp/**" # Matches temp directories at any depth
+   ```
+
+3. **Relative path confusion**:
+   ```yaml
+   # Patterns match against paths relative to src directory
+   directories:
+     - src: ".github"
+       dest: ".github"
+       exclude:
+         - "workflows/local-*"      # Matches .github/workflows/local-*
+         - "**/workflows/local-*"   # Also matches nested workflows
+   ```
+
+**Debugging Exclusions**:
+```bash
+# See detailed pattern matching
+go-broadcast sync --log-level debug --config sync.yaml 2>&1 | \
+grep -E "(excluded|pattern|matching)"
+
+# Test specific patterns with dry-run
+go-broadcast sync --dry-run --config sync.yaml
+```
+
+### "Transform errors on directory files"
+
+**Problem**: Some files in directory fail transformation but sync continues.
+
+**Expected Behavior**: Transform errors on individual files don't fail entire directory sync (by design for robustness).
+
+**Common Issues**:
+
+1. **Binary files processed as text**:
+   ```bash
+   # Check logs for binary detection
+   go-broadcast sync --log-level debug --config sync.yaml 2>&1 | \
+   grep -i "binary"
+   ```
+   
+   **Solution**: Binary files are automatically detected and skipped for transforms. This is correct behavior.
+
+2. **Invalid variable substitution**:
+   ```yaml
+   directories:
+     - src: "configs"
+       dest: "configs"  
+       transform:
+         variables:
+           SERVICE_NAME: "my-service"
+           # Missing variable will cause transform errors
+           # Check logs for "undefined variable" messages
+   ```
+
+3. **Malformed Go module paths** (for repo_name transform):
+   ```yaml
+   # repo_name transform only works on text files with valid Go syntax
+   transform:
+     repo_name: true  # May fail on config files, docs, etc.
+   ```
+
+**Solutions**:
+```yaml
+# Exclude problematic files from transforms
+directories:
+  - src: "mixed-content"
+    dest: "mixed-content"
+    exclude:
+      - "**/*.bin"      # Skip binary files
+      - "**/*.jpg"      # Skip images
+      - "**/*.pdf"      # Skip PDFs
+    transform:
+      repo_name: true   # Only applies to remaining text files
+```
+
+### "API rate limiting during large directory sync"
+
+**Problem**: GitHub API rate limits exceeded during directory operations.
+
+**Understanding the Issue**:
+- go-broadcast uses GitHub tree API for 90%+ call reduction
+- Rate limits should rarely be hit with proper optimization
+- If you're hitting limits, there may be a configuration issue
+
+**Diagnosis**:
+```bash
+# Check API usage in logs
+go-broadcast sync --log-level debug --config sync.yaml 2>&1 | \
+grep -E "(api|rate|tree|calls)"
+
+# Check current rate limit status
+gh api rate_limit
+```
+
+**Solutions**:
+
+1. **Verify tree API is being used**:
+   ```bash
+   # Should see "using tree API" in debug logs
+   # Should see very few individual file API calls
+   ```
+
+2. **Split very large directories**:
+   ```yaml
+   # Instead of syncing huge directory
+   directories:
+     # Split into logical chunks
+     - src: "large-dir/core"
+       dest: "large-dir/core"
+     - src: "large-dir/modules"  
+       dest: "large-dir/modules"
+   ```
+
+3. **Optimize concurrent repositories**:
+   ```bash
+   # Sync specific repositories to reduce load
+   go-broadcast sync company/repo1 company/repo2 --config sync.yaml
+   ```
+
+### "Memory usage too high during directory sync"
+
+**Problem**: go-broadcast consuming excessive memory during large directory operations.
+
+**Expected Memory Usage**:
+- ~1.2MB per 1000 files processed
+- Linear scaling with file count
+- Memory released immediately after processing
+
+**Diagnosis**:
+```bash
+# Monitor memory during sync
+go-broadcast sync --config sync.yaml &
+PID=$!
+while kill -0 $PID 2>/dev/null; do
+  ps -o pid,vsz,rss,comm -p $PID
+  sleep 2
+done
+```
+
+**Solutions**:
+
+1. **Segment large directories**:
+   ```yaml
+   # Process in smaller chunks
+   directories:
+     - src: "docs/section1"
+       dest: "docs/section1"
+     - src: "docs/section2"
+       dest: "docs/section2"
+   ```
+
+2. **Exclude large files**:
+   ```yaml
+   exclude:
+     - "**/*.zip"     # Large archives
+     - "**/*.tar.*"   # Compressed files
+     - "**/*.iso"     # Disk images
+     - "data/**"      # Large data files
+   ```
+
+3. **Reduce concurrent operations**:
+   ```bash
+   # Process fewer repositories simultaneously  
+   go-broadcast sync specific/repo --config sync.yaml
+   ```
+
+### "Directory structure not preserved correctly"
+
+**Problem**: Nested directory structure is flattened or modified unexpectedly.
+
+**Understanding preserve_structure**:
+```yaml
+directories:
+  - src: "docs/api/v1"
+    dest: "api-docs"
+    preserve_structure: true   # Results in: api-docs/nested/file.md
+    preserve_structure: false  # Results in: api-docs/file.md (flattened)
+```
+
+**Common Issues**:
+
+1. **Unexpected flattening**:
+   ```yaml
+   # Default is preserve_structure: true
+   # If you're seeing flattening, check for:
+   directories:
+     - src: "nested/content"
+       dest: "content"
+       preserve_structure: false  # This causes flattening
+   ```
+
+2. **Path conflicts** (when flattening):
+   ```yaml
+   # Flattening can cause conflicts with same filenames
+   # src/dir1/config.yml and src/dir2/config.yml both → dest/config.yml
+   # Solution: Use preserve_structure: true or rename during sync
+   ```
+
+### "Hidden files not syncing"
+
+**Problem**: Files starting with `.` are not being synchronized.
+
+**Understanding include_hidden**:
+```yaml
+directories:
+  - src: "configs"
+    dest: "configs"
+    include_hidden: true   # Syncs .env, .gitignore, etc. (default)
+    include_hidden: false  # Skips hidden files
+```
+
+**Solutions**:
+```yaml
+# Ensure include_hidden is not set to false
+directories:
+  - src: "project-root"
+    dest: "project-root"
+    include_hidden: true   # Explicit enable
+    exclude:
+      - "**/.DS_Store"     # Still excluded by smart defaults
+      - "**/.git/**"       # Still excluded by smart defaults
+```
+
+**Note**: Smart defaults always exclude certain hidden files (`.DS_Store`, `.git`) for safety, even with `include_hidden: true`.
 
 ## Performance Issues
 

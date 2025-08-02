@@ -1,0 +1,109 @@
+# GitHub Workflows Directory Sync
+# Real-world example for syncing .github directory structures across repositories
+
+version: 1
+
+source:
+  repo: "company/devops-templates"
+  branch: "master"
+
+# Global settings for all GitHub directory syncs
+global:
+  pr_labels: ["automated-sync", "github-actions", "devops"]
+  pr_assignees: ["devops-team"]
+  pr_reviewers: ["platform-lead"]
+  pr_team_reviewers: ["infrastructure-team"]
+
+targets:
+  # Microservice A - Full .github directory sync
+  - repo: "company/microservice-a"
+    directories:
+      # Sync all workflows with selective exclusions
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude:
+          - "*-local.yml" # Local development workflows
+          - "*.disabled" # Disabled workflows
+          - "experimental-*" # Experimental workflows
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_TYPE: "api"
+            DEPLOYMENT_ENV: "production"
+
+      # Sync coverage system (87 files, ~4ms processing time)
+      - src: ".github/coverage"
+        dest: ".github/coverage"
+        exclude:
+          - "*.out" # Coverage output files
+          - "*.test" # Test binaries
+          - "gofortress-coverage" # Binary executable
+
+      # Sync issue and PR templates
+      - src: ".github/ISSUE_TEMPLATE"
+        dest: ".github/ISSUE_TEMPLATE"
+      - src: ".github/PULL_REQUEST_TEMPLATE"
+        dest: ".github/PULL_REQUEST_TEMPLATE"
+
+  # Microservice B - Selective workflow sync
+  - repo: "company/microservice-b"
+    directories:
+      # Only sync core workflows (faster processing)
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude:
+          - "*-local.yml"
+          - "security-*" # This service has custom security workflows
+          - "deploy-*" # Custom deployment workflows
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_TYPE: "worker"
+            DEPLOYMENT_ENV: "staging"
+
+    # Service-specific PR settings (merged with global)
+    pr_labels: ["microservice-b", "worker-service"]
+    pr_assignees: ["service-b-owner"]
+
+  # Frontend Application - Different workflow needs
+  - repo: "company/frontend-app"
+    directories:
+      # Frontend-specific workflows
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude:
+          - "go-*" # Skip Go-specific workflows
+          - "*-api-*" # Skip API-specific workflows
+          - "docker-*" # Frontend uses different containerization
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_TYPE: "frontend"
+            NODE_VERSION: "18"
+            BUILD_TOOL: "vite"
+
+      # Frontend-specific templates
+      - src: ".github/templates/frontend"
+        dest: ".github"
+        preserve_structure: true
+
+  # Legacy Service - Minimal sync for gradual migration
+  - repo: "company/legacy-service"
+    directories:
+      # Only essential workflows for legacy system
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude:
+          - "*" # Exclude everything by default
+        include_only:
+          - "security-*.yml" # Only security workflows
+          - "dependency-*.yml" # Only dependency management
+
+    # Legacy service needs different approval flow
+    pr_reviewers: ["legacy-maintainer", "security-lead"]
+    pr_team_reviewers: ["security-team"]
+# Performance expectations for this configuration:
+# - .github/workflows (24 files): ~1.5ms processing
+# - .github/coverage (87 files): ~4ms processing
+# - Total API calls reduced by 90%+ through tree API optimization
+# - Memory usage: ~1.2MB per 1000 files processed

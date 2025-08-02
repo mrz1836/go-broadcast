@@ -23,6 +23,7 @@ var (
 	ErrPRNotFound       = errors.New("pull request not found")
 	ErrFileNotFound     = errors.New("file not found")
 	ErrCommitNotFound   = errors.New("commit not found")
+	ErrGitTreeNotFound  = errors.New("git tree not found")
 )
 
 // githubClient implements the Client interface using gh CLI
@@ -390,6 +391,29 @@ func (g *githubClient) GetCurrentUser(ctx context.Context) (*User, error) {
 	g.currentUser = &user
 
 	return &user, nil
+}
+
+// GetGitTree retrieves the Git tree for a repository
+func (g *githubClient) GetGitTree(ctx context.Context, repo, treeSHA string, recursive bool) (*GitTree, error) {
+	apiURL := fmt.Sprintf("repos/%s/git/trees/%s", repo, treeSHA)
+	if recursive {
+		apiURL += "?recursive=1"
+	}
+
+	output, err := g.runner.Run(ctx, "gh", "api", apiURL)
+	if err != nil {
+		if isNotFoundError(err) {
+			return nil, fmt.Errorf("%w: %s", ErrGitTreeNotFound, treeSHA)
+		}
+		return nil, appErrors.WrapWithContext(err, "get git tree")
+	}
+
+	gitTree, err := jsonutil.UnmarshalJSON[GitTree](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse git tree")
+	}
+
+	return &gitTree, nil
 }
 
 // isNotFoundError checks if the error is a 404 from GitHub API

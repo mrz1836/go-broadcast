@@ -16,7 +16,7 @@ func BenchmarkGitCommand_Simple(b *testing.B) {
 	ctx := context.Background()
 
 	// Setup mock expectations
-	mockClient.On("GetCurrentBranch", mock.Anything, mock.Anything).Return("main", nil)
+	mockClient.On("GetCurrentBranch", mock.Anything, mock.Anything).Return("master", nil)
 
 	benchmark.WithMemoryTracking(b, func() {
 		_, _ = mockClient.GetCurrentBranch(ctx, "/tmp/repo")
@@ -122,7 +122,7 @@ func BenchmarkBranch_Operations(b *testing.B) {
 			return client.CreateBranch(ctx, repo, "feature-branch")
 		}},
 		{"Checkout", func(client Client, ctx context.Context, repo string) error {
-			return client.Checkout(ctx, repo, "main")
+			return client.Checkout(ctx, repo, "master")
 		}},
 		{"GetCurrentBranch", func(client Client, ctx context.Context, repo string) error {
 			_, err := client.GetCurrentBranch(ctx, repo)
@@ -186,7 +186,7 @@ func BenchmarkPush_Scenarios(b *testing.B) {
 			mockClient.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 			benchmark.WithMemoryTracking(b, func() {
-				_ = mockClient.Push(ctx, "/tmp/repo", "origin", "main", scenario.force)
+				_ = mockClient.Push(ctx, "/tmp/repo", "origin", "master", scenario.force)
 			})
 		})
 	}
@@ -285,6 +285,6 @@ func setupMockForOperation(mockClient *MockClient, operation string) {
 	case "Checkout":
 		mockClient.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	case "GetCurrentBranch":
-		mockClient.On("GetCurrentBranch", mock.Anything, mock.Anything).Return("main", nil)
+		mockClient.On("GetCurrentBranch", mock.Anything, mock.Anything).Return("master", nil)
 	}
 }

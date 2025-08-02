@@ -20,6 +20,23 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/github"
 )
 
+// isMainBranch checks if a branch name is one of the configured main branches
+func isMainBranch(branchName string) bool {
+	mainBranches := os.Getenv("MAIN_BRANCHES")
+	if mainBranches == "" {
+		mainBranches = "master,main"
+	}
+
+	branches := strings.Split(mainBranches, ",")
+	for _, branch := range branches {
+		if strings.TrimSpace(branch) == branchName {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Generator handles dashboard generation
 type Generator struct {
 	config           *GeneratorConfig
@@ -306,7 +323,7 @@ func (g *Generator) prepareTemplateData(ctx context.Context, data *CoverageData)
 		"HasPreviousRuns":    data.HasPreviousRuns,
 		"HistoryDataPoints":  len(data.History),
 		"HistoryJSON":        g.prepareHistoryJSON(data.History),
-		"IsFeatureBranch":    data.Branch != "master" && data.Branch != "main",
+		"IsFeatureBranch":    !isMainBranch(data.Branch),
 		"IsFirstRun":         data.IsFirstRun,
 		"LatestTag":          latestTag,
 		"LinesToCover":       data.MissedLines,
@@ -372,7 +389,7 @@ func (g *Generator) prepareBranchData(ctx context.Context, data *CoverageData) [
 			"Coverage":     data.TotalCoverage,
 			"CoveredLines": data.CoveredLines,
 			"TotalLines":   data.TotalLines,
-			"Protected":    data.Branch == "master" || data.Branch == "main",
+			"Protected":    isMainBranch(data.Branch),
 			"GitHubURL":    githubURL,
 		},
 	}

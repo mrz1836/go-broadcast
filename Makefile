@@ -10,6 +10,16 @@ REPO_OWNER ?= mrz1836
 
 # Custom functions for this project
 
+.PHONY: setup-test-fixtures
+setup-test-fixtures: ## Generate test fixtures if they don't exist
+	@echo "Checking test fixtures..."
+	@if [ ! -d "test/fixtures/directories" ]; then \
+		echo "Generating test fixtures..."; \
+		cd test/fixtures && ./generate_fixtures.sh all; \
+	else \
+		echo "Test fixtures already exist"; \
+	fi
+
 .PHONY: rebuild
 rebuild: ## Clean and rebuild the project
 	@echo "Cleaning build artifacts..."
@@ -51,7 +61,7 @@ test-integration-all: ## Run all integration test scenarios (All Phases)
 .PHONY: test-all-modules
 test-all-modules: ## Run tests for main module and all submodules
 	@echo "Testing main module..."
-	@go test ./... \
+	@go test $$(go list ./... 2>/dev/null | grep -v '/test/fixtures/directories' | tr '\n' ' ') \
 		$(if $(VERBOSE),-v) \
 		$(TAGS)
 	@echo ""
@@ -64,7 +74,8 @@ test-all-modules: ## Run tests for main module and all submodules
 .PHONY: test-all-modules-race
 test-all-modules-race: ## Run tests for main module and all submodules with race detection
 	@echo "Testing main module with race detection..."
-	@go test -race ./... \
+	@go test $$(go list ./... 2>/dev/null | grep -v '/test/fixtures/directories' | tr '\n' ' ') \
+		-race \
 		$(if $(VERBOSE),-v) \
 		$(TAGS)
 	@echo ""

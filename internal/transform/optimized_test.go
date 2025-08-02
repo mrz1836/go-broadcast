@@ -69,7 +69,7 @@ func BenchmarkStringBuilding(b *testing.B) {
 		{
 			"Path_Building",
 			func(b *testing.B) {
-				parts := []string{"github.com", "user", "repo", "blob", "main", "file.go"}
+				parts := []string{"github.com", "user", "repo", "blob", "master", "file.go"}
 
 				b.Run("Concatenation", func(b *testing.B) {
 					b.ResetTimer()
@@ -94,7 +94,7 @@ func BenchmarkStringBuilding(b *testing.B) {
 			"GitHub_URL_Building",
 			func(b *testing.B) {
 				repo := "user/repository"
-				pathParts := []string{"blob", "main", "src", "internal", "service.go"}
+				pathParts := []string{"blob", "master", "src", "internal", "service.go"}
 
 				b.Run("Sprintf", func(b *testing.B) {
 					b.ResetTimer()
@@ -270,7 +270,7 @@ Visit us at: https://github.com/{{ORG_NAME}}/{{REPO_NAME}}`
 			"SERVICE_NAME": "my-awesome-service",
 			"ENVIRONMENT":  "production",
 			"REPO_NAME":    "awesome-repo",
-			"BRANCH_NAME":  "main",
+			"BRANCH_NAME":  "master",
 			"ORG_NAME":     "awesome-org",
 		}
 

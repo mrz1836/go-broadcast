@@ -168,7 +168,7 @@ func TestPerformCancel(t *testing.T) {
 	cfg := &config.Config{
 		Source: config.SourceConfig{
 			Repo:   "org/source",
-			Branch: "main",
+			Branch: "master",
 		},
 		Targets: []config.TargetConfig{
 			{Repo: "org/target1"},

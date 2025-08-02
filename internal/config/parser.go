@@ -57,7 +57,7 @@ func LoadFromReader(reader io.Reader) (*Config, error) {
 func applyDefaults(config *Config) {
 	// Set default source branch if not specified
 	if config.Source.Branch == "" {
-		config.Source.Branch = "master"
+		config.Source.Branch = "main"
 	}
 
 	// Set default branch prefix if not specified
@@ -68,5 +68,12 @@ func applyDefaults(config *Config) {
 	// Set default PR labels if not specified
 	if len(config.Defaults.PRLabels) == 0 {
 		config.Defaults.PRLabels = []string{"automated-sync"}
+	}
+
+	// Apply directory defaults
+	for i := range config.Targets {
+		for j := range config.Targets[i].Directories {
+			ApplyDirectoryDefaults(&config.Targets[i].Directories[j])
+		}
 	}
 }

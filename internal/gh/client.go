@@ -38,4 +38,8 @@ type Client interface {
 
 	// GetCurrentUser returns the authenticated user
 	GetCurrentUser(ctx context.Context) (*User, error)
+
+	// GetGitTree retrieves the Git tree for a repository
+	// recursive=true will fetch all files in the repository
+	GetGitTree(ctx context.Context, repo, treeSHA string, recursive bool) (*GitTree, error)
 }

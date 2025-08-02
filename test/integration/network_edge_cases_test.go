@@ -207,7 +207,7 @@ func testGitHubAPIRateLimiting(t *testing.T, generator *fixtures.TestRepoGenerat
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine with retry logic
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(1) // Lower concurrency to test rate limiting
@@ -282,7 +282,8 @@ func (n *NetworkSimulator) ShouldFail() bool {
 	}
 
 	// Random failure based on rate
-	shouldFail := (time.Now().UnixNano() % 1000) < int64(n.failureRate*1000)
+	failureThreshold := int64(n.failureRate * 1000)
+	shouldFail := (time.Now().UnixNano() % 1000) < failureThreshold
 
 	if shouldFail {
 		n.consecutiveFails++
@@ -364,7 +365,7 @@ func testNetworkInterruptionHandling(t *testing.T, generator *fixtures.TestRepoG
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine with network resilience
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(2)
@@ -469,7 +470,7 @@ func testAuthenticationFailureScenarios(t *testing.T, generator *fixtures.TestRe
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
@@ -556,7 +557,7 @@ func testAPITimeoutAndRetry(t *testing.T, generator *fixtures.TestRepoGenerator)
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
@@ -670,7 +671,7 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Test different concurrency levels
 	concurrencyLevels := []int{1, 3, 5}
@@ -705,7 +706,8 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 				concurrency, duration, finalMaxConcurrent)
 
 			// Should respect concurrency limits (within reasonable bounds)
-			assert.LessOrEqual(t, finalMaxConcurrent, int64(concurrency*2),
+			maxAllowed := int64(concurrency) * 2
+			assert.LessOrEqual(t, finalMaxConcurrent, maxAllowed,
 				"Should not exceed reasonable concurrency bounds")
 
 			// Higher concurrency should generally utilize more concurrent operations
@@ -777,7 +779,7 @@ func testGitHubAPIDegradation(t *testing.T, generator *fixtures.TestRepoGenerato
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
@@ -866,7 +868,7 @@ func testNetworkPartitionRecovery(t *testing.T, generator *fixtures.TestRepoGene
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
@@ -1249,7 +1251,7 @@ func testGitHubWebhookSimulation(t *testing.T, generator *fixtures.TestRepoGener
 		Return([]byte("transformed content"), nil)
 
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}, {Name: "sync/update-123"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}, {Name: "sync/update-123"}}, nil).Maybe()
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(3)
