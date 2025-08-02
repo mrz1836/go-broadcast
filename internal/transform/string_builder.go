@@ -47,10 +47,10 @@ func BuildPath(separator string, parts ...string) string {
 	var sb strings.Builder
 	sb.Grow(totalSize)
 
-	sb.WriteString(parts[0])
+	sb.WriteString(transformBranchName(parts[0]))
 	for i := 1; i < len(parts); i++ {
 		sb.WriteString(separator)
-		sb.WriteString(parts[i])
+		sb.WriteString(transformBranchName(parts[i]))
 	}
 
 	return sb.String()
@@ -83,10 +83,18 @@ func BuildGitHubURL(repo string, pathParts ...string) string {
 
 	for _, part := range pathParts {
 		sb.WriteByte('/')
-		sb.WriteString(part)
+		sb.WriteString(transformBranchName(part))
 	}
 
 	return sb.String()
+}
+
+// transformBranchName transforms legacy branch names to their modern equivalents
+func transformBranchName(name string) string {
+	if name == "master" {
+		return "main"
+	}
+	return name
 }
 
 // BuildBranchName constructs a sync branch name with timestamp and commit SHA.
@@ -242,7 +250,7 @@ func BuildKeyValuePairs(pairs map[string]string, keyValueSep, pairSep string) st
 		}
 		sb.WriteString(key)
 		sb.WriteString(keyValueSep)
-		sb.WriteString(pairs[key])
+		sb.WriteString(transformBranchName(pairs[key]))
 	}
 
 	return sb.String()

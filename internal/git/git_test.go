@@ -791,7 +791,7 @@ func TestGitClient_CheckoutError(t *testing.T) {
 	ctx := context.Background()
 
 	// Test checkout on non-existent repository
-	err = client.Checkout(ctx, "/nonexistent/repo", "master")
+	err = client.Checkout(ctx, "/nonexistent/repo", "main")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to checkout branch main")
 }

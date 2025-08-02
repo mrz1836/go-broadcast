@@ -62,17 +62,17 @@ func TestGetBranch(t *testing.T) {
 	mockRunner := new(MockCommandRunner)
 	client := NewClientWithRunner(mockRunner, logrus.New())
 
-	branch := Branch{Name: "master", Protected: true}
+	branch := Branch{Name: "main", Protected: true}
 	output, err := json.Marshal(branch)
 	require.NoError(t, err)
 
 	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/branches/main"}).
 		Return(output, nil)
 
-	result, err := client.GetBranch(ctx, "org/repo", "master")
+	result, err := client.GetBranch(ctx, "org/repo", "main")
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.Equal(t, "master", result.Name)
+	assert.Equal(t, "main", result.Name)
 	assert.True(t, result.Protected)
 
 	mockRunner.AssertExpectations(t)
@@ -241,7 +241,7 @@ func TestGetFile(t *testing.T) {
 	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/contents/README.md?ref=main"}).
 		Return(output, nil)
 
-	result, err := client.GetFile(ctx, "org/repo", "README.md", "master")
+	result, err := client.GetFile(ctx, "org/repo", "README.md", "main")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, "README.md", result.Path)
@@ -348,7 +348,7 @@ func TestGetBranch_JSONUnmarshalError(t *testing.T) {
 	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/branches/main"}).
 		Return([]byte("invalid json"), nil)
 
-	result, err := client.GetBranch(ctx, "org/repo", "master")
+	result, err := client.GetBranch(ctx, "org/repo", "main")
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to parse branch")
@@ -755,7 +755,7 @@ func TestGetBranch_OtherCommandError(t *testing.T) {
 	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/branches/main"}).
 		Return(nil, &CommandError{Stderr: "500 Internal Server Error"})
 
-	result, err := client.GetBranch(ctx, "org/repo", "master")
+	result, err := client.GetBranch(ctx, "org/repo", "main")
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to get branch")

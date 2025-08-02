@@ -57,7 +57,7 @@ func LoadFromReader(reader io.Reader) (*Config, error) {
 func applyDefaults(config *Config) {
 	// Set default source branch if not specified
 	if config.Source.Branch == "" {
-		config.Source.Branch = "master"
+		config.Source.Branch = "main"
 	}
 
 	// Set default branch prefix if not specified

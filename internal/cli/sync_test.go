@@ -229,7 +229,7 @@ targets:
 		require.NotNil(t, cfg)
 
 		assert.Equal(t, "org/template", cfg.Source.Repo)
-		assert.Equal(t, "master", cfg.Source.Branch)
+		assert.Equal(t, "main", cfg.Source.Branch)
 		assert.Len(t, cfg.Targets, 1)
 		assert.Equal(t, "org/target1", cfg.Targets[0].Repo)
 	})

@@ -137,7 +137,7 @@ targets:
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 1, cfg.Version)
 				assert.Equal(t, "org/source", cfg.Source.Repo)
-				assert.Equal(t, "master", cfg.Source.Branch) // Default applied
+				assert.Equal(t, "main", cfg.Source.Branch) // Default applied
 				require.Len(t, cfg.Targets, 1)
 				assert.Equal(t, "org/target", cfg.Targets[0].Repo)
 			},
@@ -280,7 +280,7 @@ func TestParserApplyDefaults(t *testing.T) {
 			input: &Config{},
 			expected: &Config{
 				Source: SourceConfig{
-					Branch: "master",
+					Branch: "main",
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "chore/sync-files",
@@ -301,7 +301,7 @@ func TestParserApplyDefaults(t *testing.T) {
 			expected: &Config{
 				Source: SourceConfig{
 					Repo:   "org/repo",
-					Branch: "master", // Not overwritten
+					Branch: "main", // Not overwritten
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "custom/prefix",            // Not overwritten
@@ -318,7 +318,7 @@ func TestParserApplyDefaults(t *testing.T) {
 			},
 			expected: &Config{
 				Source: SourceConfig{
-					Branch: "master",
+					Branch: "main",
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "chore/sync-files",
@@ -335,7 +335,7 @@ func TestParserApplyDefaults(t *testing.T) {
 			},
 			expected: &Config{
 				Source: SourceConfig{
-					Branch: "master",
+					Branch: "main",
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "chore/sync-files",
@@ -609,7 +609,7 @@ targets:
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "master", cfg.Source.Branch) // Default applied
+				assert.Equal(t, "main", cfg.Source.Branch) // Default applied
 				assert.Equal(t, "chore/sync-files", cfg.Defaults.BranchPrefix)
 				assert.Equal(t, []string{"automated-sync"}, cfg.Defaults.PRLabels)
 			},
@@ -711,7 +711,7 @@ targets:
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "org/source", cfg.Source.Repo)
-				assert.Equal(t, "master", cfg.Source.Branch)
+				assert.Equal(t, "Final", cfg.Source.Branch)
 				assert.Equal(t, []string{"auto", "sync"}, cfg.Defaults.PRLabels)
 				assert.Len(t, cfg.Targets[0].Files, 1)
 			},

@@ -67,7 +67,7 @@ targets:
 	require.NotNil(t, config)
 
 	// Check defaults were applied
-	assert.Equal(t, "master", config.Source.Branch)
+	assert.Equal(t, "main", config.Source.Branch)
 	assert.Equal(t, "chore/sync-files", config.Defaults.BranchPrefix)
 	assert.Equal(t, []string{"automated-sync"}, config.Defaults.PRLabels)
 }
@@ -357,7 +357,7 @@ targets:
 				Version: 1,
 				Source: SourceConfig{
 					Repo:   "org/template",
-					Branch: "master",
+					Branch: "main",
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "chore/sync-files",
@@ -383,7 +383,8 @@ targets:
 			expected: Config{
 				Version: 1,
 				Source: SourceConfig{
-					Repo: "org/template",
+					Repo:   "org/template",
+					Branch: "main",
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "custom/prefix",
