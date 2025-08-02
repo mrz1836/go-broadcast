@@ -43,28 +43,28 @@ EOF
 
     cat > "$BASE_DIR/small/config/app.yaml" << 'EOF'
 app:
-  name: {{SERVICE_NAME}}
+  name: "{{SERVICE_NAME}}"
   version: "1.0.0"
-  environment: {{ENVIRONMENT}}
-  repository: {{REPO_NAME}}
-  
+  environment: "{{ENVIRONMENT}}"
+  repository: "{{REPO_NAME}}"
+
 server:
   port: 8080
   host: "0.0.0.0"
 
 logging:
-  level: info
-  format: json
+  level: "info"
+  format: "json"
 EOF
 
     cat > "$BASE_DIR/small/config/database.yml" << 'EOF'
 database:
-  host: localhost
+  host: "localhost"
   port: 5432
-  name: {{SERVICE_NAME}}_db
-  user: {{SERVICE_NAME}}_user
+  name: "{{SERVICE_NAME}}_db"
+  user: "{{SERVICE_NAME}}_user"
   password: "changeme"
-  ssl_mode: require
+  ssl_mode: "require"
   max_connections: 100
 EOF
 
@@ -148,30 +148,30 @@ deploy:
 EOF
 
     cat > "$BASE_DIR/small/docker-compose.yaml" << 'EOF'
-version: '3.8'
+version: "3.8"
 
 services:
-  {{SERVICE_NAME}}:
+  "{{SERVICE_NAME}}":
     build: .
-    container_name: {{SERVICE_NAME}}-container
+    container_name: "{{SERVICE_NAME}}-container"
     ports:
       - "8080:8080"
     environment:
-      - SERVICE_NAME={{SERVICE_NAME}}
-      - ENVIRONMENT={{ENVIRONMENT}}
-      - REPO={{REPO_NAME}}
+      - "SERVICE_NAME={{SERVICE_NAME}}"
+      - "ENVIRONMENT={{ENVIRONMENT}}"
+      - "REPO={{REPO_NAME}}"
     volumes:
-      - ./config:/app/config
+      - "./config:/app/config"
     depends_on:
       - database
 
   database:
-    image: postgres:13
-    container_name: {{SERVICE_NAME}}-db
+    image: "postgres:13"
+    container_name: "{{SERVICE_NAME}}-db"
     environment:
-      POSTGRES_DB: {{SERVICE_NAME}}_db
-      POSTGRES_USER: {{SERVICE_NAME}}_user
-      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: "{{SERVICE_NAME}}_db"
+      POSTGRES_USER: "{{SERVICE_NAME}}_user"
+      POSTGRES_PASSWORD: "changeme"
     ports:
       - "5432:5432"
 EOF
