@@ -9,9 +9,10 @@ import (
 
 // ExclusionEngine handles gitignore-style pattern matching with caching
 type ExclusionEngine struct {
-	patterns []exclusionPattern
-	cache    sync.Map // map[string]bool for path -> excluded mapping
-	mu       sync.RWMutex
+	patterns        []exclusionPattern
+	includePatterns []exclusionPattern
+	cache           sync.Map // map[string]bool for path -> excluded mapping
+	mu              sync.RWMutex
 }
 
 // exclusionPattern represents a compiled exclusion pattern
@@ -23,7 +24,12 @@ type exclusionPattern struct {
 }
 
 // NewExclusionEngine creates a new exclusion engine with default patterns
-func NewExclusionEngine(patterns []string) *ExclusionEngine {
+func NewExclusionEngine(excludePatterns []string) *ExclusionEngine {
+	return NewExclusionEngineWithIncludes(excludePatterns, nil)
+}
+
+// NewExclusionEngineWithIncludes creates a new exclusion engine with both exclude and include patterns
+func NewExclusionEngineWithIncludes(excludePatterns, includePatterns []string) *ExclusionEngine {
 	// defaultExclusions contains common patterns that should typically be excluded
 	defaultExclusions := []string{
 		".git/",
@@ -49,17 +55,23 @@ func NewExclusionEngine(patterns []string) *ExclusionEngine {
 	}
 
 	engine := &ExclusionEngine{
-		patterns: make([]exclusionPattern, 0, len(patterns)+len(defaultExclusions)),
+		patterns:        make([]exclusionPattern, 0, len(excludePatterns)+len(defaultExclusions)),
+		includePatterns: make([]exclusionPattern, 0, len(includePatterns)),
 	}
 
 	// Add default exclusions first
 	for _, pattern := range defaultExclusions {
-		engine.addPattern(pattern)
+		engine.addExcludePattern(pattern)
 	}
 
-	// Add user-specified patterns
-	for _, pattern := range patterns {
-		engine.addPattern(pattern)
+	// Add user-specified exclude patterns
+	for _, pattern := range excludePatterns {
+		engine.addExcludePattern(pattern)
+	}
+
+	// Add user-specified include patterns
+	for _, pattern := range includePatterns {
+		engine.addIncludePattern(pattern)
 	}
 
 	return engine
@@ -128,8 +140,8 @@ func (e *ExclusionEngine) GetPatterns() []string {
 	return patterns
 }
 
-// addPattern compiles and adds a pattern to the engine
-func (e *ExclusionEngine) addPattern(pattern string) {
+// addExcludePattern compiles and adds an exclusion pattern to the engine
+func (e *ExclusionEngine) addExcludePattern(pattern string) {
 	if pattern == "" {
 		return
 	}
@@ -141,6 +153,26 @@ func (e *ExclusionEngine) addPattern(pattern string) {
 	if compiled.regex != nil {
 		e.patterns = append(e.patterns, compiled)
 	}
+}
+
+// addIncludePattern compiles and adds an inclusion pattern to the engine
+func (e *ExclusionEngine) addIncludePattern(pattern string) {
+	if pattern == "" {
+		return
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	compiled := e.compilePattern(pattern)
+	if compiled.regex != nil {
+		e.includePatterns = append(e.includePatterns, compiled)
+	}
+}
+
+// addPattern compiles and adds a pattern to the engine (for backward compatibility)
+func (e *ExclusionEngine) addPattern(pattern string) {
+	e.addExcludePattern(pattern)
 }
 
 // compilePattern converts a gitignore-style pattern into a compiled regex pattern
@@ -203,6 +235,12 @@ func (e *ExclusionEngine) evaluatePatterns(path string) bool {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
+	// If we have include patterns, use allowlist logic
+	if len(e.includePatterns) > 0 {
+		return e.evaluateIncludePatterns(path)
+	}
+
+	// Otherwise, use exclusion logic
 	excluded := false
 
 	// Process patterns in order
@@ -228,11 +266,63 @@ func (e *ExclusionEngine) evaluatePatterns(path string) bool {
 	return excluded
 }
 
+// evaluateIncludePatterns evaluates include patterns (allowlist logic)
+func (e *ExclusionEngine) evaluateIncludePatterns(path string) bool {
+	// First check if it matches any include pattern
+	included := false
+	for _, pattern := range e.includePatterns {
+		if pattern.regex == nil {
+			continue
+		}
+
+		// For directory-only patterns, skip if this is not a directory path
+		if pattern.isDir && !strings.HasSuffix(path, "/") {
+			continue
+		}
+
+		if pattern.regex.MatchString(path) {
+			included = true
+			break
+		}
+	}
+
+	// If not included by include patterns, it's excluded
+	if !included {
+		return true
+	}
+
+	// Even if included, check if it's explicitly excluded by exclude patterns
+	for _, pattern := range e.patterns {
+		if pattern.regex == nil {
+			continue
+		}
+
+		// For directory-only patterns, skip if this is not a directory path
+		if pattern.isDir && !strings.HasSuffix(path, "/") {
+			continue
+		}
+
+		if pattern.regex.MatchString(path) {
+			if !pattern.negate {
+				return true // Excluded by explicit exclude pattern
+			}
+		}
+	}
+
+	return false // Included and not explicitly excluded
+}
+
 // evaluateDirectoryPatterns evaluates patterns specifically for directories
 func (e *ExclusionEngine) evaluateDirectoryPatterns(dirPath string) bool {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
+	// If we have include patterns, use allowlist logic
+	if len(e.includePatterns) > 0 {
+		return e.evaluateDirectoryIncludePatterns(dirPath)
+	}
+
+	// Otherwise, use exclusion logic
 	excluded := false
 
 	// Process patterns in order
@@ -255,6 +345,50 @@ func (e *ExclusionEngine) evaluateDirectoryPatterns(dirPath string) bool {
 	}
 
 	return excluded
+}
+
+// evaluateDirectoryIncludePatterns evaluates include patterns for directories
+func (e *ExclusionEngine) evaluateDirectoryIncludePatterns(dirPath string) bool {
+	// First check if it matches any include pattern
+	included := false
+	for _, pattern := range e.includePatterns {
+		if pattern.regex == nil {
+			continue
+		}
+
+		// Check both with and without trailing slash
+		pathToCheck := strings.TrimSuffix(dirPath, "/")
+		matches := pattern.regex.MatchString(pathToCheck) || pattern.regex.MatchString(dirPath)
+
+		if matches {
+			included = true
+			break
+		}
+	}
+
+	// If not included by include patterns, it's excluded
+	if !included {
+		return true
+	}
+
+	// Even if included, check if it's explicitly excluded by exclude patterns
+	for _, pattern := range e.patterns {
+		if pattern.regex == nil {
+			continue
+		}
+
+		// Check both with and without trailing slash
+		pathToCheck := strings.TrimSuffix(dirPath, "/")
+		matches := pattern.regex.MatchString(pathToCheck) || pattern.regex.MatchString(dirPath)
+
+		if matches {
+			if !pattern.negate {
+				return true // Excluded by explicit exclude pattern
+			}
+		}
+	}
+
+	return false // Included and not explicitly excluded
 }
 
 // AddPatterns adds additional exclusion patterns at runtime

@@ -161,7 +161,7 @@ func (dv *DirectoryValidator) ValidateSyncResults(ctx context.Context, sourceDir
 	}
 
 	// Set up exclusion engine for this directory mapping
-	dv.exclusionEngine = NewExclusionEngine(dirMapping.Exclude)
+	dv.exclusionEngine = NewExclusionEngineWithIncludes(dirMapping.Exclude, dirMapping.IncludeOnly)
 
 	// Validate that source directory exists
 	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
@@ -302,7 +302,7 @@ func (dv *DirectoryValidator) ValidateExclusionCompliance(ctx context.Context, s
 	}
 
 	// Set up exclusion engine
-	dv.exclusionEngine = NewExclusionEngine(dirMapping.Exclude)
+	dv.exclusionEngine = NewExclusionEngineWithIncludes(dirMapping.Exclude, dirMapping.IncludeOnly)
 
 	// Walk destination directory and check for excluded files
 	err := filepath.WalkDir(destDir, func(path string, _ fs.DirEntry, err error) error {
@@ -377,6 +377,9 @@ func (dv *DirectoryValidator) ValidateDirectoryStructure(ctx context.Context, so
 		Errors:  []string{},
 		Summary: ValidationSummary{},
 	}
+
+	// Set up exclusion engine for this directory mapping
+	dv.exclusionEngine = NewExclusionEngineWithIncludes(dirMapping.Exclude, dirMapping.IncludeOnly)
 
 	// Determine if structure should be preserved
 	preserveStructure := true

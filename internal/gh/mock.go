@@ -12,6 +12,11 @@ type MockClient struct {
 	mock.Mock
 }
 
+// NewMockClient creates a new MockClient (backward compatibility)
+func NewMockClient() *MockClient {
+	return &MockClient{}
+}
+
 // ListBranches mock implementation
 func (m *MockClient) ListBranches(ctx context.Context, repo string) ([]Branch, error) {
 	args := m.Called(ctx, repo)

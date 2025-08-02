@@ -56,6 +56,7 @@ type DirectoryMapping struct {
 	Src               string    `yaml:"src"`                          // Source directory path
 	Dest              string    `yaml:"dest"`                         // Destination directory path
 	Exclude           []string  `yaml:"exclude,omitempty"`            // Glob patterns to exclude
+	IncludeOnly       []string  `yaml:"include_only,omitempty"`       // Glob patterns to include (excludes everything else)
 	Transform         Transform `yaml:"transform,omitempty"`          // Apply to all files
 	PreserveStructure *bool     `yaml:"preserve_structure,omitempty"` // Keep nested structure (default: true)
 	IncludeHidden     *bool     `yaml:"include_hidden,omitempty"`     // Include hidden files (default: true)

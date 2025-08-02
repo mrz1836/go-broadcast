@@ -115,7 +115,7 @@ func (dp *DirectoryProcessor) ProcessDirectoryMapping(ctx context.Context, sourc
 	logger.Info("Processing directory mapping")
 
 	// Create exclusion engine with directory-specific patterns
-	dp.exclusionEngine = NewExclusionEngine(dirMapping.Exclude)
+	dp.exclusionEngine = NewExclusionEngineWithIncludes(dirMapping.Exclude, dirMapping.IncludeOnly)
 
 	// Build full source directory path
 	fullSourceDir := filepath.Join(sourcePath, dirMapping.Src)
