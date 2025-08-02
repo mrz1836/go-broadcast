@@ -10,6 +10,16 @@ REPO_OWNER ?= mrz1836
 
 # Custom functions for this project
 
+.PHONY: setup-test-fixtures
+setup-test-fixtures: ## Generate test fixtures if they don't exist
+	@echo "Checking test fixtures..."
+	@if [ ! -d "test/fixtures/directories" ]; then \
+		echo "Generating test fixtures..."; \
+		cd test/fixtures && ./generate_fixtures.sh all; \
+	else \
+		echo "Test fixtures already exist"; \
+	fi
+
 .PHONY: rebuild
 rebuild: ## Clean and rebuild the project
 	@echo "Cleaning build artifacts..."
@@ -49,9 +59,9 @@ test-integration-all: ## Run all integration test scenarios (All Phases)
 	@$(MAKE) test-integration-network
 
 .PHONY: test-all-modules
-test-all-modules: ## Run tests for main module and all submodules
+test-all-modules: setup-test-fixtures ## Run tests for main module and all submodules
 	@echo "Testing main module..."
-	@go test ./... \
+	@go test $$(go list ./... 2>/dev/null | grep -v '/test/fixtures/directories' | tr '\n' ' ') \
 		$(if $(VERBOSE),-v) \
 		$(TAGS)
 	@echo ""
@@ -62,9 +72,10 @@ test-all-modules: ## Run tests for main module and all submodules
 	done
 
 .PHONY: test-all-modules-race
-test-all-modules-race: ## Run tests for main module and all submodules with race detection
+test-all-modules-race: setup-test-fixtures ## Run tests for main module and all submodules with race detection
 	@echo "Testing main module with race detection..."
-	@go test -race ./... \
+	@go test $$(go list ./... 2>/dev/null | grep -v '/test/fixtures/directories' | tr '\n' ' ') \
+		-race \
 		$(if $(VERBOSE),-v) \
 		$(TAGS)
 	@echo ""
@@ -73,6 +84,42 @@ test-all-modules-race: ## Run tests for main module and all submodules with race
 		echo "Testing module in $$dir with race detection..."; \
 		(cd $$dir && go test -race ./... $(if $(VERBOSE),-v) $(TAGS)) || exit 1; \
 	done
+
+# Override base test targets to include fixture setup and exclude fixture directories
+.PHONY: test
+test: setup-test-fixtures ## Default testing uses lint + unit tests (fast)
+	@$(MAKE) lint
+	@echo "Running fast unit tests..."
+	@go test $$(go list ./... 2>/dev/null | grep -v '/test/fixtures/directories' | tr '\n' ' ') \
+		$(if $(VERBOSE),-v) \
+		$(TAGS)
+
+.PHONY: test-race
+test-race: setup-test-fixtures ## Unit tests with race detector (no coverage)
+	@echo "Running unit tests with race detector..."
+	@go test $$(go list ./... 2>/dev/null | grep -v '/test/fixtures/directories' | tr '\n' ' ') \
+		-race \
+		$(if $(VERBOSE),-v) \
+		$(TAGS)
+
+.PHONY: test-cover
+test-cover: setup-test-fixtures ## Unit tests with coverage (no race)
+	@echo "Running unit tests with coverage..."
+	@go test $$(go list ./... 2>/dev/null | grep -v '/test/fixtures/directories' | tr '\n' ' ') \
+		-coverprofile=coverage.txt \
+		-covermode=atomic \
+		$(if $(VERBOSE),-v) \
+		$(TAGS)
+
+.PHONY: test-cover-race
+test-cover-race: setup-test-fixtures ## Runs unit tests with race detector and outputs coverage
+	@echo "Running unit tests with race detection and coverage..."
+	@go test $$(go list ./... 2>/dev/null | grep -v '/test/fixtures/directories' | tr '\n' ' ') \
+		-race \
+		-coverprofile=coverage.txt \
+		-covermode=atomic \
+		$(if $(VERBOSE),-v) \
+		$(TAGS)
 
 .PHONY: lint-all-modules
 lint-all-modules: ## Run lint for main module and all submodules
