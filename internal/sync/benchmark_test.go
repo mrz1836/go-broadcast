@@ -912,7 +912,7 @@ func main() {
 
 				fileName := files[fileIndex]
 				ctx := context.Background()
-				_, hit, err := cache.Get(ctx, "owner/repo", "main", fileName)
+				_, hit, err := cache.Get(ctx, "owner/repo", "master", fileName)
 				if err != nil {
 					b.Fatalf("Cache get failed: %v", err)
 				}
@@ -921,7 +921,7 @@ func main() {
 					atomic.AddInt64(&hits, 1)
 				} else {
 					atomic.AddInt64(&misses, 1)
-					err := cache.Put(ctx, "owner/repo", "main", fileName, fmt.Sprintf("content-%d", fileIndex))
+					err := cache.Put(ctx, "owner/repo", "master", fileName, fmt.Sprintf("content-%d", fileIndex))
 					if err != nil {
 						b.Fatalf("Cache put failed: %v", err)
 					}

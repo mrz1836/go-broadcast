@@ -64,7 +64,7 @@ func TestTestValidConfig(t *testing.T) {
 		// Validate parsed values
 		assert.Equal(t, 1, config.Version, "Version should be 1")
 		assert.Equal(t, "org/template", config.Source.Repo, "Source repo should be org/template")
-		assert.Equal(t, "main", config.Source.Branch, "Source branch should be main")
+		assert.Equal(t, "master", config.Source.Branch, "Source branch should be main")
 
 		require.Len(t, config.Targets, 1, "Should have one target")
 		assert.Equal(t, "org/target1", config.Targets[0].Repo, "Target repo should be org/target1")
@@ -100,7 +100,7 @@ func TestTestValidConfig(t *testing.T) {
 		// Check that the configuration uses realistic values that would work in tests
 		assert.Contains(t, TestValidConfig, "org/", "Should use realistic organization structure")
 		assert.Contains(t, TestValidConfig, "README.md", "Should use common file types")
-		assert.Contains(t, TestValidConfig, "main", "Should use common branch name")
+		assert.Contains(t, TestValidConfig, "master", "Should use common branch name")
 	})
 
 	t.Run("minimal but complete configuration", func(t *testing.T) {

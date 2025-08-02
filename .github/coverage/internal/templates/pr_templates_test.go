@@ -35,14 +35,14 @@ func TestRenderComment(t *testing.T) {
 		Repository: RepositoryInfo{
 			Owner:         "testowner",
 			Name:          "testrepo",
-			DefaultBranch: "main",
+			DefaultBranch: "master",
 			URL:           "https://github.com/testowner/testrepo",
 		},
 		PullRequest: PullRequestInfo{
 			Number:     123,
 			Title:      "Test PR",
 			Branch:     "feature/test",
-			BaseBranch: "main",
+			BaseBranch: "master",
 			Author:     "testuser",
 			CommitSHA:  "abc123",
 			URL:        "https://github.com/testowner/testrepo/pull/123",

@@ -73,7 +73,7 @@ func (suite *DirectoryTransformTestSuite) SetupSuite() {
 	suite.mockEngine = suite.createMockEngine()
 	suite.sourceState = &state.SourceState{
 		Repo:         "test/source-repo",
-		Branch:       "main",
+		Branch:       "master",
 		LatestCommit: "abc123def456",
 		LastChecked:  time.Now(),
 	}
@@ -189,7 +189,7 @@ func main() {
 	fmt.Printf("Starting %s v%s\n", projectName, version)
 	fmt.Printf("Database: %s\n", dbName)
 	fmt.Printf("API: %s\n", apiEndpoint)
-	
+
 	// Repository references for transformation
 	fmt.Println("Source repo: test/source-repo")
 	fmt.Println("This should be transformed to: test/target-repo")
@@ -212,16 +212,16 @@ func Connect() (*sql.DB, error) {
   name: "{{.PROJECT_NAME}}"
   version: "{{.VERSION}}"
   owner: "{{.OWNER}}"
-  
+
 database:
   name: "{{.DATABASE_NAME}}"
-  
+
 api:
   endpoint: "{{.API_ENDPOINT}}"
-  
+
 docker:
   image: "{{.DOCKER_IMAGE}}"
-  
+
 kubernetes:
   service: "{{.SERVICE_NAME}}"
   namespace: "{{.NAMESPACE}}"

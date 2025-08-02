@@ -51,7 +51,7 @@ func TestGenerator_Generate(t *testing.T) {
 	data := &CoverageData{
 		ProjectName:    "test-project",
 		RepositoryURL:  "https://github.com/owner/repo",
-		Branch:         "main",
+		Branch:         "master",
 		CommitSHA:      "abc123def456",
 		Timestamp:      time.Now(),
 		TotalCoverage:  85.5,
@@ -165,7 +165,7 @@ func TestGenerator_prepareTemplateData(t *testing.T) {
 	data := &CoverageData{
 		ProjectName:    "test-project",
 		RepositoryURL:  "https://github.com/owner/repo.git",
-		Branch:         "main",
+		Branch:         "master",
 		CommitSHA:      "abc123def456789",
 		Timestamp:      time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
 		TotalCoverage:  85.5,
@@ -206,7 +206,7 @@ func TestGenerator_prepareTemplateData(t *testing.T) {
 	if result["ProjectName"] != "test-project" {
 		t.Errorf("ProjectName = %v, want test-project", result["ProjectName"])
 	}
-	if result["Branch"] != "main" {
+	if result["Branch"] != "master" {
 		t.Errorf("Branch = %v, want main", result["Branch"])
 	}
 	if result["CommitSHA"] != "abc123d" {

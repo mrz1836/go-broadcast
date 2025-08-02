@@ -53,7 +53,7 @@ func (suite *DirectoryTestSuite) SetupSuite() {
 	suite.mockEngine = NewMockEngine()
 	suite.sourceState = &state.SourceState{
 		Repo:         "test/source-repo",
-		Branch:       "main",
+		Branch:       "master",
 		LatestCommit: "abc123def456",
 		LastChecked:  time.Now(),
 	}

@@ -30,7 +30,7 @@ func (suite *GeneratorTestSuite) SetupTest() {
 		OutputDir:         suite.tempDir,
 		RepositoryOwner:   "test-owner",
 		RepositoryName:    "test-repo",
-		BranchName:        "main",
+		BranchName:        "master",
 		CommitSHA:         "abc123def456",
 		GoogleAnalyticsID: "GA-123456789",
 	}
@@ -346,7 +346,7 @@ func (suite *GeneratorTestSuite) TestGenerateReportContent() {
 
 	// Verify repository information
 	suite.Contains(contentStr, "test-owner/test-repo")
-	suite.Contains(contentStr, "main")    // branch name
+	suite.Contains(contentStr, "master")  // branch name
 	suite.Contains(contentStr, "abc123d") // truncated commit SHA
 
 	// Verify Google Analytics ID is included
@@ -387,7 +387,7 @@ func (suite *GeneratorTestSuite) TestConcurrentGeneration() {
 				OutputDir:       tempDir,
 				RepositoryOwner: "test-owner",
 				RepositoryName:  "test-repo",
-				BranchName:      "main",
+				BranchName:      "master",
 				CommitSHA:       "abc123def456",
 			}
 
@@ -529,7 +529,7 @@ func BenchmarkBuildReportData(b *testing.B) {
 		OutputDir:       "/tmp",
 		RepositoryOwner: "test-owner",
 		RepositoryName:  "test-repo",
-		BranchName:      "main",
+		BranchName:      "master",
 		CommitSHA:       "abc123def456",
 	}
 

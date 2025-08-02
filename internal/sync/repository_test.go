@@ -1114,7 +1114,7 @@ func TestCreateNewPR_WithReviewerFiltering(t *testing.T) {
 
 	// Mock branch listing
 	branches := []gh.Branch{
-		{Name: "main", Protected: true},
+		{Name: "master", Protected: true},
 		{Name: "master", Protected: false},
 	}
 	ghClient.On("ListBranches", ctx, "org/target").Return(branches, nil)

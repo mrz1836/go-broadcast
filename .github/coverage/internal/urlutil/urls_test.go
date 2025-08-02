@@ -376,7 +376,7 @@ func TestBuildGitHubFileURL(t *testing.T) {
 			name:     "clean path without module prefix",
 			owner:    "mrz1836",
 			repo:     "go-broadcast",
-			branch:   "main",
+			branch:   "master",
 			filePath: "internal/cli/cancel.go",
 			expected: "https://github.com/mrz1836/go-broadcast/blob/main/internal/cli/cancel.go",
 		},

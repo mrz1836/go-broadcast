@@ -5,7 +5,7 @@ version: 1
 
 source:
   repo: "company/devops-templates"
-  branch: "main"
+  branch: "master"
 
 # Global settings for all GitHub directory syncs
 global:
@@ -30,7 +30,7 @@ targets:
           variables:
             SERVICE_TYPE: "api"
             DEPLOYMENT_ENV: "production"
-      
+
       # Sync coverage system (87 files, ~4ms processing time)
       - src: ".github/coverage"
         dest: ".github/coverage"
@@ -38,7 +38,7 @@ targets:
           - "*.out"           # Coverage output files
           - "*.test"          # Test binaries
           - "gofortress-coverage"  # Binary executable
-        
+
       # Sync issue and PR templates
       - src: ".github/ISSUE_TEMPLATE"
         dest: ".github/ISSUE_TEMPLATE"
@@ -60,7 +60,7 @@ targets:
           variables:
             SERVICE_TYPE: "worker"
             DEPLOYMENT_ENV: "staging"
-    
+
     # Service-specific PR settings (merged with global)
     pr_labels: ["microservice-b", "worker-service"]
     pr_assignees: ["service-b-owner"]
@@ -81,7 +81,7 @@ targets:
             SERVICE_TYPE: "frontend"
             NODE_VERSION: "18"
             BUILD_TOOL: "vite"
-      
+
       # Frontend-specific templates
       - src: ".github/templates/frontend"
         dest: ".github"
@@ -98,13 +98,13 @@ targets:
         include_only:
           - "security-*.yml"  # Only security workflows
           - "dependency-*.yml" # Only dependency management
-    
+
     # Legacy service needs different approval flow
     pr_reviewers: ["legacy-maintainer", "security-lead"]
     pr_team_reviewers: ["security-team"]
 
 # Performance expectations for this configuration:
 # - .github/workflows (24 files): ~1.5ms processing
-# - .github/coverage (87 files): ~4ms processing  
+# - .github/coverage (87 files): ~4ms processing
 # - Total API calls reduced by 90%+ through tree API optimization
 # - Memory usage: ~1.2MB per 1000 files processed

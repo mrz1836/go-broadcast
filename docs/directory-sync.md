@@ -41,7 +41,7 @@ go-broadcast supports synchronizing entire directories alongside individual file
 version: 1
 source:
   repo: "company/templates"
-  branch: "main"
+  branch: "master"
 targets:
   - repo: "company/service"
     directories:

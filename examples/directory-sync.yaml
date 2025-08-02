@@ -3,7 +3,7 @@ version: 1
 
 source:
   repo: "company/templates"
-  branch: "main"
+  branch: "master"
 
 targets:
   # Basic directory sync with default exclusions
@@ -13,7 +13,7 @@ targets:
         dest: ".github/workflows"
         # Default exclusions automatically applied:
         # *.out, *.test, *.exe, **/.DS_Store, **/tmp/*, **/.git
-  
+
   # Directory sync with custom exclusions
   - repo: "company/service-b"
     directories:
@@ -25,7 +25,7 @@ targets:
           - "**/testdata/*"
         transform:
           repo_name: true
-  
+
   # Mixed files and directories
   - repo: "company/service-c"
     files:
@@ -52,7 +52,7 @@ targets:
             SERVICE_NAME: "service-d"
         preserve_structure: true
         include_hidden: true
-      
+
       # Flatten directory structure
       - src: "docs/api"
         dest: "api-docs"

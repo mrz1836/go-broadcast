@@ -26,7 +26,7 @@ var (
 const (
 	ownerRepoConst = "owner/repo"
 	treeHashConst  = "abc123"
-	mainBranchRef  = "main"
+	mainBranchRef  = "master"
 )
 
 // GitHubAPISuite provides a test suite for GitHub Tree API integration

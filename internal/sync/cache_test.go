@@ -45,7 +45,7 @@ func TestContentCacheTestSuite(t *testing.T) {
 func (suite *ContentCacheTestSuite) TestBasicGetPutOperations() {
 	ctx := context.Background()
 	repo := "test/repo"
-	branch := "main"
+	branch := "master"
 	path := "file.txt"
 	content := "Hello, World!"
 
@@ -84,22 +84,22 @@ func (suite *ContentCacheTestSuite) TestContentDeduplication() {
 	t := suite.T()
 
 	// Store same content with different keys
-	err := suite.cache.Put(ctx, "repo1", "main", "file1.txt", content)
+	err := suite.cache.Put(ctx, "repo1", "master", "file1.txt", content)
 	require.NoError(t, err)
 
-	err = suite.cache.Put(ctx, "repo2", "main", "file2.txt", content)
+	err = suite.cache.Put(ctx, "repo2", "master", "file2.txt", content)
 	require.NoError(t, err)
 
 	err = suite.cache.Put(ctx, "repo1", "dev", "file3.txt", content)
 	require.NoError(t, err)
 
 	// Verify all can be retrieved
-	result1, hit1, err := suite.cache.Get(ctx, "repo1", "main", "file1.txt")
+	result1, hit1, err := suite.cache.Get(ctx, "repo1", "master", "file1.txt")
 	require.NoError(t, err)
 	assert.True(t, hit1)
 	assert.Equal(t, content, result1)
 
-	result2, hit2, err := suite.cache.Get(ctx, "repo2", "main", "file2.txt")
+	result2, hit2, err := suite.cache.Get(ctx, "repo2", "master", "file2.txt")
 	require.NoError(t, err)
 	assert.True(t, hit2)
 	assert.Equal(t, content, result2)
@@ -119,7 +119,7 @@ func (suite *ContentCacheTestSuite) TestContentDeduplication() {
 func (suite *ContentCacheTestSuite) TestTTLExpiration() {
 	ctx := context.Background()
 	repo := "test/repo"
-	branch := "main"
+	branch := "master"
 	path := "file.txt"
 	content := "expiring content"
 
@@ -165,9 +165,9 @@ func (suite *ContentCacheTestSuite) TestLRUEviction() {
 	entries := []struct {
 		repo, branch, path, content string
 	}{
-		{"repo1", "main", "file1.txt", "content1"}, // 8 bytes
-		{"repo1", "main", "file2.txt", "content2"}, // 8 bytes
-		{"repo1", "main", "file3.txt", "content3"}, // 8 bytes (should trigger eviction)
+		{"repo1", "master", "file1.txt", "content1"}, // 8 bytes
+		{"repo1", "master", "file2.txt", "content2"}, // 8 bytes
+		{"repo1", "master", "file3.txt", "content3"}, // 8 bytes (should trigger eviction)
 	}
 
 	// Add first entry
@@ -228,9 +228,9 @@ func (suite *ContentCacheTestSuite) TestCacheInvalidation() {
 	entries := []struct {
 		repo, branch, path, content string
 	}{
-		{"repo1", "main", "file1.txt", "content1"},
+		{"repo1", "master", "file1.txt", "content1"},
 		{"repo1", "dev", "file2.txt", "content2"},
-		{"repo2", "main", "file3.txt", "content3"},
+		{"repo2", "master", "file3.txt", "content3"},
 		{"repo2", "dev", "file4.txt", "content4"},
 	}
 
@@ -249,10 +249,10 @@ func (suite *ContentCacheTestSuite) TestCacheInvalidation() {
 	}
 
 	// Invalidate repo1/main
-	suite.cache.Invalidate("repo1", "main")
+	suite.cache.Invalidate("repo1", "master")
 
 	// Verify repo1/main entries are invalidated
-	result, hit, err := suite.cache.Get(ctx, "repo1", "main", "file1.txt")
+	result, hit, err := suite.cache.Get(ctx, "repo1", "master", "file1.txt")
 	require.NoError(t, err)
 	assert.False(t, hit)
 	assert.Empty(t, result)
@@ -263,7 +263,7 @@ func (suite *ContentCacheTestSuite) TestCacheInvalidation() {
 	assert.True(t, hit)
 	assert.Equal(t, "content2", result)
 
-	result, hit, err = suite.cache.Get(ctx, "repo2", "main", "file3.txt")
+	result, hit, err = suite.cache.Get(ctx, "repo2", "master", "file3.txt")
 	require.NoError(t, err)
 	assert.True(t, hit)
 	assert.Equal(t, "content3", result)
@@ -292,7 +292,7 @@ func (suite *ContentCacheTestSuite) TestCacheWarming() {
 	t := suite.T()
 
 	repo := "test/repo"
-	branch := "main"
+	branch := "master"
 	files := map[string]string{
 		"file1.txt": "content1",
 		"file2.txt": "content2",
@@ -325,7 +325,7 @@ func (suite *ContentCacheTestSuite) TestCacheWarmingWithCancellation() {
 	t := suite.T()
 
 	repo := "test/repo"
-	branch := "main"
+	branch := "master"
 
 	// Create many files to warm
 	files := make(map[string]string)
@@ -455,7 +455,7 @@ func (suite *ContentCacheTestSuite) TestCacheStatsAccuracy() {
 	t := suite.T()
 
 	repo := "test/repo"
-	branch := "main"
+	branch := "master"
 
 	// Initial stats
 	stats := suite.cache.GetStats()
@@ -520,11 +520,11 @@ func (suite *ContentCacheTestSuite) TestCleanupGoroutine() {
 	ctx := context.Background()
 
 	// Add content that will expire
-	err := cache.Put(ctx, "repo", "main", "file.txt", "content")
+	err := cache.Put(ctx, "repo", "master", "file.txt", "content")
 	require.NoError(t, err)
 
 	// Verify it's cached
-	_, hit, err := cache.Get(ctx, "repo", "main", "file.txt")
+	_, hit, err := cache.Get(ctx, "repo", "master", "file.txt")
 	require.NoError(t, err)
 	assert.True(t, hit)
 
@@ -532,7 +532,7 @@ func (suite *ContentCacheTestSuite) TestCleanupGoroutine() {
 	time.Sleep(400 * time.Millisecond)
 
 	// Verify it's cleaned up
-	_, hit, err = cache.Get(ctx, "repo", "main", "file.txt")
+	_, hit, err = cache.Get(ctx, "repo", "master", "file.txt")
 	require.NoError(t, err)
 	assert.False(t, hit)
 

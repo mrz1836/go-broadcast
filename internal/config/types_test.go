@@ -13,7 +13,7 @@ func TestConfigStructCreation(t *testing.T) {
 		config := &Config{
 			Version: 1,
 			Source: SourceConfig{
-				Repo:   "org/template",
+				Repo: "org/template",
 			},
 			Defaults: DefaultConfig{
 				BranchPrefix: "sync/",
@@ -100,7 +100,7 @@ func TestConfigWithEmptySlices(t *testing.T) {
 	config := &Config{
 		Version: 1,
 		Source: SourceConfig{
-			Repo:   "org/repo",
+			Repo: "org/repo",
 		},
 		Defaults: DefaultConfig{
 			BranchPrefix: "prefix",
@@ -295,7 +295,7 @@ func TestConfigWithGlobalSection(t *testing.T) {
 	config := &Config{
 		Version: 1,
 		Source: SourceConfig{
-			Repo:   "org/template",
+			Repo: "org/template",
 		},
 		Global: GlobalConfig{
 			PRLabels:    []string{"automated-sync", "chore"},

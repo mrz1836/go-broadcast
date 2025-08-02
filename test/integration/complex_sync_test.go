@@ -145,7 +145,7 @@ func testMultiRepoSyncWithConflicts(t *testing.T, generator *fixtures.TestRepoGe
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 
@@ -256,7 +256,7 @@ func testPartialSyncFailureRecovery(t *testing.T, generator *fixtures.TestRepoGe
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil)
 
@@ -301,7 +301,7 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 		Version: 1,
 		Source: config.SourceConfig{
 			Repo:   "org/template-repo",
-			Branch: "main",
+			Branch: "master",
 		},
 		Targets: []config.TargetConfig{
 			{
@@ -324,7 +324,7 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 	currentState := &state.State{
 		Source: state.SourceState{
 			Repo:         "org/template-repo",
-			Branch:       "main",
+			Branch:       "master",
 			LatestCommit: "latest123",
 			LastChecked:  time.Now(),
 		},
@@ -394,7 +394,7 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil)
 
@@ -502,7 +502,7 @@ func testConcurrentSyncOperations(t *testing.T, generator *fixtures.TestRepoGene
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil)
 
@@ -622,7 +622,7 @@ func testMemoryUsageMonitoring(t *testing.T, generator *fixtures.TestRepoGenerat
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 
@@ -774,7 +774,7 @@ func testStateConsistencyAcrossFailures(t *testing.T, generator *fixtures.TestRe
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 

@@ -175,7 +175,7 @@ func BenchmarkClone_Sizes(b *testing.B) {
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 tmpDir := b.TempDir()
-                _ = client.Clone(ctx, size.repo, tmpDir, "main", nil)
+                _ = client.Clone(ctx, size.repo, tmpDir, "master", nil)
             }
         })
     }

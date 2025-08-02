@@ -5,7 +5,7 @@ version: 1
 
 source:
   repo: "company/github-templates"
-  branch: "main"
+  branch: "master"
 
 # Enterprise-wide settings
 global:
@@ -27,7 +27,7 @@ targets:
         exclude:
           # Exclude what we sync separately for better control
           - "coverage/**"              # Synced separately (87 files)
-          - "workflows/**"             # Synced separately (24 files)  
+          - "workflows/**"             # Synced separately (24 files)
           - "pip/**"                   # Python deps not needed (38 files)
           # Development exclusions
           - "**/*.local.*"
@@ -40,7 +40,7 @@ targets:
             SERVICE: "payment-service"
             TIER: "critical"
             COMPLIANCE: "pci-dss"
-        
+
       # GitHub Workflows - Selective sync with transforms
       - src: ".github/workflows"
         dest: ".github/workflows"
@@ -56,18 +56,18 @@ targets:
             DEPLOY_ENV: "production"
             MONITORING: "enhanced"
         # Expected: 24 files in ~1.5ms
-        
+
       # Coverage System - High-performance sync
       - src: ".github/coverage"
         dest: ".github/coverage"
         exclude:
           - "*.out"                   # Coverage output files
-          - "*.test"                  # Go test binaries  
+          - "*.test"                  # Go test binaries
           - "gofortress-coverage"     # Main binary
           - "**/testdata/**"          # Test fixtures
           - "**/*.prof"               # Profiling files
         # Expected: 87 files in ~4ms with 90%+ API call reduction
-    
+
     # Critical service needs additional security review
     pr_labels: ["critical-service", "security-review"]
     pr_team_reviewers: ["security-team", "compliance-team"]
@@ -88,7 +88,7 @@ targets:
             SERVICE_TYPE: "api"
             DEPLOY_ENV: "development"
             MONITORING: "standard"
-            
+
       # Basic coverage system
       - src: ".github/coverage"
         dest: ".github/coverage"
@@ -109,18 +109,18 @@ targets:
           - "docker-build-*"         # Different containerization
           - "security-scan-*"        # Different security tools
         transform:
-          repo_name: true  
+          repo_name: true
           variables:
             SERVICE_TYPE: "frontend"
             NODE_VERSION: "18"
             BUILD_TOOL: "vite"
             DEPLOY_TARGET: "cdn"
-            
+
       # Frontend issue templates
       - src: ".github/ISSUE_TEMPLATE/frontend"
         dest: ".github/ISSUE_TEMPLATE"
         preserve_structure: true
-        
+
       # Custom PR templates for frontend
       - src: ".github/PULL_REQUEST_TEMPLATE/frontend.md"
         dest: ".github/PULL_REQUEST_TEMPLATE.md"
@@ -145,11 +145,11 @@ targets:
             REPO_TYPE: "infrastructure"
             TERRAFORM_VERSION: "1.6"
             KUBERNETES_VERSION: "1.28"
-            
+
       # Infrastructure issue templates
       - src: ".github/ISSUE_TEMPLATE/infrastructure"
         dest: ".github/ISSUE_TEMPLATE"
-        
+
       # Security policies for infrastructure
       - src: ".github/security"
         dest: ".github/security"
@@ -175,7 +175,7 @@ targets:
           variables:
             LEGACY_MODE: "true"
             GRADUAL_MIGRATION: "enabled"
-    
+
     # Legacy system has different approval requirements
     pr_reviewers: ["legacy-team-lead", "modernization-lead"]
     pr_team_reviewers: ["legacy-maintainers"]
@@ -198,7 +198,7 @@ targets:
           variables:
             DOCS_GENERATOR: "mkdocs"
             PUBLISH_BRANCH: "gh-pages"
-            
+
       # Documentation issue templates
       - src: ".github/ISSUE_TEMPLATE/docs"
         dest: ".github/ISSUE_TEMPLATE"
@@ -207,7 +207,7 @@ targets:
 #
 # Per Repository Sync Times:
 # - payment-service: ~12ms total (149 + 24 + 87 files)
-# - user-service: ~6ms total (24 + 87 files)  
+# - user-service: ~6ms total (24 + 87 files)
 # - webapp-frontend: ~3ms total (custom subset)
 # - infrastructure: ~2ms total (security workflows only)
 # - legacy-monolith: ~1ms total (minimal sync)

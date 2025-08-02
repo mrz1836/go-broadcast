@@ -292,7 +292,7 @@ func TestParserApplyDefaults(t *testing.T) {
 			name: "partial config preserves existing values",
 			input: &Config{
 				Source: SourceConfig{
-					Repo:   "org/repo",
+					Repo: "org/repo",
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "custom/prefix",
@@ -301,7 +301,7 @@ func TestParserApplyDefaults(t *testing.T) {
 			expected: &Config{
 				Source: SourceConfig{
 					Repo:   "org/repo",
-					Branch: Final, // Not overwritten
+					Branch: "master", // Not overwritten
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "custom/prefix",            // Not overwritten
@@ -711,7 +711,7 @@ targets:
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, "org/source", cfg.Source.Repo)
-				assert.Equal(t, Final, cfg.Source.Branch)
+				assert.Equal(t, "master", cfg.Source.Branch)
 				assert.Equal(t, []string{"auto", "sync"}, cfg.Defaults.PRLabels)
 				assert.Len(t, cfg.Targets[0].Files, 1)
 			},

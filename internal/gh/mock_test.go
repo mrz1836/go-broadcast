@@ -22,7 +22,7 @@ func TestMockClientComprehensive_ListBranches(t *testing.T) {
 			repo: "owner/repo",
 			expectedBranches: []Branch{
 				{
-					Name:      "main",
+					Name:      "master",
 					Protected: true,
 					Commit: struct {
 						SHA string `json:"sha"`
@@ -48,7 +48,7 @@ func TestMockClientComprehensive_ListBranches(t *testing.T) {
 			setupMock: func(m *MockClient) {
 				branches := []Branch{
 					{
-						Name:      "main",
+						Name:      "master",
 						Protected: true,
 						Commit: struct {
 							SHA string `json:"sha"`
@@ -126,9 +126,9 @@ func TestMockClientComprehensive_GetBranch(t *testing.T) {
 		{
 			name:   "successful branch retrieval",
 			repo:   "owner/repo",
-			branch: "main",
+			branch: "master",
 			expectedBranch: &Branch{
-				Name:      "main",
+				Name:      "master",
 				Protected: true,
 				Commit: struct {
 					SHA string `json:"sha"`
@@ -141,7 +141,7 @@ func TestMockClientComprehensive_GetBranch(t *testing.T) {
 			expectedError: nil,
 			setupMock: func(m *MockClient) {
 				branch := &Branch{
-					Name:      "main",
+					Name:      "master",
 					Protected: true,
 					Commit: struct {
 						SHA string `json:"sha"`
@@ -151,7 +151,7 @@ func TestMockClientComprehensive_GetBranch(t *testing.T) {
 						URL: "https://api.github.com/repos/owner/repo/commits/abc123",
 					},
 				}
-				m.On("GetBranch", context.Background(), "owner/repo", "main").Return(branch, nil)
+				m.On("GetBranch", context.Background(), "owner/repo", "master").Return(branch, nil)
 			},
 		},
 		{
@@ -203,7 +203,7 @@ func TestMockClientComprehensive_CreatePR(t *testing.T) {
 				Title: "Test PR",
 				Body:  "Test PR body",
 				Head:  "feature-branch",
-				Base:  "main",
+				Base:  "master",
 			},
 			expectedPR: &PR{
 				Number: 123,
@@ -221,7 +221,7 @@ func TestMockClientComprehensive_CreatePR(t *testing.T) {
 					Ref string `json:"ref"`
 					SHA string `json:"sha"`
 				}{
-					Ref: "main",
+					Ref: "master",
 					SHA: "def456",
 				},
 				User: struct {
@@ -238,7 +238,7 @@ func TestMockClientComprehensive_CreatePR(t *testing.T) {
 					Title: "Test PR",
 					Body:  "Test PR body",
 					Head:  "feature-branch",
-					Base:  "main",
+					Base:  "master",
 				}
 				pr := &PR{
 					Number: 123,
@@ -256,7 +256,7 @@ func TestMockClientComprehensive_CreatePR(t *testing.T) {
 						Ref string `json:"ref"`
 						SHA string `json:"sha"`
 					}{
-						Ref: "main",
+						Ref: "master",
 						SHA: "def456",
 					},
 					User: struct {
@@ -277,7 +277,7 @@ func TestMockClientComprehensive_CreatePR(t *testing.T) {
 				Title: "Invalid PR",
 				Body:  "",
 				Head:  "invalid-branch",
-				Base:  "main",
+				Base:  "master",
 			},
 			expectedPR:    nil,
 			expectedError: assert.AnError,
@@ -286,7 +286,7 @@ func TestMockClientComprehensive_CreatePR(t *testing.T) {
 					Title: "Invalid PR",
 					Body:  "",
 					Head:  "invalid-branch",
-					Base:  "main",
+					Base:  "master",
 				}
 				m.On("CreatePR", context.Background(), "owner/repo", request).Return(nil, assert.AnError)
 			},
@@ -479,7 +479,7 @@ func TestMockClientComprehensive_GetFile(t *testing.T) {
 			name: "successful file retrieval",
 			repo: "owner/repo",
 			path: "README.md",
-			ref:  "main",
+			ref:  "master",
 			expectedFile: &FileContent{
 				Path:    "README.md",
 				Content: []byte("# Test Repository"),
@@ -492,18 +492,18 @@ func TestMockClientComprehensive_GetFile(t *testing.T) {
 					Content: []byte("# Test Repository"),
 					SHA:     "abc123",
 				}
-				m.On("GetFile", context.Background(), "owner/repo", "README.md", "main").Return(file, nil)
+				m.On("GetFile", context.Background(), "owner/repo", "README.md", "master").Return(file, nil)
 			},
 		},
 		{
 			name:          "file not found",
 			repo:          "owner/repo",
 			path:          "nonexistent.txt",
-			ref:           "main",
+			ref:           "master",
 			expectedFile:  nil,
 			expectedError: assert.AnError,
 			setupMock: func(m *MockClient) {
-				m.On("GetFile", context.Background(), "owner/repo", "nonexistent.txt", "main").Return(nil, assert.AnError)
+				m.On("GetFile", context.Background(), "owner/repo", "nonexistent.txt", "master").Return(nil, assert.AnError)
 			},
 		},
 	}
@@ -648,18 +648,18 @@ func TestMockClient_ImplementsInterface(t *testing.T) {
 
 	// Setup mock expectations for interface verification
 	mockClient.On("ListBranches", ctx, "test/repo").Return([]Branch{}, nil)
-	mockClient.On("GetBranch", ctx, "test/repo", "main").Return(&Branch{}, nil)
+	mockClient.On("GetBranch", ctx, "test/repo", "master").Return(&Branch{}, nil)
 	mockClient.On("CreatePR", ctx, "test/repo", PRRequest{}).Return(&PR{}, nil)
 	mockClient.On("GetPR", ctx, "test/repo", 1).Return(&PR{}, nil)
 	mockClient.On("ListPRs", ctx, "test/repo", "open").Return([]PR{}, nil)
-	mockClient.On("GetFile", ctx, "test/repo", "file.txt", "main").Return(&FileContent{}, nil)
+	mockClient.On("GetFile", ctx, "test/repo", "file.txt", "master").Return(&FileContent{}, nil)
 	mockClient.On("GetCommit", ctx, "test/repo", "abc123").Return(&Commit{}, nil)
 
 	// Verify all methods work
 	_, err := mockClient.ListBranches(ctx, "test/repo")
 	require.NoError(t, err)
 
-	_, err = mockClient.GetBranch(ctx, "test/repo", "main")
+	_, err = mockClient.GetBranch(ctx, "test/repo", "master")
 	require.NoError(t, err)
 
 	_, err = mockClient.CreatePR(ctx, "test/repo", PRRequest{})
@@ -671,7 +671,7 @@ func TestMockClient_ImplementsInterface(t *testing.T) {
 	_, err = mockClient.ListPRs(ctx, "test/repo", "open")
 	require.NoError(t, err)
 
-	_, err = mockClient.GetFile(ctx, "test/repo", "file.txt", "main")
+	_, err = mockClient.GetFile(ctx, "test/repo", "file.txt", "master")
 	require.NoError(t, err)
 
 	_, err = mockClient.GetCommit(ctx, "test/repo", "abc123")

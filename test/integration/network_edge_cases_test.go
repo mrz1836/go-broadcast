@@ -207,7 +207,7 @@ func testGitHubAPIRateLimiting(t *testing.T, generator *fixtures.TestRepoGenerat
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine with retry logic
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(1) // Lower concurrency to test rate limiting
@@ -365,7 +365,7 @@ func testNetworkInterruptionHandling(t *testing.T, generator *fixtures.TestRepoG
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine with network resilience
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(2)
@@ -470,7 +470,7 @@ func testAuthenticationFailureScenarios(t *testing.T, generator *fixtures.TestRe
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
@@ -557,7 +557,7 @@ func testAPITimeoutAndRetry(t *testing.T, generator *fixtures.TestRepoGenerator)
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
@@ -671,7 +671,7 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Test different concurrency levels
 	concurrencyLevels := []int{1, 3, 5}
@@ -779,7 +779,7 @@ func testGitHubAPIDegradation(t *testing.T, generator *fixtures.TestRepoGenerato
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
@@ -868,7 +868,7 @@ func testNetworkPartitionRecovery(t *testing.T, generator *fixtures.TestRepoGene
 
 	// Mock branch listing for PR operations
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}}, nil).Maybe()
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
@@ -1251,7 +1251,7 @@ func testGitHubWebhookSimulation(t *testing.T, generator *fixtures.TestRepoGener
 		Return([]byte("transformed content"), nil)
 
 	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
-		Return([]gh.Branch{{Name: "main"}, {Name: "sync/update-123"}}, nil).Maybe()
+		Return([]gh.Branch{{Name: "master"}, {Name: "sync/update-123"}}, nil).Maybe()
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(3)

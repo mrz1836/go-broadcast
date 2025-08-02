@@ -26,7 +26,7 @@ func TestConfig_Validate(t *testing.T) {
 				Version: 1,
 				Source: SourceConfig{
 					Repo:   "org/template",
-					Branch: "main",
+					Branch: "master",
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "chore/sync-files",
@@ -49,7 +49,7 @@ func TestConfig_Validate(t *testing.T) {
 				Version: 2,
 				Source: SourceConfig{
 					Repo:   "org/template",
-					Branch: "main",
+					Branch: "master",
 				},
 				Targets: []TargetConfig{
 					{
@@ -69,7 +69,7 @@ func TestConfig_Validate(t *testing.T) {
 				Version: 1,
 				Source: SourceConfig{
 					Repo:   "org/template",
-					Branch: "main",
+					Branch: "master",
 				},
 				Targets: []TargetConfig{},
 			},
@@ -82,7 +82,7 @@ func TestConfig_Validate(t *testing.T) {
 				Version: 1,
 				Source: SourceConfig{
 					Repo:   "org/template",
-					Branch: "main",
+					Branch: "master",
 				},
 				Targets: []TargetConfig{
 					{
@@ -133,7 +133,7 @@ func TestConfig_ValidateWithLogging(t *testing.T) {
 				Version: 1,
 				Source: SourceConfig{
 					Repo:   "org/template",
-					Branch: "main",
+					Branch: "master",
 				},
 				Targets: []TargetConfig{
 					{
@@ -157,7 +157,7 @@ func TestConfig_ValidateWithLogging(t *testing.T) {
 				Version: 1,
 				Source: SourceConfig{
 					Repo:   "org/template",
-					Branch: "main",
+					Branch: "master",
 				},
 				Targets: []TargetConfig{
 					{
@@ -177,7 +177,7 @@ func TestConfig_ValidateWithLogging(t *testing.T) {
 				Version: 1,
 				Source: SourceConfig{
 					Repo:   "org/template",
-					Branch: "main",
+					Branch: "master",
 				},
 				Targets: []TargetConfig{
 					{
@@ -224,7 +224,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 			name: "valid source",
 			source: SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			wantError: false,
 		},
@@ -232,7 +232,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 			name: "missing repository",
 			source: SourceConfig{
 				Repo:   "",
-				Branch: "main",
+				Branch: "master",
 			},
 			wantError: true,
 		},
@@ -240,7 +240,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 			name: "invalid repository format - no slash",
 			source: SourceConfig{
 				Repo:   "orgtemplate",
-				Branch: "main",
+				Branch: "master",
 			},
 			wantError: true,
 		},
@@ -248,7 +248,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 			name: "invalid repository format - starts with slash",
 			source: SourceConfig{
 				Repo:   "/org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			wantError: true,
 		},
@@ -256,7 +256,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 			name: "invalid repository format - ends with slash",
 			source: SourceConfig{
 				Repo:   "org/template/",
-				Branch: "main",
+				Branch: "master",
 			},
 			wantError: true,
 		},
@@ -264,7 +264,7 @@ func TestConfig_validateSourceWithLogging(t *testing.T) {
 			name: "invalid repository format - multiple slashes",
 			source: SourceConfig{
 				Repo:   "org/sub/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			wantError: true,
 		},
@@ -614,7 +614,7 @@ func TestValidationWithCancellation(t *testing.T) {
 		Version: 1,
 		Source: SourceConfig{
 			Repo:   "org/template",
-			Branch: "main",
+			Branch: "master",
 		},
 		Targets: []TargetConfig{
 			{
@@ -765,7 +765,7 @@ func TestErrorMessages(t *testing.T) {
 				Version: 5,
 				Source: SourceConfig{
 					Repo:   "org/template",
-					Branch: "main",
+					Branch: "master",
 				},
 				Targets: []TargetConfig{
 					{
@@ -784,7 +784,7 @@ func TestErrorMessages(t *testing.T) {
 				Version: 1,
 				Source: SourceConfig{
 					Repo:   "invalid-repo-format",
-					Branch: "main",
+					Branch: "master",
 				},
 				Targets: []TargetConfig{
 					{
@@ -803,7 +803,7 @@ func TestErrorMessages(t *testing.T) {
 				Version: 1,
 				Source: SourceConfig{
 					Repo:   "org/template",
-					Branch: "main",
+					Branch: "master",
 				},
 				Targets: []TargetConfig{
 					{
@@ -840,7 +840,7 @@ func TestConfigValidateContextCancellation(t *testing.T) {
 		Version: 1,
 		Source: SourceConfig{
 			Repo:   "org/template",
-			Branch: "main",
+			Branch: "master",
 		},
 		Defaults: DefaultConfig{
 			BranchPrefix: "chore/sync-files",
@@ -947,7 +947,7 @@ func TestConfigValidateContextCancellationEdgeCases(t *testing.T) {
 			Version: 1,
 			Source: SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []TargetConfig{
 				{
@@ -981,7 +981,7 @@ func TestConfigValidateContextCancellationEdgeCases(t *testing.T) {
 			Version: 1,
 			Source: SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []TargetConfig{}, // Empty targets
 		}
@@ -1002,7 +1002,7 @@ func TestConfigValidateContextCancellationEdgeCases(t *testing.T) {
 			Version: 1,
 			Source: SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []TargetConfig{
 				{
@@ -1155,7 +1155,7 @@ func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
 			Version: 1,
 			Source: SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Defaults: DefaultConfig{
 				BranchPrefix: "chore/sync-files",
@@ -1233,7 +1233,7 @@ func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
 					Version: 1,
 					Source: SourceConfig{
 						Repo:   repo,
-						Branch: "main",
+						Branch: "master",
 					},
 					Targets: []TargetConfig{
 						{
@@ -1271,7 +1271,7 @@ func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
 					Version: 1,
 					Source: SourceConfig{
 						Repo:   testCase.repo,
-						Branch: "main",
+						Branch: "master",
 					},
 					Targets: []TargetConfig{
 						{
@@ -1398,7 +1398,7 @@ func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
 					Version: 1,
 					Source: SourceConfig{
 						Repo:   "org/template",
-						Branch: "main",
+						Branch: "master",
 					},
 					Targets: []TargetConfig{
 						{
@@ -1459,7 +1459,7 @@ func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
 					Version: 1,
 					Source: SourceConfig{
 						Repo:   "org/template",
-						Branch: "main",
+						Branch: "master",
 					},
 					Targets: []TargetConfig{
 						{
@@ -1507,7 +1507,7 @@ func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
 			Version: 1,
 			Source: SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Targets: []TargetConfig{
 				{
@@ -1533,7 +1533,7 @@ func TestComplexConfigurationValidationEdgeCases(t *testing.T) {
 			Version: 1,
 			Source: SourceConfig{
 				Repo:   "org/template",
-				Branch: "main",
+				Branch: "master",
 			},
 			Defaults: DefaultConfig{
 				BranchPrefix: "chore/sync-files",
@@ -1587,7 +1587,7 @@ func TestConfig_ValidateDirectories(t *testing.T) {
 			name: "empty source path",
 			config: Config{
 				Version: 1,
-				Source:  SourceConfig{Repo: "org/repo", Branch: "main"},
+				Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 				Targets: []TargetConfig{{
 					Repo: "org/target",
 					Directories: []DirectoryMapping{{
@@ -1602,7 +1602,7 @@ func TestConfig_ValidateDirectories(t *testing.T) {
 			name: "empty destination path",
 			config: Config{
 				Version: 1,
-				Source:  SourceConfig{Repo: "org/repo", Branch: "main"},
+				Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 				Targets: []TargetConfig{{
 					Repo: "org/target",
 					Directories: []DirectoryMapping{{
@@ -1617,7 +1617,7 @@ func TestConfig_ValidateDirectories(t *testing.T) {
 			name: "path traversal in source",
 			config: Config{
 				Version: 1,
-				Source:  SourceConfig{Repo: "org/repo", Branch: "main"},
+				Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 				Targets: []TargetConfig{{
 					Repo: "org/target",
 					Directories: []DirectoryMapping{{
@@ -1632,7 +1632,7 @@ func TestConfig_ValidateDirectories(t *testing.T) {
 			name: "path traversal in destination",
 			config: Config{
 				Version: 1,
-				Source:  SourceConfig{Repo: "org/repo", Branch: "main"},
+				Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 				Targets: []TargetConfig{{
 					Repo: "org/target",
 					Directories: []DirectoryMapping{{
@@ -1647,7 +1647,7 @@ func TestConfig_ValidateDirectories(t *testing.T) {
 			name: "invalid exclusion pattern",
 			config: Config{
 				Version: 1,
-				Source:  SourceConfig{Repo: "org/repo", Branch: "main"},
+				Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 				Targets: []TargetConfig{{
 					Repo: "org/target",
 					Directories: []DirectoryMapping{{
@@ -1663,7 +1663,7 @@ func TestConfig_ValidateDirectories(t *testing.T) {
 			name: "file-directory conflict",
 			config: Config{
 				Version: 1,
-				Source:  SourceConfig{Repo: "org/repo", Branch: "main"},
+				Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 				Targets: []TargetConfig{{
 					Repo: "org/target",
 					Files: []FileMapping{{
@@ -1682,7 +1682,7 @@ func TestConfig_ValidateDirectories(t *testing.T) {
 			name: "valid directory configuration",
 			config: Config{
 				Version: 1,
-				Source:  SourceConfig{Repo: "org/repo", Branch: "main"},
+				Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 				Targets: []TargetConfig{{
 					Repo: "org/target",
 					Directories: []DirectoryMapping{{
@@ -1698,7 +1698,7 @@ func TestConfig_ValidateDirectories(t *testing.T) {
 			name: "valid mixed configuration",
 			config: Config{
 				Version: 1,
-				Source:  SourceConfig{Repo: "org/repo", Branch: "main"},
+				Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 				Targets: []TargetConfig{{
 					Repo: "org/target",
 					Files: []FileMapping{{

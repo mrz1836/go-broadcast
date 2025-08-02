@@ -383,7 +383,7 @@ targets:
 			expected: Config{
 				Version: 1,
 				Source: SourceConfig{
-					Repo:   "org/template",
+					Repo: "org/template",
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "custom/prefix",

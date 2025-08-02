@@ -235,7 +235,7 @@ func FuzzRepoNameValidation(f *testing.F) {
 			Version: 1,
 			Source: SourceConfig{
 				Repo:   repoName,
-				Branch: "main",
+				Branch: "master",
 			},
 		}
 
@@ -255,7 +255,7 @@ func FuzzRepoNameValidation(f *testing.F) {
 func FuzzBranchNameValidation(f *testing.F) {
 	seeds := []string{
 		// Valid branch names
-		"main",
+		"master",
 		"master",
 		"develop",
 		"feature/test",
@@ -374,7 +374,7 @@ func FuzzBranchNameValidation(f *testing.F) {
 		cfg2 := Config{
 			Version: 1,
 			Source: SourceConfig{
-				Repo:   "org/repo",
+				Repo: "org/repo",
 			},
 			Defaults: DefaultConfig{
 				BranchPrefix: branch,

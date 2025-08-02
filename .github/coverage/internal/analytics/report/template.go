@@ -5,8 +5,6 @@ import (
 )
 
 // getReportTemplate returns the embedded coverage report HTML template (this IS A Coverage Report) (this is NOT a Dashboard)
-//
-//nolint:misspell // British spelling for "canceled"
 func getReportTemplate() string {
 	return `<!DOCTYPE html>
 <html lang="en" data-theme="auto">

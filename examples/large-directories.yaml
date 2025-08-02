@@ -5,7 +5,7 @@ version: 1
 
 source:
   repo: "company/platform-templates"
-  branch: "main"
+  branch: "master"
 
 # Global performance and PR settings
 global:
@@ -31,7 +31,7 @@ targets:
         transform:
           repo_name: true
         # Progress reporting automatically enabled for >50 files
-        
+
       # Sync coverage system separately for better granular control
       - src: ".github/coverage"
         dest: ".github/coverage"
@@ -41,7 +41,7 @@ targets:
           - "gofortress-coverage"      # Main binary (large file)
           - "**/testdata/**"           # Test fixture data
         # Expected performance: 87 files in ~4ms
-        
+
       # Sync workflows with careful exclusions
       - src: ".github/workflows"
         dest: ".github/workflows"
@@ -82,7 +82,7 @@ targets:
         include_hidden: false          # Skip hidden files for docs
         # Expected performance: 1000+ files in ~32ms
 
-  # Example 3: Configuration management (500+ files) - Performance target: <16ms  
+  # Example 3: Configuration management (500+ files) - Performance target: <16ms
   - repo: "company/config-service"
     directories:
       - src: "configs"
@@ -109,7 +109,7 @@ targets:
             CONFIG_VERSION: "2.1"
             ENVIRONMENT: "production"
         # Expected performance: 500+ files in ~16ms
-        
+
       # Templates subdirectory with flattening
       - src: "templates/production"
         dest: "templates"
@@ -122,7 +122,7 @@ targets:
             TEMPLATE_VERSION: "prod-v2"
 
   # Example 4: Multi-language project (mixed file types)
-  - repo: "company/polyglot-service"  
+  - repo: "company/polyglot-service"
     directories:
       # Go source code
       - src: "internal"
@@ -133,7 +133,7 @@ targets:
           - "**/testdata/large/**"    # Large test fixtures
         transform:
           repo_name: true
-          
+
       # Python scripts
       - src: "scripts"
         dest: "scripts"
@@ -142,7 +142,7 @@ targets:
           - "**/*.pyc"                # Compiled Python
           - "**/venv/**"              # Virtual environments
           - "**/*.egg-info/**"        # Package metadata
-        
+
       # Configuration files
       - src: "configs"
         dest: "configs"
@@ -158,7 +158,7 @@ targets:
 #
 # Expected Performance Metrics:
 # - Small directories (<50 files): <3ms
-# - Medium directories (50-150 files): 1-7ms  
+# - Medium directories (50-150 files): 1-7ms
 # - Large directories (500+ files): 16-32ms
 # - Memory usage: ~1.2MB per 1000 files
 # - API efficiency: 90%+ reduction in GitHub API calls
@@ -166,7 +166,7 @@ targets:
 # Optimization Strategies:
 # 1. Exclude patterns are evaluated first (fastest path)
 # 2. Binary files are detected and skipped efficiently
-# 3. Content comparison uses zero-allocation algorithms  
+# 3. Content comparison uses zero-allocation algorithms
 # 4. Tree API reduces file existence checks to single call
 # 5. Concurrent processing within directories using worker pools
 #
