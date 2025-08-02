@@ -378,7 +378,7 @@ func TestBuildGitHubFileURL(t *testing.T) {
 			repo:     "go-broadcast",
 			branch:   "master",
 			filePath: "internal/cli/cancel.go",
-			expected: "https://github.com/mrz1836/go-broadcast/blob/main/internal/cli/cancel.go",
+			expected: "https://github.com/mrz1836/go-broadcast/blob/master/internal/cli/cancel.go",
 		},
 		{
 			name:     "empty owner returns empty string",

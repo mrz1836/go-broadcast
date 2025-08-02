@@ -516,7 +516,7 @@ func TestHistoryCommand(t *testing.T) {
 			expectError: false,
 			contains: []string{
 				"Coverage recorded successfully!",
-				"Branch: main",
+				"Branch: master",
 				"Commit: abc123",
 			},
 			envVars: map[string]string{
@@ -550,7 +550,7 @@ func TestHistoryCommand(t *testing.T) {
 			expectError: false,
 			contains: []string{
 				"Coverage Trend Analysis",
-				"Branch: main",
+				"Branch: master",
 				"Period: 30 days",
 			},
 			envVars: map[string]string{
@@ -567,7 +567,7 @@ func TestHistoryCommand(t *testing.T) {
 			expectError: false,
 			contains: []string{
 				"Latest Coverage Entry",
-				"Branch: main",
+				"Branch: master",
 			},
 			envVars: map[string]string{
 				"COVERAGE_HISTORY_PATH": historyDir,
