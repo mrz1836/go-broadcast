@@ -22,9 +22,9 @@ targets:
       - src: ".github/workflows"
         dest: ".github/workflows"
         exclude:
-          - "*-local.yml"      # Local development workflows
-          - "*.disabled"       # Disabled workflows
-          - "experimental-*"   # Experimental workflows
+          - "*-local.yml" # Local development workflows
+          - "*.disabled" # Disabled workflows
+          - "experimental-*" # Experimental workflows
         transform:
           repo_name: true
           variables:
@@ -35,9 +35,9 @@ targets:
       - src: ".github/coverage"
         dest: ".github/coverage"
         exclude:
-          - "*.out"           # Coverage output files
-          - "*.test"          # Test binaries
-          - "gofortress-coverage"  # Binary executable
+          - "*.out" # Coverage output files
+          - "*.test" # Test binaries
+          - "gofortress-coverage" # Binary executable
 
       # Sync issue and PR templates
       - src: ".github/ISSUE_TEMPLATE"
@@ -53,8 +53,8 @@ targets:
         dest: ".github/workflows"
         exclude:
           - "*-local.yml"
-          - "security-*"      # This service has custom security workflows
-          - "deploy-*"        # Custom deployment workflows
+          - "security-*" # This service has custom security workflows
+          - "deploy-*" # Custom deployment workflows
         transform:
           repo_name: true
           variables:
@@ -72,9 +72,9 @@ targets:
       - src: ".github/workflows"
         dest: ".github/workflows"
         exclude:
-          - "go-*"            # Skip Go-specific workflows
-          - "*-api-*"         # Skip API-specific workflows
-          - "docker-*"        # Frontend uses different containerization
+          - "go-*" # Skip Go-specific workflows
+          - "*-api-*" # Skip API-specific workflows
+          - "docker-*" # Frontend uses different containerization
         transform:
           repo_name: true
           variables:
@@ -94,15 +94,14 @@ targets:
       - src: ".github/workflows"
         dest: ".github/workflows"
         exclude:
-          - "*"              # Exclude everything by default
+          - "*" # Exclude everything by default
         include_only:
-          - "security-*.yml"  # Only security workflows
+          - "security-*.yml" # Only security workflows
           - "dependency-*.yml" # Only dependency management
 
     # Legacy service needs different approval flow
     pr_reviewers: ["legacy-maintainer", "security-lead"]
     pr_team_reviewers: ["security-team"]
-
 # Performance expectations for this configuration:
 # - .github/workflows (24 files): ~1.5ms processing
 # - .github/coverage (87 files): ~4ms processing

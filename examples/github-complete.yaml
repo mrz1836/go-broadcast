@@ -26,9 +26,9 @@ targets:
         dest: ".github"
         exclude:
           # Exclude what we sync separately for better control
-          - "coverage/**"              # Synced separately (87 files)
-          - "workflows/**"             # Synced separately (24 files)
-          - "pip/**"                   # Python deps not needed (38 files)
+          - "coverage/**" # Synced separately (87 files)
+          - "workflows/**" # Synced separately (24 files)
+          - "pip/**" # Python deps not needed (38 files)
           # Development exclusions
           - "**/*.local.*"
           - "**/*-dev.*"
@@ -45,9 +45,9 @@ targets:
       - src: ".github/workflows"
         dest: ".github/workflows"
         exclude:
-          - "*-local.yml"             # Local development workflows
-          - "experimental-*"          # Experimental workflows
-          - "*-draft.yml"             # Draft workflows
+          - "*-local.yml" # Local development workflows
+          - "experimental-*" # Experimental workflows
+          - "*-draft.yml" # Draft workflows
         transform:
           repo_name: true
           variables:
@@ -61,11 +61,11 @@ targets:
       - src: ".github/coverage"
         dest: ".github/coverage"
         exclude:
-          - "*.out"                   # Coverage output files
-          - "*.test"                  # Go test binaries
-          - "gofortress-coverage"     # Main binary
-          - "**/testdata/**"          # Test fixtures
-          - "**/*.prof"               # Profiling files
+          - "*.out" # Coverage output files
+          - "*.test" # Go test binaries
+          - "gofortress-coverage" # Main binary
+          - "**/testdata/**" # Test fixtures
+          - "**/*.prof" # Profiling files
         # Expected: 87 files in ~4ms with 90%+ API call reduction
 
     # Critical service needs additional security review
@@ -80,8 +80,8 @@ targets:
         dest: ".github/workflows"
         exclude:
           - "*-local.yml"
-          - "production-*"           # Dev service doesn't need prod workflows
-          - "compliance-*"           # No compliance requirements
+          - "production-*" # Dev service doesn't need prod workflows
+          - "compliance-*" # No compliance requirements
         transform:
           repo_name: true
           variables:
@@ -104,10 +104,10 @@ targets:
       - src: ".github/workflows"
         dest: ".github/workflows"
         exclude:
-          - "go-*"                   # Skip Go-specific workflows
-          - "*-api-*"                # Skip API workflows
-          - "docker-build-*"         # Different containerization
-          - "security-scan-*"        # Different security tools
+          - "go-*" # Skip Go-specific workflows
+          - "*-api-*" # Skip API workflows
+          - "docker-build-*" # Different containerization
+          - "security-scan-*" # Different security tools
         transform:
           repo_name: true
           variables:
@@ -132,9 +132,9 @@ targets:
       - src: ".github/workflows"
         dest: ".github/workflows"
         exclude:
-          - "app-*"                  # Skip application workflows
-          - "service-*"              # Skip service workflows
-        include_only:               # Only infrastructure workflows
+          - "app-*" # Skip application workflows
+          - "service-*" # Skip service workflows
+        include_only: # Only infrastructure workflows
           - "terraform-*"
           - "kubernetes-*"
           - "security-*"
@@ -165,11 +165,11 @@ targets:
       - src: ".github/workflows"
         dest: ".github/workflows"
         exclude:
-          - "*"                      # Exclude everything by default
+          - "*" # Exclude everything by default
         include_only:
-          - "security-*.yml"         # Only security scanning
-          - "dependency-*.yml"       # Only dependency updates
-          - "codeql-*.yml"           # Only code analysis
+          - "security-*.yml" # Only security scanning
+          - "dependency-*.yml" # Only dependency updates
+          - "codeql-*.yml" # Only code analysis
         transform:
           repo_name: true
           variables:
@@ -187,13 +187,13 @@ targets:
       - src: ".github/workflows"
         dest: ".github/workflows"
         exclude:
-          - "build-*"                # Skip build workflows
-          - "test-*"                 # Skip test workflows
-          - "deploy-*"               # Skip deployment workflows
+          - "build-*" # Skip build workflows
+          - "test-*" # Skip test workflows
+          - "deploy-*" # Skip deployment workflows
         include_only:
-          - "docs-*"                 # Only documentation workflows
-          - "spell-check-*"          # Spell checking
-          - "link-check-*"           # Link validation
+          - "docs-*" # Only documentation workflows
+          - "spell-check-*" # Spell checking
+          - "link-check-*" # Link validation
         transform:
           variables:
             DOCS_GENERATOR: "mkdocs"
@@ -202,7 +202,6 @@ targets:
       # Documentation issue templates
       - src: ".github/ISSUE_TEMPLATE/docs"
         dest: ".github/ISSUE_TEMPLATE"
-
 # Expected Performance Metrics for this Configuration:
 #
 # Per Repository Sync Times:

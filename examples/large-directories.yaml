@@ -20,9 +20,9 @@ targets:
         dest: ".github"
         exclude:
           # Exclude large subdirectories that are synced separately
-          - "coverage/**"         # Synced separately below (87 files)
-          - "workflows/**"        # Synced separately below (24 files)
-          - "pip/**"             # Python dependencies (~38 files)
+          - "coverage/**" # Synced separately below (87 files)
+          - "workflows/**" # Synced separately below (24 files)
+          - "pip/**" # Python dependencies (~38 files)
           # Exclude development artifacts
           - "*.tmp"
           - "*.log"
@@ -36,19 +36,19 @@ targets:
       - src: ".github/coverage"
         dest: ".github/coverage"
         exclude:
-          - "*.out"                    # Test coverage files
-          - "*.test"                   # Go test binaries
-          - "gofortress-coverage"      # Main binary (large file)
-          - "**/testdata/**"           # Test fixture data
+          - "*.out" # Test coverage files
+          - "*.test" # Go test binaries
+          - "gofortress-coverage" # Main binary (large file)
+          - "**/testdata/**" # Test fixture data
         # Expected performance: 87 files in ~4ms
 
       # Sync workflows with careful exclusions
       - src: ".github/workflows"
         dest: ".github/workflows"
         exclude:
-          - "*-local.yml"              # Development workflows
-          - "*.disabled"               # Disabled workflows
-          - "experimental-*"           # Experimental features
+          - "*-local.yml" # Development workflows
+          - "*.disabled" # Disabled workflows
+          - "experimental-*" # Experimental features
         transform:
           repo_name: true
           variables:
@@ -62,10 +62,10 @@ targets:
         dest: "docs"
         exclude:
           # Exclude generated content
-          - "**/_build/**"             # Sphinx build outputs
-          - "**/node_modules/**"       # Node.js dependencies
-          - "**/.vuepress/dist/**"     # VuePress build outputs
-          - "**/public/**"             # Static site generators
+          - "**/_build/**" # Sphinx build outputs
+          - "**/node_modules/**" # Node.js dependencies
+          - "**/.vuepress/dist/**" # VuePress build outputs
+          - "**/public/**" # Static site generators
           # Exclude development files
           - "**/*.tmp"
           - "**/*.log"
@@ -79,7 +79,7 @@ targets:
             DOCS_VERSION: "v2.0"
             COMPANY_NAME: "ACME Corp"
         preserve_structure: true
-        include_hidden: false          # Skip hidden files for docs
+        include_hidden: false # Skip hidden files for docs
         # Expected performance: 1000+ files in ~32ms
 
   # Example 3: Configuration management (500+ files) - Performance target: <16ms
@@ -113,7 +113,7 @@ targets:
       # Templates subdirectory with flattening
       - src: "templates/production"
         dest: "templates"
-        preserve_structure: false      # Flatten structure
+        preserve_structure: false # Flatten structure
         exclude:
           - "*.example"
           - "*.template"
@@ -128,9 +128,9 @@ targets:
       - src: "internal"
         dest: "internal"
         exclude:
-          - "**/*.test"               # Go test binaries
-          - "**/*.out"                # Coverage files
-          - "**/testdata/large/**"    # Large test fixtures
+          - "**/*.test" # Go test binaries
+          - "**/*.out" # Coverage files
+          - "**/testdata/large/**" # Large test fixtures
         transform:
           repo_name: true
 
@@ -138,22 +138,21 @@ targets:
       - src: "scripts"
         dest: "scripts"
         exclude:
-          - "**/__pycache__/**"       # Python cache
-          - "**/*.pyc"                # Compiled Python
-          - "**/venv/**"              # Virtual environments
-          - "**/*.egg-info/**"        # Package metadata
+          - "**/__pycache__/**" # Python cache
+          - "**/*.pyc" # Compiled Python
+          - "**/venv/**" # Virtual environments
+          - "**/*.egg-info/**" # Package metadata
 
       # Configuration files
       - src: "configs"
         dest: "configs"
         exclude:
-          - "*.local.*"               # Local overrides
-          - "*.secret.*"              # Secret configurations
+          - "*.local.*" # Local overrides
+          - "*.secret.*" # Secret configurations
         transform:
           variables:
             SERVICE_NAME: "polyglot-service"
             VERSION: "1.0"
-
 # Performance Monitoring and Optimization Notes:
 #
 # Expected Performance Metrics:

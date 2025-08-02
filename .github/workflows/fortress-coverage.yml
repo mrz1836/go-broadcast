@@ -85,7 +85,7 @@ jobs:
           # Create helper function to check if branch is a main branch
           cat << 'EOF' > /tmp/branch_helpers.sh
           #!/bin/bash
-          
+
           # Function to check if a branch is a main branch
           is_main_branch() {
             local branch_name="$1"
