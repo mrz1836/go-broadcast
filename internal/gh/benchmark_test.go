@@ -4,12 +4,31 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/benchmark"
 	"github.com/stretchr/testify/mock"
 )
+
+// isMainBranch checks if a branch name is one of the configured main branches
+func isMainBranch(branchName string) bool {
+	mainBranches := os.Getenv("MAIN_BRANCHES")
+	if mainBranches == "" {
+		mainBranches = "master,main"
+	}
+
+	branches := strings.Split(mainBranches, ",")
+	for _, branch := range branches {
+		if strings.TrimSpace(branch) == branchName {
+			return true
+		}
+	}
+
+	return false
+}
 
 func BenchmarkGHCommand_Simple(b *testing.B) {
 	mockClient := &MockClient{}
@@ -328,7 +347,7 @@ func generateTestBranches(count int) []Branch {
 func generateTestBranch(name string) *Branch {
 	return &Branch{
 		Name:      name,
-		Protected: name == "main" || name == "master",
+		Protected: isMainBranch(name),
 		Commit: struct {
 			SHA string `json:"sha"`
 			URL string `json:"url"`

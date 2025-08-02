@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -23,6 +24,36 @@ import (
 	"github.com/mrz1836/go-broadcast/coverage/internal/parser"
 	"github.com/mrz1836/go-broadcast/coverage/internal/urlutil"
 )
+
+// getMainBranches returns the list of main branches from environment variable or default
+func getMainBranches() []string {
+	mainBranches := os.Getenv("MAIN_BRANCHES")
+	if mainBranches == "" {
+		mainBranches = "master,main"
+	}
+
+	branches := strings.Split(mainBranches, ",")
+	for i, branch := range branches {
+		branches[i] = strings.TrimSpace(branch)
+	}
+
+	return branches
+}
+
+// getPrimaryMainBranch returns the primary main branch from environment variable or default
+func getPrimaryMainBranch() string {
+	if branch := os.Getenv("DEFAULT_MAIN_BRANCH"); branch != "" {
+		return strings.TrimSpace(branch)
+	}
+
+	// Return first main branch from the list
+	mainBranches := getMainBranches()
+	if len(mainBranches) > 0 {
+		return mainBranches[0]
+	}
+
+	return "master"
+}
 
 // getDefaultBranch returns the default branch name, checking environment variables first
 func getDefaultBranch() string {
@@ -368,13 +399,14 @@ update history, and create GitHub PR comment if in PR context.`,
 
 			trendData, err := tracker.GetTrend(historyCtx, history.WithTrendBranch(branch), history.WithTrendDays(30))
 
-			// If no history for current branch and it's not master, try to get master branch history
-			if (err != nil || trendData == nil || trendData.Summary.TotalEntries == 0) && branch != "master" {
-				cmd.Printf("   📊 No history for branch '%s', checking master branch...\n", branch)
-				if masterTrendData, masterErr := tracker.GetTrend(historyCtx, history.WithTrendBranch("master"), history.WithTrendDays(30)); masterErr == nil && masterTrendData != nil {
-					// Use master branch data for comparison
-					trendData = masterTrendData
-					cmd.Printf("   ✅ Found %d history entries from master branch\n", trendData.Summary.TotalEntries)
+			// If no history for current branch and it's not a main branch, try to get primary main branch history
+			primaryMainBranch := getPrimaryMainBranch()
+			if (err != nil || trendData == nil || trendData.Summary.TotalEntries == 0) && branch != primaryMainBranch {
+				cmd.Printf("   📊 No history for branch '%s', checking %s branch...\n", branch, primaryMainBranch)
+				if mainTrendData, mainErr := tracker.GetTrend(historyCtx, history.WithTrendBranch(primaryMainBranch), history.WithTrendDays(30)); mainErr == nil && mainTrendData != nil {
+					// Use primary main branch data for comparison
+					trendData = mainTrendData
+					cmd.Printf("   ✅ Found %d history entries from %s branch\n", trendData.Summary.TotalEntries, primaryMainBranch)
 				}
 			}
 

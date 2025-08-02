@@ -6,12 +6,30 @@ package gh
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// isMainBranch checks if a branch name is one of the configured main branches
+func isMainBranch(branchName string) bool {
+	mainBranches := os.Getenv("MAIN_BRANCHES")
+	if mainBranches == "" {
+		mainBranches = "master,main"
+	}
+
+	branches := strings.Split(mainBranches, ",")
+	for _, branch := range branches {
+		if strings.TrimSpace(branch) == branchName {
+			return true
+		}
+	}
+
+	return false
+}
 
 func TestGitHubClient_Integration(t *testing.T) {
 	// Skip if no GitHub token is available
@@ -36,15 +54,15 @@ func TestGitHubClient_Integration(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, branches)
 
-		// Should have at least main/master branch
+		// Should have at least one main branch
 		var hasMainBranch bool
 		for _, branch := range branches {
-			if branch.Name == "main" || branch.Name == "master" {
+			if isMainBranch(branch.Name) {
 				hasMainBranch = true
 				break
 			}
 		}
-		assert.True(t, hasMainBranch, "Repository should have main or master branch")
+		assert.True(t, hasMainBranch, "Repository should have a main branch")
 	})
 
 	t.Run("GetBranch", func(t *testing.T) {
