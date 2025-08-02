@@ -231,7 +231,7 @@ jobs:
           echo "- **Race Detection**: ${{ inputs.race-detection-enabled }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Coverage Enabled**: ${{ inputs.code-coverage-enabled }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ -f test-output.log ]; then
             FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" test-output.log || echo "0")
             PANIC_COUNT=$(grep -c "panic:" test-output.log || echo "0")
