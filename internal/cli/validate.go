@@ -41,18 +41,18 @@ Checks performed:
 	Example: `  # Basic validation
   go-broadcast validate                     # Validate default config file
   go-broadcast validate --config sync.yaml # Validate specific file
-  
+
   # Skip remote validation for offline use
   go-broadcast validate --skip-remote-checks       # Only validate YAML/syntax
   go-broadcast validate --source-only              # Only check source repo access
-  
+
   # Debug validation issues
   go-broadcast validate --log-level debug  # Show detailed validation steps
-  
+
   # Automation workflows
   go-broadcast validate && echo "Config valid"      # Use exit code
   go-broadcast validate 2>&1 | tee validation.log  # Save validation output
-  
+
   # Common patterns
   go-broadcast validate --config prod.yaml  # Validate production config
   find . -name "*.yaml" -exec go-broadcast validate --config {} \;  # Validate multiple files`,

@@ -11,7 +11,7 @@ This repository uses **`AGENTS.md`** as the entry point to our modular technical
   * **Infrastructure**: CI/CD, dependencies, security, workflows
   * **Project Management**: Labeling conventions
 
-> **TL;DR:** **Start with `AGENTS.md`**, then explore specific conventions in **`tech-conventions/`**.  
+> **TL;DR:** **Start with `AGENTS.md`**, then explore specific conventions in **`tech-conventions/`**.
 > All technical questions are answered in these focused documents.
 
 ---
@@ -64,7 +64,7 @@ make test-all-modules-race  # Test all modules with race detection
 ```bash
 # Phase-specific integration tests
 make test-integration-complex    # Phase 1: Complex workflows
-make test-integration-advanced   # Phase 2: Advanced scenarios  
+make test-integration-advanced   # Phase 2: Advanced scenarios
 make test-integration-network    # Phase 3: Network edge cases
 make test-integration-all        # All integration test phases
 ```
@@ -161,7 +161,7 @@ go tool pprof mem.prof
    ```bash
    # Run tests with verbose output
    go test -v ./...
-   
+
    # Run specific failing test
    go test -v -run TestSpecificFunction ./internal/package
    ```
@@ -171,7 +171,7 @@ go tool pprof mem.prof
    # Fix formatting issues
    make fumpt          # Apply gofumpt formatting
    goimports -w .      # Fix import statements
-   
+
    # Check linting rules
    make lint-version   # Show linter version
    make lint           # Run all linters
@@ -182,7 +182,7 @@ go tool pprof mem.prof
    # Profile memory usage
    go test -bench=. -memprofile=mem.prof ./internal/component
    go tool pprof mem.prof
-   
+
    # Monitor goroutines
    go test -bench=. -trace=trace.out ./internal/worker
    go tool trace trace.out
@@ -407,7 +407,7 @@ Before starting any development work:
 - **Security first** - Run `govulncheck` and validate all external dependencies
 - **Performance matters** - Use benchmarks to validate optimizations
 
-If you encounter conflicting guidance elsewhere, `AGENTS.md` wins.  
+If you encounter conflicting guidance elsewhere, `AGENTS.md` wins.
 Questions or ambiguities? Open a discussion or ping a maintainer instead of guessing.
 
 ---

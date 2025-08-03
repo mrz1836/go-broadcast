@@ -8,59 +8,59 @@
 
 ### 🚀 Core Development
 
-**[Go Essentials](go-essentials.md)**  
+**[Go Essentials](go-essentials.md)**
 Non-negotiable Go development practices including context-first design, interface philosophy, goroutine discipline, error handling, and performance guidelines.
 
-**[Testing Standards](testing-standards.md)**  
+**[Testing Standards](testing-standards.md)**
 Comprehensive testing guidelines covering unit tests, table-driven tests, fuzz testing, code coverage requirements, and testing best practices.
 
-**[Commenting & Documentation](commenting-documentation.md)**  
+**[Commenting & Documentation](commenting-documentation.md)**
 Standards for code comments, function documentation, package-level docs, Markdown formatting, and maintaining clear, purposeful documentation.
 
 <br><br>
 
 ### 🔄 Version Control & Collaboration
 
-**[Commit & Branch Conventions](commit-branch-conventions.md)**  
+**[Commit & Branch Conventions](commit-branch-conventions.md)**
 Git commit message format, branch naming standards, and version control best practices for maintaining clean repository history.
 
-**[Pull Request Guidelines](pull-request-guidelines.md)**  
+**[Pull Request Guidelines](pull-request-guidelines.md)**
 Structured approach to creating and reviewing pull requests, including required sections, review etiquette, and merging strategies.
 
-**[Release Workflow & Versioning](release-versioning.md)**  
+**[Release Workflow & Versioning](release-versioning.md)**
 Semantic versioning practices, release tooling with goreleaser, changelog management, and automated release processes.
 
 <br><br>
 
 ### 🏷️ Project Management
 
-**[Labeling Conventions](labeling-conventions.md)**  
+**[Labeling Conventions](labeling-conventions.md)**
 GitHub label system for categorizing issues and PRs, including standard labels, usage guidelines, and automated labeling.
 
 <br><br>
 
 ### 🔧 Infrastructure & Quality
 
-**[CI & Validation](ci-validation.md)**  
+**[CI & Validation](ci-validation.md)**
 Continuous integration setup, automated checks, required status checks, and troubleshooting CI failures.
 
-**[Dependency Management](dependency-management.md)**  
+**[Dependency Management](dependency-management.md)**
 Go modules management, security scanning, version control practices, and maintaining healthy dependencies.
 
-**[Security Practices](security-practices.md)**  
+**[Security Practices](security-practices.md)**
 Security-first development, vulnerability reporting, security tools, and following OpenSSF best practices.
 
-**[GitHub Workflows Development](github-workflows.md)**  
+**[GitHub Workflows Development](github-workflows.md)**
 Creating and maintaining GitHub Actions workflows with security, reliability, and performance in mind.
 
 <br><br>
 
 ### 🏗️ Build & Project Setup
 
-**[Makefile Usage](makefile-usage.md)**  
+**[Makefile Usage](makefile-usage.md)**
 Standardized build automation using Make, common commands, patterns, and best practices.
 
-**[Governance Documents](governance-documents.md)**  
+**[Governance Documents](governance-documents.md)**
 Essential project files including LICENSE, README, CODE_OF_CONDUCT, SECURITY, and other governance standards.
 
 <br><br>

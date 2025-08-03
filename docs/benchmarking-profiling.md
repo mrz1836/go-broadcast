@@ -276,13 +276,13 @@ Based on current benchmarks, here are performance targets:
 func BenchmarkMyOperation(b *testing.B) {
     // Setup code (not timed)
     data := prepareTestData()
-    
+
     b.ResetTimer() // Start timing here
-    
+
     for i := 0; i < b.N; i++ {
         // Code to benchmark
         result := myOperation(data)
-        
+
         // Prevent compiler optimization
         _ = result
     }
@@ -301,12 +301,12 @@ func BenchmarkFileOperations(b *testing.B) {
         {"Medium", 1024 * 100},
         {"Large", 1024 * 1024},
     }
-    
+
     for _, tc := range sizes {
         b.Run(tc.name, func(b *testing.B) {
             data := generateData(tc.size)
             b.ResetTimer()
-            
+
             for i := 0; i < b.N; i++ {
                 processFile(data)
             }
@@ -320,18 +320,18 @@ func BenchmarkFileOperations(b *testing.B) {
 ```go
 func BenchmarkMemoryIntensive(b *testing.B) {
     b.ReportAllocs() // Enable allocation reporting
-    
+
     for i := 0; i < b.N; i++ {
         // Track specific allocations
         before := testing.AllocsPerRun(1, func() {
             // Warm-up run
             myOperation()
         })
-        
+
         after := testing.AllocsPerRun(100, func() {
             myOperation()
         })
-        
+
         if after > before*1.1 {
             b.Fatalf("Allocation regression: %f -> %f", before, after)
         }
@@ -346,7 +346,7 @@ func BenchmarkConcurrentOperation(b *testing.B) {
     b.RunParallel(func(pb *testing.PB) {
         // Each goroutine gets its own data
         data := prepareLocalData()
-        
+
         for pb.Next() {
             result := concurrentOperation(data)
             _ = result

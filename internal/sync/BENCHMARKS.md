@@ -18,7 +18,7 @@ The benchmarks are located in `internal/sync/benchmark_test.go` and provide comp
 
 Tests basic directory traversal performance across different directory sizes:
 - SmallDirectory_10 (10 files)
-- MediumDirectory_50 (50 files) 
+- MediumDirectory_50 (50 files)
 - LargeDirectory_100 (100 files)
 - XLargeDirectory_500 (500 files)
 - XXLargeDirectory_1000 (1000 files)
@@ -38,16 +38,16 @@ Compares GitHub Tree API vs individual file API calls:
 - Includes failure simulation (5% failure rate)
 - Tests with various API delays (10-30ms)
 
-**Key Metrics**: 
+**Key Metrics**:
 - `tree-api-calls`: Number of tree API calls
-- `content-api-calls`: Number of individual file calls  
+- `content-api-calls`: Number of individual file calls
 - `total-api-calls`: Combined API calls
 
 ### 4. Cache Hit Rates (`BenchmarkCacheHitRates`)
 
 Tests caching performance with different access patterns:
 - **Sequential**: Linear access pattern
-- **Random**: Random access pattern  
+- **Random**: Random access pattern
 - **Hotspot**: 80/20 access pattern (80% requests to 20% of files)
 
 **Key Metrics**:
@@ -126,7 +126,7 @@ Establishes baseline metrics for performance regression detection:
 - `baseline-worker-count`: Worker configuration
 - `baseline-processing-efficiency-%`: Processing success rate
 
-#### BaselineAPICallReduction  
+#### BaselineAPICallReduction
 Measures API call efficiency improvements:
 
 **Key Metrics**:
@@ -197,7 +197,7 @@ BenchmarkAPIEfficiency/IndividualAPI_SmallRepo_10files-8   	     100	  12345678 
 Based on the Phase 5 success criteria:
 
 - **API Call Reduction**: Target 80%+ reduction using Tree API
-- **Cache Hit Rate**: Target 60%+ for realistic access patterns  
+- **Cache Hit Rate**: Target 60%+ for realistic access patterns
 - **Memory Efficiency**: Linear scaling with directory size
 - **Concurrent Performance**: No significant degradation up to 20 workers
 
@@ -273,4 +273,4 @@ When adding new benchmarks:
 3. Test with various input sizes
 4. Add documentation to this file
 5. Consider real-world usage patterns
-6. Ensure benchmarks are deterministic and repeatable
+6. Ensure benchmarks are deterministic and repeatablerepeatable

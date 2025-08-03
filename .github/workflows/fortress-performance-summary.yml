@@ -118,7 +118,7 @@ jobs:
               echo "Moving $file to ./$filename"
               cp "$file" "./$filename"
             done
-            
+
             # List all flattened files for debugging
             echo "📋 Available stats files:"
             ls -la *-stats-*.json 2>/dev/null || echo "No stats files found"
@@ -196,7 +196,7 @@ jobs:
             if compgen -G "benchmark-stats-*.json" >/dev/null 2>&1; then
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### 🏃 Benchmark Performance" >> $GITHUB_STEP_SUMMARY
-              
+
               # Get benchmark mode from the first stats file
               BENCH_MODE="normal"
               for stats_file in benchmark-stats-*.json; do
@@ -205,10 +205,10 @@ jobs:
                   break
                 fi
               done
-              
+
               echo "**Mode**: \`$BENCH_MODE\` $(case "$BENCH_MODE" in quick) echo "(Quick 50ms runs)" ;; full) echo "(Comprehensive 10s runs)" ;; *) echo "(Normal 100ms runs)" ;; esac)" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
-              
+
               echo "| Benchmark Suite | Duration | Benchmarks | Status |" >> $GITHUB_STEP_SUMMARY
               echo "|-----------------|----------|------------|--------|" >> $GITHUB_STEP_SUMMARY
 
@@ -297,24 +297,24 @@ jobs:
             if compgen -G "coverage-stats-*.json" >/dev/null 2>&1; then
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### 📊 Coverage System Performance" >> $GITHUB_STEP_SUMMARY
-              
+
               for stats_file in coverage-stats-*.json; do
                 if [ -f "$stats_file" ]; then
                   echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
                   echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-                  
+
                   COVERAGE_PERCENT=$(jq -r '.coverage_percent // "N/A"' "$stats_file")
                   PROCESSING_TIME=$(jq -r '.processing_time_seconds // "N/A"' "$stats_file")
                   FILES_PROCESSED=$(jq -r '.files_processed // "N/A"' "$stats_file")
                   BADGE_GENERATED=$(jq -r '.badge_generated // "false"' "$stats_file")
                   PAGES_DEPLOYED=$(jq -r '.pages_deployed // "false"' "$stats_file")
-                  
+
                   echo "| **Coverage Percentage** | $COVERAGE_PERCENT% |" >> $GITHUB_STEP_SUMMARY
                   echo "| **Processing Time** | ${PROCESSING_TIME}s |" >> $GITHUB_STEP_SUMMARY
                   echo "| **Files Processed** | $FILES_PROCESSED |" >> $GITHUB_STEP_SUMMARY
                   echo "| **Badge Generated** | $([ "$BADGE_GENERATED" == "true" ] && echo "✅ Yes" || echo "❌ No") |" >> $GITHUB_STEP_SUMMARY
                   echo "| **Pages Deployed** | $([ "$PAGES_DEPLOYED" == "true" ] && echo "✅ Yes" || echo "❌ No") |" >> $GITHUB_STEP_SUMMARY
-                  
+
                   break # Only show first coverage stats file
                 fi
               done

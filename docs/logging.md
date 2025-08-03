@@ -438,6 +438,6 @@ For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github
 ## Related Documentation
 
 1. [Logging Quick Reference](logging-quick-ref.md) - Essential logging commands and flags
-2. [Troubleshooting Guide](troubleshooting.md) - General troubleshooting procedures  
+2. [Troubleshooting Guide](troubleshooting.md) - General troubleshooting procedures
 3. [Troubleshooting Runbook](troubleshooting-runbook.md) - Operational troubleshooting procedures
 4. [CLAUDE.md Developer Workflows](../.github/CLAUDE.md) - Complete development workflow integration

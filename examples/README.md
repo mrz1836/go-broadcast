@@ -208,11 +208,11 @@ files:
   # Copy to same location
   - src: "Makefile"
     dest: "Makefile"
-  
+
   # Rename during copy
   - src: "README.template.md"
     dest: "README.md"
-  
+
   # Move to different directory
   - src: "configs/default.yaml"
     dest: "config/app.yaml"
@@ -236,7 +236,7 @@ directories:
     dest: ".github/coverage"
     exclude:
       - "*.out"                    # Coverage output files
-      - "gofortress-coverage"      # Binary executable  
+      - "gofortress-coverage"      # Binary executable
       - "**/testdata/**"           # Test fixtures
     transform:
       repo_name: true
@@ -264,7 +264,7 @@ directories:
     dest: "api-docs"
     preserve_structure: true       # Results in: api-docs/nested/file.md
     include_hidden: true           # Include .gitignore, .env, etc.
-    
+
   # Flatten directory structure
   - src: "templates/production"
     dest: "templates"
@@ -294,17 +294,17 @@ directories:
       - "*.tmp"                    # All .tmp files
       - "*-local.*"                # Files with -local in name
       - "experimental-*"           # Files starting with experimental-
-      
+
       # Directory patterns
       - "draft/**"                 # Everything under draft/
       - "**/temp/**"               # temp directories at any depth
       - "cache/*"                  # Files directly in cache/
-      
+
       # Development artifacts (beyond smart defaults)
       - "**/*.pyc"                 # Python compiled files
       - "**/node_modules/**"       # Node.js dependencies
       - "**/__pycache__/**"        # Python cache directories
-      
+
       # Security-sensitive files
       - "**/*.key"                 # Private keys
       - "**/*secret*"              # Files containing 'secret'
@@ -332,7 +332,7 @@ directories:
 11. **Segment Large Directories**: For >500 files, consider splitting into logical subdirectories
 12. **Monitor Performance**: Expected performance targets:
     - <50 files: <3ms
-    - 50-150 files: 1-7ms  
+    - 50-150 files: 1-7ms
     - 500+ files: 16-32ms
     - 1000+ files: ~32ms
 13. **Leverage API Optimization**: Directory sync uses GitHub tree API for 90%+ call reduction

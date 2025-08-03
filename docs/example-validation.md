@@ -51,7 +51,7 @@ go-broadcast validate --config examples/minimal.yaml
 go-broadcast validate --config examples/directory-sync.yaml
 go-broadcast validate --config examples/github-workflows.yaml
 go-broadcast validate --config examples/large-directories.yaml
-go-broadcast validate --config examples/exclusion-patterns.yaml  
+go-broadcast validate --config examples/exclusion-patterns.yaml
 go-broadcast validate --config examples/github-complete.yaml
 ```
 
@@ -98,7 +98,7 @@ All existing file sync examples validate successfully:
 
 ```
 ✅ VALID: examples/minimal.yaml
-✅ VALID: examples/sync.yaml  
+✅ VALID: examples/sync.yaml
 ✅ VALID: examples/microservices.yaml
 ✅ VALID: examples/multi-language.yaml
 ✅ VALID: examples/ci-cd-only.yaml
@@ -126,7 +126,7 @@ Additional checks:
   ✓ No duplicate file destinations
 ```
 
-#### Directory Sync Examples 🔄  
+#### Directory Sync Examples 🔄
 Directory sync examples show expected validation errors until implementation is complete:
 
 ```
@@ -225,7 +225,7 @@ Once implementation is complete, performance validation should verify:
 
 ### Expected Performance Metrics
 - Small directories (<50 files): <3ms processing
-- Medium directories (50-150 files): 1-7ms processing  
+- Medium directories (50-150 files): 1-7ms processing
 - Large directories (500+ files): 16-32ms processing
 - Very large directories (1000+ files): ~32ms processing
 
@@ -254,7 +254,7 @@ done
 ### Automated Testing
 The validation script should be run:
 - Before any release
-- After configuration format changes  
+- After configuration format changes
 - When adding new example files
 - As part of CI/CD pipeline
 

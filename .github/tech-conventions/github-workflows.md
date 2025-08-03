@@ -189,7 +189,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     # ... test steps
-  
+
   deploy:
     needs: test
     if: success()
@@ -277,4 +277,4 @@ permissions:
 ### External
 * [GitHub Actions Documentation](https://docs.github.com/en/actions)
 * [Security Hardening Guide](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions)
-* [Workflow Syntax Reference](https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions)
+* [Workflow Syntax Reference](https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions)s)

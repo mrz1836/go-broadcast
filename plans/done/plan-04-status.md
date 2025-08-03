@@ -57,7 +57,7 @@ go-broadcast sync -v
 # Trace level logging
 go-broadcast sync -vv
 
-# Maximum verbosity with caller info  
+# Maximum verbosity with caller info
 go-broadcast sync -vvv
 
 # Component-specific debugging
@@ -171,7 +171,7 @@ go-broadcast sync -vv --debug-git --debug-transform
 # Git command debugging
 go-broadcast sync --debug-git -v
 
-# API request/response debugging  
+# API request/response debugging
 go-broadcast sync --debug-api -vv
 
 # File transformation debugging
@@ -187,7 +187,7 @@ go-broadcast sync -vvv --debug-git --debug-api --debug-transform
 ### Sample Debug Output
 With `--debug-git` enabled:
 ```
-[DEBUG] [git] Executing git command: command=git args=["-C", "repo", "clone", "url"] 
+[DEBUG] [git] Executing git command: command=git args=["-C", "repo", "clone", "url"]
 [TRACE] [git] stdout: Cloning into 'repo'...
 [DEBUG] [git] Git command completed: duration_ms=1250 exit_code=0
 ```
@@ -316,7 +316,7 @@ With `--debug-transform` enabled:
 # Configuration validation debugging
 go-broadcast validate --debug-config -v
 
-# State discovery debugging  
+# State discovery debugging
 go-broadcast sync --debug-state -vv
 
 # Combined validation and state debugging

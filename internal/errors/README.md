@@ -22,7 +22,7 @@ var (
     ErrSyncFailed         = errors.New("sync operation failed")
     ErrNoMatchingTargets  = errors.New("no targets match the specified filter")
     ErrFileNotFound       = errors.New("source file not found")
-    
+
     // Git-related errors
     ErrNoChanges          = errors.New("no changes to commit")
     ErrMergeConflict      = errors.New("merge conflict detected")
@@ -30,7 +30,7 @@ var (
     ErrBranchExists       = errors.New("branch already exists")
     ErrInvalidBranch      = errors.New("invalid branch name")
     ErrUncommittedChanges = errors.New("uncommitted changes in working directory")
-    
+
     // GitHub-related errors
     ErrPRAlreadyExists    = errors.New("pull request already exists")
     ErrInvalidRepository  = errors.New("invalid repository format")
@@ -158,12 +158,12 @@ func loadConfig(path string) (*Config, error) {
     if err != nil {
         return nil, errors.WrapWithContext(err, "read config file")
     }
-    
+
     var config Config
     if err := json.Unmarshal(data, &config); err != nil {
         return nil, errors.WrapWithContext(err, "parse config JSON")
     }
-    
+
     return &config, nil
 }
 ```
@@ -174,15 +174,15 @@ func validateRepository(repo string) error {
     if repo == "" {
         return errors.EmptyField("repository")
     }
-    
+
     if !strings.Contains(repo, "/") {
         return errors.InvalidFormat("repository", "owner/name")
     }
-    
+
     if strings.Contains(repo, "..") {
         return errors.PathTraversal(repo)
     }
-    
+
     return nil
 }
 ```
@@ -203,7 +203,7 @@ func (r *Repository) GetFile(path string) ([]byte, error) {
     if path == "" {
         return nil, errors.EmptyField("file path")
     }
-    
+
     data, err := r.readFile(path)
     if os.IsNotExist(err) {
         return nil, errors.ErrFileNotFound
@@ -211,7 +211,7 @@ func (r *Repository) GetFile(path string) ([]byte, error) {
     if err != nil {
         return nil, errors.WrapWithContext(err, "read file")
     }
-    
+
     return data, nil
 }
 ```
@@ -222,12 +222,12 @@ func (g *GitClient) Status(repo string) (string, error) {
     if err := validateRepository(repo); err != nil {
         return "", err
     }
-    
+
     output, err := g.run("git", "-C", repo, "status")
     if err != nil {
         return "", errors.CommandFailed("git status", err)
     }
-    
+
     return string(output), nil
 }
 ```
@@ -265,4 +265,5 @@ return fmt.Errorf("command 'git status' failed: %w", err)
 After:
 ```go
 return errors.CommandFailed("git status", err)
+``` errors.CommandFailed("git status", err)
 ```

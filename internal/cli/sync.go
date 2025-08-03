@@ -29,15 +29,15 @@ Target repositories can be specified as arguments to sync only specific repos.`,
   go-broadcast sync --config sync.yaml     # Use specific config file
   go-broadcast sync org/repo1 org/repo2    # Sync only specified repositories
   go-broadcast sync --dry-run              # Preview changes without making them
-  
+
   # Debugging and troubleshooting
   go-broadcast sync --log-level debug      # Enable debug logging
   go-broadcast sync --log-level trace      # Maximum verbosity
-  
+
   # Common workflows
   go-broadcast validate && go-broadcast sync --dry-run  # Validate then preview
   go-broadcast sync --dry-run | tee preview.log        # Save preview output
-  
+
   # For debugging capabilities, use:
   # go-broadcast sync -v --debug-git --debug-api (requires verbose support)`,
 	Aliases: []string{"s"},

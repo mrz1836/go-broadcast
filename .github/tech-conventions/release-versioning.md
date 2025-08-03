@@ -6,7 +6,7 @@
 
 ## 🚀 Semantic Versioning
 
-We follow **Semantic Versioning (✧ SemVer)**:  
+We follow **Semantic Versioning (✧ SemVer)**:
 `MAJOR.MINOR.PATCH` → `1.2.3`
 
 | Segment   | Bumps When …                          | Examples        |
@@ -20,7 +20,7 @@ We follow **Semantic Versioning (✧ SemVer)**:
 ## 📦 Release Tooling
 
 * Releases are driven by **[goreleaser]** and configured in `.goreleaser.yml`.
-* Install locally with Homebrew (Mac):  
+* Install locally with Homebrew (Mac):
 ```bash
   brew install goreleaser
 ```

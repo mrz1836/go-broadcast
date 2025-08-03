@@ -83,7 +83,7 @@ func (c *CachedGitHubClient) GetBranches(repo string) ([]Branch, error) {
     if cached, ok := c.cache.Get(repo); ok {
         return cached.([]Branch), nil
     }
-    
+
     branches, err := c.GitHubClient.GetBranches(repo)
     if err == nil {
         c.cache.Set(repo, branches)
@@ -139,13 +139,13 @@ func IsBinaryOptimized(data []byte) bool {
     if len(data) == 0 {
         return false
     }
-    
+
     // Check first 8KB only
     checkLen := len(data)
     if checkLen > 8192 {
         checkLen = 8192
     }
-    
+
     // Fast path: check for null bytes
     for i := 0; i < checkLen; i++ {
         if data[i] == 0 {
@@ -335,7 +335,7 @@ func processData(data []byte) string {
         buf.Reset()
         bufferPool.Put(buf)
     }()
-    
+
     // Use buffer
     buf.Write(data)
     return buf.String()
@@ -358,7 +358,7 @@ func optimizedFunction(data []byte) bool {
     if len(data) == 0 {
         return false
     }
-    
+
     // Avoid function calls in loops
     dataLen := len(data)
     for i := 0; i < dataLen; i++ {
@@ -389,7 +389,7 @@ for i := 0; i < len(items); i += batchSize {
         end = len(items)
     }
     batch := items[i:end]
-    
+
     pool.Submit(&BatchTask{items: batch})
 }
 ```
@@ -482,7 +482,7 @@ syncDuration.WithLabelValues("full_sync").Observe(
 ## Developer Workflow Integration
 
 For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md#-performance-testing-and-benchmarking) which includes:
-- **Performance testing procedures** for optimization validation  
+- **Performance testing procedures** for optimization validation
 - **Benchmark execution workflows** for measuring improvements
 - **Development workflow integration** for performance-conscious development
 - **Quality assurance commands** to maintain performance standards

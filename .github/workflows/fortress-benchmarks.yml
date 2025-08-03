@@ -243,30 +243,30 @@ jobs:
             # Step 1: Extract benchmark result lines using a more specific pattern
             # Expected format: BenchmarkName-N  iterations  ns/op  [B/op]  [allocs/op]
             # Example: BenchmarkMyFunc-8  1000000  1234.5 ns/op  56 B/op  2 allocs/op
-            
+
             # Primary pattern: Match benchmark name with dash-number, iterations, and ns/op
             BENCH_LINES=$(grep -E '^Benchmark[A-Za-z0-9_-]+-[0-9]+\s+[0-9]+\s+[0-9.]+ ns/op' "$BENCH_OUTPUT_FILE" || true)
-            
+
             if [ -n "$BENCH_LINES" ]; then
               BENCH_SUMMARY=$(echo "$BENCH_LINES" | while read -r line; do
                 # Step 2: Parse each component of the benchmark line
-                
+
                 # Extract benchmark name (remove the -N suffix where N is the GOMAXPROCS)
                 BENCH_NAME=$(echo "$line" | awk '{print $1}' | sed 's/-[0-9]*$//')
-                
+
                 # Extract iteration count (second field)
                 ITERATIONS=$(echo "$line" | awk '{print $2}')
-                
+
                 # Extract nanoseconds per operation (third field)
                 NS_PER_OP=$(echo "$line" | awk '{print $3}')
-                
+
                 # Step 3: Extract optional memory metrics using targeted grep
                 # Look for "X B/op" pattern (bytes per operation)
                 B_PER_OP=$(echo "$line" | grep -oE '[0-9.]+ B/op' | awk '{print $1}' || echo "N/A")
-                
-                # Look for "X allocs/op" pattern (allocations per operation)  
+
+                # Look for "X allocs/op" pattern (allocations per operation)
                 ALLOCS_PER_OP=$(echo "$line" | grep -oE '[0-9.]+ allocs/op' | awk '{print $1}' || echo "N/A")
-                
+
                 # Step 4: Format the summary line
                 echo "- **$BENCH_NAME**: $NS_PER_OP ns/op, $B_PER_OP B/op, $ALLOCS_PER_OP allocs/op ($ITERATIONS iterations)"
               done)

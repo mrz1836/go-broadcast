@@ -292,21 +292,21 @@ header h1 {
     .container {
         padding: 10px;
     }
-    
+
     header {
         flex-direction: column;
         gap: 10px;
         text-align: center;
     }
-    
+
     .status-bar {
         justify-content: center;
     }
-    
+
     .metrics-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .stats-grid {
         grid-template-columns: 1fr;
     }
@@ -326,7 +326,7 @@ class PerformanceDashboard {
         };
         this.maxDataPoints = 50;
         this.alerts = [];
-        
+
         this.initCharts();
         this.startDataCollection();
     }
@@ -480,7 +480,7 @@ class PerformanceDashboard {
             sysMem: metrics.memory.sys_mb
         });
         this.data.goroutines.push(metrics.runtime.goroutines);
-        
+
         if (metrics.gc && metrics.gc.last_pause_ms !== undefined) {
             this.data.gc.push(metrics.gc.last_pause_ms);
         } else {
@@ -514,27 +514,27 @@ class PerformanceDashboard {
         if (!metrics) return;
 
         // Update real-time stats
-        document.getElementById('memory-usage').textContent = 
+        document.getElementById('memory-usage').textContent =
             metrics.memory.alloc_mb.toFixed(1) + ' MB';
-        document.getElementById('goroutines').textContent = 
+        document.getElementById('goroutines').textContent =
             metrics.runtime.goroutines;
-        document.getElementById('gc-count').textContent = 
+        document.getElementById('gc-count').textContent =
             metrics.gc.num_gc || '--';
-        document.getElementById('heap-objects').textContent = 
+        document.getElementById('heap-objects').textContent =
             (metrics.memory.heap_objects || 0).toLocaleString();
 
         // Update system info
-        document.getElementById('go-version').textContent = 
+        document.getElementById('go-version').textContent =
             metrics.runtime.go_version || '--';
-        document.getElementById('cpu-cores').textContent = 
+        document.getElementById('cpu-cores').textContent =
             metrics.runtime.num_cpu || '--';
-        document.getElementById('gomaxprocs').textContent = 
+        document.getElementById('gomaxprocs').textContent =
             metrics.runtime.gomaxprocs || '--';
-        document.getElementById('total-alloc').textContent = 
+        document.getElementById('total-alloc').textContent =
             (metrics.memory.total_alloc_mb || 0).toFixed(1) + ' MB';
-        document.getElementById('sys-memory').textContent = 
+        document.getElementById('sys-memory').textContent =
             (metrics.memory.sys_mb || 0).toFixed(1) + ' MB';
-        document.getElementById('next-gc').textContent = 
+        document.getElementById('next-gc').textContent =
             (metrics.memory.next_gc_mb || 0).toFixed(1) + ' MB';
     }
 
@@ -572,7 +572,7 @@ class PerformanceDashboard {
 
     updateAlerts(newAlerts) {
         const container = document.getElementById('alerts-container');
-        
+
         // Clear existing alerts
         container.innerHTML = '';
 
@@ -582,7 +582,7 @@ class PerformanceDashboard {
             newAlerts.forEach(alert => {
                 const alertElement = document.createElement('div');
                 alertElement.className = 'alert-item';
-                alertElement.innerHTML = 
+                alertElement.innerHTML =
                     '<span class="alert-status ' + alert.type + '">●</span>' +
                     '<span class="alert-message">' + alert.message + '</span>';
                 container.appendChild(alertElement);
