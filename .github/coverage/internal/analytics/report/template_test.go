@@ -239,7 +239,7 @@ func (suite *TemplateTestSuite) TestReportTemplateSEOFeatures() {
 func (suite *TemplateTestSuite) TestReportTemplateParsingSuccess() {
 	// Create template functions (same as in renderer)
 	funcMap := template.FuncMap{
-		"multiply": func(a float64, b float64) float64 {
+		"multiply": func(a, b float64) float64 {
 			return a * b
 		},
 		"printf": func(format string, _ ...interface{}) string {
@@ -275,7 +275,7 @@ func (suite *TemplateTestSuite) TestReportTemplateParsingSuccess() {
 func (suite *TemplateTestSuite) TestReportTemplateExecutionWithSampleData() {
 	// Create template functions
 	funcMap := template.FuncMap{
-		"multiply": func(a float64, b float64) float64 {
+		"multiply": func(a, b float64) float64 {
 			return a * b
 		},
 		"printf": func(format string, args ...interface{}) string {

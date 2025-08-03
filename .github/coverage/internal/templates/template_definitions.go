@@ -144,10 +144,6 @@ Changes: {{ .PRFiles.Summary.SummaryText }}
 
 ## 🔗 Resources
 
-{{ if .Resources.BadgeURL }}
-![Coverage Badge]({{ .Resources.BadgeURL }})
-{{ end }}
-
 {{- if or .Resources.ReportURL .Resources.DashboardURL }}
 - 📊 [Full Coverage Report]({{ if .Resources.ReportURL }}{{ .Resources.ReportURL }}{{ else }}{{ .Resources.DashboardURL }}{{ end }})
 {{- end }}

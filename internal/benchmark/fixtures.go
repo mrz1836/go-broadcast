@@ -136,7 +136,7 @@ func GenerateLogEntries(count int, withTokens bool) []string {
 }
 
 // GenerateGitDiff creates a realistic git diff output
-func GenerateGitDiff(fileCount int, linesPerFile int) string {
+func GenerateGitDiff(fileCount, linesPerFile int) string {
 	var buf strings.Builder
 
 	for i := 0; i < fileCount; i++ {

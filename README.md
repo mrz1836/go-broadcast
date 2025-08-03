@@ -636,8 +636,8 @@ targets:
 * **Out‑of‑the‑Box VS Code Happiness** with a preconfigured [Go](https://code.visualstudio.com/docs/languages/go) workspace and [`.vscode`](.vscode) folder with all the right settings.
 * **Optional Release Broadcasts** to your community via [Slack](https://slack.com), [Discord](https://discord.com), or [Twitter](https://twitter.com) – plug in your webhook.
 * **AI Compliance Playbook** – machine‑readable guidelines ([AGENTS.md](.github/AGENTS.md), [CLAUDE.md](.github/CLAUDE.md), [.cursorrules](.cursorrules), [sweep.yaml](.github/sweep.yaml)) keep ChatGPT, Claude, Cursor & Sweep aligned with your repo's rules.
-* **Pre-commit Hooks for Consistency** powered by [pre-commit](https://pre-commit.com) and the [.pre-commit-config.yaml](.pre-commit-config.yaml) file—run the same formatting, linting, and tests before every commit, just like CI.
-* **Automated Hook Updates** keep the [.pre-commit-config.yaml](.pre-commit-config.yaml) current via a weekly [workflow](.github/workflows/update-pre-commit-hooks.yml).
+* **GoFortress Pre-commit System** - High-performance Go-native pre-commit hooks with 17x faster execution—run the same formatting, linting, and tests before every commit, just like CI.
+* **Zero Python Dependencies** - Pure Go implementation with environment-based configuration via [.env.shared](.github/.env.shared).
 * **DevContainers for Instant Onboarding** – Launch a ready-to-code environment in seconds with [VS Code DevContainers](https://containers.dev/) and the included [.devcontainer.json](.devcontainer.json) config.
 
 </details>
@@ -798,14 +798,15 @@ This command ensures all dependencies are brought up to date in a single step, i
 <summary><strong>🔧 Pre-commit Hooks</strong></summary>
 <br/>
 
-Set up the optional [pre-commit](https://pre-commit.com) hooks to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
+Set up the GoFortress Pre-commit System to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
 
 ```bash
-pip install pre-commit
-pre-commit install
+cd .github/pre-commit
+make build
+./gofortress-pre-commit install
 ```
 
-The hooks are configured in [.pre-commit-config.yaml](.pre-commit-config.yaml) and mirror the CI pipeline.
+The system is configured via [.env.shared](.github/.env.shared) and provides 17x faster execution than traditional Python-based pre-commit hooks. See the [complete documentation](.github/pre-commit/README.md) for details.
 
 </details>
 

@@ -464,7 +464,7 @@ Before starting any development work:
    ```bash
    make mod-download
    make install-stdlib
-   pre-commit install  # Optional but recommended
+   cd .github/pre-commit && make build && ./gofortress-pre-commit install  # Optional but recommended
    ```
 3. **Validate environment:**
    ```bash

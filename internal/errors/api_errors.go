@@ -106,7 +106,7 @@ func APIResponseError(statusCode int, message string) error {
 //
 //	return RateLimitError("GitHub API", resetTime)
 //	// Returns: "rate limit exceeded: GitHub API: resets at <time>"
-func RateLimitError(service string, resetTime string) error {
+func RateLimitError(service, resetTime string) error {
 	return fmt.Errorf("%w: %s: resets at %s", errRateLimitTemplate, service, resetTime)
 }
 

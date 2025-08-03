@@ -151,7 +151,7 @@ func FuzzTemplateVariableReplacement(f *testing.F) {
 		f.Add(templateBytes, varsBytes)
 	}
 
-	f.Fuzz(func(t *testing.T, templateData []byte, varsData []byte) {
+	f.Fuzz(func(t *testing.T, templateData, varsData []byte) {
 		// Skip extremely long inputs to avoid resource exhaustion
 		if len(templateData)+len(varsData) > 100000 {
 			t.Skip("Input too large")

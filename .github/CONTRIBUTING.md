@@ -12,10 +12,11 @@ Thank you for your interest in contributing to go-broadcast! This document provi
 ## 📦 How to Contribute
 
 1. **Fork the repo** and create a feature branch
-2. **Install pre-commit hooks**:
+2. **Install GoFortress Pre-commit System**:
    ```bash
-   pip install pre-commit
-   pre-commit install
+   cd .github/pre-commit
+   make build
+   ./gofortress-pre-commit install
    ```
 3. **Development setup**:
    ```bash

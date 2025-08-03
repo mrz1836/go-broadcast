@@ -144,7 +144,7 @@ func NewAnalyticsDashboard(config *DashboardConfig) *AnalyticsDashboard {
 }
 
 // SetComponents sets dashboard components (placeholder for compatibility)
-func (d *AnalyticsDashboard) SetComponents(_ interface{}, _ interface{}, _ interface{}, _ interface{}, _ interface{}) {
+func (d *AnalyticsDashboard) SetComponents(_, _, _, _, _ interface{}) {
 	// Placeholder - components not used in version
 }
 

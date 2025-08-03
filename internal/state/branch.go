@@ -21,7 +21,7 @@ func parseSyncBranchName(name string) (*BranchMetadata, error) {
 }
 
 // parseSyncBranchNameWithPrefix parses a branch name with a specific prefix to extract sync metadata
-func parseSyncBranchNameWithPrefix(name string, prefix string) (*BranchMetadata, error) {
+func parseSyncBranchNameWithPrefix(name, prefix string) (*BranchMetadata, error) {
 	// Create pattern for the given prefix: prefix-YYYYMMDD-HHMMSS-{commit}
 	escapedPrefix := regexp.QuoteMeta(prefix)
 	pattern := fmt.Sprintf(`^(%s)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`, escapedPrefix)

@@ -369,7 +369,7 @@ func getIntEnv(key string, defaultValue int) int {
 	return i
 }
 
-func getStringEnv(key string, defaultValue string) string {
+func getStringEnv(key, defaultValue string) string {
 	val := os.Getenv(key)
 	if val == "" {
 		return defaultValue

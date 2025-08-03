@@ -57,7 +57,7 @@ type CheckResult struct {
 }
 
 // ProgressCallback is called during check execution for progress updates
-type ProgressCallback func(checkName string, status string)
+type ProgressCallback func(checkName, status string)
 
 // New creates a new Runner
 func New(cfg *config.Config, repoRoot string) *Runner {

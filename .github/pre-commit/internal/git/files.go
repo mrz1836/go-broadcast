@@ -94,7 +94,7 @@ func (fc *FileClassifier) FilterTextFiles(ctx context.Context, files []string) (
 }
 
 // ExcludeByPatterns filters out files matching exclude patterns
-func (fc *FileClassifier) ExcludeByPatterns(files []string, patterns []string) []string {
+func (fc *FileClassifier) ExcludeByPatterns(files, patterns []string) []string {
 	if len(patterns) == 0 {
 		return files
 	}

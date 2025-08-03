@@ -149,7 +149,7 @@ func (f *Formatter) Duration(d time.Duration) string {
 }
 
 // ParseMakeError analyzes make command output and provides context-aware suggestions
-func (f *Formatter) ParseMakeError(command string, output string) (message string, suggestion string) {
+func (f *Formatter) ParseMakeError(command, output string) (message, suggestion string) {
 	output = strings.TrimSpace(output)
 
 	switch command {
@@ -255,7 +255,7 @@ func (f *Formatter) parseModTidyError(output string) (string, string) {
 }
 
 // parseGenericMakeError analyzes generic make command errors
-func (f *Formatter) parseGenericMakeError(command string, output string) (string, string) {
+func (f *Formatter) parseGenericMakeError(command, output string) (string, string) {
 	target := strings.TrimPrefix(command, "make ")
 
 	if strings.Contains(output, "No rule to make target") ||

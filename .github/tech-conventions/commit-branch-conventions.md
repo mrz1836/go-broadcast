@@ -29,25 +29,22 @@ docs(README): improve installation instructions
 
 <br><br>
 
-## 📝 Pre-Commit Hooks (Optional)
+## 📝 GoFortress Pre-Commit System (Optional)
 
-To ensure consistent commit messages, we use a pre-commit hook that checks the format before allowing a commit. The hook is defined in `.pre-commit-config.yaml` and can be installed with:
+To ensure consistent commit messages and code quality, we use the GoFortress Pre-commit System that checks formatting, linting, and other standards before allowing a commit. The system is configured via `.github/.env.shared` and can be installed with:
 
 ```bash
-pre-commit install
+cd .github/pre-commit
+make build
+./gofortress-pre-commit install
 ```
 
-If you don't have `pre-commit` installed, you can install it via Homebrew:
+Run the pre-commit checks manually with:
 ```bash
-brew install pre-commit
+./gofortress-pre-commit run
 ```
 
-Run the pre-commit hook manually with:
-```bash
-pre-commit run --all-files
-```
-
-> The pre-commit hook will automatically check your commit messages against the defined format and prevent commits that do not comply.
+> The GoFortress Pre-commit System provides 17x faster execution than traditional Python-based pre-commit hooks and automatically enforces all code quality standards defined in AGENTS.md.
 
 <br><br>
 
