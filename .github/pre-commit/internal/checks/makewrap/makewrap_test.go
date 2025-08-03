@@ -244,6 +244,7 @@ go 1.21
 
 type FumptCheckTestSuite struct {
 	suite.Suite
+
 	tempDir string
 	oldDir  string
 }
@@ -363,6 +364,7 @@ func (s *FumptCheckTestSuite) TestRunWithTimeout() {
 
 type LintCheckTestSuite struct {
 	suite.Suite
+
 	tempDir string
 	oldDir  string
 }
@@ -472,6 +474,7 @@ func main() {
 
 type ModTidyCheckTestSuite struct {
 	suite.Suite
+
 	tempDir string
 	oldDir  string
 }

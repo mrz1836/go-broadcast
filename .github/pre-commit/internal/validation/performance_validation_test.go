@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
@@ -92,7 +91,6 @@ func (s *PerformanceValidationTestSuite) Test2SecondTargetSmallCommit() {
 	s.Require().NoError(err)
 
 	var durations []time.Duration
-	var allResults []*runner.Results
 
 	for i := 0; i < iterations; i++ {
 		r := runner.New(cfg, s.tempDir)
@@ -110,7 +108,6 @@ func (s *PerformanceValidationTestSuite) Test2SecondTargetSmallCommit() {
 		s.Require().NotNil(result, "Result %d should not be nil", i)
 
 		durations = append(durations, duration)
-		allResults = append(allResults, result)
 	}
 
 	// Calculate statistics
@@ -121,9 +118,9 @@ func (s *PerformanceValidationTestSuite) Test2SecondTargetSmallCommit() {
 	// Validate performance targets
 	s.LessOrEqual(avgDuration, target,
 		"Average duration should be ≤2s: %v", avgDuration)
-	s.True(p95Duration <= target*120/100, // Allow 20% buffer for P95
+	s.LessOrEqual(p95Duration, target*120/100, // Allow 20% buffer for P95
 		"P95 duration should be ≤2.4s: %v", p95Duration)
-	s.True(maxDuration <= target*150/100, // Allow 50% buffer for max
+	s.LessOrEqual(maxDuration, target*150/100, // Allow 50% buffer for max
 		"Max duration should be ≤3s: %v", maxDuration)
 
 	s.T().Logf("Small commit performance: avg=%v, p95=%v, max=%v (target=%v)",
@@ -289,7 +286,7 @@ func (s *PerformanceValidationTestSuite) TestPerformanceScaling() {
 			duration := time.Since(start)
 
 			s.Require().NoError(err, "Should succeed with %d files", tc.fileCount)
-			require.NotNil(s.T(), result, "Should have result")
+			s.Require().NotNil(result, "Should have result")
 
 			s.True(duration <= tc.target,
 				"Duration with %d files should be ≤%v: %v", tc.fileCount, tc.target, duration)
@@ -326,7 +323,7 @@ func (s *PerformanceValidationTestSuite) TestColdStartPerformance() {
 	duration := time.Since(start)
 
 	s.Require().NoError(err, "Cold start should succeed")
-	require.NotNil(s.T(), result, "Should have result")
+	s.Require().NotNil(result, "Should have result")
 
 	s.True(duration <= target,
 		"Cold start duration should be ≤3s: %v", duration)
@@ -367,7 +364,7 @@ func (s *PerformanceValidationTestSuite) TestWarmRunPerformance() {
 		cancel()
 
 		s.Require().NoError(err, "Warm run %d should succeed", i)
-		require.NotNil(s.T(), result, "Should have result")
+		s.Require().NotNil(result, "Should have result")
 
 		durations = append(durations, duration)
 	}
@@ -411,22 +408,28 @@ func (s *PerformanceValidationTestSuite) TestMemoryEfficiencyPerformance() {
 	duration := time.Since(start)
 
 	s.Require().NoError(err, "Should succeed")
-	require.NotNil(s.T(), result, "Should have result")
+	s.Require().NotNil(result, "Should have result")
 
 	// Measure memory after
 	runtime.GC()
 	var memAfter runtime.MemStats
 	runtime.ReadMemStats(&memAfter)
 
-	memUsed := memAfter.Alloc - memBefore.Alloc
+	// Calculate memory usage (handle potential GC)
+	var memUsed int64
+	if memAfter.Alloc > memBefore.Alloc {
+		memUsed = int64(memAfter.Alloc - memBefore.Alloc)
+	} else {
+		memUsed = 0 // Memory decreased due to GC, which is fine
+	}
 
 	// Performance should not be impacted by memory usage
-	s.True(duration <= target,
+	s.LessOrEqual(duration, target,
 		"Duration should be ≤2s despite memory usage: %v", duration)
 
 	// Memory usage should be reasonable
-	maxMemory := uint64(50 * 1024 * 1024) // 50MB
-	s.True(memUsed <= maxMemory,
+	maxMemory := int64(50 * 1024 * 1024) // 50MB
+	s.LessOrEqual(memUsed, maxMemory,
 		"Memory usage should be reasonable: %d bytes (max: %d)", memUsed, maxMemory)
 
 	s.T().Logf("Memory-efficient performance: %v, memory used: %d bytes",
@@ -462,7 +465,7 @@ func (s *PerformanceValidationTestSuite) TestErrorHandlingPerformance() {
 	duration := time.Since(start)
 
 	s.Require().NoError(err, "Should succeed despite filtering")
-	require.NotNil(s.T(), result, "Should have result")
+	s.Require().NotNil(result, "Should have result")
 
 	s.True(duration <= target,
 		"Duration with file filtering should be ≤2s: %v", duration)
@@ -496,7 +499,7 @@ func (s *PerformanceValidationTestSuite) TestResourceConstrainedPerformance() {
 	duration := time.Since(start)
 
 	s.Require().NoError(err, "Should succeed under constraints")
-	require.NotNil(s.T(), result, "Should have result")
+	s.Require().NotNil(result, "Should have result")
 
 	s.True(duration <= target,
 		"Duration under constraints should be ≤3s: %v", duration)
@@ -652,13 +655,13 @@ func (s *PerformanceValidationTestSuite) calculateMax(durations []time.Duration)
 		return 0
 	}
 
-	max := durations[0]
+	maxDuration := durations[0]
 	for _, d := range durations[1:] {
-		if d > max {
-			max = d
+		if d > maxDuration {
+			maxDuration = d
 		}
 	}
-	return max
+	return maxDuration
 }
 
 func (s *PerformanceValidationTestSuite) calculatePercentile(durations []time.Duration, percentile int) time.Duration {
@@ -708,7 +711,7 @@ func (s *PerformanceValidationTestSuite) TestPerformanceRegression() {
 		cancel()
 
 		s.Require().NoError(err)
-		require.NotNil(s.T(), result)
+		s.Require().NotNil(result)
 		durations = append(durations, duration)
 	}
 

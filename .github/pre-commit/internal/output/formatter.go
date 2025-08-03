@@ -50,13 +50,9 @@ func New(opts Options) *Formatter {
 
 // NewDefault creates a formatter with default settings, respecting environment variables
 func NewDefault() *Formatter {
-	colorEnabled := true
-
 	// Check for color disable flags
-	if os.Getenv("NO_COLOR") != "" ||
-		os.Getenv("PRE_COMMIT_SYSTEM_COLOR_OUTPUT") == "false" {
-		colorEnabled = false
-	}
+	colorEnabled := !(os.Getenv("NO_COLOR") != "" ||
+		os.Getenv("PRE_COMMIT_SYSTEM_COLOR_OUTPUT") == "false")
 
 	return New(Options{
 		ColorEnabled: colorEnabled,

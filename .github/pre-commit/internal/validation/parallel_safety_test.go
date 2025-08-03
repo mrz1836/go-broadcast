@@ -186,7 +186,7 @@ func (s *ParallelSafetyTestSuite) TestConcurrentRunnerExecution() {
 	// Launch multiple goroutines running the same checks concurrently
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
-		go func(goroutineID int) {
+		go func(_ int) {
 			defer wg.Done()
 
 			for j := 0; j < numIterations; j++ {
@@ -340,15 +340,20 @@ func (s *ParallelSafetyTestSuite) TestMemoryUsageUnderParallelExecution() {
 	var memAfter runtime.MemStats
 	runtime.ReadMemStats(&memAfter)
 
-	// Calculate memory differences
-	allocDiff := memAfter.Alloc - memBefore.Alloc
+	// Calculate memory differences (handle case where GC might have run)
+	var allocDiff int64
+	if memAfter.Alloc > memBefore.Alloc {
+		allocDiff = int64(memAfter.Alloc - memBefore.Alloc)
+	} else {
+		allocDiff = 0 // Memory decreased due to GC, which is fine
+	}
 	totalAllocDiff := memAfter.TotalAlloc - memBefore.TotalAlloc
 
 	s.T().Logf("Memory usage: before=%d, after=%d, diff=%d, total_alloc_diff=%d",
 		memBefore.Alloc, memAfter.Alloc, allocDiff, totalAllocDiff)
 
 	// Memory should not grow excessively (allow reasonable buffer)
-	maxAllowedGrowth := uint64(50 * 1024 * 1024) // 50MB
+	maxAllowedGrowth := int64(50 * 1024 * 1024) // 50MB
 	s.Less(allocDiff, maxAllowedGrowth,
 		"Memory growth should be reasonable: %d bytes (max: %d)", allocDiff, maxAllowedGrowth)
 }
@@ -574,13 +579,19 @@ func (s *ParallelSafetyTestSuite) TestParallelExecutionConsistency() {
 		s.Equal(firstResult.TotalFiles, result.TotalFiles,
 			"Run %d should process same number of files", i+1)
 
-		// Check results should be consistent (names and general success pattern)
-		for j, checkResult := range result.CheckResults {
-			if j < len(firstResult.CheckResults) {
-				s.Equal(firstResult.CheckResults[j].Name, checkResult.Name,
-					"Check %d name should be consistent across runs", j)
-			}
+		// Check results should be consistent (names should exist, order doesn't matter)
+		firstCheckNames := make(map[string]bool)
+		for _, checkResult := range firstResult.CheckResults {
+			firstCheckNames[checkResult.Name] = true
 		}
+
+		currentCheckNames := make(map[string]bool)
+		for _, checkResult := range result.CheckResults {
+			currentCheckNames[checkResult.Name] = true
+		}
+
+		s.Equal(firstCheckNames, currentCheckNames,
+			"Run %d should have same check names as first run (order may vary)", i+1)
 	}
 
 	s.T().Logf("Consistency test completed: %d runs, %d checks per run",
@@ -685,7 +696,7 @@ PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=4
 	// Launch multiple goroutines that may encounter timeouts
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 
 			r := runner.New(cfg, s.tempDir)
@@ -711,8 +722,8 @@ PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=4
 	close(results)
 
 	// Collect results
-	var allErrors []error
-	var allResults []*runner.Results
+	allErrors := make([]error, 0, numGoroutines)
+	allResults := make([]*runner.Results, 0, numGoroutines)
 
 	for err := range errors {
 		allErrors = append(allErrors, err)

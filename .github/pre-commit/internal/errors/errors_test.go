@@ -178,7 +178,7 @@ func (s *ErrorTestSuite) TestCheckErrorChaining() {
 	wrappedErr := NewCheckError(originalErr, "wrapped message", "fix suggestion")
 
 	// Test that we can unwrap to the original error
-	s.ErrorIs(wrappedErr, originalErr)
+	s.Require().ErrorIs(wrappedErr, originalErr)
 	s.Equal(originalErr, errors.Unwrap(wrappedErr))
 
 	// Test error chaining with standard library

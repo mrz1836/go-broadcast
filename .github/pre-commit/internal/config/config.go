@@ -213,7 +213,7 @@ func (c *Config) Validate() error {
 	}
 
 	if len(errors) > 0 {
-		return &ConfigValidationError{
+		return &ValidationError{
 			Errors: errors,
 		}
 	}
@@ -221,13 +221,13 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// ConfigValidationError represents configuration validation errors
-type ConfigValidationError struct {
+// ValidationError represents configuration validation errors
+type ValidationError struct {
 	Errors []string
 }
 
 // Error implements the error interface
-func (e *ConfigValidationError) Error() string {
+func (e *ValidationError) Error() string {
 	return fmt.Sprintf("configuration validation failed:\n  - %s", strings.Join(e.Errors, "\n  - "))
 }
 

@@ -488,7 +488,7 @@ func (s *ProductionScenariosTestSuite) TestCIEnvironmentScenarios() {
 			s.NotNil(result, "Should have results in CI environment")
 
 			// Performance should be reasonable in CI
-			s.True(duration < 30*time.Second,
+			s.Less(duration, 30*time.Second,
 				"CI execution should complete in reasonable time: %v", duration)
 
 			// Clean up environment variables
@@ -526,7 +526,7 @@ func (s *ProductionScenariosTestSuite) TestRealWorldFilePatterns() {
 	// Should handle real-world patterns successfully
 	s.NoError(err, "Should handle real-world file patterns")
 	s.NotNil(result, "Should have results")
-	s.True(duration < 20*time.Second, "Should complete in reasonable time")
+	s.Less(duration, 20*time.Second, "Should complete in reasonable time")
 
 	s.T().Logf("Real-world patterns test: %d files processed in %v",
 		len(files), duration)
@@ -535,7 +535,7 @@ func (s *ProductionScenariosTestSuite) TestRealWorldFilePatterns() {
 // Helper methods for creating test scenarios
 
 func (s *ProductionScenariosTestSuite) createLargeRepositoryStructure(fileCount int) []string {
-	var files []string
+	files := make([]string, 0, fileCount)
 
 	// Create directory structure
 	dirs := []string{
@@ -570,7 +570,7 @@ func (s *ProductionScenariosTestSuite) createLargeRepositoryStructure(fileCount 
 	return files
 }
 
-func (s *ProductionScenariosTestSuite) cleanupLargeRepository(fileCount int) {
+func (s *ProductionScenariosTestSuite) cleanupLargeRepository(_ int) {
 	dirs := []string{
 		"cmd", "pkg", "internal", "api", "web", "scripts",
 		"docs", "examples", "test", "build",
@@ -601,7 +601,7 @@ func (s *ProductionScenariosTestSuite) createMixedFileTypeStructure() []string {
 		"binary.png":         "\x89PNG\r\n\x1a\n", // Binary file
 	}
 
-	var files []string
+	files := make([]string, 0, len(fileMap))
 	for filename, content := range fileMap {
 		fullPath := filepath.Join(s.tempDir, filename)
 		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
@@ -706,7 +706,7 @@ func main() {}
 		"only_whitespace.md": "   \n\t\n   \n",
 	}
 
-	var files []string
+	files := make([]string, 0, len(fileMap))
 	for filename, content := range fileMap {
 		fullPath := filepath.Join(s.tempDir, filename)
 		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))

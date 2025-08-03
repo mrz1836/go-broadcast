@@ -445,7 +445,7 @@ func (s *RunnerTestSuite) TestErrorConditions() {
 	}
 
 	results, err := r.Run(context.Background(), opts)
-	s.Error(err) // Should return error when no checks to run
+	s.Require().Error(err) // Should return error when no checks to run
 	s.Contains(err.Error(), "no checks to run")
 	s.Nil(results)
 }
@@ -510,13 +510,13 @@ func (s *RunnerTestSuite) TestDetermineChecks() {
 			results, err := r.Run(context.Background(), opts)
 			if tt.expectedMin == 0 && tt.expectedMax == 0 {
 				// Expect error when no checks to run
-				s.Error(err)
+				s.Require().Error(err)
 				s.Contains(err.Error(), "no checks to run")
 			} else {
 				s.Require().NoError(err)
 				s.NotNil(results)
-				s.True(len(results.CheckResults) >= tt.expectedMin)
-				s.True(len(results.CheckResults) <= tt.expectedMax)
+				s.GreaterOrEqual(len(results.CheckResults), tt.expectedMin)
+				s.LessOrEqual(len(results.CheckResults), tt.expectedMax)
 			}
 		})
 	}
@@ -592,7 +592,7 @@ func (s *RunnerTestSuite) TestResultsAggregation() {
 	totalResults := results.Passed + results.Failed + results.Skipped
 	s.Equal(len(results.CheckResults), totalResults)
 	s.Equal(1, results.TotalFiles)
-	s.True(results.TotalDuration >= 0)
+	s.GreaterOrEqual(results.TotalDuration, time.Duration(0))
 }
 
 // Helper function
