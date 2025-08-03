@@ -32,16 +32,6 @@ on:
         description: "Version of golangci-lint to use"
         required: true
         type: string
-      cache-key-pattern:
-        description: "Dynamic cache key pattern"
-        required: false
-        type: string
-        default: "'**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum'"
-      cache-restore-keys:
-        description: "Cache restore keys"
-        required: false
-        type: string
-        default: ""
     secrets:
       github-token:
         description: "GitHub token for authentication"
@@ -128,9 +118,9 @@ jobs:
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/go/pkg/mod
-          key: ${{ inputs.primary-runner }}-gomod-${{ hashFiles(inputs.cache-key-pattern) }}
+          key: ${{ inputs.primary-runner }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
           restore-keys: |
-            ${{ inputs.cache-restore-keys || format('{0}-gomod-', inputs.primary-runner) }}
+            ${{ inputs.primary-runner }}-gomod-
 
       # ————————————————————————————————————————————————————————————————
       # Restore build cache from a warm-cache job
@@ -141,7 +131,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/.cache/go-build/test
-          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles(inputs.cache-key-pattern) }}
+          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
           restore-keys: |
             ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-
 
@@ -153,9 +143,9 @@ jobs:
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ${{ env.GOLANGCI_LINT_CACHE }}
-          key: ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', inputs.cache-key-pattern) }}-${{ inputs.golangci-lint-version }}
+          key: ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}-${{ inputs.golangci-lint-version }}
           restore-keys: |
-            ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', inputs.cache-key-pattern) }}
+            ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
             ${{ inputs.primary-runner }}-golangci-lint-analysis-
 
       # ————————————————————————————————————————————————————————————————
