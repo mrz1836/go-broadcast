@@ -2,7 +2,7 @@
 #  Pre-commit Hooks (Reusable Workflow) (GoFortress)
 #
 #  Purpose: Run Go-native pre-commit hooks for code quality enforcement.
-#  This workflow builds and executes the gofortress-hooks tool from .github/hooks/
+#  This workflow builds and executes the gofortress-pre-commit tool from .github/hooks/
 #
 #  Maintainer: @mrz1836
 #
@@ -31,7 +31,7 @@ on:
         type: string
     outputs:
       hooks-version:
-        description: "Version of gofortress-hooks used"
+        description: "Version of gofortress-pre-commit used"
         value: ${{ jobs.hooks.outputs.hooks-version }}
       hooks-executed:
         description: "List of hooks that were executed"
@@ -116,7 +116,7 @@ jobs:
           if [ -d ".github/pre-commit" ]; then
             echo "✅ Found .github/pre-commit directory"
             echo "exists=true" >> $GITHUB_OUTPUT
-            
+
             # Check for go.mod in pre-commit directory
             if [ -f ".github/pre-commit/go.mod" ]; then
               echo "✅ Found pre-commit go.mod file"
@@ -125,13 +125,13 @@ jobs:
               echo "❌ Missing go.mod in .github/pre-commit/"
               echo "go_mod_exists=false" >> $GITHUB_OUTPUT
             fi
-            
+
             # Check for main.go
-            if [ -f ".github/pre-commit/cmd/gofortress-hooks/main.go" ]; then
+            if [ -f ".github/pre-commit/cmd/gofortress-pre-commit/main.go" ]; then
               echo "✅ Found main.go entry point"
               echo "main_exists=true" >> $GITHUB_OUTPUT
             else
-              echo "❌ Missing main.go in cmd/gofortress-hooks/"
+              echo "❌ Missing main.go in cmd/gofortress-pre-commit/"
               echo "main_exists=false" >> $GITHUB_OUTPUT
             fi
           else
@@ -177,13 +177,13 @@ jobs:
           cache: false # we handle caches ourselves
 
       # ————————————————————————————————————————————————————————————————
-      # Build gofortress-hooks
+      # Build gofortress-pre-commit
       # ————————————————————————————————————————————————————————————————
-      - name: 🔨 Build gofortress-hooks
+      - name: 🔨 Build gofortress-pre-commit
         if: steps.check-hooks.outputs.exists == 'true' && steps.check-hooks.outputs.go_mod_exists == 'true'
         id: build-hooks
         run: |
-          echo "🔨 Building gofortress-hooks tool..."
+          echo "🔨 Building gofortress-pre-commit tool..."
           cd .github/pre-commit
 
           # Download dependencies
@@ -192,14 +192,14 @@ jobs:
 
           # Build the tool
           echo "🏗️ Building binary..."
-          go build -o gofortress-hooks ./cmd/gofortress-hooks
+          go build -o gofortress-pre-commit ./cmd/gofortress-pre-commit
 
-          if [ -f "gofortress-hooks" ]; then
+          if [ -f "gofortress-pre-commit" ]; then
             echo "✅ Build successful"
             echo "build_success=true" >> $GITHUB_OUTPUT
-            
+
             # Get version
-            ./gofortress-hooks version > version.txt 2>&1 || echo "dev" > version.txt
+            ./gofortress-pre-commit version > version.txt 2>&1 || echo "dev" > version.txt
             VERSION=$(cat version.txt | head -1)
             echo "🏷️ Version: $VERSION"
             echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -239,12 +239,12 @@ jobs:
 
           # List available hooks
           echo "📋 Available hooks:"
-          ./gofortress-hooks list || echo "  (list command not implemented)"
+          ./gofortress-pre-commit list || echo "  (list command not implemented)"
           echo ""
 
           # Run all hooks on all files (CI mode)
           echo "🪝 Executing hooks on all files..."
-          HOOKS_OUTPUT=$(./gofortress-hooks run pre-commit --all-files 2>&1) || HOOKS_EXIT=$?
+          HOOKS_OUTPUT=$(./gofortress-pre-commit run pre-commit --all-files 2>&1) || HOOKS_EXIT=$?
 
           echo "$HOOKS_OUTPUT"
 
@@ -307,7 +307,7 @@ jobs:
             echo "| **Execution Mode** | ${{ env.HOOKS_PARALLEL_EXECUTION == 'true' && '⚡ Parallel' || '📝 Sequential' }} |" >> $GITHUB_STEP_SUMMARY
             echo "| **Timeout** | ${{ env.HOOKS_TIMEOUT_SECONDS }}s |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            
+
             if [ "${{ steps.build-hooks.outputs.build_success }}" == "true" ]; then
               echo "### 🪝 Hooks Executed" >> $GITHUB_STEP_SUMMARY
               HOOKS="${{ steps.run-hooks.outputs.executed || 'unknown' }}"

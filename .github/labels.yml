@@ -55,6 +55,9 @@
 - name: "performance"
   description: "Performance improvements or optimizations"
   color: 8bc34a
+- name: "pre-commit-system"
+  description: "GoFortress pre-commit system related changes"
+  color: 4caf50
 - name: "prototype"
   description: "Experimental - can break!"
   color: d4c5f9

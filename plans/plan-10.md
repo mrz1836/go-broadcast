@@ -32,7 +32,7 @@ Create a best-in-class Go-native git hooks manager that embodies Go's philosophy
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌──────────────┐    ┌──────────────────────────┐               │
-│  │ Git Command  │───▶│ gofortress-hooks         │               │
+│  │ Git Command  │───▶│ gofortress-pre-commit    │               │
 │  │ (commit/push)│    │ (Single Go Binary)       │               │
 │  └──────────────┘    │                          │               │
 │                      │ ├─ install               │               │
@@ -54,7 +54,7 @@ Directory Structure:
 ├── .env.shared                   # Centralized configuration (all pre-commit settings)
 └── pre-commit/                   # Self-contained GoFortress Pre-commit System
     ├── cmd/
-    │   └── gofortress-hooks/     # Main CLI tool
+    │   └── gofortress-pre-commit/     # Main CLI tool
     ├── internal/                 # Internal packages
     └── README.md                 # Documentation
 ```
@@ -90,7 +90,7 @@ Each phase is designed to be completed in a single Claude Code session with clea
 - `.github/pre-commit/.gitignore` - Ignore build artifacts
 - `.github/pre-commit/README.md` - Initial documentation
 - `.github/labels.yml` - Add hook-system label
-- `.github/dependabot.yml` - Add hooks tool Go module monitoring
+- `.github/dependabot.yml` - Add pre-commit tool Go module monitoring
 - `plans/plan-10-status.md` - Update status tracking document
 
 **Verification Steps:**
@@ -159,7 +159,7 @@ HOOKS_END_OF_FILE_FIXER_ENABLED=true     # Ensure files end with newline (built-
 │   ├── go.mod                     # Go module at root (like coverage)
 │   ├── go.sum
 │   ├── cmd/
-│   │   └── gofortress-hooks/      # Main CLI tool
+│   │   └── gofortress-pre-commit/      # Main CLI tool
 │   │       ├── main.go            # Entry point
 │   │       └── cmd/               # Command implementations (MVP: 3 commands)
 │   │           ├── install.go     # Install git hooks
@@ -199,8 +199,8 @@ HOOKS_END_OF_FILE_FIXER_ENABLED=true     # Ensure files end with newline (built-
 Create `.github/pre-commit/.gitignore`:
 ```gitignore
 # Build artifacts
-gofortress-hooks
-cmd/gofortress-hooks/gofortress-hooks
+gofortress-pre-commit
+cmd/gofortress-pre-commit/gofortress-pre-commit
 *.exe
 *.dll
 *.so
@@ -343,7 +343,7 @@ This ensures the GoFortress Pre-commit tool's dependencies (cobra, godotenv, etc
 ├── go.mod                       # Go module at root (like coverage)
 ├── go.sum                       # Module dependencies
 ├── cmd/
-│   └── gofortress-hooks/
+│   └── gofortress-pre-commit/
 │       ├── main.go              # CLI entry point
 │       └── cmd/                 # Command implementations (MVP: 3 only)
 │           ├── install.go       # Install hooks command
@@ -395,7 +395,7 @@ require (
 ```bash
 # 1. Build the tool
 cd .github/pre-commit
-go build -o cmd/gofortress-hooks/gofortress-hooks ./cmd/gofortress-hooks
+go build -o cmd/gofortress-pre-commit/gofortress-pre-commit ./cmd/gofortress-pre-commit
 
 # 2. Run all tests with coverage
 go test -coverprofile=coverage.out -covermode=atomic ./...
@@ -411,9 +411,9 @@ go test -bench=. -benchmem ./internal/...
 golangci-lint run ./...
 
 # 6. Test CLI commands
-./cmd/gofortress-hooks/gofortress-hooks --help
-./cmd/gofortress-hooks/gofortress-hooks install
-./cmd/gofortress-hooks/gofortress-hooks run pre-commit
+./cmd/gofortress-pre-commit/gofortress-pre-commit --help
+./cmd/gofortress-pre-commit/gofortress-pre-commit install
+./cmd/gofortress-pre-commit/gofortress-pre-commit run pre-commit
 
 # 7. Run race detector tests
 go test -race ./...
@@ -459,35 +459,35 @@ After completing this phase, update `plans/plan-10-status.md`:
 **Testing Each Hook:**
 ```bash
 # Test MVP hooks
-./gofortress-hooks run fumpt
-./gofortress-hooks run lint
-./gofortress-hooks run mod-tidy
+./gofortress-pre-commit run fumpt
+./gofortress-pre-commit run lint
+./gofortress-pre-commit run mod-tidy
 
 # Test all hooks together
-./gofortress-hooks run pre-commit
+./gofortress-pre-commit run pre-commit
 
 # Verify make command execution
 make fumpt  # Direct make command
-./gofortress-hooks run fumpt  # Should produce identical output
+./gofortress-pre-commit run fumpt  # Should produce identical output
 ```
 
 **Verification Steps:**
 ```bash
 # 1. Test each MVP hook
 for hook in fumpt lint mod-tidy; do
-    ./gofortress-hooks run $hook
+    ./gofortress-pre-commit run $hook
 done
 
 # 2. Verify make command execution
-./gofortress-hooks run lint 2>&1 | grep "make lint"
+./gofortress-pre-commit run lint 2>&1 | grep "make lint"
 
 # 3. Test that hooks match CI behavior
 make lint  # Direct make command
-./gofortress-hooks run lint  # Should produce identical output
+./gofortress-pre-commit run lint  # Should produce identical output
 
 # 4. Test built-in hooks
 echo "test  " > test.txt
-./gofortress-hooks run trailing-whitespace
+./gofortress-pre-commit run trailing-whitespace
 cat test.txt  # Should have no trailing spaces
 ```
 
@@ -523,16 +523,16 @@ After completing this phase, update `plans/plan-10-status.md`:
 **Installation Process:**
 ```bash
 # Install hooks (creates .git/hooks/pre-commit)
-./gofortress-hooks install
+./gofortress-pre-commit install
 
 # Uninstall hooks
-./gofortress-hooks uninstall
+./gofortress-pre-commit uninstall
 ```
 
 **Verification Steps:**
 ```bash
 # 1. Test installation
-./gofortress-hooks install
+./gofortress-pre-commit install
 ls -la .git/hooks/pre-commit
 
 # 2. Test actual git commit
@@ -544,7 +544,7 @@ git commit -m "test: hook execution"
 SKIP=lint git commit -m "test: skip linter"
 
 # 4. Test uninstall
-./gofortress-hooks uninstall
+./gofortress-pre-commit uninstall
 ls .git/hooks/pre-commit  # Should not exist
 ```
 
@@ -580,7 +580,7 @@ After completing this phase, update `plans/plan-10-status.md`:
 **Fortress Pre-commit Workflow Features:**
 - **Status Checks**: Verify hooks system exists before attempting to build
 - **Verbose Logging**: Display configuration from .env.shared
-- **Build & Execute**: Build gofortress-hooks and run on all files
+- **Build & Execute**: Build gofortress-pre-commit and run on all files
 - **Fallback Mode**: Use make commands if hooks system not available
 - **Job Summary**: Detailed summary with execution results
 
@@ -601,7 +601,7 @@ on:
         type: string
     outputs:
       hooks-version:
-        description: "Version of gofortress-hooks used"
+        description: "Version of gofortress-pre-commit used"
       hooks-executed:
         description: "List of hooks that were executed"
 ```
@@ -610,7 +610,7 @@ on:
 1. Parse environment variables from env-json
 2. Check if .github/hooks/ exists (status check)
 3. Display hooks configuration from .env.shared
-4. Build gofortress-hooks if system exists
+4. Build gofortress-pre-commit if system exists
 5. Run hooks with verbose output
 6. Fallback to make commands if needed
 7. Generate detailed job summary
@@ -693,25 +693,25 @@ After completing this phase, update `plans/plan-10-status.md`:
 ```bash
 # Install pre-commit hooks
 cd .github/pre-commit
-go build -o gofortress-hooks ./cmd/gofortress-hooks
-./gofortress-hooks install
+go build -o gofortress-pre-commit ./cmd/gofortress-pre-commit
+./gofortress-pre-commit install
 
 # Run pre-commit hooks manually
-./gofortress-hooks run pre-commit
+./gofortress-pre-commit run pre-commit
 
 # Uninstall
-./gofortress-hooks uninstall
+./gofortress-pre-commit uninstall
 ```
 
 **Verification Steps:**
 ```bash
 # 1. Test installation and usage
-./gofortress-hooks install
+./gofortress-pre-commit install
 git add -A
 git commit -m "test: hooks working"
 
 # 2. Test configuration
-HOOKS_LINT_ENABLED=false ./gofortress-hooks run pre-commit
+HOOKS_LINT_ENABLED=false ./gofortress-pre-commit run pre-commit
 
 # 3. Verify documentation
 cat .github/hooks/README.md
@@ -748,14 +748,14 @@ HOOKS_MOD_TIDY_ENABLED=true   # Keep go.mod tidy
 ### Hook Execution
 ```bash
 # All pre-commit hooks run by default
-./gofortress-hooks run pre-commit
+./gofortress-pre-commit run pre-commit
 
 # Skip specific pre-commit hooks
-SKIP=lint ./gofortress-hooks run pre-commit
+SKIP=lint ./gofortress-pre-commit run pre-commit
 
 # Run individual pre-commit hooks
-./gofortress-hooks run fumpt
-./gofortress-hooks run lint
+./gofortress-pre-commit run fumpt
+./gofortress-pre-commit run lint
 ```
 
 ## MVP Implementation Summary
@@ -774,8 +774,8 @@ ENABLE_PRE_COMMIT=true
 
 # 2. Build and install
 cd .github/pre-commit
-go build -o gofortress-hooks ./cmd/gofortress-hooks
-./gofortress-hooks install
+go build -o gofortress-pre-commit ./cmd/gofortress-pre-commit
+./gofortress-pre-commit install
 
 # 3. Use git normally
 git add .
@@ -803,7 +803,7 @@ git commit -m "feat: new feature"
 **Verification Steps:**
 ```bash
 # 1. Ensure GoFortress Pre-commit is working
-./gofortress-hooks run pre-commit
+./gofortress-pre-commit run pre-commit
 
 # 2. Check for Python dependencies
 find . -name "*.py" -type f

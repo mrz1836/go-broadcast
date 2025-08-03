@@ -1,0 +1,59 @@
+# ───────────────────────────────────────────────────────────────────────────────
+# GoFortress Pre-commit System - Build Artifacts and Temporary Files
+# ───────────────────────────────────────────────────────────────────────────────
+
+# Binary executables
+/gofortress-precommit
+/gofortress-precommit.exe
+/pre-commit-check
+/pre-commit-check.exe
+
+# Build output directory
+/bin/
+/build/
+/dist/
+
+# Go build cache and modules
+go.sum.backup
+vendor/
+
+# Test artifacts
+coverage.out
+coverage.html
+*.test
+*.prof
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Runtime artifacts
+*.pid
+*.lock
+
+# Configuration backups
+*.bak
+*.backup
+
+# Local development overrides
+config.local.yml
+.env.local
