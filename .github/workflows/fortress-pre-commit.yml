@@ -229,7 +229,7 @@ jobs:
         if: steps.check-hooks.outputs.exists == 'true' && steps.build-hooks.outputs.build_success == 'true'
         id: run-hooks
         run: |
-          echo "🚀 Running pre-commit hooks..."
+          echo "🚀 Running pre-commit..."
           echo "================================"
 
           cd .github/pre-commit
