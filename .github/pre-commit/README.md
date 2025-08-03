@@ -9,7 +9,7 @@ The GoFortress Pre-commit System is a blazing-fast, zero-dependency alternative 
 ### Key Benefits
 
 - 🚀 **Lightning Fast**: <2 second execution for typical commits (17x faster than baseline)
-- 📦 **Zero Dependencies**: Single Go binary, no Python or Node.js required  
+- 📦 **Zero Dependencies**: Single Go binary, no Python or Node.js required
 - 🔧 **Make Integration**: Seamlessly wraps existing Makefile targets
 - ⚙️ **Environment Config**: All configuration via `.github/.env.shared`
 - 🎯 **Production Ready**: 80.6% test coverage with comprehensive validation
@@ -78,7 +78,7 @@ git commit -m "feat: add example file"
 ### Scale Performance
 
 - **Parallel Execution**: All checks run concurrently with configurable worker pools
-- **Smart File Filtering**: Processes only relevant files based on extensions and patterns  
+- **Smart File Filtering**: Processes only relevant files based on extensions and patterns
 - **Memory Efficient**: Minimal allocations with shared context caching
 - **CI Optimized**: Identical performance in local and CI environments
 
@@ -137,7 +137,7 @@ PRE_COMMIT_SYSTEM_ENABLED_CHECKS=lint,format,security,test
 
 # Alternative: Enable/disable specific checks
 PRE_COMMIT_SYSTEM_ENABLE_FUMPT=true
-PRE_COMMIT_SYSTEM_ENABLE_LINT=true  
+PRE_COMMIT_SYSTEM_ENABLE_LINT=true
 PRE_COMMIT_SYSTEM_ENABLE_MOD_TIDY=true
 PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE=true
 PRE_COMMIT_SYSTEM_ENABLE_EOF=true
@@ -162,7 +162,7 @@ PRE_COMMIT_SYSTEM_COLOR_OUTPUT=true        # Colored terminal output
 # Path exclusions (comma-separated)
 PRE_COMMIT_SYSTEM_EXCLUDE_PATHS=vendor/,third_party/,testdata/
 
-# File pattern exclusions (comma-separated)  
+# File pattern exclusions (comma-separated)
 PRE_COMMIT_SYSTEM_EXCLUDE_FILES=*.pb.go,*_mock.go,mock_*.go
 
 # File size limits
@@ -194,7 +194,7 @@ git commit -m "feat: implement new feature"
 # ✅ All checks passed (1.2s)
 
 # Skip specific checks temporarily
-SKIP=lint git commit -m "wip: work in progress" 
+SKIP=lint git commit -m "wip: work in progress"
 
 # Skip all pre-commit checks
 PRE_COMMIT_SYSTEM_SKIP=all git commit -m "hotfix: critical fix"
@@ -302,7 +302,7 @@ PRE_COMMIT_SYSTEM_SKIP=all ./gofortress-pre-commit run
    ✅ System enabled (ENABLE_PRE_COMMIT_SYSTEM=true)
    🔧 5 checks configured and available
    ⚡ Parallel execution enabled
-   
+
 📊 Performance:
    🚀 Average execution time: <2s
    🧵 Worker threads: 8 (auto-detected)
@@ -317,7 +317,7 @@ The system integrates seamlessly with GoFortress workflows through `fortress-pre
 ```yaml
 # Automatic integration in fortress.yml
 pre-commit:
-  name: 🪝 Pre-commit Checks  
+  name: 🪝 Pre-commit Checks
   needs: [setup]
   if: needs.setup.outputs.pre-commit-enabled == 'true'
   uses: ./.github/workflows/fortress-pre-commit.yml
@@ -366,7 +366,7 @@ The system automatically detects CI environments and adapts behavior:
 │   │   ├── builtin/              # Built-in text processing checks
 │   │   │   ├── whitespace.go     # Trailing whitespace removal
 │   │   │   └── eof.go            # End-of-file newline enforcement
-│   │   ├── makewrap/             # Make command wrapper checks  
+│   │   ├── makewrap/             # Make command wrapper checks
 │   │   │   ├── fumpt.go          # gofumpt formatting
 │   │   │   ├── lint.go           # golangci-lint execution
 │   │   │   └── mod_tidy.go       # go mod tidy execution
@@ -485,7 +485,7 @@ make coverage-html
 # Format code
 make fmt
 
-# Run linter  
+# Run linter
 make lint
 
 # Run tests with race detector
@@ -633,7 +633,7 @@ PRE_COMMIT_SYSTEM_VERBOSE_OUTPUT=true ./gofortress-pre-commit run
 
 📋 Enabled Checks: 5
    ✅ fumpt (make wrapper): Format code with gofumpt
-   ✅ lint (make wrapper): Run golangci-lint  
+   ✅ lint (make wrapper): Run golangci-lint
    ✅ mod-tidy (make wrapper): Ensure go.mod and go.sum are tidy
    ✅ whitespace (built-in): Remove trailing whitespace
    ✅ eof (built-in): Ensure files end with newline
@@ -646,7 +646,7 @@ PRE_COMMIT_SYSTEM_VERBOSE_OUTPUT=true ./gofortress-pre-commit run
 
 🚀 Executing Checks:
    ✅ fumpt completed in 6ms
-   ✅ whitespace completed in 15μs  
+   ✅ whitespace completed in 15μs
    ✅ eof completed in 20μs
    ✅ mod-tidy completed in 110ms
    ✅ lint completed in 68ms
@@ -751,7 +751,7 @@ repos:
         entry: make fumpt
         language: system
       - id: golangci-lint
-        name: golangci-lint  
+        name: golangci-lint
         entry: make lint
         language: system
 ```
@@ -784,7 +784,7 @@ PRE_COMMIT_SYSTEM_ENABLE_LINT=true
    ```bash
    # Disable old system
    pre-commit uninstall
-   
+
    # Enable new system
    echo "ENABLE_PRE_COMMIT_SYSTEM=true" >> .github/.env.shared
    ```
@@ -871,7 +871,7 @@ pre-commit-uninstall:
 Usage:
 ```bash
 make pre-commit          # Run on staged files
-make pre-commit-all      # Run on all files  
+make pre-commit-all      # Run on all files
 make pre-commit-install  # Build and install
 ```
 

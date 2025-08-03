@@ -320,7 +320,7 @@ git commit -m "feat: new feature"
 
 **Available Checks (5 MVP checks):**
 1. **fumpt** - Code formatting via `make fumpt`
-2. **lint** - Linting via `make lint` 
+2. **lint** - Linting via `make lint`
 3. **mod-tidy** - Module tidying via `make mod-tidy`
 4. **whitespace** - Trailing whitespace removal (built-in)
 5. **eof** - End-of-file newline enforcement (built-in)
@@ -372,7 +372,7 @@ pre-commit:
 **Performance Benchmarks:**
 - **Total pipeline**: <2s (17x faster than baseline)
 - **fumpt**: 6ms (37% faster)
-- **lint**: 68ms (94% faster) 
+- **lint**: 68ms (94% faster)
 - **mod-tidy**: 110ms (53% faster)
 - **Text processing**: <1ms (built-in speed)
 
