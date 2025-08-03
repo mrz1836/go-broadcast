@@ -155,7 +155,7 @@ func processRepository(repo string) error {
     if err := validation.ValidateRepository(repo); err != nil {
         return fmt.Errorf("invalid repository: %w", err)
     }
-    
+
     // Process the repository
     return nil
 }
@@ -169,11 +169,11 @@ func validateConfig(config *Config) error {
         "source_branch": func() error { return validation.ValidateBranch(config.Source.Branch) },
         "webhook_url":   func() error { return validation.ValidateURL(config.WebhookURL) },
     })
-    
+
     if !result.Valid {
         return fmt.Errorf("configuration validation failed: %v", result.Errors)
     }
-    
+
     return nil
 }
 ```
@@ -182,26 +182,26 @@ func validateConfig(config *Config) error {
 ```go
 func validateSyncRequest(req *SyncRequest) error {
     validations := map[string]func() error{}
-    
+
     if req.Repository != "" {
         validations["repository"] = func() error {
             return validation.ValidateRepository(req.Repository)
         }
     }
-    
+
     if req.Branch != "" {
         validations["branch"] = func() error {
             return validation.ValidateBranch(req.Branch)
         }
     }
-    
+
     for _, file := range req.Files {
         field := fmt.Sprintf("file_%s", file.Src)
         validations[field] = func() error {
             return validation.ValidatePath(file.Src)
         }
     }
-    
+
     result := validation.ValidateFields(validations)
     if !result.Valid {
         return &ValidationError{
@@ -209,7 +209,7 @@ func validateSyncRequest(req *SyncRequest) error {
             Fields:  result.Errors,
         }
     }
-    
+
     return nil
 }
 ```
@@ -225,12 +225,12 @@ func validateRequestMiddleware(validator func(interface{}) error) http.HandlerFu
             http.Error(w, "Invalid JSON", http.StatusBadRequest)
             return
         }
-        
+
         if err := validator(&req); err != nil {
             http.Error(w, err.Error(), http.StatusBadRequest)
             return
         }
-        
+
         // Continue processing
     }
 }
@@ -284,11 +284,11 @@ func validateProjectName(name string) error {
     if name == "" {
         return errors.EmptyField("project_name")
     }
-    
+
     if len(name) > 50 {
         return errors.InvalidField("project_name", "must be 50 characters or less")
     }
-    
+
     return nil
 }
 ```
@@ -316,10 +316,10 @@ func TestRepositoryValidation(t *testing.T) {
             WantErr: true,
         },
     }
-    
+
     testutil.RunTableTests(t, tests, func(t *testing.T, tc testutil.TestCase[string, bool]) {
         err := validation.ValidateRepository(tc.Input)
-        
+
         if tc.WantErr {
             testutil.AssertError(t, err)
         } else {

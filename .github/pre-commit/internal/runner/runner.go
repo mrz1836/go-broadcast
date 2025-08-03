@@ -4,7 +4,9 @@ package runner
 import (
 	"context"
 	"errors"
+	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -69,6 +71,9 @@ func New(cfg *config.Config, repoRoot string) *Runner {
 // Run executes checks based on the provided options
 func (r *Runner) Run(ctx context.Context, opts Options) (*Results, error) {
 	start := time.Now()
+
+	// Process SKIP environment variables and combine with CLI skip options
+	opts.SkipChecks = r.combineSkipSources(opts.SkipChecks)
 
 	// Determine which checks to run
 	checksToRun, err := r.determineChecks(opts)
@@ -291,4 +296,108 @@ func (r *Runner) isCheckEnabled(name string) bool {
 	default:
 		return false
 	}
+}
+
+// combineSkipSources processes SKIP environment variables and combines them with CLI skip options
+func (r *Runner) combineSkipSources(cliSkips []string) []string {
+	// Start with CLI skip options
+	allSkips := make([]string, 0)
+	if len(cliSkips) > 0 {
+		allSkips = append(allSkips, cliSkips...)
+	}
+
+	// Process environment variables in order of precedence
+	envSkips := r.processSkipEnvironment()
+	if len(envSkips) > 0 {
+		allSkips = append(allSkips, envSkips...)
+	}
+
+	// Remove duplicates and validate
+	return r.deduplicateAndValidateSkips(allSkips)
+}
+
+// processSkipEnvironment reads and processes SKIP-related environment variables
+func (r *Runner) processSkipEnvironment() []string {
+	var skips []string
+
+	// Check multiple environment variables in order of precedence
+	skipEnvVars := []string{
+		"SKIP",                   // Standard pre-commit convention
+		"PRE_COMMIT_SYSTEM_SKIP", // GoFortress-specific
+	}
+
+	for _, envVar := range skipEnvVars {
+		if value := strings.TrimSpace(os.Getenv(envVar)); value != "" {
+			// Parse the skip value (comma-separated list)
+			parsed := r.parseSkipValue(value)
+			if len(parsed) > 0 {
+				skips = append(skips, parsed...)
+				// Use the first non-empty environment variable found
+				break
+			}
+		}
+	}
+
+	return skips
+}
+
+// parseSkipValue parses a SKIP environment variable value
+func (r *Runner) parseSkipValue(value string) []string {
+	if value == "" {
+		return nil
+	}
+
+	// Handle special values
+	if strings.ToLower(value) == "all" {
+		return []string{"fumpt", "lint", "mod-tidy", "whitespace", "eof"}
+	}
+
+	// Split by comma and clean up
+	parts := strings.Split(value, ",")
+	var skips []string
+	for _, part := range parts {
+		if cleaned := strings.TrimSpace(part); cleaned != "" {
+			skips = append(skips, cleaned)
+		}
+	}
+
+	return skips
+}
+
+// deduplicateAndValidateSkips removes duplicates and validates skip names
+func (r *Runner) deduplicateAndValidateSkips(skips []string) []string {
+	seen := make(map[string]bool)
+	var result []string
+
+	validChecks := map[string]bool{
+		"fumpt":      true,
+		"lint":       true,
+		"mod-tidy":   true,
+		"whitespace": true,
+		"eof":        true,
+	}
+
+	for _, skip := range skips {
+		skip = strings.TrimSpace(skip)
+		if skip == "" {
+			continue
+		}
+
+		// Skip duplicates
+		if seen[skip] {
+			continue
+		}
+
+		// Validate check name
+		if !validChecks[skip] {
+			// Log warning for invalid check names but don't fail
+			// This allows for future extensibility
+			continue
+		}
+
+		seen[skip] = true
+		result = append(result, skip)
+	}
+
+	return result
 }

@@ -158,5 +158,5 @@
             formatFullTimestamp: formatFullTimestamp
         };
     }
-    
+
 })();

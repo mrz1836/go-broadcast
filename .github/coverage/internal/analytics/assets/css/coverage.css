@@ -15,7 +15,7 @@
     --color-text-secondary: #8b949e;
     --color-text-muted: #656d76;
     --color-primary: #58a6ff;
-    
+
     /* Coverage colors matching badge system exactly */
     --color-excellent: #28a745;  /* 95%+ bright green */
     --color-success: #3fb950;    /* 85%+ green */
@@ -2283,24 +2283,24 @@ a.file-name:hover {
     .nav-container {
         padding: 1rem;
     }
-    
+
     .header h1 {
         font-size: 2rem;
     }
-    
+
     .header-stats {
         flex-direction: column;
         gap: 2rem;
     }
-    
+
     .search-input {
         width: 200px;
     }
-    
+
     .package-header {
         padding: 0.75rem 1rem;
     }
-    
+
     .file-item {
         padding: 0.5rem 1rem 0.5rem 2rem;
     }
@@ -2313,11 +2313,11 @@ a.file-name:hover {
     .search-box {
         display: none;
     }
-    
+
     .package-item {
         break-inside: avoid;
     }
-    
+
     .file-list {
         display: block !important;
     }

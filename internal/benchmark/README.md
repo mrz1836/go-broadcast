@@ -375,7 +375,7 @@ func BenchmarkPerformanceBudget(b *testing.B) {
 }
 ```orf("Too many allocations: %d > %d", result.AllocsPerOp, maxAllocsPerOp)
     }
-    
+
     if result.NsPerOp > maxNsPerOp {
         b.Errorf("Too slow: %dns > %dns", result.NsPerOp, maxNsPerOp)
     }

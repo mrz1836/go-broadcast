@@ -155,7 +155,7 @@ import (
 func main() {
     // Simple dashboard
     go monitoring.StartDashboard(8080)
-    
+
     // Your application code here
     // ...
 }
@@ -168,7 +168,7 @@ func startMonitoring() {
     config := monitoring.DefaultDashboardConfig()
     config.Port = 3000
     config.EnableProfiling = true
-    
+
     dashboard := monitoring.NewDashboard(config)
     go dashboard.Start()
 }
@@ -180,10 +180,10 @@ func startMonitoring() {
 func TestWithMonitoring(t *testing.T) {
     config := monitoring.DefaultDashboardConfig()
     config.Port = 0 // Random port
-    
+
     dashboard := monitoring.NewDashboard(config)
     defer dashboard.Stop(context.Background())
-    
+
     // Your test code here
 }
 ```

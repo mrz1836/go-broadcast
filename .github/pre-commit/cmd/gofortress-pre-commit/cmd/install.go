@@ -71,8 +71,8 @@ func runInstall(_ *cobra.Command, _ []string) error {
 		printInfo("Repository root: %s", repoRoot)
 	}
 
-	// Create installer
-	installer := git.NewInstaller(repoRoot, cfg.Directory)
+	// Create installer with configuration for enhanced validation
+	installer := git.NewInstallerWithConfig(repoRoot, cfg.Directory, cfg)
 
 	// Install each hook type
 	installed := make([]string, 0, len(hookTypes))

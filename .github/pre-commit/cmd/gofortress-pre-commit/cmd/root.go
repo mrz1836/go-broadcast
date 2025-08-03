@@ -70,6 +70,7 @@ func init() {
 	rootCmd.AddCommand(installCmd)
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(uninstallCmd)
+	rootCmd.AddCommand(statusCmd)
 }
 
 func initConfig() {

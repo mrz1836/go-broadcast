@@ -1,6 +1,6 @@
 # GoFortress Pre-commit System Module Makefile
 #
-# Note: For common Go operations (lint, test, fumpt, mod-tidy, benchmarks), 
+# Note: For common Go operations (lint, test, fumpt, mod-tidy, benchmarks),
 # use the root repository Makefile which provides standardized targets for all modules:
 #   cd ../.. && make lint-all-modules
 #   cd ../.. && make test-all-modules

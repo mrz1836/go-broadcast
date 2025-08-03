@@ -96,7 +96,7 @@ Execute table-driven tests with consistent patterns:
 ```go
 testutil.RunTableTests(t, tests, func(t *testing.T, tc testutil.TestCase[Input, Output]) {
     result, err := ProcessInput(tc.Input)
-    
+
     if tc.WantErr {
         testutil.AssertError(t, err)
         if tc.ErrMsg != "" {
