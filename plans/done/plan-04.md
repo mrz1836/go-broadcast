@@ -83,15 +83,15 @@ var logConfig LogConfig // Instance created during initialization
 
 func init() {
     // Add verbose flag with counter
-    rootCmd.PersistentFlags().CountVarP(&logConfig.Verbose, "verbose", "v", 
+    rootCmd.PersistentFlags().CountVarP(&logConfig.Verbose, "verbose", "v",
         "Increase verbosity (can be used multiple times)")
-    
+
     // Add debug flags
-    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.Git, "debug-git", false, 
+    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.Git, "debug-git", false,
         "Enable detailed git command debugging")
-    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.API, "debug-api", false, 
+    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.API, "debug-api", false,
         "Enable API request/response debugging")
-    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.Transform, "debug-transform", false, 
+    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.Transform, "debug-transform", false,
         "Enable file transformation debugging")
     rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.Config, "debug-config", false,
         "Enable configuration debugging")
@@ -122,7 +122,7 @@ func setupLogging(ctx context.Context, cmd *cobra.Command, args []string, config
             logrus.SetReportCaller(true) // Show file:line for -vvv
         }
     }
-    
+
     // Existing log level parsing...
     return nil
 }
@@ -150,7 +150,7 @@ import (
     "fmt"
     "path/filepath"
     "runtime"
-    
+
     "github.com/sirupsen/logrus"
 )
 
@@ -202,13 +202,13 @@ func (s *LoggerService) ConfigureLogger(ctx context.Context) error {
         return ctx.Err()
     default:
     }
-    
+
     // Add custom trace level support
     logrus.AddHook(&TraceHook{
         Enabled:    s.config.Verbose >= 2,
         TraceLevel: s.traceLevel,
     })
-    
+
     if s.config.Verbose >= 3 {
         logrus.SetFormatter(&logrus.TextFormatter{
             DisableColors:    false,
@@ -220,7 +220,7 @@ func (s *LoggerService) ConfigureLogger(ctx context.Context) error {
             },
         })
     }
-    
+
     return nil
 }
 ```
@@ -259,9 +259,9 @@ func (g *gitClient) runCommand(ctx context.Context, cmd *exec.Cmd) error {
         return fmt.Errorf("command cancelled: %w", ctx.Err())
     default:
     }
-    
+
     logger := g.logger.WithField("component", "git")
-    
+
     if g.logConfig.Debug.Git {
         logger.WithFields(logrus.Fields{
             "command": cmd.Path,
@@ -269,21 +269,21 @@ func (g *gitClient) runCommand(ctx context.Context, cmd *exec.Cmd) error {
             "dir":     cmd.Dir,
             "env":     filterSensitiveEnv(cmd.Env),
         }).Debug("Executing git command")
-        
+
         // Capture and log output in real-time
         cmd.Stdout = &debugWriter{logger: logger, prefix: "stdout"}
         cmd.Stderr = &debugWriter{logger: logger, prefix: "stderr"}
     }
-    
+
     start := time.Now()
     err := cmd.Run()
     duration := time.Since(start)
-    
+
     logger.WithFields(logrus.Fields{
         "duration_ms": duration.Milliseconds(),
         "exit_code":   cmd.ProcessState.ExitCode(),
     }).Debug("Git command completed")
-    
+
     return err
 }
 
@@ -300,7 +300,7 @@ func (w *debugWriter) Write(p []byte) (n int, err error) {
 func filterSensitiveEnv(env []string) []string {
     filtered := make([]string, 0, len(env))
     for _, e := range env {
-        if strings.HasPrefix(e, "GH_TOKEN=") || 
+        if strings.HasPrefix(e, "GH_TOKEN=") ||
            strings.HasPrefix(e, "GITHUB_TOKEN=") {
             filtered = append(filtered, strings.Split(e, "=")[0]+"=REDACTED")
         } else {
@@ -330,13 +330,13 @@ type runner struct {
 // - Output bytes and error if command fails
 func (r *runner) Execute(ctx context.Context, args ...string) ([]byte, error) {
     logger := logrus.WithField("component", "github-api")
-    
+
     if r.logConfig.Debug.API {
         logger.WithFields(logrus.Fields{
             "args":      args,
             "timestamp": time.Now().Format(time.RFC3339),
         }).Debug("GitHub CLI request")
-        
+
         // Log request body if present
         for i, arg := range args {
             if arg == "-f" && i+1 < len(args) {
@@ -344,23 +344,23 @@ func (r *runner) Execute(ctx context.Context, args ...string) ([]byte, error) {
             }
         }
     }
-    
+
     start := time.Now()
     output, err := r.run(ctx, args...)
     duration := time.Since(start)
-    
+
     if r.logConfig.Debug.API {
         logger.WithFields(logrus.Fields{
             "duration_ms":   duration.Milliseconds(),
             "response_size": len(output),
             "error":         err,
         }).Debug("GitHub CLI response")
-        
+
         if err == nil && len(output) < 1024 { // Only log small responses
             logger.WithField("response", string(output)).Trace("Response body")
         }
     }
-    
+
     return output, err
 }
 ```
@@ -390,16 +390,16 @@ func (t *TextTransformer) Transform(ctx context.Context, content []byte, vars ma
         return nil, fmt.Errorf("transformation cancelled: %w", ctx.Err())
     default:
     }
-    
+
     logger := logrus.WithField("component", "transform")
-    
+
     if t.logConfig.Debug.Transform {
         logger.WithFields(logrus.Fields{
             "content_size": len(content),
             "variables":    len(vars),
             "type":         "text",
         }).Debug("Starting transformation")
-        
+
         // Log variable replacements
         for key, value := range vars {
             logger.WithFields(logrus.Fields{
@@ -408,26 +408,26 @@ func (t *TextTransformer) Transform(ctx context.Context, content []byte, vars ma
             }).Trace("Variable replacement")
         }
     }
-    
+
     result, err := t.transform(ctx, content, vars)
     if err != nil {
         return nil, fmt.Errorf("transform failed: %w", err)
     }
-    
+
     if t.logConfig.Debug.Transform && len(result) != len(content) {
         logger.WithFields(logrus.Fields{
             "size_before": len(content),
             "size_after":  len(result),
             "diff":        len(result) - len(content),
         }).Debug("Transformation completed")
-        
+
         // Show before/after for small files
         if len(content) < 500 && t.logConfig.Verbose >= 3 {
             logger.WithField("before", string(content)).Trace("Content before")
             logger.WithField("after", string(result)).Trace("Content after")
         }
     }
-    
+
     return result, nil
 }
 
@@ -476,18 +476,18 @@ type Config struct {
 // - Logs validation progress and warnings
 func (c *Config) Validate(ctx context.Context) error {
     logger := logrus.WithField("component", "config")
-    
+
     if c.logConfig.Debug.Config {
         logger.Debug("Starting config validation")
     }
-    
+
     // Check for context cancellation
     select {
     case <-ctx.Done():
         return fmt.Errorf("validation cancelled: %w", ctx.Err())
     default:
     }
-    
+
     // Version validation
     if c.logConfig.Debug.Config {
         logger.WithField("version", c.Version).Trace("Validating version")
@@ -498,7 +498,7 @@ func (c *Config) Validate(ctx context.Context) error {
             "actual":   c.Version,
         }).Warn("Config version mismatch")
     }
-    
+
     // Source validation
     if c.logConfig.Debug.Config {
         logger.WithFields(logrus.Fields{
@@ -507,25 +507,25 @@ func (c *Config) Validate(ctx context.Context) error {
             "path":   c.Source.Path,
         }).Debug("Validating source configuration")
     }
-    
+
     if err := validateRepoName(c.Source.Repo); err != nil {
         logger.WithError(err).Error("Invalid source repository name")
         return fmt.Errorf("invalid source repo: %w", err)
     }
-    
+
     // Target validation
     logger.WithField("target_count", len(c.Targets)).Debug("Validating targets")
-    
+
     for i, target := range c.Targets {
         targetLogger := logger.WithFields(logrus.Fields{
             "index": i,
             "repo":  target.Repo,
         })
-        
+
         if c.logConfig.Debug.Config {
             targetLogger.WithField("file_count", len(target.Files)).Trace("Validating target")
         }
-        
+
         // Validate file mappings
         for j, file := range target.Files {
             if c.logConfig.Debug.Config {
@@ -535,14 +535,14 @@ func (c *Config) Validate(ctx context.Context) error {
                     "to":         file.To,
                 }).Trace("Validating file mapping")
             }
-            
+
             if file.From == "" || file.To == "" {
                 targetLogger.Error("Empty file mapping found")
                 return fmt.Errorf("target %d, file %d: empty mapping", i, j)
             }
         }
     }
-    
+
     logger.Debug("Config validation completed successfully")
     return nil
 }
@@ -570,17 +570,17 @@ type Discoverer struct {
 // - Makes network calls to discover repository states
 func (d *Discoverer) Discover(ctx context.Context) (*State, error) {
     logger := logrus.WithField("component", "state-discovery")
-    
+
     logger.Info("Starting state discovery")
     startTime := time.Now()
-    
+
     // Check for context cancellation
     select {
     case <-ctx.Done():
         return nil, fmt.Errorf("discovery cancelled: %w", ctx.Err())
     default:
     }
-    
+
     // Source state discovery
     logger.Debug("Discovering source repository state")
     sourceState, err := d.discoverSource(ctx)
@@ -588,7 +588,7 @@ func (d *Discoverer) Discover(ctx context.Context) (*State, error) {
         logger.WithError(err).Error("Failed to discover source state")
         return nil, fmt.Errorf("source discovery failed: %w", err)
     }
-    
+
     if d.logConfig.Debug.State {
         logger.WithFields(logrus.Fields{
             "commit":     sourceState.LatestCommit,
@@ -597,29 +597,29 @@ func (d *Discoverer) Discover(ctx context.Context) (*State, error) {
             "files":      sourceState.Files,
         }).Debug("Source state discovered")
     }
-    
+
     // Target states discovery
     logger.WithField("target_count", len(d.config.Targets)).Debug("Discovering target states")
-    
+
     targetStates := make(map[string]*TargetState)
     for _, target := range d.config.Targets {
         targetLogger := logger.WithField("target", target.Repo)
-        
+
         if d.logConfig.Debug.State {
             targetLogger.Trace("Discovering target state")
         }
-        
+
         state, err := d.discoverTarget(ctx, target)
         if err != nil {
             targetLogger.WithError(err).Warn("Failed to discover target state")
             continue
         }
-        
+
         targetLogger.WithFields(logrus.Fields{
             "has_pr":      state.PullRequest != nil,
             "base_match":  state.BaseCommitMatches,
         }).Debug("Target state discovered")
-        
+
         if d.logConfig.Debug.State && state.PullRequest != nil {
             targetLogger.WithFields(logrus.Fields{
                 "pr_number":     state.PullRequest.Number,
@@ -630,17 +630,17 @@ func (d *Discoverer) Discover(ctx context.Context) (*State, error) {
                 "pr_changed":    state.PullRequest.ChangedFiles,
             }).Trace("Pull request details")
         }
-        
+
         targetStates[target.Repo] = state
     }
-    
+
     duration := time.Since(startTime)
     logger.WithFields(logrus.Fields{
         "duration_ms":    duration.Milliseconds(),
         "targets_found":  len(targetStates),
         "targets_failed": len(d.config.Targets) - len(targetStates),
     }).Info("State discovery completed")
-    
+
     return &State{
         Source:  *sourceState,
         Targets: targetStates,
@@ -661,15 +661,15 @@ func (d *Discoverer) discoverPullRequest(ctx context.Context, repo string) (*Pul
         "operation": "pr-discovery",
         "repo":      repo,
     })
-    
+
     if d.logConfig.Debug.State {
         logger.Debug("Searching for existing pull request")
     }
-    
+
     // Search for PR logic...
     var pr *PullRequest
     // Implementation details...
-    
+
     if pr != nil && d.logConfig.Debug.State {
         logger.WithFields(logrus.Fields{
             "pr_found":  true,
@@ -677,7 +677,7 @@ func (d *Discoverer) discoverPullRequest(ctx context.Context, repo string) (*Pul
             "pr_state":  pr.State,
         }).Debug("Found existing pull request")
     }
-    
+
     return pr, nil
 }
 ```
@@ -769,29 +769,29 @@ func generateRequestID() string {
 func (e *Engine) Execute(ctx context.Context) error {
     correlationID := uuid.New().String()
     ctx = context.WithValue(ctx, "correlation_id", correlationID)
-    
+
     logger := e.logger.WithFields(logrus.Fields{
         logging.FieldComponent:   "sync-engine",
         logging.FieldCorrelation: correlationID,
     })
-    
+
     logger.Info("Starting sync operation")
-    
+
     // Create wait group for parallel execution
     var wg sync.WaitGroup
     semaphore := make(chan struct{}, e.options.Concurrency)
-    
+
     for _, target := range e.config.Targets {
         wg.Add(1)
         go func(target config.Target) {
             defer wg.Done()
-            
+
             semaphore <- struct{}{}
             defer func() { <-semaphore }()
-            
+
             targetCtx := context.WithValue(ctx, "target_repo", target.Repo)
             targetLogger := logger.WithField(logging.FieldTarget, target.Repo)
-            
+
             start := time.Now()
             if err := e.syncRepository(targetCtx, target); err != nil {
                 targetLogger.WithFields(logrus.Fields{
@@ -805,13 +805,13 @@ func (e *Engine) Execute(ctx context.Context) error {
             }
         }(target)
     }
-    
+
     wg.Wait()
-    
+
     logger.WithField(
         logging.FieldDuration, time.Since(startTime).Milliseconds(),
     ).Info("All repository syncs completed")
-    
+
     return nil
 }
 
@@ -835,7 +835,7 @@ func updateLoggingFields(ctx context.Context) error {
     // Example migration for sync package
     // Before:
     // logger.WithField("repo", repo)
-    
+
     // After:
     // logger.WithField(logging.FieldRepository, repo)
 }
@@ -858,7 +858,7 @@ At the end of Phase 4, update `plan-04-status.md` with:
 ```go
 // internal/cli/root.go additions
 func init() {
-    rootCmd.PersistentFlags().StringVar(&logConfig.LogFormat, "log-format", "text", 
+    rootCmd.PersistentFlags().StringVar(&logConfig.LogFormat, "log-format", "text",
         "Log format (text, json)")
 }
 
@@ -882,13 +882,13 @@ func setupLogging(ctx context.Context, cmd *cobra.Command, args []string, config
         return fmt.Errorf("setup cancelled: %w", ctx.Err())
     default:
     }
-    
+
     // Parse log level first
     level, err := logrus.ParseLevel(strings.ToLower(config.LogLevel))
     if err != nil {
         return fmt.Errorf("invalid log level %q: %w", config.LogLevel, err)
     }
-    
+
     // Apply verbose flag override
     if config.Verbose > 0 {
         loggerService := NewLoggerService(config)
@@ -902,9 +902,9 @@ func setupLogging(ctx context.Context, cmd *cobra.Command, args []string, config
             logrus.SetReportCaller(true)
         }
     }
-    
+
     logrus.SetLevel(level)
-    
+
     // Set formatter based on format flag
     switch config.LogFormat {
     case "json":
@@ -929,14 +929,14 @@ func setupLogging(ctx context.Context, cmd *cobra.Command, args []string, config
     default:
         return fmt.Errorf("invalid log format: %s", config.LogFormat)
     }
-    
+
     // Log to stderr
     logrus.SetOutput(os.Stderr)
-    
+
     // Add redaction hook
     redactionService := NewRedactionService()
     logrus.AddHook(redactionService.CreateHook())
-    
+
     logrus.WithFields(logrus.Fields{
         "config":     config.ConfigFile,
         "dry_run":    config.DryRun,
@@ -944,7 +944,7 @@ func setupLogging(ctx context.Context, cmd *cobra.Command, args []string, config
         "log_format": config.LogFormat,
         "verbose":    config.Verbose,
     }).Debug("CLI initialized")
-    
+
     return nil
 }
 ```
@@ -961,7 +961,7 @@ import (
     "os/exec"
     "runtime"
     "time"
-    
+
     "github.com/spf13/cobra"
 )
 
@@ -1011,7 +1011,7 @@ type ConfigInfo struct {
 // - Writes JSON output to stdout
 func runDiagnose(cmd *cobra.Command, args []string) error {
     ctx := context.Background()
-    
+
     info := &DiagnosticInfo{
         Timestamp: time.Now(),
         Version:   getVersionInfo(),
@@ -1021,7 +1021,7 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
         GHVersion:   getGHCLIVersion(ctx),
         Config:      getConfigInfo(ctx, &logConfig),
     }
-    
+
     // Output as JSON
     encoder := json.NewEncoder(os.Stdout)
     encoder.SetIndent("", "  ")
@@ -1031,7 +1031,7 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 func getSystemInfo() SystemInfo {
     hostname, _ := os.Hostname()
     homeDir, _ := os.UserHomeDir()
-    
+
     return SystemInfo{
         OS:        runtime.GOOS,
         Arch:      runtime.GOARCH,
@@ -1063,7 +1063,7 @@ func getSystemInfo() SystemInfo {
 // - Only collects a predefined list of relevant variables
 func collectEnvironment(ctx context.Context) map[string]string {
     env := make(map[string]string)
-    
+
     // Collect relevant environment variables
     relevantVars := []string{
         "PATH",
@@ -1076,7 +1076,7 @@ func collectEnvironment(ctx context.Context) map[string]string {
         "NO_COLOR",
         "TERM",
     }
-    
+
     for _, key := range relevantVars {
         value := os.Getenv(key)
         if value != "" {
@@ -1087,7 +1087,7 @@ func collectEnvironment(ctx context.Context) map[string]string {
             env[key] = value
         }
     }
-    
+
     return env
 }
 
@@ -1119,10 +1119,10 @@ func getConfigInfo(ctx context.Context, logConfig *LogConfig) ConfigInfo {
         Exists: false,
         Valid:  false,
     }
-    
+
     if _, err := os.Stat(info.Path); err == nil {
         info.Exists = true
-        
+
         // Try to load and validate config
         cfg, err := config.Load(info.Path)
         if err != nil {
@@ -1133,7 +1133,7 @@ func getConfigInfo(ctx context.Context, logConfig *LogConfig) ConfigInfo {
             info.Valid = true
         }
     }
-    
+
     return info
 }
 ```
@@ -1158,7 +1158,7 @@ package metrics
 
 import (
     "time"
-    
+
     "github.com/sirupsen/logrus"
     "github.com/mrz1836/go-broadcast/internal/logging"
 )
@@ -1203,16 +1203,16 @@ func (t *Timer) AddField(key string, value interface{}) *Timer {
 // - Logs operation duration and warnings for slow operations
 func (t *Timer) Stop() time.Duration {
     duration := time.Since(t.start)
-    
+
     t.fields[logging.FieldDuration] = duration.Milliseconds()
     t.fields["duration_human"] = duration.String()
-    
+
     if duration > 30*time.Second {
         t.logger.WithFields(t.fields).Warn("Operation took longer than expected")
     } else {
         t.logger.WithFields(t.fields).Debug("Operation completed")
     }
-    
+
     return duration
 }
 
@@ -1221,7 +1221,7 @@ func (r *RepositorySync) Execute(ctx context.Context) error {
     timer := metrics.StartTimer(ctx, r.logger, "repository_sync").
         AddField(logging.FieldRepository, r.target.Repo)
     defer timer.Stop()
-    
+
     // Clone or update repository
     cloneTimer := metrics.StartTimer(ctx, r.logger, "git_clone")
     if err := r.cloneOrUpdate(ctx); err != nil {
@@ -1229,7 +1229,7 @@ func (r *RepositorySync) Execute(ctx context.Context) error {
         return fmt.Errorf("clone failed: %w", err)
     }
     cloneTimer.Stop()
-    
+
     // Process files
     processTimer := metrics.StartTimer(ctx, r.logger, "process_files").
         AddField("file_count", len(r.target.Files))
@@ -1238,7 +1238,7 @@ func (r *RepositorySync) Execute(ctx context.Context) error {
         return fmt.Errorf("process files failed: %w", err)
     }
     processTimer.Stop()
-    
+
     // Create or update PR
     prTimer := metrics.StartTimer(ctx, r.logger, "pr_operations")
     if err := r.createOrUpdatePR(ctx); err != nil {
@@ -1246,7 +1246,7 @@ func (r *RepositorySync) Execute(ctx context.Context) error {
         return fmt.Errorf("PR operations failed: %w", err)
     }
     prTimer.Stop()
-    
+
     return nil
 }
 ```
@@ -1259,7 +1259,7 @@ package logging
 import (
     "regexp"
     "strings"
-    
+
     "github.com/sirupsen/logrus"
 )
 
@@ -1331,7 +1331,7 @@ func (h *RedactionHook) Levels() []logrus.Level {
 func (h *RedactionHook) Fire(entry *logrus.Entry) error {
     // Redact message
     entry.Message = h.service.RedactSensitive(entry.Message)
-    
+
     // Redact fields
     for key, value := range entry.Data {
         // Check if field name suggests sensitive data
@@ -1342,13 +1342,13 @@ func (h *RedactionHook) Fire(entry *logrus.Entry) error {
                 break
             }
         }
-        
+
         // Also redact string values that look sensitive
         if str, ok := value.(string); ok {
             entry.Data[key] = h.service.RedactSensitive(str)
         }
     }
-    
+
     return nil
 }
 
@@ -1417,7 +1417,7 @@ At the end of Phase 6, update `plan-04-status.md` with:
 ```bash
 # Basic verbose output (-v for debug, -vv for trace, -vvv for trace with line numbers)
 go-broadcast sync -v                    # Debug level logging
-go-broadcast sync -vv                   # Trace level logging  
+go-broadcast sync -vv                   # Trace level logging
 go-broadcast sync -vvv                  # Trace with caller info
 
 # Component-specific debugging
@@ -2096,40 +2096,40 @@ go-broadcast sync --log-format json 2>&1 | \
 ```go
 // internal/cli/root.go - Enhanced help text
 func init() {
-    rootCmd.PersistentFlags().CountVarP(&logConfig.Verbose, "verbose", "v", 
+    rootCmd.PersistentFlags().CountVarP(&logConfig.Verbose, "verbose", "v",
         `Increase verbosity. Use multiple times for more detail:
   -v    Debug level (detailed operations)
-  -vv   Trace level (internal operations)  
+  -vv   Trace level (internal operations)
   -vvv  Trace level with file locations`)
-    
-    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.Git, "debug-git", false, 
+
+    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.Git, "debug-git", false,
         "Enable git debugging (shows commands, output, timing)")
-    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.API, "debug-api", false, 
+    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.API, "debug-api", false,
         "Enable API debugging (shows requests, responses)")
-    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.Transform, "debug-transform", false, 
+    rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.Transform, "debug-transform", false,
         "Enable transform debugging (shows file modifications)")
     rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.Config, "debug-config", false,
         "Enable config debugging (shows validation details)")
     rootCmd.PersistentFlags().BoolVar(&logConfig.Debug.State, "debug-state", false,
         "Enable state debugging (shows discovery process)")
-    
-    rootCmd.PersistentFlags().StringVar(&logConfig.LogFormat, "log-format", "text", 
+
+    rootCmd.PersistentFlags().StringVar(&logConfig.LogFormat, "log-format", "text",
         "Log output format: text (human-readable) or json (machine-readable)")
 }
 
 // Add examples to root command
 rootCmd.Example = `  # Basic sync with debug output
   go-broadcast sync -v
-  
+
   # Debug git operations
   go-broadcast sync --debug-git
-  
+
   # Full debugging with trace
   go-broadcast sync -vv --debug-git --debug-api
-  
+
   # Machine-readable JSON logs
   go-broadcast sync --log-format json
-  
+
   # Save debug session
   go-broadcast sync -vvv 2> debug.log`
 ```
@@ -2368,7 +2368,7 @@ gh run list --repo owner/repo | grep "in_progress" | \
 "authentication failed"
 "rate limit exceeded"
 
-# Performance issues  
+# Performance issues
 "duration_ms":10000  # Operations over 10s
 "timeout"
 "deadline exceeded"
@@ -2420,7 +2420,7 @@ echo "OK: All checks passed"
 #### Phase 7 Status Tracking
 At the end of Phase 7, update `plan-04-status.md` with:
 - **Completed**: Comprehensive documentation review and enhancement
-- **Deliverables**: 
+- **Deliverables**:
   - Updated README with logging guide
   - Dedicated logging documentation (docs/logging.md)
   - Quick reference card for common commands
@@ -2448,11 +2448,11 @@ At the end of Phase 7, update `plan-04-status.md` with:
 // - Context correlation for request tracking
 //
 // Usage examples:
-// 
+//
 //   // Create a logger with configuration
 //   logConfig := &LogConfig{Verbose: 2, Debug: DebugFlags{Git: true}}
 //   logger := NewLoggerService(logConfig)
-//   
+//
 //   // Time an operation
 //   timer := StartTimer(ctx, logger, "my-operation")
 //   defer timer.Stop()
@@ -2467,7 +2467,7 @@ import (
     "bytes"
     "encoding/json"
     "testing"
-    
+
     "github.com/sirupsen/logrus"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
@@ -2484,7 +2484,7 @@ func TestVerboseFlagMapping(t *testing.T) {
         {"verbose 2", 2, TraceLevel},
         {"verbose 3", 3, TraceLevel},
     }
-    
+
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
             level := mapVerboseToLevel(tt.verbose)
@@ -2520,7 +2520,7 @@ func TestSensitiveDataRedaction(t *testing.T) {
             expected: "Authorization: Bear***REDACTED***",
         },
     }
-    
+
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
             result := RedactSensitive(tt.input)
@@ -2534,16 +2534,16 @@ func TestJSONFormatOutput(t *testing.T) {
     logger := logrus.New()
     logger.SetOutput(&buf)
     logger.SetFormatter(&logrus.JSONFormatter{})
-    
+
     logger.WithFields(logrus.Fields{
         "component": "test",
         "operation": "test_op",
     }).Info("Test message")
-    
+
     var result map[string]interface{}
     err := json.Unmarshal(buf.Bytes(), &result)
     require.NoError(t, err)
-    
+
     assert.Equal(t, "Test message", result["message"])
     assert.Equal(t, "test", result["component"])
     assert.Equal(t, "test_op", result["operation"])
@@ -2555,11 +2555,11 @@ func TestTimerMetrics(t *testing.T) {
     logger := logrus.New()
     logger.SetOutput(&buf)
     logger.SetLevel(logrus.DebugLevel)
-    
+
     timer := StartTimer(logrus.NewEntry(logger), "test_operation")
     time.Sleep(100 * time.Millisecond)
     duration := timer.Stop()
-    
+
     assert.True(t, duration >= 100*time.Millisecond)
     assert.Contains(t, buf.String(), "test_operation")
     assert.Contains(t, buf.String(), "duration_ms")
@@ -2606,12 +2606,12 @@ echo "All tests completed"
   - Add -v, -vv, -vvv flags
   - Implement trace level support
   - Update CLI documentation
-  
+
 - **Days 2-3**: Add component-specific debug logging
   - Git command debugging
   - API request/response logging
   - Transform operation logging
-  
+
 - **Days 4-5**: Cover missing logging areas
   - Config validation logging
   - State discovery logging
@@ -2622,12 +2622,12 @@ echo "All tests completed"
   - Define standard field names
   - Add correlation IDs
   - Update all components
-  
+
 - **Days 8-9**: Add output formats and diagnostics
   - JSON format support
   - Diagnostic command
   - Environment collection
-  
+
 - **Days 10-11**: Implement performance and security logging
   - Operation timing metrics
   - Sensitive data redaction
@@ -2697,17 +2697,17 @@ go-broadcast sync --log-format json 2>&1 | \
    - Trace IDs across operations
    - Span relationships
    - Metrics export
-   
+
 2. **Metrics Export**: Prometheus/StatsD integration
    - Operation counters
    - Duration histograms
    - Error rates
-   
+
 3. **Log Sampling**: Reduce volume in production
    - Configurable sampling rates
    - Always log errors
    - Intelligent sampling
-   
+
 4. **Custom Debug Profiles**: Save and load debug configurations
    - Named profiles (e.g., "git-debug", "full-debug")
    - Environment variable support

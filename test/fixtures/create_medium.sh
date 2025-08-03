@@ -17,12 +17,12 @@ mkdir -p "$BASE_DIR"
 for i in {0..9}; do
     dir_path="$BASE_DIR/dir_$i"
     mkdir -p "$dir_path"
-    
+
     # Create 10 files in each directory
     for j in {1..10}; do
         file_num=$((i * 10 + j))
         file_path="$dir_path/file_$file_num.txt"
-        
+
         cat > "$file_path" << EOF
 # {{SERVICE_NAME}} File $file_num
 # Generated for testing directory sync functionality

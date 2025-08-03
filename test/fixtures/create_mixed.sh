@@ -136,7 +136,7 @@ logging:
 
 features:
   - sync
-  - transform  
+  - transform
   - binary-handling
   - mixed-content
 
@@ -156,25 +156,25 @@ cat > "$BASE_DIR/config.xml" << 'EOF'
     <service>{{SERVICE_NAME}}</service>
     <repository>{{REPO_NAME}}</repository>
     <environment>{{ENVIRONMENT}}</environment>
-    
+
     <server>
         <port>8080</port>
         <host>0.0.0.0</host>
         <timeout>30</timeout>
     </server>
-    
+
     <logging>
         <level>info</level>
         <format>json</format>
     </logging>
-    
+
     <features>
         <feature>sync</feature>
         <feature>transform</feature>
         <feature>binary-handling</feature>
         <feature>mixed-content</feature>
     </features>
-    
+
     <metadata>
         <generated>2024-01-01T00:00:00Z</generated>
         <version>1.0.0</version>
@@ -223,7 +223,7 @@ This fixture contains various file types for testing:
 
 ### Binary Files
 - `image.png` - PNG image file
-- `photo.jpg` - JPEG image file  
+- `photo.jpg` - JPEG image file
 - `binary.so` - Shared library file
 - `archive.zip` - ZIP archive file
 - `compressed.gz` - Gzipped file

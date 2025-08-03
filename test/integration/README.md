@@ -71,7 +71,7 @@ These integration tests provide coverage for:
 
 4. **Edge Cases**
    - Missing configuration files
-   - Invalid configurations  
+   - Invalid configurations
    - Network failures (mocked)
    - Authentication failures (mocked)
    - Concurrent processing

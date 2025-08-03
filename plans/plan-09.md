@@ -446,7 +446,7 @@ type Parser struct {
 }
 
     ExcludePaths      []string
-    ExcludeFiles      []string  
+    ExcludeFiles      []string
     ExcludePackages   []string
     IncludeOnlyPaths  []string
     ExcludeGenerated  bool
@@ -475,23 +475,23 @@ func New(cfg *Config) *Parser {
 // Parse processes a coverage profile from the given reader
 func (p *Parser) Parse(ctx context.Context, r io.Reader) (*CoverageData, error) {
     scanner := bufio.NewScanner(r)
-    
+
     // Read mode line
     if !scanner.Scan() {
         return nil, fmt.Errorf("empty coverage profile")
     }
-    
+
     modeLine := scanner.Text()
     mode := parseMode(modeLine)
     if mode == "" {
         return nil, fmt.Errorf("invalid mode line: %s", modeLine)
     }
-    
+
     data := &CoverageData{
         Mode:  mode,
         Files: make(map[string]*FileCoverage),
     }
-    
+
     // Parse coverage lines with context cancellation support
     for scanner.Scan() {
         select {
@@ -499,21 +499,21 @@ func (p *Parser) Parse(ctx context.Context, r io.Reader) (*CoverageData, error) 
             return nil, ctx.Err()
         default:
         }
-        
+
         line := strings.TrimSpace(scanner.Text())
         if line == "" {
             continue
         }
-        
+
         if err := p.parseLine(line, data); err != nil {
             return nil, fmt.Errorf("parsing line: %w", err)
         }
     }
-    
+
     if err := scanner.Err(); err != nil {
         return nil, fmt.Errorf("reading coverage: %w", err)
     }
-    
+
     return data, nil
 }
 
@@ -524,44 +524,44 @@ func (p *Parser) parseLine(line string, data *CoverageData) error {
     if len(parts) != 3 {
         return fmt.Errorf("invalid line format")
     }
-    
+
     // Extract filename and positions
     filePos := strings.Split(parts[0], ":")
     if len(filePos) != 2 {
         return fmt.Errorf("invalid file position format")
     }
-    
+
     filename := filePos[0]
-    
+
     // Check exclusions
     if p.shouldExclude(filename) {
         return nil
     }
-    
+
     // Parse statement count and coverage count
     stmts, err := strconv.Atoi(parts[1])
     if err != nil {
         return fmt.Errorf("invalid statement count: %w", err)
     }
-    
+
     count, err := strconv.Atoi(parts[2])
     if err != nil {
         return fmt.Errorf("invalid coverage count: %w", err)
     }
-    
+
     // Update file coverage
     if _, ok := data.Files[filename]; !ok {
         data.Files[filename] = &FileCoverage{
             Path: filename,
         }
     }
-    
+
     file := data.Files[filename]
     file.Statements += stmts
     if count > 0 {
         file.Covered += stmts
     }
-    
+
     return nil
 }
 ```
@@ -594,14 +594,14 @@ func New() (*Generator, error) {
     if err != nil {
         return nil, fmt.Errorf("parsing templates: %w", err)
     }
-    
+
     return &Generator{tmpl: tmpl}, nil
 }
 
 // Generate creates an SVG badge for the given coverage percentage
 func (g *Generator) Generate(ctx context.Context, percentage float64, style string) ([]byte, error) {
     color := g.getColor(percentage)
-    
+
     data := struct {
         Label      string
         Percentage string
@@ -613,13 +613,13 @@ func (g *Generator) Generate(ctx context.Context, percentage float64, style stri
         Color:      color,
         Style:      style,
     }
-    
+
     var buf bytes.Buffer
     templateName := fmt.Sprintf("%s.svg", style)
     if err := g.tmpl.ExecuteTemplate(&buf, templateName, data); err != nil {
         return nil, fmt.Errorf("executing template: %w", err)
     }
-    
+
     return buf.Bytes(), nil
 }
 
@@ -672,12 +672,12 @@ func New() (*Generator, error) {
             return fmt.Sprintf("%.2f", f)
         },
     }
-    
+
     tmpl, err := template.New("report").Funcs(funcs).ParseFS(templates, "templates/*.html")
     if err != nil {
         return nil, fmt.Errorf("parsing templates: %w", err)
     }
-    
+
     return &Generator{tmpl: tmpl}, nil
 }
 
@@ -694,11 +694,11 @@ func (g *Generator) Generate(ctx context.Context, data *CoverageData, w io.Write
         Coverage:  data,
         Metrics:   calculateMetrics(data),
     }
-    
+
     if err := g.tmpl.ExecuteTemplate(w, "report.html", reportData); err != nil {
         return fmt.Errorf("executing template: %w", err)
     }
-    
+
     return nil
 }
 ```
@@ -715,10 +715,10 @@ import (
     "context"
     "strings"
     "testing"
-    
+
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
-    
+
     "github.com/YOUR_ORG/YOUR_REPO/internal/coverage/parser"
 )
 
@@ -752,18 +752,18 @@ github.com/org/repo/main.go:12.16,14.3 1 0`,
             wantErr: true,
         },
     }
-    
+
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
             p := parser.New(nil)
             ctx := context.Background()
-            
+
             got, err := p.Parse(ctx, strings.NewReader(tt.input))
             if tt.wantErr {
                 require.Error(t, err)
                 return
             }
-            
+
             require.NoError(t, err)
             assert.Equal(t, tt.want.Mode, got.Mode)
             assert.Equal(t, len(tt.want.Files), len(got.Files))
@@ -776,9 +776,9 @@ func TestParser_ShouldExclude(t *testing.T) {
         ExcludePaths: []string{"vendor/", "test/"},
         ExcludeFiles: []string{"*_test.go", "*.pb.go"},
     }
-    
+
     p := parser.New(cfg)
-    
+
     tests := []struct {
         path     string
         excluded bool
@@ -788,7 +788,7 @@ func TestParser_ShouldExclude(t *testing.T) {
         {"internal/parser/parser.go", false},
         {"api/v1/service.pb.go", true},
     }
-    
+
     for _, tt := range tests {
         t.Run(tt.path, func(t *testing.T) {
             got := p.ShouldExclude(tt.path)
@@ -806,7 +806,7 @@ import (
     "context"
     "strings"
     "testing"
-    
+
     "github.com/YOUR_ORG/YOUR_REPO/internal/coverage/parser"
 )
 
@@ -817,14 +817,14 @@ func BenchmarkParser_Parse(b *testing.B) {
     for i := 0; i < 1000; i++ {
         fmt.Fprintf(&sb, "github.com/org/repo/file%d.go:10.2,12.16 2 1\n", i)
     }
-    
+
     input := sb.String()
     p := parser.New(nil)
     ctx := context.Background()
-    
+
     b.ResetTimer()
     b.ReportAllocs()
-    
+
     for i := 0; i < b.N; i++ {
         _, err := p.Parse(ctx, strings.NewReader(input))
         if err != nil {
@@ -838,12 +838,12 @@ func BenchmarkBadgeGeneration(b *testing.B) {
     if err != nil {
         b.Fatal(err)
     }
-    
+
     ctx := context.Background()
-    
+
     b.ResetTimer()
     b.ReportAllocs()
-    
+
     for i := 0; i < b.N; i++ {
         _, err := g.Generate(ctx, 85.5, "flat")
         if err != nil {
@@ -861,10 +861,10 @@ func BenchmarkBadgeGeneration(b *testing.B) {
   run: |
     # Build the Go coverage tool
     go build -o gofortress-coverage ./cmd/gofortress-coverage
-    
+
     # Run unit tests for the coverage tool
     go test -v -race ./internal/coverage/...
-    
+
     # Run integration tests
     go test -v -tags=integration ./tests/integration/...
 ```
@@ -877,7 +877,7 @@ import (
     "context"
     "strings"
     "testing"
-    
+
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
 )
@@ -889,42 +889,42 @@ func TestGoCoverageParser(t *testing.T) {
             ExcludeFiles: []string{"*_test.go", "*.pb.go"},
             MinimumFileLines: 10,
         })
-        
+
         t.Run("should parse basic coverage data", func(t *testing.T) {
             coverageData := `mode: set
 github.com/org/repo/main.go:10.2,12.16 2 1
 github.com/org/repo/main.go:12.16,14.3 1 0`
-            
+
             result, err := parser.Parse(context.Background(), strings.NewReader(coverageData))
             require.NoError(t, err)
-            
+
             mainFile, exists := result.Files["github.com/org/repo/main.go"]
             assert.True(t, exists)
             assert.Equal(t, 3, mainFile.Statements)
             assert.Equal(t, 2, mainFile.Covered)
         })
-        
+
         t.Run("should exclude vendor files", func(t *testing.T) {
             coverageData := `mode: set
 github.com/org/repo/vendor/lib.go:10.2,12.16 2 1
 github.com/org/repo/main.go:10.2,12.16 2 1`
-            
+
             result, err := parser.Parse(context.Background(), strings.NewReader(coverageData))
             require.NoError(t, err)
-            
+
             _, vendorExists := result.Files["github.com/org/repo/vendor/lib.go"]
             assert.False(t, vendorExists)
-            
+
             _, mainExists := result.Files["github.com/org/repo/main.go"]
             assert.True(t, mainExists)
         })
-        
+
         t.Run("should detect generated files", func(t *testing.T) {
             content := "// Code generated by protoc-gen-go. DO NOT EDIT."
             assert.True(t, parser.isGeneratedFile(content))
         })
     })
-    
+
     t.Run("CalculateMetrics", func(t *testing.T) {
         t.Run("should calculate correct coverage percentage", func(t *testing.T) {
             parsedData := &ParsedData{
@@ -933,9 +933,9 @@ github.com/org/repo/main.go:10.2,12.16 2 1`
                     "util.go": {Statements: 50, Covered: 45},
                 },
             }
-            
+
             metrics := CalculateMetrics(parsedData)
-            
+
             assert.Equal(t, 150, metrics.TotalStatements)
             assert.Equal(t, 130, metrics.TotalCovered)
             assert.Equal(t, 86.67, metrics.Percentage)
@@ -989,7 +989,7 @@ func (g *Generator) Generate(percentage float64, options Options) string {
     if label == "" {
         label = "coverage"
     }
-    
+
     // Generate SVG with proper styling
     return g.renderSVG(BadgeData{
         Label:      label,
@@ -1006,7 +1006,7 @@ func (g *Generator) Generate(percentage float64, options Options) string {
 func (g *Generator) GenerateTrendBadge(current, previous float64) string {
     diff := current - previous
     var trend, color string
-    
+
     switch {
     case diff > 0:
         trend = fmt.Sprintf("↑ +%.1f%%", diff)
@@ -1018,7 +1018,7 @@ func (g *Generator) GenerateTrendBadge(current, previous float64) string {
         trend = "→ 0%"
         color = "#8b949e" // neutral gray
     }
-    
+
     return g.renderSVG(BadgeData{
         Label:   "coverage trend",
         Message: trend,
@@ -1038,7 +1038,7 @@ import (
     "fmt"
     "html/template"
     "strings"
-    
+
     "github.com/go-broadcast/internal/coverage/parser"
 )
 
@@ -1078,15 +1078,15 @@ func NewGenerator(theme string) (*Generator, error) {
     if err != nil {
         return nil, fmt.Errorf("parsing templates: %w", err)
     }
-    
+
     g := &Generator{
         theme:     theme,
         templates: tmpl,
     }
-    
+
     // Initialize design system based on theme
     g.initDesignSystem()
-    
+
     return g, nil
 }
 
@@ -1096,7 +1096,7 @@ func (g *Generator) GenerateReport(ctx context.Context, coverageData *parser.Par
     // Progressive enhancement - works without JavaScript
     // Accessible keyboard navigation hints
     // Optimized for fast initial render
-    
+
     data := struct {
         Coverage     *parser.ParsedData
         Options      ReportOptions
@@ -1115,12 +1115,12 @@ func (g *Generator) GenerateReport(ctx context.Context, coverageData *parser.Par
             CodeMinimap:      options.ShowMinimap,
         },
     }
-    
+
     var buf strings.Builder
     if err := g.templates.ExecuteTemplate(&buf, "report.html", data); err != nil {
         return "", fmt.Errorf("executing template: %w", err)
     }
-    
+
     return buf.String(), nil
 }
 
@@ -1131,12 +1131,12 @@ func (g *Generator) GeneratePackageView(ctx context.Context, packageData Package
     // Sortable tables with data attributes
     // Coverage heatmap using CSS gradients
     // Accessible quick actions
-    
+
     var buf strings.Builder
     if err := g.templates.ExecuteTemplate(&buf, "package.html", packageData); err != nil {
         return "", fmt.Errorf("executing package template: %w", err)
     }
-    
+
     return buf.String(), nil
 }
 
@@ -1147,19 +1147,19 @@ func (g *Generator) GenerateFileView(ctx context.Context, fileData FileData) (st
     // Accessible gutter indicators
     // Coverage diff mode support
     // Semantic HTML structure
-    
+
     highlighted, err := g.highlightCode(fileData.Content, fileData.Language)
     if err != nil {
         return "", fmt.Errorf("highlighting code: %w", err)
     }
-    
+
     fileData.HighlightedContent = highlighted
-    
+
     var buf strings.Builder
     if err := g.templates.ExecuteTemplate(&buf, "file.html", fileData); err != nil {
         return "", fmt.Errorf("executing file template: %w", err)
     }
-    
+
     return buf.String(), nil
 }
 
@@ -1182,7 +1182,7 @@ func (g *Generator) initDesignSystem() {
         g.designSystem.Colors.Glass = "rgba(0, 0, 0, 0.03)"
         g.designSystem.Colors.GlassHover = "rgba(0, 0, 0, 0.05)"
     }
-    
+
     // Animations are CSS strings embedded in templates
     g.designSystem.Animations.FadeIn = "fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
     g.designSystem.Animations.SlideUp = "slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)"
@@ -1350,7 +1350,7 @@ jobs:
         run: |
           COVERAGE=$(jq -r '.percentage' coverage-data.json)
           THRESHOLD=${{ env.COVERAGE_FAIL_UNDER }}
-          
+
           # Use awk for decimal comparison
           if awk -v cov="$COVERAGE" -v thresh="$THRESHOLD" 'BEGIN {exit (cov >= thresh)}'; then
             echo "❌ Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
@@ -1489,7 +1489,7 @@ package cmd
 import (
     "context"
     "fmt"
-    
+
     "github.com/spf13/cobra"
 )
 
@@ -1565,7 +1565,7 @@ gh-pages/
         <svg class="logo-icon" viewBox="0 0 24 24"><!-- Custom logo --></svg>
         <h1 class="logo-text">Coverage<span class="accent">Hub</span></h1>
       </div>
-      
+
       <!-- Global search with command palette -->
       <div class="search-container">
         <input type="search" placeholder="Search files, packages... (⌘K)" class="global-search">
@@ -1573,7 +1573,7 @@ gh-pages/
           <kbd>⌘K</kbd>
         </div>
       </div>
-      
+
       <!-- Theme switcher and settings -->
       <div class="header-actions">
         <button class="theme-toggle" aria-label="Toggle theme">
@@ -1594,7 +1594,7 @@ gh-pages/
         <h2 class="hero-title">Coverage Overview</h2>
         <p class="hero-subtitle">Track, analyze, and improve your code coverage</p>
       </div>
-      
+
       <!-- Animated metric cards with gradients -->
       <div class="metrics-grid">
         <article class="metric-card metric-card--primary">
@@ -1618,7 +1618,7 @@ gh-pages/
             <circle class="progress-ring-fill" style="--progress: 85.4"/>
           </svg>
         </article>
-        
+
         <!-- More metric cards with different styles -->
         <article class="metric-card metric-card--success"><!-- Files covered --></article>
         <article class="metric-card metric-card--warning"><!-- Lines to cover --></article>
@@ -1638,7 +1638,7 @@ gh-pages/
           </button>
         </div>
       </header>
-      
+
       <!-- Branch cards with hover effects and quick actions -->
       <div class="branch-grid">
         <article class="branch-card" data-branch="master">
@@ -1680,7 +1680,7 @@ gh-pages/
           </div>
         </div>
       </header>
-      
+
       <div class="chart-container">
         <canvas id="trendChart" class="trend-chart"></canvas>
         <!-- Tooltip overlay for detailed info -->
@@ -1700,7 +1700,7 @@ gh-pages/
           <svg><!-- Refresh icon --></svg>
         </button>
       </header>
-      
+
       <div class="pr-list">
         <article class="pr-card">
           <div class="pr-status">
@@ -1734,7 +1734,7 @@ gh-pages/
         <h2 class="section-title">Package Coverage</h2>
         <input type="search" placeholder="Filter packages..." class="package-filter">
       </header>
-      
+
       <div class="package-tree">
         <!-- Interactive file tree with expand/collapse -->
       </div>
@@ -1753,7 +1753,7 @@ gh-pages/
 
   <!-- Modern toast notifications -->
   <div class="toast-container" aria-live="polite"></div>
-  
+
   <script type="module" src="assets/js/dashboard.js"></script>
 </body>
 </html>
@@ -1769,7 +1769,7 @@ gh-pages/
   --color-success: #3fb950;
   --color-warning: #d29922;
   --color-danger: #f85149;
-  
+
   /* Sophisticated neutrals */
   --color-bg: #0d1117;
   --color-bg-secondary: #161b22;
@@ -1777,16 +1777,16 @@ gh-pages/
   --color-border: #30363d;
   --color-text: #c9d1d9;
   --color-text-secondary: #8b949e;
-  
+
   /* Glass morphism */
   --glass-bg: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(255, 255, 255, 0.1);
   --backdrop-blur: 12px;
-  
+
   /* Smooth animations */
   --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
-  
+
   /* Professional typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'SF Mono', Monaco, Consolas, monospace;
@@ -1897,11 +1897,11 @@ gh-pages/
   .metrics-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .metric-card {
     padding: 16px;
   }
-  
+
   /* Touch-friendly tap targets */
   button, a {
     min-height: 44px;
@@ -2161,7 +2161,7 @@ import (
     "math"
     "strings"
     "time"
-    
+
     "github.com/go-broadcast/internal/coverage/history"
 )
 
@@ -2187,64 +2187,64 @@ type Theme struct {
 func GenerateTrendChart(ctx context.Context, data []history.DataPoint, opts ChartOptions) (string, error) {
     // Server-side SVG generation - no JavaScript dependencies
     // Clean, accessible, performant
-    
+
     if len(data) == 0 {
         return "", fmt.Errorf("no data points provided")
     }
-    
+
     // Calculate chart dimensions and scaling
     padding := 40
     chartWidth := opts.Width - 2*padding
     chartHeight := opts.Height - 2*padding
-    
+
     // Find data bounds
     minCov, maxCov := findCoverageBounds(data)
     xScale := float64(chartWidth) / float64(len(data)-1)
     yScale := float64(chartHeight) / (maxCov - minCov)
-    
+
     // Build SVG
     var svg strings.Builder
     svg.WriteString(fmt.Sprintf(`<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">`, opts.Width, opts.Height))
-    
+
     // Background
     svg.WriteString(fmt.Sprintf(`<rect width="%d" height="%d" fill="%s"/>`, opts.Width, opts.Height, opts.Theme.Background))
-    
+
     // Grid lines
     if opts.ShowGrid {
         svg.WriteString(generateGridLines(padding, chartWidth, chartHeight, opts.Theme.GridColor))
     }
-    
+
     // Coverage line path
     path := generateLinePath(data, padding, xScale, yScale, minCov, chartHeight)
     svg.WriteString(fmt.Sprintf(`<path d="%s" fill="none" stroke="%s" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`, path, opts.Theme.LineColor))
-    
+
     // Data points
     for i, point := range data {
         x := padding + int(float64(i)*xScale)
         y := padding + chartHeight - int((point.Coverage-minCov)*yScale)
-        
+
         // Invisible larger hit area for accessibility
         svg.WriteString(fmt.Sprintf(`<circle cx="%d" cy="%d" r="20" fill="transparent" class="hit-area"/>`, x, y))
-        
+
         // Visible point on hover
         svg.WriteString(fmt.Sprintf(`<circle cx="%d" cy="%d" r="4" fill="%s" class="data-point" opacity="0">`, x, y, opts.Theme.LineColor))
         svg.WriteString(`<animate attributeName="opacity" begin="mouseover" dur="0.1s" fill="freeze" to="1"/>`)
         svg.WriteString(`<animate attributeName="opacity" begin="mouseout" dur="0.1s" fill="freeze" to="0"/>`)
         svg.WriteString(`</circle>`)
-        
+
         // Tooltip text
         tooltip := fmt.Sprintf("%.1f%% on %s", point.Coverage, point.Date.Format("Jan 2"))
         svg.WriteString(fmt.Sprintf(`<title>%s</title>`, tooltip))
     }
-    
+
     // Axis labels
     svg.WriteString(generateAxisLabels(data, padding, chartWidth, chartHeight, opts.Theme.Text))
-    
+
     // Legend
     if opts.ShowLegend {
         svg.WriteString(generateLegend(opts.Width, padding, opts.Theme))
     }
-    
+
     svg.WriteString(`</svg>`)
     return svg.String(), nil
 }
@@ -2268,11 +2268,11 @@ func findCoverageBounds(data []history.DataPoint) (min, max float64) {
 
 func generateLinePath(data []history.DataPoint, padding int, xScale, yScale, minCov float64, chartHeight int) string {
     var path strings.Builder
-    
+
     for i, point := range data {
         x := padding + int(float64(i)*xScale)
         y := padding + chartHeight - int((point.Coverage-minCov)*yScale)
-        
+
         if i == 0 {
             path.WriteString(fmt.Sprintf("M %d %d", x, y))
         } else {
@@ -2283,7 +2283,7 @@ func generateLinePath(data []history.DataPoint, padding int, xScale, yScale, min
             path.WriteString(fmt.Sprintf(" Q %d %d %d %d", midX, prevY, x, y))
         }
     }
-    
+
     return path.String()
 }
 
@@ -2293,7 +2293,7 @@ func GenerateTrendReport(ctx context.Context, history []history.DataPoint, opts 
     last30Days := filterLastNDays(history, 30)
     last90Days := filterLastNDays(history, 90)
     allTime := history
-    
+
     // Generate charts for each time period
     chart30, err := GenerateTrendChart(ctx, last30Days, ChartOptions{
         Width: 800, Height: 400,
@@ -2303,7 +2303,7 @@ func GenerateTrendReport(ctx context.Context, history []history.DataPoint, opts 
     if err != nil {
         return "", fmt.Errorf("generating 30-day chart: %w", err)
     }
-    
+
     // Build HTML report with embedded charts
     html := fmt.Sprintf(`
 <!DOCTYPE html>
@@ -2317,12 +2317,12 @@ func GenerateTrendReport(ctx context.Context, history []history.DataPoint, opts 
 <body>
     <div class="container">
         <h1>Coverage Trend Analysis</h1>
-        
+
         <div class="chart-container">
             <h2>Last 30 Days</h2>
             %s
         </div>
-        
+
         <div class="insights">
             %s
         </div>
@@ -2330,7 +2330,7 @@ func GenerateTrendReport(ctx context.Context, history []history.DataPoint, opts 
 </body>
 </html>
     `, opts.ProjectName, getCSSStyles(opts.Theme), chart30, generateInsights(last30Days))
-    
+
     return html, nil
 }
 ```
@@ -2344,7 +2344,7 @@ import (
     "context"
     "fmt"
     "math"
-    
+
     "github.com/go-broadcast/internal/coverage/history"
 )
 
@@ -2360,7 +2360,7 @@ func (p *Predictor) AnalyzeImpact(ctx context.Context, diffData DiffData) (*Impa
         RiskScore:       p.assessRisk(diffData),
         SuggestedTests:  p.suggestPriorityTests(diffData),
     }
-    
+
     return analysis, nil
 }
 
@@ -2369,11 +2369,11 @@ func (p *Predictor) PredictTrend(days int) (float64, error) {
     if len(p.history) < 2 {
         return 0, fmt.Errorf("insufficient history for prediction")
     }
-    
+
     // Simple linear regression
     var sumX, sumY, sumXY, sumX2 float64
     n := float64(len(p.history))
-    
+
     for i, point := range p.history {
         x := float64(i)
         y := point.Coverage
@@ -2382,15 +2382,15 @@ func (p *Predictor) PredictTrend(days int) (float64, error) {
         sumXY += x * y
         sumX2 += x * x
     }
-    
+
     // Calculate slope and intercept
     slope := (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
     intercept := (sumY - slope*sumX) / n
-    
+
     // Predict future value
     futureX := float64(len(p.history) + days)
     prediction := slope*futureX + intercept
-    
+
     // Clamp between 0 and 100
     return math.Max(0, math.Min(100, prediction)), nil
 }
@@ -2460,7 +2460,7 @@ func (n *Notifier) notifyMilestone(ctx context.Context, data NotificationData) e
     if !n.slackEnabled {
         return nil
     }
-    
+
     message := SlackMessage{
         Text: fmt.Sprintf("🎉 Coverage milestone reached: %.1f%%!", data.Coverage),
         Attachments: []SlackAttachment{{
@@ -2473,7 +2473,7 @@ func (n *Notifier) notifyMilestone(ctx context.Context, data NotificationData) e
             },
         }},
     }
-    
+
     return n.sendSlackMessage(ctx, message)
 }
 
@@ -2482,25 +2482,25 @@ func (n *Notifier) sendSlackMessage(ctx context.Context, msg SlackMessage) error
     if err != nil {
         return fmt.Errorf("marshaling slack message: %w", err)
     }
-    
+
     req, err := http.NewRequestWithContext(ctx, "POST", n.slackWebhook, bytes.NewReader(payload))
     if err != nil {
         return fmt.Errorf("creating request: %w", err)
     }
-    
+
     req.Header.Set("Content-Type", "application/json")
-    
+
     client := &http.Client{Timeout: 10 * time.Second}
     resp, err := client.Do(req)
     if err != nil {
         return fmt.Errorf("sending slack message: %w", err)
     }
     defer resp.Body.Close()
-    
+
     if resp.StatusCode != http.StatusOK {
         return fmt.Errorf("slack webhook returned status %d", resp.StatusCode)
     }
-    
+
     return nil
 }
 
@@ -3089,7 +3089,7 @@ func (da *DashboardAggregator) AggregateMetrics(ctx context.Context) (*Dashboard
         Timestamp: time.Now(),
         Metrics:   make(map[MetricType]interface{}),
     }
-    
+
     // Collect from each metric source in parallel
     for metricType, collector := range da.metrics {
         metric, err := collector.Collect(ctx)
@@ -3099,10 +3099,10 @@ func (da *DashboardAggregator) AggregateMetrics(ctx context.Context) (*Dashboard
         }
         data.Metrics[metricType] = metric
     }
-    
+
     // Calculate unified health score
     data.HealthScore = da.calculateHealthScore(data.Metrics)
-    
+
     return data, nil
 }
 ```
@@ -3121,7 +3121,7 @@ func (da *DashboardAggregator) AggregateMetrics(ctx context.Context) (*Dashboard
       <span class="score-label">Fortress Health</span>
     </div>
   </div>
-  
+
   <!-- Metric cards grid -->
   <div class="metrics-overview">
     <div class="metric-card coverage-card">
@@ -3129,26 +3129,26 @@ func (da *DashboardAggregator) AggregateMetrics(ctx context.Context) (*Dashboard
       <div class="metric-value">85.4%</div>
       <div class="metric-trend">↑ 2.3%</div>
     </div>
-    
+
     <div class="metric-card build-card">
       <h3>Build Success</h3>
       <div class="metric-value">98.2%</div>
       <div class="metric-trend">→ stable</div>
     </div>
-    
+
     <div class="metric-card benchmark-card">
       <h3>Performance</h3>
       <div class="metric-value">+5.2%</div>
       <div class="metric-trend">↑ faster</div>
     </div>
-    
+
     <div class="metric-card security-card">
       <h3>Security Score</h3>
       <div class="metric-value">A+</div>
       <div class="metric-trend">0 critical</div>
     </div>
   </div>
-  
+
   <!-- Detailed metric sections -->
   <div class="metric-details">
     <!-- Each metric type gets its own detailed view -->

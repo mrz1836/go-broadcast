@@ -35,21 +35,21 @@ import (
     "fmt"
     "log"
     "net/http"
-    
+
     "{{REPO_NAME}}/internal/config"
     "{{REPO_NAME}}/internal/handlers"
 )
 
 func main() {
     cfg := config.Load()
-    
+
     mux := http.NewServeMux()
     handlers.RegisterRoutes(mux)
-    
+
     fmt.Printf("Starting {{SERVICE_NAME}} server on port %s\n", cfg.Port)
     fmt.Printf("Environment: {{ENVIRONMENT}}\n")
     fmt.Printf("Repository: {{REPO_NAME}}\n")
-    
+
     log.Fatal(http.ListenAndServe(":"+cfg.Port, mux))
 }
 EOF
@@ -66,13 +66,13 @@ func main() {
     fmt.Println("{{SERVICE_NAME}} Client")
     fmt.Println("Repository: {{REPO_NAME}}")
     fmt.Println("Environment: {{ENVIRONMENT}}")
-    
+
     c := client.New("http://localhost:8080")
     if err := c.Connect(); err != nil {
         fmt.Printf("Connection failed: %v\n", err)
         return
     }
-    
+
     fmt.Println("Connected successfully")
 }
 EOF
@@ -237,11 +237,11 @@ func (c *Client) Connect() error {
         return err
     }
     defer resp.Body.Close()
-    
+
     if resp.StatusCode != http.StatusOK {
         return fmt.Errorf("health check failed: %d", resp.StatusCode)
     }
-    
+
     return nil
 }
 
@@ -251,12 +251,12 @@ func (c *Client) GetInfo() (map[string]interface{}, error) {
         return nil, err
     }
     defer resp.Body.Close()
-    
+
     var info map[string]interface{}
     if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
         return nil, err
     }
-    
+
     return info, nil
 }
 EOF
@@ -359,7 +359,7 @@ echo "Repository: {{REPO_NAME}}"
 echo "Building server..."
 go build -o bin/server ./cmd/server
 
-# Build client  
+# Build client
 echo "Building client..."
 go build -o bin/client ./cmd/client
 

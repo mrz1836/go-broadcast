@@ -188,7 +188,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 
 **That's it!** 🎉 go-broadcast automatically:
 - Clones your template repository
-- Applies configured transformations  
+- Applies configured transformations
 - Creates a branch in each target repository
 - Commits synchronized files
 - Opens a pull request for review
@@ -211,7 +211,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 
 ### ⚡ **Enterprise Performance**
 - **587M+ ops/sec** - Binary detection with zero allocations
-- **239M+ ops/sec** - Content comparison for identical files  
+- **239M+ ops/sec** - Content comparison for identical files
 - **13.5M+ ops/sec** - Cache operations with minimal memory
 - **Directory processing** - 1000+ files in ~32ms with concurrent worker pools
 - **API optimization** - 90%+ reduction in GitHub API calls through tree API
@@ -297,10 +297,10 @@ timestamp: 2025-01-23T14:30:52Z
 
 ### Why This Approach is Powerful
 
-✅ **No State Files** - Everything lives in GitHub  
-✅ **Atomic Operations** - Each sync is self-contained  
-✅ **Full Audit Trail** - Branch and PR history shows all syncs  
-✅ **Disaster Recovery** - State can be reconstructed from GitHub  
+✅ **No State Files** - Everything lives in GitHub
+✅ **Atomic Operations** - Each sync is self-contained
+✅ **Full Audit Trail** - Branch and PR history shows all syncs
+✅ **Disaster Recovery** - State can be reconstructed from GitHub
 ✅ **Works at Scale** - No state corruption with concurrent syncs
 
 <br/>
@@ -364,7 +364,7 @@ targets:
 defaults:
   pr_labels: ["automated-sync", "chore"]
   pr_assignees: ["tech-lead", "platform-team"]
-  pr_reviewers: ["senior-dev1", "senior-dev2"]  
+  pr_reviewers: ["senior-dev1", "senior-dev2"]
   pr_team_reviewers: ["architecture-team"]
 targets:
   - repo: "company/critical-service"
@@ -424,7 +424,7 @@ transform:
 files:
   - src: "Makefile"         # Copy to same location
     dest: "Makefile"
-  - src: "template.md"      # Rename during sync  
+  - src: "template.md"      # Rename during sync
     dest: "README.md"
   - src: "config/app.yml"   # Move to different directory
     dest: "configs/app.yml"
@@ -435,11 +435,11 @@ files:
 directories:
   - src: ".github/workflows"           # Basic directory sync
     dest: ".github/workflows"
-  - src: ".github/coverage"            # Directory with exclusions  
+  - src: ".github/coverage"            # Directory with exclusions
     dest: ".github/coverage"
     exclude: ["*.out", "*.test", "gofortress-coverage"]
   - src: "docs"                        # Advanced directory options
-    dest: "documentation" 
+    dest: "documentation"
     exclude: ["*.tmp", "**/draft/*"]
     preserve_structure: true           # Keep nested structure (default: true)
     include_hidden: true               # Include hidden files (default: true)
@@ -468,7 +468,7 @@ global:
   pr_team_reviewers: ["infrastructure-team"]
 # Default settings (fallback when no global or target settings)
 defaults:
-  branch_prefix: "chore/sync-files"  
+  branch_prefix: "chore/sync-files"
   pr_labels: ["maintenance"]
   pr_assignees: ["maintainer1", "maintainer2"]
   pr_reviewers: ["reviewer1", "reviewer2"]
@@ -489,7 +489,7 @@ targets:
     # Additional PR settings merged with global settings
     # Final labels: ["automated-sync", "chore", "service-specific"]
     pr_labels: ["service-specific"]
-    # Final assignees: ["platform-team", "service-owner"]  
+    # Final assignees: ["platform-team", "service-owner"]
     pr_assignees: ["service-owner"]
     # Final reviewers: ["platform-lead", "service-reviewer"]
     pr_reviewers: ["service-reviewer"]
@@ -531,7 +531,7 @@ The `global` section allows you to define PR assignments (labels, assignees, rev
 **Merge Priority**: `global` + `target` → `defaults` (fallback)
 
 - **Global settings** apply to ALL target repositories
-- **Target settings** are merged with global settings (duplicates removed)  
+- **Target settings** are merged with global settings (duplicates removed)
 - **Default settings** are used only when neither global nor target settings exist
 
 #### Example Configuration
@@ -754,7 +754,7 @@ This magical file controls everything from:
 - **🤖 Auto-merge behaviors** (how aggressive should the bots be?)
 - **🏷️ PR management rules** (size labels, auto-assignment, welcome messages)
 
-> **Pro tip:** Want to disable code coverage? Just flip `ENABLE_CODE_COVERAGE=false` in [.env.shared](.github/.env.shared) and push. No YAML archaeology required! 
+> **Pro tip:** Want to disable code coverage? Just flip `ENABLE_CODE_COVERAGE=false` in [.env.shared](.github/.env.shared) and push. No YAML archaeology required!
 
 <br/>
 
@@ -1150,7 +1150,7 @@ The following benchmarks were run on Apple M1 Max (updated January 2025):
 go-broadcast is designed for efficiency:
 
 - **Binary detection** executes 587M+ operations/second with zero allocations for binary files
-- **Content comparison** performs 239M+ operations/second for identical files with zero allocations  
+- **Content comparison** performs 239M+ operations/second for identical files with zero allocations
 - **Cache operations** handle 13.5M+ get operations/second with minimal memory usage
 - **Batch processing** manages 23.8M+ operations/second for concurrent tasks
 - **Memory profiling** captures detailed statistics at 58K+ operations/second

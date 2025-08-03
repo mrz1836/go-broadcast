@@ -63,7 +63,7 @@ Directory Structure:
 
 Each phase is designed to be completed in a single Claude Code session with clear deliverables and verification steps. The phases build upon each other, so they should be completed in order.
 
-**IMPORTANT**: 
+**IMPORTANT**:
 1. **All files must be created within the `.github` directory** - the entire GoFortress Pre-commit System is self-contained in `.github/pre-commit/`
 2. After completing each phase, update the status tracking document at `plans/plan-10-status.md` with:
    - Use the expert Go sub-agent to implement the phases
@@ -257,7 +257,7 @@ func LoadFromEnv() (*Config, error) {
             return nil, fmt.Errorf("failed to load .env.shared: %w", err)
         }
     }
-    
+
     // Parse configuration from environment
     cfg := &Config{
         Enabled:     getEnvBool("ENABLE_PRE_COMMIT", false),
@@ -266,7 +266,7 @@ func LoadFromEnv() (*Config, error) {
         ColorOutput: getEnvBool("HOOKS_COLOR_OUTPUT", true),
         LogLevel:    getEnvString("HOOKS_LOG_LEVEL", "info"),
     }
-    
+
     // Load hook-specific settings (MVP hooks only)
     cfg.Hooks = HooksConfig{
         Fumpt:              getEnvBool("HOOKS_FUMPT_ENABLED", true),
@@ -275,7 +275,7 @@ func LoadFromEnv() (*Config, error) {
         TrailingWhitespace: getEnvBool("HOOKS_TRAILING_WHITESPACE_ENABLED", true),
         EndOfFile:          getEnvBool("HOOKS_END_OF_FILE_FIXER_ENABLED", true),
     }
-    
+
     return cfg, nil
 }
 ```
