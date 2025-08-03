@@ -16,7 +16,7 @@ The GoFortress coverage system generates coverage reports, badges, and dashboard
 # From repository root - use current repository
 ./.github/coverage/scripts/setup-github-pages-env.sh
 
-# Specify repository explicitly  
+# Specify repository explicitly
 ./.github/coverage/scripts/setup-github-pages-env.sh owner/repo-name
 ```
 
@@ -120,4 +120,4 @@ When adding new coverage-related scripts:
 3. **Include documentation**: Add usage and purpose in script header
 4. **Update this README**: Document the new script
 5. **Test thoroughly**: Ensure scripts work across different repository configurations
-6. **Handle errors**: Include comprehensive error handling and user feedback
+6. **Handle errors**: Include comprehensive error handling and user feedbackck

@@ -52,8 +52,8 @@ COVERAGE_CLEANUP_PR_AFTER_DAYS=7
 ### System Enable/Disable
 
 #### `ENABLE_INTERNAL_COVERAGE`
-**Type**: Boolean  
-**Default**: `false`  
+**Type**: Boolean
+**Default**: `false`
 **Description**: Master switch to enable the internal coverage system
 
 ```bash
@@ -62,8 +62,8 @@ ENABLE_INTERNAL_COVERAGE=false  # Use external service (Codecov, etc.)
 ```
 
 #### `ENABLE_INTERNAL_COVERAGE_TESTS`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Run coverage tool tests in CI
 
 ```bash
@@ -76,8 +76,8 @@ ENABLE_INTERNAL_COVERAGE_TESTS=false  # Skip coverage tool tests
 ### Quality Gates
 
 #### `COVERAGE_FAIL_UNDER`
-**Type**: Float (0-100)  
-**Default**: `70`  
+**Type**: Float (0-100)
+**Default**: `70`
 **Description**: Minimum acceptable coverage percentage
 
 ```bash
@@ -87,8 +87,8 @@ COVERAGE_FAIL_UNDER=90    # Strict quality requirements
 ```
 
 #### `COVERAGE_ENFORCE_THRESHOLD`
-**Type**: Boolean  
-**Default**: `false`  
+**Type**: Boolean
+**Default**: `false`
 **Description**: Whether to fail builds below threshold
 
 ```bash
@@ -99,23 +99,23 @@ COVERAGE_ENFORCE_THRESHOLD=false  # Warning only
 ### Badge Color Thresholds
 
 #### `COVERAGE_THRESHOLD_EXCELLENT`
-**Type**: Float (0-100)  
-**Default**: `90`  
+**Type**: Float (0-100)
+**Default**: `90`
 **Description**: Coverage percentage for bright green badges
 
 #### `COVERAGE_THRESHOLD_GOOD`
-**Type**: Float (0-100)  
-**Default**: `80`  
+**Type**: Float (0-100)
+**Default**: `80`
 **Description**: Coverage percentage for green badges
 
 #### `COVERAGE_THRESHOLD_ACCEPTABLE`
-**Type**: Float (0-100)  
-**Default**: `70`  
+**Type**: Float (0-100)
+**Default**: `70`
 **Description**: Coverage percentage for yellow badges
 
 #### `COVERAGE_THRESHOLD_LOW`
-**Type**: Float (0-100)  
-**Default**: `60`  
+**Type**: Float (0-100)
+**Default**: `60`
 **Description**: Coverage percentage for orange badges (below = red)
 
 ```bash
@@ -131,9 +131,9 @@ COVERAGE_THRESHOLD_LOW=65        # Orange at 65-74%, red below
 ### Badge Style and Appearance
 
 #### `COVERAGE_BADGE_STYLE`
-**Type**: String  
-**Default**: `flat`  
-**Options**: `flat`, `flat-square`, `for-the-badge`  
+**Type**: String
+**Default**: `flat`
+**Options**: `flat`, `flat-square`, `for-the-badge`
 **Description**: Visual style of coverage badges
 
 ```bash
@@ -143,8 +143,8 @@ COVERAGE_BADGE_STYLE=for-the-badge # Large, prominent style
 ```
 
 #### `COVERAGE_BADGE_LABEL`
-**Type**: String  
-**Default**: `coverage`  
+**Type**: String
+**Default**: `coverage`
 **Description**: Left-side text of the badge
 
 ```bash
@@ -154,9 +154,9 @@ COVERAGE_BADGE_LABEL=quality      # Alternative text
 ```
 
 #### `COVERAGE_BADGE_LOGO`
-**Type**: String  
-**Default**: `go`  
-**Options**: `go`, `github`, custom URL  
+**Type**: String
+**Default**: `go`
+**Options**: `go`, `github`, custom URL
 **Description**: Logo displayed on badge
 
 ```bash
@@ -166,8 +166,8 @@ COVERAGE_BADGE_LOGO=https://example.com/custom-logo.svg # Custom logo
 ```
 
 #### `COVERAGE_BADGE_LOGO_COLOR`
-**Type**: String  
-**Default**: `white`  
+**Type**: String
+**Default**: `white`
 **Description**: Color of the logo on the badge
 
 ```bash
@@ -179,8 +179,8 @@ COVERAGE_BADGE_LOGO_COLOR=#ff0000 # Custom hex color
 ### Badge Generation
 
 #### `COVERAGE_BADGE_BRANCHES`
-**Type**: Comma-separated list  
-**Default**: `master,development`  
+**Type**: Comma-separated list
+**Default**: `master,development`
 **Description**: Branches to generate badges for
 
 ```bash
@@ -195,8 +195,8 @@ COVERAGE_BADGE_BRANCHES=master                   # Single branch only
 ### Report Generation
 
 #### `COVERAGE_REPORT_TITLE`
-**Type**: String  
-**Default**: `GoFortress Coverage`  
+**Type**: String
+**Default**: `GoFortress Coverage`
 **Description**: Title displayed in HTML reports
 
 ```bash
@@ -206,9 +206,9 @@ COVERAGE_REPORT_TITLE="Quality Dashboard"      # Alternative title
 ```
 
 #### `COVERAGE_REPORT_THEME`
-**Type**: String  
-**Default**: `github-dark`  
-**Options**: `github-dark`, `github-light`, `custom`  
+**Type**: String
+**Default**: `github-dark`
+**Options**: `github-dark`, `github-light`, `custom`
 **Description**: Visual theme for reports and dashboard
 
 ```bash
@@ -222,8 +222,8 @@ COVERAGE_REPORT_THEME=custom        # Custom theme (requires CSS)
 ### PR Comments
 
 #### `COVERAGE_PR_COMMENT_ENABLED`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Enable automatic PR coverage comments
 
 ```bash
@@ -232,9 +232,9 @@ COVERAGE_PR_COMMENT_ENABLED=false  # Disable PR comments
 ```
 
 #### `COVERAGE_PR_COMMENT_BEHAVIOR`
-**Type**: String  
-**Default**: `update`  
-**Options**: `new`, `update`, `delete-and-new`  
+**Type**: String
+**Default**: `update`
+**Options**: `new`, `update`, `delete-and-new`
 **Description**: How to handle multiple PR updates
 
 ```bash
@@ -244,13 +244,13 @@ COVERAGE_PR_COMMENT_BEHAVIOR=delete-and-new # Delete old, create new
 ```
 
 #### `COVERAGE_PR_COMMENT_SHOW_TREE`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Show file tree in PR comments
 
 #### `COVERAGE_PR_COMMENT_SHOW_MISSING`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Highlight uncovered lines in PR comments
 
 ```bash
@@ -263,18 +263,18 @@ COVERAGE_PR_COMMENT_SHOW_MISSING=true   # Highlight missing coverage
 The coverage system supports temporarily overriding coverage thresholds using GitHub PR labels. This feature allows developers to bypass strict coverage requirements for specific scenarios (refactoring, legacy code updates, emergency fixes) while maintaining visibility and audit trails.
 
 #### `COVERAGE_ALLOW_LABEL_OVERRIDE`
-**Type**: Boolean  
-**Default**: `false`  
+**Type**: Boolean
+**Default**: `false`
 **Description**: Enable coverage threshold overrides via PR labels
 
 #### `COVERAGE_MIN_OVERRIDE_THRESHOLD`
-**Type**: Float (0-100)  
-**Default**: `50.0`  
+**Type**: Float (0-100)
+**Default**: `50.0`
 **Description**: Minimum allowed override threshold (security boundary)
 
 #### `COVERAGE_MAX_OVERRIDE_THRESHOLD`
-**Type**: Float (0-100)  
-**Default**: `95.0`  
+**Type**: Float (0-100)
+**Default**: `95.0`
 **Description**: Maximum allowed override threshold (prevents abuse)
 
 ```bash
@@ -320,18 +320,18 @@ COVERAGE_ALLOW_LABEL_OVERRIDE=false
 ### Trend Analysis
 
 #### `COVERAGE_ENABLE_TREND_ANALYSIS`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Enable historical trend tracking and predictions
 
 #### `COVERAGE_ENABLE_PACKAGE_BREAKDOWN`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Show package-level coverage analysis
 
 #### `COVERAGE_ENABLE_COMPLEXITY_ANALYSIS`
-**Type**: Boolean  
-**Default**: `false`  
+**Type**: Boolean
+**Default**: `false`
 **Description**: Analyze code complexity (future feature)
 
 ```bash
@@ -343,13 +343,13 @@ COVERAGE_ENABLE_COMPLEXITY_ANALYSIS=false # Complexity (planned)
 ### Data Retention
 
 #### `COVERAGE_HISTORY_RETENTION_DAYS`
-**Type**: Integer  
-**Default**: `90`  
+**Type**: Integer
+**Default**: `90`
 **Description**: Days to retain historical coverage data
 
 #### `COVERAGE_CLEANUP_PR_AFTER_DAYS`
-**Type**: Integer  
-**Default**: `7`  
+**Type**: Integer
+**Default**: `7`
 **Description**: Clean up PR coverage data after merge/close
 
 ```bash
@@ -362,13 +362,13 @@ COVERAGE_CLEANUP_PR_AFTER_DAYS=7     # Clean PR data after 1 week
 ### Slack Integration
 
 #### `COVERAGE_SLACK_WEBHOOK_ENABLED`
-**Type**: Boolean  
-**Default**: `false`  
+**Type**: Boolean
+**Default**: `false`
 **Description**: Enable Slack notifications
 
 #### `COVERAGE_SLACK_WEBHOOK_URL`
-**Type**: String (Secret)  
-**Default**: `""`  
+**Type**: String (Secret)
+**Default**: `""`
 **Description**: Slack webhook URL (store in GitHub Secrets)
 
 ```bash
@@ -383,8 +383,8 @@ COVERAGE_SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK }} # Use secret
 ### Path Exclusions
 
 #### `COVERAGE_EXCLUDE_PATHS`
-**Type**: Comma-separated list  
-**Default**: `test/,vendor/,examples/,third_party/,testdata/`  
+**Type**: Comma-separated list
+**Default**: `test/,vendor/,examples/,third_party/,testdata/`
 **Description**: Directory paths to exclude from coverage
 
 ```bash
@@ -399,8 +399,8 @@ COVERAGE_EXCLUDE_PATHS=vendor/
 ```
 
 #### `COVERAGE_EXCLUDE_FILES`
-**Type**: Comma-separated list  
-**Default**: `*_test.go,*.pb.go,*_mock.go,mock_*.go`  
+**Type**: Comma-separated list
+**Default**: `*_test.go,*.pb.go,*_mock.go,mock_*.go`
 **Description**: File patterns to exclude from coverage
 
 ```bash
@@ -415,8 +415,8 @@ COVERAGE_EXCLUDE_FILES=*_test.go,*.pb.go,*_mock.go,mock_*.go,*_gen.go
 ```
 
 #### `COVERAGE_EXCLUDE_PACKAGES`
-**Type**: Comma-separated list  
-**Default**: `""`  
+**Type**: Comma-separated list
+**Default**: `""`
 **Description**: Additional packages to exclude
 
 ```bash
@@ -426,8 +426,8 @@ COVERAGE_EXCLUDE_PACKAGES=internal/generated,pkg/proto
 ### Advanced Exclusions
 
 #### `COVERAGE_INCLUDE_ONLY_PATHS`
-**Type**: Comma-separated list  
-**Default**: `""`  
+**Type**: Comma-separated list
+**Default**: `""`
 **Description**: If set, only include these paths (whitelist mode)
 
 ```bash
@@ -436,18 +436,18 @@ COVERAGE_INCLUDE_ONLY_PATHS=""                # Include all (default)
 ```
 
 #### `COVERAGE_EXCLUDE_GENERATED`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Exclude generated files (detected by header comments)
 
 #### `COVERAGE_EXCLUDE_TEST_FILES`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Exclude test files from coverage analysis
 
 #### `COVERAGE_MIN_FILE_LINES`
-**Type**: Integer  
-**Default**: `10`  
+**Type**: Integer
+**Default**: `10`
 **Description**: Minimum lines in file to include in coverage
 
 ```bash
@@ -461,15 +461,15 @@ COVERAGE_MIN_FILE_LINES=10         # Skip tiny files
 ### Log Configuration
 
 #### `COVERAGE_LOG_LEVEL`
-**Type**: String  
-**Default**: `info`  
-**Options**: `debug`, `info`, `warn`, `error`  
+**Type**: String
+**Default**: `info`
+**Options**: `debug`, `info`, `warn`, `error`
 **Description**: Logging verbosity level
 
 #### `COVERAGE_LOG_FORMAT`
-**Type**: String  
-**Default**: `json`  
-**Options**: `json`, `text`, `pretty`  
+**Type**: String
+**Default**: `json`
+**Options**: `json`, `text`, `pretty`
 **Description**: Log output format
 
 ```bash
@@ -478,18 +478,18 @@ COVERAGE_LOG_FORMAT=pretty   # Human-readable format
 ```
 
 #### `COVERAGE_LOG_FILE`
-**Type**: String  
-**Default**: `/tmp/coverage.log`  
+**Type**: String
+**Default**: `/tmp/coverage.log`
 **Description**: Log file path
 
 #### `COVERAGE_LOG_MAX_SIZE`
-**Type**: String  
-**Default**: `10MB`  
+**Type**: String
+**Default**: `10MB`
 **Description**: Maximum log file size before rotation
 
 #### `COVERAGE_LOG_RETENTION_DAYS`
-**Type**: Integer  
-**Default**: `7`  
+**Type**: Integer
+**Default**: `7`
 **Description**: Days to retain log files
 
 ```bash
@@ -501,23 +501,23 @@ COVERAGE_LOG_RETENTION_DAYS=30            # Keep logs longer
 ### Debug Features
 
 #### `COVERAGE_DEBUG_MODE`
-**Type**: Boolean  
-**Default**: `false`  
+**Type**: Boolean
+**Default**: `false`
 **Description**: Enable verbose debugging output
 
 #### `COVERAGE_TRACE_ERRORS`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Include stack traces in error logs
 
 #### `COVERAGE_LOG_PERFORMANCE`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Log timing and performance metrics
 
 #### `COVERAGE_LOG_MEMORY_USAGE`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Log memory consumption statistics
 
 ```bash
@@ -532,28 +532,28 @@ COVERAGE_LOG_MEMORY_USAGE=true     # Memory tracking
 ### Metrics Collection
 
 #### `COVERAGE_METRICS_ENABLED`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Enable metrics collection and reporting
 
 #### `COVERAGE_METRICS_ENDPOINT`
-**Type**: String  
-**Default**: `""`  
+**Type**: String
+**Default**: `""`
 **Description**: Optional external metrics endpoint
 
 #### `COVERAGE_METRICS_INCLUDE_ERRORS`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Track error metrics and rates
 
 #### `COVERAGE_METRICS_INCLUDE_PERFORMANCE`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Track performance and timing metrics
 
 #### `COVERAGE_METRICS_INCLUDE_USAGE`
-**Type**: Boolean  
-**Default**: `true`  
+**Type**: Boolean
+**Default**: `true`
 **Description**: Track feature usage and adoption
 
 ```bash
@@ -569,19 +569,19 @@ COVERAGE_METRICS_INCLUDE_USAGE=true         # Usage analytics
 ### Test Mode Configuration
 
 #### `COVERAGE_TEST_MODE`
-**Type**: Boolean  
-**Default**: `false`  
+**Type**: Boolean
+**Default**: `false`
 **Description**: Enable test mode for development
 
 #### `COVERAGE_INJECT_ERRORS`
-**Type**: Comma-separated list  
-**Default**: `""`  
-**Options**: `parser`, `api`, `storage`  
+**Type**: Comma-separated list
+**Default**: `""`
+**Options**: `parser`, `api`, `storage`
 **Description**: Components to inject errors in (testing only)
 
 #### `COVERAGE_ERROR_RATE`
-**Type**: Float (0-1)  
-**Default**: `0`  
+**Type**: Float (0-1)
+**Default**: `0`
 **Description**: Error injection rate for testing
 
 ```bash
