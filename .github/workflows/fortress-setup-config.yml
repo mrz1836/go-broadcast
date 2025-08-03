@@ -96,6 +96,9 @@ on:
       warm-cache-matrix:
         description: "Warm cache matrix JSON"
         value: ${{ jobs.setup-config.outputs.warm-cache-matrix }}
+      pre-commit-enabled:
+        description: "Whether GoFortress Pre-commit System is enabled"
+        value: ${{ jobs.setup-config.outputs.pre-commit-enabled }}
 
 # Security: Restrictive default permissions with job-level overrides for least privilege access
 permissions:
@@ -132,6 +135,7 @@ jobs:
       static-analysis-enabled: ${{ steps.config.outputs.static-analysis-enabled }}
       test-matrix: ${{ steps.matrix.outputs.matrix }}
       warm-cache-matrix: ${{ steps.matrix.outputs.matrix }}
+      pre-commit-enabled: ${{ steps.config.outputs.pre-commit-enabled }}
 
     steps:
       # ————————————————————————————————————————————————————————————————
@@ -314,6 +318,7 @@ jobs:
           echo "gitleaks-enabled=${{ env.ENABLE_SECURITY_SCAN_GITLEAKS }}" >> $GITHUB_OUTPUT
           echo "static-analysis-enabled=${{ env.ENABLE_STATIC_ANALYSIS }}" >> $GITHUB_OUTPUT
           echo "fuzz-testing-enabled=${{ env.ENABLE_FUZZ_TESTING }}" >> $GITHUB_OUTPUT
+          echo "pre-commit-enabled=${{ env.ENABLE_PRE_COMMIT_SYSTEM }}" >> $GITHUB_OUTPUT
 
           # Detect if this is a release run
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then

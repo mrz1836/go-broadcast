@@ -31,6 +31,14 @@ inputs:
   go-secondary-version:
     description: "Secondary Go version for comparison"
     required: true
+  cache-key-pattern:
+    description: "Dynamic cache key pattern (list of files for hashFiles)"
+    required: false
+    default: "'**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum'"
+  cache-restore-keys:
+    description: "Restore key patterns for cache fallback"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -63,9 +71,9 @@ runs:
       with:
         path: |
           ~/go/pkg/mod
-        key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles(inputs.cache-key-pattern) }}
         restore-keys: |
-          ${{ inputs.matrix-os }}-gomod-
+          ${{ inputs.cache-restore-keys || format('{0}-gomod-', inputs.matrix-os) }}
 
     # ————————————————————————————————————————————————————————————————
     # Check go.mod required version before setting up Go
@@ -139,7 +147,7 @@ runs:
           ~/.cache/go-build
           ~/.cache/go-build/test
         # Try and get the full cache first, which includes test cache
-        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles(inputs.cache-key-pattern) }}
         restore-keys: |
           ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-
 
@@ -248,7 +256,7 @@ runs:
           ~/.cache/go-build
           ~/.cache/go-build/test
         # This is the first key, which does NOT have test cache, this will be used as a fail-over
-        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles(inputs.cache-key-pattern) }}
 
     # ————————————————————————————————————————————————————————————————
     # Track cache performance (no outputs - use artifacts instead)

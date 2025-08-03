@@ -63,6 +63,8 @@ jobs:
     outputs:
       env-json: ${{ steps.load-env.outputs.env-json }}
       primary-runner: ${{ steps.load-env.outputs.primary-runner }}
+      cache-key-pattern: ${{ steps.load-env.outputs.cache-key-pattern }}
+      cache-restore-keys: ${{ steps.load-env.outputs.cache-restore-keys }}
     steps:
       # ————————————————————————————————————————————————————————————————
       # Check out code to access env file
@@ -73,6 +75,9 @@ jobs:
           sparse-checkout: |
             .github/.env.shared
             .github/actions/load-env
+            .github/actions/detect-modules
+            .github/coverage/go.mod
+            .github/pre-commit/go.mod
 
       # ————————————————————————————————————————————————————————————————
       # Load and parse environment file
@@ -153,6 +158,8 @@ jobs:
           enable-verbose: ${{ steps.extract.outputs.enable_verbose }}
           go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
           go-secondary-version: ${{ needs.setup.outputs.go-secondary-version }}
+          cache-key-pattern: ${{ needs.load-env.outputs.cache-key-pattern }}
+          cache-restore-keys: ${{ needs.load-env.outputs.cache-restore-keys }}
   # ----------------------------------------------------------------------------------
   # Security Scans
   # ----------------------------------------------------------------------------------
@@ -189,6 +196,27 @@ jobs:
       yaml-lint-enabled: ${{ needs.setup.outputs.yaml-lint-enabled }}
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       static-analysis-enabled: ${{ needs.setup.outputs.static-analysis-enabled }}
+      cache-key-pattern: ${{ needs.load-env.outputs.cache-key-pattern }}
+      cache-restore-keys: ${{ needs.load-env.outputs.cache-restore-keys }}
+    secrets:
+      github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+  # ----------------------------------------------------------------------------------
+  # Pre-commit Checks
+  # ----------------------------------------------------------------------------------
+  pre-commit:
+    name: 🪝 Pre-commit Checks
+    needs: [load-env, setup, warm-cache, test-makefile]
+    if: needs.setup.outputs.pre-commit-enabled == 'true'
+    permissions:
+      contents: read # Read repository content for pre-commit checks
+    uses: ./.github/workflows/fortress-pre-commit.yml
+    with:
+      env-json: ${{ needs.load-env.outputs.env-json }}
+      primary-runner: ${{ needs.setup.outputs.primary-runner }}
+      go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
+      pre-commit-enabled: ${{ needs.setup.outputs.pre-commit-enabled }}
+      cache-key-pattern: ${{ needs.load-env.outputs.cache-key-pattern }}
+      cache-restore-keys: ${{ needs.load-env.outputs.cache-restore-keys }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
   # ----------------------------------------------------------------------------------
@@ -213,6 +241,8 @@ jobs:
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       race-detection-enabled: ${{ needs.setup.outputs.race-detection-enabled }}
       test-matrix: ${{ needs.setup.outputs.test-matrix }}
+      cache-key-pattern: ${{ needs.load-env.outputs.cache-key-pattern }}
+      cache-restore-keys: ${{ needs.load-env.outputs.cache-restore-keys }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
   # ----------------------------------------------------------------------------------
@@ -231,6 +261,8 @@ jobs:
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
       go-secondary-version: ${{ needs.setup.outputs.go-secondary-version }}
+      cache-key-pattern: ${{ needs.load-env.outputs.cache-key-pattern }}
+      cache-restore-keys: ${{ needs.load-env.outputs.cache-restore-keys }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
   # ----------------------------------------------------------------------------------
@@ -239,7 +271,7 @@ jobs:
   status-check:
     name: 🎯 All Tests Passed
     if: ${{ always() }}
-    needs: [setup, test-makefile, security, code-quality, test-suite, benchmarks]
+    needs: [setup, test-makefile, security, code-quality, pre-commit, test-suite, benchmarks]
     permissions:
       contents: read # Read repository content for status checking
     runs-on: ${{ needs.setup.outputs.primary-runner }}
@@ -258,6 +290,7 @@ jobs:
             echo "| 📋 Makefile | ${{ needs.test-makefile.result }} | Required |"
             echo "| 🔒 Security | ${{ needs.security.result }} | Required |"
             echo "| 📊 Code Quality | ${{ needs.code-quality.result }} | Required |"
+            echo "| 🪝 Pre-commit | ${{ needs.pre-commit.result }} | Required |"
             echo "| 🧪 Test Suite | ${{ needs.test-suite.result }} | Required |"
             echo "| 🏃 Benchmarks | ${{ needs.benchmarks.result }} | Optional ⚠️ |"
             echo ""
@@ -294,6 +327,11 @@ jobs:
 
           if [[ "${{ needs.code-quality.result }}" == "failure" || "${{ needs.code-quality.result }}" == "cancelled" ]]; then
             echo "❌ Code quality checks failed or were cancelled" >&2
+            FAILED=true
+          fi
+
+          if [[ "${{ needs.pre-commit.result }}" == "failure" || "${{ needs.pre-commit.result }}" == "cancelled" ]]; then
+            echo "❌ Pre-commit checks failed or were cancelled" >&2
             FAILED=true
           fi
 
@@ -334,6 +372,8 @@ jobs:
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
       golangci-lint-version: ${{ needs.code-quality.outputs.golangci-lint-version }}
+      cache-key-pattern: ${{ needs.load-env.outputs.cache-key-pattern }}
+      cache-restore-keys: ${{ needs.load-env.outputs.cache-restore-keys }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
       slack-webhook: ${{ secrets.SLACK_WEBHOOK || '' }}

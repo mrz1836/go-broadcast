@@ -1,0 +1,110 @@
+# ------------------------------------------------------------------------------------
+#  Detect Go Modules Composite Action (GoFortress)
+#
+#  Purpose: Detects which Go modules exist in the repository and outputs
+#           information for dynamic cache key generation
+#
+#  Outputs:
+#    coverage-exists: "true" if .github/coverage/go.mod exists
+#    pre-commit-exists: "true" if .github/pre-commit/go.mod exists
+#    cache-key-pattern: Dynamic cache key pattern based on detected modules
+#    cache-restore-keys: Restore key patterns for cache fallback
+#
+#  Maintainer: @mrz1836
+#
+# ------------------------------------------------------------------------------------
+
+name: "Detect Go Modules"
+description: "Detects which Go modules exist and generates dynamic cache key patterns"
+
+outputs:
+  coverage-exists:
+    description: "Whether the coverage module exists"
+    value: ${{ steps.detect.outputs.coverage-exists }}
+  pre-commit-exists:
+    description: "Whether the pre-commit module exists"
+    value: ${{ steps.detect.outputs.pre-commit-exists }}
+  cache-key-pattern:
+    description: "Dynamic cache key pattern for all detected modules"
+    value: ${{ steps.detect.outputs.cache-key-pattern }}
+  cache-restore-keys:
+    description: "Restore key patterns for cache fallback"
+    value: ${{ steps.detect.outputs.cache-restore-keys }}
+
+runs:
+  using: "composite"
+  steps:
+    # ————————————————————————————————————————————————————————————————
+    # Detect which modules exist
+    # ————————————————————————————————————————————————————————————————
+    - name: 🔍 Detect Go modules
+      id: detect
+      shell: bash
+      run: |
+        echo "🔍 Detecting Go modules in repository..."
+
+        # Initialize variables
+        COVERAGE_EXISTS="false"
+        PRE_COMMIT_EXISTS="false"
+        CACHE_KEY_FILES="**/go.sum"
+
+        # Check for main go.mod
+        if [ -f "go.mod" ]; then
+          echo "✅ Found main go.mod"
+        else
+          echo "⚠️ No main go.mod found"
+        fi
+
+        # Check for coverage module
+        if [ -f ".github/coverage/go.mod" ]; then
+          echo "✅ Found coverage module at .github/coverage/"
+          COVERAGE_EXISTS="true"
+          CACHE_KEY_FILES="${CACHE_KEY_FILES}, .github/coverage/go.sum"
+        else
+          echo "ℹ️ No coverage module found"
+        fi
+
+        # Check for pre-commit module
+        if [ -f ".github/pre-commit/go.mod" ]; then
+          echo "✅ Found pre-commit module at .github/pre-commit/"
+          PRE_COMMIT_EXISTS="true"
+          CACHE_KEY_FILES="${CACHE_KEY_FILES}, .github/pre-commit/go.sum"
+        else
+          echo "ℹ️ No pre-commit module found"
+        fi
+
+        # Set outputs
+        echo "coverage-exists=$COVERAGE_EXISTS" >> $GITHUB_OUTPUT
+        echo "pre-commit-exists=$PRE_COMMIT_EXISTS" >> $GITHUB_OUTPUT
+
+        # Generate cache key pattern
+        # Format: ${{ inputs.matrix-os }}-gomod-${{ hashFiles(CACHE_KEY_FILES) }}
+        echo "cache-key-pattern=$CACHE_KEY_FILES" >> $GITHUB_OUTPUT
+
+        # Generate restore keys (used for fallback)
+        # These are progressively less specific for better cache hits
+        RESTORE_KEYS=""
+        if [[ "$COVERAGE_EXISTS" == "true" && "$PRE_COMMIT_EXISTS" == "true" ]]; then
+          # All modules exist - provide multiple fallback levels
+          RESTORE_KEYS="\${{ inputs.matrix-os }}-gomod-\${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}|\${{ inputs.matrix-os }}-gomod-\${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}|\${{ inputs.matrix-os }}-gomod-\${{ hashFiles('**/go.sum', '.github/pre-commit/go.sum') }}|\${{ inputs.matrix-os }}-gomod-\${{ hashFiles('**/go.sum') }}|\${{ inputs.matrix-os }}-gomod-"
+        elif [[ "$COVERAGE_EXISTS" == "true" ]]; then
+          # Only coverage exists
+          RESTORE_KEYS="\${{ inputs.matrix-os }}-gomod-\${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}|\${{ inputs.matrix-os }}-gomod-\${{ hashFiles('**/go.sum') }}|\${{ inputs.matrix-os }}-gomod-"
+        elif [[ "$PRE_COMMIT_EXISTS" == "true" ]]; then
+          # Only pre-commit exists
+          RESTORE_KEYS="\${{ inputs.matrix-os }}-gomod-\${{ hashFiles('**/go.sum', '.github/pre-commit/go.sum') }}|\${{ inputs.matrix-os }}-gomod-\${{ hashFiles('**/go.sum') }}|\${{ inputs.matrix-os }}-gomod-"
+        else
+          # Only main module
+          RESTORE_KEYS="\${{ inputs.matrix-os }}-gomod-\${{ hashFiles('**/go.sum') }}|\${{ inputs.matrix-os }}-gomod-"
+        fi
+
+        echo "cache-restore-keys=$RESTORE_KEYS" >> $GITHUB_OUTPUT
+
+        # Summary
+        echo ""
+        echo "📊 Module Detection Summary:"
+        echo "  • Main module: $([ -f "go.mod" ] && echo "✅ Found" || echo "❌ Not found")"
+        echo "  • Coverage module: $([ "$COVERAGE_EXISTS" == "true" ] && echo "✅ Found" || echo "❌ Not found")"
+        echo "  • Pre-commit module: $([ "$PRE_COMMIT_EXISTS" == "true" ] && echo "✅ Found" || echo "❌ Not found")"
+        echo "  • Cache key files: $CACHE_KEY_FILES"
+        echo ""

@@ -25,6 +25,12 @@ outputs:
   primary-runner:
     description: "Primary runner OS extracted from environment variables"
     value: ${{ steps.load-env.outputs.primary-runner }}
+  cache-key-pattern:
+    description: "Dynamic cache key pattern based on detected modules"
+    value: ${{ steps.detect-modules.outputs.cache-key-pattern }}
+  cache-restore-keys:
+    description: "Restore key patterns for cache fallback"
+    value: ${{ steps.detect-modules.outputs.cache-restore-keys }}
 
 runs:
   using: "composite"
@@ -70,3 +76,10 @@ runs:
             exit 1
         fi
         echo "primary-runner=$PRIMARY_RUNNER" >> $GITHUB_OUTPUT
+
+    # ————————————————————————————————————————————————————————————————
+    # Detect Go modules for dynamic cache key generation
+    # ————————————————————————————————————————————————————————————————
+    - name: 🔍 Detect Go modules
+      uses: ./.github/actions/detect-modules
+      id: detect-modules
