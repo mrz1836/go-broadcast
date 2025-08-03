@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
@@ -29,14 +27,14 @@ type ProductionScenariosTestSuite struct {
 func (s *ProductionScenariosTestSuite) SetupSuite() {
 	var err error
 	s.originalWD, err = os.Getwd()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Create temporary directory structure
 	s.tempDir = s.T().TempDir()
 
 	// Create .github directory
 	githubDir := filepath.Join(s.tempDir, ".github")
-	require.NoError(s.T(), os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
 
 	// Create production-like .env.shared file
 	s.envFile = filepath.Join(githubDir, ".env.shared")
@@ -56,13 +54,13 @@ PRE_COMMIT_SYSTEM_EXCLUDE_PATTERNS="vendor/,node_modules/,.git/,dist/,build/,cov
 PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT=60
 PRE_COMMIT_SYSTEM_EOF_TIMEOUT=60
 `
-	require.NoError(s.T(), os.WriteFile(s.envFile, []byte(envContent), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o644))
 
 	// Change to temp directory for tests
-	require.NoError(s.T(), os.Chdir(s.tempDir))
+	s.Require().NoError(os.Chdir(s.tempDir))
 
 	// Initialize git repository
-	require.NoError(s.T(), s.initGitRepo())
+	s.Require().NoError(s.initGitRepo())
 }
 
 // TearDownSuite cleans up the test environment
@@ -115,7 +113,7 @@ func (s *ProductionScenariosTestSuite) TestLargeRepositorySimulation() {
 
 			// Load configuration
 			cfg, err := config.Load()
-			require.NoError(s.T(), err)
+			s.Require().NoError(err)
 
 			// Create runner
 			r := runner.New(cfg, s.tempDir)
@@ -132,11 +130,11 @@ func (s *ProductionScenariosTestSuite) TestLargeRepositorySimulation() {
 			duration := time.Since(start)
 
 			// Validate results
-			assert.NoError(s.T(), err, tc.description)
-			assert.NotNil(s.T(), result, "Result should not be nil")
+			s.NoError(err, tc.description)
+			s.NotNil(result, "Result should not be nil")
 
 			// Performance validation
-			assert.True(s.T(), duration <= tc.target,
+			s.True(duration <= tc.target,
 				"Execution should complete within target time: %v (target: %v)",
 				duration, tc.target)
 
@@ -156,7 +154,7 @@ func (s *ProductionScenariosTestSuite) TestMixedFileTypesScenario() {
 
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Create runner
 	r := runner.New(cfg, s.tempDir)
@@ -172,16 +170,16 @@ func (s *ProductionScenariosTestSuite) TestMixedFileTypesScenario() {
 	duration := time.Since(start)
 
 	// Validate results
-	assert.NoError(s.T(), err, "Mixed file types should be handled successfully")
-	assert.NotNil(s.T(), result, "Result should not be nil")
-	assert.True(s.T(), duration < 10*time.Second, "Should complete quickly with mixed files")
+	s.NoError(err, "Mixed file types should be handled successfully")
+	s.NotNil(result, "Result should not be nil")
+	s.Less(duration, 10*time.Second, "Should complete quickly with mixed files")
 
 	// Validate file filtering worked correctly
 	s.T().Logf("Mixed file types test: %d total files, processed in %v",
 		len(files), duration)
 
 	// Check that appropriate files were processed
-	assert.True(s.T(), len(files) > 0, "Should have files to process")
+	s.NotEmpty(files, "Should have files to process")
 }
 
 // TestHighVolumeCommitScenario simulates large commits with many files
@@ -228,7 +226,7 @@ func (s *ProductionScenariosTestSuite) TestHighVolumeCommitScenario() {
 		s.Run(tc.name, func() {
 			// Load configuration
 			cfg, err := config.Load()
-			require.NoError(s.T(), err)
+			s.Require().NoError(err)
 
 			// Create runner
 			r := runner.New(cfg, s.tempDir)
@@ -244,9 +242,9 @@ func (s *ProductionScenariosTestSuite) TestHighVolumeCommitScenario() {
 			duration := time.Since(start)
 
 			// Validate results
-			assert.NoError(s.T(), err, tc.description)
-			assert.NotNil(s.T(), result, "Result should not be nil")
-			assert.True(s.T(), duration <= tc.expectTarget,
+			s.NoError(err, tc.description)
+			s.NotNil(result, "Result should not be nil")
+			s.True(duration <= tc.expectTarget,
 				"Scenario should complete within target: %v (target: %v)",
 				duration, tc.expectTarget)
 
@@ -304,12 +302,12 @@ func (s *ProductionScenariosTestSuite) TestNetworkConstrainedEnvironment() {
 		s.Run(tc.name, func() {
 			// Set environment variables
 			for key, value := range tc.envVars {
-				require.NoError(s.T(), os.Setenv(key, value))
+				s.Require().NoError(os.Setenv(key, value))
 			}
 
 			// Load configuration
 			cfg, err := config.Load()
-			require.NoError(s.T(), err)
+			s.Require().NoError(err)
 
 			// Create runner
 			r := runner.New(cfg, s.tempDir)
@@ -323,12 +321,12 @@ func (s *ProductionScenariosTestSuite) TestNetworkConstrainedEnvironment() {
 			})
 
 			// Should complete successfully even with network constraints
-			assert.NoError(s.T(), err, tc.description)
-			assert.NotNil(s.T(), result, "Should have results even in constrained environment")
+			s.NoError(err, tc.description)
+			s.NotNil(result, "Should have results even in constrained environment")
 
 			// Clean up environment variables
 			for key := range tc.envVars {
-				require.NoError(s.T(), os.Unsetenv(key))
+				s.Require().NoError(os.Unsetenv(key))
 			}
 
 			s.T().Logf("%s: Completed successfully", tc.name)
@@ -382,7 +380,7 @@ func (s *ProductionScenariosTestSuite) TestResourceConstrainedEnvironment() {
 
 			// Load configuration
 			cfg, err := config.Load()
-			require.NoError(s.T(), err)
+			s.Require().NoError(err)
 
 			// Create runner
 			r := runner.New(cfg, s.tempDir)
@@ -398,8 +396,8 @@ func (s *ProductionScenariosTestSuite) TestResourceConstrainedEnvironment() {
 			duration := time.Since(start)
 
 			// Should handle resource constraints gracefully
-			assert.NoError(s.T(), err, tc.description)
-			assert.NotNil(s.T(), result, "Should have results even under constraints")
+			s.Require().NoError(err, tc.description)
+			s.NotNil(result, "Should have results even under constraints")
 
 			s.T().Logf("%s: Completed in %v under resource constraints", tc.name, duration)
 
@@ -465,12 +463,12 @@ func (s *ProductionScenariosTestSuite) TestCIEnvironmentScenarios() {
 		s.Run(scenario.name, func() {
 			// Set CI environment variables
 			for key, value := range scenario.envVars {
-				require.NoError(s.T(), os.Setenv(key, value))
+				s.Require().NoError(os.Setenv(key, value))
 			}
 
 			// Load configuration
 			cfg, err := config.Load()
-			require.NoError(s.T(), err)
+			s.Require().NoError(err)
 
 			// Create runner
 			r := runner.New(cfg, s.tempDir)
@@ -486,16 +484,16 @@ func (s *ProductionScenariosTestSuite) TestCIEnvironmentScenarios() {
 			duration := time.Since(start)
 
 			// Should work correctly in CI
-			assert.NoError(s.T(), err, scenario.description)
-			assert.NotNil(s.T(), result, "Should have results in CI environment")
+			s.NoError(err, scenario.description)
+			s.NotNil(result, "Should have results in CI environment")
 
 			// Performance should be reasonable in CI
-			assert.True(s.T(), duration < 30*time.Second,
+			s.True(duration < 30*time.Second,
 				"CI execution should complete in reasonable time: %v", duration)
 
 			// Clean up environment variables
 			for key := range scenario.envVars {
-				require.NoError(s.T(), os.Unsetenv(key))
+				s.Require().NoError(os.Unsetenv(key))
 			}
 
 			s.T().Logf("%s: Completed in %v", scenario.name, duration)
@@ -510,7 +508,7 @@ func (s *ProductionScenariosTestSuite) TestRealWorldFilePatterns() {
 
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Create runner
 	r := runner.New(cfg, s.tempDir)
@@ -526,9 +524,9 @@ func (s *ProductionScenariosTestSuite) TestRealWorldFilePatterns() {
 	duration := time.Since(start)
 
 	// Should handle real-world patterns successfully
-	assert.NoError(s.T(), err, "Should handle real-world file patterns")
-	assert.NotNil(s.T(), result, "Should have results")
-	assert.True(s.T(), duration < 20*time.Second, "Should complete in reasonable time")
+	s.NoError(err, "Should handle real-world file patterns")
+	s.NotNil(result, "Should have results")
+	s.True(duration < 20*time.Second, "Should complete in reasonable time")
 
 	s.T().Logf("Real-world patterns test: %d files processed in %v",
 		len(files), duration)
@@ -546,7 +544,7 @@ func (s *ProductionScenariosTestSuite) createLargeRepositoryStructure(fileCount 
 	}
 
 	for _, dir := range dirs {
-		require.NoError(s.T(), os.MkdirAll(filepath.Join(s.tempDir, dir), 0o755))
+		s.Require().NoError(os.MkdirAll(filepath.Join(s.tempDir, dir), 0o755))
 	}
 
 	// Create files across directories
@@ -565,7 +563,7 @@ func (s *ProductionScenariosTestSuite) createLargeRepositoryStructure(fileCount 
 		fullPath := filepath.Join(s.tempDir, dir, filename)
 		content := s.generateFileContent(fileType, i)
 
-		require.NoError(s.T(), os.WriteFile(fullPath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
 		files = append(files, filepath.Join(dir, filename))
 	}
 
@@ -606,7 +604,7 @@ func (s *ProductionScenariosTestSuite) createMixedFileTypeStructure() []string {
 	var files []string
 	for filename, content := range fileMap {
 		fullPath := filepath.Join(s.tempDir, filename)
-		require.NoError(s.T(), os.WriteFile(fullPath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
 		files = append(files, filename)
 	}
 
@@ -711,7 +709,7 @@ func main() {}
 	var files []string
 	for filename, content := range fileMap {
 		fullPath := filepath.Join(s.tempDir, filename)
-		require.NoError(s.T(), os.WriteFile(fullPath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
 		files = append(files, filename)
 	}
 
@@ -723,13 +721,13 @@ func (s *ProductionScenariosTestSuite) createBasicFiles(filenames []string) []st
 		// Create directory if needed
 		dir := filepath.Dir(filename)
 		if dir != "." {
-			require.NoError(s.T(), os.MkdirAll(filepath.Join(s.tempDir, dir), 0o755))
+			s.Require().NoError(os.MkdirAll(filepath.Join(s.tempDir, dir), 0o755))
 		}
 
 		// Create file with appropriate content
 		content := s.generateFileContent(filepath.Ext(filename), 0)
 		fullPath := filepath.Join(s.tempDir, filename)
-		require.NoError(s.T(), os.WriteFile(fullPath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
 	}
 
 	return filenames
@@ -801,7 +799,7 @@ func (s *ProductionScenariosTestSuite) createConstrainedConfig(overrides map[str
 		content += key + "=" + value + "\n"
 	}
 
-	require.NoError(s.T(), os.WriteFile(s.envFile, []byte(content), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(content), 0o644))
 }
 
 func (s *ProductionScenariosTestSuite) restoreOriginalConfig() {
@@ -820,7 +818,7 @@ PRE_COMMIT_SYSTEM_EXCLUDE_PATTERNS="vendor/,node_modules/,.git/,dist/,build/,cov
 PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT=60
 PRE_COMMIT_SYSTEM_EOF_TIMEOUT=60
 `
-	require.NoError(s.T(), os.WriteFile(s.envFile, []byte(originalConfig), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(originalConfig), 0o644))
 }
 
 // TestSuite runs the production scenarios test suite

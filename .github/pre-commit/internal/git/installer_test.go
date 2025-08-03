@@ -24,6 +24,11 @@ func TestInstaller_InstallHook(t *testing.T) {
 	err := os.MkdirAll(gitDir, 0o750)
 	require.NoError(t, err)
 
+	// Create the pre-commit directory for validation
+	preCommitDir := filepath.Join(tmpDir, ".github", "pre-commit")
+	err = os.MkdirAll(preCommitDir, 0o750)
+	require.NoError(t, err)
+
 	installer := NewInstaller(tmpDir, ".github/pre-commit")
 
 	// Test installing a hook
@@ -71,6 +76,11 @@ func TestInstaller_UninstallHook(t *testing.T) {
 	err := os.MkdirAll(gitDir, 0o750)
 	require.NoError(t, err)
 
+	// Create the pre-commit directory for validation
+	preCommitDir := filepath.Join(tmpDir, ".github", "pre-commit")
+	err = os.MkdirAll(preCommitDir, 0o750)
+	require.NoError(t, err)
+
 	installer := NewInstaller(tmpDir, ".github/pre-commit")
 	hookPath := filepath.Join(gitDir, "pre-commit")
 
@@ -113,6 +123,11 @@ func TestInstaller_IsHookInstalled(t *testing.T) {
 	err := os.MkdirAll(gitDir, 0o750)
 	require.NoError(t, err)
 
+	// Create the pre-commit directory for validation
+	preCommitDir := filepath.Join(tmpDir, ".github", "pre-commit")
+	err = os.MkdirAll(preCommitDir, 0o750)
+	require.NoError(t, err)
+
 	installer := NewInstaller(tmpDir, ".github/pre-commit")
 
 	// Test with non-existent hook
@@ -138,6 +153,10 @@ func TestInstaller_IsHookInstalled(t *testing.T) {
 }
 
 func TestHookScript(t *testing.T) {
+	// Create an installer to test hook script generation
+	installer := NewInstaller("/test/repo", ".github/pre-commit")
+	hookScript := installer.GenerateHookScript()
+
 	// Verify the hook script is properly formatted
 	assert.True(t, strings.HasPrefix(hookScript, "#!/bin/bash"))
 	assert.Contains(t, hookScript, "GoFortress Pre-commit Hook")
@@ -149,10 +168,15 @@ func TestInstaller_InstallHook_ErrorCases(t *testing.T) {
 	// Test error creating hooks directory
 	tmpDir := t.TempDir()
 
+	// Create the pre-commit directory for validation
+	preCommitDir := filepath.Join(tmpDir, ".github", "pre-commit")
+	err := os.MkdirAll(preCommitDir, 0o750)
+	require.NoError(t, err)
+
 	// Create a file where .git/hooks should be to cause mkdir error
 	gitHooksPath := filepath.Join(tmpDir, ".git", "hooks")
 	gitPath := filepath.Join(tmpDir, ".git")
-	err := os.MkdirAll(gitPath, 0o750)
+	err = os.MkdirAll(gitPath, 0o750)
 	require.NoError(t, err)
 
 	// Create a file instead of directory
@@ -175,6 +199,11 @@ func TestInstaller_UninstallHook_ErrorCases(t *testing.T) {
 	tmpDir := t.TempDir()
 	gitDir := filepath.Join(tmpDir, ".git", "hooks")
 	err := os.MkdirAll(gitDir, 0o750)
+	require.NoError(t, err)
+
+	// Create the pre-commit directory for validation
+	preCommitDir := filepath.Join(tmpDir, ".github", "pre-commit")
+	err = os.MkdirAll(preCommitDir, 0o750)
 	require.NoError(t, err)
 
 	installer := NewInstaller(tmpDir, ".github/pre-commit")

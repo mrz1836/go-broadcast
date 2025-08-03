@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -285,38 +284,20 @@ func (s *FumptCheckTestSuite) initGitRepo() {
 	s.Require().NoError(exec.Command("git", "config", "user.name", "Test User").Run())
 }
 
-func (s *FumptCheckTestSuite) createMakefile(targets []string) {
-	makefileContent := "# Test Makefile\n\n"
-	for _, target := range targets {
-		switch target {
-		case "fumpt":
-			makefileContent += "fumpt:\n\t@echo \"Running fumpt\"\n\tgofumpt -w -extra .\n\n"
-		case "fumpt-check":
-			makefileContent += "fumpt-check:\n\t@echo \"Checking fumpt\"\n\tgofumpt -d .\n\n"
-		default:
-			makefileContent += target + ":\n\t@echo \"Running " + target + "\"\n\n"
-		}
-	}
-
-	makefilePath := filepath.Join(s.tempDir, "Makefile")
-	err := os.WriteFile(makefilePath, []byte(makefileContent), 0o644)
-	s.Require().NoError(err)
-}
-
 func (s *FumptCheckTestSuite) TestNewFumptCheckWithSharedContext() {
 	sharedCtx := shared.NewContext()
 	check := NewFumptCheckWithSharedContext(sharedCtx)
-	s.Assert().NotNil(check)
-	s.Assert().Equal(sharedCtx, check.sharedCtx)
+	s.NotNil(check)
+	s.Equal(sharedCtx, check.sharedCtx)
 }
 
 func (s *FumptCheckTestSuite) TestNewFumptCheckWithConfig() {
 	sharedCtx := shared.NewContext()
 	timeout := 30 * time.Second
 	check := NewFumptCheckWithConfig(sharedCtx, timeout)
-	s.Assert().NotNil(check)
-	s.Assert().Equal(sharedCtx, check.sharedCtx)
-	s.Assert().Equal(timeout, check.timeout)
+	s.NotNil(check)
+	s.Equal(sharedCtx, check.sharedCtx)
+	s.Equal(timeout, check.timeout)
 }
 
 func (s *FumptCheckTestSuite) TestRunMakeFumpt() {
@@ -337,7 +318,7 @@ func (s *FumptCheckTestSuite) TestRunMakeFumpt() {
 	err = check.Run(context.Background(), []string{"test.go"})
 
 	// Should succeed with make target available
-	s.Assert().NoError(err)
+	s.NoError(err)
 }
 
 func (s *FumptCheckTestSuite) TestRunDirectFumpt() {
@@ -362,7 +343,7 @@ fmt.Println("hello")
 	err = check.Run(context.Background(), []string{"main.go"})
 
 	// Should succeed when gofumpt is available
-	s.Assert().NoError(err)
+	s.NoError(err)
 }
 
 func (s *FumptCheckTestSuite) TestRunWithTimeout() {
@@ -377,7 +358,7 @@ func (s *FumptCheckTestSuite) TestRunWithTimeout() {
 	s.Require().NoError(err)
 
 	err = check.Run(context.Background(), []string{"test.go"})
-	s.Assert().Error(err)
+	s.Error(err)
 }
 
 type LintCheckTestSuite struct {
@@ -422,36 +403,20 @@ func (s *LintCheckTestSuite) initGitRepo() {
 	s.Require().NoError(exec.Command("git", "config", "user.name", "Test User").Run())
 }
 
-func (s *LintCheckTestSuite) createMakefile(targets []string) {
-	makefileContent := "# Test Makefile\n\n"
-	for _, target := range targets {
-		switch target {
-		case "lint":
-			makefileContent += "lint:\n\t@echo \"Running lint\"\n\tgolangci-lint run\n\n"
-		default:
-			makefileContent += target + ":\n\t@echo \"Running " + target + "\"\n\n"
-		}
-	}
-
-	makefilePath := filepath.Join(s.tempDir, "Makefile")
-	err := os.WriteFile(makefilePath, []byte(makefileContent), 0o644)
-	s.Require().NoError(err)
-}
-
 func (s *LintCheckTestSuite) TestNewLintCheckWithSharedContext() {
 	sharedCtx := shared.NewContext()
 	check := NewLintCheckWithSharedContext(sharedCtx)
-	s.Assert().NotNil(check)
-	s.Assert().Equal(sharedCtx, check.sharedCtx)
+	s.NotNil(check)
+	s.Equal(sharedCtx, check.sharedCtx)
 }
 
 func (s *LintCheckTestSuite) TestNewLintCheckWithConfig() {
 	sharedCtx := shared.NewContext()
 	timeout := 30 * time.Second
 	check := NewLintCheckWithConfig(sharedCtx, timeout)
-	s.Assert().NotNil(check)
-	s.Assert().Equal(sharedCtx, check.sharedCtx)
-	s.Assert().Equal(timeout, check.timeout)
+	s.NotNil(check)
+	s.Equal(sharedCtx, check.sharedCtx)
+	s.Equal(timeout, check.timeout)
 }
 
 func (s *LintCheckTestSuite) TestRunMakeLint() {
@@ -472,7 +437,7 @@ func (s *LintCheckTestSuite) TestRunMakeLint() {
 	err = check.Run(context.Background(), []string{"test.go"})
 
 	// Should succeed with make target available
-	s.Assert().NoError(err)
+	s.NoError(err)
 }
 
 func (s *LintCheckTestSuite) TestRunDirectLint() {
@@ -502,7 +467,7 @@ func main() {
 	err = check.Run(context.Background(), []string{"main.go"})
 
 	// Should succeed when golangci-lint is available
-	s.Assert().NoError(err)
+	s.NoError(err)
 }
 
 type ModTidyCheckTestSuite struct {
@@ -547,36 +512,20 @@ func (s *ModTidyCheckTestSuite) initGitRepo() {
 	s.Require().NoError(exec.Command("git", "config", "user.name", "Test User").Run())
 }
 
-func (s *ModTidyCheckTestSuite) createMakefile(targets []string) {
-	makefileContent := "# Test Makefile\n\n"
-	for _, target := range targets {
-		switch target {
-		case "mod-tidy":
-			makefileContent += "mod-tidy:\n\t@echo \"Running mod-tidy\"\n\tgo mod tidy\n\n"
-		default:
-			makefileContent += target + ":\n\t@echo \"Running " + target + "\"\n\n"
-		}
-	}
-
-	makefilePath := filepath.Join(s.tempDir, "Makefile")
-	err := os.WriteFile(makefilePath, []byte(makefileContent), 0o644)
-	s.Require().NoError(err)
-}
-
 func (s *ModTidyCheckTestSuite) TestNewModTidyCheckWithSharedContext() {
 	sharedCtx := shared.NewContext()
 	check := NewModTidyCheckWithSharedContext(sharedCtx)
-	s.Assert().NotNil(check)
-	s.Assert().Equal(sharedCtx, check.sharedCtx)
+	s.NotNil(check)
+	s.Equal(sharedCtx, check.sharedCtx)
 }
 
 func (s *ModTidyCheckTestSuite) TestNewModTidyCheckWithConfig() {
 	sharedCtx := shared.NewContext()
 	timeout := 30 * time.Second
 	check := NewModTidyCheckWithConfig(sharedCtx, timeout)
-	s.Assert().NotNil(check)
-	s.Assert().Equal(sharedCtx, check.sharedCtx)
-	s.Assert().Equal(timeout, check.timeout)
+	s.NotNil(check)
+	s.Equal(sharedCtx, check.sharedCtx)
+	s.Equal(timeout, check.timeout)
 }
 
 func (s *ModTidyCheckTestSuite) TestFilterFilesWithGoFiles() {
@@ -594,7 +543,7 @@ func (s *ModTidyCheckTestSuite) TestFilterFilesWithGoFiles() {
 	// With go.mod/go.sum present, should return only those
 	filtered := check.FilterFiles(files)
 	expected := []string{"go.mod", "go.sum"}
-	s.Assert().Equal(expected, filtered)
+	s.Equal(expected, filtered)
 }
 
 func (s *ModTidyCheckTestSuite) TestFilterFilesOnlyGoFiles() {
@@ -610,7 +559,7 @@ func (s *ModTidyCheckTestSuite) TestFilterFilesOnlyGoFiles() {
 	// With only .go files, should return dummy go.mod to trigger check
 	filtered := check.FilterFiles(files)
 	expected := []string{"go.mod"}
-	s.Assert().Equal(expected, filtered)
+	s.Equal(expected, filtered)
 }
 
 func (s *ModTidyCheckTestSuite) TestFilterFilesNoGoFiles() {
@@ -624,7 +573,7 @@ func (s *ModTidyCheckTestSuite) TestFilterFilesNoGoFiles() {
 
 	// Without go files, should return empty
 	filtered := check.FilterFiles(files)
-	s.Assert().Empty(filtered)
+	s.Empty(filtered)
 }
 
 func (s *ModTidyCheckTestSuite) TestRunMakeModTidy() {
@@ -654,7 +603,7 @@ func (s *ModTidyCheckTestSuite) TestRunMakeModTidy() {
 	err = check.Run(context.Background(), []string{"go.mod"})
 
 	// Should succeed with make target available
-	s.Assert().NoError(err)
+	s.NoError(err)
 }
 
 func (s *ModTidyCheckTestSuite) TestRunDirectModTidy() {
@@ -688,7 +637,7 @@ func main() {
 	err = check.Run(context.Background(), []string{"go.mod"})
 
 	// Should succeed when go is available
-	s.Assert().NoError(err)
+	s.NoError(err)
 }
 
 func (s *ModTidyCheckTestSuite) TestCheckUncommittedChanges() {
@@ -727,7 +676,7 @@ func main() {
 	err = check.Run(context.Background(), []string{"go.mod"})
 
 	// Should return error indicating uncommitted changes
-	s.Assert().Error(err)
+	s.Error(err)
 }
 
 // Edge case and error condition tests

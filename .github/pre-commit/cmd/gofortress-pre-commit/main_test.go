@@ -98,7 +98,7 @@ func TestMainFunctionFlow(t *testing.T) {
 	err := cmd.Execute()
 
 	// Help command should succeed (exit code 0 in cobra)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test that version info was set correctly
 	// We can't directly access the cmd package variables but we know

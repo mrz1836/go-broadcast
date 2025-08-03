@@ -3,6 +3,7 @@ package makewrap
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -118,7 +119,7 @@ func (c *LintCheck) runMakeLint(ctx context.Context) error {
 		output := stdout.String() + stderr.String()
 
 		// Check if it's a context timeout
-		if ctx.Err() == context.DeadlineExceeded {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return prerrors.NewToolExecutionError(
 				"make lint",
 				output,
@@ -202,7 +203,7 @@ func (c *LintCheck) runDirectLint(ctx context.Context, files []string) error {
 		output := stdout.String() + stderr.String()
 
 		// Check if it's a context timeout
-		if ctx.Err() == context.DeadlineExceeded {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return prerrors.NewToolExecutionError(
 				"golangci-lint run",
 				output,

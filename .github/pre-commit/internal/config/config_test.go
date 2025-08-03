@@ -221,50 +221,50 @@ PRE_COMMIT_SYSTEM_COLOR_OUTPUT=false
 
 	cfg, err := Load()
 	s.Require().NoError(err)
-	s.Assert().NotNil(cfg)
+	s.NotNil(cfg)
 
 	// Core settings
-	s.Assert().False(cfg.Enabled)
-	s.Assert().Equal("debug", cfg.LogLevel)
-	s.Assert().Equal(int64(5*1024*1024), cfg.MaxFileSize)
-	s.Assert().Equal(50, cfg.MaxFilesOpen)
-	s.Assert().Equal(120, cfg.Timeout)
+	s.False(cfg.Enabled)
+	s.Equal("debug", cfg.LogLevel)
+	s.Equal(int64(5*1024*1024), cfg.MaxFileSize)
+	s.Equal(50, cfg.MaxFilesOpen)
+	s.Equal(120, cfg.Timeout)
 
 	// Check configurations
-	s.Assert().False(cfg.Checks.Fumpt)
-	s.Assert().False(cfg.Checks.Lint)
-	s.Assert().True(cfg.Checks.ModTidy)
-	s.Assert().False(cfg.Checks.Whitespace)
-	s.Assert().True(cfg.Checks.EOF)
+	s.False(cfg.Checks.Fumpt)
+	s.False(cfg.Checks.Lint)
+	s.True(cfg.Checks.ModTidy)
+	s.False(cfg.Checks.Whitespace)
+	s.True(cfg.Checks.EOF)
 
 	// Tool versions
-	s.Assert().Equal("v0.5.0", cfg.ToolVersions.Fumpt)
-	s.Assert().Equal("v1.54.0", cfg.ToolVersions.GolangciLint)
+	s.Equal("v0.5.0", cfg.ToolVersions.Fumpt)
+	s.Equal("v1.54.0", cfg.ToolVersions.GolangciLint)
 
 	// Performance settings
-	s.Assert().Equal(4, cfg.Performance.ParallelWorkers)
-	s.Assert().True(cfg.Performance.FailFast)
+	s.Equal(4, cfg.Performance.ParallelWorkers)
+	s.True(cfg.Performance.FailFast)
 
 	// Check timeouts
-	s.Assert().Equal(60, cfg.CheckTimeouts.Fumpt)
-	s.Assert().Equal(90, cfg.CheckTimeouts.Lint)
-	s.Assert().Equal(45, cfg.CheckTimeouts.ModTidy)
-	s.Assert().Equal(15, cfg.CheckTimeouts.Whitespace)
-	s.Assert().Equal(10, cfg.CheckTimeouts.EOF)
+	s.Equal(60, cfg.CheckTimeouts.Fumpt)
+	s.Equal(90, cfg.CheckTimeouts.Lint)
+	s.Equal(45, cfg.CheckTimeouts.ModTidy)
+	s.Equal(15, cfg.CheckTimeouts.Whitespace)
+	s.Equal(10, cfg.CheckTimeouts.EOF)
 
 	// Git settings
-	s.Assert().Equal(".git/custom-hooks", cfg.Git.HooksPath)
-	s.Assert().Equal([]string{"vendor/", "dist/", "build/"}, cfg.Git.ExcludePatterns)
+	s.Equal(".git/custom-hooks", cfg.Git.HooksPath)
+	s.Equal([]string{"vendor/", "dist/", "build/"}, cfg.Git.ExcludePatterns)
 
 	// UI settings
-	s.Assert().False(cfg.UI.ColorOutput)
+	s.False(cfg.UI.ColorOutput)
 
 	// Directory should be derived from env file location
 	// The config code uses filepath.Dir(envPath) + "/pre-commit"
 	// When envPath is ".github/.env.shared", Directory becomes ".github/pre-commit"
 	// When envPath is absolute, Directory becomes absolute
 	expectedDir := ".github/pre-commit"
-	s.Assert().Equal(expectedDir, cfg.Directory)
+	s.Equal(expectedDir, cfg.Directory)
 }
 
 // TestLoadWithMinimalConfiguration tests loading with minimal configuration
@@ -275,19 +275,19 @@ func (s *ConfigTestSuite) TestLoadWithMinimalConfiguration() {
 
 	cfg, err := Load()
 	s.Require().NoError(err)
-	s.Assert().NotNil(cfg)
+	s.NotNil(cfg)
 
 	// Should use defaults for unspecified values
-	s.Assert().True(cfg.Enabled)
-	s.Assert().Equal("info", cfg.LogLevel)
-	s.Assert().Equal(int64(10*1024*1024), cfg.MaxFileSize)
-	s.Assert().Equal(100, cfg.MaxFilesOpen)
-	s.Assert().Equal(300, cfg.Timeout)
-	s.Assert().True(cfg.Checks.Fumpt)
-	s.Assert().True(cfg.Checks.Lint)
-	s.Assert().True(cfg.Checks.ModTidy)
-	s.Assert().True(cfg.Checks.Whitespace)
-	s.Assert().True(cfg.Checks.EOF)
+	s.True(cfg.Enabled)
+	s.Equal("info", cfg.LogLevel)
+	s.Equal(int64(10*1024*1024), cfg.MaxFileSize)
+	s.Equal(100, cfg.MaxFilesOpen)
+	s.Equal(300, cfg.Timeout)
+	s.True(cfg.Checks.Fumpt)
+	s.True(cfg.Checks.Lint)
+	s.True(cfg.Checks.ModTidy)
+	s.True(cfg.Checks.Whitespace)
+	s.True(cfg.Checks.EOF)
 }
 
 // TestLoadWithEmptyExcludePatterns tests exclude patterns handling
@@ -299,11 +299,11 @@ PRE_COMMIT_SYSTEM_EXCLUDE_PATTERNS=
 
 	cfg, err := Load()
 	s.Require().NoError(err)
-	s.Assert().NotNil(cfg)
+	s.NotNil(cfg)
 	// When empty string is provided via environment variable,
 	// getStringEnv returns the default value "vendor/,node_modules/,.git/"
 	// So we expect the default patterns to be present
-	s.Assert().Equal([]string{"vendor/", "node_modules/", ".git/"}, cfg.Git.ExcludePatterns)
+	s.Equal([]string{"vendor/", "node_modules/", ".git/"}, cfg.Git.ExcludePatterns)
 }
 
 // TestLoadWithSpacedExcludePatterns tests exclude patterns with spaces
@@ -315,17 +315,17 @@ PRE_COMMIT_SYSTEM_EXCLUDE_PATTERNS=vendor/ , node_modules/ , .git/
 
 	cfg, err := Load()
 	s.Require().NoError(err)
-	s.Assert().NotNil(cfg)
-	s.Assert().Equal([]string{"vendor/", "node_modules/", ".git/"}, cfg.Git.ExcludePatterns)
+	s.NotNil(cfg)
+	s.Equal([]string{"vendor/", "node_modules/", ".git/"}, cfg.Git.ExcludePatterns)
 }
 
 // TestLoadMissingEnvFile tests behavior when .env.shared file is not found
 func (s *ConfigTestSuite) TestLoadMissingEnvFile() {
 	// Don't create .env.shared file
 	cfg, err := Load()
-	s.Assert().Error(err)
-	s.Assert().Nil(cfg)
-	s.Assert().Contains(err.Error(), "failed to find .env.shared")
+	s.Require().Error(err)
+	s.Nil(cfg)
+	s.Contains(err.Error(), "failed to find .env.shared")
 }
 
 // TestLoadCorruptedEnvFile tests behavior with corrupted env file
@@ -340,9 +340,9 @@ func (s *ConfigTestSuite) TestLoadCorruptedEnvFile() {
 	s.Require().NoError(err)
 
 	cfg, err := Load()
-	s.Assert().Error(err)
-	s.Assert().Nil(cfg)
-	s.Assert().Contains(err.Error(), "failed to load")
+	s.Require().Error(err)
+	s.Nil(cfg)
+	s.Contains(err.Error(), "failed to load")
 }
 
 // TestFindEnvFileInParentDirectories tests finding env file in parent directories
@@ -363,8 +363,8 @@ func (s *ConfigTestSuite) TestFindEnvFileInParentDirectories() {
 	// Should find env file in parent
 	cfg, err := Load()
 	s.Require().NoError(err)
-	s.Assert().NotNil(cfg)
-	s.Assert().True(cfg.Enabled)
+	s.NotNil(cfg)
+	s.True(cfg.Enabled)
 }
 
 // TestFindEnvFileInCurrentDirectory tests finding env file in current directory
@@ -376,7 +376,7 @@ func (s *ConfigTestSuite) TestFindEnvFileInCurrentDirectory() {
 	// Should find env file in current directory
 	envPath, err := findEnvFile()
 	s.Require().NoError(err)
-	s.Assert().Equal(".github/.env.shared", envPath)
+	s.Equal(".github/.env.shared", envPath)
 }
 
 // TestConfigStructInitialization tests that all config fields are properly initialized
@@ -387,23 +387,23 @@ func (s *ConfigTestSuite) TestConfigStructInitialization() {
 
 	cfg, err := Load()
 	s.Require().NoError(err)
-	s.Assert().NotNil(cfg)
+	s.NotNil(cfg)
 
 	// Verify all major struct fields are initialized
-	s.Assert().NotEmpty(cfg.Directory)
-	s.Assert().NotEmpty(cfg.LogLevel)
-	s.Assert().Greater(cfg.MaxFileSize, int64(0))
-	s.Assert().Greater(cfg.MaxFilesOpen, 0)
-	s.Assert().Greater(cfg.Timeout, 0)
-	s.Assert().NotEmpty(cfg.ToolVersions.Fumpt)
-	s.Assert().NotEmpty(cfg.ToolVersions.GolangciLint)
-	s.Assert().GreaterOrEqual(cfg.Performance.ParallelWorkers, 0)
-	s.Assert().Greater(cfg.CheckTimeouts.Fumpt, 0)
-	s.Assert().Greater(cfg.CheckTimeouts.Lint, 0)
-	s.Assert().Greater(cfg.CheckTimeouts.ModTidy, 0)
-	s.Assert().Greater(cfg.CheckTimeouts.Whitespace, 0)
-	s.Assert().Greater(cfg.CheckTimeouts.EOF, 0)
-	s.Assert().NotEmpty(cfg.Git.HooksPath)
+	s.NotEmpty(cfg.Directory)
+	s.NotEmpty(cfg.LogLevel)
+	s.Positive(cfg.MaxFileSize)
+	s.Positive(cfg.MaxFilesOpen)
+	s.Positive(cfg.Timeout)
+	s.NotEmpty(cfg.ToolVersions.Fumpt)
+	s.NotEmpty(cfg.ToolVersions.GolangciLint)
+	s.GreaterOrEqual(cfg.Performance.ParallelWorkers, 0)
+	s.Positive(cfg.CheckTimeouts.Fumpt)
+	s.Positive(cfg.CheckTimeouts.Lint)
+	s.Positive(cfg.CheckTimeouts.ModTidy)
+	s.Positive(cfg.CheckTimeouts.Whitespace)
+	s.Positive(cfg.CheckTimeouts.EOF)
+	s.NotEmpty(cfg.Git.HooksPath)
 }
 
 // Unit tests for edge cases and error conditions

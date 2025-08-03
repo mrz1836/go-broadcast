@@ -2,6 +2,7 @@ package validation
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -9,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
@@ -30,14 +29,14 @@ type ParallelSafetyTestSuite struct {
 func (s *ParallelSafetyTestSuite) SetupSuite() {
 	var err error
 	s.originalWD, err = os.Getwd()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Create temporary directory structure
 	s.tempDir = s.T().TempDir()
 
 	// Create .github directory
 	githubDir := filepath.Join(s.tempDir, ".github")
-	require.NoError(s.T(), os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
 
 	// Create comprehensive .env.shared file for parallel testing
 	s.envFile = filepath.Join(githubDir, ".env.shared")
@@ -54,13 +53,13 @@ PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=4
 PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT=30
 PRE_COMMIT_SYSTEM_EOF_TIMEOUT=30
 `
-	require.NoError(s.T(), os.WriteFile(s.envFile, []byte(envContent), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o644))
 
 	// Change to temp directory for tests
-	require.NoError(s.T(), os.Chdir(s.tempDir))
+	s.Require().NoError(os.Chdir(s.tempDir))
 
 	// Initialize git repository
-	require.NoError(s.T(), s.initGitRepo())
+	s.Require().NoError(s.initGitRepo())
 
 	// Create test files for parallel testing
 	s.testFiles = s.createTestFiles()
@@ -164,7 +163,7 @@ go 1.21
 	var createdFiles []string
 	for filename, content := range files {
 		filePath := filepath.Join(s.tempDir, filename)
-		require.NoError(s.T(), os.WriteFile(filePath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(filePath, []byte(content), 0o644))
 		createdFiles = append(createdFiles, filename)
 	}
 
@@ -178,7 +177,7 @@ func (s *ParallelSafetyTestSuite) TestConcurrentRunnerExecution() {
 
 	// Load configuration once
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	var wg sync.WaitGroup
 	results := make(chan *runner.Results, numGoroutines*numIterations)
@@ -227,16 +226,16 @@ func (s *ParallelSafetyTestSuite) TestConcurrentRunnerExecution() {
 	}
 
 	// Should have no errors
-	assert.Empty(s.T(), allErrors, "Concurrent execution should not produce errors")
+	s.Empty(allErrors, "Concurrent execution should not produce errors")
 
 	// Should have expected number of results
 	expectedResults := numGoroutines * numIterations
-	assert.Len(s.T(), allResults, expectedResults, "Should have all expected results")
+	s.Len(allResults, expectedResults, "Should have all expected results")
 
 	// All results should be valid
 	for i, result := range allResults {
-		assert.NotNil(s.T(), result, "Result %d should not be nil", i)
-		assert.True(s.T(), result.TotalDuration > 0, "Result %d should have positive duration", i)
+		s.NotNil(result, "Result %d should not be nil", i)
+		s.Positive(result.TotalDuration, "Result %d should have positive duration", i)
 	}
 
 	s.T().Logf("Concurrent execution test completed: %d goroutines × %d iterations = %d total executions",
@@ -276,7 +275,7 @@ func (s *ParallelSafetyTestSuite) TestParallelCheckExecution() {
 		s.Run(tc.name, func() {
 			// Load configuration
 			cfg, err := config.Load()
-			require.NoError(s.T(), err)
+			s.Require().NoError(err)
 
 			// Create runner
 			r := runner.New(cfg, s.tempDir)
@@ -293,9 +292,9 @@ func (s *ParallelSafetyTestSuite) TestParallelCheckExecution() {
 			duration := time.Since(start)
 
 			// Validate results
-			assert.NoError(s.T(), err, tc.description)
-			assert.NotNil(s.T(), result, "Result should not be nil")
-			assert.True(s.T(), duration > 0, "Execution should take measurable time")
+			s.Require().NoError(err, tc.description)
+			s.NotNil(result, "Result should not be nil")
+			s.Positive(duration, "Execution should take measurable time")
 
 			s.T().Logf("%s: %d workers, duration=%v, checks=%d",
 				tc.name, tc.parallelWorkers, duration, len(result.CheckResults))
@@ -312,7 +311,7 @@ func (s *ParallelSafetyTestSuite) TestMemoryUsageUnderParallelExecution() {
 
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	const numIterations = 20
 
@@ -327,8 +326,8 @@ func (s *ParallelSafetyTestSuite) TestMemoryUsageUnderParallelExecution() {
 		})
 		cancel()
 
-		require.NoError(s.T(), err, "Iteration %d should not fail", i)
-		require.NotNil(s.T(), result, "Result %d should not be nil", i)
+		s.Require().NoError(err, "Iteration %d should not fail", i)
+		s.Require().NotNil(result, "Result %d should not be nil", i)
 
 		// Occasional GC to help with memory measurement
 		if i%5 == 0 {
@@ -350,7 +349,7 @@ func (s *ParallelSafetyTestSuite) TestMemoryUsageUnderParallelExecution() {
 
 	// Memory should not grow excessively (allow reasonable buffer)
 	maxAllowedGrowth := uint64(50 * 1024 * 1024) // 50MB
-	assert.True(s.T(), allocDiff < maxAllowedGrowth,
+	s.Less(allocDiff, maxAllowedGrowth,
 		"Memory growth should be reasonable: %d bytes (max: %d)", allocDiff, maxAllowedGrowth)
 }
 
@@ -361,7 +360,7 @@ func (s *ParallelSafetyTestSuite) TestResourceCleanupUnderParallelExecution() {
 
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	const numIterations = 10
 
@@ -376,8 +375,8 @@ func (s *ParallelSafetyTestSuite) TestResourceCleanupUnderParallelExecution() {
 		})
 		cancel()
 
-		require.NoError(s.T(), err, "Iteration %d should not fail", i)
-		require.NotNil(s.T(), result, "Result %d should not be nil", i)
+		s.Require().NoError(err, "Iteration %d should not fail", i)
+		s.Require().NotNil(result, "Result %d should not be nil", i)
 
 		// Brief pause to allow cleanup
 		time.Sleep(10 * time.Millisecond)
@@ -397,7 +396,7 @@ func (s *ParallelSafetyTestSuite) TestResourceCleanupUnderParallelExecution() {
 	// Allow some tolerance for test environment variance
 	maxAllowedGrowth := 5
 	goroutineGrowth := finalGoroutines - initialGoroutines
-	assert.True(s.T(), goroutineGrowth <= maxAllowedGrowth,
+	s.LessOrEqual(goroutineGrowth, maxAllowedGrowth,
 		"Goroutine count should not grow excessively: %d (max: %d)",
 		goroutineGrowth, maxAllowedGrowth)
 }
@@ -412,11 +411,12 @@ func (s *ParallelSafetyTestSuite) TestRaceConditionDetection() {
 
 	// Load configuration once and share among goroutines
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Shared state that might cause race conditions
 	var executionCount int64
 	var mutex sync.Mutex
+	errors := make(chan error, numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
@@ -439,19 +439,34 @@ func (s *ParallelSafetyTestSuite) TestRaceConditionDetection() {
 			executionCount++
 			mutex.Unlock()
 
-			require.NoError(s.T(), err, "Goroutine %d should not fail", id)
-			require.NotNil(s.T(), result, "Result from goroutine %d should not be nil", id)
+			// Check error outside goroutine to avoid testifylint go-require violation
+			if err != nil {
+				errors <- fmt.Errorf("goroutine %d failed: %w", id, err)
+				return
+			}
+			if result == nil {
+				errors <- fmt.Errorf("result from goroutine %d should not be nil", id)
+				return
+			}
 		}(i)
 	}
 
 	wg.Wait()
+	close(errors)
+
+	// Check for any errors
+	var errorList []error
+	for err := range errors {
+		errorList = append(errorList, err)
+	}
+	s.Empty(errorList, "No goroutines should have errors")
 
 	// Validate final state
 	mutex.Lock()
 	finalCount := executionCount
 	mutex.Unlock()
 
-	assert.Equal(s.T(), int64(numGoroutines), finalCount,
+	s.Equal(int64(numGoroutines), finalCount,
 		"All goroutines should have executed successfully")
 
 	s.T().Logf("Race condition test completed: %d concurrent executions", finalCount)
@@ -461,7 +476,7 @@ func (s *ParallelSafetyTestSuite) TestRaceConditionDetection() {
 func (s *ParallelSafetyTestSuite) TestContextCancellationSafety() {
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	testCases := []struct {
 		name        string
@@ -502,13 +517,13 @@ func (s *ParallelSafetyTestSuite) TestContextCancellationSafety() {
 			// Should handle cancellation gracefully
 			if err != nil {
 				// Context cancellation is expected and acceptable
-				assert.Contains(s.T(), err.Error(), "context",
+				s.Contains(err.Error(), "context",
 					"Error should be context-related")
 			}
 
 			// Should not take significantly longer than timeout
 			maxDuration := tc.timeout + 2*time.Second // Allow reasonable buffer
-			assert.True(s.T(), duration <= maxDuration,
+			s.LessOrEqual(duration, maxDuration,
 				"Execution should respect timeout: %v (max: %v)", duration, maxDuration)
 
 			s.T().Logf("%s: timeout=%v, duration=%v, cancelled=%v",
@@ -526,7 +541,7 @@ func (s *ParallelSafetyTestSuite) TestContextCancellationSafety() {
 func (s *ParallelSafetyTestSuite) TestParallelExecutionConsistency() {
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	const numRuns = 10
 	var results []*runner.Results
@@ -542,8 +557,8 @@ func (s *ParallelSafetyTestSuite) TestParallelExecutionConsistency() {
 		})
 		cancel()
 
-		require.NoError(s.T(), err, "Run %d should not fail", i)
-		require.NotNil(s.T(), result, "Result %d should not be nil", i)
+		s.Require().NoError(err, "Run %d should not fail", i)
+		s.Require().NotNil(result, "Result %d should not be nil", i)
 
 		results = append(results, result)
 	}
@@ -552,17 +567,17 @@ func (s *ParallelSafetyTestSuite) TestParallelExecutionConsistency() {
 	firstResult := results[0]
 	for i, result := range results[1:] {
 		// Should have same number of checks
-		assert.Equal(s.T(), len(firstResult.CheckResults), len(result.CheckResults),
+		s.Len(result.CheckResults, len(firstResult.CheckResults),
 			"Run %d should have same number of checks as first run", i+1)
 
 		// Should have same total file count
-		assert.Equal(s.T(), firstResult.TotalFiles, result.TotalFiles,
+		s.Equal(firstResult.TotalFiles, result.TotalFiles,
 			"Run %d should process same number of files", i+1)
 
 		// Check results should be consistent (names and general success pattern)
 		for j, checkResult := range result.CheckResults {
 			if j < len(firstResult.CheckResults) {
-				assert.Equal(s.T(), firstResult.CheckResults[j].Name, checkResult.Name,
+				s.Equal(firstResult.CheckResults[j].Name, checkResult.Name,
 					"Check %d name should be consistent across runs", j)
 			}
 		}
@@ -582,13 +597,13 @@ func (s *ParallelSafetyTestSuite) TestParallelExecutionUnderLoad() {
 	for i := 0; i < 20; i++ {
 		filename := filepath.Join(s.tempDir, "generated_"+string(rune('A'+i))+".md")
 		content := "# Generated Test File " + string(rune('A'+i)) + "\n\nContent for testing.\n"
-		require.NoError(s.T(), os.WriteFile(filename, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(filename, []byte(content), 0o644))
 		largeTestFiles = append(largeTestFiles, "generated_"+string(rune('A'+i))+".md")
 	}
 
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Test with different load levels
 	testCases := []struct {
@@ -632,9 +647,9 @@ func (s *ParallelSafetyTestSuite) TestParallelExecutionUnderLoad() {
 			duration := time.Since(start)
 
 			// Should complete successfully even under load
-			assert.NoError(s.T(), err, tc.description)
-			assert.NotNil(s.T(), result, "Result should not be nil")
-			assert.True(s.T(), duration > 0, "Should have measurable duration")
+			s.Require().NoError(err, tc.description)
+			s.NotNil(result, "Result should not be nil")
+			s.Positive(duration, "Should have measurable duration")
 
 			s.T().Logf("%s: %d files, %d workers, duration=%v",
 				tc.name, len(tc.files), tc.parallelWorkers, duration)
@@ -656,11 +671,11 @@ PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT=1
 PRE_COMMIT_SYSTEM_EOF_TIMEOUT=1
 PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=4
 `
-	require.NoError(s.T(), os.WriteFile(envFile, []byte(shortTimeoutConfig), 0o644))
+	s.Require().NoError(os.WriteFile(envFile, []byte(shortTimeoutConfig), 0o644))
 
 	// Load the configuration with short timeouts
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	const numGoroutines = 5
 	var wg sync.WaitGroup
@@ -709,7 +724,7 @@ PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=4
 
 	// Should handle errors gracefully without crashing
 	totalExecutions := len(allErrors) + len(allResults)
-	assert.Equal(s.T(), numGoroutines, totalExecutions,
+	s.Equal(numGoroutines, totalExecutions,
 		"All executions should complete (with success or error)")
 
 	s.T().Logf("Error handling test: %d errors, %d successes out of %d executions",
@@ -726,7 +741,7 @@ PRE_COMMIT_SYSTEM_ENABLE_EOF=true
 PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS=120
 PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=4
 `
-	require.NoError(s.T(), os.WriteFile(envFile, []byte(originalConfig), 0o644))
+	s.Require().NoError(os.WriteFile(envFile, []byte(originalConfig), 0o644))
 }
 
 // TestSuite runs the parallel safety test suite

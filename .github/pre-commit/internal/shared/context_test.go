@@ -15,6 +15,7 @@ import (
 
 type ContextTestSuite struct {
 	suite.Suite
+
 	tempDir string
 }
 
@@ -97,9 +98,9 @@ func (s *ContextTestSuite) createMakefile(targets []string) {
 // TestNewContext tests the constructor
 func (s *ContextTestSuite) TestNewContext() {
 	ctx := NewContext()
-	s.Assert().NotNil(ctx)
-	s.Assert().NotNil(ctx.makeTargets)
-	s.Assert().Equal("", ctx.repoRoot)
+	s.NotNil(ctx)
+	s.NotNil(ctx.makeTargets)
+	s.Empty(ctx.repoRoot)
 }
 
 // TestGetRepoRoot tests repository root discovery
@@ -119,19 +120,19 @@ func (s *ContextTestSuite) TestGetRepoRoot() {
 
 	// Test successful repository root discovery
 	root, err := ctx.GetRepoRoot(context.Background())
-	s.Assert().NoError(err)
+	s.NoError(err)
 
 	// Resolve symlinks to handle macOS /var -> /private/var
 	expectedPath, err := filepath.EvalSymlinks(s.tempDir)
 	s.Require().NoError(err)
 	actualPath, err := filepath.EvalSymlinks(root)
 	s.Require().NoError(err)
-	s.Assert().Equal(expectedPath, actualPath)
+	s.Equal(expectedPath, actualPath)
 
 	// Test that subsequent calls return cached result
 	root2, err2 := ctx.GetRepoRoot(context.Background())
-	s.Assert().NoError(err2)
-	s.Assert().Equal(root, root2)
+	s.NoError(err2)
+	s.Equal(root, root2)
 }
 
 // TestGetRepoRootError tests error handling when not in git repository
@@ -159,14 +160,14 @@ func (s *ContextTestSuite) TestGetRepoRootError() {
 
 	// Test error case
 	root, err := ctx.GetRepoRoot(context.Background())
-	s.Assert().Error(err)
-	s.Assert().Equal("", root)
+	s.Error(err)
+	s.Empty(root)
 
 	// Test that error is cached
 	root2, err2 := ctx.GetRepoRoot(context.Background())
-	s.Assert().Error(err2)
-	s.Assert().Equal("", root2)
-	s.Assert().Equal(err, err2)
+	s.Error(err2)
+	s.Empty(root2)
+	s.Equal(err, err2)
 }
 
 // TestGetRepoRootTimeout tests timeout handling
@@ -181,8 +182,8 @@ func (s *ContextTestSuite) TestGetRepoRootTimeout() {
 	time.Sleep(10 * time.Millisecond)
 
 	root, err := ctx.GetRepoRoot(timeoutCtx)
-	s.Assert().Error(err)
-	s.Assert().Equal("", root)
+	s.Error(err)
+	s.Empty(root)
 }
 
 // TestHasMakeTarget tests make target detection
@@ -205,18 +206,18 @@ func (s *ContextTestSuite) TestHasMakeTarget() {
 
 	// Test existing target
 	hasLint := ctx.HasMakeTarget(context.Background(), "lint")
-	s.Assert().True(hasLint)
+	s.True(hasLint)
 
 	// Test non-existing target
 	hasFoo := ctx.HasMakeTarget(context.Background(), "nonexistent")
-	s.Assert().False(hasFoo)
+	s.False(hasFoo)
 
 	// Test that results are cached
 	hasLint2 := ctx.HasMakeTarget(context.Background(), "lint")
-	s.Assert().True(hasLint2)
+	s.True(hasLint2)
 
 	hasFoo2 := ctx.HasMakeTarget(context.Background(), "nonexistent")
-	s.Assert().False(hasFoo2)
+	s.False(hasFoo2)
 }
 
 // TestHasMakeTargetNoGitRepo tests behavior when not in git repository
@@ -244,7 +245,7 @@ func (s *ContextTestSuite) TestHasMakeTargetNoGitRepo() {
 
 	// Test that it returns false when git repo root cannot be found
 	hasTarget := ctx.HasMakeTarget(context.Background(), "lint")
-	s.Assert().False(hasTarget)
+	s.False(hasTarget)
 }
 
 // TestHasMakeTargetTimeout tests timeout handling
@@ -274,7 +275,7 @@ func (s *ContextTestSuite) TestHasMakeTargetTimeout() {
 
 	hasTarget := ctx.HasMakeTarget(timeoutCtx, "lint")
 	// Should return false due to timeout
-	s.Assert().False(hasTarget)
+	s.False(hasTarget)
 }
 
 // TestExecuteMakeTarget tests make target execution
@@ -297,11 +298,11 @@ func (s *ContextTestSuite) TestExecuteMakeTarget() {
 
 	// Test successful execution
 	err = ctx.ExecuteMakeTarget(context.Background(), "test", 5*time.Second)
-	s.Assert().NoError(err)
+	s.NoError(err)
 
 	// Test execution of non-existent target
 	err = ctx.ExecuteMakeTarget(context.Background(), "nonexistent", 5*time.Second)
-	s.Assert().Error(err)
+	s.Error(err)
 }
 
 // TestExecuteMakeTargetNoGitRepo tests execution when not in git repository
@@ -329,7 +330,7 @@ func (s *ContextTestSuite) TestExecuteMakeTargetNoGitRepo() {
 
 	// Test that it returns error when git repo root cannot be found
 	err = ctx.ExecuteMakeTarget(context.Background(), "test", 5*time.Second)
-	s.Assert().Error(err)
+	s.Error(err)
 }
 
 // TestExecuteMakeTargetTimeout tests timeout handling
@@ -359,7 +360,7 @@ slow:
 
 	// Test execution with short timeout
 	err = ctx.ExecuteMakeTarget(context.Background(), "slow", 100*time.Millisecond)
-	s.Assert().Error(err)
+	s.Error(err)
 }
 
 // TestConcurrentAccess tests concurrent access to the context
@@ -389,7 +390,7 @@ func (s *ContextTestSuite) TestConcurrentAccess() {
 				target = "test"
 			}
 			hasTarget := ctx.HasMakeTarget(context.Background(), target)
-			s.Assert().True(hasTarget)
+			s.True(hasTarget)
 			done <- true
 		}(i)
 	}
@@ -409,7 +410,7 @@ func TestNewContextUnit(t *testing.T) {
 	ctx := NewContext()
 	assert.NotNil(t, ctx)
 	assert.NotNil(t, ctx.makeTargets)
-	assert.Equal(t, "", ctx.repoRoot)
+	assert.Empty(t, ctx.repoRoot)
 }
 
 func TestContextCaching(t *testing.T) {
@@ -417,7 +418,7 @@ func TestContextCaching(t *testing.T) {
 
 	// Test that make targets cache is properly initialized
 	assert.NotNil(t, ctx.makeTargets)
-	assert.Equal(t, 0, len(ctx.makeTargets))
+	assert.Empty(t, ctx.makeTargets)
 }
 
 // Benchmark tests

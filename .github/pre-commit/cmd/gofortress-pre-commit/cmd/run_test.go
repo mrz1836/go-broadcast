@@ -189,6 +189,7 @@ func TestRunCmd_SpecificCheck(t *testing.T) {
 
 type RunCommandTestSuite struct {
 	suite.Suite
+
 	tempDir  string
 	oldDir   string
 	repoRoot string
@@ -289,7 +290,7 @@ func (s *RunCommandTestSuite) TestRunChecksWithAllFiles() {
 
 		foundAcceptable := false
 		for _, acceptable := range acceptableErrors {
-			if assert.Contains(s.T(), err.Error(), acceptable) {
+			if s.Contains(err.Error(), acceptable) {
 				foundAcceptable = true
 				break
 			}
@@ -348,7 +349,7 @@ func (s *RunCommandTestSuite) TestRunChecksShowAvailableChecks() {
 	noColor = true
 
 	err := runChecks(nil, []string{})
-	s.Assert().NoError(err) // Show checks should always succeed
+	s.NoError(err) // Show checks should always succeed
 }
 
 // TestRunChecksDisabledSystem tests when the pre-commit system is disabled
@@ -368,7 +369,7 @@ func (s *RunCommandTestSuite) TestRunChecksDisabledSystem() {
 	noColor = true
 
 	err = runChecks(nil, []string{})
-	s.Assert().NoError(err) // Should succeed with warning when disabled
+	s.NoError(err) // Should succeed with warning when disabled
 }
 
 // TestRunChecksNoConfigurationFile tests when no configuration file exists
@@ -382,7 +383,7 @@ func (s *RunCommandTestSuite) TestRunChecksNoConfigurationFile() {
 	err := runChecks(nil, []string{})
 	// Should handle missing configuration gracefully or return appropriate error
 	if err != nil {
-		s.Assert().Contains(err.Error(), "failed to load configuration")
+		s.Contains(err.Error(), "failed to load configuration")
 	}
 }
 
@@ -418,14 +419,14 @@ func (s *RunCommandTestSuite) TestRunChecksInvalidGitRepository() {
 	noColor = true
 
 	err = runChecks(nil, []string{})
-	s.Assert().Error(err)
-	s.Assert().Contains(err.Error(), "failed to find git repository")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "failed to find git repository")
 }
 
 // TestPrintFunctions tests the print helper functions
 func (s *RunCommandTestSuite) TestPrintFunctions() {
 	// Test that print functions don't panic
-	s.Assert().NotPanics(func() {
+	s.NotPanics(func() {
 		printSuccess("test success message")
 		printError("test error message")
 		printInfo("test info message")
@@ -464,7 +465,7 @@ func (s *RunCommandTestSuite) TestDisplayEnhancedResults() {
 		TotalFiles:    5,
 	}
 
-	s.Assert().NotPanics(func() {
+	s.NotPanics(func() {
 		displayEnhancedResults(formatter, mockResults)
 	})
 }
@@ -535,9 +536,9 @@ func (s *RunCommandTestSuite) TestRunChecksWithFlags() {
 			err := runChecks(nil, []string{})
 
 			if tc.expectError {
-				s.Assert().Error(err)
+				s.Require().Error(err)
 				if tc.expectedErrMsg != "" {
-					s.Assert().Contains(err.Error(), tc.expectedErrMsg)
+					s.Contains(err.Error(), tc.expectedErrMsg)
 				}
 			} else {
 				// May succeed or fail depending on environment, but should not panic

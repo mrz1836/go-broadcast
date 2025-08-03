@@ -4,6 +4,7 @@ package shared
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -112,7 +113,7 @@ func (sc *Context) GetMakeTargetInfo(ctx context.Context, target string) *MakeTa
 		output := stdout.String() + stderr.String()
 		if strings.Contains(output, "No rule to make target") {
 			info.Error = fmt.Errorf("make target '%s' not found in Makefile", target)
-		} else if ctx.Err() == context.DeadlineExceeded {
+		} else if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			info.Error = fmt.Errorf("timeout checking make target '%s'", target)
 		} else {
 			info.Error = fmt.Errorf("error checking make target '%s': %w", target, err)

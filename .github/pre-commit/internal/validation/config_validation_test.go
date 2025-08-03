@@ -1,17 +1,16 @@
 package validation
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
-	"github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
+	precommiterrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 )
 
 // ConfigValidationTestSuite validates configuration loading under various scenarios
@@ -26,7 +25,7 @@ type ConfigValidationTestSuite struct {
 func (s *ConfigValidationTestSuite) SetupSuite() {
 	var err error
 	s.originalWD, err = os.Getwd()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Create temporary directory structure
 	s.tempDir = s.T().TempDir()
@@ -36,7 +35,15 @@ func (s *ConfigValidationTestSuite) SetupSuite() {
 	envVarsToSave := []string{
 		"ENABLE_PRE_COMMIT_SYSTEM", "PRE_COMMIT_SYSTEM_LOG_LEVEL",
 		"PRE_COMMIT_SYSTEM_ENABLE_FUMPT", "PRE_COMMIT_SYSTEM_ENABLE_LINT",
-		"PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS", "NO_COLOR", "CI",
+		"PRE_COMMIT_SYSTEM_ENABLE_MOD_TIDY", "PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE",
+		"PRE_COMMIT_SYSTEM_ENABLE_EOF", "PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS",
+		"PRE_COMMIT_SYSTEM_MAX_FILE_SIZE_MB", "PRE_COMMIT_SYSTEM_MAX_FILES_OPEN",
+		"PRE_COMMIT_SYSTEM_FUMPT_VERSION", "PRE_COMMIT_SYSTEM_GOLANGCI_LINT_VERSION",
+		"PRE_COMMIT_SYSTEM_PARALLEL_WORKERS", "PRE_COMMIT_SYSTEM_FAIL_FAST",
+		"PRE_COMMIT_SYSTEM_FUMPT_TIMEOUT", "PRE_COMMIT_SYSTEM_LINT_TIMEOUT",
+		"PRE_COMMIT_SYSTEM_MOD_TIDY_TIMEOUT", "PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT",
+		"PRE_COMMIT_SYSTEM_EOF_TIMEOUT", "PRE_COMMIT_SYSTEM_HOOKS_PATH",
+		"PRE_COMMIT_SYSTEM_COLOR_OUTPUT", "NO_COLOR", "CI",
 	}
 
 	for _, envVar := range envVarsToSave {
@@ -44,7 +51,7 @@ func (s *ConfigValidationTestSuite) SetupSuite() {
 	}
 
 	// Change to temp directory for tests
-	require.NoError(s.T(), os.Chdir(s.tempDir))
+	s.Require().NoError(os.Chdir(s.tempDir))
 }
 
 // TearDownSuite cleans up the test environment
@@ -68,8 +75,15 @@ func (s *ConfigValidationTestSuite) TearDownTest() {
 	envVarsToClean := []string{
 		"ENABLE_PRE_COMMIT_SYSTEM", "PRE_COMMIT_SYSTEM_LOG_LEVEL",
 		"PRE_COMMIT_SYSTEM_ENABLE_FUMPT", "PRE_COMMIT_SYSTEM_ENABLE_LINT",
-		"PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS", "NO_COLOR", "CI",
+		"PRE_COMMIT_SYSTEM_ENABLE_MOD_TIDY", "PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE",
+		"PRE_COMMIT_SYSTEM_ENABLE_EOF", "PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS",
+		"PRE_COMMIT_SYSTEM_MAX_FILE_SIZE_MB", "PRE_COMMIT_SYSTEM_MAX_FILES_OPEN",
+		"PRE_COMMIT_SYSTEM_FUMPT_VERSION", "PRE_COMMIT_SYSTEM_GOLANGCI_LINT_VERSION",
 		"PRE_COMMIT_SYSTEM_PARALLEL_WORKERS", "PRE_COMMIT_SYSTEM_FAIL_FAST",
+		"PRE_COMMIT_SYSTEM_FUMPT_TIMEOUT", "PRE_COMMIT_SYSTEM_LINT_TIMEOUT",
+		"PRE_COMMIT_SYSTEM_MOD_TIDY_TIMEOUT", "PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT",
+		"PRE_COMMIT_SYSTEM_EOF_TIMEOUT", "PRE_COMMIT_SYSTEM_HOOKS_PATH",
+		"PRE_COMMIT_SYSTEM_COLOR_OUTPUT", "NO_COLOR", "CI",
 	}
 
 	for _, envVar := range envVarsToClean {
@@ -91,8 +105,8 @@ func (s *ConfigValidationTestSuite) TestMissingConfigFile() {
 	_, err := config.Load()
 
 	// Should return a specific error about missing env file
-	assert.Error(s.T(), err)
-	assert.True(s.T(), errors.Is(err, errors.ErrEnvFileNotFound) ||
+	s.Error(err)
+	s.True(errors.Is(err, precommiterrors.ErrEnvFileNotFound) ||
 		strings.Contains(err.Error(), ".env.shared"))
 }
 
@@ -146,8 +160,8 @@ PRE_COMMIT_SYSTEM_LOG_LEVEL=invalid
 KEY_WITHOUT_VALUE
 VALID_KEY=valid_value
 `,
-			shouldError: false, // godotenv should handle malformed lines gracefully
-			description: "Malformed lines should be ignored, valid ones processed",
+			shouldError: true, // godotenv should fail on malformed syntax
+			description: "Malformed environment variables should cause loading to fail",
 		},
 	}
 
@@ -155,24 +169,24 @@ VALID_KEY=valid_value
 		s.Run(tc.name, func() {
 			// Create .github directory
 			githubDir := filepath.Join(s.tempDir, ".github")
-			require.NoError(s.T(), os.MkdirAll(githubDir, 0o755))
+			s.Require().NoError(os.MkdirAll(githubDir, 0o755))
 
 			// Create .env.shared file with test content
 			envFile := filepath.Join(githubDir, ".env.shared")
-			require.NoError(s.T(), os.WriteFile(envFile, []byte(tc.content), 0o644))
+			s.Require().NoError(os.WriteFile(envFile, []byte(tc.content), 0o644))
 
 			// Try to load configuration
 			cfg, err := config.Load()
 
 			if tc.shouldError {
-				assert.Error(s.T(), err, tc.description)
+				s.Error(err, tc.description)
 			} else {
-				assert.NoError(s.T(), err, tc.description)
-				assert.NotNil(s.T(), cfg, "Configuration should be loaded successfully")
+				s.NoError(err, tc.description)
+				s.NotNil(cfg, "Configuration should be loaded successfully")
 			}
 
 			// Clean up for next test
-			require.NoError(s.T(), os.RemoveAll(githubDir))
+			s.Require().NoError(os.RemoveAll(githubDir))
 		})
 	}
 }
@@ -181,7 +195,7 @@ VALID_KEY=valid_value
 func (s *ConfigValidationTestSuite) TestEnvironmentVariablePrecedence() {
 	// Create base .env.shared file
 	githubDir := filepath.Join(s.tempDir, ".github")
-	require.NoError(s.T(), os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
 
 	envFile := filepath.Join(githubDir, ".env.shared")
 	baseConfig := `ENABLE_PRE_COMMIT_SYSTEM=true
@@ -191,7 +205,7 @@ PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=2
 PRE_COMMIT_SYSTEM_ENABLE_FUMPT=true
 PRE_COMMIT_SYSTEM_ENABLE_LINT=false
 `
-	require.NoError(s.T(), os.WriteFile(envFile, []byte(baseConfig), 0o644))
+	s.Require().NoError(os.WriteFile(envFile, []byte(baseConfig), 0o644))
 
 	testCases := []struct {
 		name            string
@@ -237,21 +251,21 @@ PRE_COMMIT_SYSTEM_ENABLE_LINT=false
 		s.Run(tc.name, func() {
 			// Set environment variable overrides
 			for key, value := range tc.envOverrides {
-				require.NoError(s.T(), os.Setenv(key, value))
+				s.Require().NoError(os.Setenv(key, value))
 			}
 
 			// Load configuration
 			cfg, err := config.Load()
-			require.NoError(s.T(), err, tc.description)
+			s.Require().NoError(err, tc.description)
 
 			// Validate expected values
-			assert.Equal(s.T(), tc.expectedLog, cfg.LogLevel, "Log level should match expected")
-			assert.Equal(s.T(), tc.expectedWorkers, cfg.Performance.ParallelWorkers, "Workers should match expected")
-			assert.Equal(s.T(), tc.expectedFumpt, cfg.Checks.Fumpt, "Fumpt setting should match expected")
+			s.Equal(tc.expectedLog, cfg.LogLevel, "Log level should match expected")
+			s.Equal(tc.expectedWorkers, cfg.Performance.ParallelWorkers, "Workers should match expected")
+			s.Equal(tc.expectedFumpt, cfg.Checks.Fumpt, "Fumpt setting should match expected")
 
 			// Clean up environment variables
 			for key := range tc.envOverrides {
-				require.NoError(s.T(), os.Unsetenv(key))
+				s.Require().NoError(os.Unsetenv(key))
 			}
 		})
 	}
@@ -261,15 +275,15 @@ PRE_COMMIT_SYSTEM_ENABLE_LINT=false
 func (s *ConfigValidationTestSuite) TestConfigurationDefaults() {
 	// Create minimal .env.shared file with only required setting
 	githubDir := filepath.Join(s.tempDir, ".github")
-	require.NoError(s.T(), os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
 
 	envFile := filepath.Join(githubDir, ".env.shared")
 	minimalConfig := `ENABLE_PRE_COMMIT_SYSTEM=true
 `
-	require.NoError(s.T(), os.WriteFile(envFile, []byte(minimalConfig), 0o644))
+	s.Require().NoError(os.WriteFile(envFile, []byte(minimalConfig), 0o644))
 
 	cfg, err := config.Load()
-	require.NoError(s.T(), err, "Minimal configuration should load successfully")
+	s.Require().NoError(err, "Minimal configuration should load successfully")
 
 	// Validate all defaults
 	expectedDefaults := map[string]interface{}{
@@ -296,35 +310,35 @@ func (s *ConfigValidationTestSuite) TestConfigurationDefaults() {
 	}
 
 	// Use reflection-like validation for nested structures
-	assert.Equal(s.T(), expectedDefaults["LogLevel"], cfg.LogLevel)
-	assert.Equal(s.T(), expectedDefaults["MaxFileSize"], cfg.MaxFileSize)
-	assert.Equal(s.T(), expectedDefaults["MaxFilesOpen"], cfg.MaxFilesOpen)
-	assert.Equal(s.T(), expectedDefaults["Timeout"], cfg.Timeout)
+	s.Equal(expectedDefaults["LogLevel"], cfg.LogLevel)
+	s.Equal(expectedDefaults["MaxFileSize"], cfg.MaxFileSize)
+	s.Equal(expectedDefaults["MaxFilesOpen"], cfg.MaxFilesOpen)
+	s.Equal(expectedDefaults["Timeout"], cfg.Timeout)
 
-	assert.Equal(s.T(), expectedDefaults["Checks.Fumpt"], cfg.Checks.Fumpt)
-	assert.Equal(s.T(), expectedDefaults["Checks.Lint"], cfg.Checks.Lint)
-	assert.Equal(s.T(), expectedDefaults["Checks.ModTidy"], cfg.Checks.ModTidy)
-	assert.Equal(s.T(), expectedDefaults["Checks.Whitespace"], cfg.Checks.Whitespace)
-	assert.Equal(s.T(), expectedDefaults["Checks.EOF"], cfg.Checks.EOF)
+	s.Equal(expectedDefaults["Checks.Fumpt"], cfg.Checks.Fumpt)
+	s.Equal(expectedDefaults["Checks.Lint"], cfg.Checks.Lint)
+	s.Equal(expectedDefaults["Checks.ModTidy"], cfg.Checks.ModTidy)
+	s.Equal(expectedDefaults["Checks.Whitespace"], cfg.Checks.Whitespace)
+	s.Equal(expectedDefaults["Checks.EOF"], cfg.Checks.EOF)
 
-	assert.Equal(s.T(), expectedDefaults["ToolVersions.Fumpt"], cfg.ToolVersions.Fumpt)
-	assert.Equal(s.T(), expectedDefaults["ToolVersions.GolangciLint"], cfg.ToolVersions.GolangciLint)
+	s.Equal(expectedDefaults["ToolVersions.Fumpt"], cfg.ToolVersions.Fumpt)
+	s.Equal(expectedDefaults["ToolVersions.GolangciLint"], cfg.ToolVersions.GolangciLint)
 
-	assert.Equal(s.T(), expectedDefaults["Performance.ParallelWorkers"], cfg.Performance.ParallelWorkers)
-	assert.Equal(s.T(), expectedDefaults["Performance.FailFast"], cfg.Performance.FailFast)
+	s.Equal(expectedDefaults["Performance.ParallelWorkers"], cfg.Performance.ParallelWorkers)
+	s.Equal(expectedDefaults["Performance.FailFast"], cfg.Performance.FailFast)
 
-	assert.Equal(s.T(), expectedDefaults["CheckTimeouts.Fumpt"], cfg.CheckTimeouts.Fumpt)
-	assert.Equal(s.T(), expectedDefaults["CheckTimeouts.Lint"], cfg.CheckTimeouts.Lint)
-	assert.Equal(s.T(), expectedDefaults["CheckTimeouts.ModTidy"], cfg.CheckTimeouts.ModTidy)
-	assert.Equal(s.T(), expectedDefaults["CheckTimeouts.Whitespace"], cfg.CheckTimeouts.Whitespace)
-	assert.Equal(s.T(), expectedDefaults["CheckTimeouts.EOF"], cfg.CheckTimeouts.EOF)
+	s.Equal(expectedDefaults["CheckTimeouts.Fumpt"], cfg.CheckTimeouts.Fumpt)
+	s.Equal(expectedDefaults["CheckTimeouts.Lint"], cfg.CheckTimeouts.Lint)
+	s.Equal(expectedDefaults["CheckTimeouts.ModTidy"], cfg.CheckTimeouts.ModTidy)
+	s.Equal(expectedDefaults["CheckTimeouts.Whitespace"], cfg.CheckTimeouts.Whitespace)
+	s.Equal(expectedDefaults["CheckTimeouts.EOF"], cfg.CheckTimeouts.EOF)
 
-	assert.Equal(s.T(), expectedDefaults["Git.HooksPath"], cfg.Git.HooksPath)
-	assert.Equal(s.T(), expectedDefaults["UI.ColorOutput"], cfg.UI.ColorOutput)
+	s.Equal(expectedDefaults["Git.HooksPath"], cfg.Git.HooksPath)
+	s.Equal(expectedDefaults["UI.ColorOutput"], cfg.UI.ColorOutput)
 
 	// Validate exclude patterns default
 	expectedExcludes := []string{"vendor/", "node_modules/", ".git/"}
-	assert.Equal(s.T(), expectedExcludes, cfg.Git.ExcludePatterns)
+	s.Equal(expectedExcludes, cfg.Git.ExcludePatterns)
 }
 
 // TestConfigurationValidation validates the validation logic
@@ -402,31 +416,50 @@ PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=-1
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			// Clean environment variables before each subtest
+			envVarsToClean := []string{
+				"ENABLE_PRE_COMMIT_SYSTEM", "PRE_COMMIT_SYSTEM_LOG_LEVEL",
+				"PRE_COMMIT_SYSTEM_ENABLE_FUMPT", "PRE_COMMIT_SYSTEM_ENABLE_LINT",
+				"PRE_COMMIT_SYSTEM_ENABLE_MOD_TIDY", "PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE",
+				"PRE_COMMIT_SYSTEM_ENABLE_EOF", "PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS",
+				"PRE_COMMIT_SYSTEM_MAX_FILE_SIZE_MB", "PRE_COMMIT_SYSTEM_MAX_FILES_OPEN",
+				"PRE_COMMIT_SYSTEM_FUMPT_VERSION", "PRE_COMMIT_SYSTEM_GOLANGCI_LINT_VERSION",
+				"PRE_COMMIT_SYSTEM_PARALLEL_WORKERS", "PRE_COMMIT_SYSTEM_FAIL_FAST",
+				"PRE_COMMIT_SYSTEM_FUMPT_TIMEOUT", "PRE_COMMIT_SYSTEM_LINT_TIMEOUT",
+				"PRE_COMMIT_SYSTEM_MOD_TIDY_TIMEOUT", "PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT",
+				"PRE_COMMIT_SYSTEM_EOF_TIMEOUT", "PRE_COMMIT_SYSTEM_HOOKS_PATH",
+				"PRE_COMMIT_SYSTEM_COLOR_OUTPUT", "NO_COLOR", "CI",
+			}
+
+			for _, envVar := range envVarsToClean {
+				_ = os.Unsetenv(envVar)
+			}
+
 			// Create .github directory
 			githubDir := filepath.Join(s.tempDir, ".github")
-			require.NoError(s.T(), os.MkdirAll(githubDir, 0o755))
+			s.Require().NoError(os.MkdirAll(githubDir, 0o755))
 
 			// Create .env.shared file with test content
 			envFile := filepath.Join(githubDir, ".env.shared")
-			require.NoError(s.T(), os.WriteFile(envFile, []byte(tc.config), 0o644))
+			s.Require().NoError(os.WriteFile(envFile, []byte(tc.config), 0o644))
 
 			// Try to load configuration
 			cfg, err := config.Load()
 
 			if tc.shouldError {
-				assert.Error(s.T(), err, tc.description)
-				if tc.expectedError != "" {
-					assert.Contains(s.T(), err.Error(), tc.expectedError,
+				s.Error(err, tc.description)
+				if tc.expectedError != "" && err != nil {
+					s.Contains(err.Error(), tc.expectedError,
 						"Error should contain expected message")
 				}
-				assert.Nil(s.T(), cfg, "Configuration should be nil on validation error")
+				s.Nil(cfg, "Configuration should be nil on validation error")
 			} else {
-				assert.NoError(s.T(), err, tc.description)
-				assert.NotNil(s.T(), cfg, "Configuration should be loaded successfully")
+				s.NoError(err, tc.description)
+				s.NotNil(cfg, "Configuration should be loaded successfully")
 			}
 
 			// Clean up for next test
-			require.NoError(s.T(), os.RemoveAll(githubDir))
+			s.Require().NoError(os.RemoveAll(githubDir))
 		})
 	}
 }
@@ -471,20 +504,22 @@ PRE_COMMIT_SYSTEM_LINT_TIMEOUT=90
 		s.Run(tc.name, func() {
 			// Create .github directory
 			githubDir := filepath.Join(s.tempDir, ".github")
-			require.NoError(s.T(), os.MkdirAll(githubDir, 0o755))
+			s.Require().NoError(os.MkdirAll(githubDir, 0o755))
 
 			// Create .env.shared file with test content
 			envFile := filepath.Join(githubDir, ".env.shared")
-			require.NoError(s.T(), os.WriteFile(envFile, []byte(tc.config), 0o644))
+			s.Require().NoError(os.WriteFile(envFile, []byte(tc.config), 0o644))
 
 			// Load configuration
 			cfg, err := config.Load()
-			assert.NoError(s.T(), err, tc.description)
-			assert.NotNil(s.T(), cfg, "Configuration should be loaded successfully")
-			assert.True(s.T(), cfg.Enabled, "System should be enabled")
+			s.NoError(err, tc.description)
+			s.NotNil(cfg, "Configuration should be loaded successfully")
+			if cfg != nil {
+				s.True(cfg.Enabled, "System should be enabled")
+			}
 
 			// Clean up for next test
-			require.NoError(s.T(), os.RemoveAll(githubDir))
+			s.Require().NoError(os.RemoveAll(githubDir))
 		})
 	}
 }
@@ -493,29 +528,29 @@ PRE_COMMIT_SYSTEM_LINT_TIMEOUT=90
 func (s *ConfigValidationTestSuite) TestConfigurationDirectoryDetection() {
 	// Create nested directory structure
 	nestedDir := filepath.Join(s.tempDir, "deep", "nested", "directory")
-	require.NoError(s.T(), os.MkdirAll(nestedDir, 0o755))
+	s.Require().NoError(os.MkdirAll(nestedDir, 0o755))
 
 	// Create .github/.env.shared at the root
 	githubDir := filepath.Join(s.tempDir, ".github")
-	require.NoError(s.T(), os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
 
 	envFile := filepath.Join(githubDir, ".env.shared")
 	testConfig := `ENABLE_PRE_COMMIT_SYSTEM=true
 PRE_COMMIT_SYSTEM_LOG_LEVEL=debug
 `
-	require.NoError(s.T(), os.WriteFile(envFile, []byte(testConfig), 0o644))
+	s.Require().NoError(os.WriteFile(envFile, []byte(testConfig), 0o644))
 
 	// Change to nested directory
-	require.NoError(s.T(), os.Chdir(nestedDir))
+	s.Require().NoError(os.Chdir(nestedDir))
 
 	// Configuration loading should find the .env.shared file by walking up
 	cfg, err := config.Load()
-	assert.NoError(s.T(), err, "Should find .env.shared file by walking up directories")
-	assert.NotNil(s.T(), cfg, "Configuration should be loaded")
-	assert.Equal(s.T(), "debug", cfg.LogLevel, "Should load correct configuration")
+	s.NoError(err, "Should find .env.shared file by walking up directories")
+	s.NotNil(cfg, "Configuration should be loaded")
+	s.Equal("debug", cfg.LogLevel, "Should load correct configuration")
 
 	// Change back to temp directory
-	require.NoError(s.T(), os.Chdir(s.tempDir))
+	s.Require().NoError(os.Chdir(s.tempDir))
 }
 
 // TestConfigurationHelp validates the configuration help functionality
@@ -523,15 +558,15 @@ func (s *ConfigValidationTestSuite) TestConfigurationHelp() {
 	help := config.GetConfigHelp()
 
 	// Validate that help contains key information
-	assert.Contains(s.T(), help, "ENABLE_PRE_COMMIT_SYSTEM", "Help should document main enable flag")
-	assert.Contains(s.T(), help, "PRE_COMMIT_SYSTEM_LOG_LEVEL", "Help should document log level")
-	assert.Contains(s.T(), help, "Example .github/.env.shared", "Help should include example")
-	assert.Contains(s.T(), help, "Core Settings", "Help should have sections")
-	assert.Contains(s.T(), help, "Check Configuration", "Help should document checks")
-	assert.Contains(s.T(), help, "Performance Settings", "Help should document performance")
+	s.Contains(help, "ENABLE_PRE_COMMIT_SYSTEM", "Help should document main enable flag")
+	s.Contains(help, "PRE_COMMIT_SYSTEM_LOG_LEVEL", "Help should document log level")
+	s.Contains(help, "Example .github/.env.shared", "Help should include example")
+	s.Contains(help, "Core Settings", "Help should have sections")
+	s.Contains(help, "Check Configuration", "Help should document checks")
+	s.Contains(help, "Performance Settings", "Help should document performance")
 
 	// Should be non-empty and reasonably long
-	assert.Greater(s.T(), len(help), 1000, "Help should be comprehensive")
+	s.Greater(len(help), 1000, "Help should be comprehensive")
 }
 
 // TestSuite runs the configuration validation test suite

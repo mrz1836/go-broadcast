@@ -131,7 +131,7 @@ func (i *Installer) InstallHook(hookType string, force bool) error {
 	}
 
 	// Generate dynamic hook script
-	hookScript := i.generateHookScript()
+	hookScript := i.GenerateHookScript()
 
 	// Write hook script
 	if err := os.WriteFile(hookPath, []byte(hookScript), 0o755); err != nil { //nolint:gosec // Hook script must be executable
@@ -210,8 +210,12 @@ func (i *Installer) validateInstallation(hookType string) error {
 	}
 
 	// Validate pre-commit directory exists
-	if _, err := os.Stat(i.preCommitDir); os.IsNotExist(err) {
-		return fmt.Errorf("pre-commit directory does not exist: %s", i.preCommitDir)
+	preCommitPath := i.preCommitDir
+	if !filepath.IsAbs(preCommitPath) {
+		preCommitPath = filepath.Join(i.repoRoot, i.preCommitDir)
+	}
+	if _, err := os.Stat(preCommitPath); os.IsNotExist(err) {
+		return fmt.Errorf("pre-commit directory does not exist: %s", preCommitPath)
 	}
 
 	// Validate configuration if available
@@ -254,8 +258,8 @@ func (i *Installer) handleExistingHook(hookPath string, force bool) error {
 	return nil
 }
 
-// generateHookScript creates a dynamic hook script based on current environment
-func (i *Installer) generateHookScript() string {
+// GenerateHookScript creates a dynamic hook script based on current environment
+func (i *Installer) GenerateHookScript() string {
 	return fmt.Sprintf(hookScriptTemplate, i.repoRoot, i.preCommitDir)
 }
 

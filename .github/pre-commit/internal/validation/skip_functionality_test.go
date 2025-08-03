@@ -4,12 +4,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
@@ -29,14 +26,14 @@ type SkipFunctionalityTestSuite struct {
 func (s *SkipFunctionalityTestSuite) SetupSuite() {
 	var err error
 	s.originalWD, err = os.Getwd()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Create temporary directory structure
 	s.tempDir = s.T().TempDir()
 
 	// Create .github directory
 	githubDir := filepath.Join(s.tempDir, ".github")
-	require.NoError(s.T(), os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
 
 	// Create comprehensive .env.shared file
 	s.envFile = filepath.Join(githubDir, ".env.shared")
@@ -56,17 +53,17 @@ PRE_COMMIT_SYSTEM_MOD_TIDY_TIMEOUT=30
 PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT=30
 PRE_COMMIT_SYSTEM_EOF_TIMEOUT=30
 `
-	require.NoError(s.T(), os.WriteFile(s.envFile, []byte(envContent), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o644))
 
 	// Change to temp directory for tests
-	require.NoError(s.T(), os.Chdir(s.tempDir))
+	s.Require().NoError(os.Chdir(s.tempDir))
 
 	// Initialize git repository
-	require.NoError(s.T(), s.initGitRepo())
+	s.Require().NoError(s.initGitRepo())
 
 	// Create test files
 	s.testFiles = []string{"main.go", "service.go", "README.md", "config.yaml", "script.sh"}
-	require.NoError(s.T(), s.createTestFiles())
+	s.Require().NoError(s.createTestFiles())
 }
 
 // TearDownSuite cleans up the test environment
@@ -183,7 +180,7 @@ func (s *SkipFunctionalityTestSuite) TestSkipSingleCheck() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			// Set SKIP environment variable
-			require.NoError(s.T(), os.Setenv("SKIP", tc.skipValue))
+			s.Require().NoError(os.Setenv("SKIP", tc.skipValue))
 
 			// Run checks
 			results := s.runChecks("single-skip-test")
@@ -240,7 +237,7 @@ func (s *SkipFunctionalityTestSuite) TestSkipMultipleChecks() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			// Set SKIP environment variable
-			require.NoError(s.T(), os.Setenv("SKIP", tc.skipValue))
+			s.Require().NoError(os.Setenv("SKIP", tc.skipValue))
 
 			// Run checks
 			results := s.runChecks("multi-skip-test")
@@ -271,20 +268,20 @@ func (s *SkipFunctionalityTestSuite) TestSkipMultipleChecks() {
 // TestSkipAllChecks validates skipping all checks
 func (s *SkipFunctionalityTestSuite) TestSkipAllChecks() {
 	// Set SKIP to include all checks
-	require.NoError(s.T(), os.Setenv("SKIP", "fumpt,lint,mod-tidy,whitespace,eof"))
+	s.Require().NoError(os.Setenv("SKIP", "fumpt,lint,mod-tidy,whitespace,eof"))
 
 	// Run checks
 	results := s.runChecks("skip-all-test")
 
 	// Should complete successfully with all checks skipped
-	assert.NotNil(s.T(), results, "Results should not be nil")
+	s.NotNil(results, "Results should not be nil")
 
 	// Depending on implementation, this might result in no checks to run
 	// or all checks being skipped - both are valid behaviors
 	if len(results.CheckResults) > 0 {
 		// If checks were executed, they should all be skipped
 		for _, result := range results.CheckResults {
-			assert.True(s.T(), result.Success,
+			s.True(result.Success,
 				"Check %s should be marked as successful (skipped)", result.Name)
 		}
 	}
@@ -329,13 +326,13 @@ func (s *SkipFunctionalityTestSuite) TestSkipInvalidCheckNames() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			// Set SKIP environment variable
-			require.NoError(s.T(), os.Setenv("SKIP", tc.skipValue))
+			s.Require().NoError(os.Setenv("SKIP", tc.skipValue))
 
 			// Run checks - should not crash or fail
 			results := s.runChecks("invalid-skip-test")
 
 			// Should complete without errors
-			assert.NotNil(s.T(), results, tc.description)
+			s.NotNil(results, tc.description)
 
 			// Valid checks should still work
 			s.T().Logf("Invalid skip test completed: %s", tc.description)
@@ -368,17 +365,17 @@ func (s *SkipFunctionalityTestSuite) TestSkipEnvironmentVariablePrecedence() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			// Set the specific SKIP variable
-			require.NoError(s.T(), os.Setenv(tc.skipVar, tc.skipValue))
+			s.Require().NoError(os.Setenv(tc.skipVar, tc.skipValue))
 
 			// Run checks
 			results := s.runChecks("precedence-test")
 
 			// Validate behavior
-			assert.NotNil(s.T(), results, tc.description)
+			s.NotNil(results, tc.description)
 			s.T().Logf("Precedence test completed for %s", tc.skipVar)
 
 			// Clean up
-			require.NoError(s.T(), os.Unsetenv(tc.skipVar))
+			s.Require().NoError(os.Unsetenv(tc.skipVar))
 		})
 	}
 }
@@ -423,21 +420,21 @@ func (s *SkipFunctionalityTestSuite) TestSkipInCIEnvironment() {
 		s.Run(tc.name, func() {
 			// Set CI environment variables
 			for key, value := range tc.ciEnvVars {
-				require.NoError(s.T(), os.Setenv(key, value))
+				s.Require().NoError(os.Setenv(key, value))
 			}
 
 			// Set SKIP variable
-			require.NoError(s.T(), os.Setenv("SKIP", tc.skipValue))
+			s.Require().NoError(os.Setenv("SKIP", tc.skipValue))
 
 			// Run checks
 			results := s.runChecks("ci-skip-test")
 
 			// Validate that SKIP works in CI
-			assert.NotNil(s.T(), results, tc.description)
+			s.NotNil(results, tc.description)
 
 			// Clean up environment
 			for key := range tc.ciEnvVars {
-				require.NoError(s.T(), os.Unsetenv(key))
+				s.Require().NoError(os.Unsetenv(key))
 			}
 		})
 	}
@@ -450,11 +447,11 @@ func (s *SkipFunctionalityTestSuite) TestSkipWithCommandLineOptions() {
 
 	s.Run("SKIP with Only Checks", func() {
 		// Set SKIP to skip fumpt
-		require.NoError(s.T(), os.Setenv("SKIP", "fumpt"))
+		s.Require().NoError(os.Setenv("SKIP", "fumpt"))
 
 		// Load configuration
 		cfg, err := config.Load()
-		require.NoError(s.T(), err)
+		s.Require().NoError(err)
 
 		// Create runner
 		r := runner.New(cfg, s.tempDir)
@@ -468,8 +465,8 @@ func (s *SkipFunctionalityTestSuite) TestSkipWithCommandLineOptions() {
 			OnlyChecks: []string{"whitespace", "fumpt"},
 		})
 
-		require.NoError(s.T(), err)
-		assert.NotNil(s.T(), results)
+		s.Require().NoError(err)
+		s.NotNil(results)
 
 		// Fumpt should be skipped, only whitespace should run
 		s.T().Logf("Command line interaction test completed")
@@ -477,11 +474,11 @@ func (s *SkipFunctionalityTestSuite) TestSkipWithCommandLineOptions() {
 
 	s.Run("SKIP with Skip Checks Option", func() {
 		// Set SKIP environment variable
-		require.NoError(s.T(), os.Setenv("SKIP", "fumpt"))
+		s.Require().NoError(os.Setenv("SKIP", "fumpt"))
 
 		// Load configuration
 		cfg, err := config.Load()
-		require.NoError(s.T(), err)
+		s.Require().NoError(err)
 
 		// Create runner
 		r := runner.New(cfg, s.tempDir)
@@ -495,8 +492,8 @@ func (s *SkipFunctionalityTestSuite) TestSkipWithCommandLineOptions() {
 			SkipChecks: []string{"lint"},
 		})
 
-		require.NoError(s.T(), err)
-		assert.NotNil(s.T(), results)
+		s.Require().NoError(err)
+		s.NotNil(results)
 
 		// Both fumpt (from SKIP) and lint (from command) should be skipped
 		s.T().Logf("Combined skip options test completed")
@@ -530,13 +527,13 @@ func (s *SkipFunctionalityTestSuite) TestSkipCaseSensitivity() {
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
 			// Set SKIP environment variable
-			require.NoError(s.T(), os.Setenv("SKIP", tc.skipValue))
+			s.Require().NoError(os.Setenv("SKIP", tc.skipValue))
 
 			// Run checks
 			results := s.runChecks("case-sensitivity-test")
 
 			// Validate behavior
-			assert.NotNil(s.T(), results, tc.description)
+			s.NotNil(results, tc.description)
 			s.T().Logf("Case sensitivity test: %s", tc.description)
 		})
 	}
@@ -550,19 +547,19 @@ func (s *SkipFunctionalityTestSuite) TestSkipPerformanceImpact() {
 	baselineDuration := time.Since(start)
 
 	// With SKIP: skip most checks
-	require.NoError(s.T(), os.Setenv("SKIP", "fumpt,lint,mod-tidy"))
+	s.Require().NoError(os.Setenv("SKIP", "fumpt,lint,mod-tidy"))
 
 	start = time.Now()
 	skipResults := s.runChecks("skip-performance")
 	skipDuration := time.Since(start)
 
 	// SKIP should be significantly faster
-	assert.NotNil(s.T(), baselineResults, "Baseline results should not be nil")
-	assert.NotNil(s.T(), skipResults, "Skip results should not be nil")
+	s.NotNil(baselineResults, "Baseline results should not be nil")
+	s.NotNil(skipResults, "Skip results should not be nil")
 
 	// Skip execution should be faster (allow some tolerance for test environment)
 	maxAllowedDuration := baselineDuration + 1*time.Second // Allow 1s tolerance
-	assert.True(s.T(), skipDuration <= maxAllowedDuration,
+	s.True(skipDuration <= maxAllowedDuration,
 		"Skip execution should not be slower than baseline: baseline=%v, skip=%v",
 		baselineDuration, skipDuration)
 
@@ -571,11 +568,11 @@ func (s *SkipFunctionalityTestSuite) TestSkipPerformanceImpact() {
 }
 
 // runChecks is a helper function to run checks with current environment
-func (s *SkipFunctionalityTestSuite) runChecks(context string) *runner.Results {
+func (s *SkipFunctionalityTestSuite) runChecks(testContext string) *runner.Results {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		s.T().Logf("Failed to load config in %s: %v", context, err)
+		s.T().Logf("Failed to load config in %s: %v", testContext, err)
 		return nil
 	}
 
@@ -590,7 +587,7 @@ func (s *SkipFunctionalityTestSuite) runChecks(context string) *runner.Results {
 		Files: s.testFiles,
 	})
 	if err != nil {
-		s.T().Logf("Execution failed in %s: %v", context, err)
+		s.T().Logf("Execution failed in %s: %v", testContext, err)
 		return nil
 	}
 
@@ -667,7 +664,7 @@ func (s *SkipFunctionalityTestSuite) TestSkipDocumentation() {
 	s.T().Logf("Configuration help length: %d characters", len(help))
 
 	// Test passes if help is comprehensive (indicating good documentation practices)
-	assert.Greater(s.T(), len(help), 1000, "Help should be comprehensive")
+	s.Greater(len(help), 1000, "Help should be comprehensive")
 }
 
 // TestSkipEdgeCases validates edge cases in SKIP functionality
@@ -717,7 +714,7 @@ func (s *SkipFunctionalityTestSuite) TestSkipEdgeCases() {
 	for _, tc := range edgeCases {
 		s.Run(tc.name, func() {
 			// Set SKIP environment variable
-			require.NoError(s.T(), os.Setenv("SKIP", tc.skipValue))
+			s.Require().NoError(os.Setenv("SKIP", tc.skipValue))
 
 			// Run checks - should not crash
 			results := s.runChecks("edge-case-test")

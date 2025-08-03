@@ -39,8 +39,8 @@ func (s *ErrorTestSuite) TestCommonErrors() {
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			s.Assert().NotNil(tt.err)
-			s.Assert().Equal(tt.expected, tt.err.Error())
+			s.Error(tt.err)
+			s.Equal(tt.expected, tt.err.Error())
 		})
 	}
 }
@@ -53,11 +53,11 @@ func (s *ErrorTestSuite) TestCheckErrorConstructor() {
 
 	checkErr := NewCheckError(baseErr, message, suggestion)
 
-	s.Assert().NotNil(checkErr)
-	s.Assert().Equal(baseErr, checkErr.Err)
-	s.Assert().Equal(message, checkErr.Message)
-	s.Assert().Equal(suggestion, checkErr.Suggestion)
-	s.Assert().False(checkErr.CanSkip)
+	s.NotNil(checkErr)
+	s.Equal(baseErr, checkErr.Err)
+	s.Equal(message, checkErr.Message)
+	s.Equal(suggestion, checkErr.Suggestion)
+	s.False(checkErr.CanSkip)
 }
 
 // TestCheckErrorError tests the Error method
@@ -91,7 +91,7 @@ func (s *ErrorTestSuite) TestCheckErrorError() {
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			s.Assert().Equal(tt.expected, tt.checkErr.Error())
+			s.Equal(tt.expected, tt.checkErr.Error())
 		})
 	}
 }
@@ -102,7 +102,7 @@ func (s *ErrorTestSuite) TestCheckErrorUnwrap() {
 	checkErr := &CheckError{Err: baseErr}
 
 	unwrapped := checkErr.Unwrap()
-	s.Assert().Equal(baseErr, unwrapped)
+	s.Equal(baseErr, unwrapped)
 }
 
 // TestCheckErrorIs tests the Is method
@@ -110,8 +110,8 @@ func (s *ErrorTestSuite) TestCheckErrorIs() {
 	baseErr := ErrToolNotFound
 	checkErr := &CheckError{Err: baseErr}
 
-	s.Assert().True(checkErr.Is(ErrToolNotFound))
-	s.Assert().False(checkErr.Is(ErrLintingIssues))
+	s.True(checkErr.Is(ErrToolNotFound))
+	s.False(checkErr.Is(ErrLintingIssues))
 }
 
 // TestNewToolNotFoundError tests the tool not found error constructor
@@ -121,11 +121,11 @@ func (s *ErrorTestSuite) TestNewToolNotFoundError() {
 
 	err := NewToolNotFoundError(tool, alternative)
 
-	s.Assert().NotNil(err)
-	s.Assert().True(err.Is(ErrToolNotFound))
-	s.Assert().Equal("golangci-lint not found", err.Message)
-	s.Assert().Equal(alternative, err.Suggestion)
-	s.Assert().True(err.CanSkip)
+	s.NotNil(err)
+	s.True(err.Is(ErrToolNotFound))
+	s.Equal("golangci-lint not found", err.Message)
+	s.Equal(alternative, err.Suggestion)
+	s.True(err.CanSkip)
 }
 
 // TestNewMakeTargetNotFoundError tests the make target not found error constructor
@@ -135,11 +135,11 @@ func (s *ErrorTestSuite) TestNewMakeTargetNotFoundError() {
 
 	err := NewMakeTargetNotFoundError(target, alternative)
 
-	s.Assert().NotNil(err)
-	s.Assert().True(err.Is(ErrMakeTargetNotFound))
-	s.Assert().Equal("make target 'lint' not found", err.Message)
-	s.Assert().Equal(alternative, err.Suggestion)
-	s.Assert().True(err.CanSkip)
+	s.NotNil(err)
+	s.True(err.Is(ErrMakeTargetNotFound))
+	s.Equal("make target 'lint' not found", err.Message)
+	s.Equal(alternative, err.Suggestion)
+	s.True(err.CanSkip)
 }
 
 // TestNewToolExecutionError tests the tool execution error constructor
@@ -150,13 +150,13 @@ func (s *ErrorTestSuite) TestNewToolExecutionError() {
 
 	err := NewToolExecutionError(command, output, suggestion)
 
-	s.Assert().NotNil(err)
-	s.Assert().True(err.Is(ErrToolExecutionFailed))
-	s.Assert().Equal("command 'golangci-lint run' failed", err.Message)
-	s.Assert().Equal(command, err.Command)
-	s.Assert().Equal(output, err.Output)
-	s.Assert().Equal(suggestion, err.Suggestion)
-	s.Assert().False(err.CanSkip)
+	s.NotNil(err)
+	s.True(err.Is(ErrToolExecutionFailed))
+	s.Equal("command 'golangci-lint run' failed", err.Message)
+	s.Equal(command, err.Command)
+	s.Equal(output, err.Output)
+	s.Equal(suggestion, err.Suggestion)
+	s.False(err.CanSkip)
 }
 
 // TestNewGracefulSkipError tests the graceful skip error constructor
@@ -165,11 +165,11 @@ func (s *ErrorTestSuite) TestNewGracefulSkipError() {
 
 	err := NewGracefulSkipError(reason)
 
-	s.Assert().NotNil(err)
-	s.Assert().True(err.Is(ErrGracefulSkip))
-	s.Assert().Equal(reason, err.Message)
-	s.Assert().Equal("This check was skipped to allow other checks to continue", err.Suggestion)
-	s.Assert().True(err.CanSkip)
+	s.NotNil(err)
+	s.True(err.Is(ErrGracefulSkip))
+	s.Equal(reason, err.Message)
+	s.Equal("This check was skipped to allow other checks to continue", err.Suggestion)
+	s.True(err.CanSkip)
 }
 
 // TestCheckErrorChaining tests error chaining and wrapping
@@ -178,13 +178,13 @@ func (s *ErrorTestSuite) TestCheckErrorChaining() {
 	wrappedErr := NewCheckError(originalErr, "wrapped message", "fix suggestion")
 
 	// Test that we can unwrap to the original error
-	s.Assert().True(errors.Is(wrappedErr, originalErr))
-	s.Assert().Equal(originalErr, errors.Unwrap(wrappedErr))
+	s.ErrorIs(wrappedErr, originalErr)
+	s.Equal(originalErr, errors.Unwrap(wrappedErr))
 
 	// Test error chaining with standard library
 	var checkErr *CheckError
-	s.Assert().True(errors.As(wrappedErr, &checkErr))
-	s.Assert().Equal(wrappedErr, checkErr)
+	s.ErrorAs(wrappedErr, &checkErr)
+	s.Equal(wrappedErr, checkErr)
 }
 
 // TestCheckErrorFields tests all fields of CheckError
@@ -199,19 +199,19 @@ func (s *ErrorTestSuite) TestCheckErrorFields() {
 		CanSkip:    true,
 	}
 
-	s.Assert().Equal(ErrLintingIssues, err.Err)
-	s.Assert().Equal("custom message", err.Message)
-	s.Assert().Equal("fix the linting issues", err.Suggestion)
-	s.Assert().Equal("golangci-lint run", err.Command)
-	s.Assert().Equal("error output", err.Output)
-	s.Assert().Equal([]string{"main.go", "test.go"}, err.Files)
-	s.Assert().True(err.CanSkip)
+	s.Equal(ErrLintingIssues, err.Err)
+	s.Equal("custom message", err.Message)
+	s.Equal("fix the linting issues", err.Suggestion)
+	s.Equal("golangci-lint run", err.Command)
+	s.Equal("error output", err.Output)
+	s.Equal([]string{"main.go", "test.go"}, err.Files)
+	s.True(err.CanSkip)
 }
 
 // Unit tests for edge cases
 func TestCheckErrorNilWrapping(t *testing.T) {
 	checkErr := &CheckError{Err: nil}
-	assert.Nil(t, checkErr.Unwrap())
+	assert.NoError(t, checkErr.Unwrap())
 	assert.False(t, checkErr.Is(ErrToolNotFound))
 }
 
@@ -235,12 +235,12 @@ func TestErrorWrappingWithStandardLibrary(t *testing.T) {
 	wrappedErr := NewCheckError(originalErr, "custom message", "fix it")
 
 	// Test with errors.Is
-	assert.True(t, errors.Is(wrappedErr, ErrToolNotFound))
-	assert.False(t, errors.Is(wrappedErr, ErrLintingIssues))
+	assert.ErrorIs(t, wrappedErr, ErrToolNotFound)
+	assert.NotErrorIs(t, wrappedErr, ErrLintingIssues)
 
 	// Test with errors.As
 	var checkErr *CheckError
-	assert.True(t, errors.As(wrappedErr, &checkErr))
+	assert.ErrorAs(t, wrappedErr, &checkErr)
 	assert.Equal(t, "custom message", checkErr.Message)
 }
 

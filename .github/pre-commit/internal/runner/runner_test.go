@@ -205,6 +205,7 @@ func TestCheckResult(t *testing.T) {
 
 type RunnerTestSuite struct {
 	suite.Suite
+
 	tempDir string
 }
 
@@ -261,12 +262,12 @@ func (s *RunnerTestSuite) TestFailFastExecution() {
 
 	results, err := r.Run(context.Background(), opts)
 	s.Require().NoError(err)
-	s.Assert().NotNil(results)
+	s.NotNil(results)
 
 	// Verify that progress callbacks were called
 	progressMutex.Lock()
 	defer progressMutex.Unlock()
-	s.Assert().NotEmpty(progressCalls)
+	s.NotEmpty(progressCalls)
 }
 
 // TestParallelExecution tests the parallel execution path
@@ -298,15 +299,15 @@ func (s *RunnerTestSuite) TestParallelExecution() {
 
 	results, err := r.Run(context.Background(), opts)
 	s.Require().NoError(err)
-	s.Assert().NotNil(results)
+	s.NotNil(results)
 
 	// Should have run checks in parallel
-	s.Assert().NotEmpty(results.CheckResults)
+	s.NotEmpty(results.CheckResults)
 
 	// Verify that progress callbacks were called
 	progressMutex.Lock()
 	defer progressMutex.Unlock()
-	s.Assert().NotEmpty(progressCalls)
+	s.NotEmpty(progressCalls)
 }
 
 // TestParallelismConfiguration tests different parallelism settings
@@ -342,7 +343,7 @@ func (s *RunnerTestSuite) TestParallelismConfiguration() {
 
 			results, err := r.Run(context.Background(), opts)
 			s.Require().NoError(err)
-			s.Assert().NotNil(results)
+			s.NotNil(results)
 		})
 	}
 }
@@ -368,13 +369,13 @@ func (s *RunnerTestSuite) TestGracefulDegradation() {
 
 	results, err := r.Run(context.Background(), opts)
 	s.Require().NoError(err)
-	s.Assert().NotNil(results)
+	s.NotNil(results)
 
 	// With graceful degradation, we should handle failures gracefully
 	// The exact results depend on what tools are available
-	s.Assert().True(results.Passed >= 0)
-	s.Assert().True(results.Failed >= 0)
-	s.Assert().True(results.Skipped >= 0)
+	s.GreaterOrEqual(results.Passed, 0)
+	s.GreaterOrEqual(results.Failed, 0)
+	s.GreaterOrEqual(results.Skipped, 0)
 }
 
 // TestContextTimeout tests timeout handling
@@ -397,7 +398,7 @@ func (s *RunnerTestSuite) TestContextTimeout() {
 	results, err := r.Run(context.Background(), opts)
 	// Could succeed or fail depending on timing
 	if err == nil {
-		s.Assert().NotNil(results)
+		s.NotNil(results)
 	}
 }
 
@@ -423,9 +424,9 @@ func (s *RunnerTestSuite) TestContextCancellation() {
 	results, err := r.Run(ctx, opts)
 	// Should handle cancellation gracefully
 	if err != nil {
-		s.Assert().Contains(err.Error(), "context")
+		s.Contains(err.Error(), "context")
 	} else {
-		s.Assert().NotNil(results)
+		s.NotNil(results)
 	}
 }
 
@@ -444,9 +445,9 @@ func (s *RunnerTestSuite) TestErrorConditions() {
 	}
 
 	results, err := r.Run(context.Background(), opts)
-	s.Assert().Error(err) // Should return error when no checks to run
-	s.Assert().Contains(err.Error(), "no checks to run")
-	s.Assert().Nil(results)
+	s.Error(err) // Should return error when no checks to run
+	s.Contains(err.Error(), "no checks to run")
+	s.Nil(results)
 }
 
 // TestDetermineChecks tests the check determination logic
@@ -509,13 +510,13 @@ func (s *RunnerTestSuite) TestDetermineChecks() {
 			results, err := r.Run(context.Background(), opts)
 			if tt.expectedMin == 0 && tt.expectedMax == 0 {
 				// Expect error when no checks to run
-				s.Assert().Error(err)
-				s.Assert().Contains(err.Error(), "no checks to run")
+				s.Error(err)
+				s.Contains(err.Error(), "no checks to run")
 			} else {
 				s.Require().NoError(err)
-				s.Assert().NotNil(results)
-				s.Assert().True(len(results.CheckResults) >= tt.expectedMin)
-				s.Assert().True(len(results.CheckResults) <= tt.expectedMax)
+				s.NotNil(results)
+				s.True(len(results.CheckResults) >= tt.expectedMin)
+				s.True(len(results.CheckResults) <= tt.expectedMax)
 			}
 		})
 	}
@@ -547,13 +548,13 @@ func (s *RunnerTestSuite) TestProgressCallbacks() {
 
 	results, err := r.Run(context.Background(), opts)
 	s.Require().NoError(err)
-	s.Assert().NotNil(results)
+	s.NotNil(results)
 
 	progressMutex.Lock()
 	defer progressMutex.Unlock()
 
 	// Should have at least running and completion events
-	s.Assert().NotEmpty(progressEvents)
+	s.NotEmpty(progressEvents)
 
 	// Verify we have running events
 	hasRunning := false
@@ -563,7 +564,7 @@ func (s *RunnerTestSuite) TestProgressCallbacks() {
 			break
 		}
 	}
-	s.Assert().True(hasRunning, "Should have 'running' progress events")
+	s.True(hasRunning, "Should have 'running' progress events")
 }
 
 // TestResultsAggregation tests that results are properly aggregated
@@ -585,13 +586,13 @@ func (s *RunnerTestSuite) TestResultsAggregation() {
 
 	results, err := r.Run(context.Background(), opts)
 	s.Require().NoError(err)
-	s.Assert().NotNil(results)
+	s.NotNil(results)
 
 	// Verify results aggregation
 	totalResults := results.Passed + results.Failed + results.Skipped
-	s.Assert().Equal(len(results.CheckResults), totalResults)
-	s.Assert().Equal(1, results.TotalFiles)
-	s.Assert().True(results.TotalDuration >= 0)
+	s.Equal(len(results.CheckResults), totalResults)
+	s.Equal(1, results.TotalFiles)
+	s.True(results.TotalDuration >= 0)
 }
 
 // Helper function
@@ -624,7 +625,7 @@ func TestRunnerEdgeCases(t *testing.T) {
 		cfg := &config.Config{Enabled: true}
 		r := New(cfg, "")
 		assert.NotNil(t, r)
-		assert.Equal(t, "", r.repoRoot)
+		assert.Empty(t, r.repoRoot)
 	})
 
 	t.Run("zero timeout", func(t *testing.T) {

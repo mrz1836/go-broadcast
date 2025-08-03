@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
@@ -29,14 +28,14 @@ type PerformanceValidationTestSuite struct {
 func (s *PerformanceValidationTestSuite) SetupSuite() {
 	var err error
 	s.originalWD, err = os.Getwd()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Create temporary directory structure
 	s.tempDir = s.T().TempDir()
 
 	// Create .github directory
 	githubDir := filepath.Join(s.tempDir, ".github")
-	require.NoError(s.T(), os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
 
 	// Create optimized .env.shared file for performance testing
 	s.envFile = filepath.Join(githubDir, ".env.shared")
@@ -56,13 +55,13 @@ PRE_COMMIT_SYSTEM_MAX_FILE_SIZE_MB=10
 PRE_COMMIT_SYSTEM_MAX_FILES_OPEN=100
 PRE_COMMIT_SYSTEM_COLOR_OUTPUT=false
 `
-	require.NoError(s.T(), os.WriteFile(s.envFile, []byte(envContent), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o644))
 
 	// Change to temp directory for tests
-	require.NoError(s.T(), os.Chdir(s.tempDir))
+	s.Require().NoError(os.Chdir(s.tempDir))
 
 	// Initialize git repository
-	require.NoError(s.T(), s.initGitRepo())
+	s.Require().NoError(s.initGitRepo())
 }
 
 // TearDownSuite cleans up the test environment
@@ -90,7 +89,7 @@ func (s *PerformanceValidationTestSuite) Test2SecondTargetSmallCommit() {
 
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	var durations []time.Duration
 	var allResults []*runner.Results
@@ -107,8 +106,8 @@ func (s *PerformanceValidationTestSuite) Test2SecondTargetSmallCommit() {
 		duration := time.Since(start)
 		cancel()
 
-		require.NoError(s.T(), err, "Iteration %d should succeed", i)
-		require.NotNil(s.T(), result, "Result %d should not be nil", i)
+		s.Require().NoError(err, "Iteration %d should succeed", i)
+		s.Require().NotNil(result, "Result %d should not be nil", i)
 
 		durations = append(durations, duration)
 		allResults = append(allResults, result)
@@ -120,11 +119,11 @@ func (s *PerformanceValidationTestSuite) Test2SecondTargetSmallCommit() {
 	maxDuration := s.calculateMax(durations)
 
 	// Validate performance targets
-	assert.True(s.T(), avgDuration <= target,
+	s.LessOrEqual(avgDuration, target,
 		"Average duration should be ≤2s: %v", avgDuration)
-	assert.True(s.T(), p95Duration <= target*120/100, // Allow 20% buffer for P95
+	s.True(p95Duration <= target*120/100, // Allow 20% buffer for P95
 		"P95 duration should be ≤2.4s: %v", p95Duration)
-	assert.True(s.T(), maxDuration <= target*150/100, // Allow 50% buffer for max
+	s.True(maxDuration <= target*150/100, // Allow 50% buffer for max
 		"Max duration should be ≤3s: %v", maxDuration)
 
 	s.T().Logf("Small commit performance: avg=%v, p95=%v, max=%v (target=%v)",
@@ -141,7 +140,7 @@ func (s *PerformanceValidationTestSuite) Test2SecondTargetTypicalCommit() {
 
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	var durations []time.Duration
 
@@ -157,8 +156,8 @@ func (s *PerformanceValidationTestSuite) Test2SecondTargetTypicalCommit() {
 		duration := time.Since(start)
 		cancel()
 
-		require.NoError(s.T(), err, "Iteration %d should succeed", i)
-		require.NotNil(s.T(), result, "Result %d should not be nil", i)
+		s.Require().NoError(err, "Iteration %d should succeed", i)
+		s.Require().NotNil(result, "Result %d should not be nil", i)
 
 		durations = append(durations, duration)
 	}
@@ -168,9 +167,9 @@ func (s *PerformanceValidationTestSuite) Test2SecondTargetTypicalCommit() {
 	maxDuration := s.calculateMax(durations)
 
 	// Validate performance targets (slightly relaxed for typical commits)
-	assert.True(s.T(), avgDuration <= target*120/100, // Allow 20% buffer for typical commits
+	s.True(avgDuration <= target*120/100, // Allow 20% buffer for typical commits
 		"Average duration should be ≤2.4s: %v", avgDuration)
-	assert.True(s.T(), maxDuration <= target*150/100, // Allow 50% buffer for max
+	s.True(maxDuration <= target*150/100, // Allow 50% buffer for max
 		"Max duration should be ≤3s: %v", maxDuration)
 
 	s.T().Logf("Typical commit performance: avg=%v, max=%v (target=%v)",
@@ -214,7 +213,7 @@ func (s *PerformanceValidationTestSuite) TestPerformanceUnderParallelism() {
 		s.Run(tc.name, func() {
 			// Load configuration
 			cfg, err := config.Load()
-			require.NoError(s.T(), err)
+			s.Require().NoError(err)
 
 			r := runner.New(cfg, s.tempDir)
 
@@ -228,10 +227,10 @@ func (s *PerformanceValidationTestSuite) TestPerformanceUnderParallelism() {
 			})
 			duration := time.Since(start)
 
-			require.NoError(s.T(), err, "Should succeed with %d workers", tc.parallel)
-			require.NotNil(s.T(), result, "Should have result")
+			s.Require().NoError(err, "Should succeed with %d workers", tc.parallel)
+			s.Require().NotNil(result, "Should have result")
 
-			assert.True(s.T(), duration <= tc.target,
+			s.True(duration <= tc.target,
 				"Duration with %d workers should be ≤%v: %v", tc.parallel, tc.target, duration)
 
 			s.T().Logf("%s (%d workers): %v (target: %v)",
@@ -276,7 +275,7 @@ func (s *PerformanceValidationTestSuite) TestPerformanceScaling() {
 
 			// Load configuration
 			cfg, err := config.Load()
-			require.NoError(s.T(), err)
+			s.Require().NoError(err)
 
 			r := runner.New(cfg, s.tempDir)
 
@@ -289,10 +288,10 @@ func (s *PerformanceValidationTestSuite) TestPerformanceScaling() {
 			})
 			duration := time.Since(start)
 
-			require.NoError(s.T(), err, "Should succeed with %d files", tc.fileCount)
+			s.Require().NoError(err, "Should succeed with %d files", tc.fileCount)
 			require.NotNil(s.T(), result, "Should have result")
 
-			assert.True(s.T(), duration <= tc.target,
+			s.True(duration <= tc.target,
 				"Duration with %d files should be ≤%v: %v", tc.fileCount, tc.target, duration)
 
 			s.T().Logf("%s: %v (target: %v, files: %d)",
@@ -312,7 +311,7 @@ func (s *PerformanceValidationTestSuite) TestColdStartPerformance() {
 
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Create fresh runner (cold start)
 	r := runner.New(cfg, s.tempDir)
@@ -326,10 +325,10 @@ func (s *PerformanceValidationTestSuite) TestColdStartPerformance() {
 	})
 	duration := time.Since(start)
 
-	require.NoError(s.T(), err, "Cold start should succeed")
+	s.Require().NoError(err, "Cold start should succeed")
 	require.NotNil(s.T(), result, "Should have result")
 
-	assert.True(s.T(), duration <= target,
+	s.True(duration <= target,
 		"Cold start duration should be ≤3s: %v", duration)
 
 	s.T().Logf("Cold start performance: %v (target: %v)", duration, target)
@@ -343,7 +342,7 @@ func (s *PerformanceValidationTestSuite) TestWarmRunPerformance() {
 
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	r := runner.New(cfg, s.tempDir)
 
@@ -351,7 +350,7 @@ func (s *PerformanceValidationTestSuite) TestWarmRunPerformance() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	_, err = r.Run(ctx, runner.Options{Files: files})
 	cancel()
-	require.NoError(s.T(), err, "Warm-up run should succeed")
+	s.Require().NoError(err, "Warm-up run should succeed")
 
 	// Measure warm run performance
 	const iterations = 3
@@ -367,7 +366,7 @@ func (s *PerformanceValidationTestSuite) TestWarmRunPerformance() {
 		duration := time.Since(start)
 		cancel()
 
-		require.NoError(s.T(), err, "Warm run %d should succeed", i)
+		s.Require().NoError(err, "Warm run %d should succeed", i)
 		require.NotNil(s.T(), result, "Should have result")
 
 		durations = append(durations, duration)
@@ -376,9 +375,9 @@ func (s *PerformanceValidationTestSuite) TestWarmRunPerformance() {
 	avgDuration := s.calculateAverage(durations)
 	maxDuration := s.calculateMax(durations)
 
-	assert.True(s.T(), avgDuration <= target,
+	s.True(avgDuration <= target,
 		"Average warm run duration should be ≤1.5s: %v", avgDuration)
-	assert.True(s.T(), maxDuration <= target*120/100,
+	s.True(maxDuration <= target*120/100,
 		"Max warm run duration should be ≤1.8s: %v", maxDuration)
 
 	s.T().Logf("Warm run performance: avg=%v, max=%v (target: %v)",
@@ -393,7 +392,7 @@ func (s *PerformanceValidationTestSuite) TestMemoryEfficiencyPerformance() {
 
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Measure memory before
 	var memBefore runtime.MemStats
@@ -411,7 +410,7 @@ func (s *PerformanceValidationTestSuite) TestMemoryEfficiencyPerformance() {
 	})
 	duration := time.Since(start)
 
-	require.NoError(s.T(), err, "Should succeed")
+	s.Require().NoError(err, "Should succeed")
 	require.NotNil(s.T(), result, "Should have result")
 
 	// Measure memory after
@@ -422,12 +421,12 @@ func (s *PerformanceValidationTestSuite) TestMemoryEfficiencyPerformance() {
 	memUsed := memAfter.Alloc - memBefore.Alloc
 
 	// Performance should not be impacted by memory usage
-	assert.True(s.T(), duration <= target,
+	s.True(duration <= target,
 		"Duration should be ≤2s despite memory usage: %v", duration)
 
 	// Memory usage should be reasonable
 	maxMemory := uint64(50 * 1024 * 1024) // 50MB
-	assert.True(s.T(), memUsed <= maxMemory,
+	s.True(memUsed <= maxMemory,
 		"Memory usage should be reasonable: %d bytes (max: %d)", memUsed, maxMemory)
 
 	s.T().Logf("Memory-efficient performance: %v, memory used: %d bytes",
@@ -449,7 +448,7 @@ func (s *PerformanceValidationTestSuite) TestErrorHandlingPerformance() {
 
 	// Load configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	r := runner.New(cfg, s.tempDir)
 
@@ -462,10 +461,10 @@ func (s *PerformanceValidationTestSuite) TestErrorHandlingPerformance() {
 	})
 	duration := time.Since(start)
 
-	require.NoError(s.T(), err, "Should succeed despite filtering")
+	s.Require().NoError(err, "Should succeed despite filtering")
 	require.NotNil(s.T(), result, "Should have result")
 
-	assert.True(s.T(), duration <= target,
+	s.True(duration <= target,
 		"Duration with file filtering should be ≤2s: %v", duration)
 
 	s.T().Logf("Error handling performance: %v (with file filtering)", duration)
@@ -482,7 +481,7 @@ func (s *PerformanceValidationTestSuite) TestResourceConstrainedPerformance() {
 
 	// Load constrained configuration
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	r := runner.New(cfg, s.tempDir)
 
@@ -496,10 +495,10 @@ func (s *PerformanceValidationTestSuite) TestResourceConstrainedPerformance() {
 	})
 	duration := time.Since(start)
 
-	require.NoError(s.T(), err, "Should succeed under constraints")
+	s.Require().NoError(err, "Should succeed under constraints")
 	require.NotNil(s.T(), result, "Should have result")
 
-	assert.True(s.T(), duration <= target,
+	s.True(duration <= target,
 		"Duration under constraints should be ≤3s: %v", duration)
 
 	s.T().Logf("Resource-constrained performance: %v (target: %v)", duration, target)
@@ -569,7 +568,7 @@ func (s *PerformanceValidationTestSuite) createBasicFiles(filenames []string) {
 	for _, filename := range filenames {
 		content := s.generateOptimizedFileContent(filename)
 		fullPath := filepath.Join(s.tempDir, filename)
-		require.NoError(s.T(), os.WriteFile(fullPath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
 	}
 }
 
@@ -612,7 +611,7 @@ PRE_COMMIT_SYSTEM_EOF_TIMEOUT=2
 PRE_COMMIT_SYSTEM_MAX_FILE_SIZE_MB=1
 PRE_COMMIT_SYSTEM_MAX_FILES_OPEN=10
 `
-	require.NoError(s.T(), os.WriteFile(s.envFile, []byte(constrainedConfig), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(constrainedConfig), 0o644))
 }
 
 func (s *PerformanceValidationTestSuite) restorePerformanceConfig() {
@@ -631,7 +630,7 @@ PRE_COMMIT_SYSTEM_MAX_FILE_SIZE_MB=10
 PRE_COMMIT_SYSTEM_MAX_FILES_OPEN=100
 PRE_COMMIT_SYSTEM_COLOR_OUTPUT=false
 `
-	require.NoError(s.T(), os.WriteFile(s.envFile, []byte(originalConfig), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(originalConfig), 0o644))
 }
 
 // Statistical helper methods
@@ -695,7 +694,7 @@ func (s *PerformanceValidationTestSuite) TestPerformanceRegression() {
 
 	files := s.createTypicalCommitFiles()
 	cfg, err := config.Load()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	var durations []time.Duration
 
@@ -708,7 +707,7 @@ func (s *PerformanceValidationTestSuite) TestPerformanceRegression() {
 		duration := time.Since(start)
 		cancel()
 
-		require.NoError(s.T(), err)
+		s.Require().NoError(err)
 		require.NotNil(s.T(), result)
 		durations = append(durations, duration)
 	}
@@ -720,8 +719,8 @@ func (s *PerformanceValidationTestSuite) TestPerformanceRegression() {
 	s.T().Logf("PERFORMANCE_BASELINE: avg=%v, max=%v, target=%v", avgDuration, maxDuration, target)
 
 	// Current validation
-	assert.True(s.T(), avgDuration <= target, "Average should meet target: %v ≤ %v", avgDuration, target)
-	assert.True(s.T(), maxDuration <= target*130/100, "Max should be within 30% of target: %v ≤ %v", maxDuration, target*130/100)
+	s.True(avgDuration <= target, "Average should meet target: %v ≤ %v", avgDuration, target)
+	s.True(maxDuration <= target*130/100, "Max should be within 30% of target: %v ≤ %v", maxDuration, target*130/100)
 }
 
 // TestSuite runs the performance validation test suite

@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
@@ -28,14 +26,14 @@ type CIEnvironmentTestSuite struct {
 func (s *CIEnvironmentTestSuite) SetupSuite() {
 	var err error
 	s.originalWD, err = os.Getwd()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Create temporary directory structure
 	s.tempDir = s.T().TempDir()
 
 	// Create .github directory
 	githubDir := filepath.Join(s.tempDir, ".github")
-	require.NoError(s.T(), os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
 
 	// Create .env.shared file with test configuration
 	s.envFile = filepath.Join(githubDir, ".env.shared")
@@ -50,16 +48,16 @@ PRE_COMMIT_SYSTEM_ENABLE_EOF=true
 PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS=120
 PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=2
 `
-	require.NoError(s.T(), os.WriteFile(s.envFile, []byte(envContent), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o644))
 
 	// Change to temp directory for tests
-	require.NoError(s.T(), os.Chdir(s.tempDir))
+	s.Require().NoError(os.Chdir(s.tempDir))
 
 	// Initialize git repository
-	require.NoError(s.T(), s.initGitRepo())
+	s.Require().NoError(s.initGitRepo())
 
 	// Create test files
-	require.NoError(s.T(), s.createTestFiles())
+	s.Require().NoError(s.createTestFiles())
 }
 
 // TearDownSuite cleans up the test environment
@@ -215,8 +213,8 @@ func (s *CIEnvironmentTestSuite) TestCISpecificBehavior() {
 		results := s.runInEnvironment(ciEnvVars, "ci-no-color")
 
 		// Verify that color output is properly disabled
-		assert.NotNil(s.T(), results)
-		assert.True(s.T(), results.TotalDuration > 0)
+		s.NotNil(results)
+		s.Positive(results.TotalDuration)
 	})
 
 	s.Run("Progress Output in CI", func() {
@@ -228,8 +226,8 @@ func (s *CIEnvironmentTestSuite) TestCISpecificBehavior() {
 		results := s.runInEnvironment(ciEnvVars, "ci-progress")
 
 		// Verify execution completes successfully even with limited terminal
-		assert.NotNil(s.T(), results)
-		assert.GreaterOrEqual(s.T(), results.Passed+results.Skipped, 1)
+		s.NotNil(results)
+		s.GreaterOrEqual(results.Passed+results.Skipped, 1)
 	})
 
 	s.Run("Timeout Handling in CI", func() {
@@ -249,8 +247,8 @@ func (s *CIEnvironmentTestSuite) TestCISpecificBehavior() {
 		results := s.runInEnvironment(ciEnvVars, "ci-timeout")
 
 		// Should complete within timeout or handle gracefully
-		assert.NotNil(s.T(), results)
-		assert.True(s.T(), results.TotalDuration < 10*time.Second)
+		s.NotNil(results)
+		s.Less(results.TotalDuration, 10*time.Second)
 	})
 }
 
@@ -294,27 +292,27 @@ func (s *CIEnvironmentTestSuite) TestCIEnvironmentVariablePrecedence() {
 			results := s.runInEnvironment(tc.envVars, "precedence-test")
 
 			// Validate that environment variables took precedence
-			assert.NotNil(s.T(), results)
+			s.NotNil(results)
 		})
 	}
 }
 
 // runInEnvironment executes the pre-commit system in a specific environment
-func (s *CIEnvironmentTestSuite) runInEnvironment(envVars map[string]string, context string) *runner.Results {
+func (s *CIEnvironmentTestSuite) runInEnvironment(envVars map[string]string, envContext string) *runner.Results {
 	// Set environment variables
 	originalEnv := make(map[string]string)
 	for key, value := range envVars {
 		originalEnv[key] = os.Getenv(key)
-		require.NoError(s.T(), os.Setenv(key, value))
+		s.Require().NoError(os.Setenv(key, value))
 	}
 
 	// Ensure cleanup
 	defer func() {
 		for key, originalValue := range originalEnv {
 			if originalValue == "" {
-				require.NoError(s.T(), os.Unsetenv(key))
+				s.Require().NoError(os.Unsetenv(key))
 			} else {
-				require.NoError(s.T(), os.Setenv(key, originalValue))
+				s.Require().NoError(os.Setenv(key, originalValue))
 			}
 		}
 	}()
@@ -322,7 +320,7 @@ func (s *CIEnvironmentTestSuite) runInEnvironment(envVars map[string]string, con
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		s.T().Logf("Failed to load config in %s environment: %v", context, err)
+		s.T().Logf("Failed to load config in %s environment: %v", envContext, err)
 		return nil
 	}
 
@@ -340,7 +338,7 @@ func (s *CIEnvironmentTestSuite) runInEnvironment(envVars map[string]string, con
 		Files: files,
 	})
 	if err != nil {
-		s.T().Logf("Execution failed in %s environment: %v", context, err)
+		s.T().Logf("Execution failed in %s environment: %v", envContext, err)
 		return nil
 	}
 
@@ -355,18 +353,18 @@ func (s *CIEnvironmentTestSuite) validateExecutionParity(local, ci *runner.Resul
 	}
 
 	// Check that the same number of checks were executed
-	assert.Equal(s.T(), len(local.CheckResults), len(ci.CheckResults),
+	s.Len(local.CheckResults, len(ci.CheckResults),
 		"Number of checks should be consistent between local and CI")
 
 	// Check that execution time is reasonable in both environments
-	assert.True(s.T(), local.TotalDuration > 0,
+	s.Positive(local.TotalDuration,
 		"Local execution should have measurable duration")
-	assert.True(s.T(), ci.TotalDuration > 0,
+	s.Positive(ci.TotalDuration,
 		"CI execution should have measurable duration")
 
 	// Check that CI execution isn't significantly slower (allow 3x difference)
 	maxAllowedDuration := local.TotalDuration * 3
-	assert.True(s.T(), ci.TotalDuration <= maxAllowedDuration,
+	s.LessOrEqual(ci.TotalDuration, maxAllowedDuration,
 		"CI execution should not be more than 3x slower than local: local=%v, ci=%v",
 		local.TotalDuration, ci.TotalDuration)
 
@@ -381,7 +379,7 @@ func (s *CIEnvironmentTestSuite) validateExecutionParity(local, ci *runner.Resul
 		ciCheckNames[result.Name] = true
 	}
 
-	assert.Equal(s.T(), localCheckNames, ciCheckNames,
+	s.Equal(localCheckNames, ciCheckNames,
 		"Same checks should be executed in both environments")
 
 	s.T().Logf("Parity validation passed for %s: local=%v, ci=%v",
@@ -395,7 +393,7 @@ func (s *CIEnvironmentTestSuite) createTempEnvFile(vars map[string]string) {
 		content += key + "=" + value + "\n"
 	}
 
-	require.NoError(s.T(), os.WriteFile(s.envFile, []byte(content), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(content), 0o644))
 }
 
 // TestCINetworkConnectivity validates behavior under network constraints
@@ -420,8 +418,8 @@ func (s *CIEnvironmentTestSuite) TestCINetworkConnectivity() {
 		results := s.runInEnvironment(ciEnvVars, "offline-ci")
 
 		// Should still run basic checks successfully
-		assert.NotNil(s.T(), results)
-		assert.GreaterOrEqual(s.T(), results.Passed+results.Skipped, 1)
+		s.NotNil(results)
+		s.GreaterOrEqual(results.Passed+results.Skipped, 1)
 	})
 }
 
@@ -445,8 +443,8 @@ func (s *CIEnvironmentTestSuite) TestCIResourceLimits() {
 		results := s.runInEnvironment(ciEnvVars, "limited-resources")
 
 		// Should complete successfully even with limited resources
-		assert.NotNil(s.T(), results)
-		assert.True(s.T(), results.TotalDuration < 60*time.Second)
+		s.NotNil(results)
+		s.Less(results.TotalDuration, 60*time.Second)
 	})
 }
 

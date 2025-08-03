@@ -3,6 +3,7 @@ package makewrap
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -136,7 +137,7 @@ func (c *ModTidyCheck) runMakeModTidy(ctx context.Context) error {
 		output := stdout.String() + stderr.String()
 
 		// Check if it's a context timeout
-		if ctx.Err() == context.DeadlineExceeded {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return prerrors.NewToolExecutionError(
 				"make mod-tidy",
 				output,
@@ -210,7 +211,7 @@ func (c *ModTidyCheck) runDirectModTidy(ctx context.Context) error {
 		output := stdout.String() + stderr.String()
 
 		// Check if it's a context timeout
-		if ctx.Err() == context.DeadlineExceeded {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return prerrors.NewToolExecutionError(
 				"go mod tidy",
 				output,
