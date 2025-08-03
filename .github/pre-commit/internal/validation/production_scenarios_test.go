@@ -694,8 +694,8 @@ func (s *ProductionScenariosTestSuite) createRealWorldFiles() []string {
 	fileMap := map[string]string{
 		"trailing_spaces.go": `package main
 
-func main() {   
-	fmt.Println("hello")  
+func main() {
+	fmt.Println("hello")
 }`,
 		"no_newline.md":     "# Title\n\nContent without final newline",
 		"mixed_endings.txt": "Line 1\r\nLine 2\nLine 3\r\n",

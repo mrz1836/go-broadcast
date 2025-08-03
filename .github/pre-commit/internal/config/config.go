@@ -299,16 +299,16 @@ UI Settings:
 Example .github/.env.shared:
   # Enable the system
   ENABLE_PRE_COMMIT_SYSTEM=true
-  
+
   # Configure checks
   PRE_COMMIT_SYSTEM_ENABLE_FUMPT=true
   PRE_COMMIT_SYSTEM_ENABLE_LINT=true
   PRE_COMMIT_SYSTEM_ENABLE_MOD_TIDY=true
-  
+
   # Set timeouts
   PRE_COMMIT_SYSTEM_FUMPT_TIMEOUT=30
   PRE_COMMIT_SYSTEM_LINT_TIMEOUT=120
-  
+
   # Exclude patterns
   PRE_COMMIT_SYSTEM_EXCLUDE_PATTERNS="vendor/,node_modules/,.git/,*.tmp,*.log"
 `
