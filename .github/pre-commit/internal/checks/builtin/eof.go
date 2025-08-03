@@ -5,16 +5,28 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 )
 
 // EOFCheck ensures files end with a newline
-type EOFCheck struct{}
+type EOFCheck struct {
+	timeout time.Duration
+}
 
 // NewEOFCheck creates a new EOF check
 func NewEOFCheck() *EOFCheck {
-	return &EOFCheck{}
+	return &EOFCheck{
+		timeout: 30 * time.Second, // Default 30 second timeout
+	}
+}
+
+// NewEOFCheckWithTimeout creates a new EOF check with custom timeout
+func NewEOFCheckWithTimeout(timeout time.Duration) *EOFCheck {
+	return &EOFCheck{
+		timeout: timeout,
+	}
 }
 
 // Name returns the name of the check
@@ -27,8 +39,26 @@ func (c *EOFCheck) Description() string {
 	return "Ensure files end with newline"
 }
 
+// Metadata returns comprehensive metadata about the check
+func (c *EOFCheck) Metadata() interface{} {
+	return CheckMetadata{
+		Name:              "eof",
+		Description:       "Ensure text files end with a newline character",
+		FilePatterns:      []string{"*.go", "*.md", "*.txt", "*.yml", "*.yaml", "*.json", "Makefile"},
+		EstimatedDuration: 1 * time.Second,
+		Dependencies:      []string{}, // No external dependencies
+		DefaultTimeout:    c.timeout,
+		Category:          "formatting",
+		RequiresFiles:     true,
+	}
+}
+
 // Run executes the EOF check
 func (c *EOFCheck) Run(ctx context.Context, files []string) error {
+	// Add timeout to context
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
 	var errors []string
 	var foundIssues bool
 

@@ -12,7 +12,7 @@ import (
 )
 
 func TestWhitespaceCheck(t *testing.T) {
-	check := &WhitespaceCheck{}
+	check := NewWhitespaceCheck()
 
 	assert.Equal(t, "whitespace", check.Name())
 	assert.Equal(t, "Fix trailing whitespace", check.Description())
@@ -30,7 +30,7 @@ func TestWhitespaceCheck_Run(t *testing.T) {
 	err = os.WriteFile(badFile, []byte("trailing spaces   \nclean line\nmore spaces \t\n"), 0o600)
 	require.NoError(t, err)
 
-	check := &WhitespaceCheck{}
+	check := NewWhitespaceCheck()
 	ctx := context.Background()
 
 	// Test with good file
@@ -64,7 +64,7 @@ func TestWhitespaceCheck_BinaryFile(t *testing.T) {
 	err := os.WriteFile(binaryFile, []byte{0x00, 0xFF, 0xDE, 0xAD, 0xBE, 0xEF}, 0o600)
 	require.NoError(t, err)
 
-	check := &WhitespaceCheck{}
+	check := NewWhitespaceCheck()
 	ctx := context.Background()
 
 	// Filter files first (as the runner would do)
@@ -77,7 +77,7 @@ func TestWhitespaceCheck_BinaryFile(t *testing.T) {
 }
 
 func TestEOFCheck(t *testing.T) {
-	check := &EOFCheck{}
+	check := NewEOFCheck()
 
 	assert.Equal(t, "eof", check.Name())
 	assert.Equal(t, "Ensure files end with newline", check.Description())
@@ -99,7 +99,7 @@ func TestEOFCheck_Run(t *testing.T) {
 	err = os.WriteFile(emptyFile, []byte(""), 0o600)
 	require.NoError(t, err)
 
-	check := &EOFCheck{}
+	check := NewEOFCheck()
 	ctx := context.Background()
 
 	// Test with good file
@@ -145,7 +145,7 @@ func TestEOFCheck_BinaryFile(t *testing.T) {
 	err := os.WriteFile(binaryFile, []byte{0x00, 0xFF, 0xDE, 0xAD, 0xBE, 0xEF}, 0o600)
 	require.NoError(t, err)
 
-	check := &EOFCheck{}
+	check := NewEOFCheck()
 	ctx := context.Background()
 
 	// Filter files first (as the runner would do)

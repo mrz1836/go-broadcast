@@ -3,6 +3,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"sync"
 	"time"
@@ -21,11 +22,13 @@ type Runner struct {
 
 // Options configures a check run
 type Options struct {
-	Files      []string
-	OnlyChecks []string
-	SkipChecks []string
-	Parallel   int
-	FailFast   bool
+	Files               []string
+	OnlyChecks          []string
+	SkipChecks          []string
+	Parallel            int
+	FailFast            bool
+	ProgressCallback    ProgressCallback
+	GracefulDegradation bool
 }
 
 // Results contains the results of a check run
@@ -35,24 +38,31 @@ type Results struct {
 	Failed        int
 	Skipped       int
 	TotalDuration time.Duration
+	TotalFiles    int
 }
 
 // CheckResult contains the result of a single check
 type CheckResult struct {
-	Name     string
-	Success  bool
-	Error    string
-	Output   string
-	Duration time.Duration
-	Files    []string
+	Name       string
+	Success    bool
+	Error      string
+	Output     string
+	Duration   time.Duration
+	Files      []string
+	Suggestion string
+	CanSkip    bool
+	Command    string
 }
+
+// ProgressCallback is called during check execution for progress updates
+type ProgressCallback func(checkName string, status string)
 
 // New creates a new Runner
 func New(cfg *config.Config, repoRoot string) *Runner {
 	return &Runner{
 		config:   cfg,
 		repoRoot: repoRoot,
-		registry: checks.NewRegistry(),
+		registry: checks.NewRegistryWithConfig(cfg),
 	}
 }
 
@@ -82,18 +92,34 @@ func (r *Runner) Run(ctx context.Context, opts Options) (*Results, error) {
 	// Run checks
 	results := &Results{
 		CheckResults: make([]CheckResult, 0, len(checksToRun)),
+		TotalFiles:   len(opts.Files),
 	}
 
 	if opts.FailFast {
 		// Sequential execution with fail-fast
 		for _, check := range checksToRun {
-			result := r.runCheck(ctxWithTimeout, check, opts.Files)
+			if opts.ProgressCallback != nil {
+				opts.ProgressCallback(check.Name(), "running")
+			}
+
+			result := r.runCheck(ctxWithTimeout, check, opts.Files, opts.GracefulDegradation)
 			results.CheckResults = append(results.CheckResults, result)
 
 			if result.Success {
 				results.Passed++
+				if opts.ProgressCallback != nil {
+					opts.ProgressCallback(check.Name(), "passed")
+				}
+			} else if result.CanSkip && opts.GracefulDegradation {
+				results.Skipped++
+				if opts.ProgressCallback != nil {
+					opts.ProgressCallback(check.Name(), "skipped")
+				}
 			} else {
 				results.Failed++
+				if opts.ProgressCallback != nil {
+					opts.ProgressCallback(check.Name(), "failed")
+				}
 				break // Stop on first failure
 			}
 		}
@@ -111,7 +137,11 @@ func (r *Runner) Run(ctx context.Context, opts Options) (*Results, error) {
 				semaphore <- struct{}{}
 				defer func() { <-semaphore }()
 
-				result := r.runCheck(ctxWithTimeout, c, opts.Files)
+				if opts.ProgressCallback != nil {
+					opts.ProgressCallback(c.Name(), "running")
+				}
+
+				result := r.runCheck(ctxWithTimeout, c, opts.Files, opts.GracefulDegradation)
 				resultsChan <- result
 			}(check)
 		}
@@ -124,8 +154,19 @@ func (r *Runner) Run(ctx context.Context, opts Options) (*Results, error) {
 			results.CheckResults = append(results.CheckResults, result)
 			if result.Success {
 				results.Passed++
+				if opts.ProgressCallback != nil {
+					opts.ProgressCallback(result.Name, "passed")
+				}
+			} else if result.CanSkip && opts.GracefulDegradation {
+				results.Skipped++
+				if opts.ProgressCallback != nil {
+					opts.ProgressCallback(result.Name, "skipped")
+				}
 			} else {
 				results.Failed++
+				if opts.ProgressCallback != nil {
+					opts.ProgressCallback(result.Name, "failed")
+				}
 			}
 		}
 	}
@@ -135,7 +176,7 @@ func (r *Runner) Run(ctx context.Context, opts Options) (*Results, error) {
 }
 
 // runCheck executes a single check
-func (r *Runner) runCheck(ctx context.Context, check checks.Check, files []string) CheckResult {
+func (r *Runner) runCheck(ctx context.Context, check checks.Check, files []string, gracefulDegradation bool) CheckResult {
 	start := time.Now()
 
 	// Filter files for this check
@@ -161,6 +202,20 @@ func (r *Runner) runCheck(ctx context.Context, check checks.Check, files []strin
 
 	if err != nil {
 		result.Error = err.Error()
+
+		// Check if this is an enhanced CheckError with context
+		var checkErr *prerrors.CheckError
+		if errors.As(err, &checkErr) {
+			result.Suggestion = checkErr.Suggestion
+			result.CanSkip = checkErr.CanSkip
+			result.Command = checkErr.Command
+			result.Output = checkErr.Output
+
+			// If graceful degradation is enabled and this error can be skipped
+			if gracefulDegradation && checkErr.CanSkip {
+				result.Success = true // Mark as success but with warning info
+			}
+		}
 	}
 
 	return result

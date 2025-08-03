@@ -3,25 +3,26 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
 	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/git"
+	"github.com/mrz1836/go-broadcast/pre-commit/internal/output"
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/runner"
 	"github.com/spf13/cobra"
 )
 
 //nolint:gochecknoglobals // Required by cobra
 var (
-	allFiles    bool
-	files       []string
-	skipChecks  []string
-	onlyChecks  []string
-	parallel    int
-	failFast    bool
-	showVersion bool
+	allFiles            bool
+	files               []string
+	skipChecks          []string
+	onlyChecks          []string
+	parallel            int
+	failFast            bool
+	showVersion         bool
+	gracefulDegradation bool
+	showProgress        bool
 )
 
 // runCmd represents the run command
@@ -70,30 +71,41 @@ func init() {
 	runCmd.Flags().IntVarP(&parallel, "parallel", "p", 0, "Number of parallel workers (0 = auto)")
 	runCmd.Flags().BoolVar(&failFast, "fail-fast", false, "Stop on first check failure")
 	runCmd.Flags().BoolVar(&showVersion, "show-checks", false, "Show available checks and exit")
+	runCmd.Flags().BoolVar(&gracefulDegradation, "graceful", false, "Skip checks that can't run instead of failing")
+	runCmd.Flags().BoolVar(&showProgress, "progress", true, "Show progress indicators during execution")
 }
 
 func runChecks(_ *cobra.Command, args []string) error {
-	// Load configuration
+	// Load configuration first
 	cfg, err := config.Load()
 	if err != nil {
+		// Use basic formatter for this error since config failed to load
+		formatter := output.NewDefault()
+		formatter.Error("Failed to load configuration: %v", err)
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
+	// Create output formatter with config-based color settings
+	formatter := output.New(output.Options{
+		ColorEnabled: cfg.UI.ColorOutput && !noColor,
+	})
+
 	// Check if pre-commit system is enabled
 	if !cfg.Enabled {
-		printWarning("Pre-commit system is disabled in configuration (ENABLE_PRE_COMMIT_SYSTEM=false)")
+		formatter.Warning("Pre-commit system is disabled in configuration (ENABLE_PRE_COMMIT_SYSTEM=false)")
 		return nil
 	}
 
 	// Get repository root
 	repoRoot, err := git.FindRepositoryRoot()
 	if err != nil {
+		formatter.Error("Failed to find git repository: %v", err)
 		return fmt.Errorf("failed to find git repository: %w", err)
 	}
 
 	// If show-checks flag is set, display available checks and exit
 	if showVersion {
-		return showAvailableChecks(cfg)
+		return showAvailableChecks(cfg, formatter)
 	}
 
 	// Determine which files to check
@@ -106,6 +118,7 @@ func runChecks(_ *cobra.Command, args []string) error {
 		repo := git.NewRepository(repoRoot)
 		filesToCheck, err = repo.GetAllFiles()
 		if err != nil {
+			formatter.Error("Failed to get all files: %v", err)
 			return fmt.Errorf("failed to get all files: %w", err)
 		}
 	} else {
@@ -113,12 +126,13 @@ func runChecks(_ *cobra.Command, args []string) error {
 		repo := git.NewRepository(repoRoot)
 		filesToCheck, err = repo.GetStagedFiles()
 		if err != nil {
+			formatter.Error("Failed to get staged files: %v", err)
 			return fmt.Errorf("failed to get staged files: %w", err)
 		}
 	}
 
 	if len(filesToCheck) == 0 {
-		printInfo("No files to check")
+		formatter.Info("No files to check")
 		return nil
 	}
 
@@ -127,9 +141,26 @@ func runChecks(_ *cobra.Command, args []string) error {
 
 	// Configure runner options
 	opts := runner.Options{
-		Files:    filesToCheck,
-		Parallel: parallel,
-		FailFast: failFast,
+		Files:               filesToCheck,
+		Parallel:            parallel,
+		FailFast:            failFast,
+		GracefulDegradation: gracefulDegradation,
+	}
+
+	// Set up progress callback if progress is enabled
+	if showProgress {
+		opts.ProgressCallback = func(checkName, status string) {
+			switch status {
+			case "running":
+				formatter.Progress("Running %s check...", checkName)
+			case "passed":
+				formatter.Success("%s check passed", checkName)
+			case "failed":
+				formatter.Error("%s check failed", checkName)
+			case "skipped":
+				formatter.Warning("%s check skipped", checkName)
+			}
+		}
 	}
 
 	// Handle check selection
@@ -144,34 +175,42 @@ func runChecks(_ *cobra.Command, args []string) error {
 		opts.SkipChecks = skipChecks
 	}
 
-	// Run checks
+	// Show initial information
 	if verbose {
-		printInfo("Running checks on %d files", len(filesToCheck))
+		formatter.Info("Running checks on %s", formatter.FormatFileList(filesToCheck, 3))
 		if opts.Parallel > 0 {
-			printInfo("Using %d parallel workers", opts.Parallel)
+			formatter.Info("Using %d parallel workers", opts.Parallel)
+		}
+		if gracefulDegradation {
+			formatter.Info("Graceful degradation enabled - missing tools will be skipped")
 		}
 	}
 
+	// Run checks
 	results, err := r.Run(context.Background(), opts)
 	if err != nil {
+		formatter.Error("Failed to run checks: %v", err)
 		return fmt.Errorf("failed to run checks: %w", err)
 	}
 
 	// Display results
-	displayResults(results)
+	displayEnhancedResults(formatter, results)
 
-	// Return error if any checks failed
+	// Return error if any checks failed (unless they were gracefully skipped)
 	if results.Failed > 0 {
 		return fmt.Errorf("%w: %d", prerrors.ErrChecksFailed, results.Failed)
 	}
 
-	printSuccess("All checks passed!")
+	if results.Passed > 0 {
+		formatter.Success("All checks passed! %s",
+			formatter.FormatExecutionStats(results.Passed, results.Failed, results.Skipped, results.TotalDuration, results.TotalFiles))
+	}
+
 	return nil
 }
 
-func showAvailableChecks(cfg *config.Config) error {
-	_, _ = os.Stdout.WriteString("Available checks:\n")
-	_, _ = os.Stdout.WriteString("\n")
+func showAvailableChecks(cfg *config.Config, formatter *output.Formatter) error {
+	formatter.Header("Available Checks")
 
 	checks := []struct {
 		name        string
@@ -186,57 +225,75 @@ func showAvailableChecks(cfg *config.Config) error {
 	}
 
 	for _, check := range checks {
-		status := "disabled"
 		if check.enabled {
-			status = "enabled"
+			formatter.Success("%-12s %s", check.name, check.description)
+		} else {
+			formatter.Detail("%-12s %s (disabled)", check.name, check.description)
 		}
-		_, _ = fmt.Fprintf(os.Stdout, "  %-12s %s [%s]\n", check.name, check.description, status)
 	}
 
 	return nil
 }
 
-func displayResults(results *runner.Results) {
-	// Summary header
-	_, _ = os.Stdout.WriteString("\n")
-	_, _ = fmt.Fprintln(os.Stdout, "Check Results:")
-	_, _ = fmt.Fprintln(os.Stdout, "─────────────")
+func displayEnhancedResults(formatter *output.Formatter, results *runner.Results) {
+	formatter.Header("Check Results")
 
 	// Display each check result
 	for _, result := range results.CheckResults {
-		statusIcon := "✓"
-		statusColor := printSuccess
-		if !result.Success {
-			statusIcon = "✗"
-			statusColor = printError
-		}
-
-		// Check name and status
-		statusColor("%s %s", statusIcon, result.Name)
-
-		// Duration
-		if verbose {
-			_, _ = fmt.Fprintf(os.Stdout, " (%s)", result.Duration)
-		}
-
-		// Error message if failed
-		if !result.Success && result.Error != "" {
-			_, _ = fmt.Fprintf(os.Stdout, "\n  %s", strings.ReplaceAll(result.Error, "\n", "\n  "))
-		}
-
-		// Output if verbose
-		if verbose && result.Output != "" {
-			_, _ = fmt.Fprintln(os.Stdout, "\n  Output:")
-			for _, line := range strings.Split(result.Output, "\n") {
-				if line != "" {
-					_, _ = fmt.Fprintf(os.Stdout, "    %s\n", line)
+		if result.Success {
+			if result.CanSkip && result.Suggestion != "" {
+				// This was a gracefully skipped check
+				formatter.Warning("%s - %s", result.Name, result.Error)
+				if result.Suggestion != "" {
+					formatter.SuggestAction(result.Suggestion)
 				}
+			} else {
+				// Normal success
+				formatter.Success("%s completed successfully", result.Name)
+				if verbose {
+					formatter.Detail("Duration: %s", formatter.Duration(result.Duration))
+					if len(result.Files) > 0 {
+						formatter.Detail("Files: %s", formatter.FormatFileList(result.Files, 3))
+					}
+				}
+			}
+		} else {
+			// Failed check
+			formatter.Error("%s failed", result.Name)
+
+			if verbose {
+				formatter.Detail("Duration: %s", formatter.Duration(result.Duration))
+				if len(result.Files) > 0 {
+					formatter.Detail("Files: %s", formatter.FormatFileList(result.Files, 3))
+				}
+			}
+
+			// Show error message
+			if result.Error != "" {
+				formatter.Detail("Error: %s", result.Error)
+			}
+
+			// Show actionable suggestion
+			if result.Suggestion != "" {
+				formatter.SuggestAction(result.Suggestion)
+			}
+
+			// Show command output if available and verbose
+			if verbose && result.Output != "" {
+				formatter.Subheader("Command Output")
+				formatter.CodeBlock(result.Output)
 			}
 		}
 	}
 
 	// Summary
-	_, _ = os.Stdout.WriteString("\n")
-	_, _ = fmt.Fprintf(os.Stdout, "Summary: %d passed, %d failed, %d skipped (total time: %s)\n",
-		results.Passed, results.Failed, results.Skipped, results.TotalDuration)
+	formatter.Subheader("Summary")
+	stats := formatter.FormatExecutionStats(results.Passed, results.Failed, results.Skipped, results.TotalDuration, results.TotalFiles)
+	if results.Failed > 0 {
+		formatter.Error(stats)
+	} else if results.Skipped > 0 {
+		formatter.Warning(stats)
+	} else {
+		formatter.Success(stats)
+	}
 }

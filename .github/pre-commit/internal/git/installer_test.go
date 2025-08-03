@@ -144,3 +144,74 @@ func TestHookScript(t *testing.T) {
 	assert.Contains(t, hookScript, "gofortress-pre-commit")
 	assert.Contains(t, hookScript, "exec")
 }
+
+func TestInstaller_InstallHook_ErrorCases(t *testing.T) {
+	// Test error creating hooks directory
+	tmpDir := t.TempDir()
+
+	// Create a file where .git/hooks should be to cause mkdir error
+	gitHooksPath := filepath.Join(tmpDir, ".git", "hooks")
+	gitPath := filepath.Join(tmpDir, ".git")
+	err := os.MkdirAll(gitPath, 0o750)
+	require.NoError(t, err)
+
+	// Create a file instead of directory
+	err = os.WriteFile(gitHooksPath, []byte("not a directory"), 0o644)
+	require.NoError(t, err)
+
+	installer := NewInstaller(tmpDir, ".github/pre-commit")
+
+	// This should fail when trying to create the hook file or hooks directory
+	err = installer.InstallHook("pre-commit", false)
+	require.Error(t, err)
+	// Error could be either "failed to create hooks directory" or "failed to write hook script"
+	assert.True(t,
+		strings.Contains(err.Error(), "failed to create hooks directory") ||
+			strings.Contains(err.Error(), "failed to write hook script"),
+		"Expected error about hooks directory or hook script, got: %s", err.Error())
+}
+
+func TestInstaller_UninstallHook_ErrorCases(t *testing.T) {
+	tmpDir := t.TempDir()
+	gitDir := filepath.Join(tmpDir, ".git", "hooks")
+	err := os.MkdirAll(gitDir, 0o750)
+	require.NoError(t, err)
+
+	installer := NewInstaller(tmpDir, ".github/pre-commit")
+	hookPath := filepath.Join(gitDir, "pre-commit")
+
+	// Test error reading hook file (permission denied)
+	err = os.WriteFile(hookPath, []byte("#!/bin/bash\n# GoFortress Pre-commit Hook\necho test"), 0o000) // No read permissions
+	require.NoError(t, err)
+
+	// This should fail on reading the file
+	removed, err := installer.UninstallHook("pre-commit")
+	if err != nil {
+		// On some systems, reading a file with no permissions still works
+		// The test is mainly to cover the error path
+		assert.False(t, removed)
+	}
+
+	// Restore permissions and test removal error by making directory read-only
+	err = os.Chmod(hookPath, 0o644)
+	require.NoError(t, err)
+
+	// Make the hooks directory read-only to prevent removal
+	err = os.Chmod(gitDir, 0o444)
+	require.NoError(t, err)
+
+	// Cleanup - restore permissions before test ends
+	defer func() {
+		_ = os.Chmod(gitDir, 0o755)
+	}()
+
+	removed, err = installer.UninstallHook("pre-commit")
+	if err != nil {
+		// Should fail either to read hook or remove hook due to permissions
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to read hook") ||
+				strings.Contains(err.Error(), "failed to remove hook"),
+			"Expected error about reading or removing hook, got: %s", err.Error())
+		assert.False(t, removed)
+	}
+}

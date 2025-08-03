@@ -21,6 +21,19 @@ func (m *mockCheck) Description() string {
 	return m.desc
 }
 
+func (m *mockCheck) Metadata() interface{} {
+	return CheckMetadata{
+		Name:              m.name,
+		Description:       m.desc,
+		FilePatterns:      []string{"*"},
+		EstimatedDuration: 1,
+		Dependencies:      []string{},
+		DefaultTimeout:    30,
+		Category:          "test",
+		RequiresFiles:     true,
+	}
+}
+
 func (m *mockCheck) Run(_ context.Context, _ []string) error {
 	return nil
 }

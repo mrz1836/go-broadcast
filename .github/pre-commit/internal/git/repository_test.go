@@ -163,3 +163,68 @@ func TestRepository_GetStagedFiles_Context(t *testing.T) {
 	// Full context testing would require mocking exec.CommandContext
 	// which is complex. This ensures the structure is correct.
 }
+
+func TestRepository_GetFileContent_ErrorCases(t *testing.T) {
+	// Test with non-existent repository
+	repo := NewRepository("/nonexistent/repo")
+
+	// Should fail when trying to get content from non-existent repo
+	_, err := repo.GetFileContent("some-file.go")
+	require.Error(t, err)
+}
+
+func TestRepository_GetFileContent_FallbackToFile(t *testing.T) {
+	// Create a temporary directory with a file
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.go")
+	testContent := "package main\n\nfunc main() {}\n"
+
+	err := os.WriteFile(testFile, []byte(testContent), 0o644)
+	require.NoError(t, err)
+
+	repo := NewRepository(tmpDir)
+
+	// Since this isn't a git repo, git show will fail and it will fallback to reading the file
+	content, err := repo.GetFileContent("test.go")
+	require.NoError(t, err)
+	assert.Equal(t, testContent, string(content))
+}
+
+func TestFindRepositoryRoot_ErrorCases(t *testing.T) {
+	// Save current directory
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		err := os.Chdir(originalDir)
+		require.NoError(t, err)
+	}()
+
+	// Change to temp directory that's not a git repo
+	tmpDir := t.TempDir()
+	err = os.Chdir(tmpDir)
+	require.NoError(t, err)
+
+	// Should fail in non-git directory
+	_, err = FindRepositoryRoot()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not in a git repository")
+}
+
+func TestRepository_ErrorHandling(t *testing.T) {
+	// Test with repository that doesn't exist
+	repo := NewRepository("/nonexistent/path")
+
+	// GetStagedFiles should fail
+	_, err := repo.GetStagedFiles()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get staged files")
+
+	// GetAllFiles should fail
+	_, err = repo.GetAllFiles()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get all files")
+
+	// GetModifiedFiles should fail (because GetStagedFiles fails)
+	_, err = repo.GetModifiedFiles()
+	require.Error(t, err)
+}

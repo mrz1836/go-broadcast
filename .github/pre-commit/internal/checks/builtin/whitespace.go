@@ -9,16 +9,28 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 )
 
 // WhitespaceCheck removes trailing whitespace from files
-type WhitespaceCheck struct{}
+type WhitespaceCheck struct {
+	timeout time.Duration
+}
 
 // NewWhitespaceCheck creates a new whitespace check
 func NewWhitespaceCheck() *WhitespaceCheck {
-	return &WhitespaceCheck{}
+	return &WhitespaceCheck{
+		timeout: 30 * time.Second, // Default 30 second timeout
+	}
+}
+
+// NewWhitespaceCheckWithTimeout creates a new whitespace check with custom timeout
+func NewWhitespaceCheckWithTimeout(timeout time.Duration) *WhitespaceCheck {
+	return &WhitespaceCheck{
+		timeout: timeout,
+	}
 }
 
 // Name returns the name of the check
@@ -31,8 +43,26 @@ func (c *WhitespaceCheck) Description() string {
 	return "Fix trailing whitespace"
 }
 
+// Metadata returns comprehensive metadata about the check
+func (c *WhitespaceCheck) Metadata() interface{} {
+	return CheckMetadata{
+		Name:              "whitespace",
+		Description:       "Remove trailing whitespace from text files",
+		FilePatterns:      []string{"*.go", "*.md", "*.txt", "*.yml", "*.yaml", "*.json", "Makefile"},
+		EstimatedDuration: 1 * time.Second,
+		Dependencies:      []string{}, // No external dependencies
+		DefaultTimeout:    c.timeout,
+		Category:          "formatting",
+		RequiresFiles:     true,
+	}
+}
+
 // Run executes the whitespace check
 func (c *WhitespaceCheck) Run(ctx context.Context, files []string) error {
+	// Add timeout to context
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
 	var errors []string
 	var foundIssues bool
 

@@ -114,3 +114,4 @@ dist/
 # Generated test fixtures (created by test/fixtures/generate_fixtures.sh)
 test/fixtures/directories/
 /.github/pre-commit/cmd/gofortress-pre-commit/gofortress-pre-commit
+/.github/pre-commit/gofortress-pre-commit

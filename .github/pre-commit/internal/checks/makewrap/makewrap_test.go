@@ -4,10 +4,15 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+
+	"github.com/mrz1836/go-broadcast/pre-commit/internal/shared"
 )
 
 func TestNewFumptCheck(t *testing.T) {
@@ -20,7 +25,7 @@ func TestFumptCheck(t *testing.T) {
 	check := &FumptCheck{}
 
 	assert.Equal(t, "fumpt", check.Name())
-	assert.Equal(t, "Format code with gofumpt", check.Description())
+	assert.Equal(t, "Format Go code with gofumpt", check.Description())
 }
 
 func TestFumptCheck_FilterFiles(t *testing.T) {
@@ -54,12 +59,13 @@ func TestFumptCheck_Run_NoMake(t *testing.T) {
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
 
-	check := &FumptCheck{repoRoot: tmpDir}
+	check := NewFumptCheck()
 	ctx := context.Background()
 
 	err = check.Run(ctx, []string{"test.go"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to find repository root")
+	// The new implementation should return a CheckError for missing tools
+	assert.Contains(t, err.Error(), "gofumpt not found")
 }
 
 func TestFumptCheck_Run_NoTarget(t *testing.T) {
@@ -89,12 +95,13 @@ test:
 	err = os.WriteFile("Makefile", []byte(makefile), 0o600)
 	require.NoError(t, err)
 
-	check := &FumptCheck{repoRoot: tmpDir}
+	check := NewFumptCheck()
 	ctx := context.Background()
 
 	err = check.Run(ctx, []string{"test.go"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to find repository root")
+	// The new implementation should return a CheckError for missing make target or tool
+	assert.Contains(t, err.Error(), "not found")
 }
 
 func TestNewLintCheck(t *testing.T) {
@@ -141,11 +148,12 @@ func TestLintCheck_Run_NoMake(t *testing.T) {
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
 
-	check := &LintCheck{repoRoot: tmpDir}
+	check := NewLintCheck()
 	ctx := context.Background()
 
 	err = check.Run(ctx, []string{"test.go"})
 	require.Error(t, err)
+	// Lint check will fail to find repository root first
 	assert.Contains(t, err.Error(), "failed to find repository root")
 }
 
@@ -193,11 +201,12 @@ func TestModTidyCheck_Run_NoGoMod(t *testing.T) {
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
 
-	check := &ModTidyCheck{repoRoot: tmpDir}
+	check := NewModTidyCheck()
 	ctx := context.Background()
 
 	err = check.Run(ctx, []string{"test.go"})
 	require.Error(t, err)
+	// ModTidy check will fail to find repository root first
 	assert.Contains(t, err.Error(), "failed to find repository root")
 }
 
@@ -223,10 +232,610 @@ go 1.21
 	err = os.WriteFile("go.mod", []byte(gomod), 0o600)
 	require.NoError(t, err)
 
-	check := &ModTidyCheck{repoRoot: tmpDir}
+	check := NewModTidyCheck()
 	ctx := context.Background()
 
 	err = check.Run(ctx, []string{"test.go"})
 	require.Error(t, err)
+	// ModTidy check will fail to find repository root first
 	assert.Contains(t, err.Error(), "failed to find repository root")
+}
+
+// Comprehensive test suites for each check type
+
+type FumptCheckTestSuite struct {
+	suite.Suite
+	tempDir string
+	oldDir  string
+}
+
+func TestFumptCheckSuite(t *testing.T) {
+	suite.Run(t, new(FumptCheckTestSuite))
+}
+
+func (s *FumptCheckTestSuite) SetupTest() {
+	var err error
+	s.tempDir, err = os.MkdirTemp("", "fumpt_test_*")
+	s.Require().NoError(err)
+
+	s.oldDir, err = os.Getwd()
+	s.Require().NoError(err)
+
+	err = os.Chdir(s.tempDir)
+	s.Require().NoError(err)
+
+	// Initialize git repo
+	s.initGitRepo()
+}
+
+func (s *FumptCheckTestSuite) TearDownTest() {
+	if s.oldDir != "" {
+		err := os.Chdir(s.oldDir)
+		s.Require().NoError(err)
+	}
+	if s.tempDir != "" {
+		err := os.RemoveAll(s.tempDir)
+		s.Require().NoError(err)
+	}
+}
+
+func (s *FumptCheckTestSuite) initGitRepo() {
+	s.Require().NoError(exec.Command("git", "init").Run())
+	s.Require().NoError(exec.Command("git", "config", "user.email", "test@example.com").Run())
+	s.Require().NoError(exec.Command("git", "config", "user.name", "Test User").Run())
+}
+
+func (s *FumptCheckTestSuite) createMakefile(targets []string) {
+	makefileContent := "# Test Makefile\n\n"
+	for _, target := range targets {
+		switch target {
+		case "fumpt":
+			makefileContent += "fumpt:\n\t@echo \"Running fumpt\"\n\tgofumpt -w -extra .\n\n"
+		case "fumpt-check":
+			makefileContent += "fumpt-check:\n\t@echo \"Checking fumpt\"\n\tgofumpt -d .\n\n"
+		default:
+			makefileContent += target + ":\n\t@echo \"Running " + target + "\"\n\n"
+		}
+	}
+
+	makefilePath := filepath.Join(s.tempDir, "Makefile")
+	err := os.WriteFile(makefilePath, []byte(makefileContent), 0o644)
+	s.Require().NoError(err)
+}
+
+func (s *FumptCheckTestSuite) TestNewFumptCheckWithSharedContext() {
+	sharedCtx := shared.NewContext()
+	check := NewFumptCheckWithSharedContext(sharedCtx)
+	s.Assert().NotNil(check)
+	s.Assert().Equal(sharedCtx, check.sharedCtx)
+}
+
+func (s *FumptCheckTestSuite) TestNewFumptCheckWithConfig() {
+	sharedCtx := shared.NewContext()
+	timeout := 30 * time.Second
+	check := NewFumptCheckWithConfig(sharedCtx, timeout)
+	s.Assert().NotNil(check)
+	s.Assert().Equal(sharedCtx, check.sharedCtx)
+	s.Assert().Equal(timeout, check.timeout)
+}
+
+func (s *FumptCheckTestSuite) TestRunMakeFumpt() {
+	// Skip if make is not available
+	if _, err := exec.LookPath("make"); err != nil {
+		s.T().Skip("make not available")
+	}
+
+	// Create a Makefile that doesn't require gofumpt to be installed
+	makefileContent := `fumpt:
+	@echo "Running fumpt check"
+	@echo "No gofumpt issues found"
+`
+	err := os.WriteFile("Makefile", []byte(makefileContent), 0o644)
+	s.Require().NoError(err)
+
+	check := NewFumptCheck()
+	err = check.Run(context.Background(), []string{"test.go"})
+
+	// Should succeed with make target available
+	s.Assert().NoError(err)
+}
+
+func (s *FumptCheckTestSuite) TestRunDirectFumpt() {
+	// Skip if gofumpt is not available
+	if _, err := exec.LookPath("gofumpt"); err != nil {
+		s.T().Skip("gofumpt not available")
+	}
+
+	// Create a Go file that needs formatting
+	goFile := `package main
+
+import "fmt"
+
+func main() {
+fmt.Println("hello")
+}
+`
+	err := os.WriteFile("main.go", []byte(goFile), 0o644)
+	s.Require().NoError(err)
+
+	check := NewFumptCheck()
+	err = check.Run(context.Background(), []string{"main.go"})
+
+	// Should succeed when gofumpt is available
+	s.Assert().NoError(err)
+}
+
+func (s *FumptCheckTestSuite) TestRunWithTimeout() {
+	timeout := 1 * time.Millisecond // Very short timeout
+	check := NewFumptCheckWithConfig(shared.NewContext(), timeout)
+
+	// Create a Makefile with a slow target
+	makefileContent := `fumpt:
+	@sleep 10
+`
+	err := os.WriteFile("Makefile", []byte(makefileContent), 0o644)
+	s.Require().NoError(err)
+
+	err = check.Run(context.Background(), []string{"test.go"})
+	s.Assert().Error(err)
+}
+
+type LintCheckTestSuite struct {
+	suite.Suite
+	tempDir string
+	oldDir  string
+}
+
+func TestLintCheckSuite(t *testing.T) {
+	suite.Run(t, new(LintCheckTestSuite))
+}
+
+func (s *LintCheckTestSuite) SetupTest() {
+	var err error
+	s.tempDir, err = os.MkdirTemp("", "lint_test_*")
+	s.Require().NoError(err)
+
+	s.oldDir, err = os.Getwd()
+	s.Require().NoError(err)
+
+	err = os.Chdir(s.tempDir)
+	s.Require().NoError(err)
+
+	// Initialize git repo
+	s.initGitRepo()
+}
+
+func (s *LintCheckTestSuite) TearDownTest() {
+	if s.oldDir != "" {
+		err := os.Chdir(s.oldDir)
+		s.Require().NoError(err)
+	}
+	if s.tempDir != "" {
+		err := os.RemoveAll(s.tempDir)
+		s.Require().NoError(err)
+	}
+}
+
+func (s *LintCheckTestSuite) initGitRepo() {
+	s.Require().NoError(exec.Command("git", "init").Run())
+	s.Require().NoError(exec.Command("git", "config", "user.email", "test@example.com").Run())
+	s.Require().NoError(exec.Command("git", "config", "user.name", "Test User").Run())
+}
+
+func (s *LintCheckTestSuite) createMakefile(targets []string) {
+	makefileContent := "# Test Makefile\n\n"
+	for _, target := range targets {
+		switch target {
+		case "lint":
+			makefileContent += "lint:\n\t@echo \"Running lint\"\n\tgolangci-lint run\n\n"
+		default:
+			makefileContent += target + ":\n\t@echo \"Running " + target + "\"\n\n"
+		}
+	}
+
+	makefilePath := filepath.Join(s.tempDir, "Makefile")
+	err := os.WriteFile(makefilePath, []byte(makefileContent), 0o644)
+	s.Require().NoError(err)
+}
+
+func (s *LintCheckTestSuite) TestNewLintCheckWithSharedContext() {
+	sharedCtx := shared.NewContext()
+	check := NewLintCheckWithSharedContext(sharedCtx)
+	s.Assert().NotNil(check)
+	s.Assert().Equal(sharedCtx, check.sharedCtx)
+}
+
+func (s *LintCheckTestSuite) TestNewLintCheckWithConfig() {
+	sharedCtx := shared.NewContext()
+	timeout := 30 * time.Second
+	check := NewLintCheckWithConfig(sharedCtx, timeout)
+	s.Assert().NotNil(check)
+	s.Assert().Equal(sharedCtx, check.sharedCtx)
+	s.Assert().Equal(timeout, check.timeout)
+}
+
+func (s *LintCheckTestSuite) TestRunMakeLint() {
+	// Skip if make is not available
+	if _, err := exec.LookPath("make"); err != nil {
+		s.T().Skip("make not available")
+	}
+
+	// Create a Makefile that doesn't require golangci-lint to be installed
+	makefileContent := `lint:
+	@echo "Running lint check"
+	@echo "No linting issues found"
+`
+	err := os.WriteFile("Makefile", []byte(makefileContent), 0o644)
+	s.Require().NoError(err)
+
+	check := NewLintCheck()
+	err = check.Run(context.Background(), []string{"test.go"})
+
+	// Should succeed with make target available
+	s.Assert().NoError(err)
+}
+
+func (s *LintCheckTestSuite) TestRunDirectLint() {
+	// Skip if golangci-lint is not available
+	if _, err := exec.LookPath("golangci-lint"); err != nil {
+		s.T().Skip("golangci-lint not available")
+	}
+
+	// Create a basic Go module
+	goMod := "module test\n\ngo 1.21\n"
+	err := os.WriteFile("go.mod", []byte(goMod), 0o644)
+	s.Require().NoError(err)
+
+	// Create a Go file
+	goFile := `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("hello")
+}
+`
+	err = os.WriteFile("main.go", []byte(goFile), 0o644)
+	s.Require().NoError(err)
+
+	check := NewLintCheck()
+	err = check.Run(context.Background(), []string{"main.go"})
+
+	// Should succeed when golangci-lint is available
+	s.Assert().NoError(err)
+}
+
+type ModTidyCheckTestSuite struct {
+	suite.Suite
+	tempDir string
+	oldDir  string
+}
+
+func TestModTidyCheckSuite(t *testing.T) {
+	suite.Run(t, new(ModTidyCheckTestSuite))
+}
+
+func (s *ModTidyCheckTestSuite) SetupTest() {
+	var err error
+	s.tempDir, err = os.MkdirTemp("", "modtidy_test_*")
+	s.Require().NoError(err)
+
+	s.oldDir, err = os.Getwd()
+	s.Require().NoError(err)
+
+	err = os.Chdir(s.tempDir)
+	s.Require().NoError(err)
+
+	// Initialize git repo
+	s.initGitRepo()
+}
+
+func (s *ModTidyCheckTestSuite) TearDownTest() {
+	if s.oldDir != "" {
+		err := os.Chdir(s.oldDir)
+		s.Require().NoError(err)
+	}
+	if s.tempDir != "" {
+		err := os.RemoveAll(s.tempDir)
+		s.Require().NoError(err)
+	}
+}
+
+func (s *ModTidyCheckTestSuite) initGitRepo() {
+	s.Require().NoError(exec.Command("git", "init").Run())
+	s.Require().NoError(exec.Command("git", "config", "user.email", "test@example.com").Run())
+	s.Require().NoError(exec.Command("git", "config", "user.name", "Test User").Run())
+}
+
+func (s *ModTidyCheckTestSuite) createMakefile(targets []string) {
+	makefileContent := "# Test Makefile\n\n"
+	for _, target := range targets {
+		switch target {
+		case "mod-tidy":
+			makefileContent += "mod-tidy:\n\t@echo \"Running mod-tidy\"\n\tgo mod tidy\n\n"
+		default:
+			makefileContent += target + ":\n\t@echo \"Running " + target + "\"\n\n"
+		}
+	}
+
+	makefilePath := filepath.Join(s.tempDir, "Makefile")
+	err := os.WriteFile(makefilePath, []byte(makefileContent), 0o644)
+	s.Require().NoError(err)
+}
+
+func (s *ModTidyCheckTestSuite) TestNewModTidyCheckWithSharedContext() {
+	sharedCtx := shared.NewContext()
+	check := NewModTidyCheckWithSharedContext(sharedCtx)
+	s.Assert().NotNil(check)
+	s.Assert().Equal(sharedCtx, check.sharedCtx)
+}
+
+func (s *ModTidyCheckTestSuite) TestNewModTidyCheckWithConfig() {
+	sharedCtx := shared.NewContext()
+	timeout := 30 * time.Second
+	check := NewModTidyCheckWithConfig(sharedCtx, timeout)
+	s.Assert().NotNil(check)
+	s.Assert().Equal(sharedCtx, check.sharedCtx)
+	s.Assert().Equal(timeout, check.timeout)
+}
+
+func (s *ModTidyCheckTestSuite) TestFilterFilesWithGoFiles() {
+	check := &ModTidyCheck{}
+
+	files := []string{
+		"main.go",
+		"go.mod",
+		"go.sum",
+		"doc.md",
+		"Makefile",
+		"internal/pkg.go",
+	}
+
+	// With go.mod/go.sum present, should return only those
+	filtered := check.FilterFiles(files)
+	expected := []string{"go.mod", "go.sum"}
+	s.Assert().Equal(expected, filtered)
+}
+
+func (s *ModTidyCheckTestSuite) TestFilterFilesOnlyGoFiles() {
+	check := &ModTidyCheck{}
+
+	files := []string{
+		"main.go",
+		"doc.md",
+		"Makefile",
+		"internal/pkg.go",
+	}
+
+	// With only .go files, should return dummy go.mod to trigger check
+	filtered := check.FilterFiles(files)
+	expected := []string{"go.mod"}
+	s.Assert().Equal(expected, filtered)
+}
+
+func (s *ModTidyCheckTestSuite) TestFilterFilesNoGoFiles() {
+	check := &ModTidyCheck{}
+
+	files := []string{
+		"doc.md",
+		"Makefile",
+		"README.txt",
+	}
+
+	// Without go files, should return empty
+	filtered := check.FilterFiles(files)
+	s.Assert().Empty(filtered)
+}
+
+func (s *ModTidyCheckTestSuite) TestRunMakeModTidy() {
+	// Skip if make is not available
+	if _, err := exec.LookPath("make"); err != nil {
+		s.T().Skip("make not available")
+	}
+
+	// Create a basic Go module
+	goMod := "module test\n\ngo 1.21\n"
+	err := os.WriteFile("go.mod", []byte(goMod), 0o644)
+	s.Require().NoError(err)
+
+	// Add and commit the go.mod to git
+	s.Require().NoError(exec.Command("git", "add", "go.mod").Run())
+	s.Require().NoError(exec.Command("git", "commit", "-m", "Add go.mod").Run())
+
+	// Create a Makefile that doesn't actually modify files
+	makefileContent := `mod-tidy:
+	@echo "Running mod-tidy check"
+	@echo "All modules are tidy"
+`
+	err = os.WriteFile("Makefile", []byte(makefileContent), 0o644)
+	s.Require().NoError(err)
+
+	check := NewModTidyCheck()
+	err = check.Run(context.Background(), []string{"go.mod"})
+
+	// Should succeed with make target available
+	s.Assert().NoError(err)
+}
+
+func (s *ModTidyCheckTestSuite) TestRunDirectModTidy() {
+	// Skip if go is not available
+	if _, err := exec.LookPath("go"); err != nil {
+		s.T().Skip("go not available")
+	}
+
+	// Create a basic Go module
+	goMod := "module test\n\ngo 1.21\n"
+	err := os.WriteFile("go.mod", []byte(goMod), 0o644)
+	s.Require().NoError(err)
+
+	// Create a Go file
+	goFile := `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("hello")
+}
+`
+	err = os.WriteFile("main.go", []byte(goFile), 0o644)
+	s.Require().NoError(err)
+
+	// Add and commit the files to git
+	s.Require().NoError(exec.Command("git", "add", ".").Run())
+	s.Require().NoError(exec.Command("git", "commit", "-m", "Add initial files").Run())
+
+	check := NewModTidyCheck()
+	err = check.Run(context.Background(), []string{"go.mod"})
+
+	// Should succeed when go is available
+	s.Assert().NoError(err)
+}
+
+func (s *ModTidyCheckTestSuite) TestCheckUncommittedChanges() {
+	// Skip if go is not available
+	if _, err := exec.LookPath("go"); err != nil {
+		s.T().Skip("go not available")
+	}
+
+	// Create a basic Go module
+	goMod := "module test\n\ngo 1.21\n"
+	err := os.WriteFile("go.mod", []byte(goMod), 0o644)
+	s.Require().NoError(err)
+
+	// Create a Go file that uses an external dependency
+	goFile := `package main
+
+import (
+	"fmt"
+	"github.com/stretchr/testify/assert"
+)
+
+func main() {
+	fmt.Println("hello")
+	assert.True(nil, true)
+}
+`
+	err = os.WriteFile("main.go", []byte(goFile), 0o644)
+	s.Require().NoError(err)
+
+	// Add and commit the files
+	s.Require().NoError(exec.Command("git", "add", ".").Run())
+	s.Require().NoError(exec.Command("git", "commit", "-m", "Initial commit").Run())
+
+	// Now run mod tidy which should modify go.mod and go.sum
+	check := NewModTidyCheck()
+	err = check.Run(context.Background(), []string{"go.mod"})
+
+	// Should return error indicating uncommitted changes
+	s.Assert().Error(err)
+}
+
+// Edge case and error condition tests
+func TestFumptCheckEdgeCases(t *testing.T) {
+	t.Run("empty files list", func(t *testing.T) {
+		check := NewFumptCheck()
+
+		// Create temp dir and change to it for clean test
+		tmpDir := t.TempDir()
+		oldDir, err := os.Getwd()
+		require.NoError(t, err)
+		defer func() {
+			_ = os.Chdir(oldDir)
+		}()
+
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+
+		// Initialize git repository for tests that need it
+		require.NoError(t, exec.Command("git", "init").Run())
+		require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
+		require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+
+		err = check.Run(context.Background(), []string{})
+		assert.NoError(t, err) // Should succeed with no files
+	})
+
+	t.Run("non-go files", func(t *testing.T) {
+		check := NewFumptCheck()
+		files := []string{"README.md", "Makefile", "config.yml"}
+		filtered := check.FilterFiles(files)
+		assert.Empty(t, filtered)
+	})
+
+	t.Run("context cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		check := NewFumptCheck()
+		err := check.Run(ctx, []string{"test.go"})
+		assert.Error(t, err)
+	})
+}
+
+func TestLintCheckEdgeCases(t *testing.T) {
+	t.Run("empty files list", func(t *testing.T) {
+		check := NewLintCheck()
+
+		// Create temp dir and change to it for clean test
+		tmpDir := t.TempDir()
+		oldDir, err := os.Getwd()
+		require.NoError(t, err)
+		defer func() {
+			_ = os.Chdir(oldDir)
+		}()
+
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+
+		// Initialize git repository for tests that need it
+		require.NoError(t, exec.Command("git", "init").Run())
+		require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
+		require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+
+		err = check.Run(context.Background(), []string{})
+		assert.NoError(t, err) // Should succeed with no files
+	})
+
+	t.Run("context cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		check := NewLintCheck()
+		err := check.Run(ctx, []string{"test.go"})
+		assert.Error(t, err)
+	})
+}
+
+func TestModTidyCheckEdgeCases(t *testing.T) {
+	t.Run("empty files list", func(t *testing.T) {
+		check := NewModTidyCheck()
+
+		// Create temp dir and change to it for clean test
+		tmpDir := t.TempDir()
+		oldDir, err := os.Getwd()
+		require.NoError(t, err)
+		defer func() {
+			_ = os.Chdir(oldDir)
+		}()
+
+		err = os.Chdir(tmpDir)
+		require.NoError(t, err)
+
+		// Initialize git repository for tests that need it
+		require.NoError(t, exec.Command("git", "init").Run())
+		require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
+		require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+
+		err = check.Run(context.Background(), []string{})
+		assert.NoError(t, err) // Should succeed with no files
+	})
+
+	t.Run("context cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		check := NewModTidyCheck()
+		err := check.Run(ctx, []string{"go.mod"})
+		assert.Error(t, err)
+	})
 }
