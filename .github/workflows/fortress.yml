@@ -192,6 +192,23 @@ jobs:
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
   # ----------------------------------------------------------------------------------
+  # Pre-commit Checks
+  # ----------------------------------------------------------------------------------
+  pre-commit:
+    name: 🪝 Pre-commit Checks
+    needs: [load-env, setup, warm-cache, test-makefile]
+    if: needs.setup.outputs.pre-commit-enabled == 'true'
+    permissions:
+      contents: read # Read repository content for pre-commit checks
+    uses: ./.github/workflows/fortress-pre-commit.yml
+    with:
+      env-json: ${{ needs.load-env.outputs.env-json }}
+      primary-runner: ${{ needs.setup.outputs.primary-runner }}
+      go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
+      pre-commit-enabled: ${{ needs.setup.outputs.pre-commit-enabled }}
+    secrets:
+      github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+  # ----------------------------------------------------------------------------------
   # Test Suite
   # ----------------------------------------------------------------------------------
   test-suite:
@@ -239,7 +256,7 @@ jobs:
   status-check:
     name: 🎯 All Tests Passed
     if: ${{ always() }}
-    needs: [setup, test-makefile, security, code-quality, test-suite, benchmarks]
+    needs: [setup, test-makefile, security, code-quality, pre-commit, test-suite, benchmarks]
     permissions:
       contents: read # Read repository content for status checking
     runs-on: ${{ needs.setup.outputs.primary-runner }}
@@ -258,6 +275,7 @@ jobs:
             echo "| 📋 Makefile | ${{ needs.test-makefile.result }} | Required |"
             echo "| 🔒 Security | ${{ needs.security.result }} | Required |"
             echo "| 📊 Code Quality | ${{ needs.code-quality.result }} | Required |"
+            echo "| 🪝 Pre-commit | ${{ needs.pre-commit.result }} | ${{ needs.setup.outputs.pre-commit-enabled == 'true' && 'Required' || 'Skipped' }} |"
             echo "| 🧪 Test Suite | ${{ needs.test-suite.result }} | Required |"
             echo "| 🏃 Benchmarks | ${{ needs.benchmarks.result }} | Optional ⚠️ |"
             echo ""
@@ -297,6 +315,11 @@ jobs:
             FAILED=true
           fi
 
+          if [[ "${{ needs.pre-commit.result }}" == "failure" || "${{ needs.pre-commit.result }}" == "cancelled" ]]; then
+            echo "❌ Pre-commit checks failed or were cancelled" >&2
+            FAILED=true
+          fi
+
           if [[ "${{ needs.test-suite.result }}" == "failure" || "${{ needs.test-suite.result }}" == "cancelled" ]]; then
             echo "❌ Test suite failed or was cancelled" >&2
             FAILED=true
@@ -325,7 +348,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   release:
     name: 🚀 Release Version
-    needs: [load-env, setup, test-suite, security, code-quality]
+    needs: [load-env, setup, test-suite, security, code-quality, pre-commit]
     # Only run on successful tag pushes
     if: startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/fortress-release.yml
