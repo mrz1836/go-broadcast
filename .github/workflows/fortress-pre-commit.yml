@@ -243,12 +243,12 @@ jobs:
 
           # List available checks
           echo "📋 Available checks:"
-          ./gofortress-pre-commit list || echo "  (list command not implemented)"
+          ./gofortress-pre-commit run --show-checks || echo "  (failed to show checks)"
           echo ""
 
           # Run all checks on all files (CI mode)
           echo "🔍 Executing checks on all files..."
-          CHECKS_OUTPUT=$(./gofortress-pre-commit run pre-commit --all-files 2>&1) || CHECKS_EXIT=$?
+          CHECKS_OUTPUT=$(./gofortress-pre-commit run --all-files 2>&1) || CHECKS_EXIT=$?
 
           echo "$CHECKS_OUTPUT"
 

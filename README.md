@@ -229,6 +229,12 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 - **Interactive dashboard** - Modern UI with analytics and trends
 - **[🔗 Live Dashboard](https://mrz1836.github.io/go-broadcast/)**
 
+### 🪝 **GoFortress Pre-commit System**
+- **17x faster execution** - <2 second commits with parallel processing
+- **Zero Python dependencies** - Pure Go implementation, single binary
+- **Environment-driven config** - All settings via `.github/.env.shared`
+- **[📚 Documentation](.github/pre-commit/README.md)**
+
 <br/>
 
 
