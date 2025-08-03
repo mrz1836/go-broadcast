@@ -1,7 +1,6 @@
 package git
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -95,7 +94,7 @@ func TestRepository_GetStagedFiles(t *testing.T) {
 
 	// Should not error even if no files are staged
 	files, err := repo.GetStagedFiles()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, files) // Can be empty array
 }
 
@@ -109,7 +108,7 @@ func TestRepository_GetAllFiles(t *testing.T) {
 	repo := NewRepository(root)
 
 	files, err := repo.GetAllFiles()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, files) // Should have some files
 
 	// Should contain go.mod
@@ -134,7 +133,7 @@ func TestRepository_GetModifiedFiles(t *testing.T) {
 
 	// Should not error even if no files are modified
 	files, err := repo.GetModifiedFiles()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, files) // Can be empty array
 }
 
@@ -149,20 +148,18 @@ func TestRepository_GetFileContent(t *testing.T) {
 
 	// Try to get content of go.mod
 	content, err := repo.GetFileContent("go.mod")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, content)
 	assert.Contains(t, string(content), "module")
 }
 
 // Test with mock command for better coverage
-type mockExecContext struct {
-	ctx context.Context
-}
+// Full context testing would require mocking exec.CommandContext
 
 func TestRepository_GetStagedFiles_Context(t *testing.T) {
 	repo := NewRepository("/test/repo")
 	assert.NotNil(t, repo)
 
-	// Note: Full context testing would require mocking exec.CommandContext
+	// Full context testing would require mocking exec.CommandContext
 	// which is complex. This ensures the structure is correct.
 }

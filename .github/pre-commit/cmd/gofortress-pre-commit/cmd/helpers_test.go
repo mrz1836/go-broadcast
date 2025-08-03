@@ -19,7 +19,7 @@ func TestPrintSuccess(t *testing.T) {
 	noColor = true
 	printSuccess("Test %s", "message")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = old
 
 	var buf bytes.Buffer
@@ -30,17 +30,17 @@ func TestPrintSuccess(t *testing.T) {
 }
 
 func TestPrintError(t *testing.T) {
-	// Capture output
-	old := os.Stdout
+	// Capture stderr output since printError outputs to stderr when noColor is true
+	old := os.Stderr
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
 
 	// Test with color disabled
 	noColor = true
 	printError("Error: %s", "test error")
 
-	w.Close()
-	os.Stdout = old
+	_ = w.Close()
+	os.Stderr = old
 
 	var buf bytes.Buffer
 	_, _ = buf.ReadFrom(r)
@@ -50,17 +50,17 @@ func TestPrintError(t *testing.T) {
 }
 
 func TestPrintWarning(t *testing.T) {
-	// Capture output
-	old := os.Stdout
+	// Capture stderr output since printWarning outputs to stderr when noColor is true
+	old := os.Stderr
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
 
 	// Test with color disabled
 	noColor = true
 	printWarning("Warning: %s", "test warning")
 
-	w.Close()
-	os.Stdout = old
+	_ = w.Close()
+	os.Stderr = old
 
 	var buf bytes.Buffer
 	_, _ = buf.ReadFrom(r)
@@ -79,7 +79,7 @@ func TestPrintInfo(t *testing.T) {
 	noColor = true
 	printInfo("Info: %s", "test info")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = old
 
 	var buf bytes.Buffer
@@ -89,7 +89,7 @@ func TestPrintInfo(t *testing.T) {
 	assert.Contains(t, output, "ℹ Info: test info")
 }
 
-func TestColorHandling(t *testing.T) {
+func TestColorHandling(_ *testing.T) {
 	// Save original state
 	originalNoColor := color.NoColor
 	defer func() {

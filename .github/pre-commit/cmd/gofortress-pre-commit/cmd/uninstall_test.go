@@ -11,10 +11,15 @@ func TestUninstallCmd_ParseFlags(t *testing.T) {
 	// Reset flags
 	hookTypes = []string{"pre-commit"}
 
-	// Parse command with hook-type
+	// Parse command properly through execute to handle subcommand flags
 	rootCmd.SetArgs([]string{"uninstall", "--hook-type", "pre-push"})
-	err := rootCmd.ParseFlags([]string{"uninstall", "--hook-type", "pre-push"})
-	require.NoError(t, err)
+	cmd, err := rootCmd.ExecuteC()
+	if err != nil {
+		// For testing flag parsing, we expect execution errors but not parse errors
+		// Since we can't actually run uninstall without proper git repo setup
+		require.Contains(t, err.Error(), "failed to")
+	}
+	assert.Equal(t, "uninstall", cmd.Name())
 
 	assert.Equal(t, []string{"pre-push"}, hookTypes)
 }

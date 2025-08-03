@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -151,7 +152,7 @@ func runChecks(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	results, err := r.Run(opts)
+	results, err := r.Run(context.Background(), opts)
 	if err != nil {
 		return fmt.Errorf("failed to run checks: %w", err)
 	}

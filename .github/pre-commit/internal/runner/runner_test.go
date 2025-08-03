@@ -1,11 +1,13 @@
 package runner
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
@@ -39,8 +41,8 @@ func TestRunner_Run_NoFiles(t *testing.T) {
 		Files: []string{},
 	}
 
-	results, err := r.Run(opts)
-	assert.NoError(t, err)
+	results, err := r.Run(context.Background(), opts)
+	require.NoError(t, err)
 	assert.NotNil(t, results)
 	// When no files are provided, checks still run but succeed immediately
 	assert.Equal(t, 1, results.Passed)
@@ -71,11 +73,11 @@ func TestRunner_Run_BasicFlow(t *testing.T) {
 		OnlyChecks: []string{"whitespace", "eof"},
 	}
 
-	results, err := r.Run(opts)
-	assert.NoError(t, err)
+	results, err := r.Run(context.Background(), opts)
+	require.NoError(t, err)
 	assert.NotNil(t, results)
 	// Should have results for the checks we requested
-	assert.Greater(t, len(results.CheckResults), 0)
+	assert.NotEmpty(t, results.CheckResults)
 }
 
 func TestRunner_Run_OnlyChecks(t *testing.T) {
@@ -97,8 +99,8 @@ func TestRunner_Run_OnlyChecks(t *testing.T) {
 		OnlyChecks: []string{"whitespace"}, // Only run whitespace
 	}
 
-	results, err := r.Run(opts)
-	assert.NoError(t, err)
+	results, err := r.Run(context.Background(), opts)
+	require.NoError(t, err)
 	assert.NotNil(t, results)
 
 	// Should only have 1 check result
@@ -125,8 +127,8 @@ func TestRunner_Run_SkipChecks(t *testing.T) {
 		SkipChecks: []string{"whitespace"}, // Skip whitespace
 	}
 
-	results, err := r.Run(opts)
-	assert.NoError(t, err)
+	results, err := r.Run(context.Background(), opts)
+	require.NoError(t, err)
 	assert.NotNil(t, results)
 
 	// Should not have whitespace check in results

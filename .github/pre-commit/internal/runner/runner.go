@@ -57,7 +57,7 @@ func New(cfg *config.Config, repoRoot string) *Runner {
 }
 
 // Run executes checks based on the provided options
-func (r *Runner) Run(opts Options) (*Results, error) {
+func (r *Runner) Run(ctx context.Context, opts Options) (*Results, error) {
 	start := time.Now()
 
 	// Determine which checks to run
@@ -76,7 +76,7 @@ func (r *Runner) Run(opts Options) (*Results, error) {
 	}
 
 	// Create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(r.config.Timeout)*time.Second)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, time.Duration(r.config.Timeout)*time.Second)
 	defer cancel()
 
 	// Run checks
@@ -87,7 +87,7 @@ func (r *Runner) Run(opts Options) (*Results, error) {
 	if opts.FailFast {
 		// Sequential execution with fail-fast
 		for _, check := range checksToRun {
-			result := r.runCheck(ctx, check, opts.Files)
+			result := r.runCheck(ctxWithTimeout, check, opts.Files)
 			results.CheckResults = append(results.CheckResults, result)
 
 			if result.Success {
@@ -111,7 +111,7 @@ func (r *Runner) Run(opts Options) (*Results, error) {
 				semaphore <- struct{}{}
 				defer func() { <-semaphore }()
 
-				result := r.runCheck(ctx, c, opts.Files)
+				result := r.runCheck(ctxWithTimeout, c, opts.Files)
 				resultsChan <- result
 			}(check)
 		}

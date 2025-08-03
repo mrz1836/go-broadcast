@@ -16,7 +16,7 @@ func BenchmarkWhitespaceCheck_Run_SmallFile(b *testing.B) {
 	tmpDir := b.TempDir()
 	testFile := fmt.Sprintf("%s/test.txt", tmpDir)
 	content := "line 1\nline 2 \t \nline 3\n"
-	err := os.WriteFile(testFile, []byte(content), 0o644)
+	err := os.WriteFile(testFile, []byte(content), 0o600)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func BenchmarkWhitespaceCheck_Run_SmallFile(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		check.Run(ctx, files)
+		_ = check.Run(ctx, files)
 	}
 }
 
@@ -44,7 +44,7 @@ func BenchmarkWhitespaceCheck_Run_LargeFile(b *testing.B) {
 		content += fmt.Sprintf("line %d \t \n", i)
 	}
 
-	err := os.WriteFile(testFile, []byte(content), 0o644)
+	err := os.WriteFile(testFile, []byte(content), 0o600)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func BenchmarkWhitespaceCheck_Run_LargeFile(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		check.Run(ctx, files)
+		_ = check.Run(ctx, files)
 	}
 }
 
@@ -68,8 +68,8 @@ func BenchmarkWhitespaceCheck_Run_MultipleFiles(b *testing.B) {
 	// Create 10 test files
 	for i := 0; i < 10; i++ {
 		testFile := fmt.Sprintf("%s/test%d.txt", tmpDir, i)
-		content := fmt.Sprintf("line 1 \nline 2\t\nline 3 \t \n")
-		err := os.WriteFile(testFile, []byte(content), 0o644)
+		content := "line 1 \nline 2\t\nline 3 \t \n"
+		err := os.WriteFile(testFile, []byte(content), 0o600)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -78,7 +78,7 @@ func BenchmarkWhitespaceCheck_Run_MultipleFiles(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		check.Run(ctx, files)
+		_ = check.Run(ctx, files)
 	}
 }
 
@@ -91,7 +91,7 @@ func BenchmarkEOFCheck_Run_SmallFile(b *testing.B) {
 	tmpDir := b.TempDir()
 	testFile := fmt.Sprintf("%s/test.txt", tmpDir)
 	content := "line 1\nline 2\nline 3"
-	err := os.WriteFile(testFile, []byte(content), 0o644)
+	err := os.WriteFile(testFile, []byte(content), 0o600)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func BenchmarkEOFCheck_Run_SmallFile(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		check.Run(ctx, files)
+		_ = check.Run(ctx, files)
 	}
 }
 
@@ -120,7 +120,7 @@ func BenchmarkEOFCheck_Run_LargeFile(b *testing.B) {
 	}
 	content = content[:len(content)-1] // Remove final newline
 
-	err := os.WriteFile(testFile, []byte(content), 0o644)
+	err := os.WriteFile(testFile, []byte(content), 0o600)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func BenchmarkEOFCheck_Run_LargeFile(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		check.Run(ctx, files)
+		_ = check.Run(ctx, files)
 	}
 }
 
@@ -183,7 +183,7 @@ func BenchmarkWhitespaceCheck_Parallel(b *testing.B) {
 	tmpDir := b.TempDir()
 	testFile := fmt.Sprintf("%s/test.txt", tmpDir)
 	content := "line 1 \nline 2\t\nline 3 \t \n"
-	err := os.WriteFile(testFile, []byte(content), 0o644)
+	err := os.WriteFile(testFile, []byte(content), 0o600)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func BenchmarkWhitespaceCheck_Parallel(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			check.Run(ctx, files)
+			_ = check.Run(ctx, files)
 		}
 	})
 }

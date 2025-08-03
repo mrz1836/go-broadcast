@@ -30,7 +30,7 @@ func TestRunCmd_ShowChecks(t *testing.T) {
 	err := rootCmd.Execute()
 	require.NoError(t, err)
 
-	w.Close()
+	_ = w.Close()
 
 	var buf bytes.Buffer
 	_, _ = buf.ReadFrom(r)
@@ -48,29 +48,34 @@ func TestRunCmd_ShowChecks(t *testing.T) {
 func TestRunCmd_DisabledSystem(t *testing.T) {
 	// Save original env
 	oldEnv := os.Getenv("ENABLE_PRE_COMMIT_SYSTEM")
-	defer os.Setenv("ENABLE_PRE_COMMIT_SYSTEM", oldEnv)
+	defer func() {
+		if err := os.Setenv("ENABLE_PRE_COMMIT_SYSTEM", oldEnv); err != nil {
+			t.Logf("Failed to restore ENABLE_PRE_COMMIT_SYSTEM: %v", err)
+		}
+	}()
 
 	// Disable pre-commit system
-	os.Setenv("ENABLE_PRE_COMMIT_SYSTEM", "false")
+	require.NoError(t, os.Setenv("ENABLE_PRE_COMMIT_SYSTEM", "false"))
 
 	// Save original
 	oldArgs := os.Args
-	oldStdout := os.Stdout
+	oldStderr := os.Stderr
 	defer func() {
 		os.Args = oldArgs
-		os.Stdout = oldStdout
+		os.Stderr = oldStderr
 	}()
 
-	// Capture output
+	// Capture stderr output since printWarning outputs to stderr when noColor is true
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
+	noColor = true // Ensure we output to stderr
 
 	// Execute command
 	rootCmd.SetArgs([]string{"run"})
 	err := rootCmd.Execute()
 	require.NoError(t, err)
 
-	w.Close()
+	_ = w.Close()
 
 	var buf bytes.Buffer
 	_, _ = buf.ReadFrom(r)
@@ -140,10 +145,15 @@ func TestRunCmd_ParseFlags(t *testing.T) {
 			parallel = 0
 			failFast = false
 
-			// Parse command
+			// Parse command properly through execute to handle subcommand flags
 			rootCmd.SetArgs(tt.args)
-			err := rootCmd.ParseFlags(tt.args)
-			require.NoError(t, err)
+			cmd, err := rootCmd.ExecuteC()
+			if err != nil {
+				// For testing flag parsing, we expect execution errors but not parse errors
+				// Since we can't actually run without proper git repo setup
+				require.Contains(t, err.Error(), "failed to")
+			}
+			assert.Equal(t, "run", cmd.Name())
 
 			// Validate
 			tt.validate(t)

@@ -9,9 +9,8 @@ import (
 
 // Mock check for testing
 type mockCheck struct {
-	name      string
-	desc      string
-	fileTypes []string
+	name string
+	desc string
 }
 
 func (m *mockCheck) Name() string {
@@ -22,7 +21,7 @@ func (m *mockCheck) Description() string {
 	return m.desc
 }
 
-func (m *mockCheck) Run(ctx context.Context, files []string) error {
+func (m *mockCheck) Run(_ context.Context, _ []string) error {
 	return nil
 }
 
@@ -38,7 +37,7 @@ func TestNewRegistry(t *testing.T) {
 
 	// Should have built-in checks registered
 	checks := r.GetChecks()
-	assert.Greater(t, len(checks), 0)
+	assert.NotEmpty(t, checks)
 
 	// Check for specific built-in checks
 	whitespace, ok := r.Get("whitespace")
@@ -133,7 +132,7 @@ func TestRegistry_GetChecks(t *testing.T) {
 	assert.Equal(t, check3, checkMap["check3"])
 }
 
-func TestCheckInterface(t *testing.T) {
+func TestCheckInterface(_ *testing.T) {
 	// Ensure our mock implements the Check interface
 	var _ Check = (*mockCheck)(nil)
 }

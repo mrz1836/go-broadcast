@@ -45,7 +45,11 @@ func TestFumptCheck_Run_NoMake(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldDir)
+	defer func() {
+		if chErr := os.Chdir(oldDir); chErr != nil {
+			t.Logf("Failed to restore directory: %v", chErr)
+		}
+	}()
 
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
@@ -54,7 +58,7 @@ func TestFumptCheck_Run_NoMake(t *testing.T) {
 	ctx := context.Background()
 
 	err = check.Run(ctx, []string{"test.go"})
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to find repository root")
 }
 
@@ -68,7 +72,11 @@ func TestFumptCheck_Run_NoTarget(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldDir)
+	defer func() {
+		if chErr := os.Chdir(oldDir); chErr != nil {
+			t.Logf("Failed to restore directory: %v", chErr)
+		}
+	}()
 
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
@@ -78,14 +86,14 @@ func TestFumptCheck_Run_NoTarget(t *testing.T) {
 test:
 	@echo "test"
 `
-	err = os.WriteFile("Makefile", []byte(makefile), 0o644)
+	err = os.WriteFile("Makefile", []byte(makefile), 0o600)
 	require.NoError(t, err)
 
 	check := &FumptCheck{repoRoot: tmpDir}
 	ctx := context.Background()
 
 	err = check.Run(ctx, []string{"test.go"})
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to find repository root")
 }
 
@@ -124,7 +132,11 @@ func TestLintCheck_Run_NoMake(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldDir)
+	defer func() {
+		if chErr := os.Chdir(oldDir); chErr != nil {
+			t.Logf("Failed to restore directory: %v", chErr)
+		}
+	}()
 
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
@@ -133,7 +145,7 @@ func TestLintCheck_Run_NoMake(t *testing.T) {
 	ctx := context.Background()
 
 	err = check.Run(ctx, []string{"test.go"})
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to find repository root")
 }
 
@@ -172,7 +184,11 @@ func TestModTidyCheck_Run_NoGoMod(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldDir)
+	defer func() {
+		if chErr := os.Chdir(oldDir); chErr != nil {
+			t.Logf("Failed to restore directory: %v", chErr)
+		}
+	}()
 
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
@@ -181,7 +197,7 @@ func TestModTidyCheck_Run_NoGoMod(t *testing.T) {
 	ctx := context.Background()
 
 	err = check.Run(ctx, []string{"test.go"})
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to find repository root")
 }
 
@@ -190,7 +206,11 @@ func TestModTidyCheck_Run_NoMake(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldDir)
+	defer func() {
+		if chErr := os.Chdir(oldDir); chErr != nil {
+			t.Logf("Failed to restore directory: %v", chErr)
+		}
+	}()
 
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
@@ -200,13 +220,13 @@ func TestModTidyCheck_Run_NoMake(t *testing.T) {
 
 go 1.21
 `
-	err = os.WriteFile("go.mod", []byte(gomod), 0o644)
+	err = os.WriteFile("go.mod", []byte(gomod), 0o600)
 	require.NoError(t, err)
 
 	check := &ModTidyCheck{repoRoot: tmpDir}
 	ctx := context.Background()
 
 	err = check.Run(ctx, []string{"test.go"})
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to find repository root")
 }

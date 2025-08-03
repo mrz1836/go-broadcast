@@ -48,7 +48,7 @@ func TestExecute_Version(t *testing.T) {
 	err := Execute()
 	require.NoError(t, err)
 
-	w.Close()
+	_ = w.Close()
 
 	var buf bytes.Buffer
 	_, _ = buf.ReadFrom(r)
@@ -78,7 +78,7 @@ func TestExecute_Help(t *testing.T) {
 	err := Execute()
 	require.NoError(t, err)
 
-	w.Close()
+	_ = w.Close()
 
 	var buf bytes.Buffer
 	_, _ = buf.ReadFrom(r)

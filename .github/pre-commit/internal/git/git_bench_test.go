@@ -139,7 +139,7 @@ func BenchmarkInstaller_InstallHook(b *testing.B) {
 	gitDir := filepath.Join(tmpDir, ".git")
 	hooksDir := filepath.Join(gitDir, "hooks")
 
-	err := os.MkdirAll(hooksDir, 0o755)
+	err := os.MkdirAll(hooksDir, 0o750)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func BenchmarkInstaller_IsHookInstalled(b *testing.B) {
 	gitDir := filepath.Join(tmpDir, ".git")
 	hooksDir := filepath.Join(gitDir, "hooks")
 
-	err := os.MkdirAll(hooksDir, 0o755)
+	err := os.MkdirAll(hooksDir, 0o750)
 	if err != nil {
 		b.Fatal(err)
 	}

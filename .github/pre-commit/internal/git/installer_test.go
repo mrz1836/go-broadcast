@@ -21,46 +21,46 @@ func TestInstaller_InstallHook(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir := t.TempDir()
 	gitDir := filepath.Join(tmpDir, ".git", "hooks")
-	err := os.MkdirAll(gitDir, 0o755)
+	err := os.MkdirAll(gitDir, 0o750)
 	require.NoError(t, err)
 
 	installer := NewInstaller(tmpDir, ".github/pre-commit")
 
 	// Test installing a hook
 	err = installer.InstallHook("pre-commit", false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Check that the hook was created
 	hookPath := filepath.Join(gitDir, "pre-commit")
 	info, err := os.Stat(hookPath)
-	assert.NoError(t, err)
-	assert.True(t, info.Mode()&0o111 != 0, "Hook should be executable")
+	require.NoError(t, err)
+	assert.NotEqual(t, 0, info.Mode()&0o111, "Hook should be executable")
 
 	// Read the hook content
-	content, err := os.ReadFile(hookPath)
-	assert.NoError(t, err)
+	content, err := os.ReadFile(hookPath) // #nosec G304 -- test file path is controlled
+	require.NoError(t, err)
 	assert.Contains(t, string(content), "GoFortress Pre-commit Hook")
 	assert.Contains(t, string(content), "gofortress-pre-commit")
 
 	// Test installing again without force (should not error - already our hook)
 	err = installer.InstallHook("pre-commit", false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test with a non-GoFortress hook
-	err = os.WriteFile(hookPath, []byte("#!/bin/bash\necho 'other hook'"), 0o755)
+	err = os.WriteFile(hookPath, []byte("#!/bin/bash\necho 'other hook'"), 0o600)
 	require.NoError(t, err)
 
 	// Should return ErrExist without force
 	err = installer.InstallHook("pre-commit", false)
-	assert.ErrorIs(t, err, os.ErrExist)
+	require.ErrorIs(t, err, os.ErrExist)
 
 	// Should succeed with force
 	err = installer.InstallHook("pre-commit", true)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify it was replaced
-	content, err = os.ReadFile(hookPath)
-	assert.NoError(t, err)
+	content, err = os.ReadFile(hookPath) // #nosec G304 -- test file path is controlled
+	require.NoError(t, err)
 	assert.Contains(t, string(content), "GoFortress Pre-commit Hook")
 }
 
@@ -68,7 +68,7 @@ func TestInstaller_UninstallHook(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir := t.TempDir()
 	gitDir := filepath.Join(tmpDir, ".git", "hooks")
-	err := os.MkdirAll(gitDir, 0o755)
+	err := os.MkdirAll(gitDir, 0o750)
 	require.NoError(t, err)
 
 	installer := NewInstaller(tmpDir, ".github/pre-commit")
@@ -76,7 +76,7 @@ func TestInstaller_UninstallHook(t *testing.T) {
 
 	// Test uninstalling non-existent hook
 	removed, err := installer.UninstallHook("pre-commit")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.False(t, removed)
 
 	// Install a GoFortress hook
@@ -85,7 +85,7 @@ func TestInstaller_UninstallHook(t *testing.T) {
 
 	// Uninstall it
 	removed, err = installer.UninstallHook("pre-commit")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, removed)
 
 	// Verify it was removed
@@ -93,12 +93,12 @@ func TestInstaller_UninstallHook(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 
 	// Test with a non-GoFortress hook
-	err = os.WriteFile(hookPath, []byte("#!/bin/bash\necho 'other hook'"), 0o755)
+	err = os.WriteFile(hookPath, []byte("#!/bin/bash\necho 'other hook'"), 0o600)
 	require.NoError(t, err)
 
 	// Should not remove non-GoFortress hook
 	removed, err = installer.UninstallHook("pre-commit")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.False(t, removed)
 
 	// Verify it still exists
@@ -110,7 +110,7 @@ func TestInstaller_IsHookInstalled(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir := t.TempDir()
 	gitDir := filepath.Join(tmpDir, ".git", "hooks")
-	err := os.MkdirAll(gitDir, 0o755)
+	err := os.MkdirAll(gitDir, 0o750)
 	require.NoError(t, err)
 
 	installer := NewInstaller(tmpDir, ".github/pre-commit")
@@ -129,7 +129,7 @@ func TestInstaller_IsHookInstalled(t *testing.T) {
 
 	// Test with a non-GoFortress hook
 	hookPath := filepath.Join(gitDir, "pre-commit")
-	err = os.WriteFile(hookPath, []byte("#!/bin/bash\necho 'other hook'"), 0o755)
+	err = os.WriteFile(hookPath, []byte("#!/bin/bash\necho 'other hook'"), 0o600)
 	require.NoError(t, err)
 
 	// Should not be considered installed

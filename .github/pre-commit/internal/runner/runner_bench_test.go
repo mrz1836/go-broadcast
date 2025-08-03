@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -24,7 +25,7 @@ func BenchmarkRunner_Run_SingleCheck(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner.Run(opts)
+		_, _ = runner.Run(context.Background(), opts)
 	}
 }
 
@@ -48,7 +49,7 @@ func BenchmarkRunner_Run_MultipleChecks(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner.Run(opts)
+		_, _ = runner.Run(context.Background(), opts)
 	}
 }
 
@@ -74,7 +75,7 @@ func BenchmarkRunner_Run_LargeFileSet(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner.Run(opts)
+		_, _ = runner.Run(context.Background(), opts)
 	}
 }
 
@@ -109,7 +110,7 @@ func BenchmarkRunner_Run_Parallel(b *testing.B) {
 			Files: files,
 		}
 		for pb.Next() {
-			runner.Run(opts)
+			_, _ = runner.Run(context.Background(), opts)
 		}
 	})
 }
