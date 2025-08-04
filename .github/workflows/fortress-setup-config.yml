@@ -410,13 +410,14 @@ jobs:
           echo "| **Benchmarks** | $([ "${{ env.ENABLE_BENCHMARKS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Performance benchmarks will $([ "${{ env.ENABLE_BENCHMARKS }}" == "true" ] && echo "run in **${{ env.BENCHMARK_MODE }}** mode" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Code Coverage** | $([ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Code coverage reports will $([ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ] && echo "be generated with internal GoFortress system (threshold: ${{ env.COVERAGE_FAIL_UNDER }}%, style: ${{ env.COVERAGE_BADGE_STYLE }})" || echo "not be generated") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Fuzz Testing** | $([ "${{ env.ENABLE_FUZZ_TESTING }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Fuzz tests will $([ "${{ env.ENABLE_FUZZ_TESTING }}" == "true" ] && echo "run on Linux with primary Go version" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Go Linting** | $([ "${{ env.ENABLE_GO_LINT }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | golangci-lint will $([ "${{ env.ENABLE_GO_LINT }}" == "true" ] && echo "analyze code quality" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **YAML Linting** | $([ "${{ env.ENABLE_YAML_LINT }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | prettier will $([ "${{ env.ENABLE_YAML_LINT }}" == "true" ] && echo "validate YAML formatting" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Race Detection** | $([ "${{ env.ENABLE_RACE_DETECTION }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Tests will $([ "${{ env.ENABLE_RACE_DETECTION }}" == "true" ] && echo "run with -race flag" || echo "run without race detection") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Nancy (Dep Checks)** | $([ "${{ env.ENABLE_SECURITY_SCAN_NANCY }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Nancy will $([ "${{ env.ENABLE_SECURITY_SCAN_NANCY }}" == "true" ] && echo "scan dependencies for vulnerabilities" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Govulncheck** | $([ "${{ env.ENABLE_SECURITY_SCAN_GOVULNCHECK }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | govulncheck will $([ "${{ env.ENABLE_SECURITY_SCAN_GOVULNCHECK }}" == "true" ] && echo "scan for Go vulnerabilities" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Gitleaks (Secret Scan)** | $([ "${{ env.ENABLE_SECURITY_SCAN_GITLEAKS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Gitleaks will $([ "${{ env.ENABLE_SECURITY_SCAN_GITLEAKS }}" == "true" ] && echo "scan for leaked secrets" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Go Linting** | $([ "${{ env.ENABLE_GO_LINT }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | golangci-lint will $([ "${{ env.ENABLE_GO_LINT }}" == "true" ] && echo "analyze code quality" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Govulncheck** | $([ "${{ env.ENABLE_SECURITY_SCAN_GOVULNCHECK }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | govulncheck will $([ "${{ env.ENABLE_SECURITY_SCAN_GOVULNCHECK }}" == "true" ] && echo "scan for Go vulnerabilities" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Nancy (Dep Checks)** | $([ "${{ env.ENABLE_SECURITY_SCAN_NANCY }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Nancy will $([ "${{ env.ENABLE_SECURITY_SCAN_NANCY }}" == "true" ] && echo "scan dependencies for vulnerabilities" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Pre-Commit System** | $([ "${{ env.ENABLE_PRE_COMMIT_SYSTEM }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | GoFortress pre-commit hooks will $([ "${{ env.ENABLE_PRE_COMMIT_SYSTEM }}" == "true" ] && echo "run 17x faster than Python alternatives" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Race Detection** | $([ "${{ env.ENABLE_RACE_DETECTION }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Tests will $([ "${{ env.ENABLE_RACE_DETECTION }}" == "true" ] && echo "run with -race flag" || echo "run without race detection") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Static Analysis** | $([ "${{ env.ENABLE_STATIC_ANALYSIS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Static analysis will $([ "${{ env.ENABLE_STATIC_ANALYSIS }}" == "true" ] && echo "check for code issues" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **YAML Linting** | $([ "${{ env.ENABLE_YAML_LINT }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | prettier will $([ "${{ env.ENABLE_YAML_LINT }}" == "true" ] && echo "validate YAML formatting" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
@@ -446,6 +447,24 @@ jobs:
             echo "| **History Retention** | \`${{ env.COVERAGE_HISTORY_RETENTION_DAYS }}\` days | Coverage data retention period |" >> $GITHUB_STEP_SUMMARY
             echo "| **Badge Branches** | \`${{ env.COVERAGE_BADGE_BRANCHES }}\` | Branches that generate badges |" >> $GITHUB_STEP_SUMMARY
             echo "| **Exclude Paths** | \`${{ env.COVERAGE_EXCLUDE_PATHS }}\` | Paths excluded from coverage |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "<br><br>" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Pre-Commit System Configuration (only show if pre-commit is enabled)
+          if [[ "${{ env.ENABLE_PRE_COMMIT_SYSTEM }}" == "true" ]]; then
+            echo "## 🪝 Pre-Commit System Configuration" >> $GITHUB_STEP_SUMMARY
+            echo "| Setting | Value | Description |" >> $GITHUB_STEP_SUMMARY
+            echo "|---------|-------|-------------|" >> $GITHUB_STEP_SUMMARY
+            echo "| **Pre-Commit System** | \`GoFortress Native\` | Pure Go implementation, 17x faster execution |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Timeout** | \`${{ env.PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS }}\` seconds | Maximum time allowed for all checks |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Parallel Workers** | \`${{ env.PRE_COMMIT_SYSTEM_PARALLEL_WORKERS }}\` | Concurrent check execution (0 = auto CPU count) |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Fail Fast Mode** | $([ "${{ env.PRE_COMMIT_SYSTEM_FAIL_FAST }}" == "true" ] && echo "⚡ Enabled" || echo "📝 Disabled") | Stop on first failure vs run all checks |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Enabled Checks** | \`${{ env.PRE_COMMIT_SYSTEM_ENABLED_CHECKS }}\` | Active check types (lint, format, security, test) |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Exclude Paths** | \`${{ env.PRE_COMMIT_SYSTEM_EXCLUDE_PATHS }}\` | Paths excluded from pre-commit checks |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Exclude Files** | \`${{ env.PRE_COMMIT_SYSTEM_EXCLUDE_FILES }}\` | File patterns excluded from checks |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Go Version Required** | \`${{ env.PRE_COMMIT_SYSTEM_GO_VERSION_REQUIRED }}\` | Minimum Go version for pre-commit system |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Tool Versions** | golangci-lint: \`${{ env.PRE_COMMIT_SYSTEM_GOLANGCI_LINT_VERSION }}\`, gofumpt: \`${{ env.PRE_COMMIT_SYSTEM_GOFUMPT_VERSION }}\` | Pinned tool versions for consistency |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "<br><br>" >> $GITHUB_STEP_SUMMARY
           fi

@@ -42,6 +42,10 @@ on:
         description: "Code quality job result"
         required: true
         type: string
+      pre-commit-result:
+        description: "Pre-commit checks job result"
+        required: true
+        type: string
       test-suite-result:
         description: "Test suite job result"
         required: true
@@ -335,6 +339,7 @@ jobs:
             echo "|-----|--------|--------|"
             echo "| 🎯 Setup Configuration | ${{ inputs.setup-result }} | $([ "${{ inputs.setup-result }}" = "success" ] && echo "✅" || echo "❌") |"
             echo "| 📋 Test Makefile | ${{ inputs.test-makefile-result }} | $([ "${{ inputs.test-makefile-result }}" = "success" ] && echo "✅" || echo "❌") |"
+            echo "| 🪝 Pre-commit Checks | ${{ inputs.pre-commit-result }} | $([ "${{ inputs.pre-commit-result }}" = "success" ] && echo "✅" || echo "❌") |"
             echo "| 🔒 Security Scans | ${{ inputs.security-result }} | $([ "${{ inputs.security-result }}" = "success" ] && echo "✅" || echo "❌") |"
             echo "| 📊 Code Quality | ${{ inputs.code-quality-result }} | $([ "${{ inputs.code-quality-result }}" = "success" ] && echo "✅" || echo "❌") |"
             echo "| 🧪 Test Suite | ${{ inputs.test-suite-result }} | $([ "${{ inputs.test-suite-result }}" = "success" ] && echo "✅" || echo "❌") |"
@@ -389,6 +394,7 @@ jobs:
             FAILED_JOBS=""
             [ "${{ inputs.setup-result }}" != "success" ] && [ "${{ inputs.setup-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Setup Configuration, "
             [ "${{ inputs.test-makefile-result }}" != "success" ] && [ "${{ inputs.test-makefile-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Test Makefile, "
+            [ "${{ inputs.pre-commit-result }}" != "success" ] && [ "${{ inputs.pre-commit-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Pre-commit Checks, "
             [ "${{ inputs.security-result }}" != "success" ] && [ "${{ inputs.security-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Security Scans, "
             [ "${{ inputs.code-quality-result }}" != "success" ] && [ "${{ inputs.code-quality-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Code Quality, "
             [ "${{ inputs.test-suite-result }}" != "success" ] && [ "${{ inputs.test-suite-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Test Suite, "

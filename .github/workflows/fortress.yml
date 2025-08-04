@@ -368,13 +368,26 @@ jobs:
   performance-summary:
     name: 📊 Performance Summary
     if: always()
-    needs: [load-env, setup, test-makefile, security, code-quality, test-suite, benchmarks, release, status-check]
+    needs:
+      [
+        load-env,
+        setup,
+        test-makefile,
+        pre-commit,
+        security,
+        code-quality,
+        test-suite,
+        benchmarks,
+        release,
+        status-check
+      ]
     permissions:
       contents: read # Read repository content for performance summary
     uses: ./.github/workflows/fortress-performance-summary.yml
     with:
       benchmarks-result: ${{ needs.benchmarks.result }}
       code-quality-result: ${{ needs.code-quality.result }}
+      pre-commit-result: ${{ needs.pre-commit.result }}
       env-json: ${{ needs.load-env.outputs.env-json }}
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       release-result: ${{ needs.release.result }}

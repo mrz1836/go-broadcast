@@ -250,7 +250,8 @@ jobs:
           echo "🔍 Executing checks on all files..."
           CHECKS_OUTPUT=$(./gofortress-pre-commit run --all-files 2>&1) || CHECKS_EXIT=$?
 
-          echo "$CHECKS_OUTPUT"
+          # Strip ANSI color codes for clean GitHub Actions output
+          echo "$CHECKS_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g'
 
           # Extract executed checks from output (if format allows)
           EXECUTED_CHECKS=$(echo "$CHECKS_OUTPUT" | grep -E "Running:|Executing:|✓" | sed 's/.*Running: //;s/.*Executing: //;s/.*✓ //' | tr '\n' ',' | sed 's/,$//' || echo "fumpt,lint,mod-tidy,whitespace,eof-fixer")
