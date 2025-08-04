@@ -153,10 +153,4 @@
         };
     }
 
-})();: updateAllTimestamps,
-            getRelativeTime: getRelativeTime,
-            formatFullTimestamp: formatFullTimestamp
-        };
-    }
-
 })();

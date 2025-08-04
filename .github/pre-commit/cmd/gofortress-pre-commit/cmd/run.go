@@ -297,3 +297,16 @@ func displayEnhancedResults(formatter *output.Formatter, results *runner.Results
 		formatter.Success(stats)
 	}
 }
+
+// resetRunFlags resets run command flags to their defaults for testing
+func resetRunFlags() {
+	allFiles = false
+	files = nil
+	skipChecks = nil
+	onlyChecks = nil
+	parallel = 0
+	failFast = false
+	showVersion = false
+	gracefulDegradation = false
+	showProgress = false
+}

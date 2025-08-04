@@ -31,6 +31,12 @@ type Config struct {
 		EOF        bool // PRE_COMMIT_SYSTEM_ENABLE_EOF
 	}
 
+	// Check behaviors
+	CheckBehaviors struct {
+		WhitespaceAutoStage bool // PRE_COMMIT_SYSTEM_WHITESPACE_AUTO_STAGE
+		EOFAutoStage        bool // PRE_COMMIT_SYSTEM_EOF_AUTO_STAGE
+	}
+
 	// Tool versions
 	ToolVersions struct {
 		Fumpt        string // PRE_COMMIT_SYSTEM_FUMPT_VERSION
@@ -94,6 +100,10 @@ func Load() (*Config, error) {
 	cfg.Checks.ModTidy = getBoolEnv("PRE_COMMIT_SYSTEM_ENABLE_MOD_TIDY", true)
 	cfg.Checks.Whitespace = getBoolEnv("PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE", true)
 	cfg.Checks.EOF = getBoolEnv("PRE_COMMIT_SYSTEM_ENABLE_EOF", true)
+
+	// Check behaviors
+	cfg.CheckBehaviors.WhitespaceAutoStage = getBoolEnv("PRE_COMMIT_SYSTEM_WHITESPACE_AUTO_STAGE", true)
+	cfg.CheckBehaviors.EOFAutoStage = getBoolEnv("PRE_COMMIT_SYSTEM_EOF_AUTO_STAGE", true)
 
 	// Tool versions
 	cfg.ToolVersions.Fumpt = getStringEnv("PRE_COMMIT_SYSTEM_FUMPT_VERSION", "latest")
@@ -273,6 +283,10 @@ Check Configuration:
   PRE_COMMIT_SYSTEM_ENABLE_MOD_TIDY=true        Enable go mod tidy
   PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE=true      Enable whitespace check
   PRE_COMMIT_SYSTEM_ENABLE_EOF=true             Enable EOF newline check
+
+Check Behaviors:
+  PRE_COMMIT_SYSTEM_WHITESPACE_AUTO_STAGE=true  Auto-stage files after whitespace fixes
+  PRE_COMMIT_SYSTEM_EOF_AUTO_STAGE=true         Auto-stage files after EOF fixes
 
 Tool Versions:
   PRE_COMMIT_SYSTEM_FUMPT_VERSION=latest        gofumpt version

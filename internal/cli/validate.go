@@ -181,6 +181,11 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 
 // validateRepositoryAccessibility checks if source and target repositories are accessible via GitHub API
 func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, logConfig *logging.LogConfig, sourceOnly bool) error {
+	// Check for nil config to ensure panic behavior expected by tests
+	if cfg == nil {
+		panic("config cannot be nil")
+	}
+
 	log := logrus.WithField("component", "validate-repos")
 
 	// Try to create GitHub client

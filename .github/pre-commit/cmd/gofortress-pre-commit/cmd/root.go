@@ -51,6 +51,42 @@ func SetVersionInfo(v, c, d string) {
 	version = v
 	commit = c
 	buildDate = d
+	updateVersionInfo()
+}
+
+// ResetCommand resets the command for testing
+func ResetCommand() {
+	// Reset version info
+	version = ""
+	commit = ""
+	buildDate = ""
+
+	// Reset flags to defaults
+	verbose = false
+	noColor = false
+
+	// Reset run command flags to defaults
+	resetRunFlags()
+
+	// Update version info with defaults
+	updateVersionInfo()
+}
+
+// updateVersionInfo updates the cobra command version info
+func updateVersionInfo() {
+	if version == "" {
+		version = "dev"
+	}
+	if commit == "" {
+		commit = "unknown"
+	}
+	if buildDate == "" {
+		buildDate = "unknown"
+	}
+
+	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, buildDate)
+	rootCmd.SetVersionTemplate(`{{with .Name}}{{printf "%s " .}}{{end}}{{printf "version %s" .Version}}
+`)
 }
 
 //nolint:gochecknoinits // Required by cobra
@@ -61,10 +97,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "Disable colored output")
 
-	// Version flag
-	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, buildDate)
-	rootCmd.SetVersionTemplate(`{{with .Name}}{{printf "%s " .}}{{end}}{{printf "version %s" .Version}}
-`)
+	// Version flag - will be updated when SetVersionInfo is called
+	updateVersionInfo()
 
 	// Add subcommands
 	rootCmd.AddCommand(installCmd)

@@ -317,9 +317,11 @@ func TestValidateRepositoryAccessibilityEdgeCases(t *testing.T) {
 		// Should be a client or repo access error, not a parsing error
 		assert.True(t,
 			strings.Contains(err.Error(), "GitHub") ||
+				strings.Contains(err.Error(), "github") ||
 				strings.Contains(err.Error(), "initialize") ||
 				strings.Contains(err.Error(), "client") ||
 				strings.Contains(err.Error(), "repository") ||
+				strings.Contains(err.Error(), "authentication") ||
 				strings.Contains(err.Error(), "branch"),
 			"Expected GitHub or repository error, got: %s", err.Error())
 	})

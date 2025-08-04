@@ -41,13 +41,20 @@ func NewRegistry() *Registry {
 
 // NewRegistryWithConfig creates a new check registry with configuration-based timeouts
 func NewRegistryWithConfig(cfg *config.Config) *Registry {
+	if cfg == nil {
+		// Return an empty registry for nil config instead of nil
+		return &Registry{
+			checks:    make(map[string]Check),
+			sharedCtx: shared.NewContext(),
+		}
+	}
 	r := &Registry{
 		checks:    make(map[string]Check),
 		sharedCtx: shared.NewContext(),
 	}
 
-	// Register built-in checks with timeouts
-	r.Register(builtin.NewWhitespaceCheckWithTimeout(time.Duration(cfg.CheckTimeouts.Whitespace) * time.Second))
+	// Register built-in checks with full config
+	r.Register(builtin.NewWhitespaceCheckWithConfig(cfg))
 	r.Register(builtin.NewEOFCheckWithTimeout(time.Duration(cfg.CheckTimeouts.EOF) * time.Second))
 
 	// Register make wrapper checks with shared context and timeouts

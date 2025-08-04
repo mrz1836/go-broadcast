@@ -7,29 +7,54 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
 	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 )
 
 // WhitespaceCheck removes trailing whitespace from files
 type WhitespaceCheck struct {
-	timeout time.Duration
+	timeout   time.Duration
+	config    *config.Config
+	autoStage bool
 }
 
 // NewWhitespaceCheck creates a new whitespace check
 func NewWhitespaceCheck() *WhitespaceCheck {
 	return &WhitespaceCheck{
-		timeout: 30 * time.Second, // Default 30 second timeout
+		timeout:   30 * time.Second, // Default 30 second timeout
+		config:    nil,
+		autoStage: false,
 	}
 }
 
 // NewWhitespaceCheckWithTimeout creates a new whitespace check with custom timeout
 func NewWhitespaceCheckWithTimeout(timeout time.Duration) *WhitespaceCheck {
 	return &WhitespaceCheck{
-		timeout: timeout,
+		timeout:   timeout,
+		config:    nil,
+		autoStage: false,
+	}
+}
+
+// NewWhitespaceCheckWithConfig creates a new whitespace check with full configuration
+func NewWhitespaceCheckWithConfig(cfg *config.Config) *WhitespaceCheck {
+	timeout := 30 * time.Second
+	autoStage := false
+
+	if cfg != nil {
+		timeout = time.Duration(cfg.CheckTimeouts.Whitespace) * time.Second
+		autoStage = cfg.CheckBehaviors.WhitespaceAutoStage
+	}
+
+	return &WhitespaceCheck{
+		timeout:   timeout,
+		config:    cfg,
+		autoStage: autoStage,
 	}
 }
 
@@ -65,6 +90,7 @@ func (c *WhitespaceCheck) Run(ctx context.Context, files []string) error {
 
 	var errors []string
 	var foundIssues bool
+	var modifiedFiles []string
 
 	for _, file := range files {
 		select {
@@ -76,7 +102,16 @@ func (c *WhitespaceCheck) Run(ctx context.Context, files []string) error {
 				errors = append(errors, fmt.Sprintf("%s: %v", file, err))
 			} else if modified {
 				foundIssues = true
+				modifiedFiles = append(modifiedFiles, file)
 			}
+		}
+	}
+
+	// Stage modified files if auto-staging is enabled
+	if c.autoStage && len(modifiedFiles) > 0 {
+		if err := c.stageFiles(ctx, modifiedFiles); err != nil {
+			// Log warning but don't fail the check
+			errors = append(errors, fmt.Sprintf("auto-staging failed: %v", err))
 		}
 	}
 
@@ -150,6 +185,31 @@ func (c *WhitespaceCheck) processFile(filename string) (bool, error) {
 	}
 
 	return modified, nil
+}
+
+// stageFiles adds modified files to git staging area
+func (c *WhitespaceCheck) stageFiles(ctx context.Context, files []string) error {
+	if len(files) == 0 {
+		return nil
+	}
+
+	// Build git add command with all modified files
+	args := append([]string{"add"}, files...)
+	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // git add with controlled file list
+
+	// Set working directory to repository root if possible
+	if c.config != nil && c.config.Directory != "" {
+		// Go up from pre-commit directory to repository root
+		repoRoot := filepath.Dir(filepath.Dir(c.config.Directory))
+		cmd.Dir = repoRoot
+	}
+
+	// Run git add command
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to stage files: %w (output: %s)", err, string(output))
+	}
+
+	return nil
 }
 
 // isTextFile checks if a file is likely a text file based on extension

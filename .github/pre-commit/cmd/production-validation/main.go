@@ -24,9 +24,9 @@ func main() {
 	}
 
 	// Create validator
-	validator, err := validation.NewProductionReadinessValidator()
+	validator, err := newProductionReadinessValidator()
 	if err != nil {
-		log.Fatalf("Failed to create validator: %v", err)
+		logFatalf("Failed to create validator: %v", err)
 	}
 	defer validator.Cleanup()
 
@@ -35,9 +35,9 @@ func main() {
 	}
 
 	// Generate report
-	report, err := validator.GenerateReport()
+	report, err := generateReport(validator)
 	if err != nil {
-		log.Fatalf("Failed to generate report: %v", err)
+		logFatalf("Failed to generate report: %v", err)
 	}
 
 	if *verbose {
@@ -50,24 +50,24 @@ func main() {
 	case "json":
 		jsonData, err := json.MarshalIndent(report, "", "  ")
 		if err != nil {
-			log.Fatalf("Failed to marshal JSON: %v", err)
+			logFatalf("Failed to marshal JSON: %v", err)
 		}
 		output = string(jsonData)
 	case "text":
 		output = report.FormatReport()
 	default:
-		log.Fatalf("Unsupported output format: %s", *outputFormat)
+		logFatalf("Unsupported output format: %s", *outputFormat)
 	}
 
 	// Write output
 	if *outputFile != "" {
 		// Ensure output directory exists
 		if err := os.MkdirAll(filepath.Dir(*outputFile), 0o750); err != nil {
-			log.Fatalf("Failed to create output directory: %v", err)
+			logFatalf("Failed to create output directory: %v", err)
 		}
 
 		if err := os.WriteFile(*outputFile, []byte(output), 0o600); err != nil {
-			log.Fatalf("Failed to write output file: %v", err)
+			logFatalf("Failed to write output file: %v", err)
 		}
 
 		if *verbose {
@@ -75,7 +75,7 @@ func main() {
 		}
 	} else {
 		if _, err := os.Stdout.WriteString(output); err != nil {
-			log.Fatalf("Failed to write output: %v", err)
+			logFatalf("Failed to write output: %v", err)
 		}
 	}
 
@@ -84,10 +84,20 @@ func main() {
 		if *verbose {
 			log.Println("System is NOT production ready")
 		}
-		os.Exit(1)
+		osExit(1)
 	}
 
 	if *verbose {
 		log.Println("System is production ready!")
 	}
 }
+
+// Global variables for testing - these allow mocking during tests
+var (
+	newProductionReadinessValidator = validation.NewProductionReadinessValidator
+	generateReport                  = func(v *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
+		return v.GenerateReport()
+	}
+	logFatalf = log.Fatalf
+	osExit    = os.Exit
+)

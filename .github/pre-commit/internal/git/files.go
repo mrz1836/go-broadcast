@@ -130,17 +130,17 @@ func (fc *FileClassifier) classifyFile(filePath string) (FileInfo, error) {
 
 	info.Size = stat.Size()
 
+	// Classify by extension and name (always do this regardless of size)
+	info.IsGoFile = fc.isGoFile(filePath)
+	info.Language = fc.detectLanguage(filePath)
+	info.Generated = fc.isGeneratedFile(filePath)
+	info.Excluded = fc.isExcludedPath(filePath)
+
 	// Check if file exceeds size limit
 	if fc.config != nil && info.Size > fc.config.MaxFileSize {
 		info.Excluded = true
 		return info, nil
 	}
-
-	// Classify by extension and name
-	info.IsGoFile = fc.isGoFile(filePath)
-	info.Language = fc.detectLanguage(filePath)
-	info.Generated = fc.isGeneratedFile(filePath)
-	info.Excluded = fc.isExcludedPath(filePath)
 
 	// Detect if file is text or binary
 	if info.Size > 0 && info.Size < 1024*1024 { // Only check files up to 1MB
@@ -394,8 +394,8 @@ func (fc *FileClassifier) isTextContent(content []byte) bool {
 		}
 	}
 
-	// If more than 30% are control characters, likely binary
-	if len(content) > 0 && float64(controlChars)/float64(len(content)) > 0.3 {
+	// If 30% or more are control characters, likely binary
+	if len(content) > 0 && float64(controlChars)/float64(len(content)) >= 0.3 {
 		return false
 	}
 
@@ -446,23 +446,56 @@ func (fc *FileClassifier) globMatch(str, pattern string) bool {
 		return str == pattern
 	}
 
-	// Check if string starts with first part
-	if len(parts[0]) > 0 && !strings.HasPrefix(str, parts[0]) {
-		return false
+	// For simple cases, check prefix and suffix
+	if len(parts) == 2 {
+		prefix := parts[0]
+		suffix := parts[1]
+
+		if len(prefix) > 0 && !strings.HasPrefix(str, prefix) {
+			return false
+		}
+		if len(suffix) > 0 && !strings.HasSuffix(str, suffix) {
+			return false
+		}
+		return true
 	}
 
-	// Check if string ends with last part
-	if len(parts[len(parts)-1]) > 0 && !strings.HasSuffix(str, parts[len(parts)-1]) {
-		return false
+	// For complex patterns with multiple *, implement a more sophisticated matching
+	return fc.multiStarMatch(str, pattern)
+}
+
+// multiStarMatch handles patterns with multiple * wildcards
+func (fc *FileClassifier) multiStarMatch(str, pattern string) bool {
+	parts := strings.Split(pattern, "*")
+
+	strPos := 0
+	for i, part := range parts {
+		if len(part) == 0 {
+			continue // Empty part from consecutive * or leading/trailing *
+		}
+
+		if i == 0 {
+			// First part must match at the beginning
+			if !strings.HasPrefix(str[strPos:], part) {
+				return false
+			}
+			strPos += len(part)
+		} else if i == len(parts)-1 {
+			// Last part must match at the end
+			if !strings.HasSuffix(str[strPos:], part) {
+				return false
+			}
+		} else {
+			// Middle parts must be found in order
+			idx := strings.Index(str[strPos:], part)
+			if idx == -1 {
+				return false
+			}
+			strPos += idx + len(part)
+		}
 	}
 
-	// For more complex patterns, use filepath.Match
-	matched, err := filepath.Match(pattern, filepath.Base(str))
-	if err != nil {
-		return false
-	}
-
-	return matched
+	return true
 }
 
 // GetFileStats returns statistics about the classified files
@@ -484,10 +517,10 @@ func (fc *FileClassifier) GetFileStats(ctx context.Context, files []string) (map
 	languageStats := make(map[string]int)
 
 	for _, info := range classified {
-		if info.IsText {
+		if info.IsText && !info.Excluded {
 			stats["text"]++
 		}
-		if info.IsBinary {
+		if info.IsBinary && !info.Excluded {
 			stats["binary"]++
 		}
 		if info.IsGoFile {

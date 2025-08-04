@@ -456,6 +456,10 @@ func (v *ProductionReadinessValidator) createTestFiles() []string {
 }
 
 func (v *ProductionReadinessValidator) measureAveragePerformance(cfg *config.Config, files []string, iterations int) (time.Duration, error) {
+	if iterations <= 0 {
+		return 0, nil
+	}
+
 	var totalDuration time.Duration
 
 	for i := 0; i < iterations; i++ {
