@@ -213,6 +213,18 @@ setup_deployment_branches() {
         print_warning "*/*/* (three-level) branch pattern rule may already exist or failed to add"
     fi
 
+    # Add three-level wildcard deployment rule (e.g., feature/category/branch-name)
+	print_status "Adding */*/*/* (four-level) branch pattern deployment rule..."
+
+	if gh api "repos/$repo/environments/github-pages/deployment-branch-policies" --method POST \
+		--field name="*/*/*/*" \
+		--field type="branch" \
+		--silent 2>/dev/null; then
+		print_success "*/*/*/* (four-level) branch pattern deployment rule added"
+	else
+		print_warning "*/*/*/* (four-level) branch pattern rule may already exist or failed to add"
+	fi
+
     # Add dependabot/* branch pattern deployment rule
     print_status "Adding dependabot/* branch pattern deployment rule..."
 
