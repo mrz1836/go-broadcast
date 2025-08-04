@@ -23,7 +23,7 @@ cat > "$BASE_DIR/special chars dir/file with spaces.txt" << 'EOF'
 
 This file tests handling of:
 - Directories with spaces
-- Filenames with spaces  
+- Filenames with spaces
 - Special character encoding
 
 Service: {{SERVICE_NAME}}
@@ -39,7 +39,7 @@ for symbol in "!" "@" "#" "$" "%" "^" "&" "*" "(" ")" "_" "+" "-" "=" "[" "]" "{
     # Create files with symbol names (escaped for filesystem)
     case "$symbol" in
         "/" | "\\") continue ;;  # Skip filesystem separators
-        "<" | ">" | "|" | "?" | "*" | ":" | "\"") 
+        "<" | ">" | "|" | "?" | "*" | ":" | "\"")
             # These are problematic on some filesystems, use safe alternatives
             safe_name=$(printf "%s" "$symbol" | xxd -p)
             echo "Symbol file: $symbol" > "$BASE_DIR/symbols/symbol_${safe_name}.txt"
@@ -60,7 +60,7 @@ cat > "$BASE_DIR/unicode_测试/unicode_file_测试.txt" << 'EOF'
 
 Unicode character testing:
 - 中文: 测试文件
-- 日本語: テストファイル  
+- 日本語: テストファイル
 - Español: archivo de prueba
 - Français: fichier de test
 - Deutsch: Testdatei
@@ -90,7 +90,7 @@ Full path: nested/level1/level2/level3/deep_file.txt
 
 Service Configuration:
 - Name: {{SERVICE_NAME}}
-- Repository: {{REPO_NAME}}  
+- Repository: {{REPO_NAME}}
 - Environment: {{ENVIRONMENT}}
 
 Testing deep path synchronization and template replacement at depth.

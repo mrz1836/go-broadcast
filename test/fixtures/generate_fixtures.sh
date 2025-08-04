@@ -23,9 +23,9 @@ clean_fixtures() {
 # Function to create small directory fixture
 create_small() {
     echo "Creating small directory fixture (10 files)..."
-    
+
     mkdir -p "$BASE_DIR/small/config" "$BASE_DIR/small/docs"
-    
+
     # Create 10 files with transforms
     cat > "$BASE_DIR/small/README.md" << 'EOF'
 # {{SERVICE_NAME}} Service
@@ -281,38 +281,38 @@ show_summary() {
     echo ""
     echo "Fixture Generation Summary"
     echo "========================="
-    
+
     if [ -d "$BASE_DIR/small" ]; then
         small_count=$(find "$BASE_DIR/small" -type f | wc -l)
         echo "Small fixture: $small_count files"
     fi
-    
+
     if [ -d "$BASE_DIR/medium" ]; then
         medium_count=$(find "$BASE_DIR/medium" -type f | wc -l)
         echo "Medium fixture: $medium_count files"
     fi
-    
+
     if [ -d "$BASE_DIR/large" ]; then
         large_count=$(find "$BASE_DIR/large" -type f | wc -l)
         echo "Large fixture: $large_count files"
     fi
-    
+
     if [ -d "$BASE_DIR/complex" ]; then
         complex_count=$(find "$BASE_DIR/complex" -type f | wc -l)
         echo "Complex fixture: $complex_count files"
     fi
-    
+
     if [ -d "$BASE_DIR/github" ]; then
         github_count=$(find "$BASE_DIR/github" -type f | wc -l)
         echo "GitHub fixture: $github_count files"
     fi
-    
+
     if [ -d "$BASE_DIR/mixed" ]; then
         mixed_count=$(find "$BASE_DIR/mixed" -type f | wc -l)
         mixed_size=$(du -sh "$BASE_DIR/mixed" 2>/dev/null | cut -f1 || echo "unknown")
         echo "Mixed fixture: $mixed_count files ($mixed_size)"
     fi
-    
+
     echo ""
     echo "All fixtures are ready for testing!"
     echo "Use these fixtures in your directory sync integration tests."

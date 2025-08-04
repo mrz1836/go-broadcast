@@ -34,8 +34,8 @@ Most governance documents live in the repository root or `.github/` directory:
 ## 📋 Core Documents
 
 ### LICENSE
-**Purpose**: Legal terms for using, modifying, and distributing the project  
-**Location**: Repository root  
+**Purpose**: Legal terms for using, modifying, and distributing the project
+**Location**: Repository root
 **Required**: Yes - every project needs a license
 
 Common licenses:
@@ -45,8 +45,8 @@ Common licenses:
 * **BSD** - Similar to MIT with variations
 
 ### README.md
-**Purpose**: Project overview, quick start, and primary documentation  
-**Location**: Repository root  
+**Purpose**: Project overview, quick start, and primary documentation
+**Location**: Repository root
 **Required**: Yes - first point of contact for users
 
 Essential sections:
@@ -57,8 +57,8 @@ Essential sections:
 * License information
 
 ### CODE_OF_CONDUCT.md
-**Purpose**: Expected behavior and enforcement procedures  
-**Location**: `.github/` or root  
+**Purpose**: Expected behavior and enforcement procedures
+**Location**: `.github/` or root
 **Required**: Recommended for community projects
 
 Standard templates:
@@ -67,8 +67,8 @@ Standard templates:
 * Custom organization policies
 
 ### CONTRIBUTING.md
-**Purpose**: How to contribute code, report issues, and participate  
-**Location**: `.github/` or root  
+**Purpose**: How to contribute code, report issues, and participate
+**Location**: `.github/` or root
 **Required**: Highly recommended
 
 Key topics:
@@ -83,8 +83,8 @@ Key topics:
 ## 🔒 Security & Compliance
 
 ### SECURITY.md
-**Purpose**: Vulnerability reporting and security policies  
-**Location**: `.github/` or root  
+**Purpose**: Vulnerability reporting and security policies
+**Location**: `.github/` or root
 **Required**: Yes for public projects
 
 Must include:
@@ -109,8 +109,8 @@ Please report vulnerabilities to security@example.com
 ```
 
 ### CODEOWNERS
-**Purpose**: Automatically assign reviewers based on file ownership  
-**Location**: `.github/` or root  
+**Purpose**: Automatically assign reviewers based on file ownership
+**Location**: `.github/` or root
 **Required**: Recommended for teams
 
 Format:
@@ -131,8 +131,8 @@ Format:
 ## 📖 Documentation Standards
 
 ### CODE_STANDARDS.md
-**Purpose**: Detailed coding conventions and best practices  
-**Location**: `.github/`  
+**Purpose**: Detailed coding conventions and best practices
+**Location**: `.github/`
 **Required**: Recommended for consistency
 
 Topics to cover:
@@ -143,8 +143,8 @@ Topics to cover:
 * Performance guidelines
 
 ### SUPPORT.md
-**Purpose**: Where to get help and ask questions  
-**Location**: `.github/` or root  
+**Purpose**: Where to get help and ask questions
+**Location**: `.github/` or root
 **Required**: Helpful for larger projects
 
 Common sections:
@@ -159,8 +159,8 @@ Common sections:
 ## 🤖 AI & Automation
 
 ### AGENTS.md
-**Purpose**: Guidelines for AI assistants and automated tools  
-**Location**: `.github/`  
+**Purpose**: Guidelines for AI assistants and automated tools
+**Location**: `.github/`
 **Required**: Recommended for AI-assisted development
 
 Should define:
@@ -180,8 +180,8 @@ Should define:
 ## 📊 Metadata Files
 
 ### CITATION.cff
-**Purpose**: How to cite the project in academic work  
-**Location**: Repository root  
+**Purpose**: How to cite the project in academic work
+**Location**: Repository root
 **Required**: For research software
 
 Format (YAML):
@@ -198,8 +198,8 @@ url: "https://github.com/owner/repo"
 ```
 
 ### FUNDING.yml
-**Purpose**: Display funding options on GitHub  
-**Location**: `.github/`  
+**Purpose**: Display funding options on GitHub
+**Location**: `.github/`
 **Required**: If seeking sponsorship
 
 Example:

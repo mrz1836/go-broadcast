@@ -3,8 +3,8 @@ package reporting
 // markdownTemplate contains the Markdown report template
 const markdownTemplate = `# Performance Analysis Report
 
-**Report ID:** {{.ReportID}}  
-**Generated:** {{.Timestamp.Format "2006-01-02 15:04:05"}}  
+**Report ID:** {{.ReportID}}
+**Generated:** {{.Timestamp.Format "2006-01-02 15:04:05"}}
 **Version:** {{.Version}}
 
 ## Executive Summary
@@ -80,7 +80,7 @@ This report summarizes the performance analysis results for go-broadcast.
 {{- range .Recommendations}}
 ### {{.Title}}
 
-**Priority:** {{.Priority | title}}  
+**Priority:** {{.Priority | title}}
 **Category:** {{.Category}}
 
 {{.Description}}
@@ -517,7 +517,7 @@ const htmlTemplate = `<!DOCTYPE html>
         Performance is stable with no significant changes from baseline.
         {{end}}
         </p>
-        
+
         {{if gt .FailedTests 0}}
         <p><strong>Note:</strong> {{.FailedTests}} performance test(s) failed. These failures should be investigated and resolved.</p>
         {{end}}

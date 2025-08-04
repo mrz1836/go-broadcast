@@ -217,7 +217,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 // Side Effects:
 // - Logs detailed target analysis progress when --debug-state flag is enabled
 // - Records API call timing and branch analysis metrics
-func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo string, branchPrefix string) (*TargetState, error) {
+func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo, branchPrefix string) (*TargetState, error) {
 	logger := logging.WithStandardFields(d.logger, d.logConfig, "target-discovery")
 	logger = logger.WithField(logging.StandardFields.TargetRepo, repo)
 	start := time.Now()
@@ -436,7 +436,7 @@ func (d *discoveryService) ParseBranchName(name string) (*BranchMetadata, error)
 }
 
 // ParseBranchNameWithPrefix parses a branch name with a specific prefix to extract sync metadata
-func (d *discoveryService) ParseBranchNameWithPrefix(name string, branchPrefix string) (*BranchMetadata, error) {
+func (d *discoveryService) ParseBranchNameWithPrefix(name, branchPrefix string) (*BranchMetadata, error) {
 	return parseSyncBranchNameWithPrefix(name, branchPrefix)
 }
 

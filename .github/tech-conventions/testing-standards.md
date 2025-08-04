@@ -74,12 +74,12 @@ func TestUserService_CreateUser(t *testing.T) {
             // Setup
             mockDB := new(MockDB)
             tt.setupMocks(mockDB)
-            
+
             service := NewUserService(mockDB)
-            
+
             // Execute
             err := service.CreateUser(context.Background(), tt.input)
-            
+
             // Assert
             if tt.wantErr {
                 require.Error(t, err)
@@ -89,7 +89,7 @@ func TestUserService_CreateUser(t *testing.T) {
             } else {
                 require.NoError(t, err)
             }
-            
+
             mockDB.AssertExpectations(t)
         })
     }
@@ -131,7 +131,7 @@ func FuzzParseConfig(f *testing.F) {
     f.Add("valid: true")
     f.Add("count: 42")
     f.Add("")
-    
+
     f.Fuzz(func(t *testing.T, input string) {
         // Function should not panic on any input
         cfg, err := ParseConfig(input)
@@ -139,7 +139,7 @@ func FuzzParseConfig(f *testing.F) {
             // Error is acceptable, panic is not
             return
         }
-        
+
         // Validate parsed config is sensible
         require.NotNil(t, cfg)
     })
@@ -261,7 +261,11 @@ func TestComplexWorkflow(t *testing.T) {
     // Setup: Create order with 2 payment methods
     // Action: Process partial refund
     // Expectation: Refund succeeds, expired method is skipped
-    
+
+    // ... test implementation
+}
+```ired method is skipped
+
     // ... test implementation
 }
 ```

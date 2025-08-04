@@ -1,14 +1,14 @@
 # ------------------------------------------------------------------------------------
-#  Pre-commit Hooks (Reusable Workflow) (GoFortress)
+#  Pre-commit Checks (Reusable Workflow) (GoFortress)
 #
-#  Purpose: Run Go-native pre-commit hooks for code quality enforcement.
-#  This workflow builds and executes the gofortress-hooks tool from .github/hooks/
+#  Purpose: Run GoFortress Pre-commit System for code quality enforcement.
+#  This workflow builds and executes the gofortress-pre-commit tool from .github/pre-commit/
 #
 #  Maintainer: @mrz1836
 #
 # ------------------------------------------------------------------------------------
 
-name: GoFortress (Pre-commit Hooks)
+name: GoFortress (Pre-commit Checks)
 
 on:
   workflow_call:
@@ -25,17 +25,17 @@ on:
         description: "Primary Go version"
         required: true
         type: string
-      hooks-enabled:
-        description: "Whether Go hooks are enabled"
+      pre-commit-enabled:
+        description: "Whether GoFortress Pre-commit System is enabled"
         required: true
         type: string
     outputs:
-      hooks-version:
-        description: "Version of gofortress-hooks used"
-        value: ${{ jobs.hooks.outputs.hooks-version }}
-      hooks-executed:
-        description: "List of hooks that were executed"
-        value: ${{ jobs.hooks.outputs.hooks-executed }}
+      pre-commit-version:
+        description: "Version of gofortress-pre-commit used"
+        value: ${{ jobs.pre-commit.outputs.pre-commit-version }}
+      checks-executed:
+        description: "List of checks that were executed"
+        value: ${{ jobs.pre-commit.outputs.checks-executed }}
     secrets:
       github-token:
         description: "GitHub token for API access"
@@ -47,15 +47,15 @@ permissions:
 
 jobs:
   # ----------------------------------------------------------------------------------
-  # Pre-commit Hooks Execution
+  # Pre-commit Checks Execution
   # ----------------------------------------------------------------------------------
-  hooks:
-    name: 🪝 Pre-commit Hooks
-    if: ${{ inputs.hooks-enabled == 'true' }}
+  pre-commit:
+    name: 🪝 Pre-commit Checks
+    if: ${{ inputs.pre-commit-enabled == 'true' }}
     runs-on: ${{ inputs.primary-runner }}
     outputs:
-      hooks-version: ${{ steps.hooks-version.outputs.version }}
-      hooks-executed: ${{ steps.run-hooks.outputs.executed }}
+      pre-commit-version: ${{ steps.pre-commit-version.outputs.version }}
+      checks-executed: ${{ steps.run-checks.outputs.executed }}
     steps:
       # ————————————————————————————————————————————————————————————————
       # Parse environment variables
@@ -106,17 +106,17 @@ jobs:
             ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-
 
       # ————————————————————————————————————————————————————————————————
-      # Check if hooks system exists
+      # Check if pre-commit system exists
       # ————————————————————————————————————————————————————————————————
-      - name: 🔍 Status check - Pre-commit hooks system
-        id: check-hooks
+      - name: 🔍 Status check - GoFortress Pre-commit System
+        id: check-pre-commit
         run: |
-          echo "🔍 Checking for pre-commit hooks system..."
+          echo "🔍 Checking for GoFortress Pre-commit System..."
 
           if [ -d ".github/pre-commit" ]; then
             echo "✅ Found .github/pre-commit directory"
             echo "exists=true" >> $GITHUB_OUTPUT
-            
+
             # Check for go.mod in pre-commit directory
             if [ -f ".github/pre-commit/go.mod" ]; then
               echo "✅ Found pre-commit go.mod file"
@@ -125,13 +125,13 @@ jobs:
               echo "❌ Missing go.mod in .github/pre-commit/"
               echo "go_mod_exists=false" >> $GITHUB_OUTPUT
             fi
-            
+
             # Check for main.go
-            if [ -f ".github/pre-commit/cmd/gofortress-hooks/main.go" ]; then
+            if [ -f ".github/pre-commit/cmd/gofortress-pre-commit/main.go" ]; then
               echo "✅ Found main.go entry point"
               echo "main_exists=true" >> $GITHUB_OUTPUT
             else
-              echo "❌ Missing main.go in cmd/gofortress-hooks/"
+              echo "❌ Missing main.go in cmd/gofortress-pre-commit/"
               echo "main_exists=false" >> $GITHUB_OUTPUT
             fi
           else
@@ -142,27 +142,31 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
-      # Display hooks configuration
+      # Display pre-commit configuration
       # ————————————————————————————————————————————————————————————————
-      - name: 📋 Display hooks configuration
-        if: steps.check-hooks.outputs.exists == 'true'
+      - name: 📋 Display pre-commit configuration
+        if: steps.check-pre-commit.outputs.exists == 'true'
         run: |
-          echo "🔧 Pre-commit Hooks Configuration (from .env.shared)"
+          echo "🔧 GoFortress Pre-commit Configuration (from .env.shared)"
           echo "=================================================="
           echo ""
           echo "📊 System Settings:"
-          echo "  • Hooks Enabled: ${{ env.ENABLE_GO_HOOKS }}"
-          echo "  • Parallel Execution: ${{ env.HOOKS_PARALLEL_EXECUTION }}"
-          echo "  • Timeout: ${{ env.HOOKS_TIMEOUT_SECONDS }}s"
-          echo "  • Color Output: ${{ env.HOOKS_COLOR_OUTPUT }}"
-          echo "  • Log Level: ${{ env.HOOKS_LOG_LEVEL }}"
+          echo "  • System Enabled: ${{ env.ENABLE_PRE_COMMIT_SYSTEM }}"
+          echo "  • Directory: ${{ env.PRE_COMMIT_SYSTEM_DIRECTORY }}"
+          echo "  • Enabled Checks: ${{ env.PRE_COMMIT_SYSTEM_ENABLED_CHECKS }}"
+          echo "  • Fail Fast: ${{ env.PRE_COMMIT_SYSTEM_FAIL_FAST }}"
+          echo "  • Timeout: ${{ env.PRE_COMMIT_SYSTEM_TIMEOUT_MINUTES }} minutes"
+          echo "  • Verbose Output: ${{ env.PRE_COMMIT_SYSTEM_VERBOSE_OUTPUT }}"
           echo ""
-          echo "🪝 Hook Status (MVP):"
-          echo "  • fumpt: ${{ env.HOOKS_FUMPT_ENABLED }}"
-          echo "  • lint: ${{ env.HOOKS_LINT_ENABLED }}"
-          echo "  • mod-tidy: ${{ env.HOOKS_MOD_TIDY_ENABLED }}"
-          echo "  • trailing-whitespace: ${{ env.HOOKS_TRAILING_WHITESPACE_ENABLED }}"
-          echo "  • end-of-file-fixer: ${{ env.HOOKS_END_OF_FILE_FIXER_ENABLED }}"
+          echo "🔧 Tool Versions:"
+          echo "  • Go Version Required: ${{ env.PRE_COMMIT_SYSTEM_GO_VERSION_REQUIRED }}"
+          echo "  • golangci-lint: ${{ env.PRE_COMMIT_SYSTEM_GOLANGCI_LINT_VERSION }}"
+          echo "  • gofumpt: ${{ env.PRE_COMMIT_SYSTEM_GOFUMPT_VERSION }}"
+          echo "  • govulncheck: ${{ env.PRE_COMMIT_SYSTEM_GOVULNCHECK_VERSION }}"
+          echo ""
+          echo "📁 Exclusions:"
+          echo "  • Paths: ${{ env.PRE_COMMIT_SYSTEM_EXCLUDE_PATHS }}"
+          echo "  • Files: ${{ env.PRE_COMMIT_SYSTEM_EXCLUDE_FILES }}"
           echo ""
           echo "=================================================="
 
@@ -170,20 +174,20 @@ jobs:
       # Set up Go environment
       # ————————————————————————————————————————————————————————————————
       - name: 🏗️ Set up Go
-        if: steps.check-hooks.outputs.exists == 'true'
+        if: steps.check-pre-commit.outputs.exists == 'true'
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version: ${{ inputs.go-primary-version }}
           cache: false # we handle caches ourselves
 
       # ————————————————————————————————————————————————————————————————
-      # Build gofortress-hooks
+      # Build gofortress-pre-commit
       # ————————————————————————————————————————————————————————————————
-      - name: 🔨 Build gofortress-hooks
-        if: steps.check-hooks.outputs.exists == 'true' && steps.check-hooks.outputs.go_mod_exists == 'true'
-        id: build-hooks
+      - name: 🔨 Build gofortress-pre-commit
+        if: steps.check-pre-commit.outputs.exists == 'true' && steps.check-pre-commit.outputs.go_mod_exists == 'true'
+        id: build-pre-commit
         run: |
-          echo "🔨 Building gofortress-hooks tool..."
+          echo "🔨 Building gofortress-pre-commit tool..."
           cd .github/pre-commit
 
           # Download dependencies
@@ -192,14 +196,14 @@ jobs:
 
           # Build the tool
           echo "🏗️ Building binary..."
-          go build -o gofortress-hooks ./cmd/gofortress-hooks
+          go build -o gofortress-pre-commit ./cmd/gofortress-pre-commit
 
-          if [ -f "gofortress-hooks" ]; then
+          if [ -f "gofortress-pre-commit" ]; then
             echo "✅ Build successful"
             echo "build_success=true" >> $GITHUB_OUTPUT
-            
+
             # Get version
-            ./gofortress-hooks version > version.txt 2>&1 || echo "dev" > version.txt
+            ./gofortress-pre-commit version > version.txt 2>&1 || echo "dev" > version.txt
             VERSION=$(cat version.txt | head -1)
             echo "🏷️ Version: $VERSION"
             echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -210,26 +214,26 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
-      # Set hooks version output
+      # Set pre-commit version output
       # ————————————————————————————————————————————————————————————————
-      - name: 📌 Set hooks version
-        if: steps.check-hooks.outputs.exists == 'true'
-        id: hooks-version
+      - name: 📌 Set pre-commit version
+        if: steps.check-pre-commit.outputs.exists == 'true'
+        id: pre-commit-version
         run: |
-          if [ "${{ steps.build-hooks.outputs.build_success }}" == "true" ]; then
-            echo "version=${{ steps.build-hooks.outputs.version }}" >> $GITHUB_OUTPUT
+          if [ "${{ steps.build-pre-commit.outputs.build_success }}" == "true" ]; then
+            echo "version=${{ steps.build-pre-commit.outputs.version }}" >> $GITHUB_OUTPUT
           else
             echo "version=not-built" >> $GITHUB_OUTPUT
           fi
 
       # ————————————————————————————————————————————————————————————————
-      # Run pre-commit hooks
+      # Run pre-commit checks
       # ————————————————————————————————————————————————————————————————
-      - name: 🚀 Run pre-commit hooks
-        if: steps.check-hooks.outputs.exists == 'true' && steps.build-hooks.outputs.build_success == 'true'
-        id: run-hooks
+      - name: 🚀 Run pre-commit checks
+        if: steps.check-pre-commit.outputs.exists == 'true' && steps.build-pre-commit.outputs.build_success == 'true'
+        id: run-checks
         run: |
-          echo "🚀 Running pre-commit hooks..."
+          echo "🚀 Running pre-commit checks..."
           echo "================================"
 
           cd .github/pre-commit
@@ -237,36 +241,37 @@ jobs:
           # Set environment for CI
           export CI=true
 
-          # List available hooks
-          echo "📋 Available hooks:"
-          ./gofortress-hooks list || echo "  (list command not implemented)"
+          # List available checks
+          echo "📋 Available checks:"
+          ./gofortress-pre-commit run --show-checks || echo "  (failed to show checks)"
           echo ""
 
-          # Run all hooks on all files (CI mode)
-          echo "🪝 Executing hooks on all files..."
-          HOOKS_OUTPUT=$(./gofortress-hooks run pre-commit --all-files 2>&1) || HOOKS_EXIT=$?
+          # Run all checks on all files (CI mode)
+          echo "🔍 Executing checks on all files..."
+          CHECKS_OUTPUT=$(./gofortress-pre-commit run --all-files 2>&1) || CHECKS_EXIT=$?
 
-          echo "$HOOKS_OUTPUT"
+          # Strip ANSI color codes for clean GitHub Actions output
+          echo "$CHECKS_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g'
 
-          # Extract executed hooks from output (if format allows)
-          EXECUTED_HOOKS=$(echo "$HOOKS_OUTPUT" | grep -E "Running:|Executing:|✓" | sed 's/.*Running: //;s/.*Executing: //;s/.*✓ //' | tr '\n' ',' | sed 's/,$//' || echo "fumpt,lint,mod-tidy,whitespace,eof-fixer")
-          echo "executed=$EXECUTED_HOOKS" >> $GITHUB_OUTPUT
+          # Extract executed checks from output (if format allows)
+          EXECUTED_CHECKS=$(echo "$CHECKS_OUTPUT" | grep -E "Running:|Executing:|✓" | sed 's/.*Running: //;s/.*Executing: //;s/.*✓ //' | tr '\n' ',' | sed 's/,$//' || echo "fumpt,lint,mod-tidy,whitespace,eof-fixer")
+          echo "executed=$EXECUTED_CHECKS" >> $GITHUB_OUTPUT
 
-          if [ "${HOOKS_EXIT:-0}" -ne 0 ]; then
-            echo "❌ Pre-commit hooks failed with exit code: ${HOOKS_EXIT}"
-            exit ${HOOKS_EXIT}
+          if [ "${CHECKS_EXIT:-0}" -ne 0 ]; then
+            echo "❌ Pre-commit checks failed with exit code: ${CHECKS_EXIT}"
+            exit ${CHECKS_EXIT}
           fi
 
           echo ""
-          echo "✅ All pre-commit hooks passed successfully"
+          echo "✅ All pre-commit checks passed successfully"
 
       # ————————————————————————————————————————————————————————————————
-      # Fallback: Use make commands if hooks system doesn't exist
+      # Fallback: Use make commands if pre-commit system doesn't exist
       # ————————————————————————————————————————————————————————————————
       - name: 🔄 Fallback - Run make commands
-        if: steps.check-hooks.outputs.exists != 'true' || steps.build-hooks.outputs.build_success != 'true'
+        if: steps.check-pre-commit.outputs.exists != 'true' || steps.build-pre-commit.outputs.build_success != 'true'
         run: |
-          echo "ℹ️ Using fallback make commands (hooks system not available)"
+          echo "ℹ️ Using fallback make commands (pre-commit system not available)"
           echo "============================================================"
           echo ""
 
@@ -274,7 +279,7 @@ jobs:
           echo "version=make-fallback" >> $GITHUB_OUTPUT
           echo "executed=fumpt,lint,mod-tidy" >> $GITHUB_OUTPUT
 
-          # Run essential make commands that would be run by hooks
+          # Run essential make commands that would be run by pre-commit
           echo "🔧 Running make fumpt..."
           make fumpt || true
 
@@ -295,40 +300,40 @@ jobs:
       - name: 📊 Job Summary
         if: always()
         run: |
-          echo "## 🪝 Pre-commit Hooks Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🪝 Pre-commit Checks Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ steps.check-hooks.outputs.exists }}" == "true" ]; then
-            echo "| 🔍 Hook System Details | Status |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check-pre-commit.outputs.exists }}" == "true" ]; then
+            echo "| 🔍 Pre-commit System Details | Status |" >> $GITHUB_STEP_SUMMARY
             echo "|---|---|" >> $GITHUB_STEP_SUMMARY
             echo "| **System Location** | .github/pre-commit/ |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Tool Version** | ${{ steps.hooks-version.outputs.version || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Build Status** | ${{ steps.build-hooks.outputs.build_success == 'true' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Execution Mode** | ${{ env.HOOKS_PARALLEL_EXECUTION == 'true' && '⚡ Parallel' || '📝 Sequential' }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Timeout** | ${{ env.HOOKS_TIMEOUT_SECONDS }}s |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Tool Version** | ${{ steps.pre-commit-version.outputs.version || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Build Status** | ${{ steps.build-pre-commit.outputs.build_success == 'true' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Fail Fast Mode** | ${{ env.PRE_COMMIT_SYSTEM_FAIL_FAST == 'true' && '⚡ Enabled' || '📝 Disabled' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Timeout** | ${{ env.PRE_COMMIT_SYSTEM_TIMEOUT_MINUTES }} minutes |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            
-            if [ "${{ steps.build-hooks.outputs.build_success }}" == "true" ]; then
-              echo "### 🪝 Hooks Executed" >> $GITHUB_STEP_SUMMARY
-              HOOKS="${{ steps.run-hooks.outputs.executed || 'unknown' }}"
-              echo "$HOOKS" | tr ',' '\n' | while read hook; do
-                if [ -n "$hook" ]; then
-                  echo "- ✅ $hook" >> $GITHUB_STEP_SUMMARY
+
+            if [ "${{ steps.build-pre-commit.outputs.build_success }}" == "true" ]; then
+              echo "### 🔍 Checks Executed" >> $GITHUB_STEP_SUMMARY
+              CHECKS="${{ steps.run-checks.outputs.executed || 'unknown' }}"
+              echo "$CHECKS" | tr ',' '\n' | while read check; do
+                if [ -n "$check" ]; then
+                  echo "- ✅ $check" >> $GITHUB_STEP_SUMMARY
                 fi
               done
               echo "" >> $GITHUB_STEP_SUMMARY
-              echo "🎯 **All pre-commit hooks passed successfully.**" >> $GITHUB_STEP_SUMMARY
+              echo "🎯 **All pre-commit checks passed successfully.**" >> $GITHUB_STEP_SUMMARY
             else
               echo "### ⚠️ Fallback Mode" >> $GITHUB_STEP_SUMMARY
-              echo "The Go hooks system is not available. Using make commands as fallback:" >> $GITHUB_STEP_SUMMARY
+              echo "The GoFortress Pre-commit System is not available. Using make commands as fallback:" >> $GITHUB_STEP_SUMMARY
               echo "- ✅ make fumpt" >> $GITHUB_STEP_SUMMARY
               echo "- ✅ make lint" >> $GITHUB_STEP_SUMMARY
               echo "- ✅ make mod-tidy" >> $GITHUB_STEP_SUMMARY
             fi
           else
-            echo "### ℹ️ Pre-commit Hooks Not Implemented" >> $GITHUB_STEP_SUMMARY
+            echo "### ℹ️ GoFortress Pre-commit System Not Implemented" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The Go-native pre-commit hooks system has not been implemented yet." >> $GITHUB_STEP_SUMMARY
+            echo "The GoFortress Pre-commit System has not been implemented yet." >> $GITHUB_STEP_SUMMARY
             echo "Using standard make commands for code quality checks:" >> $GITHUB_STEP_SUMMARY
             echo "- ✅ make fumpt (code formatting)" >> $GITHUB_STEP_SUMMARY
             echo "- ✅ make lint (comprehensive linting)" >> $GITHUB_STEP_SUMMARY
@@ -363,16 +368,16 @@ jobs:
           fi
 
           # Create cache statistics JSON
-          echo '{' > "cache-stats-hooks.json"
-          echo '  "os": "${{ inputs.primary-runner }}",' >> "cache-stats-hooks.json"
-          echo '  "go_version": "${{ inputs.go-primary-version }}",' >> "cache-stats-hooks.json"
-          echo "  \"gomod_cache_hit\": \"$GOMOD_HIT\"," >> "cache-stats-hooks.json"
-          echo "  \"gobuild_cache_hit\": \"$GOBUILD_HIT\"," >> "cache-stats-hooks.json"
-          echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "cache-stats-hooks.json"
-          echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "cache-stats-hooks.json"
-          echo '  "workflow": "hooks",' >> "cache-stats-hooks.json"
-          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "cache-stats-hooks.json"
-          echo '}' >> "cache-stats-hooks.json"
+          echo '{' > "cache-stats-pre-commit.json"
+          echo '  "os": "${{ inputs.primary-runner }}",' >> "cache-stats-pre-commit.json"
+          echo '  "go_version": "${{ inputs.go-primary-version }}",' >> "cache-stats-pre-commit.json"
+          echo "  \"gomod_cache_hit\": \"$GOMOD_HIT\"," >> "cache-stats-pre-commit.json"
+          echo "  \"gobuild_cache_hit\": \"$GOBUILD_HIT\"," >> "cache-stats-pre-commit.json"
+          echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "cache-stats-pre-commit.json"
+          echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "cache-stats-pre-commit.json"
+          echo '  "workflow": "pre-commit",' >> "cache-stats-pre-commit.json"
+          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "cache-stats-pre-commit.json"
+          echo '}' >> "cache-stats-pre-commit.json"
 
           echo "📊 Cache statistics collected"
 
@@ -383,6 +388,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: cache-stats-hooks
-          path: cache-stats-hooks.json
+          name: cache-stats-pre-commit
+          path: cache-stats-pre-commit.json
           retention-days: 1

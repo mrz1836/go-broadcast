@@ -11,7 +11,7 @@ This repository uses **`AGENTS.md`** as the entry point to our modular technical
   * **Infrastructure**: CI/CD, dependencies, security, workflows
   * **Project Management**: Labeling conventions
 
-> **TL;DR:** **Start with `AGENTS.md`**, then explore specific conventions in **`tech-conventions/`**.  
+> **TL;DR:** **Start with `AGENTS.md`**, then explore specific conventions in **`tech-conventions/`**.
 > All technical questions are answered in these focused documents.
 
 ---
@@ -64,7 +64,7 @@ make test-all-modules-race  # Test all modules with race detection
 ```bash
 # Phase-specific integration tests
 make test-integration-complex    # Phase 1: Complex workflows
-make test-integration-advanced   # Phase 2: Advanced scenarios  
+make test-integration-advanced   # Phase 2: Advanced scenarios
 make test-integration-network    # Phase 3: Network edge cases
 make test-integration-all        # All integration test phases
 ```
@@ -161,7 +161,7 @@ go tool pprof mem.prof
    ```bash
    # Run tests with verbose output
    go test -v ./...
-   
+
    # Run specific failing test
    go test -v -run TestSpecificFunction ./internal/package
    ```
@@ -171,7 +171,7 @@ go tool pprof mem.prof
    # Fix formatting issues
    make fumpt          # Apply gofumpt formatting
    goimports -w .      # Fix import statements
-   
+
    # Check linting rules
    make lint-version   # Show linter version
    make lint           # Run all linters
@@ -182,7 +182,7 @@ go tool pprof mem.prof
    # Profile memory usage
    go test -bench=. -memprofile=mem.prof ./internal/component
    go tool pprof mem.prof
-   
+
    # Monitor goroutines
    go test -bench=. -trace=trace.out ./internal/worker
    go tool trace trace.out
@@ -292,6 +292,98 @@ The GoFortress coverage system uses an **incremental deployment strategy** that 
 - **Missing branch coverage**: Ensure the branch has pushed after coverage setup
 - **PR badge not showing**: Check that `COVERAGE_PR_COMMENT_ENABLED=true` in `.env.shared`
 
+### 🪝 GoFortress Pre-commit System
+
+The GoFortress Pre-commit System is a **production-ready, high-performance Go-native pre-commit framework** that delivers 17x faster execution than traditional Python-based solutions.
+
+**Quick Setup:**
+```bash
+# Navigate to pre-commit system
+cd .github/pre-commit
+
+# Build and install
+make build
+./gofortress-pre-commit install
+
+# Normal development - hooks run automatically
+git add .
+git commit -m "feat: new feature"
+# ✅ All checks passed in <2s
+```
+
+**Key Features:**
+- ⚡ **17x faster execution** - <2 second commits with parallel processing
+- 📦 **Zero Python dependencies** - Pure Go binary, no runtime requirements
+- 🔧 **Make integration** - Wraps existing Makefile targets (fumpt, lint, mod-tidy)
+- ⚙️ **Environment-driven** - All configuration via `.github/.env.shared`
+- 🎯 **Production ready** - 80.6% test coverage with comprehensive validation
+
+**Available Checks (5 MVP checks):**
+1. **fumpt** - Code formatting via `make fumpt`
+2. **lint** - Linting via `make lint`
+3. **mod-tidy** - Module tidying via `make mod-tidy`
+4. **whitespace** - Trailing whitespace removal (built-in)
+5. **eof** - End-of-file newline enforcement (built-in)
+
+**Configuration in `.github/.env.shared`:**
+```bash
+# Enable the system
+ENABLE_PRE_COMMIT_SYSTEM=true
+
+# Individual check control
+PRE_COMMIT_SYSTEM_ENABLE_FUMPT=true
+PRE_COMMIT_SYSTEM_ENABLE_LINT=true
+PRE_COMMIT_SYSTEM_ENABLE_MOD_TIDY=true
+PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE=true
+PRE_COMMIT_SYSTEM_ENABLE_EOF=true
+
+# Performance tuning
+PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=0  # 0 = auto (CPU count)
+PRE_COMMIT_SYSTEM_TIMEOUT_MINUTES=10
+PRE_COMMIT_SYSTEM_FAIL_FAST=false
+```
+
+**Development Commands:**
+```bash
+# Manual execution
+./gofortress-pre-commit run                    # All checks on staged files
+./gofortress-pre-commit run --all-files        # All checks on all files
+./gofortress-pre-commit run lint fumpt         # Specific checks only
+./gofortress-pre-commit run --verbose          # Debug output
+
+# Skip functionality
+SKIP=lint git commit -m "wip: work in progress"
+PRE_COMMIT_SYSTEM_SKIP=all git commit -m "hotfix: critical fix"
+
+# Status and management
+./gofortress-pre-commit status --verbose       # Installation status
+./gofortress-pre-commit uninstall              # Remove hooks
+```
+
+**CI/CD Integration:**
+```yaml
+# Automatic integration via fortress-pre-commit.yml
+pre-commit:
+  name: 🪝 Pre-commit Checks
+  if: needs.setup.outputs.pre-commit-enabled == 'true'
+  uses: ./.github/workflows/fortress-pre-commit.yml
+```
+
+**Performance Benchmarks:**
+- **Total pipeline**: <2s (17x faster than baseline)
+- **fumpt**: 6ms (37% faster)
+- **lint**: 68ms (94% faster)
+- **mod-tidy**: 110ms (53% faster)
+- **Text processing**: <1ms (built-in speed)
+
+**Troubleshooting:**
+- **"gofortress-pre-commit not found"**: Run `cd .github/pre-commit && make build`
+- **"make: gofumpt: No such file or directory"**: Install with `go install mvdan.cc/gofumpt@latest`
+- **"Hook already exists"**: Use `./gofortress-pre-commit install --force`
+- **Slow execution**: Increase timeout with `PRE_COMMIT_SYSTEM_TIMEOUT_MINUTES=15`
+
+**📚 Complete Documentation:** [`.github/pre-commit/README.md`](.github/pre-commit/README.md)
+
 ### 📚 Documentation Navigation
 
 **Core Documentation:**
@@ -372,7 +464,7 @@ Before starting any development work:
    ```bash
    make mod-download
    make install-stdlib
-   pre-commit install  # Optional but recommended
+   cd .github/pre-commit && make build && ./gofortress-pre-commit install  # Optional but recommended
    ```
 3. **Validate environment:**
    ```bash
@@ -407,7 +499,7 @@ Before starting any development work:
 - **Security first** - Run `govulncheck` and validate all external dependencies
 - **Performance matters** - Use benchmarks to validate optimizations
 
-If you encounter conflicting guidance elsewhere, `AGENTS.md` wins.  
+If you encounter conflicting guidance elsewhere, `AGENTS.md` wins.
 Questions or ambiguities? Open a discussion or ping a maintainer instead of guessing.
 
 ---

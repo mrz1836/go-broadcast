@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -23,6 +24,9 @@ import (
 var (
 	ErrSimulatedNetworkFailure   = errors.New("simulated network failure")
 	ErrTooManyProcessingFailures = errors.New("too many file processing failures")
+	ErrFixtureScriptNotFound     = errors.New("fixture generation script not found")
+	ErrFixtureGenerationFailed   = errors.New("fixture generation failed")
+	ErrInvalidFixtureScriptPath  = errors.New("invalid fixture script path")
 )
 
 // DirectoryE2EPerformanceSuite provides comprehensive end-to-end performance validation
@@ -179,6 +183,86 @@ func (ns *NetworkSimulator) Reset() {
 	atomic.StoreInt64(&ns.failures, 0)
 }
 
+// generateFixtures ensures test fixtures are available by running the generation script
+func (suite *DirectoryE2EPerformanceSuite) generateFixtures() error {
+	// Get current working directory and locate fixtures script
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	fixturesScriptDir := filepath.Join(wd, "..", "fixtures")
+	generateScript := filepath.Join(fixturesScriptDir, "generate_fixtures.sh")
+
+	// Validate script path for security
+	if !filepath.IsAbs(generateScript) {
+		return fmt.Errorf("%w: script path must be absolute: %s", ErrInvalidFixtureScriptPath, generateScript)
+	}
+
+	// Check if script exists
+	if _, statErr := os.Stat(generateScript); os.IsNotExist(statErr) {
+		return fmt.Errorf("%w: %s", ErrFixtureScriptNotFound, generateScript)
+	}
+
+	suite.logger.WithField("script", generateScript).Info("Generating test fixtures")
+
+	// Execute the fixture generation script with validated path
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "bash", generateScript, "all") //nolint:gosec // Path validated above
+	cmd.Dir = fixturesScriptDir
+
+	// Capture output for debugging
+	output, cmdErr := cmd.CombinedOutput()
+	if cmdErr != nil {
+		suite.logger.WithError(cmdErr).WithField("output", string(output)).Error("Fixture generation failed")
+		return fmt.Errorf("%w: %w\nOutput: %s", ErrFixtureGenerationFailed, cmdErr, string(output))
+	}
+
+	suite.logger.WithField("output", string(output)).Info("Fixtures generated successfully")
+
+	// Verify that expected fixture directories exist
+	requiredFixtures := []string{"small", "medium", "large", "complex", "github", "mixed"}
+	fixturesBaseDir := filepath.Join(fixturesScriptDir, "directories")
+
+	for _, fixture := range requiredFixtures {
+		fixturePath := filepath.Join(fixturesBaseDir, fixture)
+		if _, statErr := os.Stat(fixturePath); os.IsNotExist(statErr) {
+			suite.logger.WithField("fixture", fixture).Warn("Expected fixture directory not created")
+		} else {
+			suite.logger.WithField("fixture", fixture).Debug("Fixture directory verified")
+		}
+	}
+
+	return nil
+}
+
+// cleanupFixtures removes generated test fixtures (optional)
+func (suite *DirectoryE2EPerformanceSuite) cleanupFixtures() error {
+	// Skip cleanup if environment variable is set (for debugging)
+	if os.Getenv("GO_BROADCAST_KEEP_FIXTURES") == "true" {
+		suite.logger.Info("Skipping fixture cleanup (GO_BROADCAST_KEEP_FIXTURES=true)")
+		return nil
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	fixturesDir := filepath.Join(wd, "..", "fixtures", "directories")
+
+	// Only remove if it exists
+	if _, err := os.Stat(fixturesDir); err == nil {
+		suite.logger.WithField("dir", fixturesDir).Info("Cleaning up test fixtures")
+		if err := os.RemoveAll(fixturesDir); err != nil {
+			suite.logger.WithError(err).Warn("Failed to clean up fixtures directory")
+			return err
+		}
+	}
+
+	return nil
+}
+
 // SetupSuite initializes the test suite with profiling and fixtures
 func (suite *DirectoryE2EPerformanceSuite) SetupSuite() {
 	// Skip in short test mode
@@ -215,14 +299,18 @@ func (suite *DirectoryE2EPerformanceSuite) SetupSuite() {
 	}
 	suite.profileSuite.Configure(config)
 
-	// Locate test fixtures
+	// Locate test fixtures directory
 	wd, err := os.Getwd()
 	suite.Require().NoError(err)
 	suite.fixturesDir = filepath.Join(wd, "..", "fixtures", "directories")
 
-	// Verify fixtures exist
+	// Generate test fixtures if they don't exist or regenerate them
+	err = suite.generateFixtures()
+	suite.Require().NoError(err, "Failed to generate test fixtures")
+
+	// Verify fixtures directory exists after generation
 	_, err = os.Stat(suite.fixturesDir)
-	suite.Require().NoError(err, "Test fixtures directory not found: %s", suite.fixturesDir)
+	suite.Require().NoError(err, "Test fixtures directory not found after generation: %s", suite.fixturesDir)
 
 	// Initialize network simulator
 	suite.networkSimulator = NewNetworkSimulator(0, 0)
@@ -235,6 +323,11 @@ func (suite *DirectoryE2EPerformanceSuite) SetupSuite() {
 func (suite *DirectoryE2EPerformanceSuite) TearDownSuite() {
 	// Generate final comprehensive report
 	suite.generateComprehensiveReport()
+
+	// Cleanup test fixtures (optional - controlled by environment variable)
+	if err := suite.cleanupFixtures(); err != nil {
+		suite.logger.WithError(err).Warn("Failed to cleanup test fixtures")
+	}
 
 	// Cleanup temporary directory
 	if suite.tempDir != "" {

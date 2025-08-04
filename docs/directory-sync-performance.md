@@ -7,7 +7,7 @@ This document provides comprehensive performance analysis and benchmarks for go-
 go-broadcast's directory sync implementation delivers extraordinary performance through advanced concurrent processing, zero-allocation algorithms, and GitHub API optimization:
 
 - **Performance**: 1000+ files processed in ~32ms (150x faster than 5s target)
-- **API Efficiency**: 90%+ reduction in GitHub API calls through tree API optimization  
+- **API Efficiency**: 90%+ reduction in GitHub API calls through tree API optimization
 - **Memory**: Linear scaling at ~1.2MB per 1000 files with zero-allocation critical paths
 - **Concurrency**: Worker pools with controlled parallelism for optimal throughput
 
@@ -32,7 +32,7 @@ Based on production measurements with real directory structures:
 ```yaml
 # Performance breakdown for complete .github sync
 workflows/     # 24 files  - 1.5ms processing
-coverage/      # 87 files  - 4.0ms processing  
+coverage/      # 87 files  - 4.0ms processing
 templates/     # 15 files  - 0.8ms processing
 other/         # 23 files  - 1.2ms processing
 Total:         # 149 files - 7.5ms processing
@@ -46,7 +46,7 @@ Total:         # 149 files - 7.5ms processing
 ```yaml
 # Documentation repository example
 docs/          # 450 files - 14ms processing
-assets/        # 300 files - 10ms processing  
+assets/        # 300 files - 10ms processing
 examples/      # 180 files - 6ms processing
 configs/       # 70 files  - 2ms processing
 Total:         # 1000 files - 32ms processing
@@ -65,7 +65,7 @@ Total:         # 1000 files - 32ms processing
 type DirectoryProcessor struct {
     workerPool    *WorkerPool     // Concurrent file processing
     exclusionEngine *ExclusionEngine // Zero-allocation pattern matching
-    batchProcessor *BatchProcessor  // API call batching  
+    batchProcessor *BatchProcessor  // API call batching
     progressReporter *ProgressReporter // >50 files threshold
     cacheManager  *CacheManager    // Content deduplication
 }
@@ -148,7 +148,7 @@ For 149 files in .github directory:
 ```
 Directory Size vs Memory Usage (Linear Scaling):
 50 files:     ~0.06MB (1.2KB per file)
-100 files:    ~0.12MB (1.2KB per file)  
+100 files:    ~0.12MB (1.2KB per file)
 500 files:    ~0.60MB (1.2KB per file)
 1000 files:   ~1.20MB (1.2KB per file)
 ```
@@ -269,7 +269,7 @@ type ProgressConfig struct {
 
 // Output for large directories:
 // "Processing .github directory: 87 files found"
-// "Applying exclusions: 26 files excluded"  
+// "Applying exclusions: 26 files excluded"
 // "Processing files: [████████████████████] 61/61 (100%) - 4ms"
 // "Directory sync complete: 61 files synced in 4ms"
 ```
@@ -303,7 +303,7 @@ echo "=== Directory Sync Performance Validation ==="
 time go-broadcast sync --config test-configs/small-dir.yaml --dry-run
 # Expected: <100ms total
 
-# Test medium directory  
+# Test medium directory
 time go-broadcast sync --config test-configs/medium-dir.yaml --dry-run
 # Expected: <200ms total
 
@@ -326,7 +326,7 @@ go-broadcast sync --log-level debug --config production.yaml 2>&1 | \
 
 # Expected output for .github directory (149 files):
 # 7     (processing_time_ms)
-# 149   (files_synced)  
+# 149   (files_synced)
 # 142   (api_calls_saved - 98% reduction)
 ```
 
@@ -340,10 +340,10 @@ go-broadcast sync --log-level debug --config production.yaml 2>&1 | \
 files:
   - src: ".github/workflows/ci.yml"
     dest: ".github/workflows/ci.yml"
-  - src: ".github/workflows/test.yml"  
+  - src: ".github/workflows/test.yml"
     dest: ".github/workflows/test.yml"
   # ... 147 more entries
-  
+
 # Performance characteristics:
 # - Configuration: 149 lines (verbose)
 # - API calls: 149+ individual calls
@@ -359,10 +359,10 @@ directories:
   - src: ".github"
     dest: ".github"
     exclude: ["*.out", "*.test"]  # Smart defaults + custom
-    
+
 # Performance characteristics:
 # - Configuration: 4 lines (concise)
-# - API calls: 2-3 total calls  
+# - API calls: 2-3 total calls
 # - Processing time: ~7ms
 # - Memory usage: ~1.2MB
 # - Maintenance: Low (automatic file discovery)
@@ -393,7 +393,7 @@ directories:
   # Segment for better control and performance
   - src: "docs/api"
     dest: "docs/api"
-  - src: "docs/guides"  
+  - src: "docs/guides"
     dest: "docs/guides"
   - src: "docs/examples"
     dest: "docs/examples"
@@ -416,19 +416,19 @@ directories:
       # Exact matches (fastest - 15 ns/op)
       - ".DS_Store"
       - "node_modules"
-      
+
       # Extension patterns (fast - 25 ns/op)
       - "*.tmp"
       - "*.log"
-      
+
       # Prefix/suffix patterns (medium - 45 ns/op)
       - "temp-*"
       - "*-backup"
-      
+
       # Wildcard patterns (slower - 95 ns/op)
       - "*secret*"
       - "*password*"
-      
+
       # Recursive patterns (slowest - 107 ns/op, use sparingly)
       - "**/cache/**"
       - "**/tmp/**"

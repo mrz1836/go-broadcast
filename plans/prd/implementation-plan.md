@@ -8,7 +8,7 @@ This implementation plan is structured as a series of Claude Code tasks designed
 
 The File Sync Orchestrator (`go-broadcast`) is a stateless CLI tool that:
 - Synchronizes files from a template repository to multiple target repositories
-- Derives all state from GitHub (branches, PRs, commits) 
+- Derives all state from GitHub (branches, PRs, commits)
 - Supports file transformations (repository name replacement, template variables)
 - Provides both CLI and optional TUI interfaces
 - Integrates with Claude Code for intelligent PR descriptions
@@ -134,11 +134,11 @@ version: 1
 source:
   repo: "org/template-repo"
   branch: "master"
-  
+
 defaults:
   branch_prefix: "chore/sync-files"
   pr_labels: ["automated-sync"]
-  
+
 targets:
   - repo: "org/service-a"
     files:
@@ -189,7 +189,7 @@ You are building go-broadcast, a stateless File Sync Orchestrator that synchroni
 **Task:**
 "Define all core interfaces for external dependencies and create mock implementations:
 - GitHub client interface in internal/gh/client.go
-- Git operations interface in internal/git/client.go  
+- Git operations interface in internal/git/client.go
 - Transform interface in internal/transform/transformer.go
 - State discovery interface in internal/state/discoverer.go
 - Create mock implementations for all interfaces
@@ -212,10 +212,10 @@ package gh
 type Client interface {
     // ListBranches returns all branches for a repository
     ListBranches(ctx context.Context, repo string) ([]Branch, error)
-    
+
     // CreatePR creates a new pull request
     CreatePR(ctx context.Context, repo string, req PRRequest) (*PR, error)
-    
+
     // GetFile retrieves file contents from a repository
     GetFile(ctx context.Context, repo, path, ref string) ([]byte, error)
 }
@@ -252,7 +252,7 @@ go test ./internal/gh ./internal/git ./internal/transform ./internal/state -v
 **Expected Deliverables:**
 - internal/gh/client.go - GitHub client interface
 - internal/gh/mock.go - Mock GitHub client
-- internal/git/client.go - Git operations interface  
+- internal/git/client.go - Git operations interface
 - internal/git/mock.go - Mock Git client
 - internal/transform/transformer.go - Transform interface
 - internal/transform/mock.go - Mock transformer
@@ -359,7 +359,7 @@ go build -o go-broadcast cmd/go-broadcast/main.go
 **Expected Deliverables:**
 - cmd/go-broadcast/main.go - Main entry point
 - internal/cli/root.go - Root command setup
-- internal/cli/sync.go - Sync command implementation  
+- internal/cli/sync.go - Sync command implementation
 - internal/cli/status.go - Status command
 - internal/cli/validate.go - Config validation command
 - internal/cli/version.go - Version information
@@ -410,24 +410,24 @@ type githubClient struct {
 }
 
 func (g *githubClient) ListBranches(ctx context.Context, repo string) ([]Branch, error) {
-    cmd := g.cmdRunner.Command("gh", "api", 
+    cmd := g.cmdRunner.Command("gh", "api",
         fmt.Sprintf("repos/%s/branches", repo),
         "--paginate")
-    
+
     output, err := cmd.Output()
     if err != nil {
         return nil, fmt.Errorf("failed to list branches: %w", err)
     }
-    
+
     var branches []Branch
     if err := json.Unmarshal(output, &branches); err != nil {
         return nil, fmt.Errorf("failed to parse branches: %w", err)
     }
-    
+
     return branches, nil
 }
 
-// internal/git/git.go  
+// internal/git/git.go
 func (g *gitClient) Clone(ctx context.Context, url, path string) error {
     cmd := exec.CommandContext(ctx, "git", "clone", url, path)
     cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
@@ -477,7 +477,7 @@ go test ./internal/gh -tags=integration
 You are building go-broadcast, a stateless File Sync Orchestrator that synchronizes files from source repository repositories to multiple targets. This is Part 6 of a 9-part implementation plan. The KEY INNOVATION is that the system stores NO local state - everything is derived from GitHub (branch names, PR metadata, commits). Parts 1-5 have built the foundation through to GitHub/Git clients. Now you'll implement state discovery that reconstructs the complete sync state by parsing branch names (chore/sync-files-YYYYMMDD-HHMMSS-{commit}) and PR metadata. This enables resuming interrupted syncs and understanding current state.
 
 **Prerequisites:**
-- Part 5 completed successfully  
+- Part 5 completed successfully
 - GitHub client implemented
 - Git client implemented
 
@@ -507,7 +507,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, config *config.Con
     state := &State{
         Targets: make(map[string]*TargetState),
     }
-    
+
     for _, target := range config.Targets {
         targetState, err := d.discoverTargetState(ctx, target.Repo)
         if err != nil {
@@ -515,7 +515,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, config *config.Con
         }
         state.Targets[target.Repo] = targetState
     }
-    
+
     return state, nil
 }
 
@@ -549,7 +549,7 @@ go run cmd/go-broadcast/main.go status --config examples/sync.yaml
 **Expected Deliverables:**
 - internal/state/discovery.go - Main discovery logic
 - internal/state/branch.go - Branch name parsing
-- internal/state/pr.go - PR metadata extraction  
+- internal/state/pr.go - PR metadata extraction
 - internal/state/types.go - State type definitions
 - internal/state/discovery_test.go - Comprehensive tests
 
@@ -575,7 +575,7 @@ You are building go-broadcast, a stateless File Sync Orchestrator that synchroni
 "Implement the transform engine for file content modifications:
 - Create transformer interface and chain
 - Implement smart repository name replacement
-- Add template variable substitution  
+- Add template variable substitution
 - Support custom transformation patterns
 - Preview transformations before applying"
 
@@ -607,7 +607,7 @@ type repoTransformer struct{}
 func (r *repoTransformer) Transform(content []byte, ctx Context) ([]byte, error) {
     // Smart replacement: only in specific contexts
     // - go.mod module lines
-    // - import statements  
+    // - import statements
     // - documentation
     patterns := []struct {
         regex *regexp.Regexp
@@ -618,7 +618,7 @@ func (r *repoTransformer) Transform(content []byte, ctx Context) ([]byte, error)
             replacement: fmt.Sprintf("module github.com/%s", ctx.TargetRepo),
         },
     }
-    
+
     result := content
     for _, p := range patterns {
         result = p.regex.ReplaceAll(result, []byte(p.replacement))
@@ -701,10 +701,10 @@ func (e *Engine) Sync(ctx context.Context, targets []string) error {
     if err != nil {
         return fmt.Errorf("failed to discover state: %w", err)
     }
-    
+
     // 2. Determine targets to sync
     syncTargets := e.filterTargets(targets, currentState)
-    
+
     // 3. Process each target
     g, ctx := errgroup.WithContext(ctx)
     for _, target := range syncTargets {
@@ -713,14 +713,14 @@ func (e *Engine) Sync(ctx context.Context, targets []string) error {
             return e.syncRepository(ctx, target, currentState)
         })
     }
-    
+
     return g.Wait()
 }
 
 func (e *Engine) syncRepository(ctx context.Context, target config.Target, state *State) error {
     // Clone, transform, commit, push, create PR
     log.WithField("repo", target.Repo).Info("Syncing repository")
-    
+
     // Implementation...
 }
 ```
@@ -792,15 +792,15 @@ func TestEndToEndSync(t *testing.T) {
     // Setup mock clients
     mockGH := &gh.MockClient{}
     mockGit := &git.MockClient{}
-    
+
     // Configure expectations
     mockGH.On("ListBranches", mock.Anything, "org/template").
         Return([]gh.Branch{{Name: "master", SHA: "abc123"}}, nil)
-    
+
     // Run sync
     engine := sync.NewEngine(config, mockGH, mockGit)
     err := engine.Sync(context.Background(), nil)
-    
+
     // Verify
     assert.NoError(t, err)
     mockGH.AssertExpectations(t)
@@ -842,7 +842,7 @@ make test
 make test-coverage
 go tool cover -html=coverage.out
 
-# Run benchmarks  
+# Run benchmarks
 make bench
 
 # Validate examples work
@@ -891,7 +891,7 @@ Create `implementation-progress.md` to track completion:
 
 ### Part 1: Project Foundation & Cleanup
 - [ ] Status: Not Started
-- [ ] Started: 
+- [ ] Started:
 - [ ] Completed:
 - [ ] Notes:
 

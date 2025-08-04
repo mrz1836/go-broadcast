@@ -32,12 +32,12 @@ print_section() {
 validate_config() {
     local config_file="$1"
     local description="$2"
-    
+
     echo -e "${BLUE}Validating: ${config_file}${NC}"
     echo -e "Description: ${description}"
-    
+
     TOTAL_EXAMPLES=$((TOTAL_EXAMPLES + 1))
-    
+
     if ./go-broadcast validate --config "$config_file"; then
         echo -e "${GREEN}✅ VALID: ${config_file}${NC}"
         VALID_EXAMPLES=$((VALID_EXAMPLES + 1))
@@ -51,10 +51,10 @@ validate_config() {
 test_command() {
     local command="$1"
     local description="$2"
-    
+
     echo -e "${BLUE}Testing: ${command}${NC}"
     echo -e "Description: ${description}"
-    
+
     if eval "$command" > /dev/null 2>&1; then
         echo -e "${GREEN}✅ COMMAND WORKS: ${command}${NC}"
     else
@@ -75,7 +75,7 @@ print_summary() {
         echo -e "${GREEN}Invalid configurations: ${INVALID_EXAMPLES}${NC}"
     fi
     echo ""
-    
+
     if [ $INVALID_EXAMPLES -eq 0 ]; then
         echo -e "${GREEN}🎉 ALL EXAMPLES VALID!${NC}"
         return 0
@@ -87,23 +87,23 @@ print_summary() {
 
 main() {
     print_header
-    
+
     # Check if go-broadcast binary exists
     if [ ! -f "./go-broadcast" ]; then
         echo -e "${RED}Error: go-broadcast binary not found. Please build it first:${NC}"
         echo "  make build-go"
         exit 1
     fi
-    
+
     # Validate existing file-only examples
     print_section "File Sync Examples"
     validate_config "examples/minimal.yaml" "Minimal configuration for simple file sync"
-    validate_config "examples/sync.yaml" "Complete example with all features" 
+    validate_config "examples/sync.yaml" "Complete example with all features"
     validate_config "examples/microservices.yaml" "Microservices architecture sync"
     validate_config "examples/multi-language.yaml" "Multi-language project sync"
     validate_config "examples/ci-cd-only.yaml" "CI/CD pipeline synchronization"
     validate_config "examples/documentation.yaml" "Documentation template sync"
-    
+
     # Validate directory sync examples
     print_section "Directory Sync Examples"
     validate_config "examples/directory-sync.yaml" "Comprehensive directory sync examples"
@@ -111,7 +111,7 @@ main() {
     validate_config "examples/large-directories.yaml" "Large directory management"
     validate_config "examples/exclusion-patterns.yaml" "Exclusion pattern showcase"
     validate_config "examples/github-complete.yaml" "Complete GitHub directory sync"
-    
+
     # Test documented commands
     print_section "Command Testing"
     test_command "./go-broadcast --version" "Version command"
@@ -121,7 +121,7 @@ main() {
     test_command "./go-broadcast status --help" "Status help command"
     test_command "./go-broadcast diagnose --help" "Diagnose help command"
     test_command "./go-broadcast cancel --help" "Cancel help command"
-    
+
     # Test dry-run mode with valid configuration
     print_section "Dry-Run Testing"
     echo -e "${BLUE}Testing dry-run mode with minimal configuration...${NC}"
@@ -131,7 +131,7 @@ main() {
         echo -e "${YELLOW}⚠️  Dry-run requires valid repository access (expected)${NC}"
     fi
     echo ""
-    
+
     print_summary
 }
 

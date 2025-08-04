@@ -226,7 +226,7 @@ jobs:
         run: |
           echo "## 🚨 Test Failures - ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **OS**: ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY  
+          echo "- **OS**: ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Go Version**: ${{ matrix.go-version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Race Detection**: ${{ inputs.race-detection-enabled }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Coverage Enabled**: ${{ inputs.code-coverage-enabled }}" >> $GITHUB_STEP_SUMMARY
@@ -238,7 +238,7 @@ jobs:
             echo "- **Failed Tests**: $FAIL_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "- **Panics**: $PANIC_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            
+
             if [ "$FAIL_COUNT" -gt 0 ]; then
               echo "### 🔍 Failed Test Summary (First 10)" >> $GITHUB_STEP_SUMMARY
               echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
@@ -246,7 +246,7 @@ jobs:
               echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
             fi
-            
+
             if [ "$PANIC_COUNT" -gt 0 ]; then
               echo "### 🚨 Panic Summary" >> $GITHUB_STEP_SUMMARY
               echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
@@ -262,25 +262,25 @@ jobs:
         run: |
           if [ -f test-output.log ]; then
             echo "::group::📋 Test Failure Analysis"
-            
+
             # Count and report overall statistics
             FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" test-output.log || echo "0")
             PANIC_COUNT=$(grep -c "panic:" test-output.log || echo "0")
-            
+
             echo "::error title=Test Suite Failed::$FAIL_COUNT tests failed, $PANIC_COUNT panics detected on ${{ matrix.os }} Go ${{ matrix.go-version }}"
-            
+
             # Annotate first 5 failed tests
             grep -E "^FAIL\|--- FAIL" test-output.log | head -5 | while IFS= read -r line; do
               echo "::error title=Failed Test::$line"
             done
-            
+
             # Annotate panics
             if [ "$PANIC_COUNT" -gt 0 ]; then
               grep -B 1 "panic:" test-output.log | head -3 | while IFS= read -r line; do
                 echo "::error title=Test Panic::$line"
               done
             fi
-            
+
             echo "::endgroup::"
           fi
 

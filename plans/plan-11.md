@@ -170,17 +170,17 @@ go-broadcast validate --config sync.yaml  # Existing configs still work
 func (rs *RepositorySync) processDirectories(ctx context.Context) ([]FileChange, error) {
     var allChanges []FileChange
     sourcePath := filepath.Join(rs.tempDir, "source")
-    
+
     // Process directories concurrently
     var wg sync.WaitGroup
     changesCh := make(chan []FileChange, len(rs.target.Directories))
     errorsCh := make(chan error, len(rs.target.Directories))
-    
+
     for _, dirMapping := range rs.target.Directories {
         wg.Add(1)
         go func(dm DirectoryMapping) {
             defer wg.Done()
-            
+
             // Add progress reporting for large directories
             changes, err := rs.processDirectoryWithProgress(ctx, sourcePath, dm)
             if err != nil {
@@ -190,21 +190,21 @@ func (rs *RepositorySync) processDirectories(ctx context.Context) ([]FileChange,
             changesCh <- changes
         }(dirMapping)
     }
-    
+
     wg.Wait()
     close(changesCh)
     close(errorsCh)
-    
+
     // Check for errors
     if err := <-errorsCh; err != nil {
         return nil, err
     }
-    
+
     // Collect all changes
     for changes := range changesCh {
         allChanges = append(allChanges, changes...)
     }
-    
+
     return allChanges, nil
 }
 
@@ -217,20 +217,20 @@ type BatchProcessor struct {
 func (bp *BatchProcessor) ProcessFiles(ctx context.Context, files []string, fn func(string) error) error {
     sem := make(chan struct{}, bp.maxConcurrent)
     var wg sync.WaitGroup
-    
+
     for _, file := range files {
         wg.Add(1)
         go func(f string) {
             defer wg.Done()
             sem <- struct{}{}
             defer func() { <-sem }()
-            
+
             if err := fn(f); err != nil {
                 rs.logger.WithError(err).Errorf("Failed to process file: %s", f)
             }
         }(file)
     }
-    
+
     wg.Wait()
     return nil
 }
@@ -305,14 +305,14 @@ go test -bench=BenchmarkDirectoryWalk ./internal/sync/...
 ```go
 // applyDirectoryTransforms applies configured transforms to directory files
 func (rs *RepositorySync) applyDirectoryTransforms(
-    content []byte, 
+    content []byte,
     srcPath string,
     dirMapping DirectoryMapping,
 ) ([]byte, error) {
     if !dirMapping.Transform.RepoName && len(dirMapping.Transform.Variables) == 0 {
         return content, nil // No transforms configured
     }
-    
+
     // Create transform context with directory awareness
     ctx := transform.Context{
         SourceRepo: rs.sourceState.Repo,
@@ -322,7 +322,7 @@ func (rs *RepositorySync) applyDirectoryTransforms(
         IsFromDirectory: true,
         DirectoryMapping: dirMapping,
     }
-    
+
     return rs.engine.transform.Transform(ctx, content, ctx)
 }
 ```
@@ -377,18 +377,18 @@ func (rs *RepositorySync) batchCheckFiles(ctx context.Context, paths []string) (
     if err != nil {
         return nil, err
     }
-    
+
     // Build map for O(1) lookups
     exists := make(map[string]bool)
     for _, entry := range tree.Entries {
         exists[entry.Path] = true
     }
-    
+
     result := make(map[string]bool)
     for _, path := range paths {
         result[path] = exists[path]
     }
-    
+
     return result, nil
 }
 ```
@@ -638,7 +638,7 @@ targets:
           - "**/testdata/*"      # Test fixtures
         transform:
           repo_name: true
-      
+
       # Sync workflows separately
       - src: ".github/workflows"
         dest: ".github/workflows"

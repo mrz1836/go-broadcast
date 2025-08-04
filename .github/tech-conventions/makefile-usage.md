@@ -61,7 +61,7 @@ make coverage       # Generate coverage report
   * Tagging and versioning
   * Diff checking
   * Help generation
-  
+
 * **`.make/go.mk`** - Go-specific targets
   * Linting and formatting
   * Testing and coverage

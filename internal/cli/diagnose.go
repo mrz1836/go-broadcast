@@ -66,7 +66,7 @@ var diagnoseCmd = &cobra.Command{
 
 This command gathers:
 - System information (OS, architecture, CPU count)
-- go-broadcast version and build details  
+- go-broadcast version and build details
 - Git and GitHub CLI versions
 - Environment variables (with sensitive data redacted)
 - Configuration file status and validation
@@ -74,7 +74,7 @@ This command gathers:
 All output is in JSON format for easy analysis and sharing with support.`,
 	Example: `  # Collect diagnostic information
   go-broadcast diagnose
-  
+
   # Save diagnostics to file
   go-broadcast diagnose > diagnostics.json`,
 	RunE: runDiagnose,
@@ -95,7 +95,7 @@ func createDiagnoseCmdWithVerbose(config *LogConfig) *cobra.Command {
 
 This command gathers:
 - System information (OS, architecture, CPU count)
-- go-broadcast version and build details  
+- go-broadcast version and build details
 - Git and GitHub CLI versions
 - Environment variables (with sensitive data redacted)
 - Configuration file status and validation
@@ -103,10 +103,10 @@ This command gathers:
 All output is in JSON format for easy analysis and sharing with support.`,
 		Example: `  # Collect diagnostic information
   go-broadcast diagnose
-  
+
   # Save diagnostics to file
   go-broadcast diagnose > diagnostics.json
-  
+
   # Include diagnostics in verbose logging session
   go-broadcast diagnose && go-broadcast sync -vvv`,
 		RunE: createRunDiagnoseWithVerbose(config),
@@ -411,7 +411,7 @@ func createDiagnoseCmd(flags *Flags) *cobra.Command {
 
 This command gathers:
 - System information (OS, architecture, CPU count)
-- go-broadcast version and build details  
+- go-broadcast version and build details
 - Git and GitHub CLI versions
 - Environment variables (with sensitive data redacted)
 - Configuration file status and validation
@@ -419,7 +419,7 @@ This command gathers:
 All output is in JSON format for easy analysis and sharing with support.`,
 		Example: `  # Collect diagnostic information
   go-broadcast diagnose
-  
+
   # Save diagnostics to file
   go-broadcast diagnose > diagnostics.json`,
 		RunE: createRunDiagnose(flags),

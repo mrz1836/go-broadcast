@@ -38,7 +38,7 @@ func TestGetPRDiff(t *testing.T) {
 					"additions": 3,
 					"deletions": 1,
 					"changes": 4,
-					"blob_url": "https://github.com/owner/repo/blob/abc123/README.md", 
+					"blob_url": "https://github.com/owner/repo/blob/abc123/README.md",
 					"raw_url": "https://github.com/owner/repo/raw/abc123/README.md"
 				}
 			]`,

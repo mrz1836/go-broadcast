@@ -129,7 +129,7 @@ The PR comment feature provides beautiful, informative coverage comments with an
 
 ### Features
 - **Single Comment Per PR**: Automatically updates existing comments instead of creating new ones
-- **Anti-Spam Protection**: 
+- **Anti-Spam Protection**:
   - Maximum 1 comment per PR
   - Minimum 5-minute update interval
   - Only updates on significant changes (>1% coverage change)

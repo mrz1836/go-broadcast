@@ -151,7 +151,7 @@ The package is particularly useful in tests and benchmarks:
 func BenchmarkProcessJSON(b *testing.B) {
     // Generate test data
     testData, _ := jsonutil.GenerateTestJSON(1000, map[string]int{"value": 42})
-    
+
     b.ResetTimer()
     for i := 0; i < b.N; i++ {
         // Process the JSON data

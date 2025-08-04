@@ -25,7 +25,7 @@ func NewRenderer() *Renderer {
 func (r *Renderer) RenderReport(_ context.Context, data interface{}) ([]byte, error) {
 	// Create template functions
 	funcMap := template.FuncMap{
-		"multiply": func(a float64, b float64) float64 {
+		"multiply": func(a, b float64) float64 {
 			return a * b
 		},
 		"printf": fmt.Sprintf,

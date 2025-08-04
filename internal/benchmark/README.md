@@ -93,7 +93,7 @@ for _, size := range sizes {
 
 **Standard sizes:**
 - **Small**: 10 files, 1KB each, 100 data items
-- **Medium**: 100 files, 10KB each, 1000 data items  
+- **Medium**: 100 files, 10KB each, 1000 data items
 - **Large**: 1000 files, 100KB each, 10000 data items
 - **XLarge**: 5000 files, 1MB each, 50000 data items
 
@@ -133,7 +133,7 @@ func RecordBenchmarkResult(b *testing.B, name string) BenchmarkResult
 ```go
 func BenchmarkProcessData(b *testing.B) {
     data := generateTestData(1000)
-    
+
     benchmark.WithMemoryTracking(b, func() {
         for i := 0; i < b.N; i++ {
             result := processData(data)
@@ -147,12 +147,12 @@ func BenchmarkProcessData(b *testing.B) {
 ```go
 func BenchmarkFileOperations(b *testing.B) {
     sizes := benchmark.StandardSizes()
-    
+
     for _, size := range sizes {
         b.Run(size.Name, func(b *testing.B) {
             tempDir := b.TempDir()
             files := benchmark.SetupBenchmarkFiles(b, tempDir, size.FileCount)
-            
+
             benchmark.WithMemoryTracking(b, func() {
                 for i := 0; i < b.N; i++ {
                     for _, file := range files {
@@ -170,14 +170,14 @@ func BenchmarkFileOperations(b *testing.B) {
 ```go
 func BenchmarkGitOperations(b *testing.B) {
     repoPath := benchmark.SetupBenchmarkRepo(b)
-    
+
     benchmark.WithMemoryTracking(b, func() {
         for i := 0; i < b.N; i++ {
             // Create a test file
             fileName := fmt.Sprintf("file_%d.txt", i)
             filePath := filepath.Join(repoPath, fileName)
             os.WriteFile(filePath, []byte("test content"), 0600)
-            
+
             // Git operations
             exec.Command("git", "-C", repoPath, "add", fileName).Run()
             exec.Command("git", "-C", repoPath, "commit", "-m", "test").Run()
@@ -190,32 +190,32 @@ func BenchmarkGitOperations(b *testing.B) {
 ```go
 func BenchmarkComplexOperation(b *testing.B) {
     sizes := benchmark.StandardSizes()
-    
+
     for _, size := range sizes {
         b.Run(size.Name, func(b *testing.B) {
             // Setup
             data := benchmark.CreateBenchmarkData(size.DataSize, testTemplate)
             tempDir := b.TempDir()
             files := benchmark.SetupBenchmarkFiles(b, tempDir, size.FileCount)
-            
+
             // Capture initial memory state
             initialMem := benchmark.CaptureMemoryStats()
-            
+
             benchmark.WithMemoryTracking(b, func() {
                 for i := 0; i < b.N; i++ {
                     // Process data
                     processedData := processLargeData(data)
-                    
+
                     // File operations
                     for _, file := range files {
                         writeProcessedData(file, processedData)
                     }
-                    
+
                     // Cleanup to prevent accumulation
                     cleanupProcessedData(processedData)
                 }
             })
-            
+
             // Record additional metrics
             finalMem := benchmark.CaptureMemoryStats()
             b.ReportMetric(float64(finalMem.AllocBytes-initialMem.AllocBytes), "bytes-delta")
@@ -231,7 +231,7 @@ func BenchmarkComplexOperation(b *testing.B) {
 ```go
 func BenchmarkCPUIntensive(b *testing.B) {
     input := generateComplexInput()
-    
+
     benchmark.WithMemoryTracking(b, func() {
         for i := 0; i < b.N; i++ {
             result := cpuIntensiveOperation(input)
@@ -248,7 +248,7 @@ func BenchmarkCPUIntensive(b *testing.B) {
 ```go
 func BenchmarkMemoryIntensive(b *testing.B) {
     sizes := benchmark.StandardSizes()
-    
+
     for _, size := range sizes {
         b.Run(size.Name, func(b *testing.B) {
             benchmark.WithMemoryTracking(b, func() {
@@ -256,7 +256,7 @@ func BenchmarkMemoryIntensive(b *testing.B) {
                     // Allocate large data structures
                     data := make([]byte, size.FileSize)
                     processLargeBuffer(data)
-                    
+
                     // Force deallocation
                     data = nil
                     runtime.GC()
@@ -272,7 +272,7 @@ func BenchmarkMemoryIntensive(b *testing.B) {
 func BenchmarkIOOperations(b *testing.B) {
     tempDir := b.TempDir()
     files := benchmark.SetupBenchmarkFiles(b, tempDir, 100)
-    
+
     benchmark.WithMemoryTracking(b, func() {
         for i := 0; i < b.N; i++ {
             for _, file := range files {
@@ -280,7 +280,7 @@ func BenchmarkIOOperations(b *testing.B) {
                 if err != nil {
                     b.Fatal(err)
                 }
-                
+
                 // Process data
                 processFileData(data)
             }
@@ -304,7 +304,7 @@ func BenchmarkIOOperations(b *testing.B) {
 ```go
 func BenchmarkWithMemoryAnalysis(b *testing.B) {
     before := benchmark.CaptureMemoryStats()
-    
+
     benchmark.WithMemoryTracking(b, func() {
         for i := 0; i < b.N; i++ {
             data := allocateData()
@@ -312,13 +312,13 @@ func BenchmarkWithMemoryAnalysis(b *testing.B) {
             // Note: data not explicitly freed
         }
     })
-    
+
     after := benchmark.CaptureMemoryStats()
-    
+
     // Report memory growth
     memGrowth := after.AllocBytes - before.AllocBytes
     b.ReportMetric(float64(memGrowth), "memory-growth-bytes")
-    
+
     // Report GC pressure
     gcCycles := after.NumGC - before.NumGC
     b.ReportMetric(float64(gcCycles), "gc-cycles")
@@ -329,7 +329,7 @@ func BenchmarkWithMemoryAnalysis(b *testing.B) {
 ```go
 func BenchmarkThroughput(b *testing.B) {
     data := generateTestData(10000)
-    
+
     start := time.Now()
     benchmark.WithMemoryTracking(b, func() {
         for i := 0; i < b.N; i++ {
@@ -337,7 +337,7 @@ func BenchmarkThroughput(b *testing.B) {
         }
     })
     duration := time.Since(start)
-    
+
     // Calculate and report throughput
     itemsProcessed := b.N * len(data)
     throughput := float64(itemsProcessed) / duration.Seconds()
@@ -362,13 +362,20 @@ func BenchmarkStableAPI_ProcessRequest(b *testing.B) {
 func BenchmarkPerformanceBudget(b *testing.B) {
     const maxAllocsPerOp = 100
     const maxNsPerOp = 1000000 // 1ms
-    
+
     result := benchmark.RecordBenchmarkResult(b, "performance-budget")
-    
+
     if result.AllocsPerOp > maxAllocsPerOp {
         b.Errorf("Too many allocations: %d > %d", result.AllocsPerOp, maxAllocsPerOp)
     }
-    
+
+    if result.NsPerOp > maxNsPerOp {
+        b.Errorf("Too slow: %dns > %dns", result.NsPerOp, maxNsPerOp)
+    }
+}
+```orf("Too many allocations: %d > %d", result.AllocsPerOp, maxAllocsPerOp)
+    }
+
     if result.NsPerOp > maxNsPerOp {
         b.Errorf("Too slow: %dns > %dns", result.NsPerOp, maxNsPerOp)
     }

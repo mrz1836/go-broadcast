@@ -8,15 +8,15 @@ Successfully implemented the PR comment feature for the GoFortress coverage syst
 ### 1. Anti-Spam Protection
 - **Single Comment Per PR**: Only one coverage comment per PR (configured via `MaxCommentsPerPR: 1`)
 - **Update Existing Comments**: Automatically finds and updates existing coverage comments instead of creating new ones
-- **Smart Update Logic**: 
+- **Smart Update Logic**:
   - Minimum 5-minute interval between updates
   - Only updates on significant changes (>1% coverage difference)
   - Uses metadata signature `gofortress-coverage-v1` to identify comments
 
 ### 2. Beautiful Template System
-- **Multiple Templates**: 
+- **Multiple Templates**:
   - `comprehensive`: Full details with badges, metrics, and trends
-  - `detailed`: Deep analysis with file-level breakdowns  
+  - `detailed`: Deep analysis with file-level breakdowns
   - `compact`: Clean, minimal design
   - `summary`: High-level overview
   - `minimal`: Just the essentials

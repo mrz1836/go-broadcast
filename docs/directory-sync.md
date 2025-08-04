@@ -7,7 +7,7 @@ Complete guide to directory synchronization in go-broadcast, covering concepts, 
 - [Overview](#overview)
 - [Quick Start](#quick-start)
 - [Core Concepts](#core-concepts)
-- [Configuration Reference](#configuration-reference)  
+- [Configuration Reference](#configuration-reference)
 - [Exclusion Patterns](#exclusion-patterns)
 - [Performance Characteristics](#performance-characteristics)
 - [Real-World Use Cases](#real-world-use-cases)
@@ -27,10 +27,10 @@ go-broadcast supports synchronizing entire directories alongside individual file
 
 ### Key Benefits
 
-✅ **Reduced Configuration** - Sync hundreds of files with single directory mapping  
-✅ **Smart Defaults** - Automatic exclusion of `*.out`, `*.test`, binaries, and temp files  
-✅ **Exceptional Performance** - 1000+ files processed in ~32ms  
-✅ **API Efficient** - GitHub tree API reduces calls by 90%+  
+✅ **Reduced Configuration** - Sync hundreds of files with single directory mapping
+✅ **Smart Defaults** - Automatic exclusion of `*.out`, `*.test`, binaries, and temp files
+✅ **Exceptional Performance** - 1000+ files processed in ~32ms
+✅ **API Efficient** - GitHub tree API reduces calls by 90%+
 ✅ **Production Ready** - Battle-tested with real .github directories (149 files)
 
 ## Quick Start
@@ -110,7 +110,7 @@ All directories automatically exclude common development artifacts:
 # Automatically applied to all directories:
 default_exclusions:
   - "*.out"           # Go coverage files
-  - "*.test"          # Go test binaries  
+  - "*.test"          # Go test binaries
   - "*.exe"           # Executables
   - "**/.DS_Store"    # macOS system files
   - "**/tmp/*"        # Temporary files
@@ -152,12 +152,12 @@ directories:
       - "*.tmp"                    # All .tmp files
       - "*-local.*"                # Files with -local in name
       - "experimental-*"           # Files starting with experimental-
-      
-      # Directory patterns  
+
+      # Directory patterns
       - "draft/**"                 # Everything under draft/
       - "**/temp/**"               # temp directories at any depth
       - "local/*"                  # Files directly in local/
-      
+
       # Path-specific patterns
       - "workflows/*-dev.yml"      # Dev workflows in workflows/
       - "coverage/*.out"           # Coverage files in coverage/
@@ -170,7 +170,7 @@ Transformations apply to **all files** within the directory:
 ```yaml
 directories:
   - src: "configs"
-    dest: "configs"  
+    dest: "configs"
     transform:
       repo_name: true              # Updates Go module paths in all files
       variables:
@@ -188,9 +188,9 @@ directories:
   - src: "docs/api/v1"
     dest: "api-docs/v1"
     preserve_structure: true       # Results in: api-docs/v1/nested/file.md
-    
+
   # Flatten structure
-  - src: "templates/production"  
+  - src: "templates/production"
     dest: "templates"
     preserve_structure: false      # Results in: templates/file.md (no nesting)
 ```
@@ -203,7 +203,7 @@ directories:
   - src: "configs"
     dest: "configs"
     include_hidden: true           # Syncs .env, .gitignore, etc.
-    
+
   # Skip hidden files
   - src: "public"
     dest: "public"
@@ -242,16 +242,16 @@ go-broadcast uses gitignore-style patterns with high-performance compiled matchi
 exclude:
   # Go development
   - "**/*.test"                    # Test binaries
-  - "**/*.out"                     # Coverage files  
+  - "**/*.out"                     # Coverage files
   - "**/vendor/**"                 # Dependency cache
   - "**/*.prof"                    # Profiling files
-  
+
   # Node.js development
   - "**/node_modules/**"           # Dependencies
   - "**/dist/**"                   # Build outputs
   - "**/.npm/**"                   # NPM cache
   - "**/npm-debug.log*"            # Debug logs
-  
+
   # Python development
   - "**/__pycache__/**"            # Python cache
   - "**/*.pyc"                     # Compiled Python
@@ -303,7 +303,7 @@ Based on production usage with actual repositories:
 
 ```yaml
 # .github/workflows (24 files) - ~1.5ms
-# .github/coverage (87 files) - ~4ms  
+# .github/coverage (87 files) - ~4ms
 # Full .github (149 files with exclusions) - ~7ms
 # Documentation (1000+ files) - ~32ms
 ```
@@ -335,7 +335,7 @@ Automatic progress reporting for large directories:
 ```bash
 # Automatically enabled for directories >50 files
 Processing .github directory: 87 files found
-Applying exclusions: 26 files excluded  
+Applying exclusions: 26 files excluded
 Processing files: [████████████████████] 61/61 (100%) - 4ms
 Directory sync complete: 61 files synced in 4ms
 ```
@@ -352,11 +352,11 @@ directories:
   - src: ".github/workflows"       # 24 files - ~1.5ms
     dest: ".github/workflows"
     exclude: ["*-local.yml", "*.disabled"]
-    
+
   - src: ".github/coverage"        # 87 files - ~4ms
-    dest: ".github/coverage"  
+    dest: ".github/coverage"
     exclude: ["*.out", "*.test", "gofortress-coverage"]
-    
+
   - src: ".github/ISSUE_TEMPLATE"  # Template files
     dest: ".github/ISSUE_TEMPLATE"
 
@@ -374,7 +374,7 @@ directories:
     exclude:
       - "**/_build/**"             # Sphinx builds
       - "**/node_modules/**"       # Node dependencies
-      - "**/.vuepress/dist/**"     # VuePress builds  
+      - "**/.vuepress/dist/**"     # VuePress builds
     preserve_structure: true
     transform:
       variables:
@@ -425,7 +425,7 @@ Directory sync works seamlessly with existing file sync configurations:
 ### Mixed Configuration
 
 ```yaml
-targets:  
+targets:
   - repo: "company/service"
     # Individual files (existing functionality)
     files:
@@ -433,15 +433,15 @@ targets:
         dest: "Makefile"
       - src: "README.md"
         dest: "README.md"
-    
-    # Directories (enhanced functionality)  
+
+    # Directories (enhanced functionality)
     directories:
       - src: ".github/workflows"
         dest: ".github/workflows"
       - src: "configs"
         dest: "configs"
         exclude: ["*.local"]
-        
+
     # Transforms apply to both files and directories
     transform:
       repo_name: true
@@ -505,7 +505,7 @@ directories:
 
 **Expected performance:**
 - <50 files: <3ms
-- 50-150 files: 1-7ms  
+- 50-150 files: 1-7ms
 - 500+ files: 16-32ms
 - 1000+ files: ~32ms
 
@@ -534,7 +534,7 @@ directories:
 
 **Understanding limits:**
 - Primary rate limit: 5000 requests/hour
-- Search API: 30 requests/minute  
+- Search API: 30 requests/minute
 - go-broadcast typically uses <2% of limits
 
 **Diagnosis:**
@@ -588,7 +588,7 @@ go-broadcast sync --dry-run --config sync.yaml
 
 # Shows:
 # - Files that would be synced
-# - Files that would be excluded  
+# - Files that would be excluded
 # - Transform preview
 # - Performance estimates
 ```
@@ -643,7 +643,7 @@ directories:
 directories:
   - src: "docs/markdown"         # Only markdown docs
     dest: "docs"
-  - src: "configs/yaml"          # Only YAML configs  
+  - src: "configs/yaml"          # Only YAML configs
     dest: "configs"
 ```
 
@@ -659,14 +659,14 @@ directories:
   # Split into logical segments
   - src: "large-dir/core"
     dest: "large-dir/core"
-  - src: "large-dir/modules"  
+  - src: "large-dir/modules"
     dest: "large-dir/modules"
   - src: "large-dir/utils"
     dest: "large-dir/utils"
-    
+
 # Benefits:
 # - Better granular control
-# - Improved error isolation  
+# - Improved error isolation
 # - Clearer change tracking
 # - Faster individual processing
 ```
@@ -679,19 +679,19 @@ exclude:
   # Exact matches (fastest)
   - "node_modules"
   - ".DS_Store"
-  
+
   # Extension patterns (very fast)
   - "*.tmp"
   - "*.log"
-  
+
   # Prefix/suffix patterns (fast)
   - "temp-*"
   - "*-backup"
-  
+
   # Wildcard patterns (slower)
   - "*secret*"
   - "*password*"
-  
+
   # Deep recursive patterns (slowest, use sparingly)
   - "**/cache/**"
   - "**/temp/**"
@@ -708,13 +708,13 @@ targets:
     directories:
       - src: ".github/workflows/core"
         dest: ".github/workflows"
-        
-# Stage 2: Service-specific additions (separate config)  
+
+# Stage 2: Service-specific additions (separate config)
 targets:
   - repo: "company/service"
     directories:
       - src: ".github/workflows/service"
-        dest: ".github/workflows" 
+        dest: ".github/workflows"
         exclude: ["core-*"]        # Don't conflict with stage 1
 ```
 
@@ -726,8 +726,8 @@ targets:
 directories:
   - src: ".github/workflows/api"
     dest: ".github/workflows"
-    
-# config-frontend.yaml  
+
+# config-frontend.yaml
 directories:
   - src: ".github/workflows/frontend"
     dest: ".github/workflows"
@@ -755,7 +755,7 @@ Track sync success rates:
 # Monitor branch creation success
 git ls-remote --heads origin | grep "chore/sync-files" | wc -l
 
-# Monitor PR creation success  
+# Monitor PR creation success
 gh pr list --label "automated-sync" --state all --limit 100
 ```
 

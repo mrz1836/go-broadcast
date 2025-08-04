@@ -17,7 +17,7 @@ type TestCase[TInput any, TExpected any] struct {
 
 // RunTableTests runs table-driven tests with consistent patterns.
 // It provides a standard way to execute multiple test cases.
-func RunTableTests[TInput any, TExpected any](
+func RunTableTests[TInput, TExpected any](
 	t testing.TB,
 	tests []TestCase[TInput, TExpected],
 	runner func(testing.TB, TestCase[TInput, TExpected]),

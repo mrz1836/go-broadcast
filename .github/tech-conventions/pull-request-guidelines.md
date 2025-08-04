@@ -73,7 +73,7 @@ Every PR must include the following **four** sections in the description:
 
 ## Why It Was Necessary
 
-Users were experiencing timeouts when fetching large user lists. This change implements 
+Users were experiencing timeouts when fetching large user lists. This change implements
 pagination to improve performance and reduce memory usage.
 
 Closes #123
@@ -135,4 +135,4 @@ Before requesting review, ensure:
 * **Never force-push** to main/master branches
 * **Delete branches** after merging to keep the repository clean
 
-> The merge strategy may vary by project. Check with maintainers if unsure.
+> The merge strategy may vary by project. Check with maintainers if unsure..

@@ -105,7 +105,7 @@ cat sync.yaml | yq '.'  # or yaml validator
    ```yaml
    # Correct format
    repo: "owner/repository"
-   
+
    # Incorrect formats
    repo: "github.com/owner/repository"  # ❌
    repo: "https://github.com/owner/repo" # ❌
@@ -159,7 +159,7 @@ gh api "repos/owner/repo/branches"
    ```bash
    # List all branches
    gh api repos/owner/repo/branches --jq '.[].name'
-   
+
    # Check specific branch
    gh api repos/owner/repo/branches/main
    ```
@@ -203,7 +203,7 @@ go-broadcast sync --debug-api --json 2>&1 | \
    ```bash
    # Check repository size
    gh api repos/owner/repo --jq '.size'
-   
+
    # Use shallow clones for large repos
    # (configure in source repository settings)
    ```
@@ -212,7 +212,7 @@ go-broadcast sync --debug-api --json 2>&1 | \
    ```bash
    # Check current rate limit
    gh api rate_limit
-   
+
    # Implement delays between operations
    # (built into go-broadcast automatically)
    ```
@@ -251,7 +251,7 @@ echo "{{REPO_NAME}}" | sed 's/{{REPO_NAME}}/test-repo/'
    # Supported formats
    variables:
      REPO_NAME: "my-repo"      # {{REPO_NAME}} or ${REPO_NAME}
-   
+
    repo_name: true              # Automatic Go module path replacement
    ```
 
@@ -293,7 +293,7 @@ env | grep -i proxy
    ```bash
    # Test DNS resolution
    nslookup api.github.com
-   
+
    # Test HTTPS connectivity
    curl -v https://api.github.com/user
    ```
@@ -302,7 +302,7 @@ env | grep -i proxy
    ```bash
    # Set proxy for GitHub CLI
    gh config set http_proxy http://proxy.company.com:8080
-   
+
    # Set proxy for git operations
    git config --global http.proxy http://proxy.company.com:8080
    ```
@@ -470,6 +470,6 @@ This runbook should be updated when:
 - New diagnostic tools are added
 - Support escalation procedures change
 
-**Last Updated**: 2025-01-15  
-**Version**: 1.0  
+**Last Updated**: 2025-01-15
+**Version**: 1.0
 **Maintainer**: go-broadcast team

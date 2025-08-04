@@ -220,7 +220,7 @@ func (dv *DirectoryValidator) ValidateSyncResults(ctx context.Context, sourceDir
 }
 
 // ValidateTransformApplication verifies that transforms were applied correctly to directory files
-func (dv *DirectoryValidator) ValidateTransformApplication(_ context.Context, originalFiles map[string]string, transformedFiles map[string]string, transform config.Transform, _ ValidationOptions) (*ValidationResult, error) {
+func (dv *DirectoryValidator) ValidateTransformApplication(_ context.Context, originalFiles, transformedFiles map[string]string, transform config.Transform, _ ValidationOptions) (*ValidationResult, error) {
 	startTime := time.Now()
 
 	logger := dv.logger.WithFields(logrus.Fields{
@@ -283,7 +283,7 @@ func (dv *DirectoryValidator) ValidateTransformApplication(_ context.Context, or
 }
 
 // ValidateExclusionCompliance ensures excluded files were properly filtered out
-func (dv *DirectoryValidator) ValidateExclusionCompliance(ctx context.Context, sourceDir string, destDir string, dirMapping config.DirectoryMapping, _ ValidationOptions) (*ValidationResult, error) {
+func (dv *DirectoryValidator) ValidateExclusionCompliance(ctx context.Context, sourceDir, destDir string, dirMapping config.DirectoryMapping, _ ValidationOptions) (*ValidationResult, error) {
 	startTime := time.Now()
 
 	logger := dv.logger.WithFields(logrus.Fields{
@@ -360,7 +360,7 @@ func (dv *DirectoryValidator) ValidateExclusionCompliance(ctx context.Context, s
 }
 
 // ValidateDirectoryStructure verifies that directory structure was preserved correctly
-func (dv *DirectoryValidator) ValidateDirectoryStructure(ctx context.Context, sourceDir string, destDir string, dirMapping config.DirectoryMapping, opts ValidationOptions) (*ValidationResult, error) {
+func (dv *DirectoryValidator) ValidateDirectoryStructure(ctx context.Context, sourceDir, destDir string, dirMapping config.DirectoryMapping, opts ValidationOptions) (*ValidationResult, error) {
 	startTime := time.Now()
 
 	logger := dv.logger.WithFields(logrus.Fields{
@@ -428,7 +428,7 @@ func (dv *DirectoryValidator) ValidateDirectoryStructure(ctx context.Context, so
 }
 
 // ValidateFileIntegrity checks file content matches and wasn't corrupted during sync
-func (dv *DirectoryValidator) ValidateFileIntegrity(_ context.Context, sourceFiles map[string]string, destFiles map[string]string, opts ValidationOptions) (*ValidationResult, error) {
+func (dv *DirectoryValidator) ValidateFileIntegrity(_ context.Context, sourceFiles, destFiles map[string]string, opts ValidationOptions) (*ValidationResult, error) {
 	startTime := time.Now()
 
 	logger := dv.logger.WithFields(logrus.Fields{
@@ -592,7 +592,7 @@ func (dv *DirectoryValidator) ValidateValidationPerformanceMetrics(_ context.Con
 }
 
 // ValidateAPIEfficiency checks that API call optimization targets were met
-func (dv *DirectoryValidator) ValidateAPIEfficiency(_ context.Context, apiCalls int, expectedMaxCalls int) (*ValidationResult, error) {
+func (dv *DirectoryValidator) ValidateAPIEfficiency(_ context.Context, apiCalls, expectedMaxCalls int) (*ValidationResult, error) {
 	result := &ValidationResult{
 		Valid:   apiCalls <= expectedMaxCalls,
 		Errors:  []string{},
@@ -644,7 +644,7 @@ func (dv *DirectoryValidator) ValidateCacheUtilization(_ context.Context, cacheH
 }
 
 // ValidateMemoryUsage ensures memory usage stays within expected bounds
-func (dv *DirectoryValidator) ValidateMemoryUsage(_ context.Context, memoryUsage int64, maxMemoryBytes int64) (*ValidationResult, error) {
+func (dv *DirectoryValidator) ValidateMemoryUsage(_ context.Context, memoryUsage, maxMemoryBytes int64) (*ValidationResult, error) {
 	result := &ValidationResult{
 		Valid:  memoryUsage <= maxMemoryBytes,
 		Errors: []string{},
@@ -668,7 +668,7 @@ func (dv *DirectoryValidator) ValidateMemoryUsage(_ context.Context, memoryUsage
 }
 
 // ValidateProgressReporting verifies progress reporting worked correctly
-func (dv *DirectoryValidator) ValidateProgressReporting(_ context.Context, expectedFiles int, reportedFiles int, progressUpdates []string) (*ValidationResult, error) {
+func (dv *DirectoryValidator) ValidateProgressReporting(_ context.Context, expectedFiles, reportedFiles int, progressUpdates []string) (*ValidationResult, error) {
 	result := &ValidationResult{
 		Valid:  expectedFiles == reportedFiles,
 		Errors: []string{},

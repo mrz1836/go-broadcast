@@ -275,7 +275,7 @@ for i := 0; i < 10; i++ {
 // Analyze growth
 analysis := profiler.AnalyzeSession(session)
 if analysis.MemoryGrowthRate > 1.0 {
-    log.Printf("Potential leak: %.2f MB/sec growth", 
+    log.Printf("Potential leak: %.2f MB/sec growth",
         analysis.MemoryGrowthRate)
 }
 ```
@@ -292,14 +292,14 @@ The ProfileSuite can generate comprehensive reports:
    ==============================
    Start Time: 2024-01-15T10:30:00Z
    Duration: 5m30s
-   
+
    Memory Analysis
    ---------------
    Initial: 10.5 MB
    Peak: 125.3 MB
    Final: 15.2 MB
    Growth Rate: 0.02 MB/s
-   
+
    Top Allocations:
    1. worker.(*Pool).Submit - 45.2 MB
    2. cache.(*TTLCache).Set - 23.1 MB
@@ -467,7 +467,7 @@ var (
 
 func main() {
     flag.Parse()
-    
+
     // Setup profiling if requested
     if *profileDir != "" {
         suite := profiling.NewProfileSuite(*profileDir)
@@ -476,13 +476,13 @@ func main() {
             EnableMemory: *memProfile,
             GenerateReports: true,
         })
-        
+
         if err := suite.StartProfiling("app_profile"); err != nil {
             log.Fatal(err)
         }
         defer suite.StopProfiling()
     }
-    
+
     // Your application logic here
     runApplication()
 }

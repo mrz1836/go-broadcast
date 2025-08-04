@@ -17,17 +17,17 @@ mkdir -p "$BASE_DIR"
 for i in {0..9}; do
     main_dir="$BASE_DIR/dir_$i"
     mkdir -p "$main_dir"
-    
+
     # Create 10 subdirectories in each main directory (subdir_0 to subdir_9)
     for j in {0..9}; do
         sub_dir="$main_dir/subdir_$j"
         mkdir -p "$sub_dir"
-        
+
         # Create 10 files in each subdirectory
         for k in {1..10}; do
             file_num=$((i * 100 + j * 10 + k))
             file_path="$sub_dir/file_$file_num.txt"
-            
+
             cat > "$file_path" << EOF
 # {{SERVICE_NAME}} Large Test File $file_num
 # Directory Structure: dir_$i/subdir_$j/file_$file_num.txt
@@ -46,7 +46,7 @@ This file is part of a large fixture designed to test:
 File Metadata:
 - File Number: $file_num
 - Main Directory: $i
-- Sub Directory: $j  
+- Sub Directory: $j
 - File Index: $k
 - Service Name: {{SERVICE_NAME}}
 - Repository: {{REPO_NAME}}

@@ -164,7 +164,7 @@ jq '.git_version, .gh_cli_version' diagnostics.json
 
 For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github/CLAUDE.md) which includes:
 - **Debugging go-broadcast procedures** with verbose logging examples
-- **Component-specific debugging workflows** for targeted investigation  
+- **Component-specific debugging workflows** for targeted investigation
 - **Environment troubleshooting steps** for common setup issues
 - **Development workflow integration** for effective debugging
 

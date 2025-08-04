@@ -21,7 +21,7 @@
 * **Your comments are part of the product**
 
   > Treat them like UX copy. Make them clear, concise, and professional. You're writing for peers, not compilers.
-  
+
 <br><br>
 
 ## 🔤 Function Comments (Exported)
@@ -227,7 +227,7 @@ func ProcessBatchWithRetry(ctx context.Context, items []Item, processor ItemProc
 //
 //     // Create a rate limiter allowing 100 requests per second
 //     limiter := ratelimit.NewTokenBucket(100, time.Second)
-//     
+//
 //     // Check if request is allowed
 //     if limiter.Allow() {
 //         // Process request

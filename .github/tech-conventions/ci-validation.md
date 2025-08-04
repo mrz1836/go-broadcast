@@ -161,7 +161,7 @@ make security-scan
    # Fix formatting
    make fumpt
    goimports -w .
-   
+
    # Check specific linter
    golangci-lint run --enable-only <linter-name>
    ```
@@ -170,7 +170,7 @@ make security-scan
    ```bash
    # Run failing test locally
    go test -v -run TestName ./package
-   
+
    # Debug with more output
    go test -v -race -count=1 ./...
    ```
@@ -179,7 +179,7 @@ make security-scan
    ```bash
    # Generate coverage report
    make coverage
-   
+
    # Find uncovered lines
    go tool cover -html=coverage.out
    ```
@@ -188,7 +188,7 @@ make security-scan
    ```bash
    # Check vulnerabilities
    govulncheck ./...
-   
+
    # Update dependencies
    go get -u ./...
    go mod tidy

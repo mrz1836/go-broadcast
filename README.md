@@ -188,7 +188,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 
 **That's it!** 🎉 go-broadcast automatically:
 - Clones your template repository
-- Applies configured transformations  
+- Applies configured transformations
 - Creates a branch in each target repository
 - Commits synchronized files
 - Opens a pull request for review
@@ -211,7 +211,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 
 ### ⚡ **Enterprise Performance**
 - **587M+ ops/sec** - Binary detection with zero allocations
-- **239M+ ops/sec** - Content comparison for identical files  
+- **239M+ ops/sec** - Content comparison for identical files
 - **13.5M+ ops/sec** - Cache operations with minimal memory
 - **Directory processing** - 1000+ files in ~32ms with concurrent worker pools
 - **API optimization** - 90%+ reduction in GitHub API calls through tree API
@@ -228,6 +228,12 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 - **Professional badges** - GitHub-style badges with real-time updates
 - **Interactive dashboard** - Modern UI with analytics and trends
 - **[🔗 Live Dashboard](https://mrz1836.github.io/go-broadcast/)**
+
+### 🪝 **GoFortress Pre-commit System**
+- **17x faster execution** - <2 second commits with parallel processing
+- **Zero Python dependencies** - Pure Go implementation, single binary
+- **Environment-driven config** - All settings via `.github/.env.shared`
+- **[📚 Documentation](.github/pre-commit/README.md)**
 
 <br/>
 
@@ -297,10 +303,10 @@ timestamp: 2025-01-23T14:30:52Z
 
 ### Why This Approach is Powerful
 
-✅ **No State Files** - Everything lives in GitHub  
-✅ **Atomic Operations** - Each sync is self-contained  
-✅ **Full Audit Trail** - Branch and PR history shows all syncs  
-✅ **Disaster Recovery** - State can be reconstructed from GitHub  
+✅ **No State Files** - Everything lives in GitHub
+✅ **Atomic Operations** - Each sync is self-contained
+✅ **Full Audit Trail** - Branch and PR history shows all syncs
+✅ **Disaster Recovery** - State can be reconstructed from GitHub
 ✅ **Works at Scale** - No state corruption with concurrent syncs
 
 <br/>
@@ -364,7 +370,7 @@ targets:
 defaults:
   pr_labels: ["automated-sync", "chore"]
   pr_assignees: ["tech-lead", "platform-team"]
-  pr_reviewers: ["senior-dev1", "senior-dev2"]  
+  pr_reviewers: ["senior-dev1", "senior-dev2"]
   pr_team_reviewers: ["architecture-team"]
 targets:
   - repo: "company/critical-service"
@@ -424,7 +430,7 @@ transform:
 files:
   - src: "Makefile"         # Copy to same location
     dest: "Makefile"
-  - src: "template.md"      # Rename during sync  
+  - src: "template.md"      # Rename during sync
     dest: "README.md"
   - src: "config/app.yml"   # Move to different directory
     dest: "configs/app.yml"
@@ -435,11 +441,11 @@ files:
 directories:
   - src: ".github/workflows"           # Basic directory sync
     dest: ".github/workflows"
-  - src: ".github/coverage"            # Directory with exclusions  
+  - src: ".github/coverage"            # Directory with exclusions
     dest: ".github/coverage"
     exclude: ["*.out", "*.test", "gofortress-coverage"]
   - src: "docs"                        # Advanced directory options
-    dest: "documentation" 
+    dest: "documentation"
     exclude: ["*.tmp", "**/draft/*"]
     preserve_structure: true           # Keep nested structure (default: true)
     include_hidden: true               # Include hidden files (default: true)
@@ -468,7 +474,7 @@ global:
   pr_team_reviewers: ["infrastructure-team"]
 # Default settings (fallback when no global or target settings)
 defaults:
-  branch_prefix: "chore/sync-files"  
+  branch_prefix: "chore/sync-files"
   pr_labels: ["maintenance"]
   pr_assignees: ["maintainer1", "maintainer2"]
   pr_reviewers: ["reviewer1", "reviewer2"]
@@ -489,7 +495,7 @@ targets:
     # Additional PR settings merged with global settings
     # Final labels: ["automated-sync", "chore", "service-specific"]
     pr_labels: ["service-specific"]
-    # Final assignees: ["platform-team", "service-owner"]  
+    # Final assignees: ["platform-team", "service-owner"]
     pr_assignees: ["service-owner"]
     # Final reviewers: ["platform-lead", "service-reviewer"]
     pr_reviewers: ["service-reviewer"]
@@ -531,7 +537,7 @@ The `global` section allows you to define PR assignments (labels, assignees, rev
 **Merge Priority**: `global` + `target` → `defaults` (fallback)
 
 - **Global settings** apply to ALL target repositories
-- **Target settings** are merged with global settings (duplicates removed)  
+- **Target settings** are merged with global settings (duplicates removed)
 - **Default settings** are used only when neither global nor target settings exist
 
 #### Example Configuration
@@ -630,8 +636,8 @@ targets:
 * **Out‑of‑the‑Box VS Code Happiness** with a preconfigured [Go](https://code.visualstudio.com/docs/languages/go) workspace and [`.vscode`](.vscode) folder with all the right settings.
 * **Optional Release Broadcasts** to your community via [Slack](https://slack.com), [Discord](https://discord.com), or [Twitter](https://twitter.com) – plug in your webhook.
 * **AI Compliance Playbook** – machine‑readable guidelines ([AGENTS.md](.github/AGENTS.md), [CLAUDE.md](.github/CLAUDE.md), [.cursorrules](.cursorrules), [sweep.yaml](.github/sweep.yaml)) keep ChatGPT, Claude, Cursor & Sweep aligned with your repo's rules.
-* **Pre-commit Hooks for Consistency** powered by [pre-commit](https://pre-commit.com) and the [.pre-commit-config.yaml](.pre-commit-config.yaml) file—run the same formatting, linting, and tests before every commit, just like CI.
-* **Automated Hook Updates** keep the [.pre-commit-config.yaml](.pre-commit-config.yaml) current via a weekly [workflow](.github/workflows/update-pre-commit-hooks.yml).
+* **GoFortress Pre-commit System** - High-performance Go-native pre-commit hooks with 17x faster execution—run the same formatting, linting, and tests before every commit, just like CI.
+* **Zero Python Dependencies** - Pure Go implementation with environment-based configuration via [.env.shared](.github/.env.shared).
 * **DevContainers for Instant Onboarding** – Launch a ready-to-code environment in seconds with [VS Code DevContainers](https://containers.dev/) and the included [.devcontainer.json](.devcontainer.json) config.
 
 </details>
@@ -754,7 +760,7 @@ This magical file controls everything from:
 - **🤖 Auto-merge behaviors** (how aggressive should the bots be?)
 - **🏷️ PR management rules** (size labels, auto-assignment, welcome messages)
 
-> **Pro tip:** Want to disable code coverage? Just flip `ENABLE_CODE_COVERAGE=false` in [.env.shared](.github/.env.shared) and push. No YAML archaeology required! 
+> **Pro tip:** Want to disable code coverage? Just flip `ENABLE_CODE_COVERAGE=false` in [.env.shared](.github/.env.shared) and push. No YAML archaeology required!
 
 <br/>
 
@@ -769,8 +775,6 @@ This magical file controls everything from:
 | [scorecard.yml](.github/workflows/scorecard.yml)                                   | Runs [OpenSSF](https://openssf.org/) Scorecard to assess supply chain security.                                        |
 | [stale.yml](.github/workflows/stale-check.yml)                                     | Warns about (and optionally closes) inactive issues and PRs on a schedule or manual trigger.                           |
 | [sync-labels.yml](.github/workflows/sync-labels.yml)                               | Keeps GitHub labels in sync with the declarative manifest at [`.github/labels.yml`](./.github/labels.yml).             |
-| [update-python-dependencies.yml](.github/workflows/update-python-dependencies.yml) | Updates Python dependencies for pre-commit hooks in the repository.                                                    |
-| [update-pre-commit-hooks.yml](.github/workflows/update-pre-commit-hooks.yml)       | Automatically update versions for [pre-commit](https://pre-commit.com/) hooks                                          |
 
 </details>
 
@@ -792,14 +796,15 @@ This command ensures all dependencies are brought up to date in a single step, i
 <summary><strong>🔧 Pre-commit Hooks</strong></summary>
 <br/>
 
-Set up the optional [pre-commit](https://pre-commit.com) hooks to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
+Set up the GoFortress Pre-commit System to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
 
 ```bash
-pip install pre-commit
-pre-commit install
+cd .github/pre-commit
+make build
+./gofortress-pre-commit install
 ```
 
-The hooks are configured in [.pre-commit-config.yaml](.pre-commit-config.yaml) and mirror the CI pipeline.
+The system is configured via [.env.shared](.github/.env.shared) and provides 17x faster execution than traditional Python-based pre-commit hooks. See the [complete documentation](.github/pre-commit/README.md) for details.
 
 </details>
 
@@ -1150,7 +1155,7 @@ The following benchmarks were run on Apple M1 Max (updated January 2025):
 go-broadcast is designed for efficiency:
 
 - **Binary detection** executes 587M+ operations/second with zero allocations for binary files
-- **Content comparison** performs 239M+ operations/second for identical files with zero allocations  
+- **Content comparison** performs 239M+ operations/second for identical files with zero allocations
 - **Cache operations** handle 13.5M+ get operations/second with minimal memory usage
 - **Batch processing** manages 23.8M+ operations/second for concurrent tasks
 - **Memory profiling** captures detailed statistics at 58K+ operations/second

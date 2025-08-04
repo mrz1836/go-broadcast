@@ -73,7 +73,7 @@ var ErrEmptyIndexHTML = errors.New("generated index.html is empty")
 var completeCmd = &cobra.Command{ //nolint:gochecknoglobals // CLI command
 	Use:   "complete",
 	Short: "Run complete coverage pipeline",
-	Long: `Run the complete coverage pipeline: parse coverage, generate badge and report, 
+	Long: `Run the complete coverage pipeline: parse coverage, generate badge and report,
 update history, and create GitHub PR comment if in PR context.`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		// Get flags

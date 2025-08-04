@@ -6,7 +6,7 @@ This directory contains visual assets for the GoFortress Coverage System documen
 
 ### Badge Examples
 - `badge-flat.png` - Example of flat style coverage badge
-- `badge-flat-square.png` - Example of flat-square style badge  
+- `badge-flat-square.png` - Example of flat-square style badge
 - `badge-for-the-badge.png` - Example of for-the-badge style badge
 
 ### Dashboard Screenshots
@@ -71,7 +71,7 @@ gofortress-coverage badge --coverage 87.2 --style for-the-badge --output badge-f
 For PR comments and notification examples:
 
 1. **PR Comments**: Create a test PR and capture screenshots of different comment templates
-2. **Slack Notifications**: Set up test webhook and capture notification examples  
+2. **Slack Notifications**: Set up test webhook and capture notification examples
 3. **Email Notifications**: Configure email notifications and capture HTML examples
 
 ### Architecture Diagram
@@ -89,7 +89,7 @@ Before committing images:
 # Optimize PNG files
 pngcrush -reduce -brute *.png
 
-# Optimize JPEG files  
+# Optimize JPEG files
 jpegoptim --max=85 *.jpg
 
 # Optimize SVG files
@@ -131,7 +131,7 @@ Consider implementing automated screenshot generation as part of the documentati
     # Start local coverage dashboard
     cd .github/coverage
     ./gofortress-coverage dashboard --port 8080 &
-    
+
     # Use puppeteer or similar to capture screenshots
     npx capture-website http://localhost:8080 --output dashboard-hero.png
 ```

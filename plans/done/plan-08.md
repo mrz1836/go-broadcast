@@ -80,9 +80,9 @@ func CaptureMemoryStats(fn func()) MemoryStats {
     var stats MemoryStats
     runtime.GC()
     runtime.ReadMemStats(&stats.Before)
-    
+
     fn()
-    
+
     runtime.GC()
     runtime.ReadMemStats(&stats.After)
     return stats
@@ -108,7 +108,7 @@ func GenerateTestData(size string) []byte {
         "large":  1024 * 1024,    // 1MB
         "xlarge": 1024 * 1024 * 10, // 10MB
     }
-    
+
     if bytes, ok := sizes[size]; ok {
         data := make([]byte, bytes)
         for i := range data {
@@ -130,14 +130,14 @@ import (
     "os"
     "path/filepath"
     "testing"
-    
+
     "github.com/yourusername/go-broadcast/internal/benchmark"
 )
 
 func BenchmarkGitCommand_Simple(b *testing.B) {
     client := &gitClient{runner: &realCommandRunner{}}
     ctx := context.Background()
-    
+
     b.ResetTimer()
     for i := 0; i < b.N; i++ {
         _, _ = client.Version(ctx)
@@ -148,10 +148,10 @@ func BenchmarkGitCommand_WithOutput(b *testing.B) {
     client := &gitClient{runner: &realCommandRunner{}}
     ctx := context.Background()
     tmpDir := b.TempDir()
-    
+
     // Initialize a git repo
     _ = client.Init(ctx, tmpDir)
-    
+
     b.ResetTimer()
     for i := 0; i < b.N; i++ {
         _, _ = client.Status(ctx, tmpDir)
@@ -166,12 +166,12 @@ func BenchmarkClone_Sizes(b *testing.B) {
         {"Small", "https://github.com/octocat/Hello-World.git"},
         // Add more test repos of different sizes
     }
-    
+
     for _, size := range sizes {
         b.Run(size.name, func(b *testing.B) {
             client := &gitClient{runner: &realCommandRunner{}}
             ctx := context.Background()
-            
+
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 tmpDir := b.TempDir()
@@ -183,20 +183,20 @@ func BenchmarkClone_Sizes(b *testing.B) {
 
 func BenchmarkAdd_FileCount(b *testing.B) {
     counts := []int{1, 10, 100, 1000}
-    
+
     for _, count := range counts {
         b.Run(fmt.Sprintf("Files_%d", count), func(b *testing.B) {
             client := &gitClient{runner: &realCommandRunner{}}
             ctx := context.Background()
             tmpDir := b.TempDir()
-            
+
             // Initialize repo and create files
             _ = client.Init(ctx, tmpDir)
             for i := 0; i < count; i++ {
                 file := filepath.Join(tmpDir, fmt.Sprintf("file%d.txt", i))
                 _ = os.WriteFile(file, []byte("test content"), 0644)
             }
-            
+
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 _ = client.Add(ctx, tmpDir, ".")
@@ -214,16 +214,16 @@ func BenchmarkDiff_Sizes(b *testing.B) {
         {"Medium", 100},
         {"Large", 1000},
     }
-    
+
     for _, size := range sizes {
         b.Run(size.name, func(b *testing.B) {
             client := &gitClient{runner: &realCommandRunner{}}
             ctx := context.Background()
             tmpDir := b.TempDir()
-            
+
             // Setup repo with changes
             setupDiffTest(tmpDir, size.lines)
-            
+
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 _, _ = client.Diff(ctx, tmpDir, "HEAD", "")
@@ -242,7 +242,7 @@ import (
     "context"
     "encoding/json"
     "testing"
-    
+
     "github.com/yourusername/go-broadcast/internal/benchmark"
 )
 
@@ -250,7 +250,7 @@ func BenchmarkGHCommand_Simple(b *testing.B) {
     client := &Client{runner: &mockRunner{
         output: []byte(`{"status": "ok"}`),
     }}
-    
+
     b.ResetTimer()
     for i := 0; i < b.N; i++ {
         _, _ = client.run("api", "/rate_limit")
@@ -263,14 +263,14 @@ func BenchmarkParseJSON_Sizes(b *testing.B) {
         data string
     }{
         {"Small", generateJSON(10)},      // 10 items
-        {"Medium", generateJSON(100)},    // 100 items  
+        {"Medium", generateJSON(100)},    // 100 items
         {"Large", generateJSON(1000)},    // 1000 items
     }
-    
+
     for _, size := range sizes {
         b.Run(size.name, func(b *testing.B) {
             data := []byte(size.data)
-            
+
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 var result []interface{}
@@ -289,11 +289,11 @@ func BenchmarkDecodeBase64_Sizes(b *testing.B) {
         {"Medium", 1024 * 10},  // 10KB
         {"Large", 1024 * 100},  // 100KB
     }
-    
+
     for _, size := range sizes {
         b.Run(size.name, func(b *testing.B) {
             content := generateBase64Content(size.size)
-            
+
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 _ = decodeContent(content)
@@ -304,13 +304,13 @@ func BenchmarkDecodeBase64_Sizes(b *testing.B) {
 
 func BenchmarkConcurrentAPICalls(b *testing.B) {
     concurrencyLevels := []int{1, 5, 10, 20}
-    
+
     for _, level := range concurrencyLevels {
         b.Run(fmt.Sprintf("Concurrent_%d", level), func(b *testing.B) {
             client := &Client{runner: &mockRunner{
                 output: []byte(`{"status": "ok"}`),
             }}
-            
+
             b.ResetTimer()
             b.RunParallel(func(pb *testing.PB) {
                 for pb.Next() {
@@ -330,7 +330,7 @@ package logging
 import (
     "strings"
     "testing"
-    
+
     "github.com/yourusername/go-broadcast/internal/benchmark"
 )
 
@@ -344,11 +344,11 @@ func BenchmarkRedaction_Scenarios(b *testing.B) {
         {"MultipleTokens", strings.Repeat("token: abc123 ", 100)},
         {"LargeText", string(benchmark.GenerateTestData("large"))},
     }
-    
+
     for _, scenario := range scenarios {
         b.Run(scenario.name, func(b *testing.B) {
             redactor := NewRedactor()
-            
+
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 _ = redactor.Redact(scenario.text)
@@ -367,7 +367,7 @@ func BenchmarkFormatting_Types(b *testing.B) {
             "count":    100,
         },
     }
-    
+
     formatters := []struct {
         name      string
         formatter Formatter
@@ -376,7 +376,7 @@ func BenchmarkFormatting_Types(b *testing.B) {
         {"JSON", NewJSONFormatter()},
         {"JSONMany", NewJSONFormatter()}, // Test with 20+ fields
     }
-    
+
     for _, f := range formatters {
         b.Run(f.name, func(b *testing.B) {
             if f.name == "JSONMany" {
@@ -385,7 +385,7 @@ func BenchmarkFormatting_Types(b *testing.B) {
                     entry.Fields[fmt.Sprintf("field%d", i)] = i
                 }
             }
-            
+
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 _ = f.formatter.Format(entry)
@@ -396,11 +396,11 @@ func BenchmarkFormatting_Types(b *testing.B) {
 
 func BenchmarkConcurrentLogging(b *testing.B) {
     goroutines := []int{1, 10, 100}
-    
+
     for _, count := range goroutines {
         b.Run(fmt.Sprintf("Goroutines_%d", count), func(b *testing.B) {
             logger := NewLogger()
-            
+
             b.ResetTimer()
             b.RunParallel(func(pb *testing.PB) {
                 for pb.Next() {
@@ -466,19 +466,19 @@ func CompareWithBaseline(current, baseline BaselineReport) string {
     var report strings.Builder
     report.WriteString("Performance Comparison Report\n")
     report.WriteString("=============================\n\n")
-    
+
     for name, currentMetric := range current.Benchmarks {
         if baselineMetric, ok := baseline.Benchmarks[name]; ok {
             speedup := float64(baselineMetric.NsPerOp) / float64(currentMetric.NsPerOp)
             allocReduction := float64(baselineMetric.AllocsPerOp - currentMetric.AllocsPerOp) / float64(baselineMetric.AllocsPerOp) * 100
-            
+
             report.WriteString(fmt.Sprintf("%s:\n", name))
             report.WriteString(fmt.Sprintf("  Speed: %.2fx %s\n", speedup, speedupEmoji(speedup)))
             report.WriteString(fmt.Sprintf("  Allocations: %.1f%% reduction\n", allocReduction))
             report.WriteString("\n")
         }
     }
-    
+
     return report.String()
 }
 
@@ -511,7 +511,7 @@ import (
 var (
     regexCache = make(map[string]*regexp.Regexp)
     regexMu    sync.RWMutex
-    
+
     // Pre-compile common patterns
     commonPatterns = []string{
         `github\.com/([^/]+/[^/]+)`,
@@ -538,21 +538,21 @@ func CompileRegex(pattern string) (*regexp.Regexp, error) {
         return re, nil
     }
     regexMu.RUnlock()
-    
+
     // Slow path: compile and cache
     regexMu.Lock()
     defer regexMu.Unlock()
-    
+
     // Double-check after acquiring write lock
     if re, ok := regexCache[pattern]; ok {
         return re, nil
     }
-    
+
     re, err := regexp.Compile(pattern)
     if err != nil {
         return nil, err
     }
-    
+
     regexCache[pattern] = re
     return re, nil
 }
@@ -583,13 +583,13 @@ var (
             return bytes.NewBuffer(make([]byte, 0, 1024))
         },
     }
-    
+
     mediumBufferPool = &sync.Pool{
         New: func() interface{} {
             return bytes.NewBuffer(make([]byte, 0, 8192))
         },
     }
-    
+
     largeBufferPool = &sync.Pool{
         New: func() interface{} {
             return bytes.NewBuffer(make([]byte, 0, 65536))
@@ -614,10 +614,10 @@ func PutBuffer(buf *bytes.Buffer) {
     if buf == nil {
         return
     }
-    
+
     buf.Reset()
     capacity := buf.Cap()
-    
+
     switch {
     case capacity <= 1024:
         smallBufferPool.Put(buf)
@@ -664,23 +664,23 @@ func BuildPath(parts ...string) string {
     if len(parts) == 0 {
         return ""
     }
-    
+
     // Estimate size to minimize allocations
     size := len(parts) - 1 // separators
     for _, part := range parts {
         size += len(part)
     }
-    
+
     var sb strings.Builder
     sb.Grow(size)
-    
+
     for i, part := range parts {
         if i > 0 {
             sb.WriteByte('/')
         }
         sb.WriteString(part)
     }
-    
+
     return sb.String()
 }
 
@@ -690,7 +690,7 @@ func BuildLargeString(parts []string) string {
     for _, part := range parts {
         totalSize += len(part)
     }
-    
+
     return pool.WithBuffer(totalSize, func(buf *bytes.Buffer) error {
         for _, part := range parts {
             buf.WriteString(part)
@@ -712,14 +712,14 @@ import (
 func BenchmarkRegexCache(b *testing.B) {
     pattern := `github\.com/([^/]+/[^/]+)`
     input := "https://github.com/user/repo/blob/main/README.md"
-    
+
     b.Run("Without_Cache", func(b *testing.B) {
         for i := 0; i < b.N; i++ {
             re, _ := regexp.Compile(pattern)
             _ = re.FindStringSubmatch(input)
         }
     })
-    
+
     b.Run("With_Cache", func(b *testing.B) {
         for i := 0; i < b.N; i++ {
             re, _ := CompileRegex(pattern)
@@ -730,13 +730,13 @@ func BenchmarkRegexCache(b *testing.B) {
 
 func BenchmarkStringBuilding(b *testing.B) {
     parts := []string{"path", "to", "some", "deeply", "nested", "file"}
-    
+
     b.Run("Concatenation", func(b *testing.B) {
         for i := 0; i < b.N; i++ {
             _ = oldBuildPath(parts...)
         }
     })
-    
+
     b.Run("StringBuilder", func(b *testing.B) {
         for i := 0; i < b.N; i++ {
             _ = BuildPath(parts...)
@@ -746,7 +746,7 @@ func BenchmarkStringBuilding(b *testing.B) {
 
 func BenchmarkBufferPool(b *testing.B) {
     data := []byte("Some test data to write multiple times")
-    
+
     b.Run("New_Buffer", func(b *testing.B) {
         for i := 0; i < b.N; i++ {
             buf := bytes.NewBuffer(nil)
@@ -756,7 +756,7 @@ func BenchmarkBufferPool(b *testing.B) {
             _ = buf.String()
         }
     })
-    
+
     b.Run("Pooled_Buffer", func(b *testing.B) {
         for i := 0; i < b.N; i++ {
             pool.WithBuffer(len(data)*100, func(buf *bytes.Buffer) error {
@@ -794,7 +794,7 @@ import (
     "bufio"
     "io"
     "os"
-    
+
     "github.com/yourusername/go-broadcast/internal/pool"
 )
 
@@ -816,19 +816,19 @@ func (sp *StreamProcessor) ProcessFile(inputPath, outputPath string, transform f
         return err
     }
     defer input.Close()
-    
+
     output, err := os.Create(outputPath)
     if err != nil {
         return err
     }
     defer output.Close()
-    
+
     reader := bufio.NewReaderSize(input, sp.ChunkSize)
     writer := bufio.NewWriterSize(output, sp.ChunkSize)
     defer writer.Flush()
-    
+
     buf := make([]byte, sp.ChunkSize)
-    
+
     for {
         n, err := reader.Read(buf)
         if n > 0 {
@@ -836,12 +836,12 @@ func (sp *StreamProcessor) ProcessFile(inputPath, outputPath string, transform f
             if transformErr != nil {
                 return transformErr
             }
-            
+
             if _, writeErr := writer.Write(transformed); writeErr != nil {
                 return writeErr
             }
         }
-        
+
         if err == io.EOF {
             break
         }
@@ -849,7 +849,7 @@ func (sp *StreamProcessor) ProcessFile(inputPath, outputPath string, transform f
             return err
         }
     }
-    
+
     return nil
 }
 
@@ -860,31 +860,31 @@ func (sp *StreamProcessor) ProcessLargeJSON(inputPath string, handler func(inter
         return err
     }
     defer file.Close()
-    
+
     decoder := json.NewDecoder(bufio.NewReader(file))
-    
+
     // Read opening bracket
     if _, err := decoder.Token(); err != nil {
         return err
     }
-    
+
     // Process array elements one by one
     for decoder.More() {
         var item interface{}
         if err := decoder.Decode(&item); err != nil {
             return err
         }
-        
+
         if err := handler(item); err != nil {
             return err
         }
     }
-    
+
     // Read closing bracket
     if _, err := decoder.Token(); err != nil {
         return err
     }
-    
+
     return nil
 }
 ```
@@ -918,15 +918,15 @@ func (si *StringIntern) Intern(s string) string {
         return interned
     }
     si.mu.RUnlock()
-    
+
     si.mu.Lock()
     defer si.mu.Unlock()
-    
+
     // Double-check after acquiring write lock
     if interned, ok := si.values[s]; ok {
         return interned
     }
-    
+
     si.values[s] = s
     return s
 }
@@ -955,7 +955,7 @@ package io
 import (
     "io/ioutil"
     "testing"
-    
+
     "github.com/yourusername/go-broadcast/internal/benchmark"
 )
 
@@ -969,13 +969,13 @@ func BenchmarkFileProcessing(b *testing.B) {
         {"Large", "large"},   // 1MB
         {"XLarge", "xlarge"}, // 10MB
     }
-    
+
     for _, size := range sizes {
         data := benchmark.GenerateTestData(size.size)
-        
+
         b.Run("LoadEntireFile_"+size.name, func(b *testing.B) {
             tmpFile := writeTempFile(b, data)
-            
+
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 content, _ := ioutil.ReadFile(tmpFile)
@@ -983,11 +983,11 @@ func BenchmarkFileProcessing(b *testing.B) {
                 _ = len(content)
             }
         })
-        
+
         b.Run("StreamFile_"+size.name, func(b *testing.B) {
             tmpFile := writeTempFile(b, data)
             processor := NewStreamProcessor()
-            
+
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 _ = processor.ProcessFile(tmpFile, tmpFile+".out", func(chunk []byte) ([]byte, error) {
@@ -1003,7 +1003,7 @@ func BenchmarkMemoryOperations(b *testing.B) {
     b.Run("StringIntern", func(b *testing.B) {
         intern := NewStringIntern()
         strings := []string{"repo1", "repo2", "repo3", "repo1", "repo2", "repo3"}
-        
+
         b.ResetTimer()
         for i := 0; i < b.N; i++ {
             for _, s := range strings {
@@ -1011,10 +1011,10 @@ func BenchmarkMemoryOperations(b *testing.B) {
             }
         }
     })
-    
+
     b.Run("SlicePreallocation", func(b *testing.B) {
         sizes := []int{10, 100, 1000}
-        
+
         for _, size := range sizes {
             b.Run(fmt.Sprintf("Size_%d", size), func(b *testing.B) {
                 b.Run("Without_Prealloc", func(b *testing.B) {
@@ -1025,7 +1025,7 @@ func BenchmarkMemoryOperations(b *testing.B) {
                         }
                     }
                 })
-                
+
                 b.Run("With_Prealloc", func(b *testing.B) {
                     for i := 0; i < b.N; i++ {
                         slice := PreallocateSlice[int](size)
@@ -1064,17 +1064,17 @@ func NewMemoryProfiler(outputDir string) *MemoryProfiler {
 // StartProfiling begins memory profiling
 func (mp *MemoryProfiler) StartProfiling(name string) func() {
     runtime.GC() // Get a clean baseline
-    
+
     return func() {
         runtime.GC() // Force GC before capturing profile
-        
+
         heapFile := fmt.Sprintf("%s/%s_heap.prof", mp.outputDir, name)
         f, err := os.Create(heapFile)
         if err != nil {
             return
         }
         defer f.Close()
-        
+
         pprof.WriteHeapProfile(f)
     }
 }
@@ -1083,7 +1083,7 @@ func (mp *MemoryProfiler) StartProfiling(name string) func() {
 func CaptureMemStats(tag string) {
     var m runtime.MemStats
     runtime.ReadMemStats(&m)
-    
+
     fmt.Printf("Memory Stats [%s]:\n", tag)
     fmt.Printf("  Alloc = %v MB\n", m.Alloc/1024/1024)
     fmt.Printf("  TotalAlloc = %v MB\n", m.TotalAlloc/1024/1024)
@@ -1140,7 +1140,7 @@ type Pool struct {
     wg         sync.WaitGroup
     ctx        context.Context
     cancel     context.CancelFunc
-    
+
     // Metrics
     tasksProcessed atomic.Int64
     tasksActive    atomic.Int32
@@ -1149,7 +1149,7 @@ type Pool struct {
 // NewPool creates a new worker pool
 func NewPool(workers int, queueSize int) *Pool {
     ctx, cancel := context.WithCancel(context.Background())
-    
+
     return &Pool{
         workers:   workers,
         taskQueue: make(chan Task, queueSize),
@@ -1204,7 +1204,7 @@ func (p *Pool) Shutdown() {
 // worker processes tasks from the queue
 func (p *Pool) worker(id int) {
     defer p.wg.Done()
-    
+
     for task := range p.taskQueue {
         select {
         case <-p.ctx.Done():
@@ -1212,15 +1212,15 @@ func (p *Pool) worker(id int) {
         default:
             p.tasksActive.Add(1)
             start := time.Now()
-            
+
             err := task.Execute(p.ctx)
-            
+
             p.results <- Result{
                 TaskName: task.Name(),
                 Error:    err,
                 Duration: time.Since(start),
             }
-            
+
             p.tasksActive.Add(-1)
             p.tasksProcessed.Add(1)
         }
@@ -1255,7 +1255,7 @@ type TTLCache struct {
     items   map[string]Entry
     ttl     time.Duration
     maxSize int
-    
+
     // Metrics
     hits   atomic.Int64
     misses atomic.Int64
@@ -1268,10 +1268,10 @@ func NewTTLCache(ttl time.Duration, maxSize int) *TTLCache {
         ttl:     ttl,
         maxSize: maxSize,
     }
-    
+
     // Start cleanup goroutine
     go cache.cleanup()
-    
+
     return cache
 }
 
@@ -1279,18 +1279,18 @@ func NewTTLCache(ttl time.Duration, maxSize int) *TTLCache {
 func (c *TTLCache) Get(key string) (interface{}, bool) {
     c.mu.RLock()
     defer c.mu.RUnlock()
-    
+
     entry, exists := c.items[key]
     if !exists {
         c.misses.Add(1)
         return nil, false
     }
-    
+
     if time.Now().After(entry.ExpiresAt) {
         c.misses.Add(1)
         return nil, false
     }
-    
+
     c.hits.Add(1)
     return entry.Value, true
 }
@@ -1299,12 +1299,12 @@ func (c *TTLCache) Get(key string) (interface{}, bool) {
 func (c *TTLCache) Set(key string, value interface{}) {
     c.mu.Lock()
     defer c.mu.Unlock()
-    
+
     // Evict oldest entry if at capacity
     if len(c.items) >= c.maxSize {
         c.evictOldest()
     }
-    
+
     c.items[key] = Entry{
         Value:     value,
         ExpiresAt: time.Now().Add(c.ttl),
@@ -1316,12 +1316,12 @@ func (c *TTLCache) GetOrLoad(key string, loader func() (interface{}, error)) (in
     if val, ok := c.Get(key); ok {
         return val, nil
     }
-    
+
     val, err := loader()
     if err != nil {
         return nil, err
     }
-    
+
     c.Set(key, val)
     return val, nil
 }
@@ -1330,7 +1330,7 @@ func (c *TTLCache) GetOrLoad(key string, loader func() (interface{}, error)) (in
 func (c *TTLCache) cleanup() {
     ticker := time.NewTicker(c.ttl / 2)
     defer ticker.Stop()
-    
+
     for range ticker.C {
         c.mu.Lock()
         now := time.Now()
@@ -1347,14 +1347,14 @@ func (c *TTLCache) cleanup() {
 func (c *TTLCache) evictOldest() {
     var oldestKey string
     var oldestTime time.Time
-    
+
     for key, entry := range c.items {
         if oldestTime.IsZero() || entry.ExpiresAt.Before(oldestTime) {
             oldestKey = key
             oldestTime = entry.ExpiresAt
         }
     }
-    
+
     if oldestKey != "" {
         delete(c.items, oldestKey)
     }
@@ -1365,7 +1365,7 @@ func (c *TTLCache) Stats() (hits, misses int64, size int) {
     c.mu.RLock()
     size = len(c.items)
     c.mu.RUnlock()
-    
+
     return c.hits.Load(), c.misses.Load(), size
 }
 ```
@@ -1386,24 +1386,24 @@ func (c *gitClient) BatchAddFiles(ctx context.Context, repoPath string, files []
     if len(files) == 0 {
         return nil
     }
-    
+
     // Batch files to avoid command line length limits
     const maxBatchSize = 100
-    
+
     for i := 0; i < len(files); i += maxBatchSize {
         end := i + maxBatchSize
         if end > len(files) {
             end = len(files)
         }
-        
+
         batch := files[i:end]
         args := append([]string{"add"}, batch...)
-        
+
         if _, err := c.run(ctx, repoPath, args...); err != nil {
             return fmt.Errorf("batch add failed: %w", err)
         }
     }
-    
+
     return nil
 }
 
@@ -1411,25 +1411,25 @@ func (c *gitClient) BatchAddFiles(ctx context.Context, repoPath string, files []
 func (c *gitClient) BatchStatus(ctx context.Context, repoPath string, files []string) (map[string]string, error) {
     args := []string{"status", "--porcelain", "--"}
     args = append(args, files...)
-    
+
     output, err := c.run(ctx, repoPath, args...)
     if err != nil {
         return nil, err
     }
-    
+
     statuses := make(map[string]string)
     lines := strings.Split(string(output), "\n")
-    
+
     for _, line := range lines {
         if len(line) < 3 {
             continue
         }
-        
+
         status := line[:2]
         file := strings.TrimSpace(line[3:])
         statuses[file] = status
     }
-    
+
     return statuses, nil
 }
 ```
@@ -1466,16 +1466,16 @@ func (t *testTask) Name() string {
 func BenchmarkWorkerPool(b *testing.B) {
     workerCounts := []int{1, 5, 10, 20}
     taskCounts := []int{10, 100, 1000}
-    
+
     for _, workers := range workerCounts {
         for _, tasks := range taskCounts {
             b.Run(fmt.Sprintf("Workers_%d_Tasks_%d", workers, tasks), func(b *testing.B) {
                 b.ResetTimer()
-                
+
                 for i := 0; i < b.N; i++ {
                     pool := NewPool(workers, tasks)
                     pool.Start()
-                    
+
                     // Submit tasks
                     for j := 0; j < tasks; j++ {
                         task := &testTask{
@@ -1484,7 +1484,7 @@ func BenchmarkWorkerPool(b *testing.B) {
                         }
                         pool.Submit(task)
                     }
-                    
+
                     // Collect results
                     collected := 0
                     for range pool.Results() {
@@ -1493,7 +1493,7 @@ func BenchmarkWorkerPool(b *testing.B) {
                             break
                         }
                     }
-                    
+
                     pool.Shutdown()
                 }
             })
@@ -1513,13 +1513,13 @@ func BenchmarkConcurrentGitOperations(b *testing.B) {
         {"Many_Sequential", 100, 1},
         {"Many_Concurrent", 100, 20},
     }
-    
+
     for _, scenario := range scenarios {
         b.Run(scenario.name, func(b *testing.B) {
             pool := NewPool(scenario.concurrent, scenario.repos)
             pool.Start()
             defer pool.Shutdown()
-            
+
             b.ResetTimer()
             for i := 0; i < b.N; i++ {
                 var tasks []Task
@@ -1528,9 +1528,9 @@ func BenchmarkConcurrentGitOperations(b *testing.B) {
                         repo: fmt.Sprintf("repo_%d", j),
                     })
                 }
-                
+
                 pool.SubmitBatch(tasks)
-                
+
                 // Wait for completion
                 for j := 0; j < scenario.repos; j++ {
                     <-pool.Results()
@@ -1542,19 +1542,19 @@ func BenchmarkConcurrentGitOperations(b *testing.B) {
 
 func BenchmarkAPICache(b *testing.B) {
     cache := NewTTLCache(time.Minute, 1000)
-    
+
     // Simulate API responses
     apiCall := func() (interface{}, error) {
         time.Sleep(time.Millisecond) // Simulate API latency
         return map[string]string{"status": "ok"}, nil
     }
-    
+
     b.Run("Without_Cache", func(b *testing.B) {
         for i := 0; i < b.N; i++ {
             _, _ = apiCall()
         }
     })
-    
+
     b.Run("With_Cache", func(b *testing.B) {
         for i := 0; i < b.N; i++ {
             key := fmt.Sprintf("api_key_%d", i%10) // 90% cache hit rate
@@ -1616,7 +1616,7 @@ func (ps *ProfileSuite) StartProfiling(name string) error {
     }
     ps.cpu = cpu
     pprof.StartCPUProfile(cpu)
-    
+
     // Execution trace
     traceFile := fmt.Sprintf("%s/%s_trace.out", ps.outputDir, name)
     trace, err := os.Create(traceFile)
@@ -1625,7 +1625,7 @@ func (ps *ProfileSuite) StartProfiling(name string) error {
     }
     ps.trace = trace
     trace.Start(trace)
-    
+
     return nil
 }
 
@@ -1636,13 +1636,13 @@ func (ps *ProfileSuite) StopProfiling() error {
         pprof.StopCPUProfile()
         ps.cpu.Close()
     }
-    
+
     // Stop trace
     if ps.trace != nil {
         trace.Stop()
         ps.trace.Close()
     }
-    
+
     // Capture heap profile
     heapFile := fmt.Sprintf("%s/heap.prof", ps.outputDir)
     heap, err := os.Create(heapFile)
@@ -1650,10 +1650,10 @@ func (ps *ProfileSuite) StopProfiling() error {
         return err
     }
     defer heap.Close()
-    
+
     runtime.GC()
     pprof.WriteHeapProfile(heap)
-    
+
     // Capture goroutine profile
     goroutineFile := fmt.Sprintf("%s/goroutine.prof", ps.outputDir)
     goroutine, err := os.Create(goroutineFile)
@@ -1661,9 +1661,9 @@ func (ps *ProfileSuite) StopProfiling() error {
         return err
     }
     defer goroutine.Close()
-    
+
     pprof.Lookup("goroutine").WriteTo(goroutine, 1)
-    
+
     // Capture block profile
     blockFile := fmt.Sprintf("%s/block.prof", ps.outputDir)
     block, err := os.Create(blockFile)
@@ -1671,30 +1671,30 @@ func (ps *ProfileSuite) StopProfiling() error {
         return err
     }
     defer block.Close()
-    
+
     runtime.SetBlockProfileRate(1)
     pprof.Lookup("block").WriteTo(block, 1)
     runtime.SetBlockProfileRate(0)
-    
+
     return nil
 }
 
 // GenerateReport creates a human-readable report
 func (ps *ProfileSuite) GenerateReport(name string) error {
     report := fmt.Sprintf("%s/%s_report.txt", ps.outputDir, name)
-    
+
     // Generate pprof reports
     commands := []string{
         fmt.Sprintf("go tool pprof -top %s/cpu.prof > %s", ps.outputDir, report),
         fmt.Sprintf("go tool pprof -list=.* %s/cpu.prof >> %s", ps.outputDir, report),
         fmt.Sprintf("go tool pprof -top %s/heap.prof >> %s", ps.outputDir, report),
     }
-    
+
     for _, cmd := range commands {
         // Execute pprof commands
         _ = os.System(cmd)
     }
-    
+
     return nil
 }
 ```
@@ -1708,7 +1708,7 @@ import (
     "context"
     "testing"
     "time"
-    
+
     "github.com/yourusername/go-broadcast/internal/profiling"
 )
 
@@ -1726,9 +1726,9 @@ func TestE2EPerformance(t *testing.T) {
         {"Large_Sequential", 10, 100, false},
         {"Large_Parallel", 10, 100, true},
     }
-    
+
     suite := profiling.NewProfileSuite("profiles")
-    
+
     for _, scenario := range scenarios {
         t.Run(scenario.name, func(t *testing.T) {
             // Start profiling
@@ -1736,29 +1736,29 @@ func TestE2EPerformance(t *testing.T) {
             if err != nil {
                 t.Fatalf("Failed to start profiling: %v", err)
             }
-            
+
             start := time.Now()
-            
+
             // Run sync operation
             ctx := context.Background()
             config := generateTestConfig(scenario.targets, scenario.files)
-            
+
             if scenario.parallel {
                 runParallelSync(ctx, config)
             } else {
                 runSequentialSync(ctx, config)
             }
-            
+
             duration := time.Since(start)
-            
+
             // Stop profiling
             suite.StopProfiling()
-            
+
             // Record metrics
             t.Logf("Scenario: %s", scenario.name)
             t.Logf("Duration: %v", duration)
             t.Logf("Files/sec: %.2f", float64(scenario.targets*scenario.files)/duration.Seconds())
-            
+
             // Check performance targets
             maxDuration := time.Duration(scenario.targets*scenario.files) * time.Millisecond * 20
             if duration > maxDuration {
@@ -1766,7 +1766,7 @@ func TestE2EPerformance(t *testing.T) {
             }
         })
     }
-    
+
     // Generate final report
     suite.GenerateReport("final")
 }
@@ -1795,10 +1795,10 @@ func NewMetricsCollector() *MetricsCollector {
     mc := &MetricsCollector{
         metrics: make(map[string]interface{}),
     }
-    
+
     // Start collection goroutine
     go mc.collect()
-    
+
     return mc
 }
 
@@ -1806,11 +1806,11 @@ func NewMetricsCollector() *MetricsCollector {
 func (mc *MetricsCollector) collect() {
     ticker := time.NewTicker(time.Second)
     defer ticker.Stop()
-    
+
     for range ticker.C {
         var m runtime.MemStats
         runtime.ReadMemStats(&m)
-        
+
         mc.mu.Lock()
         mc.metrics["memory"] = map[string]interface{}{
             "alloc_mb":      m.Alloc / 1024 / 1024,
@@ -1819,7 +1819,7 @@ func (mc *MetricsCollector) collect() {
             "num_gc":        m.NumGC,
             "gc_pause_ns":   m.PauseNs[(m.NumGC+255)%256],
         }
-        
+
         mc.metrics["goroutines"] = runtime.NumGoroutine()
         mc.metrics["timestamp"] = time.Now().Unix()
         mc.mu.Unlock()
@@ -1830,7 +1830,7 @@ func (mc *MetricsCollector) collect() {
 func (mc *MetricsCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     mc.mu.RLock()
     defer mc.mu.RUnlock()
-    
+
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(mc.metrics)
 }
@@ -1838,12 +1838,12 @@ func (mc *MetricsCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // StartDashboard starts the metrics HTTP server
 func StartDashboard(port int) {
     collector := NewMetricsCollector()
-    
+
     http.Handle("/metrics", collector)
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
         fmt.Fprintf(w, dashboardHTML)
     })
-    
+
     fmt.Printf("Performance dashboard running on http://localhost:%d\n", port)
     http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
@@ -1882,12 +1882,12 @@ import (
 func IsBinaryOptimized(content []byte) bool {
     // Check only first 512 bytes
     checkLen := min(512, len(content))
-    
+
     // Quick check for null bytes
     if bytes.IndexByte(content[:checkLen], 0) != -1 {
         return true
     }
-    
+
     // Check for high ratio of non-printable characters
     nonPrintable := 0
     for i := 0; i < checkLen; i++ {
@@ -1895,7 +1895,7 @@ func IsBinaryOptimized(content []byte) bool {
             nonPrintable++
         }
     }
-    
+
     return float64(nonPrintable)/float64(checkLen) > 0.3
 }
 
@@ -1904,19 +1904,19 @@ func DiffOptimized(a, b []byte, maxDiff int) ([]byte, bool) {
     if bytes.Equal(a, b) {
         return nil, true
     }
-    
+
     // Early exit if diff would be too large
     if abs(len(a)-len(b)) > maxDiff {
         return nil, false
     }
-    
+
     // Use pooled buffer for diff
     buf := pool.GetBuffer(len(a) + len(b))
     defer pool.PutBuffer(buf)
-    
+
     // Implement efficient diff algorithm
     // ...
-    
+
     return buf.Bytes(), true
 }
 
@@ -1939,20 +1939,20 @@ func NewBatchProcessor(batchSize int, processor func([]interface{}) error) *Batc
 func (bp *BatchProcessor) Add(item interface{}) error {
     bp.mu.Lock()
     defer bp.mu.Unlock()
-    
+
     bp.items = append(bp.items, item)
-    
+
     if len(bp.items) >= bp.batchSize {
         return bp.flush()
     }
-    
+
     return nil
 }
 
 func (bp *BatchProcessor) Flush() error {
     bp.mu.Lock()
     defer bp.mu.Unlock()
-    
+
     return bp.flush()
 }
 
@@ -1960,10 +1960,10 @@ func (bp *BatchProcessor) flush() error {
     if len(bp.items) == 0 {
         return nil
     }
-    
+
     err := bp.processor(bp.items)
     bp.items = bp.items[:0]
-    
+
     return err
 }
 ```
@@ -1996,7 +1996,7 @@ func GeneratePerformanceReport(baseline, current map[string]float64) *Performanc
         Improvements:    make(map[string]float64),
         Recommendations: []string{},
     }
-    
+
     // Calculate improvements
     for key, baseValue := range baseline {
         if currentValue, ok := current[key]; ok {
@@ -2004,18 +2004,18 @@ func GeneratePerformanceReport(baseline, current map[string]float64) *Performanc
             report.Improvements[key] = improvement
         }
     }
-    
+
     // Generate recommendations
     if report.Improvements["memory_alloc"] < 20 {
         report.Recommendations = append(report.Recommendations,
             "Consider implementing more aggressive memory pooling")
     }
-    
+
     if report.Improvements["cpu_time"] < 30 {
         report.Recommendations = append(report.Recommendations,
             "Profile CPU usage to identify remaining bottlenecks")
     }
-    
+
     return report
 }
 
@@ -2048,13 +2048,13 @@ func (r *PerformanceReport) SaveToFile(filename string) error {
     if err != nil {
         return err
     }
-    
+
     file, err := os.Create(filename)
     if err != nil {
         return err
     }
     defer file.Close()
-    
+
     return tmpl.Execute(file, r)
 }
 ```

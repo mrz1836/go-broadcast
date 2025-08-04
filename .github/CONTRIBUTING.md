@@ -12,10 +12,11 @@ Thank you for your interest in contributing to go-broadcast! This document provi
 ## 📦 How to Contribute
 
 1. **Fork the repo** and create a feature branch
-2. **Install pre-commit hooks**:
+2. **Install GoFortress Pre-commit System**:
    ```bash
-   pip install pre-commit
-   pre-commit install
+   cd .github/pre-commit
+   make build
+   ./gofortress-pre-commit install
    ```
 3. **Development setup**:
    ```bash
@@ -113,7 +114,7 @@ if !regexp.MustCompile(`^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$`).MatchString(repo) {
 // ✅ Use shared benchmark patterns
 func BenchmarkOperation(b *testing.B) {
     files := benchmark.SetupBenchmarkFiles(b, tempDir, 100)
-    
+
     benchmark.WithMemoryTracking(b, func() {
         for i := 0; i < b.N; i++ {
             processFiles(files)
@@ -213,7 +214,7 @@ func TestNewFunction(t *testing.T) {
     tests := []testutil.TestCase[Input, Output]{
         {Name: "description", Input: input, Expected: output, WantErr: false},
     }
-    
+
     testutil.RunTableTests(t, tests, func(t *testing.T, tc testutil.TestCase[Input, Output]) {
         result, err := NewFunction(tc.Input)
         if tc.WantErr {
@@ -257,12 +258,12 @@ func ProcessFile(path string) error {
     if err := validation.ValidatePath(path); err != nil {
         return err
     }
-    
+
     data, err := os.ReadFile(path)
     if err != nil {
         return errors.WrapWithContext(err, "read file")
     }
-    
+
     return processData(data)
 }
 ```
@@ -273,7 +274,7 @@ func ProcessFile(path string) error {
 func TestFileProcessing(t *testing.T) {
     tempDir := testutil.CreateTestDirectory(t)
     files := testutil.CreateTestFiles(t, tempDir, 5)
-    
+
     for _, file := range files {
         err := ProcessFile(file)
         testutil.AssertNoError(t, err)

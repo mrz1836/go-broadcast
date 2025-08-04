@@ -43,7 +43,7 @@ type Pool struct {
 }
 
 // NewPool creates a new worker pool
-func NewPool(workers int, queueSize int) *Pool {
+func NewPool(workers, queueSize int) *Pool {
 	_, cancel := context.WithCancel(context.Background())
 
 	return &Pool{

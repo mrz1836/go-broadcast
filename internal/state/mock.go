@@ -25,7 +25,7 @@ func (m *MockDiscoverer) DiscoverState(ctx context.Context, cfg *config.Config) 
 }
 
 // DiscoverTargetState mock implementation
-func (m *MockDiscoverer) DiscoverTargetState(ctx context.Context, repo string, branchPrefix string) (*TargetState, error) {
+func (m *MockDiscoverer) DiscoverTargetState(ctx context.Context, repo, branchPrefix string) (*TargetState, error) {
 	args := m.Called(ctx, repo, branchPrefix)
 	return testutil.HandleTwoValueReturn[*TargetState](args)
 }

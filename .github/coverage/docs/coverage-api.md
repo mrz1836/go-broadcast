@@ -48,18 +48,18 @@ Flags:
   --pr string         Pull request number
   --threshold float   Coverage threshold percentage (default: from config)
   --fail-under        Fail if coverage is below threshold
-  
+
 Examples:
   # Basic usage
   gofortress-coverage complete --input coverage.out
-  
+
   # With branch and commit info
   gofortress-coverage complete \
     --input coverage.out \
     --branch main \
     --commit abc123def \
     --threshold 80
-    
+
   # For pull request
   gofortress-coverage complete \
     --input coverage.out \
@@ -92,17 +92,17 @@ Flags:
   --format string     Output format: json, yaml, table (default: "json")
   --exclude strings   Additional exclusion patterns
   --include strings   Include only these patterns (whitelist mode)
-  
+
 Examples:
   # Parse and output to stdout
   gofortress-coverage parse --file coverage.out
-  
+
   # Save to file with custom exclusions
   gofortress-coverage parse \
     --file coverage.out \
     --output metrics.json \
     --exclude "test/*,mock/*"
-    
+
   # Human-readable table format
   gofortress-coverage parse \
     --file coverage.out \
@@ -157,11 +157,11 @@ Flags:
   --logo-color string Logo color (default: "white")
   --trend string      Trend indicator: up, down, stable
   --branch string     Branch name for badge caching
-  
+
 Examples:
   # Basic badge
   gofortress-coverage badge --coverage 87.2 --output badge.svg
-  
+
   # Custom style and branding
   gofortress-coverage badge \
     --coverage 92.5 \
@@ -169,7 +169,7 @@ Examples:
     --label "quality" \
     --logo github \
     --logo-color blue
-    
+
   # With trend indicator
   gofortress-coverage badge \
     --coverage 89.1 \
@@ -202,18 +202,18 @@ Flags:
   --title string      Report title (default: "GoFortress Coverage")
   --include-history   Include historical trend charts
   --branch string     Branch name for report organization
-  
+
 Examples:
   # Basic report generation
   gofortress-coverage report --data metrics.json
-  
+
   # Custom themed report
   gofortress-coverage report \
     --data metrics.json \
     --output reports/main \
     --theme github-light \
     --title "Main Branch Coverage"
-    
+
   # Detailed report with history
   gofortress-coverage report \
     --data metrics.json \
@@ -246,19 +246,19 @@ Subcommands:
   predict     Generate coverage predictions
   export      Export historical data
   clean       Clean old historical data
-  
+
 Examples:
   # Add current coverage to history
   gofortress-coverage history add \
     --coverage 87.2 \
     --branch main \
     --commit abc123
-    
+
   # Analyze recent trends
   gofortress-coverage history analyze \
     --branch main \
     --days 30
-    
+
   # Generate predictions
   gofortress-coverage history predict \
     --branch main \
@@ -316,13 +316,13 @@ Flags:
   --enable-analysis         Enable detailed coverage analysis and comparison (default true)
   --anti-spam               Enable anti-spam features (default true)
   --dry-run                 Show preview of comment without posting
-  
+
 Examples:
   # Basic coverage comment
   gofortress-coverage comment \
     --pr 123 \
     --coverage coverage.json
-    
+
   # Comment with analysis
   gofortress-coverage comment \
     --pr 123 \
@@ -330,14 +330,14 @@ Examples:
     --base-coverage main-coverage.json \
     --enable-analysis \
     --generate-badges
-    
+
   # Comment with status checks
   gofortress-coverage comment \
     --pr 123 \
     --coverage coverage.json \
     --status \
     --block-merge
-    
+
   # Dry run preview
   gofortress-coverage comment \
     --pr 123 \
@@ -384,7 +384,7 @@ Flags:
   --theme string      Dashboard theme (default: "github-dark")
   --include-team      Include team analytics
   --include-predictions Include prediction models
-  
+
 Examples:
   # Generate comprehensive dashboard
   gofortress-coverage analytics dashboard \
@@ -404,7 +404,7 @@ Flags:
   --output string     Output file for trend data
   --chart             Generate trend chart
   --forecast int      Forecast days ahead (default: 7)
-  
+
 Examples:
   # Analyze main branch trends
   gofortress-coverage analytics trends \
@@ -424,7 +424,7 @@ Flags:
   --format string     Output format: html, json, csv (default: "html")
   --include-individual Include individual contributor metrics
   --include-collaboration Include collaboration analysis
-  
+
 Examples:
   # Generate team analytics report
   gofortress-coverage analytics team \
@@ -448,14 +448,14 @@ Subcommands:
   show        Display current configuration
   init        Initialize default configuration
   migrate     Migrate from external service configuration
-  
+
 Examples:
   # Validate configuration
   gofortress-coverage config validate
-  
+
   # Show current settings
   gofortress-coverage config show --format table
-  
+
   # Initialize with defaults
   gofortress-coverage config init --output .github/.env.shared
 ```
@@ -638,15 +638,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
-          
+
       - name: Run Tests with Coverage
         run: go test -coverprofile=coverage.out ./...
-        
+
       - name: Process Coverage
         run: |
           cd .github/coverage
@@ -711,16 +711,16 @@ def run_coverage_analysis():
     """Run Go tests and process coverage"""
     # Run tests
     subprocess.run(["go", "test", "-coverprofile=coverage.out", "./..."], check=True)
-    
+
     # Process with GoFortress
     result = subprocess.run([
         "go", "run", "./.github/coverage/cmd/gofortress-coverage",
         "parse", "--file", "coverage.out", "--format", "json"
     ], capture_output=True, text=True, check=True)
-    
+
     # Parse coverage data
     coverage_data = json.loads(result.stdout)
-    
+
     # Custom processing
     if coverage_data["overall_coverage"] < 80:
         print(f"❌ Coverage {coverage_data['overall_coverage']:.1f}% below threshold")
@@ -861,7 +861,7 @@ gofortress-coverage parse --file coverage.out --log-level debug
 ## Related Documentation
 
 - [📖 System Overview](coverage-system.md) - Architecture and components
-- [🎯 Feature Showcase](coverage-features.md) - Detailed feature examples  
+- [🎯 Feature Showcase](coverage-features.md) - Detailed feature examples
 - [⚙️ Configuration Guide](coverage-configuration.md) - Complete configuration reference
 
 ## Support & Contributing

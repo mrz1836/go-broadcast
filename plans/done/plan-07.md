@@ -16,7 +16,7 @@ This document outlines a comprehensive plan to identify and reduce code duplicat
 
 ### Duplication Analysis Framework
 - **Static Analysis**: Identify repeated code patterns and similar function signatures
-- **Semantic Analysis**: Find functional duplication beyond exact text matches  
+- **Semantic Analysis**: Find functional duplication beyond exact text matches
 - **Impact Assessment**: Prioritize refactoring based on lines saved and maintainability gains
 - **Risk Evaluation**: Ensure refactoring preserves behavior and doesn't break tests
 
@@ -41,7 +41,7 @@ This document outlines a comprehensive plan to identify and reduce code duplicat
 - Repeated error type assertions and fallback error creation
 - Same pattern: `fmt.Errorf("mock not properly configured: expected %d return values, got %d")`
 
-#### 2. Benchmark Test Setup (~200+ lines)  
+#### 2. Benchmark Test Setup (~200+ lines)
 **Locations**: Multiple `*_benchmark_test.go` files
 - Memory allocation tracking setup duplication
 - Repeated `b.ResetTimer()` / `b.StopTimer()` patterns
@@ -100,7 +100,7 @@ func ExtractResult[T any](args mock.Arguments, index int) (T, error) {
     if err := ValidateArgs(args, index+1); err != nil {
         return zero, err
     }
-    
+
     result, ok := args[index].(T)
     if !ok {
         return zero, fmt.Errorf("mock result at index %d is not of expected type", index)
@@ -113,12 +113,12 @@ func ExtractError(args mock.Arguments) error {
     if len(args) == 0 {
         return nil
     }
-    
+
     lastArg := args[len(args)-1]
     if lastArg == nil {
         return nil
     }
-    
+
     err, ok := lastArg.(error)
     if !ok {
         return fmt.Errorf("last argument is not an error type")
@@ -129,7 +129,7 @@ func ExtractError(args mock.Arguments) error {
 
 #### 1.2 Refactor Existing Mock Files
 - Update `internal/gh/mock.go` to use shared utilities
-- Update `internal/git/mock.go` to use shared utilities  
+- Update `internal/git/mock.go` to use shared utilities
 - Update `internal/state/mock.go` to use shared utilities
 - Remove duplicated validation logic from each file
 
@@ -147,7 +147,7 @@ import (
 // CreateTestFiles creates multiple test files with default content
 func CreateTestFiles(t *testing.T, dir string, count int) []string {
     t.Helper()
-    
+
     files := make([]string, count)
     for i := 0; i < count; i++ {
         filePath := filepath.Join(dir, fmt.Sprintf("test_file_%d.txt", i))
@@ -163,23 +163,23 @@ func CreateTestFiles(t *testing.T, dir string, count int) []string {
 // CreateTestRepo creates a temporary repository directory with cleanup
 func CreateTestRepo(t *testing.T) (string, func()) {
     t.Helper()
-    
+
     dir, err := os.MkdirTemp("", "test_repo_*")
     if err != nil {
         t.Fatalf("failed to create temp directory: %v", err)
     }
-    
+
     cleanup := func() {
         os.RemoveAll(dir)
     }
-    
+
     return dir, cleanup
 }
 
 // WriteTestFile creates a single test file with custom content
 func WriteTestFile(t *testing.T, filePath, content string) {
     t.Helper()
-    
+
     err := os.WriteFile(filePath, []byte(content), 0o600)
     if err != nil {
         t.Fatalf("failed to create test file %s: %v", filePath, err)
@@ -206,7 +206,7 @@ func WriteTestFile(t *testing.T, filePath, content string) {
 // SetupBenchmarkFiles creates files for benchmark testing
 func SetupBenchmarkFiles(b *testing.B, dir string, count int) []string {
     b.Helper()
-    
+
     files := make([]string, count)
     for i := 0; i < count; i++ {
         filePath := filepath.Join(dir, fmt.Sprintf("bench_file_%d.txt", i))
@@ -224,11 +224,11 @@ func WithMemoryTracking(b *testing.B, fn func()) {
     b.Helper()
     b.ReportAllocs()
     b.ResetTimer()
-    
+
     for i := 0; i < b.N; i++ {
         fn()
     }
-    
+
     b.StopTimer()
 }
 
@@ -236,7 +236,7 @@ func WithMemoryTracking(b *testing.B, fn func()) {
 func StandardSizes() []BenchmarkSize {
     return []BenchmarkSize{
         {Name: "Small", FileCount: 10, FileSize: 1024},
-        {Name: "Medium", FileCount: 100, FileSize: 10240}, 
+        {Name: "Medium", FileCount: 100, FileSize: 10240},
         {Name: "Large", FileCount: 1000, FileSize: 102400},
     }
 }
@@ -314,15 +314,15 @@ func ValidateRepoName(name string) error {
     if name == "" {
         return errors.InvalidFieldError("repository name", "cannot be empty")
     }
-    
+
     if !repoNamePattern.MatchString(name) {
         return errors.InvalidFieldError("repository name", "must be in format owner/repo")
     }
-    
+
     if strings.Contains(name, "..") {
         return errors.ValidationError("repository name", "contains path traversal")
     }
-    
+
     return nil
 }
 
@@ -331,11 +331,11 @@ func ValidateBranchName(name string) error {
     if name == "" {
         return errors.InvalidFieldError("branch name", "cannot be empty")
     }
-    
+
     if !branchNamePattern.MatchString(name) {
         return errors.InvalidFieldError("branch name", "contains invalid characters")
     }
-    
+
     return nil
 }
 
@@ -400,7 +400,7 @@ func GenerateTestJSON(count int, template interface{}) []byte {
     for i := 0; i < count; i++ {
         items[i] = template
     }
-    
+
     data, _ := json.Marshal(items)
     return data
 }
@@ -464,7 +464,7 @@ type TestCase[T any] struct {
 // RunTableTests runs table-driven tests with consistent patterns
 func RunTableTests[T any](t *testing.T, tests []TestCase[T], runner func(*testing.T, TestCase[T])) {
     t.Helper()
-    
+
     for _, tt := range tests {
         t.Run(tt.Name, func(t *testing.T) {
             runner(t, tt)
@@ -558,7 +558,7 @@ func AssertError(t *testing.T, err error) {
 
 ### Week 1 (Days 1-5)
 - **Day 1-2**: Infrastructure setup and mock consolidation (Phase 1)
-- **Day 3-4**: Test helper consolidation and file operations (Phase 2)  
+- **Day 3-4**: Test helper consolidation and file operations (Phase 2)
 - **Day 5**: Error handling and validation standardization (Phase 3)
 
 ### Week 2 (Days 6-10)
@@ -584,4 +584,4 @@ func AssertError(t *testing.T, err error) {
 
 This comprehensive code deduplication plan will eliminate over 500 lines of duplicated code while improving maintainability, consistency, and code quality across the go-broadcast project. By creating shared utilities for common patterns like mocking, testing, error handling, and JSON processing, we establish a foundation for cleaner, more maintainable code that follows consistent patterns throughout the codebase.
 
-The phased approach ensures that all existing functionality is preserved while incrementally improving code quality. The extensive testing strategy and success criteria provide confidence that the refactoring will enhance rather than compromise the project's stability and performance.
+The phased approach ensures that all existing functionality is preserved while incrementally improving code quality. The extensive testing strategy and success criteria provide confidence that the refactoring will enhance rather than compromise the project's stability and performance.ring will enhance rather than compromise the project's stability and performance.

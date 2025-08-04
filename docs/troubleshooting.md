@@ -261,12 +261,12 @@ targets:
    # Use debug logging to see exclusion details
    go-broadcast sync --log-level debug --config sync.yaml 2>&1 | grep -i "excluded"
    ```
-   
+
    Check smart defaults (automatically applied):
    ```yaml
    # These are ALWAYS excluded for safety:
    # *.out, *.test, *.exe, **/.DS_Store, **/tmp/*, **/.git
-   
+
    # Review your additional exclusions
    directories:
      - src: "src"
@@ -314,7 +314,7 @@ grep -E "(processing_time_ms|duration)"
    # Exclude large files that don't need sync
    directories:
      - src: "assets"
-       dest: "assets"  
+       dest: "assets"
        exclude:
          - "**/*.zip"        # Large archives
          - "**/*.tar.gz"     # Compressed files
@@ -329,7 +329,7 @@ grep -E "(processing_time_ms|duration)"
      # Instead of this (slow):
      # - src: "large-dir"
      #   exclude: ["sub1/**", "sub2/**", "sub3/**", ...]
-     
+
      # Do this (fast):
      - src: "large-dir/wanted-subdir"
        dest: "large-dir/wanted-subdir"
@@ -403,14 +403,14 @@ go-broadcast sync --dry-run --config sync.yaml
    go-broadcast sync --log-level debug --config sync.yaml 2>&1 | \
    grep -i "binary"
    ```
-   
+
    **Solution**: Binary files are automatically detected and skipped for transforms. This is correct behavior.
 
 2. **Invalid variable substitution**:
    ```yaml
    directories:
      - src: "configs"
-       dest: "configs"  
+       dest: "configs"
        transform:
          variables:
            SERVICE_NAME: "my-service"
@@ -473,7 +473,7 @@ gh api rate_limit
      # Split into logical chunks
      - src: "large-dir/core"
        dest: "large-dir/core"
-     - src: "large-dir/modules"  
+     - src: "large-dir/modules"
        dest: "large-dir/modules"
    ```
 
@@ -526,7 +526,7 @@ done
 
 3. **Reduce concurrent operations**:
    ```bash
-   # Process fewer repositories simultaneously  
+   # Process fewer repositories simultaneously
    go-broadcast sync specific/repo --config sync.yaml
    ```
 
