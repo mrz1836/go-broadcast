@@ -19,6 +19,7 @@ import (
 // ParallelSafetyTestSuite validates thread safety and parallel execution safety
 type ParallelSafetyTestSuite struct {
 	suite.Suite
+
 	tempDir    string
 	envFile    string
 	originalWD string
@@ -36,7 +37,7 @@ func (s *ParallelSafetyTestSuite) SetupSuite() {
 
 	// Create .github directory
 	githubDir := filepath.Join(s.tempDir, ".github")
-	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o750))
 
 	// Create comprehensive .env.shared file for parallel testing
 	s.envFile = filepath.Join(githubDir, ".env.shared")
@@ -53,7 +54,7 @@ PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=4
 PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT=30
 PRE_COMMIT_SYSTEM_EOF_TIMEOUT=30
 `
-	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o600))
 
 	// Change to temp directory for tests
 	s.Require().NoError(os.Chdir(s.tempDir))
@@ -74,10 +75,10 @@ func (s *ParallelSafetyTestSuite) TearDownSuite() {
 // initGitRepo initializes a git repository in the temp directory
 func (s *ParallelSafetyTestSuite) initGitRepo() error {
 	gitDir := filepath.Join(s.tempDir, ".git")
-	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+	if err := os.MkdirAll(gitDir, 0o750); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o644)
+	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o600)
 }
 
 // createTestFiles creates a variety of test files for parallel processing
@@ -160,10 +161,10 @@ go 1.21
 `,
 	}
 
-	var createdFiles []string
+	createdFiles := make([]string, 0, len(files))
 	for filename, content := range files {
 		filePath := filepath.Join(s.tempDir, filename)
-		s.Require().NoError(os.WriteFile(filePath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(filePath, []byte(content), 0o600))
 		createdFiles = append(createdFiles, filename)
 	}
 
@@ -215,12 +216,12 @@ func (s *ParallelSafetyTestSuite) TestConcurrentRunnerExecution() {
 	close(errors)
 
 	// Validate results
-	var allResults []*runner.Results
+	allResults := make([]*runner.Results, 0, numGoroutines*numIterations)
 	for result := range results {
 		allResults = append(allResults, result)
 	}
 
-	var allErrors []error
+	allErrors := make([]error, 0, numGoroutines*numIterations)
 	for err := range errors {
 		allErrors = append(allErrors, err)
 	}
@@ -343,7 +344,12 @@ func (s *ParallelSafetyTestSuite) TestMemoryUsageUnderParallelExecution() {
 	// Calculate memory differences (handle case where GC might have run)
 	var allocDiff int64
 	if memAfter.Alloc > memBefore.Alloc {
-		allocDiff = int64(memAfter.Alloc - memBefore.Alloc)
+		diff := memAfter.Alloc - memBefore.Alloc
+		if diff > uint64(int64(^uint64(0)>>1)) { // Check for int64 overflow
+			allocDiff = int64(^uint64(0) >> 1) // Max int64 value
+		} else {
+			allocDiff = int64(diff)
+		}
 	} else {
 		allocDiff = 0 // Memory decreased due to GC, which is fine
 	}
@@ -450,7 +456,7 @@ func (s *ParallelSafetyTestSuite) TestRaceConditionDetection() {
 				return
 			}
 			if result == nil {
-				errors <- fmt.Errorf("result from goroutine %d should not be nil", id)
+				errors <- fmt.Errorf("result from goroutine %d should not be nil", id) //nolint:err113 // test-specific error
 				return
 			}
 		}(i)
@@ -460,7 +466,7 @@ func (s *ParallelSafetyTestSuite) TestRaceConditionDetection() {
 	close(errors)
 
 	// Check for any errors
-	var errorList []error
+	errorList := make([]error, 0, numGoroutines)
 	for err := range errors {
 		errorList = append(errorList, err)
 	}
@@ -491,17 +497,17 @@ func (s *ParallelSafetyTestSuite) TestContextCancellationSafety() {
 		{
 			name:        "Immediate Cancellation",
 			timeout:     1 * time.Millisecond,
-			description: "Context cancelled almost immediately",
+			description: "Context canceled almost immediately",
 		},
 		{
 			name:        "Short Timeout",
 			timeout:     100 * time.Millisecond,
-			description: "Context cancelled after short timeout",
+			description: "Context canceled after short timeout",
 		},
 		{
 			name:        "Medium Timeout",
 			timeout:     1 * time.Second,
-			description: "Context cancelled after medium timeout",
+			description: "Context canceled after medium timeout",
 		},
 	}
 
@@ -531,7 +537,7 @@ func (s *ParallelSafetyTestSuite) TestContextCancellationSafety() {
 			s.LessOrEqual(duration, maxDuration,
 				"Execution should respect timeout: %v (max: %v)", duration, maxDuration)
 
-			s.T().Logf("%s: timeout=%v, duration=%v, cancelled=%v",
+			s.T().Logf("%s: timeout=%v, duration=%v, canceled=%v",
 				tc.name, tc.timeout, duration, err != nil)
 
 			// Result might be nil or partial on cancellation - both are valid
@@ -608,7 +614,7 @@ func (s *ParallelSafetyTestSuite) TestParallelExecutionUnderLoad() {
 	for i := 0; i < 20; i++ {
 		filename := filepath.Join(s.tempDir, "generated_"+string(rune('A'+i))+".md")
 		content := "# Generated Test File " + string(rune('A'+i)) + "\n\nContent for testing.\n"
-		s.Require().NoError(os.WriteFile(filename, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(filename, []byte(content), 0o600))
 		largeTestFiles = append(largeTestFiles, "generated_"+string(rune('A'+i))+".md")
 	}
 
@@ -682,7 +688,7 @@ PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT=1
 PRE_COMMIT_SYSTEM_EOF_TIMEOUT=1
 PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=4
 `
-	s.Require().NoError(os.WriteFile(envFile, []byte(shortTimeoutConfig), 0o644))
+	s.Require().NoError(os.WriteFile(envFile, []byte(shortTimeoutConfig), 0o600))
 
 	// Load the configuration with short timeouts
 	cfg, err := config.Load()
@@ -752,7 +758,7 @@ PRE_COMMIT_SYSTEM_ENABLE_EOF=true
 PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS=120
 PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=4
 `
-	s.Require().NoError(os.WriteFile(envFile, []byte(originalConfig), 0o644))
+	s.Require().NoError(os.WriteFile(envFile, []byte(originalConfig), 0o600))
 }
 
 // TestSuite runs the parallel safety test suite

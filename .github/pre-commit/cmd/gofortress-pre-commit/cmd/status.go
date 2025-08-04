@@ -5,6 +5,7 @@ import (
 
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/git"
+	"github.com/mrz1836/go-broadcast/pre-commit/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -55,7 +56,7 @@ func runStatus(_ *cobra.Command, _ []string) error {
 	installer := git.NewInstallerWithConfig(repoRoot, cfg.Directory, cfg)
 
 	// Check status of common hook types
-	hookTypes := []string{"pre-commit", "pre-push", "commit-msg", "post-commit"}
+	supportedHooks := []string{"pre-commit", "pre-push", "commit-msg", "post-commit"}
 
 	printHeader("GoFortress Pre-commit System Status")
 
@@ -70,7 +71,7 @@ func runStatus(_ *cobra.Command, _ []string) error {
 	printSubheader("Git Hook Status")
 
 	foundHooks := false
-	for _, hookType := range hookTypes {
+	for _, hookType := range supportedHooks {
 		status, err := installer.GetInstallationStatus(hookType)
 		if err != nil {
 			printError("Failed to check %s hook status: %v", hookType, err)
@@ -128,13 +129,16 @@ func runStatus(_ *cobra.Command, _ []string) error {
 }
 
 func printHeader(text string) {
-	fmt.Printf("\n=== %s ===\n", text)
+	formatter := output.NewDefault()
+	formatter.Info("\n=== %s ===", text)
 }
 
 func printSubheader(text string) {
-	fmt.Printf("\n%s:\n", text)
+	formatter := output.NewDefault()
+	formatter.Info("\n%s:", text)
 }
 
 func printDetail(format string, args ...interface{}) {
-	fmt.Printf(format+"\n", args...)
+	formatter := output.NewDefault()
+	formatter.Info(format, args...)
 }

@@ -179,7 +179,7 @@ func TestRepository_GetFileContent_FallbackToFile(t *testing.T) {
 	testFile := filepath.Join(tmpDir, "test.go")
 	testContent := "package main\n\nfunc main() {}\n"
 
-	err := os.WriteFile(testFile, []byte(testContent), 0o644)
+	err := os.WriteFile(testFile, []byte(testContent), 0o600)
 	require.NoError(t, err)
 
 	repo := NewRepository(tmpDir)
@@ -195,8 +195,8 @@ func TestFindRepositoryRoot_ErrorCases(t *testing.T) {
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 	defer func() {
-		err := os.Chdir(originalDir)
-		require.NoError(t, err)
+		chdirErr := os.Chdir(originalDir)
+		require.NoError(t, chdirErr)
 	}()
 
 	// Change to temp directory that's not a git repo

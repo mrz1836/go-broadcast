@@ -16,6 +16,7 @@ import (
 // SkipFunctionalityTestSuite validates SKIP environment variable functionality
 type SkipFunctionalityTestSuite struct {
 	suite.Suite
+
 	tempDir    string
 	envFile    string
 	originalWD string
@@ -33,7 +34,7 @@ func (s *SkipFunctionalityTestSuite) SetupSuite() {
 
 	// Create .github directory
 	githubDir := filepath.Join(s.tempDir, ".github")
-	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o750))
 
 	// Create comprehensive .env.shared file
 	s.envFile = filepath.Join(githubDir, ".env.shared")
@@ -53,7 +54,7 @@ PRE_COMMIT_SYSTEM_MOD_TIDY_TIMEOUT=30
 PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT=30
 PRE_COMMIT_SYSTEM_EOF_TIMEOUT=30
 `
-	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o600))
 
 	// Change to temp directory for tests
 	s.Require().NoError(os.Chdir(s.tempDir))
@@ -75,18 +76,18 @@ func (s *SkipFunctionalityTestSuite) TearDownSuite() {
 // TearDownTest cleans up environment variables after each test
 func (s *SkipFunctionalityTestSuite) TearDownTest() {
 	// Clean up SKIP environment variable
-	_ = os.Unsetenv("SKIP")
-	_ = os.Unsetenv("PRE_COMMIT_SYSTEM_SKIP")
-	_ = os.Unsetenv("CI")
+	s.Require().NoError(os.Unsetenv("SKIP"))
+	s.Require().NoError(os.Unsetenv("PRE_COMMIT_SYSTEM_SKIP"))
+	s.Require().NoError(os.Unsetenv("CI"))
 }
 
 // initGitRepo initializes a git repository in the temp directory
 func (s *SkipFunctionalityTestSuite) initGitRepo() error {
 	gitDir := filepath.Join(s.tempDir, ".git")
-	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+	if err := os.MkdirAll(gitDir, 0o750); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o644)
+	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o600)
 }
 
 // createTestFiles creates sample files for testing
@@ -129,7 +130,7 @@ go 1.21
 	}
 
 	for filename, content := range files {
-		if err := os.WriteFile(filepath.Join(s.tempDir, filename), []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(s.tempDir, filename), []byte(content), 0o600); err != nil {
 			return err
 		}
 	}
@@ -562,7 +563,7 @@ func (s *SkipFunctionalityTestSuite) TestSkipPerformanceImpact() {
 
 	// Skip execution should be faster (allow some tolerance for test environment)
 	maxAllowedDuration := baselineDuration + 1*time.Second // Allow 1s tolerance
-	s.True(skipDuration <= maxAllowedDuration,
+	s.LessOrEqual(skipDuration, maxAllowedDuration,
 		"Skip execution should not be slower than baseline: baseline=%v, skip=%v",
 		baselineDuration, skipDuration)
 
@@ -663,7 +664,7 @@ func (s *SkipFunctionalityTestSuite) TestSkipDocumentation() {
 	help := config.GetConfigHelp()
 
 	// Should mention skipping or SKIP functionality
-	// Note: Current implementation might not have this yet
+	// Implementation may be in development
 	s.T().Logf("Configuration help length: %d characters", len(help))
 
 	// Test passes if help is comprehensive (indicating good documentation practices)

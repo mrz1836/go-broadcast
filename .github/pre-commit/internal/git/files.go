@@ -408,7 +408,9 @@ func (fc *FileClassifier) readFileHead(filePath string, n int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close() // Best effort close
+	}()
 
 	buffer := make([]byte, n)
 	bytesRead, err := file.Read(buffer)

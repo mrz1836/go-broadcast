@@ -18,6 +18,7 @@ import (
 // PerformanceValidationTestSuite validates that the system meets the <2s performance target
 type PerformanceValidationTestSuite struct {
 	suite.Suite
+
 	tempDir    string
 	envFile    string
 	originalWD string
@@ -34,7 +35,7 @@ func (s *PerformanceValidationTestSuite) SetupSuite() {
 
 	// Create .github directory
 	githubDir := filepath.Join(s.tempDir, ".github")
-	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o750))
 
 	// Create optimized .env.shared file for performance testing
 	s.envFile = filepath.Join(githubDir, ".env.shared")
@@ -54,7 +55,7 @@ PRE_COMMIT_SYSTEM_MAX_FILE_SIZE_MB=10
 PRE_COMMIT_SYSTEM_MAX_FILES_OPEN=100
 PRE_COMMIT_SYSTEM_COLOR_OUTPUT=false
 `
-	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o600))
 
 	// Change to temp directory for tests
 	s.Require().NoError(os.Chdir(s.tempDir))
@@ -72,10 +73,10 @@ func (s *PerformanceValidationTestSuite) TearDownSuite() {
 // initGitRepo initializes a git repository in the temp directory
 func (s *PerformanceValidationTestSuite) initGitRepo() error {
 	gitDir := filepath.Join(s.tempDir, ".git")
-	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+	if err := os.MkdirAll(gitDir, 0o750); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o644)
+	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o600)
 }
 
 // Test2SecondTargetSmallCommit validates <2s performance for small commits (1-3 files)
@@ -164,9 +165,9 @@ func (s *PerformanceValidationTestSuite) Test2SecondTargetTypicalCommit() {
 	maxDuration := s.calculateMax(durations)
 
 	// Validate performance targets (slightly relaxed for typical commits)
-	s.True(avgDuration <= target*120/100, // Allow 20% buffer for typical commits
+	s.LessOrEqual(avgDuration, target*120/100, // Allow 20% buffer for typical commits
 		"Average duration should be ≤2.4s: %v", avgDuration)
-	s.True(maxDuration <= target*150/100, // Allow 50% buffer for max
+	s.LessOrEqual(maxDuration, target*150/100, // Allow 50% buffer for max
 		"Max duration should be ≤3s: %v", maxDuration)
 
 	s.T().Logf("Typical commit performance: avg=%v, max=%v (target=%v)",
@@ -227,7 +228,7 @@ func (s *PerformanceValidationTestSuite) TestPerformanceUnderParallelism() {
 			s.Require().NoError(err, "Should succeed with %d workers", tc.parallel)
 			s.Require().NotNil(result, "Should have result")
 
-			s.True(duration <= tc.target,
+			s.LessOrEqual(duration, tc.target,
 				"Duration with %d workers should be ≤%v: %v", tc.parallel, tc.target, duration)
 
 			s.T().Logf("%s (%d workers): %v (target: %v)",
@@ -288,7 +289,7 @@ func (s *PerformanceValidationTestSuite) TestPerformanceScaling() {
 			s.Require().NoError(err, "Should succeed with %d files", tc.fileCount)
 			s.Require().NotNil(result, "Should have result")
 
-			s.True(duration <= tc.target,
+			s.LessOrEqual(duration, tc.target,
 				"Duration with %d files should be ≤%v: %v", tc.fileCount, tc.target, duration)
 
 			s.T().Logf("%s: %v (target: %v, files: %d)",
@@ -325,7 +326,7 @@ func (s *PerformanceValidationTestSuite) TestColdStartPerformance() {
 	s.Require().NoError(err, "Cold start should succeed")
 	s.Require().NotNil(result, "Should have result")
 
-	s.True(duration <= target,
+	s.LessOrEqual(duration, target,
 		"Cold start duration should be ≤3s: %v", duration)
 
 	s.T().Logf("Cold start performance: %v (target: %v)", duration, target)
@@ -372,9 +373,9 @@ func (s *PerformanceValidationTestSuite) TestWarmRunPerformance() {
 	avgDuration := s.calculateAverage(durations)
 	maxDuration := s.calculateMax(durations)
 
-	s.True(avgDuration <= target,
+	s.LessOrEqual(avgDuration, target,
 		"Average warm run duration should be ≤1.5s: %v", avgDuration)
-	s.True(maxDuration <= target*120/100,
+	s.LessOrEqual(maxDuration, target*120/100,
 		"Max warm run duration should be ≤1.8s: %v", maxDuration)
 
 	s.T().Logf("Warm run performance: avg=%v, max=%v (target: %v)",
@@ -418,7 +419,12 @@ func (s *PerformanceValidationTestSuite) TestMemoryEfficiencyPerformance() {
 	// Calculate memory usage (handle potential GC)
 	var memUsed int64
 	if memAfter.Alloc > memBefore.Alloc {
-		memUsed = int64(memAfter.Alloc - memBefore.Alloc)
+		diff := memAfter.Alloc - memBefore.Alloc
+		if diff > uint64(int64(^uint64(0)>>1)) { // Check for int64 overflow
+			memUsed = int64(^uint64(0) >> 1) // Max int64 value
+		} else {
+			memUsed = int64(diff)
+		}
 	} else {
 		memUsed = 0 // Memory decreased due to GC, which is fine
 	}
@@ -467,7 +473,7 @@ func (s *PerformanceValidationTestSuite) TestErrorHandlingPerformance() {
 	s.Require().NoError(err, "Should succeed despite filtering")
 	s.Require().NotNil(result, "Should have result")
 
-	s.True(duration <= target,
+	s.LessOrEqual(duration, target,
 		"Duration with file filtering should be ≤2s: %v", duration)
 
 	s.T().Logf("Error handling performance: %v (with file filtering)", duration)
@@ -501,7 +507,7 @@ func (s *PerformanceValidationTestSuite) TestResourceConstrainedPerformance() {
 	s.Require().NoError(err, "Should succeed under constraints")
 	s.Require().NotNil(result, "Should have result")
 
-	s.True(duration <= target,
+	s.LessOrEqual(duration, target,
 		"Duration under constraints should be ≤3s: %v", duration)
 
 	s.T().Logf("Resource-constrained performance: %v (target: %v)", duration, target)
@@ -571,7 +577,7 @@ func (s *PerformanceValidationTestSuite) createBasicFiles(filenames []string) {
 	for _, filename := range filenames {
 		content := s.generateOptimizedFileContent(filename)
 		fullPath := filepath.Join(s.tempDir, filename)
-		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o600))
 	}
 }
 
@@ -614,7 +620,7 @@ PRE_COMMIT_SYSTEM_EOF_TIMEOUT=2
 PRE_COMMIT_SYSTEM_MAX_FILE_SIZE_MB=1
 PRE_COMMIT_SYSTEM_MAX_FILES_OPEN=10
 `
-	s.Require().NoError(os.WriteFile(s.envFile, []byte(constrainedConfig), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(constrainedConfig), 0o600))
 }
 
 func (s *PerformanceValidationTestSuite) restorePerformanceConfig() {
@@ -633,7 +639,7 @@ PRE_COMMIT_SYSTEM_MAX_FILE_SIZE_MB=10
 PRE_COMMIT_SYSTEM_MAX_FILES_OPEN=100
 PRE_COMMIT_SYSTEM_COLOR_OUTPUT=false
 `
-	s.Require().NoError(os.WriteFile(s.envFile, []byte(originalConfig), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(originalConfig), 0o600))
 }
 
 // Statistical helper methods
@@ -722,8 +728,8 @@ func (s *PerformanceValidationTestSuite) TestPerformanceRegression() {
 	s.T().Logf("PERFORMANCE_BASELINE: avg=%v, max=%v, target=%v", avgDuration, maxDuration, target)
 
 	// Current validation
-	s.True(avgDuration <= target, "Average should meet target: %v ≤ %v", avgDuration, target)
-	s.True(maxDuration <= target*130/100, "Max should be within 30% of target: %v ≤ %v", maxDuration, target*130/100)
+	s.LessOrEqual(avgDuration, target, "Average should meet target: %v ≤ %v", avgDuration, target)
+	s.LessOrEqual(maxDuration, target*130/100, "Max should be within 30% of target: %v ≤ %v", maxDuration, target*130/100)
 }
 
 // TestSuite runs the performance validation test suite

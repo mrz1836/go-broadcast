@@ -180,7 +180,7 @@ func TestInstaller_InstallHook_ErrorCases(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a file instead of directory
-	err = os.WriteFile(gitHooksPath, []byte("not a directory"), 0o644)
+	err = os.WriteFile(gitHooksPath, []byte("not a directory"), 0o600)
 	require.NoError(t, err)
 
 	installer := NewInstaller(tmpDir, ".github/pre-commit")
@@ -222,16 +222,16 @@ func TestInstaller_UninstallHook_ErrorCases(t *testing.T) {
 	}
 
 	// Restore permissions and test removal error by making directory read-only
-	err = os.Chmod(hookPath, 0o644)
+	err = os.Chmod(hookPath, 0o600)
 	require.NoError(t, err)
 
 	// Make the hooks directory read-only to prevent removal
-	err = os.Chmod(gitDir, 0o444)
+	err = os.Chmod(gitDir, 0o444) //nolint:gosec // test needs specific permissions
 	require.NoError(t, err)
 
 	// Cleanup - restore permissions before test ends
 	defer func() {
-		_ = os.Chmod(gitDir, 0o755)
+		_ = os.Chmod(gitDir, 0o755) //nolint:gosec // test cleanup
 	}()
 
 	removed, err = installer.UninstallHook("pre-commit")

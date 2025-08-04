@@ -5,7 +5,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+)
+
+// Test error variables to satisfy err113 linter
+var (
+	errTestBase     = errors.New("base error")
+	errTestOriginal = errors.New("original error")
 )
 
 type ErrorTestSuite struct {
@@ -39,7 +46,7 @@ func (s *ErrorTestSuite) TestCommonErrors() {
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
-			s.Error(tt.err)
+			s.Require().Error(tt.err)
 			s.Equal(tt.expected, tt.err.Error())
 		})
 	}
@@ -47,7 +54,7 @@ func (s *ErrorTestSuite) TestCommonErrors() {
 
 // TestCheckErrorConstructor tests the CheckError constructor
 func (s *ErrorTestSuite) TestCheckErrorConstructor() {
-	baseErr := errors.New("base error")
+	baseErr := errTestBase
 	message := "something went wrong"
 	suggestion := "try this fix"
 
@@ -70,7 +77,7 @@ func (s *ErrorTestSuite) TestCheckErrorError() {
 		{
 			name: "message takes precedence",
 			checkErr: &CheckError{
-				Err:     errors.New("base error"),
+				Err:     errTestBase,
 				Message: "custom message",
 			},
 			expected: "custom message",
@@ -78,7 +85,7 @@ func (s *ErrorTestSuite) TestCheckErrorError() {
 		{
 			name: "falls back to base error",
 			checkErr: &CheckError{
-				Err: errors.New("base error"),
+				Err: errTestBase,
 			},
 			expected: "base error",
 		},
@@ -98,7 +105,7 @@ func (s *ErrorTestSuite) TestCheckErrorError() {
 
 // TestCheckErrorUnwrap tests the Unwrap method
 func (s *ErrorTestSuite) TestCheckErrorUnwrap() {
-	baseErr := errors.New("base error")
+	baseErr := errTestBase
 	checkErr := &CheckError{Err: baseErr}
 
 	unwrapped := checkErr.Unwrap()
@@ -174,7 +181,7 @@ func (s *ErrorTestSuite) TestNewGracefulSkipError() {
 
 // TestCheckErrorChaining tests error chaining and wrapping
 func (s *ErrorTestSuite) TestCheckErrorChaining() {
-	originalErr := errors.New("original error")
+	originalErr := errTestOriginal
 	wrappedErr := NewCheckError(originalErr, "wrapped message", "fix suggestion")
 
 	// Test that we can unwrap to the original error
@@ -183,7 +190,7 @@ func (s *ErrorTestSuite) TestCheckErrorChaining() {
 
 	// Test error chaining with standard library
 	var checkErr *CheckError
-	s.ErrorAs(wrappedErr, &checkErr)
+	s.Require().ErrorAs(wrappedErr, &checkErr)
 	s.Equal(wrappedErr, checkErr)
 }
 
@@ -211,7 +218,7 @@ func (s *ErrorTestSuite) TestCheckErrorFields() {
 // Unit tests for edge cases
 func TestCheckErrorNilWrapping(t *testing.T) {
 	checkErr := &CheckError{Err: nil}
-	assert.NoError(t, checkErr.Unwrap())
+	require.NoError(t, checkErr.Unwrap())
 	assert.False(t, checkErr.Is(ErrToolNotFound))
 }
 
@@ -235,12 +242,12 @@ func TestErrorWrappingWithStandardLibrary(t *testing.T) {
 	wrappedErr := NewCheckError(originalErr, "custom message", "fix it")
 
 	// Test with errors.Is
-	assert.ErrorIs(t, wrappedErr, ErrToolNotFound)
-	assert.NotErrorIs(t, wrappedErr, ErrLintingIssues)
+	require.ErrorIs(t, wrappedErr, ErrToolNotFound)
+	require.NotErrorIs(t, wrappedErr, ErrLintingIssues)
 
 	// Test with errors.As
 	var checkErr *CheckError
-	assert.ErrorAs(t, wrappedErr, &checkErr)
+	require.ErrorAs(t, wrappedErr, &checkErr)
 	assert.Equal(t, "custom message", checkErr.Message)
 }
 

@@ -1,9 +1,7 @@
 // Package types defines common data structures and configuration types used throughout the coverage system.
 // This package provides shared type definitions for notification channels, configuration objects,
 // and other data structures that need to be used across multiple packages.
-//
-//nolint:revive // types is a standard package name for common data structures
-package types
+package types //nolint:revive // types is a standard package name for common data structures
 
 import (
 	"context"

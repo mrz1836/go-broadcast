@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
+	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 )
 
 // hookScriptTemplate is the template for generating git hook scripts
@@ -195,7 +196,7 @@ func (i *Installer) validateInstallation(hookType string) error {
 	// Validate git repository
 	gitDir := filepath.Join(i.repoRoot, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-		return fmt.Errorf("not a git repository: %s", i.repoRoot)
+		return fmt.Errorf("%w: %s", prerrors.ErrNotGitRepository, i.repoRoot)
 	}
 
 	// Validate hook type
@@ -206,7 +207,7 @@ func (i *Installer) validateInstallation(hookType string) error {
 		"post-commit": true,
 	}
 	if !validHookTypes[hookType] {
-		return fmt.Errorf("unsupported hook type: %s", hookType)
+		return fmt.Errorf("%w: %s", prerrors.ErrUnsupportedHookType, hookType)
 	}
 
 	// Validate pre-commit directory exists
@@ -215,7 +216,7 @@ func (i *Installer) validateInstallation(hookType string) error {
 		preCommitPath = filepath.Join(i.repoRoot, i.preCommitDir)
 	}
 	if _, err := os.Stat(preCommitPath); os.IsNotExist(err) {
-		return fmt.Errorf("pre-commit directory does not exist: %s", preCommitPath)
+		return fmt.Errorf("%w: %s", prerrors.ErrPreCommitDirNotExist, preCommitPath)
 	}
 
 	// Validate configuration if available
@@ -273,7 +274,7 @@ func (i *Installer) verifyInstallation(hookPath string) error {
 
 	// Check permissions
 	if info.Mode()&0o111 == 0 {
-		return fmt.Errorf("hook file is not executable: %s", hookPath)
+		return fmt.Errorf("%w: %s", prerrors.ErrHookNotExecutable, hookPath)
 	}
 
 	// Check content contains our marker
@@ -283,7 +284,7 @@ func (i *Installer) verifyInstallation(hookPath string) error {
 	}
 
 	if !strings.Contains(string(content), "GoFortress Pre-commit Hook") {
-		return fmt.Errorf("installed hook does not contain expected marker")
+		return fmt.Errorf("%w", prerrors.ErrHookMarkerMissing)
 	}
 
 	return nil

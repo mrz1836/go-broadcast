@@ -4,7 +4,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -63,11 +62,11 @@ func main() {
 	// Write output
 	if *outputFile != "" {
 		// Ensure output directory exists
-		if err := os.MkdirAll(filepath.Dir(*outputFile), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(*outputFile), 0o750); err != nil {
 			log.Fatalf("Failed to create output directory: %v", err)
 		}
 
-		if err := os.WriteFile(*outputFile, []byte(output), 0o644); err != nil {
+		if err := os.WriteFile(*outputFile, []byte(output), 0o600); err != nil {
 			log.Fatalf("Failed to write output file: %v", err)
 		}
 
@@ -75,7 +74,9 @@ func main() {
 			log.Printf("Report written to: %s", *outputFile)
 		}
 	} else {
-		fmt.Print(output)
+		if _, err := os.Stdout.WriteString(output); err != nil {
+			log.Fatalf("Failed to write output: %v", err)
+		}
 	}
 
 	// Exit with appropriate code

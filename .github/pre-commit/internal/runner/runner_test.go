@@ -228,7 +228,7 @@ func (s *RunnerTestSuite) TearDownTest() {
 
 func (s *RunnerTestSuite) createTestFile(filename, content string) string {
 	fullPath := s.tempDir + "/" + filename
-	err := os.WriteFile(fullPath, []byte(content), 0o644)
+	err := os.WriteFile(fullPath, []byte(content), 0o600)
 	s.Require().NoError(err)
 	return fullPath
 }

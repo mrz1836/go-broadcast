@@ -367,7 +367,7 @@ func (r *Runner) parseSkipValue(value string) []string {
 // deduplicateAndValidateSkips removes duplicates and validates skip names
 func (r *Runner) deduplicateAndValidateSkips(skips []string) []string {
 	seen := make(map[string]bool)
-	var result []string
+	result := make([]string, 0, len(skips))
 
 	validChecks := map[string]bool{
 		"fumpt":      true,

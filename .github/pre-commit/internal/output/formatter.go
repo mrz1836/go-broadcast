@@ -51,8 +51,8 @@ func New(opts Options) *Formatter {
 // NewDefault creates a formatter with default settings, respecting environment variables
 func NewDefault() *Formatter {
 	// Check for color disable flags
-	colorEnabled := !(os.Getenv("NO_COLOR") != "" ||
-		os.Getenv("PRE_COMMIT_SYSTEM_COLOR_OUTPUT") == "false")
+	colorEnabled := os.Getenv("NO_COLOR") == "" &&
+		os.Getenv("PRE_COMMIT_SYSTEM_COLOR_OUTPUT") != "false"
 
 	return New(Options{
 		ColorEnabled: colorEnabled,
@@ -64,70 +64,70 @@ func NewDefault() *Formatter {
 // Success prints a success message with green checkmark
 func (f *Formatter) Success(format string, args ...interface{}) {
 	if f.colorEnabled {
-		color.New(color.FgGreen).Fprintf(f.out, "✓ "+format+"\n", args...)
+		_, _ = color.New(color.FgGreen).Fprintf(f.out, "✓ "+format+"\n", args...)
 	} else {
-		fmt.Fprintf(f.out, "✓ "+format+"\n", args...)
+		_, _ = fmt.Fprintf(f.out, "✓ "+format+"\n", args...)
 	}
 }
 
 // Error prints an error message with red X
 func (f *Formatter) Error(format string, args ...interface{}) {
 	if f.colorEnabled {
-		color.New(color.FgRed).Fprintf(f.err, "✗ "+format+"\n", args...)
+		_, _ = color.New(color.FgRed).Fprintf(f.err, "✗ "+format+"\n", args...)
 	} else {
-		fmt.Fprintf(f.err, "✗ "+format+"\n", args...)
+		_, _ = fmt.Fprintf(f.err, "✗ "+format+"\n", args...)
 	}
 }
 
 // Warning prints a warning message with yellow warning symbol
 func (f *Formatter) Warning(format string, args ...interface{}) {
 	if f.colorEnabled {
-		color.New(color.FgYellow).Fprintf(f.err, "⚠ "+format+"\n", args...)
+		_, _ = color.New(color.FgYellow).Fprintf(f.err, "⚠ "+format+"\n", args...)
 	} else {
-		fmt.Fprintf(f.err, "⚠ "+format+"\n", args...)
+		_, _ = fmt.Fprintf(f.err, "⚠ "+format+"\n", args...)
 	}
 }
 
 // Info prints an info message with blue info symbol
 func (f *Formatter) Info(format string, args ...interface{}) {
 	if f.colorEnabled {
-		color.New(color.FgBlue).Fprintf(f.out, "ℹ "+format+"\n", args...)
+		_, _ = color.New(color.FgBlue).Fprintf(f.out, "ℹ "+format+"\n", args...)
 	} else {
-		fmt.Fprintf(f.out, "ℹ "+format+"\n", args...)
+		_, _ = fmt.Fprintf(f.out, "ℹ "+format+"\n", args...)
 	}
 }
 
 // Progress prints a progress message with spinning indicator
 func (f *Formatter) Progress(format string, args ...interface{}) {
 	if f.colorEnabled {
-		color.New(color.FgCyan).Fprintf(f.out, "⏳ "+format+"\n", args...)
+		_, _ = color.New(color.FgCyan).Fprintf(f.out, "⏳ "+format+"\n", args...)
 	} else {
-		fmt.Fprintf(f.out, "⏳ "+format+"\n", args...)
+		_, _ = fmt.Fprintf(f.out, "⏳ "+format+"\n", args...)
 	}
 }
 
 // Header prints a section header
 func (f *Formatter) Header(text string) {
 	if f.colorEnabled {
-		color.New(color.FgCyan, color.Bold).Fprintf(f.out, "\n%s\n", text)
-		color.New(color.FgCyan).Fprintf(f.out, "%s\n", strings.Repeat("─", len(text)))
+		_, _ = color.New(color.FgCyan, color.Bold).Fprintf(f.out, "\n%s\n", text)
+		_, _ = color.New(color.FgCyan).Fprintf(f.out, "%s\n", strings.Repeat("─", len(text)))
 	} else {
-		fmt.Fprintf(f.out, "\n%s\n%s\n", text, strings.Repeat("─", len(text)))
+		_, _ = fmt.Fprintf(f.out, "\n%s\n%s\n", text, strings.Repeat("─", len(text)))
 	}
 }
 
 // Subheader prints a subsection header
 func (f *Formatter) Subheader(text string) {
 	if f.colorEnabled {
-		color.New(color.FgWhite, color.Bold).Fprintf(f.out, "\n%s:\n", text)
+		_, _ = color.New(color.FgWhite, color.Bold).Fprintf(f.out, "\n%s:\n", text)
 	} else {
-		fmt.Fprintf(f.out, "\n%s:\n", text)
+		_, _ = fmt.Fprintf(f.out, "\n%s:\n", text)
 	}
 }
 
 // Detail prints detailed information with indentation
 func (f *Formatter) Detail(format string, args ...interface{}) {
-	fmt.Fprintf(f.out, "  "+format+"\n", args...)
+	_, _ = fmt.Fprintf(f.out, "  "+format+"\n", args...)
 }
 
 // Duration formats and prints a duration
@@ -337,9 +337,9 @@ func (f *Formatter) CodeBlock(text string) {
 	lines := strings.Split(text, "\n")
 	for _, line := range lines {
 		if f.colorEnabled {
-			color.New(color.FgWhite, color.Faint).Fprintf(f.out, "    %s\n", line)
+			_, _ = color.New(color.FgWhite, color.Faint).Fprintf(f.out, "    %s\n", line)
 		} else {
-			fmt.Fprintf(f.out, "    %s\n", line)
+			_, _ = fmt.Fprintf(f.out, "    %s\n", line)
 		}
 	}
 }
@@ -347,8 +347,8 @@ func (f *Formatter) CodeBlock(text string) {
 // SuggestAction prints an actionable suggestion
 func (f *Formatter) SuggestAction(action string) {
 	if f.colorEnabled {
-		color.New(color.FgMagenta).Fprintf(f.out, "💡 %s\n", action)
+		_, _ = color.New(color.FgMagenta).Fprintf(f.out, "💡 %s\n", action)
 	} else {
-		fmt.Fprintf(f.out, "💡 %s\n", action)
+		_, _ = fmt.Fprintf(f.out, "💡 %s\n", action)
 	}
 }

@@ -136,7 +136,7 @@ func NewProductionReadinessValidator() (*ProductionReadinessValidator, error) {
 
 	// Set up test environment
 	githubDir := filepath.Join(tempDir, ".github")
-	if err := os.MkdirAll(githubDir, 0o755); err != nil {
+	if err := os.MkdirAll(githubDir, 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create .github directory: %w", err)
 	}
 
@@ -154,7 +154,7 @@ PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=0
 PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT=30
 PRE_COMMIT_SYSTEM_EOF_TIMEOUT=30
 `
-	if err := os.WriteFile(envFile, []byte(testConfig), 0o644); err != nil {
+	if err := os.WriteFile(envFile, []byte(testConfig), 0o600); err != nil {
 		return nil, fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -232,10 +232,10 @@ func (v *ProductionReadinessValidator) collectSystemInfo() SystemInfo {
 
 func (v *ProductionReadinessValidator) initGitRepo() error {
 	gitDir := filepath.Join(v.tempDir, ".git")
-	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+	if err := os.MkdirAll(gitDir, 0o750); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o644)
+	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o600)
 }
 
 func (v *ProductionReadinessValidator) validatePerformance() (PerformanceMetrics, error) {
@@ -449,7 +449,7 @@ func (v *ProductionReadinessValidator) createTestFiles() []string {
 	for _, filename := range files {
 		content := fileContents[filename]
 		fullPath := filepath.Join(v.tempDir, filename)
-		_ = os.WriteFile(fullPath, []byte(content), 0o644)
+		_ = os.WriteFile(fullPath, []byte(content), 0o600)
 	}
 
 	return files

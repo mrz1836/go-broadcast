@@ -41,6 +41,7 @@ func (s *ContextTestSuite) TearDownTest() {
 }
 
 func (s *ContextTestSuite) initGitRepo() error {
+	ctx := context.Background()
 	// Change to temp directory
 	oldDir, err := os.Getwd()
 	if err != nil {
@@ -55,29 +56,29 @@ func (s *ContextTestSuite) initGitRepo() error {
 	}
 
 	// Initialize git repo
-	if err := exec.Command("git", "init").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "git", "init").Run(); err != nil {
 		return err
 	}
 
 	// Configure git
-	if err := exec.Command("git", "config", "user.email", "test@example.com").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "git", "config", "user.email", "test@example.com").Run(); err != nil {
 		return err
 	}
-	if err := exec.Command("git", "config", "user.name", "Test User").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "git", "config", "user.name", "Test User").Run(); err != nil {
 		return err
 	}
 
 	// Create and add a test file
 	testFile := filepath.Join(s.tempDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o600); err != nil {
 		return err
 	}
 
-	if err := exec.Command("git", "add", "test.txt").Run(); err != nil {
+	if err := exec.CommandContext(context.Background(), "git", "add", "test.txt").Run(); err != nil {
 		return err
 	}
 
-	if err := exec.Command("git", "commit", "-m", "Initial commit").Run(); err != nil {
+	if err := exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit").Run(); err != nil {
 		return err
 	}
 
@@ -91,7 +92,7 @@ func (s *ContextTestSuite) createMakefile(targets []string) {
 	}
 
 	makefilePath := filepath.Join(s.tempDir, "Makefile")
-	err := os.WriteFile(makefilePath, []byte(makefileContent), 0o644)
+	err := os.WriteFile(makefilePath, []byte(makefileContent), 0o600)
 	s.Require().NoError(err)
 }
 
@@ -111,8 +112,8 @@ func (s *ContextTestSuite) TestGetRepoRoot() {
 	oldDir, err := os.Getwd()
 	s.Require().NoError(err)
 	defer func() {
-		err := os.Chdir(oldDir)
-		s.Require().NoError(err)
+		chdirErr := os.Chdir(oldDir)
+		s.Require().NoError(chdirErr)
 	}()
 
 	err = os.Chdir(s.tempDir)
@@ -120,7 +121,7 @@ func (s *ContextTestSuite) TestGetRepoRoot() {
 
 	// Test successful repository root discovery
 	root, err := ctx.GetRepoRoot(context.Background())
-	s.NoError(err)
+	s.Require().NoError(err)
 
 	// Resolve symlinks to handle macOS /var -> /private/var
 	expectedPath, err := filepath.EvalSymlinks(s.tempDir)
@@ -131,7 +132,7 @@ func (s *ContextTestSuite) TestGetRepoRoot() {
 
 	// Test that subsequent calls return cached result
 	root2, err2 := ctx.GetRepoRoot(context.Background())
-	s.NoError(err2)
+	s.Require().NoError(err2)
 	s.Equal(root, root2)
 }
 
@@ -143,16 +144,16 @@ func (s *ContextTestSuite) TestGetRepoRootError() {
 	nonGitDir, err := os.MkdirTemp("", "non_git_*")
 	s.Require().NoError(err)
 	defer func() {
-		err := os.RemoveAll(nonGitDir)
-		s.Require().NoError(err)
+		removeErr := os.RemoveAll(nonGitDir)
+		s.Require().NoError(removeErr)
 	}()
 
 	// Change to non-git directory
 	oldDir, err := os.Getwd()
 	s.Require().NoError(err)
 	defer func() {
-		err := os.Chdir(oldDir)
-		s.Require().NoError(err)
+		chdirErr := os.Chdir(oldDir)
+		s.Require().NoError(chdirErr)
 	}()
 
 	err = os.Chdir(nonGitDir)
@@ -160,12 +161,12 @@ func (s *ContextTestSuite) TestGetRepoRootError() {
 
 	// Test error case
 	root, err := ctx.GetRepoRoot(context.Background())
-	s.Error(err)
+	s.Require().Error(err)
 	s.Empty(root)
 
 	// Test that error is cached
 	root2, err2 := ctx.GetRepoRoot(context.Background())
-	s.Error(err2)
+	s.Require().Error(err2)
 	s.Empty(root2)
 	s.Equal(err, err2)
 }
@@ -182,7 +183,7 @@ func (s *ContextTestSuite) TestGetRepoRootTimeout() {
 	time.Sleep(10 * time.Millisecond)
 
 	root, err := ctx.GetRepoRoot(timeoutCtx)
-	s.Error(err)
+	s.Require().Error(err)
 	s.Empty(root)
 }
 
@@ -194,8 +195,8 @@ func (s *ContextTestSuite) TestHasMakeTarget() {
 	oldDir, err := os.Getwd()
 	s.Require().NoError(err)
 	defer func() {
-		err := os.Chdir(oldDir)
-		s.Require().NoError(err)
+		chdirErr := os.Chdir(oldDir)
+		s.Require().NoError(chdirErr)
 	}()
 
 	err = os.Chdir(s.tempDir)
@@ -228,16 +229,16 @@ func (s *ContextTestSuite) TestHasMakeTargetNoGitRepo() {
 	nonGitDir, err := os.MkdirTemp("", "non_git_*")
 	s.Require().NoError(err)
 	defer func() {
-		err := os.RemoveAll(nonGitDir)
-		s.Require().NoError(err)
+		removeErr := os.RemoveAll(nonGitDir)
+		s.Require().NoError(removeErr)
 	}()
 
 	// Change to non-git directory
 	oldDir, err := os.Getwd()
 	s.Require().NoError(err)
 	defer func() {
-		err := os.Chdir(oldDir)
-		s.Require().NoError(err)
+		chdirErr := os.Chdir(oldDir)
+		s.Require().NoError(chdirErr)
 	}()
 
 	err = os.Chdir(nonGitDir)
@@ -256,8 +257,8 @@ func (s *ContextTestSuite) TestHasMakeTargetTimeout() {
 	oldDir, err := os.Getwd()
 	s.Require().NoError(err)
 	defer func() {
-		err := os.Chdir(oldDir)
-		s.Require().NoError(err)
+		chdirErr := os.Chdir(oldDir)
+		s.Require().NoError(chdirErr)
 	}()
 
 	err = os.Chdir(s.tempDir)
@@ -286,8 +287,8 @@ func (s *ContextTestSuite) TestExecuteMakeTarget() {
 	oldDir, err := os.Getwd()
 	s.Require().NoError(err)
 	defer func() {
-		err := os.Chdir(oldDir)
-		s.Require().NoError(err)
+		chdirErr := os.Chdir(oldDir)
+		s.Require().NoError(chdirErr)
 	}()
 
 	err = os.Chdir(s.tempDir)
@@ -298,7 +299,7 @@ func (s *ContextTestSuite) TestExecuteMakeTarget() {
 
 	// Test successful execution
 	err = ctx.ExecuteMakeTarget(context.Background(), "test", 5*time.Second)
-	s.NoError(err)
+	s.Require().NoError(err)
 
 	// Test execution of non-existent target
 	err = ctx.ExecuteMakeTarget(context.Background(), "nonexistent", 5*time.Second)
@@ -313,16 +314,16 @@ func (s *ContextTestSuite) TestExecuteMakeTargetNoGitRepo() {
 	nonGitDir, err := os.MkdirTemp("", "non_git_*")
 	s.Require().NoError(err)
 	defer func() {
-		err := os.RemoveAll(nonGitDir)
-		s.Require().NoError(err)
+		removeErr := os.RemoveAll(nonGitDir)
+		s.Require().NoError(removeErr)
 	}()
 
 	// Change to non-git directory
 	oldDir, err := os.Getwd()
 	s.Require().NoError(err)
 	defer func() {
-		err := os.Chdir(oldDir)
-		s.Require().NoError(err)
+		chdirErr := os.Chdir(oldDir)
+		s.Require().NoError(chdirErr)
 	}()
 
 	err = os.Chdir(nonGitDir)
@@ -341,8 +342,8 @@ func (s *ContextTestSuite) TestExecuteMakeTargetTimeout() {
 	oldDir, err := os.Getwd()
 	s.Require().NoError(err)
 	defer func() {
-		err := os.Chdir(oldDir)
-		s.Require().NoError(err)
+		chdirErr := os.Chdir(oldDir)
+		s.Require().NoError(chdirErr)
 	}()
 
 	err = os.Chdir(s.tempDir)
@@ -355,7 +356,7 @@ slow:
 	@sleep 10
 `
 	makefilePath := filepath.Join(s.tempDir, "Makefile")
-	err = os.WriteFile(makefilePath, []byte(makefileContent), 0o644)
+	err = os.WriteFile(makefilePath, []byte(makefileContent), 0o600)
 	s.Require().NoError(err)
 
 	// Test execution with short timeout
@@ -371,8 +372,8 @@ func (s *ContextTestSuite) TestConcurrentAccess() {
 	oldDir, err := os.Getwd()
 	s.Require().NoError(err)
 	defer func() {
-		err := os.Chdir(oldDir)
-		s.Require().NoError(err)
+		chdirErr := os.Chdir(oldDir)
+		s.Require().NoError(chdirErr)
 	}()
 
 	err = os.Chdir(s.tempDir)
@@ -440,13 +441,13 @@ func BenchmarkHasMakeTarget(b *testing.B) {
 	}()
 
 	require.NoError(b, os.Chdir(tempDir))
-	require.NoError(b, exec.Command("git", "init").Run())
-	require.NoError(b, exec.Command("git", "config", "user.email", "test@example.com").Run())
-	require.NoError(b, exec.Command("git", "config", "user.name", "Test User").Run())
+	require.NoError(b, exec.CommandContext(context.Background(), "git", "init").Run())
+	require.NoError(b, exec.CommandContext(context.Background(), "git", "config", "user.email", "test@example.com").Run())
+	require.NoError(b, exec.CommandContext(context.Background(), "git", "config", "user.name", "Test User").Run())
 
 	// Create Makefile
 	makefileContent := "lint:\n\t@echo lint\n"
-	require.NoError(b, os.WriteFile(filepath.Join(tempDir, "Makefile"), []byte(makefileContent), 0o644))
+	require.NoError(b, os.WriteFile(filepath.Join(tempDir, "Makefile"), []byte(makefileContent), 0o600))
 
 	b.ResetTimer()
 

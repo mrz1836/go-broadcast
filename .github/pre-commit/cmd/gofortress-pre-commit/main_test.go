@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"testing"
@@ -16,7 +17,8 @@ func TestMain(t *testing.T) {
 	// This test verifies the main entry point works
 
 	// Build the binary for testing
-	buildCmd := exec.Command("go", "build", "-o", "gofortress-pre-commit-test", ".")
+	ctx := context.Background()
+	buildCmd := exec.CommandContext(ctx, "go", "build", "-o", "gofortress-pre-commit-test", ".")
 	err := buildCmd.Run()
 	require.NoError(t, err, "Failed to build binary")
 
@@ -26,13 +28,13 @@ func TestMain(t *testing.T) {
 	}()
 
 	// Test version flag (should exit cleanly)
-	versionCmd := exec.Command("./gofortress-pre-commit-test", "--version")
+	versionCmd := exec.CommandContext(ctx, "./gofortress-pre-commit-test", "--version")
 	output, err := versionCmd.Output()
 	require.NoError(t, err, "Version command should succeed")
 	assert.Contains(t, string(output), "gofortress-pre-commit version", "Should contain version info")
 
 	// Test help flag (should exit cleanly)
-	helpCmd := exec.Command("./gofortress-pre-commit-test", "--help")
+	helpCmd := exec.CommandContext(ctx, "./gofortress-pre-commit-test", "--help")
 	output, err = helpCmd.Output()
 	require.NoError(t, err, "Help command should succeed")
 	assert.Contains(t, string(output), "GoFortress", "Should contain help text")
@@ -53,7 +55,7 @@ func TestMainErrorHandling(t *testing.T) {
 	// and handles errors appropriately by checking that invalid commands
 	// produce errors when executed via the binary
 
-	buildCmd := exec.Command("go", "build", "-o", "gofortress-pre-commit-test", ".")
+	buildCmd := exec.CommandContext(context.Background(), "go", "build", "-o", "gofortress-pre-commit-test", ".")
 	err := buildCmd.Run()
 	require.NoError(t, err, "Failed to build binary")
 
@@ -62,7 +64,7 @@ func TestMainErrorHandling(t *testing.T) {
 	}()
 
 	// Test with invalid command
-	invalidCmd := exec.Command("./gofortress-pre-commit-test", "invalid-command")
+	invalidCmd := exec.CommandContext(context.Background(), "./gofortress-pre-commit-test", "invalid-command")
 	_, err = invalidCmd.Output()
 	assert.Error(t, err, "Invalid command should return error")
 }

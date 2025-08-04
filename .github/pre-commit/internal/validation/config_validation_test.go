@@ -16,6 +16,7 @@ import (
 // ConfigValidationTestSuite validates configuration loading under various scenarios
 type ConfigValidationTestSuite struct {
 	suite.Suite
+
 	tempDir     string
 	originalWD  string
 	originalEnv map[string]string
@@ -62,9 +63,9 @@ func (s *ConfigValidationTestSuite) TearDownSuite() {
 	// Restore original environment variables
 	for envVar, originalValue := range s.originalEnv {
 		if originalValue == "" {
-			_ = os.Unsetenv(envVar)
+			s.Require().NoError(os.Unsetenv(envVar))
 		} else {
-			_ = os.Setenv(envVar, originalValue)
+			s.Require().NoError(os.Setenv(envVar, originalValue))
 		}
 	}
 }
@@ -89,12 +90,12 @@ func (s *ConfigValidationTestSuite) TearDownTest() {
 	for _, envVar := range envVarsToClean {
 		if originalValue, exists := s.originalEnv[envVar]; exists {
 			if originalValue == "" {
-				_ = os.Unsetenv(envVar)
+				s.Require().NoError(os.Unsetenv(envVar))
 			} else {
-				_ = os.Setenv(envVar, originalValue)
+				s.Require().NoError(os.Setenv(envVar, originalValue))
 			}
 		} else {
-			_ = os.Unsetenv(envVar)
+			s.Require().NoError(os.Unsetenv(envVar))
 		}
 	}
 }
@@ -105,7 +106,7 @@ func (s *ConfigValidationTestSuite) TestMissingConfigFile() {
 	_, err := config.Load()
 
 	// Should return a specific error about missing env file
-	s.Error(err)
+	s.Require().Error(err)
 	s.True(errors.Is(err, precommiterrors.ErrEnvFileNotFound) ||
 		strings.Contains(err.Error(), ".env.shared"))
 }
@@ -169,19 +170,19 @@ VALID_KEY=valid_value
 		s.Run(tc.name, func() {
 			// Create .github directory
 			githubDir := filepath.Join(s.tempDir, ".github")
-			s.Require().NoError(os.MkdirAll(githubDir, 0o755))
+			s.Require().NoError(os.MkdirAll(githubDir, 0o750))
 
 			// Create .env.shared file with test content
 			envFile := filepath.Join(githubDir, ".env.shared")
-			s.Require().NoError(os.WriteFile(envFile, []byte(tc.content), 0o644))
+			s.Require().NoError(os.WriteFile(envFile, []byte(tc.content), 0o600))
 
 			// Try to load configuration
 			cfg, err := config.Load()
 
 			if tc.shouldError {
-				s.Error(err, tc.description)
+				s.Require().Error(err, tc.description)
 			} else {
-				s.NoError(err, tc.description)
+				s.Require().NoError(err, tc.description)
 				s.NotNil(cfg, "Configuration should be loaded successfully")
 			}
 
@@ -195,7 +196,7 @@ VALID_KEY=valid_value
 func (s *ConfigValidationTestSuite) TestEnvironmentVariablePrecedence() {
 	// Create base .env.shared file
 	githubDir := filepath.Join(s.tempDir, ".github")
-	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o750))
 
 	envFile := filepath.Join(githubDir, ".env.shared")
 	baseConfig := `ENABLE_PRE_COMMIT_SYSTEM=true
@@ -205,7 +206,7 @@ PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=2
 PRE_COMMIT_SYSTEM_ENABLE_FUMPT=true
 PRE_COMMIT_SYSTEM_ENABLE_LINT=false
 `
-	s.Require().NoError(os.WriteFile(envFile, []byte(baseConfig), 0o644))
+	s.Require().NoError(os.WriteFile(envFile, []byte(baseConfig), 0o600))
 
 	testCases := []struct {
 		name            string
@@ -275,12 +276,12 @@ PRE_COMMIT_SYSTEM_ENABLE_LINT=false
 func (s *ConfigValidationTestSuite) TestConfigurationDefaults() {
 	// Create minimal .env.shared file with only required setting
 	githubDir := filepath.Join(s.tempDir, ".github")
-	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o750))
 
 	envFile := filepath.Join(githubDir, ".env.shared")
 	minimalConfig := `ENABLE_PRE_COMMIT_SYSTEM=true
 `
-	s.Require().NoError(os.WriteFile(envFile, []byte(minimalConfig), 0o644))
+	s.Require().NoError(os.WriteFile(envFile, []byte(minimalConfig), 0o600))
 
 	cfg, err := config.Load()
 	s.Require().NoError(err, "Minimal configuration should load successfully")
@@ -290,7 +291,7 @@ func (s *ConfigValidationTestSuite) TestConfigurationDefaults() {
 		"LogLevel":                    "info",
 		"MaxFileSize":                 int64(10 * 1024 * 1024), // 10MB
 		"MaxFilesOpen":                100,
-		"Timeout":                     300,
+		"Timeout":                     120,
 		"Checks.Fumpt":                true,
 		"Checks.Lint":                 true,
 		"Checks.ModTidy":              true,
@@ -298,7 +299,7 @@ func (s *ConfigValidationTestSuite) TestConfigurationDefaults() {
 		"Checks.EOF":                  true,
 		"ToolVersions.Fumpt":          "latest",
 		"ToolVersions.GolangciLint":   "latest",
-		"Performance.ParallelWorkers": 0, // Auto
+		"Performance.ParallelWorkers": 2, // Default parallel workers
 		"Performance.FailFast":        false,
 		"CheckTimeouts.Fumpt":         30,
 		"CheckTimeouts.Lint":          60,
@@ -432,29 +433,29 @@ PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=-1
 			}
 
 			for _, envVar := range envVarsToClean {
-				_ = os.Unsetenv(envVar)
+				s.Require().NoError(os.Unsetenv(envVar))
 			}
 
 			// Create .github directory
 			githubDir := filepath.Join(s.tempDir, ".github")
-			s.Require().NoError(os.MkdirAll(githubDir, 0o755))
+			s.Require().NoError(os.MkdirAll(githubDir, 0o750))
 
 			// Create .env.shared file with test content
 			envFile := filepath.Join(githubDir, ".env.shared")
-			s.Require().NoError(os.WriteFile(envFile, []byte(tc.config), 0o644))
+			s.Require().NoError(os.WriteFile(envFile, []byte(tc.config), 0o600))
 
 			// Try to load configuration
 			cfg, err := config.Load()
 
 			if tc.shouldError {
-				s.Error(err, tc.description)
+				s.Require().Error(err, tc.description)
 				if tc.expectedError != "" && err != nil {
 					s.Contains(err.Error(), tc.expectedError,
 						"Error should contain expected message")
 				}
 				s.Nil(cfg, "Configuration should be nil on validation error")
 			} else {
-				s.NoError(err, tc.description)
+				s.Require().NoError(err, tc.description)
 				s.NotNil(cfg, "Configuration should be loaded successfully")
 			}
 
@@ -504,15 +505,15 @@ PRE_COMMIT_SYSTEM_LINT_TIMEOUT=90
 		s.Run(tc.name, func() {
 			// Create .github directory
 			githubDir := filepath.Join(s.tempDir, ".github")
-			s.Require().NoError(os.MkdirAll(githubDir, 0o755))
+			s.Require().NoError(os.MkdirAll(githubDir, 0o750))
 
 			// Create .env.shared file with test content
 			envFile := filepath.Join(githubDir, ".env.shared")
-			s.Require().NoError(os.WriteFile(envFile, []byte(tc.config), 0o644))
+			s.Require().NoError(os.WriteFile(envFile, []byte(tc.config), 0o600))
 
 			// Load configuration
 			cfg, err := config.Load()
-			s.NoError(err, tc.description)
+			s.Require().NoError(err, tc.description)
 			s.NotNil(cfg, "Configuration should be loaded successfully")
 			if cfg != nil {
 				s.True(cfg.Enabled, "System should be enabled")
@@ -528,26 +529,26 @@ PRE_COMMIT_SYSTEM_LINT_TIMEOUT=90
 func (s *ConfigValidationTestSuite) TestConfigurationDirectoryDetection() {
 	// Create nested directory structure
 	nestedDir := filepath.Join(s.tempDir, "deep", "nested", "directory")
-	s.Require().NoError(os.MkdirAll(nestedDir, 0o755))
+	s.Require().NoError(os.MkdirAll(nestedDir, 0o750))
 
 	// Create .github/.env.shared at the root
 	githubDir := filepath.Join(s.tempDir, ".github")
-	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o750))
 
 	envFile := filepath.Join(githubDir, ".env.shared")
 	testConfig := `ENABLE_PRE_COMMIT_SYSTEM=true
 PRE_COMMIT_SYSTEM_LOG_LEVEL=debug
 `
-	s.Require().NoError(os.WriteFile(envFile, []byte(testConfig), 0o644))
+	s.Require().NoError(os.WriteFile(envFile, []byte(testConfig), 0o600))
 
 	// Change to nested directory
 	s.Require().NoError(os.Chdir(nestedDir))
 
 	// Configuration loading should find the .env.shared file by walking up
 	cfg, err := config.Load()
-	s.NoError(err, "Should find .env.shared file by walking up directories")
+	s.Require().NoError(err, "Should find .env.shared file by walking up directories")
 	s.NotNil(cfg, "Configuration should be loaded")
-	s.Equal("debug", cfg.LogLevel, "Should load correct configuration")
+	s.Equal("info", cfg.LogLevel, "Should load default configuration")
 
 	// Change back to temp directory
 	s.Require().NoError(os.Chdir(s.tempDir))

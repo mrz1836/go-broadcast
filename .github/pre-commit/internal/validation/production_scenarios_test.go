@@ -18,6 +18,7 @@ import (
 // ProductionScenariosTestSuite validates behavior under realistic production conditions
 type ProductionScenariosTestSuite struct {
 	suite.Suite
+
 	tempDir    string
 	envFile    string
 	originalWD string
@@ -34,7 +35,7 @@ func (s *ProductionScenariosTestSuite) SetupSuite() {
 
 	// Create .github directory
 	githubDir := filepath.Join(s.tempDir, ".github")
-	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o750))
 
 	// Create production-like .env.shared file
 	s.envFile = filepath.Join(githubDir, ".env.shared")
@@ -54,7 +55,7 @@ PRE_COMMIT_SYSTEM_EXCLUDE_PATTERNS="vendor/,node_modules/,.git/,dist/,build/,cov
 PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT=60
 PRE_COMMIT_SYSTEM_EOF_TIMEOUT=60
 `
-	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o600))
 
 	// Change to temp directory for tests
 	s.Require().NoError(os.Chdir(s.tempDir))
@@ -72,10 +73,10 @@ func (s *ProductionScenariosTestSuite) TearDownSuite() {
 // initGitRepo initializes a git repository in the temp directory
 func (s *ProductionScenariosTestSuite) initGitRepo() error {
 	gitDir := filepath.Join(s.tempDir, ".git")
-	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+	if err := os.MkdirAll(gitDir, 0o750); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o644)
+	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o600)
 }
 
 // TestLargeRepositorySimulation validates performance with large numbers of files
@@ -130,11 +131,11 @@ func (s *ProductionScenariosTestSuite) TestLargeRepositorySimulation() {
 			duration := time.Since(start)
 
 			// Validate results
-			s.NoError(err, tc.description)
+			s.Require().NoError(err, tc.description)
 			s.NotNil(result, "Result should not be nil")
 
 			// Performance validation
-			s.True(duration <= tc.target,
+			s.LessOrEqual(duration, tc.target,
 				"Execution should complete within target time: %v (target: %v)",
 				duration, tc.target)
 
@@ -170,7 +171,7 @@ func (s *ProductionScenariosTestSuite) TestMixedFileTypesScenario() {
 	duration := time.Since(start)
 
 	// Validate results
-	s.NoError(err, "Mixed file types should be handled successfully")
+	s.Require().NoError(err, "Mixed file types should be handled successfully")
 	s.NotNil(result, "Result should not be nil")
 	s.Less(duration, 10*time.Second, "Should complete quickly with mixed files")
 
@@ -242,9 +243,9 @@ func (s *ProductionScenariosTestSuite) TestHighVolumeCommitScenario() {
 			duration := time.Since(start)
 
 			// Validate results
-			s.NoError(err, tc.description)
+			s.Require().NoError(err, tc.description)
 			s.NotNil(result, "Result should not be nil")
-			s.True(duration <= tc.expectTarget,
+			s.LessOrEqual(duration, tc.expectTarget,
 				"Scenario should complete within target: %v (target: %v)",
 				duration, tc.expectTarget)
 
@@ -321,7 +322,7 @@ func (s *ProductionScenariosTestSuite) TestNetworkConstrainedEnvironment() {
 			})
 
 			// Should complete successfully even with network constraints
-			s.NoError(err, tc.description)
+			s.Require().NoError(err, tc.description)
 			s.NotNil(result, "Should have results even in constrained environment")
 
 			// Clean up environment variables
@@ -484,7 +485,7 @@ func (s *ProductionScenariosTestSuite) TestCIEnvironmentScenarios() {
 			duration := time.Since(start)
 
 			// Should work correctly in CI
-			s.NoError(err, scenario.description)
+			s.Require().NoError(err, scenario.description)
 			s.NotNil(result, "Should have results in CI environment")
 
 			// Performance should be reasonable in CI
@@ -524,7 +525,7 @@ func (s *ProductionScenariosTestSuite) TestRealWorldFilePatterns() {
 	duration := time.Since(start)
 
 	// Should handle real-world patterns successfully
-	s.NoError(err, "Should handle real-world file patterns")
+	s.Require().NoError(err, "Should handle real-world file patterns")
 	s.NotNil(result, "Should have results")
 	s.Less(duration, 20*time.Second, "Should complete in reasonable time")
 
@@ -544,7 +545,7 @@ func (s *ProductionScenariosTestSuite) createLargeRepositoryStructure(fileCount 
 	}
 
 	for _, dir := range dirs {
-		s.Require().NoError(os.MkdirAll(filepath.Join(s.tempDir, dir), 0o755))
+		s.Require().NoError(os.MkdirAll(filepath.Join(s.tempDir, dir), 0o750))
 	}
 
 	// Create files across directories
@@ -563,7 +564,7 @@ func (s *ProductionScenariosTestSuite) createLargeRepositoryStructure(fileCount 
 		fullPath := filepath.Join(s.tempDir, dir, filename)
 		content := s.generateFileContent(fileType, i)
 
-		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o600))
 		files = append(files, filepath.Join(dir, filename))
 	}
 
@@ -604,7 +605,7 @@ func (s *ProductionScenariosTestSuite) createMixedFileTypeStructure() []string {
 	files := make([]string, 0, len(fileMap))
 	for filename, content := range fileMap {
 		fullPath := filepath.Join(s.tempDir, filename)
-		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o600))
 		files = append(files, filename)
 	}
 
@@ -709,7 +710,7 @@ func main() {}
 	files := make([]string, 0, len(fileMap))
 	for filename, content := range fileMap {
 		fullPath := filepath.Join(s.tempDir, filename)
-		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o600))
 		files = append(files, filename)
 	}
 
@@ -721,13 +722,13 @@ func (s *ProductionScenariosTestSuite) createBasicFiles(filenames []string) []st
 		// Create directory if needed
 		dir := filepath.Dir(filename)
 		if dir != "." {
-			s.Require().NoError(os.MkdirAll(filepath.Join(s.tempDir, dir), 0o755))
+			s.Require().NoError(os.MkdirAll(filepath.Join(s.tempDir, dir), 0o750))
 		}
 
 		// Create file with appropriate content
 		content := s.generateFileContent(filepath.Ext(filename), 0)
 		fullPath := filepath.Join(s.tempDir, filename)
-		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o600))
 	}
 
 	return filenames
@@ -799,7 +800,7 @@ func (s *ProductionScenariosTestSuite) createConstrainedConfig(overrides map[str
 		content += key + "=" + value + "\n"
 	}
 
-	s.Require().NoError(os.WriteFile(s.envFile, []byte(content), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(content), 0o600))
 }
 
 func (s *ProductionScenariosTestSuite) restoreOriginalConfig() {
@@ -818,7 +819,7 @@ PRE_COMMIT_SYSTEM_EXCLUDE_PATTERNS="vendor/,node_modules/,.git/,dist/,build/,cov
 PRE_COMMIT_SYSTEM_WHITESPACE_TIMEOUT=60
 PRE_COMMIT_SYSTEM_EOF_TIMEOUT=60
 `
-	s.Require().NoError(os.WriteFile(s.envFile, []byte(originalConfig), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(originalConfig), 0o600))
 }
 
 // TestSuite runs the production scenarios test suite

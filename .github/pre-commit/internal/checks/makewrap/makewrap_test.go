@@ -280,9 +280,10 @@ func (s *FumptCheckTestSuite) TearDownTest() {
 }
 
 func (s *FumptCheckTestSuite) initGitRepo() {
-	s.Require().NoError(exec.Command("git", "init").Run())
-	s.Require().NoError(exec.Command("git", "config", "user.email", "test@example.com").Run())
-	s.Require().NoError(exec.Command("git", "config", "user.name", "Test User").Run())
+	ctx := context.Background()
+	s.Require().NoError(exec.CommandContext(ctx, "git", "init").Run())
+	s.Require().NoError(exec.CommandContext(ctx, "git", "config", "user.email", "test@example.com").Run())
+	s.Require().NoError(exec.CommandContext(ctx, "git", "config", "user.name", "Test User").Run())
 }
 
 func (s *FumptCheckTestSuite) TestNewFumptCheckWithSharedContext() {
@@ -312,7 +313,7 @@ func (s *FumptCheckTestSuite) TestRunMakeFumpt() {
 	@echo "Running fumpt check"
 	@echo "No gofumpt issues found"
 `
-	err := os.WriteFile("Makefile", []byte(makefileContent), 0o644)
+	err := os.WriteFile("Makefile", []byte(makefileContent), 0o600)
 	s.Require().NoError(err)
 
 	check := NewFumptCheck()
@@ -337,7 +338,7 @@ func main() {
 fmt.Println("hello")
 }
 `
-	err := os.WriteFile("main.go", []byte(goFile), 0o644)
+	err := os.WriteFile("main.go", []byte(goFile), 0o600)
 	s.Require().NoError(err)
 
 	check := NewFumptCheck()
@@ -355,7 +356,7 @@ func (s *FumptCheckTestSuite) TestRunWithTimeout() {
 	makefileContent := `fumpt:
 	@sleep 10
 `
-	err := os.WriteFile("Makefile", []byte(makefileContent), 0o644)
+	err := os.WriteFile("Makefile", []byte(makefileContent), 0o600)
 	s.Require().NoError(err)
 
 	err = check.Run(context.Background(), []string{"test.go"})
@@ -400,9 +401,10 @@ func (s *LintCheckTestSuite) TearDownTest() {
 }
 
 func (s *LintCheckTestSuite) initGitRepo() {
-	s.Require().NoError(exec.Command("git", "init").Run())
-	s.Require().NoError(exec.Command("git", "config", "user.email", "test@example.com").Run())
-	s.Require().NoError(exec.Command("git", "config", "user.name", "Test User").Run())
+	ctx := context.Background()
+	s.Require().NoError(exec.CommandContext(ctx, "git", "init").Run())
+	s.Require().NoError(exec.CommandContext(ctx, "git", "config", "user.email", "test@example.com").Run())
+	s.Require().NoError(exec.CommandContext(ctx, "git", "config", "user.name", "Test User").Run())
 }
 
 func (s *LintCheckTestSuite) TestNewLintCheckWithSharedContext() {
@@ -432,7 +434,7 @@ func (s *LintCheckTestSuite) TestRunMakeLint() {
 	@echo "Running lint check"
 	@echo "No linting issues found"
 `
-	err := os.WriteFile("Makefile", []byte(makefileContent), 0o644)
+	err := os.WriteFile("Makefile", []byte(makefileContent), 0o600)
 	s.Require().NoError(err)
 
 	check := NewLintCheck()
@@ -450,7 +452,7 @@ func (s *LintCheckTestSuite) TestRunDirectLint() {
 
 	// Create a basic Go module
 	goMod := "module test\n\ngo 1.21\n"
-	err := os.WriteFile("go.mod", []byte(goMod), 0o644)
+	err := os.WriteFile("go.mod", []byte(goMod), 0o600)
 	s.Require().NoError(err)
 
 	// Create a Go file
@@ -462,7 +464,7 @@ func main() {
 	fmt.Println("hello")
 }
 `
-	err = os.WriteFile("main.go", []byte(goFile), 0o644)
+	err = os.WriteFile("main.go", []byte(goFile), 0o600)
 	s.Require().NoError(err)
 
 	check := NewLintCheck()
@@ -510,9 +512,9 @@ func (s *ModTidyCheckTestSuite) TearDownTest() {
 }
 
 func (s *ModTidyCheckTestSuite) initGitRepo() {
-	s.Require().NoError(exec.Command("git", "init").Run())
-	s.Require().NoError(exec.Command("git", "config", "user.email", "test@example.com").Run())
-	s.Require().NoError(exec.Command("git", "config", "user.name", "Test User").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "init").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "config", "user.email", "test@example.com").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "config", "user.name", "Test User").Run())
 }
 
 func (s *ModTidyCheckTestSuite) TestNewModTidyCheckWithSharedContext() {
@@ -587,19 +589,19 @@ func (s *ModTidyCheckTestSuite) TestRunMakeModTidy() {
 
 	// Create a basic Go module
 	goMod := "module test\n\ngo 1.21\n"
-	err := os.WriteFile("go.mod", []byte(goMod), 0o644)
+	err := os.WriteFile("go.mod", []byte(goMod), 0o600)
 	s.Require().NoError(err)
 
 	// Add and commit the go.mod to git
-	s.Require().NoError(exec.Command("git", "add", "go.mod").Run())
-	s.Require().NoError(exec.Command("git", "commit", "-m", "Add go.mod").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "add", "go.mod").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "commit", "-m", "Add go.mod").Run())
 
 	// Create a Makefile that doesn't actually modify files
 	makefileContent := `mod-tidy:
 	@echo "Running mod-tidy check"
 	@echo "All modules are tidy"
 `
-	err = os.WriteFile("Makefile", []byte(makefileContent), 0o644)
+	err = os.WriteFile("Makefile", []byte(makefileContent), 0o600)
 	s.Require().NoError(err)
 
 	check := NewModTidyCheck()
@@ -617,7 +619,7 @@ func (s *ModTidyCheckTestSuite) TestRunDirectModTidy() {
 
 	// Create a basic Go module
 	goMod := "module test\n\ngo 1.21\n"
-	err := os.WriteFile("go.mod", []byte(goMod), 0o644)
+	err := os.WriteFile("go.mod", []byte(goMod), 0o600)
 	s.Require().NoError(err)
 
 	// Create a Go file
@@ -629,12 +631,12 @@ func main() {
 	fmt.Println("hello")
 }
 `
-	err = os.WriteFile("main.go", []byte(goFile), 0o644)
+	err = os.WriteFile("main.go", []byte(goFile), 0o600)
 	s.Require().NoError(err)
 
 	// Add and commit the files to git
-	s.Require().NoError(exec.Command("git", "add", ".").Run())
-	s.Require().NoError(exec.Command("git", "commit", "-m", "Add initial files").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "add", ".").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "commit", "-m", "Add initial files").Run())
 
 	check := NewModTidyCheck()
 	err = check.Run(context.Background(), []string{"go.mod"})
@@ -651,7 +653,7 @@ func (s *ModTidyCheckTestSuite) TestCheckUncommittedChanges() {
 
 	// Create a basic Go module
 	goMod := "module test\n\ngo 1.21\n"
-	err := os.WriteFile("go.mod", []byte(goMod), 0o644)
+	err := os.WriteFile("go.mod", []byte(goMod), 0o600)
 	s.Require().NoError(err)
 
 	// Create a Go file that uses an external dependency
@@ -667,12 +669,12 @@ func main() {
 	assert.True(nil, true)
 }
 `
-	err = os.WriteFile("main.go", []byte(goFile), 0o644)
+	err = os.WriteFile("main.go", []byte(goFile), 0o600)
 	s.Require().NoError(err)
 
 	// Add and commit the files
-	s.Require().NoError(exec.Command("git", "add", ".").Run())
-	s.Require().NoError(exec.Command("git", "commit", "-m", "Initial commit").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "add", ".").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit").Run())
 
 	// Now run mod tidy which should modify go.mod and go.sum
 	check := NewModTidyCheck()
@@ -699,9 +701,9 @@ func TestFumptCheckEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		// Initialize git repository for tests that need it
-		require.NoError(t, exec.Command("git", "init").Run())
-		require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
-		require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+		require.NoError(t, exec.CommandContext(context.Background(), "git", "init").Run())
+		require.NoError(t, exec.CommandContext(context.Background(), "git", "config", "user.email", "test@example.com").Run())
+		require.NoError(t, exec.CommandContext(context.Background(), "git", "config", "user.name", "Test User").Run())
 
 		err = check.Run(context.Background(), []string{})
 		assert.NoError(t, err) // Should succeed with no files
@@ -740,9 +742,9 @@ func TestLintCheckEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		// Initialize git repository for tests that need it
-		require.NoError(t, exec.Command("git", "init").Run())
-		require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
-		require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+		require.NoError(t, exec.CommandContext(context.Background(), "git", "init").Run())
+		require.NoError(t, exec.CommandContext(context.Background(), "git", "config", "user.email", "test@example.com").Run())
+		require.NoError(t, exec.CommandContext(context.Background(), "git", "config", "user.name", "Test User").Run())
 
 		err = check.Run(context.Background(), []string{})
 		assert.NoError(t, err) // Should succeed with no files
@@ -774,9 +776,9 @@ func TestModTidyCheckEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		// Initialize git repository for tests that need it
-		require.NoError(t, exec.Command("git", "init").Run())
-		require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
-		require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+		require.NoError(t, exec.CommandContext(context.Background(), "git", "init").Run())
+		require.NoError(t, exec.CommandContext(context.Background(), "git", "config", "user.email", "test@example.com").Run())
+		require.NoError(t, exec.CommandContext(context.Background(), "git", "config", "user.name", "Test User").Run())
 
 		err = check.Run(context.Background(), []string{})
 		assert.NoError(t, err) // Should succeed with no files

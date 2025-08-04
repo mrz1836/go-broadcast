@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 )
 
 // MakeTargetInfo contains information about a make target
@@ -41,10 +43,10 @@ func NewContext() *Context {
 func (sc *Context) GetRepoRoot(ctx context.Context) (string, error) {
 	sc.repoRootOnce.Do(func() {
 		// Add timeout for git command
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel")
+		cmd := exec.CommandContext(timeoutCtx, "git", "rev-parse", "--show-toplevel")
 		output, err := cmd.Output()
 		if err != nil {
 			sc.repoRootErr = err
@@ -112,9 +114,9 @@ func (sc *Context) GetMakeTargetInfo(ctx context.Context, target string) *MakeTa
 		// Provide helpful error information
 		output := stdout.String() + stderr.String()
 		if strings.Contains(output, "No rule to make target") {
-			info.Error = fmt.Errorf("make target '%s' not found in Makefile", target)
+			info.Error = fmt.Errorf("%w '%s' in Makefile", prerrors.ErrMakeTargetNotFound, target)
 		} else if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			info.Error = fmt.Errorf("timeout checking make target '%s'", target)
+			info.Error = fmt.Errorf("%w '%s'", prerrors.ErrMakeTargetTimeout, target)
 		} else {
 			info.Error = fmt.Errorf("error checking make target '%s': %w", target, err)
 		}

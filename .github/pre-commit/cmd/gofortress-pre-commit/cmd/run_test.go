@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -227,22 +228,23 @@ func (s *RunCommandTestSuite) TearDownTest() {
 }
 
 func (s *RunCommandTestSuite) initGitRepo() {
-	s.Require().NoError(exec.Command("git", "init").Run())
-	s.Require().NoError(exec.Command("git", "config", "user.email", "test@example.com").Run())
-	s.Require().NoError(exec.Command("git", "config", "user.name", "Test User").Run())
+	ctx := context.Background()
+	s.Require().NoError(exec.CommandContext(ctx, "git", "init").Run())
+	s.Require().NoError(exec.CommandContext(ctx, "git", "config", "user.email", "test@example.com").Run())
+	s.Require().NoError(exec.CommandContext(ctx, "git", "config", "user.name", "Test User").Run())
 
 	// Create initial commit
 	testFile := filepath.Join(s.tempDir, "README.md")
-	err := os.WriteFile(testFile, []byte("# Test Repository\n"), 0o644)
+	err := os.WriteFile(testFile, []byte("# Test Repository\n"), 0o600)
 	s.Require().NoError(err)
 
-	s.Require().NoError(exec.Command("git", "add", "README.md").Run())
-	s.Require().NoError(exec.Command("git", "commit", "-m", "Initial commit").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "add", "README.md").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "commit", "-m", "Initial commit").Run())
 }
 
 func (s *RunCommandTestSuite) createTestFile(filename, content string) {
 	fullPath := filepath.Join(s.tempDir, filename)
-	err := os.WriteFile(fullPath, []byte(content), 0o644)
+	err := os.WriteFile(fullPath, []byte(content), 0o600)
 	s.Require().NoError(err)
 }
 
@@ -258,11 +260,11 @@ PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS=60
 PRE_COMMIT_SYSTEM_LOG_LEVEL=info
 `
 	githubDir := filepath.Join(s.tempDir, ".github")
-	err := os.MkdirAll(githubDir, 0o755)
+	err := os.MkdirAll(githubDir, 0o750)
 	s.Require().NoError(err)
 
 	envFile := filepath.Join(githubDir, ".env.shared")
-	err = os.WriteFile(envFile, []byte(envContent), 0o644)
+	err = os.WriteFile(envFile, []byte(envContent), 0o600)
 	s.Require().NoError(err)
 }
 
@@ -325,7 +327,7 @@ func (s *RunCommandTestSuite) TestRunChecksWithStagedFiles() {
 	s.createTestFile("staged.go", "package main\n\nfunc main() {\n\tprintln(\"hello\")\n}\n")
 
 	// Stage the file
-	s.Require().NoError(exec.Command("git", "add", "staged.go").Run())
+	s.Require().NoError(exec.CommandContext(context.Background(), "git", "add", "staged.go").Run())
 
 	// Reset flags before test
 	allFiles = false
@@ -357,11 +359,11 @@ func (s *RunCommandTestSuite) TestRunChecksDisabledSystem() {
 	// Create env file with system disabled
 	envContent := `ENABLE_PRE_COMMIT_SYSTEM=false`
 	githubDir := filepath.Join(s.tempDir, ".github")
-	err := os.MkdirAll(githubDir, 0o755)
+	err := os.MkdirAll(githubDir, 0o750)
 	s.Require().NoError(err)
 
 	envFile := filepath.Join(githubDir, ".env.shared")
-	err = os.WriteFile(envFile, []byte(envContent), 0o644)
+	err = os.WriteFile(envFile, []byte(envContent), 0o600)
 	s.Require().NoError(err)
 
 	// Reset flags before test
@@ -407,11 +409,11 @@ func (s *RunCommandTestSuite) TestRunChecksInvalidGitRepository() {
 
 	// Create minimal config
 	githubDir := filepath.Join(nonGitDir, ".github")
-	err = os.MkdirAll(githubDir, 0o755)
+	err = os.MkdirAll(githubDir, 0o750)
 	s.Require().NoError(err)
 
 	envFile := filepath.Join(githubDir, ".env.shared")
-	err = os.WriteFile(envFile, []byte("ENABLE_PRE_COMMIT_SYSTEM=true"), 0o644)
+	err = os.WriteFile(envFile, []byte("ENABLE_PRE_COMMIT_SYSTEM=true"), 0o600)
 	s.Require().NoError(err)
 
 	// Reset flags before test

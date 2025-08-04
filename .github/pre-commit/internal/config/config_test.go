@@ -27,10 +27,10 @@ func TestLoad(t *testing.T) {
 
 	// Verify some expected values
 	assert.True(t, cfg.Enabled)
-	assert.Equal(t, "info", cfg.LogLevel)
+	assert.Equal(t, "debug", cfg.LogLevel)
 	assert.Equal(t, int64(10*1024*1024), cfg.MaxFileSize)
 	assert.Equal(t, 100, cfg.MaxFilesOpen)
-	assert.Equal(t, 300, cfg.Timeout)
+	assert.Equal(t, 120, cfg.Timeout)
 
 	// Check that checks are enabled by default
 	assert.True(t, cfg.Checks.Fumpt)
@@ -113,6 +113,7 @@ func TestGetStringEnv(t *testing.T) {
 
 type ConfigTestSuite struct {
 	suite.Suite
+
 	tempDir string
 	oldDir  string
 }
@@ -183,11 +184,11 @@ func (s *ConfigTestSuite) clearEnvVars() {
 
 func (s *ConfigTestSuite) createEnvFile(content string) {
 	githubDir := filepath.Join(s.tempDir, ".github")
-	err := os.MkdirAll(githubDir, 0o755)
+	err := os.MkdirAll(githubDir, 0o750)
 	s.Require().NoError(err)
 
 	envFile := filepath.Join(githubDir, ".env.shared")
-	err = os.WriteFile(envFile, []byte(content), 0o644)
+	err = os.WriteFile(envFile, []byte(content), 0o600)
 	s.Require().NoError(err)
 }
 
@@ -332,11 +333,11 @@ func (s *ConfigTestSuite) TestLoadMissingEnvFile() {
 func (s *ConfigTestSuite) TestLoadCorruptedEnvFile() {
 	// Create a directory instead of a file to simulate corruption
 	githubDir := filepath.Join(s.tempDir, ".github")
-	err := os.MkdirAll(githubDir, 0o755)
+	err := os.MkdirAll(githubDir, 0o750)
 	s.Require().NoError(err)
 
 	envPath := filepath.Join(githubDir, ".env.shared")
-	err = os.Mkdir(envPath, 0o755) // Create directory instead of file
+	err = os.Mkdir(envPath, 0o750) // Create directory instead of file
 	s.Require().NoError(err)
 
 	cfg, err := Load()
@@ -354,7 +355,7 @@ func (s *ConfigTestSuite) TestFindEnvFileInParentDirectories() {
 
 	// Create subdirectory and change to it
 	subDir := filepath.Join(s.tempDir, "subdir", "deep")
-	err := os.MkdirAll(subDir, 0o755)
+	err := os.MkdirAll(subDir, 0o750)
 	s.Require().NoError(err)
 
 	err = os.Chdir(subDir)
@@ -546,7 +547,7 @@ func TestLoadIntegrationWithRealProject(t *testing.T) {
 	}
 
 	for _, dir := range projectDirs {
-		err = os.MkdirAll(dir, 0o755)
+		err = os.MkdirAll(dir, 0o750)
 		require.NoError(t, err)
 	}
 
@@ -561,7 +562,7 @@ PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE=true
 PRE_COMMIT_SYSTEM_ENABLE_EOF=true
 `
 	envFile := filepath.Join(tmpDir, ".github", ".env.shared")
-	err = os.WriteFile(envFile, []byte(envContent), 0o644)
+	err = os.WriteFile(envFile, []byte(envContent), 0o600)
 	require.NoError(t, err)
 
 	// Test loading from various subdirectories

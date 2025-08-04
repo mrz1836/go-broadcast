@@ -17,6 +17,7 @@ import (
 // CIEnvironmentTestSuite validates parity between local and CI execution
 type CIEnvironmentTestSuite struct {
 	suite.Suite
+
 	tempDir    string
 	envFile    string
 	originalWD string
@@ -33,7 +34,7 @@ func (s *CIEnvironmentTestSuite) SetupSuite() {
 
 	// Create .github directory
 	githubDir := filepath.Join(s.tempDir, ".github")
-	s.Require().NoError(os.MkdirAll(githubDir, 0o755))
+	s.Require().NoError(os.MkdirAll(githubDir, 0o750))
 
 	// Create .env.shared file with test configuration
 	s.envFile = filepath.Join(githubDir, ".env.shared")
@@ -48,7 +49,7 @@ PRE_COMMIT_SYSTEM_ENABLE_EOF=true
 PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS=120
 PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=2
 `
-	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(envContent), 0o600))
 
 	// Change to temp directory for tests
 	s.Require().NoError(os.Chdir(s.tempDir))
@@ -70,12 +71,12 @@ func (s *CIEnvironmentTestSuite) TearDownSuite() {
 func (s *CIEnvironmentTestSuite) initGitRepo() error {
 	// Initialize git repo (simplified for testing)
 	gitDir := filepath.Join(s.tempDir, ".git")
-	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+	if err := os.MkdirAll(gitDir, 0o750); err != nil {
 		return err
 	}
 
 	// Create basic git files
-	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o644)
+	return os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("ref: refs/heads/main"), 0o600)
 }
 
 // createTestFiles creates sample files for testing
@@ -110,7 +111,7 @@ go 1.21
 	}
 
 	for filename, content := range files {
-		if err := os.WriteFile(filepath.Join(s.tempDir, filename), []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(s.tempDir, filename), []byte(content), 0o600); err != nil {
 			return err
 		}
 	}
@@ -393,7 +394,7 @@ func (s *CIEnvironmentTestSuite) createTempEnvFile(vars map[string]string) {
 		content += key + "=" + value + "\n"
 	}
 
-	s.Require().NoError(os.WriteFile(s.envFile, []byte(content), 0o644))
+	s.Require().NoError(os.WriteFile(s.envFile, []byte(content), 0o600))
 }
 
 // TestCINetworkConnectivity validates behavior under network constraints
