@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/mrz1836/go-broadcast/internal/state"
@@ -597,4 +599,86 @@ func createMockState() *state.State {
 			},
 		},
 	}
+}
+
+// TestGetRealStatusErrorCases tests error handling in getRealStatus
+func TestGetRealStatusErrorCases(t *testing.T) {
+	t.Run("GitHub client creation failure", func(t *testing.T) {
+		ctx := context.Background()
+		cfg := &config.Config{
+			Source: config.SourceConfig{
+				Repo:   "test/source",
+				Branch: "main",
+			},
+			Targets: []config.TargetConfig{
+				{Repo: "test/target1"},
+			},
+		}
+
+		// This will likely fail with GitHub CLI not found or auth issues
+		status, err := getRealStatus(ctx, cfg)
+
+		// Should return error, not panic
+		require.Error(t, err)
+		assert.Nil(t, status)
+
+		// Error should be GitHub-related (auth, not found, or branch error)
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to initialize GitHub client") ||
+				strings.Contains(err.Error(), "ErrGHNotFound") ||
+				strings.Contains(err.Error(), "ErrNotAuthenticated") ||
+				strings.Contains(err.Error(), "Please install GitHub CLI") ||
+				strings.Contains(err.Error(), "Please run: gh auth login") ||
+				strings.Contains(err.Error(), "branch not found") ||
+				strings.Contains(err.Error(), "not authenticated"),
+			"Expected GitHub client or branch error, got: %s", err.Error())
+	})
+
+	t.Run("State discovery failure", func(t *testing.T) {
+		ctx := context.Background()
+		cfg := &config.Config{
+			Source: config.SourceConfig{
+				Repo:   "nonexistent/repo",
+				Branch: "main",
+			},
+			Targets: []config.TargetConfig{
+				{Repo: "test/target1"},
+			},
+		}
+
+		// Will fail at state discovery phase if it gets past client creation
+		status, err := getRealStatus(ctx, cfg)
+		require.Error(t, err)
+		assert.Nil(t, status)
+	})
+
+	t.Run("Context cancellation", func(t *testing.T) {
+		// Create canceled context
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		cfg := &config.Config{
+			Source: config.SourceConfig{
+				Repo:   "test/source",
+				Branch: "main",
+			},
+		}
+
+		// Should handle canceled context gracefully
+		status, err := getRealStatus(ctx, cfg)
+		// The function might still succeed if it doesn't check context before operations
+		// or it might fail with context/GitHub error - both are acceptable
+		if err != nil {
+			// If it errors, it should be related to context or GitHub operations
+			assert.True(t,
+				strings.Contains(err.Error(), "context") ||
+					strings.Contains(err.Error(), "canceled") ||
+					strings.Contains(err.Error(), "GitHub") ||
+					strings.Contains(err.Error(), "initialize") ||
+					strings.Contains(err.Error(), "not authenticated") ||
+					strings.Contains(err.Error(), "branch not found"),
+				"Expected context or GitHub error, got: %s", err.Error())
+		}
+		_ = status // May be nil or valid depending on timing
+	})
 }

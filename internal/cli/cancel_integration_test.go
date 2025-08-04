@@ -68,15 +68,7 @@ func TestRunCancel(t *testing.T) {
 				tmpFile, err := os.CreateTemp("", "valid-*.yml")
 				require.NoError(t, err)
 
-				validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+				validConfig := TestValidConfig
 
 				_, err = tmpFile.WriteString(validConfig)
 				require.NoError(t, err)

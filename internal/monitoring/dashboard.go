@@ -156,6 +156,11 @@ func (mc *MetricsCollector) Stop() {
 
 // collect periodically gathers metrics
 func (mc *MetricsCollector) collect(ctx context.Context) {
+	// Ensure collectInterval is positive to prevent panic
+	if mc.collectInterval <= 0 {
+		mc.collectInterval = time.Second // Default fallback
+	}
+
 	ticker := time.NewTicker(mc.collectInterval)
 	defer ticker.Stop()
 

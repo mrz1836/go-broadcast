@@ -120,8 +120,30 @@ coverage: ## Show test coverage
 .PHONY: fumpt
 fumpt: ## Run fumpt to format Go code
 	@echo "Running fumpt..."
-	@go install mvdan.cc/gofumpt@latest
-	@gofumpt -w -extra .
+	@GOPATH=$$(go env GOPATH); \
+	if [ -z "$$GOPATH" ]; then GOPATH=$$HOME/go; fi; \
+	export PATH="$$GOPATH/bin:$$PATH"; \
+	if [ -n "$${PRE_COMMIT_SYSTEM_FUMPT_VERSION}" ]; then \
+		echo "Installing gofumpt $${PRE_COMMIT_SYSTEM_FUMPT_VERSION}..."; \
+		go install mvdan.cc/gofumpt@$${PRE_COMMIT_SYSTEM_FUMPT_VERSION}; \
+	else \
+		echo "Installing gofumpt latest..."; \
+		go install mvdan.cc/gofumpt@latest; \
+	fi; \
+	if ! command -v gofumpt >/dev/null 2>&1; then \
+		echo "Error: gofumpt installation failed or not in PATH"; \
+		echo "GOPATH: $$GOPATH"; \
+		echo "PATH: $$PATH"; \
+		echo "Expected location: $$GOPATH/bin/gofumpt"; \
+		if [ -f "$$GOPATH/bin/gofumpt" ]; then \
+			echo "gofumpt exists at expected location but not in PATH"; \
+		else \
+			echo "gofumpt not found at expected location"; \
+		fi; \
+		exit 1; \
+	fi; \
+	echo "Formatting Go code with gofumpt..."; \
+	gofumpt -w -extra .
 
 .PHONY: generate
 generate: ## Run go generate in the base of the repo

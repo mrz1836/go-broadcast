@@ -378,9 +378,23 @@ pre-commit:
 
 **Troubleshooting:**
 - **"gofortress-pre-commit not found"**: Run `cd .github/pre-commit && make build`
-- **"make: gofumpt: No such file or directory"**: Install with `go install mvdan.cc/gofumpt@latest`
 - **"Hook already exists"**: Use `./gofortress-pre-commit install --force`
 - **Slow execution**: Increase timeout with `PRE_COMMIT_SYSTEM_TIMEOUT_MINUTES=15`
+
+**Fumpt Check Failures (Tower/SourceTree Git GUIs):**
+- **"fumpt check failed"**: The system now uses pinned gofumpt version from `.env.shared`
+- **"make: gofumpt: No such file or directory"**: Run `make fumpt` once manually to install correct version
+- **PATH issues in git GUIs**: The system automatically manages GOPATH/bin in PATH during execution
+- **Version conflicts**: Ensure `PRE_COMMIT_SYSTEM_FUMPT_VERSION=v0.7.0` is set in `.env.shared`
+
+**Environment Verification:**
+```bash
+# Verify gofumpt installation
+make fumpt                                    # Install and run gofumpt
+./gofortress-pre-commit run fumpt --verbose   # Test pre-commit fumpt check
+go env GOPATH                                 # Check GOPATH is set correctly
+echo $PATH | grep "$(go env GOPATH)/bin"     # Verify GOPATH/bin in PATH
+```
 
 **📚 Complete Documentation:** [`.github/pre-commit/README.md`](.github/pre-commit/README.md)
 

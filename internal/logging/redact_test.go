@@ -497,3 +497,187 @@ func TestAuditLogger_LogRepositoryAccess(t *testing.T) {
 		})
 	}
 }
+
+// TestRedactionHookFireWithComplexData tests the Fire method with complex nested data
+func TestRedactionHookFireWithComplexData(t *testing.T) {
+	service := NewRedactionService()
+	hook := service.CreateHook()
+
+	tests := []struct {
+		name     string
+		entry    *logrus.Entry
+		expected map[string]interface{}
+	}{
+		{
+			name: "nested map with sensitive data",
+			entry: &logrus.Entry{
+				Data: logrus.Fields{
+					"user": map[string]interface{}{
+						"token":    "ghp_secrettoken123",
+						"password": "mysecret",
+						"name":     "john",
+					},
+					"config": map[string]interface{}{
+						"api_key": "sk-1234567890",
+						"debug":   true,
+					},
+				},
+				Message: "Processing user data with token ghp_secrettoken123",
+			},
+			expected: map[string]interface{}{
+				"user": map[string]interface{}{
+					"token":    "ghp_***REDACTED***", // pattern-based redaction for sensitive field
+					"password": "***REDACTED***",     // complete redaction for sensitive field
+					"name":     "john",               // not sensitive
+				},
+				"config": map[string]interface{}{
+					"api_key": "***REDACTED***", // sensitive field name
+					"debug":   true,             // not sensitive
+				},
+			},
+		},
+		{
+			name: "array with sensitive data",
+			entry: &logrus.Entry{
+				Data: logrus.Fields{
+					"items": []interface{}{ // Use "items" instead of "tokens" to avoid field-level redaction
+						"ghp_token1",
+						"regular_string",
+						map[string]interface{}{
+							"secret": "hidden",
+							"public": "visible",
+						},
+					},
+				},
+			},
+			expected: map[string]interface{}{
+				"items": []interface{}{
+					"ghp_***REDACTED***", // pattern match
+					"regular_string",     // no pattern match
+					map[string]interface{}{
+						"secret": "***REDACTED***", // sensitive field name
+						"public": "visible",        // not sensitive
+					},
+				},
+			},
+		},
+		{
+			name: "non-string sensitive field",
+			entry: &logrus.Entry{
+				Data: logrus.Fields{
+					"password": 12345,           // numeric password
+					"token":    true,            // boolean token
+					"api_key":  []string{"key"}, // slice api_key
+				},
+			},
+			expected: map[string]interface{}{
+				"password": "***REDACTED***", // non-string sensitive field
+				"token":    "***REDACTED***", // non-string sensitive field
+				"api_key":  "***REDACTED***", // non-string sensitive field
+			},
+		},
+		{
+			name: "mixed data types",
+			entry: &logrus.Entry{
+				Data: logrus.Fields{
+					"count":    42,
+					"active":   true,
+					"items":    []interface{}{1, 2, 3},
+					"metadata": nil,
+				},
+			},
+			expected: map[string]interface{}{
+				"count":    42,                     // unchanged
+				"active":   true,                   // unchanged
+				"items":    []interface{}{1, 2, 3}, // unchanged (no sensitive data)
+				"metadata": nil,                    // unchanged
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Fire the hook
+			err := hook.Fire(tt.entry)
+			require.NoError(t, err)
+
+			// Check that data was redacted as expected
+			for key, expectedValue := range tt.expected {
+				actualValue := tt.entry.Data[key]
+				assert.Equal(t, expectedValue, actualValue, "field %s should be redacted correctly", key)
+			}
+		})
+	}
+}
+
+// TestRedactionHookFireMessageRedaction tests message content redaction
+func TestRedactionHookFireMessageRedaction(t *testing.T) {
+	service := NewRedactionService()
+	hook := service.CreateHook()
+
+	tests := []struct {
+		name            string
+		originalMessage string
+		expectedMessage string
+	}{
+		{
+			name:            "message with github token",
+			originalMessage: "Authentication failed for token ghp_1234567890abcdefghij",
+			expectedMessage: "Authentication failed for token ghp_***REDACTED***",
+		},
+		{
+			name:            "message with multiple tokens",
+			originalMessage: "Tokens: ghp_token1 and ghs_token2",
+			expectedMessage: "Tokens: ghp_***REDACTED*** and ghs_***REDACTED***",
+		},
+		{
+			name:            "message without sensitive data",
+			originalMessage: "Operation completed successfully",
+			expectedMessage: "Operation completed successfully",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entry := &logrus.Entry{
+				Data:    logrus.Fields{},
+				Message: tt.originalMessage,
+			}
+
+			err := hook.Fire(entry)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedMessage, entry.Message)
+		})
+	}
+}
+
+// TestRedactionHookDeepNesting tests deeply nested structures
+func TestRedactionHookDeepNesting(t *testing.T) {
+	service := NewRedactionService()
+	hook := service.CreateHook()
+
+	entry := &logrus.Entry{
+		Data: logrus.Fields{
+			"level1": map[string]interface{}{
+				"level2": map[string]interface{}{
+					"level3": map[string]interface{}{
+						"password": "secret123",
+						"normal":   "value",
+					},
+				},
+			},
+		},
+	}
+
+	err := hook.Fire(entry)
+	require.NoError(t, err)
+
+	// Navigate to deeply nested value
+	level1 := entry.Data["level1"].(map[string]interface{})
+	level2 := level1["level2"].(map[string]interface{})
+	level3 := level2["level3"].(map[string]interface{})
+
+	assert.Equal(t, "***REDACTED***", level3["password"])
+	assert.Equal(t, "value", level3["normal"])
+}

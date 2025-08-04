@@ -3,9 +3,11 @@ package cli
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/mrz1836/go-broadcast/internal/state"
@@ -825,4 +827,180 @@ func TestGenerateCancelComment_Content(t *testing.T) {
 	comment2 := generateCancelComment()
 	// These might be the same if called too quickly, but the format should be consistent
 	assert.Contains(t, comment2, "**Canceled at**:")
+}
+
+// TestPerformCancelPanicRecovery tests panic handling in performCancel
+func TestPerformCancelPanicRecovery(t *testing.T) {
+	t.Run("nil config causes panic", func(t *testing.T) {
+		ctx := context.Background()
+
+		// performCancel should panic with nil config
+		require.Panics(t, func() {
+			_, _ = performCancel(ctx, nil, []string{})
+		})
+	})
+}
+
+// TestPerformCancelErrorHandling tests error conditions
+func TestPerformCancelErrorHandling(t *testing.T) {
+	t.Run("github client creation failure", func(t *testing.T) {
+		ctx := context.Background()
+		cfg := &config.Config{
+			Source: config.SourceConfig{
+				Repo:   "test/source",
+				Branch: "main",
+			},
+			Targets: []config.TargetConfig{
+				{Repo: "test/target1"},
+			},
+		}
+
+		// performCancel will likely fail due to GitHub operations
+		// but should return an error, not panic
+		require.NotPanics(t, func() {
+			summary, err := performCancel(ctx, cfg, []string{})
+			// Should return an error due to GitHub API failures
+			if err != nil {
+				assert.Nil(t, summary)
+				// Error could be about GitHub API, sync state, or discovery
+				assert.NotEmpty(t, err.Error())
+			}
+		})
+	})
+}
+
+// TestCancelSummaryStructure tests the CancelSummary struct
+func TestCancelSummaryStructure(t *testing.T) {
+	t.Run("cancel summary initialization", func(t *testing.T) {
+		summary := &CancelSummary{
+			TotalTargets:    3,
+			PRsClosed:       1,
+			BranchesDeleted: 2,
+			Errors:          0,
+			DryRun:          false,
+			Results:         []CancelResult{},
+		}
+
+		assert.Equal(t, 3, summary.TotalTargets)
+		assert.Equal(t, 1, summary.PRsClosed)
+		assert.Equal(t, 2, summary.BranchesDeleted)
+		assert.Equal(t, 0, summary.Errors)
+		assert.False(t, summary.DryRun)
+		assert.NotNil(t, summary.Results)
+	})
+}
+
+// TestCancelResultStructure tests the CancelResult struct
+func TestCancelResultStructure(t *testing.T) {
+	t.Run("cancel result initialization", func(t *testing.T) {
+		prNumber := 123
+		result := CancelResult{
+			Repository:    "test/repo",
+			PRNumber:      &prNumber,
+			PRClosed:      true,
+			BranchName:    "sync/test-branch",
+			BranchDeleted: false,
+			Error:         "",
+		}
+
+		assert.Equal(t, "test/repo", result.Repository)
+		assert.Equal(t, 123, *result.PRNumber)
+		assert.True(t, result.PRClosed)
+		assert.Equal(t, "sync/test-branch", result.BranchName)
+		assert.False(t, result.BranchDeleted)
+		assert.Empty(t, result.Error)
+	})
+
+	t.Run("cancel result with nil pr number", func(t *testing.T) {
+		result := CancelResult{
+			Repository:    "test/repo",
+			PRNumber:      nil,
+			PRClosed:      false,
+			BranchName:    "",
+			BranchDeleted: true,
+			Error:         "Failed to close PR",
+		}
+
+		assert.Equal(t, "test/repo", result.Repository)
+		assert.Nil(t, result.PRNumber)
+		assert.False(t, result.PRClosed)
+		assert.Empty(t, result.BranchName)
+		assert.True(t, result.BranchDeleted)
+		assert.Equal(t, "Failed to close PR", result.Error)
+	})
+}
+
+// TestPerformCancelErrorCases tests specific error scenarios in performCancel
+func TestPerformCancelErrorCases(t *testing.T) {
+	t.Run("GitHub client creation failures", func(t *testing.T) {
+		ctx := context.Background()
+		cfg := &config.Config{
+			Source: config.SourceConfig{
+				Repo:   "test/source",
+				Branch: "main",
+			},
+			Targets: []config.TargetConfig{
+				{Repo: "test/target1"},
+			},
+		}
+
+		// This will likely fail with GitHub CLI not found or auth issues
+		// but we test the error handling path
+		summary, err := performCancel(ctx, cfg, []string{})
+
+		// Should return error, not panic
+		require.Error(t, err)
+		assert.Nil(t, summary)
+
+		// Error should be a failure related to discovery/validation or GitHub client
+		// The function actually gets past client creation and fails at state discovery
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to discover sync state") ||
+				containsGitHubClientError(err.Error()),
+			"Expected sync state discovery or GitHub client error, got: %s", err.Error())
+	})
+
+	t.Run("Empty targets", func(t *testing.T) {
+		ctx := context.Background()
+		cfg := &config.Config{
+			Source: config.SourceConfig{
+				Repo:   "test/source",
+				Branch: "main",
+			},
+			Targets: []config.TargetConfig{}, // Empty targets
+		}
+
+		// Should still try to process but fail at GitHub client creation
+		summary, err := performCancel(ctx, cfg, []string{})
+		require.Error(t, err)
+		assert.Nil(t, summary)
+	})
+
+	t.Run("Specific target repos", func(t *testing.T) {
+		ctx := context.Background()
+		cfg := &config.Config{
+			Source: config.SourceConfig{
+				Repo:   "test/source",
+				Branch: "main",
+			},
+			Targets: []config.TargetConfig{
+				{Repo: "test/target1"},
+				{Repo: "test/target2"},
+			},
+		}
+
+		// Test with specific target repos filter
+		summary, err := performCancel(ctx, cfg, []string{"test/target1"})
+		require.Error(t, err) // Will fail at GitHub client creation
+		assert.Nil(t, summary)
+	})
+}
+
+// Helper function to check if error contains GitHub client related message
+func containsGitHubClientError(errMsg string) bool {
+	return strings.Contains(errMsg, "failed to initialize GitHub client") ||
+		strings.Contains(errMsg, "gh CLI not found") ||
+		strings.Contains(errMsg, "not authenticated") ||
+		strings.Contains(errMsg, "ErrGHNotFound") ||
+		strings.Contains(errMsg, "ErrNotAuthenticated")
 }

@@ -339,3 +339,107 @@ func contains(slice []string, item string) bool {
 	}
 	return false
 }
+
+// TestWithCorrelationID tests the WithCorrelationID method
+func TestWithCorrelationID(t *testing.T) {
+	t.Run("with nil config", func(t *testing.T) {
+		var config *LogConfig
+		correlationID := "test-correlation-123"
+
+		result := config.WithCorrelationID(correlationID)
+
+		require.NotNil(t, result)
+		assert.Equal(t, correlationID, result.CorrelationID)
+		assert.Empty(t, result.LogLevel)   // Should be empty/default
+		assert.Empty(t, result.ConfigFile) // Should be empty/default
+	})
+
+	t.Run("with existing config", func(t *testing.T) {
+		original := &LogConfig{
+			ConfigFile:    "sync.yaml",
+			LogLevel:      "info",
+			LogFormat:     "json",
+			Verbose:       1,
+			JSONOutput:    true,
+			CorrelationID: "original-id",
+			Debug: DebugFlags{
+				Git: true,
+				API: false,
+			},
+		}
+
+		newCorrelationID := "new-correlation-456"
+		result := original.WithCorrelationID(newCorrelationID)
+
+		// Should create a new config with updated correlation ID
+		require.NotNil(t, result)
+		assert.NotSame(t, original, result, "should create a new config instance")
+
+		// Should preserve all other fields
+		assert.Equal(t, original.ConfigFile, result.ConfigFile)
+		assert.Equal(t, original.LogLevel, result.LogLevel)
+		assert.Equal(t, original.LogFormat, result.LogFormat)
+		assert.Equal(t, original.Verbose, result.Verbose)
+		assert.Equal(t, original.JSONOutput, result.JSONOutput)
+		assert.Equal(t, original.Debug, result.Debug)
+
+		// Should update correlation ID
+		assert.Equal(t, newCorrelationID, result.CorrelationID)
+		assert.Equal(t, "original-id", original.CorrelationID, "original should be unchanged")
+	})
+
+	t.Run("with empty correlation ID", func(t *testing.T) {
+		config := &LogConfig{
+			LogLevel: "debug",
+		}
+
+		result := config.WithCorrelationID("")
+
+		require.NotNil(t, result)
+		assert.Empty(t, result.CorrelationID)
+		assert.Equal(t, config.LogLevel, result.LogLevel)
+	})
+}
+
+// TestGenerateCorrelationIDFallback tests the fallback behavior
+func TestGenerateCorrelationIDFallback(t *testing.T) {
+	// Test that GenerateCorrelationID returns valid hex strings
+	for i := 0; i < 10; i++ {
+		id := GenerateCorrelationID()
+
+		// Should not be empty
+		assert.NotEmpty(t, id)
+
+		// Should be reasonable length (16 chars for 8 bytes hex encoded, or fallback)
+		assert.GreaterOrEqual(t, len(id), 8, "ID should be at least 8 characters: %s", id)
+
+		// Should be valid hex string OR fallback string
+		if id != "fallback-id" {
+			// Should be hex encoded (16 chars for 8 bytes)
+			assert.Len(t, id, 16, "hex-encoded ID should be 16 characters")
+
+			// Should only contain hex characters
+			for _, char := range id {
+				valid := (char >= '0' && char <= '9') || (char >= 'a' && char <= 'f')
+				assert.True(t, valid, "hex ID should only contain 0-9, a-f: %s", id)
+			}
+		}
+	}
+}
+
+// TestGenerateCorrelationIDUniqueness tests ID uniqueness
+func TestGenerateCorrelationIDUniqueness(t *testing.T) {
+	ids := make(map[string]bool)
+	const numIDs = 100
+
+	for i := 0; i < numIDs; i++ {
+		id := GenerateCorrelationID()
+
+		// Should not have seen this ID before
+		assert.False(t, ids[id], "correlation ID should be unique: %s", id)
+		ids[id] = true
+	}
+
+	// Should have generated all unique IDs
+	assert.Len(t, ids, numIDs, "all generated IDs should be unique")
+}

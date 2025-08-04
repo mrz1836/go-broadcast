@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -394,4 +397,104 @@ targets:
 
 	err = cmd.RunE(cmd, []string{})
 	require.NoError(t, err)
+}
+
+// TestValidateRepositoryAccessibilityPanicRecovery tests panic handling
+func TestValidateRepositoryAccessibilityPanicRecovery(t *testing.T) {
+	t.Run("nil config causes panic", func(t *testing.T) {
+		// Test that validateRepositoryAccessibility panics with nil config
+		ctx := context.Background()
+		logConfig := &logging.LogConfig{LogLevel: "error"}
+
+		require.Panics(t, func() {
+			_ = validateRepositoryAccessibility(ctx, nil, logConfig, false)
+		})
+	})
+}
+
+// TestValidateSourceFilesExistGracefulHandling tests graceful error handling
+func TestValidateSourceFilesExistGracefulHandling(t *testing.T) {
+	t.Run("handles github client creation failure gracefully", func(t *testing.T) {
+		ctx := context.Background()
+		logConfig := &logging.LogConfig{LogLevel: "error"}
+		cfg := &config.Config{
+			Source: config.SourceConfig{
+				Repo:   "test/repo",
+				Branch: "main",
+			},
+		}
+
+		// validateSourceFilesExist should handle GitHub client errors gracefully
+		// and not panic (it's designed to be non-fatal)
+		require.NotPanics(t, func() {
+			validateSourceFilesExist(ctx, cfg, logConfig)
+		})
+	})
+}
+
+// TestValidateWithFlags tests runValidateWithFlags edge cases
+func TestValidateWithFlagsEdgeCases(t *testing.T) {
+	t.Run("skip remote checks flag", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "config-*.yml")
+		require.NoError(t, err)
+		defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+		validConfig := `version: 1
+source:
+  repo: org/template
+  branch: main
+targets:
+  - repo: org/target1
+    files:
+      - src: README.md
+        dest: README.md`
+
+		_, err = tmpFile.WriteString(validConfig)
+		require.NoError(t, err)
+		require.NoError(t, tmpFile.Close())
+
+		flags := &Flags{
+			ConfigFile: tmpFile.Name(),
+		}
+
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool("skip-remote-checks", true, "Skip remote checks")
+		cmd.Flags().Bool("source-only", false, "Source only")
+
+		// This should skip the remote checks and succeed
+		err = runValidateWithFlags(flags, cmd)
+		require.NoError(t, err)
+	})
+
+	t.Run("source only flag", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "config-*.yml")
+		require.NoError(t, err)
+		defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+		validConfig := `version: 1
+source:
+  repo: org/template
+  branch: main
+targets:
+  - repo: org/target1
+    files:
+      - src: README.md
+        dest: README.md`
+
+		_, err = tmpFile.WriteString(validConfig)
+		require.NoError(t, err)
+		require.NoError(t, tmpFile.Close())
+
+		flags := &Flags{
+			ConfigFile: tmpFile.Name(),
+		}
+
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool("skip-remote-checks", false, "Skip remote checks")
+		cmd.Flags().Bool("source-only", true, "Source only")
+
+		// This should validate only source and succeed
+		err = runValidateWithFlags(flags, cmd)
+		require.NoError(t, err)
+	})
 }

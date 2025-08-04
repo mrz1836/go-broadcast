@@ -546,3 +546,140 @@ func BenchmarkGenerateTestJSON(b *testing.B) {
 		}
 	}
 }
+
+// TestMarshalJSONErrorCases tests additional error scenarios for MarshalJSON
+func TestMarshalJSONErrorCases(t *testing.T) {
+	// Create a type that fails to marshal
+	type unmarshalableType struct {
+		Ch chan int `json:"ch"`
+	}
+
+	tests := []struct {
+		name    string
+		input   interface{}
+		wantErr bool
+	}{
+		{
+			name:    "unmarshalable type with channel",
+			input:   unmarshalableType{Ch: make(chan int)},
+			wantErr: true,
+		},
+		{
+			name:    "function pointer",
+			input:   func() {},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := MarshalJSON(tt.input)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "marshal to JSON")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestPrettyPrintErrorCases tests error scenarios for PrettyPrint
+func TestPrettyPrintErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   interface{}
+		wantErr bool
+	}{
+		{
+			name:    "unmarshalable type with function",
+			input:   func() {},
+			wantErr: true,
+		},
+		{
+			name:    "unmarshalable type with channel",
+			input:   struct{ Ch chan int }{Ch: make(chan int)},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := PrettyPrint(tt.input)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "pretty print JSON")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestCompactJSONErrorCases tests additional error scenarios for CompactJSON
+func TestCompactJSONErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "completely malformed JSON",
+			input:   `this is not json at all`,
+			wantErr: true,
+			errMsg:  "parse JSON for compaction",
+		},
+		{
+			name:    "truncated JSON",
+			input:   `{"key":"val`,
+			wantErr: true,
+			errMsg:  "parse JSON for compaction",
+		},
+		{
+			name:    "empty input",
+			input:   ``,
+			wantErr: true,
+			errMsg:  "parse JSON for compaction",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := CompactJSON([]byte(tt.input))
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestGenerateTestJSONMarshalError tests marshal error in GenerateTestJSON
+func TestGenerateTestJSONMarshalError(t *testing.T) {
+	// Create a template that will fail to marshal
+	template := make(chan int)
+
+	_, err := GenerateTestJSON(1, template)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "generate test JSON")
+}
+
+// TestMergeJSONMarshalError tests marshal error in MergeJSON
+func TestMergeJSONMarshalError(t *testing.T) {
+	// We can't easily trigger the marshal error in MergeJSON since it marshals
+	// a simple map[string]interface{}, but we can test with valid input to ensure
+	// no marshal errors occur
+	jsons := [][]byte{
+		[]byte(`{"a":1}`),
+		[]byte(`{"b":2}`),
+	}
+
+	result, err := MergeJSON(jsons...)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"a":1,"b":2}`, string(result))
+}

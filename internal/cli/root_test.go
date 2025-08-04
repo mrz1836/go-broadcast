@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -12,6 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var errTestCommand = errors.New("test error")
 
 // TestNewRootCmd tests creation of isolated root command
 func TestNewRootCmd(t *testing.T) {
@@ -578,4 +581,261 @@ func TestRootCommandIntegration(t *testing.T) {
 	logLevelFlag := cmd.PersistentFlags().Lookup("log-level")
 	require.NotNil(t, logLevelFlag)
 	assert.Equal(t, "info", logLevelFlag.DefValue)
+}
+
+// TestCreateRunSyncWithVerbose tests verbose sync run function
+func TestCreateRunSyncWithVerbose(t *testing.T) {
+	tests := []struct {
+		name           string
+		configFile     string
+		setupFile      bool
+		dryRun         bool
+		args           []string
+		expectError    bool
+		expectedErrMsg string
+	}{
+		{
+			name:           "NoConfigFile",
+			configFile:     "nonexistent.yaml",
+			setupFile:      false,
+			expectError:    true,
+			expectedErrMsg: "failed to load configuration",
+		},
+		{
+			name:        "ValidConfigWithDryRun",
+			configFile:  "test-config.yaml",
+			setupFile:   true,
+			dryRun:      true,
+			expectError: true, // Will fail due to missing GitHub config
+		},
+		{
+			name:        "ValidConfigWithTargets",
+			setupFile:   true,
+			args:        []string{"target1", "target2"},
+			expectError: true, // Will fail due to missing GitHub config
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup test config file if needed
+			var tmpFile *os.File
+			var err error
+			if tt.setupFile {
+				tmpFile, err = os.CreateTemp("", "test-config-*.yaml")
+				require.NoError(t, err)
+				defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+				configContent := `
+source:
+  github:
+    owner: test-owner
+    repo: test-repo
+targets:
+  - github:
+      owner: target-owner
+      repo: target1
+  - github:
+      owner: target-owner
+      repo: target2
+`
+				_, err = tmpFile.WriteString(configContent)
+				require.NoError(t, err)
+				require.NoError(t, tmpFile.Close())
+				tt.configFile = tmpFile.Name()
+			}
+
+			config := &LogConfig{
+				ConfigFile: tt.configFile,
+				LogLevel:   "info",
+				DryRun:     tt.dryRun,
+			}
+
+			runFunc := createRunSyncWithVerbose(config)
+			cmd := &cobra.Command{}
+			cmd.SetContext(context.Background())
+
+			err = runFunc(cmd, tt.args)
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.expectedErrMsg != "" {
+					assert.Contains(t, err.Error(), tt.expectedErrMsg)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestCreateRunCancel tests the cancel run function
+func TestCreateRunCancel(t *testing.T) {
+	flags := &Flags{
+		ConfigFile: "sync.yaml",
+		LogLevel:   "info",
+	}
+
+	runFunc := createRunCancel(flags)
+	require.NotNil(t, runFunc)
+
+	cmd := &cobra.Command{}
+	ctx := context.Background()
+	cmd.SetContext(ctx)
+
+	// Test with basic context
+	err := runFunc(cmd, []string{})
+	require.Error(t, err) // Expected to fail due to missing config
+
+	// Test with logger in context
+	logger := logrus.New()
+	ctxWithLogger := context.WithValue(ctx, loggerContextKey{}, logger)
+	cmd.SetContext(ctxWithLogger)
+
+	err = runFunc(cmd, []string{})
+	require.Error(t, err) // Expected to fail due to missing config
+}
+
+// TestCreateRunCancelWithVerbose tests verbose cancel run function
+func TestCreateRunCancelWithVerbose(t *testing.T) {
+	config := &LogConfig{
+		ConfigFile: "sync.yaml",
+		LogLevel:   "info",
+	}
+
+	runFunc := createRunCancelWithVerbose(config)
+	require.NotNil(t, runFunc)
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+
+	err := runFunc(cmd, []string{})
+	require.Error(t, err) // Expected to fail due to missing config
+}
+
+// TestExecuteComponentBehavior tests Execute function indirectly
+func TestExecuteComponentBehavior(t *testing.T) {
+	// We can't easily test Execute directly as it calls os.Exit
+	// But we can test the components it uses
+
+	// Test signal channel behavior would require complex setup
+	// For now, we focus on the command execution path
+
+	// Create a test command that mimics Execute's behavior
+	testCmd := &cobra.Command{
+		Use: "test",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return fmt.Errorf("command execution failed: %w", errTestCommand)
+		},
+	}
+
+	// Test context cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := testCmd.ExecuteContext(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "test error")
+
+	// Test successful execution
+	successCmd := &cobra.Command{
+		Use: "test-success",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return nil
+		},
+	}
+
+	err = successCmd.ExecuteContext(ctx)
+	require.NoError(t, err)
+}
+
+// TestExecuteStructure tests the Execute function structure without actually running it
+func TestExecuteStructure(t *testing.T) {
+	// We can't test Execute directly because it calls os.Exit
+	// But we can verify the function exists and has the expected signature
+
+	// Verify Execute function exists (compile-time check)
+	_ = Execute
+
+	// The Execute function sets up signal handling and context cancellation
+	// We verify that components work correctly:
+
+	t.Run("Context with cancel", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// Cancel the context
+		cancel()
+
+		// Test that the context is canceled
+		select {
+		case <-ctx.Done():
+			assert.Equal(t, context.Canceled, ctx.Err())
+		default:
+			t.Error("Context should be canceled")
+		}
+	})
+
+	t.Run("Signal handling setup", func(t *testing.T) {
+		// Test that we can set up a signal channel like Execute does
+		sigChan := make(chan os.Signal, 1)
+		assert.NotNil(t, sigChan)
+		assert.Equal(t, 1, cap(sigChan))
+	})
+}
+
+// TestCreateRunSyncWithVerboseErrorCases tests the verbose sync command runner error cases
+func TestCreateRunSyncWithVerboseErrorCases(t *testing.T) {
+	tests := []struct {
+		name      string
+		config    *LogConfig
+		args      []string
+		expectErr string
+	}{
+		{
+			name: "Missing config file",
+			config: &LogConfig{
+				ConfigFile: "nonexistent.yaml",
+				LogLevel:   "info",
+			},
+			args:      []string{},
+			expectErr: "failed to load configuration",
+		},
+		{
+			name: "Dry run mode",
+			config: &LogConfig{
+				ConfigFile: "test-config.yaml",
+				LogLevel:   "info",
+				DryRun:     true,
+			},
+			args:      []string{},
+			expectErr: "failed to load configuration", // Still fails due to missing config
+		},
+		{
+			name: "With targets",
+			config: &LogConfig{
+				ConfigFile: "test-config.yaml",
+				LogLevel:   "info",
+			},
+			args:      []string{"target1", "target2"},
+			expectErr: "failed to load configuration", // Still fails due to missing config
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runFunc := createRunSyncWithVerbose(tt.config)
+			require.NotNil(t, runFunc)
+
+			cmd := &cobra.Command{}
+			cmd.SetContext(context.Background())
+
+			err := runFunc(cmd, tt.args)
+			if tt.expectErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }

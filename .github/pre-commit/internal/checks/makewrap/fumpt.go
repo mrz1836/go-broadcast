@@ -135,10 +135,49 @@ func (c *FumptCheck) runMakeFumpt(ctx context.Context) error {
 			)
 		}
 
-		if strings.Contains(output, "gofumpt") && strings.Contains(output, "not found") {
+		// Enhanced gofumpt detection and PATH diagnostics
+		if strings.Contains(output, "gofumpt") && (strings.Contains(output, "not found") || strings.Contains(output, "command not found")) {
+			// Try to provide better diagnostics
+			gopath, err := exec.LookPath("go")
+			if err != nil {
+				return prerrors.NewToolNotFoundError(
+					"go",
+					"Go is not installed or not in PATH. Install Go first: https://golang.org/doc/install",
+				)
+			}
+
+			// Check if gofumpt exists in common locations
+			diagnostics := []string{
+				"gofumpt is not available in the current PATH.",
+				"Common causes:",
+				"1. gofumpt is not installed - run: go install mvdan.cc/gofumpt@v0.7.0",
+				"2. GOPATH/bin or GOROOT/bin is not in PATH",
+				"3. Different environment between terminal and git GUI",
+				"",
+				"Current diagnostics:",
+				fmt.Sprintf("- Go binary found at: %s", gopath),
+			}
+
+			// Try to detect GOPATH
+			goCmd := exec.CommandContext(ctx, "go", "env", "GOPATH")
+			if gopathBytes, err := goCmd.Output(); err == nil {
+				gopath := strings.TrimSpace(string(gopathBytes))
+				diagnostics = append(diagnostics, fmt.Sprintf("- GOPATH: %s", gopath))
+				diagnostics = append(diagnostics, fmt.Sprintf("- Expected gofumpt location: %s/bin/gofumpt", gopath))
+			}
+
 			return prerrors.NewToolNotFoundError(
 				"gofumpt",
-				"Install gofumpt: 'go install mvdan.cc/gofumpt@latest' or add an install target to your Makefile",
+				strings.Join(diagnostics, "\n"),
+			)
+		}
+
+		// Enhanced PATH-related error detection
+		if strings.Contains(output, "installation failed or not in PATH") {
+			return prerrors.NewToolExecutionError(
+				"make fumpt",
+				output,
+				"gofumpt installation succeeded but the binary is not accessible. This commonly happens in git GUI applications where PATH differs from terminal. Solutions:\n1. Add GOPATH/bin to your system PATH\n2. Restart your git GUI application\n3. Use terminal for git operations\n4. Check that $(go env GOPATH)/bin is in PATH",
 			)
 		}
 
@@ -158,11 +197,18 @@ func (c *FumptCheck) runMakeFumpt(ctx context.Context) error {
 			)
 		}
 
-		// Generic failure
+		// Enhanced generic failure with better context
+		envHints := []string{
+			"Run 'make fumpt' manually to see detailed error output.",
+			"Check your Makefile and gofumpt installation.",
+			"If using a git GUI (Tower, SourceTree, etc.), try using terminal instead.",
+			"Ensure PRE_COMMIT_SYSTEM_FUMPT_VERSION is set correctly in .env.shared",
+		}
+
 		return prerrors.NewToolExecutionError(
 			"make fumpt",
 			output,
-			"Run 'make fumpt' manually to see detailed error output. Check your Makefile and gofumpt installation.",
+			strings.Join(envHints, "\n"),
 		)
 	}
 

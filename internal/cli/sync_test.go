@@ -150,15 +150,7 @@ targets:
 		require.NoError(t, err)
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
-		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+		validConfig := TestValidConfig
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -203,15 +195,7 @@ func TestLoadConfig(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
-		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+		validConfig := TestValidConfig
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -343,15 +327,7 @@ func TestLoadConfigWithLogConfig(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
-		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+		validConfig := TestValidConfig
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -384,15 +360,7 @@ targets:
 		require.NoError(t, err)
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
-		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+		validConfig := TestValidConfig
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)

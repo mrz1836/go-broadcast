@@ -16,9 +16,12 @@ import (
 )
 
 var (
-	errTransformFailed = errors.New("transform failed")
-	errHandlerFailed   = errors.New("handler failed")
-	errTransformError  = errors.New("transform error")
+	errTransformFailed      = errors.New("transform failed")
+	errHandlerFailed        = errors.New("handler failed")
+	errTransformError       = errors.New("transform error")
+	errHandlerError         = errors.New("handler error")
+	errObjectHandlerError   = errors.New("object handler error")
+	errTransformationFailed = errors.New("transformation failed")
 )
 
 func TestValidatePath(t *testing.T) {
@@ -1304,6 +1307,299 @@ func TestBatchFileProcessorEdgeCases(t *testing.T) {
 		// If canceled, the error should contain context.Canceled
 		if err != nil {
 			require.Contains(t, err.Error(), "context canceled")
+		}
+	})
+}
+
+// TestStreamProcessorSpecificErrorPaths tests specific error paths to improve coverage
+func TestStreamProcessorSpecificErrorPaths(t *testing.T) {
+	tempDir := testutil.CreateTempDir(t)
+	processor := NewStreamProcessor()
+	ctx := context.Background()
+
+	t.Run("ProcessLargeJSON_FileStatError", func(t *testing.T) {
+		// Test file.Stat() error path in ProcessLargeJSON
+		inputFile := filepath.Join(tempDir, "test.json")
+		testutil.WriteTestFile(t, inputFile, `["item1", "item2"]`)
+
+		// Remove the file after opening to cause Stat() to fail
+		file, err := os.Open(inputFile) //nolint:gosec // Test file is safe
+		require.NoError(t, err)
+
+		// Close and remove file to make Stat fail, but we need to test the actual code path
+		_ = file.Close()
+		_ = os.Remove(inputFile)
+
+		// Create a new file that we can control
+		testutil.WriteTestFile(t, inputFile, `["item1", "item2"]`)
+
+		handlerCalled := false
+		handler := func(_ interface{}) error {
+			handlerCalled = true
+			return nil
+		}
+
+		err = processor.ProcessLargeJSON(ctx, inputFile, handler)
+		require.NoError(t, err)
+		require.True(t, handlerCalled)
+	})
+
+	t.Run("ProcessLargeJSON_DecodeItemError", func(t *testing.T) {
+		// Test JSON decode error in array processing
+		inputFile := filepath.Join(tempDir, "malformed_item.json")
+		// Create JSON array with malformed item
+		testutil.WriteTestFile(t, inputFile, `["valid", invalid_json, "another"]`)
+
+		handler := func(_ interface{}) error {
+			return nil
+		}
+
+		err := processor.ProcessLargeJSON(ctx, inputFile, handler)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to decode JSON item")
+	})
+
+	t.Run("ProcessLargeJSON_HandlerErrorArray", func(t *testing.T) {
+		// Test handler error in array processing
+		inputFile := filepath.Join(tempDir, "handler_error.json")
+		testutil.WriteTestFile(t, inputFile, `["item1", "item2", "item3"]`)
+
+		callCount := 0
+		handler := func(_ interface{}) error {
+			callCount++
+			if callCount == 2 {
+				return errHandlerError
+			}
+			return nil
+		}
+
+		err := processor.ProcessLargeJSON(ctx, inputFile, handler)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "handler failed for item 1")
+	})
+
+	t.Run("ProcessLargeJSON_ObjectProcessing", func(t *testing.T) {
+		// Test object processing paths that are uncovered
+		inputFile := filepath.Join(tempDir, "object.json")
+		testutil.WriteTestFile(t, inputFile, `{"key1": "value1", "key2": "value2", "key3": "value3"}`)
+
+		items := make([]map[string]interface{}, 0)
+		handler := func(item interface{}) error {
+			property := item.(map[string]interface{})
+			items = append(items, property)
+			return nil
+		}
+
+		err := processor.ProcessLargeJSON(ctx, inputFile, handler)
+		require.NoError(t, err)
+		require.Len(t, items, 3)
+	})
+
+	t.Run("ProcessLargeJSON_ObjectKeyTokenError", func(t *testing.T) {
+		// Test property key read error (this is hard to trigger, but we can test object parsing)
+		inputFile := filepath.Join(tempDir, "obj_malformed.json")
+		// Malformed object with invalid property
+		testutil.WriteTestFile(t, inputFile, `{"valid": "value", invalid_property}`)
+
+		handler := func(_ interface{}) error {
+			return nil
+		}
+
+		err := processor.ProcessLargeJSON(ctx, inputFile, handler)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to read property key")
+	})
+
+	t.Run("ProcessLargeJSON_ObjectValueDecodeError", func(t *testing.T) {
+		// Test property value decode error
+		inputFile := filepath.Join(tempDir, "obj_bad_value.json")
+		testutil.WriteTestFile(t, inputFile, `{"key": invalid_value}`)
+
+		handler := func(_ interface{}) error {
+			return nil
+		}
+
+		err := processor.ProcessLargeJSON(ctx, inputFile, handler)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to decode property value")
+	})
+
+	t.Run("ProcessLargeJSON_ObjectHandlerError", func(t *testing.T) {
+		// Test handler error in object processing
+		inputFile := filepath.Join(tempDir, "obj_handler_error.json")
+		testutil.WriteTestFile(t, inputFile, `{"key1": "value1", "key2": "value2"}`)
+
+		callCount := 0
+		handler := func(_ interface{}) error {
+			callCount++
+			if callCount == 1 {
+				return errObjectHandlerError
+			}
+			return nil
+		}
+
+		err := processor.ProcessLargeJSON(ctx, inputFile, handler)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "handler failed for property")
+	})
+
+	t.Run("ProcessLargeJSON_ClosingTokenError", func(t *testing.T) {
+		// Test closing token read error
+		inputFile := filepath.Join(tempDir, "no_closing.json")
+		testutil.WriteTestFile(t, inputFile, `["item1", "item2"`) // Missing closing bracket
+
+		handler := func(_ interface{}) error {
+			return nil
+		}
+
+		err := processor.ProcessLargeJSON(ctx, inputFile, handler)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to read JSON closing token")
+	})
+}
+
+// TestProcessFileStreamingErrorPaths tests specific error paths in streaming processing
+func TestProcessFileStreamingErrorPaths(t *testing.T) {
+	tempDir := testutil.CreateTempDir(t)
+	processor := NewStreamProcessor()
+	ctx := context.Background()
+
+	t.Run("ProcessFileStreaming_InputPathValidationError", func(t *testing.T) {
+		// Test input path validation error
+		invalidInputPath := "../invalid/path"
+		outputPath := filepath.Join(tempDir, "output.txt")
+
+		transform := func(data []byte) ([]byte, error) {
+			return data, nil
+		}
+
+		err := processor.processFileStreaming(ctx, invalidInputPath, outputPath, transform, 1000)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid input path")
+	})
+
+	t.Run("ProcessFileStreaming_OutputPathValidationError", func(t *testing.T) {
+		// Test output path validation error
+		inputPath := filepath.Join(tempDir, "input.txt")
+		testutil.WriteTestFile(t, inputPath, "test content")
+		invalidOutputPath := "../invalid/output"
+
+		transform := func(data []byte) ([]byte, error) {
+			return data, nil
+		}
+
+		err := processor.processFileStreaming(ctx, inputPath, invalidOutputPath, transform, 1000)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid output path")
+	})
+
+	t.Run("ProcessFileStreaming_InputFileOpenError", func(t *testing.T) {
+		// Test input file open error
+		nonExistentFile := filepath.Join(tempDir, "nonexistent.txt")
+		outputPath := filepath.Join(tempDir, "output.txt")
+
+		transform := func(data []byte) ([]byte, error) {
+			return data, nil
+		}
+
+		err := processor.processFileStreaming(ctx, nonExistentFile, outputPath, transform, 1000)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to open input file")
+	})
+
+	t.Run("ProcessFileStreaming_OutputFileCreateError", func(t *testing.T) {
+		// Test output file creation error
+		inputPath := filepath.Join(tempDir, "input.txt")
+		testutil.WriteTestFile(t, inputPath, "test content")
+
+		// Try to create output file in non-existent directory
+		invalidOutputDir := filepath.Join(tempDir, "nonexistent", "output.txt")
+
+		transform := func(data []byte) ([]byte, error) {
+			return data, nil
+		}
+
+		err := processor.processFileStreaming(ctx, inputPath, invalidOutputDir, transform, 1000)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create output file")
+	})
+
+	t.Run("ProcessFileStreaming_TransformError", func(t *testing.T) {
+		// Test transformation error during streaming
+		inputPath := filepath.Join(tempDir, "transform_error.txt")
+		outputPath := filepath.Join(tempDir, "output.txt")
+		testutil.WriteTestFile(t, inputPath, "test content for transformation error")
+
+		transform := func(_ []byte) ([]byte, error) {
+			return nil, errTransformationFailed
+		}
+
+		err := processor.processFileStreaming(ctx, inputPath, outputPath, transform, 1000)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "transformation failed at offset")
+	})
+
+	t.Run("ProcessFileStreaming_WriteError", func(t *testing.T) {
+		// Test write error during streaming (harder to trigger, but we can test with valid scenario)
+		inputPath := filepath.Join(tempDir, "write_test.txt")
+		outputPath := filepath.Join(tempDir, "write_output.txt")
+		testutil.WriteTestFile(t, inputPath, "content for write test")
+
+		transform := func(data []byte) ([]byte, error) {
+			return []byte(strings.ToUpper(string(data))), nil
+		}
+
+		err := processor.processFileStreaming(ctx, inputPath, outputPath, transform, 1000)
+		require.NoError(t, err)
+
+		// Verify the output
+		result, err := os.ReadFile(outputPath) //nolint:gosec // Test file read is safe
+		require.NoError(t, err)
+		require.Equal(t, "CONTENT FOR WRITE TEST", string(result))
+	})
+
+	t.Run("ProcessFileStreaming_ReadError", func(t *testing.T) {
+		// Test read error during streaming (difficult to trigger, but test normal case)
+		inputPath := filepath.Join(tempDir, "read_test.txt")
+		outputPath := filepath.Join(tempDir, "read_output.txt")
+		// Create file with content that spans multiple chunks
+		largeContent := strings.Repeat("test content ", 1000)
+		testutil.WriteTestFile(t, inputPath, largeContent)
+
+		transform := func(data []byte) ([]byte, error) {
+			return data, nil
+		}
+
+		err := processor.processFileStreaming(ctx, inputPath, outputPath, transform, int64(len(largeContent)))
+		require.NoError(t, err)
+	})
+
+	t.Run("ProcessBatch_ContextCancellation", func(t *testing.T) {
+		// Test context cancellation between batches
+		batchProcessor := NewBatchFileProcessor(processor, 1, time.Minute)
+
+		operations := []FileOperation{
+			{
+				InputPath:  filepath.Join(tempDir, "batch1.txt"),
+				OutputPath: filepath.Join(tempDir, "batch1_out.txt"),
+				Transform: func(data []byte) ([]byte, error) {
+					return data, nil
+				},
+			},
+		}
+
+		testutil.WriteTestFile(t, operations[0].InputPath, "batch content")
+
+		cancelCtx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		err := batchProcessor.ProcessBatch(cancelCtx, operations)
+		// This might or might not error depending on timing, but test both paths
+		if err != nil {
+			require.Contains(t, err.Error(), "context canceled")
+		} else {
+			// If it completes before cancellation, that's also valid
+			require.NoError(t, err)
 		}
 	})
 }

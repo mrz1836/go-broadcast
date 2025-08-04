@@ -115,3 +115,5 @@ dist/
 test/fixtures/directories/
 /.github/pre-commit/cmd/gofortress-pre-commit/gofortress-pre-commit
 /.github/pre-commit/gofortress-pre-commit
+/cmd/profile_demo/coverage.html
+/io_coverage.html
