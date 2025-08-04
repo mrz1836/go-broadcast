@@ -600,6 +600,8 @@ targets:
 
 - **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
 - **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)
+- **AI Sub-Agents Guide** – Comprehensive guide to 26 specialized AI agents for repository management at [docs/sub-agents.md](docs/sub-agents.md)
+- **Slash Commands Reference** – 20+ powerful Claude Code commands for automated workflows at [docs/slash-commands.md](docs/slash-commands.md)
 - **Directory Sync Guide** – Complete guide to directory synchronization including exclusion patterns and performance tips at [docs/directory-sync.md](docs/directory-sync.md)
 - **Configuration Reference** – Comprehensive configuration options including [global PR assignment merging](#configuration-reference)
 - **Configuration Examples** – Browse practical patterns in the [examples directory](examples)
@@ -636,6 +638,7 @@ targets:
 * **Out‑of‑the‑Box VS Code Happiness** with a preconfigured [Go](https://code.visualstudio.com/docs/languages/go) workspace and [`.vscode`](.vscode) folder with all the right settings.
 * **Optional Release Broadcasts** to your community via [Slack](https://slack.com), [Discord](https://discord.com), or [Twitter](https://twitter.com) – plug in your webhook.
 * **AI Compliance Playbook** – machine‑readable guidelines ([AGENTS.md](.github/AGENTS.md), [CLAUDE.md](.github/CLAUDE.md), [.cursorrules](.cursorrules), [sweep.yaml](.github/sweep.yaml)) keep ChatGPT, Claude, Cursor & Sweep aligned with your repo's rules.
+* **20+ Powerful Slash Commands** – Claude Code commands that coordinate 26 specialized AI agents for automated workflows like `/test`, `/security`, `/release`, and more. See [docs/slash-commands.md](docs/slash-commands.md).
 * **GoFortress Pre-commit System** - High-performance Go-native pre-commit hooks with 17x faster execution—run the same formatting, linting, and tests before every commit, just like CI.
 * **Zero Python Dependencies** - Pure Go implementation with environment-based configuration via [.env.shared](.github/.env.shared).
 * **DevContainers for Instant Onboarding** – Launch a ready-to-code environment in seconds with [VS Code DevContainers](https://containers.dev/) and the included [.devcontainer.json](.devcontainer.json) config.

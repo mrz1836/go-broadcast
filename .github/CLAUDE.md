@@ -398,6 +398,41 @@ echo $PATH | grep "$(go env GOPATH)/bin"     # Verify GOPATH/bin in PATH
 
 **📚 Complete Documentation:** [`.github/pre-commit/README.md`](.github/pre-commit/README.md)
 
+### 🤖 AI Sub-Agents Team
+
+go-broadcast includes a comprehensive team of **26 specialized AI sub-agents** designed to manage all aspects of repository lifecycle. These agents work autonomously and collaboratively to maintain code quality, security, and performance.
+
+**Quick Overview:**
+- **Core Operations** (4 agents): sync-orchestrator, config-validator, github-sync-api, directory-sync-specialist
+- **Testing & QA** (5 agents): test-commander, benchmark-runner, fuzz-test-guardian, integration-test-manager, go-quality-enforcer
+- **Dependencies** (3 agents): dependabot-coordinator, dependency-upgrader, breaking-change-detector
+- **Performance** (3 agents): performance-profiler, benchmark-analyst, coverage-maintainer
+- **Security** (2 agents): security-auditor, compliance-checker
+- **And more...** (11 additional agents for automation, diagnostics, documentation, and refactoring)
+
+**Using Sub-Agents:**
+```bash
+# Automatic agent selection
+"Fix the failing tests and improve coverage"
+
+# Explicit agent invocation
+"Use the security-auditor agent to scan for vulnerabilities"
+"Have the release-manager prepare version 1.2.0"
+```
+
+**Agent Collaboration:**
+- Agents work in parallel groups for efficiency (e.g., Quality Group runs 3 agents simultaneously)
+- Sequential workflows for complex tasks (e.g., Release Flow: changelog → release → docs)
+- Event-driven triggers activate relevant agents automatically
+
+**Performance Targets:**
+- Binary detection: 587M+ ops/sec
+- Test coverage: >85%
+- Security scans: <60s
+- PR automation: <2s response
+
+**📚 Complete Documentation:** [`docs/sub-agents.md`](../docs/sub-agents.md)
+
 ### 📚 Documentation Navigation
 
 **Core Documentation:**

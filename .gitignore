@@ -77,9 +77,6 @@ artifact
 .idea/
 .project
 
-# AI assistants
-.claude
-
 # Linting
 lint-output.txt
 
