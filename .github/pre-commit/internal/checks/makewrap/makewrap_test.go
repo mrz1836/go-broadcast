@@ -58,6 +58,11 @@ func TestFumptCheck_Run_NoMake(t *testing.T) {
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
 
+	// Initialize git repository
+	require.NoError(t, exec.Command("git", "init").Run())
+	require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
+	require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
+
 	check := NewFumptCheck()
 	ctx := context.Background()
 
@@ -85,6 +90,11 @@ func TestFumptCheck_Run_NoTarget(t *testing.T) {
 
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
+
+	// Initialize git repository
+	require.NoError(t, exec.Command("git", "init").Run())
+	require.NoError(t, exec.Command("git", "config", "user.email", "test@example.com").Run())
+	require.NoError(t, exec.Command("git", "config", "user.name", "Test User").Run())
 
 	// Create a Makefile without fumpt target
 	makefile := `
