@@ -27,6 +27,15 @@ go-broadcast is designed with a group-based configuration structure as its core 
 
 This is the fundamental design of go-broadcast, not an enhancement or migration path.
 
+## Implementation Strategy
+
+This plan uses a gradual implementation approach to ensure:
+- Tests continue passing at each phase
+- Each phase is independently testable
+- Easy rollback if issues arise
+- Clear transition path for all code
+- No breaking changes until everything is ready
+
 ## System Architecture
 
 ```
@@ -96,30 +105,88 @@ groups:
 
 ## Implementation Roadmap
 
-### Phase 1: Configuration Types Implementation
-**Objective**: Implement configuration types with group-based structure
+### Phase 0: Code Audit and Impact Analysis
+**Objective**: Identify all code locations that will be affected by the configuration change
+**Duration**: 2-3 hours
 
 **Implementation Steps:**
-1. Update `Config` type to use group-based structure
-2. Add `Group` type with all required fields
-3. Implement validation logic for groups
-4. Update parser to handle group-based configuration
-5. Add comprehensive tests for configuration structure
+1. Scan codebase for all references to `config.Source`
+2. Scan codebase for all references to `config.Targets`
+3. Identify all test files that create Config structs
+4. Document all example YAML files
+5. List all commands that use configuration
+6. Identify integration points in sync engine
+
+**Deliverables:**
+- `plans/plan-12-audit.md` - Complete list of affected files and code locations
+- Decision on implementation approach based on findings
+
+**Success Criteria:**
+- ✅ Complete inventory of all affected code
+- ✅ Clear understanding of scope
+- ✅ No surprises during implementation
+- ✅ Final todo: Update the @plans/plan-12-status.md file with the results of the implementation, make sure success was hit
+
+### Phase 1: Configuration Types with Compatibility
+**Objective**: Add new types while maintaining compatibility with existing code
+**Duration**: 3-4 hours
+
+**Implementation Steps:**
+1. Add new types (Config, Group, ModuleConfig) alongside existing ones
+2. Add compatibility methods to Config type
+3. Update DirectoryMapping with Module field
+4. Add dependency management utilities
+5. Create test helpers for both formats
 
 **Files to Create/Modify:**
-- `internal/config/types.go` - Define group-based configuration types
-- `internal/config/validator.go` - Add group validation
-- `internal/config/parser.go` - Parse group-based configuration
-- `internal/config/config_test.go` - Tests for configuration structure
+- `internal/config/types.go` - Add new types without removing old ones
+- `internal/config/compatibility.go` - NEW: Compatibility layer
+- `internal/config/types_test.go` - Tests for new types
 
-**Type Definitions:**
+**Type Definitions with Compatibility:**
 ```go
 // Config represents the complete sync configuration
 type Config struct {
     Version int       `yaml:"version"`          // Config version (1)
     Name    string    `yaml:"name,omitempty"`   // Optional config name
     ID      string    `yaml:"id,omitempty"`     // Optional config ID
-    Groups   []Group   `yaml:"groups"`          // List of sync groups
+    
+    // New group-based structure
+    Groups  []Group   `yaml:"groups,omitempty"` // List of sync groups
+    
+    // Existing fields for compatibility during transition
+    Source   SourceConfig   `yaml:"source,omitempty"`
+    Global   GlobalConfig   `yaml:"global,omitempty"`
+    Defaults DefaultConfig  `yaml:"defaults,omitempty"`
+    Targets  []TargetConfig `yaml:"targets,omitempty"`
+}
+
+// GetGroups returns groups, converting from old format if needed
+func (c *Config) GetGroups() []Group {
+    if len(c.Groups) > 0 {
+        return c.Groups
+    }
+    
+    // Convert old format to group format for compatibility
+    if c.Source.Repo != "" {
+        return []Group{{
+            Name:     "default",
+            ID:       "default",
+            Priority: 0,
+            Enabled:  boolPtr(true),
+            Source:   c.Source,
+            Global:   c.Global,
+            Defaults: c.Defaults,
+            Targets:  c.Targets,
+        }}
+    }
+    
+    return nil
+}
+
+// IsGroupBased returns true if using new group format
+func (c *Config) IsGroupBased() bool {
+    return len(c.Groups) > 0
 }
 
 // Group represents a sync group with its own source and targets
@@ -157,160 +224,81 @@ type ModuleConfig struct {
 }
 ```
 
-**Validation Rules:**
-- Group names must be unique within a config
-- Group IDs must be unique and valid (alphanumeric + hyphens)
-- Priority values should be positive integers
-- At least one enabled group required
-- Source and targets required for each group
-- Dependencies must reference valid group IDs
-- No circular dependencies allowed
-- Module version must be valid (exact version, "latest", or semver constraint)
-- Module type must be supported (currently only "go")
-
 **Success Criteria:**
-- ✅ Types properly defined and documented
-- ✅ Configuration parsing handles group-based structure
-- ✅ Validation catches all error cases
-- ✅ Tests cover all configuration scenarios
-- ✅ Examples updated to show group-based structure
+- ✅ New types defined with compatibility methods
+- ✅ Existing tests still pass
+- ✅ Both config formats can be loaded
+- ✅ Clear path for code to use GetGroups()
+- ✅ Final todo: Update the @plans/plan-12-status.md file with the results of the implementation, make sure success was hit
 
-
-### Phase 2: Module Version Resolver Implementation
-**Objective**: Implement module version detection and resolution system
+### Phase 2: Update Code to Use Compatibility Layer
+**Objective**: Modify all code to work with both configuration formats
+**Duration**: 4-5 hours
 
 **Implementation Steps:**
-1. Create module detector to identify Go modules in directories
-2. Implement version resolver for git tags and semantic versioning
-3. Add version constraint evaluation (exact, latest, semver ranges)
-4. Create version cache to optimize API calls
-5. Implement module metadata extraction from go.mod files
+1. Update sync engine to use config.GetGroups()
+2. Update commands to use config.GetGroups()
+3. Update validators to handle both formats
+4. Update state discovery to work with groups
+5. Ensure all tests pass with both formats
 
-**Files to Create/Modify:**
-- `internal/sync/module_detector.go` - Detect and analyze Go modules
-- `internal/sync/module_resolver.go` - Resolve module versions from git
-- `internal/sync/module_cache.go` - Cache version lookups
-- `internal/sync/semver.go` - Semantic version constraint handling
-- `internal/sync/module_test.go` - Module functionality tests
+**Files to Modify:**
+- `internal/sync/engine.go` - Use GetGroups() instead of direct access
+- `internal/sync/repository.go` - Work with group context
+- `cmd/go-broadcast/*.go` - Update all commands
+- `internal/config/validator.go` - Validate both formats
+- `internal/state/discovery.go` - Handle group-based branches
 
-**Module Detector Implementation:**
+**Example Code Updates:**
 ```go
-// ModuleDetector identifies and analyzes modules in directories
-type ModuleDetector struct {
-    logger *logrus.Entry
-}
-
-// DetectModule checks if a directory contains a Go module
-func (md *ModuleDetector) DetectModule(path string) (*ModuleInfo, error) {
-    goModPath := filepath.Join(path, "go.mod")
-    if _, err := os.Stat(goModPath); err != nil {
-        return nil, nil // Not a module
+// Before (in engine.go):
+func (e *Engine) Execute(ctx context.Context) error {
+    // Clone source
+    if err := e.cloneSource(ctx, e.config.Source); err != nil {
+        return err
     }
-
-    // Parse go.mod to extract module information
-    modFile, err := modfile.Parse(goModPath, nil, nil)
-    if err != nil {
-        return nil, fmt.Errorf("failed to parse go.mod: %w", err)
-    }
-
-    return &ModuleInfo{
-        Path:    modFile.Module.Mod.Path,
-        Version: modFile.Module.Mod.Version,
-        GoMod:   goModPath,
-    }, nil
-}
-```
-
-**Version Resolver Implementation:**
-```go
-// ModuleResolver resolves module versions from git repositories
-type ModuleResolver struct {
-    client *github.Client
-    cache  *ModuleCache
-    logger *logrus.Entry
-}
-
-// ResolveVersion finds the appropriate version based on constraint
-func (mr *ModuleResolver) ResolveVersion(ctx context.Context, repo string, constraint string) (string, error) {
-    // Check cache first
-    if cached, found := mr.cache.Get(repo, constraint); found {
-        return cached, nil
-    }
-
-    switch constraint {
-    case "latest":
-        return mr.resolveLatestTag(ctx, repo)
-    case "":
-        return "", errors.New("version constraint required")
-    default:
-        if strings.HasPrefix(constraint, "^") || strings.HasPrefix(constraint, "~") {
-            return mr.resolveSemverConstraint(ctx, repo, constraint)
-        }
-        // Exact version
-        return mr.validateTag(ctx, repo, constraint)
+    
+    // Process targets
+    for _, target := range e.config.Targets {
+        // ...
     }
 }
 
-// resolveSemverConstraint finds best matching version for semver constraint
-func (mr *ModuleResolver) resolveSemverConstraint(ctx context.Context, repo string, constraint string) (string, error) {
-    tags, err := mr.listTags(ctx, repo)
-    if err != nil {
-        return "", err
-    }
-
-    // Parse constraint and find best match
-    c, err := semver.NewConstraint(constraint)
-    if err != nil {
-        return "", fmt.Errorf("invalid constraint %s: %w", constraint, err)
-    }
-
-    var bestVersion *semver.Version
-    for _, tag := range tags {
-        v, err := semver.NewVersion(tag)
-        if err != nil {
-            continue // Skip non-semver tags
-        }
-
-        if c.Check(v) && (bestVersion == nil || v.GreaterThan(bestVersion)) {
-            bestVersion = v
-        }
-    }
-
-    if bestVersion == nil {
-        return "", fmt.Errorf("no version matches constraint %s", constraint)
-    }
-
-    return "v" + bestVersion.String(), nil
+// After (using compatibility):
+func (e *Engine) Execute(ctx context.Context) error {
+    groups := e.config.GetGroups()
+    
+    // Create orchestrator
+    orch := NewGroupOrchestrator(e.config, e, e.logger)
+    
+    // Execute groups
+    return orch.ExecuteGroups(ctx, groups)
 }
 ```
 
 **Success Criteria:**
-- ✅ Module detection works for Go modules
-- ✅ Version resolver handles exact, latest, and semver constraints
-- ✅ Git tags are efficiently retrieved and cached
-- ✅ Semantic version matching works correctly
-- ✅ API calls are minimized through caching
+- ✅ All code uses GetGroups() method
+- ✅ No direct access to Source/Targets fields
+- ✅ All existing tests pass
+- ✅ Both config formats work correctly
+- ✅ Final todo: Update the @plans/plan-12-status.md file with the results of the implementation, make sure success was hit
 
-
-### Phase 3: Sync Engine Implementation
-**Objective**: Implement sync engine with group-based execution and module awareness
+### Phase 3: Add Group Orchestration
+**Objective**: Implement group orchestrator with dependency resolution
+**Duration**: 4-5 hours
 
 **Implementation Steps:**
-1. Create group orchestrator with dependency resolution
-2. Implement topological sort for dependency ordering
-3. Integrate module detection into directory processing
-4. Add module-aware sync logic that checks versions before syncing
-5. Refactor sync engine to process groups based on dependencies and priority
-6. Add group-level state tracking with dependency status
-7. Implement group-level error handling that respects dependencies
-8. Add progress reporting per group with dependency chain visibility
+1. Create GroupOrchestrator
+2. Implement dependency resolution
+3. Add priority sorting
+4. Implement group isolation
+5. Add group-level error handling
 
-**Files to Create/Modify:**
-- `internal/sync/orchestrator.go` - New group orchestrator
-- `internal/sync/engine.go` - Refactor for group support
-- `internal/sync/repository.go` - Update for group context
-- `internal/state/types.go` - Add group tracking
-- `internal/sync/progress.go` - Group-level progress
+**Files to Create:**
+- `internal/sync/orchestrator.go` - Group orchestration logic
+- `internal/sync/orchestrator_test.go` - Orchestrator tests
+- `internal/sync/dependency.go` - Dependency resolution
+- `internal/sync/dependency_test.go` - Dependency tests
 
 **Group Orchestrator Implementation:**
 ```go
@@ -330,538 +318,190 @@ type GroupStatus struct {
 }
 
 // ExecuteGroups runs all enabled groups respecting dependencies and priority
-func (go *GroupOrchestrator) ExecuteGroups(ctx context.Context) error {
+func (o *GroupOrchestrator) ExecuteGroups(ctx context.Context, groups []config.Group) error {
     // Resolve dependencies and get execution order
-    executionOrder, err := go.resolveDependencies()
+    executionOrder, err := o.resolveDependencies(groups)
     if err != nil {
         return fmt.Errorf("failed to resolve dependencies: %w", err)
     }
-
+    
     // Initialize group status tracking
-    go.initializeGroupStatus()
-
+    o.initializeGroupStatus(groups)
+    
     // Execute groups in resolved order
     for _, group := range executionOrder {
         // Check if dependencies completed successfully
-        if !go.areDependenciesSatisfied(group) {
-            go.logger.WithField("group_id", group.ID).Info("Skipping group due to failed dependencies")
-            go.groupStatus[group.ID] = GroupStatus{State: "skipped"}
+        if !o.areDependenciesSatisfied(group) {
+            o.logger.WithField("group_id", group.ID).Info("Skipping group due to failed dependencies")
+            o.groupStatus[group.ID] = GroupStatus{State: "skipped"}
             continue
         }
-
-        go.logger.WithFields(logrus.Fields{
+        
+        o.logger.WithFields(logrus.Fields{
             "group_name": group.Name,
             "group_id":   group.ID,
             "priority":   group.Priority,
             "depends_on": group.DependsOn,
         }).Info("Starting group sync")
-
-        go.groupStatus[group.ID] = GroupStatus{State: "running", StartTime: time.Now()}
-
-        if err := go.executeGroup(ctx, group); err != nil {
-            go.groupStatus[group.ID].State = "failed"
-            go.groupStatus[group.ID].Error = err
-            go.logger.WithError(err).Error("Group sync failed")
+        
+        o.groupStatus[group.ID] = GroupStatus{State: "running", StartTime: time.Now()}
+        
+        if err := o.executeGroup(ctx, group); err != nil {
+            o.groupStatus[group.ID].State = "failed"
+            o.groupStatus[group.ID].Error = err
+            o.logger.WithError(err).Error("Group sync failed")
             // Continue with groups that don't depend on this one
         } else {
-            go.groupStatus[group.ID].State = "success"
+            o.groupStatus[group.ID].State = "success"
         }
-
-        go.groupStatus[group.ID].EndTime = time.Now()
+        
+        o.groupStatus[group.ID].EndTime = time.Now()
     }
-
-    return go.reportFinalStatus()
-}
-
-// resolveDependencies performs topological sort considering both dependencies and priority
-func (go *GroupOrchestrator) resolveDependencies() ([]config.Group, error) {
-    // Build dependency graph
-    graph := go.buildDependencyGraph()
-
-    // Check for circular dependencies
-    if err := go.detectCircularDependencies(graph); err != nil {
-        return nil, err
-    }
-
-    // Perform topological sort with priority consideration
-    return go.topologicalSort(graph)
-}
-
-// executeGroup processes a single group
-func (go *GroupOrchestrator) executeGroup(ctx context.Context, group config.Group) error {
-    // Create group-specific engine instance
-    groupEngine := go.engine.ForGroup(group)
-
-    // Clone source repository for this group
-    if err := groupEngine.cloneSource(ctx); err != nil {
-        return fmt.Errorf("failed to clone source for group %s: %w", group.ID, err)
-    }
-
-    // Process all targets in the group
-    return groupEngine.processTargets(ctx)
-}
-
-// processDirectory handles directory sync with module awareness
-func (rs *RepositorySync) processDirectory(ctx context.Context, dirMapping config.DirectoryMapping) ([]FileChange, error) {
-    sourcePath := filepath.Join(rs.tempDir, "source", dirMapping.Src)
-
-    // Check if this is a module-aware sync
-    if dirMapping.Module != nil {
-        return rs.processModuleDirectory(ctx, dirMapping, sourcePath)
-    }
-
-    // Regular directory processing
-    return rs.processRegularDirectory(ctx, dirMapping, sourcePath)
-}
-
-// processModuleDirectory handles module-aware directory sync
-func (rs *RepositorySync) processModuleDirectory(ctx context.Context, dirMapping config.DirectoryMapping, sourcePath string) ([]FileChange, error) {
-    // Detect module in source directory
-    moduleInfo, err := rs.moduleDetector.DetectModule(sourcePath)
-    if err != nil {
-        return nil, fmt.Errorf("failed to detect module: %w", err)
-    }
-
-    if moduleInfo == nil && dirMapping.Module.Type == "go" {
-        return nil, fmt.Errorf("directory %s is not a Go module but module sync requested", dirMapping.Src)
-    }
-
-    // Resolve target version based on constraint
-    targetVersion, err := rs.moduleResolver.ResolveVersion(ctx, rs.source.Repo, dirMapping.Module.Version)
-    if err != nil {
-        return nil, fmt.Errorf("failed to resolve version %s: %w", dirMapping.Module.Version, err)
-    }
-
-    // Check if target already has this version
-    if rs.isModuleVersionCurrent(ctx, dirMapping.Dest, targetVersion) {
-        rs.logger.WithFields(logrus.Fields{
-            "module":  dirMapping.Src,
-            "version": targetVersion,
-        }).Info("Module already at target version, skipping")
-        return nil, nil
-    }
-
-    // Proceed with sync
-    rs.logger.WithFields(logrus.Fields{
-        "module":         dirMapping.Src,
-        "target_version": targetVersion,
-    }).Info("Syncing module to version")
-
-    return rs.processRegularDirectory(ctx, dirMapping, sourcePath)
+    
+    return o.reportFinalStatus()
 }
 ```
-
-**State Tracking Enhancement:**
-Branch naming pattern for groups:
-```
-chore/sync-files-{group_id}-20250130-143052-abc123f
-```
-
-Where:
-- `{group_id}` - Unique identifier from the group configuration
-- `20250130-143052` - Timestamp (YYYYMMDD-HHMMSS)
-- `abc123f` - Source commit SHA (7 chars)
-
-This maintains stateless tracking while identifying which group performed the sync.
 
 **Success Criteria:**
-- ✅ Groups execute respecting both dependencies and priority
-- ✅ Dependency resolution with topological sort
-- ✅ Circular dependency detection and prevention
-- ✅ Disabled groups are skipped
-- ✅ Groups with failed dependencies are skipped
-- ✅ Each group has isolated execution context
-- ✅ Group-level errors don't block unrelated groups
-- ✅ Progress reported per group with dependency status
-- ✅ State tracking includes group and dependency information
+- ✅ Groups execute in priority order
+- ✅ Dependencies are respected
+- ✅ Circular dependencies detected
+- ✅ Group failures isolated
+- ✅ All tests pass
+- ✅ Final todo: Update the @plans/plan-12-status.md file with the results of the implementation, make sure success was hit
 
+### Phase 4: Module Version Resolver
+**Objective**: Implement module detection and version resolution
+**Duration**: 4-5 hours
 
-### Phase 4: Command Interface Updates
-**Objective**: Update CLI commands to support group operations and module features
+**Implementation Steps:**
+1. Add semver dependency to go.mod
+2. Create module detector
+3. Implement version resolver
+4. Add version caching
+5. Integrate with directory sync
+
+**Files to Create:**
+- `internal/sync/module_detector.go` - Module detection logic
+- `internal/sync/module_resolver.go` - Version resolution
+- `internal/sync/module_cache.go` - Version caching
+- `internal/sync/module_test.go` - Module tests
+
+**Success Criteria:**
+- ✅ Module detection works
+- ✅ Version resolution from git tags
+- ✅ Semantic version constraints work
+- ✅ Caching reduces API calls
+- ✅ Integration with directory sync
+- ✅ Final todo: Update the @plans/plan-12-status.md file with the results of the implementation, make sure success was hit
+
+### Phase 5: Command Interface Updates
+**Objective**: Update commands to support group operations
+**Duration**: 3-4 hours
 
 **Implementation Steps:**
 1. Add group filtering to sync command
-2. Add group listing to status command
-3. Update validate command for groups and modules
-4. Add group-specific dry-run
-5. Enhance cancel command for groups
-6. Add module-specific commands and flags
-7. Add module version checking command
+2. Update status command for groups
+3. Update validate command
+4. Add module commands
+5. Update help text
 
 **Files to Modify:**
-- `cmd/go-broadcast/sync.go` - Add group and module flags
-- `cmd/go-broadcast/status.go` - Show group and module status
-- `cmd/go-broadcast/validate.go` - Validate groups and modules
-- `cmd/go-broadcast/cancel.go` - Cancel by group
-- `cmd/go-broadcast/modules.go` - New module commands
-
-**New Command Options:**
-```bash
-# Sync specific groups only
-go-broadcast sync --groups "core-infra,security" --config sync.yaml
-
-# Sync single group
-go-broadcast sync --group-id "core-infra" --config sync.yaml
-
-# List all groups and their status
-go-broadcast status --show-groups --config sync.yaml
-
-# Dry run for specific group
-go-broadcast sync --dry-run --group-id "security" --config sync.yaml
-
-# Cancel sync for specific group
-go-broadcast cancel --group-id "core-infra" --config sync.yaml
-
-# Check module versions without syncing
-go-broadcast modules check --config sync.yaml
-
-# List all modules and their versions
-go-broadcast modules list --config sync.yaml
-
-# Update module version constraints
-go-broadcast modules update --module "github.com/pkg/errors" --version "^0.9.0"
-```
-
-**Module Command Implementation:**
-```go
-// cmd/go-broadcast/modules.go
-type ModulesCmd struct {
-    Config string `help:"Path to config file" required:""`
-}
-
-type ModulesCheckCmd struct {
-    GroupID string `help:"Check modules for specific group"`
-    All     bool   `help:"Check all modules across all groups"`
-}
-
-func (m *ModulesCheckCmd) Run(ctx *Context) error {
-    // Load configuration
-    config, err := loadConfig(m.Config)
-    if err != nil {
-        return err
-    }
-
-    // Initialize module resolver
-    resolver := sync.NewModuleResolver(ctx.githubClient, cache, logger)
-    detector := sync.NewModuleDetector(logger)
-
-    // Check modules for each group
-    for _, group := range config.Group {
-        if m.GroupID != "" && group.ID != m.GroupID {
-            continue
-        }
-
-        logger.WithField("group", group.Name).Info("Checking modules")
-
-        for _, target := range group.Targets {
-            for _, dir := range target.Directories {
-                if dir.Module != nil {
-                    // Check if source is a module
-                    moduleInfo, err := detector.DetectModule(dir.Src)
-                    if err != nil {
-                        logger.WithError(err).Error("Failed to detect module")
-                        continue
-                    }
-
-                    if moduleInfo != nil {
-                        // Resolve version
-                        version, err := resolver.ResolveVersion(ctx, group.Source.Repo, dir.Module.Version)
-                        if err != nil {
-                            logger.WithError(err).Error("Failed to resolve version")
-                            continue
-                        }
-
-                        logger.WithFields(logrus.Fields{
-                            "module":    moduleInfo.Path,
-                            "version":   version,
-                            "directory": dir.Src,
-                        }).Info("Module version resolved")
-                    }
-                }
-            }
-        }
-    }
-
-    return nil
-}
-```
+- `cmd/go-broadcast/sync.go` - Add group flags
+- `cmd/go-broadcast/status.go` - Show group status
+- `cmd/go-broadcast/validate.go` - Validate groups
+- `cmd/go-broadcast/modules.go` - NEW: Module commands
 
 **Success Criteria:**
-- ✅ Commands support group filtering
-- ✅ Status shows group information
-- ✅ Module commands work correctly
-- ✅ Version checking without sync
-- ✅ Validation reports group-specific and module issues
-- ✅ Help text updated with examples
-- ✅ Clean command interface for group and module operations
+- ✅ Commands work with groups
+- ✅ Backward compatibility maintained
+- ✅ Help text updated
+- ✅ Module commands functional
+- ✅ Final todo: Update the @plans/plan-12-status.md file with the results of the implementation, make sure success was hit
 
-
-### Phase 5: State Discovery Implementation
-**Objective**: Implement state discovery for group-based configurations with module tracking
+### Phase 6: Remove Compatibility Layer
+**Objective**: Clean up code to use only group-based configuration
+**Duration**: 3-4 hours
 
 **Implementation Steps:**
-1. Update branch naming pattern to include group ID
-2. Enhance PR metadata generation with group and module information
-3. Update PR body format with group and module details
-4. Implement group-aware state comparison
-5. Add group execution history tracking
-6. Track module versions in PR metadata
-7. Add module update detection in state discovery
+1. Remove old fields from Config struct
+2. Remove GetGroups() compatibility method
+3. Update all example configurations
+4. Update all test configurations
+5. Clean up any remaining references
 
 **Files to Modify:**
-- `internal/state/discovery.go` - Group-aware discovery
-- `internal/state/parser.go` - Parse group metadata from PRs
-- `internal/state/types.go` - Add group state types
-- `internal/sync/metadata.go` - Generate enhanced PR metadata
-- `internal/sync/pr_body.go` - Format PR body with group information
+- `internal/config/types.go` - Remove old fields
+- `internal/config/compatibility.go` - DELETE this file
+- `examples/*.yaml` - Update to group format
+- All test files with example configs
 
-**Enhanced PR Metadata Format:**
-The PR body will include human-readable content followed by machine-parseable metadata:
-
-```markdown
-## What Changed
-* Synchronized files for group "Core Infrastructure" (core-infra)
-* Updated 3 individual file(s) and 61 file(s) from directory mappings
-* Applied transformations based on group configuration
-
-## Group Information
-**Group**: Core Infrastructure (`core-infra`)
-**Priority**: 1 (executed 1 of 3 groups)
-**Dependencies**: None
-**Source**: company/infrastructure-templates @ abc123f
-
-## Directory Synchronization Details
-### `.github/coverage` → `.github/coverage`
-* **Files synced**: 61
-* **Files excluded**: 26
-* **Processing time**: 1523ms
-* **Modules detected**: 1 (github.com/company/utils v1.2.3)
-* **Exclusion patterns**: `*.out`, `*.test`, `gofortress-coverage`
-
-## Performance Metrics
-* **Group execution time**: 2.1s
-* **Total files processed**: 87
-* **API calls saved**: 72
-* **Cache hit rate**: 62.5%
-
-<!-- go-broadcast metadata
-config:
-  name: "Platform Repository Sync"
-  id: "platform-sync-2025"
-groups:
-  name: "Core Infrastructure"
-  id: "core-infra"
-  description: "Syncs core CI/CD and build infrastructure"
-  priority: 1
-  depends_on: []
-  execution_order: "1 of 3"
-source:
-  repo: company/infrastructure-templates
-  branch: main
-  commit: abc123f7890
-files:
-  - src: .github/workflows/ci.yml
-    dest: .github/workflows/ci.yml
-directories:
-  - src: .github/coverage
-    dest: .github/coverage
-    excluded: ["*.out", "*.test", "gofortress-coverage"]
-    files_synced: 61
-    files_excluded: 26
-    processing_time_ms: 1523
-  - src: pkg/utils
-    dest: pkg/utils
-    module:
-      type: go
-      version: "^1.2.0"
-      resolved_version: "v1.2.3"
-      check_tags: true
-    files_synced: 12
-    processing_time_ms: 450
-modules:
-  - path: "github.com/company/utils"
-    source_version: "v1.2.3"
-    target_version: "v1.1.0"
-    updated: true
-performance:
-  group_execution_time_ms: 2145
-  total_files: 87
-  api_calls_saved: 72
-  cache_hits: 45
-  module_version_checks: 3
-  module_cache_hits: 2
-timestamp: 2025-01-30T14:30:52Z
--->
+**Final Config Structure:**
+```go
+// Config represents the complete sync configuration
+type Config struct {
+    Version int       `yaml:"version"`          // Config version (1)
+    Name    string    `yaml:"name,omitempty"`   // Optional config name
+    ID      string    `yaml:"id,omitempty"`     // Optional config ID
+    Groups  []Group   `yaml:"groups"`           // List of sync groups
+}
 ```
 
-**State Discovery Components:**
-1. **Branch Pattern**: `chore/sync-files-{group_id}-{timestamp}-{commit}`
-2. **PR Title**: `[Sync] {Group Name} - Update from {source_repo} ({commit})`
-3. **PR Metadata**: Complete group information in YAML format
-4. **State Tracking**: Group-specific sync history and status
-
 **Success Criteria:**
-- ✅ Branch names include group ID for identification
-- ✅ PR metadata includes complete group information
-- ✅ PR body shows human-readable group details
-- ✅ State discovery can identify group from branch/PR
-- ✅ Status command shows per-group state
-- ✅ History tracking works per group
-- ✅ No conflicts between groups
+- ✅ Only group-based config remains
+- ✅ All tests pass
+- ✅ All examples use groups
+- ✅ No compatibility code remains
+- ✅ Final todo: Update the @plans/plan-12-status.md file with the results of the implementation, make sure success was hit
 
-
-### Phase 6: Integration Testing
-**Objective**: Comprehensive testing of group-based and module functionality
+### Phase 7: Integration Testing
+**Objective**: Comprehensive testing of complete implementation
+**Duration**: 4-5 hours
 
 **Implementation Steps:**
 1. Create integration tests for multi-group sync
-2. Test priority-based execution
-3. Test dependency resolution and execution order
-4. Test circular dependency detection
-5. Test enable/disable functionality
-6. Test group isolation and failure propagation
-7. Test module detection and version resolution
-8. Test module-aware directory sync
-9. Performance testing with multiple groups and modules
+2. Test priority and dependency execution
+3. Test module sync functionality
+4. Performance testing
+5. Update CI/CD pipeline
 
-**Files to Create/Modify:**
+**Files to Create:**
 - `test/integration/multi_group_test.go` - Group tests
-- `test/integration/priority_test.go` - Priority tests
-- `test/integration/group_state_test.go` - State tests
 - `test/integration/module_sync_test.go` - Module tests
-- `internal/sync/orchestrator_test.go` - Unit tests
-- `internal/sync/module_resolver_test.go` - Module resolver tests
-
-**Test Scenarios:**
-```go
-func TestMultiGroupExecution(t *testing.T) {
-    // Test multiple groups execute in priority order
-    // Test disabled groups are skipped
-    // Test group isolation (source repos don't conflict)
-}
-
-func TestGroupDependencyExecution(t *testing.T) {
-    // Test groups execute in dependency order
-    // Test groups with both dependencies and priority
-    // Test skipping groups when dependencies fail
-    // Test independent groups continue when others fail
-}
-
-func TestCircularDependencies(t *testing.T) {
-    // Test detection of direct circular dependencies (A→B→A)
-    // Test detection of indirect circular dependencies (A→B→C→A)
-    // Test validation fails with clear error message
-}
-
-func TestGroupPriorityExecution(t *testing.T) {
-    // Test groups with priority 1, 2, 3 execute in order
-    // Test groups with same priority but different dependencies
-    // Test priority 0 executes first (unless dependencies)
-}
-
-func TestGroupStateIsolation(t *testing.T) {
-    // Test each group gets its own branch
-    // Test group PRs are independent
-    // Test one group failure doesn't affect unrelated groups
-    // Test dependent groups are skipped on failure
-}
-
-func TestModuleSync(t *testing.T) {
-    // Test module detection in source directories
-    // Test version resolution from git tags
-    // Test semantic version constraint matching
-    // Test module sync skips when version is current
-    // Test module sync updates when version differs
-}
-
-func TestModuleVersionConstraints(t *testing.T) {
-    // Test exact version matching (v1.2.3)
-    // Test latest version resolution
-    // Test caret constraints (^1.2.0)
-    // Test tilde constraints (~1.2.0)
-    // Test invalid constraint handling
-}
-
-func TestModulePerformance(t *testing.T) {
-    // Test version cache effectiveness
-    // Test API call minimization
-    // Test concurrent module resolution
-    // Test large directory module detection
-}
-```
+- `test/integration/performance_test.go` - Performance tests
 
 **Success Criteria:**
 - ✅ All integration tests pass
-- ✅ Priority execution verified
-- ✅ Group isolation confirmed
-- ✅ Performance acceptable with 10+ groups
-- ✅ CI/CD pipeline updated
+- ✅ Performance targets met
+- ✅ CI/CD pipeline green
+- ✅ Ready for production use
+- ✅ Final todo: Update the @plans/plan-12-status.md file with the results of the implementation, make sure success was hit
 
-
-### Phase 7: Documentation Revision
-**Objective**: Revise all existing documentation to reflect group-based configuration as the standard way go-broadcast works
-
-**Important Context**: go-broadcast is unreleased software. This phase is about updating existing documentation to present group-based configuration as the only way the system works, not as a "new feature".
+### Phase 8: Documentation Update
+**Objective**: Update all documentation to reflect group-based configuration
+**Duration**: 3-4 hours
 
 **Implementation Steps:**
-1. Revise README.md to present group-based configuration as the standard
-2. Update configuration guide to show only group-based examples
-3. Remove any references to single-source configuration
-4. Revise all example files to use group structure
-5. Update CLAUDE.md to reflect current system behavior
-6. Ensure no documentation implies this is a "migration" or "new feature"
+1. Update README.md
+2. Update configuration guide
+3. Create module sync documentation
+4. Update all examples
+5. Update Claude commands and agents
 
-**Files to Revise:**
-- `README.md` - Complete revision showing group-based config as standard
-- `docs/configuration-guide.md` - Update to show only group-based structure
-- `docs/directory-sync.md` - Add module-aware sync as built-in capability
-- `docs/module-sync.md` - New file documenting module functionality
-- `examples/*.yaml` - Convert ALL examples to group format
-- `.github/CLAUDE.md` - Update development instructions for group-based system
-
-**Documentation Approach:**
-1. **Present as Standard**: Write as if groups have always been the way go-broadcast works
-2. **Remove Legacy References**: No mentions of "old" or "previous" config formats
-3. **Clear Examples**: Show group configuration in all examples
-4. **Module Integration**: Present module-aware sync as a core feature
-5. **Consistent Terminology**: Use "groups" throughout, not "targets"
-
-**Key Documentation Updates:**
-```markdown
-# README.md Example Update
-
-## Configuration
-
-go-broadcast uses a group-based configuration structure where each group
-defines its own source repository and target mappings:
-
-```yaml
-version: 1
-name: "My Repository Sync"
-groups:
-  - name: "Core Templates"
-    id: "core"
-    source:
-      repo: "org/templates"
-      branch: "main"
-    targets:
-      - repo: "org/service-a"
-        files:
-          - src: "Makefile"
-            dest: "Makefile"
-```
-
-Each group executes independently with its own source repository...
-```
+**Files to Update:**
+- `README.md` - Show group-based config as standard
+- `docs/configuration-guide.md` - Group configuration guide
+- `docs/module-sync.md` - NEW: Module sync guide
+- `.claude/commands/*.md` - Update for groups
+- `.claude/agents/*.md` - Update using meta-agent
 
 **Success Criteria:**
-- ✅ All documentation presents group-based config as the standard
-- ✅ No references to "migration" or "old formats"
-- ✅ Examples consistently use group structure
-- ✅ Module features documented as built-in capabilities
-- ✅ Clear, cohesive documentation that reads as if written from scratch
-- ✅ CLAUDE.md updated with group-based development workflow
-
+- ✅ Documentation presents groups as standard
+- ✅ No references to old formats
+- ✅ Clear examples provided
+- ✅ Module features documented
+- ✅ Commands and agents updated
+- ✅ Final todo: Update the @plans/plan-12-status.md file with the results of the implementation, make sure success was hit
 
 ## Configuration Examples
 
@@ -883,134 +523,6 @@ groups:
         files:
           - src: ".github/workflows/ci.yml"
             dest: ".github/workflows/ci.yml"
-
-  - name: "Documentation Standards"
-    id: "docs"
-    priority: 2
-    enabled: true
-    source:
-      repo: "company/doc-templates"
-      branch: "main"
-    targets:
-      - repo: "company/service-a"
-        directories:
-          - src: "docs/templates"
-            dest: "docs"
-```
-
-### Enterprise Multi-Team Configuration
-```yaml
-version: 1
-name: "Enterprise Platform Sync"
-id: "enterprise-platform-2025"
-groups:
-  # Platform team templates (highest priority)
-  - name: "Platform Team Standards"
-    id: "platform"
-    description: "Core platform team standards and tooling"
-    priority: 1
-    enabled: true
-    source:
-      repo: "platform/templates"
-      branch: "stable"
-    global:
-      pr_labels: ["platform", "automated-sync"]
-      pr_assignees: ["platform-team"]
-    targets:
-      - repo: "company/service-a"
-        files:
-          - src: "Makefile"
-            dest: "Makefile"
-        directories:
-          - src: ".github"
-            dest: ".github"
-            exclude: ["workflows/experimental-*"]
-
-  # Security team templates
-  - name: "Security Compliance"
-    id: "security"
-    description: "Security policies and scanning configurations"
-    priority: 2
-    enabled: true
-    source:
-      repo: "security/policies"
-      branch: "main"
-    global:
-      pr_labels: ["security", "compliance"]
-      pr_reviewers: ["security-team"]
-    targets:
-      - repo: "company/service-a"
-        files:
-          - src: ".gitleaks.toml"
-            dest: ".gitleaks.toml"
-          - src: "SECURITY.md"
-            dest: "SECURITY.md"
-
-  # QA team templates (depends on security being in place)
-  - name: "QA Standards"
-    id: "qa"
-    description: "Testing frameworks and QA configurations"
-    priority: 3
-    enabled: true
-    depends_on: ["security"]  # QA configs need security policies first
-    source:
-      repo: "qa/templates"
-      branch: "main"
-    targets:
-      - repo: "company/service-a"
-        directories:
-          - src: "test/templates"
-            dest: "test"
-```
-
-### Groups with Dependencies
-```yaml
-version: 1
-name: "Application Deployment Pipeline"
-groups:
-  # Base configuration must be applied first
-  - name: "Base Configuration"
-    id: "base-config"
-    priority: 1
-    enabled: true
-    source:
-      repo: "company/base-templates"
-      branch: "main"
-    targets:
-      - repo: "company/app-service"
-        files:
-          - src: "Dockerfile.base"
-            dest: "Dockerfile"
-
-  # Application code depends on base configuration
-  - name: "Application Code"
-    id: "app-code"
-    priority: 2
-    enabled: true
-    depends_on: ["base-config"]  # Needs base Dockerfile first
-    source:
-      repo: "company/app-templates"
-      branch: "main"
-    targets:
-      - repo: "company/app-service"
-        directories:
-          - src: "src"
-            dest: "src"
-
-  # Tests depend on application code being in place
-  - name: "Test Suite"
-    id: "tests"
-    priority: 3
-    enabled: true
-    depends_on: ["app-code"]  # Needs application code first
-    source:
-      repo: "company/test-templates"
-      branch: "main"
-    targets:
-      - repo: "company/app-service"
-        directories:
-          - src: "tests"
-            dest: "tests"
 ```
 
 ### Module-Aware Configuration
@@ -1029,224 +541,59 @@ groups:
     targets:
       - repo: "company/service-a"
         directories:
-          # Sync specific version of error handling module
           - src: "pkg/errors"
             dest: "vendor/github.com/company/errors"
             module:
               type: "go"
               version: "v1.2.3"  # Exact version
               check_tags: true
-
-          # Sync latest stable version of utils
-          - src: "pkg/utils"
-            dest: "vendor/github.com/company/utils"
-            module:
-              type: "go"
-              version: "latest"
-              check_tags: true
-
-          # Sync with semantic version constraint
-          - src: "pkg/logger"
-            dest: "vendor/github.com/company/logger"
-            module:
-              type: "go"
-              version: "^2.1.0"  # Any 2.x version >= 2.1.0
-              check_tags: true
-              update_refs: true  # Update import paths in go.mod
-
-  - name: "Service Libraries"
-    id: "service-libs"
-    description: "Service-specific module synchronization"
-    priority: 2
-    enabled: true
-    depends_on: ["shared-libs"]
-    source:
-      repo: "company/service-modules"
-      branch: "main"
-    targets:
-      - repo: "company/service-a"
-        directories:
-          # Sync with tilde constraint (patch versions only)
-          - src: "internal/auth"
-            dest: "internal/auth"
-            module:
-              type: "go"
-              version: "~1.5.2"  # 1.5.2 <= version < 1.6.0
-              check_tags: true
-```
-
-### Enterprise Module Management
-```yaml
-version: 1
-name: "Enterprise Module Distribution"
-id: "enterprise-modules-2025"
-groups:
-  - name: "Core Modules"
-    id: "core-modules"
-    description: "Company-wide core Go modules"
-    priority: 1
-    enabled: true
-    source:
-      repo: "company/core-modules"
-      branch: "stable"
-    global:
-      pr_labels: ["module-update", "automated"]
-    targets:
-      # Update multiple services with same module versions
-      - repo: "company/api-gateway"
-        directories:
-          - src: "modules/authentication"
-            dest: "pkg/auth"
-            module:
-              type: "go"
-              version: "v3.0.0"
-              check_tags: true
-
-      - repo: "company/user-service"
-        directories:
-          - src: "modules/authentication"
-            dest: "pkg/auth"
-            module:
-              type: "go"
-              version: "v3.0.0"
-              check_tags: true
 ```
 
 ## Implementation Timeline
 
-- **Session 1**: Configuration Types (Phase 1) - 3-4 hours
-  - Define group and module types
-  - Implement validation logic
-  - Create parser updates
+- **Phase 0**: Code Audit (2-3 hours)
+- **Phase 1**: Configuration Types with Compatibility (3-4 hours)
+- **Phase 2**: Update Code to Use Compatibility (4-5 hours)
+- **Phase 3**: Add Group Orchestration (4-5 hours)
+- **Phase 4**: Module Version Resolver (4-5 hours)
+- **Phase 5**: Command Interface Updates (3-4 hours)
+- **Phase 6**: Remove Compatibility Layer (3-4 hours)
+- **Phase 7**: Integration Testing (4-5 hours)
+- **Phase 8**: Documentation Update (3-4 hours)
 
-- **Session 2**: Module Version Resolver (Phase 2) - 4-5 hours
-  - Implement module detector
-  - Create version resolver with git integration
-  - Build caching system
-  - Handle semantic versioning
-
-- **Session 3**: Sync Engine Refactoring (Phase 3) - 4-5 hours
-  - Create group orchestrator
-  - Implement dependency resolution
-  - Integrate module-aware sync
-  - Add group state tracking
-
-- **Session 4**: Command Interface (Phase 4) - 3-4 hours
-  - Add group commands
-  - Implement module commands
-  - Update existing commands
-
-- **Session 5**: State Discovery (Phase 5) - 3-4 hours
-  - Enhanced PR metadata
-  - Module version tracking
-  - Group state management
-
-- **Session 6**: Integration Testing (Phase 6) - 4-5 hours
-  - Group functionality tests
-  - Module sync tests
-  - Performance validation
-
-- **Session 7**: Documentation & Examples (Phase 7) - 3-4 hours
-  - Complete documentation
-  - Create examples
-  - Best practices guide
-
-Total estimated time: 24-31 hours across 7 focused sessions
+Total estimated time: 28-37 hours across 9 phases
 
 ## Success Metrics
 
+### Quality
+- Tests pass at every phase
+- No breaking changes until Phase 6
+- Smooth transition path
+- Clear rollback capability
+
 ### Functionality
-- **Group Support**: Groups execute successfully
-- **Priority Execution**: Groups execute in defined order
-- **Dependency Resolution**: Groups respect dependencies
-- **Enable/Disable**: Groups can be toggled without removal
-- **Group Isolation**: No interference between groups
-- **State Tracking**: Complete audit trail per group
-- **Module Detection**: Go modules automatically detected
-- **Version Resolution**: Correct versions resolved from tags
-- **Smart Sync**: Modules skip when version is current
+- Group-based configuration works
+- Dependencies resolved correctly
+- Module sync operational
+- All commands updated
 
 ### Performance
-- **Execution Time**: Linear with number of groups
-- **Memory Usage**: Isolated per group execution
-- **API Efficiency**: No additional API calls per group
-- **Module Caching**: 90%+ cache hit rate for versions
-- **Concurrent Processing**: Within groups maintained
-- **File Comparison**: Avoided for unchanged modules
-
-### Developer Experience
-- **Configuration**: Intuitive group and module structure
-- **Simplicity**: Single, clear configuration format
-- **Debugging**: Group and module-specific logging
-- **Flexibility**: Support various organizational patterns
-- **Version Control**: Clear semantic versioning support
+- Linear scaling with groups
+- Module caching effective
+- No performance regression
 
 ## Risk Mitigation
 
 ### Technical Risks
-- **Complexity**: Phased implementation with thorough testing
-- **State Conflicts**: Unique branch names per group
-- **Performance**: Sequential group execution by design
-- **Error Handling**: Group failures isolated
+- **Compatibility Issues**: Addressed by gradual approach
+- **Test Failures**: Each phase ensures tests pass
+- **Integration Problems**: Compatibility layer provides safety
 
-### Adoption Risks
-- **Learning Curve**: Comprehensive documentation
-- **Configuration Understanding**: Clear examples and guides
-- **Configuration Size**: Groups reduce redundancy
-
-## Module Version Resolution Examples
-
-### Version Constraint Behavior
-```yaml
-# Exact version - must match exactly
-module:
-  version: "v1.2.3"  # Only v1.2.3 will be used
-
-# Latest version - highest available tag
-module:
-  version: "latest"  # Resolves to newest tag (e.g., v2.5.1)
-
-# Caret constraint - compatible versions
-module:
-  version: "^1.2.3"  # Allows 1.2.3, 1.2.4, 1.3.0, but not 2.0.0
-
-# Tilde constraint - patch versions only
-module:
-  version: "~1.2.3"  # Allows 1.2.3, 1.2.4, but not 1.3.0
-
-# Major version constraint
-module:
-  version: "^2.0.0"  # Any 2.x.x version
-```
-
-### Module Sync Workflow
-1. **Detection**: Check if source directory contains go.mod
-2. **Resolution**: Find appropriate version from git tags
-3. **Comparison**: Check if target already has this version
-4. **Decision**: Skip if current, sync if different
-5. **Update**: Optionally update go.mod references
-
-## Future Enhancements
-
-After initial implementation (DO NOT implement yet), consider the following enhancements:
-
-### Future Features
-- Support for other module systems (npm, Python)
-- Conditional groups (run only if condition met)
-- Parallel group execution (opt-in)
-- Group-level rollback capability
-- Group-level metrics and monitoring
-- Scheduled group syncs (cron-like)
+### Implementation Risks
+- **Scope Creep**: Clear phase boundaries
+- **Time Overruns**: Each phase is time-boxed
+- **Quality Issues**: Tests at every phase
 
 ## Conclusion
 
-This implementation plan establishes go-broadcast's core architecture with group-based configuration as its foundation. Since go-broadcast is unreleased software, this is not a migration or enhancement - this IS how go-broadcast works. The implementation provides:
-
-- **Organizational Flexibility**: Groups align with team structures
-- **Operational Control**: Priority and enable/disable features
-- **Clear Semantics**: Named groups with descriptions
-- **Scalability**: Handles complex enterprise scenarios
-- **Maintainability**: Self-documenting configurations
-- **Module Intelligence**: Built-in Go module version management
-
-The group-based structure with module awareness defines go-broadcast as an enterprise-ready solution for managing repository synchronization at scale across complex organizational structures. All documentation and examples will present this as the standard and only way to configure go-broadcast.
+This implementation plan establishes go-broadcast's core architecture with group-based configuration as its foundation. The gradual approach ensures a smooth transition while maintaining code quality and test coverage throughout. Since go-broadcast is unreleased software, the final result will present groups as the standard and only way to configure go-broadcast, with no traces of the implementation journey remaining in the codebase or documentation.
