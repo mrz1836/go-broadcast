@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
 	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
@@ -24,6 +25,7 @@ var (
 	ErrSourceDirectoryEmpty         = errors.New("source directory cannot be empty")
 	ErrDestinationDirectoryEmpty    = errors.New("destination directory cannot be empty")
 	ErrEmptyExclusionPattern        = errors.New("empty exclusion pattern not allowed")
+	ErrUnsupportedModuleType        = errors.New("unsupported module type")
 )
 
 // DirectoryProcessor handles concurrent directory processing with worker pools
@@ -32,6 +34,8 @@ type DirectoryProcessor struct {
 	progressManager *DirectoryProgressManager
 	workerCount     int
 	logger          *logrus.Entry
+	moduleDetector  *ModuleDetector
+	moduleResolver  *ModuleResolver
 }
 
 // NewDirectoryProcessor creates a new directory processor
@@ -40,10 +44,17 @@ func NewDirectoryProcessor(logger *logrus.Entry, workerCount int) *DirectoryProc
 		workerCount = 10 // Default worker count
 	}
 
+	// Create module components with default settings
+	moduleCache := NewModuleCache(5*time.Minute, logger.Logger)
+	moduleDetector := NewModuleDetector(logger.Logger)
+	moduleResolver := NewModuleResolver(logger.Logger, moduleCache)
+
 	return &DirectoryProcessor{
 		progressManager: NewDirectoryProgressManager(logger),
 		workerCount:     workerCount,
 		logger:          logger,
+		moduleDetector:  moduleDetector,
+		moduleResolver:  moduleResolver,
 	}
 }
 
@@ -124,6 +135,16 @@ func (dp *DirectoryProcessor) ProcessDirectoryMapping(ctx context.Context, sourc
 	if _, err := os.Stat(fullSourceDir); os.IsNotExist(err) {
 		logger.Warn("Source directory not found, skipping")
 		return nil, internalerrors.ErrFileNotFound
+	}
+
+	// Handle module-aware sync if configured
+	if dirMapping.Module != nil {
+		if err := dp.handleModuleSync(ctx, fullSourceDir, dirMapping.Module, logger); err != nil {
+			logger.WithError(err).Warn("Module sync handling failed, continuing with standard sync")
+			// Continue with standard sync if module handling fails
+		} else {
+			logger.WithField("module_type", dirMapping.Module.Type).Debug("Module sync configuration applied")
+		}
 	}
 
 	// Discover files in the directory
@@ -398,6 +419,76 @@ func (dp *DirectoryProcessor) SetWorkerCount(count int) {
 // GetWorkerCount returns the current worker count
 func (dp *DirectoryProcessor) GetWorkerCount() int {
 	return dp.workerCount
+}
+
+// handleModuleSync handles module-aware synchronization for a directory
+func (dp *DirectoryProcessor) handleModuleSync(ctx context.Context, sourceDir string, moduleConfig *config.ModuleConfig, logger *logrus.Entry) error {
+	// Currently only support Go modules
+	if moduleConfig.Type != "" && moduleConfig.Type != "go" {
+		return fmt.Errorf("%w: %s", ErrUnsupportedModuleType, moduleConfig.Type)
+	}
+
+	// Check if the directory contains a Go module
+	moduleInfo, err := dp.moduleDetector.DetectModule(sourceDir)
+	if err != nil {
+		return fmt.Errorf("failed to detect module: %w", err)
+	}
+
+	if moduleInfo == nil {
+		logger.Debug("Directory does not contain a Go module, skipping module handling")
+		return nil
+	}
+
+	logger.WithFields(logrus.Fields{
+		"module_name":    moduleInfo.Name,
+		"module_path":    moduleInfo.Path,
+		"version_config": moduleConfig.Version,
+		"check_tags":     moduleConfig.CheckTags,
+	}).Info("Detected Go module for version-aware sync")
+
+	// If version constraint is specified, resolve it
+	if moduleConfig.Version != "" {
+		// Determine if we should check git tags
+		checkTags := true
+		if moduleConfig.CheckTags != nil {
+			checkTags = *moduleConfig.CheckTags
+		}
+
+		// Get the repository path from the module name (assuming GitHub for now)
+		// This is a simplified implementation - in reality, we'd need to parse the module name
+		// more carefully and handle various repository hosting services
+		repoPath := moduleInfo.Name
+		repoPath = strings.TrimPrefix(repoPath, "github.com/")
+
+		resolvedVersion, err := dp.moduleResolver.ResolveVersion(
+			ctx,
+			fmt.Sprintf("https://github.com/%s", repoPath),
+			moduleConfig.Version,
+			checkTags,
+		)
+		if err != nil {
+			logger.WithError(err).Warn("Failed to resolve module version constraint")
+			// Continue without version resolution
+			return nil
+		}
+
+		logger.WithFields(logrus.Fields{
+			"constraint": moduleConfig.Version,
+			"resolved":   resolvedVersion,
+		}).Info("Resolved module version")
+
+		// Store the resolved version for potential use in file processing
+		// This could be used to update go.mod files if UpdateRefs is true
+		moduleInfo.Version = resolvedVersion
+	}
+
+	// If UpdateRefs is true, we'll need to update go.mod references
+	// This would be handled during file processing
+	if moduleConfig.UpdateRefs {
+		logger.Debug("Module reference updates will be applied during file processing")
+	}
+
+	return nil
 }
 
 // ProcessDirectoriesWithMetrics processes directories and returns detailed metrics
