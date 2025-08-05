@@ -20,9 +20,8 @@ import (
 )
 
 var (
-	errValidatorTest  = errors.New("validator error")
-	errReportTest     = errors.New("report error")
-	errNotImplemented = errors.New("not implemented")
+	errValidatorTest = errors.New("validator error")
+	errReportTest    = errors.New("report error")
 )
 
 // Test main function with various command line arguments
@@ -112,19 +111,16 @@ func TestMain_InvalidFormat(t *testing.T) {
 
 	// Capture log.Fatal
 	fatalCalled := false
-	oldLogFatalf := logFatalf
-	logFatalf = func(format string, v ...interface{}) {
+	testDeps := getDependencies()
+	testDeps.logFatalf = func(format string, v ...interface{}) {
 		fatalCalled = true
 		assert.Contains(t, fmt.Sprintf(format, v...), "Unsupported output format")
 		panic("log.Fatal called")
 	}
-	defer func() {
-		logFatalf = oldLogFatalf
-	}()
 
 	// Run main and expect panic from log.Fatal
 	assert.Panics(t, func() {
-		main()
+		mainWithDeps(testDeps)
 	})
 
 	assert.True(t, fatalCalled)
@@ -158,28 +154,19 @@ func TestMain_OutputFileCreation(t *testing.T) {
 	os.Args = []string{"production-validation", "-format", "json", "-output", outputPath}
 
 	// Mock the validator to return a simple report
-	oldNewValidator := newProductionReadinessValidator
-	newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
+	testDeps := getDependencies()
+	testDeps.newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
 		return &validation.ProductionReadinessValidator{}, nil
 	}
-	defer func() {
-		newProductionReadinessValidator = oldNewValidator
-	}()
-
-	// Mock GenerateReport
-	oldGenerateReport := generateReport
-	generateReport = func(_ *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
+	testDeps.generateReport = func(_ *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
 		return &validation.ProductionReadinessReport{
 			OverallScore:    75,
 			ProductionReady: true,
 		}, nil
 	}
-	defer func() {
-		generateReport = oldGenerateReport
-	}()
 
 	// Run main
-	exitCode := runMainWithExitCode()
+	exitCode := runMainWithExitCodeAndDeps(testDeps)
 
 	// Check file was created
 	assert.FileExists(t, outputPath)
@@ -201,41 +188,47 @@ func TestMain_OutputFileCreation(t *testing.T) {
 func TestMain_ErrorHandling(t *testing.T) {
 	tests := []struct {
 		name          string
-		setupMock     func()
+		setupMock     func() dependencies
 		expectedError string
 	}{
 		{
 			name: "validator creation error",
-			setupMock: func() {
-				newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
+			setupMock: func() dependencies {
+				testDeps := getDependencies()
+				testDeps.newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
 					return nil, errValidatorTest
 				}
+				return testDeps
 			},
 			expectedError: "Failed to create validator",
 		},
 		{
 			name: "report generation error",
-			setupMock: func() {
-				newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
+			setupMock: func() dependencies {
+				testDeps := getDependencies()
+				testDeps.newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
 					return &validation.ProductionReadinessValidator{}, nil
 				}
-				generateReport = func(_ *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
+				testDeps.generateReport = func(_ *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
 					return nil, errReportTest
 				}
+				return testDeps
 			},
 			expectedError: "Failed to generate report",
 		},
 		{
 			name: "output write error",
-			setupMock: func() {
-				newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
+			setupMock: func() dependencies {
+				testDeps := getDependencies()
+				testDeps.newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
 					return &validation.ProductionReadinessValidator{}, nil
 				}
-				generateReport = func(_ *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
+				testDeps.generateReport = func(_ *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
 					return &validation.ProductionReadinessReport{}, nil
 				}
 				// Set output to invalid path
 				os.Args = []string{"production-validation", "-output", "/nonexistent/path/file.txt"}
+				return testDeps
 			},
 			expectedError: "Failed to create output directory",
 		},
@@ -246,13 +239,9 @@ func TestMain_ErrorHandling(t *testing.T) {
 			// Save original values
 			oldArgs := os.Args
 			oldCommandLine := flag.CommandLine
-			oldNewValidator := newProductionReadinessValidator
-			oldGenerateReport := generateReport
 			defer func() {
 				os.Args = oldArgs
 				flag.CommandLine = oldCommandLine
-				newProductionReadinessValidator = oldNewValidator
-				generateReport = oldGenerateReport
 			}()
 
 			// Create new flag set to avoid conflicts
@@ -262,24 +251,20 @@ func TestMain_ErrorHandling(t *testing.T) {
 			os.Args = []string{"production-validation"}
 
 			// Setup mock
-			tt.setupMock()
+			testDeps := tt.setupMock()
 
 			// Capture log.Fatal
 			fatalCalled := false
 			var fatalMessage string
-			oldLogFatalf := logFatalf
-			logFatalf = func(format string, v ...interface{}) {
+			testDeps.logFatalf = func(format string, v ...interface{}) {
 				fatalCalled = true
 				fatalMessage = fmt.Sprintf(format, v...)
 				panic("log.Fatal called")
 			}
-			defer func() {
-				logFatalf = oldLogFatalf
-			}()
 
 			// Run main and expect panic
 			assert.Panics(t, func() {
-				main()
+				mainWithDeps(testDeps)
 			})
 
 			assert.True(t, fatalCalled)
@@ -312,15 +297,9 @@ func TestMain_ExitCodes(t *testing.T) {
 			// Save original values
 			oldArgs := os.Args
 			oldCommandLine := flag.CommandLine
-			oldNewValidator := newProductionReadinessValidator
-			oldGenerateReport := generateReport
-			oldOsExit := osExit
 			defer func() {
 				os.Args = oldArgs
 				flag.CommandLine = oldCommandLine
-				newProductionReadinessValidator = oldNewValidator
-				generateReport = oldGenerateReport
-				osExit = oldOsExit
 			}()
 
 			// Create new flag set to avoid conflicts
@@ -330,10 +309,11 @@ func TestMain_ExitCodes(t *testing.T) {
 			os.Args = []string{"production-validation"}
 
 			// Mock validator and report
-			newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
+			testDeps := getDependencies()
+			testDeps.newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
 				return &validation.ProductionReadinessValidator{}, nil
 			}
-			generateReport = func(_ *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
+			testDeps.generateReport = func(_ *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
 				return &validation.ProductionReadinessReport{
 					ProductionReady: tt.productionReady,
 					OverallScore:    80,
@@ -342,16 +322,16 @@ func TestMain_ExitCodes(t *testing.T) {
 
 			// Mock osExit to capture exit codes
 			exitCode := 0
-			osExit = func(code int) {
+			testDeps.osExit = func(code int) {
 				exitCode = code
 				panic(code)
 			}
 
 			// Run main and expect panic if exit code is non-zero
 			if tt.expectedExitCode != 0 {
-				assert.Panics(t, main)
+				assert.Panics(t, func() { mainWithDeps(testDeps) })
 			} else {
-				assert.NotPanics(t, main)
+				assert.NotPanics(t, func() { mainWithDeps(testDeps) })
 			}
 
 			assert.Equal(t, tt.expectedExitCode, exitCode)
@@ -424,22 +404,20 @@ func TestMain_FlagParsing(t *testing.T) {
 }
 
 // Helper functions to make main testable - these need to be global for testing
-// Note: These variables are now defined in main.go
+// Dependencies are now managed through the deps struct in main.go
 
-// runMainWithExitCode runs main and returns the exit code
-func runMainWithExitCode() int {
+// runMainWithExitCodeAndDeps runs main with custom dependencies and returns the exit code
+func runMainWithExitCodeAndDeps(testDeps dependencies) int {
 	exitCode := 0
-	oldExit := osExit
-	osExit = func(code int) {
+	testDeps.osExit = func(code int) {
 		exitCode = code
 		panic(code)
 	}
 	defer func() {
-		osExit = oldExit
 		_ = recover() // Expected panic from mocked exit
 	}()
 
-	main()
+	mainWithDeps(testDeps)
 	return exitCode
 }
 
@@ -450,23 +428,20 @@ func BenchmarkMain(b *testing.B) {
 	// Save original values
 	oldArgs := os.Args
 	oldStdout := os.Stdout
-	oldNewValidator := newProductionReadinessValidator
-	oldGenerateReport := generateReport
 	defer func() {
 		os.Args = oldArgs
 		os.Stdout = oldStdout
-		newProductionReadinessValidator = oldNewValidator
-		generateReport = oldGenerateReport
 	}()
 
 	// Discard output
 	os.Stdout, _ = os.Open(os.DevNull)
 
 	// Mock fast validator
-	newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
+	testDeps := getDependencies()
+	testDeps.newProductionReadinessValidator = func() (*validation.ProductionReadinessValidator, error) {
 		return &validation.ProductionReadinessValidator{}, nil
 	}
-	generateReport = func(_ *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
+	testDeps.generateReport = func(_ *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
 		return &validation.ProductionReadinessReport{
 			OverallScore:    80,
 			ProductionReady: true,
@@ -478,7 +453,7 @@ func BenchmarkMain(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runMainWithExitCode()
+		runMainWithExitCodeAndDeps(testDeps)
 	}
 }
 

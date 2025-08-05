@@ -11,7 +11,31 @@ import (
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/validation"
 )
 
+// Dependencies that can be mocked for testing
+type dependencies struct {
+	newProductionReadinessValidator func() (*validation.ProductionReadinessValidator, error)
+	generateReport                  func(v *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error)
+	logFatalf                       func(format string, v ...interface{})
+	osExit                          func(code int)
+}
+
+// getDependencies returns the default dependencies
+func getDependencies() dependencies {
+	return dependencies{
+		newProductionReadinessValidator: validation.NewProductionReadinessValidator,
+		generateReport: func(v *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
+			return v.GenerateReport()
+		},
+		logFatalf: log.Fatalf,
+		osExit:    os.Exit,
+	}
+}
+
 func main() {
+	mainWithDeps(getDependencies())
+}
+
+func mainWithDeps(deps dependencies) {
 	var (
 		outputFormat = flag.String("format", "text", "Output format: text, json")
 		outputFile   = flag.String("output", "", "Output file (default: stdout)")
@@ -24,9 +48,9 @@ func main() {
 	}
 
 	// Create validator
-	validator, err := newProductionReadinessValidator()
+	validator, err := deps.newProductionReadinessValidator()
 	if err != nil {
-		logFatalf("Failed to create validator: %v", err)
+		deps.logFatalf("Failed to create validator: %v", err)
 	}
 	defer validator.Cleanup()
 
@@ -35,9 +59,9 @@ func main() {
 	}
 
 	// Generate report
-	report, err := generateReport(validator)
+	report, err := deps.generateReport(validator)
 	if err != nil {
-		logFatalf("Failed to generate report: %v", err)
+		deps.logFatalf("Failed to generate report: %v", err)
 	}
 
 	if *verbose {
@@ -50,24 +74,24 @@ func main() {
 	case "json":
 		jsonData, err := json.MarshalIndent(report, "", "  ")
 		if err != nil {
-			logFatalf("Failed to marshal JSON: %v", err)
+			deps.logFatalf("Failed to marshal JSON: %v", err)
 		}
 		output = string(jsonData)
 	case "text":
 		output = report.FormatReport()
 	default:
-		logFatalf("Unsupported output format: %s", *outputFormat)
+		deps.logFatalf("Unsupported output format: %s", *outputFormat)
 	}
 
 	// Write output
 	if *outputFile != "" {
 		// Ensure output directory exists
 		if err := os.MkdirAll(filepath.Dir(*outputFile), 0o750); err != nil {
-			logFatalf("Failed to create output directory: %v", err)
+			deps.logFatalf("Failed to create output directory: %v", err)
 		}
 
 		if err := os.WriteFile(*outputFile, []byte(output), 0o600); err != nil {
-			logFatalf("Failed to write output file: %v", err)
+			deps.logFatalf("Failed to write output file: %v", err)
 		}
 
 		if *verbose {
@@ -75,7 +99,7 @@ func main() {
 		}
 	} else {
 		if _, err := os.Stdout.WriteString(output); err != nil {
-			logFatalf("Failed to write output: %v", err)
+			deps.logFatalf("Failed to write output: %v", err)
 		}
 	}
 
@@ -84,20 +108,10 @@ func main() {
 		if *verbose {
 			log.Println("System is NOT production ready")
 		}
-		osExit(1)
+		deps.osExit(1)
 	}
 
 	if *verbose {
 		log.Println("System is production ready!")
 	}
 }
-
-// Global variables for testing - these allow mocking during tests
-var (
-	newProductionReadinessValidator = validation.NewProductionReadinessValidator
-	generateReport                  = func(v *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
-		return v.GenerateReport()
-	}
-	logFatalf = log.Fatalf
-	osExit    = os.Exit
-)

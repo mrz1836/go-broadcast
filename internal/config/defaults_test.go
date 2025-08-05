@@ -22,8 +22,6 @@ func TestDefaultExclusions(t *testing.T) {
 }
 
 func TestApplyDirectoryDefaults(t *testing.T) {
-	boolPtr := func(b bool) *bool { return &b }
-
 	tests := []struct {
 		name     string
 		input    DirectoryMapping

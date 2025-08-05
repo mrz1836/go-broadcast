@@ -399,3 +399,430 @@ func TestTargetConfigPRFields(t *testing.T) {
 		assert.Len(t, target.PRAssignees, 2)
 	})
 }
+
+// TestNewGroupType tests the new Group type
+func TestNewGroupType(t *testing.T) {
+	t.Run("CreateGroup", func(t *testing.T) {
+		group := Group{
+			Name:        "Test Group",
+			ID:          "test-group",
+			Description: "A test group",
+			Priority:    1,
+			DependsOn:   []string{"another-group"},
+			Enabled:     boolPtr(true),
+			Source: SourceConfig{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Global: GlobalConfig{
+				PRLabels: []string{"automated"},
+			},
+			Defaults: DefaultConfig{
+				BranchPrefix: "sync/",
+			},
+			Targets: []TargetConfig{
+				{
+					Repo: "org/service",
+					Files: []FileMapping{
+						{Src: "file.txt", Dest: "dest.txt"},
+					},
+				},
+			},
+		}
+
+		assert.Equal(t, "Test Group", group.Name)
+		assert.Equal(t, "test-group", group.ID)
+		assert.Equal(t, "A test group", group.Description)
+		assert.Equal(t, 1, group.Priority)
+		assert.Equal(t, []string{"another-group"}, group.DependsOn)
+		assert.NotNil(t, group.Enabled)
+		assert.True(t, *group.Enabled)
+		assert.Equal(t, "org/template", group.Source.Repo)
+		assert.Equal(t, "main", group.Source.Branch)
+		assert.Len(t, group.Targets, 1)
+	})
+
+	t.Run("GroupDefaults", func(t *testing.T) {
+		group := Group{}
+
+		assert.Empty(t, group.Name)
+		assert.Empty(t, group.ID)
+		assert.Empty(t, group.Description)
+		assert.Equal(t, 0, group.Priority) // Default priority
+		assert.Nil(t, group.DependsOn)
+		assert.Nil(t, group.Enabled) // nil means default (true)
+		assert.Empty(t, group.Source.Repo)
+		assert.Nil(t, group.Targets)
+	})
+}
+
+// TestNewModuleConfig tests the new ModuleConfig type
+func TestNewModuleConfig(t *testing.T) {
+	t.Run("CreateModuleConfig", func(t *testing.T) {
+		module := ModuleConfig{
+			Type:       "go",
+			Version:    "v1.2.3",
+			CheckTags:  boolPtr(true),
+			UpdateRefs: true,
+		}
+
+		assert.Equal(t, "go", module.Type)
+		assert.Equal(t, "v1.2.3", module.Version)
+		assert.NotNil(t, module.CheckTags)
+		assert.True(t, *module.CheckTags)
+		assert.True(t, module.UpdateRefs)
+	})
+
+	t.Run("ModuleConfigDefaults", func(t *testing.T) {
+		module := ModuleConfig{}
+
+		assert.Empty(t, module.Type)
+		assert.Empty(t, module.Version)
+		assert.Nil(t, module.CheckTags)    // nil means default (true)
+		assert.False(t, module.UpdateRefs) // Default false
+	})
+
+	t.Run("ModuleConfigSemverVersions", func(t *testing.T) {
+		testCases := []struct {
+			name    string
+			version string
+		}{
+			{"exact version", "v1.2.3"},
+			{"latest", "latest"},
+			{"semver constraint", "^1.0.0"},
+			{"semver range", ">=1.0.0 <2.0.0"},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				module := ModuleConfig{
+					Type:    "go",
+					Version: tc.version,
+				}
+
+				assert.Equal(t, tc.version, module.Version)
+			})
+		}
+	})
+}
+
+// TestDirectoryMappingWithModule tests DirectoryMapping with Module field
+func TestDirectoryMappingWithModule(t *testing.T) {
+	t.Run("DirectoryWithModule", func(t *testing.T) {
+		dirMapping := DirectoryMapping{
+			Src:  "pkg/shared",
+			Dest: "vendor/github.com/org/shared",
+			Module: &ModuleConfig{
+				Type:       "go",
+				Version:    "v1.0.0",
+				CheckTags:  boolPtr(true),
+				UpdateRefs: true,
+			},
+		}
+
+		assert.Equal(t, "pkg/shared", dirMapping.Src)
+		assert.Equal(t, "vendor/github.com/org/shared", dirMapping.Dest)
+		assert.NotNil(t, dirMapping.Module)
+		assert.Equal(t, "go", dirMapping.Module.Type)
+		assert.Equal(t, "v1.0.0", dirMapping.Module.Version)
+	})
+
+	t.Run("DirectoryWithoutModule", func(t *testing.T) {
+		dirMapping := DirectoryMapping{
+			Src:  "scripts",
+			Dest: "scripts",
+		}
+
+		assert.Equal(t, "scripts", dirMapping.Src)
+		assert.Equal(t, "scripts", dirMapping.Dest)
+		assert.Nil(t, dirMapping.Module) // No module config
+	})
+}
+
+// TestNewConfigWithGroups tests Config with new Groups field
+func TestNewConfigWithGroups(t *testing.T) {
+	t.Run("ConfigWithGroups", func(t *testing.T) {
+		config := Config{
+			Version: 1,
+			Name:    "Multi-Group Sync",
+			ID:      "multi-sync-2025",
+			Groups: []Group{
+				{
+					Name:     "Infrastructure",
+					ID:       "infra",
+					Priority: 1,
+					Enabled:  boolPtr(true),
+					Source: SourceConfig{
+						Repo:   "org/infra-templates",
+						Branch: "main",
+					},
+					Targets: []TargetConfig{
+						{Repo: "org/service1"},
+					},
+				},
+				{
+					Name:      "Security",
+					ID:        "security",
+					Priority:  2,
+					DependsOn: []string{"infra"},
+					Enabled:   boolPtr(true),
+					Source: SourceConfig{
+						Repo:   "org/security-templates",
+						Branch: "main",
+					},
+					Targets: []TargetConfig{
+						{Repo: "org/service1"},
+					},
+				},
+			},
+		}
+
+		assert.Equal(t, 1, config.Version)
+		assert.Equal(t, "Multi-Group Sync", config.Name)
+		assert.Equal(t, "multi-sync-2025", config.ID)
+		assert.Len(t, config.Groups, 2)
+		assert.Equal(t, "Infrastructure", config.Groups[0].Name)
+		assert.Equal(t, "Security", config.Groups[1].Name)
+		assert.Equal(t, []string{"infra"}, config.Groups[1].DependsOn)
+	})
+
+	t.Run("ConfigWithBothFormats", func(t *testing.T) {
+		// During transition, config might have both old and new fields
+		config := Config{
+			Version: 1,
+			// Old format fields
+			Source: SourceConfig{
+				Repo:   "org/old-template",
+				Branch: "main",
+			},
+			Targets: []TargetConfig{
+				{Repo: "org/old-service"},
+			},
+			// New format fields
+			Groups: []Group{
+				{
+					Name: "New Group",
+					ID:   "new-group",
+					Source: SourceConfig{
+						Repo: "org/new-template",
+					},
+					Targets: []TargetConfig{
+						{Repo: "org/new-service"},
+					},
+				},
+			},
+		}
+
+		assert.Equal(t, 1, config.Version)
+		assert.Equal(t, "org/old-template", config.Source.Repo)
+		assert.Len(t, config.Targets, 1)
+		assert.Len(t, config.Groups, 1)
+		assert.Equal(t, "New Group", config.Groups[0].Name)
+	})
+}
+
+// TestGetGroupsCompatibility tests the GetGroups() compatibility method
+func TestGetGroupsCompatibility(t *testing.T) {
+	t.Run("GetGroupsFromNewFormat", func(t *testing.T) {
+		config := Config{
+			Version: 1,
+			Groups: []Group{
+				{
+					Name:   "Test Group",
+					ID:     "test",
+					Source: SourceConfig{Repo: "org/template"},
+					Targets: []TargetConfig{
+						{Repo: "org/service"},
+					},
+				},
+			},
+		}
+
+		groups := config.GetGroups()
+		assert.Len(t, groups, 1)
+		assert.Equal(t, "Test Group", groups[0].Name)
+		assert.Equal(t, "test", groups[0].ID)
+	})
+
+	t.Run("GetGroupsFromOldFormat", func(t *testing.T) {
+		config := Config{
+			Version: 1,
+			Source: SourceConfig{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Global: GlobalConfig{
+				PRLabels: []string{"global-label"},
+			},
+			Defaults: DefaultConfig{
+				BranchPrefix: "sync/",
+				PRLabels:     []string{"default-label"},
+			},
+			Targets: []TargetConfig{
+				{Repo: "org/service1"},
+				{Repo: "org/service2"},
+			},
+		}
+
+		groups := config.GetGroups()
+		assert.Len(t, groups, 1)
+		assert.Equal(t, "default", groups[0].Name)
+		assert.Equal(t, "default", groups[0].ID)
+		assert.Equal(t, 0, groups[0].Priority)
+		assert.NotNil(t, groups[0].Enabled)
+		assert.True(t, *groups[0].Enabled)
+		assert.Equal(t, "org/template", groups[0].Source.Repo)
+		assert.Equal(t, "main", groups[0].Source.Branch)
+		assert.Equal(t, []string{"global-label"}, groups[0].Global.PRLabels)
+		assert.Equal(t, "sync/", groups[0].Defaults.BranchPrefix)
+		assert.Equal(t, []string{"default-label"}, groups[0].Defaults.PRLabels)
+		assert.Len(t, groups[0].Targets, 2)
+		assert.Equal(t, "org/service1", groups[0].Targets[0].Repo)
+		assert.Equal(t, "org/service2", groups[0].Targets[1].Repo)
+	})
+
+	t.Run("GetGroupsFromEmptyConfig", func(t *testing.T) {
+		config := Config{
+			Version: 1,
+		}
+
+		groups := config.GetGroups()
+		assert.Nil(t, groups)
+	})
+
+	t.Run("GetGroupsWithBothFormats", func(t *testing.T) {
+		// When both formats exist, new format takes precedence
+		config := Config{
+			Version: 1,
+			// Old format
+			Source: SourceConfig{Repo: "org/old-template"},
+			Targets: []TargetConfig{
+				{Repo: "org/old-service"},
+			},
+			// New format (takes precedence)
+			Groups: []Group{
+				{
+					Name:   "New Group",
+					ID:     "new",
+					Source: SourceConfig{Repo: "org/new-template"},
+					Targets: []TargetConfig{
+						{Repo: "org/new-service"},
+					},
+				},
+			},
+		}
+
+		groups := config.GetGroups()
+		assert.Len(t, groups, 1)
+		assert.Equal(t, "New Group", groups[0].Name)
+		assert.Equal(t, "org/new-template", groups[0].Source.Repo)
+		assert.Equal(t, "org/new-service", groups[0].Targets[0].Repo)
+	})
+}
+
+// TestIsGroupBasedCompatibility tests the IsGroupBased() compatibility method
+func TestIsGroupBasedCompatibility(t *testing.T) {
+	t.Run("IsGroupBasedTrue", func(t *testing.T) {
+		config := Config{
+			Version: 1,
+			Groups: []Group{
+				{Name: "Test Group", ID: "test"},
+			},
+		}
+
+		assert.True(t, config.IsGroupBased())
+	})
+
+	t.Run("IsGroupBasedFalse", func(t *testing.T) {
+		config := Config{
+			Version: 1,
+			Source:  SourceConfig{Repo: "org/template"},
+			Targets: []TargetConfig{
+				{Repo: "org/service"},
+			},
+		}
+
+		assert.False(t, config.IsGroupBased())
+	})
+
+	t.Run("IsGroupBasedEmptyConfig", func(t *testing.T) {
+		config := Config{Version: 1}
+
+		assert.False(t, config.IsGroupBased())
+	})
+
+	t.Run("IsGroupBasedWithBothFormats", func(t *testing.T) {
+		// When both formats exist, it's considered group-based
+		config := Config{
+			Version: 1,
+			Source:  SourceConfig{Repo: "org/old-template"},
+			Targets: []TargetConfig{{Repo: "org/old-service"}},
+			Groups: []Group{
+				{Name: "New Group", ID: "new"},
+			},
+		}
+
+		assert.True(t, config.IsGroupBased())
+	})
+}
+
+// TestBoolPtrHelper tests the boolPtr helper function
+func TestBoolPtrHelper(t *testing.T) {
+	t.Run("BoolPtrTrue", func(t *testing.T) {
+		ptr := boolPtr(true)
+		assert.NotNil(t, ptr)
+		assert.True(t, *ptr)
+	})
+
+	t.Run("BoolPtrFalse", func(t *testing.T) {
+		ptr := boolPtr(false)
+		assert.NotNil(t, ptr)
+		assert.False(t, *ptr)
+	})
+}
+
+// TestCompatibilityConversionEdgeCases tests edge cases in compatibility layer
+func TestCompatibilityConversionEdgeCases(t *testing.T) {
+	t.Run("EmptySourceRepo", func(t *testing.T) {
+		config := Config{
+			Version: 1,
+			Source:  SourceConfig{}, // Empty repo
+			Targets: []TargetConfig{
+				{Repo: "org/service"},
+			},
+		}
+
+		groups := config.GetGroups()
+		assert.Nil(t, groups) // Should return nil because source repo is empty
+	})
+
+	t.Run("EmptyTargets", func(t *testing.T) {
+		config := Config{
+			Version: 1,
+			Source: SourceConfig{
+				Repo: "org/template",
+			},
+			Targets: []TargetConfig{}, // Empty targets
+		}
+
+		groups := config.GetGroups()
+		assert.Len(t, groups, 1)
+		assert.Equal(t, "default", groups[0].Name)
+		assert.Empty(t, groups[0].Targets) // Empty targets preserved
+	})
+
+	t.Run("NilTargets", func(t *testing.T) {
+		config := Config{
+			Version: 1,
+			Source: SourceConfig{
+				Repo: "org/template",
+			},
+			// Targets is nil
+		}
+
+		groups := config.GetGroups()
+		assert.Len(t, groups, 1)
+		assert.Equal(t, "default", groups[0].Name)
+		assert.Nil(t, groups[0].Targets) // Nil targets preserved
+	})
+}

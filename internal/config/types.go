@@ -2,11 +2,18 @@ package config
 
 // Config represents the complete sync configuration
 type Config struct {
-	Version  int            `yaml:"version"`
-	Source   SourceConfig   `yaml:"source"`
+	Version int    `yaml:"version"`        // Config version (1)
+	Name    string `yaml:"name,omitempty"` // Optional config name
+	ID      string `yaml:"id,omitempty"`   // Optional config ID
+
+	// New group-based structure (Phase 1: alongside existing fields)
+	Groups []Group `yaml:"groups,omitempty"` // List of sync groups
+
+	// Existing fields for compatibility during transition
+	Source   SourceConfig   `yaml:"source,omitempty"`
 	Global   GlobalConfig   `yaml:"global,omitempty"`
 	Defaults DefaultConfig  `yaml:"defaults,omitempty"`
-	Targets  []TargetConfig `yaml:"targets"`
+	Targets  []TargetConfig `yaml:"targets,omitempty"`
 }
 
 // SourceConfig defines the source repository settings
@@ -53,17 +60,40 @@ type FileMapping struct {
 
 // DirectoryMapping defines source to destination directory mapping
 type DirectoryMapping struct {
-	Src               string    `yaml:"src"`                          // Source directory path
-	Dest              string    `yaml:"dest"`                         // Destination directory path
-	Exclude           []string  `yaml:"exclude,omitempty"`            // Glob patterns to exclude
-	IncludeOnly       []string  `yaml:"include_only,omitempty"`       // Glob patterns to include (excludes everything else)
-	Transform         Transform `yaml:"transform,omitempty"`          // Apply to all files
-	PreserveStructure *bool     `yaml:"preserve_structure,omitempty"` // Keep nested structure (default: true)
-	IncludeHidden     *bool     `yaml:"include_hidden,omitempty"`     // Include hidden files (default: true)
+	Src               string        `yaml:"src"`                          // Source directory path
+	Dest              string        `yaml:"dest"`                         // Destination directory path
+	Exclude           []string      `yaml:"exclude,omitempty"`            // Glob patterns to exclude
+	IncludeOnly       []string      `yaml:"include_only,omitempty"`       // Glob patterns to include (excludes everything else)
+	Transform         Transform     `yaml:"transform,omitempty"`          // Apply to all files
+	PreserveStructure *bool         `yaml:"preserve_structure,omitempty"` // Keep nested structure (default: true)
+	IncludeHidden     *bool         `yaml:"include_hidden,omitempty"`     // Include hidden files (default: true)
+	Module            *ModuleConfig `yaml:"module,omitempty"`             // Module-aware sync settings
 }
 
 // Transform defines transformation settings
 type Transform struct {
 	RepoName  bool              `yaml:"repo_name,omitempty"` // Replace repository names
 	Variables map[string]string `yaml:"variables,omitempty"` // Template variables
+}
+
+// Group represents a sync group with its own source and targets
+type Group struct {
+	Name        string         `yaml:"name"`                  // Friendly name
+	ID          string         `yaml:"id"`                    // Unique identifier
+	Description string         `yaml:"description,omitempty"` // Optional description
+	Priority    int            `yaml:"priority,omitempty"`    // Execution order (default: 0)
+	DependsOn   []string       `yaml:"depends_on,omitempty"`  // Group IDs this group depends on
+	Enabled     *bool          `yaml:"enabled,omitempty"`     // Toggle on/off (default: true)
+	Source      SourceConfig   `yaml:"source"`                // Source repository
+	Global      GlobalConfig   `yaml:"global,omitempty"`      // Group-level globals
+	Defaults    DefaultConfig  `yaml:"defaults,omitempty"`    // Group-level defaults
+	Targets     []TargetConfig `yaml:"targets"`               // Target repositories
+}
+
+// ModuleConfig defines module-aware sync settings
+type ModuleConfig struct {
+	Type       string `yaml:"type,omitempty"`        // Module type: "go" (future: "npm", "python")
+	Version    string `yaml:"version"`               // Version constraint (exact, latest, or semver)
+	CheckTags  *bool  `yaml:"check_tags,omitempty"`  // Use git tags for versions (default: true)
+	UpdateRefs bool   `yaml:"update_refs,omitempty"` // Update go.mod references
 }
