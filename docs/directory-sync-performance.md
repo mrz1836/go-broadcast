@@ -17,14 +17,14 @@ go-broadcast's directory sync implementation delivers extraordinary performance 
 
 Based on production measurements with real directory structures:
 
-| Directory Size | Target Time | Actual Time | Performance Factor | Status |
-|----------------|-------------|-------------|-------------------|--------|
-| <50 files | <500ms | ~3ms | **167x faster** | ✅ Exceeded |
-| .github/workflows (24) | ~400ms | ~1.5ms | **267x faster** | ✅ Exceeded |
-| .github/coverage (87) | ~1.5s | ~4ms | **375x faster** | ✅ Exceeded |
-| Full .github (149) | ~2s | ~7ms | **286x faster** | ✅ Exceeded |
-| 500 files | <4s | ~16.6ms | **241x faster** | ✅ Exceeded |
-| 1000 files | <5s | ~32ms | **156x faster** | ✅ Exceeded |
+| Directory Size         | Target Time | Actual Time | Performance Factor | Status     |
+|------------------------|-------------|-------------|--------------------|------------|
+| <50 files              | <500ms      | ~3ms        | **167x faster**    | ✅ Exceeded |
+| .github/workflows (24) | ~400ms      | ~1.5ms      | **267x faster**    | ✅ Exceeded |
+| .github/coverage (87)  | ~1.5s       | ~4ms        | **375x faster**    | ✅ Exceeded |
+| Full .github (149)     | ~2s         | ~7ms        | **286x faster**    | ✅ Exceeded |
+| 500 files              | <4s         | ~16.6ms     | **241x faster**    | ✅ Exceeded |
+| 1000 files             | <5s         | ~32ms       | **156x faster**    | ✅ Exceeded |
 
 ### Real-World Performance Examples
 
@@ -133,13 +133,13 @@ For 149 files in .github directory:
 
 #### API Performance Metrics
 
-| Metric | Traditional | go-broadcast | Improvement |
-|--------|-------------|--------------|-------------|
-| API calls (149 files) | 149+ | 2-3 | 98% reduction |
-| Rate limit usage | 3% per sync | <0.1% per sync | 30x improvement |
-| Processing time | 2-5 seconds | ~7ms | 300x faster |
-| Concurrent repos | 5-10 max | 100+ possible | 10x+ scalability |
-| Memory per sync | 10-50MB | ~1.2MB | 90% reduction |
+| Metric                | Traditional | go-broadcast   | Improvement      |
+|-----------------------|-------------|----------------|------------------|
+| API calls (149 files) | 149+        | 2-3            | 98% reduction    |
+| Rate limit usage      | 3% per sync | <0.1% per sync | 30x improvement  |
+| Processing time       | 2-5 seconds | ~7ms           | 300x faster      |
+| Concurrent repos      | 5-10 max    | 100+ possible  | 10x+ scalability |
+| Memory per sync       | 10-50MB     | ~1.2MB         | 90% reduction    |
 
 ### Memory Efficiency Analysis
 
@@ -370,15 +370,15 @@ directories:
 
 ### Competitive Analysis
 
-| Feature | go-broadcast | Traditional Tools | Advantage |
-|---------|--------------|------------------|-----------|
-| **Processing Speed** | 32ms/1000 files | 30-60s/1000 files | 1000x+ faster |
-| **API Efficiency** | 98% call reduction | Sequential API calls | 50x fewer calls |
-| **Memory Usage** | 1.2MB/1000 files | 50-200MB/1000 files | 95% less memory |
-| **Configuration** | Single directory mapping | Individual file mappings | 99% less config |
-| **Concurrency** | Built-in worker pools | Usually sequential | Native parallelism |
-| **Error Handling** | Individual file isolation | All-or-nothing | Robust failure handling |
-| **Progress Reporting** | Automatic for >50 files | Manual implementation | Built-in UX |
+| Feature                | go-broadcast              | Traditional Tools        | Advantage               |
+|------------------------|---------------------------|--------------------------|-------------------------|
+| **Processing Speed**   | 32ms/1000 files           | 30-60s/1000 files        | 1000x+ faster           |
+| **API Efficiency**     | 98% call reduction        | Sequential API calls     | 50x fewer calls         |
+| **Memory Usage**       | 1.2MB/1000 files          | 50-200MB/1000 files      | 95% less memory         |
+| **Configuration**      | Single directory mapping  | Individual file mappings | 99% less config         |
+| **Concurrency**        | Built-in worker pools     | Usually sequential       | Native parallelism      |
+| **Error Handling**     | Individual file isolation | All-or-nothing           | Robust failure handling |
+| **Progress Reporting** | Automatic for >50 files   | Manual implementation    | Built-in UX             |
 
 ## Performance Tuning Guide
 
