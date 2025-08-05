@@ -55,11 +55,6 @@ func LoadFromReader(reader io.Reader) (*Config, error) {
 
 // applyDefaults sets default values for optional fields
 func applyDefaults(config *Config) {
-	// Set default source branch if not specified
-	if config.Source.Branch == "" {
-		config.Source.Branch = "main"
-	}
-
 	// Set default branch prefix if not specified
 	if config.Defaults.BranchPrefix == "" {
 		config.Defaults.BranchPrefix = "chore/sync-files"
@@ -70,10 +65,20 @@ func applyDefaults(config *Config) {
 		config.Defaults.PRLabels = []string{"automated-sync"}
 	}
 
-	// Apply directory defaults
-	for i := range config.Targets {
-		for j := range config.Targets[i].Directories {
-			ApplyDirectoryDefaults(&config.Targets[i].Directories[j])
+	// Apply defaults to each mapping
+	for i := range config.Mappings {
+		mapping := &config.Mappings[i]
+
+		// Set default source branch if not specified
+		if mapping.Source.Branch == "" {
+			mapping.Source.Branch = "main"
+		}
+
+		// Apply directory defaults for all targets in this mapping
+		for j := range mapping.Targets {
+			for k := range mapping.Targets[j].Directories {
+				ApplyDirectoryDefaults(&mapping.Targets[j].Directories[k])
+			}
 		}
 	}
 }

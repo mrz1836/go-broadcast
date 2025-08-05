@@ -239,9 +239,10 @@ func TestCreateComplexScenario(t *testing.T) {
 	// Verify configuration
 	require.NotNil(t, scenario.Config)
 	assert.Equal(t, 1, scenario.Config.Version)
-	assert.Equal(t, "org/template-repo", scenario.Config.Source.Repo)
-	assert.Equal(t, "master", scenario.Config.Source.Branch)
-	assert.Len(t, scenario.Config.Targets, 3)
+	require.Len(t, scenario.Config.Mappings, 1)
+	assert.Equal(t, "org/template-repo", scenario.Config.Mappings[0].Source.Repo)
+	assert.Equal(t, "master", scenario.Config.Mappings[0].Source.Branch)
+	assert.Len(t, scenario.Config.Mappings[0].Targets, 3)
 
 	// Verify state
 	require.NotNil(t, scenario.State)
@@ -620,8 +621,9 @@ func TestConfigGeneration(t *testing.T) {
 	cfg := scenario.Config
 
 	// Verify source configuration
-	assert.Equal(t, "org/template-repo", cfg.Source.Repo)
-	assert.Equal(t, "master", cfg.Source.Branch)
+	require.Len(t, cfg.Mappings, 1)
+	assert.Equal(t, "org/template-repo", cfg.Mappings[0].Source.Repo)
+	assert.Equal(t, "master", cfg.Mappings[0].Source.Branch)
 
 	// Verify defaults
 	assert.Equal(t, "chore/sync-files", cfg.Defaults.BranchPrefix)
@@ -629,7 +631,7 @@ func TestConfigGeneration(t *testing.T) {
 	assert.Contains(t, cfg.Defaults.PRLabels, "integration-test")
 
 	// Verify targets have expected structure
-	for i, target := range cfg.Targets {
+	for i, target := range cfg.Mappings[0].Targets {
 		assert.True(t, strings.HasPrefix(target.Repo, "org/service-"))
 		assert.NotEmpty(t, target.Files)
 		assert.True(t, target.Transform.RepoName)

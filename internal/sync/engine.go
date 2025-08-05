@@ -64,7 +64,9 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 		log.Warn("DRY-RUN MODE: No changes will be made")
 	}
 
-	// 1. Discover current state from GitHub
+	// Config is already in multi-source format
+
+	// 1. Discover current state from GitHub for all sources
 	log.Info("Discovering current state from GitHub")
 	currentState, err := e.state.DiscoverState(ctx, e.config)
 	if err != nil {
@@ -72,34 +74,33 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 	}
 
 	log.WithFields(logrus.Fields{
-		"source_repo":   currentState.Source.Repo,
-		"source_commit": currentState.Source.LatestCommit,
-		"target_count":  len(currentState.Targets),
+		"source_count": len(e.config.Mappings),
+		"target_count": len(currentState.Targets),
 	}).Info("State discovery completed")
 
-	// 2. Determine which targets to sync
-	syncTargets, err := e.filterTargets(targetFilter, currentState)
+	// 2. Build sync tasks for all source-target pairs
+	syncTasks, err := e.buildSyncTasks(targetFilter, currentState)
 	if err != nil {
-		return appErrors.WrapWithContext(err, "filter targets")
+		return appErrors.WrapWithContext(err, "build sync tasks")
 	}
 
-	if len(syncTargets) == 0 {
+	if len(syncTasks) == 0 {
 		log.Info("No targets require synchronization")
 		return nil
 	}
 
-	log.WithField("sync_targets", len(syncTargets)).Info("Targets selected for sync")
+	log.WithField("sync_tasks", len(syncTasks)).Info("Sync tasks created")
 
 	// 3. Create progress tracker
-	progress := NewProgressTracker(len(syncTargets), e.options.DryRun)
+	progress := NewProgressTracker(len(syncTasks), e.options.DryRun)
 
-	// 4. Process repositories concurrently
+	// 4. Process sync tasks concurrently
 	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(e.options.MaxConcurrency)
 
-	for _, target := range syncTargets {
+	for _, task := range syncTasks {
 		g.Go(func() error {
-			return e.syncRepository(ctx, target, currentState, progress)
+			return e.syncTask(ctx, task, currentState, progress)
 		})
 	}
 
@@ -125,58 +126,82 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 	return nil
 }
 
-// filterTargets determines which targets need to be synced based on filters and current state
-func (e *Engine) filterTargets(targetFilter []string, currentState *state.State) ([]config.TargetConfig, error) {
-	var targets []config.TargetConfig
-
-	// If no filter specified, use all configured targets
-	if len(targetFilter) == 0 {
-		targets = e.config.Targets
-	} else {
-		// Filter targets based on command line arguments
-		for _, target := range e.config.Targets {
-			for _, filter := range targetFilter {
-				if target.Repo == filter {
-					targets = append(targets, target)
-					break
-				}
-			}
-		}
-
-		if len(targets) == 0 {
-			return nil, fmt.Errorf("%w: %v", appErrors.ErrNoMatchingTargets, targetFilter)
-		}
-	}
-
-	// Further filter based on sync necessity (unless forced)
-	if !e.options.Force {
-		var syncNeeded []config.TargetConfig
-
-		for _, target := range targets {
-			if e.needsSync(target, currentState) {
-				syncNeeded = append(syncNeeded, target)
-			} else {
-				e.logger.WithField("repo", target.Repo).Info("Target is up-to-date, skipping")
-			}
-		}
-
-		targets = syncNeeded
-	}
-
-	return targets, nil
+// Task represents a single source-to-target synchronization task
+type Task struct {
+	Source     config.SourceConfig
+	Target     config.TargetConfig
+	Defaults   *config.DefaultConfig
+	MappingIdx int // Index of the mapping this task belongs to
 }
 
-// needsSync determines if a target repository needs synchronization
-func (e *Engine) needsSync(target config.TargetConfig, currentState *state.State) bool {
+// buildSyncTasks creates sync tasks for all source-target pairs that need synchronization
+func (e *Engine) buildSyncTasks(targetFilter []string, currentState *state.State) ([]Task, error) {
+	var tasks []Task
+
+	// Build filter map for efficiency
+	filterMap := make(map[string]bool)
+	for _, f := range targetFilter {
+		filterMap[f] = true
+	}
+
+	// Process each mapping
+	for mappingIdx, mapping := range e.config.Mappings {
+		// Process each target in this mapping
+		for _, target := range mapping.Targets {
+			// Apply filter if specified
+			if len(filterMap) > 0 && !filterMap[target.Repo] {
+				continue
+			}
+
+			// Check if sync is needed (unless forced)
+			if !e.options.Force && !e.needsSyncForPair(mapping.Source, target, currentState) {
+				e.logger.WithFields(logrus.Fields{
+					"source": mapping.Source.Repo,
+					"target": target.Repo,
+				}).Info("Target is up-to-date for this source, skipping")
+				continue
+			}
+
+			// Create sync task
+			task := Task{
+				Source:     mapping.Source,
+				Target:     target,
+				Defaults:   mapping.Defaults,
+				MappingIdx: mappingIdx,
+			}
+			tasks = append(tasks, task)
+		}
+	}
+
+	if len(filterMap) > 0 && len(tasks) == 0 {
+		return nil, fmt.Errorf("%w: %v", appErrors.ErrNoMatchingTargets, targetFilter)
+	}
+
+	return tasks, nil
+}
+
+// needsSyncForPair determines if a specific source-target pair needs synchronization
+func (e *Engine) needsSyncForPair(source config.SourceConfig, target config.TargetConfig, currentState *state.State) bool {
 	targetState, exists := currentState.Targets[target.Repo]
 	if !exists {
 		// No state found, sync needed
 		return true
 	}
 
+	// Check if this specific source has been synced to this target
+	_, sourceExists := currentState.Sources[source.Repo]
+	if !sourceExists {
+		// Source state not found, sync needed
+		return true
+	}
+
+	// Check if target is behind this specific source
+	// This would be enhanced in the state management update
 	switch targetState.Status {
 	case state.StatusUpToDate:
-		return false
+		// Need to check if up-to-date with THIS source specifically
+		// For now, assume needs sync if multiple sources exist
+		return len(e.config.Mappings) > 1
 	case state.StatusBehind:
 		return true
 	case state.StatusPending:
@@ -184,7 +209,10 @@ func (e *Engine) needsSync(target config.TargetConfig, currentState *state.State
 		return e.options.UpdateExistingPRs
 	case state.StatusConflict:
 		// Conflicts require manual intervention
-		e.logger.WithField("repo", target.Repo).Warn("Repository has conflicts, skipping automatic sync")
+		e.logger.WithFields(logrus.Fields{
+			"source": source.Repo,
+			"target": target.Repo,
+		}).Warn("Repository has conflicts, skipping automatic sync")
 		return false
 	default:
 		// Unknown status, err on the side of caution and sync
@@ -192,39 +220,46 @@ func (e *Engine) needsSync(target config.TargetConfig, currentState *state.State
 	}
 }
 
-// syncRepository handles synchronization for a single repository
-func (e *Engine) syncRepository(ctx context.Context, target config.TargetConfig, currentState *state.State, progress *ProgressTracker) error {
+// syncTask handles synchronization for a single source-target pair
+func (e *Engine) syncTask(ctx context.Context, task Task, currentState *state.State, progress *ProgressTracker) error {
 	log := e.logger.WithFields(logrus.Fields{
-		"target_repo": target.Repo,
-		"component":   "repository_sync",
+		"source_repo": task.Source.Repo,
+		"target_repo": task.Target.Repo,
+		"component":   "sync_task",
 	})
 
-	progress.StartRepository(target.Repo)
-	defer progress.FinishRepository(target.Repo)
+	taskID := fmt.Sprintf("%s->%s", task.Source.Repo, task.Target.Repo)
+	progress.StartRepository(taskID)
+	defer progress.FinishRepository(taskID)
 
-	log.Info("Starting repository sync")
+	log.Info("Starting sync task")
 
-	// Get target state
-	targetState := currentState.Targets[target.Repo]
+	// Get source and target states
+	sourceState, sourceExists := currentState.Sources[task.Source.Repo]
+	if !sourceExists {
+		return appErrors.SourceStateNotFoundError(task.Source.Repo)
+	}
 
-	// Create repository syncer
+	targetState := currentState.Targets[task.Target.Repo]
+
+	// Create repository sync with task-specific configuration
 	repoSync := &RepositorySync{
 		engine:      e,
-		target:      target,
-		sourceState: &currentState.Source,
+		source:      task.Source,
+		target:      task.Target,
+		sourceState: &sourceState,
 		targetState: targetState,
 		logger:      log,
+		defaults:    task.Defaults,
 	}
 
-	// Execute sync
-	err := repoSync.Execute(ctx)
-	if err != nil {
+	// Execute the sync
+	if err := repoSync.Execute(ctx); err != nil {
 		log.WithError(err).Error("Repository sync failed")
-		progress.RecordError(target.Repo, err)
-		return appErrors.WrapWithContext(err, fmt.Sprintf("sync %s", target.Repo))
+		progress.RecordError(taskID, err)
+		return err
 	}
 
-	log.Info("Repository sync completed successfully")
-	progress.RecordSuccess(target.Repo)
+	progress.RecordSuccess(taskID)
 	return nil
 }

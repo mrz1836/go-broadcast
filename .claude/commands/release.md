@@ -1,7 +1,7 @@
 ---
 allowed-tools: Task, Bash(git tag:*), Bash(make release:*), Edit, MultiEdit
 description: Comprehensive release preparation workflow
-argument-hint: <version> (e.g., v1.2.0)
+argument-hint: <version> (e.g., 1.2.0)
 model: opus
 ---
 # 🚀 Complete Release Workflow
@@ -24,35 +24,13 @@ I need to prepare a comprehensive release for version: $ARGUMENTS
    - Validate security policies
    - Generate security report
 
-3. **Use the changelog-generator agent** to:
-   - Generate changelog since last release
-   - Group changes by category
-   - Highlight breaking changes
-   - Create migration guide
-   - Format release notes
-
-4. **Use the release-manager agent** to:
-   - Update version numbers
-   - Tag the release
-   - Run goreleaser
-   - Create GitHub release
-   - Upload artifacts
-   - Publish documentation
-
-5. **Use the documentation-maintainer agent** to:
-   - Update version references
-   - Refresh installation docs
-   - Update compatibility matrix
-   - Sync API documentation
-   - Publish to pkg.go.dev
+3. **Run "make tag version=$ARGUMENTS"** to create a Git tag for the release.
+   - Run "make tag version=$ARGUMENTS" to create a Git tag for the release.
+   - Nothing else will be needed since the CI will handle the rest of the release process.
 
 **Release checklist:**
 - ✅ All tests passing
 - ✅ Security scan clean
-- ✅ Changelog updated
-- ✅ Version bumped
-- ✅ Documentation current
-- ✅ Release notes ready
-- ✅ Artifacts built
+- ✅ Tag created
 
 The agents will work in sequence to ensure a flawless release process.

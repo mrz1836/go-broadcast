@@ -1,0 +1,211 @@
+# go-broadcast configuration demonstrating conflict resolution scenarios
+# Multiple sources targeting the same files with different conflict strategies
+
+version: 1
+
+# Example 1: Last-wins strategy (default)
+# The last mapping in the configuration wins conflicts
+conflict_resolution:
+  strategy: "last-wins"
+
+mappings:
+  # Base templates (will lose conflicts)
+  - source:
+      repo: "company/base-templates"
+      branch: "main"
+      id: "base"
+    targets:
+      - repo: "company/my-service"
+        files:
+          - src: "Makefile"
+            dest: "Makefile"
+          - src: ".gitignore"
+            dest: ".gitignore"
+          - src: "README.md"
+            dest: "README.md"
+
+  # Language-specific templates (will override base for conflicts)
+  - source:
+      repo: "company/golang-templates"
+      branch: "main"
+      id: "golang"
+    targets:
+      - repo: "company/my-service"
+        files:
+          - src: "go/Makefile" # Conflicts with base Makefile
+            dest: "Makefile"
+          - src: "go/.gitignore" # Conflicts with base .gitignore
+            dest: ".gitignore"
+          - src: "go/go.mod"
+            dest: "go.mod"
+
+  # Service-specific overrides (will win all conflicts)
+  - source:
+      repo: "company/my-service-custom"
+      branch: "main"
+      id: "custom"
+    targets:
+      - repo: "company/my-service"
+        files:
+          - src: "custom/Makefile" # Wins the Makefile conflict
+            dest: "Makefile"
+
+---
+# Example 2: Priority-based strategy
+# Sources are resolved based on explicit priority order
+
+version: 1
+
+conflict_resolution:
+  strategy: "priority"
+  priority: ["critical", "security", "performance", "standard", "docs"]
+
+mappings:
+  # Documentation templates (lowest priority)
+  - source:
+      repo: "company/docs"
+      branch: "main"
+      id: "docs"
+    targets:
+      - repo: "company/api-service"
+        files:
+          - src: "api/openapi.yaml"
+            dest: "api/openapi.yaml"
+          - src: "configs/server.yaml"
+            dest: "configs/server.yaml"
+
+  # Standard configurations
+  - source:
+      repo: "company/standard-configs"
+      branch: "main"
+      id: "standard"
+    targets:
+      - repo: "company/api-service"
+        files:
+          - src: "configs/server.yaml" # Conflicts with docs
+            dest: "configs/server.yaml"
+          - src: "configs/database.yaml"
+            dest: "configs/database.yaml"
+
+  # Performance optimizations
+  - source:
+      repo: "company/performance-configs"
+      branch: "main"
+      id: "performance"
+    targets:
+      - repo: "company/api-service"
+        files:
+          - src: "tuned/server.yaml" # Conflicts with standard and docs
+            dest: "configs/server.yaml"
+          - src: "tuned/cache.yaml"
+            dest: "configs/cache.yaml"
+
+  # Security configurations (high priority)
+  - source:
+      repo: "company/security-configs"
+      branch: "main"
+      id: "security"
+    targets:
+      - repo: "company/api-service"
+        files:
+          - src: "secure/server.yaml" # Wins over performance, standard, and docs
+            dest: "configs/server.yaml"
+          - src: "secure/auth.yaml"
+            dest: "configs/auth.yaml"
+
+---
+# Example 3: Error strategy
+# Any conflict causes the sync to fail
+
+version: 1
+
+conflict_resolution:
+  strategy: "error" # Fail on any conflict
+
+mappings:
+  # Team A templates
+  - source:
+      repo: "company/team-a-templates"
+      branch: "main"
+      id: "team-a"
+    targets:
+      - repo: "company/shared-service"
+        files:
+          - src: "monitoring/alerts.yaml"
+            dest: "monitoring/alerts.yaml"
+          - src: "ci/pipeline.yaml"
+            dest: ".github/workflows/ci.yml"
+
+  # Team B templates
+  - source:
+      repo: "company/team-b-templates"
+      branch: "main"
+      id: "team-b"
+    targets:
+      - repo: "company/shared-service"
+        files:
+          - src: "monitoring/dashboard.yaml"
+            dest: "monitoring/dashboard.yaml"
+          - src: "ci/workflow.yaml" # This would cause an error!
+            dest: ".github/workflows/ci.yml"
+
+---
+# Example 4: Mixed strategies with directory sync
+
+version: 1
+
+global:
+  pr_labels: ["multi-source", "automated"]
+
+conflict_resolution:
+  strategy: "priority"
+  priority: ["platform", "team", "base"]
+
+mappings:
+  # Base configuration with directories
+  - source:
+      repo: "company/base-config"
+      branch: "main"
+      id: "base"
+    targets:
+      - repo: "company/complex-service"
+        directories:
+          - src: "configs"
+            dest: "configs"
+            exclude: ["*.local", "*.secret"]
+          - src: "scripts"
+            dest: "scripts"
+
+  # Team-specific overrides
+  - source:
+      repo: "company/team-config"
+      branch: "main"
+      id: "team"
+    targets:
+      - repo: "company/complex-service"
+        files:
+          # These individual files override directory-synced files
+          - src: "overrides/database.yaml"
+            dest: "configs/database.yaml"
+          - src: "overrides/deploy.sh"
+            dest: "scripts/deploy.sh"
+        transform:
+          variables:
+            TEAM: "platform"
+            REGION: "us-west-2"
+
+  # Platform-wide requirements (highest priority)
+  - source:
+      repo: "company/platform-requirements"
+      branch: "main"
+      id: "platform"
+    targets:
+      - repo: "company/complex-service"
+        files:
+          - src: "required/security.yaml"
+            dest: "configs/security.yaml"
+          - src: "required/compliance.yaml"
+            dest: "configs/compliance.yaml"
+    defaults:
+      pr_labels: ["platform-required", "compliance"]
+      pr_reviewers: ["platform-lead", "security-lead"]

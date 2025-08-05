@@ -32,13 +32,20 @@ var (
 
 // Error templates for static error definitions (satisfies err113 linter)
 var (
-	errInvalidFieldTemplate     = errors.New("invalid field")
-	errCommandFailedTemplate    = errors.New("command failed")
-	errValidationFailedTemplate = errors.New("validation failed")
-	errPathTraversalTemplate    = errors.New("path traversal detected")
-	errEmptyFieldTemplate       = errors.New("field cannot be empty")
-	errRequiredFieldTemplate    = errors.New("field is required")
-	errInvalidFormatTemplate    = errors.New("invalid format")
+	errInvalidFieldTemplate       = errors.New("invalid field")
+	errCommandFailedTemplate      = errors.New("command failed")
+	errValidationFailedTemplate   = errors.New("validation failed")
+	errPathTraversalTemplate      = errors.New("path traversal detected")
+	errEmptyFieldTemplate         = errors.New("field cannot be empty")
+	errRequiredFieldTemplate      = errors.New("field is required")
+	errInvalidFormatTemplate      = errors.New("invalid format")
+	errNoSourceConfigFound        = errors.New("no source configuration found")
+	errConflictDetected           = errors.New("conflict detected")
+	errNoSourcesInConflict        = errors.New("no sources in conflict")
+	errPriorityStrategyNoPriority = errors.New("priority strategy configured but no priority list provided")
+	errSourceStateNotFound        = errors.New("source state not found")
+	errMappingNoTargets           = errors.New("mapping has no targets")
+	errInvalidSourceID            = errors.New("invalid source ID")
 )
 
 // Error utility functions for standardized error creation and context wrapping
@@ -95,4 +102,39 @@ func RequiredFieldError(field string) error {
 // This provides consistent messaging for format validation failures.
 func FormatError(field, value, expectedFormat string) error {
 	return fmt.Errorf("%w: %s '%s': expected %s", errInvalidFormatTemplate, field, value, expectedFormat)
+}
+
+// NoSourceConfigFoundError creates a standardized no source configuration error.
+func NoSourceConfigFoundError() error {
+	return errNoSourceConfigFound
+}
+
+// ConflictDetectedError creates a standardized conflict detection error.
+func ConflictDetectedError(targetFile string, sourceCount int) error {
+	return fmt.Errorf("%w for %s: %d sources want to sync this file", errConflictDetected, targetFile, sourceCount)
+}
+
+// NoSourcesInConflictError creates a standardized no sources in conflict error.
+func NoSourcesInConflictError() error {
+	return errNoSourcesInConflict
+}
+
+// PriorityStrategyNoPriorityError creates a standardized priority strategy error.
+func PriorityStrategyNoPriorityError() error {
+	return errPriorityStrategyNoPriority
+}
+
+// SourceStateNotFoundError creates a standardized source state not found error.
+func SourceStateNotFoundError(repo string) error {
+	return fmt.Errorf("%w for %s", errSourceStateNotFound, repo)
+}
+
+// MappingNoTargetsError creates a standardized mapping no targets error.
+func MappingNoTargetsError(sourceRepo string) error {
+	return fmt.Errorf("%w with source %s", errMappingNoTargets, sourceRepo)
+}
+
+// InvalidSourceIDError creates a standardized invalid source ID error.
+func InvalidSourceIDError(sourceID string, mappingIndex int) error {
+	return fmt.Errorf("%w '%s' in mapping %d: must contain only alphanumeric characters, hyphens, and underscores", errInvalidSourceID, sourceID, mappingIndex+1)
 }

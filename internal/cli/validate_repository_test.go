@@ -21,15 +21,18 @@ import (
 func TestValidateRepositoryAccessibility(t *testing.T) {
 	// Create base config for tests
 	baseConfig := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/source-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{Repo: "org/target1"},
-			{Repo: "org/target2"},
-			{Repo: "org/target3"},
-		},
+		Version: 1,
+		Mappings: []config.SourceMapping{{
+			Source: config.SourceConfig{
+				Repo:   "org/source-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{Repo: "org/target1"},
+				{Repo: "org/target2"},
+				{Repo: "org/target3"},
+			},
+		}},
 	}
 
 	testCases := []struct {
@@ -215,11 +218,14 @@ func TestValidateRepositoryAccessibility(t *testing.T) {
 			var cfg *config.Config
 			if tc.name == "Empty targets list" {
 				cfg = &config.Config{
-					Source: config.SourceConfig{
-						Repo:   "org/source-repo",
-						Branch: "master",
-					},
-					Targets: []config.TargetConfig{},
+					Version: 1,
+					Mappings: []config.SourceMapping{{
+						Source: config.SourceConfig{
+							Repo:   "org/source-repo",
+							Branch: "master",
+						},
+						Targets: []config.TargetConfig{},
+					}},
 				}
 			} else {
 				cfg = baseConfig
@@ -265,10 +271,14 @@ func TestValidateRepositoryAccessibilityEdgeCases(t *testing.T) {
 		_ = ctx // Context is used in the skipped test below
 
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/source-repo",
-				Branch: "master",
-			},
+			Version: 1,
+			Mappings: []config.SourceMapping{{
+				Source: config.SourceConfig{
+					Repo:   "org/source-repo",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{},
+			}},
 		}
 
 		// Skip test as it requires mocking gh.NewClient
@@ -296,14 +306,17 @@ func TestValidateRepositoryAccessibilityEdgeCases(t *testing.T) {
 
 	t.Run("Special characters in repository names", func(t *testing.T) {
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/source-repo-with-dashes",
-				Branch: "feature/branch-name",
-			},
-			Targets: []config.TargetConfig{
-				{Repo: "org/target_with_underscores"},
-				{Repo: "org/target.with.dots"},
-			},
+			Version: 1,
+			Mappings: []config.SourceMapping{{
+				Source: config.SourceConfig{
+					Repo:   "org/source-repo-with-dashes",
+					Branch: "feature/branch-name",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "org/target_with_underscores"},
+					{Repo: "org/target.with.dots"},
+				},
+			}},
 		}
 
 		ctx := context.Background()

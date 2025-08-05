@@ -3,7 +3,7 @@ allowed-tools: Task, Bash(make lint:*), Bash(golangci-lint:*), Edit, MultiEdit
 description: Enforce code quality with 60+ linters and automatic fixes
 argument-hint: [specific file/package or leave empty for entire codebase]
 ---
-!make lint 2>&1 | grep -E "(FAIL|Error|Warning)" | head -10
+!make lint-all-modules 2>&1 | grep -E "(FAIL|Error|Warning)" | head -10
 
 # 🎯 Comprehensive Code Quality Enforcement
 

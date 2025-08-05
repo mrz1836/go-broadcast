@@ -3,189 +3,190 @@
 
 version: 1
 
-source:
-  repo: "company/pattern-examples"
-  branch: "master"
+mappings:
+  - source:
+      repo: "company/pattern-examples"
+      branch: "master"
+      id: "patterns"
+    targets:
+      # Example 1: File Extension Patterns
+      - repo: "company/extension-demo"
+        directories:
+          - src: "mixed-files"
+            dest: "mixed-files"
+            exclude:
+              # Simple extension patterns
+              - "*.tmp" # All .tmp files
+              - "*.log" # All .log files
+              - "*.bak" # All .bak files
+              - "*.backup" # All .backup files
 
-targets:
-  # Example 1: File Extension Patterns
-  - repo: "company/extension-demo"
-    directories:
-      - src: "mixed-files"
-        dest: "mixed-files"
-        exclude:
-          # Simple extension patterns
-          - "*.tmp" # All .tmp files
-          - "*.log" # All .log files
-          - "*.bak" # All .bak files
-          - "*.backup" # All .backup files
+              # Multiple extensions with same pattern
+              - "*.{tmp,log,bak}" # Multiple extensions (if supported)
 
-          # Multiple extensions with same pattern
-          - "*.{tmp,log,bak}" # Multiple extensions (if supported)
+              # Case-sensitive patterns
+              - "*.TMP" # Only uppercase .TMP
+              - "*.[Ll][Oo][Gg]" # .log or .LOG (case variants)
 
-          # Case-sensitive patterns
-          - "*.TMP" # Only uppercase .TMP
-          - "*.[Ll][Oo][Gg]" # .log or .LOG (case variants)
+      # Example 2: Directory and Path Patterns
+      - repo: "company/directory-demo"
+        directories:
+          - src: "complex-structure"
+            dest: "complex-structure"
+            exclude:
+              # Directory exclusions
+              - "temp/" # temp directory at any level
+              - "*/temp/" # temp directory one level deep
+              - "**/temp/" # temp directory at any depth
+              - "build/**" # Entire build directory tree
+              - "**/node_modules/**" # Node modules anywhere
 
-  # Example 2: Directory and Path Patterns
-  - repo: "company/directory-demo"
-    directories:
-      - src: "complex-structure"
-        dest: "complex-structure"
-        exclude:
-          # Directory exclusions
-          - "temp/" # temp directory at any level
-          - "*/temp/" # temp directory one level deep
-          - "**/temp/" # temp directory at any depth
-          - "build/**" # Entire build directory tree
-          - "**/node_modules/**" # Node modules anywhere
+              # Specific path exclusions
+              - "src/temp/*" # Files in src/temp only
+              - "docs/draft/**" # Everything under docs/draft
+              - "configs/local/**" # Local configs subdirectory
 
-          # Specific path exclusions
-          - "src/temp/*" # Files in src/temp only
-          - "docs/draft/**" # Everything under docs/draft
-          - "configs/local/**" # Local configs subdirectory
+              # Hidden directories
+              - "**/.git/**" # Git directories anywhere
+              - "**/.svn/**" # SVN directories anywhere
+              - "**/.vscode/**" # VS Code settings
 
-          # Hidden directories
-          - "**/.git/**" # Git directories anywhere
-          - "**/.svn/**" # SVN directories anywhere
-          - "**/.vscode/**" # VS Code settings
+      # Example 3: Filename Patterns
+      - repo: "company/filename-demo"
+        directories:
+          - src: "various-files"
+            dest: "various-files"
+            exclude:
+              # Prefix patterns
+              - "temp-*" # Files starting with "temp-"
+              - "draft-*" # Files starting with "draft-"
+              - "backup-*" # Files starting with "backup-"
 
-  # Example 3: Filename Patterns
-  - repo: "company/filename-demo"
-    directories:
-      - src: "various-files"
-        dest: "various-files"
-        exclude:
-          # Prefix patterns
-          - "temp-*" # Files starting with "temp-"
-          - "draft-*" # Files starting with "draft-"
-          - "backup-*" # Files starting with "backup-"
+              # Suffix patterns
+              - "*-local" # Files ending with "-local"
+              - "*-dev" # Files ending with "-dev"
+              - "*-temp" # Files ending with "-temp"
 
-          # Suffix patterns
-          - "*-local" # Files ending with "-local"
-          - "*-dev" # Files ending with "-dev"
-          - "*-temp" # Files ending with "-temp"
+              # Contains patterns
+              - "*secret*" # Files containing "secret"
+              - "*password*" # Files containing "password"
+              - "*private*" # Files containing "private"
 
-          # Contains patterns
-          - "*secret*" # Files containing "secret"
-          - "*password*" # Files containing "password"
-          - "*private*" # Files containing "private"
+              # Exact matches
+              - "Thumbs.db" # Exact filename match
+              - ".DS_Store" # Exact hidden file match
 
-          # Exact matches
-          - "Thumbs.db" # Exact filename match
-          - ".DS_Store" # Exact hidden file match
+      # Example 4: Development Artifacts (Smart Defaults Enhanced)
+      - repo: "company/development-demo"
+        directories:
+          - src: "project-root"
+            dest: "project-root"
+            exclude:
+              # Go-specific artifacts (beyond smart defaults)
+              - "**/*.test" # Go test binaries (in smart defaults)
+              - "**/*.out" # Coverage files (in smart defaults)
+              - "**/vendor/**" # Go vendor directory
+              - "**/*.prof" # Profiling files
+              - "**/testdata/large/**" # Large test fixtures
 
-  # Example 4: Development Artifacts (Smart Defaults Enhanced)
-  - repo: "company/development-demo"
-    directories:
-      - src: "project-root"
-        dest: "project-root"
-        exclude:
-          # Go-specific artifacts (beyond smart defaults)
-          - "**/*.test" # Go test binaries (in smart defaults)
-          - "**/*.out" # Coverage files (in smart defaults)
-          - "**/vendor/**" # Go vendor directory
-          - "**/*.prof" # Profiling files
-          - "**/testdata/large/**" # Large test fixtures
+              # Node.js artifacts
+              - "**/node_modules/**" # Dependencies
+              - "**/npm-debug.log*" # NPM debug logs
+              - "**/.npm/**" # NPM cache
+              - "**/dist/**" # Build outputs
+              - "**/.next/**" # Next.js build
 
-          # Node.js artifacts
-          - "**/node_modules/**" # Dependencies
-          - "**/npm-debug.log*" # NPM debug logs
-          - "**/.npm/**" # NPM cache
-          - "**/dist/**" # Build outputs
-          - "**/.next/**" # Next.js build
+              # Python artifacts
+              - "**/__pycache__/**" # Python cache
+              - "**/*.pyc" # Compiled Python
+              - "**/*.pyo" # Optimized Python
+              - "**/venv/**" # Virtual environments
+              - "**/.venv/**" # Hidden virtual environments
+              - "**/*.egg-info/**" # Package metadata
 
-          # Python artifacts
-          - "**/__pycache__/**" # Python cache
-          - "**/*.pyc" # Compiled Python
-          - "**/*.pyo" # Optimized Python
-          - "**/venv/**" # Virtual environments
-          - "**/.venv/**" # Hidden virtual environments
-          - "**/*.egg-info/**" # Package metadata
+              # Java artifacts
+              - "**/target/**" # Maven build directory
+              - "**/*.class" # Compiled Java
+              - "**/*.jar" # JAR files (unless needed)
+              - "**/build/**" # Gradle build directory
 
-          # Java artifacts
-          - "**/target/**" # Maven build directory
-          - "**/*.class" # Compiled Java
-          - "**/*.jar" # JAR files (unless needed)
-          - "**/build/**" # Gradle build directory
+              # Database files
+              - "**/*.db" # SQLite databases
+              - "**/*.sqlite" # SQLite databases
+              - "**/*.sqlite3" # SQLite3 databases
 
-          # Database files
-          - "**/*.db" # SQLite databases
-          - "**/*.sqlite" # SQLite databases
-          - "**/*.sqlite3" # SQLite3 databases
+              # IDE and editor files
+              - "**/.idea/**" # IntelliJ IDEA
+              - "**/.vscode/**" # VS Code settings
+              - "**/*.swp" # Vim swap files
+              - "**/*.swo" # Vim swap files
+              - "**/*~" # Backup files
 
-          # IDE and editor files
-          - "**/.idea/**" # IntelliJ IDEA
-          - "**/.vscode/**" # VS Code settings
-          - "**/*.swp" # Vim swap files
-          - "**/*.swo" # Vim swap files
-          - "**/*~" # Backup files
+      # Example 5: Complex Multi-Pattern Exclusions
+      - repo: "company/complex-demo"
+        directories:
+          - src: "enterprise-project"
+            dest: "enterprise-project"
+            exclude:
+              # Environment-specific patterns
+              - "configs/local/**" # Local development configs
+              - "configs/dev/**" # Development configs
+              - "configs/staging/**" # Staging configs (sync prod only)
+              - "**/*-local.*" # Any local variant files
+              - "**/*-dev.*" # Any dev variant files
+              - "**/*-staging.*" # Any staging variant files
 
-  # Example 5: Complex Multi-Pattern Exclusions
-  - repo: "company/complex-demo"
-    directories:
-      - src: "enterprise-project"
-        dest: "enterprise-project"
-        exclude:
-          # Environment-specific patterns
-          - "configs/local/**" # Local development configs
-          - "configs/dev/**" # Development configs
-          - "configs/staging/**" # Staging configs (sync prod only)
-          - "**/*-local.*" # Any local variant files
-          - "**/*-dev.*" # Any dev variant files
-          - "**/*-staging.*" # Any staging variant files
+              # Security-sensitive patterns
+              - "**/*.key" # Private keys
+              - "**/*.pem" # PEM certificates
+              - "**/*.p12" # PKCS#12 certificates
+              - "**/*.jks" # Java keystores
+              - "**/secrets/**" # Secrets directories
+              - "**/*secret*" # Files with 'secret' in name
+              - "**/*password*" # Files with 'password' in name
+              - "**/*.env.local" # Local environment files
 
-          # Security-sensitive patterns
-          - "**/*.key" # Private keys
-          - "**/*.pem" # PEM certificates
-          - "**/*.p12" # PKCS#12 certificates
-          - "**/*.jks" # Java keystores
-          - "**/secrets/**" # Secrets directories
-          - "**/*secret*" # Files with 'secret' in name
-          - "**/*password*" # Files with 'password' in name
-          - "**/*.env.local" # Local environment files
+              # Large file patterns (performance optimization)
+              - "**/*.iso" # ISO images
+              - "**/*.dmg" # macOS disk images
+              - "**/*.exe" # Executables (in smart defaults)
+              - "**/*.msi" # Windows installers
+              - "**/*.deb" # Debian packages
+              - "**/*.rpm" # RPM packages
+              - "**/*.tar.gz" # Compressed archives
+              - "**/*.zip" # ZIP archives
 
-          # Large file patterns (performance optimization)
-          - "**/*.iso" # ISO images
-          - "**/*.dmg" # macOS disk images
-          - "**/*.exe" # Executables (in smart defaults)
-          - "**/*.msi" # Windows installers
-          - "**/*.deb" # Debian packages
-          - "**/*.rpm" # RPM packages
-          - "**/*.tar.gz" # Compressed archives
-          - "**/*.zip" # ZIP archives
+              # Documentation build artifacts
+              - "**/docs/_build/**" # Sphinx builds
+              - "**/docs/build/**" # Generic doc builds
+              - "**/site/**" # MkDocs builds
+              - "**/.docusaurus/**" # Docusaurus builds
 
-          # Documentation build artifacts
-          - "**/docs/_build/**" # Sphinx builds
-          - "**/docs/build/**" # Generic doc builds
-          - "**/site/**" # MkDocs builds
-          - "**/.docusaurus/**" # Docusaurus builds
+      # Example 6: Testing and CI/CD Patterns
+      - repo: "company/testing-demo"
+        directories:
+          - src: "ci-templates"
+            dest: "ci-templates"
+            exclude:
+              # Test artifacts
+              - "**/coverage/**" # Coverage reports
+              - "**/test-results/**" # Test result files
+              - "**/*.test.js" # JavaScript test files
+              - "**/*_test.go" # Go test files (source, not binaries)
+              - "**/*Test.java" # Java test classes
+              - "**/test_*.py" # Python test files
 
-  # Example 6: Testing and CI/CD Patterns
-  - repo: "company/testing-demo"
-    directories:
-      - src: "ci-templates"
-        dest: "ci-templates"
-        exclude:
-          # Test artifacts
-          - "**/coverage/**" # Coverage reports
-          - "**/test-results/**" # Test result files
-          - "**/*.test.js" # JavaScript test files
-          - "**/*_test.go" # Go test files (source, not binaries)
-          - "**/*Test.java" # Java test classes
-          - "**/test_*.py" # Python test files
+              # CI/CD artifacts
+              - "**/.github/workflows/*-local.yml" # Local CI workflows
+              - "**/.gitlab-ci-local.yml" # Local GitLab CI
+              - "**/Jenkinsfile.local" # Local Jenkins files
+              - "**/.circleci/local/**" # Local CircleCI configs
 
-          # CI/CD artifacts
-          - "**/.github/workflows/*-local.yml" # Local CI workflows
-          - "**/.gitlab-ci-local.yml" # Local GitLab CI
-          - "**/Jenkinsfile.local" # Local Jenkins files
-          - "**/.circleci/local/**" # Local CircleCI configs
-
-          # Performance test data
-          - "**/benchmarks/**" # Benchmark results
-          - "**/profiles/**" # Performance profiles
-          - "**/*.prof" # Go profiling files
-          - "**/*.heap" # Heap dumps
+              # Performance test data
+              - "**/benchmarks/**" # Benchmark results
+              - "**/profiles/**" # Performance profiles
+              - "**/*.prof" # Go profiling files
+              - "**/*.heap" # Heap dumps
 
 # Pattern Matching Behavior Notes:
 #

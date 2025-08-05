@@ -114,7 +114,8 @@ targets:
 		}()
 
 		// Parsed config should have defaults applied
-		if parsedCfg.Source.Branch == "" {
+		// After normalization, data should be in mappings
+		if len(parsedCfg.Mappings) > 0 && parsedCfg.Mappings[0].Source.Branch == "" {
 			t.Error("LoadFromReader should apply default branch")
 		}
 		if parsedCfg.Defaults.BranchPrefix == "" {
@@ -233,9 +234,21 @@ func FuzzRepoNameValidation(f *testing.F) {
 		// Test that Validate() method also handles it correctly
 		cfg := Config{
 			Version: 1,
-			Source: SourceConfig{
-				Repo:   repoName,
-				Branch: "master",
+			Mappings: []SourceMapping{
+				{
+					Source: SourceConfig{
+						Repo:   repoName,
+						Branch: "master",
+					},
+					Targets: []TargetConfig{
+						{
+							Repo: "org/target",
+							Files: []FileMapping{
+								{Src: "test.txt", Dest: "test.txt"},
+							},
+						},
+					},
+				},
 			},
 		}
 
@@ -359,9 +372,21 @@ func FuzzBranchNameValidation(f *testing.F) {
 		// Test branch name in config validation
 		cfg := Config{
 			Version: 1,
-			Source: SourceConfig{
-				Repo:   "org/repo",
-				Branch: branch,
+			Mappings: []SourceMapping{
+				{
+					Source: SourceConfig{
+						Repo:   "org/repo",
+						Branch: branch,
+					},
+					Targets: []TargetConfig{
+						{
+							Repo: "org/target",
+							Files: []FileMapping{
+								{Src: "test.txt", Dest: "test.txt"},
+							},
+						},
+					},
+				},
 			},
 		}
 
@@ -373,8 +398,20 @@ func FuzzBranchNameValidation(f *testing.F) {
 		// Also test as branch prefix in defaults
 		cfg2 := Config{
 			Version: 1,
-			Source: SourceConfig{
-				Repo: "org/repo",
+			Mappings: []SourceMapping{
+				{
+					Source: SourceConfig{
+						Repo: "org/repo",
+					},
+					Targets: []TargetConfig{
+						{
+							Repo: "org/target",
+							Files: []FileMapping{
+								{Src: "test.txt", Dest: "test.txt"},
+							},
+						},
+					},
+				},
 			},
 			Defaults: DefaultConfig{
 				BranchPrefix: branch,
@@ -390,33 +427,36 @@ func FuzzBranchNameValidation(f *testing.F) {
 
 // checkConfigSecurity performs security checks on a validated config
 func checkConfigSecurity(t *testing.T, cfg *Config) {
-	// Check source
-	if cfg.Source.Repo != "" && fuzz.ContainsPathTraversal(cfg.Source.Repo) {
-		t.Logf("Security: Path traversal in validated source repo: %s", cfg.Source.Repo)
-	}
-
-	if cfg.Source.Repo != "" && fuzz.ContainsShellMetachars(cfg.Source.Repo) {
-		t.Logf("Security: Shell metacharacters in validated source repo: %s", cfg.Source.Repo)
-	}
-
-	if cfg.Source.Branch != "" && fuzz.ContainsShellMetachars(cfg.Source.Branch) {
-		t.Logf("Security: Shell metacharacters in validated source branch: %s", cfg.Source.Branch)
-	}
-
-	// Check all targets
-	for i, target := range cfg.Targets {
-		if fuzz.ContainsPathTraversal(target.Repo) {
-			t.Logf("Security: Path traversal in validated target[%d] repo: %s", i, target.Repo)
+	// Check all mappings and their sources/targets
+	for mappingIdx, mapping := range cfg.Mappings {
+		// Check source
+		if mapping.Source.Repo != "" && fuzz.ContainsPathTraversal(mapping.Source.Repo) {
+			t.Logf("Security: Path traversal in validated mapping[%d] source repo: %s", mappingIdx, mapping.Source.Repo)
 		}
 
-		if fuzz.ContainsShellMetachars(target.Repo) {
-			t.Logf("Security: Shell metacharacters in validated target[%d] repo: %s", i, target.Repo)
+		if mapping.Source.Repo != "" && fuzz.ContainsShellMetachars(mapping.Source.Repo) {
+			t.Logf("Security: Shell metacharacters in validated mapping[%d] source repo: %s", mappingIdx, mapping.Source.Repo)
 		}
 
-		// Check all file mappings
-		for j, file := range target.Files {
-			if fuzz.ContainsPathTraversal(file.Src) || fuzz.ContainsPathTraversal(file.Dest) {
-				t.Logf("Security: Path traversal in validated target[%d] file[%d]: %s -> %s", i, j, file.Src, file.Dest)
+		if mapping.Source.Branch != "" && fuzz.ContainsShellMetachars(mapping.Source.Branch) {
+			t.Logf("Security: Shell metacharacters in validated mapping[%d] source branch: %s", mappingIdx, mapping.Source.Branch)
+		}
+
+		// Check all targets in this mapping
+		for targetIdx, target := range mapping.Targets {
+			if fuzz.ContainsPathTraversal(target.Repo) {
+				t.Logf("Security: Path traversal in validated mapping[%d] target[%d] repo: %s", mappingIdx, targetIdx, target.Repo)
+			}
+
+			if fuzz.ContainsShellMetachars(target.Repo) {
+				t.Logf("Security: Shell metacharacters in validated mapping[%d] target[%d] repo: %s", mappingIdx, targetIdx, target.Repo)
+			}
+
+			// Check all file mappings
+			for fileIdx, file := range target.Files {
+				if fuzz.ContainsPathTraversal(file.Src) || fuzz.ContainsPathTraversal(file.Dest) {
+					t.Logf("Security: Path traversal in validated mapping[%d] target[%d] file[%d]: %s -> %s", mappingIdx, targetIdx, fileIdx, file.Src, file.Dest)
+				}
 			}
 		}
 	}

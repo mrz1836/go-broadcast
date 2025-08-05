@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
+
+	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
 
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/validation"
@@ -30,7 +33,21 @@ var (
 	ErrPathTraversal = errors.New("path traversal not allowed")
 	// ErrDuplicateDestPath indicates destination path is used by multiple mappings
 	ErrDuplicateDestPath = errors.New("destination path already in use")
+	// ErrNoSourceMapping indicates no source mappings were specified
+	ErrNoSourceMapping = errors.New("at least one source mapping must be specified")
+	// ErrDuplicateSourceID indicates a source ID is used multiple times
+	ErrDuplicateSourceID = errors.New("duplicate source ID")
+	// ErrMissingSourceID indicates a source ID is required for conflict resolution
+	ErrMissingSourceID = errors.New("source ID is required when using conflict resolution")
+
+	// sourceIDRegex validates source ID format
+	sourceIDRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 )
+
+// isValidSourceID checks if a source ID contains only valid characters
+func isValidSourceID(id string) bool {
+	return sourceIDRegex.MatchString(id)
+}
 
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
@@ -58,13 +75,23 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 
 	// Debug logging when --debug-config flag is enabled
 	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithFields(logrus.Fields{
-			logging.StandardFields.Operation:   logging.OperationTypes.ConfigValidate,
-			"version":                          c.Version,
-			logging.StandardFields.SourceRepo:  c.Source.Repo,
-			logging.StandardFields.BranchName:  c.Source.Branch,
-			logging.StandardFields.TargetCount: len(c.Targets),
-		}).Debug("Starting configuration validation")
+		fields := logrus.Fields{
+			logging.StandardFields.Operation: logging.OperationTypes.ConfigValidate,
+			"version":                        c.Version,
+		}
+
+		// Handle multi-source configurations
+		fields["mappings_count"] = len(c.Mappings)
+		// Count total unique targets
+		targetMap := make(map[string]bool)
+		for _, mapping := range c.Mappings {
+			for _, target := range mapping.Targets {
+				targetMap[target.Repo] = true
+			}
+		}
+		fields[logging.StandardFields.TargetCount] = len(targetMap)
+
+		logger.WithFields(fields).Debug("Starting configuration validation")
 	}
 
 	// Check for context cancellation
@@ -90,13 +117,25 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 		return fmt.Errorf("%w: %d (only version 1 is supported)", ErrUnsupportedVersion, c.Version)
 	}
 
-	// Validate source
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.Debug("Validating source configuration")
-	}
+	// Validate source configuration
+	if len(c.Mappings) > 0 {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.Debug("Validating source mappings")
+		}
 
-	if err := c.validateSourceWithLogging(ctx, logConfig); err != nil {
-		return fmt.Errorf("invalid source configuration: %w", err)
+		// Validate each source in mappings
+		for i, mapping := range c.Mappings {
+			if err := validation.ValidateSourceConfig(mapping.Source.Repo, mapping.Source.Branch); err != nil {
+				return fmt.Errorf("invalid source configuration in mapping %d: %w", i+1, err)
+			}
+
+			// Validate source ID if provided
+			if mapping.Source.ID != "" && !isValidSourceID(mapping.Source.ID) {
+				return appErrors.InvalidSourceIDError(mapping.Source.ID, i)
+			}
+		}
+	} else {
+		return appErrors.NoSourceConfigFoundError()
 	}
 
 	// Validate global
@@ -118,18 +157,28 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 	}
 
 	// Validate targets
-	if len(c.Targets) == 0 {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.Error("No target repositories specified")
+	allTargets := []TargetConfig{}
+
+	if len(c.Mappings) > 0 {
+		// Collect all targets from mappings
+		for _, mapping := range c.Mappings {
+			if len(mapping.Targets) == 0 {
+				if logConfig != nil && logConfig.Debug.Config {
+					logger.Error("No targets specified in mapping")
+				}
+				return appErrors.MappingNoTargetsError(mapping.Source.Repo)
+			}
+			allTargets = append(allTargets, mapping.Targets...)
 		}
-		return ErrNoTargets
+	} else {
+		return appErrors.NoSourceConfigFoundError()
 	}
 
 	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithField(logging.StandardFields.TargetCount, len(c.Targets)).Debug("Validating target repositories")
+		logger.WithField(logging.StandardFields.TargetCount, len(allTargets)).Debug("Validating target repositories")
 	}
 
-	for i, target := range c.Targets {
+	for i, target := range allTargets {
 		// Check for context cancellation
 		select {
 		case <-ctx.Done():
@@ -151,24 +200,28 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 		}
 	}
 
-	// Check for duplicate target repositories
+	// Check for duplicate target repositories within each source mapping
+	// (Multi-source configurations allow different sources to target the same repository)
 	if logConfig != nil && logConfig.Debug.Config {
-		logger.Debug("Checking for duplicate target repositories")
+		logger.Debug("Checking for duplicate target repositories within source mappings")
 	}
 
-	seen := make(map[string]bool)
-	for _, target := range c.Targets {
-		if seen[target.Repo] {
-			if logConfig != nil && logConfig.Debug.Config {
-				logger.WithFields(logrus.Fields{
-					"duplicate_repo":                 target.Repo,
-					logging.StandardFields.ErrorType: "duplicate_target",
-				}).Error("Duplicate target repository found")
+	for mappingIdx, mapping := range c.Mappings {
+		seen := make(map[string]bool)
+		for _, target := range mapping.Targets {
+			if seen[target.Repo] {
+				if logConfig != nil && logConfig.Debug.Config {
+					logger.WithFields(logrus.Fields{
+						"duplicate_repo":                 target.Repo,
+						"source_mapping_index":           mappingIdx,
+						"source_repo":                    mapping.Source.Repo,
+						logging.StandardFields.ErrorType: "duplicate_target_in_source",
+					}).Error("Duplicate target repository found within source mapping")
+				}
+				return fmt.Errorf("%w: %s (within source mapping %d)", ErrDuplicateTarget, target.Repo, mappingIdx)
 			}
-			return fmt.Errorf("%w: %s", ErrDuplicateTarget, target.Repo)
+			seen[target.Repo] = true
 		}
-
-		seen[target.Repo] = true
 	}
 
 	// Log successful validation completion
@@ -176,60 +229,9 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.DurationMs: duration.Milliseconds(),
-			"targets_valid":                   len(c.Targets),
+			"targets_valid":                   len(allTargets),
 			logging.StandardFields.Status:     "completed",
 		}).Debug("Configuration validation completed successfully")
-	}
-
-	return nil
-}
-
-// validateSourceWithLogging validates source configuration with debug logging support.
-//
-// Parameters:
-// - ctx: Context for cancellation control
-// - logConfig: Configuration for debug logging
-//
-// Returns:
-// - Error if source configuration is invalid
-//
-// Side Effects:
-// - Logs detailed source validation when --debug-config flag is enabled
-func (c *Config) validateSourceWithLogging(ctx context.Context, logConfig *logging.LogConfig) error {
-	logger := logging.WithStandardFields(logrus.StandardLogger(), logConfig, "config-source")
-
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithFields(logrus.Fields{
-			logging.StandardFields.RepoName:   c.Source.Repo,
-			logging.StandardFields.BranchName: c.Source.Branch,
-		}).Trace("Validating source repository configuration")
-	}
-
-	// Check for context cancellation
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("source validation canceled: %w", ctx.Err())
-	default:
-	}
-
-	// Use centralized validation for source configuration
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithField("repo_format", c.Source.Repo).Trace("Validating source repository format")
-	}
-
-	if err := validation.ValidateSourceConfig(c.Source.Repo, c.Source.Branch); err != nil {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.WithFields(logrus.Fields{
-				logging.StandardFields.RepoName:   c.Source.Repo,
-				logging.StandardFields.BranchName: c.Source.Branch,
-				logging.StandardFields.ErrorType:  "validation_failed",
-			}).Error("Source configuration validation failed")
-		}
-		return err
-	}
-
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.Debug("Source configuration validation completed successfully")
 	}
 
 	return nil

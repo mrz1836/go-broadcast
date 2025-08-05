@@ -23,6 +23,9 @@ I need to run comprehensive performance benchmarks and analyze for regressions.
    - Directory sync (target: <32ms for 1000 files)
    - Cache operations (target: 13.5M+ ops/sec)
 
+3. **Update benchmarks in @README.md**:
+   - Update the statistics section with latest results
+
 **Step 2: Use the benchmark-analyst agent** to:
 
 1. **Compare with baseline**:

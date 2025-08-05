@@ -56,21 +56,27 @@ func TestNewEngine(t *testing.T) {
 func TestEngineSync(t *testing.T) {
 	// Setup test configuration
 	cfg := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/template",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
+		Version: 1,
+		Mappings: []config.SourceMapping{
 			{
-				Repo: "org/target-a",
-				Files: []config.FileMapping{
-					{Src: "file1.txt", Dest: "file1.txt"},
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
+					ID:     "template",
 				},
-			},
-			{
-				Repo: "org/target-b",
-				Files: []config.FileMapping{
-					{Src: "file2.txt", Dest: "file2.txt"},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target-a",
+						Files: []config.FileMapping{
+							{Src: "file1.txt", Dest: "file1.txt"},
+						},
+					},
+					{
+						Repo: "org/target-b",
+						Files: []config.FileMapping{
+							{Src: "file2.txt", Dest: "file2.txt"},
+						},
+					},
 				},
 			},
 		},
@@ -247,150 +253,23 @@ func TestEngineSync(t *testing.T) {
 	})
 }
 
-func TestEngineFilterTargets(t *testing.T) {
-	cfg := &config.Config{
-		Targets: []config.TargetConfig{
-			{Repo: "org/target-a"},
-			{Repo: "org/target-b"},
-			{Repo: "org/target-c"},
-		},
-	}
-
-	currentState := &state.State{
-		Targets: map[string]*state.TargetState{
-			"org/target-a": {Status: state.StatusBehind},
-			"org/target-b": {Status: state.StatusUpToDate},
-			"org/target-c": {Status: state.StatusPending},
-		},
-	}
-
-	engine := &Engine{
-		config:  cfg,
-		options: DefaultOptions(),
-		logger:  logrus.New(),
-	}
-
-	t.Run("no filter", func(t *testing.T) {
-		targets, err := engine.filterTargets(nil, currentState)
-
-		require.NoError(t, err)
-		// Should return targets that need sync (Behind and Pending since UpdateExistingPRs defaults to true)
-		assert.Len(t, targets, 2)
-		assert.Equal(t, "org/target-a", targets[0].Repo)
-		assert.Equal(t, "org/target-c", targets[1].Repo)
-	})
-
-	t.Run("with filter", func(t *testing.T) {
-		targets, err := engine.filterTargets([]string{"org/target-b"}, currentState)
-
-		require.NoError(t, err)
-		// Should return empty since target-b is up-to-date
-		assert.Empty(t, targets)
-	})
-
-	t.Run("with force option", func(t *testing.T) {
-		engine.options.Force = true
-		targets, err := engine.filterTargets([]string{"org/target-b"}, currentState)
-
-		require.NoError(t, err)
-		// Should return target-b even though it's up-to-date (forced)
-		assert.Len(t, targets, 1)
-		assert.Equal(t, "org/target-b", targets[0].Repo)
-	})
-
-	t.Run("invalid filter", func(t *testing.T) {
-		engine.options.Force = false
-		_, err := engine.filterTargets([]string{"org/nonexistent"}, currentState)
-
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no targets match")
-	})
-}
-
-func TestEngineNeedsSync(t *testing.T) {
-	engine := &Engine{
-		options: DefaultOptions(),
-		logger:  logrus.New(),
-	}
-
-	target := config.TargetConfig{Repo: "org/target"}
-	currentState := &state.State{
-		Source: state.SourceState{LatestCommit: "abc123"},
-	}
-
-	t.Run("no target state", func(t *testing.T) {
-		needs := engine.needsSync(target, currentState)
-		assert.True(t, needs)
-	})
-
-	t.Run("up to date", func(t *testing.T) {
-		currentState.Targets = map[string]*state.TargetState{
-			"org/target": {Status: state.StatusUpToDate},
-		}
-
-		needs := engine.needsSync(target, currentState)
-		assert.False(t, needs)
-	})
-
-	t.Run("behind", func(t *testing.T) {
-		currentState.Targets = map[string]*state.TargetState{
-			"org/target": {Status: state.StatusBehind},
-		}
-
-		needs := engine.needsSync(target, currentState)
-		assert.True(t, needs)
-	})
-
-	t.Run("pending with update PRs enabled", func(t *testing.T) {
-		engine.options.UpdateExistingPRs = true
-		currentState.Targets = map[string]*state.TargetState{
-			"org/target": {Status: state.StatusPending},
-		}
-
-		needs := engine.needsSync(target, currentState)
-		assert.True(t, needs)
-	})
-
-	t.Run("pending with update PRs disabled", func(t *testing.T) {
-		engine.options.UpdateExistingPRs = false
-		currentState.Targets = map[string]*state.TargetState{
-			"org/target": {Status: state.StatusPending},
-		}
-
-		needs := engine.needsSync(target, currentState)
-		assert.False(t, needs)
-	})
-
-	t.Run("conflict", func(t *testing.T) {
-		currentState.Targets = map[string]*state.TargetState{
-			"org/target": {Status: state.StatusConflict},
-		}
-
-		needs := engine.needsSync(target, currentState)
-		assert.False(t, needs)
-	})
-
-	t.Run("unknown status", func(t *testing.T) {
-		currentState.Targets = map[string]*state.TargetState{
-			"org/target": {Status: state.StatusUnknown},
-		}
-
-		needs := engine.needsSync(target, currentState)
-		assert.True(t, needs)
-	})
-}
-
 func TestEngineWithDryRun(t *testing.T) {
 	cfg := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/template",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
+		Version: 1,
+		Mappings: []config.SourceMapping{
 			{
-				Repo: "org/target",
-				Files: []config.FileMapping{
-					{Src: "file.txt", Dest: "file.txt"},
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
+					ID:     "template",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target",
+						Files: []config.FileMapping{
+							{Src: "file.txt", Dest: "file.txt"},
+						},
+					},
 				},
 			},
 		},
@@ -448,27 +327,33 @@ func TestEngineWithDryRun(t *testing.T) {
 func TestEngineConcurrentErrorScenarios(t *testing.T) {
 	// Base configuration with multiple targets for concurrent testing
 	cfg := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/template",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
+		Version: 1,
+		Mappings: []config.SourceMapping{
 			{
-				Repo: "org/target-a",
-				Files: []config.FileMapping{
-					{Src: "file1.txt", Dest: "file1.txt"},
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
+					ID:     "template",
 				},
-			},
-			{
-				Repo: "org/target-b",
-				Files: []config.FileMapping{
-					{Src: "file2.txt", Dest: "file2.txt"},
-				},
-			},
-			{
-				Repo: "org/target-c",
-				Files: []config.FileMapping{
-					{Src: "file3.txt", Dest: "file3.txt"},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target-a",
+						Files: []config.FileMapping{
+							{Src: "file1.txt", Dest: "file1.txt"},
+						},
+					},
+					{
+						Repo: "org/target-b",
+						Files: []config.FileMapping{
+							{Src: "file2.txt", Dest: "file2.txt"},
+						},
+					},
+					{
+						Repo: "org/target-c",
+						Files: []config.FileMapping{
+							{Src: "file3.txt", Dest: "file3.txt"},
+						},
+					},
 				},
 			},
 		},

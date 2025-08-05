@@ -846,12 +846,18 @@ func TestPerformCancelErrorHandling(t *testing.T) {
 	t.Run("github client creation failure", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
-			},
-			Targets: []config.TargetConfig{
-				{Repo: "test/target1"},
+			Version: 1,
+			Mappings: []config.SourceMapping{
+				{
+					Source: config.SourceConfig{
+						Repo:   "test/source",
+						Branch: "main",
+						ID:     "source",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "test/target1"},
+					},
+				},
 			},
 		}
 
@@ -935,12 +941,18 @@ func TestPerformCancelErrorCases(t *testing.T) {
 	t.Run("GitHub client creation failures", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
-			},
-			Targets: []config.TargetConfig{
-				{Repo: "test/target1"},
+			Version: 1,
+			Mappings: []config.SourceMapping{
+				{
+					Source: config.SourceConfig{
+						Repo:   "test/source",
+						Branch: "main",
+						ID:     "source",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "test/target1"},
+					},
+				},
 			},
 		}
 
@@ -963,11 +975,17 @@ func TestPerformCancelErrorCases(t *testing.T) {
 	t.Run("Empty targets", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
+			Version: 1,
+			Mappings: []config.SourceMapping{
+				{
+					Source: config.SourceConfig{
+						Repo:   "test/source",
+						Branch: "main",
+						ID:     "source",
+					},
+					Targets: []config.TargetConfig{}, // Empty targets
+				},
 			},
-			Targets: []config.TargetConfig{}, // Empty targets
 		}
 
 		// Should still try to process but fail at GitHub client creation
@@ -979,13 +997,19 @@ func TestPerformCancelErrorCases(t *testing.T) {
 	t.Run("Specific target repos", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
-			},
-			Targets: []config.TargetConfig{
-				{Repo: "test/target1"},
-				{Repo: "test/target2"},
+			Version: 1,
+			Mappings: []config.SourceMapping{
+				{
+					Source: config.SourceConfig{
+						Repo:   "test/source",
+						Branch: "main",
+						ID:     "source",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "test/target1"},
+						{Repo: "test/target2"},
+					},
+				},
 			},
 		}
 

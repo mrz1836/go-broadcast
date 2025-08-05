@@ -12,26 +12,32 @@ func TestConfigStructCreation(t *testing.T) {
 	t.Run("CreateConfig", func(t *testing.T) {
 		config := &Config{
 			Version: 1,
-			Source: SourceConfig{
-				Repo: "org/template",
-			},
 			Defaults: DefaultConfig{
 				BranchPrefix: "sync/",
 				PRLabels:     []string{"automated"},
 			},
-			Targets: []TargetConfig{
+			Mappings: []SourceMapping{
 				{
-					Repo: "org/service",
-					Files: []FileMapping{
-						{
-							Src:  "file.txt",
-							Dest: "dest.txt",
-						},
+					Source: SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+						ID:     "primary",
 					},
-					Transform: Transform{
-						RepoName: true,
-						Variables: map[string]string{
-							"KEY": "value",
+					Targets: []TargetConfig{
+						{
+							Repo: "org/service",
+							Files: []FileMapping{
+								{
+									Src:  "file.txt",
+									Dest: "dest.txt",
+								},
+							},
+							Transform: Transform{
+								RepoName: true,
+								Variables: map[string]string{
+									"KEY": "value",
+								},
+							},
 						},
 					},
 				},
@@ -40,12 +46,14 @@ func TestConfigStructCreation(t *testing.T) {
 
 		require.NotNil(t, config)
 		assert.Equal(t, 1, config.Version)
-		assert.Equal(t, "org/template", config.Source.Repo)
 		assert.Equal(t, "sync/", config.Defaults.BranchPrefix)
 		assert.Len(t, config.Defaults.PRLabels, 1)
-		assert.Len(t, config.Targets, 1)
-		assert.True(t, config.Targets[0].Transform.RepoName)
-		assert.Equal(t, "value", config.Targets[0].Transform.Variables["KEY"])
+		assert.Len(t, config.Mappings, 1)
+		assert.Equal(t, "org/template", config.Mappings[0].Source.Repo)
+		assert.Equal(t, "primary", config.Mappings[0].Source.ID)
+		assert.Len(t, config.Mappings[0].Targets, 1)
+		assert.True(t, config.Mappings[0].Targets[0].Transform.RepoName)
+		assert.Equal(t, "value", config.Mappings[0].Targets[0].Transform.Variables["KEY"])
 	})
 }
 
@@ -55,6 +63,7 @@ func TestSourceConfigDefaults(t *testing.T) {
 
 	assert.Empty(t, source.Repo)
 	assert.Empty(t, source.Branch)
+	assert.Empty(t, source.ID)
 }
 
 // TestDefaultConfigDefaults tests DefaultConfig zero values
@@ -63,6 +72,9 @@ func TestDefaultConfigDefaults(t *testing.T) {
 
 	assert.Empty(t, defaults.BranchPrefix)
 	assert.Nil(t, defaults.PRLabels)
+	assert.Nil(t, defaults.PRAssignees)
+	assert.Nil(t, defaults.PRReviewers)
+	assert.Nil(t, defaults.PRTeamReviewers)
 }
 
 // TestTargetConfigDefaults tests TargetConfig zero values
@@ -71,6 +83,7 @@ func TestTargetConfigDefaults(t *testing.T) {
 
 	assert.Empty(t, target.Repo)
 	assert.Nil(t, target.Files)
+	assert.Nil(t, target.Directories)
 	assert.False(t, target.Transform.RepoName)
 	assert.Nil(t, target.Transform.Variables)
 	assert.Nil(t, target.PRLabels)
@@ -87,6 +100,20 @@ func TestFileMappingDefaults(t *testing.T) {
 	assert.Empty(t, file.Dest)
 }
 
+// TestDirectoryMappingDefaults tests DirectoryMapping zero values
+func TestDirectoryMappingDefaults(t *testing.T) {
+	dir := DirectoryMapping{}
+
+	assert.Empty(t, dir.Src)
+	assert.Empty(t, dir.Dest)
+	assert.Nil(t, dir.Exclude)
+	assert.Nil(t, dir.IncludeOnly)
+	assert.Nil(t, dir.PreserveStructure)
+	assert.Nil(t, dir.IncludeHidden)
+	assert.False(t, dir.Transform.RepoName)
+	assert.Nil(t, dir.Transform.Variables)
+}
+
 // TestTransformDefaults tests Transform zero values
 func TestTransformDefaults(t *testing.T) {
 	transform := Transform{}
@@ -99,19 +126,16 @@ func TestTransformDefaults(t *testing.T) {
 func TestConfigWithEmptySlices(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source: SourceConfig{
-			Repo: "org/repo",
-		},
 		Defaults: DefaultConfig{
 			BranchPrefix: "prefix",
 			PRLabels:     []string{}, // Empty slice
 		},
-		Targets: []TargetConfig{}, // Empty targets
+		Mappings: []SourceMapping{}, // Empty mappings
 	}
 
 	require.NotNil(t, config)
 	assert.Empty(t, config.Defaults.PRLabels)
-	assert.Empty(t, config.Targets)
+	assert.Empty(t, config.Mappings)
 }
 
 // TestTargetWithEmptyFileList tests target with empty file list
@@ -141,45 +165,73 @@ func TestTransformWithEmptyVariables(t *testing.T) {
 func TestConfigFieldModification(t *testing.T) {
 	config := &Config{
 		Version: 1,
+		Mappings: []SourceMapping{
+			{
+				Source: SourceConfig{},
+				Targets: []TargetConfig{
+					{Repo: "org/target"},
+				},
+			},
+		},
 	}
 
 	// Modify fields
-	config.Source.Repo = "new/repo"
-	config.Source.Branch = "develop"
+	config.Mappings[0].Source.Repo = "new/repo"
+	config.Mappings[0].Source.Branch = "develop"
+	config.Mappings[0].Source.ID = "modified"
 	config.Defaults.BranchPrefix = "feature/"
 	config.Defaults.PRLabels = append(config.Defaults.PRLabels, "label1", "label2")
 
-	assert.Equal(t, "new/repo", config.Source.Repo)
-	assert.Equal(t, "develop", config.Source.Branch)
+	assert.Equal(t, "new/repo", config.Mappings[0].Source.Repo)
+	assert.Equal(t, "develop", config.Mappings[0].Source.Branch)
+	assert.Equal(t, "modified", config.Mappings[0].Source.ID)
 	assert.Equal(t, "feature/", config.Defaults.BranchPrefix)
 	assert.Len(t, config.Defaults.PRLabels, 2)
 }
 
-// TestTargetConfigAppend tests appending to targets slice
-func TestTargetConfigAppend(t *testing.T) {
+// TestSourceMappingAppend tests appending to mappings slice
+func TestSourceMappingAppend(t *testing.T) {
 	config := &Config{
-		Version: 1,
-		Targets: []TargetConfig{},
+		Version:  1,
+		Mappings: []SourceMapping{},
 	}
 
-	// Append targets
-	config.Targets = append(config.Targets, TargetConfig{
-		Repo: "org/service1",
-		Files: []FileMapping{
-			{Src: "a.txt", Dest: "b.txt"},
+	// Append mappings
+	config.Mappings = append(config.Mappings, SourceMapping{
+		Source: SourceConfig{
+			Repo: "org/source1",
+			ID:   "source1",
+		},
+		Targets: []TargetConfig{
+			{
+				Repo: "org/target1",
+				Files: []FileMapping{
+					{Src: "a.txt", Dest: "b.txt"},
+				},
+			},
 		},
 	})
 
-	config.Targets = append(config.Targets, TargetConfig{
-		Repo: "org/service2",
-		Files: []FileMapping{
-			{Src: "c.txt", Dest: "d.txt"},
+	config.Mappings = append(config.Mappings, SourceMapping{
+		Source: SourceConfig{
+			Repo: "org/source2",
+			ID:   "source2",
+		},
+		Targets: []TargetConfig{
+			{
+				Repo: "org/target2",
+				Files: []FileMapping{
+					{Src: "c.txt", Dest: "d.txt"},
+				},
+			},
 		},
 	})
 
-	assert.Len(t, config.Targets, 2)
-	assert.Equal(t, "org/service1", config.Targets[0].Repo)
-	assert.Equal(t, "org/service2", config.Targets[1].Repo)
+	assert.Len(t, config.Mappings, 2)
+	assert.Equal(t, "org/source1", config.Mappings[0].Source.Repo)
+	assert.Equal(t, "source1", config.Mappings[0].Source.ID)
+	assert.Equal(t, "org/source2", config.Mappings[1].Source.Repo)
+	assert.Equal(t, "source2", config.Mappings[1].Source.ID)
 }
 
 // TestTransformVariablesModification tests modifying transform variables
@@ -294,31 +346,36 @@ func TestGlobalConfigFields(t *testing.T) {
 func TestConfigWithGlobalSection(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source: SourceConfig{
-			Repo: "org/template",
-		},
 		Global: GlobalConfig{
 			PRLabels:    []string{"automated-sync", "chore"},
 			PRAssignees: []string{"platform-team"},
 		},
-		Targets: []TargetConfig{
+		Mappings: []SourceMapping{
 			{
-				Repo: "org/service",
-				Files: []FileMapping{
-					{Src: "file.txt", Dest: "dest.txt"},
+				Source: SourceConfig{
+					Repo: "org/template",
+					ID:   "main",
 				},
-				PRLabels: []string{"critical"},
+				Targets: []TargetConfig{
+					{
+						Repo: "org/service",
+						Files: []FileMapping{
+							{Src: "file.txt", Dest: "dest.txt"},
+						},
+						PRLabels: []string{"critical"},
+					},
+				},
 			},
 		},
 	}
 
 	require.NotNil(t, config)
 	assert.Equal(t, 1, config.Version)
-	assert.Equal(t, "org/template", config.Source.Repo)
+	assert.Equal(t, "org/template", config.Mappings[0].Source.Repo)
 	assert.Equal(t, []string{"automated-sync", "chore"}, config.Global.PRLabels)
 	assert.Equal(t, []string{"platform-team"}, config.Global.PRAssignees)
-	assert.Len(t, config.Targets, 1)
-	assert.Equal(t, []string{"critical"}, config.Targets[0].PRLabels)
+	assert.Len(t, config.Mappings, 1)
+	assert.Equal(t, []string{"critical"}, config.Mappings[0].Targets[0].PRLabels)
 }
 
 // TestTargetConfigPRFields tests TargetConfig PR-related fields
@@ -398,4 +455,135 @@ func TestTargetConfigPRFields(t *testing.T) {
 		assert.Len(t, target.PRLabels, 2)
 		assert.Len(t, target.PRAssignees, 2)
 	})
+}
+
+// TestSourceMappingDefaults tests SourceMapping zero values
+func TestSourceMappingDefaults(t *testing.T) {
+	mapping := SourceMapping{}
+
+	assert.Empty(t, mapping.Source.Repo)
+	assert.Empty(t, mapping.Source.Branch)
+	assert.Empty(t, mapping.Source.ID)
+	assert.Nil(t, mapping.Targets)
+}
+
+// TestConflictResolutionDefaults tests ConflictResolution zero values
+func TestConflictResolutionDefaults(t *testing.T) {
+	conflict := ConflictResolution{}
+
+	assert.Empty(t, conflict.Strategy)
+	assert.Nil(t, conflict.Priority)
+	// CustomRules field was removed - no assertion needed
+}
+
+// TestConflictResolutionStrategies tests different conflict resolution strategies
+func TestConflictResolutionStrategies(t *testing.T) {
+	tests := []struct {
+		name     string
+		conflict *ConflictResolution
+	}{
+		{
+			name: "error strategy",
+			conflict: &ConflictResolution{
+				Strategy: "error",
+			},
+		},
+		{
+			name: "priority strategy with order",
+			conflict: &ConflictResolution{
+				Strategy: "priority",
+				Priority: []string{"source1", "source2", "source3"},
+			},
+		},
+		{
+			name: "merge strategy",
+			conflict: &ConflictResolution{
+				Strategy: "merge",
+			},
+		},
+		{
+			name: "priority strategy",
+			conflict: &ConflictResolution{
+				Strategy: "priority",
+				Priority: []string{"core", "extensions"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NotNil(t, tt.conflict)
+			assert.NotEmpty(t, tt.conflict.Strategy)
+		})
+	}
+}
+
+// TestCustomRuleDefaults was removed as CustomRule type no longer exists
+
+// TestConfigWithMultipleSourceMappings tests config with multiple source mappings
+func TestConfigWithMultipleSourceMappings(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Mappings: []SourceMapping{
+			{
+				Source: SourceConfig{
+					Repo:   "org/source1",
+					Branch: "main",
+					ID:     "source1",
+				},
+				Targets: []TargetConfig{
+					{
+						Repo: "org/target1",
+						Files: []FileMapping{
+							{Src: "file1.txt", Dest: "file1.txt"},
+						},
+					},
+				},
+			},
+			{
+				Source: SourceConfig{
+					Repo:   "org/source2",
+					Branch: "develop",
+					ID:     "source2",
+				},
+				Targets: []TargetConfig{
+					{
+						Repo: "org/target2",
+						Files: []FileMapping{
+							{Src: "file2.txt", Dest: "file2.txt"},
+						},
+					},
+					{
+						Repo: "org/target3",
+						Files: []FileMapping{
+							{Src: "file3.txt", Dest: "file3.txt"},
+						},
+					},
+				},
+			},
+		},
+		ConflictResolution: &ConflictResolution{
+			Strategy: "priority",
+			Priority: []string{"source1", "source2"},
+		},
+	}
+
+	require.NotNil(t, config)
+	assert.Equal(t, 1, config.Version)
+	assert.Len(t, config.Mappings, 2)
+
+	// First mapping
+	assert.Equal(t, "org/source1", config.Mappings[0].Source.Repo)
+	assert.Equal(t, "source1", config.Mappings[0].Source.ID)
+	assert.Len(t, config.Mappings[0].Targets, 1)
+
+	// Second mapping
+	assert.Equal(t, "org/source2", config.Mappings[1].Source.Repo)
+	assert.Equal(t, "source2", config.Mappings[1].Source.ID)
+	assert.Len(t, config.Mappings[1].Targets, 2)
+
+	// Conflict resolution
+	assert.NotNil(t, config.ConflictResolution)
+	assert.Equal(t, "priority", config.ConflictResolution.Strategy)
+	assert.Equal(t, []string{"source1", "source2"}, config.ConflictResolution.Priority)
 }

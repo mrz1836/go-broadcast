@@ -101,7 +101,14 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 	output.Info("")
 	output.Info("Configuration Summary:")
 	output.Info(fmt.Sprintf("  Version: %d", cfg.Version))
-	output.Info(fmt.Sprintf("  Source: %s (branch: %s)", cfg.Source.Repo, cfg.Source.Branch))
+
+	// Multi-source format (all configs are normalized to this format)
+	if len(cfg.Mappings) > 0 {
+		output.Info(fmt.Sprintf("  Sources: %d repositories", len(cfg.Mappings)))
+		for i, mapping := range cfg.Mappings {
+			output.Info(fmt.Sprintf("    %d. %s (branch: %s, id: %s)", i+1, mapping.Source.Repo, mapping.Source.Branch, mapping.Source.ID))
+		}
+	}
 
 	if cfg.Defaults.BranchPrefix != "" || len(cfg.Defaults.PRLabels) > 0 {
 		output.Info("  Defaults:")
@@ -113,31 +120,65 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 		}
 	}
 
-	output.Info(fmt.Sprintf("  Targets: %d repositories", len(cfg.Targets)))
+	// Handle targets based on configuration format
+	allTargets := make(map[string]bool)
 
-	// Show target details
-	totalFiles := 0
-
-	for i, target := range cfg.Targets {
-		output.Info(fmt.Sprintf("    %d. %s", i+1, target.Repo))
-		output.Info(fmt.Sprintf("       Files: %d mappings", len(target.Files)))
-
-		// Count transforms
-		transformCount := 0
-		if target.Transform.RepoName {
-			transformCount++
+	if len(cfg.Mappings) > 0 {
+		// Multi-source format
+		output.Info(fmt.Sprintf("  Source Mappings: %d", len(cfg.Mappings)))
+		// Show mapping details
+		for i, mapping := range cfg.Mappings {
+			output.Info(fmt.Sprintf("    %d. Source: %s (%s)", i+1, mapping.Source.Repo, mapping.Source.Branch))
+			output.Info(fmt.Sprintf("       Targets: %d repositories", len(mapping.Targets)))
+			for j, target := range mapping.Targets {
+				output.Info(fmt.Sprintf("         %d. %s", j+1, target.Repo))
+				output.Info(fmt.Sprintf("            Files: %d mappings", len(target.Files)))
+				allTargets[target.Repo] = true
+			}
 		}
-
-		transformCount += len(target.Transform.Variables)
-		if transformCount > 0 {
-			output.Info(fmt.Sprintf("       Transforms: %d configured", transformCount))
+	} else if len(cfg.Mappings) > 0 {
+		// Multi-source format - collect all unique targets
+		for _, mapping := range cfg.Mappings {
+			for _, target := range mapping.Targets {
+				allTargets[target.Repo] = true
+			}
 		}
-
-		totalFiles += len(target.Files)
+		output.Info(fmt.Sprintf("  Total unique targets: %d repositories", len(allTargets)))
 	}
 
-	output.Info("")
-	output.Info(fmt.Sprintf("Total file mappings: %d", totalFiles))
+	// Show conflict resolution if configured
+	if cfg.ConflictResolution != nil {
+		output.Info("")
+		output.Info("  Conflict Resolution:")
+		output.Info(fmt.Sprintf("    Strategy: %s", cfg.ConflictResolution.Strategy))
+		if len(cfg.ConflictResolution.Priority) > 0 {
+			output.Info(fmt.Sprintf("    Priority: %v", cfg.ConflictResolution.Priority))
+		}
+	}
+
+	// Show target details for legacy format
+	totalFiles := 0
+	if len(cfg.Mappings) > 0 {
+		for _, mapping := range cfg.Mappings {
+			for _, target := range mapping.Targets {
+				// Count transforms
+				transformCount := 0
+				if target.Transform.RepoName {
+					transformCount++
+				}
+
+				transformCount += len(target.Transform.Variables)
+				if transformCount > 0 {
+					output.Info(fmt.Sprintf("          Transforms: %d configured", transformCount))
+				}
+
+				totalFiles += len(target.Files)
+			}
+		}
+
+		output.Info("")
+		output.Info(fmt.Sprintf("Total file mappings: %d", totalFiles))
+	}
 
 	// Additional validation checks (future implementation)
 	output.Info("")
@@ -204,23 +245,25 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 		return fmt.Errorf("failed to initialize GitHub client: %w", err)
 	}
 
-	// Check source repository accessibility
-	log.WithField("repo", cfg.Source.Repo).Debug("Checking source repository accessibility")
-	_, err = ghClient.GetBranch(ctx, cfg.Source.Repo, cfg.Source.Branch)
-	if err != nil {
-		if strings.Contains(err.Error(), "branch not found") {
-			output.Error(fmt.Sprintf("  ✗ Source branch '%s' not found in %s", cfg.Source.Branch, cfg.Source.Repo))
-			return ErrSourceBranchNotFound
+	// Check source repositories accessibility in all mappings
+	for _, mapping := range cfg.Mappings {
+		log.WithField("repo", mapping.Source.Repo).Debug("Checking source repository accessibility")
+		_, err = ghClient.GetBranch(ctx, mapping.Source.Repo, mapping.Source.Branch)
+		if err != nil {
+			if strings.Contains(err.Error(), "branch not found") {
+				output.Error(fmt.Sprintf("  ✗ Source branch '%s' not found in %s", mapping.Source.Branch, mapping.Source.Repo))
+				return ErrSourceBranchNotFound
+			}
+			if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
+				output.Error(fmt.Sprintf("  ✗ Source repository '%s' not accessible", mapping.Source.Repo))
+				output.Info("    Check repository name and permissions")
+				return ErrSourceRepoNotFound
+			}
+			output.Error(fmt.Sprintf("  ✗ Failed to access source repository: %v", err))
+			return fmt.Errorf("source repository check failed: %w", err)
 		}
-		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
-			output.Error(fmt.Sprintf("  ✗ Source repository '%s' not accessible", cfg.Source.Repo))
-			output.Info("    Check repository name and permissions")
-			return ErrSourceRepoNotFound
-		}
-		output.Error(fmt.Sprintf("  ✗ Failed to access source repository: %v", err))
-		return fmt.Errorf("source repository check failed: %w", err)
+		output.Success(fmt.Sprintf("  ✓ Source repository accessible: %s (branch: %s)", mapping.Source.Repo, mapping.Source.Branch))
 	}
-	output.Success(fmt.Sprintf("  ✓ Source repository accessible: %s (branch: %s)", cfg.Source.Repo, cfg.Source.Branch))
 
 	// Skip target repository checks if sourceOnly flag is set
 	if sourceOnly {
@@ -229,24 +272,28 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 	}
 
 	// Check target repositories accessibility
-	for i, target := range cfg.Targets {
-		log.WithFields(logrus.Fields{
-			"target_index": i,
-			"repo":         target.Repo,
-		}).Debug("Checking target repository accessibility")
+	targetIndex := 0
+	for _, mapping := range cfg.Mappings {
+		for _, target := range mapping.Targets {
+			targetIndex++
+			log.WithFields(logrus.Fields{
+				"target_index": targetIndex,
+				"repo":         target.Repo,
+			}).Debug("Checking target repository accessibility")
 
-		// Try to get repository information (this will fail if repo doesn't exist or no access)
-		_, err = ghClient.ListBranches(ctx, target.Repo)
-		if err != nil {
-			if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
-				output.Error(fmt.Sprintf("  ✗ Target repository '%s' not accessible", target.Repo))
-				output.Info("    Check repository name and permissions")
+			// Try to get repository information (this will fail if repo doesn't exist or no access)
+			_, err = ghClient.ListBranches(ctx, target.Repo)
+			if err != nil {
+				if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
+					output.Error(fmt.Sprintf("  ✗ Target repository '%s' not accessible", target.Repo))
+					output.Info("    Check repository name and permissions")
+					continue // Don't fail validation, just warn
+				}
+				output.Error(fmt.Sprintf("  ✗ Failed to access target repository '%s': %v", target.Repo, err))
 				continue // Don't fail validation, just warn
 			}
-			output.Error(fmt.Sprintf("  ✗ Failed to access target repository '%s': %v", target.Repo, err))
-			continue // Don't fail validation, just warn
+			output.Success(fmt.Sprintf("  ✓ Target repository accessible: %s", target.Repo))
 		}
-		output.Success(fmt.Sprintf("  ✓ Target repository accessible: %s", target.Repo))
 	}
 
 	return nil
@@ -263,40 +310,52 @@ func validateSourceFilesExist(ctx context.Context, cfg *config.Config, logConfig
 		return // Don't fail if client can't be created
 	}
 
-	// Collect all unique source files across all targets
-	sourceFiles := make(map[string]bool)
-	for _, target := range cfg.Targets {
-		for _, file := range target.Files {
-			sourceFiles[file.Src] = true
+	// Collect all unique source files across all mappings and targets
+	sourceFilesByMapping := make(map[int]map[string]bool) // mapping index -> source files
+	for i, mapping := range cfg.Mappings {
+		sourceFiles := make(map[string]bool)
+		for _, target := range mapping.Targets {
+			for _, file := range target.Files {
+				sourceFiles[file.Src] = true
+			}
 		}
+		sourceFilesByMapping[i] = sourceFiles
 	}
 
-	if len(sourceFiles) == 0 {
+	totalFiles := 0
+	for _, sourceFiles := range sourceFilesByMapping {
+		totalFiles += len(sourceFiles)
+	}
+
+	if totalFiles == 0 {
 		output.Info("  ⚠ No source files to validate")
 		return
 	}
 
-	// Check each source file exists
+	// Check each source file exists in each mapping
 	filesChecked := 0
 	filesFound := 0
-	for srcPath := range sourceFiles {
-		log.WithFields(logrus.Fields{
-			"source_file": srcPath,
-			"repo":        cfg.Source.Repo,
-			"branch":      cfg.Source.Branch,
-		}).Debug("Checking source file existence")
+	for i, mapping := range cfg.Mappings {
+		sourceFiles := sourceFilesByMapping[i]
+		for srcPath := range sourceFiles {
+			log.WithFields(logrus.Fields{
+				"source_file": srcPath,
+				"repo":        mapping.Source.Repo,
+				"branch":      mapping.Source.Branch,
+			}).Debug("Checking source file existence")
 
-		_, err := ghClient.GetFile(ctx, cfg.Source.Repo, srcPath, cfg.Source.Branch)
-		filesChecked++
-		if err != nil {
-			if strings.Contains(err.Error(), "file not found") {
-				output.Error(fmt.Sprintf("  ✗ Source file not found: %s", srcPath))
+			_, err := ghClient.GetFile(ctx, mapping.Source.Repo, srcPath, mapping.Source.Branch)
+			filesChecked++
+			if err != nil {
+				if strings.Contains(err.Error(), "file not found") {
+					output.Error(fmt.Sprintf("  ✗ Source file not found: %s", srcPath))
+					continue // Don't fail validation, just warn
+				}
+				output.Error(fmt.Sprintf("  ✗ Failed to check source file '%s': %v", srcPath, err))
 				continue // Don't fail validation, just warn
 			}
-			output.Error(fmt.Sprintf("  ✗ Failed to check source file '%s': %v", srcPath, err))
-			continue // Don't fail validation, just warn
+			filesFound++
 		}
-		filesFound++
 	}
 
 	if filesFound == filesChecked {

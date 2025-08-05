@@ -9,11 +9,33 @@ import (
 
 // State represents the complete sync state across all repositories
 type State struct {
-	// Source contains the state of the source repository
+	// Source contains the state of the source repository (deprecated, for v1 compatibility)
 	Source SourceState
+
+	// Sources contains the state of all source repositories (v2)
+	Sources map[string]SourceState
 
 	// Targets contains the state of each target repository
 	Targets map[string]*TargetState
+
+	// SourceTargetMap tracks which sources have been synced to which targets
+	// Key: targetRepo, Value: map of sourceRepo to last sync info
+	SourceTargetMap map[string]map[string]*SourceTargetSyncInfo
+}
+
+// SourceTargetSyncInfo tracks sync information for a specific source-target pair
+type SourceTargetSyncInfo struct {
+	// LastSyncCommit is the source commit that was last synced
+	LastSyncCommit string
+
+	// LastSyncTime is when the sync occurred
+	LastSyncTime time.Time
+
+	// LastSyncBranch is the branch name used for the sync
+	LastSyncBranch string
+
+	// Status indicates the current sync status for this pair
+	Status SyncStatus
 }
 
 // SourceState represents the state of the source repository
@@ -65,7 +87,8 @@ type SyncBranch struct {
 }
 
 // BranchMetadata contains information parsed from sync branch names
-// Format: chore/sync-files-YYYYMMDD-HHMMSS-{commit}
+// v1 Format: chore/sync-files-YYYYMMDD-HHMMSS-{commit}
+// v2 Format: chore/sync-{sourceID}-YYYYMMDD-HHMMSS-{commit}
 type BranchMetadata struct {
 	// Timestamp is when this sync branch was created
 	Timestamp time.Time
@@ -75,6 +98,9 @@ type BranchMetadata struct {
 
 	// Prefix is the branch prefix (e.g., "chore/sync-files")
 	Prefix string
+
+	// SourceID identifies which source this sync is from (v2)
+	SourceID string
 }
 
 // SyncStatus represents the status of a sync operation

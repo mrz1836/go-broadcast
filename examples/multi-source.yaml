@@ -1,0 +1,121 @@
+# go-broadcast configuration for multiple source repositories
+# This example shows how to sync files from different template repositories to the same targets
+
+version: 1
+
+# Global PR settings applied to ALL mappings
+global:
+  pr_labels: ["automated-sync", "multi-source"]
+  pr_assignees: ["platform-team"]
+  pr_team_reviewers: ["infrastructure-team"]
+
+# Default settings (fallback when no global or mapping-specific settings)
+defaults:
+  branch_prefix: "chore/sync"
+  pr_labels: ["maintenance"]
+
+# Conflict resolution strategy for when multiple sources target the same file
+conflict_resolution:
+  strategy: "priority" # Options: "last-wins", "priority", "error"
+  priority: ["security", "ci", "docs"] # Source IDs in priority order
+
+# Multiple source-to-target mappings
+mappings:
+  # CI/CD templates from dedicated repository
+  - source:
+      repo: "company/ci-templates"
+      branch: "main"
+      id: "ci" # Used for branch naming and conflict resolution
+    targets:
+      - repo: "company/service-a"
+        files:
+          - src: "workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+          - src: "workflows/release.yml"
+            dest: ".github/workflows/release.yml"
+        directories:
+          - src: "actions"
+            dest: ".github/actions"
+            exclude: ["*.md", "experimental/*"]
+      - repo: "company/service-b"
+        files:
+          - src: "workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+        transform:
+          variables:
+            SERVICE_NAME: "service-b"
+            NODE_VERSION: "18"
+
+  # Security policies from security team repository
+  - source:
+      repo: "company/security-templates"
+      branch: "main"
+      id: "security"
+    targets:
+      - repo: "company/service-a"
+        files:
+          - src: "policies/security.yml"
+            dest: "security/policies.yml"
+          - src: "policies/compliance.yml"
+            dest: "security/compliance.yml"
+        directories:
+          - src: "scripts/security"
+            dest: "scripts/security"
+        transform:
+          variables:
+            COMPLIANCE_LEVEL: "high"
+            SECURITY_CONTACT: "security@company.com"
+      - repo: "company/service-b"
+        files:
+          - src: "policies/security.yml"
+            dest: "security/policies.yml"
+        transform:
+          variables:
+            COMPLIANCE_LEVEL: "medium"
+    # Mapping-specific defaults override global defaults
+    defaults:
+      branch_prefix: "security/sync"
+      pr_labels: ["security", "compliance", "automated-sync"]
+      pr_reviewers: ["security-lead"]
+      pr_team_reviewers: ["security-team", "infrastructure-team"]
+
+  # Documentation templates
+  - source:
+      repo: "company/docs-templates"
+      branch: "main"
+      id: "docs"
+    targets:
+      - repo: "company/service-a"
+        files:
+          - src: "templates/README.md"
+            dest: "README.md"
+          - src: "templates/CONTRIBUTING.md"
+            dest: "CONTRIBUTING.md"
+          - src: "templates/API.md"
+            dest: "docs/API.md"
+        transform:
+          repo_name: true # Automatically update repository references
+          variables:
+            TEAM_NAME: "Platform Team"
+            SUPPORT_EMAIL: "platform@company.com"
+
+  # Development environment configurations
+  - source:
+      repo: "company/dev-environment"
+      branch: "main"
+      id: "devenv"
+    targets:
+      - repo: "company/service-a"
+        files:
+          - src: "configs/.editorconfig"
+            dest: ".editorconfig"
+          - src: "configs/.prettierrc"
+            dest: ".prettierrc"
+        directories:
+          - src: "vscode"
+            dest: ".vscode"
+            exclude: ["*.log", "*.tmp"]
+      - repo: "company/service-b"
+        files:
+          - src: "configs/.editorconfig"
+            dest: ".editorconfig"

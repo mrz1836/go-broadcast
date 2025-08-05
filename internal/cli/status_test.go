@@ -606,12 +606,17 @@ func TestGetRealStatusErrorCases(t *testing.T) {
 	t.Run("GitHub client creation failure", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
-			},
-			Targets: []config.TargetConfig{
-				{Repo: "test/target1"},
+			Version: 1,
+			Mappings: []config.SourceMapping{
+				{
+					Source: config.SourceConfig{
+						Repo:   "test/source",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "test/target1"},
+					},
+				},
 			},
 		}
 
@@ -637,12 +642,17 @@ func TestGetRealStatusErrorCases(t *testing.T) {
 	t.Run("State discovery failure", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "nonexistent/repo",
-				Branch: "main",
-			},
-			Targets: []config.TargetConfig{
-				{Repo: "test/target1"},
+			Version: 1,
+			Mappings: []config.SourceMapping{
+				{
+					Source: config.SourceConfig{
+						Repo:   "nonexistent/repo",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "test/target1"},
+					},
+				},
 			},
 		}
 
@@ -658,9 +668,15 @@ func TestGetRealStatusErrorCases(t *testing.T) {
 		cancel()
 
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
+			Version: 1,
+			Mappings: []config.SourceMapping{
+				{
+					Source: config.SourceConfig{
+						Repo:   "test/source",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{},
+				},
 			},
 		}
 

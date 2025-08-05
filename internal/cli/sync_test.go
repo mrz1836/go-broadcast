@@ -104,18 +104,19 @@ func TestCreateRunSync(t *testing.T) {
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md
-  - repo: org/target2
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+      - repo: org/target2
+        files:
+          - src: README.md
+            dest: README.md`
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -212,10 +213,12 @@ func TestLoadConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 
-		assert.Equal(t, "org/template", cfg.Source.Repo)
-		assert.Equal(t, "main", cfg.Source.Branch)
-		assert.Len(t, cfg.Targets, 1)
-		assert.Equal(t, "org/target1", cfg.Targets[0].Repo)
+		// After normalization, data should be in Mappings
+		require.Len(t, cfg.Mappings, 1)
+		assert.Equal(t, "org/template", cfg.Mappings[0].Source.Repo)
+		assert.Equal(t, "main", cfg.Mappings[0].Source.Branch)
+		require.Len(t, cfg.Mappings[0].Targets, 1)
+		assert.Equal(t, "org/target1", cfg.Mappings[0].Targets[0].Repo)
 	})
 
 	t.Run("InvalidYAML", func(t *testing.T) {
@@ -264,18 +267,19 @@ func TestLoadConfigWithFlags(t *testing.T) {
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md
-  - repo: org/target2
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+      - repo: org/target2
+        files:
+          - src: README.md
+            dest: README.md`
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -294,8 +298,10 @@ targets:
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 
-		assert.Equal(t, "org/template", cfg.Source.Repo)
-		assert.Len(t, cfg.Targets, 2)
+		// After normalization, data should be in Mappings
+		require.Len(t, cfg.Mappings, 1)
+		assert.Equal(t, "org/template", cfg.Mappings[0].Source.Repo)
+		assert.Len(t, cfg.Mappings[0].Targets, 2)
 
 		// Check debug logging
 		logs := buf.String()
@@ -392,13 +398,18 @@ func TestCreateSyncEngine(t *testing.T) {
 
 	t.Run("BasicEngineCreation", func(t *testing.T) {
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/template",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
+			Version: 1,
+			Mappings: []config.SourceMapping{
 				{
-					Repo: "org/target1",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "master",
+					},
+					Targets: []config.TargetConfig{
+						{
+							Repo: "org/target1",
+						},
+					},
 				},
 			},
 		}
@@ -424,17 +435,22 @@ func TestCreateSyncEngineWithFlags(t *testing.T) {
 
 	t.Run("WithTransformers", func(t *testing.T) {
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/template",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
+			Version: 1,
+			Mappings: []config.SourceMapping{
 				{
-					Repo: "org/target1",
-					Transform: config.Transform{
-						RepoName: true,
-						Variables: map[string]string{
-							"PROJECT": "test",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "master",
+					},
+					Targets: []config.TargetConfig{
+						{
+							Repo: "org/target1",
+							Transform: config.Transform{
+								RepoName: true,
+								Variables: map[string]string{
+									"PROJECT": "test",
+								},
+							},
 						},
 					},
 				},
@@ -464,13 +480,18 @@ func TestCreateSyncEngineWithLogConfig(t *testing.T) {
 
 	t.Run("WithVerboseLogging", func(t *testing.T) {
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/template",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
+			Version: 1,
+			Mappings: []config.SourceMapping{
 				{
-					Repo: "org/target1",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "master",
+					},
+					Targets: []config.TargetConfig{
+						{
+							Repo: "org/target1",
+						},
+					},
 				},
 			},
 		}
@@ -505,14 +526,15 @@ func TestSyncCommandIntegration(t *testing.T) {
 
 	// Create a minimal valid config
 	configContent := `version: 1
-source:
-  repo: test/source
-  branch: main
-targets:
-  - repo: test/target1
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: test/source
+      branch: main
+    targets:
+      - repo: test/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 	testutil.WriteTestFile(t, configPath, configContent)
 

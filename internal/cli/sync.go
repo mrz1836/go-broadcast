@@ -171,9 +171,15 @@ func loadConfigWithFlags(flags *Flags, logger *logrus.Logger) (*config.Config, e
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
+	// Count total mappings and targets for logging
+	totalTargets := 0
+	for _, mapping := range cfg.Mappings {
+		totalTargets += len(mapping.Targets)
+	}
+
 	logger.WithFields(logrus.Fields{
-		"source":      cfg.Source.Repo,
-		"targets":     len(cfg.Targets),
+		"mappings":    len(cfg.Mappings),
+		"targets":     totalTargets,
 		"config_file": configPath,
 	}).Debug("Configuration loaded")
 
@@ -203,18 +209,22 @@ func createSyncEngine(ctx context.Context, cfg *config.Config) (*sync.Engine, er
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if target.Transform.RepoName {
-			transformChain.Add(transform.NewRepoTransformer())
-			break
+	for _, mapping := range cfg.Mappings {
+		for _, target := range mapping.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				break
+			}
 		}
 	}
 
 	// Add template variable transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if len(target.Transform.Variables) > 0 {
-			transformChain.Add(transform.NewTemplateTransformer(logrus.StandardLogger(), nil))
-			break
+	for _, mapping := range cfg.Mappings {
+		for _, target := range mapping.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logrus.StandardLogger(), nil))
+				break
+			}
 		}
 	}
 
@@ -251,18 +261,22 @@ func createSyncEngineWithFlags(ctx context.Context, cfg *config.Config, flags *F
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if target.Transform.RepoName {
-			transformChain.Add(transform.NewRepoTransformer())
-			break
+	for _, mapping := range cfg.Mappings {
+		for _, target := range mapping.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				break
+			}
 		}
 	}
 
 	// Add template variable transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if len(target.Transform.Variables) > 0 {
-			transformChain.Add(transform.NewTemplateTransformer(logger, nil))
-			break
+	for _, mapping := range cfg.Mappings {
+		for _, target := range mapping.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logger, nil))
+				break
+			}
 		}
 	}
 
@@ -313,9 +327,15 @@ func loadConfigWithLogConfig(logConfig *LogConfig) (*config.Config, error) {
 
 	// Log configuration details when debug is enabled
 	if logConfig.Debug.Config || logConfig.Verbose >= 1 {
+		// Count total mappings and targets for logging
+		totalTargets := 0
+		for _, mapping := range cfg.Mappings {
+			totalTargets += len(mapping.Targets)
+		}
+
 		logrus.WithFields(logrus.Fields{
-			"source":      cfg.Source.Repo,
-			"targets":     len(cfg.Targets),
+			"mappings":    len(cfg.Mappings),
+			"targets":     totalTargets,
 			"config_file": configPath,
 		}).Debug("Configuration loaded")
 	}
@@ -362,18 +382,22 @@ func createSyncEngineWithLogConfig(ctx context.Context, cfg *config.Config, logC
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if target.Transform.RepoName {
-			transformChain.Add(transform.NewRepoTransformer())
-			break
+	for _, mapping := range cfg.Mappings {
+		for _, target := range mapping.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				break
+			}
 		}
 	}
 
 	// Add template variable transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if len(target.Transform.Variables) > 0 {
-			transformChain.Add(transform.NewTemplateTransformer(logger, logConfig))
-			break
+	for _, mapping := range cfg.Mappings {
+		for _, target := range mapping.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logger, logConfig))
+				break
+			}
 		}
 	}
 

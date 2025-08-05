@@ -71,7 +71,7 @@ The go-broadcast AI Sub-Agents system provides **26 specialized agents** that wo
 - **🛡️ Security First** - Multiple agents dedicated to security scanning and compliance
 - **📈 Continuous Improvement** - Agents track metrics and suggest optimizations
 
-### 🎯 NEW: Claude Code Slash Commands
+### 🎯 Claude Code Slash Commands
 
 The go-broadcast project now features **20+ powerful slash commands** that make agent coordination effortless! Instead of manually invoking agents, use simple commands like:
 

@@ -22,20 +22,23 @@ func TestLoad(t *testing.T) {
 		validate    func(t *testing.T, cfg *Config)
 	}{
 		{
-			name: "valid config file",
+			name: "valid config file with mappings",
 			setupFile: func(t *testing.T) string {
 				content := `
 version: 1
-source:
-  repo: "org/template-repo"
 defaults:
   branch_prefix: "sync/custom"
   pr_labels: ["sync", "automated"]
-targets:
-  - repo: "org/service-a"
-    files:
-      - src: "README.md"
-        dest: "README.md"
+mappings:
+  - source:
+      repo: "org/template-repo"
+      branch: "master"
+      id: "main"
+    targets:
+      - repo: "org/service-a"
+        files:
+          - src: "README.md"
+            dest: "README.md"
 `
 				tmpFile := filepath.Join(testutil.CreateTempDir(t), "config.yaml")
 				testutil.WriteTestFile(t, tmpFile, content)
@@ -44,11 +47,15 @@ targets:
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 1, cfg.Version)
-				assert.Equal(t, "org/template-repo", cfg.Source.Repo)
 				assert.Equal(t, "sync/custom", cfg.Defaults.BranchPrefix)
 				assert.Equal(t, []string{"sync", "automated"}, cfg.Defaults.PRLabels)
-				require.Len(t, cfg.Targets, 1)
-				assert.Equal(t, "org/service-a", cfg.Targets[0].Repo)
+
+				require.Len(t, cfg.Mappings, 1)
+				assert.Equal(t, "org/template-repo", cfg.Mappings[0].Source.Repo)
+				assert.Equal(t, "master", cfg.Mappings[0].Source.Branch)
+				assert.Equal(t, "main", cfg.Mappings[0].Source.ID)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				assert.Equal(t, "org/service-a", cfg.Mappings[0].Targets[0].Repo)
 			},
 		},
 		{
@@ -64,8 +71,9 @@ targets:
 			setupFile: func(t *testing.T) string {
 				content := `
 version: 1
-source:
-  repo: "org/template-repo
+mappings:
+  - source:
+      repo: "org/template-repo
 `
 				tmpFile := filepath.Join(testutil.CreateTempDir(t), "invalid.yaml")
 				testutil.WriteTestFile(t, tmpFile, content)
@@ -125,83 +133,144 @@ func TestLoadFromReader(t *testing.T) {
 		validate    func(t *testing.T, cfg *Config)
 	}{
 		{
-			name: "valid basic config",
+			name: "valid basic config with mappings",
 			input: `
 version: 1
-source:
-  repo: "org/source"
-targets:
-  - repo: "org/target"
+mappings:
+  - source:
+      repo: "org/source"
+      branch: "main"
+      id: "primary"
+    targets:
+      - repo: "org/target"
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 1, cfg.Version)
-				assert.Equal(t, "org/source", cfg.Source.Repo)
-				assert.Equal(t, "main", cfg.Source.Branch) // Default applied
-				require.Len(t, cfg.Targets, 1)
-				assert.Equal(t, "org/target", cfg.Targets[0].Repo)
+				require.Len(t, cfg.Mappings, 1)
+				assert.Equal(t, "org/source", cfg.Mappings[0].Source.Repo)
+				assert.Equal(t, "main", cfg.Mappings[0].Source.Branch)
+				assert.Equal(t, "primary", cfg.Mappings[0].Source.ID)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				assert.Equal(t, "org/target", cfg.Mappings[0].Targets[0].Repo)
 			},
 		},
 		{
 			name: "complete config with all fields",
 			input: `
-version: 2
-source:
-  repo: "org/template"
-  branch: "develop"
+version: 1
 defaults:
   branch_prefix: "feature/sync"
   pr_labels: ["sync", "template", "automated"]
-targets:
-  - repo: "org/app1"
-    files:
-      - src: "template/config.yaml"
-        dest: "app/config.yaml"
-      - src: "README.md"
-        dest: "docs/README.md"
-    transform:
-      repo_name: true
-      variables:
-        APP_NAME: "app1"
-        ENV: "production"
-  - repo: "org/app2"
-    files:
-      - src: "config.yaml"
-        dest: "config.yaml"
+global:
+  pr_labels: ["global-label"]
+  pr_assignees: ["global-assignee"]
+mappings:
+  - source:
+      repo: "org/template"
+      branch: "develop"
+      id: "templates"
+    targets:
+      - repo: "org/app1"
+        files:
+          - src: "template/config.yaml"
+            dest: "app/config.yaml"
+          - src: "README.md"
+            dest: "docs/README.md"
+        transform:
+          repo_name: true
+          variables:
+            APP_NAME: "app1"
+            ENV: "production"
+      - repo: "org/app2"
+        files:
+          - src: "config.yaml"
+            dest: "config.yaml"
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, 2, cfg.Version)
-				assert.Equal(t, "org/template", cfg.Source.Repo)
-				assert.Equal(t, "develop", cfg.Source.Branch)
+				assert.Equal(t, 1, cfg.Version)
 
 				// Defaults
 				assert.Equal(t, "feature/sync", cfg.Defaults.BranchPrefix)
 				assert.Equal(t, []string{"sync", "template", "automated"}, cfg.Defaults.PRLabels)
 
+				// Global
+				assert.Equal(t, []string{"global-label"}, cfg.Global.PRLabels)
+				assert.Equal(t, []string{"global-assignee"}, cfg.Global.PRAssignees)
+
+				// Mappings
+				require.Len(t, cfg.Mappings, 1)
+				assert.Equal(t, "org/template", cfg.Mappings[0].Source.Repo)
+				assert.Equal(t, "develop", cfg.Mappings[0].Source.Branch)
+				assert.Equal(t, "templates", cfg.Mappings[0].Source.ID)
+
 				// Targets
-				require.Len(t, cfg.Targets, 2)
+				require.Len(t, cfg.Mappings[0].Targets, 2)
 
 				// First target
-				assert.Equal(t, "org/app1", cfg.Targets[0].Repo)
-				require.Len(t, cfg.Targets[0].Files, 2)
-				assert.Equal(t, "template/config.yaml", cfg.Targets[0].Files[0].Src)
-				assert.Equal(t, "app/config.yaml", cfg.Targets[0].Files[0].Dest)
-				assert.True(t, cfg.Targets[0].Transform.RepoName)
-				assert.Equal(t, "app1", cfg.Targets[0].Transform.Variables["APP_NAME"])
-				assert.Equal(t, "production", cfg.Targets[0].Transform.Variables["ENV"])
+				assert.Equal(t, "org/app1", cfg.Mappings[0].Targets[0].Repo)
+				require.Len(t, cfg.Mappings[0].Targets[0].Files, 2)
+				assert.Equal(t, "template/config.yaml", cfg.Mappings[0].Targets[0].Files[0].Src)
+				assert.Equal(t, "app/config.yaml", cfg.Mappings[0].Targets[0].Files[0].Dest)
+				assert.True(t, cfg.Mappings[0].Targets[0].Transform.RepoName)
+				assert.Equal(t, "app1", cfg.Mappings[0].Targets[0].Transform.Variables["APP_NAME"])
+				assert.Equal(t, "production", cfg.Mappings[0].Targets[0].Transform.Variables["ENV"])
 
 				// Second target
-				assert.Equal(t, "org/app2", cfg.Targets[1].Repo)
-				require.Len(t, cfg.Targets[1].Files, 1)
+				assert.Equal(t, "org/app2", cfg.Mappings[0].Targets[1].Repo)
+				require.Len(t, cfg.Mappings[0].Targets[1].Files, 1)
+			},
+		},
+		{
+			name: "multi-source configuration",
+			input: `
+version: 1
+mappings:
+  - source:
+      repo: "org/source1"
+      branch: "main"
+      id: "source1"
+    targets:
+      - repo: "org/target1"
+        files:
+          - src: "file1.txt"
+            dest: "file1.txt"
+  - source:
+      repo: "org/source2"
+      branch: "develop"
+      id: "source2"
+    targets:
+      - repo: "org/target2"
+        files:
+          - src: "file2.txt"
+            dest: "file2.txt"
+`,
+			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, 1, cfg.Version)
+				require.Len(t, cfg.Mappings, 2)
+
+				// First mapping
+				assert.Equal(t, "org/source1", cfg.Mappings[0].Source.Repo)
+				assert.Equal(t, "source1", cfg.Mappings[0].Source.ID)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				assert.Equal(t, "org/target1", cfg.Mappings[0].Targets[0].Repo)
+
+				// Second mapping
+				assert.Equal(t, "org/source2", cfg.Mappings[1].Source.Repo)
+				assert.Equal(t, "source2", cfg.Mappings[1].Source.ID)
+				require.Len(t, cfg.Mappings[1].Targets, 1)
+				assert.Equal(t, "org/target2", cfg.Mappings[1].Targets[0].Repo)
 			},
 		},
 		{
 			name: "invalid YAML syntax",
 			input: `
 version: 1
-source:
-  repo: "unclosed quote
+mappings:
+  - source:
+      repo: "unclosed quote
 `,
 			expectError: true,
 			errorMsg:    "failed to parse YAML",
@@ -210,11 +279,12 @@ source:
 			name: "unknown fields rejected",
 			input: `
 version: 1
-source:
-  repo: "org/source"
-  unknown_field: "value"
-targets:
-  - repo: "org/target"
+mappings:
+  - source:
+      repo: "org/source"
+      unknown_field: "value"
+    targets:
+      - repo: "org/target"
 `,
 			expectError: true,
 			errorMsg:    "failed to parse YAML",
@@ -229,23 +299,45 @@ targets:
 			name: "transform config with variables",
 			input: `
 version: 1
-source:
-  repo: "org/source"
-targets:
-  - repo: "org/target"
-    transform:
-      repo_name: true
-      variables:
-        SERVICE: "api"
-        PORT: "8080"
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target"
+        transform:
+          repo_name: true
+          variables:
+            SERVICE: "api"
+            PORT: "8080"
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				require.Len(t, cfg.Targets, 1)
-				transform := cfg.Targets[0].Transform
+				require.Len(t, cfg.Mappings, 1)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				transform := cfg.Mappings[0].Targets[0].Transform
 				assert.True(t, transform.RepoName)
 				assert.Equal(t, "api", transform.Variables["SERVICE"])
 				assert.Equal(t, "8080", transform.Variables["PORT"])
+			},
+		},
+		{
+			name: "conflict resolution config",
+			input: `
+version: 1
+conflict_resolution:
+  strategy: "error"
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target"
+`,
+			expectError: false,
+			validate: func(t *testing.T, cfg *Config) {
+				assert.NotNil(t, cfg.ConflictResolution)
+				assert.Equal(t, "error", cfg.ConflictResolution.Strategy)
 			},
 		},
 	}
@@ -279,9 +371,6 @@ func TestParserApplyDefaults(t *testing.T) {
 			name:  "empty config gets all defaults",
 			input: &Config{},
 			expected: &Config{
-				Source: SourceConfig{
-					Branch: "main",
-				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "chore/sync-files",
 					PRLabels:     []string{"automated-sync"},
@@ -291,18 +380,11 @@ func TestParserApplyDefaults(t *testing.T) {
 		{
 			name: "partial config preserves existing values",
 			input: &Config{
-				Source: SourceConfig{
-					Repo: "org/repo",
-				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "custom/prefix",
 				},
 			},
 			expected: &Config{
-				Source: SourceConfig{
-					Repo:   "org/repo",
-					Branch: "main", // Not overwritten
-				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "custom/prefix",            // Not overwritten
 					PRLabels:     []string{"automated-sync"}, // Default applied
@@ -317,9 +399,6 @@ func TestParserApplyDefaults(t *testing.T) {
 				},
 			},
 			expected: &Config{
-				Source: SourceConfig{
-					Branch: "main",
-				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "chore/sync-files",
 					PRLabels:     []string{"custom", "labels"}, // Not overwritten
@@ -334,8 +413,32 @@ func TestParserApplyDefaults(t *testing.T) {
 				},
 			},
 			expected: &Config{
-				Source: SourceConfig{
-					Branch: "main",
+				Defaults: DefaultConfig{
+					BranchPrefix: "chore/sync-files",
+					PRLabels:     []string{"automated-sync"},
+				},
+			},
+		},
+		{
+			name: "mappings get source branch defaults",
+			input: &Config{
+				Mappings: []SourceMapping{
+					{
+						Source: SourceConfig{
+							Repo: "org/source",
+							// Branch not set
+						},
+					},
+				},
+			},
+			expected: &Config{
+				Mappings: []SourceMapping{
+					{
+						Source: SourceConfig{
+							Repo:   "org/source",
+							Branch: "main", // Default applied
+						},
+					},
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "chore/sync-files",
@@ -350,9 +453,17 @@ func TestParserApplyDefaults(t *testing.T) {
 			cfg := tt.input
 			applyDefaults(cfg)
 
-			assert.Equal(t, tt.expected.Source.Branch, cfg.Source.Branch)
+			// Test defaults
 			assert.Equal(t, tt.expected.Defaults.BranchPrefix, cfg.Defaults.BranchPrefix)
 			assert.Equal(t, tt.expected.Defaults.PRLabels, cfg.Defaults.PRLabels)
+
+			// Test mappings if present
+			if len(tt.expected.Mappings) > 0 {
+				require.Len(t, cfg.Mappings, len(tt.expected.Mappings))
+				for i, mapping := range tt.expected.Mappings {
+					assert.Equal(t, mapping.Source.Branch, cfg.Mappings[i].Source.Branch)
+				}
+			}
 		})
 	}
 }
@@ -373,16 +484,18 @@ func TestLoadFromReaderVariableTypes(t *testing.T) {
 	// Since Transform.Variables is map[string]string, non-string values will be converted to strings
 	input := `
 version: 1
-source:
-  repo: "org/source"
-targets:
-  - repo: "org/target"
-    transform:
-      variables:
-        STRING: "value"
-        NUMBER: "42"
-        PORT: "8080"
-        ENABLED: "true"
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target"
+        transform:
+          variables:
+            STRING: "value"
+            NUMBER: "42"
+            PORT: "8080"
+            ENABLED: "true"
 `
 
 	reader := strings.NewReader(input)
@@ -390,8 +503,9 @@ targets:
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
-	require.Len(t, cfg.Targets, 1)
-	vars := cfg.Targets[0].Transform.Variables
+	require.Len(t, cfg.Mappings, 1)
+	require.Len(t, cfg.Mappings[0].Targets, 1)
+	vars := cfg.Mappings[0].Targets[0].Transform.Variables
 
 	assert.Equal(t, "value", vars["STRING"])
 	assert.Equal(t, "42", vars["NUMBER"])
@@ -404,21 +518,23 @@ func TestLoadFromReader_TargetPRLabels(t *testing.T) {
 	t.Run("target with pr_labels overrides defaults", func(t *testing.T) {
 		input := `
 version: 1
-source:
-  repo: "org/source"
-  branch: Final
 defaults:
   pr_labels: ["default-label1", "default-label2"]
-targets:
-  - repo: "org/target1"
-    pr_labels: ["custom-label1", "custom-label2"]
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
-  - repo: "org/target2"
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+mappings:
+  - source:
+      repo: "org/source"
+      branch: "main"
+      id: "main"
+    targets:
+      - repo: "org/target1"
+        pr_labels: ["custom-label1", "custom-label2"]
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
+      - repo: "org/target2"
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `
 
 		reader := strings.NewReader(input)
@@ -430,30 +546,33 @@ targets:
 		assert.Equal(t, []string{"default-label1", "default-label2"}, cfg.Defaults.PRLabels)
 
 		// Verify targets
-		require.Len(t, cfg.Targets, 2)
+		require.Len(t, cfg.Mappings, 1)
+		require.Len(t, cfg.Mappings[0].Targets, 2)
 
 		// First target should have custom labels
-		assert.Equal(t, "org/target1", cfg.Targets[0].Repo)
-		assert.Equal(t, []string{"custom-label1", "custom-label2"}, cfg.Targets[0].PRLabels)
+		assert.Equal(t, "org/target1", cfg.Mappings[0].Targets[0].Repo)
+		assert.Equal(t, []string{"custom-label1", "custom-label2"}, cfg.Mappings[0].Targets[0].PRLabels)
 
 		// Second target should have no labels (will use defaults at runtime)
-		assert.Equal(t, "org/target2", cfg.Targets[1].Repo)
-		assert.Nil(t, cfg.Targets[1].PRLabels)
+		assert.Equal(t, "org/target2", cfg.Mappings[0].Targets[1].Repo)
+		assert.Nil(t, cfg.Mappings[0].Targets[1].PRLabels)
 	})
 
 	t.Run("target with empty pr_labels array", func(t *testing.T) {
 		input := `
 version: 1
-source:
-  repo: "org/source"
 defaults:
   pr_labels: ["default-label"]
-targets:
-  - repo: "org/target"
-    pr_labels: []
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target"
+        pr_labels: []
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `
 
 		reader := strings.NewReader(input)
@@ -462,22 +581,25 @@ targets:
 		require.NotNil(t, cfg)
 
 		// Target should have empty slice (not nil)
-		require.Len(t, cfg.Targets, 1)
-		assert.NotNil(t, cfg.Targets[0].PRLabels)
-		assert.Empty(t, cfg.Targets[0].PRLabels)
+		require.Len(t, cfg.Mappings, 1)
+		require.Len(t, cfg.Mappings[0].Targets, 1)
+		assert.NotNil(t, cfg.Mappings[0].Targets[0].PRLabels)
+		assert.Empty(t, cfg.Mappings[0].Targets[0].PRLabels)
 	})
 
 	t.Run("target with single pr_label", func(t *testing.T) {
 		input := `
 version: 1
-source:
-  repo: "org/source"
-targets:
-  - repo: "org/target"
-    pr_labels: ["single-label"]
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target"
+        pr_labels: ["single-label"]
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `
 
 		reader := strings.NewReader(input)
@@ -485,24 +607,27 @@ targets:
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 
-		require.Len(t, cfg.Targets, 1)
-		assert.Equal(t, []string{"single-label"}, cfg.Targets[0].PRLabels)
+		require.Len(t, cfg.Mappings, 1)
+		require.Len(t, cfg.Mappings[0].Targets, 1)
+		assert.Equal(t, []string{"single-label"}, cfg.Mappings[0].Targets[0].PRLabels)
 	})
 
 	t.Run("target with all PR fields", func(t *testing.T) {
 		input := `
 version: 1
-source:
-  repo: "org/source"
-targets:
-  - repo: "org/target"
-    pr_labels: ["label1", "label2"]
-    pr_assignees: ["user1", "user2"]
-    pr_reviewers: ["reviewer1"]
-    pr_team_reviewers: ["team1", "team2"]
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target"
+        pr_labels: ["label1", "label2"]
+        pr_assignees: ["user1", "user2"]
+        pr_reviewers: ["reviewer1"]
+        pr_team_reviewers: ["team1", "team2"]
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `
 
 		reader := strings.NewReader(input)
@@ -510,8 +635,9 @@ targets:
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 
-		require.Len(t, cfg.Targets, 1)
-		target := cfg.Targets[0]
+		require.Len(t, cfg.Mappings, 1)
+		require.Len(t, cfg.Mappings[0].Targets, 1)
+		target := cfg.Mappings[0].Targets[0]
 		assert.Equal(t, []string{"label1", "label2"}, target.PRLabels)
 		assert.Equal(t, []string{"user1", "user2"}, target.PRAssignees)
 		assert.Equal(t, []string{"reviewer1"}, target.PRReviewers)
@@ -540,16 +666,18 @@ func TestParserEdgeCases(t *testing.T) {
 			name: "deeply nested YAML structure",
 			input: `
 version: 1
-source:
-  repo: "org/source"
-targets:
-  - repo: "org/target"
-    transform:
-      variables:
-        LEVEL1:
-          LEVEL2:
-            LEVEL3:
-              LEVEL4: "deep_value"
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target"
+        transform:
+          variables:
+            LEVEL1:
+              LEVEL2:
+                LEVEL3:
+                  LEVEL4: "deep_value"
 `,
 			expectError: true,
 			errorMsg:    "failed to parse YAML", // Variables expects map[string]string
@@ -558,25 +686,27 @@ targets:
 			name: "very large number of targets",
 			input: func() string {
 				var sb strings.Builder
-				sb.WriteString("version: 1\nsource:\n  repo: \"org/source\"\ntargets:\n")
+				sb.WriteString("version: 1\nmappings:\n  - source:\n      repo: \"org/source\"\n      id: \"main\"\n    targets:\n")
 				for i := 0; i < 100; i++ {
-					sb.WriteString(fmt.Sprintf("  - repo: \"org/target%d\"\n", i))
+					sb.WriteString(fmt.Sprintf("      - repo: \"org/target%d\"\n", i))
 				}
 				return sb.String()
 			}(),
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Len(t, cfg.Targets, 100)
+				require.Len(t, cfg.Mappings, 1)
+				assert.Len(t, cfg.Mappings[0].Targets, 100)
 			},
 		},
 		{
 			name: "malformed YAML with tabs",
 			input: `
 version: 1
-source:
+mappings:
+  - source:
 	repo: "org/source"  # Tab instead of spaces
-targets:
-  - repo: "org/target"
+    targets:
+      - repo: "org/target"
 `,
 			expectError: true,
 			errorMsg:    "failed to parse YAML",
@@ -585,11 +715,12 @@ targets:
 			name: "YAML with duplicate keys",
 			input: `
 version: 1
-source:
-  repo: "org/source"
-  repo: "org/duplicate"
-targets:
-  - repo: "org/target"
+mappings:
+  - source:
+      repo: "org/source"
+      repo: "org/duplicate"
+    targets:
+      - repo: "org/target"
 `,
 			expectError: true, // Strict YAML parser rejects duplicate keys
 			errorMsg:    "failed to parse YAML",
@@ -598,18 +729,21 @@ targets:
 			name: "YAML with null values",
 			input: `
 version: 1
-source:
-  repo: "org/source"
-  branch: null
 defaults:
   branch_prefix: null
   pr_labels: null
-targets:
-  - repo: "org/target"
+mappings:
+  - source:
+      repo: "org/source"
+      branch: null
+      id: "main"
+    targets:
+      - repo: "org/target"
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "main", cfg.Source.Branch) // Default applied
+				require.Len(t, cfg.Mappings, 1)
+				assert.Equal(t, "main", cfg.Mappings[0].Source.Branch) // Default applied
 				assert.Equal(t, "chore/sync-files", cfg.Defaults.BranchPrefix)
 				assert.Equal(t, []string{"automated-sync"}, cfg.Defaults.PRLabels)
 			},
@@ -618,25 +752,29 @@ targets:
 			name: "YAML with special characters in strings",
 			input: `
 version: 1
-source:
-  repo: "org/source-with-special-@#$%"
-  branch: "feature/test-&-deploy"
-targets:
-  - repo: "org/target!@#"
-    transform:
-      variables:
-        SPECIAL: |
-          value with spaces, tabs	and newlines
-          and special chars: !@#$%^&*()
+mappings:
+  - source:
+      repo: "org/source-with-special-@#$%"
+      branch: "feature/test-&-deploy"
+      id: "special"
+    targets:
+      - repo: "org/target!@#"
+        transform:
+          variables:
+            SPECIAL: |
+              value with spaces, tabs	and newlines
+              and special chars: !@#$%^&*()
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "org/source-with-special-@#$%", cfg.Source.Repo)
-				assert.Equal(t, "feature/test-&-deploy", cfg.Source.Branch)
-				assert.Equal(t, "org/target!@#", cfg.Targets[0].Repo)
+				require.Len(t, cfg.Mappings, 1)
+				assert.Equal(t, "org/source-with-special-@#$%", cfg.Mappings[0].Source.Repo)
+				assert.Equal(t, "feature/test-&-deploy", cfg.Mappings[0].Source.Branch)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				assert.Equal(t, "org/target!@#", cfg.Mappings[0].Targets[0].Repo)
 				// Using | preserves newlines exactly
-				assert.Contains(t, cfg.Targets[0].Transform.Variables["SPECIAL"], "value with spaces, tabs\tand newlines\n")
-				assert.Contains(t, cfg.Targets[0].Transform.Variables["SPECIAL"], "and special chars: !@#$%^&*()")
+				assert.Contains(t, cfg.Mappings[0].Targets[0].Transform.Variables["SPECIAL"], "value with spaces, tabs\tand newlines\n")
+				assert.Contains(t, cfg.Mappings[0].Targets[0].Transform.Variables["SPECIAL"], "and special chars: !@#$%^&*()")
 			},
 		},
 		{
@@ -644,21 +782,25 @@ targets:
 			//nolint:gosmopolitan // Testing Unicode support
 			input: `
 version: 1
-source:
-  repo: "org/source-世界"
-targets:
-  - repo: "org/target-🚀"
-    transform:
-      variables:
-        GREETING: "Hello 世界 🌍"
-        EMOJI: "🎉🎊🎈"
+mappings:
+  - source:
+      repo: "org/source-世界"
+      id: "unicode"
+    targets:
+      - repo: "org/target-🚀"
+        transform:
+          variables:
+            GREETING: "Hello 世界 🌍"
+            EMOJI: "🎉🎊🎈"
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "org/source-世界", cfg.Source.Repo) //nolint:gosmopolitan // Testing Unicode support
-				assert.Equal(t, "org/target-🚀", cfg.Targets[0].Repo)
-				assert.Equal(t, "Hello 世界 🌍", cfg.Targets[0].Transform.Variables["GREETING"]) //nolint:gosmopolitan // Testing Unicode support
-				assert.Equal(t, "🎉🎊🎈", cfg.Targets[0].Transform.Variables["EMOJI"])
+				require.Len(t, cfg.Mappings, 1)
+				assert.Equal(t, "org/source-世界", cfg.Mappings[0].Source.Repo) //nolint:gosmopolitan // Testing Unicode support
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				assert.Equal(t, "org/target-🚀", cfg.Mappings[0].Targets[0].Repo)
+				assert.Equal(t, "Hello 世界 🌍", cfg.Mappings[0].Targets[0].Transform.Variables["GREETING"]) //nolint:gosmopolitan // Testing Unicode support
+				assert.Equal(t, "🎉🎊🎈", cfg.Mappings[0].Targets[0].Transform.Variables["EMOJI"])
 			},
 		},
 		{
@@ -667,34 +809,40 @@ targets:
 				longString := strings.Repeat("a", 10000)
 				return fmt.Sprintf(`
 version: 1
-source:
-  repo: "org/source"
-targets:
-  - repo: "org/target"
-    transform:
-      variables:
-        LONG: "%s"
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target"
+        transform:
+          variables:
+            LONG: "%s"
 `, longString)
 			}(),
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Len(t, cfg.Targets[0].Transform.Variables["LONG"], 10000)
+				require.Len(t, cfg.Mappings, 1)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				assert.Len(t, cfg.Mappings[0].Targets[0].Transform.Variables["LONG"], 10000)
 			},
 		},
 		{
 			name: "YAML with anchors and aliases",
 			input: `
 version: 1
-source:
-  repo: "org/source"
 defaults: &defaults
   branch_prefix: "sync/files"
   pr_labels: ["automated"]
-targets:
-  - repo: "org/target1"
-    pr_labels: *defaults.pr_labels
-  - repo: "org/target2"
-    pr_labels: ["custom"]
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target1"
+        pr_labels: *defaults.pr_labels
+      - repo: "org/target2"
+        pr_labels: ["custom"]
 `,
 			expectError: true, // YAML doesn't support partial anchor references
 			errorMsg:    "failed to parse YAML",
@@ -703,17 +851,18 @@ targets:
 			name: "YAML with flow style",
 			input: `
 version: 1
-source: {repo: "org/source", branch: Final}
 defaults: {branch_prefix: "sync", pr_labels: ["auto", "sync"]}
-targets:
-  - {repo: "org/target", files: [{src: "a.txt", dest: "b.txt"}]}
+mappings:
+  - {source: {repo: "org/source", branch: "main", id: "main"}, targets: [{repo: "org/target", files: [{src: "a.txt", dest: "b.txt"}]}]}
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "org/source", cfg.Source.Repo)
-				assert.Equal(t, "Final", cfg.Source.Branch)
+				require.Len(t, cfg.Mappings, 1)
+				assert.Equal(t, "org/source", cfg.Mappings[0].Source.Repo)
+				assert.Equal(t, "main", cfg.Mappings[0].Source.Branch)
 				assert.Equal(t, []string{"auto", "sync"}, cfg.Defaults.PRLabels)
-				assert.Len(t, cfg.Targets[0].Files, 1)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				assert.Len(t, cfg.Mappings[0].Targets[0].Files, 1)
 			},
 		},
 		{
@@ -721,81 +870,87 @@ targets:
 			input: `
 # Main config file
 version: 1 # Version number
-source: # Source repository
-  repo: "org/source" # Repository name
-  branch: Final # Branch to use
-# Default settings
-defaults:
+defaults: # Default settings
   branch_prefix: "sync" # Prefix for branches
   pr_labels: # Labels to add
     - "automated" # First label
     - "sync" # Second label
-targets: # Target repositories
-  # First target
-  - repo: "org/target1" # Target repo name
-    files: # Files to sync
-      - src: "file.txt" # Source file
-        dest: "file.txt" # Destination
+mappings: # Source to target mappings
+  - source: # Source repository
+      repo: "org/source" # Repository name
+      branch: "main" # Branch to use
+      id: "main" # Source ID
+    targets: # Target repositories
+      # First target
+      - repo: "org/target1" # Target repo name
+        files: # Files to sync
+          - src: "file.txt" # Source file
+            dest: "file.txt" # Destination
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Equal(t, 1, cfg.Version)
-				assert.Equal(t, "org/source", cfg.Source.Repo)
-				assert.Len(t, cfg.Targets, 1)
+				require.Len(t, cfg.Mappings, 1)
+				assert.Equal(t, "org/source", cfg.Mappings[0].Source.Repo)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
 			},
 		},
 		{
 			name: "YAML with multiline strings",
 			input: `
 version: 1
-source:
-  repo: "org/source"
-targets:
-  - repo: "org/target"
-    transform:
-      variables:
-        LITERAL: |
-          This is a literal block scalar
-          It preserves newlines
-          And indentation
-        FOLDED: >
-          This is a folded block scalar
-          It folds newlines into spaces
-          Unless there's a blank line
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target"
+        transform:
+          variables:
+            LITERAL: |
+              This is a literal block scalar
+              It preserves newlines
+              And indentation
+            FOLDED: >
+              This is a folded block scalar
+              It folds newlines into spaces
+              Unless there's a blank line
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				literal := cfg.Targets[0].Transform.Variables["LITERAL"]
+				require.Len(t, cfg.Mappings, 1)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				literal := cfg.Mappings[0].Targets[0].Transform.Variables["LITERAL"]
 				assert.Contains(t, literal, "It preserves newlines\n")
 
-				folded := cfg.Targets[0].Transform.Variables["FOLDED"]
+				folded := cfg.Mappings[0].Targets[0].Transform.Variables["FOLDED"]
 				assert.Contains(t, folded, "It folds newlines into spaces")
 				// Folded scalars keep final newline
 				assert.True(t, strings.HasSuffix(folded, "\n"))
 			},
 		},
 		{
-			name: "empty targets array",
+			name: "empty mappings array",
 			input: `
 version: 1
-source:
-  repo: "org/source"
-targets: []
+mappings: []
 `,
 			expectError: false,
 			validate: func(t *testing.T, cfg *Config) {
-				assert.NotNil(t, cfg.Targets)
-				assert.Empty(t, cfg.Targets)
+				assert.NotNil(t, cfg.Mappings)
+				assert.Empty(t, cfg.Mappings)
 			},
 		},
 		{
 			name: "version as string instead of int",
 			input: `
 version: "1"
-source:
-  repo: "org/source"
-targets:
-  - repo: "org/target"
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target"
 `,
 			expectError: true,
 			errorMsg:    "failed to parse YAML",
@@ -803,10 +958,12 @@ targets:
 		{
 			name: "missing required version field",
 			input: `
-source:
-  repo: "org/source"
-targets:
-  - repo: "org/target"
+mappings:
+  - source:
+      repo: "org/source"
+      id: "main"
+    targets:
+      - repo: "org/target"
 `,
 			expectError: false, // Version will be 0
 			validate: func(t *testing.T, cfg *Config) {
@@ -817,12 +974,14 @@ targets:
 			name: "circular reference attempt",
 			input: `
 version: 1
-source: &source
-  repo: "org/source"
-  branch: Final
-targets:
-  - repo: "org/target"
-    source: *source
+mappings:
+  - source: &source
+      repo: "org/source"
+      branch: "main"
+      id: "main"
+    targets:
+      - repo: "org/target"
+        source: *source
 `,
 			expectError: true, // Unknown field 'source' in target
 			errorMsg:    "failed to parse YAML",
@@ -890,7 +1049,7 @@ func TestLoadSecurityEdgeCases(t *testing.T) {
 			name: "file with null bytes",
 			setupFile: func(t *testing.T) string {
 				tmpFile := filepath.Join(testutil.CreateTempDir(t), "null.yaml")
-				content := "version: 1\x00\nsource:\n  repo: \"org/source\""
+				content := "version: 1\x00\nmappings:\n  - source:\n      repo: \"org/source\""
 				testutil.WriteTestFile(t, tmpFile, content)
 				return tmpFile
 			},
@@ -926,16 +1085,17 @@ func TestLoadFromReaderPanicRecovery(t *testing.T) {
 			name: "recursive alias",
 			input: `
 version: 1
-source: &a
-  repo: "org/source"
-  extra: *a
-targets:
-  - repo: "org/target"
+mappings:
+  - source: &a
+      repo: "org/source"
+      extra: *a
+    targets:
+      - repo: "org/target"
 `,
 		},
 		{
 			name:  "malformed unicode",
-			input: "version: 1\nsource:\n  repo: \"org/source\xc3\x28\"\n",
+			input: "version: 1\nmappings:\n  - source:\n      repo: \"org/source\xc3\x28\"\n",
 		},
 	}
 

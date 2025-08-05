@@ -13,21 +13,23 @@ import (
 func TestLoadFromReader_ValidConfig(t *testing.T) {
 	yamlContent := `
 version: 1
-source:
-  repo: "org/template-repo"
-  branch: "master"
 defaults:
   branch_prefix: "chore/sync-files"
   pr_labels: ["automated-sync", "template"]
-targets:
-  - repo: "org/service-a"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-    transform:
-      repo_name: true
-      variables:
-        SERVICE: "service-a"
+mappings:
+  - source:
+      repo: "org/template-repo"
+      branch: "master"
+      id: "template"
+    targets:
+      - repo: "org/service-a"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+        transform:
+          repo_name: true
+          variables:
+            SERVICE: "service-a"
 `
 
 	config, err := LoadFromReader(strings.NewReader(yamlContent))
@@ -36,30 +38,36 @@ targets:
 
 	// Check parsed values
 	assert.Equal(t, 1, config.Version)
-	assert.Equal(t, "org/template-repo", config.Source.Repo)
-	assert.Equal(t, "master", config.Source.Branch)
 	assert.Equal(t, "chore/sync-files", config.Defaults.BranchPrefix)
 	assert.Equal(t, []string{"automated-sync", "template"}, config.Defaults.PRLabels)
 
-	require.Len(t, config.Targets, 1)
-	assert.Equal(t, "org/service-a", config.Targets[0].Repo)
-	require.Len(t, config.Targets[0].Files, 1)
-	assert.Equal(t, ".github/workflows/ci.yml", config.Targets[0].Files[0].Src)
-	assert.Equal(t, ".github/workflows/ci.yml", config.Targets[0].Files[0].Dest)
-	assert.True(t, config.Targets[0].Transform.RepoName)
-	assert.Equal(t, "service-a", config.Targets[0].Transform.Variables["SERVICE"])
+	// Multi-source config should be parsed directly
+	require.Len(t, config.Mappings, 1)
+	assert.Equal(t, "org/template-repo", config.Mappings[0].Source.Repo)
+	assert.Equal(t, "master", config.Mappings[0].Source.Branch)
+	assert.Equal(t, "template", config.Mappings[0].Source.ID)
+
+	require.Len(t, config.Mappings[0].Targets, 1)
+	assert.Equal(t, "org/service-a", config.Mappings[0].Targets[0].Repo)
+	require.Len(t, config.Mappings[0].Targets[0].Files, 1)
+	assert.Equal(t, ".github/workflows/ci.yml", config.Mappings[0].Targets[0].Files[0].Src)
+	assert.Equal(t, ".github/workflows/ci.yml", config.Mappings[0].Targets[0].Files[0].Dest)
+	assert.True(t, config.Mappings[0].Targets[0].Transform.RepoName)
+	assert.Equal(t, "service-a", config.Mappings[0].Targets[0].Transform.Variables["SERVICE"])
 }
 
 func TestLoadFromReader_MinimalConfig(t *testing.T) {
 	yamlContent := `
 version: 1
-source:
-  repo: "org/template"
-targets:
-  - repo: "org/service"
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+mappings:
+  - source:
+      repo: "org/template"
+      id: "template"
+    targets:
+      - repo: "org/service"
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `
 
 	config, err := LoadFromReader(strings.NewReader(yamlContent))
@@ -67,7 +75,8 @@ targets:
 	require.NotNil(t, config)
 
 	// Check defaults were applied
-	assert.Equal(t, "main", config.Source.Branch)
+	require.Len(t, config.Mappings, 1)
+	assert.Equal(t, "main", config.Mappings[0].Source.Branch)
 	assert.Equal(t, "chore/sync-files", config.Defaults.BranchPrefix)
 	assert.Equal(t, []string{"automated-sync"}, config.Defaults.PRLabels)
 }
@@ -89,13 +98,15 @@ func TestLoadFromReader_UnknownFields(t *testing.T) {
 	yamlContent := `
 version: 1
 unknown_field: "value"
-source:
-  repo: "org/repo"
-targets:
-  - repo: "org/target"
-    files:
-      - src: "file"
-        dest: "file"
+mappings:
+  - source:
+      repo: "org/repo"
+      id: "repo"
+    targets:
+      - repo: "org/target"
+        files:
+          - src: "file"
+            dest: "file"
 `
 
 	config, err := LoadFromReader(strings.NewReader(yamlContent))
@@ -106,19 +117,24 @@ targets:
 func TestValidate_ValidConfig(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source: SourceConfig{
-			Repo:   "org/template",
-			Branch: "master",
-		},
 		Defaults: DefaultConfig{
 			BranchPrefix: "chore/sync-files",
 			PRLabels:     []string{"automated"},
 		},
-		Targets: []TargetConfig{
+		Mappings: []SourceMapping{
 			{
-				Repo: "org/service",
-				Files: []FileMapping{
-					{Src: "file.txt", Dest: "file.txt"},
+				Source: SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
+					ID:     "template",
+				},
+				Targets: []TargetConfig{
+					{
+						Repo: "org/service",
+						Files: []FileMapping{
+							{Src: "file.txt", Dest: "file.txt"},
+						},
+					},
 				},
 			},
 		},
@@ -131,8 +147,12 @@ func TestValidate_ValidConfig(t *testing.T) {
 func TestValidate_InvalidVersion(t *testing.T) {
 	config := &Config{
 		Version: 2,
-		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
-		Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
+		Mappings: []SourceMapping{
+			{
+				Source:  SourceConfig{Repo: "org/repo", Branch: "master", ID: "repo"},
+				Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
+			},
+		},
 	}
 
 	err := config.ValidateWithLogging(context.Background(), nil)
@@ -143,8 +163,12 @@ func TestValidate_InvalidVersion(t *testing.T) {
 func TestValidate_MissingSourceRepo(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source:  SourceConfig{Branch: "master"},
-		Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
+		Mappings: []SourceMapping{
+			{
+				Source:  SourceConfig{Branch: "master", ID: "empty"},
+				Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
+			},
+		},
 	}
 
 	err := config.ValidateWithLogging(context.Background(), nil)
@@ -169,8 +193,12 @@ func TestValidate_InvalidRepoFormat(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			config := &Config{
 				Version: 1,
-				Source:  SourceConfig{Repo: tc.repo, Branch: "master"},
-				Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
+				Mappings: []SourceMapping{
+					{
+						Source:  SourceConfig{Repo: tc.repo, Branch: "master", ID: "test"},
+						Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
+					},
+				},
 			}
 
 			err := config.ValidateWithLogging(context.Background(), nil)
@@ -183,8 +211,12 @@ func TestValidate_InvalidRepoFormat(t *testing.T) {
 func TestValidate_InvalidBranch(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source:  SourceConfig{Repo: "org/repo", Branch: ""},
-		Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
+		Mappings: []SourceMapping{
+			{
+				Source:  SourceConfig{Repo: "org/repo", Branch: "", ID: "repo"},
+				Targets: []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}}},
+			},
+		},
 	}
 
 	err := config.ValidateWithLogging(context.Background(), nil)
@@ -195,22 +227,30 @@ func TestValidate_InvalidBranch(t *testing.T) {
 func TestValidate_NoTargets(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
-		Targets: []TargetConfig{},
+		Mappings: []SourceMapping{
+			{
+				Source:  SourceConfig{Repo: "org/repo", Branch: "master", ID: "repo"},
+				Targets: []TargetConfig{},
+			},
+		},
 	}
 
 	err := config.ValidateWithLogging(context.Background(), nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "at least one target repository must be specified")
+	assert.Contains(t, err.Error(), "mapping has no targets")
 }
 
 func TestValidate_DuplicateTargets(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
-		Targets: []TargetConfig{
-			{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}},
-			{Repo: "org/target", Files: []FileMapping{{Src: "f2", Dest: "f2"}}},
+		Mappings: []SourceMapping{
+			{
+				Source: SourceConfig{Repo: "org/repo", Branch: "master", ID: "repo"},
+				Targets: []TargetConfig{
+					{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}},
+					{Repo: "org/target", Files: []FileMapping{{Src: "f2", Dest: "f2"}}},
+				},
+			},
 		},
 	}
 
@@ -222,9 +262,13 @@ func TestValidate_DuplicateTargets(t *testing.T) {
 func TestValidate_NoFileMappings(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
-		Targets: []TargetConfig{
-			{Repo: "org/target", Files: []FileMapping{}},
+		Mappings: []SourceMapping{
+			{
+				Source: SourceConfig{Repo: "org/repo", Branch: "master", ID: "repo"},
+				Targets: []TargetConfig{
+					{Repo: "org/target", Files: []FileMapping{}},
+				},
+			},
 		},
 	}
 
@@ -252,11 +296,15 @@ func TestValidate_InvalidFilePaths(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			config := &Config{
 				Version: 1,
-				Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
-				Targets: []TargetConfig{
+				Mappings: []SourceMapping{
 					{
-						Repo:  "org/target",
-						Files: []FileMapping{{Src: tc.src, Dest: tc.dest}},
+						Source: SourceConfig{Repo: "org/repo", Branch: "master"},
+						Targets: []TargetConfig{
+							{
+								Repo:  "org/target",
+								Files: []FileMapping{{Src: tc.src, Dest: tc.dest}},
+							},
+						},
 					},
 				},
 			}
@@ -271,13 +319,17 @@ func TestValidate_InvalidFilePaths(t *testing.T) {
 func TestValidate_DuplicateDestinations(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
-		Targets: []TargetConfig{
+		Mappings: []SourceMapping{
 			{
-				Repo: "org/target",
-				Files: []FileMapping{
-					{Src: "file1.txt", Dest: "same.txt"},
-					{Src: "file2.txt", Dest: "same.txt"},
+				Source: SourceConfig{Repo: "org/repo", Branch: "master"},
+				Targets: []TargetConfig{
+					{
+						Repo: "org/target",
+						Files: []FileMapping{
+							{Src: "file1.txt", Dest: "same.txt"},
+							{Src: "file2.txt", Dest: "same.txt"},
+						},
+					},
 				},
 			},
 		},
@@ -291,12 +343,16 @@ func TestValidate_DuplicateDestinations(t *testing.T) {
 func TestValidate_EmptyPRLabel(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 		Defaults: DefaultConfig{
 			PRLabels: []string{"valid", "  ", "another"},
 		},
-		Targets: []TargetConfig{
-			{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}},
+		Mappings: []SourceMapping{
+			{
+				Source: SourceConfig{Repo: "org/repo", Branch: "master", ID: "repo"},
+				Targets: []TargetConfig{
+					{Repo: "org/target", Files: []FileMapping{{Src: "f", Dest: "f"}}},
+				},
+			},
 		},
 	}
 
@@ -308,15 +364,19 @@ func TestValidate_EmptyPRLabel(t *testing.T) {
 func TestValidate_EmptyTargetPRLabel(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source:  SourceConfig{Repo: "org/repo", Branch: "master"},
 		Defaults: DefaultConfig{
 			PRLabels: []string{"default-label"},
 		},
-		Targets: []TargetConfig{
+		Mappings: []SourceMapping{
 			{
-				Repo:     "org/target",
-				Files:    []FileMapping{{Src: "f", Dest: "f"}},
-				PRLabels: []string{"valid", "  ", "another"}, // Empty label should cause validation error
+				Source: SourceConfig{Repo: "org/repo", Branch: "master", ID: "repo"},
+				Targets: []TargetConfig{
+					{
+						Repo:     "org/target",
+						Files:    []FileMapping{{Src: "f", Dest: "f"}},
+						PRLabels: []string{"valid", "  ", "another"}, // Empty label should cause validation error
+					},
+				},
 			},
 		},
 	}
@@ -345,19 +405,26 @@ func TestApplyDefaults(t *testing.T) {
 			name: "ApplyAllDefaults",
 			input: `
 version: 1
-source:
-  repo: "org/template"
-targets:
-  - repo: "org/service"
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+mappings:
+  - source:
+      repo: "org/template"
+      id: "template"
+    targets:
+      - repo: "org/service"
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `,
 			expected: Config{
 				Version: 1,
-				Source: SourceConfig{
-					Repo:   "org/template",
-					Branch: "main",
+				Mappings: []SourceMapping{
+					{
+						Source: SourceConfig{
+							Repo:   "org/template",
+							Branch: "main",
+							ID:     "template",
+						},
+					},
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "chore/sync-files",
@@ -369,22 +436,29 @@ targets:
 			name: "KeepExistingValues",
 			input: `
 version: 1
-source:
-  repo: "org/template"
 defaults:
   branch_prefix: "custom/prefix"
   pr_labels: ["custom-label", "another"]
-targets:
-  - repo: "org/service"
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+mappings:
+  - source:
+      repo: "org/template"
+      id: "template"
+    targets:
+      - repo: "org/service"
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `,
 			expected: Config{
 				Version: 1,
-				Source: SourceConfig{
-					Repo:   "org/template",
-					Branch: "main",
+				Mappings: []SourceMapping{
+					{
+						Source: SourceConfig{
+							Repo:   "org/template",
+							Branch: "main",
+							ID:     "template",
+						},
+					},
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "custom/prefix",
@@ -396,22 +470,29 @@ targets:
 			name: "PartialDefaults",
 			input: `
 version: 1
-source:
-  repo: "org/template"
-  branch: "develop"
 defaults:
   pr_labels: ["my-label"]
-targets:
-  - repo: "org/service"
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+mappings:
+  - source:
+      repo: "org/template"
+      branch: "develop"
+      id: "template"
+    targets:
+      - repo: "org/service"
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `,
 			expected: Config{
 				Version: 1,
-				Source: SourceConfig{
-					Repo:   "org/template",
-					Branch: "develop",
+				Mappings: []SourceMapping{
+					{
+						Source: SourceConfig{
+							Repo:   "org/template",
+							Branch: "develop",
+							ID:     "template",
+						},
+					},
 				},
 				Defaults: DefaultConfig{
 					BranchPrefix: "chore/sync-files",
@@ -428,10 +509,14 @@ targets:
 			require.NotNil(t, config)
 
 			assert.Equal(t, tc.expected.Version, config.Version)
-			assert.Equal(t, tc.expected.Source.Repo, config.Source.Repo)
-			assert.Equal(t, tc.expected.Source.Branch, config.Source.Branch)
 			assert.Equal(t, tc.expected.Defaults.BranchPrefix, config.Defaults.BranchPrefix)
 			assert.Equal(t, tc.expected.Defaults.PRLabels, config.Defaults.PRLabels)
+
+			// Multi-source config should be parsed directly
+			require.Len(t, config.Mappings, 1)
+			assert.Equal(t, tc.expected.Mappings[0].Source.Repo, config.Mappings[0].Source.Repo)
+			assert.Equal(t, tc.expected.Mappings[0].Source.Branch, config.Mappings[0].Source.Branch)
+			assert.Equal(t, tc.expected.Mappings[0].Source.ID, config.Mappings[0].Source.ID)
 		})
 	}
 }
@@ -441,13 +526,15 @@ func TestLoadFromReader_StrictParsing(t *testing.T) {
 	yamlContent := `
 version: 1
 unknown_field: "should fail"
-source:
-  repo: "org/repo"
-targets:
-  - repo: "org/target"
-    files:
-      - src: "file"
-        dest: "file"
+mappings:
+  - source:
+      repo: "org/repo"
+      id: "repo"
+    targets:
+      - repo: "org/target"
+        files:
+          - src: "file"
+            dest: "file"
 `
 
 	config, err := LoadFromReader(strings.NewReader(yamlContent))
@@ -505,17 +592,21 @@ func TestLoadFromReader_DirectoryConfig(t *testing.T) {
 			name: "valid directory config with defaults",
 			yaml: `
 version: 1
-source:
-  repo: "org/template"
-targets:
-  - repo: "org/service"
-    directories:
-      - src: ".github/workflows"
-        dest: ".github/workflows"
+mappings:
+  - source:
+      repo: "org/template"
+      id: "template"
+    targets:
+      - repo: "org/service"
+        directories:
+          - src: ".github/workflows"
+            dest: ".github/workflows"
 `,
 			check: func(t *testing.T, cfg *Config) {
-				require.Len(t, cfg.Targets[0].Directories, 1)
-				dir := cfg.Targets[0].Directories[0]
+				require.Len(t, cfg.Mappings, 1)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				require.Len(t, cfg.Mappings[0].Targets[0].Directories, 1)
+				dir := cfg.Mappings[0].Targets[0].Directories[0]
 				assert.Equal(t, ".github/workflows", dir.Src)
 				assert.Equal(t, ".github/workflows", dir.Dest)
 				assert.Equal(t, DefaultExclusions(), dir.Exclude)
@@ -529,19 +620,23 @@ targets:
 			name: "directory with custom exclusions",
 			yaml: `
 version: 1
-source:
-  repo: "org/template"
-targets:
-  - repo: "org/service"
-    directories:
-      - src: "configs"
-        dest: "configs"
-        exclude: ["*.local", "*.secret"]
-        preserve_structure: false
-        include_hidden: false
+mappings:
+  - source:
+      repo: "org/template"
+      id: "template"
+    targets:
+      - repo: "org/service"
+        directories:
+          - src: "configs"
+            dest: "configs"
+            exclude: ["*.local", "*.secret"]
+            preserve_structure: false
+            include_hidden: false
 `,
 			check: func(t *testing.T, cfg *Config) {
-				dir := cfg.Targets[0].Directories[0]
+				require.Len(t, cfg.Mappings, 1)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				dir := cfg.Mappings[0].Targets[0].Directories[0]
 				assert.Equal(t, []string{"*.local", "*.secret"}, dir.Exclude)
 				require.NotNil(t, dir.PreserveStructure)
 				assert.False(t, *dir.PreserveStructure)
@@ -553,20 +648,24 @@ targets:
 			name: "directory with transform",
 			yaml: `
 version: 1
-source:
-  repo: "org/template"
-targets:
-  - repo: "org/service"
-    directories:
-      - src: "templates"
-        dest: "templates"
-        transform:
-          repo_name: true
-          variables:
-            ENV: "prod"
+mappings:
+  - source:
+      repo: "org/template"
+      id: "template"
+    targets:
+      - repo: "org/service"
+        directories:
+          - src: "templates"
+            dest: "templates"
+            transform:
+              repo_name: true
+              variables:
+                ENV: "prod"
 `,
 			check: func(t *testing.T, cfg *Config) {
-				dir := cfg.Targets[0].Directories[0]
+				require.Len(t, cfg.Mappings, 1)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				dir := cfg.Mappings[0].Targets[0].Directories[0]
 				assert.True(t, dir.Transform.RepoName)
 				assert.Equal(t, "prod", dir.Transform.Variables["ENV"])
 			},
@@ -575,20 +674,24 @@ targets:
 			name: "mixed files and directories",
 			yaml: `
 version: 1
-source:
-  repo: "org/template"
-targets:
-  - repo: "org/service"
-    files:
-      - src: "Makefile"
-        dest: "Makefile"
-    directories:
-      - src: ".github"
-        dest: ".github"
+mappings:
+  - source:
+      repo: "org/template"
+      id: "template"
+    targets:
+      - repo: "org/service"
+        files:
+          - src: "Makefile"
+            dest: "Makefile"
+        directories:
+          - src: ".github"
+            dest: ".github"
 `,
 			check: func(t *testing.T, cfg *Config) {
-				assert.Len(t, cfg.Targets[0].Files, 1)
-				assert.Len(t, cfg.Targets[0].Directories, 1)
+				require.Len(t, cfg.Mappings, 1)
+				require.Len(t, cfg.Mappings[0].Targets, 1)
+				assert.Len(t, cfg.Mappings[0].Targets[0].Files, 1)
+				assert.Len(t, cfg.Mappings[0].Targets[0].Directories, 1)
 			},
 		},
 	}

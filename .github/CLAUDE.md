@@ -74,12 +74,15 @@ make test-integration-all        # All integration test phases
 # Validate go-broadcast configurations
 ./go-broadcast validate --config examples/minimal.yaml
 ./go-broadcast validate --config examples/sync.yaml
+./go-broadcast validate --config examples/multi-source.yaml
 
 # Test dry-run functionality
 ./go-broadcast sync --dry-run --config examples/minimal.yaml
+./go-broadcast sync --dry-run --config examples/multi-source.yaml  # Multi-source dry-run
 
 # Check configuration status
 ./go-broadcast status --config examples/minimal.yaml
+./go-broadcast status --config examples/multi-source.yaml  # Multi-source status
 
 # Cancel active sync operations
 ./go-broadcast cancel --dry-run --config examples/minimal.yaml
@@ -109,6 +112,61 @@ go run ./cmd/generate-corpus
 - **Transformations** (`internal/transform`): Variable substitution, regex replacement chains
 - **GitHub API** (`internal/gh`): Response parsing and error handling
 - **Git operations** (`internal/git`): Command parsing and output handling
+
+### 🚀 Multi-Source Synchronization
+
+go-broadcast supports syncing from multiple source repositories to the same targets!
+
+**Key Features:**
+- **Multiple source mappings** in a single configuration file
+- **Intelligent conflict resolution** when multiple sources target the same files
+- **Source-specific identifiers** in branch names for clear tracking
+- **Backwards compatible** with existing single-source configurations
+
+**Quick Example:**
+```yaml
+version: 1
+mappings:
+  - source:
+      repo: "company/ci-templates"
+      id: "ci"
+    targets:
+      - repo: "company/service"
+        files:
+          - src: "ci.yml"
+            dest: ".github/workflows/ci.yml"
+  - source:
+      repo: "company/security-templates"
+      id: "security"
+    targets:
+      - repo: "company/service"
+        files:
+          - src: "policies.yml"
+            dest: "security/policies.yml"
+```
+
+**Conflict Resolution Strategies:**
+1. **last-wins** (default): Last mapping in config wins conflicts
+2. **priority**: Explicit priority order (e.g., `priority: ["security", "ci"]`)
+3. **error**: Fail sync if any conflicts detected
+
+**Testing Multi-Source:**
+```bash
+# Run multi-source specific tests
+go test -v ./internal/config -run TestMultiSource
+go test -v ./internal/sync -run TestConflict
+
+# Validate multi-source configurations
+./go-broadcast validate --config examples/multi-source.yaml
+./go-broadcast validate --config examples/multi-source-conflicts.yaml
+
+# Test conflict resolution
+./go-broadcast sync --dry-run --config examples/multi-source-conflicts.yaml
+```
+
+**Branch Naming with Multi-Source:**
+- Single source: `chore/sync-files-20250130-143052-abc123f`
+- Multi-source: `chore/sync-ci-20250130-143052-abc123f` (includes source ID)
 
 ### 📊 Performance Testing and Benchmarking
 
@@ -218,9 +276,9 @@ go mod verify
 govulncheck ./...
 ```
 
-### 🚀 GitHub Pages Setup for New Repositories
+### 🚀 GitHub Pages Setup for Repositories
 
-If you're setting up GoFortress coverage system for a new repository or encountering GitHub Pages deployment issues, you may need to configure environment protection rules.
+If you're setting up GoFortress coverage system for a repository or encountering GitHub Pages deployment issues, you may need to configure environment protection rules.
 
 **Quick Setup:**
 ```bash
@@ -281,7 +339,7 @@ The GoFortress coverage system uses an **incremental deployment strategy** that 
 - All branches index: `https://[owner].github.io/[repo-name]/branches.html`
 
 **Important Deployment Notes:**
-- The deployment is **incremental** - new deployments don't overwrite existing branch/PR data
+- The deployment is **incremental** - deployments don't overwrite existing branch/PR data
 - Each branch gets its own persistent directory under `/coverage/branch/`
 - PR badges are stored under `/coverage/pr/` and persist across deployments
 - The main branch deployment updates the root files while preserving all subdirectories
@@ -457,6 +515,8 @@ go-broadcast includes a comprehensive team of **26 specialized AI sub-agents** d
 - [`examples/README.md`](../examples/README.md) - Example configurations overview
 - [`examples/minimal.yaml`](../examples/minimal.yaml) - Simplest configuration
 - [`examples/sync.yaml`](../examples/sync.yaml) - Comprehensive example
+- [`examples/multi-source.yaml`](../examples/multi-source.yaml) - Multi-source configuration
+- [`examples/multi-source-conflicts.yaml`](../examples/multi-source-conflicts.yaml) - Conflict resolution examples
 
 ---
 

@@ -52,14 +52,15 @@ func TestRunValidate(t *testing.T) {
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -125,10 +126,11 @@ func TestRunValidateWithFlags(t *testing.T) {
 
 				// Valid YAML but invalid config (missing required fields)
 				invalidConfig := `version: 1
-source:
-  repo: org/template
-targets:
-  - name: target1`
+mappings:
+  - source:
+      repo: org/template
+    targets:
+      - name: target1`
 
 				_, err = tmpFile.WriteString(invalidConfig)
 				require.NoError(t, err)
@@ -148,14 +150,15 @@ targets:
 				require.NoError(t, err)
 
 				validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 				_, err = tmpFile.WriteString(validConfig)
 				require.NoError(t, err)
@@ -173,19 +176,20 @@ targets:
 				require.NoError(t, err)
 
 				validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
 defaults:
   branch_prefix: "sync/"
   pr_labels:
     - "automated"
     - "sync"
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 				_, err = tmpFile.WriteString(validConfig)
 				require.NoError(t, err)
@@ -203,19 +207,20 @@ targets:
 				require.NoError(t, err)
 
 				validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md
-    transform:
-      repo_name: true
-      variables:
-        PROJECT: "test-project"
-        VERSION: "1.0.0"`
+mappings:
+  - source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+        transform:
+          repo_name: true
+          variables:
+            PROJECT: "test-project"
+            VERSION: "1.0.0"`
 
 				_, err = tmpFile.WriteString(validConfig)
 				require.NoError(t, err)
@@ -233,24 +238,25 @@ targets:
 				require.NoError(t, err)
 
 				validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md
-      - src: .github/workflows/ci.yml
-        dest: .github/workflows/ci.yml
-  - repo: org/target2
-    files:
-      - src: README.md
-        dest: docs/README.md
-  - repo: org/target3
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+          - src: .github/workflows/ci.yml
+            dest: .github/workflows/ci.yml
+      - repo: org/target2
+        files:
+          - src: README.md
+            dest: docs/README.md
+      - repo: org/target3
+        files:
+          - src: README.md
+            dest: README.md`
 
 				_, err = tmpFile.WriteString(validConfig)
 				require.NoError(t, err)
@@ -299,14 +305,15 @@ func TestValidateOutputFormatting(t *testing.T) {
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 	_, err = tmpFile.WriteString(validConfig)
 	require.NoError(t, err)
@@ -332,14 +339,15 @@ func TestValidateAbsolutePath(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "test-config.yml")
 
 	validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 	testutil.WriteTestFile(t, configPath, validConfig)
 
@@ -375,14 +383,15 @@ func TestValidateCommandIntegration(t *testing.T) {
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	validConfig := `version: 1
-source:
-  repo: test/source
-  branch: main
-targets:
-  - repo: test/target1
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: test/source
+      branch: main
+    targets:
+      - repo: test/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 	testutil.WriteTestFile(t, tmpFile.Name(), validConfig)
 
@@ -418,10 +427,14 @@ func TestValidateSourceFilesExistGracefulHandling(t *testing.T) {
 		ctx := context.Background()
 		logConfig := &logging.LogConfig{LogLevel: "error"}
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/repo",
-				Branch: "main",
-			},
+			Version: 1,
+			Mappings: []config.SourceMapping{{
+				Source: config.SourceConfig{
+					Repo:   "test/repo",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{},
+			}},
 		}
 
 		// validateSourceFilesExist should handle GitHub client errors gracefully
@@ -440,14 +453,15 @@ func TestValidateWithFlagsEdgeCases(t *testing.T) {
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -472,14 +486,15 @@ targets:
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+mappings:
+  - source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)

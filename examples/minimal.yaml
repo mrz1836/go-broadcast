@@ -3,12 +3,13 @@
 
 version: 1
 
-source:
-  repo: "org/template-repo"
-  branch: "master"
-
-targets:
-  - repo: "org/target-repo"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
+mappings:
+  - source:
+      repo: "org/template-repo"
+      branch: "master"
+      id: "main"
+    targets:
+      - repo: "org/target-repo"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"

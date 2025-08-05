@@ -94,10 +94,10 @@ func main() {
 
 // Global variables for testing - these allow mocking during tests
 var (
-	newProductionReadinessValidator = validation.NewProductionReadinessValidator
-	generateReport                  = func(v *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) {
+	newProductionReadinessValidator = validation.NewProductionReadinessValidator                                                        //nolint:gochecknoglobals // Required for testing
+	generateReport                  = func(v *validation.ProductionReadinessValidator) (*validation.ProductionReadinessReport, error) { //nolint:gochecknoglobals // Required for testing
 		return v.GenerateReport()
 	}
-	logFatalf = log.Fatalf
-	osExit    = os.Exit
+	logFatalf = log.Fatalf //nolint:gochecknoglobals // Required for testing
+	osExit    = os.Exit    //nolint:gochecknoglobals // Required for testing
 )

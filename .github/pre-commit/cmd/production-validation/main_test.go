@@ -22,7 +22,7 @@ import (
 var (
 	errValidatorTest  = errors.New("validator error")
 	errReportTest     = errors.New("report error")
-	errNotImplemented = errors.New("not implemented")
+	errNotImplemented = errors.New("not implemented") //nolint:unused // Placeholder for future use
 )
 
 // Test main function with various command line arguments
@@ -424,7 +424,7 @@ func TestMain_FlagParsing(t *testing.T) {
 }
 
 // Helper functions to make main testable - these need to be global for testing
-// Note: These variables are now defined in main.go
+// These variables are now defined in main.go for testability
 
 // runMainWithExitCode runs main and returns the exit code
 func runMainWithExitCode() int {

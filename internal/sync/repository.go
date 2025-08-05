@@ -34,11 +34,13 @@ const (
 // RepositorySync handles synchronization for a single repository
 type RepositorySync struct {
 	engine      *Engine
+	source      config.SourceConfig // Added to support multi-source
 	target      config.TargetConfig
 	sourceState *state.SourceState
 	targetState *state.TargetState
 	logger      *logrus.Entry
 	tempDir     string
+	defaults    *config.DefaultConfig // Optional defaults from mapping
 	// Performance metrics tracking
 	syncMetrics *PerformanceMetrics
 }
@@ -395,7 +397,9 @@ func (rs *RepositorySync) getExistingFileContent(ctx context.Context, filePath s
 
 // createSyncBranch creates a new sync branch or returns existing one
 func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
-	// Generate branch name: chore/sync-files-YYYYMMDD-HHMMSS-{commit}
+	// Generate branch name with source information
+	// v1 Format: chore/sync-files-YYYYMMDD-HHMMSS-{commit}
+	// v2 Format: chore/sync-{sourceID}-YYYYMMDD-HHMMSS-{commit}
 	now := time.Now()
 	timestamp := now.Format("20060102-150405")
 	commitSHA := rs.sourceState.LatestCommit
@@ -403,12 +407,27 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 		commitSHA = commitSHA[:7]
 	}
 
-	branchPrefix := rs.engine.config.Defaults.BranchPrefix
+	// Use defaults from mapping if available, otherwise global defaults
+	var branchPrefix string
+	if rs.defaults != nil && rs.defaults.BranchPrefix != "" {
+		branchPrefix = rs.defaults.BranchPrefix
+	} else {
+		branchPrefix = rs.engine.config.Defaults.BranchPrefix
+	}
 	if branchPrefix == "" {
 		branchPrefix = "chore/sync-files"
 	}
 
-	branchName := fmt.Sprintf("%s-%s-%s", branchPrefix, timestamp, commitSHA)
+	// Include source ID in branch name if available
+	var branchName string
+	if rs.source.ID != "" {
+		// Use source ID for clear identification
+		branchName = fmt.Sprintf("%s-%s-%s-%s", branchPrefix, rs.source.ID, timestamp, commitSHA)
+	} else {
+		// Fall back to extracting identifier from repo name
+		sourceID := extractSourceID(rs.source.Repo)
+		branchName = fmt.Sprintf("%s-%s-%s-%s", branchPrefix, sourceID, timestamp, commitSHA)
+	}
 
 	rs.logger.WithField("branch_name", branchName).Info("Creating sync branch")
 
@@ -420,6 +439,28 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 	// Create branch in target repository
 	// We'll create the branch when we push, so just return the name for now
 	return branchName
+}
+
+// extractSourceID creates a short identifier from a repository name
+func extractSourceID(repo string) string {
+	// Extract the repo name part (after the last /)
+	parts := strings.Split(repo, "/")
+	repoName := parts[len(parts)-1]
+
+	// Truncate if too long
+	if len(repoName) > 20 {
+		repoName = repoName[:20]
+	}
+
+	// Replace non-alphanumeric characters with dashes
+	repoName = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' {
+			return r
+		}
+		return '-'
+	}, repoName)
+
+	return repoName
 }
 
 // commitChanges creates a commit with the changed files

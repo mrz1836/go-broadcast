@@ -244,47 +244,52 @@ func (g *TestRepoGenerator) CreateComplexScenario() (*TestScenario, error) {
 	// Create configuration
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
 		Defaults: config.DefaultConfig{
 			BranchPrefix: "chore/sync-files",
 			PRLabels:     []string{"automated-sync", "integration-test"},
 		},
-		Targets: []config.TargetConfig{
+		Mappings: []config.SourceMapping{
 			{
-				Repo: "org/service-a",
-				Files: []config.FileMapping{
-					{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
-					{Src: "Makefile", Dest: "Makefile"},
+				Source: config.SourceConfig{
+					Repo:   "org/template-repo",
+					Branch: "master",
+					ID:     "template",
 				},
-				Transform: config.Transform{
-					RepoName:  true,
-					Variables: map[string]string{"SERVICE_NAME": "service-a"},
-				},
-			},
-			{
-				Repo: "org/service-b",
-				Files: []config.FileMapping{
-					{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
-					{Src: "Makefile", Dest: "Makefile"},
-					{Src: "README.md", Dest: "README.md"},
-				},
-				Transform: config.Transform{
-					RepoName:  true,
-					Variables: map[string]string{"SERVICE_NAME": "service-b"},
-				},
-			},
-			{
-				Repo: "org/service-c",
-				Files: []config.FileMapping{
-					{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
-					{Src: "docker-compose.yml", Dest: "docker-compose.yml"},
-				},
-				Transform: config.Transform{
-					RepoName:  true,
-					Variables: map[string]string{"SERVICE_NAME": "service-c"},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/service-a",
+						Files: []config.FileMapping{
+							{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
+							{Src: "Makefile", Dest: "Makefile"},
+						},
+						Transform: config.Transform{
+							RepoName:  true,
+							Variables: map[string]string{"SERVICE_NAME": "service-a"},
+						},
+					},
+					{
+						Repo: "org/service-b",
+						Files: []config.FileMapping{
+							{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
+							{Src: "Makefile", Dest: "Makefile"},
+							{Src: "README.md", Dest: "README.md"},
+						},
+						Transform: config.Transform{
+							RepoName:  true,
+							Variables: map[string]string{"SERVICE_NAME": "service-b"},
+						},
+					},
+					{
+						Repo: "org/service-c",
+						Files: []config.FileMapping{
+							{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
+							{Src: "docker-compose.yml", Dest: "docker-compose.yml"},
+						},
+						Transform: config.Transform{
+							RepoName:  true,
+							Variables: map[string]string{"SERVICE_NAME": "service-c"},
+						},
+					},
 				},
 			},
 		},

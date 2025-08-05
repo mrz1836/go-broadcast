@@ -2,17 +2,35 @@ package config
 
 // Config represents the complete sync configuration
 type Config struct {
-	Version  int            `yaml:"version"`
-	Source   SourceConfig   `yaml:"source"`
-	Global   GlobalConfig   `yaml:"global,omitempty"`
-	Defaults DefaultConfig  `yaml:"defaults,omitempty"`
-	Targets  []TargetConfig `yaml:"targets"`
+	Version int `yaml:"version"`
+
+	// Multi-source configuration mappings
+	Mappings []SourceMapping `yaml:"mappings,omitempty"`
+
+	// Shared configuration
+	Global   GlobalConfig  `yaml:"global,omitempty"`
+	Defaults DefaultConfig `yaml:"defaults,omitempty"`
+
+	// Conflict resolution settings
+	ConflictResolution *ConflictResolution `yaml:"conflict_resolution,omitempty"`
+}
+
+// SourceMapping represents a mapping from one source to multiple targets
+type SourceMapping struct {
+	Source  SourceConfig   `yaml:"source"`
+	Targets []TargetConfig `yaml:"targets"`
+
+	// Optional mapping-level defaults that override global defaults
+	Defaults *DefaultConfig `yaml:"defaults,omitempty"`
 }
 
 // SourceConfig defines the source repository settings
 type SourceConfig struct {
 	Repo   string `yaml:"repo"`   // Format: org/repo
 	Branch string `yaml:"branch"` // Default: master
+
+	// Optional source identifier for conflict resolution
+	ID string `yaml:"id,omitempty"`
 }
 
 // GlobalConfig contains global settings applied across all targets
@@ -66,4 +84,45 @@ type DirectoryMapping struct {
 type Transform struct {
 	RepoName  bool              `yaml:"repo_name,omitempty"` // Replace repository names
 	Variables map[string]string `yaml:"variables,omitempty"` // Template variables
+}
+
+// ConflictResolution defines how to handle conflicts when multiple sources target the same file
+type ConflictResolution struct {
+	Strategy string   `yaml:"strategy"`           // "last-wins", "priority", "error"
+	Priority []string `yaml:"priority,omitempty"` // Source IDs in priority order
+}
+
+// GetAllTargets returns all unique target repositories across all mappings
+func (c *Config) GetAllTargets() map[string]bool {
+	targets := make(map[string]bool)
+	for _, mapping := range c.Mappings {
+		for _, target := range mapping.Targets {
+			targets[target.Repo] = true
+		}
+	}
+	return targets
+}
+
+// GetTargetMappings returns all source-to-target mappings for a specific target repository
+func (c *Config) GetTargetMappings(targetRepo string) []SourceTargetPair {
+	var pairs []SourceTargetPair
+	for _, mapping := range c.Mappings {
+		for _, target := range mapping.Targets {
+			if target.Repo == targetRepo {
+				pairs = append(pairs, SourceTargetPair{
+					Source:   mapping.Source,
+					Target:   target,
+					Defaults: mapping.Defaults,
+				})
+			}
+		}
+	}
+	return pairs
+}
+
+// SourceTargetPair represents a single source-to-target relationship
+type SourceTargetPair struct {
+	Source   SourceConfig
+	Target   TargetConfig
+	Defaults *DefaultConfig
 }

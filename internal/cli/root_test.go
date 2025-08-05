@@ -626,18 +626,20 @@ func TestCreateRunSyncWithVerbose(t *testing.T) {
 				require.NoError(t, err)
 				defer func() { _ = os.Remove(tmpFile.Name()) }()
 
-				configContent := `
-source:
-  github:
-    owner: test-owner
-    repo: test-repo
-targets:
-  - github:
-      owner: target-owner
-      repo: target1
-  - github:
-      owner: target-owner
-      repo: target2
+				configContent := `version: 1
+mappings:
+  - source:
+      repo: test-owner/test-repo
+      branch: main
+    targets:
+      - repo: target-owner/target1
+        files:
+          - src: README.md
+            dest: README.md
+      - repo: target-owner/target2
+        files:
+          - src: README.md
+            dest: README.md
 `
 				_, err = tmpFile.WriteString(configContent)
 				require.NoError(t, err)
