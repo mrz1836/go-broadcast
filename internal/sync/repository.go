@@ -403,7 +403,13 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 		commitSHA = commitSHA[:7]
 	}
 
-	branchPrefix := rs.engine.config.Defaults.BranchPrefix
+	var branchPrefix string
+	if rs.engine.currentGroup != nil {
+		branchPrefix = rs.engine.currentGroup.Defaults.BranchPrefix
+	} else {
+		// Fallback for old format or tests
+		branchPrefix = rs.engine.config.Defaults.BranchPrefix
+	}
 	if branchPrefix == "" {
 		branchPrefix = "chore/sync-files"
 	}
@@ -1266,9 +1272,19 @@ func (rs *RepositorySync) mergeUniqueStrings(slice1, slice2 []string) []string {
 
 // getPRAssignees returns the assignees to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRAssignees() []string {
-	global := rs.engine.config.Global.PRAssignees
+	var global []string
+	var defaults []string
+
+	if rs.engine.currentGroup != nil {
+		global = rs.engine.currentGroup.Global.PRAssignees
+		defaults = rs.engine.currentGroup.Defaults.PRAssignees
+	} else {
+		// Fallback for old format or tests
+		global = rs.engine.config.Global.PRAssignees
+		defaults = rs.engine.config.Defaults.PRAssignees
+	}
+
 	target := rs.target.PRAssignees
-	defaults := rs.engine.config.Defaults.PRAssignees
 
 	// Merge global + target (unique)
 	combined := rs.mergeUniqueStrings(global, target)
@@ -1282,9 +1298,19 @@ func (rs *RepositorySync) getPRAssignees() []string {
 
 // getPRReviewers returns the reviewers to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRReviewers() []string {
-	global := rs.engine.config.Global.PRReviewers
+	var global []string
+	var defaults []string
+
+	if rs.engine.currentGroup != nil {
+		global = rs.engine.currentGroup.Global.PRReviewers
+		defaults = rs.engine.currentGroup.Defaults.PRReviewers
+	} else {
+		// Fallback for old format or tests
+		global = rs.engine.config.Global.PRReviewers
+		defaults = rs.engine.config.Defaults.PRReviewers
+	}
+
 	target := rs.target.PRReviewers
-	defaults := rs.engine.config.Defaults.PRReviewers
 
 	// Merge global + target (unique)
 	combined := rs.mergeUniqueStrings(global, target)
@@ -1298,9 +1324,19 @@ func (rs *RepositorySync) getPRReviewers() []string {
 
 // getPRLabels returns the labels to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRLabels() []string {
-	global := rs.engine.config.Global.PRLabels
+	var global []string
+	var defaults []string
+
+	if rs.engine.currentGroup != nil {
+		global = rs.engine.currentGroup.Global.PRLabels
+		defaults = rs.engine.currentGroup.Defaults.PRLabels
+	} else {
+		// Fallback for old format or tests
+		global = rs.engine.config.Global.PRLabels
+		defaults = rs.engine.config.Defaults.PRLabels
+	}
+
 	target := rs.target.PRLabels
-	defaults := rs.engine.config.Defaults.PRLabels
 
 	// Merge global + target (unique)
 	combined := rs.mergeUniqueStrings(global, target)
@@ -1314,9 +1350,19 @@ func (rs *RepositorySync) getPRLabels() []string {
 
 // getPRTeamReviewers returns the team reviewers to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRTeamReviewers() []string {
-	global := rs.engine.config.Global.PRTeamReviewers
+	var global []string
+	var defaults []string
+
+	if rs.engine.currentGroup != nil {
+		global = rs.engine.currentGroup.Global.PRTeamReviewers
+		defaults = rs.engine.currentGroup.Defaults.PRTeamReviewers
+	} else {
+		// Fallback for old format or tests
+		global = rs.engine.config.Global.PRTeamReviewers
+		defaults = rs.engine.config.Defaults.PRTeamReviewers
+	}
+
 	target := rs.target.PRTeamReviewers
-	defaults := rs.engine.config.Defaults.PRTeamReviewers
 
 	// Merge global + target (unique)
 	combined := rs.mergeUniqueStrings(global, target)

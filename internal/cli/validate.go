@@ -21,6 +21,7 @@ var (
 	ErrGitHubAuthRequired   = fmt.Errorf("github authentication required")
 	ErrSourceBranchNotFound = fmt.Errorf("source branch not accessible")
 	ErrSourceRepoNotFound   = fmt.Errorf("source repository not accessible")
+	ErrNoConfigGroups       = fmt.Errorf("no configuration groups found")
 )
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -101,39 +102,49 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 	output.Info("")
 	output.Info("Configuration Summary:")
 	output.Info(fmt.Sprintf("  Version: %d", cfg.Version))
-	output.Info(fmt.Sprintf("  Source: %s (branch: %s)", cfg.Source.Repo, cfg.Source.Branch))
 
-	if cfg.Defaults.BranchPrefix != "" || len(cfg.Defaults.PRLabels) > 0 {
-		output.Info("  Defaults:")
-		if cfg.Defaults.BranchPrefix != "" {
-			output.Info(fmt.Sprintf("    Branch prefix: %s", cfg.Defaults.BranchPrefix))
+	groups := cfg.GetGroups()
+	if len(groups) > 0 {
+		group := groups[0] // For compatibility with old format, work with first group
+		output.Info(fmt.Sprintf("  Source: %s (branch: %s)", group.Source.Repo, group.Source.Branch))
+
+		if group.Defaults.BranchPrefix != "" || len(group.Defaults.PRLabels) > 0 {
+			output.Info("  Defaults:")
+			if group.Defaults.BranchPrefix != "" {
+				output.Info(fmt.Sprintf("    Branch prefix: %s", group.Defaults.BranchPrefix))
+			}
+			if len(group.Defaults.PRLabels) > 0 {
+				output.Info(fmt.Sprintf("    PR labels: %v", group.Defaults.PRLabels))
+			}
 		}
-		if len(cfg.Defaults.PRLabels) > 0 {
-			output.Info(fmt.Sprintf("    PR labels: %v", cfg.Defaults.PRLabels))
-		}
+
+		output.Info(fmt.Sprintf("  Targets: %d repositories", len(group.Targets)))
+	} else {
+		output.Info("  No configuration groups found")
 	}
-
-	output.Info(fmt.Sprintf("  Targets: %d repositories", len(cfg.Targets)))
 
 	// Show target details
 	totalFiles := 0
 
-	for i, target := range cfg.Targets {
-		output.Info(fmt.Sprintf("    %d. %s", i+1, target.Repo))
-		output.Info(fmt.Sprintf("       Files: %d mappings", len(target.Files)))
+	if len(groups) > 0 {
+		group := groups[0]
+		for i, target := range group.Targets {
+			output.Info(fmt.Sprintf("    %d. %s", i+1, target.Repo))
+			output.Info(fmt.Sprintf("       Files: %d mappings", len(target.Files)))
 
-		// Count transforms
-		transformCount := 0
-		if target.Transform.RepoName {
-			transformCount++
+			// Count transforms
+			transformCount := 0
+			if target.Transform.RepoName {
+				transformCount++
+			}
+
+			transformCount += len(target.Transform.Variables)
+			if transformCount > 0 {
+				output.Info(fmt.Sprintf("       Transforms: %d configured", transformCount))
+			}
+
+			totalFiles += len(target.Files)
 		}
-
-		transformCount += len(target.Transform.Variables)
-		if transformCount > 0 {
-			output.Info(fmt.Sprintf("       Transforms: %d configured", transformCount))
-		}
-
-		totalFiles += len(target.Files)
 	}
 
 	output.Info("")
@@ -205,22 +216,29 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 	}
 
 	// Check source repository accessibility
-	log.WithField("repo", cfg.Source.Repo).Debug("Checking source repository accessibility")
-	_, err = ghClient.GetBranch(ctx, cfg.Source.Repo, cfg.Source.Branch)
+	groups := cfg.GetGroups()
+	if len(groups) == 0 {
+		output.Error("  ✗ No configuration groups found")
+		return ErrNoConfigGroups
+	}
+
+	group := groups[0] // For compatibility with old format, work with first group
+	log.WithField("repo", group.Source.Repo).Debug("Checking source repository accessibility")
+	_, err = ghClient.GetBranch(ctx, group.Source.Repo, group.Source.Branch)
 	if err != nil {
 		if strings.Contains(err.Error(), "branch not found") {
-			output.Error(fmt.Sprintf("  ✗ Source branch '%s' not found in %s", cfg.Source.Branch, cfg.Source.Repo))
+			output.Error(fmt.Sprintf("  ✗ Source branch '%s' not found in %s", group.Source.Branch, group.Source.Repo))
 			return ErrSourceBranchNotFound
 		}
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
-			output.Error(fmt.Sprintf("  ✗ Source repository '%s' not accessible", cfg.Source.Repo))
+			output.Error(fmt.Sprintf("  ✗ Source repository '%s' not accessible", group.Source.Repo))
 			output.Info("    Check repository name and permissions")
 			return ErrSourceRepoNotFound
 		}
 		output.Error(fmt.Sprintf("  ✗ Failed to access source repository: %v", err))
 		return fmt.Errorf("source repository check failed: %w", err)
 	}
-	output.Success(fmt.Sprintf("  ✓ Source repository accessible: %s (branch: %s)", cfg.Source.Repo, cfg.Source.Branch))
+	output.Success(fmt.Sprintf("  ✓ Source repository accessible: %s (branch: %s)", group.Source.Repo, group.Source.Branch))
 
 	// Skip target repository checks if sourceOnly flag is set
 	if sourceOnly {
@@ -229,7 +247,7 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 	}
 
 	// Check target repositories accessibility
-	for i, target := range cfg.Targets {
+	for i, target := range group.Targets {
 		log.WithFields(logrus.Fields{
 			"target_index": i,
 			"repo":         target.Repo,
@@ -265,7 +283,13 @@ func validateSourceFilesExist(ctx context.Context, cfg *config.Config, logConfig
 
 	// Collect all unique source files across all targets
 	sourceFiles := make(map[string]bool)
-	for _, target := range cfg.Targets {
+	groups := cfg.GetGroups()
+	if len(groups) == 0 {
+		output.Info("  ⚠ No configuration groups found")
+		return
+	}
+	group := groups[0] // For compatibility with old format, work with first group
+	for _, target := range group.Targets {
 		for _, file := range target.Files {
 			sourceFiles[file.Src] = true
 		}
@@ -282,11 +306,11 @@ func validateSourceFilesExist(ctx context.Context, cfg *config.Config, logConfig
 	for srcPath := range sourceFiles {
 		log.WithFields(logrus.Fields{
 			"source_file": srcPath,
-			"repo":        cfg.Source.Repo,
-			"branch":      cfg.Source.Branch,
+			"repo":        group.Source.Repo,
+			"branch":      group.Source.Branch,
 		}).Debug("Checking source file existence")
 
-		_, err := ghClient.GetFile(ctx, cfg.Source.Repo, srcPath, cfg.Source.Branch)
+		_, err := ghClient.GetFile(ctx, group.Source.Repo, srcPath, group.Source.Branch)
 		filesChecked++
 		if err != nil {
 			if strings.Contains(err.Error(), "file not found") {

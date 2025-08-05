@@ -17,13 +17,14 @@ import (
 
 // Engine orchestrates the complete synchronization process
 type Engine struct {
-	config    *config.Config
-	gh        gh.Client
-	git       git.Client
-	state     state.Discoverer
-	transform transform.Chain
-	options   *Options
-	logger    *logrus.Logger
+	config       *config.Config
+	currentGroup *config.Group // Current group being processed
+	gh           gh.Client
+	git          git.Client
+	state        state.Discoverer
+	transform    transform.Chain
+	options      *Options
+	logger       *logrus.Logger
 }
 
 // NewEngine creates a new sync engine with the provided dependencies
@@ -76,6 +77,7 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 	// For Phase 2a, we handle single group (compatibility mode)
 	// Future phases will implement full group orchestration
 	group := groups[0]
+	e.currentGroup = &group // Set current group for RepositorySync to use
 	log.WithField("group_name", group.Name).Info("Processing group")
 
 	// 1. Discover current state from GitHub

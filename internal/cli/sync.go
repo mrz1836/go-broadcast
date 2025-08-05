@@ -171,9 +171,16 @@ func loadConfigWithFlags(flags *Flags, logger *logrus.Logger) (*config.Config, e
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
+	groups := cfg.GetGroups()
+	sourceRepo := ""
+	targetsCount := 0
+	if len(groups) > 0 {
+		sourceRepo = groups[0].Source.Repo
+		targetsCount = len(groups[0].Targets)
+	}
 	logger.WithFields(logrus.Fields{
-		"source":      cfg.Source.Repo,
-		"targets":     len(cfg.Targets),
+		"source":      sourceRepo,
+		"targets":     targetsCount,
 		"config_file": configPath,
 	}).Debug("Configuration loaded")
 
@@ -203,20 +210,27 @@ func createSyncEngine(ctx context.Context, cfg *config.Config) (*sync.Engine, er
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if target.Transform.RepoName {
-			transformChain.Add(transform.NewRepoTransformer())
-			break
+	groups := cfg.GetGroups()
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				goto repoTransformerAdded
+			}
 		}
 	}
+repoTransformerAdded:
 
 	// Add template variable transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if len(target.Transform.Variables) > 0 {
-			transformChain.Add(transform.NewTemplateTransformer(logrus.StandardLogger(), nil))
-			break
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logrus.StandardLogger(), nil))
+				goto templateTransformerAdded
+			}
 		}
 	}
+templateTransformerAdded:
 
 	// Create sync options
 	opts := sync.DefaultOptions().
@@ -251,20 +265,27 @@ func createSyncEngineWithFlags(ctx context.Context, cfg *config.Config, flags *F
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if target.Transform.RepoName {
-			transformChain.Add(transform.NewRepoTransformer())
-			break
+	groups := cfg.GetGroups()
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				goto repoTransformerAdded2
+			}
 		}
 	}
+repoTransformerAdded2:
 
 	// Add template variable transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if len(target.Transform.Variables) > 0 {
-			transformChain.Add(transform.NewTemplateTransformer(logger, nil))
-			break
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logger, nil))
+				goto templateTransformerAdded2
+			}
 		}
 	}
+templateTransformerAdded2:
 
 	// Create sync options using flags instead of global state
 	opts := sync.DefaultOptions().
@@ -313,9 +334,16 @@ func loadConfigWithLogConfig(logConfig *LogConfig) (*config.Config, error) {
 
 	// Log configuration details when debug is enabled
 	if logConfig.Debug.Config || logConfig.Verbose >= 1 {
+		groups := cfg.GetGroups()
+		sourceRepo := ""
+		targetsCount := 0
+		if len(groups) > 0 {
+			sourceRepo = groups[0].Source.Repo
+			targetsCount = len(groups[0].Targets)
+		}
 		logrus.WithFields(logrus.Fields{
-			"source":      cfg.Source.Repo,
-			"targets":     len(cfg.Targets),
+			"source":      sourceRepo,
+			"targets":     targetsCount,
 			"config_file": configPath,
 		}).Debug("Configuration loaded")
 	}
@@ -362,20 +390,27 @@ func createSyncEngineWithLogConfig(ctx context.Context, cfg *config.Config, logC
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if target.Transform.RepoName {
-			transformChain.Add(transform.NewRepoTransformer())
-			break
+	groups := cfg.GetGroups()
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				goto repoTransformerAdded3
+			}
 		}
 	}
+repoTransformerAdded3:
 
 	// Add template variable transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if len(target.Transform.Variables) > 0 {
-			transformChain.Add(transform.NewTemplateTransformer(logger, logConfig))
-			break
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logger, logConfig))
+				goto templateTransformerAdded3
+			}
 		}
 	}
+templateTransformerAdded3:
 
 	// Create sync options using LogConfig instead of global state
 	opts := sync.DefaultOptions().
