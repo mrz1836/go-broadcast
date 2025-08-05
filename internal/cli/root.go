@@ -70,6 +70,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(diagnoseCmd)
 	rootCmd.AddCommand(cancelCmd)
+	rootCmd.AddCommand(modulesCmd)
 }
 
 // NewRootCmd creates a new isolated root command instance for testing

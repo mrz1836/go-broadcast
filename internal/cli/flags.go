@@ -30,9 +30,11 @@ type DebugFlags = logging.DebugFlags
 
 // Flags contains all global flags for the CLI (legacy support)
 type Flags struct {
-	ConfigFile string
-	DryRun     bool
-	LogLevel   string
+	ConfigFile  string
+	DryRun      bool
+	LogLevel    string
+	GroupFilter []string // Groups to sync (by name or ID)
+	SkipGroups  []string // Groups to skip during sync
 }
 
 // globalFlags is the singleton instance of flags

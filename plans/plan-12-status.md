@@ -2,7 +2,7 @@
 
 This document tracks the implementation progress of the Group-Based Configuration with Module Awareness as defined in `plan-12.md`.
 
-**Overall Status**: Phase 4 Complete (5/9 Phases Complete)
+**Overall Status**: Phase 5 Complete (6/9 Phases Complete)
 
 ## Phase Summary
 
@@ -14,7 +14,7 @@ This document tracks the implementation progress of the Group-Based Configuratio
 | Phase 2b: CLI Commands & Remaining Files       | ✅ Complete | 2025-08-05 | 2025-08-05 | 1 hour   | Claude Code | All CLI commands and files updated |
 | Phase 3: Add Group Orchestration                | ✅ Complete | 2025-08-05 | 2025-08-05 | 1 hour   | Claude Code | Orchestrator and dependency resolver implemented |
 | Phase 4: Module Version Resolver                | ✅ Complete | 2025-08-05 | 2025-08-05 | 1 hour   | Claude Code | Module detection, version resolution, and caching implemented |
-| Phase 5: Command Interface Updates              | Not Started | -          | -        | 4-5 hrs  | -     | 6 CLI commands need careful handling |
+| Phase 5: Command Interface Updates              | ✅ Complete | 2025-08-05 | 2025-08-05 | 2 hours  | Claude Code | CLI commands updated for group support |
 | Phase 6: Remove Compatibility Layer             | Not Started | -          | -        | 4-5 hrs  | -     | 50+ test files need updates |
 | Phase 7: Integration Testing                    | Not Started | -          | -        | -        | -     | -     |
 | Phase 8: Documentation Update                   | Not Started | -          | -        | -        | -     | -     |
@@ -396,35 +396,83 @@ Phase 4 provides the foundation for module-aware synchronization. The system can
 
 ### Phase 5: Command Interface Updates
 **Target Duration**: 4-5 hours (increased for 6 CLI commands with varying complexity)
-**Actual Duration**: -
-**Status**: Not Started
+**Actual Duration**: 2 hours
+**Status**: ✅ Complete
 
 **Objectives:**
-- [ ] Add group filtering to sync command (primary command)
-- [ ] Update status command for groups (primary command)
-- [ ] Update validate command (primary command)
-- [ ] Add module commands (new functionality)
-- [ ] Update help text for all 6 commands
-- [ ] Add CLI-specific validation for group operations
-- [ ] Maintain backward compatibility
+- [x] Add group filtering to sync command (primary command)
+- [x] Update status command for groups (primary command)
+- [x] Update validate command (primary command)
+- [x] Add module commands (new functionality)
+- [x] Update help text for all 6 commands
+- [x] Add CLI-specific validation for group operations
+- [x] Maintain backward compatibility
 
 **Success Criteria:**
-- [ ] Commands work with groups
-- [ ] Backward compatibility maintained
-- [ ] Help text updated
-- [ ] Module commands functional
-- [ ] This document (plan-12-status.md) updated with implementation status
+- [x] Commands work with groups
+- [x] Backward compatibility maintained
+- [x] Help text updated
+- [x] Module commands functional
+- [x] This document (plan-12-status.md) updated with implementation status
 
 **Deliverables:**
-- [ ] `cmd/go-broadcast/sync.go` - Add group flags
-- [ ] `cmd/go-broadcast/status.go` - Show group status
-- [ ] `cmd/go-broadcast/validate.go` - Validate groups
-- [ ] `cmd/go-broadcast/modules.go` - NEW: Module commands
+- [x] `internal/cli/sync.go` - Add group flags (--groups, --skip-groups)
+- [x] `internal/cli/status.go` - Show group hierarchy and status
+- [x] `internal/cli/validate.go` - Validate groups with dependency checking
+- [x] `internal/cli/modules.go` - NEW: Module commands with list, show, versions, validate
 
-**Implementation Agent**: TBD
+**Implementation Agent**: Claude Code
 
 **Notes:**
-_To be filled during implementation_
+**Phase 5 Successfully Completed in 2 hours**
+
+**Key Accomplishments:**
+
+1. **Sync Command Enhanced:**
+   - Added `--groups` flag to filter specific groups by name or ID
+   - Added `--skip-groups` flag to exclude specific groups
+   - Updated Options struct with GroupFilter and SkipGroups fields
+   - Modified GroupOrchestrator to respect group filters
+   - Full backward compatibility maintained
+
+2. **Status Command Updated:**
+   - Added GroupStatus struct for group-based status display
+   - Implemented convertStateToGroupStatus for group hierarchical display
+   - Added outputGroupTextStatus for formatted group status output
+   - Shows group priority, dependencies, and state (synced/pending/error/disabled)
+   - JSON output supports both legacy and group formats
+
+3. **Validate Command Enhanced:**
+   - Added displayGroupValidation function for group-specific validation
+   - Circular dependency detection with DFS algorithm
+   - Priority conflict detection
+   - Module configuration validation
+   - Shows enabled/disabled status per group
+
+4. **New Modules Command Created:**
+   - `modules list` - Lists all configured modules
+   - `modules show [path]` - Shows details for specific module
+   - `modules versions [path]` - Fetches and displays available versions
+   - `modules validate` - Validates all module configurations
+   - Integrated with ModuleResolver for version constraint resolution
+
+**Technical Details:**
+- Updated sync.Options to include GroupFilter and SkipGroups
+- Fixed nil pointer issue in filterGroupsByOptions for test compatibility
+- All CLI tests pass (23+ seconds full test suite)
+- Sync and config package tests pass
+- Module commands use git ls-remote for version discovery
+
+**Files Modified:**
+- `internal/cli/sync.go` - Group filtering implementation
+- `internal/cli/status.go` - Group status display
+- `internal/cli/validate.go` - Group validation with circular dependency check
+- `internal/cli/modules.go` - NEW file with complete module management
+- `internal/cli/root.go` - Registered modules command
+- `internal/cli/flags.go` - Added group filter fields
+- `internal/logging/config.go` - Added group filter fields to LogConfig
+- `internal/sync/options.go` - Added GroupFilter and SkipGroups with builder methods
+- `internal/sync/orchestrator.go` - Added filterGroupsByOptions method
 
 ---
 

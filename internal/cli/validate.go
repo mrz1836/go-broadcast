@@ -104,7 +104,16 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 	output.Info(fmt.Sprintf("  Version: %d", cfg.Version))
 
 	groups := cfg.GetGroups()
-	if len(groups) > 0 {
+	if len(groups) == 0 {
+		output.Info("  No configuration groups found")
+		return nil
+	}
+
+	// Check if using group-based configuration
+	if cfg.IsGroupBased() {
+		displayGroupValidation(groups)
+	} else {
+		// Legacy format display
 		group := groups[0] // For compatibility with old format, work with first group
 		output.Info(fmt.Sprintf("  Source: %s (branch: %s)", group.Source.Repo, group.Source.Branch))
 
@@ -119,8 +128,6 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 		}
 
 		output.Info(fmt.Sprintf("  Targets: %d repositories", len(group.Targets)))
-	} else {
-		output.Info("  No configuration groups found")
 	}
 
 	// Show target details
@@ -268,6 +275,107 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 	}
 
 	return nil
+}
+
+// displayGroupValidation displays validation results for group-based configuration
+func displayGroupValidation(groups []config.Group) {
+	output.Info(fmt.Sprintf("  Groups: %d configured", len(groups)))
+	output.Info("")
+
+	// Check for circular dependencies
+	hasCircularDeps := false
+	dependencyMap := make(map[string][]string)
+	for _, group := range groups {
+		dependencyMap[group.ID] = group.DependsOn
+	}
+
+	// Simple circular dependency check (could be enhanced)
+	for _, group := range groups {
+		visited := make(map[string]bool)
+		if checkCircularDependency(group.ID, dependencyMap, visited) {
+			hasCircularDeps = true
+			output.Error(fmt.Sprintf("  ✗ Circular dependency detected for group: %s", group.ID))
+		}
+	}
+
+	if !hasCircularDeps {
+		output.Success("  ✓ No circular dependencies detected")
+	}
+
+	// Display each group
+	for i, group := range groups {
+		output.Info(fmt.Sprintf("  Group %d: %s (%s)", i+1, group.Name, group.ID))
+		output.Info(fmt.Sprintf("    Priority: %d", group.Priority))
+
+		// Check if enabled
+		if group.Enabled != nil && !*group.Enabled {
+			output.Warn("    Status: Disabled")
+		} else {
+			output.Success("    Status: Enabled")
+		}
+
+		// Show dependencies
+		if len(group.DependsOn) > 0 {
+			output.Info(fmt.Sprintf("    Dependencies: %s", strings.Join(group.DependsOn, ", ")))
+		}
+
+		// Show source
+		output.Info(fmt.Sprintf("    Source: %s (branch: %s)", group.Source.Repo, group.Source.Branch))
+
+		// Show targets count
+		output.Info(fmt.Sprintf("    Targets: %d repositories", len(group.Targets)))
+
+		// Check for module configurations
+		moduleCount := 0
+		for _, target := range group.Targets {
+			for _, dir := range target.Directories {
+				if dir.Module != nil {
+					moduleCount++
+				}
+			}
+		}
+		if moduleCount > 0 {
+			output.Info(fmt.Sprintf("    Modules: %d configured", moduleCount))
+		}
+
+		output.Info("")
+	}
+
+	// Validate priority uniqueness
+	priorities := make(map[int][]string)
+	for _, group := range groups {
+		priorities[group.Priority] = append(priorities[group.Priority], group.ID)
+	}
+
+	hasPriorityConflict := false
+	for priority, ids := range priorities {
+		if len(ids) > 1 {
+			hasPriorityConflict = true
+			output.Warn(fmt.Sprintf("  ⚠ Groups with same priority %d: %s", priority, strings.Join(ids, ", ")))
+		}
+	}
+
+	if !hasPriorityConflict {
+		output.Success("  ✓ All groups have unique priorities")
+	}
+}
+
+// checkCircularDependency checks for circular dependencies in group dependencies
+func checkCircularDependency(groupID string, dependencyMap map[string][]string, visited map[string]bool) bool {
+	if visited[groupID] {
+		return true // Circular dependency detected
+	}
+
+	visited[groupID] = true
+
+	for _, depID := range dependencyMap[groupID] {
+		if checkCircularDependency(depID, dependencyMap, visited) {
+			return true
+		}
+	}
+
+	delete(visited, groupID) // Backtrack
+	return false
 }
 
 // validateSourceFilesExist checks if all configured source files exist in the source repository

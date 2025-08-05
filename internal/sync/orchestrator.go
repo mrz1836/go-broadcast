@@ -56,6 +56,16 @@ func (o *GroupOrchestrator) ExecuteGroups(ctx context.Context, groups []config.G
 		return nil
 	}
 
+	// Apply group filters from options if engine is available
+	if o.engine != nil {
+		groups = o.filterGroupsByOptions(groups, o.engine.options)
+		if len(groups) == 0 {
+			o.logger.Info("No groups match the specified filters")
+			return nil
+		}
+		o.logger.WithField("filtered_group_count", len(groups)).Debug("Groups after filtering")
+	}
+
 	// Filter enabled groups
 	enabledGroups := o.filterEnabledGroups(groups)
 	if len(enabledGroups) == 0 {
@@ -142,6 +152,55 @@ func (o *GroupOrchestrator) filterEnabledGroups(groups []config.Group) []config.
 		}
 	}
 	return enabled
+}
+
+// filterGroupsByOptions filters groups based on the sync options (GroupFilter and SkipGroups)
+func (o *GroupOrchestrator) filterGroupsByOptions(groups []config.Group, options *Options) []config.Group {
+	// If options is nil or no filters specified, return all groups
+	if options == nil || (len(options.GroupFilter) == 0 && len(options.SkipGroups) == 0) {
+		return groups
+	}
+
+	filtered := make([]config.Group, 0, len(groups))
+	for _, group := range groups {
+		// Check if group should be skipped
+		shouldSkip := false
+		for _, skipPattern := range options.SkipGroups {
+			if group.Name == skipPattern || group.ID == skipPattern {
+				o.logger.WithFields(logrus.Fields{
+					"group_name": group.Name,
+					"group_id":   group.ID,
+				}).Debug("Group matches skip pattern, excluding from sync")
+				shouldSkip = true
+				break
+			}
+		}
+		if shouldSkip {
+			continue
+		}
+
+		// Check if group matches filter (if filter is specified)
+		if len(options.GroupFilter) > 0 {
+			matchesFilter := false
+			for _, filterPattern := range options.GroupFilter {
+				if group.Name == filterPattern || group.ID == filterPattern {
+					matchesFilter = true
+					break
+				}
+			}
+			if !matchesFilter {
+				o.logger.WithFields(logrus.Fields{
+					"group_name": group.Name,
+					"group_id":   group.ID,
+				}).Debug("Group doesn't match filter pattern, excluding from sync")
+				continue
+			}
+		}
+
+		filtered = append(filtered, group)
+	}
+
+	return filtered
 }
 
 // resolveDependencies resolves dependencies and returns execution order

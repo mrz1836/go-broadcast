@@ -50,8 +50,21 @@ Shows information about:
 
 // SyncStatus represents the sync state for display
 type SyncStatus struct {
-	Source  SourceStatus   `json:"source"`
-	Targets []TargetStatus `json:"targets"`
+	Source  SourceStatus   `json:"source,omitempty"`  // For backward compatibility
+	Targets []TargetStatus `json:"targets,omitempty"` // For backward compatibility
+	Groups  []GroupStatus  `json:"groups,omitempty"`  // Group-based status
+}
+
+// GroupStatus represents the status of a sync group
+type GroupStatus struct {
+	Name      string         `json:"name"`
+	ID        string         `json:"id"`
+	Priority  int            `json:"priority"`
+	Enabled   bool           `json:"enabled"`
+	DependsOn []string       `json:"depends_on,omitempty"`
+	State     string         `json:"state"` // "ready", "synced", "pending", "error", "disabled"
+	Source    SourceStatus   `json:"source"`
+	Targets   []TargetStatus `json:"targets"`
 }
 
 // SourceStatus represents source repository status
@@ -155,11 +168,17 @@ func getRealStatus(ctx context.Context, cfg *config.Config) (*SyncStatus, error)
 	}
 
 	// Convert to CLI status format
-	return convertStateToStatus(currentState), nil
+	return convertStateToStatus(currentState, cfg), nil
 }
 
 // convertStateToStatus converts internal state to CLI status format
-func convertStateToStatus(s *state.State) *SyncStatus {
+func convertStateToStatus(s *state.State, cfg *config.Config) *SyncStatus {
+	// Check if we have groups in the configuration
+	if cfg != nil && len(cfg.GetGroups()) > 0 {
+		return convertStateToGroupStatus(s, cfg)
+	}
+
+	// Legacy format for backward compatibility
 	status := &SyncStatus{
 		Source: SourceStatus{
 			Repository:   s.Source.Repo,
@@ -245,6 +264,124 @@ func convertSyncStatus(s state.SyncStatus) string {
 	}
 }
 
+// convertStateToGroupStatus converts state to group-based status format
+func convertStateToGroupStatus(s *state.State, cfg *config.Config) *SyncStatus {
+	status := &SyncStatus{
+		Groups: make([]GroupStatus, 0),
+	}
+
+	// Get groups from configuration
+	groups := cfg.GetGroups()
+
+	// Convert each group to status
+	for _, group := range groups {
+		groupStatus := GroupStatus{
+			Name:      group.Name,
+			ID:        group.ID,
+			Priority:  group.Priority,
+			Enabled:   group.Enabled == nil || *group.Enabled,
+			DependsOn: group.DependsOn,
+			Source: SourceStatus{
+				Repository:   group.Source.Repo,
+				Branch:       group.Source.Branch,
+				LatestCommit: s.Source.LatestCommit,
+			},
+			Targets: make([]TargetStatus, 0),
+		}
+
+		// Determine group state based on targets
+		allSynced := true
+		hasError := false
+		hasPending := false
+
+		// Process targets for this group
+		for _, target := range group.Targets {
+			if targetState, exists := s.Targets[target.Repo]; exists {
+				targetStatus := TargetStatus{
+					Repository: targetState.Repo,
+					State:      convertSyncStatus(targetState.Status),
+				}
+
+				// Add last sync information if available
+				if targetState.LastSyncCommit != "" && targetState.LastSyncTime != nil {
+					targetStatus.LastSync = &SyncInfo{
+						Timestamp: targetState.LastSyncTime.Format(time.RFC3339),
+						Commit:    targetState.LastSyncCommit,
+					}
+				}
+
+				// Add sync branch if available
+				if len(targetState.SyncBranches) > 0 {
+					var mostRecent *state.SyncBranch
+					for i := range targetState.SyncBranches {
+						branch := &targetState.SyncBranches[i]
+						if branch.Metadata != nil {
+							if mostRecent == nil || branch.Metadata.Timestamp.After(mostRecent.Metadata.Timestamp) {
+								mostRecent = branch
+							}
+						}
+					}
+					if mostRecent != nil {
+						targetStatus.SyncBranch = &mostRecent.Name
+					}
+				}
+
+				// Add pull request information if available
+				if len(targetState.OpenPRs) > 0 {
+					pr := targetState.OpenPRs[0]
+					targetStatus.PullRequest = &PullRequestInfo{
+						Number: pr.Number,
+						State:  strings.ToLower(pr.State),
+						URL:    fmt.Sprintf("https://github.com/%s/pull/%d", targetState.Repo, pr.Number),
+						Title:  pr.Title,
+					}
+				}
+
+				// Add error if status is conflict/error
+				if targetState.Status == state.StatusConflict {
+					errMsg := "Repository has conflicts that need manual resolution"
+					targetStatus.Error = &errMsg
+				}
+
+				groupStatus.Targets = append(groupStatus.Targets, targetStatus)
+
+				// Update group state flags
+				if targetStatus.State != "synced" {
+					allSynced = false
+				}
+				if targetStatus.State == "error" {
+					hasError = true
+				}
+				if targetStatus.State == "pending" {
+					hasPending = true
+				}
+			}
+		}
+
+		// Set group state
+		if !groupStatus.Enabled {
+			groupStatus.State = "disabled"
+		} else if hasError {
+			groupStatus.State = "error"
+		} else if hasPending {
+			groupStatus.State = "pending"
+		} else if allSynced {
+			groupStatus.State = "synced"
+		} else {
+			groupStatus.State = "ready"
+		}
+
+		status.Groups = append(status.Groups, groupStatus)
+	}
+
+	// Sort groups by priority
+	sort.Slice(status.Groups, func(i, j int) bool {
+		return status.Groups[i].Priority < status.Groups[j].Priority
+	})
+
+	return status
+}
+
 func outputJSON(status *SyncStatus) error {
 	encoder := json.NewEncoder(output.Stdout())
 	encoder.SetIndent("", "  ")
@@ -252,6 +389,12 @@ func outputJSON(status *SyncStatus) error {
 }
 
 func outputTextStatus(status *SyncStatus) error {
+	// Check if we have groups or legacy format
+	if len(status.Groups) > 0 {
+		return outputGroupTextStatus(status)
+	}
+
+	// Legacy format display
 	output.Info(fmt.Sprintf("Source: %s (branch: %s)", status.Source.Repository, status.Source.Branch))
 	output.Info(fmt.Sprintf("Latest commit: %s", status.Source.LatestCommit))
 	output.Info("")
@@ -334,6 +477,133 @@ func outputTextStatus(status *SyncStatus) error {
 
 	if errors > 0 {
 		output.Error(fmt.Sprintf("  Errors: %d", errors))
+	}
+
+	return nil
+}
+
+// outputGroupTextStatus displays group-based status in text format
+func outputGroupTextStatus(status *SyncStatus) error {
+	output.Info("=== Sync Status (Group-Based Configuration) ===")
+	output.Info("")
+
+	for _, group := range status.Groups {
+		// Group header with status icon
+		var groupIcon string
+		switch group.State {
+		case "synced":
+			groupIcon = "✓"
+		case "pending":
+			groupIcon = "⏳"
+		case "error":
+			groupIcon = "✗"
+		case "disabled":
+			groupIcon = "⊘"
+		default:
+			groupIcon = "•"
+		}
+
+		output.Info(fmt.Sprintf("%s Group: %s (%s) [Priority: %d]",
+			groupIcon, group.Name, group.ID, group.Priority))
+
+		// Group metadata
+		output.Info(fmt.Sprintf("  Status: %s", group.State))
+		if group.State == "disabled" {
+			output.Info("  (Group is disabled)")
+		}
+
+		if len(group.DependsOn) > 0 {
+			output.Info(fmt.Sprintf("  Dependencies: %s", strings.Join(group.DependsOn, ", ")))
+		}
+
+		output.Info(fmt.Sprintf("  Source: %s (branch: %s)",
+			group.Source.Repository, group.Source.Branch))
+
+		// Group targets
+		if len(group.Targets) > 0 {
+			output.Info(fmt.Sprintf("  Targets (%d):", len(group.Targets)))
+
+			for _, target := range group.Targets {
+				// Target status icon
+				var icon string
+				switch target.State {
+				case "synced":
+					icon = "✓"
+				case "outdated":
+					icon = "⚠"
+				case "pending":
+					icon = "⏳"
+				case "error":
+					icon = "✗"
+				default:
+					icon = "?"
+				}
+
+				output.Info(fmt.Sprintf("    %s %s [%s]", icon, target.Repository, target.State))
+
+				if target.PullRequest != nil {
+					output.Info(fmt.Sprintf("      PR #%d: %s (%s)",
+						target.PullRequest.Number,
+						target.PullRequest.Title,
+						target.PullRequest.State))
+				}
+
+				if target.LastSync != nil && len(target.LastSync.Commit) >= 7 {
+					output.Info(fmt.Sprintf("      Last sync: %s (commit: %s)",
+						target.LastSync.Timestamp,
+						target.LastSync.Commit[:7]))
+				}
+
+				if target.Error != nil {
+					output.Error(fmt.Sprintf("      Error: %s", *target.Error))
+				}
+			}
+		} else {
+			output.Info("  Targets: (none)")
+		}
+
+		output.Info("")
+	}
+
+	// Overall summary
+	totalGroups := len(status.Groups)
+	enabledGroups := 0
+	syncedGroups := 0
+	pendingGroups := 0
+	errorGroups := 0
+
+	for _, g := range status.Groups {
+		if g.State != "disabled" {
+			enabledGroups++
+		}
+		switch g.State {
+		case "synced":
+			syncedGroups++
+		case "pending":
+			pendingGroups++
+		case "error":
+			errorGroups++
+		}
+	}
+
+	output.Info("=== Summary ===")
+	output.Info(fmt.Sprintf("Total Groups: %d (%d enabled, %d disabled)",
+		totalGroups, enabledGroups, totalGroups-enabledGroups))
+
+	if enabledGroups > 0 {
+		summary := []string{}
+		if syncedGroups > 0 {
+			summary = append(summary, fmt.Sprintf("%d synced", syncedGroups))
+		}
+		if pendingGroups > 0 {
+			summary = append(summary, fmt.Sprintf("%d pending", pendingGroups))
+		}
+		if errorGroups > 0 {
+			summary = append(summary, fmt.Sprintf("%d with errors", errorGroups))
+		}
+		if len(summary) > 0 {
+			output.Info(fmt.Sprintf("Status: %s", strings.Join(summary, ", ")))
+		}
 	}
 
 	return nil

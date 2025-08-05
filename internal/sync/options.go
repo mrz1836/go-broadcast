@@ -21,6 +21,13 @@ type Options struct {
 
 	// CleanupTempFiles indicates whether to clean up temporary files after sync
 	CleanupTempFiles bool
+
+	// GroupFilter specifies which groups to sync (by name or ID)
+	// Empty means sync all groups
+	GroupFilter []string
+
+	// SkipGroups specifies which groups to skip (by name or ID)
+	SkipGroups []string
 }
 
 // DefaultOptions returns the default sync options
@@ -59,5 +66,17 @@ func (o *Options) WithMaxConcurrency(maxConcurrency int) *Options {
 // WithTimeout sets the sync timeout
 func (o *Options) WithTimeout(timeout time.Duration) *Options {
 	o.Timeout = timeout
+	return o
+}
+
+// WithGroupFilter sets the groups to sync
+func (o *Options) WithGroupFilter(groups []string) *Options {
+	o.GroupFilter = groups
+	return o
+}
+
+// WithSkipGroups sets the groups to skip
+func (o *Options) WithSkipGroups(skipGroups []string) *Options {
+	o.SkipGroups = skipGroups
 	return o
 }

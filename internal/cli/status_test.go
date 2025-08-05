@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const errorState = "error"
+
 // TestInitStatus tests status command initialization
 func TestInitStatus(t *testing.T) {
 	// Check that json flag is already registered from package init
@@ -70,7 +72,7 @@ func TestSyncStatusJSON(t *testing.T) {
 			},
 			{
 				Repository: "org/target3",
-				State:      "error",
+				State:      errorState,
 				Error:      strPtr("failed to access repository"),
 			},
 		},
@@ -87,7 +89,7 @@ func TestSyncStatusJSON(t *testing.T) {
 	assert.Len(t, decoded.Targets, 3)
 	assert.Equal(t, "synced", decoded.Targets[0].State)
 	assert.Equal(t, "outdated", decoded.Targets[1].State)
-	assert.Equal(t, "error", decoded.Targets[2].State)
+	assert.Equal(t, errorState, decoded.Targets[2].State)
 
 	// Verify optional fields
 	assert.NotNil(t, decoded.Targets[0].LastSync)
@@ -100,8 +102,8 @@ func TestStatusConversion(t *testing.T) {
 	// Create a mock state for testing conversion
 	mockState := createMockState()
 
-	// Convert to CLI status format
-	status := convertStateToStatus(mockState)
+	// Convert to CLI status format (pass nil config for legacy format)
+	status := convertStateToStatus(mockState, nil)
 
 	// Verify source status
 	assert.Equal(t, "org/template", status.Source.Repository)
@@ -228,7 +230,7 @@ func TestOutputTextStatus(t *testing.T) {
 					},
 					{
 						Repository: "org/target4",
-						State:      "error",
+						State:      errorState,
 						Error:      strPtr("Authentication failed"),
 					},
 				},
@@ -282,7 +284,7 @@ func TestConvertSyncStatus(t *testing.T) {
 		{
 			name:     "StatusConflict",
 			input:    state.StatusConflict,
-			expected: "error",
+			expected: errorState,
 		},
 		{
 			name:     "InvalidStatus",
@@ -401,7 +403,7 @@ func TestRunStatus(t *testing.T) {
 
 // TestTargetStatusStates tests all possible target states
 func TestTargetStatusStates(t *testing.T) {
-	states := []string{"synced", "outdated", "pending", "error"}
+	states := []string{"synced", "outdated", "pending", errorState}
 
 	for _, state := range states {
 		t.Run(state, func(t *testing.T) {
@@ -420,7 +422,7 @@ func TestTargetStatusStates(t *testing.T) {
 					URL:    "https://github.com/org/repo/pull/1",
 					Title:  "Sync",
 				}
-			case "error":
+			case errorState:
 				status.Error = strPtr("test error")
 			}
 
@@ -438,7 +440,7 @@ func TestTargetStatusStates(t *testing.T) {
 			case "outdated":
 				assert.NotNil(t, decoded.SyncBranch)
 				assert.NotNil(t, decoded.PullRequest)
-			case "error":
+			case errorState:
 				assert.NotNil(t, decoded.Error)
 			}
 		})
@@ -460,7 +462,7 @@ func TestStatusSummaryCalculation(t *testing.T) {
 			{Repository: "repo4", State: "outdated"},
 			{Repository: "repo5", State: "outdated"},
 			{Repository: "repo6", State: "pending"},
-			{Repository: "repo7", State: "error"},
+			{Repository: "repo7", State: errorState},
 		},
 	}
 
@@ -475,7 +477,7 @@ func TestStatusOutputIcons(t *testing.T) {
 		"synced":   "✓",
 		"outdated": "⚠",
 		"pending":  "⏳",
-		"error":    "✗",
+		errorState: "✗",
 		"unknown":  "?",
 	}
 

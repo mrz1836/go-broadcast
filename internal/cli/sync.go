@@ -16,6 +16,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:gochecknoglobals // Package-level variables for CLI flags
+var (
+	groupFilter []string
+	skipGroups  []string
+)
+
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var syncCmd = &cobra.Command{
 	Use:   "sync [targets...]",
@@ -23,12 +29,22 @@ var syncCmd = &cobra.Command{
 	Long: `Synchronize files from the source template repository to one or more target repositories.
 
 If no targets are specified, all targets in the configuration file will be synchronized.
-Target repositories can be specified as arguments to sync only specific repos.`,
+Target repositories can be specified as arguments to sync only specific repos.
+
+Group Filtering:
+  Use --groups to sync only specific groups (by name or ID).
+  Use --skip-groups to exclude specific groups from sync.
+  When both are specified, skip-groups takes precedence.`,
 	Example: `  # Basic operations
   go-broadcast sync                        # Sync all targets from config
   go-broadcast sync --config sync.yaml     # Use specific config file
   go-broadcast sync org/repo1 org/repo2    # Sync only specified repositories
   go-broadcast sync --dry-run              # Preview changes without making them
+
+  # Group-based sync
+  go-broadcast sync --groups "core,security"       # Sync only core and security groups
+  go-broadcast sync --skip-groups "experimental"   # Sync all except experimental group
+  go-broadcast sync --groups core org/repo1        # Sync specific target in core group
 
   # Debugging and troubleshooting
   go-broadcast sync --log-level debug      # Enable debug logging
@@ -44,6 +60,12 @@ Target repositories can be specified as arguments to sync only specific repos.`,
 	RunE:    runSync,
 }
 
+//nolint:gochecknoinits // Cobra commands require init() for flag registration
+func init() {
+	syncCmd.Flags().StringSliceVar(&groupFilter, "groups", nil, "Sync only specified groups (by name or ID)")
+	syncCmd.Flags().StringSliceVar(&skipGroups, "skip-groups", nil, "Skip specified groups during sync")
+}
+
 func runSync(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	log := logrus.WithField("command", "sync")
@@ -54,11 +76,19 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
+	// Log group filters if specified
+	if len(groupFilter) > 0 {
+		log.WithField("groups", groupFilter).Info("Filtering to specific groups")
+	}
+	if len(skipGroups) > 0 {
+		log.WithField("skip_groups", skipGroups).Info("Skipping specified groups")
+	}
+
 	// Filter targets if specified
 	targets := args
 	if len(targets) > 0 {
 		log.WithField("targets", targets).Info("Syncing specific targets")
-	} else {
+	} else if len(groupFilter) == 0 && len(skipGroups) == 0 {
 		log.Info("Syncing all configured targets")
 	}
 
@@ -235,7 +265,9 @@ templateTransformerAdded:
 	// Create sync options
 	opts := sync.DefaultOptions().
 		WithDryRun(IsDryRun()).
-		WithMaxConcurrency(5)
+		WithMaxConcurrency(5).
+		WithGroupFilter(groupFilter).
+		WithSkipGroups(skipGroups)
 
 	// Create and return engine
 	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
@@ -290,7 +322,9 @@ templateTransformerAdded2:
 	// Create sync options using flags instead of global state
 	opts := sync.DefaultOptions().
 		WithDryRun(flags.DryRun).
-		WithMaxConcurrency(5)
+		WithMaxConcurrency(5).
+		WithGroupFilter(flags.GroupFilter).
+		WithSkipGroups(flags.SkipGroups)
 
 	// Create and return engine
 	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
@@ -415,7 +449,9 @@ templateTransformerAdded3:
 	// Create sync options using LogConfig instead of global state
 	opts := sync.DefaultOptions().
 		WithDryRun(logConfig.DryRun).
-		WithMaxConcurrency(5)
+		WithMaxConcurrency(5).
+		WithGroupFilter(logConfig.GroupFilter).
+		WithSkipGroups(logConfig.SkipGroups)
 
 	// Create and return engine
 	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
