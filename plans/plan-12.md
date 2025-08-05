@@ -150,10 +150,10 @@ type Config struct {
     Version int       `yaml:"version"`          // Config version (1)
     Name    string    `yaml:"name,omitempty"`   // Optional config name
     ID      string    `yaml:"id,omitempty"`     // Optional config ID
-    
+
     // New group-based structure
     Groups  []Group   `yaml:"groups,omitempty"` // List of sync groups
-    
+
     // Existing fields for compatibility during transition
     Source   SourceConfig   `yaml:"source,omitempty"`
     Global   GlobalConfig   `yaml:"global,omitempty"`
@@ -166,7 +166,7 @@ func (c *Config) GetGroups() []Group {
     if len(c.Groups) > 0 {
         return c.Groups
     }
-    
+
     // Convert old format to group format for compatibility
     if c.Source.Repo != "" {
         return []Group{{
@@ -180,7 +180,7 @@ func (c *Config) GetGroups() []Group {
             Targets:  c.Targets,
         }}
     }
-    
+
     return nil
 }
 
@@ -257,7 +257,7 @@ func (e *Engine) Execute(ctx context.Context) error {
     if err := e.cloneSource(ctx, e.config.Source); err != nil {
         return err
     }
-    
+
     // Process targets
     for _, target := range e.config.Targets {
         // ...
@@ -267,10 +267,10 @@ func (e *Engine) Execute(ctx context.Context) error {
 // After (using compatibility):
 func (e *Engine) Execute(ctx context.Context) error {
     groups := e.config.GetGroups()
-    
+
     // Create orchestrator
     orch := NewGroupOrchestrator(e.config, e, e.logger)
-    
+
     // Execute groups
     return orch.ExecuteGroups(ctx, groups)
 }
@@ -324,10 +324,10 @@ func (o *GroupOrchestrator) ExecuteGroups(ctx context.Context, groups []config.G
     if err != nil {
         return fmt.Errorf("failed to resolve dependencies: %w", err)
     }
-    
+
     // Initialize group status tracking
     o.initializeGroupStatus(groups)
-    
+
     // Execute groups in resolved order
     for _, group := range executionOrder {
         // Check if dependencies completed successfully
@@ -336,16 +336,16 @@ func (o *GroupOrchestrator) ExecuteGroups(ctx context.Context, groups []config.G
             o.groupStatus[group.ID] = GroupStatus{State: "skipped"}
             continue
         }
-        
+
         o.logger.WithFields(logrus.Fields{
             "group_name": group.Name,
             "group_id":   group.ID,
             "priority":   group.Priority,
             "depends_on": group.DependsOn,
         }).Info("Starting group sync")
-        
+
         o.groupStatus[group.ID] = GroupStatus{State: "running", StartTime: time.Now()}
-        
+
         if err := o.executeGroup(ctx, group); err != nil {
             o.groupStatus[group.ID].State = "failed"
             o.groupStatus[group.ID].Error = err
@@ -354,10 +354,10 @@ func (o *GroupOrchestrator) ExecuteGroups(ctx context.Context, groups []config.G
         } else {
             o.groupStatus[group.ID].State = "success"
         }
-        
+
         o.groupStatus[group.ID].EndTime = time.Now()
     }
-    
+
     return o.reportFinalStatus()
 }
 ```
