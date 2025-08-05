@@ -129,7 +129,7 @@ groups:
 
 ### Phase 1: Configuration Types with Compatibility
 **Objective**: Add new types while maintaining compatibility with existing code
-**Duration**: 3-4 hours
+**Duration**: 4-5 hours (increased based on audit findings)
 
 **Implementation Steps:**
 1. Add new types (Config, Group, ModuleConfig) alongside existing ones
@@ -137,6 +137,8 @@ groups:
 3. Update DirectoryMapping with Module field
 4. Add dependency management utilities
 5. Create test helpers for both formats
+6. Add dual-format test utilities based on audit findings (50+ test files identified)
+7. Implement module field validation in compatibility layer
 
 **Files to Create/Modify:**
 - `internal/config/types.go` - Add new types without removing old ones
@@ -233,21 +235,50 @@ type ModuleConfig struct {
 
 ### Phase 2: Update Code to Use Compatibility Layer
 **Objective**: Modify all code to work with both configuration formats
-**Duration**: 4-5 hours
+**Duration**: 6-8 hours (increased based on 345+ direct access points found in audit)
+
+**Sub-Phase Breakdown:**
+- **Phase 2a**: Core Engine & State Discovery (4-5 hours) - Priority 1 files
+- **Phase 2b**: CLI Commands & Remaining Files (2-3 hours) - Priority 2-3 files
 
 **Implementation Steps:**
-1. Update sync engine to use config.GetGroups()
-2. Update commands to use config.GetGroups()
-3. Update validators to handle both formats
-4. Update state discovery to work with groups
-5. Ensure all tests pass with both formats
 
-**Files to Modify:**
-- `internal/sync/engine.go` - Use GetGroups() instead of direct access
+**Phase 2a - Critical Integration Points (Priority 1):**
+1. Update sync engine (`internal/sync/engine.go`) - 3+ critical access points
+2. Update state discovery (`internal/state/discovery.go`) - Core integration
+3. Update configuration validator (`internal/config/validator.go`) - Validation logic
+4. Update configuration parser (`internal/config/parser.go`) - Default application
+5. Establish performance baseline and monitoring
+
+**Phase 2b - CLI Commands & Remaining (Priority 2-3):**
+6. Update primary CLI commands (sync, status, validate) - 6 commands identified
+7. Update secondary CLI commands (diagnose, cancel, version)
+8. Update major integration test files (20+ configs in directory_sync_test.go)
+9. Update test fixture generators (`test/fixtures/generator.go`)
+10. Ensure all tests pass with both formats
+
+**Files to Modify (by Priority):**
+
+**Priority 1 (Phase 2a - Must Change First):**
+- `internal/sync/engine.go` - Use GetGroups() instead of direct access (3+ critical points)
+- `internal/state/discovery.go` - Handle group-based branches (state integration)
+- `internal/config/validator.go` - Validate both formats (validation logic)
+- `internal/config/parser.go` - Apply defaults through compatibility layer
+
+**Priority 2 (Phase 2b - Important Integration):**
+- `internal/cli/sync.go` - Primary command using len(cfg.Targets)
+- `internal/cli/status.go` - Status reporting for targets
+- `internal/cli/validate.go` - Target validation
+- `internal/cli/diagnose.go` - Configuration diagnostic output
+- `internal/cli/cancel.go` - PR operations using config
+- `internal/cli/version.go` - Minimal config usage
+- `test/integration/directory_sync_test.go` - 20+ Config{} creations
+- `test/fixtures/generator.go` - Programmatic config generation
+
+**Priority 3 (Phase 2b - Standard Updates):**
 - `internal/sync/repository.go` - Work with group context
-- `cmd/go-broadcast/*.go` - Update all commands
-- `internal/config/validator.go` - Validate both formats
-- `internal/state/discovery.go` - Handle group-based branches
+- Remaining integration test files
+- Performance test configurations
 
 **Example Code Updates:**
 ```go
@@ -397,14 +428,16 @@ func (o *GroupOrchestrator) ExecuteGroups(ctx context.Context, groups []config.G
 
 ### Phase 5: Command Interface Updates
 **Objective**: Update commands to support group operations
-**Duration**: 3-4 hours
+**Duration**: 4-5 hours (increased for 6 CLI commands with varying complexity)
 
 **Implementation Steps:**
-1. Add group filtering to sync command
-2. Update status command for groups
-3. Update validate command
-4. Add module commands
-5. Update help text
+1. Add group filtering to sync command (primary command)
+2. Update status command for groups (primary command)
+3. Update validate command (primary command)
+4. Add module commands (new functionality)
+5. Update help text for all 6 commands
+6. Add CLI-specific validation for group operations
+7. Ensure backward compatibility maintained
 
 **Files to Modify:**
 - `cmd/go-broadcast/sync.go` - Add group flags
@@ -421,14 +454,16 @@ func (o *GroupOrchestrator) ExecuteGroups(ctx context.Context, groups []config.G
 
 ### Phase 6: Remove Compatibility Layer
 **Objective**: Clean up code to use only group-based configuration
-**Duration**: 3-4 hours
+**Duration**: 4-5 hours (increased for 50+ test files requiring updates)
 
 **Implementation Steps:**
 1. Remove old fields from Config struct
 2. Remove GetGroups() compatibility method
-3. Update all example configurations
-4. Update all test configurations
-5. Clean up any remaining references
+3. Update all example configurations (12 YAML files identified)
+4. Update all test configurations (50+ test files identified)
+5. Clean up any remaining references from 345+ access points
+6. Incremental test conversion using dual-format utilities
+7. Performance regression validation
 
 **Files to Modify:**
 - `internal/config/types.go` - Remove old fields
@@ -551,17 +586,19 @@ groups:
 
 ## Implementation Timeline
 
-- **Phase 0**: Code Audit (2-3 hours)
-- **Phase 1**: Configuration Types with Compatibility (3-4 hours)
-- **Phase 2**: Update Code to Use Compatibility (4-5 hours)
+- **Phase 0**: Code Audit (2-3 hours) ✅ **COMPLETE**
+- **Phase 1**: Configuration Types with Compatibility (4-5 hours) *refined*
+- **Phase 2**: Update Code to Use Compatibility (6-8 hours) *refined - split into 2a/2b*
+  - **Phase 2a**: Core Engine & State Discovery (4-5 hours)
+  - **Phase 2b**: CLI Commands & Remaining Files (2-3 hours)
 - **Phase 3**: Add Group Orchestration (4-5 hours)
 - **Phase 4**: Module Version Resolver (4-5 hours)
-- **Phase 5**: Command Interface Updates (3-4 hours)
-- **Phase 6**: Remove Compatibility Layer (3-4 hours)
+- **Phase 5**: Command Interface Updates (4-5 hours) *refined*
+- **Phase 6**: Remove Compatibility Layer (4-5 hours) *refined*
 - **Phase 7**: Integration Testing (4-5 hours)
 - **Phase 8**: Documentation Update (3-4 hours)
 
-Total estimated time: 28-37 hours across 9 phases
+Total estimated time: 32-42 hours across 9 phases (4-5 hour increase for audit-based refinements)
 
 ## Success Metrics
 
@@ -570,6 +607,8 @@ Total estimated time: 28-37 hours across 9 phases
 - No breaking changes until Phase 6
 - Smooth transition path
 - Clear rollback capability
+- Performance regression monitoring throughout
+- Compatibility matrix testing for both config formats
 
 ### Functionality
 - Group-based configuration works
@@ -580,14 +619,18 @@ Total estimated time: 28-37 hours across 9 phases
 ### Performance
 - Linear scaling with groups
 - Module caching effective
-- No performance regression
+- No performance regression from 345+ access point conversion
+- GetGroups() call frequency monitoring
+- Performance baseline established before Phase 1
 
 ## Risk Mitigation
 
 ### Technical Risks
-- **Compatibility Issues**: Addressed by gradual approach
-- **Test Failures**: Each phase ensures tests pass
-- **Integration Problems**: Compatibility layer provides safety
+- **Compatibility Issues**: Addressed by gradual approach with enhanced rollback validation
+- **Test Failures**: Each phase ensures tests pass with dual-format testing
+- **Integration Problems**: Compatibility layer provides safety with performance monitoring
+- **Scale Impact**: 345+ access points managed through prioritized sub-phases
+- **CLI Complexity**: 6 commands with varying complexity handled systematically
 
 ### Implementation Risks
 - **Scope Creep**: Clear phase boundaries
