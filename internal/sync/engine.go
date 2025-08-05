@@ -74,11 +74,25 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 
 	log.WithField("group_count", len(groups)).Info("Processing sync groups")
 
-	// For Phase 2a, we handle single group (compatibility mode)
-	// Future phases will implement full group orchestration
+	// Check if we have multiple groups - use orchestrator if so
+	if len(groups) > 1 {
+		// Use the orchestrator for multi-group execution
+		orchestrator := NewGroupOrchestrator(e.config, e, e.logger)
+		return orchestrator.ExecuteGroups(ctx, groups)
+	}
+
+	// Single group - execute directly for backward compatibility
 	group := groups[0]
 	e.currentGroup = &group // Set current group for RepositorySync to use
-	log.WithField("group_name", group.Name).Info("Processing group")
+	log.WithField("group_name", group.Name).Info("Processing single group")
+
+	// Execute the single group sync
+	return e.executeSingleGroup(ctx, group, targetFilter)
+}
+
+// executeSingleGroup handles synchronization for a single group
+func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, targetFilter []string) error {
+	log := e.logger.WithField("component", "sync_engine")
 
 	// 1. Discover current state from GitHub
 	log.Info("Discovering current state from GitHub")
