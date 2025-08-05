@@ -13,6 +13,15 @@ import (
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/shared"
 )
 
+// Static errors for linting compliance
+var (
+	// ErrModTidyDiffNotSupported is returned when go mod tidy -diff flag is not supported
+	ErrModTidyDiffNotSupported = errors.New("go mod tidy -diff not supported")
+
+	// ErrModTidyDiffFailed is returned when go mod tidy -diff command fails
+	ErrModTidyDiffFailed = errors.New("go mod tidy -diff failed")
+)
+
 // ModTidyCheck ensures go.mod and go.sum are tidy
 type ModTidyCheck struct {
 	sharedCtx *shared.Context
@@ -122,6 +131,21 @@ func (c *ModTidyCheck) runMakeModTidy(ctx context.Context) error {
 		return fmt.Errorf("failed to find repository root: %w", err)
 	}
 
+	// Try to use go mod tidy -diff first (Go 1.21+)
+	diffErr := c.checkModTidyDiff(ctx, repoRoot)
+	if diffErr != nil {
+		// Check if it's because -diff is not supported
+		if !strings.Contains(diffErr.Error(), "not supported") {
+			// -diff is supported but found issues, return the error
+			return diffErr
+		}
+		// -diff not supported, fall back to old method
+	} else {
+		// -diff succeeded, no changes needed
+		return nil
+	}
+
+	// Fall back to running make mod-tidy and checking for changes
 	// Add timeout for make command
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
@@ -196,6 +220,21 @@ func (c *ModTidyCheck) runDirectModTidy(ctx context.Context) error {
 		return fmt.Errorf("failed to find repository root: %w", err)
 	}
 
+	// Try to use go mod tidy -diff first (Go 1.21+)
+	diffErr := c.checkModTidyDiff(ctx, repoRoot)
+	if diffErr != nil {
+		// Check if it's because -diff is not supported
+		if !strings.Contains(diffErr.Error(), "not supported") {
+			// -diff is supported but found issues, return the error
+			return diffErr
+		}
+		// -diff not supported, fall back to old method
+	} else {
+		// -diff succeeded, no changes needed
+		return nil
+	}
+
+	// Fall back to running go mod tidy and checking for changes
 	// Add timeout for go mod tidy command
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
@@ -263,7 +302,71 @@ func (c *ModTidyCheck) runDirectModTidy(ctx context.Context) error {
 	return c.checkUncommittedChanges(ctx, repoRoot)
 }
 
+// checkModTidyDiff uses go mod tidy -diff to check if changes would be made (Go 1.21+)
+func (c *ModTidyCheck) checkModTidyDiff(ctx context.Context, repoRoot string) error {
+	// Add timeout for go mod tidy -diff command
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "go", "mod", "tidy", "-diff")
+	cmd.Dir = repoRoot
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		output := stderr.String()
+
+		// Check if -diff flag is not supported (older Go versions)
+		if strings.Contains(output, "unknown flag") || strings.Contains(output, "flag provided but not defined") {
+			// Return an error to indicate we should fall back to the old method
+			return ErrModTidyDiffNotSupported
+		}
+
+		// Check if it's a context timeout
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return prerrors.NewToolExecutionError(
+				"go mod tidy -diff",
+				output,
+				fmt.Sprintf("Mod tidy check timed out after %v. Consider increasing PRE_COMMIT_SYSTEM_MOD_TIDY_TIMEOUT.", c.timeout),
+			)
+		}
+
+		// Handle other errors
+		if strings.Contains(output, "no go.mod file") {
+			return prerrors.NewToolExecutionError(
+				"go mod tidy -diff",
+				output,
+				"No go.mod file found. Initialize a Go module with 'go mod init <module-name>'.",
+			)
+		}
+
+		if strings.Contains(output, "network") || strings.Contains(output, "timeout") {
+			return prerrors.NewToolExecutionError(
+				"go mod tidy -diff",
+				output,
+				"Network error downloading modules. Check your internet connection and proxy settings.",
+			)
+		}
+
+		return fmt.Errorf("%w: %s", ErrModTidyDiffFailed, output)
+	}
+
+	// If there's any diff output, it means changes would be made
+	if diffOutput := stdout.String(); diffOutput != "" {
+		return prerrors.NewToolExecutionError(
+			"go mod tidy -diff",
+			diffOutput,
+			"go.mod or go.sum are not tidy. Run 'go mod tidy' to update dependencies.",
+		)
+	}
+
+	return nil
+}
+
 // checkUncommittedChanges checks if go mod tidy made any changes
+// This is a fallback method when go mod tidy -diff is not available
 func (c *ModTidyCheck) checkUncommittedChanges(ctx context.Context, repoRoot string) error {
 	// Add short timeout for git diff
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
