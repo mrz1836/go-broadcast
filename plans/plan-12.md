@@ -71,9 +71,9 @@ This plan uses a gradual implementation approach to ensure:
 │  - PR Metadata: Includes group name, ID, and execution context  │
 └─────────────────────────────────────────────────────────────────┘
 
-New Configuration Structure:
+Configuration Structure:
 version: 1
-name: "Platform Repository Sync"           # Optional top-level name
+name: "Platform Repository Sync"          # Optional top-level name
 id: "platform-sync-2025"                  # Optional top-level ID
 groups:
   - name: "Core Infrastructure"
@@ -151,7 +151,7 @@ type Config struct {
     Name    string    `yaml:"name,omitempty"`   // Optional config name
     ID      string    `yaml:"id,omitempty"`     // Optional config ID
 
-    // New group-based structure
+    // Structure we are moving towards
     Groups  []Group   `yaml:"groups,omitempty"` // List of sync groups
 
     // Existing fields for compatibility during transition
@@ -161,7 +161,7 @@ type Config struct {
     Targets  []TargetConfig `yaml:"targets,omitempty"`
 }
 
-// GetGroups returns groups, converting from old format if needed
+// GetGroups returns groups, converting from old format if needed (temporary function)
 func (c *Config) GetGroups() []Group {
     if len(c.Groups) > 0 {
         return c.Groups
@@ -184,7 +184,7 @@ func (c *Config) GetGroups() []Group {
     return nil
 }
 
-// IsGroupBased returns true if using new group format
+// IsGroupBased returns true if using new group format (temporary function)
 func (c *Config) IsGroupBased() bool {
     return len(c.Groups) > 0
 }
