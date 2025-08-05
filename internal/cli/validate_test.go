@@ -373,6 +373,10 @@ mappings:
 
 // TestValidateCommandIntegration tests validate command as configured
 func TestValidateCommandIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	// Test that command is properly wired
 	cmd := validateCmd
 	assert.NotNil(t, cmd.RunE)

@@ -254,6 +254,10 @@ func TestPerformCancel(t *testing.T) {
 
 // TestOutputCancelResultsIntegration tests the output functions
 func TestOutputCancelResultsIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	testCases := []struct {
 		name         string
 		summary      *CancelSummary
@@ -364,6 +368,10 @@ func TestOutputCancelResultsIntegration(t *testing.T) {
 
 // TestOutputCancelPreviewIntegration tests the preview output for dry run
 func TestOutputCancelPreviewIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	summary := &CancelSummary{
 		TotalTargets: 2,
 		Results: []CancelResult{

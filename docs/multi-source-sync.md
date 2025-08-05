@@ -40,7 +40,7 @@ mappings:
   # First source repository
   - source:
       repo: "company/ci-templates"
-      branch: "main"
+      branch: "master"
       id: "ci"  # Unique identifier for this source
     targets:
       - repo: "company/service-a"
@@ -51,11 +51,11 @@ mappings:
         files:
           - src: "workflows/ci.yml"
             dest: ".github/workflows/ci.yml"
-  
+
   # Second source repository
   - source:
       repo: "company/security-templates"
-      branch: "main"  
+      branch: "master"
       id: "security"
     targets:
       - repo: "company/service-a"
@@ -131,7 +131,7 @@ mappings:
         files:
           - src: "Makefile"
             dest: "Makefile"  # Will be overwritten by golang mapping
-  
+
   - source:
       repo: "company/golang-templates"
       id: "golang"
@@ -163,7 +163,7 @@ mappings:
         files:
           - src: "config.yml"
             dest: "config.yml"
-  
+
   # Security configuration (highest priority - wins!)
   - source:
       repo: "company/security-config"
@@ -213,7 +213,7 @@ mappings:
     defaults:
       pr_team_reviewers: ["security-team"]
       pr_labels: ["security", "compliance"]
-  
+
   # Platform team
   - source:
       repo: "company/platform-standards"
@@ -223,7 +223,7 @@ mappings:
     defaults:
       pr_team_reviewers: ["platform-team"]
       pr_labels: ["platform", "standards"]
-  
+
   # DevOps team
   - source:
       repo: "company/ci-cd-templates"
@@ -255,7 +255,7 @@ mappings:
             exclude: ["*.local", "*.secret"]
           - src: "scripts"
             dest: "scripts"
-  
+
   # Override specific files from directories
   - source:
       repo: "company/service-specific"
@@ -288,7 +288,7 @@ mappings:
           variables:
             ENVIRONMENT: "development"
             DEBUG: "true"
-  
+
   # Production environment templates
   - source:
       repo: "company/prod-templates"
@@ -335,7 +335,7 @@ mappings:
   - source:
       repo: "security/scanning"
       id: "security-scanning"
-  
+
   # Platform team sources
   - source:
       repo: "platform/standards"
@@ -371,7 +371,7 @@ mappings:
       repo: "company/base-templates"
       id: "base"
     # Base templates provide defaults that teams can override
-    
+
   - source:
       repo: "company/team-overrides"
       id: "team"

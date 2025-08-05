@@ -520,6 +520,10 @@ func TestCreateSyncEngineWithLogConfig(t *testing.T) {
 
 // TestSyncCommandIntegration tests sync command as configured
 func TestSyncCommandIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	// Create a test directory
 	testDir := testutil.CreateTempDir(t)
 	configPath := filepath.Join(testDir, "sync.yaml")

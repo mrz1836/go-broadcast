@@ -164,6 +164,10 @@ func TestLoggerService_ConfigureLogger(t *testing.T) {
 }
 
 func TestLoggerService_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	// Test full integration of logger service with actual logging
 	tests := []struct {
 		name     string

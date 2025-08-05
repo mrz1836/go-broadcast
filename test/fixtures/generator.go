@@ -303,7 +303,17 @@ func (g *TestRepoGenerator) CreateComplexScenario() (*TestScenario, error) {
 			LatestCommit: sourceRepo.CommitSHA,
 			LastChecked:  time.Now(),
 		},
-		Targets: make(map[string]*state.TargetState),
+		Sources:         make(map[string]state.SourceState),
+		Targets:         make(map[string]*state.TargetState),
+		SourceTargetMap: make(map[string]map[string]*state.SourceTargetSyncInfo),
+	}
+
+	// Populate the Sources map for v2 compatibility
+	currentState.Sources["org/template-repo"] = state.SourceState{
+		Repo:         "org/template-repo",
+		Branch:       "master",
+		LatestCommit: sourceRepo.CommitSHA,
+		LastChecked:  time.Now(),
 	}
 
 	// Set target states (some outdated, some up-to-date)

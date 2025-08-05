@@ -128,6 +128,14 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 	if sourceBranch != nil {
 		state.Source.LatestCommit = sourceBranch.Commit.SHA
 
+		// Also populate the Sources map for v2 compatibility
+		state.Sources[sourceConfig.Repo] = SourceState{
+			Repo:         sourceConfig.Repo,
+			Branch:       sourceConfig.Branch,
+			LatestCommit: sourceBranch.Commit.SHA,
+			LastChecked:  time.Now(),
+		}
+
 		if d.logConfig != nil && d.logConfig.Debug.State {
 			logger.WithFields(logrus.Fields{
 				logging.StandardFields.RepoName:   sourceConfig.Repo,

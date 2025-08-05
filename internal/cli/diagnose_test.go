@@ -452,6 +452,10 @@ func TestCreateRunDiagnose(t *testing.T) {
 
 // TestDiagnoseCmdIntegration tests the diagnose command as it would be used
 func TestDiagnoseCmdIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	// This test verifies the command works end-to-end
 	cmd := diagnoseCmd
 

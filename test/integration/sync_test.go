@@ -76,19 +76,32 @@ func TestEndToEndSync(t *testing.T) {
 				LatestCommit: "abc123def456",
 				LastChecked:  time.Now(),
 			},
-			Targets: map[string]*state.TargetState{
-				"org/service-a": {
-					Repo:           "org/service-a",
-					LastSyncCommit: "abc123def456", // Same as source - up to date
-					Status:         state.StatusUpToDate,
-					LastSyncTime:   &[]time.Time{time.Now().Add(-1 * time.Hour)}[0],
-				},
-				"org/service-b": {
-					Repo:           "org/service-b",
-					LastSyncCommit: "abc123def456", // Same as source - up to date
-					Status:         state.StatusUpToDate,
-					LastSyncTime:   &[]time.Time{time.Now().Add(-2 * time.Hour)}[0],
-				},
+			Sources:         make(map[string]state.SourceState),
+			Targets:         make(map[string]*state.TargetState),
+			SourceTargetMap: make(map[string]map[string]*state.SourceTargetSyncInfo),
+		}
+
+		// Populate the Sources map for v2 compatibility
+		currentState.Sources["org/template-repo"] = state.SourceState{
+			Repo:         "org/template-repo",
+			Branch:       "master",
+			LatestCommit: "abc123def456",
+			LastChecked:  time.Now(),
+		}
+
+		// Populate targets
+		currentState.Targets = map[string]*state.TargetState{
+			"org/service-a": {
+				Repo:           "org/service-a",
+				LastSyncCommit: "abc123def456", // Same as source - up to date
+				Status:         state.StatusUpToDate,
+				LastSyncTime:   &[]time.Time{time.Now().Add(-1 * time.Hour)}[0],
+			},
+			"org/service-b": {
+				Repo:           "org/service-b",
+				LastSyncCommit: "abc123def456", // Same as source - up to date
+				Status:         state.StatusUpToDate,
+				LastSyncTime:   &[]time.Time{time.Now().Add(-2 * time.Hour)}[0],
 			},
 		}
 
@@ -127,19 +140,32 @@ func TestEndToEndSync(t *testing.T) {
 				LatestCommit: "abc123def456",
 				LastChecked:  time.Now(),
 			},
-			Targets: map[string]*state.TargetState{
-				"org/service-a": {
-					Repo:           "org/service-a",
-					LastSyncCommit: "abc123def456", // Same as source
-					Status:         state.StatusUpToDate,
-					LastSyncTime:   &[]time.Time{time.Now().Add(-1 * time.Hour)}[0],
-				},
-				"org/service-b": {
-					Repo:           "org/service-b",
-					LastSyncCommit: "abc123def456", // Same as source
-					Status:         state.StatusUpToDate,
-					LastSyncTime:   &[]time.Time{time.Now().Add(-2 * time.Hour)}[0],
-				},
+			Sources:         make(map[string]state.SourceState),
+			Targets:         make(map[string]*state.TargetState),
+			SourceTargetMap: make(map[string]map[string]*state.SourceTargetSyncInfo),
+		}
+
+		// Populate the Sources map for v2 compatibility
+		currentState.Sources["org/template-repo"] = state.SourceState{
+			Repo:         "org/template-repo",
+			Branch:       "master",
+			LatestCommit: "abc123def456",
+			LastChecked:  time.Now(),
+		}
+
+		// Populate targets
+		currentState.Targets = map[string]*state.TargetState{
+			"org/service-a": {
+				Repo:           "org/service-a",
+				LastSyncCommit: "abc123def456", // Same as source
+				Status:         state.StatusUpToDate,
+				LastSyncTime:   &[]time.Time{time.Now().Add(-1 * time.Hour)}[0],
+			},
+			"org/service-b": {
+				Repo:           "org/service-b",
+				LastSyncCommit: "abc123def456", // Same as source
+				Status:         state.StatusUpToDate,
+				LastSyncTime:   &[]time.Time{time.Now().Add(-2 * time.Hour)}[0],
 			},
 		}
 
@@ -178,17 +204,30 @@ func TestEndToEndSync(t *testing.T) {
 				LatestCommit: "abc123def456",
 				LastChecked:  time.Now(),
 			},
-			Targets: map[string]*state.TargetState{
-				"org/service-a": {
-					Repo:           "org/service-a",
-					LastSyncCommit: "abc123def456", // Same as source - up to date
-					Status:         state.StatusUpToDate,
-				},
-				"org/service-b": {
-					Repo:           "org/service-b",
-					LastSyncCommit: "abc123def456", // Same as source - up to date
-					Status:         state.StatusUpToDate,
-				},
+			Sources:         make(map[string]state.SourceState),
+			Targets:         make(map[string]*state.TargetState),
+			SourceTargetMap: make(map[string]map[string]*state.SourceTargetSyncInfo),
+		}
+
+		// Populate the Sources map for v2 compatibility
+		currentState.Sources["org/template-repo"] = state.SourceState{
+			Repo:         "org/template-repo",
+			Branch:       "master",
+			LatestCommit: "abc123def456",
+			LastChecked:  time.Now(),
+		}
+
+		// Populate targets
+		currentState.Targets = map[string]*state.TargetState{
+			"org/service-a": {
+				Repo:           "org/service-a",
+				LastSyncCommit: "abc123def456", // Same as source - up to date
+				Status:         state.StatusUpToDate,
+			},
+			"org/service-b": {
+				Repo:           "org/service-b",
+				LastSyncCommit: "abc123def456", // Same as source - up to date
+				Status:         state.StatusUpToDate,
 			},
 		}
 
@@ -252,17 +291,30 @@ func TestEndToEndSync(t *testing.T) {
 				LatestCommit: "abc123def456",
 				LastChecked:  time.Now(),
 			},
-			Targets: map[string]*state.TargetState{
-				"org/service-a": {
-					Repo:           "org/service-a",
-					LastSyncCommit: "old123",
-					Status:         state.StatusBehind,
-				},
-				"org/service-b": {
-					Repo:           "org/service-b",
-					LastSyncCommit: "old456",
-					Status:         state.StatusBehind,
-				},
+			Sources:         make(map[string]state.SourceState),
+			Targets:         make(map[string]*state.TargetState),
+			SourceTargetMap: make(map[string]map[string]*state.SourceTargetSyncInfo),
+		}
+
+		// Populate the Sources map for v2 compatibility
+		currentState.Sources["org/template-repo"] = state.SourceState{
+			Repo:         "org/template-repo",
+			Branch:       "master",
+			LatestCommit: "abc123def456",
+			LastChecked:  time.Now(),
+		}
+
+		// Populate targets
+		currentState.Targets = map[string]*state.TargetState{
+			"org/service-a": {
+				Repo:           "org/service-a",
+				LastSyncCommit: "old123",
+				Status:         state.StatusBehind,
+			},
+			"org/service-b": {
+				Repo:           "org/service-b",
+				LastSyncCommit: "old456",
+				Status:         state.StatusBehind,
 			},
 		}
 

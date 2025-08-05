@@ -333,12 +333,25 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 			LatestCommit: "latest123",
 			LastChecked:  time.Now(),
 		},
-		Targets: map[string]*state.TargetState{
-			"org/large-service": {
-				Repo:           "org/large-service",
-				LastSyncCommit: "old123",
-				Status:         state.StatusBehind,
-			},
+		Sources:         make(map[string]state.SourceState),
+		Targets:         make(map[string]*state.TargetState),
+		SourceTargetMap: make(map[string]map[string]*state.SourceTargetSyncInfo),
+	}
+
+	// Populate the Sources map for v2 compatibility
+	currentState.Sources["org/template-repo"] = state.SourceState{
+		Repo:         "org/template-repo",
+		Branch:       "master",
+		LatestCommit: "latest123",
+		LastChecked:  time.Now(),
+	}
+
+	// Populate targets
+	currentState.Targets = map[string]*state.TargetState{
+		"org/large-service": {
+			Repo:           "org/large-service",
+			LastSyncCommit: "old123",
+			Status:         state.StatusBehind,
 		},
 	}
 

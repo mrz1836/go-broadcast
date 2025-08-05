@@ -325,7 +325,7 @@ go-broadcast uses a flexible configuration system that supports syncing from mul
 
 Modern organizations often have different teams maintaining different types of templates:
 - **CI/CD templates** maintained by DevOps teams
-- **Security policies** managed by security teams  
+- **Security policies** managed by security teams
 - **Documentation templates** owned by technical writers
 - **Development standards** from platform teams
 
@@ -340,7 +340,7 @@ mappings:
   # CI/CD templates from DevOps team
   - source:
       repo: "company/ci-templates"
-      branch: "main"
+      branch: "master"
       id: "ci"  # Unique identifier for this source
     targets:
       - repo: "company/service-a"
@@ -351,11 +351,11 @@ mappings:
         files:
           - src: "workflows/ci.yml"
             dest: ".github/workflows/ci.yml"
-  
+
   # Security policies from security team
   - source:
       repo: "company/security-templates"
-      branch: "main"
+      branch: "master"
       id: "security"
     targets:
       - repo: "company/service-a"
@@ -393,7 +393,7 @@ mappings:
         files:
           - src: "Makefile"
             dest: "Makefile"  # Will be overwritten
-  
+
   - source:
       repo: "company/golang-templates"
       id: "golang"
@@ -457,7 +457,7 @@ See [examples/multi-source.yaml](examples/multi-source.yaml) for a complete exam
 mappings:
   - source:
       repo: "company/ci-templates"
-      branch: "main"
+      branch: "master"
       id: "ci"
     targets:
       - repo: "company/user-service"
@@ -474,7 +474,7 @@ mappings:
 mappings:
   - source:
       repo: "company/ci-templates"
-      branch: "main"
+      branch: "master"
       id: "ci"
     targets:
       - repo: "company/microservice-a"
@@ -494,7 +494,7 @@ mappings:
 mappings:
   - source:
       repo: "company/template-repo"
-      branch: "main"
+      branch: "master"
       id: "templates"
     targets:
       - repo: "company/service"
@@ -515,7 +515,7 @@ mappings:
 mappings:
   - source:
       repo: "company/security-templates"
-      branch: "main"
+      branch: "master"
       id: "security"
     targets:
       - repo: "company/critical-service"

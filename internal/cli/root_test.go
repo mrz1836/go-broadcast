@@ -551,6 +551,10 @@ func TestLoggerContextKey(t *testing.T) {
 
 // TestRootCommandIntegration tests the root command integration
 func TestRootCommandIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	// This test verifies the global root command is properly configured
 	cmd := rootCmd
 

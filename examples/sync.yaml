@@ -40,10 +40,10 @@ mappings:
   - source:
       # Repository in org/repo format
       repo: "org/template-repo"
-      # Branch to sync from (defaults to "main" if not specified)
+      # Branch to sync from (defaults to "master" if not specified)
       branch: "master"
       # Unique identifier for this source
-      id: "main"
+      id: "master"
     # Target repositories to sync to
     targets:
       # First target repository (uses only global PR settings)

@@ -12,7 +12,7 @@ mappings:
   # Base templates (will lose conflicts)
   - source:
       repo: "company/base-templates"
-      branch: "main"
+      branch: "master"
       id: "base"
     targets:
       - repo: "company/my-service"
@@ -27,7 +27,7 @@ mappings:
   # Language-specific templates (will override base for conflicts)
   - source:
       repo: "company/golang-templates"
-      branch: "main"
+      branch: "master"
       id: "golang"
     targets:
       - repo: "company/my-service"
@@ -42,7 +42,7 @@ mappings:
   # Service-specific overrides (will win all conflicts)
   - source:
       repo: "company/my-service-custom"
-      branch: "main"
+      branch: "master"
       id: "custom"
     targets:
       - repo: "company/my-service"
@@ -64,7 +64,7 @@ mappings:
   # Documentation templates (lowest priority)
   - source:
       repo: "company/docs"
-      branch: "main"
+      branch: "master"
       id: "docs"
     targets:
       - repo: "company/api-service"
@@ -77,7 +77,7 @@ mappings:
   # Standard configurations
   - source:
       repo: "company/standard-configs"
-      branch: "main"
+      branch: "master"
       id: "standard"
     targets:
       - repo: "company/api-service"
@@ -90,7 +90,7 @@ mappings:
   # Performance optimizations
   - source:
       repo: "company/performance-configs"
-      branch: "main"
+      branch: "master"
       id: "performance"
     targets:
       - repo: "company/api-service"

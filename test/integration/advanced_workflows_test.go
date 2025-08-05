@@ -206,7 +206,17 @@ func testTemplateRepositoryUpdates(t *testing.T, generator *fixtures.TestRepoGen
 			LatestCommit: updatedCommit,
 			LastChecked:  time.Now(),
 		},
-		Targets: make(map[string]*state.TargetState),
+		Sources:         make(map[string]state.SourceState),
+		Targets:         make(map[string]*state.TargetState),
+		SourceTargetMap: make(map[string]map[string]*state.SourceTargetSyncInfo),
+	}
+
+	// Populate the Sources map for v2 compatibility
+	updatedState.Sources[scenario.State.Source.Repo] = state.SourceState{
+		Repo:         scenario.State.Source.Repo,
+		Branch:       scenario.State.Source.Branch,
+		LatestCommit: updatedCommit,
+		LastChecked:  time.Now(),
 	}
 
 	// All targets are now behind due to template update

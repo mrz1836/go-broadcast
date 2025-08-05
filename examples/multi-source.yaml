@@ -24,7 +24,7 @@ mappings:
   # CI/CD templates from dedicated repository
   - source:
       repo: "company/ci-templates"
-      branch: "main"
+      branch: "master"
       id: "ci" # Used for branch naming and conflict resolution
     targets:
       - repo: "company/service-a"
@@ -49,7 +49,7 @@ mappings:
   # Security policies from security team repository
   - source:
       repo: "company/security-templates"
-      branch: "main"
+      branch: "master"
       id: "security"
     targets:
       - repo: "company/service-a"
@@ -82,7 +82,7 @@ mappings:
   # Documentation templates
   - source:
       repo: "company/docs-templates"
-      branch: "main"
+      branch: "master"
       id: "docs"
     targets:
       - repo: "company/service-a"
@@ -102,7 +102,7 @@ mappings:
   # Development environment configurations
   - source:
       repo: "company/dev-environment"
-      branch: "main"
+      branch: "master"
       id: "devenv"
     targets:
       - repo: "company/service-a"
