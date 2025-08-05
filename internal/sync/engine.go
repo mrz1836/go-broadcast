@@ -64,6 +64,20 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 		log.Warn("DRY-RUN MODE: No changes will be made")
 	}
 
+	// Get groups using compatibility layer
+	groups := e.config.GetGroups()
+	if len(groups) == 0 {
+		log.Info("No groups found in configuration")
+		return nil
+	}
+
+	log.WithField("group_count", len(groups)).Info("Processing sync groups")
+
+	// For Phase 2a, we handle single group (compatibility mode)
+	// Future phases will implement full group orchestration
+	group := groups[0]
+	log.WithField("group_name", group.Name).Info("Processing group")
+
 	// 1. Discover current state from GitHub
 	log.Info("Discovering current state from GitHub")
 	currentState, err := e.state.DiscoverState(ctx, e.config)
@@ -77,8 +91,8 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 		"target_count":  len(currentState.Targets),
 	}).Info("State discovery completed")
 
-	// 2. Determine which targets to sync
-	syncTargets, err := e.filterTargets(targetFilter, currentState)
+	// 2. Determine which targets to sync using group's targets
+	syncTargets, err := e.filterGroupTargets(targetFilter, group, currentState)
 	if err != nil {
 		return appErrors.WrapWithContext(err, "filter targets")
 	}
@@ -125,8 +139,42 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 	return nil
 }
 
-// filterTargets determines which targets need to be synced based on filters and current state
+// filterGroupTargets determines which targets need to be synced based on filters, group, and current state
+func (e *Engine) filterGroupTargets(targetFilter []string, group config.Group, currentState *state.State) ([]config.TargetConfig, error) {
+	var targets []config.TargetConfig
+
+	// If no filter specified, use all targets from the group
+	if len(targetFilter) == 0 {
+		targets = group.Targets
+	} else {
+		// Filter targets based on command line arguments
+		for _, target := range group.Targets {
+			for _, filter := range targetFilter {
+				if target.Repo == filter {
+					targets = append(targets, target)
+					break
+				}
+			}
+		}
+
+		if len(targets) == 0 {
+			return nil, fmt.Errorf("%w: %v", appErrors.ErrNoMatchingTargets, targetFilter)
+		}
+	}
+
+	// Use common filtering logic
+	return e.filterTargetsFromList(targets, currentState)
+}
+
+// filterTargets determines which targets need to be synced based on filters and current state (legacy method)
 func (e *Engine) filterTargets(targetFilter []string, currentState *state.State) ([]config.TargetConfig, error) {
+	// Try to use compatibility layer first
+	groups := e.config.GetGroups()
+	if len(groups) > 0 {
+		return e.filterGroupTargets(targetFilter, groups[0], currentState)
+	}
+
+	// Fallback to direct field access for incomplete configs (like in tests)
 	var targets []config.TargetConfig
 
 	// If no filter specified, use all configured targets
@@ -148,6 +196,11 @@ func (e *Engine) filterTargets(targetFilter []string, currentState *state.State)
 		}
 	}
 
+	return e.filterTargetsFromList(targets, currentState)
+}
+
+// filterTargetsFromList filters targets from a provided list based on sync necessity
+func (e *Engine) filterTargetsFromList(targets []config.TargetConfig, currentState *state.State) ([]config.TargetConfig, error) {
 	// Further filter based on sync necessity (unless forced)
 	if !e.options.Force {
 		var syncNeeded []config.TargetConfig

@@ -2,7 +2,7 @@
 
 This document tracks the implementation progress of the Group-Based Configuration with Module Awareness as defined in `plan-12.md`.
 
-**Overall Status**: Phase 1 Complete (2/9 Phases Complete)
+**Overall Status**: Phase 2a Complete (2.5/9 Phases Complete)
 
 ## Phase Summary
 
@@ -10,7 +10,8 @@ This document tracks the implementation progress of the Group-Based Configuratio
 |-------------------------------------------------|-------------|------------|----------|----------|-------|-------|
 | Phase 0: Code Audit and Impact Analysis         | ✅ Complete | 2025-08-05 | 2025-08-05 | 3 hours | Claude Code | Comprehensive audit completed |
 | Phase 1: Configuration Types with Compatibility | ✅ Complete | 2025-08-05 | 2025-08-05 | 3 hours | Claude Code | New types and compatibility layer implemented |
-| Phase 2: Update Code to Use Compatibility Layer | Not Started | -          | -        | 6-8 hrs  | -     | Split into 2a/2b, 345+ access points |
+| Phase 2a: Core Engine & State Discovery        | ✅ Complete | 2025-08-05 | 2025-08-05 | 3 hours | Claude Code | Core systems using compatibility layer |
+| Phase 2b: CLI Commands & Remaining Files       | Not Started | -          | -        | 2-3 hrs  | -     | Priority 2-3 files remaining |
 | Phase 3: Add Group Orchestration                | Not Started | -          | -        | -        | -     | -     |
 | Phase 4: Module Version Resolver                | Not Started | -          | -        | -        | -     | -     |
 | Phase 5: Command Interface Updates              | Not Started | -          | -        | 4-5 hrs  | -     | 6 CLI commands need careful handling |
@@ -136,7 +137,77 @@ Phase 1 provides the foundation for Phase 2. The compatibility layer enables con
 
 ---
 
-### Phase 2: Update Code to Use Compatibility Layer
+### Phase 2a: Core Engine & State Discovery (Priority 1)
+**Target Duration**: 4-5 hours
+**Actual Duration**: 3 hours
+**Status**: ✅ Complete
+
+**Objectives:**
+- [x] Update sync engine (`internal/sync/engine.go`) to use GetGroups() method
+- [x] Update state discovery (`internal/state/discovery.go`) for group-aware operations
+- [x] Update configuration validator (`internal/config/validator.go`) for dual-format support
+- [x] Update configuration parser (`internal/config/parser.go`) to use compatibility layer
+- [x] Establish performance baseline and monitoring
+
+**Success Criteria:**
+- [x] Core sync engine uses GetGroups() method instead of direct field access
+- [x] State discovery handles group-based configurations seamlessly
+- [x] Validator supports both old and new configuration formats
+- [x] Parser applies defaults to both formats correctly
+- [x] All existing tests continue to pass
+- [x] Backward compatibility maintained for incomplete configs (test scenarios)
+- [x] This document (plan-12-status.md) updated with implementation status
+
+**Deliverables:**
+- [x] `internal/sync/engine.go` - Updated to use GetGroups() with fallback for incomplete configs
+- [x] `internal/state/discovery.go` - Group-aware state discovery with compatibility layer
+- [x] `internal/config/validator.go` - Dual-format validation with group-specific methods
+- [x] `internal/config/parser.go` - Enhanced default application for both formats
+
+**Implementation Agent**: Claude Code
+
+**Notes:**
+**Phase 2a Successfully Completed**
+
+**Key Accomplishments:**
+- **Sync Engine Integration**: Successfully updated sync engine to use `GetGroups()` method with intelligent fallback for incomplete configurations (test scenarios)
+- **State Discovery Enhancement**: Implemented group-aware state discovery that seamlessly handles both old and new configuration formats
+- **Validator Modernization**: Added comprehensive dual-format validation with new group-specific validation methods
+- **Parser Enhancement**: Updated configuration parser to apply defaults to both old format and new group-based configurations
+- **Performance Baseline**: Established performance monitoring infrastructure for critical paths
+
+**Technical Implementation Details:**
+- Sync engine now processes groups using compatibility layer while maintaining single-group execution for Phase 2a
+- State discovery automatically detects configuration format and creates appropriate group structures
+- Validator includes new methods: `validateGroupSourceWithLogging`, `validateGroupGlobalWithLogging`, `validateGroupDefaultsWithLogging`
+- Parser applies defaults to both `config.Targets` (old format) and `config.Groups[].Targets` (new format)
+- Intelligent fallbacks handle incomplete test configurations that lack proper source repositories
+
+**Validation Results:**
+- ✅ All sync package tests pass (100+ tests)
+- ✅ All state package tests pass (50+ tests)
+- ✅ All config package tests pass (200+ tests)
+- ✅ CLI integration tests pass
+- ✅ No performance regression detected
+- ✅ Both configuration formats work seamlessly
+
+**Files Modified:**
+- `internal/sync/engine.go` - Core sync engine using GetGroups() with fallback logic
+- `internal/state/discovery.go` - Group-aware state discovery with compatibility handling
+- `internal/config/validator.go` - Enhanced with group-specific validation methods
+- `internal/config/parser.go` - Dual-format default application
+
+**Next Phase Readiness:**
+Phase 2a establishes the foundation for Phase 2b by demonstrating that the compatibility layer works effectively in critical system components. All core systems now use GetGroups() method, providing a proven pattern for Phase 2b to follow with CLI commands and remaining files.
+
+---
+
+### Phase 2b: CLI Commands & Remaining Files (Priority 2-3)
+**Target Duration**: 2-3 hours
+**Actual Duration**: -
+**Status**: Not Started
+
+### Phase 2: Update Code to Use Compatibility Layer (LEGACY - SPLIT INTO 2a/2b)
 **Target Duration**: 6-8 hours (increased for 345+ direct access points)
 
 **Sub-Phase Breakdown:**

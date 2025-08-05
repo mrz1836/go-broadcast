@@ -53,27 +53,58 @@ func LoadFromReader(reader io.Reader) (*Config, error) {
 	return config, nil
 }
 
-// applyDefaults sets default values for optional fields
+// applyDefaults sets default values for optional fields using compatibility layer
 func applyDefaults(config *Config) {
-	// Set default source branch if not specified
+	// Apply defaults to both old format and new format configurations
+	// First, handle old format fields for backward compatibility
 	if config.Source.Branch == "" {
 		config.Source.Branch = "main"
 	}
 
-	// Set default branch prefix if not specified
 	if config.Defaults.BranchPrefix == "" {
 		config.Defaults.BranchPrefix = "chore/sync-files"
 	}
 
-	// Set default PR labels if not specified
 	if len(config.Defaults.PRLabels) == 0 {
 		config.Defaults.PRLabels = []string{"automated-sync"}
 	}
 
-	// Apply directory defaults
+	// Apply directory defaults to old format targets
 	for i := range config.Targets {
 		for j := range config.Targets[i].Directories {
 			ApplyDirectoryDefaults(&config.Targets[i].Directories[j])
+		}
+	}
+
+	// Apply defaults to groups if they exist
+	for i := range config.Groups {
+		group := &config.Groups[i]
+
+		// Set default source branch if not specified
+		if group.Source.Branch == "" {
+			group.Source.Branch = "main"
+		}
+
+		// Set default branch prefix if not specified
+		if group.Defaults.BranchPrefix == "" {
+			group.Defaults.BranchPrefix = "chore/sync-files"
+		}
+
+		// Set default PR labels if not specified
+		if len(group.Defaults.PRLabels) == 0 {
+			group.Defaults.PRLabels = []string{"automated-sync"}
+		}
+
+		// Set default enabled state if not specified
+		if group.Enabled == nil {
+			group.Enabled = boolPtr(true)
+		}
+
+		// Apply directory defaults to group targets
+		for j := range group.Targets {
+			for k := range group.Targets[j].Directories {
+				ApplyDirectoryDefaults(&group.Targets[j].Directories[k])
+			}
 		}
 	}
 }
