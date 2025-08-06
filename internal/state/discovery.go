@@ -7,10 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/logging"
-	"github.com/sirupsen/logrus"
 )
 
 // ErrNoGroupsFound indicates no groups were found in configuration

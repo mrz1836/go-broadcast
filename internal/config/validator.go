@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/validation"
-	"github.com/sirupsen/logrus"
 )
 
 var (

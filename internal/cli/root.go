@@ -9,10 +9,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mrz1836/go-broadcast/internal/logging"
-	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
+	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
 // loggerContextKey is a type for context keys to avoid collisions

@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/state"
 )
 
 // DirectoryTestSuite tests directory sync functionality

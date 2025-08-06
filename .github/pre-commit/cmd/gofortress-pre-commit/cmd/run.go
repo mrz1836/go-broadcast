@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
 	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/git"
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/output"
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/runner"
-	"github.com/spf13/cobra"
 )
 
 //nolint:gochecknoglobals // Required by cobra

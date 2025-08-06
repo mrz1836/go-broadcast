@@ -9,9 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/mrz1836/go-broadcast/internal/fuzz"
 	"github.com/mrz1836/go-broadcast/internal/validation"
-	"gopkg.in/yaml.v3"
 )
 
 func FuzzConfigParsing(f *testing.F) {

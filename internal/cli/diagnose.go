@@ -11,8 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/spf13/cobra"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
 )
 
 // DiagnosticInfo contains comprehensive system diagnostic information.

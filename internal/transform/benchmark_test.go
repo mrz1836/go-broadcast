@@ -5,8 +5,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/benchmark"
 	"github.com/sirupsen/logrus"
+
+	"github.com/mrz1836/go-broadcast/internal/benchmark"
 )
 
 //nolint:gochecknoglobals // Test data

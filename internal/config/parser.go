@@ -5,8 +5,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/mrz1836/go-broadcast/internal/logging"
 	"gopkg.in/yaml.v3"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
 )
 
 // Load reads and parses a configuration file from the given path

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
@@ -17,7 +19,6 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/metrics"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/transform"
-	"github.com/sirupsen/logrus"
 )
 
 // Static error variables

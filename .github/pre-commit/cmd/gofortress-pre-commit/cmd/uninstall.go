@@ -3,8 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/mrz1836/go-broadcast/pre-commit/internal/git"
 	"github.com/spf13/cobra"
+
+	"github.com/mrz1836/go-broadcast/pre-commit/internal/git"
 )
 
 // uninstallCmd represents the uninstall command

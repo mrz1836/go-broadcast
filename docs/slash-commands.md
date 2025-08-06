@@ -328,6 +328,4 @@ Commands understand context:
 
 **[⬆ back to top](#-table-of-contents)**
 
-*🤖 Powered by Claude Code & 26 Specialized Sub-Agents*
-
 </div>

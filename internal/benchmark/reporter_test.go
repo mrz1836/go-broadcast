@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 )
 
 func TestCreateBaselineReport(t *testing.T) {

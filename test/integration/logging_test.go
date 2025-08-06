@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/cli"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/cli"
 )
 
 // validateJSONLogOutput validates that the output contains valid JSON log entries

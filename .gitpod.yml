@@ -12,12 +12,9 @@ tasks:
       echo "Downloading Go modules..."
       go mod download
       go mod tidy
-      # Install goimports if not present
-      if ! command -v goimports >/dev/null; then
-        go install golang.org/x/tools/cmd/goimports@latest
-      fi
-      go fmt ./...
-      goimports -w .
+      # Format code using make targets
+      make fumpt
+      make goimports
       golangci-lint run
       go vet ./...
     command: |

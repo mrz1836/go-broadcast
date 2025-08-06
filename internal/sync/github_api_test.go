@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/mrz1836/go-broadcast/internal/gh"
 )
 
 // Test error variables

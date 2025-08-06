@@ -15,8 +15,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/sirupsen/logrus"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
 )
 
 // Static error variables

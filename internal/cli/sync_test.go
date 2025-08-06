@@ -8,12 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 )
 
 // contains is a helper function for string contains check

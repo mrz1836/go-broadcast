@@ -51,7 +51,14 @@ When invoked, you must follow these steps:
    - Provide ETA calculations based on current throughput
    - Log performance metrics for analysis
 
-7. **Benchmark and Validate**
+7. **Module-Aware Sync Optimization**
+   - Detect Go modules by finding go.mod files in directories
+   - When module config is present, resolve version constraints efficiently
+   - Cache module version lookups to minimize git API calls
+   - Batch version resolution for multiple modules from same source
+   - Skip unnecessary file comparisons when module versions match
+
+8. **Benchmark and Validate**
    - Run performance benchmarks before and after optimizations
    - Measure: files/second, MB/second, memory usage, CPU utilization
    - Compare against baseline metrics

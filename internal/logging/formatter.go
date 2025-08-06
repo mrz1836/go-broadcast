@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/jsonutil"
 	"github.com/sirupsen/logrus"
+
+	"github.com/mrz1836/go-broadcast/internal/jsonutil"
 )
 
 // StructuredFormatter provides JSON output formatting for structured logging.

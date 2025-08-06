@@ -4,11 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/errors"
 )
 
 func TestChain_Add(t *testing.T) {

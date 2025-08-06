@@ -10,9 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/fuzz"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/mrz1836/go-broadcast/internal/fuzz"
 )
 
 var ErrCommandFailed = errors.New("command failed")

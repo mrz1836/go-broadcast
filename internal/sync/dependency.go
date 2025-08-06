@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/sirupsen/logrus"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
 )
 
 // Static errors for dependency resolution

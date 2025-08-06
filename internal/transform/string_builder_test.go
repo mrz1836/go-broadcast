@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/pool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/pool"
 )
 
 var errBuildTest = errors.New("build error")

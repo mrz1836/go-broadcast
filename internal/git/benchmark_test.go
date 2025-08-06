@@ -7,8 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/benchmark"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/mrz1836/go-broadcast/internal/benchmark"
 )
 
 func BenchmarkGitCommand_Simple(b *testing.B) {

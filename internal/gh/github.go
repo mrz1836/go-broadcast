@@ -8,10 +8,11 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/jsonutil"
 	"github.com/mrz1836/go-broadcast/internal/logging"
-	"github.com/sirupsen/logrus"
 )
 
 // Common errors

@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/sirupsen/logrus"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
 )
 
 // Static errors for orchestration

@@ -11,10 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 )
 
 // TestDiagnosticInfoJSONMarshal tests JSON marshaling of DiagnosticInfo

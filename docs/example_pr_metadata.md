@@ -6,6 +6,7 @@ This document shows an example of the enhanced PR body with directory synchroniz
 
 ```markdown
 ## What Changed
+* Executed sync group: **Infrastructure Templates** (priority: 1)
 * Updated 3 individual file(s) to synchronize with the source repository
 * Synchronized 61 file(s) from directory mappings
 * Applied file transformations and updates based on sync configuration
@@ -46,6 +47,9 @@ This synchronization ensures the target repository stays up-to-date with the lat
 
 <!-- go-broadcast-metadata
 sync_metadata:
+  group_name: Infrastructure Templates
+  group_id: infra-templates
+  group_priority: 1
   source_repo: org/template
   source_commit: abc123def456
   target_repo: org/target
@@ -68,6 +72,7 @@ performance:
 ## Key Features
 
 ### Enhanced Change Description
+- Shows which sync group executed (name, ID, and priority)
 - Distinguishes between individual file changes and directory synchronization
 - Provides specific counts for each type of change
 - Makes it clear what transformations were applied
@@ -88,6 +93,7 @@ performance:
 
 ### Machine-Parseable Metadata
 - YAML format within HTML comment block
+- Group information (name, ID, priority) for tracking sync origin
 - Complete directory mapping information with metrics
 - Performance data for programmatic analysis
 - Backwards compatible with existing parsers

@@ -170,7 +170,7 @@ go tool pprof mem.prof
    ```bash
    # Fix formatting issues
    make fumpt          # Apply gofumpt formatting
-   goimports -w .      # Fix import statements
+   make goimports      # Fix import statements
 
    # Check linting rules
    make lint-version   # Show linter version

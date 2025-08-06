@@ -12,16 +12,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
-	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
-	"github.com/mrz1836/go-broadcast/internal/gh"
-	"github.com/mrz1836/go-broadcast/internal/state"
-	"github.com/mrz1836/go-broadcast/internal/transform"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
+	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/state"
+	"github.com/mrz1836/go-broadcast/internal/transform"
 )
 
 // Static error variables for testing

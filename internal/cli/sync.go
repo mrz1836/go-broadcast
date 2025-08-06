@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
@@ -12,8 +15,6 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/sync"
 	"github.com/mrz1836/go-broadcast/internal/transform"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 //nolint:gochecknoglobals // Package-level variables for CLI flags

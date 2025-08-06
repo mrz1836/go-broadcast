@@ -145,6 +145,33 @@ fumpt: ## Run fumpt to format Go code
 	echo "Formatting Go code with gofumpt..."; \
 	gofumpt -w -extra .
 
+.PHONY: goimports
+goimports: ## Run goimports to fix import organization
+	@echo "Running goimports..."
+	@GOPATH=$$(go env GOPATH); \
+	if [ -z "$$GOPATH" ]; then GOPATH=$$HOME/go; fi; \
+	export PATH="$$GOPATH/bin:$$PATH"; \
+	if ! command -v goimports >/dev/null 2>&1; then \
+		echo "Installing goimports..."; \
+		go install golang.org/x/tools/cmd/goimports@latest; \
+	else \
+		echo "goimports is already installed"; \
+	fi; \
+	if ! command -v goimports >/dev/null 2>&1; then \
+		echo "Error: goimports installation failed or not in PATH"; \
+		echo "GOPATH: $$GOPATH"; \
+		echo "PATH: $$PATH"; \
+		echo "Expected location: $$GOPATH/bin/goimports"; \
+		if [ -f "$$GOPATH/bin/goimports" ]; then \
+			echo "goimports exists at expected location but not in PATH"; \
+		else \
+			echo "goimports not found at expected location"; \
+		fi; \
+		exit 1; \
+	fi; \
+	echo "Formatting imports with goimports..."; \
+	goimports -w -local github.com/mrz1836/go-broadcast .
+
 .PHONY: generate
 generate: ## Run go generate in the base of the repo
 	@echo "Running go generate..."

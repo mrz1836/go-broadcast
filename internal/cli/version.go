@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/spf13/cobra"
+
+	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
 // Build information set via ldflags

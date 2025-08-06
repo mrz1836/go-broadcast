@@ -2,8 +2,9 @@
 package mocks
 
 import (
-	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 )
 
 // CallHandler provides a type-safe way to handle mock calls with consistent error handling

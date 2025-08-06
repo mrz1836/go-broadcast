@@ -374,8 +374,8 @@ Code must be cleanly formatted and pass all linters before being committed.
 
 ```bash
 go fmt ./...
-goimports -w .
-gofumpt -w .
+make goimports
+make fumpt
 make lint
 go vet ./...
 ```

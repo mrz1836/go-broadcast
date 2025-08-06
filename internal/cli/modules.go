@@ -10,11 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/mrz1836/go-broadcast/internal/sync"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 // Static errors for err113 compliance

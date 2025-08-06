@@ -8,13 +8,14 @@ import (
 	"sort"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/mrz1836/go-broadcast/internal/state"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 // ErrTargetNotFound is returned when a target repository is not found in the configuration

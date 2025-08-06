@@ -19,7 +19,7 @@ When invoked, you must follow these steps:
 3. **Analyze lint results** - Parse the output and identify all issues that need to be fixed
 4. **Apply automatic fixes** where possible:
    - Run `make fumpt` to enforce gofumpt formatting
-   - Execute `goimports -w .` to fix import organization
+   - Run `make goimports` to fix import organization
    - Use MultiEdit to fix other linting issues that can be automatically corrected
 5. **Review convention compliance** - Check adherence to standards defined in:
    - `.github/tech-conventions/go-essentials.md`

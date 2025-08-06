@@ -5,8 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/benchmark"
 	"github.com/sirupsen/logrus"
+
+	"github.com/mrz1836/go-broadcast/internal/benchmark"
 )
 
 func BenchmarkRedaction_Scenarios(b *testing.B) {

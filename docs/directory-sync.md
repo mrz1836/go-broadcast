@@ -39,48 +39,69 @@ go-broadcast supports synchronizing entire directories alongside individual file
 
 ```yaml
 version: 1
-source:
-  repo: "company/templates"
-  branch: "master"
-targets:
-  - repo: "company/service"
-    directories:
-      - src: ".github/workflows"
-        dest: ".github/workflows"
-        # Smart defaults automatically exclude: *.out, *.test, *.exe, **/.DS_Store, **/tmp/*, **/.git
+groups:
+  - name: "Workflow Templates"
+    id: "workflow-sync"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/templates"
+      branch: "master"
+    targets:
+      - repo: "company/service"
+        directories:
+          - src: ".github/workflows"
+            dest: ".github/workflows"
+            # Smart defaults automatically exclude: *.out, *.test, *.exe, **/.DS_Store, **/tmp/*, **/.git
 ```
 
 ### Directory Sync with Custom Exclusions
 
 ```yaml
-targets:
-  - repo: "company/service"
-    directories:
-      - src: ".github/coverage"
-        dest: ".github/coverage"
-        exclude:
-          - "*.out"                    # Coverage output files
-          - "gofortress-coverage"      # Binary executable
-          - "**/testdata/**"           # Test fixtures
-        transform:
-          repo_name: true
+groups:
+  - name: "Coverage Configuration"
+    id: "coverage-sync"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/templates"
+      branch: "master"
+    targets:
+      - repo: "company/service"
+        directories:
+          - src: ".github/coverage"
+            dest: ".github/coverage"
+            exclude:
+              - "*.out"                    # Coverage output files
+              - "gofortress-coverage"      # Binary executable
+              - "**/testdata/**"           # Test fixtures
+            transform:
+              repo_name: true
 ```
 
 ### Mixed Files and Directories
 
 ```yaml
-targets:
-  - repo: "company/service"
-    files:
-      - src: "Makefile"
-        dest: "Makefile"
-    directories:
-      - src: "configs"
-        dest: "configs"
-        exclude: ["*.local", "*.secret"]
-    transform:
-      variables:
-        SERVICE_NAME: "my-service"
+groups:
+  - name: "Service Configuration"
+    id: "service-config"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/templates"
+      branch: "master"
+    targets:
+      - repo: "company/service"
+        files:
+          - src: "Makefile"
+            dest: "Makefile"
+        directories:
+          - src: "configs"
+            dest: "configs"
+            exclude: ["*.local", "*.secret"]
+        transform:
+          variables:
+            SERVICE_NAME: "my-service"
 ```
 
 ## Core Concepts
@@ -90,16 +111,26 @@ targets:
 Directory mapping defines the relationship between source and destination directories:
 
 ```yaml
-directories:
-  - src: "source/path"              # Source directory in template repo
-    dest: "destination/path"        # Destination directory in target repo
-    exclude: ["pattern1", "pattern2"] # Optional exclusion patterns
-    preserve_structure: true        # Keep nested structure (default: true)
-    include_hidden: true           # Include hidden files (default: true)
-    transform:                     # Apply to all files in directory
-      repo_name: true
-      variables:
-        KEY: "value"
+groups:
+  - name: "Directory Sync Group"
+    id: "dir-sync"
+    source:
+      repo: "company/templates"
+    targets:
+      - repo: "company/service"
+        directories:
+          - src: "source/path"              # Source directory in template repo
+            dest: "destination/path"        # Destination directory in target repo
+            exclude: ["pattern1", "pattern2"] # Optional exclusion patterns
+            preserve_structure: true        # Keep nested structure (default: true)
+            include_hidden: true           # Include hidden files (default: true)
+            module:                        # Module-aware sync (for Go projects)
+              type: "go"
+              version: "v1.2.3"
+            transform:                     # Apply to all files in directory
+              repo_name: true
+              variables:
+                KEY: "value"
 ```
 
 ### Smart Defaults
@@ -138,6 +169,38 @@ Directory sync integrates seamlessly with go-broadcast's stateless architecture:
 | `preserve_structure` | bool | true | Keep nested directory structure |
 | `include_hidden` | bool | true | Include hidden files (starting with .) |
 | `transform` | Transform | {} | Apply transformations to all files |
+| `module` | ModuleConfig | {} | Module-aware sync configuration (for Go projects) |
+
+### Module-Aware Directory Sync
+
+Directory sync can intelligently handle versioned modules, particularly for Go projects:
+
+```yaml
+groups:
+  - name: "Shared Go Libraries"
+    id: "go-libs"
+    source:
+      repo: "company/go-modules"
+      branch: "main"
+    targets:
+      - repo: "company/service"
+        directories:
+          - src: "pkg/errors"
+            dest: "vendor/github.com/company/errors"
+            module:
+              type: "go"              # Module type
+              version: "v1.2.3"       # Exact version
+              check_tags: true        # Use git tags
+              update_refs: false      # Update go.mod references
+```
+
+Module sync features:
+- **Version Resolution**: Fetches specific versions from git tags
+- **Semantic Versioning**: Supports constraints like `~1.2.0`, `^1.2.0`, `latest`
+- **Caching**: Caches version lookups for performance
+- **Go.mod Updates**: Optionally updates module references
+
+See [Module-Aware Synchronization Guide](module-sync.md) for complete details.
 
 ### Exclude Patterns
 
@@ -347,18 +410,30 @@ Directory sync complete: 61 files synced in 4ms
 Perfect for syncing `.github` directories across organization repositories:
 
 ```yaml
-# Real-world .github sync (149 files total)
-directories:
-  - src: ".github/workflows"       # 24 files - ~1.5ms
-    dest: ".github/workflows"
-    exclude: ["*-local.yml", "*.disabled"]
+version: 1
+groups:
+  - name: "GitHub Infrastructure"
+    id: "github-infra"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/github-templates"
+      branch: "main"
+    targets:
+      - repo: "company/service-a"
+      - repo: "company/service-b"
+    # Real-world .github sync (149 files total)
+    directories:
+      - src: ".github/workflows"       # 24 files - ~1.5ms
+        dest: ".github/workflows"
+        exclude: ["*-local.yml", "*.disabled"]
 
-  - src: ".github/coverage"        # 87 files - ~4ms
-    dest: ".github/coverage"
-    exclude: ["*.out", "*.test", "gofortress-coverage"]
+      - src: ".github/coverage"        # 87 files - ~4ms
+        dest: ".github/coverage"
+        exclude: ["*.out", "*.test", "gofortress-coverage"]
 
-  - src: ".github/ISSUE_TEMPLATE"  # Template files
-    dest: ".github/ISSUE_TEMPLATE"
+      - src: ".github/ISSUE_TEMPLATE"  # Template files
+        dest: ".github/ISSUE_TEMPLATE"
 
 # Expected total performance: ~7ms for 149 files
 ```
@@ -425,28 +500,36 @@ Directory sync works seamlessly with existing file sync configurations:
 ### Mixed Configuration
 
 ```yaml
-targets:
-  - repo: "company/service"
-    # Individual files (existing functionality)
-    files:
-      - src: "Makefile"
-        dest: "Makefile"
-      - src: "README.md"
-        dest: "README.md"
+groups:
+  - name: "Complete Service Setup"
+    id: "complete-setup"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/templates"
+      branch: "main"
+    targets:
+      - repo: "company/service"
+        # Individual files (existing functionality)
+        files:
+          - src: "Makefile"
+            dest: "Makefile"
+          - src: "README.md"
+            dest: "README.md"
 
-    # Directories (enhanced functionality)
-    directories:
-      - src: ".github/workflows"
-        dest: ".github/workflows"
-      - src: "configs"
-        dest: "configs"
-        exclude: ["*.local"]
+        # Directories (enhanced functionality)
+        directories:
+          - src: ".github/workflows"
+            dest: ".github/workflows"
+          - src: "configs"
+            dest: "configs"
+            exclude: ["*.local"]
 
-    # Transforms apply to both files and directories
-    transform:
-      repo_name: true
-      variables:
-        SERVICE: "user-service"
+        # Transforms apply to both files and directories
+        transform:
+          repo_name: true
+          variables:
+            SERVICE: "user-service"
 ```
 
 ### Precedence and Conflicts
@@ -702,20 +785,37 @@ exclude:
 #### Multi-Stage Directory Sync
 
 ```yaml
-# Stage 1: Core infrastructure
-targets:
-  - repo: "company/service"
-    directories:
-      - src: ".github/workflows/core"
-        dest: ".github/workflows"
+version: 1
+groups:
+  # Stage 1: Core infrastructure (higher priority)
+  - name: "Core Infrastructure"
+    id: "core-infra"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/core-templates"
+      branch: "main"
+    targets:
+      - repo: "company/service"
+        directories:
+          - src: ".github/workflows/core"
+            dest: ".github/workflows"
 
-# Stage 2: Service-specific additions (separate config)
-targets:
-  - repo: "company/service"
-    directories:
-      - src: ".github/workflows/service"
-        dest: ".github/workflows"
-        exclude: ["core-*"]        # Don't conflict with stage 1
+  # Stage 2: Service-specific additions (lower priority, depends on stage 1)
+  - name: "Service Additions"
+    id: "service-additions"
+    priority: 2
+    depends_on: ["core-infra"]
+    enabled: true
+    source:
+      repo: "company/service-templates"
+      branch: "main"
+    targets:
+      - repo: "company/service"
+        directories:
+          - src: ".github/workflows/service"
+            dest: ".github/workflows"
+            exclude: ["core-*"]        # Don't conflict with stage 1
 ```
 
 #### Conditional Directory Sync
@@ -768,6 +868,8 @@ gh pr list --label "automated-sync" --state all --limit 100
 
 **Related Documentation:**
 - [Quick Start Guide](../README.md#-quick-start)
-- [Configuration Reference](../README.md#configuration-reference)
+- [Configuration Guide](configuration-guide.md)
+- [Module-Aware Sync](module-sync.md)
+- [Group Examples](group-examples.md)
 - [Performance Benchmarks](../README.md#-performance)
 - [Example Configurations](../examples/)
