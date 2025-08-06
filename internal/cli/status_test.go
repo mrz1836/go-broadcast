@@ -608,13 +608,15 @@ func TestGetRealStatusErrorCases(t *testing.T) {
 	t.Run("GitHub client creation failure", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
-			},
-			Targets: []config.TargetConfig{
-				{Repo: "test/target1"},
-			},
+			Groups: []config.Group{{
+				Source: config.SourceConfig{
+					Repo:   "test/source",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "test/target1"},
+				},
+			}},
 		}
 
 		// This will likely fail with GitHub CLI not found or auth issues
@@ -639,12 +641,18 @@ func TestGetRealStatusErrorCases(t *testing.T) {
 	t.Run("State discovery failure", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "nonexistent/repo",
-				Branch: "main",
-			},
-			Targets: []config.TargetConfig{
-				{Repo: "test/target1"},
+			Groups: []config.Group{
+				{
+					Name: "test-group",
+					ID:   "test-group-1",
+					Source: config.SourceConfig{
+						Repo:   "nonexistent/repo",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "test/target1"},
+					},
+				},
 			},
 		}
 
@@ -660,9 +668,15 @@ func TestGetRealStatusErrorCases(t *testing.T) {
 		cancel()
 
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
+			Groups: []config.Group{
+				{
+					Name: "test-group",
+					ID:   "test-group-1",
+					Source: config.SourceConfig{
+						Repo:   "test/source",
+						Branch: "main",
+					},
+				},
 			},
 		}
 

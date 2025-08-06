@@ -458,15 +458,21 @@ func (g *TestRepoGenerator) GenerateOldFormatConfig(sourceRepo, sourceBranch str
 
 	return &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   sourceRepo,
-			Branch: sourceBranch,
-		},
-		Defaults: config.DefaultConfig{
-			BranchPrefix: "chore/sync-files",
-			PRLabels:     []string{"automated-sync", "integration-test"},
-		},
-		Targets: targets,
+		Groups: []config.Group{{
+			Name:     "test-group",
+			ID:       "test-group",
+			Priority: 1,
+			Enabled:  &[]bool{true}[0],
+			Source: config.SourceConfig{
+				Repo:   sourceRepo,
+				Branch: sourceBranch,
+			},
+			Defaults: config.DefaultConfig{
+				BranchPrefix: "chore/sync-files",
+				PRLabels:     []string{"automated-sync", "integration-test"},
+			},
+			Targets: targets,
+		}},
 	}
 }
 

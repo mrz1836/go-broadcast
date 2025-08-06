@@ -53,30 +53,9 @@ func LoadFromReader(reader io.Reader) (*Config, error) {
 	return config, nil
 }
 
-// applyDefaults sets default values for optional fields using compatibility layer
+// applyDefaults sets default values for optional fields in group-based configuration
 func applyDefaults(config *Config) {
-	// Apply defaults to both old format and new format configurations
-	// First, handle old format fields for backward compatibility
-	if config.Source.Branch == "" {
-		config.Source.Branch = "main"
-	}
-
-	if config.Defaults.BranchPrefix == "" {
-		config.Defaults.BranchPrefix = "chore/sync-files"
-	}
-
-	if len(config.Defaults.PRLabels) == 0 {
-		config.Defaults.PRLabels = []string{"automated-sync"}
-	}
-
-	// Apply directory defaults to old format targets
-	for i := range config.Targets {
-		for j := range config.Targets[i].Directories {
-			ApplyDirectoryDefaults(&config.Targets[i].Directories[j])
-		}
-	}
-
-	// Apply defaults to groups if they exist
+	// Apply defaults to all groups
 	for i := range config.Groups {
 		group := &config.Groups[i]
 

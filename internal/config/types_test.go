@@ -12,26 +12,32 @@ func TestConfigStructCreation(t *testing.T) {
 	t.Run("CreateConfig", func(t *testing.T) {
 		config := &Config{
 			Version: 1,
-			Source: SourceConfig{
-				Repo: "org/template",
-			},
-			Defaults: DefaultConfig{
-				BranchPrefix: "sync/",
-				PRLabels:     []string{"automated"},
-			},
-			Targets: []TargetConfig{
+			Groups: []Group{
 				{
-					Repo: "org/service",
-					Files: []FileMapping{
-						{
-							Src:  "file.txt",
-							Dest: "dest.txt",
-						},
+					Name: "test-group",
+					ID:   "test",
+					Source: SourceConfig{
+						Repo: "org/template",
 					},
-					Transform: Transform{
-						RepoName: true,
-						Variables: map[string]string{
-							"KEY": "value",
+					Defaults: DefaultConfig{
+						BranchPrefix: "sync/",
+						PRLabels:     []string{"automated"},
+					},
+					Targets: []TargetConfig{
+						{
+							Repo: "org/service",
+							Files: []FileMapping{
+								{
+									Src:  "file.txt",
+									Dest: "dest.txt",
+								},
+							},
+							Transform: Transform{
+								RepoName: true,
+								Variables: map[string]string{
+									"KEY": "value",
+								},
+							},
 						},
 					},
 				},
@@ -40,12 +46,14 @@ func TestConfigStructCreation(t *testing.T) {
 
 		require.NotNil(t, config)
 		assert.Equal(t, 1, config.Version)
-		assert.Equal(t, "org/template", config.Source.Repo)
-		assert.Equal(t, "sync/", config.Defaults.BranchPrefix)
-		assert.Len(t, config.Defaults.PRLabels, 1)
-		assert.Len(t, config.Targets, 1)
-		assert.True(t, config.Targets[0].Transform.RepoName)
-		assert.Equal(t, "value", config.Targets[0].Transform.Variables["KEY"])
+		require.Len(t, config.Groups, 1)
+		group := config.Groups[0]
+		assert.Equal(t, "org/template", group.Source.Repo)
+		assert.Equal(t, "sync/", group.Defaults.BranchPrefix)
+		assert.Len(t, group.Defaults.PRLabels, 1)
+		assert.Len(t, group.Targets, 1)
+		assert.True(t, group.Targets[0].Transform.RepoName)
+		assert.Equal(t, "value", group.Targets[0].Transform.Variables["KEY"])
 	})
 }
 
@@ -99,19 +107,27 @@ func TestTransformDefaults(t *testing.T) {
 func TestConfigWithEmptySlices(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source: SourceConfig{
-			Repo: "org/repo",
+		Groups: []Group{
+			{
+				Name: "test-group",
+				ID:   "test",
+				Source: SourceConfig{
+					Repo: "org/repo",
+				},
+				Defaults: DefaultConfig{
+					BranchPrefix: "prefix",
+					PRLabels:     []string{}, // Empty slice
+				},
+				Targets: []TargetConfig{}, // Empty targets
+			},
 		},
-		Defaults: DefaultConfig{
-			BranchPrefix: "prefix",
-			PRLabels:     []string{}, // Empty slice
-		},
-		Targets: []TargetConfig{}, // Empty targets
 	}
 
 	require.NotNil(t, config)
-	assert.Empty(t, config.Defaults.PRLabels)
-	assert.Empty(t, config.Targets)
+	require.Len(t, config.Groups, 1)
+	group := config.Groups[0]
+	assert.Empty(t, group.Defaults.PRLabels)
+	assert.Empty(t, group.Targets)
 }
 
 // TestTargetWithEmptyFileList tests target with empty file list
@@ -137,49 +153,63 @@ func TestTransformWithEmptyVariables(t *testing.T) {
 	assert.Empty(t, transform.Variables)
 }
 
-// TestConfigFieldModification tests that struct fields can be modified
+// TestConfigFieldModification tests that group fields can be modified
 func TestConfigFieldModification(t *testing.T) {
 	config := &Config{
 		Version: 1,
+		Groups: []Group{
+			{
+				Name: "test-group",
+				ID:   "test",
+			},
+		},
 	}
 
 	// Modify fields
-	config.Source.Repo = "new/repo"
-	config.Source.Branch = "develop"
-	config.Defaults.BranchPrefix = "feature/"
-	config.Defaults.PRLabels = append(config.Defaults.PRLabels, "label1", "label2")
+	group := &config.Groups[0]
+	group.Source.Repo = "new/repo"
+	group.Source.Branch = "develop"
+	group.Defaults.BranchPrefix = "feature/"
+	group.Defaults.PRLabels = append(group.Defaults.PRLabels, "label1", "label2")
 
-	assert.Equal(t, "new/repo", config.Source.Repo)
-	assert.Equal(t, "develop", config.Source.Branch)
-	assert.Equal(t, "feature/", config.Defaults.BranchPrefix)
-	assert.Len(t, config.Defaults.PRLabels, 2)
+	assert.Equal(t, "new/repo", group.Source.Repo)
+	assert.Equal(t, "develop", group.Source.Branch)
+	assert.Equal(t, "feature/", group.Defaults.BranchPrefix)
+	assert.Len(t, group.Defaults.PRLabels, 2)
 }
 
-// TestTargetConfigAppend tests appending to targets slice
+// TestTargetConfigAppend tests appending to targets slice within a group
 func TestTargetConfigAppend(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Targets: []TargetConfig{},
+		Groups: []Group{
+			{
+				Name:    "test-group",
+				ID:      "test",
+				Targets: []TargetConfig{},
+			},
+		},
 	}
 
-	// Append targets
-	config.Targets = append(config.Targets, TargetConfig{
+	// Append targets to group
+	group := &config.Groups[0]
+	group.Targets = append(group.Targets, TargetConfig{
 		Repo: "org/service1",
 		Files: []FileMapping{
 			{Src: "a.txt", Dest: "b.txt"},
 		},
 	})
 
-	config.Targets = append(config.Targets, TargetConfig{
+	group.Targets = append(group.Targets, TargetConfig{
 		Repo: "org/service2",
 		Files: []FileMapping{
 			{Src: "c.txt", Dest: "d.txt"},
 		},
 	})
 
-	assert.Len(t, config.Targets, 2)
-	assert.Equal(t, "org/service1", config.Targets[0].Repo)
-	assert.Equal(t, "org/service2", config.Targets[1].Repo)
+	assert.Len(t, group.Targets, 2)
+	assert.Equal(t, "org/service1", group.Targets[0].Repo)
+	assert.Equal(t, "org/service2", group.Targets[1].Repo)
 }
 
 // TestTransformVariablesModification tests modifying transform variables
@@ -290,35 +320,43 @@ func TestGlobalConfigFields(t *testing.T) {
 	})
 }
 
-// TestConfigWithGlobalSection tests Config with GlobalConfig field
+// TestConfigWithGlobalSection tests Config with group GlobalConfig field
 func TestConfigWithGlobalSection(t *testing.T) {
 	config := &Config{
 		Version: 1,
-		Source: SourceConfig{
-			Repo: "org/template",
-		},
-		Global: GlobalConfig{
-			PRLabels:    []string{"automated-sync", "chore"},
-			PRAssignees: []string{"platform-team"},
-		},
-		Targets: []TargetConfig{
+		Groups: []Group{
 			{
-				Repo: "org/service",
-				Files: []FileMapping{
-					{Src: "file.txt", Dest: "dest.txt"},
+				Name: "test-group",
+				ID:   "test",
+				Source: SourceConfig{
+					Repo: "org/template",
 				},
-				PRLabels: []string{"critical"},
+				Global: GlobalConfig{
+					PRLabels:    []string{"automated-sync", "chore"},
+					PRAssignees: []string{"platform-team"},
+				},
+				Targets: []TargetConfig{
+					{
+						Repo: "org/service",
+						Files: []FileMapping{
+							{Src: "file.txt", Dest: "dest.txt"},
+						},
+						PRLabels: []string{"critical"},
+					},
+				},
 			},
 		},
 	}
 
 	require.NotNil(t, config)
 	assert.Equal(t, 1, config.Version)
-	assert.Equal(t, "org/template", config.Source.Repo)
-	assert.Equal(t, []string{"automated-sync", "chore"}, config.Global.PRLabels)
-	assert.Equal(t, []string{"platform-team"}, config.Global.PRAssignees)
-	assert.Len(t, config.Targets, 1)
-	assert.Equal(t, []string{"critical"}, config.Targets[0].PRLabels)
+	require.Len(t, config.Groups, 1)
+	group := config.Groups[0]
+	assert.Equal(t, "org/template", group.Source.Repo)
+	assert.Equal(t, []string{"automated-sync", "chore"}, group.Global.PRLabels)
+	assert.Equal(t, []string{"platform-team"}, group.Global.PRAssignees)
+	assert.Len(t, group.Targets, 1)
+	assert.Equal(t, []string{"critical"}, group.Targets[0].PRLabels)
 }
 
 // TestTargetConfigPRFields tests TargetConfig PR-related fields
@@ -585,185 +623,6 @@ func TestNewConfigWithGroups(t *testing.T) {
 		assert.Equal(t, "Security", config.Groups[1].Name)
 		assert.Equal(t, []string{"infra"}, config.Groups[1].DependsOn)
 	})
-
-	t.Run("ConfigWithBothFormats", func(t *testing.T) {
-		// During transition, config might have both old and new fields
-		config := Config{
-			Version: 1,
-			// Old format fields
-			Source: SourceConfig{
-				Repo:   "org/old-template",
-				Branch: "main",
-			},
-			Targets: []TargetConfig{
-				{Repo: "org/old-service"},
-			},
-			// New format fields
-			Groups: []Group{
-				{
-					Name: "New Group",
-					ID:   "new-group",
-					Source: SourceConfig{
-						Repo: "org/new-template",
-					},
-					Targets: []TargetConfig{
-						{Repo: "org/new-service"},
-					},
-				},
-			},
-		}
-
-		assert.Equal(t, 1, config.Version)
-		assert.Equal(t, "org/old-template", config.Source.Repo)
-		assert.Len(t, config.Targets, 1)
-		assert.Len(t, config.Groups, 1)
-		assert.Equal(t, "New Group", config.Groups[0].Name)
-	})
-}
-
-// TestGetGroupsCompatibility tests the GetGroups() compatibility method
-func TestGetGroupsCompatibility(t *testing.T) {
-	t.Run("GetGroupsFromNewFormat", func(t *testing.T) {
-		config := Config{
-			Version: 1,
-			Groups: []Group{
-				{
-					Name:   "Test Group",
-					ID:     "test",
-					Source: SourceConfig{Repo: "org/template"},
-					Targets: []TargetConfig{
-						{Repo: "org/service"},
-					},
-				},
-			},
-		}
-
-		groups := config.GetGroups()
-		assert.Len(t, groups, 1)
-		assert.Equal(t, "Test Group", groups[0].Name)
-		assert.Equal(t, "test", groups[0].ID)
-	})
-
-	t.Run("GetGroupsFromOldFormat", func(t *testing.T) {
-		config := Config{
-			Version: 1,
-			Source: SourceConfig{
-				Repo:   "org/template",
-				Branch: "main",
-			},
-			Global: GlobalConfig{
-				PRLabels: []string{"global-label"},
-			},
-			Defaults: DefaultConfig{
-				BranchPrefix: "sync/",
-				PRLabels:     []string{"default-label"},
-			},
-			Targets: []TargetConfig{
-				{Repo: "org/service1"},
-				{Repo: "org/service2"},
-			},
-		}
-
-		groups := config.GetGroups()
-		assert.Len(t, groups, 1)
-		assert.Equal(t, "default", groups[0].Name)
-		assert.Equal(t, "default", groups[0].ID)
-		assert.Equal(t, 0, groups[0].Priority)
-		assert.NotNil(t, groups[0].Enabled)
-		assert.True(t, *groups[0].Enabled)
-		assert.Equal(t, "org/template", groups[0].Source.Repo)
-		assert.Equal(t, "main", groups[0].Source.Branch)
-		assert.Equal(t, []string{"global-label"}, groups[0].Global.PRLabels)
-		assert.Equal(t, "sync/", groups[0].Defaults.BranchPrefix)
-		assert.Equal(t, []string{"default-label"}, groups[0].Defaults.PRLabels)
-		assert.Len(t, groups[0].Targets, 2)
-		assert.Equal(t, "org/service1", groups[0].Targets[0].Repo)
-		assert.Equal(t, "org/service2", groups[0].Targets[1].Repo)
-	})
-
-	t.Run("GetGroupsFromEmptyConfig", func(t *testing.T) {
-		config := Config{
-			Version: 1,
-		}
-
-		groups := config.GetGroups()
-		assert.Nil(t, groups)
-	})
-
-	t.Run("GetGroupsWithBothFormats", func(t *testing.T) {
-		// When both formats exist, new format takes precedence
-		config := Config{
-			Version: 1,
-			// Old format
-			Source: SourceConfig{Repo: "org/old-template"},
-			Targets: []TargetConfig{
-				{Repo: "org/old-service"},
-			},
-			// New format (takes precedence)
-			Groups: []Group{
-				{
-					Name:   "New Group",
-					ID:     "new",
-					Source: SourceConfig{Repo: "org/new-template"},
-					Targets: []TargetConfig{
-						{Repo: "org/new-service"},
-					},
-				},
-			},
-		}
-
-		groups := config.GetGroups()
-		assert.Len(t, groups, 1)
-		assert.Equal(t, "New Group", groups[0].Name)
-		assert.Equal(t, "org/new-template", groups[0].Source.Repo)
-		assert.Equal(t, "org/new-service", groups[0].Targets[0].Repo)
-	})
-}
-
-// TestIsGroupBasedCompatibility tests the IsGroupBased() compatibility method
-func TestIsGroupBasedCompatibility(t *testing.T) {
-	t.Run("IsGroupBasedTrue", func(t *testing.T) {
-		config := Config{
-			Version: 1,
-			Groups: []Group{
-				{Name: "Test Group", ID: "test"},
-			},
-		}
-
-		assert.True(t, config.IsGroupBased())
-	})
-
-	t.Run("IsGroupBasedFalse", func(t *testing.T) {
-		config := Config{
-			Version: 1,
-			Source:  SourceConfig{Repo: "org/template"},
-			Targets: []TargetConfig{
-				{Repo: "org/service"},
-			},
-		}
-
-		assert.False(t, config.IsGroupBased())
-	})
-
-	t.Run("IsGroupBasedEmptyConfig", func(t *testing.T) {
-		config := Config{Version: 1}
-
-		assert.False(t, config.IsGroupBased())
-	})
-
-	t.Run("IsGroupBasedWithBothFormats", func(t *testing.T) {
-		// When both formats exist, it's considered group-based
-		config := Config{
-			Version: 1,
-			Source:  SourceConfig{Repo: "org/old-template"},
-			Targets: []TargetConfig{{Repo: "org/old-service"}},
-			Groups: []Group{
-				{Name: "New Group", ID: "new"},
-			},
-		}
-
-		assert.True(t, config.IsGroupBased())
-	})
 }
 
 // TestBoolPtrHelper tests the boolPtr helper function
@@ -778,51 +637,5 @@ func TestBoolPtrHelper(t *testing.T) {
 		ptr := boolPtr(false)
 		assert.NotNil(t, ptr)
 		assert.False(t, *ptr)
-	})
-}
-
-// TestCompatibilityConversionEdgeCases tests edge cases in compatibility layer
-func TestCompatibilityConversionEdgeCases(t *testing.T) {
-	t.Run("EmptySourceRepo", func(t *testing.T) {
-		config := Config{
-			Version: 1,
-			Source:  SourceConfig{}, // Empty repo
-			Targets: []TargetConfig{
-				{Repo: "org/service"},
-			},
-		}
-
-		groups := config.GetGroups()
-		assert.Nil(t, groups) // Should return nil because source repo is empty
-	})
-
-	t.Run("EmptyTargets", func(t *testing.T) {
-		config := Config{
-			Version: 1,
-			Source: SourceConfig{
-				Repo: "org/template",
-			},
-			Targets: []TargetConfig{}, // Empty targets
-		}
-
-		groups := config.GetGroups()
-		assert.Len(t, groups, 1)
-		assert.Equal(t, "default", groups[0].Name)
-		assert.Empty(t, groups[0].Targets) // Empty targets preserved
-	})
-
-	t.Run("NilTargets", func(t *testing.T) {
-		config := Config{
-			Version: 1,
-			Source: SourceConfig{
-				Repo: "org/template",
-			},
-			// Targets is nil
-		}
-
-		groups := config.GetGroups()
-		assert.Len(t, groups, 1)
-		assert.Equal(t, "default", groups[0].Name)
-		assert.Nil(t, groups[0].Targets) // Nil targets preserved
 	})
 }

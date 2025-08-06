@@ -66,7 +66,7 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 	}
 
 	// Get groups using compatibility layer
-	groups := e.config.GetGroups()
+	groups := e.config.Groups
 	if len(groups) == 0 {
 		log.Info("No groups found in configuration")
 		return nil
@@ -185,7 +185,7 @@ func (e *Engine) filterGroupTargets(targetFilter []string, group config.Group, c
 // filterTargets determines which targets need to be synced based on filters and current state (legacy method)
 func (e *Engine) filterTargets(targetFilter []string, currentState *state.State) ([]config.TargetConfig, error) {
 	// Try to use compatibility layer first
-	groups := e.config.GetGroups()
+	groups := e.config.Groups
 	if len(groups) > 0 {
 		return e.filterGroupTargets(targetFilter, groups[0], currentState)
 	}
@@ -193,12 +193,18 @@ func (e *Engine) filterTargets(targetFilter []string, currentState *state.State)
 	// Fallback to direct field access for incomplete configs (like in tests)
 	var targets []config.TargetConfig
 
+	// Get all targets from all groups
+	allTargets := []config.TargetConfig{}
+	for _, group := range e.config.Groups {
+		allTargets = append(allTargets, group.Targets...)
+	}
+
 	// If no filter specified, use all configured targets
 	if len(targetFilter) == 0 {
-		targets = e.config.Targets
+		targets = allTargets
 	} else {
 		// Filter targets based on command line arguments
-		for _, target := range e.config.Targets {
+		for _, target := range allTargets {
 			for _, filter := range targetFilter {
 				if target.Repo == filter {
 					targets = append(targets, target)

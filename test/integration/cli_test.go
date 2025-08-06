@@ -165,12 +165,12 @@ func TestConfigurationExamples(t *testing.T) {
 
 			// Verify basic structure
 			assert.NotEqual(t, 0, cfg.Version, "Version should not be zero")
-			assert.NotEmpty(t, cfg.Source.Repo, "Source repo should not be empty")
-			assert.NotEmpty(t, cfg.Source.Branch, "Source branch should not be empty")
-			assert.NotEmpty(t, cfg.Targets, "Targets should not be empty")
+			assert.NotEmpty(t, cfg.Groups[0].Source.Repo, "Source repo should not be empty")
+			assert.NotEmpty(t, cfg.Groups[0].Source.Branch, "Source branch should not be empty")
+			assert.NotEmpty(t, cfg.Groups[0].Targets, "Targets should not be empty")
 
 			// Verify each target has required fields
-			for i, target := range cfg.Targets {
+			for i, target := range cfg.Groups[0].Targets {
 				assert.NotEmpty(t, target.Repo, "Target %d repo should not be empty", i)
 
 				// Target must have either files or directories (or both)

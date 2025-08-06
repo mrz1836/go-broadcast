@@ -28,6 +28,10 @@ var (
 	ErrEmptyDestPath = errors.New("destination path cannot be empty")
 	// ErrPathTraversal indicates path traversal is not allowed
 	ErrPathTraversal = errors.New("path traversal not allowed")
+	// ErrGroupNameEmpty indicates group name is empty
+	ErrGroupNameEmpty = errors.New("group name cannot be empty")
+	// ErrGroupIDEmpty indicates group ID is empty
+	ErrGroupIDEmpty = errors.New("group id cannot be empty")
 	// ErrDuplicateDestPath indicates destination path is used by multiple mappings
 	ErrDuplicateDestPath = errors.New("destination path already in use")
 )
@@ -59,11 +63,9 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 	// Debug logging when --debug-config flag is enabled
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.WithFields(logrus.Fields{
-			logging.StandardFields.Operation:   logging.OperationTypes.ConfigValidate,
-			"version":                          c.Version,
-			logging.StandardFields.SourceRepo:  c.Source.Repo,
-			logging.StandardFields.BranchName:  c.Source.Branch,
-			logging.StandardFields.TargetCount: len(c.Targets),
+			logging.StandardFields.Operation: logging.OperationTypes.ConfigValidate,
+			"version":                        c.Version,
+			"group_count":                    len(c.Groups),
 		}).Debug("Starting configuration validation")
 	}
 
@@ -90,74 +92,16 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 		return fmt.Errorf("%w: %d (only version 1 is supported)", ErrUnsupportedVersion, c.Version)
 	}
 
-	// Use compatibility layer to get groups for validation
-	groups := c.GetGroups()
-	if len(groups) == 0 {
-		// No groups and no fallback possible
-		if c.Source.Repo == "" && len(c.Targets) == 0 {
-			if logConfig != nil && logConfig.Debug.Config {
-				logger.Error("No groups or source/targets specified")
-			}
-			return ErrNoTargets
-		}
-		// Create fallback group for validation
-		group := Group{
-			Name:     "default",
-			ID:       "default",
-			Source:   c.Source,
-			Global:   c.Global,
-			Defaults: c.Defaults,
-			Targets:  c.Targets,
-		}
-		groups = []Group{group}
-	}
-
-	// For Phase 2a, validate first group (single group support)
-	group := groups[0]
-
-	// Validate source
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithFields(logrus.Fields{
-			"group_name": group.Name,
-			"group_id":   group.ID,
-		}).Debug("Validating group source configuration")
-	}
-
-	if err := c.validateGroupSourceWithLogging(ctx, logConfig, group); err != nil {
-		return fmt.Errorf("invalid group source configuration: %w", err)
-	}
-
-	// Validate global
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.Debug("Validating group global configuration")
-	}
-
-	if err := c.validateGroupGlobalWithLogging(ctx, logConfig, group); err != nil {
-		return fmt.Errorf("invalid group global configuration: %w", err)
-	}
-
-	// Validate defaults
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.Debug("Validating group defaults configuration")
-	}
-
-	if err := c.validateGroupDefaultsWithLogging(ctx, logConfig, group); err != nil {
-		return fmt.Errorf("invalid group defaults configuration: %w", err)
-	}
-
-	// Validate targets
-	if len(group.Targets) == 0 {
+	// Validate groups
+	if len(c.Groups) == 0 {
 		if logConfig != nil && logConfig.Debug.Config {
-			logger.Error("No target repositories specified in group")
+			logger.Error("No groups specified")
 		}
 		return ErrNoTargets
 	}
 
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithField(logging.StandardFields.TargetCount, len(group.Targets)).Debug("Validating group target repositories")
-	}
-
-	for i, target := range group.Targets {
+	// Validate all groups
+	for i, group := range c.Groups {
 		// Check for context cancellation
 		select {
 		case <-ctx.Done():
@@ -165,48 +109,132 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 		default:
 		}
 
-		targetLogger := logger
+		// Validate group name and ID
+		if group.Name == "" {
+			return fmt.Errorf("group[%d]: %w", i, ErrGroupNameEmpty)
+		}
+		if group.ID == "" {
+			return fmt.Errorf("group[%d]: %w", i, ErrGroupIDEmpty)
+		}
+
+		// Validate source
 		if logConfig != nil && logConfig.Debug.Config {
-			targetLogger = logger.WithFields(logrus.Fields{
-				"target_index":                    i,
-				logging.StandardFields.TargetRepo: target.Repo,
-			})
-			targetLogger.Trace("Validating target repository")
+			logger.WithFields(logrus.Fields{
+				"group_index": i,
+				"group_name":  group.Name,
+				"group_id":    group.ID,
+			}).Debug("Validating group source configuration")
 		}
 
-		if err := target.validateWithLogging(ctx, logConfig, targetLogger); err != nil {
-			return fmt.Errorf("invalid target[%d] configuration: %w", i, err)
+		if err := c.validateGroupSourceWithLogging(ctx, logConfig, group); err != nil {
+			return fmt.Errorf("invalid group[%d] (%s) source configuration: %w", i, group.Name, err)
 		}
-	}
 
-	// Check for duplicate target repositories in group
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.Debug("Checking for duplicate target repositories in group")
-	}
+		// Validate global
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithFields(logrus.Fields{
+				"group_index": i,
+				"group_name":  group.Name,
+			}).Debug("Validating group global configuration")
+		}
 
-	seen := make(map[string]bool)
-	for _, target := range group.Targets {
-		if seen[target.Repo] {
+		if err := c.validateGroupGlobalWithLogging(ctx, logConfig, group); err != nil {
+			return fmt.Errorf("invalid group[%d] (%s) global configuration: %w", i, group.Name, err)
+		}
+
+		// Validate defaults
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithFields(logrus.Fields{
+				"group_index": i,
+				"group_name":  group.Name,
+			}).Debug("Validating group defaults configuration")
+		}
+
+		if err := c.validateGroupDefaultsWithLogging(ctx, logConfig, group); err != nil {
+			return fmt.Errorf("invalid group[%d] (%s) defaults configuration: %w", i, group.Name, err)
+		}
+
+		// Validate targets
+		if len(group.Targets) == 0 {
 			if logConfig != nil && logConfig.Debug.Config {
 				logger.WithFields(logrus.Fields{
-					"duplicate_repo":                 target.Repo,
-					logging.StandardFields.ErrorType: "duplicate_target",
-				}).Error("Duplicate target repository found in group")
+					"group_index": i,
+					"group_name":  group.Name,
+				}).Error("No target repositories specified in group")
 			}
-			return fmt.Errorf("%w: %s", ErrDuplicateTarget, target.Repo)
+			return fmt.Errorf("group[%d] (%s): %w", i, group.Name, ErrNoTargets)
 		}
 
-		seen[target.Repo] = true
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithFields(logrus.Fields{
+				"group_index":                      i,
+				"group_name":                       group.Name,
+				logging.StandardFields.TargetCount: len(group.Targets),
+			}).Debug("Validating group target repositories")
+		}
+
+		for j, target := range group.Targets {
+			// Check for context cancellation
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("validation canceled: %w", ctx.Err())
+			default:
+			}
+
+			targetLogger := logger
+			if logConfig != nil && logConfig.Debug.Config {
+				targetLogger = logger.WithFields(logrus.Fields{
+					"group_index":                     i,
+					"group_name":                      group.Name,
+					"target_index":                    j,
+					logging.StandardFields.TargetRepo: target.Repo,
+				})
+				targetLogger.Trace("Validating target repository")
+			}
+
+			if err := target.validateWithLogging(ctx, logConfig, targetLogger); err != nil {
+				return fmt.Errorf("invalid group[%d] (%s) target[%d] configuration: %w", i, group.Name, j, err)
+			}
+		}
+
+		// Check for duplicate target repositories in group
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithFields(logrus.Fields{
+				"group_index": i,
+				"group_name":  group.Name,
+			}).Debug("Checking for duplicate target repositories in group")
+		}
+
+		seen := make(map[string]bool)
+		for _, target := range group.Targets {
+			if seen[target.Repo] {
+				if logConfig != nil && logConfig.Debug.Config {
+					logger.WithFields(logrus.Fields{
+						"group_index":                    i,
+						"group_name":                     group.Name,
+						"duplicate_repo":                 target.Repo,
+						logging.StandardFields.ErrorType: "duplicate_target",
+					}).Error("Duplicate target repository found in group")
+				}
+				return fmt.Errorf("group[%d] (%s): %w: %s", i, group.Name, ErrDuplicateTarget, target.Repo)
+			}
+
+			seen[target.Repo] = true
+		}
 	}
 
 	// Log successful validation completion
 	duration := time.Since(start)
 	if logConfig != nil && logConfig.Debug.Config {
+		totalTargets := 0
+		for _, group := range c.Groups {
+			totalTargets += len(group.Targets)
+		}
+
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.DurationMs: duration.Milliseconds(),
-			"targets_valid":                   len(group.Targets),
-			"group_name":                      group.Name,
-			"group_id":                        group.ID,
+			"groups_valid":                    len(c.Groups),
+			"targets_valid":                   totalTargets,
 			logging.StandardFields.Status:     "completed",
 		}).Debug("Configuration validation completed successfully")
 	}
@@ -362,129 +390,6 @@ func (c *Config) validateGroupDefaultsWithLogging(ctx context.Context, logConfig
 
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.Debug("Group defaults configuration validation completed successfully")
-	}
-
-	return nil
-}
-
-// validateSourceWithLogging validates source configuration with debug logging support.
-//
-// Parameters:
-// - ctx: Context for cancellation control
-// - logConfig: Configuration for debug logging
-//
-// Returns:
-// - Error if source configuration is invalid
-//
-// Side Effects:
-// - Logs detailed source validation when --debug-config flag is enabled
-func (c *Config) validateSourceWithLogging(ctx context.Context, logConfig *logging.LogConfig) error {
-	logger := logging.WithStandardFields(logrus.StandardLogger(), logConfig, "config-source")
-
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithFields(logrus.Fields{
-			logging.StandardFields.RepoName:   c.Source.Repo,
-			logging.StandardFields.BranchName: c.Source.Branch,
-		}).Trace("Validating source repository configuration")
-	}
-
-	// Check for context cancellation
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("source validation canceled: %w", ctx.Err())
-	default:
-	}
-
-	// Use centralized validation for source configuration
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithField("repo_format", c.Source.Repo).Trace("Validating source repository format")
-	}
-
-	if err := validation.ValidateSourceConfig(c.Source.Repo, c.Source.Branch); err != nil {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.WithFields(logrus.Fields{
-				logging.StandardFields.RepoName:   c.Source.Repo,
-				logging.StandardFields.BranchName: c.Source.Branch,
-				logging.StandardFields.ErrorType:  "validation_failed",
-			}).Error("Source configuration validation failed")
-		}
-		return err
-	}
-
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.Debug("Source configuration validation completed successfully")
-	}
-
-	return nil
-}
-
-// validateDefaultsWithLogging validates default configuration with debug logging support.
-//
-// Parameters:
-// - ctx: Context for cancellation control
-// - logConfig: Configuration for debug logging
-//
-// Returns:
-// - Error if defaults configuration is invalid
-//
-// Side Effects:
-// - Logs detailed defaults validation when --debug-config flag is enabled
-func (c *Config) validateDefaultsWithLogging(ctx context.Context, logConfig *logging.LogConfig) error {
-	logger := logrus.WithField("component", "config-defaults")
-
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithFields(logrus.Fields{
-			"branch_prefix": c.Defaults.BranchPrefix,
-			"pr_labels":     c.Defaults.PRLabels,
-		}).Trace("Validating defaults configuration")
-	}
-
-	// Check for context cancellation
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("defaults validation canceled: %w", ctx.Err())
-	default:
-	}
-
-	// Validate branch prefix using centralized validation
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithField("branch_prefix", c.Defaults.BranchPrefix).Trace("Validating branch prefix format")
-	}
-
-	if err := validation.ValidateBranchPrefix(c.Defaults.BranchPrefix); err != nil {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.WithField("branch_prefix", c.Defaults.BranchPrefix).Error("Invalid branch prefix format")
-		}
-		return err
-	}
-
-	if c.Defaults.BranchPrefix == "" && logConfig != nil && logConfig.Debug.Config {
-		logger.Trace("No branch prefix specified, will use default")
-	}
-
-	// Validate PR labels
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.WithField("label_count", len(c.Defaults.PRLabels)).Trace("Validating PR labels")
-	}
-
-	for i, label := range c.Defaults.PRLabels {
-		if logConfig != nil && logConfig.Debug.Config {
-			logger.WithFields(logrus.Fields{
-				"label_index": i,
-				"label":       label,
-			}).Trace("Validating PR label")
-		}
-
-		if err := validation.ValidateNonEmpty("PR label", label); err != nil {
-			if logConfig != nil && logConfig.Debug.Config {
-				logger.WithField("label_index", i).Error("Empty PR label found")
-			}
-			return err
-		}
-	}
-
-	if logConfig != nil && logConfig.Debug.Config {
-		logger.Debug("Defaults configuration validation completed successfully")
 	}
 
 	return nil

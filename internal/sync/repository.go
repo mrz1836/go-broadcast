@@ -407,8 +407,10 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 	if rs.engine.currentGroup != nil {
 		branchPrefix = rs.engine.currentGroup.Defaults.BranchPrefix
 	} else {
-		// Fallback for old format or tests
-		branchPrefix = rs.engine.config.Defaults.BranchPrefix
+		// Get defaults from the first group (since we have a single group in temporary config)
+		if len(rs.engine.config.Groups) > 0 {
+			branchPrefix = rs.engine.config.Groups[0].Defaults.BranchPrefix
+		}
 	}
 	if branchPrefix == "" {
 		branchPrefix = "chore/sync-files"
@@ -1279,9 +1281,11 @@ func (rs *RepositorySync) getPRAssignees() []string {
 		global = rs.engine.currentGroup.Global.PRAssignees
 		defaults = rs.engine.currentGroup.Defaults.PRAssignees
 	} else {
-		// Fallback for old format or tests
-		global = rs.engine.config.Global.PRAssignees
-		defaults = rs.engine.config.Defaults.PRAssignees
+		// Get from the first group (since we have a single group in temporary config)
+		if len(rs.engine.config.Groups) > 0 {
+			global = rs.engine.config.Groups[0].Global.PRAssignees
+			defaults = rs.engine.config.Groups[0].Defaults.PRAssignees
+		}
 	}
 
 	target := rs.target.PRAssignees
@@ -1305,9 +1309,11 @@ func (rs *RepositorySync) getPRReviewers() []string {
 		global = rs.engine.currentGroup.Global.PRReviewers
 		defaults = rs.engine.currentGroup.Defaults.PRReviewers
 	} else {
-		// Fallback for old format or tests
-		global = rs.engine.config.Global.PRReviewers
-		defaults = rs.engine.config.Defaults.PRReviewers
+		// Get from the first group (since we have a single group in temporary config)
+		if len(rs.engine.config.Groups) > 0 {
+			global = rs.engine.config.Groups[0].Global.PRReviewers
+			defaults = rs.engine.config.Groups[0].Defaults.PRReviewers
+		}
 	}
 
 	target := rs.target.PRReviewers
@@ -1331,9 +1337,11 @@ func (rs *RepositorySync) getPRLabels() []string {
 		global = rs.engine.currentGroup.Global.PRLabels
 		defaults = rs.engine.currentGroup.Defaults.PRLabels
 	} else {
-		// Fallback for old format or tests
-		global = rs.engine.config.Global.PRLabels
-		defaults = rs.engine.config.Defaults.PRLabels
+		// Get from the first group (since we have a single group in temporary config)
+		if len(rs.engine.config.Groups) > 0 {
+			global = rs.engine.config.Groups[0].Global.PRLabels
+			defaults = rs.engine.config.Groups[0].Defaults.PRLabels
+		}
 	}
 
 	target := rs.target.PRLabels
@@ -1357,9 +1365,11 @@ func (rs *RepositorySync) getPRTeamReviewers() []string {
 		global = rs.engine.currentGroup.Global.PRTeamReviewers
 		defaults = rs.engine.currentGroup.Defaults.PRTeamReviewers
 	} else {
-		// Fallback for old format or tests
-		global = rs.engine.config.Global.PRTeamReviewers
-		defaults = rs.engine.config.Defaults.PRTeamReviewers
+		// Get from the first group (since we have a single group in temporary config)
+		if len(rs.engine.config.Groups) > 0 {
+			global = rs.engine.config.Groups[0].Global.PRTeamReviewers
+			defaults = rs.engine.config.Groups[0].Defaults.PRTeamReviewers
+		}
 	}
 
 	target := rs.target.PRTeamReviewers

@@ -17,26 +17,28 @@ func TestValidateSourceFilesExist(t *testing.T) {
 	// These tests demonstrate what we would test if the function accepted a client parameter.
 
 	baseConfig := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/source-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/target1",
-				Files: []config.FileMapping{
-					{Src: "README.md", Dest: "README.md"},
-					{Src: "LICENSE", Dest: "LICENSE"},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/source-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/target1",
+					Files: []config.FileMapping{
+						{Src: "README.md", Dest: "README.md"},
+						{Src: "LICENSE", Dest: "LICENSE"},
+					},
+				},
+				{
+					Repo: "org/target2",
+					Files: []config.FileMapping{
+						{Src: "README.md", Dest: "docs/README.md"},
+						{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
+					},
 				},
 			},
-			{
-				Repo: "org/target2",
-				Files: []config.FileMapping{
-					{Src: "README.md", Dest: "docs/README.md"},
-					{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
-				},
-			},
-		},
+		}},
 	}
 
 	testCases := []struct {
@@ -49,11 +51,13 @@ func TestValidateSourceFilesExist(t *testing.T) {
 		{
 			name: "No source files to validate",
 			config: &config.Config{
-				Source: config.SourceConfig{
-					Repo:   "org/source-repo",
-					Branch: "master",
-				},
-				Targets: []config.TargetConfig{},
+				Groups: []config.Group{{
+					Source: config.SourceConfig{
+						Repo:   "org/source-repo",
+						Branch: "master",
+					},
+					Targets: []config.TargetConfig{},
+				}},
 			},
 			verifyOutput: func(t *testing.T, output string) {
 				assert.Contains(t, output, "No source files to validate")
@@ -125,25 +129,29 @@ func TestValidateSourceFilesExist(t *testing.T) {
 		{
 			name: "Duplicate source files across targets",
 			config: &config.Config{
-				Source: config.SourceConfig{
-					Repo:   "org/source-repo",
-					Branch: "master",
-				},
-				Targets: []config.TargetConfig{
-					{
-						Repo: "org/target1",
-						Files: []config.FileMapping{
-							{Src: "README.md", Dest: "README.md"},
-							{Src: "README.md", Dest: "docs/README.md"}, // Same source, different dest
+				Groups: []config.Group{{
+					Name: "test-group",
+					ID:   "test-group-1",
+					Source: config.SourceConfig{
+						Repo:   "org/source-repo",
+						Branch: "master",
+					},
+					Targets: []config.TargetConfig{
+						{
+							Repo: "org/target1",
+							Files: []config.FileMapping{
+								{Src: "README.md", Dest: "README.md"},
+								{Src: "README.md", Dest: "docs/README.md"}, // Same source, different dest
+							},
+						},
+						{
+							Repo: "org/target2",
+							Files: []config.FileMapping{
+								{Src: "README.md", Dest: "README.md"}, // Same source again
+							},
 						},
 					},
-					{
-						Repo: "org/target2",
-						Files: []config.FileMapping{
-							{Src: "README.md", Dest: "README.md"}, // Same source again
-						},
-					},
-				},
+				}},
 			},
 			setupMocks: func(mockClient *gh.MockClient) {
 				// Should only check README.md once due to deduplication
@@ -167,18 +175,22 @@ func TestValidateSourceFilesExist(t *testing.T) {
 func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 	t.Run("Empty file paths", func(t *testing.T) {
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/source-repo",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
-				{
-					Repo: "org/target1",
-					Files: []config.FileMapping{
-						{Src: "", Dest: "README.md"}, // Empty source path
+			Groups: []config.Group{{
+				Name: "test-group",
+				ID:   "test-group-1",
+				Source: config.SourceConfig{
+					Repo:   "org/source-repo",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+						Files: []config.FileMapping{
+							{Src: "", Dest: "README.md"}, // Empty source path
+						},
 					},
 				},
-			},
+			}},
 		}
 
 		// Would test that empty paths are handled gracefully
@@ -188,21 +200,25 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 
 	t.Run("Special characters in file paths", func(t *testing.T) {
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/source-repo",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
-				{
-					Repo: "org/target1",
-					Files: []config.FileMapping{
-						{Src: "path/with spaces/file.txt", Dest: "file.txt"},
-						{Src: "path/with-dashes/file.txt", Dest: "file.txt"},
-						{Src: "path/with_underscores/file.txt", Dest: "file.txt"},
-						{Src: "path/with.dots/file.txt", Dest: "file.txt"},
+			Groups: []config.Group{{
+				Name: "test-group",
+				ID:   "test-group-1",
+				Source: config.SourceConfig{
+					Repo:   "org/source-repo",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+						Files: []config.FileMapping{
+							{Src: "path/with spaces/file.txt", Dest: "file.txt"},
+							{Src: "path/with-dashes/file.txt", Dest: "file.txt"},
+							{Src: "path/with_underscores/file.txt", Dest: "file.txt"},
+							{Src: "path/with.dots/file.txt", Dest: "file.txt"},
+						},
 					},
 				},
-			},
+			}},
 		}
 
 		// Would test that special characters in paths are handled correctly
@@ -213,18 +229,22 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 	t.Run("Very long file paths", func(t *testing.T) {
 		longPath := "very/deep/nested/directory/structure/that/goes/on/and/on/and/on/with/many/levels/file.txt"
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/source-repo",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
-				{
-					Repo: "org/target1",
-					Files: []config.FileMapping{
-						{Src: longPath, Dest: "file.txt"},
+			Groups: []config.Group{{
+				Name: "test-group",
+				ID:   "test-group-1",
+				Source: config.SourceConfig{
+					Repo:   "org/source-repo",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+						Files: []config.FileMapping{
+							{Src: longPath, Dest: "file.txt"},
+						},
 					},
 				},
-			},
+			}},
 		}
 
 		// Would test that long paths are handled correctly

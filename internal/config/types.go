@@ -2,18 +2,10 @@ package config
 
 // Config represents the complete sync configuration
 type Config struct {
-	Version int    `yaml:"version"`        // Config version (1)
-	Name    string `yaml:"name,omitempty"` // Optional config name
-	ID      string `yaml:"id,omitempty"`   // Optional config ID
-
-	// New group-based structure (Phase 1: alongside existing fields)
-	Groups []Group `yaml:"groups,omitempty"` // List of sync groups
-
-	// Existing fields for compatibility during transition
-	Source   SourceConfig   `yaml:"source,omitempty"`
-	Global   GlobalConfig   `yaml:"global,omitempty"`
-	Defaults DefaultConfig  `yaml:"defaults,omitempty"`
-	Targets  []TargetConfig `yaml:"targets,omitempty"`
+	Version int     `yaml:"version"`        // Config version (1)
+	Name    string  `yaml:"name,omitempty"` // Optional config name
+	ID      string  `yaml:"id,omitempty"`   // Optional config ID
+	Groups  []Group `yaml:"groups"`         // List of sync groups
 }
 
 // SourceConfig defines the source repository settings
@@ -96,4 +88,10 @@ type ModuleConfig struct {
 	Version    string `yaml:"version"`               // Version constraint (exact, latest, or semver)
 	CheckTags  *bool  `yaml:"check_tags,omitempty"`  // Use git tags for versions (default: true)
 	UpdateRefs bool   `yaml:"update_refs,omitempty"` // Update go.mod references
+}
+
+// boolPtr is a helper function to create a pointer to a boolean value.
+// This is used for optional boolean fields with default values.
+func boolPtr(b bool) *bool {
+	return &b
 }

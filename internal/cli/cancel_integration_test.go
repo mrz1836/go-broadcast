@@ -91,18 +91,21 @@ func TestRunCancel(t *testing.T) {
 				require.NoError(t, err)
 
 				validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md
-  - repo: org/target2
-    files:
-      - src: LICENSE
-        dest: LICENSE`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+      - repo: org/target2
+        files:
+          - src: LICENSE
+            dest: LICENSE`
 
 				_, err = tmpFile.WriteString(validConfig)
 				require.NoError(t, err)
@@ -158,14 +161,16 @@ targets:
 func TestPerformCancel(t *testing.T) {
 	// Create test config
 	cfg := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/source",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{Repo: "org/target1"},
-			{Repo: "org/target2"},
-		},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/source",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{Repo: "org/target1"},
+				{Repo: "org/target2"},
+			},
+		}},
 	}
 
 	testCases := []struct {

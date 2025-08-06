@@ -3,27 +3,30 @@
 
 version: 1
 
-source:
-  repo: "company/github-templates"
-  branch: "master"
-
-# Enterprise-wide settings
-global:
-  pr_labels: ["infrastructure", "automated-sync", "github-ops"]
-  pr_assignees: ["devops-team", "platform-team"]
-  pr_reviewers: ["infrastructure-lead"]
-  pr_team_reviewers: ["platform-engineering", "security-team"]
-
-defaults:
-  branch_prefix: "infra/github-sync"
-
-targets:
-  # Production Service - Complete .github sync with all features
-  - repo: "company/payment-service"
-    directories:
-      # Complete .github directory (149 files) - Performance: ~7ms
-      - src: ".github"
-        dest: ".github"
+groups:
+  - name: "GitHub Infrastructure Sync"
+    id: "github-infra-sync"
+    description: "Complete .github directory synchronization for enterprise repositories"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/github-templates"
+      branch: "master"
+    # Enterprise-wide settings
+    global:
+      pr_labels: ["infrastructure", "automated-sync", "github-ops"]
+      pr_assignees: ["devops-team", "platform-team"]
+      pr_reviewers: ["infrastructure-lead"]
+      pr_team_reviewers: ["platform-engineering", "security-team"]
+    defaults:
+      branch_prefix: "infra/github-sync"
+    targets:
+      # Production Service - Complete .github sync with all features
+      - repo: "company/payment-service"
+        directories:
+          # Complete .github directory (149 files) - Performance: ~7ms
+          - src: ".github"
+            dest: ".github"
         exclude:
           # Exclude what we sync separately for better control
           - "coverage/**" # Synced separately (87 files)

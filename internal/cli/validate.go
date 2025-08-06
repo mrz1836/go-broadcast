@@ -103,14 +103,14 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 	output.Info("Configuration Summary:")
 	output.Info(fmt.Sprintf("  Version: %d", cfg.Version))
 
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 	if len(groups) == 0 {
 		output.Info("  No configuration groups found")
 		return nil
 	}
 
 	// Check if using group-based configuration
-	if cfg.IsGroupBased() {
+	if len(cfg.Groups) > 0 {
 		displayGroupValidation(groups)
 	} else {
 		// Legacy format display
@@ -223,7 +223,7 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 	}
 
 	// Check source repository accessibility
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 	if len(groups) == 0 {
 		output.Error("  ✗ No configuration groups found")
 		return ErrNoConfigGroups
@@ -391,7 +391,7 @@ func validateSourceFilesExist(ctx context.Context, cfg *config.Config, logConfig
 
 	// Collect all unique source files across all targets
 	sourceFiles := make(map[string]bool)
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 	if len(groups) == 0 {
 		output.Info("  ⚠ No configuration groups found")
 		return

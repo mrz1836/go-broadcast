@@ -20,7 +20,9 @@ func TestExampleConfigLoadsAndValidates(t *testing.T) {
 
 	// Verify it loaded correctly
 	assert.Equal(t, 1, config.Version)
-	assert.Equal(t, "org/template-repo", config.Source.Repo)
-	assert.Equal(t, "master", config.Source.Branch)
-	assert.Len(t, config.Targets, 3)
+	require.Len(t, config.Groups, 1)
+	group := config.Groups[0]
+	assert.Equal(t, "org/template-repo", group.Source.Repo)
+	assert.Equal(t, "master", group.Source.Branch)
+	assert.Len(t, group.Targets, 3)
 }

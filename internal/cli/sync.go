@@ -201,7 +201,7 @@ func loadConfigWithFlags(flags *Flags, logger *logrus.Logger) (*config.Config, e
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 	sourceRepo := ""
 	targetsCount := 0
 	if len(groups) > 0 {
@@ -240,7 +240,7 @@ func createSyncEngine(ctx context.Context, cfg *config.Config) (*sync.Engine, er
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 	for _, group := range groups {
 		for _, target := range group.Targets {
 			if target.Transform.RepoName {
@@ -297,7 +297,7 @@ func createSyncEngineWithFlags(ctx context.Context, cfg *config.Config, flags *F
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 	for _, group := range groups {
 		for _, target := range group.Targets {
 			if target.Transform.RepoName {
@@ -368,7 +368,7 @@ func loadConfigWithLogConfig(logConfig *LogConfig) (*config.Config, error) {
 
 	// Log configuration details when debug is enabled
 	if logConfig.Debug.Config || logConfig.Verbose >= 1 {
-		groups := cfg.GetGroups()
+		groups := cfg.Groups
 		sourceRepo := ""
 		targetsCount := 0
 		if len(groups) > 0 {
@@ -424,7 +424,7 @@ func createSyncEngineWithLogConfig(ctx context.Context, cfg *config.Config, logC
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 	for _, group := range groups {
 		for _, target := range group.Targets {
 			if target.Transform.RepoName {

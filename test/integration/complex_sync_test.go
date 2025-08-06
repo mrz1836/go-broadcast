@@ -299,19 +299,21 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 	// Create config for large file sync
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/large-service",
-				Files: []config.FileMapping{
-					{Src: "large_file_50mb.txt", Dest: "large_file_50mb.txt"},
-					{Src: "README.md", Dest: "README.md"},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/large-service",
+					Files: []config.FileMapping{
+						{Src: "large_file_50mb.txt", Dest: "large_file_50mb.txt"},
+						{Src: "README.md", Dest: "README.md"},
+					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks

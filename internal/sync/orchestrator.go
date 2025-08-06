@@ -260,13 +260,10 @@ func (o *GroupOrchestrator) executeGroupImpl(ctx context.Context, group config.G
 
 	// Create a temporary config for this group
 	groupConfig := &config.Config{
-		Version:  o.config.Version,
-		Name:     o.config.Name,
-		ID:       o.config.ID,
-		Source:   group.Source,
-		Global:   group.Global,
-		Defaults: group.Defaults,
-		Targets:  group.Targets,
+		Version: o.config.Version,
+		Name:    o.config.Name,
+		ID:      o.config.ID,
+		Groups:  []config.Group{group},
 	}
 
 	// Store original config and replace with group config

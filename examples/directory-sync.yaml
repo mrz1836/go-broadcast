@@ -1,60 +1,70 @@
 # go-broadcast directory sync configuration example
 version: 1
 
-source:
-  repo: "company/templates"
-  branch: "master"
+groups:
+  - name: "Directory Synchronization"
+    id: "directory-sync"
+    description: "Synchronizes directories with various configuration options"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/templates"
+      branch: "master"
+    defaults:
+      branch_prefix: "sync/directories"
+      pr_labels:
+        - "automated-sync"
+        - "directory-sync"
+    targets:
+      # Basic directory sync with default exclusions
+      - repo: "company/service-a"
+        directories:
+          - src: ".github/workflows"
+            dest: ".github/workflows"
+            # Default exclusions automatically applied:
+            # *.out, *.test, *.exe, **/.DS_Store, **/tmp/*, **/.git
 
-targets:
-  # Basic directory sync with default exclusions
-  - repo: "company/service-a"
-    directories:
-      - src: ".github/workflows"
-        dest: ".github/workflows"
-        # Default exclusions automatically applied:
-        # *.out, *.test, *.exe, **/.DS_Store, **/tmp/*, **/.git
+      # Directory sync with custom exclusions
+      - repo: "company/service-b"
+        directories:
+          - src: ".github/coverage"
+            dest: ".github/coverage"
+            exclude:
+              - "*.out"
+              - "gofortress-coverage"
+              - "**/testdata/*"
+            transform:
+              repo_name: true
 
-  # Directory sync with custom exclusions
-  - repo: "company/service-b"
-    directories:
-      - src: ".github/coverage"
-        dest: ".github/coverage"
-        exclude:
-          - "*.out"
-          - "gofortress-coverage"
-          - "**/testdata/*"
-        transform:
-          repo_name: true
+      # Mixed files and directories
+      - repo: "company/service-c"
+        files:
+          - src: "Makefile"
+            dest: "Makefile"
+        directories:
+          - src: "scripts"
+            dest: "scripts"
+            exclude: ["*.pyc", "__pycache__"]
 
-  # Mixed files and directories
-  - repo: "company/service-c"
-    files:
-      - src: "Makefile"
-        dest: "Makefile"
-    directories:
-      - src: "scripts"
-        dest: "scripts"
-        exclude: ["*.pyc", "__pycache__"]
+      # Advanced directory configuration
+      - repo: "company/service-d"
+        directories:
+          # Sync with all options
+          - src: "configs"
+            dest: "configs"
+            exclude:
+              - "*.local"
+              - "*.secret"
+              - "dev/*"
+            transform:
+              variables:
+                ENV: "production"
+                SERVICE_NAME: "service-d"
+            preserve_structure: true
+            include_hidden: true
 
-  # Advanced directory configuration
-  - repo: "company/service-d"
-    directories:
-      # Sync with all options
-      - src: "configs"
-        dest: "configs"
-        exclude:
-          - "*.local"
-          - "*.secret"
-          - "dev/*"
-        transform:
-          variables:
-            ENV: "production"
-            SERVICE_NAME: "service-d"
-        preserve_structure: true
-        include_hidden: true
-
-      # Flatten directory structure
-      - src: "docs/api"
-        dest: "api-docs"
-        preserve_structure: false
-        include_hidden: false
+          # Flatten directory structure
+          - src: "docs/api"
+            dest: "api-docs"
+            preserve_structure: false
+            include_hidden: false

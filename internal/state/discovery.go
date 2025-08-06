@@ -61,23 +61,11 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 	logger := logging.WithStandardFields(d.logger, d.logConfig, logging.ComponentNames.State)
 	start := time.Now()
 
-	// Get groups using compatibility layer for both old and new formats
-	groups := cfg.GetGroups()
-	if len(groups) == 0 {
-		// Fallback for incomplete configs (like in tests) - use direct field access
-		if cfg.Source.Repo == "" && len(cfg.Targets) == 0 {
-			return nil, ErrNoGroupsFound
-		}
-		// Create a temporary group from direct config fields for compatibility
-		group := config.Group{
-			Name:     "default",
-			ID:       "default",
-			Source:   cfg.Source,
-			Defaults: cfg.Defaults,
-			Targets:  cfg.Targets,
-		}
-		groups = []config.Group{group}
+	// Work directly with groups - no compatibility layer needed
+	if len(cfg.Groups) == 0 {
+		return nil, ErrNoGroupsFound
 	}
+	groups := cfg.Groups
 
 	// For Phase 2a, use first group (single group support)
 	// Future phases will support multiple groups

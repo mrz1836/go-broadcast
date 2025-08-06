@@ -174,7 +174,7 @@ func getRealStatus(ctx context.Context, cfg *config.Config) (*SyncStatus, error)
 // convertStateToStatus converts internal state to CLI status format
 func convertStateToStatus(s *state.State, cfg *config.Config) *SyncStatus {
 	// Check if we have groups in the configuration
-	if cfg != nil && len(cfg.GetGroups()) > 0 {
+	if cfg != nil && len(cfg.Groups) > 0 {
 		return convertStateToGroupStatus(s, cfg)
 	}
 
@@ -271,7 +271,7 @@ func convertStateToGroupStatus(s *state.State, cfg *config.Config) *SyncStatus {
 	}
 
 	// Get groups from configuration
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 
 	// Convert each group to status
 	for _, group := range groups {

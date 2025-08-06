@@ -418,10 +418,14 @@ func TestValidateSourceFilesExistGracefulHandling(t *testing.T) {
 		ctx := context.Background()
 		logConfig := &logging.LogConfig{LogLevel: "error"}
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/repo",
-				Branch: "main",
-			},
+			Groups: []config.Group{{
+				Name: "test-group",
+				ID:   "test-group-1",
+				Source: config.SourceConfig{
+					Repo:   "test/repo",
+					Branch: "main",
+				},
+			}},
 		}
 
 		// validateSourceFilesExist should handle GitHub client errors gracefully

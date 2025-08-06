@@ -133,7 +133,7 @@ func runListModules(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Get all groups
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 	if len(groups) == 0 {
 		output.Info("No groups configured")
 		return nil
@@ -201,7 +201,7 @@ func runShowModule(cmd *cobra.Command, args []string) error {
 	output.Info("")
 
 	found := false
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 
 	for _, group := range groups {
 		for _, target := range group.Targets {
@@ -264,7 +264,7 @@ func runModuleVersions(cmd *cobra.Command, args []string) error {
 	var sourceRepo string
 	var moduleConfig *config.ModuleConfig
 
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 	for _, group := range groups {
 		for _, target := range group.Targets {
 			for _, dir := range target.Directories {
@@ -354,7 +354,7 @@ func runValidateModules(cmd *cobra.Command, _ []string) error {
 	cache := sync.NewModuleCache(5*time.Minute, logger)
 	resolver := sync.NewModuleResolver(logger, cache)
 
-	groups := cfg.GetGroups()
+	groups := cfg.Groups
 	totalModules := 0
 	validModules := 0
 	errors := []string{}
