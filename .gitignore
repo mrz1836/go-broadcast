@@ -17,6 +17,7 @@ sync-bk.yaml
 *.so
 *.dylib
 go-broadcast
+bin/test-cleanup
 
 # Test files
 *.test

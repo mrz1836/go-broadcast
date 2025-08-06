@@ -57,6 +57,7 @@ test-integration-all: ## Run all integration test scenarios (All Phases)
 	@$(MAKE) test-integration-complex
 	@$(MAKE) test-integration-advanced
 	@$(MAKE) test-integration-network
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: test-all-modules
 test-all-modules: ## Run tests for main module and all submodules
@@ -70,6 +71,7 @@ test-all-modules: ## Run tests for main module and all submodules
 		echo "Testing module in $$dir..."; \
 		(cd $$dir && go test ./... $(if $(VERBOSE),-v) $(TAGS)) || exit 1; \
 	done
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: test-all-modules-race
 test-all-modules-race: ## Run tests for main module and all submodules with race detection
@@ -84,6 +86,7 @@ test-all-modules-race: ## Run tests for main module and all submodules with race
 		echo "Testing module in $$dir with race detection..."; \
 		(cd $$dir && go test -race ./... $(if $(VERBOSE),-v) $(TAGS)) || exit 1; \
 	done
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: lint-all-modules
 lint-all-modules: ## Run lint for main module and all submodules
@@ -95,3 +98,10 @@ lint-all-modules: ## Run lint for main module and all submodules
 		echo "Linting module in $$dir..."; \
 		(cd $$dir && golangci-lint run --verbose) || exit 1; \
 	done
+
+.PHONY: clean-all
+clean-all: ## Clean all build artifacts and test files
+	@echo "🧹 Comprehensive cleanup..."
+	@go clean -i ./...
+	@$(MAKE) clean-test-artifacts-verbose
+	@echo "✅ All cleanup completed"

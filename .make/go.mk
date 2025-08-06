@@ -39,6 +39,7 @@ bench: ## Run all benchmarks in the Go application
 	@echo "📊 Running benchmarks across all packages..."
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@go test -bench=. -benchmem -benchtime=100ms -timeout=30s ./... $(TAGS)
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: bench-quick
 bench-quick: ## Run quick benchmarks (skip slow packages)
@@ -53,6 +54,7 @@ bench-quick: ## Run quick benchmarks (skip slow packages)
 		./internal/config/... \
 		./internal/transform/... \
 		$(TAGS)
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: bench-full
 bench-full: ## Run comprehensive benchmarks with multiple iterations
@@ -62,6 +64,7 @@ bench-full: ## Run comprehensive benchmarks with multiple iterations
 	@echo "⚠️  This may take several minutes to complete"
 	@echo "📊 Starting comprehensive benchmark analysis..."
 	@go test -bench=. -benchmem -benchtime=10s -count=3 ./... $(TAGS)
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: bench-compare
 bench-compare: ## Run benchmarks and save results for comparison
@@ -79,6 +82,7 @@ bench-compare: ## Run benchmarks and save results for comparison
 		echo ""; \
 		echo "ℹ️  No previous results found. Run 'make bench-save' to save current results."; \
 	fi
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: bench-save
 bench-save: ## Save current benchmark results as baseline
@@ -88,6 +92,7 @@ bench-save: ## Save current benchmark results as baseline
 	@go test -bench=. -benchmem -count=5 ./... $(TAGS) > bench-old.txt
 	@echo "✅ Baseline saved to bench-old.txt"
 	@echo "ℹ️  Use 'make bench-compare' to compare future results against this baseline"
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: bench-cpu
 bench-cpu: ## Run benchmarks with CPU profiling
@@ -101,6 +106,7 @@ bench-cpu: ## Run benchmarks with CPU profiling
 	@echo "📈 To analyze the profile, run:"
 	@echo "   go tool pprof cpu.prof"
 	@echo "   Then use commands like: top10, list, web"
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: build-go
 build-go: ## Build the Go application (locally)
@@ -265,6 +271,7 @@ test: ## Default testing uses lint + unit tests (fast)
 	@go test ./... \
 		$(if $(VERBOSE),-v) \
 		$(TAGS)
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: test-parallel
 test-parallel: ## Run tests in parallel (faster for large repos)
@@ -272,6 +279,7 @@ test-parallel: ## Run tests in parallel (faster for large repos)
 	@go test -p $(PARALLEL) ./... \
 		$(if $(VERBOSE),-v) \
 		$(TAGS)
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: test-fuzz
 test-fuzz: ## Run fuzz tests only (no unit tests)
@@ -325,6 +333,7 @@ test-cover: ## Unit tests with coverage (no race)
 		-covermode=count \
 		$(if $(VERBOSE),-v) \
 		$(TAGS)
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: test-cover-race
 test-cover-race: ## Runs unit tests with race detector and outputs coverage
@@ -335,6 +344,7 @@ test-cover-race: ## Runs unit tests with race detector and outputs coverage
 		-covermode=atomic \
 		$(if $(VERBOSE),-v) \
 		$(TAGS)
+	@$(MAKE) clean-test-artifacts
 
 .PHONY: test-ci
 test-ci: ## CI test runs tests with race detection and coverage (no lint - handled separately)
@@ -377,3 +387,27 @@ vet-parallel: ## Run go vet in parallel (faster for large repos)
 	@echo "Running go vet in parallel..."
 	@mod=$$(go list -m); \
 	go list ./... | grep "^$$mod" | xargs -P $(PARALLEL) -I {} go vet $(TAGS) {}
+
+####################
+# Test Cleanup     #
+####################
+
+.PHONY: build-test-cleanup
+build-test-cleanup: ## Build the test cleanup utility
+	@echo "Building test cleanup utility..."
+	@go build -o bin/test-cleanup ./cmd/test-cleanup
+
+.PHONY: clean-test-artifacts
+clean-test-artifacts: build-test-cleanup ## Clean up test artifacts (*.test, *.out, *.prof)
+	@echo "🧹 Cleaning up test artifacts..."
+	@./bin/test-cleanup -patterns="*.test,*.out,*.prof,@*.test" -exclude-dirs=".git,vendor,node_modules,dist"
+
+.PHONY: clean-test-artifacts-dry
+clean-test-artifacts-dry: build-test-cleanup ## Show what test artifacts would be cleaned (dry run)
+	@echo "🔍 Dry run: showing what would be cleaned..."
+	@./bin/test-cleanup -dry-run -verbose -patterns="*.test,*.out,*.prof,@*.test" -exclude-dirs=".git,vendor,node_modules,dist"
+
+.PHONY: clean-test-artifacts-verbose
+clean-test-artifacts-verbose: build-test-cleanup ## Clean up test artifacts with verbose output
+	@echo "🧹 Cleaning up test artifacts (verbose)..."
+	@./bin/test-cleanup -verbose -patterns="*.test,*.out,*.prof,@*.test" -exclude-dirs=".git,vendor,node_modules,dist"
