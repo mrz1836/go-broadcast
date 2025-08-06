@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -24,6 +26,7 @@ var (
 	showVersion         bool
 	gracefulDegradation bool
 	showProgress        bool
+	quiet               bool
 )
 
 // runCmd represents the run command
@@ -74,6 +77,7 @@ func init() {
 	runCmd.Flags().BoolVar(&showVersion, "show-checks", false, "Show available checks and exit")
 	runCmd.Flags().BoolVar(&gracefulDegradation, "graceful", false, "Skip checks that can't run instead of failing")
 	runCmd.Flags().BoolVar(&showProgress, "progress", true, "Show progress indicators during execution")
+	runCmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "Suppress progress messages, show only errors and results")
 }
 
 func runChecks(_ *cobra.Command, args []string) error {
@@ -148,8 +152,8 @@ func runChecks(_ *cobra.Command, args []string) error {
 		GracefulDegradation: gracefulDegradation,
 	}
 
-	// Set up progress callback if progress is enabled
-	if showProgress {
+	// Set up progress callback if progress is enabled and not in quiet mode
+	if showProgress && !quiet {
 		opts.ProgressCallback = func(checkName, status string) {
 			switch status {
 			case "running":
@@ -176,8 +180,8 @@ func runChecks(_ *cobra.Command, args []string) error {
 		opts.SkipChecks = skipChecks
 	}
 
-	// Show initial information
-	if verbose {
+	// Show initial information (unless in quiet mode)
+	if verbose && !quiet {
 		formatter.Info("Running checks on %s", formatter.FormatFileList(filesToCheck, 3))
 		if opts.Parallel > 0 {
 			formatter.Info("Using %d parallel workers", opts.Parallel)
@@ -195,7 +199,7 @@ func runChecks(_ *cobra.Command, args []string) error {
 	}
 
 	// Display results
-	displayEnhancedResults(formatter, results)
+	displayEnhancedResults(formatter, results, quiet)
 
 	// Return error if any checks failed (unless they were gracefully skipped)
 	if results.Failed > 0 {
@@ -208,6 +212,77 @@ func runChecks(_ *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// extractKeyErrorLines parses command output and extracts the most important error lines
+func extractKeyErrorLines(output string) []string {
+	var errorLines []string
+	lines := strings.Split(output, "\n")
+
+	// Compile regex once outside the loop
+	goErrorRegex := regexp.MustCompile(`\w+\.go:\d+:\d+:`)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Skip progress/status lines
+		if strings.HasPrefix(line, "Running") ||
+			strings.HasPrefix(line, "Checking") ||
+			strings.HasPrefix(line, "Analyzing") ||
+			strings.Contains(line, "files linted") {
+			continue
+		}
+
+		// Look for actual error patterns
+		isError := false
+
+		// Go file errors (file.go:line:col: message)
+		if goErrorRegex.MatchString(line) {
+			isError = true
+		}
+
+		// Whitespace issues
+		if strings.Contains(line, "trailing whitespace") ||
+			strings.Contains(line, "mixed spaces and tabs") {
+			isError = true
+		}
+
+		// General error indicators
+		if strings.Contains(line, "error:") ||
+			strings.Contains(line, "Error:") ||
+			strings.Contains(line, "ERRO") ||
+			strings.Contains(line, "level=error") ||
+			strings.Contains(line, "✗") {
+			isError = true
+		}
+
+		// Module tidy issues
+		if strings.Contains(line, "go.mod") && strings.Contains(line, "not tidy") {
+			isError = true
+		}
+
+		if isError {
+			// Clean up ANSI color codes for cleaner display
+			cleanLine := stripANSI(line)
+			errorLines = append(errorLines, cleanLine)
+
+			// Limit to first 10 error lines for non-verbose mode
+			if len(errorLines) >= 10 {
+				break
+			}
+		}
+	}
+
+	return errorLines
+}
+
+// stripANSI removes ANSI color codes from a string
+func stripANSI(s string) string {
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	return ansiRegex.ReplaceAllString(s, "")
 }
 
 func showAvailableChecks(cfg *config.Config, formatter *output.Formatter) error {
@@ -236,29 +311,40 @@ func showAvailableChecks(cfg *config.Config, formatter *output.Formatter) error 
 	return nil
 }
 
-func displayEnhancedResults(formatter *output.Formatter, results *runner.Results) {
-	formatter.Header("Check Results")
+func displayEnhancedResults(formatter *output.Formatter, results *runner.Results, quietMode bool) {
+	// In quiet mode, skip the header and only show failures
+	if !quietMode {
+		formatter.Header("Check Results")
+	}
+
+	// Collect failed checks for error summary
+	var failedChecks []runner.CheckResult
 
 	// Display each check result
 	for _, result := range results.CheckResults {
 		if result.Success {
-			if result.CanSkip && result.Suggestion != "" {
-				// This was a gracefully skipped check
-				formatter.Warning("%s - %s", result.Name, result.Error)
-				if result.Suggestion != "" {
-					formatter.SuggestAction(result.Suggestion)
-				}
-			} else {
-				// Normal success
-				formatter.Success("%s completed successfully", result.Name)
-				if verbose {
-					formatter.Detail("Duration: %s", formatter.Duration(result.Duration))
-					if len(result.Files) > 0 {
-						formatter.Detail("Files: %s", formatter.FormatFileList(result.Files, 3))
+			if !quietMode {
+				if result.CanSkip && result.Suggestion != "" {
+					// This was a gracefully skipped check
+					formatter.Warning("%s - %s", result.Name, result.Error)
+					if result.Suggestion != "" {
+						formatter.SuggestAction(result.Suggestion)
+					}
+				} else {
+					// Normal success
+					formatter.Success("%s completed successfully", result.Name)
+					if verbose {
+						formatter.Detail("Duration: %s", formatter.Duration(result.Duration))
+						if len(result.Files) > 0 {
+							formatter.Detail("Files: %s", formatter.FormatFileList(result.Files, 3))
+						}
 					}
 				}
 			}
 		} else {
+			// Failed check - add to failed list for summary
+			failedChecks = append(failedChecks, result)
+
 			// Failed check
 			formatter.Error("%s failed", result.Name)
 
@@ -274,28 +360,84 @@ func displayEnhancedResults(formatter *output.Formatter, results *runner.Results
 				formatter.Detail("Error: %s", result.Error)
 			}
 
+			// Always show command output for failures to make errors visible
+			// This is the key change - show actual errors even without verbose mode
+			if result.Output != "" {
+				// Parse and show key error lines
+				errorLines := extractKeyErrorLines(result.Output)
+				if len(errorLines) > 0 {
+					for _, line := range errorLines {
+						formatter.Detail("  %s", line)
+					}
+					if !verbose && len(errorLines) >= 10 {
+						formatter.Detail("  ... (run with --verbose for full output)")
+					}
+				} else if verbose {
+					// Fall back to full output in verbose mode
+					formatter.Subheader("Command Output")
+					formatter.CodeBlock(result.Output)
+				}
+			}
+
 			// Show actionable suggestion
 			if result.Suggestion != "" {
 				formatter.SuggestAction(result.Suggestion)
 			}
-
-			// Show command output if available and verbose
-			if verbose && result.Output != "" {
-				formatter.Subheader("Command Output")
-				formatter.CodeBlock(result.Output)
-			}
 		}
 	}
 
-	// Summary
-	formatter.Subheader("Summary")
-	stats := formatter.FormatExecutionStats(results.Passed, results.Failed, results.Skipped, results.TotalDuration, results.TotalFiles)
-	if results.Failed > 0 {
-		formatter.Error(stats)
-	} else if results.Skipped > 0 {
-		formatter.Warning(stats)
-	} else {
-		formatter.Success(stats)
+	// Summary (skip in quiet mode if all passed)
+	if !quietMode || results.Failed > 0 {
+		formatter.Subheader("Summary")
+		stats := formatter.FormatExecutionStats(results.Passed, results.Failed, results.Skipped, results.TotalDuration, results.TotalFiles)
+		if results.Failed > 0 {
+			formatter.Error(stats)
+		} else if results.Skipped > 0 {
+			formatter.Warning(stats)
+		} else {
+			formatter.Success(stats)
+		}
+	}
+
+	// Error Summary - show consolidated view of all failures
+	if len(failedChecks) > 0 {
+		formatter.Header("ERRORS FOUND")
+		formatter.Error("%d check(s) failed with the following errors:", len(failedChecks))
+		formatter.Detail("") // Empty line for spacing
+
+		for _, check := range failedChecks {
+			formatter.Error("━ %s ━", check.Name)
+
+			// Show the specific errors for this check
+			if check.Output != "" {
+				errorLines := extractKeyErrorLines(check.Output)
+				if len(errorLines) > 0 {
+					for i, line := range errorLines {
+						if i < 5 { // Show up to 5 error lines per check in summary
+							formatter.Detail("  %s", line)
+						}
+					}
+					if len(errorLines) > 5 {
+						formatter.Detail("  ... and %d more errors", len(errorLines)-5)
+					}
+				} else {
+					// No specific errors extracted, show generic message
+					formatter.Detail("  %s", check.Error)
+				}
+			} else if check.Error != "" {
+				formatter.Detail("  %s", check.Error)
+			}
+
+			// Show how to fix
+			if check.Suggestion != "" {
+				formatter.SuggestAction(fmt.Sprintf("To fix: %s", check.Suggestion))
+			}
+			formatter.Detail("") // Empty line for spacing
+		}
+
+		// Overall guidance
+		formatter.Info("Run with --verbose flag to see full error details")
+		formatter.Info("Fix the errors above and run the checks again")
 	}
 }
 
@@ -310,4 +452,5 @@ func resetRunFlags() {
 	showVersion = false
 	gracefulDegradation = false
 	showProgress = false
+	quiet = false
 }

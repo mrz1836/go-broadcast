@@ -468,7 +468,7 @@ func (s *RunCommandTestSuite) TestDisplayEnhancedResults() {
 	}
 
 	s.NotPanics(func() {
-		displayEnhancedResults(formatter, mockResults)
+		displayEnhancedResults(formatter, mockResults, false)
 	})
 }
 
@@ -559,7 +559,7 @@ func TestRunCommandEdgeCases(t *testing.T) {
 		results := &runner.Results{}
 
 		assert.NotPanics(t, func() {
-			displayEnhancedResults(formatter, results)
+			displayEnhancedResults(formatter, results, false)
 		})
 	})
 
@@ -571,7 +571,7 @@ func TestRunCommandEdgeCases(t *testing.T) {
 
 		// displayEnhancedResults expects a valid formatter, so it should panic with nil
 		assert.Panics(t, func() {
-			displayEnhancedResults(nil, results)
+			displayEnhancedResults(nil, results, false)
 		})
 	})
 
@@ -580,7 +580,7 @@ func TestRunCommandEdgeCases(t *testing.T) {
 
 		// displayEnhancedResults expects valid results, so it should panic with nil
 		assert.Panics(t, func() {
-			displayEnhancedResults(formatter, nil)
+			displayEnhancedResults(formatter, nil, false)
 		})
 	})
 }
