@@ -1147,14 +1147,14 @@ make test-race
 
 ### Performance Highlights
 
-| Operation              | Performance    | Memory           |
-|------------------------|----------------|------------------|
-| **Binary Detection**   | 587M+ ops/sec  | Zero allocations |
-| **Content Comparison** | 239M+ ops/sec  | Zero allocations |
-| **Cache Operations**   | 13.5M+ ops/sec | Minimal memory   |
-| **Batch Processing**   | 23.8M+ ops/sec | Concurrent safe  |
-| **Directory Sync**     | 32ms/1000 files| Linear scaling   |
-| **Exclusion Engine**   | 107ns/op       | Zero allocations |
+| Operation              | Performance     | Memory           |
+|------------------------|-----------------|------------------|
+| **Binary Detection**   | 587M+ ops/sec   | Zero allocations |
+| **Content Comparison** | 239M+ ops/sec   | Zero allocations |
+| **Cache Operations**   | 13.5M+ ops/sec  | Minimal memory   |
+| **Batch Processing**   | 23.8M+ ops/sec  | Concurrent safe  |
+| **Directory Sync**     | 32ms/1000 files | Linear scaling   |
+| **Exclusion Engine**   | 107ns/op        | Zero allocations |
 
 ### Quick Benchmarks
 

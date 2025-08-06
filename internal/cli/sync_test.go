@@ -519,14 +519,17 @@ func TestSyncCommandIntegration(t *testing.T) {
 
 	// Create a minimal valid config
 	configContent := `version: 1
-source:
-  repo: test/source
-  branch: main
-targets:
-  - repo: test/target1
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: test/source
+      branch: main
+    targets:
+      - repo: test/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 	testutil.WriteTestFile(t, configPath, configContent)
 

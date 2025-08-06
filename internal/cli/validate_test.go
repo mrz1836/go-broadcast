@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/logging"
+	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/mrz1836/go-broadcast/internal/testutil"
 )
 
@@ -53,14 +55,17 @@ func TestRunValidate(t *testing.T) {
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -149,14 +154,17 @@ targets:
 				require.NoError(t, err)
 
 				validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 				_, err = tmpFile.WriteString(validConfig)
 				require.NoError(t, err)
@@ -300,14 +308,17 @@ func TestValidateOutputFormatting(t *testing.T) {
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 	_, err = tmpFile.WriteString(validConfig)
 	require.NoError(t, err)
@@ -333,14 +344,17 @@ func TestValidateAbsolutePath(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "test-config.yml")
 
 	validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 	testutil.WriteTestFile(t, configPath, validConfig)
 
@@ -445,14 +459,17 @@ func TestValidateWithFlagsEdgeCases(t *testing.T) {
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -477,14 +494,17 @@ targets:
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -502,4 +522,177 @@ targets:
 		err = runValidateWithFlags(flags, cmd)
 		require.NoError(t, err)
 	})
+}
+
+// TestDisplayGroupValidation tests the displayGroupValidation function
+func TestDisplayGroupValidation(t *testing.T) {
+	tests := []struct {
+		name           string
+		groups         []config.Group
+		expectedOutput []string
+	}{
+		{
+			name: "simple groups without dependencies",
+			groups: []config.Group{
+				{
+					Name:     "group1",
+					ID:       "group-1",
+					Priority: 0,
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+					},
+				},
+				{
+					Name:     "group2",
+					ID:       "group-2",
+					Priority: 1,
+					Source: config.SourceConfig{
+						Repo:   "org/template2",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target2"},
+					},
+				},
+			},
+			expectedOutput: []string{
+				"Groups: 2 configured",
+				"✓ No circular dependencies detected",
+				"Group 1: group1 (group-1)",
+				"Priority: 0",
+				"Group 2: group2 (group-2)",
+				"Priority: 1",
+				"✓ All groups have unique priorities",
+			},
+		},
+		{
+			name: "groups with circular dependencies",
+			groups: []config.Group{
+				{
+					Name:      "group1",
+					ID:        "group-1",
+					Priority:  0,
+					DependsOn: []string{"group-2"},
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+					},
+				},
+				{
+					Name:      "group2",
+					ID:        "group-2",
+					Priority:  1,
+					DependsOn: []string{"group-1"},
+					Source: config.SourceConfig{
+						Repo:   "org/template2",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target2"},
+					},
+				},
+			},
+			expectedOutput: []string{
+				"Groups: 2 configured",
+				"✗ Circular dependency detected for group: group-1",
+				"✗ Circular dependency detected for group: group-2",
+			},
+		},
+		{
+			name:   "empty groups",
+			groups: []config.Group{},
+			expectedOutput: []string{
+				"Groups: 0 configured",
+				"✓ No circular dependencies detected",
+				"✓ All groups have unique priorities",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Capture output
+			var buf bytes.Buffer
+			output.SetStdout(&buf)
+			defer output.SetStdout(os.Stdout)
+
+			displayGroupValidation(tt.groups)
+
+			capturedOutput := buf.String()
+			for _, expected := range tt.expectedOutput {
+				assert.Contains(t, capturedOutput, expected, "Output should contain expected text")
+			}
+		})
+	}
+}
+
+// TestCheckCircularDependency tests the checkCircularDependency function
+func TestCheckCircularDependency(t *testing.T) {
+	tests := []struct {
+		name           string
+		groupID        string
+		dependencyMap  map[string][]string
+		expectCircular bool
+	}{
+		{
+			name:    "no circular dependency",
+			groupID: "group-1",
+			dependencyMap: map[string][]string{
+				"group-1": {"group-2"},
+				"group-2": {"group-3"},
+				"group-3": {},
+			},
+			expectCircular: false,
+		},
+		{
+			name:    "direct circular dependency",
+			groupID: "group-1",
+			dependencyMap: map[string][]string{
+				"group-1": {"group-2"},
+				"group-2": {"group-1"},
+			},
+			expectCircular: true,
+		},
+		{
+			name:    "indirect circular dependency",
+			groupID: "group-1",
+			dependencyMap: map[string][]string{
+				"group-1": {"group-2"},
+				"group-2": {"group-3"},
+				"group-3": {"group-1"},
+			},
+			expectCircular: true,
+		},
+		{
+			name:    "self dependency",
+			groupID: "group-1",
+			dependencyMap: map[string][]string{
+				"group-1": {"group-1"},
+			},
+			expectCircular: true,
+		},
+		{
+			name:    "no dependencies",
+			groupID: "group-1",
+			dependencyMap: map[string][]string{
+				"group-1": {},
+			},
+			expectCircular: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			visited := make(map[string]bool)
+			result := checkCircularDependency(tt.groupID, tt.dependencyMap, visited)
+			assert.Equal(t, tt.expectCircular, result)
+		})
+	}
 }
