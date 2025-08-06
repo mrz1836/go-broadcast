@@ -231,6 +231,10 @@
 		"exclude-rules": [
 			{
 				"path": "test/fixtures/.*"
+			},
+			{
+				"path": "test/fixtures/.*\\.go$",
+				"linters": ["typecheck", "staticcheck", "unused", "errcheck", "gosec"]
 			}
 		]
 	}

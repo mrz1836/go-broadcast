@@ -122,7 +122,7 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 	log.WithField("sync_targets", len(syncTargets)).Info("Targets selected for sync")
 
 	// 3. Create progress tracker
-	progress := NewProgressTracker(len(syncTargets), e.options.DryRun)
+	progress := NewProgressTrackerWithGroup(len(syncTargets), e.options.DryRun, group.Name, group.ID)
 
 	// 4. Process repositories concurrently
 	g, ctx := errgroup.WithContext(ctx)
@@ -270,10 +270,16 @@ func (e *Engine) needsSync(target config.TargetConfig, currentState *state.State
 
 // syncRepository handles synchronization for a single repository
 func (e *Engine) syncRepository(ctx context.Context, target config.TargetConfig, currentState *state.State, progress *ProgressTracker) error {
-	log := e.logger.WithFields(logrus.Fields{
+	fields := logrus.Fields{
 		"target_repo": target.Repo,
 		"component":   "repository_sync",
-	})
+	}
+	// Add group context if available
+	if e.currentGroup != nil {
+		fields["group_name"] = e.currentGroup.Name
+		fields["group_id"] = e.currentGroup.ID
+	}
+	log := e.logger.WithFields(fields)
 
 	progress.StartRepository(target.Repo)
 	defer progress.FinishRepository(target.Repo)

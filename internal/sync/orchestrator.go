@@ -104,12 +104,13 @@ func (o *GroupOrchestrator) ExecuteGroups(ctx context.Context, groups []config.G
 			continue
 		}
 
+		// Enhanced group start message with visual separation
 		o.logger.WithFields(logrus.Fields{
 			"group_name": group.Name,
 			"group_id":   group.ID,
 			"priority":   group.Priority,
 			"depends_on": group.DependsOn,
-		}).Info("Starting group sync")
+		}).Info("━━━ Starting group sync ━━━")
 
 		o.groupStatus[group.ID] = GroupStatus{
 			State:     "running",
@@ -124,7 +125,10 @@ func (o *GroupOrchestrator) ExecuteGroups(ctx context.Context, groups []config.G
 				Error:     err,
 				StartTime: o.groupStatus[group.ID].StartTime,
 			}
-			o.logger.WithError(err).WithField("group_id", group.ID).Error("Group sync failed")
+			o.logger.WithError(err).WithFields(logrus.Fields{
+				"group_id":   group.ID,
+				"group_name": group.Name,
+			}).Error("━━━ Group sync failed ━━━")
 			hasFailures = true
 			// Continue with groups that don't depend on this one
 		} else {
@@ -133,7 +137,11 @@ func (o *GroupOrchestrator) ExecuteGroups(ctx context.Context, groups []config.G
 				EndTime:   time.Now(),
 				StartTime: o.groupStatus[group.ID].StartTime,
 			}
-			o.logger.WithField("group_id", group.ID).Info("Group sync completed successfully")
+			o.logger.WithFields(logrus.Fields{
+				"group_id":   group.ID,
+				"group_name": group.Name,
+				"duration":   time.Since(o.groupStatus[group.ID].StartTime),
+			}).Info("━━━ Group sync completed successfully ━━━")
 		}
 	}
 
@@ -297,12 +305,34 @@ func (o *GroupOrchestrator) reportFinalStatus(hasFailures bool) error {
 		}
 	}
 
+	// Enhanced final status reporting
 	o.logger.WithFields(logrus.Fields{
 		"success": successCount,
 		"failed":  failedCount,
 		"skipped": skippedCount,
 		"total":   len(o.groupStatus),
-	}).Info("Group orchestration completed")
+	}).Info("═══ Group orchestration completed ═══")
+
+	// Log individual group results for better visibility
+	for groupID, status := range o.groupStatus {
+		switch status.State {
+		case "success":
+			o.logger.WithFields(logrus.Fields{
+				"group_id": groupID,
+				"duration": status.EndTime.Sub(status.StartTime),
+			}).Info("✓ Group completed successfully")
+		case "failed":
+			o.logger.WithFields(logrus.Fields{
+				"group_id": groupID,
+				"error":    status.Error,
+			}).Error("✗ Group failed")
+		case "skipped":
+			o.logger.WithFields(logrus.Fields{
+				"group_id": groupID,
+				"reason":   status.Message,
+			}).Warn("⚠ Group skipped")
+		}
+	}
 
 	if hasFailures {
 		return fmt.Errorf("%w: %d groups failed (%v)",

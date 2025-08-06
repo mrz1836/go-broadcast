@@ -831,9 +831,29 @@ func TestPerformanceRegression(t *testing.T) {
 					Branch:       "main",
 					LatestCommit: "abc123",
 				},
-				Targets: map[string]*state.TargetState{},
+				Targets: map[string]*state.TargetState{
+					targetDir: {
+						Repo:           targetDir,
+						LastSyncCommit: "old123", // Outdated to trigger sync
+						Status:         state.StatusBehind,
+					},
+				},
 			}
 			mockState.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+
+			// Mock git operations
+			mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+			// Mock GitHub operations
+			mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
+			mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+
+			// Mock transform operations
+			mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
 			engine := syncpkg.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
 
@@ -938,9 +958,29 @@ func TestPerformanceRegression(t *testing.T) {
 					Branch:       "main",
 					LatestCommit: "abc123",
 				},
-				Targets: map[string]*state.TargetState{},
+				Targets: map[string]*state.TargetState{
+					targetDir: {
+						Repo:           targetDir,
+						LastSyncCommit: "old123", // Outdated to trigger sync
+						Status:         state.StatusBehind,
+					},
+				},
 			}
-			mockState.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+			mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
+
+			// Mock git operations - with enough calls for multiple groups
+			mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+			// Mock GitHub operations
+			mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
+			mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+
+			// Mock transform operations
+			mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
 			engine := syncpkg.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
 

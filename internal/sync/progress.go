@@ -21,6 +21,9 @@ type ProgressTracker struct {
 	startTime  time.Time
 	dryRun     bool
 	lastError  error
+	// Group context for better logging
+	groupName string
+	groupID   string
 }
 
 // RepoStatus represents the status of a repository sync
@@ -65,6 +68,19 @@ func NewProgressTracker(totalRepos int, dryRun bool) *ProgressTracker {
 	}
 }
 
+// NewProgressTrackerWithGroup creates a new progress tracker with group context
+func NewProgressTrackerWithGroup(totalRepos int, dryRun bool, groupName, groupID string) *ProgressTracker {
+	return &ProgressTracker{
+		totalRepos: totalRepos,
+		errors:     make(map[string]error),
+		repoStatus: make(map[string]RepoStatus),
+		startTime:  time.Now(),
+		dryRun:     dryRun,
+		groupName:  groupName,
+		groupID:    groupID,
+	}
+}
+
 // StartRepository marks a repository as started
 func (p *ProgressTracker) StartRepository(repo string) {
 	p.mu.Lock()
@@ -72,11 +88,18 @@ func (p *ProgressTracker) StartRepository(repo string) {
 
 	p.repoStatus[repo] = RepoStatusInProgress
 
-	logrus.WithFields(logrus.Fields{
+	fields := logrus.Fields{
 		"repo":     repo,
 		"progress": p.getProgressString(),
 		"dry_run":  p.dryRun,
-	}).Info("Starting repository sync")
+	}
+	if p.groupName != "" {
+		fields["group_name"] = p.groupName
+	}
+	if p.groupID != "" {
+		fields["group_id"] = p.groupID
+	}
+	logrus.WithFields(fields).Info("Starting repository sync")
 }
 
 // FinishRepository marks a repository as finished (used with defer)
@@ -101,11 +124,18 @@ func (p *ProgressTracker) RecordSuccess(repo string) {
 	p.repoStatus[repo] = RepoStatusSuccess
 	p.successful++
 
-	logrus.WithFields(logrus.Fields{
+	fields := logrus.Fields{
 		"repo":     repo,
 		"progress": p.getProgressString(),
 		"dry_run":  p.dryRun,
-	}).Info("Repository sync completed successfully")
+	}
+	if p.groupName != "" {
+		fields["group_name"] = p.groupName
+	}
+	if p.groupID != "" {
+		fields["group_id"] = p.groupID
+	}
+	logrus.WithFields(fields).Info("Repository sync completed successfully")
 }
 
 // RecordError records a failed repository sync
@@ -118,12 +148,19 @@ func (p *ProgressTracker) RecordError(repo string, err error) {
 	p.failed++
 	p.lastError = err
 
-	logrus.WithFields(logrus.Fields{
+	fields := logrus.Fields{
 		"repo":     repo,
 		"error":    err.Error(),
 		"progress": p.getProgressString(),
 		"dry_run":  p.dryRun,
-	}).Error("Repository sync failed")
+	}
+	if p.groupName != "" {
+		fields["group_name"] = p.groupName
+	}
+	if p.groupID != "" {
+		fields["group_id"] = p.groupID
+	}
+	logrus.WithFields(fields).Error("Repository sync failed")
 }
 
 // RecordSkipped records a skipped repository sync
@@ -134,12 +171,19 @@ func (p *ProgressTracker) RecordSkipped(repo, reason string) {
 	p.repoStatus[repo] = RepoStatusSkipped
 	p.skipped++
 
-	logrus.WithFields(logrus.Fields{
+	fields := logrus.Fields{
 		"repo":     repo,
 		"reason":   reason,
 		"progress": p.getProgressString(),
 		"dry_run":  p.dryRun,
-	}).Info("Repository sync skipped")
+	}
+	if p.groupName != "" {
+		fields["group_name"] = p.groupName
+	}
+	if p.groupID != "" {
+		fields["group_id"] = p.groupID
+	}
+	logrus.WithFields(fields).Info("Repository sync skipped")
 }
 
 // SetError sets a global error for the sync operation

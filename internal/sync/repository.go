@@ -78,6 +78,12 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		AddField(logging.StandardFields.TargetRepo, rs.target.Repo).
 		AddField("sync_branch", rs.sourceState.Branch).
 		AddField("commit_sha", rs.sourceState.LatestCommit)
+	// Add group context if available
+	if rs.engine.currentGroup != nil {
+		syncTimer = syncTimer.
+			AddField("group_name", rs.engine.currentGroup.Name).
+			AddField("group_id", rs.engine.currentGroup.ID)
+	}
 
 	// 1. Check if sync is actually needed
 	syncCheckTimer := metrics.StartTimer(ctx, rs.logger, "sync_check")
@@ -219,6 +225,10 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 
 		out := NewDryRunOutput(nil)
 		out.Success("DRY-RUN SUMMARY: Repository sync preview completed successfully")
+		// Add group context if available
+		if rs.engine.currentGroup != nil {
+			out.Info(fmt.Sprintf("📋 Group: %s (%s)", rs.engine.currentGroup.Name, rs.engine.currentGroup.ID))
+		}
 		out.Info(fmt.Sprintf("📁 Repository: %s", rs.target.Repo))
 		out.Info(fmt.Sprintf("🌿 Branch: %s", branchName))
 		out.Info(fmt.Sprintf("📝 Files: %d would be changed", len(allChanges)))
