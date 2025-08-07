@@ -2,24 +2,28 @@
 
 This guide documents the validation testing performed for all go-broadcast example configurations, including the directory sync examples created for Phase 6 of the directory sync implementation.
 
-## Validation Script
+## Validation Tool
 
-The [`scripts/validate-examples.sh`](../scripts/validate-examples.sh) script provides automated validation of all example configurations.
+The `validate-examples` tool provides automated validation of all example configurations.
+
+### Building the Tool
+
+```bash
+# Build the validation tool
+go build ./cmd/validate-examples
+```
 
 ### Usage
 
 ```bash
-# Make script executable (if needed)
-chmod +x scripts/validate-examples.sh
-
 # Run validation for all examples
-./scripts/validate-examples.sh
+./validate-examples
 
 # Run with verbose output
-./scripts/validate-examples.sh --verbose
+./validate-examples --verbose
 
 # Show help
-./scripts/validate-examples.sh --help
+./validate-examples --help
 ```
 
 ## Example Configurations Tested
@@ -264,7 +268,8 @@ The validation script should be run:
 - name: Validate Example Configurations
   run: |
     make build-go
-    ./scripts/validate-examples.sh
+    go build ./cmd/validate-examples
+    ./validate-examples
     if [ $? -eq 0 ]; then
       echo "✅ All examples validated successfully"
     else
