@@ -278,7 +278,6 @@ func TestValidateRepositoryAccessibilityEdgeCases(t *testing.T) {
 		// Create canceled context
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_ = ctx // Context is used in the skipped test below
 
 		cfg := &config.Config{
 			Groups: []config.Group{{
@@ -291,16 +290,22 @@ func TestValidateRepositoryAccessibilityEdgeCases(t *testing.T) {
 			}},
 		}
 
-		// Skip test as it requires mocking gh.NewClient
-		t.Skip("Skipping test that requires mocking gh.NewClient")
+		// Create mock client
+		mockClient := new(gh.MockClient)
 
-		logConfig := &logging.LogConfig{LogLevel: "error"}
+		// Mock should return context canceled error when context is canceled
+		mockClient.On("GetBranch", ctx, "org/source-repo", "master").
+			Return(nil, context.Canceled)
 
 		// Should handle canceled context gracefully
-		err := validateRepositoryAccessibility(ctx, cfg, logConfig, false)
-		// The function might still succeed if it doesn't check context before operations
-		// or it might fail with context error - both are acceptable
-		_ = err
+		err := validateRepositoryAccessibilityWithClient(ctx, cfg, mockClient, false)
+
+		// The function should handle context cancellation and return an error
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "context canceled")
+
+		// Verify mock expectations
+		mockClient.AssertExpectations(t)
 	})
 
 	t.Run("Nil config", func(t *testing.T) {

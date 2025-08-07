@@ -76,7 +76,7 @@ func TestFumptCheck_Run_NoMake(t *testing.T) {
 func TestFumptCheck_Run_NoTarget(t *testing.T) {
 	// Skip if make is not available
 	if _, err := exec.LookPath("make"); err != nil {
-		t.Skip("make not available")
+		t.Skip("skipping test since make not available")
 	}
 
 	// Create a temporary directory with Makefile but no fumpt target

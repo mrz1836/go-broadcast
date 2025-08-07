@@ -33,29 +33,53 @@ func initGitRepoForModule(t *testing.T, dir string) {
 	}
 
 	ctx := context.Background()
+
+	// Initialize git repository
 	cmd := exec.CommandContext(ctx, "git", "init")
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init git repo in %s: %v", dir, err)
 	}
 
-	// Configure git
+	// Configure git with proper error handling
 	cmd = exec.CommandContext(ctx, "git", "config", "user.email", "test@example.com")
 	cmd.Dir = dir
-	_ = cmd.Run()
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to set git user.email: %v", err)
+	}
 
 	cmd = exec.CommandContext(ctx, "git", "config", "user.name", "Test User")
 	cmd.Dir = dir
-	_ = cmd.Run()
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to set git user.name: %v", err)
+	}
 
-	// Initial commit
-	cmd = exec.CommandContext(ctx, "git", "add", ".")
+	// Create an initial empty commit to establish the repository
+	cmd = exec.CommandContext(ctx, "git", "commit", "--allow-empty", "-m", "Initial commit")
 	cmd.Dir = dir
-	_ = cmd.Run()
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to create initial commit: %v", err)
+	}
+}
 
-	cmd = exec.CommandContext(ctx, "git", "commit", "-m", "Initial commit", "--allow-empty")
+// commitFiles adds all files in the directory and commits them
+func commitFiles(t *testing.T, dir, message string) {
+	t.Helper()
+	ctx := context.Background()
+
+	// Add all files
+	cmd := exec.CommandContext(ctx, "git", "add", ".")
 	cmd.Dir = dir
-	_ = cmd.Run()
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to add files to git in %s: %v", dir, err)
+	}
+
+	// Commit files
+	cmd = exec.CommandContext(ctx, "git", "commit", "-m", message)
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to commit files in %s: %v", dir, err)
+	}
 }
 
 func createGitTag(t *testing.T, dir, tag string) {
@@ -504,7 +528,7 @@ func TestModuleSync_CacheEffectiveness(t *testing.T) {
 }
 
 func TestModuleSync_Integration(t *testing.T) {
-	t.Skip("Skipping complex integration test - requires significant rework to handle local git repos correctly")
+	t.Skip("Integration test requires architectural changes - sync engine expects GitHub repositories, not local filesystem paths")
 	t.Run("sync Go module with exact version", func(t *testing.T) {
 		ctx := context.Background()
 		tmpDir := t.TempDir()
@@ -515,6 +539,10 @@ func TestModuleSync_Integration(t *testing.T) {
 		// Create source module
 		moduleDir := filepath.Join(sourceDir, "pkg", "utils")
 		require.NoError(t, os.MkdirAll(moduleDir, 0o750))
+
+		// Initialize git repositories first
+		initGitRepoForModule(t, sourceDir)
+		initGitRepoForModule(t, targetDir)
 
 		// Create module files
 		require.NoError(t, os.WriteFile(
@@ -528,8 +556,8 @@ func TestModuleSync_Integration(t *testing.T) {
 			0o600,
 		))
 
-		initGitRepoForModule(t, sourceDir)
-		initGitRepoForModule(t, targetDir)
+		// Commit the module files
+		commitFiles(t, sourceDir, "Add module files")
 
 		// Tag the source
 		createGitTag(t, sourceDir, "v1.2.3")
@@ -613,6 +641,10 @@ func TestModuleSync_Integration(t *testing.T) {
 		sourceDir := filepath.Join(tmpDir, "source")
 		targetDir := filepath.Join(tmpDir, "target")
 
+		// Initialize git repositories first
+		initGitRepoForModule(t, sourceDir)
+		initGitRepoForModule(t, targetDir)
+
 		// Create source module with template
 		moduleDir := filepath.Join(sourceDir, "templates")
 		require.NoError(t, os.MkdirAll(moduleDir, 0o750))
@@ -631,8 +663,8 @@ const (
 			0o600,
 		))
 
-		initGitRepoForModule(t, sourceDir)
-		initGitRepoForModule(t, targetDir)
+		// Commit the template files
+		commitFiles(t, sourceDir, "Add template files")
 
 		cfg := &config.Config{
 			Version: 1,
@@ -719,6 +751,10 @@ const (
 		sourceDir := filepath.Join(tmpDir, "source")
 		targetDir := filepath.Join(tmpDir, "target")
 
+		// Initialize git repositories first
+		initGitRepoForModule(t, sourceDir)
+		initGitRepoForModule(t, targetDir)
+
 		// Create multiple modules
 		modules := []struct {
 			path    string
@@ -760,8 +796,8 @@ const (
 			))
 		}
 
-		initGitRepoForModule(t, sourceDir)
-		initGitRepoForModule(t, targetDir)
+		// Commit the module files
+		commitFiles(t, sourceDir, "Add multiple modules")
 
 		// Create configuration with multiple module directories
 		var dirMappings []config.DirectoryMapping
@@ -846,6 +882,10 @@ const (
 		sourceDir := filepath.Join(tmpDir, "source")
 		targetDir := filepath.Join(tmpDir, "target")
 
+		// Initialize git repositories first
+		initGitRepoForModule(t, sourceDir)
+		initGitRepoForModule(t, targetDir)
+
 		// Create module with various files
 		moduleDir := filepath.Join(sourceDir, "mymodule")
 		require.NoError(t, os.MkdirAll(moduleDir, 0o750))
@@ -866,8 +906,8 @@ const (
 			require.NoError(t, os.WriteFile(fullPath, []byte(content), 0o600))
 		}
 
-		initGitRepoForModule(t, sourceDir)
-		initGitRepoForModule(t, targetDir)
+		// Commit the module files
+		commitFiles(t, sourceDir, "Add module with exclude patterns")
 
 		cfg := &config.Config{
 			Version: 1,

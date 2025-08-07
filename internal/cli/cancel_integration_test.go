@@ -194,19 +194,19 @@ func TestPerformCancel(t *testing.T) {
 			name:          "GitHub CLI not found",
 			clientError:   gh.ErrGHNotFound,
 			expectError:   true,
-			errorContains: "Please install GitHub CLI",
+			errorContains: "gh CLI not found in PATH",
 		},
 		{
 			name:          "Not authenticated",
 			clientError:   gh.ErrNotAuthenticated,
 			expectError:   true,
-			errorContains: "Please run: gh auth login",
+			errorContains: "gh CLI not authenticated",
 		},
 		{
 			name:          "Client initialization error",
 			clientError:   errors.New("network error"), //nolint:err113 // test-only error
 			expectError:   true,
-			errorContains: "failed to initialize GitHub client",
+			errorContains: "network error",
 		},
 		{
 			name:          "State discovery error",
@@ -233,18 +233,91 @@ func TestPerformCancel(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.name == "Nil config panics" {
-				// Test panic recovery
+				// Test panic recovery for performCancelWithDiscoverer
 				defer func() {
 					if r := recover(); r != nil {
 						assert.Equal(t, "config cannot be nil", r)
 					}
 				}()
-				_, _ = performCancel(context.Background(), nil, nil)
+				mockClient := &gh.MockClient{}
+				mockDiscoverer := &state.MockDiscoverer{}
+				_, _ = performCancelWithDiscoverer(context.Background(), nil, nil, mockClient, mockDiscoverer)
 				return
 			}
 
-			// Since we can't mock gh.NewClient, skip tests that require it
-			t.Skip("Skipping test that requires mocking gh.NewClient")
+			// Create mocks
+			mockClient := &gh.MockClient{}
+			mockDiscoverer := &state.MockDiscoverer{}
+
+			// Set up mock expectations based on test case
+			if tc.clientError != nil {
+				// Simulate client errors by having the discoverer return the appropriate error
+				mockDiscoverer.On("DiscoverState", context.Background(), cfg).Return(nil, tc.clientError)
+
+				summary, err := performCancelWithDiscoverer(context.Background(), cfg, tc.targetRepos, mockClient, mockDiscoverer)
+
+				require.Error(t, err)
+				assert.Nil(t, summary)
+				assert.Contains(t, err.Error(), tc.errorContains)
+				mockDiscoverer.AssertExpectations(t)
+				return
+			}
+
+			if tc.stateError != nil {
+				// Mock discoverer returns state error
+				mockDiscoverer.On("DiscoverState", context.Background(), cfg).Return(nil, tc.stateError)
+
+				summary, err := performCancelWithDiscoverer(context.Background(), cfg, tc.targetRepos, mockClient, mockDiscoverer)
+
+				require.Error(t, err)
+				assert.Nil(t, summary)
+				assert.Contains(t, err.Error(), tc.errorContains)
+				mockDiscoverer.AssertExpectations(t)
+				return
+			}
+
+			if tc.setupState != nil {
+				// Mock discoverer returns the test state, then test filtering
+				testState := tc.setupState()
+				mockDiscoverer.On("DiscoverState", context.Background(), cfg).Return(testState, nil)
+
+				summary, err := performCancelWithDiscoverer(context.Background(), cfg, tc.targetRepos, mockClient, mockDiscoverer)
+
+				require.Error(t, err)
+				assert.Nil(t, summary)
+				assert.Contains(t, err.Error(), tc.errorContains)
+				mockDiscoverer.AssertExpectations(t)
+				return
+			}
+
+			// For any remaining cases, mock a successful state discovery with no active syncs
+			emptyState := &state.State{
+				Targets: map[string]*state.TargetState{
+					"org/target1": {
+						Repo:         "org/target1",
+						OpenPRs:      []gh.PR{},
+						SyncBranches: []state.SyncBranch{},
+					},
+					"org/target2": {
+						Repo:         "org/target2",
+						OpenPRs:      []gh.PR{},
+						SyncBranches: []state.SyncBranch{},
+					},
+				},
+			}
+			mockDiscoverer.On("DiscoverState", context.Background(), cfg).Return(emptyState, nil)
+
+			summary, err := performCancelWithDiscoverer(context.Background(), cfg, tc.targetRepos, mockClient, mockDiscoverer)
+
+			if tc.expectError {
+				require.Error(t, err)
+				assert.Nil(t, summary)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, summary)
+				assert.Equal(t, 0, summary.TotalTargets) // No active syncs to cancel
+			}
+			mockDiscoverer.AssertExpectations(t)
 		})
 	}
 
