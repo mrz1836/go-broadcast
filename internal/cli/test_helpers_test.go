@@ -45,17 +45,21 @@ func TestTestValidConfig(t *testing.T) {
 		// Parse the configuration and validate structure
 		var config struct {
 			Version int `yaml:"version"`
-			Source  struct {
-				Repo   string `yaml:"repo"`
-				Branch string `yaml:"branch"`
-			} `yaml:"source"`
-			Targets []struct {
-				Repo  string `yaml:"repo"`
-				Files []struct {
-					Src  string `yaml:"src"`
-					Dest string `yaml:"dest"`
-				} `yaml:"files"`
-			} `yaml:"targets"`
+			Groups  []struct {
+				Name   string `yaml:"name"`
+				ID     string `yaml:"id"`
+				Source struct {
+					Repo   string `yaml:"repo"`
+					Branch string `yaml:"branch"`
+				} `yaml:"source"`
+				Targets []struct {
+					Repo  string `yaml:"repo"`
+					Files []struct {
+						Src  string `yaml:"src"`
+						Dest string `yaml:"dest"`
+					} `yaml:"files"`
+				} `yaml:"targets"`
+			} `yaml:"groups"`
 		}
 
 		err := yaml.Unmarshal([]byte(TestValidConfig), &config)
@@ -63,15 +67,20 @@ func TestTestValidConfig(t *testing.T) {
 
 		// Validate parsed values
 		assert.Equal(t, 1, config.Version, "Version should be 1")
-		assert.Equal(t, "org/template", config.Source.Repo, "Source repo should be org/template")
-		assert.Equal(t, "main", config.Source.Branch, "Source branch should be main")
 
-		require.Len(t, config.Targets, 1, "Should have one target")
-		assert.Equal(t, "org/target1", config.Targets[0].Repo, "Target repo should be org/target1")
+		require.Len(t, config.Groups, 1, "Should have one group")
+		group := config.Groups[0]
+		assert.Equal(t, "test-group", group.Name, "Group name should be test-group")
+		assert.Equal(t, "test-group-1", group.ID, "Group ID should be test-group-1")
+		assert.Equal(t, "org/template", group.Source.Repo, "Source repo should be org/template")
+		assert.Equal(t, "main", group.Source.Branch, "Source branch should be main")
 
-		require.Len(t, config.Targets[0].Files, 1, "Should have one file mapping")
-		assert.Equal(t, "README.md", config.Targets[0].Files[0].Src, "Source file should be README.md")
-		assert.Equal(t, "README.md", config.Targets[0].Files[0].Dest, "Destination file should be README.md")
+		require.Len(t, group.Targets, 1, "Should have one target")
+		assert.Equal(t, "org/target1", group.Targets[0].Repo, "Target repo should be org/target1")
+
+		require.Len(t, group.Targets[0].Files, 1, "Should have one file mapping")
+		assert.Equal(t, "README.md", group.Targets[0].Files[0].Src, "Source file should be README.md")
+		assert.Equal(t, "README.md", group.Targets[0].Files[0].Dest, "Destination file should be README.md")
 	})
 
 	t.Run("indentation consistency", func(t *testing.T) {

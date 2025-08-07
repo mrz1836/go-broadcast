@@ -343,7 +343,7 @@ func TestDefaultConfigLoader(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Nil(t, cfg)
-		assert.Contains(t, err.Error(), "config file not found")
+		assert.Contains(t, err.Error(), "configuration file not found")
 	})
 
 	t.Run("ValidateConfig", func(t *testing.T) {
@@ -351,7 +351,10 @@ func TestDefaultConfigLoader(t *testing.T) {
 
 		// Create a minimal valid config
 		cfg := &config.Config{
+			Version: 1, // Add version to make it valid
 			Groups: []config.Group{{
+				Name: "test-group",   // Add required name field
+				ID:   "test-group-1", // Add required ID field
 				Source: config.SourceConfig{
 					Repo:   "org/source",
 					Branch: "main",

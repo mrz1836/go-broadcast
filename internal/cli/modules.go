@@ -23,6 +23,7 @@ var (
 	ErrModuleNotFound         = errors.New("module not found")
 	ErrModuleValidationFailed = errors.New("module validation failed")
 	ErrInvalidRepositoryPath  = errors.New("invalid repository path")
+	ErrModulePathRequired     = errors.New("module path is required")
 )
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -252,6 +253,9 @@ func runShowModule(cmd *cobra.Command, args []string) error {
 
 func runModuleVersions(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+	if len(args) < 1 {
+		return ErrModulePathRequired
+	}
 	modulePath := args[0]
 	logger := logrus.StandardLogger()
 

@@ -176,25 +176,27 @@ groups:
 			outputCheck: nil,
 		},
 		{
-			name: "ValidConfigWithDefaults",
+			name: "ValidConfigWithGlobal",
 			setupFunc: func() (string, func()) {
-				tmpFile, err := os.CreateTemp("", "valid-defaults-*.yml")
+				tmpFile, err := os.CreateTemp("", "valid-global-*.yml")
 				require.NoError(t, err)
 
 				validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-defaults:
-  branch_prefix: "sync/"
-  pr_labels:
-    - "automated"
-    - "sync"
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    global:
+      pr_labels:
+        - "automated"
+        - "sync"
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 				_, err = tmpFile.WriteString(validConfig)
 				require.NoError(t, err)
@@ -212,19 +214,22 @@ targets:
 				require.NoError(t, err)
 
 				validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md
-    transform:
-      repo_name: true
-      variables:
-        PROJECT: "test-project"
-        VERSION: "1.0.0"`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+        transform:
+          repo_name: true
+          variables:
+            PROJECT: "test-project"
+            VERSION: "1.0.0"`
 
 				_, err = tmpFile.WriteString(validConfig)
 				require.NoError(t, err)
@@ -242,24 +247,27 @@ targets:
 				require.NoError(t, err)
 
 				validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md
-      - src: .github/workflows/ci.yml
-        dest: .github/workflows/ci.yml
-  - repo: org/target2
-    files:
-      - src: README.md
-        dest: docs/README.md
-  - repo: org/target3
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+          - src: .github/workflows/ci.yml
+            dest: .github/workflows/ci.yml
+      - repo: org/target2
+        files:
+          - src: README.md
+            dest: docs/README.md
+      - repo: org/target3
+        files:
+          - src: README.md
+            dest: README.md`
 
 				_, err = tmpFile.WriteString(validConfig)
 				require.NoError(t, err)
@@ -390,14 +398,17 @@ func TestValidateCommandIntegration(t *testing.T) {
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	validConfig := `version: 1
-source:
-  repo: test/source
-  branch: main
-targets:
-  - repo: test/target1
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: test/source
+      branch: main
+    targets:
+      - repo: test/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 	testutil.WriteTestFile(t, tmpFile.Name(), validConfig)
 

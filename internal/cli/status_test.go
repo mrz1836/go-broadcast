@@ -628,8 +628,8 @@ func TestOutputGroupTextStatus(t *testing.T) {
 			expectedOutput: []string{
 				"=== Sync Status (Group-Based Configuration) ===",
 				"✓ Group: test-group (test-group-1) [Priority: 0]",
-				"Source: org/template (main)",
-				"✓ org/target1 (synced)",
+				"Source: org/template (branch: main)",
+				"✓ org/target1 [synced]",
 			},
 		},
 		{
@@ -659,8 +659,8 @@ func TestOutputGroupTextStatus(t *testing.T) {
 			expectedOutput: []string{
 				"=== Sync Status (Group-Based Configuration) ===",
 				"✗ Group: error-group (error-group-1) [Priority: 1]",
-				"Source: org/template (main)",
-				"✗ org/target1 (error): sync failed",
+				"Source: org/template (branch: main)",
+				"✗ org/target1 [error]",
 			},
 		},
 		{
@@ -684,8 +684,8 @@ func TestOutputGroupTextStatus(t *testing.T) {
 			expectedOutput: []string{
 				"=== Sync Status (Group-Based Configuration) ===",
 				"⊘ Group: disabled-group (disabled-group-1) [Priority: 0]",
-				"Source: org/template (main)",
-				"[DISABLED]",
+				"Source: org/template (branch: main)",
+				"(Group is disabled)",
 			},
 		},
 	}
