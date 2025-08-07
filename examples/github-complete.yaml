@@ -27,55 +27,55 @@ groups:
           # Complete .github directory (149 files) - Performance: ~7ms
           - src: ".github"
             dest: ".github"
-        exclude:
-          # Exclude what we sync separately for better control
-          - "coverage/**" # Synced separately (87 files)
-          - "workflows/**" # Synced separately (24 files)
-          - "pip/**" # Python deps not needed (38 files)
-          # Development exclusions
-          - "**/*.local.*"
-          - "**/*-dev.*"
-          - "**/draft/**"
-          - "**/experimental/**"
-        transform:
-          repo_name: true
-          variables:
-            SERVICE: "payment-service"
-            TIER: "critical"
-            COMPLIANCE: "pci-dss"
+            exclude:
+              # Exclude what we sync separately for better control
+              - "coverage/**" # Synced separately (87 files)
+              - "workflows/**" # Synced separately (24 files)
+              - "pip/**" # Python deps not needed (38 files)
+              # Development exclusions
+              - "**/*.local.*"
+              - "**/*-dev.*"
+              - "**/draft/**"
+              - "**/experimental/**"
+            transform:
+              repo_name: true
+              variables:
+                SERVICE: "payment-service"
+                TIER: "critical"
+                COMPLIANCE: "pci-dss"
 
-      # GitHub Workflows - Selective sync with transforms
-      - src: ".github/workflows"
-        dest: ".github/workflows"
-        exclude:
-          - "*-local.yml" # Local development workflows
-          - "experimental-*" # Experimental workflows
-          - "*-draft.yml" # Draft workflows
-        transform:
-          repo_name: true
-          variables:
-            SERVICE_TYPE: "payment"
-            SECURITY_LEVEL: "high"
-            DEPLOY_ENV: "production"
-            MONITORING: "enhanced"
-        # Expected: 24 files in ~1.5ms
+          # GitHub Workflows - Selective sync with transforms
+          - src: ".github/workflows"
+            dest: ".github/workflows"
+            exclude:
+              - "*-local.yml" # Local development workflows
+              - "experimental-*" # Experimental workflows
+              - "*-draft.yml" # Draft workflows
+            transform:
+              repo_name: true
+              variables:
+                SERVICE_TYPE: "payment"
+                SECURITY_LEVEL: "high"
+                DEPLOY_ENV: "production"
+                MONITORING: "enhanced"
+          # Expected: 24 files in ~1.5ms
 
-      # Coverage System - High-performance sync
-      - src: ".github/coverage"
-        dest: ".github/coverage"
-        exclude:
-          - "*.out" # Coverage output files
-          - "*.test" # Go test binaries
-          - "gofortress-coverage" # Main binary
-          - "**/testdata/**" # Test fixtures
-          - "**/*.prof" # Profiling files
+          # Coverage System - High-performance sync
+          - src: ".github/coverage"
+            dest: ".github/coverage"
+            exclude:
+              - "*.out" # Coverage output files
+              - "*.test" # Go test binaries
+              - "gofortress-coverage" # Main binary
+              - "**/testdata/**" # Test fixtures
+              - "**/*.prof" # Profiling files
         # Expected: 87 files in ~4ms with 90%+ API call reduction
 
-    # Critical service needs additional security review
-    pr_labels: ["critical-service", "security-review"]
-    pr_team_reviewers: ["security-team", "compliance-team"]
+        # Critical service needs additional security review
+        pr_labels: ["critical-service", "security-review"]
+        pr_team_reviewers: ["security-team", "compliance-team"]
 
-  # Development Service - Standard .github sync
+      # Development Service - Standard .github sync
   - repo: "company/user-service"
     directories:
       # Standard workflow sync

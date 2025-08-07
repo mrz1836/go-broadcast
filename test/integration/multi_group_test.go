@@ -52,7 +52,6 @@ func initGitRepo(t *testing.T, dir string) {
 }
 
 func TestMultiGroupSync_BasicExecution(t *testing.T) {
-	t.Skip("Skipping test - needs mock setup fixes")
 	t.Run("two groups execute in priority order", func(t *testing.T) {
 		ctx := context.Background()
 		tmpDir := t.TempDir()
@@ -144,7 +143,9 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 
 		// Mock state discovery - return outdated targets to trigger sync
 		// The orchestrator calls DiscoverState once per group with a config containing only that group
-		currentState := &state.State{
+
+		// State for the first group (high-priority)
+		highPriorityState := &state.State{
 			Source: state.SourceState{
 				Repo:         source1Dir,
 				Branch:       "main",
@@ -159,8 +160,34 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 				},
 			},
 		}
-		// Mock for any config (orchestrator creates single-group configs)
-		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
+
+		// State for the second group (low-priority)
+		lowPriorityState := &state.State{
+			Source: state.SourceState{
+				Repo:         source2Dir,
+				Branch:       "main",
+				LatestCommit: "def456",
+				LastChecked:  time.Now(),
+			},
+			Targets: map[string]*state.TargetState{
+				targetDir: {
+					Repo:           targetDir,
+					LastSyncCommit: "old456", // Outdated
+					Status:         state.StatusBehind,
+				},
+			},
+		}
+
+		// Mock DiscoverState for each group - orchestrator creates single-group configs
+		// First call will be for high-priority group (priority=1)
+		mockState.On("DiscoverState", mock.Anything, mock.MatchedBy(func(cfg *config.Config) bool {
+			return len(cfg.Groups) == 1 && cfg.Groups[0].ID == "high-priority"
+		})).Return(highPriorityState, nil).Once()
+
+		// Second call will be for low-priority group (priority=10)
+		mockState.On("DiscoverState", mock.Anything, mock.MatchedBy(func(cfg *config.Config) bool {
+			return len(cfg.Groups) == 1 && cfg.Groups[0].ID == "low-priority"
+		})).Return(lowPriorityState, nil).Once()
 
 		// Mock git operations
 		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)

@@ -144,7 +144,6 @@ groups:
 
 // TestConfigurationExamples tests that all example configurations are valid
 func TestConfigurationExamples(t *testing.T) {
-	t.Skip("Skipping test - example files need to be updated to new format with groups")
 	// Reset global flags to ensure test isolation
 	cli.ResetGlobalFlags()
 	t.Cleanup(func() {
