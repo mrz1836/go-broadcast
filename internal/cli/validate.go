@@ -205,8 +205,6 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 		panic("config cannot be nil")
 	}
 
-	log := logrus.WithField("component", "validate-repos")
-
 	// Try to create GitHub client
 	ghClient, err := gh.NewClient(ctx, logrus.StandardLogger(), logConfig)
 	if err != nil {
@@ -223,6 +221,18 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 		return fmt.Errorf("failed to initialize GitHub client: %w", err)
 	}
 
+	return validateRepositoryAccessibilityWithClient(ctx, cfg, ghClient, sourceOnly)
+}
+
+// validateRepositoryAccessibilityWithClient checks if source and target repositories are accessible via GitHub API using the provided client
+func validateRepositoryAccessibilityWithClient(ctx context.Context, cfg *config.Config, ghClient gh.Client, sourceOnly bool) error {
+	// Check for nil config to ensure panic behavior expected by tests
+	if cfg == nil {
+		panic("config cannot be nil")
+	}
+
+	log := logrus.WithField("component", "validate-repos")
+
 	// Check source repository accessibility
 	groups := cfg.Groups
 	if len(groups) == 0 {
@@ -232,7 +242,7 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 
 	group := groups[0] // For compatibility with old format, work with first group
 	log.WithField("repo", group.Source.Repo).Debug("Checking source repository accessibility")
-	_, err = ghClient.GetBranch(ctx, group.Source.Repo, group.Source.Branch)
+	_, err := ghClient.GetBranch(ctx, group.Source.Repo, group.Source.Branch)
 	if err != nil {
 		if strings.Contains(err.Error(), "branch not found") {
 			output.Error(fmt.Sprintf("  ✗ Source branch '%s' not found in %s", group.Source.Branch, group.Source.Repo))

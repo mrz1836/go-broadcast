@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
@@ -358,22 +359,69 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 			}},
 		}
 
-		// Would test that long paths are handled correctly
-		t.Skip("Skipping test that requires refactoring")
-		_ = cfg
-	})
-}
-
-// TestValidateCommandWithMockedGitHub demonstrates how we could test with proper mocking
-func TestValidateCommandWithMockedGitHub(t *testing.T) {
-	// This test demonstrates the ideal testing approach if the validate functions
-	// accepted a GitHub client as a parameter instead of creating it internally.
-
-	t.Run("Ideal test with dependency injection", func(t *testing.T) {
 		// Create mock client
 		mockClient := new(gh.MockClient)
 
-		// Setup expectations
+		// Setup mock expectations - long path should work
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", longPath, "master").
+			Return(&gh.FileContent{Path: longPath, Content: []byte("content from very long path")}, nil)
+
+		// Capture output
+		origStdout := output.Stdout()
+		origStderr := output.Stderr()
+		var stdoutBuf, stderrBuf bytes.Buffer
+		output.SetStdout(&stdoutBuf)
+		output.SetStderr(&stderrBuf)
+		defer func() {
+			output.SetStdout(origStdout)
+			output.SetStderr(origStderr)
+		}()
+
+		// Call the function with mock client
+		ctx := context.Background()
+		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
+
+		// Verify output - combine stdout and stderr
+		outputStr := stdoutBuf.String() + stderrBuf.String()
+
+		// Verify that long paths are handled correctly
+		assert.Contains(t, outputStr, "All source files exist (1/1)", "Should successfully validate files with very long paths")
+
+		// Verify mock expectations
+		mockClient.AssertExpectations(t)
+	})
+}
+
+// TestValidateCommandWithMockedGitHub demonstrates testing with proper mocking and dependency injection
+func TestValidateCommandWithMockedGitHub(t *testing.T) {
+	// This test demonstrates testing with dependency injection now that both validate functions
+	// accept a GitHub client as a parameter.
+
+	t.Run("Test with dependency injection", func(t *testing.T) {
+		// Create test configuration
+		cfg := &config.Config{
+			Groups: []config.Group{{
+				Name: "test-group",
+				ID:   "test-group-1",
+				Source: config.SourceConfig{
+					Repo:   "org/source",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+						Files: []config.FileMapping{
+							{Src: "README.md", Dest: "README.md"},
+						},
+					},
+				},
+			}},
+		}
+
+		// Create mock client
+		mockClient := new(gh.MockClient)
+
+		// Setup expectations for validateRepositoryAccessibilityWithClient
 		mockClient.On("GetBranch", mock.Anything, "org/source", "master").
 			Return(&gh.Branch{Name: "master", Commit: struct {
 				SHA string `json:"sha"`
@@ -384,19 +432,38 @@ func TestValidateCommandWithMockedGitHub(t *testing.T) {
 				SHA string `json:"sha"`
 				URL string `json:"url"`
 			}{SHA: "def456"}}}, nil)
+
+		// Setup expectations for validateSourceFilesExistWithClient
 		mockClient.On("GetFile", mock.Anything, "org/source", "README.md", "master").
 			Return(&gh.FileContent{Path: "README.md", Content: []byte("# README")}, nil)
 
-		// In an ideal world, we would pass the client to the validate functions:
-		// err := validateRepositoryAccessibilityWithClient(ctx, cfg, mockClient, false)
-		// validateSourceFilesExistWithClient(ctx, cfg, mockClient)
+		// Capture output
+		origStdout := output.Stdout()
+		origStderr := output.Stderr()
+		var stdoutBuf, stderrBuf bytes.Buffer
+		output.SetStdout(&stdoutBuf)
+		output.SetStderr(&stderrBuf)
+		defer func() {
+			output.SetStdout(origStdout)
+			output.SetStderr(origStderr)
+		}()
 
-		// But since the current implementation creates the client internally,
-		// we can't easily test with mocks without refactoring.
+		ctx := context.Background()
 
-		t.Skip("Skipping ideal test - requires refactoring to support dependency injection")
+		// Test validateRepositoryAccessibilityWithClient
+		err := validateRepositoryAccessibilityWithClient(ctx, cfg, mockClient, false)
+		require.NoError(t, err, "Repository accessibility validation should succeed")
 
-		// Verify expectations would be met
+		// Test validateSourceFilesExistWithClient
+		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
+
+		// Verify output contains success messages
+		outputStr := stdoutBuf.String() + stderrBuf.String()
+		assert.Contains(t, outputStr, "Source repository accessible: org/source", "Should report source repo as accessible")
+		assert.Contains(t, outputStr, "Target repository accessible: org/target1", "Should report target repo as accessible")
+		assert.Contains(t, outputStr, "All source files exist", "Should report all source files exist")
+
+		// Verify expectations were met
 		mockClient.AssertExpectations(t)
 	})
 }

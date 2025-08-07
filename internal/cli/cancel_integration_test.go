@@ -13,6 +13,7 @@ import (
 
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/mrz1836/go-broadcast/internal/state"
 )
 
@@ -282,9 +283,9 @@ func TestOutputCancelResultsIntegration(t *testing.T) {
 			},
 			outputFormat: "json",
 			verifyOutput: func(t *testing.T, output string) {
-				assert.Contains(t, output, `"total_targets":2`)
-				assert.Contains(t, output, `"prs_closed":1`)
-				assert.Contains(t, output, `"branches_deleted":1`)
+				assert.Contains(t, output, `"total_targets": 2`)
+				assert.Contains(t, output, `"prs_closed": 1`)
+				assert.Contains(t, output, `"branches_deleted": 1`)
 			},
 		},
 		{
@@ -317,36 +318,36 @@ func TestOutputCancelResultsIntegration(t *testing.T) {
 			},
 			outputFormat: "text",
 			verifyOutput: func(t *testing.T, output string) {
-				assert.Contains(t, output, "Cancel Operation Results")
-				assert.Contains(t, output, "org/target1")
-				assert.Contains(t, output, "#123")
+				assert.Contains(t, output, "Canceled sync operations for 3 target(s)")
+				assert.Contains(t, output, "📦 org/target1")
+				assert.Contains(t, output, "PR #123")
 				assert.Contains(t, output, "sync/test1")
-				assert.Contains(t, output, "Permission denied")
+				assert.Contains(t, output, "📦 org/target3")
 				assert.Contains(t, output, "Summary:")
-				assert.Contains(t, output, "3 targets processed")
-				assert.Contains(t, output, "2 PRs closed")
-				assert.Contains(t, output, "2 branches deleted")
-				assert.Contains(t, output, "1 error")
+				assert.Contains(t, output, "PRs closed: 2")
+				assert.Contains(t, output, "Branches deleted: 2")
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Save original flags
-			originalFlags := globalFlags
-			globalFlags = &Flags{
-				// OutputFormat: tc.outputFormat, // Not available in Flags struct
+			// Set up output capture
+			var stdoutBuf bytes.Buffer
+			originalStdout := output.Stdout()
+			output.SetStdout(&stdoutBuf)
+			defer output.SetStdout(originalStdout)
+
+			// Set up JSON output flag
+			originalJSON := jsonOutput
+			if tc.outputFormat == "json" {
+				jsonOutput = true
+			} else {
+				jsonOutput = false
 			}
 			defer func() {
-				globalFlags = originalFlags
+				jsonOutput = originalJSON
 			}()
-
-			// Capture output (would need proper output capture mechanism)
-			var outputBuf bytes.Buffer
-			_ = outputBuf // avoid unused variable error
-			// output.SetWriter(&outputBuf) // Not available in output package
-			// defer output.SetWriter(os.Stdout)
 
 			// Execute output function
 			err := outputCancelResults(tc.summary)
@@ -354,8 +355,8 @@ func TestOutputCancelResultsIntegration(t *testing.T) {
 
 			// Verify output
 			if tc.verifyOutput != nil {
-				// tc.verifyOutput(t, outputBuf.String())
-				t.Skip("Skipping output verification - need proper output capture")
+				outputStr := stdoutBuf.String()
+				tc.verifyOutput(t, outputStr)
 			}
 		})
 	}
@@ -384,27 +385,24 @@ func TestOutputCancelPreviewIntegration(t *testing.T) {
 		DryRun: true,
 	}
 
-	// Capture output (would need proper output capture mechanism)
-	var outputBuf bytes.Buffer
-	// output.SetWriter(&outputBuf) // Not available in output package
-	// defer output.SetWriter(os.Stdout)
+	// Set up output capture
+	var stdoutBuf bytes.Buffer
+	originalStdout := output.Stdout()
+	output.SetStdout(&stdoutBuf)
+	defer output.SetStdout(originalStdout)
 
 	// Execute preview
 	err := outputCancelPreview(summary)
 	require.NoError(t, err)
 
 	// Verify output
-	outputStr := outputBuf.String()
-	if outputStr != "" {
-		assert.Contains(t, outputStr, "Cancel Operation Preview")
-		assert.Contains(t, outputStr, "DRY RUN MODE")
-		assert.Contains(t, outputStr, "org/target1")
-		assert.Contains(t, outputStr, "Would close PR #123")
-		assert.Contains(t, outputStr, "Would delete branch sync/test1")
-		assert.Contains(t, outputStr, "org/target2")
-		assert.Contains(t, outputStr, "Would close PR #456")
-		assert.Contains(t, outputStr, "Would keep branch sync/test2")
-	} else {
-		t.Skip("Skipping output verification - need proper output capture")
-	}
+	outputStr := stdoutBuf.String()
+	assert.Contains(t, outputStr, "Would cancel sync operations for 2 target(s)")
+	assert.Contains(t, outputStr, "📦 org/target1")
+	assert.Contains(t, outputStr, "Would close PR #123")
+	assert.Contains(t, outputStr, "Would delete branch: sync/test1")
+	assert.Contains(t, outputStr, "📦 org/target2")
+	assert.Contains(t, outputStr, "Would close PR #456")
+	assert.Contains(t, outputStr, "Would delete branch: sync/test2")
+	assert.Contains(t, outputStr, "Summary (would):")
 }
