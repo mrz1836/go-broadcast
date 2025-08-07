@@ -955,6 +955,7 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 
 	// Create directory processor
 	processor := NewDirectoryProcessor(rs.logger, 10) // Use default worker count
+	defer processor.Close()
 
 	sourcePath := filepath.Join(rs.tempDir, "source")
 

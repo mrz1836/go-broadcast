@@ -542,6 +542,7 @@ func BenchmarkConcurrentDirectoryProcessing(b *testing.B) {
 
 			logger := logrus.NewEntry(logrus.New()).WithField("component", "benchmark")
 			processor := NewDirectoryProcessor(logger, tc.workerCount)
+			defer processor.Close()
 
 			// Force garbage collection before benchmark
 			runtime.GC()
@@ -821,6 +822,7 @@ func main() {
 
 		logger := logrus.NewEntry(logrus.New()).WithField("component", "benchmark")
 		processor := NewDirectoryProcessor(logger, baselineScenario.workerCount)
+		defer processor.Close()
 
 		dirMapping := config.DirectoryMapping{
 			Src:     "source",

@@ -319,6 +319,7 @@ func BenchmarkModuleOperations(b *testing.B) {
 			start := time.Now()
 			_, err := resolver.ResolveVersion(ctx, repoDir, "latest", true)
 			duration := time.Since(start)
+			cache.Close() // Clean up goroutine
 
 			if err != nil {
 				b.Fatalf("Failed to resolve version: %v", err)
@@ -344,6 +345,7 @@ func BenchmarkModuleOperations(b *testing.B) {
 		// Create resolver with cache
 		logger := logrus.New()
 		cache := syncpkg.NewModuleCache(5*time.Minute, logger)
+		defer cache.Close()
 		resolver := syncpkg.NewModuleResolver(logger, cache)
 		ctx := context.Background()
 
@@ -529,6 +531,7 @@ func TestPerformanceStress(t *testing.T) {
 
 		logger := logrus.New()
 		cache := syncpkg.NewModuleCache(5*time.Minute, logger)
+		defer cache.Close()
 		resolver := syncpkg.NewModuleResolver(logger, cache)
 
 		// Concurrent resolution requests

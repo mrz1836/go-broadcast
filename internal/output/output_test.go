@@ -402,3 +402,128 @@ func BenchmarkConcurrentOutput(b *testing.B) {
 		}
 	})
 }
+
+// Tests for the new ColoredWriter interface
+func TestColoredWriter(t *testing.T) {
+	t.Run("Success messages", func(t *testing.T) {
+		stdoutBuf := &bytes.Buffer{}
+		stderrBuf := &bytes.Buffer{}
+
+		writer := NewColoredWriter(stdoutBuf, stderrBuf)
+
+		writer.Success("Success message")
+		writer.Successf("Formatted success: %s", "test")
+
+		content := stdoutBuf.String()
+		assert.Contains(t, content, "Success message")
+		assert.Contains(t, content, "Formatted success: test")
+		assert.Empty(t, stderrBuf.String()) // Nothing should go to stderr
+	})
+
+	t.Run("Info messages", func(t *testing.T) {
+		stdoutBuf := &bytes.Buffer{}
+		stderrBuf := &bytes.Buffer{}
+
+		writer := NewColoredWriter(stdoutBuf, stderrBuf)
+
+		writer.Info("Info message")
+		writer.Infof("Formatted info: %d", 42)
+
+		content := stdoutBuf.String()
+		assert.Contains(t, content, "Info message")
+		assert.Contains(t, content, "Formatted info: 42")
+		assert.Empty(t, stderrBuf.String())
+	})
+
+	t.Run("Warning messages", func(t *testing.T) {
+		stdoutBuf := &bytes.Buffer{}
+		stderrBuf := &bytes.Buffer{}
+
+		writer := NewColoredWriter(stdoutBuf, stderrBuf)
+
+		writer.Warn("Warning message")
+		writer.Warnf("Formatted warning: %v", true)
+
+		content := stderrBuf.String()
+		assert.Contains(t, content, "Warning message")
+		assert.Contains(t, content, "Formatted warning: true")
+		assert.Empty(t, stdoutBuf.String()) // Nothing should go to stdout
+	})
+
+	t.Run("Error messages", func(t *testing.T) {
+		stdoutBuf := &bytes.Buffer{}
+		stderrBuf := &bytes.Buffer{}
+
+		writer := NewColoredWriter(stdoutBuf, stderrBuf)
+
+		writer.Error("Error message")
+		writer.Errorf("Formatted error: %s", "failed")
+
+		content := stderrBuf.String()
+		assert.Contains(t, content, "Error message")
+		assert.Contains(t, content, "Formatted error: failed")
+		assert.Empty(t, stdoutBuf.String())
+	})
+
+	t.Run("Plain messages", func(t *testing.T) {
+		stdoutBuf := &bytes.Buffer{}
+		stderrBuf := &bytes.Buffer{}
+
+		writer := NewColoredWriter(stdoutBuf, stderrBuf)
+
+		writer.Plain("Plain message")
+		writer.Plainf("Formatted plain: %s", "text")
+
+		content := stdoutBuf.String()
+		assert.Contains(t, content, "Plain message")
+		assert.Contains(t, content, "Formatted plain: text")
+		assert.Empty(t, stderrBuf.String())
+	})
+
+	t.Run("Thread safety", func(t *testing.T) {
+		stdoutBuf := &bytes.Buffer{}
+		stderrBuf := &bytes.Buffer{}
+
+		writer := NewColoredWriter(stdoutBuf, stderrBuf)
+
+		// Run concurrent writes to test thread safety
+		done := make(chan bool, 10)
+
+		for i := 0; i < 10; i++ {
+			go func(id int) {
+				writer.Successf("Message %d", id)
+				done <- true
+			}(i)
+		}
+
+		// Wait for all goroutines to complete
+		for i := 0; i < 10; i++ {
+			<-done
+		}
+
+		// Check that all messages were written
+		content := stdoutBuf.String()
+		for i := 0; i < 10; i++ {
+			assert.Contains(t, content, "Message")
+		}
+
+		// Count newlines to ensure all messages were written
+		newlines := strings.Count(content, "\n")
+		assert.Equal(t, 10, newlines)
+	})
+}
+
+func TestNewColoredWriter(t *testing.T) {
+	stdoutBuf := &bytes.Buffer{}
+	stderrBuf := &bytes.Buffer{}
+
+	writer := NewColoredWriter(stdoutBuf, stderrBuf)
+
+	assert.NotNil(t, writer)
+	assert.Equal(t, stdoutBuf, writer.stdout)
+	assert.Equal(t, stderrBuf, writer.stderr)
+	assert.NotNil(t, writer.successColor)
+	assert.NotNil(t, writer.infoColor)
+	assert.NotNil(t, writer.warnColor)
+	assert.NotNil(t, writer.errorColor)
+}

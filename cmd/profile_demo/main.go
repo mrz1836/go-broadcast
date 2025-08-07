@@ -35,17 +35,173 @@ func secureRandInt(maxVal int) int {
 }
 
 func main() {
-	log.Println("Starting comprehensive profiling demonstration...")
+	app := NewProfileDemoApp()
+	if err := app.Run(); err != nil {
+		log.Fatalf("Profile demo failed: %v", err)
+	}
+}
+
+// ProfileDemoApp represents the main profiling demonstration application
+type ProfileDemoApp struct {
+	logger              Logger
+	dirManager          DirectoryManager
+	profileSuiteFactory ProfileSuiteFactory
+	testRunner          TestRunner
+	reportGenerator     ReportGenerator
+}
+
+// Logger defines the interface for logging operations
+type Logger interface {
+	Println(v ...interface{})
+	Printf(format string, v ...interface{})
+}
+
+// DirectoryManager defines the interface for directory operations
+type DirectoryManager interface {
+	MkdirAll(path string, perm os.FileMode) error
+}
+
+// ProfileSuiteFactory defines the interface for creating profile suites
+type ProfileSuiteFactory interface {
+	NewProfileSuite(profilesDir string) ProfileSuite
+}
+
+// ProfileSuite defines the interface for profiling operations
+type ProfileSuite interface {
+	Configure(config profiling.ProfileConfig)
+	StartProfiling(sessionName string) error
+	StopProfiling() error
+}
+
+// TestRunner defines the interface for running performance tests
+type TestRunner interface {
+	TestWorkerPool() time.Duration
+	TestTTLCache() time.Duration
+	TestAlgorithmOptimizations() time.Duration
+	TestBatchProcessing() time.Duration
+}
+
+// ReportGenerator defines the interface for generating reports
+type ReportGenerator interface {
+	GenerateFinalReport(metrics map[string]float64, profilesDir string) error
+}
+
+// DefaultLogger implements Logger using the log package
+type DefaultLogger struct{}
+
+func (d *DefaultLogger) Println(v ...interface{}) {
+	log.Println(v...)
+}
+
+func (d *DefaultLogger) Printf(format string, v ...interface{}) {
+	log.Printf(format, v...)
+}
+
+// DefaultDirectoryManager implements DirectoryManager using os package
+type DefaultDirectoryManager struct{}
+
+func (d *DefaultDirectoryManager) MkdirAll(path string, perm os.FileMode) error {
+	return os.MkdirAll(path, perm)
+}
+
+// DefaultProfileSuiteFactory implements ProfileSuiteFactory
+type DefaultProfileSuiteFactory struct{}
+
+func (d *DefaultProfileSuiteFactory) NewProfileSuite(profilesDir string) ProfileSuite {
+	return &DefaultProfileSuiteWrapper{suite: profiling.NewProfileSuite(profilesDir)}
+}
+
+// DefaultProfileSuiteWrapper wraps the actual profiling.ProfileSuite
+type DefaultProfileSuiteWrapper struct {
+	suite interface {
+		Configure(config profiling.ProfileConfig)
+		StartProfiling(sessionName string) error
+		StopProfiling() error
+	}
+}
+
+func (d *DefaultProfileSuiteWrapper) Configure(config profiling.ProfileConfig) {
+	d.suite.Configure(config)
+}
+
+func (d *DefaultProfileSuiteWrapper) StartProfiling(sessionName string) error {
+	return d.suite.StartProfiling(sessionName)
+}
+
+func (d *DefaultProfileSuiteWrapper) StopProfiling() error {
+	return d.suite.StopProfiling()
+}
+
+// DefaultTestRunner implements TestRunner using the original test functions
+type DefaultTestRunner struct{}
+
+func (d *DefaultTestRunner) TestWorkerPool() time.Duration {
+	start := time.Now()
+	testWorkerPool()
+	return time.Since(start)
+}
+
+func (d *DefaultTestRunner) TestTTLCache() time.Duration {
+	start := time.Now()
+	testTTLCache()
+	return time.Since(start)
+}
+
+func (d *DefaultTestRunner) TestAlgorithmOptimizations() time.Duration {
+	start := time.Now()
+	testAlgorithmOptimizations()
+	return time.Since(start)
+}
+
+func (d *DefaultTestRunner) TestBatchProcessing() time.Duration {
+	start := time.Now()
+	testBatchProcessing()
+	return time.Since(start)
+}
+
+// DefaultReportGenerator implements ReportGenerator using the original function
+type DefaultReportGenerator struct{}
+
+func (d *DefaultReportGenerator) GenerateFinalReport(metrics map[string]float64, profilesDir string) error {
+	generateFinalReport(metrics, profilesDir)
+	return nil
+}
+
+// NewProfileDemoApp creates a new ProfileDemoApp with default implementations
+func NewProfileDemoApp() *ProfileDemoApp {
+	return &ProfileDemoApp{
+		logger:              &DefaultLogger{},
+		dirManager:          &DefaultDirectoryManager{},
+		profileSuiteFactory: &DefaultProfileSuiteFactory{},
+		testRunner:          &DefaultTestRunner{},
+		reportGenerator:     &DefaultReportGenerator{},
+	}
+}
+
+// NewProfileDemoAppWithDependencies creates a new ProfileDemoApp with injectable dependencies
+func NewProfileDemoAppWithDependencies(logger Logger, dirManager DirectoryManager, profileSuiteFactory ProfileSuiteFactory, testRunner TestRunner, reportGenerator ReportGenerator) *ProfileDemoApp {
+	return &ProfileDemoApp{
+		logger:              logger,
+		dirManager:          dirManager,
+		profileSuiteFactory: profileSuiteFactory,
+		testRunner:          testRunner,
+		reportGenerator:     reportGenerator,
+	}
+}
+
+// Run executes the profiling demonstration
+func (app *ProfileDemoApp) Run() error {
+	app.logger.Println("Starting comprehensive profiling demonstration...")
 
 	// Initialize profiling suite
 	profilesDir := "./profiles/final_demo"
-	if err := os.MkdirAll(profilesDir, 0o750); err != nil {
-		log.Fatalf("Failed to create profiles directory: %v", err)
+	if err := app.dirManager.MkdirAll(profilesDir, 0o750); err != nil {
+		return fmt.Errorf("failed to create profiles directory: %w", err)
 	}
 
-	suite := profiling.NewProfileSuite(profilesDir)
+	suite := app.profileSuiteFactory.NewProfileSuite(profilesDir)
 
-	// Configure comprehensive profiling (disable CPU to avoid conflicts)
+	// Configure comprehensive profiling
 	config := profiling.ProfileConfig{
 		EnableCPU:            false, // Disabled to avoid conflicts
 		EnableMemory:         true,
@@ -63,51 +219,48 @@ func main() {
 
 	// Start profiling session
 	if err := suite.StartProfiling("final_optimization_demo"); err != nil {
-		log.Fatalf("Failed to start profiling: %v", err)
+		return fmt.Errorf("failed to start profiling: %w", err)
 	}
 
-	log.Println("Profiling started - running optimization demonstrations...")
+	app.logger.Println("Profiling started - running optimization demonstrations...")
 
 	// Create performance metrics collector
 	metrics := make(map[string]float64)
 
-	// Demonstrate worker pool optimization
-	log.Println("1. Testing Worker Pool optimization...")
-	start := time.Now()
-	testWorkerPool()
-	metrics["worker_pool_duration_ms"] = float64(time.Since(start).Nanoseconds()) / 1e6
+	// Run performance tests
+	app.logger.Println("1. Testing Worker Pool optimization...")
+	duration := app.testRunner.TestWorkerPool()
+	metrics["worker_pool_duration_ms"] = float64(duration.Nanoseconds()) / 1e6
 
-	// Demonstrate cache optimization
-	log.Println("2. Testing TTL Cache optimization...")
-	start = time.Now()
-	testTTLCache()
-	metrics["cache_duration_ms"] = float64(time.Since(start).Nanoseconds()) / 1e6
+	app.logger.Println("2. Testing TTL Cache optimization...")
+	duration = app.testRunner.TestTTLCache()
+	metrics["cache_duration_ms"] = float64(duration.Nanoseconds()) / 1e6
 
-	// Demonstrate algorithm optimizations
-	log.Println("3. Testing Algorithm optimizations...")
-	start = time.Now()
-	testAlgorithmOptimizations()
-	metrics["algorithms_duration_ms"] = float64(time.Since(start).Nanoseconds()) / 1e6
+	app.logger.Println("3. Testing Algorithm optimizations...")
+	duration = app.testRunner.TestAlgorithmOptimizations()
+	metrics["algorithms_duration_ms"] = float64(duration.Nanoseconds()) / 1e6
 
-	// Demonstrate batch processing
-	log.Println("4. Testing Batch Processing optimization...")
-	start = time.Now()
-	testBatchProcessing()
-	metrics["batch_processing_duration_ms"] = float64(time.Since(start).Nanoseconds()) / 1e6
+	app.logger.Println("4. Testing Batch Processing optimization...")
+	duration = app.testRunner.TestBatchProcessing()
+	metrics["batch_processing_duration_ms"] = float64(duration.Nanoseconds()) / 1e6
 
-	log.Println("Optimization demonstrations completed - stopping profiling...")
+	app.logger.Println("Optimization demonstrations completed - stopping profiling...")
 
 	// Stop profiling
 	if err := suite.StopProfiling(); err != nil {
-		log.Printf("Warning: failed to stop profiling: %v", err)
+		app.logger.Printf("Warning: failed to stop profiling: %v", err)
 	}
 
 	// Generate performance report
-	log.Println("Generating comprehensive performance report...")
-	generateFinalReport(metrics, profilesDir)
+	app.logger.Println("Generating comprehensive performance report...")
+	if err := app.reportGenerator.GenerateFinalReport(metrics, profilesDir); err != nil {
+		return fmt.Errorf("failed to generate report: %w", err)
+	}
 
-	log.Println("Final profiling demonstration completed successfully!")
-	log.Printf("Results available in: %s\n", profilesDir)
+	app.logger.Println("Final profiling demonstration completed successfully!")
+	app.logger.Printf("Results available in: %s\n", profilesDir)
+
+	return nil
 }
 
 func testWorkerPool() {

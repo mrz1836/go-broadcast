@@ -618,14 +618,17 @@ func TestDisplayGroupValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Capture output
-			var buf bytes.Buffer
-			output.SetStdout(&buf)
+			// Capture both stdout and stderr
+			var stdoutBuf, stderrBuf bytes.Buffer
+			output.SetStdout(&stdoutBuf)
+			output.SetStderr(&stderrBuf)
 			defer output.SetStdout(os.Stdout)
+			defer output.SetStderr(os.Stderr)
 
 			displayGroupValidation(tt.groups)
 
-			capturedOutput := buf.String()
+			// Combine both outputs for testing
+			capturedOutput := stdoutBuf.String() + stderrBuf.String()
 			for _, expected := range tt.expectedOutput {
 				assert.Contains(t, capturedOutput, expected, "Output should contain expected text")
 			}

@@ -14,7 +14,7 @@ import (
 func TestModuleCache_GetSet(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(1*time.Second, logger)
-
+	defer cache.Close()
 	t.Run("set and get value", func(t *testing.T) {
 		cache.Set("key1", "value1")
 
@@ -42,7 +42,7 @@ func TestModuleCache_GetSet(t *testing.T) {
 func TestModuleCache_TTL(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(100*time.Millisecond, logger)
-
+	defer cache.Close()
 	t.Run("value expires after TTL", func(t *testing.T) {
 		cache.Set("expiring-key", "expiring-value")
 
@@ -80,7 +80,7 @@ func TestModuleCache_TTL(t *testing.T) {
 func TestModuleCache_Delete(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(1*time.Second, logger)
-
+	defer cache.Close()
 	t.Run("delete existing key", func(t *testing.T) {
 		cache.Set("key-to-delete", "value")
 
@@ -107,7 +107,7 @@ func TestModuleCache_Delete(t *testing.T) {
 func TestModuleCache_Clear(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(1*time.Second, logger)
-
+	defer cache.Close()
 	// Add multiple entries
 	cache.Set("key1", "value1")
 	cache.Set("key2", "value2")
@@ -130,7 +130,7 @@ func TestModuleCache_Clear(t *testing.T) {
 func TestModuleCache_Size(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(1*time.Second, logger)
-
+	defer cache.Close()
 	assert.Equal(t, 0, cache.Size())
 
 	cache.Set("key1", "value1")
@@ -149,7 +149,7 @@ func TestModuleCache_Size(t *testing.T) {
 func TestModuleCache_Stats(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(200*time.Millisecond, logger)
-
+	defer cache.Close()
 	// Add some entries
 	cache.Set("key1", "value1")
 	cache.Set("key2", "value2")
@@ -187,7 +187,7 @@ func TestModuleCache_Stats(t *testing.T) {
 func TestModuleCache_GetOrCompute(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(1*time.Second, logger)
-
+	defer cache.Close()
 	t.Run("computes and caches on miss", func(t *testing.T) {
 		computeCalled := false
 		compute := func() (string, error) {
@@ -239,7 +239,7 @@ func TestModuleCache_GetOrCompute(t *testing.T) {
 func TestModuleCache_Invalidate(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(1*time.Second, logger)
-
+	defer cache.Close()
 	// Add entries with different prefixes
 	cache.Set("repo1:v1.0.0", "value1")
 	cache.Set("repo1:v2.0.0", "value2")
@@ -275,7 +275,7 @@ func TestModuleCache_Invalidate(t *testing.T) {
 func TestModuleCache_Concurrency(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(1*time.Second, logger)
-
+	defer cache.Close()
 	t.Run("concurrent reads and writes", func(t *testing.T) {
 		var wg sync.WaitGroup
 		numGoroutines := 100
@@ -351,6 +351,7 @@ func TestModuleCache_DefaultTTL(t *testing.T) {
 	logger := logrus.New()
 	// Create cache with zero TTL (should use default)
 	cache := NewModuleCache(0, logger)
+	defer cache.Close()
 
 	cache.Set("key", "value")
 
@@ -359,4 +360,29 @@ func TestModuleCache_DefaultTTL(t *testing.T) {
 	value, found := cache.Get("key")
 	assert.True(t, found)
 	assert.Equal(t, "value", value)
+}
+
+func TestModuleCache_Close(t *testing.T) {
+	logger := logrus.New()
+	cache := NewModuleCache(1*time.Minute, logger)
+
+	// Set some data
+	cache.Set("key", "value")
+
+	// Verify it exists
+	value, found := cache.Get("key")
+	assert.True(t, found)
+	assert.Equal(t, "value", value)
+
+	// Close the cache
+	cache.Close()
+
+	// Cache should still work after close (data remains accessible)
+	value, found = cache.Get("key")
+	assert.True(t, found)
+	assert.Equal(t, "value", value)
+
+	// Multiple closes should be safe (idempotent)
+	cache.Close()
+	cache.Close()
 }

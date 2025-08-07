@@ -3,18 +3,20 @@
 
 version: 1
 
-source:
-  repo: "company/documentation-templates"
-  branch: "master"
-
-defaults:
-  branch_prefix: "sync/docs"
-  pr_labels:
-    - "automated-sync"
-    - "documentation"
-    - "templates"
-
-targets:
+groups:
+  - name: "Documentation Templates"
+    id: "docs-sync"
+    description: "Sync documentation templates across all repositories"
+    source:
+      repo: "company/documentation-templates"
+      branch: "master"
+    defaults:
+      branch_prefix: "sync/docs"
+      pr_labels:
+        - "automated-sync"
+        - "documentation"
+        - "templates"
+    targets:
   # Core service repositories
   - repo: "company/user-management-service"
     files:

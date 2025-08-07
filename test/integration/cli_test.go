@@ -27,23 +27,26 @@ func TestCLICommands(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "sync.yaml")
 
 	configContent := `version: 1
-source:
-  repo: "org/template"
-  branch: "master"
-defaults:
-  branch_prefix: "chore/sync-files"
-  pr_labels: ["automated-sync"]
-targets:
-  - repo: "org/service-a"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-    transform:
-      repo_name: true
-  - repo: "org/service-b"
-    files:
-      - src: "Makefile"
-        dest: "Makefile"
+groups:
+  - name: "Test Group"
+    id: "test-group"
+    source:
+      repo: "org/template"
+      branch: "master"
+    defaults:
+      branch_prefix: "chore/sync-files"
+      pr_labels: ["automated-sync"]
+    targets:
+      - repo: "org/service-a"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+        transform:
+          repo_name: true
+      - repo: "org/service-b"
+        files:
+          - src: "Makefile"
+            dest: "Makefile"
 `
 	err := os.WriteFile(configPath, []byte(configContent), 0o600)
 	require.NoError(t, err)
@@ -60,10 +63,13 @@ targets:
 	t.Run("validate command failure", func(t *testing.T) {
 		// Create invalid config
 		invalidConfigPath := filepath.Join(tmpDir, "invalid.yaml")
-		invalidContent := `version: 1  # Unsupported version
-source:
-  repo: ""  # Empty repo
-targets: []  # No targets
+		invalidContent := `version: 1
+groups:
+  - name: "Invalid Group"
+    id: "invalid-group"
+    source:
+      repo: ""  # Empty repo
+    targets: []  # No targets
 `
 		err := os.WriteFile(invalidConfigPath, []byte(invalidContent), 0o600)
 		require.NoError(t, err)
@@ -208,14 +214,17 @@ func TestCLIFlags(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "sync.yaml")
 
 	configContent := `version: 1
-source:
-  repo: "org/template"
-  branch: "master"
-targets:
-  - repo: "org/service"
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+groups:
+  - name: "Test Group"
+    id: "test-group"
+    source:
+      repo: "org/template"
+      branch: "master"
+    targets:
+      - repo: "org/service"
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `
 	err := os.WriteFile(configPath, []byte(configContent), 0o600)
 	require.NoError(t, err)
@@ -292,14 +301,17 @@ func TestCLIAliases(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "sync.yaml")
 
 	configContent := `version: 1
-source:
-  repo: "org/template"
-  branch: "master"
-targets:
-  - repo: "org/service"
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+groups:
+  - name: "Test Group"
+    id: "test-group"
+    source:
+      repo: "org/template"
+      branch: "master"
+    targets:
+      - repo: "org/service"
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `
 	err := os.WriteFile(configPath, []byte(configContent), 0o600)
 	require.NoError(t, err)

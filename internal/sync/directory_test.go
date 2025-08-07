@@ -73,6 +73,9 @@ func (suite *DirectoryTestSuite) SetupSuite() {
 
 // TearDownSuite cleans up the test suite
 func (suite *DirectoryTestSuite) TearDownSuite() {
+	if suite.processor != nil {
+		suite.processor.Close()
+	}
 	if suite.tempDir != "" {
 		err := os.RemoveAll(suite.tempDir)
 		suite.Require().NoError(err)

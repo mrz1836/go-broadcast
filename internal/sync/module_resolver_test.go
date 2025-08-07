@@ -13,6 +13,7 @@ import (
 func TestModuleResolver_ResolveVersion(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(5*time.Minute, logger)
+	defer cache.Close()
 	resolver := NewModuleResolver(logger, cache)
 
 	t.Run("resolves exact version without tags", func(t *testing.T) {
@@ -43,6 +44,7 @@ func TestModuleResolver_ResolveVersion(t *testing.T) {
 func TestModuleResolver_IsVersionConstraint(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(5*time.Minute, logger)
+	defer cache.Close()
 	resolver := NewModuleResolver(logger, cache)
 
 	tests := []struct {
@@ -73,6 +75,7 @@ func TestModuleResolver_IsVersionConstraint(t *testing.T) {
 func TestModuleResolver_resolveLatest(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(5*time.Minute, logger)
+	defer cache.Close()
 	resolver := NewModuleResolver(logger, cache)
 
 	t.Run("selects highest version", func(t *testing.T) {
@@ -115,6 +118,7 @@ func TestModuleResolver_resolveLatest(t *testing.T) {
 func TestModuleResolver_resolveExact(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(5*time.Minute, logger)
+	defer cache.Close()
 	resolver := NewModuleResolver(logger, cache)
 
 	t.Run("finds exact match", func(t *testing.T) {
@@ -135,6 +139,7 @@ func TestModuleResolver_resolveExact(t *testing.T) {
 func TestModuleResolver_resolveSemver(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(5*time.Minute, logger)
+	defer cache.Close()
 	resolver := NewModuleResolver(logger, cache)
 
 	versions := []string{
@@ -178,6 +183,7 @@ func TestModuleResolver_resolveSemver(t *testing.T) {
 func TestModuleResolver_CacheIntegration(t *testing.T) {
 	logger := logrus.New()
 	cache := NewModuleCache(5*time.Minute, logger)
+	defer cache.Close()
 	resolver := NewModuleResolver(logger, cache)
 
 	t.Run("uses cached version on second call", func(t *testing.T) {

@@ -159,8 +159,17 @@ func GetRootCmd() *cobra.Command {
 
 // Execute runs the CLI
 func Execute() {
+	if err := ExecuteWithContext(context.Background()); err != nil {
+		output.Error(err.Error())
+		os.Exit(1)
+	}
+}
+
+// ExecuteWithContext runs the CLI with the provided context
+// This function is more testable as it returns errors instead of calling os.Exit
+func ExecuteWithContext(ctx context.Context) error {
 	// Set up context with cancellation
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// Handle interrupt signals
@@ -174,10 +183,7 @@ func Execute() {
 	}()
 
 	// Execute command with context
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		output.Error(err.Error())
-		os.Exit(1)
-	}
+	return rootCmd.ExecuteContext(ctx)
 }
 
 // createSetupLogging creates an isolated logging setup function for the given flags

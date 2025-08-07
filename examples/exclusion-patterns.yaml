@@ -3,11 +3,13 @@
 
 version: 1
 
-source:
-  repo: "company/pattern-examples"
-  branch: "master"
-
-targets:
+groups:
+  - name: "Pattern Examples"
+    id: "pattern-examples"
+    source:
+      repo: "company/pattern-examples"
+      branch: "master"
+    targets:
   # Example 1: File Extension Patterns
   - repo: "company/extension-demo"
     directories:

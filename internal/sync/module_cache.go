@@ -19,6 +19,8 @@ type ModuleCache struct {
 	mu      sync.RWMutex
 	ttl     time.Duration
 	logger  *logrus.Logger
+	done    chan struct{}
+	once    sync.Once
 }
 
 // NewModuleCache creates a new module cache with the specified TTL
@@ -31,6 +33,7 @@ func NewModuleCache(ttl time.Duration, logger *logrus.Logger) *ModuleCache {
 		entries: make(map[string]*ModuleCacheEntry),
 		ttl:     ttl,
 		logger:  logger,
+		done:    make(chan struct{}),
 	}
 
 	// Start cleanup goroutine
@@ -130,24 +133,36 @@ func (c *ModuleCache) cleanupExpired() {
 	ticker := time.NewTicker(c.ttl / 2) // Cleanup every half TTL
 	defer ticker.Stop()
 
-	for range ticker.C {
-		c.mu.Lock()
-		now := time.Now()
-		expired := 0
+	for {
+		select {
+		case <-c.done:
+			return
+		case <-ticker.C:
+			c.mu.Lock()
+			now := time.Now()
+			expired := 0
 
-		for key, entry := range c.entries {
-			if now.After(entry.ExpiresAt) {
-				delete(c.entries, key)
-				expired++
+			for key, entry := range c.entries {
+				if now.After(entry.ExpiresAt) {
+					delete(c.entries, key)
+					expired++
+				}
+			}
+
+			c.mu.Unlock()
+
+			if expired > 0 {
+				c.logger.WithField("expired_entries", expired).Debug("Cleaned up expired cache entries")
 			}
 		}
-
-		c.mu.Unlock()
-
-		if expired > 0 {
-			c.logger.WithField("expired_entries", expired).Debug("Cleaned up expired cache entries")
-		}
 	}
+}
+
+// Close shuts down the cache and stops the cleanup goroutine
+func (c *ModuleCache) Close() {
+	c.once.Do(func() {
+		close(c.done)
+	})
 }
 
 // Stats returns cache statistics

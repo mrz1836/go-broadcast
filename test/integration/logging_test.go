@@ -76,19 +76,22 @@ func TestLoggingIntegration(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "sync.yaml")
 
 	configContent := `version: 1
-source:
-  repo: "org/template"
-  branch: "master"
-defaults:
-  branch_prefix: "chore/sync-files"
-  pr_labels: ["automated-sync"]
-targets:
-  - repo: "org/service-a"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-    transform:
-      repo_name: true
+groups:
+  - name: "Test Group"
+    id: "test-group"
+    source:
+      repo: "org/template"
+      branch: "master"
+    defaults:
+      branch_prefix: "chore/sync-files"
+      pr_labels: ["automated-sync"]
+    targets:
+      - repo: "org/service-a"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+        transform:
+          repo_name: true
 `
 	err := os.WriteFile(configPath, []byte(configContent), 0o600)
 	require.NoError(t, err)
@@ -762,14 +765,17 @@ func TestLoggingBackwardCompatibility(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "sync.yaml")
 
 	configContent := `version: 1
-source:
-  repo: "org/template"
-  branch: "master"
-targets:
-  - repo: "org/service-a"
-    files:
-      - src: "README.md"
-        dest: "README.md"
+groups:
+  - name: "Test Group"
+    id: "test-group"
+    source:
+      repo: "org/template"
+      branch: "master"
+    targets:
+      - repo: "org/service-a"
+        files:
+          - src: "README.md"
+            dest: "README.md"
 `
 	err := os.WriteFile(configPath, []byte(configContent), 0o600)
 	require.NoError(t, err)

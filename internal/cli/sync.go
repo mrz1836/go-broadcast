@@ -17,6 +17,118 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/transform"
 )
 
+// SyncService defines the interface for sync operations
+type SyncService interface {
+	Sync(ctx context.Context, targets []string) error
+}
+
+// ConfigLoader defines the interface for configuration loading
+type ConfigLoader interface {
+	LoadConfig(configPath string) (*config.Config, error)
+	ValidateConfig(cfg *config.Config) error
+}
+
+// SyncEngineFactory defines the interface for creating sync engines
+type SyncEngineFactory interface {
+	CreateSyncEngine(ctx context.Context, cfg *config.Config, flags *Flags, logger *logrus.Logger) (SyncService, error)
+}
+
+// DefaultConfigLoader implements ConfigLoader
+type DefaultConfigLoader struct{}
+
+// LoadConfig loads and parses configuration from file
+func (d *DefaultConfigLoader) LoadConfig(configPath string) (*config.Config, error) {
+	// Check if config file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("%w: %s", ErrConfigFileNotFound, configPath)
+	}
+
+	// Load and parse configuration
+	return config.Load(configPath)
+}
+
+// ValidateConfig validates the configuration
+func (d *DefaultConfigLoader) ValidateConfig(cfg *config.Config) error {
+	return cfg.ValidateWithLogging(context.Background(), nil)
+}
+
+// DefaultSyncEngineFactory implements SyncEngineFactory
+type DefaultSyncEngineFactory struct{}
+
+// CreateSyncEngine creates a new sync engine with all dependencies
+func (d *DefaultSyncEngineFactory) CreateSyncEngine(ctx context.Context, cfg *config.Config, flags *Flags, logger *logrus.Logger) (SyncService, error) {
+	return createSyncEngineWithFlags(ctx, cfg, flags, logger)
+}
+
+// SyncCommand represents a testable sync command
+type SyncCommand struct {
+	configLoader      ConfigLoader
+	syncEngineFactory SyncEngineFactory
+	outputWriter      output.Writer
+}
+
+// NewSyncCommand creates a new SyncCommand with default dependencies
+func NewSyncCommand() *SyncCommand {
+	return &SyncCommand{
+		configLoader:      &DefaultConfigLoader{},
+		syncEngineFactory: &DefaultSyncEngineFactory{},
+		outputWriter:      output.NewColoredWriter(os.Stdout, os.Stderr),
+	}
+}
+
+// NewSyncCommandWithDependencies creates a new SyncCommand with injectable dependencies
+func NewSyncCommandWithDependencies(configLoader ConfigLoader, syncEngineFactory SyncEngineFactory, outputWriter output.Writer) *SyncCommand {
+	return &SyncCommand{
+		configLoader:      configLoader,
+		syncEngineFactory: syncEngineFactory,
+		outputWriter:      outputWriter,
+	}
+}
+
+// ExecuteSync runs the sync operation with the given flags and arguments
+func (s *SyncCommand) ExecuteSync(ctx context.Context, flags *Flags, args []string) error {
+	logger := logrus.StandardLogger()
+	log := logger.WithField("command", "sync")
+
+	// Load configuration
+	cfg, err := s.configLoader.LoadConfig(flags.ConfigFile)
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	// Validate configuration
+	if validateErr := s.configLoader.ValidateConfig(cfg); validateErr != nil {
+		return fmt.Errorf("invalid configuration: %w", validateErr)
+	}
+
+	// Filter targets if specified
+	targets := args
+	if len(targets) > 0 {
+		log.WithField("targets", targets).Info("Syncing specific targets")
+	} else {
+		log.Info("Syncing all configured targets")
+	}
+
+	// Show dry-run warning
+	if flags.DryRun {
+		s.outputWriter.Warn("DRY-RUN MODE: No changes will be made to repositories")
+	}
+
+	// Initialize sync engine
+	syncEngine, err := s.syncEngineFactory.CreateSyncEngine(ctx, cfg, flags, logger)
+	if err != nil {
+		return fmt.Errorf("failed to initialize sync engine: %w", err)
+	}
+
+	// Execute sync
+	if err := syncEngine.Sync(ctx, targets); err != nil {
+		return fmt.Errorf("sync failed: %w", err)
+	}
+
+	s.outputWriter.Success("Sync completed successfully")
+	return nil
+}
+
 //nolint:gochecknoglobals // Package-level variables for CLI flags
 var (
 	groupFilter []string

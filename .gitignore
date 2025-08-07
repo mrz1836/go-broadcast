@@ -115,3 +115,4 @@ test/fixtures/directories/
 /.github/pre-commit/gofortress-pre-commit
 /cmd/profile_demo/coverage.html
 /io_coverage.html
+/coverage.html

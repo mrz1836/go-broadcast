@@ -37,6 +37,7 @@ type DirectoryProcessor struct {
 	logger          *logrus.Entry
 	moduleDetector  *ModuleDetector
 	moduleResolver  *ModuleResolver
+	moduleCache     *ModuleCache
 }
 
 // NewDirectoryProcessor creates a new directory processor
@@ -56,6 +57,14 @@ func NewDirectoryProcessor(logger *logrus.Entry, workerCount int) *DirectoryProc
 		logger:          logger,
 		moduleDetector:  moduleDetector,
 		moduleResolver:  moduleResolver,
+		moduleCache:     moduleCache,
+	}
+}
+
+// Close shuts down the directory processor and cleans up resources
+func (dp *DirectoryProcessor) Close() {
+	if dp.moduleCache != nil {
+		dp.moduleCache.Close()
 	}
 }
 
@@ -78,6 +87,7 @@ func (rs *RepositorySync) processDirectories(ctx context.Context) ([]FileChange,
 
 	// Create directory processor
 	processor := NewDirectoryProcessor(rs.logger, 10) // Use default worker count
+	defer processor.Close()
 
 	sourcePath := filepath.Join(rs.tempDir, "source")
 
@@ -542,6 +552,7 @@ func (rs *RepositorySync) ProcessDirectoriesWithOptions(ctx context.Context, opt
 
 	// Create directory processor with custom options
 	processor := NewDirectoryProcessor(rs.logger, workerCount)
+	defer processor.Close()
 
 	sourcePath := filepath.Join(rs.tempDir, "source")
 	var allChanges []FileChange
