@@ -84,19 +84,16 @@ The CLI tool will be built and used in GitHub Actions workflows:
 
 ```bash
 # Parse coverage data
-./gofortress-coverage parse --file coverage.out --output coverage.json
+./gofortress-coverage parse --file coverage.txt --output coverage.json --format json --threshold 80
 
-# Generate badge
-./gofortress-coverage badge --coverage 85.5 --output badge.svg
+# Complete coverage analysis (parse, generate badge, report, and dashboard)
+./gofortress-coverage complete --file coverage.txt
 
-# Generate report
-./gofortress-coverage report --data coverage.json --output report.html
+# Update coverage history
+./gofortress-coverage history update
 
-# Update history
-./gofortress-coverage history --add coverage.json --branch main --commit abc123
-
-# Create basic PR comment (compact template)
-./gofortress-coverage comment --pr 123 --coverage coverage.json --template compact
+# Create or update PR comment
+./gofortress-coverage comment --pr 123 --coverage-file coverage.txt --template comprehensive
 
 # Create PR comment with anti-spam and templates
 ./gofortress-coverage comment --pr 123 --coverage coverage.out \

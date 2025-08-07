@@ -28,7 +28,6 @@ github.com/mrz1836/go-broadcast/coverage/internal/badge/generator.go:44.16,46.3 
 `
 
 func TestParseCommand(t *testing.T) {
-	t.Skip("Parse command has been removed - tests disabled")
 	// Disable GitHub integration for tests
 	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
 	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
@@ -113,7 +112,7 @@ func TestParseCommand(t *testing.T) {
 
 			// Create a new root command for each test
 			testCmd := &cobra.Command{Use: "test"}
-			// testCmd.AddCommand(parseCmd) // Command removed
+			testCmd.AddCommand(parseCmd)
 			testCmd.SetOut(&buf)
 			testCmd.SetErr(&buf)
 			testCmd.SetArgs(tt.args)

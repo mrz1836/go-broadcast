@@ -76,135 +76,135 @@ groups:
         pr_team_reviewers: ["security-team", "compliance-team"]
 
       # Development Service - Standard .github sync
-  - repo: "company/user-service"
-    directories:
-      # Standard workflow sync
-      - src: ".github/workflows"
-        dest: ".github/workflows"
-        exclude:
-          - "*-local.yml"
-          - "production-*" # Dev service doesn't need prod workflows
-          - "compliance-*" # No compliance requirements
-        transform:
-          repo_name: true
-          variables:
-            SERVICE_TYPE: "api"
-            DEPLOY_ENV: "development"
-            MONITORING: "standard"
+      - repo: "company/user-service"
+        directories:
+          # Standard workflow sync
+          - src: ".github/workflows"
+            dest: ".github/workflows"
+            exclude:
+              - "*-local.yml"
+              - "production-*" # Dev service doesn't need prod workflows
+              - "compliance-*" # No compliance requirements
+            transform:
+              repo_name: true
+              variables:
+                SERVICE_TYPE: "api"
+                DEPLOY_ENV: "development"
+                MONITORING: "standard"
 
-      # Basic coverage system
-      - src: ".github/coverage"
-        dest: ".github/coverage"
-        exclude:
-          - "*.out"
-          - "*.test"
-          - "gofortress-coverage"
+          # Basic coverage system
+          - src: ".github/coverage"
+            dest: ".github/coverage"
+            exclude:
+              - "*.out"
+              - "*.test"
+              - "gofortress-coverage"
 
-  # Frontend Application - Customized GitHub setup
-  - repo: "company/webapp-frontend"
-    directories:
-      # Frontend-specific workflows
-      - src: ".github/workflows"
-        dest: ".github/workflows"
-        exclude:
-          - "go-*" # Skip Go-specific workflows
-          - "*-api-*" # Skip API workflows
-          - "docker-build-*" # Different containerization
-          - "security-scan-*" # Different security tools
-        transform:
-          repo_name: true
-          variables:
-            SERVICE_TYPE: "frontend"
-            NODE_VERSION: "18"
-            BUILD_TOOL: "vite"
-            DEPLOY_TARGET: "cdn"
+      # Frontend Application - Customized GitHub setup
+      - repo: "company/webapp-frontend"
+        directories:
+          # Frontend-specific workflows
+          - src: ".github/workflows"
+            dest: ".github/workflows"
+            exclude:
+              - "go-*" # Skip Go-specific workflows
+              - "*-api-*" # Skip API workflows
+              - "docker-build-*" # Different containerization
+              - "security-scan-*" # Different security tools
+            transform:
+              repo_name: true
+              variables:
+                SERVICE_TYPE: "frontend"
+                NODE_VERSION: "18"
+                BUILD_TOOL: "vite"
+                DEPLOY_TARGET: "cdn"
 
-      # Frontend issue templates
-      - src: ".github/ISSUE_TEMPLATE/frontend"
-        dest: ".github/ISSUE_TEMPLATE"
-        preserve_structure: true
+          # Frontend issue templates
+          - src: ".github/ISSUE_TEMPLATE/frontend"
+            dest: ".github/ISSUE_TEMPLATE"
+            preserve_structure: true
 
-      # Custom PR templates for frontend
-      - src: ".github/PULL_REQUEST_TEMPLATE/frontend.md"
-        dest: ".github/PULL_REQUEST_TEMPLATE.md"
+          # Custom PR templates for frontend
+          - src: ".github/PULL_REQUEST_TEMPLATE/frontend.md"
+            dest: ".github/PULL_REQUEST_TEMPLATE.md"
 
-  # Infrastructure Repository - DevOps focused
-  - repo: "company/infrastructure"
-    directories:
-      # Infrastructure-specific workflows
-      - src: ".github/workflows"
-        dest: ".github/workflows"
-        exclude:
-          - "app-*" # Skip application workflows
-          - "service-*" # Skip service workflows
-        include_only: # Only infrastructure workflows
-          - "terraform-*"
-          - "kubernetes-*"
-          - "security-*"
-          - "compliance-*"
-        transform:
-          repo_name: true
-          variables:
-            REPO_TYPE: "infrastructure"
-            TERRAFORM_VERSION: "1.6"
-            KUBERNETES_VERSION: "1.28"
+      # Infrastructure Repository - DevOps focused
+      - repo: "company/infrastructure"
+        directories:
+          # Infrastructure-specific workflows
+          - src: ".github/workflows"
+            dest: ".github/workflows"
+            exclude:
+              - "app-*" # Skip application workflows
+              - "service-*" # Skip service workflows
+            include_only: # Only infrastructure workflows
+              - "terraform-*"
+              - "kubernetes-*"
+              - "security-*"
+              - "compliance-*"
+            transform:
+              repo_name: true
+              variables:
+                REPO_TYPE: "infrastructure"
+                TERRAFORM_VERSION: "1.6"
+                KUBERNETES_VERSION: "1.28"
 
-      # Infrastructure issue templates
-      - src: ".github/ISSUE_TEMPLATE/infrastructure"
-        dest: ".github/ISSUE_TEMPLATE"
+          # Infrastructure issue templates
+          - src: ".github/ISSUE_TEMPLATE/infrastructure"
+            dest: ".github/ISSUE_TEMPLATE"
 
-      # Security policies for infrastructure
-      - src: ".github/security"
-        dest: ".github/security"
-        transform:
-          variables:
-            SECURITY_CONTACT: "security@company.com"
-            INCIDENT_RESPONSE: "soc@company.com"
+          # Security policies for infrastructure
+          - src: ".github/security"
+            dest: ".github/security"
+            transform:
+              variables:
+                SECURITY_CONTACT: "security@company.com"
+                INCIDENT_RESPONSE: "soc@company.com"
 
-  # Legacy System - Minimal sync for gradual modernization
-  - repo: "company/legacy-monolith"
-    directories:
-      # Only essential modern workflows
-      - src: ".github/workflows"
-        dest: ".github/workflows"
-        exclude:
-          - "*" # Exclude everything by default
-        include_only:
-          - "security-*.yml" # Only security scanning
-          - "dependency-*.yml" # Only dependency updates
-          - "codeql-*.yml" # Only code analysis
-        transform:
-          repo_name: true
-          variables:
-            LEGACY_MODE: "true"
-            GRADUAL_MIGRATION: "enabled"
+      # Legacy System - Minimal sync for gradual modernization
+      - repo: "company/legacy-monolith"
+        directories:
+          # Only essential modern workflows
+          - src: ".github/workflows"
+            dest: ".github/workflows"
+            exclude:
+              - "*" # Exclude everything by default
+            include_only:
+              - "security-*.yml" # Only security scanning
+              - "dependency-*.yml" # Only dependency updates
+              - "codeql-*.yml" # Only code analysis
+            transform:
+              repo_name: true
+              variables:
+                LEGACY_MODE: "true"
+                GRADUAL_MIGRATION: "enabled"
 
-    # Legacy system has different approval requirements
-    pr_reviewers: ["legacy-team-lead", "modernization-lead"]
-    pr_team_reviewers: ["legacy-maintainers"]
+        # Legacy system has different approval requirements
+        pr_reviewers: ["legacy-team-lead", "modernization-lead"]
+        pr_team_reviewers: ["legacy-maintainers"]
 
-  # Documentation Repository - Docs-focused GitHub setup
-  - repo: "company/documentation"
-    directories:
-      # Documentation workflows
-      - src: ".github/workflows"
-        dest: ".github/workflows"
-        exclude:
-          - "build-*" # Skip build workflows
-          - "test-*" # Skip test workflows
-          - "deploy-*" # Skip deployment workflows
-        include_only:
-          - "docs-*" # Only documentation workflows
-          - "spell-check-*" # Spell checking
-          - "link-check-*" # Link validation
-        transform:
-          variables:
-            DOCS_GENERATOR: "mkdocs"
-            PUBLISH_BRANCH: "gh-pages"
+      # Documentation Repository - Docs-focused GitHub setup
+      - repo: "company/documentation"
+        directories:
+          # Documentation workflows
+          - src: ".github/workflows"
+            dest: ".github/workflows"
+            exclude:
+              - "build-*" # Skip build workflows
+              - "test-*" # Skip test workflows
+              - "deploy-*" # Skip deployment workflows
+            include_only:
+              - "docs-*" # Only documentation workflows
+              - "spell-check-*" # Spell checking
+              - "link-check-*" # Link validation
+            transform:
+              variables:
+                DOCS_GENERATOR: "mkdocs"
+                PUBLISH_BRANCH: "gh-pages"
 
-      # Documentation issue templates
-      - src: ".github/ISSUE_TEMPLATE/docs"
-        dest: ".github/ISSUE_TEMPLATE"
+          # Documentation issue templates
+          - src: ".github/ISSUE_TEMPLATE/docs"
+            dest: ".github/ISSUE_TEMPLATE"
 # Expected Performance Metrics for this Configuration:
 #
 # Per Repository Sync Times:

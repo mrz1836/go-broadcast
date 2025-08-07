@@ -192,13 +192,20 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 		// Mock git operations
 		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
+		mockGit.On("ListBranches", mock.Anything, mock.Anything).Return([]string{"main"}, nil)
 		mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("content"), nil)
-		mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
+			Number: 1,
+			State:  "open",
+			Title:  "Test PR",
+		}, nil)
 
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
@@ -317,13 +324,22 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 		// Mock git operations for the enabled group
 		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
+		mockGit.On("ListBranches", mock.Anything, mock.Anything).Return([]string{"main"}, nil)
 		mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
-		mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{{Name: "main"}}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).Return("test-user", nil)
+		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
+			Number: 1,
+			State:  "open",
+			Title:  "Test PR",
+		}, nil)
 
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
@@ -524,15 +540,34 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 		})).Return(docsState, nil)
 
 		// Mock git operations for all groups
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		// When Clone is called, create the source directory to satisfy directory processing
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			// Create the directory that would be created by a real clone
+			clonePath := args.Get(2).(string)
+			_ = os.MkdirAll(clonePath, 0o750)
+
+			// Create basic structure to satisfy directory processing
+			_ = os.MkdirAll(filepath.Join(clonePath, ".github"), 0o750)
+			_ = os.MkdirAll(filepath.Join(clonePath, "policies"), 0o750)
+			_ = os.WriteFile(filepath.Join(clonePath, "README.template.md"), []byte("test"), 0o600)
+		}).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
+		mockGit.On("ListBranches", mock.Anything, mock.Anything).Return([]string{"main"}, nil)
 		mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
-		mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{{Name: "main"}}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).Return("test-user", nil)
+		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
+			Number: 1,
+			State:  "open",
+			Title:  "Test PR",
+		}, nil)
 
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
@@ -665,15 +700,34 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 		// Mock git operations for all groups
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		// When Clone is called, create the source directory to satisfy directory processing
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			// Create the directory that would be created by a real clone
+			clonePath := args.Get(2).(string)
+			_ = os.MkdirAll(clonePath, 0o750)
+
+			// Create basic structure to satisfy directory processing
+			_ = os.MkdirAll(filepath.Join(clonePath, ".github"), 0o750)
+			_ = os.MkdirAll(filepath.Join(clonePath, "policies"), 0o750)
+			_ = os.WriteFile(filepath.Join(clonePath, "README.template.md"), []byte("test"), 0o600)
+		}).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
+		mockGit.On("ListBranches", mock.Anything, mock.Anything).Return([]string{"main"}, nil)
 		mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
-		mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{{Name: "main"}}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).Return("test-user", nil)
+		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
+			Number: 1,
+			State:  "open",
+			Title:  "Test PR",
+		}, nil)
 
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
@@ -822,7 +876,17 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 		// Mock git operations for all groups
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		// When Clone is called, create the source directory to satisfy directory processing
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			// Create the directory that would be created by a real clone
+			clonePath := args.Get(2).(string)
+			_ = os.MkdirAll(clonePath, 0o750)
+
+			// Create basic structure to satisfy directory processing
+			_ = os.MkdirAll(filepath.Join(clonePath, ".github"), 0o750)
+			_ = os.MkdirAll(filepath.Join(clonePath, "policies"), 0o750)
+			_ = os.WriteFile(filepath.Join(clonePath, "README.template.md"), []byte("test"), 0o600)
+		}).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -830,7 +894,13 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
-		mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{{Name: "main"}}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).Return("test-user", nil)
+		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
+			Number: 1,
+			State:  "open",
+			Title:  "Test PR",
+		}, nil)
 
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
@@ -1055,7 +1125,13 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
-		mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{{Name: "main"}}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).Return("test-user", nil)
+		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
+			Number: 1,
+			State:  "open",
+			Title:  "Test PR",
+		}, nil)
 
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
@@ -1330,7 +1406,17 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 		// Mock git operations for all groups
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		// When Clone is called, create the source directory to satisfy directory processing
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			// Create the directory that would be created by a real clone
+			clonePath := args.Get(2).(string)
+			_ = os.MkdirAll(clonePath, 0o750)
+
+			// Create basic structure to satisfy directory processing
+			_ = os.MkdirAll(filepath.Join(clonePath, ".github"), 0o750)
+			_ = os.MkdirAll(filepath.Join(clonePath, "policies"), 0o750)
+			_ = os.WriteFile(filepath.Join(clonePath, "README.template.md"), []byte("test"), 0o600)
+		}).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -1338,7 +1424,13 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
-		mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{{Name: "main"}}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).Return("test-user", nil)
+		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
+			Number: 1,
+			State:  "open",
+			Title:  "Test PR",
+		}, nil)
 
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
@@ -1476,13 +1568,22 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 		// Mock git operations - with sufficient calls for multiple targets per group
 		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
+		mockGit.On("ListBranches", mock.Anything, mock.Anything).Return([]string{"main"}, nil)
 		mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
-		mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{{Name: "main"}}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).Return("test-user", nil)
+		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
+			Number: 1,
+			State:  "open",
+			Title:  "Test PR",
+		}, nil)
 
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
@@ -1576,13 +1677,22 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 		// Mock git operations
 		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
+		mockGit.On("ListBranches", mock.Anything, mock.Anything).Return([]string{"main"}, nil)
 		mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
-		mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{{Name: "main"}}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).Return("test-user", nil)
+		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
+			Number: 1,
+			State:  "open",
+			Title:  "Test PR",
+		}, nil)
 
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
@@ -1712,13 +1822,22 @@ func TestMultiGroupSync_GroupFiltering(t *testing.T) {
 		// Mock git operations
 		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
+		mockGit.On("ListBranches", mock.Anything, mock.Anything).Return([]string{"main"}, nil)
 		mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
-		mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{{Name: "main"}}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).Return("test-user", nil)
+		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
+			Number: 1,
+			State:  "open",
+			Title:  "Test PR",
+		}, nil)
 
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
@@ -1848,13 +1967,22 @@ func TestMultiGroupSync_GroupFiltering(t *testing.T) {
 		// Mock git operations
 		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
+		mockGit.On("ListBranches", mock.Anything, mock.Anything).Return([]string{"main"}, nil)
 		mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
-		mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{{Name: "main"}}, nil)
+		mockGH.On("GetCurrentUser", mock.Anything).Return("test-user", nil)
+		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
+			Number: 1,
+			State:  "open",
+			Title:  "Test PR",
+		}, nil)
 
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
