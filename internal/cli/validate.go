@@ -381,14 +381,20 @@ func checkCircularDependency(groupID string, dependencyMap map[string][]string, 
 
 // validateSourceFilesExist checks if all configured source files exist in the source repository
 func validateSourceFilesExist(ctx context.Context, cfg *config.Config, logConfig *logging.LogConfig) {
-	log := logrus.WithField("component", "validate-files")
-
 	// Initialize GitHub client (reuse from previous function, but handle errors gracefully)
 	ghClient, err := gh.NewClient(ctx, logrus.StandardLogger(), logConfig)
 	if err != nil {
 		output.Info("  ⚠ Skipping source file validation (GitHub client unavailable)")
 		return // Don't fail if client can't be created
 	}
+
+	validateSourceFilesExistWithClient(ctx, cfg, ghClient)
+}
+
+// validateSourceFilesExistWithClient checks if all configured source files exist in the source repository
+// This version accepts a GitHub client for better testability
+func validateSourceFilesExistWithClient(ctx context.Context, cfg *config.Config, ghClient gh.Client) {
+	log := logrus.WithField("component", "validate-files")
 
 	// Collect all unique source files across all targets
 	sourceFiles := make(map[string]bool)

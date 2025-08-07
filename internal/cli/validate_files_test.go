@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"testing"
 
@@ -9,6 +11,7 @@ import (
 
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
 // TestValidateSourceFilesExist tests the validateSourceFilesExist function
@@ -167,7 +170,45 @@ func TestValidateSourceFilesExist(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Skip("Skipping test that requires refactoring validateSourceFilesExist to accept a client parameter")
+			// Create mock client if needed
+			var mockClient *gh.MockClient
+			if tc.setupMocks != nil {
+				mockClient = new(gh.MockClient)
+				tc.setupMocks(mockClient)
+			}
+
+			// If client error is expected, handle the case where no client is available
+			if tc.clientError != nil {
+				// For this test case, we test the main function which handles client creation errors
+				// Since we can't easily force client creation to fail in the test,
+				// we'll skip this specific test case for now
+				t.Skip("Cannot easily simulate client creation failure in test")
+				return
+			}
+
+			// Capture output
+			origStdout := output.Stdout()
+			origStderr := output.Stderr()
+			var stdoutBuf, stderrBuf bytes.Buffer
+			output.SetStdout(&stdoutBuf)
+			output.SetStderr(&stderrBuf)
+			defer func() {
+				output.SetStdout(origStdout)
+				output.SetStderr(origStderr)
+			}()
+
+			// Call the function with mock client
+			ctx := context.Background()
+			validateSourceFilesExistWithClient(ctx, tc.config, mockClient)
+
+			// Verify output - combine stdout and stderr
+			outputStr := stdoutBuf.String() + stderrBuf.String()
+			tc.verifyOutput(t, outputStr)
+
+			// Verify mock expectations
+			if mockClient != nil {
+				mockClient.AssertExpectations(t)
+			}
 		})
 	}
 }
@@ -187,16 +228,52 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 					{
 						Repo: "org/target1",
 						Files: []config.FileMapping{
-							{Src: "", Dest: "README.md"}, // Empty source path
+							{Src: "", Dest: "README.md"},              // Empty source path
+							{Src: "valid-file.txt", Dest: "file.txt"}, // Valid file to ensure processing continues
 						},
 					},
 				},
 			}},
 		}
 
-		// Would test that empty paths are handled gracefully
-		t.Skip("Skipping test that requires refactoring")
-		_ = cfg
+		// Create mock client
+		mockClient := gh.NewMockClient()
+
+		// Setup mock expectations
+		// Both empty path and valid file will be checked (current behavior)
+		// Empty path will fail, but validation continues
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "", "master").
+			Return(nil, gh.ErrFileNotFound)
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "valid-file.txt", "master").
+			Return(&gh.FileContent{
+				Path:    "valid-file.txt",
+				Content: []byte("test content"),
+			}, nil)
+
+		// Capture output
+		origStdout := output.Stdout()
+		origStderr := output.Stderr()
+		var stdoutBuf, stderrBuf bytes.Buffer
+		output.SetStdout(&stdoutBuf)
+		output.SetStderr(&stderrBuf)
+		defer func() {
+			output.SetStdout(origStdout)
+			output.SetStderr(origStderr)
+		}()
+
+		// Run the validation
+		ctx := context.Background()
+		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
+
+		// Verify output - combine stdout and stderr
+		outputStr := stdoutBuf.String() + stderrBuf.String()
+
+		// Verify that empty paths are reported as not found and validation continues
+		assert.Contains(t, outputStr, "Source file not found: ", "Should report empty path as not found")
+		assert.Contains(t, outputStr, "Some source files missing (1/2 found)", "Should report partial success")
+
+		// Verify mock expectations - both paths should be checked
+		mockClient.AssertExpectations(t)
 	})
 
 	t.Run("Special characters in file paths", func(t *testing.T) {
@@ -222,9 +299,42 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 			}},
 		}
 
-		// Would test that special characters in paths are handled correctly
-		t.Skip("Skipping test that requires refactoring")
-		_ = cfg
+		// Create mock client
+		mockClient := new(gh.MockClient)
+
+		// Setup mock expectations - all special character paths should work
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "path/with spaces/file.txt", "master").
+			Return(&gh.FileContent{Path: "path/with spaces/file.txt", Content: []byte("content with spaces")}, nil)
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "path/with-dashes/file.txt", "master").
+			Return(&gh.FileContent{Path: "path/with-dashes/file.txt", Content: []byte("content with dashes")}, nil)
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "path/with_underscores/file.txt", "master").
+			Return(&gh.FileContent{Path: "path/with_underscores/file.txt", Content: []byte("content with underscores")}, nil)
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "path/with.dots/file.txt", "master").
+			Return(&gh.FileContent{Path: "path/with.dots/file.txt", Content: []byte("content with dots")}, nil)
+
+		// Capture output
+		origStdout := output.Stdout()
+		origStderr := output.Stderr()
+		var stdoutBuf, stderrBuf bytes.Buffer
+		output.SetStdout(&stdoutBuf)
+		output.SetStderr(&stderrBuf)
+		defer func() {
+			output.SetStdout(origStdout)
+			output.SetStderr(origStderr)
+		}()
+
+		// Call the function with mock client
+		ctx := context.Background()
+		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
+
+		// Verify output - combine stdout and stderr
+		outputStr := stdoutBuf.String() + stderrBuf.String()
+
+		// Verify that all files with special characters are found
+		assert.Contains(t, outputStr, "All source files exist (4/4)", "Should successfully validate all files with special characters")
+
+		// Verify mock expectations
+		mockClient.AssertExpectations(t)
 	})
 
 	t.Run("Very long file paths", func(t *testing.T) {
