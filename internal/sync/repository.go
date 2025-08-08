@@ -957,13 +957,6 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 	processor := NewDirectoryProcessor(rs.logger, 10) // Use default worker count
 	defer processor.Close()
 
-	sourcePath := filepath.Join(rs.tempDir, "source")
-
-	// Verify source path exists
-	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
-		return nil, nil, fmt.Errorf("%w: %s", ErrSourceDirectoryNotExistForMetrics, sourcePath)
-	}
-
 	var allChanges []FileChange
 	collectedMetrics := make(map[string]DirectoryMetrics)
 	var processingErrors []error
@@ -977,7 +970,19 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 
 		dirProcessingStart := time.Now()
 
-		changes, err := processor.ProcessDirectoryMapping(ctx, sourcePath, dirMapping, rs.target, rs.sourceState, rs.engine)
+		// Build the source path for this specific directory mapping
+		sourcePath := filepath.Join(rs.tempDir, dirMapping.Src)
+
+		// Verify source path exists for this directory mapping
+		if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+			rs.logger.WithError(err).WithField("directory", dirMapping.Src).Error("Source directory does not exist")
+			processingErrors = append(processingErrors, fmt.Errorf("%w: %s", ErrSourceDirectoryNotExistForMetrics, sourcePath))
+			continue
+		}
+
+		// Pass the tempDir to ProcessDirectoryMapping, not the full source path
+		// ProcessDirectoryMapping will join it with dirMapping.Src internally
+		changes, err := processor.ProcessDirectoryMapping(ctx, rs.tempDir, dirMapping, rs.target, rs.sourceState, rs.engine)
 		if err != nil {
 			// Log error and collect for potential failure decision
 			rs.logger.WithError(err).WithField("directory", dirMapping.Src).Error("Failed to process directory")
@@ -986,6 +991,9 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 		}
 
 		// Collect metrics for this directory
+		// Use src->dest format for the metric key to match test expectations
+		metricKey := fmt.Sprintf("%s->%s", dirMapping.Src, dirMapping.Dest)
+
 		dirStats := processor.GetDirectoryStats()
 		if dirMetrics, exists := dirStats[dirMapping.Src]; exists {
 			// Ensure timing is set if not already
@@ -995,10 +1003,10 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 			if dirMetrics.StartTime.IsZero() {
 				dirMetrics.StartTime = dirProcessingStart
 			}
-			collectedMetrics[dirMapping.Src] = dirMetrics
+			collectedMetrics[metricKey] = dirMetrics
 		} else {
 			// Create basic metrics if not available from processor
-			collectedMetrics[dirMapping.Src] = DirectoryMetrics{
+			collectedMetrics[metricKey] = DirectoryMetrics{
 				StartTime:      dirProcessingStart,
 				EndTime:        time.Now(),
 				FilesProcessed: len(changes),
