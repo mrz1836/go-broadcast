@@ -556,6 +556,75 @@ groups:
 </details>
 
 <details>
+<summary><strong>📋 Reusable File & Directory Lists</strong></summary>
+
+Define reusable file and directory lists to reduce configuration repetition when syncing the same files to multiple repositories.
+
+```yaml
+version: 1
+
+# Define reusable file lists
+file_lists:
+  - id: "common-github-files"
+    name: "Common GitHub Files"
+    description: "Standard GitHub configuration files"
+    files:
+      - src: ".github/CODE_OF_CONDUCT.md"
+        dest: ".github/CODE_OF_CONDUCT.md"
+      - src: ".github/SECURITY.md"
+        dest: ".github/SECURITY.md"
+      - src: ".github/SUPPORT.md"
+        dest: ".github/SUPPORT.md"
+
+  - id: "editor-config"
+    name: "Editor Configuration"
+    description: "Editor and code formatting files"
+    files:
+      - src: ".editorconfig"
+        dest: ".editorconfig"
+      - src: ".gitattributes"
+        dest: ".gitattributes"
+
+# Define reusable directory lists
+directory_lists:
+  - id: "github-workflows"
+    name: "GitHub Actions Workflows"
+    description: "Standard CI/CD workflows"
+    directories:
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude: ["*.tmp", "*.local"]
+
+groups:
+  - name: "standard-sync"
+    id: "standard-sync"
+    source:
+      repo: "org/template-repo"
+      branch: "master"
+    targets:
+      # Use lists for multiple repos
+      - repo: "org/service-a"
+        file_list_refs: ["common-github-files", "editor-config"]
+        directory_list_refs: ["github-workflows"]
+        # Can still add inline files
+        files:
+          - src: "LICENSE"
+            dest: "LICENSE"
+
+      - repo: "org/service-b"
+        file_list_refs: ["common-github-files"]
+        directory_list_refs: ["github-workflows"]
+```
+
+**Benefits:**
+- Define file/directory lists once, use many times
+- Easy updates - change lists in one place
+- Mix references with inline files/directories
+- Clear organization and reduced YAML duplication
+
+</details>
+
+<details>
 <summary><strong>❌ Cancel Sync Operations</strong></summary>
 
 When issues arise, you can cancel active sync operations to prevent unwanted changes.

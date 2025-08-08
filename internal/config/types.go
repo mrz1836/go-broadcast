@@ -2,10 +2,12 @@ package config
 
 // Config represents the complete sync configuration
 type Config struct {
-	Version int     `yaml:"version"`        // Config version (1)
-	Name    string  `yaml:"name,omitempty"` // Optional config name
-	ID      string  `yaml:"id,omitempty"`   // Optional config ID
-	Groups  []Group `yaml:"groups"`         // List of sync groups
+	Version        int             `yaml:"version"`                   // Config version (1)
+	Name           string          `yaml:"name,omitempty"`            // Optional config name
+	ID             string          `yaml:"id,omitempty"`              // Optional config ID
+	FileLists      []FileList      `yaml:"file_lists,omitempty"`      // Reusable file lists
+	DirectoryLists []DirectoryList `yaml:"directory_lists,omitempty"` // Reusable directory lists
+	Groups         []Group         `yaml:"groups"`                    // List of sync groups
 }
 
 // SourceConfig defines the source repository settings
@@ -34,14 +36,16 @@ type DefaultConfig struct {
 
 // TargetConfig defines a target repository and its file mappings
 type TargetConfig struct {
-	Repo            string             `yaml:"repo"`                        // Format: org/repo
-	Files           []FileMapping      `yaml:"files"`                       // Files to sync
-	Directories     []DirectoryMapping `yaml:"directories,omitempty"`       // Directories to sync
-	Transform       Transform          `yaml:"transform,omitempty"`         // Optional transformations
-	PRLabels        []string           `yaml:"pr_labels,omitempty"`         // Override default PR labels
-	PRAssignees     []string           `yaml:"pr_assignees,omitempty"`      // Override default PR assignees
-	PRReviewers     []string           `yaml:"pr_reviewers,omitempty"`      // Override default PR reviewers
-	PRTeamReviewers []string           `yaml:"pr_team_reviewers,omitempty"` // Override default PR team reviewers
+	Repo              string             `yaml:"repo"`                          // Format: org/repo
+	Files             []FileMapping      `yaml:"files,omitempty"`               // Files to sync
+	Directories       []DirectoryMapping `yaml:"directories,omitempty"`         // Directories to sync
+	FileListRefs      []string           `yaml:"file_list_refs,omitempty"`      // References to file lists by ID
+	DirectoryListRefs []string           `yaml:"directory_list_refs,omitempty"` // References to directory lists by ID
+	Transform         Transform          `yaml:"transform,omitempty"`           // Optional transformations
+	PRLabels          []string           `yaml:"pr_labels,omitempty"`           // Override default PR labels
+	PRAssignees       []string           `yaml:"pr_assignees,omitempty"`        // Override default PR assignees
+	PRReviewers       []string           `yaml:"pr_reviewers,omitempty"`        // Override default PR reviewers
+	PRTeamReviewers   []string           `yaml:"pr_team_reviewers,omitempty"`   // Override default PR team reviewers
 }
 
 // FileMapping defines source to destination file mapping
@@ -88,6 +92,22 @@ type ModuleConfig struct {
 	Version    string `yaml:"version"`               // Version constraint (exact, latest, or semver)
 	CheckTags  *bool  `yaml:"check_tags,omitempty"`  // Use git tags for versions (default: true)
 	UpdateRefs bool   `yaml:"update_refs,omitempty"` // Update go.mod references
+}
+
+// FileList represents a reusable list of file mappings
+type FileList struct {
+	ID          string        `yaml:"id"`                    // Unique identifier for this list
+	Name        string        `yaml:"name"`                  // Friendly name for the list
+	Description string        `yaml:"description,omitempty"` // Optional description of the list contents
+	Files       []FileMapping `yaml:"files"`                 // File mappings in this list
+}
+
+// DirectoryList represents a reusable list of directory mappings
+type DirectoryList struct {
+	ID          string             `yaml:"id"`                    // Unique identifier for this list
+	Name        string             `yaml:"name"`                  // Friendly name for the list
+	Description string             `yaml:"description,omitempty"` // Optional description of the list contents
+	Directories []DirectoryMapping `yaml:"directories"`           // Directory mappings in this list
 }
 
 // boolPtr is a helper function to create a pointer to a boolean value.

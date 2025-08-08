@@ -93,6 +93,138 @@ groups:
 	assert.Equal(t, []string{"automated-sync"}, group.Defaults.PRLabels)
 }
 
+func TestLoadFromReader_WithFileLists(t *testing.T) {
+	yamlContent := `
+version: 1
+file_lists:
+  - id: "common-files"
+    name: "Common Configuration Files"
+    description: "Shared configuration files across projects"
+    files:
+      - src: ".editorconfig"
+        dest: ".editorconfig"
+      - src: ".gitattributes"
+        dest: ".gitattributes"
+directory_lists:
+  - id: "github-dirs"
+    name: "GitHub Directories"
+    description: "Standard GitHub configuration directories"
+    directories:
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+      - src: ".github/actions"
+        dest: ".github/actions"
+groups:
+  - name: "Test Group"
+    id: "test-group"
+    source:
+      repo: "org/template-repo"
+    targets:
+      - repo: "org/service-a"
+        file_list_refs: ["common-files"]
+        directory_list_refs: ["github-dirs"]
+        files:
+          - src: "LICENSE"
+            dest: "LICENSE"
+`
+
+	config, err := LoadFromReader(strings.NewReader(yamlContent))
+	require.NoError(t, err)
+	require.NotNil(t, config)
+
+	// Check file lists
+	require.Len(t, config.FileLists, 1)
+	assert.Equal(t, "common-files", config.FileLists[0].ID)
+	assert.Equal(t, "Common Configuration Files", config.FileLists[0].Name)
+	assert.Len(t, config.FileLists[0].Files, 2)
+
+	// Check directory lists
+	require.Len(t, config.DirectoryLists, 1)
+	assert.Equal(t, "github-dirs", config.DirectoryLists[0].ID)
+	assert.Equal(t, "GitHub Directories", config.DirectoryLists[0].Name)
+	assert.Len(t, config.DirectoryLists[0].Directories, 2)
+
+	// Check that references were resolved
+	require.Len(t, config.Groups, 1)
+	require.Len(t, config.Groups[0].Targets, 1)
+	target := config.Groups[0].Targets[0]
+
+	// Should have 3 files total: 2 from list + 1 inline
+	assert.Len(t, target.Files, 3)
+
+	// Check files are present (order may vary due to map iteration)
+	fileMap := make(map[string]string)
+	for _, file := range target.Files {
+		fileMap[file.Dest] = file.Src
+	}
+	assert.Equal(t, ".editorconfig", fileMap[".editorconfig"])
+	assert.Equal(t, ".gitattributes", fileMap[".gitattributes"])
+	assert.Equal(t, "LICENSE", fileMap["LICENSE"])
+
+	// Should have 2 directories from list
+	assert.Len(t, target.Directories, 2)
+
+	// Check directories are present (order may vary due to map iteration)
+	dirDests := make(map[string]string)
+	for _, dir := range target.Directories {
+		dirDests[dir.Dest] = dir.Src
+	}
+	assert.Equal(t, ".github/workflows", dirDests[".github/workflows"])
+	assert.Equal(t, ".github/actions", dirDests[".github/actions"])
+}
+
+func TestLoadFromReader_InvalidListReferences(t *testing.T) {
+	yamlContent := `
+version: 1
+groups:
+  - name: "Test Group"
+    id: "test-group"
+    source:
+      repo: "org/template-repo"
+    targets:
+      - repo: "org/service-a"
+        file_list_refs: ["non-existent-list"]
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
+`
+
+	_, err := LoadFromReader(strings.NewReader(yamlContent))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "list reference not found")
+}
+
+func TestLoadFromReader_DuplicateListIDs(t *testing.T) {
+	yamlContent := `
+version: 1
+file_lists:
+  - id: "duplicate-id"
+    name: "First List"
+    files:
+      - src: "file1.txt"
+        dest: "file1.txt"
+  - id: "duplicate-id"
+    name: "Second List"
+    files:
+      - src: "file2.txt"
+        dest: "file2.txt"
+groups:
+  - name: "Test Group"
+    id: "test-group"
+    source:
+      repo: "org/template-repo"
+    targets:
+      - repo: "org/service-a"
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
+`
+
+	_, err := LoadFromReader(strings.NewReader(yamlContent))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate list ID")
+}
+
 func TestLoadFromReader_InvalidYAML(t *testing.T) {
 	yamlContent := `
 version: 1

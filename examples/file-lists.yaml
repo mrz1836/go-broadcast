@@ -1,0 +1,169 @@
+# Example configuration demonstrating reusable file and directory lists
+# This approach reduces repetition when syncing the same files to multiple repositories
+version: 1
+
+# Define reusable file lists
+file_lists:
+  - id: "common-github-files"
+    name: "Common GitHub Files"
+    description: "Standard GitHub configuration files shared across all repositories"
+    files:
+      - src: ".github/.prettierignore"
+        dest: ".github/.prettierignore"
+      - src: ".github/.prettierrc.yml"
+        dest: ".github/.prettierrc.yml"
+      - src: ".github/CODE_OF_CONDUCT.md"
+        dest: ".github/CODE_OF_CONDUCT.md"
+      - src: ".github/CODE_STANDARDS.md"
+        dest: ".github/CODE_STANDARDS.md"
+      - src: ".github/CODEOWNERS"
+        dest: ".github/CODEOWNERS"
+      - src: ".github/CONTRIBUTING.md"
+        dest: ".github/CONTRIBUTING.md"
+      - src: ".github/FUNDING.yml"
+        dest: ".github/FUNDING.yml"
+      - src: ".github/labels.yml"
+        dest: ".github/labels.yml"
+      - src: ".github/pull_request_template.md"
+        dest: ".github/pull_request_template.md"
+      - src: ".github/SECURITY.md"
+        dest: ".github/SECURITY.md"
+      - src: ".github/SUPPORT.md"
+        dest: ".github/SUPPORT.md"
+      - src: ".github/sweep.yml"
+        dest: ".github/sweep.yml"
+
+  - id: "editor-config"
+    name: "Editor Configuration"
+    description: "Editor and code formatting configuration files"
+    files:
+      - src: ".editorconfig"
+        dest: ".editorconfig"
+      - src: ".gitattributes"
+        dest: ".gitattributes"
+      - src: ".gitpod.yml"
+        dest: ".gitpod.yml"
+      - src: ".devcontainer.json"
+        dest: ".devcontainer.json"
+      - src: ".dockerignore"
+        dest: ".dockerignore"
+
+  - id: "go-specific"
+    name: "Go Language Files"
+    description: "Go-specific configuration and tooling files"
+    files:
+      - src: ".golangci.json"
+        dest: ".golangci.json"
+      - src: ".goreleaser.yml"
+        dest: ".goreleaser.yml"
+
+# Define reusable directory lists
+directory_lists:
+  - id: "github-workflows"
+    name: "GitHub Actions Workflows"
+    description: "Standard GitHub Actions workflows and custom actions"
+    directories:
+      - src: ".github/workflows"
+        dest: ".github/workflows"
+        exclude:
+          - "*.tmp"
+          - "*.local"
+      - src: ".github/actions"
+        dest: ".github/actions"
+
+  - id: "github-templates"
+    name: "GitHub Issue Templates"
+    description: "Issue and PR templates for GitHub"
+    directories:
+      - src: ".github/ISSUE_TEMPLATE"
+        dest: ".github/ISSUE_TEMPLATE"
+      - src: ".github/tech-conventions"
+        dest: ".github/tech-conventions"
+
+  - id: "github-tools"
+    name: "GitHub Tooling"
+    description: "Coverage and pre-commit tools"
+    directories:
+      - src: ".github/coverage"
+        dest: ".github/coverage"
+      - src: ".github/pre-commit"
+        dest: ".github/pre-commit"
+
+# Define sync groups that reference the lists
+groups:
+  - name: "standard-go-sync"
+    id: "standard-go-sync"
+    description: "Sync standard files to all Go repositories"
+    priority: 1
+    enabled: true
+    source:
+      repo: "mrz1836/go-broadcast"
+      branch: "master"
+    defaults:
+      branch_prefix: "chore/sync-files"
+      pr_labels: ["automated-sync", "maintenance"]
+    global:
+      pr_assignees: ["mrz1836"]
+      pr_reviewers: ["mrz1836"]
+    targets:
+      # First repository - uses all lists
+      - repo: "mrz1836/go-template"
+        file_list_refs:
+          - "common-github-files"
+          - "editor-config"
+          - "go-specific"
+        directory_list_refs:
+          - "github-workflows"
+          - "github-templates"
+        # Can still add inline files alongside lists
+        files:
+          - src: "LICENSE"
+            dest: "LICENSE"
+        pr_labels: ["automerge"]
+
+      # Second repository - uses subset of lists
+      - repo: "mrz1836/go-api"
+        file_list_refs:
+          - "common-github-files"
+          - "editor-config"
+        directory_list_refs:
+          - "github-workflows"
+        # Override specific files for this repo
+        files:
+          - src: "LICENSE"
+            dest: "LICENSE"
+          - src: "custom/api-config.yaml"
+            dest: ".api-config.yaml"
+
+      # Third repository - minimal sync
+      - repo: "mrz1836/go-service"
+        file_list_refs:
+          - "editor-config"
+        directory_list_refs:
+          - "github-workflows"
+        transform:
+          repo_name: true
+
+  - name: "tooling-sync"
+    id: "tooling-sync"
+    description: "Sync GitHub tooling to specific repositories"
+    priority: 2
+    enabled: true
+    source:
+      repo: "mrz1836/go-broadcast"
+      branch: "master"
+    defaults:
+      branch_prefix: "chore/sync-tooling"
+      pr_labels: ["automated-sync", "tooling"]
+    targets:
+      - repo: "mrz1836/advanced-repo"
+        # Only sync the GitHub tooling directories
+        directory_list_refs:
+          - "github-tools"
+        pr_labels: ["low-priority"]
+# Benefits of this approach:
+# 1. Define file/directory lists once, use them many times
+# 2. Easy to update lists - changes apply to all repos using them
+# 3. Mix and match lists for different repository types
+# 4. Still support inline files/directories for repo-specific needs
+# 5. Clear organization - lists at top, usage in groups below

@@ -35,6 +35,14 @@ var (
 	ErrGroupIDEmpty = errors.New("group id cannot be empty")
 	// ErrDuplicateDestPath indicates destination path is used by multiple mappings
 	ErrDuplicateDestPath = errors.New("destination path already in use")
+	// ErrDuplicateListID indicates a list ID is used multiple times
+	ErrDuplicateListID = errors.New("duplicate list ID")
+	// ErrListIDEmpty indicates a list ID is empty
+	ErrListIDEmpty = errors.New("list ID cannot be empty")
+	// ErrListNameEmpty indicates a list name is empty
+	ErrListNameEmpty = errors.New("list name cannot be empty")
+	// ErrListReferenceNotFound indicates a referenced list does not exist
+	ErrListReferenceNotFound = errors.New("list reference not found")
 )
 
 // Validate checks if the configuration is valid
@@ -91,6 +99,28 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 			}).Error("Unsupported configuration version")
 		}
 		return fmt.Errorf("%w: %d (only version 1 is supported)", ErrUnsupportedVersion, c.Version)
+	}
+
+	// Validate file lists if present
+	if len(c.FileLists) > 0 {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithField("file_list_count", len(c.FileLists)).Debug("Validating file lists")
+		}
+
+		if err := c.validateFileLists(ctx, logConfig); err != nil {
+			return fmt.Errorf("invalid file lists: %w", err)
+		}
+	}
+
+	// Validate directory lists if present
+	if len(c.DirectoryLists) > 0 {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithField("directory_list_count", len(c.DirectoryLists)).Debug("Validating directory lists")
+		}
+
+		if err := c.validateDirectoryLists(ctx, logConfig); err != nil {
+			return fmt.Errorf("invalid directory lists: %w", err)
+		}
 	}
 
 	// Validate groups
@@ -567,6 +597,128 @@ func (t *TargetConfig) validateFileDirectoryConflicts() error {
 			return fmt.Errorf("destination path %q used by both %s and directory: %w", dir.Dest, existing, ErrDuplicateDestPath)
 		}
 		destPaths[dir.Dest] = "directory"
+	}
+
+	return nil
+}
+
+// validateFileLists validates all file lists in the configuration
+func (c *Config) validateFileLists(ctx context.Context, logConfig *logging.LogConfig) error {
+	logger := logging.WithStandardFields(logrus.StandardLogger(), logConfig, logging.ComponentNames.Config)
+
+	// Check for duplicate IDs
+	seenIDs := make(map[string]bool)
+	for i, list := range c.FileLists {
+		// Check for context cancellation
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("validation canceled: %w", ctx.Err())
+		default:
+		}
+
+		// Validate ID
+		if list.ID == "" {
+			return fmt.Errorf("file_list[%d]: %w", i, ErrListIDEmpty)
+		}
+		if seenIDs[list.ID] {
+			return fmt.Errorf("file_list[%d]: %w: %s", i, ErrDuplicateListID, list.ID)
+		}
+		seenIDs[list.ID] = true
+
+		// Validate name
+		if list.Name == "" {
+			return fmt.Errorf("file_list[%d] (%s): %w", i, list.ID, ErrListNameEmpty)
+		}
+
+		// Validate files
+		if len(list.Files) == 0 {
+			if logConfig != nil && logConfig.Debug.Config {
+				logger.WithFields(logrus.Fields{
+					"list_id":   list.ID,
+					"list_name": list.Name,
+				}).Warn("File list has no files defined")
+			}
+		}
+
+		// Validate each file mapping
+		for j, file := range list.Files {
+			if file.Src == "" {
+				return fmt.Errorf("file_list[%d] (%s) file[%d]: %w", i, list.ID, j, ErrEmptySourcePath)
+			}
+			if file.Dest == "" {
+				return fmt.Errorf("file_list[%d] (%s) file[%d]: %w", i, list.ID, j, ErrEmptyDestPath)
+			}
+
+			// Check for path traversal
+			if strings.Contains(file.Src, "..") || strings.Contains(file.Dest, "..") {
+				return fmt.Errorf("file_list[%d] (%s) file[%d]: %w", i, list.ID, j, ErrPathTraversal)
+			}
+		}
+	}
+
+	return nil
+}
+
+// validateDirectoryLists validates all directory lists in the configuration
+func (c *Config) validateDirectoryLists(ctx context.Context, logConfig *logging.LogConfig) error {
+	logger := logging.WithStandardFields(logrus.StandardLogger(), logConfig, logging.ComponentNames.Config)
+
+	// Check for duplicate IDs
+	seenIDs := make(map[string]bool)
+	for i, list := range c.DirectoryLists {
+		// Check for context cancellation
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("validation canceled: %w", ctx.Err())
+		default:
+		}
+
+		// Validate ID
+		if list.ID == "" {
+			return fmt.Errorf("directory_list[%d]: %w", i, ErrListIDEmpty)
+		}
+		if seenIDs[list.ID] {
+			return fmt.Errorf("directory_list[%d]: %w: %s", i, ErrDuplicateListID, list.ID)
+		}
+		seenIDs[list.ID] = true
+
+		// Validate name
+		if list.Name == "" {
+			return fmt.Errorf("directory_list[%d] (%s): %w", i, list.ID, ErrListNameEmpty)
+		}
+
+		// Validate directories
+		if len(list.Directories) == 0 {
+			if logConfig != nil && logConfig.Debug.Config {
+				logger.WithFields(logrus.Fields{
+					"list_id":   list.ID,
+					"list_name": list.Name,
+				}).Warn("Directory list has no directories defined")
+			}
+		}
+
+		// Validate each directory mapping
+		for j, dir := range list.Directories {
+			if dir.Src == "" {
+				return fmt.Errorf("directory_list[%d] (%s) directory[%d]: %w", i, list.ID, j, ErrEmptySourcePath)
+			}
+			if dir.Dest == "" {
+				return fmt.Errorf("directory_list[%d] (%s) directory[%d]: %w", i, list.ID, j, ErrEmptyDestPath)
+			}
+
+			// Check for path traversal
+			if strings.Contains(dir.Src, "..") || strings.Contains(dir.Dest, "..") {
+				return fmt.Errorf("directory_list[%d] (%s) directory[%d]: %w", i, list.ID, j, ErrPathTraversal)
+			}
+
+			// Validate exclusion patterns
+			for k, pattern := range dir.Exclude {
+				if _, err := filepath.Match(pattern, "test"); err != nil {
+					return fmt.Errorf("directory_list[%d] (%s) directory[%d]: invalid exclusion pattern[%d] %q: %w",
+						i, list.ID, j, k, pattern, err)
+				}
+			}
+		}
 	}
 
 	return nil
