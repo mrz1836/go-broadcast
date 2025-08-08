@@ -62,7 +62,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "def456"}},
-				{Name: "chore/sync-files-20240115-120000-abc123", Commit: struct {
+				{Name: "chore/sync-files-default-20240115-120000-abc123", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "ghi789"}},
@@ -83,7 +83,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "mno345"}},
-				{Name: "chore/sync-files-20240114-100000-def789", Commit: struct {
+				{Name: "chore/sync-files-default-20240114-100000-def789", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "pqr678"}},
@@ -100,7 +100,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 						Ref string `json:"ref"`
 						SHA string `json:"sha"`
 					}{
-						Ref: "chore/sync-files-20240115-140000-abc123",
+						Ref: "chore/sync-files-default-20240115-140000-abc123",
 						SHA: "stu901",
 					},
 				},
@@ -123,7 +123,7 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 		assert.NotNil(t, serviceA)
 		assert.Equal(t, "org/service-a", serviceA.Repo)
 		assert.Len(t, serviceA.SyncBranches, 1)
-		assert.Equal(t, "chore/sync-files-20240115-120000-abc123", serviceA.SyncBranches[0].Name)
+		assert.Equal(t, "chore/sync-files-default-20240115-120000-abc123", serviceA.SyncBranches[0].Name)
 		assert.Equal(t, StatusUpToDate, serviceA.Status)
 		assert.Equal(t, "abc123", serviceA.LastSyncCommit)
 
@@ -169,11 +169,11 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "abc123"}},
-				{Name: "chore/sync-files-20240114-100000-abc123", Commit: struct {
+				{Name: "chore/sync-files-default-20240114-100000-abc123", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "def456"}},
-				{Name: "chore/sync-files-20240115-120000-def456", Commit: struct {
+				{Name: "chore/sync-files-default-20240115-120000-def456", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "ghi789"}},
@@ -193,7 +193,7 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 						Ref string `json:"ref"`
 						SHA string `json:"sha"`
 					}{
-						Ref: "chore/sync-files-20240115-120000-def456",
+						Ref: "chore/sync-files-default-20240115-120000-def456",
 					},
 				},
 			}, nil)
@@ -253,7 +253,7 @@ func TestDiscoveryService_ParseBranchName(t *testing.T) {
 	discoverer := NewDiscoverer(mockGH, logger, nil)
 
 	t.Run("valid sync branch", func(t *testing.T) {
-		metadata, err := discoverer.ParseBranchName("chore/sync-files-20240115-120530-abc123")
+		metadata, err := discoverer.ParseBranchName("chore/sync-files-default-20240115-120530-abc123")
 		require.NoError(t, err)
 		assert.NotNil(t, metadata)
 		assert.Equal(t, "abc123", metadata.CommitSHA)
@@ -524,7 +524,7 @@ func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "abc123"}},
-				{Name: "chore/sync-files-20240115-120000-def456", Commit: struct {
+				{Name: "chore/sync-files-default-20240115-120000-def456", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "ghi789"}},
@@ -544,7 +544,7 @@ func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
 						Ref string `json:"ref"`
 						SHA string `json:"sha"`
 					}{
-						Ref: "chore/sync-files-20240115-120000-def456",
+						Ref: "chore/sync-files-default-20240115-120000-def456",
 					},
 				},
 			}, nil)
@@ -636,11 +636,11 @@ func TestDiscoveryService_ComplexSyncBranchScenarios(t *testing.T) {
 		// Mock branches with multiple sync branches - note that chore/sync-files-invalid will be filtered out
 		mockGH.On("ListBranches", mock.Anything, "org/service").
 			Return([]gh.Branch{
-				{Name: "chore/sync-files-20240114-100000-abc123", Commit: struct {
+				{Name: "chore/sync-files-default-20240114-100000-abc123", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "def456"}},
-				{Name: "chore/sync-files-20240115-110000-abc123", Commit: struct {
+				{Name: "chore/sync-files-default-20240115-110000-abc123", Commit: struct {
 					SHA string `json:"sha"`
 					URL string `json:"url"`
 				}{SHA: "ghi789"}},
@@ -660,7 +660,7 @@ func TestDiscoveryService_ComplexSyncBranchScenarios(t *testing.T) {
 						Ref string `json:"ref"`
 						SHA string `json:"sha"`
 					}{
-						Ref: "chore/sync-files-20240115-110000-abc123",
+						Ref: "chore/sync-files-default-20240115-110000-abc123",
 					},
 				},
 			}, nil)

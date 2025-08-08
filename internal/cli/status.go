@@ -51,8 +51,8 @@ Shows information about:
 
 // SyncStatus represents the sync state for display
 type SyncStatus struct {
-	Source  SourceStatus   `json:"source,omitempty"`  // For backward compatibility
-	Targets []TargetStatus `json:"targets,omitempty"` // For backward compatibility
+	Source  SourceStatus   `json:"source,omitempty"`  // Non-group based status
+	Targets []TargetStatus `json:"targets,omitempty"` // Non-group based status
 	Groups  []GroupStatus  `json:"groups,omitempty"`  // Group-based status
 }
 
@@ -179,7 +179,7 @@ func convertStateToStatus(s *state.State, cfg *config.Config) *SyncStatus {
 		return convertStateToGroupStatus(s, cfg)
 	}
 
-	// Legacy format for backward compatibility
+	// Convert to display format
 	status := &SyncStatus{
 		Source: SourceStatus{
 			Repository:   s.Source.Repo,
@@ -390,12 +390,12 @@ func outputJSON(status *SyncStatus) error {
 }
 
 func outputTextStatus(status *SyncStatus) error {
-	// Check if we have groups or legacy format
+	// Check if we have groups or non-group format
 	if len(status.Groups) > 0 {
 		return outputGroupTextStatus(status)
 	}
 
-	// Legacy format display
+	// Non-group format display
 	output.Info(fmt.Sprintf("Source: %s (branch: %s)", status.Source.Repository, status.Source.Branch))
 	output.Info(fmt.Sprintf("Latest commit: %s", status.Source.LatestCommit))
 	output.Info("")

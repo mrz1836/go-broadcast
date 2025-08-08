@@ -103,7 +103,7 @@ func TestStatusConversion(t *testing.T) {
 	// Create a mock state for testing conversion
 	mockState := createMockState()
 
-	// Convert to CLI status format (pass nil config for legacy format)
+	// Convert to CLI status format (pass nil config for non-group format)
 	status := convertStateToStatus(mockState, nil)
 
 	// Verify source status

@@ -82,7 +82,7 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 		return orchestrator.ExecuteGroups(ctx, groups)
 	}
 
-	// Single group - execute directly for backward compatibility
+	// Single group - execute directly
 	group := groups[0]
 	e.currentGroup = &group // Set current group for RepositorySync to use
 	log.WithField("group_name", group.Name).Info("Processing single group")

@@ -104,7 +104,8 @@ func TestProcessDirectoriesWithMetrics(t *testing.T) {
 	t.Run("successful directory processing with metrics", func(t *testing.T) {
 		// Create temp directories with files
 		tmpDir := t.TempDir()
-		sourceDir := filepath.Join(tmpDir, "source")
+		sourceBaseDir := filepath.Join(tmpDir, "source")
+		sourceDir := filepath.Join(sourceBaseDir, "source") // source/source for dirMapping.Src = "source"
 		targetDir := filepath.Join(tmpDir, "target")
 		require.NoError(t, os.MkdirAll(sourceDir, 0o750))
 		require.NoError(t, os.MkdirAll(targetDir, 0o750))
@@ -158,8 +159,9 @@ func TestProcessDirectoriesWithMetrics(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create multiple source and target directories
-		sourceDir1 := filepath.Join(tmpDir, "source1")
-		sourceDir2 := filepath.Join(tmpDir, "source2")
+		sourceBaseDir := filepath.Join(tmpDir, "source")
+		sourceDir1 := filepath.Join(sourceBaseDir, "source1") // source/source1 for dirMapping.Src = "source1"
+		sourceDir2 := filepath.Join(sourceBaseDir, "source2") // source/source2 for dirMapping.Src = "source2"
 		targetDir1 := filepath.Join(tmpDir, "target1")
 		targetDir2 := filepath.Join(tmpDir, "target2")
 
@@ -212,7 +214,8 @@ func TestProcessDirectoriesWithMetrics(t *testing.T) {
 
 	t.Run("directory processing with exclusions", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		sourceDir := filepath.Join(tmpDir, "source")
+		sourceBaseDir := filepath.Join(tmpDir, "source")
+		sourceDir := filepath.Join(sourceBaseDir, "source") // source/source for dirMapping.Src = "source"
 		targetDir := filepath.Join(tmpDir, "target")
 		require.NoError(t, os.MkdirAll(sourceDir, 0o750))
 		require.NoError(t, os.MkdirAll(targetDir, 0o750))
@@ -266,7 +269,8 @@ func TestProcessDirectoriesWithMetrics(t *testing.T) {
 
 	t.Run("context cancellation during processing", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		sourceDir := filepath.Join(tmpDir, "source")
+		sourceBaseDir := filepath.Join(tmpDir, "source")
+		sourceDir := filepath.Join(sourceBaseDir, "source") // source/source for dirMapping.Src = "source"
 		targetDir := filepath.Join(tmpDir, "target")
 		require.NoError(t, os.MkdirAll(sourceDir, 0o750))
 		require.NoError(t, os.MkdirAll(targetDir, 0o750))
@@ -352,8 +356,9 @@ func TestProcessDirectoriesWithMetrics(t *testing.T) {
 	t.Run("metrics collection accuracy", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		// Create directory structure that matches what processDirectoriesWithMetrics expects:
-		// tmpDir/subdir (because the function joins tmpDir with dirMapping.Src)
-		sourceSubDir := filepath.Join(tmpDir, "subdir")
+		// tmpDir/source/subdir (because the function joins tmpDir/source with dirMapping.Src)
+		sourceBaseDir := filepath.Join(tmpDir, "source")
+		sourceSubDir := filepath.Join(sourceBaseDir, "subdir") // source/subdir for dirMapping.Src = "subdir"
 		require.NoError(t, os.MkdirAll(sourceSubDir, 0o750))
 
 		// Create files with known sizes in the subdirectory

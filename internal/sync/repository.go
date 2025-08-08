@@ -406,7 +406,7 @@ func (rs *RepositorySync) getExistingFileContent(ctx context.Context, filePath s
 
 // createSyncBranch creates a new sync branch or returns existing one
 func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
-	// Generate branch name: chore/sync-files-YYYYMMDD-HHMMSS-{commit}
+	// Generate branch name: chore/sync-files-{groupID}-YYYYMMDD-HHMMSS-{commit}
 	now := time.Now()
 	timestamp := now.Format("20060102-150405")
 	commitSHA := rs.sourceState.LatestCommit
@@ -415,19 +415,27 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 	}
 
 	var branchPrefix string
+	var groupID string
 	if rs.engine.currentGroup != nil {
 		branchPrefix = rs.engine.currentGroup.Defaults.BranchPrefix
+		groupID = rs.engine.currentGroup.ID
 	} else {
 		// Get defaults from the first group (since we have a single group in temporary config)
 		if len(rs.engine.config.Groups) > 0 {
 			branchPrefix = rs.engine.config.Groups[0].Defaults.BranchPrefix
+			groupID = rs.engine.config.Groups[0].ID
 		}
 	}
 	if branchPrefix == "" {
 		branchPrefix = "chore/sync-files"
 	}
+	// Group ID is always required
+	if groupID == "" {
+		rs.logger.Warn("No group ID found, using 'default'")
+		groupID = "default"
+	}
 
-	branchName := fmt.Sprintf("%s-%s-%s", branchPrefix, timestamp, commitSHA)
+	branchName := fmt.Sprintf("%s-%s-%s-%s", branchPrefix, groupID, timestamp, commitSHA)
 
 	rs.logger.WithField("branch_name", branchName).Info("Creating sync branch")
 
@@ -858,6 +866,14 @@ func (rs *RepositorySync) writePerformanceMetrics(sb *strings.Builder) {
 // writeMetadataBlock writes the machine-parseable metadata block
 func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA string, _ []FileChange) {
 	sb.WriteString("<!-- go-broadcast-metadata\n")
+
+	// Add group information if available
+	if rs.engine != nil && rs.engine.currentGroup != nil {
+		sb.WriteString("group:\n")
+		fmt.Fprintf(sb, "  id: %s\n", rs.engine.currentGroup.ID)
+		fmt.Fprintf(sb, "  name: %s\n", rs.engine.currentGroup.Name)
+	}
+
 	sb.WriteString("sync_metadata:\n")
 	fmt.Fprintf(sb, "  source_repo: %s\n", rs.sourceState.Repo)
 	fmt.Fprintf(sb, "  source_commit: %s\n", rs.sourceState.LatestCommit)
@@ -970,19 +986,21 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 
 		dirProcessingStart := time.Now()
 
-		// Build the source path for this specific directory mapping
-		sourcePath := filepath.Join(rs.tempDir, dirMapping.Src)
+		// Build the source path using the same logic as processDirectories
+		// This should match the pattern used in regular directory processing
+		sourcePath := filepath.Join(rs.tempDir, "source")
+		fullSourceDir := filepath.Join(sourcePath, dirMapping.Src)
 
-		// Verify source path exists for this directory mapping
-		if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		// Verify source directory exists
+		if _, err := os.Stat(fullSourceDir); os.IsNotExist(err) {
 			rs.logger.WithError(err).WithField("directory", dirMapping.Src).Error("Source directory does not exist")
-			processingErrors = append(processingErrors, fmt.Errorf("%w: %s", ErrSourceDirectoryNotExistForMetrics, sourcePath))
+			processingErrors = append(processingErrors, fmt.Errorf("%w: %s", ErrSourceDirectoryNotExistForMetrics, fullSourceDir))
 			continue
 		}
 
-		// Pass the tempDir to ProcessDirectoryMapping, not the full source path
+		// Pass the sourcePath to ProcessDirectoryMapping (same as regular processDirectories)
 		// ProcessDirectoryMapping will join it with dirMapping.Src internally
-		changes, err := processor.ProcessDirectoryMapping(ctx, rs.tempDir, dirMapping, rs.target, rs.sourceState, rs.engine)
+		changes, err := processor.ProcessDirectoryMapping(ctx, sourcePath, dirMapping, rs.target, rs.sourceState, rs.engine)
 		if err != nil {
 			// Log error and collect for potential failure decision
 			rs.logger.WithError(err).WithField("directory", dirMapping.Src).Error("Failed to process directory")

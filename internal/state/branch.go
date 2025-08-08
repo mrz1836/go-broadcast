@@ -22,9 +22,9 @@ func parseSyncBranchName(name string) (*BranchMetadata, error) {
 
 // parseSyncBranchNameWithPrefix parses a branch name with a specific prefix to extract sync metadata
 func parseSyncBranchNameWithPrefix(name, prefix string) (*BranchMetadata, error) {
-	// Create pattern for the given prefix: prefix-YYYYMMDD-HHMMSS-{commit}
+	// Format: prefix-{groupID}-YYYYMMDD-HHMMSS-{commit}
 	escapedPrefix := regexp.QuoteMeta(prefix)
-	pattern := fmt.Sprintf(`^(%s)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`, escapedPrefix)
+	pattern := fmt.Sprintf(`^(%s)-([a-zA-Z0-9_-]+)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`, escapedPrefix)
 	branchPattern := regexp.MustCompile(pattern)
 
 	matches := branchPattern.FindStringSubmatch(name)
@@ -35,13 +35,13 @@ func parseSyncBranchNameWithPrefix(name, prefix string) (*BranchMetadata, error)
 
 	// Extract components
 	extractedPrefix := matches[1]
-	dateStr := matches[2]
-	timeStr := matches[3]
-	commitSHA := matches[4]
+	groupID := matches[2]
+	dateStr := matches[3]
+	timeStr := matches[4]
+	commitSHA := matches[5]
 
 	// Parse timestamp
 	timestampStr := fmt.Sprintf("%s%s", dateStr, timeStr)
-
 	timestamp, err := time.Parse("20060102150405", timestampStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse timestamp from branch name %s: %w", name, err)
@@ -51,13 +51,15 @@ func parseSyncBranchNameWithPrefix(name, prefix string) (*BranchMetadata, error)
 		Timestamp: timestamp,
 		CommitSHA: commitSHA,
 		Prefix:    extractedPrefix,
+		GroupID:   groupID,
 	}, nil
 }
 
-// FormatSyncBranchName creates a sync branch name from metadata
-func FormatSyncBranchName(prefix string, timestamp time.Time, commitSHA string) string {
-	return fmt.Sprintf("%s-%s-%s",
+// FormatSyncBranchName creates a sync branch name with group ID
+func FormatSyncBranchName(prefix, groupID string, timestamp time.Time, commitSHA string) string {
+	return fmt.Sprintf("%s-%s-%s-%s",
 		prefix,
+		groupID,
 		timestamp.Format("20060102-150405"),
 		commitSHA,
 	)

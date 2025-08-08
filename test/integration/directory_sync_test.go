@@ -199,6 +199,10 @@ func (suite *DirectorySyncTestSuite) setupGitMockWithFiles(mockGit *git.MockClie
 
 	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
+
+		// The sync engine expects files to be cloned to destPath directly
+		// destPath should be {tempDir}/source, and files should be created there
+		// This matches real Git behavior where clone destination contains the repo content
 		suite.createTestStructure(destPath, files)
 	})
 	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)

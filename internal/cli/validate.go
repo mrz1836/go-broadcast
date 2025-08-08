@@ -114,8 +114,8 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 	if len(cfg.Groups) > 0 {
 		displayGroupValidation(groups)
 	} else {
-		// Legacy format display
-		group := groups[0] // For compatibility with old format, work with first group
+		// Non-group format display
+		group := groups[0] // Single group configuration
 		output.Info(fmt.Sprintf("  Source: %s (branch: %s)", group.Source.Repo, group.Source.Branch))
 
 		if group.Defaults.BranchPrefix != "" || len(group.Defaults.PRLabels) > 0 {

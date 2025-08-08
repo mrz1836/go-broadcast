@@ -14,7 +14,7 @@ type MockDiscoverer struct {
 	mock.Mock
 }
 
-// NewMockDiscoverer creates a new MockDiscoverer (backward compatibility)
+// NewMockDiscoverer creates a new MockDiscoverer
 func NewMockDiscoverer() *MockDiscoverer {
 	return &MockDiscoverer{}
 }

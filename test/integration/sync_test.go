@@ -400,8 +400,8 @@ func TestStateDiscovery(t *testing.T) {
 		commitSHA := "abc123def456"
 		prefix := "chore/sync-files"
 
-		branchName := state.FormatSyncBranchName(prefix, timestamp, commitSHA)
-		expected := "chore/sync-files-20240115-120530-abc123def456"
+		branchName := state.FormatSyncBranchName(prefix, "default", timestamp, commitSHA)
+		expected := "chore/sync-files-default-20240115-120530-abc123def456"
 
 		assert.Equal(t, expected, branchName)
 	})

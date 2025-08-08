@@ -418,8 +418,8 @@ func generateCommitSHA() string {
 // GenerateTestConfig creates a test configuration that can be either old or new format
 // This helper allows tests to work with both configuration styles during transition
 func (g *TestRepoGenerator) GenerateTestConfig(sourceRepo, sourceBranch string, targetRepos []*TestRepository) *config.Config {
-	// For now, return old format for backward compatibility
-	// Tests can be gradually updated to use group format
+	// Return non-group format configuration
+	// Tests can use group format with GenerateGroupConfig
 	return g.GenerateOldFormatConfig(sourceRepo, sourceBranch, targetRepos)
 }
 

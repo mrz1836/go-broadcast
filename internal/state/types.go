@@ -51,7 +51,7 @@ type TargetState struct {
 	// Status indicates the current sync status
 	Status SyncStatus
 
-	// DirectorySync contains directory sync information (optional for backward compatibility)
+	// DirectorySync contains directory sync information
 	DirectorySync *DirectorySyncInfo `json:"directory_sync,omitempty"`
 }
 
@@ -65,7 +65,7 @@ type SyncBranch struct {
 }
 
 // BranchMetadata contains information parsed from sync branch names
-// Format: chore/sync-files-YYYYMMDD-HHMMSS-{commit}
+// Format: chore/sync-files-{groupID}-YYYYMMDD-HHMMSS-{commit}
 type BranchMetadata struct {
 	// Timestamp is when this sync branch was created
 	Timestamp time.Time
@@ -75,6 +75,9 @@ type BranchMetadata struct {
 
 	// Prefix is the branch prefix (e.g., "chore/sync-files")
 	Prefix string
+
+	// GroupID is the group identifier that created this sync
+	GroupID string
 }
 
 // SyncStatus represents the status of a sync operation

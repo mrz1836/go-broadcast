@@ -170,7 +170,7 @@ func (e *ExclusionEngine) addIncludePattern(pattern string) {
 	}
 }
 
-// addPattern compiles and adds a pattern to the engine (for backward compatibility)
+// addPattern compiles and adds a pattern to the engine
 func (e *ExclusionEngine) addPattern(pattern string) {
 	e.addExcludePattern(pattern)
 }

@@ -42,7 +42,7 @@ func TestState_Structure(t *testing.T) {
 				Repo: "org/service-a",
 				SyncBranches: []SyncBranch{
 					{
-						Name: "chore/sync-files-20240101-120000-abc123",
+						Name: "chore/sync-files-default-20240101-120000-abc123",
 						Metadata: &BranchMetadata{
 							Timestamp: now.Add(-24 * time.Hour),
 							CommitSHA: "abc123",
@@ -124,7 +124,7 @@ func TestTargetState_DefaultValues(t *testing.T) {
 func TestSyncBranch_Structure(t *testing.T) {
 	timestamp := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	branch := SyncBranch{
-		Name: "chore/sync-files-20240101-120000-abc123",
+		Name: "chore/sync-files-default-20240101-120000-abc123",
 		Metadata: &BranchMetadata{
 			Timestamp: timestamp,
 			CommitSHA: "abc123",
@@ -132,7 +132,7 @@ func TestSyncBranch_Structure(t *testing.T) {
 		},
 	}
 
-	require.Equal(t, "chore/sync-files-20240101-120000-abc123", branch.Name)
+	require.Equal(t, "chore/sync-files-default-20240101-120000-abc123", branch.Name)
 	require.NotNil(t, branch.Metadata)
 	require.Equal(t, timestamp, branch.Metadata.Timestamp)
 	require.Equal(t, "abc123", branch.Metadata.CommitSHA)
@@ -203,7 +203,7 @@ func TestTargetState_MultipleSyncBranches(t *testing.T) {
 		Repo: "org/service",
 		SyncBranches: []SyncBranch{
 			{
-				Name: "chore/sync-files-20240101-120000-abc123",
+				Name: "chore/sync-files-default-20240101-120000-abc123",
 				Metadata: &BranchMetadata{
 					Timestamp: now.Add(-48 * time.Hour),
 					CommitSHA: "abc123",
@@ -211,7 +211,7 @@ func TestTargetState_MultipleSyncBranches(t *testing.T) {
 				},
 			},
 			{
-				Name: "chore/sync-files-20240102-120000-def456",
+				Name: "chore/sync-files-default-20240102-120000-def456",
 				Metadata: &BranchMetadata{
 					Timestamp: now.Add(-24 * time.Hour),
 					CommitSHA: "def456",
@@ -219,7 +219,7 @@ func TestTargetState_MultipleSyncBranches(t *testing.T) {
 				},
 			},
 			{
-				Name: "chore/sync-files-20240103-120000-ghi789",
+				Name: "chore/sync-files-default-20240103-120000-ghi789",
 				Metadata: &BranchMetadata{
 					Timestamp: now,
 					CommitSHA: "ghi789",
@@ -312,7 +312,7 @@ func TestState_ComplexScenario(t *testing.T) {
 				Status:         StatusPending,
 				SyncBranches: []SyncBranch{
 					{
-						Name: "chore/sync-files-20240101-120000-latest123",
+						Name: "chore/sync-files-default-20240101-120000-latest123",
 						Metadata: &BranchMetadata{
 							Timestamp: yesterday,
 							CommitSHA: "latest123",
@@ -329,7 +329,7 @@ func TestState_ComplexScenario(t *testing.T) {
 							Ref string `json:"ref"`
 							SHA string `json:"sha"`
 						}{
-							Ref: "chore/sync-files-20240101-120000-latest123",
+							Ref: "chore/sync-files-default-20240101-120000-latest123",
 						},
 					},
 				},
@@ -342,7 +342,7 @@ func TestState_ComplexScenario(t *testing.T) {
 				Status:         StatusConflict,
 				SyncBranches: []SyncBranch{
 					{
-						Name: "chore/sync-files-20240101-120000-latest123",
+						Name: "chore/sync-files-default-20240101-120000-latest123",
 						Metadata: &BranchMetadata{
 							Timestamp: now,
 							CommitSHA: "latest123",

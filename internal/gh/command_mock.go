@@ -11,7 +11,7 @@ type MockCommandRunner struct {
 	mock.Mock
 }
 
-// NewMockCommandRunner creates a new MockCommandRunner (backward compatibility)
+// NewMockCommandRunner creates a new MockCommandRunner
 func NewMockCommandRunner() *MockCommandRunner {
 	return &MockCommandRunner{}
 }

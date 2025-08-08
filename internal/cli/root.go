@@ -51,7 +51,7 @@ Common Use Cases:
 
 //nolint:gochecknoinits // Cobra commands require init() for flag registration
 func init() {
-	// Global flags for backward compatibility
+	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&globalFlags.ConfigFile, "config", "c", "sync.yaml", "Path to configuration file")
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.DryRun, "dry-run", false, "Preview changes without making them")
 	rootCmd.PersistentFlags().StringVar(&globalFlags.LogLevel, "log-level", "info", "Log level (debug, info, warn, error)")
@@ -153,7 +153,7 @@ state locally. It supports file transformations and provides progress tracking.`
 
 // GetRootCmd returns the root command for testing purposes
 func GetRootCmd() *cobra.Command {
-	// For backward compatibility and test isolation, return a new isolated instance
+	// For test isolation, return a new isolated instance
 	return NewRootCmd()
 }
 

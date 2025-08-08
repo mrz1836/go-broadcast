@@ -11,7 +11,7 @@ type MockTransformer struct {
 	mock.Mock
 }
 
-// NewMockTransformer creates a new MockTransformer (backward compatibility)
+// NewMockTransformer creates a new MockTransformer
 func NewMockTransformer() *MockTransformer {
 	return &MockTransformer{}
 }
@@ -36,7 +36,7 @@ type MockChain struct {
 	mock.Mock
 }
 
-// NewMockChain creates a new MockChain (backward compatibility)
+// NewMockChain creates a new MockChain
 func NewMockChain() *MockChain {
 	return &MockChain{}
 }

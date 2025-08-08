@@ -13,7 +13,7 @@ type MockClient struct {
 	mock.Mock
 }
 
-// NewMockClient creates a new MockClient (backward compatibility)
+// NewMockClient creates a new MockClient
 func NewMockClient() *MockClient {
 	return &MockClient{}
 }

@@ -11,8 +11,8 @@ import (
 func BenchmarkBranchParsing(b *testing.B) {
 	// Test parsing branch names to extract metadata
 	branches := []string{
-		"chore/sync-files-20240115-142530-abc123",
-		"chore/sync-files-20240115-142530-def456",
+		"chore/sync-files-default-20240115-142530-abc123",
+		"chore/sync-files-default-20240115-142530-def456",
 		"feature/new-feature",
 		"master",
 		"sync/custom-prefix-20240115-142530-ghi789",
@@ -43,7 +43,7 @@ func BenchmarkPRParsing(b *testing.B) {
 				Ref string `json:"ref"`
 				SHA string `json:"sha"`
 			}{
-				Ref: "chore/sync-files-20240115-142530-abc123",
+				Ref: "chore/sync-files-default-20240115-142530-abc123",
 				SHA: "abc123",
 			},
 			Base: struct {
@@ -65,7 +65,7 @@ func BenchmarkPRParsing(b *testing.B) {
 				Ref string `json:"ref"`
 				SHA string `json:"sha"`
 			}{
-				Ref: "chore/sync-files-20240114-100000-xyz789",
+				Ref: "chore/sync-files-default-20240114-100000-xyz789",
 				SHA: "xyz789",
 			},
 			Base: struct {

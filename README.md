@@ -262,12 +262,12 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 Every sync operation creates a branch with encoded metadata:
 
 ```
-chore/sync-files-20250123-143052-abc123f
-│    │         │                │
-│    │         │                └─── Source commit SHA (7 chars)
-│    │         └──────────────────── Timestamp (YYYYMMDD-HHMMSS)
-│    └────────────────────────────── Template identifier
-└─────────────────────────────────── Configurable prefix
+[chore/sync-files]-[group1]-[20250123-143052]-[abc123f]
+        │             │              │            │
+        │             │              │            └─── Source branch commit SHA (7 chars)
+        │ 		 	  │              └──────────────── Timestamp (YYYYMMDD-HHMMSS)
+        │ 			  └─────────────────────────────── Group ID (from config)
+        └───────────────────────────────────────────── Configurable prefix
 ```
 
 ### How go-broadcast Determines What to Sync
@@ -296,6 +296,9 @@ Each PR includes structured metadata for complete traceability:
 
 ```text
 <!-- go-broadcast metadata
+group:
+  id: default
+  name: Default Sync
 source:
   repo: company/template-repo
   branch: master
