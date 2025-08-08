@@ -1,6 +1,6 @@
-# Enhanced PR Metadata Example
+# PR Metadata Examples
 
-This document shows an example of the enhanced PR body with directory synchronization information and performance metrics.
+This document provides practical examples of go-broadcast PR bodies with metadata, directory synchronization details, and performance metrics that you'll see in your pull requests.
 
 ## Example PR Body
 

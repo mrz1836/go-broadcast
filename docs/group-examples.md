@@ -540,4 +540,6 @@ groups:
 - [Configuration Guide](configuration-guide.md) - Complete configuration reference
 - [Module-Aware Sync](module-sync.md) - Module versioning and management
 - [Directory Sync](directory-sync.md) - Directory synchronization details
-- [Troubleshooting](troubleshooting.md) - Common issues and solutions
+- [Enhanced Troubleshooting Guide](troubleshooting.md) - Common issues and solutions
+- [Performance Guide](performance-guide.md) - Performance tuning and optimization
+- [Enhanced Logging Guide](logging.md) - Debugging and monitoring

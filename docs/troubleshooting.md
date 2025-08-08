@@ -1,9 +1,22 @@
 # Troubleshooting Guide
 
-This guide helps resolve common issues when using go-broadcast.
+This guide helps resolve common issues when using go-broadcast. It combines systematic diagnostic procedures with solutions for specific problems.
+
+## Quick Reference
+
+| Issue Type | Quick Check | Common Fix |
+|------------|-------------|------------|
+| Authentication | `gh auth status` | `gh auth login` |
+| Configuration | `go-broadcast validate` | Fix YAML syntax |
+| API Rate Limits | `gh api rate_limit` | Wait or reduce concurrency |
+| Git Operations | `ssh -T git@github.com` | Check SSH keys |
+| Performance | `go-broadcast sync --json` | Enable debug logging |
+| File Sync | `go-broadcast sync --dry-run` | Check file mappings |
 
 ## Table of Contents
 
+- [Quick Reference](#quick-reference)
+- [Systematic Troubleshooting](#systematic-troubleshooting)
 - [Authentication Issues](#authentication-issues)
 - [Configuration Problems](#configuration-problems)
 - [GitHub API Issues](#github-api-issues)
@@ -11,7 +24,40 @@ This guide helps resolve common issues when using go-broadcast.
 - [File Synchronization](#file-synchronization)
 - [Directory Synchronization](#directory-synchronization)
 - [Performance Issues](#performance-issues)
+- [Operational Procedures](#operational-procedures)
 - [Debugging](#debugging)
+- [Related Documentation](#related-documentation)
+
+## Systematic Troubleshooting
+
+Follow this systematic approach for efficient problem resolution:
+
+### 1. Information Gathering
+```bash
+# Collect system diagnostics
+go-broadcast diagnose > diagnostics-$(date +%Y%m%d-%H%M%S).json
+
+# Check basic connectivity
+gh auth status
+git --version
+echo $GITHUB_TOKEN | cut -c1-10
+```
+
+### 2. Initial Assessment
+- What operation was being performed?
+- What error message was displayed?
+- When did the issue start occurring?
+- Has this worked before?
+
+### 3. Log Collection
+```bash
+# Enable comprehensive logging
+go-broadcast sync -vvv --debug-git --debug-api --debug-transform --debug-config --debug-state 2> full-debug.log
+
+# Save with timestamp
+DEBUG_LOG="debug-$(date +%Y%m%d-%H%M%S).log"
+go-broadcast sync --json -vv --debug-git --debug-api 2> "$DEBUG_LOG"
+```
 
 ## Authentication Issues
 
@@ -633,6 +679,19 @@ This shows detailed information about:
 - File transformations and their effects
 - State discovery process
 
+### Advanced Debug Options
+
+```bash
+# Component-specific debugging
+go-broadcast sync --debug-git --debug-api --debug-transform --debug-config --debug-state
+
+# JSON output for structured analysis
+go-broadcast sync --json -vv 2>&1 | jq 'select(.level=="error")'
+
+# Performance monitoring
+go-broadcast sync --json 2>&1 | jq 'select(.duration_ms > 5000)'
+```
+
 ### Check Sync State
 
 ```bash
@@ -748,10 +807,149 @@ For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github
 - **Environment troubleshooting steps** for GitHub authentication and Go environment issues
 - **Development workflow integration** for effective problem-solving
 
+## Operational Procedures
+
+### Health Check Procedures
+
+#### Basic Health Check
+```bash
+#!/bin/bash
+# go-broadcast-health-check.sh
+
+echo "=== go-broadcast Health Check ==="
+
+# Check binary exists and is executable
+if ! command -v go-broadcast &> /dev/null; then
+    echo "❌ go-broadcast not found in PATH"
+    exit 1
+fi
+
+# Check version
+echo "✅ Version: $(go-broadcast version 2>/dev/null || echo 'Unknown')"
+
+# Check dependencies
+echo "✅ Git: $(git --version)"
+echo "✅ GitHub CLI: $(gh --version | head -1)"
+
+# Check authentication
+if gh auth status &> /dev/null; then
+    echo "✅ GitHub authentication: OK"
+else
+    echo "❌ GitHub authentication: Failed"
+fi
+
+# Test basic functionality
+if go-broadcast diagnose > /dev/null 2>&1; then
+    echo "✅ Basic functionality: OK"
+else
+    echo "❌ Basic functionality: Failed"
+fi
+
+echo "=== Health Check Complete ==="
+```
+
+#### Performance Baseline
+```bash
+#!/bin/bash
+# performance-baseline.sh
+
+echo "=== Performance Baseline Test ==="
+
+# Small repository test
+time go-broadcast sync --config test-config.yaml --dry-run
+
+# Memory usage test
+/usr/bin/time -l go-broadcast sync --config test-config.yaml --dry-run 2>&1 | \
+  grep "maximum resident set size"
+
+# API rate limit check
+go-broadcast sync --debug-api --json --config test-config.yaml --dry-run 2>&1 | \
+  jq 'select(.rate_limit_remaining) | .rate_limit_remaining' | tail -1
+```
+
+### Log Analysis Workflows
+
+#### Error Pattern Analysis
+```bash
+# Extract all errors with context
+go-broadcast sync --json 2>&1 | \
+  jq 'select(.level=="error") | {time: ."@timestamp", component, operation, message, error}' | \
+  jq -s 'sort_by(.time)'
+
+# Find error patterns
+go-broadcast sync --json 2>&1 | \
+  jq -r 'select(.level=="error") | .error' | \
+  sort | uniq -c | sort -rn
+```
+
+#### Performance Analysis
+```bash
+# Operation timing analysis
+go-broadcast sync --json 2>&1 | \
+  jq 'select(.duration_ms) | {operation, duration_ms, repo}' | \
+  jq -s 'sort_by(.duration_ms) | reverse'
+
+# Component performance breakdown
+go-broadcast sync --json 2>&1 | \
+  jq 'select(.duration_ms) | {component, operation, duration_ms}' | \
+  jq -s 'group_by(.component) | map({component: .[0].component, total_ms: map(.duration_ms) | add, operations: length})'
+```
+
+#### Security Event Monitoring
+```bash
+# Authentication events
+go-broadcast sync --json 2>&1 | \
+  jq 'select(.component=="audit" and .event=="authentication") | {time: ."@timestamp", success, method}'
+
+# Repository access tracking
+go-broadcast sync --json 2>&1 | \
+  jq 'select(.event=="repo_access") | {time: ."@timestamp", repo, action, user}'
+```
+
+### Escalation Procedures
+
+#### Level 1: Self-Service
+- Review this troubleshooting guide
+- Check logs with basic verbose flags (`-v`)
+- Verify configuration and authentication
+- Test with `--dry-run` flag
+
+#### Level 2: Advanced Debugging
+- Collect comprehensive logs (`-vvv` with all debug flags)
+- Run `go-broadcast diagnose`
+- Performance analysis with JSON output
+- Search existing GitHub issues
+
+#### Level 3: Support Engagement
+Collect the following information:
+
+```bash
+# Support information package
+SUPPORT_DIR="go-broadcast-support-$(date +%Y%m%d-%H%M%S)"
+mkdir "$SUPPORT_DIR"
+
+# System diagnostics
+go-broadcast diagnose > "$SUPPORT_DIR/diagnostics.json"
+
+# Configuration (with sensitive data redacted)
+cp sync.yaml "$SUPPORT_DIR/config.yaml"
+sed -i.bak 's/ghp_[a-zA-Z0-9_]*/ghp_***REDACTED***/g' "$SUPPORT_DIR/config.yaml"
+
+# Full debug logs
+go-broadcast sync --json -vvv --debug-git --debug-api --debug-transform --debug-config --debug-state 2> "$SUPPORT_DIR/debug.log"
+
+# Error extraction
+jq 'select(.level=="error")' < "$SUPPORT_DIR/debug.log" > "$SUPPORT_DIR/errors.json"
+
+# Create support archive
+tar -czf "${SUPPORT_DIR}.tar.gz" "$SUPPORT_DIR"
+echo "Support package created: ${SUPPORT_DIR}.tar.gz"
+```
+
 ## Related Documentation
 
-1. [Troubleshooting Runbook](troubleshooting-runbook.md) - Systematic operational troubleshooting procedures
-2. [Logging Guide](logging.md) - Comprehensive logging and debugging documentation
-3. [Logging Quick Reference](logging-quick-ref.md) - Essential logging commands and flags
-4. [CLAUDE.md Developer Workflows](../.github/CLAUDE.md) - Complete development workflow integration
-```
+- **[Logging Guide](logging.md)** - Complete logging system documentation with quick reference section and detailed flag explanations
+- **[Performance Guide](performance-guide.md)** - Performance optimization, benchmarking, and troubleshooting
+- **[CLAUDE.md Developer Workflows](../.github/CLAUDE.md)** - Complete development workflow integration and debugging procedures
+- **[README.md](../README.md)** - Project overview and quick start guide
+- **[Security Policy](../.github/SECURITY.md)** - Security issue reporting procedures

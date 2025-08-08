@@ -986,7 +986,7 @@ go-broadcast diagnose
 
 **Note**: Environment variables for log level and format are planned features not yet implemented.
 
-For more detailed information, see the [comprehensive logging guide](docs/logging.md) and [troubleshooting runbook](docs/troubleshooting-runbook.md).
+For more detailed information, see the [comprehensive logging guide](docs/logging.md) and [enhanced troubleshooting guide](docs/troubleshooting.md).
 
 </details>
 
@@ -1226,10 +1226,8 @@ go-broadcast is designed for efficiency:
 
 ### Profiling Documentation
 
-📚 **Complete Guides:**
-- [Benchmarking Guide](docs/benchmarking-profiling.md) - Complete benchmarking reference
-- [Profiling Guide](docs/profiling-guide.md) - Advanced profiling techniques
-- [Performance Optimization](docs/performance-optimization.md) - Best practices and tips
+📚 **Complete Performance Guide:**
+- [Performance Guide](docs/performance-guide.md) - Complete benchmarking, profiling, and optimization reference
 
 </details>
 

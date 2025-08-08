@@ -42,7 +42,7 @@ When invoked, you must follow these steps:
 5. **Create Diagnostic Report**
    - Compile findings into a structured report
    - Include error messages, stack traces, and system state
-   - Reference relevant sections from `docs/troubleshooting.md` and `docs/troubleshooting-runbook.md`
+   - Reference relevant sections from the enhanced `docs/troubleshooting.md`
    - Suggest specific troubleshooting steps based on findings
 
 6. **Provide Recommendations**
@@ -52,7 +52,7 @@ When invoked, you must follow these steps:
    - Prioritize recommendations by likelihood of success
 
 **Best Practices:**
-- Always check both `docs/troubleshooting.md` and `docs/troubleshooting-runbook.md` for known issues
+- Always check the enhanced `docs/troubleshooting.md` for known issues and operational procedures
 - Use structured JSON output when creating diagnostic reports for automation
 - Verify GitHub API authentication and permissions before diagnosing API issues
 - Include timestamps and context in all diagnostic outputs

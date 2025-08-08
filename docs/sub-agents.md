@@ -73,7 +73,7 @@ The go-broadcast AI Sub-Agents system provides **26 specialized agents** that wo
 
 ### 🎯 Claude Code Slash Commands
 
-The go-broadcast project now features **20+ powerful slash commands** that make agent coordination effortless! Instead of manually invoking agents, use simple commands like:
+The go-broadcast project features **20+ powerful slash commands** that make agent coordination effortless! Instead of manually invoking agents, use simple commands like:
 
 - `/test` - Automatically runs test-commander and coverage-maintainer in parallel
 - `/security` - Coordinates 3 security agents for comprehensive auditing
@@ -112,7 +112,7 @@ Agents are automatically invoked based on your tasks. You can also explicitly re
 
 ### 🚀 Claude Code Slash Commands
 
-go-broadcast now includes **20+ powerful slash commands** that automatically coordinate these agents for common workflows. See the complete reference at [slash-commands.md](slash-commands.md).
+go-broadcast includes **20+ powerful slash commands** that automatically coordinate these agents for common workflows. See the complete reference at [slash-commands.md](slash-commands.md).
 
 **Quick Examples:**
 ```bash
@@ -573,23 +573,13 @@ diagnostic-specialist → debugging-expert → refactoring-specialist
 
 <br/>
 
-## 🎯 Future Enhancements
-
-### Planned Features
-
-1. **Agent Learning** - Agents improve from feedback
-2. **Custom Agents** - Project-specific agent creation
-3. **Agent Analytics** - Detailed performance dashboards
-4. **Cross-Repo Agents** - Agents that work across projects
-5. **Agent Marketplace** - Share agents with community
-
 ### Contribution
 
 To improve or add agents:
-1. Use the meta-agent to generate base configuration
-2. Test thoroughly with real scenarios
-3. Document agent capabilities clearly
-4. Submit PR with examples
+1. Test thoroughly with real scenarios
+2. Document agent capabilities clearly
+3. Submit PR with examples
+4. Follow conventions defined in [AGENTS.md](../.github/AGENTS.md)
 
 <br/>
 

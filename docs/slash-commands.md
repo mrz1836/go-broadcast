@@ -236,17 +236,10 @@ The go-broadcast slash command system provides 20 powerful commands that coordin
 Begin with basic commands like `/test` and `/quality` before using complex workflows
 
 ### 2. **Use in CI/CD**
-Commands like `/audit` and `/test` are designed for automation:
-```yaml
-- name: Security Check
-  run: claude-code --no-interactive /audit
-```
+Commands like `/audit` and `/test` are designed for automation in CI/CD pipelines.
 
 ### 3. **Combine Commands**
-Chain commands for complete workflows:
-```bash
-/quality && /test && /security
-```
+Use commands sequentially for complete workflows by running them one after another.
 
 ### 4. **Leverage Arguments**
 Be specific when needed:
@@ -319,6 +312,9 @@ Commands understand context:
 ## 🔗 Related Documentation
 
 - [Sub-Agents Guide](sub-agents.md) - Detailed information about each agent
+- [Enhanced Troubleshooting Guide](troubleshooting.md) - Common issues and solutions
+- [Performance Guide](performance-guide.md) - Performance tuning and optimization
+- [Enhanced Logging Guide](logging.md) - Debugging and monitoring
 - [AGENTS.md](../.github/AGENTS.md) - AI compliance and conventions
 - [Claude Code Docs](https://docs.anthropic.com/en/docs/claude-code) - Official documentation
 

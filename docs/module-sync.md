@@ -329,11 +329,16 @@ View all configured modules:
 go-broadcast modules list
 
 # Output:
-# Module: pkg/errors
-#   Type: go
-#   Version: v1.2.3
-#   Source: company/go-modules
-#   Targets: 3 repositories
+# === Configured Modules ===
+#
+# Group: Shared Go Libraries (go-libs)
+#   Module 1:
+#     Source: pkg/errors
+#     Target: company/service-a -> vendor/github.com/company/errors
+#     Type: go
+#     Version: v1.2.3
+#
+# Total modules configured: 1
 ```
 
 ### Show Module Details
@@ -344,12 +349,17 @@ Get details about a specific module:
 go-broadcast modules show pkg/errors
 
 # Output:
-# Module: pkg/errors
-# Type: go
-# Current Version: v1.2.3
-# Available Versions: v1.0.0, v1.1.0, v1.2.0, v1.2.3, v2.0.0-beta
-# Configured In: 3 groups
-# Cache Status: Valid (expires in 4m 32s)
+# === Module: pkg/errors ===
+#
+# Group: Shared Go Libraries (go-libs)
+#   Source Repository: company/go-commons
+#   Source Directory: pkg/errors
+#   Target Repository: company/service-a
+#   Target Directory: vendor/github.com/company/errors
+#
+# Module Configuration:
+#   Type: go
+#   Version: v1.2.3
 ```
 
 ### Check Available Versions
@@ -360,12 +370,18 @@ Fetch available versions for a module:
 go-broadcast modules versions pkg/errors
 
 # Output:
-# Available versions for pkg/errors:
-# - v2.0.0-beta (latest)
-# - v1.2.3 (current)
-# - v1.2.0
-# - v1.1.0
-# - v1.0.0
+# === Available Versions for pkg/errors ===
+# Source Repository: company/go-commons
+#
+# Available Versions:
+#   • v2.0.0-beta
+#   • v1.2.3
+#   • v1.2.0
+#   • v1.1.0
+#   • v1.0.0
+#
+# Current Configuration: v1.2.3
+#   Resolves to: v1.2.3
 ```
 
 ### Validate Module Configuration
@@ -376,9 +392,16 @@ Ensure all module configurations are valid:
 go-broadcast modules validate
 
 # Output:
-# ✓ pkg/errors: v1.2.3 (valid)
-# ✓ pkg/database: ^2.0.0 -> v2.3.1 (resolved)
-# ✗ pkg/auth: v3.0.0 (version not found)
+# === Validating Module Configurations ===
+#
+#   ✓ Module pkg/errors: v1.2.3 -> v1.2.3
+#   ✓ Module pkg/database: ^2.0.0 -> v2.3.1
+#   Group 'Shared Go Libraries': 2 modules
+#
+# === Validation Summary ===
+# Total Modules: 2
+# Valid: 2
+# All module configurations are valid!
 ```
 
 ## Performance Optimization
@@ -512,20 +535,11 @@ groups:
       version: "v2.0.0-rc1"
 ```
 
-## Future Enhancements
-
-Planned improvements for module-aware sync:
-
-- **NPM Support** - Node.js package synchronization
-- **Python Support** - Python package management
-- **Auto-update** - Automatic updates within constraints
-- **Dependency Graph** - Visualize module dependencies
-- **Version Policies** - Org-wide version constraints
-- **Security Scanning** - Vulnerability checking for versions
 
 ## See Also
 
 - [Configuration Guide](configuration-guide.md)
 - [Group Examples](group-examples.md)
 - [Directory Synchronization](directory-sync.md)
-- [Troubleshooting Guide](troubleshooting.md)
+- [Enhanced Troubleshooting Guide](troubleshooting.md)
+- [Performance Guide](performance-guide.md)

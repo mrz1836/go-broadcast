@@ -862,14 +862,15 @@ gh pr list --label "automated-sync" --state all --limit 100
 ---
 
 **Next Steps:**
-- Review [troubleshooting guide](troubleshooting.md) for additional debugging techniques
+- Review [Enhanced Troubleshooting Guide](troubleshooting.md) for additional debugging techniques
 - Explore [configuration examples](../examples/) for more real-world scenarios
-- Check [performance guide](performance-optimization.md) for advanced optimization techniques
+- Check [Performance Guide](performance-guide.md) for advanced optimization techniques
 
 **Related Documentation:**
 - [Quick Start Guide](../README.md#-quick-start)
 - [Configuration Guide](configuration-guide.md)
 - [Module-Aware Sync](module-sync.md)
 - [Group Examples](group-examples.md)
+- [Enhanced Logging Guide](logging.md)
 - [Performance Benchmarks](../README.md#-performance)
 - [Example Configurations](../examples/)

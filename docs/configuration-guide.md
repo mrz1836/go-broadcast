@@ -448,5 +448,7 @@ groups:
 
 - [Module-Aware Synchronization Guide](module-sync.md)
 - [Group Configuration Examples](group-examples.md)
-- [Troubleshooting Guide](troubleshooting.md)
 - [Directory Synchronization](directory-sync.md)
+- [Enhanced Troubleshooting Guide](troubleshooting.md)
+- [Performance Guide](performance-guide.md)
+- [Enhanced Logging Guide](logging.md)
