@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
-	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
+	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 )
 
 func TestNewWhitespaceCheckWithConfig(t *testing.T) {

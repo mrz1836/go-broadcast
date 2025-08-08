@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
 )
 
 func TestNew(t *testing.T) {

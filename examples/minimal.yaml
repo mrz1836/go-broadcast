@@ -3,12 +3,17 @@
 
 version: 1
 
-source:
-  repo: "org/template-repo"
-  branch: "master"
-
-targets:
-  - repo: "org/target-repo"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
+groups:
+  - name: "Default Sync"
+    id: "default"
+    description: "Basic file synchronization"
+    priority: 1
+    enabled: true
+    source:
+      repo: "org/template-repo"
+      branch: "master"
+    targets:
+      - repo: "org/target-repo"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"

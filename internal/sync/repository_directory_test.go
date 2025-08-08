@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/state"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRepositorySync_generatePRBodyWithDirectories(t *testing.T) {

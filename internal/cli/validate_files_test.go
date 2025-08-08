@@ -1,13 +1,18 @@
 package cli
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
 // TestValidateSourceFilesExist tests the validateSourceFilesExist function
@@ -17,26 +22,28 @@ func TestValidateSourceFilesExist(t *testing.T) {
 	// These tests demonstrate what we would test if the function accepted a client parameter.
 
 	baseConfig := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/source-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/target1",
-				Files: []config.FileMapping{
-					{Src: "README.md", Dest: "README.md"},
-					{Src: "LICENSE", Dest: "LICENSE"},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/source-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/target1",
+					Files: []config.FileMapping{
+						{Src: "README.md", Dest: "README.md"},
+						{Src: "LICENSE", Dest: "LICENSE"},
+					},
+				},
+				{
+					Repo: "org/target2",
+					Files: []config.FileMapping{
+						{Src: "README.md", Dest: "docs/README.md"},
+						{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
+					},
 				},
 			},
-			{
-				Repo: "org/target2",
-				Files: []config.FileMapping{
-					{Src: "README.md", Dest: "docs/README.md"},
-					{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
-				},
-			},
-		},
+		}},
 	}
 
 	testCases := []struct {
@@ -49,11 +56,13 @@ func TestValidateSourceFilesExist(t *testing.T) {
 		{
 			name: "No source files to validate",
 			config: &config.Config{
-				Source: config.SourceConfig{
-					Repo:   "org/source-repo",
-					Branch: "master",
-				},
-				Targets: []config.TargetConfig{},
+				Groups: []config.Group{{
+					Source: config.SourceConfig{
+						Repo:   "org/source-repo",
+						Branch: "master",
+					},
+					Targets: []config.TargetConfig{},
+				}},
 			},
 			verifyOutput: func(t *testing.T, output string) {
 				assert.Contains(t, output, "No source files to validate")
@@ -125,25 +134,29 @@ func TestValidateSourceFilesExist(t *testing.T) {
 		{
 			name: "Duplicate source files across targets",
 			config: &config.Config{
-				Source: config.SourceConfig{
-					Repo:   "org/source-repo",
-					Branch: "master",
-				},
-				Targets: []config.TargetConfig{
-					{
-						Repo: "org/target1",
-						Files: []config.FileMapping{
-							{Src: "README.md", Dest: "README.md"},
-							{Src: "README.md", Dest: "docs/README.md"}, // Same source, different dest
+				Groups: []config.Group{{
+					Name: "test-group",
+					ID:   "test-group-1",
+					Source: config.SourceConfig{
+						Repo:   "org/source-repo",
+						Branch: "master",
+					},
+					Targets: []config.TargetConfig{
+						{
+							Repo: "org/target1",
+							Files: []config.FileMapping{
+								{Src: "README.md", Dest: "README.md"},
+								{Src: "README.md", Dest: "docs/README.md"}, // Same source, different dest
+							},
+						},
+						{
+							Repo: "org/target2",
+							Files: []config.FileMapping{
+								{Src: "README.md", Dest: "README.md"}, // Same source again
+							},
 						},
 					},
-					{
-						Repo: "org/target2",
-						Files: []config.FileMapping{
-							{Src: "README.md", Dest: "README.md"}, // Same source again
-						},
-					},
-				},
+				}},
 			},
 			setupMocks: func(mockClient *gh.MockClient) {
 				// Should only check README.md once due to deduplication
@@ -158,7 +171,45 @@ func TestValidateSourceFilesExist(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Skip("Skipping test that requires refactoring validateSourceFilesExist to accept a client parameter")
+			// Create mock client if needed
+			var mockClient *gh.MockClient
+			if tc.setupMocks != nil {
+				mockClient = new(gh.MockClient)
+				tc.setupMocks(mockClient)
+			}
+
+			// If client error is expected, handle the case where no client is available
+			if tc.clientError != nil {
+				// For this test case, we test the main function which handles client creation errors
+				// Since we can't easily force client creation to fail in the test,
+				// we'll skip this specific test case for now
+				t.Skip("Cannot easily simulate client creation failure in test")
+				return
+			}
+
+			// Capture output
+			origStdout := output.Stdout()
+			origStderr := output.Stderr()
+			var stdoutBuf, stderrBuf bytes.Buffer
+			output.SetStdout(&stdoutBuf)
+			output.SetStderr(&stderrBuf)
+			defer func() {
+				output.SetStdout(origStdout)
+				output.SetStderr(origStderr)
+			}()
+
+			// Call the function with mock client
+			ctx := context.Background()
+			validateSourceFilesExistWithClient(ctx, tc.config, mockClient)
+
+			// Verify output - combine stdout and stderr
+			outputStr := stdoutBuf.String() + stderrBuf.String()
+			tc.verifyOutput(t, outputStr)
+
+			// Verify mock expectations
+			if mockClient != nil {
+				mockClient.AssertExpectations(t)
+			}
 		})
 	}
 }
@@ -167,82 +218,210 @@ func TestValidateSourceFilesExist(t *testing.T) {
 func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 	t.Run("Empty file paths", func(t *testing.T) {
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/source-repo",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
-				{
-					Repo: "org/target1",
-					Files: []config.FileMapping{
-						{Src: "", Dest: "README.md"}, // Empty source path
+			Groups: []config.Group{{
+				Name: "test-group",
+				ID:   "test-group-1",
+				Source: config.SourceConfig{
+					Repo:   "org/source-repo",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+						Files: []config.FileMapping{
+							{Src: "", Dest: "README.md"},              // Empty source path
+							{Src: "valid-file.txt", Dest: "file.txt"}, // Valid file to ensure processing continues
+						},
 					},
 				},
-			},
+			}},
 		}
 
-		// Would test that empty paths are handled gracefully
-		t.Skip("Skipping test that requires refactoring")
-		_ = cfg
+		// Create mock client
+		mockClient := gh.NewMockClient()
+
+		// Setup mock expectations
+		// Both empty path and valid file will be checked (current behavior)
+		// Empty path will fail, but validation continues
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "", "master").
+			Return(nil, gh.ErrFileNotFound)
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "valid-file.txt", "master").
+			Return(&gh.FileContent{
+				Path:    "valid-file.txt",
+				Content: []byte("test content"),
+			}, nil)
+
+		// Capture output
+		origStdout := output.Stdout()
+		origStderr := output.Stderr()
+		var stdoutBuf, stderrBuf bytes.Buffer
+		output.SetStdout(&stdoutBuf)
+		output.SetStderr(&stderrBuf)
+		defer func() {
+			output.SetStdout(origStdout)
+			output.SetStderr(origStderr)
+		}()
+
+		// Run the validation
+		ctx := context.Background()
+		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
+
+		// Verify output - combine stdout and stderr
+		outputStr := stdoutBuf.String() + stderrBuf.String()
+
+		// Verify that empty paths are reported as not found and validation continues
+		assert.Contains(t, outputStr, "Source file not found: ", "Should report empty path as not found")
+		assert.Contains(t, outputStr, "Some source files missing (1/2 found)", "Should report partial success")
+
+		// Verify mock expectations - both paths should be checked
+		mockClient.AssertExpectations(t)
 	})
 
 	t.Run("Special characters in file paths", func(t *testing.T) {
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/source-repo",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
-				{
-					Repo: "org/target1",
-					Files: []config.FileMapping{
-						{Src: "path/with spaces/file.txt", Dest: "file.txt"},
-						{Src: "path/with-dashes/file.txt", Dest: "file.txt"},
-						{Src: "path/with_underscores/file.txt", Dest: "file.txt"},
-						{Src: "path/with.dots/file.txt", Dest: "file.txt"},
+			Groups: []config.Group{{
+				Name: "test-group",
+				ID:   "test-group-1",
+				Source: config.SourceConfig{
+					Repo:   "org/source-repo",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+						Files: []config.FileMapping{
+							{Src: "path/with spaces/file.txt", Dest: "file.txt"},
+							{Src: "path/with-dashes/file.txt", Dest: "file.txt"},
+							{Src: "path/with_underscores/file.txt", Dest: "file.txt"},
+							{Src: "path/with.dots/file.txt", Dest: "file.txt"},
+						},
 					},
 				},
-			},
+			}},
 		}
 
-		// Would test that special characters in paths are handled correctly
-		t.Skip("Skipping test that requires refactoring")
-		_ = cfg
+		// Create mock client
+		mockClient := new(gh.MockClient)
+
+		// Setup mock expectations - all special character paths should work
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "path/with spaces/file.txt", "master").
+			Return(&gh.FileContent{Path: "path/with spaces/file.txt", Content: []byte("content with spaces")}, nil)
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "path/with-dashes/file.txt", "master").
+			Return(&gh.FileContent{Path: "path/with-dashes/file.txt", Content: []byte("content with dashes")}, nil)
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "path/with_underscores/file.txt", "master").
+			Return(&gh.FileContent{Path: "path/with_underscores/file.txt", Content: []byte("content with underscores")}, nil)
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "path/with.dots/file.txt", "master").
+			Return(&gh.FileContent{Path: "path/with.dots/file.txt", Content: []byte("content with dots")}, nil)
+
+		// Capture output
+		origStdout := output.Stdout()
+		origStderr := output.Stderr()
+		var stdoutBuf, stderrBuf bytes.Buffer
+		output.SetStdout(&stdoutBuf)
+		output.SetStderr(&stderrBuf)
+		defer func() {
+			output.SetStdout(origStdout)
+			output.SetStderr(origStderr)
+		}()
+
+		// Call the function with mock client
+		ctx := context.Background()
+		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
+
+		// Verify output - combine stdout and stderr
+		outputStr := stdoutBuf.String() + stderrBuf.String()
+
+		// Verify that all files with special characters are found
+		assert.Contains(t, outputStr, "All source files exist (4/4)", "Should successfully validate all files with special characters")
+
+		// Verify mock expectations
+		mockClient.AssertExpectations(t)
 	})
 
 	t.Run("Very long file paths", func(t *testing.T) {
 		longPath := "very/deep/nested/directory/structure/that/goes/on/and/on/and/on/with/many/levels/file.txt"
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/source-repo",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
-				{
-					Repo: "org/target1",
-					Files: []config.FileMapping{
-						{Src: longPath, Dest: "file.txt"},
+			Groups: []config.Group{{
+				Name: "test-group",
+				ID:   "test-group-1",
+				Source: config.SourceConfig{
+					Repo:   "org/source-repo",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+						Files: []config.FileMapping{
+							{Src: longPath, Dest: "file.txt"},
+						},
 					},
 				},
-			},
+			}},
 		}
 
-		// Would test that long paths are handled correctly
-		t.Skip("Skipping test that requires refactoring")
-		_ = cfg
-	})
-}
-
-// TestValidateCommandWithMockedGitHub demonstrates how we could test with proper mocking
-func TestValidateCommandWithMockedGitHub(t *testing.T) {
-	// This test demonstrates the ideal testing approach if the validate functions
-	// accepted a GitHub client as a parameter instead of creating it internally.
-
-	t.Run("Ideal test with dependency injection", func(t *testing.T) {
 		// Create mock client
 		mockClient := new(gh.MockClient)
 
-		// Setup expectations
+		// Setup mock expectations - long path should work
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", longPath, "master").
+			Return(&gh.FileContent{Path: longPath, Content: []byte("content from very long path")}, nil)
+
+		// Capture output
+		origStdout := output.Stdout()
+		origStderr := output.Stderr()
+		var stdoutBuf, stderrBuf bytes.Buffer
+		output.SetStdout(&stdoutBuf)
+		output.SetStderr(&stderrBuf)
+		defer func() {
+			output.SetStdout(origStdout)
+			output.SetStderr(origStderr)
+		}()
+
+		// Call the function with mock client
+		ctx := context.Background()
+		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
+
+		// Verify output - combine stdout and stderr
+		outputStr := stdoutBuf.String() + stderrBuf.String()
+
+		// Verify that long paths are handled correctly
+		assert.Contains(t, outputStr, "All source files exist (1/1)", "Should successfully validate files with very long paths")
+
+		// Verify mock expectations
+		mockClient.AssertExpectations(t)
+	})
+}
+
+// TestValidateCommandWithMockedGitHub demonstrates testing with proper mocking and dependency injection
+func TestValidateCommandWithMockedGitHub(t *testing.T) {
+	// This test demonstrates testing with dependency injection now that both validate functions
+	// accept a GitHub client as a parameter.
+
+	t.Run("Test with dependency injection", func(t *testing.T) {
+		// Create test configuration
+		cfg := &config.Config{
+			Groups: []config.Group{{
+				Name: "test-group",
+				ID:   "test-group-1",
+				Source: config.SourceConfig{
+					Repo:   "org/source",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+						Files: []config.FileMapping{
+							{Src: "README.md", Dest: "README.md"},
+						},
+					},
+				},
+			}},
+		}
+
+		// Create mock client
+		mockClient := new(gh.MockClient)
+
+		// Setup expectations for validateRepositoryAccessibilityWithClient
 		mockClient.On("GetBranch", mock.Anything, "org/source", "master").
 			Return(&gh.Branch{Name: "master", Commit: struct {
 				SHA string `json:"sha"`
@@ -253,19 +432,38 @@ func TestValidateCommandWithMockedGitHub(t *testing.T) {
 				SHA string `json:"sha"`
 				URL string `json:"url"`
 			}{SHA: "def456"}}}, nil)
+
+		// Setup expectations for validateSourceFilesExistWithClient
 		mockClient.On("GetFile", mock.Anything, "org/source", "README.md", "master").
 			Return(&gh.FileContent{Path: "README.md", Content: []byte("# README")}, nil)
 
-		// In an ideal world, we would pass the client to the validate functions:
-		// err := validateRepositoryAccessibilityWithClient(ctx, cfg, mockClient, false)
-		// validateSourceFilesExistWithClient(ctx, cfg, mockClient)
+		// Capture output
+		origStdout := output.Stdout()
+		origStderr := output.Stderr()
+		var stdoutBuf, stderrBuf bytes.Buffer
+		output.SetStdout(&stdoutBuf)
+		output.SetStderr(&stderrBuf)
+		defer func() {
+			output.SetStdout(origStdout)
+			output.SetStderr(origStderr)
+		}()
 
-		// But since the current implementation creates the client internally,
-		// we can't easily test with mocks without refactoring.
+		ctx := context.Background()
 
-		t.Skip("Skipping ideal test - requires refactoring to support dependency injection")
+		// Test validateRepositoryAccessibilityWithClient
+		err := validateRepositoryAccessibilityWithClient(ctx, cfg, mockClient, false)
+		require.NoError(t, err, "Repository accessibility validation should succeed")
 
-		// Verify expectations would be met
+		// Test validateSourceFilesExistWithClient
+		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
+
+		// Verify output contains success messages
+		outputStr := stdoutBuf.String() + stderrBuf.String()
+		assert.Contains(t, outputStr, "Source repository accessible: org/source", "Should report source repo as accessible")
+		assert.Contains(t, outputStr, "Target repository accessible: org/target1", "Should report target repo as accessible")
+		assert.Contains(t, outputStr, "All source files exist", "Should report all source files exist")
+
+		// Verify expectations were met
 		mockClient.AssertExpectations(t)
 	})
 }

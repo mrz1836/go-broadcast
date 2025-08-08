@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
@@ -12,8 +15,124 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/sync"
 	"github.com/mrz1836/go-broadcast/internal/transform"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
+)
+
+// SyncService defines the interface for sync operations
+type SyncService interface {
+	Sync(ctx context.Context, targets []string) error
+}
+
+// ConfigLoader defines the interface for configuration loading
+type ConfigLoader interface {
+	LoadConfig(configPath string) (*config.Config, error)
+	ValidateConfig(cfg *config.Config) error
+}
+
+// SyncEngineFactory defines the interface for creating sync engines
+type SyncEngineFactory interface {
+	CreateSyncEngine(ctx context.Context, cfg *config.Config, flags *Flags, logger *logrus.Logger) (SyncService, error)
+}
+
+// DefaultConfigLoader implements ConfigLoader
+type DefaultConfigLoader struct{}
+
+// LoadConfig loads and parses configuration from file
+func (d *DefaultConfigLoader) LoadConfig(configPath string) (*config.Config, error) {
+	// Check if config file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("%w: %s", ErrConfigFileNotFound, configPath)
+	}
+
+	// Load and parse configuration
+	return config.Load(configPath)
+}
+
+// ValidateConfig validates the configuration
+func (d *DefaultConfigLoader) ValidateConfig(cfg *config.Config) error {
+	return cfg.ValidateWithLogging(context.Background(), nil)
+}
+
+// DefaultSyncEngineFactory implements SyncEngineFactory
+type DefaultSyncEngineFactory struct{}
+
+// CreateSyncEngine creates a new sync engine with all dependencies
+func (d *DefaultSyncEngineFactory) CreateSyncEngine(ctx context.Context, cfg *config.Config, flags *Flags, logger *logrus.Logger) (SyncService, error) {
+	return createSyncEngineWithFlags(ctx, cfg, flags, logger)
+}
+
+// SyncCommand represents a testable sync command
+type SyncCommand struct {
+	configLoader      ConfigLoader
+	syncEngineFactory SyncEngineFactory
+	outputWriter      output.Writer
+}
+
+// NewSyncCommand creates a new SyncCommand with default dependencies
+func NewSyncCommand() *SyncCommand {
+	return &SyncCommand{
+		configLoader:      &DefaultConfigLoader{},
+		syncEngineFactory: &DefaultSyncEngineFactory{},
+		outputWriter:      output.NewColoredWriter(os.Stdout, os.Stderr),
+	}
+}
+
+// NewSyncCommandWithDependencies creates a new SyncCommand with injectable dependencies
+func NewSyncCommandWithDependencies(configLoader ConfigLoader, syncEngineFactory SyncEngineFactory, outputWriter output.Writer) *SyncCommand {
+	return &SyncCommand{
+		configLoader:      configLoader,
+		syncEngineFactory: syncEngineFactory,
+		outputWriter:      outputWriter,
+	}
+}
+
+// ExecuteSync runs the sync operation with the given flags and arguments
+func (s *SyncCommand) ExecuteSync(ctx context.Context, flags *Flags, args []string) error {
+	logger := logrus.StandardLogger()
+	log := logger.WithField("command", "sync")
+
+	// Load configuration
+	cfg, err := s.configLoader.LoadConfig(flags.ConfigFile)
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	// Validate configuration
+	if validateErr := s.configLoader.ValidateConfig(cfg); validateErr != nil {
+		return fmt.Errorf("invalid configuration: %w", validateErr)
+	}
+
+	// Filter targets if specified
+	targets := args
+	if len(targets) > 0 {
+		log.WithField("targets", targets).Info("Syncing specific targets")
+	} else {
+		log.Info("Syncing all configured targets")
+	}
+
+	// Show dry-run warning
+	if flags.DryRun {
+		s.outputWriter.Warn("DRY-RUN MODE: No changes will be made to repositories")
+	}
+
+	// Initialize sync engine
+	syncEngine, err := s.syncEngineFactory.CreateSyncEngine(ctx, cfg, flags, logger)
+	if err != nil {
+		return fmt.Errorf("failed to initialize sync engine: %w", err)
+	}
+
+	// Execute sync
+	if err := syncEngine.Sync(ctx, targets); err != nil {
+		return fmt.Errorf("sync failed: %w", err)
+	}
+
+	s.outputWriter.Success("Sync completed successfully")
+	return nil
+}
+
+//nolint:gochecknoglobals // Package-level variables for CLI flags
+var (
+	groupFilter []string
+	skipGroups  []string
 )
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -23,12 +142,22 @@ var syncCmd = &cobra.Command{
 	Long: `Synchronize files from the source template repository to one or more target repositories.
 
 If no targets are specified, all targets in the configuration file will be synchronized.
-Target repositories can be specified as arguments to sync only specific repos.`,
+Target repositories can be specified as arguments to sync only specific repos.
+
+Group Filtering:
+  Use --groups to sync only specific groups (by name or ID).
+  Use --skip-groups to exclude specific groups from sync.
+  When both are specified, skip-groups takes precedence.`,
 	Example: `  # Basic operations
   go-broadcast sync                        # Sync all targets from config
   go-broadcast sync --config sync.yaml     # Use specific config file
   go-broadcast sync org/repo1 org/repo2    # Sync only specified repositories
   go-broadcast sync --dry-run              # Preview changes without making them
+
+  # Group-based sync
+  go-broadcast sync --groups "core,security"       # Sync only core and security groups
+  go-broadcast sync --skip-groups "experimental"   # Sync all except experimental group
+  go-broadcast sync --groups core org/repo1        # Sync specific target in core group
 
   # Debugging and troubleshooting
   go-broadcast sync --log-level debug      # Enable debug logging
@@ -44,6 +173,12 @@ Target repositories can be specified as arguments to sync only specific repos.`,
 	RunE:    runSync,
 }
 
+//nolint:gochecknoinits // Cobra commands require init() for flag registration
+func init() {
+	syncCmd.Flags().StringSliceVar(&groupFilter, "groups", nil, "Sync only specified groups (by name or ID)")
+	syncCmd.Flags().StringSliceVar(&skipGroups, "skip-groups", nil, "Skip specified groups during sync")
+}
+
 func runSync(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	log := logrus.WithField("command", "sync")
@@ -54,11 +189,19 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
+	// Log group filters if specified
+	if len(groupFilter) > 0 {
+		log.WithField("groups", groupFilter).Info("Filtering to specific groups")
+	}
+	if len(skipGroups) > 0 {
+		log.WithField("skip_groups", skipGroups).Info("Skipping specified groups")
+	}
+
 	// Filter targets if specified
 	targets := args
 	if len(targets) > 0 {
 		log.WithField("targets", targets).Info("Syncing specific targets")
-	} else {
+	} else if len(groupFilter) == 0 && len(skipGroups) == 0 {
 		log.Info("Syncing all configured targets")
 	}
 
@@ -171,9 +314,16 @@ func loadConfigWithFlags(flags *Flags, logger *logrus.Logger) (*config.Config, e
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
+	groups := cfg.Groups
+	sourceRepo := ""
+	targetsCount := 0
+	if len(groups) > 0 {
+		sourceRepo = groups[0].Source.Repo
+		targetsCount = len(groups[0].Targets)
+	}
 	logger.WithFields(logrus.Fields{
-		"source":      cfg.Source.Repo,
-		"targets":     len(cfg.Targets),
+		"source":      sourceRepo,
+		"targets":     targetsCount,
 		"config_file": configPath,
 	}).Debug("Configuration loaded")
 
@@ -203,25 +353,34 @@ func createSyncEngine(ctx context.Context, cfg *config.Config) (*sync.Engine, er
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if target.Transform.RepoName {
-			transformChain.Add(transform.NewRepoTransformer())
-			break
+	groups := cfg.Groups
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				goto repoTransformerAdded
+			}
 		}
 	}
+repoTransformerAdded:
 
 	// Add template variable transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if len(target.Transform.Variables) > 0 {
-			transformChain.Add(transform.NewTemplateTransformer(logrus.StandardLogger(), nil))
-			break
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logrus.StandardLogger(), nil))
+				goto templateTransformerAdded
+			}
 		}
 	}
+templateTransformerAdded:
 
 	// Create sync options
 	opts := sync.DefaultOptions().
 		WithDryRun(IsDryRun()).
-		WithMaxConcurrency(5)
+		WithMaxConcurrency(5).
+		WithGroupFilter(groupFilter).
+		WithSkipGroups(skipGroups)
 
 	// Create and return engine
 	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
@@ -251,25 +410,34 @@ func createSyncEngineWithFlags(ctx context.Context, cfg *config.Config, flags *F
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if target.Transform.RepoName {
-			transformChain.Add(transform.NewRepoTransformer())
-			break
+	groups := cfg.Groups
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				goto repoTransformerAdded2
+			}
 		}
 	}
+repoTransformerAdded2:
 
 	// Add template variable transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if len(target.Transform.Variables) > 0 {
-			transformChain.Add(transform.NewTemplateTransformer(logger, nil))
-			break
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logger, nil))
+				goto templateTransformerAdded2
+			}
 		}
 	}
+templateTransformerAdded2:
 
 	// Create sync options using flags instead of global state
 	opts := sync.DefaultOptions().
 		WithDryRun(flags.DryRun).
-		WithMaxConcurrency(5)
+		WithMaxConcurrency(5).
+		WithGroupFilter(flags.GroupFilter).
+		WithSkipGroups(flags.SkipGroups)
 
 	// Create and return engine
 	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
@@ -313,9 +481,16 @@ func loadConfigWithLogConfig(logConfig *LogConfig) (*config.Config, error) {
 
 	// Log configuration details when debug is enabled
 	if logConfig.Debug.Config || logConfig.Verbose >= 1 {
+		groups := cfg.Groups
+		sourceRepo := ""
+		targetsCount := 0
+		if len(groups) > 0 {
+			sourceRepo = groups[0].Source.Repo
+			targetsCount = len(groups[0].Targets)
+		}
 		logrus.WithFields(logrus.Fields{
-			"source":      cfg.Source.Repo,
-			"targets":     len(cfg.Targets),
+			"source":      sourceRepo,
+			"targets":     targetsCount,
 			"config_file": configPath,
 		}).Debug("Configuration loaded")
 	}
@@ -362,25 +537,34 @@ func createSyncEngineWithLogConfig(ctx context.Context, cfg *config.Config, logC
 	transformChain := transform.NewChain(logger)
 
 	// Add repository name transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if target.Transform.RepoName {
-			transformChain.Add(transform.NewRepoTransformer())
-			break
+	groups := cfg.Groups
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				goto repoTransformerAdded3
+			}
 		}
 	}
+repoTransformerAdded3:
 
 	// Add template variable transformer if any target uses it
-	for _, target := range cfg.Targets {
-		if len(target.Transform.Variables) > 0 {
-			transformChain.Add(transform.NewTemplateTransformer(logger, logConfig))
-			break
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logger, logConfig))
+				goto templateTransformerAdded3
+			}
 		}
 	}
+templateTransformerAdded3:
 
 	// Create sync options using LogConfig instead of global state
 	opts := sync.DefaultOptions().
 		WithDryRun(logConfig.DryRun).
-		WithMaxConcurrency(5)
+		WithMaxConcurrency(5).
+		WithGroupFilter(logConfig.GroupFilter).
+		WithSkipGroups(logConfig.SkipGroups)
 
 	// Create and return engine
 	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)

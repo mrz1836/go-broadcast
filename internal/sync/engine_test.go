@@ -7,16 +7,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/transform"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -56,24 +57,26 @@ func TestNewEngine(t *testing.T) {
 func TestEngineSync(t *testing.T) {
 	// Setup test configuration
 	cfg := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/template",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/target-a",
-				Files: []config.FileMapping{
-					{Src: "file1.txt", Dest: "file1.txt"},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/target-a",
+					Files: []config.FileMapping{
+						{Src: "file1.txt", Dest: "file1.txt"},
+					},
+				},
+				{
+					Repo: "org/target-b",
+					Files: []config.FileMapping{
+						{Src: "file2.txt", Dest: "file2.txt"},
+					},
 				},
 			},
-			{
-				Repo: "org/target-b",
-				Files: []config.FileMapping{
-					{Src: "file2.txt", Dest: "file2.txt"},
-				},
-			},
-		},
+		}},
 	}
 
 	t.Run("successful sync with up-to-date targets", func(t *testing.T) {
@@ -249,11 +252,13 @@ func TestEngineSync(t *testing.T) {
 
 func TestEngineFilterTargets(t *testing.T) {
 	cfg := &config.Config{
-		Targets: []config.TargetConfig{
-			{Repo: "org/target-a"},
-			{Repo: "org/target-b"},
-			{Repo: "org/target-c"},
-		},
+		Groups: []config.Group{{
+			Targets: []config.TargetConfig{
+				{Repo: "org/target-a"},
+				{Repo: "org/target-b"},
+				{Repo: "org/target-c"},
+			},
+		}},
 	}
 
 	currentState := &state.State{
@@ -382,18 +387,20 @@ func TestEngineNeedsSync(t *testing.T) {
 
 func TestEngineWithDryRun(t *testing.T) {
 	cfg := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/template",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/target",
-				Files: []config.FileMapping{
-					{Src: "file.txt", Dest: "file.txt"},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/target",
+					Files: []config.FileMapping{
+						{Src: "file.txt", Dest: "file.txt"},
+					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -448,30 +455,32 @@ func TestEngineWithDryRun(t *testing.T) {
 func TestEngineConcurrentErrorScenarios(t *testing.T) {
 	// Base configuration with multiple targets for concurrent testing
 	cfg := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/template",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/target-a",
-				Files: []config.FileMapping{
-					{Src: "file1.txt", Dest: "file1.txt"},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/target-a",
+					Files: []config.FileMapping{
+						{Src: "file1.txt", Dest: "file1.txt"},
+					},
+				},
+				{
+					Repo: "org/target-b",
+					Files: []config.FileMapping{
+						{Src: "file2.txt", Dest: "file2.txt"},
+					},
+				},
+				{
+					Repo: "org/target-c",
+					Files: []config.FileMapping{
+						{Src: "file3.txt", Dest: "file3.txt"},
+					},
 				},
 			},
-			{
-				Repo: "org/target-b",
-				Files: []config.FileMapping{
-					{Src: "file2.txt", Dest: "file2.txt"},
-				},
-			},
-			{
-				Repo: "org/target-c",
-				Files: []config.FileMapping{
-					{Src: "file3.txt", Dest: "file3.txt"},
-				},
-			},
-		},
+		}},
 	}
 
 	t.Run("multiple concurrent failures in errgroup", func(t *testing.T) {

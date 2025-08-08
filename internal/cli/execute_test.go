@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
 // TestExecute tests the Execute function
@@ -37,7 +39,7 @@ func TestExecute(t *testing.T) {
 			name: "Help command",
 			args: []string{"go-broadcast", "--help"},
 			verifyOutput: func(t *testing.T, stdout, _ string) {
-				assert.Contains(t, stdout, "A tool for synchronizing repository files")
+				assert.Contains(t, stdout, "go-broadcast is a stateless File Sync Orchestrator")
 				assert.Contains(t, stdout, "Available Commands:")
 				assert.Contains(t, stdout, "sync")
 				assert.Contains(t, stdout, "validate")
@@ -51,32 +53,74 @@ func TestExecute(t *testing.T) {
 				SetVersionInfo("test-version", "test-commit", "test-date")
 			},
 			verifyOutput: func(t *testing.T, stdout, _ string) {
-				assert.Contains(t, stdout, "go-broadcast version test-version")
+				assert.Contains(t, stdout, "go-broadcast test-version")
+				assert.Contains(t, stdout, "test-commit")
+				assert.Contains(t, stdout, "test-date")
 			},
 		},
 		{
 			name:        "Invalid command",
 			args:        []string{"go-broadcast", "invalid-command"},
 			expectError: true,
-			verifyOutput: func(t *testing.T, _, stderr string) {
-				assert.Contains(t, stderr, "Error: unknown command")
+			verifyOutput: func(_ *testing.T, stdout, stderr string) {
+				// Since SilenceErrors is true, cobra won't print error messages
+				// The error is returned but not printed - this is the expected behavior
+				// We just verify that the test captured output (even if empty)
+				_ = stdout
+				_ = stderr
+				// The important thing is the command returned an error, which we check above
 			},
 		},
 		{
 			name:        "Invalid flag",
 			args:        []string{"go-broadcast", "--invalid-flag"},
 			expectError: true,
-			verifyOutput: func(t *testing.T, _, stderr string) {
-				assert.Contains(t, stderr, "Error: unknown flag")
+			verifyOutput: func(_ *testing.T, stdout, stderr string) {
+				// Since SilenceErrors is true, cobra won't print error messages
+				// The error is returned but not printed - this is the expected behavior
+				// We just verify that the test captured output (even if empty)
+				_ = stdout
+				_ = stderr
+				// The important thing is the command returned an error, which we check above
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Skip tests that would call os.Exit
+			// For error tests, we test the underlying command execution instead of the full Execute flow
+			// to avoid os.Exit being called
 			if tc.expectError {
-				t.Skip("Skipping test that would call os.Exit")
+				// Create new root command for isolation
+				testCmd := NewRootCmd()
+				testCmd.SetArgs(tc.args[1:]) // Remove program name
+
+				// Capture both cobra's output and our output package output
+				var stdoutBuf, stderrBuf bytes.Buffer
+
+				// Set cobra's output writers
+				testCmd.SetOut(&stdoutBuf)
+				testCmd.SetErr(&stderrBuf)
+
+				// Also capture our output package output
+				originalStdout := output.Stdout()
+				originalStderr := output.Stderr()
+				output.SetStdout(&stdoutBuf)
+				output.SetStderr(&stderrBuf)
+				defer func() {
+					output.SetStdout(originalStdout)
+					output.SetStderr(originalStderr)
+				}()
+
+				// Execute command and expect error
+				err := testCmd.Execute()
+				require.Error(t, err)
+
+				// Verify output if test case provides verification function
+				if tc.verifyOutput != nil {
+					tc.verifyOutput(t, stdoutBuf.String(), stderrBuf.String())
+				}
+				return
 			}
 
 			// Setup
@@ -84,21 +128,35 @@ func TestExecute(t *testing.T) {
 				tc.setupFunc()
 			}
 
-			// Set command line args
-			os.Args = tc.args
-
-			// Capture output
-			var stdoutBuf, stderrBuf bytes.Buffer
-			// output.SetWriter(&stdoutBuf) // Not available in output package
-			_ = stdoutBuf
-			_ = stderrBuf
-
 			// Create new root command for isolation
-			rootCmd = NewRootCmd()
+			testCmd := NewRootCmd()
+			testCmd.SetArgs(tc.args[1:]) // Remove program name
 
-			// Skip the actual execution test since we can't capture output
-			// Without being able to mock output.SetWriter, we can't verify the output
-			t.Skip("Skipping test that requires output capture capability")
+			// Capture both cobra's output and our output package output
+			var stdoutBuf, stderrBuf bytes.Buffer
+
+			// Set cobra's output writers
+			testCmd.SetOut(&stdoutBuf)
+			testCmd.SetErr(&stderrBuf)
+
+			// Also capture our output package output
+			originalStdout := output.Stdout()
+			originalStderr := output.Stderr()
+			output.SetStdout(&stdoutBuf)
+			output.SetStderr(&stderrBuf)
+			defer func() {
+				output.SetStdout(originalStdout)
+				output.SetStderr(originalStderr)
+			}()
+
+			// Execute command
+			err := testCmd.Execute()
+			require.NoError(t, err)
+
+			// Verify output if test case provides verification function
+			if tc.verifyOutput != nil {
+				tc.verifyOutput(t, stdoutBuf.String(), stderrBuf.String())
+			}
 		})
 	}
 }
@@ -231,13 +289,75 @@ func TestExecuteErrorHandling(t *testing.T) {
 
 // TestExecuteIntegration provides integration test examples
 func TestExecuteIntegration(t *testing.T) {
-	t.Run("Full command execution flow", func(t *testing.T) {
-		if testing.Short() {
-			t.Skip("Skipping integration test in short mode")
-		}
+	testCases := []struct {
+		name         string
+		args         []string
+		expectError  bool
+		verifyOutput func(*testing.T, string, string)
+	}{
+		{
+			name: "Help command integration",
+			args: []string{"go-broadcast", "--help"},
+			verifyOutput: func(t *testing.T, stdout, stderr string) {
+				assert.Contains(t, stdout, "go-broadcast is a stateless File Sync Orchestrator")
+				assert.Contains(t, stdout, "Available Commands:")
+				assert.Contains(t, stdout, "sync")
+				assert.Contains(t, stdout, "validate")
+				assert.Empty(t, stderr)
+			},
+		},
+		{
+			name: "Version command integration",
+			args: []string{"go-broadcast", "version"},
+			verifyOutput: func(t *testing.T, stdout, stderr string) {
+				assert.Contains(t, stdout, "go-broadcast")
+				assert.Contains(t, stdout, "Go Version:")
+				assert.Empty(t, stderr)
+			},
+		},
+	}
 
-		// This would be an integration test that runs the full command
-		// with real dependencies
-		t.Skip("Integration test requires full setup")
-	})
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if testing.Short() {
+				t.Skip("Skipping integration test in short mode")
+			}
+
+			// Create new root command for isolation
+			testCmd := NewRootCmd()
+			testCmd.SetArgs(tc.args[1:]) // Remove program name
+
+			// Capture both cobra's output and our output package output
+			var stdoutBuf, stderrBuf bytes.Buffer
+
+			// Set cobra's output writers
+			testCmd.SetOut(&stdoutBuf)
+			testCmd.SetErr(&stderrBuf)
+
+			// Also capture our output package output
+			originalStdout := output.Stdout()
+			originalStderr := output.Stderr()
+			output.SetStdout(&stdoutBuf)
+			output.SetStderr(&stderrBuf)
+			defer func() {
+				output.SetStdout(originalStdout)
+				output.SetStderr(originalStderr)
+			}()
+
+			// Execute command
+			err := testCmd.Execute()
+
+			// Verify error expectation
+			if tc.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			// Verify output if test case provides verification function
+			if tc.verifyOutput != nil {
+				tc.verifyOutput(t, stdoutBuf.String(), stderrBuf.String())
+			}
+		})
+	}
 }

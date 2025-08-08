@@ -35,8 +35,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/sirupsen/logrus"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
 )
 
 // Timer tracks the duration of an operation with support for additional metadata.

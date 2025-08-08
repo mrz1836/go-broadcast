@@ -8,11 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/logging"
-	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 )
 
 // getMainBranches returns the list of main branches from environment variable or default

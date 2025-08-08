@@ -2,15 +2,20 @@ package state
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/logging"
-	"github.com/sirupsen/logrus"
 )
+
+// ErrNoGroupsFound indicates no groups were found in configuration
+var ErrNoGroupsFound = errors.New("no groups found in configuration")
 
 // discoveryService implements the Discoverer interface
 type discoveryService struct {
@@ -40,6 +45,7 @@ func NewDiscoverer(ghClient gh.Client, logger *logrus.Logger, logConfig *logging
 //
 // This method provides detailed visibility into state discovery when debug logging is enabled,
 // including source repository analysis, target repository scanning, timing metrics, and state correlation.
+// Updated to work with both legacy and group-based configurations.
 //
 // Parameters:
 // - ctx: Context for cancellation and timeout control
@@ -56,13 +62,25 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 	logger := logging.WithStandardFields(d.logger, d.logConfig, logging.ComponentNames.State)
 	start := time.Now()
 
+	// Work directly with groups - no compatibility layer needed
+	if len(cfg.Groups) == 0 {
+		return nil, ErrNoGroupsFound
+	}
+	groups := cfg.Groups
+
+	// For Phase 2a, use first group (single group support)
+	// Future phases will support multiple groups
+	group := groups[0]
+
 	// Debug logging when --debug-state flag is enabled
 	if d.logConfig != nil && d.logConfig.Debug.State {
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.Operation:   logging.OperationTypes.StateDiscover,
-			logging.StandardFields.SourceRepo:  cfg.Source.Repo,
-			logging.StandardFields.BranchName:  cfg.Source.Branch,
-			logging.StandardFields.TargetCount: len(cfg.Targets),
+			logging.StandardFields.SourceRepo:  group.Source.Repo,
+			logging.StandardFields.BranchName:  group.Source.Branch,
+			logging.StandardFields.TargetCount: len(group.Targets),
+			"group_name":                       group.Name,
+			"group_id":                         group.ID,
 		}).Debug("Starting sync state discovery")
 	} else {
 		d.logger.Info("Discovering sync state from GitHub")
@@ -77,8 +95,8 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 
 	state := &State{
 		Source: SourceState{
-			Repo:        cfg.Source.Repo,
-			Branch:      cfg.Source.Branch,
+			Repo:        group.Source.Repo,
+			Branch:      group.Source.Branch,
 			LastChecked: time.Now(),
 		},
 		Targets: make(map[string]*TargetState),
@@ -87,20 +105,20 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 	// Get source repository latest commit
 	if d.logConfig != nil && d.logConfig.Debug.State {
 		logger.WithFields(logrus.Fields{
-			logging.StandardFields.RepoName:   cfg.Source.Repo,
-			logging.StandardFields.BranchName: cfg.Source.Branch,
+			logging.StandardFields.RepoName:   group.Source.Repo,
+			logging.StandardFields.BranchName: group.Source.Branch,
 		}).Debug("Discovering source repository state")
 	}
 
 	sourceStart := time.Now()
-	sourceBranch, err := d.gh.GetBranch(ctx, cfg.Source.Repo, cfg.Source.Branch)
+	sourceBranch, err := d.gh.GetBranch(ctx, group.Source.Repo, group.Source.Branch)
 	sourceDuration := time.Since(sourceStart)
 
 	if err != nil {
 		if d.logConfig != nil && d.logConfig.Debug.State {
 			logger.WithFields(logrus.Fields{
-				logging.StandardFields.RepoName:   cfg.Source.Repo,
-				logging.StandardFields.BranchName: cfg.Source.Branch,
+				logging.StandardFields.RepoName:   group.Source.Repo,
+				logging.StandardFields.BranchName: group.Source.Branch,
 				logging.StandardFields.Error:      err.Error(),
 				logging.StandardFields.DurationMs: sourceDuration.Milliseconds(),
 				logging.StandardFields.Status:     "failed",
@@ -114,8 +132,8 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 
 		if d.logConfig != nil && d.logConfig.Debug.State {
 			logger.WithFields(logrus.Fields{
-				logging.StandardFields.RepoName:   cfg.Source.Repo,
-				logging.StandardFields.BranchName: cfg.Source.Branch,
+				logging.StandardFields.RepoName:   group.Source.Repo,
+				logging.StandardFields.BranchName: group.Source.Branch,
 				logging.StandardFields.CommitSHA:  state.Source.LatestCommit,
 				logging.StandardFields.DurationMs: sourceDuration.Milliseconds(),
 				logging.StandardFields.Status:     "discovered",
@@ -123,17 +141,17 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 		}
 	} else {
 		if d.logConfig != nil && d.logConfig.Debug.State {
-			logger.WithField("repo", cfg.Source.Repo).Warn("Source branch information not available")
+			logger.WithField("repo", group.Source.Repo).Warn("Source branch information not available")
 		}
 	}
 
-	// Discover state for each target repository
+	// Discover state for each target repository using group targets
 	if d.logConfig != nil && d.logConfig.Debug.State {
-		logger.WithField(logging.StandardFields.TargetCount, len(cfg.Targets)).Debug("Starting target repository discovery")
+		logger.WithField(logging.StandardFields.TargetCount, len(group.Targets)).Debug("Starting target repository discovery")
 	}
 
 	targetStates := make(map[string]*TargetState)
-	for i, target := range cfg.Targets {
+	for i, target := range group.Targets {
 		// Check for context cancellation
 		select {
 		case <-ctx.Done():
@@ -153,7 +171,11 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 		}
 
 		targetStart := time.Now()
-		targetState, err := d.DiscoverTargetState(ctx, target.Repo, cfg.Defaults.BranchPrefix)
+		branchPrefix := group.Defaults.BranchPrefix
+		if branchPrefix == "" {
+			branchPrefix = "chore/sync-files" // Default fallback
+		}
+		targetState, err := d.DiscoverTargetState(ctx, target.Repo, branchPrefix)
 		targetDuration := time.Since(targetStart)
 
 		if err != nil {

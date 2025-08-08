@@ -10,16 +10,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	internalsync "github.com/mrz1836/go-broadcast/internal/sync"
 	"github.com/mrz1836/go-broadcast/internal/transform"
 	"github.com/mrz1836/go-broadcast/test/fixtures"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 // TestAdvancedWorkflows tests advanced workflow scenarios

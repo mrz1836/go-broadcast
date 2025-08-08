@@ -9,6 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
@@ -16,10 +21,6 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/mrz1836/go-broadcast/internal/transform"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 var errTestAuthError = errors.New("auth error")
@@ -122,9 +123,11 @@ func TestRepositorySync_Execute(t *testing.T) {
 		opts := DefaultOptions().WithDryRun(false)
 		engine := &Engine{
 			config: &config.Config{
-				Defaults: config.DefaultConfig{
-					BranchPrefix: "chore/sync-files",
-				},
+				Groups: []config.Group{{
+					Defaults: config.DefaultConfig{
+						BranchPrefix: "chore/sync-files",
+					},
+				}},
 			},
 			gh:        ghClient,
 			git:       gitClient,
@@ -263,9 +266,11 @@ func TestRepositorySync_Execute(t *testing.T) {
 		opts := DefaultOptions().WithDryRun(true)
 		engine := &Engine{
 			config: &config.Config{
-				Defaults: config.DefaultConfig{
-					BranchPrefix: "chore/sync-files",
-				},
+				Groups: []config.Group{{
+					Defaults: config.DefaultConfig{
+						BranchPrefix: "chore/sync-files",
+					},
+				}},
 			},
 			gh:        ghClient,
 			git:       gitClient,
@@ -708,12 +713,14 @@ func TestRepositorySync_getPRAssignees(t *testing.T) {
 
 	t.Run("merges global and target assignees", func(t *testing.T) {
 		cfg := &config.Config{
-			Global: config.GlobalConfig{
-				PRAssignees: []string{"global1", "global2"},
-			},
-			Defaults: config.DefaultConfig{
-				PRAssignees: []string{"default1", "default2"},
-			},
+			Groups: []config.Group{{
+				Global: config.GlobalConfig{
+					PRAssignees: []string{"global1", "global2"},
+				},
+				Defaults: config.DefaultConfig{
+					PRAssignees: []string{"default1", "default2"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -734,12 +741,14 @@ func TestRepositorySync_getPRAssignees(t *testing.T) {
 
 	t.Run("removes duplicates when merging global and target", func(t *testing.T) {
 		cfg := &config.Config{
-			Global: config.GlobalConfig{
-				PRAssignees: []string{"user1", "user2"},
-			},
-			Defaults: config.DefaultConfig{
-				PRAssignees: []string{"default1", "default2"},
-			},
+			Groups: []config.Group{{
+				Global: config.GlobalConfig{
+					PRAssignees: []string{"user1", "user2"},
+				},
+				Defaults: config.DefaultConfig{
+					PRAssignees: []string{"default1", "default2"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -760,12 +769,14 @@ func TestRepositorySync_getPRAssignees(t *testing.T) {
 
 	t.Run("uses only global when target has none", func(t *testing.T) {
 		cfg := &config.Config{
-			Global: config.GlobalConfig{
-				PRAssignees: []string{"global1", "global2"},
-			},
-			Defaults: config.DefaultConfig{
-				PRAssignees: []string{"default1", "default2"},
-			},
+			Groups: []config.Group{{
+				Global: config.GlobalConfig{
+					PRAssignees: []string{"global1", "global2"},
+				},
+				Defaults: config.DefaultConfig{
+					PRAssignees: []string{"default1", "default2"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -785,10 +796,12 @@ func TestRepositorySync_getPRAssignees(t *testing.T) {
 
 	t.Run("uses only target when global has none", func(t *testing.T) {
 		cfg := &config.Config{
-			Global: config.GlobalConfig{},
-			Defaults: config.DefaultConfig{
-				PRAssignees: []string{"default1", "default2"},
-			},
+			Groups: []config.Group{{
+				Global: config.GlobalConfig{},
+				Defaults: config.DefaultConfig{
+					PRAssignees: []string{"default1", "default2"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -809,10 +822,12 @@ func TestRepositorySync_getPRAssignees(t *testing.T) {
 
 	t.Run("falls back to defaults when neither global nor target have assignees", func(t *testing.T) {
 		cfg := &config.Config{
-			Global: config.GlobalConfig{},
-			Defaults: config.DefaultConfig{
-				PRAssignees: []string{"default1", "default2"},
-			},
+			Groups: []config.Group{{
+				Global: config.GlobalConfig{},
+				Defaults: config.DefaultConfig{
+					PRAssignees: []string{"default1", "default2"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -832,8 +847,10 @@ func TestRepositorySync_getPRAssignees(t *testing.T) {
 
 	t.Run("returns empty when no assignees configured anywhere", func(t *testing.T) {
 		cfg := &config.Config{
-			Global:   config.GlobalConfig{},
-			Defaults: config.DefaultConfig{},
+			Groups: []config.Group{{
+				Global:   config.GlobalConfig{},
+				Defaults: config.DefaultConfig{},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -857,9 +874,11 @@ func TestRepositorySync_getPRReviewers(t *testing.T) {
 
 	t.Run("uses target-specific reviewers when present", func(t *testing.T) {
 		cfg := &config.Config{
-			Defaults: config.DefaultConfig{
-				PRReviewers: []string{"reviewer1", "reviewer2"},
-			},
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRReviewers: []string{"reviewer1", "reviewer2"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -879,9 +898,11 @@ func TestRepositorySync_getPRReviewers(t *testing.T) {
 
 	t.Run("uses default reviewers when target has none", func(t *testing.T) {
 		cfg := &config.Config{
-			Defaults: config.DefaultConfig{
-				PRReviewers: []string{"reviewer1", "reviewer2"},
-			},
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRReviewers: []string{"reviewer1", "reviewer2"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -905,9 +926,11 @@ func TestRepositorySync_getPRTeamReviewers(t *testing.T) {
 
 	t.Run("uses target-specific team reviewers when present", func(t *testing.T) {
 		cfg := &config.Config{
-			Defaults: config.DefaultConfig{
-				PRTeamReviewers: []string{"default-team"},
-			},
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRTeamReviewers: []string{"default-team"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -927,9 +950,11 @@ func TestRepositorySync_getPRTeamReviewers(t *testing.T) {
 
 	t.Run("uses default team reviewers when target has none", func(t *testing.T) {
 		cfg := &config.Config{
-			Defaults: config.DefaultConfig{
-				PRTeamReviewers: []string{"default-team1", "default-team2"},
-			},
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRTeamReviewers: []string{"default-team1", "default-team2"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -953,9 +978,11 @@ func TestRepositorySync_getPRLabels(t *testing.T) {
 
 	t.Run("uses target-specific labels when present", func(t *testing.T) {
 		cfg := &config.Config{
-			Defaults: config.DefaultConfig{
-				PRLabels: []string{"default-label1", "default-label2"},
-			},
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRLabels: []string{"default-label1", "default-label2"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -975,9 +1002,11 @@ func TestRepositorySync_getPRLabels(t *testing.T) {
 
 	t.Run("uses default labels when target has none", func(t *testing.T) {
 		cfg := &config.Config{
-			Defaults: config.DefaultConfig{
-				PRLabels: []string{"automated-sync", "maintenance"},
-			},
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRLabels: []string{"automated-sync", "maintenance"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -996,7 +1025,9 @@ func TestRepositorySync_getPRLabels(t *testing.T) {
 
 	t.Run("returns empty slice when neither target nor defaults have labels", func(t *testing.T) {
 		cfg := &config.Config{
-			Defaults: config.DefaultConfig{},
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -1015,9 +1046,11 @@ func TestRepositorySync_getPRLabels(t *testing.T) {
 
 	t.Run("target empty slice overrides defaults", func(t *testing.T) {
 		cfg := &config.Config{
-			Defaults: config.DefaultConfig{
-				PRLabels: []string{"default-label"},
-			},
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRLabels: []string{"default-label"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -1037,9 +1070,11 @@ func TestRepositorySync_getPRLabels(t *testing.T) {
 
 	t.Run("single label works correctly", func(t *testing.T) {
 		cfg := &config.Config{
-			Defaults: config.DefaultConfig{
-				PRLabels: []string{"automated-sync"},
-			},
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRLabels: []string{"automated-sync"},
+				},
+			}},
 		}
 
 		target := config.TargetConfig{
@@ -1121,9 +1156,11 @@ func TestCreateNewPR_WithReviewerFiltering(t *testing.T) {
 
 	// Configure with reviewers including the author
 	cfg := &config.Config{
-		Global: config.GlobalConfig{
-			PRReviewers: []string{"reviewer1", "authoruser", "reviewer3"},
-		},
+		Groups: []config.Group{{
+			Global: config.GlobalConfig{
+				PRReviewers: []string{"reviewer1", "authoruser", "reviewer3"},
+			},
+		}},
 	}
 
 	target := config.TargetConfig{
@@ -1182,9 +1219,11 @@ func TestCreateNewPR_GetCurrentUserFailure(t *testing.T) {
 
 	// Configure with reviewers
 	cfg := &config.Config{
-		Global: config.GlobalConfig{
-			PRReviewers: []string{"reviewer1", "reviewer2"},
-		},
+		Groups: []config.Group{{
+			Global: config.GlobalConfig{
+				PRReviewers: []string{"reviewer1", "reviewer2"},
+			},
+		}},
 	}
 
 	target := config.TargetConfig{

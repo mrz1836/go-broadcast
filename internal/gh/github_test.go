@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 )
 
 var errTestAPIError = errors.New("API error")

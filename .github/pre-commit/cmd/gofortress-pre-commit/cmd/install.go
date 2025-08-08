@@ -6,9 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/config"
 	"github.com/mrz1836/go-broadcast/pre-commit/internal/git"
-	"github.com/spf13/cobra"
 )
 
 //nolint:gochecknoglobals // Required by cobra

@@ -7,12 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/output"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 // Validation errors
@@ -21,6 +22,7 @@ var (
 	ErrGitHubAuthRequired   = fmt.Errorf("github authentication required")
 	ErrSourceBranchNotFound = fmt.Errorf("source branch not accessible")
 	ErrSourceRepoNotFound   = fmt.Errorf("source repository not accessible")
+	ErrNoConfigGroups       = fmt.Errorf("no configuration groups found")
 )
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -101,39 +103,56 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 	output.Info("")
 	output.Info("Configuration Summary:")
 	output.Info(fmt.Sprintf("  Version: %d", cfg.Version))
-	output.Info(fmt.Sprintf("  Source: %s (branch: %s)", cfg.Source.Repo, cfg.Source.Branch))
 
-	if cfg.Defaults.BranchPrefix != "" || len(cfg.Defaults.PRLabels) > 0 {
-		output.Info("  Defaults:")
-		if cfg.Defaults.BranchPrefix != "" {
-			output.Info(fmt.Sprintf("    Branch prefix: %s", cfg.Defaults.BranchPrefix))
-		}
-		if len(cfg.Defaults.PRLabels) > 0 {
-			output.Info(fmt.Sprintf("    PR labels: %v", cfg.Defaults.PRLabels))
-		}
+	groups := cfg.Groups
+	if len(groups) == 0 {
+		output.Info("  No configuration groups found")
+		return nil
 	}
 
-	output.Info(fmt.Sprintf("  Targets: %d repositories", len(cfg.Targets)))
+	// Check if using group-based configuration
+	if len(cfg.Groups) > 0 {
+		displayGroupValidation(groups)
+	} else {
+		// Legacy format display
+		group := groups[0] // For compatibility with old format, work with first group
+		output.Info(fmt.Sprintf("  Source: %s (branch: %s)", group.Source.Repo, group.Source.Branch))
+
+		if group.Defaults.BranchPrefix != "" || len(group.Defaults.PRLabels) > 0 {
+			output.Info("  Defaults:")
+			if group.Defaults.BranchPrefix != "" {
+				output.Info(fmt.Sprintf("    Branch prefix: %s", group.Defaults.BranchPrefix))
+			}
+			if len(group.Defaults.PRLabels) > 0 {
+				output.Info(fmt.Sprintf("    PR labels: %v", group.Defaults.PRLabels))
+			}
+		}
+
+		output.Info(fmt.Sprintf("  Targets: %d repositories", len(group.Targets)))
+	}
 
 	// Show target details
 	totalFiles := 0
 
-	for i, target := range cfg.Targets {
-		output.Info(fmt.Sprintf("    %d. %s", i+1, target.Repo))
-		output.Info(fmt.Sprintf("       Files: %d mappings", len(target.Files)))
+	if len(groups) > 0 {
+		group := groups[0]
+		for i, target := range group.Targets {
+			output.Info(fmt.Sprintf("    %d. %s", i+1, target.Repo))
+			output.Info(fmt.Sprintf("       Files: %d mappings", len(target.Files)))
 
-		// Count transforms
-		transformCount := 0
-		if target.Transform.RepoName {
-			transformCount++
+			// Count transforms
+			transformCount := 0
+			if target.Transform.RepoName {
+				transformCount++
+			}
+
+			transformCount += len(target.Transform.Variables)
+			if transformCount > 0 {
+				output.Info(fmt.Sprintf("       Transforms: %d configured", transformCount))
+			}
+
+			totalFiles += len(target.Files)
 		}
-
-		transformCount += len(target.Transform.Variables)
-		if transformCount > 0 {
-			output.Info(fmt.Sprintf("       Transforms: %d configured", transformCount))
-		}
-
-		totalFiles += len(target.Files)
 	}
 
 	output.Info("")
@@ -186,8 +205,6 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 		panic("config cannot be nil")
 	}
 
-	log := logrus.WithField("component", "validate-repos")
-
 	// Try to create GitHub client
 	ghClient, err := gh.NewClient(ctx, logrus.StandardLogger(), logConfig)
 	if err != nil {
@@ -204,23 +221,42 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 		return fmt.Errorf("failed to initialize GitHub client: %w", err)
 	}
 
+	return validateRepositoryAccessibilityWithClient(ctx, cfg, ghClient, sourceOnly)
+}
+
+// validateRepositoryAccessibilityWithClient checks if source and target repositories are accessible via GitHub API using the provided client
+func validateRepositoryAccessibilityWithClient(ctx context.Context, cfg *config.Config, ghClient gh.Client, sourceOnly bool) error {
+	// Check for nil config to ensure panic behavior expected by tests
+	if cfg == nil {
+		panic("config cannot be nil")
+	}
+
+	log := logrus.WithField("component", "validate-repos")
+
 	// Check source repository accessibility
-	log.WithField("repo", cfg.Source.Repo).Debug("Checking source repository accessibility")
-	_, err = ghClient.GetBranch(ctx, cfg.Source.Repo, cfg.Source.Branch)
+	groups := cfg.Groups
+	if len(groups) == 0 {
+		output.Error("  ✗ No configuration groups found")
+		return ErrNoConfigGroups
+	}
+
+	group := groups[0] // For compatibility with old format, work with first group
+	log.WithField("repo", group.Source.Repo).Debug("Checking source repository accessibility")
+	_, err := ghClient.GetBranch(ctx, group.Source.Repo, group.Source.Branch)
 	if err != nil {
 		if strings.Contains(err.Error(), "branch not found") {
-			output.Error(fmt.Sprintf("  ✗ Source branch '%s' not found in %s", cfg.Source.Branch, cfg.Source.Repo))
+			output.Error(fmt.Sprintf("  ✗ Source branch '%s' not found in %s", group.Source.Branch, group.Source.Repo))
 			return ErrSourceBranchNotFound
 		}
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
-			output.Error(fmt.Sprintf("  ✗ Source repository '%s' not accessible", cfg.Source.Repo))
+			output.Error(fmt.Sprintf("  ✗ Source repository '%s' not accessible", group.Source.Repo))
 			output.Info("    Check repository name and permissions")
 			return ErrSourceRepoNotFound
 		}
 		output.Error(fmt.Sprintf("  ✗ Failed to access source repository: %v", err))
 		return fmt.Errorf("source repository check failed: %w", err)
 	}
-	output.Success(fmt.Sprintf("  ✓ Source repository accessible: %s (branch: %s)", cfg.Source.Repo, cfg.Source.Branch))
+	output.Success(fmt.Sprintf("  ✓ Source repository accessible: %s (branch: %s)", group.Source.Repo, group.Source.Branch))
 
 	// Skip target repository checks if sourceOnly flag is set
 	if sourceOnly {
@@ -229,7 +265,7 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 	}
 
 	// Check target repositories accessibility
-	for i, target := range cfg.Targets {
+	for i, target := range group.Targets {
 		log.WithFields(logrus.Fields{
 			"target_index": i,
 			"repo":         target.Repo,
@@ -252,10 +288,109 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 	return nil
 }
 
+// displayGroupValidation displays validation results for group-based configuration
+func displayGroupValidation(groups []config.Group) {
+	output.Info(fmt.Sprintf("  Groups: %d configured", len(groups)))
+	output.Info("")
+
+	// Check for circular dependencies
+	hasCircularDeps := false
+	dependencyMap := make(map[string][]string)
+	for _, group := range groups {
+		dependencyMap[group.ID] = group.DependsOn
+	}
+
+	// Simple circular dependency check (could be enhanced)
+	for _, group := range groups {
+		visited := make(map[string]bool)
+		if checkCircularDependency(group.ID, dependencyMap, visited) {
+			hasCircularDeps = true
+			output.Error(fmt.Sprintf("  ✗ Circular dependency detected for group: %s", group.ID))
+		}
+	}
+
+	if !hasCircularDeps {
+		output.Success("  ✓ No circular dependencies detected")
+	}
+
+	// Display each group
+	for i, group := range groups {
+		output.Info(fmt.Sprintf("  Group %d: %s (%s)", i+1, group.Name, group.ID))
+		output.Info(fmt.Sprintf("    Priority: %d", group.Priority))
+
+		// Check if enabled
+		if group.Enabled != nil && !*group.Enabled {
+			output.Warn("    Status: Disabled")
+		} else {
+			output.Success("    Status: Enabled")
+		}
+
+		// Show dependencies
+		if len(group.DependsOn) > 0 {
+			output.Info(fmt.Sprintf("    Dependencies: %s", strings.Join(group.DependsOn, ", ")))
+		}
+
+		// Show source
+		output.Info(fmt.Sprintf("    Source: %s (branch: %s)", group.Source.Repo, group.Source.Branch))
+
+		// Show targets count
+		output.Info(fmt.Sprintf("    Targets: %d repositories", len(group.Targets)))
+
+		// Check for module configurations
+		moduleCount := 0
+		for _, target := range group.Targets {
+			for _, dir := range target.Directories {
+				if dir.Module != nil {
+					moduleCount++
+				}
+			}
+		}
+		if moduleCount > 0 {
+			output.Info(fmt.Sprintf("    Modules: %d configured", moduleCount))
+		}
+
+		output.Info("")
+	}
+
+	// Validate priority uniqueness
+	priorities := make(map[int][]string)
+	for _, group := range groups {
+		priorities[group.Priority] = append(priorities[group.Priority], group.ID)
+	}
+
+	hasPriorityConflict := false
+	for priority, ids := range priorities {
+		if len(ids) > 1 {
+			hasPriorityConflict = true
+			output.Warn(fmt.Sprintf("  ⚠ Groups with same priority %d: %s", priority, strings.Join(ids, ", ")))
+		}
+	}
+
+	if !hasPriorityConflict {
+		output.Success("  ✓ All groups have unique priorities")
+	}
+}
+
+// checkCircularDependency checks for circular dependencies in group dependencies
+func checkCircularDependency(groupID string, dependencyMap map[string][]string, visited map[string]bool) bool {
+	if visited[groupID] {
+		return true // Circular dependency detected
+	}
+
+	visited[groupID] = true
+
+	for _, depID := range dependencyMap[groupID] {
+		if checkCircularDependency(depID, dependencyMap, visited) {
+			return true
+		}
+	}
+
+	delete(visited, groupID) // Backtrack
+	return false
+}
+
 // validateSourceFilesExist checks if all configured source files exist in the source repository
 func validateSourceFilesExist(ctx context.Context, cfg *config.Config, logConfig *logging.LogConfig) {
-	log := logrus.WithField("component", "validate-files")
-
 	// Initialize GitHub client (reuse from previous function, but handle errors gracefully)
 	ghClient, err := gh.NewClient(ctx, logrus.StandardLogger(), logConfig)
 	if err != nil {
@@ -263,9 +398,23 @@ func validateSourceFilesExist(ctx context.Context, cfg *config.Config, logConfig
 		return // Don't fail if client can't be created
 	}
 
+	validateSourceFilesExistWithClient(ctx, cfg, ghClient)
+}
+
+// validateSourceFilesExistWithClient checks if all configured source files exist in the source repository
+// This version accepts a GitHub client for better testability
+func validateSourceFilesExistWithClient(ctx context.Context, cfg *config.Config, ghClient gh.Client) {
+	log := logrus.WithField("component", "validate-files")
+
 	// Collect all unique source files across all targets
 	sourceFiles := make(map[string]bool)
-	for _, target := range cfg.Targets {
+	groups := cfg.Groups
+	if len(groups) == 0 {
+		output.Info("  ⚠ No configuration groups found")
+		return
+	}
+	group := groups[0] // For compatibility with old format, work with first group
+	for _, target := range group.Targets {
 		for _, file := range target.Files {
 			sourceFiles[file.Src] = true
 		}
@@ -282,11 +431,11 @@ func validateSourceFilesExist(ctx context.Context, cfg *config.Config, logConfig
 	for srcPath := range sourceFiles {
 		log.WithFields(logrus.Fields{
 			"source_file": srcPath,
-			"repo":        cfg.Source.Repo,
-			"branch":      cfg.Source.Branch,
+			"repo":        group.Source.Repo,
+			"branch":      group.Source.Branch,
 		}).Debug("Checking source file existence")
 
-		_, err := ghClient.GetFile(ctx, cfg.Source.Repo, srcPath, cfg.Source.Branch)
+		_, err := ghClient.GetFile(ctx, group.Source.Repo, srcPath, group.Source.Branch)
 		filesChecked++
 		if err != nil {
 			if strings.Contains(err.Error(), "file not found") {

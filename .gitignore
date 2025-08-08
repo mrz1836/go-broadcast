@@ -17,6 +17,7 @@ sync-bk.yaml
 *.so
 *.dylib
 go-broadcast
+bin/test-cleanup
 
 # Test files
 *.test
@@ -69,6 +70,10 @@ examples/monitor/advanced
 # Artifacts
 artifact
 
+/cmd/profile_demo/coverage.html
+/io_coverage.html
+/coverage.html
+
 ########################
 # Development Tools    #
 ########################
@@ -112,5 +117,11 @@ dist/
 test/fixtures/directories/
 /.github/pre-commit/cmd/gofortress-pre-commit/gofortress-pre-commit
 /.github/pre-commit/gofortress-pre-commit
-/cmd/profile_demo/coverage.html
-/io_coverage.html
+
+##########################
+# Benchmarks & Examples  #
+##########################
+
+/run-benchmarks
+/validate-examples
+/benchmark-results

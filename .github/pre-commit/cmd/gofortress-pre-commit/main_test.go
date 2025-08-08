@@ -222,8 +222,8 @@ func TestVersionInfo(t *testing.T) {
 	originalWD, err := os.Getwd()
 	require.NoError(t, err)
 	defer func() {
-		if err := os.Chdir(originalWD); err != nil {
-			t.Logf("Failed to restore working directory: %v", err)
+		if chdirErr := os.Chdir(originalWD); chdirErr != nil {
+			t.Logf("Failed to restore working directory: %v", chdirErr)
 		}
 	}()
 
@@ -286,8 +286,8 @@ func TestMainExitOnError(t *testing.T) {
 	originalWD, err := os.Getwd()
 	require.NoError(t, err)
 	defer func() {
-		if err := os.Chdir(originalWD); err != nil {
-			t.Logf("Failed to restore working directory: %v", err)
+		if chdirErr := os.Chdir(originalWD); chdirErr != nil {
+			t.Logf("Failed to restore working directory: %v", chdirErr)
 		}
 	}()
 

@@ -10,9 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 )
 
 func TestBatchAddFiles(t *testing.T) {

@@ -3,151 +3,157 @@
 
 version: 1
 
-source:
-  repo: "company/microservices-template"
-  branch: "master"
+groups:
+  - name: "Microservices Tooling Sync"
+    id: "microservices-sync"
+    description: "Syncs common tooling and CI/CD configuration across multiple services"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/microservices-template"
+      branch: "master"
 
-global:
-  # Global PR settings applied to all microservices
-  pr_labels:
-    - "automated-sync"
-    - "tooling-update"
-  pr_assignees:
-    - "platform-team-lead"
-  pr_team_reviewers:
-    - "platform-team"
+    global:
+      # Global PR settings applied to all microservices
+      pr_labels:
+        - "automated-sync"
+        - "tooling-update"
+      pr_assignees:
+        - "platform-team-lead"
+      pr_team_reviewers:
+        - "platform-team"
 
-defaults:
-  branch_prefix: "sync/tooling"
-  # Fallback settings (used only if no global or target settings)
-  pr_labels:
-    - "maintenance"
-  pr_reviewers:
-    - "senior-developer"
-    - "devops-engineer"
+    defaults:
+      branch_prefix: "sync/tooling"
+      # Fallback settings (used only if no global or target settings)
+      pr_labels:
+        - "maintenance"
+      pr_reviewers:
+        - "senior-developer"
+        - "devops-engineer"
 
-targets:
-  # User service (uses global PR settings only)
-  - repo: "company/user-service"
-    files:
-      # CI/CD pipeline
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-      - src: ".github/workflows/deploy.yml"
-        dest: ".github/workflows/deploy.yml"
-      # Development tools
-      - src: "Makefile"
-        dest: "Makefile"
-      - src: ".golangci.json"
-        dest: ".golangci.json"
-      - src: "docker-compose.dev.yml"
-        dest: "docker-compose.dev.yml"
-      # Documentation templates
-      - src: "docs/API.md"
-        dest: "docs/API.md"
-    transform:
-      repo_name: true
-      variables:
-        SERVICE_NAME: "user-service"
-        SERVICE_PORT: "8001"
-        DATABASE_NAME: "users"
-    # Inherits global settings:
-    # Labels: ["automated-sync", "tooling-update"]
-    # Assignees: ["platform-team-lead"]
-    # Team reviewers: ["platform-team"]
+    targets:
+      # User service (uses global PR settings only)
+      - repo: "company/user-service"
+        files:
+          # CI/CD pipeline
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+          - src: ".github/workflows/deploy.yml"
+            dest: ".github/workflows/deploy.yml"
+          # Development tools
+          - src: "Makefile"
+            dest: "Makefile"
+          - src: ".golangci.json"
+            dest: ".golangci.json"
+          - src: "docker-compose.dev.yml"
+            dest: "docker-compose.dev.yml"
+          # Documentation templates
+          - src: "docs/API.md"
+            dest: "docs/API.md"
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_NAME: "user-service"
+            SERVICE_PORT: "8001"
+            DATABASE_NAME: "users"
+        # Inherits global settings:
+        # Labels: ["automated-sync", "tooling-update"]
+        # Assignees: ["platform-team-lead"]
+        # Team reviewers: ["platform-team"]
 
-  # Order service (uses global PR settings only)
-  - repo: "company/order-service"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-      - src: ".github/workflows/deploy.yml"
-        dest: ".github/workflows/deploy.yml"
-      - src: "Makefile"
-        dest: "Makefile"
-      - src: ".golangci.json"
-        dest: ".golangci.json"
-      - src: "docker-compose.dev.yml"
-        dest: "docker-compose.dev.yml"
-      - src: "docs/API.md"
-        dest: "docs/API.md"
-    transform:
-      repo_name: true
-      variables:
-        SERVICE_NAME: "order-service"
-        SERVICE_PORT: "8002"
-        DATABASE_NAME: "orders"
-    # Inherits global settings:
-    # Labels: ["automated-sync", "tooling-update"]
-    # Assignees: ["platform-team-lead"]
-    # Team reviewers: ["platform-team"]
+      # Order service (uses global PR settings only)
+      - repo: "company/order-service"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+          - src: ".github/workflows/deploy.yml"
+            dest: ".github/workflows/deploy.yml"
+          - src: "Makefile"
+            dest: "Makefile"
+          - src: ".golangci.json"
+            dest: ".golangci.json"
+          - src: "docker-compose.dev.yml"
+            dest: "docker-compose.dev.yml"
+          - src: "docs/API.md"
+            dest: "docs/API.md"
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_NAME: "order-service"
+            SERVICE_PORT: "8002"
+            DATABASE_NAME: "orders"
+        # Inherits global settings:
+        # Labels: ["automated-sync", "tooling-update"]
+        # Assignees: ["platform-team-lead"]
+        # Team reviewers: ["platform-team"]
 
-  # Payment service (critical service with security team review)
-  - repo: "company/payment-service"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-      - src: ".github/workflows/deploy.yml"
-        dest: ".github/workflows/deploy.yml"
-      - src: "Makefile"
-        dest: "Makefile"
-      - src: ".golangci.json"
-        dest: ".golangci.json"
-      - src: "docker-compose.dev.yml"
-        dest: "docker-compose.dev.yml"
-      - src: "docs/API.md"
-        dest: "docs/API.md"
-      # Additional security configurations for payment service
-      - src: "security/policies.yml"
-        dest: "security/policies.yml"
-    transform:
-      repo_name: true
-      variables:
-        SERVICE_NAME: "payment-service"
-        SERVICE_PORT: "8003"
-        DATABASE_NAME: "payments"
-        SECURITY_LEVEL: "high"
-    # Payment service requires additional security review (merged with global)
-    # Final labels: ["automated-sync", "tooling-update", "security-critical", "payment-service", "requires-security-review"]
-    pr_labels:
-      - "security-critical"
-      - "payment-service"
-      - "requires-security-review"
-    # Final assignees: ["platform-team-lead", "payment-team-lead"]
-    pr_assignees:
-      - "payment-team-lead"
-    # Final reviewers: ["security-engineer", "senior-developer"] (no global reviewers set)
-    pr_reviewers:
-      - "security-engineer"
-      - "senior-developer"
-    # Final team reviewers: ["platform-team", "security-team", "payment-team"]
-    pr_team_reviewers:
-      - "security-team"
-      - "payment-team"
+      # Payment service (critical service with security team review)
+      - repo: "company/payment-service"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+          - src: ".github/workflows/deploy.yml"
+            dest: ".github/workflows/deploy.yml"
+          - src: "Makefile"
+            dest: "Makefile"
+          - src: ".golangci.json"
+            dest: ".golangci.json"
+          - src: "docker-compose.dev.yml"
+            dest: "docker-compose.dev.yml"
+          - src: "docs/API.md"
+            dest: "docs/API.md"
+          # Additional security configurations for payment service
+          - src: "security/policies.yml"
+            dest: "security/policies.yml"
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_NAME: "payment-service"
+            SERVICE_PORT: "8003"
+            DATABASE_NAME: "payments"
+            SECURITY_LEVEL: "high"
+        # Payment service requires additional security review (merged with global)
+        # Final labels: ["automated-sync", "tooling-update", "security-critical", "payment-service", "requires-security-review"]
+        pr_labels:
+          - "security-critical"
+          - "payment-service"
+          - "requires-security-review"
+        # Final assignees: ["platform-team-lead", "payment-team-lead"]
+        pr_assignees:
+          - "payment-team-lead"
+        # Final reviewers: ["security-engineer", "senior-developer"] (no global reviewers set)
+        pr_reviewers:
+          - "security-engineer"
+          - "senior-developer"
+        # Final team reviewers: ["platform-team", "security-team", "payment-team"]
+        pr_team_reviewers:
+          - "security-team"
+          - "payment-team"
 
-  # Gateway service (different file structure, uses global PR settings only)
-  - repo: "company/api-gateway"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-      - src: ".github/workflows/deploy.yml"
-        dest: ".github/workflows/deploy.yml"
-      - src: "Makefile"
-        dest: "Makefile"
-      - src: ".golangci.json"
-        dest: ".golangci.json"
-      # Gateway-specific configuration
-      - src: "configs/gateway.template.yml"
-        dest: "configs/gateway.yml"
-      - src: "docs/Gateway.md"
-        dest: "README.md"
-    transform:
-      repo_name: true
-      variables:
-        SERVICE_NAME: "api-gateway"
-        SERVICE_PORT: "8000"
-        UPSTREAM_SERVICES: "user-service,order-service,payment-service"
-    # Inherits global settings:
-    # Labels: ["automated-sync", "tooling-update"]
-    # Assignees: ["platform-team-lead"]
-    # Team reviewers: ["platform-team"]
+      # Gateway service (different file structure, uses global PR settings only)
+      - repo: "company/api-gateway"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+          - src: ".github/workflows/deploy.yml"
+            dest: ".github/workflows/deploy.yml"
+          - src: "Makefile"
+            dest: "Makefile"
+          - src: ".golangci.json"
+            dest: ".golangci.json"
+          # Gateway-specific configuration
+          - src: "configs/gateway.template.yml"
+            dest: "configs/gateway.yml"
+          - src: "docs/Gateway.md"
+            dest: "README.md"
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_NAME: "api-gateway"
+            SERVICE_PORT: "8000"
+            UPSTREAM_SERVICES: "user-service,order-service,payment-service"
+        # Inherits global settings:
+        # Labels: ["automated-sync", "tooling-update"]
+        # Assignees: ["platform-team-lead"]
+        # Team reviewers: ["platform-team"]

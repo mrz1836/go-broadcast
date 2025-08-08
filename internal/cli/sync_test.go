@@ -8,12 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 )
 
 // contains is a helper function for string contains check
@@ -104,18 +105,21 @@ func TestCreateRunSync(t *testing.T) {
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md
-  - repo: org/target2
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: test-group
+    id: test-group-1
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+      - repo: org/target2
+        files:
+          - src: README.md
+            dest: README.md`
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -212,10 +216,10 @@ func TestLoadConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 
-		assert.Equal(t, "org/template", cfg.Source.Repo)
-		assert.Equal(t, "main", cfg.Source.Branch)
-		assert.Len(t, cfg.Targets, 1)
-		assert.Equal(t, "org/target1", cfg.Targets[0].Repo)
+		assert.Equal(t, "org/template", cfg.Groups[0].Source.Repo)
+		assert.Equal(t, "main", cfg.Groups[0].Source.Branch)
+		assert.Len(t, cfg.Groups[0].Targets, 1)
+		assert.Equal(t, "org/target1", cfg.Groups[0].Targets[0].Repo)
 	})
 
 	t.Run("InvalidYAML", func(t *testing.T) {
@@ -264,18 +268,21 @@ func TestLoadConfigWithFlags(t *testing.T) {
 		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 		validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md
-  - repo: org/target2
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: test-group
+    id: test-group-1
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+      - repo: org/target2
+        files:
+          - src: README.md
+            dest: README.md`
 
 		_, err = tmpFile.WriteString(validConfig)
 		require.NoError(t, err)
@@ -294,8 +301,9 @@ targets:
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 
-		assert.Equal(t, "org/template", cfg.Source.Repo)
-		assert.Len(t, cfg.Targets, 2)
+		require.Len(t, cfg.Groups, 1)
+		assert.Equal(t, "org/template", cfg.Groups[0].Source.Repo)
+		assert.Len(t, cfg.Groups[0].Targets, 2)
 
 		// Check debug logging
 		logs := buf.String()
@@ -392,15 +400,17 @@ func TestCreateSyncEngine(t *testing.T) {
 
 	t.Run("BasicEngineCreation", func(t *testing.T) {
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/template",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
-				{
-					Repo: "org/target1",
+			Groups: []config.Group{{
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
 				},
-			},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+					},
+				},
+			}},
 		}
 
 		// This may succeed if GitHub CLI is configured
@@ -424,21 +434,23 @@ func TestCreateSyncEngineWithFlags(t *testing.T) {
 
 	t.Run("WithTransformers", func(t *testing.T) {
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/template",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
-				{
-					Repo: "org/target1",
-					Transform: config.Transform{
-						RepoName: true,
-						Variables: map[string]string{
-							"PROJECT": "test",
+			Groups: []config.Group{{
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+						Transform: config.Transform{
+							RepoName: true,
+							Variables: map[string]string{
+								"PROJECT": "test",
+							},
 						},
 					},
 				},
-			},
+			}},
 		}
 
 		flags := &Flags{
@@ -464,15 +476,17 @@ func TestCreateSyncEngineWithLogConfig(t *testing.T) {
 
 	t.Run("WithVerboseLogging", func(t *testing.T) {
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "org/template",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
-				{
-					Repo: "org/target1",
+			Groups: []config.Group{{
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
 				},
-			},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+					},
+				},
+			}},
 		}
 
 		logConfig := &LogConfig{
@@ -505,14 +519,17 @@ func TestSyncCommandIntegration(t *testing.T) {
 
 	// Create a minimal valid config
 	configContent := `version: 1
-source:
-  repo: test/source
-  branch: main
-targets:
-  - repo: test/target1
-    files:
-      - src: README.md
-        dest: README.md`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: test/source
+      branch: main
+    targets:
+      - repo: test/target1
+        files:
+          - src: README.md
+            dest: README.md`
 
 	testutil.WriteTestFile(t, configPath, configContent)
 

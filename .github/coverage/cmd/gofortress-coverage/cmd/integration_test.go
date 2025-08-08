@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,9 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// errCommandRemoved is used for test commands that have been removed
-var errCommandRemoved = errors.New("command removed")
 
 // Test coverage data for integration tests
 const testCoverageData = `mode: atomic
@@ -28,7 +24,6 @@ github.com/mrz1836/go-broadcast/coverage/internal/badge/generator.go:44.16,46.3 
 `
 
 func TestParseCommand(t *testing.T) {
-	t.Skip("Parse command has been removed - tests disabled")
 	// Disable GitHub integration for tests
 	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
 	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
@@ -113,7 +108,7 @@ func TestParseCommand(t *testing.T) {
 
 			// Create a new root command for each test
 			testCmd := &cobra.Command{Use: "test"}
-			// testCmd.AddCommand(parseCmd) // Command removed
+			testCmd.AddCommand(parseCmd)
 			testCmd.SetOut(&buf)
 			testCmd.SetErr(&buf)
 			testCmd.SetArgs(tt.args)
@@ -132,314 +127,6 @@ func TestParseCommand(t *testing.T) {
 			output := buf.String()
 			for _, expected := range tt.contains {
 				assert.Contains(t, output, expected, "Output should contain: %s", expected)
-			}
-		})
-	}
-}
-
-func TestBadgeCommand(t *testing.T) {
-	t.Skip("Badge command has been removed - tests disabled")
-	// Disable GitHub integration for tests
-	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
-	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
-	defer func() { _ = os.Unsetenv("COVERAGE_POST_COMMENTS") }()
-	defer func() { _ = os.Unsetenv("COVERAGE_CREATE_STATUSES") }()
-
-	// Create temporary directory
-	tempDir, err := os.MkdirTemp("", "integration_test_*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
-
-	// Create test coverage file
-	coverageFile := filepath.Join(tempDir, "coverage.txt")
-	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0o600)
-	require.NoError(t, err)
-
-	tests := []struct {
-		name        string
-		args        []string
-		expectError bool
-		contains    []string
-		checkFiles  []string
-		envVars     map[string]string
-	}{
-		{
-			name: "generate badge with coverage percentage",
-			args: []string{
-				"badge",
-				"--coverage", "85.5",
-				"--output", filepath.Join(tempDir, "badge.svg"),
-				"--style", "flat",
-			},
-			expectError: false,
-			contains: []string{
-				"Coverage badge generated successfully!",
-				"Coverage: 85.50%",
-				"Style: flat",
-				"🟡 Good",
-			},
-			checkFiles: []string{filepath.Join(tempDir, "badge.svg")},
-		},
-		{
-			name: "generate badge from input file",
-			args: []string{
-				"badge",
-				"--input", coverageFile,
-				"--output", filepath.Join(tempDir, "badge2.svg"),
-				"--style", "flat-square",
-			},
-			expectError: false,
-			contains: []string{
-				"Coverage badge generated successfully!",
-				"Style: flat-square",
-			},
-			checkFiles: []string{filepath.Join(tempDir, "badge2.svg")},
-		},
-		{
-			name: "missing coverage percentage and input",
-			args: []string{
-				"badge",
-				"--output", filepath.Join(tempDir, "badge3.svg"),
-			},
-			expectError: true,
-			contains: []string{
-				"coverage percentage is required",
-			},
-			envVars: map[string]string{
-				"COVERAGE_INPUT_FILE": "/nonexistent/coverage.txt",
-			},
-		},
-		{
-			name: "invalid coverage percentage",
-			args: []string{
-				"badge",
-				"--coverage", "150.0",
-				"--output", filepath.Join(tempDir, "badge4.svg"),
-			},
-			expectError: true,
-			contains: []string{
-				"coverage percentage must be between 0 and 100",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Set environment variables for config
-			_ = os.Setenv("COVERAGE_AUTO_CREATE_DIRS", "true")
-			defer func() { _ = os.Unsetenv("COVERAGE_AUTO_CREATE_DIRS") }()
-
-			// Set test-specific environment variables
-			for key, value := range tt.envVars {
-				_ = os.Setenv(key, value)
-			}
-			defer func() {
-				for key := range tt.envVars {
-					_ = os.Unsetenv(key)
-				}
-			}()
-
-			// Capture output
-			var buf bytes.Buffer
-
-			// Create a new root command for each test
-			testCmd := &cobra.Command{Use: "test"}
-			// Create a fresh badge command for each test
-			testBadgeCmd := &cobra.Command{
-				Use:   "badge",
-				Short: "Generate coverage badge",
-				Long:  `Generate SVG coverage badges for README files and GitHub Pages.`,
-				RunE:  func(_ *cobra.Command, _ []string) error { return errCommandRemoved },
-			}
-			testBadgeCmd.Flags().Float64P("coverage", "c", 0, "Coverage percentage")
-			testBadgeCmd.Flags().StringP("style", "s", "", "Badge style")
-			testBadgeCmd.Flags().StringP("output", "o", "", "Output file path")
-			testBadgeCmd.Flags().StringP("input", "i", "", "Input coverage file")
-			testBadgeCmd.Flags().StringP("label", "l", "", "Badge label")
-			testBadgeCmd.Flags().String("logo", "", "Logo")
-			testBadgeCmd.Flags().String("logo-color", "", "Logo color")
-
-			testCmd.AddCommand(testBadgeCmd)
-			testCmd.SetOut(&buf)
-			testCmd.SetErr(&buf)
-			testCmd.SetArgs(tt.args)
-
-			// Execute command
-			err := testCmd.Execute()
-
-			// Check error expectation
-			if tt.expectError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-
-			// Check output contains expected strings
-			output := buf.String()
-			for _, expected := range tt.contains {
-				assert.Contains(t, output, expected, "Output should contain: %s", expected)
-			}
-
-			// Check files were created
-			for _, filePath := range tt.checkFiles {
-				assert.FileExists(t, filePath, "File should be created: %s", filePath)
-
-				// Verify SVG content
-				content, err := os.ReadFile(filePath) //nolint:gosec // Test file path is controlled
-				require.NoError(t, err)
-				assert.Contains(t, string(content), "<svg", "File should contain SVG content")
-			}
-		})
-	}
-}
-
-func TestReportCommand(t *testing.T) {
-	t.Skip("Report command has been removed - tests disabled")
-	// Disable GitHub integration for tests
-	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
-	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
-	defer func() { _ = os.Unsetenv("COVERAGE_POST_COMMENTS") }()
-	defer func() { _ = os.Unsetenv("COVERAGE_CREATE_STATUSES") }()
-
-	// Create temporary directory
-	tempDir, err := os.MkdirTemp("", "integration_test_*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
-
-	// Create test coverage file
-	coverageFile := filepath.Join(tempDir, "coverage.txt")
-	err = os.WriteFile(coverageFile, []byte(testCoverageData), 0o600)
-	require.NoError(t, err)
-
-	tests := []struct {
-		name        string
-		args        []string
-		expectError bool
-		contains    []string
-		checkFiles  []string
-		envVars     map[string]string
-	}{
-		{
-			name: "generate HTML report",
-			args: []string{
-				"report",
-				"--input", coverageFile,
-				"--output", filepath.Join(tempDir, "report.html"),
-				"--theme", "github-dark",
-				"--title", "Test Coverage Report",
-			},
-			expectError: false,
-			contains: []string{
-				"Coverage report generated successfully!",
-				"Title: Test Coverage Report",
-				"Theme: github-dark",
-			},
-			checkFiles: []string{filepath.Join(tempDir, "report.html")},
-			envVars: map[string]string{
-				"COVERAGE_AUTO_CREATE_DIRS": "true",
-			},
-		},
-		{
-			name: "generate report with options",
-			args: []string{
-				"report",
-				"--input", coverageFile,
-				"--output", filepath.Join(tempDir, "report2.html"),
-				"--theme", "light",
-				"--show-packages=false",
-				"--interactive=false",
-			},
-			expectError: false,
-			contains: []string{
-				"Coverage report generated successfully!",
-				"Theme: light",
-			},
-			checkFiles: []string{filepath.Join(tempDir, "report2.html")},
-			envVars: map[string]string{
-				"COVERAGE_AUTO_CREATE_DIRS": "true",
-			},
-		},
-		{
-			name: "missing input file",
-			args: []string{
-				"report",
-				"--input", "/nonexistent/file.txt",
-				"--output", filepath.Join(tempDir, "report3.html"),
-			},
-			expectError: true,
-			contains: []string{
-				"failed to parse coverage file",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Set environment variables for config
-			_ = os.Setenv("COVERAGE_AUTO_CREATE_DIRS", "true")
-			defer func() { _ = os.Unsetenv("COVERAGE_AUTO_CREATE_DIRS") }()
-
-			// Set test-specific environment variables
-			for key, value := range tt.envVars {
-				_ = os.Setenv(key, value)
-			}
-			defer func() {
-				for key := range tt.envVars {
-					_ = os.Unsetenv(key)
-				}
-			}()
-
-			// Capture output
-			var buf bytes.Buffer
-
-			// Create a new root command for each test
-			testCmd := &cobra.Command{Use: "test"}
-			// Create a fresh report command for each test
-			testReportCmd := &cobra.Command{
-				Use:   "report",
-				Short: "Generate HTML coverage report",
-				Long:  `Generate comprehensive HTML coverage reports with detailed analysis.`,
-				RunE:  func(_ *cobra.Command, _ []string) error { return errCommandRemoved },
-			}
-			testReportCmd.Flags().StringP("input", "i", "", "Input coverage file")
-			testReportCmd.Flags().StringP("output", "o", "", "Output HTML file")
-			testReportCmd.Flags().StringP("theme", "t", "", "Report theme (github-dark, light, github-light)")
-			testReportCmd.Flags().String("title", "", "Report title")
-			testReportCmd.Flags().Bool("show-packages", true, "Show package breakdown")
-			testReportCmd.Flags().Bool("show-files", true, "Show file breakdown")
-			testReportCmd.Flags().Bool("show-missing", true, "Show missing lines")
-			testReportCmd.Flags().Bool("interactive", true, "Enable interactive features")
-
-			testCmd.AddCommand(testReportCmd)
-			testCmd.SetOut(&buf)
-			testCmd.SetErr(&buf)
-			testCmd.SetArgs(tt.args)
-
-			// Execute command
-			err := testCmd.Execute()
-
-			// Check error expectation
-			if tt.expectError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-
-			// Check output contains expected strings
-			output := buf.String()
-			for _, expected := range tt.contains {
-				assert.Contains(t, output, expected, "Output should contain: %s", expected)
-			}
-
-			// Check files were created
-			for _, filePath := range tt.checkFiles {
-				assert.FileExists(t, filePath, "File should be created: %s", filePath)
-
-				// Verify HTML content
-				content, err := os.ReadFile(filePath) //nolint:gosec // Test file path is controlled
-				require.NoError(t, err)
-				assert.Contains(t, string(content), "<html", "File should contain HTML content")
-				assert.Contains(t, string(content), "Coverage Report", "File should contain report title")
 			}
 		})
 	}
@@ -650,7 +337,6 @@ func TestHistoryCommand(t *testing.T) {
 }
 
 func TestCommentCommand(t *testing.T) {
-	t.Skip("Comment command tests need updating - tests disabled")
 	// Disable GitHub integration for tests
 	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
 	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
@@ -682,13 +368,14 @@ func TestCommentCommand(t *testing.T) {
 				"--pr", "123",
 				"--coverage", coverageFile,
 				"--dry-run",
+				"--enable-analysis=false",
 			},
 			expectError: false,
 			contains: []string{
-				"Dry run mode",
-				"would post the following comment",
-				"Coverage Report",
+				"PR Comment Preview (Dry Run)",
 				"PR: 123",
+				"Template: comprehensive",
+				"Repository: test-owner/test-repo",
 			},
 			envVars: map[string]string{
 				"GITHUB_TOKEN":            "fake-token",
@@ -743,19 +430,25 @@ func TestCommentCommand(t *testing.T) {
 
 			// Create a new root command for each test
 			testCmd := &cobra.Command{Use: "test"}
-			// Create a fresh comment command for each test
+			// Use the actual comment command with all its flags
 			testCommentCmd := &cobra.Command{
 				Use:   "comment",
-				Short: "Create PR coverage comment",
+				Short: "Create PR coverage comment with analysis and templates",
 				Long:  `Create or update pull request comments with coverage information.`,
 				RunE:  commentCmd.RunE,
 			}
-			testCommentCmd.Flags().IntP("pr", "p", 0, "Pull request number")
-			testCommentCmd.Flags().StringP("coverage", "c", "", "Coverage file path")
-			testCommentCmd.Flags().String("badge-url", "", "Badge URL")
-			testCommentCmd.Flags().String("report-url", "", "Report URL")
-			testCommentCmd.Flags().Bool("status", false, "Create commit status")
-			testCommentCmd.Flags().Bool("dry-run", false, "Show what would be posted without posting")
+			// Add all the current flags from the actual comment command
+			testCommentCmd.Flags().IntP("pr", "p", 0, "Pull request number (defaults to GITHUB_PR_NUMBER)")
+			testCommentCmd.Flags().StringP("coverage", "c", "", "Coverage data file")
+			testCommentCmd.Flags().String("base-coverage", "", "Base coverage data file for comparison")
+			testCommentCmd.Flags().String("badge-url", "", "Badge URL (auto-generated if not provided)")
+			testCommentCmd.Flags().String("report-url", "", "Report URL (auto-generated if not provided)")
+			testCommentCmd.Flags().Bool("status", false, "Create status checks")
+			testCommentCmd.Flags().Bool("block-merge", false, "Block PR merge on coverage failure")
+			testCommentCmd.Flags().Bool("generate-badges", false, "Generate PR-specific badges")
+			testCommentCmd.Flags().Bool("enable-analysis", true, "Enable detailed coverage analysis and comparison")
+			testCommentCmd.Flags().Bool("anti-spam", true, "Enable anti-spam features")
+			testCommentCmd.Flags().Bool("dry-run", false, "Show preview of comment without posting")
 
 			testCmd.AddCommand(testCommentCmd)
 			testCmd.SetOut(&buf)
@@ -965,7 +658,6 @@ update history, and create GitHub PR comment if in PR context.`,
 }
 
 func TestRootCommandHelp(t *testing.T) {
-	t.Skip("Help tests need updating for current commands - tests disabled")
 	// Disable GitHub integration for tests
 	_ = os.Setenv("COVERAGE_POST_COMMENTS", "false")
 	_ = os.Setenv("COVERAGE_CREATE_STATUSES", "false")
@@ -975,9 +667,15 @@ func TestRootCommandHelp(t *testing.T) {
 	// Capture output
 	var buf bytes.Buffer
 
-	// Create a new root command
-	testCmd := &cobra.Command{Use: "test"}
-	testCmd.AddCommand(historyCmd, commentCmd, completeCmd)
+	// Create a new root command with all available subcommands
+	testCmd := &cobra.Command{
+		Use:   "gofortress-coverage",
+		Short: "Go-native coverage system for GoFortress CI/CD",
+		Long: `GoFortress Coverage is a self-contained, Go-native coverage system that provides
+professional coverage tracking, badge generation, and reporting while maintaining
+the simplicity and performance that Go developers expect.`,
+	}
+	testCmd.AddCommand(completeCmd, historyCmd, commentCmd, parseCmd)
 	testCmd.SetOut(&buf)
 	testCmd.SetErr(&buf)
 	testCmd.SetArgs([]string{"--help"})
@@ -986,12 +684,16 @@ func TestRootCommandHelp(t *testing.T) {
 	err := testCmd.Execute()
 	require.NoError(t, err)
 
-	// Check output contains expected commands
+	// Check output contains expected commands (only the ones that currently exist)
 	output := buf.String()
-	expectedCommands := []string{"parse", "badge", "report", "history", "comment", "complete"}
+	expectedCommands := []string{"complete", "history", "comment", "parse"}
 	for _, cmd := range expectedCommands {
 		assert.Contains(t, output, cmd, "Help should contain command: %s", cmd)
 	}
+
+	// Verify removed commands are not present as actual commands (not just substring matches)
+	assert.NotContains(t, output, "  report ", "Help should NOT contain report as a command")
+	assert.NotContains(t, output, "  badge ", "Help should NOT contain badge as a command")
 }
 
 func TestCommandFlags(t *testing.T) {

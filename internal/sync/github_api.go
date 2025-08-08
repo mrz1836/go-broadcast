@@ -12,10 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mrz1836/go-broadcast/internal/cache"
 	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
-	"github.com/sirupsen/logrus"
 )
 
 // GitTreeNode represents a single node in a Git tree

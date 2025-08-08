@@ -10,11 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mrz1836/go-broadcast/internal/benchmark"
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/mrz1836/go-broadcast/internal/worker"
-	"github.com/sirupsen/logrus"
 )
 
 // gitTask implements worker.Task for git operations

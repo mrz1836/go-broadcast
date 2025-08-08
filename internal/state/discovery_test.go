@@ -5,13 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/gh"
-	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/logging"
 )
 
 func TestDiscoveryService_DiscoverState(t *testing.T) {
@@ -20,16 +21,23 @@ func TestDiscoveryService_DiscoverState(t *testing.T) {
 	logger.SetLevel(logrus.DebugLevel)
 
 	cfg := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/template",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{Repo: "org/service-a"},
-			{Repo: "org/service-b"},
-		},
-		Defaults: config.DefaultConfig{
-			BranchPrefix: "chore/sync-files",
+		Version: 1,
+		Groups: []config.Group{
+			{
+				Name: "test-group",
+				ID:   "test",
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "org/service-a"},
+					{Repo: "org/service-b"},
+				},
+				Defaults: config.DefaultConfig{
+					BranchPrefix: "chore/sync-files",
+				},
+			},
 		},
 	}
 
@@ -334,15 +342,22 @@ func TestDiscoveryService_DiscoverStateWithDebugLogging(t *testing.T) {
 	}
 
 	cfg := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/template",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{Repo: "org/service-a"},
-		},
-		Defaults: config.DefaultConfig{
-			BranchPrefix: "chore/sync-files",
+		Version: 1,
+		Groups: []config.Group{
+			{
+				Name: "test-group",
+				ID:   "test",
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "org/service-a"},
+				},
+				Defaults: config.DefaultConfig{
+					BranchPrefix: "chore/sync-files",
+				},
+			},
 		},
 	}
 
@@ -425,15 +440,22 @@ func TestDiscoveryService_DiscoverStateContextCancellation(t *testing.T) {
 	logger := logrus.New()
 
 	cfg := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/template",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{Repo: "org/service-a"},
-		},
-		Defaults: config.DefaultConfig{
-			BranchPrefix: "chore/sync-files",
+		Version: 1,
+		Groups: []config.Group{
+			{
+				Name: "test-group",
+				ID:   "test",
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "org/service-a"},
+				},
+				Defaults: config.DefaultConfig{
+					BranchPrefix: "chore/sync-files",
+				},
+			},
 		},
 	}
 

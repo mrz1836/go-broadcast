@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 )
 
 func TestWhitespaceCheck(t *testing.T) {

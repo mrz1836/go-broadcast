@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
+
 	prerrors "github.com/mrz1836/go-broadcast/pre-commit/internal/errors"
 )
 

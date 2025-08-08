@@ -3,156 +3,162 @@
 
 version: 1
 
-source:
-  repo: "company/platform-templates"
-  branch: "master"
+groups:
+  - name: "Large Directory Management"
+    id: "large-directories"
+    description: "Efficient handling of large directory structures with performance optimization"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/platform-templates"
+      branch: "master"
 
-# Global performance and PR settings
-global:
-  pr_labels: ["large-sync", "platform-update"]
-  pr_assignees: ["platform-team"]
+    # Global performance and PR settings
+    global:
+      pr_labels: ["large-sync", "platform-update"]
+      pr_assignees: ["platform-team"]
 
-targets:
-  # Example 1: Full .github directory (149 files) - Real-world performance target: ~7ms
-  - repo: "company/main-service"
-    directories:
-      - src: ".github"
-        dest: ".github"
-        exclude:
-          # Exclude large subdirectories that are synced separately
-          - "coverage/**" # Synced separately below (87 files)
-          - "workflows/**" # Synced separately below (24 files)
-          - "pip/**" # Python dependencies (~38 files)
-          # Exclude development artifacts
-          - "*.tmp"
-          - "*.log"
-          - "**/node_modules/**"
-          - "**/venv/**"
-        transform:
-          repo_name: true
-        # Progress reporting automatically enabled for >50 files
+    targets:
+      # Example 1: Full .github directory (149 files) - Real-world performance target: ~7ms
+      - repo: "company/main-service"
+        directories:
+          - src: ".github"
+            dest: ".github"
+            exclude:
+              # Exclude large subdirectories that are synced separately
+              - "coverage/**" # Synced separately below (87 files)
+              - "workflows/**" # Synced separately below (24 files)
+              - "pip/**" # Python dependencies (~38 files)
+              # Exclude development artifacts
+              - "*.tmp"
+              - "*.log"
+              - "**/node_modules/**"
+              - "**/venv/**"
+            transform:
+              repo_name: true
+            # Progress reporting automatically enabled for >50 files
 
-      # Sync coverage system separately for better granular control
-      - src: ".github/coverage"
-        dest: ".github/coverage"
-        exclude:
-          - "*.out" # Test coverage files
-          - "*.test" # Go test binaries
-          - "gofortress-coverage" # Main binary (large file)
-          - "**/testdata/**" # Test fixture data
-        # Expected performance: 87 files in ~4ms
+          # Sync coverage system separately for better granular control
+          - src: ".github/coverage"
+            dest: ".github/coverage"
+            exclude:
+              - "*.out" # Test coverage files
+              - "*.test" # Go test binaries
+              - "gofortress-coverage" # Main binary (large file)
+              - "**/testdata/**" # Test fixture data
+            # Expected performance: 87 files in ~4ms
 
-      # Sync workflows with careful exclusions
-      - src: ".github/workflows"
-        dest: ".github/workflows"
-        exclude:
-          - "*-local.yml" # Development workflows
-          - "*.disabled" # Disabled workflows
-          - "experimental-*" # Experimental features
-        transform:
-          repo_name: true
-          variables:
-            MAIN_SERVICE: "true"
-        # Expected performance: 24 files in ~1.5ms
+          # Sync workflows with careful exclusions
+          - src: ".github/workflows"
+            dest: ".github/workflows"
+            exclude:
+              - "*-local.yml" # Development workflows
+              - "*.disabled" # Disabled workflows
+              - "experimental-*" # Experimental features
+            transform:
+              repo_name: true
+              variables:
+                MAIN_SERVICE: "true"
+            # Expected performance: 24 files in ~1.5ms
 
-  # Example 2: Documentation repository (1000+ files) - Performance target: <32ms
-  - repo: "company/documentation"
-    directories:
-      - src: "docs"
-        dest: "docs"
-        exclude:
-          # Exclude generated content
-          - "**/_build/**" # Sphinx build outputs
-          - "**/node_modules/**" # Node.js dependencies
-          - "**/.vuepress/dist/**" # VuePress build outputs
-          - "**/public/**" # Static site generators
-          # Exclude development files
-          - "**/*.tmp"
-          - "**/*.log"
-          - "**/.DS_Store"
-          - "**/Thumbs.db"
-          # Exclude version control
-          - "**/.git/**"
-          - "**/.svn/**"
-        transform:
-          variables:
-            DOCS_VERSION: "v2.0"
-            COMPANY_NAME: "ACME Corp"
-        preserve_structure: true
-        include_hidden: false # Skip hidden files for docs
-        # Expected performance: 1000+ files in ~32ms
+      # Example 2: Documentation repository (1000+ files) - Performance target: <32ms
+      - repo: "company/documentation"
+        directories:
+          - src: "docs"
+            dest: "docs"
+            exclude:
+              # Exclude generated content
+              - "**/_build/**" # Sphinx build outputs
+              - "**/node_modules/**" # Node.js dependencies
+              - "**/.vuepress/dist/**" # VuePress build outputs
+              - "**/public/**" # Static site generators
+              # Exclude development files
+              - "**/*.tmp"
+              - "**/*.log"
+              - "**/.DS_Store"
+              - "**/Thumbs.db"
+              # Exclude version control
+              - "**/.git/**"
+              - "**/.svn/**"
+            transform:
+              variables:
+                DOCS_VERSION: "v2.0"
+                COMPANY_NAME: "ACME Corp"
+            preserve_structure: true
+            include_hidden: false # Skip hidden files for docs
+            # Expected performance: 1000+ files in ~32ms
 
-  # Example 3: Configuration management (500+ files) - Performance target: <16ms
-  - repo: "company/config-service"
-    directories:
-      - src: "configs"
-        dest: "configs"
-        exclude:
-          # Exclude environment-specific configs
-          - "local/**"
-          - "dev/**"
-          - "staging/**"
-          - "*.local.*"
-          - "*.dev.*"
-          # Exclude sensitive files
-          - "**/*.key"
-          - "**/*.pem"
-          - "**/*.p12"
-          - "**/*secret*"
-          - "**/*password*"
-          # Exclude temporary files
-          - "**/*.tmp"
-          - "**/*.bak"
-          - "**/*.backup"
-        transform:
-          variables:
-            CONFIG_VERSION: "2.1"
-            ENVIRONMENT: "production"
-        # Expected performance: 500+ files in ~16ms
+      # Example 3: Configuration management (500+ files) - Performance target: <16ms
+      - repo: "company/config-service"
+        directories:
+          - src: "configs"
+            dest: "configs"
+            exclude:
+              # Exclude environment-specific configs
+              - "local/**"
+              - "dev/**"
+              - "staging/**"
+              - "*.local.*"
+              - "*.dev.*"
+              # Exclude sensitive files
+              - "**/*.key"
+              - "**/*.pem"
+              - "**/*.p12"
+              - "**/*secret*"
+              - "**/*password*"
+              # Exclude temporary files
+              - "**/*.tmp"
+              - "**/*.bak"
+              - "**/*.backup"
+            transform:
+              variables:
+                CONFIG_VERSION: "2.1"
+                ENVIRONMENT: "production"
+            # Expected performance: 500+ files in ~16ms
 
-      # Templates subdirectory with flattening
-      - src: "templates/production"
-        dest: "templates"
-        preserve_structure: false # Flatten structure
-        exclude:
-          - "*.example"
-          - "*.template"
-        transform:
-          variables:
-            TEMPLATE_VERSION: "prod-v2"
+          # Templates subdirectory with flattening
+          - src: "templates/production"
+            dest: "templates"
+            preserve_structure: false # Flatten structure
+            exclude:
+              - "*.example"
+              - "*.template"
+            transform:
+              variables:
+                TEMPLATE_VERSION: "prod-v2"
 
-  # Example 4: Multi-language project (mixed file types)
-  - repo: "company/polyglot-service"
-    directories:
-      # Go source code
-      - src: "internal"
-        dest: "internal"
-        exclude:
-          - "**/*.test" # Go test binaries
-          - "**/*.out" # Coverage files
-          - "**/testdata/large/**" # Large test fixtures
-        transform:
-          repo_name: true
+      # Example 4: Multi-language project (mixed file types)
+      - repo: "company/polyglot-service"
+        directories:
+          # Go source code
+          - src: "internal"
+            dest: "internal"
+            exclude:
+              - "**/*.test" # Go test binaries
+              - "**/*.out" # Coverage files
+              - "**/testdata/large/**" # Large test fixtures
+            transform:
+              repo_name: true
 
-      # Python scripts
-      - src: "scripts"
-        dest: "scripts"
-        exclude:
-          - "**/__pycache__/**" # Python cache
-          - "**/*.pyc" # Compiled Python
-          - "**/venv/**" # Virtual environments
-          - "**/*.egg-info/**" # Package metadata
+          # Python scripts
+          - src: "scripts"
+            dest: "scripts"
+            exclude:
+              - "**/__pycache__/**" # Python cache
+              - "**/*.pyc" # Compiled Python
+              - "**/venv/**" # Virtual environments
+              - "**/*.egg-info/**" # Package metadata
 
-      # Configuration files
-      - src: "configs"
-        dest: "configs"
-        exclude:
-          - "*.local.*" # Local overrides
-          - "*.secret.*" # Secret configurations
-        transform:
-          variables:
-            SERVICE_NAME: "polyglot-service"
-            VERSION: "1.0"
+          # Configuration files
+          - src: "configs"
+            dest: "configs"
+            exclude:
+              - "*.local.*" # Local overrides
+              - "*.secret.*" # Secret configurations
+            transform:
+              variables:
+                SERVICE_NAME: "polyglot-service"
+                VERSION: "1.0"
 # Performance Monitoring and Optimization Notes:
 #
 # Expected Performance Metrics:

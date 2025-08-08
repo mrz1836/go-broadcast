@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
@@ -17,7 +19,6 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/metrics"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/transform"
-	"github.com/sirupsen/logrus"
 )
 
 // Static error variables
@@ -77,6 +78,12 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		AddField(logging.StandardFields.TargetRepo, rs.target.Repo).
 		AddField("sync_branch", rs.sourceState.Branch).
 		AddField("commit_sha", rs.sourceState.LatestCommit)
+	// Add group context if available
+	if rs.engine.currentGroup != nil {
+		syncTimer = syncTimer.
+			AddField("group_name", rs.engine.currentGroup.Name).
+			AddField("group_id", rs.engine.currentGroup.ID)
+	}
 
 	// 1. Check if sync is actually needed
 	syncCheckTimer := metrics.StartTimer(ctx, rs.logger, "sync_check")
@@ -218,6 +225,10 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 
 		out := NewDryRunOutput(nil)
 		out.Success("DRY-RUN SUMMARY: Repository sync preview completed successfully")
+		// Add group context if available
+		if rs.engine.currentGroup != nil {
+			out.Info(fmt.Sprintf("📋 Group: %s (%s)", rs.engine.currentGroup.Name, rs.engine.currentGroup.ID))
+		}
 		out.Info(fmt.Sprintf("📁 Repository: %s", rs.target.Repo))
 		out.Info(fmt.Sprintf("🌿 Branch: %s", branchName))
 		out.Info(fmt.Sprintf("📝 Files: %d would be changed", len(allChanges)))
@@ -403,7 +414,15 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 		commitSHA = commitSHA[:7]
 	}
 
-	branchPrefix := rs.engine.config.Defaults.BranchPrefix
+	var branchPrefix string
+	if rs.engine.currentGroup != nil {
+		branchPrefix = rs.engine.currentGroup.Defaults.BranchPrefix
+	} else {
+		// Get defaults from the first group (since we have a single group in temporary config)
+		if len(rs.engine.config.Groups) > 0 {
+			branchPrefix = rs.engine.config.Groups[0].Defaults.BranchPrefix
+		}
+	}
 	if branchPrefix == "" {
 		branchPrefix = "chore/sync-files"
 	}
@@ -936,6 +955,7 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 
 	// Create directory processor
 	processor := NewDirectoryProcessor(rs.logger, 10) // Use default worker count
+	defer processor.Close()
 
 	sourcePath := filepath.Join(rs.tempDir, "source")
 
@@ -1266,9 +1286,21 @@ func (rs *RepositorySync) mergeUniqueStrings(slice1, slice2 []string) []string {
 
 // getPRAssignees returns the assignees to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRAssignees() []string {
-	global := rs.engine.config.Global.PRAssignees
+	var global []string
+	var defaults []string
+
+	if rs.engine.currentGroup != nil {
+		global = rs.engine.currentGroup.Global.PRAssignees
+		defaults = rs.engine.currentGroup.Defaults.PRAssignees
+	} else {
+		// Get from the first group (since we have a single group in temporary config)
+		if len(rs.engine.config.Groups) > 0 {
+			global = rs.engine.config.Groups[0].Global.PRAssignees
+			defaults = rs.engine.config.Groups[0].Defaults.PRAssignees
+		}
+	}
+
 	target := rs.target.PRAssignees
-	defaults := rs.engine.config.Defaults.PRAssignees
 
 	// Merge global + target (unique)
 	combined := rs.mergeUniqueStrings(global, target)
@@ -1282,9 +1314,21 @@ func (rs *RepositorySync) getPRAssignees() []string {
 
 // getPRReviewers returns the reviewers to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRReviewers() []string {
-	global := rs.engine.config.Global.PRReviewers
+	var global []string
+	var defaults []string
+
+	if rs.engine.currentGroup != nil {
+		global = rs.engine.currentGroup.Global.PRReviewers
+		defaults = rs.engine.currentGroup.Defaults.PRReviewers
+	} else {
+		// Get from the first group (since we have a single group in temporary config)
+		if len(rs.engine.config.Groups) > 0 {
+			global = rs.engine.config.Groups[0].Global.PRReviewers
+			defaults = rs.engine.config.Groups[0].Defaults.PRReviewers
+		}
+	}
+
 	target := rs.target.PRReviewers
-	defaults := rs.engine.config.Defaults.PRReviewers
 
 	// Merge global + target (unique)
 	combined := rs.mergeUniqueStrings(global, target)
@@ -1298,9 +1342,21 @@ func (rs *RepositorySync) getPRReviewers() []string {
 
 // getPRLabels returns the labels to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRLabels() []string {
-	global := rs.engine.config.Global.PRLabels
+	var global []string
+	var defaults []string
+
+	if rs.engine.currentGroup != nil {
+		global = rs.engine.currentGroup.Global.PRLabels
+		defaults = rs.engine.currentGroup.Defaults.PRLabels
+	} else {
+		// Get from the first group (since we have a single group in temporary config)
+		if len(rs.engine.config.Groups) > 0 {
+			global = rs.engine.config.Groups[0].Global.PRLabels
+			defaults = rs.engine.config.Groups[0].Defaults.PRLabels
+		}
+	}
+
 	target := rs.target.PRLabels
-	defaults := rs.engine.config.Defaults.PRLabels
 
 	// Merge global + target (unique)
 	combined := rs.mergeUniqueStrings(global, target)
@@ -1314,9 +1370,21 @@ func (rs *RepositorySync) getPRLabels() []string {
 
 // getPRTeamReviewers returns the team reviewers to use for PRs, merging global + target assignments
 func (rs *RepositorySync) getPRTeamReviewers() []string {
-	global := rs.engine.config.Global.PRTeamReviewers
+	var global []string
+	var defaults []string
+
+	if rs.engine.currentGroup != nil {
+		global = rs.engine.currentGroup.Global.PRTeamReviewers
+		defaults = rs.engine.currentGroup.Defaults.PRTeamReviewers
+	} else {
+		// Get from the first group (since we have a single group in temporary config)
+		if len(rs.engine.config.Groups) > 0 {
+			global = rs.engine.config.Groups[0].Global.PRTeamReviewers
+			defaults = rs.engine.config.Groups[0].Defaults.PRTeamReviewers
+		}
+	}
+
 	target := rs.target.PRTeamReviewers
-	defaults := rs.engine.config.Defaults.PRTeamReviewers
 
 	// Merge global + target (unique)
 	combined := rs.mergeUniqueStrings(global, target)

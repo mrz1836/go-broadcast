@@ -15,7 +15,8 @@
 				"dist",
 				"third_party$",
 				"builtin$",
-				"test/fixtures/"
+				"test/fixtures/",
+				"test/fixtures/.*"
 			]
 		},
 		"settings": {
@@ -198,6 +199,9 @@
 		"tests": true,
 		"skip-dirs": [
 			"test/fixtures"
+		],
+		"skip-files": [
+			"test/fixtures/.*\\.go$"
 		]
 	},
 	"output": {
@@ -223,6 +227,15 @@
 		]
 	},
 	"issues": {
-		"uniq-by-line": true
+		"uniq-by-line": true,
+		"exclude-rules": [
+			{
+				"path": "test/fixtures/.*"
+			},
+			{
+				"path": "test/fixtures/.*\\.go$",
+				"linters": ["typecheck", "staticcheck", "unused", "errcheck", "gosec"]
+			}
+		]
 	}
 }

@@ -3,8 +3,9 @@ package gh
 import (
 	"context"
 
-	"github.com/mrz1836/go-broadcast/internal/testutil"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/mrz1836/go-broadcast/internal/testutil"
 )
 
 // MockClient is a mock implementation of the Client interface

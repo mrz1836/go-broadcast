@@ -12,9 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/logging"
-	"github.com/sirupsen/logrus"
 )
 
 // Common errors

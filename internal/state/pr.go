@@ -6,8 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/gh"
 	"gopkg.in/yaml.v3"
+
+	"github.com/mrz1836/go-broadcast/internal/gh"
 )
 
 // PR metadata errors

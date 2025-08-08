@@ -1,5 +1,70 @@
 # go-broadcast Logging Guide
 
+## Quick Reference
+
+### Essential Commands
+```bash
+# Basic logging levels
+go-broadcast sync --log-level debug     # Debug level logging
+go-broadcast sync --log-level info      # Info level logging (default)
+go-broadcast sync --log-level warn      # Warning level logging
+go-broadcast sync --log-level error     # Error level logging
+
+# System diagnostics
+go-broadcast diagnose                   # Collect system info
+
+# Configuration validation and testing
+go-broadcast validate --config sync.yaml      # Validate configuration
+go-broadcast sync --dry-run --config sync.yaml   # Preview changes
+
+# Note: Verbose flags (-v, -vv, -vvv) and component-specific debug flags
+# (--debug-git, --debug-api, etc.) are planned features not yet implemented.
+# Current implementation supports --log-level for basic debugging.
+```
+
+### Flag Reference
+| Flag                | Description                       | Output Level |
+|---------------------|-----------------------------------|--------------|
+| `--log-level debug` | Debug level logging               | DEBUG        |
+| `--log-level info`  | Info level logging (default)      | INFO         |
+| `--log-level warn`  | Warning level logging             | WARN         |
+| `--log-level error` | Error level logging               | ERROR        |
+| `--dry-run`         | Preview changes without executing | All levels   |
+| `--config <file>`   | Specify configuration file        | All levels   |
+
+**Note**: Advanced verbose flags (`-v`, `-vv`, `-vvv`) and component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented in the current version.
+
+### Common Troubleshooting Commands
+```bash
+# Authentication issues
+go-broadcast sync --log-level debug     # Enable debug logging
+echo $GITHUB_TOKEN | cut -c1-10         # Check token (first 10 chars)
+gh auth status                           # Test GitHub CLI
+
+# Configuration validation
+go-broadcast validate --config sync.yaml
+
+# Test configuration without changes
+go-broadcast sync --dry-run --config sync.yaml
+
+# Save debug session
+go-broadcast sync --log-level debug 2> debug-$(date +%Y%m%d-%H%M%S).log
+
+# System diagnostics
+go-broadcast diagnose > diagnostics-$(date +%Y%m%d-%H%M%S).json
+```
+
+### Environment Variables
+| Variable       | Default | Description                       |
+|----------------|---------|-----------------------------------|
+| `GITHUB_TOKEN` | -       | GitHub authentication token       |
+| `GH_TOKEN`     | -       | Alternative GitHub token variable |
+| `NO_COLOR`     | -       | Disable colored output            |
+
+**Note**: Environment variables for log level and format are planned features not yet implemented.
+
+---
+
 ## Overview
 go-broadcast provides comprehensive logging capabilities designed for debugging, monitoring, and troubleshooting. The logging system is built on structured logging principles with automatic sensitive data redaction.
 
@@ -437,7 +502,7 @@ For comprehensive go-broadcast development workflows, see [CLAUDE.md](../.github
 
 ## Related Documentation
 
-1. [Logging Quick Reference](logging-quick-ref.md) - Essential logging commands and flags
-2. [Troubleshooting Guide](troubleshooting.md) - General troubleshooting procedures
-3. [Troubleshooting Runbook](troubleshooting-runbook.md) - Operational troubleshooting procedures
-4. [CLAUDE.md Developer Workflows](../.github/CLAUDE.md) - Complete development workflow integration
+1. [Enhanced Troubleshooting Guide](troubleshooting.md) - Comprehensive troubleshooting with operational procedures
+2. [Performance Guide](performance-guide.md) - Performance optimization and monitoring
+3. [CLAUDE.md Developer Workflows](../.github/CLAUDE.md) - Complete development workflow integration
+4. [Main Documentation](../README.md) - Overview and quick start

@@ -247,11 +247,13 @@ func executeE2EScenario(ctx context.Context, scenario E2EPerformanceTest) error 
 func generateTestConfig(repositories, filesPerRepo int) *config.Config {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "test/source-repo",
-			Branch: "master",
-		},
-		Targets: make([]config.TargetConfig, repositories),
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "test/source-repo",
+				Branch: "master",
+			},
+			Targets: make([]config.TargetConfig, repositories),
+		}},
 	}
 
 	for i := 0; i < repositories; i++ {
@@ -263,7 +265,7 @@ func generateTestConfig(repositories, filesPerRepo int) *config.Config {
 			}
 		}
 
-		cfg.Targets[i] = config.TargetConfig{
+		cfg.Groups[0].Targets[i] = config.TargetConfig{
 			Repo:  fmt.Sprintf("test/repo-%d", i+1),
 			Files: files,
 		}
@@ -275,7 +277,7 @@ func generateTestConfig(repositories, filesPerRepo int) *config.Config {
 // runSequentialSync executes sync operations sequentially using worker simulation
 func runSequentialSync(ctx context.Context, cfg *config.Config, _ *sync.Options) error {
 	// Simulate sequential processing of repositories
-	for i, target := range cfg.Targets {
+	for i, target := range cfg.Groups[0].Targets {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -293,13 +295,13 @@ func runSequentialSync(ctx context.Context, cfg *config.Config, _ *sync.Options)
 // runParallelSync executes sync operations in parallel using worker pool
 func runParallelSync(ctx context.Context, cfg *config.Config, options *sync.Options) error {
 	// Create worker pool for parallel processing
-	pool := worker.NewPool(options.MaxConcurrency, len(cfg.Targets))
+	pool := worker.NewPool(options.MaxConcurrency, len(cfg.Groups[0].Targets))
 	pool.Start(ctx)
 	defer pool.Shutdown()
 
 	// Create tasks for each repository
-	tasks := make([]worker.Task, 0, len(cfg.Targets))
-	for i, target := range cfg.Targets {
+	tasks := make([]worker.Task, 0, len(cfg.Groups[0].Targets))
+	for i, target := range cfg.Groups[0].Targets {
 		task := &repositoryTask{
 			name:   fmt.Sprintf("repo_%d", i),
 			target: target,
@@ -319,7 +321,7 @@ func runParallelSync(ctx context.Context, cfg *config.Config, options *sync.Opti
 			return fmt.Errorf("repository task failed: %w", result.Error)
 		}
 		completed++
-		if completed >= len(cfg.Targets) {
+		if completed >= len(cfg.Groups[0].Targets) {
 			break
 		}
 	}

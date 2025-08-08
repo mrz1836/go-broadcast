@@ -7,12 +7,14 @@ import (
 	"os"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/gh"
-	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/output"
+	"github.com/mrz1836/go-broadcast/internal/state"
 )
 
 // TestRunCancel tests the runCancel function
@@ -91,18 +93,21 @@ func TestRunCancel(t *testing.T) {
 				require.NoError(t, err)
 
 				validConfig := `version: 1
-source:
-  repo: org/template
-  branch: main
-targets:
-  - repo: org/target1
-    files:
-      - src: README.md
-        dest: README.md
-  - repo: org/target2
-    files:
-      - src: LICENSE
-        dest: LICENSE`
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+      - repo: org/target2
+        files:
+          - src: LICENSE
+            dest: LICENSE`
 
 				_, err = tmpFile.WriteString(validConfig)
 				require.NoError(t, err)
@@ -158,14 +163,16 @@ targets:
 func TestPerformCancel(t *testing.T) {
 	// Create test config
 	cfg := &config.Config{
-		Source: config.SourceConfig{
-			Repo:   "org/source",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{Repo: "org/target1"},
-			{Repo: "org/target2"},
-		},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/source",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{Repo: "org/target1"},
+				{Repo: "org/target2"},
+			},
+		}},
 	}
 
 	testCases := []struct {
@@ -187,19 +194,19 @@ func TestPerformCancel(t *testing.T) {
 			name:          "GitHub CLI not found",
 			clientError:   gh.ErrGHNotFound,
 			expectError:   true,
-			errorContains: "Please install GitHub CLI",
+			errorContains: "gh CLI not found in PATH",
 		},
 		{
 			name:          "Not authenticated",
 			clientError:   gh.ErrNotAuthenticated,
 			expectError:   true,
-			errorContains: "Please run: gh auth login",
+			errorContains: "gh CLI not authenticated",
 		},
 		{
 			name:          "Client initialization error",
 			clientError:   errors.New("network error"), //nolint:err113 // test-only error
 			expectError:   true,
-			errorContains: "failed to initialize GitHub client",
+			errorContains: "network error",
 		},
 		{
 			name:          "State discovery error",
@@ -226,18 +233,91 @@ func TestPerformCancel(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.name == "Nil config panics" {
-				// Test panic recovery
+				// Test panic recovery for performCancelWithDiscoverer
 				defer func() {
 					if r := recover(); r != nil {
 						assert.Equal(t, "config cannot be nil", r)
 					}
 				}()
-				_, _ = performCancel(context.Background(), nil, nil)
+				mockClient := &gh.MockClient{}
+				mockDiscoverer := &state.MockDiscoverer{}
+				_, _ = performCancelWithDiscoverer(context.Background(), nil, nil, mockClient, mockDiscoverer)
 				return
 			}
 
-			// Since we can't mock gh.NewClient, skip tests that require it
-			t.Skip("Skipping test that requires mocking gh.NewClient")
+			// Create mocks
+			mockClient := &gh.MockClient{}
+			mockDiscoverer := &state.MockDiscoverer{}
+
+			// Set up mock expectations based on test case
+			if tc.clientError != nil {
+				// Simulate client errors by having the discoverer return the appropriate error
+				mockDiscoverer.On("DiscoverState", context.Background(), cfg).Return(nil, tc.clientError)
+
+				summary, err := performCancelWithDiscoverer(context.Background(), cfg, tc.targetRepos, mockClient, mockDiscoverer)
+
+				require.Error(t, err)
+				assert.Nil(t, summary)
+				assert.Contains(t, err.Error(), tc.errorContains)
+				mockDiscoverer.AssertExpectations(t)
+				return
+			}
+
+			if tc.stateError != nil {
+				// Mock discoverer returns state error
+				mockDiscoverer.On("DiscoverState", context.Background(), cfg).Return(nil, tc.stateError)
+
+				summary, err := performCancelWithDiscoverer(context.Background(), cfg, tc.targetRepos, mockClient, mockDiscoverer)
+
+				require.Error(t, err)
+				assert.Nil(t, summary)
+				assert.Contains(t, err.Error(), tc.errorContains)
+				mockDiscoverer.AssertExpectations(t)
+				return
+			}
+
+			if tc.setupState != nil {
+				// Mock discoverer returns the test state, then test filtering
+				testState := tc.setupState()
+				mockDiscoverer.On("DiscoverState", context.Background(), cfg).Return(testState, nil)
+
+				summary, err := performCancelWithDiscoverer(context.Background(), cfg, tc.targetRepos, mockClient, mockDiscoverer)
+
+				require.Error(t, err)
+				assert.Nil(t, summary)
+				assert.Contains(t, err.Error(), tc.errorContains)
+				mockDiscoverer.AssertExpectations(t)
+				return
+			}
+
+			// For any remaining cases, mock a successful state discovery with no active syncs
+			emptyState := &state.State{
+				Targets: map[string]*state.TargetState{
+					"org/target1": {
+						Repo:         "org/target1",
+						OpenPRs:      []gh.PR{},
+						SyncBranches: []state.SyncBranch{},
+					},
+					"org/target2": {
+						Repo:         "org/target2",
+						OpenPRs:      []gh.PR{},
+						SyncBranches: []state.SyncBranch{},
+					},
+				},
+			}
+			mockDiscoverer.On("DiscoverState", context.Background(), cfg).Return(emptyState, nil)
+
+			summary, err := performCancelWithDiscoverer(context.Background(), cfg, tc.targetRepos, mockClient, mockDiscoverer)
+
+			if tc.expectError {
+				require.Error(t, err)
+				assert.Nil(t, summary)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, summary)
+				assert.Equal(t, 0, summary.TotalTargets) // No active syncs to cancel
+			}
+			mockDiscoverer.AssertExpectations(t)
 		})
 	}
 
@@ -276,9 +356,9 @@ func TestOutputCancelResultsIntegration(t *testing.T) {
 			},
 			outputFormat: "json",
 			verifyOutput: func(t *testing.T, output string) {
-				assert.Contains(t, output, `"total_targets":2`)
-				assert.Contains(t, output, `"prs_closed":1`)
-				assert.Contains(t, output, `"branches_deleted":1`)
+				assert.Contains(t, output, `"total_targets": 2`)
+				assert.Contains(t, output, `"prs_closed": 1`)
+				assert.Contains(t, output, `"branches_deleted": 1`)
 			},
 		},
 		{
@@ -311,36 +391,36 @@ func TestOutputCancelResultsIntegration(t *testing.T) {
 			},
 			outputFormat: "text",
 			verifyOutput: func(t *testing.T, output string) {
-				assert.Contains(t, output, "Cancel Operation Results")
-				assert.Contains(t, output, "org/target1")
-				assert.Contains(t, output, "#123")
+				assert.Contains(t, output, "Canceled sync operations for 3 target(s)")
+				assert.Contains(t, output, "📦 org/target1")
+				assert.Contains(t, output, "PR #123")
 				assert.Contains(t, output, "sync/test1")
-				assert.Contains(t, output, "Permission denied")
+				assert.Contains(t, output, "📦 org/target3")
 				assert.Contains(t, output, "Summary:")
-				assert.Contains(t, output, "3 targets processed")
-				assert.Contains(t, output, "2 PRs closed")
-				assert.Contains(t, output, "2 branches deleted")
-				assert.Contains(t, output, "1 error")
+				assert.Contains(t, output, "PRs closed: 2")
+				assert.Contains(t, output, "Branches deleted: 2")
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Save original flags
-			originalFlags := globalFlags
-			globalFlags = &Flags{
-				// OutputFormat: tc.outputFormat, // Not available in Flags struct
+			// Set up output capture
+			var stdoutBuf bytes.Buffer
+			originalStdout := output.Stdout()
+			output.SetStdout(&stdoutBuf)
+			defer output.SetStdout(originalStdout)
+
+			// Set up JSON output flag
+			originalJSON := jsonOutput
+			if tc.outputFormat == "json" {
+				jsonOutput = true
+			} else {
+				jsonOutput = false
 			}
 			defer func() {
-				globalFlags = originalFlags
+				jsonOutput = originalJSON
 			}()
-
-			// Capture output (would need proper output capture mechanism)
-			var outputBuf bytes.Buffer
-			_ = outputBuf // avoid unused variable error
-			// output.SetWriter(&outputBuf) // Not available in output package
-			// defer output.SetWriter(os.Stdout)
 
 			// Execute output function
 			err := outputCancelResults(tc.summary)
@@ -348,8 +428,8 @@ func TestOutputCancelResultsIntegration(t *testing.T) {
 
 			// Verify output
 			if tc.verifyOutput != nil {
-				// tc.verifyOutput(t, outputBuf.String())
-				t.Skip("Skipping output verification - need proper output capture")
+				outputStr := stdoutBuf.String()
+				tc.verifyOutput(t, outputStr)
 			}
 		})
 	}
@@ -378,27 +458,24 @@ func TestOutputCancelPreviewIntegration(t *testing.T) {
 		DryRun: true,
 	}
 
-	// Capture output (would need proper output capture mechanism)
-	var outputBuf bytes.Buffer
-	// output.SetWriter(&outputBuf) // Not available in output package
-	// defer output.SetWriter(os.Stdout)
+	// Set up output capture
+	var stdoutBuf bytes.Buffer
+	originalStdout := output.Stdout()
+	output.SetStdout(&stdoutBuf)
+	defer output.SetStdout(originalStdout)
 
 	// Execute preview
 	err := outputCancelPreview(summary)
 	require.NoError(t, err)
 
 	// Verify output
-	outputStr := outputBuf.String()
-	if outputStr != "" {
-		assert.Contains(t, outputStr, "Cancel Operation Preview")
-		assert.Contains(t, outputStr, "DRY RUN MODE")
-		assert.Contains(t, outputStr, "org/target1")
-		assert.Contains(t, outputStr, "Would close PR #123")
-		assert.Contains(t, outputStr, "Would delete branch sync/test1")
-		assert.Contains(t, outputStr, "org/target2")
-		assert.Contains(t, outputStr, "Would close PR #456")
-		assert.Contains(t, outputStr, "Would keep branch sync/test2")
-	} else {
-		t.Skip("Skipping output verification - need proper output capture")
-	}
+	outputStr := stdoutBuf.String()
+	assert.Contains(t, outputStr, "Would cancel sync operations for 2 target(s)")
+	assert.Contains(t, outputStr, "📦 org/target1")
+	assert.Contains(t, outputStr, "Would close PR #123")
+	assert.Contains(t, outputStr, "Would delete branch: sync/test1")
+	assert.Contains(t, outputStr, "📦 org/target2")
+	assert.Contains(t, outputStr, "Would close PR #456")
+	assert.Contains(t, outputStr, "Would delete branch: sync/test2")
+	assert.Contains(t, outputStr, "Summary (would):")
 }

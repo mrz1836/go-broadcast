@@ -20,8 +20,9 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/sirupsen/logrus"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
 )
 
 // TraceLevel uses the standard logrus TraceLevel for very detailed logging

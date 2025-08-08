@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/mrz1836/go-broadcast/internal/cli"
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/test/helpers"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestCLICommands tests the CLI commands end-to-end
@@ -26,23 +27,26 @@ func TestCLICommands(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "sync.yaml")
 
 	configContent := `version: 1
-source:
-  repo: "org/template"
-  branch: "master"
-defaults:
-  branch_prefix: "chore/sync-files"
-  pr_labels: ["automated-sync"]
-targets:
-  - repo: "org/service-a"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-    transform:
-      repo_name: true
-  - repo: "org/service-b"
-    files:
-      - src: "Makefile"
-        dest: "Makefile"
+groups:
+  - name: "Test Group"
+    id: "test-group"
+    source:
+      repo: "org/template"
+      branch: "master"
+    defaults:
+      branch_prefix: "chore/sync-files"
+      pr_labels: ["automated-sync"]
+    targets:
+      - repo: "org/service-a"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+        transform:
+          repo_name: true
+      - repo: "org/service-b"
+        files:
+          - src: "Makefile"
+            dest: "Makefile"
 `
 	err := os.WriteFile(configPath, []byte(configContent), 0o600)
 	require.NoError(t, err)
@@ -59,10 +63,13 @@ targets:
 	t.Run("validate command failure", func(t *testing.T) {
 		// Create invalid config
 		invalidConfigPath := filepath.Join(tmpDir, "invalid.yaml")
-		invalidContent := `version: 1  # Unsupported version
-source:
-  repo: ""  # Empty repo
-targets: []  # No targets
+		invalidContent := `version: 1
+groups:
+  - name: "Invalid Group"
+    id: "invalid-group"
+    source:
+      repo: ""  # Empty repo
+    targets: []  # No targets
 `
 		err := os.WriteFile(invalidConfigPath, []byte(invalidContent), 0o600)
 		require.NoError(t, err)
@@ -165,12 +172,12 @@ func TestConfigurationExamples(t *testing.T) {
 
 			// Verify basic structure
 			assert.NotEqual(t, 0, cfg.Version, "Version should not be zero")
-			assert.NotEmpty(t, cfg.Source.Repo, "Source repo should not be empty")
-			assert.NotEmpty(t, cfg.Source.Branch, "Source branch should not be empty")
-			assert.NotEmpty(t, cfg.Targets, "Targets should not be empty")
+			assert.NotEmpty(t, cfg.Groups[0].Source.Repo, "Source repo should not be empty")
+			assert.NotEmpty(t, cfg.Groups[0].Source.Branch, "Source branch should not be empty")
+			assert.NotEmpty(t, cfg.Groups[0].Targets, "Targets should not be empty")
 
 			// Verify each target has required fields
-			for i, target := range cfg.Targets {
+			for i, target := range cfg.Groups[0].Targets {
 				assert.NotEmpty(t, target.Repo, "Target %d repo should not be empty", i)
 
 				// Target must have either files or directories (or both)
@@ -207,14 +214,17 @@ func TestCLIFlags(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "sync.yaml")
 
 	configContent := `version: 1
-source:
-  repo: "org/template"
-  branch: "master"
-targets:
-  - repo: "org/service"
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+groups:
+  - name: "Test Group"
+    id: "test-group"
+    source:
+      repo: "org/template"
+      branch: "master"
+    targets:
+      - repo: "org/service"
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `
 	err := os.WriteFile(configPath, []byte(configContent), 0o600)
 	require.NoError(t, err)
@@ -291,14 +301,17 @@ func TestCLIAliases(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "sync.yaml")
 
 	configContent := `version: 1
-source:
-  repo: "org/template"
-  branch: "master"
-targets:
-  - repo: "org/service"
-    files:
-      - src: "file.txt"
-        dest: "file.txt"
+groups:
+  - name: "Test Group"
+    id: "test-group"
+    source:
+      repo: "org/template"
+      branch: "master"
+    targets:
+      - repo: "org/service"
+        files:
+          - src: "file.txt"
+            dest: "file.txt"
 `
 	err := os.WriteFile(configPath, []byte(configContent), 0o600)
 	require.NoError(t, err)

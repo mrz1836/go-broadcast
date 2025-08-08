@@ -6,8 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/sirupsen/logrus"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
 )
 
 // templateTransformer replaces template variables in content

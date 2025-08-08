@@ -117,20 +117,26 @@ Create a `sync.yaml` file:
 
 ```yaml
 version: 1
-source:
-  repo: "mrz1836/template-repo"
-  branch: "master"
-targets:
-  - repo: "mrz1836/target-repo"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-    directories:
-      - src: ".github/coverage"
-        dest: ".github/coverage"
-        exclude: ["*.out", "*.test"]
-    transform:
-      repo_name: true
+groups:
+  - name: "Default Sync"
+    id: "default"
+    description: "Basic file and directory synchronization"
+    priority: 1
+    enabled: true
+    source:
+      repo: "mrz1836/template-repo"
+      branch: "master"
+    targets:
+      - repo: "mrz1836/target-repo"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+        directories:
+          - src: ".github/coverage"
+            dest: ".github/coverage"
+            exclude: ["*.out", "*.test"]
+        transform:
+          repo_name: true
 ```
 
 ### Run Sync
@@ -187,6 +193,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 ```
 
 **That's it!** 🎉 go-broadcast automatically:
+- Executes each group in priority order
 - Clones your template repository
 - Applies configured transformations
 - Creates a branch in each target repository
@@ -216,6 +223,14 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 - **Directory processing** - 1000+ files in ~32ms with concurrent worker pools
 - **API optimization** - 90%+ reduction in GitHub API calls through tree API
 - **Concurrent sync** - Multiple repositories in parallel
+
+### 🎯 **Group-Based Configuration**
+- **Organized structure** - Manage syncs as logical groups with names and descriptions
+- **Priority execution** - Groups execute in order (lower number = higher priority)
+- **Dependency management** - Groups can depend on successful completion of others
+- **Enable/disable control** - Toggle groups on/off without removing configuration
+- **Module-aware sync** - Smart handling of Go modules with version tracking
+- **Isolated contexts** - Each group has its own source, targets, and settings
 
 ### 🛡️ **Security & Compliance**
 - **60+ linters** - Zero tolerance policy for code issues
@@ -318,70 +333,100 @@ timestamp: 2025-01-23T14:30:52Z
 
 **Sync CI/CD workflows across microservices:**
 ```yaml
-source:
-  repo: "company/ci-templates"
-targets:
-  - repo: "company/user-service"
-    files:
-      - src: "workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-    transform:
-      variables:
-        SERVICE_NAME: "user-service"
+version: 1
+groups:
+  - name: "CI/CD Templates"
+    id: "ci-cd"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/ci-templates"
+      branch: "main"
+    targets:
+      - repo: "company/user-service"
+        files:
+          - src: "workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+        transform:
+          variables:
+            SERVICE_NAME: "user-service"
 ```
 
 **Sync entire directories with smart exclusions:**
 ```yaml
-source:
-  repo: "company/ci-templates"
-targets:
-  - repo: "company/microservice-a"
-    directories:
-      - src: ".github/workflows"
-        dest: ".github/workflows"
-        exclude: ["*-local.yml", "*.disabled"]
-      - src: ".github/coverage"
-        dest: ".github/coverage"
-        # Smart defaults automatically exclude: *.out, *.test, *.exe, **/.DS_Store
-    transform:
-      repo_name: true
+version: 1
+groups:
+  - name: "GitHub Configuration"
+    id: "github-config"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/ci-templates"
+      branch: "main"
+    targets:
+      - repo: "company/microservice-a"
+        directories:
+          - src: ".github/workflows"
+            dest: ".github/workflows"
+            exclude: ["*-local.yml", "*.disabled"]
+          - src: ".github/coverage"
+            dest: ".github/coverage"
+            # Smart defaults automatically exclude: *.out, *.test, *.exe, **/.DS_Store
+        transform:
+          repo_name: true
 ```
 
 **Mixed file and directory synchronization:**
 ```yaml
-source:
-  repo: "company/template-repo"
-targets:
-  - repo: "company/service"
-    files:
-      - src: "Makefile"
-        dest: "Makefile"
-    directories:
-      - src: "configs"
-        dest: "configs"
-        exclude: ["*.local", "*.secret"]
-    transform:
-      variables:
-        SERVICE_NAME: "user-service"
+version: 1
+groups:
+  - name: "Mixed Content Sync"
+    id: "mixed-sync"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/template-repo"
+      branch: "main"
+    targets:
+      - repo: "company/service"
+        files:
+          - src: "Makefile"
+            dest: "Makefile"
+        directories:
+          - src: "configs"
+            dest: "configs"
+            exclude: ["*.local", "*.secret"]
+        transform:
+          variables:
+            SERVICE_NAME: "user-service"
 ```
 
 **Automated PR management with assignees, reviewers, and labels:**
 ```yaml
-defaults:
-  pr_labels: ["automated-sync", "chore"]
-  pr_assignees: ["tech-lead", "platform-team"]
-  pr_reviewers: ["senior-dev1", "senior-dev2"]
-  pr_team_reviewers: ["architecture-team"]
-targets:
-  - repo: "company/critical-service"
-    files:
-      - src: "security/policies.yml"
-        dest: "security/policies.yml"
-    # Critical service needs security team review
-    pr_labels: ["security-update", "high-priority"]
-    pr_assignees: ["security-lead"]
-    pr_reviewers: ["security-engineer"]
-    pr_team_reviewers: ["security-team"]
+version: 1
+groups:
+  - name: "Security Policies"
+    id: "security-sync"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/security-templates"
+      branch: "main"
+    defaults:
+      pr_labels: ["automated-sync", "chore"]
+      pr_assignees: ["tech-lead", "platform-team"]
+      pr_reviewers: ["senior-dev1", "senior-dev2"]
+      pr_team_reviewers: ["architecture-team"]
+    targets:
+      - repo: "company/critical-service"
+        files:
+          - src: "security/policies.yml"
+            dest: "security/policies.yml"
+        # Critical service needs security team review
+        pr_labels: ["security-update", "high-priority"]
+        pr_assignees: ["security-lead"]
+        pr_reviewers: ["security-engineer"]
+        pr_team_reviewers: ["security-team"]
 ```
 
 ### Essential Commands
@@ -463,42 +508,47 @@ Automatically applied to all directories: `*.out`, `*.test`, `*.exe`, `**/.DS_St
 
 ```yaml
 version: 1
-source:
-  repo: "org/template-repo"
-  branch: "master"
-# Global PR settings applied to ALL targets (merged with target-specific settings)
-global:
-  pr_labels: ["automated-sync", "chore"]
-  pr_assignees: ["platform-team"]
-  pr_reviewers: ["platform-lead"]
-  pr_team_reviewers: ["infrastructure-team"]
-# Default settings (fallback when no global or target settings)
-defaults:
-  branch_prefix: "chore/sync-files"
-  pr_labels: ["maintenance"]
-  pr_assignees: ["maintainer1", "maintainer2"]
-  pr_reviewers: ["reviewer1", "reviewer2"]
-  pr_team_reviewers: ["platform-team"]
-targets:
-  - repo: "org/target-repo"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-    directories:
-      - src: ".github/coverage"
-        dest: ".github/coverage"
-        exclude: ["*.out", "gofortress-coverage"]
-    transform:
-      repo_name: true
-      variables:
-        ENVIRONMENT: "production"
-    # Additional PR settings merged with global settings
-    # Final labels: ["automated-sync", "chore", "service-specific"]
-    pr_labels: ["service-specific"]
-    # Final assignees: ["platform-team", "service-owner"]
-    pr_assignees: ["service-owner"]
-    # Final reviewers: ["platform-lead", "service-reviewer"]
-    pr_reviewers: ["service-reviewer"]
+groups:
+  - name: "Platform Configuration"
+    id: "platform-config"
+    priority: 1
+    enabled: true
+    source:
+      repo: "org/template-repo"
+      branch: "master"
+    # Global PR settings applied to ALL targets (merged with target-specific settings)
+    global:
+      pr_labels: ["automated-sync", "chore"]
+      pr_assignees: ["platform-team"]
+      pr_reviewers: ["platform-lead"]
+      pr_team_reviewers: ["infrastructure-team"]
+    # Default settings (fallback when no global or target settings)
+    defaults:
+      branch_prefix: "chore/sync-files"
+      pr_labels: ["maintenance"]
+      pr_assignees: ["maintainer1", "maintainer2"]
+      pr_reviewers: ["reviewer1", "reviewer2"]
+      pr_team_reviewers: ["platform-team"]
+    targets:
+      - repo: "org/target-repo"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+        directories:
+          - src: ".github/coverage"
+            dest: ".github/coverage"
+            exclude: ["*.out", "gofortress-coverage"]
+        transform:
+          repo_name: true
+          variables:
+            ENVIRONMENT: "production"
+        # Additional PR settings merged with global settings
+        # Final labels: ["automated-sync", "chore", "service-specific"]
+        pr_labels: ["service-specific"]
+        # Final assignees: ["platform-team", "service-owner"]
+        pr_assignees: ["service-owner"]
+        # Final reviewers: ["platform-lead", "service-reviewer"]
+        pr_reviewers: ["service-reviewer"]
 ```
 </details>
 
@@ -544,46 +594,47 @@ The `global` section allows you to define PR assignments (labels, assignees, rev
 
 ```yaml
 version: 1
-source:
-  repo: "org/template-repo"
-  branch: "master"
-
-# Applied to ALL PRs across all targets
-global:
-  pr_labels: ["automated-sync", "chore"]
-  pr_assignees: ["platform-team"]
-  pr_reviewers: ["platform-lead"]
-  pr_team_reviewers: ["infrastructure-team"]
-
-# Fallback settings (used only if no global/target assignments)
-defaults:
-  branch_prefix: "chore/sync-files"
-  pr_labels: ["maintenance"]
-
-targets:
-  # This repo gets ONLY global settings
-  - repo: "org/service-a"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-    # Effective PR settings:
-    # Labels: ["automated-sync", "chore"]
-    # Assignees: ["platform-team"]
-    # Reviewers: ["platform-lead"]
-    # Team reviewers: ["infrastructure-team"]
-
-  # This repo gets global + target merged
-  - repo: "org/service-b"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-    pr_labels: ["critical", "service-b"]
-    pr_assignees: ["service-b-owner"]
-    # Effective PR settings (merged):
-    # Labels: ["automated-sync", "chore", "critical", "service-b"]
-    # Assignees: ["platform-team", "service-b-owner"]
-    # Reviewers: ["platform-lead"] (from global)
-    # Team reviewers: ["infrastructure-team"] (from global)
+groups:
+  - name: "Workflow Distribution"
+    id: "workflow-dist"
+    priority: 1
+    enabled: true
+    source:
+      repo: "org/template-repo"
+      branch: "master"
+    # Applied to ALL PRs across all targets
+    global:
+      pr_labels: ["automated-sync", "chore"]
+      pr_assignees: ["platform-team"]
+      pr_reviewers: ["platform-lead"]
+      pr_team_reviewers: ["infrastructure-team"]
+    # Fallback settings (used only if no global/target assignments)
+    defaults:
+      branch_prefix: "chore/sync-files"
+      pr_labels: ["maintenance"]
+    targets:
+      # This repo gets ONLY global settings
+      - repo: "org/service-a"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+        # Effective PR settings:
+        # Labels: ["automated-sync", "chore"]
+        # Assignees: ["platform-team"]
+        # Reviewers: ["platform-lead"]
+        # Team reviewers: ["infrastructure-team"]
+      # This repo gets global + target merged
+      - repo: "org/service-b"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+        pr_labels: ["critical", "service-b"]
+        pr_assignees: ["service-b-owner"]
+        # Effective PR settings (merged):
+        # Labels: ["automated-sync", "chore", "critical", "service-b"]
+        # Assignees: ["platform-team", "service-b-owner"]
+        # Reviewers: ["platform-lead"] (from global)
+        # Team reviewers: ["infrastructure-team"] (from global)
 ```
 
 #### Use Cases
@@ -599,11 +650,13 @@ targets:
 ## 📚 Documentation
 
 - **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
+- **Configuration Guide** – Complete guide to group-based configuration at [docs/configuration-guide.md](docs/configuration-guide.md)
+- **Module-Aware Sync** – Smart module versioning and synchronization at [docs/module-sync.md](docs/module-sync.md)
+- **Group Examples** – Practical configuration patterns at [docs/group-examples.md](docs/group-examples.md)
 - **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)
 - **AI Sub-Agents Guide** – Comprehensive guide to 26 specialized AI agents for repository management at [docs/sub-agents.md](docs/sub-agents.md)
 - **Slash Commands Reference** – 20+ powerful Claude Code commands for automated workflows at [docs/slash-commands.md](docs/slash-commands.md)
 - **Directory Sync Guide** – Complete guide to directory synchronization including exclusion patterns and performance tips at [docs/directory-sync.md](docs/directory-sync.md)
-- **Configuration Reference** – Comprehensive configuration options including [global PR assignment merging](#configuration-reference)
 - **Configuration Examples** – Browse practical patterns in the [examples directory](examples)
 - **Troubleshooting** – Solve common issues with the [troubleshooting guide](docs/troubleshooting.md)
 - **API Reference** – Dive into the godocs at [pkg.go.dev/github.com/mrz1836/go-broadcast](https://pkg.go.dev/github.com/mrz1836/go-broadcast)
@@ -933,7 +986,7 @@ go-broadcast diagnose
 
 **Note**: Environment variables for log level and format are planned features not yet implemented.
 
-For more detailed information, see the [comprehensive logging guide](docs/logging.md) and [troubleshooting runbook](docs/troubleshooting-runbook.md).
+For more detailed information, see the [comprehensive logging guide](docs/logging.md) and [enhanced troubleshooting guide](docs/troubleshooting.md).
 
 </details>
 
@@ -1094,14 +1147,14 @@ make test-race
 
 ### Performance Highlights
 
-| Operation              | Performance    | Memory           |
-|------------------------|----------------|------------------|
-| **Binary Detection**   | 587M+ ops/sec  | Zero allocations |
-| **Content Comparison** | 239M+ ops/sec  | Zero allocations |
-| **Cache Operations**   | 13.5M+ ops/sec | Minimal memory   |
-| **Batch Processing**   | 23.8M+ ops/sec | Concurrent safe  |
-| **Directory Sync**     | 32ms/1000 files| Linear scaling   |
-| **Exclusion Engine**   | 107ns/op       | Zero allocations |
+| Operation              | Performance     | Memory           |
+|------------------------|-----------------|------------------|
+| **Binary Detection**   | 587M+ ops/sec   | Zero allocations |
+| **Content Comparison** | 239M+ ops/sec   | Zero allocations |
+| **Cache Operations**   | 13.5M+ ops/sec  | Minimal memory   |
+| **Batch Processing**   | 23.8M+ ops/sec  | Concurrent safe  |
+| **Directory Sync**     | 32ms/1000 files | Linear scaling   |
+| **Exclusion Engine**   | 107ns/op        | Zero allocations |
 
 ### Quick Benchmarks
 
@@ -1173,10 +1226,8 @@ go-broadcast is designed for efficiency:
 
 ### Profiling Documentation
 
-📚 **Complete Guides:**
-- [Benchmarking Guide](docs/benchmarking-profiling.md) - Complete benchmarking reference
-- [Profiling Guide](docs/profiling-guide.md) - Advanced profiling techniques
-- [Performance Optimization](docs/performance-optimization.md) - Best practices and tips
+📚 **Complete Performance Guide:**
+- [Performance Guide](docs/performance-guide.md) - Complete benchmarking, profiling, and optimization reference
 
 </details>
 

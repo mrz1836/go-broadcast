@@ -11,6 +11,7 @@ const comprehensiveTemplate = `[//]: # ({{ .Metadata.Signature }})
 
 # {{ trendEmoji .Coverage.Summary.Direction }} Coverage Report
 
+
 {{ statusEmoji .Coverage.Overall.Status }} **Overall Coverage: {{ formatPercent .Coverage.Overall.Percentage }}** {{ gradeEmoji .Coverage.Overall.Grade }}
 
 {{- if .PRFiles -}}
@@ -50,6 +51,8 @@ Changes: {{ .PRFiles.Summary.SummaryText }}
 {{ trendEmoji "stable" }} Coverage remained stable with {{ formatChange .Comparison.Change }} change
     {{- end -}}
 {{- end -}}
+
+<br>
 
 ## 📊 Coverage Metrics
 

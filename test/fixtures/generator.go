@@ -241,54 +241,8 @@ func (g *TestRepoGenerator) CreateComplexScenario() (*TestScenario, error) {
 	}
 	targetRepos = append(targetRepos, largeRepo)
 
-	// Create configuration
-	cfg := &config.Config{
-		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Defaults: config.DefaultConfig{
-			BranchPrefix: "chore/sync-files",
-			PRLabels:     []string{"automated-sync", "integration-test"},
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/service-a",
-				Files: []config.FileMapping{
-					{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
-					{Src: "Makefile", Dest: "Makefile"},
-				},
-				Transform: config.Transform{
-					RepoName:  true,
-					Variables: map[string]string{"SERVICE_NAME": "service-a"},
-				},
-			},
-			{
-				Repo: "org/service-b",
-				Files: []config.FileMapping{
-					{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
-					{Src: "Makefile", Dest: "Makefile"},
-					{Src: "README.md", Dest: "README.md"},
-				},
-				Transform: config.Transform{
-					RepoName:  true,
-					Variables: map[string]string{"SERVICE_NAME": "service-b"},
-				},
-			},
-			{
-				Repo: "org/service-c",
-				Files: []config.FileMapping{
-					{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
-					{Src: "docker-compose.yml", Dest: "docker-compose.yml"},
-				},
-				Transform: config.Transform{
-					RepoName:  true,
-					Variables: map[string]string{"SERVICE_NAME": "service-c"},
-				},
-			},
-		},
-	}
+	// Create configuration (supports both old and new format)
+	cfg := g.GenerateTestConfig("org/template-repo", "master", targetRepos)
 
 	// Create state
 	currentState := &state.State{
@@ -459,6 +413,127 @@ func generateCommitSHA() string {
 		return fmt.Sprintf("%x", time.Now().UnixNano())[:40]
 	}
 	return fmt.Sprintf("%x", bytes)
+}
+
+// GenerateTestConfig creates a test configuration that can be either old or new format
+// This helper allows tests to work with both configuration styles during transition
+func (g *TestRepoGenerator) GenerateTestConfig(sourceRepo, sourceBranch string, targetRepos []*TestRepository) *config.Config {
+	// For now, return old format for backward compatibility
+	// Tests can be gradually updated to use group format
+	return g.GenerateOldFormatConfig(sourceRepo, sourceBranch, targetRepos)
+}
+
+// GenerateOldFormatConfig creates a configuration using the old format
+func (g *TestRepoGenerator) GenerateOldFormatConfig(sourceRepo, sourceBranch string, targetRepos []*TestRepository) *config.Config {
+	targets := []config.TargetConfig{}
+
+	for _, repo := range targetRepos {
+		target := config.TargetConfig{
+			Repo: fmt.Sprintf("%s/%s", repo.Owner, repo.Name),
+			Files: []config.FileMapping{
+				{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
+				{Src: "Makefile", Dest: "Makefile"},
+			},
+			Transform: config.Transform{
+				RepoName:  true,
+				Variables: map[string]string{"SERVICE_NAME": repo.Name},
+			},
+		}
+
+		// Add extra files for some repos
+		switch repo.Name {
+		case "service-b":
+			target.Files = append(target.Files, config.FileMapping{
+				Src: "README.md", Dest: "README.md",
+			})
+		case "service-c":
+			target.Files = []config.FileMapping{
+				{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
+				{Src: "docker-compose.yml", Dest: "docker-compose.yml"},
+			}
+		}
+
+		targets = append(targets, target)
+	}
+
+	return &config.Config{
+		Version: 1,
+		Groups: []config.Group{{
+			Name:     "test-group",
+			ID:       "test-group",
+			Priority: 1,
+			Enabled:  &[]bool{true}[0],
+			Source: config.SourceConfig{
+				Repo:   sourceRepo,
+				Branch: sourceBranch,
+			},
+			Defaults: config.DefaultConfig{
+				BranchPrefix: "chore/sync-files",
+				PRLabels:     []string{"automated-sync", "integration-test"},
+			},
+			Targets: targets,
+		}},
+	}
+}
+
+// GenerateGroupFormatConfig creates a configuration using the new group format
+func (g *TestRepoGenerator) GenerateGroupFormatConfig(sourceRepo, sourceBranch string, targetRepos []*TestRepository) *config.Config {
+	targets := []config.TargetConfig{}
+
+	for _, repo := range targetRepos {
+		target := config.TargetConfig{
+			Repo: fmt.Sprintf("%s/%s", repo.Owner, repo.Name),
+			Files: []config.FileMapping{
+				{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
+				{Src: "Makefile", Dest: "Makefile"},
+			},
+			Transform: config.Transform{
+				RepoName:  true,
+				Variables: map[string]string{"SERVICE_NAME": repo.Name},
+			},
+		}
+
+		// Add extra files for some repos
+		switch repo.Name {
+		case "service-b":
+			target.Files = append(target.Files, config.FileMapping{
+				Src: "README.md", Dest: "README.md",
+			})
+		case "service-c":
+			target.Files = []config.FileMapping{
+				{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
+				{Src: "docker-compose.yml", Dest: "docker-compose.yml"},
+			}
+		}
+
+		targets = append(targets, target)
+	}
+
+	return &config.Config{
+		Version: 1,
+		Groups: []config.Group{
+			{
+				Name:     "default",
+				ID:       "default",
+				Priority: 0,
+				Enabled:  boolPtr(true),
+				Source: config.SourceConfig{
+					Repo:   sourceRepo,
+					Branch: sourceBranch,
+				},
+				Defaults: config.DefaultConfig{
+					BranchPrefix: "chore/sync-files",
+					PRLabels:     []string{"automated-sync", "integration-test"},
+				},
+				Targets: targets,
+			},
+		},
+	}
+}
+
+// boolPtr is a helper function to create a pointer to a boolean value
+func boolPtr(b bool) *bool {
+	return &b
 }
 
 // Standard file templates for test repositories

@@ -5,8 +5,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/mrz1836/go-broadcast/internal/logging"
 	"gopkg.in/yaml.v3"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
 )
 
 // Load reads and parses a configuration file from the given path
@@ -53,27 +54,37 @@ func LoadFromReader(reader io.Reader) (*Config, error) {
 	return config, nil
 }
 
-// applyDefaults sets default values for optional fields
+// applyDefaults sets default values for optional fields in group-based configuration
 func applyDefaults(config *Config) {
-	// Set default source branch if not specified
-	if config.Source.Branch == "" {
-		config.Source.Branch = "main"
-	}
+	// Apply defaults to all groups
+	for i := range config.Groups {
+		group := &config.Groups[i]
 
-	// Set default branch prefix if not specified
-	if config.Defaults.BranchPrefix == "" {
-		config.Defaults.BranchPrefix = "chore/sync-files"
-	}
+		// Set default source branch if not specified
+		if group.Source.Branch == "" {
+			group.Source.Branch = "main"
+		}
 
-	// Set default PR labels if not specified
-	if len(config.Defaults.PRLabels) == 0 {
-		config.Defaults.PRLabels = []string{"automated-sync"}
-	}
+		// Set default branch prefix if not specified
+		if group.Defaults.BranchPrefix == "" {
+			group.Defaults.BranchPrefix = "chore/sync-files"
+		}
 
-	// Apply directory defaults
-	for i := range config.Targets {
-		for j := range config.Targets[i].Directories {
-			ApplyDirectoryDefaults(&config.Targets[i].Directories[j])
+		// Set default PR labels if not specified
+		if len(group.Defaults.PRLabels) == 0 {
+			group.Defaults.PRLabels = []string{"automated-sync"}
+		}
+
+		// Set default enabled state if not specified
+		if group.Enabled == nil {
+			group.Enabled = boolPtr(true)
+		}
+
+		// Apply directory defaults to group targets
+		for j := range group.Targets {
+			for k := range group.Targets[j].Directories {
+				ApplyDirectoryDefaults(&group.Targets[j].Directories[k])
+			}
 		}
 	}
 }

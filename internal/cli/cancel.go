@@ -8,13 +8,14 @@ import (
 	"sort"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/mrz1836/go-broadcast/internal/state"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 // ErrTargetNotFound is returned when a target repository is not found in the configuration
@@ -145,8 +146,26 @@ func performCancel(ctx context.Context, cfg *config.Config, targetRepos []string
 		}
 	}
 
+	return performCancelWithClient(ctx, cfg, targetRepos, ghClient, logger, logConfig)
+}
+
+// performCancelWithClient performs cancel operation with injected dependencies for testing
+func performCancelWithClient(ctx context.Context, cfg *config.Config, targetRepos []string, ghClient gh.Client, logger *logrus.Logger, logConfig *logging.LogConfig) (*CancelSummary, error) {
+	if cfg == nil {
+		panic("config cannot be nil")
+	}
+
 	// Initialize state discoverer
 	discoverer := state.NewDiscoverer(ghClient, logger, logConfig)
+
+	return performCancelWithDiscoverer(ctx, cfg, targetRepos, ghClient, discoverer)
+}
+
+// performCancelWithDiscoverer performs cancel operation with injected state discoverer for advanced testing
+func performCancelWithDiscoverer(ctx context.Context, cfg *config.Config, targetRepos []string, ghClient gh.Client, discoverer state.Discoverer) (*CancelSummary, error) {
+	if cfg == nil {
+		panic("config cannot be nil")
+	}
 
 	// Discover current state
 	currentState, err := discoverer.DiscoverState(ctx, cfg)

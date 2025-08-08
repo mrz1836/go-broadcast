@@ -10,12 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/suite"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/transform"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/suite"
 )
 
 // Test error variables
@@ -101,6 +102,9 @@ func (suite *DirectoryTransformTestSuite) SetupSuite() {
 
 // TearDownSuite cleans up the test suite
 func (suite *DirectoryTransformTestSuite) TearDownSuite() {
+	if suite.processor != nil {
+		suite.processor.Close()
+	}
 	if suite.tempDir != "" {
 		err := os.RemoveAll(suite.tempDir)
 		suite.Require().NoError(err)

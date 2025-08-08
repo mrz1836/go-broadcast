@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
 )
 
 func TestMockTransformer_Name(t *testing.T) {

@@ -2,108 +2,108 @@
 # Version 1 is the only supported version
 version: 1
 
-# Source repository configuration
-source:
-  # Repository in org/repo format
-  repo: "org/template-repo"
-  # Branch to sync from (defaults to "master" if not specified)
-  branch: "master"
+# Group-based configuration - organizes sync operations into named groups
+groups:
+  - name: "Template Repository Sync"
+    id: "template-sync"
+    description: "Sync template files to all service repositories"
+    priority: 1
+    enabled: true
 
-# Global settings applied to all PRs (merged with target-specific settings)
-global:
-  # Global labels applied to ALL PRs (merged with target-specific labels)
-  pr_labels:
-    - "automated-sync"
-    - "chore"
-  # Global assignees for ALL PRs (merged with target-specific assignees)
-  pr_assignees:
-    - "platform-team"
-  # Global reviewers for ALL PRs (merged with target-specific reviewers)
-  pr_reviewers:
-    - "platform-lead"
-  # Global team reviewers for ALL PRs (merged with target-specific team reviewers)
-  pr_team_reviewers:
-    - "infrastructure-team"
+    # Source repository configuration
+    source:
+      # Repository in org/repo format
+      repo: "org/template-repo"
+      # Branch to sync from (defaults to "master" if not specified)
+      branch: "master"
 
-# Default settings applied to all targets (fallback when no global or target settings)
-defaults:
-  # Prefix for sync branches (defaults to "chore/sync-files")
-  branch_prefix: "chore/sync-files"
-  # Default labels (used only if no global or target labels specified)
-  pr_labels:
-    - "maintenance"
-  # Default assignees (used only if no global or target assignees specified)
-  pr_assignees:
-    - "maintainer1"
-  # Default reviewers (used only if no global or target reviewers specified)
-  pr_reviewers:
-    - "default-reviewer"
-  # Default team reviewers (used only if no global or target team reviewers specified)
-  pr_team_reviewers:
-    - "default-team"
+    # Default settings for this group
+    defaults:
+      # Prefix for sync branches (defaults to "chore/sync-files")
+      branch_prefix: "chore/sync-files"
+      # Default labels for this group
+      pr_labels:
+        - "automated-sync"
+        - "template-sync"
 
-# Target repositories to sync to
-targets:
-  # First target repository (uses only global PR settings)
-  - repo: "org/service-a"
-    # Files to sync from source to target
-    files:
-      # Sync GitHub Actions workflow
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-      # Sync linting configuration
-      - src: ".golangci.json"
-        dest: ".golangci.json"
-      # Sync Makefile
-      - src: "Makefile"
-        dest: "Makefile"
-    # Optional transformations
-    transform:
-      # Replace repository names in files (e.g., in go.mod)
-      repo_name: true
-      # Template variables to replace
-      variables:
-        SERVICE_NAME: "service-a"
-        PORT: "8080"
-    # This repository inherits global PR settings:
-    # Labels: ["automated-sync", "chore"]
-    # Assignees: ["platform-team"]
-    # Reviewers: ["platform-lead"]
-    # Team reviewers: ["infrastructure-team"]
+    # Global settings for this group (applied to all targets)
+    global:
+      # Global labels applied to ALL PRs (merged with target-specific labels)
+      pr_labels:
+        - "automated-sync"
+        - "chore"
+      # Global assignees for ALL PRs (merged with target-specific assignees)
+      pr_assignees:
+        - "platform-team"
+      # Global reviewers for ALL PRs (merged with target-specific reviewers)
+      pr_reviewers:
+        - "platform-lead"
+      # Global team reviewers for ALL PRs (merged with target-specific team reviewers)
+      pr_team_reviewers:
+        - "infrastructure-team"
 
-  # Second target repository with additional PR settings (merged with global)
-  - repo: "org/service-b"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-      - src: "scripts/test.sh"
-        dest: "scripts/test.sh"
-    # Additional PR settings for this specific repository (merged with global)
-    # Final labels will be: ["automated-sync", "chore", "service-b", "high-priority"]
-    pr_labels:
-      - "service-b"
-      - "high-priority"
-    # Final assignees will be: ["platform-team", "service-b-owner"]
-    pr_assignees:
-      - "service-b-owner"
-    # Final reviewers will be: ["platform-lead", "service-b-lead"]
-    pr_reviewers:
-      - "service-b-lead"
-    # Final team reviewers will be: ["infrastructure-team", "service-b-team"]
-    pr_team_reviewers:
-      - "service-b-team"
+    # Target repositories to sync to
+    targets:
+      # First target repository (uses only global PR settings)
+      - repo: "org/service-a"
+        # Files to sync from source to target
+        files:
+          # Sync GitHub Actions workflow
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+          # Sync linting configuration
+          - src: ".golangci.json"
+            dest: ".golangci.json"
+          # Sync Makefile
+          - src: "Makefile"
+            dest: "Makefile"
+        # Optional transformations
+        transform:
+          # Replace repository names in files (e.g., in go.mod)
+          repo_name: true
+          # Template variables to replace
+          variables:
+            SERVICE_NAME: "service-a"
+            PORT: "8080"
+        # This repository inherits global PR settings:
+        # Labels: ["automated-sync", "chore"]
+        # Assignees: ["platform-team"]
+        # Reviewers: ["platform-lead"]
+        # Team reviewers: ["infrastructure-team"]
 
-  # Third target repository with different destination paths (uses only global settings)
-  - repo: "org/service-c"
-    files:
-      # Can rename files during sync
-      - src: "README.template.md"
-        dest: "README.md"
-      # Can sync to different directory structure
-      - src: "configs/default.yaml"
-        dest: "config/app.yaml"
-    # This repository also inherits global PR settings:
-    # Labels: ["automated-sync", "chore"]
-    # Assignees: ["platform-team"]
-    # Reviewers: ["platform-lead"]
-    # Team reviewers: ["infrastructure-team"]
+      # Second target repository with additional PR settings (merged with global)
+      - repo: "org/service-b"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+          - src: "scripts/test.sh"
+            dest: "scripts/test.sh"
+        # Additional PR settings for this specific repository (merged with global)
+        # Final labels will be: ["automated-sync", "chore", "service-b", "high-priority"]
+        pr_labels:
+          - "service-b"
+          - "high-priority"
+        # Final assignees will be: ["platform-team", "service-b-owner"]
+        pr_assignees:
+          - "service-b-owner"
+        # Final reviewers will be: ["platform-lead", "service-b-lead"]
+        pr_reviewers:
+          - "service-b-lead"
+        # Final team reviewers will be: ["infrastructure-team", "service-b-team"]
+        pr_team_reviewers:
+          - "service-b-team"
+
+      # Third target repository with different destination paths (uses only global settings)
+      - repo: "org/service-c"
+        files:
+          # Can rename files during sync
+          - src: "README.template.md"
+            dest: "README.md"
+          # Can sync to different directory structure
+          - src: "configs/default.yaml"
+            dest: "config/app.yaml"
+        # This repository also inherits global PR settings:
+        # Labels: ["automated-sync", "chore"]
+        # Assignees: ["platform-team"]
+        # Reviewers: ["platform-lead"]
+        # Team reviewers: ["infrastructure-team"]

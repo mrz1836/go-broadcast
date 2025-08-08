@@ -157,11 +157,12 @@ go test -bench=. -benchmem ./internal/sync
 
 ### Comprehensive Benchmark Suite
 ```bash
-# Use the provided script
-./scripts/run-benchmarks.sh
+# Build and use the benchmark tool
+go build ./cmd/run-benchmarks
+./run-benchmarks
 
 # Or run specific category
-./scripts/run-benchmarks.sh BenchmarkCacheHitRates
+./run-benchmarks BenchmarkCacheHitRates
 ```
 
 ### Memory and CPU Profiling

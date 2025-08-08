@@ -5,25 +5,27 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/transform"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
 // Engine orchestrates the complete synchronization process
 type Engine struct {
-	config    *config.Config
-	gh        gh.Client
-	git       git.Client
-	state     state.Discoverer
-	transform transform.Chain
-	options   *Options
-	logger    *logrus.Logger
+	config       *config.Config
+	currentGroup *config.Group // Current group being processed
+	gh           gh.Client
+	git          git.Client
+	state        state.Discoverer
+	transform    transform.Chain
+	options      *Options
+	logger       *logrus.Logger
 }
 
 // NewEngine creates a new sync engine with the provided dependencies
@@ -64,6 +66,35 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 		log.Warn("DRY-RUN MODE: No changes will be made")
 	}
 
+	// Get groups using compatibility layer
+	groups := e.config.Groups
+	if len(groups) == 0 {
+		log.Info("No groups found in configuration")
+		return nil
+	}
+
+	log.WithField("group_count", len(groups)).Info("Processing sync groups")
+
+	// Check if we have multiple groups - use orchestrator if so
+	if len(groups) > 1 {
+		// Use the orchestrator for multi-group execution
+		orchestrator := NewGroupOrchestrator(e.config, e, e.logger)
+		return orchestrator.ExecuteGroups(ctx, groups)
+	}
+
+	// Single group - execute directly for backward compatibility
+	group := groups[0]
+	e.currentGroup = &group // Set current group for RepositorySync to use
+	log.WithField("group_name", group.Name).Info("Processing single group")
+
+	// Execute the single group sync
+	return e.executeSingleGroup(ctx, group, targetFilter)
+}
+
+// executeSingleGroup handles synchronization for a single group
+func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, targetFilter []string) error {
+	log := e.logger.WithField("component", "sync_engine")
+
 	// 1. Discover current state from GitHub
 	log.Info("Discovering current state from GitHub")
 	currentState, err := e.state.DiscoverState(ctx, e.config)
@@ -77,8 +108,8 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 		"target_count":  len(currentState.Targets),
 	}).Info("State discovery completed")
 
-	// 2. Determine which targets to sync
-	syncTargets, err := e.filterTargets(targetFilter, currentState)
+	// 2. Determine which targets to sync using group's targets
+	syncTargets, err := e.filterGroupTargets(targetFilter, group, currentState)
 	if err != nil {
 		return appErrors.WrapWithContext(err, "filter targets")
 	}
@@ -91,7 +122,7 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 	log.WithField("sync_targets", len(syncTargets)).Info("Targets selected for sync")
 
 	// 3. Create progress tracker
-	progress := NewProgressTracker(len(syncTargets), e.options.DryRun)
+	progress := NewProgressTrackerWithGroup(len(syncTargets), e.options.DryRun, group.Name, group.ID)
 
 	// 4. Process repositories concurrently
 	g, ctx := errgroup.WithContext(ctx)
@@ -125,16 +156,16 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 	return nil
 }
 
-// filterTargets determines which targets need to be synced based on filters and current state
-func (e *Engine) filterTargets(targetFilter []string, currentState *state.State) ([]config.TargetConfig, error) {
+// filterGroupTargets determines which targets need to be synced based on filters, group, and current state
+func (e *Engine) filterGroupTargets(targetFilter []string, group config.Group, currentState *state.State) ([]config.TargetConfig, error) {
 	var targets []config.TargetConfig
 
-	// If no filter specified, use all configured targets
+	// If no filter specified, use all targets from the group
 	if len(targetFilter) == 0 {
-		targets = e.config.Targets
+		targets = group.Targets
 	} else {
 		// Filter targets based on command line arguments
-		for _, target := range e.config.Targets {
+		for _, target := range group.Targets {
 			for _, filter := range targetFilter {
 				if target.Repo == filter {
 					targets = append(targets, target)
@@ -148,6 +179,51 @@ func (e *Engine) filterTargets(targetFilter []string, currentState *state.State)
 		}
 	}
 
+	// Use common filtering logic
+	return e.filterTargetsFromList(targets, currentState)
+}
+
+// filterTargets determines which targets need to be synced based on filters and current state (legacy method)
+func (e *Engine) filterTargets(targetFilter []string, currentState *state.State) ([]config.TargetConfig, error) {
+	// Try to use compatibility layer first
+	groups := e.config.Groups
+	if len(groups) > 0 {
+		return e.filterGroupTargets(targetFilter, groups[0], currentState)
+	}
+
+	// Fallback to direct field access for incomplete configs (like in tests)
+	var targets []config.TargetConfig
+
+	// Get all targets from all groups
+	allTargets := []config.TargetConfig{}
+	for _, group := range e.config.Groups {
+		allTargets = append(allTargets, group.Targets...)
+	}
+
+	// If no filter specified, use all configured targets
+	if len(targetFilter) == 0 {
+		targets = allTargets
+	} else {
+		// Filter targets based on command line arguments
+		for _, target := range allTargets {
+			for _, filter := range targetFilter {
+				if target.Repo == filter {
+					targets = append(targets, target)
+					break
+				}
+			}
+		}
+
+		if len(targets) == 0 {
+			return nil, fmt.Errorf("%w: %v", appErrors.ErrNoMatchingTargets, targetFilter)
+		}
+	}
+
+	return e.filterTargetsFromList(targets, currentState)
+}
+
+// filterTargetsFromList filters targets from a provided list based on sync necessity
+func (e *Engine) filterTargetsFromList(targets []config.TargetConfig, currentState *state.State) ([]config.TargetConfig, error) {
 	// Further filter based on sync necessity (unless forced)
 	if !e.options.Force {
 		var syncNeeded []config.TargetConfig
@@ -194,10 +270,16 @@ func (e *Engine) needsSync(target config.TargetConfig, currentState *state.State
 
 // syncRepository handles synchronization for a single repository
 func (e *Engine) syncRepository(ctx context.Context, target config.TargetConfig, currentState *state.State, progress *ProgressTracker) error {
-	log := e.logger.WithFields(logrus.Fields{
+	fields := logrus.Fields{
 		"target_repo": target.Repo,
 		"component":   "repository_sync",
-	})
+	}
+	// Add group context if available
+	if e.currentGroup != nil {
+		fields["group_name"] = e.currentGroup.Name
+		fields["group_id"] = e.currentGroup.ID
+	}
+	log := e.logger.WithFields(fields)
 
 	progress.StartRepository(target.Repo)
 	defer progress.FinishRepository(target.Repo)

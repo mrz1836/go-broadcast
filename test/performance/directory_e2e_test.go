@@ -14,10 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/profiling"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/profiling"
 )
 
 // Test error variables

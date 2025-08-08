@@ -20,9 +20,11 @@ type LogConfig struct {
 	LogLevel      string
 	Verbose       int // -v, -vv, -vvv support
 	Debug         DebugFlags
-	LogFormat     string // "text" or "json"
-	CorrelationID string // Unique ID for request correlation
-	JSONOutput    bool   // Enable JSON structured output
+	LogFormat     string   // "text" or "json"
+	CorrelationID string   // Unique ID for request correlation
+	JSONOutput    bool     // Enable JSON structured output
+	GroupFilter   []string // Groups to sync (by name or ID)
+	SkipGroups    []string // Groups to skip during sync
 }
 
 // DebugFlags contains component-specific debug flags for targeted troubleshooting.

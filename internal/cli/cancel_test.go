@@ -7,14 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
-	"github.com/mrz1836/go-broadcast/internal/gh"
-	"github.com/mrz1836/go-broadcast/internal/output"
-	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/output"
+	"github.com/mrz1836/go-broadcast/internal/state"
 )
 
 // mockTime returns a fixed time for testing
@@ -846,13 +847,15 @@ func TestPerformCancelErrorHandling(t *testing.T) {
 	t.Run("github client creation failure", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
-			},
-			Targets: []config.TargetConfig{
-				{Repo: "test/target1"},
-			},
+			Groups: []config.Group{{
+				Source: config.SourceConfig{
+					Repo:   "test/source",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "test/target1"},
+				},
+			}},
 		}
 
 		// performCancel will likely fail due to GitHub operations
@@ -935,13 +938,15 @@ func TestPerformCancelErrorCases(t *testing.T) {
 	t.Run("GitHub client creation failures", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
-			},
-			Targets: []config.TargetConfig{
-				{Repo: "test/target1"},
-			},
+			Groups: []config.Group{{
+				Source: config.SourceConfig{
+					Repo:   "test/source",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "test/target1"},
+				},
+			}},
 		}
 
 		// This will likely fail with GitHub CLI not found or auth issues
@@ -963,11 +968,13 @@ func TestPerformCancelErrorCases(t *testing.T) {
 	t.Run("Empty targets", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
-			},
-			Targets: []config.TargetConfig{}, // Empty targets
+			Groups: []config.Group{{
+				Source: config.SourceConfig{
+					Repo:   "test/source",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{}, // Empty targets
+			}},
 		}
 
 		// Should still try to process but fail at GitHub client creation
@@ -979,14 +986,16 @@ func TestPerformCancelErrorCases(t *testing.T) {
 	t.Run("Specific target repos", func(t *testing.T) {
 		ctx := context.Background()
 		cfg := &config.Config{
-			Source: config.SourceConfig{
-				Repo:   "test/source",
-				Branch: "main",
-			},
-			Targets: []config.TargetConfig{
-				{Repo: "test/target1"},
-				{Repo: "test/target2"},
-			},
+			Groups: []config.Group{{
+				Source: config.SourceConfig{
+					Repo:   "test/source",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "test/target1"},
+					{Repo: "test/target2"},
+				},
+			}},
 		}
 
 		// Test with specific target repos filter

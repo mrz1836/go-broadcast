@@ -12,15 +12,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/suite"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/sync"
 	"github.com/mrz1836/go-broadcast/internal/transform"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/suite"
 )
 
 // Test error variables
@@ -207,37 +208,39 @@ func (suite *DirectorySyncTestSuite) setupGitMockWithFiles(mockGit *git.MockClie
 func (suite *DirectorySyncTestSuite) TestDirectorySync_EndToEnd() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Defaults: config.DefaultConfig{
-			BranchPrefix: "chore/sync-directories",
-			PRLabels:     []string{"automated-sync", "directory-sync"},
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/service-a",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:     ".github",
-						Dest:    ".github",
-						Exclude: []string{"*.log", "temp/*"},
-						Transform: config.Transform{
-							RepoName:  true,
-							Variables: map[string]string{"SERVICE_NAME": "service-a"},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Defaults: config.DefaultConfig{
+				BranchPrefix: "chore/sync-directories",
+				PRLabels:     []string{"automated-sync", "directory-sync"},
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/service-a",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:     ".github",
+							Dest:    ".github",
+							Exclude: []string{"*.log", "temp/*"},
+							Transform: config.Transform{
+								RepoName:  true,
+								Variables: map[string]string{"SERVICE_NAME": "service-a"},
+							},
 						},
-					},
-					{
-						Src:  "docs",
-						Dest: "documentation",
-						Transform: config.Transform{
-							Variables: map[string]string{"PROJECT_NAME": "Service A"},
+						{
+							Src:  "docs",
+							Dest: "documentation",
+							Transform: config.Transform{
+								Variables: map[string]string{"PROJECT_NAME": "Service A"},
+							},
 						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -276,33 +279,35 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EndToEnd() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_MixedConfiguration() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/mixed-service",
-				Files: []config.FileMapping{
-					{Src: "Makefile", Dest: "Makefile"},
-					{Src: "docker-compose.yml", Dest: "docker-compose.yml"},
-				},
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "scripts",
-						Dest: "scripts",
-						Transform: config.Transform{
-							Variables: map[string]string{"ENV": "production"},
-						},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/mixed-service",
+					Files: []config.FileMapping{
+						{Src: "Makefile", Dest: "Makefile"},
+						{Src: "docker-compose.yml", Dest: "docker-compose.yml"},
 					},
-					{
-						Src:     "config",
-						Dest:    "config",
-						Exclude: []string{"*.local.*", "secrets/*"},
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "scripts",
+							Dest: "scripts",
+							Transform: config.Transform{
+								Variables: map[string]string{"ENV": "production"},
+							},
+						},
+						{
+							Src:     "config",
+							Dest:    "config",
+							Exclude: []string{"*.local.*", "secrets/*"},
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -343,24 +348,26 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MixedConfiguration() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeDirectory() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/large-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "large-data",
-						Dest: "data",
-						Transform: config.Transform{
-							Variables: map[string]string{"BATCH_SIZE": "1000"},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/large-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "large-data",
+							Dest: "data",
+							Transform: config.Transform{
+								Variables: map[string]string{"BATCH_SIZE": "1000"},
+							},
 						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -414,31 +421,33 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeDirectory() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_ComplexExclusions() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/filtered-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "project",
-						Dest: "project",
-						Exclude: []string{
-							"*.log",           // All log files
-							"temp/*",          // Everything in temp directory
-							"node_modules/**", // Recursive node_modules exclusion
-							"*.tmp",           // Temporary files
-							"build/",          // Build directory
-							"**/.DS_Store",    // MacOS files anywhere
-							"secrets.*",       // Any secrets files
-							"**/cache/**",     // Any cache directories recursively
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/filtered-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "project",
+							Dest: "project",
+							Exclude: []string{
+								"*.log",           // All log files
+								"temp/*",          // Everything in temp directory
+								"node_modules/**", // Recursive node_modules exclusion
+								"*.tmp",           // Temporary files
+								"build/",          // Build directory
+								"**/.DS_Store",    // MacOS files anywhere
+								"secrets.*",       // Any secrets files
+								"**/cache/**",     // Any cache directories recursively
+							},
 						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -493,29 +502,31 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ComplexExclusions() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_TransformIntegration() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/transform-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "templates",
-						Dest: "config",
-						Transform: config.Transform{
-							RepoName: true,
-							Variables: map[string]string{
-								"SERVICE_NAME": "transform-service",
-								"VERSION":      "2.0.0",
-								"ENVIRONMENT":  "production",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/transform-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "templates",
+							Dest: "config",
+							Transform: config.Transform{
+								RepoName: true,
+								Variables: map[string]string{
+									"SERVICE_NAME": "transform-service",
+									"VERSION":      "2.0.0",
+									"ENVIRONMENT":  "production",
+								},
 							},
 						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks with transform expectations
@@ -578,21 +589,23 @@ metadata:
 func (suite *DirectorySyncTestSuite) TestDirectorySync_ProgressReporting() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/progress-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "large-project",
-						Dest: "project",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/progress-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "large-project",
+							Dest: "project",
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -640,21 +653,23 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ProgressReporting() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_APIOptimization() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/optimized-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "shared",
-						Dest: "shared",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/optimized-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "shared",
+							Dest: "shared",
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks with API call tracking
@@ -707,21 +722,23 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_APIOptimization() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_EmptyDirectory() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/empty-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "empty-dir",
-						Dest: "empty",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/empty-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "empty-dir",
+							Dest: "empty",
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -765,22 +782,24 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EmptyDirectory() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_OnlyExcludedFiles() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/excluded-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:     "filtered-dir",
-						Dest:    "output",
-						Exclude: []string{"*.log", "*.tmp", "cache/*"},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/excluded-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:     "filtered-dir",
+							Dest:    "output",
+							Exclude: []string{"*.log", "*.tmp", "cache/*"},
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -818,21 +837,23 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_OnlyExcludedFiles() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_DeepNesting() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/deep-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "deep-structure",
-						Dest: "deep",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/deep-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "deep-structure",
+							Dest: "deep",
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -882,21 +903,23 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_SymbolicLinks() {
 
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/symlink-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "links-dir",
-						Dest: "links",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/symlink-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "links-dir",
+							Dest: "links",
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -949,21 +972,23 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_SymbolicLinks() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_UnicodeFilenames() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/unicode-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "unicode-dir",
-						Dest: "unicode",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/unicode-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "unicode-dir",
+							Dest: "unicode",
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -1006,21 +1031,23 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_UnicodeFilenames() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeFiles() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/large-files-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "large-files",
-						Dest: "files",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/large-files-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "large-files",
+							Dest: "files",
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -1069,21 +1096,23 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PermissionErrors() {
 
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/permission-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "restricted-dir",
-						Dest: "output",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/permission-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "restricted-dir",
+							Dest: "output",
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -1133,21 +1162,23 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PermissionErrors() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_NetworkFailures() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/network-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "network-dir",
-						Dest: "output",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/network-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "network-dir",
+							Dest: "output",
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks with network failures
@@ -1180,28 +1211,30 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_NetworkFailures() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_GithubDirectory() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/github-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  ".github",
-						Dest: ".github",
-						Transform: config.Transform{
-							RepoName: true,
-							Variables: map[string]string{
-								"SERVICE_NAME": "github-service",
-								"TEAM":         "platform",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/github-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  ".github",
+							Dest: ".github",
+							Transform: config.Transform{
+								RepoName: true,
+								Variables: map[string]string{
+									"SERVICE_NAME": "github-service",
+									"TEAM":         "platform",
+								},
 							},
 						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -1295,36 +1328,38 @@ updates:
 func (suite *DirectorySyncTestSuite) TestDirectorySync_CoverageModule() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/coverage-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  ".github/coverage",
-						Dest: ".github/coverage",
-						Exclude: []string{
-							"*.exe",
-							"*.bin",
-							"*.so",
-							"*.dylib",
-							"*.dll",
-							"node_modules/**",
-							"dist/**",
-						},
-						Transform: config.Transform{
-							Variables: map[string]string{
-								"COVERAGE_TOOL": "go-coverage",
-								"MIN_COVERAGE":  "80",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/coverage-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  ".github/coverage",
+							Dest: ".github/coverage",
+							Exclude: []string{
+								"*.exe",
+								"*.bin",
+								"*.so",
+								"*.dylib",
+								"*.dll",
+								"node_modules/**",
+								"dist/**",
+							},
+							Transform: config.Transform{
+								Variables: map[string]string{
+									"COVERAGE_TOOL": "go-coverage",
+									"MIN_COVERAGE":  "80",
+								},
 							},
 						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -1373,38 +1408,40 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_CoverageModule() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_MultipleDirectories() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/multi-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "shared/config",
-						Dest: "config",
-						Transform: config.Transform{
-							Variables: map[string]string{"ENV": "production"},
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/multi-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "shared/config",
+							Dest: "config",
+							Transform: config.Transform{
+								Variables: map[string]string{"ENV": "production"},
+							},
 						},
-					},
-					{
-						Src:  "shared/scripts",
-						Dest: "scripts",
-						Transform: config.Transform{
-							Variables: map[string]string{"ENV": "production"},
+						{
+							Src:  "shared/scripts",
+							Dest: "scripts",
+							Transform: config.Transform{
+								Variables: map[string]string{"ENV": "production"},
+							},
 						},
-					},
-					{
-						Src:  "templates",
-						Dest: "config/templates",
-						Transform: config.Transform{
-							Variables: map[string]string{"SERVICE": "multi-service"},
+						{
+							Src:  "templates",
+							Dest: "config/templates",
+							Transform: config.Transform{
+								Variables: map[string]string{"SERVICE": "multi-service"},
+							},
 						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -1451,21 +1488,23 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MultipleDirectories() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_PerformanceTargets() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/performance-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "performance-test",
-						Dest: "output",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/performance-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "performance-test",
+							Dest: "output",
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks
@@ -1549,21 +1588,25 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MemoryUsage() {
 		// Create fresh config for each test
 		cfg := &config.Config{
 			Version: 1,
-			Source: config.SourceConfig{
-				Repo:   "org/template-repo",
-				Branch: "master",
-			},
-			Targets: []config.TargetConfig{
-				{
-					Repo: "org/memory-service",
-					Directories: []config.DirectoryMapping{
-						{
-							Src:  fmt.Sprintf("memory-test-%d", fileCount),
-							Dest: "output",
+			Groups: []config.Group{{
+				Name: "test-group",
+				ID:   "test-group-1",
+				Source: config.SourceConfig{
+					Repo:   "org/template-repo",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/memory-service",
+						Directories: []config.DirectoryMapping{
+							{
+								Src:  fmt.Sprintf("memory-test-%d", fileCount),
+								Dest: "output",
+							},
 						},
 					},
 				},
-			},
+			}},
 		}
 
 		// Setup fresh mocks
@@ -1652,21 +1695,23 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MemoryUsage() {
 func (suite *DirectorySyncTestSuite) TestDirectorySync_APIEfficiency() {
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/efficiency-service",
-				Directories: []config.DirectoryMapping{
-					{
-						Src:  "efficiency-test",
-						Dest: "output",
+		Groups: []config.Group{{
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/efficiency-service",
+					Directories: []config.DirectoryMapping{
+						{
+							Src:  "efficiency-test",
+							Dest: "output",
+						},
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	// Setup mocks with API call tracking

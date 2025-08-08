@@ -261,8 +261,7 @@ dashboard := monitoring.NewDashboard(config)
 
 ## 🔗 Related Documentation
 
-- [Performance Optimization Guide](../../docs/performance-optimization.md)
-- [Profiling Guide](../../docs/profiling-guide.md)
+- [Performance Guide](../../docs/performance-guide.md) - Complete optimization and profiling reference
 - [Troubleshooting](../../docs/troubleshooting.md)
 
 ## 🤝 Contributing

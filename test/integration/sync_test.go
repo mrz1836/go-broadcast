@@ -7,16 +7,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/state"
 	"github.com/mrz1836/go-broadcast/internal/sync"
 	"github.com/mrz1836/go-broadcast/internal/transform"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 // TestEndToEndSync tests the complete sync workflow with mocked clients
@@ -24,36 +25,40 @@ func TestEndToEndSync(t *testing.T) {
 	// Create test configuration
 	cfg := &config.Config{
 		Version: 1,
-		Source: config.SourceConfig{
-			Repo:   "org/template-repo",
-			Branch: "master",
-		},
-		Defaults: config.DefaultConfig{
-			BranchPrefix: "chore/sync-files",
-			PRLabels:     []string{"automated-sync"},
-		},
-		Targets: []config.TargetConfig{
-			{
-				Repo: "org/service-a",
-				Files: []config.FileMapping{
-					{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
-					{Src: "Makefile", Dest: "Makefile"},
+		Groups: []config.Group{{
+			Name: "test-group",
+			ID:   "test-group-1",
+			Source: config.SourceConfig{
+				Repo:   "org/template-repo",
+				Branch: "master",
+			},
+			Defaults: config.DefaultConfig{
+				BranchPrefix: "chore/sync-files",
+				PRLabels:     []string{"automated-sync"},
+			},
+			Targets: []config.TargetConfig{
+				{
+					Repo: "org/service-a",
+					Files: []config.FileMapping{
+						{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
+						{Src: "Makefile", Dest: "Makefile"},
+					},
+					Transform: config.Transform{
+						RepoName:  true,
+						Variables: map[string]string{"SERVICE_NAME": "service-a"},
+					},
 				},
-				Transform: config.Transform{
-					RepoName:  true,
-					Variables: map[string]string{"SERVICE_NAME": "service-a"},
+				{
+					Repo: "org/service-b",
+					Files: []config.FileMapping{
+						{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
+					},
+					Transform: config.Transform{
+						RepoName: true,
+					},
 				},
 			},
-			{
-				Repo: "org/service-b",
-				Files: []config.FileMapping{
-					{Src: ".github/workflows/ci.yml", Dest: ".github/workflows/ci.yml"},
-				},
-				Transform: config.Transform{
-					RepoName: true,
-				},
-			},
-		},
+		}},
 	}
 
 	t.Run("successful sync with outdated targets", func(t *testing.T) {
@@ -317,19 +322,22 @@ func TestConfigurationLoading(t *testing.T) {
 		configPath := filepath.Join(tmpDir, "sync.yaml")
 
 		configContent := `version: 1
-source:
-  repo: "org/template"
-  branch: "master"
-defaults:
-  branch_prefix: "chore/sync-files"
-  pr_labels: ["automated-sync"]
-targets:
-  - repo: "org/service"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-    transform:
-      repo_name: true
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: "org/template"
+      branch: "master"
+    defaults:
+      branch_prefix: "chore/sync-files"
+      pr_labels: ["automated-sync"]
+    targets:
+      - repo: "org/service"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+        transform:
+          repo_name: true
 `
 		err := os.WriteFile(configPath, []byte(configContent), 0o600)
 		require.NoError(t, err)
@@ -344,11 +352,12 @@ targets:
 
 		// Verify loaded values
 		assert.Equal(t, 1, cfg.Version)
-		assert.Equal(t, "org/template", cfg.Source.Repo)
-		assert.Equal(t, "master", cfg.Source.Branch)
-		assert.Len(t, cfg.Targets, 1)
-		assert.Equal(t, "org/service", cfg.Targets[0].Repo)
-		assert.True(t, cfg.Targets[0].Transform.RepoName)
+		require.Len(t, cfg.Groups, 1)
+		assert.Equal(t, "org/template", cfg.Groups[0].Source.Repo)
+		assert.Equal(t, "master", cfg.Groups[0].Source.Branch)
+		assert.Len(t, cfg.Groups[0].Targets, 1)
+		assert.Equal(t, "org/service", cfg.Groups[0].Targets[0].Repo)
+		assert.True(t, cfg.Groups[0].Targets[0].Transform.RepoName)
 	})
 
 	t.Run("invalid configuration", func(t *testing.T) {
@@ -357,9 +366,12 @@ targets:
 		configPath := filepath.Join(tmpDir, "invalid.yaml")
 
 		configContent := `version: 1  # Unsupported version
-source:
-  repo: ""  # Empty repo
-targets: []  # No targets
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: ""  # Empty repo
+    targets: []  # No targets
 `
 		err := os.WriteFile(configPath, []byte(configContent), 0o600)
 		require.NoError(t, err)

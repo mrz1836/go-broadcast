@@ -170,7 +170,7 @@ go tool pprof mem.prof
    ```bash
    # Fix formatting issues
    make fumpt          # Apply gofumpt formatting
-   goimports -w .      # Fix import statements
+   make goimports      # Fix import statements
 
    # Check linting rules
    make lint-version   # Show linter version
@@ -442,15 +442,11 @@ go-broadcast includes a comprehensive team of **26 specialized AI sub-agents** d
 - [`CODE_STANDARDS.md`](CODE_STANDARDS.md) - Detailed coding standards
 
 **Technical Documentation:**
-- [`docs/logging.md`](../docs/logging.md) - Comprehensive logging guide
-- [`docs/logging-quick-ref.md`](../docs/logging-quick-ref.md) - Quick logging reference
-- [`docs/troubleshooting.md`](../docs/troubleshooting.md) - General troubleshooting
-- [`docs/troubleshooting-runbook.md`](../docs/troubleshooting-runbook.md) - Operational runbook
+- [`docs/logging.md`](../docs/logging.md) - Complete logging documentation with quick reference and comprehensive guide
+- [`docs/troubleshooting.md`](../docs/troubleshooting.md) - Enhanced troubleshooting guide with operational procedures
 
 **Performance and Optimization:**
-- [`docs/benchmarking-profiling.md`](../docs/benchmarking-profiling.md) - Complete benchmarking guide
-- [`docs/profiling-guide.md`](../docs/profiling-guide.md) - Advanced profiling techniques
-- [`docs/performance-optimization.md`](../docs/performance-optimization.md) - Optimization best practices
+- [`docs/performance-guide.md`](../docs/performance-guide.md) - Complete performance guide with benchmarking, profiling, and optimization
 
 **Configuration Examples:**
 - [`examples/`](../examples) - Complete configuration examples directory

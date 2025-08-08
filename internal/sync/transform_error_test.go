@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+
+	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 )
 
 // TransformErrorTestSuite provides a test suite for transform error handling
