@@ -52,6 +52,7 @@ Changes: {{ .PRFiles.Summary.SummaryText }}
     {{- end -}}
 {{- end -}}
 
+<br>
 
 ## 📊 Coverage Metrics
 
