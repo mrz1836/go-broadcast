@@ -24,6 +24,25 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/transform"
 )
 
+// isRaceEnabled returns true if the race detector is enabled
+func isRaceEnabled() bool {
+	// The race detector is enabled when the -race flag is used
+	// We can detect this by checking if the runtime/race package is active
+	// This is a build-time constant that gets set when -race is used
+	return runtime.GOOS != "js" && runtime.GOOS != "wasm" && getRaceEnabled()
+}
+
+// getRaceEnabled returns the race detection status
+// This is set by the race_enabled.go file when built with -race
+func getRaceEnabled() bool {
+	return raceEnabledFlag
+}
+
+// raceEnabledFlag is a build tag constant that's true when -race is enabled
+//
+//nolint:gochecknoglobals // Required for race detection at build time
+var raceEnabledFlag = false
+
 // Helper functions for git operations
 func initGitRepoPerf(t testing.TB, dir string) {
 	t.Helper()
@@ -880,7 +899,16 @@ func TestPerformanceRegression(t *testing.T) {
 
 		// Store as reference (in practice, this would be compared against historical data)
 		// For now, just ensure it's reasonable
-		assert.Less(t, avg, 500*time.Millisecond, "Baseline performance should be under 500ms")
+		// The race detector adds significant overhead, so we need different thresholds
+		var threshold time.Duration
+		if isRaceEnabled() {
+			threshold = 5 * time.Second // Race detector can add 10x+ overhead
+			t.Logf("Race detector enabled, using relaxed threshold: %v", threshold)
+		} else {
+			threshold = 500 * time.Millisecond
+			t.Logf("Race detector disabled, using normal threshold: %v", threshold)
+		}
+		assert.Less(t, avg, threshold, "Baseline performance should be under %v", threshold)
 	})
 
 	t.Run("performance with increasing groups", func(t *testing.T) {
