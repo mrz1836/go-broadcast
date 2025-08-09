@@ -203,6 +203,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.github-token }}
           SLACK_WEBHOOK: ${{ secrets.slack-webhook }} # used only if referenced in .goreleaser.yml
+          SKIP_GORELEASER_TESTS: true # Skip tests as they've already been run in the test suite workflow
 
       # ————————————————————————————————————————————————————————————————
       # Publish to Go Docs (if enabled)

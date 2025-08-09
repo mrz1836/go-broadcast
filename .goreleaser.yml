@@ -6,7 +6,7 @@ version: 2
 
 before:
   hooks:
-    - make test
+    - sh -c 'if [ "$SKIP_GORELEASER_TESTS" != "true" ]; then make test; else echo "Skipping tests (SKIP_GORELEASER_TESTS=true)"; fi'
 changelog:
   sort: asc
   filters:
