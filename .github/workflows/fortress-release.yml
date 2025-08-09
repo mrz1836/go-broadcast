@@ -205,6 +205,49 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.slack-webhook }} # used only if referenced in .goreleaser.yml
 
       # ————————————————————————————————————————————————————————————————
+      # Publish to Go Docs (if enabled)
+      # ————————————————————————————————————————————————————————————————
+      - name: 📚 Publish to Go Docs
+        id: godocs
+        if: success()
+        run: |
+          # Extract ENABLE_GODOCS_PUBLISHING from environment
+          ENABLE_GODOCS=$(echo '${{ inputs.env-json }}' | jq -r '.ENABLE_GODOCS_PUBLISHING // "false"')
+
+          if [[ "$ENABLE_GODOCS" == "true" ]]; then
+            echo "📚 Publishing to Go Docs..."
+
+            # Extract repository information
+            REPO_FULL="${{ github.repository }}"
+            GIT_DOMAIN="github.com"
+            REPO_OWNER="${{ github.repository_owner }}"
+            REPO_NAME="${REPO_FULL#*/}"
+            VERSION_SHORT="${{ steps.validate-tag.outputs.version }}"
+
+            echo "📦 Package: $GIT_DOMAIN/$REPO_OWNER/$REPO_NAME"
+            echo "🏷️ Version: $VERSION_SHORT"
+
+            # Export variables for make godocs
+            export GIT_DOMAIN
+            export REPO_OWNER
+            export REPO_NAME
+            export VERSION_SHORT
+
+            # Run make godocs to syndicate to pkg.go.dev
+            if make godocs; then
+              echo "✅ Successfully syndicated to Go Docs"
+              echo "godocs_published=true" >> $GITHUB_OUTPUT
+              echo "godocs_url=https://pkg.go.dev/$GIT_DOMAIN/$REPO_OWNER/$REPO_NAME@$VERSION_SHORT" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ Go Docs syndication failed (non-critical)"
+              echo "godocs_published=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "ℹ️ Go Docs publishing is disabled"
+            echo "godocs_published=skipped" >> $GITHUB_OUTPUT
+          fi
+
+      # ————————————————————————————————————————————————————————————————
       # Generate release summary
       # ————————————————————————————————————————————————————————————————
       - name: 📊 Generate release summary
@@ -219,6 +262,16 @@ jobs:
           echo "| Pre-release | ${{ steps.validate-tag.outputs.is_prerelease }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Repository | ${{ github.repository }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Release URL | [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}) |" >> $GITHUB_STEP_SUMMARY
+
+          # Add Go Docs status
+          if [[ "${{ steps.godocs.outputs.godocs_published }}" == "true" ]]; then
+            echo "| Go Docs | ✅ [View on pkg.go.dev](${{ steps.godocs.outputs.godocs_url }}) |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ steps.godocs.outputs.godocs_published }}" == "false" ]]; then
+            echo "| Go Docs | ⚠️ Publishing failed (non-critical) |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Go Docs | ℹ️ Publishing skipped (disabled) |" >> $GITHUB_STEP_SUMMARY
+          fi
+
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [[ -n "${{ steps.changelog.outputs.previous_tag }}" ]]; then
