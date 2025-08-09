@@ -141,7 +141,6 @@ make security-scan
 * `.github/workflows/fortress.yml` - Main CI pipeline
 * `.github/workflows/fortress-test-suite.yml` - Extended test suite
 * `.github/workflows/codeql-analysis.yml` - Security analysis
-* `.github/workflows/ossar.yml` - Additional security checks
 
 ### Configuration Best Practices
 * Use environment variables for configuration

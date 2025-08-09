@@ -40,10 +40,6 @@ If you discover a vulnerability—no matter how small—follow our responsible d
    - Automated via `.github/workflows/codeql-analysis.yml`
    - Scans for common vulnerabilities
 
-4. **OSSAR** - Open Source Security Analysis
-   - Configured in `.github/workflows/ossar.yml`
-   - Additional static analysis checks
-
 <br><br>
 
 ## 🚫 Security Anti-Patterns
