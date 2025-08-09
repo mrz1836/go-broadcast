@@ -2,7 +2,7 @@
 #  Pre-commit Checks (Reusable Workflow) (GoFortress)
 #
 #  Purpose: Run GoFortress Pre-commit System for code quality enforcement.
-#  This workflow builds and executes the gofortress-pre-commit tool from .github/pre-commit/
+#  This workflow installs and executes the external go-pre-commit tool.
 #
 #  Maintainer: @mrz1836
 #
@@ -31,7 +31,7 @@ on:
         type: string
     outputs:
       pre-commit-version:
-        description: "Version of gofortress-pre-commit used"
+        description: "Version of go-pre-commit used"
         value: ${{ jobs.pre-commit.outputs.pre-commit-version }}
       checks-executed:
         description: "List of checks that were executed"
@@ -90,7 +90,7 @@ jobs:
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/go/pkg/mod
-          key: ${{ inputs.primary-runner }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
+          key: ${{ inputs.primary-runner }}-gomod-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ inputs.primary-runner }}-gomod-
 
@@ -101,72 +101,42 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/.cache/go-build/test
-          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
+          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
           restore-keys: |
             ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-
-
-      # ————————————————————————————————————————————————————————————————
-      # Check if pre-commit system exists
-      # ————————————————————————————————————————————————————————————————
-      - name: 🔍 Status check - GoFortress Pre-commit System
-        id: check-pre-commit
-        run: |
-          echo "🔍 Checking for GoFortress Pre-commit System..."
-
-          if [ -d ".github/pre-commit" ]; then
-            echo "✅ Found .github/pre-commit directory"
-            echo "exists=true" >> $GITHUB_OUTPUT
-
-            # Check for go.mod in pre-commit directory
-            if [ -f ".github/pre-commit/go.mod" ]; then
-              echo "✅ Found pre-commit go.mod file"
-              echo "go_mod_exists=true" >> $GITHUB_OUTPUT
-            else
-              echo "❌ Missing go.mod in .github/pre-commit/"
-              echo "go_mod_exists=false" >> $GITHUB_OUTPUT
-            fi
-
-            # Check for main.go
-            if [ -f ".github/pre-commit/cmd/gofortress-pre-commit/main.go" ]; then
-              echo "✅ Found main.go entry point"
-              echo "main_exists=true" >> $GITHUB_OUTPUT
-            else
-              echo "❌ Missing main.go in cmd/gofortress-pre-commit/"
-              echo "main_exists=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "⚠️ GoFortress Pre-commit System not found at .github/pre-commit/"
-            echo "ℹ️ This is expected if the GoFortress Pre-commit System hasn't been implemented yet"
-            echo "exists=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
 
       # ————————————————————————————————————————————————————————————————
       # Display pre-commit configuration
       # ————————————————————————————————————————————————————————————————
       - name: 📋 Display pre-commit configuration
-        if: steps.check-pre-commit.outputs.exists == 'true'
         run: |
           echo "🔧 GoFortress Pre-commit Configuration (from .env.shared)"
           echo "=================================================="
           echo ""
           echo "📊 System Settings:"
           echo "  • System Enabled: ${{ env.ENABLE_PRE_COMMIT_SYSTEM }}"
-          echo "  • Directory: ${{ env.PRE_COMMIT_SYSTEM_DIRECTORY }}"
+          echo "  • Tool Version: ${{ env.GO_PRE_COMMIT_VERSION }}"
           echo "  • Enabled Checks: ${{ env.PRE_COMMIT_SYSTEM_ENABLED_CHECKS }}"
           echo "  • Fail Fast: ${{ env.PRE_COMMIT_SYSTEM_FAIL_FAST }}"
-          echo "  • Timeout: ${{ env.PRE_COMMIT_SYSTEM_TIMEOUT_MINUTES }} minutes"
+          echo "  • Timeout: ${{ env.PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS }} seconds"
           echo "  • Verbose Output: ${{ env.PRE_COMMIT_SYSTEM_VERBOSE_OUTPUT }}"
           echo ""
           echo "🔧 Tool Versions:"
           echo "  • Go Version Required: ${{ env.PRE_COMMIT_SYSTEM_GO_VERSION_REQUIRED }}"
           echo "  • golangci-lint: ${{ env.PRE_COMMIT_SYSTEM_GOLANGCI_LINT_VERSION }}"
-          echo "  • gofumpt: ${{ env.PRE_COMMIT_SYSTEM_GOFUMPT_VERSION }}"
+          echo "  • gofumpt: ${{ env.PRE_COMMIT_SYSTEM_FUMPT_VERSION }}"
           echo "  • govulncheck: ${{ env.PRE_COMMIT_SYSTEM_GOVULNCHECK_VERSION }}"
           echo ""
           echo "📁 Exclusions:"
           echo "  • Paths: ${{ env.PRE_COMMIT_SYSTEM_EXCLUDE_PATHS }}"
           echo "  • Files: ${{ env.PRE_COMMIT_SYSTEM_EXCLUDE_FILES }}"
+          echo ""
+          echo "🔧 Individual Checks:"
+          echo "  • fumpt: ${{ env.PRE_COMMIT_SYSTEM_ENABLE_FUMPT }}"
+          echo "  • lint: ${{ env.PRE_COMMIT_SYSTEM_ENABLE_LINT }}"
+          echo "  • mod-tidy: ${{ env.PRE_COMMIT_SYSTEM_ENABLE_MOD_TIDY }}"
+          echo "  • whitespace: ${{ env.PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE }}"
+          echo "  • eof: ${{ env.PRE_COMMIT_SYSTEM_ENABLE_EOF }}"
           echo ""
           echo "=================================================="
 
@@ -174,42 +144,34 @@ jobs:
       # Set up Go environment
       # ————————————————————————————————————————————————————————————————
       - name: 🏗️ Set up Go
-        if: steps.check-pre-commit.outputs.exists == 'true'
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version: ${{ inputs.go-primary-version }}
           cache: false # we handle caches ourselves
 
       # ————————————————————————————————————————————————————————————————
-      # Build gofortress-pre-commit
+      # Install external go-pre-commit tool
       # ————————————————————————————————————————————————————————————————
-      - name: 🔨 Build gofortress-pre-commit
-        if: steps.check-pre-commit.outputs.exists == 'true' && steps.check-pre-commit.outputs.go_mod_exists == 'true'
-        id: build-pre-commit
+      - name: 📦 Install go-pre-commit
+        id: install-pre-commit
         run: |
-          echo "🔨 Building gofortress-pre-commit tool..."
-          cd .github/pre-commit
+          echo "📦 Installing go-pre-commit ${{ env.GO_PRE_COMMIT_VERSION }}..."
 
-          # Download dependencies
-          echo "📦 Downloading dependencies..."
-          go mod download
+          # Install the external tool
+          go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@${{ env.GO_PRE_COMMIT_VERSION }}
 
-          # Build the tool
-          echo "🏗️ Building binary..."
-          go build -o gofortress-pre-commit ./cmd/gofortress-pre-commit
-
-          if [ -f "gofortress-pre-commit" ]; then
-            echo "✅ Build successful"
-            echo "build_success=true" >> $GITHUB_OUTPUT
+          # Verify installation
+          if command -v go-pre-commit &> /dev/null; then
+            echo "✅ go-pre-commit installed successfully"
+            echo "install_success=true" >> $GITHUB_OUTPUT
 
             # Get version
-            ./gofortress-pre-commit version > version.txt 2>&1 || echo "dev" > version.txt
-            VERSION=$(cat version.txt | head -1)
+            VERSION=$(go-pre-commit --version 2>&1 | head -1 || echo "${{ env.GO_PRE_COMMIT_VERSION }}")
             echo "🏷️ Version: $VERSION"
             echo "version=$VERSION" >> $GITHUB_OUTPUT
           else
-            echo "❌ Build failed"
-            echo "build_success=false" >> $GITHUB_OUTPUT
+            echo "❌ Failed to install go-pre-commit"
+            echo "install_success=false" >> $GITHUB_OUTPUT
             exit 1
           fi
 
@@ -217,44 +179,39 @@ jobs:
       # Set pre-commit version output
       # ————————————————————————————————————————————————————————————————
       - name: 📌 Set pre-commit version
-        if: steps.check-pre-commit.outputs.exists == 'true'
         id: pre-commit-version
         run: |
-          if [ "${{ steps.build-pre-commit.outputs.build_success }}" == "true" ]; then
-            echo "version=${{ steps.build-pre-commit.outputs.version }}" >> $GITHUB_OUTPUT
+          if [ "${{ steps.install-pre-commit.outputs.install_success }}" == "true" ]; then
+            echo "version=${{ steps.install-pre-commit.outputs.version }}" >> $GITHUB_OUTPUT
           else
-            echo "version=not-built" >> $GITHUB_OUTPUT
+            echo "version=not-installed" >> $GITHUB_OUTPUT
           fi
 
       # ————————————————————————————————————————————————————————————————
       # Run pre-commit checks
       # ————————————————————————————————————————————————————————————————
       - name: 🚀 Run pre-commit checks
-        if: steps.check-pre-commit.outputs.exists == 'true' && steps.build-pre-commit.outputs.build_success == 'true'
+        if: steps.install-pre-commit.outputs.install_success == 'true'
         id: run-checks
         run: |
           echo "🚀 Running pre-commit checks..."
           echo "================================"
 
-          cd .github/pre-commit
-
           # Set environment for CI
           export CI=true
 
-          # List available checks
-          echo "📋 Available checks:"
-          ./gofortress-pre-commit run --show-checks || echo "  (failed to show checks)"
-          echo ""
+          # The external tool will read environment variables from .env.shared
+          # that we've already loaded into the environment
 
           # Run all checks on all files (CI mode)
           echo "🔍 Executing checks on all files..."
-          CHECKS_OUTPUT=$(./gofortress-pre-commit run --all-files 2>&1) || CHECKS_EXIT=$?
+          CHECKS_OUTPUT=$(go-pre-commit run --all-files 2>&1) || CHECKS_EXIT=$?
 
           # Strip ANSI color codes for clean GitHub Actions output
           echo "$CHECKS_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g'
 
           # Extract executed checks from output (if format allows)
-          EXECUTED_CHECKS=$(echo "$CHECKS_OUTPUT" | grep -E "Running:|Executing:|✓" | sed 's/.*Running: //;s/.*Executing: //;s/.*✓ //' | tr '\n' ',' | sed 's/,$//' || echo "fumpt,lint,mod-tidy,whitespace,eof-fixer")
+          EXECUTED_CHECKS=$(echo "$CHECKS_OUTPUT" | grep -E "Running:|Executing:|✓" | sed 's/.*Running: //;s/.*Executing: //;s/.*✓ //' | tr '\n' ',' | sed 's/,$//' || echo "fumpt,lint,mod-tidy,whitespace,eof")
           echo "executed=$EXECUTED_CHECKS" >> $GITHUB_OUTPUT
 
           if [ "${CHECKS_EXIT:-0}" -ne 0 ]; then
@@ -266,12 +223,12 @@ jobs:
           echo "✅ All pre-commit checks passed successfully"
 
       # ————————————————————————————————————————————————————————————————
-      # Fallback: Use make commands if pre-commit system doesn't exist
+      # Fallback: Use make commands if pre-commit tool fails
       # ————————————————————————————————————————————————————————————————
       - name: 🔄 Fallback - Run make commands
-        if: steps.check-pre-commit.outputs.exists != 'true' || steps.build-pre-commit.outputs.build_success != 'true'
+        if: steps.install-pre-commit.outputs.install_success != 'true'
         run: |
-          echo "ℹ️ Using fallback make commands (pre-commit system not available)"
+          echo "ℹ️ Using fallback make commands (go-pre-commit installation failed)"
           echo "============================================================"
           echo ""
 
@@ -303,43 +260,31 @@ jobs:
           echo "## 🪝 Pre-commit Checks Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ steps.check-pre-commit.outputs.exists }}" == "true" ]; then
-            echo "| 🔍 Pre-commit System Details | Status |" >> $GITHUB_STEP_SUMMARY
-            echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-            echo "| **System Location** | .github/pre-commit/ |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Tool Version** | ${{ steps.pre-commit-version.outputs.version || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Build Status** | ${{ steps.build-pre-commit.outputs.build_success == 'true' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Fail Fast Mode** | ${{ env.PRE_COMMIT_SYSTEM_FAIL_FAST == 'true' && '⚡ Enabled' || '📝 Disabled' }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Timeout** | ${{ env.PRE_COMMIT_SYSTEM_TIMEOUT_MINUTES }} minutes |" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔍 Pre-commit System Details | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Tool** | github.com/mrz1836/go-pre-commit |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Version** | ${{ steps.pre-commit-version.outputs.version || env.GO_PRE_COMMIT_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Installation** | ${{ steps.install-pre-commit.outputs.install_success == 'true' && '✅ Success' || '❌ Failed (using fallback)' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Fail Fast Mode** | ${{ env.PRE_COMMIT_SYSTEM_FAIL_FAST == 'true' && '⚡ Enabled' || '📝 Disabled' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Timeout** | ${{ env.PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS }} seconds |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-            if [ "${{ steps.build-pre-commit.outputs.build_success }}" == "true" ]; then
-              echo "### 🔍 Checks Executed" >> $GITHUB_STEP_SUMMARY
-              CHECKS="${{ steps.run-checks.outputs.executed || 'unknown' }}"
-              echo "$CHECKS" | tr ',' '\n' | while read check; do
-                if [ -n "$check" ]; then
-                  echo "- ✅ $check" >> $GITHUB_STEP_SUMMARY
-                fi
-              done
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "🎯 **All pre-commit checks passed successfully.**" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "### ⚠️ Fallback Mode" >> $GITHUB_STEP_SUMMARY
-              echo "The GoFortress Pre-commit System is not available. Using make commands as fallback:" >> $GITHUB_STEP_SUMMARY
-              echo "- ✅ make fumpt" >> $GITHUB_STEP_SUMMARY
-              echo "- ✅ make lint" >> $GITHUB_STEP_SUMMARY
-              echo "- ✅ make mod-tidy" >> $GITHUB_STEP_SUMMARY
-            fi
+          if [ "${{ steps.install-pre-commit.outputs.install_success }}" == "true" ]; then
+            echo "### 🔍 Checks Executed" >> $GITHUB_STEP_SUMMARY
+            CHECKS="${{ steps.run-checks.outputs.executed || 'fumpt,lint,mod-tidy,whitespace,eof' }}"
+            echo "$CHECKS" | tr ',' '\n' | while read check; do
+              if [ -n "$check" ]; then
+                echo "- ✅ $check" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎯 **All pre-commit checks passed successfully using external go-pre-commit tool.**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "### ℹ️ GoFortress Pre-commit System Not Implemented" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The GoFortress Pre-commit System has not been implemented yet." >> $GITHUB_STEP_SUMMARY
-            echo "Using standard make commands for code quality checks:" >> $GITHUB_STEP_SUMMARY
-            echo "- ✅ make fumpt (code formatting)" >> $GITHUB_STEP_SUMMARY
-            echo "- ✅ make lint (comprehensive linting)" >> $GITHUB_STEP_SUMMARY
-            echo "- ✅ make mod-tidy (dependency management)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "📚 See `plans/plan-10.md` for implementation details." >> $GITHUB_STEP_SUMMARY
+            echo "### ⚠️ Fallback Mode" >> $GITHUB_STEP_SUMMARY
+            echo "The external go-pre-commit tool could not be installed. Using make commands as fallback:" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ make fumpt" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ make lint" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ make mod-tidy" >> $GITHUB_STEP_SUMMARY
           fi
 
       # ————————————————————————————————————————————————————————————————

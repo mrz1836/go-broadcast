@@ -109,7 +109,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/.cache/go-build/test
-          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
+          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
           restore-keys: |
             ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-
 
@@ -219,7 +219,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/.cache/go-build/test
-          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
+          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
           restore-keys: |
             ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-
 

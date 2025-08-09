@@ -294,16 +294,15 @@ The GoFortress coverage system uses an **incremental deployment strategy** that 
 
 ### 🪝 GoFortress Pre-commit System
 
-The GoFortress Pre-commit System is a **production-ready, high-performance Go-native pre-commit framework** that delivers 17x faster execution than traditional Python-based solutions.
+The GoFortress Pre-commit System uses the external **[go-pre-commit](https://github.com/mrz1836/go-pre-commit)** tool - a production-ready, high-performance Go-native pre-commit framework that delivers 17x faster execution than traditional Python-based solutions.
 
 **Quick Setup:**
 ```bash
-# Navigate to pre-commit system
-cd .github/pre-commit
+# Install the external tool
+go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@v1.0.0
 
-# Build and install
-make build
-./gofortress-pre-commit install
+# Install hooks in your repository
+go-pre-commit install
 
 # Normal development - hooks run automatically
 git add .
@@ -316,7 +315,8 @@ git commit -m "feat: new feature"
 - 📦 **Zero Python dependencies** - Pure Go binary, no runtime requirements
 - 🔧 **Make integration** - Wraps existing Makefile targets (fumpt, lint, mod-tidy)
 - ⚙️ **Environment-driven** - All configuration via `.github/.env.shared`
-- 🎯 **Production ready** - 80.6% test coverage with comprehensive validation
+- 🎯 **Production ready** - Comprehensive test coverage and validation
+- 🔗 **External tool** - Maintained at [github.com/mrz1836/go-pre-commit](https://github.com/mrz1836/go-pre-commit)
 
 **Available Checks (5 MVP checks):**
 1. **fumpt** - Code formatting via `make fumpt`
@@ -329,6 +329,7 @@ git commit -m "feat: new feature"
 ```bash
 # Enable the system
 ENABLE_PRE_COMMIT_SYSTEM=true
+GO_PRE_COMMIT_VERSION=v1.0.0  # Version of external tool to use
 
 # Individual check control
 PRE_COMMIT_SYSTEM_ENABLE_FUMPT=true
@@ -338,26 +339,26 @@ PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE=true
 PRE_COMMIT_SYSTEM_ENABLE_EOF=true
 
 # Performance tuning
-PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=0  # 0 = auto (CPU count)
-PRE_COMMIT_SYSTEM_TIMEOUT_MINUTES=10
+PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=2  # Number of parallel workers
+PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS=120  # Timeout in seconds
 PRE_COMMIT_SYSTEM_FAIL_FAST=false
 ```
 
 **Development Commands:**
 ```bash
 # Manual execution
-./gofortress-pre-commit run                    # All checks on staged files
-./gofortress-pre-commit run --all-files        # All checks on all files
-./gofortress-pre-commit run lint fumpt         # Specific checks only
-./gofortress-pre-commit run --verbose          # Debug output
+go-pre-commit run                    # All checks on staged files
+go-pre-commit run --all-files        # All checks on all files
+go-pre-commit run --checks fumpt,lint  # Specific checks only
+go-pre-commit run --verbose          # Debug output
 
 # Skip functionality
 SKIP=lint git commit -m "wip: work in progress"
 PRE_COMMIT_SYSTEM_SKIP=all git commit -m "hotfix: critical fix"
 
 # Status and management
-./gofortress-pre-commit status --verbose       # Installation status
-./gofortress-pre-commit uninstall              # Remove hooks
+go-pre-commit status --verbose       # Installation status
+go-pre-commit uninstall              # Remove hooks
 ```
 
 **CI/CD Integration:**
@@ -369,6 +370,8 @@ pre-commit:
   uses: ./.github/workflows/fortress-pre-commit.yml
 ```
 
+The workflow automatically installs the external tool using the version specified in `GO_PRE_COMMIT_VERSION`.
+
 **Performance Benchmarks:**
 - **Total pipeline**: <2s (17x faster than baseline)
 - **fumpt**: 6ms (37% faster)
@@ -377,26 +380,27 @@ pre-commit:
 - **Text processing**: <1ms (built-in speed)
 
 **Troubleshooting:**
-- **"gofortress-pre-commit not found"**: Run `cd .github/pre-commit && make build`
-- **"Hook already exists"**: Use `./gofortress-pre-commit install --force`
-- **Slow execution**: Increase timeout with `PRE_COMMIT_SYSTEM_TIMEOUT_MINUTES=15`
+- **"go-pre-commit not found"**: Run `go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@v1.0.0`
+- **"Hook already exists"**: Use `go-pre-commit install --force`
+- **Slow execution**: Increase timeout with `PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS=180`
 
 **Fumpt Check Failures (Tower/SourceTree Git GUIs):**
-- **"fumpt check failed"**: The system now uses pinned gofumpt version from `.env.shared`
+- **"fumpt check failed"**: The system uses pinned gofumpt version from `.env.shared`
 - **"make: gofumpt: No such file or directory"**: Run `make fumpt` once manually to install correct version
-- **PATH issues in git GUIs**: The system automatically manages GOPATH/bin in PATH during execution
+- **PATH issues in git GUIs**: The tool automatically manages GOPATH/bin in PATH during execution
 - **Version conflicts**: Ensure `PRE_COMMIT_SYSTEM_FUMPT_VERSION=v0.7.0` is set in `.env.shared`
 
 **Environment Verification:**
 ```bash
-# Verify gofumpt installation
-make fumpt                                    # Install and run gofumpt
-./gofortress-pre-commit run fumpt --verbose   # Test pre-commit fumpt check
-go env GOPATH                                 # Check GOPATH is set correctly
-echo $PATH | grep "$(go env GOPATH)/bin"     # Verify GOPATH/bin in PATH
+# Verify go-pre-commit installation
+go-pre-commit --version               # Check installed version
+make fumpt                           # Install and run gofumpt
+go-pre-commit run fumpt --verbose    # Test pre-commit fumpt check
+go env GOPATH                        # Check GOPATH is set correctly
+echo $PATH | grep "$(go env GOPATH)/bin"  # Verify GOPATH/bin in PATH
 ```
 
-**📚 Complete Documentation:** [`.github/pre-commit/README.md`](.github/pre-commit/README.md)
+**📚 Complete Documentation:** [github.com/mrz1836/go-pre-commit](https://github.com/mrz1836/go-pre-commit)
 
 ### 🤖 AI Sub-Agents Team
 

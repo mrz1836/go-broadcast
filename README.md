@@ -248,7 +248,8 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 - **17x faster execution** - <2 second commits with parallel processing
 - **Zero Python dependencies** - Pure Go implementation, single binary
 - **Environment-driven config** - All settings via `.github/.env.shared`
-- **[📚 Documentation](.github/pre-commit/README.md)**
+- **External tool** - Powered by [go-pre-commit](https://github.com/mrz1836/go-pre-commit) v1.0.0
+- **[📚 Documentation](https://github.com/mrz1836/go-pre-commit)**
 
 <br/>
 
