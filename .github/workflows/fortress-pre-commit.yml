@@ -114,29 +114,29 @@ jobs:
           echo "=================================================="
           echo ""
           echo "📊 System Settings:"
-          echo "  • System Enabled: ${{ env.ENABLE_PRE_COMMIT_SYSTEM }}"
+          echo "  • System Enabled: ${{ env.ENABLE_GO_PRE_COMMIT }}"
           echo "  • Tool Version: ${{ env.GO_PRE_COMMIT_VERSION }}"
-          echo "  • Enabled Checks: ${{ env.PRE_COMMIT_SYSTEM_ENABLED_CHECKS }}"
-          echo "  • Fail Fast: ${{ env.PRE_COMMIT_SYSTEM_FAIL_FAST }}"
-          echo "  • Timeout: ${{ env.PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS }} seconds"
-          echo "  • Verbose Output: ${{ env.PRE_COMMIT_SYSTEM_VERBOSE_OUTPUT }}"
+          echo "  • Enabled Checks: ${{ env.GO_PRE_COMMIT_ENABLED_CHECKS }}"
+          echo "  • Fail Fast: ${{ env.GO_PRE_COMMIT_FAIL_FAST }}"
+          echo "  • Timeout: ${{ env.GO_PRE_COMMIT_TIMEOUT_SECONDS }} seconds"
+          echo "  • Verbose Output: ${{ env.GO_PRE_COMMIT_VERBOSE_OUTPUT }}"
           echo ""
           echo "🔧 Tool Versions:"
-          echo "  • Go Version Required: ${{ env.PRE_COMMIT_SYSTEM_GO_VERSION_REQUIRED }}"
-          echo "  • golangci-lint: ${{ env.PRE_COMMIT_SYSTEM_GOLANGCI_LINT_VERSION }}"
-          echo "  • gofumpt: ${{ env.PRE_COMMIT_SYSTEM_FUMPT_VERSION }}"
-          echo "  • govulncheck: ${{ env.PRE_COMMIT_SYSTEM_GOVULNCHECK_VERSION }}"
+          echo "  • Go Version Required: ${{ env.GO_PRE_COMMIT_GO_VERSION_REQUIRED }}"
+          echo "  • golangci-lint: ${{ env.GO_PRE_COMMIT_GOLANGCI_LINT_VERSION }}"
+          echo "  • gofumpt: ${{ env.GO_PRE_COMMIT_FUMPT_VERSION }}"
+          echo "  • govulncheck: ${{ env.GO_PRE_COMMIT_GOVULNCHECK_VERSION }}"
           echo ""
           echo "📁 Exclusions:"
-          echo "  • Paths: ${{ env.PRE_COMMIT_SYSTEM_EXCLUDE_PATHS }}"
-          echo "  • Files: ${{ env.PRE_COMMIT_SYSTEM_EXCLUDE_FILES }}"
+          echo "  • Paths: ${{ env.GO_PRE_COMMIT_EXCLUDE_PATHS }}"
+          echo "  • Files: ${{ env.GO_PRE_COMMIT_EXCLUDE_FILES }}"
           echo ""
           echo "🔧 Individual Checks:"
-          echo "  • fumpt: ${{ env.PRE_COMMIT_SYSTEM_ENABLE_FUMPT }}"
-          echo "  • lint: ${{ env.PRE_COMMIT_SYSTEM_ENABLE_LINT }}"
-          echo "  • mod-tidy: ${{ env.PRE_COMMIT_SYSTEM_ENABLE_MOD_TIDY }}"
-          echo "  • whitespace: ${{ env.PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE }}"
-          echo "  • eof: ${{ env.PRE_COMMIT_SYSTEM_ENABLE_EOF }}"
+          echo "  • fumpt: ${{ env.GO_PRE_COMMIT_ENABLE_FUMPT }}"
+          echo "  • lint: ${{ env.GO_PRE_COMMIT_ENABLE_LINT }}"
+          echo "  • mod-tidy: ${{ env.GO_PRE_COMMIT_ENABLE_MOD_TIDY }}"
+          echo "  • whitespace: ${{ env.GO_PRE_COMMIT_ENABLE_WHITESPACE }}"
+          echo "  • eof: ${{ env.GO_PRE_COMMIT_ENABLE_EOF }}"
           echo ""
           echo "=================================================="
 
@@ -265,8 +265,8 @@ jobs:
           echo "| **Tool** | github.com/mrz1836/go-pre-commit |" >> $GITHUB_STEP_SUMMARY
           echo "| **Version** | ${{ steps.pre-commit-version.outputs.version || env.GO_PRE_COMMIT_VERSION }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Installation** | ${{ steps.install-pre-commit.outputs.install_success == 'true' && '✅ Success' || '❌ Failed (using fallback)' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Fail Fast Mode** | ${{ env.PRE_COMMIT_SYSTEM_FAIL_FAST == 'true' && '⚡ Enabled' || '📝 Disabled' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Timeout** | ${{ env.PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS }} seconds |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Fail Fast Mode** | ${{ env.GO_PRE_COMMIT_FAIL_FAST == 'true' && '⚡ Enabled' || '📝 Disabled' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Timeout** | ${{ env.GO_PRE_COMMIT_TIMEOUT_SECONDS }} seconds |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ steps.install-pre-commit.outputs.install_success }}" == "true" ]; then

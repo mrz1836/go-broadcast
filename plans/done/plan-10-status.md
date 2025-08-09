@@ -31,7 +31,7 @@ This document tracks the implementation progress of the GoFortress Pre-commit Sy
 - [x] Labels and dependabot configured
 
 **Implementation Details**:
-- ✅ Added comprehensive MVP configuration to .env.shared with PRE_COMMIT_SYSTEM_ variables
+- ✅ Added comprehensive MVP configuration to .env.shared with GO_PRE_COMMIT_ variables
 - ✅ Corrected terminology from "hooks" to "pre-commit" throughout
 - ✅ Created self-contained directory structure at .github/pre-commit/
 - ✅ Added comprehensive .gitignore for build artifacts
@@ -165,18 +165,18 @@ This document tracks the implementation progress of the GoFortress Pre-commit Sy
 **Verification**:
 - [x] Single command installation works with enhanced validation
 - [x] Git triggers pre-commit hooks correctly with dynamic script
-- [x] SKIP functionality works (tested SKIP and PRE_COMMIT_SYSTEM_SKIP)
+- [x] SKIP functionality works (tested SKIP and GO_PRE_COMMIT_SKIP)
 - [x] Respects ENABLE_PRE_COMMIT setting in hook script
 - [x] Clean uninstall with backup restoration
 - [x] Status command shows detailed installation information
 
 **Key Achievements**:
 - [x] **Dynamic Hook Script Generation**: Scripts now include CI detection, configuration validation, and enhanced path resolution
-- [x] **Comprehensive SKIP Support**: Environment variables (SKIP, PRE_COMMIT_SYSTEM_SKIP) with comma-separated values and "all" support
+- [x] **Comprehensive SKIP Support**: Environment variables (SKIP, GO_PRE_COMMIT_SKIP) with comma-separated values and "all" support
 - [x] **Enhanced Installation Logic**: Pre/post validation, conflict resolution, backup/restore on uninstall
 - [x] **Status Command**: New CLI command showing detailed installation status with --verbose option
 - [x] **CI Environment Detection**: Hook scripts detect and adapt behavior for CI environments
-- [x] **Configuration Integration**: Hook scripts check ENABLE_PRE_COMMIT_SYSTEM before execution
+- [x] **Configuration Integration**: Hook scripts check ENABLE_GO_PRE_COMMIT before execution
 
 **Implementation Details**:
 - ✅ Enhanced `internal/git/installer.go` with comprehensive validation and dynamic script generation
@@ -194,7 +194,7 @@ This document tracks the implementation progress of the GoFortress Pre-commit Sy
 
 **Notes**:
 - Phase 4 exceeded original objectives by adding status command and enhanced error handling
-- SKIP functionality supports both standard (SKIP) and GoFortress-specific (PRE_COMMIT_SYSTEM_SKIP) environment variables
+- SKIP functionality supports both standard (SKIP) and GoFortress-specific (GO_PRE_COMMIT_SKIP) environment variables
 - Hook scripts are now self-contained with proper error messages and troubleshooting guidance
 - Installation validation prevents common issues before they occur
 - Backup/restore functionality ensures safe hook management

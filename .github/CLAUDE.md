@@ -328,20 +328,20 @@ git commit -m "feat: new feature"
 **Configuration in `.github/.env.shared`:**
 ```bash
 # Enable the system
-ENABLE_PRE_COMMIT_SYSTEM=true
+ENABLE_GO_PRE_COMMIT=true
 GO_PRE_COMMIT_VERSION=v1.0.0  # Version of external tool to use
 
 # Individual check control
-PRE_COMMIT_SYSTEM_ENABLE_FUMPT=true
-PRE_COMMIT_SYSTEM_ENABLE_LINT=true
-PRE_COMMIT_SYSTEM_ENABLE_MOD_TIDY=true
-PRE_COMMIT_SYSTEM_ENABLE_WHITESPACE=true
-PRE_COMMIT_SYSTEM_ENABLE_EOF=true
+GO_PRE_COMMIT_ENABLE_FUMPT=true
+GO_PRE_COMMIT_ENABLE_LINT=true
+GO_PRE_COMMIT_ENABLE_MOD_TIDY=true
+GO_PRE_COMMIT_ENABLE_WHITESPACE=true
+GO_PRE_COMMIT_ENABLE_EOF=true
 
 # Performance tuning
-PRE_COMMIT_SYSTEM_PARALLEL_WORKERS=2  # Number of parallel workers
-PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS=120  # Timeout in seconds
-PRE_COMMIT_SYSTEM_FAIL_FAST=false
+GO_PRE_COMMIT_PARALLEL_WORKERS=2  # Number of parallel workers
+GO_PRE_COMMIT_TIMEOUT_SECONDS=120  # Timeout in seconds
+GO_PRE_COMMIT_FAIL_FAST=false
 ```
 
 **Development Commands:**
@@ -354,7 +354,7 @@ go-pre-commit run --verbose          # Debug output
 
 # Skip functionality
 SKIP=lint git commit -m "wip: work in progress"
-PRE_COMMIT_SYSTEM_SKIP=all git commit -m "hotfix: critical fix"
+GO_PRE_COMMIT_SKIP=all git commit -m "hotfix: critical fix"
 
 # Status and management
 go-pre-commit status --verbose       # Installation status
@@ -382,13 +382,13 @@ The workflow automatically installs the external tool using the version specifie
 **Troubleshooting:**
 - **"go-pre-commit not found"**: Run `go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@v1.0.0`
 - **"Hook already exists"**: Use `go-pre-commit install --force`
-- **Slow execution**: Increase timeout with `PRE_COMMIT_SYSTEM_TIMEOUT_SECONDS=180`
+- **Slow execution**: Increase timeout with `GO_PRE_COMMIT_TIMEOUT_SECONDS=180`
 
 **Fumpt Check Failures (Tower/SourceTree Git GUIs):**
 - **"fumpt check failed"**: The system uses pinned gofumpt version from `.env.shared`
 - **"make: gofumpt: No such file or directory"**: Run `make fumpt` once manually to install correct version
 - **PATH issues in git GUIs**: The tool automatically manages GOPATH/bin in PATH during execution
-- **Version conflicts**: Ensure `PRE_COMMIT_SYSTEM_FUMPT_VERSION=v0.7.0` is set in `.env.shared`
+- **Version conflicts**: Ensure `GO_PRE_COMMIT_FUMPT_VERSION=v0.7.0` is set in `.env.shared`
 
 **Environment Verification:**
 ```bash

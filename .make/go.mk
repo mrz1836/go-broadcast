@@ -129,9 +129,9 @@ fumpt: ## Run fumpt to format Go code
 	@GOPATH=$$(go env GOPATH); \
 	if [ -z "$$GOPATH" ]; then GOPATH=$$HOME/go; fi; \
 	export PATH="$$GOPATH/bin:$$PATH"; \
-	if [ -n "$${PRE_COMMIT_SYSTEM_FUMPT_VERSION}" ]; then \
-		echo "Installing gofumpt $${PRE_COMMIT_SYSTEM_FUMPT_VERSION}..."; \
-		go install mvdan.cc/gofumpt@$${PRE_COMMIT_SYSTEM_FUMPT_VERSION}; \
+	if [ -n "$${GO_PRE_COMMIT_FUMPT_VERSION}" ]; then \
+		echo "Installing gofumpt $${GO_PRE_COMMIT_FUMPT_VERSION}..."; \
+		go install mvdan.cc/gofumpt@$${GO_PRE_COMMIT_FUMPT_VERSION}; \
 	else \
 		echo "Installing gofumpt latest..."; \
 		go install mvdan.cc/gofumpt@latest; \
