@@ -1,0 +1,25 @@
+{
+    "name": "GoFortress Coverage",
+    "short_name": "Coverage",
+    "icons": [
+        {
+            "src": "./images/favicon.ico",
+            "sizes": "32x32",
+            "type": "image/x-icon"
+        },
+        {
+            "src": "./images/favicon-16.svg", 
+            "sizes": "any",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "./images/favicon.svg", 
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ],
+    "theme_color": "#58a6ff",
+    "background_color": "#0d1117",
+    "display": "standalone",
+    "start_url": "."
+}
