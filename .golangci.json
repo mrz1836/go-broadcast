@@ -115,9 +115,6 @@
 			"funcorder": {
 				"constructor-after-struct": true
 			},
-			"revive": {
-				"config": ".revive.toml"
-			},
 			"dogsled": {
 				"max-blank-identifiers": 2
 			},
