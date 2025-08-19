@@ -46,8 +46,8 @@ func TestExecute(t *testing.T) {
 			},
 		},
 		{
-			name: "Version command",
-			args: []string{"go-broadcast", "version"},
+			name: "Version flag",
+			args: []string{"go-broadcast", "--version"},
 			setupFunc: func() {
 				// Set version info for test
 				SetVersionInfo("test-version", "test-commit", "test-date")
@@ -307,8 +307,8 @@ func TestExecuteIntegration(t *testing.T) {
 			},
 		},
 		{
-			name: "Version command integration",
-			args: []string{"go-broadcast", "version"},
+			name: "Version flag integration",
+			args: []string{"go-broadcast", "--version"},
 			verifyOutput: func(t *testing.T, stdout, stderr string) {
 				assert.Contains(t, stdout, "go-broadcast")
 				assert.Contains(t, stdout, "Go Version:")

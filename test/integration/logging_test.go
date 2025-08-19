@@ -641,7 +641,7 @@ groups:
 		// Test that log format is consistent across different commands
 		commands := [][]string{
 			{"validate", "--config", configPath, "--json"},
-			{"version", "--json"},
+			{"--version", "--json"},
 			{"diagnose"},
 		}
 

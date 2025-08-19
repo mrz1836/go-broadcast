@@ -26,7 +26,7 @@ func TestNewRootCmd(t *testing.T) {
 	assert.True(t, cmd.SilenceErrors)
 
 	// Check subcommands
-	subcommands := []string{"sync", "status", "validate", "version", "diagnose"}
+	subcommands := []string{"sync", "status", "validate", "diagnose"}
 	for _, name := range subcommands {
 		t.Run(fmt.Sprintf("HasCommand%s", name), func(t *testing.T) {
 			found := false
@@ -518,7 +518,7 @@ func TestRootCommandIntegration(t *testing.T) {
 	assert.NotNil(t, cmd.PersistentPreRunE)
 
 	// Check that all expected subcommands exist
-	expectedCommands := []string{"sync", "status", "validate", "version", "diagnose"}
+	expectedCommands := []string{"sync", "status", "validate", "diagnose"}
 	for _, expected := range expectedCommands {
 		found := false
 		for _, sub := range cmd.Commands() {
