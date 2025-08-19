@@ -1,5 +1,5 @@
 /* =================================================================
-   GoFortress Coverage Styles
+   Go Coverage Styles
    Code coverage visualization for dashboard and reports
    ================================================================= */
 
@@ -1342,7 +1342,7 @@ body::before {
     color: var(--color-text-secondary);
 }
 
-.gofortress-link {
+.go-coverage-link {
     display: flex;
     align-items: center;
     gap: 0.4rem;
@@ -1353,17 +1353,17 @@ body::before {
     border-radius: 8px;
 }
 
-.gofortress-link:hover {
+.go-coverage-link:hover {
     background: var(--color-bg-tertiary);
     transform: translateY(-1px);
     color: var(--color-text);
 }
 
-.fortress-icon {
+.coverage-icon {
     font-size: 1.2rem;
 }
 
-.fortress-text {
+.coverage-text {
     font-weight: 600;
 }
 
