@@ -751,7 +751,7 @@ groups:
 * **Security Posture by Default** with [CodeQL](https://docs.github.com/en/github/finding-security-vulnerabilities-and-errors-in-your-code/about-code-scanning), [OpenSSF Scorecard](https://openssf.org), and secret‑leak detection via [gitleaks](https://github.com/gitleaks/gitleaks).
 * **Automatic Syndication** to [pkg.go.dev](https://pkg.go.dev/) on every release for instant godoc visibility.
 * **Polished Community Experience** using rich templates for [Issues & PRs](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-go-broadcastsitory).
-* **All the Right Meta Files** (`LICENSE`, `CITATION.cff`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SUPPORT.md`, `SECURITY.md`) pre‑filled and ready.
+* **All the Right Meta Files** (`LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SUPPORT.md`, `SECURITY.md`) pre‑filled and ready.
 * **Code Ownership** clarified through a [CODEOWNERS](.github/CODEOWNERS) file, keeping reviews fast and focused.
 * **Zero‑Noise Dev Environments** with tuned editor settings (`.editorconfig`) plus curated *ignore* files for [VS Code](.editorconfig), [Docker](.dockerignore), and [Git](.gitignore).
 * **Label Sync Magic**: your repo labels stay in lock‑step with [.github/labels.yml](.github/labels.yml).
@@ -786,12 +786,6 @@ To generate a snapshot (non-versioned) release for testing purposes, run:
 make release-snap
 ```
 
-Before tagging a new version, update the release metadata (version) in the `CITATION.cff` file:
-
-```bash
-make citation version=0.2.1
-```
-
 Then create and push a new Git tag using:
 
 ```bash
@@ -822,7 +816,6 @@ bench-cpu             ## Run benchmarks with CPU profiling
 bench-full            ## Run comprehensive benchmarks with multiple iterations
 bench-save            ## Save current benchmark results as baseline
 build-go              ## Build the Go application (locally)
-citation              ## Update version in CITATION.cff (use version=X.Y.Z)
 clean-mods            ## Remove all the Go mod cache
 coverage              ## Show test coverage
 diff                  ## Show git diff and fail if uncommitted changes exist

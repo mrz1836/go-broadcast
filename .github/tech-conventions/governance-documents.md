@@ -24,7 +24,6 @@ Most governance documents live in the repository root or `.github/` directory:
 │   ├── CONTRIBUTING.md     # Contribution guidelines
 │   ├── SECURITY.md         # Security policy
 │   └── SUPPORT.md          # Support resources
-├── CITATION.cff            # Academic citation metadata (if applicable)
 ├── LICENSE                 # Legal license terms
 └── README.md               # Project overview
 ```
@@ -178,24 +177,6 @@ Should define:
 <br><br>
 
 ## 📊 Metadata Files
-
-### CITATION.cff
-**Purpose**: How to cite the project in academic work
-**Location**: Repository root
-**Required**: For research software
-
-Format (YAML):
-```yaml
-cff-version: 1.2.0
-title: "Project Name"
-authors:
-  - family-names: "Doe"
-    given-names: "Jane"
-    orcid: "https://orcid.org/0000-0000-0000-0000"
-version: 1.0.0
-date-released: 2024-01-01
-url: "https://github.com/owner/repo"
-```
 
 ### FUNDING.yml
 **Purpose**: Display funding options on GitHub
