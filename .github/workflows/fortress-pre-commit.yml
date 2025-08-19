@@ -135,20 +135,20 @@ jobs:
           echo "  • System Enabled: ${{ env.ENABLE_GO_PRE_COMMIT }}"
           echo "  • Tool Version: ${{ env.GO_PRE_COMMIT_VERSION }}"
           echo "  • Use Local Build: ${{ env.GO_PRE_COMMIT_USE_LOCAL }}"
-          echo "  • Enabled Checks: ${{ env.GO_PRE_COMMIT_ENABLED_CHECKS }}"
+          echo "  • Log Level: ${{ env.GO_PRE_COMMIT_LOG_LEVEL }}"
           echo "  • Fail Fast: ${{ env.GO_PRE_COMMIT_FAIL_FAST }}"
           echo "  • Timeout: ${{ env.GO_PRE_COMMIT_TIMEOUT_SECONDS }} seconds"
-          echo "  • Verbose Output: ${{ env.GO_PRE_COMMIT_VERBOSE_OUTPUT }}"
+          echo "  • Parallel Workers: ${{ env.GO_PRE_COMMIT_PARALLEL_WORKERS }}"
           echo ""
           echo "🔧 Tool Versions:"
-          echo "  • Go Version Required: ${{ env.GO_PRE_COMMIT_GO_VERSION_REQUIRED }}"
+          echo "  • Max File Size: ${{ env.GO_PRE_COMMIT_MAX_FILE_SIZE_MB }} MB"
           echo "  • golangci-lint: ${{ env.GO_PRE_COMMIT_GOLANGCI_LINT_VERSION }}"
           echo "  • gofumpt: ${{ env.GO_PRE_COMMIT_FUMPT_VERSION }}"
-          echo "  • govulncheck: ${{ env.GO_PRE_COMMIT_GOVULNCHECK_VERSION }}"
+          echo "  • goimports: ${{ env.GO_PRE_COMMIT_GOIMPORTS_VERSION }}"
           echo ""
-          echo "📁 Exclusions:"
-          echo "  • Paths: ${{ env.GO_PRE_COMMIT_EXCLUDE_PATHS }}"
-          echo "  • Files: ${{ env.GO_PRE_COMMIT_EXCLUDE_FILES }}"
+          echo "📁 Configuration:"
+          echo "  • Exclude Patterns: ${{ env.GO_PRE_COMMIT_EXCLUDE_PATTERNS }}"
+          echo "  • Color Output: ${{ env.GO_PRE_COMMIT_COLOR_OUTPUT }}"
           echo ""
           echo "🔧 Individual Checks:"
           echo "  • fumpt: ${{ env.GO_PRE_COMMIT_ENABLE_FUMPT }}"
@@ -273,8 +273,8 @@ jobs:
           echo "🔍 Executing checks on all files..."
           CHECKS_OUTPUT=$("${{ env.GO_PRE_COMMIT_BINARY }}" run --all-files 2>&1) || CHECKS_EXIT=$?
 
-          # Strip ANSI color codes for clean GitHub Actions output
-          echo "$CHECKS_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g'
+          # Strip ANSI color codes and filter out redundant summary lines
+          echo "$CHECKS_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g' | grep -v -E '◆\[[0-9]+m.*passed.*file\(s\) in|^All checks passed!'
 
           # Extract executed checks from output (if format allows)
           EXECUTED_CHECKS=$(echo "$CHECKS_OUTPUT" | grep -E "Running:|Executing:|✓" | sed 's/.*Running: //;s/.*Executing: //;s/.*✓ //' | tr '\n' ',' | sed 's/,$//' || echo "fumpt,lint,mod-tidy,whitespace,eof")
