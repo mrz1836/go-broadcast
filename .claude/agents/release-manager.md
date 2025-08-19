@@ -21,7 +21,6 @@ When invoked, you must follow these steps:
    - Identify the appropriate version bump type (major, minor, patch)
 
 2. **Update Version Information**
-   - Update version in CITATION.cff using `make citation version=X.Y.Z`
    - Verify the version format follows semantic versioning (X.Y.Z)
    - Check for any other version references that need updating
 
@@ -86,7 +85,6 @@ Tag: vX.Y.Z
 Status: [SUCCESS|FAILED|PARTIAL]
 
 STEPS COMPLETED:
-✓ Version updated in CITATION.cff
 ✓ Changelog updated (if applicable)
 ✓ Tag created and pushed
 ✓ Release test passed
