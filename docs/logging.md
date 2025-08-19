@@ -283,7 +283,7 @@ go-broadcast diagnose
 
 Output includes:
 - System information (OS, architecture, CPU count)
-- go-broadcast version and build info
+- go-broadcast --version and build info
 - Git and GitHub CLI versions
 - Environment variables (redacted)
 - Configuration file status

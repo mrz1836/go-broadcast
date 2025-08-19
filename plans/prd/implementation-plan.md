@@ -283,7 +283,7 @@ You are building go-broadcast, a stateless File Sync Orchestrator that synchroni
 - Implement 'sync' command for repository synchronization
 - Add 'status' command to show sync state
 - Create 'validate' command for config validation
-- Add 'version' command with build info
+- Add '--version' flag with build info
 - Set up structured logging with logrus
 - Add --dry-run, --config, and --log-level flags"
 
@@ -340,7 +340,7 @@ go build -o go-broadcast cmd/go-broadcast/main.go
 ./go-broadcast sync --help
 
 # Test version command
-./go-broadcast version
+./go-broadcast --version
 
 # Test config validation
 ./go-broadcast validate --config examples/sync.yaml

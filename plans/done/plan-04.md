@@ -2385,7 +2385,7 @@ gh run list --repo owner/repo | grep "in_progress" | \
 # health-check.sh
 
 # Test basic functionality
-if ! go-broadcast version > /dev/null 2>&1; then
+if ! go-broadcast --version > /dev/null 2>&1; then
     echo "ERROR: go-broadcast not responding"
     exit 1
 fi

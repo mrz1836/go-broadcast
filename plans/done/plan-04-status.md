@@ -492,7 +492,7 @@ With `--json` enabled:
   - Full integration with existing verbose and debug systems
 - **Comprehensive Diagnostic Command**: Created new `diagnose` subcommand for system troubleshooting
   - System information collection (OS, architecture, CPU count, hostname, user home)
-  - Version information gathering (go-broadcast version, build info, Go version)
+  - Version information gathering (go-broadcast --version, build info, Go version)
   - Git and GitHub CLI version detection with error handling
   - Environment variable collection with automatic sensitive data redaction
   - Configuration file status analysis with existence and validation checks

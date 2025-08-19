@@ -969,7 +969,7 @@ go-broadcast diagnose
 
 # Information collected includes:
 # - System details (OS, architecture, CPU count, hostname)
-# - go-broadcast version and build information
+# - go-broadcast --version and build information
 # - Git and GitHub CLI versions
 # - Environment variables (sensitive data automatically redacted)
 # - Configuration file status and validation results

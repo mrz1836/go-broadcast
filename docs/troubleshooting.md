@@ -825,7 +825,7 @@ if ! command -v go-broadcast &> /dev/null; then
 fi
 
 # Check version
-echo "✅ Version: $(go-broadcast version 2>/dev/null || echo 'Unknown')"
+echo "✅ Version: $(go-broadcast --version 2>/dev/null || echo 'Unknown')"
 
 # Check dependencies
 echo "✅ Git: $(git --version)"

@@ -72,7 +72,7 @@
 - ✅ `go-broadcast sync --dry-run` - Functions as expected
 - ✅ `go-broadcast status` - Displays correct information
 - ✅ `go-broadcast diagnose` - Comprehensive diagnostic output
-- ✅ `go-broadcast version` - Accurate version information
+- ✅ `go-broadcast --version` - Accurate version information
 
 **Configuration Validation:**
 - ✅ `examples/minimal.yaml` - Valid and functional
