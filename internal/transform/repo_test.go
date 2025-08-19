@@ -236,6 +236,67 @@ The go-broadcast tool is amazing!`,
 The go-coverage tool is amazing!`,
 			wantError: false,
 		},
+		{
+			name: "real world vscode settings with full content",
+			content: `{
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "[go.mod]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "go.useLanguageServer": true,
+    "gopls": {
+        "formatting.local": "github.com/mrz1836/go-broadcast",
+        "formatting.gofumpt": true
+    },
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": ["--verbose"],
+    "[go][go.mod]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    }
+}`,
+			ctx: Context{
+				SourceRepo: "mrz1836/go-broadcast",
+				TargetRepo: "mrz1836/go-pre-commit",
+				FilePath:   ".vscode/settings.json",
+			},
+			wantContent: `{
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "[go.mod]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "go.useLanguageServer": true,
+    "gopls": {
+        "formatting.local": "github.com/mrz1836/go-pre-commit",
+        "formatting.gofumpt": true
+    },
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": ["--verbose"],
+    "[go][go.mod]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    }
+}`,
+			wantError: false,
+		},
 	}
 
 	for _, tt := range tests {

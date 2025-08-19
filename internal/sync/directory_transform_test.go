@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
@@ -22,6 +23,7 @@ import (
 // Test error variables
 var (
 	ErrGitTreeNotImplemented = errors.New("git tree not implemented in mock")
+	ErrFileNotFound          = errors.New("file not found")
 )
 
 // DirectoryTransformTestSuite tests comprehensive directory transformation scenarios
@@ -1040,4 +1042,148 @@ func (m *DirectoryMockTransformChain) Transform(_ context.Context, content []byt
 	}
 
 	return []byte(result), nil
+}
+
+// DirectoryRealTransformChain provides a real transform chain for testing actual transformations
+type DirectoryRealTransformChain struct {
+	transformers []transform.Transformer
+}
+
+// Add implements the Chain interface
+func (m *DirectoryRealTransformChain) Add(transformer transform.Transformer) transform.Chain {
+	m.transformers = append(m.transformers, transformer)
+	return m
+}
+
+// Transformers implements the Chain interface
+func (m *DirectoryRealTransformChain) Transformers() []transform.Transformer {
+	if len(m.transformers) == 0 {
+		// Initialize with the real repo transformer
+		m.transformers = append(m.transformers, transform.NewRepoTransformer())
+	}
+	return m.transformers
+}
+
+// Transform implements the real Transform method using actual transformers
+func (m *DirectoryRealTransformChain) Transform(_ context.Context, content []byte, transformCtx transform.Context) ([]byte, error) {
+	result := content
+
+	// Apply all transformers in the chain
+	for _, transformer := range m.Transformers() {
+		var err error
+		result, err = transformer.Transform(result, transformCtx)
+		if err != nil {
+			return nil, fmt.Errorf("transformation failed with %s: %w", transformer.Name(), err)
+		}
+	}
+
+	return result, nil
+}
+
+// TestVSCodeSettingsRealWorldTransformation tests the specific case reported
+// where .vscode/settings.json wasn't being transformed correctly during sync
+func (suite *DirectoryTransformTestSuite) TestVSCodeSettingsRealWorldTransformation() {
+	ctx := context.Background()
+
+	// Create a temporary source directory with .vscode/settings.json
+	tmpDir := suite.T().TempDir()
+	vscodeDir := filepath.Join(tmpDir, ".vscode")
+	suite.Require().NoError(os.MkdirAll(vscodeDir, 0o750))
+
+	// Write the exact content from the real .vscode/settings.json file
+	settingsContent := `{
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "[go.mod]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "go.useLanguageServer": true,
+    "gopls": {
+        "formatting.local": "github.com/mrz1836/go-broadcast",
+        "formatting.gofumpt": true
+    },
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": ["--verbose"],
+    "[go][go.mod]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    }
+}`
+	settingsPath := filepath.Join(vscodeDir, "settings.json")
+	suite.Require().NoError(os.WriteFile(settingsPath, []byte(settingsContent), 0o600))
+
+	// Configure the directory mapping for .vscode
+	dirMapping := config.DirectoryMapping{
+		Src:  ".vscode",
+		Dest: ".vscode",
+		Transform: config.Transform{
+			RepoName: true,
+		},
+	}
+
+	// Set up target config for go-pre-commit repository
+	targetConfig := config.TargetConfig{
+		Repo: "mrz1836/go-pre-commit",
+		Transform: config.Transform{
+			RepoName: true,
+		},
+	}
+
+	sourceState := &state.SourceState{
+		Repo: "mrz1836/go-broadcast",
+	}
+
+	// Create a real engine with the actual repo transformer and a mock GitHub client
+	mockGHClient := gh.NewMockClient()
+	// Configure mock to return "file not found" for any GetFile call so all files are treated as new
+	mockGHClient.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return((*gh.FileContent)(nil), ErrFileNotFound)
+
+	realEngine := &Engine{
+		transform: &DirectoryRealTransformChain{},
+		gh:        mockGHClient,
+	}
+
+	// Process the directory mapping
+	changes, err := suite.processor.ProcessDirectoryMapping(
+		ctx, tmpDir, dirMapping, targetConfig, sourceState, realEngine,
+	)
+
+	suite.Require().NoError(err)
+	suite.Require().Len(changes, 1, "Should have exactly one file change for settings.json")
+
+	change := changes[0]
+	suite.Equal(".vscode/settings.json", change.Path)
+
+	// Verify the transformation happened correctly
+	transformedContent := string(change.Content)
+	originalContent := string(change.OriginalContent)
+
+	// Key assertion: formatting.local should be transformed
+	suite.Contains(transformedContent, `"formatting.local": "github.com/mrz1836/go-pre-commit"`,
+		"Should transform formatting.local to target repo")
+	suite.NotContains(transformedContent, `"formatting.local": "github.com/mrz1836/go-broadcast"`,
+		"Should not contain original repo in formatting.local")
+
+	// Verify the original content contained the source repo
+	suite.Contains(originalContent, `"formatting.local": "github.com/mrz1836/go-broadcast"`,
+		"Original content should contain source repo")
+
+	// Verify no other content was changed (except the transformation)
+	suite.Contains(transformedContent, `"go.useLanguageServer": true`)
+	suite.Contains(transformedContent, `"go.lintTool": "golangci-lint"`)
+	suite.Contains(transformedContent, `"formatting.gofumpt": true`)
+
+	suite.logger.WithFields(logrus.Fields{
+		"original_length":    len(originalContent),
+		"transformed_length": len(transformedContent),
+		"file_path":          change.Path,
+	}).Info("VSCode settings transformation test completed successfully")
 }
