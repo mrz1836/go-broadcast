@@ -146,6 +146,11 @@ func (r *repoTransformer) transformConfig(content []byte, sourceOrg, sourceRepo,
 			regex:       regexp.MustCompile(`"` + regexp.QuoteMeta(sourceRepo) + `"`),
 			replacement: fmt.Sprintf(`"%s"`, targetRepo),
 		},
+		// Standalone repository name wherever it appears (with word boundaries)
+		{
+			regex:       regexp.MustCompile(`\b` + regexp.QuoteMeta(sourceRepo) + `\b`),
+			replacement: targetRepo,
+		},
 	}
 
 	result := content
@@ -158,7 +163,26 @@ func (r *repoTransformer) transformConfig(content []byte, sourceOrg, sourceRepo,
 
 // transformGeneral applies general transformations for other file types
 func (r *repoTransformer) transformGeneral(content []byte, sourceOrg, sourceRepo, targetOrg, targetRepo string) []byte {
-	// Only transform obvious repository references
-	pattern := regexp.MustCompile(regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo))
-	return pattern.ReplaceAll(content, []byte(fmt.Sprintf("%s/%s", targetOrg, targetRepo)))
+	patterns := []struct {
+		regex       *regexp.Regexp
+		replacement string
+	}{
+		// Repository references (org/repo format)
+		{
+			regex:       regexp.MustCompile(regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo)),
+			replacement: fmt.Sprintf("%s/%s", targetOrg, targetRepo),
+		},
+		// Standalone repository name wherever it appears (with word boundaries)
+		{
+			regex:       regexp.MustCompile(`\b` + regexp.QuoteMeta(sourceRepo) + `\b`),
+			replacement: targetRepo,
+		},
+	}
+
+	result := content
+	for _, p := range patterns {
+		result = p.regex.ReplaceAll(result, []byte(p.replacement))
+	}
+
+	return result
 }
