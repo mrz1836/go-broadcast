@@ -146,7 +146,7 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 📊 Job Summary
         run: |
-          echo "## 📋 MAGE-X Verification Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🪄 MAGE-X Verification Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| 🔧 Verification Details | ✅ Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY

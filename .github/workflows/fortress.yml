@@ -287,7 +287,7 @@ jobs:
             echo "| Component | Result | Status |"
             echo "|-----------|--------|--------|"
             echo "| 🎯 Setup | ${{ needs.setup.result }} | Required |"
-            echo "| 📋 MAGE-X | ${{ needs.test-magex.result }} | Required |"
+            echo "| 🪄 MAGE-X | ${{ needs.test-magex.result }} | Required |"
             echo "| 🔒 Security | ${{ needs.security.result }} | Required |"
             echo "| 📊 Code Quality | ${{ needs.code-quality.result }} | Required |"
             echo "| 🪝 Pre-commit | ${{ needs.pre-commit.result }} | ${{ needs.setup.outputs.pre-commit-enabled == 'true' && 'Required' || 'Skipped' }} |"
