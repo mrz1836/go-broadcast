@@ -63,12 +63,17 @@ jobs:
           fetch-depth: 0 # Required for changelog generation
           token: ${{ secrets.github-token }}
 
-      - name: 🔧 Set Go cache paths (cross-platform)
-        run: |
-          echo "🔧 Setting up Go cache paths..."
-          echo "GOCACHE=$HOME/.cache/go-build"        >> $GITHUB_ENV
-          echo "GOMODCACHE=$HOME/go/pkg/mod"          >> $GITHUB_ENV
-          echo "GOLANGCI_LINT_CACHE=$HOME/.cache/golangci-lint" >> $GITHUB_ENV
+      # ————————————————————————————————————————————————————————————————
+      # Setup Go with caching and version management
+      # ————————————————————————————————————————————————————————————————
+      - name: 🏗️ Setup Go with Cache
+        id: setup-go-release
+        uses: ./.github/actions/setup-go-with-cache
+        with:
+          go-version: ${{ inputs.go-primary-version }}
+          matrix-os: ${{ inputs.primary-runner }}
+          go-primary-version: ${{ inputs.go-primary-version }}
+          go-secondary-version: ${{ inputs.go-primary-version }}
 
       # ————————————————————————————————————————————————————————————————
       # Validate version tag format
@@ -111,31 +116,6 @@ jobs:
           echo "version=$GORELEASER_VERSION" >> $GITHUB_OUTPUT
 
       # ————————————————————————————————————————————————————————————————
-      # Restore Go module and build caches
-      # ————————————————————————————————————————————————————————————————
-      - name: 💾 Restore Go module cache
-        id: restore-gomod
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ inputs.primary-runner }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
-          restore-keys: |
-            ${{ inputs.primary-runner }}-gomod-
-
-      # ————————————————————————————————————————————————————————————————
-      # Restore build cache from a warm-cache job
-      # ————————————————————————————————————————————————————————————————
-      - name: 💾 Restore Go build cache
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/.cache/go-build/test
-          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
-          restore-keys: |
-            ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-
-
-      # ————————————————————————————————————————————————————————————————
       # Restore Cache golangci-lint
       # ————————————————————————————————————————————————————————————————
       - name: 💾 Cache golangci-lint analysis
@@ -143,20 +123,10 @@ jobs:
         uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ env.GOLANGCI_LINT_CACHE }}
-          key: ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}-${{ inputs.golangci-lint-version }}
+          key: ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum') }}-${{ inputs.golangci-lint-version }}
           restore-keys: |
-            ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
+            ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum') }}
             ${{ inputs.primary-runner }}-golangci-lint-analysis-
-
-      # ————————————————————————————————————————————————————————————————
-      # Set up Go environment
-      # ————————————————————————————————————————————————————————————————
-      - name: 🏗️ Set up Go
-        id: setup-go-test
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
-        with:
-          go-version: ${{ inputs.go-primary-version }}
-          cache: false # we handle caches ourselves
 
       # ————————————————————————————————————————————————————————————————
       # Pre-flight config validation
@@ -228,14 +198,14 @@ jobs:
             echo "📦 Package: $GIT_DOMAIN/$REPO_OWNER/$REPO_NAME"
             echo "🏷️ Version: $VERSION_SHORT"
 
-            # Export variables for make godocs
+            # Export variables for godocs
             export GIT_DOMAIN
             export REPO_OWNER
             export REPO_NAME
             export VERSION_SHORT
 
-            # Run make godocs to syndicate to pkg.go.dev
-            if make godocs; then
+            # Run magex godocs to syndicate to pkg.go.dev
+            if magex godocs; then
               echo "✅ Successfully syndicated to Go Docs"
               echo "godocs_published=true" >> $GITHUB_OUTPUT
               echo "godocs_url=https://pkg.go.dev/$GIT_DOMAIN/$REPO_OWNER/$REPO_NAME@$VERSION_SHORT" >> $GITHUB_OUTPUT

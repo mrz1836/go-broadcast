@@ -30,8 +30,8 @@ on:
         description: "Setup job result"
         required: true
         type: string
-      test-makefile-result:
-        description: "Test Makefile job result"
+      test-magex-result:
+        description: "Test MAGE-X job result"
         required: true
         type: string
       security-result:
@@ -330,7 +330,7 @@ jobs:
               echo "| **System** | Internal GoFortress Coverage |" >> $GITHUB_STEP_SUMMARY
               echo "| **Threshold** | ${{ env.COVERAGE_FAIL_UNDER }}% minimum |" >> $GITHUB_STEP_SUMMARY
               echo "| **Badge Style** | ${{ env.COVERAGE_BADGE_STYLE }} |" >> $GITHUB_STEP_SUMMARY
-              echo "| **PR Comments** | $([ "${{ env.COVERAGE_PR_COMMENT_ENABLED }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") |" >> $GITHUB_STEP_SUMMARY
+              echo "| **PR Comments** | $([ "${{ env.GO_COVERAGE_POST_COMMENTS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") |" >> $GITHUB_STEP_SUMMARY
               echo "| **Theme** | ${{ env.COVERAGE_REPORT_THEME }} |" >> $GITHUB_STEP_SUMMARY
             fi
 
@@ -338,7 +338,7 @@ jobs:
             echo "| Job | Status | Result |"
             echo "|-----|--------|--------|"
             echo "| 🎯 Setup Configuration | ${{ inputs.setup-result }} | $([ "${{ inputs.setup-result }}" = "success" ] && echo "✅" || echo "❌") |"
-            echo "| 📋 Test Makefile | ${{ inputs.test-makefile-result }} | $([ "${{ inputs.test-makefile-result }}" = "success" ] && echo "✅" || echo "❌") |"
+            echo "| 🪄 Test MAGE-X | ${{ inputs.test-magex-result }} | $([ "${{ inputs.test-magex-result }}" = "success" ] && echo "✅" || echo "❌") |"
             echo "| 🪝 Pre-commit Checks | ${{ inputs.pre-commit-result }} | $([ "${{ inputs.pre-commit-result }}" = "success" ] && echo "✅" || echo "❌") |"
             echo "| 🔒 Security Scans | ${{ inputs.security-result }} | $([ "${{ inputs.security-result }}" = "success" ] && echo "✅" || echo "❌") |"
             echo "| 📊 Code Quality | ${{ inputs.code-quality-result }} | $([ "${{ inputs.code-quality-result }}" = "success" ] && echo "✅" || echo "❌") |"
@@ -393,7 +393,7 @@ jobs:
             # Add failure analysis if any job failed
             FAILED_JOBS=""
             [ "${{ inputs.setup-result }}" != "success" ] && [ "${{ inputs.setup-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Setup Configuration, "
-            [ "${{ inputs.test-makefile-result }}" != "success" ] && [ "${{ inputs.test-makefile-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Test Makefile, "
+            [ "${{ inputs.test-magex-result }}" != "success" ] && [ "${{ inputs.test-magex-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Test MAGE-X, "
             [ "${{ inputs.pre-commit-result }}" != "success" ] && [ "${{ inputs.pre-commit-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Pre-commit Checks, "
             [ "${{ inputs.security-result }}" != "success" ] && [ "${{ inputs.security-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Security Scans, "
             [ "${{ inputs.code-quality-result }}" != "success" ] && [ "${{ inputs.code-quality-result }}" != "skipped" ] && FAILED_JOBS="${FAILED_JOBS}Code Quality, "

@@ -556,9 +556,9 @@ jobs:
       with:
         go-version: 1.21
     - name: Run tests
-      run: make test
+      run: magex test
     - name: Run linter
-      run: make lint`
+      run: magex lint`
 }
 
 func getStandardReleaseWorkflow() string {
@@ -629,10 +629,10 @@ set -e
 echo "Setting up development environment..."
 
 # Install dependencies
-go mod download
+magex deps:download
 
 # Run initial tests
-make test
+magex test
 
 echo "Setup complete!"`
 }

@@ -12,21 +12,6 @@ The utility removes:
 
 ## Usage
 
-### Via Makefile (Recommended)
-
-```bash
-# Clean up test artifacts
-make clean-test-artifacts
-
-# Dry run to see what would be cleaned
-make clean-test-artifacts-dry
-
-# Clean with verbose output
-make clean-test-artifacts-verbose
-
-# Clean everything (build artifacts + test files)
-make clean-all
-```
 
 ### Direct Usage
 
@@ -55,8 +40,8 @@ go build -o bin/test-cleanup ./cmd/test-cleanup
 ## Integration
 
 This utility is automatically run after:
-- `make test` and related test targets
-- `make bench` and related benchmark targets
+- `magex test` and related test targets
+- `magex bench` and related benchmark targets
 - Integration test suites
 - CI/CD test runs
 

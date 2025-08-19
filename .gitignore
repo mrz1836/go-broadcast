@@ -45,34 +45,11 @@ coverage.txt
 coverage.out
 
 # Coverage binaries
-.github/coverage/cmd/gofortress-coverage/gofortress-coverage
-.github/coverage/gofortress-coverage
-/.github/coverage/cmd/gofortress-coverage/gofortress-coverage
+.github/coverage
 
 # Coverage output directories
 coverage-output/
 test-coverage-output/
-.github/coverage/coverage-output/
-.github/coverage/test-coverage-output/
-# But allow the data directory for build status
-!.github/coverage/coverage-output/data/
-!.github/coverage/coverage-output/data/build-status.json
-
-# Generated coverage HTML files
-.github/coverage/**/coverage.html
-.github/coverage/**/dashboard.html
-.github/coverage/**/index.html
-
-# Example binaries
-examples/monitor/simple
-examples/monitor/advanced
-
-# Artifacts
-artifact
-
-/cmd/profile_demo/coverage.html
-/io_coverage.html
-/coverage.html
 
 ########################
 # Development Tools    #
@@ -98,6 +75,7 @@ node_modules/
 
 # Build artifacts
 dist/
+.mage-cache/
 
 ########################
 # Operating System     #
@@ -115,8 +93,6 @@ dist/
 
 # Generated test fixtures (created by test/fixtures/generate_fixtures.sh)
 test/fixtures/directories/
-/.github/pre-commit/cmd/gofortress-pre-commit/gofortress-pre-commit
-/.github/pre-commit/gofortress-pre-commit
 
 ##########################
 # Benchmarks & Examples  #

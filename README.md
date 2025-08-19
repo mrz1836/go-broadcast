@@ -53,9 +53,6 @@
         <a href=".github/AGENTS.md" target="_blank">
           <img src="https://img.shields.io/badge/AGENTS.md-found-40b814?style=flat&logo=openai" alt="AGENTS.md rules">
         </a><br/>
-        <a href="Makefile" target="_blank">
-          <img src="https://img.shields.io/badge/Makefile-supported-brightgreen?style=flat&logo=probot&logoColor=white" alt="Makefile Supported">
-        </a><br/>
 		<a href=".github/dependabot.yml" target="_blank">
           <img src="https://img.shields.io/badge/dependencies-automatic-blue?logo=dependabot&style=flat" alt="Dependabot">
         </a>
@@ -82,7 +79,6 @@
 * [Key Features](#-key-features)
 * [How It Works](#-how-it-works)
 * [Usage Examples](#-usage-examples)
-* [Coverage System](#-coverage-system)
 * [Performance](#-performance)
 * [Documentation](#-documentation)
 * [Examples & Tests](#-examples--tests)
@@ -158,12 +154,12 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 ┌─────────────────────────────────────────────────────────────────
 │ Message: sync: update 2 files from source repository
 │ Files: 2 changed
-│ README.md, Makefile
+│ README.md, .mage.yaml
 └─────────────────────────────────────────────────────────────────
 
 📄 FILE CHANGES:
    ✨ README.md (added) (+1249 bytes)
-   📝 Makefile (modified) (+45 bytes)
+   📝 .mage.yaml (modified) (+45 bytes)
 
 🔍 DRY-RUN: Pull Request Preview
 ┌─────────────────────────────────────────────────────────────────
@@ -178,7 +174,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 │ ## Changed Files
 │
 │ - `README.md` (added)
-│ - `Makefile` (modified)
+│ - `.mage.yaml` (modified)
 └─────────────────────────────────────────────────────────────────
 
 ✅ DRY-RUN SUMMARY: Repository sync preview completed successfully
@@ -197,7 +193,7 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 - Commits synchronized files
 - Opens a pull request for review
 
-> **💡 Pro tip:** go-broadcast includes a [built-in coverage system](#-coverage-system), [enterprise performance](#-performance), and comprehensive logging & debugging - explore the features below!
+> **💡 Pro tip:** go-broadcast includes a [built-in coverage system](https://github.com/mrz1836/go-coverage), [enterprise performance](#-performance), and comprehensive logging & debugging - explore the features below!
 
 <br/>
 
@@ -742,7 +738,7 @@ groups:
 
 * **Continuous Integration on Autopilot** with [GitHub Actions](https://github.com/features/actions) – every push is built, tested, and reported in minutes.
 * **Pull‑Request Flow That Merges Itself** thanks to [auto‑merge](.github/workflows/auto-merge-on-approval.yml) and hands‑free [Dependabot auto‑merge](.github/workflows/dependabot-auto-merge.yml).
-* **One‑Command Builds** powered by battle‑tested [Make](https://www.gnu.org/software/make) targets for linting, testing, releases, and more.
+* **One‑Command Builds** powered by battle‑tested [MAGE-X](https://github.com/mrz1836/mage-x) targets for linting, testing, releases, and more.
 * **First‑Class Dependency Management** using native [Go Modules](https://github.com/golang/go/wiki/Modules).
 * **Uniform Code Style** via [gofumpt](https://github.com/mvdan/gofumpt) plus zero‑noise linting with [golangci‑lint](https://github.com/golangci/golangci-lint).
 * **Confidence‑Boosting Tests** with [testify](https://github.com/stretchr/testify), the Go [race detector](https://blog.golang.org/race-detector), crystal‑clear [HTML coverage](https://blog.golang.org/cover) snapshots, and automatic reporting via internal coverage system.
@@ -762,8 +758,8 @@ groups:
 * **Optional Release Broadcasts** to your community via [Slack](https://slack.com), [Discord](https://discord.com), or [Twitter](https://twitter.com) – plug in your webhook.
 * **AI Compliance Playbook** – machine‑readable guidelines ([AGENTS.md](.github/AGENTS.md), [CLAUDE.md](.github/CLAUDE.md), [.cursorrules](.cursorrules), [sweep.yaml](.github/sweep.yaml)) keep ChatGPT, Claude, Cursor & Sweep aligned with your repo's rules.
 * **20+ Powerful Slash Commands** – Claude Code commands that coordinate 26 specialized AI agents for automated workflows like `/test`, `/security`, `/release`, and more. See [docs/slash-commands.md](docs/slash-commands.md).
-* **GoFortress Pre-commit System** - High-performance Go-native pre-commit hooks with 17x faster execution—run the same formatting, linting, and tests before every commit, just like CI.
-* **Zero Python Dependencies** - Pure Go implementation with environment-based configuration via [.env.shared](.github/.env.shared).
+* **Go-Pre-commit System** - [High-performance Go-native pre-commit hooks](https://github.com/mrz1836/go-pre-commit) with 17x faster execution—run the same formatting, linting, and tests before every commit, just like CI.
+* **Zero Python Dependencies** - Pure Go implementation with environment-based configuration via [.env.base](.github/.env.base).
 * **DevContainers for Instant Onboarding** – Launch a ready-to-code environment in seconds with [VS Code DevContainers](https://containers.dev/) and the included [.devcontainer.json](.devcontainer.json) config.
 
 </details>
@@ -780,16 +776,11 @@ brew install goreleaser
 
 The release process is defined in the [.goreleaser.yml](.goreleaser.yml) configuration file.
 
-To generate a snapshot (non-versioned) release for testing purposes, run:
-
-```bash
-make release-snap
-```
 
 Then create and push a new Git tag using:
 
 ```bash
-make tag version=x.y.z
+magex version:bump push=true bump=patch
 ```
 
 This process ensures consistent, repeatable releases with properly versioned artifacts and citation metadata.
@@ -797,68 +788,14 @@ This process ensures consistent, repeatable releases with properly versioned art
 </details>
 
 <details>
-<summary><strong>🔨 Makefile Commands</strong></summary>
+<summary><strong><code>🔨 Build Commands</code></strong></summary>
 <br/>
 
-View all `makefile` commands
+View all build commands
 
 ```bash script
-make help
+magex help
 ```
-
-List of all current commands:
-
-<!-- make-help-start -->
-```text
-bench                 ## Run all benchmarks in the Go application
-bench-compare         ## Run benchmarks and save results for comparison
-bench-cpu             ## Run benchmarks with CPU profiling
-bench-full            ## Run comprehensive benchmarks with multiple iterations
-bench-save            ## Save current benchmark results as baseline
-build-go              ## Build the Go application (locally)
-clean-mods            ## Remove all the Go mod cache
-coverage              ## Show test coverage
-diff                  ## Show git diff and fail if uncommitted changes exist
-fumpt                 ## Run fumpt to format Go code
-generate              ## Run go generate in the base of the repo
-godocs                ## Trigger GoDocs tag sync
-govulncheck-install   ## Install govulncheck (pass VERSION= to override)
-govulncheck           ## Scan for vulnerabilities
-help                  ## Display this help message
-install-go            ## Install using go install with specific version
-install-releaser      ## Install GoReleaser
-install-stdlib        ## Install the Go standard library for the host platform
-install               ## Install the application binary
-lint-version          ## Show the golangci-lint version
-lint                  ## Run the golangci-lint application (install if not found)
-loc                   ## Total lines of code table
-mod-download          ## Download Go module dependencies
-mod-tidy              ## Clean up go.mod and go.sum
-pre-build             ## Pre-build all packages to warm cache
-release-snap          ## Build snapshot binaries
-release-test          ## Run release dry-run (no publish)
-release               ## Run production release (requires github_token)
-tag-remove            ## Remove local and remote tag (use version=X.Y.Z)
-tag-update            ## Force-update tag to current commit (use version=X.Y.Z)
-tag                   ## Create and push a new tag (use version=X.Y.Z)
-test-ci-no-race       ## CI test suite without race detector
-test-ci               ## CI test runs tests with race detection and coverage (no lint - handled separately)
-test-cover-race       ## Runs unit tests with race detector and outputs coverage
-test-cover            ## Unit tests with coverage (no race)
-test-fuzz             ## Run fuzz tests only (no unit tests)
-test-no-lint          ## Run only tests (no lint)
-test-parallel         ## Run tests in parallel (faster for large repos)
-test-race             ## Unit tests with race detector (no coverage)
-test-short            ## Run tests excluding integration tests (no lint)
-test                  ## Default testing uses lint + unit tests (fast)
-uninstall             ## Uninstall the Go binary
-update-linter         ## Upgrade golangci-lint (macOS only)
-update-releaser       ## Reinstall GoReleaser
-update                ## Update dependencies
-vet-parallel          ## Run go vet in parallel (faster for large repos)
-vet                   ## Run go vet only on your module packages
-```
-<!-- make-help-end -->
 
 </details>
 
@@ -869,8 +806,12 @@ vet                   ## Run go vet only on your module packages
 
 ### 🎛️ The Workflow Control Center
 
-All GitHub Actions workflows in this repository are powered by a single configuration file: [**.env.shared**](.github/.env.shared) – your one-stop shop for tweaking CI/CD behavior without touching a single YAML file! 🎯
+All GitHub Actions workflows in this repository are powered by a single configuration files – your one-stop shop for tweaking CI/CD behavior without touching a single YAML file! 🎯
 
+**Configuration Files:**
+- **[.env.base](.github/.env.base)** – Default configuration that works for most Go projects
+- **[.env.custom](.github/.env.custom)** – Optional project-specific overrides
+- 
 This magical file controls everything from:
 - **⚙️ Go version matrix** (test on multiple versions or just one)
 - **🏃 Runner selection** (Ubuntu or macOS, your wallet decides)
@@ -878,8 +819,6 @@ This magical file controls everything from:
 - **🛡️ Security tool versions** (gitleaks, nancy, govulncheck)
 - **🤖 Auto-merge behaviors** (how aggressive should the bots be?)
 - **🏷️ PR management rules** (size labels, auto-assignment, welcome messages)
-
-> **Pro tip:** Want to disable code coverage? Just flip `ENABLE_CODE_COVERAGE=false` in [.env.shared](.github/.env.shared) and push. No YAML archaeology required!
 
 <br/>
 
@@ -903,7 +842,7 @@ This magical file controls everything from:
 To update all dependencies (Go modules, linters, and related tools), run:
 
 ```bash
-make update
+magex deps:update
 ```
 
 This command ensures all dependencies are brought up to date in a single step, including Go modules and any tools managed by the Makefile. It is the recommended way to keep your development environment and CI in sync with the latest versions.
@@ -917,12 +856,11 @@ This command ensures all dependencies are brought up to date in a single step, i
 Set up the GoFortress Pre-commit System to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
 
 ```bash
-cd .github/pre-commit
-make build
-./gofortress-pre-commit install
+go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@latest
+go-pre-commit install
 ```
 
-The system is configured via [.env.shared](.github/.env.shared) and provides 17x faster execution than traditional Python-based pre-commit hooks. See the [complete documentation](.github/pre-commit/README.md) for details.
+The system is configured via [.env.shared](.github/.env.base) and provides 17x faster execution than traditional Python-based pre-commit hooks. See the [complete documentation](http://github.com/mrz1836/go-pre-commit) for details.
 
 </details>
 
@@ -1052,138 +990,6 @@ For more detailed information, see the [comprehensive logging guide](docs/loggin
 
 </details>
 
-<details>
-<summary><strong>📊 Coverage System</strong></summary>
-
-## 🚀 Coverage System
-
-**Self-hosted coverage solution** - Complete data privacy, zero external dependencies, and enterprise-grade features.
-
-<table>
-  <tr>
-    <td><a href="https://mrz1836.github.io/go-broadcast/" target="_blank"><img src="https://mrz1836.github.io/go-broadcast/coverage.svg" alt="Main Branch Coverage" /></a></td>
-    <td><a href="https://mrz1836.github.io/go-broadcast/" target="_blank"><img src="https://img.shields.io/badge/coverage-87.2%25-brightgreen?style=flat-square" alt="Flat Square Style" /></a></td>
-    <td><a href="https://mrz1836.github.io/go-broadcast/" target="_blank"><img src="https://img.shields.io/badge/trend-%E2%86%97%20improving-green?style=for-the-badge" alt="Trend Badge" /></a></td>
-  </tr>
-</table>
-
-🔗 **[View Dashboard](https://mrz1836.github.io/go-broadcast/?v=1)**
-
-
-<details>
-<summary><strong>📊 Quick Setup</strong></summary>
-
-### ⚡ Quick Setup
-
-Enable in 2 steps:
-
-```bash
-# 1. Enable in .github/.env.shared
-ENABLE_INTERNAL_COVERAGE=true
-COVERAGE_FAIL_UNDER=80
-
-# 2. Set GitHub Pages source to "GitHub Actions"
-# Repository Settings → Pages → Source → "GitHub Actions"
-```
-
-That's it! Push any commit and get:
-- ✅ Professional coverage badges
-- ✅ Interactive dashboard
-- ✅ PR comments with analysis
-- ✅ GitHub Pages deployment
-
-</details>
-
-<details>
-<summary><strong>🎯 Complete Feature List & Advanced Configuration</strong></summary>
-
-### Core Features
-
-#### Professional Coverage Badges
-- **GitHub-style badges** with multiple themes (flat, flat-square, for-the-badge)
-- **Real-time updates** on every push and pull request
-- **Branch-specific badges** for `master` and PR branches
-- **PR-specific badges** for pull request analysis
-
-#### Interactive Coverage Dashboard
-- **Modern, responsive UI** with dark/light theme support
-- **Real-time metrics** with animated progress indicators
-- **Historical trend** showing trend from last push
-- **Responsive design** that works on desktop and mobile
-- **Zero external dependencies** - fully self-contained
-
-#### Intelligent PR Coverage Comments
-- **Coverage analysis** comparing base vs PR branches
-- **File-level breakdown** showing coverage changes
-- **Smart anti-spam logic** to prevent comment noise on multiple pushes
-- **Comprehensive PR comments** with detailed coverage analysis
-
-#### Analytics & Insights
-- **Google Analytics integration** for detailed usage tracking
-- **Historical trend tracking** with basic trend analysis
-- **Coverage history** stored in JSON format
-- **Retention policies** for automatic data cleanup
-
-#### GitHub Pages Deployment
-- **Automatic GitHub Pages integration** with organized storage
-- **PR-specific deployments** with isolated coverage reports
-- **Automatic cleanup** of expired PR data
-- **Simple CLI** with 3 core commands (complete, comment, history)
-
-### Advanced Configuration
-
-The coverage system includes 45+ configuration options for complete customization:
-
-#### 🎨 Badge & Theme Configuration
-```bash
-COVERAGE_BADGE_STYLE=flat                # flat, flat-square, for-the-badge
-COVERAGE_BADGE_LOGO=                     # Logo: go, github, custom URL (empty for no logo)
-COVERAGE_REPORT_THEME=github-dark        # Dashboard theme
-COVERAGE_THRESHOLD_EXCELLENT=90          # Green badge threshold
-COVERAGE_THRESHOLD_GOOD=80               # Yellow-green threshold
-```
-
-#### 📊 Analytics & Reporting
-```bash
-COVERAGE_ENABLE_TREND_ANALYSIS=true      # Historical trend tracking
-COVERAGE_ENABLE_PACKAGE_BREAKDOWN=true   # Package-level coverage
-COVERAGE_HISTORY_RETENTION_DAYS=90       # Data retention period
-COVERAGE_CLEANUP_PR_AFTER_DAYS=7         # PR cleanup schedule
-```
-
-#### 🔔 PR Comment Configuration
-```bash
-COVERAGE_PR_COMMENT_ENABLED=true         # Enable PR comments
-COVERAGE_PR_COMMENT_SHOW_TREE=true       # Show file tree in PR comments
-COVERAGE_PR_COMMENT_SHOW_MISSING=true    # Highlight uncovered lines
-COVERAGE_PR_COMMENT_BEHAVIOR=update      # Comment behavior: new, update, delete-and-new
-```
-
-### GitHub Pages URLs
-
-#### Main Branch Coverage
-- **Coverage Badge**: `https://mrz1836.github.io/go-broadcast/coverage.svg`
-- **Coverage Dashboard**: `https://mrz1836.github.io/go-broadcast/`
-- **Coverage Report**: `https://mrz1836.github.io/go-broadcast/coverage.html`
-
-#### Branch-Specific Coverage
-- **Branch Badge**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/coverage.svg`
-- **Branch Dashboard**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/`
-- **Branch Report**: `https://mrz1836.github.io/go-broadcast/coverage/branch/{branch-name}/coverage.html`
-
-#### Pull Request Coverage
-- **PR Badge**: `https://mrz1836.github.io/go-broadcast/coverage/pr/{pr-number}/coverage.svg`
-- **PR Coverage Report**: `https://mrz1836.github.io/go-broadcast/coverage/pr/{pr-number}/`
-- **All Branches Index**: `https://mrz1836.github.io/go-broadcast/branches.html` (when deployed from main)
-
-📚 **[Complete Configuration Guide](.github/coverage/docs/coverage-configuration.md)** | 📊 **[API Documentation](.github/coverage/docs/coverage-api.md)** | 🎯 **[Feature Guide](.github/coverage/docs/coverage-features.md)**
-
-</details>
-
-</details>
-
-
-
 <br/>
 
 ## 🧪 Examples & Tests
@@ -1193,12 +999,12 @@ All unit tests and [examples](examples) run via [GitHub Actions](https://github.
 Run all tests (fast):
 
 ```bash script
-make test
+magex test
 ```
 
 Run all tests with race detector (slower):
 ```bash script
-make test-race
+magex test:race
 ```
 
 <br/>
@@ -1222,7 +1028,7 @@ make test-race
 
 ```bash
 # Run all benchmarks
-make bench
+magex bench
 
 # Benchmark specific components
 go test -bench=. -benchmem ./internal/git

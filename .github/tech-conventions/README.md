@@ -57,9 +57,6 @@ Creating and maintaining GitHub Actions workflows with security, reliability, an
 
 ### 🏗️ Build & Project Setup
 
-**[Makefile Usage](makefile-usage.md)**
-Standardized build automation using Make, common commands, patterns, and best practices.
-
 **[Governance Documents](governance-documents.md)**
 Essential project files including LICENSE, README, CODE_OF_CONDUCT, SECURITY, and other governance standards.
 
@@ -99,7 +96,6 @@ Essential project files including LICENSE, README, CODE_OF_CONDUCT, SECURITY, an
 | Add dependencies       | [Dependency Management](dependency-management.md)           |
 | Report security issues | [Security Practices](security-practices.md)                 |
 | Create workflows       | [GitHub Workflows Development](github-workflows.md)         |
-| Use make commands      | [Makefile Usage](makefile-usage.md)                         |
 | Add governance docs    | [Governance Documents](governance-documents.md)             |
 
 <br><br>

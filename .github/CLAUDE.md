@@ -25,25 +25,20 @@ This section provides go-broadcast specific workflows while maintaining `AGENTS.
 **Quick Setup:**
 ```bash
 # Install dependencies and validate environment
-make mod-download
-make install-stdlib
-
-# Build the application locally
-make build-go
-# Or build directly: go build -o go-broadcast ./cmd/go-broadcast
+magex build
 ```
 
 **Core Development Workflow:**
 ```bash
 # Standard development cycle - run before every commit
-make test           # Fast linting + unit tests
-make test-race      # Unit tests with race detector (slower)
-make bench          # Run performance benchmarks
+magex test           # Fast linting + unit tests
+magex test:race      # Unit tests with race detector (slower)
+magex bench          # Run performance benchmarks
 
 # Quality assurance
-make lint           # Run golangci-lint
-make coverage       # Generate and view test coverage
-make govulncheck    # Scan for security vulnerabilities
+magex lint           # Run golangci-lint
+magex test:cover     # Generate and view test coverage
+magex deps:audit     # Scan for security vulnerabilities
 ```
 
 ### ⚡ Testing and Validation
@@ -51,22 +46,12 @@ make govulncheck    # Scan for security vulnerabilities
 **Unit Testing:**
 ```bash
 # Fast testing (recommended for development)
-make test-no-lint   # Skip linting, run only tests
-make test-short     # Skip integration tests
+magex test:unit   # Skip linting, run only tests
+magex test:short  # Skip integration tests
 
 # Comprehensive testing
-make test-ci        # Full CI test suite with race detection
-make test-cover     # Unit tests with coverage report
-make test-all-modules-race  # Test all modules with race detection
-```
-
-**Integration Testing:**
-```bash
-# Phase-specific integration tests
-make test-integration-complex    # Phase 1: Complex workflows
-make test-integration-advanced   # Phase 2: Advanced scenarios
-make test-integration-network    # Phase 3: Network edge cases
-make test-integration-all        # All integration test phases
+magex test:coverrace    # Full CI test suite with race detection
+magex test:cover        # Unit tests with coverage report
 ```
 
 **Configuration Validation:**
@@ -93,7 +78,7 @@ go-broadcast includes comprehensive fuzz testing for critical components:
 **Run Fuzz Tests:**
 ```bash
 # Run all fuzz tests (limited iterations for speed)
-make test-fuzz
+magex test:fuzz
 
 # Run specific fuzz tests with more iterations
 go test -fuzz=FuzzConfigParsing -fuzztime=30s ./internal/config
@@ -115,7 +100,7 @@ go run ./cmd/generate-corpus
 **Benchmark Execution:**
 ```bash
 # Run all benchmarks with memory profiling
-make bench
+magex bench
 
 # Run specific component benchmarks
 go test -bench=. -benchmem ./internal/cache
@@ -152,15 +137,14 @@ go tool pprof mem.prof
 1. **Build Failures:**
    ```bash
    # Clean and rebuild
-   make clean-mods
-   make mod-download
-   make build-go
+   magex clean
+   magex build
    ```
 
 2. **Test Failures:**
    ```bash
    # Run tests with verbose output
-   go test -v ./...
+   magex test
 
    # Run specific failing test
    go test -v -run TestSpecificFunction ./internal/package
@@ -169,12 +153,10 @@ go tool pprof mem.prof
 3. **Linting Errors:**
    ```bash
    # Fix formatting issues
-   make fumpt          # Apply gofumpt formatting
-   make goimports      # Fix import statements
+   magex format:fix    # Apply gofumpt formatting and fmt
 
    # Check linting rules
-   make lint-version   # Show linter version
-   make lint           # Run all linters
+   magex lint           # Run all linters
    ```
 
 4. **Performance Issues:**
@@ -319,9 +301,9 @@ git commit -m "feat: new feature"
 - 🔗 **External tool** - Maintained at [github.com/mrz1836/go-pre-commit](https://github.com/mrz1836/go-pre-commit)
 
 **Available Checks (5 MVP checks):**
-1. **fumpt** - Code formatting via `make fumpt`
-2. **lint** - Linting via `make lint`
-3. **mod-tidy** - Module tidying via `make mod-tidy`
+1. **fumpt** - Code formatting via `magex format`
+2. **lint** - Linting via `magex lint`
+3. **mod-tidy** - Module tidying via `magex tidy`
 4. **whitespace** - Trailing whitespace removal (built-in)
 5. **eof** - End-of-file newline enforcement (built-in)
 
@@ -386,7 +368,7 @@ The workflow automatically installs the external tool using the version specifie
 
 **Fumpt Check Failures (Tower/SourceTree Git GUIs):**
 - **"fumpt check failed"**: The system uses pinned gofumpt version from `.env.shared`
-- **"make: gofumpt: No such file or directory"**: Run `make fumpt` once manually to install correct version
+- **"make: gofumpt: No such file or directory"**: Run `magex format:fix` once manually to install correct version
 - **PATH issues in git GUIs**: The tool automatically manages GOPATH/bin in PATH during execution
 - **Version conflicts**: Ensure `GO_PRE_COMMIT_FUMPT_VERSION=v0.7.0` is set in `.env.shared`
 
@@ -394,7 +376,6 @@ The workflow automatically installs the external tool using the version specifie
 ```bash
 # Verify go-pre-commit installation
 go-pre-commit --version               # Check installed version
-make fumpt                           # Install and run gofumpt
 go-pre-commit run fumpt --verbose    # Test pre-commit fumpt check
 go env GOPATH                        # Check GOPATH is set correctly
 echo $PATH | grep "$(go env GOPATH)/bin"  # Verify GOPATH/bin in PATH
@@ -487,17 +468,10 @@ This project uses 60+ linters via golangci-lint with strict standards. Key areas
 
 ```bash
 # Run all linters on main module
-make lint
-
-# Run linters on all modules (including coverage)
-make lint-all-modules
-
-# Run tests on all modules with race detection
-make test-all-modules-race
+magex lint
 
 # Fix common formatting issues
-make fumpt
-goimports -w .
+magex format:fix
 ```
 
 The project maintains zero linter issues across all enabled linters. When adding code, follow existing patterns and address linter feedback promptly.
@@ -511,13 +485,12 @@ Before starting any development work:
 1. **Read `AGENTS.md` thoroughly** - Understand all conventions and standards
 2. **Set up development environment:**
    ```bash
-   make mod-download
-   make install-stdlib
-   cd .github/pre-commit && make build && ./gofortress-pre-commit install  # Optional but recommended
+   magex install:stdlib
+   cd .github/pre-commit && magex build && ./gofortress-pre-commit install  # Optional but recommended
    ```
 3. **Validate environment:**
    ```bash
-   make test          # Ensure all tests pass
+   magex test          # Ensure all tests pass
    gh auth status     # Verify GitHub authentication
    ```
 4. **Review relevant documentation** based on your planned changes
@@ -529,9 +502,8 @@ Before starting any development work:
 3. **Never tag releases** - Only repository code‑owners handle releases
 4. **Run comprehensive testing:**
    ```bash
-   make test         # Fast linting + unit tests
-   make test-race    # Race condition detection
-   make govulncheck  # Security vulnerability scan
+   magex test         # Fast linting + unit tests
+   magex test:race    # Race condition detection
    ```
 5. **Validate go-broadcast functionality:**
    ```bash

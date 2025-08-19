@@ -6,7 +6,7 @@ version: 2
 
 before:
   hooks:
-    - sh -c 'if [ "$SKIP_GORELEASER_TESTS" != "true" ]; then make test; else echo "Skipping tests (SKIP_GORELEASER_TESTS=true)"; fi'
+    - sh -c 'if [ "$SKIP_GORELEASER_TESTS" = "true" ]; then echo "Skipping tests (SKIP_GORELEASER_TESTS=true)"; else magex test; fi'
 changelog:
   sort: asc
   filters:
@@ -18,13 +18,44 @@ changelog:
 # Builder
 # ---------------------------
 builds:
-  - env:
+  - id: go-broadcast
+    main: ./cmd/go-broadcast
+    binary: go-broadcast
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
-      #- windows # No windows support yet
       - darwin
-    skip: true
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.buildDate={{.Date}}
+
+# ---------------------------
+# Archives
+# ---------------------------
+archives:
+  - id: go-broadcast
+    name_template: >-
+      {{- .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    files:
+      - LICENSE
+      - README.md
+
+# ---------------------------
+# Checksum
+# ---------------------------
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
 
 # ---------------------------
 # Github Release

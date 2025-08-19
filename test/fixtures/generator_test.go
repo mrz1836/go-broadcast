@@ -515,7 +515,7 @@ func TestStandardFileTemplates(t *testing.T) {
 		{
 			name:     "CI Workflow",
 			function: getStandardCIWorkflow,
-			contains: []string{"name: CI", "on:", "jobs:", "runs-on: ubuntu-latest", "make test", "make lint"},
+			contains: []string{"name: CI", "on:", "jobs:", "runs-on: ubuntu-latest", "magex test", "magex lint"},
 		},
 		{
 			name:     "Release Workflow",
@@ -535,7 +535,7 @@ func TestStandardFileTemplates(t *testing.T) {
 		{
 			name:     "Setup Script",
 			function: getStandardSetupScript,
-			contains: []string{"#!/bin/bash", "set -e", "go mod download", "make test"},
+			contains: []string{"#!/bin/bash", "set -e", "magex deps:download", "magex test"},
 		},
 	}
 

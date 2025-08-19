@@ -79,22 +79,17 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: 🔧 Set Go cache paths (cross-platform)
-        run: |
-          echo "🔧 Setting up Go cache paths..."
-          echo "GOCACHE=$HOME/.cache/go-build"        >> $GITHUB_ENV
-          echo "GOMODCACHE=$HOME/go/pkg/mod"          >> $GITHUB_ENV
-          echo "GOLANGCI_LINT_CACHE=$HOME/.cache/golangci-lint" >> $GITHUB_ENV
-
       # ————————————————————————————————————————————————————————————————
-      # Set up Go environment
+      # Setup Go with caching and version management
       # ————————————————————————————————————————————————————————————————
-      - name: 🏗️ Set up Go
+      - name: 🏗️ Setup Go with Cache
         id: setup-ask-nancy
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: ./.github/actions/setup-go-with-cache
         with:
           go-version: ${{ inputs.go-primary-version }}
-          cache: false # we handle caches ourselves
+          matrix-os: ${{ inputs.primary-runner }}
+          go-primary-version: ${{ inputs.go-primary-version }}
+          go-secondary-version: ${{ inputs.go-primary-version }}
 
       # ————————————————————————————————————————————————————————————————
       # Write the "go" list to file for Nancy
@@ -161,19 +156,26 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: 🔧 Set Go cache paths (cross-platform)
-        run: |
-          echo "🔧 Setting up Go cache paths..."
-          echo "GOCACHE=$HOME/.cache/go-build"        >> $GITHUB_ENV
-          echo "GOMODCACHE=$HOME/go/pkg/mod"          >> $GITHUB_ENV
-          echo "GOLANGCI_LINT_CACHE=$HOME/.cache/golangci-lint" >> $GITHUB_ENV
-
-      - name: 🏗️ Set up Go
+      # ————————————————————————————————————————————————————————————————
+      # Setup Go with caching and version management
+      # ————————————————————————————————————————————————————————————————
+      - name: 🏗️ Setup Go with Cache
         id: setup-govulncheck
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: ./.github/actions/setup-go-with-cache
         with:
           go-version: ${{ inputs.go-primary-version }}
-          cache: false # we handle caches ourselves
+          matrix-os: ${{ inputs.primary-runner }}
+          go-primary-version: ${{ inputs.go-primary-version }}
+          go-secondary-version: ${{ inputs.go-primary-version }}
+
+      # ————————————————————————————————————————————————————————————————
+      # Setup MAGE-X (required for magex deps:audit command)
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Setup MAGE-X
+        uses: ./.github/actions/setup-magex
+        with:
+          magex-version: ${{ env.MAGE_X_VERSION }}
+          runner-os: ${{ inputs.primary-runner }}
 
       # ————————————————————————————————————————————————————————————————
       # Restore (and later save) a compact cache for the govulncheck binary
@@ -192,7 +194,7 @@ jobs:
           set -euo pipefail
           BIN_DIR="$HOME/.cache/govulncheck-bin"
           GOVULN_BIN="$BIN_DIR/govulncheck"
-          # If we restored a cache, copy/link it into GOPATH/bin so Makefile works.
+          # If we restored a cache, copy/link it into GOPATH/bin so the binary works.
           if [[ -f "$GOVULN_BIN" ]]; then
             echo "✅ Using cached govulncheck binary"
             mkdir -p "$(go env GOPATH)/bin"
@@ -209,7 +211,7 @@ jobs:
         run: |
           echo "⬇️ Cache miss – installing govulncheck..."
           echo "🔧 Installing govulncheck version ${{ env.GOVULNCHECK_VERSION }}..."
-          make govulncheck-install VERSION=${{ env.GOVULNCHECK_VERSION }}
+          go install golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULNCHECK_VERSION }}
           # Copy the freshly built binary back into the cache directory
           mkdir -p ~/.cache/govulncheck-bin
           cp "$(go env GOPATH)/bin/govulncheck" ~/.cache/govulncheck-bin/
@@ -221,7 +223,7 @@ jobs:
       - name: 🔐 Run govulncheck
         run: |
           echo "🔍 Running vulnerability analysis..."
-          make govulncheck
+          magex deps:audit
           echo "✅ Vulnerability scan completed"
 
       # ————————————————————————————————————————————————————————————————
@@ -312,7 +314,7 @@ jobs:
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
           GITLEAKS_ENABLE_SUMMARY: "true"
           GITLEAKS_VERSION: ${{ env.GITLEAKS_VERSION }}
-          GITLEAKS_CONFIG: .github/.gitleaks.toml
+          GITLEAKS_CONFIG: ${{ env.GITLEAKS_CONFIG_FILE }}
 
       - name: 📊 Job Summary
         if: steps.repo-check.outputs.is_same_repo == 'true'

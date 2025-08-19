@@ -102,12 +102,7 @@ func TestUserService_CreateUser(t *testing.T) {
 
 Run tests locally with:
 ```bash
-go test ./...
-```
-
-Or use our makefile:
-```bash
-make test
+magex test
 ```
 
 > All tests must pass in CI prior to merge.

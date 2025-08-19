@@ -37,6 +37,11 @@ on:
         description: "Whether code coverage is enabled"
         required: true
         type: string
+      coverage-provider:
+        description: "Coverage service provider (internal or codecov)"
+        required: false
+        type: string
+        default: "internal"
       race-detection-enabled:
         description: "Whether race detection is enabled"
         required: true
@@ -49,6 +54,9 @@ on:
       github-token:
         description: "GitHub token for API access"
         required: true
+      CODECOV_TOKEN:
+        description: "Codecov token for uploading coverage (required when coverage-provider is codecov)"
+        required: false
 
 # Security: Restrictive default permissions with job-level overrides for least privilege access
 permissions:
@@ -87,99 +95,26 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: 🔧 Set Go cache paths (cross-platform)
-        run: |
-          echo "🔧 Setting up Go cache paths..."
-          echo "GOCACHE=$HOME/.cache/go-build"        >> $GITHUB_ENV
-          echo "GOMODCACHE=$HOME/go/pkg/mod"          >> $GITHUB_ENV
-          echo "GOLANGCI_LINT_CACHE=$HOME/.cache/golangci-lint" >> $GITHUB_ENV
-
       # ————————————————————————————————————————————————————————————————
-      # Restore Go module and build caches
+      # Setup Go with caching and version management
       # ————————————————————————————————————————————————————————————————
-      - name: 💾 Restore Go module cache
-        id: restore-gomod
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ matrix.os }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
-          restore-keys: |
-            ${{ matrix.os }}-gomod-
-
-      # ————————————————————————————————————————————————————————————————
-      # Restore the build cache and test cache
-      # ————————————————————————————————————————————————————————————————
-      - name: 💾 Restore Go build cache
-        id: restore-gobuild
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/.cache/go-build/test
-          key: ${{ matrix.os }}-gobuild-${{ matrix.go-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
-          restore-keys: |
-            ${{ matrix.os }}-gobuild-${{ matrix.go-version }}-
-
-      # ————————————————————————————————————————————————————————————————
-      # Check go.mod required version before setting up Go
-      # ————————————————————————————————————————————————————————————————
-      - name: 🔍 Check Go version requirement
-        id: check-go-version
-        shell: bash
-        run: |
-          if [ -f go.mod ]; then
-            REQUIRED_VERSION=$(grep -E '^go\s+[0-9]+\.[0-9]+' go.mod | awk '{print $2}')
-            if [ -n "$REQUIRED_VERSION" ]; then
-              echo "📋 go.mod requires Go version: $REQUIRED_VERSION"
-              echo "required_version=$REQUIRED_VERSION" >> $GITHUB_OUTPUT
-
-              # Extract major.minor from matrix.go-version (handle formats like 1.23.x, 1.23, 1.23.4)
-              REQUESTED_VERSION="${{ matrix.go-version }}"
-              REQUESTED_MAJOR_MINOR=$(echo "$REQUESTED_VERSION" | grep -oE '^[0-9]+\.[0-9]+')
-
-              # Compare versions
-              if [ -n "$REQUESTED_MAJOR_MINOR" ]; then
-                # Convert to comparable format (e.g., 1.23 -> 123, 1.9 -> 109)
-                REQ_COMPARABLE=$(echo "$REQUIRED_VERSION" | awk -F. '{printf "%d%02d", $1, $2}')
-                REQUESTED_COMPARABLE=$(echo "$REQUESTED_MAJOR_MINOR" | awk -F. '{printf "%d%02d", $1, $2}')
-
-                if [ "$REQUESTED_COMPARABLE" -lt "$REQ_COMPARABLE" ]; then
-                  echo "⚠️ WARNING: Requested Go version (${{ matrix.go-version }}) is older than required ($REQUIRED_VERSION)"
-                  echo "version_mismatch=true" >> $GITHUB_OUTPUT
-                else
-                  echo "✅ Requested Go version (${{ matrix.go-version }}) meets requirement ($REQUIRED_VERSION)"
-                  echo "version_mismatch=false" >> $GITHUB_OUTPUT
-                fi
-              fi
-            fi
-          fi
-
-      # ————————————————————————————————————————————————————————————————
-      # Determine Go Toolchain Mode and set up Go
-      # ————————————————————————————————————————————————————————————————
-      # Issue with installing 1.23 and then it auto-upgrading to 1.24
-      - name: 🧮 Determine Go Toolchain Mode
-        id: toolchain-mode
-        shell: bash
-        run: |
-          # If there's a version mismatch, allow toolchain to auto-upgrade
-          if [[ "${{ steps.check-go-version.outputs.version_mismatch }}" == "true" ]]; then
-            echo "⚠️ Version mismatch detected - allowing Go toolchain to auto-upgrade"
-            echo "Not setting GOTOOLCHAIN (using default auto behavior)"
-          elif [[ "${{ matrix.go-version }}" == "${{ inputs.go-secondary-version }}" && \
-                "${{ matrix.go-version }}" != "${{ inputs.go-primary-version }}" ]]; then
-            echo "Setting GOTOOLCHAIN=local"
-            echo "GOTOOLCHAIN=local" >> $GITHUB_ENV
-          else
-            echo "Not setting GOTOOLCHAIN (using default)"
-          fi
-
-      - name: 🏗️ Set up Go
+      - name: 🏗️ Setup Go with Cache
         id: setup-go-test
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: ./.github/actions/setup-go-with-cache
         with:
           go-version: ${{ matrix.go-version }}
-          cache: false # we handle caches ourselves
+          matrix-os: ${{ matrix.os }}
+          go-primary-version: ${{ inputs.go-primary-version }}
+          go-secondary-version: ${{ inputs.go-secondary-version }}
+
+      # ————————————————————————————————————————————————————————————————
+      # Setup MAGE-X (required for magex test commands)
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Setup MAGE-X
+        uses: ./.github/actions/setup-magex
+        with:
+          magex-version: ${{ env.MAGE_X_VERSION }}
+          runner-os: ${{ matrix.os }}
 
       # ————————————————————————————————————————————————————————————————
       # Start test timer
@@ -204,19 +139,35 @@ jobs:
 
           if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
             echo "🏁 Running tests with race detection and coverage analysis..."
-            make test-cover-race VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }} 2>&1 | tee test-output.log
+            magex test:coverrace 2>&1 | tee test-output.log
           elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
             echo "🏁 Running tests with coverage analysis..."
-            make test-cover VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }} 2>&1 | tee test-output.log
+            magex test:cover 2>&1 | tee test-output.log
           elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
             echo "🏁 Running tests with race detection..."
-            make test-race VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }} 2>&1 | tee test-output.log
+            magex test:race 2>&1 | tee test-output.log
           else
             echo "🏁 Running tests without coverage or race detection..."
-            make test VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }} 2>&1 | tee test-output.log
+            magex test 2>&1 | tee test-output.log
           fi
 
           echo "✅ Tests completed successfully"
+
+      # ————————————————————————————————————————————————————————————————
+      # Fix coverage file naming (magex generates coverage_0.txt)
+      # TODO: Add multi-module coverage support if needed later
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔄 Normalize coverage file name
+        if: inputs.code-coverage-enabled == 'true'
+        run: |
+          if [ -f coverage_0.txt ]; then
+            cp coverage_0.txt coverage.txt
+            echo "✅ Renamed coverage_0.txt to coverage.txt"
+          elif [ -f coverage.txt ]; then
+            echo "✅ Coverage file already exists as coverage.txt"
+          else
+            echo "⚠️ No coverage file found (coverage_0.txt or coverage.txt)"
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Test failure analysis and reporting
@@ -291,7 +242,7 @@ jobs:
         if: matrix.run-fuzz
         run: |
           echo "🎯 Running fuzz tests..."
-          make test-fuzz VERBOSE=${{ env.ENABLE_VERBOSE_TEST_OUTPUT }}
+          magex test:fuzz time=5s
           echo "✅ Fuzz tests completed successfully"
 
       # ————————————————————————————————————————————————————————————————
@@ -328,8 +279,8 @@ jobs:
 
           STATS_FILE="test-stats-${{ matrix.os }}-${{ matrix.go-version }}.json"
 
-          # Capture the output of "make loc" and store the markdown summary
-          LOC_OUTPUT_JSON=$(make loc | jq -Rsa .)
+          # Capture the output of "magex metrics:loc" and store the markdown summary
+          LOC_OUTPUT_JSON=$(magex metrics:loc | jq -Rsa .)
 
           cat > "$STATS_FILE" << EOF
           {
@@ -426,7 +377,7 @@ jobs:
           retention-days: 1
 
   # ----------------------------------------------------------------------------------
-  # Process Coverage (Internal System)
+  # Process Coverage
   # ----------------------------------------------------------------------------------
   process-coverage:
     name: 📊 Process Coverage
@@ -449,3 +400,4 @@ jobs:
       pr-number: ${{ github.event.pull_request.number }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

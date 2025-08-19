@@ -2,9 +2,9 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "make",
+			"label": "magex",
 			"type": "shell",
-			"command": "make",
+			"command": "magex",
 			"problemMatcher": [
 				"$go"
 			],

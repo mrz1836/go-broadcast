@@ -1,9 +1,9 @@
 ---
-allowed-tools: Task, Bash(make bench:*), Bash(go test -bench:*), Write, Read
+allowed-tools: Task, Bash(magex bench:*), Bash(go test -bench:*), Write, Read
 description: Run performance benchmarks and detect regressions
 argument-hint: [specific benchmark pattern or leave empty for all]
 ---
-!make bench 2>&1 | grep -E "Benchmark|ns/op|allocs/op" | tail -20
+!magex bench 2>&1 | grep -E "Benchmark|ns/op|allocs/op" | tail -20
 
 # 📊 Performance Benchmarking & Analysis
 

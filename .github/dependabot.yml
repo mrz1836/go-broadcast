@@ -27,7 +27,7 @@ version: 2
 
 updates:
   # ──────────────────────────────────────────────────────────────
-  # 1. Go Modules (go.mod / go.sum)
+  # 1. Main module (go.mod / go.sum)
   # ──────────────────────────────────────────────────────────────
   - package-ecosystem: "gomod"
     directory: "/"
@@ -51,62 +51,6 @@ updates:
     open-pull-requests-limit: 10
     assignees: ["mrz1836"]
     labels: ["chore", "dependencies", "gomod"]
-    commit-message:
-      prefix: "chore"
-      include: "scope"
-
-  # ──────────────────────────────────────────────────────────────
-  # 1b. Coverage Tool Go Module (.github/coverage)
-  # ──────────────────────────────────────────────────────────────
-  - package-ecosystem: "gomod"
-    directory: "/.github/coverage"
-    target-branch: "master"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "America/New_York"
-    allow:
-      - dependency-type: "direct"
-    groups:
-      coverage-deps:
-        patterns:
-          - "github.com/spf13/cobra"
-          - "github.com/google/go-github*"
-          - "github.com/stretchr/testify"
-        update-types: ["minor", "patch"]
-    open-pull-requests-limit: 5
-    assignees: ["mrz1836"]
-    labels: ["chore", "dependencies", "coverage", "gomod"]
-    commit-message:
-      prefix: "chore"
-      include: "scope"
-
-  # ──────────────────────────────────────────────────────────────
-  # 1c. GoFortress Pre-commit System Go Module (.github/pre-commit)
-  # ──────────────────────────────────────────────────────────────
-  - package-ecosystem: "gomod"
-    directory: "/.github/pre-commit"
-    target-branch: "master"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:05"
-      timezone: "America/New_York"
-    allow:
-      - dependency-type: "direct"
-    groups:
-      pre-commit-deps:
-        patterns:
-          - "github.com/spf13/cobra"
-          - "github.com/stretchr/testify"
-          - "*lint*"
-          - "*format*"
-          - "*security*"
-        update-types: ["minor", "patch"]
-    open-pull-requests-limit: 5
-    assignees: ["mrz1836"]
-    labels: ["chore", "dependencies", "pre-commit-system", "gomod"]
     commit-message:
       prefix: "chore"
       include: "scope"

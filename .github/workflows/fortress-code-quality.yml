@@ -80,48 +80,26 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: 🔧 Set Go cache paths (cross-platform)
-        run: |
-          echo "🔧 Setting up Go cache paths..."
-          echo "GOCACHE=$HOME/.cache/go-build"        >> $GITHUB_ENV
-          echo "GOMODCACHE=$HOME/go/pkg/mod"          >> $GITHUB_ENV
-          echo "GOLANGCI_LINT_CACHE=$HOME/.cache/golangci-lint" >> $GITHUB_ENV
-
       # ————————————————————————————————————————————————————————————————
-      # Restore Go module and build caches
+      # Setup Go with caching and version management
       # ————————————————————————————————————————————————————————————————
-      - name: 💾 Restore Go module cache
-        id: restore-gomod
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ inputs.primary-runner }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
-          restore-keys: |
-            ${{ inputs.primary-runner }}-gomod-
-
-      # ————————————————————————————————————————————————————————————————
-      # # Restore the build cache and test cache
-      # ————————————————————————————————————————————————————————————————
-      - name: 💾 Restore Go build cache
-        id: restore-gobuild
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/.cache/go-build/test
-          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
-          restore-keys: |
-            ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-
-
-      # ————————————————————————————————————————————————————————————————
-      # Set up Go environment
-      # ————————————————————————————————————————————————————————————————
-      - name: 🏗️ Set up Go
+      - name: 🏗️ Setup Go with Cache
         id: setup-go-vet
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: ./.github/actions/setup-go-with-cache
         with:
           go-version: ${{ inputs.go-primary-version }}
-          cache: false # we handle caches ourselves
+          matrix-os: ${{ inputs.primary-runner }}
+          go-primary-version: ${{ inputs.go-primary-version }}
+          go-secondary-version: ${{ inputs.go-primary-version }}
+
+      # ————————————————————————————————————————————————————————————————
+      # Setup MAGE-X (required for magex lint command)
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Setup MAGE-X
+        uses: ./.github/actions/setup-magex
+        with:
+          magex-version: ${{ env.MAGE_X_VERSION }}
+          runner-os: ${{ inputs.primary-runner }}
 
       # ————————————————————————————————————————————————————————————————
       # Run go vet with parallel execution
@@ -129,7 +107,7 @@ jobs:
       - name: 🔍 Go vet (parallel)
         run: |
           echo "🚀 Running static analysis with go vet (parallel mode)..."
-          make vet-parallel
+          magex vet
           echo "✅ Static analysis completed successfully"
 
       # ————————————————————————————————————————————————————————————————
@@ -184,54 +162,35 @@ jobs:
           echo "GOLANGCI_LINT_CACHE=$HOME/.cache/golangci-lint" >> $GITHUB_ENV
 
       # ————————————————————————————————————————————————————————————————
-      # Extract golangci-lint version from Makefile
+      # Extract golangci-lint version (MAGE-X managed)
       # ————————————————————————————————————————————————————————————————
-      - name: 🔍 Extract golangci-lint version from Makefile
+      - name: 🔍 Use MAGE-X managed golangci-lint version
         id: golangci-lint-version
         run: |
-          VERSION=$(make lint-version)
-          if [ -z "$VERSION" ]; then
-            echo "❌ GOLANGCI_LINT_VERSION is not set in the Makefile"
-            exit 1
-          fi
-          echo "✅ Found golangci-lint version: $VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # MAGE-X handles golangci-lint version automatically
+          echo "✅ Using MAGE-X managed golangci-lint version"
+          echo "version=${{ env.MAGE_X_GOLANGCI_LINT_VERSION }}" >> $GITHUB_OUTPUT
 
       # ————————————————————————————————————————————————————————————————
-      # Restore Go module and build caches
+      # Setup Go with caching and version management
       # ————————————————————————————————————————————————————————————————
-      - name: 💾 Restore Go module cache
-        id: restore-gomod
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ inputs.primary-runner }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
-          restore-keys: |
-            ${{ inputs.primary-runner }}-gomod-
-
-      # ————————————————————————————————————————————————————————————————
-      # Restore the build cache and test cache
-      # ————————————————————————————————————————————————————————————————
-      - name: 💾 Restore Go build cache
-        id: restore-gobuild
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/.cache/go-build/test
-          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
-          restore-keys: |
-            ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-
-
-      # ————————————————————————————————————————————————————————————————
-      # Set up Go environment
-      # ————————————————————————————————————————————————————————————————
-      - name: 🏗️ Set up Go
+      - name: 🏗️ Setup Go with Cache
         id: setup-go-lint
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: ./.github/actions/setup-go-with-cache
         with:
           go-version: ${{ inputs.go-primary-version }}
-          cache: false
+          matrix-os: ${{ inputs.primary-runner }}
+          go-primary-version: ${{ inputs.go-primary-version }}
+          go-secondary-version: ${{ inputs.go-primary-version }}
+
+      # ————————————————————————————————————————————————————————————————
+      # Setup MAGE-X (required for magex lint command)
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Setup MAGE-X
+        uses: ./.github/actions/setup-magex
+        with:
+          magex-version: ${{ env.MAGE_X_VERSION }}
+          runner-os: ${{ inputs.primary-runner }}
 
       # ————————————————————————————————————————————————————————————————
       # Restore Cache golangci-lint
@@ -241,9 +200,9 @@ jobs:
         uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ env.GOLANGCI_LINT_CACHE }}
-          key: ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}-${{ steps.golangci-lint-version.outputs.version }}
+          key: ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum') }}-${{ steps.golangci-lint-version.outputs.version }}
           restore-keys: |
-            ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
+            ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum') }}
             ${{ inputs.primary-runner }}-golangci-lint-analysis-
 
       - name: 🔍 Debug cache usage
@@ -265,11 +224,8 @@ jobs:
           # Export the cache directory for golangci-lint
           export GOLANGCI_LINT_CACHE=$GOLANGCI_LINT_CACHE
 
-          # Running lint with version from Makefile
-          echo "🔧 Using golangci-lint version: ${{ steps.golangci-lint-version.outputs.version }}"
-
-          # Run with your makefile
-          make lint
+          # Run with MAGE-X
+          magex lint
 
           echo "✅ Code linting completed successfully"
 

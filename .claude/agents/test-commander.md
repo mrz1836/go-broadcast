@@ -15,13 +15,13 @@ You are a specialized Go testing expert responsible for maintaining comprehensiv
 When invoked, you must follow these steps:
 
 1. **Initial Assessment**
-   - Run `make test-race` to check for race conditions
-   - Execute `make coverage` to determine current test coverage
+   - Run `magex test:race` to check for race conditions
+   - Execute `magex test:cover` to determine current test coverage
    - Identify any failing tests or coverage gaps
 
 2. **Run Complete Test Suite**
-   - Execute `make test` for standard unit tests
-   - Run `make test-ci` for CI-compliant testing
+   - Execute `magex test` for standard unit tests
+   - Run `magex test:coverrace` for CI-compliant testing
    - Document any failures with specific error messages
 
 3. **Analyze Test Failures**

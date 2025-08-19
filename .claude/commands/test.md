@@ -1,9 +1,9 @@
 ---
-allowed-tools: Task, Bash(make test:*), Bash(make coverage:*), TodoWrite
+allowed-tools: Task, Bash(magex test:*), TodoWrite
 description: Run comprehensive tests with automatic fixes and coverage tracking
 argument-hint: [specific test file, package, or leave empty for all tests]
 ---
-!make test-ci --no-cache 2>&1 | tail -20
+!magex test:coverrace --no-cache 2>&1 | tail -20
 
 # 🧪 Comprehensive Test Suite with Auto-Fix
 

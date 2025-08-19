@@ -22,6 +22,31 @@ on:
         description: "Primary runner OS"
         required: true
         type: string
+      base-file-found:
+        description: "Whether .env.base file was found"
+        required: false
+        type: string
+        default: "false"
+      custom-file-found:
+        description: "Whether .env.custom file was found"
+        required: false
+        type: string
+        default: "false"
+      base-var-count:
+        description: "Number of variables loaded from .env.base"
+        required: false
+        type: string
+        default: "0"
+      custom-var-count:
+        description: "Number of variables loaded from .env.custom"
+        required: false
+        type: string
+        default: "0"
+      config-mode:
+        description: "Configuration mode: new or base-only"
+        required: false
+        type: string
+        default: "new"
     secrets:
       github-token:
         description: "GitHub token for API access"
@@ -36,6 +61,9 @@ on:
       code-coverage-enabled:
         description: "Whether code coverage is enabled"
         value: ${{ jobs.setup-config.outputs.code-coverage-enabled }}
+      coverage-provider:
+        description: "Coverage service provider (internal or codecov)"
+        value: ${{ jobs.setup-config.outputs.coverage-provider }}
       fuzz-testing-enabled:
         description: "Whether fuzz testing is enabled"
         value: ${{ jobs.setup-config.outputs.fuzz-testing-enabled }}
@@ -54,9 +82,9 @@ on:
       yaml-lint-enabled:
         description: "Whether YAML linting is enabled"
         value: ${{ jobs.setup-config.outputs.yaml-lint-enabled }}
-      makefile-exists:
-        description: "Whether Makefile exists"
-        value: ${{ jobs.setup-config.outputs.makefile-exists }}
+      magefile-exists:
+        description: "Whether .mage.yaml exists"
+        value: ${{ jobs.setup-config.outputs.magefile-exists }}
       primary-runner:
         description: "Primary runner OS"
         value: ${{ jobs.setup-config.outputs.primary-runner }}
@@ -115,13 +143,14 @@ jobs:
       benchmarks-enabled: ${{ steps.config.outputs.benchmarks-enabled }}
       benchmark-matrix: ${{ steps.matrix.outputs.matrix }}
       code-coverage-enabled: ${{ steps.config.outputs.code-coverage-enabled }}
+      coverage-provider: ${{ steps.config.outputs.coverage-provider }}
       fuzz-testing-enabled: ${{ steps.config.outputs.fuzz-testing-enabled }}
       go-primary-version: ${{ steps.config.outputs.go-primary-version }}
       go-secondary-version: ${{ steps.config.outputs.go-secondary-version }}
       go-versions: ${{ steps.versions.outputs.versions }}
       go-lint-enabled: ${{ steps.config.outputs.go-lint-enabled }}
       yaml-lint-enabled: ${{ steps.config.outputs.yaml-lint-enabled }}
-      makefile-exists: ${{ steps.config.outputs.makefile-exists }}
+      magefile-exists: ${{ steps.config.outputs.magefile-exists }}
       primary-runner: ${{ steps.config.outputs.primary-runner }}
       race-detection-enabled: ${{ steps.config.outputs.race-detection-enabled }}
       secondary-runner: ${{ steps.config.outputs.secondary-runner }}
@@ -174,7 +203,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           sparse-checkout: |
-            Makefile
+            .mage.yaml
             go.mod
             go.sum
 
@@ -286,15 +315,15 @@ jobs:
           echo "primary-runner=${{ env.PRIMARY_RUNNER }}" >> $GITHUB_OUTPUT
           echo "secondary-runner=${{ env.SECONDARY_RUNNER }}" >> $GITHUB_OUTPUT
 
-          # Check if Makefile exists
-          if [ -f "Makefile" ]; then
-            echo "makefile-exists=true" >> $GITHUB_OUTPUT
-            echo "✅ Makefile found"
+          # Check if .mage.yaml exists
+          if [ -f ".mage.yaml" ]; then
+            echo "magefile-exists=true" >> $GITHUB_OUTPUT
+            echo "✅ .mage.yaml found"
           else
-            echo "makefile-exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ No Makefile found"
-            if [ "${{ env.MAKEFILE_REQUIRED }}" == "true" ]; then
-              echo "❌ Makefile is required but not found!"
+            echo "magefile-exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No .mage.yaml found"
+            if [ "${{ env.MAGEFILE_REQUIRED }}" == "true" ]; then
+              echo "❌ .mage.yaml is required but not found!"
               exit 1
             fi
           fi
@@ -302,6 +331,29 @@ jobs:
           # Feature flags
           echo "benchmarks-enabled=${{ env.ENABLE_BENCHMARKS }}" >> $GITHUB_OUTPUT
           echo "code-coverage-enabled=${{ env.ENABLE_CODE_COVERAGE }}" >> $GITHUB_OUTPUT
+          echo "coverage-provider=${{ env.GO_COVERAGE_PROVIDER }}" >> $GITHUB_OUTPUT
+
+          # Validate coverage provider configuration
+          if [ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ]; then
+            PROVIDER="${{ env.GO_COVERAGE_PROVIDER }}"
+            if [ "$PROVIDER" != "internal" ] && [ "$PROVIDER" != "codecov" ]; then
+              echo "❌ Invalid GO_COVERAGE_PROVIDER: $PROVIDER"
+              echo "   Valid options are: internal, codecov"
+              exit 1
+            fi
+
+            # Check for codecov token requirement
+            if [ "$PROVIDER" == "codecov" ]; then
+              if [ "${{ env.CODECOV_TOKEN_REQUIRED }}" == "true" ] && [ -z "${{ secrets.CODECOV_TOKEN }}" ]; then
+                echo "⚠️ WARNING: CODECOV_TOKEN_REQUIRED is true but CODECOV_TOKEN secret may not be set"
+                echo "   Codecov upload may fail without a token for private repositories"
+              fi
+              echo "✅ Coverage provider: Codecov"
+            else
+              echo "✅ Coverage provider: Internal (go-coverage with GitHub Pages)"
+            fi
+          fi
+
           echo "go-lint-enabled=${{ env.ENABLE_GO_LINT }}" >> $GITHUB_OUTPUT
           echo "yaml-lint-enabled=${{ env.ENABLE_YAML_LINT }}" >> $GITHUB_OUTPUT
           echo "race-detection-enabled=${{ env.ENABLE_RACE_DETECTION }}" >> $GITHUB_OUTPUT
@@ -370,7 +422,22 @@ jobs:
           MATRIX_COUNT=$(echo "$MATRIX_JSON" | jq '.include | length')
 
           echo "- **Workflow Start Time**: ${{ steps.timer.outputs.start-time }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Total Environment Variables**: $ENV_COUNT (from \`.github/.env.shared\`)" >> $GITHUB_STEP_SUMMARY
+
+          # Configuration File Discovery
+          BASE_FOUND="${{ inputs.base-file-found }}"
+          CUSTOM_FOUND="${{ inputs.custom-file-found }}"
+          BASE_COUNT="${{ inputs.base-var-count }}"
+          CUSTOM_COUNT="${{ inputs.custom-var-count }}"
+          CONFIG_MODE="${{ inputs.config-mode }}"
+
+          # Show configuration sources
+          if [[ "$CUSTOM_FOUND" == "true" ]]; then
+            echo "- **Configuration Sources**: 📂 Base (\`.env.base\`: $BASE_COUNT vars) + 🎨 Custom (\`.env.custom\`: $CUSTOM_COUNT overrides)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Configuration Sources**: 📂 Base only (\`.env.base\`: $BASE_COUNT variables)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "- **Total Environment Variables**: $ENV_COUNT" >> $GITHUB_STEP_SUMMARY
           echo "- **Enabled Features**: $ENABLED_FEATURES" >> $GITHUB_STEP_SUMMARY
           echo "- **Disabled Features**: $DISABLED_FEATURES" >> $GITHUB_STEP_SUMMARY
           echo "- **Test Matrix Combinations**: $MATRIX_COUNT" >> $GITHUB_STEP_SUMMARY
@@ -411,8 +478,8 @@ jobs:
           echo "| **Code Coverage** | $([ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Code coverage reports will $([ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ] && echo "be generated with internal GoFortress system (threshold: ${{ env.COVERAGE_FAIL_UNDER }}%, style: ${{ env.COVERAGE_BADGE_STYLE }})" || echo "not be generated") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Fuzz Testing** | $([ "${{ env.ENABLE_FUZZ_TESTING }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Fuzz tests will $([ "${{ env.ENABLE_FUZZ_TESTING }}" == "true" ] && echo "run on Linux with primary Go version" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Gitleaks (Secret Scan)** | $([ "${{ env.ENABLE_SECURITY_SCAN_GITLEAKS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Gitleaks will $([ "${{ env.ENABLE_SECURITY_SCAN_GITLEAKS }}" == "true" ] && echo "scan for leaked secrets" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Go Linting** | $([ "${{ env.ENABLE_GO_LINT }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | golangci-lint will $([ "${{ env.ENABLE_GO_LINT }}" == "true" ] && echo "analyze code quality" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Govulncheck** | $([ "${{ env.ENABLE_SECURITY_SCAN_GOVULNCHECK }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | govulncheck will $([ "${{ env.ENABLE_SECURITY_SCAN_GOVULNCHECK }}" == "true" ] && echo "scan for Go vulnerabilities" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Go Linting** | $([ "${{ env.ENABLE_GO_LINT }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | golangci-lint via MAGE-x will $([ "${{ env.ENABLE_GO_LINT }}" == "true" ] && echo "analyze code quality" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Govulncheck** | $([ "${{ env.ENABLE_SECURITY_SCAN_GOVULNCHECK }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | govulncheck via MAGE-X will $([ "${{ env.ENABLE_SECURITY_SCAN_GOVULNCHECK }}" == "true" ] && echo "scan for Go vulnerabilities" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Nancy (Dep Checks)** | $([ "${{ env.ENABLE_SECURITY_SCAN_NANCY }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Nancy will $([ "${{ env.ENABLE_SECURITY_SCAN_NANCY }}" == "true" ] && echo "scan dependencies for vulnerabilities" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Pre-Commit System** | $([ "${{ env.ENABLE_GO_PRE_COMMIT }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | GoFortress pre-commit hooks will $([ "${{ env.ENABLE_GO_PRE_COMMIT }}" == "true" ] && echo "run 17x faster than Python alternatives" || echo "be skipped") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Race Detection** | $([ "${{ env.ENABLE_RACE_DETECTION }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Tests will $([ "${{ env.ENABLE_RACE_DETECTION }}" == "true" ] && echo "run with -race flag" || echo "run without race detection") |" >> $GITHUB_STEP_SUMMARY
@@ -429,7 +496,7 @@ jobs:
             echo "|---------|-------|-------------|" >> $GITHUB_STEP_SUMMARY
             echo "| **Benchmark Mode** | \`${{ env.BENCHMARK_MODE }}\` | $(case "${{ env.BENCHMARK_MODE }}" in quick) echo "Quick runs (50ms)" ;; full) echo "Comprehensive runs (10s)" ;; *) echo "Normal runs (100ms)" ;; esac) |" >> $GITHUB_STEP_SUMMARY
             echo "| **Benchmark Timeout** | \`${{ env.BENCHMARK_TIMEOUT }}\` minutes | Maximum time allowed for benchmark execution |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Available Modes** | quick, normal, full | Set via \`BENCHMARK_MODE\` in .env.shared |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Available Modes** | quick, normal, full | Set via \`BENCHMARK_MODE\` in configuration |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "<br><br>" >> $GITHUB_STEP_SUMMARY
           fi
@@ -439,12 +506,19 @@ jobs:
             echo "## 📊 Coverage System Configuration" >> $GITHUB_STEP_SUMMARY
             echo "| Setting | Value | Description |" >> $GITHUB_STEP_SUMMARY
             echo "|---------|-------|-------------|" >> $GITHUB_STEP_SUMMARY
-            echo "| **Coverage System** | \`Internal GoFortress\` | Self-hosted coverage tracking |" >> $GITHUB_STEP_SUMMARY
+
+            # Show provider-specific configuration
+            if [[ "${{ env.GO_COVERAGE_PROVIDER }}" == "codecov" ]]; then
+              echo "| **Coverage System** | \`Codecov\` | External coverage service |" >> $GITHUB_STEP_SUMMARY
+              echo "| **Token Required** | $([ "${{ env.CODECOV_TOKEN_REQUIRED }}" == "true" ] && echo "✅ Yes" || echo "❌ No") | CODECOV_TOKEN secret requirement |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| **Coverage System** | \`Internal GoFortress\` | Self-hosted coverage tracking with GitHub Pages |" >> $GITHUB_STEP_SUMMARY
+            fi
             echo "| **Coverage Threshold** | \`${{ env.COVERAGE_FAIL_UNDER }}%\` | Minimum acceptable coverage |" >> $GITHUB_STEP_SUMMARY
             echo "| **Badge Style** | \`${{ env.COVERAGE_BADGE_STYLE }}\` | Coverage badge appearance |" >> $GITHUB_STEP_SUMMARY
             echo "| **Badge Logo** | \`${{ env.COVERAGE_BADGE_LOGO }}\` | Badge logo/icon |" >> $GITHUB_STEP_SUMMARY
             echo "| **Report Theme** | \`${{ env.COVERAGE_REPORT_THEME }}\` | HTML report styling |" >> $GITHUB_STEP_SUMMARY
-            echo "| **PR Comments** | $([ "${{ env.COVERAGE_PR_COMMENT_ENABLED }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Coverage comments on pull requests |" >> $GITHUB_STEP_SUMMARY
+            echo "| **PR Comments** | $([ "${{ env.GO_COVERAGE_POST_COMMENTS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Coverage comments on pull requests |" >> $GITHUB_STEP_SUMMARY
             echo "| **History Retention** | \`${{ env.COVERAGE_HISTORY_RETENTION_DAYS }}\` days | Coverage data retention period |" >> $GITHUB_STEP_SUMMARY
             echo "| **Badge Branches** | \`${{ env.COVERAGE_BADGE_BRANCHES }}\` | Branches that generate badges |" >> $GITHUB_STEP_SUMMARY
             echo "| **Exclude Paths** | \`${{ env.COVERAGE_EXCLUDE_PATHS }}\` | Paths excluded from coverage |" >> $GITHUB_STEP_SUMMARY
@@ -474,7 +548,7 @@ jobs:
           echo "## 🔨 Build Requirements" >> $GITHUB_STEP_SUMMARY
           echo "| Requirement | Status | Details |" >> $GITHUB_STEP_SUMMARY
           echo "|-------------|--------|---------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Makefile** | $([ "${{ steps.config.outputs.makefile-exists }}" == "true" ] && echo "✅ Found" || echo "⚠️ Not Found") | Required: $([ "${{ env.MAKEFILE_REQUIRED }}" == "true" ] && echo "Yes" || echo "No") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **.mage.yaml** | $([ "${{ steps.config.outputs.magefile-exists }}" == "true" ] && echo "✅ Found" || echo "⚠️ Not Found") | Required: $([ "${{ env.MAGEFILE_REQUIRED }}" == "true" ] && echo "Yes" || echo "No") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Verbose Output** | $([ "${{ env.ENABLE_VERBOSE_TEST_OUTPUT }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | Test output verbosity |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "<br><br>" >> $GITHUB_STEP_SUMMARY

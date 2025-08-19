@@ -1,5 +1,5 @@
 ---
-allowed-tools: Task, Bash(git tag:*), Bash(make release:*), Edit, MultiEdit
+allowed-tools: Task, Bash(git tag:*), Bash(magex release:*), Edit, MultiEdit
 description: Comprehensive release preparation workflow
 argument-hint: <version> (e.g., v1.2.0)
 model: opus

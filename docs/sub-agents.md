@@ -243,10 +243,8 @@ go-broadcast includes **20+ powerful slash commands** that automatically coordin
 
 **Key Commands**:
 ```bash
-make test          # Fast linting + tests
-make test-race     # Race detection
-make test-ci       # Full CI suite
-make coverage      # Coverage report
+magex test          # Fast linting + tests
+magex test:race     # Race detection
 ```
 
 **Success Metrics**:
@@ -271,10 +269,7 @@ make coverage      # Coverage report
 
 **Key Commands**:
 ```bash
-make bench         # Run all benchmarks
-make bench-save    # Save baseline
-make bench-compare # Compare results
-make bench-cpu     # CPU profiling
+magex bench         # Run all benchmarks
 ```
 
 **Regression Threshold**: 5% performance drop triggers alert

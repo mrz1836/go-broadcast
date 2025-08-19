@@ -34,7 +34,6 @@ Our technical standards are organized into focused, portable documents in the `.
 * **[GitHub Workflows Development](tech-conventions/github-workflows.md)** - Actions workflow best practices
 
 ### Build & Project Setup
-* **[Makefile Usage](tech-conventions/makefile-usage.md)** - Build automation and development workflows
 * **[Governance Documents](tech-conventions/governance-documents.md)** - Project governance and community standards
 
 > 💡 **Start with [tech-conventions/README.md](tech-conventions/README.md)** for a complete index with descriptions.

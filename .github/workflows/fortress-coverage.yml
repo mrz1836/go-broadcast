@@ -1,8 +1,7 @@
 # ------------------------------------------------------------------------------------
-#  GoFortress Coverage System (Streamlined)
+#  GoFortress Coverage System
 #
-#  Purpose: Process Go coverage data, generate reports and badges, deploy to GitHub Pages
-#  with trend/history tracking via artifacts.
+#  Purpose: Process Go coverage data, use different coverage providers
 #
 #  Maintainer: @mrz1836
 #
@@ -45,6 +44,9 @@ on:
       github-token:
         description: "GitHub token for API access"
         required: true
+      CODECOV_TOKEN:
+        description: "Codecov token for uploading coverage (required when coverage-provider is codecov)"
+        required: false
 
 # Security: Restrictive default permissions with job-level overrides
 permissions:
@@ -52,10 +54,53 @@ permissions:
 
 jobs:
   # ----------------------------------------------------------------------------------
-  # Process Coverage and Deploy to GitHub Pages
+  # Check Coverage Provider
+  # ----------------------------------------------------------------------------------
+  check-provider:
+    name: 🔍 Check Coverage Provider
+    runs-on: ubuntu-latest
+    outputs:
+      provider: ${{ steps.check.outputs.provider }}
+      should-run-internal: ${{ steps.check.outputs.should-run-internal }}
+      should-run-codecov: ${{ steps.check.outputs.should-run-codecov }}
+    steps:
+      - name: 🔧 Parse environment variables
+        env:
+          ENV_JSON: ${{ inputs.env-json }}
+        run: |
+          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+            echo "$key=$value" >> $GITHUB_ENV
+          done
+
+      - name: 🔍 Check coverage provider
+        id: check
+        run: |
+          echo "🔍 Checking coverage provider configuration..."
+          PROVIDER="${{ env.GO_COVERAGE_PROVIDER }}"
+          echo "provider=$PROVIDER" >> $GITHUB_OUTPUT
+
+          if [[ "$PROVIDER" == "internal" ]]; then
+            echo "✅ Coverage provider is 'internal' - will use go-coverage with GitHub Pages"
+            echo "should-run-internal=true" >> $GITHUB_OUTPUT
+            echo "should-run-codecov=false" >> $GITHUB_OUTPUT
+          elif [[ "$PROVIDER" == "codecov" ]]; then
+            echo "✅ Coverage provider is 'codecov' - will upload to Codecov service"
+            echo "should-run-internal=false" >> $GITHUB_OUTPUT
+            echo "should-run-codecov=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Invalid provider: $PROVIDER"
+            echo "should-run-internal=false" >> $GITHUB_OUTPUT
+            echo "should-run-codecov=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  # ----------------------------------------------------------------------------------
+  # Process Coverage and Deploy to GitHub Pages (Internal Provider)
   # ----------------------------------------------------------------------------------
   process-coverage:
-    name: 📊 Process Coverage & Deploy
+    name: 📊 Process Coverage & Deploy (Internal)
+    needs: check-provider
+    if: needs.check-provider.outputs.should-run-internal == 'true'
     runs-on: ${{ inputs.primary-runner }}
     timeout-minutes: 10
     environment:
@@ -115,51 +160,104 @@ jobs:
           fetch-depth: 0 # Fetch all history including tags for version display
 
       # ————————————————————————————————————————————————————————————————
-      # Set up Go cache paths and restore caches
+      # Setup Go with caching and version management
       # ————————————————————————————————————————————————————————————————
-      - name: 🔧 Set Go cache paths (cross-platform)
-        run: |
-          echo "🔧 Setting up Go cache paths..."
-          echo "GOCACHE=$HOME/.cache/go-build"        >> $GITHUB_ENV
-          echo "GOMODCACHE=$HOME/go/pkg/mod"          >> $GITHUB_ENV
-          echo "GOLANGCI_LINT_CACHE=$HOME/.cache/golangci-lint" >> $GITHUB_ENV
-
-      - name: 💾 Restore Go module cache
-        id: restore-gomod
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ inputs.primary-runner }}-gomod-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
-          restore-keys: |
-            ${{ inputs.primary-runner }}-gomod-
-
-      - name: 💾 Restore Go build cache
-        id: restore-gobuild
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/.cache/go-build/test
-          key: ${{ inputs.primary-runner }}-gobuild-${{ env.GO_PRIMARY_VERSION }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum', '.github/pre-commit/go.sum') }}
-          restore-keys: |
-            ${{ inputs.primary-runner }}-gobuild-${{ env.GO_PRIMARY_VERSION }}-
-
-      - name: 🔧 Setup Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+      - name: 🏗️ Setup Go with Cache
+        id: setup-go-coverage
+        uses: ./.github/actions/setup-go-with-cache
         with:
           go-version: ${{ env.GO_PRIMARY_VERSION }}
-          cache: false # we handle caches ourselves
-
-      - name: 🔨 Build coverage tool
-        working-directory: .github/coverage/cmd/gofortress-coverage
-        run: |
-          go build -v -o gofortress-coverage .
-          chmod +x gofortress-coverage
-          # Store the full path for later use
-          echo "GOFORTRESS_BINARY=$(pwd)/gofortress-coverage" >> $GITHUB_ENV
+          matrix-os: ${{ inputs.primary-runner }}
+          go-primary-version: ${{ env.GO_PRIMARY_VERSION }}
+          go-secondary-version: ${{ env.GO_SECONDARY_VERSION }}
 
       # ————————————————————————————————————————————————————————————————
-      # Download and restore coverage history (WORKING SYSTEM - PRESERVED)
+      # Restore (and later save) a compact cache for the go-coverage binary
+      # Skip cache when using local development version
+      # ————————————————————————————————————————————————————————————————
+      - name: 💾 Restore go-coverage binary cache
+        id: go-coverage-cache
+        if: env.GO_COVERAGE_USE_LOCAL != 'true'
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: |
+            ~/.cache/go-coverage-bin
+          key: ${{ inputs.primary-runner }}-go-coverage-${{ env.GO_COVERAGE_VERSION }}
+
+      - name: 🛠️ Make cached go-coverage usable
+        if: env.GO_COVERAGE_USE_LOCAL != 'true'
+        run: |
+          set -euo pipefail
+          BIN_DIR="$HOME/.cache/go-coverage-bin"
+          GO_COVERAGE_BIN="$BIN_DIR/go-coverage"
+          # If we restored a cache, copy/link it into GOPATH/bin so the binary works.
+          if [[ -f "$GO_COVERAGE_BIN" ]]; then
+            echo "✅ Using cached go-coverage binary"
+            mkdir -p "$(go env GOPATH)/bin"
+            cp "$GO_COVERAGE_BIN" "$(go env GOPATH)/bin/"
+          fi
+          # Make sure the binary location is on PATH for *all* subsequent steps.
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: 🎯 Set go-coverage binary path
+        run: |
+          # Set the binary path for both cache hit and cache miss scenarios
+          GO_BIN="$(go env GOPATH)/bin"
+          echo "GO_COVERAGE_BINARY=$GO_BIN/go-coverage" >> $GITHUB_ENV
+
+      # ————————————————————————————————————————————————————————————————
+      # Install go-coverage tool when cache miss OR using local version
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔨 Install go-coverage tool
+        if: steps.go-coverage-cache.outputs.cache-hit != 'true' || env.GO_COVERAGE_USE_LOCAL == 'true'
+        run: |
+          # Check if we should use local development version
+          if [[ "${{ env.GO_COVERAGE_USE_LOCAL }}" == "true" ]]; then
+            echo "📦 Using local development version of go-coverage"
+            echo "  Building from source at: $GITHUB_WORKSPACE/cmd/go-coverage"
+
+            # Build from local source
+            cd "$GITHUB_WORKSPACE"
+            go build -v -o /tmp/go-coverage ./cmd/go-coverage
+            chmod +x /tmp/go-coverage
+
+            # Copy the freshly built binary to cache directory
+            mkdir -p ~/.cache/go-coverage-bin
+            cp /tmp/go-coverage ~/.cache/go-coverage-bin/
+
+            # Also copy to GOPATH/bin for immediate use
+            mkdir -p "$(go env GOPATH)/bin"
+            cp /tmp/go-coverage "$(go env GOPATH)/bin/go-coverage"
+
+            # Store the binary path
+            echo "GO_COVERAGE_BINARY=$(go env GOPATH)/bin/go-coverage" >> $GITHUB_ENV
+
+            # Show version info
+            echo "✅ Local go-coverage built and stored in cache"
+            "$(go env GOPATH)/bin/go-coverage" --version || echo "Version info not available for local build"
+          else
+            # Use production version
+            VERSION="${{ env.GO_COVERAGE_VERSION }}"
+            echo "⬇️ Cache miss – installing go-coverage version: $VERSION"
+
+            # Install using go install
+            go install github.com/mrz1836/go-coverage/cmd/go-coverage@$VERSION
+
+            # Copy the freshly installed binary to cache directory
+            mkdir -p ~/.cache/go-coverage-bin
+            cp "$(go env GOPATH)/bin/go-coverage" ~/.cache/go-coverage-bin/
+
+            # Store the binary path
+            GO_BIN="$(go env GOPATH)/bin"
+            echo "GO_COVERAGE_BINARY=$GO_BIN/go-coverage" >> $GITHUB_ENV
+
+            # Verify installation
+            echo "✅ go-coverage installed and stored in cache"
+            "$GO_BIN/go-coverage" --version
+          fi
+
+      # ————————————————————————————————————————————————————————————————
+      # Download and restore coverage history
       # ————————————————————————————————————————————————————————————————
       - name: 📥 Download previous coverage history
         # Download history for all branches to enable trend analysis
@@ -189,34 +287,35 @@ jobs:
 
           echo "✅ GitHub CLI is available and authenticated"
 
-          # Get recent successful workflow runs (prioritize current branch, then master)
-          echo "🔍 Fetching recent successful workflow runs..."
+          # Get recent workflow runs that may have recorded history (include failed deployments)
+          echo "🔍 Fetching recent workflow runs with potential history data..."
           CURRENT_BRANCH="${{ inputs.branch-name }}"
           echo "📌 Current branch: $CURRENT_BRANCH"
 
-          # First try to get runs from current branch
+          # First try to get completed runs from current branch (success OR failure after history step)
+          # This includes runs that recorded coverage history but failed in later steps (like deployment)
           WORKFLOW_RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
-            --jq ".workflow_runs[] | select(.status == \"completed\" and .conclusion == \"success\" and .head_branch == \"$CURRENT_BRANCH\") | .id" \
-            --paginate 2>/dev/null | head -5 || echo "")
+            --jq ".workflow_runs[] | select(.status == \"completed\" and (.conclusion == \"success\" or .conclusion == \"failure\") and .head_branch == \"$CURRENT_BRANCH\") | .id" \
+            --paginate 2>/dev/null | head -8 || echo "")
 
           # If no runs found for current branch and it's not master, also get master branch history
           if [[ -z "$WORKFLOW_RUNS" ]] && [[ "$CURRENT_BRANCH" != "master" ]]; then
             echo "ℹ️ No history found for branch '$CURRENT_BRANCH', checking master branch..."
             WORKFLOW_RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
-              --jq '.workflow_runs[] | select(.status == "completed" and .conclusion == "success" and .head_branch == "master") | .id' \
-              --paginate 2>/dev/null | head -3 || echo "")
+              --jq '.workflow_runs[] | select(.status == "completed" and (.conclusion == "success" or .conclusion == "failure") and .head_branch == "master") | .id' \
+              --paginate 2>/dev/null | head -5 || echo "")
           fi
 
           if [[ -z "$WORKFLOW_RUNS" ]]; then
-            echo "ℹ️ No recent successful workflow runs found"
+            echo "ℹ️ No recent workflow runs with potential history found"
             echo "📝 This is normal for:"
             echo "  - First run on this repository"
-            echo "  - First successful run after setup"
+            echo "  - All recent runs were cancelled or timed out"
             echo "  - GitHub API rate limiting or connectivity issues"
             exit 0
           fi
 
-          echo "📊 Found $(echo "$WORKFLOW_RUNS" | wc -l) recent successful runs"
+          echo "📊 Found $(echo "$WORKFLOW_RUNS" | wc -l) recent runs to check for history"
           echo "📋 Workflow run IDs: $(echo "$WORKFLOW_RUNS" | tr '\n' ' ')"
 
           # Download coverage history artifacts from recent runs
@@ -276,9 +375,18 @@ jobs:
                       rm -f "history-$run_id.zip"
                       echo "    ✅ Extracted history from run $run_id"
 
-                      # Show what was extracted
-                      EXTRACTED_FILES=$(find . -name "*.json" -newer "history-$run_id.zip" 2>/dev/null | wc -l || echo "0")
-                      echo "    📄 Extracted $EXTRACTED_FILES JSON files"
+                      # Validate extracted history files contain actual coverage data
+                      EXTRACTED_FILES=$(find . -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+                      VALID_FILES=0
+                      for json_file in $(find . -name "*.json" -type f 2>/dev/null); do
+                        if [[ -s "$json_file" ]] && grep -q "coverage" "$json_file" 2>/dev/null; then
+                          VALID_FILES=$((VALID_FILES + 1))
+                        else
+                          echo "    ⚠️ Removing invalid history file: $(basename "$json_file")"
+                          rm -f "$json_file"
+                        fi
+                      done
+                      echo "    📄 Extracted $EXTRACTED_FILES files, $VALID_FILES valid history entries"
                     else
                       echo "    ⚠️ Failed to extract history-$run_id.zip (possibly corrupted)"
                       rm -f "history-$run_id.zip"
@@ -405,16 +513,15 @@ jobs:
           name: coverage-data
           path: ./coverage-artifacts/
         continue-on-error: true
-
       - name: 📊 Process coverage data
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
           GITHUB_SHA: ${{ inputs.commit-sha }}
           GITHUB_REF_NAME: ${{ inputs.branch-name }}
-          COVERAGE_HISTORY_PATH: ${{ github.workspace }}/.github/coverage/history
-        working-directory: .github/coverage/cmd/gofortress-coverage
+          GO_COVERAGE_HISTORY_PATH: ${{ github.workspace }}/.github/coverage/history
         run: |
           echo "📊 Processing coverage data with complete pipeline..."
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -422,14 +529,15 @@ jobs:
           # Debug: Show current working directory and paths
           echo "🔍 Environment information:"
           echo "  - Current working directory: $(pwd)"
-          echo "  - Repository root should be: $(realpath ../../../../)"
-          echo "  - History path from env: $COVERAGE_HISTORY_PATH"
+          echo "  - Repository root should be: $(pwd)"
+          echo "  - History path from env: $GO_COVERAGE_HISTORY_PATH"
           echo "  - GitHub repository: $GITHUB_REPOSITORY"
           echo "  - Branch: $GITHUB_REF_NAME"
           echo "  - Commit SHA: $GITHUB_SHA"
+          echo "  - PR Number: ${GITHUB_PR_NUMBER:-Not in PR context}"
 
           # Find coverage file with detailed logging
-          REPO_ROOT="$(realpath ../../../../)"
+          REPO_ROOT="$(pwd)"
           echo ""
           echo "🔍 Locating coverage input file..."
           echo "  - Repository root: $REPO_ROOT"
@@ -500,10 +608,10 @@ jobs:
 
           # Process coverage with complete command for main output
           echo ""
-          echo "🚀 Running GoFortress coverage complete command for main output..."
-          echo "  Command: ./gofortress-coverage complete --input \"$COVERAGE_FILE\" --output \"$OUTPUT_DIR\""
+          echo "🚀 Running go-coverage complete command for main output..."
+          echo "  Command: $GO_COVERAGE_BINARY complete --input \"$COVERAGE_FILE\" --output \"$OUTPUT_DIR\""
 
-          if "$GOFORTRESS_BINARY" complete \
+          if "$GO_COVERAGE_BINARY" complete \
             --input "$COVERAGE_FILE" \
             --output "$OUTPUT_DIR"; then
             echo "✅ Main coverage processing completed successfully"
@@ -514,10 +622,10 @@ jobs:
 
           # Process coverage for branch-specific output
           echo ""
-          echo "🚀 Running GoFortress coverage complete command for branch-specific output..."
-          echo "  Command: ./gofortress-coverage complete --input \"$COVERAGE_FILE\" --output \"$BRANCH_OUTPUT_DIR\""
+          echo "🚀 Running go-coverage complete command for branch-specific output..."
+          echo "  Command: $GO_COVERAGE_BINARY complete --input \"$COVERAGE_FILE\" --output \"$BRANCH_OUTPUT_DIR\""
 
-          if "$GOFORTRESS_BINARY" complete \
+          if "$GO_COVERAGE_BINARY" complete \
             --input "$COVERAGE_FILE" \
             --output "$BRANCH_OUTPUT_DIR"; then
             echo "✅ Branch-specific coverage processing completed successfully"
@@ -604,13 +712,12 @@ jobs:
         # Record history for all branches to enable trend tracking
         if: github.event_name == 'push'
         env:
-          COVERAGE_HISTORY_PATH: ${{ github.workspace }}/.github/coverage/history
-        working-directory: .github/coverage/cmd/gofortress-coverage
+          GO_COVERAGE_HISTORY_PATH: ${{ github.workspace }}/.github/coverage/history
         run: |
           echo "📈 Recording coverage history..."
 
           # Find coverage file
-          REPO_ROOT="$(realpath ../../../../)"
+          REPO_ROOT="$(pwd)"
           if [[ -f "$REPO_ROOT/coverage-artifacts/${{ inputs.coverage-file }}" ]]; then
             COVERAGE_FILE="$REPO_ROOT/coverage-artifacts/${{ inputs.coverage-file }}"
           elif [[ -f "$REPO_ROOT/${{ inputs.coverage-file }}" ]]; then
@@ -621,13 +728,27 @@ jobs:
           fi
 
           # Record coverage in history
-          "$GOFORTRESS_BINARY" history \
+          if ! "$GO_COVERAGE_BINARY" history \
             --add "$COVERAGE_FILE" \
             --branch "${{ inputs.branch-name }}" \
             --commit "${{ inputs.commit-sha }}" \
-            --format text
+            --format text; then
+            echo "⚠️ Failed to record history"
+            exit 1
+          fi
 
-          echo "✅ History recording completed"
+          # Verify history files were created
+          HISTORY_COUNT=$(find "$GO_COVERAGE_HISTORY_PATH" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+          echo "✅ History recording completed - $HISTORY_COUNT history files in directory"
+
+          # Debug: List history files
+          if [[ $HISTORY_COUNT -gt 0 ]]; then
+            echo "📋 History files created:"
+            find "$GO_COVERAGE_HISTORY_PATH" -name "*.json" -type f -exec basename {} \; | head -5
+          else
+            echo "⚠️ WARNING: No history files found after recording"
+            ls -la "$GO_COVERAGE_HISTORY_PATH" 2>/dev/null || echo "Directory not found: $GO_COVERAGE_HISTORY_PATH"
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Create PR comment (if in PR context)
@@ -635,8 +756,7 @@ jobs:
       # when a PR number is provided via inputs
       # ————————————————————————————————————————————————————————————————
       - name: 💬 Create or update PR coverage comment
-        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request' || inputs.pr-number != '') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
-        working-directory: .github/coverage/cmd/gofortress-coverage
+        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request' || inputs.pr-number != '') && env.GO_COVERAGE_POST_COMMENTS == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.github-token }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
@@ -659,7 +779,7 @@ jobs:
           echo ""
 
           # Get the coverage file path
-          REPO_ROOT="$(realpath ../../../../)"
+          REPO_ROOT="$(pwd)"
           COVERAGE_FILE="$REPO_ROOT/coverage-artifacts/${{ inputs.coverage-file }}"
 
           if [[ ! -f "$COVERAGE_FILE" ]]; then
@@ -687,7 +807,7 @@ jobs:
             echo "📋 Base branch: $BASE_BRANCH (SHA: $BASE_SHA)"
 
             # Define repository root for consistent path handling
-            REPO_ROOT="$(realpath ../../../../)"
+            REPO_ROOT="$(pwd)"
             echo "📁 Repository root: $REPO_ROOT"
 
             # Try to fetch base coverage profile from recent workflow artifacts
@@ -797,12 +917,13 @@ jobs:
           fi
 
 
-          # Get URLs for the comment
-          BADGE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage.svg"
-          REPORT_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/"
+          # Get URLs for the comment - use branch-specific URLs for PRs
+          BRANCH_NAME="${{ inputs.branch-name }}"
+          BADGE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/branch/$BRANCH_NAME/coverage.svg"
+          REPORT_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/branch/$BRANCH_NAME/"
 
           # Create PR comment
-          "$GOFORTRESS_BINARY" comment \
+          "$GO_COVERAGE_BINARY" comment \
             --pr "$GITHUB_PR_NUMBER" \
             --coverage "$COVERAGE_FILE" \
             $BASE_COVERAGE_ARG \
@@ -814,212 +935,11 @@ jobs:
 
           if [[ $? -eq 0 ]]; then
             echo "✅ PR comment created/updated successfully"
-
-            # Wait a moment for file I/O operations to complete
-            sleep 2
-
-            # Verify PR HTML report was generated
-            PR_NUMBER="${{ inputs.pr-number || github.event.pull_request.number }}"
-            if [[ -f "/tmp/pr-badges/pr/$PR_NUMBER/index.html" ]]; then
-              html_size=$(ls -lah "/tmp/pr-badges/pr/$PR_NUMBER/index.html" | awk '{print $5}')
-              echo "✅ PR HTML report generated successfully: index.html ($html_size)"
-            else
-              echo "❌ ERROR: PR HTML report was not generated at /tmp/pr-badges/pr/$PR_NUMBER/index.html"
-              echo "🔍 Checking for HTML files in /tmp/pr-badges/:"
-              find /tmp/pr-badges -name "*.html" -type f 2>/dev/null || echo "No HTML files found"
-            fi
-
-            # Debug: Search for generated badges in current working directory
-            echo ""
-            echo "🔍 Debug: Searching for generated PR badges..."
-            echo "  - Current working directory: $(pwd)"
-            echo "  - Repository root: $REPO_ROOT"
-
-            # Search for any SVG files that might be badges
-            echo "  - Searching for *.svg files in current directory tree:"
-            find . -name "*.svg" -type f 2>/dev/null | head -10 | while read svg_file; do
-              echo "    Found: $svg_file"
-            done
-
-            # Check specific badge directories
-            BADGE_SEARCH_DIRS=(
-              "./coverage-badges"
-              "$HOME/.gofortress/badges"
-              "/tmp/pr-badges"
-            )
-
-            for search_dir in "${BADGE_SEARCH_DIRS[@]}"; do
-              if [[ -d "$search_dir" ]]; then
-                echo "  - Contents of $search_dir:"
-                find "$search_dir" -type f -name "*.svg" 2>/dev/null | head -5 | while read badge_file; do
-                  echo "    Badge: $badge_file"
-                done
-              else
-                echo "  - Directory not found: $search_dir"
-              fi
-            done
-
           else
             echo "⚠️ Failed to create PR comment (non-fatal)"
           fi
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-      # ————————————————————————————————————————————————————————————————
-      # Deploy PR badges to make them accessible via GitHub Pages
-      # ————————————————————————————————————————————————————————————————
-      - name: 🏷️ Deploy PR badges to GitHub Pages
-        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request' || inputs.pr-number != '') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
-        working-directory: .github/coverage/cmd/gofortress-coverage
-        env:
-          GITHUB_TOKEN: ${{ secrets.github-token }}
-        run: |
-          echo "🏷️ Deploying PR badges to GitHub Pages..."
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-          REPO_ROOT="$(realpath ../../../../)"
-          PR_NUMBER="${{ inputs.pr-number || github.event.pull_request.number }}"
-
-          echo "🔍 Debug Information:"
-          echo "  - Current working directory: $(pwd)"
-          echo "  - Repository root: $REPO_ROOT"
-          echo "  - PR Number: $PR_NUMBER"
-
-          # Check if badges were generated by the comment command
-          BADGE_SOURCE_DIR="/tmp/pr-badges/pr/$PR_NUMBER"
-          if [[ ! -d "$BADGE_SOURCE_DIR" ]]; then
-            echo "ℹ️ No PR badges found at $BADGE_SOURCE_DIR - checking alternative paths"
-
-            # Try alternative paths where badges might be generated
-            ALT_PATHS=(
-              "$HOME/.gofortress/badges/pr/$PR_NUMBER"
-              "./badges/pr/$PR_NUMBER"
-              "$REPO_ROOT/badges/pr/$PR_NUMBER"
-              "./coverage-badges/pr/$PR_NUMBER"
-              "$REPO_ROOT/coverage-badges/pr/$PR_NUMBER"
-              "$REPO_ROOT/.github/coverage/cmd/gofortress-coverage/coverage-badges/pr/$PR_NUMBER"
-              "$GOFORTRESS_DIR/coverage-badges/pr/$PR_NUMBER"
-            )
-
-            for alt_path in "${ALT_PATHS[@]}"; do
-              echo "  - Checking: $alt_path"
-              if [[ -d "$alt_path" ]]; then
-                BADGE_COUNT=$(find "$alt_path" -name "*.svg" -type f 2>/dev/null | wc -l)
-                echo "    ✅ Directory exists with $BADGE_COUNT SVG files"
-                if [[ $BADGE_COUNT -gt 0 ]]; then
-                  BADGE_SOURCE_DIR="$alt_path"
-                  echo "    ✅ Using as badge source directory"
-                  break
-                else
-                  echo "    ⚠️ Directory exists but contains no SVG files"
-                fi
-              else
-                echo "    ❌ Directory does not exist"
-              fi
-            done
-
-            if [[ ! -d "$BADGE_SOURCE_DIR" ]]; then
-              echo "⚠️ No PR badges found to deploy - this is expected if badge generation failed"
-              echo "📝 Badge URLs in PR comment will show 404 until badges are generated"
-              exit 0
-            fi
-          else
-            echo "✅ Found PR badges at: $BADGE_SOURCE_DIR"
-          fi
-
-          # Create deployment directory structure for PR badges
-          DEPLOY_DIR="$REPO_ROOT/pages-deploy"
-          PR_BADGE_DEPLOY_DIR="$DEPLOY_DIR/coverage/pr/$PR_NUMBER"
-
-          echo "📁 Creating PR badge deployment directory: $PR_BADGE_DEPLOY_DIR"
-          mkdir -p "$PR_BADGE_DEPLOY_DIR"
-
-          # Show what's in the source directory before copying
-          echo "📁 Source directory structure before copy:"
-          if [[ -d "$BADGE_SOURCE_DIR" ]]; then
-            if command -v tree >/dev/null 2>&1; then
-              tree "$BADGE_SOURCE_DIR" || ls -laR "$BADGE_SOURCE_DIR"
-            else
-              ls -laR "$BADGE_SOURCE_DIR"
-            fi
-          else
-            echo "⚠️ Source directory does not exist: $BADGE_SOURCE_DIR"
-          fi
-
-          # Copy PR badges AND HTML report to deployment directory
-          echo "📋 Copying PR badges and HTML report to deployment directory..."
-          if cp -r "$BADGE_SOURCE_DIR"/* "$PR_BADGE_DEPLOY_DIR/" 2>/dev/null; then
-            echo "✅ PR badges copied successfully"
-
-            # Verify PR HTML report is included
-            if [[ -f "$PR_BADGE_DEPLOY_DIR/index.html" ]]; then
-              html_size=$(ls -lah "$PR_BADGE_DEPLOY_DIR/index.html" | awk '{print $5}')
-              echo "✅ PR HTML report included: index.html ($html_size)"
-              echo "🌐 Will be available at: https://mrz1836.github.io/go-broadcast/coverage/pr/$PR_NUMBER/"
-            else
-              echo "⚠️ WARNING: PR HTML report not found in deployment directory"
-              echo "🔍 Contents of PR badge deployment directory:"
-              ls -la "$PR_BADGE_DEPLOY_DIR" 2>/dev/null || echo "Directory not accessible"
-
-              # This is critical - the HTML report should have been generated by the comment command
-              echo ""
-              echo "❌ CRITICAL: PR HTML report is missing!"
-              echo "   Expected at: $PR_BADGE_DEPLOY_DIR/index.html"
-              echo "   This indicates the gofortress-coverage comment command may not be generating HTML"
-            fi
-
-            # Show complete PR directory structure
-            echo "📁 Complete PR deployment directory structure:"
-            if command -v tree >/dev/null 2>&1; then
-              tree "$PR_BADGE_DEPLOY_DIR" || ls -laR "$PR_BADGE_DEPLOY_DIR"
-            else
-              ls -laR "$PR_BADGE_DEPLOY_DIR"
-            fi
-
-            # List deployed badges
-            echo "🏷️ Deployed PR badges:"
-            find "$PR_BADGE_DEPLOY_DIR" -name "*.svg" -exec echo "  - {}" \;
-
-            # Create a simple badge.svg symlink to the main coverage badge
-            if [[ -f "$PR_BADGE_DEPLOY_DIR/badge-coverage-flat.svg" ]]; then
-              ln -sf "badge-coverage-flat.svg" "$PR_BADGE_DEPLOY_DIR/badge.svg"
-              echo "✅ Created badge.svg symlink"
-            fi
-
-            # Show expected URLs for both badges and HTML report
-            echo "🌐 PR coverage will be available at:"
-            if [[ -f "$PR_BADGE_DEPLOY_DIR/index.html" ]]; then
-              echo "  📄 Coverage Report: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/pr/$PR_NUMBER/"
-            fi
-            echo "  🏷️ Badges:"
-            find "$PR_BADGE_DEPLOY_DIR" -name "*.svg" -exec basename {} \; | while read badge_file; do
-              echo "    - https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/pr/$PR_NUMBER/$badge_file"
-            done
-
-          else
-            echo "⚠️ Failed to copy PR badges - source directory may be empty"
-            echo "🔍 Contents of source directory:"
-            ls -la "$BADGE_SOURCE_DIR" 2>/dev/null || echo "Directory not accessible"
-            exit 0
-          fi
-
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-      # NOTE: Removed duplicate PR badge deployment step
-      # The main incremental deployment at line 1440 already handles PR content properly
-      # Having multiple deployments to gh-pages can cause race conditions
-
-      # ————————————————————————————————————————————————————————————————
-      # Upload PR assets deployment as artifact for backup availability
-      # ————————————————————————————————————————————————————————————————
-      - name: 📤 Upload PR coverage (badges + HTML report) as artifact
-        if: (github.event_name == 'pull_request' || inputs.event-name == 'pull_request' || inputs.pr-number != '') && env.COVERAGE_PR_COMMENT_ENABLED == 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: pr-badges-${{ inputs.pr-number || github.event.pull_request.number }}
-          path: pages-deploy/coverage/pr/${{ inputs.pr-number || github.event.pull_request.number }}/
-          retention-days: 30
-        continue-on-error: true
 
       # ————————————————————————————————————————————————————————————————
       # Create clean deployment directory for GitHub Pages
@@ -1166,31 +1086,6 @@ jobs:
               done
             fi
 
-            # Copy PR directories if they exist (INCLUDING PR HTML REPORTS)
-            if [[ -d "$SOURCE_DIR/coverage/pr" ]]; then
-              echo "    📁 Copying PR coverage (badges + HTML reports)..."
-              cp -r "$SOURCE_DIR/coverage/pr" "$CLEAN_DEPLOY_DIR/coverage/"
-              pr_size=$(du -sh "$CLEAN_DEPLOY_DIR/coverage/pr" 2>/dev/null | cut -f1 || echo "unknown")
-              pr_files=$(find "$CLEAN_DEPLOY_DIR/coverage/pr" -type f | wc -l)
-              echo "      ✅ Copied PR coverage ($pr_size, $pr_files files)"
-
-              # CRITICAL: Verify PR HTML reports are included
-              echo "      🔍 Verifying PR HTML reports:"
-              for pr_dir in "$CLEAN_DEPLOY_DIR/coverage/pr"/*; do
-                if [[ -d "$pr_dir" ]]; then
-                  pr_num=$(basename "$pr_dir")
-                  if [[ -f "$pr_dir/index.html" ]]; then
-                    html_size=$(ls -lah "$pr_dir/index.html" | awk '{print $5}')
-                    echo "        ✅ PR #$pr_num HTML report: index.html ($html_size)"
-                    echo "        🌐 Will be available at: https://mrz1836.github.io/go-broadcast/coverage/pr/$pr_num/"
-                  else
-                    echo "        ⚠️ PR #$pr_num missing HTML report: index.html"
-                    echo "        🔍 Contents of PR directory:"
-                    ls -la "$pr_dir" 2>/dev/null | sed 's/^/          /' || echo "          Directory not accessible"
-                  fi
-                fi
-              done
-            fi
 
             # Show size comparison
             if [[ -d "$CLEAN_DEPLOY_DIR/coverage" ]]; then
@@ -1465,7 +1360,6 @@ jobs:
             TOTAL_BEFORE=$(find . -type f -not -path './.git/*' | wc -l)
             echo "  - Total files: $TOTAL_BEFORE"
             echo "  - Coverage branches: $(find coverage/branch -maxdepth 1 -type d 2>/dev/null | wc -l || echo "0")"
-            echo "  - PR badges: $(find coverage/pr -name "*.svg" 2>/dev/null | wc -l || echo "0")"
 
             # AGGRESSIVE CLEANUP: Remove unwanted files from existing gh-pages content
             # This addresses the 317 unwanted files issue (.go, .yml, .md, etc.)
@@ -1529,7 +1423,7 @@ jobs:
 
               # Remove common root-level unwanted files
               UNWANTED_ROOT_FILES=(
-                "Makefile"
+                ".mage.yaml"
                 "LICENSE"
                 "README.md"
                 "CHANGELOG.md"
@@ -1684,23 +1578,7 @@ jobs:
             fi
           fi
 
-          # Deploy PR or branch content based on event type
-          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ -n "$PR_NUMBER" ]]; then
-            # PR deployment - copy PR-specific content
-            PR_DIR="coverage/pr/$PR_NUMBER"
-            echo "📋 Updating PR-specific content: $PR_DIR"
-            mkdir -p "$PR_DIR"
-
-            if [[ -d "$DEPLOY_DIR/coverage/pr/$PR_NUMBER" ]]; then
-              echo "  📋 Copying PR coverage files..."
-              cp -r "$DEPLOY_DIR/coverage/pr/$PR_NUMBER"/* "$PR_DIR/" 2>/dev/null || true
-              echo "  ✅ Updated PR coverage: PR #$PR_NUMBER"
-            else
-              echo "  ⚠️ No PR coverage files found at: $DEPLOY_DIR/coverage/pr/$PR_NUMBER"
-            fi
-          fi
-
-          # Always update branch-specific content as well
+          # Always update branch-specific content
           BRANCH_DIR="coverage/branch/$BRANCH_NAME"
           echo "📋 Updating branch-specific content: $BRANCH_DIR (with filtering)"
           mkdir -p "$BRANCH_DIR"
@@ -1799,21 +1677,6 @@ jobs:
             fi
 
             echo '        </ul>' >> branches.html
-            echo '' >> branches.html
-            echo '        <h2>🔀 Pull Request Coverage</h2>' >> branches.html
-            echo '        <ul class="pr-list">' >> branches.html
-
-            # List all PR coverage badges
-            if [[ -d coverage/pr ]]; then
-              for pr_dir in coverage/pr/*/; do
-                if [[ -d "$pr_dir" ]]; then
-                  pr_num=$(basename "$pr_dir")
-                  echo "            <li>PR #$pr_num: <img src=\"/coverage/pr/$pr_num/coverage.svg\" alt=\"PR Coverage\" class=\"badge\"></li>" >> branches.html
-                fi
-              done
-            fi
-
-            echo '        </ul>' >> branches.html
             echo '    </div>' >> branches.html
             echo '</body>' >> branches.html
             echo '</html>' >> branches.html
@@ -1829,11 +1692,9 @@ jobs:
           echo "📊 Deployment content summary (after filtering):"
           TOTAL_FILES=$(find . -type f -not -path './.git/*' | wc -l)
           BRANCH_REPORTS=$(find coverage/branch -maxdepth 1 -type d 2>/dev/null | tail -n +2 | wc -l || echo "0")
-          PR_BADGES=$(find coverage/pr -name "*.svg" 2>/dev/null | wc -l || echo "0")
 
           echo "  - Total files: $TOTAL_FILES"
           echo "  - Branch coverage reports: $BRANCH_REPORTS"
-          echo "  - PR badges: $PR_BADGES"
 
           # Show file types for verification
           echo "  - File types breakdown:"
@@ -1893,9 +1754,6 @@ jobs:
             echo ""
             echo "🌐 Deployment URLs:"
             echo "  - Main dashboard: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
-            if [[ "$EVENT_NAME" == "pull_request" ]] && [[ -n "$PR_NUMBER" ]]; then
-              echo "  - PR coverage: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/pr/$PR_NUMBER/"
-            fi
             echo "  - Branch coverage: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/branch/$BRANCH_NAME/"
             source /tmp/branch_helpers.sh
             if is_main_branch "$BRANCH_NAME"; then
@@ -1946,20 +1804,14 @@ jobs:
           # Define URLs to test based on event type and branch
           EVENT_NAME="${{ inputs.event-name || github.event_name }}"
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            # PR deployment - test PR-specific URLs
-            PR_NUMBER="${{ inputs.pr-number || github.event.pull_request.number }}"
+            # PR event - test branch URLs since PRs use branch deployment
             CRITICAL_URLS=(
-              "$BASE_URL/coverage/pr/$PR_NUMBER/"
-              "$BASE_URL/coverage/pr/$PR_NUMBER/index.html"
-              "$BASE_URL/coverage/pr/$PR_NUMBER/badge-coverage-flat.svg"
-              "$BASE_URL/coverage/pr/$PR_NUMBER/badge.svg"
-            )
-            OPTIONAL_URLS=(
               "$BASE_URL/coverage/branch/$BRANCH_NAME/"
               "$BASE_URL/coverage/branch/$BRANCH_NAME/index.html"
               "$BASE_URL/coverage/branch/$BRANCH_NAME/coverage.html"
               "$BASE_URL/coverage/branch/$BRANCH_NAME/coverage.svg"
             )
+            OPTIONAL_URLS=()
           elif is_main_branch "$BRANCH_NAME"; then
             # Main branch deployment - test root URLs
             CRITICAL_URLS=(
@@ -2067,16 +1919,9 @@ jobs:
             echo ""
             EVENT_NAME="${{ inputs.event-name || github.event_name }}"
             if [[ "$EVENT_NAME" == "pull_request" ]]; then
-              PR_NUMBER="${{ inputs.pr-number || github.event.pull_request.number }}"
-              echo "🔀 PR Coverage Report: $BASE_URL/coverage/pr/$PR_NUMBER/"
-              echo "📊 PR Coverage HTML: $BASE_URL/coverage/pr/$PR_NUMBER/index.html"
-              echo "🏷️ PR Coverage Badge: $BASE_URL/coverage/pr/$PR_NUMBER/badge.svg"
-              echo "📈 PR Badges:"
-              echo "    - Coverage: $BASE_URL/coverage/pr/$PR_NUMBER/badge-coverage-flat.svg"
-              echo "    - Status: $BASE_URL/coverage/pr/$PR_NUMBER/badge-status-flat.svg"
-              echo "    - Trend: $BASE_URL/coverage/pr/$PR_NUMBER/badge-trend-flat.svg"
-              echo "    - Quality: $BASE_URL/coverage/pr/$PR_NUMBER/badge-quality-flat.svg"
-              echo "    - Comparison: $BASE_URL/coverage/pr/$PR_NUMBER/badge-comparison-flat.svg"
+              echo "🔀 Branch Coverage Report (PR): $BASE_URL/coverage/branch/$BRANCH_NAME/"
+              echo "📊 Branch Coverage HTML: $BASE_URL/coverage/branch/$BRANCH_NAME/index.html"
+              echo "🏷️ Branch Coverage Badge: $BASE_URL/coverage/branch/$BRANCH_NAME/coverage.svg"
             elif is_main_branch "$BRANCH_NAME"; then
               echo "🌐 Main Coverage Dashboard: $BASE_URL/"
               echo "📊 Main Coverage Report: $BASE_URL/coverage.html"
@@ -2163,8 +2008,8 @@ jobs:
           echo "📊 Collecting cache statistics..."
 
           # Get cache hit information
-          GOMOD_HIT="${{ steps.restore-gomod.outputs.cache-hit }}"
-          GOBUILD_HIT="${{ steps.restore-gobuild.outputs.cache-hit }}"
+          GOMOD_HIT="${{ steps.setup-go-coverage.outputs.module-cache-hit }}"
+          GOBUILD_HIT="${{ steps.setup-go-coverage.outputs.build-cache-hit }}"
 
           # Get cache sizes
           GOMOD_SIZE="0B"
@@ -2206,6 +2051,26 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       # Upload coverage history for future runs (WORKING SYSTEM - PRESERVED)
       # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Verify history files before upload
+        if: github.event_name == 'push'
+        run: |
+          echo "🔍 Checking history files before upload..."
+          HISTORY_PATH="${{ github.workspace }}/.github/coverage/history"
+          if [[ -d "$HISTORY_PATH" ]]; then
+            FILE_COUNT=$(find "$HISTORY_PATH" -name "*.json" -type f 2>/dev/null | wc -l || echo "0")
+            echo "  - History directory: $HISTORY_PATH"
+            echo "  - JSON files found: $FILE_COUNT"
+            if [[ $FILE_COUNT -gt 0 ]]; then
+              echo "  - Files to upload:"
+              find "$HISTORY_PATH" -name "*.json" -type f -exec basename {} \; | head -5
+              echo "  - Total size: $(du -sh "$HISTORY_PATH" | cut -f1)"
+            else
+              echo "⚠️ No JSON files found in history directory"
+            fi
+          else
+            echo "⚠️ History directory does not exist: $HISTORY_PATH"
+          fi
+
       - name: 📤 Upload coverage history artifacts
         # Upload history for all branches to preserve trend data
         if: github.event_name == 'push'
@@ -2216,3 +2081,76 @@ jobs:
           retention-days: 90
           compression-level: 9
         continue-on-error: true
+  # ----------------------------------------------------------------------------------
+  # Upload Coverage to Codecov (External Provider)
+  # ----------------------------------------------------------------------------------
+  codecov-upload:
+    name: 📈 Upload to Codecov
+    needs: check-provider
+    if: needs.check-provider.outputs.should-run-codecov == 'true'
+    runs-on: ${{ inputs.primary-runner }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      # ————————————————————————————————————————————————————————————————
+      # Setup and environment
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Parse environment variables
+        env:
+          ENV_JSON: ${{ inputs.env-json }}
+        run: |
+          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+            echo "$key=$value" >> $GITHUB_ENV
+          done
+
+      - name: 📥 Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 2 # Need history for codecov to detect changes
+
+      # ————————————————————————————————————————————————————————————————
+      # Download coverage artifact
+      # ————————————————————————————————————————————————————————————————
+      - name: 📥 Download coverage artifact
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: coverage-data
+          path: ./
+
+      - name: 🔍 Verify coverage file
+        run: |
+          echo "🔍 Verifying coverage file for Codecov upload..."
+          if [[ -f "coverage.txt" ]]; then
+            echo "✅ Coverage file found"
+            echo "📊 File size: $(wc -c < coverage.txt) bytes"
+            echo "📊 Line count: $(wc -l < coverage.txt)"
+
+            # Verify format
+            FIRST_LINE=$(head -1 coverage.txt)
+            if [[ "$FIRST_LINE" == "mode: atomic" ]] || [[ "$FIRST_LINE" == "mode: count" ]] || [[ "$FIRST_LINE" == "mode: set" ]]; then
+              echo "✅ Coverage file format is valid"
+            else
+              echo "❌ Invalid coverage file format"
+              exit 1
+            fi
+          else
+            echo "❌ Coverage file not found!"
+            exit 1
+          fi
+
+      # ————————————————————————————————————————————————————————————————
+      # Upload to Codecov
+      # ————————————————————————————————————————————————————————————————
+      - name: 📈 Upload coverage to Codecov
+        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
+        with:
+          #file: ./coverage.txt # This is the old format
+          files: ./coverage.txt
+          fail_ci_if_error: true
+          flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          name: codecov-${{ inputs.branch-name }}
+          override_branch: ${{ inputs.branch-name }}
+          override_commit: ${{ inputs.commit-sha }}

@@ -63,6 +63,11 @@ jobs:
     outputs:
       env-json: ${{ steps.load-env.outputs.env-json }}
       primary-runner: ${{ steps.load-env.outputs.primary-runner }}
+      base-file-found: ${{ steps.load-env.outputs.base-file-found }}
+      custom-file-found: ${{ steps.load-env.outputs.custom-file-found }}
+      base-var-count: ${{ steps.load-env.outputs.base-var-count }}
+      custom-var-count: ${{ steps.load-env.outputs.custom-var-count }}
+      config-mode: ${{ steps.load-env.outputs.config-mode }}
     steps:
       # ————————————————————————————————————————————————————————————————
       # Check out code to access env file
@@ -71,7 +76,8 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           sparse-checkout: |
-            .github/.env.shared
+            .github/.env.base
+            .github/.env.custom
             .github/actions/load-env
 
       # ————————————————————————————————————————————————————————————————
@@ -93,17 +99,22 @@ jobs:
     with:
       env-json: ${{ needs.load-env.outputs.env-json }}
       primary-runner: ${{ needs.load-env.outputs.primary-runner }}
+      base-file-found: ${{ needs.load-env.outputs.base-file-found }}
+      custom-file-found: ${{ needs.load-env.outputs.custom-file-found }}
+      base-var-count: ${{ needs.load-env.outputs.base-var-count }}
+      custom-var-count: ${{ needs.load-env.outputs.custom-var-count }}
+      config-mode: ${{ needs.load-env.outputs.config-mode }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
   # ----------------------------------------------------------------------------------
-  # Test Makefile
+  # Test MAGE-X
   # ----------------------------------------------------------------------------------
-  test-makefile:
-    name: 📋 Test Makefile
+  test-magex:
+    name: 🪄 Test MAGE-X
     needs: [load-env, setup]
     permissions:
-      contents: read # Read repository content for makefile testing
-    uses: ./.github/workflows/fortress-test-makefile.yml
+      contents: read # Read repository content for magex testing
+    uses: ./.github/workflows/fortress-test-magex.yml
     with:
       env-json: ${{ needs.load-env.outputs.env-json }}
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
@@ -112,7 +123,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   warm-cache:
     name: 💾 Warm Cache (${{ matrix.name }})
-    needs: [load-env, setup, test-makefile]
+    needs: [load-env, setup, test-magex]
     permissions:
       contents: read # Read repository content for cache warming
     strategy:
@@ -128,10 +139,10 @@ jobs:
         with:
           sparse-checkout: |
             .github/actions/warm-cache
+            .github/.env.base
             go.mod
             go.sum
-            .github/coverage/
-            Makefile
+            .mage.yaml
 
       # ————————————————————————————————————————————————————————————————
       # Extract verbose flag from env-json
@@ -153,12 +164,13 @@ jobs:
           enable-verbose: ${{ steps.extract.outputs.enable_verbose }}
           go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
           go-secondary-version: ${{ needs.setup.outputs.go-secondary-version }}
+          env-json: ${{ needs.load-env.outputs.env-json }}
   # ----------------------------------------------------------------------------------
   # Security Scans
   # ----------------------------------------------------------------------------------
   security:
     name: 🔒 Security Scans
-    needs: [load-env, setup, warm-cache, test-makefile]
+    needs: [load-env, setup, warm-cache, test-magex]
     if: needs.setup.outputs.security-scans-enabled == 'true'
     permissions:
       contents: read # Read repository content for security scanning
@@ -178,7 +190,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   code-quality:
     name: 📊 Code Quality
-    needs: [load-env, setup, warm-cache, test-makefile]
+    needs: [load-env, setup, warm-cache, test-magex]
     permissions:
       contents: read # Read repository content for code quality checks
     uses: ./.github/workflows/fortress-code-quality.yml
@@ -196,7 +208,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   pre-commit:
     name: 🪝 Pre-commit Checks
-    needs: [load-env, setup, warm-cache, test-makefile]
+    needs: [load-env, setup, warm-cache, test-magex]
     if: needs.setup.outputs.pre-commit-enabled == 'true'
     permissions:
       contents: read # Read repository content for pre-commit checks
@@ -213,7 +225,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   test-suite:
     name: 🧪 Test Suite
-    needs: [load-env, setup, warm-cache, test-makefile]
+    needs: [load-env, setup, warm-cache, test-magex]
     permissions:
       contents: write # Write repository content and push to gh-pages branch for test execution
       pull-requests: write # Required: Coverage workflow needs to create PR comments
@@ -223,6 +235,7 @@ jobs:
     uses: ./.github/workflows/fortress-test-suite.yml
     with:
       code-coverage-enabled: ${{ needs.setup.outputs.code-coverage-enabled }}
+      coverage-provider: ${{ needs.setup.outputs.coverage-provider }}
       env-json: ${{ needs.load-env.outputs.env-json }}
       fuzz-testing-enabled: ${{ needs.setup.outputs.fuzz-testing-enabled }}
       go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
@@ -232,12 +245,13 @@ jobs:
       test-matrix: ${{ needs.setup.outputs.test-matrix }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
   # ----------------------------------------------------------------------------------
   # Benchmark Suite
   # ----------------------------------------------------------------------------------
   benchmarks:
     name: 🏃 Benchmarks
-    needs: [load-env, setup, warm-cache, test-makefile]
+    needs: [load-env, setup, warm-cache, test-magex]
     if: needs.setup.outputs.benchmarks-enabled == 'true'
     permissions:
       contents: read # Read repository content for benchmarking
@@ -248,6 +262,7 @@ jobs:
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
       go-secondary-version: ${{ needs.setup.outputs.go-secondary-version }}
+      benchmark-timeout: 30
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
   # ----------------------------------------------------------------------------------
@@ -256,7 +271,7 @@ jobs:
   status-check:
     name: 🎯 All Tests Passed
     if: ${{ always() }}
-    needs: [setup, test-makefile, security, code-quality, pre-commit, test-suite, benchmarks]
+    needs: [setup, test-magex, security, code-quality, pre-commit, test-suite, benchmarks]
     permissions:
       contents: read # Read repository content for status checking
     runs-on: ${{ needs.setup.outputs.primary-runner }}
@@ -272,7 +287,7 @@ jobs:
             echo "| Component | Result | Status |"
             echo "|-----------|--------|--------|"
             echo "| 🎯 Setup | ${{ needs.setup.result }} | Required |"
-            echo "| 📋 Makefile | ${{ needs.test-makefile.result }} | Required |"
+            echo "| 📋 MAGE-X | ${{ needs.test-magex.result }} | Required |"
             echo "| 🔒 Security | ${{ needs.security.result }} | Required |"
             echo "| 📊 Code Quality | ${{ needs.code-quality.result }} | Required |"
             echo "| 🪝 Pre-commit | ${{ needs.pre-commit.result }} | ${{ needs.setup.outputs.pre-commit-enabled == 'true' && 'Required' || 'Skipped' }} |"
@@ -300,8 +315,8 @@ jobs:
             FAILED=true
           fi
 
-          if [[ "${{ needs.test-makefile.result }}" == "failure" || "${{ needs.test-makefile.result }}" == "cancelled" ]]; then
-            echo "❌ Test makefile failed or was cancelled" >&2
+          if [[ "${{ needs.test-magex.result }}" == "failure" || "${{ needs.test-magex.result }}" == "cancelled" ]]; then
+            echo "❌ Test MAGE-X failed or was cancelled" >&2
             FAILED=true
           fi
 
@@ -369,18 +384,7 @@ jobs:
     name: 📊 Performance Summary
     if: always()
     needs:
-      [
-        load-env,
-        setup,
-        test-makefile,
-        pre-commit,
-        security,
-        code-quality,
-        test-suite,
-        benchmarks,
-        release,
-        status-check
-      ]
+      [load-env, setup, test-magex, pre-commit, security, code-quality, test-suite, benchmarks, release, status-check]
     permissions:
       contents: read # Read repository content for performance summary
     uses: ./.github/workflows/fortress-performance-summary.yml
@@ -396,6 +400,6 @@ jobs:
       start-epoch: ${{ needs.setup.outputs.start-epoch }}
       start-time: ${{ needs.setup.outputs.start-time }}
       status-check-result: ${{ needs.status-check.result }}
-      test-makefile-result: ${{ needs.test-makefile.result }}
+      test-magex-result: ${{ needs.test-magex.result }}
       test-matrix: ${{ needs.setup.outputs.test-matrix }}
       test-suite-result: ${{ needs.test-suite.result }}

@@ -76,46 +76,65 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       # ————————————————————————————————————————————————————————————————
-      # Set up Go cache paths and restore caches
+      # Setup Go with caching and version management
       # ————————————————————————————————————————————————————————————————
-      - name: 🔧 Set Go cache paths (cross-platform)
-        run: |
-          echo "🔧 Setting up Go cache paths..."
-          echo "GOCACHE=$HOME/.cache/go-build"        >> $GITHUB_ENV
-          echo "GOMODCACHE=$HOME/go/pkg/mod"          >> $GITHUB_ENV
-          echo "GOLANGCI_LINT_CACHE=$HOME/.cache/golangci-lint" >> $GITHUB_ENV
-
-      - name: 💾 Restore Go module cache
-        id: restore-gomod
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      - name: 🏗️ Setup Go with Cache
+        id: setup-go-precommit
+        uses: ./.github/actions/setup-go-with-cache
         with:
-          path: ~/go/pkg/mod
-          key: ${{ inputs.primary-runner }}-gomod-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ inputs.primary-runner }}-gomod-
+          go-version: ${{ inputs.go-primary-version }}
+          matrix-os: ${{ inputs.primary-runner }}
+          go-primary-version: ${{ inputs.go-primary-version }}
+          go-secondary-version: ${{ inputs.go-primary-version }}
 
-      - name: 💾 Restore Go build cache
-        id: restore-gobuild
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      # ————————————————————————————————————————————————————————————————
+      # Restore (and later save) a compact cache for the go-pre-commit binary
+      # Skip cache when using local development version
+      # ————————————————————————————————————————————————————————————————
+      - name: 💾 Restore go-pre-commit binary cache
+        id: go-pre-commit-cache
+        if: env.GO_PRE_COMMIT_USE_LOCAL != 'true'
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: |
-            ~/.cache/go-build
-            ~/.cache/go-build/test
-          key: ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-${{ hashFiles('**/go.sum', '.github/coverage/go.sum') }}
-          restore-keys: |
-            ${{ inputs.primary-runner }}-gobuild-${{ inputs.go-primary-version }}-
+            ~/.cache/go-pre-commit-bin
+          key: ${{ inputs.primary-runner }}-go-pre-commit-${{ env.GO_PRE_COMMIT_VERSION }}
+
+      - name: 🛠️ Make cached go-pre-commit usable
+        if: env.GO_PRE_COMMIT_USE_LOCAL != 'true'
+        run: |
+          set -euo pipefail
+          BIN_DIR="$HOME/.cache/go-pre-commit-bin"
+          GO_PRE_COMMIT_BIN="$BIN_DIR/go-pre-commit"
+
+          # If we restored a cache, copy/link it into GOPATH/bin so the binary works.
+          if [[ -f "$GO_PRE_COMMIT_BIN" ]]; then
+            echo "✅ Using cached go-pre-commit binary"
+            mkdir -p "$(go env GOPATH)/bin"
+            cp "$GO_PRE_COMMIT_BIN" "$(go env GOPATH)/bin/"
+          fi
+
+          # Make sure the binary location is on PATH for *all* subsequent steps.
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: 🎯 Set go-pre-commit binary path
+        run: |
+          # Set the binary path for both cache hit and cache miss scenarios
+          GO_BIN="$(go env GOPATH)/bin"
+          echo "GO_PRE_COMMIT_BINARY=$GO_BIN/go-pre-commit" >> $GITHUB_ENV
 
       # ————————————————————————————————————————————————————————————————
       # Display pre-commit configuration
       # ————————————————————————————————————————————————————————————————
       - name: 📋 Display pre-commit configuration
         run: |
-          echo "🔧 GoFortress Pre-commit Configuration (from .env.shared)"
+          echo "🔧 GoFortress Pre-commit Configuration"
           echo "=================================================="
           echo ""
           echo "📊 System Settings:"
           echo "  • System Enabled: ${{ env.ENABLE_GO_PRE_COMMIT }}"
           echo "  • Tool Version: ${{ env.GO_PRE_COMMIT_VERSION }}"
+          echo "  • Use Local Build: ${{ env.GO_PRE_COMMIT_USE_LOCAL }}"
           echo "  • Enabled Checks: ${{ env.GO_PRE_COMMIT_ENABLED_CHECKS }}"
           echo "  • Fail Fast: ${{ env.GO_PRE_COMMIT_FAIL_FAST }}"
           echo "  • Timeout: ${{ env.GO_PRE_COMMIT_TIMEOUT_SECONDS }} seconds"
@@ -141,38 +160,80 @@ jobs:
           echo "=================================================="
 
       # ————————————————————————————————————————————————————————————————
-      # Set up Go environment
+      # Install go-pre-commit tool when cache miss OR using local version
       # ————————————————————————————————————————————————————————————————
-      - name: 🏗️ Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
-        with:
-          go-version: ${{ inputs.go-primary-version }}
-          cache: false # we handle caches ourselves
-
-      # ————————————————————————————————————————————————————————————————
-      # Install external go-pre-commit tool
-      # ————————————————————————————————————————————————————————————————
-      - name: 📦 Install go-pre-commit
+      - name: 🔨 Install go-pre-commit tool
+        if: steps.go-pre-commit-cache.outputs.cache-hit != 'true' || env.GO_PRE_COMMIT_USE_LOCAL == 'true'
         id: install-pre-commit
         run: |
-          echo "📦 Installing go-pre-commit ${{ env.GO_PRE_COMMIT_VERSION }}..."
+          # Check if we should use local development version
+          if [[ "${{ env.GO_PRE_COMMIT_USE_LOCAL }}" == "true" ]]; then
+            echo "📦 Using local development version of go-pre-commit"
+            echo "  Building from source at: $GITHUB_WORKSPACE/cmd/go-pre-commit"
 
-          # Install the external tool
-          go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@${{ env.GO_PRE_COMMIT_VERSION }}
+            # Build from local source
+            cd "$GITHUB_WORKSPACE"
+            go build -v -o /tmp/go-pre-commit ./cmd/go-pre-commit
+            chmod +x /tmp/go-pre-commit
 
-          # Verify installation
-          if command -v go-pre-commit &> /dev/null; then
-            echo "✅ go-pre-commit installed successfully"
+            # Copy the freshly built binary to cache directory
+            mkdir -p ~/.cache/go-pre-commit-bin
+            cp /tmp/go-pre-commit ~/.cache/go-pre-commit-bin/
+
+            # Also copy to GOPATH/bin for immediate use
+            mkdir -p "$(go env GOPATH)/bin"
+            cp /tmp/go-pre-commit "$(go env GOPATH)/bin/go-pre-commit"
+
+            # Store the binary path
+            echo "GO_PRE_COMMIT_BINARY=$(go env GOPATH)/bin/go-pre-commit" >> $GITHUB_ENV
+
+            # Show version info
+            echo "✅ Local go-pre-commit built and stored in cache"
+            VERSION=$("$(go env GOPATH)/bin/go-pre-commit" --version 2>&1 | head -1 || echo "local-dev")
+            echo "🏷️ Version: $VERSION"
             echo "install_success=true" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            # Use production version
+            VERSION="${{ env.GO_PRE_COMMIT_VERSION }}"
+            echo "⬇️ Cache miss – installing go-pre-commit version: $VERSION"
 
-            # Get version
-            VERSION=$(go-pre-commit --version 2>&1 | head -1 || echo "${{ env.GO_PRE_COMMIT_VERSION }}")
+            # Install using go install
+            go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@$VERSION
+
+            # Copy the freshly installed binary to cache directory
+            mkdir -p ~/.cache/go-pre-commit-bin
+            cp "$(go env GOPATH)/bin/go-pre-commit" ~/.cache/go-pre-commit-bin/
+
+            # Store the binary path
+            GO_BIN="$(go env GOPATH)/bin"
+            echo "GO_PRE_COMMIT_BINARY=$GO_BIN/go-pre-commit" >> $GITHUB_ENV
+
+            # Verify installation
+            echo "✅ go-pre-commit installed and stored in cache"
+            VERSION_OUTPUT=$("$GO_BIN/go-pre-commit" --version 2>&1 | head -1 || echo "$VERSION")
+            echo "🏷️ Version: $VERSION_OUTPUT"
+            echo "install_success=true" >> $GITHUB_OUTPUT
+            echo "version=$VERSION_OUTPUT" >> $GITHUB_OUTPUT
+          fi
+
+      # ————————————————————————————————————————————————————————————————
+      # Set install status for cache hit scenario (skip for local builds)
+      # ————————————————————————————————————————————————————————————————
+      - name: ✅ Set install status (cache hit)
+        if: steps.go-pre-commit-cache.outputs.cache-hit == 'true' && env.GO_PRE_COMMIT_USE_LOCAL != 'true'
+        id: install-pre-commit-cached
+        run: |
+          echo "✅ Using cached go-pre-commit binary"
+          echo "install_success=true" >> $GITHUB_OUTPUT
+
+          # Get version from cached binary
+          if [[ -f "$(go env GOPATH)/bin/go-pre-commit" ]]; then
+            VERSION=$("$(go env GOPATH)/bin/go-pre-commit" --version 2>&1 | head -1 || echo "${{ env.GO_PRE_COMMIT_VERSION }}")
             echo "🏷️ Version: $VERSION"
             echo "version=$VERSION" >> $GITHUB_OUTPUT
           else
-            echo "❌ Failed to install go-pre-commit"
-            echo "install_success=false" >> $GITHUB_OUTPUT
-            exit 1
+            echo "version=${{ env.GO_PRE_COMMIT_VERSION }}" >> $GITHUB_OUTPUT
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -181,7 +242,12 @@ jobs:
       - name: 📌 Set pre-commit version
         id: pre-commit-version
         run: |
-          if [ "${{ steps.install-pre-commit.outputs.install_success }}" == "true" ]; then
+          # Check both cache hit and cache miss scenarios
+          if [ "${{ steps.go-pre-commit-cache.outputs.cache-hit }}" == "true" ]; then
+            # Cache hit - use version from cached step
+            echo "version=${{ steps.install-pre-commit-cached.outputs.version }}" >> $GITHUB_OUTPUT
+          elif [ "${{ steps.install-pre-commit.outputs.install_success }}" == "true" ]; then
+            # Cache miss - use version from install step
             echo "version=${{ steps.install-pre-commit.outputs.version }}" >> $GITHUB_OUTPUT
           else
             echo "version=not-installed" >> $GITHUB_OUTPUT
@@ -191,7 +257,7 @@ jobs:
       # Run pre-commit checks
       # ————————————————————————————————————————————————————————————————
       - name: 🚀 Run pre-commit checks
-        if: steps.install-pre-commit.outputs.install_success == 'true'
+        if: steps.install-pre-commit.outputs.install_success == 'true' || steps.install-pre-commit-cached.outputs.install_success == 'true'
         id: run-checks
         run: |
           echo "🚀 Running pre-commit checks..."
@@ -200,12 +266,12 @@ jobs:
           # Set environment for CI
           export CI=true
 
-          # The external tool will read environment variables from .env.shared
+          # The external tool will read environment variables from the merged configuration
           # that we've already loaded into the environment
 
           # Run all checks on all files (CI mode)
           echo "🔍 Executing checks on all files..."
-          CHECKS_OUTPUT=$(go-pre-commit run --all-files 2>&1) || CHECKS_EXIT=$?
+          CHECKS_OUTPUT=$("${{ env.GO_PRE_COMMIT_BINARY }}" run --all-files 2>&1) || CHECKS_EXIT=$?
 
           # Strip ANSI color codes for clean GitHub Actions output
           echo "$CHECKS_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g'
@@ -223,35 +289,6 @@ jobs:
           echo "✅ All pre-commit checks passed successfully"
 
       # ————————————————————————————————————————————————————————————————
-      # Fallback: Use make commands if pre-commit tool fails
-      # ————————————————————————————————————————————————————————————————
-      - name: 🔄 Fallback - Run make commands
-        if: steps.install-pre-commit.outputs.install_success != 'true'
-        run: |
-          echo "ℹ️ Using fallback make commands (go-pre-commit installation failed)"
-          echo "============================================================"
-          echo ""
-
-          # Set outputs for consistency
-          echo "version=make-fallback" >> $GITHUB_OUTPUT
-          echo "executed=fumpt,lint,mod-tidy" >> $GITHUB_OUTPUT
-
-          # Run essential make commands that would be run by pre-commit
-          echo "🔧 Running make fumpt..."
-          make fumpt || true
-
-          echo ""
-          echo "✨ Running make lint..."
-          make lint
-
-          echo ""
-          echo "📦 Running make mod-tidy..."
-          make mod-tidy
-
-          echo ""
-          echo "✅ Fallback commands completed"
-
-      # ————————————————————————————————————————————————————————————————
       # Job Summary
       # ————————————————————————————————————————————————————————————————
       - name: 📊 Job Summary
@@ -264,12 +301,13 @@ jobs:
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| **Tool** | github.com/mrz1836/go-pre-commit |" >> $GITHUB_STEP_SUMMARY
           echo "| **Version** | ${{ steps.pre-commit-version.outputs.version || env.GO_PRE_COMMIT_VERSION }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Installation** | ${{ steps.install-pre-commit.outputs.install_success == 'true' && '✅ Success' || '❌ Failed (using fallback)' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Cache Status** | ${{ steps.go-pre-commit-cache.outputs.cache-hit == 'true' && '✅ Cache Hit' || '⬇️ Cache Miss' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Installation** | ${{ (steps.install-pre-commit.outputs.install_success == 'true' || steps.install-pre-commit-cached.outputs.install_success == 'true') && '✅ Success' || '❌ Failed (using fallback)' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Fail Fast Mode** | ${{ env.GO_PRE_COMMIT_FAIL_FAST == 'true' && '⚡ Enabled' || '📝 Disabled' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Timeout** | ${{ env.GO_PRE_COMMIT_TIMEOUT_SECONDS }} seconds |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ steps.install-pre-commit.outputs.install_success }}" == "true" ]; then
+          if [ "${{ steps.install-pre-commit.outputs.install_success }}" == "true" ] || [ "${{ steps.install-pre-commit-cached.outputs.install_success }}" == "true" ]; then
             echo "### 🔍 Checks Executed" >> $GITHUB_STEP_SUMMARY
             CHECKS="${{ steps.run-checks.outputs.executed || 'fumpt,lint,mod-tidy,whitespace,eof' }}"
             echo "$CHECKS" | tr ',' '\n' | while read check; do
@@ -281,10 +319,9 @@ jobs:
             echo "🎯 **All pre-commit checks passed successfully using external go-pre-commit tool.**" >> $GITHUB_STEP_SUMMARY
           else
             echo "### ⚠️ Fallback Mode" >> $GITHUB_STEP_SUMMARY
-            echo "The external go-pre-commit tool could not be installed. Using make commands as fallback:" >> $GITHUB_STEP_SUMMARY
-            echo "- ✅ make fumpt" >> $GITHUB_STEP_SUMMARY
-            echo "- ✅ make lint" >> $GITHUB_STEP_SUMMARY
-            echo "- ✅ make mod-tidy" >> $GITHUB_STEP_SUMMARY
+            echo "The external go-pre-commit tool could not be installed. Using magex commands as fallback:" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ magex lint" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ magex tidy" >> $GITHUB_STEP_SUMMARY
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -297,8 +334,8 @@ jobs:
           echo "📊 Collecting cache statistics..."
 
           # Get cache hit information
-          GOMOD_HIT="${{ steps.restore-gomod.outputs.cache-hit }}"
-          GOBUILD_HIT="${{ steps.restore-gobuild.outputs.cache-hit }}"
+          GOMOD_HIT="${{ steps.setup-go-precommit.outputs.module-cache-hit }}"
+          GOBUILD_HIT="${{ steps.setup-go-precommit.outputs.build-cache-hit }}"
 
           # Get cache sizes
           GOMOD_SIZE="0B"
