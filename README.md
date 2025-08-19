@@ -811,7 +811,7 @@ All GitHub Actions workflows in this repository are powered by a single configur
 **Configuration Files:**
 - **[.env.base](.github/.env.base)** – Default configuration that works for most Go projects
 - **[.env.custom](.github/.env.custom)** – Optional project-specific overrides
-- 
+
 This magical file controls everything from:
 - **⚙️ Go version matrix** (test on multiple versions or just one)
 - **🏃 Runner selection** (Ubuntu or macOS, your wallet decides)

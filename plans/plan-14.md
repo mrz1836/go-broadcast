@@ -167,7 +167,7 @@ package assets
 
 import "embed"
 
-//go:embed css/*.css js/*.js images/* 
+//go:embed css/*.css js/*.js images/*
 var EmbeddedAssets embed.FS
 
 // Simple getters for assets
@@ -471,7 +471,7 @@ go-coverage complete --input coverage.txt
 - **Phase 0**: Pre-Migration Analysis (2-3 hours)
 - **Phase 1**: Repository Creation (2-3 hours)
 - **Phase 2**: Code Migration & Asset Embedding (4-5 hours)
-- **Phase 3**: Configuration System - Env vars only (2-3 hours) 
+- **Phase 3**: Configuration System - Env vars only (2-3 hours)
 - **Phase 4**: Installation - Focus on go install (3-4 hours)
 - **Phase 5**: CI/CD Integration (3-4 hours)
 - **Phase 6**: go-broadcast Integration (3-4 hours)
