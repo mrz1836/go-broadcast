@@ -370,13 +370,6 @@ func TestCommandCreationFunctions(t *testing.T) {
 		assert.Contains(t, cmd.Aliases, "v")
 		assert.Contains(t, cmd.Aliases, "check")
 	})
-
-	t.Run("CreateVersionCmd", func(t *testing.T) {
-		cmd := createVersionCmd(flags)
-		assert.Equal(t, "version", cmd.Use)
-		assert.Contains(t, cmd.Short, "Print version")
-		assert.NotNil(t, cmd.RunE)
-	})
 }
 
 // TestVerboseCommandCreationFunctions tests verbose command creation
@@ -407,13 +400,6 @@ func TestVerboseCommandCreationFunctions(t *testing.T) {
 		assert.Equal(t, "validate", cmd.Use)
 		assert.NotNil(t, cmd.RunE)
 		assert.Contains(t, cmd.Example, "--debug-config")
-	})
-
-	t.Run("CreateVersionCmdWithVerbose", func(t *testing.T) {
-		cmd := createVersionCmdWithVerbose(config)
-		assert.Equal(t, "version", cmd.Use)
-		assert.NotNil(t, cmd.RunE)
-		assert.Contains(t, cmd.Example, "--json")
 	})
 }
 
@@ -472,20 +458,6 @@ func TestCreateRunValidate(t *testing.T) {
 	})
 }
 
-// TestCreateRunVersion tests version run function
-func TestCreateRunVersion(t *testing.T) {
-	flags := &Flags{}
-	runFunc := createRunVersion(flags)
-	require.NotNil(t, runFunc)
-
-	// No need to capture output - we just verify it runs without error
-	cmd := &cobra.Command{}
-	cmd.SetContext(context.Background())
-
-	err := runFunc(cmd, []string{})
-	require.NoError(t, err)
-}
-
 // TestCreateRunValidateWithVerbose tests verbose validate run function
 func TestCreateRunValidateWithVerbose(t *testing.T) {
 	// Create temporary valid config
@@ -521,18 +493,6 @@ func TestCreateRunStatusWithVerbose(t *testing.T) {
 	err := runFunc(cmd, []string{})
 	require.Error(t, err)
 	assert.Equal(t, ErrStatusNotImplemented, err)
-}
-
-// TestCreateRunVersionWithVerbose tests verbose version run function
-func TestCreateRunVersionWithVerbose(t *testing.T) {
-	config := &LogConfig{}
-	runFunc := createRunVersionWithVerbose(config)
-	require.NotNil(t, runFunc)
-
-	// No need to capture output - we just verify it runs without error
-	cmd := &cobra.Command{}
-	err := runFunc(cmd, []string{})
-	require.NoError(t, err)
 }
 
 // TestLoggerContextKey tests logger context storage

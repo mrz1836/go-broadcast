@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mrz1836/go-broadcast/internal/output"
@@ -122,35 +121,32 @@ func TestSetVersionInfo(t *testing.T) {
 	}
 }
 
-// TestRunVersionTextOutput verifies the text output of the version command
-func TestRunVersionTextOutput(t *testing.T) {
+// TestPrintVersionTextOutput verifies the text output of the printVersion function
+func TestPrintVersionTextOutput(t *testing.T) {
 	// Save original values
 	origVersion := version
 	origCommit := commit
 	origBuildDate := buildDate
-	origJSONOutput := jsonOutput
 
 	// Restore original values after test
 	defer func() {
 		version = origVersion
 		commit = origCommit
 		buildDate = origBuildDate
-		jsonOutput = origJSONOutput
 	}()
 
 	// Set known values
 	version = "1.0.0-test"
 	commit = "test123"
 	buildDate = "2025-01-01T12:00:00Z"
-	jsonOutput = false
 
 	// Capture output
 	var buf bytes.Buffer
 	output.SetStdout(&buf)
 	defer output.SetStdout(os.Stdout)
 
-	// Run the command
-	err := runVersion(nil, nil)
+	// Run the function
+	err := printVersion(false)
 	require.NoError(t, err)
 
 	// Verify output contains expected information
@@ -162,35 +158,32 @@ func TestRunVersionTextOutput(t *testing.T) {
 	require.Contains(t, outputStr, "Platform:   "+runtime.GOOS+"/"+runtime.GOARCH)
 }
 
-// TestRunVersionJSONOutput verifies the JSON output of the version command
-func TestRunVersionJSONOutput(t *testing.T) {
+// TestPrintVersionJSONOutput verifies the JSON output of the printVersion function
+func TestPrintVersionJSONOutput(t *testing.T) {
 	// Save original values
 	origVersion := version
 	origCommit := commit
 	origBuildDate := buildDate
-	origJSONOutput := jsonOutput
 
 	// Restore original values after test
 	defer func() {
 		version = origVersion
 		commit = origCommit
 		buildDate = origBuildDate
-		jsonOutput = origJSONOutput
 	}()
 
 	// Set known values
 	version = "2.0.0-json"
 	commit = "json456"
 	buildDate = "2025-01-02T00:00:00Z"
-	jsonOutput = true
 
 	// Capture output
 	var buf bytes.Buffer
 	output.SetStdout(&buf)
 	defer output.SetStdout(os.Stdout)
 
-	// Run the command
-	err := runVersion(nil, nil)
+	// Run the function
+	err := printVersion(true)
 	require.NoError(t, err)
 
 	// Parse JSON output
@@ -205,41 +198,6 @@ func TestRunVersionJSONOutput(t *testing.T) {
 	require.Equal(t, runtime.Version(), info.GoVersion)
 	require.Equal(t, runtime.GOOS, info.OS)
 	require.Equal(t, runtime.GOARCH, info.Arch)
-}
-
-// TestVersionCommand verifies the version command configuration
-func TestVersionCommand(t *testing.T) {
-	// Verify command properties
-	require.Equal(t, "version", versionCmd.Use)
-	require.Equal(t, "Show version information", versionCmd.Short)
-	require.Contains(t, versionCmd.Long, "Display version information")
-	require.Contains(t, versionCmd.Example, "go-broadcast version")
-	require.Contains(t, versionCmd.Example, "go-broadcast version --json")
-	require.NotNil(t, versionCmd.RunE)
-}
-
-// TestInitVersion verifies that initVersion sets up flags correctly
-func TestInitVersion(t *testing.T) {
-	// Save original value
-	origJSONOutput := jsonOutput
-
-	// Restore original value after test
-	defer func() {
-		jsonOutput = origJSONOutput
-	}()
-
-	// Create a new command to test flag initialization
-	cmd := &cobra.Command{}
-
-	// Copy the version command flags
-	cmd.Flags().AddFlagSet(versionCmd.Flags())
-
-	// Verify the json flag exists
-	jsonFlag := cmd.Flags().Lookup("json")
-	require.NotNil(t, jsonFlag)
-	require.Equal(t, "json", jsonFlag.Name)
-	require.Equal(t, "Output version in JSON format", jsonFlag.Usage)
-	require.Equal(t, "false", jsonFlag.DefValue)
 }
 
 // TestVersionInfoJSON verifies JSON marshaling of VersionInfo
@@ -273,35 +231,32 @@ func TestVersionInfoJSON(t *testing.T) {
 	require.Equal(t, info, decoded)
 }
 
-// TestRunVersionDefaultValues verifies behavior with default build values
-func TestRunVersionDefaultValues(t *testing.T) {
+// TestPrintVersionDefaultValues verifies behavior with default build values
+func TestPrintVersionDefaultValues(t *testing.T) {
 	// Save original values
 	origVersion := version
 	origCommit := commit
 	origBuildDate := buildDate
-	origJSONOutput := jsonOutput
 
 	// Restore original values after test
 	defer func() {
 		version = origVersion
 		commit = origCommit
 		buildDate = origBuildDate
-		jsonOutput = origJSONOutput
 	}()
 
 	// Set to default values
 	version = "dev"
 	commit = "unknown"
 	buildDate = "unknown"
-	jsonOutput = false
 
 	// Capture output
 	var buf bytes.Buffer
 	output.SetStdout(&buf)
 	defer output.SetStdout(os.Stdout)
 
-	// Run the command
-	err := runVersion(nil, nil)
+	// Run the function
+	err := printVersion(false)
 	require.NoError(t, err)
 
 	// Verify output contains default values
@@ -311,28 +266,15 @@ func TestRunVersionDefaultValues(t *testing.T) {
 	require.Contains(t, outputStr, "Build Date: unknown")
 }
 
-// TestRunVersionWithCobraCommand verifies the command works with actual cobra.Command
-func TestRunVersionWithCobraCommand(t *testing.T) {
-	// Save original values
-	origJSONOutput := jsonOutput
-
-	// Restore original values after test
-	defer func() {
-		jsonOutput = origJSONOutput
-	}()
-
-	// Create a command instance
-	cmd := &cobra.Command{}
-
+// TestPrintVersionFormats verifies the function works with different output formats
+func TestPrintVersionFormats(t *testing.T) {
 	// Test with text output
 	t.Run("text output", func(t *testing.T) {
-		jsonOutput = false
-
 		var buf bytes.Buffer
 		output.SetStdout(&buf)
 		defer output.SetStdout(os.Stdout)
 
-		err := runVersion(cmd, []string{})
+		err := printVersion(false)
 		require.NoError(t, err)
 
 		// Verify some output was produced
@@ -342,13 +284,11 @@ func TestRunVersionWithCobraCommand(t *testing.T) {
 
 	// Test with JSON output
 	t.Run("json output", func(t *testing.T) {
-		jsonOutput = true
-
 		var buf bytes.Buffer
 		output.SetStdout(&buf)
 		defer output.SetStdout(os.Stdout)
 
-		err := runVersion(cmd, []string{})
+		err := printVersion(true)
 		require.NoError(t, err)
 
 		// Verify valid JSON was produced
@@ -364,14 +304,12 @@ func TestVersionOutputFormatting(t *testing.T) {
 	origVersion := version
 	origCommit := commit
 	origBuildDate := buildDate
-	origJSONOutput := jsonOutput
 
 	// Restore original values after test
 	defer func() {
 		version = origVersion
 		commit = origCommit
 		buildDate = origBuildDate
-		jsonOutput = origJSONOutput
 	}()
 
 	// Test JSON formatting with indentation
@@ -379,13 +317,12 @@ func TestVersionOutputFormatting(t *testing.T) {
 		version = "1.0.0"
 		commit = "abc"
 		buildDate = "2025-01-01"
-		jsonOutput = true
 
 		var buf bytes.Buffer
 		output.SetStdout(&buf)
 		defer output.SetStdout(os.Stdout)
 
-		err := runVersion(nil, nil)
+		err := printVersion(true)
 		require.NoError(t, err)
 
 		// Verify indentation (2 spaces)

@@ -24,6 +24,11 @@ var (
 	ErrStatusNotImplemented = fmt.Errorf("status command not yet implemented for isolated flags")
 )
 
+//nolint:gochecknoglobals // Cobra flags are designed to be global variables
+var (
+	showVersion bool
+)
+
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var rootCmd = &cobra.Command{
 	Use:   "go-broadcast",
@@ -45,6 +50,7 @@ Common Use Cases:
 • Update configuration files across multiple repositories
 • Distribute security policies and compliance files`,
 	PersistentPreRunE: setupLogging,
+	RunE:              rootRunE,
 	SilenceUsage:      true,
 	SilenceErrors:     true,
 }
@@ -55,20 +61,19 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&globalFlags.ConfigFile, "config", "c", "sync.yaml", "Path to configuration file")
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.DryRun, "dry-run", false, "Preview changes without making them")
 	rootCmd.PersistentFlags().StringVar(&globalFlags.LogLevel, "log-level", "info", "Log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().BoolVar(&showVersion, "version", false, "Show version information")
 
 	// New verbose flags are not added to global command to avoid conflicts
 	// They will be added to individual commands that use LogConfig
 
 	// Initialize command flags
 	initStatus()
-	initVersion()
 	initCancel()
 
 	// Add commands
 	rootCmd.AddCommand(syncCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(validateCmd)
-	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(diagnoseCmd)
 	rootCmd.AddCommand(cancelCmd)
 	rootCmd.AddCommand(modulesCmd)
@@ -93,6 +98,7 @@ files from a template repository to multiple target repositories.
 It derives all state from GitHub (branches, PRs, commits) and never stores
 state locally. It supports file transformations and provides progress tracking.`,
 		PersistentPreRunE: createSetupLogging(flags),
+		RunE:              createRootRunE(),
 		SilenceUsage:      true,
 		SilenceErrors:     true,
 	}
@@ -101,12 +107,12 @@ state locally. It supports file transformations and provides progress tracking.`
 	cmd.PersistentFlags().StringVarP(&flags.ConfigFile, "config", "c", "sync.yaml", "Path to configuration file")
 	cmd.PersistentFlags().BoolVar(&flags.DryRun, "dry-run", false, "Preview changes without making them")
 	cmd.PersistentFlags().StringVar(&flags.LogLevel, "log-level", "info", "Log level (debug, info, warn, error)")
+	cmd.PersistentFlags().BoolVar(&showVersion, "version", false, "Show version information")
 
 	// Add commands with isolated flags
 	cmd.AddCommand(createSyncCmd(flags))
 	cmd.AddCommand(createStatusCmd(flags))
 	cmd.AddCommand(createValidateCmd(flags))
-	cmd.AddCommand(createVersionCmd(flags))
 	cmd.AddCommand(createDiagnoseCmd(flags))
 	cmd.AddCommand(createCancelCmd(flags))
 
@@ -133,6 +139,7 @@ files from a template repository to multiple target repositories.
 It derives all state from GitHub (branches, PRs, commits) and never stores
 state locally. It supports file transformations and provides progress tracking.`,
 		PersistentPreRunE: createSetupLoggingWithVerbose(logConfig),
+		RunE:              createRootRunEWithVerbose(logConfig),
 		SilenceUsage:      true,
 		SilenceErrors:     true,
 	}
@@ -144,7 +151,6 @@ state locally. It supports file transformations and provides progress tracking.`
 	cmd.AddCommand(createSyncCmdWithVerbose(logConfig))
 	cmd.AddCommand(createStatusCmdWithVerbose(logConfig))
 	cmd.AddCommand(createValidateCmdWithVerbose(logConfig))
-	cmd.AddCommand(createVersionCmdWithVerbose(logConfig))
 	cmd.AddCommand(createDiagnoseCmdWithVerbose(logConfig))
 	cmd.AddCommand(createCancelCmdWithVerbose(logConfig))
 
@@ -190,6 +196,8 @@ func ExecuteWithContext(ctx context.Context) error {
 // It returns a configured logger instance that can be used instead of the global logger
 func createSetupLogging(flags *Flags) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
+		// Version flag is handled in RunE functions, not here
+
 		// Parse log level
 		level, err := logrus.ParseLevel(strings.ToLower(flags.LogLevel))
 		if err != nil {
@@ -217,8 +225,47 @@ func createSetupLogging(flags *Flags) func(*cobra.Command, []string) error {
 	}
 }
 
+// rootRunE handles the root command execution when no subcommand is provided
+func rootRunE(cmd *cobra.Command, _ []string) error {
+	// If version flag is set, print version
+	if showVersion {
+		return printVersion(false)
+	}
+
+	// Otherwise show help
+	return cmd.Help()
+}
+
+// createRootRunE creates an isolated root run function for testing
+func createRootRunE() func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		// If version flag is set, print version
+		if showVersion {
+			return printVersion(false)
+		}
+
+		// Otherwise show help
+		return cmd.Help()
+	}
+}
+
+// createRootRunEWithVerbose creates a root run function with verbose logging support
+func createRootRunEWithVerbose(config *LogConfig) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		// If version flag is set, print version (with JSON support)
+		if showVersion {
+			return printVersion(config.JSONOutput)
+		}
+
+		// Otherwise show help
+		return cmd.Help()
+	}
+}
+
 // setupLogging configures the logger based on the log level flag (global version)
 func setupLogging(_ *cobra.Command, _ []string) error {
+	// Version flag is handled in rootRunE, so we don't check it here
+
 	// Parse log level
 	level, err := logrus.ParseLevel(strings.ToLower(globalFlags.LogLevel))
 	if err != nil {
@@ -292,6 +339,7 @@ func addVerboseFlags(cmd *cobra.Command, config *LogConfig) {
 		"Preview changes without making them")
 	cmd.PersistentFlags().StringVar(&config.LogLevel, "log-level", "info",
 		"Log level (debug, info, warn, error) - overridden by verbose flags")
+	cmd.PersistentFlags().BoolVar(&showVersion, "version", false, "Show version information")
 }
 
 // createSetupLoggingWithVerbose creates a verbose logging setup function.
@@ -306,6 +354,8 @@ func addVerboseFlags(cmd *cobra.Command, config *LogConfig) {
 // - Function that can be used as PersistentPreRunE for Cobra commands
 func createSetupLoggingWithVerbose(config *LogConfig) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
+		// Version flag is handled in RunE functions, not here
+
 		ctx := cmd.Context()
 
 		// Generate correlation ID for this execution
@@ -484,38 +534,6 @@ Performs comprehensive validation including:
 	}
 }
 
-// createVersionCmdWithVerbose creates a version command with verbose logging support.
-//
-// Parameters:
-// - config: LogConfig containing logging and debug configuration
-//
-// Returns:
-// - Cobra command configured for version operations with verbose support
-func createVersionCmdWithVerbose(config *LogConfig) *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version and build information",
-		Long: `Print comprehensive version information including build details.
-
-Displays detailed information about:
-- go-broadcast version and release information
-- Build timestamp and commit SHA
-- Go compiler version used for build
-- Operating system and architecture
-- Runtime environment details`,
-		Example: `  # Basic version information
-  go-broadcast version                   # Show version details
-
-  # Include version in diagnostic collection
-  go-broadcast version && go-broadcast diagnose > full-info.json
-
-  # Automation and scripting
-  go-broadcast version --json            # Machine-readable version output
-  VERSION=$(go-broadcast version --json | jq -r '.version')  # Extract version`,
-		RunE: createRunVersionWithVerbose(config),
-	}
-}
-
 // createSyncCmd creates an isolated sync command with the given flags
 func createSyncCmd(flags *Flags) *cobra.Command {
 	return &cobra.Command{
@@ -592,16 +610,6 @@ Performs comprehensive validation including:
 	}
 }
 
-// createVersionCmd creates an isolated version command with the given flags
-func createVersionCmd(flags *Flags) *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Long:  `Print detailed version information including build details.`,
-		RunE:  createRunVersion(flags),
-	}
-}
-
 // createRunStatus creates an isolated status run function with the given flags
 func createRunStatus(_ *Flags) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
@@ -643,23 +651,6 @@ func createRunValidate(flags *Flags) func(*cobra.Command, []string) error {
 
 		output.Success("Configuration is valid")
 		return nil
-	}
-}
-
-// createRunVersion creates an isolated version run function with the given flags
-func createRunVersion(_ *Flags) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
-
-		// Get isolated logger from context, fallback to global if not available
-		logger, ok := ctx.Value(loggerContextKey{}).(*logrus.Logger)
-		if !ok {
-			logger = logrus.StandardLogger()
-		}
-		_ = logger.WithField("command", "version")
-
-		// Use the same implementation as the global version command
-		return runVersion(cmd, []string{})
 	}
 }
 
@@ -757,23 +748,6 @@ func createRunValidateWithVerbose(config *LogConfig) func(*cobra.Command, []stri
 
 		output.Success("Configuration is valid")
 		return nil
-	}
-}
-
-// createRunVersionWithVerbose creates a version run function with verbose logging support.
-//
-// Parameters:
-// - config: LogConfig containing logging and debug configuration
-//
-// Returns:
-// - Function that can be used as RunE for Cobra version commands
-func createRunVersionWithVerbose(_ *LogConfig) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		log := logrus.WithField("command", "version")
-		_ = log
-
-		// Use the same implementation as the global version command
-		return runVersion(cmd, []string{})
 	}
 }
 

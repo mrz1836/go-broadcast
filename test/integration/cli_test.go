@@ -82,10 +82,10 @@ groups:
 		assert.Error(t, err)
 	})
 
-	t.Run("version command", func(t *testing.T) {
-		// Test version command
+	t.Run("version flag", func(t *testing.T) {
+		// Test --version flag
 		cmd := cli.GetRootCmd()
-		cmd.SetArgs([]string{"version"})
+		cmd.SetArgs([]string{"--version"})
 
 		err := cmd.ExecuteContext(context.Background())
 		assert.NoError(t, err)

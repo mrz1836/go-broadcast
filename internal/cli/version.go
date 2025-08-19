@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/spf13/cobra"
-
 	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
@@ -29,25 +27,8 @@ type VersionInfo struct {
 	Arch      string `json:"arch"`
 }
 
-// initVersion initializes version command flags
-func initVersion() {
-	versionCmd.Flags().BoolVar(&jsonOutput, "json", false, "Output version in JSON format")
-}
-
-//nolint:gochecknoglobals // Cobra commands are designed to be global variables
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Show version information",
-	Long:  `Display version information including commit hash, build date, and platform details.`,
-	Example: `  # Show version information
-  go-broadcast version
-
-  # Output in JSON format
-  go-broadcast version --json`,
-	RunE: runVersion,
-}
-
-func runVersion(_ *cobra.Command, _ []string) error {
+// printVersion prints version information based on the format
+func printVersion(jsonFormat bool) error {
 	info := VersionInfo{
 		Version:   version,
 		Commit:    commit,
@@ -57,7 +38,7 @@ func runVersion(_ *cobra.Command, _ []string) error {
 		Arch:      runtime.GOARCH,
 	}
 
-	if jsonOutput {
+	if jsonFormat {
 		encoder := json.NewEncoder(output.Stdout())
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(info)
