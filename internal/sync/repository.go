@@ -391,16 +391,6 @@ func (rs *RepositorySync) processFile(ctx context.Context, sourcePath string, fi
 			"content_matches":          contentMatches,
 		}).Debug("Comparing existing vs transformed content")
 
-		// For .vscode/settings.json specifically, add detailed content comparison when there's a mismatch
-		if strings.Contains(fileMapping.Dest, ".vscode/settings.json") && !contentMatches {
-			rs.logger.WithFields(logrus.Fields{
-				"file":                fileMapping.Dest,
-				"existing_content":    existingStr,
-				"transformed_content": transformedStr,
-				"content_equal":       contentMatches,
-			}).Warn("VSCode settings content mismatch - displaying full content for debugging")
-		}
-
 		if contentMatches {
 			rs.logger.WithField("file", fileMapping.Dest).Debug("File content unchanged, skipping")
 			return nil, internalerrors.ErrTransformNotFound
