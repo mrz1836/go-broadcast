@@ -208,8 +208,8 @@ env:
   API_KEY: ${{ secrets.API_KEY }}
 
 # 🚫 Bad: Hardcoded secret
-env:
-  API_KEY: "sk_live_abcd1234"
+#env:
+#  API_KEY: "1234"
 ```
 
 ### Third-Party Actions

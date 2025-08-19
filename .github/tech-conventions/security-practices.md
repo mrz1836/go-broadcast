@@ -48,10 +48,10 @@ If you discover a vulnerability—no matter how small—follow our responsible d
 
 ```go
 // 🚫 Never hardcode secrets
-apiKey := "sk_live_abcd1234..."
+// apiKey := "1234..."
 
 // 🚫 Never log sensitive data
-log.Printf("User password: %s", password)
+// log.Printf("User password: %s", password)
 
 // 🚫 Never use weak cryptography
 hash := md5.Sum([]byte(data)) // MD5 is broken
