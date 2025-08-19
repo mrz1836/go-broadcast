@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -186,6 +187,12 @@ func runSync(cmd *cobra.Command, args []string) error {
 	// Load configuration
 	cfg, err := loadConfig()
 	if err != nil {
+		// Display configuration error to user before returning
+		if strings.Contains(err.Error(), "invalid configuration") {
+			output.Error(fmt.Sprintf("Configuration validation failed: %v", err))
+		} else {
+			output.Error(fmt.Sprintf("Failed to load configuration: %v", err))
+		}
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
