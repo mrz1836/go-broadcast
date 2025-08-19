@@ -326,6 +326,7 @@ jobs:
           echo "| **Tool** | Gitleaks |" >> $GITHUB_STEP_SUMMARY
           echo "| **Version** | ${{ env.GITLEAKS_VERSION }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Scope** | All commits and files |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Config** | $([ -n \"${{ env.GITLEAKS_CONFIG_FILE }}\" ] && echo \"Custom: \`${{ env.GITLEAKS_CONFIG_FILE }}\`\" || echo \"Default (built-in rules)\") |" >> $GITHUB_STEP_SUMMARY
           echo "| **Result** | ✅ No secrets detected (see logs for details) |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🎯 **Secret scan completed successfully.**" >> $GITHUB_STEP_SUMMARY

@@ -530,7 +530,7 @@ jobs:
             echo "## 🪝 Pre-Commit System Configuration" >> $GITHUB_STEP_SUMMARY
             echo "| Setting | Value | Description |" >> $GITHUB_STEP_SUMMARY
             echo "|---------|-------|-------------|" >> $GITHUB_STEP_SUMMARY
-            echo "| **Pre-Commit System** | \`GoFortress Native\` | Pure Go implementation, 17x faster execution |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Pre-Commit System** | \`go-pre-commit\` | Pure Go implementation, 17x faster execution |" >> $GITHUB_STEP_SUMMARY
             echo "| **Timeout** | \`${{ env.GO_PRE_COMMIT_TIMEOUT_SECONDS }}\` seconds | Maximum time allowed for all checks |" >> $GITHUB_STEP_SUMMARY
             echo "| **Parallel Workers** | \`${{ env.GO_PRE_COMMIT_PARALLEL_WORKERS }}\` | Concurrent check execution (0 = auto CPU count) |" >> $GITHUB_STEP_SUMMARY
             echo "| **Fail Fast Mode** | $([ "${{ env.GO_PRE_COMMIT_FAIL_FAST }}" == "true" ] && echo "⚡ Enabled" || echo "📝 Disabled") | Stop on first failure vs run all checks |" >> $GITHUB_STEP_SUMMARY
