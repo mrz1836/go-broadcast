@@ -1143,8 +1143,16 @@ func (suite *DirectoryTransformTestSuite) TestVSCodeSettingsRealWorldTransformat
 
 	// Create a real engine with the actual repo transformer and a mock GitHub client
 	mockGHClient := gh.NewMockClient()
-	// Configure mock to return "file not found" for any GetFile call so all files are treated as new
-	mockGHClient.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return((*gh.FileContent)(nil), ErrFileNotFound)
+	// Configure mock to return the target content for .vscode/settings.json
+	targetSettingsContent := strings.ReplaceAll(settingsContent, "github.com/mrz1836/go-broadcast", "github.com/mrz1836/go-pre-commit")
+	mockGHClient.On("GetFile", mock.Anything, "mrz1836/go-pre-commit", ".vscode/settings.json", "").Return(&gh.FileContent{
+		Content: []byte(targetSettingsContent),
+	}, nil)
+
+	// Return "file not found" for other files so they are treated as new
+	mockGHClient.On("GetFile", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
+		return path != ".vscode/settings.json"
+	}), mock.Anything).Return((*gh.FileContent)(nil), ErrFileNotFound)
 
 	realEngine := &Engine{
 		transform: &DirectoryRealTransformChain{},
@@ -1157,33 +1165,10 @@ func (suite *DirectoryTransformTestSuite) TestVSCodeSettingsRealWorldTransformat
 	)
 
 	suite.Require().NoError(err)
-	suite.Require().Len(changes, 1, "Should have exactly one file change for settings.json")
 
-	change := changes[0]
-	suite.Equal(".vscode/settings.json", change.Path)
+	// Since the target repo already has the correct content, the file should be skipped
+	// and no changes should be returned
+	suite.Require().Empty(changes, "Should have no file changes since content matches after transformation")
 
-	// Verify the transformation happened correctly
-	transformedContent := string(change.Content)
-	originalContent := string(change.OriginalContent)
-
-	// Key assertion: formatting.local should be transformed
-	suite.Contains(transformedContent, `"formatting.local": "github.com/mrz1836/go-pre-commit"`,
-		"Should transform formatting.local to target repo")
-	suite.NotContains(transformedContent, `"formatting.local": "github.com/mrz1836/go-broadcast"`,
-		"Should not contain original repo in formatting.local")
-
-	// Verify the original content contained the source repo
-	suite.Contains(originalContent, `"formatting.local": "github.com/mrz1836/go-broadcast"`,
-		"Original content should contain source repo")
-
-	// Verify no other content was changed (except the transformation)
-	suite.Contains(transformedContent, `"go.useLanguageServer": true`)
-	suite.Contains(transformedContent, `"go.lintTool": "golangci-lint"`)
-	suite.Contains(transformedContent, `"formatting.gofumpt": true`)
-
-	suite.logger.WithFields(logrus.Fields{
-		"original_length":    len(originalContent),
-		"transformed_length": len(transformedContent),
-		"file_path":          change.Path,
-	}).Info("VSCode settings transformation test completed successfully")
+	suite.logger.Info("VSCode settings transformation test completed successfully - file correctly skipped due to identical content")
 }

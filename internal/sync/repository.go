@@ -378,9 +378,35 @@ func (rs *RepositorySync) processFile(ctx context.Context, sourcePath string, fi
 
 	// Check if content actually changed (for existing files)
 	existingContent, err := rs.getExistingFileContent(ctx, fileMapping.Dest)
-	if err == nil && string(existingContent) == string(transformedContent) {
-		rs.logger.WithField("file", fileMapping.Dest).Debug("File content unchanged, skipping")
-		return nil, internalerrors.ErrTransformNotFound
+	if err == nil {
+		// Enhanced logging for content comparison
+		existingStr := string(existingContent)
+		transformedStr := string(transformedContent)
+		contentMatches := existingStr == transformedStr
+
+		rs.logger.WithFields(logrus.Fields{
+			"file":                     fileMapping.Dest,
+			"existing_content_size":    len(existingContent),
+			"transformed_content_size": len(transformedContent),
+			"content_matches":          contentMatches,
+		}).Debug("Comparing existing vs transformed content")
+
+		// For .vscode/settings.json specifically, add detailed content comparison when there's a mismatch
+		if strings.Contains(fileMapping.Dest, ".vscode/settings.json") && !contentMatches {
+			rs.logger.WithFields(logrus.Fields{
+				"file":                fileMapping.Dest,
+				"existing_content":    existingStr,
+				"transformed_content": transformedStr,
+				"content_equal":       contentMatches,
+			}).Warn("VSCode settings content mismatch - displaying full content for debugging")
+		}
+
+		if contentMatches {
+			rs.logger.WithField("file", fileMapping.Dest).Debug("File content unchanged, skipping")
+			return nil, internalerrors.ErrTransformNotFound
+		}
+	} else {
+		rs.logger.WithError(err).WithField("file", fileMapping.Dest).Debug("Could not get existing file content, treating as new file")
 	}
 
 	return &FileChange{

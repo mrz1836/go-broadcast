@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -387,13 +388,37 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 
 	// Check if content actually changed (for existing files)
 	existingContent, err := bp.getExistingFileContent(ctx, job.DestPath)
-	if err == nil && string(existingContent) == string(transformedContent) {
-		logger.Debug("File content unchanged after transformation, skipping")
-		return fileProcessResult{
-			Change: nil,
-			Error:  internalerrors.ErrTransformNotFound,
-			Job:    job,
+	if err == nil {
+		// Enhanced logging for content comparison
+		existingStr := string(existingContent)
+		transformedStr := string(transformedContent)
+		contentMatches := existingStr == transformedStr
+
+		logger.WithFields(logrus.Fields{
+			"existing_content_size":    len(existingContent),
+			"transformed_content_size": len(transformedContent),
+			"content_matches":          contentMatches,
+		}).Debug("Comparing existing vs transformed content")
+
+		// For .vscode/settings.json specifically, add detailed content comparison when there's a mismatch
+		if strings.Contains(job.DestPath, ".vscode/settings.json") && !contentMatches {
+			logger.WithFields(logrus.Fields{
+				"existing_content":    existingStr,
+				"transformed_content": transformedStr,
+				"content_equal":       contentMatches,
+			}).Warn("VSCode settings content mismatch - displaying full content for debugging")
 		}
+
+		if contentMatches {
+			logger.Debug("File content unchanged after transformation, skipping")
+			return fileProcessResult{
+				Change: nil,
+				Error:  internalerrors.ErrTransformNotFound,
+				Job:    job,
+			}
+		}
+	} else {
+		logger.WithError(err).Debug("Could not get existing file content, treating as new file")
 	}
 
 	// Create file change
