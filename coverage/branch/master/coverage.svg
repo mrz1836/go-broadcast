@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="129" height="20" role="img" aria-label="Code coverage: 85.4 percent">
-  <title>Code coverage: 85.4 percent</title>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="129" height="20" role="img" aria-label="Code coverage: 85.3 percent">
+  <title>Code coverage: 85.3 percent</title>
   <linearGradient id="s" x2="0" y2="100%">
     <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
     <stop offset="1" stop-opacity=".1"/>
@@ -16,7 +16,7 @@
     <image x="5" y="3" width="14" height="14" xlink:href="data:image/svg+xml;base64,PHN2ZyBmaWxsPSIjZmZmZmZmIiByb2xlPSJpbWciIHZpZXdCb3g9IjAgMCAyNCAyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGl0bGU+MkZBUzwvdGl0bGU+PHBhdGggZD0iTTEyIDBjLS45MTggMC0xLjgzMy4xMi0yLjcyLjM1NUw0LjA3IDEuNzQ4YTIuNjQgMi42NCAwIDAgMC0xLjk2IDIuNTQ3djkuMTE1YTcuOTEzIDcuOTEzIDAgMCAwIDMuNTUyIDYuNjA2bDUuNjk3IDMuNzY1YTEuMzIgMS4zMiAwIDAgMCAxLjQ2Ny0uMDA4bDUuNTcyLTMuNzUyYTcuOTMxIDcuOTMxIDAgMCAwIDMuNDkzLTYuNTdWNC4yOTVhMi42MzggMi42MzggMCAwIDAtMS45NjEtMi41NDdMMTQuNzIuMzU1QTEwLjU5NCAxMC41OTQgMCAwIDAgMTIgMFpNNy4zODMgNS40aDkuMjI4Yy43MjYgMCAxLjMyLjU5NCAxLjMyIDEuMzIgMCAuNzM0LS41ODcgMS4zMi0xLjMyIDEuMzJINy4zODNjLS43MjcgMC0xLjMyLS41OTMtMS4zMi0xLjMyIDAtLjcyNi41OTMtMS4zMiAxLjMyLTEuMzJ6TTcuMzggOS4zNTdoMy4yOTljLjcyNyAwIDEuMzIuNTk1IDEuMzIgMS4zMmExLjMyIDEuMzIgMCAwIDEtMS4zMTggMS4zMkg3LjM4Yy0uNzI2IDAtMS4zMi0uNTkyLTEuMzItMS4zMiAwLS43MjUuNTk0LTEuMzIgMS4zMi0xLjMyem0wIDMuOTZjLjcyNyAwIDEuMzIuNTkzIDEuMzIgMS4zMiAwIC43MjctLjU4NiAxLjMxOC0xLjMyIDEuMzE4LS43MjYgMC0xLjMyLS41OTItMS4zMi0xLjMxOCAwLS43MjcuNTk0LTEuMzIgMS4zMi0xLjMyeiIvPjwvc3ZnPg=="/>
     <text aria-hidden="true" x="48" y="15" fill="#010101" fill-opacity=".3">coverage</text>
     <text x="48" y="14">coverage</text>
-    <text aria-hidden="true" x="100" y="15" fill="#010101" fill-opacity=".3">85.4%</text>
-    <text x="100" y="14">85.4%</text>
+    <text aria-hidden="true" x="100" y="15" fill="#010101" fill-opacity=".3">85.3%</text>
+    <text x="100" y="14">85.3%</text>
   </g>
 </svg>
