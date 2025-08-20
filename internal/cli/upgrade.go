@@ -1,13 +1,19 @@
 package cli
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -15,17 +21,29 @@ import (
 	versionpkg "github.com/mrz1836/go-broadcast/internal/version"
 )
 
+const (
+	// devVersionString is the string used for development versions
+	devVersionString = "dev"
+	// unknownString is the string used for unknown values
+	unknownString = "unknown"
+)
+
 var (
 	// ErrDevVersionNoForce is returned when trying to upgrade a dev version without --force
 	ErrDevVersionNoForce = errors.New("cannot upgrade development build without --force")
 	// ErrVersionParseFailed is returned when version cannot be parsed from output
 	ErrVersionParseFailed = errors.New("could not parse version from output")
+	// ErrDownloadFailed is returned when binary download fails
+	ErrDownloadFailed = errors.New("failed to download binary")
+	// ErrBinaryNotFoundInArchive is returned when the binary is not found in the archive
+	ErrBinaryNotFoundInArchive = errors.New("go-broadcast binary not found in archive")
 )
 
 // UpgradeConfig holds configuration for the upgrade command
 type UpgradeConfig struct {
 	Force     bool
 	CheckOnly bool
+	UseBinary bool
 }
 
 // newUpgradeCmd creates the upgrade command
@@ -61,6 +79,11 @@ This command will:
 				return err
 			}
 
+			config.UseBinary, err = cmd.Flags().GetBool("use-binary")
+			if err != nil {
+				return err
+			}
+
 			return runUpgradeWithConfig(cmd, config)
 		},
 	}
@@ -69,6 +92,7 @@ This command will:
 	cmd.Flags().BoolP("force", "f", false, "Force upgrade even if already on latest version")
 	cmd.Flags().Bool("check", false, "Check for updates without upgrading")
 	cmd.Flags().BoolP("verbose", "v", false, "Show release notes after upgrade")
+	cmd.Flags().Bool("use-binary", false, "Download and install pre-built binary instead of using go install")
 
 	return cmd
 }
@@ -77,7 +101,7 @@ func runUpgradeWithConfig(cmd *cobra.Command, config UpgradeConfig) error {
 	currentVersion := GetCurrentVersion()
 
 	// Handle development version or commit hash
-	if currentVersion == "dev" || currentVersion == "" || isLikelyCommitHash(currentVersion) {
+	if currentVersion == devVersionString || currentVersion == "" || isLikelyCommitHash(currentVersion) {
 		if !config.Force && !config.CheckOnly {
 			output.Warn(fmt.Sprintf("Current version appears to be a development build (%s)", currentVersion))
 			output.Info("Use --force to upgrade anyway")
@@ -122,17 +146,21 @@ func runUpgradeWithConfig(cmd *cobra.Command, config UpgradeConfig) error {
 		output.Info(fmt.Sprintf("Force reinstalling version %s...", formatVersion(latestVersion)))
 	}
 
-	// Run go install command
-	installCmd := fmt.Sprintf("github.com/mrz1836/go-broadcast/cmd/go-broadcast@v%s", latestVersion)
-
-	output.Info(fmt.Sprintf("Running: go install %s", installCmd))
-
-	execCmd := exec.CommandContext(context.Background(), "go", "install", installCmd) //nolint:gosec // Command is constructed safely
-	execCmd.Stdout = os.Stdout
-	execCmd.Stderr = os.Stderr
-
-	if err := execCmd.Run(); err != nil {
-		return fmt.Errorf("failed to upgrade: %w", err)
+	// Perform upgrade using selected method
+	if config.UseBinary {
+		if err := upgradeBinary(latestVersion); err != nil {
+			output.Warn("Binary upgrade failed, falling back to go install...")
+			if err := upgradeGoInstall(latestVersion); err != nil {
+				return fmt.Errorf("both binary and go install upgrade methods failed: %w", err)
+			}
+		}
+	} else {
+		if err := upgradeGoInstall(latestVersion); err != nil {
+			output.Warn("go install failed, falling back to binary download...")
+			if err := upgradeBinary(latestVersion); err != nil {
+				return fmt.Errorf("both go install and binary upgrade methods failed: %w", err)
+			}
+		}
 	}
 
 	output.Success(fmt.Sprintf("Successfully upgraded to version %s", formatVersion(latestVersion)))
@@ -153,8 +181,8 @@ func runUpgradeWithConfig(cmd *cobra.Command, config UpgradeConfig) error {
 }
 
 func formatVersion(v string) string {
-	if v == "dev" || v == "" {
-		return "dev"
+	if v == devVersionString || v == "" {
+		return devVersionString
 	}
 	if !strings.HasPrefix(v, "v") {
 		return "v" + v
@@ -255,4 +283,134 @@ func isLikelyCommitHash(version string) bool {
 // GetCurrentVersion returns the current version of go-broadcast
 func GetCurrentVersion() string {
 	return GetVersion()
+}
+
+// upgradeGoInstall upgrades using go install command
+func upgradeGoInstall(latestVersion string) error {
+	installCmd := fmt.Sprintf("github.com/mrz1836/go-broadcast/cmd/go-broadcast@v%s", latestVersion)
+
+	output.Info(fmt.Sprintf("Running: go install %s", installCmd))
+
+	execCmd := exec.CommandContext(context.Background(), "go", "install", installCmd) //nolint:gosec // Command is constructed safely
+	execCmd.Stdout = os.Stdout
+	execCmd.Stderr = os.Stderr
+
+	if err := execCmd.Run(); err != nil {
+		return fmt.Errorf("go install failed: %w", err)
+	}
+
+	return nil
+}
+
+// upgradeBinary downloads and installs pre-built binary
+func upgradeBinary(latestVersion string) error {
+	// Get current binary location
+	currentBinary, err := GetBinaryLocation()
+	if err != nil {
+		return fmt.Errorf("could not determine current binary location: %w", err)
+	}
+
+	// Construct download URL for compressed archive
+	downloadURL := fmt.Sprintf("https://github.com/mrz1836/go-broadcast/releases/download/v%s/go-broadcast_%s_%s_%s.tar.gz",
+		latestVersion, latestVersion, runtime.GOOS, runtime.GOARCH)
+
+	output.Info(fmt.Sprintf("Downloading binary from: %s", downloadURL))
+
+	// Download the binary with context
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", downloadURL, nil)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrDownloadFailed, err)
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrDownloadFailed, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%w: HTTP %d", ErrDownloadFailed, resp.StatusCode)
+	}
+
+	// Create temporary directory
+	tempDir, err := os.MkdirTemp("", "go-broadcast-upgrade-*")
+	if err != nil {
+		return fmt.Errorf("could not create temporary directory: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	// Extract binary from tar.gz archive
+	extractedBinary, err := extractBinaryFromArchive(resp.Body, tempDir)
+	if err != nil {
+		return fmt.Errorf("could not extract binary: %w", err)
+	}
+
+	// Backup current binary
+	backupFile := currentBinary + ".backup"
+	if err := os.Rename(currentBinary, backupFile); err != nil {
+		return fmt.Errorf("could not backup current binary: %w", err)
+	}
+
+	// Replace with new binary
+	if err := os.Rename(extractedBinary, currentBinary); err != nil {
+		// Restore backup on failure
+		_ = os.Rename(backupFile, currentBinary)
+		return fmt.Errorf("could not replace binary: %w", err)
+	}
+
+	// Remove backup on success
+	_ = os.Remove(backupFile)
+
+	output.Info("Binary upgrade completed successfully")
+	return nil
+}
+
+// extractBinaryFromArchive extracts the go-broadcast binary from a tar.gz archive
+func extractBinaryFromArchive(reader io.Reader, destDir string) (string, error) {
+	// Create gzip reader
+	gzipReader, err := gzip.NewReader(reader)
+	if err != nil {
+		return "", fmt.Errorf("could not create gzip reader: %w", err)
+	}
+	defer func() { _ = gzipReader.Close() }()
+
+	// Create tar reader
+	tarReader := tar.NewReader(gzipReader)
+
+	// Extract files from tar
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("could not read tar entry: %w", err)
+		}
+
+		// Look for the go-broadcast binary
+		if filepath.Base(header.Name) == "go-broadcast" && header.Typeflag == tar.TypeReg {
+			// Create destination file
+			destPath := filepath.Join(destDir, "go-broadcast")
+			file, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755) //nolint:gosec // Need executable permissions
+			if err != nil {
+				return "", fmt.Errorf("could not create binary file: %w", err)
+			}
+
+			// Copy binary content with size limit for security
+			limitedReader := io.LimitReader(tarReader, 100*1024*1024) // 100MB limit
+			_, err = io.Copy(file, limitedReader)
+			_ = file.Close()
+			if err != nil {
+				return "", fmt.Errorf("could not write binary: %w", err)
+			}
+
+			return destPath, nil
+		}
+	}
+
+	return "", ErrBinaryNotFoundInArchive
 }

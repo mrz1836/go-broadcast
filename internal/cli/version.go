@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"runtime/debug"
+	"strings"
+	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/output"
 )
@@ -12,9 +15,9 @@ import (
 //
 //nolint:gochecknoglobals // Build variables are set via ldflags during compilation
 var (
-	version   = "dev"
-	commit    = "unknown"
-	buildDate = "unknown"
+	version   = devVersionString
+	commit    = unknownString
+	buildDate = unknownString
 )
 
 // VersionInfo contains version information
@@ -30,9 +33,9 @@ type VersionInfo struct {
 // printVersion prints version information based on the format
 func printVersion(jsonFormat bool) error {
 	info := VersionInfo{
-		Version:   version,
-		Commit:    commit,
-		BuildDate: buildDate,
+		Version:   getVersionWithFallback(),
+		Commit:    getCommitWithFallback(),
+		BuildDate: getBuildDateWithFallback(),
 		GoVersion: runtime.Version(),
 		OS:        runtime.GOOS,
 		Arch:      runtime.GOARCH,
@@ -68,29 +71,119 @@ func SetVersionInfo(v, c, d string) {
 	}
 }
 
-// GetVersion returns the current version string
+// GetVersion returns the current version string with fallback to build info
 func GetVersion() string {
-	return version
+	return getVersionWithFallback()
 }
 
-// GetCommit returns the current commit hash
+// GetCommit returns the current commit hash with fallback to build info
 func GetCommit() string {
-	return commit
+	return getCommitWithFallback()
 }
 
-// GetBuildDate returns the build date
+// GetBuildDate returns the build date with fallback to build info
 func GetBuildDate() string {
-	return buildDate
+	return getBuildDateWithFallback()
 }
 
 // GetVersionInfo returns complete version information
 func GetVersionInfo() VersionInfo {
 	return VersionInfo{
-		Version:   version,
-		Commit:    commit,
-		BuildDate: buildDate,
+		Version:   getVersionWithFallback(),
+		Commit:    getCommitWithFallback(),
+		BuildDate: getBuildDateWithFallback(),
 		GoVersion: runtime.Version(),
 		OS:        runtime.GOOS,
 		Arch:      runtime.GOARCH,
 	}
+}
+
+// getVersionWithFallback returns the version information with fallback to BuildInfo
+func getVersionWithFallback() string {
+	// If version was set via ldflags, use it
+	if version != devVersionString && version != "" {
+		return version
+	}
+
+	// Try to get version from build info
+	if info, ok := debug.ReadBuildInfo(); ok {
+		// Check if there's a module version (from go install @version)
+		if info.Main.Version != "" && info.Main.Version != "(devel)" {
+			// For go install @version, use the version as-is (already includes 'v' prefix)
+			return info.Main.Version
+		}
+
+		// Try to get VCS revision as fallback for development builds
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" && setting.Value != "" {
+				// Use short commit hash for readability
+				if len(setting.Value) > 7 {
+					return setting.Value[:7]
+				}
+				return setting.Value
+			}
+		}
+	}
+
+	// Default to dev version string if nothing else is available
+	return devVersionString
+}
+
+// getCommitWithFallback returns the commit hash with fallback to BuildInfo
+func getCommitWithFallback() string {
+	// If commit was set via ldflags, use it
+	if commit != unknownString && commit != "" {
+		return commit
+	}
+
+	// Try to get from build info
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" && setting.Value != "" {
+				// For commit display, use short hash for readability
+				if len(setting.Value) > 7 {
+					return setting.Value[:7]
+				}
+				return setting.Value
+			}
+		}
+
+		// For go install builds, try to extract commit from module sum if available
+		if info.Main.Sum != "" {
+			// Module sum format: h1:base64hash - extract first 7 chars of hash
+			if parts := strings.Split(info.Main.Sum, ":"); len(parts) == 2 && len(parts[1]) >= 7 {
+				return parts[1][:7]
+			}
+		}
+	}
+
+	return unknownString
+}
+
+// getBuildDateWithFallback returns the build date with fallback to BuildInfo
+func getBuildDateWithFallback() string {
+	// If build date was set via ldflags, use it
+	if buildDate != unknownString && buildDate != "" {
+		return buildDate
+	}
+
+	// Try to get from build info
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.time" && setting.Value != "" {
+				// VCS time is in RFC3339 format, convert to a more readable format
+				if t, err := time.Parse(time.RFC3339, setting.Value); err == nil {
+					return t.Format("2006-01-02_15:04:05_UTC")
+				}
+				return setting.Value
+			}
+		}
+
+		// For go install builds without VCS info, use a generic marker
+		if info.Main.Version != "" && info.Main.Version != "(devel)" {
+			return "go-install"
+		}
+	}
+
+	return unknownString
 }
