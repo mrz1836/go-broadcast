@@ -101,7 +101,11 @@ Get up and running with go-broadcast in under 5 minutes!
 ### Installation
 
 ```bash
+# Install the go-broadcast CLI tool via master branch
 go install github.com/mrz1836/go-broadcast/cmd/go-broadcast@latest
+
+# Upgrade to the latest stable version
+go-broadcast upgrade --force
 ```
 
 ### Create Configuration
@@ -448,6 +452,12 @@ go-broadcast diagnose > diagnostics.json # Save diagnostics to file
 go-broadcast cancel                      # Cancel all active sync operations
 go-broadcast cancel org/repo1            # Cancel syncs for specific repository
 go-broadcast cancel --dry-run            # Preview what would be cancelled
+
+# Upgrade go-broadcast
+go-broadcast upgrade                     # Upgrade to latest version
+go-broadcast upgrade --check             # Check for updates without upgrading
+go-broadcast upgrade --force             # Force upgrade even if already on latest
+go-broadcast upgrade --verbose           # Show release notes after upgrade
 ```
 
 ### Configuration Reference

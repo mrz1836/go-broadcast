@@ -67,3 +67,30 @@ func SetVersionInfo(v, c, d string) {
 		buildDate = d
 	}
 }
+
+// GetVersion returns the current version string
+func GetVersion() string {
+	return version
+}
+
+// GetCommit returns the current commit hash
+func GetCommit() string {
+	return commit
+}
+
+// GetBuildDate returns the build date
+func GetBuildDate() string {
+	return buildDate
+}
+
+// GetVersionInfo returns complete version information
+func GetVersionInfo() VersionInfo {
+	return VersionInfo{
+		Version:   version,
+		Commit:    commit,
+		BuildDate: buildDate,
+		GoVersion: runtime.Version(),
+		OS:        runtime.GOOS,
+		Arch:      runtime.GOARCH,
+	}
+}

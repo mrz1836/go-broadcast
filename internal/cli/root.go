@@ -77,6 +77,7 @@ func init() {
 	rootCmd.AddCommand(diagnoseCmd)
 	rootCmd.AddCommand(cancelCmd)
 	rootCmd.AddCommand(modulesCmd)
+	rootCmd.AddCommand(newUpgradeCmd())
 }
 
 // NewRootCmd creates a new isolated root command instance for testing
@@ -115,6 +116,7 @@ state locally. It supports file transformations and provides progress tracking.`
 	cmd.AddCommand(createValidateCmd(flags))
 	cmd.AddCommand(createDiagnoseCmd(flags))
 	cmd.AddCommand(createCancelCmd(flags))
+	cmd.AddCommand(newUpgradeCmd())
 
 	return cmd
 }
@@ -153,6 +155,7 @@ state locally. It supports file transformations and provides progress tracking.`
 	cmd.AddCommand(createValidateCmdWithVerbose(logConfig))
 	cmd.AddCommand(createDiagnoseCmdWithVerbose(logConfig))
 	cmd.AddCommand(createCancelCmdWithVerbose(logConfig))
+	cmd.AddCommand(newUpgradeCmd())
 
 	return cmd
 }

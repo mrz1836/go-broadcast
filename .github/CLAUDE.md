@@ -182,6 +182,12 @@ go tool pprof mem.prof
 ./go-broadcast cancel --dry-run --config examples/minimal.yaml  # Preview cancellations
 ./go-broadcast cancel --config examples/minimal.yaml            # Cancel all active syncs
 ./go-broadcast cancel org/repo1 --config examples/minimal.yaml  # Cancel specific repository
+
+# Upgrade go-broadcast when needed
+go-broadcast upgrade                     # Upgrade to latest version
+go-broadcast upgrade --check             # Check for updates without upgrading
+go-broadcast upgrade --force             # Force upgrade even if already on latest
+go-broadcast upgrade --verbose           # Show release notes after upgrade
 ```
 
 **Note**: Component-specific debug flags (`--debug-git`, `--debug-api`, etc.) are planned features not yet implemented.
