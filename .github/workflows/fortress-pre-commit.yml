@@ -100,22 +100,50 @@ jobs:
             ~/.cache/go-pre-commit-bin
           key: ${{ inputs.primary-runner }}-go-pre-commit-${{ env.GO_PRE_COMMIT_VERSION }}
 
-      - name: 🛠️ Make cached go-pre-commit usable
+      # ————————————————————————————————————————————————————————————————
+      # Restore (and later save) a compact cache for go-pre-commit tools
+      # (golangci-lint, gofumpt) to avoid reinstalling on every run
+      # ————————————————————————————————————————————————————————————————
+      - name: 💾 Restore go-pre-commit tools cache
+        id: go-pre-commit-tools-cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: |
+            ~/.cache/go-pre-commit-tools
+          key: ${{ inputs.primary-runner }}-go-pre-commit-tools-golangci-${{ env.GO_PRE_COMMIT_GOLANGCI_LINT_VERSION }}-fumpt-${{ env.GO_PRE_COMMIT_FUMPT_VERSION }}
+
+      - name: 🛠️ Make cached go-pre-commit and tools usable
         if: env.GO_PRE_COMMIT_USE_LOCAL != 'true'
         run: |
           set -euo pipefail
           BIN_DIR="$HOME/.cache/go-pre-commit-bin"
+          TOOLS_DIR="$HOME/.cache/go-pre-commit-tools"
           GO_PRE_COMMIT_BIN="$BIN_DIR/go-pre-commit"
+          GOPATH_BIN="$(go env GOPATH)/bin"
 
-          # If we restored a cache, copy/link it into GOPATH/bin so the binary works.
+          # Ensure GOPATH/bin exists
+          mkdir -p "$GOPATH_BIN"
+
+          # If we restored go-pre-commit binary cache, copy it to GOPATH/bin
           if [[ -f "$GO_PRE_COMMIT_BIN" ]]; then
             echo "✅ Using cached go-pre-commit binary"
-            mkdir -p "$(go env GOPATH)/bin"
-            cp "$GO_PRE_COMMIT_BIN" "$(go env GOPATH)/bin/"
+            cp "$GO_PRE_COMMIT_BIN" "$GOPATH_BIN/"
+          fi
+
+          # If we restored tools cache, copy them to GOPATH/bin
+          if [[ -d "$TOOLS_DIR" ]]; then
+            echo "✅ Using cached go-pre-commit tools"
+            for tool in golangci-lint gofumpt; do
+              if [[ -f "$TOOLS_DIR/$tool" ]]; then
+                echo "  • Restoring cached $tool"
+                cp "$TOOLS_DIR/$tool" "$GOPATH_BIN/"
+                chmod +x "$GOPATH_BIN/$tool"
+              fi
+            done
           fi
 
           # Make sure the binary location is on PATH for *all* subsequent steps.
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          echo "$GOPATH_BIN" >> "$GITHUB_PATH"
 
       - name: 🎯 Set go-pre-commit binary path
         run: |
@@ -289,6 +317,32 @@ jobs:
           echo "✅ All pre-commit checks passed successfully"
 
       # ————————————————————————————————————————————————————————————————
+      # Cache tools that were installed during pre-commit execution
+      # This step ensures tools like golangci-lint and gofumpt are cached for future runs
+      # ————————————————————————————————————————————————————————————————
+      - name: 💾 Cache go-pre-commit tools after installation
+        if: steps.go-pre-commit-tools-cache.outputs.cache-hit != 'true' && (steps.install-pre-commit.outputs.install_success == 'true' || steps.install-pre-commit-cached.outputs.install_success == 'true')
+        run: |
+          echo "💾 Caching go-pre-commit tools..."
+          TOOLS_DIR="$HOME/.cache/go-pre-commit-tools"
+          GOPATH_BIN="$(go env GOPATH)/bin"
+
+          # Create tools cache directory
+          mkdir -p "$TOOLS_DIR"
+
+          # Cache tools that may have been installed by go-pre-commit
+          for tool in golangci-lint gofumpt; do
+            if [[ -f "$GOPATH_BIN/$tool" ]]; then
+              echo "  • Caching $tool"
+              cp "$GOPATH_BIN/$tool" "$TOOLS_DIR/"
+            else
+              echo "  • $tool not found in GOPATH/bin, may not have been installed"
+            fi
+          done
+
+          echo "✅ Tool caching completed"
+
+      # ————————————————————————————————————————————————————————————————
       # Job Summary
       # ————————————————————————————————————————————————————————————————
       - name: 📊 Job Summary
@@ -301,7 +355,8 @@ jobs:
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| **Tool** | github.com/mrz1836/go-pre-commit |" >> $GITHUB_STEP_SUMMARY
           echo "| **Version** | ${{ steps.pre-commit-version.outputs.version || env.GO_PRE_COMMIT_VERSION }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Cache Status** | ${{ steps.go-pre-commit-cache.outputs.cache-hit == 'true' && '✅ Cache Hit' || '⬇️ Cache Miss' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Binary Cache** | ${{ steps.go-pre-commit-cache.outputs.cache-hit == 'true' && '✅ Cache Hit' || '⬇️ Cache Miss' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Tools Cache** | ${{ steps.go-pre-commit-tools-cache.outputs.cache-hit == 'true' && '✅ Cache Hit' || '⬇️ Cache Miss' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Installation** | ${{ (steps.install-pre-commit.outputs.install_success == 'true' || steps.install-pre-commit-cached.outputs.install_success == 'true') && '✅ Success' || '❌ Failed (using fallback)' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Fail Fast Mode** | ${{ env.GO_PRE_COMMIT_FAIL_FAST == 'true' && '⚡ Enabled' || '📝 Disabled' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Timeout** | ${{ env.GO_PRE_COMMIT_TIMEOUT_SECONDS }} seconds |" >> $GITHUB_STEP_SUMMARY
