@@ -293,7 +293,7 @@ jobs:
                   echo "" >> $GITHUB_STEP_SUMMARY
                   echo "<br>"
                   echo "### 📊 Lines of Code Summary" >> $GITHUB_STEP_SUMMARY
-                  printf "%b\n" "$LOC_SUMMARY" >> $GITHUB_STEP_SUMMARY
+                  echo "$LOC_SUMMARY" >> $GITHUB_STEP_SUMMARY
                   DISPLAYED_LOC_SUMMARY=true
                 fi
               done
