@@ -471,6 +471,8 @@ jobs:
 
           # Set environment for CI
           export CI=true
+          export NO_COLOR=1
+          export TERM=dumb
 
           # The external tool will read environment variables from the merged configuration
           # that we've already loaded into the environment
@@ -501,17 +503,15 @@ jobs:
             CHECKS_OUTPUT=$("${{ env.GO_PRE_COMMIT_BINARY }}" run 2>&1) || CHECKS_EXIT=$?
           fi
 
-          # Strip ANSI color codes and filter out redundant summary lines
-          # Use multiple sed patterns to handle various ANSI code corruptions
+          # Clean and filter output (colors should be disabled but handle any remaining codes)
+          # Remove any remaining ANSI codes and filter redundant summary lines
           echo "$CHECKS_OUTPUT" | \
-            sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' | \
-            sed 's/�\[[0-9;]*[a-zA-Z]//g' | \
-            sed 's/\[[0-9;]*[a-zA-Z]//g' | \
-            sed 's/[[:cntrl:]]\[[0-9;]*[a-zA-Z]//g' | \
-            sed 's/�[0-9]*[a-zA-Z]//g' | \
+            sed -E 's/\x1b\[[0-9;]*[mGKH]//g' | \
+            sed 's/\xc2\x9b\[[0-9;]*[mGKH]//g' | \
+            sed 's/�\[[0-9;]*[mGKH]//g' | \
             sed 's/�//g' | \
             tr -d '\033' | \
-            grep -v -E 'passed.*file\(s\)|All checks passed'
+            grep -v -E '(✅.*passed.*on.*file|All checks passed.*on.*file|passed.*file\(s\))'
 
           # Extract executed checks from output (if format allows)
           EXECUTED_CHECKS=$(echo "$CHECKS_OUTPUT" | grep -E "Running:|Executing:|✓" | sed 's/.*Running: //;s/.*Executing: //;s/.*✓ //' | tr '\n' ',' | sed 's/,$//' || echo "fumpt,lint,mod-tidy,whitespace,eof")

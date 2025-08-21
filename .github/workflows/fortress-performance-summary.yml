@@ -167,6 +167,7 @@ jobs:
             # Process cache statistics if available
             # Use a more robust file existence check
             if compgen -G "cache-stats-*.json" >/dev/null 2>&1; then
+              echo "<br>"
               echo "### 💾 Cache Performance" >> $GITHUB_STEP_SUMMARY
               echo "| OS | Go Version | Module Cache | Build Cache | Module Size | Build Size |" >> $GITHUB_STEP_SUMMARY
               echo "|----|------------|--------------|-------------|-------------|------------|" >> $GITHUB_STEP_SUMMARY
@@ -199,6 +200,7 @@ jobs:
             # Use a more robust file existence check
             if compgen -G "benchmark-stats-*.json" >/dev/null 2>&1; then
               echo "" >> $GITHUB_STEP_SUMMARY
+              echo "<br>"
               echo "### 🏃 Benchmark Performance" >> $GITHUB_STEP_SUMMARY
 
               # Get benchmark mode from the first stats file
@@ -257,6 +259,7 @@ jobs:
             # Use a more robust file existence check
             if compgen -G "test-stats-*.json" >/dev/null 2>&1; then
               echo "" >> $GITHUB_STEP_SUMMARY
+              echo "<br>"
               echo "### 🧪 Test Execution Performance" >> $GITHUB_STEP_SUMMARY
               echo "| Test Suite | Duration | Tests | Examples | Status | Race | Coverage |" >> $GITHUB_STEP_SUMMARY
               echo "|------------|----------|-------|----------|--------|------|----------|" >> $GITHUB_STEP_SUMMARY
@@ -288,8 +291,9 @@ jobs:
                 if [ -f "$stats_file" ] && [ "$DISPLAYED_LOC_SUMMARY" = false ]; then
                   LOC_SUMMARY=$(jq -r '.loc_summary' "$stats_file")
                   echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "<br>"
                   echo "### 📊 Lines of Code Summary" >> $GITHUB_STEP_SUMMARY
-                  echo "$LOC_SUMMARY" >> $GITHUB_STEP_SUMMARY
+                  printf "%b\n" "$LOC_SUMMARY" >> $GITHUB_STEP_SUMMARY
                   DISPLAYED_LOC_SUMMARY=true
                 fi
               done
@@ -297,6 +301,7 @@ jobs:
 
             # Process fuzz test statistics - always show status
             echo "" >> $GITHUB_STEP_SUMMARY
+            echo "<br>"
             echo "### 🎯 Fuzz Test Performance" >> $GITHUB_STEP_SUMMARY
 
             # Check if fuzz testing is enabled in environment
@@ -341,6 +346,7 @@ jobs:
             # Process coverage statistics if available
             if compgen -G "coverage-stats-*.json" >/dev/null 2>&1; then
               echo "" >> $GITHUB_STEP_SUMMARY
+              echo "<br>"
               echo "### 📊 Coverage System Performance" >> $GITHUB_STEP_SUMMARY
 
               for stats_file in coverage-stats-*.json; do
@@ -365,6 +371,7 @@ jobs:
               done
             elif [[ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ]]; then
               echo "" >> $GITHUB_STEP_SUMMARY
+              echo "<br>"
               echo "### 📊 Coverage System Status" >> $GITHUB_STEP_SUMMARY
               echo "| Status | Details |" >> $GITHUB_STEP_SUMMARY
               echo "|--------|---------|" >> $GITHUB_STEP_SUMMARY
@@ -375,6 +382,7 @@ jobs:
               echo "| **Theme** | ${{ env.GO_COVERAGE_REPORT_THEME }} |" >> $GITHUB_STEP_SUMMARY
             fi
 
+            echo "<br>"
             echo "### 🔧 Job Results Summary"
             echo "| Job | Status | Result |"
             echo "|-----|--------|--------|"
@@ -399,6 +407,7 @@ jobs:
 
             # Add release-specific information if this was a tag push
             if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+              echo "<br>"
               echo "## 📦 Release Information"
               if [[ "${{ inputs.release-result }}" == "success" ]]; then
                 echo "✅ Release ${{ github.ref_name }} created successfully!"
@@ -413,6 +422,7 @@ jobs:
 
             echo ""
 
+            echo "<br>"
             echo "### 🚀 Performance Insights"
             if [[ $TOTAL_DURATION -gt 600 ]]; then
               echo "- ⚠️  **Warning**: Workflow took longer than 10 minutes (${TOTAL_MINUTES}m ${TOTAL_SECONDS}s)"
@@ -446,6 +456,7 @@ jobs:
             if [ -n "$FAILED_JOBS" ]; then
               FAILED_JOBS=${FAILED_JOBS%, }  # Remove trailing comma
               echo ""
+              echo "<br>"
               echo "### ❌ Failed Jobs"
               echo "The following jobs did not complete successfully:"
               echo "- ${FAILED_JOBS}"
