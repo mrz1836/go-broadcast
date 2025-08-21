@@ -126,8 +126,8 @@ jobs:
               BENCH_CMD="magex bench time=50ms"
               ;;
             full)
-              echo "🔬 Running comprehensive benchmarks (10s runs)..."
-              BENCH_CMD="magex bench time=10s"
+              echo "🔬 Running comprehensive benchmarks (5s runs)..."
+              BENCH_CMD="magex bench time=5s"
               ;;
             normal|*)
               echo "📊 Running normal benchmarks (100ms runs)..."
