@@ -258,8 +258,8 @@ jobs:
             if compgen -G "test-stats-*.json" >/dev/null 2>&1; then
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "### 🧪 Test Execution Performance" >> $GITHUB_STEP_SUMMARY
-              echo "| Test Suite | Duration | Tests | Examples | Status | Race | Coverage | Fuzz |" >> $GITHUB_STEP_SUMMARY
-              echo "|------------|----------|-------|----------|--------|------|----------|------|" >> $GITHUB_STEP_SUMMARY
+              echo "| Test Suite | Duration | Tests | Examples | Status | Race | Coverage |" >> $GITHUB_STEP_SUMMARY
+              echo "|------------|----------|-------|----------|--------|------|----------|" >> $GITHUB_STEP_SUMMARY
 
               for stats_file in test-stats-*.json; do
                 if [ -f "$stats_file" ]; then
@@ -270,19 +270,61 @@ jobs:
                   STATUS=$(jq -r '.status' "$stats_file")
                   RACE_ENABLED=$(jq -r '.race_enabled' "$stats_file")
                   COVERAGE_ENABLED=$(jq -r '.coverage_enabled' "$stats_file")
-                  FUZZ_RUN=$(jq -r '.fuzz_run' "$stats_file")
 
                   DURATION_MIN=$((DURATION / 60))
                   DURATION_SEC=$((DURATION % 60))
 
                   COVERAGE_ICON=$([[ "$COVERAGE_ENABLED" == "true" ]] && echo "✅" || echo "❌")
-                  FUZZ_ICON=$([[ "$FUZZ_RUN" == "true" ]] && echo "🔍" || echo "")
                   RACE_ICON=$([[ "$RACE_ENABLED" == "true" ]] && echo "✅" || echo "❌")
                   STATUS_ICON=$([[ "$STATUS" == "success" ]] && echo "✅" || echo "❌")
 
-                  echo "| $NAME | ${DURATION_MIN}m ${DURATION_SEC}s | $TEST_COUNT | $EXAMPLE_COUNT | $STATUS_ICON | $RACE_ICON | $COVERAGE_ICON | $FUZZ_ICON |" >> $GITHUB_STEP_SUMMARY
+                  echo "| $NAME | ${DURATION_MIN}m ${DURATION_SEC}s | $TEST_COUNT | $EXAMPLE_COUNT | $STATUS_ICON | $RACE_ICON | $COVERAGE_ICON |" >> $GITHUB_STEP_SUMMARY
                 fi
               done
+            fi
+
+            # Process fuzz test statistics - always show status
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🎯 Fuzz Test Performance" >> $GITHUB_STEP_SUMMARY
+
+            # Check if fuzz testing is enabled in environment
+            if [[ "${{ env.ENABLE_FUZZ_TESTING }}" == "true" ]]; then
+              # Fuzz testing is enabled, check for stats files
+              if compgen -G "fuzz-stats-*.json" >/dev/null 2>&1; then
+                echo "| Fuzz Suite | Duration | Fuzz Tests | Status | Enabled |" >> $GITHUB_STEP_SUMMARY
+                echo "|------------|----------|------------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+
+                for stats_file in fuzz-stats-*.json; do
+                  if [ -f "$stats_file" ]; then
+                    NAME=$(jq -r '.name' "$stats_file")
+                    DURATION=$(jq -r '.duration_seconds' "$stats_file")
+                    FUZZ_TEST_COUNT=$(jq -r '.fuzz_test_count' "$stats_file")
+                    STATUS=$(jq -r '.status' "$stats_file")
+
+                    DURATION_MIN=$((DURATION / 60))
+                    DURATION_SEC=$((DURATION % 60))
+
+                    STATUS_ICON=$([[ "$STATUS" == "success" ]] && echo "✅" || echo "❌")
+
+                    echo "| $NAME | ${DURATION_MIN}m ${DURATION_SEC}s | $FUZZ_TEST_COUNT | $STATUS_ICON | 🎯 |" >> $GITHUB_STEP_SUMMARY
+                  fi
+                done
+              else
+                # Fuzz testing enabled but no stats found
+                echo "| Status | Details |" >> $GITHUB_STEP_SUMMARY
+                echo "|--------|---------|" >> $GITHUB_STEP_SUMMARY
+                echo "| **Fuzz Testing** | ✅ Enabled |" >> $GITHUB_STEP_SUMMARY
+                echo "| **Execution** | ⚠️ No fuzz stats found - check job logs |" >> $GITHUB_STEP_SUMMARY
+                echo "| **Platform** | Linux with primary Go version |" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              # Fuzz testing is disabled
+              echo "| Status | Details |" >> $GITHUB_STEP_SUMMARY
+              echo "|--------|---------|" >> $GITHUB_STEP_SUMMARY
+              echo "| **Fuzz Testing** | ❌ Disabled |" >> $GITHUB_STEP_SUMMARY
+              echo "| **Configuration** | Set ENABLE_FUZZ_TESTING=true to enable |" >> $GITHUB_STEP_SUMMARY
+              echo "| **Target Platform** | Would run on Linux with primary Go version |" >> $GITHUB_STEP_SUMMARY
+            fi
 
               DISPLAYED_LOC_SUMMARY=false
 
