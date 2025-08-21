@@ -284,12 +284,6 @@ jobs:
           # Get current date
           CURRENT_DATE=$(date +"%Y-%m-%d")
 
-          # Create clean markdown table manually
-          LOC_MARKDOWN="| Type | Total Lines | Date |\\n|------|-------------|------|\\n| Test Files | ${TEST_FILES_COUNT} | ${CURRENT_DATE} |\\n| Go Files | ${GO_FILES_COUNT} | ${CURRENT_DATE} |\\n\\n**Total lines of code: ${TOTAL_COUNT}**"
-
-          # Use double-quoted JSON string to avoid shell escaping issues
-          LOC_OUTPUT_JSON=$(jq -n --arg content "$LOC_MARKDOWN" '$content')
-
           cat > "$STATS_FILE" << EOF
           {
             "name": "${{ matrix.name }}",
@@ -304,7 +298,10 @@ jobs:
             "coverage_enabled": ${{ inputs.code-coverage-enabled }},
             "fuzz_run": false,
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "loc_summary": $LOC_OUTPUT_JSON
+            "loc_test_files": ${TEST_FILES_COUNT:-0},
+            "loc_go_files": ${GO_FILES_COUNT:-0},
+            "loc_total": ${TOTAL_COUNT:-0},
+            "loc_date": "$CURRENT_DATE"
           }
           EOF
 

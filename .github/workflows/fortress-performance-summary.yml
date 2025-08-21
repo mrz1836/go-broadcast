@@ -285,15 +285,26 @@ jobs:
                 fi
               done
 
+              # Process Lines of Code Summary
               DISPLAYED_LOC_SUMMARY=false
 
               for stats_file in test-stats-*.json; do
                 if [ -f "$stats_file" ] && [ "$DISPLAYED_LOC_SUMMARY" = false ]; then
-                  LOC_SUMMARY=$(jq -r '.loc_summary' "$stats_file")
+                  # Extract individual LOC values from the JSON
+                  TEST_FILES_COUNT=$(jq -r '.loc_test_files' "$stats_file")
+                  GO_FILES_COUNT=$(jq -r '.loc_go_files' "$stats_file")
+                  TOTAL_LOC=$(jq -r '.loc_total' "$stats_file")
+                  LOC_DATE=$(jq -r '.loc_date' "$stats_file")
+
                   echo ""
                   echo ""
                   echo "### 📊 Lines of Code Summary"
-                  echo "$LOC_SUMMARY"
+                  echo "| Type | Total Lines | Date |"
+                  echo "|------|-------------|------|"
+                  echo "| Test Files | $TEST_FILES_COUNT | $LOC_DATE |"
+                  echo "| Go Files | $GO_FILES_COUNT | $LOC_DATE |"
+                  echo ""
+                  echo "**Total lines of code: $TOTAL_LOC**"
                   DISPLAYED_LOC_SUMMARY=true
                 fi
               done
