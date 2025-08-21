@@ -128,6 +128,7 @@ jobs:
       # Run tests and coverage
       # ————————————————————————————————————————————————————————————————
       - name: 🧪 Run tests
+        id: run-tests
         continue-on-error: true
         run: |
           # Safely assign values to shell vars
@@ -137,21 +138,36 @@ jobs:
           echo "🔍 Race Detection Enabled: $RACE"
           echo "🔍 Code Coverage Enabled: $COVER"
 
+          # Initialize test exit code
+          TEST_EXIT_CODE=0
+
           if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
             echo "🏁 Running tests with race detection and coverage analysis..."
             magex test:coverrace 2>&1 | tee test-output.log
+            TEST_EXIT_CODE=${PIPESTATUS[0]}
           elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
             echo "🏁 Running tests with coverage analysis..."
             magex test:cover 2>&1 | tee test-output.log
+            TEST_EXIT_CODE=${PIPESTATUS[0]}
           elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
             echo "🏁 Running tests with race detection..."
             magex test:race 2>&1 | tee test-output.log
+            TEST_EXIT_CODE=${PIPESTATUS[0]}
           else
             echo "🏁 Running tests without coverage or race detection..."
             magex test 2>&1 | tee test-output.log
+            TEST_EXIT_CODE=${PIPESTATUS[0]}
           fi
 
-          echo "✅ Tests completed successfully"
+          # Store the exit code for later steps
+          echo "TEST_EXIT_CODE=$TEST_EXIT_CODE" >> $GITHUB_ENV
+          echo "test-exit-code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
+
+          if [[ $TEST_EXIT_CODE -eq 0 ]]; then
+            echo "✅ Tests completed successfully"
+          else
+            echo "❌ Tests failed with exit code $TEST_EXIT_CODE"
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Fix coverage file naming (magex generates coverage_0.txt)
@@ -242,6 +258,8 @@ jobs:
         id: test-summary
         if: always()
         run: |
+          # Get the test exit code from the test step output
+          TEST_EXIT_CODE="${{ steps.run-tests.outputs.test-exit-code }}"
           TEST_END=$(date +%s)
           TEST_DURATION=$((TEST_END - ${{ steps.test-timer.outputs.test-start }}))
           TEST_COUNT=0
@@ -294,6 +312,8 @@ jobs:
             "example_count": $EXAMPLE_COUNT,
             "benchmark_count": $BENCHMARK_COUNT,
             "status": "${{ job.status }}",
+            "test_exit_code": ${TEST_EXIT_CODE:-0},
+            "test_passed": $([ "${TEST_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false"),
             "race_enabled": ${{ inputs.race-detection-enabled }},
             "coverage_enabled": ${{ inputs.code-coverage-enabled }},
             "fuzz_run": false,
@@ -444,11 +464,22 @@ jobs:
       # Run fuzz tests
       # ————————————————————————————————————————————————————————————————
       - name: 🎯 Run fuzz tests
+        id: run-fuzz-tests
         continue-on-error: true
         run: |
           echo "🎯 Running fuzz tests in parallel..."
           magex test:fuzz time=5s 2>&1 | tee fuzz-output.log
-          echo "✅ Fuzz tests completed successfully"
+          FUZZ_EXIT_CODE=${PIPESTATUS[0]}
+
+          # Store the exit code for later steps
+          echo "FUZZ_EXIT_CODE=$FUZZ_EXIT_CODE" >> $GITHUB_ENV
+          echo "fuzz-exit-code=$FUZZ_EXIT_CODE" >> $GITHUB_OUTPUT
+
+          if [[ $FUZZ_EXIT_CODE -eq 0 ]]; then
+            echo "✅ Fuzz tests completed successfully"
+          else
+            echo "❌ Fuzz tests failed with exit code $FUZZ_EXIT_CODE"
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Fuzz test failure analysis and reporting
@@ -521,6 +552,8 @@ jobs:
         id: fuzz-summary
         if: always()
         run: |
+          # Get the fuzz test exit code from the fuzz test step output
+          FUZZ_EXIT_CODE="${{ steps.run-fuzz-tests.outputs.fuzz-exit-code }}"
           FUZZ_END=$(date +%s)
           FUZZ_DURATION=$((FUZZ_END - ${{ steps.fuzz-timer.outputs.fuzz-start }}))
           FUZZ_TEST_COUNT=0
@@ -542,6 +575,8 @@ jobs:
             "duration_seconds": $FUZZ_DURATION,
             "fuzz_test_count": $FUZZ_TEST_COUNT,
             "status": "${{ job.status }}",
+            "fuzz_exit_code": ${FUZZ_EXIT_CODE:-0},
+            "fuzz_passed": $([ "${FUZZ_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false"),
             "fuzz_enabled": true,
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
@@ -562,11 +597,120 @@ jobs:
           retention-days: 1
 
   # ----------------------------------------------------------------------------------
+  # Validate Test Results
+  # ----------------------------------------------------------------------------------
+  validate-test-results:
+    name: 🔍 Validate Test Results
+    needs: [test-go, fuzz-tests]
+    if: always() # Always run to check results even if jobs continued on error
+    permissions:
+      contents: read # Read repository content for validation
+    runs-on: ${{ inputs.primary-runner }}
+
+    steps:
+      # ————————————————————————————————————————————————————————————————
+      # Parse environment variables
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Parse environment variables
+        env:
+          ENV_JSON: ${{ inputs.env-json }}
+        run: |
+          echo "📋 Setting environment variables..."
+          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+            echo "$key=$value" >> $GITHUB_ENV
+          done
+
+      # ————————————————————————————————————————————————————————————————
+      # Download test statistics artifacts
+      # ————————————————————————————————————————————————————————————————
+      - name: 📥 Download test statistics
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          pattern: "*-stats-*"
+          path: test-results/
+          merge-multiple: true
+
+      # ————————————————————————————————————————————————————————————————
+      # Validate test results from statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Validate test results
+        run: |
+          echo "🔍 Validating test results from statistics..."
+          VALIDATION_FAILED=false
+
+          # Check regular test results
+          if compgen -G "test-results/test-stats-*.json" >/dev/null 2>&1; then
+            echo "📋 Found test statistics files:"
+            ls -la test-results/test-stats-*.json
+
+            for stats_file in test-results/test-stats-*.json; do
+              echo "📊 Checking $stats_file..."
+
+              # Extract test results
+              TEST_PASSED=$(jq -r '.test_passed // empty' "$stats_file")
+              TEST_EXIT_CODE=$(jq -r '.test_exit_code // empty' "$stats_file")
+              TEST_NAME=$(jq -r '.name // empty' "$stats_file")
+
+              echo "  • Test: $TEST_NAME"
+              echo "  • Exit Code: $TEST_EXIT_CODE"
+              echo "  • Passed: $TEST_PASSED"
+
+              if [[ "$TEST_PASSED" == "false" ]] || [[ "$TEST_EXIT_CODE" != "0" ]]; then
+                echo "❌ Test suite '$TEST_NAME' failed with exit code $TEST_EXIT_CODE"
+                VALIDATION_FAILED=true
+              else
+                echo "✅ Test suite '$TEST_NAME' passed"
+              fi
+            done
+          else
+            echo "⚠️ No regular test statistics found"
+          fi
+
+          # Check fuzz test results if enabled
+          if [[ "${{ inputs.fuzz-testing-enabled }}" == "true" ]]; then
+            if compgen -G "test-results/fuzz-stats-*.json" >/dev/null 2>&1; then
+              echo "📋 Found fuzz test statistics files:"
+              ls -la test-results/fuzz-stats-*.json
+
+              for stats_file in test-results/fuzz-stats-*.json; do
+                echo "📊 Checking $stats_file..."
+
+                # Extract fuzz test results
+                FUZZ_PASSED=$(jq -r '.fuzz_passed // empty' "$stats_file")
+                FUZZ_EXIT_CODE=$(jq -r '.fuzz_exit_code // empty' "$stats_file")
+                FUZZ_NAME=$(jq -r '.name // empty' "$stats_file")
+
+                echo "  • Fuzz Test: $FUZZ_NAME"
+                echo "  • Exit Code: $FUZZ_EXIT_CODE"
+                echo "  • Passed: $FUZZ_PASSED"
+
+                if [[ "$FUZZ_PASSED" == "false" ]] || [[ "$FUZZ_EXIT_CODE" != "0" ]]; then
+                  echo "❌ Fuzz test suite '$FUZZ_NAME' failed with exit code $FUZZ_EXIT_CODE"
+                  VALIDATION_FAILED=true
+                else
+                  echo "✅ Fuzz test suite '$FUZZ_NAME' passed"
+                fi
+              done
+            else
+              echo "⚠️ No fuzz test statistics found (fuzz testing was enabled)"
+            fi
+          fi
+
+          # Final validation result
+          if [[ "$VALIDATION_FAILED" == "true" ]]; then
+            echo "❌ Test validation failed - one or more test suites had failures"
+            echo "::error title=Test Validation Failed::One or more test suites failed. Check test statistics above for details."
+            exit 1
+          else
+            echo "✅ All test suites passed validation"
+          fi
+
+  # ----------------------------------------------------------------------------------
   # Process Coverage
   # ----------------------------------------------------------------------------------
   process-coverage:
     name: 📊 Process Coverage
-    needs: test-go
+    needs: [test-go, validate-test-results]
     if: inputs.code-coverage-enabled == 'true' && !startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write # Write repository content and push to gh-pages branch for coverage processing
