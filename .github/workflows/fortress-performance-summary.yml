@@ -167,7 +167,7 @@ jobs:
             # Process cache statistics if available
             # Use a more robust file existence check
             if compgen -G "cache-stats-*.json" >/dev/null 2>&1; then
-              echo "<br>"
+              echo ""
               echo "### 💾 Cache Performance"
               echo "| OS | Go Version | Module Cache | Build Cache | Module Size | Build Size |"
               echo "|----|------------|--------------|-------------|-------------|------------|"
@@ -200,7 +200,7 @@ jobs:
             # Use a more robust file existence check
             if compgen -G "benchmark-stats-*.json" >/dev/null 2>&1; then
               echo ""
-              echo "<br>"
+              echo ""
               echo "### 🏃 Benchmark Performance"
 
               # Get benchmark mode from the first stats file
@@ -259,7 +259,7 @@ jobs:
             # Use a more robust file existence check
             if compgen -G "test-stats-*.json" >/dev/null 2>&1; then
               echo ""
-              echo "<br>"
+              echo ""
               echo "### 🧪 Test Execution Performance"
               echo "| Test Suite | Duration | Tests | Examples | Status | Race | Coverage |"
               echo "|------------|----------|-------|----------|--------|------|----------|"
@@ -291,7 +291,7 @@ jobs:
                 if [ -f "$stats_file" ] && [ "$DISPLAYED_LOC_SUMMARY" = false ]; then
                   LOC_SUMMARY=$(jq -r '.loc_summary' "$stats_file")
                   echo ""
-                  echo "<br>"
+                  echo ""
                   echo "### 📊 Lines of Code Summary"
                   echo "$LOC_SUMMARY"
                   DISPLAYED_LOC_SUMMARY=true
@@ -301,7 +301,7 @@ jobs:
 
             # Process fuzz test statistics - always show status
             echo ""
-            echo "<br>"
+            echo ""
             echo "### 🎯 Fuzz Test Performance"
 
             # Check if fuzz testing is enabled in environment
@@ -346,7 +346,7 @@ jobs:
             # Process coverage statistics if available
             if compgen -G "coverage-stats-*.json" >/dev/null 2>&1; then
               echo ""
-              echo "<br>"
+              echo ""
               echo "### 📊 Coverage System Performance"
 
               for stats_file in coverage-stats-*.json; do
@@ -371,7 +371,7 @@ jobs:
               done
             elif [[ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ]]; then
               echo ""
-              echo "<br>"
+              echo ""
               echo "### 📊 Coverage System Status"
               echo "| Status | Details |"
               echo "|--------|---------|"
@@ -382,7 +382,7 @@ jobs:
               echo "| **Theme** | ${{ env.GO_COVERAGE_REPORT_THEME }} |"
             fi
 
-            echo "<br>"
+            echo ""
             echo "### 🔧 Job Results Summary"
             echo "| Job | Status | Result |"
             echo "|-----|--------|--------|"
@@ -407,7 +407,7 @@ jobs:
 
             # Add release-specific information if this was a tag push
             if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-              echo "<br>"
+              echo ""
               echo "## 📦 Release Information"
               if [[ "${{ inputs.release-result }}" == "success" ]]; then
                 echo "✅ Release ${{ github.ref_name }} created successfully!"
@@ -422,7 +422,7 @@ jobs:
 
             echo ""
 
-            echo "<br>"
+            echo ""
             echo "### 🚀 Performance Insights"
             if [[ $TOTAL_DURATION -gt 600 ]]; then
               echo "- ⚠️  **Warning**: Workflow took longer than 10 minutes (${TOTAL_MINUTES}m ${TOTAL_SECONDS}s)"
@@ -456,7 +456,7 @@ jobs:
             if [ -n "$FAILED_JOBS" ]; then
               FAILED_JOBS=${FAILED_JOBS%, }  # Remove trailing comma
               echo ""
-              echo "<br>"
+              echo ""
               echo "### ❌ Failed Jobs"
               echo "The following jobs did not complete successfully:"
               echo "- ${FAILED_JOBS}"
