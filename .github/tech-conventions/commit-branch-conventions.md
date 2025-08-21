@@ -31,7 +31,7 @@ docs(README): improve installation instructions
 
 ## 📝 GoFortress Pre-Commit System (Optional)
 
-To ensure consistent commit messages and code quality, we use the GoFortress Pre-commit System that checks formatting, linting, and other standards before allowing a commit. The system is configured via `.github/.env.shared` and can be installed with:
+To ensure consistent commit messages and code quality, we use the GoFortress Pre-commit System that checks formatting, linting, and other standards before allowing a commit. The system is configured via `.github/.env.base` and can be installed with:
 
 ```bash
 cd .github/pre-commit

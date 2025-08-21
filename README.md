@@ -235,19 +235,6 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 - **OpenSSF Scorecard** - Supply chain security assessment
 - **Secret detection** - gitleaks integration prevents leaks
 
-### 📊 **Built-in Coverage System**
-- **Third-party replacement** - Zero external dependencies, complete data privacy
-- **Professional badges** - GitHub-style badges with real-time updates
-- **Interactive dashboard** - Modern UI with analytics and trends
-- **[🔗 Live Dashboard](https://mrz1836.github.io/go-broadcast/)**
-
-### 🪝 **GoFortress Pre-commit System**
-- **17x faster execution** - <2 second commits with parallel processing
-- **Zero Python dependencies** - Pure Go implementation, single binary
-- **Environment-driven config** - All settings via `.github/.env.shared`
-- **External tool** - Powered by [go-pre-commit](https://github.com/mrz1836/go-pre-commit) v1.0.0
-- **[📚 Documentation](https://github.com/mrz1836/go-pre-commit)**
-
 <br/>
 
 
@@ -863,14 +850,14 @@ This command ensures all dependencies are brought up to date in a single step, i
 <summary><strong>🔧 Pre-commit Hooks</strong></summary>
 <br/>
 
-Set up the GoFortress Pre-commit System to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
+Set up the Go-Pre-commit System to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
 
 ```bash
 go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@latest
 go-pre-commit install
 ```
 
-The system is configured via [.env.shared](.github/.env.base) and provides 17x faster execution than traditional Python-based pre-commit hooks. See the [complete documentation](http://github.com/mrz1836/go-pre-commit) for details.
+The system is configured via [.env.base](.github/.env.base) and can be customized using also using [.env.custom](.github/.env.custom) and provides 17x faster execution than traditional Python-based pre-commit hooks. See the [complete documentation](http://github.com/mrz1836/go-pre-commit) for details.
 
 </details>
 

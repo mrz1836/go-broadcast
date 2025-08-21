@@ -16,6 +16,124 @@ This repository uses **`AGENTS.md`** as the entry point to our modular technical
 
 ---
 
+## 🔧 MAGE-X Build System
+
+go-broadcast uses **[MAGE-X](https://github.com/mrz1836/mage-x)** - a zero-boilerplate build automation system for Go that provides **241+ built-in commands** plus project-specific custom commands.
+
+### What is MAGE-X?
+
+MAGE-X revolutionizes Go build automation with TRUE zero-configuration. Unlike traditional Mage which requires writing wrapper functions, MAGE-X provides all commands instantly through the `magex` binary:
+
+- **Zero Setup Required**: No magefile.go needed for basic operations
+- **241+ Built-in Commands**: Complete build, test, lint, release, and deployment workflows
+- **Hybrid Execution**: Built-in commands execute directly for speed; custom commands from magefile.go
+- **Smart Configuration**: Uses `.mage.yaml` for project-specific settings
+- **Parameter Support**: Modern parameter syntax: `magex command param=value`
+
+### MAGE-X in go-broadcast
+
+**Built-in Commands Used:**
+- **Build**: `magex build`, `magex build:clean`, `magex build:install`
+- **Testing**: `magex test`, `magex test:race`, `magex test:cover`, `magex test:coverrace`
+- **Quality**: `magex lint`, `magex format:fix`, `magex deps:audit`
+- **Benchmarks**: `magex bench time=50ms`, `magex bench:cpu`, `magex bench:mem`
+- **Version**: `magex version:bump bump=patch push`, `magex version:show`
+- **Tools**: `magex tools:update`, `magex deps:update`, `magex update:install`
+
+**Custom Commands (from magefile.go):**
+- `magex benchheavy`: Intensive benchmarks (10-30 minutes, 1000+ concurrent tasks)
+- `magex benchall`: All benchmarks including heavy ones (30-60 minutes total)
+- `magex benchquick`: Quick benchmarks only (same as `magex bench`)
+
+**Configuration (`.mage.yaml`):**
+```yaml
+project:
+  name: go-broadcast
+  binary: go-broadcast
+  module: github.com/mrz1836/go-broadcast
+  main: ./cmd/go-broadcast/main.go
+
+build:
+  ldflags:
+    - "-s -w"
+    - "-X main.version={{.Version}}"
+    - "-X main.commit={{.Commit}}"
+    - "-X main.buildDate={{.Date}}"
+  flags:
+    - "-trimpath"
+  output: "./cmd/go-broadcast"
+```
+
+**Parameter Syntax:**
+```bash
+# New parameter format (MAGE-X)
+magex bench time=50ms count=3     # Quick benchmarks with custom timing
+magex version:bump bump=minor push # Bump minor version and push tag
+magex test:fuzz time=30s          # Run fuzz tests for 30 seconds
+
+# Available parameter types
+magex command param=value         # Key-value parameters
+magex command flag                # Standalone flags
+magex command dry-run             # Preview mode
+```
+
+### MAGE-X Namespace Architecture
+
+MAGE-X organizes commands into **37 built-in namespaces**. go-broadcast actively uses these key namespaces:
+
+**Core Development Namespaces:**
+- **Build** (`build:`): Compilation, cross-platform building, Docker integration
+- **Test** (`test:`): Unit testing, integration testing, coverage, race detection, fuzz testing
+- **Lint** (`lint:`): Code quality, 60+ linters via golangci-lint, automatic fixes
+- **Format** (`format:`): Code formatting (gofumpt, imports, etc.)
+- **Deps** (`deps:`): Dependency management, security audits, updates
+
+**Productivity Namespaces:**
+- **Bench** (`bench:`): Performance benchmarking, profiling (CPU, memory, trace)
+- **Tools** (`tools:`): Development tool management and updates
+- **Docs** (`docs:`): Documentation generation (pkgsite/godoc hybrid)
+- **Version** (`version:`): Semantic versioning, changelog generation
+- **Git** (`git:`): Git operations, tagging, commit management
+
+**Enterprise Namespaces (available but not actively used):**
+- **Audit** (`audit:`): Activity tracking and compliance reporting
+- **Security** (`security:`): Security scanning and policy enforcement
+- **Workflow** (`workflow:`): Build automation and pipeline orchestration
+- **Enterprise** (`enterprise:`): Governance and enterprise management
+- **Analytics** (`analytics:`): Usage analytics and reporting
+
+**Interface-Based Architecture:**
+```go
+// Example: Access namespaces programmatically
+build := mage.NewBuildNamespace()
+test := mage.NewTestNamespace()
+bench := mage.NewBenchNamespace()
+
+// Execute with parameters
+err := bench.DefaultWithArgs("time=50ms", "count=3")
+```
+
+**Cache Management:**
+- MAGE-X uses `.mage-cache/` for build artifacts, dependency caching, and metadata
+- Automatically managed - no manual intervention required
+- Improves build performance through intelligent caching
+
+### Release Process
+
+go-broadcast uses a **tag-based release workflow**:
+
+1. **Create Release Tag**: `magex version:bump bump=patch push`
+   - Creates and pushes a new semantic version tag
+   - Triggers GitHub Actions Fortress workflow automatically
+2. **Automated Release**: GitHub Actions handles the actual release creation
+   - Builds multi-platform binaries
+   - Creates GitHub release with artifacts
+   - Updates documentation and changelog
+
+**Important**: Never use `magex release` directly - releases are handled by CI/CD after tag creation.
+
+---
+
 ## 🚀 go-broadcast Developer Workflow Guide
 
 This section provides go-broadcast specific workflows while maintaining `AGENTS.md` as the authoritative source for general standards.
@@ -40,6 +158,61 @@ magex lint           # Run golangci-lint
 magex test:cover     # Generate and view test coverage
 magex deps:audit     # Scan for security vulnerabilities
 ```
+
+### 📋 MAGE-X Quick Reference
+
+**Most Frequently Used Commands:**
+```bash
+# Development Cycle
+magex test:coverrace             # Full CI test suite with race detection
+magex lint                       # Run all 60+ linters
+magex format:fix                 # Auto-fix code formatting
+magex deps:audit                 # Security vulnerability scan
+magex build                      # Build go-broadcast binary
+
+# Benchmarking & Performance
+magex bench                      # Default benchmarks (CI timing)
+magex bench time=50ms            # Quick benchmarks for fast feedback
+magex bench time=10s count=3     # Comprehensive benchmarks
+magex benchquick                 # Custom: quick benchmarks only
+magex benchheavy                 # Custom: intensive benchmarks (10-30min)
+magex benchall                   # Custom: all benchmarks (30-60min)
+
+# Testing Variations
+magex test                       # Fast linting + unit tests
+magex test:unit                  # Unit tests only (skip linting)
+magex test:race                  # Race condition detection
+magex test:cover                 # Coverage analysis
+magex test:fuzz                  # Fuzz testing (default duration)
+magex test:fuzz time=30s         # Fuzz testing with custom duration
+
+# Version & Release Management
+magex version:show               # Display current version
+magex version:bump bump=patch push    # Create patch release tag (triggers CI release)
+magex version:bump bump=minor push    # Create minor release tag
+magex version:bump bump=major push    # Create major release tag (with confirmation)
+
+# Dependencies & Tools
+magex deps:update                # Update dependencies safely
+magex deps:tidy                  # Clean up go.mod and go.sum
+magex tools:update               # Update development tools
+magex update:install             # Update magex itself
+
+# Documentation
+magex docs:serve                 # Serve documentation locally
+magex docs:generate              # Generate package documentation
+magex docs:update                # Update pkg.go.dev documentation
+
+# Profiling & Analysis
+magex bench:cpu time=30s         # CPU profiling with custom duration
+magex bench:mem time=2s          # Memory profiling
+magex bench:profile              # General performance profiling
+```
+
+**Parameter Syntax:**
+- **Key-Value**: `magex command param=value` (e.g., `time=50ms`, `bump=patch`)
+- **Flags**: `magex command flag` (e.g., `push`, `dry-run`)
+- **Multiple**: `magex command param1=value1 param2=value2 flag`
 
 ### ⚡ Testing and Validation
 
@@ -80,6 +253,9 @@ go-broadcast includes comprehensive fuzz testing for critical components:
 # Run all fuzz tests (limited iterations for speed)
 magex test:fuzz
 
+# Run fuzz tests with custom duration (using MAGE-X parameter syntax)
+magex test:fuzz time=30s
+
 # Run specific fuzz tests with more iterations
 go test -fuzz=FuzzConfigParsing -fuzztime=30s ./internal/config
 go test -fuzz=FuzzTransformChain -fuzztime=30s ./internal/transform
@@ -100,7 +276,9 @@ go run ./cmd/generate-corpus
 **Quick Benchmarks (CI Default):**
 ```bash
 # Run fast benchmarks only (completes in <5 minutes)
-magex bench        # Standard CI benchmarks
+magex bench                    # Standard CI benchmarks (default timing)
+magex bench time=50ms          # Quick benchmarks for fast feedback
+magex benchquick               # Custom command: quick benchmarks only
 
 # Run specific component benchmarks
 go test -bench=. -benchmem ./internal/cache
@@ -111,12 +289,13 @@ go test -bench=. -benchmem ./internal/config
 **Heavy Benchmarks (Manual Execution):**
 ```bash
 # Run intensive benchmarks (10-30 minutes)
-mage benchHeavy    # Worker pools, large datasets, real-world scenarios
+magex benchheavy               # Custom command: Worker pools, large datasets, real-world scenarios
 
 # Run all benchmarks (30-60 minutes)
-mage benchAll      # Quick + heavy benchmarks
+magex benchall                 # Custom command: Quick + heavy benchmarks
 
-# Run with custom parameters
+# Run with custom parameters using MAGE-X syntax
+magex bench time=10s count=3   # Comprehensive benchmarks with custom timing
 go test -bench=. -benchmem -tags=bench_heavy -benchtime=1s ./...
 ```
 
@@ -127,7 +306,12 @@ go test -bench=. -benchmem -tags=bench_heavy -benchtime=1s ./...
 
 **Performance Analysis:**
 ```bash
-# Profile heavy benchmarks for detailed analysis
+# Profile benchmarks with MAGE-X commands
+magex bench:cpu time=30s               # CPU profiling with custom duration
+magex bench:mem time=2s                # Memory profiling
+magex bench:profile                    # General performance profiling
+
+# Profile heavy benchmarks for detailed analysis (manual)
 go test -bench=. -benchmem -cpuprofile=cpu.prof -tags=bench_heavy ./internal/worker
 go test -bench=. -benchmem -memprofile=mem.prof -tags=bench_heavy ./internal/git
 
@@ -139,7 +323,7 @@ go tool pprof mem.prof
 go run ./cmd/profile_demo    # Results saved to: ./profiles/final_demo/
 ```
 
-**Note:** Heavy benchmarks are excluded from CI to prevent timeouts. Use `mage benchHeavy` for intensive performance testing during development.
+**Note:** Heavy benchmarks are excluded from CI to prevent timeouts. Use `magex benchheavy` for intensive performance testing during development.
 
 ### 🛠️ Troubleshooting Quick Reference
 
@@ -286,11 +470,6 @@ The GoFortress coverage system uses an **incremental deployment strategy** that 
 - The main branch deployment updates the root files while preserving all subdirectories
 - A `branches.html` index is generated when deploying from the main branch
 
-**Troubleshooting Coverage Issues:**
-- **404 on main badge**: Wait for next push to master branch
-- **Missing branch coverage**: Ensure the branch has pushed after coverage setup
-- **PR badge not showing**: Check that `COVERAGE_PR_COMMENT_ENABLED=true` in `.env.shared`
-
 ### 🪝 GoFortress Pre-commit System
 
 The GoFortress Pre-commit System uses the external **[go-pre-commit](https://github.com/mrz1836/go-pre-commit)** tool - a production-ready, high-performance Go-native pre-commit framework that delivers 17x faster execution than traditional Python-based solutions.
@@ -313,7 +492,7 @@ git commit -m "feat: new feature"
 - ⚡ **17x faster execution** - <2 second commits with parallel processing
 - 📦 **Zero Python dependencies** - Pure Go binary, no runtime requirements
 - 🔧 **Make integration** - Wraps existing Makefile targets (fumpt, lint, mod-tidy)
-- ⚙️ **Environment-driven** - All configuration via `.github/.env.shared`
+- ⚙️ **Environment-driven** - All configuration via `.github/.env.base` (custom via `.env.custom`)
 - 🎯 **Production ready** - Comprehensive test coverage and validation
 - 🔗 **External tool** - Maintained at [github.com/mrz1836/go-pre-commit](https://github.com/mrz1836/go-pre-commit)
 
@@ -324,7 +503,7 @@ git commit -m "feat: new feature"
 4. **whitespace** - Trailing whitespace removal (built-in)
 5. **eof** - End-of-file newline enforcement (built-in)
 
-**Configuration in `.github/.env.shared`:**
+**Example Configuration in `.github/.env.base`:**
 ```bash
 # Enable the system
 ENABLE_GO_PRE_COMMIT=true
@@ -379,15 +558,9 @@ The workflow automatically installs the external tool using the version specifie
 - **Text processing**: <1ms (built-in speed)
 
 **Troubleshooting:**
-- **"go-pre-commit not found"**: Run `go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@v1.0.0`
+- **"go-pre-commit not found"**: Run `go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@latest`
 - **"Hook already exists"**: Use `go-pre-commit install --force`
 - **Slow execution**: Increase timeout with `GO_PRE_COMMIT_TIMEOUT_SECONDS=180`
-
-**Fumpt Check Failures (Tower/SourceTree Git GUIs):**
-- **"fumpt check failed"**: The system uses pinned gofumpt version from `.env.shared`
-- **"make: gofumpt: No such file or directory"**: Run `magex format:fix` once manually to install correct version
-- **PATH issues in git GUIs**: The tool automatically manages GOPATH/bin in PATH during execution
-- **Version conflicts**: Ensure `GO_PRE_COMMIT_FUMPT_VERSION=v0.7.0` is set in `.env.shared`
 
 **Environment Verification:**
 ```bash
