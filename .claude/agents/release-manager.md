@@ -30,19 +30,20 @@ When invoked, you must follow these steps:
    - Ensure all coordinated updates are completed before proceeding
 
 4. **Create and Push Git Tag**
-   - Execute `magex version:bump push=true bump=patch` to create and push the version tag
+   - Execute `magex version:bump bump=patch push` to create and push the version tag
    - Verify the tag was created successfully with `git tag -l`
    - Confirm the tag follows the project's naming convention
 
-5. **Perform Release Testing**
-   - Run `magex release:test` to perform a dry run
-   - Review the goreleaser output for any errors or warnings
-   - Check that all expected artifacts would be generated
+5. **Monitor Automated Release Process**
+   - The GitHub Actions Fortress workflow will automatically trigger after tag push
+   - Monitor the Actions workflow for successful completion
+   - Review the goreleaser output in CI for any errors or warnings
+   - Verify that all expected build artifacts are being generated
 
-6. **Execute Production Release**
-   - Run `magex release` to create the production release
-   - Monitor the goreleaser process for successful completion
-   - Note any issues or warnings that occur during the release
+6. **Verify Automated Release**
+   - The CI/CD pipeline handles the actual release creation automatically
+   - No manual `magex release` commands should be executed
+   - Monitor GitHub Actions for successful completion
 
 7. **Verify Release Artifacts**
    - Check GitHub releases page for the new release
@@ -56,12 +57,14 @@ When invoked, you must follow these steps:
    - Document any issues encountered for future releases
 
 **Best Practices:**
-- Always perform a release-test before the actual release
+- Always verify tests pass with `magex test` before creating release tags
 - Never skip version verification steps
 - Ensure the main/master branch is clean before releasing
 - Create releases from the default branch unless explicitly instructed otherwise
-- Use snapshot releases (`magex release:snapshot`) for testing or pre-releases
+- Use the tag-based workflow: `magex version:bump bump=patch push`
+- Monitor GitHub Actions Fortress workflow for automated release completion
 - Review .goreleaser.yml configuration before major releases
+- **Never use `magex release` commands directly** - releases are automated via CI/CD
 - Keep release notes concise but comprehensive
 - Follow semantic versioning strictly
 

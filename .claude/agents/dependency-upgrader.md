@@ -17,7 +17,7 @@ When invoked, you must follow these steps:
 1. **Assess Current State**
    - Run `go version` to check current Go version
    - Run `go list -m all` to list all current dependencies
-   - Check `.env.shared` for tool versions (golangci-lint, goreleaser, etc.)
+   - Check `.github/.env.base` for tool versions (golangci-lint, goreleaser, etc.)
    - Run `go mod graph` to understand dependency relationships
 
 2. **Check for Updates**
@@ -75,7 +75,7 @@ Provide your final response in the following structure:
 
 ### Actions Taken
 1. Commands executed and their results
-2. Files modified (go.mod, go.sum, .env.shared, etc.)
+2. Files modified (go.mod, go.sum, .env.base, etc.)
 3. Any manual interventions required
 
 ### Recommendations

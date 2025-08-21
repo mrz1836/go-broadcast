@@ -17,7 +17,7 @@ I need to analyze and optimize GitHub Actions workflows.
    - Identify slow-running jobs
    - Find redundant steps
    - Analyze failure patterns
-   - Review .env.shared configuration
+   - Review .env.base and .env.custom configuration
 
 2. **Security updates**:
    - Update action versions to latest

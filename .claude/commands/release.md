@@ -1,5 +1,5 @@
 ---
-allowed-tools: Task, Bash(git tag:*), Bash(magex release:*), Edit, MultiEdit
+allowed-tools: Task, Bash(git tag:*), Bash(magex version:*), Bash(magex test:*), Edit, MultiEdit
 description: Comprehensive release preparation workflow
 argument-hint: <version> (e.g., v1.2.0)
 model: opus
@@ -33,11 +33,11 @@ I need to prepare a comprehensive release for version: $ARGUMENTS
 
 4. **Use the release-manager agent** to:
    - Update version numbers
-   - Tag the release
-   - Run goreleaser
-   - Create GitHub release
-   - Upload artifacts
-   - Publish documentation
+   - Create and push release tag using `magex version:bump`
+   - Monitor automated GitHub Actions Fortress workflow
+   - Verify automated release creation
+   - Validate release artifacts
+   - Confirm documentation deployment
 
 5. **Use the documentation-maintainer agent** to:
    - Update version references
