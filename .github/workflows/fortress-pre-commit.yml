@@ -167,6 +167,7 @@ jobs:
           echo "  • Fail Fast: ${{ env.GO_PRE_COMMIT_FAIL_FAST }}"
           echo "  • Timeout: ${{ env.GO_PRE_COMMIT_TIMEOUT_SECONDS }} seconds"
           echo "  • Parallel Workers: ${{ env.GO_PRE_COMMIT_PARALLEL_WORKERS }}"
+          echo "  • All Files Mode: ${{ env.GO_PRE_COMMIT_ALL_FILES }}"
           echo ""
           echo "🔧 Tool Versions:"
           echo "  • Max File Size: ${{ env.GO_PRE_COMMIT_MAX_FILE_SIZE_MB }} MB"
@@ -297,9 +298,14 @@ jobs:
           # The external tool will read environment variables from the merged configuration
           # that we've already loaded into the environment
 
-          # Run all checks on all files (CI mode)
-          echo "🔍 Executing checks on all files..."
-          CHECKS_OUTPUT=$("${{ env.GO_PRE_COMMIT_BINARY }}" run --all-files 2>&1) || CHECKS_EXIT=$?
+          # Build command based on GO_PRE_COMMIT_ALL_FILES configuration
+          if [[ "${{ env.GO_PRE_COMMIT_ALL_FILES }}" == "true" ]]; then
+            echo "🔍 Executing checks on all files..."
+            CHECKS_OUTPUT=$("${{ env.GO_PRE_COMMIT_BINARY }}" run --all-files 2>&1) || CHECKS_EXIT=$?
+          else
+            echo "🔍 Executing checks on staged files..."
+            CHECKS_OUTPUT=$("${{ env.GO_PRE_COMMIT_BINARY }}" run 2>&1) || CHECKS_EXIT=$?
+          fi
 
           # Strip ANSI color codes and filter out redundant summary lines
           echo "$CHECKS_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g' | grep -v -E '◆\[[0-9]+m.*passed.*file\(s\) in|^All checks passed!'
