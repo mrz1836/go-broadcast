@@ -502,7 +502,7 @@ jobs:
           fi
 
           # Strip ANSI color codes and filter out redundant summary lines
-          echo "$CHECKS_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g' | grep -v -E '◆\[[0-9]+m.*passed.*file\(s\) in|^All checks passed!'
+          echo "$CHECKS_OUTPUT" | sed 's/\x1b\[[0-9;]*m//g; s/\[[0-9;]*m//g; s/�\[[0-9;]*m//g' | grep -v -E 'passed.*file\(s\)|All checks passed'
 
           # Extract executed checks from output (if format allows)
           EXECUTED_CHECKS=$(echo "$CHECKS_OUTPUT" | grep -E "Running:|Executing:|✓" | sed 's/.*Running: //;s/.*Executing: //;s/.*✓ //' | tr '\n' ',' | sed 's/,$//' || echo "fumpt,lint,mod-tidy,whitespace,eof")

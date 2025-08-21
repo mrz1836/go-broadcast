@@ -269,8 +269,26 @@ jobs:
 
           STATS_FILE="test-stats-${{ matrix.os }}-${{ matrix.go-version }}.json"
 
-          # Capture the output of "magex metrics:loc" and store the markdown summary
-          LOC_OUTPUT_JSON=$(magex metrics:loc | jq -Rsa .)
+          # Capture the output of "magex metrics:loc" and extract key information
+          # Remove all ANSI codes and non-ASCII characters like emoji
+          LOC_OUTPUT_RAW=$(magex metrics:loc 2>/dev/null | \
+            sed -E 's/\x1b\[[0-9;]*[a-zA-Z]//g' | \
+            iconv -c -f utf-8 -t ascii//IGNORE)
+
+          # Extract test files count
+          TEST_FILES_COUNT=$(echo "$LOC_OUTPUT_RAW" | grep "Test Files" | grep -oE '[0-9]+' | head -1)
+          # Extract go files count
+          GO_FILES_COUNT=$(echo "$LOC_OUTPUT_RAW" | grep "Go Files" | grep -oE '[0-9]+' | head -1)
+          # Extract total count
+          TOTAL_COUNT=$(echo "$LOC_OUTPUT_RAW" | grep "Total lines of code:" | grep -oE '[0-9]+')
+          # Get current date
+          CURRENT_DATE=$(date +"%Y-%m-%d")
+
+          # Create clean markdown table manually
+          LOC_MARKDOWN="| Type | Total Lines | Date |\\n|------|-------------|------|\\n| Test Files | ${TEST_FILES_COUNT} | ${CURRENT_DATE} |\\n| Go Files | ${GO_FILES_COUNT} | ${CURRENT_DATE} |\\n\\n**Total lines of code: ${TOTAL_COUNT}**"
+
+          # Use double-quoted JSON string to avoid shell escaping issues
+          LOC_OUTPUT_JSON=$(jq -n --arg content "$LOC_MARKDOWN" '$content')
 
           cat > "$STATS_FILE" << EOF
           {
