@@ -1,3 +1,5 @@
+//go:build bench_heavy
+
 package performance
 
 import (

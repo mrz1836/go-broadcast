@@ -1,3 +1,5 @@
+//go:build bench_heavy
+
 //nolint:err113 // Test files are allowed to use dynamic errors for testing purposes
 package sync
 

@@ -1,3 +1,5 @@
+//go:build bench_heavy
+
 // Package worker provides benchmarking tests for worker pool implementations and performance analysis.
 package worker
 
