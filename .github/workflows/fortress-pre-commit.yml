@@ -414,27 +414,16 @@ jobs:
             echo "$CHANGED_FILES" | sed 's/^/  • /'
             echo ""
 
-            # Filter files: only include existing files, exclude certain patterns
+            # Filter files: only include files that still exist
             FILTERED_FILES=""
             while IFS= read -r file; do
               if [[ -f "$file" ]]; then
-                # Skip certain file types that shouldn't be checked
-                case "$file" in
-                  *.md|*.txt|*.json|*.yml|*.yaml|package-lock.json|go.sum|*.log|*.tmp)
-                    echo "  ⏭️  Skipping $file (excluded file type)"
-                    ;;
-                  .github/*|vendor/*|node_modules/*)
-                    echo "  ⏭️  Skipping $file (excluded directory)"
-                    ;;
-                  *)
-                    if [[ -z "$FILTERED_FILES" ]]; then
-                      FILTERED_FILES="$file"
-                    else
-                      FILTERED_FILES="$FILTERED_FILES,$file"
-                    fi
-                    echo "  ✅ Including $file"
-                    ;;
-                esac
+                if [[ -z "$FILTERED_FILES" ]]; then
+                  FILTERED_FILES="$file"
+                else
+                  FILTERED_FILES="$FILTERED_FILES,$file"
+                fi
+                echo "  ✅ Including $file"
               else
                 echo "  ⚠️  File $file no longer exists, skipping"
               fi
@@ -461,7 +450,7 @@ jobs:
             echo "⚠️  No changed files detected!"
             echo "  • This might indicate:"
             echo "    - No files were actually changed"
-            echo "    - All changes were in excluded file types"
+            echo "    - All changed files no longer exist"
             echo "    - Git history is not available"
             echo "  • Falling back to staged files check (will likely find no files)"
             echo ""
