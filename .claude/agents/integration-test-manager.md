@@ -19,11 +19,8 @@ When invoked, you must follow these steps:
    - Identify modifications to sync workflows or network-dependent code
    - Review any CI test failures related to integration tests
 
-2. **Execute phased integration tests** in the appropriate order:
-   - Phase 1: Run `make test-integration-complex` for complex sync workflow testing
-   - Phase 2: Run `make test-integration-advanced` for advanced scenario validation
-   - Phase 3: Run `make test-integration-network` for network edge case testing
-   - Full suite: Run `make test-integration-all` when comprehensive testing is needed
+2. **Execute integration tests** in the appropriate order:
+   - Run `magex test:race` for complex sync workflow testing
 
 3. **Focus on the test/integration directory** by:
    - Reading test files to understand test coverage and scenarios

@@ -243,7 +243,7 @@ The benchmarks use test fixtures from `test/fixtures/directories/`:
    ```
    Fixture path /path/to/fixtures does not exist
    ```
-   Ensure test fixtures are generated: `make generate-fixtures`
+   Ensure test fixtures are generated
 
 2. **Memory Profile Too Large**
    Reduce benchmark iterations or add `-benchtime=100ms`

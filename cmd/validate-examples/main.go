@@ -11,6 +11,11 @@ import (
 	"github.com/fatih/color"
 )
 
+const (
+	goBroadcastBinary = "./go-broadcast"
+	separatorLine     = "==============================================="
+)
+
 type validationResult struct {
 	totalExamples   int
 	validExamples   int
@@ -55,9 +60,9 @@ func main() {
 	printHeader(boldBlue)
 
 	// Check if go-broadcast binary exists
-	if _, err := os.Stat("./go-broadcast"); os.IsNotExist(err) {
+	if _, err := os.Stat(goBroadcastBinary); os.IsNotExist(err) {
 		_, _ = boldRed.Println("Error: go-broadcast binary not found. Please build it first:")
-		_, _ = fmt.Fprintln(os.Stdout, "  make build-go")
+		_, _ = fmt.Fprintln(os.Stdout, "  magex build")
 		os.Exit(1)
 	}
 
@@ -107,7 +112,7 @@ func showUsage() {
 	_, _ = fmt.Fprintln(os.Stdout, "and tests documented commands to ensure they work correctly.")
 	_, _ = fmt.Fprintln(os.Stdout)
 	_, _ = fmt.Fprintln(os.Stdout, "Prerequisites:")
-	_, _ = fmt.Fprintln(os.Stdout, "  - go-broadcast binary must be built (run: make build-go)")
+	_, _ = fmt.Fprintln(os.Stdout, "  - go-broadcast binary must be built (run: magex build:install)")
 	_, _ = fmt.Fprintln(os.Stdout, "  - All example files must exist in examples/ directory")
 	_, _ = fmt.Fprintln(os.Stdout)
 	_, _ = fmt.Fprintln(os.Stdout, "Examples:")
@@ -116,9 +121,9 @@ func showUsage() {
 }
 
 func printHeader(boldBlue *color.Color) {
-	_, _ = boldBlue.Println("===============================================")
+	_, _ = boldBlue.Println(separatorLine)
 	_, _ = boldBlue.Println("  go-broadcast Example Configuration Validation")
-	_, _ = boldBlue.Println("===============================================")
+	_, _ = boldBlue.Println(separatorLine)
 	_, _ = fmt.Fprintln(os.Stdout)
 }
 
@@ -133,7 +138,7 @@ func validateConfig(result *validationResult, configFile, description string, bl
 	result.totalExamples++
 
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "./go-broadcast", "validate", "--config", configFile)
+	cmd := exec.CommandContext(ctx, goBroadcastBinary, "validate", "--config", configFile)
 	if err := cmd.Run(); err != nil {
 		_, _ = boldRed.Printf("❌ INVALID: %s\n", configFile)
 		result.invalidExamples++
@@ -172,13 +177,13 @@ func testCommands(blueColor, boldRed, boldGreen *color.Color) {
 		cmd  string
 		desc string
 	}{
-		{"./go-broadcast --version", "Version command"},
-		{"./go-broadcast --help", "Help command"},
-		{"./go-broadcast validate --help", "Validate help command"},
-		{"./go-broadcast sync --help", "Sync help command"},
-		{"./go-broadcast status --help", "Status help command"},
-		{"./go-broadcast diagnose --help", "Diagnose help command"},
-		{"./go-broadcast cancel --help", "Cancel help command"},
+		{goBroadcastBinary + " --version", "Version command"},
+		{goBroadcastBinary + " --help", "Help command"},
+		{goBroadcastBinary + " validate --help", "Validate help command"},
+		{goBroadcastBinary + " sync --help", "Sync help command"},
+		{goBroadcastBinary + " status --help", "Status help command"},
+		{goBroadcastBinary + " diagnose --help", "Diagnose help command"},
+		{goBroadcastBinary + " cancel --help", "Cancel help command"},
 	}
 
 	for _, c := range commands {
@@ -190,7 +195,7 @@ func testDryRun(blueColor, yellowColor, boldGreen *color.Color) {
 	_, _ = blueColor.Println("Testing dry-run mode with minimal configuration...")
 
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "./go-broadcast", "sync", "--dry-run", "--config", "examples/minimal.yaml")
+	cmd := exec.CommandContext(ctx, goBroadcastBinary, "sync", "--dry-run", "--config", "examples/minimal.yaml")
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 
@@ -203,9 +208,9 @@ func testDryRun(blueColor, yellowColor, boldGreen *color.Color) {
 }
 
 func printSummary(result *validationResult, boldBlue, redColor, greenColor, boldGreen, boldRed *color.Color) {
-	_, _ = boldBlue.Println("===============================================")
+	_, _ = boldBlue.Println(separatorLine)
 	_, _ = boldBlue.Println("  VALIDATION SUMMARY")
-	_, _ = boldBlue.Println("===============================================")
+	_, _ = boldBlue.Println(separatorLine)
 	_, _ = fmt.Fprintf(os.Stdout, "Total examples tested: %d\n", result.totalExamples)
 
 	if result.invalidExamples > 0 {

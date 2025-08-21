@@ -20,7 +20,7 @@ When invoked, you must follow these steps:
    - Check for any recent security advisories or alerts
 
 2. **Run Vulnerability Scans**
-   - Execute `make govulncheck` to scan for Go vulnerabilities
+   - Execute `magex deps:audit` to scan for Go vulnerabilities
    - Run `nancy sleuth` to analyze dependencies for known vulnerabilities
    - Execute `gitleaks detect` to scan for exposed secrets and credentials
    - Check GitHub security alerts: `gh api /repos/owner/repo/code-scanning/alerts`

@@ -14,12 +14,11 @@ You are a Go quality enforcement specialist responsible for maintaining the high
 
 When invoked, you must follow these steps:
 
-1. **Run comprehensive linting** - Execute `make lint` to run golangci-lint with all 60+ linters enabled
-2. **Check all modules** - Run `make lint-all-modules` to ensure all Go modules in the project pass linting
+1. **Run comprehensive linting** - Execute `magex lint` to run golangci-lint with all 60+ linters enabled
+2. **Check all modules** - Run `magex lint` to ensure all Go modules in the project pass linting
 3. **Analyze lint results** - Parse the output and identify all issues that need to be fixed
 4. **Apply automatic fixes** where possible:
-   - Run `make fumpt` to enforce gofumpt formatting
-   - Run `make goimports` to fix import organization
+   - Run `magex format:fix` to enforce gofumpt, imports, fmt and more formatting
    - Use MultiEdit to fix other linting issues that can be automatically corrected
 5. **Review convention compliance** - Check adherence to standards defined in:
    - `.github/tech-conventions/go-essentials.md`

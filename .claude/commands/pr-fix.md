@@ -1,5 +1,5 @@
 ---
-allowed-tools: Task, Bash(gh pr view:*), Bash(make test:*), Edit, MultiEdit
+allowed-tools: Task, Bash(gh pr view:*), Bash(magex test:*), Bash(magex lint:*), Edit, MultiEdit
 description: Fix all issues in the current pull request
 argument-hint: [PR number or leave empty for current branch]
 ---

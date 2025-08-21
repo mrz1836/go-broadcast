@@ -15,7 +15,7 @@ You are a fuzz testing guardian for the go-broadcast project, responsible for en
 When invoked, you must follow these steps:
 
 1. **Assess Current Fuzz Test Status**
-   - Run `make test-fuzz` to check existing fuzz test coverage
+   - Run `magex test:fuzz` to check existing fuzz test coverage
    - Review fuzz test results in `internal/config`, `internal/transform`, and other critical packages
    - Check for any existing crash reports or fuzzing failures
 

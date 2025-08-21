@@ -35,7 +35,7 @@ To ensure consistent commit messages and code quality, we use the GoFortress Pre
 
 ```bash
 cd .github/pre-commit
-make build
+magex build
 ./gofortress-pre-commit install
 ```
 

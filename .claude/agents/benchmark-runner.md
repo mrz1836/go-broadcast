@@ -20,8 +20,8 @@ When invoked, you must follow these steps:
    - Determine if full or targeted benchmarks are needed
 
 2. **Execute Benchmarks**
-   - Run `make bench` to execute all benchmarks with memory profiling
-   - For CPU profiling analysis, also run `make bench-cpu`
+   - Run `magex bench` to execute all benchmarks with memory profiling
+   - For CPU profiling analysis, also run `magex bench:cpu`
    - Capture complete output including:
      - Operations per second
      - Memory allocations per operation
@@ -35,12 +35,12 @@ When invoked, you must follow these steps:
    - Cache operations: Must achieve 13.5M+ ops/sec
 
 4. **Regression Detection**
-   - Compare current results against saved baselines using `make bench-compare`
+   - Compare current results against saved baselines
    - Flag any performance degradation >5% as a regression
    - Identify any significant memory allocation increases
 
 5. **Baseline Management**
-   - If performance improves or remains stable, update baselines with `make bench-save`
+   - If performance improves or remains stable, update baselines
    - Document the commit hash and date when baselines are updated
 
 6. **Generate Performance Report**

@@ -16,7 +16,7 @@ When invoked, you must follow these steps:
 
 1. **Assess Release Readiness**
    - Check current branch status with `git status`
-   - Verify all tests pass with `make test`
+   - Verify all tests pass with `magex test`
    - Review recent commits for breaking changes
    - Identify the appropriate version bump type (major, minor, patch)
 
@@ -30,17 +30,17 @@ When invoked, you must follow these steps:
    - Ensure all coordinated updates are completed before proceeding
 
 4. **Create and Push Git Tag**
-   - Execute `make tag version=X.Y.Z` to create and push the version tag
+   - Execute `magex version:bump push=true bump=patch` to create and push the version tag
    - Verify the tag was created successfully with `git tag -l`
    - Confirm the tag follows the project's naming convention
 
 5. **Perform Release Testing**
-   - Run `make release-test` to perform a dry run
+   - Run `magex release:test` to perform a dry run
    - Review the goreleaser output for any errors or warnings
    - Check that all expected artifacts would be generated
 
 6. **Execute Production Release**
-   - Run `make release` to create the production release
+   - Run `magex release` to create the production release
    - Monitor the goreleaser process for successful completion
    - Note any issues or warnings that occur during the release
 
@@ -60,7 +60,7 @@ When invoked, you must follow these steps:
 - Never skip version verification steps
 - Ensure the main/master branch is clean before releasing
 - Create releases from the default branch unless explicitly instructed otherwise
-- Use snapshot releases (`make release-snap`) for testing or pre-releases
+- Use snapshot releases (`magex release:snapshot`) for testing or pre-releases
 - Review .goreleaser.yml configuration before major releases
 - Keep release notes concise but comprehensive
 - Follow semantic versioning strictly

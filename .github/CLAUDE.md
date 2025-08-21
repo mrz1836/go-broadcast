@@ -408,7 +408,7 @@ go-broadcast includes a comprehensive team of **26 specialized AI sub-agents** d
 - **Core Operations** (4 agents): sync-orchestrator, config-validator, github-sync-api, directory-sync-specialist
 - **Testing & QA** (5 agents): test-commander, benchmark-runner, fuzz-test-guardian, integration-test-manager, go-quality-enforcer
 - **Dependencies** (3 agents): dependabot-coordinator, dependency-upgrader, breaking-change-detector
-- **Performance** (3 agents): performance-profiler, benchmark-analyst, coverage-maintainer
+- **Performance** (2 agents): performance-profiler, benchmark-analyst
 - **Security** (2 agents): security-auditor, compliance-checker
 - **And more...** (11 additional agents for automation, diagnostics, documentation, and refactoring)
 

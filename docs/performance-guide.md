@@ -30,7 +30,7 @@ go-broadcast includes comprehensive benchmarking and profiling capabilities to h
 
 ```bash
 # Run all benchmarks
-make bench
+magex bench
 
 # Run benchmarks with memory profiling
 go test -bench=. -benchmem ./internal/git
@@ -48,9 +48,9 @@ go-broadcast includes over 100 benchmarks across major components providing comp
 
 ### Basic Benchmark Execution
 
-The `make bench` command runs all benchmarks in the project:
+The `magex bench` command runs all benchmarks in the project:
 ```bash
-make bench
+magex bench
 # Equivalent to: go test -bench=. -benchmem
 ```
 

@@ -75,7 +75,7 @@ The go-broadcast AI Sub-Agents system provides **26 specialized agents** that wo
 
 The go-broadcast project features **20+ powerful slash commands** that make agent coordination effortless! Instead of manually invoking agents, use simple commands like:
 
-- `/test` - Automatically runs test-commander and coverage-maintainer in parallel
+- `/test` - Automatically runs test-commander for comprehensive testing
 - `/security` - Coordinates 3 security agents for comprehensive auditing
 - `/release v1.2.0` - Orchestrates 5 agents for complete release workflow
 - `/pr-fix` - Fixes all PR issues using multiple agents simultaneously
@@ -104,7 +104,7 @@ Agents are automatically invoked based on your tasks. You can also explicitly re
 
 | Task | Command | Slash Command | Agents Involved |
 |------|---------|---------------|-----------------|
-| Run all tests | `"Run comprehensive tests"` | `/test` | test-commander, coverage-maintainer |
+| Run all tests | `"Run comprehensive tests"` | `/test` | test-commander |
 | Security scan | `"Check for security issues"` | `/security` | security-auditor, compliance-checker |
 | Dependency update | `"Review and update dependencies"` | `/deps` | dependabot-coordinator, dependency-upgrader |
 | Performance check | `"Analyze performance"` | `/profile` | performance-profiler, benchmark-analyst |
@@ -153,13 +153,12 @@ go-broadcast includes **20+ powerful slash commands** that automatically coordin
 | **dependency-upgrader** | Proactive updates | Go version updates, tool upgrades, indirect dependencies |
 | **breaking-change-detector** | Compatibility analysis | API changes, migration plans, semantic versioning |
 
-### 📊 Performance & Monitoring (3 agents)
+### 📊 Performance & Monitoring (2 agents)
 
 | Agent | Purpose | Key Capabilities |
 |-------|---------|------------------|
 | **performance-profiler** | Performance analysis | CPU/memory profiling, pprof generation, optimization |
 | **benchmark-analyst** | Benchmark comparison | Trend analysis, regression alerts, statistical analysis |
-| **coverage-maintainer** | Coverage tracking | Badge generation, PR comments, dashboard updates |
 
 ### 🛡️ Security & Compliance (2 agents)
 
@@ -300,7 +299,6 @@ graph LR
     subgraph "Performance Group"
         PP[performance-profiler]
         BA[benchmark-analyst]
-        CM[coverage-maintainer]
     end
 ```
 
@@ -327,7 +325,7 @@ diagnostic-specialist → debugging-expert → refactoring-specialist
 
 | Event | Triggered Agents |
 |-------|------------------|
-| **Code Push** | test-commander, benchmark-runner, coverage-maintainer |
+| **Code Push** | test-commander, benchmark-runner |
 | **PR Opened** | pr-automation-manager, go-quality-enforcer |
 | **Dependabot PR** | dependabot-coordinator, breaking-change-detector |
 | **Weekly Schedule** | tech-debt-tracker, security-auditor, workflow-optimizer |
@@ -346,9 +344,8 @@ diagnostic-specialist → debugging-expert → refactoring-specialist
 
 # Agents activated:
 # 1. go-quality-enforcer - Runs 60+ linters
-# 2. test-commander - Ensures tests pass
-# 3. coverage-maintainer - Verifies coverage
-# 4. tech-debt-tracker - Documents any debt
+# 2. test-commander - Ensures tests pass and coverage
+# 3. tech-debt-tracker - Documents any debt
 
 # Result: Clean, tested code with full reporting
 ```

@@ -24,10 +24,9 @@ This directory contains 26 specialized sub-agents designed to manage all aspects
 - **dependency-upgrader** - Proactively upgrades Go modules and tools
 - **breaking-change-detector** - Analyzes updates for breaking changes
 
-### 📊 Performance & Monitoring (3 agents)
+### 📊 Performance & Monitoring (2 agents)
 - **performance-profiler** - CPU/memory profiling and optimization
 - **benchmark-analyst** - Compares benchmarks, detects regressions
-- **coverage-maintainer** - Manages GoFortress coverage system
 
 ### 🛡️ Security & Compliance (2 agents)
 - **security-auditor** - Runs govulncheck, nancy, gitleaks, OSSAR
@@ -57,7 +56,7 @@ This directory contains 26 specialized sub-agents designed to manage all aspects
 ### Parallel Execution Groups
 - **Quality Group**: test-commander + benchmark-runner + go-quality-enforcer
 - **Security Group**: security-auditor + compliance-checker + dependabot-coordinator
-- **Performance Group**: performance-profiler + benchmark-analyst + coverage-maintainer
+- **Performance Group**: performance-profiler + benchmark-analyst
 
 ### Sequential Workflows
 1. **Release Flow**: changelog-generator → release-manager → documentation-maintainer
@@ -65,7 +64,7 @@ This directory contains 26 specialized sub-agents designed to manage all aspects
 3. **Debug Flow**: diagnostic-specialist → debugging-expert → refactoring-specialist
 
 ### Proactive Triggers
-- **On code change**: test-commander, benchmark-runner, coverage-maintainer
+- **On code change**: test-commander, benchmark-runner
 - **On PR open**: pr-automation-manager, go-quality-enforcer
 - **On dependency update**: dependabot-coordinator, breaking-change-detector
 - **Weekly**: tech-debt-tracker, security-auditor, workflow-optimizer

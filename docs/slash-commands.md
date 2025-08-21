@@ -53,7 +53,7 @@ The go-broadcast slash command system provides 20 powerful commands that coordin
 
 | Command | Description | Agents Used |
 |---------|-------------|-------------|
-| `/test` | Run comprehensive tests with automatic fixes | test-commander, coverage-maintainer |
+| `/test` | Run comprehensive tests with automatic fixes | test-commander |
 | `/fuzz` | Security-focused fuzz testing | fuzz-test-guardian |
 | `/quality` | Enforce code quality with 60+ linters | go-quality-enforcer, test-commander |
 | `/bench` | Run performance benchmarks | benchmark-runner, benchmark-analyst |
