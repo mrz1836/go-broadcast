@@ -50,6 +50,9 @@ Go modules management, security scanning, version control practices, and maintai
 **[Security Practices](security-practices.md)**
 Security-first development, vulnerability reporting, security tools, and following OpenSSF best practices.
 
+**[Pre-commit Hooks](pre-commit.md)**
+Pure Go pre-commit framework with 17x faster execution than Python alternatives, providing automated code quality checks.
+
 **[GitHub Workflows Development](github-workflows.md)**
 Creating and maintaining GitHub Actions workflows with security, reliability, and performance in mind.
 
