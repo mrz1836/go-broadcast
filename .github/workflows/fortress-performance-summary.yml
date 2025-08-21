@@ -281,6 +281,18 @@ jobs:
                   echo "| $NAME | ${DURATION_MIN}m ${DURATION_SEC}s | $TEST_COUNT | $EXAMPLE_COUNT | $STATUS_ICON | $RACE_ICON | $COVERAGE_ICON |" >> $GITHUB_STEP_SUMMARY
                 fi
               done
+
+              DISPLAYED_LOC_SUMMARY=false
+
+              for stats_file in test-stats-*.json; do
+                if [ -f "$stats_file" ] && [ "$DISPLAYED_LOC_SUMMARY" = false ]; then
+                  LOC_SUMMARY=$(jq -r '.loc_summary' "$stats_file")
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### 📊 Lines of Code Summary" >> $GITHUB_STEP_SUMMARY
+                  echo "$LOC_SUMMARY" >> $GITHUB_STEP_SUMMARY
+                  DISPLAYED_LOC_SUMMARY=true
+                fi
+              done
             fi
 
             # Process fuzz test statistics - always show status
@@ -324,19 +336,6 @@ jobs:
               echo "| **Fuzz Testing** | ❌ Disabled |" >> $GITHUB_STEP_SUMMARY
               echo "| **Configuration** | Set ENABLE_FUZZ_TESTING=true to enable |" >> $GITHUB_STEP_SUMMARY
               echo "| **Target Platform** | Would run on Linux with primary Go version |" >> $GITHUB_STEP_SUMMARY
-            fi
-
-              DISPLAYED_LOC_SUMMARY=false
-
-              for stats_file in test-stats-*.json; do
-                if [ -f "$stats_file" ] && [ "$DISPLAYED_LOC_SUMMARY" = false ]; then
-                  LOC_SUMMARY=$(jq -r '.loc_summary' "$stats_file")
-                  echo "" >> $GITHUB_STEP_SUMMARY
-                  echo "### 📊 Lines of Code Summary" >> $GITHUB_STEP_SUMMARY
-                  echo "$LOC_SUMMARY" >> $GITHUB_STEP_SUMMARY
-                  DISPLAYED_LOC_SUMMARY=true
-                fi
-              done
             fi
 
             # Process coverage statistics if available
