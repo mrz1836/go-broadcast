@@ -511,7 +511,9 @@ jobs:
             sed 's/�\[[0-9;]*[mGKH]//g' | \
             sed 's/�//g' | \
             tr -d '\033' | \
-            grep -v -E '(passed on.*file|All checks passed|check passed$|completed successfully$)'
+            grep -v 'check passed$' | \
+            grep -v 'completed successfully$' | \
+            grep -v 'passed on.*file'
 
           # Extract executed checks from output (if format allows)
           EXECUTED_CHECKS=$(echo "$CHECKS_OUTPUT" | grep -E "Running:|Executing:|✓" | sed 's/.*Running: //;s/.*Executing: //;s/.*✓ //' | tr '\n' ',' | sed 's/,$//' || echo "fumpt,lint,mod-tidy,whitespace,eof")
