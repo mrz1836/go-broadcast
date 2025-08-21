@@ -203,37 +203,68 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 
 ## ✨ Key Features
 
-**go-broadcast** is more than just file sync - it's a complete repository management platform:
+**go-broadcast** is a production-grade repository synchronization platform with enterprise performance:
 
-### 🔄 **Intelligent Sync Engine**
-- **File & directory sync** - Supports individual files and entire directories with smart exclusions
-- **Stateless architecture** - No databases, all state tracked via GitHub
-- **Smart diff detection** - Only syncs files that actually changed
-- **Zero-downtime operations** - Works at any scale without conflicts
-- **Full audit trail** - Every sync tracked in branches and PRs
-- **Automated PR management** - Auto-assign reviewers, assignees, and labels
+### 🚀 **Core Synchronization Engine**
+- **Stateless architecture** - All state derived from GitHub (branches, PRs, commits)
+- **File & directory sync** - Individual files or entire directories with intelligent filtering
+- **Mixed sync operations** - Combine files and directories in single configurations
+- **Smart diff detection** - Only syncs files that actually changed (content-based)
+- **Zero-downtime operations** - Works at any scale without state corruption
+- **Full audit trail** - Every operation tracked in Git history with metadata
 
 ### ⚡ **Enterprise Performance**
-- **587M+ ops/sec** - Binary detection with zero allocations
+- **587M+ ops/sec** - Binary detection with zero memory allocations
 - **239M+ ops/sec** - Content comparison for identical files
-- **13.5M+ ops/sec** - Cache operations with minimal memory
-- **Directory processing** - 1000+ files in ~32ms with concurrent worker pools
-- **API optimization** - 90%+ reduction in GitHub API calls through tree API
-- **Concurrent sync** - Multiple repositories in parallel
+- **32ms/1000 files** - Directory processing with concurrent workers
+- **90%+ API reduction** - GitHub Tree API optimization
+- **Worker pools** - Concurrent task execution with panic recovery
+- **TTL caching** - High-performance cache with 13.5M+ ops/sec
 
-### 🎯 **Group-Based Configuration**
-- **Organized structure** - Manage syncs as logical groups with names and descriptions
+### 🎯 **Intelligent Configuration**
+- **Group-based organization** - Logical grouping with names, IDs, and descriptions
 - **Priority execution** - Groups execute in order (lower number = higher priority)
 - **Dependency management** - Groups can depend on successful completion of others
-- **Enable/disable control** - Toggle groups on/off without removing configuration
-- **Module-aware sync** - Smart handling of Go modules with version tracking
-- **Isolated contexts** - Each group has its own source, targets, and settings
+- **Enable/disable control** - Toggle groups without removing configuration
+- **Reusable lists** - Define file/directory lists once, use everywhere
+- **Module-aware sync** - Version management for Go modules with semantic versioning
 
-### 🛡️ **Security & Compliance**
-- **60+ linters** - Zero tolerance policy for code issues
-- **Vulnerability scanning** - govulncheck, OSSAR, CodeQL integration
+### 🔄 **Advanced Transformations**
+- **Variable substitution** - Template variables ({{VAR}} and ${VAR} syntax)
+- **Go module updates** - Automatic repository name transformation
+- **Pattern-based transforms** - Apply to all files in directories
+- **Context-aware** - Different transforms per target repository
+
+### 🤖 **Automation & CI/CD**
+- **Automatic PR creation** - Creates pull requests with rich metadata
+- **PR management** - Auto-assign reviewers, assignees, and labels
+- **Global settings** - Organization-wide PR assignments
+- **Branch naming** - Encoded metadata for state tracking
+- **Cancel operations** - Abort active syncs with cleanup
+- **Self-updating** - Built-in upgrade command with version management
+
+### 📊 **Developer Experience**
+- **Rich dry-run mode** - Beautiful previews with exact change details
+- **Component debugging** - Targeted debugging (--debug-git, --debug-api)
+- **Verbose logging** - Multi-level verbosity (-v, -vv, -vvv)
+- **Progress tracking** - Real-time sync progress with statistics
+- **Diagnostic tool** - Comprehensive system information collection
+- **Status command** - Repository synchronization status overview
+
+### 🛡️ **Production Ready**
+- **85%+ test coverage** - Comprehensive unit and integration tests
+- **Fuzz testing** - Security-critical components fuzz tested
+- **60+ linters** - Zero tolerance for code issues via golangci-lint
+- **Vulnerability scanning** - govulncheck, nancy, CodeQL, OSSAR
 - **OpenSSF Scorecard** - Supply chain security assessment
 - **Secret detection** - gitleaks integration prevents leaks
+
+### 🎨 **Smart Defaults & Exclusions**
+- **Automatic exclusions** - Filters out *.out, *.test, *.exe, .DS_Store, tmp/
+- **Custom patterns** - Add your own exclusion patterns per directory
+- **Hidden file control** - Include or exclude dotfiles as needed
+- **Binary detection** - Intelligent binary file detection prevents corruption
+- **Preserve structure** - Maintains nested directory hierarchies
 
 <br/>
 
