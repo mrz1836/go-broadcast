@@ -1037,16 +1037,28 @@ magex test:race
 ### Quick Benchmarks
 
 ```bash
-# Run all benchmarks
+# Run quick benchmarks (CI default, <5 minutes)
 magex bench
 
+# Run heavy benchmarks manually (10-30 minutes)
+# Includes worker pools, large datasets, real-world scenarios
+mage benchHeavy
+
+# Run all benchmarks (30-60 minutes)
+mage benchAll
+
 # Benchmark specific components
-go test -bench=. -benchmem ./internal/git
-go test -bench=. -benchmem ./internal/worker
+go test -bench=. -benchmem ./internal/algorithms
+go test -bench=. -benchmem ./internal/cache
+
+# Run heavy benchmarks with custom settings
+go test -bench=. -benchmem -tags=bench_heavy -benchtime=1s ./...
 
 # Try the profiling demo
 go run ./cmd/profile_demo
 ```
+
+**Note:** Heavy benchmarks (worker pools with 1000+ tasks, large directory syncs, memory efficiency tests) are excluded from CI to prevent timeouts. Use `mage benchHeavy` for comprehensive performance testing during development.
 
 <details>
 <summary><strong>📊 Complete Benchmark Results & Profiling Tools</strong></summary>

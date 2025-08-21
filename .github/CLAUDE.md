@@ -97,38 +97,49 @@ go run ./cmd/generate-corpus
 
 ### 📊 Performance Testing and Benchmarking
 
-**Benchmark Execution:**
+**Quick Benchmarks (CI Default):**
 ```bash
-# Run all benchmarks with memory profiling
-magex bench
+# Run fast benchmarks only (completes in <5 minutes)
+magex bench        # Standard CI benchmarks
 
 # Run specific component benchmarks
 go test -bench=. -benchmem ./internal/cache
 go test -bench=. -benchmem ./internal/algorithms
-go test -bench=. -benchmem ./internal/transform
+go test -bench=. -benchmem ./internal/config
+```
 
-# Performance profiling with built-in demo
-go run ./cmd/profile_demo
-# Results saved to: ./profiles/final_demo/
+**Heavy Benchmarks (Manual Execution):**
+```bash
+# Run intensive benchmarks (10-30 minutes)
+mage benchHeavy    # Worker pools, large datasets, real-world scenarios
+
+# Run all benchmarks (30-60 minutes)
+mage benchAll      # Quick + heavy benchmarks
+
+# Run with custom parameters
+go test -bench=. -benchmem -tags=bench_heavy -benchtime=1s ./...
 ```
 
 **Benchmark Categories:**
-- **Core algorithms**: Binary detection, content comparison, batch processing
-- **Cache operations**: TTL cache performance across different hit rates
-- **API simulation**: GitHub API latency simulation with various response times
-- **Concurrency**: Goroutine performance across different worker pool sizes
-- **Memory usage**: Allocation patterns and memory efficiency
+- **Quick (CI)**: Core algorithms, basic cache operations, config parsing
+- **Heavy (Manual)**: Worker pool stress tests (1000+ tasks), large directory sync, memory efficiency with large datasets, real-world scenario simulations
+- **Performance profiling**: Built-in demo via `go run ./cmd/profile_demo`
 
 **Performance Analysis:**
 ```bash
-# Generate performance reports
-go test -bench=. -benchmem -cpuprofile=cpu.prof ./internal/worker
-go test -bench=. -benchmem -memprofile=mem.prof ./internal/git
+# Profile heavy benchmarks for detailed analysis
+go test -bench=. -benchmem -cpuprofile=cpu.prof -tags=bench_heavy ./internal/worker
+go test -bench=. -benchmem -memprofile=mem.prof -tags=bench_heavy ./internal/git
 
 # Analyze profiles
 go tool pprof cpu.prof
 go tool pprof mem.prof
+
+# Built-in profiling demo
+go run ./cmd/profile_demo    # Results saved to: ./profiles/final_demo/
 ```
+
+**Note:** Heavy benchmarks are excluded from CI to prevent timeouts. Use `mage benchHeavy` for intensive performance testing during development.
 
 ### 🛠️ Troubleshooting Quick Reference
 
