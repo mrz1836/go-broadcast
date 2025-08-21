@@ -178,7 +178,8 @@
         "issues-exit-code": 1,
         "tests": true,
         "skip-dirs": ["test/fixtures"],
-        "skip-files": ["test/fixtures/.*\\.go$"]
+        "skip-files": ["test/fixtures/.*\\.go$"],
+        "build-tags": ["mage"]
     },
     "output": {
         "formats": {

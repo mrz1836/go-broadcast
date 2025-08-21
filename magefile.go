@@ -47,4 +47,3 @@ func BenchQuick() error {
 	return sh.RunV("go", "test", "-bench=.", "-benchmem",
 		"-benchtime=100ms", "-timeout=20m", "./...")
 }
-
