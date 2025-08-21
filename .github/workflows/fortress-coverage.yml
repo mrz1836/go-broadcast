@@ -1776,7 +1776,7 @@ jobs:
       # Test deployed URLs (30 second timeout max)
       # ————————————————————————————————————————————————————————————————
       - name: 🔍 Test deployed URLs
-        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        if: (github.event_name == 'push' || github.event_name == 'pull_request') && env.GO_COVERAGE_SKIP_URL_CHECKS != 'true'
         run: |
           echo "🔍 Testing deployed URLs..."
 
