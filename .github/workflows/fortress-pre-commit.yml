@@ -74,6 +74,8 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 📥 Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0 # Fetch full history to enable file change detection for all commit ranges
 
       # ————————————————————————————————————————————————————————————————
       # Setup Go with caching and version management
@@ -167,7 +169,34 @@ jobs:
           echo "  • Fail Fast: ${{ env.GO_PRE_COMMIT_FAIL_FAST }}"
           echo "  • Timeout: ${{ env.GO_PRE_COMMIT_TIMEOUT_SECONDS }} seconds"
           echo "  • Parallel Workers: ${{ env.GO_PRE_COMMIT_PARALLEL_WORKERS }}"
-          echo "  • All Files Mode: ${{ env.GO_PRE_COMMIT_ALL_FILES }}"
+          echo ""
+          echo "🎯 File Detection Strategy:"
+          if [[ "${{ env.GO_PRE_COMMIT_ALL_FILES }}" == "true" ]]; then
+            echo "  • Mode: All Files (GO_PRE_COMMIT_ALL_FILES=true)"
+            echo "  • Command: go-pre-commit run --all-files"
+            echo "  • Behavior: Will check all tracked files in the repository"
+            echo "  • Performance: Slower but comprehensive"
+          else
+            echo "  • Mode: Changed Files Only (GO_PRE_COMMIT_ALL_FILES=false)"
+            echo "  • Command: go-pre-commit run --files <detected_files>"
+            echo "  • Behavior: Detects and checks only files changed in this PR/push"
+            echo "  • Detection: Automatic based on event type (PR base diff, push range, etc.)"
+            echo "  • Performance: Faster, scales with change size"
+            echo "  • Fallback: Uses staged files if no changes detected (rare in CI)"
+            echo ""
+            echo "🔍 Event Context:"
+            echo "  • Event Type: ${{ github.event_name }}"
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              echo "  • Base Branch: ${{ github.base_ref }}"
+              echo "  • Detection Method: git diff origin/${{ github.base_ref }}...HEAD"
+            elif [[ "${{ github.event_name }}" == "push" ]]; then
+              echo "  • Before SHA: ${{ github.event.before }}"
+              echo "  • After SHA: ${{ github.event.after }}"
+              echo "  • Detection Method: git diff \$BEFORE...\$AFTER"
+            else
+              echo "  • Detection Method: git diff HEAD~1..HEAD"
+            fi
+          fi
           echo ""
           echo "🔧 Tool Versions:"
           echo "  • Max File Size: ${{ env.GO_PRE_COMMIT_MAX_FILE_SIZE_MB }} MB"
@@ -283,6 +312,165 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
+      # Detect changed files for CI mode (when not checking all files)
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Detect changed files for CI
+        if: env.GO_PRE_COMMIT_ALL_FILES != 'true' && (steps.install-pre-commit.outputs.install_success == 'true' || steps.install-pre-commit-cached.outputs.install_success == 'true')
+        id: detect-files
+        run: |
+          echo "🔍 Detecting changed files for CI execution..."
+          echo "=============================================="
+
+          # Initialize variables
+          CHANGED_FILES=""
+          DETECTION_METHOD=""
+
+          # Set fetch-depth if needed for better git history
+          echo "📋 Git repository information:"
+          echo "  • Current HEAD: $(git rev-parse HEAD)"
+          echo "  • Current branch: $(git branch --show-current || echo 'detached')"
+          echo "  • Available refs: $(git branch -r | head -5 | tr '\n' ' ')..."
+          echo ""
+
+          # Check event type and detect files accordingly
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "📥 Pull Request Event Detected"
+            BASE_REF="${{ github.base_ref }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+
+            echo "  • Base branch: $BASE_REF"
+            echo "  • Base SHA: $BASE_SHA"
+            echo "  • Head SHA: $HEAD_SHA"
+            echo ""
+
+            # Try multiple methods for PR file detection
+            echo "🔍 Method 1: Using PR base comparison (git diff origin/$BASE_REF...HEAD)"
+            if git show-ref --verify --quiet "refs/remotes/origin/$BASE_REF"; then
+              CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR "origin/$BASE_REF...HEAD" 2>/dev/null || echo "")
+              if [[ -n "$CHANGED_FILES" ]]; then
+                DETECTION_METHOD="pr-base-branch"
+                echo "✅ Successfully detected files using base branch comparison"
+              fi
+            else
+              echo "⚠️  Base branch ref not found, trying alternative methods"
+            fi
+
+            # Fallback: Use commit range if base branch method failed
+            if [[ -z "$CHANGED_FILES" && -n "$BASE_SHA" ]]; then
+              echo "🔍 Method 2: Using commit SHA range ($BASE_SHA...HEAD)"
+              CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA...HEAD" 2>/dev/null || echo "")
+              if [[ -n "$CHANGED_FILES" ]]; then
+                DETECTION_METHOD="pr-commit-range"
+                echo "✅ Successfully detected files using commit range"
+              fi
+            fi
+
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "📤 Push Event Detected"
+            BEFORE_SHA="${{ github.event.before }}"
+            AFTER_SHA="${{ github.event.after }}"
+
+            echo "  • Before SHA: $BEFORE_SHA"
+            echo "  • After SHA: $AFTER_SHA"
+            echo ""
+
+            # For push events, compare the before and after commits
+            if [[ -n "$BEFORE_SHA" && "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+              echo "🔍 Method 1: Using push commit range ($BEFORE_SHA...$AFTER_SHA)"
+              CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR "$BEFORE_SHA...$AFTER_SHA" 2>/dev/null || echo "")
+              if [[ -n "$CHANGED_FILES" ]]; then
+                DETECTION_METHOD="push-commit-range"
+                echo "✅ Successfully detected files using push commit range"
+              fi
+            else
+              echo "⚠️  No valid before SHA found (likely initial push)"
+              # For initial push, get files in the last commit
+              echo "🔍 Method 2: Using last commit changes (HEAD~1..HEAD)"
+              CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1..HEAD 2>/dev/null || echo "")
+              if [[ -n "$CHANGED_FILES" ]]; then
+                DETECTION_METHOD="initial-push-last-commit"
+                echo "✅ Successfully detected files from last commit"
+              fi
+            fi
+
+          else
+            echo "🔄 Other Event Type: ${{ github.event_name }}"
+            echo "  • Using default detection method"
+
+            # For other events, try to detect recent changes
+            echo "🔍 Method 1: Using recent changes (HEAD~1..HEAD)"
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1..HEAD 2>/dev/null || echo "")
+            if [[ -n "$CHANGED_FILES" ]]; then
+              DETECTION_METHOD="default-recent-changes"
+              echo "✅ Successfully detected recent file changes"
+            fi
+          fi
+
+          # Filter out non-existent files and apply basic filtering
+          if [[ -n "$CHANGED_FILES" ]]; then
+            echo ""
+            echo "📋 Raw changed files detected:"
+            echo "$CHANGED_FILES" | sed 's/^/  • /'
+            echo ""
+
+            # Filter files: only include existing files, exclude certain patterns
+            FILTERED_FILES=""
+            while IFS= read -r file; do
+              if [[ -f "$file" ]]; then
+                # Skip certain file types that shouldn't be checked
+                case "$file" in
+                  *.md|*.txt|*.json|*.yml|*.yaml|package-lock.json|go.sum|*.log|*.tmp)
+                    echo "  ⏭️  Skipping $file (excluded file type)"
+                    ;;
+                  .github/*|vendor/*|node_modules/*)
+                    echo "  ⏭️  Skipping $file (excluded directory)"
+                    ;;
+                  *)
+                    if [[ -z "$FILTERED_FILES" ]]; then
+                      FILTERED_FILES="$file"
+                    else
+                      FILTERED_FILES="$FILTERED_FILES,$file"
+                    fi
+                    echo "  ✅ Including $file"
+                    ;;
+                esac
+              else
+                echo "  ⚠️  File $file no longer exists, skipping"
+              fi
+            done <<< "$CHANGED_FILES"
+
+            CHANGED_FILES="$FILTERED_FILES"
+          fi
+
+          # Final validation and output
+          echo ""
+          echo "📊 File Detection Results:"
+          echo "=========================="
+          if [[ -n "$CHANGED_FILES" ]]; then
+            FILE_COUNT=$(echo "$CHANGED_FILES" | tr ',' '\n' | wc -l | tr -d ' ')
+            echo "✅ Detection successful!"
+            echo "  • Method used: $DETECTION_METHOD"
+            echo "  • Files found: $FILE_COUNT"
+            echo "  • Files: $CHANGED_FILES"
+            echo ""
+            echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+            echo "detection_method=$DETECTION_METHOD" >> $GITHUB_OUTPUT
+            echo "files_found=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  No changed files detected!"
+            echo "  • This might indicate:"
+            echo "    - No files were actually changed"
+            echo "    - All changes were in excluded file types"
+            echo "    - Git history is not available"
+            echo "  • Falling back to staged files check (will likely find no files)"
+            echo ""
+            echo "changed_files=" >> $GITHUB_OUTPUT
+            echo "detection_method=none" >> $GITHUB_OUTPUT
+            echo "files_found=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ————————————————————————————————————————————————————————————————
       # Run pre-commit checks
       # ————————————————————————————————————————————————————————————————
       - name: 🚀 Run pre-commit checks
@@ -300,10 +488,27 @@ jobs:
 
           # Build command based on GO_PRE_COMMIT_ALL_FILES configuration
           if [[ "${{ env.GO_PRE_COMMIT_ALL_FILES }}" == "true" ]]; then
-            echo "🔍 Executing checks on all files..."
+            echo "🔍 Mode: All Files"
+            echo "  • Executing checks on all repository files"
+            echo "  • Command: go-pre-commit run --all-files"
+            echo ""
             CHECKS_OUTPUT=$("${{ env.GO_PRE_COMMIT_BINARY }}" run --all-files 2>&1) || CHECKS_EXIT=$?
+          elif [[ "${{ steps.detect-files.outputs.files_found }}" == "true" ]]; then
+            CHANGED_FILES="${{ steps.detect-files.outputs.changed_files }}"
+            DETECTION_METHOD="${{ steps.detect-files.outputs.detection_method }}"
+
+            echo "🔍 Mode: Changed Files Only"
+            echo "  • Detection method: $DETECTION_METHOD"
+            echo "  • Files to check: $CHANGED_FILES"
+            echo "  • Command: go-pre-commit run --files $CHANGED_FILES"
+            echo ""
+            CHECKS_OUTPUT=$("${{ env.GO_PRE_COMMIT_BINARY }}" run --files "$CHANGED_FILES" 2>&1) || CHECKS_EXIT=$?
           else
-            echo "🔍 Executing checks on staged files..."
+            echo "🔍 Mode: Staged Files (Fallback)"
+            echo "  • No changed files detected, falling back to staged files"
+            echo "  • This will likely result in 'No files to check' in CI"
+            echo "  • Command: go-pre-commit run"
+            echo ""
             CHECKS_OUTPUT=$("${{ env.GO_PRE_COMMIT_BINARY }}" run 2>&1) || CHECKS_EXIT=$?
           fi
 
@@ -366,9 +571,34 @@ jobs:
           echo "| **Installation** | ${{ (steps.install-pre-commit.outputs.install_success == 'true' || steps.install-pre-commit-cached.outputs.install_success == 'true') && '✅ Success' || '❌ Failed (using fallback)' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Fail Fast Mode** | ${{ env.GO_PRE_COMMIT_FAIL_FAST == 'true' && '⚡ Enabled' || '📝 Disabled' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Timeout** | ${{ env.GO_PRE_COMMIT_TIMEOUT_SECONDS }} seconds |" >> $GITHUB_STEP_SUMMARY
+
+          # Add file detection information
+          if [[ "${{ env.GO_PRE_COMMIT_ALL_FILES }}" == "true" ]]; then
+            echo "| **File Detection** | 🗂️ All Files (GO_PRE_COMMIT_ALL_FILES=true) |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ steps.detect-files.outputs.files_found }}" == "true" ]]; then
+            DETECTION_METHOD="${{ steps.detect-files.outputs.detection_method }}"
+            echo "| **File Detection** | 🎯 Changed Files Only (method: $DETECTION_METHOD) |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **File Detection** | ⚠️ Fallback to Staged Files (no changes detected) |" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ steps.install-pre-commit.outputs.install_success }}" == "true" ] || [ "${{ steps.install-pre-commit-cached.outputs.install_success }}" == "true" ]; then
+            # Add file detection details if changed files were detected
+            if [[ "${{ env.GO_PRE_COMMIT_ALL_FILES }}" != "true" && "${{ steps.detect-files.outputs.files_found }}" == "true" ]]; then
+              echo "### 📁 Files Processed" >> $GITHUB_STEP_SUMMARY
+              CHANGED_FILES="${{ steps.detect-files.outputs.changed_files }}"
+              FILE_COUNT=$(echo "$CHANGED_FILES" | tr ',' '\n' | wc -l | tr -d ' ')
+              echo "**$FILE_COUNT changed files detected and processed:**" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "$CHANGED_FILES" | tr ',' '\n' | while read file; do
+                if [ -n "$file" ]; then
+                  echo "- 📄 \`$file\`" >> $GITHUB_STEP_SUMMARY
+                fi
+              done
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+
             echo "### 🔍 Checks Executed" >> $GITHUB_STEP_SUMMARY
             CHECKS="${{ steps.run-checks.outputs.executed || 'fumpt,lint,mod-tidy,whitespace,eof' }}"
             echo "$CHECKS" | tr ',' '\n' | while read check; do
@@ -377,7 +607,16 @@ jobs:
               fi
             done
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "🎯 **All pre-commit checks passed successfully using external go-pre-commit tool.**" >> $GITHUB_STEP_SUMMARY
+            if [[ "${{ env.GO_PRE_COMMIT_ALL_FILES }}" == "true" ]]; then
+              echo "🎯 **All pre-commit checks passed successfully on all repository files.**" >> $GITHUB_STEP_SUMMARY
+            elif [[ "${{ steps.detect-files.outputs.files_found }}" == "true" ]]; then
+              FILE_COUNT=$(echo "${{ steps.detect-files.outputs.changed_files }}" | tr ',' '\n' | wc -l | tr -d ' ')
+              echo "🎯 **All pre-commit checks passed successfully on $FILE_COUNT changed files.**" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "⚡ **Performance**: Fast CI execution by checking only changed files instead of entire repository." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "🎯 **Pre-commit checks completed (no files required checking).**" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "### ⚠️ Fallback Mode" >> $GITHUB_STEP_SUMMARY
             echo "The external go-pre-commit tool could not be installed. Using magex commands as fallback:" >> $GITHUB_STEP_SUMMARY
