@@ -57,6 +57,9 @@ Creating and maintaining GitHub Actions workflows with security, reliability, an
 
 ### 🏗️ Build & Project Setup
 
+**[MAGE-X Build Automation](mage-x.md)**
+Zero-boilerplate build automation system with 240+ built-in commands that replaces Makefiles. Includes installation, configuration, command reference, and migration guide.
+
 **[Governance Documents](governance-documents.md)**
 Essential project files including LICENSE, README, CODE_OF_CONDUCT, SECURITY, and other governance standards.
 
@@ -96,6 +99,7 @@ Essential project files including LICENSE, README, CODE_OF_CONDUCT, SECURITY, an
 | Add dependencies       | [Dependency Management](dependency-management.md)           |
 | Report security issues | [Security Practices](security-practices.md)                 |
 | Create workflows       | [GitHub Workflows Development](github-workflows.md)         |
+| Set up build automation| [MAGE-X Build Automation](mage-x.md)                        |
 | Add governance docs    | [Governance Documents](governance-documents.md)             |
 
 <br><br>
