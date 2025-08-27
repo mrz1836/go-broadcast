@@ -209,28 +209,36 @@ jobs:
 
           else
             echo "🎯 Using FAILURES_ONLY mode - capturing failures and essential output"
+            echo "📝 Using go test -json (magex doesn't support -json output mode)"
 
-            # Determine if magex supports -json flag or if we need to use go test directly
-            if $MAGEX_CMD -help 2>&1 | grep -q '\-json' 2>/dev/null; then
-              echo "📝 Using magex with -json support"
-              JSON_CMD="$MAGEX_CMD -json"
+            # Build go test command with appropriate flags
+            if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
+              JSON_CMD="go test -json -race -coverprofile=coverage_0.txt -covermode=atomic ./..."
+            elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
+              JSON_CMD="go test -json -coverprofile=coverage_0.txt -covermode=atomic ./..."
+            elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
+              JSON_CMD="go test -json -race ./..."
             else
-              echo "📝 Using fallback to go test -json (magex doesn't support -json)"
-              # Fallback to basic go test with appropriate flags
-              if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
-                JSON_CMD="go test -json -race -coverprofile=coverage.txt -covermode=atomic ./..."
-              elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
-                JSON_CMD="go test -json -coverprofile=coverage.txt -covermode=atomic ./..."
-              elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
-                JSON_CMD="go test -json -race ./..."
-              else
-                JSON_CMD="go test -json ./..."
-              fi
+              JSON_CMD="go test -json ./..."
             fi
 
-            # Run with JSON output and process streams
-            $JSON_CMD 2>&1 | tee >(
-              # Save last 2000 lines for context, but convert JSON to readable format
+            echo "🔧 Running: $JSON_CMD"
+
+            # Run with JSON output and process streams with better error handling
+            set +e  # Don't exit on error to capture exit code properly
+            $JSON_CMD 2> >(tee test-stderr.log >&2) | tee test-raw-output.log | (
+              # Filter and process JSON output in real-time
+              while IFS= read -r line; do
+                # Check if line is valid JSON before processing
+                if echo "$line" | jq empty >/dev/null 2>&1; then
+                  echo "$line"
+                else
+                  # Non-JSON line (coverage messages, etc.) - log to stderr stream
+                  echo "Non-JSON: $line" >&2
+                fi
+              done
+            ) | tee test-json-output.log | tee >(
+              # Save last 2000 lines for context, convert JSON to readable format
               while IFS= read -r line; do
                 if echo "$line" | jq -e '.Action == "output"' >/dev/null 2>&1; then
                   echo "$line" | jq -r '.Output // ""' 2>/dev/null || echo "$line"
@@ -257,28 +265,40 @@ jobs:
                 fi
               done | tee test-output-filtered.log
             ) | (
-              # Extract failure events in real-time
+              # Extract failure events in real-time with error handling
               jq -c --unbuffered 'select(.Action == "fail" or
                      (.Action == "output" and .Test != null and
-                      (.Output | test("FAIL|Error:|panic:|fatal"))))' |
-              head -n ${TEST_FAILURE_MAX_COUNT:-1000} > test-failures.jsonl 2>/dev/null
+                      (.Output | test("FAIL|Error:|panic:|fatal"))))' 2>/dev/null |
+              head -n ${TEST_FAILURE_MAX_COUNT:-1000} > test-failures.jsonl 2>/dev/null || true
             )
 
             TEST_EXIT_CODE=${PIPESTATUS[0]}
+            set -e  # Re-enable exit on error
+
+            echo "📊 Test command completed with exit code: $TEST_EXIT_CODE"
 
             # Convert JSON failures to readable format if any exist
             if [[ -f test-failures.jsonl ]] && [[ -s test-failures.jsonl ]]; then
               echo "🔍 Processing captured failures..."
-              jq -s 'group_by(.Package) |
+              if jq -s 'group_by(.Package) |
                      map({
                        package: .[0].Package,
                        failures: map(select(.Action == "fail") | {test: .Test, elapsed: .Elapsed}),
                        outputs: map(select(.Output) | .Output) | join("")
                      }) | map(select(.failures | length > 0))' \
-                     test-failures.jsonl > test-failures-summary.json 2>/dev/null || true
+                     test-failures.jsonl > test-failures-summary.json 2>/dev/null; then
+                echo "✅ Successfully processed failure summary"
 
-              # Also create a simple text summary for backward compatibility
-              jq -r '.[] | .failures[] | "\(.test)"' test-failures-summary.json 2>/dev/null > test-failures.txt || true
+                # Create simple text summary for backward compatibility
+                jq -r '.[] | .failures[] | "\(.test)"' test-failures-summary.json 2>/dev/null > test-failures.txt || true
+              else
+                echo "⚠️ Failed to process JSON failures, creating fallback summary"
+                # Fallback: extract test names from raw output
+                grep -E "=== FAIL:|--- FAIL:" test-raw-output.log 2>/dev/null | \
+                  sed -E 's/.*FAIL: ([^ ]+).*/\1/' > test-failures.txt || true
+              fi
+            else
+              echo "ℹ️ No failure data captured"
             fi
           fi
 
@@ -294,19 +314,28 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
-      # Fix coverage file naming (magex generates coverage_0.txt)
-      # TODO: Add multi-module coverage support if needed later
+      # Fix coverage file naming (normalize to coverage.txt for downstream processing)
+      # Handles both magex (coverage_0.txt) and go test direct (coverage_0.txt) outputs
       # ————————————————————————————————————————————————————————————————
       - name: 🔄 Normalize coverage file name
         if: inputs.code-coverage-enabled == 'true'
         run: |
+          echo "🔍 Looking for coverage files..."
+          ls -la coverage*.txt 2>/dev/null || true
+
           if [ -f coverage_0.txt ]; then
             cp coverage_0.txt coverage.txt
-            echo "✅ Renamed coverage_0.txt to coverage.txt"
+            echo "✅ Copied coverage_0.txt to coverage.txt"
+            echo "📊 Coverage file size: $(wc -c < coverage.txt) bytes"
           elif [ -f coverage.txt ]; then
             echo "✅ Coverage file already exists as coverage.txt"
+            echo "📊 Coverage file size: $(wc -c < coverage.txt) bytes"
           else
-            echo "⚠️ No coverage file found (coverage_0.txt or coverage.txt)"
+            echo "❌ No coverage file found!"
+            echo "📋 Files in current directory:"
+            ls -la *.txt *.out 2>/dev/null | head -10 || true
+            echo "📋 Searching for any coverage-related files:"
+            find . -maxdepth 1 -name "*cover*" -type f 2>/dev/null || true
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -636,6 +665,9 @@ jobs:
             test-failures*.jsonl
             test-failures.txt
             test-output*.log
+            test-raw-output.log
+            test-json-output.log
+            test-stderr.log
           retention-days: ${{ env.TEST_OUTPUT_ARTIFACT_RETENTION_DAYS || 7 }}
           compression-level: ${{ env.TEST_OUTPUT_COMPRESS_ARTIFACTS == 'true' && '9' || '0' }}
 
