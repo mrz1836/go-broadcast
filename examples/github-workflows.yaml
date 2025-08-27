@@ -37,13 +37,13 @@ groups:
                 SERVICE_TYPE: "api"
                 DEPLOYMENT_ENV: "production"
 
-          # Sync coverage system (87 files, ~4ms processing time)
-          - src: ".github/coverage"
-            dest: ".github/coverage"
+          # Actions (87 files, ~4ms processing time)
+          - src: ".github/actions"
+            dest: ".github/actions"
             exclude:
               - "*.out" # Coverage output files
               - "*.test" # Test binaries
-              - "gofortress-coverage" # Binary executable
+              - "go-coverage" # Binary executable
 
           # Sync issue and PR templates
           - src: ".github/ISSUE_TEMPLATE"
@@ -110,6 +110,6 @@ groups:
         pr_team_reviewers: ["security-team"]
 # Performance expectations for this configuration:
 # - .github/workflows (24 files): ~1.5ms processing
-# - .github/coverage (87 files): ~4ms processing
+# - .github/actions (87 files): ~4ms processing
 # - Total API calls reduced by 90%+ through tree API optimization
 # - Memory usage: ~1.2MB per 1000 files processed

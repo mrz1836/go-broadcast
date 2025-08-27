@@ -6,32 +6,32 @@ Welcome to the go-broadcast documentation! This directory contains comprehensive
 
 ### Core Documentation
 
-| Document | Description | Purpose |
-|----------|-------------|---------|
+| Document                                             | Description                      | Purpose                                                                                    |
+|------------------------------------------------------|----------------------------------|--------------------------------------------------------------------------------------------|
 | **[configuration-guide.md](configuration-guide.md)** | Complete configuration reference | Learn how to configure go-broadcast with groups, targets, transformations, and PR settings |
-| **[directory-sync.md](directory-sync.md)** | Directory synchronization guide | Master directory syncing with exclusion patterns, performance tips, and best practices |
-| **[module-sync.md](module-sync.md)** | Module-aware synchronization | Understand Go module versioning, dependency management, and smart sync features |
-| **[group-examples.md](group-examples.md)** | Practical configuration examples | Real-world patterns for CI/CD, security policies, and multi-repository management |
+| **[directory-sync.md](directory-sync.md)**           | Directory synchronization guide  | Master directory syncing with exclusion patterns, performance tips, and best practices     |
+| **[module-sync.md](module-sync.md)**                 | Module-aware synchronization     | Understand Go module versioning, dependency management, and smart sync features            |
+| **[group-examples.md](group-examples.md)**           | Practical configuration examples | Real-world patterns for CI/CD, security policies, and multi-repository management          |
 
 ### Operations & Troubleshooting
 
-| Document | Description | Purpose |
-|----------|-------------|---------|
-| **[troubleshooting.md](troubleshooting.md)** | Enhanced troubleshooting guide | Quick reference, common issues, systematic procedures, and escalation workflows |
-| **[logging.md](logging.md)** | Comprehensive logging documentation | Quick commands, log levels, debugging techniques, and diagnostic collection |
-| **[performance-guide.md](performance-guide.md)** | Unified performance documentation | Benchmarking, profiling, optimization strategies, and performance targets |
+| Document                                         | Description                         | Purpose                                                                         |
+|--------------------------------------------------|-------------------------------------|---------------------------------------------------------------------------------|
+| **[troubleshooting.md](troubleshooting.md)**     | Enhanced troubleshooting guide      | Quick reference, common issues, systematic procedures, and escalation workflows |
+| **[logging.md](logging.md)**                     | Comprehensive logging documentation | Quick commands, log levels, debugging techniques, and diagnostic collection     |
+| **[performance-guide.md](performance-guide.md)** | Unified performance documentation   | Benchmarking, profiling, optimization strategies, and performance targets       |
 
 ### Advanced Features
 
-| Document | Description | Purpose |
-|----------|-------------|---------|
-| **[sub-agents.md](sub-agents.md)** | AI agent system documentation | 26 specialized agents for automated repository management and maintenance |
+| Document                                   | Description                    | Purpose                                                                   |
+|--------------------------------------------|--------------------------------|---------------------------------------------------------------------------|
+| **[sub-agents.md](sub-agents.md)**         | AI agent system documentation  | 26 specialized agents for automated repository management and maintenance |
 | **[slash-commands.md](slash-commands.md)** | Claude Code commands reference | 20+ powerful commands for automated testing, security, releases, and more |
 
 ### Examples & References
 
-| Document | Description | Purpose |
-|----------|-------------|---------|
+| Document                                             | Description          | Purpose                                                                  |
+|------------------------------------------------------|----------------------|--------------------------------------------------------------------------|
 | **[example_pr_metadata.md](example_pr_metadata.md)** | PR metadata examples | Understand pull request bodies with sync details and performance metrics |
 
 ## 🚀 Quick Start Guide

@@ -44,9 +44,6 @@ internal/fuzz/corpus/
 coverage.txt
 coverage.out
 
-# Coverage binaries
-.github/coverage
-
 # Coverage output directories
 coverage-output/
 test-coverage-output/

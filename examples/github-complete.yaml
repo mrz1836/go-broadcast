@@ -60,13 +60,13 @@ groups:
                 MONITORING: "enhanced"
           # Expected: 24 files in ~1.5ms
 
-          # Coverage System - High-performance sync
-          - src: ".github/coverage"
-            dest: ".github/coverage"
+          # Example actions folder
+          - src: ".github/actions"
+            dest: ".github/actions"
             exclude:
               - "*.out" # Coverage output files
               - "*.test" # Go test binaries
-              - "gofortress-coverage" # Main binary
+              - "go-coverage" # Main binary
               - "**/testdata/**" # Test fixtures
               - "**/*.prof" # Profiling files
         # Expected: 87 files in ~4ms with 90%+ API call reduction
@@ -92,13 +92,13 @@ groups:
                 DEPLOY_ENV: "development"
                 MONITORING: "standard"
 
-          # Basic coverage system
-          - src: ".github/coverage"
-            dest: ".github/coverage"
+          # Basic actions
+          - src: ".github/actions"
+            dest: ".github/actions"
             exclude:
               - "*.out"
               - "*.test"
-              - "gofortress-coverage"
+              - "go-coverage"
 
       # Frontend Application - Customized GitHub setup
       - repo: "company/webapp-frontend"

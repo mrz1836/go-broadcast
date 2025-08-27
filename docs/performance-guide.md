@@ -570,43 +570,43 @@ Based on comprehensive benchmarks, here are performance targets and current achi
 
 ### Component Performance Targets
 
-| Component              | Target Performance      | Current Achievement | Status        |
-|------------------------|-------------------------|---------------------|---------------|
-| **Config Operations**  |                         |                     |               |
-| YAML Parsing          | <40μs for small configs | ~34μs               | ✅ Meeting     |
-| Validation            | <1μs per rule           | ~3ns (371M ops/sec) | ✅ Exceeded    |
-| Load & Validate       | <50μs combined          | ~37μs               | ✅ Meeting     |
-|                       |                         |                     |               |
-| **File Operations**    |                         |                     |               |
-| Binary Detection      | <100ns per check        | ~2ns (587M ops/sec) | ✅ Exceeded    |
-| Transform Operations  | <40μs for small files   | ~37μs (~31K/sec)    | ✅ Meeting     |
-| Template Substitution | <50μs per operation     | ~28μs               | ✅ Exceeded    |
-|                       |                         |                     |               |
-| **State Management**   |                         |                     |               |
-| State Comparison      | <100ns per comparison   | ~5ns (239M ops/sec) | ✅ Exceeded    |
-| Branch Parsing        | <2μs per parse          | ~1.2μs              | ✅ Meeting     |
-| Sync Decision         | <10ns per decision      | ~8ns (26M ops/sec)  | ✅ Meeting     |
-|                       |                         |                     |               |
-| **Git Operations**     |                         |                     |               |
-| Simple Commands       | <50ms per command       | ~23μs overhead      | ✅ Exceeded    |
-| Clone Operations      | <30s for medium repos   | Varies by size      | ✅ Meeting     |
-| File Operations       | <100ms for batch        | Linear scaling      | ✅ Meeting     |
-|                       |                         |                     |               |
-| **API Operations**     |                         |                     |               |
-| GitHub API Calls      | <200ms per call         | ~100ms (network)    | ✅ Meeting     |
-| JSON Parsing          | <100μs small responses  | ~50μs               | ✅ Exceeded    |
-| Concurrent Requests   | 10+ parallel            | Up to 20 parallel   | ✅ Exceeded    |
-|                       |                         |                     |               |
-| **Worker Operations**  |                         |                     |               |
-| Task Throughput       | >5K tasks/sec           | ~10K tasks/sec      | ✅ Exceeded    |
-| Pool Scaling          | Linear to CPU count     | Linear to ~16 cores | ✅ Meeting     |
-| Memory Overhead       | <10MB per pool          | Fixed ~10KB         | ✅ Exceeded    |
-|                       |                         |                     |               |
-| **Directory Sync**     |                         |                     |               |
-| Small Directories     | <500ms (<50 files)      | ~3ms                | ✅ Exceeded    |
-| Medium Directories    | <2s (<200 files)        | ~7ms                | ✅ Exceeded    |
-| Large Directories     | <5s (<1000 files)       | ~32ms               | ✅ Exceeded    |
-| API Call Reduction    | >50% reduction          | 98% reduction       | ✅ Exceeded    |
+| Component             | Target Performance      | Current Achievement | Status     |
+|-----------------------|-------------------------|---------------------|------------|
+| **Config Operations** |                         |                     |            |
+| YAML Parsing          | <40μs for small configs | ~34μs               | ✅ Meeting  |
+| Validation            | <1μs per rule           | ~3ns (371M ops/sec) | ✅ Exceeded |
+| Load & Validate       | <50μs combined          | ~37μs               | ✅ Meeting  |
+|                       |                         |                     |            |
+| **File Operations**   |                         |                     |            |
+| Binary Detection      | <100ns per check        | ~2ns (587M ops/sec) | ✅ Exceeded |
+| Transform Operations  | <40μs for small files   | ~37μs (~31K/sec)    | ✅ Meeting  |
+| Template Substitution | <50μs per operation     | ~28μs               | ✅ Exceeded |
+|                       |                         |                     |            |
+| **State Management**  |                         |                     |            |
+| State Comparison      | <100ns per comparison   | ~5ns (239M ops/sec) | ✅ Exceeded |
+| Branch Parsing        | <2μs per parse          | ~1.2μs              | ✅ Meeting  |
+| Sync Decision         | <10ns per decision      | ~8ns (26M ops/sec)  | ✅ Meeting  |
+|                       |                         |                     |            |
+| **Git Operations**    |                         |                     |            |
+| Simple Commands       | <50ms per command       | ~23μs overhead      | ✅ Exceeded |
+| Clone Operations      | <30s for medium repos   | Varies by size      | ✅ Meeting  |
+| File Operations       | <100ms for batch        | Linear scaling      | ✅ Meeting  |
+|                       |                         |                     |            |
+| **API Operations**    |                         |                     |            |
+| GitHub API Calls      | <200ms per call         | ~100ms (network)    | ✅ Meeting  |
+| JSON Parsing          | <100μs small responses  | ~50μs               | ✅ Exceeded |
+| Concurrent Requests   | 10+ parallel            | Up to 20 parallel   | ✅ Exceeded |
+|                       |                         |                     |            |
+| **Worker Operations** |                         |                     |            |
+| Task Throughput       | >5K tasks/sec           | ~10K tasks/sec      | ✅ Exceeded |
+| Pool Scaling          | Linear to CPU count     | Linear to ~16 cores | ✅ Meeting  |
+| Memory Overhead       | <10MB per pool          | Fixed ~10KB         | ✅ Exceeded |
+|                       |                         |                     |            |
+| **Directory Sync**    |                         |                     |            |
+| Small Directories     | <500ms (<50 files)      | ~3ms                | ✅ Exceeded |
+| Medium Directories    | <2s (<200 files)        | ~7ms                | ✅ Exceeded |
+| Large Directories     | <5s (<1000 files)       | ~32ms               | ✅ Exceeded |
+| API Call Reduction    | >50% reduction          | 98% reduction       | ✅ Exceeded |
 
 ### Zero-Allocation Operations
 
@@ -624,15 +624,15 @@ State Comparison            | 26M+ ops/sec    | 0 B/op
 
 ### Memory Usage Patterns
 
-| Operation Type        | Memory Pattern      | Scaling Factor     |
-|-----------------------|--------------------|--------------------|
-| **Config Processing** | Fixed overhead      | ~50KB base         |
-| **Git Operations**    | Per-command buffer  | ~10KB per command  |
-| **API Operations**    | Response buffering  | ~1-5KB per response|
-| **File Transform**    | Streaming           | ~2KB per file      |
-| **Directory Sync**    | Linear scaling      | ~1.2KB per file    |
-| **Worker Pools**      | Fixed overhead      | ~10KB per pool     |
-| **State Management**  | Cache-based         | ~100B per state    |
+| Operation Type        | Memory Pattern     | Scaling Factor      |
+|-----------------------|--------------------|---------------------|
+| **Config Processing** | Fixed overhead     | ~50KB base          |
+| **Git Operations**    | Per-command buffer | ~10KB per command   |
+| **API Operations**    | Response buffering | ~1-5KB per response |
+| **File Transform**    | Streaming          | ~2KB per file       |
+| **Directory Sync**    | Linear scaling     | ~1.2KB per file     |
+| **Worker Pools**      | Fixed overhead     | ~10KB per pool      |
+| **State Management**  | Cache-based        | ~100B per state     |
 
 ### Performance Regression Thresholds
 

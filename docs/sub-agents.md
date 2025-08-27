@@ -102,13 +102,13 @@ Agents are automatically invoked based on your tasks. You can also explicitly re
 
 ### Common Agent Commands
 
-| Task | Command | Slash Command | Agents Involved |
-|------|---------|---------------|-----------------|
-| Run all tests | `"Run comprehensive tests"` | `/test` | test-commander |
-| Security scan | `"Check for security issues"` | `/security` | security-auditor, compliance-checker |
-| Dependency update | `"Review and update dependencies"` | `/deps` | dependabot-coordinator, dependency-upgrader |
-| Performance check | `"Analyze performance"` | `/profile` | performance-profiler, benchmark-analyst |
-| Release prep | `"Prepare for release"` | `/release` | changelog-generator, release-manager |
+| Task              | Command                            | Slash Command | Agents Involved                             |
+|-------------------|------------------------------------|---------------|---------------------------------------------|
+| Run all tests     | `"Run comprehensive tests"`        | `/test`       | test-commander                              |
+| Security scan     | `"Check for security issues"`      | `/security`   | security-auditor, compliance-checker        |
+| Dependency update | `"Review and update dependencies"` | `/deps`       | dependabot-coordinator, dependency-upgrader |
+| Performance check | `"Analyze performance"`            | `/profile`    | performance-profiler, benchmark-analyst     |
+| Release prep      | `"Prepare for release"`            | `/release`    | changelog-generator, release-manager        |
 
 ### 🚀 Claude Code Slash Commands
 
@@ -128,75 +128,75 @@ go-broadcast includes **20+ powerful slash commands** that automatically coordin
 
 ### 🔧 Core go-broadcast Operations (4 agents)
 
-| Agent | Purpose | Key Capabilities |
-|-------|---------|------------------|
-| **sync-orchestrator** | Manages sync operations | Config validation, dry-runs, state discovery, error handling |
-| **config-validator** | Validates YAML configs | Syntax checking, repo access, transformation validation |
-| **github-sync-api** | Optimizes GitHub API | Rate limit management, Tree API usage, caching strategies |
+| Agent                         | Purpose                    | Key Capabilities                                               |
+|-------------------------------|----------------------------|----------------------------------------------------------------|
+| **sync-orchestrator**         | Manages sync operations    | Config validation, dry-runs, state discovery, error handling   |
+| **config-validator**          | Validates YAML configs     | Syntax checking, repo access, transformation validation        |
+| **github-sync-api**           | Optimizes GitHub API       | Rate limit management, Tree API usage, caching strategies      |
 | **directory-sync-specialist** | Directory sync performance | Exclusion patterns, concurrent processing, memory optimization |
 
 ### 🧪 Testing & Quality Assurance (5 agents)
 
-| Agent | Purpose | Key Capabilities |
-|-------|---------|------------------|
-| **test-commander** | Comprehensive testing | Race detection, coverage tracking, test fixing |
-| **benchmark-runner** | Performance benchmarking | Baseline comparison, regression detection, profiling |
-| **fuzz-test-guardian** | Security testing | Corpus generation, crash analysis, edge case discovery |
-| **integration-test-manager** | Integration testing | Phased testing, network scenarios, API validation |
-| **go-quality-enforcer** | Code quality | 60+ linters, gofumpt formatting, convention enforcement |
+| Agent                        | Purpose                  | Key Capabilities                                        |
+|------------------------------|--------------------------|---------------------------------------------------------|
+| **test-commander**           | Comprehensive testing    | Race detection, coverage tracking, test fixing          |
+| **benchmark-runner**         | Performance benchmarking | Baseline comparison, regression detection, profiling    |
+| **fuzz-test-guardian**       | Security testing         | Corpus generation, crash analysis, edge case discovery  |
+| **integration-test-manager** | Integration testing      | Phased testing, network scenarios, API validation       |
+| **go-quality-enforcer**      | Code quality             | 60+ linters, gofumpt formatting, convention enforcement |
 
 ### 🔄 Dependency & Upgrade Management (3 agents)
 
-| Agent | Purpose | Key Capabilities |
-|-------|---------|------------------|
-| **dependabot-coordinator** | Dependabot PR review | Auto-merge decisions, breaking change detection, grouping |
-| **dependency-upgrader** | Proactive updates | Go version updates, tool upgrades, indirect dependencies |
-| **breaking-change-detector** | Compatibility analysis | API changes, migration plans, semantic versioning |
+| Agent                        | Purpose                | Key Capabilities                                          |
+|------------------------------|------------------------|-----------------------------------------------------------|
+| **dependabot-coordinator**   | Dependabot PR review   | Auto-merge decisions, breaking change detection, grouping |
+| **dependency-upgrader**      | Proactive updates      | Go version updates, tool upgrades, indirect dependencies  |
+| **breaking-change-detector** | Compatibility analysis | API changes, migration plans, semantic versioning         |
 
 ### 📊 Performance & Monitoring (2 agents)
 
-| Agent | Purpose | Key Capabilities |
-|-------|---------|------------------|
-| **performance-profiler** | Performance analysis | CPU/memory profiling, pprof generation, optimization |
-| **benchmark-analyst** | Benchmark comparison | Trend analysis, regression alerts, statistical analysis |
+| Agent                    | Purpose              | Key Capabilities                                        |
+|--------------------------|----------------------|---------------------------------------------------------|
+| **performance-profiler** | Performance analysis | CPU/memory profiling, pprof generation, optimization    |
+| **benchmark-analyst**    | Benchmark comparison | Trend analysis, regression alerts, statistical analysis |
 
 ### 🛡️ Security & Compliance (2 agents)
 
-| Agent | Purpose | Key Capabilities |
-|-------|---------|------------------|
-| **security-auditor** | Vulnerability scanning | govulncheck, nancy, gitleaks, OSSAR integration |
-| **compliance-checker** | Standards compliance | OpenSSF Scorecard, branch protection, security policies |
+| Agent                  | Purpose                | Key Capabilities                                        |
+|------------------------|------------------------|---------------------------------------------------------|
+| **security-auditor**   | Vulnerability scanning | govulncheck, nancy, gitleaks, OSSAR integration         |
+| **compliance-checker** | Standards compliance   | OpenSSF Scorecard, branch protection, security policies |
 
 ### 🤖 GitHub Automation (3 agents)
 
-| Agent | Purpose | Key Capabilities |
-|-------|---------|------------------|
-| **workflow-optimizer** | CI/CD optimization | Action updates, matrix strategies, performance tuning |
-| **pr-automation-manager** | PR management | Labeling, auto-merge, assignments, welcome messages |
-| **issue-triage-bot** | Issue management | Stale detection, categorization, duplicate handling |
+| Agent                     | Purpose            | Key Capabilities                                      |
+|---------------------------|--------------------|-------------------------------------------------------|
+| **workflow-optimizer**    | CI/CD optimization | Action updates, matrix strategies, performance tuning |
+| **pr-automation-manager** | PR management      | Labeling, auto-merge, assignments, welcome messages   |
+| **issue-triage-bot**      | Issue management   | Stale detection, categorization, duplicate handling   |
 
 ### 🔍 Diagnostics & Troubleshooting (2 agents)
 
-| Agent | Purpose | Key Capabilities |
-|-------|---------|------------------|
+| Agent                     | Purpose          | Key Capabilities                                         |
+|---------------------------|------------------|----------------------------------------------------------|
 | **diagnostic-specialist** | Failure analysis | Log collection, error diagnosis, troubleshooting reports |
-| **debugging-expert** | Deep debugging | Race conditions, memory leaks, goroutine analysis |
+| **debugging-expert**      | Deep debugging   | Race conditions, memory leaks, goroutine analysis        |
 
 ### 📚 Documentation & Release (3 agents)
 
-| Agent | Purpose | Key Capabilities |
-|-------|---------|------------------|
-| **documentation-maintainer** | Doc synchronization | README updates, example validation, godoc maintenance |
-| **changelog-generator** | Changelog creation | Conventional commits, categorization, breaking changes |
-| **release-manager** | Release coordination | Version bumping, tagging, goreleaser execution |
+| Agent                        | Purpose              | Key Capabilities                                       |
+|------------------------------|----------------------|--------------------------------------------------------|
+| **documentation-maintainer** | Doc synchronization  | README updates, example validation, godoc maintenance  |
+| **changelog-generator**      | Changelog creation   | Conventional commits, categorization, breaking changes |
+| **release-manager**          | Release coordination | Version bumping, tagging, goreleaser execution         |
 
 ### 🔨 Code Refactoring & Maintenance (3 agents)
 
-| Agent | Purpose | Key Capabilities |
-|-------|---------|------------------|
-| **code-deduplicator** | Duplicate detection | Pattern analysis, extraction, refactoring |
-| **refactoring-specialist** | Code improvement | Interface design, error handling, Go patterns |
-| **tech-debt-tracker** | Debt management | Prioritization, GitHub issues, improvement roadmaps |
+| Agent                      | Purpose             | Key Capabilities                                    |
+|----------------------------|---------------------|-----------------------------------------------------|
+| **code-deduplicator**      | Duplicate detection | Pattern analysis, extraction, refactoring           |
+| **refactoring-specialist** | Code improvement    | Interface design, error handling, Go patterns       |
+| **tech-debt-tracker**      | Debt management     | Prioritization, GitHub issues, improvement roadmaps |
 
 <br/>
 
@@ -323,14 +323,14 @@ diagnostic-specialist → debugging-expert → refactoring-specialist
 
 ### Event-Driven Triggers
 
-| Event | Triggered Agents |
-|-------|------------------|
-| **Code Push** | test-commander, benchmark-runner |
-| **PR Opened** | pr-automation-manager, go-quality-enforcer |
-| **Dependabot PR** | dependabot-coordinator, breaking-change-detector |
-| **Weekly Schedule** | tech-debt-tracker, security-auditor, workflow-optimizer |
-| **Test Failure** | diagnostic-specialist, test-commander |
-| **Performance Drop** | performance-profiler, benchmark-analyst |
+| Event                | Triggered Agents                                        |
+|----------------------|---------------------------------------------------------|
+| **Code Push**        | test-commander, benchmark-runner                        |
+| **PR Opened**        | pr-automation-manager, go-quality-enforcer              |
+| **Dependabot PR**    | dependabot-coordinator, breaking-change-detector        |
+| **Weekly Schedule**  | tech-debt-tracker, security-auditor, workflow-optimizer |
+| **Test Failure**     | diagnostic-specialist, test-commander                   |
+| **Performance Drop** | performance-profiler, benchmark-analyst                 |
 
 <br/>
 
@@ -402,22 +402,22 @@ diagnostic-specialist → debugging-expert → refactoring-specialist
 
 ### Agent Response Times
 
-| Agent Category | Target Response | Actual Average |
-|----------------|-----------------|----------------|
-| Core Operations | <2s | 1.5s |
-| Testing & QA | <30s | 25s |
-| Security Scans | <60s | 45s |
-| Performance Analysis | <45s | 38s |
-| Documentation | <10s | 8s |
+| Agent Category       | Target Response | Actual Average |
+|----------------------|-----------------|----------------|
+| Core Operations      | <2s             | 1.5s           |
+| Testing & QA         | <30s            | 25s            |
+| Security Scans       | <60s            | 45s            |
+| Performance Analysis | <45s            | 38s            |
+| Documentation        | <10s            | 8s             |
 
 ### Success Rates
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| Agent Task Completion | >95% | 97.2% |
-| Accurate Problem Detection | >90% | 93.5% |
-| Automated Fix Success | >85% | 88.1% |
-| False Positive Rate | <5% | 3.2% |
+| Metric                     | Target | Current |
+|----------------------------|--------|---------|
+| Agent Task Completion      | >95%   | 97.2%   |
+| Accurate Problem Detection | >90%   | 93.5%   |
+| Automated Fix Success      | >85%   | 88.1%   |
+| False Positive Rate        | <5%    | 3.2%    |
 
 ### Resource Efficiency
 
@@ -548,12 +548,12 @@ diagnostic-specialist → debugging-expert → refactoring-specialist
 
 ### Monthly Metrics
 
-| Metric | Month 1 | Month 2 | Month 3 | Trend |
-|--------|---------|---------|---------|-------|
-| Tasks Automated | 156 | 203 | 248 | ↗️ +26% |
-| Time Saved (hours) | 42 | 58 | 71 | ↗️ +22% |
-| Issues Prevented | 23 | 31 | 38 | ↗️ +23% |
-| PRs Auto-Managed | 67 | 89 | 112 | ↗️ +26% |
+| Metric             | Month 1 | Month 2 | Month 3 | Trend   |
+|--------------------|---------|---------|---------|---------|
+| Tasks Automated    | 156     | 203     | 248     | ↗️ +26% |
+| Time Saved (hours) | 42      | 58      | 71      | ↗️ +22% |
+| Issues Prevented   | 23      | 31      | 38      | ↗️ +23% |
+| PRs Auto-Managed   | 67      | 89      | 112     | ↗️ +26% |
 
 ### ROI Calculation
 

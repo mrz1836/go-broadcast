@@ -129,8 +129,8 @@ groups:
           - src: ".github/workflows/ci.yml"
             dest: ".github/workflows/ci.yml"
         directories:
-          - src: ".github/coverage"
-            dest: ".github/coverage"
+          - src: ".github/actions"
+            dest: ".github/actions"
             exclude: ["*.out", "*.test"]
         transform:
           repo_name: true
@@ -323,8 +323,8 @@ files:
   - src: .github/workflows/ci.yml
     dest: .github/workflows/ci.yml
 directories:
-  - src: .github/coverage
-    dest: .github/coverage
+  - src: .github/actions
+    dest: .github/actions
     excluded: ["*.out", "*.test"]
     files_synced: 87
     processing_time_ms: 4
@@ -388,8 +388,8 @@ groups:
           - src: ".github/workflows"
             dest: ".github/workflows"
             exclude: ["*-local.yml", "*.disabled"]
-          - src: ".github/coverage"
-            dest: ".github/coverage"
+          - src: ".github/actions"
+            dest: ".github/actions"
             # Smart defaults automatically exclude: *.out, *.test, *.exe, **/.DS_Store
         transform:
           repo_name: true
@@ -511,9 +511,9 @@ files:
 directories:
   - src: ".github/workflows"           # Basic directory sync
     dest: ".github/workflows"
-  - src: ".github/coverage"            # Directory with exclusions
-    dest: ".github/coverage"
-    exclude: ["*.out", "*.test", "gofortress-coverage"]
+  - src: ".github/actions"            # Directory with exclusions
+    dest: ".github/actions"
+    exclude: ["*.out", "*.test", "go-coverage"]
   - src: "docs"                        # Advanced directory options
     dest: "documentation"
     exclude: ["*.tmp", "**/draft/*"]
@@ -560,9 +560,9 @@ groups:
           - src: ".github/workflows/ci.yml"
             dest: ".github/workflows/ci.yml"
         directories:
-          - src: ".github/coverage"
-            dest: ".github/coverage"
-            exclude: ["*.out", "gofortress-coverage"]
+          - src: ".github/actions"
+            dest: ".github/actions"
+            exclude: ["*.out", "go-coverage"]
         transform:
           repo_name: true
           variables:

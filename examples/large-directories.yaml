@@ -38,13 +38,13 @@ groups:
               repo_name: true
             # Progress reporting automatically enabled for >50 files
 
-          # Sync coverage system separately for better granular control
-          - src: ".github/coverage"
-            dest: ".github/coverage"
+          # Sync actions separately for better granular control
+          - src: ".github/actions"
+            dest: ".github/actions"
             exclude:
               - "*.out" # Test coverage files
               - "*.test" # Go test binaries
-              - "gofortress-coverage" # Main binary (large file)
+              - "go-coverage" # Main binary (large file)
               - "**/testdata/**" # Test fixture data
             # Expected performance: 87 files in ~4ms
 

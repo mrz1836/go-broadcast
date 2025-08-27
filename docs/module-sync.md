@@ -54,12 +54,12 @@ groups:
 
 ### Module Configuration Options
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | Yes | Module type (currently only "go" supported) |
-| `version` | string | Yes | Version constraint or keyword |
-| `check_tags` | boolean | No | Use git tags for version discovery (default: true) |
-| `update_refs` | boolean | No | Update go.mod references (default: false) |
+| Field         | Type    | Required | Description                                        |
+|---------------|---------|----------|----------------------------------------------------|
+| `type`        | string  | Yes      | Module type (currently only "go" supported)        |
+| `version`     | string  | Yes      | Version constraint or keyword                      |
+| `check_tags`  | boolean | No       | Use git tags for version discovery (default: true) |
+| `update_refs` | boolean | No       | Update go.mod references (default: false)          |
 
 ## Version Specifications
 

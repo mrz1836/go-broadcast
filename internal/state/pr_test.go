@@ -39,9 +39,9 @@ files:
   - src: .github/workflows/ci.yml
     dest: .github/workflows/ci.yml
 directories:
-  - src: .github/coverage
-    dest: .github/coverage
-    excluded: ["*.out", "*.test", "gofortress-coverage"]
+  - src: .github/actions
+    dest: .github/actions
+    excluded: ["*.out", "*.test", "go-coverage"]
     files_synced: 61
     files_excluded: 26
     processing_time_ms: 1523
@@ -71,9 +71,9 @@ performance:
 				},
 				Directories: []DirectoryMapping{
 					{
-						Source:         ".github/coverage",
-						Destination:    ".github/coverage",
-						Excluded:       []string{"*.out", "*.test", "gofortress-coverage"},
+						Source:         ".github/actions",
+						Destination:    ".github/actions",
+						Excluded:       []string{"*.out", "*.test", "go-coverage"},
 						FilesSynced:    61,
 						FilesExcluded:  26,
 						ProcessingTime: 1523,
@@ -261,8 +261,8 @@ func TestFormatEnhancedPRMetadata(t *testing.T) {
 		},
 		Directories: []DirectoryMapping{
 			{
-				Source:         ".github/coverage",
-				Destination:    ".github/coverage",
+				Source:         ".github/actions",
+				Destination:    ".github/actions",
 				Excluded:       []string{"*.out", "*.test"},
 				FilesSynced:    61,
 				FilesExcluded:  26,
@@ -293,7 +293,7 @@ func TestFormatEnhancedPRMetadata(t *testing.T) {
 	assert.Contains(t, result, "target_repo: company/service")
 	assert.Contains(t, result, "sync_commit: def456")
 	assert.Contains(t, result, ".github/workflows/ci.yml")
-	assert.Contains(t, result, ".github/coverage")
+	assert.Contains(t, result, ".github/actions")
 	assert.Contains(t, result, "files_synced: 61")
 	assert.Contains(t, result, "total_files: 87")
 	assert.Contains(t, result, "api_calls_saved: 72")
@@ -321,8 +321,8 @@ func TestGenerateEnhancedPRDescription(t *testing.T) {
 		},
 		Directories: []DirectoryMapping{
 			{
-				Source:         ".github/coverage",
-				Destination:    ".github/coverage",
+				Source:         ".github/actions",
+				Destination:    ".github/actions",
 				Excluded:       []string{"*.out", "*.test"},
 				FilesSynced:    61,
 				FilesExcluded:  26,
@@ -360,7 +360,7 @@ func TestGenerateEnhancedPRDescription(t *testing.T) {
 
 	// Check directory mappings (should show since we have 1 directory, which is <= 5)
 	assert.Contains(t, result, "## Directories Synchronized")
-	assert.Contains(t, result, "* `.github/coverage` → `.github/coverage` (61 files, 26 excluded)")
+	assert.Contains(t, result, "* `.github/actions` → `.github/actions` (61 files, 26 excluded)")
 	assert.Contains(t, result, "  - Excluded: *.out, *.test")
 
 	// Check metadata block is included

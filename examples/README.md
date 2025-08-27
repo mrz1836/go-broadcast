@@ -232,11 +232,11 @@ directories:
 #### Directory Sync with Custom Exclusions
 ```yaml
 directories:
-  - src: ".github/coverage"
-    dest: ".github/coverage"
+  - src: ".github/actions"
+    dest: ".github/actions"
     exclude:
       - "*.out"                    # Coverage output files
-      - "gofortress-coverage"      # Binary executable
+      - "go-coverage"              # Binary executable
       - "**/testdata/**"           # Test fixtures
     transform:
       repo_name: true
@@ -278,9 +278,9 @@ directories:
   # Segment large directories for better performance
   - src: ".github/workflows"       # 24 files - ~1.5ms
     dest: ".github/workflows"
-  - src: ".github/coverage"        # 87 files - ~4ms
-    dest: ".github/coverage"
-    exclude: ["*.out", "*.test", "gofortress-coverage"]
+  - src: ".github/actions"        # 87 files - ~4ms
+    dest: ".github/actions"
+    exclude: ["*.out", "*.test", "go-coverage"]
   # Expected total: ~5.5ms for 111 files with 90%+ API call reduction
 ```
 

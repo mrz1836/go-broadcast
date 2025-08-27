@@ -82,12 +82,10 @@ directory_lists:
 
   - id: "github-tools"
     name: "GitHub Tooling"
-    description: "Coverage and pre-commit tools"
+    description: "GH Actions"
     directories:
-      - src: ".github/coverage"
-        dest: ".github/coverage"
-      - src: ".github/pre-commit"
-        dest: ".github/pre-commit"
+      - src: ".github/actions"
+        dest: ".github/actions"
 
 # Define sync groups that reference the lists
 groups:

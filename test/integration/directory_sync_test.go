@@ -1328,7 +1328,7 @@ updates:
 	mockState.AssertExpectations(suite.T())
 }
 
-// TestDirectorySync_CoverageModule tests syncing .github/coverage with binaries excluded
+// TestDirectorySync_CoverageModule tests syncing .github/actions with binaries excluded
 func (suite *DirectorySyncTestSuite) TestDirectorySync_CoverageModule() {
 	cfg := &config.Config{
 		Version: 1,
@@ -1342,8 +1342,8 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_CoverageModule() {
 					Repo: "org/coverage-service",
 					Directories: []config.DirectoryMapping{
 						{
-							Src:  ".github/coverage",
-							Dest: ".github/coverage",
+							Src:  ".github/actions",
+							Dest: ".github/actions",
 							Exclude: []string{
 								"*.exe",
 								"*.bin",
@@ -1374,24 +1374,24 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_CoverageModule() {
 
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
-	// Create .github/coverage structure with binaries and scripts using git mock
+	// Create .github/actions structure with binaries and scripts using git mock
 	testFiles := map[string]string{
 		// Scripts and configs that should be included
-		".github/coverage/coverage.sh":           "#!/bin/bash\necho 'Running {{COVERAGE_TOOL}} with {{MIN_COVERAGE}}% threshold'",
-		".github/coverage/config.yaml":           "tool: {{COVERAGE_TOOL}}\nthreshold: {{MIN_COVERAGE}}%",
-		".github/coverage/generate.go":           "package main\n\n// Coverage report generator",
-		".github/coverage/templates/report.html": "<html><body>Coverage: {{MIN_COVERAGE}}%</body></html>",
+		".github/actions/coverage.sh":           "#!/bin/bash\necho 'Running {{COVERAGE_TOOL}} with {{MIN_COVERAGE}}% threshold'",
+		".github/actions/config.yaml":           "tool: {{COVERAGE_TOOL}}\nthreshold: {{MIN_COVERAGE}}%",
+		".github/actions/generate.go":           "package main\n\n// Coverage report generator",
+		".github/actions/templates/report.html": "<html><body>Coverage: {{MIN_COVERAGE}}%</body></html>",
 
 		// Binary files that should be excluded
-		".github/coverage/coverage-tool.exe":  "fake binary content",
-		".github/coverage/libcoverage.so":     "fake shared library",
-		".github/coverage/coverage.bin":       "fake binary",
-		".github/coverage/reporter.dll":       "fake dll",
-		".github/coverage/coverage-mac.dylib": "fake dylib",
+		".github/actions/coverage-tool.exe":  "fake binary content",
+		".github/actions/libcoverage.so":     "fake shared library",
+		".github/actions/coverage.bin":       "fake binary",
+		".github/actions/reporter.dll":       "fake dll",
+		".github/actions/coverage-mac.dylib": "fake dylib",
 
 		// Node modules that should be excluded
-		".github/coverage/node_modules/package/index.js": "node module",
-		".github/coverage/dist/bundle.js":                "bundled js",
+		".github/actions/node_modules/package/index.js": "node module",
+		".github/actions/dist/bundle.js":                "bundled js",
 	}
 	suite.setupGitMockWithFiles(mockGit, testFiles)
 

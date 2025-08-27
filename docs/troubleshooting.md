@@ -4,14 +4,14 @@ This guide helps resolve common issues when using go-broadcast. It combines syst
 
 ## Quick Reference
 
-| Issue Type | Quick Check | Common Fix |
-|------------|-------------|------------|
-| Authentication | `gh auth status` | `gh auth login` |
-| Configuration | `go-broadcast validate` | Fix YAML syntax |
-| API Rate Limits | `gh api rate_limit` | Wait or reduce concurrency |
-| Git Operations | `ssh -T git@github.com` | Check SSH keys |
-| Performance | `go-broadcast sync --json` | Enable debug logging |
-| File Sync | `go-broadcast sync --dry-run` | Check file mappings |
+| Issue Type      | Quick Check                   | Common Fix                 |
+|-----------------|-------------------------------|----------------------------|
+| Authentication  | `gh auth status`              | `gh auth login`            |
+| Configuration   | `go-broadcast validate`       | Fix YAML syntax            |
+| API Rate Limits | `gh api rate_limit`           | Wait or reduce concurrency |
+| Git Operations  | `ssh -T git@github.com`       | Check SSH keys             |
+| Performance     | `go-broadcast sync --json`    | Enable debug logging       |
+| File Sync       | `go-broadcast sync --dry-run` | Check file mappings        |
 
 ## Table of Contents
 
@@ -24,7 +24,7 @@ This guide helps resolve common issues when using go-broadcast. It combines syst
 - [File Synchronization](#file-synchronization)
 - [Directory Synchronization](#directory-synchronization)
 - [Performance Issues](#performance-issues)
-- [Operational Procedures](#operational-procedures)
+- [Getting Help](#getting-help)
 - [Debugging](#debugging)
 - [Related Documentation](#related-documentation)
 

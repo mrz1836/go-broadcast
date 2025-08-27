@@ -15,12 +15,12 @@ This document provides practical examples of go-broadcast PR bodies with metadat
 ## Directory Synchronization Details
 The following directories were synchronized:
 
-### `.github/coverage` → `.github/coverage`
+### `.github/actions` → `.github/actions`
 * **Files synced**: 61
 * **Files excluded**: 26
 * **Processing time**: 1523ms
 * **Binary files skipped**: 3 (1.50 KB)
-* **Exclusion patterns**: `*.out`, `*.test`, `gofortress-coverage`
+* **Exclusion patterns**: `*.out`, `*.test`, `go-coverage`
 
 ## Performance Metrics
 * **Total sync time**: 2.5s
@@ -56,9 +56,9 @@ sync_metadata:
   sync_commit: def456abc123
   sync_time: 2025-08-01T19:05:00-04:00
 directories:
-  - src: .github/coverage
-    dest: .github/coverage
-    excluded: ["*.out", "*.test", "gofortress-coverage"]
+  - src: .github/actions
+    dest: .github/actions
+    excluded: ["*.out", "*.test", "go-coverage"]
     files_synced: 61
     files_excluded: 26
     processing_time_ms: 1523

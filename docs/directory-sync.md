@@ -69,11 +69,11 @@ groups:
     targets:
       - repo: "company/service"
         directories:
-          - src: ".github/coverage"
-            dest: ".github/coverage"
+          - src: ".github/actions"
+            dest: ".github/actions"
             exclude:
               - "*.out"                    # Coverage output files
-              - "gofortress-coverage"      # Binary executable
+              - "go-coverage"              # Binary executable
               - "**/testdata/**"           # Test fixtures
             transform:
               repo_name: true
@@ -366,7 +366,7 @@ Based on production usage with actual repositories:
 
 ```yaml
 # .github/workflows (24 files) - ~1.5ms
-# .github/coverage (87 files) - ~4ms
+# .github/actions (87 files) - ~4ms
 # Full .github (149 files with exclusions) - ~7ms
 # Documentation (1000+ files) - ~32ms
 ```
@@ -428,9 +428,9 @@ groups:
         dest: ".github/workflows"
         exclude: ["*-local.yml", "*.disabled"]
 
-      - src: ".github/coverage"        # 87 files - ~4ms
-        dest: ".github/coverage"
-        exclude: ["*.out", "*.test", "gofortress-coverage"]
+      - src: ".github/actions"        # 87 files - ~4ms
+        dest: ".github/actions"
+        exclude: ["*.out", "*.test", "go-coverage"]
 
       - src: ".github/ISSUE_TEMPLATE"  # Template files
         dest: ".github/ISSUE_TEMPLATE"

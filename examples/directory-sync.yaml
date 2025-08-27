@@ -27,11 +27,11 @@ groups:
       # Directory sync with custom exclusions
       - repo: "company/service-b"
         directories:
-          - src: ".github/coverage"
-            dest: ".github/coverage"
+          - src: ".github/actions"
+            dest: ".github/actions"
             exclude:
               - "*.out"
-              - "gofortress-coverage"
+              - "go-coverage"
               - "**/testdata/*"
             transform:
               repo_name: true

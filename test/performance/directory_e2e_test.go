@@ -364,7 +364,7 @@ func (suite *DirectoryE2EPerformanceSuite) TestDirectoryE2EPerformanceTargets() 
 			FixturePath:     "github",
 			FileCount:       2, // Actual count from github fixture
 			DirDepth:        2,
-			MaxDuration:     1500 * time.Millisecond, // ~1.5s target for .github/coverage
+			MaxDuration:     1500 * time.Millisecond, // ~1.5s target for .github/actions
 			MaxMemoryMB:     25,
 			MaxGoroutines:   30,
 			MinCacheHitRate: 0.0,

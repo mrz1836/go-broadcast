@@ -8,7 +8,7 @@
 - [Quick Start](#-quick-start)
 - [Command Categories](#-command-categories)
   - [Testing & Quality](#-testing--quality)
-  - [Security & Compliance](#️-security--compliance)
+  - [Security & Compliance](#-security--compliance)
   - [Dependency Management](#-dependency-management)
   - [Debugging & Diagnostics](#-debugging--diagnostics)
   - [Documentation & Release](#-documentation--release)
@@ -21,7 +21,7 @@
 
 ## 🌟 Overview
 
-The go-broadcast slash command system provides 20 powerful commands that coordinate multiple AI agents to automate complex development workflows. Each command is designed to save significant time by handling multi-step processes automatically.
+The go-broadcast slash command system provides 20 powerful commands that coordinate multiple AI agents to automate complex development workflows. Each command is designed to save significant time by handling multistep processes automatically.
 
 ### Key Features
 
@@ -51,65 +51,65 @@ The go-broadcast slash command system provides 20 powerful commands that coordin
 
 ### 🧪 Testing & Quality
 
-| Command | Description | Agents Used |
-|---------|-------------|-------------|
-| `/test` | Run comprehensive tests with automatic fixes | test-commander |
-| `/fuzz` | Security-focused fuzz testing | fuzz-test-guardian |
-| `/quality` | Enforce code quality with 60+ linters | go-quality-enforcer, test-commander |
-| `/bench` | Run performance benchmarks | benchmark-runner, benchmark-analyst |
+| Command    | Description                                  | Agents Used                         |
+|------------|----------------------------------------------|-------------------------------------|
+| `/test`    | Run comprehensive tests with automatic fixes | test-commander                      |
+| `/fuzz`    | Security-focused fuzz testing                | fuzz-test-guardian                  |
+| `/quality` | Enforce code quality with 60+ linters        | go-quality-enforcer, test-commander |
+| `/bench`   | Run performance benchmarks                   | benchmark-runner, benchmark-analyst |
 
 ### 🛡️ Security & Compliance
 
-| Command | Description | Agents Used |
-|---------|-------------|-------------|
-| `/security` | Comprehensive security audit | security-auditor, compliance-checker, dependabot-coordinator |
-| `/audit` | Quick vulnerability scan for CI/CD | security-auditor |
+| Command     | Description                        | Agents Used                                                  |
+|-------------|------------------------------------|--------------------------------------------------------------|
+| `/security` | Comprehensive security audit       | security-auditor, compliance-checker, dependabot-coordinator |
+| `/audit`    | Quick vulnerability scan for CI/CD | security-auditor                                             |
 
 ### 📦 Dependency Management
 
-| Command | Description | Agents Used |
-|---------|-------------|-------------|
-| `/deps` | Review and update all dependencies | dependabot-coordinator, dependency-upgrader, breaking-change-detector |
-| `/breaking` | Analyze updates for breaking changes | breaking-change-detector |
+| Command     | Description                          | Agents Used                                                           |
+|-------------|--------------------------------------|-----------------------------------------------------------------------|
+| `/deps`     | Review and update all dependencies   | dependabot-coordinator, dependency-upgrader, breaking-change-detector |
+| `/breaking` | Analyze updates for breaking changes | breaking-change-detector                                              |
 
 ### 🐛 Debugging & Diagnostics
 
-| Command | Description | Agents Used |
-|---------|-------------|-------------|
-| `/debug` | Deep debug analysis for issues | diagnostic-specialist, debugging-expert |
-| `/diagnose` | Collect diagnostic information | diagnostic-specialist |
-| `/profile` | Performance profiling and optimization | performance-profiler, benchmark-analyst |
+| Command     | Description                            | Agents Used                             |
+|-------------|----------------------------------------|-----------------------------------------|
+| `/debug`    | Deep debug analysis for issues         | diagnostic-specialist, debugging-expert |
+| `/diagnose` | Collect diagnostic information         | diagnostic-specialist                   |
+| `/profile`  | Performance profiling and optimization | performance-profiler, benchmark-analyst |
 
 ### 📚 Documentation & Release
 
-| Command | Description | Agents Used |
-|---------|-------------|-------------|
-| `/docs` | Update documentation for changes | documentation-maintainer |
-| `/changelog` | Generate changelog from commits | changelog-generator |
-| `/release` | Complete release workflow | test-commander, security-auditor, changelog-generator, release-manager, documentation-maintainer |
+| Command      | Description                      | Agents Used                                                                                      |
+|--------------|----------------------------------|--------------------------------------------------------------------------------------------------|
+| `/docs`      | Update documentation for changes | documentation-maintainer                                                                         |
+| `/changelog` | Generate changelog from commits  | changelog-generator                                                                              |
+| `/release`   | Complete release workflow        | test-commander, security-auditor, changelog-generator, release-manager, documentation-maintainer |
 
 ### 🔧 Code Improvement
 
-| Command | Description | Agents Used |
-|---------|-------------|-------------|
-| `/dedupe` | Find and remove duplicate code | code-deduplicator, refactoring-specialist |
-| `/refactor` | Refactor code for better structure | refactoring-specialist |
-| `/debt` | Technical debt analysis and tracking | tech-debt-tracker |
+| Command     | Description                          | Agents Used                               |
+|-------------|--------------------------------------|-------------------------------------------|
+| `/dedupe`   | Find and remove duplicate code       | code-deduplicator, refactoring-specialist |
+| `/refactor` | Refactor code for better structure   | refactoring-specialist                    |
+| `/debt`     | Technical debt analysis and tracking | tech-debt-tracker                         |
 
 ### 🔄 Sync & Operations
 
-| Command | Description | Agents Used |
-|---------|-------------|-------------|
-| `/sync` | Validate and optimize sync operations | sync-orchestrator, config-validator |
-| `/workflow` | Fix and optimize GitHub Actions | workflow-optimizer |
+| Command     | Description                           | Agents Used                         |
+|-------------|---------------------------------------|-------------------------------------|
+| `/sync`     | Validate and optimize sync operations | sync-orchestrator, config-validator |
+| `/workflow` | Fix and optimize GitHub Actions       | workflow-optimizer                  |
 
 ### 🤖 Automation
 
-| Command | Description | Agents Used |
-|---------|-------------|-------------|
-| `/pr-fix` | Fix all issues in current PR | pr-automation-manager, test-commander, go-quality-enforcer |
-| `/integrate` | Run phased integration tests | integration-test-manager |
-| `/triage` | Manage and organize GitHub issues | issue-triage-bot |
+| Command      | Description                       | Agents Used                                                |
+|--------------|-----------------------------------|------------------------------------------------------------|
+| `/pr-fix`    | Fix all issues in current PR      | pr-automation-manager, test-commander, go-quality-enforcer |
+| `/integrate` | Run phased integration tests      | integration-test-manager                                   |
+| `/triage`    | Manage and organize GitHub issues | issue-triage-bot                                           |
 
 ## 💡 Usage Examples
 
@@ -301,13 +301,13 @@ Commands understand context:
 
 ## 📈 Command Performance
 
-| Command | Typical Duration | Agents | Parallel |
-|---------|-----------------|---------|----------|
-| `/test` | 30-60s | 2 | ✅ |
-| `/security` | 45-90s | 3 | ✅ |
-| `/release` | 2-5min | 5 | ❌ |
-| `/pr-fix` | 60-120s | 3 | ✅ |
-| `/deps` | 30-60s | 3 | ✅ |
+| Command     | Typical Duration | Agents | Parallel |
+|-------------|------------------|--------|----------|
+| `/test`     | 30-60s           | 2      | ✅        |
+| `/security` | 45-90s           | 3      | ✅        |
+| `/release`  | 2-5min           | 5      | ❌        |
+| `/pr-fix`   | 60-120s          | 3      | ✅        |
+| `/deps`     | 30-60s           | 3      | ✅        |
 
 ## 🔗 Related Documentation
 
