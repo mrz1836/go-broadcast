@@ -126,6 +126,19 @@ runs:
         echo "✅ Cache warmed for Go ${{ inputs.go-version }}"
 
     # ────────────────────────────────────────────────────────────────────────────
+    # Ensure cache directories exist before saving
+    # ────────────────────────────────────────────────────────────────────────────
+    - name: 📁 Ensure cache directories exist
+      if: steps.setup-go.outputs.build-cache-hit != 'true' || steps.setup-go.outputs.module-cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "📁 Ensuring cache directories exist..."
+        mkdir -p "$GOCACHE"
+        mkdir -p "$GOCACHE/test"
+        mkdir -p "$GOMODCACHE"
+        echo "✅ Cache directories created successfully"
+
+    # ────────────────────────────────────────────────────────────────────────────
     # Save the build cache we just created
     # ────────────────────────────────────────────────────────────────────────────
     - name: 💾 Save Go build cache
@@ -133,9 +146,8 @@ runs:
       uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.0.2
       with:
         path: |
-          ~/.cache/go-build
-          ~/.cache/go-build/test
-        # This is the first key, which does NOT have test cache, this will be used as a fail-over
+          ${{ env.GOCACHE }}
+          ${{ env.GOCACHE }}/test
         key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum') }}
 
     # ────────────────────────────────────────────────────────────────────────────
@@ -145,7 +157,7 @@ runs:
       if: steps.setup-go.outputs.module-cache-hit != 'true'
       uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.0.2
       with:
-        path: ~/go/pkg/mod
+        path: ${{ env.GOMODCACHE }}
         key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles('**/go.sum') }}
 
     # ————————————————————————————————————————————————————————————————
