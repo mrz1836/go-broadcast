@@ -125,6 +125,44 @@ jobs:
           echo "test-start=$(date +%s)" >> $GITHUB_OUTPUT
 
       # ————————————————————————————————————————————————————————————————
+      # Detect test output mode
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔍 Detect test output mode
+        id: detect-mode
+        run: |
+          # Count tests to determine appropriate output mode
+          TEST_COUNT=$(find . -name '*_test.go' \
+            -not -path './vendor/*' \
+            -not -path './third_party/*' \
+            -not -path './testdata/*' \
+            -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l)
+
+          OUTPUT_MODE="${TEST_OUTPUT_MODE:-SMART}"
+          THRESHOLD="${TEST_OUTPUT_SMART_THRESHOLD:-500}"
+
+          echo "📊 Found $TEST_COUNT tests"
+          echo "🎛️ Configured mode: $OUTPUT_MODE"
+          echo "🎯 Smart threshold: $THRESHOLD tests"
+
+          if [[ "$OUTPUT_MODE" == "SMART" ]]; then
+            if [[ $TEST_COUNT -gt $THRESHOLD ]]; then
+              DETECTED_MODE="FAILURES_ONLY"
+              echo "🎯 Using FAILURES_ONLY mode for $TEST_COUNT tests"
+            else
+              DETECTED_MODE="FULL"
+              echo "📝 Using FULL mode for $TEST_COUNT tests"
+            fi
+          else
+            DETECTED_MODE="$OUTPUT_MODE"
+            echo "🔧 Using configured mode: $DETECTED_MODE"
+          fi
+
+          echo "detected-mode=$DETECTED_MODE" >> $GITHUB_OUTPUT
+          echo "test-count=$TEST_COUNT" >> $GITHUB_OUTPUT
+          echo "DETECTED_OUTPUT_MODE=$DETECTED_MODE" >> $GITHUB_ENV
+          echo "TEST_COUNT=$TEST_COUNT" >> $GITHUB_ENV
+
+      # ————————————————————————————————————————————————————————————————
       # Run tests and coverage
       # ————————————————————————————————————————————————————————————————
       - name: 🧪 Run tests
@@ -134,34 +172,120 @@ jobs:
           # Safely assign values to shell vars
           RACE="${{ inputs.race-detection-enabled }}"
           COVER="${{ inputs.code-coverage-enabled }}"
+          MODE="${{ steps.detect-mode.outputs.detected-mode }}"
 
           echo "🔍 Race Detection Enabled: $RACE"
           echo "🔍 Code Coverage Enabled: $COVER"
+          echo "🎛️ Output Mode: $MODE"
 
           # Initialize test exit code
           TEST_EXIT_CODE=0
 
+          # Determine the magex command to run
           if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
+            MAGEX_CMD="magex test:coverrace"
             echo "🏁 Running tests with race detection and coverage analysis..."
-            magex test:coverrace 2>&1 | tee test-output.log
-            TEST_EXIT_CODE=${PIPESTATUS[0]}
           elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
+            MAGEX_CMD="magex test:cover"
             echo "🏁 Running tests with coverage analysis..."
-            magex test:cover 2>&1 | tee test-output.log
-            TEST_EXIT_CODE=${PIPESTATUS[0]}
           elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
+            MAGEX_CMD="magex test:race"
             echo "🏁 Running tests with race detection..."
-            magex test:race 2>&1 | tee test-output.log
-            TEST_EXIT_CODE=${PIPESTATUS[0]}
           else
+            MAGEX_CMD="magex test"
             echo "🏁 Running tests without coverage or race detection..."
-            magex test 2>&1 | tee test-output.log
-            TEST_EXIT_CODE=${PIPESTATUS[0]}
           fi
 
-          # Store the exit code for later steps
+          # Execute based on detected mode
+          if [[ "$MODE" == "FULL" ]]; then
+            echo "📝 Using FULL output mode - showing all test output"
+            $MAGEX_CMD 2>&1 | tee test-output.log
+            TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+            # Extract failures for summary (even in full mode)
+            if [[ $TEST_EXIT_CODE -ne 0 ]]; then
+              grep -E "^FAIL|--- FAIL" test-output.log > test-failures.txt 2>/dev/null || true
+            fi
+
+          else
+            echo "🎯 Using FAILURES_ONLY mode - capturing failures and essential output"
+
+            # Determine if magex supports -json flag or if we need to use go test directly
+            if $MAGEX_CMD -help 2>&1 | grep -q '\-json' 2>/dev/null; then
+              echo "📝 Using magex with -json support"
+              JSON_CMD="$MAGEX_CMD -json"
+            else
+              echo "📝 Using fallback to go test -json (magex doesn't support -json)"
+              # Fallback to basic go test with appropriate flags
+              if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
+                JSON_CMD="go test -json -race -coverprofile=coverage.txt -covermode=atomic ./..."
+              elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
+                JSON_CMD="go test -json -coverprofile=coverage.txt -covermode=atomic ./..."
+              elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
+                JSON_CMD="go test -json -race ./..."
+              else
+                JSON_CMD="go test -json ./..."
+              fi
+            fi
+
+            # Run with JSON output and process streams
+            $JSON_CMD 2>&1 | tee >(
+              # Save last 2000 lines for context, but convert JSON to readable format
+              while IFS= read -r line; do
+                if echo "$line" | jq -e '.Action == "output"' >/dev/null 2>&1; then
+                  echo "$line" | jq -r '.Output // ""' 2>/dev/null || echo "$line"
+                else
+                  echo "$line"
+                fi
+              done | tail -n 2000 > test-output-tail.log
+            ) >(
+              # Convert JSON to regular output for immediate visibility
+              while IFS= read -r line; do
+                if echo "$line" | jq -e '.Action == "output" and .Test == null' >/dev/null 2>&1; then
+                  echo "$line" | jq -r '.Output // ""' 2>/dev/null || echo "$line"
+                elif echo "$line" | jq -e '.Action == "pass" or .Action == "fail"' >/dev/null 2>&1; then
+                  PKG=$(echo "$line" | jq -r '.Package // ""' 2>/dev/null)
+                  TEST=$(echo "$line" | jq -r '.Test // ""' 2>/dev/null)
+                  ACTION=$(echo "$line" | jq -r '.Action // ""' 2>/dev/null)
+                  if [[ -n "$TEST" && -n "$ACTION" ]]; then
+                    if [[ "$ACTION" == "pass" ]]; then
+                      echo "    --- PASS: $TEST"
+                    else
+                      echo "    --- FAIL: $TEST"
+                    fi
+                  fi
+                fi
+              done | tee test-output-filtered.log
+            ) | (
+              # Extract failure events in real-time
+              jq -c --unbuffered 'select(.Action == "fail" or
+                     (.Action == "output" and .Test != null and
+                      (.Output | test("FAIL|Error:|panic:|fatal"))))' |
+              head -n ${TEST_FAILURE_MAX_COUNT:-1000} > test-failures.jsonl 2>/dev/null
+            )
+
+            TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+            # Convert JSON failures to readable format if any exist
+            if [[ -f test-failures.jsonl ]] && [[ -s test-failures.jsonl ]]; then
+              echo "🔍 Processing captured failures..."
+              jq -s 'group_by(.Package) |
+                     map({
+                       package: .[0].Package,
+                       failures: map(select(.Action == "fail") | {test: .Test, elapsed: .Elapsed}),
+                       outputs: map(select(.Output) | .Output) | join("")
+                     }) | map(select(.failures | length > 0))' \
+                     test-failures.jsonl > test-failures-summary.json 2>/dev/null || true
+
+              # Also create a simple text summary for backward compatibility
+              jq -r '.[] | .failures[] | "\(.test)"' test-failures-summary.json 2>/dev/null > test-failures.txt || true
+            fi
+          fi
+
+          # Store the exit code and mode for later steps
           echo "TEST_EXIT_CODE=$TEST_EXIT_CODE" >> $GITHUB_ENV
           echo "test-exit-code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "output-mode=$MODE" >> $GITHUB_OUTPUT
 
           if [[ $TEST_EXIT_CODE -eq 0 ]]; then
             echo "✅ Tests completed successfully"
@@ -186,70 +310,192 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
-      # Test failure analysis and reporting
+      # Enhanced test failure analysis and reporting
       # ————————————————————————————————————————————————————————————————
       - name: 🚨 Create Test Failure Summary
         if: failure()
         run: |
+          OUTPUT_MODE="${{ steps.run-tests.outputs.output-mode }}"
+          TEST_COUNT="${{ steps.detect-mode.outputs.test-count }}"
+
           echo "## 🚨 Test Failures - ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **OS**: ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Go Version**: ${{ matrix.go-version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Race Detection**: ${{ inputs.race-detection-enabled }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Coverage Enabled**: ${{ inputs.code-coverage-enabled }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total Tests**: $TEST_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- **Output Mode**: $OUTPUT_MODE" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ -f test-output.log ]; then
-            FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" test-output.log || echo "0")
-            PANIC_COUNT=$(grep -c "panic:" test-output.log || echo "0")
-            echo "- **Failed Tests**: $FAIL_COUNT" >> $GITHUB_STEP_SUMMARY
-            echo "- **Panics**: $PANIC_COUNT" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+          # Choose appropriate analysis based on output mode
+          if [[ "$OUTPUT_MODE" == "FULL" ]]; then
+            # Traditional analysis for FULL mode
+            OUTPUT_FILE="test-output.log"
+            if [ -f "$OUTPUT_FILE" ]; then
+              FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" "$OUTPUT_FILE" 2>/dev/null || echo "0")
+              PANIC_COUNT=$(grep -c "panic:" "$OUTPUT_FILE" 2>/dev/null || echo "0")
+              PASS_COUNT=$(grep -c "^PASS\|--- PASS" "$OUTPUT_FILE" 2>/dev/null || echo "0")
 
-            if [ "$FAIL_COUNT" -gt 0 ]; then
-              echo "### 🔍 Failed Test Summary (First 10)" >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-              grep -E "^FAIL\|--- FAIL" test-output.log | head -10 >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "- **Passed Tests**: $PASS_COUNT" >> $GITHUB_STEP_SUMMARY
+              echo "- **Failed Tests**: $FAIL_COUNT" >> $GITHUB_STEP_SUMMARY
+              echo "- **Panics**: $PANIC_COUNT" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
+
+              if [[ "$FAIL_COUNT" -gt 0 ]] && [[ -f test-failures.txt ]]; then
+                echo "### 🔍 Failed Tests" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                head -${TEST_FAILURE_DETAIL_COUNT:-20} test-failures.txt >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+              fi
+
+              if [[ "$PANIC_COUNT" -gt 0 ]]; then
+                echo "### 🚨 Panic Summary" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                grep -A 2 -B 1 "panic:" "$OUTPUT_FILE" | head -20 >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "⚠️ Test output log not found" >> $GITHUB_STEP_SUMMARY
             fi
 
-            if [ "$PANIC_COUNT" -gt 0 ]; then
-              echo "### 🚨 Panic Summary" >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-              grep -A 2 -B 1 "panic:" test-output.log | head -20 >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            fi
           else
-            echo "⚠️ Test output log not found" >> $GITHUB_STEP_SUMMARY
+            # Enhanced analysis for FAILURES_ONLY mode
+            if [[ -f test-failures-summary.json ]] && [[ -s test-failures-summary.json ]]; then
+              # Extract detailed failure information
+              TOTAL_FAILURES=$(jq '[.[] | .failures | length] | add // 0' test-failures-summary.json 2>/dev/null || echo "0")
+              AFFECTED_PACKAGES=$(jq 'length' test-failures-summary.json 2>/dev/null || echo "0")
+
+              echo "- **Failed Tests**: $TOTAL_FAILURES" >> $GITHUB_STEP_SUMMARY
+              echo "- **Affected Packages**: $AFFECTED_PACKAGES" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              # Show package-level summary
+              if [[ "$AFFECTED_PACKAGES" -gt 0 ]]; then
+                echo "### 📦 Package-Level Failure Summary" >> $GITHUB_STEP_SUMMARY
+                jq -r '.[] | "- **\(.package | split("/") | .[-1] // .[-2] // .)**: \(.failures | length) failure(s)"' \
+                  test-failures-summary.json >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+                echo "" >> $GITHUB_STEP_SUMMARY
+
+                # Show detailed failed tests (limited)
+                echo "### 🔍 Failed Tests Details" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                jq -r '.[] | .failures[] | "\(.test) (package: \(.package | split("/") | .[-1] // .[-2] // .), duration: \(.elapsed // "unknown")s)"' \
+                  test-failures-summary.json 2>/dev/null | head -${TEST_FAILURE_DETAIL_COUNT:-50} >> $GITHUB_STEP_SUMMARY || true
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+
+                # Show error outputs if available
+                ERROR_OUTPUTS=$(jq -r '.[] | select(.outputs != "") | .outputs' test-failures-summary.json 2>/dev/null | head -c 2000)
+                if [[ -n "$ERROR_OUTPUTS" ]]; then
+                  echo "### 📝 Error Details (First 2000 characters)" >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                  echo "$ERROR_OUTPUTS" >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+
+            elif [[ -f test-failures.txt ]] && [[ -s test-failures.txt ]]; then
+              # Fallback to simple text analysis
+              FAIL_COUNT=$(wc -l < test-failures.txt 2>/dev/null || echo "0")
+              echo "- **Failed Tests**: $FAIL_COUNT" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              if [[ "$FAIL_COUNT" -gt 0 ]]; then
+                echo "### 🔍 Failed Tests" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                head -${TEST_FAILURE_DETAIL_COUNT:-20} test-failures.txt >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              fi
+
+            else
+              echo "⚠️ No failure details available - check artifacts for complete logs" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Check for panics in tail log if available
+            if [[ -f test-output-tail.log ]]; then
+              PANIC_COUNT=$(grep -c "panic:" test-output-tail.log 2>/dev/null || echo "0")
+              if [[ "$PANIC_COUNT" -gt 0 ]]; then
+                echo "### 🚨 Recent Panics ($PANIC_COUNT found)" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                grep -A 2 -B 1 "panic:" test-output-tail.log | head -10 >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
           fi
 
       - name: 📋 Annotate Key Test Failures
         if: failure()
         run: |
-          if [ -f test-output.log ]; then
-            echo "::group::📋 Test Failure Analysis"
+          OUTPUT_MODE="${{ steps.run-tests.outputs.output-mode }}"
+          TEST_COUNT="${{ steps.detect-mode.outputs.test-count }}"
+          ANNOTATION_LIMIT="${TEST_FAILURE_ANNOTATION_COUNT:-10}"
 
-            # Count and report overall statistics
-            FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" test-output.log || echo "0")
-            PANIC_COUNT=$(grep -c "panic:" test-output.log || echo "0")
+          echo "::group::📋 Test Failure Analysis ($OUTPUT_MODE mode)"
 
-            echo "::error title=Test Suite Failed::$FAIL_COUNT tests failed, $PANIC_COUNT panics detected on ${{ matrix.os }} Go ${{ matrix.go-version }}"
+          if [[ "$OUTPUT_MODE" == "FULL" ]] && [[ -f test-output.log ]]; then
+            # Traditional annotation approach for FULL mode
+            FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" test-output.log 2>/dev/null || echo "0")
+            PANIC_COUNT=$(grep -c "panic:" test-output.log 2>/dev/null || echo "0")
 
-            # Annotate first 5 failed tests
-            grep -E "^FAIL\|--- FAIL" test-output.log | head -5 | while IFS= read -r line; do
-              echo "::error title=Failed Test::$line"
-            done
+            echo "::error title=Test Suite Failed::$FAIL_COUNT tests failed, $PANIC_COUNT panics detected on ${{ matrix.os }} Go ${{ matrix.go-version }} ($TEST_COUNT total tests)"
+
+            # Annotate top failed tests
+            if [[ "$FAIL_COUNT" -gt 0 ]]; then
+              grep -E "^FAIL\|--- FAIL" test-output.log | head -$ANNOTATION_LIMIT | while IFS= read -r line; do
+                echo "::error title=Failed Test::$line"
+              done
+            fi
 
             # Annotate panics
-            if [ "$PANIC_COUNT" -gt 0 ]; then
+            if [[ "$PANIC_COUNT" -gt 0 ]]; then
               grep -B 1 "panic:" test-output.log | head -3 | while IFS= read -r line; do
                 echo "::error title=Test Panic::$line"
               done
             fi
 
-            echo "::endgroup::"
+          else
+            # Enhanced annotation for FAILURES_ONLY mode
+            if [[ -f test-failures-summary.json ]] && [[ -s test-failures-summary.json ]]; then
+              TOTAL_FAILURES=$(jq '[.[] | .failures | length] | add // 0' test-failures-summary.json 2>/dev/null || echo "0")
+              AFFECTED_PACKAGES=$(jq 'length' test-failures-summary.json 2>/dev/null || echo "0")
+
+              echo "::error title=Test Suite Failed::$TOTAL_FAILURES tests failed across $AFFECTED_PACKAGES packages on ${{ matrix.os }} Go ${{ matrix.go-version }} ($TEST_COUNT total tests)"
+
+              # Annotate specific failed tests with package context
+              jq -r '.[] | .failures[] | "\(.test) in \(.package | split("/") | .[-1] // .[-2] // .)"' \
+                test-failures-summary.json 2>/dev/null | head -$ANNOTATION_LIMIT | while IFS= read -r line; do
+                echo "::error title=Failed Test::$line"
+              done
+
+            elif [[ -f test-failures.txt ]] && [[ -s test-failures.txt ]]; then
+              # Fallback annotation
+              FAIL_COUNT=$(wc -l < test-failures.txt 2>/dev/null || echo "0")
+              echo "::error title=Test Suite Failed::$FAIL_COUNT tests failed on ${{ matrix.os }} Go ${{ matrix.go-version }} ($TEST_COUNT total tests)"
+
+              head -$ANNOTATION_LIMIT test-failures.txt | while IFS= read -r line; do
+                echo "::error title=Failed Test::$line"
+              done
+
+            else
+              echo "::error title=Test Suite Failed::Tests failed on ${{ matrix.os }} Go ${{ matrix.go-version }} ($TEST_COUNT total tests) - check artifacts for details"
+            fi
+
+            # Check for panics in tail log
+            if [[ -f test-output-tail.log ]]; then
+              PANIC_COUNT=$(grep -c "panic:" test-output-tail.log 2>/dev/null || echo "0")
+              if [[ "$PANIC_COUNT" -gt 0 ]]; then
+                grep -B 1 "panic:" test-output-tail.log | head -3 | while IFS= read -r line; do
+                  echo "::error title=Test Panic::$line"
+                done
+              fi
+            fi
           fi
+
+          echo "::endgroup::"
 
       # ————————————————————————————————————————————————————————————————
       # All test results are always captured
@@ -260,26 +506,24 @@ jobs:
         run: |
           # Get the test exit code from the test step output
           TEST_EXIT_CODE="${{ steps.run-tests.outputs.test-exit-code }}"
+          OUTPUT_MODE="${{ steps.run-tests.outputs.output-mode }}"
+          DETECTED_TEST_COUNT="${{ steps.detect-mode.outputs.test-count }}"
           TEST_END=$(date +%s)
           TEST_DURATION=$((TEST_END - ${{ steps.test-timer.outputs.test-start }}))
-          TEST_COUNT=0
-          EXAMPLE_COUNT=0
-          BENCHMARK_COUNT=0
 
-          # Count tests if possible
+          # Recount for verification (should match detected count)
           TEST_COUNT=$(find . -type f -name '*_test.go' \
             -not -path './vendor/*' \
             -not -path './third_party/*' \
             -not -path './testdata/*' \
             -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l)
 
-          # Count examples if possible
+          # Count examples and benchmarks
           EXAMPLE_COUNT=$(find . -type f -name '*_test.go' \
             -not -path './vendor/*' \
             -not -path './third_party/*' \
             -exec grep -h '^func Example' {} + | wc -l)
 
-          # Count benchmarks if possible
           BENCHMARK_COUNT=$(find . -type f -name '*_test.go' \
             -not -path './vendor/*' \
             -not -path './third_party/*' \
@@ -293,20 +537,66 @@ jobs:
             sed -E 's/\x1b\[[0-9;]*[a-zA-Z]//g' | \
             iconv -c -f utf-8 -t ascii//IGNORE)
 
-          # Extract test files count
+          # Extract LOC metrics
           TEST_FILES_COUNT=$(echo "$LOC_OUTPUT_RAW" | grep "Test Files" | grep -oE '[0-9]+' | head -1)
-          # Extract go files count
           GO_FILES_COUNT=$(echo "$LOC_OUTPUT_RAW" | grep "Go Files" | grep -oE '[0-9]+' | head -1)
-          # Extract total count
           TOTAL_COUNT=$(echo "$LOC_OUTPUT_RAW" | grep "Total lines of code:" | grep -oE '[0-9]+')
-          # Get current date
           CURRENT_DATE=$(date +"%Y-%m-%d")
 
+          # Analyze failure details based on output mode
+          FAILURE_DETAILS="null"
+          TOTAL_FAILURES=0
+          AFFECTED_PACKAGES=0
+
+          if [[ "$OUTPUT_MODE" == "FULL" ]] && [[ -f test-output.log ]]; then
+            # Analyze traditional output
+            if [[ "${TEST_EXIT_CODE:-0}" -ne 0 ]]; then
+              TOTAL_FAILURES=$(grep -c "^FAIL\|--- FAIL" test-output.log 2>/dev/null || echo "0")
+              if [[ -f test-failures.txt ]] && [[ -s test-failures.txt ]]; then
+                # Create failure details from text file
+                FAILURE_LIST=$(head -${TEST_FAILURE_DETAIL_COUNT:-20} test-failures.txt | \
+                  sed 's/"/\\"/g' | \
+                  awk '{print "    {\"test\": \"" $0 "\", \"package\": \"unknown\", \"duration\": null}"}' | \
+                  paste -sd ',' -)
+                FAILURE_DETAILS="[$FAILURE_LIST]"
+              fi
+            fi
+
+          elif [[ "$OUTPUT_MODE" == "FAILURES_ONLY" ]] && [[ -f test-failures-summary.json ]]; then
+            # Use enhanced failure analysis
+            TOTAL_FAILURES=$(jq '[.[] | .failures | length] | add // 0' test-failures-summary.json 2>/dev/null || echo "0")
+            AFFECTED_PACKAGES=$(jq 'length' test-failures-summary.json 2>/dev/null || echo "0")
+
+            # Extract first N failure details for stats
+            FAILURE_DETAILS=$(jq --argjson limit "${TEST_FAILURE_DETAIL_COUNT:-20}" \
+              '[.[] as $pkg | $pkg.failures[] | {
+                test: .test,
+                package: $pkg.package,
+                duration: .elapsed,
+                error_snippet: ($pkg.outputs | split("\n")[0] | .[0:200])
+              }] | .[0:$limit]' test-failures-summary.json 2>/dev/null || echo "null")
+
+          elif [[ "${TEST_EXIT_CODE:-0}" -ne 0 ]] && [[ -f test-failures.txt ]]; then
+            # Fallback analysis
+            TOTAL_FAILURES=$(wc -l < test-failures.txt 2>/dev/null || echo "0")
+          fi
+
+          # Calculate output metrics
+          OUTPUT_SIZE=0
+          if [[ -f test-output.log ]]; then
+            OUTPUT_SIZE=$(wc -c < test-output.log 2>/dev/null || echo "0")
+          elif [[ -f test-output-tail.log ]]; then
+            OUTPUT_SIZE=$(wc -c < test-output-tail.log 2>/dev/null || echo "0")
+          fi
+
+          # Build enhanced statistics JSON
           cat > "$STATS_FILE" << EOF
           {
             "name": "${{ matrix.name }}",
             "os": "${{ matrix.os }}",
             "go_version": "${{ matrix.go-version }}",
+            "test_mode": "$OUTPUT_MODE",
+            "output_mode_used": "$OUTPUT_MODE",
             "duration_seconds": $TEST_DURATION,
             "test_count": $TEST_COUNT,
             "example_count": $EXAMPLE_COUNT,
@@ -314,6 +604,10 @@ jobs:
             "status": "${{ job.status }}",
             "test_exit_code": ${TEST_EXIT_CODE:-0},
             "test_passed": $([ "${TEST_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false"),
+            "total_failures": $TOTAL_FAILURES,
+            "affected_packages": $AFFECTED_PACKAGES,
+            "failure_details": $FAILURE_DETAILS,
+            "output_size_bytes": $OUTPUT_SIZE,
             "race_enabled": ${{ inputs.race-detection-enabled }},
             "coverage_enabled": ${{ inputs.code-coverage-enabled }},
             "fuzz_run": false,
@@ -325,11 +619,28 @@ jobs:
           }
           EOF
 
-          echo "📊 Test statistics:"
+          echo "📊 Test statistics ($OUTPUT_MODE mode):"
           jq . "$STATS_FILE"
 
       # ————————————————————————————————————————————————————————————————
-      # Upload test statistics
+      # Upload test artifacts
+      # ————————————————————————————————————————————————————————————————
+      - name: 📤 Upload test outputs and statistics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.go-version }}
+          path: |
+            test-stats-*.json
+            test-failures*.json
+            test-failures*.jsonl
+            test-failures.txt
+            test-output*.log
+          retention-days: ${{ env.TEST_OUTPUT_ARTIFACT_RETENTION_DAYS || 7 }}
+          compression-level: ${{ env.TEST_OUTPUT_COMPRESS_ARTIFACTS == 'true' && '9' || '0' }}
+
+      # ————————————————————————————————————————————————————————————————
+      # Upload test statistics (backward compatibility)
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload test statistics
         if: always()
@@ -631,12 +942,14 @@ jobs:
           merge-multiple: true
 
       # ————————————————————————————————————————————————————————————————
-      # Validate test results from statistics
+      # Enhanced test results validation with failure details
       # ————————————————————————————————————————————————————————————————
       - name: 🔍 Validate test results
         run: |
-          echo "🔍 Validating test results from statistics..."
+          echo "🔍 Validating test results from enhanced statistics..."
           VALIDATION_FAILED=false
+          TOTAL_FAILURES=0
+          TOTAL_TESTS=0
 
           # Check regular test results
           if compgen -G "test-results/test-stats-*.json" >/dev/null 2>&1; then
@@ -646,21 +959,40 @@ jobs:
             for stats_file in test-results/test-stats-*.json; do
               echo "📊 Checking $stats_file..."
 
-              # Extract test results
+              # Extract enhanced test results
               TEST_PASSED=$(jq -r '.test_passed // empty' "$stats_file")
               TEST_EXIT_CODE=$(jq -r '.test_exit_code // empty' "$stats_file")
               TEST_NAME=$(jq -r '.name // empty' "$stats_file")
+              TEST_MODE=$(jq -r '.test_mode // "unknown"' "$stats_file")
+              SUITE_FAILURES=$(jq -r '.total_failures // 0' "$stats_file")
+              AFFECTED_PACKAGES=$(jq -r '.affected_packages // 0' "$stats_file")
+              TEST_COUNT=$(jq -r '.test_count // 0' "$stats_file")
 
-              echo "  • Test: $TEST_NAME"
+              echo "  • Test Suite: $TEST_NAME"
+              echo "  • Mode: $TEST_MODE"
+              echo "  • Tests: $TEST_COUNT"
               echo "  • Exit Code: $TEST_EXIT_CODE"
               echo "  • Passed: $TEST_PASSED"
 
               if [[ "$TEST_PASSED" == "false" ]] || [[ "$TEST_EXIT_CODE" != "0" ]]; then
-                echo "❌ Test suite '$TEST_NAME' failed with exit code $TEST_EXIT_CODE"
+                echo "  • Failed Tests: $SUITE_FAILURES"
+                echo "  • Affected Packages: $AFFECTED_PACKAGES"
+
+                # Show specific failure details if available
+                FAILURE_DETAILS=$(jq -r '.failure_details // null' "$stats_file")
+                if [[ "$FAILURE_DETAILS" != "null" ]] && [[ "$FAILURE_DETAILS" != "[]" ]]; then
+                  echo "  • Failed Test Names:"
+                  echo "$FAILURE_DETAILS" | jq -r '.[] | "    - \(.test) (\(.package | split("/") | .[-1] // .[-2] // .))"' 2>/dev/null | head -5 || true
+                fi
+
+                echo "❌ Test suite '$TEST_NAME' failed with exit code $TEST_EXIT_CODE ($SUITE_FAILURES failures)"
                 VALIDATION_FAILED=true
+                TOTAL_FAILURES=$((TOTAL_FAILURES + SUITE_FAILURES))
               else
                 echo "✅ Test suite '$TEST_NAME' passed"
               fi
+
+              TOTAL_TESTS=$((TOTAL_TESTS + TEST_COUNT))
             done
           else
             echo "⚠️ No regular test statistics found"
@@ -696,13 +1028,18 @@ jobs:
             fi
           fi
 
-          # Final validation result
+          # Enhanced validation summary
+          echo ""
+          echo "🏁 Validation Summary:"
+          echo "  • Total Tests: $TOTAL_TESTS"
+          echo "  • Total Failures: $TOTAL_FAILURES"
+
           if [[ "$VALIDATION_FAILED" == "true" ]]; then
-            echo "❌ Test validation failed - one or more test suites had failures"
-            echo "::error title=Test Validation Failed::One or more test suites failed. Check test statistics above for details."
+            echo "❌ Test validation failed - $TOTAL_FAILURES test(s) failed across all suites"
+            echo "::error title=Test Validation Failed::$TOTAL_FAILURES test(s) failed across all test suites. Check enhanced failure details above."
             exit 1
           else
-            echo "✅ All test suites passed validation"
+            echo "✅ All $TOTAL_TESTS tests passed validation"
           fi
 
   # ----------------------------------------------------------------------------------

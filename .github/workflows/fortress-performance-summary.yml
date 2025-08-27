@@ -261,8 +261,14 @@ jobs:
               echo ""
               echo ""
               echo "### 🧪 Test Execution Performance"
-              echo "| Test Suite | Duration | Tests | Examples | Status | Race | Coverage |"
-              echo "|------------|----------|-------|----------|--------|------|----------|"
+              echo "| Test Suite | Mode | Duration | Tests | Failed | Packages | Status | Race | Coverage |"
+              echo "|------------|------|----------|-------|--------|----------|--------|------|----------|"
+
+              # Initialize totals for summary
+              TOTAL_TESTS=0
+              TOTAL_FAILURES=0
+              TOTAL_AFFECTED_PACKAGES=0
+              SUITE_COUNT=0
 
               for stats_file in test-stats-*.json; do
                 if [ -f "$stats_file" ]; then
@@ -274,6 +280,11 @@ jobs:
                   RACE_ENABLED=$(jq -r '.race_enabled' "$stats_file")
                   COVERAGE_ENABLED=$(jq -r '.coverage_enabled' "$stats_file")
 
+                  # New enhanced fields
+                  TEST_MODE=$(jq -r '.test_mode // "unknown"' "$stats_file")
+                  SUITE_FAILURES=$(jq -r '.total_failures // 0' "$stats_file")
+                  AFFECTED_PACKAGES=$(jq -r '.affected_packages // 0' "$stats_file")
+
                   DURATION_MIN=$((DURATION / 60))
                   DURATION_SEC=$((DURATION % 60))
 
@@ -281,9 +292,106 @@ jobs:
                   RACE_ICON=$([[ "$RACE_ENABLED" == "true" ]] && echo "✅" || echo "❌")
                   STATUS_ICON=$([[ "$STATUS" == "success" ]] && echo "✅" || echo "❌")
 
-                  echo "| $NAME | ${DURATION_MIN}m ${DURATION_SEC}s | $TEST_COUNT | $EXAMPLE_COUNT | $STATUS_ICON | $RACE_ICON | $COVERAGE_ICON |"
+                  # Show package count or dash
+                  PACKAGE_DISPLAY=$([[ "$AFFECTED_PACKAGES" -gt 0 ]] && echo "$AFFECTED_PACKAGES" || echo "-")
+
+                  echo "| $NAME | $TEST_MODE | ${DURATION_MIN}m ${DURATION_SEC}s | $TEST_COUNT | $SUITE_FAILURES | $PACKAGE_DISPLAY | $STATUS_ICON | $RACE_ICON | $COVERAGE_ICON |"
+
+                  # Accumulate totals
+                  TOTAL_TESTS=$((TOTAL_TESTS + TEST_COUNT))
+                  TOTAL_FAILURES=$((TOTAL_FAILURES + SUITE_FAILURES))
+                  TOTAL_AFFECTED_PACKAGES=$((TOTAL_AFFECTED_PACKAGES + AFFECTED_PACKAGES))
+                  SUITE_COUNT=$((SUITE_COUNT + 1))
                 fi
               done
+
+              # Add test failure analysis if any failures exist
+              if [[ $TOTAL_FAILURES -gt 0 ]]; then
+                echo ""
+                echo ""
+                echo "### ❌ Test Failure Analysis"
+                echo "**Total Failures**: $TOTAL_FAILURES across $SUITE_COUNT test suite(s)"
+                echo ""
+
+                # Show failure breakdown by suite
+                echo "#### 📊 Failures by Test Suite:"
+                for stats_file in test-stats-*.json; do
+                  if [ -f "$stats_file" ]; then
+                    SUITE_NAME=$(jq -r '.name' "$stats_file")
+                    SUITE_FAILURES=$(jq -r '.total_failures // 0' "$stats_file")
+                    SUITE_PACKAGES=$(jq -r '.affected_packages // 0' "$stats_file")
+
+                    if [[ $SUITE_FAILURES -gt 0 ]]; then
+                      echo "- **$SUITE_NAME**: $SUITE_FAILURES failures across $SUITE_PACKAGES packages"
+                    fi
+                  fi
+                done
+
+                echo ""
+                echo "<details>"
+                echo "<summary>🔍 Top Failed Tests (click to expand)</summary>"
+                echo ""
+                echo "| Test Name | Package | Duration | Suite |"
+                echo "|-----------|---------|----------|-------|"
+
+                # Extract detailed failure information from all suites
+                FAILURE_COUNT=0
+                for stats_file in test-stats-*.json; do
+                  if [ -f "$stats_file" ] && [[ $FAILURE_COUNT -lt 20 ]]; then
+                    SUITE_NAME=$(jq -r '.name' "$stats_file")
+                    FAILURE_DETAILS=$(jq -r '.failure_details // null' "$stats_file")
+
+                    if [[ "$FAILURE_DETAILS" != "null" ]] && [[ "$FAILURE_DETAILS" != "[]" ]]; then
+                      echo "$FAILURE_DETAILS" | jq -r --arg suite "$SUITE_NAME" \
+                        '.[] | "| \(.test) | \(.package | split("/") | .[-1] // .[-2] // .) | \(.duration // "unknown")s | \($suite) |"' 2>/dev/null | \
+                        head -10 || true
+                      FAILURE_COUNT=$((FAILURE_COUNT + 10))
+                    fi
+                  fi
+                done
+
+                echo ""
+                echo "</details>"
+              fi
+
+              # Add test output configuration section
+              echo ""
+              echo ""
+              echo "### 🎛️ Test Output Configuration"
+              echo "| Configuration | Value | Description |"
+              echo "|---------------|-------|-------------|"
+              echo "| **Mode** | ${TEST_OUTPUT_MODE:-SMART} | Test output strategy |"
+              echo "| **Smart Threshold** | ${TEST_OUTPUT_SMART_THRESHOLD:-500} tests | Switch to FAILURES_ONLY above this |"
+              echo "| **Failure Limit** | ${TEST_FAILURE_MAX_COUNT:-100} | Max failures to capture |"
+              echo "| **Detail Count** | ${TEST_FAILURE_DETAIL_COUNT:-50} | Failures shown with details |"
+              echo "| **Annotations** | ${TEST_FAILURE_ANNOTATION_COUNT:-10} | GitHub annotations limit |"
+              echo "| **Artifacts** | $([ "${TEST_OUTPUT_SAVE_ARTIFACTS:-true}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | ${TEST_OUTPUT_ARTIFACT_RETENTION_DAYS:-7} day retention |"
+
+              # Show output strategy summary
+              if [[ $SUITE_COUNT -gt 0 ]]; then
+                FULL_MODE_COUNT=0
+                FAILURES_ONLY_COUNT=0
+
+                for stats_file in test-stats-*.json; do
+                  if [ -f "$stats_file" ]; then
+                    MODE=$(jq -r '.test_mode // "unknown"' "$stats_file")
+                    if [[ "$MODE" == "FULL" ]]; then
+                      FULL_MODE_COUNT=$((FULL_MODE_COUNT + 1))
+                    elif [[ "$MODE" == "FAILURES_ONLY" ]]; then
+                      FAILURES_ONLY_COUNT=$((FAILURES_ONLY_COUNT + 1))
+                    fi
+                  fi
+                done
+
+                echo ""
+                echo "**Output Strategy Summary:**"
+                echo "- $FULL_MODE_COUNT suite(s) used FULL mode (complete output)"
+                echo "- $FAILURES_ONLY_COUNT suite(s) used FAILURES_ONLY mode (efficient extraction)"
+
+                if [[ $FAILURES_ONLY_COUNT -gt 0 ]]; then
+                  echo "- Estimated output size reduction: ~80-90% for large test suites"
+                fi
+              fi
 
               # Process Lines of Code Summary
               DISPLAYED_LOC_SUMMARY=false
@@ -435,15 +543,84 @@ jobs:
 
             echo ""
             echo "### 🚀 Performance Insights"
+
+            # Overall timing insights
             if [[ $TOTAL_DURATION -gt 600 ]]; then
               echo "- ⚠️  **Warning**: Workflow took longer than 10 minutes (${TOTAL_MINUTES}m ${TOTAL_SECONDS}s)"
+            elif [[ $TOTAL_DURATION -gt 300 && $TOTAL_DURATION -le 600 ]]; then
+              echo "- ℹ️  Workflow completed in ${TOTAL_MINUTES}m ${TOTAL_SECONDS}s."
             elif [[ $TOTAL_DURATION -gt 180 && $TOTAL_DURATION -le 300 ]]; then
-              echo "- 🎉  **Great Job**: Workflow completed in under 5 minutes (${TOTAL_MINUTES}m ${TOTAL_SECONDS}s)!"
+              echo "- 🎉  **Great Performance**: Workflow completed in under 5 minutes (${TOTAL_MINUTES}m ${TOTAL_SECONDS}s)!"
             elif [[ $TOTAL_DURATION -le 180 ]]; then
               echo "- 🚀  **Excellent Performance**: Workflow completed in under 3 minutes!"
-            else
-              echo "- ℹ️  Workflow completed in ${TOTAL_MINUTES}m ${TOTAL_SECONDS}s."
             fi
+
+            # Test-specific insights based on collected data
+            if compgen -G "test-stats-*.json" >/dev/null 2>&1; then
+              # Calculate test-specific metrics
+              FULL_MODE_SUITES=0
+              FAILURES_ONLY_SUITES=0
+              ESTIMATED_SAVINGS_MB=0
+
+              for stats_file in test-stats-*.json; do
+                if [ -f "$stats_file" ]; then
+                  MODE=$(jq -r '.test_mode // "unknown"' "$stats_file")
+                  TEST_COUNT=$(jq -r '.test_count // 0' "$stats_file")
+                  OUTPUT_SIZE=$(jq -r '.output_size_bytes // 0' "$stats_file")
+
+                  if [[ "$MODE" == "FULL" ]]; then
+                    FULL_MODE_SUITES=$((FULL_MODE_SUITES + 1))
+                  elif [[ "$MODE" == "FAILURES_ONLY" ]]; then
+                    FAILURES_ONLY_SUITES=$((FAILURES_ONLY_SUITES + 1))
+                    # Estimate savings (assume FULL mode would be 5-10x larger)
+                    ESTIMATED_FULL_SIZE=$((OUTPUT_SIZE * 7))
+                    SAVINGS=$((ESTIMATED_FULL_SIZE - OUTPUT_SIZE))
+                    ESTIMATED_SAVINGS_MB=$((ESTIMATED_SAVINGS_MB + SAVINGS / 1048576))
+                  fi
+                fi
+              done
+
+              echo "- **Test Strategy**: $FULL_MODE_SUITES suite(s) used FULL output, $FAILURES_ONLY_SUITES used efficient FAILURES_ONLY"
+
+              if [[ $TOTAL_FAILURES -gt 0 ]]; then
+                FAILURE_RATE=$(( (TOTAL_FAILURES * 10000) / TOTAL_TESTS ))  # Calculate percentage * 100 for precision
+                FAILURE_RATE_DISPLAY=$(( FAILURE_RATE / 100 )).$(( FAILURE_RATE % 100 ))
+                echo "- **Failure Rate**: $FAILURE_RATE_DISPLAY% ($TOTAL_FAILURES/$TOTAL_TESTS tests)"
+
+                # Find most affected package
+                MOST_AFFECTED_PACKAGE=""
+                MAX_FAILURES=0
+                for stats_file in test-stats-*.json; do
+                  if [ -f "$stats_file" ]; then
+                    FAILURE_DETAILS=$(jq -r '.failure_details // null' "$stats_file")
+                    if [[ "$FAILURE_DETAILS" != "null" ]] && [[ "$FAILURE_DETAILS" != "[]" ]]; then
+                      # Extract package with most failures
+                      PACKAGE_FAILURES=$(echo "$FAILURE_DETAILS" | jq -r 'group_by(.package) | map({package: .[0].package, count: length}) | max_by(.count)' 2>/dev/null)
+                      if [[ "$PACKAGE_FAILURES" != "null" ]]; then
+                        PKG_NAME=$(echo "$PACKAGE_FAILURES" | jq -r '.package | split("/") | .[-1] // .[-2] // .')
+                        PKG_COUNT=$(echo "$PACKAGE_FAILURES" | jq -r '.count')
+                        if [[ $PKG_COUNT -gt $MAX_FAILURES ]]; then
+                          MAX_FAILURES=$PKG_COUNT
+                          MOST_AFFECTED_PACKAGE="$PKG_NAME"
+                        fi
+                      fi
+                    fi
+                  fi
+                done
+
+                if [[ -n "$MOST_AFFECTED_PACKAGE" ]] && [[ $MAX_FAILURES -gt 0 ]]; then
+                  echo "- **Most Affected Package**: $MOST_AFFECTED_PACKAGE ($MAX_FAILURES failures)"
+                fi
+              else
+                echo "- **Test Success**: All $TOTAL_TESTS tests passed! 🎉"
+              fi
+
+              if [[ $ESTIMATED_SAVINGS_MB -gt 0 ]]; then
+                echo "- **Output Efficiency**: Saved approximately ${ESTIMATED_SAVINGS_MB}MB by using FAILURES_ONLY mode"
+              fi
+            fi
+
+            # Standard insights
             echo "- **Parallel Jobs**: Multiple jobs ran in parallel to optimize execution time"
             echo "- **Matrix Strategy**: Tests ran across $(echo '${{ inputs.test-matrix }}' | jq '.include | length') configurations"
             if [ "${{ env.ENABLE_VERBOSE_TEST_OUTPUT }}" != "true" ]; then
