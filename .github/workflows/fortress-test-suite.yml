@@ -170,9 +170,9 @@ jobs:
         continue-on-error: true
         run: |
           # Safely assign values to shell vars
-          RACE="${{ inputs.race-detection-enabled }}"
-          COVER="${{ inputs.code-coverage-enabled }}"
-          MODE="${{ steps.detect-mode.outputs.detected-mode }}"
+          RACE=${{ inputs.race-detection-enabled }}
+          COVER=${{ inputs.code-coverage-enabled }}
+          MODE=${{ steps.detect-mode.outputs.detected-mode }}
 
           echo "🔍 Race Detection Enabled: $RACE"
           echo "🔍 Code Coverage Enabled: $COVER"
@@ -371,8 +371,8 @@ jobs:
       - name: 🚨 Create Test Failure Summary
         if: failure()
         run: |
-          OUTPUT_MODE="${{ steps.run-tests.outputs.output-mode }}"
-          TEST_COUNT="${{ steps.detect-mode.outputs.test-count }}"
+          OUTPUT_MODE=${{ steps.run-tests.outputs.output-mode }}
+          TEST_COUNT=${{ steps.detect-mode.outputs.test-count }}
 
           echo "## 🚨 Test Failures - ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -486,8 +486,8 @@ jobs:
       - name: 📋 Annotate Key Test Failures
         if: failure()
         run: |
-          OUTPUT_MODE="${{ steps.run-tests.outputs.output-mode }}"
-          TEST_COUNT="${{ steps.detect-mode.outputs.test-count }}"
+          OUTPUT_MODE=${{ steps.run-tests.outputs.output-mode }}
+          TEST_COUNT=${{ steps.detect-mode.outputs.test-count }}
           ANNOTATION_LIMIT="${TEST_FAILURE_ANNOTATION_COUNT:-10}"
 
           echo "::group::📋 Test Failure Analysis ($OUTPUT_MODE mode)"
@@ -561,9 +561,9 @@ jobs:
         if: always()
         run: |
           # Get the test exit code from the test step output
-          TEST_EXIT_CODE="${{ steps.run-tests.outputs.test-exit-code }}"
-          OUTPUT_MODE="${{ steps.run-tests.outputs.output-mode }}"
-          DETECTED_TEST_COUNT="${{ steps.detect-mode.outputs.test-count }}"
+          TEST_EXIT_CODE=${{ steps.run-tests.outputs.test-exit-code }}
+          OUTPUT_MODE=${{ steps.run-tests.outputs.output-mode }}
+          DETECTED_TEST_COUNT=${{ steps.detect-mode.outputs.test-count }}
           TEST_END=$(date +%s)
           TEST_DURATION=$((TEST_END - ${{ steps.test-timer.outputs.test-start }}))
 
@@ -702,11 +702,11 @@ jobs:
             fi
 
             # Use environment variables instead of template syntax
-            MATRIX_NAME="${{ matrix.name }}"
-            MATRIX_OS="${{ matrix.os }}"
-            MATRIX_GO_VERSION="${{ matrix.go-version }}"
-            RACE_ENABLED="${{ inputs.race-detection-enabled }}"
-            COVERAGE_ENABLED="${{ inputs.code-coverage-enabled }}"
+            MATRIX_NAME=${{ matrix.name }}
+            MATRIX_OS=${{ matrix.os }}
+            MATRIX_GO_VERSION=${{ matrix.go-version }}
+            RACE_ENABLED=${{ inputs.race-detection-enabled }}
+            COVERAGE_ENABLED=${{ inputs.code-coverage-enabled }}
             TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
             cat > "$STATS_FILE" << 'FALLBACK_EOF'
@@ -999,7 +999,7 @@ jobs:
         if: always()
         run: |
           # Get the fuzz test exit code from the fuzz test step output
-          FUZZ_EXIT_CODE="${{ steps.run-fuzz-tests.outputs.fuzz-exit-code }}"
+          FUZZ_EXIT_CODE=${{ steps.run-fuzz-tests.outputs.fuzz-exit-code }}
           FUZZ_END=$(date +%s)
           FUZZ_DURATION=$((FUZZ_END - ${{ steps.fuzz-timer.outputs.fuzz-start }}))
           FUZZ_TEST_COUNT=0
