@@ -209,17 +209,17 @@ jobs:
 
           else
             echo "🎯 Using FAILURES_ONLY mode - capturing failures and essential output"
-            echo "📝 Using go test -json (magex doesn't support -json output mode)"
+            echo "📝 Using magex with JSON output support (mage-x 1.3.6+)"
 
-            # Build go test command with appropriate flags
+            # Build magex command with appropriate flags
             if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
-              JSON_CMD="go test -json -race -coverprofile=coverage_0.txt -covermode=atomic ./..."
+              JSON_CMD="magex test:coverrace -json"
             elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
-              JSON_CMD="go test -json -coverprofile=coverage_0.txt -covermode=atomic ./..."
+              JSON_CMD="magex test:cover -json"
             elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
-              JSON_CMD="go test -json -race ./..."
+              JSON_CMD="magex test:race -json"
             else
-              JSON_CMD="go test -json ./..."
+              JSON_CMD="magex test:unit -json"
             fi
 
             echo "🔧 Running: $JSON_CMD"
@@ -315,7 +315,7 @@ jobs:
 
       # ————————————————————————————————————————————————————————————————
       # Fix coverage file naming (normalize to coverage.txt for downstream processing)
-      # Handles both magex (coverage_0.txt) and go test direct (coverage_0.txt) outputs
+      # Handles magex commands (coverage_0.txt output)
       # ————————————————————————————————————————————————————————————————
       - name: 🔄 Normalize coverage file name
         if: inputs.code-coverage-enabled == 'true'
