@@ -38,3 +38,22 @@ func BenchQuick() error {
 	return sh.RunV("go", "test", "-bench=.", "-benchmem",
 		"-benchtime=100ms", "-timeout=20m", "./...")
 }
+
+// TestQuick runs fast unit tests excluding performance tests
+func TestQuick() error {
+	return sh.RunV("go", "test", "-short", "./...")
+}
+
+// TestPerf runs performance regression tests with build tag
+// These tests are excluded from regular runs due to long execution time
+func TestPerf() error {
+	return sh.RunV("go", "test", "-tags=performance", "-timeout=30m", "./test/integration")
+}
+
+// TestAll runs all tests including performance tests
+func TestAll() error {
+	if err := TestQuick(); err != nil {
+		return fmt.Errorf("quick tests failed: %w", err)
+	}
+	return TestPerf()
+}
