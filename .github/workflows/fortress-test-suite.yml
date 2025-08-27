@@ -181,19 +181,23 @@ jobs:
           # Initialize test exit code
           TEST_EXIT_CODE=0
 
-          # Determine the magex command to run
+          # Determine the magex command to run with timeout
           if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
-            MAGEX_CMD="magex test:coverrace"
-            echo "🏁 Running tests with race detection and coverage analysis..."
+            TEST_TIMEOUT="${TEST_TIMEOUT_RACE_COVER:-30m}"
+            MAGEX_CMD="magex test:coverrace -timeout $TEST_TIMEOUT"
+            echo "🏁 Running tests with race detection and coverage analysis (timeout: $TEST_TIMEOUT)..."
           elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
-            MAGEX_CMD="magex test:cover"
-            echo "🏁 Running tests with coverage analysis..."
+            TEST_TIMEOUT="${TEST_TIMEOUT_RACE_COVER:-30m}"
+            MAGEX_CMD="magex test:cover -timeout $TEST_TIMEOUT"
+            echo "🏁 Running tests with coverage analysis (timeout: $TEST_TIMEOUT)..."
           elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
-            MAGEX_CMD="magex test:race"
-            echo "🏁 Running tests with race detection..."
+            TEST_TIMEOUT="${TEST_TIMEOUT:-30m}"
+            MAGEX_CMD="magex test:race -timeout $TEST_TIMEOUT"
+            echo "🏁 Running tests with race detection (timeout: $TEST_TIMEOUT)..."
           else
-            MAGEX_CMD="magex test"
-            echo "🏁 Running tests without coverage or race detection..."
+            TEST_TIMEOUT="${TEST_TIMEOUT_UNIT:-20m}"
+            MAGEX_CMD="magex test -timeout $TEST_TIMEOUT"
+            echo "🏁 Running tests without coverage or race detection (timeout: $TEST_TIMEOUT)..."
           fi
 
           # Execute based on detected mode
@@ -211,18 +215,22 @@ jobs:
             echo "🎯 Using FAILURES_ONLY mode - capturing failures and essential output"
             echo "📝 Using magex with JSON output support (mage-x v1.3.6+)"
 
-            # Build magex command with appropriate flags
+            # Build magex command with appropriate flags and timeout
             if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
-              JSON_CMD="magex test:coverrace -json"
+              TEST_TIMEOUT="${TEST_TIMEOUT_RACE_COVER:-30m}"
+              JSON_CMD="magex test:coverrace -json -timeout $TEST_TIMEOUT"
             elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
-              JSON_CMD="magex test:cover -json"
+              TEST_TIMEOUT="${TEST_TIMEOUT_RACE_COVER:-30m}"
+              JSON_CMD="magex test:cover -json -timeout $TEST_TIMEOUT"
             elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
-              JSON_CMD="magex test:race -json"
+              TEST_TIMEOUT="${TEST_TIMEOUT:-30m}"
+              JSON_CMD="magex test:race -json -timeout $TEST_TIMEOUT"
             else
-              JSON_CMD="magex test:unit -json"
+              TEST_TIMEOUT="${TEST_TIMEOUT_UNIT:-20m}"
+              JSON_CMD="magex test:unit -json -timeout $TEST_TIMEOUT"
             fi
 
-            echo "🔧 Running: $JSON_CMD"
+            echo "🔧 Running: $JSON_CMD (timeout: $TEST_TIMEOUT)"
 
             # Run with JSON output and process streams with better error handling
             set +e  # Don't exit on error to capture exit code properly
@@ -811,8 +819,10 @@ jobs:
         continue-on-error: true
         run: |
           echo "🎯 Running fuzz tests in parallel..."
-          magex test:fuzz time=5s 2>&1 | tee fuzz-output.log
+          FUZZ_TIMEOUT="${TEST_TIMEOUT_FUZZ:-5m}"
+          magex test:fuzz time=5s -timeout $FUZZ_TIMEOUT 2>&1 | tee fuzz-output.log
           FUZZ_EXIT_CODE=${PIPESTATUS[0]}
+          echo "🔧 Fuzz tests completed with timeout: $FUZZ_TIMEOUT"
 
           # Store the exit code for later steps
           echo "FUZZ_EXIT_CODE=$FUZZ_EXIT_CODE" >> $GITHUB_ENV
