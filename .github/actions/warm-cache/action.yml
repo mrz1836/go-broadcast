@@ -107,23 +107,44 @@ runs:
         fi
 
     # ────────────────────────────────────────────────────────────────────────────
-    # Warm the caches only when we had a miss
+    # Ensure cache directories exist
     # ────────────────────────────────────────────────────────────────────────────
-    - name: 🚀 Warm cache (miss only)
+    - name: 📁 Ensure cache directories exist
+      shell: bash
+      run: |
+        echo "📁 Ensuring cache directories exist..."
+        mkdir -p "$GOMODCACHE"
+        mkdir -p "$GOCACHE"
+        mkdir -p "$GOCACHE/test"
+        echo "✅ Cache directories created successfully"
+
+    # ────────────────────────────────────────────────────────────────────────────
+    # Download modules when module cache missed
+    # ────────────────────────────────────────────────────────────────────────────
+    - name: ⬇️ Download modules (module cache miss)
+      if: steps.setup-go.outputs.module-cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "⬇️ Module cache miss - downloading modules..."
+        magex deps:download
+        echo "✅ Modules downloaded successfully"
+
+    # ────────────────────────────────────────────────────────────────────────────
+    # Warm build cache when build cache missed
+    # ────────────────────────────────────────────────────────────────────────────
+    - name: 🏗️ Warm build cache (build cache miss)
       if: steps.setup-go.outputs.build-cache-hit != 'true'
       shell: bash
       run: |
         set -euo pipefail
-        echo "⬇️  Downloading modules..."
-        magex deps:download
-
-        echo "🔧 Pre-building project packages..."
+        echo "🔧 Build cache miss - pre-building packages..."
         magex build:prebuild
 
-        echo "🏗️  Building stdlib for host platform…"
+        echo "🏗️ Building stdlib for host platform…"
         magex install:stdlib
 
-        echo "✅ Cache warmed for Go ${{ inputs.go-version }}"
+        echo "✅ Build cache warmed for Go ${{ inputs.go-version }}"
 
     # ────────────────────────────────────────────────────────────────────────────
     # Save the build cache we just created
