@@ -16,7 +16,7 @@ sync-bk.yaml
 *.dll
 *.so
 *.dylib
-go-broadcast
+/go-broadcast
 bin/test-cleanup
 
 # Test files
