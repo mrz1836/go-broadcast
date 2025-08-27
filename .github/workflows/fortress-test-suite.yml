@@ -246,13 +246,12 @@ jobs:
                 MINUTES=$((ELAPSED / 60))
                 SECONDS=$((ELAPSED % 60))
 
-                # Count processed packages by checking for completed test runs
+                # Count completed tests by checking for individual test passes
                 if [[ -f test-raw-output.log ]]; then
-                  CURRENT_PACKAGES=$(grep -c '"Action":"pass"' test-raw-output.log 2>/dev/null || echo "0")
-                  CURRENT_PACKAGES=$((CURRENT_PACKAGES / 10)) # Rough estimate
-                  if [[ $CURRENT_PACKAGES -gt $PACKAGES_PROCESSED ]]; then
-                    PACKAGES_PROCESSED=$CURRENT_PACKAGES
-                    echo "⏳ Progress update: ${MINUTES}m${SECONDS}s elapsed, ~${PACKAGES_PROCESSED}/${PACKAGE_COUNT} packages tested"
+                  CURRENT_TESTS=$(grep -c '"Action":"pass".*"Test":"Test' test-raw-output.log 2>/dev/null || echo "0")
+                  if [[ $CURRENT_TESTS -gt $PACKAGES_PROCESSED ]]; then
+                    PACKAGES_PROCESSED=$CURRENT_TESTS
+                    echo "⏳ Progress update: ${MINUTES}m${SECONDS}s elapsed, ~${PACKAGES_PROCESSED}/${TEST_COUNT} tests completed"
                   else
                     echo "⏳ Still running: ${MINUTES}m${SECONDS}s elapsed, processing tests..."
                   fi
@@ -609,12 +608,16 @@ jobs:
             if [[ "${TEST_EXIT_CODE:-0}" -ne 0 ]]; then
               TOTAL_FAILURES=$(grep -c "^FAIL\|--- FAIL" test-output.log 2>/dev/null || echo "0")
               if [[ -f test-failures.txt ]] && [[ -s test-failures.txt ]]; then
-                # Create failure details from text file
+                # Create failure details from text file with proper JSON escaping
                 FAILURE_LIST=$(head -${TEST_FAILURE_DETAIL_COUNT:-20} test-failures.txt | \
-                  sed 's/"/\\"/g' | \
+                  sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g' | \
                   awk '{print "    {\"test\": \"" $0 "\", \"package\": \"unknown\", \"duration\": null}"}' | \
-                  paste -sd ',' -)
-                FAILURE_DETAILS="[$FAILURE_LIST]"
+                  paste -sd ',' - 2>/dev/null)
+                if [[ -n "$FAILURE_LIST" ]]; then
+                  FAILURE_DETAILS="[$FAILURE_LIST]"
+                else
+                  FAILURE_DETAILS="null"
+                fi
               fi
             fi
 
@@ -664,8 +667,8 @@ jobs:
             "affected_packages": $AFFECTED_PACKAGES,
             "failure_details": $FAILURE_DETAILS,
             "output_size_bytes": $OUTPUT_SIZE,
-            "race_enabled": ${{ inputs.race-detection-enabled }},
-            "coverage_enabled": ${{ inputs.code-coverage-enabled }},
+            "race_enabled": $([[ "${{ inputs.race-detection-enabled }}" == "true" ]] && echo "true" || echo "false"),
+            "coverage_enabled": $([[ "${{ inputs.code-coverage-enabled }}" == "true" ]] && echo "true" || echo "false"),
             "fuzz_run": false,
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "loc_test_files": ${TEST_FILES_COUNT:-0},
@@ -675,7 +678,40 @@ jobs:
           }
           EOF
 
+          # Validate JSON before parsing to prevent parse errors
           echo "📊 Test statistics ($OUTPUT_MODE mode):"
+          if ! jq empty "$STATS_FILE" 2>/dev/null; then
+            echo "❌ ERROR: Generated JSON is malformed. Attempting to fix..."
+            echo "📋 Raw JSON content:"
+            cat "$STATS_FILE"
+            echo ""
+            echo "📋 JSON validation error:"
+            jq empty "$STATS_FILE" 2>&1 || true
+
+            # Create fallback minimal JSON
+            cat > "$STATS_FILE" << FALLBACK_EOF
+{
+  "name": "${{ matrix.name }}",
+  "os": "${{ matrix.os }}",
+  "go_version": "${{ matrix.go-version }}",
+  "test_mode": "$OUTPUT_MODE",
+  "duration_seconds": $TEST_DURATION,
+  "test_count": $TEST_COUNT,
+  "status": "error",
+  "test_exit_code": ${TEST_EXIT_CODE:-0},
+  "test_passed": $([ "${TEST_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false"),
+  "total_failures": $TOTAL_FAILURES,
+  "affected_packages": $AFFECTED_PACKAGES,
+  "failure_details": null,
+  "race_enabled": $([[ "${{ inputs.race-detection-enabled }}" == "true" ]] && echo "true" || echo "false"),
+  "coverage_enabled": $([[ "${{ inputs.code-coverage-enabled }}" == "true" ]] && echo "true" || echo "false"),
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "json_generation_error": true
+}
+FALLBACK_EOF
+            echo "✅ Created fallback JSON with essential statistics"
+          fi
+
           jq . "$STATS_FILE"
 
       # ————————————————————————————————————————————————————————————————
