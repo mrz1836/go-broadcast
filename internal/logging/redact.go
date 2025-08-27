@@ -54,10 +54,10 @@ import (
 // information including tokens, secrets, passwords, and API keys using
 // both regex pattern matching and field name analysis.
 type RedactionService struct {
-	sensitivePatterns    []*regexp.Regexp
-	sensitiveFields      []string
-	githubTokenPatterns  []*regexp.Regexp
-	sshPattern           *regexp.Regexp
+	sensitivePatterns   []*regexp.Regexp
+	sensitiveFields     []string
+	githubTokenPatterns []*regexp.Regexp
+	sshPattern          *regexp.Regexp
 }
 
 // NewRedactionService creates a new redaction service with comprehensive patterns.
