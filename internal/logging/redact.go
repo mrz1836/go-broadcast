@@ -54,8 +54,10 @@ import (
 // information including tokens, secrets, passwords, and API keys using
 // both regex pattern matching and field name analysis.
 type RedactionService struct {
-	sensitivePatterns []*regexp.Regexp
-	sensitiveFields   []string
+	sensitivePatterns    []*regexp.Regexp
+	sensitiveFields      []string
+	githubTokenPatterns  []*regexp.Regexp
+	sshPattern           *regexp.Regexp
 }
 
 // NewRedactionService creates a new redaction service with comprehensive patterns.
@@ -143,6 +145,13 @@ func NewRedactionService() *RedactionService {
 			"database_url",
 			"db_password",
 		},
+		githubTokenPatterns: []*regexp.Regexp{
+			regexp.MustCompile(`ghp_[a-zA-Z0-9]{4,}`),
+			regexp.MustCompile(`ghs_[a-zA-Z0-9]{4,}`),
+			regexp.MustCompile(`github_pat_[a-zA-Z0-9_]{4,}`),
+			regexp.MustCompile(`ghr_[a-zA-Z0-9]{4,}`),
+		},
+		sshPattern: regexp.MustCompile(`-----BEGIN[A-Z\s]+PRIVATE KEY-----[\s\S]*?-----END[A-Z\s]+PRIVATE KEY-----`),
 	}
 }
 
@@ -166,15 +175,8 @@ func NewRedactionService() *RedactionService {
 // - URL patterns: Parameter values redacted, names preserved
 // - Headers: Value redacted, header name preserved
 func (r *RedactionService) RedactSensitive(text string) string {
-	// GitHub token patterns - preserve full prefix
-	githubTokenPatterns := []*regexp.Regexp{
-		regexp.MustCompile(`ghp_[a-zA-Z0-9]{4,}`),
-		regexp.MustCompile(`ghs_[a-zA-Z0-9]{4,}`),
-		regexp.MustCompile(`github_pat_[a-zA-Z0-9_]{4,}`),
-		regexp.MustCompile(`ghr_[a-zA-Z0-9]{4,}`),
-	}
-
-	for _, pattern := range githubTokenPatterns {
+	// GitHub token patterns - preserve full prefix using pre-compiled patterns
+	for _, pattern := range r.githubTokenPatterns {
 		text = pattern.ReplaceAllStringFunc(text, func(match string) string {
 			if strings.HasPrefix(match, "ghp_") {
 				return "ghp_***REDACTED***"
@@ -192,9 +194,8 @@ func (r *RedactionService) RedactSensitive(text string) string {
 		})
 	}
 
-	// SSH private keys
-	sshPattern := regexp.MustCompile(`-----BEGIN[A-Z\s]+PRIVATE KEY-----[\s\S]*?-----END[A-Z\s]+PRIVATE KEY-----`)
-	text = sshPattern.ReplaceAllString(text, "***REDACTED_SSH_KEY***")
+	// SSH private keys - use pre-compiled pattern
+	text = r.sshPattern.ReplaceAllString(text, "***REDACTED_SSH_KEY***")
 
 	// Authorization headers - preserve header name and Bearer/Token keyword
 	authPattern := regexp.MustCompile(`(Bearer|Token)\s+([^\s'\"]+)`)
