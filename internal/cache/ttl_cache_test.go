@@ -155,7 +155,7 @@ func TestTTLCacheMaxSize(t *testing.T) {
 
 // TestTTLCacheStats tests cache statistics
 func TestTTLCacheStats(t *testing.T) {
-	cache := NewTTLCache(time.Second, 10)
+	cache := NewTTLCache(100*time.Millisecond, 10)
 	defer cache.Close()
 
 	// Initial stats
@@ -177,13 +177,13 @@ func TestTTLCacheStats(t *testing.T) {
 
 	// Get expired key (miss)
 	cache.Set("expired", "value")
-	time.Sleep(2 * time.Second)
+	time.Sleep(200 * time.Millisecond)
 	_, _ = cache.Get("expired")
 
 	hits, misses, size, hitRate = cache.Stats()
 	require.Equal(t, int64(1), hits)
 	require.Equal(t, int64(2), misses)
-	require.Equal(t, 0, size) // all keys have expired after 2 seconds
+	require.Equal(t, 0, size) // all keys have expired after 200ms
 	require.InDelta(t, 0.333, hitRate, 0.001)
 }
 

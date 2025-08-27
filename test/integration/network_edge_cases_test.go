@@ -173,7 +173,7 @@ func testGitHubAPIRateLimiting(t *testing.T, generator *fixtures.TestRepoGenerat
 	mockGH.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), "").
 		Run(func(mock.Arguments) {
 			atomic.AddInt64(&apiCallCount, 1)
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(1 * time.Millisecond)
 		}).Return(&gh.FileContent{Content: []byte("content")}, nil).Maybe()
 
 	// Mock CreatePR with rate limiting - simulate rate limit after a few calls
@@ -327,7 +327,7 @@ func testNetworkInterruptionHandling(t *testing.T, generator *fixtures.TestRepoG
 		Run(func(_ mock.Arguments) {
 			// Simulate network latency if not failing
 			if !networkSim.ShouldFail() {
-				time.Sleep(50 * time.Millisecond)
+				time.Sleep(5 * time.Millisecond)
 			}
 		}).Return(&gh.FileContent{Content: []byte("content")}, nil).Maybe()
 
@@ -345,12 +345,12 @@ func testNetworkInterruptionHandling(t *testing.T, generator *fixtures.TestRepoG
 			// Always create the expected files - network issues affect API calls, not local git content
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
 			// Simulate clone time
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 		}).Return(nil).Maybe()
 
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).
 		Run(func(_ mock.Arguments) {
-			time.Sleep(75 * time.Millisecond)
+			time.Sleep(5 * time.Millisecond)
 		}).
 		Return(nil).Maybe()
 
@@ -387,7 +387,7 @@ func testNetworkInterruptionHandling(t *testing.T, generator *fixtures.TestRepoG
 		results = append(results, err)
 
 		// Brief pause between attempts
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 	}
 
 	// Analyze results
@@ -543,7 +543,7 @@ func testAPITimeoutAndRetry(t *testing.T, generator *fixtures.TestRepoGenerator)
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory from the test scenario
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 		}).Return(nil)
 
 	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
@@ -630,7 +630,7 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 			opMutex.Unlock()
 
 			// Simulate API processing time
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 
 			// Decrement concurrent operations count
 			atomic.AddInt64(&concurrentOps, -1)
@@ -647,7 +647,7 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 			}
 			opMutex.Unlock()
 
-			time.Sleep(150 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 
 			atomic.AddInt64(&concurrentOps, -1)
 		}).Return(&gh.PR{Number: 202}, nil).Maybe()
@@ -657,7 +657,7 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory from the test scenario
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
-			time.Sleep(80 * time.Millisecond)
+			time.Sleep(5 * time.Millisecond)
 		}).Return(nil)
 
 	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
@@ -1209,7 +1209,7 @@ func testGitHubWebhookSimulation(t *testing.T, generator *fixtures.TestRepoGener
 		Run(func(_ mock.Arguments) {
 			atomic.AddInt64(&webhookSimulationCount, 1)
 			// Simulate occasional content changes during sync
-			time.Sleep(25 * time.Millisecond)
+			time.Sleep(2 * time.Millisecond)
 		}).Return(&gh.FileContent{Content: []byte("updated content")}, nil).Maybe()
 
 	// Mock PR operations with state changes
@@ -1275,7 +1275,7 @@ func testGitHubWebhookSimulation(t *testing.T, generator *fixtures.TestRepoGener
 		}(i)
 
 		// Stagger the starts slightly to simulate webhook timing
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	wg.Wait()
