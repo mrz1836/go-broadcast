@@ -248,7 +248,8 @@ jobs:
 
                 # Count completed tests by checking for individual test passes
                 if [[ -f test-raw-output.log ]]; then
-                  CURRENT_TESTS=$(grep -c '"Action":"pass".*"Test":"Test' test-raw-output.log 2>/dev/null || echo "0")
+                  # Count unique test pass completions (not all pass events)
+                  CURRENT_TESTS=$(grep -c '{"Time".*"Action":"pass".*"Test":"Test.*"Package"' test-raw-output.log 2>/dev/null || echo "0")
                   if [[ $CURRENT_TESTS -gt $PACKAGES_PROCESSED ]]; then
                     PACKAGES_PROCESSED=$CURRENT_TESTS
                     echo "⏳ Progress update: ${MINUTES}m${SECONDS}s elapsed, ~${PACKAGES_PROCESSED}/${TEST_COUNT} tests completed"
@@ -649,7 +650,12 @@ jobs:
           fi
 
           # Build enhanced statistics JSON
-          cat > "$STATS_FILE" << EOF
+          # Ensure FAILURE_DETAILS is safely escaped for JSON
+          if [[ -z "$FAILURE_DETAILS" ]] || [[ "$FAILURE_DETAILS" == "" ]]; then
+            FAILURE_DETAILS="null"
+          fi
+
+          cat > "$STATS_FILE" << STATS_JSON_EOF
           {
             "name": "${{ matrix.name }}",
             "os": "${{ matrix.os }}",
@@ -676,7 +682,7 @@ jobs:
             "loc_total": ${TOTAL_COUNT:-0},
             "loc_date": "$CURRENT_DATE"
           }
-          EOF
+          STATS_JSON_EOF
 
           # Validate JSON before parsing to prevent parse errors
           echo "📊 Test statistics ($OUTPUT_MODE mode):"
@@ -1007,7 +1013,7 @@ jobs:
 
           FUZZ_STATS_FILE="fuzz-stats-${{ inputs.primary-runner }}-${{ inputs.go-primary-version }}.json"
 
-          cat > "$FUZZ_STATS_FILE" << EOF
+          cat > "$FUZZ_STATS_FILE" << FUZZ_STATS_JSON_EOF
           {
             "name": "Fuzz Tests (${{ inputs.primary-runner }})",
             "os": "${{ inputs.primary-runner }}",
@@ -1020,10 +1026,18 @@ jobs:
             "fuzz_enabled": true,
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
-          EOF
+          FUZZ_STATS_JSON_EOF
 
           echo "📊 Fuzz test statistics:"
-          jq . "$FUZZ_STATS_FILE"
+          if ! jq empty "$FUZZ_STATS_FILE" 2>/dev/null; then
+            echo "❌ ERROR: Generated fuzz stats JSON is malformed"
+            echo "📋 Raw JSON content:"
+            cat "$FUZZ_STATS_FILE"
+            echo "📋 JSON validation error:"
+            jq empty "$FUZZ_STATS_FILE" 2>&1 || true
+          else
+            jq . "$FUZZ_STATS_FILE"
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Upload fuzz test statistics
