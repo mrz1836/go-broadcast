@@ -170,6 +170,13 @@ jobs:
         id: run-tests
         continue-on-error: true
         run: |
+          # Sanitize inherited environment variables first
+          TEST_COUNT=${TEST_COUNT:-0}
+          TEST_COUNT=$(echo "$TEST_COUNT" | xargs)
+          if ! [[ "$TEST_COUNT" =~ ^[0-9]+$ ]]; then
+            TEST_COUNT=0
+          fi
+
           # Safely assign values to shell vars with defaults
           RACE="${{ inputs.race-detection-enabled || 'false' }}"
           COVER="${{ inputs.code-coverage-enabled || 'false' }}"
@@ -217,7 +224,8 @@ jobs:
           echo "   • Test packages: $PACKAGE_COUNT"
           echo "   • Test mode: $TEST_TYPE"
           echo "   • Output mode: $MODE"
-          echo "   • Estimated time: $(( ($TEST_COUNT + 49) / 50 )) minutes (based on ~50 tests/minute)"
+          ESTIMATED_TIME=$(( ($TEST_COUNT + 49) / 50 ))
+          echo "   • Estimated time: $ESTIMATED_TIME minutes (based on ~50 tests/minute)"
           echo "   • Timeout: $TEST_TIMEOUT"
           echo ""
 
@@ -329,7 +337,10 @@ jobs:
             echo "🎉 All tests completed successfully!"
             echo "   • Total time: ${MINUTES}m${SECONDS}s"
             echo "   • Tests executed: $TEST_COUNT"
-            echo "   • Average speed: $(( (TEST_COUNT * 60) / TOTAL_DURATION )) tests/minute"
+            if [[ $TOTAL_DURATION -gt 0 ]]; then
+              AVERAGE_SPEED=$(( (TEST_COUNT * 60) / TOTAL_DURATION ))
+              echo "   • Average speed: $AVERAGE_SPEED tests/minute"
+            fi
           else
             echo ""
             echo "❌ Tests failed with exit code $TEST_EXIT_CODE"
@@ -338,7 +349,10 @@ jobs:
             if [[ -f test-failures.txt ]]; then
               FAILURE_COUNT=$(wc -l < test-failures.txt 2>/dev/null || echo "0")
               echo "   • Failed tests: $FAILURE_COUNT"
-              echo "   • Success rate: $(( (TEST_COUNT - FAILURE_COUNT) * 100 / TEST_COUNT ))%"
+              if [[ $TEST_COUNT -gt 0 ]]; then
+                SUCCESS_RATE=$(( (TEST_COUNT - FAILURE_COUNT) * 100 / TEST_COUNT ))
+                echo "   • Success rate: $SUCCESS_RATE%"
+              fi
             fi
           fi
 
