@@ -82,8 +82,6 @@ runs:
       with:
         path: ~/go/pkg/mod
         key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ inputs.matrix-os }}-gomod-
 
     # ————————————————————————————————————————————————————————————————
     # Restore Go build cache (per-version)
@@ -96,8 +94,6 @@ runs:
           ~/.cache/go-build
           ~/.cache/go-build/test
         key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-
 
     # ————————————————————————————————————————————————————————————————
     # Check go.mod required version before setting up Go

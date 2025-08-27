@@ -201,9 +201,6 @@ jobs:
         with:
           path: ${{ env.GOLANGCI_LINT_CACHE }}
           key: ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum') }}-${{ steps.golangci-lint-version.outputs.version }}
-          restore-keys: |
-            ${{ inputs.primary-runner }}-golangci-lint-analysis-${{ hashFiles('.golangci.json', '**/go.sum') }}
-            ${{ inputs.primary-runner }}-golangci-lint-analysis-
 
       - name: 🔍 Debug cache usage
         run: |
