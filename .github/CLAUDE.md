@@ -348,7 +348,7 @@ go run ./cmd/profile_demo    # Results saved to: ./profiles/final_demo/
 3. **Linting Errors:**
    ```bash
    # Fix formatting issues
-   magex format:fix    # Apply gofumpt formatting and fmt
+   magex format:fix    # Apply gofumpt and other formatters
 
    # Check linting rules
    magex lint           # Run all linters
@@ -429,9 +429,9 @@ git commit -m "feat: new feature"
 - 🔗 **External tool** - Maintained at [github.com/mrz1836/go-pre-commit](https://github.com/mrz1836/go-pre-commit)
 
 **Available Checks (5 MVP checks):**
-1. **fumpt** - Code formatting via `magex format`
+1. **fumpt** - Code formatting via `magex format:fix`
 2. **lint** - Linting via `magex lint`
-3. **mod-tidy** - Module tidying via `magex tidy`
+3. **mod-tidy** - Module tidying via `magex deps:tidy`
 4. **whitespace** - Trailing whitespace removal (built-in)
 5. **eof** - End-of-file newline enforcement (built-in)
 
@@ -582,9 +582,20 @@ This project uses 60+ linters via golangci-lint with strict standards. Key areas
 - Pre-allocate slices when size is known: `make([]Type, 0, knownSize)`
 
 **Common Patterns:**
-- Format with `gofumpt` before committing
+- Format code using `magex format:fix` (applies gofumpt and other formatters)
 - Use `fmt.Fprintf(w, format, args...)` for efficient string building
 - Add `//nolint:linter // reason` only when necessary with clear explanation
+
+### Code Formatting
+
+**IMPORTANT: Always use `magex format:fix` for code formatting**
+
+```bash
+# Fix all formatting issues (applies gofumpt, goimports, and other formatters)
+magex format:fix
+
+# Never use gofumpt or fmt directly - always use magex format:fix
+```
 
 ### Running Linters
 
@@ -592,8 +603,9 @@ This project uses 60+ linters via golangci-lint with strict standards. Key areas
 # Run all linters on main module
 magex lint
 
-# Fix common formatting issues
+# Fix formatting issues first, then run linters
 magex format:fix
+magex lint
 ```
 
 The project maintains zero linter issues across all enabled linters. When adding code, follow existing patterns and address linter feedback promptly.
