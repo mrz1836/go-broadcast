@@ -688,27 +688,59 @@ jobs:
             echo "📋 JSON validation error:"
             jq empty "$STATS_FILE" 2>&1 || true
 
-            # Create fallback minimal JSON
-            cat > "$STATS_FILE" << FALLBACK_EOF
-{
-  "name": "${{ matrix.name }}",
-  "os": "${{ matrix.os }}",
-  "go_version": "${{ matrix.go-version }}",
-  "test_mode": "$OUTPUT_MODE",
-  "duration_seconds": $TEST_DURATION,
-  "test_count": $TEST_COUNT,
-  "status": "error",
-  "test_exit_code": ${TEST_EXIT_CODE:-0},
-  "test_passed": $([ "${TEST_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false"),
-  "total_failures": $TOTAL_FAILURES,
-  "affected_packages": $AFFECTED_PACKAGES,
-  "failure_details": null,
-  "race_enabled": $([[ "${{ inputs.race-detection-enabled }}" == "true" ]] && echo "true" || echo "false"),
-  "coverage_enabled": $([[ "${{ inputs.code-coverage-enabled }}" == "true" ]] && echo "true" || echo "false"),
-  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "json_generation_error": true
-}
-FALLBACK_EOF
+            # Create fallback minimal JSON - compute values safely first
+            if [ "${TEST_EXIT_CODE:-0}" -eq 0 ]; then
+              TEST_PASSED="true"
+            else
+              TEST_PASSED="false"
+            fi
+
+            # Use environment variables instead of template syntax
+            MATRIX_NAME="${{ matrix.name }}"
+            MATRIX_OS="${{ matrix.os }}"
+            MATRIX_GO_VERSION="${{ matrix.go-version }}"
+            RACE_ENABLED="${{ inputs.race-detection-enabled }}"
+            COVERAGE_ENABLED="${{ inputs.code-coverage-enabled }}"
+            TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+            cat > "$STATS_FILE" << 'FALLBACK_EOF'
+            {
+              "name": "MATRIX_NAME_PLACEHOLDER",
+              "os": "MATRIX_OS_PLACEHOLDER",
+              "go_version": "MATRIX_GO_VERSION_PLACEHOLDER",
+              "test_mode": "OUTPUT_MODE_PLACEHOLDER",
+              "duration_seconds": TEST_DURATION_PLACEHOLDER,
+              "test_count": TEST_COUNT_PLACEHOLDER,
+              "status": "error",
+              "test_exit_code": TEST_EXIT_CODE_PLACEHOLDER,
+              "test_passed": TEST_PASSED_PLACEHOLDER,
+              "total_failures": TOTAL_FAILURES_PLACEHOLDER,
+              "affected_packages": AFFECTED_PACKAGES_PLACEHOLDER,
+              "failure_details": null,
+              "race_enabled": RACE_ENABLED_PLACEHOLDER,
+              "coverage_enabled": COVERAGE_ENABLED_PLACEHOLDER,
+              "timestamp": "TIMESTAMP_PLACEHOLDER",
+              "json_generation_error": true
+            }
+            FALLBACK_EOF
+
+            # Replace placeholders with actual values
+            sed -i.bak \
+              -e "s/MATRIX_NAME_PLACEHOLDER/$MATRIX_NAME/g" \
+              -e "s/MATRIX_OS_PLACEHOLDER/$MATRIX_OS/g" \
+              -e "s/MATRIX_GO_VERSION_PLACEHOLDER/$MATRIX_GO_VERSION/g" \
+              -e "s/OUTPUT_MODE_PLACEHOLDER/$OUTPUT_MODE/g" \
+              -e "s/TEST_DURATION_PLACEHOLDER/$TEST_DURATION/g" \
+              -e "s/TEST_COUNT_PLACEHOLDER/$TEST_COUNT/g" \
+              -e "s/TEST_EXIT_CODE_PLACEHOLDER/${TEST_EXIT_CODE:-0}/g" \
+              -e "s/TEST_PASSED_PLACEHOLDER/$TEST_PASSED/g" \
+              -e "s/TOTAL_FAILURES_PLACEHOLDER/$TOTAL_FAILURES/g" \
+              -e "s/AFFECTED_PACKAGES_PLACEHOLDER/$AFFECTED_PACKAGES/g" \
+              -e "s/RACE_ENABLED_PLACEHOLDER/$RACE_ENABLED/g" \
+              -e "s/COVERAGE_ENABLED_PLACEHOLDER/$COVERAGE_ENABLED/g" \
+              -e "s/TIMESTAMP_PLACEHOLDER/$TIMESTAMP/g" \
+              "$STATS_FILE"
+            rm -f "$STATS_FILE.bak"
             echo "✅ Created fallback JSON with essential statistics"
           fi
 
