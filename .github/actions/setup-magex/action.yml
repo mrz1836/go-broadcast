@@ -101,7 +101,7 @@ runs:
 
         # Test that magex is available and working
         if command -v magex >/dev/null 2>&1; then
-          MAGEX_VERSION=$(magex version 2>/dev/null || echo "unknown")
+          MAGEX_VERSION=$(magex --version 2>/dev/null | grep -oE 'Version:\s+[0-9.]+' | awk '{print $2}' || echo "unknown")
           echo "✅ MAGE-X is available: $MAGEX_VERSION"
 
           # Determine installation method
