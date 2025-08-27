@@ -523,7 +523,7 @@ func TestDirectoryValidator_Threading(_ *testing.T) {
 	// Goroutine 2: Reading thresholds
 	go func() {
 		for i := 0; i < 100; i++ {
-			_ = validator.performanceThresholds.MaxAPICalls
+			_ = validator.GetPerformanceThresholds().MaxAPICalls
 		}
 		done <- true
 	}()

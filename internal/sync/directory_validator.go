@@ -143,6 +143,13 @@ func (dv *DirectoryValidator) SetPerformanceThresholds(thresholds PerformanceThr
 	dv.performanceThresholds = thresholds
 }
 
+// GetPerformanceThresholds returns the current performance validation thresholds
+func (dv *DirectoryValidator) GetPerformanceThresholds() PerformanceThresholds {
+	dv.mu.RLock()
+	defer dv.mu.RUnlock()
+	return dv.performanceThresholds
+}
+
 // ValidateSyncResults compares source and destination directories to ensure sync was successful
 func (dv *DirectoryValidator) ValidateSyncResults(ctx context.Context, sourceDir, destDir string, dirMapping config.DirectoryMapping, opts ValidationOptions) (*ValidationResult, error) {
 	startTime := time.Now()
@@ -526,7 +533,7 @@ func (dv *DirectoryValidator) ValidateValidationPerformanceMetrics(_ context.Con
 	logger.Info("Starting performance metrics validation")
 
 	// Use provided thresholds or defaults
-	thresholds := dv.performanceThresholds
+	thresholds := dv.GetPerformanceThresholds()
 	if opts.PerformanceThresholds != nil {
 		thresholds = *opts.PerformanceThresholds
 	}
