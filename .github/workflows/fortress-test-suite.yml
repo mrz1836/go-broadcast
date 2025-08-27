@@ -181,26 +181,48 @@ jobs:
           # Initialize test exit code
           TEST_EXIT_CODE=0
 
-          # Determine the magex command to run with timeout
+          # Build unified magex command with timeout and appropriate test type
           if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
             TEST_TIMEOUT="${TEST_TIMEOUT_RACE_COVER:-30m}"
-            MAGEX_CMD="magex test:coverrace -timeout $TEST_TIMEOUT"
+            TEST_TYPE="coverrace"
             echo "🏁 Running tests with race detection and coverage analysis (timeout: $TEST_TIMEOUT)..."
           elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
             TEST_TIMEOUT="${TEST_TIMEOUT_RACE_COVER:-30m}"
-            MAGEX_CMD="magex test:cover -timeout $TEST_TIMEOUT"
+            TEST_TYPE="cover"
             echo "🏁 Running tests with coverage analysis (timeout: $TEST_TIMEOUT)..."
           elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
             TEST_TIMEOUT="${TEST_TIMEOUT:-30m}"
-            MAGEX_CMD="magex test:race -timeout $TEST_TIMEOUT"
+            TEST_TYPE="race"
             echo "🏁 Running tests with race detection (timeout: $TEST_TIMEOUT)..."
           else
             TEST_TIMEOUT="${TEST_TIMEOUT_UNIT:-20m}"
-            MAGEX_CMD="magex test -timeout $TEST_TIMEOUT"
+            TEST_TYPE="unit"
             echo "🏁 Running tests without coverage or race detection (timeout: $TEST_TIMEOUT)..."
           fi
 
-          # Execute based on detected mode
+          # Build command with JSON flag for FAILURES_ONLY mode
+          MAGEX_CMD="magex test:${TEST_TYPE} -timeout $TEST_TIMEOUT"
+          if [[ "$MODE" == "FAILURES_ONLY" ]]; then
+            MAGEX_CMD="$MAGEX_CMD -json"
+          fi
+
+          echo "🔧 Running: $MAGEX_CMD (timeout: $TEST_TIMEOUT)"
+
+          # Pre-execution diagnostic info for better visibility
+          PACKAGE_COUNT=$(find . -name '*.go' -not -path './vendor/*' -not -path './third_party/*' | xargs dirname | sort -u | wc -l)
+          echo "🚀 Starting test execution:"
+          echo "   • Total tests: $TEST_COUNT"
+          echo "   • Test packages: $PACKAGE_COUNT"
+          echo "   • Test mode: $TEST_TYPE"
+          echo "   • Output mode: $MODE"
+          echo "   • Estimated time: $(( ($TEST_COUNT + 49) / 50 )) minutes (based on ~50 tests/minute)"
+          echo "   • Timeout: $TEST_TIMEOUT"
+          echo ""
+
+          START_TIME=$(date +%s)
+
+          # Execute based on detected mode with simplified processing
+          set +e  # Don't exit on error to capture exit code properly
           if [[ "$MODE" == "FULL" ]]; then
             echo "📝 Using FULL output mode - showing all test output"
             $MAGEX_CMD 2>&1 | tee test-output.log
@@ -212,103 +234,88 @@ jobs:
             fi
 
           else
-            echo "🎯 Using FAILURES_ONLY mode - capturing failures and essential output"
-            echo "📝 Using magex with JSON output support (mage-x v1.3.6+)"
+            echo "🎯 Using FAILURES_ONLY mode with optimized JSON processing and progress monitoring"
 
-            # Build magex command with appropriate flags and timeout
-            if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
-              TEST_TIMEOUT="${TEST_TIMEOUT_RACE_COVER:-30m}"
-              JSON_CMD="magex test:coverrace -json -timeout $TEST_TIMEOUT"
-            elif [[ "$RACE" != "true" && "$COVER" == "true" ]]; then
-              TEST_TIMEOUT="${TEST_TIMEOUT_RACE_COVER:-30m}"
-              JSON_CMD="magex test:cover -json -timeout $TEST_TIMEOUT"
-            elif [[ "$RACE" == "true" && "$COVER" != "true" ]]; then
-              TEST_TIMEOUT="${TEST_TIMEOUT:-30m}"
-              JSON_CMD="magex test:race -json -timeout $TEST_TIMEOUT"
-            else
-              TEST_TIMEOUT="${TEST_TIMEOUT_UNIT:-20m}"
-              JSON_CMD="magex test:unit -json -timeout $TEST_TIMEOUT"
-            fi
+            # Start background progress monitor
+            (
+              MONITOR_PID=$$
+              PACKAGES_PROCESSED=0
+              while sleep 30; do
+                if ! kill -0 $MONITOR_PID 2>/dev/null; then break; fi
+                ELAPSED=$(($(date +%s) - START_TIME))
+                MINUTES=$((ELAPSED / 60))
+                SECONDS=$((ELAPSED % 60))
 
-            echo "🔧 Running: $JSON_CMD (timeout: $TEST_TIMEOUT)"
-
-            # Run with JSON output and process streams with better error handling
-            set +e  # Don't exit on error to capture exit code properly
-            $JSON_CMD 2> >(tee test-stderr.log >&2) | tee test-raw-output.log | (
-              # Filter and process JSON output in real-time
-              while IFS= read -r line; do
-                # Check if line is valid JSON before processing
-                if echo "$line" | jq empty >/dev/null 2>&1; then
-                  echo "$line"
-                else
-                  # Non-JSON line (coverage messages, etc.) - log to stderr stream
-                  echo "Non-JSON: $line" >&2
-                fi
-              done
-            ) | tee test-json-output.log | tee >(
-              # Save last 2000 lines for context, convert JSON to readable format
-              while IFS= read -r line; do
-                if echo "$line" | jq -e '.Action == "output"' >/dev/null 2>&1; then
-                  echo "$line" | jq -r '.Output // ""' 2>/dev/null || echo "$line"
-                else
-                  echo "$line"
-                fi
-              done | tail -n 2000 > test-output-tail.log
-            ) >(
-              # Convert JSON to regular output for immediate visibility
-              while IFS= read -r line; do
-                if echo "$line" | jq -e '.Action == "output" and .Test == null' >/dev/null 2>&1; then
-                  echo "$line" | jq -r '.Output // ""' 2>/dev/null || echo "$line"
-                elif echo "$line" | jq -e '.Action == "pass" or .Action == "fail"' >/dev/null 2>&1; then
-                  PKG=$(echo "$line" | jq -r '.Package // ""' 2>/dev/null)
-                  TEST=$(echo "$line" | jq -r '.Test // ""' 2>/dev/null)
-                  ACTION=$(echo "$line" | jq -r '.Action // ""' 2>/dev/null)
-                  if [[ -n "$TEST" && -n "$ACTION" ]]; then
-                    if [[ "$ACTION" == "pass" ]]; then
-                      echo "    --- PASS: $TEST"
-                    else
-                      echo "    --- FAIL: $TEST"
-                    fi
+                # Count processed packages by checking for completed test runs
+                if [[ -f test-raw-output.log ]]; then
+                  CURRENT_PACKAGES=$(grep -c '"Action":"pass"' test-raw-output.log 2>/dev/null || echo "0")
+                  CURRENT_PACKAGES=$((CURRENT_PACKAGES / 10)) # Rough estimate
+                  if [[ $CURRENT_PACKAGES -gt $PACKAGES_PROCESSED ]]; then
+                    PACKAGES_PROCESSED=$CURRENT_PACKAGES
+                    echo "⏳ Progress update: ${MINUTES}m${SECONDS}s elapsed, ~${PACKAGES_PROCESSED}/${PACKAGE_COUNT} packages tested"
+                  else
+                    echo "⏳ Still running: ${MINUTES}m${SECONDS}s elapsed, processing tests..."
                   fi
                 fi
-              done | tee test-output-filtered.log
-            ) | (
-              # Extract failure events in real-time with error handling
-              jq -c --unbuffered 'select(.Action == "fail" or
-                     (.Action == "output" and .Test != null and
-                      (.Output | test("FAIL|Error:|panic:|fatal"))))' 2>/dev/null |
-              head -n ${TEST_FAILURE_MAX_COUNT:-1000} > test-failures.jsonl 2>/dev/null || true
-            )
+              done
+            ) &
+            MONITOR_PID=$!
+
+            # Optimized single-pass JSON processing with real-time progress
+            $MAGEX_CMD 2> >(tee test-stderr.log >&2) | tee test-raw-output.log |
+              tee test-json-output.log | jq -r --unbuffered '
+              # Efficiently process each JSON line with progress indicators
+              if .Action == "run" then
+                # Package started - show progress
+                "📦 Testing: \(.Package | split("/") | .[-1] // .[-2] // .)"
+              elif .Action == "output" and .Test == null then
+                # Package-level output (build messages, etc.)
+                .Output // ""
+              elif .Action == "fail" then
+                # Failed test - immediate visibility
+                "❌ FAIL: \(.Test) (\(.Package | split("/") | .[-1] // .[-2] // .))"
+              elif .Action == "pass" and (.Test | test("^Test")) then
+                # Only show individual test passes occasionally to avoid spam
+                if (now | floor) % 5 == 0 then
+                  "✅ PASS: \(.Test)"
+                else
+                  empty
+                end
+              else
+                # Skip other JSON events for cleaner output
+                empty
+              end
+            ' 2>/dev/null | tee test-output.log > test-output-tail.log
+
+            # Kill the progress monitor
+            kill $MONITOR_PID 2>/dev/null || true
 
             TEST_EXIT_CODE=${PIPESTATUS[0]}
-            set -e  # Re-enable exit on error
 
-            echo "📊 Test command completed with exit code: $TEST_EXIT_CODE"
+            # Extract failures with simple approach
+            if [[ $TEST_EXIT_CODE -ne 0 ]]; then
+              echo "🔍 Extracting failure information..."
+              # Create failures from the processed output
+              grep "^--- FAIL:" test-output.log | sed 's/^--- FAIL: //' > test-failures.txt 2>/dev/null || true
 
-            # Convert JSON failures to readable format if any exist
-            if [[ -f test-failures.jsonl ]] && [[ -s test-failures.jsonl ]]; then
-              echo "🔍 Processing captured failures..."
-              if jq -s 'group_by(.Package) |
-                     map({
-                       package: .[0].Package,
-                       failures: map(select(.Action == "fail") | {test: .Test, elapsed: .Elapsed}),
-                       outputs: map(select(.Output) | .Output) | join("")
-                     }) | map(select(.failures | length > 0))' \
-                     test-failures.jsonl > test-failures-summary.json 2>/dev/null; then
-                echo "✅ Successfully processed failure summary"
-
-                # Create simple text summary for backward compatibility
-                jq -r '.[] | .failures[] | "\(.test)"' test-failures-summary.json 2>/dev/null > test-failures.txt || true
-              else
-                echo "⚠️ Failed to process JSON failures, creating fallback summary"
-                # Fallback: extract test names from raw output
-                grep -E "=== FAIL:|--- FAIL:" test-raw-output.log 2>/dev/null | \
-                  sed -E 's/.*FAIL: ([^ ]+).*/\1/' > test-failures.txt || true
-              fi
+              # For enhanced failure analysis, re-process raw JSON for detailed info
+              jq -c --unbuffered 'select(.Action == "fail")' test-raw-output.log 2>/dev/null | \
+                jq -s 'group_by(.Package) | map({
+                  package: .[0].Package,
+                  failures: map({test: .Test, elapsed: .Elapsed}),
+                  outputs: []
+                }) | map(select(.failures | length > 0))' > test-failures-summary.json 2>/dev/null || echo "[]" > test-failures-summary.json
             else
-              echo "ℹ️ No failure data captured"
+              echo "ℹ️ No test failures detected"
             fi
           fi
+          set -e  # Re-enable exit on error
+
+          # Final execution summary with timing
+          END_TIME=$(date +%s)
+          TOTAL_DURATION=$((END_TIME - START_TIME))
+          MINUTES=$((TOTAL_DURATION / 60))
+          SECONDS=$((TOTAL_DURATION % 60))
 
           # Store the exit code and mode for later steps
           echo "TEST_EXIT_CODE=$TEST_EXIT_CODE" >> $GITHUB_ENV
@@ -316,9 +323,21 @@ jobs:
           echo "output-mode=$MODE" >> $GITHUB_OUTPUT
 
           if [[ $TEST_EXIT_CODE -eq 0 ]]; then
-            echo "✅ Tests completed successfully"
+            echo ""
+            echo "🎉 All tests completed successfully!"
+            echo "   • Total time: ${MINUTES}m${SECONDS}s"
+            echo "   • Tests executed: $TEST_COUNT"
+            echo "   • Average speed: $(( (TEST_COUNT * 60) / TOTAL_DURATION )) tests/minute"
           else
+            echo ""
             echo "❌ Tests failed with exit code $TEST_EXIT_CODE"
+            echo "   • Total time: ${MINUTES}m${SECONDS}s"
+            echo "   • Tests executed: $TEST_COUNT"
+            if [[ -f test-failures.txt ]]; then
+              FAILURE_COUNT=$(wc -l < test-failures.txt 2>/dev/null || echo "0")
+              echo "   • Failed tests: $FAILURE_COUNT"
+              echo "   • Success rate: $(( (TEST_COUNT - FAILURE_COUNT) * 100 / TEST_COUNT ))%"
+            fi
           fi
 
       # ————————————————————————————————————————————————————————————————
