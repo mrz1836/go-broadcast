@@ -135,7 +135,8 @@ jobs:
             -not -path './vendor/*' \
             -not -path './third_party/*' \
             -not -path './testdata/*' \
-            -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l)
+            -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l | xargs)
+          TEST_COUNT=${TEST_COUNT:-0}
 
           OUTPUT_MODE="${TEST_OUTPUT_MODE:-SMART}"
           THRESHOLD="${TEST_OUTPUT_SMART_THRESHOLD:-500}"
@@ -145,7 +146,7 @@ jobs:
           echo "🎯 Smart threshold: $THRESHOLD tests"
 
           if [[ "$OUTPUT_MODE" == "SMART" ]]; then
-            if [[ $TEST_COUNT -gt $THRESHOLD ]]; then
+            if [[ "$TEST_COUNT" -gt "$THRESHOLD" ]]; then
               DETECTED_MODE="FAILURES_ONLY"
               echo "🎯 Using FAILURES_ONLY mode for $TEST_COUNT tests"
             else
@@ -209,7 +210,8 @@ jobs:
           echo "🔧 Running: $MAGEX_CMD (timeout: $TEST_TIMEOUT)"
 
           # Pre-execution diagnostic info for better visibility
-          PACKAGE_COUNT=$(find . -name '*.go' -not -path './vendor/*' -not -path './third_party/*' | xargs dirname | sort -u | wc -l)
+          PACKAGE_COUNT=$(find . -name '*.go' -not -path './vendor/*' -not -path './third_party/*' | xargs dirname | sort -u | wc -l | xargs)
+          PACKAGE_COUNT=${PACKAGE_COUNT:-0}
           echo "🚀 Starting test execution:"
           echo "   • Total tests: $TEST_COUNT"
           echo "   • Test packages: $PACKAGE_COUNT"
@@ -572,18 +574,21 @@ jobs:
             -not -path './vendor/*' \
             -not -path './third_party/*' \
             -not -path './testdata/*' \
-            -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l)
+            -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l | xargs)
+          TEST_COUNT=${TEST_COUNT:-0}
 
           # Count examples and benchmarks
           EXAMPLE_COUNT=$(find . -type f -name '*_test.go' \
             -not -path './vendor/*' \
             -not -path './third_party/*' \
-            -exec grep -h '^func Example' {} + | wc -l)
+            -exec grep -h '^func Example' {} + | wc -l | xargs)
+          EXAMPLE_COUNT=${EXAMPLE_COUNT:-0}
 
           BENCHMARK_COUNT=$(find . -type f -name '*_test.go' \
             -not -path './vendor/*' \
             -not -path './third_party/*' \
-            -exec grep -h '^func Benchmark' {} + | wc -l)
+            -exec grep -h '^func Benchmark' {} + | wc -l | xargs)
+          BENCHMARK_COUNT=${BENCHMARK_COUNT:-0}
 
           STATS_FILE="test-stats-${{ matrix.os }}-${{ matrix.go-version }}.json"
 
@@ -1009,7 +1014,8 @@ jobs:
             -not -path './vendor/*' \
             -not -path './third_party/*' \
             -not -path './testdata/*' \
-            -exec grep -hE '^\s*func (\([^)]+\) )?Fuzz[A-Z0-9_]' {} + | wc -l)
+            -exec grep -hE '^\s*func (\([^)]+\) )?Fuzz[A-Z0-9_]' {} + | wc -l | xargs)
+          FUZZ_TEST_COUNT=${FUZZ_TEST_COUNT:-0}
 
           FUZZ_STATS_FILE="fuzz-stats-${{ inputs.primary-runner }}-${{ inputs.go-primary-version }}.json"
 
