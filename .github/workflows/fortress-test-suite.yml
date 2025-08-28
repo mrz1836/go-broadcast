@@ -1108,15 +1108,31 @@ jobs:
 
           if command -v magex &> /dev/null; then
             echo "📊 Collecting Lines of Code metrics..."
-            LOC_OUTPUT=$(magex metrics:loc 2>&1 || echo "")
+            LOC_OUTPUT=$(magex metrics:loc 2>&1 || true)
             if [[ -n "$LOC_OUTPUT" ]]; then
-              # Extract numbers from magex metrics:loc output
-              LOC_TEST_FILES=$(echo "$LOC_OUTPUT" | grep "Test Files" | awk '{print $4}' | tr -d ',' || echo "")
-              LOC_GO_FILES=$(echo "$LOC_OUTPUT" | grep "Go Files" | awk '{print $4}' | tr -d ',' || echo "")
-              LOC_TOTAL=$(echo "$LOC_OUTPUT" | grep "Total lines of code:" | awk '{print $5}' | tr -d ',' || echo "")
-              echo "✅ LOC collected: $LOC_TOTAL total ($LOC_TEST_FILES test, $LOC_GO_FILES go)"
+              echo "📋 Raw LOC output:"
+              echo "$LOC_OUTPUT"
+              echo "📋 Parsing LOC data..."
+
+              # Extract numbers from magex metrics:loc output - improved parsing
+              # Format: "| Test Files | 71,476      | 2025-08-28 |" -> extract field 3, trim spaces and commas
+              LOC_TEST_FILES=$(echo "$LOC_OUTPUT" | grep "Test Files" | awk -F'|' '{print $3}' | tr -d ' ,' || echo "")
+              LOC_GO_FILES=$(echo "$LOC_OUTPUT" | grep "Go Files" | awk -F'|' '{print $3}' | tr -d ' ,' || echo "")
+              # Format: "✅ Total lines of code: 93,418" -> extract last field after colon
+              LOC_TOTAL=$(echo "$LOC_OUTPUT" | grep "Total lines of code:" | awk -F':' '{print $2}' | tr -d ' ,' || echo "")
+
+              echo "📊 Parsed values:"
+              echo "  - Test Files: '$LOC_TEST_FILES'"
+              echo "  - Go Files: '$LOC_GO_FILES'"
+              echo "  - Total: '$LOC_TOTAL'"
+
+              if [[ -n "$LOC_TOTAL" ]]; then
+                echo "✅ LOC collected: $LOC_TOTAL total ($LOC_TEST_FILES test, $LOC_GO_FILES go)"
+              else
+                echo "⚠️ LOC parsing failed - no total found"
+              fi
             else
-              echo "⚠️ No LOC output collected"
+              echo "⚠️ No LOC output collected from magex"
             fi
           else
             echo "⚠️ magex not available for LOC collection"
@@ -1193,6 +1209,63 @@ jobs:
 
           echo "📊 Test statistics generated successfully:"
           jq . "$STATS_FILE"
+
+      # ————————————————————————————————————————————————————————————————
+      # Collect cache statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Collect cache statistics
+        id: cache-stats
+        if: always()
+        run: |
+          echo "📊 Collecting cache statistics for test job..."
+
+          # Get cache hit information
+          GOMOD_HIT="${{ steps.setup-go-test.outputs.module-cache-hit }}"
+          GOBUILD_HIT="${{ steps.setup-go-test.outputs.build-cache-hit }}"
+
+          # Get cache sizes
+          GOMOD_SIZE="0B"
+          GOBUILD_SIZE="0B"
+
+          if [ -d "$HOME/go/pkg/mod" ]; then
+            GOMOD_SIZE=$(du -sh "$HOME/go/pkg/mod" 2>/dev/null | cut -f1 || echo "0B")
+          fi
+
+          if [ -d "$HOME/.cache/go-build" ]; then
+            GOBUILD_SIZE=$(du -sh "$HOME/.cache/go-build" 2>/dev/null | cut -f1 || echo "0B")
+          fi
+
+          # Create matrix-specific cache statistics JSON
+          CACHE_STATS_FILE="cache-stats-test-${{ matrix.os }}-${{ matrix.go-version }}.json"
+          echo '{' > "$CACHE_STATS_FILE"
+          echo '  "os": "${{ matrix.os }}",' >> "$CACHE_STATS_FILE"
+          echo '  "go_version": "${{ matrix.go-version }}",' >> "$CACHE_STATS_FILE"
+          echo "  \"gomod_cache_hit\": \"$GOMOD_HIT\"," >> "$CACHE_STATS_FILE"
+          echo "  \"gobuild_cache_hit\": \"$GOBUILD_HIT\"," >> "$CACHE_STATS_FILE"
+          echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "$CACHE_STATS_FILE"
+          echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "$CACHE_STATS_FILE"
+          echo '  "workflow": "test-suite",' >> "$CACHE_STATS_FILE"
+          echo '  "job_name": "test-go",' >> "$CACHE_STATS_FILE"
+          echo '  "matrix_info": {' >> "$CACHE_STATS_FILE"
+          echo '    "os": "${{ matrix.os }}",' >> "$CACHE_STATS_FILE"
+          echo '    "go_version": "${{ matrix.go-version }}",' >> "$CACHE_STATS_FILE"
+          echo '    "name": "${{ matrix.name }}"' >> "$CACHE_STATS_FILE"
+          echo '  },' >> "$CACHE_STATS_FILE"
+          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "$CACHE_STATS_FILE"
+          echo '}' >> "$CACHE_STATS_FILE"
+
+          echo "📊 Cache statistics collected for test job (${{ matrix.os }}-${{ matrix.go-version }})"
+
+      # ————————————————————————————————————————————————————————————————
+      # Upload cache statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📤 Upload cache statistics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cache-stats-test-${{ matrix.os }}-${{ matrix.go-version }}
+          path: cache-stats-test-*.json
+          retention-days: 1
 
       # ————————————————————————————————————————————————————————————————
       # Upload test artifacts
@@ -1529,6 +1602,57 @@ jobs:
 
           echo "📊 Fuzz test statistics generated successfully:"
           jq . "$FUZZ_STATS_FILE"
+
+      # ————————————————————————————————————————————————————————————————
+      # Collect cache statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Collect cache statistics
+        id: cache-stats-fuzz
+        if: always()
+        run: |
+          echo "📊 Collecting cache statistics for fuzz job..."
+
+          # Get cache hit information
+          GOMOD_HIT="${{ steps.setup-go-fuzz.outputs.module-cache-hit }}"
+          GOBUILD_HIT="${{ steps.setup-go-fuzz.outputs.build-cache-hit }}"
+
+          # Get cache sizes
+          GOMOD_SIZE="0B"
+          GOBUILD_SIZE="0B"
+
+          if [ -d "$HOME/go/pkg/mod" ]; then
+            GOMOD_SIZE=$(du -sh "$HOME/go/pkg/mod" 2>/dev/null | cut -f1 || echo "0B")
+          fi
+
+          if [ -d "$HOME/.cache/go-build" ]; then
+            GOBUILD_SIZE=$(du -sh "$HOME/.cache/go-build" 2>/dev/null | cut -f1 || echo "0B")
+          fi
+
+          # Create cache statistics JSON
+          echo '{' > "cache-stats-fuzz.json"
+          echo '  "os": "${{ inputs.primary-runner }}",' >> "cache-stats-fuzz.json"
+          echo '  "go_version": "${{ inputs.go-primary-version }}",' >> "cache-stats-fuzz.json"
+          echo "  \"gomod_cache_hit\": \"$GOMOD_HIT\"," >> "cache-stats-fuzz.json"
+          echo "  \"gobuild_cache_hit\": \"$GOBUILD_HIT\"," >> "cache-stats-fuzz.json"
+          echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "cache-stats-fuzz.json"
+          echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "cache-stats-fuzz.json"
+          echo '  "workflow": "test-suite",' >> "cache-stats-fuzz.json"
+          echo '  "job_name": "fuzz-tests",' >> "cache-stats-fuzz.json"
+          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "cache-stats-fuzz.json"
+          echo '}' >> "cache-stats-fuzz.json"
+
+          echo "📊 Cache statistics collected for fuzz job"
+
+      # ————————————————————————————————————————————————————————————————
+      # Upload cache statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📤 Upload cache statistics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cache-stats-fuzz
+          path: cache-stats-fuzz.json
+          retention-days: 1
 
       # ————————————————————————————————————————————————————————————————
       # Upload fuzz test statistics

@@ -2095,6 +2095,7 @@ jobs:
           echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "cache-stats-coverage.json"
           echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "cache-stats-coverage.json"
           echo '  "workflow": "coverage",' >> "cache-stats-coverage.json"
+          echo '  "job_name": "generate-coverage-report",' >> "cache-stats-coverage.json"
           echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "cache-stats-coverage.json"
           echo '}' >> "cache-stats-coverage.json"
 

@@ -211,17 +211,20 @@ jobs:
             {
               echo ""
               echo "### 💾 Cache Statistics"
-              echo "| OS | Go Version | Module Cache | Build Cache | Module Size | Build Size |"
-              echo "|----|------------|--------------|-------------|-------------|------------|"
+              echo "| Workflow/Job | OS | Go Version | Module Cache | Build Cache | Module Size | Build Size |"
+              echo "|--------------|----|-----------|--------------|-----------|-----------|------------|"
             } >> completion-report.md
 
             TOTAL_CACHE_HITS=0
             TOTAL_CACHE_ATTEMPTS=0
+            WORKFLOWS_WITH_CACHE=""
 
             for stats_file in cache-stats-*.json; do
               if [ -f "$stats_file" ]; then
                 OS=$(jq -r '.os' "$stats_file")
                 GO_VER=$(jq -r '.go_version' "$stats_file")
+                WORKFLOW=$(jq -r '.workflow // "unknown"' "$stats_file")
+                JOB_NAME=$(jq -r '.job_name // ""' "$stats_file")
                 GOMOD_HIT=$(jq -r '.gomod_cache_hit' "$stats_file")
                 GOBUILD_HIT=$(jq -r '.gobuild_cache_hit' "$stats_file")
                 GOMOD_SIZE=$(jq -r '.cache_size_gomod' "$stats_file")
@@ -230,13 +233,50 @@ jobs:
                 GOMOD_ICON=$([[ "$GOMOD_HIT" == "true" ]] && echo "✅ Hit" || echo "❌ Miss")
                 GOBUILD_ICON=$([[ "$GOBUILD_HIT" == "true" ]] && echo "✅ Hit" || echo "❌ Miss")
 
-                echo "| $OS | $GO_VER | $GOMOD_ICON | $GOBUILD_ICON | $GOMOD_SIZE | $GOBUILD_SIZE |" >> completion-report.md
+                # Create workflow/job identifier
+                if [[ -n "$JOB_NAME" && "$JOB_NAME" != "null" ]]; then
+                  WORKFLOW_JOB="${WORKFLOW}/${JOB_NAME}"
+                else
+                  WORKFLOW_JOB="${WORKFLOW}"
+                fi
+
+                echo "| $WORKFLOW_JOB | $OS | $GO_VER | $GOMOD_ICON | $GOBUILD_ICON | $GOMOD_SIZE | $GOBUILD_SIZE |" >> completion-report.md
 
                 [[ "$GOMOD_HIT" == "true" ]] && TOTAL_CACHE_HITS=$((TOTAL_CACHE_HITS + 1))
                 [[ "$GOBUILD_HIT" == "true" ]] && TOTAL_CACHE_HITS=$((TOTAL_CACHE_HITS + 1))
                 TOTAL_CACHE_ATTEMPTS=$((TOTAL_CACHE_ATTEMPTS + 2))
+
+                # Track workflows that used cache
+                if [[ "$WORKFLOWS_WITH_CACHE" != *"$WORKFLOW"* ]]; then
+                  if [[ -z "$WORKFLOWS_WITH_CACHE" ]]; then
+                    WORKFLOWS_WITH_CACHE="$WORKFLOW"
+                  else
+                    WORKFLOWS_WITH_CACHE="${WORKFLOWS_WITH_CACHE}, $WORKFLOW"
+                  fi
+                fi
               fi
             done
+
+            # Add cache efficiency summary
+            if [[ $TOTAL_CACHE_ATTEMPTS -gt 0 ]]; then
+              CACHE_HIT_RATE=$((TOTAL_CACHE_HITS * 100 / TOTAL_CACHE_ATTEMPTS))
+              {
+                echo ""
+                echo "**Cache Performance Summary:**"
+                echo "- **Overall Hit Rate**: ${CACHE_HIT_RATE}% (${TOTAL_CACHE_HITS}/${TOTAL_CACHE_ATTEMPTS} cache operations)"
+                echo "- **Workflows Using Cache**: $WORKFLOWS_WITH_CACHE"
+              } >> completion-report.md
+
+              if [[ $CACHE_HIT_RATE -ge 80 ]]; then
+                echo "- **Cache Efficiency**: 🚀 Excellent (${CACHE_HIT_RATE}% hit rate)" >> completion-report.md
+              elif [[ $CACHE_HIT_RATE -ge 60 ]]; then
+                echo "- **Cache Efficiency**: ✅ Good (${CACHE_HIT_RATE}% hit rate)" >> completion-report.md
+              elif [[ $CACHE_HIT_RATE -ge 40 ]]; then
+                echo "- **Cache Efficiency**: ⚠️ Fair (${CACHE_HIT_RATE}% hit rate)" >> completion-report.md
+              else
+                echo "- **Cache Efficiency**: ❌ Poor (${CACHE_HIT_RATE}% hit rate - consider optimizing cache strategy)" >> completion-report.md
+              fi
+            fi
           fi
 
           # Add spacing after cache section
@@ -544,28 +584,54 @@ jobs:
           if [[ "${{ env.ENABLE_FUZZ_TESTING }}" == "true" ]]; then
             # Fuzz testing is enabled, check for stats files
             if compgen -G "fuzz-stats-*.json" >/dev/null 2>&1; then
-              {
-                echo "| Fuzz Suite | Duration | Fuzz Tests | Status | Enabled |"
-                echo "|------------|----------|------------|--------|---------|"
-              } >> completion-report.md
-
+              # Check if we have actual fuzz stats data before creating table header
+              HAS_FUZZ_DATA=false
               for stats_file in fuzz-stats-*.json; do
                 if [ -f "$stats_file" ]; then
                   NAME=$(jq -r '.name' "$stats_file")
-                  DURATION=$(jq -r '.duration_seconds' "$stats_file")
-                  FUZZ_TEST_COUNT=$(jq -r '.fuzz_test_count' "$stats_file")
-                  STATUS=$(jq -r '.status' "$stats_file")
-
-                  DURATION_MIN=$((DURATION / 60))
-                  DURATION_SEC=$((DURATION % 60))
-
-                  STATUS_ICON=$([[ "$STATUS" == "success" ]] && echo "✅" || echo "❌")
-
-                  echo "| $NAME | ${DURATION_MIN}m ${DURATION_SEC}s | $FUZZ_TEST_COUNT | $STATUS_ICON | 🎯 |" >> completion-report.md
+                  if [[ "$NAME" != "null" ]] && [[ -n "$NAME" ]]; then
+                    HAS_FUZZ_DATA=true
+                    break
+                  fi
                 fi
               done
+
+              if [[ "$HAS_FUZZ_DATA" == "true" ]]; then
+                # Create table header only when we have actual data
+                {
+                  echo "| Fuzz Suite | Duration | Fuzz Tests | Status | Enabled |"
+                  echo "|------------|----------|------------|--------|---------|"
+                } >> completion-report.md
+
+                for stats_file in fuzz-stats-*.json; do
+                  if [ -f "$stats_file" ]; then
+                    NAME=$(jq -r '.name' "$stats_file")
+                    DURATION=$(jq -r '.duration_seconds' "$stats_file")
+                    FUZZ_TEST_COUNT=$(jq -r '.fuzz_test_count' "$stats_file")
+                    STATUS=$(jq -r '.status' "$stats_file")
+
+                    if [[ "$NAME" != "null" ]] && [[ -n "$NAME" ]]; then
+                      DURATION_MIN=$((DURATION / 60))
+                      DURATION_SEC=$((DURATION % 60))
+
+                      STATUS_ICON=$([[ "$STATUS" == "success" ]] && echo "✅" || echo "❌")
+
+                      echo "| $NAME | ${DURATION_MIN}m ${DURATION_SEC}s | $FUZZ_TEST_COUNT | $STATUS_ICON | 🎯 |" >> completion-report.md
+                    fi
+                  fi
+                done
+              else
+                # Fuzz testing enabled but no valid stats data
+                {
+                  echo "| Status | Details |"
+                  echo "|--------|---------|"
+                  echo "| **Fuzz Testing** | ✅ Enabled |"
+                  echo "| **Execution** | ⚠️ No valid fuzz stats found - check job logs |"
+                  echo "| **Platform** | Linux with primary Go version |"
+                } >> completion-report.md
+              fi
             else
-              # Fuzz testing enabled but no stats found
+              # Fuzz testing enabled but no stats files found
               {
                 echo "| Status | Details |"
                 echo "|--------|---------|"
@@ -593,33 +659,44 @@ jobs:
         run: |
           # Process coverage statistics if available
           if compgen -G "coverage-stats-*.json" >/dev/null 2>&1; then
-            {
-              echo "<br><br>"
-              echo ""
-              echo "### 📈 Code Coverage Report"
-            } >> completion-report.md
-
+            # Check if we have valid coverage data before creating section
+            HAS_COVERAGE_DATA=false
+            VALID_COVERAGE_FILE=""
             for stats_file in coverage-stats-*.json; do
               if [ -f "$stats_file" ]; then
-                COVERAGE_PERCENT=$(jq -r '.coverage_percent // "N/A"' "$stats_file")
-                PROCESSING_TIME=$(jq -r '.processing_time_seconds // "N/A"' "$stats_file")
-                FILES_PROCESSED=$(jq -r '.files_processed // "N/A"' "$stats_file")
-                BADGE_GENERATED=$(jq -r '.badge_generated // "false"' "$stats_file")
-                PAGES_DEPLOYED=$(jq -r '.pages_deployed // "false"' "$stats_file")
-
-                {
-                  echo "| Metric | Value |"
-                  echo "|--------|-------|"
-                  echo "| **Coverage Percentage** | $COVERAGE_PERCENT% |"
-                  echo "| **Processing Time** | ${PROCESSING_TIME}s |"
-                  echo "| **Files Processed** | $FILES_PROCESSED |"
-                  echo "| **Badge Generated** | $([ "$BADGE_GENERATED" == "true" ] && echo "✅ Yes" || echo "❌ No") |"
-                  echo "| **Pages Deployed** | $([ "$PAGES_DEPLOYED" == "true" ] && echo "✅ Yes" || echo "❌ No") |"
-                } >> completion-report.md
-
-                break # Only show first coverage stats file
+                COVERAGE_PERCENT=$(jq -r '.coverage_percent // "null"' "$stats_file")
+                if [[ "$COVERAGE_PERCENT" != "null" ]] && [[ "$COVERAGE_PERCENT" != "N/A" ]] && [[ -n "$COVERAGE_PERCENT" ]]; then
+                  HAS_COVERAGE_DATA=true
+                  VALID_COVERAGE_FILE="$stats_file"
+                  break
+                fi
               fi
             done
+
+            if [[ "$HAS_COVERAGE_DATA" == "true" ]] && [[ -n "$VALID_COVERAGE_FILE" ]]; then
+              {
+                echo "<br><br>"
+                echo ""
+                echo "### 📈 Code Coverage Report"
+              } >> completion-report.md
+
+              # Process the valid coverage file
+              COVERAGE_PERCENT=$(jq -r '.coverage_percent // "N/A"' "$VALID_COVERAGE_FILE")
+              PROCESSING_TIME=$(jq -r '.processing_time_seconds // "N/A"' "$VALID_COVERAGE_FILE")
+              FILES_PROCESSED=$(jq -r '.files_processed // "N/A"' "$VALID_COVERAGE_FILE")
+              BADGE_GENERATED=$(jq -r '.badge_generated // "false"' "$VALID_COVERAGE_FILE")
+              PAGES_DEPLOYED=$(jq -r '.pages_deployed // "false"' "$VALID_COVERAGE_FILE")
+
+              {
+                echo "| Metric | Value |"
+                echo "|--------|-------|"
+                echo "| **Coverage Percentage** | $COVERAGE_PERCENT% |"
+                echo "| **Processing Time** | ${PROCESSING_TIME}s |"
+                echo "| **Files Processed** | $FILES_PROCESSED |"
+                echo "| **Badge Generated** | $([ "$BADGE_GENERATED" == "true" ] && echo "✅ Yes" || echo "❌ No") |"
+                echo "| **Pages Deployed** | $([ "$PAGES_DEPLOYED" == "true" ] && echo "✅ Yes" || echo "❌ No") |"
+              } >> completion-report.md
+            fi
           elif [[ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ]]; then
             {
               echo "<br><br>"
@@ -649,15 +726,25 @@ jobs:
           LOC_DATE=""
 
           if compgen -G "*-stats-*.json" >/dev/null 2>&1; then
+            echo "🔍 Looking for LOC data in stats files..."
             for stats_file in *-stats-*.json; do
               if [ -f "$stats_file" ]; then
+                echo "📋 Checking $stats_file for LOC data..."
                 TEST_FILES_COUNT=$(jq -r '.loc_test_files // "null"' "$stats_file")
-                if [[ "$TEST_FILES_COUNT" != "null" ]] && [[ "$TEST_FILES_COUNT" != "" ]]; then
-                  GO_FILES_COUNT=$(jq -r '.loc_go_files' "$stats_file")
-                  TOTAL_LOC=$(jq -r '.loc_total' "$stats_file")
-                  LOC_DATE=$(jq -r '.loc_date' "$stats_file")
+                GO_FILES_COUNT=$(jq -r '.loc_go_files // "null"' "$stats_file")
+                TOTAL_LOC=$(jq -r '.loc_total // "null"' "$stats_file")
+
+                echo "  - Test Files: '$TEST_FILES_COUNT'"
+                echo "  - Go Files: '$GO_FILES_COUNT'"
+                echo "  - Total: '$TOTAL_LOC'"
+
+                # Check if we have valid LOC data (not null and not empty string)
+                if [[ "$TEST_FILES_COUNT" != "null" ]] && [[ "$TEST_FILES_COUNT" != "" ]] && \
+                   [[ "$GO_FILES_COUNT" != "null" ]] && [[ "$GO_FILES_COUNT" != "" ]] && \
+                   [[ "$TOTAL_LOC" != "null" ]] && [[ "$TOTAL_LOC" != "" ]]; then
+                  LOC_DATE=$(jq -r '.loc_date // "unknown"' "$stats_file")
                   LOC_FOUND=true
-                  echo "✅ Found LOC data in stats: $TOTAL_LOC total lines"
+                  echo "✅ Found valid LOC data in $stats_file: $TOTAL_LOC total lines"
                   break
                 fi
               fi
@@ -668,35 +755,65 @@ jobs:
           if [[ "$LOC_FOUND" == "false" ]]; then
             echo "🔍 LOC not found in stats, trying magex metrics:loc..."
             if command -v magex &> /dev/null; then
-              LOC_OUTPUT=$(magex metrics:loc 2>&1 || echo "")
+              LOC_OUTPUT=$(magex metrics:loc 2>&1 || true)
               if [[ -n "$LOC_OUTPUT" ]]; then
-                TEST_FILES_COUNT=$(echo "$LOC_OUTPUT" | grep "Test Files" | awk '{print $4}' | tr -d ',' || echo "")
-                GO_FILES_COUNT=$(echo "$LOC_OUTPUT" | grep "Go Files" | awk '{print $4}' | tr -d ',' || echo "")
-                TOTAL_LOC=$(echo "$LOC_OUTPUT" | grep "Total lines of code:" | awk '{print $5}' | tr -d ',' || echo "")
+                echo "📋 Direct magex output:"
+                echo "$LOC_OUTPUT"
+
+                # Use same parsing as in test-suite workflow
+                TEST_FILES_COUNT=$(echo "$LOC_OUTPUT" | grep "Test Files" | awk -F'|' '{print $3}' | tr -d ' ,' || echo "")
+                GO_FILES_COUNT=$(echo "$LOC_OUTPUT" | grep "Go Files" | awk -F'|' '{print $3}' | tr -d ' ,' || echo "")
+                TOTAL_LOC=$(echo "$LOC_OUTPUT" | grep "Total lines of code:" | awk -F':' '{print $2}' | tr -d ' ,' || echo "")
                 LOC_DATE=$(date -u +"%Y-%m-%d")
-                if [[ -n "$TOTAL_LOC" ]]; then
+
+                echo "📊 Directly parsed values:"
+                echo "  - Test Files: '$TEST_FILES_COUNT'"
+                echo "  - Go Files: '$GO_FILES_COUNT'"
+                echo "  - Total: '$TOTAL_LOC'"
+
+                if [[ -n "$TOTAL_LOC" ]] && [[ -n "$TEST_FILES_COUNT" ]] && [[ -n "$GO_FILES_COUNT" ]]; then
                   LOC_FOUND=true
                   echo "✅ Calculated LOC directly: $TOTAL_LOC total lines"
+                else
+                  echo "⚠️ Direct LOC calculation failed - incomplete data"
                 fi
+              else
+                echo "⚠️ No output from magex metrics:loc"
               fi
+            else
+              echo "⚠️ magex not available in completion report environment"
             fi
           fi
 
           # Display LOC section if we have data
           if [[ "$LOC_FOUND" == "true" ]] && [[ -n "$TOTAL_LOC" ]]; then
+            # Ensure no empty values in table
+            DISPLAY_TEST_FILES="${TEST_FILES_COUNT:-N/A}"
+            DISPLAY_GO_FILES="${GO_FILES_COUNT:-N/A}"
+            DISPLAY_LOC_DATE="${LOC_DATE:-N/A}"
+            DISPLAY_TOTAL="${TOTAL_LOC:-N/A}"
+
+            # Double-check for empty strings and replace with N/A
+            [[ -z "$DISPLAY_TEST_FILES" ]] && DISPLAY_TEST_FILES="N/A"
+            [[ -z "$DISPLAY_GO_FILES" ]] && DISPLAY_GO_FILES="N/A"
+            [[ -z "$DISPLAY_LOC_DATE" ]] && DISPLAY_LOC_DATE="N/A"
+            [[ -z "$DISPLAY_TOTAL" ]] && DISPLAY_TOTAL="N/A"
+
             {
               echo "<br><br>"
               echo ""
               echo "### 📊 Lines of Code Summary"
               echo "| Type | Total Lines | Date |"
               echo "|------|-------------|------|"
-              echo "| Test Files | ${TEST_FILES_COUNT:-N/A} | ${LOC_DATE:-N/A} |"
-              echo "| Go Files | ${GO_FILES_COUNT:-N/A} | ${LOC_DATE:-N/A} |"
+              echo "| Test Files | $DISPLAY_TEST_FILES | $DISPLAY_LOC_DATE |"
+              echo "| Go Files | $DISPLAY_GO_FILES | $DISPLAY_LOC_DATE |"
               echo ""
-              echo "**Total lines of code: ${TOTAL_LOC}**"
+              echo "**Total lines of code: $DISPLAY_TOTAL**"
             } >> completion-report.md
+
+            echo "✅ LOC section added to report with values: Test=$DISPLAY_TEST_FILES, Go=$DISPLAY_GO_FILES, Total=$DISPLAY_TOTAL"
           else
-            echo "⚠️ No LOC data available to display"
+            echo "⚠️ No valid LOC data available to display"
             {
               echo "<br><br>"
               echo ""
@@ -704,7 +821,7 @@ jobs:
               echo "| Status | Details |"
               echo "|--------|---------|"
               echo "| **Lines of Code** | ❌ Data not available |"
-              echo "| **Reason** | magex metrics:loc not executed or failed |"
+              echo "| **Reason** | magex metrics:loc not executed or parsing failed |"
             } >> completion-report.md
           fi
 

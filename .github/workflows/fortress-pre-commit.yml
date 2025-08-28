@@ -659,6 +659,7 @@ jobs:
           echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "cache-stats-pre-commit.json"
           echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "cache-stats-pre-commit.json"
           echo '  "workflow": "pre-commit",' >> "cache-stats-pre-commit.json"
+          echo '  "job_name": "pre-commit-checks",' >> "cache-stats-pre-commit.json"
           echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "cache-stats-pre-commit.json"
           echo '}' >> "cache-stats-pre-commit.json"
 
