@@ -602,9 +602,10 @@ jobs:
                 echo "|------------|----------|------------|--------|---------|" >> completion-report.md
 
                 # Process fuzz stats files only if they exist
+                ROW_ADDED=false
                 if compgen -G "fuzz-stats-*.json" >/dev/null 2>&1; then
                   for stats_file in fuzz-stats-*.json; do
-                      if [ -f "$stats_file" ]; then
+                      if [ -f "$stats_file" ] && [[ "$ROW_ADDED" == "false" ]]; then
                         NAME=$(jq -r '.name' "$stats_file")
                         DURATION=$(jq -r '.duration_seconds' "$stats_file")
                         FUZZ_TEST_COUNT=$(jq -r '.fuzz_test_count' "$stats_file")
@@ -622,6 +623,7 @@ jobs:
                           STATUS_ICON=$([[ "$STATUS" == "success" ]] && echo "✅" || echo "❌")
 
                           echo "| $NAME | ${DURATION_MIN}m ${DURATION_SEC}s | $FUZZ_TEST_COUNT | $STATUS_ICON | 🎯 |" >> completion-report.md
+                          ROW_ADDED=true
                         fi
                       fi
                     done
