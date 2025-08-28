@@ -137,16 +137,34 @@ jobs:
 
           # Run benchmarks and capture output
           if $BENCH_CMD > "$BENCH_OUTPUT_FILE" 2>&1; then
-            echo "✅ Benchmarks completed successfully"
+            echo "✅ Benchmarks command completed"
             BENCH_STATUS="success"
           else
-            echo "❌ Benchmarks failed"
+            echo "❌ Benchmarks command failed"
+            BENCH_STATUS="failure"
+          fi
+
+          # Check for panic, FAIL, or fatal errors in output
+          if grep -q -E "(panic:|FAIL|fatal error:|runtime error:|test timed out|unexpected Method Call)" "$BENCH_OUTPUT_FILE"; then
+            echo "❌ Benchmarks contain panic or fatal errors"
+            BENCH_STATUS="failure"
+          fi
+
+          # Additional check for mock expectation failures
+          if grep -q -i "mock: Unexpected Method Call" "$BENCH_OUTPUT_FILE"; then
+            echo "❌ Benchmarks contain mock expectation failures"
             BENCH_STATUS="failure"
           fi
 
           # Display benchmark output
           echo "📊 Benchmark Results:"
           cat "$BENCH_OUTPUT_FILE"
+
+          # Fail the step if benchmarks failed or contained errors
+          if [ "$BENCH_STATUS" = "failure" ]; then
+            echo "::error::Benchmark execution failed or contained errors"
+            exit 1
+          fi
 
           # Save status for later
           echo "bench_status=$BENCH_STATUS" >> $GITHUB_OUTPUT
