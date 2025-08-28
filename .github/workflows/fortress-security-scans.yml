@@ -133,7 +133,8 @@ jobs:
         uses: ./.github/actions/collect-cache-stats
         with:
           workflow-name: nancy-security
-          runner-os: ${{ inputs.primary-runner }}
+          job-name: nancy-security
+          os: ${{ inputs.primary-runner }}
           go-version: ${{ inputs.go-primary-version }}
 
       # ————————————————————————————————————————————————————————————————
@@ -143,7 +144,7 @@ jobs:
         uses: ./.github/actions/upload-statistics
         with:
           artifact-name: cache-stats-nancy-security
-          path: cache-stats-nancy-security.json
+          artifact-path: cache-stats-nancy-security.json
 
   # ----------------------------------------------------------------------------------
   # Govulncheck (Vulnerability Checks)
@@ -261,7 +262,8 @@ jobs:
         uses: ./.github/actions/collect-cache-stats
         with:
           workflow-name: govulncheck-security
-          runner-os: ${{ inputs.primary-runner }}
+          job-name: govulncheck-security
+          os: ${{ inputs.primary-runner }}
           go-version: ${{ inputs.go-primary-version }}
           additional-caches: ~/.cache/govulncheck-bin
 
@@ -272,7 +274,7 @@ jobs:
         uses: ./.github/actions/upload-statistics
         with:
           artifact-name: cache-stats-govulncheck-security
-          path: cache-stats-govulncheck-security.json
+          artifact-path: cache-stats-govulncheck-security.json
 
   # ----------------------------------------------------------------------------------
   # Gitleaks (Secret Scanning)
