@@ -329,6 +329,7 @@ func BenchmarkModuleOperations(b *testing.B) {
 		tmpDir := b.TempDir()
 		repoDir := filepath.Join(tmpDir, "repo")
 
+		require.NoError(b, os.MkdirAll(repoDir, 0o750))
 		initGitRepoPerf(b, repoDir)
 
 		// Create many version tags
@@ -368,6 +369,7 @@ func BenchmarkModuleOperations(b *testing.B) {
 		tmpDir := b.TempDir()
 		repoDir := filepath.Join(tmpDir, "repo")
 
+		require.NoError(b, os.MkdirAll(repoDir, 0o750))
 		initGitRepoPerf(b, repoDir)
 
 		// Create version tags
@@ -556,6 +558,7 @@ func TestPerformanceStress(t *testing.T) {
 		tmpDir := t.TempDir()
 		repoDir := filepath.Join(tmpDir, "repo")
 
+		require.NoError(t, os.MkdirAll(repoDir, 0o750))
 		initGitRepoPerf(t, repoDir)
 
 		// Create version tags

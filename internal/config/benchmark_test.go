@@ -11,68 +11,74 @@ import (
 
 //nolint:gochecknoglobals // Test data
 var sampleYAML = []byte(`version: 1
-source:
-  repo: "org/template-repo"
-  branch: "master"
-defaults:
-  branch_prefix: "chore/sync-files"
-  pr_labels: ["automated-sync", "chore"]
-targets:
-  - repo: "org/target-repo-1"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-      - src: "Makefile"
-        dest: "Makefile"
-    transform:
-      repo_name: true
-      variables:
-        SERVICE_NAME: "target-service-1"
-        ENVIRONMENT: "production"
-  - repo: "org/target-repo-2"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-      - src: "docker-compose.yml"
-        dest: "docker-compose.yml"
-    transform:
-      repo_name: true
-      variables:
-        SERVICE_NAME: "target-service-2"
-        ENVIRONMENT: "staging"`)
+groups:
+  - name: "Benchmark Test"
+    id: "benchmark"
+    source:
+      repo: "org/template-repo"
+      branch: "master"
+    defaults:
+      branch_prefix: "chore/sync-files"
+      pr_labels: ["automated-sync", "chore"]
+    targets:
+      - repo: "org/target-repo-1"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+          - src: "Makefile"
+            dest: "Makefile"
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_NAME: "target-service-1"
+            ENVIRONMENT: "production"
+      - repo: "org/target-repo-2"
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+          - src: "docker-compose.yml"
+            dest: "docker-compose.yml"
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_NAME: "target-service-2"
+            ENVIRONMENT: "staging"`)
 
 //nolint:gochecknoglobals // Test data
 var largeYAML = func() []byte {
 	// Create a large YAML with many targets
 	var buf bytes.Buffer
 	buf.WriteString(`version: 1
-source:
-  repo: "org/template-repo"
-  branch: "master"
-defaults:
-  branch_prefix: "chore/sync-files"
-  pr_labels: ["automated-sync"]
-targets:`)
+groups:
+  - name: "Large Benchmark Test"
+    id: "large-benchmark"
+    source:
+      repo: "org/template-repo"
+      branch: "master"
+    defaults:
+      branch_prefix: "chore/sync-files"
+      pr_labels: ["automated-sync"]
+    targets:`)
 
 	for i := 0; i < 100; i++ {
 		buf.WriteString(`
-  - repo: "org/target-repo-`)
+      - repo: "org/target-repo-`)
 		buf.WriteString(fmt.Sprintf("%d", i))
 		buf.WriteString(`"
-    files:
-      - src: ".github/workflows/ci.yml"
-        dest: ".github/workflows/ci.yml"
-      - src: "Makefile"
-        dest: "Makefile"
-      - src: "README.md"
-        dest: "README.md"
-    transform:
-      repo_name: true
-      variables:
-        SERVICE_NAME: "service-`)
+        files:
+          - src: ".github/workflows/ci.yml"
+            dest: ".github/workflows/ci.yml"
+          - src: "Makefile"
+            dest: "Makefile"
+          - src: "README.md"
+            dest: "README.md"
+        transform:
+          repo_name: true
+          variables:
+            SERVICE_NAME: "service-`)
 		buf.WriteString(fmt.Sprintf("%d", i))
 		buf.WriteString(`"
-        ENVIRONMENT: "production"`)
+            ENVIRONMENT: "production"`)
 	}
 	return buf.Bytes()
 }()
