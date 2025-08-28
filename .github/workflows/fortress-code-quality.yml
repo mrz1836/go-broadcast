@@ -66,13 +66,9 @@ jobs:
       # Parse environment variables
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Parse environment variables
-        env:
-          ENV_JSON: ${{ inputs.env-json }}
-        run: |
-          echo "📋 Setting environment variables..."
-          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done
+        uses: ./.github/actions/parse-env
+        with:
+          env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
       # Checkout code and set up Go environment
@@ -132,49 +128,24 @@ jobs:
       - name: 📊 Collect cache statistics
         id: cache-stats-govet
         if: always()
-        run: |
-          echo "📊 Collecting cache statistics for govet job..."
-
-          # Get cache hit information
-          GOMOD_HIT="${{ steps.setup-go-vet.outputs.module-cache-hit }}"
-          GOBUILD_HIT="${{ steps.setup-go-vet.outputs.build-cache-hit }}"
-
-          # Get cache sizes
-          GOMOD_SIZE="0B"
-          GOBUILD_SIZE="0B"
-
-          if [ -d "$HOME/go/pkg/mod" ]; then
-            GOMOD_SIZE=$(du -sh "$HOME/go/pkg/mod" 2>/dev/null | cut -f1 || echo "0B")
-          fi
-
-          if [ -d "$HOME/.cache/go-build" ]; then
-            GOBUILD_SIZE=$(du -sh "$HOME/.cache/go-build" 2>/dev/null | cut -f1 || echo "0B")
-          fi
-
-          # Create cache statistics JSON
-          echo '{' > "cache-stats-govet.json"
-          echo '  "os": "${{ inputs.primary-runner }}",' >> "cache-stats-govet.json"
-          echo '  "go_version": "${{ inputs.go-primary-version }}",' >> "cache-stats-govet.json"
-          echo "  \"gomod_cache_hit\": \"$GOMOD_HIT\"," >> "cache-stats-govet.json"
-          echo "  \"gobuild_cache_hit\": \"$GOBUILD_HIT\"," >> "cache-stats-govet.json"
-          echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "cache-stats-govet.json"
-          echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "cache-stats-govet.json"
-          echo '  "workflow": "code-quality",' >> "cache-stats-govet.json"
-          echo '  "job_name": "govet",' >> "cache-stats-govet.json"
-          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "cache-stats-govet.json"
-          echo '}' >> "cache-stats-govet.json"
-
-          echo "📊 Cache statistics collected for govet job"
+        uses: ./.github/actions/collect-cache-stats
+        with:
+          workflow-name: code-quality
+          job-name: govet
+          os: ${{ inputs.primary-runner }}
+          go-version: ${{ inputs.go-primary-version }}
+          gomod-cache-hit: ${{ steps.setup-go-vet.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-go-vet.outputs.build-cache-hit }}
 
       # ————————————————————————————————————————————————————————————————
       # Upload cache statistics
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload cache statistics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/upload-statistics
         with:
-          name: cache-stats-govet
-          path: cache-stats-govet.json
+          artifact-name: cache-stats-govet
+          artifact-path: cache-stats-govet.json
           retention-days: 1
 
   # ----------------------------------------------------------------------------------
@@ -191,13 +162,9 @@ jobs:
       # Parse environment variables
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Parse environment variables
-        env:
-          ENV_JSON: ${{ inputs.env-json }}
-        run: |
-          echo "📋 Setting environment variables..."
-          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done
+        uses: ./.github/actions/parse-env
+        with:
+          env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
       # Checkout code and set up Go environment
@@ -299,55 +266,25 @@ jobs:
       - name: 📊 Collect cache statistics
         id: cache-stats-lint
         if: always()
-        run: |
-          echo "📊 Collecting cache statistics for lint job..."
-
-          # Get cache hit information
-          GOMOD_HIT="${{ steps.setup-go-lint.outputs.module-cache-hit }}"
-          GOBUILD_HIT="${{ steps.setup-go-lint.outputs.build-cache-hit }}"
-
-          # Get cache sizes
-          GOMOD_SIZE="0B"
-          GOBUILD_SIZE="0B"
-          GOLANGCI_SIZE="0B"
-
-          if [ -d "$HOME/go/pkg/mod" ]; then
-            GOMOD_SIZE=$(du -sh "$HOME/go/pkg/mod" 2>/dev/null | cut -f1 || echo "0B")
-          fi
-
-          if [ -d "$HOME/.cache/go-build" ]; then
-            GOBUILD_SIZE=$(du -sh "$HOME/.cache/go-build" 2>/dev/null | cut -f1 || echo "0B")
-          fi
-
-          if [ -d "$HOME/.cache/golangci-lint" ]; then
-            GOLANGCI_SIZE=$(du -sh "$HOME/.cache/golangci-lint" 2>/dev/null | cut -f1 || echo "0B")
-          fi
-
-          # Create cache statistics JSON
-          echo '{' > "cache-stats-lint.json"
-          echo '  "os": "${{ inputs.primary-runner }}",' >> "cache-stats-lint.json"
-          echo '  "go_version": "${{ inputs.go-primary-version }}",' >> "cache-stats-lint.json"
-          echo "  \"gomod_cache_hit\": \"$GOMOD_HIT\"," >> "cache-stats-lint.json"
-          echo "  \"gobuild_cache_hit\": \"$GOBUILD_HIT\"," >> "cache-stats-lint.json"
-          echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "cache-stats-lint.json"
-          echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "cache-stats-lint.json"
-          echo "  \"cache_size_golangci_lint\": \"$GOLANGCI_SIZE\"," >> "cache-stats-lint.json"
-          echo '  "workflow": "code-quality",' >> "cache-stats-lint.json"
-          echo '  "job_name": "lint",' >> "cache-stats-lint.json"
-          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "cache-stats-lint.json"
-          echo '}' >> "cache-stats-lint.json"
-
-          echo "📊 Cache statistics collected for lint job"
+        uses: ./.github/actions/collect-cache-stats
+        with:
+          workflow-name: code-quality
+          job-name: lint
+          os: ${{ inputs.primary-runner }}
+          go-version: ${{ inputs.go-primary-version }}
+          gomod-cache-hit: ${{ steps.setup-go-lint.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-go-lint.outputs.build-cache-hit }}
+          include-golangci: true
 
       # ————————————————————————————————————————————————————————————————
       # Upload cache statistics
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload cache statistics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/upload-statistics
         with:
-          name: cache-stats-lint
-          path: cache-stats-lint.json
+          artifact-name: cache-stats-lint
+          artifact-path: cache-stats-lint.json
           retention-days: 1
 
   # ----------------------------------------------------------------------------------
@@ -364,13 +301,9 @@ jobs:
       # Parse environment variables
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Parse environment variables
-        env:
-          ENV_JSON: ${{ inputs.env-json }}
-        run: |
-          echo "📋 Setting environment variables..."
-          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done
+        uses: ./.github/actions/parse-env
+        with:
+          env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
       # Checkout code with full history for proper ignore file handling

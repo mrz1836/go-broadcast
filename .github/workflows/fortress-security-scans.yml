@@ -65,13 +65,9 @@ jobs:
       # Parse environment variables
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Parse environment variables
-        env:
-          ENV_JSON: ${{ inputs.env-json }}
-        run: |
-          echo "📋 Setting environment variables..."
-          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done
+        uses: ./.github/actions/parse-env
+        with:
+          env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
       # Checkout code and set up Go environment
@@ -130,6 +126,25 @@ jobs:
           echo "The following vulnerabilities were excluded from the scan:" >> $GITHUB_STEP_SUMMARY
           echo "${{ env.NANCY_EXCLUDES }}" >> $GITHUB_STEP_SUMMARY
 
+      # ————————————————————————————————————————————————————————————————
+      # Collect cache statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Collect cache statistics
+        uses: ./.github/actions/collect-cache-stats
+        with:
+          workflow-name: nancy-security
+          runner-os: ${{ inputs.primary-runner }}
+          go-version: ${{ inputs.go-primary-version }}
+
+      # ————————————————————————————————————————————————————————————————
+      # Upload statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📤 Upload cache statistics
+        uses: ./.github/actions/upload-statistics
+        with:
+          artifact-name: cache-stats-nancy-security
+          path: cache-stats-nancy-security.json
+
   # ----------------------------------------------------------------------------------
   # Govulncheck (Vulnerability Checks)
   # ----------------------------------------------------------------------------------
@@ -142,13 +157,9 @@ jobs:
       # Parse environment variables
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Parse environment variables
-        env:
-          ENV_JSON: ${{ inputs.env-json }}
-        run: |
-          echo "📋 Setting environment variables..."
-          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done
+        uses: ./.github/actions/parse-env
+        with:
+          env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
       # Checkout code and set up Go environment
@@ -243,6 +254,26 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🎯 **Analysis completed successfully with no security issues found.**" >> $GITHUB_STEP_SUMMARY
 
+      # ————————————————————————————————————————————————————————————————
+      # Collect cache statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Collect cache statistics
+        uses: ./.github/actions/collect-cache-stats
+        with:
+          workflow-name: govulncheck-security
+          runner-os: ${{ inputs.primary-runner }}
+          go-version: ${{ inputs.go-primary-version }}
+          additional-caches: ~/.cache/govulncheck-bin
+
+      # ————————————————————————————————————————————————————————————————
+      # Upload statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📤 Upload cache statistics
+        uses: ./.github/actions/upload-statistics
+        with:
+          artifact-name: cache-stats-govulncheck-security
+          path: cache-stats-govulncheck-security.json
+
   # ----------------------------------------------------------------------------------
   # Gitleaks (Secret Scanning)
   # ----------------------------------------------------------------------------------
@@ -255,13 +286,9 @@ jobs:
       # Parse environment variables
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Parse environment variables
-        env:
-          ENV_JSON: ${{ inputs.env-json }}
-        run: |
-          echo "📋 Setting environment variables..."
-          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done
+        uses: ./.github/actions/parse-env
+        with:
+          env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
       # Check repository security conditions

@@ -81,13 +81,9 @@ jobs:
       # Parse environment variables
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Parse environment variables
-        env:
-          ENV_JSON: ${{ inputs.env-json }}
-        run: |
-          echo "📋 Setting environment variables..."
-          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done
+        uses: ./.github/actions/parse-env
+        with:
+          env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
       # Checkout code and set up Go environment
@@ -1216,55 +1212,24 @@ jobs:
       - name: 📊 Collect cache statistics
         id: cache-stats
         if: always()
-        run: |
-          echo "📊 Collecting cache statistics for test job..."
-
-          # Get cache hit information
-          GOMOD_HIT="${{ steps.setup-go-test.outputs.module-cache-hit }}"
-          GOBUILD_HIT="${{ steps.setup-go-test.outputs.build-cache-hit }}"
-
-          # Get cache sizes
-          GOMOD_SIZE="0B"
-          GOBUILD_SIZE="0B"
-
-          if [ -d "$HOME/go/pkg/mod" ]; then
-            GOMOD_SIZE=$(du -sh "$HOME/go/pkg/mod" 2>/dev/null | cut -f1 || echo "0B")
-          fi
-
-          if [ -d "$HOME/.cache/go-build" ]; then
-            GOBUILD_SIZE=$(du -sh "$HOME/.cache/go-build" 2>/dev/null | cut -f1 || echo "0B")
-          fi
-
-          # Create matrix-specific cache statistics JSON
-          CACHE_STATS_FILE="cache-stats-test-${{ matrix.os }}-${{ matrix.go-version }}.json"
-          echo '{' > "$CACHE_STATS_FILE"
-          echo '  "os": "${{ matrix.os }}",' >> "$CACHE_STATS_FILE"
-          echo '  "go_version": "${{ matrix.go-version }}",' >> "$CACHE_STATS_FILE"
-          echo "  \"gomod_cache_hit\": \"$GOMOD_HIT\"," >> "$CACHE_STATS_FILE"
-          echo "  \"gobuild_cache_hit\": \"$GOBUILD_HIT\"," >> "$CACHE_STATS_FILE"
-          echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "$CACHE_STATS_FILE"
-          echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "$CACHE_STATS_FILE"
-          echo '  "workflow": "test-suite",' >> "$CACHE_STATS_FILE"
-          echo '  "job_name": "test-go",' >> "$CACHE_STATS_FILE"
-          echo '  "matrix_info": {' >> "$CACHE_STATS_FILE"
-          echo '    "os": "${{ matrix.os }}",' >> "$CACHE_STATS_FILE"
-          echo '    "go_version": "${{ matrix.go-version }}",' >> "$CACHE_STATS_FILE"
-          echo '    "name": "${{ matrix.name }}"' >> "$CACHE_STATS_FILE"
-          echo '  },' >> "$CACHE_STATS_FILE"
-          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "$CACHE_STATS_FILE"
-          echo '}' >> "$CACHE_STATS_FILE"
-
-          echo "📊 Cache statistics collected for test job (${{ matrix.os }}-${{ matrix.go-version }})"
+        uses: ./.github/actions/collect-cache-stats
+        with:
+          workflow-name: test-${{ matrix.os }}-${{ matrix.go-version }}
+          job-name: test-go
+          os: ${{ matrix.os }}
+          go-version: ${{ matrix.go-version }}
+          gomod-cache-hit: ${{ steps.setup-go-test.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-go-test.outputs.build-cache-hit }}
 
       # ————————————————————————————————————————————————————————————————
       # Upload cache statistics
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload cache statistics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/upload-statistics
         with:
-          name: cache-stats-test-${{ matrix.os }}-${{ matrix.go-version }}
-          path: cache-stats-test-*.json
+          artifact-name: cache-stats-test-${{ matrix.os }}-${{ matrix.go-version }}
+          artifact-path: cache-stats-test-${{ matrix.os }}-${{ matrix.go-version }}.json
           retention-days: 1
 
       # ————————————————————————————————————————————————————————————————
@@ -1272,10 +1237,10 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload test outputs and statistics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/upload-statistics
         with:
-          name: test-results-${{ matrix.os }}-${{ matrix.go-version }}
-          path: |
+          artifact-name: test-results-${{ matrix.os }}-${{ matrix.go-version }}
+          artifact-path: |
             test-stats-*.json
             test-failures*.json
             test-failures*.jsonl
@@ -1292,10 +1257,10 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload test statistics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/upload-statistics
         with:
-          name: test-stats-${{ matrix.os }}-${{ matrix.go-version }}
-          path: test-stats-*.json
+          artifact-name: test-stats-${{ matrix.os }}-${{ matrix.go-version }}
+          artifact-path: test-stats-*.json
           retention-days: 1
 
       # ————————————————————————————————————————————————————————————————
@@ -1376,13 +1341,9 @@ jobs:
       # Parse environment variables
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Parse environment variables
-        env:
-          ENV_JSON: ${{ inputs.env-json }}
-        run: |
-          echo "📋 Setting environment variables..."
-          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done
+        uses: ./.github/actions/parse-env
+        with:
+          env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
       # Checkout code and set up Go environment
@@ -1609,49 +1570,24 @@ jobs:
       - name: 📊 Collect cache statistics
         id: cache-stats-fuzz
         if: always()
-        run: |
-          echo "📊 Collecting cache statistics for fuzz job..."
-
-          # Get cache hit information
-          GOMOD_HIT="${{ steps.setup-go-fuzz.outputs.module-cache-hit }}"
-          GOBUILD_HIT="${{ steps.setup-go-fuzz.outputs.build-cache-hit }}"
-
-          # Get cache sizes
-          GOMOD_SIZE="0B"
-          GOBUILD_SIZE="0B"
-
-          if [ -d "$HOME/go/pkg/mod" ]; then
-            GOMOD_SIZE=$(du -sh "$HOME/go/pkg/mod" 2>/dev/null | cut -f1 || echo "0B")
-          fi
-
-          if [ -d "$HOME/.cache/go-build" ]; then
-            GOBUILD_SIZE=$(du -sh "$HOME/.cache/go-build" 2>/dev/null | cut -f1 || echo "0B")
-          fi
-
-          # Create cache statistics JSON
-          echo '{' > "cache-stats-fuzz.json"
-          echo '  "os": "${{ inputs.primary-runner }}",' >> "cache-stats-fuzz.json"
-          echo '  "go_version": "${{ inputs.go-primary-version }}",' >> "cache-stats-fuzz.json"
-          echo "  \"gomod_cache_hit\": \"$GOMOD_HIT\"," >> "cache-stats-fuzz.json"
-          echo "  \"gobuild_cache_hit\": \"$GOBUILD_HIT\"," >> "cache-stats-fuzz.json"
-          echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "cache-stats-fuzz.json"
-          echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "cache-stats-fuzz.json"
-          echo '  "workflow": "test-suite",' >> "cache-stats-fuzz.json"
-          echo '  "job_name": "fuzz-tests",' >> "cache-stats-fuzz.json"
-          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "cache-stats-fuzz.json"
-          echo '}' >> "cache-stats-fuzz.json"
-
-          echo "📊 Cache statistics collected for fuzz job"
+        uses: ./.github/actions/collect-cache-stats
+        with:
+          workflow-name: fuzz
+          job-name: fuzz-tests
+          os: ${{ inputs.primary-runner }}
+          go-version: ${{ inputs.go-primary-version }}
+          gomod-cache-hit: ${{ steps.setup-go-fuzz.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-go-fuzz.outputs.build-cache-hit }}
 
       # ————————————————————————————————————————————————————————————————
       # Upload cache statistics
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload cache statistics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/upload-statistics
         with:
-          name: cache-stats-fuzz
-          path: cache-stats-fuzz.json
+          artifact-name: cache-stats-fuzz
+          artifact-path: cache-stats-fuzz.json
           retention-days: 1
 
       # ————————————————————————————————————————————————————————————————
@@ -1659,10 +1595,10 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload fuzz test statistics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/upload-statistics
         with:
-          name: fuzz-stats-${{ inputs.primary-runner }}-${{ inputs.go-primary-version }}
-          path: fuzz-stats-*.json
+          artifact-name: fuzz-stats-${{ inputs.primary-runner }}-${{ inputs.go-primary-version }}
+          artifact-path: fuzz-stats-*.json
           retention-days: 1
 
   # ----------------------------------------------------------------------------------
@@ -1681,13 +1617,9 @@ jobs:
       # Parse environment variables
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Parse environment variables
-        env:
-          ENV_JSON: ${{ inputs.env-json }}
-        run: |
-          echo "📋 Setting environment variables..."
-          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done
+        uses: ./.github/actions/parse-env
+        with:
+          env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
       # Download all test result artifacts (including failure details)
