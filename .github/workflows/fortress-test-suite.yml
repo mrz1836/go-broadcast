@@ -1110,7 +1110,7 @@ jobs:
           FAILURE_DETAILS="[]"
           if [[ -f test-failures-summary.json ]] && [[ -s test-failures-summary.json ]]; then
             AFFECTED_PACKAGES=$(jq 'length' test-failures-summary.json 2>/dev/null || echo "0")
-            # Extract failure details for performance summary
+            # Extract failure details for completion report
             FAILURE_DETAILS=$(jq '[.[] as $parent | $parent.failures[] | {
               Test: .Test,
               Package: $parent.Package,
