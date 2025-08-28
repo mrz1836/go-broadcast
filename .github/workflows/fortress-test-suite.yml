@@ -261,10 +261,11 @@ jobs:
                 # Count completed tests by checking for individual test passes
                 if [[ -f test-raw-output.log ]]; then
                   # Count unique test pass completions (not all pass events)
-                  CURRENT_TESTS=$(grep -c '{"Time".*"Action":"pass".*"Test":"Test.*"Package"' test-raw-output.log 2>/dev/null || echo "0")
-                  CURRENT_TESTS=$(echo "$CURRENT_TESTS" | xargs)
-                  CURRENT_TESTS=${CURRENT_TESTS:-0}
-                  if [[ "$CURRENT_TESTS" -gt "$PACKAGES_PROCESSED" ]]; then
+                  # Force integer context to avoid syntax errors
+                  CURRENT_TESTS=$(($(grep -c '{"Time".*"Action":"pass".*"Test":"Test.*"Package"' test-raw-output.log 2>/dev/null || echo 0) + 0))
+                  PACKAGES_PROCESSED=$((PACKAGES_PROCESSED + 0))
+
+                  if (( CURRENT_TESTS > PACKAGES_PROCESSED )); then
                     PACKAGES_PROCESSED=$CURRENT_TESTS
                     echo "⏳ Progress update: ${MINUTES}m${SECONDS}s elapsed, ~${PACKAGES_PROCESSED}/${TEST_COUNT} tests completed"
                   else
