@@ -1739,12 +1739,12 @@ jobs:
                     head -c 2000 "$failure_file" | sed 's/^/  /'
                   fi
 
-                  # Show any error outputs if available
-                  ERROR_OUTPUTS=$(jq -r '.[] | select(.Output and .Output != "") | .Output' "$failure_file" 2>/dev/null | head -c 1000)
+                  # Show any error outputs if available from the enhanced failure details
+                  ERROR_OUTPUTS=$(jq -r '.[] as $package | $package.failures[] | select(.Output and .Output != "" and .Output != null) | "❌ \(.Test) (\($package.Package | split("/") | .[-1] // .[-2] // .))\n\(.Output)\n"' "$failure_file" 2>/dev/null | head -c 3000)
                   if [[ -n "$ERROR_OUTPUTS" ]]; then
                     echo ""
-                    echo "📝 Error Details:"
-                    echo "----------------"
+                    echo "📝 Test Error Messages:"
+                    echo "----------------------"
                     echo "$ERROR_OUTPUTS"
                   fi
                 else
