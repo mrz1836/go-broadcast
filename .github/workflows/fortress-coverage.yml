@@ -620,6 +620,69 @@ jobs:
             exit 1
           fi
 
+          # Generate coverage statistics for completion report
+          echo ""
+          echo "📊 Generating coverage statistics..."
+          STATS_START_TIME=$(date +%s)
+          COVERAGE_PERCENTAGE=""
+          FILES_PROCESSED=0
+          BADGE_GENERATED=false
+          PAGES_DEPLOYED=false
+
+          # Extract coverage percentage from coverage.html or coverage.out
+          if [ -f "$OUTPUT_DIR/coverage.html" ]; then
+            COVERAGE_PERCENTAGE=$(grep -o 'coverage: [0-9.]*%' "$OUTPUT_DIR/coverage.html" | head -1 | grep -o '[0-9.]*' || echo "0")
+            echo "📈 Extracted coverage percentage from HTML: ${COVERAGE_PERCENTAGE}%"
+          elif [ -f "$COVERAGE_FILE" ]; then
+            # Calculate coverage from .out file using go tool cover
+            COVERAGE_PERCENTAGE=$(go tool cover -func="$COVERAGE_FILE" | tail -1 | awk '{print $3}' | sed 's/%//' || echo "0")
+            echo "📈 Calculated coverage percentage from profile: ${COVERAGE_PERCENTAGE}%"
+          fi
+
+          # Count processed files from coverage output
+          if [ -f "$COVERAGE_FILE" ]; then
+            FILES_PROCESSED=$(wc -l < "$COVERAGE_FILE" || echo "0")
+            echo "📁 Files processed: $FILES_PROCESSED"
+          fi
+
+          # Check if badge was generated (look for badge files in output)
+          if ls "$OUTPUT_DIR"/*.svg >/dev/null 2>&1 || ls "$OUTPUT_DIR"/*badge* >/dev/null 2>&1; then
+            BADGE_GENERATED=true
+            echo "🏷️ Coverage badge generated"
+          fi
+
+          # Check if pages deployment is configured (placeholder for future)
+          # This can be enhanced when pages deployment is implemented
+          PAGES_DEPLOYED=false
+
+          # Calculate processing time
+          STATS_END_TIME=$(date +%s)
+          PROCESSING_TIME=$((STATS_END_TIME - STATS_START_TIME))
+
+          # Create coverage statistics JSON file
+          STATS_FILENAME="coverage-stats-internal-$(date +%Y%m%d-%H%M%S).json"
+          cat > "$STATS_FILENAME" <<EOF
+          {
+            "coverage_percentage": "${COVERAGE_PERCENTAGE}",
+            "files_processed": ${FILES_PROCESSED},
+            "processing_time_seconds": ${PROCESSING_TIME},
+            "badge_generated": ${BADGE_GENERATED},
+            "pages_deployed": ${PAGES_DEPLOYED},
+            "coverage_file": "$(basename "$COVERAGE_FILE")",
+            "output_directory": "$(basename "$OUTPUT_DIR")",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "workflow": "fortress-coverage",
+            "job": "internal"
+          }
+          EOF
+
+          echo "📊 Coverage statistics saved to: $STATS_FILENAME"
+          echo "  Coverage: ${COVERAGE_PERCENTAGE}%"
+          echo "  Files processed: $FILES_PROCESSED"
+          echo "  Processing time: ${PROCESSING_TIME}s"
+          echo "  Badge generated: $BADGE_GENERATED"
+          echo "  Pages deployed: $PAGES_DEPLOYED"
+
           # Process coverage for branch-specific output
           echo ""
           echo "🚀 Running go-coverage complete command for branch-specific output..."
@@ -2049,6 +2112,17 @@ jobs:
           retention-days: 1
 
       # ————————————————————————————————————————————————————————————————
+      # Upload coverage statistics for completion report
+      # ————————————————————————————————————————————————————————————————
+      - name: 📤 Upload coverage statistics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-stats-internal
+          path: coverage-stats-internal-*.json
+          retention-days: 1
+
+      # ————————————————————————————————————————————————————————————————
       # Upload coverage history for future runs (WORKING SYSTEM - PRESERVED)
       # ————————————————————————————————————————————————————————————————
       - name: 🔍 Verify history files before upload
@@ -2154,3 +2228,67 @@ jobs:
           name: codecov-${{ inputs.branch-name }}
           override_branch: ${{ inputs.branch-name }}
           override_commit: ${{ inputs.commit-sha }}
+
+      # ————————————————————————————————————————————————————————————————
+      # Generate coverage statistics for completion report
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Generate coverage statistics (Codecov)
+        if: always()
+        run: |
+          echo "📊 Generating coverage statistics for Codecov job..."
+          STATS_START_TIME=$(date +%s)
+          COVERAGE_PERCENTAGE=""
+          FILES_PROCESSED=0
+          BADGE_GENERATED=false
+          PAGES_DEPLOYED=false
+
+          # Calculate coverage from coverage.txt file using go tool cover
+          if [ -f "coverage.txt" ]; then
+            COVERAGE_PERCENTAGE=$(go tool cover -func="coverage.txt" | tail -1 | awk '{print $3}' | sed 's/%//' || echo "0")
+            FILES_PROCESSED=$(wc -l < "coverage.txt" || echo "0")
+            echo "📈 Calculated coverage percentage: ${COVERAGE_PERCENTAGE}%"
+            echo "📁 Files processed: $FILES_PROCESSED"
+          else
+            echo "⚠️ Coverage file not found for statistics"
+          fi
+
+          # Codecov job doesn't generate badges or deploy pages directly
+          BADGE_GENERATED=false
+          PAGES_DEPLOYED=false
+
+          # Calculate processing time
+          STATS_END_TIME=$(date +%s)
+          PROCESSING_TIME=$((STATS_END_TIME - STATS_START_TIME))
+
+          # Create coverage statistics JSON file
+          STATS_FILENAME="coverage-stats-codecov-$(date +%Y%m%d-%H%M%S).json"
+          cat > "$STATS_FILENAME" <<EOF
+          {
+            "coverage_percentage": "${COVERAGE_PERCENTAGE}",
+            "files_processed": ${FILES_PROCESSED},
+            "processing_time_seconds": ${PROCESSING_TIME},
+            "badge_generated": ${BADGE_GENERATED},
+            "pages_deployed": ${PAGES_DEPLOYED},
+            "coverage_file": "coverage.txt",
+            "provider": "codecov",
+            "branch": "${{ inputs.branch-name }}",
+            "commit": "${{ inputs.commit-sha }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "workflow": "fortress-coverage",
+            "job": "codecov-upload"
+          }
+          EOF
+
+          echo "📊 Coverage statistics saved to: $STATS_FILENAME"
+          echo "  Coverage: ${COVERAGE_PERCENTAGE}%"
+          echo "  Files processed: $FILES_PROCESSED"
+          echo "  Processing time: ${PROCESSING_TIME}s"
+          echo "  Provider: codecov"
+
+      - name: 📤 Upload coverage statistics (Codecov)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-stats-codecov
+          path: coverage-stats-codecov-*.json
+          retention-days: 1

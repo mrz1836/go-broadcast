@@ -313,7 +313,7 @@ jobs:
               fi
             done
 
-            echo "</details>" >> completion-report.md
+            echo "</details><br><br>" >> completion-report.md
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -483,7 +483,7 @@ jobs:
           # Add test output configuration section
           if compgen -G "test-stats-*.json" >/dev/null 2>&1; then
             {
-              echo ""
+              echo "<br><br>"
               echo ""
               echo "### 🎛️ Test Output Configuration"
               echo "| Configuration | Value | Description |"
@@ -524,31 +524,7 @@ jobs:
               fi
             fi
 
-            # Process Lines of Code Summary
-            DISPLAYED_LOC_SUMMARY=false
-            for stats_file in test-stats-*.json; do
-              if [ -f "$stats_file" ] && [ "$DISPLAYED_LOC_SUMMARY" = false ]; then
-                TEST_FILES_COUNT=$(jq -r '.loc_test_files' "$stats_file")
-                GO_FILES_COUNT=$(jq -r '.loc_go_files' "$stats_file")
-                TOTAL_LOC=$(jq -r '.loc_total' "$stats_file")
-                LOC_DATE=$(jq -r '.loc_date' "$stats_file")
-
-                if [[ "$TEST_FILES_COUNT" != "null" ]] && [[ "$GO_FILES_COUNT" != "null" ]] && [[ "$TOTAL_LOC" != "null" ]]; then
-                  {
-                    echo ""
-                    echo ""
-                    echo "### 📊 Lines of Code Summary"
-                    echo "| Type | Total Lines | Date |"
-                    echo "|------|-------------|------|"
-                    echo "| Test Files | $TEST_FILES_COUNT | $LOC_DATE |"
-                    echo "| Go Files | $GO_FILES_COUNT | $LOC_DATE |"
-                    echo ""
-                    echo "**Total lines of code: $TOTAL_LOC**"
-                  } >> completion-report.md
-                  DISPLAYED_LOC_SUMMARY=true
-                fi
-              fi
-            done
+            # LOC Summary has been moved to dedicated section - no longer needed here
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -559,7 +535,7 @@ jobs:
         run: |
           # Process fuzz test statistics - always show status
           {
-            echo ""
+            echo "<br><br>"
             echo ""
             echo "### 🛡️ Security Testing Results"
           } >> completion-report.md
@@ -618,7 +594,7 @@ jobs:
           # Process coverage statistics if available
           if compgen -G "coverage-stats-*.json" >/dev/null 2>&1; then
             {
-              echo ""
+              echo "<br><br>"
               echo ""
               echo "### 📈 Code Coverage Report"
             } >> completion-report.md
@@ -646,7 +622,7 @@ jobs:
             done
           elif [[ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ]]; then
             {
-              echo ""
+              echo "<br><br>"
               echo ""
               echo "### 📈 Code Coverage Status"
               echo "| Status | Details |"
@@ -660,12 +636,86 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
+      # Generate Lines of Code Summary
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Generate Lines of Code Summary
+        id: process-loc
+        run: |
+          # Try to get LOC from stats files first
+          LOC_FOUND=false
+          TEST_FILES_COUNT=""
+          GO_FILES_COUNT=""
+          TOTAL_LOC=""
+          LOC_DATE=""
+
+          if compgen -G "*-stats-*.json" >/dev/null 2>&1; then
+            for stats_file in *-stats-*.json; do
+              if [ -f "$stats_file" ]; then
+                TEST_FILES_COUNT=$(jq -r '.loc_test_files // "null"' "$stats_file")
+                if [[ "$TEST_FILES_COUNT" != "null" ]] && [[ "$TEST_FILES_COUNT" != "" ]]; then
+                  GO_FILES_COUNT=$(jq -r '.loc_go_files' "$stats_file")
+                  TOTAL_LOC=$(jq -r '.loc_total' "$stats_file")
+                  LOC_DATE=$(jq -r '.loc_date' "$stats_file")
+                  LOC_FOUND=true
+                  echo "✅ Found LOC data in stats: $TOTAL_LOC total lines"
+                  break
+                fi
+              fi
+            done
+          fi
+
+          # If not in stats, try to calculate directly using magex
+          if [[ "$LOC_FOUND" == "false" ]]; then
+            echo "🔍 LOC not found in stats, trying magex metrics:loc..."
+            if command -v magex &> /dev/null; then
+              LOC_OUTPUT=$(magex metrics:loc 2>&1 || echo "")
+              if [[ -n "$LOC_OUTPUT" ]]; then
+                TEST_FILES_COUNT=$(echo "$LOC_OUTPUT" | grep "Test Files" | awk '{print $4}' | tr -d ',' || echo "")
+                GO_FILES_COUNT=$(echo "$LOC_OUTPUT" | grep "Go Files" | awk '{print $4}' | tr -d ',' || echo "")
+                TOTAL_LOC=$(echo "$LOC_OUTPUT" | grep "Total lines of code:" | awk '{print $5}' | tr -d ',' || echo "")
+                LOC_DATE=$(date -u +"%Y-%m-%d")
+                if [[ -n "$TOTAL_LOC" ]]; then
+                  LOC_FOUND=true
+                  echo "✅ Calculated LOC directly: $TOTAL_LOC total lines"
+                fi
+              fi
+            fi
+          fi
+
+          # Display LOC section if we have data
+          if [[ "$LOC_FOUND" == "true" ]] && [[ -n "$TOTAL_LOC" ]]; then
+            {
+              echo "<br><br>"
+              echo ""
+              echo "### 📊 Lines of Code Summary"
+              echo "| Type | Total Lines | Date |"
+              echo "|------|-------------|------|"
+              echo "| Test Files | ${TEST_FILES_COUNT:-N/A} | ${LOC_DATE:-N/A} |"
+              echo "| Go Files | ${GO_FILES_COUNT:-N/A} | ${LOC_DATE:-N/A} |"
+              echo ""
+              echo "**Total lines of code: ${TOTAL_LOC}**"
+            } >> completion-report.md
+          else
+            echo "⚠️ No LOC data available to display"
+            {
+              echo "<br><br>"
+              echo ""
+              echo "### 📊 Lines of Code Summary"
+              echo "| Status | Details |"
+              echo "|--------|---------|"
+              echo "| **Lines of Code** | ❌ Data not available |"
+              echo "| **Reason** | magex metrics:loc not executed or failed |"
+            } >> completion-report.md
+          fi
+
+      # ————————————————————————————————————————————————————————————————
       # Generate job results summary
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Generate Job Results Summary
         id: job-results
         run: |
           {
+            echo "<br><br>"
             echo ""
             echo "### ✅ Workflow Status Overview"
             echo "| Job | Status | Result |"
@@ -724,6 +774,7 @@ jobs:
           TOTAL_SECONDS=${{ steps.calculate-timing.outputs.total_seconds }}
 
           {
+            echo "<br><br>"
             echo ""
             echo "### 📊 Workflow Analytics & Insights"
           } >> completion-report.md
@@ -833,7 +884,7 @@ jobs:
           if [ -n "$FAILED_JOBS" ]; then
             FAILED_JOBS=${FAILED_JOBS%, }  # Remove trailing comma
             {
-              echo ""
+              echo "<br><br>"
               echo ""
               echo "### ⚠️ Failed Components"
               echo "The following jobs did not complete successfully:"
@@ -849,6 +900,7 @@ jobs:
         run: |
           # Add professional footer before finalizing
           {
+            echo "<br><br>"
             echo ""
             echo "---"
             echo "🎯 **Workflow completed** at $(date -u +"%H:%M:%S UTC")"

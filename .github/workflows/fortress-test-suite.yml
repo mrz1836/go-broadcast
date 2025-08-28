@@ -1100,6 +1100,28 @@ jobs:
             OUTPUT_SIZE=$(wc -c < test-output.log 2>/dev/null || echo "0")
           fi
 
+          # Collect Lines of Code metrics using magex
+          LOC_TEST_FILES=""
+          LOC_GO_FILES=""
+          LOC_TOTAL=""
+          LOC_DATE=$(date -u +"%Y-%m-%d")
+
+          if command -v magex &> /dev/null; then
+            echo "📊 Collecting Lines of Code metrics..."
+            LOC_OUTPUT=$(magex metrics:loc 2>&1 || echo "")
+            if [[ -n "$LOC_OUTPUT" ]]; then
+              # Extract numbers from magex metrics:loc output
+              LOC_TEST_FILES=$(echo "$LOC_OUTPUT" | grep "Test Files" | awk '{print $4}' | tr -d ',' || echo "")
+              LOC_GO_FILES=$(echo "$LOC_OUTPUT" | grep "Go Files" | awk '{print $4}' | tr -d ',' || echo "")
+              LOC_TOTAL=$(echo "$LOC_OUTPUT" | grep "Total lines of code:" | awk '{print $5}' | tr -d ',' || echo "")
+              echo "✅ LOC collected: $LOC_TOTAL total ($LOC_TEST_FILES test, $LOC_GO_FILES go)"
+            else
+              echo "⚠️ No LOC output collected"
+            fi
+          else
+            echo "⚠️ magex not available for LOC collection"
+          fi
+
           # Pre-compute boolean values
           TEST_PASSED=$([ "$TEST_EXIT_CODE" = "0" ] && echo "true" || echo "false")
           RACE_ENABLED="${{ inputs.race-detection-enabled == 'true' && 'true' || 'false' }}"
@@ -1140,6 +1162,10 @@ jobs:
             --argjson output_size "$OUTPUT_SIZE" \
             --argjson race_enabled "$RACE_ENABLED" \
             --argjson coverage_enabled "$COVERAGE_ENABLED" \
+            --arg loc_test_files "$LOC_TEST_FILES" \
+            --arg loc_go_files "$LOC_GO_FILES" \
+            --arg loc_total "$LOC_TOTAL" \
+            --arg loc_date "$LOC_DATE" \
             '{
               name: $name,
               os: $os,
@@ -1158,7 +1184,11 @@ jobs:
               race_enabled: $race_enabled,
               coverage_enabled: $coverage_enabled,
               fuzz_run: false,
-              timestamp: $timestamp
+              timestamp: $timestamp,
+              loc_test_files: $loc_test_files,
+              loc_go_files: $loc_go_files,
+              loc_total: $loc_total,
+              loc_date: $loc_date
             }' > "$STATS_FILE"
 
           echo "📊 Test statistics generated successfully:"
