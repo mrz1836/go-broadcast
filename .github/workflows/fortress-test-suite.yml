@@ -1020,7 +1020,13 @@ jobs:
             FAILURE_DETAILS="null"
           fi
 
-          # Build JSON with direct variable interpolation (no sed needed)
+          # Pre-compute all dynamic values to avoid heredoc syntax issues
+          TEST_PASSED_VALUE=$([ "${TEST_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false")
+          RACE_ENABLED_VALUE=$([[ "${{ inputs.race-detection-enabled }}" == "true" ]] && echo "true" || echo "false")
+          COVERAGE_ENABLED_VALUE=$([[ "${{ inputs.code-coverage-enabled }}" == "true" ]] && echo "true" || echo "false")
+          TIMESTAMP_VALUE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Build JSON with pre-computed values to ensure heredoc stability
           cat > "$STATS_FILE" << EOF
           {
             "name": "${{ matrix.name }}",
@@ -1034,15 +1040,15 @@ jobs:
             "benchmark_count": $BENCHMARK_COUNT,
             "status": "${{ job.status }}",
             "test_exit_code": ${TEST_EXIT_CODE:-0},
-            "test_passed": $([ "${TEST_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false"),
+            "test_passed": $TEST_PASSED_VALUE,
             "total_failures": $TOTAL_FAILURES,
             "affected_packages": $AFFECTED_PACKAGES,
             "failure_details": $FAILURE_DETAILS,
             "output_size_bytes": $OUTPUT_SIZE,
-            "race_enabled": $([[ "${{ inputs.race-detection-enabled }}" == "true" ]] && echo "true" || echo "false"),
-            "coverage_enabled": $([[ "${{ inputs.code-coverage-enabled }}" == "true" ]] && echo "true" || echo "false"),
+            "race_enabled": $RACE_ENABLED_VALUE,
+            "coverage_enabled": $COVERAGE_ENABLED_VALUE,
             "fuzz_run": false,
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "timestamp": "$TIMESTAMP_VALUE",
             "loc_test_files": ${TEST_FILES_COUNT:-0},
             "loc_go_files": ${GO_FILES_COUNT:-0},
             "loc_total": ${TOTAL_COUNT:-0},
@@ -1425,7 +1431,11 @@ jobs:
 
           FUZZ_STATS_FILE="fuzz-stats-${{ inputs.primary-runner }}-${{ inputs.go-primary-version }}.json"
 
-          # Build fuzz JSON with direct variable interpolation (no sed needed)
+          # Pre-compute fuzz values to ensure heredoc stability
+          FUZZ_PASSED_VALUE=$([ "${FUZZ_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false")
+          FUZZ_TIMESTAMP_VALUE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Build fuzz JSON with pre-computed values
           cat > "$FUZZ_STATS_FILE" << EOF
           {
             "name": "Fuzz Tests (${{ inputs.primary-runner }})",
@@ -1435,9 +1445,9 @@ jobs:
             "fuzz_test_count": $FUZZ_TEST_COUNT,
             "status": "${{ job.status }}",
             "fuzz_exit_code": ${FUZZ_EXIT_CODE:-0},
-            "fuzz_passed": $([ "${FUZZ_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false"),
+            "fuzz_passed": $FUZZ_PASSED_VALUE,
             "fuzz_enabled": true,
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            "timestamp": "$FUZZ_TIMESTAMP_VALUE"
           }
           EOF
 
