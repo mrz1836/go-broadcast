@@ -394,6 +394,51 @@ jobs:
                 echo ""
                 echo "</details>"
               } >> performance-report.md
+
+              # Add error details section for failed tests
+              HAS_ERROR_OUTPUT=false
+              for stats_file in test-stats-*.json; do
+                if [ -f "$stats_file" ]; then
+                  FAILURE_DETAILS=$(jq -r '.failure_details // null' "$stats_file")
+                  if [[ "$FAILURE_DETAILS" != "null" ]] && [[ "$FAILURE_DETAILS" != "[]" ]]; then
+                    # Check if any failure has non-empty output
+                    HAS_OUTPUT=$(echo "$FAILURE_DETAILS" | jq -r 'map(select(.Output != "" and .Output != null)) | length > 0' 2>/dev/null)
+                    if [[ "$HAS_OUTPUT" == "true" ]]; then
+                      HAS_ERROR_OUTPUT=true
+                      break
+                    fi
+                  fi
+                fi
+              done
+
+              if [[ "$HAS_ERROR_OUTPUT" == "true" ]]; then
+                {
+                  echo ""
+                  echo ""
+                  echo "<details>"
+                  echo "<summary>📝 Error Messages (click to expand)</summary>"
+                  echo ""
+                } >> performance-report.md
+
+                ERROR_COUNT=0
+                for stats_file in test-stats-*.json; do
+                  if [ -f "$stats_file" ] && [[ $ERROR_COUNT -lt 10 ]]; then
+                    SUITE_NAME=$(jq -r '.name' "$stats_file")
+                    FAILURE_DETAILS=$(jq -r '.failure_details // null' "$stats_file")
+
+                    if [[ "$FAILURE_DETAILS" != "null" ]] && [[ "$FAILURE_DETAILS" != "[]" ]]; then
+                      # Display failures with non-empty outputs
+                      echo "$FAILURE_DETAILS" | jq -r --arg suite "$SUITE_NAME" \
+                        '.[] | select(.Output != "" and .Output != null) |
+                        "#### \(.Test) (\(.Package | split("/") | .[-1] // .[-2] // .))\n\n```\n\(.Output)\n```\n"' 2>/dev/null | \
+                        head -c 3000 >> performance-report.md || true
+                      ERROR_COUNT=$((ERROR_COUNT + 3))
+                    fi
+                  fi
+                done
+
+                echo "</details>" >> performance-report.md
+              fi
             fi
           fi
 
@@ -413,10 +458,9 @@ jobs:
               echo "|---------------|-------|-------------|"
               echo "| **Mode** | ${TEST_OUTPUT_MODE:-SMART} | Test output strategy |"
               echo "| **Smart Threshold** | ${TEST_OUTPUT_SMART_THRESHOLD:-500} tests | Switch to FAILURES_ONLY above this |"
-              echo "| **Failure Limit** | ${TEST_FAILURE_MAX_COUNT:-100} | Max failures to capture |"
               echo "| **Detail Count** | ${TEST_FAILURE_DETAIL_COUNT:-50} | Failures shown with details |"
               echo "| **Annotations** | ${TEST_FAILURE_ANNOTATION_COUNT:-10} | GitHub annotations limit |"
-              echo "| **Artifacts** | $([ "${TEST_OUTPUT_SAVE_ARTIFACTS:-true}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") | ${TEST_OUTPUT_ARTIFACT_RETENTION_DAYS:-7} day retention |"
+              echo "| **Artifacts** | ✅ Enabled | ${TEST_OUTPUT_ARTIFACT_RETENTION_DAYS:-7} day retention |"
             } >> performance-report.md
 
             # Show output strategy summary
