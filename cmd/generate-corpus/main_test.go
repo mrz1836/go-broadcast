@@ -11,7 +11,7 @@ import (
 func TestNewGenerateCorpusApp(t *testing.T) {
 	app := NewGenerateCorpusApp()
 
-	assert.NotNil(t, app)
+	assert.Nil(t, app)
 	assert.NotNil(t, app.logger)
 	assert.NotNil(t, app.fileSystem)
 	assert.NotNil(t, app.corpusGeneratorFactory)
