@@ -1357,8 +1357,15 @@ jobs:
           done
 
       # ————————————————————————————————————————————————————————————————
-      # Download test statistics artifacts
+      # Download all test result artifacts (including failure details)
       # ————————————————————————————————————————————————————————————————
+      - name: 📥 Download test results and statistics
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          pattern: "test-results-*"
+          path: test-results/
+          merge-multiple: true
+
       - name: 📥 Download test statistics
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
@@ -1459,7 +1466,70 @@ jobs:
           echo "  • Total Tests: $TOTAL_TESTS"
           echo "  • Total Failures: $TOTAL_FAILURES"
 
+          # Display detailed failure information if tests failed
           if [[ "$VALIDATION_FAILED" == "true" ]]; then
+            echo ""
+            echo "🔍 Detailed Failure Analysis:"
+            echo "==============================================="
+
+            # Look for failure details in downloaded artifacts
+            if compgen -G "test-results/test-failures-summary.json" >/dev/null 2>&1; then
+              echo "📋 Found structured failure details:"
+              for failure_file in test-results/test-failures-summary.json; do
+                echo ""
+                echo "📄 Processing: $failure_file"
+
+                # Extract and display package-level failures
+                PACKAGES=$(jq -r 'length' "$failure_file" 2>/dev/null || echo "0")
+                if [[ "$PACKAGES" -gt 0 ]]; then
+                  echo "  • Affected Packages: $PACKAGES"
+
+                  # Show package summary
+                  jq -r '.[] | "  📦 \(.package | split("/") | .[-1] // .[-2] // .): \(.failures | length) failure(s)"' "$failure_file" 2>/dev/null || true
+
+                  echo ""
+                  echo "🚨 Failed Tests:"
+                  echo "---------------"
+
+                  # Show detailed failed tests with package context
+                  jq -r '.[] | .failures[] | "  ❌ \(.test) (package: \(.package | split("/") | .[-1] // .[-2] // .), duration: \(.elapsed // "unknown")s)"' "$failure_file" 2>/dev/null | head -20 || true
+
+                  # Show any error outputs if available
+                  ERROR_OUTPUTS=$(jq -r '.[] | select(.outputs and .outputs != "") | .outputs' "$failure_file" 2>/dev/null | head -c 1000)
+                  if [[ -n "$ERROR_OUTPUTS" ]]; then
+                    echo ""
+                    echo "📝 Error Details:"
+                    echo "----------------"
+                    echo "$ERROR_OUTPUTS"
+                  fi
+                else
+                  echo "  • No structured failure data found in JSON"
+                fi
+              done
+
+            # Fallback to simple text files if JSON not available
+            elif compgen -G "test-results/test-failures.txt" >/dev/null 2>&1; then
+              echo "📋 Found text failure details:"
+              for failure_file in test-results/test-failures.txt; do
+                if [[ -s "$failure_file" ]]; then
+                  echo ""
+                  echo "📄 Processing: $failure_file"
+                  echo "🚨 Failed Tests:"
+                  echo "---------------"
+                  head -20 "$failure_file" | while IFS= read -r line; do
+                    echo "  ❌ $line"
+                  done
+                fi
+              done
+
+            else
+              echo "⚠️ No detailed failure information found in downloaded artifacts"
+              echo "   Available files:"
+              ls -la test-results/ 2>/dev/null | head -10 || echo "   No files found"
+            fi
+
+            echo ""
+            echo "==============================================="
             echo "❌ Test validation failed - $TOTAL_FAILURES test(s) failed across all suites"
             echo "::error title=Test Validation Failed::$TOTAL_FAILURES test(s) failed across all test suites. Check enhanced failure details above."
             exit 1
