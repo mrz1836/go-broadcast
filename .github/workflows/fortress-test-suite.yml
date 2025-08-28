@@ -176,6 +176,7 @@ jobs:
           if ! [[ "$TEST_COUNT" =~ ^[0-9]+$ ]]; then
             TEST_COUNT=0
           fi
+          export TEST_COUNT
 
           # Safely assign values to shell vars with defaults
           RACE="${{ inputs.race-detection-enabled || 'false' }}"
@@ -230,6 +231,7 @@ jobs:
           echo ""
 
           START_TIME=$(date +%s)
+          export START_TIME
 
           # Execute based on detected mode with simplified processing
           set +e  # Don't exit on error to capture exit code properly
