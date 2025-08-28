@@ -754,7 +754,7 @@ jobs:
                 # Show detailed failed tests (limited)
                 echo "### 🔍 Failed Tests Details" >> $GITHUB_STEP_SUMMARY
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-                jq -r '.[] | .failures[] | "\(.Test) (package: \(.Package | split("/") | .[-1] // .[-2] // .), duration: \(.Elapsed // "unknown")s)"' \
+                jq -r '.[] as $parent | $parent.failures[] | "\(.Test) (package: \($parent.Package | split("/") | .[-1] // .[-2] // .), duration: \(.Elapsed // "unknown")s)"' \
                   test-failures-summary.json 2>/dev/null | head -${TEST_FAILURE_DETAIL_COUNT:-50} >> $GITHUB_STEP_SUMMARY || true
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
@@ -867,7 +867,7 @@ jobs:
               echo "::error title=Test Suite Failed::$TOTAL_FAILURES tests failed across $AFFECTED_PACKAGES packages on ${{ matrix.os }} Go ${{ matrix.go-version }} ($TEST_COUNT total tests)"
 
               # Annotate specific failed tests with package context
-              jq -r '.[] | .failures[] | "\(.Test) in \(.Package | split("/") | .[-1] // .[-2] // .)"' \
+              jq -r '.[] as $parent | $parent.failures[] | "\(.Test) in \($parent.Package | split("/") | .[-1] // .[-2] // .)"' \
                 test-failures-summary.json 2>/dev/null | head -$ANNOTATION_LIMIT | while IFS= read -r line; do
                 echo "::error title=Failed Test::$line"
               done
@@ -1493,14 +1493,14 @@ jobs:
 
                   # Show detailed failed tests with package context
                   # Show detailed failed tests with package context
-                  FAILED_TESTS=$(jq -r '.[] | .failures[] | .Test + " (" + (.Package | split("/") | .[-1] // .[-2] // .) + ")"' "$failure_file" 2>/dev/null | head -20)
+                  FAILED_TESTS=$(jq -r '.[] as $parent | $parent.failures[] | .Test + " (" + ($parent.Package | split("/") | .[-1] // .[-2] // .) + ")"' "$failure_file" 2>/dev/null | head -20)
 
                   if [[ -n "$FAILED_TESTS" ]]; then
                     echo "$FAILED_TESTS" | sed 's/^/  ❌ /'
                   else
                     echo "  ⚠️ No test failures found in JSON structure"
                     echo "  📄 Raw JSON content:"
-                    head -c 200 "$failure_file" | sed 's/^/  /'
+                    head -c 2000 "$failure_file" | sed 's/^/  /'
                   fi
 
                   # Show any error outputs if available
