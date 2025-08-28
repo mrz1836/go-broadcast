@@ -58,13 +58,12 @@ jobs:
       checks-executed: ${{ steps.run-checks.outputs.executed }}
     steps:
       # ————————————————————————————————————————————————————————————————
-      # Checkout code (sparse for parse-env action)
+      # Checkout code (full checkout to ensure local actions are available)
       # ————————————————————————————————————————————————————————————————
-      - name: 📥 Checkout code (sparse for parse-env)
+      - name: 📥 Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
-          sparse-checkout: |
-            .github/actions/parse-env
+          fetch-depth: 0 # Fetch full history to enable file change detection for all commit ranges
 
       # ————————————————————————————————————————————————————————————————
       # Parse environment variables
@@ -73,14 +72,6 @@ jobs:
         uses: ./.github/actions/parse-env
         with:
           env-json: ${{ inputs.env-json }}
-
-      # ————————————————————————————————————————————————————————————————
-      # Checkout code (full)
-      # ————————————————————————————————————————————————————————————————
-      - name: 📥 Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          fetch-depth: 0 # Fetch full history to enable file change detection for all commit ranges
 
       # ————————————————————————————————————————————————————————————————
       # Setup Go with caching and version management
