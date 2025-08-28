@@ -437,8 +437,7 @@ jobs:
                 {
                   echo ""
                   echo ""
-                  echo "<details>"
-                  echo "<summary>📝 Error Messages (click to expand)</summary>"
+                  echo "### 📝 Test Error Messages"
                   echo ""
                 } >> performance-report.md
 
@@ -458,8 +457,6 @@ jobs:
                     fi
                   fi
                 done
-
-                echo "</details>" >> performance-report.md
               fi
             fi
           fi

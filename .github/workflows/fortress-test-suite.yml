@@ -254,8 +254,9 @@ jobs:
           detect_failures_from_text() {
             local text_file="$1"
             local failures_file="$2"
+            local detailed_failures_file="${failures_file%.txt}-detailed.txt"
 
-            echo "🔍 Using text-based failure detection on $text_file"
+            echo "🔍 Using enhanced text-based failure detection on $text_file"
 
             # Enhanced pattern matching for various failure formats
             # Patterns handle: FAIL, --- FAIL, --FAIL, [FAIL], FAIL:, etc.
@@ -270,19 +271,78 @@ jobs:
             )
 
             local temp_failures=$(mktemp)
+            local temp_detailed=$(mktemp)
             local found_any=false
 
+            # First pass: Find all failure lines and capture context
             for pattern in "${patterns[@]}"; do
-              if grep -E "$pattern" "$text_file" >> "$temp_failures" 2>/dev/null; then
+              if grep -E -A 15 "$pattern" "$text_file" >> "$temp_detailed" 2>/dev/null; then
                 found_any=true
+                # Also capture just the failure line for the summary
+                grep -E "$pattern" "$text_file" >> "$temp_failures" 2>/dev/null || true
               fi
             done
 
             if [[ "$found_any" == "true" ]]; then
-              # Remove duplicates and sort
+              # Process the detailed failures to create structured output
+              echo "🔍 Processing detailed failure output..."
+
+              # Create a structured detailed failures file with error messages
+              awk '
+                BEGIN {
+                  current_test = ""
+                  capture_output = 0
+                  output_buffer = ""
+                }
+                /^(FAIL|---.*FAIL|--.*FAIL|\[?FAIL\]?)/ {
+                  # If we were capturing output, save it
+                  if (current_test != "" && output_buffer != "") {
+                    print "TEST:" current_test
+                    print "ERROR:" output_buffer
+                    print "---SEPARATOR---"
+                  }
+
+                  # Start new test capture
+                  current_test = $0
+                  output_buffer = ""
+                  capture_output = 1
+                  next
+                }
+                capture_output == 1 && /^[[:space:]]*$/ {
+                  # Empty line might end the error context
+                  if (length(output_buffer) > 100) capture_output = 0
+                  next
+                }
+                capture_output == 1 && !/^(PASS|ok |FAIL|---.*FAIL|--.*FAIL)/ {
+                  # Capture error output lines
+                  if (output_buffer == "") {
+                    output_buffer = $0
+                  } else {
+                    output_buffer = output_buffer "\n" $0
+                  }
+                  # Stop if we have captured enough context
+                  if (length(output_buffer) > 1500) capture_output = 0
+                }
+                /^(PASS|ok )/ && capture_output == 1 {
+                  # Another test started, stop capturing
+                  capture_output = 0
+                }
+                END {
+                  # Save the last test if we were capturing
+                  if (current_test != "" && output_buffer != "") {
+                    print "TEST:" current_test
+                    print "ERROR:" output_buffer
+                    print "---SEPARATOR---"
+                  }
+                }
+              ' "$temp_detailed" > "$detailed_failures_file" 2>/dev/null || true
+
+              # Remove duplicates and sort for the summary file
               sort -u "$temp_failures" > "$failures_file"
-              echo "✅ Text parsing found $(wc -l < "$failures_file") unique failures"
-              rm -f "$temp_failures"
+              echo "✅ Text parsing found $(wc -l < "$failures_file") unique failures with detailed error messages"
+
+              # Clean up
+              rm -f "$temp_failures" "$temp_detailed"
               return 0
             fi
 
@@ -299,19 +359,21 @@ jobs:
             )
 
             for pattern in "${error_patterns[@]}"; do
-              if grep -i "$pattern" "$text_file" >> "$temp_failures" 2>/dev/null; then
+              if grep -i -A 5 "$pattern" "$text_file" >> "$temp_detailed" 2>/dev/null; then
                 found_any=true
+                grep -i "$pattern" "$text_file" >> "$temp_failures" 2>/dev/null || true
               fi
             done
 
             if [[ "$found_any" == "true" ]]; then
               sort -u "$temp_failures" > "$failures_file"
+              cp "$temp_detailed" "$detailed_failures_file" 2>/dev/null || true
               echo "⚠️ Found $(wc -l < "$failures_file") error indicators (not standard test failures)"
-              rm -f "$temp_failures"
+              rm -f "$temp_failures" "$temp_detailed"
               return 0
             fi
 
-            rm -f "$temp_failures"
+            rm -f "$temp_failures" "$temp_detailed"
 
             # If exit code indicated failure but no patterns found, create generic entry
             if [[ "${TEST_EXIT_CODE:-0}" -ne 0 ]]; then
@@ -538,19 +600,60 @@ jobs:
               # Create enhanced failure summary with efficient single-pass processing
               echo "🔍 Creating failure summary..."
 
-              # Extract all failure records in one optimized pass
+              # Extract all failure records with error messages in one optimized pass
               if grep -q '^{.*"Action"' test-raw-output.log 2>/dev/null; then
-                # Process JSON output efficiently
-                grep '^{' test-raw-output.log 2>/dev/null | \
-                  jq -c 'select(.Action == "fail")' 2>/dev/null | \
-                  jq -s 'group_by(.Package) |
-                    map({
-                      Package: .[0].Package,
-                      failures: map({Test: .Test, Elapsed: .Elapsed, Output: (.Output // ""), Package: .Package})
-                    })' > test-failures-summary.json 2>/dev/null && \
-                  echo "✅ Enhanced JSON failure summary created" || {
-                    echo "⚠️ JSON summary failed, using basic format"
-                    echo "[]" > test-failures-summary.json
+                # Process JSON output to capture both failures AND their error messages
+                echo "🔍 Extracting failures with error messages from JSON output..."
+
+                # Create enhanced failure extraction that combines fail events with their output events
+                grep '^{' test-raw-output.log 2>/dev/null | jq -s '
+                  # Group all events by Package and Test
+                  group_by(.Package + ":" + (.Test // "")) |
+
+                  # Process each package+test group
+                  map(
+                    . as $group |
+                    $group[0] as $first |
+
+                    # Check if this group has a fail event
+                    if ($group | map(select(.Action == "fail")) | length > 0) then
+                      # Extract the fail event and all associated output
+                      {
+                        Package: $first.Package,
+                        Test: $first.Test,
+                        Elapsed: ($group | map(select(.Action == "fail")) | .[0].Elapsed // null),
+                        # Combine all output events for this test
+                        Output: ($group | map(select(.Action == "output" and .Test != null)) | map(.Output // "") | join(""))
+                      }
+                    else
+                      empty
+                    end
+                  ) |
+
+                  # Filter out empty results and group by package
+                  map(select(.Test != null and .Test != "")) |
+                  group_by(.Package) |
+                  map({
+                    Package: .[0].Package,
+                    failures: map({
+                      Test: .Test,
+                      Elapsed: .Elapsed,
+                      Output: (.Output | if length > 2000 then .[0:2000] + "..." else . end),
+                      Package: .Package
+                    })
+                  })
+                ' 2>/dev/null > test-failures-summary.json && \
+                  echo "✅ Enhanced JSON failure summary with error messages created" || {
+                    echo "⚠️ Advanced JSON processing failed, trying simpler approach..."
+                    # Fallback: simpler processing
+                    grep '^{' test-raw-output.log 2>/dev/null | \
+                      jq -c 'select(.Action == "fail")' 2>/dev/null | \
+                      jq -s 'group_by(.Package) |
+                        map({
+                          Package: .[0].Package,
+                          failures: map({Test: .Test, Elapsed: .Elapsed, Output: "", Package: .Package})
+                        })' > test-failures-summary.json 2>/dev/null || echo "[]" > test-failures-summary.json
+                    echo "⚠️ Using basic format without error messages"
                   }
               else
                 # Create summary from text failures if no JSON
@@ -719,6 +822,29 @@ jobs:
                 head -${TEST_FAILURE_DETAIL_COUNT:-20} test-failures.txt >> $GITHUB_STEP_SUMMARY
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
+
+                # Show detailed error messages if available from FULL mode
+                if [[ -f test-failures-detailed.txt ]] && [[ -s test-failures-detailed.txt ]]; then
+                  echo "### 📝 Test Error Messages" >> $GITHUB_STEP_SUMMARY
+                  echo "\\`\\`\\`" >> $GITHUB_STEP_SUMMARY
+
+                  # Parse and display the structured error output
+                  awk '
+                    /^TEST:/ {
+                      test_name = substr($0, 6)  # Remove "TEST:" prefix
+                      getline
+                      if (/^ERROR:/ && length($0) > 6) {
+                        error_msg = substr($0, 7)  # Remove "ERROR:" prefix
+                        print "❌ " test_name
+                        print error_msg
+                        print ""
+                      }
+                    }
+                  ' test-failures-detailed.txt | head -c 3000 >> $GITHUB_STEP_SUMMARY
+
+                  echo "\\`\\`\\`" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
               fi
 
               if [[ "$PANIC_COUNT" -gt 0 ]]; then
@@ -759,14 +885,26 @@ jobs:
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
 
-                # Show error outputs if available
-                ERROR_OUTPUTS=$(jq -r '.[] | select(.Output != "") | .Output' test-failures-summary.json 2>/dev/null | head -c 2000)
+                # Show detailed error messages from JSON mode
+                ERROR_OUTPUTS=$(jq -r '.[] as $package | $package.failures[] | select(.Output != "" and .Output != null) | "❌ \(.Test) (\($package.Package | split("/") | .[-1] // .[-2] // .))\n\(.Output)\n"' test-failures-summary.json 2>/dev/null | head -c 4000)
                 if [[ -n "$ERROR_OUTPUTS" ]]; then
-                  echo "### 📝 Error Details (First 2000 characters)" >> $GITHUB_STEP_SUMMARY
-                  echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-                  echo "$ERROR_OUTPUTS" >> $GITHUB_STEP_SUMMARY
-                  echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### 📝 Test Error Messages" >> $GITHUB_STEP_SUMMARY
+                  echo "\\`\\`\\`" >> $GITHUB_STEP_SUMMARY
+                  echo "$ERROR_OUTPUTS" >> $GITHUB_STEP_SUMMARY
+                  echo "\\`\\`\\`" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                else
+                  # Fallback: show basic error details if structured output not available
+                  BASIC_ERROR_OUTPUTS=$(jq -r '.[] | select(.Output != "") | .Output' test-failures-summary.json 2>/dev/null | head -c 2000)
+                  if [[ -n "$BASIC_ERROR_OUTPUTS" ]]; then
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "### 📝 Error Details" >> $GITHUB_STEP_SUMMARY
+                    echo "\\`\\`\\`" >> $GITHUB_STEP_SUMMARY
+                    echo "$BASIC_ERROR_OUTPUTS" >> $GITHUB_STEP_SUMMARY
+                    echo "\\`\\`\\`" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                  fi
                 fi
               fi
 
@@ -781,6 +919,29 @@ jobs:
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
                 head -${TEST_FAILURE_DETAIL_COUNT:-20} test-failures.txt >> $GITHUB_STEP_SUMMARY
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+                # Show detailed error messages if available from FULL mode
+                if [[ -f test-failures-detailed.txt ]] && [[ -s test-failures-detailed.txt ]]; then
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "### 📝 Test Error Messages" >> $GITHUB_STEP_SUMMARY
+                  echo "\\`\\`\\`" >> $GITHUB_STEP_SUMMARY
+
+                  # Parse and display the structured error output
+                  awk '
+                    /^TEST:/ {
+                      test_name = substr($0, 6)  # Remove "TEST:" prefix
+                      getline
+                      if (/^ERROR:/ && length($0) > 6) {
+                        error_msg = substr($0, 7)  # Remove "ERROR:" prefix
+                        print "❌ " test_name
+                        print error_msg
+                        print ""
+                      }
+                    }
+                  ' test-failures-detailed.txt | head -c 3000 >> $GITHUB_STEP_SUMMARY
+
+                  echo "\\`\\`\\`" >> $GITHUB_STEP_SUMMARY
+                fi
               fi
 
             else
