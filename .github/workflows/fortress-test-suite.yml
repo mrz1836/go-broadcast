@@ -324,10 +324,22 @@ jobs:
             fi
           }
 
+          # Utility function for safe numeric validation
+          sanitize_numeric() {
+            local value="$1"
+            value=$(echo "$value" | tr -d '\n\r' | xargs)
+            if [[ "$value" =~ ^[0-9]+$ ]]; then
+              echo "$value"
+            else
+              echo "0"
+            fi
+          }
+
           # Export functions for use in other steps
           export -f detect_test_failures
           export -f detect_failures_from_json
           export -f detect_failures_from_text
+          export -f sanitize_numeric
           DETECTION_FUNCTIONS_EOF
 
           # Source the functions to make them available
@@ -437,6 +449,17 @@ jobs:
                 if [[ -f test-raw-output.log ]]; then
                   # Count unique test pass completions (not all pass events)
                   CURRENT_TESTS=$(grep -c '{"Time".*"Action":"pass".*"Test":"Test.*"Package"' test-raw-output.log 2>/dev/null || echo "0")
+                  # Fix: Ensure numeric value by trimming whitespace and validating
+                  CURRENT_TESTS=$(echo "$CURRENT_TESTS" | tr -d '\n\r' | xargs)
+                  # Ensure it's numeric, default to 0 if not
+                  if ! [[ "$CURRENT_TESTS" =~ ^[0-9]+$ ]]; then
+                    CURRENT_TESTS=0
+                  fi
+                  # Ensure PACKAGES_PROCESSED is numeric
+                  if ! [[ "$PACKAGES_PROCESSED" =~ ^[0-9]+$ ]]; then
+                    PACKAGES_PROCESSED=0
+                  fi
+
                   if [[ $CURRENT_TESTS -gt $PACKAGES_PROCESSED ]]; then
                     PACKAGES_PROCESSED=$CURRENT_TESTS
                     echo "⏳ Progress update: ${MINUTES}m${SECONDS}s elapsed, ~${PACKAGES_PROCESSED}/${TEST_COUNT} tests completed"
@@ -623,9 +646,14 @@ jobs:
                 echo "⚠️ Fallback failure detection used: $FAIL_COUNT"
               fi
 
-              # Enhanced panic detection
+              # Enhanced panic detection with numeric validation
               PANIC_COUNT=$(grep -c -E "panic:|fatal error:|runtime error:" "$OUTPUT_FILE" 2>/dev/null || echo "0")
+              PANIC_COUNT=$(echo "$PANIC_COUNT" | tr -d '\n\r' | xargs)
+              [[ "$PANIC_COUNT" =~ ^[0-9]+$ ]] || PANIC_COUNT=0
+
               PASS_COUNT=$(grep -c -E "^(PASS|ok[[:space:]]|---[[:space:]]*PASS)" "$OUTPUT_FILE" 2>/dev/null || echo "0")
+              PASS_COUNT=$(echo "$PASS_COUNT" | tr -d '\n\r' | xargs)
+              [[ "$PASS_COUNT" =~ ^[0-9]+$ ]] || PASS_COUNT=0
 
               echo "- **Passed Tests**: $PASS_COUNT" >> $GITHUB_STEP_SUMMARY
               echo "- **Failed Tests**: $FAIL_COUNT" >> $GITHUB_STEP_SUMMARY
@@ -709,6 +737,8 @@ jobs:
             # Check for panics in tail log if available
             if [[ -f test-output-tail.log ]]; then
               PANIC_COUNT=$(grep -c "panic:" test-output-tail.log 2>/dev/null || echo "0")
+              PANIC_COUNT=$(echo "$PANIC_COUNT" | tr -d '\n\r' | xargs)
+              [[ "$PANIC_COUNT" =~ ^[0-9]+$ ]] || PANIC_COUNT=0
               if [[ "$PANIC_COUNT" -gt 0 ]]; then
                 echo "### 🚨 Recent Panics ($PANIC_COUNT found)" >> $GITHUB_STEP_SUMMARY
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
@@ -744,8 +774,10 @@ jobs:
               echo "⚠️ Fallback failure detection for annotation: $FAIL_COUNT"
             fi
 
-            # Enhanced panic detection
+            # Enhanced panic detection with numeric validation
             PANIC_COUNT=$(grep -c -E "panic:|fatal error:|runtime error:" test-output.log 2>/dev/null || echo "0")
+            PANIC_COUNT=$(echo "$PANIC_COUNT" | tr -d '\n\r' | xargs)
+            [[ "$PANIC_COUNT" =~ ^[0-9]+$ ]] || PANIC_COUNT=0
 
             echo "::error title=Test Suite Failed::$FAIL_COUNT tests failed, $PANIC_COUNT panics/errors detected on ${{ matrix.os }} Go ${{ matrix.go-version }} ($TEST_COUNT total tests)"
 
@@ -803,6 +835,8 @@ jobs:
             # Check for panics in tail log
             if [[ -f test-output-tail.log ]]; then
               PANIC_COUNT=$(grep -c "panic:" test-output-tail.log 2>/dev/null || echo "0")
+              PANIC_COUNT=$(echo "$PANIC_COUNT" | tr -d '\n\r' | xargs)
+              [[ "$PANIC_COUNT" =~ ^[0-9]+$ ]] || PANIC_COUNT=0
               if [[ "$PANIC_COUNT" -gt 0 ]]; then
                 grep -B 1 "panic:" test-output-tail.log | head -3 | while IFS= read -r line; do
                   echo "::error title=Test Panic::$line"
@@ -1225,13 +1259,18 @@ jobs:
               FAIL_COUNT=$(wc -l < fuzz-failures.txt 2>/dev/null || echo "0")
               echo "🔍 Using robust fuzz failure detection: $FAIL_COUNT"
             else
-              # Fallback: use enhanced patterns
+              # Fallback: use enhanced patterns with numeric validation
               FAIL_COUNT=$(grep -c -E "^(FAIL|---[[:space:]]*FAIL|--[[:space:]]*FAIL|\[?FAIL\]?)[[:space:]:.]" fuzz-output.log 2>/dev/null || echo "0")
+              FAIL_COUNT=$(echo "$FAIL_COUNT" | tr -d '\n\r' | xargs)
+              [[ "$FAIL_COUNT" =~ ^[0-9]+$ ]] || FAIL_COUNT=0
               echo "⚠️ Using enhanced patterns for fuzz failure detection: $FAIL_COUNT"
             fi
 
-            # Enhanced panic detection
+            # Enhanced panic detection with numeric validation
             PANIC_COUNT=$(grep -c -E "panic:|fatal error:|runtime error:" fuzz-output.log 2>/dev/null || echo "0")
+            PANIC_COUNT=$(echo "$PANIC_COUNT" | tr -d '\n\r' | xargs)
+            [[ "$PANIC_COUNT" =~ ^[0-9]+$ ]] || PANIC_COUNT=0
+
             echo "- **Failed Fuzz Tests**: $FAIL_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "- **Panics**: $PANIC_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -1271,13 +1310,17 @@ jobs:
               FAIL_COUNT=$(wc -l < fuzz-failures.txt 2>/dev/null || echo "0")
               echo "🔍 Using robust fuzz failure count for annotation: $FAIL_COUNT"
             else
-              # Fallback: use enhanced patterns
+              # Fallback: use enhanced patterns with numeric validation
               FAIL_COUNT=$(grep -c -E "^(FAIL|---[[:space:]]*FAIL|--[[:space:]]*FAIL|\[?FAIL\]?)[[:space:]:.]" fuzz-output.log 2>/dev/null || echo "0")
+              FAIL_COUNT=$(echo "$FAIL_COUNT" | tr -d '\n\r' | xargs)
+              [[ "$FAIL_COUNT" =~ ^[0-9]+$ ]] || FAIL_COUNT=0
               echo "⚠️ Using enhanced patterns for fuzz annotation: $FAIL_COUNT"
             fi
 
-            # Enhanced panic detection
+            # Enhanced panic detection with numeric validation
             PANIC_COUNT=$(grep -c -E "panic:|fatal error:|runtime error:" fuzz-output.log 2>/dev/null || echo "0")
+            PANIC_COUNT=$(echo "$PANIC_COUNT" | tr -d '\n\r' | xargs)
+            [[ "$PANIC_COUNT" =~ ^[0-9]+$ ]] || PANIC_COUNT=0
 
             echo "::error title=Fuzz Test Suite Failed::$FAIL_COUNT fuzz tests failed, $PANIC_COUNT panics/errors detected on ${{ inputs.primary-runner }} Go ${{ inputs.go-primary-version }}"
 
