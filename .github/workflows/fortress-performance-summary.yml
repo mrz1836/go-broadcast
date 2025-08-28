@@ -107,10 +107,18 @@ jobs:
           pattern: "*-stats-*"
           path: ./performance-artifacts/
 
+      - name: 📥 Download test result artifacts for failure analysis
+        if: always()
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        continue-on-error: true
+        with:
+          pattern: "test-results-*"
+          path: ./test-artifacts/
+
       # ————————————————————————————————————————————————————————————————
       # Flatten performance artifacts for processing
       # ————————————————————————————————————————————————————————————————
-      - name: 🗂️ Flatten performance artifacts
+      - name: 🗂️ Flatten performance and test artifacts
         if: always()
         run: |
           echo "🗂️ Flattening downloaded artifacts..."
@@ -128,6 +136,20 @@ jobs:
             ls -la *-stats-*.json 2>/dev/null || echo "No stats files found"
           else
             echo "⚠️ No performance-artifacts directory found"
+          fi
+
+          # Process test artifacts for additional failure details
+          if [ -d "./test-artifacts/" ]; then
+            find ./test-artifacts/ -name "*.json" -type f | while read -r file; do
+              filename=$(basename "$file")
+              echo "Moving test artifact $file to ./$filename"
+              cp "$file" "./$filename"
+            done
+
+            echo "📋 Available test artifact files:"
+            ls -la test-failures*.json 2>/dev/null || echo "No test failure files found"
+          else
+            echo "⚠️ No test-artifacts directory found"
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -427,11 +449,11 @@ jobs:
                     FAILURE_DETAILS=$(jq -r '.failure_details // null' "$stats_file")
 
                     if [[ "$FAILURE_DETAILS" != "null" ]] && [[ "$FAILURE_DETAILS" != "[]" ]]; then
-                      # Display failures with non-empty outputs
+                      # Display failures with non-empty outputs using smart truncation
                       echo "$FAILURE_DETAILS" | jq -r --arg suite "$SUITE_NAME" \
                         '.[] | select(.Output != "" and .Output != null) |
-                        "#### \(.Test) (\(.Package | split("/") | .[-1] // .[-2] // .))\n\n```\n\(.Output)\n```\n"' 2>/dev/null | \
-                        head -c 3000 >> performance-report.md || true
+                        "#### \(.Test) (\(.Package | split("/") | .[-1] // .[-2] // .))\n\n```\n\(.Output | if length > 1500 then .[0:1500] + "\n... (truncated)" else . end)\n```\n"' 2>/dev/null | \
+                        head -c 4000 >> performance-report.md || true
                       ERROR_COUNT=$((ERROR_COUNT + 3))
                     fi
                   fi

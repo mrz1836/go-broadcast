@@ -546,7 +546,7 @@ jobs:
                   jq -s 'group_by(.Package) |
                     map({
                       Package: .[0].Package,
-                      failures: map({Test: .Test, Elapsed: .Elapsed, Output: (.Output // "")})
+                      failures: map({Test: .Test, Elapsed: .Elapsed, Output: (.Output // ""), Package: .Package})
                     })' > test-failures-summary.json 2>/dev/null && \
                   echo "✅ Enhanced JSON failure summary created" || {
                     echo "⚠️ JSON summary failed, using basic format"
@@ -760,7 +760,7 @@ jobs:
                 echo "" >> $GITHUB_STEP_SUMMARY
 
                 # Show error outputs if available
-                ERROR_OUTPUTS=$(jq -r '.[] | select(.outputs != "") | .outputs' test-failures-summary.json 2>/dev/null | head -c 2000)
+                ERROR_OUTPUTS=$(jq -r '.[] | select(.Output != "") | .Output' test-failures-summary.json 2>/dev/null | head -c 2000)
                 if [[ -n "$ERROR_OUTPUTS" ]]; then
                   echo "### 📝 Error Details (First 2000 characters)" >> $GITHUB_STEP_SUMMARY
                   echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
@@ -1579,7 +1579,7 @@ jobs:
                   fi
 
                   # Show any error outputs if available
-                  ERROR_OUTPUTS=$(jq -r '.[] | select(.outputs and .outputs != "") | .outputs' "$failure_file" 2>/dev/null | head -c 1000)
+                  ERROR_OUTPUTS=$(jq -r '.[] | select(.Output and .Output != "") | .Output' "$failure_file" 2>/dev/null | head -c 1000)
                   if [[ -n "$ERROR_OUTPUTS" ]]; then
                     echo ""
                     echo "📝 Error Details:"
