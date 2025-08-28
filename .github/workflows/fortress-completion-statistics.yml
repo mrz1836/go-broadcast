@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------------
-#  Report Statistics Processing (Reusable Workflow) (GoFortress)
+#  Completion Report Statistics Processing (Reusable Workflow) (GoFortress)
 #
 #  Purpose: Process all statistics artifacts for the completion report including
 #  cache statistics, benchmark results, coverage data, and lines of code summary.
@@ -14,7 +14,7 @@
 #
 # ------------------------------------------------------------------------------------
 
-name: GoFortress (Report Statistics)
+name: GoFortress (Completion Statistics)
 
 on:
   workflow_call:

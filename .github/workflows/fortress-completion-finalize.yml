@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------------
-#  Report Finalization (Reusable Workflow) (GoFortress)
+#  Completion Report Finalization (Reusable Workflow) (GoFortress)
 #
 #  Purpose: Finalize the completion report by generating job summaries, performance
 #  insights, and assembling all report sections into the final published report.
@@ -14,7 +14,7 @@
 #
 # ------------------------------------------------------------------------------------
 
-name: GoFortress (Report Finalize)
+name: GoFortress (Completion Finalize)
 
 on:
   workflow_call:

@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------------
-#  Report Test Analysis (Reusable Workflow) (GoFortress)
+#  Completion Report Test Analysis (Reusable Workflow) (GoFortress)
 #
 #  Purpose: Process all test-related artifacts for the completion report including
 #  test results, test configuration analysis, and fuzz testing results.
@@ -14,7 +14,7 @@
 #
 # ------------------------------------------------------------------------------------
 
-name: GoFortress (Report Tests)
+name: GoFortress (Completion Tests)
 
 on:
   workflow_call:
