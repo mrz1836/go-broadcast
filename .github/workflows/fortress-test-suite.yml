@@ -164,6 +164,177 @@ jobs:
           echo "TEST_COUNT=$TEST_COUNT" >> $GITHUB_ENV
 
       # ————————————————————————————————————————————————————————————————
+      # Define robust failure detection functions
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Define failure detection functions
+        run: |
+          # Define reusable function for robust test failure detection
+          cat > test-failure-functions.sh << 'DETECTION_FUNCTIONS_EOF'
+          #!/bin/bash
+
+          # Robust test failure detection function
+          detect_test_failures() {
+            local output_file="$1"
+            local exit_code="${2:-0}"
+            local mode="${3:-text}"
+            local failures_file="${4:-test-failures.txt}"
+
+            echo "🔍 Detecting test failures with exit code: $exit_code, mode: $mode"
+
+            # Primary check: exit code indicates failure
+            if [[ "$exit_code" -ne 0 ]]; then
+              echo "❌ Exit code $exit_code indicates test failure"
+
+              if [[ -f "$output_file" ]]; then
+                case "$mode" in
+                  "json")
+                    # Enhanced JSON-based detection
+                    detect_failures_from_json "$output_file" "$failures_file"
+                    ;;
+                  "text"|*)
+                    # Enhanced text-based detection
+                    detect_failures_from_text "$output_file" "$failures_file"
+                    ;;
+                esac
+
+                # Count detected failures
+                if [[ -f "$failures_file" ]]; then
+                  DETECTED_FAILURES=$(wc -l < "$failures_file" 2>/dev/null || echo "0")
+                  echo "📊 Detected $DETECTED_FAILURES specific failures"
+                  return $DETECTED_FAILURES
+                fi
+              else
+                echo "⚠️ Output file '$output_file' not found, relying on exit code"
+                echo "Exit code indicates failure but no output file found" > "$failures_file"
+                return 1
+              fi
+            else
+              echo "✅ Exit code 0 indicates success"
+              touch "$failures_file"  # Create empty failures file
+              return 0
+            fi
+          }
+
+          # Enhanced JSON failure detection
+          detect_failures_from_json() {
+            local json_file="$1"
+            local failures_file="$2"
+
+            echo "🔍 Using JSON-based failure detection on $json_file"
+
+            # Try primary JSON parsing
+            if jq -r 'select(.Action == "fail") | "--- FAIL: \(.Test) (\(.Package))"' "$json_file" > "$failures_file" 2>/dev/null && [[ -s "$failures_file" ]]; then
+              echo "✅ JSON parsing successful - found $(wc -l < "$failures_file") failures"
+              return 0
+            fi
+
+            # Fallback: try line-by-line JSON parsing (handle malformed JSON)
+            echo "⚠️ Standard JSON parsing failed, trying line-by-line parsing"
+            local temp_failures=$(mktemp)
+            while IFS= read -r line; do
+              if echo "$line" | jq -e '. | select(.Action == "fail")' >/dev/null 2>&1; then
+                echo "$line" | jq -r '"--- FAIL: \(.Test) (\(.Package))"' 2>/dev/null >> "$temp_failures" || true
+              fi
+            done < "$json_file" 2>/dev/null
+
+            if [[ -s "$temp_failures" ]]; then
+              mv "$temp_failures" "$failures_file"
+              echo "✅ Line-by-line JSON parsing found $(wc -l < "$failures_file") failures"
+              return 0
+            fi
+            rm -f "$temp_failures"
+
+            # Final fallback: treat as text
+            echo "⚠️ JSON parsing completely failed, falling back to text parsing"
+            detect_failures_from_text "$json_file" "$failures_file"
+          }
+
+          # Enhanced text-based failure detection
+          detect_failures_from_text() {
+            local text_file="$1"
+            local failures_file="$2"
+
+            echo "🔍 Using text-based failure detection on $text_file"
+
+            # Enhanced pattern matching for various failure formats
+            # Patterns handle: FAIL, --- FAIL, --FAIL, [FAIL], FAIL:, etc.
+            local patterns=(
+              '^FAIL[[:space:]:]'
+              '^---[[:space:]]*FAIL'
+              '^--[[:space:]]*FAIL'
+              '^\[?FAIL\]?[[:space:]:.]'
+              '--- FAIL:'
+              'FAIL[[:space:]]*:'
+              '^[[:space:]]*FAIL[[:space:]]'
+            )
+
+            local temp_failures=$(mktemp)
+            local found_any=false
+
+            for pattern in "${patterns[@]}"; do
+              if grep -E "$pattern" "$text_file" >> "$temp_failures" 2>/dev/null; then
+                found_any=true
+              fi
+            done
+
+            if [[ "$found_any" == "true" ]]; then
+              # Remove duplicates and sort
+              sort -u "$temp_failures" > "$failures_file"
+              echo "✅ Text parsing found $(wc -l < "$failures_file") unique failures"
+              rm -f "$temp_failures"
+              return 0
+            fi
+
+            # Fallback: look for any error indicators
+            echo "⚠️ Standard failure patterns not found, checking for error indicators"
+            local error_patterns=(
+              'panic:'
+              'fatal error:'
+              'build failed'
+              'compilation error'
+              'timeout'
+              'killed'
+              'error:'
+            )
+
+            for pattern in "${error_patterns[@]}"; do
+              if grep -i "$pattern" "$text_file" >> "$temp_failures" 2>/dev/null; then
+                found_any=true
+              fi
+            done
+
+            if [[ "$found_any" == "true" ]]; then
+              sort -u "$temp_failures" > "$failures_file"
+              echo "⚠️ Found $(wc -l < "$failures_file") error indicators (not standard test failures)"
+              rm -f "$temp_failures"
+              return 0
+            fi
+
+            rm -f "$temp_failures"
+
+            # If exit code indicated failure but no patterns found, create generic entry
+            if [[ "${TEST_EXIT_CODE:-0}" -ne 0 ]]; then
+              echo "Generic test failure (exit code ${TEST_EXIT_CODE:-0}) - pattern detection failed" > "$failures_file"
+              echo "⚠️ Exit code indicates failure but no recognizable patterns found"
+              return 1
+            else
+              touch "$failures_file"  # Create empty failures file
+              echo "✅ No failures detected and exit code is 0"
+              return 0
+            fi
+          }
+
+          # Export functions for use in other steps
+          export -f detect_test_failures
+          export -f detect_failures_from_json
+          export -f detect_failures_from_text
+          DETECTION_FUNCTIONS_EOF
+
+          # Source the functions to make them available
+          source test-failure-functions.sh
+          echo "✅ Failure detection functions defined and loaded"
+
+      # ————————————————————————————————————————————————————————————————
       # Run tests and coverage
       # ————————————————————————————————————————————————————————————————
       - name: 🧪 Run tests
@@ -240,9 +411,10 @@ jobs:
             $MAGEX_CMD 2>&1 | tee test-output.log
             TEST_EXIT_CODE=${PIPESTATUS[0]}
 
-            # Extract failures for summary (even in full mode)
+            # Extract failures for summary (even in full mode) using robust detection
             if [[ $TEST_EXIT_CODE -ne 0 ]]; then
-              grep -E "^FAIL|--- FAIL" test-output.log > test-failures.txt 2>/dev/null || true
+              source test-failure-functions.sh 2>/dev/null || true
+              detect_failures_from_text "test-output.log" "test-failures.txt" || true
             fi
 
           else
@@ -310,21 +482,44 @@ jobs:
             echo ""
             echo "✅ Test execution completed"
 
-            # Extract failures with proper JSON processing
+            # Extract failures with enhanced JSON processing and robust fallback
             if [[ $TEST_EXIT_CODE -ne 0 ]]; then
-              echo "🔍 Extracting failure information..."
-              # Extract failed tests from JSON output
-              jq -r 'select(.Action == "fail") | "--- FAIL: \(.Test) (\(.Package))"' test-raw-output.log > test-failures.txt 2>/dev/null || true
+              echo "🔍 Extracting failure information using robust detection..."
 
-              # For enhanced failure analysis, create detailed failure summary
-              jq -c --unbuffered 'select(.Action == "fail")' test-raw-output.log 2>/dev/null | \
+              # Source failure detection functions
+              source test-failure-functions.sh 2>/dev/null || true
+
+              # Use robust JSON-based detection
+              detect_failures_from_json "test-raw-output.log" "test-failures.txt" || {
+                echo "⚠️ JSON detection failed, using exit code indicator"
+                echo "Test failure detected (exit code $TEST_EXIT_CODE) - JSON parsing failed" > test-failures.txt
+              }
+
+              # For enhanced failure analysis, create detailed failure summary with robust parsing
+              echo "🔍 Creating detailed failure summary..."
+              if jq -c --unbuffered 'select(.Action == "fail")' test-raw-output.log 2>/dev/null | \
                 jq -s 'group_by(.Package) | map({
                   package: .[0].Package,
                   failures: map({test: .Test, elapsed: .Elapsed}),
                   outputs: []
-                }) | map(select(.failures | length > 0))' > test-failures-summary.json 2>/dev/null || echo "[]" > test-failures-summary.json
+                }) | map(select(.failures | length > 0))' > test-failures-summary.json 2>/dev/null; then
+                echo "✅ Enhanced failure summary created successfully"
+              else
+                echo "⚠️ Enhanced summary creation failed, creating basic summary"
+                # Create basic summary from text failures
+                if [[ -s test-failures.txt ]]; then
+                  echo '[{"package": "unknown", "failures": [' > test-failures-summary.json
+                  awk '{print "{\"test\": \"" $0 "\", \"elapsed\": null}"}' test-failures.txt | \
+                    paste -sd ',' - >> test-failures-summary.json 2>/dev/null || true
+                  echo '], "outputs": []}]' >> test-failures-summary.json
+                else
+                  echo "[]" > test-failures-summary.json
+                fi
+              fi
             else
-              echo "ℹ️ No test failures detected"
+              echo "ℹ️ No test failures detected (exit code 0)"
+              touch test-failures.txt
+              echo "[]" > test-failures-summary.json
             fi
           fi
           set -e  # Re-enable exit on error
@@ -408,14 +603,29 @@ jobs:
           echo "- **Output Mode**: $OUTPUT_MODE" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Choose appropriate analysis based on output mode
+          # Choose appropriate analysis based on output mode with robust detection
+          # Source failure detection functions
+          source test-failure-functions.sh 2>/dev/null || true
+
           if [[ "$OUTPUT_MODE" == "FULL" ]]; then
-            # Traditional analysis for FULL mode
+            # Enhanced analysis for FULL mode using robust detection
             OUTPUT_FILE="test-output.log"
             if [ -f "$OUTPUT_FILE" ]; then
-              FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" "$OUTPUT_FILE" 2>/dev/null || echo "0")
-              PANIC_COUNT=$(grep -c "panic:" "$OUTPUT_FILE" 2>/dev/null || echo "0")
-              PASS_COUNT=$(grep -c "^PASS\|--- PASS" "$OUTPUT_FILE" 2>/dev/null || echo "0")
+              # Use robust failure counting from existing failure file or detect from output
+              if [[ -f test-failures.txt ]] && [[ -s test-failures.txt ]]; then
+                FAIL_COUNT=$(wc -l < test-failures.txt 2>/dev/null || echo "0")
+                echo "🔍 Using robust failure count: $FAIL_COUNT"
+              else
+                # Fallback: detect from output file
+                detect_failures_from_text "$OUTPUT_FILE" "temp-failures.txt" || true
+                FAIL_COUNT=$(wc -l < temp-failures.txt 2>/dev/null || echo "0")
+                rm -f temp-failures.txt
+                echo "⚠️ Fallback failure detection used: $FAIL_COUNT"
+              fi
+
+              # Enhanced panic detection
+              PANIC_COUNT=$(grep -c -E "panic:|fatal error:|runtime error:" "$OUTPUT_FILE" 2>/dev/null || echo "0")
+              PASS_COUNT=$(grep -c -E "^(PASS|ok[[:space:]]|---[[:space:]]*PASS)" "$OUTPUT_FILE" 2>/dev/null || echo "0")
 
               echo "- **Passed Tests**: $PASS_COUNT" >> $GITHUB_STEP_SUMMARY
               echo "- **Failed Tests**: $FAIL_COUNT" >> $GITHUB_STEP_SUMMARY
@@ -431,9 +641,10 @@ jobs:
               fi
 
               if [[ "$PANIC_COUNT" -gt 0 ]]; then
-                echo "### 🚨 Panic Summary" >> $GITHUB_STEP_SUMMARY
+                echo "### 🚨 Panic/Error Summary" >> $GITHUB_STEP_SUMMARY
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-                grep -A 2 -B 1 "panic:" "$OUTPUT_FILE" | head -20 >> $GITHUB_STEP_SUMMARY
+                # Enhanced panic/error detection patterns
+                grep -A 2 -B 1 -E "panic:|fatal error:|runtime error:" "$OUTPUT_FILE" | head -20 >> $GITHUB_STEP_SUMMARY
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
               fi
@@ -516,26 +727,51 @@ jobs:
 
           echo "::group::📋 Test Failure Analysis ($OUTPUT_MODE mode)"
 
+          # Source failure detection functions for robust annotation
+          source test-failure-functions.sh 2>/dev/null || true
+
           if [[ "$OUTPUT_MODE" == "FULL" ]] && [[ -f test-output.log ]]; then
-            # Traditional annotation approach for FULL mode
-            FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" test-output.log 2>/dev/null || echo "0")
-            PANIC_COUNT=$(grep -c "panic:" test-output.log 2>/dev/null || echo "0")
+            # Enhanced annotation approach for FULL mode with robust detection
 
-            echo "::error title=Test Suite Failed::$FAIL_COUNT tests failed, $PANIC_COUNT panics detected on ${{ matrix.os }} Go ${{ matrix.go-version }} ($TEST_COUNT total tests)"
+            # Use robust failure counting from existing failure file
+            if [[ -f test-failures.txt ]] && [[ -s test-failures.txt ]]; then
+              FAIL_COUNT=$(wc -l < test-failures.txt 2>/dev/null || echo "0")
+              echo "🔍 Using robust failure count for annotation: $FAIL_COUNT"
+            else
+              # Fallback: detect from output file
+              detect_failures_from_text "test-output.log" "temp-annotation-failures.txt" || true
+              FAIL_COUNT=$(wc -l < temp-annotation-failures.txt 2>/dev/null || echo "0")
+              echo "⚠️ Fallback failure detection for annotation: $FAIL_COUNT"
+            fi
 
-            # Annotate top failed tests
+            # Enhanced panic detection
+            PANIC_COUNT=$(grep -c -E "panic:|fatal error:|runtime error:" test-output.log 2>/dev/null || echo "0")
+
+            echo "::error title=Test Suite Failed::$FAIL_COUNT tests failed, $PANIC_COUNT panics/errors detected on ${{ matrix.os }} Go ${{ matrix.go-version }} ($TEST_COUNT total tests)"
+
+            # Annotate top failed tests using robust detection
             if [[ "$FAIL_COUNT" -gt 0 ]]; then
-              grep -E "^FAIL\|--- FAIL" test-output.log | head -$ANNOTATION_LIMIT | while IFS= read -r line; do
-                echo "::error title=Failed Test::$line"
+              if [[ -f test-failures.txt ]] && [[ -s test-failures.txt ]]; then
+                head -$ANNOTATION_LIMIT test-failures.txt | while IFS= read -r line; do
+                  echo "::error title=Failed Test::$line"
+                done
+              else
+                # Fallback: use enhanced patterns
+                grep -E "^(FAIL|---[[:space:]]*FAIL|--[[:space:]]*FAIL|\[?FAIL\]?)[[:space:]:.]" test-output.log | head -$ANNOTATION_LIMIT | while IFS= read -r line; do
+                  echo "::error title=Failed Test::$line"
+                done
+              fi
+            fi
+
+            # Annotate panics/errors with enhanced patterns
+            if [[ "$PANIC_COUNT" -gt 0 ]]; then
+              grep -B 1 -E "panic:|fatal error:|runtime error:" test-output.log | head -3 | while IFS= read -r line; do
+                echo "::error title=Test Panic/Error::$line"
               done
             fi
 
-            # Annotate panics
-            if [[ "$PANIC_COUNT" -gt 0 ]]; then
-              grep -B 1 "panic:" test-output.log | head -3 | while IFS= read -r line; do
-                echo "::error title=Test Panic::$line"
-              done
-            fi
+            # Cleanup temporary files
+            rm -f temp-annotation-failures.txt
 
           else
             # Enhanced annotation for FAILURES_ONLY mode
@@ -626,15 +862,30 @@ jobs:
           TOTAL_COUNT=$(echo "$LOC_OUTPUT_RAW" | grep "Total lines of code:" | grep -oE '[0-9]+')
           CURRENT_DATE=$(date +"%Y-%m-%d")
 
-          # Analyze failure details based on output mode
+          # Analyze failure details based on output mode with robust detection
           FAILURE_DETAILS="null"
           TOTAL_FAILURES=0
           AFFECTED_PACKAGES=0
 
+          # Source failure detection functions
+          source test-failure-functions.sh 2>/dev/null || true
+
           if [[ "$OUTPUT_MODE" == "FULL" ]] && [[ -f test-output.log ]]; then
-            # Analyze traditional output
+            # Analyze output with robust failure detection
             if [[ "${TEST_EXIT_CODE:-0}" -ne 0 ]]; then
-              TOTAL_FAILURES=$(grep -c "^FAIL\|--- FAIL" test-output.log 2>/dev/null || echo "0")
+              # Use robust failure counting from existing failure file or detect from output
+              if [[ -f test-failures.txt ]] && [[ -s test-failures.txt ]]; then
+                TOTAL_FAILURES=$(wc -l < test-failures.txt 2>/dev/null || echo "0")
+                echo "🔍 Using robust failure count for statistics: $TOTAL_FAILURES"
+              else
+                # Fallback: detect from output file with robust patterns
+                detect_failures_from_text "test-output.log" "temp-stats-failures.txt" || true
+                TOTAL_FAILURES=$(wc -l < temp-stats-failures.txt 2>/dev/null || echo "0")
+                cp temp-stats-failures.txt test-failures.txt 2>/dev/null || touch test-failures.txt
+                rm -f temp-stats-failures.txt
+                echo "⚠️ Fallback failure detection for statistics: $TOTAL_FAILURES"
+              fi
+
               if [[ -f test-failures.txt ]] && [[ -s test-failures.txt ]]; then
                 # Create failure details from text file with proper JSON escaping
                 FAILURE_LIST=$(head -${TEST_FAILURE_DETAIL_COUNT:-20} test-failures.txt | \
@@ -967,8 +1218,20 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -f fuzz-output.log ]; then
-            FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" fuzz-output.log || echo "0")
-            PANIC_COUNT=$(grep -c "panic:" fuzz-output.log || echo "0")
+            # Use robust failure detection for fuzz tests
+            if command -v detect_failures_from_text >/dev/null 2>&1; then
+              # Use robust detection if functions are available
+              detect_failures_from_text "fuzz-output.log" "fuzz-failures.txt" || true
+              FAIL_COUNT=$(wc -l < fuzz-failures.txt 2>/dev/null || echo "0")
+              echo "🔍 Using robust fuzz failure detection: $FAIL_COUNT"
+            else
+              # Fallback: use enhanced patterns
+              FAIL_COUNT=$(grep -c -E "^(FAIL|---[[:space:]]*FAIL|--[[:space:]]*FAIL|\[?FAIL\]?)[[:space:]:.]" fuzz-output.log 2>/dev/null || echo "0")
+              echo "⚠️ Using enhanced patterns for fuzz failure detection: $FAIL_COUNT"
+            fi
+
+            # Enhanced panic detection
+            PANIC_COUNT=$(grep -c -E "panic:|fatal error:|runtime error:" fuzz-output.log 2>/dev/null || echo "0")
             echo "- **Failed Fuzz Tests**: $FAIL_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "- **Panics**: $PANIC_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -976,15 +1239,21 @@ jobs:
             if [ "$FAIL_COUNT" -gt 0 ]; then
               echo "### 🔍 Failed Fuzz Test Summary (First 5)" >> $GITHUB_STEP_SUMMARY
               echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-              grep -E "^FAIL\|--- FAIL" fuzz-output.log | head -5 >> $GITHUB_STEP_SUMMARY
+              if [[ -f fuzz-failures.txt ]] && [[ -s fuzz-failures.txt ]]; then
+                head -5 fuzz-failures.txt >> $GITHUB_STEP_SUMMARY
+              else
+                # Fallback: use enhanced patterns
+                grep -E "^(FAIL|---[[:space:]]*FAIL|--[[:space:]]*FAIL|\[?FAIL\]?)[[:space:]:.]" fuzz-output.log | head -5 >> $GITHUB_STEP_SUMMARY
+              fi
               echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
             fi
 
             if [ "$PANIC_COUNT" -gt 0 ]; then
-              echo "### 🚨 Fuzz Test Panic Summary" >> $GITHUB_STEP_SUMMARY
+              echo "### 🚨 Fuzz Test Panic/Error Summary" >> $GITHUB_STEP_SUMMARY
               echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-              grep -A 2 -B 1 "panic:" fuzz-output.log | head -20 >> $GITHUB_STEP_SUMMARY
+              # Enhanced panic/error detection patterns
+              grep -A 2 -B 1 -E "panic:|fatal error:|runtime error:" fuzz-output.log | head -20 >> $GITHUB_STEP_SUMMARY
               echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             fi
           else
@@ -995,23 +1264,41 @@ jobs:
         if: failure()
         run: |
           if [ -f fuzz-output.log ]; then
-            echo "::group::📋 Fuzz Test Failure Analysis"
+            echo "::group::📋 Fuzz Test Failure Analysis (Enhanced)"
 
-            # Count and report overall statistics
-            FAIL_COUNT=$(grep -c "^FAIL\|--- FAIL" fuzz-output.log || echo "0")
-            PANIC_COUNT=$(grep -c "panic:" fuzz-output.log || echo "0")
+            # Count and report overall statistics using robust detection
+            if [[ -f fuzz-failures.txt ]] && [[ -s fuzz-failures.txt ]]; then
+              FAIL_COUNT=$(wc -l < fuzz-failures.txt 2>/dev/null || echo "0")
+              echo "🔍 Using robust fuzz failure count for annotation: $FAIL_COUNT"
+            else
+              # Fallback: use enhanced patterns
+              FAIL_COUNT=$(grep -c -E "^(FAIL|---[[:space:]]*FAIL|--[[:space:]]*FAIL|\[?FAIL\]?)[[:space:]:.]" fuzz-output.log 2>/dev/null || echo "0")
+              echo "⚠️ Using enhanced patterns for fuzz annotation: $FAIL_COUNT"
+            fi
 
-            echo "::error title=Fuzz Test Suite Failed::$FAIL_COUNT fuzz tests failed, $PANIC_COUNT panics detected on ${{ inputs.primary-runner }} Go ${{ inputs.go-primary-version }}"
+            # Enhanced panic detection
+            PANIC_COUNT=$(grep -c -E "panic:|fatal error:|runtime error:" fuzz-output.log 2>/dev/null || echo "0")
 
-            # Annotate first 3 failed fuzz tests
-            grep -E "^FAIL\|--- FAIL" fuzz-output.log | head -3 | while IFS= read -r line; do
-              echo "::error title=Failed Fuzz Test::$line"
-            done
+            echo "::error title=Fuzz Test Suite Failed::$FAIL_COUNT fuzz tests failed, $PANIC_COUNT panics/errors detected on ${{ inputs.primary-runner }} Go ${{ inputs.go-primary-version }}"
 
-            # Annotate panics
+            # Annotate first 3 failed fuzz tests using robust detection
+            if [[ "$FAIL_COUNT" -gt 0 ]]; then
+              if [[ -f fuzz-failures.txt ]] && [[ -s fuzz-failures.txt ]]; then
+                head -3 fuzz-failures.txt | while IFS= read -r line; do
+                  echo "::error title=Failed Fuzz Test::$line"
+                done
+              else
+                # Fallback: use enhanced patterns
+                grep -E "^(FAIL|---[[:space:]]*FAIL|--[[:space:]]*FAIL|\[?FAIL\]?)[[:space:]:.]" fuzz-output.log | head -3 | while IFS= read -r line; do
+                  echo "::error title=Failed Fuzz Test::$line"
+                done
+              fi
+            fi
+
+            # Annotate panics/errors with enhanced patterns
             if [ "$PANIC_COUNT" -gt 0 ]; then
-              grep -B 1 "panic:" fuzz-output.log | head -2 | while IFS= read -r line; do
-                echo "::error title=Fuzz Test Panic::$line"
+              grep -B 1 -E "panic:|fatal error:|runtime error:" fuzz-output.log | head -2 | while IFS= read -r line; do
+                echo "::error title=Fuzz Test Panic/Error::$line"
               done
             fi
 
