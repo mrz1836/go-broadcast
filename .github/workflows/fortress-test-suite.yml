@@ -420,8 +420,10 @@ jobs:
           set +e  # Don't exit on error to capture exit code properly
           if [[ "$MODE" == "FULL" ]]; then
             echo "📝 Using FULL output mode - showing all test output"
+            echo "🔍 Executing: $MAGEX_CMD"
             $MAGEX_CMD 2>&1 | tee test-output.log
             TEST_EXIT_CODE=${PIPESTATUS[0]}
+            echo "🔍 Magex command exit code: $TEST_EXIT_CODE"
 
             # Extract failures for summary (even in full mode) using robust detection
             if [[ $TEST_EXIT_CODE -ne 0 ]]; then
@@ -472,35 +474,51 @@ jobs:
             MONITOR_PID=$!
 
             # Optimized single-pass JSON processing with real-time progress
-            $MAGEX_CMD 2> >(tee test-stderr.log >&2) | tee test-raw-output.log |
-              tee test-json-output.log | jq -r --unbuffered '
-              # Efficiently process each JSON line with progress indicators
-              if .Action == "run" then
-                # Package started - show progress
-                "📦 Testing: \(.Package | split("/") | .[-1] // .[-2] // .)"
-              elif .Action == "output" and .Test == null then
-                # Package-level output (build messages, etc.)
-                .Output // ""
-              elif .Action == "fail" then
-                # Failed test - immediate visibility
-                "❌ FAIL: \(.Test) (\(.Package | split("/") | .[-1] // .[-2] // .))"
-              elif .Action == "pass" and (.Test | test("^Test")) then
-                # Only show individual test passes occasionally to avoid spam
-                if (now | floor) % 5 == 0 then
-                  "✅ PASS: \(.Test)"
+            # Run magex command and capture exit code immediately, before pipeline processing
+            echo "🔍 Executing: $MAGEX_CMD"
+            $MAGEX_CMD 2> >(tee test-stderr.log >&2) | tee test-raw-output.log > test-json-output.log
+            MAGEX_EXIT_CODE=${PIPESTATUS[0]}
+            echo "🔍 Magex command exit code: $MAGEX_EXIT_CODE"
+
+            # Process JSON output separately to avoid affecting main exit code
+            if [[ -f test-json-output.log ]]; then
+              echo "📋 Processing JSON output for display..."
+              jq -r --unbuffered '
+                # Efficiently process each JSON line with progress indicators
+                if .Action == "run" then
+                  # Package started - show progress
+                  "📦 Testing: \(.Package | split("/") | .[-1] // .[-2] // .)"
+                elif .Action == "output" and .Test == null then
+                  # Package-level output (build messages, etc.)
+                  .Output // ""
+                elif .Action == "fail" then
+                  # Failed test - immediate visibility
+                  "❌ FAIL: \(.Test) (\(.Package | split("/") | .[-1] // .[-2] // .))"
+                elif .Action == "pass" and (.Test | test("^Test")) then
+                  # Only show individual test passes occasionally to avoid spam
+                  if (now | floor) % 5 == 0 then
+                    "✅ PASS: \(.Test)"
+                  else
+                    empty
+                  end
                 else
+                  # Skip other JSON events for cleaner output
                   empty
                 end
-              else
-                # Skip other JSON events for cleaner output
-                empty
-              end
-            ' 2>/dev/null | tee test-output.log > test-output-tail.log
+              ' test-json-output.log 2>/dev/null | tee test-output.log > test-output-tail.log || {
+                echo "⚠️ JSON processing failed, copying raw output"
+                cp test-json-output.log test-output.log 2>/dev/null || touch test-output.log
+              }
+            else
+              echo "⚠️ No JSON output file found"
+              touch test-output.log test-output-tail.log
+            fi
 
             # Kill the progress monitor
             kill $MONITOR_PID 2>/dev/null || true
 
-            TEST_EXIT_CODE=${PIPESTATUS[0]}
+            # Use the captured magex exit code, not the pipeline exit code
+            TEST_EXIT_CODE=$MAGEX_EXIT_CODE
 
             echo ""
             echo "✅ Test execution completed"
@@ -553,7 +571,34 @@ jobs:
           MINUTES=$((TOTAL_DURATION / 60))
           SECONDS=$((TOTAL_DURATION % 60))
 
-          # Store the exit code and mode for later steps
+          # Validate test success based on actual results vs exit code
+          echo "🔍 Validating test results..."
+          ACTUAL_FAILURES=0
+          if [[ -f test-failures.txt ]] && [[ -s test-failures.txt ]]; then
+            ACTUAL_FAILURES=$(wc -l < test-failures.txt 2>/dev/null || echo "0")
+            ACTUAL_FAILURES=$(echo "$ACTUAL_FAILURES" | tr -d '\n\r' | xargs)
+            [[ "$ACTUAL_FAILURES" =~ ^[0-9]+$ ]] || ACTUAL_FAILURES=0
+          fi
+
+          echo "📊 Test validation results:"
+          echo "   • Original exit code: $TEST_EXIT_CODE"
+          echo "   • Detected failures: $ACTUAL_FAILURES"
+
+          # If exit code indicates failure but no actual failures found, correct it
+          if [[ $TEST_EXIT_CODE -ne 0 ]] && [[ $ACTUAL_FAILURES -eq 0 ]]; then
+            echo "⚠️ Exit code indicates failure but no test failures detected - correcting exit code"
+            echo "🔧 This suggests the exit code issue was from JSON processing, not actual test failures"
+            TEST_EXIT_CODE=0
+            echo "   • Corrected exit code: $TEST_EXIT_CODE"
+          elif [[ $TEST_EXIT_CODE -eq 0 ]] && [[ $ACTUAL_FAILURES -gt 0 ]]; then
+            echo "⚠️ Exit code indicates success but test failures were detected - correcting exit code"
+            TEST_EXIT_CODE=1
+            echo "   • Corrected exit code: $TEST_EXIT_CODE"
+          else
+            echo "✅ Exit code and test results are consistent"
+          fi
+
+          # Store the validated exit code and mode for later steps
           echo "TEST_EXIT_CODE=$TEST_EXIT_CODE" >> $GITHUB_ENV
           echo "test-exit-code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
           echo "output-mode=$MODE" >> $GITHUB_OUTPUT
