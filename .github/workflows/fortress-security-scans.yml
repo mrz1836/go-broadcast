@@ -136,6 +136,8 @@ jobs:
           job-name: nancy-security
           os: ${{ inputs.primary-runner }}
           go-version: ${{ inputs.go-primary-version }}
+          gomod-cache-hit: ${{ steps.setup-ask-nancy.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-ask-nancy.outputs.build-cache-hit }}
 
       # ————————————————————————————————————————————————————————————————
       # Upload statistics
@@ -265,7 +267,8 @@ jobs:
           job-name: govulncheck-security
           os: ${{ inputs.primary-runner }}
           go-version: ${{ inputs.go-primary-version }}
-          additional-caches: ~/.cache/govulncheck-bin
+          gomod-cache-hit: ${{ steps.setup-govulncheck.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-govulncheck.outputs.build-cache-hit }}
 
       # ————————————————————————————————————————————————————————————————
       # Upload statistics
