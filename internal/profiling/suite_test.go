@@ -415,13 +415,26 @@ func TestProfileSuiteReportGeneration(t *testing.T) {
 
 // BenchmarkProfileSuiteOverhead tests the overhead of the profiling suite
 func BenchmarkProfileSuiteOverhead(b *testing.B) {
+	// Stop any existing profiling to prevent conflicts
+	pprof.StopCPUProfile()
+	trace.Stop()
+
 	tempDir := b.TempDir()
 	suite := NewProfileSuite(tempDir)
 
-	// Disable reports for performance
+	// Disable CPU profiling and reports for performance benchmarking
+	// We only want to measure the suite overhead, not actually profile
 	config := suite.config
+	config.EnableCPU = false
+	config.EnableTrace = false
 	config.GenerateReports = false
 	suite.Configure(config)
+
+	// Ensure cleanup after benchmark
+	defer func() {
+		pprof.StopCPUProfile()
+		trace.Stop()
+	}()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
