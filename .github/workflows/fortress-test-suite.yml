@@ -246,37 +246,12 @@ jobs:
             fi
 
           else
-            echo "🎯 Using FAILURES_ONLY mode with optimized JSON processing and progress monitoring"
+            echo "🎯 Using FAILURES_ONLY mode with optimized JSON processing"
+            echo "⏳ Tests starting... (this may take several minutes)"
+            echo "📝 Output will show failures and key events only"
+            echo ""
 
-            # Start background progress monitor
-            (
-              MONITOR_PID=$$
-              PACKAGES_PROCESSED=0
-              while sleep 30; do
-                if ! kill -0 $MONITOR_PID 2>/dev/null; then break; fi
-                ELAPSED=$(($(date +%s) - START_TIME))
-                MINUTES=$((ELAPSED / 60))
-                SECONDS=$((ELAPSED % 60))
-
-                # Count completed tests by checking for individual test passes
-                if [[ -f test-raw-output.log ]]; then
-                  # Count unique test pass completions (not all pass events)
-                  # Force integer context to avoid syntax errors
-                  CURRENT_TESTS=$(($(grep -c '{"Time".*"Action":"pass".*"Test":"Test.*"Package"' test-raw-output.log 2>/dev/null || echo 0) + 0))
-                  PACKAGES_PROCESSED=$((PACKAGES_PROCESSED + 0))
-
-                  if (( CURRENT_TESTS > PACKAGES_PROCESSED )); then
-                    PACKAGES_PROCESSED=$CURRENT_TESTS
-                    echo "⏳ Progress update: ${MINUTES}m${SECONDS}s elapsed, ~${PACKAGES_PROCESSED}/${TEST_COUNT} tests completed"
-                  else
-                    echo "⏳ Still running: ${MINUTES}m${SECONDS}s elapsed, processing tests..."
-                  fi
-                fi
-              done
-            ) &
-            MONITOR_PID=$!
-
-            # Optimized single-pass JSON processing with real-time progress
+            # Run tests with JSON output processing (no background monitor)
             $MAGEX_CMD 2> >(tee test-stderr.log >&2) | tee test-raw-output.log |
               tee test-json-output.log | jq -r --unbuffered '
               # Efficiently process each JSON line with progress indicators
@@ -302,10 +277,10 @@ jobs:
               end
             ' 2>/dev/null | tee test-output.log > test-output-tail.log
 
-            # Kill the progress monitor
-            kill $MONITOR_PID 2>/dev/null || true
-
             TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+            echo ""
+            echo "✅ Test execution completed"
 
             # Extract failures with simple approach
             if [[ $TEST_EXIT_CODE -ne 0 ]]; then
