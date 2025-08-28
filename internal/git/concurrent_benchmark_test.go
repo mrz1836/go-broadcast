@@ -324,11 +324,11 @@ func BenchmarkConcurrentVsSequential(b *testing.B) {
 				repoPath, client, cleanup := setupTestRepo(ctx, b)
 
 				// Create files
-				testutil.CreateBenchmarkFiles(b, repoPath, fileCount)
+				filePaths := testutil.CreateBenchmarkFiles(b, repoPath, fileCount)
 
 				// Add files
-				for file := 0; file < fileCount; file++ {
-					fileName := fmt.Sprintf("file_%d.txt", file)
+				for _, filePath := range filePaths {
+					fileName := filepath.Base(filePath)
 					if err := client.Add(ctx, repoPath, fileName); err != nil {
 						b.Fatalf("Failed to add file: %v", err)
 					}
