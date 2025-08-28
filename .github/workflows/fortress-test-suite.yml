@@ -215,38 +215,39 @@ jobs:
             fi
           }
 
-          # Enhanced JSON failure detection
+          # Smart and efficient JSON failure detection
           detect_failures_from_json() {
             local json_file="$1"
             local failures_file="$2"
 
-            echo "🔍 Using JSON-based failure detection on $json_file"
+            echo "🔍 Using smart JSON-based failure detection on $json_file"
 
-            # Try primary JSON parsing
-            if jq -r 'select(.Action == "fail") | "--- FAIL: \(.Test) (\(.Package))"' "$json_file" > "$failures_file" 2>/dev/null && [[ -s "$failures_file" ]]; then
-              echo "✅ JSON parsing successful - found $(wc -l < "$failures_file") failures"
-              return 0
+            # Quick JSON validation (< 0.1s) - check if file contains JSON test output
+            if ! grep -q '^{.*"Action"' "$json_file" 2>/dev/null; then
+              echo "⚠️ No JSON content detected, using text fallback"
+              detect_failures_from_text "$json_file" "$failures_file"
+              return
             fi
 
-            # Fallback: try line-by-line JSON parsing (handle malformed JSON)
-            echo "⚠️ Standard JSON parsing failed, trying line-by-line parsing"
-            local temp_failures=$(mktemp)
-            while IFS= read -r line; do
-              if echo "$line" | jq -e '. | select(.Action == "fail")' >/dev/null 2>&1; then
-                echo "$line" | jq -r '"--- FAIL: \(.Test) (\(.Package))"' 2>/dev/null >> "$temp_failures" || true
-              fi
-            done < "$json_file" 2>/dev/null
+            echo "✅ JSON content detected, processing efficiently..."
 
-            if [[ -s "$temp_failures" ]]; then
-              mv "$temp_failures" "$failures_file"
-              echo "✅ Line-by-line JSON parsing found $(wc -l < "$failures_file") failures"
+            # Fast single-pass JSON extraction (< 1s for 10K lines)
+            # Filter JSON lines and parse in one pass - eliminates 2-minute hang
+            grep '^{' "$json_file" 2>/dev/null | \
+              jq -r 'select(.Action == "fail") | "--- FAIL: \(.Test) (\(.Package))"' \
+              2>/dev/null > "$failures_file"
+
+            local failure_count
+            failure_count=$(wc -l < "$failures_file" 2>/dev/null | tr -d '\n\r' | xargs)
+            [[ "$failure_count" =~ ^[0-9]+$ ]] || failure_count=0
+
+            if [[ "$failure_count" -gt 0 ]]; then
+              echo "✅ Found $failure_count test failures in JSON output"
+              return 0
+            else
+              echo "ℹ️ No failures detected in JSON output"
               return 0
             fi
-            rm -f "$temp_failures"
-
-            # Final fallback: treat as text
-            echo "⚠️ JSON parsing completely failed, falling back to text parsing"
-            detect_failures_from_text "$json_file" "$failures_file"
           }
 
           # Enhanced text-based failure detection
@@ -477,8 +478,12 @@ jobs:
             # Run magex with real-time display and correct exit code capture
             echo "🔍 Executing: $MAGEX_CMD"
 
-            # Use pipeline with graceful JSON fallback - PIPESTATUS[0] gets magex exit code
-            $MAGEX_CMD 2> >(tee test-stderr.log >&2) | tee test-raw-output.log |
+            # Separate JSON output from error messages for efficient processing
+            # Save all output first, then separate JSON from messages
+            $MAGEX_CMD 2> >(tee test-stderr.log >&2) | \
+              tee test-raw-output-all.log | \
+              tee >(grep '^{' > test-raw-output.log 2>/dev/null || true) | \
+              tee >(grep -v '^{' > test-messages.log 2>/dev/null || true) |
               (jq -r --unbuffered '
                 # Efficiently process each JSON line with progress indicators
                 if .Action == "run" then
@@ -502,8 +507,9 @@ jobs:
                   empty
                 end
               ' 2>/dev/null || {
-                echo "⚠️ JSON processing failed, showing raw output:"
-                cat  # Show raw output if jq fails
+                echo "⚠️ JSON processing failed, showing messages and errors:"
+                # Show separated non-JSON messages when jq fails
+                [[ -f test-messages.log ]] && cat test-messages.log || cat test-raw-output-all.log
               }) | tee test-output.log > test-output-tail.log
 
             # Capture magex exit code (PIPESTATUS[0] = magex, not jq)
@@ -529,23 +535,32 @@ jobs:
                 echo "Test failure detected (exit code $TEST_EXIT_CODE) - JSON parsing failed" > test-failures.txt
               }
 
-              # For enhanced failure analysis, create detailed failure summary with robust parsing
-              echo "🔍 Creating detailed failure summary..."
-              if jq -c --unbuffered 'select(.Action == "fail")' test-raw-output.log 2>/dev/null | \
-                jq -s 'group_by(.Package) | map({
-                  package: .[0].Package,
-                  failures: map({test: .Test, elapsed: .Elapsed}),
-                  outputs: []
-                }) | map(select(.failures | length > 0))' > test-failures-summary.json 2>/dev/null; then
-                echo "✅ Enhanced failure summary created successfully"
+              # Create enhanced failure summary with efficient single-pass processing
+              echo "🔍 Creating failure summary..."
+
+              # Extract all failure records in one optimized pass
+              if grep -q '^{.*"Action"' test-raw-output.log 2>/dev/null; then
+                # Process JSON output efficiently
+                grep '^{' test-raw-output.log 2>/dev/null | \
+                  jq -c 'select(.Action == "fail")' 2>/dev/null | \
+                  jq -s 'group_by(.Package) |
+                    map({
+                      package: .[0].Package,
+                      failures: map({test: .Test, elapsed: .Elapsed})
+                    })' > test-failures-summary.json 2>/dev/null && \
+                  echo "✅ Enhanced JSON failure summary created" || {
+                    echo "⚠️ JSON summary failed, using basic format"
+                    echo "[]" > test-failures-summary.json
+                  }
               else
-                echo "⚠️ Enhanced summary creation failed, creating basic summary"
-                # Create basic summary from text failures
+                # Create summary from text failures if no JSON
                 if [[ -s test-failures.txt ]]; then
+                  echo "📋 Creating summary from text failures"
                   echo '[{"package": "unknown", "failures": [' > test-failures-summary.json
                   awk '{print "{\"test\": \"" $0 "\", \"elapsed\": null}"}' test-failures.txt | \
                     paste -sd ',' - >> test-failures-summary.json 2>/dev/null || true
-                  echo '], "outputs": []}]' >> test-failures-summary.json
+                  echo ']}]' >> test-failures-summary.json
+                  echo "✅ Basic failure summary created"
                 else
                   echo "[]" > test-failures-summary.json
                 fi
@@ -1034,7 +1049,13 @@ jobs:
           }
           STATS_JSON_EOF
 
-          # Replace placeholders with actual values
+          # Pre-compute all replacement values to avoid sed syntax issues
+          TEST_PASSED_VALUE=$([ "${TEST_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false")
+          RACE_ENABLED_VALUE=$([[ "${{ inputs.race-detection-enabled }}" == "true" ]] && echo "true" || echo "false")
+          COVERAGE_ENABLED_VALUE=$([[ "${{ inputs.code-coverage-enabled }}" == "true" ]] && echo "true" || echo "false")
+          TIMESTAMP_VALUE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Replace placeholders with actual values using pre-computed variables
           sed -i.bak \
             -e "s/OUTPUT_MODE_PLACEHOLDER/$OUTPUT_MODE/g" \
             -e "s/TEST_DURATION_PLACEHOLDER/$TEST_DURATION/g" \
@@ -1042,14 +1063,14 @@ jobs:
             -e "s/EXAMPLE_COUNT_PLACEHOLDER/$EXAMPLE_COUNT/g" \
             -e "s/BENCHMARK_COUNT_PLACEHOLDER/$BENCHMARK_COUNT/g" \
             -e "s/TEST_EXIT_CODE_PLACEHOLDER/${TEST_EXIT_CODE:-0}/g" \
-            -e "s/TEST_PASSED_PLACEHOLDER/$([ "${TEST_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false")/g" \
+            -e "s/TEST_PASSED_PLACEHOLDER/$TEST_PASSED_VALUE/g" \
             -e "s/TOTAL_FAILURES_PLACEHOLDER/$TOTAL_FAILURES/g" \
             -e "s/AFFECTED_PACKAGES_PLACEHOLDER/$AFFECTED_PACKAGES/g" \
             -e "s/FAILURE_DETAILS_PLACEHOLDER/$FAILURE_DETAILS/g" \
             -e "s/OUTPUT_SIZE_PLACEHOLDER/$OUTPUT_SIZE/g" \
-            -e "s/RACE_ENABLED_PLACEHOLDER/$([[ "${{ inputs.race-detection-enabled }}" == "true" ]] && echo "true" || echo "false")/g" \
-            -e "s/COVERAGE_ENABLED_PLACEHOLDER/$([[ "${{ inputs.code-coverage-enabled }}" == "true" ]] && echo "true" || echo "false")/g" \
-            -e "s/TIMESTAMP_PLACEHOLDER/$(date -u +%Y-%m-%dT%H:%M:%SZ)/g" \
+            -e "s/RACE_ENABLED_PLACEHOLDER/$RACE_ENABLED_VALUE/g" \
+            -e "s/COVERAGE_ENABLED_PLACEHOLDER/$COVERAGE_ENABLED_VALUE/g" \
+            -e "s|TIMESTAMP_PLACEHOLDER|$TIMESTAMP_VALUE|g" \
             -e "s/TEST_FILES_COUNT_PLACEHOLDER/${TEST_FILES_COUNT:-0}/g" \
             -e "s/GO_FILES_COUNT_PLACEHOLDER/${GO_FILES_COUNT:-0}/g" \
             -e "s/TOTAL_COUNT_PLACEHOLDER/${TOTAL_COUNT:-0}/g" \
@@ -1102,7 +1123,7 @@ jobs:
             }
             FALLBACK_EOF
 
-            # Replace placeholders with actual values
+            # Replace placeholders with actual values using safe delimiters
             sed -i.bak \
               -e "s/MATRIX_NAME_PLACEHOLDER/$MATRIX_NAME/g" \
               -e "s/MATRIX_OS_PLACEHOLDER/$MATRIX_OS/g" \
@@ -1116,7 +1137,7 @@ jobs:
               -e "s/AFFECTED_PACKAGES_PLACEHOLDER/$AFFECTED_PACKAGES/g" \
               -e "s/RACE_ENABLED_PLACEHOLDER/$RACE_ENABLED/g" \
               -e "s/COVERAGE_ENABLED_PLACEHOLDER/$COVERAGE_ENABLED/g" \
-              -e "s/TIMESTAMP_PLACEHOLDER/$TIMESTAMP/g" \
+              -e "s|TIMESTAMP_PLACEHOLDER|$TIMESTAMP|g" \
               "$STATS_FILE"
             rm -f "$STATS_FILE.bak"
             echo "✅ Created fallback JSON with essential statistics"
@@ -1446,13 +1467,17 @@ jobs:
           }
           FUZZ_STATS_JSON_EOF
 
-          # Replace placeholders with actual values
+          # Pre-compute replacement values to avoid sed syntax issues
+          FUZZ_PASSED_VALUE=$([ "${FUZZ_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false")
+          FUZZ_TIMESTAMP_VALUE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Replace placeholders with actual values using pre-computed variables
           sed -i.bak \
             -e "s/FUZZ_DURATION_PLACEHOLDER/$FUZZ_DURATION/g" \
             -e "s/FUZZ_TEST_COUNT_PLACEHOLDER/$FUZZ_TEST_COUNT/g" \
             -e "s/FUZZ_EXIT_CODE_PLACEHOLDER/${FUZZ_EXIT_CODE:-0}/g" \
-            -e "s/FUZZ_PASSED_PLACEHOLDER/$([ "${FUZZ_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false")/g" \
-            -e "s/FUZZ_TIMESTAMP_PLACEHOLDER/$(date -u +%Y-%m-%dT%H:%M:%SZ)/g" \
+            -e "s/FUZZ_PASSED_PLACEHOLDER/$FUZZ_PASSED_VALUE/g" \
+            -e "s|FUZZ_TIMESTAMP_PLACEHOLDER|$FUZZ_TIMESTAMP_VALUE|g" \
             "$FUZZ_STATS_FILE"
 
           echo "📊 Fuzz test statistics:"
