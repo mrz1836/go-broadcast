@@ -1491,12 +1491,69 @@ jobs:
                   echo "🚨 Failed Tests:"
                   echo "---------------"
 
-                  # Show detailed failed tests with package context
-                  # Show detailed failed tests with package context
-                  FAILED_TESTS=$(jq -r '.[] as $parent | $parent.failures[] | .Test + " (" + ($parent.Package | split("/") | .[-1] // .[-2] // .) + ")"' "$failure_file" 2>/dev/null | head -20)
+                  # Show detailed failed tests with package context (leaf failures only)
+                  #
+                  # Problem: Go's nested test structure (TestA/TestB/TestC) reports failures for
+                  # all parent tests when a leaf test fails, causing confusing output like:
+                  #   ❌ TestNetworkEdgeCases/concurrent_api_operations/concurrency_3 (integration) <- actual failure
+                  #   ❌ TestNetworkEdgeCases/concurrent_api_operations (integration)              <- parent (redundant)
+                  #   ❌ TestNetworkEdgeCases (integration)                                       <- parent (redundant)
+                  #   ❌  (integration)                                                           <- empty (artifact)
+                  #
+                  # Solution: Extract and deduplicate to show only the actual failed leaf tests
+                  # This reduces "4 failures" to "1 actual failure" for better clarity.
+                  RAW_FAILED_TESTS=$(jq -r '.[] as $parent | $parent.failures[] | .Test + " (" + ($parent.Package | split("/") | .[-1] // .[-2] // .) + ")"' "$failure_file" 2>/dev/null)
+
+                  # Smart filtering: Only show the most specific (deepest nested) test failures
+                  FAILED_TESTS=$(echo "$RAW_FAILED_TESTS" | awk '
+                    {
+                      # Skip empty lines
+                      if ($0 == "" || $0 ~ /^[[:space:]]*$/) next
+
+                      # Extract test name before package info
+                      if (match($0, /^([^(]*[^[:space:]]) \(.*\)$/)) {
+                        testname = substr($0, RSTART, RLENGTH)
+                        gsub(/ \(.*\)$/, "", testname)
+                        # Remove leading/trailing whitespace
+                        gsub(/^[[:space:]]+|[[:space:]]+$/, "", testname)
+                        # Skip if testname is empty
+                        if (testname == "") next
+
+                        # Count depth by number of "/" characters
+                        depth_counter = testname
+                        gsub(/[^\/]/, "", depth_counter)
+                        depth = length(depth_counter)
+                        tests[NR] = $0
+                        depths[NR] = depth
+                        names[NR] = testname
+                      }
+                    }
+                    END {
+                      # For each test, check if there is a more specific (deeper) version
+                      for (i in tests) {
+                        is_leaf = 1
+                        for (j in tests) {
+                          if (i != j && depths[j] > depths[i] && index(names[j], names[i]) == 1) {
+                            is_leaf = 0
+                            break
+                          }
+                        }
+                        if (is_leaf && names[i] != "") print tests[i]
+                      }
+                    }
+                  ' | head -20)
 
                   if [[ -n "$FAILED_TESTS" ]]; then
                     echo "$FAILED_TESTS" | sed 's/^/  ❌ /'
+
+                    # Update failure count to reflect actual unique failures
+                    ACTUAL_UNIQUE_FAILURES=$(echo "$FAILED_TESTS" | grep -v '^[[:space:]]*$' | wc -l)
+                    RAW_FAILURE_COUNT=$(echo "$RAW_FAILED_TESTS" | grep -v '^[[:space:]]*$' | wc -l)
+                    if [[ $RAW_FAILURE_COUNT -gt $ACTUAL_UNIQUE_FAILURES ]]; then
+                      echo ""
+                      echo "  📊 Note: Showing $ACTUAL_UNIQUE_FAILURES actual failures"
+                      echo "         (filtered from $RAW_FAILURE_COUNT nested test hierarchy entries)"
+                    fi
                   else
                     echo "  ⚠️ No test failures found in JSON structure"
                     echo "  📄 Raw JSON content:"
