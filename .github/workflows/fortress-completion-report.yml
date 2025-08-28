@@ -701,16 +701,34 @@ jobs:
               } >> completion-report.md
             fi
           elif [[ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ]]; then
-            echo "<br><br>" >> completion-report.md
-            echo "" >> completion-report.md
-            echo "### 📈 Code Coverage Status" >> completion-report.md
-            echo "| Status | Details |" >> completion-report.md
-            echo "|--------|---------|" >> completion-report.md
-            echo "| **System** | Internal GoFortress Coverage |" >> completion-report.md
-            echo "| **Threshold** | ${{ env.GO_COVERAGE_THRESHOLD }}% minimum |" >> completion-report.md
-            echo "| **Badge Style** | ${{ env.GO_COVERAGE_BADGE_STYLE }} |" >> completion-report.md
-            echo "| **PR Comments** | $([ "${{ env.GO_COVERAGE_POST_COMMENTS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") |" >> completion-report.md
-            printf "| **Theme** | ${{ env.GO_COVERAGE_REPORT_THEME }} |" >> completion-report.md
+            # Coverage is enabled but no coverage data found - check if tests failed
+            {\
+              echo "<br><br>"
+              echo ""
+              echo "### 📈 Code Coverage Status"
+              echo "| Status | Details |"
+              echo "|--------|---------| "
+            } >> completion-report.md
+
+            if [[ "${{ inputs.test-suite-result }}" != "success" ]]; then
+              # Tests failed - coverage was skipped for this reason
+              {\
+                echo "| **Coverage** | ⚠️ Skipped - Tests must pass before coverage can be generated |"
+                echo "| **Test Suite Result** | ❌ Failed (${{ inputs.test-suite-result }}) |"
+                echo "| **Configuration** | Coverage enabled (threshold: ${{ env.GO_COVERAGE_THRESHOLD }}%) |"
+                echo "| **Action Required** | Fix failing tests, then coverage will be generated automatically |"
+              } >> completion-report.md
+            else
+              # Coverage enabled but no data for other reasons (e.g., coverage job failed)
+              {\
+                echo "| **System** | Internal GoFortress Coverage |"
+                echo "| **Status** | ⚠️ No coverage data available - check job logs |"
+                echo "| **Threshold** | ${{ env.GO_COVERAGE_THRESHOLD }}% minimum |"
+                echo "| **Badge Style** | ${{ env.GO_COVERAGE_BADGE_STYLE }} |"
+                echo "| **PR Comments** | $([ "${{ env.GO_COVERAGE_POST_COMMENTS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") |"
+                printf "| **Theme** | ${{ env.GO_COVERAGE_REPORT_THEME }} |"
+              } >> completion-report.md
+            fi
           fi
 
       # ————————————————————————————————————————————————————————————————
