@@ -545,8 +545,8 @@ jobs:
                   jq -c 'select(.Action == "fail")' 2>/dev/null | \
                   jq -s 'group_by(.Package) |
                     map({
-                      package: .[0].Package,
-                      failures: map({test: .Test, elapsed: .Elapsed})
+                      Package: .[0].Package,
+                      failures: map({Test: .Test, Elapsed: .Elapsed})
                     })' > test-failures-summary.json 2>/dev/null && \
                   echo "✅ Enhanced JSON failure summary created" || {
                     echo "⚠️ JSON summary failed, using basic format"
@@ -556,8 +556,8 @@ jobs:
                 # Create summary from text failures if no JSON
                 if [[ -s test-failures.txt ]]; then
                   echo "📋 Creating summary from text failures"
-                  echo '[{"package": "unknown", "failures": [' > test-failures-summary.json
-                  awk '{print "{\"test\": \"" $0 "\", \"elapsed\": null}"}' test-failures.txt | \
+                  echo '[{"Package": "unknown", "failures": [' > test-failures-summary.json
+                  awk '{print "{\"Test\": \"" $0 "\", \"Elapsed\": null}"}' test-failures.txt | \
                     paste -sd ',' - >> test-failures-summary.json 2>/dev/null || true
                   echo ']}]' >> test-failures-summary.json
                   echo "✅ Basic failure summary created"
@@ -747,14 +747,14 @@ jobs:
               # Show package-level summary
               if [[ "$AFFECTED_PACKAGES" -gt 0 ]]; then
                 echo "### 📦 Package-Level Failure Summary" >> $GITHUB_STEP_SUMMARY
-                jq -r '.[] | "- **\(.package | split("/") | .[-1] // .[-2] // .)**: \(.failures | length) failure(s)"' \
+                jq -r '.[] | "- **\(.Package | split("/") | .[-1] // .[-2] // .)**: \(.failures | length) failure(s)"' \
                   test-failures-summary.json >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
                 echo "" >> $GITHUB_STEP_SUMMARY
 
                 # Show detailed failed tests (limited)
                 echo "### 🔍 Failed Tests Details" >> $GITHUB_STEP_SUMMARY
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-                jq -r '.[] | .failures[] | "\(.test) (package: \(.package | split("/") | .[-1] // .[-2] // .), duration: \(.elapsed // "unknown")s)"' \
+                jq -r '.[] | .failures[] | "\(.Test) (package: \(.Package | split("/") | .[-1] // .[-2] // .), duration: \(.Elapsed // "unknown")s)"' \
                   test-failures-summary.json 2>/dev/null | head -${TEST_FAILURE_DETAIL_COUNT:-50} >> $GITHUB_STEP_SUMMARY || true
                 echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
@@ -867,7 +867,7 @@ jobs:
               echo "::error title=Test Suite Failed::$TOTAL_FAILURES tests failed across $AFFECTED_PACKAGES packages on ${{ matrix.os }} Go ${{ matrix.go-version }} ($TEST_COUNT total tests)"
 
               # Annotate specific failed tests with package context
-              jq -r '.[] | .failures[] | "\(.test) in \(.package | split("/") | .[-1] // .[-2] // .)"' \
+              jq -r '.[] | .failures[] | "\(.Test) in \(.Package | split("/") | .[-1] // .[-2] // .)"' \
                 test-failures-summary.json 2>/dev/null | head -$ANNOTATION_LIMIT | while IFS= read -r line; do
                 echo "::error title=Failed Test::$line"
               done
@@ -1414,7 +1414,7 @@ jobs:
                 FAILURE_DETAILS=$(jq -r '.failure_details // null' "$stats_file")
                 if [[ "$FAILURE_DETAILS" != "null" ]] && [[ "$FAILURE_DETAILS" != "[]" ]]; then
                   echo "  • Failed Test Names:"
-                  echo "$FAILURE_DETAILS" | jq -r '.[] | "    - \(.test) (\(.package | split("/") | .[-1] // .[-2] // .))"' 2>/dev/null | head -5 || true
+                  echo "$FAILURE_DETAILS" | jq -r '.[] | "    - \(.Test) (\(.Package | split("/") | .[-1] // .[-2] // .))"' 2>/dev/null | head -5 || true
                 fi
 
                 echo "❌ Test suite '$TEST_NAME' failed with exit code $TEST_EXIT_CODE ($SUITE_FAILURES failures)"
@@ -1485,14 +1485,23 @@ jobs:
                   echo "  • Affected Packages: $PACKAGES"
 
                   # Show package summary
-                  jq -r '.[] | "  📦 \(.package | split("/") | .[-1] // .[-2] // .): \(.failures | length) failure(s)"' "$failure_file" 2>/dev/null || true
+                  jq -r '.[] | "  📦 \(.Package | split("/") | .[-1] // .[-2] // .): \(.failures | length) failure(s)"' "$failure_file" 2>/dev/null || true
 
                   echo ""
                   echo "🚨 Failed Tests:"
                   echo "---------------"
 
                   # Show detailed failed tests with package context
-                  jq -r '.[] | .failures[] | "  ❌ \(.test) (package: \(.package | split("/") | .[-1] // .[-2] // .), duration: \(.elapsed // "unknown")s)"' "$failure_file" 2>/dev/null | head -20 || true
+                  # Show detailed failed tests with package context
+                  FAILED_TESTS=$(jq -r '.[] | .failures[] | .Test + " (" + (.Package | split("/") | .[-1] // .[-2] // .) + ")"' "$failure_file" 2>/dev/null | head -20)
+
+                  if [[ -n "$FAILED_TESTS" ]]; then
+                    echo "$FAILED_TESTS" | sed 's/^/  ❌ /'
+                  else
+                    echo "  ⚠️ No test failures found in JSON structure"
+                    echo "  📄 Raw JSON content:"
+                    head -c 200 "$failure_file" | sed 's/^/  /'
+                  fi
 
                   # Show any error outputs if available
                   ERROR_OUTPUTS=$(jq -r '.[] | select(.outputs and .outputs != "") | .outputs' "$failure_file" 2>/dev/null | head -c 1000)

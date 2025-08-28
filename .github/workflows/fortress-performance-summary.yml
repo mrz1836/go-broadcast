@@ -383,7 +383,7 @@ jobs:
 
                   if [[ "$FAILURE_DETAILS" != "null" ]] && [[ "$FAILURE_DETAILS" != "[]" ]]; then
                     echo "$FAILURE_DETAILS" | jq -r --arg suite "$SUITE_NAME" \
-                      '.[] | "| \(.test) | \(.package | split("/") | .[-1] // .[-2] // .) | \(.duration // "unknown")s | \($suite) |"' 2>/dev/null | \
+                      '.[] | "| \(.Test) | \(.Package | split("/") | .[-1] // .[-2] // .) | \(.Duration // "unknown")s | \($suite) |"' 2>/dev/null | \
                       head -10 >> performance-report.md || true
                     FAILURE_COUNT=$((FAILURE_COUNT + 10))
                   fi
@@ -705,7 +705,7 @@ jobs:
                   FAILURE_DETAILS=$(jq -r '.failure_details // null' "$stats_file")
                   if [[ "$FAILURE_DETAILS" != "null" ]] && [[ "$FAILURE_DETAILS" != "[]" ]]; then
                     # Extract package with most failures
-                    PACKAGE_FAILURES=$(echo "$FAILURE_DETAILS" | jq -r 'group_by(.package) | map({package: .[0].package, count: length}) | max_by(.count)' 2>/dev/null)
+                    PACKAGE_FAILURES=$(echo "$FAILURE_DETAILS" | jq -r 'group_by(.Package) | map({package: .[0].Package, count: length}) | max_by(.count)' 2>/dev/null)
                     if [[ "$PACKAGE_FAILURES" != "null" ]]; then
                       PKG_NAME=$(echo "$PACKAGE_FAILURES" | jq -r '.package | split("/") | .[-1] // .[-2] // .')
                       PKG_COUNT=$(echo "$PACKAGE_FAILURES" | jq -r '.count')
