@@ -683,6 +683,7 @@ jobs:
 
             if [[ "$HAS_COVERAGE_DATA" == "true" ]] && [[ -n "$VALID_COVERAGE_FILE" ]]; then
               {
+                echo ""
                 echo "<br><br>"
                 echo ""
                 echo "### 📈 Code Coverage Report"
@@ -708,6 +709,7 @@ jobs:
           elif [[ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ]]; then
             # Coverage is enabled but no coverage data found - check if tests failed
             {\
+              echo ""
               echo "<br><br>"
               echo ""
               echo "### 📈 Code Coverage Status"
@@ -824,6 +826,7 @@ jobs:
             [[ -z "$DISPLAY_TOTAL" ]] && DISPLAY_TOTAL="N/A"
 
             {
+              echo ""
               echo "<br><br>"
               echo ""
               echo "### 📊 Lines of Code Summary"
@@ -839,6 +842,7 @@ jobs:
           else
             echo "⚠️ No valid LOC data available to display"
             {
+              echo ""
               echo "<br><br>"
               echo ""
               echo "### 📊 Lines of Code Summary"
