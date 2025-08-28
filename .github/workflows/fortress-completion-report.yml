@@ -598,10 +598,8 @@ jobs:
 
               if [[ "$HAS_FUZZ_DATA" == "true" ]]; then
                 # Create table header only when we have actual data
-                {
-                  echo "| Fuzz Suite | Duration | Fuzz Tests | Status | Enabled |"
-                  echo "|------------|----------|------------|--------|---------|"
-                } >> completion-report.md
+                echo "| Fuzz Suite | Duration | Fuzz Tests | Status | Enabled |" >> completion-report.md
+                echo "|------------|----------|------------|--------|---------|" >> completion-report.md
 
                 for stats_file in fuzz-stats-*.json; do
                   if [ -f "$stats_file" ]; then
@@ -698,18 +696,16 @@ jobs:
               } >> completion-report.md
             fi
           elif [[ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ]]; then
-            {
-              echo "<br><br>"
-              echo ""
-              echo "### 📈 Code Coverage Status"
-              echo "| Status | Details |"
-              echo "|--------|---------|"
-              echo "| **System** | Internal GoFortress Coverage |"
-              echo "| **Threshold** | ${{ env.GO_COVERAGE_THRESHOLD }}% minimum |"
-              echo "| **Badge Style** | ${{ env.GO_COVERAGE_BADGE_STYLE }} |"
-              echo "| **PR Comments** | $([ "${{ env.GO_COVERAGE_POST_COMMENTS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") |"
-              echo "| **Theme** | ${{ env.GO_COVERAGE_REPORT_THEME }} |"
-            } >> completion-report.md
+            echo "<br><br>" >> completion-report.md
+            echo "" >> completion-report.md
+            echo "### 📈 Code Coverage Status" >> completion-report.md
+            echo "| Status | Details |" >> completion-report.md
+            echo "|--------|---------|" >> completion-report.md
+            echo "| **System** | Internal GoFortress Coverage |" >> completion-report.md
+            echo "| **Threshold** | ${{ env.GO_COVERAGE_THRESHOLD }}% minimum |" >> completion-report.md
+            echo "| **Badge Style** | ${{ env.GO_COVERAGE_BADGE_STYLE }} |" >> completion-report.md
+            echo "| **PR Comments** | $([ "${{ env.GO_COVERAGE_POST_COMMENTS }}" == "true" ] && echo "✅ Enabled" || echo "❌ Disabled") |" >> completion-report.md
+            printf "| **Theme** | ${{ env.GO_COVERAGE_REPORT_THEME }} |" >> completion-report.md
           fi
 
       # ————————————————————————————————————————————————————————————————
