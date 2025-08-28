@@ -145,7 +145,7 @@ jobs:
         uses: ./.github/actions/upload-statistics
         with:
           artifact-name: cache-stats-govet
-          artifact-path: cache-stats-govet.json
+          artifact-path: cache-stats-code-quality.json
           retention-days: 1
 
   # ----------------------------------------------------------------------------------
@@ -284,7 +284,7 @@ jobs:
         uses: ./.github/actions/upload-statistics
         with:
           artifact-name: cache-stats-lint
-          artifact-path: cache-stats-lint.json
+          artifact-path: cache-stats-code-quality.json
           retention-days: 1
 
   # ----------------------------------------------------------------------------------

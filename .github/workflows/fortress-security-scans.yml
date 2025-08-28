@@ -332,7 +332,6 @@ jobs:
             echo "is_same_repo=false" >> $GITHUB_OUTPUT
           fi
 
-
       - name: 🔍 Run gitleaks scan
         if: steps.repo-check.outputs.is_same_repo == 'true'
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v8.27.2
