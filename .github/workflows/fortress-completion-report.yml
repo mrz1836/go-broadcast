@@ -608,7 +608,12 @@ jobs:
                     FUZZ_TEST_COUNT=$(jq -r '.fuzz_test_count' "$stats_file")
                     STATUS=$(jq -r '.status' "$stats_file")
 
-                    if [[ "$NAME" != "null" ]] && [[ -n "$NAME" ]]; then
+                    # Only add a table row if we have valid, complete data
+                    if [[ "$NAME" != "null" ]] && [[ -n "$NAME" ]] && \
+                       [[ "$DURATION" != "null" ]] && [[ -n "$DURATION" ]] && \
+                       [[ "$FUZZ_TEST_COUNT" != "null" ]] && [[ -n "$FUZZ_TEST_COUNT" ]] && \
+                       [[ "$STATUS" != "null" ]] && [[ -n "$STATUS" ]]; then
+
                       DURATION_MIN=$((DURATION / 60))
                       DURATION_SEC=$((DURATION % 60))
 

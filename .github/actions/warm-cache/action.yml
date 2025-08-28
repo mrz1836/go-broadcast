@@ -186,6 +186,8 @@ runs:
           "gobuild_cache_hit": ${{ steps.setup-go.outputs.build-cache-hit == 'true' && 'true' || 'false' }},
           "cache_size_gomod": "$(du -sh $GOMODCACHE 2>/dev/null | cut -f1 || echo '0')",
           "cache_size_gobuild": "$(du -sh $GOCACHE 2>/dev/null | cut -f1 || echo '0')",
+          "workflow": "cache-warm",
+          "job_name": "warm-cache",
           "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
         }
         EOF
