@@ -474,16 +474,12 @@ jobs:
             MONITOR_PID=$!
 
             # Optimized single-pass JSON processing with real-time progress
-            # Run magex command and capture exit code immediately, before pipeline processing
+            # Run magex with real-time display and correct exit code capture
             echo "🔍 Executing: $MAGEX_CMD"
-            $MAGEX_CMD 2> >(tee test-stderr.log >&2) | tee test-raw-output.log > test-json-output.log
-            MAGEX_EXIT_CODE=${PIPESTATUS[0]}
-            echo "🔍 Magex command exit code: $MAGEX_EXIT_CODE"
 
-            # Process JSON output separately to avoid affecting main exit code
-            if [[ -f test-json-output.log ]]; then
-              echo "📋 Processing JSON output for display..."
-              jq -r --unbuffered '
+            # Use pipeline with graceful JSON fallback - PIPESTATUS[0] gets magex exit code
+            $MAGEX_CMD 2> >(tee test-stderr.log >&2) | tee test-raw-output.log |
+              (jq -r --unbuffered '
                 # Efficiently process each JSON line with progress indicators
                 if .Action == "run" then
                   # Package started - show progress
@@ -505,20 +501,17 @@ jobs:
                   # Skip other JSON events for cleaner output
                   empty
                 end
-              ' test-json-output.log 2>/dev/null | tee test-output.log > test-output-tail.log || {
-                echo "⚠️ JSON processing failed, copying raw output"
-                cp test-json-output.log test-output.log 2>/dev/null || touch test-output.log
-              }
-            else
-              echo "⚠️ No JSON output file found"
-              touch test-output.log test-output-tail.log
-            fi
+              ' 2>/dev/null || {
+                echo "⚠️ JSON processing failed, showing raw output:"
+                cat  # Show raw output if jq fails
+              }) | tee test-output.log > test-output-tail.log
+
+            # Capture magex exit code (PIPESTATUS[0] = magex, not jq)
+            TEST_EXIT_CODE=${PIPESTATUS[0]}
+            echo "🔍 Magex command exit code: $TEST_EXIT_CODE"
 
             # Kill the progress monitor
             kill $MONITOR_PID 2>/dev/null || true
-
-            # Use the captured magex exit code, not the pipeline exit code
-            TEST_EXIT_CODE=$MAGEX_EXIT_CODE
 
             echo ""
             echo "✅ Test execution completed"
