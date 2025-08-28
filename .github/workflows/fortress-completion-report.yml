@@ -601,28 +601,31 @@ jobs:
                 echo "| Fuzz Suite | Duration | Fuzz Tests | Status | Enabled |" >> completion-report.md
                 echo "|------------|----------|------------|--------|---------|" >> completion-report.md
 
-                for stats_file in fuzz-stats-*.json; do
-                  if [ -f "$stats_file" ]; then
-                    NAME=$(jq -r '.name' "$stats_file")
-                    DURATION=$(jq -r '.duration_seconds' "$stats_file")
-                    FUZZ_TEST_COUNT=$(jq -r '.fuzz_test_count' "$stats_file")
-                    STATUS=$(jq -r '.status' "$stats_file")
+                # Process fuzz stats files only if they exist
+                if compgen -G "fuzz-stats-*.json" >/dev/null 2>&1; then
+                  for stats_file in fuzz-stats-*.json; do
+                      if [ -f "$stats_file" ]; then
+                        NAME=$(jq -r '.name' "$stats_file")
+                        DURATION=$(jq -r '.duration_seconds' "$stats_file")
+                        FUZZ_TEST_COUNT=$(jq -r '.fuzz_test_count' "$stats_file")
+                        STATUS=$(jq -r '.status' "$stats_file")
 
-                    # Only add a table row if we have valid, complete data
-                    if [[ "$NAME" != "null" ]] && [[ -n "$NAME" ]] && \
-                       [[ "$DURATION" != "null" ]] && [[ -n "$DURATION" ]] && \
-                       [[ "$FUZZ_TEST_COUNT" != "null" ]] && [[ -n "$FUZZ_TEST_COUNT" ]] && \
-                       [[ "$STATUS" != "null" ]] && [[ -n "$STATUS" ]]; then
+                        # Only add a table row if we have valid, complete data
+                        if [[ "$NAME" != "null" ]] && [[ -n "$NAME" ]] && \
+                           [[ "$DURATION" != "null" ]] && [[ -n "$DURATION" ]] && \
+                           [[ "$FUZZ_TEST_COUNT" != "null" ]] && [[ -n "$FUZZ_TEST_COUNT" ]] && \
+                           [[ "$STATUS" != "null" ]] && [[ -n "$STATUS" ]]; then
 
-                      DURATION_MIN=$((DURATION / 60))
-                      DURATION_SEC=$((DURATION % 60))
+                          DURATION_MIN=$((DURATION / 60))
+                          DURATION_SEC=$((DURATION % 60))
 
-                      STATUS_ICON=$([[ "$STATUS" == "success" ]] && echo "✅" || echo "❌")
+                          STATUS_ICON=$([[ "$STATUS" == "success" ]] && echo "✅" || echo "❌")
 
-                      echo "| $NAME | ${DURATION_MIN}m ${DURATION_SEC}s | $FUZZ_TEST_COUNT | $STATUS_ICON | 🎯 |" >> completion-report.md
-                    fi
-                  fi
-                done
+                          echo "| $NAME | ${DURATION_MIN}m ${DURATION_SEC}s | $FUZZ_TEST_COUNT | $STATUS_ICON | 🎯 |" >> completion-report.md
+                        fi
+                      fi
+                    done
+                fi
               else
                 # Fuzz testing enabled but no valid stats data
                 {
@@ -707,7 +710,7 @@ jobs:
               echo ""
               echo "### 📈 Code Coverage Status"
               echo "| Status | Details |"
-              echo "|--------|---------| "
+              echo "|--------|---------|"
             } >> completion-report.md
 
             if [[ "${{ inputs.test-suite-result }}" != "success" ]]; then
