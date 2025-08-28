@@ -251,7 +251,32 @@ jobs:
             echo "📝 Output will show failures and key events only"
             echo ""
 
-            # Run tests with JSON output processing (no background monitor)
+            # Start background progress monitor
+            (
+              MONITOR_PID=$$
+              PACKAGES_PROCESSED=0
+              while sleep 30; do
+                if ! kill -0 $MONITOR_PID 2>/dev/null; then break; fi
+                ELAPSED=$(($(date +%s) - START_TIME))
+                MINUTES=$((ELAPSED / 60))
+                SECONDS=$((ELAPSED % 60))
+
+                # Count completed tests by checking for individual test passes
+                if [[ -f test-raw-output.log ]]; then
+                  # Count unique test pass completions (not all pass events)
+                  CURRENT_TESTS=$(grep -c '{"Time".*"Action":"pass".*"Test":"Test.*"Package"' test-raw-output.log 2>/dev/null || echo "0")
+                  if [[ $CURRENT_TESTS -gt $PACKAGES_PROCESSED ]]; then
+                    PACKAGES_PROCESSED=$CURRENT_TESTS
+                    echo "⏳ Progress update: ${MINUTES}m${SECONDS}s elapsed, ~${PACKAGES_PROCESSED}/${TEST_COUNT} tests completed"
+                  else
+                    echo "⏳ Still running: ${MINUTES}m${SECONDS}s elapsed, processing tests..."
+                  fi
+                fi
+              done
+            ) &
+            MONITOR_PID=$!
+
+            # Optimized single-pass JSON processing with real-time progress
             $MAGEX_CMD 2> >(tee test-stderr.log >&2) | tee test-raw-output.log |
               tee test-json-output.log | jq -r --unbuffered '
               # Efficiently process each JSON line with progress indicators
@@ -277,18 +302,21 @@ jobs:
               end
             ' 2>/dev/null | tee test-output.log > test-output-tail.log
 
+            # Kill the progress monitor
+            kill $MONITOR_PID 2>/dev/null || true
+
             TEST_EXIT_CODE=${PIPESTATUS[0]}
 
             echo ""
             echo "✅ Test execution completed"
 
-            # Extract failures with simple approach
+            # Extract failures with proper JSON processing
             if [[ $TEST_EXIT_CODE -ne 0 ]]; then
               echo "🔍 Extracting failure information..."
-              # Create failures from the processed output
-              grep "^--- FAIL:" test-output.log | sed 's/^--- FAIL: //' > test-failures.txt 2>/dev/null || true
+              # Extract failed tests from JSON output
+              jq -r 'select(.Action == "fail") | "--- FAIL: \(.Test) (\(.Package))"' test-raw-output.log > test-failures.txt 2>/dev/null || true
 
-              # For enhanced failure analysis, re-process raw JSON for detailed info
+              # For enhanced failure analysis, create detailed failure summary
               jq -c --unbuffered 'select(.Action == "fail")' test-raw-output.log 2>/dev/null | \
                 jq -s 'group_by(.Package) | map({
                   package: .[0].Package,
