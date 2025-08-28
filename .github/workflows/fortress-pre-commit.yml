@@ -58,24 +58,20 @@ jobs:
       checks-executed: ${{ steps.run-checks.outputs.executed }}
     steps:
       # ————————————————————————————————————————————————————————————————
-      # Parse environment variables
-      # ————————————————————————————————————————————————————————————————
-      - name: 🔧 Parse environment variables
-        env:
-          ENV_JSON: ${{ inputs.env-json }}
-        run: |
-          echo "📋 Setting environment variables..."
-          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done
-
-      # ————————————————————————————————————————————————————————————————
-      # Checkout code
+      # Checkout code (full checkout to ensure local actions are available)
       # ————————————————————————————————————————————————————————————————
       - name: 📥 Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0 # Fetch full history to enable file change detection for all commit ranges
+
+      # ————————————————————————————————————————————————————————————————
+      # Parse environment variables
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Parse environment variables
+        uses: ./.github/actions/parse-env
+        with:
+          env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
       # Setup Go with caching and version management
@@ -631,47 +627,22 @@ jobs:
       - name: 📊 Collect cache statistics
         id: cache-stats
         if: always()
-        run: |
-          echo "📊 Collecting cache statistics..."
-
-          # Get cache hit information
-          GOMOD_HIT="${{ steps.setup-go-precommit.outputs.module-cache-hit }}"
-          GOBUILD_HIT="${{ steps.setup-go-precommit.outputs.build-cache-hit }}"
-
-          # Get cache sizes
-          GOMOD_SIZE="0B"
-          GOBUILD_SIZE="0B"
-
-          if [ -d "$HOME/go/pkg/mod" ]; then
-            GOMOD_SIZE=$(du -sh "$HOME/go/pkg/mod" 2>/dev/null | cut -f1 || echo "0B")
-          fi
-
-          if [ -d "$HOME/.cache/go-build" ]; then
-            GOBUILD_SIZE=$(du -sh "$HOME/.cache/go-build" 2>/dev/null | cut -f1 || echo "0B")
-          fi
-
-          # Create cache statistics JSON
-          echo '{' > "cache-stats-pre-commit.json"
-          echo '  "os": "${{ inputs.primary-runner }}",' >> "cache-stats-pre-commit.json"
-          echo '  "go_version": "${{ inputs.go-primary-version }}",' >> "cache-stats-pre-commit.json"
-          echo "  \"gomod_cache_hit\": \"$GOMOD_HIT\"," >> "cache-stats-pre-commit.json"
-          echo "  \"gobuild_cache_hit\": \"$GOBUILD_HIT\"," >> "cache-stats-pre-commit.json"
-          echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "cache-stats-pre-commit.json"
-          echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "cache-stats-pre-commit.json"
-          echo '  "workflow": "pre-commit",' >> "cache-stats-pre-commit.json"
-          echo '  "job_name": "pre-commit-checks",' >> "cache-stats-pre-commit.json"
-          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "cache-stats-pre-commit.json"
-          echo '}' >> "cache-stats-pre-commit.json"
-
-          echo "📊 Cache statistics collected"
+        uses: ./.github/actions/collect-cache-stats
+        with:
+          workflow-name: pre-commit
+          job-name: pre-commit-checks
+          os: ${{ inputs.primary-runner }}
+          go-version: ${{ inputs.go-primary-version }}
+          gomod-cache-hit: ${{ steps.setup-go-precommit.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-go-precommit.outputs.build-cache-hit }}
 
       # ————————————————————————————————————————————————————————————————
       # Upload cache statistics
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload cache statistics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: ./.github/actions/upload-statistics
         with:
-          name: cache-stats-pre-commit
-          path: cache-stats-pre-commit.json
+          artifact-name: cache-stats-pre-commit
+          artifact-path: cache-stats-pre-commit.json
           retention-days: 1
