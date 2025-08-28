@@ -796,7 +796,7 @@ func testStateConsistencyAcrossFailures(t *testing.T, generator *fixtures.TestRe
 	for i := 0; i < attempts; i++ {
 		t.Logf("Sync attempt %d/%d", i+1, attempts)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		err := engine.Sync(ctx, nil)
 		cancel()
 
