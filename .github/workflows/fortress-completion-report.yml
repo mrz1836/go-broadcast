@@ -666,18 +666,47 @@ jobs:
         id: process-coverage
         run: |
           # Process coverage statistics if available
+          echo "🔍 Looking for coverage statistics files..."
+
+          # Check for both coverage-stats-*.json and coverage-stats-internal-*.json patterns
+          COVERAGE_FILES_FOUND=false
           if compgen -G "coverage-stats-*.json" >/dev/null 2>&1; then
+            echo "📋 Found coverage-stats-*.json files:"
+            ls -la coverage-stats-*.json || echo "None"
+            COVERAGE_FILES_FOUND=true
+          fi
+
+          if compgen -G "coverage-stats-internal-*.json" >/dev/null 2>&1; then
+            echo "📋 Found coverage-stats-internal-*.json files:"
+            ls -la coverage-stats-internal-*.json || echo "None"
+            COVERAGE_FILES_FOUND=true
+          fi
+
+          if [[ "$COVERAGE_FILES_FOUND" == "true" ]]; then
             # Check if we have valid coverage data before creating section
             HAS_COVERAGE_DATA=false
             VALID_COVERAGE_FILE=""
-            for stats_file in coverage-stats-*.json; do
-              if [ -f "$stats_file" ]; then
-                COVERAGE_PERCENT=$(jq -r '.coverage_percent // "null"' "$stats_file")
-                if [[ "$COVERAGE_PERCENT" != "null" ]] && [[ "$COVERAGE_PERCENT" != "N/A" ]] && [[ -n "$COVERAGE_PERCENT" ]]; then
-                  HAS_COVERAGE_DATA=true
-                  VALID_COVERAGE_FILE="$stats_file"
-                  break
-                fi
+
+            # Check both patterns for valid coverage data
+            for pattern in "coverage-stats-*.json" "coverage-stats-internal-*.json"; do
+              if compgen -G "$pattern" >/dev/null 2>&1; then
+                for stats_file in $pattern; do
+                  if [ -f "$stats_file" ]; then
+                    echo "🔍 Checking $stats_file for valid coverage data..."
+                    # Try both field names: coverage_percent and coverage_percentage
+                    COVERAGE_PERCENT=$(jq -r '.coverage_percent // .coverage_percentage // "null"' "$stats_file")
+                    echo "  - Coverage value found: '$COVERAGE_PERCENT'"
+
+                    if [[ "$COVERAGE_PERCENT" != "null" ]] && [[ "$COVERAGE_PERCENT" != "N/A" ]] && [[ -n "$COVERAGE_PERCENT" ]]; then
+                      echo "✅ Valid coverage data found in $stats_file"
+                      HAS_COVERAGE_DATA=true
+                      VALID_COVERAGE_FILE="$stats_file"
+                      break 2  # Break out of both loops
+                    else
+                      echo "⚠️ No valid coverage data in $stats_file"
+                    fi
+                  fi
+                done
               fi
             done
 
@@ -690,11 +719,16 @@ jobs:
               } >> completion-report.md
 
               # Process the valid coverage file
-              COVERAGE_PERCENT=$(jq -r '.coverage_percent // "N/A"' "$VALID_COVERAGE_FILE")
+              echo "📊 Processing coverage data from: $VALID_COVERAGE_FILE"
+
+              # Extract coverage percentage (try both field names)
+              COVERAGE_PERCENT=$(jq -r '.coverage_percent // .coverage_percentage // "N/A"' "$VALID_COVERAGE_FILE")
               PROCESSING_TIME=$(jq -r '.processing_time_seconds // "N/A"' "$VALID_COVERAGE_FILE")
               FILES_PROCESSED=$(jq -r '.files_processed // "N/A"' "$VALID_COVERAGE_FILE")
               BADGE_GENERATED=$(jq -r '.badge_generated // "false"' "$VALID_COVERAGE_FILE")
               PAGES_DEPLOYED=$(jq -r '.pages_deployed // "false"' "$VALID_COVERAGE_FILE")
+
+              echo "📋 Coverage metrics: ${COVERAGE_PERCENT}%, ${FILES_PROCESSED} files, ${PROCESSING_TIME}s processing"
 
               {
                 echo "| Metric | Value |"
