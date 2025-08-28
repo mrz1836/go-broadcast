@@ -162,7 +162,21 @@ func BenchmarkGroupOrchestration(b *testing.B) {
 				},
 				Targets: map[string]*state.TargetState{},
 			}
-			mockState.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+			mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
+
+			// Mock git operations
+			mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+			// Mock GitHub operations
+			mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
+			mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
+
+			// Mock transform operations
+			mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
 			opts := syncpkg.DefaultOptions().
 				WithDryRun(true) // Dry run for benchmarking
@@ -475,7 +489,7 @@ func TestPerformanceStress(t *testing.T) {
 			},
 			Targets: map[string]*state.TargetState{},
 		}
-		mockState.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 		opts := syncpkg.DefaultOptions().
 			WithDryRun(true)
@@ -743,7 +757,7 @@ func TestPerformanceStress(t *testing.T) {
 			},
 			Targets: map[string]*state.TargetState{},
 		}
-		mockState.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 		opts := syncpkg.DefaultOptions().
 			WithDryRun(true)
@@ -863,7 +877,7 @@ func TestPerformanceRegression(t *testing.T) {
 					},
 				},
 			}
-			mockState.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
+			mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 			// Mock git operations
 			mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
