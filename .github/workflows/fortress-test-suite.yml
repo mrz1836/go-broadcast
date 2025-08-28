@@ -1005,34 +1005,56 @@ jobs:
             FAILURE_DETAILS="null"
           fi
 
-          cat > "$STATS_FILE" << STATS_JSON_EOF
+          cat > "$STATS_FILE" << 'STATS_JSON_EOF'
           {
             "name": "${{ matrix.name }}",
             "os": "${{ matrix.os }}",
             "go_version": "${{ matrix.go-version }}",
-            "test_mode": "$OUTPUT_MODE",
-            "output_mode_used": "$OUTPUT_MODE",
-            "duration_seconds": $TEST_DURATION,
-            "test_count": $TEST_COUNT,
-            "example_count": $EXAMPLE_COUNT,
-            "benchmark_count": $BENCHMARK_COUNT,
+            "test_mode": "OUTPUT_MODE_PLACEHOLDER",
+            "output_mode_used": "OUTPUT_MODE_PLACEHOLDER",
+            "duration_seconds": "TEST_DURATION_PLACEHOLDER",
+            "test_count": "TEST_COUNT_PLACEHOLDER",
+            "example_count": "EXAMPLE_COUNT_PLACEHOLDER",
+            "benchmark_count": "BENCHMARK_COUNT_PLACEHOLDER",
             "status": "${{ job.status }}",
-            "test_exit_code": ${TEST_EXIT_CODE:-0},
-            "test_passed": $([ "${TEST_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false"),
-            "total_failures": $TOTAL_FAILURES,
-            "affected_packages": $AFFECTED_PACKAGES,
-            "failure_details": $FAILURE_DETAILS,
-            "output_size_bytes": $OUTPUT_SIZE,
-            "race_enabled": $([[ "${{ inputs.race-detection-enabled }}" == "true" ]] && echo "true" || echo "false"),
-            "coverage_enabled": $([[ "${{ inputs.code-coverage-enabled }}" == "true" ]] && echo "true" || echo "false"),
+            "test_exit_code": "TEST_EXIT_CODE_PLACEHOLDER",
+            "test_passed": "TEST_PASSED_PLACEHOLDER",
+            "total_failures": "TOTAL_FAILURES_PLACEHOLDER",
+            "affected_packages": "AFFECTED_PACKAGES_PLACEHOLDER",
+            "failure_details": "FAILURE_DETAILS_PLACEHOLDER",
+            "output_size_bytes": "OUTPUT_SIZE_PLACEHOLDER",
+            "race_enabled": "RACE_ENABLED_PLACEHOLDER",
+            "coverage_enabled": "COVERAGE_ENABLED_PLACEHOLDER",
             "fuzz_run": false,
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "loc_test_files": ${TEST_FILES_COUNT:-0},
-            "loc_go_files": ${GO_FILES_COUNT:-0},
-            "loc_total": ${TOTAL_COUNT:-0},
-            "loc_date": "$CURRENT_DATE"
+            "timestamp": "TIMESTAMP_PLACEHOLDER",
+            "loc_test_files": "TEST_FILES_COUNT_PLACEHOLDER",
+            "loc_go_files": "GO_FILES_COUNT_PLACEHOLDER",
+            "loc_total": "TOTAL_COUNT_PLACEHOLDER",
+            "loc_date": "CURRENT_DATE_PLACEHOLDER"
           }
           STATS_JSON_EOF
+
+          # Replace placeholders with actual values
+          sed -i.bak \
+            -e "s/OUTPUT_MODE_PLACEHOLDER/$OUTPUT_MODE/g" \
+            -e "s/TEST_DURATION_PLACEHOLDER/$TEST_DURATION/g" \
+            -e "s/TEST_COUNT_PLACEHOLDER/$TEST_COUNT/g" \
+            -e "s/EXAMPLE_COUNT_PLACEHOLDER/$EXAMPLE_COUNT/g" \
+            -e "s/BENCHMARK_COUNT_PLACEHOLDER/$BENCHMARK_COUNT/g" \
+            -e "s/TEST_EXIT_CODE_PLACEHOLDER/${TEST_EXIT_CODE:-0}/g" \
+            -e "s/TEST_PASSED_PLACEHOLDER/$([ "${TEST_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false")/g" \
+            -e "s/TOTAL_FAILURES_PLACEHOLDER/$TOTAL_FAILURES/g" \
+            -e "s/AFFECTED_PACKAGES_PLACEHOLDER/$AFFECTED_PACKAGES/g" \
+            -e "s/FAILURE_DETAILS_PLACEHOLDER/$FAILURE_DETAILS/g" \
+            -e "s/OUTPUT_SIZE_PLACEHOLDER/$OUTPUT_SIZE/g" \
+            -e "s/RACE_ENABLED_PLACEHOLDER/$([[ "${{ inputs.race-detection-enabled }}" == "true" ]] && echo "true" || echo "false")/g" \
+            -e "s/COVERAGE_ENABLED_PLACEHOLDER/$([[ "${{ inputs.code-coverage-enabled }}" == "true" ]] && echo "true" || echo "false")/g" \
+            -e "s/TIMESTAMP_PLACEHOLDER/$(date -u +%Y-%m-%dT%H:%M:%SZ)/g" \
+            -e "s/TEST_FILES_COUNT_PLACEHOLDER/${TEST_FILES_COUNT:-0}/g" \
+            -e "s/GO_FILES_COUNT_PLACEHOLDER/${GO_FILES_COUNT:-0}/g" \
+            -e "s/TOTAL_COUNT_PLACEHOLDER/${TOTAL_COUNT:-0}/g" \
+            -e "s/CURRENT_DATE_PLACEHOLDER/$CURRENT_DATE/g" \
+            "$STATS_FILE"
 
           # Validate JSON before parsing to prevent parse errors
           echo "📊 Test statistics ($OUTPUT_MODE mode):"
@@ -1065,16 +1087,16 @@ jobs:
               "os": "MATRIX_OS_PLACEHOLDER",
               "go_version": "MATRIX_GO_VERSION_PLACEHOLDER",
               "test_mode": "OUTPUT_MODE_PLACEHOLDER",
-              "duration_seconds": TEST_DURATION_PLACEHOLDER,
-              "test_count": TEST_COUNT_PLACEHOLDER,
+              "duration_seconds": "TEST_DURATION_PLACEHOLDER",
+              "test_count": "TEST_COUNT_PLACEHOLDER",
               "status": "error",
-              "test_exit_code": TEST_EXIT_CODE_PLACEHOLDER,
-              "test_passed": TEST_PASSED_PLACEHOLDER,
-              "total_failures": TOTAL_FAILURES_PLACEHOLDER,
-              "affected_packages": AFFECTED_PACKAGES_PLACEHOLDER,
+              "test_exit_code": "TEST_EXIT_CODE_PLACEHOLDER",
+              "test_passed": "TEST_PASSED_PLACEHOLDER",
+              "total_failures": "TOTAL_FAILURES_PLACEHOLDER",
+              "affected_packages": "AFFECTED_PACKAGES_PLACEHOLDER",
               "failure_details": null,
-              "race_enabled": RACE_ENABLED_PLACEHOLDER,
-              "coverage_enabled": COVERAGE_ENABLED_PLACEHOLDER,
+              "race_enabled": "RACE_ENABLED_PLACEHOLDER",
+              "coverage_enabled": "COVERAGE_ENABLED_PLACEHOLDER",
               "timestamp": "TIMESTAMP_PLACEHOLDER",
               "json_generation_error": true
             }
@@ -1409,20 +1431,29 @@ jobs:
 
           FUZZ_STATS_FILE="fuzz-stats-${{ inputs.primary-runner }}-${{ inputs.go-primary-version }}.json"
 
-          cat > "$FUZZ_STATS_FILE" << FUZZ_STATS_JSON_EOF
+          cat > "$FUZZ_STATS_FILE" << 'FUZZ_STATS_JSON_EOF'
           {
             "name": "Fuzz Tests (${{ inputs.primary-runner }})",
             "os": "${{ inputs.primary-runner }}",
             "go_version": "${{ inputs.go-primary-version }}",
-            "duration_seconds": $FUZZ_DURATION,
-            "fuzz_test_count": $FUZZ_TEST_COUNT,
+            "duration_seconds": "FUZZ_DURATION_PLACEHOLDER",
+            "fuzz_test_count": "FUZZ_TEST_COUNT_PLACEHOLDER",
             "status": "${{ job.status }}",
-            "fuzz_exit_code": ${FUZZ_EXIT_CODE:-0},
-            "fuzz_passed": $([ "${FUZZ_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false"),
+            "fuzz_exit_code": "FUZZ_EXIT_CODE_PLACEHOLDER",
+            "fuzz_passed": "FUZZ_PASSED_PLACEHOLDER",
             "fuzz_enabled": true,
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            "timestamp": "FUZZ_TIMESTAMP_PLACEHOLDER"
           }
           FUZZ_STATS_JSON_EOF
+
+          # Replace placeholders with actual values
+          sed -i.bak \
+            -e "s/FUZZ_DURATION_PLACEHOLDER/$FUZZ_DURATION/g" \
+            -e "s/FUZZ_TEST_COUNT_PLACEHOLDER/$FUZZ_TEST_COUNT/g" \
+            -e "s/FUZZ_EXIT_CODE_PLACEHOLDER/${FUZZ_EXIT_CODE:-0}/g" \
+            -e "s/FUZZ_PASSED_PLACEHOLDER/$([ "${FUZZ_EXIT_CODE:-0}" -eq 0 ] && echo "true" || echo "false")/g" \
+            -e "s/FUZZ_TIMESTAMP_PLACEHOLDER/$(date -u +%Y-%m-%dT%H:%M:%SZ)/g" \
+            "$FUZZ_STATS_FILE"
 
           echo "📊 Fuzz test statistics:"
           if ! jq empty "$FUZZ_STATS_FILE" 2>/dev/null; then
