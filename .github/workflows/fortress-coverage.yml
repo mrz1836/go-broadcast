@@ -1836,6 +1836,55 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       # ————————————————————————————————————————————————————————————————
+      # Update coverage statistics with successful deployment status
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Update coverage statistics (deployment successful)
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        run: |
+          echo "📊 Updating coverage statistics with successful deployment status..."
+
+          # Find the existing coverage statistics file
+          if ls coverage-stats-internal-*.json 1> /dev/null 2>&1; then
+            ORIGINAL_STATS_FILE=$(ls coverage-stats-internal-*.json | head -1)
+            echo "✅ Found original statistics file: $ORIGINAL_STATS_FILE"
+
+            # Extract values from the original file
+            COVERAGE_PERCENTAGE=$(jq -r '.coverage_percentage' "$ORIGINAL_STATS_FILE")
+            FILES_PROCESSED=$(jq -r '.files_processed' "$ORIGINAL_STATS_FILE")
+            PROCESSING_TIME=$(jq -r '.processing_time_seconds' "$ORIGINAL_STATS_FILE")
+            BADGE_GENERATED=$(jq -r '.badge_generated' "$ORIGINAL_STATS_FILE")
+            COVERAGE_FILE=$(jq -r '.coverage_file' "$ORIGINAL_STATS_FILE")
+            OUTPUT_DIRECTORY=$(jq -r '.output_directory' "$ORIGINAL_STATS_FILE")
+
+            # Create updated statistics file with pages_deployed: true
+            UPDATED_STATS_FILENAME="coverage-stats-internal-updated-$(date +%Y%m%d-%H%M%S).json"
+            cat > "$UPDATED_STATS_FILENAME" <<EOF
+          {
+            "coverage_percentage": "${COVERAGE_PERCENTAGE}",
+            "files_processed": ${FILES_PROCESSED},
+            "processing_time_seconds": ${PROCESSING_TIME},
+            "badge_generated": ${BADGE_GENERATED},
+            "pages_deployed": true,
+            "coverage_file": "${COVERAGE_FILE}",
+            "output_directory": "${OUTPUT_DIRECTORY}",
+            "provider": "internal",
+            "deployment_confirmed": true,
+            "updated_after_deployment": true
+          }
+          EOF
+
+            echo "✅ Updated coverage statistics file created: $UPDATED_STATS_FILENAME"
+            echo "   - Pages deployed: true"
+            echo "   - Deployment confirmed: true"
+
+            # Keep both files for debugging, but the completion report will use the updated one
+            echo "📋 Statistics files available for completion report:"
+            ls -la coverage-stats-internal-*.json
+          else
+            echo "⚠️ No original coverage statistics file found to update"
+          fi
+
+      # ————————————————————————————————————————————————————————————————
       # Test deployed URLs (30 second timeout max)
       # ————————————————————————————————————————————————————————————————
       - name: 🔍 Test deployed URLs

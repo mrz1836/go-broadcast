@@ -523,6 +523,7 @@ jobs:
           # Add test output configuration section
           if compgen -G "test-stats-*.json" >/dev/null 2>&1; then
             {
+              echo ""
               echo "<br><br>"
               echo ""
               echo "### 🎛️ Test Output Configuration"
@@ -687,26 +688,47 @@ jobs:
             HAS_COVERAGE_DATA=false
             VALID_COVERAGE_FILE=""
 
-            # Check both patterns for valid coverage data
+            # Check both patterns for valid coverage data, prioritizing updated files
+            UPDATED_FILE_FOUND=false
             for pattern in "coverage-stats-*.json" "coverage-stats-internal-*.json"; do
               if compgen -G "$pattern" >/dev/null 2>&1; then
+                # First, prioritize any "updated" statistics files
                 for stats_file in $pattern; do
-                  if [ -f "$stats_file" ]; then
-                    echo "🔍 Checking $stats_file for valid coverage data..."
-                    # Try both field names: coverage_percent and coverage_percentage
+                  if [ -f "$stats_file" ] && [[ "$stats_file" == *"updated"* ]]; then
+                    echo "🔍 Checking UPDATED statistics file: $stats_file"
                     COVERAGE_PERCENT=$(jq -r '.coverage_percent // .coverage_percentage // "null"' "$stats_file")
                     echo "  - Coverage value found: '$COVERAGE_PERCENT'"
 
                     if [[ "$COVERAGE_PERCENT" != "null" ]] && [[ "$COVERAGE_PERCENT" != "N/A" ]] && [[ -n "$COVERAGE_PERCENT" ]]; then
-                      echo "✅ Valid coverage data found in $stats_file"
+                      echo "✅ Valid coverage data found in UPDATED file: $stats_file"
                       HAS_COVERAGE_DATA=true
                       VALID_COVERAGE_FILE="$stats_file"
-                      break 2  # Break out of both loops
-                    else
-                      echo "⚠️ No valid coverage data in $stats_file"
+                      UPDATED_FILE_FOUND=true
+                      break 2
                     fi
                   fi
                 done
+
+                # If no updated file found, check regular files
+                if [[ "$UPDATED_FILE_FOUND" == "false" ]]; then
+                  for stats_file in $pattern; do
+                    if [ -f "$stats_file" ] && [[ "$stats_file" != *"updated"* ]]; then
+                      echo "🔍 Checking $stats_file for valid coverage data..."
+                      # Try both field names: coverage_percent and coverage_percentage
+                      COVERAGE_PERCENT=$(jq -r '.coverage_percent // .coverage_percentage // "null"' "$stats_file")
+                      echo "  - Coverage value found: '$COVERAGE_PERCENT'"
+
+                      if [[ "$COVERAGE_PERCENT" != "null" ]] && [[ "$COVERAGE_PERCENT" != "N/A" ]] && [[ -n "$COVERAGE_PERCENT" ]]; then
+                        echo "✅ Valid coverage data found in $stats_file"
+                        HAS_COVERAGE_DATA=true
+                        VALID_COVERAGE_FILE="$stats_file"
+                        break 2  # Break out of both loops
+                      else
+                        echo "⚠️ No valid coverage data in $stats_file"
+                      fi
+                    fi
+                  done
+                fi
               fi
             done
 
