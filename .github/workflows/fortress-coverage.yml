@@ -175,7 +175,7 @@ jobs:
       # Restore (and later save) a compact cache for the go-coverage binary
       # Skip cache when using local development version
       # ————————————————————————————————————————————————————————————————
-      - name: 💾 Restore go-coverage binary cache
+      - name: 💾 Restore go-coverage binary cache (production)
         id: go-coverage-cache
         if: env.GO_COVERAGE_USE_LOCAL != 'true'
         uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -184,7 +184,20 @@ jobs:
             ~/.cache/go-coverage-bin
           key: ${{ inputs.primary-runner }}-go-coverage-${{ env.GO_COVERAGE_VERSION }}
 
-      - name: 🛠️ Make cached go-coverage usable
+      # Restore cache for local development builds (branch and commit specific)
+      # ————————————————————————————————————————————————————————————————
+      - name: 💾 Restore go-coverage binary cache (local)
+        id: go-coverage-local-cache
+        if: env.GO_COVERAGE_USE_LOCAL == 'true'
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: |
+            ~/.cache/go-coverage-local
+          key: ${{ inputs.primary-runner }}-local-go-coverage-${{ inputs.branch-name }}-${{ inputs.commit-sha }}
+          restore-keys: |
+            ${{ inputs.primary-runner }}-local-go-coverage-${{ inputs.branch-name }}-
+
+      - name: 🛠️ Make cached go-coverage usable (production)
         if: env.GO_COVERAGE_USE_LOCAL != 'true'
         run: |
           set -euo pipefail
@@ -195,6 +208,28 @@ jobs:
             echo "✅ Using cached go-coverage binary"
             mkdir -p "$(go env GOPATH)/bin"
             cp "$GO_COVERAGE_BIN" "$(go env GOPATH)/bin/"
+          fi
+          # Make sure the binary location is on PATH for *all* subsequent steps.
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: 🛠️ Make cached go-coverage usable (local)
+        if: env.GO_COVERAGE_USE_LOCAL == 'true'
+        run: |
+          set -euo pipefail
+          BIN_DIR="$HOME/.cache/go-coverage-local"
+          GO_COVERAGE_BIN="$BIN_DIR/go-coverage"
+          COMMIT_MARKER="$BIN_DIR/commit-sha"
+          # If we restored a cache, verify it's from the correct commit
+          if [[ -f "$GO_COVERAGE_BIN" && -f "$COMMIT_MARKER" ]]; then
+            CACHED_COMMIT=$(cat "$COMMIT_MARKER")
+            if [[ "$CACHED_COMMIT" == "${{ inputs.commit-sha }}" ]]; then
+              echo "✅ Using cached local go-coverage binary (commit: ${CACHED_COMMIT:0:8})"
+              mkdir -p "$(go env GOPATH)/bin"
+              cp "$GO_COVERAGE_BIN" "$(go env GOPATH)/bin/"
+            else
+              echo "⚠️  Cached binary is from different commit (cached: ${CACHED_COMMIT:0:8}, current: ${{ inputs.commit-sha }}), will rebuild"
+              rm -f "$GO_COVERAGE_BIN" "$COMMIT_MARKER"
+            fi
           fi
           # Make sure the binary location is on PATH for *all* subsequent steps.
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
@@ -213,28 +248,40 @@ jobs:
         run: |
           # Check if we should use local development version
           if [[ "${{ env.GO_COVERAGE_USE_LOCAL }}" == "true" ]]; then
-            echo "📦 Using local development version of go-coverage"
-            echo "  Building from source at: $GITHUB_WORKSPACE/cmd/go-coverage"
+            # Check if we already have a current binary from cache restoration
+            if [[ -f "$(go env GOPATH)/bin/go-coverage" ]]; then
+              echo "✅ Local go-coverage binary already available from cache"
+              echo "GO_COVERAGE_BINARY=$(go env GOPATH)/bin/go-coverage" >> $GITHUB_ENV
+              "$(go env GOPATH)/bin/go-coverage" --version || echo "Version info not available for cached build"
+            else
+              echo "📦 Building local development version of go-coverage"
+              echo "  Building from source at: $GITHUB_WORKSPACE/cmd/go-coverage"
+              echo "  Branch: ${{ inputs.branch-name }}"
+              echo "  Commit: ${{ inputs.commit-sha }}"
 
-            # Build from local source
-            cd "$GITHUB_WORKSPACE"
-            go build -v -o /tmp/go-coverage ./cmd/go-coverage
-            chmod +x /tmp/go-coverage
+              # Build from local source
+              cd "$GITHUB_WORKSPACE"
+              go build -v -o /tmp/go-coverage ./cmd/go-coverage
+              chmod +x /tmp/go-coverage
 
-            # Copy the freshly built binary to cache directory
-            mkdir -p ~/.cache/go-coverage-bin
-            cp /tmp/go-coverage ~/.cache/go-coverage-bin/
+              # Copy the freshly built binary to local cache directory
+              mkdir -p ~/.cache/go-coverage-local
+              cp /tmp/go-coverage ~/.cache/go-coverage-local/
 
-            # Also copy to GOPATH/bin for immediate use
-            mkdir -p "$(go env GOPATH)/bin"
-            cp /tmp/go-coverage "$(go env GOPATH)/bin/go-coverage"
+              # Store commit SHA marker for cache validation
+              echo "${{ inputs.commit-sha }}" > ~/.cache/go-coverage-local/commit-sha
 
-            # Store the binary path
-            echo "GO_COVERAGE_BINARY=$(go env GOPATH)/bin/go-coverage" >> $GITHUB_ENV
+              # Also copy to GOPATH/bin for immediate use
+              mkdir -p "$(go env GOPATH)/bin"
+              cp /tmp/go-coverage "$(go env GOPATH)/bin/go-coverage"
 
-            # Show version info
-            echo "✅ Local go-coverage built and stored in cache"
-            "$(go env GOPATH)/bin/go-coverage" --version || echo "Version info not available for local build"
+              # Store the binary path
+              echo "GO_COVERAGE_BINARY=$(go env GOPATH)/bin/go-coverage" >> $GITHUB_ENV
+
+              # Show version info
+              echo "✅ Local go-coverage built and cached (commit: ${{ inputs.commit-sha }})"
+              "$(go env GOPATH)/bin/go-coverage" --version || echo "Version info not available for local build"
+            fi
           else
             # Use production version
             VERSION="${{ env.GO_COVERAGE_VERSION }}"
