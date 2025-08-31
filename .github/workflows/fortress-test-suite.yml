@@ -67,6 +67,10 @@ on:
 # Security: Restrictive default permissions with job-level overrides for least privilege access
 permissions:
   contents: read
+  pull-requests: write # Required for coverage PR comments
+  pages: write # Required for coverage GitHub Pages
+  id-token: write # Required for coverage GitHub Pages authentication
+  statuses: write # Required for coverage commit status checks
 
 jobs:
   # ----------------------------------------------------------------------------------
