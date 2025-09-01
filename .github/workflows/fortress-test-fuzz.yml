@@ -296,7 +296,7 @@ jobs:
         uses: ./.github/actions/upload-statistics
         with:
           artifact-name: cache-stats-fuzz
-          artifact-path: cache-stats.json
+          artifact-path: cache-stats-fuzz.json
           retention-days: "1"
 
       # ————————————————————————————————————————————————————————————————

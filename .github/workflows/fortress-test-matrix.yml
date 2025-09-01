@@ -439,7 +439,7 @@ jobs:
         uses: ./.github/actions/upload-statistics
         with:
           artifact-name: cache-stats-test-${{ matrix.os }}-${{ matrix.go-version }}
-          artifact-path: cache-stats.json
+          artifact-path: cache-stats-test-${{ matrix.os }}-${{ matrix.go-version }}.json
           retention-days: "1"
 
       # ————————————————————————————————————————————————————————————————
