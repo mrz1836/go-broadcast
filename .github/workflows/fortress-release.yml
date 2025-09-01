@@ -265,7 +265,7 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       # Build and publish the release (using magex to ensure Go version consistency)
       # ————————————————————————————————————————————————————————————————
-      - name: 🚀 Run GoReleaser via MAGE-x
+      - name: 🚀 Run GoReleaser via MAGE-X
         id: goreleaser
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -283,7 +283,7 @@ jobs:
               echo "goreleaser_status=success" >> $GITHUB_OUTPUT
               echo "godocs_published=true" >> $GITHUB_OUTPUT
             else
-              echo "❌ GoReleaser with godocs via MAGE-x encountered issues" >&2
+              echo "❌ GoReleaser with godocs via MAGE-X encountered issues" >&2
               echo "goreleaser_status=failure" >> $GITHUB_OUTPUT
               echo "godocs_published=false" >> $GITHUB_OUTPUT
               exit 1
@@ -295,7 +295,7 @@ jobs:
               echo "goreleaser_status=success" >> $GITHUB_OUTPUT
               echo "godocs_published=skipped" >> $GITHUB_OUTPUT
             else
-              echo "❌ GoReleaser via MAGE-x encountered issues" >&2
+              echo "❌ GoReleaser via MAGE-X encountered issues" >&2
               echo "goreleaser_status=failure" >> $GITHUB_OUTPUT
               echo "godocs_published=skipped" >> $GITHUB_OUTPUT
               exit 1
