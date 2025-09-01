@@ -148,6 +148,8 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 🚀 Setup GoReleaser
         uses: ./.github/actions/setup-goreleaser
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           goreleaser-version: ${{ steps.extract-goreleaser.outputs.version }}
           runner-os: ${{ inputs.primary-runner }}
@@ -167,6 +169,8 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 🔍 Validate GoReleaser configuration
         id: validate-goreleaser-configuration
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "🔍 Validating GoReleaser configuration via MAGE-X..."
 
@@ -205,6 +209,8 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 🚀 Run GoReleaser via MAGE-x
         id: goreleaser
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "🚀 Building and publishing release with GoReleaser..."
 
