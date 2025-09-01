@@ -170,6 +170,10 @@ jobs:
                 else
                   echo "✅ Fuzz test suite '$FUZZ_NAME' passed"
                 fi
+
+                # Add fuzz test count to total
+                FUZZ_TEST_COUNT=$(jq -r '.fuzz_test_count // 0' "$stats_file")
+                TOTAL_TESTS=$((TOTAL_TESTS + FUZZ_TEST_COUNT))
               done
             else
               echo "⚠️ No fuzz test statistics found (fuzz testing was enabled)"

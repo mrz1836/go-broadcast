@@ -99,11 +99,22 @@ runs:
         TEST_DURATION=$((TEST_END - ${{ inputs.test-start-time }}))
 
         # Count tests and benchmarks
-        TEST_COUNT=$(find . -type f -name '*_test.go' \
-          -not -path './vendor/*' \
-          -not -path './third_party/*' \
-          -not -path './testdata/*' \
-          -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l | xargs)
+        FUZZ_RUN="${{ inputs.fuzz-run }}"
+        if [[ "$FUZZ_RUN" == "true" ]]; then
+          # Count fuzz functions for fuzz runs
+          TEST_COUNT=$(find . -type f -name '*_test.go' \
+            -not -path './vendor/*' \
+            -not -path './third_party/*' \
+            -not -path './testdata/*' \
+            -exec grep -hE '^\s*func (\([^)]+\) )?Fuzz[A-Z0-9_]' {} + | wc -l | xargs)
+        else
+          # Count test functions for regular test runs
+          TEST_COUNT=$(find . -type f -name '*_test.go' \
+            -not -path './vendor/*' \
+            -not -path './third_party/*' \
+            -not -path './testdata/*' \
+            -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l | xargs)
+        fi
         TEST_COUNT=${TEST_COUNT:-0}
 
         BENCHMARK_COUNT=$(find . -type f -name '*_test.go' \
