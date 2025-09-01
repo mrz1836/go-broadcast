@@ -431,6 +431,10 @@ jobs:
         with:
           workflow-name: test-${{ matrix.os }}-${{ matrix.go-version }}
           job-name: test-go
+          os: ${{ matrix.os }}
+          go-version: ${{ matrix.go-version }}
+          gomod-cache-hit: ${{ steps.setup-go-test.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-go-test.outputs.build-cache-hit }}
 
       # ————————————————————————————————————————————————————————————————
       # Upload cache statistics for completion report

@@ -287,6 +287,10 @@ jobs:
         with:
           workflow-name: fuzz
           job-name: fuzz-tests
+          os: ${{ inputs.primary-runner }}
+          go-version: ${{ inputs.go-primary-version }}
+          gomod-cache-hit: ${{ steps.setup-go-fuzz.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-go-fuzz.outputs.build-cache-hit }}
 
       # ————————————————————————————————————————————————————————————————
       # Upload cache statistics for completion report
