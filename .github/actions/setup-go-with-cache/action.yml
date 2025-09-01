@@ -74,6 +74,24 @@ runs:
         echo "✅ Cache paths configured successfully"
 
     # ————————————————————————————————————————————————————————————————
+    # Validate go.sum exists for cache key generation
+    # ————————————————————————————————————————————————————————————————
+    - name: 🔍 Validate go.sum exists
+      shell: bash
+      run: |
+        echo "🔍 Checking for go.sum file..."
+        if [ ! -f "go.sum" ]; then
+          echo "❌ ERROR: go.sum file not found!"
+          echo "This is required for cache key generation using hashFiles('**/go.sum')"
+          echo "Ensure that:"
+          echo "  1. The repository has been checked out properly"
+          echo "  2. go.sum exists in the repository root"
+          echo "  3. 'go mod tidy' or 'go mod download' has been run"
+          exit 1
+        fi
+        echo "✅ go.sum found - cache keys will work correctly"
+
+    # ————————————————————————————————————————————————————————————————
     # Restore Go module cache (shared across versions)
     # ————————————————————————————————————————————————————————————————
     - name: 💾 Restore Go module cache
