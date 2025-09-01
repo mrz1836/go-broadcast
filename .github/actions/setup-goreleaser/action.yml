@@ -55,7 +55,7 @@ runs:
       shell: bash
       run: |
         if command -v goreleaser >/dev/null 2>&1; then
-          EXISTING_VERSION=$(goreleaser --version 2>/dev/null | head -n1 | awk '{print $3}' || echo "unknown")
+          EXISTING_VERSION=$(goreleaser --version 2>/dev/null | grep "GitVersion:" | awk '{print $2}' || echo "unknown")
           GORELEASER_PATH=$(which goreleaser)
           echo "✅ GoReleaser already available: $EXISTING_VERSION at $GORELEASER_PATH"
           echo "exists=true" >> $GITHUB_OUTPUT
@@ -134,7 +134,7 @@ runs:
       run: |
         # Get goreleaser path and version
         GORELEASER_PATH=$(which goreleaser)
-        GORELEASER_VERSION=$(goreleaser --version 2>/dev/null | head -n1 | awk '{print $3}' || echo "unknown")
+        GORELEASER_VERSION=$(goreleaser --version 2>/dev/null | grep "GitVersion:" | awk '{print $2}' || echo "unknown")
 
         echo "🔧 Setting MAGE_X environment variables..."
         echo "MAGE_X_GORELEASER_PATH=$GORELEASER_PATH" >> $GITHUB_ENV
@@ -156,7 +156,7 @@ runs:
 
         # Test that goreleaser is available and working
         if command -v goreleaser >/dev/null 2>&1; then
-          GORELEASER_VERSION=$(goreleaser --version 2>/dev/null | head -n1 | awk '{print $3}' || echo "unknown")
+          GORELEASER_VERSION=$(goreleaser --version 2>/dev/null | grep "GitVersion:" | awk '{print $2}' || echo "unknown")
           GORELEASER_PATH=$(which goreleaser)
           echo "✅ GoReleaser is available: $GORELEASER_VERSION"
           echo "📍 GoReleaser path: $GORELEASER_PATH"
