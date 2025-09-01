@@ -71,6 +71,9 @@ func TestRepositorySync_Execute(t *testing.T) {
 		gitClient := &git.MockClient{}
 		transformChain := &transform.MockChain{}
 
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+
 		// Mock git operations to use our temp directory
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/source")
@@ -192,11 +195,21 @@ func TestRepositorySync_Execute(t *testing.T) {
 		gitClient := &git.MockClient{}
 		transformChain := &transform.MockChain{}
 
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+
 		// Mock git clone failure
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).
 			Return(internalerrors.ErrTest)
 
 		engine := &Engine{
+			config: &config.Config{
+				Groups: []config.Group{{
+					Defaults: config.DefaultConfig{
+						BranchPrefix: "chore/sync-files",
+					},
+				}},
+			},
 			gh:        ghClient,
 			git:       gitClient,
 			transform: transformChain,
@@ -235,6 +248,9 @@ func TestRepositorySync_Execute(t *testing.T) {
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
 		transformChain := &transform.MockChain{}
+
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 
 		// Only mock the operations that should happen in dry-run
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
@@ -1376,4 +1392,343 @@ func TestRepositorySync_commitChanges_NoChanges_GetSHAError(t *testing.T) {
 	assert.Contains(t, err.Error(), "no changes to commit and failed to get current SHA")
 
 	gitClient.AssertExpectations(t)
+}
+
+// TestRepositorySync_getBranchPrefix tests the getBranchPrefix method
+func TestRepositorySync_getBranchPrefix(t *testing.T) {
+	tests := []struct {
+		name           string
+		currentGroup   *config.Group
+		configGroups   []config.Group
+		expectedPrefix string
+	}{
+		{
+			name: "current group with branch prefix",
+			currentGroup: &config.Group{
+				Defaults: config.DefaultConfig{
+					BranchPrefix: "custom/prefix",
+				},
+			},
+			expectedPrefix: "custom/prefix",
+		},
+		{
+			name:         "no current group, config groups with prefix",
+			currentGroup: nil,
+			configGroups: []config.Group{
+				{
+					Defaults: config.DefaultConfig{
+						BranchPrefix: "config/prefix",
+					},
+				},
+			},
+			expectedPrefix: "config/prefix",
+		},
+		{
+			name:           "no prefix anywhere, use default",
+			currentGroup:   nil,
+			configGroups:   nil,
+			expectedPrefix: "chore/sync-files",
+		},
+		{
+			name: "empty prefix in current group, use default",
+			currentGroup: &config.Group{
+				Defaults: config.DefaultConfig{
+					BranchPrefix: "",
+				},
+			},
+			expectedPrefix: "chore/sync-files",
+		},
+		{
+			name:         "empty prefix in config groups, use default",
+			currentGroup: nil,
+			configGroups: []config.Group{
+				{
+					Defaults: config.DefaultConfig{
+						BranchPrefix: "",
+					},
+				},
+			},
+			expectedPrefix: "chore/sync-files",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{Groups: tt.configGroups}
+			engine := &Engine{
+				config:       cfg,
+				currentGroup: tt.currentGroup,
+			}
+
+			rs := &RepositorySync{
+				engine: engine,
+			}
+
+			result := rs.getBranchPrefix()
+			assert.Equal(t, tt.expectedPrefix, result)
+		})
+	}
+}
+
+// TestRepositorySync_findExistingPRForBranch tests the findExistingPRForBranch method
+func TestRepositorySync_findExistingPRForBranch(t *testing.T) {
+	branchName := "chore/sync-files-test-123"
+
+	t.Run("no target state", func(t *testing.T) {
+		rs := &RepositorySync{
+			targetState: nil,
+		}
+
+		pr := rs.findExistingPRForBranch(branchName)
+		assert.Nil(t, pr)
+	})
+
+	t.Run("no matching PR", func(t *testing.T) {
+		rs := &RepositorySync{
+			targetState: &state.TargetState{
+				OpenPRs: []gh.PR{
+					{Head: struct {
+						Ref string `json:"ref"`
+						SHA string `json:"sha"`
+					}{Ref: "feature/other-branch"}},
+				},
+			},
+		}
+
+		pr := rs.findExistingPRForBranch(branchName)
+		assert.Nil(t, pr)
+	})
+
+	t.Run("matching PR found", func(t *testing.T) {
+		expectedPR := gh.PR{
+			Number: 123,
+			Head: struct {
+				Ref string `json:"ref"`
+				SHA string `json:"sha"`
+			}{Ref: branchName},
+		}
+
+		rs := &RepositorySync{
+			targetState: &state.TargetState{
+				OpenPRs: []gh.PR{
+					{Head: struct {
+						Ref string `json:"ref"`
+						SHA string `json:"sha"`
+					}{Ref: "feature/other-branch"}},
+					expectedPR,
+				},
+			},
+		}
+
+		pr := rs.findExistingPRForBranch(branchName)
+		require.NotNil(t, pr)
+		assert.Equal(t, 123, pr.Number)
+		assert.Equal(t, branchName, pr.Head.Ref)
+	})
+}
+
+// TestValidationMockGHClient provides a simple mock GitHub client for validation testing
+type TestValidationMockGHClient struct {
+	branches      []gh.Branch
+	shouldFailLB  bool
+	shouldFailDB  bool
+	deletedBranch string
+}
+
+var (
+	ErrMockListBranchesFailed = errors.New("ListBranches failed")
+	ErrMockDeleteBranchFailed = errors.New("DeleteBranch failed")
+	ErrMockNotImplemented     = errors.New("not implemented")
+)
+
+func (m *TestValidationMockGHClient) ListBranches(_ context.Context, _ string) ([]gh.Branch, error) {
+	if m.shouldFailLB {
+		return nil, ErrMockListBranchesFailed
+	}
+	return m.branches, nil
+}
+
+func (m *TestValidationMockGHClient) DeleteBranch(_ context.Context, _, branch string) error {
+	if m.shouldFailDB {
+		return ErrMockDeleteBranchFailed
+	}
+	m.deletedBranch = branch
+	return nil
+}
+
+// Required methods to implement gh.Client interface (minimal implementations)
+func (m *TestValidationMockGHClient) GetBranch(_ context.Context, _, _ string) (*gh.Branch, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) CreatePR(_ context.Context, _ string, _ gh.PRRequest) (*gh.PR, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetPR(_ context.Context, _ string, _ int) (*gh.PR, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) ListPRs(_ context.Context, _, _ string) ([]gh.PR, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetCommit(_ context.Context, _, _ string) (*gh.Commit, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) ClosePR(_ context.Context, _ string, _ int, _ string) error {
+	return ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) UpdatePR(_ context.Context, _ string, _ int, _ gh.PRUpdate) error {
+	return ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetCurrentUser(_ context.Context) (*gh.User, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetGitTree(_ context.Context, _, _ string, _ bool) (*gh.GitTree, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetFile(_ context.Context, _, _, _ string) (*gh.FileContent, error) {
+	return nil, ErrMockNotImplemented
+}
+
+// TestRepositorySync_validateAndCleanupOrphanedBranches tests the validateAndCleanupOrphanedBranches method
+func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.NewEntry(logrus.New())
+
+	t.Run("no branches to cleanup", func(t *testing.T) {
+		ghClient := &TestValidationMockGHClient{
+			branches: []gh.Branch{
+				{Name: "main"},
+				{Name: "develop"},
+				{Name: "feature/some-feature"},
+			},
+		}
+
+		engine := &Engine{
+			gh: ghClient,
+			config: &config.Config{
+				Groups: []config.Group{
+					{
+						Defaults: config.DefaultConfig{
+							BranchPrefix: "chore/sync-files",
+						},
+					},
+				},
+			},
+		}
+
+		rs := &RepositorySync{
+			engine:      engine,
+			target:      config.TargetConfig{Repo: "org/repo"},
+			targetState: &state.TargetState{OpenPRs: []gh.PR{}},
+			logger:      logger,
+		}
+
+		err := rs.validateAndCleanupOrphanedBranches(ctx)
+		require.NoError(t, err)
+		assert.Empty(t, ghClient.deletedBranch) // No branches should be deleted
+	})
+
+	t.Run("orphaned branches found and cleaned", func(t *testing.T) {
+		orphanedBranch := "chore/sync-files-test-123"
+		ghClient := &TestValidationMockGHClient{
+			branches: []gh.Branch{
+				{Name: "main"},
+				{Name: orphanedBranch},
+				{Name: "chore/sync-files-test-456"}, // This one has a PR
+			},
+		}
+
+		engine := &Engine{
+			gh: ghClient,
+			config: &config.Config{
+				Groups: []config.Group{
+					{
+						Defaults: config.DefaultConfig{
+							BranchPrefix: "chore/sync-files",
+						},
+					},
+				},
+			},
+		}
+
+		rs := &RepositorySync{
+			engine: engine,
+			target: config.TargetConfig{Repo: "org/repo"},
+			targetState: &state.TargetState{
+				OpenPRs: []gh.PR{
+					{Head: struct {
+						Ref string `json:"ref"`
+						SHA string `json:"sha"`
+					}{Ref: "chore/sync-files-test-456"}}, // This branch has a PR
+				},
+			},
+			logger: logger,
+		}
+
+		err := rs.validateAndCleanupOrphanedBranches(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, orphanedBranch, ghClient.deletedBranch) // Orphaned branch should be deleted
+	})
+
+	t.Run("ListBranches fails", func(t *testing.T) {
+		ghClient := &TestValidationMockGHClient{
+			shouldFailLB: true,
+		}
+
+		engine := &Engine{
+			gh: ghClient,
+		}
+
+		rs := &RepositorySync{
+			engine: engine,
+			target: config.TargetConfig{Repo: "org/repo"},
+			logger: logger,
+		}
+
+		err := rs.validateAndCleanupOrphanedBranches(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to list branches")
+	})
+
+	t.Run("DeleteBranch fails but continues", func(t *testing.T) {
+		orphanedBranch := "chore/sync-files-test-123"
+		ghClient := &TestValidationMockGHClient{
+			branches: []gh.Branch{
+				{Name: orphanedBranch},
+			},
+			shouldFailDB: true,
+		}
+
+		engine := &Engine{
+			gh: ghClient,
+			config: &config.Config{
+				Groups: []config.Group{
+					{
+						Defaults: config.DefaultConfig{
+							BranchPrefix: "chore/sync-files",
+						},
+					},
+				},
+			},
+		}
+
+		rs := &RepositorySync{
+			engine:      engine,
+			target:      config.TargetConfig{Repo: "org/repo"},
+			targetState: &state.TargetState{OpenPRs: []gh.PR{}},
+			logger:      logger,
+		}
+
+		// Should not return error even if DeleteBranch fails
+		err := rs.validateAndCleanupOrphanedBranches(ctx)
+		require.NoError(t, err)
+	})
 }

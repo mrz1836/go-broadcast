@@ -32,6 +32,9 @@ func TestNewEngine(t *testing.T) {
 	stateDiscoverer := &state.MockDiscoverer{}
 	transformChain := &transform.MockChain{}
 
+	// Setup default expectations for pre-sync validation
+	ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+
 	t.Run("with options", func(t *testing.T) {
 		opts := &Options{DryRun: true}
 		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
@@ -86,6 +89,9 @@ func TestEngineSync(t *testing.T) {
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+
 		// Mock state discovery - all targets up-to-date
 		currentState := &state.State{
 			Source: state.SourceState{
@@ -133,6 +139,9 @@ func TestEngineSync(t *testing.T) {
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+
 		// Mock state discovery failure
 		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).
 			Return(nil, errors.ErrTest)
@@ -154,6 +163,9 @@ func TestEngineSync(t *testing.T) {
 		gitClient := &git.MockClient{}
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
+
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 
 		// Mock state with up-to-date targets
 		currentState := &state.State{
@@ -195,6 +207,9 @@ func TestEngineSync(t *testing.T) {
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+
 		currentState := &state.State{
 			Source: state.SourceState{
 				Repo:         "org/template",
@@ -227,6 +242,9 @@ func TestEngineSync(t *testing.T) {
 		gitClient := &git.MockClient{}
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
+
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 
 		currentState := &state.State{
 			Source: state.SourceState{
@@ -409,6 +427,9 @@ func TestEngineWithDryRun(t *testing.T) {
 	stateDiscoverer := &state.MockDiscoverer{}
 	transformChain := &transform.MockChain{}
 
+	// Setup default expectations for pre-sync validation
+	ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+
 	currentState := &state.State{
 		Source: state.SourceState{
 			Repo:         "org/template",
@@ -490,6 +511,9 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+
 		// Mock state discovery - all targets need sync
 		currentState := &state.State{
 			Source: state.SourceState{
@@ -554,6 +578,9 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+
 		// Mock state - mixed statuses to test different code paths
 		currentState := &state.State{
 			Source: state.SourceState{
@@ -611,6 +638,9 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		gitClient := &git.MockClient{}
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
+
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 
 		// Mock state discovery - all targets behind
 		currentState := &state.State{
@@ -681,6 +711,9 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		gitClient := &git.MockClient{}
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
+
+		// Setup default expectations for pre-sync validation
+		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 
 		// Mock state with conflict status to test the warning path
 		currentState := &state.State{

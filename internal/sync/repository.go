@@ -98,7 +98,17 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	// 2. Create temporary directory
+	// 2. Pre-sync validation and cleanup
+	validationTimer := metrics.StartTimer(ctx, rs.logger, "pre_sync_validation")
+	if err := rs.validateAndCleanupOrphanedBranches(ctx); err != nil {
+		validationTimer.StopWithError(err)
+		rs.logger.WithError(err).Warn("Pre-sync validation completed with warnings")
+		// Don't fail sync for cleanup issues, just log them
+	} else {
+		validationTimer.Stop()
+	}
+
+	// 3. Create temporary directory
 	tempDirTimer := metrics.StartTimer(ctx, rs.logger, "temp_dir_creation")
 	if err := rs.createTempDir(); err != nil {
 		tempDirTimer.StopWithError(err)
@@ -258,6 +268,79 @@ func (rs *RepositorySync) needsSync() bool {
 	return rs.targetState.LastSyncCommit != rs.sourceState.LatestCommit
 }
 
+// validateAndCleanupOrphanedBranches checks for and cleans up orphaned sync branches
+func (rs *RepositorySync) validateAndCleanupOrphanedBranches(ctx context.Context) error {
+	rs.logger.Debug("Running pre-sync validation for orphaned branches")
+
+	// List all branches in the target repository
+	branches, err := rs.engine.gh.ListBranches(ctx, rs.target.Repo)
+	if err != nil {
+		return fmt.Errorf("failed to list branches: %w", err)
+	}
+
+	// Look for orphaned sync branches (branches that match our pattern but have no PR)
+	orphanedBranches := make([]string, 0)
+	syncBranchPrefix := rs.getBranchPrefix()
+
+	for _, branch := range branches {
+		// Check if this is a sync branch (matches our prefix pattern)
+		if strings.HasPrefix(branch.Name, syncBranchPrefix) {
+			// Check if there's an existing PR for this branch
+			if existingPR := rs.findExistingPRForBranch(branch.Name); existingPR == nil {
+				orphanedBranches = append(orphanedBranches, branch.Name)
+			}
+		}
+	}
+
+	// Clean up orphaned branches
+	if len(orphanedBranches) > 0 {
+		rs.logger.WithField("orphaned_branches", len(orphanedBranches)).Info("Found orphaned sync branches, cleaning up")
+
+		for _, branchName := range orphanedBranches {
+			rs.logger.WithField("branch_name", branchName).Debug("Deleting orphaned sync branch")
+			if err := rs.engine.gh.DeleteBranch(ctx, rs.target.Repo, branchName); err != nil {
+				if !errors.Is(err, gh.ErrBranchNotFound) {
+					rs.logger.WithError(err).WithField("branch_name", branchName).Warn("Failed to delete orphaned branch")
+				}
+			} else {
+				rs.logger.WithField("branch_name", branchName).Info("Deleted orphaned sync branch")
+			}
+		}
+	}
+
+	return nil
+}
+
+// findExistingPRForBranch finds an existing PR for the specified branch name
+func (rs *RepositorySync) findExistingPRForBranch(branchName string) *gh.PR {
+	if rs.targetState == nil {
+		return nil
+	}
+
+	for _, pr := range rs.targetState.OpenPRs {
+		if pr.Head.Ref == branchName {
+			return &pr
+		}
+	}
+	return nil
+}
+
+// getBranchPrefix returns the branch prefix used for sync branches
+func (rs *RepositorySync) getBranchPrefix() string {
+	// Check if we have a current group with branch prefix
+	if rs.engine.currentGroup != nil && rs.engine.currentGroup.Defaults.BranchPrefix != "" {
+		return rs.engine.currentGroup.Defaults.BranchPrefix
+	}
+
+	// Check if we have any groups in config with branch prefix
+	if len(rs.engine.config.Groups) > 0 && rs.engine.config.Groups[0].Defaults.BranchPrefix != "" {
+		return rs.engine.config.Groups[0].Defaults.BranchPrefix
+	}
+
+	// Fall back to default prefix
+	return "chore/sync-files"
+}
+
 // createTempDir creates a temporary directory for the sync operation
 func (rs *RepositorySync) createTempDir() error {
 	tempDir, err := os.MkdirTemp("", "go-broadcast-sync-*")
@@ -276,18 +359,76 @@ func (rs *RepositorySync) cleanup() {
 		return
 	}
 
-	// Force cleanup even if there are permission issues
-	if err := os.Chmod(rs.tempDir, 0o600); err != nil {
-		rs.logger.WithError(err).Debug("Failed to change temp directory permissions for cleanup")
-	}
-
-	if err := os.RemoveAll(rs.tempDir); err != nil {
+	// First attempt: try recursive permission fix for macOS compatibility
+	if err := rs.cleanupWithPermissionFix(); err != nil {
 		rs.logger.WithError(err).Warn("Failed to cleanup temporary directory")
-		// Try one more time with forced removal
-		_ = os.RemoveAll(rs.tempDir) // Ignore error on second attempt
+
+		// Fallback: try forced removal
+		rs.logger.Debug("Attempting fallback cleanup strategy")
+		if err := rs.forceCleanup(); err != nil {
+			rs.logger.WithError(err).Error("Failed to cleanup temporary directory with fallback strategy")
+		}
 	} else {
 		rs.logger.Debug("Cleaned up temporary directory")
 	}
+}
+
+// cleanupWithPermissionFix attempts to fix permissions recursively before cleanup
+func (rs *RepositorySync) cleanupWithPermissionFix() error {
+	// Walk the directory tree and fix permissions for all files and directories
+	err := filepath.Walk(rs.tempDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			// Log the error but continue walking
+			rs.logger.WithError(walkErr).WithField("path", path).Debug("Error accessing path during permission fix")
+			return walkErr
+		}
+
+		if info.IsDir() {
+			// Make directories readable and writable (executable for directories is needed for traversal)
+			// Using 0700 is acceptable for directories as it's needed for cleanup
+			// #nosec G302
+			if chmodErr := os.Chmod(path, 0o700); chmodErr != nil {
+				rs.logger.WithError(chmodErr).WithField("path", path).Debug("Failed to chmod directory")
+			}
+		} else {
+			// Make files readable and writable
+			if chmodErr := os.Chmod(path, 0o600); chmodErr != nil {
+				rs.logger.WithError(chmodErr).WithField("path", path).Debug("Failed to chmod file")
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		rs.logger.WithError(err).Debug("Error during permission fix walk")
+		return fmt.Errorf("permission fix walk failed: %w", err)
+	}
+
+	// Now try to remove the directory
+	return os.RemoveAll(rs.tempDir)
+}
+
+// forceCleanup attempts various fallback strategies for stubborn directories
+func (rs *RepositorySync) forceCleanup() error {
+	var lastErr error
+
+	// Strategy 1: Try changing owner permissions first
+	// #nosec G302 - 0700 is needed for temporary directory cleanup
+	if err := os.Chmod(rs.tempDir, 0o700); err != nil {
+		rs.logger.WithError(err).Debug("Failed to change temp directory permissions to 700")
+	}
+
+	// Strategy 2: Multiple removal attempts with delay
+	for i := 0; i < 3; i++ {
+		if err := os.RemoveAll(rs.tempDir); err != nil {
+			lastErr = err
+			rs.logger.WithError(err).WithField("attempt", i+1).Debug("Cleanup attempt failed")
+			time.Sleep(time.Millisecond * 100) // Brief delay before retry
+		} else {
+			return nil // Success
+		}
+	}
+
+	return lastErr
 }
 
 // cloneSource clones the source repository at the specific commit
@@ -659,7 +800,28 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 	rs.TrackAPIRequest()
 	pr, err := rs.engine.gh.CreatePR(ctx, rs.target.Repo, prRequest)
 	if err != nil {
-		return fmt.Errorf("failed to create PR: %w", err)
+		// Check if it's a validation failure (HTTP 422)
+		if errors.Is(err, gh.ErrPRValidationFailed) {
+			rs.logger.WithFields(logrus.Fields{
+				"branch_name": branchName,
+				"target_repo": rs.target.Repo,
+				"error":       err,
+			}).Warn("PR validation failed - attempting to cleanup orphaned branch and retry")
+
+			// Try to delete the branch and retry PR creation
+			if deleteErr := rs.engine.gh.DeleteBranch(ctx, rs.target.Repo, branchName); deleteErr != nil {
+				rs.logger.WithError(deleteErr).Debug("Failed to delete orphaned branch (may not exist)")
+			}
+
+			// Retry PR creation after branch cleanup
+			rs.TrackAPIRequest()
+			pr, err = rs.engine.gh.CreatePR(ctx, rs.target.Repo, prRequest)
+			if err != nil {
+				return fmt.Errorf("failed to create PR after cleanup: %w", err)
+			}
+		} else {
+			return fmt.Errorf("failed to create PR: %w", err)
+		}
 	}
 
 	rs.logger.WithField("pr_number", pr.Number).Info("Pull request created successfully")
