@@ -36,10 +36,6 @@ on:
       checks-executed:
         description: "List of checks that were executed"
         value: ${{ jobs.pre-commit.outputs.checks-executed }}
-    secrets:
-      github-token:
-        description: "GitHub token for API access"
-        required: true
 
 # Security: Restrictive default permissions with job-level overrides for least privilege access
 permissions:

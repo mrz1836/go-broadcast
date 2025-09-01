@@ -49,10 +49,6 @@ on:
         description: "Whether race detection is enabled"
         required: true
         type: string
-    secrets:
-      github-token:
-        description: "GitHub token for API access"
-        required: true
 
 # Security: Restrictive default permissions with job-level overrides for least privilege access
 permissions:

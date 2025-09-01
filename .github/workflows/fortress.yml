@@ -218,8 +218,6 @@ jobs:
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
       pre-commit-enabled: ${{ needs.setup.outputs.pre-commit-enabled }}
-    secrets:
-      github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
   # ----------------------------------------------------------------------------------
   # Test Suite
   # ----------------------------------------------------------------------------------

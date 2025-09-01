@@ -87,8 +87,6 @@ jobs:
       go-secondary-version: ${{ inputs.go-secondary-version }}
       code-coverage-enabled: ${{ inputs.code-coverage-enabled }}
       race-detection-enabled: ${{ inputs.race-detection-enabled }}
-    secrets:
-      github-token: ${{ secrets.github-token }}
 
   # ----------------------------------------------------------------------------------
   # Fuzz Testing Execution (Primary platform only)
@@ -102,8 +100,6 @@ jobs:
       go-primary-version: ${{ inputs.go-primary-version }}
       go-secondary-version: ${{ inputs.go-secondary-version }}
       fuzz-testing-enabled: ${{ inputs.fuzz-testing-enabled }}
-    secrets:
-      github-token: ${{ secrets.github-token }}
 
   # ----------------------------------------------------------------------------------
   # Test Results Validation (Aggregate all test results)
@@ -117,8 +113,6 @@ jobs:
       env-json: ${{ inputs.env-json }}
       primary-runner: ${{ inputs.primary-runner }}
       fuzz-testing-enabled: ${{ inputs.fuzz-testing-enabled }}
-    secrets:
-      github-token: ${{ secrets.github-token }}
 
   # ----------------------------------------------------------------------------------
   # Coverage Processing (Existing workflow integration)
