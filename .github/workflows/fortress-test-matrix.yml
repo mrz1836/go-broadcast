@@ -261,15 +261,12 @@ jobs:
               # Check for JSON test failure entries or error patterns
               JSON_FAILURES=0
               if grep -q '^{' test-output.log 2>/dev/null; then
-                # Count JSON failure entries
+                # Count JSON failure entries (only actual test failures, not log messages)
                 JSON_FAILURES=$(grep '^{' test-output.log 2>/dev/null | \
                   jq -r 'select(.Action == "fail") | .Test' 2>/dev/null | wc -l | xargs || echo "0")
 
-                # Also check for "Error:" patterns in the JSON output (like your example)
-                ERROR_PATTERNS=$(grep -c "Error:" test-output.log 2>/dev/null || echo "0")
-
-                if [[ $JSON_FAILURES -gt 0 ]] || [[ $ERROR_PATTERNS -gt 0 ]]; then
-                  echo "⚠️ Found $JSON_FAILURES JSON failures and $ERROR_PATTERNS error patterns in output"
+                if [[ $JSON_FAILURES -gt 0 ]]; then
+                  echo "⚠️ Found $JSON_FAILURES actual test failures in JSON output"
                   echo "🔧 Overriding exit code from 0 to 1 due to detected failures"
                   TEST_EXIT_CODE=1
                 fi

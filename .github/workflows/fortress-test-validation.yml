@@ -200,8 +200,8 @@ jobs:
                 if [[ "$PACKAGES" -gt 0 ]]; then
                   echo "  • Affected Packages: $PACKAGES"
 
-                  # Show package summary
-                  jq -r '.[] | "  📦 \(.Package | split("/") | .[-1] // .[-2] // .): \(.failures | length) failure(s)"' "$failure_file" 2>/dev/null || true
+                  # Show package summary (filter out malformed package names)
+                  jq -r '.[] | select(.Package | test("^[a-zA-Z0-9/_.-]+$")) | "  📦 \(.Package | split("/") | .[-1] // .[-2] // .): \(.failures | length) failure(s)"' "$failure_file" 2>/dev/null || true
 
                   echo ""
                   echo "🚨 Failed Tests:"
@@ -218,7 +218,7 @@ jobs:
                   #
                   # Solution: Extract and deduplicate to show only the actual failed leaf tests
                   # This reduces "4 failures" to "1 actual failure" for better clarity.
-                  RAW_FAILED_TESTS=$(jq -r '.[] as $parent | $parent.failures[] | .Test + " (" + ($parent.Package | split("/") | .[-1] // .[-2] // .) + ")"' "$failure_file" 2>/dev/null)
+                  RAW_FAILED_TESTS=$(jq -r '.[] as $parent | select($parent.Package | test("^[a-zA-Z0-9/_.-]+$")) | $parent.failures[] | .Test + " (" + ($parent.Package | split("/") | .[-1] // .[-2] // .) + ")"' "$failure_file" 2>/dev/null)
 
                   # Smart filtering: Only show the most specific (deepest nested) test failures
                   FAILED_TESTS=$(echo "$RAW_FAILED_TESTS" | awk '
@@ -277,7 +277,7 @@ jobs:
                   fi
 
                   # Show any error outputs if available from the enhanced failure details
-                  ERROR_OUTPUTS=$(jq -r '.[] as $package | $package.failures[] | select(.Output and .Output != "" and .Output != null) | "❌ \(.Test) (\($package.Package | split("/") | .[-1] // .[-2] // .))\n\(.Output)\n"' "$failure_file" 2>/dev/null | head -c 3000)
+                  ERROR_OUTPUTS=$(jq -r '.[] as $package | select($package.Package | test("^[a-zA-Z0-9/_.-]+$")) | $package.failures[] | select(.Output and .Output != "" and .Output != null) | "❌ \(.Test) (\($package.Package | split("/") | .[-1] // .[-2] // .))\n\(.Output)\n"' "$failure_file" 2>/dev/null | head -c 3000)
                   if [[ -n "$ERROR_OUTPUTS" ]]; then
                     echo ""
                     echo "📝 Test Error Messages:"
