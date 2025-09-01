@@ -106,6 +106,15 @@ jobs:
           echo "is_prerelease=$([[ -n "$PRERELEASE" ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
 
       # ————————————————————————————————————————————————————————————————
+      # Setup MAGE-X (required for magex godocs command)
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Setup MAGE-X
+        uses: ./.github/actions/setup-magex
+        with:
+          magex-version: ${{ env.MAGE_X_VERSION }}
+          runner-os: ${{ inputs.primary-runner }}
+
+      # ————————————————————————————————————————————————————————————————
       # Extract GoReleaser version from environment
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Extract GoReleaser version
@@ -258,3 +267,29 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Please check the workflow logs for more details." >> $GITHUB_STEP_SUMMARY
           fi
+
+      # ————————————————————————————————————————————————————————————————
+      # Collect cache statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📊 Collect cache statistics
+        id: cache-stats-release
+        if: always()
+        uses: ./.github/actions/collect-cache-stats
+        with:
+          workflow-name: release
+          job-name: release
+          os: ${{ inputs.primary-runner }}
+          go-version: ${{ inputs.go-primary-version }}
+          gomod-cache-hit: ${{ steps.setup-go-release.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-go-release.outputs.build-cache-hit }}
+
+      # ————————————————————————————————————————————————————————————————
+      # Upload cache statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📤 Upload cache statistics
+        if: always()
+        uses: ./.github/actions/upload-statistics
+        with:
+          artifact-name: cache-stats-release
+          artifact-path: cache-stats-release.json
+          retention-days: 1
