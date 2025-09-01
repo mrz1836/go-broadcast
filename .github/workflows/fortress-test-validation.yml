@@ -156,8 +156,8 @@ jobs:
                 echo "📊 Checking $stats_file..."
 
                 # Extract fuzz test results
-                FUZZ_PASSED=$(jq -r '.fuzz_passed // empty' "$stats_file")
-                FUZZ_EXIT_CODE=$(jq -r '.fuzz_exit_code // empty' "$stats_file")
+                FUZZ_PASSED=$(jq -r '.test_passed // empty' "$stats_file")
+                FUZZ_EXIT_CODE=$(jq -r '.test_exit_code // empty' "$stats_file")
                 FUZZ_NAME=$(jq -r '.name // empty' "$stats_file")
 
                 echo "  • Fuzz Test: $FUZZ_NAME"
@@ -375,7 +375,7 @@ jobs:
             for stats_file in test-results/fuzz-stats-*.json; do
               if [[ -f "$stats_file" ]]; then
                 FUZZ_NAME=$(jq -r '.name // "Unknown"' "$stats_file")
-                FUZZ_PASSED=$(jq -r '.fuzz_passed // false' "$stats_file")
+                FUZZ_PASSED=$(jq -r '.test_passed // false' "$stats_file")
                 FUZZ_COUNT=$(jq -r '.fuzz_test_count // 0' "$stats_file")
 
                 if [[ "$FUZZ_PASSED" == "true" ]]; then
