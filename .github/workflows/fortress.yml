@@ -374,7 +374,7 @@ jobs:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
       slack-webhook: ${{ secrets.SLACK_WEBHOOK || '' }}
     permissions:
-      contents: write
+      contents: write # Required: goreleaser needs to create GitHub releases
   # ----------------------------------------------------------------------------------
   # Workflow Completion Report
   # ----------------------------------------------------------------------------------

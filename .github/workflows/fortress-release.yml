@@ -52,7 +52,7 @@ jobs:
     name: 🚀 Build and Release
     runs-on: ${{ inputs.primary-runner }}
     permissions:
-      contents: write # Required to create releases
+      contents: write # Required: goreleaser creates GitHub releases and uploads assets
     steps:
       # ————————————————————————————————————————————————————————————————
       # Checkout code and set up Go environment

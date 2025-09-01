@@ -107,11 +107,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     permissions:
-      contents: write
-      pages: write
-      id-token: write
-      pull-requests: write # Required for creating PR comments
-      statuses: write
+      contents: write # Required: Push coverage data to gh-pages branch
+      pages: write # Required: Deploy to GitHub Pages
+      id-token: write # Required: GitHub Pages authentication
+      pull-requests: write # Required: Create PR comments with coverage
+      statuses: write # Required: Create commit status checks
 
     steps:
       # ————————————————————————————————————————————————————————————————

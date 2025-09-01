@@ -85,8 +85,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write # Required: Update and merge Dependabot PRs
-      contents: write # Required: Merge approved Dependabot PRs
       issues: write # Required: Comment on related dependency issues
+      # Note: contents write not needed - gh CLI uses token directly
     outputs:
       dependency-names: ${{ steps.metadata.outputs.dependency-names }}
       update-type: ${{ steps.metadata.outputs.update-type }}

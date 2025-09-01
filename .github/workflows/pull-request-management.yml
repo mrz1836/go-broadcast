@@ -635,8 +635,8 @@ jobs:
     name: 🌿 Delete Merged Branch
     needs: [load-env]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # Required: Delete merged PR branches from repository
+    permissions: {}
+      # Note: No special permissions needed - uses GitHub API with default token
     if: |
       github.event.action == 'closed' &&
       github.event.pull_request.merged == true &&
