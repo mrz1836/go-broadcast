@@ -199,9 +199,62 @@ jobs:
             COMMIT_COUNT=$(git rev-list --count ${PREVIOUS_TAG}..${{ github.ref_name }})
             echo "🔸 Total commits since $PREVIOUS_TAG: $COMMIT_COUNT"
             echo "previous_tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+            # Generate changelog content
+            echo "📝 Generating changelog content..."
+            CHANGELOG_CONTENT=""
+
+            # Get commit messages between tags
+            COMMITS=$(git log --pretty=format:"%s" ${PREVIOUS_TAG}..${{ github.ref_name }} 2>/dev/null || echo "")
+
+            if [[ -n "$COMMITS" ]]; then
+              # Group commits by type
+              FEATURES=""
+              FIXES=""
+              DOCS=""
+              OTHER=""
+
+              while IFS= read -r commit; do
+                if [[ "$commit" =~ ^feat(\([^)]*\))?!?:.*$ ]]; then
+                  FEATURES+="- ${commit#feat*: }\n"
+                elif [[ "$commit" =~ ^fix(\([^)]*\))?!?:.*$ ]]; then
+                  FIXES+="- ${commit#fix*: }\n"
+                elif [[ "$commit" =~ ^docs?(\([^)]*\))?!?:.*$ ]]; then
+                  DOCS+="- ${commit#docs*: }\n"
+                else
+                  OTHER+="- $commit\n"
+                fi
+              done <<< "$COMMITS"
+
+              # Build formatted changelog
+              if [[ -n "$FEATURES" ]]; then
+                CHANGELOG_CONTENT+="### ✨ New Features\n${FEATURES}\n"
+              fi
+              if [[ -n "$FIXES" ]]; then
+                CHANGELOG_CONTENT+="### 🐛 Bug Fixes\n${FIXES}\n"
+              fi
+              if [[ -n "$DOCS" ]]; then
+                CHANGELOG_CONTENT+="### 📚 Documentation\n${DOCS}\n"
+              fi
+              if [[ -n "$OTHER" ]]; then
+                CHANGELOG_CONTENT+="### 🔧 Other Changes\n${OTHER}\n"
+              fi
+            else
+              CHANGELOG_CONTENT="No commits found between $PREVIOUS_TAG and ${{ github.ref_name }}"
+            fi
+
+            # Store changelog content using heredoc to handle multiline
+            {
+              echo "changelog_content<<EOF"
+              echo -e "$CHANGELOG_CONTENT"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
           else
             echo "ℹ️ No previous tag found - this appears to be the first release"
             echo "previous_tag=" >> $GITHUB_OUTPUT
+            echo "changelog_content<<EOF" >> $GITHUB_OUTPUT
+            echo "🎉 This is the first release of this project!" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -274,6 +327,12 @@ jobs:
           if [[ -n "${{ steps.changelog.outputs.previous_tag }}" ]]; then
             echo "## 📝 Changelog" >> $GITHUB_STEP_SUMMARY
             echo "Comparing: \`${{ steps.changelog.outputs.previous_tag }}\` → \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.changelog.outputs.changelog_content }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## 📝 Changelog" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.changelog.outputs.changelog_content }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
