@@ -36,7 +36,8 @@ on:
 
 # Security: Restrictive default permissions with job-level overrides for least privilege access
 permissions:
-  contents: read
+  contents: read # Default read-only access to repository contents
+  pull-requests: read # Default read access to pull requests
 
 # ————————————————————————————————————————————————————————————————
 # Concurrency Control
@@ -86,8 +87,7 @@ jobs:
     needs: [load-env]
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Required: Merge approved PRs and update repository
-      pull-requests: write # Required: Update PR status and merge approved PRs
+      pull-requests: write # Required: Update PR status and enable auto-merge
     outputs:
       action-taken: ${{ steps.process.outputs.action }}
       pr-number: ${{ github.event.pull_request.number }}
