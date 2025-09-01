@@ -214,12 +214,17 @@ jobs:
               DOCS=""
               OTHER=""
 
+              # Store regex patterns in variables to avoid shell parsing issues
+              FEAT_PATTERN='^feat(\([^)]*\))?!?:.*$'
+              FIX_PATTERN='^fix(\([^)]*\))?!?:.*$'
+              DOCS_PATTERN='^docs?(\([^)]*\))?!?:.*$'
+
               while IFS= read -r commit; do
-                if [[ "$commit" =~ ^feat(\([^)]*\))?!?:.*$ ]]; then
+                if [[ "$commit" =~ $FEAT_PATTERN ]]; then
                   FEATURES+="- ${commit#feat*: }\n"
-                elif [[ "$commit" =~ ^fix(\([^)]*\))?!?:.*$ ]]; then
+                elif [[ "$commit" =~ $FIX_PATTERN ]]; then
                   FIXES+="- ${commit#fix*: }\n"
-                elif [[ "$commit" =~ ^docs?(\([^)]*\))?!?:.*$ ]]; then
+                elif [[ "$commit" =~ $DOCS_PATTERN ]]; then
                   DOCS+="- ${commit#docs*: }\n"
                 else
                   OTHER+="- $commit\n"
