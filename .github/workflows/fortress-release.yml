@@ -52,7 +52,7 @@ jobs:
     name: 🚀 Build and Release
     runs-on: ${{ inputs.primary-runner }}
     permissions:
-      contents: write # Required: goreleaser creates GitHub releases and uploads assets
+      contents: write # Required: "magex release" creates GitHub releases and uploads assets
     steps:
       # ————————————————————————————————————————————————————————————————
       # Checkout code and set up Go environment
@@ -132,12 +132,19 @@ jobs:
       - name: 🔧 Extract GoReleaser version
         id: extract-goreleaser
         run: |
-          GORELEASER_VERSION=$(echo '${{ inputs.env-json }}' | jq -r '.GORELEASER_VERSION // "v2.10.2"')
+          GORELEASER_VERSION=$(echo '${{ inputs.env-json }}' | jq -r '.MAGE_X_GORELEASER_VERSION // empty')
+
+          if [[ -z "$GORELEASER_VERSION" || "$GORELEASER_VERSION" == "null" ]]; then
+            echo "❌ ERROR: MAGE_X_GORELEASER_VERSION not found in environment configuration" >&2
+            echo "Please ensure MAGE_X_GORELEASER_VERSION is defined in your environment JSON input" >&2
+            exit 1
+          fi
+
           echo "✅ Using GoReleaser version: $GORELEASER_VERSION"
           echo "version=$GORELEASER_VERSION" >> $GITHUB_OUTPUT
 
       # ————————————————————————————————————————————————————————————————
-      # Restore Cache golangci-lint
+      # Restore Cache golangci-lint (helps if linter is run as part of release)
       # ————————————————————————————————————————————————————————————————
       - name: 💾 Cache golangci-lint analysis
         id: cache-golangci-lint
@@ -150,13 +157,18 @@ jobs:
       # Pre-flight config validation
       # ————————————————————————————————————————————————————————————————
       - name: 🔍 Validate GoReleaser configuration
-        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
-        with:
-          version: ${{ steps.extract-goreleaser.outputs.version }}
-          args: check --verbose
-        env:
-          GITHUB_TOKEN: ${{ secrets.github-token }}
-          SLACK_WEBHOOK: ${{ secrets.slack-webhook }} # used only if referenced in .goreleaser.yml
+        id: validate-goreleaser-configuration
+        run: |
+          echo "🔍 Validating GoReleaser configuration via MAGE-X..."
+
+          if magex release:validate --verbose; then
+            echo "✅ GoReleaser configuration is valid"
+            echo "goreleaser_config_status=valid" >> $GITHUB_OUTPUT
+          else
+            echo "❌ GoReleaser configuration is invalid" >&2
+            echo "goreleaser_config_status=invalid" >> $GITHUB_OUTPUT
+            exit 1
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Extract changelog information
@@ -180,60 +192,41 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
-      # Build and publish the release
+      # Build and publish the release (using magex to ensure Go version consistency)
       # ————————————————————————————————————————————————————————————————
-      - name: 🚀 Run GoReleaser
+      - name: 🚀 Run GoReleaser via MAGE-x
         id: goreleaser
-        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
-        with:
-          version: ${{ steps.extract-goreleaser.outputs.version }}
-          args: release --clean --verbose
-        env:
-          GITHUB_TOKEN: ${{ secrets.github-token }}
-          SLACK_WEBHOOK: ${{ secrets.slack-webhook }} # used only if referenced in .goreleaser.yml
-          SKIP_GORELEASER_TESTS: true # Skip tests as they've already been run in the test suite workflow
-
-      # ————————————————————————————————————————————————————————————————
-      # Publish to Go Docs (if enabled)
-      # ————————————————————————————————————————————————————————————————
-      - name: 📚 Publish to Go Docs
-        id: godocs
-        if: success()
         run: |
+          echo "🚀 Building and publishing release with GoReleaser..."
+
           # Extract ENABLE_GODOCS_PUBLISHING from environment
           ENABLE_GODOCS=$(echo '${{ inputs.env-json }}' | jq -r '.ENABLE_GODOCS_PUBLISHING // "false"')
 
+          # Run release with or without godocs based on configuration
           if [[ "$ENABLE_GODOCS" == "true" ]]; then
-            echo "📚 Publishing to Go Docs..."
-
-            # Extract repository information
-            REPO_FULL="${{ github.repository }}"
-            GIT_DOMAIN="github.com"
-            REPO_OWNER="${{ github.repository_owner }}"
-            REPO_NAME="${REPO_FULL#*/}"
-            VERSION_SHORT="${{ steps.validate-tag.outputs.version }}"
-
-            echo "📦 Package: $GIT_DOMAIN/$REPO_OWNER/$REPO_NAME"
-            echo "🏷️ Version: $VERSION_SHORT"
-
-            # Export variables for godocs
-            export GIT_DOMAIN
-            export REPO_OWNER
-            export REPO_NAME
-            export VERSION_SHORT
-
-            # Run magex godocs to syndicate to pkg.go.dev
-            if magex godocs; then
-              echo "✅ Successfully syndicated to Go Docs"
+            echo "📚 Running release with godocs publishing enabled..."
+            if magex release godocs -v; then
+              echo "✅ GoReleaser with godocs via MAGE-X completed successfully"
+              echo "goreleaser_status=success" >> $GITHUB_OUTPUT
               echo "godocs_published=true" >> $GITHUB_OUTPUT
-              echo "godocs_url=https://pkg.go.dev/$GIT_DOMAIN/$REPO_OWNER/$REPO_NAME@$VERSION_SHORT" >> $GITHUB_OUTPUT
             else
-              echo "⚠️ Go Docs syndication failed (non-critical)"
+              echo "❌ GoReleaser with godocs via MAGE-x encountered issues" >&2
+              echo "goreleaser_status=failure" >> $GITHUB_OUTPUT
               echo "godocs_published=false" >> $GITHUB_OUTPUT
+              exit 1
             fi
           else
-            echo "ℹ️ Go Docs publishing is disabled"
-            echo "godocs_published=skipped" >> $GITHUB_OUTPUT
+            echo "ℹ️ Running release without godocs publishing..."
+            if magex release -v; then
+              echo "✅ GoReleaser via MAGE-X completed successfully"
+              echo "goreleaser_status=success" >> $GITHUB_OUTPUT
+              echo "godocs_published=skipped" >> $GITHUB_OUTPUT
+            else
+              echo "❌ GoReleaser via MAGE-x encountered issues" >&2
+              echo "goreleaser_status=failure" >> $GITHUB_OUTPUT
+              echo "godocs_published=skipped" >> $GITHUB_OUTPUT
+              exit 1
+            fi
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -253,9 +246,9 @@ jobs:
           echo "| Release URL | [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}) |" >> $GITHUB_STEP_SUMMARY
 
           # Add Go Docs status
-          if [[ "${{ steps.godocs.outputs.godocs_published }}" == "true" ]]; then
-            echo "| Go Docs | ✅ [View on pkg.go.dev](${{ steps.godocs.outputs.godocs_url }}) |" >> $GITHUB_STEP_SUMMARY
-          elif [[ "${{ steps.godocs.outputs.godocs_published }}" == "false" ]]; then
+          if [[ "${{ steps.goreleaser.outputs.godocs_published }}" == "true" ]]; then
+            echo "| Go Docs | ✅ Published successfully |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ steps.goreleaser.outputs.godocs_published }}" == "false" ]]; then
             echo "| Go Docs | ⚠️ Publishing failed (non-critical) |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| Go Docs | ℹ️ Publishing skipped (disabled) |" >> $GITHUB_STEP_SUMMARY
