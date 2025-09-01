@@ -328,11 +328,17 @@ jobs:
           echo "## 🔍 Test Validation Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Count test suites and statistics
-          TEST_SUITE_COUNT=$(compgen -G "test-results/test-stats-*.json" | wc -l 2>/dev/null || echo "0")
+          # Count test suites and statistics (using reliable file counting)
+          TEST_SUITE_COUNT=0
+          if ls test-results/test-stats-*.json >/dev/null 2>&1; then
+            TEST_SUITE_COUNT=$(ls test-results/test-stats-*.json | wc -l)
+          fi
+
           FUZZ_SUITE_COUNT=0
           if [[ "${{ inputs.fuzz-testing-enabled }}" == "true" ]]; then
-            FUZZ_SUITE_COUNT=$(compgen -G "test-results/fuzz-stats-*.json" | wc -l 2>/dev/null || echo "0")
+            if ls test-results/fuzz-stats-*.json >/dev/null 2>&1; then
+              FUZZ_SUITE_COUNT=$(ls test-results/fuzz-stats-*.json | wc -l)
+            fi
           fi
 
           echo "- **Test Matrix Jobs**: $TEST_SUITE_COUNT" >> $GITHUB_STEP_SUMMARY
