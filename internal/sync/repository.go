@@ -15,6 +15,7 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/config"
 	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/metrics"
 	"github.com/mrz1836/go-broadcast/internal/state"
@@ -525,6 +526,21 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 
 	// Create the commit
 	if err := rs.engine.git.Commit(ctx, targetPath, commitMsg); err != nil {
+		// Check if it's because there are no changes to commit
+		if errors.Is(err, git.ErrNoChanges) {
+			rs.logger.WithFields(logrus.Fields{
+				"branch":     branchName,
+				"files":      len(changedFiles),
+				"commit_msg": commitMsg,
+			}).Info("No changes to commit - files are already synchronized")
+
+			// Get the current commit SHA instead of creating a new one
+			commitSHA, shaErr := rs.engine.git.GetCurrentCommitSHA(ctx, targetPath)
+			if shaErr != nil {
+				return "", fmt.Errorf("no changes to commit and failed to get current SHA: %w", shaErr)
+			}
+			return commitSHA, nil
+		}
 		return "", fmt.Errorf("failed to create commit: %w", err)
 	}
 

@@ -66,10 +66,52 @@ var binaryExtensions = map[string]bool{
 	".sqlite": true,
 }
 
+// textExtensions contains extensions that should always be treated as text
+//
+//nolint:gochecknoglobals // This is a read-only lookup table
+var textExtensions = map[string]bool{
+	// Configuration files
+	".yml":  true,
+	".yaml": true,
+	".json": true,
+	".xml":  true,
+	".toml": true,
+	".ini":  true,
+	".conf": true,
+	".cfg":  true,
+
+	// Documentation and text
+	".md":            true,
+	".txt":           true,
+	".rst":           true,
+	".csv":           true,
+	".log":           true,
+	".gitignore":     true,
+	".gitattributes": true,
+
+	// Source code (common)
+	".go":   true,
+	".js":   true,
+	".ts":   true,
+	".py":   true,
+	".rb":   true,
+	".sh":   true,
+	".bash": true,
+	".zsh":  true,
+	".fish": true,
+}
+
 // IsBinary checks if a file is likely binary based on its extension and content
 func IsBinary(filePath string, content []byte) bool {
 	// Check extension first (fast)
 	ext := strings.ToLower(filepath.Ext(filePath))
+
+	// Check if it's explicitly a text file extension
+	if textExtensions[ext] {
+		return false
+	}
+
+	// Check if it's explicitly a binary file extension
 	if binaryExtensions[ext] {
 		return true
 	}
@@ -102,7 +144,9 @@ func isBinaryContent(content []byte) bool {
 			return true
 		}
 
-		// Check for non-text characters (excluding common whitespace)
+		// Check for non-text characters (excluding common whitespace and printable ASCII)
+		// Only count true control characters (< 32, excluding tab, newline, carriage return)
+		// and non-ASCII characters (> 127) as non-text
 		if (b < 32 && b != '\t' && b != '\n' && b != '\r') || b > 127 {
 			nonTextBytes++
 		}
