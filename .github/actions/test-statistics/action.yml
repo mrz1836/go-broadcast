@@ -184,8 +184,51 @@ runs:
           }]' test-failures-summary.json 2>/dev/null || echo "[]")
         fi
 
+        # Secondary validation: Cross-check test_passed against detected failures
+        echo "🔍 Secondary validation: Cross-checking test_passed against failure indicators..."
+        ORIGINAL_TEST_PASSED="$TEST_PASSED"
+
+        if [[ "$TEST_PASSED" == "true" ]]; then
+          # Check for inconsistencies where test_passed=true but we have failures
+          if [[ "$TOTAL_FAILURES" -gt 0 ]] || [[ "$AFFECTED_PACKAGES" -gt 0 ]]; then
+            echo "⚠️ Inconsistency detected: test_passed=true but failures found:"
+            echo "   • Total failures: $TOTAL_FAILURES"
+            echo "   • Affected packages: $AFFECTED_PACKAGES"
+            echo "🔧 Overriding test_passed from true to false"
+            TEST_PASSED="false"
+          fi
+
+          # Also check for error patterns in test output if available
+          OUTPUT_FILE="${{ inputs.output-file }}"
+          if [[ -f "$OUTPUT_FILE" ]]; then
+            ERROR_COUNT=$(grep -c "Error:" "$OUTPUT_FILE" 2>/dev/null || echo "0")
+            if [[ "$ERROR_COUNT" -gt 0 ]]; then
+              echo "⚠️ Found $ERROR_COUNT error patterns in test output despite test_passed=true"
+              echo "🔧 Overriding test_passed from true to false due to error patterns"
+              TEST_PASSED="false"
+            fi
+          fi
+        fi
+
+        if [[ "$ORIGINAL_TEST_PASSED" != "$TEST_PASSED" ]]; then
+          echo "✅ Secondary validation corrected test_passed: $ORIGINAL_TEST_PASSED -> $TEST_PASSED"
+        else
+          echo "✅ Secondary validation confirmed test_passed: $TEST_PASSED"
+        fi
+
         # Use jq to build JSON safely - no heredocs, no sed, no complex logic
-        STATS_FILE="test-stats-${{ inputs.matrix-os }}-${{ inputs.matrix-go-version }}.json"
+        # Generate appropriate filename based on test type
+        if [[ "$FUZZ_RUN" == "true" ]]; then
+          STATS_FILE="fuzz-stats-${{ inputs.matrix-os }}-${{ inputs.matrix-go-version }}.json"
+        else
+          STATS_FILE="test-stats-${{ inputs.matrix-os }}-${{ inputs.matrix-go-version }}.json"
+        fi
+
+        # Set fuzz_test_count for fuzz runs (same as test_count for fuzz tests)
+        FUZZ_TEST_COUNT=0
+        if [[ "$FUZZ_RUN" == "true" ]]; then
+          FUZZ_TEST_COUNT=$TEST_COUNT
+        fi
 
         jq -n \
           --arg name "${{ inputs.matrix-name }}" \
@@ -206,6 +249,7 @@ runs:
           --argjson race_enabled "$RACE_ENABLED" \
           --argjson coverage_enabled "$COVERAGE_ENABLED" \
           --argjson fuzz_run "$FUZZ_RUN" \
+          --argjson fuzz_test_count "$FUZZ_TEST_COUNT" \
           --arg loc_test_files "$LOC_TEST_FILES" \
           --arg loc_go_files "$LOC_GO_FILES" \
           --arg loc_total "$LOC_TOTAL" \
@@ -228,6 +272,7 @@ runs:
             race_enabled: $race_enabled,
             coverage_enabled: $coverage_enabled,
             fuzz_run: $fuzz_run,
+            fuzz_test_count: $fuzz_test_count,
             timestamp: $timestamp,
             loc_test_files: $loc_test_files,
             loc_go_files: $loc_go_files,
