@@ -23,7 +23,10 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/transform"
 )
 
-var errTestAuthError = errors.New("auth error")
+var (
+	errTestAuthError = errors.New("auth error")
+	errTestGetSHA    = errors.New("failed to get SHA")
+)
 
 func TestRepositorySync_Execute(t *testing.T) {
 	// Setup test configuration
@@ -1261,4 +1264,116 @@ func TestCreateNewPR_GetCurrentUserFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	ghClient.AssertExpectations(t)
+}
+
+func TestRepositorySync_commitChanges_NoChanges(t *testing.T) {
+	ctx := context.Background()
+	baseLogger := logrus.New()
+	baseLogger.SetLevel(logrus.DebugLevel)
+	logger := logrus.NewEntry(baseLogger)
+
+	// Create a temporary directory for test
+	tempDir, err := os.MkdirTemp("", "commitChanges_test")
+	require.NoError(t, err)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
+
+	// Setup mocks
+	ghClient := &gh.MockClient{}
+	gitClient := &git.MockClient{}
+
+	// Mock successful operations until commit
+	gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	gitClient.On("CreateBranch", mock.Anything, mock.Anything, "test-branch").Return(nil)
+	gitClient.On("Checkout", mock.Anything, mock.Anything, "test-branch").Return(nil)
+	gitClient.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	// Mock git.Commit to return ErrNoChanges
+	gitClient.On("Commit", mock.Anything, mock.Anything, mock.AnythingOfType("string")).Return(git.ErrNoChanges)
+	gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("existing-sha-123", nil)
+
+	engine := &Engine{
+		git:     gitClient,
+		gh:      ghClient,
+		options: &Options{DryRun: false},
+	}
+
+	rs := &RepositorySync{
+		engine:      engine,
+		tempDir:     tempDir,
+		target:      config.TargetConfig{Repo: "org/target"},
+		logger:      logger,
+		sourceState: &state.SourceState{LatestCommit: "abc123"},
+		targetState: &state.TargetState{},
+	}
+
+	// Test commitChanges with ErrNoChanges scenario
+	changedFiles := []FileChange{
+		{Path: "file1.txt", Content: []byte("content1")},
+	}
+
+	commitSHA, err := rs.commitChanges(ctx, "test-branch", changedFiles)
+
+	// Should not return an error and should return the existing commit SHA
+	require.NoError(t, err)
+	assert.Equal(t, "existing-sha-123", commitSHA)
+
+	gitClient.AssertExpectations(t)
+}
+
+func TestRepositorySync_commitChanges_NoChanges_GetSHAError(t *testing.T) {
+	ctx := context.Background()
+	baseLogger := logrus.New()
+	baseLogger.SetLevel(logrus.DebugLevel)
+	logger := logrus.NewEntry(baseLogger)
+
+	// Create a temporary directory for test
+	tempDir, err := os.MkdirTemp("", "commitChanges_test")
+	require.NoError(t, err)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
+
+	// Setup mocks
+	ghClient := &gh.MockClient{}
+	gitClient := &git.MockClient{}
+
+	// Mock successful operations until commit
+	gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	gitClient.On("CreateBranch", mock.Anything, mock.Anything, "test-branch").Return(nil)
+	gitClient.On("Checkout", mock.Anything, mock.Anything, "test-branch").Return(nil)
+	gitClient.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	// Mock git.Commit to return ErrNoChanges, but GetCurrentCommitSHA fails
+	gitClient.On("Commit", mock.Anything, mock.Anything, mock.AnythingOfType("string")).Return(git.ErrNoChanges)
+	gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("", errTestGetSHA)
+
+	engine := &Engine{
+		git:     gitClient,
+		gh:      ghClient,
+		options: &Options{DryRun: false},
+	}
+
+	rs := &RepositorySync{
+		engine:      engine,
+		tempDir:     tempDir,
+		target:      config.TargetConfig{Repo: "org/target"},
+		logger:      logger,
+		sourceState: &state.SourceState{LatestCommit: "abc123"},
+		targetState: &state.TargetState{},
+	}
+
+	// Test commitChanges with ErrNoChanges + GetSHA error scenario
+	changedFiles := []FileChange{
+		{Path: "file1.txt", Content: []byte("content1")},
+	}
+
+	_, err = rs.commitChanges(ctx, "test-branch", changedFiles)
+
+	// Should return an error about getting SHA
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no changes to commit and failed to get current SHA")
+
+	gitClient.AssertExpectations(t)
 }

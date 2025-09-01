@@ -27,9 +27,19 @@ func TestIsBinary_ByExtension(t *testing.T) {
 		{"code.go", false},
 		{"script.py", false},
 		{"config.yaml", false},
+		{"config.yml", false}, // Added in fix
 		{"readme.md", false},
 		{"data.json", false},
 		{"style.css", false},
+		{"config.toml", false},  // Added in fix
+		{"settings.ini", false}, // Added in fix
+		{"server.conf", false},  // Added in fix
+		{"app.cfg", false},      // Added in fix
+		{"data.txt", false},     // Added in fix
+		{"notes.csv", false},    // Added in fix
+		{"debug.log", false},    // Added in fix
+		{"script.sh", false},    // Added in fix
+		{"script.bash", false},  // Added in fix
 
 		// No extension
 		{"Makefile", false},
@@ -99,8 +109,8 @@ func TestIsBinary_ByContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Use a text file extension to ensure content check is used
-			result := IsBinary("file.txt", tt.content)
+			// Use a neutral file extension to ensure content check is used
+			result := IsBinary("file.unknown", tt.content)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -186,6 +196,73 @@ func generateBinaryData(size, binaryPercent int) []byte {
 	}
 
 	return data
+}
+
+func TestIsBinary_YAMLWithHyphens(t *testing.T) {
+	// Test the specific problematic case from the workflow files
+	yamlWithLotsOfHyphens := []byte(`# ------------------------------------------------
+#  Pull Request Management Workflow
+# ------------------------------------------------
+# Purpose: Comprehensive PR lifecycle management including automated labeling,
+#                              assignments, size analysis, welcomes for new contributors, and cleanup
+#                              tasks when PRs are closed. All configuration is centralized
+name: Pull Request Management Workflow
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, closed, labeled, unlabeled]
+`)
+
+	tests := []struct {
+		name     string
+		filename string
+		content  []byte
+		expected bool
+	}{
+		{
+			name:     "YAML with lots of hyphens (.yml)",
+			filename: "workflow.yml",
+			content:  yamlWithLotsOfHyphens,
+			expected: false, // Should be detected as text due to .yml extension
+		},
+		{
+			name:     "YAML with lots of hyphens (.yaml)",
+			filename: "workflow.yaml",
+			content:  yamlWithLotsOfHyphens,
+			expected: false, // Should be detected as text due to .yaml extension
+		},
+		{
+			name:     "YAML with lots of hyphens (unknown extension)",
+			filename: "workflow.unknown",
+			content:  yamlWithLotsOfHyphens,
+			expected: false, // Should be detected as text by content analysis
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsBinary(tt.filename, tt.content)
+			assert.Equal(t, tt.expected, result, "File %s should have binary detection: %v", tt.filename, tt.expected)
+		})
+	}
+}
+
+func TestTextExtensions_Coverage(t *testing.T) {
+	// Test that all added text extensions are properly handled
+	textContent := []byte("This is regular text content\nwith some lines\nand normal characters.")
+
+	textExtensions := []string{
+		".yml", ".yaml", ".json", ".xml", ".toml", ".ini", ".conf", ".cfg",
+		".md", ".txt", ".rst", ".csv", ".log", ".gitignore", ".gitattributes",
+		".go", ".js", ".ts", ".py", ".rb", ".sh", ".bash", ".zsh", ".fish",
+	}
+
+	for _, ext := range textExtensions {
+		t.Run(ext, func(t *testing.T) {
+			result := IsBinary("testfile"+ext, textContent)
+			assert.False(t, result, "File with extension %s should not be detected as binary", ext)
+		})
+	}
 }
 
 func TestBinaryExtensions(t *testing.T) {
