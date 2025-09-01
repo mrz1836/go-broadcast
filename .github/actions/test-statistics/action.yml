@@ -209,16 +209,9 @@ runs:
             TEST_PASSED="false"
           fi
 
-          # Also check for error patterns in test output if available
-          OUTPUT_FILE="${{ inputs.output-file }}"
-          if [[ -f "$OUTPUT_FILE" ]]; then
-            ERROR_COUNT=$(grep -c "Error:" "$OUTPUT_FILE" 2>/dev/null || echo "0")
-            if [[ "$ERROR_COUNT" -gt 0 ]]; then
-              echo "⚠️ Found $ERROR_COUNT error patterns in test output despite test_passed=true"
-              echo "🔧 Overriding test_passed from true to false due to error patterns"
-              TEST_PASSED="false"
-            fi
-          fi
+          # Note: Previously checked for "Error:" patterns in test output, but this was too broad
+          # and caught legitimate error strings in test assertions, output formatting, and test data.
+          # Removed to rely on more accurate failure detection from test exit codes and structured data.
         fi
 
         if [[ "$ORIGINAL_TEST_PASSED" != "$TEST_PASSED" ]]; then
