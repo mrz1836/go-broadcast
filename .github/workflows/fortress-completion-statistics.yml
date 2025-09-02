@@ -246,7 +246,7 @@ jobs:
         id: process-benchmarks
         run: |
           # Process benchmark statistics if available
-          if compgen -G "benchmark-stats-*.json" >/dev/null 2>&1; then
+          if compgen -G "bench-stats-*.json" >/dev/null 2>&1; then
             {
               echo ""
               echo ""
@@ -255,7 +255,7 @@ jobs:
 
             # Get benchmark mode from the first stats file
             BENCH_MODE="normal"
-            for stats_file in benchmark-stats-*.json; do
+            for stats_file in bench-stats-*.json; do
               if [ -f "$stats_file" ]; then
                 BENCH_MODE=$(jq -r '.benchmark_mode // "normal"' "$stats_file")
                 break
@@ -273,7 +273,7 @@ jobs:
             TOTAL_BENCHMARKS=0
             TOTAL_DURATION=0
 
-            for stats_file in benchmark-stats-*.json; do
+            for stats_file in bench-stats-*.json; do
               if [ -f "$stats_file" ]; then
                 NAME=$(jq -r '.name' "$stats_file")
                 DURATION=$(jq -r '.duration_seconds' "$stats_file")
@@ -299,7 +299,7 @@ jobs:
               echo ""
             } >> statistics-section.md
 
-            for stats_file in benchmark-stats-*.json; do
+            for stats_file in bench-stats-*.json; do
               if [ -f "$stats_file" ]; then
                 NAME=$(jq -r '.name' "$stats_file")
                 BENCHMARK_SUMMARY=$(jq -r '.benchmark_summary' "$stats_file")
