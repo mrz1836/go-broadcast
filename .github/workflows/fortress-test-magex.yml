@@ -148,11 +148,15 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 📊 Job Summary
         run: |
+          # Get magex version
+          MAGEX_VERSION=$(magex --version | grep -oE 'Version:\s+[0-9]+\.[0-9]+\.[0-9]+' | sed 's/Version:\s*//')
+
           echo "## 🪄 MAGE-X Verification Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| 🔧 Verification Details | ✅ Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| **Test** | magex help command |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Version** | $MAGEX_VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "| **Installation** | ${{ steps.setup-magex.outputs.installation-method == 'cached' && '💾 From cache' || '📥 Fresh install' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Purpose** | Verify MAGE-X installation and standard commands |" >> $GITHUB_STEP_SUMMARY
           echo "| **Matched Commands** | ${{ steps.verify-magex.outputs.matched }} |" >> $GITHUB_STEP_SUMMARY
