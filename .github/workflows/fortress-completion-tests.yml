@@ -80,96 +80,25 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       # Download artifacts from main workflow with resilience
       # ————————————————————————————————————————————————————————————————
-      - name: 📥 Download artifacts
+      - name: 📥 Download artifact bundle
         if: always()
         uses: ./.github/actions/download-artifact-resilient
         with:
-          pattern: "test-stats-*"
-          path: ./artifacts/
+          pattern: "${{ inputs.artifacts-data }}"
+          path: ./
           merge-multiple: true
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
           retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
           timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
           continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
-      - name: 📥 Download benchmark statistics
-        if: always()
-        uses: ./.github/actions/download-artifact-resilient
-        with:
-          pattern: "bench-stats-*"
-          path: ./artifacts/
-          merge-multiple: true
-          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
-          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
-          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
-          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
-
-      - name: 📥 Download cache statistics
-        if: always()
-        uses: ./.github/actions/download-artifact-resilient
-        with:
-          pattern: "cache-stats-*"
-          path: ./artifacts/
-          merge-multiple: true
-          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
-          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
-          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
-          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
-
-      - name: 📥 Download test failure artifacts
-        if: always()
-        uses: ./.github/actions/download-artifact-resilient
-        with:
-          pattern: "test-results-unit-*"
-          path: ./test-artifacts/
-          merge-multiple: true
-          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
-          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
-          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
-          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
-
-      - name: 📥 Download fuzz test failure artifacts
-        if: always()
-        uses: ./.github/actions/download-artifact-resilient
-        with:
-          pattern: "test-results-fuzz-*"
-          path: ./test-artifacts/
-          merge-multiple: true
-          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
-          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
-          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
-          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
-
-      - name: 🗂️ Flatten artifacts
+      - name: 🗂️ Process artifacts bundle
         if: always()
         run: |
-          echo "🗂️ Flattening downloaded artifacts..."
-
-          # Process stats artifacts
-          if [ -d "./artifacts/" ]; then
-            find ./artifacts/ -name "*.json" -type f | while read -r file; do
-              filename=$(basename "$file")
-              echo "Moving $file to ./$filename"
-              cp "$file" "./$filename"
-            done
-            echo "📋 Available stats files:"
-            ls -la *-stats-*.json 2>/dev/null || echo "No stats files found"
-          else
-            echo "⚠️ No artifacts directory found"
-          fi
-
-          # Process test failure artifacts
-          if [ -d "./test-artifacts/" ]; then
-            find ./test-artifacts/ -name "*.json" -type f | while read -r file; do
-              filename=$(basename "$file")
-              echo "Moving test artifact $file to ./$filename"
-              cp "$file" "./$filename"
-            done
-            echo "📋 Available test artifact files:"
-            ls -la test-failures*.json 2>/dev/null || echo "No test failure files found"
-          else
-            echo "⚠️ No test-artifacts directory found"
-          fi
+          echo "🗂️ Processing artifact bundle..."
+          # The bundle should already be flattened by initialize-report
+          echo "📋 Available files:"
+          ls -la *-stats-*.json *-cache-*.json test-*.json 2>/dev/null || echo "No artifacts found"
 
       # ————————————————————————————————————————————————————————————————
       # Initialize test analysis section
