@@ -201,6 +201,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 
 		// Mock GitHub operations
 		mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("content"), nil)
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{{Name: "main"}}, nil)
 		mockGH.On("CreatePR", mock.Anything, mock.Anything, mock.Anything).Return(&gh.PR{
 			Number: 1,
 			State:  "open",

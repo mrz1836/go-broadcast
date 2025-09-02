@@ -173,6 +173,7 @@ jobs:
 
                 # Add fuzz test count to total
                 FUZZ_TEST_COUNT=$(jq -r '.fuzz_test_count // 0' "$stats_file")
+                echo "  • Fuzz Tests: $FUZZ_TEST_COUNT"
                 TOTAL_TESTS=$((TOTAL_TESTS + FUZZ_TEST_COUNT))
               done
             else
@@ -396,7 +397,7 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload validation summary
         if: always()
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: validation-summary
           path: test-results/

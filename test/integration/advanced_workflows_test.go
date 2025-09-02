@@ -650,6 +650,8 @@ func testWorkflowPermissionsAndSecurity(t *testing.T, generator *fixtures.TestRe
 	// Mock permission validation
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
+	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
+		Return([]gh.Branch{}, nil).Maybe()
 	mockGH.On("CreatePR", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("gh.PRRequest")).
 		Return(&gh.PR{Number: 111}, nil).Maybe()
 
