@@ -284,6 +284,10 @@ func TestEndToEndSync(t *testing.T) {
 		mockGH.On("GetFile", mock.Anything, "org/template-repo", "Makefile", "").
 			Return(&gh.FileContent{Content: []byte("makefile content")}, nil).Maybe()
 
+		// Mock ListBranches for orphaned branch cleanup check
+		mockGH.On("ListBranches", mock.Anything, "org/service-a").Return([]gh.Branch{}, nil).Maybe()
+		mockGH.On("ListBranches", mock.Anything, "org/service-b").Return([]gh.Branch{}, nil).Maybe()
+
 		// Mock getting target files for comparison
 		mockGH.On("GetFile", mock.Anything, "org/service-a", ".github/workflows/ci.yml", "").
 			Return(&gh.FileContent{Content: []byte("old workflow")}, nil).Maybe()
