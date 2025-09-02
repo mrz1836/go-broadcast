@@ -680,14 +680,32 @@ jobs:
           BADGE_GENERATED=false
           PAGES_DEPLOYED=false
 
-          # Extract coverage percentage from coverage.html or coverage.out
-          if [ -f "$OUTPUT_DIR/coverage.html" ]; then
-            COVERAGE_PERCENTAGE=$(grep -io 'coverage: [0-9.]*%' "$OUTPUT_DIR/coverage.html" | head -1 | grep -o '[0-9.]*' || echo "0")
-            echo "📈 Extracted coverage percentage from HTML: ${COVERAGE_PERCENTAGE}%"
-          elif [ -f "$COVERAGE_FILE" ]; then
+          # Calculate coverage percentage from coverage file first (more accurate)
+          if [ -f "$COVERAGE_FILE" ]; then
             # Calculate coverage from .out file using go tool cover
             COVERAGE_PERCENTAGE=$(go tool cover -func="$COVERAGE_FILE" | tail -1 | awk '{print $3}' | sed 's/%//' || echo "0")
             echo "📈 Calculated coverage percentage from profile: ${COVERAGE_PERCENTAGE}%"
+
+            # Validate result - if we get 0% but have coverage data, try HTML fallback
+            if [[ "$COVERAGE_PERCENTAGE" == "0" ]] && [[ -s "$COVERAGE_FILE" ]]; then
+              COVERAGE_LINES=$(wc -l < "$COVERAGE_FILE" || echo "0")
+              if [[ $COVERAGE_LINES -gt 1 ]]; then
+                echo "⚠️ Got 0% coverage despite $COVERAGE_LINES lines in coverage file - trying HTML fallback"
+                if [ -f "$OUTPUT_DIR/coverage.html" ]; then
+                  HTML_COVERAGE=$(grep -io 'coverage: [0-9.]*%' "$OUTPUT_DIR/coverage.html" | head -1 | grep -o '[0-9.]*' || echo "0")
+                  if [[ "$HTML_COVERAGE" != "0" ]]; then
+                    COVERAGE_PERCENTAGE="$HTML_COVERAGE"
+                    echo "📈 Used HTML fallback coverage: ${COVERAGE_PERCENTAGE}%"
+                  else
+                    echo "⚠️ HTML also shows 0% - this may indicate a go-coverage tool issue"
+                  fi
+                fi
+              fi
+            fi
+          elif [ -f "$OUTPUT_DIR/coverage.html" ]; then
+            # Fallback: Extract coverage percentage from HTML if no profile file
+            COVERAGE_PERCENTAGE=$(grep -io 'coverage: [0-9.]*%' "$OUTPUT_DIR/coverage.html" | head -1 | grep -o '[0-9.]*' || echo "0")
+            echo "📈 Extracted coverage percentage from HTML (fallback): ${COVERAGE_PERCENTAGE}%"
           fi
 
           # Count processed files from coverage output
