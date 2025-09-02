@@ -19,10 +19,6 @@ name: GoFortress (Completion Statistics)
 on:
   workflow_call:
     inputs:
-      artifacts-data:
-        description: "JSON string of artifact metadata"
-        required: true
-        type: string
       timing-metrics:
         description: "JSON string of timing data"
         required: true
@@ -82,27 +78,71 @@ jobs:
           done
 
       # ————————————————————————————————————————————————————————————————
-      # Download bundled artifacts from initialize-report job
+      # Download specific artifacts needed for statistics processing
       # ————————————————————————————————————————————————————————————————
-      - name: 📥 Download artifact bundle
+      - name: 📥 Download test statistics
         if: always()
         uses: ./.github/actions/download-artifact-resilient
         with:
-          pattern: "${{ inputs.artifacts-data }}"
-          path: ./
+          pattern: "test-stats-*"
+          path: ./artifacts/
           merge-multiple: true
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
           retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
           timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
           continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
-      - name: 🗂️ Flatten artifacts bundle
+      - name: 📥 Download benchmark statistics
+        if: always()
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "bench-stats-*"
+          path: ./artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      - name: 📥 Download cache statistics
+        if: always()
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "cache-stats-*"
+          path: ./artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      - name: 📥 Download coverage statistics
+        if: always()
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "coverage-stats-*"
+          path: ./artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      - name: 🗂️ Flatten artifacts
         if: always()
         run: |
-          echo "🗂️ Processing artifact bundle..."
-          # The bundle should already be flattened by initialize-report
-          echo "📋 Available stats files:"
-          ls -la *-stats-*.json *-cache-*.json 2>/dev/null || echo "No stats files found"
+          echo "🗂️ Flattening downloaded artifacts..."
+          if [ -d "./artifacts/" ]; then
+            find ./artifacts/ -name "*.json" -type f | while read -r file; do
+              filename=$(basename "$file")
+              echo "Moving $file to ./$filename"
+              cp "$file" "./$filename"
+            done
+            echo "📋 Available stats files:"
+            ls -la *-stats-*.json *-cache-*.json 2>/dev/null || echo "No stats files found"
+          else
+            echo "⚠️ No artifacts directory found"
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Initialize statistics report section
