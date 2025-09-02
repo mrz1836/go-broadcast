@@ -172,6 +172,9 @@ func BenchmarkGroupOrchestration(b *testing.B) {
 			mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 			// Mock GitHub operations
+			mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+			mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
+			mockGH.On("DeleteBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 			mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
 			mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
 
@@ -493,6 +496,11 @@ func TestPerformanceStress(t *testing.T) {
 		}
 		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
+		// Mock GitHub operations for orphaned branch cleanup and PR operations
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
+		mockGH.On("DeleteBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
 		opts := syncpkg.DefaultOptions().
 			WithDryRun(true)
 
@@ -762,6 +770,11 @@ func TestPerformanceStress(t *testing.T) {
 		}
 		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
+		// Mock GitHub operations for orphaned branch cleanup and PR operations
+		mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+		mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
+		mockGH.On("DeleteBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
 		opts := syncpkg.DefaultOptions().
 			WithDryRun(true)
 
@@ -890,6 +903,9 @@ func TestPerformanceRegression(t *testing.T) {
 			mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 			// Mock GitHub operations
+			mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+			mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
+			mockGH.On("DeleteBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 			mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
 			mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
 
@@ -1026,6 +1042,9 @@ func TestPerformanceRegression(t *testing.T) {
 			mockGit.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 			// Mock GitHub operations
+			mockGH.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
+			mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
+			mockGH.On("DeleteBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 			mockGH.On("GetFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte("test content"), nil)
 			mockGH.On("CreatePR", mock.Anything, mock.Anything).Return("https://github.com/org/repo/pull/1", nil)
 
