@@ -77,7 +77,6 @@ jobs:
           timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
           continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
-
       - name: 📥 Download test statistics (with retry)
         uses: ./.github/actions/download-artifact-resilient
         with:
@@ -100,6 +99,31 @@ jobs:
           retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
           timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
           continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      # ————————————————————————————————————————————————————————————————
+      # Flatten downloaded artifacts to expected directory structure
+      # ————————————————————————————————————————————————————————————————
+      - name: 🗂️ Flatten downloaded artifacts
+        if: always()
+        run: |
+          echo "🗂️ Flattening downloaded artifacts..."
+
+          # Process test statistics (move from subdirectories to test-results/)
+          if [ -d "test-results/" ]; then
+            echo "📋 Directory structure before flattening:"
+            find test-results/ -name "*.json" -type f | head -10 | sed 's/^/  • /' || echo "  No JSON files found"
+
+            find test-results/ -name "*.json" -type f | while read -r file; do
+              filename=$(basename "$file")
+              echo "Moving $file to test-results/$filename"
+              cp "$file" "test-results/$filename"
+            done
+
+            echo "📋 Available statistics files after flattening:"
+            ls -la test-results/*-stats-*.json 2>/dev/null || echo "  No statistics files found"
+          else
+            echo "⚠️ No test-results directory found"
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Enhanced test results validation with failure details
