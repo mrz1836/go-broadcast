@@ -456,9 +456,9 @@ jobs:
           TOTAL_LOC=""
           LOC_DATE=""
 
-          if compgen -G "*-stats-*.json" >/dev/null 2>&1 || compgen -G "*-cache-*.json" >/dev/null 2>&1; then
+          if compgen -G "*-stats-*.json" >/dev/null 2>&1; then
             echo "🔍 Looking for LOC data in stats files..."
-            for stats_file in *-stats-*.json *-cache-*.json; do
+            for stats_file in *-stats-*.json; do
               if [ -f "$stats_file" ]; then
                 echo "📋 Checking $stats_file for LOC data..."
                 TEST_FILES_COUNT=$(jq -r '.loc_test_files // "null"' "$stats_file")
