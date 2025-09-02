@@ -103,7 +103,7 @@ jobs:
         if: inputs.fuzz-testing-enabled == 'true'
         uses: ./.github/actions/download-artifact-resilient
         with:
-          pattern: "fuzz-results-*"
+          pattern: "test-results-fuzz-*"
           path: test-results/
           merge-multiple: true
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
