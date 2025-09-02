@@ -77,16 +77,6 @@ jobs:
           timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
           continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
-      - name: 📥 Download fuzz test results (with retry)
-        uses: ./.github/actions/download-artifact-resilient
-        with:
-          pattern: "test-results-fuzz-*"
-          path: test-results/
-          merge-multiple: true
-          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
-          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
-          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
-          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
       - name: 📥 Download test statistics (with retry)
         uses: ./.github/actions/download-artifact-resilient
