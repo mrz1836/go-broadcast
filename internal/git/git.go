@@ -20,12 +20,13 @@ import (
 
 // Common errors
 var (
-	ErrGitNotFound      = errors.New("git command not found in PATH")
-	ErrNotARepository   = errors.New("not a git repository")
-	ErrRepositoryExists = errors.New("repository already exists")
-	ErrNoChanges        = errors.New("no changes to commit")
-	ErrGitCommand       = errors.New("git command failed")
-	ErrInvalidRepoURL   = errors.New("invalid repository URL format")
+	ErrGitNotFound         = errors.New("git command not found in PATH")
+	ErrNotARepository      = errors.New("not a git repository")
+	ErrRepositoryExists    = errors.New("repository already exists")
+	ErrNoChanges           = errors.New("no changes to commit")
+	ErrGitCommand          = errors.New("git command failed")
+	ErrInvalidRepoURL      = errors.New("invalid repository URL format")
+	ErrBranchAlreadyExists = errors.New("branch already exists on remote")
 )
 
 // gitClient implements the Client interface using git commands
@@ -89,6 +90,11 @@ func (g *gitClient) CreateBranch(ctx context.Context, repoPath, branch string) e
 	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", branch)
 
 	if err := g.runCommand(cmd); err != nil {
+		// Check if it's a branch already exists error
+		errStr := err.Error()
+		if strings.Contains(errStr, "already exists") {
+			return ErrBranchAlreadyExists
+		}
 		return appErrors.WrapWithContext(err, fmt.Sprintf("create branch %s", branch))
 	}
 
@@ -140,6 +146,14 @@ func (g *gitClient) Push(ctx context.Context, repoPath, remote, branch string, f
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 
 	if err := g.runCommand(cmd); err != nil {
+		// Check if it's a branch already exists error
+		errStr := err.Error()
+		if strings.Contains(errStr, "already exists") ||
+			strings.Contains(errStr, "updates were rejected") ||
+			strings.Contains(errStr, "non-fast-forward") ||
+			strings.Contains(errStr, "fetch first") {
+			return ErrBranchAlreadyExists
+		}
 		return appErrors.WrapWithContext(err, "push")
 	}
 

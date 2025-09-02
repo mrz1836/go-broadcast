@@ -24,8 +24,9 @@ import (
 )
 
 var (
-	errTestAuthError = errors.New("auth error")
-	errTestGetSHA    = errors.New("failed to get SHA")
+	errTestAuthError       = errors.New("auth error")
+	errTestGetSHA          = errors.New("failed to get SHA")
+	errTestForcePushFailed = errors.New("force push failed")
 )
 
 func TestRepositorySync_Execute(t *testing.T) {
@@ -1730,5 +1731,274 @@ func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 		// Should not return error even if DeleteBranch fails
 		err := rs.validateAndCleanupOrphanedBranches(ctx)
 		require.NoError(t, err)
+	})
+}
+
+// TestRepositorySync_Execute_ExistingBranch tests scenarios where a branch already exists
+func TestRepositorySync_Execute_ExistingBranch(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.NewEntry(logrus.New())
+
+	t.Run("branch exists locally during create - recovers gracefully", func(t *testing.T) {
+		// Setup mock clients
+		gitClient := git.NewMockClient()
+		ghClient := gh.NewMockClient()
+
+		// Mock git operations - CreateBranch fails with ErrBranchAlreadyExists
+		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+			destPath := args[2].(string)
+			testutil.CreateTestDirectory(t, destPath)
+			testutil.WriteTestFile(t, destPath+"/test.txt", "test file content")
+		})
+		gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), "abc1234").Return(nil)
+		gitClient.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(git.ErrBranchAlreadyExists)
+		gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
+		gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("commit123", nil)
+		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false).Return(nil)
+
+		// Mock GitHub operations - validation checks first
+		ghClient.On("ListBranches", mock.Anything, "target/repo").Return([]gh.Branch{{Name: "master"}}, nil)
+
+		// Mock file existence check to simulate file changes
+		ghClient.On("GetFile", mock.Anything, "target/repo", "test.txt", "").Return(nil, gh.ErrFileNotFound)
+
+		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil)
+		ghClient.On("CreatePR", mock.Anything, "target/repo", mock.AnythingOfType("gh.PRRequest")).Return(&gh.PR{Number: 123}, nil)
+
+		// Mock transform operations
+		transformChain := &transform.MockChain{}
+		transformChain.On("Transform", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("transform.Context")).Return([]byte("transformed content"), nil)
+
+		// Setup engine and repository sync
+		engine := &Engine{
+			git:       gitClient,
+			gh:        ghClient,
+			transform: transformChain,
+			config: &config.Config{
+				Groups: []config.Group{{
+					ID: "test-group",
+					Defaults: config.DefaultConfig{
+						BranchPrefix: "chore/sync-files",
+					},
+				}},
+			},
+			options: DefaultOptions(),
+			logger:  logrus.New(),
+		}
+
+		sourceState := &state.SourceState{
+			Repo:         "source/repo",
+			Branch:       "main",
+			LatestCommit: "abc1234",
+		}
+
+		targetState := &state.TargetState{
+			LastSyncCommit: "different",
+		}
+
+		targetConfig := config.TargetConfig{
+			Repo: "target/repo",
+			Files: []config.FileMapping{
+				{
+					Src:  "test.txt",
+					Dest: "test.txt",
+				},
+			},
+		}
+
+		rs := &RepositorySync{
+			engine:      engine,
+			target:      targetConfig,
+			sourceState: sourceState,
+			targetState: targetState,
+			logger:      logger,
+		}
+
+		// Execute sync
+		err := rs.Execute(ctx)
+		require.NoError(t, err)
+
+		// Verify git operations were called
+		gitClient.AssertExpectations(t)
+		ghClient.AssertExpectations(t)
+
+		// Verify CreateBranch was called and failed with expected error
+		gitClient.AssertCalled(t, "CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"))
+		// Verify Checkout was called twice (once for source, once for branch recovery)
+		gitClient.AssertCalled(t, "Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"))
+	})
+
+	t.Run("branch exists on remote during push - force pushes successfully", func(t *testing.T) {
+		// Setup mock clients
+		gitClient := git.NewMockClient()
+		ghClient := gh.NewMockClient()
+
+		// Mock git operations - Push fails first time, succeeds on force push
+		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+			destPath := args[2].(string)
+			testutil.CreateTestDirectory(t, destPath)
+			testutil.WriteTestFile(t, destPath+"/test.txt", "test file content")
+		})
+		gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), "abc1234").Return(nil)
+		gitClient.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
+		gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("commit123", nil)
+		// First push fails with branch exists error, second push (force) succeeds
+		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false).Return(git.ErrBranchAlreadyExists)
+		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), true).Return(nil)
+
+		// Mock GitHub operations
+		ghClient.On("ListBranches", mock.Anything, "target/repo").Return([]gh.Branch{{Name: "master"}}, nil)
+		ghClient.On("GetFile", mock.Anything, "target/repo", "test.txt", "").Return(nil, gh.ErrFileNotFound)
+		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil)
+		ghClient.On("CreatePR", mock.Anything, "target/repo", mock.AnythingOfType("gh.PRRequest")).Return(&gh.PR{Number: 123}, nil)
+
+		// Mock transform operations
+		transformChain := &transform.MockChain{}
+		transformChain.On("Transform", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("transform.Context")).Return([]byte("transformed content"), nil)
+
+		// Setup engine and repository sync
+		engine := &Engine{
+			git:       gitClient,
+			gh:        ghClient,
+			transform: transformChain,
+			config: &config.Config{
+				Groups: []config.Group{{
+					ID: "test-group",
+					Defaults: config.DefaultConfig{
+						BranchPrefix: "chore/sync-files",
+					},
+				}},
+			},
+			options: DefaultOptions(),
+			logger:  logrus.New(),
+		}
+
+		sourceState := &state.SourceState{
+			Repo:         "source/repo",
+			Branch:       "main",
+			LatestCommit: "abc1234",
+		}
+
+		targetState := &state.TargetState{
+			LastSyncCommit: "different",
+		}
+
+		targetConfig := config.TargetConfig{
+			Repo: "target/repo",
+			Files: []config.FileMapping{
+				{
+					Src:  "test.txt",
+					Dest: "test.txt",
+				},
+			},
+		}
+
+		rs := &RepositorySync{
+			engine:      engine,
+			target:      targetConfig,
+			sourceState: sourceState,
+			targetState: targetState,
+			logger:      logger,
+		}
+
+		// Execute sync
+		err := rs.Execute(ctx)
+		require.NoError(t, err)
+
+		// Verify git operations were called
+		gitClient.AssertExpectations(t)
+		ghClient.AssertExpectations(t)
+
+		// Verify both push calls were made (normal push, then force push)
+		gitClient.AssertCalled(t, "Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false)
+		gitClient.AssertCalled(t, "Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), true)
+	})
+
+	t.Run("branch exists during push but force push also fails", func(t *testing.T) {
+		// Setup mock clients
+		gitClient := git.NewMockClient()
+		ghClient := gh.NewMockClient()
+
+		// Mock git operations - both normal and force push fail
+		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+			destPath := args[2].(string)
+			testutil.CreateTestDirectory(t, destPath)
+			testutil.WriteTestFile(t, destPath+"/test.txt", "test file content")
+		})
+		gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), "abc1234").Return(nil)
+		gitClient.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
+		gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("commit123", nil)
+		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false).Return(git.ErrBranchAlreadyExists)
+		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), true).Return(errTestForcePushFailed)
+
+		// Mock GitHub operations
+		ghClient.On("ListBranches", mock.Anything, "target/repo").Return([]gh.Branch{{Name: "master"}}, nil)
+		ghClient.On("GetFile", mock.Anything, "target/repo", "test.txt", "").Return(nil, gh.ErrFileNotFound)
+
+		// Mock transform operations
+		transformChain := &transform.MockChain{}
+		transformChain.On("Transform", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("transform.Context")).Return([]byte("transformed content"), nil)
+
+		// Setup engine and repository sync
+		engine := &Engine{
+			git:       gitClient,
+			gh:        ghClient,
+			transform: transformChain,
+			config: &config.Config{
+				Groups: []config.Group{{
+					ID: "test-group",
+					Defaults: config.DefaultConfig{
+						BranchPrefix: "chore/sync-files",
+					},
+				}},
+			},
+			options: &Options{CleanupTempFiles: false, DryRun: false, Force: false, MaxConcurrency: 5},
+			logger:  logrus.New(),
+		}
+
+		sourceState := &state.SourceState{
+			Repo:         "source/repo",
+			Branch:       "main",
+			LatestCommit: "abc1234",
+		}
+
+		targetState := &state.TargetState{
+			LastSyncCommit: "different",
+		}
+
+		targetConfig := config.TargetConfig{
+			Repo: "target/repo",
+			Files: []config.FileMapping{
+				{
+					Src:  "test.txt",
+					Dest: "test.txt",
+				},
+			},
+		}
+
+		rs := &RepositorySync{
+			engine:      engine,
+			target:      targetConfig,
+			sourceState: sourceState,
+			targetState: targetState,
+			logger:      logger,
+		}
+
+		// Execute sync - should fail when force push fails
+		err := rs.Execute(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to force push branch")
+
+		// Verify both push calls were made
+		gitClient.AssertCalled(t, "Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false)
+		gitClient.AssertCalled(t, "Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), true)
 	})
 }

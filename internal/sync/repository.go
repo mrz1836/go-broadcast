@@ -638,11 +638,21 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 
 	// Create and checkout the new branch
 	if err := rs.engine.git.CreateBranch(ctx, targetPath, branchName); err != nil {
-		return "", fmt.Errorf("failed to create branch %s: %w", branchName, err)
-	}
-
-	if err := rs.engine.git.Checkout(ctx, targetPath, branchName); err != nil {
-		return "", fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
+		// Check if it's a branch already exists error (local branch)
+		if errors.Is(err, git.ErrBranchAlreadyExists) {
+			rs.logger.WithField("branch", branchName).Warn("Branch already exists locally, checking out existing branch")
+			// Try to checkout the existing branch instead
+			if checkoutErr := rs.engine.git.Checkout(ctx, targetPath, branchName); checkoutErr != nil {
+				return "", fmt.Errorf("failed to checkout existing branch %s: %w", branchName, checkoutErr)
+			}
+		} else {
+			return "", fmt.Errorf("failed to create branch %s: %w", branchName, err)
+		}
+	} else {
+		// Branch was created successfully, checkout
+		if err := rs.engine.git.Checkout(ctx, targetPath, branchName); err != nil {
+			return "", fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
+		}
 	}
 
 	// Apply file changes to the target repository
@@ -702,6 +712,21 @@ func (rs *RepositorySync) pushChanges(ctx context.Context, branchName string) er
 
 	// Push the branch to the origin remote (which is the target repository)
 	if err := rs.engine.git.Push(ctx, targetPath, "origin", branchName, false); err != nil {
+		// Check if it's a branch already exists error
+		if errors.Is(err, git.ErrBranchAlreadyExists) {
+			rs.logger.WithFields(logrus.Fields{
+				"branch_name": branchName,
+				"target_repo": rs.target.Repo,
+			}).Warn("Branch already exists on remote, attempting force push to recover from partial sync")
+
+			// Try force push to overwrite the existing branch
+			if forceErr := rs.engine.git.Push(ctx, targetPath, "origin", branchName, true); forceErr != nil {
+				return fmt.Errorf("failed to force push branch %s after detecting existing branch: %w", branchName, forceErr)
+			}
+
+			rs.logger.WithField("branch", branchName).Info("Successfully force pushed branch to recover from existing branch conflict")
+			return nil
+		}
 		return fmt.Errorf("failed to push branch %s to target repository: %w", branchName, err)
 	}
 
