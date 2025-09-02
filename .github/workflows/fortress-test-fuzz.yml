@@ -300,8 +300,8 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-statistics
         with:
-          artifact-name: perf-cache-fuzz
-          artifact-path: perf-cache-fuzz.json
+          artifact-name: cache-stats-fuzz
+          artifact-path: cache-stats-fuzz.json
           retention-days: "1"
 
       # ————————————————————————————————————————————————————————————————

@@ -275,8 +275,8 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-statistics
         with:
-          artifact-name: perf-cache-benchmark-${{ matrix.os }}-${{ matrix.go-version }}
-          artifact-path: perf-cache-benchmark-${{ matrix.os }}-${{ matrix.go-version }}.json
+          artifact-name: cache-stats-benchmark-${{ matrix.os }}-${{ matrix.go-version }}
+          artifact-path: cache-stats-benchmark-${{ matrix.os }}-${{ matrix.go-version }}.json
           retention-days: "1"
 
       # ————————————————————————————————————————————————————————————————

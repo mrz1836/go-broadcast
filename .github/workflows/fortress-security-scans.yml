@@ -146,8 +146,8 @@ jobs:
       - name: 📤 Upload infrastructure cache statistics
         uses: ./.github/actions/upload-statistics
         with:
-          artifact-name: infra-cache-security-nancy
-          artifact-path: infra-cache-nancy-security.json
+          artifact-name: cache-stats-security-nancy
+          artifact-path: cache-stats-nancy-security.json
 
   # ----------------------------------------------------------------------------------
   # Govulncheck (Vulnerability Checks)
@@ -278,8 +278,8 @@ jobs:
       - name: 📤 Upload infrastructure cache statistics
         uses: ./.github/actions/upload-statistics
         with:
-          artifact-name: infra-cache-security-govulncheck
-          artifact-path: infra-cache-govulncheck-security.json
+          artifact-name: cache-stats-security-govulncheck
+          artifact-path: cache-stats-govulncheck-security.json
 
   # ----------------------------------------------------------------------------------
   # Gitleaks (Secret Scanning)

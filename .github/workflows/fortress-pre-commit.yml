@@ -640,6 +640,6 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-statistics
         with:
-          artifact-name: infra-cache-pre-commit
-          artifact-path: infra-cache-pre-commit.json
+          artifact-name: cache-stats-pre-commit
+          artifact-path: cache-stats-pre-commit.json
           retention-days: 1

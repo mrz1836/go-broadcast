@@ -145,8 +145,8 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-statistics
         with:
-          artifact-name: infra-cache-govet
-          artifact-path: infra-cache-govet.json
+          artifact-name: cache-stats-govet
+          artifact-path: cache-stats-govet.json
           retention-days: 1
 
   # ----------------------------------------------------------------------------------
@@ -285,8 +285,8 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-statistics
         with:
-          artifact-name: infra-cache-lint
-          artifact-path: infra-cache-lint.json
+          artifact-name: cache-stats-lint
+          artifact-path: cache-stats-lint.json
           retention-days: 1
 
   # ----------------------------------------------------------------------------------

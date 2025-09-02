@@ -460,8 +460,8 @@ jobs:
       - name: 📤 Upload performance cache statistics
         uses: ./.github/actions/upload-statistics
         with:
-          artifact-name: perf-cache-test-${{ matrix.os }}-${{ matrix.go-version }}
-          artifact-path: perf-cache-test-${{ matrix.os }}-${{ matrix.go-version }}.json
+          artifact-name: cache-stats-test-${{ matrix.os }}-${{ matrix.go-version }}
+          artifact-path: cache-stats-test-${{ matrix.os }}-${{ matrix.go-version }}.json
           retention-days: "1"
 
       # ————————————————————————————————————————————————————————————————
