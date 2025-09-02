@@ -129,7 +129,7 @@ jobs:
           continue-on-error: true
 
       - name: 📥 Download codecov coverage statistics
-        if: always()
+        if: always() && env.GO_COVERAGE_PROVIDER == 'codecov'
         uses: ./.github/actions/download-artifact-resilient
         with:
           pattern: "coverage-stats-codecov"

@@ -682,7 +682,7 @@ jobs:
 
           # Extract coverage percentage from coverage.html or coverage.out
           if [ -f "$OUTPUT_DIR/coverage.html" ]; then
-            COVERAGE_PERCENTAGE=$(grep -o 'coverage: [0-9.]*%' "$OUTPUT_DIR/coverage.html" | head -1 | grep -o '[0-9.]*' || echo "0")
+            COVERAGE_PERCENTAGE=$(grep -io 'coverage: [0-9.]*%' "$OUTPUT_DIR/coverage.html" | head -1 | grep -o '[0-9.]*' || echo "0")
             echo "📈 Extracted coverage percentage from HTML: ${COVERAGE_PERCENTAGE}%"
           elif [ -f "$COVERAGE_FILE" ]; then
             # Calculate coverage from .out file using go tool cover

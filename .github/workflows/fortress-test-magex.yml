@@ -149,7 +149,7 @@ jobs:
       - name: 📊 Job Summary
         run: |
           # Get magex version
-          MAGEX_VERSION=$(magex --version | grep -oE 'Version:\s+[0-9]+\.[0-9]+\.[0-9]+' | sed 's/Version:\s*//')
+          MAGEX_VERSION=$(magex --version | grep -oE 'Version:\s+[0-9]+\.[0-9]+\.[0-9]+' | sed 's/Version:\s\+//')
 
           echo "## 🪄 MAGE-X Verification Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
