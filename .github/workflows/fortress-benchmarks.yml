@@ -265,8 +265,8 @@ jobs:
           os: ${{ matrix.os }}
           go-version: ${{ matrix.go-version }}
           cache-prefix: cache-stats
-          gomod-cache-hit: ${{ steps.setup-go-benchmarks.outputs.module-cache-hit }}
-          gobuild-cache-hit: ${{ steps.setup-go-benchmarks.outputs.build-cache-hit }}
+          gomod-cache-hit: ${{ steps.setup-go-bench.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-go-bench.outputs.build-cache-hit }}
 
       # ————————————————————————————————————————————————————————————————
       # Upload performance cache statistics
