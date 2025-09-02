@@ -95,9 +95,12 @@ runs:
           ATTEMPT_NUM=$((RETRY_COUNT + 1))
           echo "📥 Attempt $ATTEMPT_NUM/$MAX_RETRIES - Downloading artifacts matching '$ARTIFACT_PATTERN'..."
 
+          # Convert glob pattern to regex for jq test() function
+          REGEX_PATTERN=$(echo "$ARTIFACT_PATTERN" | sed 's/\*/\.\*/g')
+
           # Check if artifacts exist first (avoid unnecessary retries)
           echo "🔍 Checking artifact availability..."
-          if ! gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts | jq -e ".artifacts[] | select(.name | test(\"$ARTIFACT_PATTERN\"))" > /dev/null 2>&1; then
+          if ! gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts | jq -e ".artifacts[] | select(.name | test(\"$REGEX_PATTERN\"))" > /dev/null 2>&1; then
             echo "⚠️ No artifacts found matching pattern '$ARTIFACT_PATTERN'"
             echo "📋 Available artifacts:"
             gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts | jq -r '.artifacts[].name' | sed 's/^/  • /' || echo "  No artifacts available"
@@ -113,7 +116,7 @@ runs:
           fi
 
           # Count available artifacts
-          AVAILABLE_ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts | jq "[.artifacts[] | select(.name | test(\"$ARTIFACT_PATTERN\"))] | length")
+          AVAILABLE_ARTIFACTS=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts | jq "[.artifacts[] | select(.name | test(\"$REGEX_PATTERN\"))] | length")
           echo "📊 Found $AVAILABLE_ARTIFACTS artifact(s) matching pattern"
 
           # Attempt download with timeout
