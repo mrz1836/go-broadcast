@@ -122,7 +122,7 @@ jobs:
         with:
           pattern: "coverage-stats-internal"
           path: ./artifacts/
-          merge-multiple: true
+          merge-multiple: false
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
           retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
           timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
@@ -134,7 +134,7 @@ jobs:
         with:
           pattern: "coverage-stats-codecov"
           path: ./artifacts/
-          merge-multiple: true
+          merge-multiple: false
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
           retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
           timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
@@ -163,7 +163,7 @@ jobs:
               cp "$file" "./$filename"
             done
             echo "📋 Available stats files:"
-            ls -la *-stats-*.json *-cache-*.json 2>/dev/null || echo "No stats files found"
+            ls -la *-stats-*.json 2>/dev/null || echo "No stats files found"
           else
             echo "⚠️ No artifacts directory found"
           fi
