@@ -93,6 +93,8 @@ jobs:
             "lint"
             "metrics:coverage"
             "metrics:loc"
+            "release"
+            "release:validate"
             "test"
             "test:cover"
             "test:coverrace"
