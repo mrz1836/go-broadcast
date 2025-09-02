@@ -629,7 +629,7 @@ jobs:
           job-name: pre-commit-checks
           os: ${{ inputs.primary-runner }}
           go-version: ${{ inputs.go-primary-version }}
-          cache-prefix: infra-cache
+          cache-prefix: cache-stats
           gomod-cache-hit: ${{ steps.setup-go-precommit.outputs.module-cache-hit }}
           gobuild-cache-hit: ${{ steps.setup-go-precommit.outputs.build-cache-hit }}
 

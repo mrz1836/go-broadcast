@@ -2198,7 +2198,7 @@ jobs:
           job-name: generate-coverage-report
           os: ${{ inputs.primary-runner }}
           go-version: ${{ env.GO_PRIMARY_VERSION }}
-          cache-prefix: perf-cache
+          cache-prefix: cache-stats
           gomod-cache-hit: ${{ steps.setup-go-coverage.outputs.module-cache-hit }}
           gobuild-cache-hit: ${{ steps.setup-go-coverage.outputs.build-cache-hit }}
 

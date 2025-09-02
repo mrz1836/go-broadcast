@@ -364,7 +364,7 @@ jobs:
           job-name: release
           os: ${{ inputs.primary-runner }}
           go-version: ${{ inputs.go-primary-version }}
-          cache-prefix: infra-cache
+          cache-prefix: cache-stats
           gomod-cache-hit: ${{ steps.setup-go-release.outputs.module-cache-hit }}
           gobuild-cache-hit: ${{ steps.setup-go-release.outputs.build-cache-hit }}
 

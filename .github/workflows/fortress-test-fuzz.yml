@@ -289,7 +289,7 @@ jobs:
           job-name: fuzz-tests
           os: ${{ inputs.primary-runner }}
           go-version: ${{ inputs.go-primary-version }}
-          cache-prefix: perf-cache
+          cache-prefix: cache-stats
           gomod-cache-hit: ${{ steps.setup-go-fuzz.outputs.module-cache-hit }}
           gobuild-cache-hit: ${{ steps.setup-go-fuzz.outputs.build-cache-hit }}
 

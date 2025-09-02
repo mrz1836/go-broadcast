@@ -450,7 +450,7 @@ jobs:
           job-name: test-go
           os: ${{ matrix.os }}
           go-version: ${{ matrix.go-version }}
-          cache-prefix: perf-cache
+          cache-prefix: cache-stats
           gomod-cache-hit: ${{ steps.setup-go-test.outputs.module-cache-hit }}
           gobuild-cache-hit: ${{ steps.setup-go-test.outputs.build-cache-hit }}
 

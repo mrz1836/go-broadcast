@@ -134,7 +134,7 @@ jobs:
           job-name: govet
           os: ${{ inputs.primary-runner }}
           go-version: ${{ inputs.go-primary-version }}
-          cache-prefix: infra-cache
+          cache-prefix: cache-stats
           gomod-cache-hit: ${{ steps.setup-go-vet.outputs.module-cache-hit }}
           gobuild-cache-hit: ${{ steps.setup-go-vet.outputs.build-cache-hit }}
 
@@ -273,7 +273,7 @@ jobs:
           job-name: lint
           os: ${{ inputs.primary-runner }}
           go-version: ${{ inputs.go-primary-version }}
-          cache-prefix: infra-cache
+          cache-prefix: cache-stats
           gomod-cache-hit: ${{ steps.setup-go-lint.outputs.module-cache-hit }}
           gobuild-cache-hit: ${{ steps.setup-go-lint.outputs.build-cache-hit }}
           include-golangci: true
