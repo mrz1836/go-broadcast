@@ -1228,9 +1228,10 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 		allChanges = append(allChanges, changes...)
 	}
 
-	// If all directories failed, return an error
+	// If all directories failed, return an error with details from the first error
 	if len(processingErrors) > 0 && len(allChanges) == 0 {
-		return nil, nil, fmt.Errorf("%w: %d errors occurred", ErrAllDirectoryProcessingWithMetricsFailed, len(processingErrors))
+		// Include the first error's details to preserve context cancellation information
+		return nil, nil, fmt.Errorf("%w: %d errors occurred, first error: %w", ErrAllDirectoryProcessingWithMetricsFailed, len(processingErrors), processingErrors[0])
 	}
 
 	processTimer.AddField("total_changes", len(allChanges)).
