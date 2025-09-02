@@ -108,11 +108,11 @@ jobs:
           timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
           continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
-      - name: 📥 Download performance cache statistics
+      - name: 📥 Download cache statistics
         if: always()
         uses: ./.github/actions/download-artifact-resilient
         with:
-          pattern: "perf-cache-*"
+          pattern: "cache-stats-*"
           path: ./artifacts/
           merge-multiple: true
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
