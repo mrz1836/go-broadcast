@@ -173,6 +173,30 @@ jobs:
           timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
           continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
+      - name: 📥 Download cache statistics
+        if: always()
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "cache-stats-*"
+          path: ./performance-artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      - name: 📥 Download coverage statistics
+        if: always()
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "coverage-stats-*"
+          path: ./performance-artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
       # ————————————————————————————————————————————————————————————————
       # Flatten performance artifacts for processing
       # ————————————————————————————————————————————————————————————————
