@@ -252,3 +252,245 @@ func TestOrchestrator_GroupSkippedDueToDependencies(t *testing.T) {
 	assert.Equal(t, "skipped", depStatus.State)
 	assert.Equal(t, "Dependencies failed", depStatus.Message)
 }
+
+// TestOrchestratorIntegration_ExistingBranchRecovery tests end-to-end scenarios
+// where sync operations encounter existing branches and recover gracefully
+func TestOrchestratorIntegration_ExistingBranchRecovery(t *testing.T) {
+	// Create temporary directory structure for testing
+	tmpDir := testutil.CreateTempDir(t)
+	sourceDir := tmpDir + "/source"
+	testutil.CreateTestDirectory(t, sourceDir)
+
+	// Create test files in source
+	testutil.WriteTestFile(t, sourceDir+"/README.md", "# Updated Project\nContent from failed sync")
+	testutil.WriteTestFile(t, sourceDir+"/config.yml", "version: 3\nrecovery: true")
+
+	ctx := context.Background()
+
+	t.Run("force push recovery after failed sync", func(t *testing.T) {
+		// Setup mock clients
+		ghClient := &gh.MockClient{}
+		gitClient := &git.MockClient{}
+		stateDiscoverer := &state.MockDiscoverer{}
+		transformChain := &transform.MockChain{}
+
+		// Mock git operations with branch conflict and recovery
+		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+			destPath := args[2].(string)
+			testutil.CreateTestDirectory(t, destPath)
+			testutil.WriteTestFile(t, destPath+"/README.md", "# Updated Project\nContent from failed sync")
+			testutil.WriteTestFile(t, destPath+"/config.yml", "version: 3\nrecovery: true")
+		})
+		gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), "commit456").Return(nil)
+		gitClient.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
+		gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("newcommit123", nil)
+
+		// Simulate existing branch scenario: first push fails, force push succeeds
+		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false).Return(git.ErrBranchAlreadyExists)
+		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), true).Return(nil)
+
+		// Mock GitHub operations
+		ghClient.On("ListBranches", mock.Anything, "test/target-repo").Return([]gh.Branch{{Name: "master"}}, nil)
+		ghClient.On("GetFile", mock.Anything, "test/target-repo", mock.AnythingOfType("string"), "").Return(nil, gh.ErrFileNotFound)
+		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil)
+		ghClient.On("CreatePR", mock.Anything, "test/target-repo", mock.AnythingOfType("gh.PRRequest")).Return(&gh.PR{Number: 42, Title: "Recovery PR"}, nil)
+
+		// Mock state operations
+		mockState := &state.State{
+			Source: state.SourceState{
+				Repo:         "test/source-repo",
+				Branch:       "main",
+				LatestCommit: "commit456",
+			},
+			Targets: map[string]*state.TargetState{
+				"test/target-repo": {
+					Repo:           "test/target-repo",
+					LastSyncCommit: "old-commit",
+					Status:         state.StatusBehind,
+				},
+			},
+		}
+		stateDiscoverer.On("DiscoverState", mock.Anything, mock.Anything).Return(mockState, nil)
+
+		// Mock transform operations
+		transformChain.On("Transform", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("transform.Context")).Return([]byte("transformed content"), nil)
+
+		// Configure test with single group that should encounter branch conflict
+		cfg := &config.Config{
+			Version: 1,
+			Name:    "existing-branch-test",
+			Groups: []config.Group{
+				{
+					ID:       "recovery-group",
+					Name:     "Branch Recovery Test",
+					Priority: 1,
+					Enabled:  boolPtr(true),
+					Source: config.SourceConfig{
+						Repo:   "test/source-repo",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{
+							Repo: "test/target-repo",
+							Files: []config.FileMapping{
+								{Src: "README.md", Dest: "README.md"},
+								{Src: "config.yml", Dest: "config.yml"},
+							},
+							Transform: config.Transform{
+								RepoName: true,
+							},
+						},
+					},
+					Defaults: config.DefaultConfig{
+						BranchPrefix: "chore/sync-files",
+					},
+				},
+			},
+		}
+
+		// Create engine with test configuration
+		engine := &Engine{
+			config:    cfg,
+			git:       gitClient,
+			gh:        ghClient,
+			state:     stateDiscoverer,
+			transform: transformChain,
+			logger:    logrus.New(),
+			options:   &Options{CleanupTempFiles: false, DryRun: false, Force: false, MaxConcurrency: 5},
+		}
+
+		// Execute sync via orchestrator
+		orchestrator := NewGroupOrchestrator(cfg, engine, logrus.New())
+		err := orchestrator.ExecuteGroups(ctx, cfg.Groups)
+
+		// Should complete successfully despite branch conflict
+		require.NoError(t, err)
+
+		// Verify recovery behavior
+		gitClient.AssertExpectations(t)
+		ghClient.AssertExpectations(t)
+
+		// Verify both push attempts were made (normal, then force)
+		gitClient.AssertCalled(t, "Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false)
+		gitClient.AssertCalled(t, "Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), true)
+
+		// Verify PR was created after successful recovery
+		ghClient.AssertCalled(t, "CreatePR", mock.Anything, "test/target-repo", mock.AnythingOfType("gh.PRRequest"))
+
+		// Verify group status is success after recovery
+		groupStatus, exists := orchestrator.GetGroupStatusByID("recovery-group")
+		require.True(t, exists)
+		assert.Equal(t, "success", groupStatus.State)
+	})
+
+	t.Run("branch exists locally - checkout existing and continue", func(t *testing.T) {
+		// Setup mock clients
+		ghClient := &gh.MockClient{}
+		gitClient := &git.MockClient{}
+		stateDiscoverer := &state.MockDiscoverer{}
+		transformChain := &transform.MockChain{}
+
+		// Mock git operations with local branch conflict
+		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+			destPath := args[2].(string)
+			testutil.CreateTestDirectory(t, destPath)
+			testutil.WriteTestFile(t, destPath+"/README.md", "# Local Branch Test\nContent for local recovery")
+		})
+		gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), "commit789").Return(nil)
+		// CreateBranch fails because branch exists locally
+		gitClient.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(git.ErrBranchAlreadyExists)
+		// Checkout existing branch succeeds
+		gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
+		gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("localcommit456", nil)
+		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false).Return(nil)
+
+		// Mock GitHub operations
+		ghClient.On("ListBranches", mock.Anything, "test/target-repo2").Return([]gh.Branch{{Name: "master"}}, nil)
+		ghClient.On("GetFile", mock.Anything, "test/target-repo2", mock.AnythingOfType("string"), "").Return(nil, gh.ErrFileNotFound)
+		ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil)
+		ghClient.On("CreatePR", mock.Anything, "test/target-repo2", mock.AnythingOfType("gh.PRRequest")).Return(&gh.PR{Number: 43, Title: "Local Recovery PR"}, nil)
+
+		// Mock state operations
+		mockState := &state.State{
+			Source: state.SourceState{
+				Repo:         "test/source-repo2",
+				Branch:       "main",
+				LatestCommit: "commit789",
+			},
+			Targets: map[string]*state.TargetState{
+				"test/target-repo2": {
+					Repo:           "test/target-repo2",
+					LastSyncCommit: "old-commit-2",
+					Status:         state.StatusBehind,
+				},
+			},
+		}
+		stateDiscoverer.On("DiscoverState", mock.Anything, mock.Anything).Return(mockState, nil)
+
+		// Mock transform operations
+		transformChain.On("Transform", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("transform.Context")).Return([]byte("transformed content"), nil)
+
+		cfg := &config.Config{
+			Version: 1,
+			Name:    "local-branch-test",
+			Groups: []config.Group{
+				{
+					ID:       "local-recovery-group",
+					Name:     "Local Branch Recovery Test",
+					Priority: 1,
+					Enabled:  boolPtr(true),
+					Source: config.SourceConfig{
+						Repo:   "test/source-repo2",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{
+							Repo: "test/target-repo2",
+							Files: []config.FileMapping{
+								{Src: "README.md", Dest: "README.md"},
+							},
+						},
+					},
+					Defaults: config.DefaultConfig{
+						BranchPrefix: "chore/sync-files",
+					},
+				},
+			},
+		}
+
+		engine := &Engine{
+			config:    cfg,
+			git:       gitClient,
+			gh:        ghClient,
+			state:     stateDiscoverer,
+			transform: transformChain,
+			logger:    logrus.New(),
+			options:   &Options{CleanupTempFiles: false, DryRun: false, Force: false, MaxConcurrency: 5},
+		}
+
+		orchestrator := NewGroupOrchestrator(cfg, engine, logrus.New())
+		err := orchestrator.ExecuteGroups(ctx, cfg.Groups)
+
+		require.NoError(t, err)
+
+		// Verify local branch recovery behavior
+		gitClient.AssertExpectations(t)
+		ghClient.AssertExpectations(t)
+
+		// Verify CreateBranch was called and failed
+		gitClient.AssertCalled(t, "CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"))
+		// Verify checkout was called for branch recovery
+		gitClient.AssertCalled(t, "Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"))
+		// Verify PR was still created successfully
+		ghClient.AssertCalled(t, "CreatePR", mock.Anything, "test/target-repo2", mock.AnythingOfType("gh.PRRequest"))
+
+		groupStatus, exists := orchestrator.GetGroupStatusByID("local-recovery-group")
+		require.True(t, exists)
+		assert.Equal(t, "success", groupStatus.State)
+	})
+}
