@@ -555,11 +555,15 @@ jobs:
       # Download coverage artifact and process
       # ————————————————————————————————————————————————————————————————
       - name: 📥 Download coverage artifact
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: ./.github/actions/download-artifact-resilient
         with:
-          name: coverage-data
+          pattern: "coverage-data"
           path: ./coverage-artifacts/
-        continue-on-error: true
+          merge-multiple: false
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
       - name: 📊 Process coverage data
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
@@ -2284,10 +2288,15 @@ jobs:
       # Download coverage artifact
       # ————————————————————————————————————————————————————————————————
       - name: 📥 Download coverage artifact
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: ./.github/actions/download-artifact-resilient
         with:
-          name: coverage-data
+          pattern: "coverage-data"
           path: ./
+          merge-multiple: false
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
       - name: 🔍 Verify coverage file
         run: |

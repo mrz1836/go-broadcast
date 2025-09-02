@@ -64,30 +64,41 @@ jobs:
           env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
-      # Download all test result artifacts (including failure details)
+      # Download all test result artifacts with resilience (including failure details)
       # ————————————————————————————————————————————————————————————————
-      - name: 📥 Download test results and statistics
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - name: 📥 Download test results and statistics (with retry)
+        uses: ./.github/actions/download-artifact-resilient
         with:
           pattern: "test-results-*"
           path: test-results/
           merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
-      - name: 📥 Download test statistics
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+      - name: 📥 Download test statistics (with retry)
+        uses: ./.github/actions/download-artifact-resilient
         with:
           pattern: "*-stats-*"
           path: test-results/
           merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
-      - name: 📥 Download fuzz results (if enabled)
+      - name: 📥 Download fuzz results (if enabled, with retry)
         if: inputs.fuzz-testing-enabled == 'true'
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
-        continue-on-error: true
+        uses: ./.github/actions/download-artifact-resilient
         with:
           pattern: "fuzz-results-*"
           path: test-results/
           merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
       # ————————————————————————————————————————————————————————————————
       # Enhanced test results validation with failure details

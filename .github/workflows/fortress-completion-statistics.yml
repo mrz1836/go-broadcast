@@ -86,10 +86,15 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 📥 Download artifacts
         if: always()
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: ./.github/actions/download-artifact-resilient
         with:
           pattern: "*-stats-*"
           path: ./artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
 
       - name: 🗂️ Flatten artifacts
         if: always()
@@ -371,6 +376,7 @@ jobs:
               FILES_PROCESSED=$(jq -r '.files_processed // "N/A"' "$VALID_COVERAGE_FILE")
               BADGE_GENERATED=$(jq -r '.badge_generated // "false"' "$VALID_COVERAGE_FILE")
               PAGES_DEPLOYED=$(jq -r '.pages_deployed // "false"' "$VALID_COVERAGE_FILE")
+              COVERAGE_PROVIDER=$(jq -r '.provider // "N/A"' "$VALID_COVERAGE_FILE")
 
               echo "📋 Coverage metrics: ${COVERAGE_PERCENT}%, ${FILES_PROCESSED} files, ${PROCESSING_TIME}s processing"
 
@@ -380,12 +386,13 @@ jobs:
                 echo "| **Coverage Percentage** | $COVERAGE_PERCENT% |"
                 echo "| **Processing Time** | ${PROCESSING_TIME}s |"
                 echo "| **Files Processed** | $FILES_PROCESSED |"
+                echo "| **Coverage Provider** | $([ "$COVERAGE_PROVIDER" == "internal" ] && echo "go-coverage" || ([ "$COVERAGE_PROVIDER" == "codecov" ] && echo "Codecov" || echo "$COVERAGE_PROVIDER")) |"
                 echo "| **Badge Generated** | $([ "$BADGE_GENERATED" == "true" ] && echo "✅ Yes" || echo "❌ No") |"
                 echo "| **Pages Deployed** | $([ "$PAGES_DEPLOYED" == "true" ] && echo "✅ Yes" || echo "❌ No") |"
               } >> statistics-section.md
 
               # Store metrics for output
-              echo "coverage-metrics={\"percentage\":\"$COVERAGE_PERCENT\",\"files_processed\":\"$FILES_PROCESSED\",\"processing_time\":\"$PROCESSING_TIME\"}" >> $GITHUB_OUTPUT
+              echo "coverage-metrics={\"percentage\":\"$COVERAGE_PERCENT\",\"files_processed\":\"$FILES_PROCESSED\",\"processing_time\":\"$PROCESSING_TIME\",\"provider\":\"$COVERAGE_PROVIDER\"}" >> $GITHUB_OUTPUT
             fi
           elif [[ "${{ env.ENABLE_CODE_COVERAGE }}" == "true" ]]; then
             # Coverage is enabled but no coverage data found - show status
