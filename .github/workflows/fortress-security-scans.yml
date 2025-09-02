@@ -136,17 +136,18 @@ jobs:
           job-name: nancy-security
           os: ${{ inputs.primary-runner }}
           go-version: ${{ inputs.go-primary-version }}
+          cache-prefix: infra-cache
           gomod-cache-hit: ${{ steps.setup-ask-nancy.outputs.module-cache-hit }}
           gobuild-cache-hit: ${{ steps.setup-ask-nancy.outputs.build-cache-hit }}
 
       # ————————————————————————————————————————————————————————————————
-      # Upload statistics
+      # Upload infrastructure cache statistics
       # ————————————————————————————————————————————————————————————————
-      - name: 📤 Upload cache statistics
+      - name: 📤 Upload infrastructure cache statistics
         uses: ./.github/actions/upload-statistics
         with:
-          artifact-name: cache-stats-nancy-security
-          artifact-path: cache-stats-nancy-security.json
+          artifact-name: infra-cache-security-nancy
+          artifact-path: infra-cache-nancy-security.json
 
   # ----------------------------------------------------------------------------------
   # Govulncheck (Vulnerability Checks)
@@ -267,17 +268,18 @@ jobs:
           job-name: govulncheck-security
           os: ${{ inputs.primary-runner }}
           go-version: ${{ inputs.go-primary-version }}
+          cache-prefix: infra-cache
           gomod-cache-hit: ${{ steps.setup-govulncheck.outputs.module-cache-hit }}
           gobuild-cache-hit: ${{ steps.setup-govulncheck.outputs.build-cache-hit }}
 
       # ————————————————————————————————————————————————————————————————
-      # Upload statistics
+      # Upload infrastructure cache statistics
       # ————————————————————————————————————————————————————————————————
-      - name: 📤 Upload cache statistics
+      - name: 📤 Upload infrastructure cache statistics
         uses: ./.github/actions/upload-statistics
         with:
-          artifact-name: cache-stats-govulncheck-security
-          artifact-path: cache-stats-govulncheck-security.json
+          artifact-name: infra-cache-security-govulncheck
+          artifact-path: infra-cache-govulncheck-security.json
 
   # ----------------------------------------------------------------------------------
   # Gitleaks (Secret Scanning)

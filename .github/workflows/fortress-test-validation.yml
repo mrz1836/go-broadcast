@@ -64,12 +64,23 @@ jobs:
           env-json: ${{ inputs.env-json }}
 
       # ————————————————————————————————————————————————————————————————
-      # Download all test result artifacts with resilience (including failure details)
+      # Download unit test result artifacts with resilience
       # ————————————————————————————————————————————————————————————————
-      - name: 📥 Download test results and statistics (with retry)
+      - name: 📥 Download unit test results (with retry)
         uses: ./.github/actions/download-artifact-resilient
         with:
-          pattern: "test-results-*"
+          pattern: "test-results-unit-*"
+          path: test-results/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      - name: 📥 Download fuzz test results (with retry)
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "test-results-fuzz-*"
           path: test-results/
           merge-multiple: true
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
@@ -80,7 +91,7 @@ jobs:
       - name: 📥 Download test statistics (with retry)
         uses: ./.github/actions/download-artifact-resilient
         with:
-          pattern: "*-stats-*"
+          pattern: "test-stats-*"
           path: test-results/
           merge-multiple: true
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}

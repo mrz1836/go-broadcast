@@ -88,7 +88,43 @@ jobs:
         if: always()
         uses: ./.github/actions/download-artifact-resilient
         with:
-          pattern: "*-stats-*"
+          pattern: "test-stats-*"
+          path: ./artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      - name: 📥 Download benchmark statistics
+        if: always()
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "bench-stats-*"
+          path: ./artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      - name: 📥 Download performance cache statistics
+        if: always()
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "perf-cache-*"
+          path: ./artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      - name: 📥 Download coverage statistics
+        if: always()
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "coverage-stats-*"
           path: ./artifacts/
           merge-multiple: true
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
@@ -107,7 +143,7 @@ jobs:
               cp "$file" "./$filename"
             done
             echo "📋 Available stats files:"
-            ls -la *-stats-*.json 2>/dev/null || echo "No stats files found"
+            ls -la *-stats-*.json *-cache-*.json 2>/dev/null || echo "No stats files found"
           else
             echo "⚠️ No artifacts directory found"
           fi
@@ -424,9 +460,9 @@ jobs:
           TOTAL_LOC=""
           LOC_DATE=""
 
-          if compgen -G "*-stats-*.json" >/dev/null 2>&1; then
+          if compgen -G "*-stats-*.json" >/dev/null 2>&1 || compgen -G "*-cache-*.json" >/dev/null 2>&1; then
             echo "🔍 Looking for LOC data in stats files..."
-            for stats_file in *-stats-*.json; do
+            for stats_file in *-stats-*.json *-cache-*.json; do
               if [ -f "$stats_file" ]; then
                 echo "📋 Checking $stats_file for LOC data..."
                 TEST_FILES_COUNT=$(jq -r '.loc_test_files // "null"' "$stats_file")

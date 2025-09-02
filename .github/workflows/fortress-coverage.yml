@@ -2186,30 +2186,31 @@ jobs:
             GOBUILD_SIZE=$(du -sh "$HOME/.cache/go-build" 2>/dev/null | cut -f1 || echo "0B")
           fi
 
-          # Create cache statistics JSON
-          echo '{' > "cache-stats-coverage.json"
-          echo '  "os": "${{ inputs.primary-runner }}",' >> "cache-stats-coverage.json"
-          echo '  "go_version": "${{ env.GO_PRIMARY_VERSION }}",' >> "cache-stats-coverage.json"
-          echo "  \"gomod_cache_hit\": \"$GOMOD_HIT\"," >> "cache-stats-coverage.json"
-          echo "  \"gobuild_cache_hit\": \"$GOBUILD_HIT\"," >> "cache-stats-coverage.json"
-          echo "  \"cache_size_gomod\": \"$GOMOD_SIZE\"," >> "cache-stats-coverage.json"
-          echo "  \"cache_size_gobuild\": \"$GOBUILD_SIZE\"," >> "cache-stats-coverage.json"
-          echo '  "workflow": "coverage",' >> "cache-stats-coverage.json"
-          echo '  "job_name": "generate-coverage-report",' >> "cache-stats-coverage.json"
-          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" >> "cache-stats-coverage.json"
-          echo '}' >> "cache-stats-coverage.json"
-
-          echo "📊 Cache statistics collected"
+          echo "📊 Cache statistics will be collected by standardized action"
 
       # ————————————————————————————————————————————————————————————————
-      # Upload cache statistics
+      # Collect performance cache statistics using standardized action
       # ————————————————————————————————————————————————————————————————
-      - name: 📤 Upload cache statistics
+      - name: 📊 Collect performance cache statistics
+        uses: ./.github/actions/collect-cache-stats
+        with:
+          workflow-name: coverage
+          job-name: generate-coverage-report
+          os: ${{ inputs.primary-runner }}
+          go-version: ${{ env.GO_PRIMARY_VERSION }}
+          cache-prefix: perf-cache
+          gomod-cache-hit: ${{ steps.setup-go-coverage.outputs.module-cache-hit }}
+          gobuild-cache-hit: ${{ steps.setup-go-coverage.outputs.build-cache-hit }}
+
+      # ————————————————————————————————————————————————————————————————
+      # Upload performance cache statistics
+      # ————————————————————————————————————————————————————————————————
+      - name: 📤 Upload performance cache statistics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: cache-stats-coverage
-          path: cache-stats-coverage.json
+          name: perf-cache-coverage
+          path: perf-cache-coverage.json
           retention-days: 1
 
       # ————————————————————————————————————————————————————————————————

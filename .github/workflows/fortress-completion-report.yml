@@ -117,7 +117,7 @@ jobs:
         if: always()
         uses: ./.github/actions/download-artifact-resilient
         with:
-          pattern: "*-stats-*"
+          pattern: "test-stats-*"
           path: ./performance-artifacts/
           merge-multiple: true
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
@@ -129,8 +129,44 @@ jobs:
         if: always()
         uses: ./.github/actions/download-artifact-resilient
         with:
-          pattern: "test-results-*"
+          pattern: "test-results-unit-*"
           path: ./test-artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      - name: 📥 Download fuzz test results for failure analysis
+        if: always()
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "test-results-fuzz-*"
+          path: ./test-artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      - name: 📥 Download benchmark statistics
+        if: always()
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "bench-stats-*"
+          path: ./performance-artifacts/
+          merge-multiple: true
+          max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
+          retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
+          timeout: ${{ env.ARTIFACT_DOWNLOAD_TIMEOUT }}
+          continue-on-error: ${{ env.ARTIFACT_DOWNLOAD_CONTINUE_ON_ERROR }}
+
+      - name: 📥 Download performance cache statistics
+        if: always()
+        uses: ./.github/actions/download-artifact-resilient
+        with:
+          pattern: "perf-cache-*"
+          path: ./performance-artifacts/
           merge-multiple: true
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
           retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
@@ -155,7 +191,7 @@ jobs:
 
             # List all flattened files for debugging
             echo "📋 Available stats files:"
-            ls -la *-stats-*.json 2>/dev/null || echo "No stats files found"
+            ls -la *-stats-*.json *-cache-*.json 2>/dev/null || echo "No stats files found"
           else
             echo "⚠️ No performance-artifacts directory found"
           fi
