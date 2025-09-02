@@ -63,6 +63,7 @@ runs:
       id: download
       shell: bash
       env:
+        GH_TOKEN: ${{ github.token }}
         ARTIFACT_PATTERN: ${{ inputs.pattern }}
         ARTIFACT_PATH: ${{ inputs.path }}
         MERGE_MULTIPLE: ${{ inputs.merge-multiple }}
