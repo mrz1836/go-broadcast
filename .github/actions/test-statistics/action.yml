@@ -99,11 +99,22 @@ runs:
         TEST_DURATION=$((TEST_END - ${{ inputs.test-start-time }}))
 
         # Count tests and benchmarks
-        TEST_COUNT=$(find . -type f -name '*_test.go' \
-          -not -path './vendor/*' \
-          -not -path './third_party/*' \
-          -not -path './testdata/*' \
-          -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l | xargs)
+        FUZZ_RUN="${{ inputs.fuzz-run }}"
+        if [[ "$FUZZ_RUN" == "true" ]]; then
+          # Count fuzz functions for fuzz runs
+          TEST_COUNT=$(find . -type f -name '*_test.go' \
+            -not -path './vendor/*' \
+            -not -path './third_party/*' \
+            -not -path './testdata/*' \
+            -exec grep -hE '^\s*func (\([^)]+\) )?Fuzz[A-Z0-9_]' {} + | wc -l | xargs)
+        else
+          # Count test functions for regular test runs
+          TEST_COUNT=$(find . -type f -name '*_test.go' \
+            -not -path './vendor/*' \
+            -not -path './third_party/*' \
+            -not -path './testdata/*' \
+            -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l | xargs)
+        fi
         TEST_COUNT=${TEST_COUNT:-0}
 
         BENCHMARK_COUNT=$(find . -type f -name '*_test.go' \
@@ -184,8 +195,44 @@ runs:
           }]' test-failures-summary.json 2>/dev/null || echo "[]")
         fi
 
+        # Secondary validation: Cross-check test_passed against detected failures
+        echo "🔍 Secondary validation: Cross-checking test_passed against failure indicators..."
+        ORIGINAL_TEST_PASSED="$TEST_PASSED"
+
+        if [[ "$TEST_PASSED" == "true" ]]; then
+          # Check for inconsistencies where test_passed=true but we have failures
+          if [[ "$TOTAL_FAILURES" -gt 0 ]] || [[ "$AFFECTED_PACKAGES" -gt 0 ]]; then
+            echo "⚠️ Inconsistency detected: test_passed=true but failures found:"
+            echo "   • Total failures: $TOTAL_FAILURES"
+            echo "   • Affected packages: $AFFECTED_PACKAGES"
+            echo "🔧 Overriding test_passed from true to false"
+            TEST_PASSED="false"
+          fi
+
+          # Note: Previously checked for "Error:" patterns in test output, but this was too broad
+          # and caught legitimate error strings in test assertions, output formatting, and test data.
+          # Removed to rely on more accurate failure detection from test exit codes and structured data.
+        fi
+
+        if [[ "$ORIGINAL_TEST_PASSED" != "$TEST_PASSED" ]]; then
+          echo "✅ Secondary validation corrected test_passed: $ORIGINAL_TEST_PASSED -> $TEST_PASSED"
+        else
+          echo "✅ Secondary validation confirmed test_passed: $TEST_PASSED"
+        fi
+
         # Use jq to build JSON safely - no heredocs, no sed, no complex logic
-        STATS_FILE="test-stats-${{ inputs.matrix-os }}-${{ inputs.matrix-go-version }}.json"
+        # Generate appropriate filename based on test type
+        if [[ "$FUZZ_RUN" == "true" ]]; then
+          STATS_FILE="fuzz-stats-${{ inputs.matrix-os }}-${{ inputs.matrix-go-version }}.json"
+        else
+          STATS_FILE="test-stats-${{ inputs.matrix-os }}-${{ inputs.matrix-go-version }}.json"
+        fi
+
+        # Set fuzz_test_count for fuzz runs (same as test_count for fuzz tests)
+        FUZZ_TEST_COUNT=0
+        if [[ "$FUZZ_RUN" == "true" ]]; then
+          FUZZ_TEST_COUNT=$TEST_COUNT
+        fi
 
         jq -n \
           --arg name "${{ inputs.matrix-name }}" \
@@ -206,6 +253,7 @@ runs:
           --argjson race_enabled "$RACE_ENABLED" \
           --argjson coverage_enabled "$COVERAGE_ENABLED" \
           --argjson fuzz_run "$FUZZ_RUN" \
+          --argjson fuzz_test_count "$FUZZ_TEST_COUNT" \
           --arg loc_test_files "$LOC_TEST_FILES" \
           --arg loc_go_files "$LOC_GO_FILES" \
           --arg loc_total "$LOC_TOTAL" \
@@ -228,6 +276,7 @@ runs:
             race_enabled: $race_enabled,
             coverage_enabled: $coverage_enabled,
             fuzz_run: $fuzz_run,
+            fuzz_test_count: $fuzz_test_count,
             timestamp: $timestamp,
             loc_test_files: $loc_test_files,
             loc_go_files: $loc_go_files,

@@ -227,8 +227,9 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 		}
 
 		logger.WithFields(logrus.Fields{
-			"file_path":    job.SourcePath,
-			"content_size": len(srcContent),
+			"file_path":      job.SourcePath,
+			"content_size":   len(srcContent),
+			"file_extension": filepath.Ext(job.SourcePath),
 		}).Info("Binary file detected, skipping transformations")
 
 		// Check if content actually changed (for existing files)
@@ -265,7 +266,11 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 		}
 	}
 
-	logger.Debug("Text file detected, applying transformations")
+	logger.WithFields(logrus.Fields{
+		"file_path":      job.SourcePath,
+		"content_size":   len(srcContent),
+		"file_extension": filepath.Ext(job.SourcePath),
+	}).Debug("Text file detected, applying transformations")
 
 	// Apply transformations with enhanced context and error isolation
 	transformedContent := srcContent

@@ -17,14 +17,15 @@ import (
 
 // Common errors
 var (
-	ErrNotAuthenticated = errors.New("gh CLI not authenticated")
-	ErrGHNotFound       = errors.New("gh CLI not found in PATH")
-	ErrRateLimited      = errors.New("GitHub API rate limit exceeded")
-	ErrBranchNotFound   = errors.New("branch not found")
-	ErrPRNotFound       = errors.New("pull request not found")
-	ErrFileNotFound     = errors.New("file not found")
-	ErrCommitNotFound   = errors.New("commit not found")
-	ErrGitTreeNotFound  = errors.New("git tree not found")
+	ErrNotAuthenticated   = errors.New("gh CLI not authenticated")
+	ErrGHNotFound         = errors.New("gh CLI not found in PATH")
+	ErrRateLimited        = errors.New("GitHub API rate limit exceeded")
+	ErrBranchNotFound     = errors.New("branch not found")
+	ErrPRNotFound         = errors.New("pull request not found")
+	ErrPRValidationFailed = errors.New("PR validation failed - branch may already have PR or conflict exists")
+	ErrFileNotFound       = errors.New("file not found")
+	ErrCommitNotFound     = errors.New("commit not found")
+	ErrGitTreeNotFound    = errors.New("git tree not found")
 )
 
 // githubClient implements the Client interface using gh CLI
@@ -140,6 +141,15 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 	if err != nil {
 		// Log failed repository access
 		auditLogger.LogRepositoryAccess("github_cli", repo, "pr_create_failed")
+
+		// Handle validation failures (HTTP 422) which commonly occur when:
+		// - A PR already exists for the branch
+		// - The branch doesn't exist
+		// - There are conflicts or validation issues
+		if isValidationFailedError(err) {
+			return nil, appErrors.WrapWithContext(ErrPRValidationFailed, fmt.Sprintf("failed to create PR with head '%s' and base '%s': %v", headRef, req.Base, err))
+		}
+
 		return nil, appErrors.WrapWithContext(fmt.Errorf("failed to create PR with head '%s' and base '%s': %w", headRef, req.Base, err), "create PR")
 	}
 
@@ -428,6 +438,19 @@ func isNotFoundError(err error) bool {
 	return strings.Contains(errStr, "404") ||
 		strings.Contains(errStr, "Not Found") ||
 		strings.Contains(errStr, "could not resolve")
+}
+
+// isValidationFailedError checks if the error is a 422 (validation failed) from GitHub API
+func isValidationFailedError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for common 422 patterns in error messages
+	errStr := err.Error()
+	return strings.Contains(errStr, "422") ||
+		strings.Contains(errStr, "Validation Failed") ||
+		strings.Contains(errStr, "Unprocessable Entity")
 }
 
 // NewClientWithRunner creates a GitHub client with a custom command runner (for testing)

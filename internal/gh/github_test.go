@@ -409,6 +409,36 @@ func TestCreatePR_RunWithInputError(t *testing.T) {
 	mockRunner.AssertExpectations(t)
 }
 
+// TestCreatePR_ValidationFailedError tests error handling for HTTP 422 validation failures
+func TestCreatePR_ValidationFailedError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	req := PRRequest{
+		Title: "Test PR",
+		Body:  "Test body",
+		Head:  "feature-branch",
+		Base:  "main",
+	}
+
+	// Mock a 422 validation failed error
+	validationErr := &CommandError{
+		Stderr: "gh: Validation Failed (HTTP 422)\nA pull request already exists for mrz1836:feature-branch.",
+	}
+
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls", "--method", "POST", "--input", "-"}).
+		Return(nil, validationErr)
+
+	result, err := client.CreatePR(ctx, "org/repo", req)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	require.ErrorIs(t, err, ErrPRValidationFailed)
+	assert.Contains(t, err.Error(), "failed to create PR with head 'org:feature-branch' and base 'main'")
+
+	mockRunner.AssertExpectations(t)
+}
+
 // TestGetPR_NotFound tests error handling when PR is not found
 func TestGetPR_NotFound(t *testing.T) {
 	ctx := context.Background()
@@ -660,6 +690,63 @@ func TestIsNotFoundError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := isNotFoundError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestIsValidationFailedError tests the isValidationFailedError helper function
+func TestIsValidationFailedError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "Nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "HTTP 422 error",
+			err:      &CommandError{Stderr: "HTTP 422: Unprocessable Entity"},
+			expected: true,
+		},
+		{
+			name:     "Validation Failed error",
+			err:      &CommandError{Stderr: "Validation Failed"},
+			expected: true,
+		},
+		{
+			name:     "Unprocessable Entity error",
+			err:      &CommandError{Stderr: "Unprocessable Entity"},
+			expected: true,
+		},
+		{
+			name:     "422 in error message",
+			err:      &CommandError{Stderr: "gh: Validation Failed (HTTP 422)"},
+			expected: true,
+		},
+		{
+			name:     "Different error",
+			err:      &CommandError{Stderr: "500 Internal Server Error"},
+			expected: false,
+		},
+		{
+			name:     "404 error",
+			err:      &CommandError{Stderr: "HTTP 404: Not Found"},
+			expected: false,
+		},
+		{
+			name:     "Regular error",
+			err:      internalerrors.ErrTest,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isValidationFailedError(tt.err)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

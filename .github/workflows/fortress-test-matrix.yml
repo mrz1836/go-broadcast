@@ -250,10 +250,27 @@ jobs:
             TEST_EXIT_CODE=${PIPESTATUS[0]}
             echo "🔍 Magex command exit code: $TEST_EXIT_CODE"
 
-            # Extract failures using JSON processing for FAILURES_ONLY mode
-            if [[ $TEST_EXIT_CODE -ne 0 ]]; then
-              source test-failure-functions.sh 2>/dev/null || true
-              detect_failures_from_json "test-output.log" "test-failures.txt" || true
+            # Always extract failures in JSON mode to check for test failures
+            source test-failure-functions.sh 2>/dev/null || true
+            detect_failures_from_json "test-output.log" "test-failures.txt" || true
+
+            # JSON failure override: Check if JSON contains failures even when exit code is 0
+            if [[ $TEST_EXIT_CODE -eq 0 ]] && [[ -f test-output.log ]]; then
+              echo "🔍 Checking JSON output for failures despite exit code 0..."
+
+              # Check for JSON test failure entries or error patterns
+              JSON_FAILURES=0
+              if grep -q '^{' test-output.log 2>/dev/null; then
+                # Count JSON failure entries (only actual test failures, not log messages)
+                JSON_FAILURES=$(grep '^{' test-output.log 2>/dev/null | \
+                  jq -r 'select(.Action == "fail") | .Test' 2>/dev/null | wc -l | xargs || echo "0")
+
+                if [[ $JSON_FAILURES -gt 0 ]]; then
+                  echo "⚠️ Found $JSON_FAILURES actual test failures in JSON output"
+                  echo "🔧 Overriding exit code from 0 to 1 due to detected failures"
+                  TEST_EXIT_CODE=1
+                fi
+              fi
             fi
           fi
           set -e

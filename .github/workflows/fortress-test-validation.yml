@@ -156,8 +156,8 @@ jobs:
                 echo "📊 Checking $stats_file..."
 
                 # Extract fuzz test results
-                FUZZ_PASSED=$(jq -r '.fuzz_passed // empty' "$stats_file")
-                FUZZ_EXIT_CODE=$(jq -r '.fuzz_exit_code // empty' "$stats_file")
+                FUZZ_PASSED=$(jq -r '.test_passed // empty' "$stats_file")
+                FUZZ_EXIT_CODE=$(jq -r '.test_exit_code // empty' "$stats_file")
                 FUZZ_NAME=$(jq -r '.name // empty' "$stats_file")
 
                 echo "  • Fuzz Test: $FUZZ_NAME"
@@ -170,6 +170,10 @@ jobs:
                 else
                   echo "✅ Fuzz test suite '$FUZZ_NAME' passed"
                 fi
+
+                # Add fuzz test count to total
+                FUZZ_TEST_COUNT=$(jq -r '.fuzz_test_count // 0' "$stats_file")
+                TOTAL_TESTS=$((TOTAL_TESTS + FUZZ_TEST_COUNT))
               done
             else
               echo "⚠️ No fuzz test statistics found (fuzz testing was enabled)"
@@ -200,8 +204,8 @@ jobs:
                 if [[ "$PACKAGES" -gt 0 ]]; then
                   echo "  • Affected Packages: $PACKAGES"
 
-                  # Show package summary
-                  jq -r '.[] | "  📦 \(.Package | split("/") | .[-1] // .[-2] // .): \(.failures | length) failure(s)"' "$failure_file" 2>/dev/null || true
+                  # Show package summary (filter out malformed package names)
+                  jq -r '.[] | select(.Package | test("^[a-zA-Z0-9/_.-]+$")) | "  📦 \(.Package | split("/") | .[-1] // .[-2] // .): \(.failures | length) failure(s)"' "$failure_file" 2>/dev/null || true
 
                   echo ""
                   echo "🚨 Failed Tests:"
@@ -218,7 +222,7 @@ jobs:
                   #
                   # Solution: Extract and deduplicate to show only the actual failed leaf tests
                   # This reduces "4 failures" to "1 actual failure" for better clarity.
-                  RAW_FAILED_TESTS=$(jq -r '.[] as $parent | $parent.failures[] | .Test + " (" + ($parent.Package | split("/") | .[-1] // .[-2] // .) + ")"' "$failure_file" 2>/dev/null)
+                  RAW_FAILED_TESTS=$(jq -r '.[] as $parent | select($parent.Package | test("^[a-zA-Z0-9/_.-]+$")) | $parent.failures[] | .Test + " (" + ($parent.Package | split("/") | .[-1] // .[-2] // .) + ")"' "$failure_file" 2>/dev/null)
 
                   # Smart filtering: Only show the most specific (deepest nested) test failures
                   FAILED_TESTS=$(echo "$RAW_FAILED_TESTS" | awk '
@@ -277,7 +281,7 @@ jobs:
                   fi
 
                   # Show any error outputs if available from the enhanced failure details
-                  ERROR_OUTPUTS=$(jq -r '.[] as $package | $package.failures[] | select(.Output and .Output != "" and .Output != null) | "❌ \(.Test) (\($package.Package | split("/") | .[-1] // .[-2] // .))\n\(.Output)\n"' "$failure_file" 2>/dev/null | head -c 3000)
+                  ERROR_OUTPUTS=$(jq -r '.[] as $package | select($package.Package | test("^[a-zA-Z0-9/_.-]+$")) | $package.failures[] | select(.Output and .Output != "" and .Output != null) | "❌ \(.Test) (\($package.Package | split("/") | .[-1] // .[-2] // .))\n\(.Output)\n"' "$failure_file" 2>/dev/null | head -c 3000)
                   if [[ -n "$ERROR_OUTPUTS" ]]; then
                     echo ""
                     echo "📝 Test Error Messages:"
@@ -328,11 +332,17 @@ jobs:
           echo "## 🔍 Test Validation Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Count test suites and statistics
-          TEST_SUITE_COUNT=$(compgen -G "test-results/test-stats-*.json" | wc -l 2>/dev/null || echo "0")
+          # Count test suites and statistics (using reliable file counting)
+          TEST_SUITE_COUNT=0
+          if ls test-results/test-stats-*.json >/dev/null 2>&1; then
+            TEST_SUITE_COUNT=$(ls test-results/test-stats-*.json | wc -l)
+          fi
+
           FUZZ_SUITE_COUNT=0
           if [[ "${{ inputs.fuzz-testing-enabled }}" == "true" ]]; then
-            FUZZ_SUITE_COUNT=$(compgen -G "test-results/fuzz-stats-*.json" | wc -l 2>/dev/null || echo "0")
+            if ls test-results/fuzz-stats-*.json >/dev/null 2>&1; then
+              FUZZ_SUITE_COUNT=$(ls test-results/fuzz-stats-*.json | wc -l)
+            fi
           fi
 
           echo "- **Test Matrix Jobs**: $TEST_SUITE_COUNT" >> $GITHUB_STEP_SUMMARY
@@ -369,7 +379,7 @@ jobs:
             for stats_file in test-results/fuzz-stats-*.json; do
               if [[ -f "$stats_file" ]]; then
                 FUZZ_NAME=$(jq -r '.name // "Unknown"' "$stats_file")
-                FUZZ_PASSED=$(jq -r '.fuzz_passed // false' "$stats_file")
+                FUZZ_PASSED=$(jq -r '.test_passed // false' "$stats_file")
                 FUZZ_COUNT=$(jq -r '.fuzz_test_count // 0' "$stats_file")
 
                 if [[ "$FUZZ_PASSED" == "true" ]]; then
