@@ -309,9 +309,6 @@ func TestProcessDirectoriesWithMetrics(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 		defer cancel()
 
-		// Give context time to expire during processing
-		time.Sleep(2 * time.Millisecond)
-
 		changes, metrics, err := rs.processDirectoriesWithMetrics(ctx)
 
 		// Either context cancellation or successful completion is acceptable
