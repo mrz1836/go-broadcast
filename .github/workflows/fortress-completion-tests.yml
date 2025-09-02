@@ -492,11 +492,26 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload Test Analysis Section
         id: upload-section
+        if: always()
+        run: |
+          if [ -f "tests-section.md" ] && [ -s "tests-section.md" ]; then
+            echo "🧪 Test section found, uploading..."
+            ls -la tests-section.md
+            echo "📋 Content preview:"
+            head -5 tests-section.md
+          else
+            echo "⚠️ Test section file missing or empty, creating minimal section..."
+            echo "### 🧪 Test Results Section" > tests-section.md
+            echo "No test data available for this run." >> tests-section.md
+          fi
+
+      - name: 📤 Upload Test Artifact
         uses: ./.github/actions/upload-statistics
         with:
           artifact-name: "tests-section"
           artifact-path: "tests-section.md"
           retention-days: "1"
+          if-no-files-found: "warn"
 
       - name: 📋 Set Output Content
         id: set-output

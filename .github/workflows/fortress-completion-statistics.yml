@@ -533,11 +533,26 @@ jobs:
       # ————————————————————————————————————————————————————————————————
       - name: 📤 Upload Statistics Section
         id: upload-section
+        if: always()
+        run: |
+          if [ -f "statistics-section.md" ] && [ -s "statistics-section.md" ]; then
+            echo "📊 Statistics section found, uploading..."
+            ls -la statistics-section.md
+            echo "📋 Content preview:"
+            head -5 statistics-section.md
+          else
+            echo "⚠️ Statistics section file missing or empty, creating minimal section..."
+            echo "### 📊 Statistics Section" > statistics-section.md
+            echo "No statistics data available for this run." >> statistics-section.md
+          fi
+
+      - name: 📤 Upload Statistics Artifact
         uses: ./.github/actions/upload-statistics
         with:
           artifact-name: "statistics-section"
           artifact-path: "statistics-section.md"
           retention-days: "1"
+          if-no-files-found: "warn"
 
       - name: 📋 Set Output Content
         id: set-output
