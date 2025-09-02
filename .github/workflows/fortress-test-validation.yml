@@ -173,6 +173,7 @@ jobs:
 
                 # Add fuzz test count to total
                 FUZZ_TEST_COUNT=$(jq -r '.fuzz_test_count // 0' "$stats_file")
+                echo "  • Fuzz Tests: $FUZZ_TEST_COUNT"
                 TOTAL_TESTS=$((TOTAL_TESTS + FUZZ_TEST_COUNT))
               done
             else

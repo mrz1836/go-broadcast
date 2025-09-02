@@ -187,6 +187,10 @@ func (suite *DirectorySyncTestSuite) setupMocksForDirectory(mockGH *gh.MockClien
 	mockGH.On("GetCurrentUser", mock.Anything).
 		Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 
+	// Mock ListBranches for pre-sync validation
+	mockGH.On("ListBranches", mock.Anything, mock.AnythingOfType("string")).
+		Return([]gh.Branch{}, nil).Maybe()
+
 	// Mock target file retrieval (for comparison) - return empty content to indicate files don't exist or are different
 	mockGH.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), "").
 		Return(&gh.FileContent{Content: []byte("old content")}, nil).Maybe()
