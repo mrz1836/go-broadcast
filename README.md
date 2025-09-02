@@ -97,6 +97,7 @@ Get up and running with go-broadcast in under 5 minutes!
 ### Prerequisites
 - [Go 1.24+](https://golang.org/doc/install) ([supported release](https://golang.org/doc/devel/release.html#policy)) and [GitHub CLI](https://cli.github.com/) installed
 - GitHub authentication: `gh auth login`
+- [MAGE-X](https://github.com/mrz1836/mage-x) (optional, for building from source)
 
 ### Installation
 
@@ -198,6 +199,17 @@ When using `--dry-run`, go-broadcast provides clean, readable output showing exa
 - Opens a pull request for review
 
 > **💡 Pro tip:** go-broadcast includes a [built-in coverage system](https://github.com/mrz1836/go-coverage), [enterprise performance](#-performance), and comprehensive logging & debugging - explore the features below!
+
+<br/>
+
+### Install [MAGE-X](https://github.com/mrz1836/mage-x) build tool
+Want to contribute to go-broadcast? Use MAGE-X for building, testing, linting, and more.
+
+```bash
+# Install MAGE-X for development and building
+go install github.com/mrz1836/mage-x/cmd/magex@latest
+magex update:install
+```
 
 <br/>
 
