@@ -2310,7 +2310,7 @@ jobs:
         uses: ./.github/actions/download-artifact-resilient
         with:
           pattern: "coverage-data"
-          path: ./
+          path: ./coverage-artifacts/
           merge-multiple: false
           max-retries: ${{ env.ARTIFACT_DOWNLOAD_RETRIES }}
           retry-delay: ${{ env.ARTIFACT_DOWNLOAD_RETRY_DELAY }}
@@ -2320,13 +2320,13 @@ jobs:
       - name: 🔍 Verify coverage file
         run: |
           echo "🔍 Verifying coverage file for Codecov upload..."
-          if [[ -f "coverage.txt" ]]; then
+          if [[ -f "coverage-artifacts/coverage.txt" ]]; then
             echo "✅ Coverage file found"
-            echo "📊 File size: $(wc -c < coverage.txt) bytes"
-            echo "📊 Line count: $(wc -l < coverage.txt)"
+            echo "📊 File size: $(wc -c < coverage-artifacts/coverage.txt) bytes"
+            echo "📊 Line count: $(wc -l < coverage-artifacts/coverage.txt)"
 
             # Verify format
-            FIRST_LINE=$(head -1 coverage.txt)
+            FIRST_LINE=$(head -1 coverage-artifacts/coverage.txt)
             if [[ "$FIRST_LINE" == "mode: atomic" ]] || [[ "$FIRST_LINE" == "mode: count" ]] || [[ "$FIRST_LINE" == "mode: set" ]]; then
               echo "✅ Coverage file format is valid"
             else
@@ -2345,7 +2345,7 @@ jobs:
         uses: codecov/codecov-action@fdcc8476540edceab3de004e990f80d881c6cc00 # v5.5.0
         with:
           #file: ./coverage.txt # This is the old format
-          files: ./coverage.txt
+          files: ./coverage-artifacts/coverage.txt
           fail_ci_if_error: true
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -2368,9 +2368,9 @@ jobs:
           PAGES_DEPLOYED=false
 
           # Calculate coverage from coverage.txt file using go tool cover
-          if [ -f "coverage.txt" ]; then
-            COVERAGE_PERCENTAGE=$(go tool cover -func="coverage.txt" | tail -1 | awk '{print $3}' | sed 's/%//' || echo "0")
-            FILES_PROCESSED=$(wc -l < "coverage.txt" || echo "0")
+          if [ -f "coverage-artifacts/coverage.txt" ]; then
+            COVERAGE_PERCENTAGE=$(go tool cover -func="coverage-artifacts/coverage.txt" | tail -1 | awk '{print $3}' | sed 's/%//' || echo "0")
+            FILES_PROCESSED=$(wc -l < "coverage-artifacts/coverage.txt" || echo "0")
             echo "📈 Calculated coverage percentage: ${COVERAGE_PERCENTAGE}%"
             echo "📁 Files processed: $FILES_PROCESSED"
           else

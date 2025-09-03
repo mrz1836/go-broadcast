@@ -122,11 +122,9 @@ runs:
           # Attempt download with timeout
           echo "⏳ Downloading with ${DOWNLOAD_TIMEOUT}s timeout..."
 
-          if [ "$MERGE_MULTIPLE" = "true" ]; then
-            DOWNLOAD_CMD="gh run download ${{ github.run_id }} --pattern \"$ARTIFACT_PATTERN\" --dir \"$ARTIFACT_PATH\""
-          else
-            DOWNLOAD_CMD="gh run download ${{ github.run_id }} --name \"$ARTIFACT_PATTERN\" --dir \"$ARTIFACT_PATH\""
-          fi
+          # Always use --pattern flag since "coverage-data" is treated as a pattern
+          # Using --name with patterns causes gh CLI to download all artifacts when no exact match found
+          DOWNLOAD_CMD="gh run download ${{ github.run_id }} --pattern \"$ARTIFACT_PATTERN\" --dir \"$ARTIFACT_PATH\""
 
           if timeout "$DOWNLOAD_TIMEOUT" bash -c "$DOWNLOAD_CMD"; then
             echo "✅ Successfully downloaded artifacts on attempt $ATTEMPT_NUM"
