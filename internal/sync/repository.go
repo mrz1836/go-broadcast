@@ -194,6 +194,16 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	commitSHA, err := rs.commitChanges(ctx, branchName, allChanges)
 	if err != nil {
 		commitTimer.StopWithError(err)
+		// Check if it's because there are no changes to sync
+		if errors.Is(err, internalerrors.ErrNoChangesToSync) {
+			rs.logger.WithFields(logrus.Fields{
+				"branch":        branchName,
+				"files_checked": len(allChanges),
+			}).Info("Repository is already synchronized - no PR needed")
+			// Successfully complete sync without creating PR
+			syncTimer.AddField("status", "up_to_date").Stop()
+			return nil
+		}
 		syncTimer.StopWithError(err)
 		return fmt.Errorf("failed to commit changes: %w", err)
 	}
@@ -685,12 +695,8 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 				"commit_msg": commitMsg,
 			}).Info("No changes to commit - files are already synchronized")
 
-			// Get the current commit SHA instead of creating a new one
-			commitSHA, shaErr := rs.engine.git.GetCurrentCommitSHA(ctx, targetPath)
-			if shaErr != nil {
-				return "", fmt.Errorf("no changes to commit and failed to get current SHA: %w", shaErr)
-			}
-			return commitSHA, nil
+			// Return special error to indicate no actual changes
+			return "", internalerrors.ErrNoChangesToSync
 		}
 		return "", fmt.Errorf("failed to create commit: %w", err)
 	}
@@ -758,6 +764,30 @@ func (rs *RepositorySync) findExistingPR(branchName string) *gh.PR {
 	}
 
 	return nil
+}
+
+// checkForExistingPRViAPI checks for existing PRs via direct GitHub API call
+// This is a fallback when state discovery might have missed PRs
+func (rs *RepositorySync) checkForExistingPRViAPI(ctx context.Context, branchName string) (*gh.PR, error) {
+	// Get all open PRs for this repository
+	prs, err := rs.engine.gh.ListPRs(ctx, rs.target.Repo, "open")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list PRs: %w", err)
+	}
+
+	// Look for PR with matching head branch
+	for _, pr := range prs {
+		if pr.Head.Ref == branchName {
+			rs.logger.WithFields(logrus.Fields{
+				"pr_number":   pr.Number,
+				"branch_name": branchName,
+				"pr_state":    pr.State,
+			}).Debug("Found existing PR via API")
+			return &pr, nil
+		}
+	}
+
+	return nil, internalerrors.ErrPRNotFound
 }
 
 // createNewPR creates a new pull request
@@ -831,9 +861,23 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 				"branch_name": branchName,
 				"target_repo": rs.target.Repo,
 				"error":       err,
-			}).Warn("PR validation failed - attempting to cleanup orphaned branch and retry")
+			}).Warn("PR validation failed - checking for existing PR")
 
-			// Try to delete the branch and retry PR creation
+			// First, check if a PR already exists for this branch via direct API call
+			existingPR, prErr := rs.checkForExistingPRViAPI(ctx, branchName)
+			if prErr != nil && !errors.Is(prErr, internalerrors.ErrPRNotFound) {
+				rs.logger.WithError(prErr).Debug("Failed to check for existing PR via API")
+			} else if existingPR != nil {
+				rs.logger.WithFields(logrus.Fields{
+					"pr_number":   existingPR.Number,
+					"branch_name": branchName,
+				}).Info("Found existing PR for branch - updating instead of creating new one")
+				// Update the existing PR instead
+				return rs.updateExistingPR(ctx, existingPR, commitSHA, changedFiles)
+			}
+
+			// If no existing PR found, try branch cleanup and retry
+			rs.logger.Debug("No existing PR found, attempting branch cleanup and retry")
 			if deleteErr := rs.engine.gh.DeleteBranch(ctx, rs.target.Repo, branchName); deleteErr != nil {
 				rs.logger.WithError(deleteErr).Debug("Failed to delete orphaned branch (may not exist)")
 			}
@@ -842,6 +886,11 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 			rs.TrackAPIRequest()
 			pr, err = rs.engine.gh.CreatePR(ctx, rs.target.Repo, prRequest)
 			if err != nil {
+				// If still failing after cleanup, log warning but don't fail entire sync
+				rs.logger.WithError(err).WithFields(logrus.Fields{
+					"branch_name": branchName,
+					"target_repo": rs.target.Repo,
+				}).Warn("PR creation failed after cleanup - branch may have been pushed but PR not created")
 				return fmt.Errorf("failed to create PR after cleanup: %w", err)
 			}
 		} else {

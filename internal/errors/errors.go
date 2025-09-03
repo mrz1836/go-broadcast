@@ -10,6 +10,7 @@ import (
 var (
 	// Sync errors
 	ErrNoFilesToCommit   = errors.New("no files to commit")
+	ErrNoChangesToSync   = errors.New("no changes to sync - files are already synchronized")
 	ErrNoTargets         = errors.New("no targets configured")
 	ErrInvalidConfig     = errors.New("invalid configuration")
 	ErrSyncFailed        = errors.New("sync operation failed")

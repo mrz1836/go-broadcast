@@ -3,7 +3,9 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -124,33 +126,99 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 	// 3. Create progress tracker
 	progress := NewProgressTrackerWithGroup(len(syncTargets), e.options.DryRun, group.Name, group.ID)
 
-	// 4. Process repositories concurrently
-	g, ctx := errgroup.WithContext(ctx)
+	// 4. Process repositories concurrently with error collection
+	var g errgroup.Group
 	g.SetLimit(e.options.MaxConcurrency)
+
+	// Collect all errors instead of failing fast
+	errorCollector := make(chan error, len(syncTargets))
+	var hasContextError bool
 
 	for _, target := range syncTargets {
 		g.Go(func() error {
-			return e.syncRepository(ctx, target, currentState, progress)
+			if err := e.syncRepository(ctx, target, currentState, progress); err != nil {
+				// Check if this is a context cancellation error
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					hasContextError = true
+				}
+
+				// Send error to collector but don't return it (prevents context cancellation)
+				select {
+				case errorCollector <- err:
+				default:
+					// Channel full, log the error
+					e.logger.WithError(err).WithField("repo", target.Repo).Error("Failed to collect sync error")
+				}
+			}
+			return nil // Always return nil to prevent errgroup from canceling context
 		})
 	}
 
 	// 5. Wait for all syncs to complete
-	if err := g.Wait(); err != nil {
+	_ = g.Wait() // Always returns nil since we handle errors via errorCollector
+	close(errorCollector)
+
+	// Collect and log all errors
+	collectedErrors := make([]error, 0, len(syncTargets))
+	for err := range errorCollector {
+		collectedErrors = append(collectedErrors, err)
 		progress.SetError(err)
-		return appErrors.WrapWithContext(err, "complete sync operation")
+
+		// Check if this is a context error (by type or string content)
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			hasContextError = true
+		} else {
+			// Also check error message for context-related terms
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "context canceled") ||
+			   strings.Contains(errMsg, "context deadline exceeded") ||
+			   strings.Contains(errMsg, "deadline exceeded") {
+				hasContextError = true
+			}
+		}
 	}
 
-	// 6. Report final results
+	// 6. Report final results with detailed error information
 	results := progress.GetResults()
 	log.WithFields(logrus.Fields{
 		"successful": results.Successful,
 		"failed":     results.Failed,
 		"skipped":    results.Skipped,
 		"duration":   results.Duration,
+		"errors":     len(collectedErrors),
 	}).Info("Sync operation completed")
 
+	// Log individual errors for debugging
+	for i, err := range collectedErrors {
+		log.WithError(err).WithField("error_index", i+1).Error("Individual sync failure")
+	}
+
 	if results.Failed > 0 {
-		return fmt.Errorf("%w: completed with %d failures", appErrors.ErrSyncFailed, results.Failed)
+		// If context was canceled/timeout, include context information in the error
+		if hasContextError {
+			if ctx.Err() != nil {
+				return fmt.Errorf("%w: %v", appErrors.ErrSyncFailed, ctx.Err())
+			} else {
+				return fmt.Errorf("%w: context canceled", appErrors.ErrSyncFailed)
+			}
+		}
+
+		// Include details from the first few errors to provide better context
+		var errorDetails []string
+		maxDetailsToInclude := 3 // Limit to first 3 errors to keep message readable
+		for i, err := range collectedErrors {
+			if i >= maxDetailsToInclude {
+				break
+			}
+			errorDetails = append(errorDetails, err.Error())
+		}
+
+		if len(errorDetails) > 0 {
+			detailsStr := strings.Join(errorDetails, "; ")
+			return fmt.Errorf("%w: completed with %d failures out of %d targets (%s)", appErrors.ErrSyncFailed, results.Failed, len(syncTargets), detailsStr)
+		}
+
+		return fmt.Errorf("%w: completed with %d failures out of %d targets", appErrors.ErrSyncFailed, results.Failed, len(syncTargets))
 	}
 
 	return nil

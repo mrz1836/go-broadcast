@@ -56,22 +56,53 @@ func NewClient(logger *logrus.Logger, logConfig *logging.LogConfig) (Client, err
 	}, nil
 }
 
-// Clone clones a repository to the specified path
+// Clone clones a repository to the specified path with retry logic for network errors
 func (g *gitClient) Clone(ctx context.Context, url, path string) error {
 	// Check if path already exists
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("%w: %s", ErrRepositoryExists, path)
 	}
 
-	cmd := exec.CommandContext(ctx, "git", "clone", url, path)
+	// Retry logic for network errors
+	maxRetries := 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		cmd := exec.CommandContext(ctx, "git", "clone", url, path)
+		cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+		err := g.runCommand(cmd)
+		if err == nil {
+			return nil // Success
+		}
 
-	if err := g.runCommand(cmd); err != nil {
+		// Check if it's a retryable network error
+		if isRetryableNetworkError(err) && attempt < maxRetries {
+			logger := logging.WithStandardFields(g.logger, g.logConfig, logging.ComponentNames.Git)
+			logger.WithFields(logrus.Fields{
+				"attempt":     attempt,
+				"max_retries": maxRetries,
+				"url":         url,
+				"error":       err.Error(),
+			}).Warn("Network error during git clone - retrying")
+
+			// Clean up failed partial clone
+			if cleanupErr := os.RemoveAll(path); cleanupErr != nil {
+				logger.WithError(cleanupErr).Debug("Failed to clean up partial clone")
+			}
+
+			// Brief delay before retry
+			select {
+			case <-time.After(time.Duration(attempt) * time.Second):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			continue
+		}
+
+		// Non-retryable error or max retries exceeded
 		return appErrors.WrapWithContext(err, "clone repository")
 	}
 
-	return nil
+	return fmt.Errorf("%w: clone failed after %d attempts", ErrGitCommand, maxRetries)
 }
 
 // Checkout switches to the specified branch
@@ -417,6 +448,21 @@ type debugWriter struct {
 func (w *debugWriter) Write(p []byte) (n int, err error) {
 	w.logger.WithField("stream", w.prefix).Trace(string(p))
 	return len(p), nil
+}
+
+// isRetryableNetworkError checks if an error is a transient network error that should be retried
+func isRetryableNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "early eof") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "network is unreachable") ||
+		strings.Contains(errStr, "temporary failure") ||
+		strings.Contains(errStr, "connection refused")
 }
 
 // filterSensitiveEnv filters environment variables to redact sensitive information.
