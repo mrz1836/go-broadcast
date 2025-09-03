@@ -127,6 +127,12 @@ on:
       pre-commit-enabled:
         description: "Whether pre-commit checks are enabled"
         value: ${{ jobs.setup-config.outputs.pre-commit-enabled }}
+      gofortress-version:
+        description: "GoFortress workflow system version"
+        value: ${{ jobs.setup-config.outputs.gofortress-version }}
+      gofortress-released:
+        description: "GoFortress release date"
+        value: ${{ jobs.setup-config.outputs.gofortress-released }}
 
 # Security: Restrictive default permissions with job-level overrides for least privilege access
 permissions:
@@ -165,6 +171,8 @@ jobs:
       test-matrix: ${{ steps.matrix.outputs.matrix }}
       warm-cache-matrix: ${{ steps.matrix.outputs.matrix }}
       pre-commit-enabled: ${{ steps.config.outputs.pre-commit-enabled }}
+      gofortress-version: ${{ steps.extract-version.outputs.version }}
+      gofortress-released: ${{ steps.extract-version.outputs.released }}
 
     steps:
       # ————————————————————————————————————————————————————————————————
@@ -178,6 +186,31 @@ jobs:
           echo "start-time=$START_TIME" >> $GITHUB_OUTPUT
           echo "start-epoch=$START_EPOCH" >> $GITHUB_OUTPUT
           echo "🚀 Workflow started at: $START_TIME"
+
+      # ————————————————————————————————————————————————————————————————
+      # Extract GoFortress version metadata from fortress.yml
+      # ————————————————————————————————————————————————————————————————
+      - name: 📋 Extract GoFortress Version
+        id: extract-version
+        run: |
+          # Check out the main workflow file to extract version metadata
+          if [ -f ".github/workflows/fortress.yml" ]; then
+            # Extract version information from the main header (format: #  Version: X.Y.Z | Released: YYYY-MM-DD)
+            VERSION_LINE=$(grep "#  Version:" .github/workflows/fortress.yml | head -1)
+            FORTRESS_VERSION=$(echo "$VERSION_LINE" | sed 's/.*Version: //' | sed 's/ |.*//')
+            FORTRESS_RELEASED=$(echo "$VERSION_LINE" | sed 's/.*Released: //' | tr -d ' ')
+
+            # Set outputs for use in other steps
+            echo "version=${FORTRESS_VERSION:-unknown}" >> $GITHUB_OUTPUT
+            echo "released=${FORTRESS_RELEASED:-unknown}" >> $GITHUB_OUTPUT
+
+            echo "🏰 GoFortress Version: $FORTRESS_VERSION"
+            echo "📅 Released: $FORTRESS_RELEASED"
+          else
+            echo "⚠️ fortress.yml not found, using default values"
+            echo "version=unknown" >> $GITHUB_OUTPUT
+            echo "released=unknown" >> $GITHUB_OUTPUT
+          fi
 
       # ————————————————————————————————————————————————————————————————
       # Parse environment variables from JSON
@@ -206,6 +239,7 @@ jobs:
             .mage.yaml
             go.mod
             go.sum
+            .github/workflows/fortress.yml
 
       # ————————————————————————————————————————————————————————————————
       # Get Go versions and set up the matrix
@@ -397,6 +431,17 @@ jobs:
           echo "# 🏰 GoFortress CI Configuration Report" >> $GITHUB_STEP_SUMMARY
           echo "_Generated at: ${SUMMARY_TIME}_" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎯 GoFortress System Information" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **System Version** | \`${{ steps.extract-version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Release Date** | ${{ steps.extract-version.outputs.released }} |" >> $GITHUB_STEP_SUMMARY
+
+          # Count all fortress workflow files (including main fortress.yml)
+          FORTRESS_FILES=$(find .github/workflows -name "fortress*.yml" | wc -l | tr -d ' ')
+          echo "| **Workflow Components** | ${FORTRESS_FILES} fortress modules |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
           # Workflow Trigger Information
           echo "## 🎯 Workflow Trigger" >> $GITHUB_STEP_SUMMARY
