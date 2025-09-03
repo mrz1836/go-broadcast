@@ -1249,13 +1249,16 @@ func testGitHubWebhookSimulation(t *testing.T, generator *fixtures.TestRepoGener
 	// Mock PR operations with counter-based success/failure
 	mockGH.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser", ID: 123}, nil).Maybe()
 
-	// First PR creation succeeds
-	mockGH.On("CreatePR", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("gh.PRRequest")).
-		Run(func(_ mock.Arguments) {
-			atomic.AddInt64(&webhookSimulationCount, 1)
-		}).Return(&gh.PR{Number: 555}, nil).Once()
+	// Set up successful PR creation for all target repos
+	for _, target := range scenario.TargetRepos {
+		repoName := fmt.Sprintf("org/%s", target.Name)
+		mockGH.On("CreatePR", mock.Anything, repoName, mock.AnythingOfType("gh.PRRequest")).
+			Run(func(_ mock.Arguments) {
+				atomic.AddInt64(&webhookSimulationCount, 1)
+			}).Return(&gh.PR{Number: 555}, nil).Once()
+	}
 
-	// Subsequent PR creations fail with conflict
+	// Set up fallback for any additional PR creation attempts that might happen
 	mockGH.On("CreatePR", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("gh.PRRequest")).
 		Run(func(_ mock.Arguments) {
 			atomic.AddInt64(&webhookSimulationCount, 1)

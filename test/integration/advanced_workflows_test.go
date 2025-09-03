@@ -503,7 +503,7 @@ func testRollbackCapabilities(t *testing.T, generator *fixtures.TestRepoGenerato
 
 	// Sync should fail due to push failure, but rollback should be attempted
 	require.Error(t, err, "Sync should fail due to push failure")
-	assert.Contains(t, err.Error(), "PR creation failed", "Error should indicate PR creation failure")
+	assert.Contains(t, err.Error(), "completed with 2 failures out of 2 targets", "Error should indicate sync failures")
 
 	// Verify rollback was attempted
 	t.Logf("Git operations performed: %s", operationLog)
