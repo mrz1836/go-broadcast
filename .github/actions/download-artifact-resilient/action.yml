@@ -134,12 +134,17 @@ runs:
             ARTIFACTS_FOUND=$AVAILABLE_ARTIFACTS
 
             # Verify downloaded files
-            if [ -d "$ARTIFACT_PATH" ] && [ "$(find "$ARTIFACT_PATH" -type f | wc -l)" -gt 0 ]; then
+            if [ -d "$ARTIFACT_PATH" ] && [ "$(find "$ARTIFACT_PATH" -type f 2>/dev/null | wc -l)" -gt 0 ]; then
               echo "📁 Downloaded files:"
-              find "$ARTIFACT_PATH" -type f | head -10 | sed 's/^/  • /'
-              if [ "$(find "$ARTIFACT_PATH" -type f | wc -l)" -gt 10 ]; then
-                echo "  • ... and $(($(find "$ARTIFACT_PATH" -type f | wc -l) - 10)) more files"
+              # Use a more robust approach to avoid broken pipe issues
+              TEMP_FILE_LIST=$(mktemp)
+              find "$ARTIFACT_PATH" -type f 2>/dev/null > "$TEMP_FILE_LIST"
+              TOTAL_FILES=$(wc -l < "$TEMP_FILE_LIST")
+              head -10 "$TEMP_FILE_LIST" | sed 's/^/  • /'
+              if [ "$TOTAL_FILES" -gt 10 ]; then
+                echo "  • ... and $((TOTAL_FILES - 10)) more files"
               fi
+              rm -f "$TEMP_FILE_LIST"
             else
               echo "⚠️ Download completed but no files found in destination"
             fi
