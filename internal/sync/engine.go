@@ -171,8 +171,8 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 			// Also check error message for context-related terms
 			errMsg := err.Error()
 			if strings.Contains(errMsg, "context canceled") ||
-			   strings.Contains(errMsg, "context deadline exceeded") ||
-			   strings.Contains(errMsg, "deadline exceeded") {
+				strings.Contains(errMsg, "context deadline exceeded") ||
+				strings.Contains(errMsg, "deadline exceeded") {
 				hasContextError = true
 			}
 		}
@@ -197,10 +197,9 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 		// If context was canceled/timeout, include context information in the error
 		if hasContextError {
 			if ctx.Err() != nil {
-				return fmt.Errorf("%w: %v", appErrors.ErrSyncFailed, ctx.Err())
-			} else {
-				return fmt.Errorf("%w: context canceled", appErrors.ErrSyncFailed)
+				return fmt.Errorf("%w: %w", appErrors.ErrSyncFailed, ctx.Err())
 			}
+			return fmt.Errorf("%w: context canceled", appErrors.ErrSyncFailed)
 		}
 
 		// Include details from the first few errors to provide better context
