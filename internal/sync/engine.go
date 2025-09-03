@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -132,14 +133,14 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 
 	// Collect all errors instead of failing fast
 	errorCollector := make(chan error, len(syncTargets))
-	var hasContextError bool
+	var hasContextError atomic.Bool
 
 	for _, target := range syncTargets {
 		g.Go(func() error {
 			if err := e.syncRepository(ctx, target, currentState, progress); err != nil {
 				// Check if this is a context cancellation error
 				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-					hasContextError = true
+					hasContextError.Store(true)
 				}
 
 				// Send error to collector but don't return it (prevents context cancellation)
@@ -166,14 +167,14 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 
 		// Check if this is a context error (by type or string content)
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			hasContextError = true
+			hasContextError.Store(true)
 		} else {
 			// Also check error message for context-related terms
 			errMsg := err.Error()
 			if strings.Contains(errMsg, "context canceled") ||
 				strings.Contains(errMsg, "context deadline exceeded") ||
 				strings.Contains(errMsg, "deadline exceeded") {
-				hasContextError = true
+				hasContextError.Store(true)
 			}
 		}
 	}
@@ -195,7 +196,7 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 
 	if results.Failed > 0 {
 		// If context was canceled/timeout, include context information in the error
-		if hasContextError {
+		if hasContextError.Load() {
 			if ctx.Err() != nil {
 				return fmt.Errorf("%w: %w", appErrors.ErrSyncFailed, ctx.Err())
 			}
