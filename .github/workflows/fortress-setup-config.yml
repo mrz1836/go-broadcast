@@ -193,21 +193,38 @@ jobs:
       - name: 📋 Extract GoFortress Version
         id: extract-version
         run: |
-          # Check out the main workflow file to extract version metadata
-          if [ -f ".github/workflows/fortress.yml" ]; then
+          # Extract version metadata from the fortress.yml file
+          FORTRESS_FILE=".github/workflows/fortress.yml"
+
+          echo "🔍 Looking for GoFortress version in: $FORTRESS_FILE"
+
+          if [ -f "$FORTRESS_FILE" ]; then
+            echo "✅ Found fortress.yml file"
+
             # Extract version information from the main header (format: #  Version: X.Y.Z | Released: YYYY-MM-DD)
-            VERSION_LINE=$(grep "#  Version:" .github/workflows/fortress.yml | head -1)
-            FORTRESS_VERSION=$(echo "$VERSION_LINE" | sed 's/.*Version: //' | sed 's/ |.*//')
-            FORTRESS_RELEASED=$(echo "$VERSION_LINE" | sed 's/.*Released: //' | tr -d ' ')
+            VERSION_LINE=$(grep "#  Version:" "$FORTRESS_FILE" | head -1)
 
-            # Set outputs for use in other steps
-            echo "version=${FORTRESS_VERSION:-unknown}" >> $GITHUB_OUTPUT
-            echo "released=${FORTRESS_RELEASED:-unknown}" >> $GITHUB_OUTPUT
+            if [ -n "$VERSION_LINE" ]; then
+              FORTRESS_VERSION=$(echo "$VERSION_LINE" | sed 's/.*Version: //' | sed 's/ |.*//')
+              FORTRESS_RELEASED=$(echo "$VERSION_LINE" | sed 's/.*Released: //' | tr -d ' ')
 
-            echo "🏰 GoFortress Version: $FORTRESS_VERSION"
-            echo "📅 Released: $FORTRESS_RELEASED"
+              echo "🏰 GoFortress Version: $FORTRESS_VERSION"
+              echo "📅 Released: $FORTRESS_RELEASED"
+
+              # Set outputs for use in other steps
+              echo "version=$FORTRESS_VERSION" >> $GITHUB_OUTPUT
+              echo "released=$FORTRESS_RELEASED" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ Version line not found in fortress.yml"
+              echo "version=unknown" >> $GITHUB_OUTPUT
+              echo "released=unknown" >> $GITHUB_OUTPUT
+            fi
           else
-            echo "⚠️ fortress.yml not found, using default values"
+            echo "❌ fortress.yml not found at $FORTRESS_FILE"
+            echo "📂 Current directory contents:"
+            ls -la
+            echo "📂 .github/workflows/ contents:"
+            ls -la .github/workflows/ || echo "Directory not found"
             echo "version=unknown" >> $GITHUB_OUTPUT
             echo "released=unknown" >> $GITHUB_OUTPUT
           fi
