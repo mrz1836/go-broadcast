@@ -885,7 +885,7 @@ To update all dependencies (Go modules, linters, and related tools), run:
 magex deps:update
 ```
 
-This command ensures all dependencies are brought up to date in a single step, including Go modules and any tools managed by the Makefile. It is the recommended way to keep your development environment and CI in sync with the latest versions.
+This command ensures all dependencies are brought up to date in a single step, including Go modules and any tools managed by [MAGE-X](https://github.com/mrz1836/mage-x). It is the recommended way to keep your development environment and CI in sync with the latest versions.
 
 </details>
 
