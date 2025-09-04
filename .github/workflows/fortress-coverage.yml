@@ -1112,23 +1112,18 @@ jobs:
             "index.html"
             "coverage.html"
             "coverage.svg"
-            "branches.html"
-            "favicon.ico"
-            "favicon.svg"
-            ".nojekyll"
           )
 
           # Selectively copy coverage files to avoid nested directory structures
           COVERAGE_DIRS_TO_COPY=(
             "data"
-            "badges"
             "assets"
           )
 
           # Define coverage directory structure to copy selectively (avoid duplication)
           COVERAGE_SELECTIVE_COPY=true
 
-          echo "🗋 Copying ONLY coverage files to clean deployment:"
+          echo "Copying ONLY coverage files to clean deployment:"
 
           # Copy individual coverage files
           for file in "${COVERAGE_FILES_TO_COPY[@]}"; do
@@ -1439,7 +1434,7 @@ jobs:
           echo "  - Jekyll processing: ❌ DISABLED (.nojekyll present)"
           echo "  - Expected URLs after deployment:"
           echo "    - https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ (dashboard)"
-          echo "    - https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage.html (detailed report) ← MAIN 404 ISSUE"
+          echo "    - https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage.html (detailed report)"
           echo "    - https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data/build-status.json (build status)"
           echo "    - https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage.svg (coverage badge)"
           echo "  - Alternative paths to check:"
