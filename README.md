@@ -1066,6 +1066,9 @@ magex test:race
 
 ### Quick Benchmarks
 
+<details>
+<summary><strong>Commands for Benchmarking</strong></summary>
+
 ```bash
 # Run quick benchmarks (CI default, <5 minutes)
 magex bench
@@ -1090,8 +1093,10 @@ go run ./cmd/profile_demo
 
 **Note:** Heavy benchmarks (worker pools with 1000+ tasks, large directory syncs, memory efficiency tests) are excluded from CI to prevent timeouts. Use `mage benchHeavy` for comprehensive performance testing during development.
 
+</details>
+
 <details>
-<summary><strong>📊 Complete Benchmark Results & Profiling Tools</strong></summary>
+<summary><strong>Complete Benchmark Results & Profiling Tools</strong></summary>
 
 ### Performance Analysis Tools
 
