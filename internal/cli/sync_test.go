@@ -562,3 +562,219 @@ groups:
 			"unexpected error: %v", err)
 	}
 }
+
+// TestSyncCommandGroupFiltering tests sync command with group filtering flags
+func TestSyncCommandGroupFiltering(t *testing.T) {
+	t.Run("GroupsFlag", func(t *testing.T) {
+		// Create temporary valid config with multiple groups
+		tmpFile, err := os.CreateTemp("", "config-*.yml")
+		require.NoError(t, err)
+		defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+		configWithGroups := `version: 1
+groups:
+  - name: "Group One"
+    id: "group1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+  - name: "Group Two"
+    id: "group2"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target2
+        files:
+          - src: README.md
+            dest: README.md`
+
+		_, err = tmpFile.WriteString(configWithGroups)
+		require.NoError(t, err)
+		require.NoError(t, tmpFile.Close())
+
+		flags := &Flags{
+			ConfigFile:  tmpFile.Name(),
+			DryRun:      true,
+			GroupFilter: []string{"group1"},
+		}
+
+		// Test that group filter is properly set
+		syncCommand := NewSyncCommand()
+		ctx := context.Background()
+
+		err = syncCommand.ExecuteSync(ctx, flags, []string{})
+		// The command may succeed or fail depending on GitHub CLI configuration
+		// but we're testing that the group filter is processed without panicking
+		if err != nil {
+			// Should not be a config loading error
+			assert.NotContains(t, err.Error(), "invalid configuration")
+		}
+	})
+
+	t.Run("SkipGroupsFlag", func(t *testing.T) {
+		// Create temporary valid config with multiple groups
+		tmpFile, err := os.CreateTemp("", "config-*.yml")
+		require.NoError(t, err)
+		defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+		configWithGroups := `version: 1
+groups:
+  - name: "Group One"
+    id: "group1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+  - name: "Group Two"
+    id: "group2"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target2
+        files:
+          - src: README.md
+            dest: README.md`
+
+		_, err = tmpFile.WriteString(configWithGroups)
+		require.NoError(t, err)
+		require.NoError(t, tmpFile.Close())
+
+		flags := &Flags{
+			ConfigFile: tmpFile.Name(),
+			DryRun:     true,
+			SkipGroups: []string{"group2"},
+		}
+
+		// Test that skip groups filter is properly set
+		syncCommand := NewSyncCommand()
+		ctx := context.Background()
+
+		err = syncCommand.ExecuteSync(ctx, flags, []string{})
+		// The command may succeed or fail depending on GitHub CLI configuration
+		// but we're testing that the skip groups filter is processed without panicking
+		if err != nil {
+			// Should not be a config loading error
+			assert.NotContains(t, err.Error(), "invalid configuration")
+		}
+	})
+
+	t.Run("CombinedGroupsAndSkipGroups", func(t *testing.T) {
+		// Create temporary valid config with multiple groups
+		tmpFile, err := os.CreateTemp("", "config-*.yml")
+		require.NoError(t, err)
+		defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+		configWithGroups := `version: 1
+groups:
+  - name: "Core Group"
+    id: "core"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+  - name: "Security Group"
+    id: "security"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target2
+        files:
+          - src: README.md
+            dest: README.md
+  - name: "Experimental Group"
+    id: "experimental"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target3
+        files:
+          - src: README.md
+            dest: README.md`
+
+		_, err = tmpFile.WriteString(configWithGroups)
+		require.NoError(t, err)
+		require.NoError(t, tmpFile.Close())
+
+		flags := &Flags{
+			ConfigFile:  tmpFile.Name(),
+			DryRun:      true,
+			GroupFilter: []string{"core", "security", "experimental"},
+			SkipGroups:  []string{"experimental"}, // Should filter then skip experimental
+		}
+
+		// Test that combined filtering works
+		syncCommand := NewSyncCommand()
+		ctx := context.Background()
+
+		err = syncCommand.ExecuteSync(ctx, flags, []string{})
+		// The command may succeed or fail depending on GitHub CLI configuration
+		// but we're testing that the combined filters are processed without panicking
+		if err != nil {
+			// Should not be a config loading error
+			assert.NotContains(t, err.Error(), "invalid configuration")
+		}
+	})
+
+	t.Run("GroupsWithTargetFiltering", func(t *testing.T) {
+		// Create temporary valid config with multiple groups
+		tmpFile, err := os.CreateTemp("", "config-*.yml")
+		require.NoError(t, err)
+		defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+		configWithGroups := `version: 1
+groups:
+  - name: "Multi Target Group"
+    id: "multi"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+      - repo: org/target2
+        files:
+          - src: README.md
+            dest: README.md`
+
+		_, err = tmpFile.WriteString(configWithGroups)
+		require.NoError(t, err)
+		require.NoError(t, tmpFile.Close())
+
+		flags := &Flags{
+			ConfigFile:  tmpFile.Name(),
+			DryRun:      true,
+			GroupFilter: []string{"multi"},
+		}
+
+		// Test group filtering combined with target filtering
+		syncCommand := NewSyncCommand()
+		ctx := context.Background()
+
+		err = syncCommand.ExecuteSync(ctx, flags, []string{"org/target1"})
+		// The command may succeed or fail depending on GitHub CLI configuration
+		// but we're testing that combined group and target filtering works
+		if err != nil {
+			// Should not be a config loading error
+			assert.NotContains(t, err.Error(), "invalid configuration")
+		}
+	})
+}

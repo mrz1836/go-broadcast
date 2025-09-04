@@ -471,6 +471,13 @@ go-broadcast sync --dry-run --config sync.yaml
 go-broadcast sync --config sync.yaml
 go-broadcast sync org/specific-repo --config sync.yaml
 
+# Group-based sync operations
+go-broadcast sync --groups "Default Sync" --config sync.yaml        # Sync only one group by name
+go-broadcast sync --groups "default" --config sync.yaml             # Sync by group ID
+go-broadcast sync --groups "core,security" --config sync.yaml       # Sync multiple groups
+go-broadcast sync --skip-groups "experimental" --config sync.yaml   # Skip specific groups
+go-broadcast sync --groups "core" org/repo1 --config sync.yaml      # Combine with target filtering
+
 # Monitor status
 go-broadcast status --config sync.yaml
 
