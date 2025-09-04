@@ -760,9 +760,9 @@ groups:
 - **Module-Aware Sync** – Smart module versioning and synchronization at [docs/module-sync.md](docs/module-sync.md)
 - **Group Examples** – Practical configuration patterns at [docs/group-examples.md](docs/group-examples.md)
 - **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)
-- **AI Sub-Agents Guide** – Comprehensive guide to 26 specialized AI agents for repository management at [docs/sub-agents.md](docs/sub-agents.md)
-- **Slash Commands Reference** – 20+ powerful Claude Code commands for automated workflows at [docs/slash-commands.md](docs/slash-commands.md)
-- **Directory Sync Guide** – Complete guide to directory synchronization including exclusion patterns and performance tips at [docs/directory-sync.md](docs/directory-sync.md)
+- **AI Sub-Agents Guide** – Comprehensive guide to [26 specialized AI agents](docs/sub-agents.md) for repository management
+- **Slash Commands Reference** – 20+ powerful [Claude Code commands](docs/slash-commands.md) for automated workflows
+- **Directory Sync Guide** – Complete guide to directory synchronization at [docs/directory-sync.md](docs/directory-sync.md)
 - **Configuration Examples** – Browse practical patterns in the [examples directory](examples)
 - **Troubleshooting** – Solve common issues with the [troubleshooting guide](docs/troubleshooting.md)
 - **API Reference** – Dive into the godocs at [pkg.go.dev/github.com/mrz1836/go-broadcast](https://pkg.go.dev/github.com/mrz1836/go-broadcast)
