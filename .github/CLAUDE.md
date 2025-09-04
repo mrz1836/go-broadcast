@@ -423,7 +423,7 @@ git commit -m "feat: new feature"
 **Key Features:**
 - ⚡ **17x faster execution** - <2 second commits with parallel processing
 - 📦 **Zero Python dependencies** - Pure Go binary, no runtime requirements
-- 🔧 **Make integration** - Wraps existing Makefile targets (fumpt, lint, mod-tidy)
+- 🔧 **MAGE-X integration** - Wraps existing magefile targets (test, lint, mod:tidy)
 - ⚙️ **Environment-driven** - All configuration via `.github/.env.base` (custom via `.env.custom`)
 - 🎯 **Production ready** - Comprehensive test coverage and validation
 - 🔗 **External tool** - Maintained at [github.com/mrz1836/go-pre-commit](https://github.com/mrz1836/go-pre-commit)
