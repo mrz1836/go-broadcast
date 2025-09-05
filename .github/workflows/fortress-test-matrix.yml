@@ -309,6 +309,27 @@ jobs:
           fi
 
       # ————————————————————————————————————————————————————————————————
+      # Inject matrix job info into failure signatures for deduplication tracking
+      # ————————————————————————————————————————————————————————————————
+      - name: 🏷️ Add matrix job info to signatures
+        if: always()
+        run: |
+          # Add matrix job information to signatures for tracking across matrix jobs
+          if [[ -f test-failures-signatures.json ]]; then
+            echo "🏷️ Adding matrix job information to failure signatures..."
+            MATRIX_JOB_ID="${{ matrix.name }}"
+
+            # Add matrix_job field to each signature entry
+            jq --arg matrix_job "$MATRIX_JOB_ID" 'map(. + {matrix_job: $matrix_job})' test-failures-signatures.json > test-failures-signatures.tmp && \
+              mv test-failures-signatures.tmp test-failures-signatures.json
+
+            echo "✅ Added matrix job info ($MATRIX_JOB_ID) to $(jq 'length' test-failures-signatures.json 2>/dev/null || echo '0') signatures"
+          else
+            echo "ℹ️ No signatures file found - creating empty file"
+            echo '[]' > test-failures-signatures.json
+          fi
+
+      # ————————————————————————————————————————————————————————————————
       # Create test failure summary if failures occurred
       # ————————————————————————————————————————————————————————————————
       - name: 🚨 Create Test Failure Summary
@@ -528,6 +549,7 @@ jobs:
             test-failures.txt
             test-failures-detailed.txt
             test-failures-summary.json
+            test-failures-signatures.json
           retention-days: 1
           if-no-files-found: ignore
 
