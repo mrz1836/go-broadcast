@@ -1,7 +1,7 @@
 //go:build mage
 
 // Magefile for go-broadcast specific tasks
-package magefiles
+package main
 
 import (
 	"fmt"
