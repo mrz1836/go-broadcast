@@ -241,14 +241,41 @@ jobs:
                 if [[ "$PACKAGES" -gt 0 ]]; then
                   echo "  • Affected Packages: $PACKAGES"
 
-                  # Show package summary (filter out malformed package names)
-                  jq -r '.[] | select(.Package | test("^[a-zA-Z0-9/_.-]+$")) | "  📦 \(.Package | split("/") | .[-1] // .[-2] // .): \(.failures | length) failure(s)"' "$failure_file" 2>/dev/null || true
+                  # Show package summary grouped by failure type
+                  echo "📦 Package Summary:"
 
-                  echo ""
-                  echo "🚨 Failed Tests:"
-                  echo "---------------"
+                  # Show build failures first
+                  BUILD_PACKAGES=$(jq -r '.[] | select(.Type == "build") | select(.Package | test("^[a-zA-Z0-9/_.-]+$")) | "  🔨 \(.Package | split("/") | .[-1] // .[-2] // .): Build failed"' "$failure_file" 2>/dev/null || true)
+                  if [[ -n "$BUILD_PACKAGES" ]]; then
+                    echo "$BUILD_PACKAGES"
+                  fi
 
-                  # Show detailed failed tests with package context (leaf failures only)
+                  # Then show test failures
+                  TEST_PACKAGES=$(jq -r '.[] | select(.Type == "test" or .Type == null) | select(.Package | test("^[a-zA-Z0-9/_.-]+$")) | "  📦 \(.Package | split("/") | .[-1] // .[-2] // .): \(.failures | length) test failure(s)"' "$failure_file" 2>/dev/null || true)
+                  if [[ -n "$TEST_PACKAGES" ]]; then
+                    echo "$TEST_PACKAGES"
+                  fi
+
+                  # Show build failures in detail
+                  BUILD_FAILURE_COUNT=$(jq -r '[.[] | select(.Type == "build")] | length' "$failure_file" 2>/dev/null || echo "0")
+                  if [[ "$BUILD_FAILURE_COUNT" -gt 0 ]]; then
+                    echo ""
+                    echo "🔨 Build Failures:"
+                    echo "------------------"
+
+                    jq -r '.[] | select(.Type == "build") | select(.Package | test("^[a-zA-Z0-9/_.-]+$")) |
+                      "📦 " + (.Package | split("/") | .[-1] // .[-2] // .) + ":" +
+                      ((.BuildErrors[]? // []) | "\n  ❌ " + .)' "$failure_file" 2>/dev/null || true
+                  fi
+
+                  # Show test failures
+                  TEST_FAILURE_COUNT=$(jq -r '[.[] | select(.Type == "test" or .Type == null)] | length' "$failure_file" 2>/dev/null || echo "0")
+                  if [[ "$TEST_FAILURE_COUNT" -gt 0 ]]; then
+                    echo ""
+                    echo "🧪 Test Failures:"
+                    echo "-----------------"
+
+                  # Show detailed failed tests with package context (leaf failures only) - only for test failures
                   #
                   # Problem: Go's nested test structure (TestA/TestB/TestC) reports failures for
                   # all parent tests when a leaf test fails, causing confusing output like:
@@ -259,7 +286,7 @@ jobs:
                   #
                   # Solution: Extract and deduplicate to show only the actual failed leaf tests
                   # This reduces "4 failures" to "1 actual failure" for better clarity.
-                  RAW_FAILED_TESTS=$(jq -r '.[] as $parent | select($parent.Package | test("^[a-zA-Z0-9/_.-]+$")) | $parent.failures[] | .Test + " (" + ($parent.Package | split("/") | .[-1] // .[-2] // .) + ")"' "$failure_file" 2>/dev/null)
+                  RAW_FAILED_TESTS=$(jq -r '.[] as $parent | select($parent.Type == "test" or $parent.Type == null) | select($parent.Package | test("^[a-zA-Z0-9/_.-]+$")) | $parent.failures[] | .Test + " (" + ($parent.Package | split("/") | .[-1] // .[-2] // .) + ")"' "$failure_file" 2>/dev/null)
 
                   # Smart filtering: Only show the most specific (deepest nested) test failures
                   FAILED_TESTS=$(echo "$RAW_FAILED_TESTS" | awk '
@@ -317,14 +344,16 @@ jobs:
                     head -c 2000 "$failure_file" | sed 's/^/  /'
                   fi
 
-                  # Show any error outputs if available from the enhanced failure details
-                  ERROR_OUTPUTS=$(jq -r '.[] as $package | select($package.Package | test("^[a-zA-Z0-9/_.-]+$")) | $package.failures[] | select(.Output and .Output != "" and .Output != null) | "❌ \(.Test) (\($package.Package | split("/") | .[-1] // .[-2] // .))\n\(.Output)\n"' "$failure_file" 2>/dev/null | head -c 3000)
+                  # Show any error outputs if available from the enhanced failure details (for test failures only)
+                  ERROR_OUTPUTS=$(jq -r '.[] as $package | select($package.Type == "test" or $package.Type == null) | select($package.Package | test("^[a-zA-Z0-9/_.-]+$")) | $package.failures[] | select(.Output and .Output != "" and .Output != null) | "❌ \(.Test) (\($package.Package | split("/") | .[-1] // .[-2] // .))\n\(.Output)\n"' "$failure_file" 2>/dev/null | head -c 3000)
                   if [[ -n "$ERROR_OUTPUTS" ]]; then
                     echo ""
                     echo "📝 Test Error Messages:"
                     echo "----------------------"
                     echo "$ERROR_OUTPUTS"
                   fi
+
+                  fi  # End of test failures section
                 else
                   echo "  • No structured failure data found in JSON"
                 fi
