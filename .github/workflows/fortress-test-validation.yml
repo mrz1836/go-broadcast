@@ -138,13 +138,13 @@ jobs:
           TOTAL_RAW_FAILURES=0
           TOTAL_UNIQUE_FAILURES=0
 
-          # Collect all signature files from different matrix jobs
-          if compgen -G "test-results/test-failures-signatures.json" >/dev/null 2>&1; then
+          # Collect all signature files from different matrix jobs (including subdirectories)
+          if compgen -G "test-results/*test-failures-signatures.json" >/dev/null 2>&1; then
             echo "📋 Found failure signature files:"
-            ls -la test-results/test-failures-signatures.json || echo "No signature files found"
+            ls -la test-results/*test-failures-signatures.json 2>/dev/null || echo "No signature files found"
 
             # Merge all signature files and deduplicate by signature
-            for sig_file in test-results/test-failures-signatures.json; do
+            for sig_file in test-results/*test-failures-signatures.json; do
               if [[ -s "$sig_file" ]]; then
                 echo "📄 Processing: $sig_file"
                 RAW_COUNT=$(jq 'length' "$sig_file" 2>/dev/null || echo "0")
@@ -163,7 +163,7 @@ jobs:
               output: .[0].output,
               occurrences: length,
               matrix_jobs: [.[].matrix_job // "unknown"] | unique
-            })' test-results/test-failures-signatures.json > deduplicated-failures.json 2>/dev/null || echo '[]' > deduplicated-failures.json
+            })' test-results/*test-failures-signatures.json > deduplicated-failures.json 2>/dev/null || echo '[]' > deduplicated-failures.json
 
             TOTAL_UNIQUE_FAILURES=$(jq 'length' deduplicated-failures.json 2>/dev/null || echo "0")
 
@@ -179,6 +179,27 @@ jobs:
             echo "⚠️ No signature files found - falling back to legacy detection"
             TOTAL_RAW_FAILURES=0
             TOTAL_UNIQUE_FAILURES=0
+
+            # Count failures from legacy summary files when signature files are missing
+            if compgen -G "test-results/*test-failures-summary.json" >/dev/null 2>&1; then
+              echo "📋 Counting failures from legacy summary files..."
+              for summary_file in test-results/*test-failures-summary.json; do
+                if [[ -s "$summary_file" ]]; then
+                  echo "📄 Processing legacy file: $summary_file"
+                  # Count both test and build failures from the summary file
+                  LEGACY_TEST_FAILURES=$(jq '[.[] | select(.Type == "test" or .Type == null) | .failures[]?] | length' "$summary_file" 2>/dev/null || echo "0")
+                  LEGACY_BUILD_FAILURES=$(jq '[.[] | select(.Type == "build")] | length' "$summary_file" 2>/dev/null || echo "0")
+                  LEGACY_TOTAL=$((LEGACY_TEST_FAILURES + LEGACY_BUILD_FAILURES))
+                  TOTAL_UNIQUE_FAILURES=$((TOTAL_UNIQUE_FAILURES + LEGACY_TOTAL))
+                  echo "  • Test failures: $LEGACY_TEST_FAILURES"
+                  echo "  • Build failures: $LEGACY_BUILD_FAILURES"
+                  echo "  • Total from this file: $LEGACY_TOTAL"
+                fi
+              done
+              echo "📊 Legacy detection found: $TOTAL_UNIQUE_FAILURES total failures"
+            else
+              echo "⚠️ No legacy summary files found either"
+            fi
           fi
 
           # Save deduplication stats for reporting
@@ -241,7 +262,33 @@ jobs:
           fi
 
           # Use deduplicated failure count as the authoritative failure count
-          TOTAL_FAILURES=$UNIQUE_FAILURES
+          # If deduplication found failures, use that count
+          # If deduplication failed but validation failed, use a fallback count
+          if [[ $UNIQUE_FAILURES -gt 0 ]]; then
+            TOTAL_FAILURES=$UNIQUE_FAILURES
+            echo "✅ Using deduplicated failure count: $TOTAL_FAILURES"
+          elif [[ "$VALIDATION_FAILED" == "true" ]]; then
+            # Count from legacy files if deduplication failed
+            TOTAL_FAILURES=0
+            if compgen -G "test-results/*test-failures-summary.json" >/dev/null 2>&1; then
+              for summary_file in test-results/*test-failures-summary.json; do
+                if [[ -s "$summary_file" ]]; then
+                  LEGACY_COUNT=$(jq '[.[] | select(.failures) | .failures[]] | length' "$summary_file" 2>/dev/null || echo "0")
+                  BUILD_COUNT=$(jq '[.[] | select(.Type == "build")] | length' "$summary_file" 2>/dev/null || echo "0")
+                  TOTAL_FAILURES=$((TOTAL_FAILURES + LEGACY_COUNT + BUILD_COUNT))
+                fi
+              done
+            fi
+            # Fallback: if still 0 but validation failed, report at least 1 failure
+            if [[ $TOTAL_FAILURES -eq 0 ]]; then
+              TOTAL_FAILURES=1
+              echo "⚠️ Using fallback failure count (validation failed but no specific failures counted)"
+            else
+              echo "✅ Using legacy failure count: $TOTAL_FAILURES"
+            fi
+          else
+            TOTAL_FAILURES=0
+          fi
 
           # Check fuzz test results if enabled
           if [[ "${{ inputs.fuzz-testing-enabled }}" == "true" ]]; then
@@ -323,9 +370,9 @@ jobs:
               fi
 
             # Fallback to old structured failure details
-            elif compgen -G "test-results/test-failures-summary.json" >/dev/null 2>&1; then
+            elif compgen -G "test-results/*test-failures-summary.json" >/dev/null 2>&1; then
               echo "📋 Found legacy structured failure details:"
-              for failure_file in test-results/test-failures-summary.json; do
+              for failure_file in test-results/*test-failures-summary.json; do
                 echo ""
                 echo "📄 Processing: $failure_file"
 
@@ -453,9 +500,9 @@ jobs:
               done
 
             # Fallback to simple text files if JSON not available
-            elif compgen -G "test-results/test-failures.txt" >/dev/null 2>&1; then
+            elif compgen -G "test-results/*test-failures.txt" >/dev/null 2>&1; then
               echo "📋 Found text failure details:"
-              for failure_file in test-results/test-failures.txt; do
+              for failure_file in test-results/*test-failures.txt; do
                 if [[ -s "$failure_file" ]]; then
                   echo ""
                   echo "📄 Processing: $failure_file"
