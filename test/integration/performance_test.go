@@ -809,6 +809,11 @@ func TestPerformanceStress(t *testing.T) {
 	})
 }
 
+// Common helper function for all integration tests
+func boolPtr(b bool) *bool {
+	return &b
+}
+
 func TestPerformanceRegression(t *testing.T) {
 	t.Skip("optional test, does not add coverage")
 	t.Run("baseline performance comparison", func(t *testing.T) {

@@ -1997,8 +1997,3 @@ func TestMultiGroupSync_GroupFiltering(t *testing.T) {
 		mockState.AssertExpectations(t)
 	})
 }
-
-// Helper function
-func boolPtr(b bool) *bool {
-	return &b
-}

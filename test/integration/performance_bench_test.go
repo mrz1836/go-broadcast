@@ -7,9 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -26,32 +24,32 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/transform"
 )
 
-// TestPerformanceRegression tests performance regression scenarios
-// Run with: go test -tags=performance ./test/integration -run TestPerformanceRegression
-func TestPerformanceRegression(t *testing.T) {
-	t.Run("baseline performance comparison", func(t *testing.T) {
+// BenchmarkPerformanceRegression benchmarks performance regression scenarios
+// Run with: go test -tags=performance -bench=BenchmarkPerformanceRegression ./test/integration
+func BenchmarkPerformanceRegression(b *testing.B) {
+	b.Run("baseline performance comparison", func(b *testing.B) {
 		if testing.Short() {
-			t.Skip("Skipping performance regression test in short mode")
+			b.Skip("Skipping performance regression test in short mode")
 		}
 
 		ctx := context.Background()
-		tmpDir := t.TempDir()
+		tmpDir := b.TempDir()
 
 		sourceDir := filepath.Join(tmpDir, "source")
 		targetDir := filepath.Join(tmpDir, "target")
 
-		require.NoError(t, os.MkdirAll(sourceDir, 0o750))
-		require.NoError(t, os.MkdirAll(targetDir, 0o750))
+		require.NoError(b, os.MkdirAll(sourceDir, 0o750))
+		require.NoError(b, os.MkdirAll(targetDir, 0o750))
 
 		// Create test file
-		require.NoError(t, os.WriteFile(
+		require.NoError(b, os.WriteFile(
 			filepath.Join(sourceDir, "test.txt"),
 			[]byte("test content"),
 			0o600,
 		))
 
-		initGitRepoPerf(t, sourceDir)
-		initGitRepoPerf(t, targetDir)
+		initGitRepoPerf(b, sourceDir)
+		initGitRepoPerf(b, targetDir)
 
 		// Simple configuration for baseline
 		cfg := &config.Config{
@@ -133,7 +131,7 @@ func TestPerformanceRegression(t *testing.T) {
 			err := engine.Sync(ctx, nil)
 			duration := time.Since(start)
 
-			require.NoError(t, err)
+			require.NoError(b, err)
 			durations = append(durations, duration)
 		}
 
@@ -144,7 +142,7 @@ func TestPerformanceRegression(t *testing.T) {
 		}
 		avg := total / time.Duration(len(durations))
 
-		t.Logf("Average baseline performance: %v", avg)
+		b.Logf("Average baseline performance: %v", avg)
 
 		// Store as reference (in practice, this would be compared against historical data)
 		// For now, just ensure it's reasonable
@@ -152,34 +150,34 @@ func TestPerformanceRegression(t *testing.T) {
 		var threshold time.Duration
 		if isRaceEnabled() {
 			threshold = 5 * time.Second // Race detector can add 10x+ overhead
-			t.Logf("Race detector enabled, using relaxed threshold: %v", threshold)
+			b.Logf("Race detector enabled, using relaxed threshold: %v", threshold)
 		} else {
 			threshold = 500 * time.Millisecond
-			t.Logf("Race detector disabled, using normal threshold: %v", threshold)
+			b.Logf("Race detector disabled, using normal threshold: %v", threshold)
 		}
-		assert.Less(t, avg, threshold, "Baseline performance should be under %v", threshold)
+		assert.Less(b, avg, threshold, "Baseline performance should be under %v", threshold)
 	})
 
-	t.Run("performance with increasing groups", func(t *testing.T) {
+	b.Run("performance with increasing groups", func(b *testing.B) {
 		if testing.Short() {
-			t.Skip("Skipping performance regression test in short mode")
+			b.Skip("Skipping performance regression test in short mode")
 		}
 
-		tmpDir := t.TempDir()
+		tmpDir := b.TempDir()
 		sourceDir := filepath.Join(tmpDir, "source")
 		targetDir := filepath.Join(tmpDir, "target")
 
-		require.NoError(t, os.MkdirAll(sourceDir, 0o750))
-		require.NoError(t, os.MkdirAll(targetDir, 0o750))
+		require.NoError(b, os.MkdirAll(sourceDir, 0o750))
+		require.NoError(b, os.MkdirAll(targetDir, 0o750))
 
-		require.NoError(t, os.WriteFile(
+		require.NoError(b, os.WriteFile(
 			filepath.Join(sourceDir, "test.txt"),
 			[]byte("test"),
 			0o600,
 		))
 
-		initGitRepoPerf(t, sourceDir)
-		initGitRepoPerf(t, targetDir)
+		initGitRepoPerf(b, sourceDir)
+		initGitRepoPerf(b, targetDir)
 
 		logger := logrus.New()
 		logger.SetLevel(logrus.ErrorLevel)
@@ -269,7 +267,7 @@ func TestPerformanceRegression(t *testing.T) {
 			err := engine.Sync(ctx, nil)
 			duration := time.Since(start)
 
-			require.NoError(t, err)
+			require.NoError(b, err)
 
 			results = append(results, struct {
 				count    int
@@ -278,10 +276,10 @@ func TestPerformanceRegression(t *testing.T) {
 		}
 
 		// Log results
-		t.Log("Performance scaling with group count:")
+		b.Log("Performance scaling with group count:")
 		for _, r := range results {
 			perGroup := r.duration / time.Duration(r.count)
-			t.Logf("  %2d groups: %10v total, %10v per group", r.count, r.duration, perGroup)
+			b.Logf("  %2d groups: %10v total, %10v per group", r.count, r.duration, perGroup)
 		}
 
 		// Verify linear or better scaling
@@ -290,60 +288,7 @@ func TestPerformanceRegression(t *testing.T) {
 		lastPerGroup := results[len(results)-1].duration / time.Duration(results[len(results)-1].count)
 
 		// Allow up to 3x slowdown per group (should be much less in practice)
-		assert.Less(t, lastPerGroup, firstPerGroup*3,
+		assert.Less(b, lastPerGroup, firstPerGroup*3,
 			"Performance should scale reasonably with group count")
 	})
-}
-
-// Helper functions for performance tests
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-// isRaceEnabled returns true if the race detector is enabled
-func isRaceEnabled() bool {
-	// The race detector is enabled when the -race flag is used
-	// We can detect this by checking if the runtime/race package is active
-	// This is a build-time constant that gets set when -race is used
-	return runtime.GOOS != "js" && runtime.GOOS != "wasm" && getRaceEnabled()
-}
-
-// getRaceEnabled returns the race detection status
-// This is set by the race_enabled.go file when built with -race
-func getRaceEnabled() bool {
-	return raceEnabledFlag
-}
-
-// raceEnabledFlag is a build tag constant that's true when -race is enabled
-//
-//nolint:gochecknoglobals // Required for race detection at build time
-var raceEnabledFlag = false
-
-// Helper functions for git operations
-func initGitRepoPerf(t testing.TB, dir string) {
-	t.Helper()
-	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "git", "init")
-	cmd.Dir = dir
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Failed to init git repo: %v", err)
-	}
-
-	// Configure git
-	cmd = exec.CommandContext(ctx, "git", "config", "user.email", "test@example.com")
-	cmd.Dir = dir
-	_ = cmd.Run()
-
-	cmd = exec.CommandContext(ctx, "git", "config", "user.name", "Test User")
-	cmd.Dir = dir
-	_ = cmd.Run()
-
-	// Initial commit
-	cmd = exec.CommandContext(ctx, "git", "add", ".")
-	cmd.Dir = dir
-	_ = cmd.Run()
-
-	cmd = exec.CommandContext(ctx, "git", "commit", "-m", "Initial commit", "--allow-empty")
-	cmd.Dir = dir
-	_ = cmd.Run()
 }

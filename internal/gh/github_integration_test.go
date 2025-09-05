@@ -6,30 +6,14 @@ package gh
 import (
 	"context"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
 )
-
-// isMainBranch checks if a branch name is one of the configured main branches
-func isMainBranch(branchName string) bool {
-	mainBranches := os.Getenv("MAIN_BRANCHES")
-	if mainBranches == "" {
-		mainBranches = "master,main"
-	}
-
-	branches := strings.Split(mainBranches, ",")
-	for _, branch := range branches {
-		if strings.TrimSpace(branch) == branchName {
-			return true
-		}
-	}
-
-	return false
-}
 
 func TestGitHubClient_Integration(t *testing.T) {
 	// Skip if no GitHub token is available
@@ -43,7 +27,7 @@ func TestGitHubClient_Integration(t *testing.T) {
 
 	ctx := context.Background()
 
-	client, err := NewClient(ctx, logrus.New())
+	client, err := NewClient(ctx, logrus.New(), &logging.LogConfig{})
 	require.NoError(t, err)
 
 	// Test with a well-known public repository

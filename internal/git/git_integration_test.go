@@ -12,10 +12,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
 )
 
 func TestGitClient_FullWorkflow_Integration(t *testing.T) {
-	client, err := NewClient(logrus.New())
+	client, err := NewClient(logrus.New(), &logging.LogConfig{})
 	require.NoError(t, err)
 
 	ctx := context.Background()
