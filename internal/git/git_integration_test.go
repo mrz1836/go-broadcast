@@ -6,6 +6,7 @@ package git
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -29,6 +30,14 @@ func TestGitClient_FullWorkflow_Integration(t *testing.T) {
 		err := client.Clone(ctx, "https://github.com/octocat/Hello-World.git", repoPath)
 		require.NoError(t, err)
 		assert.DirExists(t, filepath.Join(repoPath, ".git"))
+
+		// Set git config for CI environments that don't have global git config
+		configCmd := exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.email", "test@example.com") //nolint:gosec // repoPath is from t.TempDir()
+		err = configCmd.Run()
+		require.NoError(t, err)
+		configCmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.name", "Test User") //nolint:gosec // repoPath is from t.TempDir()
+		err = configCmd.Run()
+		require.NoError(t, err)
 	})
 
 	// Work with the cloned repository
