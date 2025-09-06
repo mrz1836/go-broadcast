@@ -356,7 +356,7 @@ jobs:
             # Process both test failures and build failures
 
             # First handle regular test failures
-            if grep -oE '\([^)]+\)' test-failures.txt 2>/dev/null | sed 's/[()]//g' | sort -u > "$TEMP_PACKAGES"; then
+            if grep -oE 'FAIL:.*\(([^)]+)\)' test-failures.txt 2>/dev/null | sed -E 's/.*\(([^):]+)[^)]*\).*/\1/' | sort -u > "$TEMP_PACKAGES"; then
               echo "📦 Found packages with test failures:"
               cat "$TEMP_PACKAGES"
 

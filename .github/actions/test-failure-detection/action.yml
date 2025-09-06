@@ -127,7 +127,7 @@ runs:
               if (.Output and .Output != null and .Output != "") then
                 # Try to extract file:line from Output field
                 (.Output | match("([^:]+\\.go):(\\d+):"; "g") |
-                  "--- FAIL: \(if (.Test and .Test != null and .Test != "null") then .Test else "unknown" end) (\(.Package):\(.captures[1].string))")
+                  "--- FAIL: \(if (.Test and .Test != null and .Test != "null") then .Test else "unknown" end) (\(.Package):\(.captures[0].string))")
                 // "--- FAIL: \(if (.Test and .Test != null and .Test != "null") then .Test else "unknown" end) (\(.Package))"
               else
                 "--- FAIL: \(if (.Test and .Test != null and .Test != "null") then .Test else "unknown" end) (\(.Package))"
@@ -162,14 +162,19 @@ runs:
             # Create temporary array for build failures
             echo '[]' > "${signatures_file}.build"
 
+            # Extract all build-output entries once before the loop for better performance
+            local all_build_outputs
+            all_build_outputs=$(grep '^{' "$json_file" 2>/dev/null | \
+              jq -r 'select(.Action == "build-output" and .ImportPath) |
+                     (.ImportPath | split(" ")[0]) + "\t" + .Output' 2>/dev/null)
+
             while IFS= read -r pkg; do
               if [[ -n "$pkg" ]]; then
                 echo "--- BUILD FAILED: $pkg" >> "$failures_file"
 
-                # Extract build error messages for this package
+                # Extract build error messages for this package from pre-extracted data
                 local build_errors
-                build_errors=$(grep '^{' "$json_file" 2>/dev/null | \
-                  jq -r --arg pkg "$pkg" 'select(.ImportPath and (.ImportPath | startswith($pkg + " ")) and .Action == "build-output") | .Output' 2>/dev/null | \
+                build_errors=$(echo "$all_build_outputs" | grep "^$pkg	" | cut -f2 | \
                   grep -E "^[^[:space:]]" | head -10)  # Limit to first 10 error lines
 
                 local error_output=""
