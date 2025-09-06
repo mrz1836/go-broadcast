@@ -360,8 +360,13 @@ jobs:
                   "\n" + .output' deduplicated-failures.json 2>/dev/null | sed 's/^/  /' | head -c 2000
               fi
 
-              # Show test failures
-              TEST_FAILURES=$(jq -r '.[] | select(.type == "test") | "  📦 " + (.package | split("/") | .[-1] // .[-2] // .) + ": " + .test + " (" + (.occurrences | tostring) + " matrix jobs)"' deduplicated-failures.json 2>/dev/null)
+              # Show test failures with line numbers when available
+              TEST_FAILURES=$(jq -r '.[] | select(.type == "test") |
+                if (.line_number and .line_number != null) then
+                  "  📦 " + (.package | split("/") | .[-1] // .[-2] // .) + ": " + .test + ":" + (.line_number | tostring) + " (" + (.occurrences | tostring) + " matrix jobs)"
+                else
+                  "  📦 " + (.package | split("/") | .[-1] // .[-2] // .) + ": " + .test + " (" + (.occurrences | tostring) + " matrix jobs)"
+                end' deduplicated-failures.json 2>/dev/null)
               if [[ -n "$TEST_FAILURES" ]]; then
                 echo ""
                 echo "🧪 Test Failures:"
