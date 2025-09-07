@@ -293,33 +293,32 @@ runs:
         else
           echo "⚠️ JSON creation failed, creating minimal statistics file"
           # Create minimal fallback JSON
-          cat > "$STATS_FILE" << EOF
-          {
-            "name": "${{ inputs.matrix-name }}",
-            "os": "${{ inputs.matrix-os }}",
-            "go_version": "${{ inputs.matrix-go-version }}",
-            "test_mode": "$OUTPUT_MODE",
-            "duration_seconds": $TEST_DURATION,
-            "test_count": ${TEST_COUNT:-0},
-            "benchmark_count": ${BENCHMARK_COUNT:-0},
-            "status": "${{ inputs.job-status }}",
-            "test_exit_code": ${TEST_EXIT_CODE:-0},
-            "test_passed": $TEST_PASSED,
-            "total_failures": ${TOTAL_FAILURES:-0},
-            "affected_packages": ${AFFECTED_PACKAGES:-0},
-            "failure_details": [],
-            "output_size_bytes": ${OUTPUT_SIZE:-0},
-            "race_enabled": $RACE_ENABLED,
-            "coverage_enabled": $COVERAGE_ENABLED,
-            "fuzz_run": $FUZZ_RUN,
-            "fuzz_test_count": ${FUZZ_TEST_COUNT:-0},
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "loc_test_files": "$LOC_TEST_FILES",
-            "loc_go_files": "$LOC_GO_FILES",
-            "loc_total": "$LOC_TOTAL",
-            "loc_date": "$LOC_DATE"
-          }
-          EOF
+          printf '%s\n' \
+            '{' \
+            '  "name": "'"${{ inputs.matrix-name }}"'",' \
+            '  "os": "'"${{ inputs.matrix-os }}"'",' \
+            '  "go_version": "'"${{ inputs.matrix-go-version }}"'",' \
+            '  "test_mode": "'"$OUTPUT_MODE"'",' \
+            '  "duration_seconds": '"$TEST_DURATION"',' \
+            '  "test_count": '"${TEST_COUNT:-0}"',' \
+            '  "benchmark_count": '"${BENCHMARK_COUNT:-0}"',' \
+            '  "status": "'"${{ inputs.job-status }}"'",' \
+            '  "test_exit_code": '"${TEST_EXIT_CODE:-0}"',' \
+            '  "test_passed": '"$TEST_PASSED"',' \
+            '  "total_failures": '"${TOTAL_FAILURES:-0}"',' \
+            '  "affected_packages": '"${AFFECTED_PACKAGES:-0}"',' \
+            '  "failure_details": [],' \
+            '  "output_size_bytes": '"${OUTPUT_SIZE:-0}"',' \
+            '  "race_enabled": '"$RACE_ENABLED"',' \
+            '  "coverage_enabled": '"$COVERAGE_ENABLED"',' \
+            '  "fuzz_run": '"$FUZZ_RUN"',' \
+            '  "fuzz_test_count": '"${FUZZ_TEST_COUNT:-0}"',' \
+            '  "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",' \
+            '  "loc_test_files": "'"$LOC_TEST_FILES"'",' \
+            '  "loc_go_files": "'"$LOC_GO_FILES"'",' \
+            '  "loc_total": "'"$LOC_TOTAL"'",' \
+            '  "loc_date": "'"$LOC_DATE"'"' \
+            '}' > "$STATS_FILE"
           JSON_CREATE_SUCCESS=true
           echo "📊 Minimal test statistics generated successfully:"
         fi
