@@ -71,6 +71,8 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		// Add broad GetChangedFiles mock to handle all calls
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -150,6 +152,9 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target") && strings.Contains(path, "target-success")
 		})).Return("success-sha", nil).Once()
+		gitClient.On("GetChangedFiles", mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.Contains(path, "/target") && strings.Contains(path, "target-success")
+		})).Return([]string{"file1.txt"}, nil).Once()
 		gitClient.On("Push", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		}), "origin", mock.AnythingOfType("string"), false).Return(nil).Once()
@@ -208,6 +213,9 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		})).Return("fallback-sha", nil).Maybe()
+		gitClient.On("GetChangedFiles", mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.Contains(path, "/target")
+		})).Return([]string{}, nil).Maybe()
 		gitClient.On("Push", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		}), "origin", mock.AnythingOfType("string"), false).Return(nil).Maybe()
@@ -298,6 +306,8 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		// Add broad GetChangedFiles mock to handle all calls
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -375,6 +385,9 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		})).Return("new-pr-sha", nil).Maybe()
+		gitClient.On("GetChangedFiles", mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.Contains(path, "/target")
+		})).Return([]string{"new-file.txt"}, nil).Maybe()
 		gitClient.On("Push", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		}), "origin", mock.AnythingOfType("string"), false).Return(nil).Maybe()
@@ -418,6 +431,9 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		})).Return("update-pr-sha", nil).Maybe()
+		gitClient.On("GetChangedFiles", mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.Contains(path, "/target")
+		})).Return([]string{"updated-file.txt"}, nil).Maybe()
 		gitClient.On("Push", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		}), "origin", mock.AnythingOfType("string"), false).Return(nil).Maybe()
@@ -541,6 +557,8 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		// Add broad GetChangedFiles mock to handle all calls
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 

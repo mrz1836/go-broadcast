@@ -112,6 +112,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		gitClient.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		gitClient.On("Commit", mock.Anything, mock.Anything, mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("commit-sha", nil)
+		gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"file1.txt"}, nil)
 		gitClient.On("Push", mock.Anything, mock.Anything, "origin", mock.AnythingOfType("string"), false).Return(nil)
 
 		// Mock transform operations
@@ -227,6 +228,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		gitClient.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		gitClient.On("Commit", mock.Anything, mock.Anything, mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("commit-sha", nil)
+		gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"file1.txt"}, nil)
 		gitClient.On("Push", mock.Anything, mock.Anything, "origin", mock.AnythingOfType("string"), false).Return(nil)
 
 		// Mock transform operations
@@ -337,6 +339,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		gitClient.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		gitClient.On("Commit", mock.Anything, mock.Anything, mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("commit-sha", nil)
+		gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"file1.txt"}, nil)
 		gitClient.On("Push", mock.Anything, mock.Anything, "origin", mock.AnythingOfType("string"), false).Return(nil)
 
 		// Mock transform operations
@@ -442,6 +445,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		gitClient.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		gitClient.On("Commit", mock.Anything, mock.Anything, mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("commit-sha", nil)
+		gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"file1.txt"}, nil)
 		gitClient.On("Push", mock.Anything, mock.Anything, "origin", mock.AnythingOfType("string"), false).Return(nil)
 
 		// Mock transform operations

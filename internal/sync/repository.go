@@ -59,10 +59,12 @@ type PerformanceMetrics struct {
 
 // FileProcessingMetrics tracks metrics for individual file processing
 type FileProcessingMetrics struct {
-	FilesProcessed   int
-	FilesChanged     int
-	FilesSkipped     int
-	ProcessingTimeMs int64
+	FilesProcessed       int   // Total files discovered/examined (for compatibility)
+	FilesChanged         int   // Files that actually changed in git (what appears in PR)
+	FilesAttempted       int   // Files go-broadcast attempted to change (before git filtering)
+	FilesSkipped         int   // Files skipped during processing
+	ProcessingTimeMs     int64 // Time spent processing files
+	FilesActuallyChanged int   // Alias for FilesChanged for clarity
 }
 
 // Execute performs the complete sync operation for this repository
@@ -178,13 +180,9 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		}
 	}
 
-	// Update FileMetrics to include directory files in the totals
-	rs.syncMetrics.FileMetrics = FileProcessingMetrics{
-		FilesProcessed:   rs.syncMetrics.FileMetrics.FilesProcessed + totalDirectoryFiles,
-		FilesChanged:     len(allChanges), // Total actual changes (files + directories)
-		FilesSkipped:     (rs.syncMetrics.FileMetrics.FilesProcessed + totalDirectoryFiles) - len(allChanges),
-		ProcessingTimeMs: fileProcessingDuration.Milliseconds(),
-	}
+	// Store attempted changes for metrics calculation after commit
+	totalFilesProcessed := rs.syncMetrics.FileMetrics.FilesProcessed + totalDirectoryFiles
+	filesAttempted := len(allChanges)
 
 	rs.logger.WithFields(logrus.Fields{
 		"file_changes":      len(changedFiles),
@@ -208,7 +206,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		AddField(logging.StandardFields.BranchName, branchName).
 		AddField("changed_files", len(allChanges))
 
-	commitSHA, err := rs.commitChanges(ctx, branchName, allChanges)
+	commitSHA, actualChangedFiles, err := rs.commitChanges(ctx, branchName, allChanges)
 	if err != nil {
 		commitTimer.StopWithError(err)
 		// Check if it's because there are no changes to sync
@@ -225,6 +223,23 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		return fmt.Errorf("failed to commit changes: %w", err)
 	}
 	commitTimer.AddField("commit_sha", commitSHA).Stop()
+
+	// Update FileMetrics with actual git changes (not just attempted changes)
+	rs.syncMetrics.FileMetrics = FileProcessingMetrics{
+		FilesProcessed:       totalFilesProcessed,
+		FilesChanged:         len(actualChangedFiles), // Files that actually changed in git commit
+		FilesAttempted:       filesAttempted,          // Files go-broadcast attempted to change
+		FilesSkipped:         totalFilesProcessed - filesAttempted,
+		ProcessingTimeMs:     fileProcessingDuration.Milliseconds(),
+		FilesActuallyChanged: len(actualChangedFiles), // Alias for clarity
+	}
+
+	rs.logger.WithFields(logrus.Fields{
+		"files_processed":        totalFilesProcessed,
+		"files_attempted":        filesAttempted,
+		"files_actually_changed": len(actualChangedFiles),
+		"files_skipped":          totalFilesProcessed - filesAttempted,
+	}).Info("Updated metrics with actual git changes")
 
 	// 8. Push changes (unless dry-run)
 	if !rs.engine.options.DryRun {
@@ -248,7 +263,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		AddField("commit_sha", commitSHA).
 		AddField("changed_files", len(allChanges))
 
-	if err := rs.createOrUpdatePR(ctx, branchName, commitSHA, allChanges); err != nil {
+	if err := rs.createOrUpdatePR(ctx, branchName, commitSHA, allChanges, actualChangedFiles); err != nil {
 		prTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
 		return fmt.Errorf("failed to create/update PR: %w", err)
@@ -634,10 +649,10 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 	return branchName
 }
 
-// commitChanges creates a commit with the changed files
-func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, changedFiles []FileChange) (string, error) {
+// commitChanges creates a commit with the changed files and returns commit SHA and actual changed files
+func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, changedFiles []FileChange) (string, []string, error) {
 	if len(changedFiles) == 0 {
-		return "", internalerrors.ErrNoFilesToCommit
+		return "", nil, internalerrors.ErrNoFilesToCommit
 	}
 
 	// Generate commit message
@@ -652,7 +667,12 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 	if rs.engine.options.DryRun {
 		rs.showDryRunCommitInfo(changedFiles)
 		rs.showDryRunFileChanges(changedFiles)
-		return "dry-run-commit-sha", nil
+		// For dry run, return the expected files as if they all changed
+		dryRunFiles := make([]string, len(changedFiles))
+		for i, file := range changedFiles {
+			dryRunFiles[i] = file.Path
+		}
+		return "dry-run-commit-sha", dryRunFiles, nil
 	}
 
 	// Clone the target repository for making changes
@@ -660,7 +680,7 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 	targetURL := fmt.Sprintf("https://github.com/%s.git", rs.target.Repo)
 
 	if err := rs.engine.git.Clone(ctx, targetURL, targetPath); err != nil {
-		return "", fmt.Errorf("failed to clone target repository: %w", err)
+		return "", nil, fmt.Errorf("failed to clone target repository: %w", err)
 	}
 
 	// Create and checkout the new branch
@@ -670,15 +690,15 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 			rs.logger.WithField("branch", branchName).Warn("Branch already exists locally, checking out existing branch")
 			// Try to checkout the existing branch instead
 			if checkoutErr := rs.engine.git.Checkout(ctx, targetPath, branchName); checkoutErr != nil {
-				return "", fmt.Errorf("failed to checkout existing branch %s: %w", branchName, checkoutErr)
+				return "", nil, fmt.Errorf("failed to checkout existing branch %s: %w", branchName, checkoutErr)
 			}
 		} else {
-			return "", fmt.Errorf("failed to create branch %s: %w", branchName, err)
+			return "", nil, fmt.Errorf("failed to create branch %s: %w", branchName, err)
 		}
 	} else {
 		// Branch was created successfully, checkout
 		if err := rs.engine.git.Checkout(ctx, targetPath, branchName); err != nil {
-			return "", fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
+			return "", nil, fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
 		}
 	}
 
@@ -688,18 +708,18 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 
 		// Ensure parent directory exists
 		if err := os.MkdirAll(filepath.Dir(destPath), 0o750); err != nil {
-			return "", fmt.Errorf("failed to create directory for %s: %w", fileChange.Path, err)
+			return "", nil, fmt.Errorf("failed to create directory for %s: %w", fileChange.Path, err)
 		}
 
 		// Write the file content
 		if err := os.WriteFile(destPath, fileChange.Content, 0o600); err != nil {
-			return "", fmt.Errorf("failed to write file %s: %w", fileChange.Path, err)
+			return "", nil, fmt.Errorf("failed to write file %s: %w", fileChange.Path, err)
 		}
 	}
 
 	// Stage all changes
 	if err := rs.engine.git.Add(ctx, targetPath, "."); err != nil {
-		return "", fmt.Errorf("failed to stage changes: %w", err)
+		return "", nil, fmt.Errorf("failed to stage changes: %w", err)
 	}
 
 	// Create the commit
@@ -713,18 +733,29 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 			}).Info("No changes to commit - files are already synchronized")
 
 			// Return special error to indicate no actual changes
-			return "", internalerrors.ErrNoChangesToSync
+			return "", nil, internalerrors.ErrNoChangesToSync
 		}
-		return "", fmt.Errorf("failed to create commit: %w", err)
+		return "", nil, fmt.Errorf("failed to create commit: %w", err)
 	}
 
 	// Get the commit SHA
 	commitSHA, err := rs.engine.git.GetCurrentCommitSHA(ctx, targetPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to get commit SHA: %w", err)
+		return "", nil, fmt.Errorf("failed to get commit SHA: %w", err)
 	}
 
-	return commitSHA, nil
+	// Get the actual files that were changed in the commit
+	actualChangedFiles, err := rs.engine.git.GetChangedFiles(ctx, targetPath)
+	if err != nil {
+		rs.logger.WithError(err).Warn("Failed to get actual changed files, using all attempted files")
+		// Fallback to using all the files we attempted to change
+		actualChangedFiles = make([]string, len(changedFiles))
+		for i, file := range changedFiles {
+			actualChangedFiles[i] = file.Path
+		}
+	}
+
+	return commitSHA, actualChangedFiles, nil
 }
 
 // pushChanges pushes the branch to the target repository
@@ -757,15 +788,15 @@ func (rs *RepositorySync) pushChanges(ctx context.Context, branchName string) er
 }
 
 // createOrUpdatePR creates a new PR or updates an existing one
-func (rs *RepositorySync) createOrUpdatePR(ctx context.Context, branchName, commitSHA string, changedFiles []FileChange) error {
+func (rs *RepositorySync) createOrUpdatePR(ctx context.Context, branchName, commitSHA string, changedFiles []FileChange, actualChangedFiles []string) error {
 	// Check if PR already exists for this branch
 	existingPR := rs.findExistingPR(branchName)
 
 	if existingPR != nil {
-		return rs.updateExistingPR(ctx, existingPR, commitSHA, changedFiles)
+		return rs.updateExistingPR(ctx, existingPR, commitSHA, changedFiles, actualChangedFiles)
 	}
 
-	return rs.createNewPR(ctx, branchName, commitSHA, changedFiles)
+	return rs.createNewPR(ctx, branchName, commitSHA, changedFiles, actualChangedFiles)
 }
 
 // findExistingPR finds an existing PR for the sync branch
@@ -808,9 +839,9 @@ func (rs *RepositorySync) checkForExistingPRViAPI(ctx context.Context, branchNam
 }
 
 // createNewPR creates a new pull request
-func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA string, changedFiles []FileChange) error {
+func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA string, changedFiles []FileChange, actualChangedFiles []string) error {
 	title := rs.generatePRTitle()
-	body := rs.generatePRBody(commitSHA, changedFiles)
+	body := rs.generatePRBody(commitSHA, changedFiles, actualChangedFiles)
 
 	rs.logger.WithFields(logrus.Fields{
 		"branch": branchName,
@@ -890,7 +921,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 					"branch_name": branchName,
 				}).Info("Found existing PR for branch - updating instead of creating new one")
 				// Update the existing PR instead
-				return rs.updateExistingPR(ctx, existingPR, commitSHA, changedFiles)
+				return rs.updateExistingPR(ctx, existingPR, commitSHA, changedFiles, nil) // TODO: Pass actualChangedFiles when available
 			}
 
 			// If no existing PR found, try branch cleanup and retry
@@ -920,7 +951,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 }
 
 // updateExistingPR updates an existing pull request
-func (rs *RepositorySync) updateExistingPR(ctx context.Context, pr *gh.PR, commitSHA string, changedFiles []FileChange) error {
+func (rs *RepositorySync) updateExistingPR(ctx context.Context, pr *gh.PR, commitSHA string, changedFiles []FileChange, actualChangedFiles []string) error {
 	rs.logger.WithField("pr_number", pr.Number).Info("Updating existing pull request")
 
 	if rs.engine.options.DryRun {
@@ -942,7 +973,7 @@ func (rs *RepositorySync) updateExistingPR(ctx context.Context, pr *gh.PR, commi
 	}
 
 	// Update PR body with new information
-	newBody := rs.generatePRBody(commitSHA, changedFiles)
+	newBody := rs.generatePRBody(commitSHA, changedFiles, actualChangedFiles)
 
 	// Update the PR via GitHub API
 	updates := gh.PRUpdate{
@@ -977,12 +1008,12 @@ func (rs *RepositorySync) generatePRTitle() string {
 }
 
 // generatePRBody creates a detailed PR description with metadata including directory sync info
-func (rs *RepositorySync) generatePRBody(commitSHA string, changedFiles []FileChange) string {
+func (rs *RepositorySync) generatePRBody(commitSHA string, changedFiles []FileChange, actualChangedFiles []string) string {
 	var sb strings.Builder
 
 	// What Changed section with enhanced details
 	sb.WriteString("## What Changed\n")
-	rs.writeChangeSummary(&sb, changedFiles)
+	rs.writeChangeSummary(&sb, changedFiles, actualChangedFiles)
 	shortSHA := commitSHA
 	if len(commitSHA) > 7 {
 		shortSHA = commitSHA[:7]
@@ -1023,17 +1054,28 @@ func (rs *RepositorySync) generatePRBody(commitSHA string, changedFiles []FileCh
 }
 
 // writeChangeSummary writes a detailed summary of what changed in the sync
-func (rs *RepositorySync) writeChangeSummary(sb *strings.Builder, changedFiles []FileChange) {
-	// Distinguish between file changes and directory changes
+func (rs *RepositorySync) writeChangeSummary(sb *strings.Builder, changedFiles []FileChange, actualChangedFiles []string) {
+	// Use actualChangedFiles (files that actually changed in git) for accurate counts
 	fileChanges := 0
 	directoryChanges := 0
 
-	// Count changes by type - files vs directories
-	for _, change := range changedFiles {
-		if rs.isDirectoryFile(change.Path) {
-			directoryChanges++
-		} else {
-			fileChanges++
+	if actualChangedFiles != nil {
+		// Count actual changes by type - files vs directories
+		for _, filePath := range actualChangedFiles {
+			if rs.isDirectoryFile(filePath) {
+				directoryChanges++
+			} else {
+				fileChanges++
+			}
+		}
+	} else {
+		// Fallback to attempted changes if actualChangedFiles not available
+		for _, change := range changedFiles {
+			if rs.isDirectoryFile(change.Path) {
+				directoryChanges++
+			} else {
+				fileChanges++
+			}
 		}
 	}
 
@@ -1105,12 +1147,18 @@ func (rs *RepositorySync) writePerformanceMetrics(sb *strings.Builder) {
 		fmt.Fprintf(sb, "* **Total sync time**: %s\n", totalDuration.Round(time.Millisecond))
 	}
 
-	// File processing metrics (now includes both individual files and directory files)
+	// File processing metrics (now shows actual git changes vs examined files)
 	if rs.syncMetrics.FileMetrics.FilesProcessed > 0 {
 		fmt.Fprintf(sb, "* **Files processed**: %d (%d changed, %d skipped)\n",
 			rs.syncMetrics.FileMetrics.FilesProcessed,
 			rs.syncMetrics.FileMetrics.FilesChanged,
 			rs.syncMetrics.FileMetrics.FilesSkipped)
+
+		// Show breakdown of what happened to examined files
+		if rs.syncMetrics.FileMetrics.FilesAttempted > 0 {
+			fmt.Fprintf(sb, "* **Files attempted to change**: %d (go-broadcast processing)\n",
+				rs.syncMetrics.FileMetrics.FilesAttempted)
+		}
 
 		if rs.syncMetrics.FileMetrics.ProcessingTimeMs > 0 {
 			fmt.Fprintf(sb, "* **File processing time**: %dms\n", rs.syncMetrics.FileMetrics.ProcessingTimeMs)
@@ -1506,7 +1554,7 @@ func (rs *RepositorySync) showDryRunPRPreview(ctx context.Context, branchName, c
 	}).Debug("Showing PR preview")
 
 	title := rs.generatePRTitle()
-	body := rs.generatePRBody(commitSHA, changedFiles)
+	body := rs.generatePRBody(commitSHA, changedFiles, nil) // actualChangedFiles not available in dry-run
 	out := NewDryRunOutput(nil)
 
 	out.Header("DRY-RUN: Pull Request Preview")

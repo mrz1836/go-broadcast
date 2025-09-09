@@ -317,6 +317,28 @@ func parseRepositoryURL(remoteURL string) (*RepositoryInfo, error) {
 	}, nil
 }
 
+// GetChangedFiles returns the list of files that changed in the last commit
+func (g *gitClient) GetChangedFiles(ctx context.Context, repoPath string) ([]string, error) {
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "diff", "--name-only", "HEAD~1")
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "get changed files")
+	}
+
+	files := strings.Split(strings.TrimSpace(string(output)), "\n")
+
+	// Filter out empty strings
+	var result []string
+	for _, file := range files {
+		if file != "" {
+			result = append(result, file)
+		}
+	}
+
+	return result, nil
+}
+
 // runCommand executes a git command with comprehensive debug logging support.
 //
 // This method provides detailed visibility into git command execution when debug

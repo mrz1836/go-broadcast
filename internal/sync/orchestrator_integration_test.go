@@ -161,6 +161,7 @@ func TestOrchestrator_MultiGroupSync(t *testing.T) {
 	gitClient.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	gitClient.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("commit-sha-123", nil)
+	gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"changed-file.txt"}, nil)
 
 	// Mock PR creation (should be called twice for Group A targets)
 	prCreateCount := 0
@@ -287,6 +288,7 @@ func TestOrchestratorIntegration_ExistingBranchRecovery(t *testing.T) {
 		gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
 		gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("newcommit123", nil)
+		gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"README.md", "config.yml"}, nil)
 
 		// Simulate existing branch scenario: first push fails, force push succeeds
 		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false).Return(git.ErrBranchAlreadyExists)
@@ -407,6 +409,7 @@ func TestOrchestratorIntegration_ExistingBranchRecovery(t *testing.T) {
 		gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
 		gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("localcommit456", nil)
+		gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"README.md"}, nil)
 		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false).Return(nil)
 
 		// Mock GitHub operations

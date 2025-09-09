@@ -112,6 +112,7 @@ func TestRepositorySync_Execute(t *testing.T) {
 		gitClient.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		gitClient.On("Commit", mock.Anything, mock.Anything, mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("new123", nil)
+		gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"file1.txt", "file2.txt"}, nil)
 		gitClient.On("Push", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// Mock transformations (return different content to trigger changes)
@@ -407,7 +408,7 @@ func TestRepositorySync_generatePRBody(t *testing.T) {
 		{Path: "new-file.txt", IsNew: true},
 	}
 
-	body := repoSync.generatePRBody("commit456", files)
+	body := repoSync.generatePRBody("commit456", files, nil)
 
 	// Verify key components are present
 	assert.Contains(t, body, "## What Changed")
@@ -1217,7 +1218,7 @@ func TestCreateNewPR_WithReviewerFiltering(t *testing.T) {
 	}
 
 	// Test creating PR
-	err := rs.createNewPR(ctx, "test-branch", "abc123", []FileChange{})
+	err := rs.createNewPR(ctx, "test-branch", "abc123", []FileChange{}, nil)
 	require.NoError(t, err)
 
 	ghClient.AssertExpectations(t)
@@ -1278,7 +1279,7 @@ func TestCreateNewPR_GetCurrentUserFailure(t *testing.T) {
 	}
 
 	// Test creating PR - should succeed despite GetCurrentUser failure
-	err := rs.createNewPR(ctx, "test-branch", "abc123", []FileChange{})
+	err := rs.createNewPR(ctx, "test-branch", "abc123", []FileChange{}, nil)
 	require.NoError(t, err)
 
 	ghClient.AssertExpectations(t)
@@ -1332,7 +1333,7 @@ func TestRepositorySync_commitChanges_NoChanges(t *testing.T) {
 		{Path: "file1.txt", Content: []byte("content1")},
 	}
 
-	commitSHA, err := rs.commitChanges(ctx, "test-branch", changedFiles)
+	commitSHA, _, err := rs.commitChanges(ctx, "test-branch", changedFiles)
 
 	// Should not return an error and should return the existing commit SHA
 	require.NoError(t, err)
@@ -1389,7 +1390,7 @@ func TestRepositorySync_commitChanges_NoChanges_GetSHAError(t *testing.T) {
 		{Path: "file1.txt", Content: []byte("content1")},
 	}
 
-	_, err = rs.commitChanges(ctx, "test-branch", changedFiles)
+	_, _, err = rs.commitChanges(ctx, "test-branch", changedFiles)
 
 	// Should return an error about getting SHA
 	require.Error(t, err)
@@ -1759,6 +1760,7 @@ func TestRepositorySync_Execute_ExistingBranch(t *testing.T) {
 		gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
 		gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("commit123", nil)
+		gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"test.txt"}, nil)
 		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false).Return(nil)
 
 		// Mock GitHub operations - validation checks first
@@ -1850,6 +1852,7 @@ func TestRepositorySync_Execute_ExistingBranch(t *testing.T) {
 		gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
 		gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("commit123", nil)
+		gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"test.txt"}, nil)
 		// First push fails with branch exists error, second push (force) succeeds
 		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false).Return(git.ErrBranchAlreadyExists)
 		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), true).Return(nil)
@@ -1939,6 +1942,7 @@ func TestRepositorySync_Execute_ExistingBranch(t *testing.T) {
 		gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("[]string")).Return(nil)
 		gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("commit123", nil)
+		gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"test.txt"}, nil)
 		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false).Return(git.ErrBranchAlreadyExists)
 		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), true).Return(errTestForcePushFailed)
 

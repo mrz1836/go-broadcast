@@ -83,6 +83,8 @@ func testMultiRepoSyncWithConflicts(t *testing.T, generator *fixtures.TestRepoGe
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	mockGit := &git.MockClient{}
+	// Add broad GetChangedFiles mock to handle all calls
+	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -139,6 +141,7 @@ func testMultiRepoSyncWithConflicts(t *testing.T, generator *fixtures.TestRepoGe
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).
 		Return(nil).Maybe()
 	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
+	mockGit.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"changed-file.txt"}, nil)
 
 	// Mock transformations
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
@@ -240,6 +243,7 @@ func testPartialSyncFailureRecovery(t *testing.T, generator *fixtures.TestRepoGe
 			}
 		}).Return(nil)
 	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
+	mockGit.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"changed-file.txt"}, nil)
 	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 		Return(nil)
 	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
@@ -251,6 +255,7 @@ func testPartialSyncFailureRecovery(t *testing.T, generator *fixtures.TestRepoGe
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).
 		Return(nil)
 	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
+	mockGit.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"changed-file.txt"}, nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
 		Return([]byte("transformed content"), nil)
@@ -320,6 +325,8 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	mockGit := &git.MockClient{}
+	// Add broad GetChangedFiles mock to handle all calls
+	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -385,6 +392,7 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).
 		Return(nil)
 	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
+	mockGit.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"changed-file.txt"}, nil)
 
 	// Mock transformation that processes large files
 	mockTransform.On("Transform", mock.Anything, mock.MatchedBy(func(content []byte) bool {
@@ -499,6 +507,7 @@ func testConcurrentSyncOperations(t *testing.T, generator *fixtures.TestRepoGene
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).
 		Return(nil)
 	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
+	mockGit.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"changed-file.txt"}, nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
 		Return([]byte("transformed content"), nil)
@@ -574,6 +583,8 @@ func testMemoryUsageMonitoring(t *testing.T, generator *fixtures.TestRepoGenerat
 	// Setup mocks
 	mockGH := &gh.MockClient{}
 	mockGit := &git.MockClient{}
+	// Add broad GetChangedFiles mock to handle all calls
+	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -618,6 +629,7 @@ func testMemoryUsageMonitoring(t *testing.T, generator *fixtures.TestRepoGenerat
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
+	mockGit.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"changed-file.txt"}, nil)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).Return(nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
@@ -770,6 +782,7 @@ func testStateConsistencyAcrossFailures(t *testing.T, generator *fixtures.TestRe
 	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 	mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123def456", nil)
+	mockGit.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"changed-file.txt"}, nil)
 	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).Return(nil)
 
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).

@@ -51,4 +51,7 @@ type Client interface {
 
 	// GetRepositoryInfo extracts repository information from Git remote
 	GetRepositoryInfo(ctx context.Context, repoPath string) (*RepositoryInfo, error)
+
+	// GetChangedFiles returns the list of files that changed in the last commit
+	GetChangedFiles(ctx context.Context, repoPath string) ([]string, error)
 }

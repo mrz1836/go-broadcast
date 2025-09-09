@@ -1149,3 +1149,160 @@ func TestGitClient_FilterSensitiveEnvEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+// TestGetChangedFiles tests the GetChangedFiles function
+func TestGetChangedFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	testcases := []struct {
+		name        string
+		setupRepo   func(t *testing.T, repoPath string, client Client) // Setup repo with multiple commits
+		expectFiles []string
+		expectError bool
+	}{
+		{
+			name: "single file changed in last commit",
+			setupRepo: func(t *testing.T, repoPath string, client Client) {
+				ctx := context.Background()
+				configureGitUser(ctx, t, repoPath)
+
+				// First commit
+				err := os.WriteFile(filepath.Join(repoPath, "file1.txt"), []byte("initial content"), 0o600)
+				require.NoError(t, err)
+				err = client.Add(ctx, repoPath, ".")
+				require.NoError(t, err)
+				err = client.Commit(ctx, repoPath, "Initial commit")
+				require.NoError(t, err)
+
+				// Second commit with changes
+				err = os.WriteFile(filepath.Join(repoPath, "file2.txt"), []byte("new file"), 0o600)
+				require.NoError(t, err)
+				err = client.Add(ctx, repoPath, ".")
+				require.NoError(t, err)
+				err = client.Commit(ctx, repoPath, "Add file2")
+				require.NoError(t, err)
+			},
+			expectFiles: []string{"file2.txt"},
+			expectError: false,
+		},
+		{
+			name: "multiple files changed in last commit",
+			setupRepo: func(t *testing.T, repoPath string, client Client) {
+				ctx := context.Background()
+				configureGitUser(ctx, t, repoPath)
+
+				// First commit
+				err := os.WriteFile(filepath.Join(repoPath, "file1.txt"), []byte("initial content"), 0o600)
+				require.NoError(t, err)
+				err = client.Add(ctx, repoPath, ".")
+				require.NoError(t, err)
+				err = client.Commit(ctx, repoPath, "Initial commit")
+				require.NoError(t, err)
+
+				// Second commit with multiple file changes
+				err = os.WriteFile(filepath.Join(repoPath, "file2.txt"), []byte("new file"), 0o600)
+				require.NoError(t, err)
+				err = os.WriteFile(filepath.Join(repoPath, "file3.txt"), []byte("another file"), 0o600)
+				require.NoError(t, err)
+				// Modify existing file
+				err = os.WriteFile(filepath.Join(repoPath, "file1.txt"), []byte("modified content"), 0o600)
+				require.NoError(t, err)
+				err = client.Add(ctx, repoPath, ".")
+				require.NoError(t, err)
+				err = client.Commit(ctx, repoPath, "Add multiple files and modify existing")
+				require.NoError(t, err)
+			},
+			expectFiles: []string{"file1.txt", "file2.txt", "file3.txt"},
+			expectError: false,
+		},
+		{
+			name: "no files changed scenario",
+			setupRepo: func(t *testing.T, repoPath string, client Client) {
+				ctx := context.Background()
+				configureGitUser(ctx, t, repoPath)
+
+				// First commit
+				err := os.WriteFile(filepath.Join(repoPath, "file1.txt"), []byte("initial content"), 0o600)
+				require.NoError(t, err)
+				err = client.Add(ctx, repoPath, ".")
+				require.NoError(t, err)
+				err = client.Commit(ctx, repoPath, "Initial commit")
+				require.NoError(t, err)
+
+				// Second commit with same content (this would not happen in practice but tests the edge case)
+				// Use direct git command for --allow-empty since the client doesn't support it directly
+				cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "--allow-empty", "-m", "Empty commit")
+				err = cmd.Run()
+				require.NoError(t, err)
+			},
+			expectFiles: []string{},
+			expectError: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+
+			// Initialize repository
+			ctx := context.Background()
+			cmd := exec.CommandContext(ctx, "git", "-C", tempDir, "init") // #nosec G204
+			err := cmd.Run()
+			require.NoError(t, err)
+
+			// Create client and setup repo
+			logger := logrus.New()
+			client, err := NewClient(logger, nil)
+			require.NoError(t, err)
+			tc.setupRepo(t, tempDir, client)
+
+			// Test GetChangedFiles
+			files, err := client.GetChangedFiles(ctx, tempDir)
+
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				// Sort both slices for comparison since git may return files in different order
+				assert.ElementsMatch(t, tc.expectFiles, files)
+			}
+		})
+	}
+}
+
+// TestGetChangedFiles_InitialCommit tests GetChangedFiles behavior with only one commit (no HEAD~1)
+func TestGetChangedFiles_InitialCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	tempDir := t.TempDir()
+	ctx := context.Background()
+
+	// Initialize repository
+	cmd := exec.CommandContext(ctx, "git", "-C", tempDir, "init") // #nosec G204
+	err := cmd.Run()
+	require.NoError(t, err)
+	configureGitUser(ctx, t, tempDir)
+
+	// Create client
+	logger := logrus.New()
+	client, err := NewClient(logger, nil)
+	require.NoError(t, err)
+
+	// Only one commit (no HEAD~1 exists)
+	err = os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("initial content"), 0o600)
+	require.NoError(t, err)
+	err = client.Add(ctx, tempDir, ".")
+	require.NoError(t, err)
+	err = client.Commit(ctx, tempDir, "Initial commit")
+	require.NoError(t, err)
+
+	// GetChangedFiles should handle this gracefully (error expected since HEAD~1 doesn't exist)
+	files, err := client.GetChangedFiles(ctx, tempDir)
+	// We expect an error here since there's no HEAD~1
+	require.Error(t, err)
+	assert.Nil(t, files)
+}

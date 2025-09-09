@@ -92,3 +92,12 @@ func (m *MockClient) GetRepositoryInfo(ctx context.Context, repoPath string) (*R
 	}
 	return args.Get(0).(*RepositoryInfo), testutil.ExtractError(args)
 }
+
+// GetChangedFiles mock implementation
+func (m *MockClient) GetChangedFiles(ctx context.Context, repoPath string) ([]string, error) {
+	args := m.Called(ctx, repoPath)
+	if args.Get(0) == nil {
+		return nil, testutil.ExtractError(args)
+	}
+	return args.Get(0).([]string), testutil.ExtractError(args)
+}

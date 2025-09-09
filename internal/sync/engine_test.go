@@ -1005,6 +1005,9 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/target") && !strings.Contains(path, "target-1") && !strings.Contains(path, "target-2") && !strings.Contains(path, "target-3")
 		})).Return("generic-commit-sha", nil).Maybe()
+		gitClient.On("GetChangedFiles", mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.HasSuffix(path, "/target")
+		})).Return([]string{"generic-file.txt"}, nil).Maybe()
 		gitClient.On("Checkout", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/source")
 		}), "abc123").Return(nil)
@@ -1127,6 +1130,11 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "target-1")
 		})).Return("commit-sha-1", nil)
+		// Generic GetChangedFiles mock for all target paths
+		gitClient.On("GetChangedFiles", mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.HasSuffix(path, "/target")
+		})).Return([]string{"changed-file.txt"}, nil).Maybe()
+
 		gitClient.On("Push", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "target-1")
 		}), "origin", mock.AnythingOfType("string"), false).Return(nil)
@@ -1331,6 +1339,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 		gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("test-commit-sha", nil)
+		gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"test-file.txt"}, nil)
 		gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), "origin", mock.AnythingOfType("string"), false).Return(nil)
 
 		transformChain.On("Transform", mock.Anything, mock.Anything, mock.Anything).Return([]byte("transformed content"), nil)

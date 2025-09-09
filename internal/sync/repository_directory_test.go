@@ -69,7 +69,7 @@ func TestRepositorySync_generatePRBodyWithDirectories(t *testing.T) {
 		{Path: "documentation/api.md", IsNew: false},
 	}
 
-	body := repoSync.generatePRBody("commit456", files)
+	body := repoSync.generatePRBody("commit456", files, nil)
 
 	// Verify all sections are present
 	assert.Contains(t, body, "## What Changed")
@@ -311,7 +311,7 @@ func TestRepositorySync_writePerformanceMetricsEdgeCases(t *testing.T) {
 				syncMetrics: tt.syncMetrics,
 			}
 
-			body := repoSync.generatePRBody("commit456", []FileChange{})
+			body := repoSync.generatePRBody("commit456", []FileChange{}, nil)
 
 			for _, expected := range tt.expected {
 				assert.Contains(t, body, expected, "Expected content missing")
