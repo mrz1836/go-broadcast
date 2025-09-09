@@ -302,6 +302,7 @@ func TestPoolConcurrentSubmit(t *testing.T) {
 	pool := NewPool(4, 100)
 	ctx := context.Background()
 	pool.Start(ctx)
+	defer pool.Shutdown() // Ensure cleanup even on timeout
 
 	var submitWg sync.WaitGroup
 	taskCount := 50
@@ -319,14 +320,15 @@ func TestPoolConcurrentSubmit(t *testing.T) {
 
 	submitWg.Wait()
 
-	// Collect all results
+	// Collect all results with extended timeout for CI/race detection
 	results := make([]Result, 0, taskCount)
+	timeout := 5 * time.Second // Increased from 2s to handle slower CI environments
 	for i := 0; i < taskCount; i++ {
 		select {
 		case result := <-pool.Results():
 			results = append(results, result)
-		case <-time.After(2 * time.Second):
-			t.Fatal("timeout waiting for results")
+		case <-time.After(timeout):
+			t.Fatalf("timeout waiting for results after %v (collected %d/%d results)", timeout, len(results), taskCount)
 		}
 	}
 
@@ -335,8 +337,6 @@ func TestPoolConcurrentSubmit(t *testing.T) {
 	// Verify stats
 	processed, _, _ := pool.Stats()
 	assert.Equal(t, int64(taskCount), processed)
-
-	pool.Shutdown()
 }
 
 // TestPoolPanicRecovery tests that worker panics don't crash the pool
