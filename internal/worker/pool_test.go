@@ -311,7 +311,7 @@ func TestPoolConcurrentSubmit(t *testing.T) {
 		submitWg.Add(1)
 		go func(id int) {
 			defer submitWg.Done()
-			task := &mockTask{name: string(rune(id))}
+			task := &mockTask{name: fmt.Sprintf("task-%d", id)}
 			err := pool.Submit(task)
 			assert.NoError(t, err)
 		}(i)
