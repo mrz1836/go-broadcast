@@ -6,6 +6,9 @@
 sync.yaml
 sync-bk.yaml
 
+# Plans
+.plans
+
 ########################
 # Go Language          #
 ########################
