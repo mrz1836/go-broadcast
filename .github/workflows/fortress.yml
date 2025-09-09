@@ -94,7 +94,7 @@ jobs:
   # Setup Configuration Workflow
   # ----------------------------------------------------------------------------------
   setup:
-    name: 🎯 Setup Configuration
+    name: 🔧 Setup Configuration
     needs: [load-env]
     permissions:
       contents: read # Read repository content for setup configuration
