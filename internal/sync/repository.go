@@ -144,7 +144,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	}
 	fileProcessingDuration := time.Since(fileProcessingStart)
 
-	// Update file processing metrics
+	// Store initial file processing metrics (will be updated after directory processing)
 	rs.syncMetrics.FileMetrics = FileProcessingMetrics{
 		FilesProcessed:   len(rs.target.Files),
 		FilesChanged:     len(changedFiles),
@@ -168,6 +168,23 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 
 	// Combine file and directory changes
 	allChanges := append(changedFiles, directoryChanges...)
+
+	// Update file processing metrics to reflect the complete picture
+	// This ensures metrics accurately represent what was actually processed
+	totalDirectoryFiles := 0
+	if rs.syncMetrics.DirectoryMetrics != nil {
+		for _, metrics := range rs.syncMetrics.DirectoryMetrics {
+			totalDirectoryFiles += metrics.FilesProcessed
+		}
+	}
+
+	// Update FileMetrics to include directory files in the totals
+	rs.syncMetrics.FileMetrics = FileProcessingMetrics{
+		FilesProcessed:   rs.syncMetrics.FileMetrics.FilesProcessed + totalDirectoryFiles,
+		FilesChanged:     len(allChanges), // Total actual changes (files + directories)
+		FilesSkipped:     (rs.syncMetrics.FileMetrics.FilesProcessed + totalDirectoryFiles) - len(allChanges),
+		ProcessingTimeMs: fileProcessingDuration.Milliseconds(),
+	}
 
 	rs.logger.WithFields(logrus.Fields{
 		"file_changes":      len(changedFiles),
@@ -1088,7 +1105,7 @@ func (rs *RepositorySync) writePerformanceMetrics(sb *strings.Builder) {
 		fmt.Fprintf(sb, "* **Total sync time**: %s\n", totalDuration.Round(time.Millisecond))
 	}
 
-	// File processing metrics
+	// File processing metrics (now includes both individual files and directory files)
 	if rs.syncMetrics.FileMetrics.FilesProcessed > 0 {
 		fmt.Fprintf(sb, "* **Files processed**: %d (%d changed, %d skipped)\n",
 			rs.syncMetrics.FileMetrics.FilesProcessed,
@@ -1098,21 +1115,6 @@ func (rs *RepositorySync) writePerformanceMetrics(sb *strings.Builder) {
 		if rs.syncMetrics.FileMetrics.ProcessingTimeMs > 0 {
 			fmt.Fprintf(sb, "* **File processing time**: %dms\n", rs.syncMetrics.FileMetrics.ProcessingTimeMs)
 		}
-	}
-
-	// Directory processing metrics
-	totalDirectoryFiles := 0
-	totalDirectoryExcluded := 0
-	if rs.syncMetrics.DirectoryMetrics != nil {
-		for _, metrics := range rs.syncMetrics.DirectoryMetrics {
-			totalDirectoryFiles += metrics.FilesProcessed
-			totalDirectoryExcluded += metrics.FilesExcluded
-		}
-	}
-
-	if totalDirectoryFiles > 0 {
-		fmt.Fprintf(sb, "* **Directory files processed**: %d (%d excluded)\n",
-			totalDirectoryFiles, totalDirectoryExcluded)
 	}
 
 	// API efficiency metrics
@@ -1186,15 +1188,9 @@ func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA stri
 	if rs.syncMetrics != nil {
 		sb.WriteString("performance:\n")
 
-		// Total file counts
-		totalFiles := rs.syncMetrics.FileMetrics.FilesProcessed
-		if rs.syncMetrics.DirectoryMetrics != nil {
-			for _, metrics := range rs.syncMetrics.DirectoryMetrics {
-				totalFiles += metrics.FilesProcessed
-			}
-		}
-		if totalFiles > 0 {
-			fmt.Fprintf(sb, "  total_files: %d\n", totalFiles)
+		// Total file counts (FileMetrics now includes directory files)
+		if rs.syncMetrics.FileMetrics.FilesProcessed > 0 {
+			fmt.Fprintf(sb, "  total_files: %d\n", rs.syncMetrics.FileMetrics.FilesProcessed)
 		}
 
 		if rs.syncMetrics.APICallsSaved > 0 {

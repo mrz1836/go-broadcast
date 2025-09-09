@@ -36,9 +36,9 @@ func TestRepositorySync_generatePRBodyWithDirectories(t *testing.T) {
 			StartTime: time.Now().Add(-30 * time.Second),
 			EndTime:   time.Now(),
 			FileMetrics: FileProcessingMetrics{
-				FilesProcessed:   5,
-				FilesChanged:     3,
-				FilesSkipped:     2,
+				FilesProcessed:   28, // 5 individual files + 23 directory files (15+8)
+				FilesChanged:     3,  // Actual changes
+				FilesSkipped:     25, // Total processed - changed (28-3)
 				ProcessingTimeMs: 1500,
 			},
 			DirectoryMetrics: map[string]DirectoryMetrics{
@@ -87,9 +87,9 @@ func TestRepositorySync_generatePRBodyWithDirectories(t *testing.T) {
 	assert.Contains(t, body, "**Binary files skipped**: 2")
 	assert.Contains(t, body, "**Exclusion patterns**: `*.tmp`, `*.backup`")
 
-	// Verify performance metrics
-	assert.Contains(t, body, "**Files processed**: 5 (3 changed, 2 skipped)")
-	assert.Contains(t, body, "**Directory files processed**: 23 (4 excluded)")
+	// Verify performance metrics (now unified)
+	assert.Contains(t, body, "**Files processed**: 28 (3 changed, 25 skipped)")
+	assert.NotContains(t, body, "**Directory files processed**") // Should not show separate directory section
 	assert.Contains(t, body, "**API calls saved**: 25")
 	assert.Contains(t, body, "**Cache hit rate**: 80.0% (12 hits, 3 misses)")
 
@@ -230,6 +230,69 @@ func TestRepositorySync_writePerformanceMetricsEdgeCases(t *testing.T) {
 				"## Performance Metrics",
 				"**Files processed**: 3 (2 changed, 1 skipped)",
 				"**File processing time**: 500ms",
+			},
+			notExpected: []string{"**Directory files processed**"},
+		},
+		{
+			name: "directories only with changes (PR scenario)",
+			syncMetrics: &PerformanceMetrics{
+				FileMetrics: FileProcessingMetrics{
+					FilesProcessed:   4, // Updated to include directory files
+					FilesChanged:     4, // Actual changes from directories
+					FilesSkipped:     0, // No files skipped
+					ProcessingTimeMs: 6511,
+				},
+				DirectoryMetrics: map[string]DirectoryMetrics{
+					".github/workflows": {
+						FilesProcessed: 2,
+						FilesExcluded:  0,
+					},
+					".github/actions": {
+						FilesProcessed: 1,
+						FilesExcluded:  0,
+					},
+					".vscode": {
+						FilesProcessed: 1,
+						FilesExcluded:  0,
+					},
+				},
+			},
+			expected: []string{
+				"## Performance Metrics",
+				"**Files processed**: 4 (4 changed, 0 skipped)", // Should show correct totals
+				"**File processing time**: 6511ms",
+			},
+			notExpected: []string{"**Directory files processed**"}, // Should not show separate directory section
+		},
+		{
+			name: "mixed files and directories",
+			syncMetrics: &PerformanceMetrics{
+				FileMetrics: FileProcessingMetrics{
+					FilesProcessed:   10, // 2 individual files + 8 directory files
+					FilesChanged:     6,  // Actual total changes
+					FilesSkipped:     4,  // Some files were skipped
+					ProcessingTimeMs: 1500,
+				},
+				DirectoryMetrics: map[string]DirectoryMetrics{
+					".github/workflows": {
+						FilesProcessed: 5,
+						FilesExcluded:  2,
+					},
+					"docs": {
+						FilesProcessed: 3,
+						FilesExcluded:  1,
+					},
+				},
+				APICallsSaved: 12,
+				CacheHits:     8,
+				CacheMisses:   2,
+			},
+			expected: []string{
+				"## Performance Metrics",
+				"**Files processed**: 10 (6 changed, 4 skipped)",
+				"**File processing time**: 1500ms",
+				"**API calls saved**: 12 (through optimization)",
+				"**Cache hit rate**: 80.0% (8 hits, 2 misses)",
 			},
 			notExpected: []string{"**Directory files processed**"},
 		},
