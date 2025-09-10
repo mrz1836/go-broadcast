@@ -243,6 +243,7 @@ jobs:
             go.mod
             go.sum
             .github/workflows/fortress.yml
+            .github/actions/configure-redis
 
       # ————————————————————————————————————————————————————————————————
       # Extract GoFortress version metadata from fortress.yml
