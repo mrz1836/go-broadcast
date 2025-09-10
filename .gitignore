@@ -58,6 +58,7 @@ test-coverage-output/
 # IDEs and editors
 .idea/
 .project
+.playwright-mcp
 
 # Linting
 lint-output.txt
