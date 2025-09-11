@@ -464,8 +464,9 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 	fileMappings := make([]validation.FileMapping, 0, len(t.Files))
 	for _, file := range t.Files {
 		fileMappings = append(fileMappings, validation.FileMapping{
-			Src:  file.Src,
-			Dest: file.Dest,
+			Src:    file.Src,
+			Dest:   file.Dest,
+			Delete: file.Delete,
 		})
 	}
 

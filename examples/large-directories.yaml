@@ -36,7 +36,7 @@ groups:
               - "**/venv/**"
             transform:
               repo_name: true
-            # Progress reporting automatically enabled for >50 files
+              # Progress reporting automatically enabled for >50 files
 
           # Sync actions separately for better granular control
           - src: ".github/actions"
@@ -46,7 +46,7 @@ groups:
               - "*.test" # Go test binaries
               - "go-coverage" # Main binary (large file)
               - "**/testdata/**" # Test fixture data
-            # Expected performance: 87 files in ~4ms
+              # Expected performance: 87 files in ~4ms
 
           # Sync workflows with careful exclusions
           - src: ".github/workflows"
@@ -59,7 +59,7 @@ groups:
               repo_name: true
               variables:
                 MAIN_SERVICE: "true"
-            # Expected performance: 24 files in ~1.5ms
+                # Expected performance: 24 files in ~1.5ms
 
       # Example 2: Documentation repository (1000+ files) - Performance target: <32ms
       - repo: "company/documentation"
@@ -114,7 +114,7 @@ groups:
               variables:
                 CONFIG_VERSION: "2.1"
                 ENVIRONMENT: "production"
-            # Expected performance: 500+ files in ~16ms
+                # Expected performance: 500+ files in ~16ms
 
           # Templates subdirectory with flattening
           - src: "templates/production"

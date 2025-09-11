@@ -101,3 +101,9 @@ func (m *MockClient) GetChangedFiles(ctx context.Context, repoPath string) ([]st
 	}
 	return args.Get(0).([]string), testutil.ExtractError(args)
 }
+
+// BatchRemoveFiles mock implementation
+func (m *MockClient) BatchRemoveFiles(ctx context.Context, repoPath string, files []string, keepLocal bool) error {
+	args := m.Called(ctx, repoPath, files, keepLocal)
+	return testutil.ExtractError(args)
+}

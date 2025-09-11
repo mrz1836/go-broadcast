@@ -203,8 +203,9 @@ func ValidateTargetConfig(repo string, fileMappings []FileMapping) error {
 
 // FileMapping represents a file mapping for validation.
 type FileMapping struct {
-	Src  string
-	Dest string
+	Src    string
+	Dest   string
+	Delete bool
 }
 
 // ValidateFileMapping validates a single file mapping.
@@ -212,7 +213,10 @@ type FileMapping struct {
 func ValidateFileMapping(mapping FileMapping) error {
 	result := NewValidationResult()
 
-	result.AddError(ValidateFilePath(mapping.Src, "source"))
+	// For deletions, source path can be empty
+	if !mapping.Delete {
+		result.AddError(ValidateFilePath(mapping.Src, "source"))
+	}
 	result.AddError(ValidateFilePath(mapping.Dest, "destination"))
 
 	return result.FirstError()

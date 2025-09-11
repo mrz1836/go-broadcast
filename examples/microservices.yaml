@@ -57,10 +57,10 @@ groups:
             SERVICE_NAME: "user-service"
             SERVICE_PORT: "8001"
             DATABASE_NAME: "users"
-        # Inherits global settings:
-        # Labels: ["automated-sync", "tooling-update"]
-        # Assignees: ["platform-team-lead"]
-        # Team reviewers: ["platform-team"]
+            # Inherits global settings:
+            # Labels: ["automated-sync", "tooling-update"]
+            # Assignees: ["platform-team-lead"]
+            # Team reviewers: ["platform-team"]
 
       # Order service (uses global PR settings only)
       - repo: "company/order-service"
@@ -83,10 +83,10 @@ groups:
             SERVICE_NAME: "order-service"
             SERVICE_PORT: "8002"
             DATABASE_NAME: "orders"
-        # Inherits global settings:
-        # Labels: ["automated-sync", "tooling-update"]
-        # Assignees: ["platform-team-lead"]
-        # Team reviewers: ["platform-team"]
+            # Inherits global settings:
+            # Labels: ["automated-sync", "tooling-update"]
+            # Assignees: ["platform-team-lead"]
+            # Team reviewers: ["platform-team"]
 
       # Payment service (critical service with security team review)
       - repo: "company/payment-service"

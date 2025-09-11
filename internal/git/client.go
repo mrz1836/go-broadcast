@@ -54,4 +54,7 @@ type Client interface {
 
 	// GetChangedFiles returns the list of files that changed in the last commit
 	GetChangedFiles(ctx context.Context, repoPath string) ([]string, error)
+
+	// BatchRemoveFiles removes multiple files from git tracking efficiently
+	BatchRemoveFiles(ctx context.Context, repoPath string, files []string, keepLocal bool) error
 }

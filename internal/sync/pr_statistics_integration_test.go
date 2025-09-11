@@ -95,12 +95,12 @@ func TestOriginalPRIssueScenario(t *testing.T) {
 		"Should not show old incorrect format")
 
 	// Verify we show the new correct format (with markdown formatting)
-	assert.Contains(t, metrics, "**Files processed**: 22 (4 changed, 13 skipped)",
+	assert.Contains(t, metrics, "**Files processed**: 22 (4 changed, 0 deleted, 13 skipped)",
 		"Should show new correct format with actual git changes")
 
 	t.Logf("✅ Fix verified! PR will now show correct statistics:")
 	t.Logf("   - What Changed: 4 individual file(s) (actual git changes)")
-	t.Logf("   - Metrics: Files processed: 22 (4 changed, 13 skipped)")
+	t.Logf("   - Metrics: Files processed: 22 (4 changed, 0 deleted, 13 skipped)")
 	t.Logf("   - Breakdown: Files attempted to change: 9")
 }
 

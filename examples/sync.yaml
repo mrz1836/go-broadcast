@@ -65,11 +65,11 @@ groups:
           variables:
             SERVICE_NAME: "service-a"
             PORT: "8080"
-        # This repository inherits global PR settings:
-        # Labels: ["automated-sync", "chore"]
-        # Assignees: ["platform-team"]
-        # Reviewers: ["platform-lead"]
-        # Team reviewers: ["infrastructure-team"]
+            # This repository inherits global PR settings:
+            # Labels: ["automated-sync", "chore"]
+            # Assignees: ["platform-team"]
+            # Reviewers: ["platform-lead"]
+            # Team reviewers: ["infrastructure-team"]
 
       # Second target repository with additional PR settings (merged with global)
       - repo: "org/service-b"

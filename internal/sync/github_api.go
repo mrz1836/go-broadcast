@@ -74,6 +74,23 @@ func (tm *TreeMap) GetFilesInDirectory(dirPath string) []*GitTreeNode {
 	return files
 }
 
+// GetAllFilesInDirectoryRecursively returns all files in a directory and its subdirectories
+func (tm *TreeMap) GetAllFilesInDirectoryRecursively(dirPath string) []*GitTreeNode {
+	cleanDir := strings.TrimPrefix(strings.TrimSuffix(dirPath, "/"), "/")
+	if cleanDir != "" {
+		cleanDir += "/"
+	}
+
+	var files []*GitTreeNode
+	for filePath, node := range tm.files {
+		if strings.HasPrefix(filePath, cleanDir) {
+			// Include all files under the directory, including nested files
+			files = append(files, node)
+		}
+	}
+	return files
+}
+
 // TreeStats provides statistics about the tree
 type TreeStats struct {
 	TotalFiles       int

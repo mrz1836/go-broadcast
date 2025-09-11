@@ -50,8 +50,9 @@ type TargetConfig struct {
 
 // FileMapping defines source to destination file mapping
 type FileMapping struct {
-	Src  string `yaml:"src"`  // Source file path
-	Dest string `yaml:"dest"` // Destination file path
+	Src    string `yaml:"src"`              // Source file path
+	Dest   string `yaml:"dest"`             // Destination file path
+	Delete bool   `yaml:"delete,omitempty"` // Delete the destination file instead of syncing
 }
 
 // DirectoryMapping defines source to destination directory mapping
@@ -64,6 +65,7 @@ type DirectoryMapping struct {
 	PreserveStructure *bool         `yaml:"preserve_structure,omitempty"` // Keep nested structure (default: true)
 	IncludeHidden     *bool         `yaml:"include_hidden,omitempty"`     // Include hidden files (default: true)
 	Module            *ModuleConfig `yaml:"module,omitempty"`             // Module-aware sync settings
+	Delete            bool          `yaml:"delete,omitempty"`             // Delete the destination directory instead of syncing
 }
 
 // Transform defines transformation settings

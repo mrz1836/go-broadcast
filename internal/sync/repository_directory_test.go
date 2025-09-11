@@ -88,7 +88,7 @@ func TestRepositorySync_generatePRBodyWithDirectories(t *testing.T) {
 	assert.Contains(t, body, "**Exclusion patterns**: `*.tmp`, `*.backup`")
 
 	// Verify performance metrics (now unified)
-	assert.Contains(t, body, "**Files processed**: 28 (3 changed, 25 skipped)")
+	assert.Contains(t, body, "**Files processed**: 28 (3 changed, 0 deleted, 25 skipped)")
 	assert.NotContains(t, body, "**Directory files processed**") // Should not show separate directory section
 	assert.Contains(t, body, "**API calls saved**: 25")
 	assert.Contains(t, body, "**Cache hit rate**: 80.0% (12 hits, 3 misses)")
@@ -228,7 +228,7 @@ func TestRepositorySync_writePerformanceMetricsEdgeCases(t *testing.T) {
 			},
 			expected: []string{
 				"## Performance Metrics",
-				"**Files processed**: 3 (2 changed, 1 skipped)",
+				"**Files processed**: 3 (2 changed, 0 deleted, 1 skipped)",
 				"**File processing time**: 500ms",
 			},
 			notExpected: []string{"**Directory files processed**"},
@@ -259,7 +259,7 @@ func TestRepositorySync_writePerformanceMetricsEdgeCases(t *testing.T) {
 			},
 			expected: []string{
 				"## Performance Metrics",
-				"**Files processed**: 4 (4 changed, 0 skipped)", // Should show correct totals
+				"**Files processed**: 4 (4 changed, 0 deleted, 0 skipped)", // Should show correct totals
 				"**File processing time**: 6511ms",
 			},
 			notExpected: []string{"**Directory files processed**"}, // Should not show separate directory section
@@ -289,7 +289,7 @@ func TestRepositorySync_writePerformanceMetricsEdgeCases(t *testing.T) {
 			},
 			expected: []string{
 				"## Performance Metrics",
-				"**Files processed**: 10 (6 changed, 4 skipped)",
+				"**Files processed**: 10 (6 changed, 0 deleted, 4 skipped)",
 				"**File processing time**: 1500ms",
 				"**API calls saved**: 12 (through optimization)",
 				"**Cache hit rate**: 80.0% (8 hits, 2 misses)",

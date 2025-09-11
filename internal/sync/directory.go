@@ -132,9 +132,15 @@ func (dp *DirectoryProcessor) ProcessDirectoryMapping(ctx context.Context, sourc
 	logger := dp.logger.WithFields(logrus.Fields{
 		"src_dir":  dirMapping.Src,
 		"dest_dir": dirMapping.Dest,
+		"delete":   dirMapping.Delete,
 	})
 
 	logger.Info("Processing directory mapping")
+
+	// Handle directory deletion
+	if dirMapping.Delete {
+		return dp.processDirectoryDeletion(ctx, dirMapping, target, engine, logger)
+	}
 
 	// Create exclusion engine with directory-specific patterns
 	dp.exclusionEngine = NewExclusionEngineWithIncludes(dirMapping.Exclude, dirMapping.IncludeOnly)
@@ -590,4 +596,66 @@ func (rs *RepositorySync) ProcessDirectoriesWithOptions(ctx context.Context, opt
 
 	rs.logger.WithField("total_changes", len(allChanges)).Info("Directory processing with options completed")
 	return allChanges, nil
+}
+
+// processDirectoryDeletion handles the deletion of an entire directory from the target repository
+func (dp *DirectoryProcessor) processDirectoryDeletion(ctx context.Context, dirMapping config.DirectoryMapping, target config.TargetConfig, engine *Engine, logger *logrus.Entry) ([]FileChange, error) {
+	logger.WithField("directory", dirMapping.Dest).Info("Processing directory deletion")
+
+	// Get tree from GitHub API to find all files in the target directory
+	treeAPI := NewGitHubAPI(engine.gh, dp.logger.Logger)
+	treeMap, err := treeAPI.GetTree(ctx, target.Repo, "")
+	if err != nil {
+		logger.WithError(err).Error("Failed to fetch tree for directory deletion")
+		return nil, fmt.Errorf("failed to fetch tree for directory deletion: %w", err)
+	}
+
+	// Get all files recursively in the directory to be deleted
+	allFiles := treeMap.GetAllFilesInDirectoryRecursively(dirMapping.Dest)
+	if len(allFiles) == 0 {
+		logger.WithField("directory", dirMapping.Dest).Info("Directory does not exist in target repository, skipping deletion")
+		return nil, internalerrors.ErrFileNotFound
+	}
+
+	logger.WithFields(logrus.Fields{
+		"directory":  dirMapping.Dest,
+		"file_count": len(allFiles),
+	}).Info("Found files in directory to delete")
+
+	// Create FileChange entries for each file to be deleted
+	changes := make([]FileChange, 0, len(allFiles))
+	for _, fileNode := range allFiles {
+		// Get existing file content for proper tracking
+		existingContent, err := dp.getExistingFileContent(ctx, engine, target.Repo, fileNode.Path)
+		if err != nil {
+			logger.WithError(err).WithField("file", fileNode.Path).Debug("Could not get existing content for deletion, continuing")
+			existingContent = nil // Continue with deletion even if we can't get content
+		}
+
+		change := FileChange{
+			Path:            fileNode.Path,
+			Content:         nil, // No content for deletions
+			OriginalContent: existingContent,
+			IsNew:           false,
+			IsDeleted:       true,
+		}
+
+		changes = append(changes, change)
+	}
+
+	logger.WithFields(logrus.Fields{
+		"directory":     dirMapping.Dest,
+		"total_changes": len(changes),
+	}).Info("Directory deletion processed successfully")
+
+	return changes, nil
+}
+
+// getExistingFileContent retrieves file content for deletion tracking
+func (dp *DirectoryProcessor) getExistingFileContent(ctx context.Context, engine *Engine, repo, filePath string) ([]byte, error) {
+	fileContent, err := engine.gh.GetFile(ctx, repo, filePath, "")
+	if err != nil {
+		return nil, err
+	}
+	return fileContent.Content, nil
 }

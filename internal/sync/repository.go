@@ -63,6 +63,7 @@ type FileProcessingMetrics struct {
 	FilesChanged         int   // Files that actually changed in git (what appears in PR)
 	FilesAttempted       int   // Files go-broadcast attempted to change (before git filtering)
 	FilesSkipped         int   // Files skipped during processing
+	FilesDeleted         int   // Files that were deleted from target repositories
 	ProcessingTimeMs     int64 // Time spent processing files
 	FilesActuallyChanged int   // Alias for FilesChanged for clarity
 }
@@ -146,11 +147,20 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	}
 	fileProcessingDuration := time.Since(fileProcessingStart)
 
+	// Count deleted files
+	deletedFileCount := 0
+	for _, fileChange := range changedFiles {
+		if fileChange.IsDeleted {
+			deletedFileCount++
+		}
+	}
+
 	// Store initial file processing metrics (will be updated after directory processing)
 	rs.syncMetrics.FileMetrics = FileProcessingMetrics{
 		FilesProcessed:   len(rs.target.Files),
 		FilesChanged:     len(changedFiles),
 		FilesSkipped:     len(rs.target.Files) - len(changedFiles),
+		FilesDeleted:     deletedFileCount,
 		ProcessingTimeMs: fileProcessingDuration.Milliseconds(),
 	}
 
@@ -230,6 +240,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		FilesChanged:         len(actualChangedFiles), // Files that actually changed in git commit
 		FilesAttempted:       filesAttempted,          // Files go-broadcast attempted to change
 		FilesSkipped:         totalFilesProcessed - filesAttempted,
+		FilesDeleted:         deletedFileCount, // Keep the original count from first metrics
 		ProcessingTimeMs:     fileProcessingDuration.Milliseconds(),
 		FilesActuallyChanged: len(actualChangedFiles), // Alias for clarity
 	}
@@ -532,6 +543,11 @@ func (rs *RepositorySync) processFiles(ctx context.Context) ([]FileChange, error
 
 // processFile processes a single file mapping
 func (rs *RepositorySync) processFile(ctx context.Context, sourcePath string, fileMapping config.FileMapping) (*FileChange, error) {
+	// Handle file deletion
+	if fileMapping.Delete {
+		return rs.processFileDeletion(ctx, fileMapping)
+	}
+
 	srcPath := filepath.Join(sourcePath, fileMapping.Src)
 
 	// Check if source file exists
@@ -602,6 +618,32 @@ func (rs *RepositorySync) getExistingFileContent(ctx context.Context, filePath s
 		return nil, err
 	}
 	return fileContent.Content, nil
+}
+
+// processFileDeletion handles the deletion of a file from the target repository
+func (rs *RepositorySync) processFileDeletion(ctx context.Context, fileMapping config.FileMapping) (*FileChange, error) {
+	rs.logger.WithField("file", fileMapping.Dest).Info("Processing file deletion")
+
+	// Check if file exists in target repository
+	existingContent, err := rs.getExistingFileContent(ctx, fileMapping.Dest)
+	if err != nil {
+		rs.logger.WithError(err).WithField("file", fileMapping.Dest).Debug("File does not exist in target repository, skipping deletion")
+		return nil, internalerrors.ErrFileNotFound
+	}
+
+	rs.logger.WithFields(logrus.Fields{
+		"file":         fileMapping.Dest,
+		"content_size": len(existingContent),
+	}).Debug("File exists in target, marking for deletion")
+
+	// Return a FileChange with deletion flag
+	return &FileChange{
+		Path:            fileMapping.Dest,
+		Content:         nil, // No content for deletions
+		OriginalContent: existingContent,
+		IsNew:           false,
+		IsDeleted:       true,
+	}, nil
 }
 
 // createSyncBranch creates a new sync branch or returns existing one
@@ -703,17 +745,39 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 	}
 
 	// Apply file changes to the target repository
+	var filesToDelete []string
 	for _, fileChange := range changedFiles {
 		destPath := filepath.Join(targetPath, fileChange.Path)
 
-		// Ensure parent directory exists
-		if err := os.MkdirAll(filepath.Dir(destPath), 0o750); err != nil {
-			return "", nil, fmt.Errorf("failed to create directory for %s: %w", fileChange.Path, err)
-		}
+		if fileChange.IsDeleted {
+			// Handle file deletion
+			rs.logger.WithField("file", fileChange.Path).Debug("Marking file for deletion")
+			filesToDelete = append(filesToDelete, fileChange.Path)
 
-		// Write the file content
-		if err := os.WriteFile(destPath, fileChange.Content, 0o600); err != nil {
-			return "", nil, fmt.Errorf("failed to write file %s: %w", fileChange.Path, err)
+			// Remove the file from filesystem if it exists
+			if err := os.Remove(destPath); err != nil && !os.IsNotExist(err) {
+				return "", nil, fmt.Errorf("failed to remove file %s: %w", fileChange.Path, err)
+			}
+		} else {
+			// Handle file creation/modification
+			// Ensure parent directory exists
+			if err := os.MkdirAll(filepath.Dir(destPath), 0o750); err != nil {
+				return "", nil, fmt.Errorf("failed to create directory for %s: %w", fileChange.Path, err)
+			}
+
+			// Write the file content
+			if err := os.WriteFile(destPath, fileChange.Content, 0o600); err != nil {
+				return "", nil, fmt.Errorf("failed to write file %s: %w", fileChange.Path, err)
+			}
+		}
+	}
+
+	// Remove deleted files from git tracking
+	if len(filesToDelete) > 0 {
+		rs.logger.WithField("files_to_delete", len(filesToDelete)).Debug("Removing deleted files from git")
+		if err := rs.engine.git.BatchRemoveFiles(ctx, targetPath, filesToDelete, false); err != nil {
+			// Log warning but don't fail - files might not be tracked
+			rs.logger.WithError(err).WithField("files", filesToDelete).Warn("Failed to remove files from git, continuing")
 		}
 	}
 
@@ -1149,9 +1213,10 @@ func (rs *RepositorySync) writePerformanceMetrics(sb *strings.Builder) {
 
 	// File processing metrics (now shows actual git changes vs examined files)
 	if rs.syncMetrics.FileMetrics.FilesProcessed > 0 {
-		fmt.Fprintf(sb, "* **Files processed**: %d (%d changed, %d skipped)\n",
+		fmt.Fprintf(sb, "* **Files processed**: %d (%d changed, %d deleted, %d skipped)\n",
 			rs.syncMetrics.FileMetrics.FilesProcessed,
-			rs.syncMetrics.FileMetrics.FilesChanged,
+			rs.syncMetrics.FileMetrics.FilesChanged-rs.syncMetrics.FileMetrics.FilesDeleted,
+			rs.syncMetrics.FileMetrics.FilesDeleted,
 			rs.syncMetrics.FileMetrics.FilesSkipped)
 
 		// Show breakdown of what happened to examined files
@@ -1239,6 +1304,9 @@ func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA stri
 		// Total file counts (FileMetrics now includes directory files)
 		if rs.syncMetrics.FileMetrics.FilesProcessed > 0 {
 			fmt.Fprintf(sb, "  total_files: %d\n", rs.syncMetrics.FileMetrics.FilesProcessed)
+		}
+		if rs.syncMetrics.FileMetrics.FilesDeleted > 0 {
+			fmt.Fprintf(sb, "  files_deleted: %d\n", rs.syncMetrics.FileMetrics.FilesDeleted)
 		}
 
 		if rs.syncMetrics.APICallsSaved > 0 {
@@ -1460,6 +1528,7 @@ type FileChange struct {
 	Content         []byte
 	OriginalContent []byte
 	IsNew           bool
+	IsDeleted       bool
 }
 
 // showDryRunCommitInfo displays commit information preview for dry-run
