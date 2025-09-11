@@ -494,7 +494,7 @@ jobs:
 
           # Count all fortress workflow files (including main fortress.yml)
           FORTRESS_FILES=$(find .github/workflows -name "fortress*.yml" | wc -l | tr -d ' ')
-          echo "| **Workflow Components** | ${FORTRESS_FILES} fortress modules |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Workflow Components** | ${FORTRESS_FILES} fortress files |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "<br><br>" >> $GITHUB_STEP_SUMMARY
 
