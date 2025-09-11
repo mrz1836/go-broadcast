@@ -394,7 +394,6 @@ jobs:
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
       golangci-lint-version: ${{ needs.code-quality.outputs.golangci-lint-version }}
-      yamlfmt-version: ${{ needs.code-quality.outputs.yamlfmt-version }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
       slack-webhook: ${{ secrets.SLACK_WEBHOOK || '' }}
