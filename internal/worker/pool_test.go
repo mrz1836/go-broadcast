@@ -221,11 +221,9 @@ func TestPoolStats(t *testing.T) {
 	assert.Equal(t, 0, queued)
 
 	// Submit tasks
-	var wg sync.WaitGroup
 	taskCount := 5
 
 	for i := 0; i < taskCount; i++ {
-		wg.Add(1)
 		task := &mockTask{
 			name: "stats-task",
 			executeFunc: func(_ context.Context) error {
@@ -236,21 +234,23 @@ func TestPoolStats(t *testing.T) {
 
 		err := pool.Submit(task)
 		require.NoError(t, err)
-
-		go func() {
-			defer wg.Done()
-			<-pool.Results()
-		}()
 	}
 
-	// Wait for all tasks to complete
-	wg.Wait()
+	// Collect all results to ensure tasks complete
+	for i := 0; i < taskCount; i++ {
+		select {
+		case <-pool.Results():
+			// Task completed
+		case <-time.After(time.Second):
+			t.Fatalf("timeout waiting for result %d", i+1)
+		}
+	}
 
-	// Final stats
-	processed, active, queued = pool.Stats()
-	assert.Equal(t, int64(taskCount), processed)
-	assert.Equal(t, int32(0), active)
-	assert.Equal(t, 0, queued)
+	// Use Eventually to wait for stats to be updated consistently
+	require.Eventually(t, func() bool {
+		processed, active, queued := pool.Stats()
+		return processed == int64(taskCount) && active == 0 && queued == 0
+	}, time.Second, 10*time.Millisecond, "Expected all tasks to be processed and stats updated")
 
 	pool.Shutdown()
 }
