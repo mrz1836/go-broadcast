@@ -36,7 +36,7 @@ groups:
             dest: "deprecated-config.json"
             delete: true
           - dest: "legacy-script.sh"
-            delete: true  # src omitted when deleting
+            delete: true # src omitted when deleting
 
         # Directory syncing
         directories:
@@ -138,11 +138,11 @@ groups:
 
         # Remove old documentation structure
         directories:
-          - dest: "documentation"  # Old docs directory
+          - dest: "documentation" # Old docs directory
             delete: true
-          - dest: "guides"         # Moved to docs/guides
+          - dest: "guides" # Moved to docs/guides
             delete: true
-          - dest: "api-reference"  # Moved to docs/api
+          - dest: "api-reference" # Moved to docs/api
             delete: true
 
         # Clean up individual obsolete files
@@ -158,11 +158,11 @@ file_lists:
     name: "Files to Clean Up"
     description: "Common obsolete files to remove"
     files:
-      - dest: ".travis.yml"        # Remove old CI
+      - dest: ".travis.yml" # Remove old CI
         delete: true
-      - dest: "circle.yml"         # Remove old CI
+      - dest: "circle.yml" # Remove old CI
         delete: true
-      - dest: "Jenkinsfile.old"    # Remove old CI
+      - dest: "Jenkinsfile.old" # Remove old CI
         delete: true
       - dest: "package-lock.json.bak"
         delete: true
