@@ -36,6 +36,9 @@ type TargetState struct {
 	// Repo is the repository name (e.g., "org/service-a")
 	Repo string
 
+	// Branch is the target branch for PRs (defaults to repo's default branch)
+	Branch string
+
 	// SyncBranches contains all sync branches found
 	SyncBranches []SyncBranch
 

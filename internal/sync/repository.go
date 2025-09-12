@@ -917,19 +917,42 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 		return nil
 	}
 
-	// Get default branch for base
-	rs.TrackAPIRequest()
-	branches, err := rs.engine.gh.ListBranches(ctx, rs.target.Repo)
-	if err != nil {
-		return fmt.Errorf("failed to get branches: %w", err)
-	}
+	// Get base branch for PR - use target branch if specified, otherwise auto-detect
+	var baseBranch string
+	if rs.targetState.Branch != "" {
+		// Use configured target branch but validate it exists
+		baseBranch = rs.targetState.Branch
 
-	baseBranch := "master" // default
-	for _, branch := range branches {
-		if branch.Name == mainBranch {
-			baseBranch = mainBranch
-			break
+		// Validate that the target branch actually exists
+		rs.TrackAPIRequest()
+		_, err := rs.engine.gh.GetBranch(ctx, rs.target.Repo, baseBranch)
+		if err != nil {
+			return fmt.Errorf("configured target branch %q does not exist in repository %s: %w", baseBranch, rs.target.Repo, err)
 		}
+
+		rs.logger.WithFields(logrus.Fields{
+			"configured_branch": baseBranch,
+			"target_repo":       rs.target.Repo,
+		}).Debug("Using configured target branch for PR base")
+	} else {
+		// Auto-detect default branch
+		rs.TrackAPIRequest()
+		branches, err := rs.engine.gh.ListBranches(ctx, rs.target.Repo)
+		if err != nil {
+			return fmt.Errorf("failed to get branches: %w", err)
+		}
+
+		baseBranch = "master" // default fallback
+		for _, branch := range branches {
+			if branch.Name == mainBranch {
+				baseBranch = mainBranch
+				break
+			}
+		}
+		rs.logger.WithFields(logrus.Fields{
+			"detected_branch": baseBranch,
+			"target_repo":     rs.target.Repo,
+		}).Debug("Auto-detected default branch for PR base")
 	}
 
 	// Get current user to filter out from reviewers

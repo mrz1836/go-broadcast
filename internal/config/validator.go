@@ -547,6 +547,24 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 		}
 	}
 
+	// Validate target branch if specified
+	if t.Branch != "" {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithField("target_branch", t.Branch).Debug("Validating target branch name")
+		}
+
+		// Basic branch name validation (Git reference validation)
+		if err := validation.ValidateBranchName(t.Branch); err != nil {
+			if logConfig != nil && logConfig.Debug.Config {
+				logger.WithFields(logrus.Fields{
+					"target_branch":                  t.Branch,
+					logging.StandardFields.ErrorType: "invalid_branch_name",
+				}).Error("Invalid target branch name")
+			}
+			return fmt.Errorf("invalid target branch name %q: %w", t.Branch, err)
+		}
+	}
+
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.Debug("Target configuration validation completed successfully")
 	}

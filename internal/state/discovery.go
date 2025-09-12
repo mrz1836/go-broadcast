@@ -175,7 +175,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 		if branchPrefix == "" {
 			branchPrefix = "chore/sync-files" // Default fallback
 		}
-		targetState, err := d.DiscoverTargetState(ctx, target.Repo, branchPrefix)
+		targetState, err := d.DiscoverTargetState(ctx, target.Repo, branchPrefix, target.Branch)
 		targetDuration := time.Since(targetStart)
 
 		if err != nil {
@@ -231,6 +231,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 // - ctx: Context for cancellation and timeout control
 // - repo: Target repository name to analyze
 // - branchPrefix: The branch prefix to use for sync branch detection
+// - targetBranch: The target branch for PR base (empty means use repository default branch)
 //
 // Returns:
 // - Target repository state information
@@ -239,7 +240,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 // Side Effects:
 // - Logs detailed target analysis progress when --debug-state flag is enabled
 // - Records API call timing and branch analysis metrics
-func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo, branchPrefix string) (*TargetState, error) {
+func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo, branchPrefix, targetBranch string) (*TargetState, error) {
 	logger := logging.WithStandardFields(d.logger, d.logConfig, "target-discovery")
 	logger = logger.WithField(logging.StandardFields.TargetRepo, repo)
 	start := time.Now()
@@ -258,6 +259,7 @@ func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo, branch
 
 	targetState := &TargetState{
 		Repo:         repo,
+		Branch:       targetBranch,
 		SyncBranches: []SyncBranch{},
 		OpenPRs:      []gh.PR{},
 		Status:       StatusUnknown,

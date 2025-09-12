@@ -37,6 +37,7 @@ type DefaultConfig struct {
 // TargetConfig defines a target repository and its file mappings
 type TargetConfig struct {
 	Repo              string             `yaml:"repo"`                          // Format: org/repo
+	Branch            string             `yaml:"branch,omitempty"`              // Target branch for PR base (defaults to repo's default branch)
 	Files             []FileMapping      `yaml:"files,omitempty"`               // Files to sync
 	Directories       []DirectoryMapping `yaml:"directories,omitempty"`         // Directories to sync
 	FileListRefs      []string           `yaml:"file_list_refs,omitempty"`      // References to file lists by ID

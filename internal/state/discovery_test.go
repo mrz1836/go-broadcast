@@ -198,7 +198,7 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 				},
 			}, nil)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files", "")
 		require.NoError(t, err)
 		assert.NotNil(t, state)
 
@@ -232,7 +232,7 @@ func TestDiscoveryService_DiscoverTargetState(t *testing.T) {
 		mockGH.On("ListPRs", mock.Anything, "org/service", "open").
 			Return([]gh.PR{}, nil)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files", "")
 		require.NoError(t, err)
 		assert.NotNil(t, state)
 
@@ -549,7 +549,7 @@ func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
 				},
 			}, nil)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files", "")
 		require.NoError(t, err)
 		assert.NotNil(t, state)
 		assert.Len(t, state.SyncBranches, 1) // Only valid sync branch
@@ -565,7 +565,7 @@ func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
 		mockGH.On("ListBranches", mock.Anything, "org/service").
 			Return(nil, assert.AnError)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to list branches")
 		assert.Nil(t, state)
@@ -590,7 +590,7 @@ func TestDiscoveryService_DiscoverTargetStateWithDebugLogging(t *testing.T) {
 		mockGH.On("ListPRs", mock.Anything, "org/service", "open").
 			Return(nil, assert.AnError)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to list PRs")
 		assert.Nil(t, state)
@@ -610,7 +610,7 @@ func TestDiscoveryService_DiscoverTargetStateContextCancellation(t *testing.T) {
 		mockGH := &gh.MockClient{}
 		discoverer := NewDiscoverer(mockGH, logger, nil)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "target discovery canceled")
 		assert.Nil(t, state)
@@ -665,12 +665,76 @@ func TestDiscoveryService_ComplexSyncBranchScenarios(t *testing.T) {
 				},
 			}, nil)
 
-		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files")
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files", "")
 		require.NoError(t, err)
 		assert.NotNil(t, state)
 		assert.Len(t, state.SyncBranches, 2) // Only 2 valid sync branches
 		assert.Len(t, state.OpenPRs, 1)
 		assert.Equal(t, "abc123", state.LastSyncCommit) // Latest sync commit SHA
+
+		mockGH.AssertExpectations(t)
+	})
+}
+
+// TestDiscoveryService_TargetBranchSupport tests target branch functionality
+func TestDiscoveryService_TargetBranchSupport(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.New()
+
+	t.Run("target state includes configured branch", func(t *testing.T) {
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, nil)
+
+		// Mock branches
+		mockGH.On("ListBranches", mock.Anything, "org/service").
+			Return([]gh.Branch{
+				{Name: "master", Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "abc123"}},
+			}, nil)
+
+		// Mock PRs - no open PRs
+		mockGH.On("ListPRs", mock.Anything, "org/service", "open").
+			Return([]gh.PR{}, nil)
+
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files", "develop")
+		require.NoError(t, err)
+		assert.NotNil(t, state)
+
+		assert.Equal(t, "org/service", state.Repo)
+		assert.Equal(t, "develop", state.Branch)
+		assert.Empty(t, state.SyncBranches)
+		assert.Empty(t, state.OpenPRs)
+
+		mockGH.AssertExpectations(t)
+	})
+
+	t.Run("target state with empty branch", func(t *testing.T) {
+		mockGH := &gh.MockClient{}
+		discoverer := NewDiscoverer(mockGH, logger, nil)
+
+		// Mock branches
+		mockGH.On("ListBranches", mock.Anything, "org/service").
+			Return([]gh.Branch{
+				{Name: "master", Commit: struct {
+					SHA string `json:"sha"`
+					URL string `json:"url"`
+				}{SHA: "abc123"}},
+			}, nil)
+
+		// Mock PRs - no open PRs
+		mockGH.On("ListPRs", mock.Anything, "org/service", "open").
+			Return([]gh.PR{}, nil)
+
+		state, err := discoverer.DiscoverTargetState(ctx, "org/service", "chore/sync-files", "")
+		require.NoError(t, err)
+		assert.NotNil(t, state)
+
+		assert.Equal(t, "org/service", state.Repo)
+		assert.Empty(t, state.Branch)
+		assert.Empty(t, state.SyncBranches)
+		assert.Empty(t, state.OpenPRs)
 
 		mockGH.AssertExpectations(t)
 	})

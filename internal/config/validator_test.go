@@ -443,3 +443,109 @@ func TestValidateFileDirectoryConflicts(t *testing.T) {
 		})
 	}
 }
+
+// TestTargetConfig_BranchValidation tests target branch validation
+func TestTargetConfig_BranchValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		target      TargetConfig
+		expectErr   bool
+		expectedErr string
+	}{
+		{
+			name: "valid target with no branch specified",
+			target: TargetConfig{
+				Repo: "org/target",
+				Files: []FileMapping{
+					{Src: "file.txt", Dest: "file.txt"},
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name: "valid target with valid branch name",
+			target: TargetConfig{
+				Repo:   "org/target",
+				Branch: "develop",
+				Files: []FileMapping{
+					{Src: "file.txt", Dest: "file.txt"},
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name: "valid target with branch containing slashes",
+			target: TargetConfig{
+				Repo:   "org/target",
+				Branch: "feature/new-feature",
+				Files: []FileMapping{
+					{Src: "file.txt", Dest: "file.txt"},
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name: "valid target with branch containing dashes and numbers",
+			target: TargetConfig{
+				Repo:   "org/target",
+				Branch: "release-1.2.3",
+				Files: []FileMapping{
+					{Src: "file.txt", Dest: "file.txt"},
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name: "invalid target with branch containing spaces",
+			target: TargetConfig{
+				Repo:   "org/target",
+				Branch: "feature branch",
+				Files: []FileMapping{
+					{Src: "file.txt", Dest: "file.txt"},
+				},
+			},
+			expectErr:   true,
+			expectedErr: "invalid target branch name",
+		},
+		{
+			name: "invalid target with branch starting with special character",
+			target: TargetConfig{
+				Repo:   "org/target",
+				Branch: "-feature",
+				Files: []FileMapping{
+					{Src: "file.txt", Dest: "file.txt"},
+				},
+			},
+			expectErr:   true,
+			expectedErr: "invalid target branch name",
+		},
+		{
+			name: "invalid target with branch containing invalid characters",
+			target: TargetConfig{
+				Repo:   "org/target",
+				Branch: "feature@branch",
+				Files: []FileMapping{
+					{Src: "file.txt", Dest: "file.txt"},
+				},
+			},
+			expectErr:   true,
+			expectedErr: "invalid target branch name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			logger := logrus.NewEntry(logrus.StandardLogger())
+
+			err := tt.target.validateWithLogging(ctx, nil, logger)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

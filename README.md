@@ -518,6 +518,49 @@ groups:
 ```
 </details>
 
+<details>
+<summary><strong>Target different branches for development workflows</strong></summary>
+
+```yaml
+version: 1
+groups:
+  - name: "Development Sync"
+    id: "dev-sync"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/template-repo"
+      branch: "main"
+    targets:
+      # Sync to main branch (production)
+      - repo: "company/service-a"
+        branch: "main"
+        files:
+          - src: ".github/workflows/production.yml"
+            dest: ".github/workflows/ci.yml"
+
+      # Sync to develop branch (staging)
+      - repo: "company/service-a"
+        branch: "develop"
+        files:
+          - src: ".github/workflows/staging.yml"
+            dest: ".github/workflows/ci.yml"
+        transform:
+          variables:
+            ENVIRONMENT: "staging"
+
+      # Sync to feature branch
+      - repo: "company/service-b"
+        branch: "feature/new-deployment"
+        files:
+          - src: ".github/workflows/feature.yml"
+            dest: ".github/workflows/ci.yml"
+        transform:
+          variables:
+            ENVIRONMENT: "development"
+```
+</details>
+
 ### Essential Commands
 
 ```bash
@@ -650,6 +693,7 @@ groups:
       pr_team_reviewers: ["platform-team"]
     targets:
       - repo: "org/target-repo"
+        branch: "main"                        # Target branch for PRs (defaults to repo's default branch)
         files:
           - src: ".github/workflows/ci.yml"
             dest: ".github/workflows/ci.yml"
