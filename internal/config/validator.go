@@ -643,7 +643,8 @@ func (c *Config) validateFileLists(ctx context.Context, logConfig *logging.LogCo
 
 		// Validate each file mapping
 		for j, file := range list.Files {
-			if file.Src == "" {
+			// For deletions, source path can be empty
+			if !file.Delete && file.Src == "" {
 				return fmt.Errorf("file_list[%d] (%s) file[%d]: %w", i, list.ID, j, ErrEmptySourcePath)
 			}
 			if file.Dest == "" {
@@ -700,7 +701,8 @@ func (c *Config) validateDirectoryLists(ctx context.Context, logConfig *logging.
 
 		// Validate each directory mapping
 		for j, dir := range list.Directories {
-			if dir.Src == "" {
+			// For deletions, source path can be empty
+			if !dir.Delete && dir.Src == "" {
 				return fmt.Errorf("directory_list[%d] (%s) directory[%d]: %w", i, list.ID, j, ErrEmptySourcePath)
 			}
 			if dir.Dest == "" {

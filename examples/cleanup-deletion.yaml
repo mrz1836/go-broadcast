@@ -19,36 +19,37 @@ groups:
     targets:
       - repo: "company/service-a"
 
-        # Regular file syncing
+        # File operations - both syncing and deletions
         files:
+          # Regular file syncing
           - src: ".github/workflows/new-ci.yml"
             dest: ".github/workflows/ci.yml"
           - src: "configs/app.yml"
             dest: "configs/app.yml"
-
-        # File deletions - remove obsolete files
-        # Note: src can be empty or a dummy value when delete: true
-        files:
-          - src: ""
+          # File deletions - remove obsolete files
+          # Note: src can be empty or a dummy value when delete: true
+          - src: "dummy"
             dest: ".github/workflows/old-ci.yml"
             delete: true
-          - src: ""
+          - src: "dummy"
             dest: "deprecated-config.json"
             delete: true
-          - dest: "legacy-script.sh"
+          - src: "dummy"
+            dest: "legacy-script.sh"
             delete: true # src omitted when deleting
 
-        # Directory syncing
+        # Directory operations - both syncing and deletions
         directories:
+          # Directory syncing
           - src: ".github/actions"
             dest: ".github/actions"
             exclude: ["*.tmp"]
-
-        # Directory deletions - remove entire directories
-        directories:
-          - dest: "old-docs"
+          # Directory deletions - remove entire directories
+          - src: "dummy"
+            dest: "old-docs"
             delete: true
-          - dest: ".github/legacy-workflows"
+          - src: "dummy"
+            dest: ".github/legacy-workflows"
             delete: true
 
       - repo: "company/service-b"
@@ -62,9 +63,11 @@ groups:
             dest: "LICENSE"
 
           # Remove old files
-          - dest: "OLD_README.txt"
+          - src: "dummy"
+            dest: "OLD_README.txt"
             delete: true
-          - dest: "DEPRECATED_LICENSE"
+          - src: "dummy"
+            dest: "DEPRECATED_LICENSE"
             delete: true
 
         directories:
@@ -74,9 +77,11 @@ groups:
             exclude: ["*.log", "tmp/*"]
 
           # Remove obsolete directories
-          - dest: "legacy-scripts"
+          - src: "dummy"
+            dest: "legacy-scripts"
             delete: true
-          - dest: "old-configs"
+          - src: "dummy"
+            dest: "old-configs"
             delete: true
 
         transform:
@@ -94,23 +99,25 @@ groups:
     targets:
       - repo: "company/critical-service"
 
-        # Update security files
+        # File operations - both syncing and deletions
         files:
+          # Update security files
           - src: ".github/SECURITY.md"
             dest: ".github/SECURITY.md"
           - src: "security/policies.yml"
             dest: "security/policies.yml"
-
-        # Remove old security files
-        files:
-          - dest: "SECURITY_OLD.md"
+          # Remove old security files
+          - src: "dummy"
+            dest: "SECURITY_OLD.md"
             delete: true
-          - dest: "security/deprecated-policy.json"
+          - src: "dummy"
+            dest: "security/deprecated-policy.json"
             delete: true
 
         # Remove entire deprecated security directory
         directories:
-          - dest: "security/legacy"
+          - src: "dummy"
+            dest: "security/legacy"
             delete: true
 
         pr_labels: ["security-update", "cleanup"]
@@ -129,27 +136,31 @@ groups:
     targets:
       - repo: "company/service-docs"
 
-        # Sync new documentation structure
+        # Directory operations - both syncing and deletions
         directories:
+          # Sync new documentation structure
           - src: "docs/api"
             dest: "docs/api"
           - src: "docs/guides"
             dest: "docs/guides"
-
-        # Remove old documentation structure
-        directories:
-          - dest: "documentation" # Old docs directory
+          # Remove old documentation structure
+          - src: "dummy"
+            dest: "documentation" # Old docs directory
             delete: true
-          - dest: "guides" # Moved to docs/guides
+          - src: "dummy"
+            dest: "guides" # Moved to docs/guides
             delete: true
-          - dest: "api-reference" # Moved to docs/api
+          - src: "dummy"
+            dest: "api-reference" # Moved to docs/api
             delete: true
 
         # Clean up individual obsolete files
         files:
-          - dest: "README_OLD.md"
+          - src: "dummy"
+            dest: "README_OLD.md"
             delete: true
-          - dest: "CHANGELOG_LEGACY.md"
+          - src: "dummy"
+            dest: "CHANGELOG_LEGACY.md"
             delete: true
 
 # Advanced deletion patterns
@@ -158,13 +169,17 @@ file_lists:
     name: "Files to Clean Up"
     description: "Common obsolete files to remove"
     files:
-      - dest: ".travis.yml" # Remove old CI
+      - src: "dummy"
+        dest: ".travis.yml" # Remove old CI
         delete: true
-      - dest: "circle.yml" # Remove old CI
+      - src: "dummy"
+        dest: "circle.yml" # Remove old CI
         delete: true
-      - dest: "Jenkinsfile.old" # Remove old CI
+      - src: "dummy"
+        dest: "Jenkinsfile.old" # Remove old CI
         delete: true
-      - dest: "package-lock.json.bak"
+      - src: "dummy"
+        dest: "package-lock.json.bak"
         delete: true
 
 directory_lists:
@@ -172,9 +187,12 @@ directory_lists:
     name: "Directories to Clean Up"
     description: "Common obsolete directories to remove"
     directories:
-      - dest: "node_modules_backup"
+      - src: "dummy"
+        dest: "node_modules_backup"
         delete: true
-      - dest: "legacy"
+      - src: "dummy"
+        dest: "legacy"
         delete: true
-      - dest: "deprecated"
+      - src: "dummy"
+        dest: "deprecated"
         delete: true

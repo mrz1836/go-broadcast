@@ -46,6 +46,189 @@ func TestConfig_Validate(t *testing.T) {
 	})
 }
 
+// TestValidateFileLists tests the validateFileLists function with delete operations
+func TestValidateFileLists(t *testing.T) {
+	tests := []struct {
+		name        string
+		fileLists   []FileList
+		expectValid bool
+		errorMsg    string
+		description string
+	}{
+		{
+			name: "valid file list with regular files",
+			fileLists: []FileList{
+				{
+					ID:   "regular-files",
+					Name: "Regular Files",
+					Files: []FileMapping{
+						{Src: "source.txt", Dest: "dest.txt", Delete: false},
+						{Src: "another.txt", Dest: "another.txt", Delete: false},
+					},
+				},
+			},
+			expectValid: true,
+			description: "Regular file lists should validate correctly",
+		},
+		{
+			name: "valid file list with delete operations",
+			fileLists: []FileList{
+				{
+					ID:   "delete-files",
+					Name: "Files to Delete",
+					Files: []FileMapping{
+						{Src: "", Dest: ".github/.prettierignore", Delete: true},
+						{Src: "", Dest: ".github/.prettierrc.yml", Delete: true},
+					},
+				},
+			},
+			expectValid: true,
+			description: "Delete operations should allow empty source paths",
+		},
+		{
+			name: "mixed file list with sync and delete operations",
+			fileLists: []FileList{
+				{
+					ID:   "mixed-files",
+					Name: "Mixed Operations",
+					Files: []FileMapping{
+						{Src: "new-file.txt", Dest: "new-file.txt", Delete: false},
+						{Src: "", Dest: "old-file.txt", Delete: true},
+						{Src: "another-new.txt", Dest: "another-new.txt", Delete: false},
+					},
+				},
+			},
+			expectValid: true,
+			description: "Mixed sync and delete operations should be valid",
+		},
+		{
+			name: "invalid - empty source for non-delete operation",
+			fileLists: []FileList{
+				{
+					ID:   "invalid-files",
+					Name: "Invalid Files",
+					Files: []FileMapping{
+						{Src: "", Dest: "dest.txt", Delete: false}, // This should fail
+					},
+				},
+			},
+			expectValid: false,
+			errorMsg:    "source path cannot be empty",
+			description: "Non-delete operations should require source path",
+		},
+		{
+			name: "invalid - empty destination for delete operation",
+			fileLists: []FileList{
+				{
+					ID:   "invalid-delete",
+					Name: "Invalid Delete",
+					Files: []FileMapping{
+						{Src: "", Dest: "", Delete: true}, // This should fail - empty dest
+					},
+				},
+			},
+			expectValid: false,
+			errorMsg:    "destination path cannot be empty",
+			description: "Delete operations should require destination path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &Config{
+				Version:   1,
+				FileLists: tt.fileLists,
+			}
+
+			err := config.validateFileLists(context.Background(), nil)
+			if tt.expectValid {
+				assert.NoError(t, err, tt.description)
+			} else {
+				require.Error(t, err, tt.description)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateDirectoryLists tests the validateDirectoryLists function with delete operations
+func TestValidateDirectoryLists(t *testing.T) {
+	tests := []struct {
+		name           string
+		directoryLists []DirectoryList
+		expectValid    bool
+		errorMsg       string
+		description    string
+	}{
+		{
+			name: "valid directory list with regular directories",
+			directoryLists: []DirectoryList{
+				{
+					ID:   "regular-dirs",
+					Name: "Regular Directories",
+					Directories: []DirectoryMapping{
+						{Src: ".github/workflows", Dest: ".github/workflows", Delete: false},
+						{Src: ".vscode", Dest: ".vscode", Delete: false},
+					},
+				},
+			},
+			expectValid: true,
+			description: "Regular directory lists should validate correctly",
+		},
+		{
+			name: "valid directory list with delete operations",
+			directoryLists: []DirectoryList{
+				{
+					ID:   "delete-dirs",
+					Name: "Directories to Delete",
+					Directories: []DirectoryMapping{
+						{Src: "", Dest: "old-configs", Delete: true},
+						{Src: "", Dest: "deprecated", Delete: true},
+					},
+				},
+			},
+			expectValid: true,
+			description: "Delete operations should allow empty source paths for directories",
+		},
+		{
+			name: "invalid - empty source for non-delete directory operation",
+			directoryLists: []DirectoryList{
+				{
+					ID:   "invalid-dirs",
+					Name: "Invalid Directories",
+					Directories: []DirectoryMapping{
+						{Src: "", Dest: "dest-dir", Delete: false}, // This should fail
+					},
+				},
+			},
+			expectValid: false,
+			errorMsg:    "source path cannot be empty",
+			description: "Non-delete directory operations should require source path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &Config{
+				Version:        1,
+				DirectoryLists: tt.directoryLists,
+			}
+
+			err := config.validateDirectoryLists(context.Background(), nil)
+			if tt.expectValid {
+				assert.NoError(t, err, tt.description)
+			} else {
+				require.Error(t, err, tt.description)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			}
+		})
+	}
+}
+
 // TestValidateDirectories tests the validateDirectories function
 func TestValidateDirectories(t *testing.T) {
 	tests := []struct {

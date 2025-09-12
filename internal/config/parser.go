@@ -136,8 +136,9 @@ func resolveListReferences(config *Config) error {
 					// Add or override file mappings from the list
 					for _, file := range list.Files {
 						fileMap[file.Dest] = FileMapping{
-							Src:  file.Src,
-							Dest: file.Dest,
+							Src:    file.Src,
+							Dest:   file.Dest,
+							Delete: file.Delete,
 						}
 					}
 				}
@@ -179,6 +180,7 @@ func resolveListReferences(config *Config) error {
 							Transform:         dir.Transform,
 							PreserveStructure: dir.PreserveStructure,
 							IncludeHidden:     dir.IncludeHidden,
+							Delete:            dir.Delete,
 						}
 
 						// Deep copy module config if present
