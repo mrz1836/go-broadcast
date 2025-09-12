@@ -6,9 +6,11 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
@@ -478,4 +480,422 @@ func TestOutputCancelPreviewIntegration(t *testing.T) {
 	assert.Contains(t, outputStr, "Would close PR #456")
 	assert.Contains(t, outputStr, "Would delete branch: sync/test2")
 	assert.Contains(t, outputStr, "Summary (would):")
+}
+
+// Multi-group integration tests
+
+// TestRunCancel_MultiGroupConfig tests the full cancel command with multi-group configurations
+func TestRunCancel_MultiGroupConfig(t *testing.T) {
+	// Save original flags
+	originalFlags := globalFlags
+	defer func() {
+		globalFlags = originalFlags
+	}()
+
+	testCases := []struct {
+		name          string
+		setupConfig   func() (string, func())
+		args          []string
+		dryRun        bool
+		expectError   bool
+		errorContains string
+		verifyOutput  func(*testing.T, string)
+	}{
+		{
+			name: "Multi-group config - dry run mode",
+			setupConfig: func() (string, func()) {
+				tmpFile, err := os.CreateTemp("", "multi-group-*.yml")
+				require.NoError(t, err)
+
+				multiGroupConfig := `version: 1
+groups:
+  - name: "group-1"
+    id: "group1"
+    source:
+      repo: org/source1
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md
+  - name: "group-2"
+    id: "group2"
+    source:
+      repo: org/source2
+      branch: main
+    targets:
+      - repo: org/target2
+        files:
+          - src: LICENSE
+            dest: LICENSE
+  - name: "group-3"
+    id: "group3"
+    source:
+      repo: org/source3
+      branch: main
+    targets:
+      - repo: org/target3
+        files:
+          - src: CONTRIBUTING.md
+            dest: CONTRIBUTING.md
+  - name: "skyetel-go"
+    id: "skyetel-go"
+    source:
+      repo: skyetel/template
+      branch: development
+    targets:
+      - repo: skyetel/reach
+        files:
+          - src: .github/workflows/ci.yml
+            dest: .github/workflows/ci.yml`
+
+				_, err = tmpFile.WriteString(multiGroupConfig)
+				require.NoError(t, err)
+				require.NoError(t, tmpFile.Close())
+
+				globalFlags = &Flags{
+					ConfigFile: tmpFile.Name(),
+					DryRun:     true,
+				}
+				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+			},
+			dryRun:        true,
+			expectError:   true, // Will fail because gh.NewClient requires actual GitHub CLI
+			errorContains: "cancel operation failed",
+		},
+		{
+			name: "Target specific repo from 4th group (skyetel-go regression test)",
+			setupConfig: func() (string, func()) {
+				tmpFile, err := os.CreateTemp("", "skyetel-regression-*.yml")
+				require.NoError(t, err)
+
+				skyetelConfig := `version: 1
+groups:
+  - name: "mrz-tools"
+    id: "mrz-tools"
+    source:
+      repo: mrz1836/go-broadcast
+      branch: master
+    targets:
+      - repo: mrz1836/tool1
+        files:
+          - src: .gitignore
+            dest: .gitignore
+  - name: "mrz-libraries"
+    id: "mrz-libraries"
+    source:
+      repo: mrz1836/go-broadcast
+      branch: master
+    targets:
+      - repo: mrz1836/lib1
+        files:
+          - src: LICENSE
+            dest: LICENSE
+  - name: "mrz-fun-projects"
+    id: "mrz-fun-projects"
+    source:
+      repo: mrz1836/go-broadcast
+      branch: master
+    targets:
+      - repo: mrz1836/fun1
+        files:
+          - src: README.md
+            dest: README.md
+  - name: "skyetel-go"
+    id: "skyetel-go"
+    source:
+      repo: skyetel/go-template
+      branch: development
+    targets:
+      - repo: skyetel/reach
+        files:
+          - src: .github/workflows/ci.yml
+            dest: .github/workflows/ci.yml`
+
+				_, err = tmpFile.WriteString(skyetelConfig)
+				require.NoError(t, err)
+				require.NoError(t, tmpFile.Close())
+
+				globalFlags = &Flags{
+					ConfigFile: tmpFile.Name(),
+				}
+				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+			},
+			args:          []string{"skyetel/reach"}, // Target the 4th group specifically
+			expectError:   true,                      // Will fail because gh.NewClient requires actual GitHub CLI
+			errorContains: "cancel operation failed",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			configPath, cleanup := tc.setupConfig()
+			defer cleanup()
+
+			// Create command
+			cmd := &cobra.Command{}
+			cmd.SetContext(context.Background())
+
+			// Execute command
+			err := runCancel(cmd, tc.args)
+
+			// Verify results
+			if tc.expectError {
+				require.Error(t, err)
+				if tc.errorContains != "" {
+					assert.Contains(t, err.Error(), tc.errorContains)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+
+			_ = configPath
+		})
+	}
+}
+
+// TestPerformCancelWithDiscoverer_MultiGroupIntegration tests multi-group scenarios with mocked discoverer
+func TestPerformCancelWithDiscoverer_MultiGroupIntegration(t *testing.T) {
+	// Create realistic multi-group config similar to the actual sync.yaml
+	cfg := &config.Config{
+		Groups: []config.Group{
+			{
+				Name: "mrz-tools",
+				ID:   "mrz-tools",
+				Source: config.SourceConfig{
+					Repo:   "mrz1836/go-broadcast",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "mrz1836/tool1"},
+					{Repo: "mrz1836/tool2"},
+				},
+				Defaults: config.DefaultConfig{
+					BranchPrefix: "chore/sync-files",
+				},
+			},
+			{
+				Name: "mrz-libraries",
+				ID:   "mrz-libraries",
+				Source: config.SourceConfig{
+					Repo:   "mrz1836/go-broadcast",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "mrz1836/lib1"},
+					{Repo: "mrz1836/lib2"},
+				},
+				Defaults: config.DefaultConfig{
+					BranchPrefix: "chore/sync-files",
+				},
+			},
+			{
+				Name: "mrz-fun-projects",
+				ID:   "mrz-fun-projects",
+				Source: config.SourceConfig{
+					Repo:   "mrz1836/go-broadcast",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "mrz1836/fun1"},
+				},
+				Defaults: config.DefaultConfig{
+					BranchPrefix: "chore/sync-files",
+				},
+			},
+			{
+				Name: "skyetel-go",
+				ID:   "skyetel-go",
+				Source: config.SourceConfig{
+					Repo:   "skyetel/go-template",
+					Branch: "development",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "skyetel/reach"},
+				},
+				Defaults: config.DefaultConfig{
+					BranchPrefix: "chore/sync-files",
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		targetRepos   []string
+		setupState    func() *state.State
+		setupMocks    func(*gh.MockClient)
+		verifySummary func(*testing.T, *CancelSummary)
+	}{
+		{
+			name:        "skyetel-go 4th group regression - full integration",
+			targetRepos: []string{"skyetel/reach"}, // This was the repo that wasn't being found
+			setupState: func() *state.State {
+				return &state.State{
+					Targets: map[string]*state.TargetState{
+						"mrz1836/tool1": {Repo: "mrz1836/tool1"},
+						"mrz1836/tool2": {Repo: "mrz1836/tool2"},
+						"mrz1836/lib1":  {Repo: "mrz1836/lib1"},
+						"mrz1836/lib2":  {Repo: "mrz1836/lib2"},
+						"mrz1836/fun1":  {Repo: "mrz1836/fun1"},
+						"skyetel/reach": { // The problematic 4th group target
+							Repo: "skyetel/reach",
+							OpenPRs: []gh.PR{
+								{Number: 430, State: "open", Title: "Sync from skyetel/go-template"},
+							},
+							SyncBranches: []state.SyncBranch{
+								{
+									Name: "chore/sync-files-skyetel-go-20250112-145757-561a06e",
+									Metadata: &state.BranchMetadata{
+										Timestamp: time.Date(2025, time.January, 12, 14, 57, 57, 0, time.UTC),
+										CommitSHA: "561a06e",
+										GroupID:   "skyetel-go",
+									},
+								},
+							},
+						},
+					},
+					Source: state.SourceState{
+						Repo:         "mrz1836/go-broadcast",
+						Branch:       "master",
+						LatestCommit: "561a06e",
+					},
+				}
+			},
+			setupMocks: func(mockClient *gh.MockClient) {
+				mockClient.On("ClosePR", mock.Anything, "skyetel/reach", 430, mock.AnythingOfType("string")).Return(nil)
+				mockClient.On("DeleteBranch", mock.Anything, "skyetel/reach", "chore/sync-files-skyetel-go-20250112-145757-561a06e").Return(nil)
+			},
+			verifySummary: func(t *testing.T, summary *CancelSummary) {
+				assert.Equal(t, 1, summary.TotalTargets)
+				assert.Equal(t, 1, summary.PRsClosed)
+				assert.Equal(t, 1, summary.BranchesDeleted)
+				assert.Equal(t, 0, summary.Errors)
+
+				// Verify the specific result
+				require.Len(t, summary.Results, 1)
+				result := summary.Results[0]
+				assert.Equal(t, "skyetel/reach", result.Repository)
+				assert.Equal(t, 430, *result.PRNumber)
+				assert.Equal(t, "chore/sync-files-skyetel-go-20250112-145757-561a06e", result.BranchName)
+				assert.True(t, result.PRClosed)
+				assert.True(t, result.BranchDeleted)
+			},
+		},
+		{
+			name:        "cancel all active syncs across all 4 groups",
+			targetRepos: []string{},
+			setupState: func() *state.State {
+				return &state.State{
+					Targets: map[string]*state.TargetState{
+						"mrz1836/tool1": {
+							Repo: "mrz1836/tool1",
+							OpenPRs: []gh.PR{
+								{Number: 101, State: "open"},
+							},
+							SyncBranches: []state.SyncBranch{
+								{
+									Name: "chore/sync-files-mrz-tools-20250110-100000-abc123",
+									Metadata: &state.BranchMetadata{
+										Timestamp: time.Date(2025, time.January, 10, 10, 0, 0, 0, time.UTC),
+									},
+								},
+							},
+						},
+						"mrz1836/lib2": {
+							Repo: "mrz1836/lib2",
+							SyncBranches: []state.SyncBranch{
+								{
+									Name: "chore/sync-files-mrz-libraries-20250111-110000-def456",
+									Metadata: &state.BranchMetadata{
+										Timestamp: time.Date(2025, time.January, 11, 11, 0, 0, 0, time.UTC),
+									},
+								},
+							},
+						},
+						"skyetel/reach": {
+							Repo: "skyetel/reach",
+							OpenPRs: []gh.PR{
+								{Number: 430, State: "open"},
+							},
+							SyncBranches: []state.SyncBranch{
+								{
+									Name: "chore/sync-files-skyetel-go-20250112-145757-561a06e",
+									Metadata: &state.BranchMetadata{
+										Timestamp: time.Date(2025, time.January, 12, 14, 57, 57, 0, time.UTC),
+									},
+								},
+							},
+						},
+					},
+					Source: state.SourceState{
+						Repo:         "mrz1836/go-broadcast",
+						Branch:       "master",
+						LatestCommit: "latest123",
+					},
+				}
+			},
+			setupMocks: func(mockClient *gh.MockClient) {
+				// Mock PRs
+				mockClient.On("ClosePR", mock.Anything, "mrz1836/tool1", 101, mock.AnythingOfType("string")).Return(nil)
+				mockClient.On("ClosePR", mock.Anything, "skyetel/reach", 430, mock.AnythingOfType("string")).Return(nil)
+
+				// Mock branches
+				mockClient.On("DeleteBranch", mock.Anything, "mrz1836/tool1", "chore/sync-files-mrz-tools-20250110-100000-abc123").Return(nil)
+				mockClient.On("DeleteBranch", mock.Anything, "mrz1836/lib2", "chore/sync-files-mrz-libraries-20250111-110000-def456").Return(nil)
+				mockClient.On("DeleteBranch", mock.Anything, "skyetel/reach", "chore/sync-files-skyetel-go-20250112-145757-561a06e").Return(nil)
+			},
+			verifySummary: func(t *testing.T, summary *CancelSummary) {
+				assert.Equal(t, 3, summary.TotalTargets)    // 3 repos with active syncs
+				assert.Equal(t, 2, summary.PRsClosed)       // 2 had open PRs
+				assert.Equal(t, 3, summary.BranchesDeleted) // All 3 had sync branches
+				assert.Equal(t, 0, summary.Errors)
+
+				// Verify skyetel/reach is included (regression test)
+				skyetelFound := false
+				for _, result := range summary.Results {
+					if result.Repository == "skyetel/reach" {
+						skyetelFound = true
+						assert.Equal(t, 430, *result.PRNumber)
+						assert.True(t, result.PRClosed)
+						assert.True(t, result.BranchDeleted)
+						break
+					}
+				}
+				assert.True(t, skyetelFound, "skyetel/reach should be included in results")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Ensure dry run is off
+			originalDryRun := globalFlags.DryRun
+			globalFlags.DryRun = false
+			defer func() { globalFlags.DryRun = originalDryRun }()
+
+			// Create mocks
+			mockClient := &gh.MockClient{}
+			mockDiscoverer := &state.MockDiscoverer{}
+
+			// Set up state
+			testState := tt.setupState()
+			mockDiscoverer.On("DiscoverState", context.Background(), cfg).Return(testState, nil)
+
+			// Set up GitHub client mocks
+			tt.setupMocks(mockClient)
+
+			// Execute
+			summary, err := performCancelWithDiscoverer(context.Background(), cfg, tt.targetRepos, mockClient, mockDiscoverer)
+
+			// Verify
+			require.NoError(t, err)
+			assert.NotNil(t, summary)
+			tt.verifySummary(t, summary)
+
+			mockClient.AssertExpectations(t)
+			mockDiscoverer.AssertExpectations(t)
+		})
+	}
 }
