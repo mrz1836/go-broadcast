@@ -24,6 +24,12 @@ func (m *MockClient) Clone(ctx context.Context, url, path string) error {
 	return testutil.ExtractError(args)
 }
 
+// CloneWithBranch mock implementation
+func (m *MockClient) CloneWithBranch(ctx context.Context, url, path, branch string) error {
+	args := m.Called(ctx, url, path, branch)
+	return testutil.ExtractError(args)
+}
+
 // Checkout mock implementation
 func (m *MockClient) Checkout(ctx context.Context, repoPath, branch string) error {
 	args := m.Called(ctx, repoPath, branch)

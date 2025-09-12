@@ -2214,3 +2214,119 @@ func TestRepositorySync_NoChangesToSync(t *testing.T) {
 		ghClient.AssertNotCalled(t, "CreatePR", mock.Anything, mock.Anything, mock.Anything)
 	})
 }
+
+func TestRepositorySync_BranchAwareCloning(t *testing.T) {
+	tests := []struct {
+		name         string
+		targetBranch string
+		expectClone  bool
+		expectBranch bool
+	}{
+		{
+			name:         "clone with target branch",
+			targetBranch: "development",
+			expectClone:  false,
+			expectBranch: true,
+		},
+		{
+			name:         "clone without target branch",
+			targetBranch: "",
+			expectClone:  true,
+			expectBranch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mocks
+			ghClient := gh.NewMockClient()
+			gitClient := git.NewMockClient()
+
+			// Setup basic mocks
+			sourceState := &state.SourceState{
+				Repo:         "source/repo",
+				Branch:       "master",
+				LatestCommit: "abc123",
+			}
+
+			targetState := &state.TargetState{
+				Branch: tt.targetBranch,
+			}
+
+			target := config.TargetConfig{
+				Repo: "target/repo",
+			}
+
+			// Mock directory operations
+			engine := &Engine{
+				gh:  ghClient,
+				git: gitClient,
+				options: &Options{
+					DryRun: false,
+				},
+			}
+
+			repoSync := &RepositorySync{
+				engine:      engine,
+				target:      target,
+				sourceState: sourceState,
+				targetState: targetState,
+				logger:      logrus.NewEntry(logrus.New()),
+				tempDir:     "/tmp/test",
+			}
+
+			// Mock the git operations based on expected behavior
+			if tt.expectBranch {
+				gitClient.On("CloneWithBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), tt.targetBranch).Return(nil)
+			}
+
+			if tt.expectClone {
+				gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+			}
+
+			gitClient.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+			gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+			gitClient.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
+			gitClient.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+			gitClient.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("bool")).Return(nil)
+			gitClient.On("GetChangedFiles", mock.Anything, mock.AnythingOfType("string")).Return([]string{"file1.txt"}, nil)
+			gitClient.On("GetCurrentCommitSHA", mock.Anything, mock.AnythingOfType("string")).Return("abc123", nil)
+
+			// Mock GitHub operations
+			ghClient.On("ListPRs", mock.Anything, target.Repo, mock.AnythingOfType("string")).Return([]gh.PR{}, nil)
+			ghClient.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "test-user"}, nil)
+
+			if tt.targetBranch != "" {
+				ghClient.On("GetBranch", mock.Anything, target.Repo, tt.targetBranch).Return(&gh.Branch{Name: tt.targetBranch}, nil)
+			} else {
+				ghClient.On("ListBranches", mock.Anything, target.Repo).Return([]gh.Branch{{Name: "master"}}, nil)
+			}
+
+			ghClient.On("CreatePR", mock.Anything, target.Repo, mock.AnythingOfType("gh.PRRequest")).Return(&gh.PR{Number: 123}, nil)
+
+			// Create test file changes
+			fileChanges := []FileChange{
+				{
+					Path:      "test.txt",
+					Content:   []byte("test content"),
+					IsDeleted: false,
+				},
+			}
+
+			// Execute the commit process
+			_, _, err := repoSync.commitChanges(context.Background(), "test-branch", fileChanges)
+			require.NoError(t, err)
+
+			// Verify the correct clone method was called
+			if tt.expectBranch {
+				gitClient.AssertCalled(t, "CloneWithBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), tt.targetBranch)
+				gitClient.AssertNotCalled(t, "Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"))
+			}
+
+			if tt.expectClone {
+				gitClient.AssertCalled(t, "Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"))
+				gitClient.AssertNotCalled(t, "CloneWithBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"))
+			}
+		})
+	}
+}

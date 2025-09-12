@@ -721,8 +721,21 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 	targetPath := filepath.Join(rs.tempDir, "target")
 	targetURL := fmt.Sprintf("https://github.com/%s.git", rs.target.Repo)
 
-	if err := rs.engine.git.Clone(ctx, targetURL, targetPath); err != nil {
-		return "", nil, fmt.Errorf("failed to clone target repository: %w", err)
+	// Use target branch for cloning if specified, otherwise use default
+	targetBranch := ""
+	if rs.targetState != nil && rs.targetState.Branch != "" {
+		targetBranch = rs.targetState.Branch
+		rs.logger.WithField("target_branch", targetBranch).Info("Cloning repository with target branch")
+	}
+
+	if targetBranch != "" {
+		if err := rs.engine.git.CloneWithBranch(ctx, targetURL, targetPath, targetBranch); err != nil {
+			return "", nil, fmt.Errorf("failed to clone target repository with branch %s: %w", targetBranch, err)
+		}
+	} else {
+		if err := rs.engine.git.Clone(ctx, targetURL, targetPath); err != nil {
+			return "", nil, fmt.Errorf("failed to clone target repository: %w", err)
+		}
 	}
 
 	// Create and checkout the new branch

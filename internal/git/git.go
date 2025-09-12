@@ -105,6 +105,69 @@ func (g *gitClient) Clone(ctx context.Context, url, path string) error {
 	return fmt.Errorf("%w: clone failed after %d attempts", ErrGitCommand, maxRetries)
 }
 
+// CloneWithBranch clones a repository to the specified path with a specific branch
+// If branch is empty, behaves like Clone
+func (g *gitClient) CloneWithBranch(ctx context.Context, url, path, branch string) error {
+	// Check if path already exists
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("%w: %s", ErrRepositoryExists, path)
+	}
+
+	// If no branch specified, use regular clone
+	if branch == "" {
+		return g.Clone(ctx, url, path)
+	}
+
+	logger := logging.WithStandardFields(g.logger, g.logConfig, logging.ComponentNames.Git)
+	logger.WithFields(logrus.Fields{
+		"url":    url,
+		"path":   path,
+		"branch": branch,
+	}).Debug("Cloning repository with specific branch")
+
+	// Retry logic for network errors
+	maxRetries := 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		cmd := exec.CommandContext(ctx, "git", "clone", "--branch", branch, url, path)
+		cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+
+		err := g.runCommand(cmd)
+		if err == nil {
+			logger.WithField("branch", branch).Info("Successfully cloned repository with branch")
+			return nil // Success
+		}
+
+		// Check if it's a retryable network error
+		if isRetryableNetworkError(err) && attempt < maxRetries {
+			logger.WithFields(logrus.Fields{
+				"attempt":     attempt,
+				"max_retries": maxRetries,
+				"url":         url,
+				"branch":      branch,
+				"error":       err.Error(),
+			}).Warn("Network error during git clone with branch - retrying")
+
+			// Clean up failed partial clone
+			if cleanupErr := os.RemoveAll(path); cleanupErr != nil {
+				logger.WithError(cleanupErr).Debug("Failed to clean up partial clone")
+			}
+
+			// Brief delay before retry
+			select {
+			case <-time.After(time.Duration(attempt) * time.Second):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			continue
+		}
+
+		// Non-retryable error or max retries exceeded
+		return appErrors.WrapWithContext(err, fmt.Sprintf("clone repository with branch %s", branch))
+	}
+
+	return fmt.Errorf("%w: clone with branch %s failed after %d attempts", ErrGitCommand, branch, maxRetries)
+}
+
 // Checkout switches to the specified branch
 func (g *gitClient) Checkout(ctx context.Context, repoPath, branch string) error {
 	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", branch)

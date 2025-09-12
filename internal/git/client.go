@@ -17,6 +17,10 @@ type Client interface {
 	// Clone clones a repository to the specified path
 	Clone(ctx context.Context, url, path string) error
 
+	// CloneWithBranch clones a repository to the specified path with a specific branch
+	// If branch is empty, behaves like Clone
+	CloneWithBranch(ctx context.Context, url, path, branch string) error
+
 	// Checkout switches to the specified branch
 	Checkout(ctx context.Context, repoPath, branch string) error
 

@@ -573,6 +573,96 @@ func TestGitClient_Clone_AlreadyExists(t *testing.T) {
 	assert.ErrorIs(t, err, ErrRepositoryExists)
 }
 
+func TestGitClient_CloneWithBranch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := testutil.CreateTempDir(t)
+
+	tests := []struct {
+		name       string
+		branch     string
+		expectFile string
+	}{
+		{
+			name:       "clone with master branch",
+			branch:     "master",
+			expectFile: "README",
+		},
+		{
+			name:       "clone with empty branch (fallback to default)",
+			branch:     "",
+			expectFile: "README",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repoPath := filepath.Join(tmpDir, "test-repo-"+tt.name)
+
+			// Clone with specific branch
+			err = client.CloneWithBranch(ctx, "https://github.com/octocat/Hello-World.git", repoPath, tt.branch)
+			require.NoError(t, err)
+
+			// Verify the repository was cloned
+			assert.DirExists(t, filepath.Join(repoPath, ".git"))
+			assert.FileExists(t, filepath.Join(repoPath, tt.expectFile))
+
+			// Verify we're on the expected branch (or default if empty)
+			if tt.branch != "" {
+				currentBranch, err := client.GetCurrentBranch(ctx, repoPath)
+				require.NoError(t, err)
+				assert.Equal(t, tt.branch, currentBranch)
+			}
+		})
+	}
+}
+
+func TestGitClient_CloneWithBranch_AlreadyExists(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := testutil.CreateTempDir(t)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+
+	// Create directory first
+	testutil.CreateTestDirectory(t, repoPath)
+	require.NoError(t, err)
+
+	// Try to clone with branch into existing directory
+	err = client.CloneWithBranch(ctx, "https://github.com/octocat/Hello-World.git", repoPath, "master")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrRepositoryExists)
+}
+
+func TestGitClient_CloneWithBranch_InvalidBranch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := testutil.CreateTempDir(t)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+
+	// Try to clone with non-existent branch
+	err = client.CloneWithBranch(ctx, "https://github.com/octocat/Hello-World.git", repoPath, "non-existent-branch")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "clone repository with branch non-existent-branch")
+}
+
 func TestGitClient_Operations(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
