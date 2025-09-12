@@ -460,6 +460,49 @@ groups:
         pr_team_reviewers: ["security-team"]
 ```
 
+**File and directory cleanup with deletions:**
+```yaml
+version: 1
+groups:
+  - name: "Repository Cleanup"
+    id: "cleanup-sync"
+    description: "Clean up obsolete files while syncing new ones"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/template-repo"
+      branch: "main"
+    targets:
+      - repo: "company/service-a"
+        # Regular file syncing
+        files:
+          - src: ".github/workflows/new-ci.yml"
+            dest: ".github/workflows/ci.yml"
+
+        # File deletions - remove obsolete files
+        # Note: src can be empty or omitted when delete: true
+        files:
+          - dest: ".github/workflows/old-ci.yml"
+            delete: true
+          - dest: "deprecated-config.json"
+            delete: true
+
+        # Directory operations
+        directories:
+          - src: ".github/actions"
+            dest: ".github/actions"
+
+        # Directory deletions - remove entire directories
+        directories:
+          - dest: "old-docs"
+            delete: true
+          - dest: ".github/legacy-workflows"
+            delete: true
+
+        transform:
+          repo_name: true
+```
+
 ### Essential Commands
 
 ```bash
@@ -523,6 +566,11 @@ files:
     dest: "README.md"
   - src: "config/app.yml"   # Move to different directory
     dest: "configs/app.yml"
+  - dest: "old-config.json" # Delete file (src can be omitted)
+    delete: true
+  - dest: "deprecated.yml"  # Delete file with explicit empty src
+    src: ""
+    delete: true
 ```
 
 **Directory Mapping:**
@@ -541,10 +589,22 @@ directories:
     transform:                         # Apply transforms to all files
       variables:
         VERSION: "v2.0"
+  - dest: "legacy-docs"                # Delete entire directory
+    delete: true
+  - dest: "old-scripts"                # Delete directory (src can be omitted)
+    src: ""
+    delete: true
 ```
 
 **Smart Default Exclusions:**
 Automatically applied to all directories: `*.out`, `*.test`, `*.exe`, `**/.DS_Store`, `**/tmp/*`, `**/.git`
+
+**File and Directory Deletions:**
+- Set `delete: true` to remove files or directories from target repositories
+- When deleting, the `src` field can be omitted or set to an empty string
+- Deletions are processed alongside regular sync operations
+- Perfect for cleaning up deprecated files, old CI workflows, or restructuring projects
+
 </details>
 
 <details>
