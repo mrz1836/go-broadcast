@@ -81,7 +81,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 			logging.StandardFields.TargetCount: totalTargets,
 		}).Debug("Starting sync state discovery")
 	} else {
-		d.logger.Info("Discovering sync state from GitHub")
+		logrus.Info("Discovering sync state from GitHub")
 	}
 
 	// Check for context cancellation
@@ -204,7 +204,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 				})
 				targetLogger.Trace("Discovering target repository state")
 			} else {
-				d.logger.WithField("repo", target.Repo).Debug("Discovering target state")
+				logrus.WithField("repo", target.Repo).Debug("Discovering target state")
 			}
 
 			targetStart := time.Now()
@@ -357,7 +357,7 @@ func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo, branch
 						logging.StandardFields.Status:     "parse_failed",
 					}).Warn("Failed to parse sync branch metadata")
 				} else {
-					d.logger.WithError(parseErr).WithField("branch", branch.Name).Warn("Failed to parse sync branch")
+					logrus.WithError(parseErr).WithField("branch", branch.Name).Warn("Failed to parse sync branch")
 				}
 				continue
 			}
