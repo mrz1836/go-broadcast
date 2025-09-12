@@ -362,7 +362,9 @@ timestamp: 2025-01-23T14:30:52Z
 
 ### Common Use Cases
 
-**Sync CI/CD workflows across microservices:**
+<details>
+<summary><strong>Sync CI/CD workflows across microservices</strong></summary>
+
 ```yaml
 version: 1
 groups:
@@ -382,8 +384,11 @@ groups:
           variables:
             SERVICE_NAME: "user-service"
 ```
+</details>
 
-**Sync entire directories with smart exclusions:**
+<details>
+<summary><strong>Sync entire directories with smart exclusions</strong></summary>
+
 ```yaml
 version: 1
 groups:
@@ -406,8 +411,11 @@ groups:
         transform:
           repo_name: true
 ```
+</details>
 
-**Mixed file and directory synchronization:**
+<details>
+<summary><strong>Mixed file and directory synchronization</strong></summary>
+
 ```yaml
 version: 1
 groups:
@@ -431,8 +439,11 @@ groups:
           variables:
             SERVICE_NAME: "user-service"
 ```
+</details>
 
-**Automated PR management with assignees, reviewers, and labels:**
+<details>
+<summary><strong>Automated PR management with assignees, reviewers, and labels</strong></summary>
+
 ```yaml
 version: 1
 groups:
@@ -459,8 +470,11 @@ groups:
         pr_reviewers: ["security-engineer"]
         pr_team_reviewers: ["security-team"]
 ```
+</details>
 
-**File and directory cleanup with deletions:**
+<details>
+<summary><strong>File and directory cleanup with deletions</strong></summary>
+
 ```yaml
 version: 1
 groups:
@@ -502,6 +516,7 @@ groups:
         transform:
           repo_name: true
 ```
+</details>
 
 ### Essential Commands
 
