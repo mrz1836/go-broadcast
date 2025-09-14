@@ -25,6 +25,7 @@ type LogConfig struct {
 	JSONOutput    bool     // Enable JSON structured output
 	GroupFilter   []string // Groups to sync (by name or ID)
 	SkipGroups    []string // Groups to skip during sync
+	Automerge     bool     // Enable automerge labels on created PRs
 }
 
 // DebugFlags contains component-specific debug flags for targeted troubleshooting.

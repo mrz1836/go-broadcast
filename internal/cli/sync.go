@@ -134,6 +134,7 @@ func (s *SyncCommand) ExecuteSync(ctx context.Context, flags *Flags, args []stri
 var (
 	groupFilter []string
 	skipGroups  []string
+	automerge   bool
 )
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -164,6 +165,10 @@ Group Filtering:
   go-broadcast sync --log-level debug      # Enable debug logging
   go-broadcast sync --log-level trace      # Maximum verbosity
 
+  # Automerge configuration
+  go-broadcast sync --automerge                         # Add automerge labels to PRs
+  go-broadcast sync --automerge --groups "core"        # Automerge with group filtering
+
   # Common workflows
   go-broadcast validate && go-broadcast sync --dry-run  # Validate then preview
   go-broadcast sync --dry-run | tee preview.log        # Save preview output
@@ -178,6 +183,7 @@ Group Filtering:
 func init() {
 	syncCmd.Flags().StringSliceVar(&groupFilter, "groups", nil, "Sync only specified groups (by name or ID)")
 	syncCmd.Flags().StringSliceVar(&skipGroups, "skip-groups", nil, "Skip specified groups during sync")
+	syncCmd.Flags().BoolVar(&automerge, "automerge", false, "Add automerge labels from GO_BROADCAST_AUTOMERGE_LABELS to created PRs")
 }
 
 func runSync(cmd *cobra.Command, args []string) error {
@@ -382,12 +388,27 @@ repoTransformerAdded:
 	}
 templateTransformerAdded:
 
+	// Load automerge labels from environment if automerge is enabled
+	var automergeLabels []string
+	if automerge {
+		if envLabels := os.Getenv("GO_BROADCAST_AUTOMERGE_LABELS"); envLabels != "" {
+			// Split comma-separated labels and trim whitespace
+			for _, label := range strings.Split(envLabels, ",") {
+				if trimmed := strings.TrimSpace(label); trimmed != "" {
+					automergeLabels = append(automergeLabels, trimmed)
+				}
+			}
+		}
+	}
+
 	// Create sync options
 	opts := sync.DefaultOptions().
 		WithDryRun(IsDryRun()).
 		WithMaxConcurrency(5).
 		WithGroupFilter(groupFilter).
-		WithSkipGroups(skipGroups)
+		WithSkipGroups(skipGroups).
+		WithAutomerge(automerge).
+		WithAutomergeLabels(automergeLabels)
 
 	// Create and return engine
 	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
@@ -439,12 +460,27 @@ repoTransformerAdded2:
 	}
 templateTransformerAdded2:
 
+	// Load automerge labels from environment if automerge is enabled
+	var automergeLabels []string
+	if flags.Automerge {
+		if envLabels := os.Getenv("GO_BROADCAST_AUTOMERGE_LABELS"); envLabels != "" {
+			// Split comma-separated labels and trim whitespace
+			for _, label := range strings.Split(envLabels, ",") {
+				if trimmed := strings.TrimSpace(label); trimmed != "" {
+					automergeLabels = append(automergeLabels, trimmed)
+				}
+			}
+		}
+	}
+
 	// Create sync options using flags instead of global state
 	opts := sync.DefaultOptions().
 		WithDryRun(flags.DryRun).
 		WithMaxConcurrency(5).
 		WithGroupFilter(flags.GroupFilter).
-		WithSkipGroups(flags.SkipGroups)
+		WithSkipGroups(flags.SkipGroups).
+		WithAutomerge(flags.Automerge).
+		WithAutomergeLabels(automergeLabels)
 
 	// Create and return engine
 	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
@@ -566,12 +602,27 @@ repoTransformerAdded3:
 	}
 templateTransformerAdded3:
 
+	// Load automerge labels from environment if automerge is enabled
+	var automergeLabels []string
+	if logConfig.Automerge {
+		if envLabels := os.Getenv("GO_BROADCAST_AUTOMERGE_LABELS"); envLabels != "" {
+			// Split comma-separated labels and trim whitespace
+			for _, label := range strings.Split(envLabels, ",") {
+				if trimmed := strings.TrimSpace(label); trimmed != "" {
+					automergeLabels = append(automergeLabels, trimmed)
+				}
+			}
+		}
+	}
+
 	// Create sync options using LogConfig instead of global state
 	opts := sync.DefaultOptions().
 		WithDryRun(logConfig.DryRun).
 		WithMaxConcurrency(5).
 		WithGroupFilter(logConfig.GroupFilter).
-		WithSkipGroups(logConfig.SkipGroups)
+		WithSkipGroups(logConfig.SkipGroups).
+		WithAutomerge(logConfig.Automerge).
+		WithAutomergeLabels(automergeLabels)
 
 	// Create and return engine
 	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)

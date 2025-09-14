@@ -250,6 +250,7 @@ magex update:install
 ### 🤖 **Automation & CI/CD**
 - **Automatic PR creation** - Creates pull requests with rich metadata
 - **PR management** - Auto-assign reviewers, assignees, and labels
+- **Automerge labels** - Add configurable automerge labels to PRs with `--automerge` flag
 - **Global settings** - Organization-wide PR assignments
 - **Branch naming** - Encoded metadata for state tracking
 - **Cancel operations** - Abort active syncs with cleanup
@@ -578,6 +579,10 @@ go-broadcast sync --groups "default" --config sync.yaml             # Sync by gr
 go-broadcast sync --groups "core,security" --config sync.yaml       # Sync multiple groups
 go-broadcast sync --skip-groups "experimental" --config sync.yaml   # Skip specific groups
 go-broadcast sync --groups "core" org/repo1 --config sync.yaml      # Combine with target filtering
+
+# Automerge configuration
+go-broadcast sync --automerge --config sync.yaml                    # Add automerge labels to created PRs
+go-broadcast sync --automerge --groups "core" --config sync.yaml    # Automerge with group filtering (adds labels)
 
 # Monitor status
 go-broadcast status --config sync.yaml

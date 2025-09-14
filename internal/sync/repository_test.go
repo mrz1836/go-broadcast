@@ -1115,6 +1115,177 @@ func TestRepositorySync_getPRLabels(t *testing.T) {
 	})
 }
 
+// TestRepositorySync_getPRLabels_WithAutomerge tests automerge label functionality
+func TestRepositorySync_getPRLabels_WithAutomerge(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+
+	t.Run("adds automerge labels when enabled", func(t *testing.T) {
+		cfg := &config.Config{
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRLabels: []string{"default-label"},
+				},
+			}},
+		}
+
+		target := config.TargetConfig{
+			Repo:     "org/target",
+			PRLabels: []string{"target-label"},
+		}
+
+		opts := &Options{
+			Automerge:       true,
+			AutomergeLabels: []string{"automerge", "ready-to-merge"},
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{
+				config:  cfg,
+				options: opts,
+			},
+			target: target,
+			logger: logger,
+		}
+
+		labels := rs.getPRLabels()
+		expected := []string{"target-label", "automerge", "ready-to-merge"}
+		assert.Equal(t, expected, labels)
+	})
+
+	t.Run("does not add automerge labels when disabled", func(t *testing.T) {
+		cfg := &config.Config{
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRLabels: []string{"default-label"},
+				},
+			}},
+		}
+
+		target := config.TargetConfig{
+			Repo:     "org/target",
+			PRLabels: []string{"target-label"},
+		}
+
+		opts := &Options{
+			Automerge:       false,
+			AutomergeLabels: []string{"automerge", "ready-to-merge"},
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{
+				config:  cfg,
+				options: opts,
+			},
+			target: target,
+			logger: logger,
+		}
+
+		labels := rs.getPRLabels()
+		expected := []string{"target-label"}
+		assert.Equal(t, expected, labels)
+	})
+
+	t.Run("does not add automerge labels when enabled but no labels configured", func(t *testing.T) {
+		cfg := &config.Config{
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRLabels: []string{"default-label"},
+				},
+			}},
+		}
+
+		target := config.TargetConfig{
+			Repo:     "org/target",
+			PRLabels: []string{"target-label"},
+		}
+
+		opts := &Options{
+			Automerge:       true,
+			AutomergeLabels: []string{}, // Empty labels
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{
+				config:  cfg,
+				options: opts,
+			},
+			target: target,
+			logger: logger,
+		}
+
+		labels := rs.getPRLabels()
+		expected := []string{"target-label"}
+		assert.Equal(t, expected, labels)
+	})
+
+	t.Run("adds automerge labels to defaults when no target labels", func(t *testing.T) {
+		cfg := &config.Config{
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRLabels: []string{"default-label"},
+				},
+			}},
+		}
+
+		target := config.TargetConfig{
+			Repo: "org/target",
+			// No PRLabels configured
+		}
+
+		opts := &Options{
+			Automerge:       true,
+			AutomergeLabels: []string{"automerge"},
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{
+				config:  cfg,
+				options: opts,
+			},
+			target: target,
+			logger: logger,
+		}
+
+		labels := rs.getPRLabels()
+		expected := []string{"default-label", "automerge"}
+		assert.Equal(t, expected, labels)
+	})
+
+	t.Run("removes duplicate automerge labels", func(t *testing.T) {
+		cfg := &config.Config{
+			Groups: []config.Group{{
+				Defaults: config.DefaultConfig{
+					PRLabels: []string{"default-label"},
+				},
+			}},
+		}
+
+		target := config.TargetConfig{
+			Repo:     "org/target",
+			PRLabels: []string{"automerge", "target-label"}, // Already contains automerge
+		}
+
+		opts := &Options{
+			Automerge:       true,
+			AutomergeLabels: []string{"automerge", "ready-to-merge"}, // Duplicate automerge
+		}
+
+		rs := &RepositorySync{
+			engine: &Engine{
+				config:  cfg,
+				options: opts,
+			},
+			target: target,
+			logger: logger,
+		}
+
+		labels := rs.getPRLabels()
+		// Should not have duplicate "automerge" labels
+		expected := []string{"automerge", "target-label", "ready-to-merge"}
+		assert.Equal(t, expected, labels)
+	})
+}
+
 // TestFormatReviewersWithFiltering tests the formatReviewersWithFiltering method
 func TestFormatReviewersWithFiltering(t *testing.T) {
 	logger := logrus.NewEntry(logrus.New())

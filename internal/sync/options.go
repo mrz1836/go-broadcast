@@ -28,6 +28,12 @@ type Options struct {
 
 	// SkipGroups specifies which groups to skip (by name or ID)
 	SkipGroups []string
+
+	// Automerge indicates whether to add automerge labels to created PRs
+	Automerge bool
+
+	// AutomergeLabels specifies the labels to add when automerge is enabled
+	AutomergeLabels []string
 }
 
 // DefaultOptions returns the default sync options
@@ -78,5 +84,17 @@ func (o *Options) WithGroupFilter(groups []string) *Options {
 // WithSkipGroups sets the groups to skip
 func (o *Options) WithSkipGroups(skipGroups []string) *Options {
 	o.SkipGroups = skipGroups
+	return o
+}
+
+// WithAutomerge sets the automerge option
+func (o *Options) WithAutomerge(automerge bool) *Options {
+	o.Automerge = automerge
+	return o
+}
+
+// WithAutomergeLabels sets the automerge labels
+func (o *Options) WithAutomergeLabels(labels []string) *Options {
+	o.AutomergeLabels = labels
 	return o
 }

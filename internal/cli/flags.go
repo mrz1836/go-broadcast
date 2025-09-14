@@ -35,6 +35,7 @@ type Flags struct {
 	LogLevel    string
 	GroupFilter []string // Groups to sync (by name or ID)
 	SkipGroups  []string // Groups to skip during sync
+	Automerge   bool     // Enable automerge labels on created PRs
 }
 
 // globalFlags is the singleton instance of flags

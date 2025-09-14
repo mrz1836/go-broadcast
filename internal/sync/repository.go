@@ -1807,8 +1807,14 @@ func (rs *RepositorySync) getPRLabels() []string {
 
 	// Fall back to defaults if no assignments
 	if len(combined) == 0 {
-		return defaults
+		combined = defaults
 	}
+
+	// Add automerge labels if automerge is enabled
+	if rs.engine.options != nil && rs.engine.options.Automerge && len(rs.engine.options.AutomergeLabels) > 0 {
+		combined = rs.mergeUniqueStrings(combined, rs.engine.options.AutomergeLabels)
+	}
+
 	return combined
 }
 
