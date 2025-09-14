@@ -347,13 +347,6 @@ jobs:
               echo "<br><br>"
               echo ""
               echo "### 🎛️ Test Output Configuration"
-              echo "| Configuration | Value | Description |"
-              echo "|---------------|-------|-------------|"
-              echo "| **Mode** | ${TEST_OUTPUT_MODE:-SMART} | Test output strategy |"
-              echo "| **Smart Threshold** | ${TEST_OUTPUT_SMART_THRESHOLD:-500} tests | Switch to FAILURES_ONLY above this |"
-              echo "| **Detail Count** | ${TEST_FAILURE_DETAIL_COUNT:-50} | Failures shown with details |"
-              echo "| **Annotations** | ${TEST_FAILURE_ANNOTATION_COUNT:-10} | GitHub annotations limit |"
-              echo "| **Artifacts** | ✅ Enabled | ${TEST_OUTPUT_ARTIFACT_RETENTION_DAYS:-7} day retention |"
             } >> tests-section.md
 
             # Show output strategy summary

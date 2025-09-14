@@ -1,6 +1,9 @@
 - name: "automerge"
-  description: "Used for automatic merging"
+  description: "Used for automatic merging of PRs"
   color: FEF2C0
+- name: "automerge-enabled"
+  description: "Detected automerge PR and enabled automerge"
+  color: 006b75
 - name: "bug-P1"
   description: "Highest rated bug or issue, affects all"
   color: b23128
