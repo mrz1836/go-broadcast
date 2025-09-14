@@ -169,9 +169,9 @@ runs:
         echo "============================================================"
 
         # Limit parallelism to avoid OOM on GitHub Actions runners
-        go build -p 2 ./...
+        magex build:prebuild p=2
 
-        echo "🏗️ Building stdlib for host platform…"
+        echo "🏗️ Building stdlib for host platform..."
         magex install:stdlib
 
         echo "✅ Build cache warmed for Go ${{ inputs.go-version }}"
