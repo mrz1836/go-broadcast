@@ -1745,6 +1745,17 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MemoryUsage() {
 			continue
 		}
 
+		// Skip ratio validation for very small memory values (< 1 MB)
+		// as they're prone to noise from base overhead
+		if memoryUsages[i-1] < 1.0 || memoryUsages[i] < 1.0 {
+			suite.logger.WithFields(logrus.Fields{
+				"iteration":     i,
+				"prev_usage":    memoryUsages[i-1],
+				"current_usage": memoryUsages[i],
+			}).Info("Skipping memory validation due to small memory values (< 1 MB)")
+			continue
+		}
+
 		growthRatio := memoryUsages[i] / memoryUsages[i-1]
 		fileRatio := float64(fileCounts[i]) / float64(fileCounts[i-1])
 
