@@ -274,6 +274,7 @@ jobs:
       redis-health-interval: ${{ needs.setup.outputs.redis-health-interval }}
       redis-health-timeout: ${{ needs.setup.outputs.redis-health-timeout }}
       redis-trust-service-health: ${{ needs.setup.outputs.redis-trust-service-health }}
+      go-sum-file: ${{ needs.setup.outputs.go-sum-file }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

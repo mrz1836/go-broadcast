@@ -40,6 +40,10 @@ on:
         description: "Whether fuzz testing is enabled"
         required: true
         type: string
+      go-sum-file:
+        description: "Path to go.sum file for dependency verification"
+        required: true
+        type: string
 
 # Security: Restrictive default permissions with job-level overrides for least privilege access
 permissions:
@@ -83,6 +87,7 @@ jobs:
           matrix-os: ${{ inputs.primary-runner }}
           go-primary-version: ${{ inputs.go-primary-version }}
           go-secondary-version: ${{ inputs.go-secondary-version }}
+          go-sum-file: ${{ inputs.go-sum-file }}
 
       # ————————————————————————————————————————————————————————————————
       # Setup MAGE-X (required for magex test commands)

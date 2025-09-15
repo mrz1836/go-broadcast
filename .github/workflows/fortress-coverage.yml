@@ -40,6 +40,10 @@ on:
         description: "Pull request number if applicable"
         required: false
         type: string
+      go-sum-file:
+        description: "Path to go.sum file for dependency verification"
+        required: true
+        type: string
     secrets:
       github-token:
         description: "GitHub token for API access"
@@ -172,6 +176,7 @@ jobs:
           matrix-os: ${{ inputs.primary-runner }}
           go-primary-version: ${{ env.GO_PRIMARY_VERSION }}
           go-secondary-version: ${{ env.GO_SECONDARY_VERSION }}
+          go-sum-file: ${{ inputs.go-sum-file }}
 
       # ————————————————————————————————————————————————————————————————
       # Restore (and later save) a compact cache for the go-coverage binary
