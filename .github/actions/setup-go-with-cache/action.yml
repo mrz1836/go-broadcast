@@ -77,6 +77,28 @@ runs:
         echo "✅ Cache paths configured successfully"
 
     # ————————————————————————————————————————————————————————————————
+    # Extract Go module directory from GO_SUM_FILE path
+    # ————————————————————————————————————————————————————————————————
+    - name: 🔧 Extract Go module directory
+      id: extract-module-dir
+      shell: bash
+      run: |
+        GO_SUM_FILE="${{ inputs.go-sum-file }}"
+        GO_MODULE_DIR=$(dirname "$GO_SUM_FILE")
+
+        # Handle root directory case (dirname returns ".")
+        if [ "$GO_MODULE_DIR" = "." ]; then
+          GO_MODULE_DIR=""
+          echo "📁 Go module directory: repository root"
+        else
+          echo "📁 Go module directory: $GO_MODULE_DIR"
+        fi
+
+        # Export for subsequent steps
+        echo "GO_MODULE_DIR=$GO_MODULE_DIR" >> $GITHUB_ENV
+        echo "module-dir=$GO_MODULE_DIR" >> $GITHUB_OUTPUT
+
+    # ————————————————————————————————————————————————————————————————
     # Validate go.sum exists for cache key generation
     # ————————————————————————————————————————————————————————————————
     - name: 🔍 Validate go.sum exists
@@ -125,11 +147,19 @@ runs:
       shell: bash
       run: |
         echo "🔍 Checking Go version requirements..."
+        GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
 
-        if [ -f go.mod ]; then
-          REQUIRED_VERSION=$(grep -E '^go\s+[0-9]+\.[0-9]+' go.mod | awk '{print $2}')
+        # Construct the path to go.mod
+        if [ -n "$GO_MODULE_DIR" ]; then
+          GO_MOD_PATH="$GO_MODULE_DIR/go.mod"
+        else
+          GO_MOD_PATH="go.mod"
+        fi
+
+        if [ -f "$GO_MOD_PATH" ]; then
+          REQUIRED_VERSION=$(grep -E '^go\s+[0-9]+\.[0-9]+' "$GO_MOD_PATH" | awk '{print $2}')
           if [ -n "$REQUIRED_VERSION" ]; then
-            echo "📋 go.mod requires Go version: $REQUIRED_VERSION"
+            echo "📋 go.mod at $GO_MOD_PATH requires Go version: $REQUIRED_VERSION"
             echo "required_version=$REQUIRED_VERSION" >> $GITHUB_OUTPUT
 
             # Extract major.minor from requested version (handle formats like 1.23.x, 1.23, 1.23.4)
@@ -153,11 +183,11 @@ runs:
               echo "version_mismatch=false" >> $GITHUB_OUTPUT
             fi
           else
-            echo "ℹ️ No Go version requirement found in go.mod"
+            echo "ℹ️ No Go version requirement found in $GO_MOD_PATH"
             echo "version_mismatch=false" >> $GITHUB_OUTPUT
           fi
         else
-          echo "ℹ️ No go.mod file found"
+          echo "ℹ️ No go.mod file found at $GO_MOD_PATH"
           echo "version_mismatch=false" >> $GITHUB_OUTPUT
         fi
 

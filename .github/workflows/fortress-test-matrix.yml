@@ -149,6 +149,14 @@ jobs:
           go-sum-file: ${{ inputs.go-sum-file }}
 
       # ————————————————————————————————————————————————————————————————
+      # Extract Go module directory from GO_SUM_FILE path
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Extract Go module directory
+        uses: ./.github/actions/extract-module-dir
+        with:
+          go-sum-file: ${{ inputs.go-sum-file }}
+
+      # ————————————————————————————————————————————————————————————————
       # Setup MAGE-X (required for magex test commands)
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Setup MAGE-X
@@ -174,11 +182,20 @@ jobs:
         id: detect-mode
         run: |
           # Count total tests in the repository (excluding vendor and testdata)
-          TEST_COUNT=$(find . -type f -name '*_test.go' \
-            -not -path './vendor/*' \
-            -not -path './third_party/*' \
-            -not -path './testdata/*' \
-            -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l | xargs)
+          GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
+          if [ -n "$GO_MODULE_DIR" ]; then
+            TEST_COUNT=$(cd "$GO_MODULE_DIR" && find . -type f -name '*_test.go' \
+              -not -path './vendor/*' \
+              -not -path './third_party/*' \
+              -not -path './testdata/*' \
+              -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l | xargs)
+          else
+            TEST_COUNT=$(find . -type f -name '*_test.go' \
+              -not -path './vendor/*' \
+              -not -path './third_party/*' \
+              -not -path './testdata/*' \
+              -exec grep -hE '^\s*func (\([^)]+\) )?Test[A-Z0-9_]' {} + | wc -l | xargs)
+          fi
 
           # Sanitize count (ensure it's numeric)
           TEST_COUNT=${TEST_COUNT:-0}
@@ -281,7 +298,11 @@ jobs:
           echo "🔧 Running: $MAGEX_CMD (timeout: $TEST_TIMEOUT)"
 
           # Pre-execution diagnostic info for better visibility
-          PACKAGE_COUNT=$(find . -name '*.go' -not -path './vendor/*' -not -path './third_party/*' | xargs dirname | sort -u | wc -l | xargs)
+          if [ -n "$GO_MODULE_DIR" ]; then
+            PACKAGE_COUNT=$(cd "$GO_MODULE_DIR" && find . -name '*.go' -not -path './vendor/*' -not -path './third_party/*' | xargs dirname | sort -u | wc -l | xargs)
+          else
+            PACKAGE_COUNT=$(find . -name '*.go' -not -path './vendor/*' -not -path './third_party/*' | xargs dirname | sort -u | wc -l | xargs)
+          fi
           PACKAGE_COUNT=${PACKAGE_COUNT:-0}
           echo "🚀 Starting test execution:"
           echo "   • Total tests: $TEST_COUNT"
@@ -301,7 +322,13 @@ jobs:
           if [[ "$MODE" == "FULL" ]]; then
             echo "📝 Using FULL output mode - showing all test output"
             echo "🔍 Executing: $MAGEX_CMD"
-            $MAGEX_CMD 2>&1 | tee test-output.log
+            if [ -n "$GO_MODULE_DIR" ]; then
+              echo "🔧 Running from directory: $GO_MODULE_DIR"
+              (cd "$GO_MODULE_DIR" && $MAGEX_CMD) 2>&1 | tee test-output.log
+            else
+              echo "🔧 Running from repository root"
+              $MAGEX_CMD 2>&1 | tee test-output.log
+            fi
             TEST_EXIT_CODE=${PIPESTATUS[0]}
             echo "🔍 Magex command exit code: $TEST_EXIT_CODE"
 
@@ -314,7 +341,13 @@ jobs:
           elif [[ "$MODE" == "FAILURES_ONLY" ]]; then
             echo "📝 Using FAILURES_ONLY mode - JSON output with failure extraction"
             echo "🔍 Executing: $MAGEX_CMD"
-            $MAGEX_CMD 2>&1 | tee test-output.log
+            if [ -n "$GO_MODULE_DIR" ]; then
+              echo "🔧 Running from directory: $GO_MODULE_DIR"
+              (cd "$GO_MODULE_DIR" && $MAGEX_CMD) 2>&1 | tee test-output.log
+            else
+              echo "🔧 Running from repository root"
+              $MAGEX_CMD 2>&1 | tee test-output.log
+            fi
             TEST_EXIT_CODE=${PIPESTATUS[0]}
             echo "🔍 Magex command exit code: $TEST_EXIT_CODE"
 
@@ -358,7 +391,23 @@ jobs:
       - name: 🔄 Normalize coverage file name
         if: inputs.code-coverage-enabled == 'true' && steps.run-tests.outputs.test-exit-code == '0'
         run: |
-          # Look for generated coverage files with various naming patterns
+          # Check if we need to look in the module directory first
+          GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
+
+          if [ -n "$GO_MODULE_DIR" ]; then
+            echo "📁 Looking for coverage files in module directory: $GO_MODULE_DIR"
+            # Move coverage file from module directory to root if it exists there
+            for coverage_file in coverage.out coverage.txt cover.out cover.txt profile.out profile.txt; do
+              if [[ -f "$GO_MODULE_DIR/$coverage_file" ]]; then
+                echo "📁 Found coverage file in module directory: $GO_MODULE_DIR/$coverage_file"
+                echo "🔄 Moving to repository root as coverage.txt"
+                mv "$GO_MODULE_DIR/$coverage_file" coverage.txt
+                break
+              fi
+            done
+          fi
+
+          # Look for coverage files in root directory (either originally there or just moved)
           for coverage_file in coverage.out coverage.txt cover.out cover.txt profile.out profile.txt; do
             if [[ -f "$coverage_file" ]]; then
               echo "📁 Found coverage file: $coverage_file"

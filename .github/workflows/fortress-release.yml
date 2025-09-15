@@ -123,6 +123,14 @@ jobs:
           echo "is_prerelease=$([[ -n "$PRERELEASE" ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
 
       # ————————————————————————————————————————————————————————————————
+      # Extract Go module directory from GO_SUM_FILE path
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Extract Go module directory
+        uses: ./.github/actions/extract-module-dir
+        with:
+          go-sum-file: ${{ inputs.go-sum-file }}
+
+      # ————————————————————————————————————————————————————————————————
       # Setup MAGE-X (required for magex godocs command)
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Setup MAGE-X
@@ -178,14 +186,28 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "🔍 Validating GoReleaser configuration via MAGE-X..."
+          GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
 
-          if magex release:validate --verbose; then
-            echo "✅ GoReleaser configuration is valid"
-            echo "goreleaser_config_status=valid" >> $GITHUB_OUTPUT
+          if [ -n "$GO_MODULE_DIR" ]; then
+            echo "🔧 Running magex release:validate from directory: $GO_MODULE_DIR"
+            if (cd "$GO_MODULE_DIR" && magex release:validate --verbose); then
+              echo "✅ GoReleaser configuration is valid"
+              echo "goreleaser_config_status=valid" >> $GITHUB_OUTPUT
+            else
+              echo "❌ GoReleaser configuration is invalid" >&2
+              echo "goreleaser_config_status=invalid" >> $GITHUB_OUTPUT
+              exit 1
+            fi
           else
-            echo "❌ GoReleaser configuration is invalid" >&2
-            echo "goreleaser_config_status=invalid" >> $GITHUB_OUTPUT
-            exit 1
+            echo "🔧 Running magex release:validate from repository root"
+            if magex release:validate --verbose; then
+              echo "✅ GoReleaser configuration is valid"
+              echo "goreleaser_config_status=valid" >> $GITHUB_OUTPUT
+            else
+              echo "❌ GoReleaser configuration is invalid" >&2
+              echo "goreleaser_config_status=invalid" >> $GITHUB_OUTPUT
+              exit 1
+            fi
           fi
 
       # ————————————————————————————————————————————————————————————————
@@ -282,29 +304,61 @@ jobs:
           ENABLE_GODOCS=$(echo '${{ inputs.env-json }}' | jq -r '.ENABLE_GODOCS_PUBLISHING // "false"')
 
           # Run release with or without godocs based on configuration
+          GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
+
           if [[ "$ENABLE_GODOCS" == "true" ]]; then
             echo "📚 Running release with godocs publishing enabled..."
-            if magex release godocs -v; then
-              echo "✅ GoReleaser with godocs via MAGE-X completed successfully"
-              echo "goreleaser_status=success" >> $GITHUB_OUTPUT
-              echo "godocs_published=true" >> $GITHUB_OUTPUT
+            if [ -n "$GO_MODULE_DIR" ]; then
+              echo "🔧 Running magex release godocs from directory: $GO_MODULE_DIR"
+              if (cd "$GO_MODULE_DIR" && magex release godocs -v); then
+                echo "✅ GoReleaser with godocs via MAGE-X completed successfully"
+                echo "goreleaser_status=success" >> $GITHUB_OUTPUT
+                echo "godocs_published=true" >> $GITHUB_OUTPUT
+              else
+                echo "❌ GoReleaser with godocs via MAGE-X encountered issues" >&2
+                echo "goreleaser_status=failure" >> $GITHUB_OUTPUT
+                echo "godocs_published=false" >> $GITHUB_OUTPUT
+                exit 1
+              fi
             else
-              echo "❌ GoReleaser with godocs via MAGE-X encountered issues" >&2
-              echo "goreleaser_status=failure" >> $GITHUB_OUTPUT
-              echo "godocs_published=false" >> $GITHUB_OUTPUT
-              exit 1
+              echo "🔧 Running magex release godocs from repository root"
+              if magex release godocs -v; then
+                echo "✅ GoReleaser with godocs via MAGE-X completed successfully"
+                echo "goreleaser_status=success" >> $GITHUB_OUTPUT
+                echo "godocs_published=true" >> $GITHUB_OUTPUT
+              else
+                echo "❌ GoReleaser with godocs via MAGE-X encountered issues" >&2
+                echo "goreleaser_status=failure" >> $GITHUB_OUTPUT
+                echo "godocs_published=false" >> $GITHUB_OUTPUT
+                exit 1
+              fi
             fi
           else
             echo "ℹ️ Running release without godocs publishing..."
-            if magex release -v; then
-              echo "✅ GoReleaser via MAGE-X completed successfully"
-              echo "goreleaser_status=success" >> $GITHUB_OUTPUT
-              echo "godocs_published=skipped" >> $GITHUB_OUTPUT
+            if [ -n "$GO_MODULE_DIR" ]; then
+              echo "🔧 Running magex release from directory: $GO_MODULE_DIR"
+              if (cd "$GO_MODULE_DIR" && magex release -v); then
+                echo "✅ GoReleaser via MAGE-X completed successfully"
+                echo "goreleaser_status=success" >> $GITHUB_OUTPUT
+                echo "godocs_published=skipped" >> $GITHUB_OUTPUT
+              else
+                echo "❌ GoReleaser via MAGE-X encountered issues" >&2
+                echo "goreleaser_status=failure" >> $GITHUB_OUTPUT
+                echo "godocs_published=skipped" >> $GITHUB_OUTPUT
+                exit 1
+              fi
             else
-              echo "❌ GoReleaser via MAGE-X encountered issues" >&2
-              echo "goreleaser_status=failure" >> $GITHUB_OUTPUT
-              echo "godocs_published=skipped" >> $GITHUB_OUTPUT
-              exit 1
+              echo "🔧 Running magex release from repository root"
+              if magex release -v; then
+                echo "✅ GoReleaser via MAGE-X completed successfully"
+                echo "goreleaser_status=success" >> $GITHUB_OUTPUT
+                echo "godocs_published=skipped" >> $GITHUB_OUTPUT
+              else
+                echo "❌ GoReleaser via MAGE-X encountered issues" >&2
+                echo "goreleaser_status=failure" >> $GITHUB_OUTPUT
+                echo "godocs_published=skipped" >> $GITHUB_OUTPUT
+                exit 1
+              fi
             fi
           fi
 

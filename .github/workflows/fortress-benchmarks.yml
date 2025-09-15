@@ -144,6 +144,14 @@ jobs:
           go-sum-file: ${{ inputs.go-sum-file }}
 
       # ————————————————————————————————————————————————————————————————
+      # Extract Go module directory from GO_SUM_FILE path
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Extract Go module directory
+        uses: ./.github/actions/extract-module-dir
+        with:
+          go-sum-file: ${{ inputs.go-sum-file }}
+
+      # ————————————————————————————————————————————————————————————————
       # Setup MAGE-X (required for magex bench:run command)
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Setup MAGE-X
@@ -203,12 +211,26 @@ jobs:
           esac
 
           # Run benchmarks and capture output
-          if $BENCH_CMD > "$BENCH_OUTPUT_FILE" 2>&1; then
-            echo "✅ Benchmarks command completed"
-            BENCH_STATUS="success"
+          GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
+
+          if [ -n "$GO_MODULE_DIR" ]; then
+            echo "🔧 Running $BENCH_CMD from directory: $GO_MODULE_DIR"
+            if (cd "$GO_MODULE_DIR" && $BENCH_CMD) > "$BENCH_OUTPUT_FILE" 2>&1; then
+              echo "✅ Benchmarks command completed"
+              BENCH_STATUS="success"
+            else
+              echo "❌ Benchmarks command failed"
+              BENCH_STATUS="failure"
+            fi
           else
-            echo "❌ Benchmarks command failed"
-            BENCH_STATUS="failure"
+            echo "🔧 Running $BENCH_CMD from repository root"
+            if $BENCH_CMD > "$BENCH_OUTPUT_FILE" 2>&1; then
+              echo "✅ Benchmarks command completed"
+              BENCH_STATUS="success"
+            else
+              echo "❌ Benchmarks command failed"
+              BENCH_STATUS="failure"
+            fi
           fi
 
           # Check for panic, FAIL, or fatal errors in output

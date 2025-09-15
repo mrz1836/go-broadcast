@@ -90,6 +90,14 @@ jobs:
           go-sum-file: ${{ inputs.go-sum-file }}
 
       # ————————————————————————————————————————————————————————————————
+      # Extract Go module directory from GO_SUM_FILE path
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Extract Go module directory
+        uses: ./.github/actions/extract-module-dir
+        with:
+          go-sum-file: ${{ inputs.go-sum-file }}
+
+      # ————————————————————————————————————————————————————————————————
       # Setup MAGE-X (required for magex test commands)
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Setup MAGE-X
@@ -125,7 +133,16 @@ jobs:
         run: |
           echo "🧪 Running fuzz tests in parallel..."
           FUZZ_TIMEOUT="${TEST_TIMEOUT_FUZZ:-5m}"
-          magex test:fuzz time=5s -timeout $FUZZ_TIMEOUT 2>&1 | tee fuzz-output.log
+          GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
+
+          if [ -n "$GO_MODULE_DIR" ]; then
+            echo "🔧 Running magex test:fuzz from directory: $GO_MODULE_DIR"
+            (cd "$GO_MODULE_DIR" && magex test:fuzz time=5s -timeout $FUZZ_TIMEOUT) 2>&1 | tee fuzz-output.log
+          else
+            echo "🔧 Running magex test:fuzz from repository root"
+            magex test:fuzz time=5s -timeout $FUZZ_TIMEOUT 2>&1 | tee fuzz-output.log
+          fi
+
           FUZZ_EXIT_CODE=${PIPESTATUS[0]}
           echo "🔧 Fuzz tests completed with timeout: $FUZZ_TIMEOUT"
 

@@ -120,16 +120,46 @@ runs:
         force-pull: ${{ inputs.redis-cache-force-pull }}
 
     # ————————————————————————————————————————————————————————————————
+    # Extract Go module directory from GO_SUM_FILE path
+    # ————————————————————————————————————————————————————————————————
+    - name: 🔧 Extract Go module directory
+      id: extract-module-dir
+      shell: bash
+      run: |
+        GO_SUM_FILE="${{ inputs.go-sum-file }}"
+        GO_MODULE_DIR=$(dirname "$GO_SUM_FILE")
+
+        # Handle root directory case (dirname returns ".")
+        if [ "$GO_MODULE_DIR" = "." ]; then
+          GO_MODULE_DIR=""
+          echo "📁 Go module directory: repository root"
+        else
+          echo "📁 Go module directory: $GO_MODULE_DIR"
+        fi
+
+        # Export for subsequent steps
+        echo "GO_MODULE_DIR=$GO_MODULE_DIR" >> $GITHUB_ENV
+        echo "module-dir=$GO_MODULE_DIR" >> $GITHUB_OUTPUT
+
+    # ————————————————————————————————————————————————————————————————
     # Ensure go.sum exists and download modules
     # ————————————————————————————————————————————————————————————————
     - name: 📋 Ensure go.sum exists
       shell: bash
       run: |
         GO_SUM_FILE="${{ inputs.go-sum-file }}"
+        GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
+
         echo "🔍 Checking for go.sum file at: $GO_SUM_FILE"
         if [ ! -f "$GO_SUM_FILE" ]; then
           echo "⚠️ Go.sum not found at $GO_SUM_FILE, running 'magex tidy' to generate it."
-          magex tidy
+          if [ -n "$GO_MODULE_DIR" ]; then
+            echo "🔧 Running magex tidy from directory: $GO_MODULE_DIR"
+            (cd "$GO_MODULE_DIR" && magex tidy)
+          else
+            echo "🔧 Running magex tidy from repository root"
+            magex tidy
+          fi
           echo "✅ Go.sum generated successfully at $GO_SUM_FILE"
         else
           echo "✅ Go.sum already exists at $GO_SUM_FILE"
@@ -155,8 +185,20 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
         echo "⬇️ Module cache miss - downloading modules..."
-        magex deps:download
+
+        echo "============================================================"
+        echo "=== Downloading Dependencies ==="
+        echo "============================================================"
+
+        if [ -n "$GO_MODULE_DIR" ]; then
+          echo "🔧 Running magex deps:download from directory: $GO_MODULE_DIR"
+          (cd "$GO_MODULE_DIR" && magex deps:download)
+        else
+          echo "🔧 Running magex deps:download from repository root"
+          magex deps:download
+        fi
         echo "✅ Modules downloaded successfully"
 
     # ────────────────────────────────────────────────────────────────────────────
@@ -167,17 +209,28 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
         echo "🔧 Build cache miss - pre-building packages..."
 
         echo "============================================================"
         echo "=== Pre-building Packages ==="
         echo "============================================================"
 
-        # Limit parallelism to avoid OOM on GitHub Actions runners
-        magex build:prebuild p=2
+        if [ -n "$GO_MODULE_DIR" ]; then
+          echo "🔧 Running build commands from directory: $GO_MODULE_DIR"
+          # Limit parallelism to avoid OOM on GitHub Actions runners
+          (cd "$GO_MODULE_DIR" && magex build:prebuild p=2)
 
-        echo "🏗️ Building stdlib for host platform..."
-        magex install:stdlib
+          echo "🏗️ Building stdlib for host platform..."
+          (cd "$GO_MODULE_DIR" && magex install:stdlib)
+        else
+          echo "🔧 Running build commands from repository root"
+          # Limit parallelism to avoid OOM on GitHub Actions runners
+          magex build:prebuild p=2
+
+          echo "🏗️ Building stdlib for host platform..."
+          magex install:stdlib
+        fi
 
         echo "✅ Build cache warmed for Go ${{ inputs.go-version }}"
 

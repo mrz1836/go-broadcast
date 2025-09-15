@@ -94,6 +94,14 @@ jobs:
           go-sum-file: ${{ env.GO_SUM_FILE }}
 
       # ————————————————————————————————————————————————————————————————
+      # Extract Go module directory from GO_SUM_FILE path
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Extract Go module directory
+        uses: ./.github/actions/extract-module-dir
+        with:
+          go-sum-file: ${{ env.GO_SUM_FILE }}
+
+      # ————————————————————————————————————————————————————————————————
       # Setup MAGE-X (required for magex lint command)
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Setup MAGE-X
@@ -108,7 +116,16 @@ jobs:
       - name: 🔍 Go vet (parallel)
         run: |
           echo "🚀 Running static analysis with go vet (parallel mode)..."
-          magex vet
+          GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
+
+          if [ -n "$GO_MODULE_DIR" ]; then
+            echo "🔧 Running magex vet from directory: $GO_MODULE_DIR"
+            (cd "$GO_MODULE_DIR" && magex vet)
+          else
+            echo "🔧 Running magex vet from repository root"
+            magex vet
+          fi
+
           echo "✅ Static analysis completed successfully"
 
       # ————————————————————————————————————————————————————————————————
@@ -209,6 +226,14 @@ jobs:
           go-sum-file: ${{ env.GO_SUM_FILE }}
 
       # ————————————————————————————————————————————————————————————————
+      # Extract Go module directory from GO_SUM_FILE path
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Extract Go module directory
+        uses: ./.github/actions/extract-module-dir
+        with:
+          go-sum-file: ${{ env.GO_SUM_FILE }}
+
+      # ————————————————————————————————————————————————————————————————
       # Setup MAGE-X (required for magex lint command)
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Setup MAGE-X
@@ -246,8 +271,15 @@ jobs:
           # Export the cache directory for golangci-lint
           export GOLANGCI_LINT_CACHE=$GOLANGCI_LINT_CACHE
 
-          # Run with MAGE-X
-          magex lint
+          GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
+
+          if [ -n "$GO_MODULE_DIR" ]; then
+            echo "🔧 Running magex lint from directory: $GO_MODULE_DIR"
+            (cd "$GO_MODULE_DIR" && magex lint)
+          else
+            echo "🔧 Running magex lint from repository root"
+            magex lint
+          fi
 
           echo "✅ Code linting completed successfully"
 
@@ -333,6 +365,14 @@ jobs:
           go-sum-file: ${{ env.GO_SUM_FILE }}
 
       # ————————————————————————————————————————————————————————————————
+      # Extract Go module directory from GO_SUM_FILE path
+      # ————————————————————————————————————————————————————————————————
+      - name: 🔧 Extract Go module directory
+        uses: ./.github/actions/extract-module-dir
+        with:
+          go-sum-file: ${{ env.GO_SUM_FILE }}
+
+      # ————————————————————————————————————————————————————————————————
       # Setup MAGE-X (required for magex format:fix command)
       # ————————————————————————————————————————————————————————————————
       - name: 🔧 Setup MAGE-X
@@ -386,22 +426,45 @@ jobs:
           echo "🔧 yamlfmt version: ${{ steps.yamlfmt-version.outputs.version }}"
           echo ""
 
+          GO_MODULE_DIR="${{ env.GO_MODULE_DIR }}"
+
           # Run magex format:check to validate formatting without modifying files
-          if magex format:check; then
-            echo "✅ All YAML/JSON files are properly formatted"
+          if [ -n "$GO_MODULE_DIR" ]; then
+            echo "🔧 Running magex format:check from directory: $GO_MODULE_DIR"
+            if (cd "$GO_MODULE_DIR" && magex format:check); then
+              echo "✅ All YAML/JSON files are properly formatted"
+            else
+              echo "❌ YAML/JSON formatting issues detected"
+              echo ""
+              echo "🔧 To fix these issues locally, run:"
+              echo "    cd $GO_MODULE_DIR && magex format:fix"
+              echo ""
+              echo "📚 yamlfmt Configuration (.github/.yamlfmt):"
+              echo "    • Indent style: spaces (2 spaces)"
+              echo "    • End of line: LF"
+              echo "    • Final newline: required"
+              echo "    • Line breaks: preserved where sensible"
+              echo "    • Comment padding: 1 space after #"
+              exit 1
+            fi
           else
-            echo "❌ YAML/JSON formatting issues detected"
-            echo ""
-            echo "🔧 To fix these issues locally, run:"
-            echo "    magex format:fix"
-            echo ""
-            echo "📚 yamlfmt Configuration (.github/.yamlfmt):"
-            echo "    • Indent style: spaces (2 spaces)"
-            echo "    • End of line: LF"
-            echo "    • Final newline: required"
-            echo "    • Line breaks: preserved where sensible"
-            echo "    • Comment padding: 1 space after #"
-            exit 1
+            echo "🔧 Running magex format:check from repository root"
+            if magex format:check; then
+              echo "✅ All YAML/JSON files are properly formatted"
+            else
+              echo "❌ YAML/JSON formatting issues detected"
+              echo ""
+              echo "🔧 To fix these issues locally, run:"
+              echo "    magex format:fix"
+              echo ""
+              echo "📚 yamlfmt Configuration (.github/.yamlfmt):"
+              echo "    • Indent style: spaces (2 spaces)"
+              echo "    • End of line: LF"
+              echo "    • Final newline: required"
+              echo "    • Line breaks: preserved where sensible"
+              echo "    • Comment padding: 1 space after #"
+              exit 1
+            fi
           fi
 
       # ————————————————————————————————————————————————————————————————
