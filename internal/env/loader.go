@@ -37,7 +37,7 @@ func LoadEnvFiles() error {
 	}
 
 	// Load base environment variables
-	if err := godotenv.Load(baseFile); err != nil {
+	if err := godotenv.Overload(baseFile); err != nil {
 		return fmt.Errorf("failed to load %s: %w", baseFile, err)
 	}
 
@@ -65,7 +65,7 @@ func LoadEnvFilesFromDir(dir string) error {
 	}
 
 	// Load base environment variables
-	if err := godotenv.Load(baseFile); err != nil {
+	if err := godotenv.Overload(baseFile); err != nil {
 		return fmt.Errorf("failed to load %s: %w", baseFile, err)
 	}
 
