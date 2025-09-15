@@ -146,7 +146,7 @@ jobs:
             .github/actions/cache-redis-image
             .github/.env.base
             go.mod
-            go.sum
+            ${{ needs.setup.outputs.go-sum-file }}
             .mage.yaml
 
       # ————————————————————————————————————————————————————————————————
@@ -173,6 +173,7 @@ jobs:
           redis-enabled: ${{ needs.setup.outputs.redis-enabled }}
           redis-versions: ${{ needs.setup.outputs.redis-version }}
           redis-cache-force-pull: ${{ needs.setup.outputs.redis-cache-force-pull }}
+          go-sum-file: ${{ needs.setup.outputs.go-sum-file }}
   # ----------------------------------------------------------------------------------
   # Security Scans
   # ----------------------------------------------------------------------------------

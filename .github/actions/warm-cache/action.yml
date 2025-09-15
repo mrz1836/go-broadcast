@@ -46,6 +46,9 @@ inputs:
     description: "Whether to force pull Redis images even when cached"
     required: false
     default: "false"
+  go-sum-file:
+    description: "Path to go.sum file for cache key generation"
+    required: true
 
 runs:
   using: "composite"
@@ -93,6 +96,7 @@ runs:
         matrix-os: ${{ inputs.matrix-os }}
         go-primary-version: ${{ inputs.go-primary-version }}
         go-secondary-version: ${{ inputs.go-secondary-version }}
+        go-sum-file: ${{ inputs.go-sum-file }}
 
     # ────────────────────────────────────────────────────────────────────────────
     # Setup MAGE-X (required for magex commands in cache warming)
@@ -121,13 +125,14 @@ runs:
     - name: 📋 Ensure go.sum exists
       shell: bash
       run: |
-        echo "🔍 Checking for go.sum file..."
-        if [ ! -f go.sum ]; then
-          echo "⚠️ go.sum not found, running 'magex tidy' to generate it."
+        GO_SUM_FILE="${{ inputs.go-sum-file }}"
+        echo "🔍 Checking for go.sum file at: $GO_SUM_FILE"
+        if [ ! -f "$GO_SUM_FILE" ]; then
+          echo "⚠️ Go.sum not found at $GO_SUM_FILE, running 'magex tidy' to generate it."
           magex tidy
-          echo "✅ go.sum generated successfully"
+          echo "✅ Go.sum generated successfully at $GO_SUM_FILE"
         else
-          echo "✅ go.sum already exists"
+          echo "✅ Go.sum already exists at $GO_SUM_FILE"
         fi
 
     # ────────────────────────────────────────────────────────────────────────────
@@ -186,7 +191,7 @@ runs:
         path: |
           ~/.cache/go-build
           ~/.cache/go-build/test
-        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles(inputs.go-sum-file) }}
 
     # ────────────────────────────────────────────────────────────────────────────
     # Save the Go module cache we just populated
@@ -196,7 +201,7 @@ runs:
       uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.0.2
       with:
         path: ~/go/pkg/mod
-        key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles('**/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles(inputs.go-sum-file) }}
 
     # ————————————————————————————————————————————————————————————————
     # Track cache performance (no outputs - use artifacts instead)

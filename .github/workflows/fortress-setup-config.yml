@@ -73,6 +73,9 @@ on:
       go-secondary-version:
         description: "Secondary Go version"
         value: ${{ jobs.setup-config.outputs.go-secondary-version }}
+      go-sum-file:
+        description: "Go sum file location for dependency verification"
+        value: ${{ jobs.setup-config.outputs.go-sum-file }}
       go-versions:
         description: "Unique Go versions array"
         value: ${{ jobs.setup-config.outputs.go-versions }}
@@ -183,6 +186,7 @@ jobs:
       fuzz-testing-enabled: ${{ steps.config.outputs.fuzz-testing-enabled }}
       go-primary-version: ${{ steps.config.outputs.go-primary-version }}
       go-secondary-version: ${{ steps.config.outputs.go-secondary-version }}
+      go-sum-file: ${{ steps.config.outputs.go-sum-file }}
       go-versions: ${{ steps.versions.outputs.versions }}
       go-lint-enabled: ${{ steps.config.outputs.go-lint-enabled }}
       yaml-lint-enabled: ${{ steps.config.outputs.yaml-lint-enabled }}
@@ -253,7 +257,7 @@ jobs:
           sparse-checkout: |
             .mage.yaml
             go.mod
-            go.sum
+            ${{ env.GO_SUM_FILE }}
             .github/workflows/fortress.yml
             .github/actions/configure-redis
 
@@ -398,6 +402,7 @@ jobs:
           # Validate and export Go versions
           echo "go-primary-version=${{ env.GO_PRIMARY_VERSION }}" >> $GITHUB_OUTPUT
           echo "go-secondary-version=${{ env.GO_SECONDARY_VERSION }}" >> $GITHUB_OUTPUT
+          echo "go-sum-file=${{ env.GO_SUM_FILE }}" >> $GITHUB_OUTPUT
 
           # Export runners (for reference in steps, not job level)
           echo "primary-runner=${{ env.PRIMARY_RUNNER }}" >> $GITHUB_OUTPUT

@@ -40,6 +40,9 @@ inputs:
   go-secondary-version:
     description: "Secondary Go version for toolchain comparison"
     required: true
+  go-sum-file:
+    description: "Path to go.sum file for cache key generation"
+    required: true
 
 outputs:
   go-version-actual:
@@ -79,17 +82,18 @@ runs:
     - name: 🔍 Validate go.sum exists
       shell: bash
       run: |
-        echo "🔍 Checking for go.sum file..."
-        if [ ! -f "go.sum" ]; then
-          echo "❌ ERROR: go.sum file not found!"
-          echo "This is required for cache key generation using hashFiles('**/go.sum')"
+        GO_SUM_FILE="${{ inputs.go-sum-file }}"
+        echo "🔍 Checking for go.sum file at: $GO_SUM_FILE"
+        if [ ! -f "$GO_SUM_FILE" ]; then
+          echo "❌ ERROR: Go sum file not found at: $GO_SUM_FILE"
+          echo "This is required for cache key generation using hashFiles('$GO_SUM_FILE')"
           echo "Ensure that:"
           echo "  1. The repository has been checked out properly"
-          echo "  2. go.sum exists in the repository root"
+          echo "  2. The go.sum file exists at the specified location: $GO_SUM_FILE"
           echo "  3. 'go mod tidy' or 'go mod download' has been run"
           exit 1
         fi
-        echo "✅ go.sum found - cache keys will work correctly"
+        echo "✅ Go.sum found at $GO_SUM_FILE - cache keys will work correctly"
 
     # ————————————————————————————————————————————————————————————————
     # Restore Go module cache (shared across versions)
@@ -99,7 +103,7 @@ runs:
       uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
       with:
         path: ~/go/pkg/mod
-        key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles('**/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gomod-${{ hashFiles(inputs.go-sum-file) }}
 
     # ————————————————————————————————————————————————————————————————
     # Restore Go build cache (per-version)
@@ -111,7 +115,7 @@ runs:
         path: |
           ~/.cache/go-build
           ~/.cache/go-build/test
-        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles('**/go.sum') }}
+        key: ${{ inputs.matrix-os }}-gobuild-${{ inputs.go-version }}-${{ hashFiles(inputs.go-sum-file) }}
 
     # ————————————————————————————————————————————————————————————————
     # Check go.mod required version before setting up Go

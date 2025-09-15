@@ -58,7 +58,7 @@ jobs:
             .github/actions/setup-magex
             .mage.yaml
             go.mod
-            go.sum
+            ${{ env.GO_SUM_FILE }}
 
       # ————————————————————————————————————————————————————————————————
       # Setup MAGE-X using the reusable composite action
