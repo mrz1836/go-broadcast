@@ -37,6 +37,10 @@ on:
         description: "Whether static analysis is enabled"
         required: true
         type: string
+      go-sum-file:
+        description: "Path to go.sum file for dependency verification"
+        required: true
+        type: string
     outputs:
       golangci-lint-version:
         description: "Version of golangci-lint used in the workflow"

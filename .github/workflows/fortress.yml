@@ -203,6 +203,7 @@ jobs:
       enable-gitleaks: ${{ needs.setup.outputs.gitleaks-enabled == 'true' }}
       go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
+      go-sum-file: ${{ needs.setup.outputs.go-sum-file }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
       gitleaks-license: ${{ secrets.GITLEAKS_LICENSE }}
@@ -222,6 +223,7 @@ jobs:
       yaml-lint-enabled: ${{ needs.setup.outputs.yaml-lint-enabled }}
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       static-analysis-enabled: ${{ needs.setup.outputs.static-analysis-enabled }}
+      go-sum-file: ${{ needs.setup.outputs.go-sum-file }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
   # ----------------------------------------------------------------------------------
@@ -239,6 +241,7 @@ jobs:
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
       pre-commit-enabled: ${{ needs.setup.outputs.pre-commit-enabled }}
+      go-sum-file: ${{ needs.setup.outputs.go-sum-file }}
   # ----------------------------------------------------------------------------------
   # Test Suite
   # ----------------------------------------------------------------------------------
@@ -299,6 +302,7 @@ jobs:
       redis-health-interval: ${{ needs.setup.outputs.redis-health-interval }}
       redis-health-timeout: ${{ needs.setup.outputs.redis-health-timeout }}
       redis-trust-service-health: ${{ needs.setup.outputs.redis-trust-service-health }}
+      go-sum-file: ${{ needs.setup.outputs.go-sum-file }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
   # ----------------------------------------------------------------------------------
@@ -408,6 +412,7 @@ jobs:
       primary-runner: ${{ needs.setup.outputs.primary-runner }}
       go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
       golangci-lint-version: ${{ needs.code-quality.outputs.golangci-lint-version }}
+      go-sum-file: ${{ needs.setup.outputs.go-sum-file }}
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
       slack-webhook: ${{ secrets.SLACK_WEBHOOK || '' }}

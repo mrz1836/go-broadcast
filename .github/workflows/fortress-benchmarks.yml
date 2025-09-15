@@ -78,6 +78,10 @@ on:
         required: false
         type: string
         default: "true"
+      go-sum-file:
+        description: "Path to go.sum file for dependency verification"
+        required: true
+        type: string
     secrets:
       github-token:
         description: "GitHub token for API access"
@@ -137,6 +141,7 @@ jobs:
           matrix-os: ${{ matrix.os }}
           go-primary-version: ${{ inputs.go-primary-version }}
           go-secondary-version: ${{ inputs.go-secondary-version }}
+          go-sum-file: ${{ inputs.go-sum-file }}
 
       # ————————————————————————————————————————————————————————————————
       # Setup MAGE-X (required for magex bench:run command)

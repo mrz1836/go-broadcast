@@ -32,6 +32,10 @@ on:
         description: "Version of golangci-lint to use"
         required: true
         type: string
+      go-sum-file:
+        description: "Path to go.sum file for dependency verification"
+        required: true
+        type: string
     secrets:
       github-token:
         description: "GitHub token for authentication"
@@ -86,7 +90,7 @@ jobs:
           matrix-os: ${{ inputs.primary-runner }}
           go-primary-version: ${{ inputs.go-primary-version }}
           go-secondary-version: ${{ inputs.go-primary-version }}
-          go-sum-file: ${{ env.GO_SUM_FILE }}
+          go-sum-file: ${{ inputs.go-sum-file }}
 
       # ————————————————————————————————————————————————————————————————
       # Validate version tag format

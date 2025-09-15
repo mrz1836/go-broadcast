@@ -29,6 +29,10 @@ on:
         description: "Whether GoFortress Pre-commit System is enabled"
         required: true
         type: string
+      go-sum-file:
+        description: "Path to go.sum file for dependency verification"
+        required: true
+        type: string
     outputs:
       pre-commit-version:
         description: "Version of go-pre-commit used"
