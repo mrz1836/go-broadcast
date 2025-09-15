@@ -175,6 +175,13 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 		}
 	}
 
+	// Set labels if provided
+	if len(req.Labels) > 0 {
+		if err := g.setLabels(ctx, repo, pr.Number, req.Labels); err != nil {
+			g.logger.WithError(err).Warn("Failed to set PR labels")
+		}
+	}
+
 	return &pr, nil
 }
 
@@ -217,6 +224,25 @@ func (g *githubClient) setReviewers(ctx context.Context, repo string, prNumber i
 	_, err = g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/pulls/%d/requested_reviewers", repo, prNumber), "--method", "POST", "--input", "-")
 	if err != nil {
 		return appErrors.WrapWithContext(err, "set PR reviewers")
+	}
+
+	return nil
+}
+
+// setLabels sets labels for a pull request
+func (g *githubClient) setLabels(ctx context.Context, repo string, prNumber int, labels []string) error {
+	labelData := map[string]interface{}{
+		"labels": labels,
+	}
+
+	jsonData, err := jsonutil.MarshalJSON(labelData)
+	if err != nil {
+		return appErrors.WrapWithContext(err, "marshal label data")
+	}
+
+	_, err = g.runner.RunWithInput(ctx, jsonData, "gh", "api", fmt.Sprintf("repos/%s/issues/%d/labels", repo, prNumber), "--method", "POST", "--input", "-")
+	if err != nil {
+		return appErrors.WrapWithContext(err, "set PR labels")
 	}
 
 	return nil
