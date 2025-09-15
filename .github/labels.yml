@@ -1,5 +1,5 @@
 - name: "automerge"
-  description: "Used for automatic merging of PRs"
+  description: "Label to automatically merge pull requests that meet all required conditions"
   color: FEF2C0
 - name: "automerge-enabled"
   description: "Detected automerge PR and enabled automerge"
