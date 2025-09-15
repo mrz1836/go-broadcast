@@ -109,8 +109,11 @@ func TestAppRun_PanicRecovery(t *testing.T) {
 	})
 
 	assert.True(t, mockOutputHandler.InitCalled)
-	assert.Len(t, mockOutputHandler.ErrorMessages, 1)
-	assert.Contains(t, mockOutputHandler.ErrorMessages[0], "Fatal error: test panic")
+	// Should have 2 error messages: env file warning + panic recovery
+	assert.Len(t, mockOutputHandler.ErrorMessages, 2)
+	// First message should be about env files, second should be about panic
+	assert.Contains(t, mockOutputHandler.ErrorMessages[0], "Warning: Failed to load environment files")
+	assert.Contains(t, mockOutputHandler.ErrorMessages[1], "Fatal error: test panic")
 }
 
 // PanicCLIExecutor is a mock that panics during execution

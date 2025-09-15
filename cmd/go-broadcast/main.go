@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/mrz1836/go-broadcast/internal/cli"
+	"github.com/mrz1836/go-broadcast/internal/env"
 	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
@@ -72,6 +73,14 @@ func NewAppWithDependencies(outputHandler OutputHandler, cliExecutor CLIExecutor
 func (a *App) Run(_ []string) error {
 	// Initialize colored output
 	a.outputHandler.Init()
+
+	// Load environment configuration files (.env.base and .env.custom)
+	// This follows the GoFortress pattern used by other tools in the ecosystem
+	if err := env.LoadEnvFiles(); err != nil {
+		// Don't fail hard on env file loading errors, but warn the user
+		// This allows go-broadcast to work without env files if needed
+		a.outputHandler.Error(fmt.Sprintf("Warning: Failed to load environment files: %v", err))
+	}
 
 	// Handle panics gracefully
 	defer func() {
