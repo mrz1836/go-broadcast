@@ -700,7 +700,7 @@ jobs:
             if [[ "${{ env.GO_PRE_COMMIT_ALL_FILES }}" != "true" && "${{ steps.detect-files.outputs.files_found }}" == "true" ]]; then
               echo "### 📁 Files Processed" >> $GITHUB_STEP_SUMMARY
               CHANGED_FILES="${{ steps.detect-files.outputs.changed_files }}"
-              FILE_COUNT=$(echo "$CHANGED_FILES" | tr ',' '\n' | wc -l | tr -d ' ')
+              FILE_COUNT=$(echo "$CHANGED_FILES" | wc -l | tr -d ' ')
               echo "**$FILE_COUNT changed files detected and processed:**" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "$CHANGED_FILES" | while IFS= read -r file; do
