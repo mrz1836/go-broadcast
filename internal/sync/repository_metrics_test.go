@@ -148,7 +148,7 @@ func TestProcessDirectoriesWithMetrics(t *testing.T) {
 		assert.NotNil(t, metrics)
 
 		// Check metrics for the processed directory
-		_, exists := metrics["source->target"]
+		_, exists := metrics["source"]
 		assert.True(t, exists)
 		// The metrics are tracked differently now - check if we have files in changes
 		assert.Len(t, changes, 2)

@@ -1425,8 +1425,8 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 		}
 
 		// Collect metrics for this directory
-		// Use src->dest format for the metric key to match test expectations
-		metricKey := fmt.Sprintf("%s->%s", dirMapping.Src, dirMapping.Dest)
+		// Use source path as the key to match how metrics are retrieved when generating PR body
+		metricKey := dirMapping.Src
 
 		dirStats := processor.GetDirectoryStats()
 		if dirMetrics, exists := dirStats[dirMapping.Src]; exists {
