@@ -1,6 +1,8 @@
 package sync
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -113,19 +115,54 @@ func TestDirectoryStatsRegressionInPRMetadata(t *testing.T) {
 			{Path: ".github/actions/setup/action.yml", IsNew: true},
 		}
 
-		prBody := repoSync.generatePRBody("testcommit", files, []string{"file1.txt", "file2.txt"})
+		// Pass realistic actual changed files that map to our directories
+		actualChangedFiles := []string{
+			".github/workflows/ci.yml",
+			".github/workflows/test.yml",
+			".github/actions/setup/action.yml",
+			".vscode/settings.json",
+		}
 
-		// Verify that the PR body contains non-zero directory stats in the YAML metadata
-		// Before the fix, these would all show files_synced: 0
+		// Simulate the updateDirectoryMetricsWithActualChanges logic
+		for dirPath := range directoryMetrics {
+			metrics := directoryMetrics[dirPath]
+			metrics.FilesChanged = 0 // Reset
+			directoryMetrics[dirPath] = metrics
+		}
+
+		// Count actual changes per directory
+		for _, filePath := range actualChangedFiles {
+			for _, dirMapping := range repoSync.target.Directories {
+				if isFileInDirectory(filePath, dirMapping.Dest) {
+					if metrics, exists := directoryMetrics[dirMapping.Src]; exists {
+						metrics.FilesChanged++
+						directoryMetrics[dirMapping.Src] = metrics
+						break
+					}
+				}
+			}
+		}
+
+		// Update the repoSync with the new metrics
+		repoSync.syncMetrics.DirectoryMetrics = directoryMetrics
+
+		prBody := repoSync.generatePRBody("testcommit", files, actualChangedFiles)
+
+		// Verify that the PR body contains correct directory stats in the YAML metadata
+		// files_synced now shows actual changes, not processed files
 		assert.Contains(t, prBody, "directories:", "PR body should contain directories section")
-		assert.Contains(t, prBody, "files_synced: 8", "Should show correct files_synced for .github/workflows")
-		assert.Contains(t, prBody, "files_synced: 3", "Should show correct files_synced for .github/actions")
-		assert.Contains(t, prBody, "files_synced: 2", "Should show correct files_synced for .vscode")
+		assert.Contains(t, prBody, "files_synced: 2", "Should show correct files_synced for .github/workflows")
+		assert.Contains(t, prBody, "files_synced: 1", "Should show correct files_synced for .github/actions")
+		assert.Contains(t, prBody, "files_synced: 1", "Should show correct files_synced for .vscode")
 
 		// Verify the human-readable section also shows correct stats
-		assert.Contains(t, prBody, "**Files synced**: 8", "Should show correct files synced in human readable format")
-		assert.Contains(t, prBody, "**Files synced**: 3", "Should show correct files synced in human readable format")
 		assert.Contains(t, prBody, "**Files synced**: 2", "Should show correct files synced in human readable format")
+		assert.Contains(t, prBody, "**Files synced**: 1", "Should show correct files synced in human readable format")
+
+		// Verify files examined are also shown
+		assert.Contains(t, prBody, "**Files examined**: 8", "Should show files examined for .github/workflows")
+		assert.Contains(t, prBody, "**Files examined**: 3", "Should show files examined for .github/actions")
+		assert.Contains(t, prBody, "**Files examined**: 2", "Should show files examined for .vscode")
 
 		// Verify that no directories show zero files synced (the bug we fixed)
 		assert.NotContains(t, prBody, "files_synced: 0", "No directory should show zero files synced")
@@ -179,11 +216,22 @@ func TestDirectoryStatsRegressionInPRMetadata(t *testing.T) {
 			FilesSkipped:   2,
 		}
 
-		prBody := repoSync.generatePRBody("testcommit", []FileChange{{Path: ".vscode/settings.json"}}, nil)
+		// Set up realistic actual changed files
+		actualChangedFiles := []string{".vscode/settings.json"}
+
+		// Update FilesChanged based on actual changes (simulate updateDirectoryMetricsWithActualChanges)
+		if metrics, exists := directoryMetrics[".vscode"]; exists {
+			metrics.FilesChanged = 1 // One file actually changed
+			directoryMetrics[".vscode"] = metrics
+			repoSync.syncMetrics.DirectoryMetrics = directoryMetrics
+		}
+
+		prBody := repoSync.generatePRBody("testcommit", []FileChange{{Path: ".vscode/settings.json"}}, actualChangedFiles)
 
 		// Even with disabled reporting, the stats should be correct in PR metadata
-		assert.Contains(t, prBody, "files_synced: 3", "Should track correct stats even when progress reporting is disabled")
-		assert.Contains(t, prBody, "**Files synced**: 3", "Should show correct stats in human readable format")
+		assert.Contains(t, prBody, "files_synced: 1", "Should track correct stats even when progress reporting is disabled")
+		assert.Contains(t, prBody, "**Files synced**: 1", "Should show correct stats in human readable format")
+		assert.Contains(t, prBody, "**Files examined**: 3", "Should show files examined count")
 		assert.NotContains(t, prBody, "files_synced: 0", "Should not show zero stats")
 	})
 }
@@ -251,4 +299,14 @@ func TestDirectoryStatsRegressionScenarios(t *testing.T) {
 				"Directory %s should have correct FilesProcessed (%d, not 0)", dir.path, dir.files)
 		}
 	})
+}
+
+// isFileInDirectory checks if a file path belongs to a specific directory (helper for tests)
+func isFileInDirectory(filePath, directoryPath string) bool {
+	// Normalize paths to use forward slashes
+	filePath = filepath.ToSlash(filePath)
+	directoryPath = filepath.ToSlash(directoryPath)
+
+	// Check if file is directly in the directory or a subdirectory
+	return strings.HasPrefix(filePath, directoryPath+"/") || filePath == directoryPath
 }

@@ -257,6 +257,7 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 		// Report successful processing
 		if progressReporter != nil {
 			progressReporter.RecordTransformSuccess(time.Since(processStart))
+			progressReporter.RecordFileChanged()
 		}
 
 		return fileProcessResult{
@@ -422,6 +423,11 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 		Content:         transformedContent,
 		OriginalContent: srcContent,
 		IsNew:           err != nil, // err means file doesn't exist
+	}
+
+	// Report that this file actually changed
+	if progressReporter != nil {
+		progressReporter.RecordFileChanged()
 	}
 
 	logger.WithFields(logrus.Fields{
@@ -696,4 +702,5 @@ type EnhancedProgressReporter interface {
 	RecordBinaryFileSkipped(size int64)
 	RecordTransformError()
 	RecordTransformSuccess(duration time.Duration)
+	RecordFileChanged()
 }

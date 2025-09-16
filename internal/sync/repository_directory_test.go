@@ -44,6 +44,7 @@ func TestRepositorySync_generatePRBodyWithDirectories(t *testing.T) {
 			DirectoryMetrics: map[string]DirectoryMetrics{
 				".github/workflows": {
 					FilesProcessed:     15,
+					FilesChanged:       2, // 2 files actually changed in this directory
 					FilesExcluded:      3,
 					StartTime:          time.Now().Add(-20 * time.Second),
 					EndTime:            time.Now().Add(-10 * time.Second),
@@ -52,6 +53,7 @@ func TestRepositorySync_generatePRBodyWithDirectories(t *testing.T) {
 				},
 				"docs": {
 					FilesProcessed: 8,
+					FilesChanged:   1, // 1 file actually changed in this directory
 					FilesExcluded:  1,
 					StartTime:      time.Now().Add(-15 * time.Second),
 					EndTime:        time.Now().Add(-5 * time.Second),
@@ -82,7 +84,10 @@ func TestRepositorySync_generatePRBodyWithDirectories(t *testing.T) {
 	// Verify directory sync details
 	assert.Contains(t, body, "### `.github/workflows` → `.github/workflows`")
 	assert.Contains(t, body, "### `docs` → `documentation`")
-	assert.Contains(t, body, "**Files synced**: 15")
+	assert.Contains(t, body, "**Files synced**: 2")    // Now shows actual changes, not processed
+	assert.Contains(t, body, "**Files examined**: 15") // Shows files that were examined
+	assert.Contains(t, body, "**Files synced**: 1")    // For docs directory
+	assert.Contains(t, body, "**Files examined**: 8")  // For docs directory
 	assert.Contains(t, body, "**Files excluded**: 3")
 	assert.Contains(t, body, "**Binary files skipped**: 2")
 	assert.Contains(t, body, "**Exclusion patterns**: `*.tmp`, `*.backup`")
@@ -102,7 +107,8 @@ func TestRepositorySync_generatePRBodyWithDirectories(t *testing.T) {
 	assert.Contains(t, body, "- src: .github/workflows")
 	assert.Contains(t, body, "  dest: .github/workflows")
 	assert.Contains(t, body, "  excluded: [\"*.tmp\", \"*.backup\"]")
-	assert.Contains(t, body, "  files_synced: 15")
+	assert.Contains(t, body, "  files_synced: 2")    // Now shows actual changes
+	assert.Contains(t, body, "  files_examined: 15") // Shows files examined
 	assert.Contains(t, body, "  files_excluded: 3")
 
 	// Verify performance metadata

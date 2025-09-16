@@ -252,6 +252,9 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		"files_skipped":          totalFilesProcessed - filesAttempted,
 	}).Info("Updated metrics with actual git changes")
 
+	// Update directory metrics with actual git changes
+	rs.updateDirectoryMetricsWithActualChanges(actualChangedFiles)
+
 	// 8. Push changes (unless dry-run)
 	if !rs.engine.options.DryRun {
 		pushTimer := metrics.StartTimer(ctx, rs.logger, "branch_push").
@@ -1203,7 +1206,8 @@ func (rs *RepositorySync) writeDirectorySyncDetails(sb *strings.Builder) {
 		// Get metrics for this directory if available
 		if rs.syncMetrics != nil && rs.syncMetrics.DirectoryMetrics != nil {
 			if metrics, exists := rs.syncMetrics.DirectoryMetrics[dirMapping.Src]; exists {
-				fmt.Fprintf(sb, "* **Files synced**: %d\n", metrics.FilesProcessed)
+				fmt.Fprintf(sb, "* **Files synced**: %d\n", metrics.FilesChanged)
+				fmt.Fprintf(sb, "* **Files examined**: %d\n", metrics.FilesProcessed)
 				fmt.Fprintf(sb, "* **Files excluded**: %d\n", metrics.FilesExcluded)
 
 				if metrics.EndTime.After(metrics.StartTime) {
@@ -1322,7 +1326,8 @@ func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA stri
 			// Add metrics if available
 			if rs.syncMetrics != nil && rs.syncMetrics.DirectoryMetrics != nil {
 				if metrics, exists := rs.syncMetrics.DirectoryMetrics[dirMapping.Src]; exists {
-					fmt.Fprintf(sb, "    files_synced: %d\n", metrics.FilesProcessed)
+					fmt.Fprintf(sb, "    files_synced: %d\n", metrics.FilesChanged)
+					fmt.Fprintf(sb, "    files_examined: %d\n", metrics.FilesProcessed)
 					fmt.Fprintf(sb, "    files_excluded: %d\n", metrics.FilesExcluded)
 					if metrics.EndTime.After(metrics.StartTime) {
 						duration := metrics.EndTime.Sub(metrics.StartTime)
@@ -1844,4 +1849,55 @@ func (rs *RepositorySync) getPRTeamReviewers() []string {
 		return defaults
 	}
 	return combined
+}
+
+// updateDirectoryMetricsWithActualChanges updates directory metrics with the files that actually changed in git
+func (rs *RepositorySync) updateDirectoryMetricsWithActualChanges(actualChangedFiles []string) {
+	if rs.syncMetrics == nil || rs.syncMetrics.DirectoryMetrics == nil {
+		return
+	}
+
+	// Reset FilesChanged counts for all directories
+	for dirPath, metrics := range rs.syncMetrics.DirectoryMetrics {
+		metrics.FilesChanged = 0
+		rs.syncMetrics.DirectoryMetrics[dirPath] = metrics
+	}
+
+	// Count actual changes per directory
+	for _, filePath := range actualChangedFiles {
+		// Find which directory this file belongs to
+		for _, dirMapping := range rs.target.Directories {
+			if rs.isFileInDirectory(filePath, dirMapping.Dest) {
+				if metrics, exists := rs.syncMetrics.DirectoryMetrics[dirMapping.Src]; exists {
+					metrics.FilesChanged++
+					rs.syncMetrics.DirectoryMetrics[dirMapping.Src] = metrics
+					rs.logger.WithFields(logrus.Fields{
+						"file":      filePath,
+						"directory": dirMapping.Src,
+						"new_count": metrics.FilesChanged,
+					}).Debug("Updated directory FilesChanged count with actual git change")
+					break // File can only belong to one directory mapping
+				}
+			}
+		}
+	}
+
+	// Log final counts for verification
+	for dirPath, metrics := range rs.syncMetrics.DirectoryMetrics {
+		rs.logger.WithFields(logrus.Fields{
+			"directory":       dirPath,
+			"files_processed": metrics.FilesProcessed,
+			"files_changed":   metrics.FilesChanged,
+		}).Debug("Final directory metrics after git change tracking")
+	}
+}
+
+// isFileInDirectory checks if a file path belongs to a specific directory
+func (rs *RepositorySync) isFileInDirectory(filePath, directoryPath string) bool {
+	// Normalize paths to use forward slashes
+	filePath = filepath.ToSlash(filePath)
+	directoryPath = filepath.ToSlash(directoryPath)
+
+	// Check if file is directly in the directory or a subdirectory
+	return strings.HasPrefix(filePath, directoryPath+"/") || filePath == directoryPath
 }

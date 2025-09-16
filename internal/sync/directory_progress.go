@@ -23,6 +23,7 @@ type DirectoryProgressReporter struct {
 type DirectoryMetrics struct {
 	FilesDiscovered   int
 	FilesProcessed    int
+	FilesChanged      int // Track files that actually had changes
 	FilesExcluded     int
 	FilesSkipped      int
 	FilesErrored      int
@@ -149,6 +150,13 @@ func (dpr *DirectoryProgressReporter) RecordFileError() {
 	dpr.metrics.FilesErrored++
 }
 
+// RecordFileChanged increments the files changed counter
+func (dpr *DirectoryProgressReporter) RecordFileChanged() {
+	dpr.mu.Lock()
+	defer dpr.mu.Unlock()
+	dpr.metrics.FilesChanged++
+}
+
 // RecordDirectoryWalked increments the directories walked counter
 func (dpr *DirectoryProgressReporter) RecordDirectoryWalked() {
 	dpr.mu.Lock()
@@ -181,6 +189,7 @@ func (dpr *DirectoryProgressReporter) Complete() DirectoryMetrics {
 		"directory":                   dpr.directoryPath,
 		"files_discovered":            dpr.metrics.FilesDiscovered,
 		"files_processed":             dpr.metrics.FilesProcessed,
+		"files_changed":               dpr.metrics.FilesChanged,
 		"files_excluded":              dpr.metrics.FilesExcluded,
 		"files_skipped":               dpr.metrics.FilesSkipped,
 		"files_errored":               dpr.metrics.FilesErrored,
@@ -336,6 +345,13 @@ func (bpw *BatchProgressWrapper) RecordTransformError() {
 func (bpw *BatchProgressWrapper) RecordTransformSuccess(duration time.Duration) {
 	if bpw.reporter != nil {
 		bpw.reporter.RecordTransformSuccess(duration)
+	}
+}
+
+// RecordFileChanged implements EnhancedProgressReporter interface
+func (bpw *BatchProgressWrapper) RecordFileChanged() {
+	if bpw.reporter != nil {
+		bpw.reporter.RecordFileChanged()
 	}
 }
 

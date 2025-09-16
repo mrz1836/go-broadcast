@@ -103,6 +103,7 @@ type MockEnhancedProgressReporter struct {
 	binaryFilesSkipped []int64
 	transformErrors    int32
 	transformSuccesses []time.Duration
+	filesChanged       int32
 }
 
 func (m *MockEnhancedProgressReporter) RecordBinaryFileSkipped(size int64) {
@@ -142,6 +143,15 @@ func (m *MockEnhancedProgressReporter) GetTransformSuccesses() []time.Duration {
 	successes := make([]time.Duration, len(m.transformSuccesses))
 	copy(successes, m.transformSuccesses)
 	return successes
+}
+
+func (m *MockEnhancedProgressReporter) RecordFileChanged() {
+	atomic.AddInt32(&m.filesChanged, 1)
+	m.Called()
+}
+
+func (m *MockEnhancedProgressReporter) GetFilesChanged() int32 {
+	return atomic.LoadInt32(&m.filesChanged)
 }
 
 // SetupSuite initializes the test suite
