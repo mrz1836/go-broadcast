@@ -187,9 +187,19 @@ jobs:
           set -euo pipefail
           GO_BIN="$(go env GOPATH)/bin"
 
-          # Validate GOPATH is set and reasonable
+          # Validate GOPATH is set, exists, and is writable
           if [[ -z "$GO_BIN" || "$GO_BIN" == "/bin" ]]; then
             echo "❌ Invalid GOPATH detected: $GO_BIN"
+            exit 1
+          fi
+
+          if [[ ! -d "$GO_BIN" ]]; then
+            echo "❌ GOPATH bin directory does not exist: $GO_BIN"
+            exit 1
+          fi
+
+          if [[ ! -w "$GO_BIN" ]]; then
+            echo "❌ GOPATH bin directory is not writable: $GO_BIN"
             exit 1
           fi
 
