@@ -245,6 +245,11 @@ jobs:
 
       # --------------------------------------------------------------------
       # Run tests with appropriate configuration
+      #
+      # Security: This step implements command injection prevention measures:
+      # 1. Input validation for MODE, TEST_TYPE, and TEST_TIMEOUT variables
+      # 2. Array-based command construction instead of string concatenation
+      # 3. Quoted array expansion "${MAGEX_CMD[@]}" for safe execution
       # --------------------------------------------------------------------
       - name: 🧪 Run tests
         id: run-tests
@@ -270,6 +275,13 @@ jobs:
           # Initialize test exit code
           TEST_EXIT_CODE=0
 
+          # Security: Input validation to prevent command injection
+          # Validate MODE is one of the allowed values
+          if [[ "$MODE" != "FULL" && "$MODE" != "FAILURES_ONLY" ]]; then
+            echo "❌ Invalid MODE: $MODE. Must be FULL or FAILURES_ONLY."
+            exit 1
+          fi
+
           # Build unified magex command with timeout and appropriate test type
           if [[ "$RACE" == "true" && "$COVER" == "true" ]]; then
             TEST_TIMEOUT="${TEST_TIMEOUT_RACE_COVER:-30m}"
@@ -289,13 +301,31 @@ jobs:
             echo "🏁 Running tests without coverage or race detection (timeout: $TEST_TIMEOUT)..."
           fi
 
-          # Build command with JSON flag for FAILURES_ONLY mode
-          MAGEX_CMD="magex test:${TEST_TYPE} -timeout $TEST_TIMEOUT"
-          if [[ "$MODE" == "FAILURES_ONLY" ]]; then
-            MAGEX_CMD="$MAGEX_CMD -json"
+          # Security: Validate TEST_TYPE is one of the allowed values
+          case "$TEST_TYPE" in
+            unit|race|cover|coverrace)
+              echo "✅ Valid test type: $TEST_TYPE"
+              ;;
+            *)
+              echo "❌ Invalid TEST_TYPE: $TEST_TYPE. Must be one of: unit, race, cover, coverrace."
+              exit 1
+              ;;
+          esac
+
+          # Security: Validate TEST_TIMEOUT matches expected time format
+          if ! [[ "$TEST_TIMEOUT" =~ ^[0-9]+[smh]$ ]]; then
+            echo "❌ Invalid TEST_TIMEOUT format: $TEST_TIMEOUT. Must be like '30m', '120s', or '2h'."
+            exit 1
           fi
 
-          echo "🔧 Running: $MAGEX_CMD (timeout: $TEST_TIMEOUT)"
+          # Security: Build command using array to prevent command injection
+          # Use array-based construction instead of string concatenation
+          MAGEX_CMD=("magex" "test:${TEST_TYPE}" "-timeout" "$TEST_TIMEOUT")
+          if [[ "$MODE" == "FAILURES_ONLY" ]]; then
+            MAGEX_CMD+=("-json")
+          fi
+
+          echo "🔧 Running: ${MAGEX_CMD[*]} (timeout: $TEST_TIMEOUT)"
 
           # Pre-execution diagnostic info for better visibility
           if [ -n "$GO_MODULE_DIR" ]; then
@@ -321,13 +351,13 @@ jobs:
           set +e  # Don't exit on error to capture exit code properly
           if [[ "$MODE" == "FULL" ]]; then
             echo "📝 Using FULL output mode - showing all test output"
-            echo "🔍 Executing: $MAGEX_CMD"
+            echo "🔍 Executing: ${MAGEX_CMD[*]}"
             if [ -n "$GO_MODULE_DIR" ]; then
               echo "🔧 Running from directory: $GO_MODULE_DIR"
-              (cd "$GO_MODULE_DIR" && $MAGEX_CMD) 2>&1 | tee test-output.log
+              (cd "$GO_MODULE_DIR" && "${MAGEX_CMD[@]}") 2>&1 | tee test-output.log
             else
               echo "🔧 Running from repository root"
-              $MAGEX_CMD 2>&1 | tee test-output.log
+              "${MAGEX_CMD[@]}" 2>&1 | tee test-output.log
             fi
             TEST_EXIT_CODE=${PIPESTATUS[0]}
             echo "🔍 Magex command exit code: $TEST_EXIT_CODE"
@@ -340,13 +370,13 @@ jobs:
 
           elif [[ "$MODE" == "FAILURES_ONLY" ]]; then
             echo "📝 Using FAILURES_ONLY mode - JSON output with failure extraction"
-            echo "🔍 Executing: $MAGEX_CMD"
+            echo "🔍 Executing: ${MAGEX_CMD[*]}"
             if [ -n "$GO_MODULE_DIR" ]; then
               echo "🔧 Running from directory: $GO_MODULE_DIR"
-              (cd "$GO_MODULE_DIR" && $MAGEX_CMD) 2>&1 | tee test-output.log
+              (cd "$GO_MODULE_DIR" && "${MAGEX_CMD[@]}") 2>&1 | tee test-output.log
             else
               echo "🔧 Running from repository root"
-              $MAGEX_CMD 2>&1 | tee test-output.log
+              "${MAGEX_CMD[@]}" 2>&1 | tee test-output.log
             fi
             TEST_EXIT_CODE=${PIPESTATUS[0]}
             echo "🔍 Magex command exit code: $TEST_EXIT_CODE"
