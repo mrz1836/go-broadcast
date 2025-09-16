@@ -192,17 +192,21 @@ func (suite *DirectoryProgressTestSuite) TestDirectoryProgressReporterUpdateProg
 		reporter.mu.RUnlock()
 	})
 
-	t.Run("ignores updates when disabled", func(t *testing.T) {
+	t.Run("updates metrics but skips logging when disabled", func(t *testing.T) {
 		reporter := NewDirectoryProgressReporter(suite.logger, suite.testDir, 10)
 		reporter.Start(5) // Below threshold, disabled
 
-		// Should not update
+		// Should update metrics but skip logging
 		reporter.UpdateProgress(3, 5, "Processing files")
 
-		// Verify lastUpdate was not set
+		// Verify lastUpdate was not set (logging was skipped)
 		reporter.mu.RLock()
 		assert.True(t, reporter.lastUpdate.IsZero())
 		reporter.mu.RUnlock()
+
+		// But metrics should still be updated for accurate stats
+		metrics := reporter.GetMetrics()
+		assert.Equal(t, 3, metrics.FilesProcessed)
 	})
 
 	t.Run("rate limits updates", func(t *testing.T) {
@@ -234,6 +238,28 @@ func (suite *DirectoryProgressTestSuite) TestDirectoryProgressReporterUpdateProg
 		thirdUpdate := reporter.lastUpdate
 		reporter.mu.RUnlock()
 		assert.True(t, thirdUpdate.After(firstUpdate))
+	})
+
+	t.Run("always updates file processed metrics regardless of rate limiting", func(t *testing.T) {
+		reporter := NewDirectoryProgressReporter(suite.logger, suite.testDir, 5)
+		reporter.SetUpdateInterval(100 * time.Millisecond)
+		reporter.Start(10) // Enable reporting
+
+		// First update - both logging and metrics should update
+		reporter.UpdateProgress(1, 10, "First update")
+		metrics := reporter.GetMetrics()
+		assert.Equal(t, 1, metrics.FilesProcessed)
+
+		// Immediate second update - logging should be rate limited but metrics should update
+		reporter.UpdateProgress(5, 10, "Second update")
+		metrics = reporter.GetMetrics()
+		assert.Equal(t, 5, metrics.FilesProcessed) // Metrics should always update
+
+		// Third update after rate limit - both should update again
+		time.Sleep(110 * time.Millisecond)
+		reporter.UpdateProgress(8, 10, "Third update")
+		metrics = reporter.GetMetrics()
+		assert.Equal(t, 8, metrics.FilesProcessed)
 	})
 }
 
@@ -954,5 +980,99 @@ func BenchmarkDirectoryProgressReporter(b *testing.B) {
 			reporter := manager.GetReporter(path, 10)
 			reporter.RecordFileProcessed(1)
 		}
+	})
+}
+
+// TestDirectoryStatsIntegration tests the full integration of directory stats tracking
+// This test ensures that the FilesProcessed counter is properly tracked and available
+// for PR metadata generation, preventing regression of the zero stats issue
+func TestDirectoryStatsIntegration(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+	logger.Logger.SetLevel(logrus.WarnLevel) // Reduce log noise
+
+	t.Run("directory processing tracks file counts correctly", func(t *testing.T) {
+		// Create a directory progress manager (simulating DirectoryProcessor)
+		manager := NewDirectoryProgressManager(logger)
+
+		// Simulate processing a directory with 10 files
+		dirPath := ".github/workflows"
+		reporter := manager.GetReporter(dirPath, 5) // Low threshold to ensure enabled
+		reporter.Start(10)                          // Start with 10 discovered files
+
+		// Simulate batch processing calling UpdateProgress for each processed file
+		for i := 1; i <= 10; i++ {
+			reporter.UpdateProgress(i, 10, fmt.Sprintf("Processing file %d", i))
+		}
+
+		// Complete the directory processing
+		finalMetrics := reporter.Complete()
+
+		// Verify that FilesProcessed is correctly tracked
+		assert.Equal(t, 10, finalMetrics.FilesProcessed, "FilesProcessed should match the final UpdateProgress call")
+		assert.Equal(t, 10, finalMetrics.FilesDiscovered, "FilesDiscovered should match Start() call")
+		assert.False(t, finalMetrics.EndTime.IsZero(), "EndTime should be set after Complete()")
+
+		// Get metrics from manager (simulating how processDirectoriesWithMetrics works)
+		allMetrics := manager.GetAllMetrics()
+		assert.Contains(t, allMetrics, dirPath, "Should have metrics for the directory")
+		assert.Equal(t, 10, allMetrics[dirPath].FilesProcessed, "Manager should return correct FilesProcessed")
+	})
+
+	t.Run("multiple directories track independently", func(t *testing.T) {
+		manager := NewDirectoryProgressManager(logger)
+
+		// Simulate two directories with different file counts
+		dirs := map[string]int{
+			".github/workflows": 5,
+			".github/actions":   3,
+		}
+
+		reporters := make(map[string]*DirectoryProgressReporter)
+
+		// Start processing for both directories
+		for dirPath, fileCount := range dirs {
+			reporter := manager.GetReporter(dirPath, 1)
+			reporter.Start(fileCount)
+			reporters[dirPath] = reporter
+		}
+
+		// Simulate processing files in each directory
+		for dirPath, fileCount := range dirs {
+			reporter := reporters[dirPath]
+			for i := 1; i <= fileCount; i++ {
+				reporter.UpdateProgress(i, fileCount, fmt.Sprintf("Processing %s file %d", dirPath, i))
+			}
+			reporter.Complete()
+		}
+
+		// Verify metrics for each directory
+		allMetrics := manager.GetAllMetrics()
+		for dirPath, expectedCount := range dirs {
+			assert.Contains(t, allMetrics, dirPath, "Should have metrics for directory %s", dirPath)
+			assert.Equal(t, expectedCount, allMetrics[dirPath].FilesProcessed,
+				"Directory %s should have correct FilesProcessed count", dirPath)
+		}
+	})
+
+	t.Run("disabled reporter still tracks metrics for stats", func(t *testing.T) {
+		manager := NewDirectoryProgressManager(logger)
+
+		// Create reporter with high threshold to disable logging
+		dirPath := ".vscode"
+		reporter := manager.GetReporter(dirPath, 50) // High threshold
+		reporter.Start(3)                            // Below threshold - logging disabled but metrics should work
+
+		// Process files
+		reporter.UpdateProgress(1, 3, "File 1")
+		reporter.UpdateProgress(2, 3, "File 2")
+		reporter.UpdateProgress(3, 3, "File 3")
+		reporter.Complete()
+
+		// Verify metrics are still tracked even though logging was disabled
+		allMetrics := manager.GetAllMetrics()
+		assert.Contains(t, allMetrics, dirPath)
+		assert.Equal(t, 3, allMetrics[dirPath].FilesProcessed,
+			"FilesProcessed should be tracked even when logging is disabled")
+		assert.Equal(t, 3, allMetrics[dirPath].FilesDiscovered)
 	})
 }

@@ -83,15 +83,18 @@ func (dpr *DirectoryProgressReporter) Start(totalFiles int) {
 
 // UpdateProgress updates the current progress with non-blocking behavior
 func (dpr *DirectoryProgressReporter) UpdateProgress(current, total int, message string) {
-	if !dpr.isEnabled() {
-		return
-	}
-
 	dpr.mu.Lock()
 	defer dpr.mu.Unlock()
 
+	// Always update the metrics regardless of enabled state or rate limiting for accurate stats
+	dpr.metrics.FilesProcessed = current
+
+	if !dpr.enabled {
+		return
+	}
+
 	now := time.Now()
-	// Rate limit updates to avoid spam
+	// Rate limit logging updates to avoid spam
 	if now.Sub(dpr.lastUpdate) < dpr.updateInterval {
 		return
 	}
