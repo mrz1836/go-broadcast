@@ -207,6 +207,7 @@ jobs:
     secrets:
       github-token: ${{ secrets.GH_PAT_TOKEN != '' && secrets.GH_PAT_TOKEN || secrets.GITHUB_TOKEN }}
       gitleaks-license: ${{ secrets.GITLEAKS_LICENSE }}
+      ossi-api-token: ${{ secrets.OSSI_API_TOKEN }}
   # ----------------------------------------------------------------------------------
   # Code Quality Checks
   # ----------------------------------------------------------------------------------
