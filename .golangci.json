@@ -228,6 +228,8 @@
         "skip-files": [
             "test/fixtures/.*\\.go$"
         ],
+        "max-issues-per-linter": 0,
+        "max-same-issues": 0,
         "tests": true
     },
     "severity": {
