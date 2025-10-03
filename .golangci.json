@@ -53,6 +53,12 @@
                     "gosec"
                 ],
                 "path": "test/fixtures/.*\\.go$"
+            },
+            {
+                "linters": [
+                    "gomoddirectives"
+                ],
+                "text": "replacement are not allowed: github.com/joho/godotenv"
             }
         ],
         "uniq-by-line": true
@@ -145,6 +151,11 @@
             "goconst": {
                 "min-len": 3,
                 "min-occurrences": 10
+            },
+            "gomoddirectives": {
+                "replace-allow-list": [
+                    "github.com/joho/godotenv"
+                ]
             },
             "gocyclo": {
                 "min-complexity": 10
