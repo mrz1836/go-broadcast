@@ -5,7 +5,7 @@
             "id": "versionBump",
             "type": "pickString",
             "description": "Select version bump type",
-            "options": ["patch", "minor", "major"],
+            "options": ["patch", "minor"],
             "default": "patch"
         },
         {
@@ -13,6 +13,13 @@
             "type": "promptString",
             "description": "Target branch for version bump",
             "default": "master"
+        },
+        {
+            "id": "majorConfirm",
+            "type": "pickString",
+            "description": "⚠️  MAJOR version bump - are you sure? This is a breaking change!",
+            "options": ["major-confirm", "cancel"],
+            "default": "cancel"
         }
     ],
     "tasks": [
@@ -592,9 +599,9 @@
         {
             "label": "magex: version:bump:major",
             "type": "shell",
-            "command": "magex version:bump push=true bump=major branch=${input:targetBranch}",
+            "command": "magex version:bump push=true bump=major branch=${input:targetBranch} confirm=${input:majorConfirm}",
             "group": "none",
-            "detail": "Bump major version (X.0.0) and push to remote",
+            "detail": "Bump major version (X.0.0) and push to remote - requires confirmation",
             "problemMatcher": ["$go"],
             "presentation": {
                 "reveal": "always",
