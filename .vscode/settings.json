@@ -9,8 +9,8 @@
         "editor.codeActionsOnSave": {
             "source.organizeImports": "explicit"
         },
-        "editor.formatOnSave": true,
-        "editor.defaultFormatter": "golang.go"
+        "editor.defaultFormatter": "golang.go",
+        "editor.formatOnSave": true
     },
     "[go][go.mod]": {
         "editor.codeActionsOnSave": {
@@ -23,8 +23,32 @@
     "files.associations": {
         "application.yaml": "yaml-cloudformation"
     },
-    "go.useLanguageServer": true,
-    "go.toolsManagement.autoUpdate": true,
+    "go.addTags": {
+        "options": "json=omitempty",
+        "promptForTags": false,
+        "tags": "json",
+        "transform": "snakecase"
+    },
+    "go.coverOnSave": false,
+    "go.coverageDecorator": {
+        "coveredHighlightColor": "rgba(64,128,64,0.5)",
+        "type": "gutter",
+        "uncoveredHighlightColor": "rgba(128,64,64,0.25)"
+    },
+    "go.delveConfig": {
+        "debugAdapter": "dlv-dap",
+        "dlvLoadConfig": {
+            "followPointers": true,
+            "maxArrayValues": 64,
+            "maxStringLen": 256,
+            "maxStructFields": -1,
+            "maxVariableRecurse": 1
+        },
+        "showGlobalVariables": false
+    },
+    "go.enableCodeLens": {
+        "runtest": true
+    },
     "go.inlayHints.assignVariableTypes": true,
     "go.inlayHints.compositeLiteralFields": true,
     "go.inlayHints.compositeLiteralTypes": true,
@@ -32,61 +56,21 @@
     "go.inlayHints.functionTypeParameters": true,
     "go.inlayHints.parameterNames": true,
     "go.inlayHints.rangeVariableTypes": true,
-    "go.lintTool": "golangci-lint",
     "go.lintFlags": [
         "--fast",
         "--timeout=5m"
     ],
     "go.lintOnSave": "package",
+    "go.lintTool": "golangci-lint",
     "go.testExplorerPackages": ".*",
     "go.testFlags": [
         "-v",
         "-race",
         "-count=1"
     ],
-    "go.coverOnSave": false,
-    "go.coverageDecorator": {
-        "type": "gutter",
-        "coveredHighlightColor": "rgba(64,128,64,0.5)",
-        "uncoveredHighlightColor": "rgba(128,64,64,0.25)"
-    },
-    "go.enableCodeLens": {
-        "runtest": true
-    },
-    "go.delveConfig": {
-        "dlvLoadConfig": {
-            "followPointers": true,
-            "maxVariableRecurse": 1,
-            "maxStringLen": 256,
-            "maxArrayValues": 64,
-            "maxStructFields": -1
-        },
-        "showGlobalVariables": false,
-        "debugAdapter": "dlv-dap"
-    },
-    "go.addTags": {
-        "tags": "json",
-        "options": "json=omitempty",
-        "promptForTags": false,
-        "transform": "snakecase"
-    },
+    "go.toolsManagement.autoUpdate": true,
+    "go.useLanguageServer": true,
     "gopls": {
-        "formatting.gofumpt": true,
-        "formatting.local": "github.com/mrz1836/go-broadcast",
-        "ui.semanticTokens": true,
-        "ui.completion.completeFunctionCalls": true,
-        "ui.completion.usePlaceholders": true,
-        "symbolMatcher": "fastfuzzy",
-        "symbolStyle": "full",
-        "ui.navigation.importShortcut": "Definition",
-        "ui.diagnostic.staticcheck": true,
-        "ui.diagnostic.analyses": {
-            "unusedparams": true,
-            "shadow": true,
-            "unusedwrite": true,
-            "nilness": true,
-            "unusedvariable": true
-        },
         "build.directoryFilters": [
             "-node_modules",
             "-vendor",
@@ -94,6 +78,22 @@
             "-dist",
             "-build",
             "-.mage-cache"
-        ]
+        ],
+        "formatting.gofumpt": true,
+        "formatting.local": "github.com/mrz1836/go-broadcast",
+        "symbolMatcher": "fastfuzzy",
+        "symbolStyle": "full",
+        "ui.completion.completeFunctionCalls": true,
+        "ui.completion.usePlaceholders": true,
+        "ui.diagnostic.analyses": {
+            "nilness": true,
+            "shadow": true,
+            "unusedparams": true,
+            "unusedvariable": true,
+            "unusedwrite": true
+        },
+        "ui.diagnostic.staticcheck": true,
+        "ui.navigation.importShortcut": "Definition",
+        "ui.semanticTokens": true
     }
 }
