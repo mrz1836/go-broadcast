@@ -388,6 +388,23 @@ repoTransformerAdded:
 	}
 templateTransformerAdded:
 
+	// Add email transformer if any source or target has email configuration
+	for _, group := range groups {
+		// Check if source has email configuration
+		if group.Source.SecurityEmail != "" || group.Source.SupportEmail != "" {
+			transformChain.Add(transform.NewEmailTransformer())
+			goto emailTransformerAdded
+		}
+		// Check if any target has email configuration
+		for _, target := range group.Targets {
+			if target.SecurityEmail != "" || target.SupportEmail != "" {
+				transformChain.Add(transform.NewEmailTransformer())
+				goto emailTransformerAdded
+			}
+		}
+	}
+emailTransformerAdded:
+
 	// Load automerge labels from environment if automerge is enabled
 	var automergeLabels []string
 	if automerge {
@@ -459,6 +476,23 @@ repoTransformerAdded2:
 		}
 	}
 templateTransformerAdded2:
+
+	// Add email transformer if any source or target has email configuration
+	for _, group := range groups {
+		// Check if source has email configuration
+		if group.Source.SecurityEmail != "" || group.Source.SupportEmail != "" {
+			transformChain.Add(transform.NewEmailTransformer())
+			goto emailTransformerAdded2
+		}
+		// Check if any target has email configuration
+		for _, target := range group.Targets {
+			if target.SecurityEmail != "" || target.SupportEmail != "" {
+				transformChain.Add(transform.NewEmailTransformer())
+				goto emailTransformerAdded2
+			}
+		}
+	}
+emailTransformerAdded2:
 
 	// Load automerge labels from environment if automerge is enabled
 	var automergeLabels []string
@@ -601,6 +635,23 @@ repoTransformerAdded3:
 		}
 	}
 templateTransformerAdded3:
+
+	// Add email transformer if any source or target has email configuration
+	for _, group := range groups {
+		// Check if source has email configuration
+		if group.Source.SecurityEmail != "" || group.Source.SupportEmail != "" {
+			transformChain.Add(transform.NewEmailTransformer())
+			goto emailTransformerAdded3
+		}
+		// Check if any target has email configuration
+		for _, target := range group.Targets {
+			if target.SecurityEmail != "" || target.SupportEmail != "" {
+				transformChain.Add(transform.NewEmailTransformer())
+				goto emailTransformerAdded3
+			}
+		}
+	}
+emailTransformerAdded3:
 
 	// Load automerge labels from environment if automerge is enabled
 	var automergeLabels []string

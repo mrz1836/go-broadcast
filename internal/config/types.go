@@ -12,8 +12,10 @@ type Config struct {
 
 // SourceConfig defines the source repository settings
 type SourceConfig struct {
-	Repo   string `yaml:"repo"`   // Format: org/repo
-	Branch string `yaml:"branch"` // Default: master
+	Repo          string `yaml:"repo"`                     // Format: org/repo
+	Branch        string `yaml:"branch"`                   // Default: master
+	SecurityEmail string `yaml:"security_email,omitempty"` // Security contact email address (for transformation)
+	SupportEmail  string `yaml:"support_email,omitempty"`  // Support/contact email address (for transformation)
 }
 
 // GlobalConfig contains global settings applied across all targets
@@ -43,6 +45,8 @@ type TargetConfig struct {
 	FileListRefs      []string           `yaml:"file_list_refs,omitempty"`      // References to file lists by ID
 	DirectoryListRefs []string           `yaml:"directory_list_refs,omitempty"` // References to directory lists by ID
 	Transform         Transform          `yaml:"transform,omitempty"`           // Optional transformations
+	SecurityEmail     string             `yaml:"security_email,omitempty"`      // Override security contact email (defaults to source security_email)
+	SupportEmail      string             `yaml:"support_email,omitempty"`       // Override support contact email (defaults to source support_email)
 	PRLabels          []string           `yaml:"pr_labels,omitempty"`           // Override default PR labels
 	PRAssignees       []string           `yaml:"pr_assignees,omitempty"`        // Override default PR assignees
 	PRReviewers       []string           `yaml:"pr_reviewers,omitempty"`        // Override default PR reviewers
