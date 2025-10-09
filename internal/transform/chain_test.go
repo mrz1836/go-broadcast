@@ -190,3 +190,107 @@ func TestChain_Transformers(t *testing.T) {
 	transformers[0] = nil
 	assert.NotNil(t, chain.transformers[0])
 }
+
+func TestChain_EmailBeforeRepoTransformer(t *testing.T) {
+	// Regression test: Email transformer must run BEFORE repo transformer
+	// to prevent repo name in email addresses from being corrupted.
+	//
+	// Bug scenario:
+	// 1. Source file has: "go-broadcast@mrz1818.com"
+	// 2. If repo transformer runs first, it replaces "go-broadcast" with target repo name
+	//    resulting in: "go-lockfree-queue@mrz1818.com" (WRONG!)
+	// 3. Email transformer then can't find "go-broadcast@mrz1818.com" to replace
+	//
+	// Correct behavior:
+	// 1. Email transformer runs first, replaces "go-broadcast@mrz1818.com"
+	//    with "security@bsvassociation.org"
+	// 2. Repo transformer then runs and doesn't affect the email
+	logger := logrus.New()
+	logger.SetLevel(logrus.FatalLevel) // Suppress logs for test
+
+	chain := NewChain(logger)
+
+	// Add transformers in the correct order: Email FIRST, then Repo
+	chain.Add(NewEmailTransformer()).Add(NewRepoTransformer())
+
+	input := `# Security Policy
+
+If you've found a security issue, send a private email to:
+📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+
+This is the go-broadcast repository.
+`
+
+	expected := `# Security Policy
+
+If you've found a security issue, send a private email to:
+📧 [security@bsvassociation.org](mailto:security@bsvassociation.org)
+
+This is the go-lockfree-queue repository.
+`
+
+	ctx := Context{
+		SourceRepo:          "mrz1836/go-broadcast",
+		TargetRepo:          "bsv-blockchain/go-lockfree-queue",
+		FilePath:            ".github/SECURITY.md",
+		SourceSecurityEmail: "go-broadcast@mrz1818.com",
+		TargetSecurityEmail: "security@bsvassociation.org",
+	}
+
+	result, err := chain.Transform(context.Background(), []byte(input), ctx)
+	require.NoError(t, err)
+	assert.Equal(t, expected, string(result))
+
+	// Verify the email was transformed correctly (not corrupted by repo transformer)
+	assert.Contains(t, string(result), "security@bsvassociation.org")
+	assert.NotContains(t, string(result), "go-broadcast@mrz1818.com")
+	assert.NotContains(t, string(result), "go-lockfree-queue@mrz1818.com") // Should NOT contain corrupted email
+}
+
+func TestChain_RepoBeforeEmailTransformer_BreaksEmail(t *testing.T) {
+	// Anti-pattern test: Demonstrates what happens when transformers are in WRONG order
+	// This test documents the bug behavior to ensure we don't regress
+	logger := logrus.New()
+	logger.SetLevel(logrus.FatalLevel) // Suppress logs for test
+
+	chain := NewChain(logger)
+
+	// Add transformers in the WRONG order: Repo FIRST, then Email
+	chain.Add(NewRepoTransformer()).Add(NewEmailTransformer())
+
+	input := `# Security Policy
+
+If you've found a security issue, send a private email to:
+📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+
+This is the go-broadcast repository.
+`
+
+	// With WRONG order, the email gets corrupted:
+	// 1. Repo transformer replaces "go-broadcast" -> "go-lockfree-queue"
+	//    Email becomes: "go-lockfree-queue@mrz1818.com"
+	// 2. Email transformer can't find "go-broadcast@mrz1818.com" to replace
+	wrongResult := `# Security Policy
+
+If you've found a security issue, send a private email to:
+📧 [go-lockfree-queue@mrz1818.com](mailto:go-lockfree-queue@mrz1818.com)
+
+This is the go-lockfree-queue repository.
+`
+
+	ctx := Context{
+		SourceRepo:          "mrz1836/go-broadcast",
+		TargetRepo:          "bsv-blockchain/go-lockfree-queue",
+		FilePath:            ".github/SECURITY.md",
+		SourceSecurityEmail: "go-broadcast@mrz1818.com",
+		TargetSecurityEmail: "security@bsvassociation.org",
+	}
+
+	result, err := chain.Transform(context.Background(), []byte(input), ctx)
+	require.NoError(t, err)
+
+	// This test verifies the WRONG behavior happens with wrong order
+	assert.Equal(t, wrongResult, string(result))
+	assert.Contains(t, string(result), "go-lockfree-queue@mrz1818.com")  // Corrupted email
+	assert.NotContains(t, string(result), "security@bsvassociation.org") // Email transform failed
+}
