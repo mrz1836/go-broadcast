@@ -3,7 +3,7 @@
 # This creates a one-click development environment for contributors
 
 image:
-  name: gitpod/workspace-go:latest
+  file: gitpod/workspace-go:latest
 
 tasks:
   - name: setup-and-test
