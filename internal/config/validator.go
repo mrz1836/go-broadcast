@@ -307,6 +307,31 @@ func (c *Config) validateGroupSourceWithLogging(ctx context.Context, logConfig *
 		return err
 	}
 
+	// Validate email addresses if configured
+	if err := validation.ValidateEmail(group.Source.SecurityEmail, "source security_email"); err != nil {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithFields(logrus.Fields{
+				"security_email":                 group.Source.SecurityEmail,
+				logging.StandardFields.ErrorType: "invalid_email",
+				"group_name":                     group.Name,
+				"group_id":                       group.ID,
+			}).Error("Source security email validation failed")
+		}
+		return err
+	}
+
+	if err := validation.ValidateEmail(group.Source.SupportEmail, "source support_email"); err != nil {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithFields(logrus.Fields{
+				"support_email":                  group.Source.SupportEmail,
+				logging.StandardFields.ErrorType: "invalid_email",
+				"group_name":                     group.Name,
+				"group_id":                       group.ID,
+			}).Error("Source support email validation failed")
+		}
+		return err
+	}
+
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.Debug("Group source configuration validation completed successfully")
 	}
@@ -534,6 +559,27 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 			}
 			return err
 		}
+	}
+
+	// Validate email addresses if configured
+	if err := validation.ValidateEmail(t.SecurityEmail, "target security_email"); err != nil {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithFields(logrus.Fields{
+				"security_email":                 t.SecurityEmail,
+				logging.StandardFields.ErrorType: "invalid_email",
+			}).Error("Target security email validation failed")
+		}
+		return err
+	}
+
+	if err := validation.ValidateEmail(t.SupportEmail, "target support_email"); err != nil {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithFields(logrus.Fields{
+				"support_email":                  t.SupportEmail,
+				logging.StandardFields.ErrorType: "invalid_email",
+			}).Error("Target support email validation failed")
+		}
+		return err
 	}
 
 	// Validate directories if present
