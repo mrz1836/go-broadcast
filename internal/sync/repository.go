@@ -571,6 +571,23 @@ func (rs *RepositorySync) processFile(ctx context.Context, sourcePath string, fi
 		Variables:  rs.target.Transform.Variables,
 	}
 
+	// Add email configuration if available
+	if rs.engine.currentGroup != nil {
+		transformCtx.SourceSecurityEmail = rs.engine.currentGroup.Source.SecurityEmail
+		transformCtx.SourceSupportEmail = rs.engine.currentGroup.Source.SupportEmail
+		// Use target-specific emails if set, otherwise use source emails
+		if rs.target.SecurityEmail != "" {
+			transformCtx.TargetSecurityEmail = rs.target.SecurityEmail
+		} else {
+			transformCtx.TargetSecurityEmail = rs.engine.currentGroup.Source.SecurityEmail
+		}
+		if rs.target.SupportEmail != "" {
+			transformCtx.TargetSupportEmail = rs.target.SupportEmail
+		} else {
+			transformCtx.TargetSupportEmail = rs.engine.currentGroup.Source.SupportEmail
+		}
+	}
+
 	transformedContent := srcContent
 	if rs.target.Transform.RepoName || len(rs.target.Transform.Variables) > 0 {
 		transformedContent, err = rs.engine.transform.Transform(ctx, srcContent, transformCtx)
