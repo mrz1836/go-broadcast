@@ -474,6 +474,37 @@
             }
         },
         // ============================================================
+        // PRE-COMMIT TASKS
+        // ============================================================
+        {
+            "label": "pre-commit: install",
+            "type": "shell",
+            "command": "go-pre-commit install",
+            "group": "none",
+            "detail": "Install go-pre-commit hooks",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": false,
+                "clear": true
+            }
+        },
+        {
+            "label": "pre-commit: run",
+            "type": "shell",
+            "command": "go-pre-commit run --all-files",
+            "group": "none",
+            "detail": "Run pre-commit hooks on all files",
+            "problemMatcher": ["$go"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": false,
+                "clear": true
+            }
+        },
+        // ============================================================
         // DEPENDENCY TASKS
         // ============================================================
         {
