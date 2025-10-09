@@ -152,11 +152,6 @@
                 "min-len": 3,
                 "min-occurrences": 10
             },
-            "gomoddirectives": {
-                "replace-allow-list": [
-                    "github.com/joho/godotenv"
-                ]
-            },
             "gocyclo": {
                 "min-complexity": 10
             },
@@ -167,6 +162,11 @@
                     "HACK",
                     "ATTN",
                     "ATTENTION"
+                ]
+            },
+            "gomoddirectives": {
+                "replace-allow-list": [
+                    "github.com/joho/godotenv"
                 ]
             },
             "govet": {
@@ -233,14 +233,14 @@
         ],
         "concurrency": 8,
         "issues-exit-code": 1,
+        "max-issues-per-linter": 0,
+        "max-same-issues": 0,
         "skip-dirs": [
             "test/fixtures"
         ],
         "skip-files": [
             "test/fixtures/.*\\.go$"
         ],
-        "max-issues-per-linter": 0,
-        "max-same-issues": 0,
         "tests": true
     },
     "severity": {
