@@ -363,3 +363,76 @@ func TestEmailTransformer_PartialEmailNotReplaced(t *testing.T) {
 	expected := "Contact newsecurity@example.com not security@company.com"
 	assert.Equal(t, expected, string(result))
 }
+
+func TestEmailTransformer_EmailWithRepoNameInAddress(t *testing.T) {
+	// Regression test: Ensure email addresses containing repo names are transformed correctly
+	// This test covers the bug where repo name transformer would corrupt emails like
+	// "go-broadcast@mrz1818.com" by replacing "go-broadcast" before email transformer runs
+	input := `# Security Policy
+
+If you've found a security issue, **please don't open a public issue or PR**.
+
+Instead, send a private email to:
+📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+
+Include the following:
+* Description of the issue
+`
+
+	expected := `# Security Policy
+
+If you've found a security issue, **please don't open a public issue or PR**.
+
+Instead, send a private email to:
+📧 [security@bsvassociation.org](mailto:security@bsvassociation.org)
+
+Include the following:
+* Description of the issue
+`
+
+	transformer := NewEmailTransformer()
+	ctx := Context{
+		FilePath:            ".github/SECURITY.md",
+		SourceSecurityEmail: "go-broadcast@mrz1818.com",
+		TargetSecurityEmail: "security@bsvassociation.org",
+	}
+
+	result, err := transformer.Transform([]byte(input), ctx)
+	require.NoError(t, err)
+	assert.Equal(t, expected, string(result))
+}
+
+func TestEmailTransformer_EmailAndSupportWithRepoNameInAddress(t *testing.T) {
+	// Regression test: Ensure both security and support emails are transformed correctly
+	// when they contain repo names that might be transformed by repo transformer
+	input := `# Support Guide
+
+For sensitive or non-public concerns, reach out to:
+📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+
+For general questions, contact:
+📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+`
+
+	expected := `# Support Guide
+
+For sensitive or non-public concerns, reach out to:
+📧 [security@bsvassociation.org](mailto:security@bsvassociation.org)
+
+For general questions, contact:
+📧 [security@bsvassociation.org](mailto:security@bsvassociation.org)
+`
+
+	transformer := NewEmailTransformer()
+	ctx := Context{
+		FilePath:            ".github/SUPPORT.md",
+		SourceSecurityEmail: "go-broadcast@mrz1818.com",
+		TargetSecurityEmail: "security@bsvassociation.org",
+		SourceSupportEmail:  "go-broadcast@mrz1818.com",
+		TargetSupportEmail:  "security@bsvassociation.org",
+	}
+
+	result, err := transformer.Transform([]byte(input), ctx)
+	require.NoError(t, err)
+	assert.Equal(t, expected, string(result))
+}
