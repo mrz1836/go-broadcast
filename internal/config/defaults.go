@@ -1,3 +1,4 @@
+// Package config provides configuration defaults and helpers for go-broadcast.
 package config
 
 // DefaultExclusions returns smart default exclusions for development artifacts
