@@ -365,30 +365,9 @@ func createSyncEngine(ctx context.Context, cfg *config.Config) (*sync.Engine, er
 	// Initialize transform chain
 	transformChain := transform.NewChain(logger)
 
-	// Add repository name transformer if any target uses it
+	// Add email transformer FIRST if any source or target has email configuration
+	// This must run before repo name transformer to prevent email addresses from being corrupted
 	groups := cfg.Groups
-	for _, group := range groups {
-		for _, target := range group.Targets {
-			if target.Transform.RepoName {
-				transformChain.Add(transform.NewRepoTransformer())
-				goto repoTransformerAdded
-			}
-		}
-	}
-repoTransformerAdded:
-
-	// Add template variable transformer if any target uses it
-	for _, group := range groups {
-		for _, target := range group.Targets {
-			if len(target.Transform.Variables) > 0 {
-				transformChain.Add(transform.NewTemplateTransformer(logrus.StandardLogger(), nil))
-				goto templateTransformerAdded
-			}
-		}
-	}
-templateTransformerAdded:
-
-	// Add email transformer if any source or target has email configuration
 	for _, group := range groups {
 		// Check if source has email configuration
 		if group.Source.SecurityEmail != "" || group.Source.SupportEmail != "" {
@@ -404,6 +383,29 @@ templateTransformerAdded:
 		}
 	}
 emailTransformerAdded:
+
+	// Add template variable transformer if any target uses it
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logrus.StandardLogger(), nil))
+				goto templateTransformerAdded
+			}
+		}
+	}
+templateTransformerAdded:
+
+	// Add repository name transformer LAST if any target uses it
+	// This runs last to avoid corrupting email addresses during transformation
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				goto repoTransformerAdded
+			}
+		}
+	}
+repoTransformerAdded:
 
 	// Load automerge labels from environment if automerge is enabled
 	var automergeLabels []string
@@ -454,30 +456,9 @@ func createSyncEngineWithFlags(ctx context.Context, cfg *config.Config, flags *F
 	// Initialize transform chain
 	transformChain := transform.NewChain(logger)
 
-	// Add repository name transformer if any target uses it
+	// Add email transformer FIRST if any source or target has email configuration
+	// This must run before repo name transformer to prevent email addresses from being corrupted
 	groups := cfg.Groups
-	for _, group := range groups {
-		for _, target := range group.Targets {
-			if target.Transform.RepoName {
-				transformChain.Add(transform.NewRepoTransformer())
-				goto repoTransformerAdded2
-			}
-		}
-	}
-repoTransformerAdded2:
-
-	// Add template variable transformer if any target uses it
-	for _, group := range groups {
-		for _, target := range group.Targets {
-			if len(target.Transform.Variables) > 0 {
-				transformChain.Add(transform.NewTemplateTransformer(logger, nil))
-				goto templateTransformerAdded2
-			}
-		}
-	}
-templateTransformerAdded2:
-
-	// Add email transformer if any source or target has email configuration
 	for _, group := range groups {
 		// Check if source has email configuration
 		if group.Source.SecurityEmail != "" || group.Source.SupportEmail != "" {
@@ -493,6 +474,29 @@ templateTransformerAdded2:
 		}
 	}
 emailTransformerAdded2:
+
+	// Add template variable transformer if any target uses it
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logger, nil))
+				goto templateTransformerAdded2
+			}
+		}
+	}
+templateTransformerAdded2:
+
+	// Add repository name transformer LAST if any target uses it
+	// This runs last to avoid corrupting email addresses during transformation
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				goto repoTransformerAdded2
+			}
+		}
+	}
+repoTransformerAdded2:
 
 	// Load automerge labels from environment if automerge is enabled
 	var automergeLabels []string
@@ -613,30 +617,9 @@ func createSyncEngineWithLogConfig(ctx context.Context, cfg *config.Config, logC
 	// Initialize transform chain
 	transformChain := transform.NewChain(logger)
 
-	// Add repository name transformer if any target uses it
+	// Add email transformer FIRST if any source or target has email configuration
+	// This must run before repo name transformer to prevent email addresses from being corrupted
 	groups := cfg.Groups
-	for _, group := range groups {
-		for _, target := range group.Targets {
-			if target.Transform.RepoName {
-				transformChain.Add(transform.NewRepoTransformer())
-				goto repoTransformerAdded3
-			}
-		}
-	}
-repoTransformerAdded3:
-
-	// Add template variable transformer if any target uses it
-	for _, group := range groups {
-		for _, target := range group.Targets {
-			if len(target.Transform.Variables) > 0 {
-				transformChain.Add(transform.NewTemplateTransformer(logger, logConfig))
-				goto templateTransformerAdded3
-			}
-		}
-	}
-templateTransformerAdded3:
-
-	// Add email transformer if any source or target has email configuration
 	for _, group := range groups {
 		// Check if source has email configuration
 		if group.Source.SecurityEmail != "" || group.Source.SupportEmail != "" {
@@ -652,6 +635,29 @@ templateTransformerAdded3:
 		}
 	}
 emailTransformerAdded3:
+
+	// Add template variable transformer if any target uses it
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if len(target.Transform.Variables) > 0 {
+				transformChain.Add(transform.NewTemplateTransformer(logger, logConfig))
+				goto templateTransformerAdded3
+			}
+		}
+	}
+templateTransformerAdded3:
+
+	// Add repository name transformer LAST if any target uses it
+	// This runs last to avoid corrupting email addresses during transformation
+	for _, group := range groups {
+		for _, target := range group.Targets {
+			if target.Transform.RepoName {
+				transformChain.Add(transform.NewRepoTransformer())
+				goto repoTransformerAdded3
+			}
+		}
+	}
+repoTransformerAdded3:
 
 	// Load automerge labels from environment if automerge is enabled
 	var automergeLabels []string
