@@ -8,7 +8,7 @@
             ],
             "settings": {
                 "editor.codeActionsOnSave": {
-                    "source.organizeImports": true
+                    "source.organizeImports": "explicit"
                 },
                 "editor.formatOnSave": true,
                 "go.lintTool": "golangci-lint",
