@@ -21,6 +21,10 @@ var (
 
 	// branchPrefixPattern validates branch prefixes (same as branch names)
 	branchPrefixPattern = regexp.MustCompile(`^[a-zA-Z0-9][\w./\-]*$`)
+
+	// emailPattern validates email addresses using a basic pattern
+	// This follows RFC 5322 simplified pattern for practical use
+	emailPattern = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 )
 
 // ValidateRepoName validates repository name format.
@@ -65,6 +69,22 @@ func ValidateBranchPrefix(prefix string) error {
 
 	if !branchPrefixPattern.MatchString(prefix) {
 		return errors.InvalidFieldError("branch prefix", prefix)
+	}
+
+	return nil
+}
+
+// ValidateEmail validates email address format.
+// Uses a simplified RFC 5322 pattern for practical email validation.
+// Empty emails are allowed as they are optional configuration.
+func ValidateEmail(email, fieldName string) error {
+	// Empty email is allowed (optional field)
+	if email == "" {
+		return nil
+	}
+
+	if !emailPattern.MatchString(email) {
+		return errors.InvalidFieldError(fieldName, email)
 	}
 
 	return nil

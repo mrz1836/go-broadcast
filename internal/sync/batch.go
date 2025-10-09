@@ -305,6 +305,23 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 				},
 			}
 
+			// Add email configuration if available
+			if bp.engine.currentGroup != nil {
+				baseCtx.SourceSecurityEmail = bp.engine.currentGroup.Source.SecurityEmail
+				baseCtx.SourceSupportEmail = bp.engine.currentGroup.Source.SupportEmail
+				// Use target-specific emails if set, otherwise use source emails
+				if bp.target.SecurityEmail != "" {
+					baseCtx.TargetSecurityEmail = bp.target.SecurityEmail
+				} else {
+					baseCtx.TargetSecurityEmail = bp.engine.currentGroup.Source.SecurityEmail
+				}
+				if bp.target.SupportEmail != "" {
+					baseCtx.TargetSupportEmail = bp.target.SupportEmail
+				} else {
+					baseCtx.TargetSupportEmail = bp.engine.currentGroup.Source.SupportEmail
+				}
+			}
+
 			dirTransformCtx := transform.NewDirectoryTransformContext(
 				baseCtx,
 				job.DirectoryMapping,
@@ -339,6 +356,23 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 						return 0
 					}(),
 				},
+			}
+
+			// Add email configuration if available
+			if bp.engine.currentGroup != nil {
+				transformContext.SourceSecurityEmail = bp.engine.currentGroup.Source.SecurityEmail
+				transformContext.SourceSupportEmail = bp.engine.currentGroup.Source.SupportEmail
+				// Use target-specific emails if set, otherwise use source emails
+				if bp.target.SecurityEmail != "" {
+					transformContext.TargetSecurityEmail = bp.target.SecurityEmail
+				} else {
+					transformContext.TargetSecurityEmail = bp.engine.currentGroup.Source.SecurityEmail
+				}
+				if bp.target.SupportEmail != "" {
+					transformContext.TargetSupportEmail = bp.target.SupportEmail
+				} else {
+					transformContext.TargetSupportEmail = bp.engine.currentGroup.Source.SupportEmail
+				}
 			}
 
 			logger.WithField("transform_context", fmt.Sprintf("%+v", transformContext)).Debug("Using regular TransformContext")

@@ -1,0 +1,133 @@
+# go-broadcast configuration demonstrating email address transformation
+# This example shows how to configure email transformations for documentation sync
+
+version: 1
+
+groups:
+  - name: "Documentation with Email Transformation"
+    id: "docs-email"
+    description: "Sync documentation with automatic email address transformation"
+
+    # Source repository configuration with email addresses
+    source:
+      repo: "company/template-repo"
+      branch: "master"
+      # Source email addresses that will be replaced in target repos
+      security_email: "security@template-company.com"
+      support_email: "support@template-company.com"
+
+    # Default settings for all targets
+    defaults:
+      branch_prefix: "sync/docs"
+      pr_labels:
+        - "automated-sync"
+        - "documentation"
+
+    targets:
+      # Target 1: Use source emails (no override)
+      - repo: "company/service-a"
+        files:
+          - src: ".github/SECURITY.md"
+            dest: ".github/SECURITY.md"
+          - src: ".github/SUPPORT.md"
+            dest: ".github/SUPPORT.md"
+          - src: "README.md"
+            dest: "README.md"
+        transform:
+          repo_name: true
+          # No email override - will use source emails as-is
+
+      # Target 2: Override with custom emails for this target
+      - repo: "company/service-b"
+        # Custom email addresses for this target
+        security_email: "security-b@company.com"
+        support_email: "support-b@company.com"
+        files:
+          - src: ".github/SECURITY.md"
+            dest: ".github/SECURITY.md"
+          - src: ".github/SUPPORT.md"
+            dest: ".github/SUPPORT.md"
+          - src: "README.md"
+            dest: "README.md"
+        transform:
+          repo_name: true
+          # Emails in source files will be replaced:
+          # - security@template-company.com → security-b@company.com
+          # - support@template-company.com → support-b@company.com
+
+      # Target 3: Override only security email
+      - repo: "company/service-c"
+        security_email: "security-team@company.com"
+        # support_email not specified - will use source support_email
+        files:
+          - src: ".github/SECURITY.md"
+            dest: ".github/SECURITY.md"
+          - src: ".github/SUPPORT.md"
+            dest: ".github/SUPPORT.md"
+        transform:
+          repo_name: true
+          # Transformations:
+          # - security@template-company.com → security-team@company.com
+          # - support@template-company.com → support@template-company.com (unchanged)
+
+      # Target 4: Multiple targets with shared email
+      - repo: "company/frontend-app"
+        security_email: "shared-security@company.com"
+        support_email: "frontend-support@company.com"
+        files:
+          - src: ".github/SECURITY.md"
+            dest: ".github/SECURITY.md"
+          - src: ".github/SUPPORT.md"
+            dest: ".github/SUPPORT.md"
+        transform:
+          repo_name: true
+          variables:
+            APP_NAME: "Frontend Application"
+
+      - repo: "company/backend-api"
+        security_email: "shared-security@company.com"
+        support_email: "backend-support@company.com"
+        files:
+          - src: ".github/SECURITY.md"
+            dest: ".github/SECURITY.md"
+          - src: ".github/SUPPORT.md"
+            dest: ".github/SUPPORT.md"
+        transform:
+          repo_name: true
+          variables:
+            APP_NAME: "Backend API"
+
+# Email Transformation Features:
+#
+# 1. Automatic Detection:
+#    - Replaces plain text emails: security@example.com
+#    - Replaces mailto links: mailto:security@example.com
+#    - Replaces Markdown links: [security@example.com](mailto:security@example.com)
+#    - Replaces HTML links: <a href="mailto:security@example.com">
+#
+# 2. File Type Support:
+#    - Markdown (.md)
+#    - YAML (.yaml, .yml)
+#    - JSON (.json)
+#    - HTML (.html, .htm)
+#    - Text files (.txt)
+#
+# 3. Configuration Options:
+#    - Source emails: Configure once at the group source level
+#    - Target emails: Override per target as needed
+#    - Fallback: Target uses source email if not overridden
+#    - Security and support: Independent configuration
+#
+# 4. Use Cases:
+#    - Multi-tenant documentation sync with different contact emails
+#    - Team-specific support contacts
+#    - Shared security team with service-specific support
+#    - Migration from legacy to new email addresses
+#
+# Example SECURITY.md transformation:
+#
+# Source content:
+#   📧 [security@template-company.com](mailto:security@template-company.com)
+#
+# Target service-b result:
+#   📧 [security-b@company.com](mailto:security-b@company.com)
