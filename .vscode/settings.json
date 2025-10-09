@@ -121,7 +121,7 @@
         // Example: "github.com/yourorg/yourproject"
         // Or remove this setting to use auto-detection
         // --------------------------------------------------------
-        "formatting.local": "github.com/skyetel/reach",
+        "formatting.local": "github.com/mrz1836/go-broadcast",
 
         // --------------------------------------------------------
         // UI & Completion Features
