@@ -32,6 +32,12 @@ type Context struct {
 
 	// LogConfig provides configuration for debug logging and verbose settings
 	LogConfig *logging.LogConfig
+
+	// Email configuration for email address transformation
+	SourceSecurityEmail string // Source repository's security contact email
+	TargetSecurityEmail string // Target repository's security contact email
+	SourceSupportEmail  string // Source repository's support/contact email
+	TargetSupportEmail  string // Target repository's support/contact email
 }
 
 // Chain defines the interface for composing multiple transformers
