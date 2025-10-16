@@ -127,7 +127,12 @@ jobs:
           fi
 
           # Get all packages and vet them one at a time
-          PACKAGES=$(go list ./... 2>/dev/null | grep -v /vendor/)
+          # Capture go list output and check for errors
+          if ! PACKAGES=$(go list ./... 2>&1 | grep -v /vendor/); then
+            echo "❌ go list command failed"
+            exit 1
+          fi
+
           TOTAL=$(echo "$PACKAGES" | grep -c . || echo 0)
           CURRENT=0
 
