@@ -1,4 +1,4 @@
-# 📡 go-broadcast
+# 📡  go-broadcast
 > Stateless File Sync Orchestrator for Repository Management
 
 <table>
