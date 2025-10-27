@@ -562,6 +562,91 @@ groups:
 ```
 </details>
 
+<details>
+<summary><strong>Review and merge pull requests</strong></summary>
+
+```bash
+# Review and merge a single PR
+go-broadcast review-pr https://github.com/owner/repo/pull/123
+
+# Review and merge multiple PRs in batch
+go-broadcast review-pr \
+  https://github.com/owner/repo/pull/123 \
+  https://github.com/owner/repo/pull/124 \
+  https://github.com/owner/repo/pull/125
+
+# Use short format
+go-broadcast review-pr owner/repo#123
+
+# Review all PRs assigned to you (excludes drafts)
+go-broadcast review-pr --all-assigned-prs
+
+# Customize the review approval message
+go-broadcast review-pr --message "Approved after testing" \
+  https://github.com/owner/repo/pull/123
+
+# Preview all assigned PRs without executing (dry run)
+go-broadcast review-pr --all-assigned-prs --dry-run
+
+# Review all assigned PRs with custom message
+go-broadcast review-pr --all-assigned-prs --message "LGTM"
+```
+
+The `review-pr` command will:
+1. Parse the PR URL(s) to extract owner, repo, and PR number (or fetch all assigned PRs with `--all-assigned-prs`)
+2. Check if the PR is already merged or closed
+3. Submit an approving review with your message (default: "LGTM")
+4. Detect the repository's preferred merge method (squash, merge, or rebase)
+5. Intelligently merge the PR using a try-and-fallback approach:
+   - Tries to merge immediately first (optimistic)
+   - If branch protection blocks merge, automatically enables auto-merge
+   - Handles merge conflicts, pending checks, and required reviews gracefully
+
+**All Assigned PRs Mode (`--all-assigned-prs`):**
+- Automatically fetches all open pull requests assigned to you
+- Excludes draft PRs from processing (only ready-for-review PRs are included)
+- Cannot be used together with explicit PR URLs (mutually exclusive)
+- Perfect for bulk reviewing and merging your assigned PRs
+- Works with `--dry-run` to preview what would be processed
+- Processes each PR sequentially with the same smart merge behavior
+
+**Smart Merge Behavior (Try-and-Fallback):**
+- The command uses an intelligent try-first approach for maximum efficiency
+- **Merge conflicts detected**: If the PR has merge conflicts, it enables auto-merge immediately
+  - Warning: "⚠️  PR has merge conflicts - enabling auto-merge for when conflicts are resolved"
+- **Optimistic merge attempt**: For all other PRs, it tries to merge immediately first
+  - **Success**: If merge succeeds, the PR is merged right away ✓
+  - **Branch protection detected**: If merge fails due to branch protection policies:
+    - Automatically falls back to enabling auto-merge
+    - Warning: "⚠️  Branch protection blocking merge - enabling auto-merge"
+    - Success: "✓ Auto-merge enabled - will merge when requirements are met"
+    - Handles: pending status checks, required reviews, or other protection rules
+  - **Real errors**: Other errors (permissions, PR not found, etc.) fail as expected
+- This ensures PRs get merged without manual intervention once all requirements are satisfied
+
+**Merge Method Detection:**
+- The command automatically queries the repository settings via GitHub API
+- Uses the first allowed method in this priority: squash → merge → rebase
+- Handles all three merge strategies supported by GitHub
+
+**Batch Operations:**
+- Process multiple PRs sequentially
+- Continue on error (doesn't fail fast)
+- Display summary showing:
+  - How many PRs were merged immediately
+  - How many have auto-merge enabled
+  - How many failed
+- All PRs are processed even if some fail
+- Non-zero exit code if any PR fails
+
+**Error Handling:**
+- Skips PRs that are already merged (with warning)
+- Reports PRs that are closed but not merged
+- Provides clear error messages for failures
+- Dry-run mode shows what would happen without making changes
+
+</details>
+
 ### Essential Commands
 
 ```bash
@@ -595,6 +680,17 @@ go-broadcast diagnose > diagnostics.json # Save diagnostics to file
 go-broadcast cancel                      # Cancel all active sync operations
 go-broadcast cancel org/repo1            # Cancel syncs for specific repository
 go-broadcast cancel --dry-run            # Preview what would be cancelled
+
+# Review and merge pull requests
+go-broadcast review-pr <pr-url>                                      # Review and merge single PR
+go-broadcast review-pr <url1> <url2> <url3>                         # Batch review and merge multiple PRs
+go-broadcast review-pr --message "Looks good!" <pr-url>             # Custom review message
+go-broadcast review-pr --dry-run <pr-url>                           # Preview without executing
+go-broadcast review-pr owner/repo#123                               # Use short format
+go-broadcast review-pr https://github.com/owner/repo/pull/123       # Use full URL
+go-broadcast review-pr --all-assigned-prs                           # Review all PRs assigned to you
+go-broadcast review-pr --all-assigned-prs --dry-run                 # Preview all assigned PRs
+go-broadcast review-pr --all-assigned-prs --message "LGTM"          # Custom message for all assigned PRs
 
 # Upgrade go-broadcast
 go-broadcast upgrade                     # Upgrade to latest version
