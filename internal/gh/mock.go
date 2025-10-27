@@ -89,3 +89,45 @@ func (m *MockClient) GetGitTree(ctx context.Context, repo, treeSHA string, recur
 	args := m.Called(ctx, repo, treeSHA, recursive)
 	return testutil.HandleTwoValueReturn[*GitTree](args)
 }
+
+// GetRepository mock implementation
+func (m *MockClient) GetRepository(ctx context.Context, repo string) (*Repository, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[*Repository](args)
+}
+
+// ReviewPR mock implementation
+func (m *MockClient) ReviewPR(ctx context.Context, repo string, number int, message string) error {
+	args := m.Called(ctx, repo, number, message)
+	return args.Error(0)
+}
+
+// MergePR mock implementation
+func (m *MockClient) MergePR(ctx context.Context, repo string, number int, method MergeMethod) error {
+	args := m.Called(ctx, repo, number, method)
+	return args.Error(0)
+}
+
+// EnableAutoMergePR mock implementation
+func (m *MockClient) EnableAutoMergePR(ctx context.Context, repo string, number int, method MergeMethod) error {
+	args := m.Called(ctx, repo, number, method)
+	return args.Error(0)
+}
+
+// SearchAssignedPRs mock implementation
+func (m *MockClient) SearchAssignedPRs(ctx context.Context) ([]PR, error) {
+	args := m.Called(ctx)
+	return testutil.HandleTwoValueReturn[[]PR](args)
+}
+
+// GetPRReviews mock implementation
+func (m *MockClient) GetPRReviews(ctx context.Context, repo string, number int) ([]Review, error) {
+	args := m.Called(ctx, repo, number)
+	return testutil.HandleTwoValueReturn[[]Review](args)
+}
+
+// HasApprovedReview mock implementation
+func (m *MockClient) HasApprovedReview(ctx context.Context, repo string, number int, username string) (bool, error) {
+	args := m.Called(ctx, repo, number, username)
+	return args.Bool(0), args.Error(1)
+}

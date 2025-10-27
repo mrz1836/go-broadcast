@@ -15,11 +15,14 @@ type Branch struct {
 
 // PR represents a GitHub pull request
 type PR struct {
-	Number int    `json:"number"`
-	State  string `json:"state"` // open, closed
-	Title  string `json:"title"`
-	Body   string `json:"body"`
-	Head   struct {
+	Number         int    `json:"number"`
+	State          string `json:"state"` // open, closed
+	Title          string `json:"title"`
+	Body           string `json:"body"`
+	Draft          bool   `json:"draft"`           // true if PR is a draft
+	Mergeable      *bool  `json:"mergeable"`       // nil if unknown, true if mergeable, false if not
+	MergeableState string `json:"mergeable_state"` // "clean", "blocked", "unstable", "behind", "draft", "unknown"
+	Head           struct {
 		Ref string `json:"ref"` // branch name
 		SHA string `json:"sha"`
 	} `json:"head"`
@@ -33,6 +36,7 @@ type PR struct {
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	MergedAt  *time.Time `json:"merged_at"`
+	AutoMerge *AutoMerge `json:"auto_merge"` // nil if auto-merge is not enabled
 	Labels    []struct {
 		Name string `json:"name"`
 	} `json:"labels"`
@@ -120,4 +124,47 @@ type GitTree struct {
 	URL       string        `json:"url"`
 	Tree      []GitTreeNode `json:"tree"`
 	Truncated bool          `json:"truncated"`
+}
+
+// Repository represents a GitHub repository with settings
+type Repository struct {
+	Name             string `json:"name"`
+	FullName         string `json:"full_name"`
+	DefaultBranch    string `json:"default_branch"`
+	AllowSquashMerge bool   `json:"allow_squash_merge"`
+	AllowMergeCommit bool   `json:"allow_merge_commit"`
+	AllowRebaseMerge bool   `json:"allow_rebase_merge"`
+}
+
+// MergeMethod represents the type of merge to perform
+type MergeMethod string
+
+const (
+	// MergeMethodMerge creates a merge commit
+	MergeMethodMerge MergeMethod = "merge"
+	// MergeMethodSquash squashes all commits into one
+	MergeMethodSquash MergeMethod = "squash"
+	// MergeMethodRebase rebases and merges
+	MergeMethodRebase MergeMethod = "rebase"
+)
+
+// String returns the string representation of MergeMethod
+func (m MergeMethod) String() string {
+	return string(m)
+}
+
+// Review represents a GitHub pull request review
+type Review struct {
+	ID          int        `json:"id"`
+	User        User       `json:"user"`
+	State       string     `json:"state"` // "APPROVED", "CHANGES_REQUESTED", "COMMENTED", "DISMISSED", "PENDING"
+	Body        string     `json:"body"`
+	SubmittedAt *time.Time `json:"submitted_at"`
+}
+
+// AutoMerge represents auto-merge configuration for a pull request
+type AutoMerge struct {
+	EnabledBy   User        `json:"enabled_by"`
+	MergeMethod MergeMethod `json:"merge_method"`
+	CommitTitle string      `json:"commit_title,omitempty"`
 }
