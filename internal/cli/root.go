@@ -76,6 +76,7 @@ func init() {
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(diagnoseCmd)
 	rootCmd.AddCommand(cancelCmd)
+	rootCmd.AddCommand(reviewPRCmd)
 	rootCmd.AddCommand(modulesCmd)
 	rootCmd.AddCommand(newUpgradeCmd())
 }
@@ -116,6 +117,7 @@ state locally. It supports file transformations and provides progress tracking.`
 	cmd.AddCommand(createValidateCmd(flags))
 	cmd.AddCommand(createDiagnoseCmd(flags))
 	cmd.AddCommand(createCancelCmd(flags))
+	cmd.AddCommand(createReviewPRCmd(flags))
 	cmd.AddCommand(newUpgradeCmd())
 
 	return cmd
@@ -155,6 +157,12 @@ state locally. It supports file transformations and provides progress tracking.`
 	cmd.AddCommand(createValidateCmdWithVerbose(logConfig))
 	cmd.AddCommand(createDiagnoseCmdWithVerbose(logConfig))
 	cmd.AddCommand(createCancelCmdWithVerbose(logConfig))
+	// review-pr uses the regular command (no verbose-specific features yet)
+	cmd.AddCommand(createReviewPRCmd(&Flags{
+		ConfigFile: logConfig.ConfigFile,
+		DryRun:     logConfig.DryRun,
+		LogLevel:   logConfig.LogLevel,
+	}))
 	cmd.AddCommand(newUpgradeCmd())
 
 	return cmd

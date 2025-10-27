@@ -42,4 +42,26 @@ type Client interface {
 	// GetGitTree retrieves the Git tree for a repository
 	// recursive=true will fetch all files in the repository
 	GetGitTree(ctx context.Context, repo, treeSHA string, recursive bool) (*GitTree, error)
+
+	// GetRepository retrieves repository details including merge settings
+	GetRepository(ctx context.Context, repo string) (*Repository, error)
+
+	// ReviewPR submits an approving review for a pull request
+	ReviewPR(ctx context.Context, repo string, number int, message string) error
+
+	// MergePR merges a pull request using the specified method
+	MergePR(ctx context.Context, repo string, number int, method MergeMethod) error
+
+	// EnableAutoMergePR enables auto-merge for a pull request
+	// This allows the PR to merge automatically when all required checks pass
+	EnableAutoMergePR(ctx context.Context, repo string, number int, method MergeMethod) error
+
+	// SearchAssignedPRs searches for all open, non-draft pull requests assigned to the current user
+	SearchAssignedPRs(ctx context.Context) ([]PR, error)
+
+	// GetPRReviews retrieves all reviews for a pull request
+	GetPRReviews(ctx context.Context, repo string, number int) ([]Review, error)
+
+	// HasApprovedReview checks if a specific user has already submitted an approving review for a PR
+	HasApprovedReview(ctx context.Context, repo string, number int, username string) (bool, error)
 }
