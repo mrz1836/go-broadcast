@@ -17,15 +17,17 @@ import (
 
 // Common errors
 var (
-	ErrNotAuthenticated   = errors.New("gh CLI not authenticated")
-	ErrGHNotFound         = errors.New("gh CLI not found in PATH")
-	ErrRateLimited        = errors.New("GitHub API rate limit exceeded")
-	ErrBranchNotFound     = errors.New("branch not found")
-	ErrPRNotFound         = errors.New("pull request not found")
-	ErrPRValidationFailed = errors.New("PR validation failed - branch may already have PR or conflict exists")
-	ErrFileNotFound       = errors.New("file not found")
-	ErrCommitNotFound     = errors.New("commit not found")
-	ErrGitTreeNotFound    = errors.New("git tree not found")
+	ErrNotAuthenticated       = errors.New("gh CLI not authenticated")
+	ErrGHNotFound             = errors.New("gh CLI not found in PATH")
+	ErrRateLimited            = errors.New("GitHub API rate limit exceeded")
+	ErrBranchNotFound         = errors.New("branch not found")
+	ErrPRNotFound             = errors.New("pull request not found")
+	ErrPRValidationFailed     = errors.New("PR validation failed - branch may already have PR or conflict exists")
+	ErrFileNotFound           = errors.New("file not found")
+	ErrCommitNotFound         = errors.New("commit not found")
+	ErrGitTreeNotFound        = errors.New("git tree not found")
+	ErrRepositoryNotFound     = errors.New("repository not found")
+	ErrUnsupportedMergeMethod = errors.New("unsupported merge method")
 )
 
 // githubClient implements the Client interface using gh CLI
@@ -479,6 +481,22 @@ func isValidationFailedError(err error) bool {
 		strings.Contains(errStr, "Unprocessable Entity")
 }
 
+// IsBranchProtectionError checks if the error is due to branch protection policies
+// blocking the merge. These errors indicate that auto-merge should be attempted instead.
+func IsBranchProtectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for patterns indicating branch protection is blocking the merge
+	errStr := err.Error()
+	return strings.Contains(errStr, "base branch policy prohibits the merge") ||
+		strings.Contains(errStr, "add the `--auto` flag") ||
+		strings.Contains(errStr, "not mergeable: the base branch policy") ||
+		strings.Contains(errStr, "required status checks") ||
+		strings.Contains(errStr, "required reviews")
+}
+
 // NewClientWithRunner creates a GitHub client with a custom command runner (for testing)
 func NewClientWithRunner(runner CommandRunner, logger *logrus.Logger) Client {
 	return &githubClient{
@@ -486,4 +504,200 @@ func NewClientWithRunner(runner CommandRunner, logger *logrus.Logger) Client {
 		logger:      logger,
 		currentUser: nil,
 	}
+}
+
+// GetRepository retrieves repository details including merge settings
+func (g *githubClient) GetRepository(ctx context.Context, repo string) (*Repository, error) {
+	output, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s", repo))
+	if err != nil {
+		if isNotFoundError(err) {
+			return nil, fmt.Errorf("%w: %s", ErrRepositoryNotFound, repo)
+		}
+		return nil, appErrors.WrapWithContext(err, "get repository")
+	}
+
+	repository, err := jsonutil.UnmarshalJSON[Repository](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse repository")
+	}
+
+	return &repository, nil
+}
+
+// ReviewPR submits an approving review for a pull request
+func (g *githubClient) ReviewPR(ctx context.Context, repo string, number int, message string) error {
+	// Use gh pr review command for approving
+	args := []string{"pr", "review", fmt.Sprintf("%d", number), "--repo", repo, "--approve"}
+
+	// Add message/body if provided
+	if message != "" {
+		args = append(args, "--body", message)
+	}
+
+	_, err := g.runner.Run(ctx, "gh", args...)
+	if err != nil {
+		if isNotFoundError(err) {
+			return ErrPRNotFound
+		}
+		return appErrors.WrapWithContext(err, fmt.Sprintf("review PR #%d", number))
+	}
+
+	return nil
+}
+
+// MergePR merges a pull request using the specified method
+func (g *githubClient) MergePR(ctx context.Context, repo string, number int, method MergeMethod) error {
+	// Build merge command
+	args := []string{"pr", "merge", fmt.Sprintf("%d", number), "--repo", repo}
+
+	// Add merge method flag
+	switch method {
+	case MergeMethodSquash:
+		args = append(args, "--squash")
+	case MergeMethodRebase:
+		args = append(args, "--rebase")
+	case MergeMethodMerge:
+		args = append(args, "--merge")
+	default:
+		return fmt.Errorf("%w: %s", ErrUnsupportedMergeMethod, method)
+	}
+
+	_, err := g.runner.Run(ctx, "gh", args...)
+	if err != nil {
+		if isNotFoundError(err) {
+			return ErrPRNotFound
+		}
+		return appErrors.WrapWithContext(err, fmt.Sprintf("merge PR #%d with method %s", number, method))
+	}
+
+	return nil
+}
+
+// EnableAutoMergePR enables auto-merge for a pull request
+func (g *githubClient) EnableAutoMergePR(ctx context.Context, repo string, number int, method MergeMethod) error {
+	// Build auto-merge command
+	args := []string{"pr", "merge", fmt.Sprintf("%d", number), "--repo", repo, "--auto"}
+
+	// Add merge method flag
+	switch method {
+	case MergeMethodSquash:
+		args = append(args, "--squash")
+	case MergeMethodRebase:
+		args = append(args, "--rebase")
+	case MergeMethodMerge:
+		args = append(args, "--merge")
+	default:
+		return fmt.Errorf("%w: %s", ErrUnsupportedMergeMethod, method)
+	}
+
+	_, err := g.runner.Run(ctx, "gh", args...)
+	if err != nil {
+		if isNotFoundError(err) {
+			return ErrPRNotFound
+		}
+		return appErrors.WrapWithContext(err, fmt.Sprintf("enable auto-merge for PR #%d with method %s", number, method))
+	}
+
+	return nil
+}
+
+// SearchAssignedPRs searches for all open, non-draft pull requests assigned to the current user
+func (g *githubClient) SearchAssignedPRs(ctx context.Context) ([]PR, error) {
+	// Use GitHub search API to find PRs assigned to current user
+	// The gh search prs command has limited fields compared to gh pr view
+	// We only need basic info here - full details will be fetched when processing each PR
+	output, err := g.runner.Run(ctx, "gh", "search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state")
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "search assigned PRs")
+	}
+
+	// Parse the search results - only fields available from gh search prs
+	type searchResult struct {
+		Number  int    `json:"number"`
+		Title   string `json:"title"`
+		URL     string `json:"url"`
+		State   string `json:"state"`
+		IsDraft bool   `json:"isDraft"`
+	}
+
+	results, err := jsonutil.UnmarshalJSON[[]searchResult](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse search results")
+	}
+
+	// Convert search results to PR objects and filter out drafts
+	prs := make([]PR, 0, len(results))
+	for _, result := range results {
+		// Skip draft PRs
+		if result.IsDraft {
+			continue
+		}
+
+		// Parse owner/repo from URL (format: https://github.com/owner/repo/pull/123)
+		parts := strings.Split(result.URL, "/")
+		if len(parts) < 7 {
+			// Invalid URL format, skip this PR
+			continue
+		}
+		owner := parts[3]
+		repoName := parts[4]
+		repo := fmt.Sprintf("%s/%s", owner, repoName)
+
+		// Create minimal PR info - full details will be fetched later by GetPR when processing
+		pr := PR{
+			Number: result.Number,
+			State:  strings.ToLower(result.State),
+			Title:  result.Title,
+			Draft:  result.IsDraft,
+		}
+
+		// Store repo info in Head.SHA for CLI processing to extract owner/repo
+		// This is a temporary storage mechanism used by the review-pr command
+		pr.Head.SHA = repo
+
+		prs = append(prs, pr)
+	}
+
+	return prs, nil
+}
+
+// GetPRReviews retrieves all reviews for a pull request
+func (g *githubClient) GetPRReviews(ctx context.Context, repo string, number int) ([]Review, error) {
+	output, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s/pulls/%d/reviews", repo, number))
+	if err != nil {
+		if isNotFoundError(err) {
+			return nil, ErrPRNotFound
+		}
+		return nil, appErrors.WrapWithContext(err, fmt.Sprintf("get reviews for PR #%d", number))
+	}
+
+	reviews, err := jsonutil.UnmarshalJSON[[]Review](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse PR reviews")
+	}
+
+	return reviews, nil
+}
+
+// HasApprovedReview checks if a specific user has already submitted an approving review for a PR
+func (g *githubClient) HasApprovedReview(ctx context.Context, repo string, number int, username string) (bool, error) {
+	reviews, err := g.GetPRReviews(ctx, repo, number)
+	if err != nil {
+		return false, err
+	}
+
+	// Check if the user has submitted an "APPROVED" review
+	// We only check the latest review from this user, as users can update their reviews
+	userReviews := make(map[string]string) // username -> latest review state
+	for _, review := range reviews {
+		// Track the latest review state for each user
+		userReviews[review.User.Login] = review.State
+	}
+
+	// Check if the specified user has an "APPROVED" review as their latest review
+	if state, exists := userReviews[username]; exists && state == "APPROVED" {
+		return true, nil
+	}
+
+	return false, nil
 }

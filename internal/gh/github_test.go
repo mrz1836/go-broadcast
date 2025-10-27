@@ -752,6 +752,68 @@ func TestIsValidationFailedError(t *testing.T) {
 	}
 }
 
+// TestIsBranchProtectionError tests the IsBranchProtectionError helper function
+func TestIsBranchProtectionError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "Nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "Base branch policy prohibits merge",
+			err:      &CommandError{Stderr: "X Pull request owner/repo#123 is not mergeable: the base branch policy prohibits the merge.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag."},
+			expected: true,
+		},
+		{
+			name:     "Add auto flag suggestion",
+			err:      &CommandError{Stderr: "merge failed: add the `--auto` flag to enable auto-merge"},
+			expected: true,
+		},
+		{
+			name:     "Not mergeable base branch policy",
+			err:      &CommandError{Stderr: "not mergeable: the base branch policy requires status checks"},
+			expected: true,
+		},
+		{
+			name:     "Required status checks",
+			err:      &CommandError{Stderr: "required status checks have not passed"},
+			expected: true,
+		},
+		{
+			name:     "Required reviews",
+			err:      &CommandError{Stderr: "required reviews are not satisfied"},
+			expected: true,
+		},
+		{
+			name:     "Different error - not found",
+			err:      &CommandError{Stderr: "404 Not Found"},
+			expected: false,
+		},
+		{
+			name:     "Different error - validation",
+			err:      &CommandError{Stderr: "422 Validation Failed"},
+			expected: false,
+		},
+		{
+			name:     "Regular error",
+			err:      internalerrors.ErrTest,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsBranchProtectionError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 // TestGetFile_WithBase64Whitespace tests file content with base64 whitespace
 func TestGetFile_WithBase64Whitespace(t *testing.T) {
 	ctx := context.Background()
@@ -1122,6 +1184,283 @@ func TestCreatePR_AssigneesFailure(t *testing.T) {
 	require.NoError(t, err) // Should still succeed
 	require.NotNil(t, result)
 	assert.Equal(t, 42, result.Number)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestGetRepository(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	repo := Repository{
+		Name:             "test-repo",
+		FullName:         "org/test-repo",
+		DefaultBranch:    "main",
+		AllowSquashMerge: true,
+		AllowMergeCommit: true,
+		AllowRebaseMerge: false,
+	}
+	output, err := json.Marshal(repo)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/test-repo"}).
+		Return(output, nil)
+
+	result, err := client.GetRepository(ctx, "org/test-repo")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, "test-repo", result.Name)
+	assert.Equal(t, "org/test-repo", result.FullName)
+	assert.Equal(t, "main", result.DefaultBranch)
+	assert.True(t, result.AllowSquashMerge)
+	assert.True(t, result.AllowMergeCommit)
+	assert.False(t, result.AllowRebaseMerge)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestGetRepository_NotFound(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/nonexistent"}).
+		Return(nil, &CommandError{Stderr: "404 Not Found"})
+
+	result, err := client.GetRepository(ctx, "org/nonexistent")
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "repository not found")
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestGetRepository_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/test-repo"}).
+		Return(nil, errTestAPIError)
+
+	result, err := client.GetRepository(ctx, "org/test-repo")
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "get repository")
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestReviewPR(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "review", "123", "--repo", "org/repo", "--approve", "--body", "LGTM"}).
+		Return([]byte(""), nil)
+
+	err := client.ReviewPR(ctx, "org/repo", 123, "LGTM")
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestReviewPR_EmptyMessage(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "review", "456", "--repo", "org/repo", "--approve"}).
+		Return([]byte(""), nil)
+
+	err := client.ReviewPR(ctx, "org/repo", 456, "")
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestReviewPR_NotFound(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "review", "999", "--repo", "org/repo", "--approve", "--body", "LGTM"}).
+		Return(nil, &CommandError{Stderr: "404 Not Found"})
+
+	err := client.ReviewPR(ctx, "org/repo", 999, "LGTM")
+	require.Error(t, err)
+	assert.Equal(t, ErrPRNotFound, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestReviewPR_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "review", "123", "--repo", "org/repo", "--approve", "--body", "LGTM"}).
+		Return(nil, errTestAPIError)
+
+	err := client.ReviewPR(ctx, "org/repo", 123, "LGTM")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "review PR #123")
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestMergePR_Squash(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "123", "--repo", "org/repo", "--squash"}).
+		Return([]byte(""), nil)
+
+	err := client.MergePR(ctx, "org/repo", 123, MergeMethodSquash)
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestMergePR_Merge(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "456", "--repo", "org/repo", "--merge"}).
+		Return([]byte(""), nil)
+
+	err := client.MergePR(ctx, "org/repo", 456, MergeMethodMerge)
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestMergePR_Rebase(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "789", "--repo", "org/repo", "--rebase"}).
+		Return([]byte(""), nil)
+
+	err := client.MergePR(ctx, "org/repo", 789, MergeMethodRebase)
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestMergePR_InvalidMethod(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	err := client.MergePR(ctx, "org/repo", 123, MergeMethod("invalid"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported merge method")
+
+	// Should not call runner for invalid method
+	mockRunner.AssertExpectations(t)
+}
+
+func TestMergePR_NotFound(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "999", "--repo", "org/repo", "--squash"}).
+		Return(nil, &CommandError{Stderr: "404 Not Found"})
+
+	err := client.MergePR(ctx, "org/repo", 999, MergeMethodSquash)
+	require.Error(t, err)
+	assert.Equal(t, ErrPRNotFound, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestMergePR_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "123", "--repo", "org/repo", "--squash"}).
+		Return(nil, errTestAPIError)
+
+	err := client.MergePR(ctx, "org/repo", 123, MergeMethodSquash)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "merge PR #123")
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestEnableAutoMergePR_Squash(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "123", "--repo", "org/repo", "--auto", "--squash"}).
+		Return(nil, nil)
+
+	err := client.EnableAutoMergePR(ctx, "org/repo", 123, MergeMethodSquash)
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestEnableAutoMergePR_Merge(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "123", "--repo", "org/repo", "--auto", "--merge"}).
+		Return(nil, nil)
+
+	err := client.EnableAutoMergePR(ctx, "org/repo", 123, MergeMethodMerge)
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestEnableAutoMergePR_Rebase(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "123", "--repo", "org/repo", "--auto", "--rebase"}).
+		Return(nil, nil)
+
+	err := client.EnableAutoMergePR(ctx, "org/repo", 123, MergeMethodRebase)
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+func TestEnableAutoMergePR_InvalidMethod(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	err := client.EnableAutoMergePR(ctx, "org/repo", 123, MergeMethod("invalid"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported merge method")
+
+	// Should not call runner for invalid method
+	mockRunner.AssertExpectations(t)
+}
+
+func TestEnableAutoMergePR_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "123", "--repo", "org/repo", "--auto", "--squash"}).
+		Return(nil, errTestAPIError)
+
+	err := client.EnableAutoMergePR(ctx, "org/repo", 123, MergeMethodSquash)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "enable auto-merge for PR #123")
 
 	mockRunner.AssertExpectations(t)
 }
