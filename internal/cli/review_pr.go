@@ -156,19 +156,38 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func
 		ctx := cmd.Context()
 		log := logrus.WithField("command", "review-pr")
 
-		// Initialize GitHub client
-		client, err := gh.NewClient(ctx, log.Logger, nil)
-		if err != nil {
-			return fmt.Errorf("failed to create GitHub client: %w", err)
-		}
-
 		var prInfos []*PRInfo
 
+		// Validate arguments BEFORE creating GitHub client (fail fast)
 		// Check for mutually exclusive options
 		if *allAssignedPRs && len(args) > 0 {
 			return ErrMutuallyExclusiveFlags
 		}
 
+		// If not using --all-assigned-prs, validate and parse PR URLs from arguments
+		if !*allAssignedPRs {
+			// Parse all PR URLs from arguments
+			if len(args) == 0 {
+				return ErrNoValidPRURLs
+			}
+
+			for _, url := range args {
+				info, err := parsePRURL(url)
+				if err != nil {
+					output.Error(fmt.Sprintf("Failed to parse URL '%s': %v", url, err))
+					return fmt.Errorf("invalid PR URL: %w", err)
+				}
+				prInfos = append(prInfos, info)
+			}
+		}
+
+		// Initialize GitHub client (only after validation passes)
+		client, err := gh.NewClient(ctx, log.Logger, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create GitHub client: %w", err)
+		}
+
+		// If using --all-assigned-prs, fetch PRs from GitHub
 		if *allAssignedPRs {
 			// Fetch all assigned PRs
 			output.Info("Fetching all PRs assigned to you...")
@@ -201,20 +220,6 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func
 					Number: pr.Number,
 					URL:    url,
 				})
-			}
-		} else {
-			// Parse all PR URLs from arguments
-			if len(args) == 0 {
-				return ErrNoValidPRURLs
-			}
-
-			for _, url := range args {
-				info, err := parsePRURL(url)
-				if err != nil {
-					output.Error(fmt.Sprintf("Failed to parse URL '%s': %v", url, err))
-					return fmt.Errorf("invalid PR URL: %w", err)
-				}
-				prInfos = append(prInfos, info)
 			}
 		}
 
