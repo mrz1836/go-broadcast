@@ -998,6 +998,41 @@ func (m *DirectoryMockGHClient) GetGitTree(_ context.Context, _, _ string, _ boo
 	return nil, ErrGitTreeNotImplemented
 }
 
+func (m *DirectoryMockGHClient) GetRepository(_ context.Context, _ string) (*gh.Repository, error) {
+	return &gh.Repository{
+		Name:             "test-repo",
+		FullName:         "test-owner/test-repo",
+		DefaultBranch:    "main",
+		AllowSquashMerge: true,
+		AllowMergeCommit: true,
+		AllowRebaseMerge: false,
+	}, nil
+}
+
+func (m *DirectoryMockGHClient) ReviewPR(_ context.Context, _ string, _ int, _ string) error {
+	return nil
+}
+
+func (m *DirectoryMockGHClient) MergePR(_ context.Context, _ string, _ int, _ gh.MergeMethod) error {
+	return nil
+}
+
+func (m *DirectoryMockGHClient) EnableAutoMergePR(_ context.Context, _ string, _ int, _ gh.MergeMethod) error {
+	return nil
+}
+
+func (m *DirectoryMockGHClient) SearchAssignedPRs(_ context.Context) ([]gh.PR, error) {
+	return nil, nil
+}
+
+func (m *DirectoryMockGHClient) GetPRReviews(_ context.Context, _ string, _ int) ([]gh.Review, error) {
+	return nil, nil
+}
+
+func (m *DirectoryMockGHClient) HasApprovedReview(_ context.Context, _ string, _ int, _ string) (bool, error) {
+	return false, nil
+}
+
 // DirectoryMockFileContent represents mock file content
 type DirectoryMockFileContent struct {
 	Content []byte
