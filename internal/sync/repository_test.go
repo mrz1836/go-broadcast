@@ -1773,6 +1773,34 @@ func (m *TestValidationMockGHClient) GetFile(_ context.Context, _, _, _ string) 
 	return nil, ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) GetRepository(_ context.Context, _ string) (*gh.Repository, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) ReviewPR(_ context.Context, _ string, _ int, _ string) error {
+	return ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) MergePR(_ context.Context, _ string, _ int, _ gh.MergeMethod) error {
+	return ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) EnableAutoMergePR(_ context.Context, _ string, _ int, _ gh.MergeMethod) error {
+	return ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) SearchAssignedPRs(_ context.Context) ([]gh.PR, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetPRReviews(_ context.Context, _ string, _ int) ([]gh.Review, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) HasApprovedReview(_ context.Context, _ string, _ int, _ string) (bool, error) {
+	return false, ErrMockNotImplemented
+}
+
 // TestRepositorySync_validateAndCleanupOrphanedBranches tests the validateAndCleanupOrphanedBranches method
 func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 	ctx := context.Background()
