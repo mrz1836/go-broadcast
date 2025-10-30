@@ -146,7 +146,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   security:
     name: 🔒 Security Scans
-    needs: [load-env, setup, test-magex]
+    needs: [load-env, setup, test-magex, warm-cache]
     if: needs.setup.outputs.security-scans-enabled == 'true'
     permissions:
       contents: read # Read repository content for security scanning
@@ -169,7 +169,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   code-quality:
     name: 📊 Code Quality
-    needs: [load-env, setup, test-magex]
+    needs: [load-env, setup, test-magex, warm-cache]
     permissions:
       contents: read # Read repository content for code quality checks
     uses: ./.github/workflows/fortress-code-quality.yml
@@ -188,7 +188,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   pre-commit:
     name: 🪝 Pre-commit Checks
-    needs: [load-env, setup, test-magex]
+    needs: [load-env, setup, test-magex, warm-cache]
     if: needs.setup.outputs.pre-commit-enabled == 'true'
     permissions:
       contents: read # Read repository content for pre-commit checks
@@ -204,7 +204,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   test-suite:
     name: 🧪 Test Suite
-    needs: [load-env, setup, test-magex]
+    needs: [load-env, setup, test-magex, warm-cache]
     permissions:
       contents: write # Write repository content and push to gh-pages branch for test execution
       pull-requests: write # Required: Coverage workflow needs to create PR comments
@@ -240,7 +240,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   benchmarks:
     name: 🏃 Benchmarks
-    needs: [load-env, setup, test-magex]
+    needs: [load-env, setup, test-magex, warm-cache]
     if: needs.setup.outputs.benchmarks-enabled == 'true'
     permissions:
       contents: read # Read repository content for benchmarking
@@ -269,7 +269,7 @@ jobs:
   status-check:
     name: 🎯 All Tests Passed
     if: ${{ always() }}
-    needs: [setup, test-magex, security, code-quality, pre-commit, test-suite, benchmarks]
+    needs: [setup, test-magex, warm-cache, security, code-quality, pre-commit, test-suite, benchmarks]
     permissions:
       contents: read # Read repository content for status checking
     runs-on: ${{ needs.setup.outputs.primary-runner }}
@@ -286,6 +286,7 @@ jobs:
             echo "|-----------|--------|--------|"
             echo "| 🎯 Setup | ${{ needs.setup.result }} | Required |"
             echo "| 🪄 MAGE-X | ${{ needs.test-magex.result }} | Required |"
+            echo "| 💾 Warm Cache | ${{ needs.warm-cache.result }} | ${{ needs.setup.outputs.cache-warming-enabled == 'true' && 'Optional' || 'Skipped' }} |"
             echo "| 🔒 Security | ${{ needs.security.result }} | Required |"
             echo "| 📊 Code Quality | ${{ needs.code-quality.result }} | Required |"
             echo "| 🪝 Pre-commit | ${{ needs.pre-commit.result }} | ${{ needs.setup.outputs.pre-commit-enabled == 'true' && 'Required' || 'Skipped' }} |"
