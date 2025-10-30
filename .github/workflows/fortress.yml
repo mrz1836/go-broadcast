@@ -387,7 +387,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   release:
     name: 🚀 Release Version
-    needs: [load-env, setup, test-suite, security, code-quality, pre-commit]
+    needs: [load-env, setup, test-magex, test-suite, security, code-quality, pre-commit]
     # Only run on successful tag pushes
     if: startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/fortress-release.yml
@@ -407,7 +407,7 @@ jobs:
   # ----------------------------------------------------------------------------------
   completion-report:
     name: 📊 Workflow Completion Report
-    if: always()
+    if: always() && !contains(fromJSON('["failure", "cancelled"]'), needs.setup.result) && !contains(fromJSON('["failure", "cancelled"]'), needs.test-magex.result)
     needs: [load-env, setup, test-magex, pre-commit, security, code-quality, test-suite, benchmarks, release, status-check]
     permissions:
       contents: read # Read repository content for completion report
