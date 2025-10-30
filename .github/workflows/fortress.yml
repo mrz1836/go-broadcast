@@ -126,68 +126,21 @@ jobs:
   # Warm Go Caches
   # ----------------------------------------------------------------------------------
   warm-cache:
-    name: 💾 Warm Cache (${{ matrix.name }})
+    name: 💾 Warm Cache
     needs: [load-env, setup, test-magex]
     if: needs.setup.outputs.cache-warming-enabled == 'true'
     permissions:
       contents: read # Read repository content for cache warming
-    strategy:
-      fail-fast: true
-      matrix: ${{ fromJSON(needs.setup.outputs.warm-cache-matrix) }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      # --------------------------------------------------------------------
-      # Parse environment variables
-      # --------------------------------------------------------------------
-      - name: 🔧 Parse environment variables
-        env:
-          ENV_JSON: ${{ needs.load-env.outputs.env-json }}
-        run: |
-          echo "📋 Setting environment variables..."
-          echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-            echo "$key=$value" >> $GITHUB_ENV
-          done
-
-      # --------------------------------------------------------------------
-      # Checkout code to access local action
-      # --------------------------------------------------------------------
-      - name: 📥 Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          sparse-checkout: |
-            .github/actions/warm-cache
-            .github/actions/warm-redis-cache
-            .github/actions/cache-redis-image
-            .github/.env.base
-            go.mod
-            ${{ env.GO_SUM_FILE }}
-            .mage.yaml
-
-      # --------------------------------------------------------------------
-      # Extract verbose flag from env-json
-      # --------------------------------------------------------------------
-      - name: 🔁 Extract ENABLE_VERBOSE
-        id: extract
-        run: |
-          echo "enable_verbose=$(echo '${{ needs.load-env.outputs.env-json }}' | jq -r '.ENABLE_VERBOSE_TEST_OUTPUT')" >> "$GITHUB_OUTPUT"
-
-      # --------------------------------------------------------------------
-      # Warm the Go and Redis caches using local action
-      # --------------------------------------------------------------------
-      - name: 🔥 Warm Go and Redis Caches
-        uses: ./.github/actions/warm-cache # Might not resolve as it's a composite action
-        with:
-          go-version: ${{ matrix.go-version }}
-          matrix-os: ${{ matrix.os }}
-          matrix-name: ${{ matrix.name }}
-          enable-verbose: ${{ steps.extract.outputs.enable_verbose }}
-          go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
-          go-secondary-version: ${{ needs.setup.outputs.go-secondary-version }}
-          env-json: ${{ needs.load-env.outputs.env-json }}
-          redis-enabled: ${{ needs.setup.outputs.redis-enabled }}
-          redis-versions: ${{ needs.setup.outputs.redis-version }}
-          redis-cache-force-pull: ${{ needs.setup.outputs.redis-cache-force-pull }}
-          go-sum-file: ${{ needs.setup.outputs.go-sum-file }}
+    uses: ./.github/workflows/fortress-warm-cache.yml
+    with:
+      env-json: ${{ needs.load-env.outputs.env-json }}
+      warm-cache-matrix: ${{ needs.setup.outputs.warm-cache-matrix }}
+      go-primary-version: ${{ needs.setup.outputs.go-primary-version }}
+      go-secondary-version: ${{ needs.setup.outputs.go-secondary-version }}
+      redis-enabled: ${{ needs.setup.outputs.redis-enabled }}
+      redis-version: ${{ needs.setup.outputs.redis-version }}
+      redis-cache-force-pull: ${{ needs.setup.outputs.redis-cache-force-pull }}
+      go-sum-file: ${{ needs.setup.outputs.go-sum-file }}
   # ----------------------------------------------------------------------------------
   # Security Scans
   # ----------------------------------------------------------------------------------
