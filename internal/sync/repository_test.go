@@ -1801,6 +1801,10 @@ func (m *TestValidationMockGHClient) HasApprovedReview(_ context.Context, _ stri
 	return false, ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) AddPRComment(_ context.Context, _ string, _ int, _ string) error {
+	return ErrMockNotImplemented
+}
+
 // TestRepositorySync_validateAndCleanupOrphanedBranches tests the validateAndCleanupOrphanedBranches method
 func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 	ctx := context.Background()

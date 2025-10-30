@@ -1033,6 +1033,10 @@ func (m *DirectoryMockGHClient) HasApprovedReview(_ context.Context, _ string, _
 	return false, nil
 }
 
+func (m *DirectoryMockGHClient) AddPRComment(_ context.Context, _ string, _ int, _ string) error {
+	return nil
+}
+
 // DirectoryMockFileContent represents mock file content
 type DirectoryMockFileContent struct {
 	Content []byte

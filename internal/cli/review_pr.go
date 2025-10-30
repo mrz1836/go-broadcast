@@ -95,6 +95,8 @@ type ReviewPRResult struct {
 	PRInfo                  PRInfo `json:"pr_info"`
 	Reviewed                bool   `json:"reviewed"`
 	AlreadyReviewed         bool   `json:"already_reviewed,omitempty"`           // True if already reviewed by current user
+	SelfAuthored            bool   `json:"self_authored,omitempty"`              // True if PR is authored by current user
+	CommentAdded            bool   `json:"comment_added,omitempty"`              // True if comment was added instead of review
 	Merged                  bool   `json:"merged"`                               // True if merged immediately
 	AutoMergeEnabled        bool   `json:"auto_merge_enabled"`                   // True if auto-merge was enabled
 	AutoMergeAlreadyEnabled bool   `json:"auto_merge_already_enabled,omitempty"` // True if auto-merge was already enabled
@@ -233,6 +235,7 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func
 		failureCount := 0
 		immediatelyMergedCount := 0
 		autoMergeCount := 0
+		selfAuthoredCount := 0
 
 		for i, prInfo := range prInfos {
 			if len(prInfos) > 1 {
@@ -282,6 +285,9 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func
 				continue
 			}
 
+			// Check if this is a self-authored PR
+			isSelfAuthored := pr.User.Login == currentUser.Login
+
 			// Check if user has already approved this PR
 			alreadyApproved, err := client.HasApprovedReview(ctx, fmt.Sprintf("%s/%s", prInfo.Owner, prInfo.Repo), prInfo.Number, currentUser.Login)
 			if err != nil {
@@ -322,10 +328,25 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func
 				continue
 			}
 
-			// Submit review (skip if already approved)
+			// Submit review (skip if already approved, add comment if self-authored)
 			if alreadyApproved {
 				result.AlreadyReviewed = true
 				output.Info(fmt.Sprintf("✓ PR #%d already reviewed by you", prInfo.Number))
+			} else if isSelfAuthored {
+				// Can't approve own PR - add comment instead
+				result.SelfAuthored = true
+				output.Info(fmt.Sprintf("Adding comment to self-authored PR #%d...", prInfo.Number))
+				err = client.AddPRComment(ctx, fmt.Sprintf("%s/%s", prInfo.Owner, prInfo.Repo), prInfo.Number, *message)
+				if err != nil {
+					result.Error = fmt.Sprintf("Failed to add comment: %v", err)
+					output.Error(result.Error)
+					results = append(results, result) //nolint:staticcheck // results used in summary
+					failureCount++
+					continue
+				}
+				result.CommentAdded = true
+				selfAuthoredCount++
+				output.Success(fmt.Sprintf("✓ Comment added to PR #%d (self-authored)", prInfo.Number))
 			} else {
 				output.Info(fmt.Sprintf("Submitting approval for PR #%d...", prInfo.Number))
 				err = client.ReviewPR(ctx, fmt.Sprintf("%s/%s", prInfo.Owner, prInfo.Repo), prInfo.Number, *message)
@@ -439,6 +460,9 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func
 		if len(prInfos) > 1 {
 			output.Info("\n=== Summary ===")
 			output.Info(fmt.Sprintf("Total PRs: %d", len(prInfos)))
+			if selfAuthoredCount > 0 {
+				output.Info(fmt.Sprintf("Self-authored (comment added): %d", selfAuthoredCount))
+			}
 			if immediatelyMergedCount > 0 {
 				output.Success(fmt.Sprintf("Merged immediately: %d", immediatelyMergedCount))
 			}

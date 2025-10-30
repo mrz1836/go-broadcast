@@ -345,7 +345,7 @@ func (g *githubClient) GetCommit(ctx context.Context, repo, sha string) (*Commit
 func (g *githubClient) ClosePR(ctx context.Context, repo string, number int, comment string) error {
 	// First, add a comment if provided
 	if comment != "" {
-		if err := g.addPRComment(ctx, repo, number, comment); err != nil {
+		if err := g.AddPRComment(ctx, repo, number, comment); err != nil {
 			g.logger.WithError(err).Warn("Failed to add comment before closing PR")
 		}
 	}
@@ -390,8 +390,8 @@ func (g *githubClient) UpdatePR(ctx context.Context, repo string, number int, up
 	return nil
 }
 
-// addPRComment adds a comment to a pull request
-func (g *githubClient) addPRComment(ctx context.Context, repo string, number int, comment string) error {
+// AddPRComment adds a comment to a pull request
+func (g *githubClient) AddPRComment(ctx context.Context, repo string, number int, comment string) error {
 	commentData := map[string]string{
 		"body": comment,
 	}

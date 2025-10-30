@@ -322,7 +322,7 @@ func TestDataGenerationEdgeCases(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			result := modifyData(original, 1.0)
 			assert.Len(t, result, 1)
-			if result[0] != original[0] {
+			if len(result) > 0 && len(original) > 0 && result[0] != original[0] {
 				modified = true
 				break
 			}

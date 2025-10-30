@@ -131,3 +131,9 @@ func (m *MockClient) HasApprovedReview(ctx context.Context, repo string, number 
 	args := m.Called(ctx, repo, number, username)
 	return args.Bool(0), args.Error(1)
 }
+
+// AddPRComment mock implementation
+func (m *MockClient) AddPRComment(ctx context.Context, repo string, number int, comment string) error {
+	args := m.Called(ctx, repo, number, comment)
+	return args.Error(0)
+}

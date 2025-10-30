@@ -64,4 +64,7 @@ type Client interface {
 
 	// HasApprovedReview checks if a specific user has already submitted an approving review for a PR
 	HasApprovedReview(ctx context.Context, repo string, number int, username string) (bool, error)
+
+	// AddPRComment adds a comment to a pull request (for cases where a review cannot be submitted)
+	AddPRComment(ctx context.Context, repo string, number int, comment string) error
 }
