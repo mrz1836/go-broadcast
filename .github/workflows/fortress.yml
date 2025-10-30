@@ -146,9 +146,12 @@ jobs:
   # ----------------------------------------------------------------------------------
   security:
     name: 🔒 Security Scans
-    needs: [load-env, setup, test-magex]
+    needs: [load-env, setup, test-magex, warm-cache]
     if: |
       !cancelled() &&
+      needs.setup.result == 'success' &&
+      needs.test-magex.result == 'success' &&
+      (needs.warm-cache.result == 'success' || needs.warm-cache.result == 'skipped') &&
       needs.setup.outputs.security-scans-enabled == 'true'
     permissions:
       contents: read # Read repository content for security scanning
@@ -171,8 +174,12 @@ jobs:
   # ----------------------------------------------------------------------------------
   code-quality:
     name: 📊 Code Quality
-    needs: [load-env, setup, test-magex]
-    if: !cancelled()
+    needs: [load-env, setup, test-magex, warm-cache]
+    if: |
+      !cancelled() &&
+      needs.setup.result == 'success' &&
+      needs.test-magex.result == 'success' &&
+      (needs.warm-cache.result == 'success' || needs.warm-cache.result == 'skipped')
     permissions:
       contents: read # Read repository content for code quality checks
     uses: ./.github/workflows/fortress-code-quality.yml
@@ -191,9 +198,12 @@ jobs:
   # ----------------------------------------------------------------------------------
   pre-commit:
     name: 🪝 Pre-commit Checks
-    needs: [load-env, setup, test-magex]
+    needs: [load-env, setup, test-magex, warm-cache]
     if: |
       !cancelled() &&
+      needs.setup.result == 'success' &&
+      needs.test-magex.result == 'success' &&
+      (needs.warm-cache.result == 'success' || needs.warm-cache.result == 'skipped') &&
       needs.setup.outputs.pre-commit-enabled == 'true'
     permissions:
       contents: read # Read repository content for pre-commit checks
@@ -209,8 +219,12 @@ jobs:
   # ----------------------------------------------------------------------------------
   test-suite:
     name: 🧪 Test Suite
-    needs: [load-env, setup, test-magex]
-    if: !cancelled()
+    needs: [load-env, setup, test-magex, warm-cache]
+    if: |
+      !cancelled() &&
+      needs.setup.result == 'success' &&
+      needs.test-magex.result == 'success' &&
+      (needs.warm-cache.result == 'success' || needs.warm-cache.result == 'skipped')
     permissions:
       contents: write # Write repository content and push to gh-pages branch for test execution
       pull-requests: write # Required: Coverage workflow needs to create PR comments
@@ -246,9 +260,12 @@ jobs:
   # ----------------------------------------------------------------------------------
   benchmarks:
     name: 🏃 Benchmarks
-    needs: [load-env, setup, test-magex]
+    needs: [load-env, setup, test-magex, warm-cache]
     if: |
       !cancelled() &&
+      needs.setup.result == 'success' &&
+      needs.test-magex.result == 'success' &&
+      (needs.warm-cache.result == 'success' || needs.warm-cache.result == 'skipped') &&
       needs.setup.outputs.benchmarks-enabled == 'true'
     permissions:
       contents: read # Read repository content for benchmarking
