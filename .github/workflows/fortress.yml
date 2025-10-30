@@ -147,7 +147,11 @@ jobs:
   security:
     name: 🔒 Security Scans
     needs: [load-env, setup, test-magex, warm-cache]
-    if: needs.setup.outputs.security-scans-enabled == 'true'
+    if: |
+      !cancelled() &&
+      needs.warm-cache.result != 'failure' &&
+      needs.warm-cache.result != 'cancelled' &&
+      needs.setup.outputs.security-scans-enabled == 'true'
     permissions:
       contents: read # Read repository content for security scanning
     uses: ./.github/workflows/fortress-security-scans.yml
@@ -170,6 +174,10 @@ jobs:
   code-quality:
     name: 📊 Code Quality
     needs: [load-env, setup, test-magex, warm-cache]
+    if: |
+      !cancelled() &&
+      needs.warm-cache.result != 'failure' &&
+      needs.warm-cache.result != 'cancelled'
     permissions:
       contents: read # Read repository content for code quality checks
     uses: ./.github/workflows/fortress-code-quality.yml
@@ -189,7 +197,11 @@ jobs:
   pre-commit:
     name: 🪝 Pre-commit Checks
     needs: [load-env, setup, test-magex, warm-cache]
-    if: needs.setup.outputs.pre-commit-enabled == 'true'
+    if: |
+      !cancelled() &&
+      needs.warm-cache.result != 'failure' &&
+      needs.warm-cache.result != 'cancelled' &&
+      needs.setup.outputs.pre-commit-enabled == 'true'
     permissions:
       contents: read # Read repository content for pre-commit checks
     uses: ./.github/workflows/fortress-pre-commit.yml
@@ -205,6 +217,10 @@ jobs:
   test-suite:
     name: 🧪 Test Suite
     needs: [load-env, setup, test-magex, warm-cache]
+    if: |
+      !cancelled() &&
+      needs.warm-cache.result != 'failure' &&
+      needs.warm-cache.result != 'cancelled'
     permissions:
       contents: write # Write repository content and push to gh-pages branch for test execution
       pull-requests: write # Required: Coverage workflow needs to create PR comments
@@ -241,7 +257,11 @@ jobs:
   benchmarks:
     name: 🏃 Benchmarks
     needs: [load-env, setup, test-magex, warm-cache]
-    if: needs.setup.outputs.benchmarks-enabled == 'true'
+    if: |
+      !cancelled() &&
+      needs.warm-cache.result != 'failure' &&
+      needs.warm-cache.result != 'cancelled' &&
+      needs.setup.outputs.benchmarks-enabled == 'true'
     permissions:
       contents: read # Read repository content for benchmarking
     uses: ./.github/workflows/fortress-benchmarks.yml
