@@ -231,7 +231,9 @@
         "build-tags": [
             "mage"
         ],
+        "cache": true,
         "concurrency": 8,
+        "deadline": "15m",
         "issues-exit-code": 1,
         "max-issues-per-linter": 0,
         "max-same-issues": 0,
@@ -241,7 +243,8 @@
         "skip-files": [
             "test/fixtures/.*\\.go$"
         ],
-        "tests": true
+        "tests": true,
+        "timeout": "10m"
     },
     "severity": {
         "default": "warning",
