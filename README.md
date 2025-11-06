@@ -677,9 +677,13 @@ go-broadcast diagnose                    # Collect system diagnostic information
 go-broadcast diagnose > diagnostics.json # Save diagnostics to file
 
 # Cancel active syncs
-go-broadcast cancel                      # Cancel all active sync operations
-go-broadcast cancel org/repo1            # Cancel syncs for specific repository
-go-broadcast cancel --dry-run            # Preview what would be cancelled
+go-broadcast cancel                                        # Cancel all active sync operations
+go-broadcast cancel org/repo1                              # Cancel syncs for specific repository
+go-broadcast cancel --groups "core"                        # Cancel syncs for specific group (much faster!)
+go-broadcast cancel --groups "core,security"               # Cancel syncs for multiple groups
+go-broadcast cancel --groups "core" org/repo1              # Cancel specific repo in a group
+go-broadcast cancel --skip-groups "experimental"           # Cancel all except experimental group
+go-broadcast cancel --dry-run                              # Preview what would be cancelled
 
 # Review and merge pull requests
 go-broadcast review-pr <pr-url>                                      # Review and merge single PR
@@ -888,7 +892,7 @@ groups:
 <details>
 <summary><strong>❌ Cancel Sync Operations</strong></summary>
 
-When issues arise, you can cancel active sync operations to prevent unwanted changes.
+When issues arise, you can cancel active sync operations to prevent unwanted changes. Group filtering makes cancellation much faster for multi-group configurations.
 
 **Cancel sync operations when issues arise:**
 ```bash
@@ -897,6 +901,16 @@ go-broadcast cancel --config sync.yaml
 
 # Cancel syncs for specific repositories only
 go-broadcast cancel company/service1 company/service2
+
+# Cancel syncs for specific groups (much faster for multi-group configs!)
+go-broadcast cancel --groups "core"
+go-broadcast cancel --groups "core,security"
+
+# Cancel specific repository in a specific group
+go-broadcast cancel --groups "third-party-libraries" company/repo1
+
+# Cancel all except experimental group
+go-broadcast cancel --skip-groups "experimental"
 
 # Preview what would be cancelled without making changes
 go-broadcast cancel --dry-run --config sync.yaml
@@ -907,6 +921,11 @@ go-broadcast cancel --keep-branches --config sync.yaml
 # Add custom comment when closing PRs
 go-broadcast cancel --comment "Cancelling due to template update" --config sync.yaml
 ```
+
+**Performance Benefits:**
+- **Without group filtering**: Scans all groups in your config (100+ API calls for 5 groups)
+- **With `--groups "core"`**: Scans only the core group (20 API calls)
+- **Result**: 5x faster cancellation for multi-group configurations
 
 </details>
 
