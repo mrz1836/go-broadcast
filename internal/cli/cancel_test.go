@@ -1351,3 +1351,363 @@ func TestProcessCancelTarget_MultiGroupBranchNames(t *testing.T) {
 		})
 	}
 }
+
+func TestFilterConfigByGroups(t *testing.T) {
+	// Create test config with multiple groups
+	cfg := &config.Config{
+		Version: 1,
+		Name:    "test-config",
+		ID:      "test-id",
+		Groups: []config.Group{
+			{
+				ID:   "core",
+				Name: "Core Group",
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "org/repo1"},
+				},
+			},
+			{
+				ID:   "security",
+				Name: "Security Group",
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "org/repo2"},
+				},
+			},
+			{
+				ID:   "experimental",
+				Name: "Experimental Group",
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "org/repo3"},
+				},
+			},
+			{
+				ID:   "third-party",
+				Name: "Third Party Libraries",
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "org/repo4"},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		groupFilter []string
+		skipGroups  []string
+		wantCount   int
+		wantIDs     []string
+	}{
+		{
+			name:        "no filters - returns all groups",
+			groupFilter: []string{},
+			skipGroups:  []string{},
+			wantCount:   4,
+			wantIDs:     []string{"core", "security", "experimental", "third-party"},
+		},
+		{
+			name:        "filter by single group ID",
+			groupFilter: []string{"core"},
+			skipGroups:  []string{},
+			wantCount:   1,
+			wantIDs:     []string{"core"},
+		},
+		{
+			name:        "filter by single group name",
+			groupFilter: []string{"Security Group"},
+			skipGroups:  []string{},
+			wantCount:   1,
+			wantIDs:     []string{"security"},
+		},
+		{
+			name:        "filter by multiple group IDs",
+			groupFilter: []string{"core", "security"},
+			skipGroups:  []string{},
+			wantCount:   2,
+			wantIDs:     []string{"core", "security"},
+		},
+		{
+			name:        "filter by multiple group names",
+			groupFilter: []string{"Core Group", "Third Party Libraries"},
+			skipGroups:  []string{},
+			wantCount:   2,
+			wantIDs:     []string{"core", "third-party"},
+		},
+		{
+			name:        "skip single group by ID",
+			groupFilter: []string{},
+			skipGroups:  []string{"experimental"},
+			wantCount:   3,
+			wantIDs:     []string{"core", "security", "third-party"},
+		},
+		{
+			name:        "skip single group by name",
+			groupFilter: []string{},
+			skipGroups:  []string{"Experimental Group"},
+			wantCount:   3,
+			wantIDs:     []string{"core", "security", "third-party"},
+		},
+		{
+			name:        "skip multiple groups",
+			groupFilter: []string{},
+			skipGroups:  []string{"experimental", "third-party"},
+			wantCount:   2,
+			wantIDs:     []string{"core", "security"},
+		},
+		{
+			name:        "filter and skip - skip takes precedence",
+			groupFilter: []string{"core", "security", "experimental"},
+			skipGroups:  []string{"experimental"},
+			wantCount:   2,
+			wantIDs:     []string{"core", "security"},
+		},
+		{
+			name:        "filter with no matches",
+			groupFilter: []string{"nonexistent"},
+			skipGroups:  []string{},
+			wantCount:   0,
+			wantIDs:     []string{},
+		},
+		{
+			name:        "skip all groups",
+			groupFilter: []string{},
+			skipGroups:  []string{"core", "security", "experimental", "third-party"},
+			wantCount:   0,
+			wantIDs:     []string{},
+		},
+		{
+			name:        "mixed ID and name filtering",
+			groupFilter: []string{"core", "Security Group"},
+			skipGroups:  []string{},
+			wantCount:   2,
+			wantIDs:     []string{"core", "security"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filtered := filterConfigByGroups(cfg, tt.groupFilter, tt.skipGroups)
+
+			require.NotNil(t, filtered)
+			assert.Len(t, filtered.Groups, tt.wantCount, "unexpected number of groups")
+
+			// Verify correct groups are included
+			gotIDs := make([]string, len(filtered.Groups))
+			for i, group := range filtered.Groups {
+				gotIDs[i] = group.ID
+			}
+
+			assert.ElementsMatch(t, tt.wantIDs, gotIDs, "unexpected group IDs")
+
+			// Verify config metadata is preserved
+			assert.Equal(t, cfg.Version, filtered.Version)
+			assert.Equal(t, cfg.Name, filtered.Name)
+			assert.Equal(t, cfg.ID, filtered.ID)
+		})
+	}
+}
+
+func TestFilterConfigByGroups_PreservesStructure(t *testing.T) {
+	// Test that filtering preserves all config fields
+	cfg := &config.Config{
+		Version: 1,
+		Name:    "test-config",
+		ID:      "test-id",
+		FileLists: []config.FileList{
+			{ID: "list1", Name: "Test List"},
+		},
+		DirectoryLists: []config.DirectoryList{
+			{ID: "dirlist1", Name: "Test Dir List"},
+		},
+		Groups: []config.Group{
+			{
+				ID:   "core",
+				Name: "Core Group",
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "main",
+				},
+			},
+		},
+	}
+
+	filtered := filterConfigByGroups(cfg, []string{"core"}, []string{})
+
+	assert.Equal(t, cfg.FileLists, filtered.FileLists)
+	assert.Equal(t, cfg.DirectoryLists, filtered.DirectoryLists)
+	assert.Equal(t, cfg.Version, filtered.Version)
+	assert.Equal(t, cfg.Name, filtered.Name)
+	assert.Equal(t, cfg.ID, filtered.ID)
+}
+
+func TestPerformCancelWithDiscoverer_GroupFiltering(t *testing.T) {
+	// Test that group filtering is applied before state discovery
+	cfg := &config.Config{
+		Version: 1,
+		Groups: []config.Group{
+			{
+				ID:   "core",
+				Name: "Core Group",
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "org/repo1"},
+				},
+			},
+			{
+				ID:   "experimental",
+				Name: "Experimental Group",
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "org/repo2"},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name               string
+		groupFilter        []string
+		skipGroups         []string
+		wantDiscoverCalled bool
+		wantGroupCount     int
+	}{
+		{
+			name:               "no filters - discover all groups",
+			groupFilter:        []string{},
+			skipGroups:         []string{},
+			wantDiscoverCalled: true,
+			wantGroupCount:     2,
+		},
+		{
+			name:               "filter to single group",
+			groupFilter:        []string{"core"},
+			skipGroups:         []string{},
+			wantDiscoverCalled: true,
+			wantGroupCount:     1,
+		},
+		{
+			name:               "filter results in no groups",
+			groupFilter:        []string{"nonexistent"},
+			skipGroups:         []string{},
+			wantDiscoverCalled: false,
+			wantGroupCount:     0,
+		},
+		{
+			name:               "skip groups",
+			groupFilter:        []string{},
+			skipGroups:         []string{"experimental"},
+			wantDiscoverCalled: true,
+			wantGroupCount:     1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup
+			originalGroupFilter := cancelGroupFilter
+			originalSkipGroups := cancelSkipGroups
+			defer func() {
+				cancelGroupFilter = originalGroupFilter
+				cancelSkipGroups = originalSkipGroups
+			}()
+
+			cancelGroupFilter = tt.groupFilter
+			cancelSkipGroups = tt.skipGroups
+
+			// Create mock client
+			mockClient := &gh.MockClient{}
+
+			// Create mock discoverer
+			mockDiscoverer := &state.MockDiscoverer{}
+			if tt.wantDiscoverCalled {
+				mockDiscoverer.On("DiscoverState", mock.Anything, mock.MatchedBy(func(c *config.Config) bool {
+					return len(c.Groups) == tt.wantGroupCount
+				})).Return(&state.State{
+					Targets: map[string]*state.TargetState{},
+				}, nil)
+			}
+
+			// Execute
+			summary, err := performCancelWithDiscoverer(
+				context.Background(),
+				cfg,
+				[]string{},
+				mockClient,
+				mockDiscoverer,
+			)
+
+			// Verify
+			require.NoError(t, err)
+			require.NotNil(t, summary)
+
+			if tt.wantDiscoverCalled {
+				mockDiscoverer.AssertExpectations(t)
+			} else {
+				mockDiscoverer.AssertNotCalled(t, "DiscoverState")
+			}
+		})
+	}
+}
+
+func TestPerformCancelWithDiscoverer_EmptyGroupFilter(t *testing.T) {
+	// Test that when no groups match the filter, we get an empty summary without errors
+	cfg := &config.Config{
+		Version: 1,
+		Groups: []config.Group{
+			{
+				ID:   "core",
+				Name: "Core Group",
+				Source: config.SourceConfig{
+					Repo:   "org/template",
+					Branch: "main",
+				},
+			},
+		},
+	}
+
+	// Set filters that won't match anything
+	originalGroupFilter := cancelGroupFilter
+	defer func() { cancelGroupFilter = originalGroupFilter }()
+	cancelGroupFilter = []string{"nonexistent"}
+
+	mockClient := &gh.MockClient{}
+	mockDiscoverer := &state.MockDiscoverer{}
+	// Discoverer should NOT be called because no groups match
+
+	summary, err := performCancelWithDiscoverer(
+		context.Background(),
+		cfg,
+		[]string{},
+		mockClient,
+		mockDiscoverer,
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	assert.Equal(t, 0, summary.TotalTargets)
+	assert.Empty(t, summary.Results)
+
+	// Verify discoverer was NOT called (performance optimization)
+	mockDiscoverer.AssertNotCalled(t, "DiscoverState")
+}

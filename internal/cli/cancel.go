@@ -25,12 +25,16 @@ var ErrTargetNotFound = errors.New("target repository not found in configuration
 var (
 	cancelKeepBranches bool
 	cancelComment      string
+	cancelGroupFilter  []string
+	cancelSkipGroups   []string
 )
 
 // initCancel initializes cancel command flags
 func initCancel() {
 	cancelCmd.Flags().BoolVar(&cancelKeepBranches, "keep-branches", false, "Close PRs but keep sync branches")
 	cancelCmd.Flags().StringVar(&cancelComment, "comment", "", "Custom comment to add when closing PRs")
+	cancelCmd.Flags().StringSliceVar(&cancelGroupFilter, "groups", nil, "Cancel only specified groups (by name or ID)")
+	cancelCmd.Flags().StringSliceVar(&cancelSkipGroups, "skip-groups", nil, "Skip specified groups during cancel")
 }
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -43,6 +47,11 @@ This command finds all open sync pull requests for the specified targets (or all
 and closes them with a descriptive comment. By default, it also deletes the associated sync branches
 to clean up the repositories.
 
+Group Filtering:
+  Use --groups to cancel only specific groups (by name or ID).
+  Use --skip-groups to exclude specific groups from cancel.
+  When both are specified, skip-groups takes precedence.
+
 Use this when you need to cancel a sync operation due to issues and want to re-sync later with
 updated files or configuration.`,
 	Example: `  # Cancel all active syncs
@@ -50,6 +59,16 @@ updated files or configuration.`,
 
   # Cancel syncs for specific repositories
   go-broadcast cancel org/repo1 org/repo2
+
+  # Cancel syncs for specific groups (much faster for multi-group configs!)
+  go-broadcast cancel --groups "core"
+  go-broadcast cancel --groups "core,security"
+
+  # Cancel syncs for specific repository in a group
+  go-broadcast cancel --groups "third-party-libraries" org/repo1
+
+  # Cancel all except experimental group
+  go-broadcast cancel --skip-groups "experimental"
 
   # Preview what would be canceled (dry run)
   go-broadcast cancel --dry-run --config sync.yaml
@@ -93,11 +112,19 @@ func runCancel(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
+	// Log group filters if specified
+	if len(cancelGroupFilter) > 0 {
+		log.WithField("groups", cancelGroupFilter).Info("Filtering to specific groups")
+	}
+	if len(cancelSkipGroups) > 0 {
+		log.WithField("skip_groups", cancelSkipGroups).Info("Skipping specified groups")
+	}
+
 	// Filter targets if specified
 	targetRepos := args
 	if len(targetRepos) > 0 {
 		log.WithField("targets", targetRepos).Info("Canceling syncs for specific targets")
-	} else {
+	} else if len(cancelGroupFilter) == 0 && len(cancelSkipGroups) == 0 {
 		log.Info("Canceling syncs for all configured targets")
 	}
 
@@ -167,8 +194,19 @@ func performCancelWithDiscoverer(ctx context.Context, cfg *config.Config, target
 		panic("config cannot be nil")
 	}
 
-	// Discover current state
-	currentState, err := discoverer.DiscoverState(ctx, cfg)
+	// Filter config by groups before state discovery (performance optimization)
+	filteredCfg := filterConfigByGroups(cfg, cancelGroupFilter, cancelSkipGroups)
+	if len(filteredCfg.Groups) == 0 {
+		logrus.Info("No groups match the specified filters")
+		return &CancelSummary{
+			TotalTargets: 0,
+			Results:      []CancelResult{},
+			DryRun:       globalFlags.DryRun,
+		}, nil
+	}
+
+	// Discover current state (only for filtered groups)
+	currentState, err := discoverer.DiscoverState(ctx, filteredCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover sync state: %w", err)
 	}
@@ -209,6 +247,64 @@ func performCancelWithDiscoverer(ctx context.Context, cfg *config.Config, target
 	})
 
 	return summary, nil
+}
+
+// filterConfigByGroups filters the configuration to only include specified groups
+func filterConfigByGroups(cfg *config.Config, groupFilter, skipGroups []string) *config.Config {
+	// If no filters specified, return original config
+	if len(groupFilter) == 0 && len(skipGroups) == 0 {
+		return cfg
+	}
+
+	// Create a copy of the config with filtered groups
+	filteredCfg := &config.Config{
+		Version:        cfg.Version,
+		Name:           cfg.Name,
+		ID:             cfg.ID,
+		Groups:         []config.Group{},
+		FileLists:      cfg.FileLists,
+		DirectoryLists: cfg.DirectoryLists,
+	}
+
+	for _, group := range cfg.Groups {
+		// Check if group should be skipped
+		shouldSkip := false
+		for _, skipPattern := range skipGroups {
+			if group.Name == skipPattern || group.ID == skipPattern {
+				logrus.WithFields(logrus.Fields{
+					"group_name": group.Name,
+					"group_id":   group.ID,
+				}).Debug("Group matches skip pattern, excluding from cancel")
+				shouldSkip = true
+				break
+			}
+		}
+		if shouldSkip {
+			continue
+		}
+
+		// Check if group matches filter (if filter is specified)
+		if len(groupFilter) > 0 {
+			matchesFilter := false
+			for _, filterPattern := range groupFilter {
+				if group.Name == filterPattern || group.ID == filterPattern {
+					matchesFilter = true
+					break
+				}
+			}
+			if !matchesFilter {
+				logrus.WithFields(logrus.Fields{
+					"group_name": group.Name,
+					"group_id":   group.ID,
+				}).Debug("Group doesn't match filter pattern, excluding from cancel")
+				continue
+			}
+		}
+
+		filteredCfg.Groups = append(filteredCfg.Groups, group)
+	}
+
+	return filteredCfg
 }
 
 func filterTargets(s *state.State, targetRepos []string) ([]*state.TargetState, error) {
