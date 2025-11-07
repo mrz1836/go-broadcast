@@ -30,18 +30,18 @@
         <a href="https://goreportcard.com/report/github.com/mrz1836/go-broadcast" target="_blank">
           <img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat" alt="Go Report Card">
         </a><br/>
-		<a href="https://mrz1836.github.io/go-broadcast/" target="_blank">
+		    <a href="https://mrz1836.github.io/go-broadcast/" target="_blank">
           <img src="https://mrz1836.github.io/go-broadcast/coverage.svg" alt="Code Coverage">
         </a><br/>
-		<a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast" target="_blank">
+		    <a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast" target="_blank">
           <img src="https://api.scorecard.dev/projects/github.com/mrz1836/go-broadcast/badge?logo=springsecurity&logoColor=white" alt="OpenSSF Scorecard">
         </a><br/>
-		<a href=".github/SECURITY.md" target="_blank">
+		    <a href=".github/SECURITY.md" target="_blank">
           <img src="https://img.shields.io/badge/security-policy-blue?style=flat&logo=springsecurity&logoColor=white" alt="Security policy">
         </a><br/>
-		<!--<a href="https://www.bestpractices.dev/projects/10822" target="_blank">
-		  <img src="https://www.bestpractices.dev/projects/10822/badge?style=flat&logo=springsecurity&logoColor=white" alt="OpenSSF Best Practices">
-		</a>-->
+        <!--<a href="https://www.bestpractices.dev/projects/10822" target="_blank">
+          <img src="https://www.bestpractices.dev/projects/10822/badge?style=flat&logo=springsecurity&logoColor=white" alt="OpenSSF Best Practices">
+        </a>-->
       </td>
       <td valign="top" align="left">
         <a href="https://golang.org/" target="_blank">
@@ -53,7 +53,7 @@
         <a href=".github/AGENTS.md" target="_blank">
           <img src="https://img.shields.io/badge/AGENTS.md-found-40b814?style=flat&logo=openai" alt="AGENTS.md rules">
         </a><br/>
-		<a href=".github/dependabot.yml" target="_blank">
+		    <a href=".github/dependabot.yml" target="_blank">
           <img src="https://img.shields.io/badge/dependencies-automatic-blue?logo=dependabot&style=flat" alt="Dependabot">
         </a>
       </td>
