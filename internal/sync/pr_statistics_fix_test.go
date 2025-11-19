@@ -4,9 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
 )
 
 // TestPRStatisticsAccuracy tests the fix for PR statistics showing incorrect numbers
