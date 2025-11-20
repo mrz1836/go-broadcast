@@ -131,7 +131,7 @@ jobs:
 
       # --------------------------------------------------------------------
       # Restore (and later save) a compact cache for go-pre-commit tools
-      # (golangci-lint, gofumpt) to avoid reinstalling on every run
+      # (golangci-lint, gofumpt, gitleaks, goimports) to avoid reinstalling on every run
       # --------------------------------------------------------------------
       - name: 💾 Restore go-pre-commit tools cache
         id: go-pre-commit-tools-cache
@@ -157,12 +157,13 @@ jobs:
           if [[ -f "$GO_PRE_COMMIT_BIN" ]]; then
             echo "✅ Using cached go-pre-commit binary"
             cp "$GO_PRE_COMMIT_BIN" "$GOPATH_BIN/"
+            chmod +x "$GOPATH_BIN/go-pre-commit"
           fi
 
           # If we restored tools cache, copy them to GOPATH/bin
           if [[ -d "$TOOLS_DIR" ]]; then
             echo "✅ Using cached go-pre-commit tools"
-            for tool in golangci-lint gofumpt; do
+            for tool in golangci-lint gofumpt gitleaks goimports; do
               if [[ -f "$TOOLS_DIR/$tool" ]]; then
                 echo "  • Restoring cached $tool"
                 cp "$TOOLS_DIR/$tool" "$GOPATH_BIN/"
@@ -646,10 +647,11 @@ jobs:
 
       # --------------------------------------------------------------------
       # Cache tools that were installed during pre-commit execution
-      # This step ensures tools like golangci-lint and gofumpt are cached for future runs
+      # This step ensures tools like golangci-lint, gofumpt, gitleaks, and goimports are cached for future runs
+      # Runs on every successful execution to ensure cache is always complete and up-to-date
       # --------------------------------------------------------------------
       - name: 💾 Cache go-pre-commit tools after installation
-        if: steps.go-pre-commit-tools-cache.outputs.cache-hit != 'true' && (steps.install-pre-commit.outputs.install_success == 'true' || steps.install-pre-commit-cached.outputs.install_success == 'true')
+        if: steps.install-pre-commit.outputs.install_success == 'true' || steps.install-pre-commit-cached.outputs.install_success == 'true'
         run: |
           set -euo pipefail  # Enable strict error handling
           echo "💾 Caching go-pre-commit tools..."
@@ -660,7 +662,7 @@ jobs:
           mkdir -p "$TOOLS_DIR"
 
           # Cache tools that may have been installed by go-pre-commit
-          for tool in golangci-lint gofumpt; do
+          for tool in golangci-lint gofumpt gitleaks goimports; do
             if [[ -f "$GOPATH_BIN/$tool" ]]; then
               echo "  • Caching $tool"
               cp "$GOPATH_BIN/$tool" "$TOOLS_DIR/"
