@@ -131,7 +131,9 @@ jobs:
 
       # --------------------------------------------------------------------
       # Restore (and later save) a compact cache for go-pre-commit tools
-      # (golangci-lint, gofumpt, gitleaks, goimports) to avoid reinstalling on every run
+      # Primary: gitleaks (installed as binary by go-pre-commit)
+      # Note: golangci-lint, gofumpt, goimports are managed by MAGE-X/other workflows
+      # Cache key includes all versions to invalidate when any tool version changes
       # --------------------------------------------------------------------
       - name: 💾 Restore go-pre-commit tools cache
         id: go-pre-commit-tools-cache
@@ -538,10 +540,17 @@ jobs:
 
       # --------------------------------------------------------------------
       # Debug: Show tool locations before go-pre-commit runs
+      # Only runs when GO_PRE_COMMIT_DEBUG=true
       # --------------------------------------------------------------------
       - name: 🔍 Debug tool locations (before execution)
         if: steps.install-pre-commit.outputs.install_success == 'true' || steps.install-pre-commit-cached.outputs.install_success == 'true'
         run: |
+          # Skip debug output unless explicitly enabled
+          if [[ "${{ env.GO_PRE_COMMIT_DEBUG }}" != "true" ]]; then
+            echo "🔍 Debug mode disabled (set GO_PRE_COMMIT_DEBUG=true to enable)"
+            exit 0
+          fi
+
           echo "🔍 Checking tool locations BEFORE go-pre-commit execution..."
           echo "============================================================"
           GOPATH_BIN="$(go env GOPATH)/bin"
@@ -687,10 +696,17 @@ jobs:
 
       # --------------------------------------------------------------------
       # Debug: Show tool locations after go-pre-commit runs
+      # Only runs when GO_PRE_COMMIT_DEBUG=true
       # --------------------------------------------------------------------
       - name: 🔍 Debug tool locations (after execution)
         if: always() && (steps.install-pre-commit.outputs.install_success == 'true' || steps.install-pre-commit-cached.outputs.install_success == 'true')
         run: |
+          # Skip debug output unless explicitly enabled
+          if [[ "${{ env.GO_PRE_COMMIT_DEBUG }}" != "true" ]]; then
+            echo "🔍 Debug mode disabled (set GO_PRE_COMMIT_DEBUG=true to enable)"
+            exit 0
+          fi
+
           echo "🔍 Checking tool locations AFTER go-pre-commit execution..."
           echo "==========================================================="
           GOPATH_BIN="$(go env GOPATH)/bin"
@@ -738,7 +754,9 @@ jobs:
 
       # --------------------------------------------------------------------
       # Cache tools that were installed during pre-commit execution
-      # This step ensures tools like golangci-lint, gofumpt, gitleaks, and goimports are cached for future runs
+      # Primary tool: gitleaks (installed as binary by go-pre-commit)
+      # Note: golangci-lint, gofumpt, goimports are not installed as binaries
+      #       (managed by MAGE-X or invoked via go run by go-pre-commit)
       # Runs on every successful execution to ensure cache is always complete and up-to-date
       # --------------------------------------------------------------------
       - name: 💾 Cache go-pre-commit tools after installation
