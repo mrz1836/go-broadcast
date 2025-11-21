@@ -87,6 +87,8 @@ jobs:
             .github/actions/warm-cache
             .github/actions/warm-redis-cache
             .github/actions/cache-redis-image
+            .github/actions/setup-go-with-cache
+            .github/actions/setup-magex
             .github/.env.base
             go.mod
             ${{ env.GO_SUM_FILE }}
