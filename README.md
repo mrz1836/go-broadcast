@@ -12,7 +12,7 @@
 
 <br/><br/>
 
-<table align="center">
+<table align="center" border="0">
   <tr>
     <th align="right">CI / CD</th>
     <td align="left">
