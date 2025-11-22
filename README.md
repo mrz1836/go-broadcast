@@ -10,28 +10,43 @@
 <a href="https://golang.org/"><img src="https://img.shields.io/github/go-mod/go-version/mrz1836/go-broadcast?style=flat-square&logo=go&color=00ADD8" alt="Go Version"></a>
 <a href="https://github.com/mrz1836/go-broadcast/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mrz1836/go-broadcast?style=flat-square&color=blue" alt="License"></a>
 
-<br/><br/>
+<br/>
 
-<p>
-  <strong>`CI / CD`</strong> &emsp;&emsp;&emsp;
-  <a href="https://github.com/mrz1836/go-broadcast/actions"><img src="https://img.shields.io/github/actions/workflow/status/mrz1836/go-broadcast/fortress.yml?branch=master&label=build&logo=github&style=flat-square" alt="Build"></a>
-  <a href="https://github.com/mrz1836/go-broadcast/actions"><img src="https://img.shields.io/github/last-commit/mrz1836/go-broadcast?style=flat-square&logo=git&logoColor=white&label=last%20update" alt="Last Commit"></a>
-  <br/>
+<table align="center" border="0">
+  <tr>
+    <td align="right">
+       <code>CI / CD</code> &nbsp;&nbsp;
+    </td>
+    <td align="left">
+       <a href="https://github.com/mrz1836/go-broadcast/actions"><img src="https://img.shields.io/github/actions/workflow/status/mrz1836/go-broadcast/fortress.yml?branch=master&label=build&logo=github&style=flat-square" alt="Build"></a>
+       <a href="https://github.com/mrz1836/go-broadcast/actions"><img src="https://img.shields.io/github/last-commit/mrz1836/go-broadcast?style=flat-square&logo=git&logoColor=white&label=last%20update" alt="Last Commit"></a>
+    </td>
+    <td align="right">
+       &nbsp;&nbsp;&nbsp;&nbsp; <code>Quality</code> &nbsp;&nbsp;
+    </td>
+    <td align="left">
+       <a href="https://goreportcard.com/report/github.com/mrz1836/go-broadcast"><img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat-square" alt="Go Report"></a>
+       <a href="https://mrz1836.github.io/go-broadcast/"><img src="https://img.shields.io/badge/coverage-78.5%25-yellow?style=flat-square&logo=codecov&logoColor=white" alt="Coverage"></a>
+    </td>
+  </tr>
 
-  <strong>`Security`</strong> &emsp;&emsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast"><img src="https://api.scorecard.dev/projects/github.com/mrz1836/go-broadcast/badge?style=flat-square" alt="Scorecard"></a>
-  <a href=".github/SECURITY.md"><img src="https://img.shields.io/badge/policy-active-success?style=flat-square&logo=security&logoColor=white" alt="Security"></a>
-  <br/>
-
-  <strong>`Quality`</strong> &emsp;&emsp;&emsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://goreportcard.com/report/github.com/mrz1836/go-broadcast"><img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat-square" alt="Go Report"></a>
-  <a href="https://mrz1836.github.io/go-broadcast/"><img src="https://img.shields.io/badge/coverage-78.5%25-yellow?style=flat-square&logo=codecov&logoColor=white" alt="Coverage"></a>
-  <br/>
-
-  <strong>`Community`</strong> &emsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/mrz1836/go-broadcast/graphs/contributors"><img src="https://img.shields.io/github/contributors/mrz1836/go-broadcast?style=flat-square&color=orange" alt="Contributors"></a>
-  <a href="https://mrz1818.com/"><img src="https://img.shields.io/badge/donate-bitcoin-ff9900?style=flat-square&logo=bitcoin" alt="Bitcoin"></a>
-</p>
+  <tr>
+    <td align="right">
+       <code>Security</code> &nbsp;&nbsp;
+    </td>
+    <td align="left">
+       <a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast"><img src="https://api.scorecard.dev/projects/github.com/mrz1836/go-broadcast/badge?style=flat-square" alt="Scorecard"></a>
+       <a href=".github/SECURITY.md"><img src="https://img.shields.io/badge/policy-active-success?style=flat-square&logo=security&logoColor=white" alt="Security"></a>
+    </td>
+    <td align="right">
+       &nbsp;&nbsp;&nbsp;&nbsp; <code>Community</code> &nbsp;&nbsp;
+    </td>
+    <td align="left">
+       <a href="https://github.com/mrz1836/go-broadcast/graphs/contributors"><img src="https://img.shields.io/github/contributors/mrz1836/go-broadcast?style=flat-square&color=orange" alt="Contributors"></a>
+       <a href="https://mrz1818.com/"><img src="https://img.shields.io/badge/donate-bitcoin-ff9900?style=flat-square&logo=bitcoin" alt="Bitcoin"></a>
+    </td>
+  </tr>
+</table>
 
 </div>
 
