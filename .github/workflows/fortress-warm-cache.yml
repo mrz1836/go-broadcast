@@ -77,7 +77,23 @@ jobs:
           done
 
       # --------------------------------------------------------------------
-      # Checkout code to access local action
+      # Derive go.mod path from go.sum path for sparse checkout
+      # --------------------------------------------------------------------
+      - name: 🔧 Derive module paths
+        id: module-paths
+        env:
+          GO_SUM_FILE: ${{ inputs.go-sum-file }}
+        run: |
+          # Derive go.mod path from go.sum path (same directory)
+          GO_MOD_FILE="${GO_SUM_FILE%go.sum}go.mod"
+          echo "go_mod_file=$GO_MOD_FILE" >> "$GITHUB_OUTPUT"
+          echo "📁 Go module file: $GO_MOD_FILE"
+          echo "📁 Go sum file: $GO_SUM_FILE"
+
+      # --------------------------------------------------------------------
+      # Checkout code to access local action (minimal sparse checkout)
+      # Note: We explicitly exclude go.work and set GOWORK=off to prevent
+      # Go from trying to use workspace mode with missing modules
       # --------------------------------------------------------------------
       - name: 📥 Checkout code
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
@@ -90,9 +106,15 @@ jobs:
             .github/actions/setup-go-with-cache
             .github/actions/setup-magex
             .github/.env.base
-            go.mod
-            ${{ env.GO_SUM_FILE }}
+            ${{ steps.module-paths.outputs.go_mod_file }}
+            ${{ inputs.go-sum-file }}
             .mage.yaml
+
+      # --------------------------------------------------------------------
+      # Disable Go workspace mode to prevent errors from missing modules
+      # --------------------------------------------------------------------
+      - name: 🔧 Disable Go workspace mode
+        run: echo "GOWORK=off" >> $GITHUB_ENV
 
       # --------------------------------------------------------------------
       # Extract verbose flag from env-json
