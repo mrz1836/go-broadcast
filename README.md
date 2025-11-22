@@ -12,66 +12,40 @@
 
 <br/><br/>
 
-<table align="center" border="0">
-  <tr>
-    <th align="right">CI / CD</th>
-    <td align="left">
-      <a href="https://github.com/mrz1836/go-broadcast/actions"><img src="https://img.shields.io/github/actions/workflow/status/mrz1836/go-broadcast/fortress.yml?branch=master&label=build&logo=github&style=flat-square" alt="Build"></a>
-      <a href="https://github.com/mrz1836/go-broadcast/actions"><img src="https://img.shields.io/github/last-commit/mrz1836/go-broadcast?style=flat-square&logo=git&logoColor=white&label=last%20update" alt="Last Commit"></a>
-    </td>
-  </tr>
-  <tr>
-    <th align="right">Security</th>
-    <td align="left">
-        <a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast"><img src="https://api.scorecard.dev/projects/github.com/mrz1836/go-broadcast/badge?style=flat-square" alt="Scorecard"></a>
-        <a href=".github/SECURITY.md"><img src="https://img.shields.io/badge/policy-active-success?style=flat-square&logo=security&logoColor=white" alt="Security"></a>
-    </td>
-  </tr>
-  <tr>
-    <th align="right">Quality</th>
-    <td align="left">
-      <a href="https://goreportcard.com/report/github.com/mrz1836/go-broadcast"><img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat-square" alt="Go Report"></a>
-      <a href="https://mrz1836.github.io/go-broadcast/"><img src="https://img.shields.io/badge/coverage-78.5%25-yellow?style=flat-square&logo=codecov&logoColor=white" alt="Coverage"></a>
-    </td>
-  </tr>
-  <tr>
-    <th align="right">Community</th>
-    <td align="left">
-      <a href="https://github.com/mrz1836/go-broadcast/graphs/contributors"><img src="https://img.shields.io/github/contributors/mrz1836/go-broadcast?style=flat-square&color=orange" alt="Contributors"></a>
-      <a href="https://mrz1818.com/"><img src="https://img.shields.io/badge/donate-bitcoin-ff9900?style=flat-square&logo=bitcoin" alt="Bitcoin"></a>
-    </td>
-  </tr>
-</table>
+<p>
+  <strong>CI / CD</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/mrz1836/go-broadcast/actions"><img src="https://img.shields.io/github/actions/workflow/status/mrz1836/go-broadcast/fortress.yml?branch=master&label=build&logo=github&style=flat-square" alt="Build"></a>
+  <a href="https://github.com/mrz1836/go-broadcast/actions"><img src="https://img.shields.io/github/last-commit/mrz1836/go-broadcast?style=flat-square&logo=git&logoColor=white&label=last%20update" alt="Last Commit"></a>
+  <br/>
+
+  <strong>Security</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast"><img src="https://api.scorecard.dev/projects/github.com/mrz1836/go-broadcast/badge?style=flat-square" alt="Scorecard"></a>
+  <a href=".github/SECURITY.md"><img src="https://img.shields.io/badge/policy-active-success?style=flat-square&logo=security&logoColor=white" alt="Security"></a>
+  <br/>
+
+  <strong>Quality</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://goreportcard.com/report/github.com/mrz1836/go-broadcast"><img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat-square" alt="Go Report"></a>
+  <a href="https://mrz1836.github.io/go-broadcast/"><img src="https://img.shields.io/badge/coverage-78.5%25-yellow?style=flat-square&logo=codecov&logoColor=white" alt="Coverage"></a>
+  <br/>
+
+  <strong>Community</strong> &nbsp;&nbsp;
+  <a href="https://github.com/mrz1836/go-broadcast/graphs/contributors"><img src="https://img.shields.io/github/contributors/mrz1836/go-broadcast?style=flat-square&color=orange" alt="Contributors"></a>
+  <a href="https://mrz1818.com/"><img src="https://img.shields.io/badge/donate-bitcoin-ff9900?style=flat-square&logo=bitcoin" alt="Bitcoin"></a>
+</p>
 
 </div>
+
 <br/>
 
 ## 🗂️ Project Navigation
 
 <div align="center">
 
-<a href="#-quick-start"><img src="https://img.shields.io/badge/🚀_Quick_Start-1c1c1c?style=flat-square&logoColor=white" alt="Quick Start"/></a>&nbsp;
-<a href="#-key-features"><img src="https://img.shields.io/badge/⭐_Key_Features-1c1c1c?style=flat-square&logoColor=white" alt="Key Features"/></a>&nbsp;
-<a href="#-how-it-works"><img src="https://img.shields.io/badge/⚙️_How_It_Works-1c1c1c?style=flat-square&logoColor=white" alt="How It Works"/></a>&nbsp;
-<a href="#-usage-examples"><img src="https://img.shields.io/badge/💻_Usage_Examples-1c1c1c?style=flat-square&logoColor=white" alt="Usage Examples"/></a>
-
-<br/>
-
-<a href="#-documentation"><img src="https://img.shields.io/badge/📚_Documentation-1c1c1c?style=flat-square&logoColor=white" alt="Documentation"/></a>&nbsp;
-<a href="#-examples--tests"><img src="https://img.shields.io/badge/🧪_Examples_&_Tests-1c1c1c?style=flat-square&logoColor=white" alt="Examples"/></a>&nbsp;
-<a href="#-code-standards"><img src="https://img.shields.io/badge/🛡️_Code_Standards-1c1c1c?style=flat-square&logoColor=white" alt="Standards"/></a>&nbsp;
-<a href="#-ai-compliance"><img src="https://img.shields.io/badge/🤖_AI_Compliance-1c1c1c?style=flat-square&logoColor=white" alt="AI Compliance"/></a>
-
-<br/>
-
-<a href="#-performance"><img src="https://img.shields.io/badge/⚡_Performance-1c1c1c?style=flat-square&logoColor=white" alt="Performance"/></a>&nbsp;
-<a href="#-maintainers"><img src="https://img.shields.io/badge/👥_Maintainers-1c1c1c?style=flat-square&logoColor=white" alt="Maintainers"/></a>&nbsp;
-<a href="#-contributing"><img src="https://img.shields.io/badge/🤝_Contributing-1c1c1c?style=flat-square&logoColor=white" alt="Contributing"/></a>&nbsp;
-<a href="#-license"><img src="https://img.shields.io/badge/⚖️_License-1c1c1c?style=flat-square&logoColor=white" alt="License"/></a>
+<a href="#-quick-start"><img src="https://img.shields.io/badge/🚀_Quick_Start-1c1c1c?style=flat-square&logoColor=white" alt="Quick Start"/></a>&nbsp;<a href="#-key-features"><img src="https://img.shields.io/badge/⭐_Key_Features-1c1c1c?style=flat-square&logoColor=white" alt="Key Features"/></a>&nbsp;<a href="#-how-it-works"><img src="https://img.shields.io/badge/⚙️_How_It_Works-1c1c1c?style=flat-square&logoColor=white" alt="How It Works"/></a>&nbsp;<a href="#-usage-examples"><img src="https://img.shields.io/badge/💻_Usage_Examples-1c1c1c?style=flat-square&logoColor=white" alt="Usage Examples"/></a><br/><a href="#-documentation"><img src="https://img.shields.io/badge/📚_Documentation-1c1c1c?style=flat-square&logoColor=white" alt="Documentation"/></a>&nbsp;<a href="#-examples--tests"><img src="https://img.shields.io/badge/🧪_Examples_&_Tests-1c1c1c?style=flat-square&logoColor=white" alt="Examples"/></a>&nbsp;<a href="#-code-standards"><img src="https://img.shields.io/badge/🛡️_Code_Standards-1c1c1c?style=flat-square&logoColor=white" alt="Standards"/></a>&nbsp;<a href="#-ai-compliance"><img src="https://img.shields.io/badge/🤖_AI_Compliance-1c1c1c?style=flat-square&logoColor=white" alt="AI Compliance"/></a><br/><a href="#-performance"><img src="https://img.shields.io/badge/⚡_Performance-1c1c1c?style=flat-square&logoColor=white" alt="Performance"/></a>&nbsp;<a href="#-maintainers"><img src="https://img.shields.io/badge/👥_Maintainers-1c1c1c?style=flat-square&logoColor=white" alt="Maintainers"/></a>&nbsp;<a href="#-contributing"><img src="https://img.shields.io/badge/🤝_Contributing-1c1c1c?style=flat-square&logoColor=white" alt="Contributing"/></a>&nbsp;<a href="#-license"><img src="https://img.shields.io/badge/⚖️_License-1c1c1c?style=flat-square&logoColor=white" alt="License"/></a>
 
 </div>
 
-<br/>
+<br>
 
 ## ⚡ Quick Start
 
