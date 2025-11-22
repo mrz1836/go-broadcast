@@ -18,17 +18,17 @@
   <a href="https://github.com/mrz1836/go-broadcast/actions"><img src="https://img.shields.io/github/last-commit/mrz1836/go-broadcast?style=flat-square&logo=git&logoColor=white&label=last%20update" alt="Last Commit"></a>
   <br/>
 
-  <strong>Security</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <strong>Security</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://scorecard.dev/viewer/?uri=github.com/mrz1836/go-broadcast"><img src="https://api.scorecard.dev/projects/github.com/mrz1836/go-broadcast/badge?style=flat-square" alt="Scorecard"></a>
   <a href=".github/SECURITY.md"><img src="https://img.shields.io/badge/policy-active-success?style=flat-square&logo=security&logoColor=white" alt="Security"></a>
   <br/>
 
-  <strong>Quality</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <strong>Quality</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://goreportcard.com/report/github.com/mrz1836/go-broadcast"><img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat-square" alt="Go Report"></a>
   <a href="https://mrz1836.github.io/go-broadcast/"><img src="https://img.shields.io/badge/coverage-78.5%25-yellow?style=flat-square&logo=codecov&logoColor=white" alt="Coverage"></a>
   <br/>
 
-  <strong>Community</strong> &nbsp;&nbsp;
+  <strong>Community</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://github.com/mrz1836/go-broadcast/graphs/contributors"><img src="https://img.shields.io/github/contributors/mrz1836/go-broadcast?style=flat-square&color=orange" alt="Contributors"></a>
   <a href="https://mrz1818.com/"><img src="https://img.shields.io/badge/donate-bitcoin-ff9900?style=flat-square&logo=bitcoin" alt="Bitcoin"></a>
 </p>
