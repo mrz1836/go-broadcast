@@ -59,46 +59,46 @@
 <table align="center">
   <tr>
     <td align="center" width="33%">
-       <a href="#-quick-start"><code>🚀 Quick Start</code></a>
+       🚀&nbsp;<a href="#-quick-start"><code>Quick Start</code></a>
     </td>
     <td align="center" width="33%">
-       <a href="#-documentation"><code>📚 Documentation</code></a>
+       📚&nbsp;<a href="#-documentation"><code>Documentation</code></a>
     </td>
     <td align="center" width="33%">
-       <a href="#-performance"><code>⚡ Performance</code></a>
+       ⚡&nbsp;<a href="#-performance"><code>Performance</code></a>
     </td>
   </tr>
   <tr>
     <td align="center">
-       <a href="#-key-features"><code>✨ Key Features</code></a>
+       ✨&nbsp;<a href="#-key-features"><code>Key Features</code></a>
     </td>
     <td align="center">
-       <a href="#-examples--tests"><code>🧪 Examples & Tests</code></a>
+       🧪&nbsp;<a href="#-examples--tests"><code>Examples&nbsp;&&nbsp;Tests</code></a>
     </td>
     <td align="center">
-       <a href="#-maintainers"><code>👥 Maintainers</code></a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-       <a href="#-how-it-works"><code>🔍 How It Works</code></a>
-    </td>
-    <td align="center">
-       <a href="#-code-standards"><code>🛠️ Code Standards</code></a>
-    </td>
-    <td align="center">
-       <a href="#-contributing"><code>🤝 Contributing</code></a>
+       👥&nbsp;<a href="#-maintainers"><code>Maintainers</code></a>
     </td>
   </tr>
   <tr>
     <td align="center">
-       <a href="#-usage-examples"><code>💡 Usage Examples</code></a>
+       🔍&nbsp;<a href="#-how-it-works"><code>How It Works</code></a>
     </td>
     <td align="center">
-       <a href="#-ai-compliance"><code>🤖 AI Compliance</code></a>
+       🛠️&nbsp;<a href="#-code-standards"><code>Code Standards</code></a>
     </td>
     <td align="center">
-       <a href="#-license"><code>⚖️ License</code></a>
+       🤝&nbsp;<a href="#-contributing"><code>Contributing</code></a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+       💡&nbsp;<a href="#-usage-examples"><code>Usage Examples</code></a>
+    </td>
+    <td align="center">
+       🤖&nbsp;<a href="#-ai-compliance"><code>AI Compliance</code></a>
+    </td>
+    <td align="center">
+       ⚖️&nbsp;<a href="#-license"><code>License</code></a>
     </td>
   </tr>
 </table>
