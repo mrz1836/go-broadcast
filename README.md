@@ -48,37 +48,28 @@
 
 ## 🗂️ Project Navigation
 
-<table>
-<tr>
-<td width="33%" valign="top">
+<div align="center">
 
-### **Start**
-* [Quick Start](#-quick-start)
-* [Key Features](#-key-features)
-* [How It Works](#-how-it-works)
-* [Usage Examples](#-usage-examples)
+<a href="#-quick-start"><img src="https://img.shields.io/badge/🚀_Quick_Start-000?style=flat-square&logoColor=white" alt="Quick Start"/></a>
+<a href="#-key-features"><img src="https://img.shields.io/badge/⭐_Key_Features-000?style=flat-square&logoColor=white" alt="Key Features"/></a>
+<a href="#-how-it-works"><img src="https://img.shields.io/badge/⚙️_How_It_Works-000?style=flat-square&logoColor=white" alt="How It Works"/></a>
+<a href="#-usage-examples"><img src="https://img.shields.io/badge/💻_Usage_Examples-000?style=flat-square&logoColor=white" alt="Usage Examples"/></a>
 
-</td>
-<td width="33%" valign="top">
+<br/>
 
-### **Docs**
-* [Documentation](#-documentation)
-* [Examples & Tests](#-examples--tests)
-* [Code Standards](#-code-standards)
-* [AI Compliance](#-ai-compliance)
+<a href="#-documentation"><img src="https://img.shields.io/badge/📚_Documentation-222?style=flat-square&logoColor=white" alt="Documentation"/></a>
+<a href="#-examples--tests"><img src="https://img.shields.io/badge/🧪_Examples_&_Tests-222?style=flat-square&logoColor=white" alt="Examples"/></a>
+<a href="#-code-standards"><img src="https://img.shields.io/badge/🛡️_Code_Standards-222?style=flat-square&logoColor=white" alt="Standards"/></a>
+<a href="#-ai-compliance"><img src="https://img.shields.io/badge/🤖_AI_Compliance-222?style=flat-square&logoColor=white" alt="AI Compliance"/></a>
 
-</td>
-<td width="33%" valign="top">
+<br/>
 
-### **Meta**
-* [Performance](#-performance)
-* [Maintainers](#-maintainers)
-* [Contributing](#-contributing)
-* [License](#-license)
+<a href="#-performance"><img src="https://img.shields.io/badge/⚡_Performance-444?style=flat-square&logoColor=white" alt="Performance"/></a>
+<a href="#-maintainers"><img src="https://img.shields.io/badge/👥_Maintainers-444?style=flat-square&logoColor=white" alt="Maintainers"/></a>
+<a href="#-contributing"><img src="https://img.shields.io/badge/🤝_Contributing-444?style=flat-square&logoColor=white" alt="Contributing"/></a>
+<a href="#-license"><img src="https://img.shields.io/badge/⚖️_License-444?style=flat-square&logoColor=white" alt="License"/></a>
 
-</td>
-</tr>
-</table>
+</div>
 
 <br/>
 
