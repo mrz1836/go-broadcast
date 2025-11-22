@@ -54,28 +54,55 @@
 
 ## 🗂️ Project Navigation
 
-<div align="center">
-
-⚡ [**Quick Start**](#-quick-start) &nbsp;┃&nbsp;
-✨ [**Key Features**](#-key-features) &nbsp;┃&nbsp;
-🔍 [**How It Works**](#-how-it-works) &nbsp;┃&nbsp;
-💡 [**Usage Examples**](#-usage-examples)
-
 <br/>
 
-📚 [**Documentation**](#-documentation) &nbsp;┃&nbsp;
-🧪 [**Examples & Tests**](#-examples--tests) &nbsp;┃&nbsp;
-🛠️ [**Code Standards**](#-code-standards) &nbsp;┃&nbsp;
-🤖 [**AI Compliance**](#-ai-compliance)
-
+<table align="center">
+  <tr>
+    <td align="center" width="33%">
+       <a href="#-quick-start"><code>🚀 Quick Start</code></a>
+    </td>
+    <td align="center" width="33%">
+       <a href="#-documentation"><code>📚 Documentation</code></a>
+    </td>
+    <td align="center" width="33%">
+       <a href="#-performance"><code>⚡ Performance</code></a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+       <a href="#-key-features"><code>✨ Key Features</code></a>
+    </td>
+    <td align="center">
+       <a href="#-examples--tests"><code>🧪 Examples & Tests</code></a>
+    </td>
+    <td align="center">
+       <a href="#-maintainers"><code>👥 Maintainers</code></a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+       <a href="#-how-it-works"><code>🔍 How It Works</code></a>
+    </td>
+    <td align="center">
+       <a href="#-code-standards"><code>🛠️ Code Standards</code></a>
+    </td>
+    <td align="center">
+       <a href="#-contributing"><code>🤝 Contributing</code></a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+       <a href="#-usage-examples"><code>💡 Usage Examples</code></a>
+    </td>
+    <td align="center">
+       <a href="#-ai-compliance"><code>🤖 AI Compliance</code></a>
+    </td>
+    <td align="center">
+       <a href="#-license"><code>⚖️ License</code></a>
+    </td>
+  </tr>
+</table>
 <br/>
-
-⚡ [**Performance**](#-performance) &nbsp;┃&nbsp;
-👥 [**Maintainers**](#-maintainers) &nbsp;┃&nbsp;
-🤝 [**Contributing**](#-contributing) &nbsp;┃&nbsp;
-📝 [**License**](#-license)
-
-</div>
 
 <br>
 
