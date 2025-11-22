@@ -81,7 +81,7 @@
   </tr>
   <tr>
     <td align="center">
-       🔍&nbsp;<a href="#-how-it-works"><code>How It Works</code></a>
+       🔍&nbsp;<a href="#-how-it-works"><code>How&nbsp;It&nbsp;Works</code></a>
     </td>
     <td align="center">
        🛠️&nbsp;<a href="#-code-standards"><code>Code Standards</code></a>
@@ -92,7 +92,7 @@
   </tr>
   <tr>
     <td align="center">
-       💡&nbsp;<a href="#-usage-examples"><code>Usage Examples</code></a>
+       💡&nbsp;<a href="#-usage-examples"><code>Usage&nbsp;Examples</code></a>
     </td>
     <td align="center">
        🤖&nbsp;<a href="#-ai-compliance"><code>AI Compliance</code></a>
