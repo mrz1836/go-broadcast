@@ -41,7 +41,24 @@
 
 <div align="center">
 
-<a href="#-quick-start"><img src="https://img.shields.io/badge/🚀_Quick_Start-1c1c1c?style=flat-square&logoColor=white" alt="Quick Start"/></a>&nbsp;<a href="#-key-features"><img src="https://img.shields.io/badge/⭐_Key_Features-1c1c1c?style=flat-square&logoColor=white" alt="Key Features"/></a>&nbsp;<a href="#-how-it-works"><img src="https://img.shields.io/badge/⚙️_How_It_Works-1c1c1c?style=flat-square&logoColor=white" alt="How It Works"/></a>&nbsp;<a href="#-usage-examples"><img src="https://img.shields.io/badge/💻_Usage_Examples-1c1c1c?style=flat-square&logoColor=white" alt="Usage Examples"/></a><br/><a href="#-documentation"><img src="https://img.shields.io/badge/📚_Documentation-1c1c1c?style=flat-square&logoColor=white" alt="Documentation"/></a>&nbsp;<a href="#-examples--tests"><img src="https://img.shields.io/badge/🧪_Examples_&_Tests-1c1c1c?style=flat-square&logoColor=white" alt="Examples"/></a>&nbsp;<a href="#-code-standards"><img src="https://img.shields.io/badge/🛡️_Code_Standards-1c1c1c?style=flat-square&logoColor=white" alt="Standards"/></a>&nbsp;<a href="#-ai-compliance"><img src="https://img.shields.io/badge/🤖_AI_Compliance-1c1c1c?style=flat-square&logoColor=white" alt="AI Compliance"/></a><br/><a href="#-performance"><img src="https://img.shields.io/badge/⚡_Performance-1c1c1c?style=flat-square&logoColor=white" alt="Performance"/></a>&nbsp;<a href="#-maintainers"><img src="https://img.shields.io/badge/👥_Maintainers-1c1c1c?style=flat-square&logoColor=white" alt="Maintainers"/></a>&nbsp;<a href="#-contributing"><img src="https://img.shields.io/badge/🤝_Contributing-1c1c1c?style=flat-square&logoColor=white" alt="Contributing"/></a>&nbsp;<a href="#-license"><img src="https://img.shields.io/badge/⚖️_License-1c1c1c?style=flat-square&logoColor=white" alt="License"/></a>
+[**🚀 Quick Start**](#-quick-start) &nbsp;&nbsp;|&nbsp;&nbsp;
+[**⭐ Key Features**](#-key-features) &nbsp;&nbsp;|&nbsp;&nbsp;
+[**⚙️ How It Works**](#-how-it-works) &nbsp;&nbsp;|&nbsp;&nbsp;
+[**💻 Usage Examples**](#-usage-examples)
+
+<br/>
+
+[**📚 Documentation**](#-documentation) &nbsp;&nbsp;|&nbsp;&nbsp;
+[**🧪 Examples & Tests**](#-examples--tests) &nbsp;&nbsp;|&nbsp;&nbsp;
+[**🛡️ Code Standards**](#-code-standards) &nbsp;&nbsp;|&nbsp;&nbsp;
+[**🤖 AI Compliance**](#-ai-compliance)
+
+<br/>
+
+[**⚡ Performance**](#-performance) &nbsp;&nbsp;|&nbsp;&nbsp;
+[**👥 Maintainers**](#-maintainers) &nbsp;&nbsp;|&nbsp;&nbsp;
+[**🤝 Contributing**](#-contributing) &nbsp;&nbsp;|&nbsp;&nbsp;
+[**⚖️ License**](#-license)
 
 </div>
 
