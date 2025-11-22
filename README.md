@@ -50,24 +50,24 @@
 
 <div align="center">
 
-<a href="#-quick-start"><img src="https://img.shields.io/badge/🚀_Quick_Start-000?style=flat-square&logoColor=white" alt="Quick Start"/></a>
-<a href="#-key-features"><img src="https://img.shields.io/badge/⭐_Key_Features-000?style=flat-square&logoColor=white" alt="Key Features"/></a>
-<a href="#-how-it-works"><img src="https://img.shields.io/badge/⚙️_How_It_Works-000?style=flat-square&logoColor=white" alt="How It Works"/></a>
-<a href="#-usage-examples"><img src="https://img.shields.io/badge/💻_Usage_Examples-000?style=flat-square&logoColor=white" alt="Usage Examples"/></a>
+<a href="#-quick-start"><img src="https://img.shields.io/badge/🚀_Quick_Start-1c1c1c?style=flat-square&logoColor=white" alt="Quick Start"/></a>&nbsp;
+<a href="#-key-features"><img src="https://img.shields.io/badge/⭐_Key_Features-1c1c1c?style=flat-square&logoColor=white" alt="Key Features"/></a>&nbsp;
+<a href="#-how-it-works"><img src="https://img.shields.io/badge/⚙️_How_It_Works-1c1c1c?style=flat-square&logoColor=white" alt="How It Works"/></a>&nbsp;
+<a href="#-usage-examples"><img src="https://img.shields.io/badge/💻_Usage_Examples-1c1c1c?style=flat-square&logoColor=white" alt="Usage Examples"/></a>
 
 <br/>
 
-<a href="#-documentation"><img src="https://img.shields.io/badge/📚_Documentation-222?style=flat-square&logoColor=white" alt="Documentation"/></a>
-<a href="#-examples--tests"><img src="https://img.shields.io/badge/🧪_Examples_&_Tests-222?style=flat-square&logoColor=white" alt="Examples"/></a>
-<a href="#-code-standards"><img src="https://img.shields.io/badge/🛡️_Code_Standards-222?style=flat-square&logoColor=white" alt="Standards"/></a>
-<a href="#-ai-compliance"><img src="https://img.shields.io/badge/🤖_AI_Compliance-222?style=flat-square&logoColor=white" alt="AI Compliance"/></a>
+<a href="#-documentation"><img src="https://img.shields.io/badge/📚_Documentation-1c1c1c?style=flat-square&logoColor=white" alt="Documentation"/></a>&nbsp;
+<a href="#-examples--tests"><img src="https://img.shields.io/badge/🧪_Examples_&_Tests-1c1c1c?style=flat-square&logoColor=white" alt="Examples"/></a>&nbsp;
+<a href="#-code-standards"><img src="https://img.shields.io/badge/🛡️_Code_Standards-1c1c1c?style=flat-square&logoColor=white" alt="Standards"/></a>&nbsp;
+<a href="#-ai-compliance"><img src="https://img.shields.io/badge/🤖_AI_Compliance-1c1c1c?style=flat-square&logoColor=white" alt="AI Compliance"/></a>
 
 <br/>
 
-<a href="#-performance"><img src="https://img.shields.io/badge/⚡_Performance-444?style=flat-square&logoColor=white" alt="Performance"/></a>
-<a href="#-maintainers"><img src="https://img.shields.io/badge/👥_Maintainers-444?style=flat-square&logoColor=white" alt="Maintainers"/></a>
-<a href="#-contributing"><img src="https://img.shields.io/badge/🤝_Contributing-444?style=flat-square&logoColor=white" alt="Contributing"/></a>
-<a href="#-license"><img src="https://img.shields.io/badge/⚖️_License-444?style=flat-square&logoColor=white" alt="License"/></a>
+<a href="#-performance"><img src="https://img.shields.io/badge/⚡_Performance-1c1c1c?style=flat-square&logoColor=white" alt="Performance"/></a>&nbsp;
+<a href="#-maintainers"><img src="https://img.shields.io/badge/👥_Maintainers-1c1c1c?style=flat-square&logoColor=white" alt="Maintainers"/></a>&nbsp;
+<a href="#-contributing"><img src="https://img.shields.io/badge/🤝_Contributing-1c1c1c?style=flat-square&logoColor=white" alt="Contributing"/></a>&nbsp;
+<a href="#-license"><img src="https://img.shields.io/badge/⚖️_License-1c1c1c?style=flat-square&logoColor=white" alt="License"/></a>
 
 </div>
 
