@@ -565,3 +565,390 @@ func BenchmarkDirectoryValidator_ValidateFileIntegrity(b *testing.B) {
 		}
 	}
 }
+
+// TestDirectoryValidator_ValidateSyncResults tests the main sync validation function
+func TestDirectoryValidator_ValidateSyncResults(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+	validator := NewDirectoryValidator(logger)
+	ctx := context.Background()
+
+	t.Run("matching directories", func(t *testing.T) {
+		// Create temp directories
+		sourceDir := t.TempDir()
+		destDir := t.TempDir()
+
+		// Create matching files
+		err := os.WriteFile(filepath.Join(sourceDir, "file1.txt"), []byte("content1"), 0o600)
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(destDir, "file1.txt"), []byte("content1"), 0o600)
+		require.NoError(t, err)
+
+		dirMapping := config.DirectoryMapping{
+			Src:  sourceDir,
+			Dest: destDir,
+		}
+
+		opts := ValidationOptions{
+			CheckContent:   true,
+			CheckStructure: true,
+		}
+
+		result, err := validator.ValidateSyncResults(ctx, sourceDir, destDir, dirMapping, opts)
+		require.NoError(t, err)
+		assert.True(t, result.Valid)
+		assert.Empty(t, result.Errors)
+	})
+
+	t.Run("missing file in destination", func(t *testing.T) {
+		sourceDir := t.TempDir()
+		destDir := t.TempDir()
+
+		// Create file only in source
+		err := os.WriteFile(filepath.Join(sourceDir, "file1.txt"), []byte("content1"), 0o600)
+		require.NoError(t, err)
+
+		dirMapping := config.DirectoryMapping{
+			Src:  sourceDir,
+			Dest: destDir,
+		}
+
+		opts := ValidationOptions{
+			CheckStructure: true,
+		}
+
+		result, err := validator.ValidateSyncResults(ctx, sourceDir, destDir, dirMapping, opts)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+		assert.NotEmpty(t, result.Errors)
+	})
+
+	t.Run("content mismatch", func(t *testing.T) {
+		sourceDir := t.TempDir()
+		destDir := t.TempDir()
+
+		// Create files with different content
+		err := os.WriteFile(filepath.Join(sourceDir, "file1.txt"), []byte("content1"), 0o600)
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(destDir, "file1.txt"), []byte("different"), 0o600)
+		require.NoError(t, err)
+
+		dirMapping := config.DirectoryMapping{
+			Src:  sourceDir,
+			Dest: destDir,
+		}
+
+		opts := ValidationOptions{
+			CheckContent:   true,
+			CheckStructure: true,
+		}
+
+		result, err := validator.ValidateSyncResults(ctx, sourceDir, destDir, dirMapping, opts)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+	})
+
+	t.Run("source directory not found", func(t *testing.T) {
+		destDir := t.TempDir()
+
+		dirMapping := config.DirectoryMapping{
+			Src:  "/nonexistent/source",
+			Dest: destDir,
+		}
+
+		opts := ValidationOptions{}
+
+		result, err := validator.ValidateSyncResults(ctx, "/nonexistent/source", destDir, dirMapping, opts)
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("destination directory not found", func(t *testing.T) {
+		sourceDir := t.TempDir()
+
+		dirMapping := config.DirectoryMapping{
+			Src:  sourceDir,
+			Dest: "/nonexistent/dest",
+		}
+
+		opts := ValidationOptions{}
+
+		result, err := validator.ValidateSyncResults(ctx, sourceDir, "/nonexistent/dest", dirMapping, opts)
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
+}
+
+// TestDirectoryValidator_ValidateExclusionCompliance tests exclusion validation
+func TestDirectoryValidator_ValidateExclusionCompliance(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+	validator := NewDirectoryValidator(logger)
+	ctx := context.Background()
+
+	t.Run("no excluded files in destination", func(t *testing.T) {
+		sourceDir := t.TempDir()
+		destDir := t.TempDir()
+
+		// Create file in destination that is NOT excluded
+		err := os.WriteFile(filepath.Join(destDir, "allowed.txt"), []byte("content"), 0o600)
+		require.NoError(t, err)
+
+		dirMapping := config.DirectoryMapping{
+			Src:     sourceDir,
+			Dest:    destDir,
+			Exclude: []string{"*.log", "*.tmp"},
+		}
+
+		opts := ValidationOptions{}
+
+		result, err := validator.ValidateExclusionCompliance(ctx, sourceDir, destDir, dirMapping, opts)
+		require.NoError(t, err)
+		assert.True(t, result.Valid)
+		assert.Empty(t, result.Errors)
+	})
+
+	t.Run("excluded file found in destination", func(t *testing.T) {
+		sourceDir := t.TempDir()
+		destDir := t.TempDir()
+
+		// Create excluded file in destination
+		err := os.WriteFile(filepath.Join(destDir, "debug.log"), []byte("log content"), 0o600)
+		require.NoError(t, err)
+
+		dirMapping := config.DirectoryMapping{
+			Src:     sourceDir,
+			Dest:    destDir,
+			Exclude: []string{"*.log"},
+		}
+
+		opts := ValidationOptions{}
+
+		result, err := validator.ValidateExclusionCompliance(ctx, sourceDir, destDir, dirMapping, opts)
+		require.NoError(t, err)
+		assert.False(t, result.Valid)
+		assert.Positive(t, result.Summary.ExclusionErrors)
+	})
+
+	t.Run("destination directory not found", func(t *testing.T) {
+		sourceDir := t.TempDir()
+
+		dirMapping := config.DirectoryMapping{
+			Src:  sourceDir,
+			Dest: "/nonexistent/dest",
+		}
+
+		opts := ValidationOptions{}
+
+		result, err := validator.ValidateExclusionCompliance(ctx, sourceDir, "/nonexistent/dest", dirMapping, opts)
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
+}
+
+// TestDirectoryValidator_ValidateDirectoryStructure tests structure validation
+func TestDirectoryValidator_ValidateDirectoryStructure(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+	validator := NewDirectoryValidator(logger)
+	ctx := context.Background()
+
+	t.Run("preserved structure - matching", func(t *testing.T) {
+		sourceDir := t.TempDir()
+		destDir := t.TempDir()
+
+		// Create nested directory structure in source
+		err := os.MkdirAll(filepath.Join(sourceDir, "sub"), 0o750)
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(sourceDir, "sub", "file.txt"), []byte("content"), 0o600)
+		require.NoError(t, err)
+
+		// Create same structure in destination
+		err = os.MkdirAll(filepath.Join(destDir, "sub"), 0o750)
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(destDir, "sub", "file.txt"), []byte("content"), 0o600)
+		require.NoError(t, err)
+
+		preserveStructure := true
+		dirMapping := config.DirectoryMapping{
+			Src:               sourceDir,
+			Dest:              destDir,
+			PreserveStructure: &preserveStructure,
+		}
+
+		opts := ValidationOptions{
+			CheckStructure: true,
+		}
+
+		result, err := validator.ValidateDirectoryStructure(ctx, sourceDir, destDir, dirMapping, opts)
+		require.NoError(t, err)
+		assert.True(t, result.Valid)
+	})
+
+	t.Run("flattened structure", func(t *testing.T) {
+		sourceDir := t.TempDir()
+		destDir := t.TempDir()
+
+		// Create nested directory structure in source
+		err := os.MkdirAll(filepath.Join(sourceDir, "sub"), 0o750)
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(sourceDir, "sub", "file.txt"), []byte("content"), 0o600)
+		require.NoError(t, err)
+
+		// Create flattened structure in destination
+		err = os.WriteFile(filepath.Join(destDir, "file.txt"), []byte("content"), 0o600)
+		require.NoError(t, err)
+
+		preserveStructure := false
+		dirMapping := config.DirectoryMapping{
+			Src:               sourceDir,
+			Dest:              destDir,
+			PreserveStructure: &preserveStructure,
+		}
+
+		opts := ValidationOptions{
+			CheckStructure: true,
+		}
+
+		result, err := validator.ValidateDirectoryStructure(ctx, sourceDir, destDir, dirMapping, opts)
+		require.NoError(t, err)
+		assert.True(t, result.Valid)
+	})
+
+	t.Run("source not found", func(t *testing.T) {
+		destDir := t.TempDir()
+
+		dirMapping := config.DirectoryMapping{
+			Src:  "/nonexistent/source",
+			Dest: destDir,
+		}
+
+		opts := ValidationOptions{}
+
+		result, err := validator.ValidateDirectoryStructure(ctx, "/nonexistent/source", destDir, dirMapping, opts)
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
+}
+
+// TestDirectoryValidator_ValidateAllAspects tests comprehensive validation
+func TestDirectoryValidator_ValidateAllAspects(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+	validator := NewDirectoryValidator(logger)
+	ctx := context.Background()
+
+	t.Run("all validations pass", func(t *testing.T) {
+		sourceDir := t.TempDir()
+		destDir := t.TempDir()
+
+		// Create matching files
+		err := os.WriteFile(filepath.Join(sourceDir, "file.txt"), []byte("content"), 0o600)
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(destDir, "file.txt"), []byte("content"), 0o600)
+		require.NoError(t, err)
+
+		dirMapping := config.DirectoryMapping{
+			Src:  sourceDir,
+			Dest: destDir,
+		}
+
+		opts := ValidationOptions{
+			CheckContent:    true,
+			CheckStructure:  true,
+			CheckExclusions: true,
+		}
+
+		result, err := validator.ValidateAllAspects(ctx, sourceDir, destDir, dirMapping, opts)
+		require.NoError(t, err)
+		assert.True(t, result.Valid)
+	})
+
+	t.Run("source directory not found", func(t *testing.T) {
+		destDir := t.TempDir()
+
+		dirMapping := config.DirectoryMapping{
+			Src:  "/nonexistent/source",
+			Dest: destDir,
+		}
+
+		opts := ValidationOptions{}
+
+		result, err := validator.ValidateAllAspects(ctx, "/nonexistent/source", destDir, dirMapping, opts)
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
+}
+
+// TestDirectoryValidator_isHidden tests hidden file detection
+func TestDirectoryValidator_isHidden(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+	validator := NewDirectoryValidator(logger)
+
+	tests := []struct {
+		path     string
+		expected bool
+	}{
+		{"file.txt", false},
+		{".hidden", true},
+		{".git/config", true},
+		{"dir/.hidden", true},
+		{"dir/file.txt", false},
+		{".github/workflows/test.yml", true},
+		{"normal/path/.file", true},
+		{".", false},  // Current directory is not hidden
+		{"..", false}, // Parent directory is not hidden
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			result := validator.isHidden(tt.path)
+			assert.Equal(t, tt.expected, result, "Path: %s", tt.path)
+		})
+	}
+}
+
+// TestDirectoryValidator_calculateFileChecksum tests checksum calculation
+func TestDirectoryValidator_calculateFileChecksum(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+	validator := NewDirectoryValidator(logger)
+
+	t.Run("valid file checksum", func(t *testing.T) {
+		tempDir := t.TempDir()
+		filePath := filepath.Join(tempDir, "test.txt")
+		content := []byte("test content for checksum")
+		err := os.WriteFile(filePath, content, 0o600)
+		require.NoError(t, err)
+
+		checksum, err := validator.calculateFileChecksum(filePath)
+		require.NoError(t, err)
+		assert.NotEmpty(t, checksum)
+
+		// Verify checksum matches expected SHA256
+		expectedHash := fmt.Sprintf("%x", sha256.Sum256(content))
+		assert.Equal(t, expectedHash, checksum)
+	})
+
+	t.Run("file not found", func(t *testing.T) {
+		checksum, err := validator.calculateFileChecksum("/nonexistent/file.txt")
+		require.Error(t, err)
+		assert.Empty(t, checksum)
+	})
+
+	t.Run("consistent checksums for same content", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		// Create two files with same content
+		file1 := filepath.Join(tempDir, "file1.txt")
+		file2 := filepath.Join(tempDir, "file2.txt")
+		content := []byte("identical content")
+
+		err := os.WriteFile(file1, content, 0o600)
+		require.NoError(t, err)
+		err = os.WriteFile(file2, content, 0o600)
+		require.NoError(t, err)
+
+		checksum1, err := validator.calculateFileChecksum(file1)
+		require.NoError(t, err)
+		checksum2, err := validator.calculateFileChecksum(file2)
+		require.NoError(t, err)
+
+		assert.Equal(t, checksum1, checksum2)
+	})
+}

@@ -1464,3 +1464,559 @@ func TestEnableAutoMergePR_Error(t *testing.T) {
 
 	mockRunner.AssertExpectations(t)
 }
+
+// TestGetGitTree tests successful retrieval of a Git tree
+func TestGetGitTree(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	gitTree := GitTree{
+		SHA:       "abc123def456",
+		Truncated: false,
+		Tree: []GitTreeNode{
+			{Path: "README.md", Mode: "100644", Type: "blob", SHA: "sha1"},
+			{Path: "src", Mode: "040000", Type: "tree", SHA: "sha2"},
+		},
+	}
+	output, err := json.Marshal(gitTree)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/git/trees/abc123def456"}).
+		Return(output, nil)
+
+	result, err := client.GetGitTree(ctx, "org/repo", "abc123def456", false)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, "abc123def456", result.SHA)
+	assert.False(t, result.Truncated)
+	assert.Len(t, result.Tree, 2)
+	assert.Equal(t, "README.md", result.Tree[0].Path)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetGitTree_Recursive tests recursive Git tree retrieval
+func TestGetGitTree_Recursive(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	gitTree := GitTree{
+		SHA:       "abc123def456",
+		Truncated: false,
+		Tree: []GitTreeNode{
+			{Path: "README.md", Mode: "100644", Type: "blob", SHA: "sha1"},
+			{Path: "src/main.go", Mode: "100644", Type: "blob", SHA: "sha3"},
+		},
+	}
+	output, err := json.Marshal(gitTree)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/git/trees/abc123def456?recursive=1"}).
+		Return(output, nil)
+
+	result, err := client.GetGitTree(ctx, "org/repo", "abc123def456", true)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Len(t, result.Tree, 2)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetGitTree_NotFound tests error handling when tree is not found
+func TestGetGitTree_NotFound(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/git/trees/nonexistent"}).
+		Return(nil, &CommandError{Stderr: "404 Not Found"})
+
+	result, err := client.GetGitTree(ctx, "org/repo", "nonexistent", false)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	require.ErrorIs(t, err, ErrGitTreeNotFound)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetGitTree_Error tests error handling for API errors
+func TestGetGitTree_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/git/trees/abc123"}).
+		Return(nil, errTestAPIError)
+
+	result, err := client.GetGitTree(ctx, "org/repo", "abc123", false)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "get git tree")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetGitTree_JSONUnmarshalError tests error handling for invalid JSON
+func TestGetGitTree_JSONUnmarshalError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/git/trees/abc123"}).
+		Return([]byte("invalid json"), nil)
+
+	result, err := client.GetGitTree(ctx, "org/repo", "abc123", false)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "parse git tree")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestSearchAssignedPRs tests successful PR search
+func TestSearchAssignedPRs(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	searchResults := []struct {
+		Number  int    `json:"number"`
+		Title   string `json:"title"`
+		URL     string `json:"url"`
+		State   string `json:"state"`
+		IsDraft bool   `json:"isDraft"`
+	}{
+		{Number: 1, Title: "PR 1", URL: "https://github.com/org/repo/pull/1", State: "OPEN", IsDraft: false},
+		{Number: 2, Title: "PR 2", URL: "https://github.com/org/repo/pull/2", State: "OPEN", IsDraft: false},
+	}
+	output, err := json.Marshal(searchResults)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+		Return(output, nil)
+
+	result, err := client.SearchAssignedPRs(ctx)
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Equal(t, 1, result[0].Number)
+	assert.Equal(t, "PR 1", result[0].Title)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestSearchAssignedPRs_FiltersDrafts tests that draft PRs are filtered out
+func TestSearchAssignedPRs_FiltersDrafts(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	searchResults := []struct {
+		Number  int    `json:"number"`
+		Title   string `json:"title"`
+		URL     string `json:"url"`
+		State   string `json:"state"`
+		IsDraft bool   `json:"isDraft"`
+	}{
+		{Number: 1, Title: "PR 1", URL: "https://github.com/org/repo/pull/1", State: "OPEN", IsDraft: false},
+		{Number: 2, Title: "Draft PR", URL: "https://github.com/org/repo/pull/2", State: "OPEN", IsDraft: true},
+		{Number: 3, Title: "PR 3", URL: "https://github.com/org/repo/pull/3", State: "OPEN", IsDraft: false},
+	}
+	output, err := json.Marshal(searchResults)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+		Return(output, nil)
+
+	result, err := client.SearchAssignedPRs(ctx)
+	require.NoError(t, err)
+	assert.Len(t, result, 2) // Only non-draft PRs
+	assert.Equal(t, 1, result[0].Number)
+	assert.Equal(t, 3, result[1].Number)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestSearchAssignedPRs_Error tests error handling for search failures
+func TestSearchAssignedPRs_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+		Return(nil, errTestAPIError)
+
+	result, err := client.SearchAssignedPRs(ctx)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "search assigned PRs")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestSearchAssignedPRs_JSONUnmarshalError tests error handling for invalid JSON
+func TestSearchAssignedPRs_JSONUnmarshalError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+		Return([]byte("invalid json"), nil)
+
+	result, err := client.SearchAssignedPRs(ctx)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "parse search results")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestSearchAssignedPRs_InvalidURL tests handling of PRs with invalid URLs
+func TestSearchAssignedPRs_InvalidURL(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	searchResults := []struct {
+		Number  int    `json:"number"`
+		Title   string `json:"title"`
+		URL     string `json:"url"`
+		State   string `json:"state"`
+		IsDraft bool   `json:"isDraft"`
+	}{
+		{Number: 1, Title: "PR 1", URL: "https://github.com/org/repo/pull/1", State: "OPEN", IsDraft: false},
+		{Number: 2, Title: "Invalid URL PR", URL: "invalid-url", State: "OPEN", IsDraft: false}, // Invalid URL
+	}
+	output, err := json.Marshal(searchResults)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+		Return(output, nil)
+
+	result, err := client.SearchAssignedPRs(ctx)
+	require.NoError(t, err)
+	assert.Len(t, result, 1) // Only valid URL PR
+	assert.Equal(t, 1, result[0].Number)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPRReviews tests successful retrieval of PR reviews
+func TestGetPRReviews(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	reviews := []Review{
+		{ID: 1, User: User{Login: "reviewer1"}, State: "APPROVED", Body: "LGTM"},
+		{ID: 2, User: User{Login: "reviewer2"}, State: "CHANGES_REQUESTED", Body: "Please fix issues"},
+	}
+	output, err := json.Marshal(reviews)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123/reviews"}).
+		Return(output, nil)
+
+	result, err := client.GetPRReviews(ctx, "org/repo", 123)
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Equal(t, "reviewer1", result[0].User.Login)
+	assert.Equal(t, "APPROVED", result[0].State)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPRReviews_NotFound tests error handling when PR is not found
+func TestGetPRReviews_NotFound(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/999/reviews"}).
+		Return(nil, &CommandError{Stderr: "404 Not Found"})
+
+	result, err := client.GetPRReviews(ctx, "org/repo", 999)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Equal(t, ErrPRNotFound, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPRReviews_Error tests error handling for API errors
+func TestGetPRReviews_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123/reviews"}).
+		Return(nil, errTestAPIError)
+
+	result, err := client.GetPRReviews(ctx, "org/repo", 123)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "get reviews for PR #123")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPRReviews_JSONUnmarshalError tests error handling for invalid JSON
+func TestGetPRReviews_JSONUnmarshalError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123/reviews"}).
+		Return([]byte("invalid json"), nil)
+
+	result, err := client.GetPRReviews(ctx, "org/repo", 123)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "parse PR reviews")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestHasApprovedReview tests checking for approved review
+func TestHasApprovedReview(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	reviews := []Review{
+		{ID: 1, User: User{Login: "reviewer1"}, State: "APPROVED"},
+		{ID: 2, User: User{Login: "reviewer2"}, State: "CHANGES_REQUESTED"},
+	}
+	output, err := json.Marshal(reviews)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123/reviews"}).
+		Return(output, nil)
+
+	hasApproval, err := client.HasApprovedReview(ctx, "org/repo", 123, "reviewer1")
+	require.NoError(t, err)
+	assert.True(t, hasApproval)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestHasApprovedReview_NoApproval tests when user has not approved
+func TestHasApprovedReview_NoApproval(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	reviews := []Review{
+		{ID: 1, User: User{Login: "reviewer1"}, State: "CHANGES_REQUESTED"},
+		{ID: 2, User: User{Login: "reviewer2"}, State: "APPROVED"},
+	}
+	output, err := json.Marshal(reviews)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123/reviews"}).
+		Return(output, nil)
+
+	hasApproval, err := client.HasApprovedReview(ctx, "org/repo", 123, "reviewer1")
+	require.NoError(t, err)
+	assert.False(t, hasApproval)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestHasApprovedReview_UserNotReviewed tests when user has not reviewed at all
+func TestHasApprovedReview_UserNotReviewed(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	reviews := []Review{
+		{ID: 1, User: User{Login: "other_reviewer"}, State: "APPROVED"},
+	}
+	output, err := json.Marshal(reviews)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123/reviews"}).
+		Return(output, nil)
+
+	hasApproval, err := client.HasApprovedReview(ctx, "org/repo", 123, "reviewer1")
+	require.NoError(t, err)
+	assert.False(t, hasApproval)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestHasApprovedReview_LatestReviewMatters tests that only the latest review matters
+func TestHasApprovedReview_LatestReviewMatters(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// User first approved, then requested changes
+	reviews := []Review{
+		{ID: 1, User: User{Login: "reviewer1"}, State: "APPROVED"},
+		{ID: 2, User: User{Login: "reviewer1"}, State: "CHANGES_REQUESTED"},
+	}
+	output, err := json.Marshal(reviews)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123/reviews"}).
+		Return(output, nil)
+
+	hasApproval, err := client.HasApprovedReview(ctx, "org/repo", 123, "reviewer1")
+	require.NoError(t, err)
+	assert.False(t, hasApproval) // Latest review is CHANGES_REQUESTED
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestHasApprovedReview_Error tests error handling
+func TestHasApprovedReview_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123/reviews"}).
+		Return(nil, errTestAPIError)
+
+	hasApproval, err := client.HasApprovedReview(ctx, "org/repo", 123, "reviewer1")
+	require.Error(t, err)
+	assert.False(t, hasApproval)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestAddPRComment tests adding a comment to a PR
+func TestAddPRComment(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("RunWithInput", ctx, mock.MatchedBy(func(data []byte) bool {
+		return string(data) == `{"body":"Test comment"}`
+	}), "gh", []string{"api", "repos/org/repo/issues/123/comments", "--method", "POST", "--input", "-"}).
+		Return([]byte(`{"id": 1}`), nil)
+
+	err := client.AddPRComment(ctx, "org/repo", 123, "Test comment")
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestAddPRComment_Error tests error handling when adding comment fails
+func TestAddPRComment_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/issues/123/comments", "--method", "POST", "--input", "-"}).
+		Return(nil, errTestAPIError)
+
+	err := client.AddPRComment(ctx, "org/repo", 123, "Test comment")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "add PR comment")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestCreatePR_WithLabels tests PR creation with labels
+func TestCreatePR_WithLabels(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	req := PRRequest{
+		Title:  "Test PR",
+		Body:   "Test description",
+		Head:   "feature",
+		Base:   "master",
+		Labels: []string{"bug", "high-priority"},
+	}
+
+	pr := PR{
+		Number: 42,
+		Title:  req.Title,
+		Body:   req.Body,
+		State:  "open",
+	}
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Expect PR creation call
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls", "--method", "POST", "--input", "-"}).
+		Return(prOutput, nil)
+
+	// Expect labels call
+	mockRunner.On("RunWithInput", ctx, mock.MatchedBy(func(data []byte) bool {
+		return string(data) == `{"labels":["bug","high-priority"]}`
+	}), "gh", []string{"api", "repos/org/repo/issues/42/labels", "--method", "POST", "--input", "-"}).
+		Return([]byte("{}"), nil)
+
+	result, err := client.CreatePR(ctx, "org/repo", req)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 42, result.Number)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestCreatePR_LabelsFailure tests that PR creation succeeds even if setting labels fails
+func TestCreatePR_LabelsFailure(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	req := PRRequest{
+		Title:  "Test PR",
+		Body:   "Test description",
+		Head:   "feature",
+		Base:   "master",
+		Labels: []string{"bug"},
+	}
+
+	pr := PR{
+		Number: 42,
+		Title:  req.Title,
+		Body:   req.Body,
+		State:  "open",
+	}
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Expect PR creation call
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls", "--method", "POST", "--input", "-"}).
+		Return(prOutput, nil)
+
+	// Expect labels call to fail
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/issues/42/labels", "--method", "POST", "--input", "-"}).
+		Return(nil, internalerrors.ErrTest)
+
+	result, err := client.CreatePR(ctx, "org/repo", req)
+	require.NoError(t, err) // Should still succeed
+	require.NotNil(t, result)
+	assert.Equal(t, 42, result.Number)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestCreatePR_InvalidRepoFormat tests error handling for invalid repo format
+func TestCreatePR_InvalidRepoFormat(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	req := PRRequest{
+		Title: "Test PR",
+		Body:  "Test description",
+		Head:  "feature",
+		Base:  "master",
+	}
+
+	result, err := client.CreatePR(ctx, "invalid-repo-format", req)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "parse repo")
+
+	// Should not call runner for invalid repo format
+	mockRunner.AssertExpectations(t)
+}

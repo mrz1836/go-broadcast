@@ -336,6 +336,165 @@ func TestValidateBranchPrefix(t *testing.T) {
 	}
 }
 
+func TestValidateEmail(t *testing.T) {
+	tests := []struct {
+		name      string
+		email     string
+		fieldName string
+		wantErr   bool
+		errMsg    string
+	}{
+		// Valid cases
+		{
+			name:      "standard email",
+			email:     "user@example.com",
+			fieldName: "security_email",
+			wantErr:   false,
+		},
+		{
+			name:      "email with subdomain",
+			email:     "user@mail.example.com",
+			fieldName: "security_email",
+			wantErr:   false,
+		},
+		{
+			name:      "email with plus sign",
+			email:     "user+tag@example.com",
+			fieldName: "security_email",
+			wantErr:   false,
+		},
+		{
+			name:      "email with dots",
+			email:     "user.name@example.com",
+			fieldName: "security_email",
+			wantErr:   false,
+		},
+		{
+			name:      "email with numbers",
+			email:     "user123@example123.com",
+			fieldName: "security_email",
+			wantErr:   false,
+		},
+		{
+			name:      "email with hyphen in domain",
+			email:     "user@my-domain.com",
+			fieldName: "security_email",
+			wantErr:   false,
+		},
+		{
+			name:      "email with underscore",
+			email:     "user_name@example.com",
+			fieldName: "security_email",
+			wantErr:   false,
+		},
+		{
+			name:      "empty email is allowed",
+			email:     "",
+			fieldName: "security_email",
+			wantErr:   false,
+		},
+		{
+			name:      "email with percent sign",
+			email:     "user%name@example.com",
+			fieldName: "security_email",
+			wantErr:   false,
+		},
+
+		// Invalid cases
+		{
+			name:      "missing at symbol",
+			email:     "userexample.com",
+			fieldName: "security_email",
+			wantErr:   true,
+			errMsg:    "invalid field: security_email",
+		},
+		{
+			name:      "missing domain",
+			email:     "user@",
+			fieldName: "security_email",
+			wantErr:   true,
+			errMsg:    "invalid field: security_email",
+		},
+		{
+			name:      "missing TLD",
+			email:     "user@example",
+			fieldName: "security_email",
+			wantErr:   true,
+			errMsg:    "invalid field: security_email",
+		},
+		{
+			name:      "double at symbol",
+			email:     "user@@example.com",
+			fieldName: "security_email",
+			wantErr:   true,
+			errMsg:    "invalid field: security_email",
+		},
+		{
+			name:      "leading dot in local part",
+			email:     ".user@example.com",
+			fieldName: "security_email",
+			wantErr:   false, // The simplified RFC pattern allows this
+		},
+		{
+			name:      "space in email",
+			email:     "user name@example.com",
+			fieldName: "security_email",
+			wantErr:   true,
+			errMsg:    "invalid field: security_email",
+		},
+		{
+			name:      "just at symbol",
+			email:     "@",
+			fieldName: "security_email",
+			wantErr:   true,
+			errMsg:    "invalid field: security_email",
+		},
+		{
+			name:      "missing local part",
+			email:     "@example.com",
+			fieldName: "security_email",
+			wantErr:   true,
+			errMsg:    "invalid field: security_email",
+		},
+		{
+			name:      "TLD too short",
+			email:     "user@example.c",
+			fieldName: "security_email",
+			wantErr:   true,
+			errMsg:    "invalid field: security_email",
+		},
+		{
+			name:      "unicode in email",
+			email:     "usér@example.com",
+			fieldName: "security_email",
+			wantErr:   true,
+			errMsg:    "invalid field: security_email",
+		},
+		{
+			name:      "emoji in email",
+			email:     "user😊@example.com",
+			fieldName: "security_email",
+			wantErr:   true,
+			errMsg:    "invalid field: security_email",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateEmail(tt.email, tt.fieldName)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateFilePath(t *testing.T) {
 	tests := []struct {
 		name      string
