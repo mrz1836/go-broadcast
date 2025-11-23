@@ -51,10 +51,13 @@
 </div>
 
 <br/>
-
-## 🗂️ Project Navigation
-
 <br/>
+
+<div align="center">
+
+### <code>Project Navigation</code>
+
+</div>
 
 <table align="center">
   <tr>
