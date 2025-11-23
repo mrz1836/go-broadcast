@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📡 go-broadcast
+# 📡&nbsp;&nbsp;go-broadcast
 
 **Stateless File Sync Orchestrator for Repository Management**
 
@@ -26,7 +26,7 @@
     </td>
     <td align="left">
        <a href="https://goreportcard.com/report/github.com/mrz1836/go-broadcast"><img src="https://goreportcard.com/badge/github.com/mrz1836/go-broadcast?style=flat-square" alt="Go Report"></a>
-       <a href="https://mrz1836.github.io/go-broadcast/"><img src="https://img.shields.io/badge/coverage-78.5%25-yellow?style=flat-square&logo=codecov&logoColor=white" alt="Coverage"></a>
+       <a href="https://mrz1836.github.io/go-broadcast/"><img src="https://mrz1836.github.io/go-broadcast/coverage.svg?style=flat-square&logo=codecov&logoColor=white" alt="Coverage"></a>
     </td>
   </tr>
 
