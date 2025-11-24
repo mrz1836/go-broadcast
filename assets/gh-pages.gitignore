@@ -12,6 +12,9 @@
 !/dashboard.html
 !/coverage.html
 !/coverage.svg
+!/coverage-flat.svg
+!/coverage-flat-square.svg
+!/coverage-for-the-badge.svg
 !/branches.html
 !/coverage-data.json
 
