@@ -1144,13 +1144,27 @@ This magical file controls everything from:
 <summary><strong>Updating Dependencies</strong></summary>
 <br/>
 
-To update all dependencies (Go modules, linters, and related tools), run:
+To update all dependencies in go.mod files, run:
 
 ```bash
+# Update all dependencies
 magex deps:update
+
+# Update all modules
+magex deps:update all-modules
 ```
 
 This command ensures all dependencies are brought up to date in a single step, including Go modules and any tools managed by [MAGE-X](https://github.com/mrz1836/mage-x). It is the recommended way to keep your development environment and CI in sync with the latest versions.
+
+To update the `.env.base` file with the latest tool versions, run:
+
+```bash
+# Dry run to preview changes
+magex updateToolVersions
+
+# Apply changes to .env.base
+UPDATE_VERSIONS=true magex updateToolVersions
+```
 
 </details>
 
@@ -1161,8 +1175,12 @@ This command ensures all dependencies are brought up to date in a single step, i
 Set up the Go-Pre-commit System to run the same formatting, linting, and tests defined in [AGENTS.md](.github/AGENTS.md) before every commit:
 
 ```bash
+# Install and set up pre-commit hooks
 go install github.com/mrz1836/go-pre-commit/cmd/go-pre-commit@latest
 go-pre-commit install
+
+# Run pre-commit hooks manually
+go-pre-commit run --all-files
 ```
 
 The system is configured via [.env.base](.github/.env.base) and can be customized using also using [.env.custom](.github/.env.custom) and provides 17x faster execution than traditional Python-based pre-commit hooks. See the [complete documentation](http://github.com/mrz1836/go-pre-commit) for details.
