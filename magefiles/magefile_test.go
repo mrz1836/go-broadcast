@@ -19,6 +19,8 @@ var (
 	ErrTestsFailed            = errors.New("tests failed")
 	ErrPerformanceTestsFailed = errors.New("performance tests failed")
 	ErrQuickTestsFailed       = errors.New("quick tests failed")
+	errRateLimitedTest        = errors.New("rate limited")
+	errFileNotFoundTest       = errors.New("file not found")
 )
 
 // MockCommander for testing
@@ -390,4 +392,105 @@ func TestAllMageFunctions(t *testing.T) {
 			assert.Equal(t, tc.expectedCalls, calls)
 		})
 	}
+}
+
+// TestUpdateToolVersions tests the UpdateToolVersions function
+func TestUpdateToolVersions(t *testing.T) {
+	// Save original version update service
+	originalService := versionUpdateService
+	defer func() {
+		setVersionUpdateService(originalService)
+		resetVersionUpdateService()
+	}()
+
+	t.Run("DryRunMode", func(t *testing.T) {
+		// Create mock service components
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+
+		// Set up mocks
+		content := []byte("GO_COVERAGE_VERSION=v1.1.15\n")
+		updater.SetContent(content)
+		checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.15")
+
+		// Create and inject mock service (dry-run mode)
+		mockService := NewVersionUpdateService(checker, updater, logger, true, 0)
+		setVersionUpdateService(mockService)
+
+		err := UpdateToolVersions()
+		require.NoError(t, err)
+
+		// Verify no file was written (dry-run mode)
+		assert.Empty(t, updater.writtenPath)
+	})
+
+	t.Run("ActualUpdateMode", func(t *testing.T) {
+		// Reset the service singleton
+		resetVersionUpdateService()
+
+		// Create mock service components
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+
+		// Set up mocks
+		content := []byte("GO_COVERAGE_VERSION=v1.1.15\n")
+		updater.SetContent(content)
+		checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.16")
+
+		// Create and inject mock service (update mode)
+		mockService := NewVersionUpdateService(checker, updater, logger, false, 0)
+		setVersionUpdateService(mockService)
+
+		err := UpdateToolVersions()
+		require.NoError(t, err)
+
+		// Verify file was written (update mode)
+		assert.NotEmpty(t, updater.writtenPath)
+	})
+
+	t.Run("VersionCheckError", func(t *testing.T) {
+		// Reset the service singleton
+		resetVersionUpdateService()
+
+		// Create mock service components
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+
+		// Set up mocks with error
+		content := []byte("GO_COVERAGE_VERSION=v1.1.15\n")
+		updater.SetContent(content)
+		checker.SetError("https://github.com/mrz1836/go-coverage", errRateLimitedTest)
+
+		// Create and inject mock service
+		mockService := NewVersionUpdateService(checker, updater, logger, true, 0)
+		setVersionUpdateService(mockService)
+
+		// Should not return error even if checks fail (displays error in table)
+		err := UpdateToolVersions()
+		require.NoError(t, err)
+	})
+
+	t.Run("FileReadError", func(t *testing.T) {
+		// Reset the service singleton
+		resetVersionUpdateService()
+
+		// Create mock service components
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+
+		// Set up mocks with read error
+		updater.readError = errFileNotFoundTest
+
+		// Create and inject mock service
+		mockService := NewVersionUpdateService(checker, updater, logger, true, 0)
+		setVersionUpdateService(mockService)
+
+		err := UpdateToolVersions()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read file")
+	})
 }

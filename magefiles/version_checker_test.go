@@ -1,0 +1,689 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// Test errors for linting compliance (err113)
+var (
+	errNotFound         = errors.New("not found")
+	errRateLimited      = errors.New("rate limited")
+	errPermissionDenied = errors.New("permission denied")
+	errDiskFull         = errors.New("disk full")
+	errFileNotFound     = errors.New("file not found")
+)
+
+// MockVersionChecker is a mock implementation of VersionChecker for testing.
+type MockVersionChecker struct {
+	versions map[string]string // repoURL -> version
+	errors   map[string]error  // repoURL -> error
+	calls    []string          // Track calls
+}
+
+// NewMockVersionChecker creates a new mock version checker.
+func NewMockVersionChecker() *MockVersionChecker {
+	return &MockVersionChecker{
+		versions: make(map[string]string),
+		errors:   make(map[string]error),
+		calls:    make([]string, 0),
+	}
+}
+
+// CheckLatestVersion returns the mocked version or error.
+func (m *MockVersionChecker) CheckLatestVersion(_ context.Context, repoURL string) (string, error) {
+	m.calls = append(m.calls, repoURL)
+	if err, ok := m.errors[repoURL]; ok {
+		return "", err
+	}
+	if version, ok := m.versions[repoURL]; ok {
+		return version, nil
+	}
+	return "", errNotFound
+}
+
+// SetVersion sets the version to return for a repo.
+func (m *MockVersionChecker) SetVersion(repoURL, version string) {
+	m.versions[repoURL] = version
+}
+
+// SetError sets the error to return for a repo.
+func (m *MockVersionChecker) SetError(repoURL string, err error) {
+	m.errors[repoURL] = err
+}
+
+// GetCalls returns the list of calls made.
+func (m *MockVersionChecker) GetCalls() []string {
+	return m.calls
+}
+
+// MockFileUpdater is a mock implementation of FileUpdater for testing.
+type MockFileUpdater struct {
+	content      []byte
+	readError    error
+	writeError   error
+	backupError  error
+	writtenPath  string
+	writtenData  []byte
+	backedUpPath string
+}
+
+// NewMockFileUpdater creates a new mock file updater.
+func NewMockFileUpdater() *MockFileUpdater {
+	return &MockFileUpdater{}
+}
+
+// ReadFile returns the mocked content or error.
+func (m *MockFileUpdater) ReadFile(_ string) ([]byte, error) {
+	if m.readError != nil {
+		return nil, m.readError
+	}
+	return m.content, nil
+}
+
+// WriteFile stores the written data.
+func (m *MockFileUpdater) WriteFile(path string, content []byte, _ os.FileMode) error {
+	if m.writeError != nil {
+		return m.writeError
+	}
+	m.writtenPath = path
+	m.writtenData = content
+	return nil
+}
+
+// BackupFile records the backup.
+func (m *MockFileUpdater) BackupFile(path string) error {
+	if m.backupError != nil {
+		return m.backupError
+	}
+	m.backedUpPath = path
+	return nil
+}
+
+// SetContent sets the content to return on read.
+func (m *MockFileUpdater) SetContent(content []byte) {
+	m.content = content
+}
+
+// GetWrittenData returns the data that was written.
+func (m *MockFileUpdater) GetWrittenData() []byte {
+	return m.writtenData
+}
+
+// MockLogger is a mock implementation of VersionLogger for testing.
+type MockLogger struct {
+	infoMessages  []string
+	errorMessages []string
+	warnMessages  []string
+}
+
+// NewMockLogger creates a new mock logger.
+func NewMockLogger() *MockLogger {
+	return &MockLogger{
+		infoMessages:  make([]string, 0),
+		errorMessages: make([]string, 0),
+		warnMessages:  make([]string, 0),
+	}
+}
+
+// Info logs an info message.
+func (m *MockLogger) Info(msg string) {
+	m.infoMessages = append(m.infoMessages, msg)
+}
+
+// Error logs an error message.
+func (m *MockLogger) Error(msg string) {
+	m.errorMessages = append(m.errorMessages, msg)
+}
+
+// Warn logs a warning message.
+func (m *MockLogger) Warn(msg string) {
+	m.warnMessages = append(m.warnMessages, msg)
+}
+
+// GetInfoMessages returns all info messages.
+func (m *MockLogger) GetInfoMessages() []string {
+	return m.infoMessages
+}
+
+func TestGetToolDefinitions(t *testing.T) {
+	tools := GetToolDefinitions()
+
+	// Test that all expected tools are present
+	expectedTools := []string{
+		"go-coverage",
+		"mage-x",
+		"gitleaks",
+		"gofumpt",
+		"golangci-lint",
+		"goreleaser",
+		"govulncheck",
+		"mockgen",
+		"nancy",
+		"staticcheck",
+		"swag",
+		"yamlfmt",
+		"go-pre-commit",
+	}
+
+	assert.Len(t, tools, len(expectedTools), "should have correct number of tools")
+
+	for _, toolName := range expectedTools {
+		tool, ok := tools[toolName]
+		require.True(t, ok, "tool %s should exist", toolName)
+		assert.NotEmpty(t, tool.EnvVars, "tool %s should have env vars", toolName)
+		assert.NotEmpty(t, tool.RepoURL, "tool %s should have repo URL", toolName)
+		assert.NotEmpty(t, tool.RepoOwner, "tool %s should have repo owner", toolName)
+		assert.NotEmpty(t, tool.RepoName, "tool %s should have repo name", toolName)
+	}
+
+	// Test specific tool configurations
+	t.Run("gitleaks has multiple env vars", func(t *testing.T) {
+		tool := tools["gitleaks"]
+		assert.Contains(t, tool.EnvVars, "MAGE_X_GITLEAKS_VERSION")
+		assert.Contains(t, tool.EnvVars, "GITLEAKS_VERSION")
+		assert.Contains(t, tool.EnvVars, "GO_PRE_COMMIT_GITLEAKS_VERSION")
+		assert.Equal(t, "gitleaks", tool.RepoOwner)
+		assert.Equal(t, "gitleaks", tool.RepoName)
+	})
+
+	t.Run("golangci-lint has multiple env vars", func(t *testing.T) {
+		tool := tools["golangci-lint"]
+		assert.Contains(t, tool.EnvVars, "MAGE_X_GOLANGCI_LINT_VERSION")
+		assert.Contains(t, tool.EnvVars, "GO_PRE_COMMIT_GOLANGCI_LINT_VERSION")
+	})
+}
+
+func TestVersionUpdateService_ExtractVersions(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+	content := []byte(`# Comment line
+GO_COVERAGE_VERSION=v1.1.15
+MAGE_X_VERSION=v1.8.7
+MAGE_X_GITLEAKS_VERSION=8.29.1
+GITLEAKS_VERSION=8.29.1
+NANCY_VERSION=v1.0.52
+`)
+
+	tools := GetToolDefinitions()
+	versions := service.extractVersions(content, tools)
+
+	assert.Equal(t, "v1.1.15", versions["go-coverage"])
+	assert.Equal(t, "v1.8.7", versions["mage-x"])
+	assert.Equal(t, "8.29.1", versions["gitleaks"])
+	assert.Equal(t, "v1.0.52", versions["nancy"])
+}
+
+func TestVersionUpdateService_NormalizeVersion(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"with v prefix", "v1.2.3", "1.2.3"},
+		{"without v prefix", "1.2.3", "1.2.3"},
+		{"with multiple digits", "v10.20.30", "10.20.30"},
+		{"empty string", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := service.normalizeVersion(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestVersionUpdateService_CheckVersions(t *testing.T) {
+	t.Run("all up to date", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+		// Mock versions
+		checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.15")
+		checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.8.7")
+
+		tools := map[string]*ToolInfo{
+			"go-coverage": {
+				EnvVars:   []string{"GO_COVERAGE_VERSION"},
+				RepoURL:   "https://github.com/mrz1836/go-coverage",
+				RepoOwner: "mrz1836",
+				RepoName:  "go-coverage",
+			},
+			"mage-x": {
+				EnvVars:   []string{"MAGE_X_VERSION"},
+				RepoURL:   "https://github.com/mrz1836/mage-x",
+				RepoOwner: "mrz1836",
+				RepoName:  "mage-x",
+			},
+		}
+
+		currentVersions := map[string]string{
+			"go-coverage": "v1.1.15",
+			"mage-x":      "v1.8.7",
+		}
+
+		ctx := context.Background()
+		results := service.checkVersions(ctx, tools, currentVersions)
+
+		require.Len(t, results, 2)
+		assert.Equal(t, "up-to-date", results[0].Status)
+		assert.Equal(t, "up-to-date", results[1].Status)
+	})
+
+	t.Run("updates available", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+		// Mock versions with updates
+		checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.16")
+		checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.8.8")
+
+		tools := map[string]*ToolInfo{
+			"go-coverage": {
+				EnvVars:   []string{"GO_COVERAGE_VERSION"},
+				RepoURL:   "https://github.com/mrz1836/go-coverage",
+				RepoOwner: "mrz1836",
+				RepoName:  "go-coverage",
+			},
+			"mage-x": {
+				EnvVars:   []string{"MAGE_X_VERSION"},
+				RepoURL:   "https://github.com/mrz1836/mage-x",
+				RepoOwner: "mrz1836",
+				RepoName:  "mage-x",
+			},
+		}
+
+		currentVersions := map[string]string{
+			"go-coverage": "v1.1.15",
+			"mage-x":      "v1.8.7",
+		}
+
+		ctx := context.Background()
+		results := service.checkVersions(ctx, tools, currentVersions)
+
+		require.Len(t, results, 2)
+		assert.Equal(t, "update-available", results[0].Status)
+		assert.Equal(t, "update-available", results[1].Status)
+		assert.Equal(t, "v1.1.16", results[0].LatestVersion)
+		assert.Equal(t, "v1.8.8", results[1].LatestVersion)
+	})
+
+	t.Run("version check errors", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+		// Mock error
+		checker.SetError("https://github.com/mrz1836/go-coverage", errRateLimited)
+
+		tools := map[string]*ToolInfo{
+			"go-coverage": {
+				EnvVars:   []string{"GO_COVERAGE_VERSION"},
+				RepoURL:   "https://github.com/mrz1836/go-coverage",
+				RepoOwner: "mrz1836",
+				RepoName:  "go-coverage",
+			},
+		}
+
+		currentVersions := map[string]string{
+			"go-coverage": "v1.1.15",
+		}
+
+		ctx := context.Background()
+		results := service.checkVersions(ctx, tools, currentVersions)
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "error", results[0].Status)
+		assert.Error(t, results[0].Error)
+	})
+
+	t.Run("normalizes version comparison", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+		// Mock version with v prefix vs without
+		checker.SetVersion("https://github.com/gitleaks/gitleaks", "v8.29.1")
+
+		tools := map[string]*ToolInfo{
+			"gitleaks": {
+				EnvVars:   []string{"GITLEAKS_VERSION"},
+				RepoURL:   "https://github.com/gitleaks/gitleaks",
+				RepoOwner: "gitleaks",
+				RepoName:  "gitleaks",
+			},
+		}
+
+		// Current version without v prefix
+		currentVersions := map[string]string{
+			"gitleaks": "8.29.1",
+		}
+
+		ctx := context.Background()
+		results := service.checkVersions(ctx, tools, currentVersions)
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "up-to-date", results[0].Status)
+	})
+}
+
+func TestVersionUpdateService_HasUpdates(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+	t.Run("has updates", func(t *testing.T) {
+		results := []CheckResult{
+			{Status: "up-to-date"},
+			{Status: "update-available"},
+			{Status: "up-to-date"},
+		}
+		assert.True(t, service.hasUpdates(results))
+	})
+
+	t.Run("no updates", func(t *testing.T) {
+		results := []CheckResult{
+			{Status: "up-to-date"},
+			{Status: "up-to-date"},
+			{Status: "error"},
+		}
+		assert.False(t, service.hasUpdates(results))
+	})
+}
+
+func TestVersionUpdateService_UpdateFile(t *testing.T) {
+	t.Run("successful update", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, false, 0)
+
+		originalContent := []byte(`# Configuration
+GO_COVERAGE_VERSION=v1.1.15
+MAGE_X_VERSION=v1.8.7
+GITLEAKS_VERSION=8.29.1
+MAGE_X_GITLEAKS_VERSION=8.29.1
+`)
+
+		updater.SetContent(originalContent)
+
+		results := []CheckResult{
+			{
+				Tool:           "go-coverage",
+				EnvVars:        []string{"GO_COVERAGE_VERSION"},
+				CurrentVersion: "v1.1.15",
+				LatestVersion:  "v1.1.16",
+				Status:         "update-available",
+			},
+			{
+				Tool:           "gitleaks",
+				EnvVars:        []string{"GITLEAKS_VERSION", "MAGE_X_GITLEAKS_VERSION"},
+				CurrentVersion: "8.29.1",
+				LatestVersion:  "8.30.0",
+				Status:         "update-available",
+			},
+			{
+				Tool:           "mage-x",
+				EnvVars:        []string{"MAGE_X_VERSION"},
+				CurrentVersion: "v1.8.7",
+				LatestVersion:  "v1.8.7",
+				Status:         "up-to-date",
+			},
+		}
+
+		err := service.updateFile(".github/.env.base", originalContent, results)
+		require.NoError(t, err)
+
+		// Verify backup was created
+		assert.Equal(t, ".github/.env.base", updater.backedUpPath)
+
+		// Verify file was written
+		writtenData := string(updater.GetWrittenData())
+		assert.Contains(t, writtenData, "GO_COVERAGE_VERSION=v1.1.16")
+		assert.Contains(t, writtenData, "GITLEAKS_VERSION=8.30.0")
+		assert.Contains(t, writtenData, "MAGE_X_GITLEAKS_VERSION=8.30.0")
+		assert.Contains(t, writtenData, "MAGE_X_VERSION=v1.8.7") // Unchanged
+	})
+
+	t.Run("backup failure", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, false, 0)
+
+		updater.backupError = errPermissionDenied
+
+		results := []CheckResult{
+			{Status: "update-available"},
+		}
+
+		err := service.updateFile(".github/.env.base", []byte{}, results)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create backup")
+	})
+
+	t.Run("write failure", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, false, 0)
+
+		updater.writeError = errDiskFull
+
+		results := []CheckResult{
+			{
+				EnvVars:        []string{"GO_COVERAGE_VERSION"},
+				CurrentVersion: "v1.1.15",
+				LatestVersion:  "v1.1.16",
+				Status:         "update-available",
+			},
+		}
+
+		err := service.updateFile(".github/.env.base", []byte("GO_COVERAGE_VERSION=v1.1.15"), results)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to write file")
+	})
+}
+
+func TestVersionUpdateService_Run_DryRun(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, true, 10*time.Millisecond)
+
+	content := []byte(`GO_COVERAGE_VERSION=v1.1.15
+MAGE_X_VERSION=v1.8.7
+`)
+
+	updater.SetContent(content)
+	checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.16")
+	checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.8.8")
+
+	ctx := context.Background()
+	err := service.Run(ctx, ".github/.env.base")
+
+	require.NoError(t, err)
+
+	// In dry run mode, no files should be written
+	assert.Empty(t, updater.writtenPath)
+	assert.Empty(t, updater.backedUpPath)
+
+	// Logger should have been used
+	assert.NotEmpty(t, logger.GetInfoMessages())
+}
+
+func TestVersionUpdateService_Run_ActualUpdate(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, false, 10*time.Millisecond)
+
+	content := []byte(`GO_COVERAGE_VERSION=v1.1.15
+MAGE_X_VERSION=v1.8.7
+`)
+
+	updater.SetContent(content)
+	checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.16")
+	checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.8.8")
+
+	ctx := context.Background()
+	err := service.Run(ctx, ".github/.env.base")
+
+	require.NoError(t, err)
+
+	// File should be backed up and written
+	assert.Equal(t, ".github/.env.base", updater.backedUpPath)
+	assert.Equal(t, ".github/.env.base", updater.writtenPath)
+
+	// Verify updates
+	writtenData := string(updater.GetWrittenData())
+	assert.Contains(t, writtenData, "GO_COVERAGE_VERSION=v1.1.16")
+	assert.Contains(t, writtenData, "MAGE_X_VERSION=v1.8.8")
+}
+
+func TestVersionUpdateService_Run_ReadError(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+	updater.readError = errFileNotFound
+
+	ctx := context.Background()
+	err := service.Run(ctx, ".github/.env.base")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read file")
+}
+
+func TestRunVersionUpdate(t *testing.T) {
+	t.Run("dry run mode", func(t *testing.T) {
+		// Save original service
+		originalService := versionUpdateService
+		defer func() {
+			setVersionUpdateService(originalService)
+			resetVersionUpdateService()
+		}()
+
+		// Create mock service
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		mockService := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+		// Set up mocks
+		updater.SetContent([]byte("GO_COVERAGE_VERSION=v1.1.15\n"))
+		checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.15")
+
+		// Inject mock service
+		setVersionUpdateService(mockService)
+
+		err := RunVersionUpdate(true)
+		require.NoError(t, err)
+	})
+}
+
+func TestRealFileUpdater_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	updater := NewFileUpdater()
+
+	// Create temp file
+	tmpDir := t.TempDir()
+	testFile := tmpDir + "/test.env"
+	content := []byte("TEST=value\n")
+
+	// Test write
+	err := updater.WriteFile(testFile, content, 0o644)
+	require.NoError(t, err)
+
+	// Test read
+	readContent, err := updater.ReadFile(testFile)
+	require.NoError(t, err)
+	assert.Equal(t, content, readContent)
+
+	// Test backup
+	err = updater.BackupFile(testFile)
+	require.NoError(t, err)
+
+	// Verify backup exists
+	backupContent, err := updater.ReadFile(testFile + ".backup")
+	require.NoError(t, err)
+	assert.Equal(t, content, backupContent)
+}
+
+func TestMockVersionChecker_CallTracking(t *testing.T) {
+	mock := NewMockVersionChecker()
+	mock.SetVersion("https://github.com/owner/repo1", "v1.0.0")
+	mock.SetVersion("https://github.com/owner/repo2", "v2.0.0")
+
+	ctx := context.Background()
+
+	// Make calls
+	_, _ = mock.CheckLatestVersion(ctx, "https://github.com/owner/repo1")
+	_, _ = mock.CheckLatestVersion(ctx, "https://github.com/owner/repo2")
+	_, _ = mock.CheckLatestVersion(ctx, "https://github.com/owner/repo1")
+
+	// Verify calls
+	calls := mock.GetCalls()
+	require.Len(t, calls, 3)
+	assert.Equal(t, "https://github.com/owner/repo1", calls[0])
+	assert.Equal(t, "https://github.com/owner/repo2", calls[1])
+	assert.Equal(t, "https://github.com/owner/repo1", calls[2])
+}
+
+func TestConsoleLogger(t *testing.T) {
+	// Just verify it doesn't panic
+	logger := NewConsoleLogger()
+	require.NotNil(t, logger)
+
+	// These should not panic
+	logger.Info("test info")
+	logger.Error("test error")
+	logger.Warn("test warn")
+}
+
+func TestVersionChecker_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	// Test without gh CLI
+	checker := NewVersionChecker(false)
+	ctx := context.Background()
+
+	// Test with a known stable repo
+	version, err := checker.CheckLatestVersion(ctx, "https://github.com/magefile/mage")
+	if err != nil {
+		// Network errors are ok in integration tests
+		t.Logf("Network error (expected in some envs): %v", err)
+		return
+	}
+
+	assert.NotEmpty(t, version)
+	t.Logf("Found version: %s", version)
+}

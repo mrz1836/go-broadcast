@@ -109,3 +109,28 @@ func TestAll() error {
 	}
 	return TestPerf()
 }
+
+// UpdateToolVersions checks and updates tool versions in .github/.env.base
+// This command checks GitHub releases for the latest versions of all tools
+// defined in .env.base and updates them if newer versions are available.
+//
+// By default, runs in dry-run mode (no changes).
+// Set UPDATE_VERSIONS=true environment variable to apply updates.
+//
+// Usage:
+//
+//	mage updateToolVersions              # Dry run (no changes)
+//	UPDATE_VERSIONS=true mage updateToolVersions  # Apply updates
+//
+// The command includes rate limiting (2s delay between checks) to avoid
+// GitHub API rate limits and will use gh CLI if available for higher limits.
+func UpdateToolVersions() error {
+	// Check if we should actually update or just dry run
+	dryRun := true
+	updateEnv, _ := sh.Output("sh", "-c", "echo $UPDATE_VERSIONS")
+	if updateEnv == "true" {
+		dryRun = false
+	}
+
+	return RunVersionUpdate(dryRun)
+}
