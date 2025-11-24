@@ -174,6 +174,7 @@ jobs:
           go-primary-version: ${{ env.GO_PRIMARY_VERSION }}
           go-secondary-version: ${{ env.GO_SECONDARY_VERSION }}
           go-sum-file: ${{ inputs.go-sum-file }}
+          enable-multi-module: ${{ env.ENABLE_MULTI_MODULE_TESTING }}
 
       # --------------------------------------------------------------------
       # Extract Go module directory from GO_SUM_FILE path

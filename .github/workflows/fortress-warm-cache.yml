@@ -91,11 +91,27 @@ jobs:
           echo "📁 Go sum file: $GO_SUM_FILE"
 
       # --------------------------------------------------------------------
-      # Checkout code to access local action (minimal sparse checkout)
-      # Note: We explicitly exclude go.work and set GOWORK=off to prevent
-      # Go from trying to use workspace mode with missing modules
+      # Extract configuration flags from env-json (before checkout)
       # --------------------------------------------------------------------
-      - name: 📥 Checkout code
+      - name: 🔁 Extract configuration flags
+        id: extract
+        run: |
+          echo "enable_verbose=$(echo '${{ inputs.env-json }}' | jq -r '.ENABLE_VERBOSE_TEST_OUTPUT')" >> "$GITHUB_OUTPUT"
+          echo "enable_multi_module=$(echo '${{ inputs.env-json }}' | jq -r '.ENABLE_MULTI_MODULE_TESTING // "false"')" >> "$GITHUB_OUTPUT"
+          echo "📋 Multi-module testing: $(echo '${{ inputs.env-json }}' | jq -r '.ENABLE_MULTI_MODULE_TESTING // "false"')"
+
+      # --------------------------------------------------------------------
+      # Checkout code - full checkout for multi-module, sparse for single
+      # Multi-module needs all source files + go.work for cross-module deps
+      # --------------------------------------------------------------------
+      - name: 📥 Checkout code (full - multi-module)
+        if: steps.extract.outputs.enable_multi_module == 'true'
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          persist-credentials: false
+
+      - name: 📥 Checkout code (sparse - single module)
+        if: steps.extract.outputs.enable_multi_module != 'true'
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           persist-credentials: false
@@ -111,18 +127,12 @@ jobs:
             .mage.yaml
 
       # --------------------------------------------------------------------
-      # Disable Go workspace mode to prevent errors from missing modules
+      # Disable Go workspace mode (single module only)
+      # Multi-module mode uses go.work for cross-module dependency resolution
       # --------------------------------------------------------------------
       - name: 🔧 Disable Go workspace mode
+        if: steps.extract.outputs.enable_multi_module != 'true'
         run: echo "GOWORK=off" >> $GITHUB_ENV
-
-      # --------------------------------------------------------------------
-      # Extract verbose flag from env-json
-      # --------------------------------------------------------------------
-      - name: 🔁 Extract ENABLE_VERBOSE
-        id: extract
-        run: |
-          echo "enable_verbose=$(echo '${{ inputs.env-json }}' | jq -r '.ENABLE_VERBOSE_TEST_OUTPUT')" >> "$GITHUB_OUTPUT"
 
       # --------------------------------------------------------------------
       # Warm the Go and Redis caches using local action
@@ -141,3 +151,4 @@ jobs:
           redis-versions: ${{ inputs.redis-version }}
           redis-cache-force-pull: ${{ inputs.redis-cache-force-pull }}
           go-sum-file: ${{ inputs.go-sum-file }}
+          enable-multi-module: ${{ steps.extract.outputs.enable_multi_module }}
