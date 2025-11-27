@@ -334,7 +334,10 @@ func (s *VersionUpdateService) extractVersions(content []byte, tools map[string]
 		for envVar, toolKey := range envVarToTool {
 			pattern := regexp.MustCompile(fmt.Sprintf(`^%s=([^#\s]+)`, regexp.QuoteMeta(envVar)))
 			if matches := pattern.FindStringSubmatch(line); len(matches) > 1 {
-				versions[toolKey] = strings.TrimSpace(matches[1])
+				// Keep the first version found for each tool to detect if any env var needs updating
+				if _, exists := versions[toolKey]; !exists {
+					versions[toolKey] = strings.TrimSpace(matches[1])
+				}
 				break
 			}
 		}
@@ -467,11 +470,31 @@ func (s *VersionUpdateService) updateFile(envFilePath string, content []byte, re
 	for _, result := range results {
 		if result.Status == "update-available" {
 			for _, envVar := range result.EnvVars {
-				// Match the env var and its value (but preserve any comments after whitespace)
-				pattern := regexp.MustCompile(fmt.Sprintf(`(?m)^(%s=)%s(\s|$)`,
-					regexp.QuoteMeta(envVar),
-					regexp.QuoteMeta(result.CurrentVersion)))
-				newContent = pattern.ReplaceAll(newContent, []byte(fmt.Sprintf("${1}%s${2}", result.LatestVersion)))
+				// Match the env var and capture its current version to detect format
+				pattern := regexp.MustCompile(fmt.Sprintf(`(?m)^(%s=)([^#\s]+)(\s|$)`,
+					regexp.QuoteMeta(envVar)))
+
+				newContent = pattern.ReplaceAllFunc(newContent, func(match []byte) []byte {
+					submatches := pattern.FindSubmatch(match)
+					if len(submatches) < 4 {
+						return match
+					}
+					prefix := submatches[1]       // "ENV_VAR="
+					currentVal := submatches[2]   // current version value
+					suffix := submatches[3]       // trailing whitespace or EOL
+
+					// Preserve the v-prefix format of the original value
+					hasVPrefix := strings.HasPrefix(string(currentVal), "v")
+					newVersion := result.LatestVersion
+
+					if hasVPrefix && !strings.HasPrefix(newVersion, "v") {
+						newVersion = "v" + newVersion
+					} else if !hasVPrefix && strings.HasPrefix(newVersion, "v") {
+						newVersion = strings.TrimPrefix(newVersion, "v")
+					}
+
+					return append(append(prefix, []byte(newVersion)...), suffix...)
+				})
 			}
 		}
 	}

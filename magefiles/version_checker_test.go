@@ -201,12 +201,13 @@ func TestGetToolDefinitions(t *testing.T) {
 }
 
 func TestVersionUpdateService_ExtractVersions(t *testing.T) {
-	checker := NewMockVersionChecker()
-	updater := NewMockFileUpdater()
-	logger := NewMockLogger()
-	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+	t.Run("extracts versions from env vars", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, true, 0)
 
-	content := []byte(`# Comment line
+		content := []byte(`# Comment line
 GO_COVERAGE_VERSION=v1.1.15
 MAGE_X_VERSION=v1.8.7
 MAGE_X_GITLEAKS_VERSION=8.29.1
@@ -214,13 +215,35 @@ GITLEAKS_VERSION=8.29.1
 NANCY_VERSION=v1.0.52
 `)
 
-	tools := GetToolDefinitions()
-	versions := service.extractVersions(content, tools)
+		tools := GetToolDefinitions()
+		versions := service.extractVersions(content, tools)
 
-	assert.Equal(t, "v1.1.15", versions["go-coverage"])
-	assert.Equal(t, "v1.8.7", versions["mage-x"])
-	assert.Equal(t, "8.29.1", versions["gitleaks"])
-	assert.Equal(t, "v1.0.52", versions["nancy"])
+		assert.Equal(t, "v1.1.15", versions["go-coverage"])
+		assert.Equal(t, "v1.8.7", versions["mage-x"])
+		assert.Equal(t, "8.29.1", versions["gitleaks"])
+		assert.Equal(t, "v1.0.52", versions["nancy"])
+	})
+
+	t.Run("keeps first version when env vars diverge", func(t *testing.T) {
+		// When multiple env vars for the same tool have different versions,
+		// extract the first one found to detect if any needs updating
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+		content := []byte(`# Simulating diverged versions (first one is older)
+MAGE_X_GITLEAKS_VERSION=8.29.1
+GITLEAKS_VERSION=8.29.1
+GO_PRE_COMMIT_GITLEAKS_VERSION=v8.30.0
+`)
+
+		tools := GetToolDefinitions()
+		versions := service.extractVersions(content, tools)
+
+		// Should keep the first version found (8.29.1), not the last (v8.30.0)
+		assert.Equal(t, "8.29.1", versions["gitleaks"])
+	})
 }
 
 func TestVersionUpdateService_NormalizeVersion(t *testing.T) {
@@ -504,6 +527,43 @@ MAGE_X_GITLEAKS_VERSION=8.29.1
 		err := service.updateFile(".github/.env.base", []byte("GO_COVERAGE_VERSION=v1.1.15"), results)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to write file")
+	})
+
+	t.Run("diverged versions are all updated preserving v-prefix format", func(t *testing.T) {
+		// Test that all env vars for a tool are updated even when they have different current versions,
+		// and that the v-prefix format of each env var is preserved
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, false, 0)
+
+		// Simulate diverged versions: different env vars have different current values and formats
+		originalContent := []byte(`# Configuration
+GITLEAKS_VERSION=8.29.1
+MAGE_X_GITLEAKS_VERSION=8.29.1
+GO_PRE_COMMIT_GITLEAKS_VERSION=v8.30.0
+`)
+
+		updater.SetContent(originalContent)
+
+		results := []CheckResult{
+			{
+				Tool:           "gitleaks",
+				EnvVars:        []string{"GITLEAKS_VERSION", "MAGE_X_GITLEAKS_VERSION", "GO_PRE_COMMIT_GITLEAKS_VERSION"},
+				CurrentVersion: "8.29.1",
+				LatestVersion:  "v8.31.0", // Latest has v-prefix
+				Status:         "update-available",
+			},
+		}
+
+		err := service.updateFile(".github/.env.base", originalContent, results)
+		require.NoError(t, err)
+
+		// Verify ALL env vars were updated, preserving their original v-prefix format
+		writtenData := string(updater.GetWrittenData())
+		assert.Contains(t, writtenData, "GITLEAKS_VERSION=8.31.0")           // No v (original had no v)
+		assert.Contains(t, writtenData, "MAGE_X_GITLEAKS_VERSION=8.31.0")    // No v (original had no v)
+		assert.Contains(t, writtenData, "GO_PRE_COMMIT_GITLEAKS_VERSION=v8.31.0") // Has v (original had v)
 	})
 }
 
