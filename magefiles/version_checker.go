@@ -479,9 +479,9 @@ func (s *VersionUpdateService) updateFile(envFilePath string, content []byte, re
 					if len(submatches) < 4 {
 						return match
 					}
-					prefix := submatches[1]       // "ENV_VAR="
-					currentVal := submatches[2]   // current version value
-					suffix := submatches[3]       // trailing whitespace or EOL
+					prefix := submatches[1]     // "ENV_VAR="
+					currentVal := submatches[2] // current version value
+					suffix := submatches[3]     // trailing whitespace or EOL
 
 					// Preserve the v-prefix format of the original value
 					hasVPrefix := strings.HasPrefix(string(currentVal), "v")

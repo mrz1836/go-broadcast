@@ -561,8 +561,8 @@ GO_PRE_COMMIT_GITLEAKS_VERSION=v8.30.0
 
 		// Verify ALL env vars were updated, preserving their original v-prefix format
 		writtenData := string(updater.GetWrittenData())
-		assert.Contains(t, writtenData, "GITLEAKS_VERSION=8.31.0")           // No v (original had no v)
-		assert.Contains(t, writtenData, "MAGE_X_GITLEAKS_VERSION=8.31.0")    // No v (original had no v)
+		assert.Contains(t, writtenData, "GITLEAKS_VERSION=8.31.0")                // No v (original had no v)
+		assert.Contains(t, writtenData, "MAGE_X_GITLEAKS_VERSION=8.31.0")         // No v (original had no v)
 		assert.Contains(t, writtenData, "GO_PRE_COMMIT_GITLEAKS_VERSION=v8.31.0") // Has v (original had v)
 	})
 }
