@@ -176,6 +176,9 @@ on:
       fork-security-mode:
         description: "Security mode for fork PRs (safe/unsafe)"
         value: ${{ jobs.setup-config.outputs.fork-security-mode }}
+      completion-report-enabled:
+        description: "Whether workflow completion report is enabled"
+        value: ${{ jobs.setup-config.outputs.completion-report-enabled }}
 # Security: Restrictive default permissions with job-level overrides for least privilege access
 permissions:
   contents: read
@@ -229,6 +232,7 @@ jobs:
       redis-service-mode: ${{ steps.redis-config.outputs.redis-service-mode }}
       is-fork-pr: ${{ steps.fork-detection.outputs.is-fork-pr }}
       fork-security-mode: ${{ steps.fork-detection.outputs.fork-security-mode }}
+      completion-report-enabled: ${{ steps.config.outputs.completion-report-enabled }}
     steps:
       # --------------------------------------------------------------------
       # Start timer to record workflow start time
@@ -530,6 +534,7 @@ jobs:
           echo "fuzz-testing-enabled=${{ env.ENABLE_FUZZ_TESTING }}" >> $GITHUB_OUTPUT
           echo "go-tests-enabled=${{ env.ENABLE_GO_TESTS }}" >> $GITHUB_OUTPUT
           echo "pre-commit-enabled=${{ env.ENABLE_GO_PRE_COMMIT }}" >> $GITHUB_OUTPUT
+          echo "completion-report-enabled=${{ env.ENABLE_COMPLETION_REPORT }}" >> $GITHUB_OUTPUT
 
           # Detect if this is a release run
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
