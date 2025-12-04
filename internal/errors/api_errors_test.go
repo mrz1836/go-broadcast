@@ -1,4 +1,4 @@
-package errors
+package errors //nolint:revive,nolintlint // internal test package, name conflict intentional
 
 import (
 	"errors"

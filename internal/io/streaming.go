@@ -1,4 +1,4 @@
-package io
+package io //nolint:revive,nolintlint // internal package, name conflict intentional
 
 import (
 	"bufio"

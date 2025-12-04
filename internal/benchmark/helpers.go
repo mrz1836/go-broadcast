@@ -92,9 +92,9 @@ func MeasureOperation(name string, fn func()) Result {
 	result.EndTime = time.Now()
 	result.Operations = 1
 	result.NsPerOp = result.EndTime.Sub(result.StartTime).Nanoseconds()
-	result.AllocsPerOp = int64(memAfter.Mallocs - memBefore.Mallocs)      //nolint:gosec // Memory stats unlikely to overflow in tests
-	result.BytesPerOp = int64(memAfter.TotalAlloc - memBefore.TotalAlloc) //nolint:gosec // Memory stats unlikely to overflow in tests
-	result.MemoryUsed = int64(memAfter.Alloc)                             //nolint:gosec // Memory stats unlikely to overflow in tests
+	result.AllocsPerOp = int64(memAfter.Mallocs - memBefore.Mallocs)
+	result.BytesPerOp = int64(memAfter.TotalAlloc - memBefore.TotalAlloc)
+	result.MemoryUsed = int64(memAfter.Alloc)
 
 	return result
 }

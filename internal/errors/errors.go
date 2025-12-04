@@ -1,5 +1,5 @@
 // Package errors defines common error types and utilities used throughout the application
-package errors
+package errors //nolint:revive,nolintlint // internal package, name conflict intentional
 
 import (
 	"errors"

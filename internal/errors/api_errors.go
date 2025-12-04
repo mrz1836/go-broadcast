@@ -1,5 +1,5 @@
 // Package errors - API operation error utilities
-package errors
+package errors //nolint:revive,nolintlint // internal package, name conflict intentional
 
 import (
 	"errors"

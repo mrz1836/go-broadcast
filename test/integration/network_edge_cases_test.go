@@ -587,7 +587,7 @@ func testAPITimeoutAndRetry(t *testing.T, generator *fixtures.TestRepoGenerator)
 
 	if len(operationTimes) > 0 {
 		var totalOpTime time.Duration
-		for _, opTime := range operationTimes { //nolint:gosec // Length is checked in if condition above
+		for _, opTime := range operationTimes {
 			totalOpTime += opTime
 		}
 		avgOpTime := totalOpTime / time.Duration(len(operationTimes))

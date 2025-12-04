@@ -217,7 +217,7 @@ func (mc *MetricsCollector) updateMetrics() {
 		gcMetrics := currentMetrics["gc"].(map[string]interface{})
 		gcMetrics["last_pause_ms"] = float64(recentPause) / 1e6
 		gcMetrics["avg_pause_ms"] = avgPause
-		gcMetrics["last_gc_time"] = time.Unix(0, int64(memStats.LastGC)).Unix() //nolint:gosec // GC timestamp unlikely to overflow
+		gcMetrics["last_gc_time"] = time.Unix(0, int64(memStats.LastGC)).Unix()
 	}
 
 	// Add profiler statistics if available

@@ -1,4 +1,4 @@
-package io
+package io //nolint:revive,nolintlint // internal test package, name conflict intentional
 
 import (
 	"context"

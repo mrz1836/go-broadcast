@@ -157,6 +157,7 @@ func TestGetToolDefinitions(t *testing.T) {
 
 	// Test that all expected tools are present
 	expectedTools := []string{
+		"go",
 		"go-coverage",
 		"mage-x",
 		"gitleaks",

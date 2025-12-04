@@ -1,7 +1,7 @@
 // Package io provides comprehensive benchmarking tests for stream processing functionality.
 // These tests evaluate the performance characteristics of file processing, JSON handling,
 // and streaming operations under various conditions and data sizes.
-package io
+package io //nolint:revive,nolintlint // internal test package, name conflict intentional
 
 import (
 	"context"
