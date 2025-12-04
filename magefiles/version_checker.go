@@ -69,6 +69,12 @@ type GitHubRelease struct {
 	Name    string `json:"name"`
 }
 
+// GoRelease represents a Go release from go.dev/dl API.
+type GoRelease struct {
+	Version string `json:"version"`
+	Stable  bool   `json:"stable"`
+}
+
 // realVersionChecker implements VersionChecker using GitHub API.
 type realVersionChecker struct {
 	httpClient *http.Client
@@ -83,8 +89,16 @@ func NewVersionChecker(useGHCLI bool) VersionChecker {
 	}
 }
 
+// GoDevAPIURL is the URL for the official Go download API.
+const GoDevAPIURL = "https://go.dev/dl/?mode=json"
+
 // CheckLatestVersion checks the latest version from GitHub releases.
 func (r *realVersionChecker) CheckLatestVersion(ctx context.Context, repoURL string) (string, error) {
+	// Special case for Go itself - use go.dev API
+	if repoURL == "https://go.dev" || repoURL == "https://github.com/golang/go" {
+		return r.checkGoVersion(ctx)
+	}
+
 	// Try gh CLI first if available and preferred
 	if r.useGHCLI {
 		version, err := r.checkViaGHCLI(ctx, repoURL)
@@ -157,6 +171,48 @@ func (r *realVersionChecker) checkViaAPI(ctx context.Context, repoURL string) (s
 	}
 
 	return release.TagName, nil
+}
+
+// ErrGoDevAPI is returned when the go.dev API fails.
+var ErrGoDevAPI = errors.New("go.dev API error")
+
+// checkGoVersion uses the official go.dev API to check the latest stable Go version.
+func (r *realVersionChecker) checkGoVersion(ctx context.Context) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", GoDevAPIURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("%w: status %d: %s", ErrGoDevAPI, resp.StatusCode, string(body))
+	}
+
+	var releases []GoRelease
+	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+		return "", fmt.Errorf("failed to parse go.dev releases JSON: %w", err)
+	}
+
+	// Find the first stable release
+	for _, release := range releases {
+		if release.Stable {
+			return release.Version, nil
+		}
+	}
+
+	return "", fmt.Errorf("%w: no stable releases found", ErrGoDevAPI)
 }
 
 // realFileUpdater implements FileUpdater using os package.
@@ -266,6 +322,14 @@ func GetToolDefinitions() map[string]*ToolInfo {
 			RepoOwner: def.repoOwner,
 			RepoName:  def.repoName,
 		}
+	}
+
+	// Special case: Go itself uses go.dev API instead of GitHub releases
+	tools["go"] = &ToolInfo{
+		EnvVars:   []string{"GOVULNCHECK_GO_VERSION"},
+		RepoURL:   "https://go.dev", // Triggers special handling in CheckLatestVersion
+		RepoOwner: "golang",
+		RepoName:  "go",
 	}
 
 	return tools
@@ -393,7 +457,10 @@ func (s *VersionUpdateService) checkVersions(ctx context.Context, tools map[stri
 // normalizeVersion normalizes version strings for comparison.
 func (s *VersionUpdateService) normalizeVersion(version string) string {
 	// Remove 'v' prefix if present
-	return strings.TrimPrefix(version, "v")
+	version = strings.TrimPrefix(version, "v")
+	// Remove 'go' prefix if present (for Go version comparison)
+	version = strings.TrimPrefix(version, "go")
+	return version
 }
 
 // displayResults displays the check results in a formatted table.
@@ -483,14 +550,23 @@ func (s *VersionUpdateService) updateFile(envFilePath string, content []byte, re
 					currentVal := submatches[2] // current version value
 					suffix := submatches[3]     // trailing whitespace or EOL
 
-					// Preserve the v-prefix format of the original value
+					// Preserve the prefix format of the original value
 					hasVPrefix := strings.HasPrefix(string(currentVal), "v")
+					hasGoPrefix := strings.HasPrefix(string(currentVal), "go")
 					newVersion := result.LatestVersion
 
+					// Handle 'v' prefix
 					if hasVPrefix && !strings.HasPrefix(newVersion, "v") {
 						newVersion = "v" + newVersion
 					} else if !hasVPrefix && strings.HasPrefix(newVersion, "v") {
 						newVersion = strings.TrimPrefix(newVersion, "v")
+					}
+
+					// Handle 'go' prefix (for Go version)
+					if hasGoPrefix && !strings.HasPrefix(newVersion, "go") {
+						newVersion = "go" + newVersion
+					} else if !hasGoPrefix && strings.HasPrefix(newVersion, "go") {
+						newVersion = strings.TrimPrefix(newVersion, "go")
 					}
 
 					return append(append(prefix, []byte(newVersion)...), suffix...)
