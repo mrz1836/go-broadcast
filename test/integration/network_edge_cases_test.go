@@ -587,6 +587,7 @@ func testAPITimeoutAndRetry(t *testing.T, generator *fixtures.TestRepoGenerator)
 
 	if len(operationTimes) > 0 {
 		var totalOpTime time.Duration
+		//nolint:gosec // G602 false positive - range loop over slice is safe
 		for _, opTime := range operationTimes {
 			totalOpTime += opTime
 		}

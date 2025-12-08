@@ -348,7 +348,7 @@ func (mp *MemoryProfiler) generateAnalysisReport(session *Session) error {
 	_, _ = fmt.Fprintf(writer, "Num Forced GC: %d\n", memStats.NumForcedGC)
 
 	if memStats.NumGC > 0 {
-		_, _ = fmt.Fprintf(writer, "Last GC: %s ago\n", time.Since(time.Unix(0, int64(memStats.LastGC))))
+		_, _ = fmt.Fprintf(writer, "Last GC: %s ago\n", time.Since(time.Unix(0, int64(memStats.LastGC)))) //nolint:gosec // LastGC is nanoseconds since epoch, safe for int64 until year 2262
 		avgPause := float64(memStats.PauseTotalNs) / float64(memStats.NumGC) / 1e6
 		_, _ = fmt.Fprintf(writer, "Average GC Pause: %.2f ms\n", avgPause)
 	}
@@ -380,7 +380,7 @@ func (mp *MemoryProfiler) generateAnalysisReport(session *Session) error {
 	for _, filename := range profileFiles {
 		filePath := filepath.Join(session.OutputDir, filename)
 		if info, err := os.Stat(filePath); err == nil {
-			writeToReport(writer, "%s: %s (%s)\n", filename, formatBytes(uint64(info.Size())), info.ModTime().Format(time.RFC3339))
+			writeToReport(writer, "%s: %s (%s)\n", filename, formatBytes(uint64(max(0, info.Size()))), info.ModTime().Format(time.RFC3339)) //nolint:gosec // file sizes are non-negative and bounded
 		}
 	}
 
@@ -428,9 +428,9 @@ func (ms MemorySnapshot) Compare(other MemorySnapshot) MemoryComparison {
 		From:            ms,
 		To:              other,
 		Duration:        other.Timestamp.Sub(ms.Timestamp),
-		AllocDelta:      int64(other.MemStats.Alloc) - int64(ms.MemStats.Alloc),
-		TotalAllocDelta: int64(other.MemStats.TotalAlloc) - int64(ms.MemStats.TotalAlloc),
-		HeapSysDelta:    int64(other.MemStats.HeapSys) - int64(ms.MemStats.HeapSys),
+		AllocDelta:      int64(other.MemStats.Alloc) - int64(ms.MemStats.Alloc),           //nolint:gosec // memory alloc values fit in int64 (max ~9 exabytes)
+		TotalAllocDelta: int64(other.MemStats.TotalAlloc) - int64(ms.MemStats.TotalAlloc), //nolint:gosec // memory values fit in int64
+		HeapSysDelta:    int64(other.MemStats.HeapSys) - int64(ms.MemStats.HeapSys),       //nolint:gosec // memory values fit in int64
 		GCDelta:         int64(other.MemStats.NumGC) - int64(ms.MemStats.NumGC),
 		GoroutineDelta:  other.Goroutines - ms.Goroutines,
 	}

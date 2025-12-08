@@ -465,7 +465,7 @@ func (ps *ProfileSuite) generateTextReport(session *ComprehensiveSession) error 
 	for _, filename := range profileFiles {
 		filePath := filepath.Join(session.OutputDir, filename)
 		if info, err := os.Stat(filePath); err == nil {
-			writeToReport(f, "%s: %s (%s)\n", filename, formatBytes(uint64(info.Size())), info.ModTime().Format(time.RFC3339))
+			writeToReport(f, "%s: %s (%s)\n", filename, formatBytes(uint64(max(0, info.Size()))), info.ModTime().Format(time.RFC3339)) //nolint:gosec // file sizes are non-negative and bounded
 		}
 	}
 
