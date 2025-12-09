@@ -499,7 +499,13 @@ func (rs *RepositorySync) cloneSource(ctx context.Context) error {
 	sourceURL := fmt.Sprintf("https://github.com/%s.git", rs.sourceState.Repo)
 	sourcePath := filepath.Join(rs.tempDir, "source")
 
-	if err := rs.engine.git.Clone(ctx, sourceURL, sourcePath); err != nil {
+	// Get blob size limit from current group config
+	var opts *git.CloneOptions
+	if rs.engine.currentGroup != nil {
+		opts = &git.CloneOptions{BlobSizeLimit: rs.engine.currentGroup.Source.BlobSizeLimit}
+	}
+
+	if err := rs.engine.git.Clone(ctx, sourceURL, sourcePath, opts); err != nil {
 		return err
 	}
 
@@ -748,12 +754,15 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 		rs.logger.WithField("target_branch", targetBranch).Info("Cloning repository with target branch")
 	}
 
+	// Get blob size limit from target config
+	opts := &git.CloneOptions{BlobSizeLimit: rs.target.BlobSizeLimit}
+
 	if targetBranch != "" {
-		if err := rs.engine.git.CloneWithBranch(ctx, targetURL, targetPath, targetBranch); err != nil {
+		if err := rs.engine.git.CloneWithBranch(ctx, targetURL, targetPath, targetBranch, opts); err != nil {
 			return "", nil, fmt.Errorf("failed to clone target repository with branch %s: %w", targetBranch, err)
 		}
 	} else {
-		if err := rs.engine.git.Clone(ctx, targetURL, targetPath); err != nil {
+		if err := rs.engine.git.Clone(ctx, targetURL, targetPath, opts); err != nil {
 			return "", nil, fmt.Errorf("failed to clone target repository: %w", err)
 		}
 	}

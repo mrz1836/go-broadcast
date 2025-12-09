@@ -56,17 +56,28 @@ func NewClient(logger *logrus.Logger, logConfig *logging.LogConfig) (Client, err
 	}, nil
 }
 
-// Clone clones a repository to the specified path with retry logic for network errors
-func (g *gitClient) Clone(ctx context.Context, url, path string) error {
+// Clone clones a repository to the specified path with retry logic for network errors.
+// opts can be nil to use default behavior (no blob filtering).
+func (g *gitClient) Clone(ctx context.Context, url, path string, opts *CloneOptions) error {
 	// Check if path already exists
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("%w: %s", ErrRepositoryExists, path)
 	}
 
+	// Build clone arguments
+	args := []string{"clone"}
+
+	// Add blob filter if specified and not "0"
+	if opts != nil && opts.BlobSizeLimit != "" && opts.BlobSizeLimit != "0" {
+		args = append(args, "--filter=blob:limit="+opts.BlobSizeLimit)
+	}
+
+	args = append(args, url, path)
+
 	// Retry logic for network errors
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		cmd := exec.CommandContext(ctx, "git", "clone", url, path)
+		cmd := exec.CommandContext(ctx, "git", args...)
 		cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 
 		err := g.runCommand(cmd)
@@ -105,9 +116,10 @@ func (g *gitClient) Clone(ctx context.Context, url, path string) error {
 	return fmt.Errorf("%w: clone failed after %d attempts", ErrGitCommand, maxRetries)
 }
 
-// CloneWithBranch clones a repository to the specified path with a specific branch
-// If branch is empty, behaves like Clone
-func (g *gitClient) CloneWithBranch(ctx context.Context, url, path, branch string) error {
+// CloneWithBranch clones a repository to the specified path with a specific branch.
+// If branch is empty, behaves like Clone.
+// opts can be nil to use default behavior (no blob filtering).
+func (g *gitClient) CloneWithBranch(ctx context.Context, url, path, branch string, opts *CloneOptions) error {
 	// Check if path already exists
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("%w: %s", ErrRepositoryExists, path)
@@ -115,7 +127,7 @@ func (g *gitClient) CloneWithBranch(ctx context.Context, url, path, branch strin
 
 	// If no branch specified, use regular clone
 	if branch == "" {
-		return g.Clone(ctx, url, path)
+		return g.Clone(ctx, url, path, opts)
 	}
 
 	logger := logging.WithStandardFields(g.logger, g.logConfig, logging.ComponentNames.Git)
@@ -125,10 +137,20 @@ func (g *gitClient) CloneWithBranch(ctx context.Context, url, path, branch strin
 		"branch": branch,
 	}).Debug("Cloning repository with specific branch")
 
+	// Build clone arguments
+	args := []string{"clone"}
+
+	// Add blob filter if specified and not "0"
+	if opts != nil && opts.BlobSizeLimit != "" && opts.BlobSizeLimit != "0" {
+		args = append(args, "--filter=blob:limit="+opts.BlobSizeLimit)
+	}
+
+	args = append(args, "--branch", branch, url, path)
+
 	// Retry logic for network errors
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		cmd := exec.CommandContext(ctx, "git", "clone", "--branch", branch, url, path)
+		cmd := exec.CommandContext(ctx, "git", args...)
 		cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 
 		err := g.runCommand(cmd)
