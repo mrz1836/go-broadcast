@@ -397,6 +397,7 @@ groups:
       branch: "main"
     targets:
       - repo: "company/user-service"
+        blob_size_limit: "0"  # Disable filter for this target
         files:
           - src: "workflows/ci.yml"
             dest: ".github/workflows/ci.yml"
