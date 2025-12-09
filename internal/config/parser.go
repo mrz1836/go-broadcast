@@ -70,6 +70,11 @@ func applyDefaults(config *Config) {
 			group.Source.Branch = "main"
 		}
 
+		// Set default blob size limit for source
+		if group.Source.BlobSizeLimit == "" {
+			group.Source.BlobSizeLimit = DefaultBlobSizeLimit
+		}
+
 		// Set default branch prefix if not specified
 		if group.Defaults.BranchPrefix == "" {
 			group.Defaults.BranchPrefix = "chore/sync-files"
@@ -87,6 +92,11 @@ func applyDefaults(config *Config) {
 
 		// Apply directory defaults to group targets
 		for j := range group.Targets {
+			// Set default blob size limit for targets (inherits from source if not set)
+			if group.Targets[j].BlobSizeLimit == "" {
+				group.Targets[j].BlobSizeLimit = group.Source.BlobSizeLimit
+			}
+
 			for k := range group.Targets[j].Directories {
 				ApplyDirectoryDefaults(&group.Targets[j].Directories[k])
 			}

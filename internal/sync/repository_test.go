@@ -79,7 +79,7 @@ func TestRepositorySync_Execute(t *testing.T) {
 		// Mock git operations to use our temp directory
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			// Copy our pre-created files to the expected location
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)                                            // Test setup
@@ -92,7 +92,7 @@ func TestRepositorySync_Execute(t *testing.T) {
 		// Mock target repository clone
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/target")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			// Create target directory structure for cloning
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
@@ -202,7 +202,7 @@ func TestRepositorySync_Execute(t *testing.T) {
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 
 		// Mock git clone failure
-		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).
+		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(internalerrors.ErrTest)
 
 		engine := &Engine{
@@ -258,7 +258,7 @@ func TestRepositorySync_Execute(t *testing.T) {
 		// Only mock the operations that should happen in dry-run
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			// Copy our pre-created files to the expected location
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)                                            // Test setup
@@ -1475,7 +1475,7 @@ func TestRepositorySync_commitChanges_NoChanges(t *testing.T) {
 	gitClient := &git.MockClient{}
 
 	// Mock successful operations until commit
-	gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	gitClient.On("CreateBranch", mock.Anything, mock.Anything, "test-branch").Return(nil)
 	gitClient.On("Checkout", mock.Anything, mock.Anything, "test-branch").Return(nil)
 	gitClient.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -1532,7 +1532,7 @@ func TestRepositorySync_commitChanges_NoChanges_GetSHAError(t *testing.T) {
 	gitClient := &git.MockClient{}
 
 	// Mock successful operations until commit
-	gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	gitClient.On("CreateBranch", mock.Anything, mock.Anything, "test-branch").Return(nil)
 	gitClient.On("Checkout", mock.Anything, mock.Anything, "test-branch").Return(nil)
 	gitClient.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -1952,7 +1952,7 @@ func TestRepositorySync_Execute_ExistingBranch(t *testing.T) {
 		ghClient := gh.NewMockClient()
 
 		// Mock git operations - CreateBranch fails with ErrBranchAlreadyExists
-		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, destPath+"/test.txt", "test file content")
@@ -2044,7 +2044,7 @@ func TestRepositorySync_Execute_ExistingBranch(t *testing.T) {
 		ghClient := gh.NewMockClient()
 
 		// Mock git operations - Push fails first time, succeeds on force push
-		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, destPath+"/test.txt", "test file content")
@@ -2134,7 +2134,7 @@ func TestRepositorySync_Execute_ExistingBranch(t *testing.T) {
 		ghClient := gh.NewMockClient()
 
 		// Mock git operations - both normal and force push fail
-		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, destPath+"/test.txt", "test file content")
@@ -2264,7 +2264,7 @@ func TestRepositorySync_NoChangesToSync(t *testing.T) {
 		// Mock git operations
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, filepath.Join(destPath, "file1.txt"), "source content")
@@ -2272,7 +2272,7 @@ func TestRepositorySync_NoChangesToSync(t *testing.T) {
 
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/target")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, filepath.Join(destPath, "file1.txt"), "identical content")
@@ -2329,7 +2329,7 @@ func TestRepositorySync_NoChangesToSync(t *testing.T) {
 		ghClient.AssertNotCalled(t, "UpdatePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 
 		// Verify git operations were called appropriately
-		gitClient.AssertCalled(t, "Clone", mock.Anything, mock.Anything, mock.AnythingOfType("string"))
+		gitClient.AssertCalled(t, "Clone", mock.Anything, mock.Anything, mock.AnythingOfType("string"), mock.Anything)
 		gitClient.AssertCalled(t, "Commit", mock.Anything, mock.Anything, mock.AnythingOfType("string"))
 
 		// Verify transform was still executed
@@ -2356,7 +2356,7 @@ func TestRepositorySync_NoChangesToSync(t *testing.T) {
 
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, filepath.Join(destPath, "file1.txt"), "content")
@@ -2364,7 +2364,7 @@ func TestRepositorySync_NoChangesToSync(t *testing.T) {
 
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/target")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, filepath.Join(destPath, "file1.txt"), "different content")
@@ -2480,11 +2480,11 @@ func TestRepositorySync_BranchAwareCloning(t *testing.T) {
 
 			// Mock the git operations based on expected behavior
 			if tt.expectBranch {
-				gitClient.On("CloneWithBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), tt.targetBranch).Return(nil)
+				gitClient.On("CloneWithBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), tt.targetBranch, mock.Anything).Return(nil)
 			}
 
 			if tt.expectClone {
-				gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+				gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).Return(nil)
 			}
 
 			gitClient.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
@@ -2522,13 +2522,13 @@ func TestRepositorySync_BranchAwareCloning(t *testing.T) {
 
 			// Verify the correct clone method was called
 			if tt.expectBranch {
-				gitClient.AssertCalled(t, "CloneWithBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), tt.targetBranch)
-				gitClient.AssertNotCalled(t, "Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"))
+				gitClient.AssertCalled(t, "CloneWithBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), tt.targetBranch, mock.Anything)
+				gitClient.AssertNotCalled(t, "Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything)
 			}
 
 			if tt.expectClone {
-				gitClient.AssertCalled(t, "Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"))
-				gitClient.AssertNotCalled(t, "CloneWithBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"))
+				gitClient.AssertCalled(t, "Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything)
+				gitClient.AssertNotCalled(t, "CloneWithBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything)
 			}
 		})
 	}

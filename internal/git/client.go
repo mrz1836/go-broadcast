@@ -12,14 +12,25 @@ type RepositoryInfo struct {
 	IsGitHub bool   // Whether this is a GitHub repository
 }
 
+// CloneOptions configures git clone behavior
+type CloneOptions struct {
+	// BlobSizeLimit sets the maximum blob size for partial clone.
+	// Uses git's --filter=blob:limit=<size> option.
+	// Examples: "10m" (10 megabytes), "1g" (1 gigabyte)
+	// Use "0" or empty string to disable filtering (clone all blobs).
+	BlobSizeLimit string
+}
+
 // Client defines the interface for Git operations
 type Client interface {
-	// Clone clones a repository to the specified path
-	Clone(ctx context.Context, url, path string) error
+	// Clone clones a repository to the specified path.
+	// opts can be nil to use default behavior.
+	Clone(ctx context.Context, url, path string, opts *CloneOptions) error
 
-	// CloneWithBranch clones a repository to the specified path with a specific branch
-	// If branch is empty, behaves like Clone
-	CloneWithBranch(ctx context.Context, url, path, branch string) error
+	// CloneWithBranch clones a repository to the specified path with a specific branch.
+	// If branch is empty, behaves like Clone.
+	// opts can be nil to use default behavior.
+	CloneWithBranch(ctx context.Context, url, path, branch string, opts *CloneOptions) error
 
 	// Checkout switches to the specified branch
 	Checkout(ctx context.Context, repoPath, branch string) error

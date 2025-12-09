@@ -89,7 +89,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		// Mock git operations
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			srcContent, _ := os.ReadFile(filepath.Join(sourceDir, "file1.txt")) //nolint:gosec // test file in controlled directory
@@ -98,7 +98,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/target")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, filepath.Join(destPath, "file1.txt"), "old content")
@@ -177,7 +177,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		ghClient.AssertCalled(t, "ListPRs", mock.Anything, "org/target", "open")
 
 		// Verify git operations were called appropriately
-		gitClient.AssertCalled(t, "Clone", mock.Anything, mock.Anything, mock.AnythingOfType("string"))
+		gitClient.AssertCalled(t, "Clone", mock.Anything, mock.Anything, mock.AnythingOfType("string"), mock.Anything)
 		gitClient.AssertCalled(t, "Commit", mock.Anything, mock.Anything, mock.AnythingOfType("string"))
 		gitClient.AssertCalled(t, "Push", mock.Anything, mock.Anything, "origin", mock.AnythingOfType("string"), false)
 	})
@@ -205,7 +205,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		// Mock git operations
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			srcContent, _ := os.ReadFile(filepath.Join(sourceDir, "file1.txt")) //nolint:gosec // test file in controlled directory
@@ -214,7 +214,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/target")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, filepath.Join(destPath, "file1.txt"), "old content")
@@ -316,7 +316,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		// Mock git operations
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			srcContent, _ := os.ReadFile(filepath.Join(sourceDir, "file1.txt")) //nolint:gosec // test file in controlled directory
@@ -325,7 +325,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/target")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, filepath.Join(destPath, "file1.txt"), "old content")
@@ -418,7 +418,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		// Mock git operations
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			srcContent, _ := os.ReadFile(filepath.Join(sourceDir, "file1.txt")) //nolint:gosec // test file in controlled directory
@@ -427,7 +427,7 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/target")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, filepath.Join(destPath, "file1.txt"), "old content")

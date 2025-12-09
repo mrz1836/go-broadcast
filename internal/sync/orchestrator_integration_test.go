@@ -126,7 +126,7 @@ func TestOrchestrator_MultiGroupSync(t *testing.T) {
 	// Mock git clone operations for source (using full GitHub URL)
 	gitClient.On("Clone", mock.Anything, "https://github.com/org/template.git", mock.MatchedBy(func(_ string) bool {
 		return true // Accept any path for source clones
-	})).Return(nil).Run(func(args mock.Arguments) {
+	}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		testutil.CreateTestDirectory(t, destPath)
 		testutil.WriteTestFile(t, destPath+"/README.md", "# Test Project\nUpdated content")
@@ -134,10 +134,10 @@ func TestOrchestrator_MultiGroupSync(t *testing.T) {
 	})
 
 	// Mock git clone operations for Group A targets (they will be processed)
-	gitClient.On("Clone", mock.Anything, "https://github.com/org/target-a1.git", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	gitClient.On("Clone", mock.Anything, "https://github.com/org/target-a1.git", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		testutil.CreateTestDirectory(t, args[2].(string))
 	})
-	gitClient.On("Clone", mock.Anything, "https://github.com/org/target-a2.git", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	gitClient.On("Clone", mock.Anything, "https://github.com/org/target-a2.git", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		testutil.CreateTestDirectory(t, args[2].(string))
 	})
 
@@ -276,7 +276,7 @@ func TestOrchestratorIntegration_ExistingBranchRecovery(t *testing.T) {
 		transformChain := &transform.MockChain{}
 
 		// Mock git operations with branch conflict and recovery
-		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, destPath+"/README.md", "# Updated Project\nContent from failed sync")
@@ -396,7 +396,7 @@ func TestOrchestratorIntegration_ExistingBranchRecovery(t *testing.T) {
 		transformChain := &transform.MockChain{}
 
 		// Mock git operations with local branch conflict
-		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+		gitClient.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, destPath+"/README.md", "# Local Branch Test\nContent for local recovery")

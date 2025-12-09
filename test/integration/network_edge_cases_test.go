@@ -193,7 +193,7 @@ func testGitHubAPIRateLimiting(t *testing.T, generator *fixtures.TestRepoGenerat
 	}).Maybe()
 
 	// Mock Git operations (not rate limited)
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory from the test scenario
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
@@ -344,7 +344,7 @@ func testNetworkInterruptionHandling(t *testing.T, generator *fixtures.TestRepoG
 	}
 
 	// Mock Git operations (also subject to network issues)
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Always create the expected files - network issues affect API calls, not local git content
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
@@ -456,7 +456,7 @@ func testAuthenticationFailureScenarios(t *testing.T, generator *fixtures.TestRe
 	}
 
 	// Git operations may also have auth issues
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory from the test scenario
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
@@ -547,7 +547,7 @@ func testAPITimeoutAndRetry(t *testing.T, generator *fixtures.TestRepoGenerator)
 	}
 
 	// Mock Git operations
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory from the test scenario
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
@@ -664,7 +664,7 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 		}).Return(&gh.PR{Number: 202}, nil).Maybe()
 
 	// Mock Git operations
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Track concurrent operations start
 			current := atomic.AddInt64(&concurrentOps, 1)
@@ -810,7 +810,7 @@ func testGitHubAPIDegradation(t *testing.T, generator *fixtures.TestRepoGenerato
 	}
 
 	// Git operations (less affected by GitHub API degradation)
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory from the test scenario
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
@@ -897,7 +897,7 @@ func testNetworkPartitionRecovery(t *testing.T, generator *fixtures.TestRepoGene
 	}
 
 	// Git operations also affected by partition
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Always create the expected files - partition affects network, not local git content
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
@@ -995,14 +995,14 @@ func testDNSResolutionFailures(t *testing.T, generator *fixtures.TestRepoGenerat
 	}
 
 	// Git operations may also be affected by DNS - first few fail, then succeed
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
 			dnsFailureCount++ // Count git DNS failures too
 		}).Return(fixtures.ErrGitCloneFailed).Times(2)
 
 	// After DNS failures, Clone eventually succeeds
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
 		}).Return(nil)
@@ -1093,7 +1093,7 @@ func testSSLCertificateErrors(t *testing.T, generator *fixtures.TestRepoGenerato
 	}
 
 	// Git operations with SSL issues - ensure Clone is called and fails
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
 			sslFailureCount++ // Count git SSL failures too
@@ -1184,7 +1184,7 @@ func testProxyConnectionIssues(t *testing.T, generator *fixtures.TestRepoGenerat
 	}
 
 	// Git operations with proxy issues - ensure Clone is called and fails
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
 			proxyFailureCount++ // Count git proxy failures too
@@ -1298,7 +1298,7 @@ func testGitHubWebhookSimulation(t *testing.T, generator *fixtures.TestRepoGener
 	}
 
 	// Git operations
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			createSourceFilesInMock(args, scenario.SourceRepo.Files)
 		}).Return(nil)

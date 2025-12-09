@@ -19,14 +19,14 @@ func NewMockClient() *MockClient {
 }
 
 // Clone mock implementation
-func (m *MockClient) Clone(ctx context.Context, url, path string) error {
-	args := m.Called(ctx, url, path)
+func (m *MockClient) Clone(ctx context.Context, url, path string, opts *CloneOptions) error {
+	args := m.Called(ctx, url, path, opts)
 	return testutil.ExtractError(args)
 }
 
 // CloneWithBranch mock implementation
-func (m *MockClient) CloneWithBranch(ctx context.Context, url, path, branch string) error {
-	args := m.Called(ctx, url, path, branch)
+func (m *MockClient) CloneWithBranch(ctx context.Context, url, path, branch string, opts *CloneOptions) error {
+	args := m.Called(ctx, url, path, branch, opts)
 	return testutil.ExtractError(args)
 }
 

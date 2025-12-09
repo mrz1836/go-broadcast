@@ -1,6 +1,11 @@
 // Package config provides configuration defaults and helpers for go-broadcast.
 package config
 
+// DefaultBlobSizeLimit is the default maximum blob size for partial clone.
+// Blobs larger than this are excluded during git clone operations.
+// Use "0" to disable filtering and clone all blobs.
+const DefaultBlobSizeLimit = "10m"
+
 // DefaultExclusions returns smart default exclusions for development artifacts
 func DefaultExclusions() []string {
 	return []string{

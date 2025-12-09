@@ -192,7 +192,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 		})).Return(lowPriorityState, nil).Once()
 
 		// Mock git operations
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
@@ -327,7 +327,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 		// Mock git operations for the enabled group
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
@@ -548,7 +548,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 
 		// Mock git operations for all groups
 		// When Clone is called, create the source directory to satisfy directory processing
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			// Create the directory that would be created by a real clone
 			clonePath := args.Get(2).(string)
 			_ = os.MkdirAll(clonePath, 0o750)
@@ -710,7 +710,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 
 		// Mock git operations for all groups
 		// When Clone is called, create the source directory to satisfy directory processing
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			// Create the directory that would be created by a real clone
 			clonePath := args.Get(2).(string)
 			_ = os.MkdirAll(clonePath, 0o750)
@@ -888,7 +888,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 
 		// Mock git operations for all groups
 		// When Clone is called, create the source directory to satisfy directory processing
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			// Create the directory that would be created by a real clone
 			clonePath := args.Get(2).(string)
 			_ = os.MkdirAll(clonePath, 0o750)
@@ -1132,7 +1132,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 		// Mock git operations
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -1424,7 +1424,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 
 		// Mock git operations for all groups
 		// When Clone is called, create the source directory to satisfy directory processing
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			// Create the directory that would be created by a real clone
 			clonePath := args.Get(2).(string)
 			_ = os.MkdirAll(clonePath, 0o750)
@@ -1585,7 +1585,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 		// Mock git operations - with sufficient calls for multiple targets per group
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
@@ -1696,7 +1696,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 		// Mock git operations
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
@@ -1843,7 +1843,7 @@ func TestMultiGroupSync_GroupFiltering(t *testing.T) {
 		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 		// Mock git operations
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)
@@ -1990,7 +1990,7 @@ func TestMultiGroupSync_GroupFiltering(t *testing.T) {
 		mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 		// Mock git operations
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("CreateBranch", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockGit.On("GetCurrentCommitSHA", mock.Anything, mock.Anything).Return("test-commit-sha", nil)

@@ -155,7 +155,7 @@ func TestGitClient_CloneWithRetry(t *testing.T) {
 		require.NoError(t, cmd.Run())
 
 		// Clone should succeed on first attempt
-		err = client.Clone(ctx, sourceRepo, repoPath)
+		err = client.Clone(ctx, sourceRepo, repoPath, nil)
 		require.NoError(t, err)
 
 		// Verify the repository was cloned
@@ -173,7 +173,7 @@ func TestGitClient_CloneWithRetry(t *testing.T) {
 		// Create the directory first
 		require.NoError(t, os.MkdirAll(repoPath, 0o750))
 
-		err = client.Clone(ctx, "https://example.com/repo.git", repoPath)
+		err = client.Clone(ctx, "https://example.com/repo.git", repoPath, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "repository already exists")
 	})
@@ -190,7 +190,7 @@ func TestGitClient_CloneWithRetry(t *testing.T) {
 		defer cancel()
 
 		// Use a URL that will trigger network errors
-		err = client.Clone(cancelCtx, "https://invalid-url-that-causes-timeout.invalid/repo.git", repoPath)
+		err = client.Clone(cancelCtx, "https://invalid-url-that-causes-timeout.invalid/repo.git", repoPath, nil)
 		require.Error(t, err)
 		// Should get either context canceled or network error
 		assert.True(t, errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "clone repository"))

@@ -29,18 +29,18 @@ func TestMockClientImplementation(t *testing.T) {
 	t.Run("Clone", func(t *testing.T) {
 		t.Run("success case", func(t *testing.T) {
 			mock := NewMockClient()
-			mock.On("Clone", ctx, "https://github.com/test/repo.git", "/tmp/repo").Return(nil)
+			mock.On("Clone", ctx, "https://github.com/test/repo.git", "/tmp/repo", (*CloneOptions)(nil)).Return(nil)
 
-			err := mock.Clone(ctx, "https://github.com/test/repo.git", "/tmp/repo")
+			err := mock.Clone(ctx, "https://github.com/test/repo.git", "/tmp/repo", nil)
 			require.NoError(t, err)
 			mock.AssertExpectations(t)
 		})
 
 		t.Run("error case", func(t *testing.T) {
 			mock := NewMockClient()
-			mock.On("Clone", ctx, "https://github.com/test/repo.git", "/tmp/repo").Return(errCloneFailed)
+			mock.On("Clone", ctx, "https://github.com/test/repo.git", "/tmp/repo", (*CloneOptions)(nil)).Return(errCloneFailed)
 
-			err := mock.Clone(ctx, "https://github.com/test/repo.git", "/tmp/repo")
+			err := mock.Clone(ctx, "https://github.com/test/repo.git", "/tmp/repo", nil)
 			require.Error(t, err)
 			require.Equal(t, errCloneFailed, err)
 			mock.AssertExpectations(t)
@@ -48,18 +48,18 @@ func TestMockClientImplementation(t *testing.T) {
 
 		t.Run("improperly configured mock", func(t *testing.T) {
 			mock := NewMockClient()
-			mock.On("Clone", ctx, "url", "path").Return()
+			mock.On("Clone", ctx, "url", "path", (*CloneOptions)(nil)).Return()
 
-			err := mock.Clone(ctx, "url", "path")
+			err := mock.Clone(ctx, "url", "path", nil)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "mock not properly configured")
 		})
 
 		t.Run("mock returns non-error type", func(t *testing.T) {
 			mock := NewMockClient()
-			mock.On("Clone", ctx, "url", "path").Return("not an error")
+			mock.On("Clone", ctx, "url", "path", (*CloneOptions)(nil)).Return("not an error")
 
-			err := mock.Clone(ctx, "url", "path")
+			err := mock.Clone(ctx, "url", "path", nil)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "mock returned non-error type")
 		})
@@ -272,8 +272,8 @@ func TestMockClientDefensiveProgramming(t *testing.T) {
 		mock := NewMockClient()
 
 		// Test methods that return only error
-		mock.On("Clone", ctx, "url", "path").Return(nil).Once()
-		err := mock.Clone(ctx, "url", "path")
+		mock.On("Clone", ctx, "url", "path", (*CloneOptions)(nil)).Return(nil).Once()
+		err := mock.Clone(ctx, "url", "path", nil)
 		require.NoError(t, err)
 
 		mock.On("Checkout", ctx, "repo", "branch").Return(nil).Once()
@@ -322,7 +322,7 @@ func TestMockClientConcurrency(_ *testing.T) {
 	mock := NewMockClient()
 
 	// Set up expectations for concurrent calls
-	mock.On("Clone", ctx, "url", "path").Return(nil).Maybe()
+	mock.On("Clone", ctx, "url", "path", (*CloneOptions)(nil)).Return(nil).Maybe()
 	mock.On("Checkout", ctx, "repo", "branch").Return(nil).Maybe()
 	mock.On("CreateBranch", ctx, "repo", "branch").Return(nil).Maybe()
 	mock.On("Add", ctx, "repo", []string{"file"}).Return(nil).Maybe()
@@ -338,7 +338,7 @@ func TestMockClientConcurrency(_ *testing.T) {
 	// Launch goroutines for each method
 	go func() {
 		for i := 0; i < 10; i++ {
-			_ = mock.Clone(ctx, "url", "path")
+			_ = mock.Clone(ctx, "url", "path", nil)
 		}
 		done <- true
 	}()

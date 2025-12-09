@@ -26,7 +26,7 @@ func TestGitClient_FullWorkflow_Integration(t *testing.T) {
 
 	// Clone a real repository
 	t.Run("Clone", func(t *testing.T) {
-		err := client.Clone(ctx, "https://github.com/octocat/Hello-World.git", repoPath)
+		err := client.Clone(ctx, "https://github.com/octocat/Hello-World.git", repoPath, nil)
 		require.NoError(t, err)
 		assert.DirExists(t, filepath.Join(repoPath, ".git"))
 

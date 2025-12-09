@@ -279,7 +279,7 @@ func TestEndToEndSync(t *testing.T) {
 		mockState.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
 		// Mock git operations for dry-run mode with behind targets
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			// Create the source files in the cloned directory
 			destPath := args[2].(string)
 			_ = os.MkdirAll(filepath.Join(destPath, ".github/workflows"), 0o750)

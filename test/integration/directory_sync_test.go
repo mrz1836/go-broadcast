@@ -168,7 +168,7 @@ func (suite *DirectorySyncTestSuite) setupMocksForDirectory(mockGH *gh.MockClien
 	mockState.On("DiscoverState", mock.Anything, mock.Anything).Return(currentState, nil)
 
 	// Mock git operations - create the source directory structure when cloning
-	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the source directory structure that the sync engine expects
 		sourcePath := filepath.Join(destPath)
@@ -203,7 +203,7 @@ func (suite *DirectorySyncTestSuite) setupGitMockWithFiles(mockGit *git.MockClie
 	// Re-add GetChangedFiles mock after clearing
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 
-	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 
 		// The sync engine expects files to be cloned to destPath directly
@@ -398,7 +398,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeDirectory() {
 	mockGit.ExpectedCalls = nil // Clear existing expectations
 	// Re-add GetChangedFiles mock after clearing
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
-	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the source directory structure that the sync engine expects
 		sourcePath := filepath.Join(destPath)
@@ -644,7 +644,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ProgressReporting() {
 	mockGit.ExpectedCalls = nil // Clear existing expectations
 	// Re-add GetChangedFiles mock after clearing
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
-	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the source directory structure that the sync engine expects
 		sourcePath := filepath.Join(destPath)
@@ -783,7 +783,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EmptyDirectory() {
 	mockGit.ExpectedCalls = nil // Clear existing expectations
 	// Re-add GetChangedFiles mock after clearing
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
-	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the source directory structure that the sync engine expects
 		sourcePath := filepath.Join(destPath)
@@ -904,7 +904,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_DeepNesting() {
 	mockGit.ExpectedCalls = nil // Clear existing expectations
 	// Re-add GetChangedFiles mock after clearing
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
-	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the source directory structure that the sync engine expects
 		sourcePath := filepath.Join(destPath)
@@ -980,7 +980,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_SymbolicLinks() {
 	mockGit.ExpectedCalls = nil
 	// Re-add GetChangedFiles mock after clearing
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
-	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the test files
 		suite.createTestStructure(destPath, testFiles)
@@ -1116,7 +1116,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeFiles() {
 	mockGit.ExpectedCalls = nil
 	// Re-add GetChangedFiles mock after clearing
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
-	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		suite.createTestStructure(destPath, testFiles)
 	})
@@ -1183,7 +1183,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PermissionErrors() {
 	mockGit.ExpectedCalls = nil
 	// Re-add GetChangedFiles mock after clearing
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
-	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the test files
 		suite.createTestStructure(destPath, testFiles)
@@ -1685,7 +1685,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MemoryUsage() {
 		mockGit.ExpectedCalls = nil // Clear existing expectations
 		// Re-add GetChangedFiles mock after clearing
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
-		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			// Create the source directory structure that the sync engine expects
 			sourcePath := filepath.Join(destPath)

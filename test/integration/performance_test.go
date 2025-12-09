@@ -167,7 +167,7 @@ func BenchmarkGroupOrchestration(b *testing.B) {
 			mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 			// Mock git operations
-			mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -911,7 +911,7 @@ func TestPerformanceRegression(t *testing.T) {
 			mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 			// Mock git operations
-			mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -1052,7 +1052,7 @@ func TestPerformanceRegression(t *testing.T) {
 			mockState.On("DiscoverState", mock.Anything, mock.AnythingOfType("*config.Config")).Return(currentState, nil)
 
 			// Mock git operations - with enough calls for multiple groups
-			mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			mockGit.On("Checkout", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			mockGit.On("Add", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			mockGit.On("Commit", mock.Anything, mock.Anything, mock.Anything).Return(nil)

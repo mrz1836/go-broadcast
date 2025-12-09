@@ -12,10 +12,11 @@ type Config struct {
 
 // SourceConfig defines the source repository settings
 type SourceConfig struct {
-	Repo          string `yaml:"repo"`                     // Format: org/repo
-	Branch        string `yaml:"branch"`                   // Default: master
-	SecurityEmail string `yaml:"security_email,omitempty"` // Security contact email address (for transformation)
-	SupportEmail  string `yaml:"support_email,omitempty"`  // Support/contact email address (for transformation)
+	Repo          string `yaml:"repo"`                      // Format: org/repo
+	Branch        string `yaml:"branch"`                    // Default: master
+	BlobSizeLimit string `yaml:"blob_size_limit,omitempty"` // Max blob size for partial clone (e.g., "10m"), "0" to disable
+	SecurityEmail string `yaml:"security_email,omitempty"`  // Security contact email address (for transformation)
+	SupportEmail  string `yaml:"support_email,omitempty"`   // Support/contact email address (for transformation)
 }
 
 // GlobalConfig contains global settings applied across all targets
@@ -40,6 +41,7 @@ type DefaultConfig struct {
 type TargetConfig struct {
 	Repo              string             `yaml:"repo"`                          // Format: org/repo
 	Branch            string             `yaml:"branch,omitempty"`              // Target branch for PR base (defaults to repo's default branch)
+	BlobSizeLimit     string             `yaml:"blob_size_limit,omitempty"`     // Override source blob size limit for partial clone
 	Files             []FileMapping      `yaml:"files,omitempty"`               // Files to sync
 	Directories       []DirectoryMapping `yaml:"directories,omitempty"`         // Directories to sync
 	FileListRefs      []string           `yaml:"file_list_refs,omitempty"`      // References to file lists by ID

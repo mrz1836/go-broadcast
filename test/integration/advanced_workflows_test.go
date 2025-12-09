@@ -123,7 +123,7 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 		Return(&gh.FileContent{Content: []byte("old file content")}, nil).Maybe()
 
 	// Mock Git operations for creating sync branches (not pushing to main)
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory
 			cloneDir := args[2].(string)
@@ -295,7 +295,7 @@ clean:
 	}
 
 	// Mock Git operations
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory
 			cloneDir := args[2].(string)
@@ -399,7 +399,7 @@ func testRollbackCapabilities(t *testing.T, generator *fixtures.TestRepoGenerato
 		Return(&gh.FileContent{Content: []byte("content")}, nil).Maybe()
 
 	// Mock Git operations with tracking
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			gitOperationsMutex.Lock()
 			gitOperations = append(gitOperations, "clone:"+args[2].(string))
@@ -578,7 +578,7 @@ func testStateConsistencyAcrossOperations(t *testing.T, generator *fixtures.Test
 	mockGH.On("GetFile", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), "").
 		Return(&gh.FileContent{Content: []byte("old content")}, nil).Maybe()
 
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory
 			cloneDir := args[2].(string)
@@ -669,7 +669,7 @@ func testWorkflowPermissionsAndSecurity(t *testing.T, generator *fixtures.TestRe
 	mockGit.On("Clone", mock.Anything, mock.MatchedBy(func(url string) bool {
 		// Validate URL format for security
 		return strings.HasPrefix(url, "https://github.com/") && !strings.Contains(url, "..")
-	}), mock.AnythingOfType("string")).Return(nil)
+	}), mock.AnythingOfType("string"), mock.Anything).Return(nil)
 
 	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.MatchedBy(func(branch string) bool {
 		// Validate branch name doesn't contain dangerous characters
@@ -709,7 +709,7 @@ func testWorkflowPermissionsAndSecurity(t *testing.T, generator *fixtures.TestRe
 	t.Logf("Sync with security constraints result: %v", err)
 
 	// Verify secure operations were attempted
-	mockGit.AssertCalled(t, "Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"))
+	mockGit.AssertCalled(t, "Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything)
 
 	mockState.AssertExpectations(t)
 }
@@ -754,7 +754,7 @@ func testIncrementalTemplateChanges(t *testing.T, generator *fixtures.TestRepoGe
 		Return(&gh.FileContent{Content: []byte("old content")}, nil).Maybe()
 
 	// Mock Git operations
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory
 			cloneDir := args[2].(string)

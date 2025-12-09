@@ -543,7 +543,7 @@ func TestGitClient_Clone(t *testing.T) {
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	// Clone a small public repository
-	err = client.Clone(ctx, "https://github.com/octocat/Hello-World.git", repoPath)
+	err = client.Clone(ctx, "https://github.com/octocat/Hello-World.git", repoPath, nil)
 	require.NoError(t, err)
 
 	// Verify the repository was cloned
@@ -568,7 +568,7 @@ func TestGitClient_Clone_AlreadyExists(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to clone into existing directory
-	err = client.Clone(ctx, "https://github.com/octocat/Hello-World.git", repoPath)
+	err = client.Clone(ctx, "https://github.com/octocat/Hello-World.git", repoPath, nil)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrRepositoryExists)
 }
@@ -606,7 +606,7 @@ func TestGitClient_CloneWithBranch(t *testing.T) {
 			repoPath := filepath.Join(tmpDir, "test-repo-"+tt.name)
 
 			// Clone with specific branch
-			err = client.CloneWithBranch(ctx, "https://github.com/octocat/Hello-World.git", repoPath, tt.branch)
+			err = client.CloneWithBranch(ctx, "https://github.com/octocat/Hello-World.git", repoPath, tt.branch, nil)
 			require.NoError(t, err)
 
 			// Verify the repository was cloned
@@ -640,7 +640,7 @@ func TestGitClient_CloneWithBranch_AlreadyExists(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to clone with branch into existing directory
-	err = client.CloneWithBranch(ctx, "https://github.com/octocat/Hello-World.git", repoPath, "master")
+	err = client.CloneWithBranch(ctx, "https://github.com/octocat/Hello-World.git", repoPath, "master", nil)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrRepositoryExists)
 }
@@ -658,7 +658,7 @@ func TestGitClient_CloneWithBranch_InvalidBranch(t *testing.T) {
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	// Try to clone with non-existent branch
-	err = client.CloneWithBranch(ctx, "https://github.com/octocat/Hello-World.git", repoPath, "non-existent-branch")
+	err = client.CloneWithBranch(ctx, "https://github.com/octocat/Hello-World.git", repoPath, "non-existent-branch", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "clone repository with branch non-existent-branch")
 }
@@ -747,7 +747,7 @@ func TestGitClient_GetRemoteURL(t *testing.T) {
 	repoPath := filepath.Join(tmpDir, "test-repo")
 
 	// Clone a repository with a remote
-	err = client.Clone(ctx, "https://github.com/octocat/Hello-World.git", repoPath)
+	err = client.Clone(ctx, "https://github.com/octocat/Hello-World.git", repoPath, nil)
 	require.NoError(t, err)
 
 	// Get remote URL
@@ -892,7 +892,7 @@ func TestGitClient_CloneError(t *testing.T) {
 	ctx := context.Background()
 
 	// Test clone with invalid URL
-	err = client.Clone(ctx, "invalid://url", "/tmp/test-clone-error")
+	err = client.Clone(ctx, "invalid://url", "/tmp/test-clone-error", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to clone repository")
 }

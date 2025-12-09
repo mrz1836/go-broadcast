@@ -117,7 +117,7 @@ func testMultiRepoSyncWithConflicts(t *testing.T, generator *fixtures.TestRepoGe
 	}
 
 	// Mock Git operations
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory from the test scenario
 			cloneDir := args[2].(string)
@@ -230,7 +230,7 @@ func testPartialSyncFailureRecovery(t *testing.T, generator *fixtures.TestRepoGe
 		}).Maybe()
 
 	// Mock Git operations
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			cloneDir := args[2].(string)
 
@@ -368,7 +368,7 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 		Return(&gh.FileContent{Content: []byte("old content")}, nil).Maybe()
 
 	// Mock Git operations
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory from the test scenario
 			cloneDir := args[2].(string)
@@ -483,7 +483,7 @@ func testConcurrentSyncOperations(t *testing.T, generator *fixtures.TestRepoGene
 		Return(&gh.FileContent{Content: []byte("content")}, nil).Maybe()
 
 	// Mock Git operations
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory from the test scenario
 			cloneDir := args[2].(string)
@@ -611,7 +611,7 @@ func testMemoryUsageMonitoring(t *testing.T, generator *fixtures.TestRepoGenerat
 	}
 
 	// Mock Git operations
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			// Create the expected files in the clone directory from the test scenario
 			cloneDir := args[2].(string)
@@ -762,7 +762,7 @@ func testStateConsistencyAcrossFailures(t *testing.T, generator *fixtures.TestRe
 
 	// Mock Git operations that can fail - use a variable call count to determine success/failure
 	var cloneCallCount int
-	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+	mockGit.On("Clone", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).
 		Return(nil).
 		Run(func(args mock.Arguments) {
 			cloneCallCount++

@@ -587,7 +587,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
 		// Mock all sync operations to fail with different errors
-		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).
+		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(errGitCloneFailed).Maybe()
 
 		// Create engine with low concurrency to ensure predictable error handling
@@ -655,7 +655,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
 		// Mock failures for targets that need sync
-		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).
+		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(errCloneFailed).Maybe()
 
 		// Create engine
@@ -723,7 +723,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
 		// Mock clone operations to check for context cancellation
-		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything).
+		gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(context.Canceled).Maybe()
 
 		// Create engine
@@ -918,10 +918,10 @@ func TestEngine_ErrorCollection(t *testing.T) {
 
 		// Mock git operations to fail for different repos with different errors
 		// Target 1: Clone fails
-		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-1.git", mock.AnythingOfType("string")).Return(errCloneFailedTarget1)
+		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-1.git", mock.AnythingOfType("string"), mock.Anything).Return(errCloneFailedTarget1)
 
 		// Target 2: Clone succeeds but checkout fails
-		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-2.git", mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-2.git", mock.AnythingOfType("string"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 		})
@@ -939,7 +939,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		})).Return(nil) // Subsequent checkout calls succeed
 
 		// Target 3: Clone and checkout succeed but commit fails
-		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-3.git", mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-3.git", mock.AnythingOfType("string"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 		})
@@ -966,7 +966,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Mock source repo operations (should succeed for all targets)
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			// Copy source directory to the cloned path when source is cloned
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
@@ -981,7 +981,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 				url != "https://github.com/org/target-1.git" &&
 				url != "https://github.com/org/target-2.git" &&
 				url != "https://github.com/org/target-3.git"
-		}), mock.AnythingOfType("string")).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.AnythingOfType("string"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 		}).Maybe()
@@ -1038,13 +1038,13 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Verify clone was attempted for all targets
 		gitClient.AssertCalled(t, "Clone", mock.Anything, mock.MatchedBy(func(url string) bool {
 			return strings.Contains(url, "org/target-1")
-		}), mock.Anything)
+		}), mock.Anything, mock.Anything)
 		gitClient.AssertCalled(t, "Clone", mock.Anything, mock.MatchedBy(func(url string) bool {
 			return strings.Contains(url, "org/target-2")
-		}), mock.Anything)
+		}), mock.Anything, mock.Anything)
 		gitClient.AssertCalled(t, "Clone", mock.Anything, mock.MatchedBy(func(url string) bool {
 			return strings.Contains(url, "org/target-3")
-		}), mock.Anything)
+		}), mock.Anything, mock.Anything)
 	})
 
 	t.Run("mixed success and failure - partial completion", func(t *testing.T) {
@@ -1103,7 +1103,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Target 1: Succeeds completely
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "target-1") && strings.Contains(path, "/target")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 		})
@@ -1142,7 +1142,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Target 3: Also succeeds completely
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "target-3") && strings.Contains(path, "/target")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 		})
@@ -1184,12 +1184,12 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Target 2: Fails at clone
 		gitClient.On("Clone", mock.Anything, mock.MatchedBy(func(url string) bool {
 			return strings.Contains(url, "org/target-2")
-		}), mock.Anything).Return(errCloneFailedTarget2)
+		}), mock.Anything, mock.Anything).Return(errCloneFailedTarget2)
 
 		// Mock source repo operations (should succeed)
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 			testutil.WriteTestFile(t, destPath+"/file1.txt", "content 1")
@@ -1200,7 +1200,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Mock target repo cloning during commit operations for any path ending with "/target"
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/target") && !strings.Contains(path, "/source") && !strings.Contains(path, "target-1") && !strings.Contains(path, "target-2") && !strings.Contains(path, "target-3")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
 		}).Maybe()
@@ -1259,7 +1259,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Verify failed operation was attempted
 		gitClient.AssertCalled(t, "Clone", mock.Anything, mock.MatchedBy(func(url string) bool {
 			return strings.Contains(url, "org/target-2")
-		}), mock.Anything)
+		}), mock.Anything, mock.Anything)
 	})
 
 	t.Run("all syncs succeed - no error", func(t *testing.T) {
@@ -1312,7 +1312,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Mock all operations to succeed with proper file system setup
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			// Copy source files to the cloned location
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
@@ -1322,7 +1322,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "target")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			// Create target directory for cloning
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)

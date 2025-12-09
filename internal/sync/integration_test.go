@@ -130,7 +130,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
 		// === Target 1: Complete Success ===
-		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-success.git", mock.AnythingOfType("string")).Return(nil).Once()
+		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-success.git", mock.AnythingOfType("string"), mock.Anything).Return(nil).Once()
 		gitClient.On("Checkout", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		}), "abc123").Return(nil).Once()
@@ -165,7 +165,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		}, nil)
 
 		// === Target 2: No Changes Needed ===
-		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-no-changes.git", mock.AnythingOfType("string")).Return(nil).Once()
+		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-no-changes.git", mock.AnythingOfType("string"), mock.Anything).Return(nil).Once()
 		gitClient.On("Checkout", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		}), "abc123").Return(nil).Once()
@@ -188,10 +188,10 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 
 		// === Target 3: Network Failure (Retryable) ===
 		// Clone will fail with network error
-		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-network-failure.git", mock.AnythingOfType("string")).Return(errIntegrationEarlyEOF).Times(3) // Will retry 3 times
+		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-network-failure.git", mock.AnythingOfType("string"), mock.Anything).Return(errIntegrationEarlyEOF).Times(3) // Will retry 3 times
 
 		// === Target 4: Clone Failure (Non-retryable) ===
-		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-clone-failure.git", mock.AnythingOfType("string")).Return(errIntegrationRepoNotFound)
+		gitClient.On("Clone", mock.Anything, "https://github.com/org/target-clone-failure.git", mock.AnythingOfType("string"), mock.Anything).Return(errIntegrationRepoNotFound)
 
 		// === Fallback mocks for any unexpected calls ===
 		// These should not be called if the test is working correctly, but they help with debugging
@@ -223,7 +223,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		// Mock source repository operations (should succeed for all targets)
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			// Create source files when source is cloned
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
@@ -261,8 +261,8 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		ghClient.AssertNotCalled(t, "CreatePR", mock.Anything, "org/target-no-changes", mock.Anything)
 
 		// Verify failed targets attempted clone
-		gitClient.AssertCalled(t, "Clone", mock.Anything, "https://github.com/org/target-network-failure.git", mock.AnythingOfType("string"))
-		gitClient.AssertCalled(t, "Clone", mock.Anything, "https://github.com/org/target-clone-failure.git", mock.AnythingOfType("string"))
+		gitClient.AssertCalled(t, "Clone", mock.Anything, "https://github.com/org/target-network-failure.git", mock.AnythingOfType("string"), mock.Anything)
+		gitClient.AssertCalled(t, "Clone", mock.Anything, "https://github.com/org/target-clone-failure.git", mock.AnythingOfType("string"), mock.Anything)
 
 		// Verify state discovery was called
 		stateDiscoverer.AssertExpectations(t)
@@ -361,7 +361,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		// === Target 1: Creates New PR ===
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
-		})).Return(nil)
+		}), mock.Anything).Return(nil)
 		gitClient.On("Checkout", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		}), mock.AnythingOfType("string")).Return(nil).Maybe()
@@ -401,7 +401,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		branchName := ""
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
-		})).Return(nil)
+		}), mock.Anything).Return(nil)
 		gitClient.On("Checkout", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		}), mock.AnythingOfType("string")).Return(nil).Maybe()
@@ -464,7 +464,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		// === Target 3: Already Synchronized (No PR needed) ===
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
-		})).Return(nil).Maybe()
+		}), mock.Anything).Return(nil).Maybe()
 		gitClient.On("Checkout", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/target")
 		}), mock.AnythingOfType("string")).Return(nil).Maybe()
@@ -484,7 +484,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		// Mock source repository operations
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.Contains(path, "/source")
-		})).Return(nil).Run(func(args mock.Arguments) {
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			// Create source files when source is cloned
 			destPath := args[2].(string)
 			testutil.CreateTestDirectory(t, destPath)
@@ -589,7 +589,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
 		// Mock all git operations to succeed quickly
-		gitClient.On("Clone", mock.Anything, mock.Anything, mock.AnythingOfType("string")).Return(nil)
+		gitClient.On("Clone", mock.Anything, mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 		gitClient.On("Checkout", mock.Anything, mock.AnythingOfType("string"), "new123").Return(nil)
 		gitClient.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 		gitClient.On("CheckoutBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
