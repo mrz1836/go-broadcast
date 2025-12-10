@@ -52,6 +52,10 @@ type Client interface {
 	// MergePR merges a pull request using the specified method
 	MergePR(ctx context.Context, repo string, number int, method MergeMethod) error
 
+	// BypassMergePR merges a pull request using admin privileges to bypass branch protection
+	// This requires the user to have admin access to the repository
+	BypassMergePR(ctx context.Context, repo string, number int, method MergeMethod) error
+
 	// EnableAutoMergePR enables auto-merge for a pull request
 	// This allows the PR to merge automatically when all required checks pass
 	EnableAutoMergePR(ctx context.Context, repo string, number int, method MergeMethod) error

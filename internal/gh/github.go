@@ -573,6 +573,34 @@ func (g *githubClient) MergePR(ctx context.Context, repo string, number int, met
 	return nil
 }
 
+// BypassMergePR merges a pull request using admin privileges to bypass branch protection
+func (g *githubClient) BypassMergePR(ctx context.Context, repo string, number int, method MergeMethod) error {
+	// Build merge command with --admin flag
+	args := []string{"pr", "merge", fmt.Sprintf("%d", number), "--repo", repo, "--admin"}
+
+	// Add merge method flag
+	switch method {
+	case MergeMethodSquash:
+		args = append(args, "--squash")
+	case MergeMethodRebase:
+		args = append(args, "--rebase")
+	case MergeMethodMerge:
+		args = append(args, "--merge")
+	default:
+		return fmt.Errorf("%w: %s", ErrUnsupportedMergeMethod, method)
+	}
+
+	_, err := g.runner.Run(ctx, "gh", args...)
+	if err != nil {
+		if isNotFoundError(err) {
+			return ErrPRNotFound
+		}
+		return appErrors.WrapWithContext(err, fmt.Sprintf("bypass merge PR #%d with method %s", number, method))
+	}
+
+	return nil
+}
+
 // EnableAutoMergePR enables auto-merge for a pull request
 func (g *githubClient) EnableAutoMergePR(ctx context.Context, repo string, number int, method MergeMethod) error {
 	// Build auto-merge command

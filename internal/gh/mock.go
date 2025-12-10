@@ -108,6 +108,12 @@ func (m *MockClient) MergePR(ctx context.Context, repo string, number int, metho
 	return args.Error(0)
 }
 
+// BypassMergePR mock implementation
+func (m *MockClient) BypassMergePR(ctx context.Context, repo string, number int, method MergeMethod) error {
+	args := m.Called(ctx, repo, number, method)
+	return args.Error(0)
+}
+
 // EnableAutoMergePR mock implementation
 func (m *MockClient) EnableAutoMergePR(ctx context.Context, repo string, number int, method MergeMethod) error {
 	args := m.Called(ctx, repo, number, method)

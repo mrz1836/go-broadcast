@@ -109,6 +109,8 @@ type ReviewPRResult struct {
 func createReviewPRCmd(flags *Flags) *cobra.Command {
 	var message string
 	var allAssignedPRs bool
+	var bypass bool
+	var ignoreChecks bool
 
 	cmd := &cobra.Command{
 		Use:   "review-pr [<pr-url> [pr-url...]]",
@@ -140,20 +142,28 @@ The command supports both single and batch operations, processing multiple PRs i
   # Preview without executing
   go-broadcast review-pr --dry-run https://github.com/owner/repo/pull/123
 
+  # Bypass branch protection with admin privileges
+  go-broadcast review-pr --bypass https://github.com/owner/repo/pull/123
+
+  # Bypass and ignore status checks (dangerous)
+  go-broadcast review-pr --bypass --ignore-checks https://github.com/owner/repo/pull/123
+
   # Review all assigned PRs with custom message
   go-broadcast review-pr --all-assigned-prs --message "LGTM" --dry-run`,
 		Args: cobra.ArbitraryArgs, // Allow 0 or more args since --all-assigned-prs doesn't need URLs
-		RunE: createRunReviewPR(flags, &message, &allAssignedPRs),
+		RunE: createRunReviewPR(flags, &message, &allAssignedPRs, &bypass, &ignoreChecks),
 	}
 
 	cmd.Flags().StringVarP(&message, "message", "m", "LGTM", "Review approval message")
 	cmd.Flags().BoolVar(&allAssignedPRs, "all-assigned-prs", false, "Review and merge all open PRs assigned to you (excludes drafts)")
+	cmd.Flags().BoolVar(&bypass, "bypass", false, "Use admin privileges to bypass branch protection rules")
+	cmd.Flags().BoolVar(&ignoreChecks, "ignore-checks", false, "Skip waiting for status checks to pass (use with --bypass)")
 
 	return cmd
 }
 
 // createRunReviewPR creates the run function for the review-pr command
-func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func(*cobra.Command, []string) error {
+func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ignoreChecks *bool) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		log := logrus.WithField("command", "review-pr")
@@ -234,6 +244,7 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func
 		successCount := 0
 		failureCount := 0
 		immediatelyMergedCount := 0
+		bypassMergedCount := 0
 		autoMergeCount := 0
 		selfAuthoredCount := 0
 
@@ -317,53 +328,9 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func
 				continue
 			}
 
-			if flags.DryRun {
-				output.Info(fmt.Sprintf("DRY RUN: Would review PR #%d with message: %s", prInfo.Number, *message))
-				output.Info(fmt.Sprintf("DRY RUN: Would detect merge method for %s/%s", prInfo.Owner, prInfo.Repo))
-				output.Info(fmt.Sprintf("DRY RUN: Would merge PR #%d", prInfo.Number))
-				result.Reviewed = false
-				result.Merged = false
-				results = append(results, result) //nolint:staticcheck // results used in summary
-				successCount++
-				continue
-			}
-
-			// Submit review (skip if already approved, add comment if self-authored)
-			if alreadyApproved {
-				result.AlreadyReviewed = true
-				output.Info(fmt.Sprintf("✓ PR #%d already reviewed by you", prInfo.Number))
-			} else if isSelfAuthored {
-				// Can't approve own PR - add comment instead
-				result.SelfAuthored = true
-				output.Info(fmt.Sprintf("Adding comment to self-authored PR #%d...", prInfo.Number))
-				err = client.AddPRComment(ctx, fmt.Sprintf("%s/%s", prInfo.Owner, prInfo.Repo), prInfo.Number, *message)
-				if err != nil {
-					result.Error = fmt.Sprintf("Failed to add comment: %v", err)
-					output.Error(result.Error)
-					results = append(results, result) //nolint:staticcheck // results used in summary
-					failureCount++
-					continue
-				}
-				result.CommentAdded = true
-				selfAuthoredCount++
-				output.Success(fmt.Sprintf("✓ Comment added to PR #%d (self-authored)", prInfo.Number))
-			} else {
-				output.Info(fmt.Sprintf("Submitting approval for PR #%d...", prInfo.Number))
-				err = client.ReviewPR(ctx, fmt.Sprintf("%s/%s", prInfo.Owner, prInfo.Repo), prInfo.Number, *message)
-				if err != nil {
-					result.Error = fmt.Sprintf("Failed to review PR: %v", err)
-					output.Error(result.Error)
-					results = append(results, result) //nolint:staticcheck // results used in summary
-					failureCount++
-					continue
-				}
-				result.Reviewed = true
-				output.Success(fmt.Sprintf("✓ PR #%d approved", prInfo.Number))
-			}
-
-			// Get repository settings to determine merge method
-			output.Info(fmt.Sprintf("Detecting merge method for %s/%s...", prInfo.Owner, prInfo.Repo))
-			repo, err := client.GetRepository(ctx, fmt.Sprintf("%s/%s", prInfo.Owner, prInfo.Repo))
+			// Get repository settings to determine merge method (needed for dry-run output)
+			repoFullName := fmt.Sprintf("%s/%s", prInfo.Owner, prInfo.Repo)
+			repo, err := client.GetRepository(ctx, repoFullName)
 			if err != nil {
 				result.Error = fmt.Sprintf("Failed to get repository settings: %v", err)
 				output.Error(result.Error)
@@ -385,10 +352,78 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func
 				mergeMethod = gh.MergeMethodSquash
 			}
 			result.MergeMethod = mergeMethod.String()
+
+			// Dry-run mode: show what would happen based on investigation
+			if flags.DryRun {
+				// Show review action
+				if isSelfAuthored {
+					output.Info("DRY RUN: You are the PR author - would add comment instead of review")
+					output.Info(fmt.Sprintf("DRY RUN: Would add comment with message: %s", *message))
+				} else if alreadyApproved {
+					output.Info("DRY RUN: Already approved by you - would skip review")
+				} else {
+					output.Info(fmt.Sprintf("DRY RUN: Would submit approval with message: %s", *message))
+				}
+
+				// Show merge strategy
+				output.Info(fmt.Sprintf("DRY RUN: Merge method: %s", mergeMethod))
+
+				// Show merge approach based on state
+				if pr.Mergeable != nil && !*pr.Mergeable {
+					output.Warn("DRY RUN: PR has merge conflicts - would enable auto-merge")
+				} else if *bypass {
+					output.Info("DRY RUN: Would use admin merge to bypass branch protection")
+					if *ignoreChecks {
+						output.Warn("DRY RUN: Would ignore status checks (--ignore-checks)")
+					}
+				} else {
+					output.Info("DRY RUN: Would attempt immediate merge (fallback to auto-merge if blocked)")
+					output.Info("DRY RUN: Tip: Use --bypass to merge with admin privileges")
+				}
+
+				result.Reviewed = false
+				result.Merged = false
+				results = append(results, result) //nolint:staticcheck // results used in summary
+				successCount++
+				continue
+			}
+
+			// Submit review (skip if already approved, add comment if self-authored)
+			if alreadyApproved {
+				result.AlreadyReviewed = true
+				output.Info(fmt.Sprintf("✓ PR #%d already reviewed by you", prInfo.Number))
+			} else if isSelfAuthored {
+				// Can't approve own PR - add comment instead
+				result.SelfAuthored = true
+				output.Info(fmt.Sprintf("Adding comment to self-authored PR #%d...", prInfo.Number))
+				err = client.AddPRComment(ctx, repoFullName, prInfo.Number, *message)
+				if err != nil {
+					result.Error = fmt.Sprintf("Failed to add comment: %v", err)
+					output.Error(result.Error)
+					results = append(results, result) //nolint:staticcheck // results used in summary
+					failureCount++
+					continue
+				}
+				result.CommentAdded = true
+				selfAuthoredCount++
+				output.Success(fmt.Sprintf("✓ Comment added to PR #%d (self-authored)", prInfo.Number))
+			} else {
+				output.Info(fmt.Sprintf("Submitting approval for PR #%d...", prInfo.Number))
+				err = client.ReviewPR(ctx, repoFullName, prInfo.Number, *message)
+				if err != nil {
+					result.Error = fmt.Sprintf("Failed to review PR: %v", err)
+					output.Error(result.Error)
+					results = append(results, result) //nolint:staticcheck // results used in summary
+					failureCount++
+					continue
+				}
+				result.Reviewed = true
+				output.Success(fmt.Sprintf("✓ PR #%d approved", prInfo.Number))
+			}
+
 			output.Info(fmt.Sprintf("Using merge method: %s", mergeMethod))
 
 			// Smart merge strategy: try-and-fallback approach
-			repoFullName := fmt.Sprintf("%s/%s", prInfo.Owner, prInfo.Repo)
 
 			// If PR has merge conflicts, skip straight to auto-merge
 			if pr.Mergeable != nil && !*pr.Mergeable {
@@ -410,6 +445,20 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func
 					autoMergeCount++
 					output.Success(fmt.Sprintf("✓ Auto-merge enabled for PR #%d - will merge when conflicts are resolved", prInfo.Number))
 				}
+			} else if *bypass {
+				// Use admin merge to bypass branch protection
+				output.Info(fmt.Sprintf("Using admin merge to bypass branch protection for PR #%d...", prInfo.Number))
+				err = client.BypassMergePR(ctx, repoFullName, prInfo.Number, mergeMethod)
+				if err != nil {
+					result.Error = fmt.Sprintf("Failed to bypass merge PR: %v", err)
+					output.Error(result.Error)
+					results = append(results, result) //nolint:staticcheck // results used in summary
+					failureCount++
+					continue
+				}
+				result.Merged = true
+				bypassMergedCount++
+				output.Success(fmt.Sprintf("✓ PR #%d merged using admin bypass with %s method", prInfo.Number, mergeMethod))
 			} else {
 				// Try immediate merge first (optimistic approach)
 				output.Info(fmt.Sprintf("Merging PR #%d...", prInfo.Number))
@@ -465,6 +514,9 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs *bool) func
 			}
 			if immediatelyMergedCount > 0 {
 				output.Success(fmt.Sprintf("Merged immediately: %d", immediatelyMergedCount))
+			}
+			if bypassMergedCount > 0 {
+				output.Success(fmt.Sprintf("Merged via admin bypass: %d", bypassMergedCount))
 			}
 			if autoMergeCount > 0 {
 				output.Success(fmt.Sprintf("Auto-merge enabled: %d", autoMergeCount))

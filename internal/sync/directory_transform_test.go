@@ -1017,6 +1017,10 @@ func (m *DirectoryMockGHClient) MergePR(_ context.Context, _ string, _ int, _ gh
 	return nil
 }
 
+func (m *DirectoryMockGHClient) BypassMergePR(_ context.Context, _ string, _ int, _ gh.MergeMethod) error {
+	return nil
+}
+
 func (m *DirectoryMockGHClient) EnableAutoMergePR(_ context.Context, _ string, _ int, _ gh.MergeMethod) error {
 	return nil
 }

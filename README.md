@@ -610,6 +610,12 @@ go-broadcast review-pr --all-assigned-prs --dry-run
 
 # Review all assigned PRs with custom message
 go-broadcast review-pr --all-assigned-prs --message "LGTM"
+
+# Bypass branch protection with admin privileges (requires admin access)
+go-broadcast review-pr --bypass https://github.com/owner/repo/pull/123
+
+# Bypass and ignore status checks (dangerous - use with caution)
+go-broadcast review-pr --bypass --ignore-checks https://github.com/owner/repo/pull/123
 ```
 
 The `review-pr` command will:
@@ -643,6 +649,14 @@ The `review-pr` command will:
     - Handles: pending status checks, required reviews, or other protection rules
   - **Real errors**: Other errors (permissions, PR not found, etc.) fail as expected
 - This ensures PRs get merged without manual intervention once all requirements are satisfied
+
+**Admin Bypass Mode (`--bypass`):**
+- Use `--bypass` to merge using admin privileges, bypassing branch protection rules
+- Requires admin access to the repository
+- By default, still waits for status checks to pass before merging
+- Use `--ignore-checks` with `--bypass` to skip waiting for status checks (dangerous)
+- Perfect for repos with "automerge" labels or other exceptions to review requirements
+- Example: `go-broadcast review-pr --bypass https://github.com/owner/repo/pull/123`
 
 **Merge Method Detection:**
 - The command automatically queries the repository settings via GitHub API
@@ -715,6 +729,8 @@ go-broadcast review-pr https://github.com/owner/repo/pull/123       # Use full U
 go-broadcast review-pr --all-assigned-prs                           # Review all PRs assigned to you
 go-broadcast review-pr --all-assigned-prs --dry-run                 # Preview all assigned PRs
 go-broadcast review-pr --all-assigned-prs --message "LGTM"          # Custom message for all assigned PRs
+go-broadcast review-pr --bypass <pr-url>                            # Bypass branch protection (admin)
+go-broadcast review-pr --bypass --ignore-checks <pr-url>            # Bypass and skip status checks
 
 # Upgrade go-broadcast
 go-broadcast upgrade                     # Upgrade to latest version

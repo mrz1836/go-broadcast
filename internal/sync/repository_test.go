@@ -1785,6 +1785,10 @@ func (m *TestValidationMockGHClient) MergePR(_ context.Context, _ string, _ int,
 	return ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) BypassMergePR(_ context.Context, _ string, _ int, _ gh.MergeMethod) error {
+	return ErrMockNotImplemented
+}
+
 func (m *TestValidationMockGHClient) EnableAutoMergePR(_ context.Context, _ string, _ int, _ gh.MergeMethod) error {
 	return ErrMockNotImplemented
 }
