@@ -16,6 +16,9 @@ import (
 // ErrGitHubAPIFailed is returned when GitHub API returns a non-200 status
 var ErrGitHubAPIFailed = errors.New("GitHub API request failed")
 
+// githubAPIBaseURL is the base URL for GitHub API (can be overridden in tests)
+var githubAPIBaseURL = "https://api.github.com" //nolint:gochecknoglobals // intentional for test injection
+
 // GitHubRelease represents a GitHub release
 type GitHubRelease struct {
 	TagName     string    `json:"tag_name"`
@@ -35,7 +38,7 @@ type Info struct {
 
 // GetLatestRelease fetches the latest release from GitHub
 func GetLatestRelease(owner, repo string) (*GitHubRelease, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
+	url := fmt.Sprintf("%s/repos/%s/%s/releases/latest", githubAPIBaseURL, owner, repo)
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,

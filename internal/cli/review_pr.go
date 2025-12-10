@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -199,6 +200,9 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 			return fmt.Errorf("failed to create GitHub client: %w", err)
 		}
 
+		// Load automerge labels from environment for bypass validation
+		automergeLabels := parseAutomergeLabels(os.Getenv("GO_BROADCAST_AUTOMERGE_LABELS"))
+
 		// If using --all-assigned-prs, fetch PRs from GitHub
 		if *allAssignedPRs {
 			// Fetch all assigned PRs
@@ -372,9 +376,21 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 				if pr.Mergeable != nil && !*pr.Mergeable {
 					output.Warn("DRY RUN: PR has merge conflicts - would enable auto-merge")
 				} else if *bypass {
-					output.Info("DRY RUN: Would use admin merge to bypass branch protection")
-					if *ignoreChecks {
-						output.Warn("DRY RUN: Would ignore status checks (--ignore-checks)")
+					// Check if bypass would be allowed based on automerge labels
+					if !hasAutomergeLabel(pr.Labels, automergeLabels) {
+						output.Warn("DRY RUN: --bypass requested but PR lacks automerge label - bypass NOT allowed")
+						if len(automergeLabels) > 0 {
+							output.Info(fmt.Sprintf("DRY RUN: Required labels: %s", strings.Join(automergeLabels, ", ")))
+						} else {
+							output.Info("DRY RUN: No automerge labels configured in GO_BROADCAST_AUTOMERGE_LABELS")
+						}
+						output.Info("DRY RUN: Would attempt immediate merge (fallback to auto-merge if blocked)")
+					} else {
+						output.Info("DRY RUN: PR has automerge label - bypass allowed if needed")
+						output.Info("DRY RUN: Would attempt immediate merge first, use admin bypass if blocked")
+						if *ignoreChecks {
+							output.Warn("DRY RUN: Would ignore status checks (--ignore-checks)")
+						}
 					}
 				} else {
 					output.Info("DRY RUN: Would attempt immediate merge (fallback to auto-merge if blocked)")
@@ -445,45 +461,64 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 					autoMergeCount++
 					output.Success(fmt.Sprintf("✓ Auto-merge enabled for PR #%d - will merge when conflicts are resolved", prInfo.Number))
 				}
-			} else if *bypass {
-				// Use admin merge to bypass branch protection
-				output.Info(fmt.Sprintf("Using admin merge to bypass branch protection for PR #%d...", prInfo.Number))
-				err = client.BypassMergePR(ctx, repoFullName, prInfo.Number, mergeMethod)
-				if err != nil {
-					result.Error = fmt.Sprintf("Failed to bypass merge PR: %v", err)
-					output.Error(result.Error)
-					results = append(results, result) //nolint:staticcheck // results used in summary
-					failureCount++
-					continue
-				}
-				result.Merged = true
-				bypassMergedCount++
-				output.Success(fmt.Sprintf("✓ PR #%d merged using admin bypass with %s method", prInfo.Number, mergeMethod))
 			} else {
+				// Determine if bypass is allowed (requires automerge label)
+				bypassAllowed := *bypass && hasAutomergeLabel(pr.Labels, automergeLabels)
+
+				// Warn if bypass was requested but not allowed
+				if *bypass && !bypassAllowed {
+					output.Warn(fmt.Sprintf("⚠️  PR #%d does not have automerge label - bypass not allowed", prInfo.Number))
+					if len(automergeLabels) > 0 {
+						output.Info(fmt.Sprintf("Required labels: %s", strings.Join(automergeLabels, ", ")))
+					} else {
+						output.Info("No automerge labels configured in GO_BROADCAST_AUTOMERGE_LABELS")
+					}
+				}
+
 				// Try immediate merge first (optimistic approach)
-				output.Info(fmt.Sprintf("Merging PR #%d...", prInfo.Number))
+				if bypassAllowed {
+					output.Info(fmt.Sprintf("Merging PR #%d (bypass available if needed)...", prInfo.Number))
+				} else {
+					output.Info(fmt.Sprintf("Merging PR #%d...", prInfo.Number))
+				}
 				err = client.MergePR(ctx, repoFullName, prInfo.Number, mergeMethod)
 				if err != nil {
 					// Check if error is due to branch protection policies
 					if gh.IsBranchProtectionError(err) {
-						// Fallback to auto-merge
-						if autoMergeAlreadyEnabled {
-							result.AutoMergeAlreadyEnabled = true
-							output.Info(fmt.Sprintf("✓ Auto-merge already enabled for PR #%d", prInfo.Number))
-						} else {
-							output.Warn(fmt.Sprintf("⚠️  Branch protection blocking merge for PR #%d - enabling auto-merge", prInfo.Number))
-							output.Info(fmt.Sprintf("Enabling auto-merge for PR #%d...", prInfo.Number))
-							err = client.EnableAutoMergePR(ctx, repoFullName, prInfo.Number, mergeMethod)
+						if bypassAllowed {
+							// Use admin bypass as last resort
+							output.Info(fmt.Sprintf("Branch protection blocking - using admin bypass for PR #%d...", prInfo.Number))
+							err = client.BypassMergePR(ctx, repoFullName, prInfo.Number, mergeMethod)
 							if err != nil {
-								result.Error = fmt.Sprintf("Failed to enable auto-merge: %v", err)
+								result.Error = fmt.Sprintf("Failed to bypass merge PR: %v", err)
 								output.Error(result.Error)
 								results = append(results, result) //nolint:staticcheck // results used in summary
 								failureCount++
 								continue
 							}
-							result.AutoMergeEnabled = true
-							autoMergeCount++
-							output.Success(fmt.Sprintf("✓ Auto-merge enabled for PR #%d - will merge when requirements are met", prInfo.Number))
+							result.Merged = true
+							bypassMergedCount++
+							output.Success(fmt.Sprintf("✓ PR #%d merged using admin bypass with %s method", prInfo.Number, mergeMethod))
+						} else {
+							// Fallback to auto-merge (bypass not allowed)
+							if autoMergeAlreadyEnabled {
+								result.AutoMergeAlreadyEnabled = true
+								output.Info(fmt.Sprintf("✓ Auto-merge already enabled for PR #%d", prInfo.Number))
+							} else {
+								output.Warn(fmt.Sprintf("⚠️  Branch protection blocking merge for PR #%d - enabling auto-merge", prInfo.Number))
+								output.Info(fmt.Sprintf("Enabling auto-merge for PR #%d...", prInfo.Number))
+								err = client.EnableAutoMergePR(ctx, repoFullName, prInfo.Number, mergeMethod)
+								if err != nil {
+									result.Error = fmt.Sprintf("Failed to enable auto-merge: %v", err)
+									output.Error(result.Error)
+									results = append(results, result) //nolint:staticcheck // results used in summary
+									failureCount++
+									continue
+								}
+								result.AutoMergeEnabled = true
+								autoMergeCount++
+								output.Success(fmt.Sprintf("✓ Auto-merge enabled for PR #%d - will merge when requirements are met", prInfo.Number))
+							}
 						}
 					} else {
 						// Real error - fail
@@ -533,4 +568,36 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 
 		return nil
 	}
+}
+
+// parseAutomergeLabels parses comma-separated automerge labels from environment variable
+func parseAutomergeLabels(envValue string) []string {
+	if envValue == "" {
+		return nil
+	}
+	var labels []string
+	for _, label := range strings.Split(envValue, ",") {
+		if trimmed := strings.TrimSpace(label); trimmed != "" {
+			labels = append(labels, trimmed)
+		}
+	}
+	return labels
+}
+
+// hasAutomergeLabel checks if PR has any of the configured automerge labels
+func hasAutomergeLabel(prLabels []struct {
+	Name string `json:"name"`
+}, automergeLabels []string,
+) bool {
+	if len(automergeLabels) == 0 {
+		return false // No labels configured = bypass not allowed
+	}
+	for _, prLabel := range prLabels {
+		for _, autoLabel := range automergeLabels {
+			if strings.EqualFold(prLabel.Name, autoLabel) {
+				return true
+			}
+		}
+	}
+	return false
 }

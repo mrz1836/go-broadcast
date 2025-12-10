@@ -1,11 +1,8 @@
 package version
 
 import (
-	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -14,7 +11,7 @@ import (
 )
 
 func TestGetLatestRelease(t *testing.T) {
-	t.Parallel()
+	// Tests cannot be parallel because they modify package-level githubAPIBaseURL
 
 	tests := []struct {
 		name            string
@@ -50,7 +47,7 @@ func TestGetLatestRelease(t *testing.T) {
 			mockStatusCode: http.StatusOK,
 			mockResponse:   `{invalid json`,
 			expectError:    true,
-			errorContains:  "invalid character",
+			errorContains:  "decoding response",
 		},
 		{
 			name:           "NotFound",
@@ -66,12 +63,17 @@ func TestGetLatestRelease(t *testing.T) {
 			expectError:    true,
 			errorContains:  "GitHub API request failed",
 		},
+		{
+			name:           "InternalServerError",
+			mockStatusCode: http.StatusInternalServerError,
+			mockResponse:   `{"message": "Internal Server Error"}`,
+			expectError:    true,
+			errorContains:  "GitHub API request failed",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			// Create mock server
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "/repos/owner/repo/releases/latest", r.URL.Path)
@@ -83,13 +85,13 @@ func TestGetLatestRelease(t *testing.T) {
 			}))
 			defer server.Close()
 
-			// Temporarily override the API URL for testing
-			originalURL := "https://api.github.com/repos/%s/%s/releases/latest"
-			testURL := server.URL + "/repos/%s/%s/releases/latest"
-			_ = originalURL // Keep for reference
+			// Save original URL and restore after test
+			originalURL := githubAPIBaseURL
+			githubAPIBaseURL = server.URL
+			defer func() { githubAPIBaseURL = originalURL }()
 
-			// Mock the function by calling it with server URL
-			release, err := getLatestReleaseFromURL("owner", "repo", testURL)
+			// Test the actual GetLatestRelease function
+			release, err := GetLatestRelease("owner", "repo")
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -103,38 +105,6 @@ func TestGetLatestRelease(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Helper function for testing with custom URL
-func getLatestReleaseFromURL(owner, repo, urlTemplate string) (*GitHubRelease, error) {
-	// This is a test helper that mimics GetLatestRelease but with custom URL
-	client := &http.Client{Timeout: 10 * time.Second}
-	url := strings.Replace(urlTemplate, "%s/%s", owner+"/"+repo, 1)
-
-	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("User-Agent", "go-broadcast/dev (test/test)")
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, ErrGitHubAPIFailed
-	}
-
-	var release GitHubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, err
-	}
-
-	return &release, nil
 }
 
 func TestCompareVersions(t *testing.T) {

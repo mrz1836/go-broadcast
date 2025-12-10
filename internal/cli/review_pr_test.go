@@ -504,3 +504,169 @@ func TestReviewPRResult_MixedStates(t *testing.T) {
 		})
 	}
 }
+
+func TestParseAutomergeLabels(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		want     []string
+	}{
+		{
+			name:     "Single label",
+			envValue: "automerge",
+			want:     []string{"automerge"},
+		},
+		{
+			name:     "Multiple labels comma-separated",
+			envValue: "automerge,ready-to-merge,auto-merge",
+			want:     []string{"automerge", "ready-to-merge", "auto-merge"},
+		},
+		{
+			name:     "Labels with whitespace",
+			envValue: " automerge , ready-to-merge ,  auto-merge  ",
+			want:     []string{"automerge", "ready-to-merge", "auto-merge"},
+		},
+		{
+			name:     "Labels with empty entries",
+			envValue: "automerge,,ready-to-merge, ,auto-merge",
+			want:     []string{"automerge", "ready-to-merge", "auto-merge"},
+		},
+		{
+			name:     "Empty string",
+			envValue: "",
+			want:     nil,
+		},
+		{
+			name:     "Only whitespace",
+			envValue: "   ",
+			want:     nil,
+		},
+		{
+			name:     "Only commas",
+			envValue: ",,,",
+			want:     nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseAutomergeLabels(tt.envValue)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestHasAutomergeLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		prLabels []struct {
+			Name string `json:"name"`
+		}
+		automergeLabels []string
+		want            bool
+	}{
+		{
+			name: "PR has matching automerge label",
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{
+				{Name: "bug"},
+				{Name: "automerge"},
+				{Name: "enhancement"},
+			},
+			automergeLabels: []string{"automerge"},
+			want:            true,
+		},
+		{
+			name: "PR has one of multiple automerge labels",
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{
+				{Name: "bug"},
+				{Name: "ready-to-merge"},
+			},
+			automergeLabels: []string{"automerge", "ready-to-merge", "auto-merge"},
+			want:            true,
+		},
+		{
+			name: "PR does not have automerge label",
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{
+				{Name: "bug"},
+				{Name: "enhancement"},
+			},
+			automergeLabels: []string{"automerge"},
+			want:            false,
+		},
+		{
+			name: "Case insensitive match",
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{
+				{Name: "AutoMerge"},
+			},
+			automergeLabels: []string{"automerge"},
+			want:            true,
+		},
+		{
+			name: "Empty PR labels",
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{},
+			automergeLabels: []string{"automerge"},
+			want:            false,
+		},
+		{
+			name: "Empty automerge labels",
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{
+				{Name: "automerge"},
+			},
+			automergeLabels: []string{},
+			want:            false,
+		},
+		{
+			name: "Nil automerge labels",
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{
+				{Name: "automerge"},
+			},
+			automergeLabels: nil,
+			want:            false,
+		},
+		{
+			name: "Both empty",
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{},
+			automergeLabels: []string{},
+			want:            false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hasAutomergeLabel(tt.prLabels, tt.automergeLabels)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestBypassFlagBehavior(t *testing.T) {
+	// Test that the bypass flag exists and has correct configuration
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+
+	bypassFlag := cmd.Flags().Lookup("bypass")
+	require.NotNil(t, bypassFlag)
+	assert.Equal(t, "false", bypassFlag.DefValue)
+	assert.Contains(t, bypassFlag.Usage, "admin privileges")
+	assert.Contains(t, bypassFlag.Usage, "bypass branch protection")
+
+	ignoreChecksFlag := cmd.Flags().Lookup("ignore-checks")
+	require.NotNil(t, ignoreChecksFlag)
+	assert.Equal(t, "false", ignoreChecksFlag.DefValue)
+}

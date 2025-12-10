@@ -260,6 +260,72 @@ func TestGetEnvWithFallback(t *testing.T) {
 	})
 }
 
+func TestLoadEnvFilesFromDir_ErrorPaths(t *testing.T) {
+	t.Run("fails when base file missing", func(t *testing.T) {
+		// Create a temporary directory without .env.base
+		tempDir, err := os.MkdirTemp("", "go-broadcast-env-missing-test")
+		require.NoError(t, err)
+		defer func() {
+			removeErr := os.RemoveAll(tempDir)
+			require.NoError(t, removeErr)
+		}()
+
+		// Create .github directory but no .env.base
+		githubDir := filepath.Join(tempDir, ".github")
+		err = os.MkdirAll(githubDir, 0o750)
+		require.NoError(t, err)
+
+		// Attempt to load env files
+		err = LoadEnvFilesFromDir(tempDir)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "required .env.base file not found")
+	})
+
+	t.Run("loads with custom file present", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "go-broadcast-env-custom-test")
+		require.NoError(t, err)
+		defer func() {
+			removeErr := os.RemoveAll(tempDir)
+			require.NoError(t, removeErr)
+		}()
+
+		// Create .github directory
+		githubDir := filepath.Join(tempDir, ".github")
+		err = os.MkdirAll(githubDir, 0o750)
+		require.NoError(t, err)
+
+		// Create base file
+		baseFile := filepath.Join(githubDir, ".env.base")
+		baseContent := `TEST_DIR_BASE_VAR=base_value`
+		err = os.WriteFile(baseFile, []byte(baseContent), 0o600)
+		require.NoError(t, err)
+
+		// Create custom file with override
+		customFile := filepath.Join(githubDir, ".env.custom")
+		customContent := `TEST_DIR_BASE_VAR=custom_value`
+		err = os.WriteFile(customFile, []byte(customContent), 0o600)
+		require.NoError(t, err)
+
+		// Clear env var
+		origTestVar := os.Getenv("TEST_DIR_BASE_VAR")
+		defer func() {
+			if origTestVar != "" {
+				_ = os.Setenv("TEST_DIR_BASE_VAR", origTestVar)
+			} else {
+				_ = os.Unsetenv("TEST_DIR_BASE_VAR")
+			}
+		}()
+		_ = os.Unsetenv("TEST_DIR_BASE_VAR")
+
+		// Load env files from directory
+		err = LoadEnvFilesFromDir(tempDir)
+		require.NoError(t, err)
+
+		// Check that custom value overrides base
+		assert.Equal(t, "custom_value", os.Getenv("TEST_DIR_BASE_VAR"))
+	})
+}
+
 // TestAutomergeLabelsIntegration tests the specific use case that was failing
 func TestAutomergeLabelsIntegration(t *testing.T) {
 	// Save original working directory
