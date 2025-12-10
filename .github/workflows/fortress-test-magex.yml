@@ -68,6 +68,7 @@ jobs:
             .mage.yaml
             go.mod
             ${{ env.GO_SUM_FILE }}
+            magefiles/
 
       # --------------------------------------------------------------------
       # Setup MAGE-X using the reusable composite action
