@@ -438,7 +438,7 @@ func BenchmarkNewMockBase(b *testing.B) {
 
 func BenchmarkMockBase_Error(b *testing.B) {
 	base := NewMockBase()
-	base.On("Error", "action").Return(nil)
+	base.On("HandleError", "action").Return(nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -448,7 +448,7 @@ func BenchmarkMockBase_Error(b *testing.B) {
 
 func BenchmarkMockBase_Bool(b *testing.B) {
 	base := NewMockBase()
-	base.On("Bool", "check").Return(true, nil)
+	base.On("HandleBool", "check").Return(true, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -458,7 +458,7 @@ func BenchmarkMockBase_Bool(b *testing.B) {
 
 func BenchmarkMockBase_String(b *testing.B) {
 	base := NewMockBase()
-	base.On("String", "fetch").Return("result", nil)
+	base.On("HandleString", "fetch").Return("result", nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
