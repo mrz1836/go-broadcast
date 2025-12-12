@@ -65,12 +65,14 @@ func NewPRBodyGenerator(
 
 // GenerateBody generates PR body using AI, falls back to static on failure.
 // NEVER returns error that would block sync - always returns usable body.
+// Returns ErrFallbackUsed when AI generation failed and fallback was used.
+// Callers can check errors.Is(err, ErrFallbackUsed) to know if AI generated the body.
 // This method does not modify the input prCtx.
 func (g *PRBodyGenerator) GenerateBody(ctx context.Context, prCtx *PRContext) (string, error) {
 	// Check if provider is available
 	if g.provider == nil || !g.provider.IsAvailable() {
 		g.logger.Debug("AI provider not available, using fallback PR body")
-		return g.generateFallback(prCtx), nil
+		return g.generateFallback(prCtx), ErrFallbackUsed
 	}
 
 	// Apply timeout only if parent context doesn't have a shorter deadline
@@ -98,7 +100,7 @@ func (g *PRBodyGenerator) GenerateBody(ctx context.Context, prCtx *PRContext) (s
 
 	// Use cache if available
 	if g.cache != nil {
-		response, cacheHit, err := g.cache.GetOrGenerate(ctx, localCtx.DiffSummary, func(ctx context.Context) (string, error) {
+		response, cacheHit, err := g.cache.GetOrGenerate(ctx, "pr:", localCtx.DiffSummary, func(ctx context.Context) (string, error) {
 			return g.generateFromAI(ctx, localCtx)
 		})
 
@@ -108,7 +110,7 @@ func (g *PRBodyGenerator) GenerateBody(ctx context.Context, prCtx *PRContext) (s
 
 		if err != nil {
 			g.logger.WithError(err).Warn("AI generation failed, using fallback PR body")
-			return g.generateFallback(prCtx), nil
+			return g.generateFallback(prCtx), ErrFallbackUsed
 		}
 
 		return response, nil
@@ -118,7 +120,7 @@ func (g *PRBodyGenerator) GenerateBody(ctx context.Context, prCtx *PRContext) (s
 	response, err := g.generateFromAI(ctx, localCtx)
 	if err != nil {
 		g.logger.WithError(err).Warn("AI generation failed, using fallback PR body")
-		return g.generateFallback(prCtx), nil
+		return g.generateFallback(prCtx), ErrFallbackUsed
 	}
 
 	return response, nil
@@ -139,7 +141,14 @@ func (g *PRBodyGenerator) generateFromAI(ctx context.Context, prCtx *PRContext) 
 		return "", err
 	}
 
-	return resp.Content, nil
+	// CRITICAL: Validate AI response - reject commit-message-style output
+	validated := ValidatePRBody(resp.Content)
+	if validated == "" {
+		g.logger.Warn("AI generated invalid PR body format (looks like commit message), using fallback")
+		return "", ErrInvalidFormat
+	}
+
+	return validated, nil
 }
 
 // generateFallback returns static template for PR body.

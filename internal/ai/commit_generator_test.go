@@ -110,8 +110,8 @@ func TestCommitMessageGenerator_GenerateMessage_CacheHit(t *testing.T) {
 	}
 	cache := NewResponseCache(cfg)
 
-	// Pre-populate cache with a valid commit message
-	cache.Set("diff content", "sync: cached commit message")
+	// Pre-populate cache with a valid commit message (using prefixed key)
+	cache.Set("commit:diff content", "sync: cached commit message")
 
 	mockProvider := NewMockProvider()
 	mockProvider.On("IsAvailable").Return(true)
@@ -143,7 +143,7 @@ func TestCommitMessageGenerator_GenerateMessage_ProviderNil(t *testing.T) {
 
 	result, err := gen.GenerateMessage(context.Background(), commitCtx)
 
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrFallbackUsed, "should return ErrFallbackUsed when provider is nil")
 	assert.Equal(t, "sync: update README.md from source repository", result)
 }
 
@@ -161,7 +161,7 @@ func TestCommitMessageGenerator_GenerateMessage_ProviderUnavailable(t *testing.T
 
 	result, err := gen.GenerateMessage(context.Background(), commitCtx)
 
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrFallbackUsed, "should return ErrFallbackUsed when provider unavailable")
 	assert.Equal(t, "sync: update README.md from source repository", result)
 	mockProvider.AssertNotCalled(t, "GenerateText", mock.Anything, mock.Anything)
 }
@@ -187,7 +187,7 @@ func TestCommitMessageGenerator_GenerateMessage_AIError(t *testing.T) {
 
 	result, err := gen.GenerateMessage(context.Background(), commitCtx)
 
-	require.NoError(t, err, "should not return error - falls back gracefully")
+	require.ErrorIs(t, err, ErrFallbackUsed, "should return ErrFallbackUsed on AI error")
 	assert.Equal(t, "sync: update 2 files from source repository", result)
 	mockProvider.AssertExpectations(t)
 }
@@ -215,7 +215,7 @@ func TestCommitMessageGenerator_GenerateMessage_EmptyAfterValidation(t *testing.
 
 	result, err := gen.GenerateMessage(context.Background(), commitCtx)
 
-	require.NoError(t, err, "should fall back when validation returns empty")
+	require.ErrorIs(t, err, ErrFallbackUsed, "should return ErrFallbackUsed when validation returns empty")
 	assert.Equal(t, "sync: update 3 files from source repository", result)
 }
 
@@ -237,7 +237,7 @@ func TestCommitMessageGenerator_GenerateMessage_Timeout(t *testing.T) {
 
 	result, err := gen.GenerateMessage(context.Background(), commitCtx)
 
-	require.NoError(t, err, "should fall back on timeout")
+	require.ErrorIs(t, err, ErrFallbackUsed, "should return ErrFallbackUsed on timeout")
 	assert.Contains(t, result, "sync:")
 }
 
@@ -325,7 +325,7 @@ func TestCommitMessageGenerator_WithCacheError(t *testing.T) {
 
 	result, err := gen.GenerateMessage(context.Background(), commitCtx)
 
-	require.NoError(t, err, "cache path should also fall back gracefully")
+	require.ErrorIs(t, err, ErrFallbackUsed, "cache path should return ErrFallbackUsed on error")
 	assert.Equal(t, "sync: update file.go from source repository", result)
 }
 

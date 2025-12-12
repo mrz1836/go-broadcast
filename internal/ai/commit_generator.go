@@ -63,11 +63,13 @@ func NewCommitMessageGenerator(
 // GenerateMessage generates commit message, falls back to static on failure.
 // ALWAYS validates AI response through ValidateCommitMessage before returning.
 // NEVER returns error that would block sync - always returns usable message.
+// Returns ErrFallbackUsed when AI generation failed and fallback was used.
+// Callers can check errors.Is(err, ErrFallbackUsed) to know if AI generated the message.
 func (g *CommitMessageGenerator) GenerateMessage(ctx context.Context, commitCtx *CommitContext) (string, error) {
 	// Check if provider is available
 	if g.provider == nil || !g.provider.IsAvailable() {
 		g.logger.Debug("AI provider not available, using fallback commit message")
-		return g.generateFallback(commitCtx), nil
+		return g.generateFallback(commitCtx), ErrFallbackUsed
 	}
 
 	// Apply timeout only if parent context doesn't have a shorter deadline
@@ -83,7 +85,7 @@ func (g *CommitMessageGenerator) GenerateMessage(ctx context.Context, commitCtx 
 	// Use cache if available
 	if g.cache != nil {
 		var cacheHit bool
-		response, cacheHit, err = g.cache.GetOrGenerate(ctx, commitCtx.DiffSummary, func(ctx context.Context) (string, error) {
+		response, cacheHit, err = g.cache.GetOrGenerate(ctx, "commit:", commitCtx.DiffSummary, func(ctx context.Context) (string, error) {
 			return g.generateFromAI(ctx, commitCtx)
 		})
 
@@ -97,14 +99,14 @@ func (g *CommitMessageGenerator) GenerateMessage(ctx context.Context, commitCtx 
 
 	if err != nil {
 		g.logger.WithError(err).Warn("AI generation failed, using fallback commit message")
-		return g.generateFallback(commitCtx), nil
+		return g.generateFallback(commitCtx), ErrFallbackUsed
 	}
 
 	// CRITICAL: Always validate AI response
 	validated := ValidateCommitMessage(response)
 	if validated == "" {
 		g.logger.Warn("AI generated empty commit message, using fallback")
-		return g.generateFallback(commitCtx), nil
+		return g.generateFallback(commitCtx), ErrFallbackUsed
 	}
 
 	return validated, nil

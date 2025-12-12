@@ -89,8 +89,8 @@ func TestPRBodyGenerator_GenerateBody_CacheHit(t *testing.T) {
 	}
 	cache := NewResponseCache(cfg)
 
-	// Pre-populate cache
-	cache.Set("diff content", "cached PR body")
+	// Pre-populate cache with prefixed key
+	cache.Set("pr:diff content", "cached PR body")
 
 	mockProvider := NewMockProvider()
 	mockProvider.On("IsAvailable").Return(true)
@@ -122,7 +122,7 @@ func TestPRBodyGenerator_GenerateBody_ProviderNil(t *testing.T) {
 
 	result, err := gen.GenerateBody(context.Background(), prCtx)
 
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrFallbackUsed, "should return ErrFallbackUsed when provider is nil")
 	assert.Contains(t, result, "What Changed")
 	assert.Contains(t, result, "owner/source")
 	assert.Contains(t, result, "owner/target")
@@ -143,7 +143,7 @@ func TestPRBodyGenerator_GenerateBody_ProviderUnavailable(t *testing.T) {
 
 	result, err := gen.GenerateBody(context.Background(), prCtx)
 
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrFallbackUsed, "should return ErrFallbackUsed when provider unavailable")
 	assert.Contains(t, result, "What Changed")
 	mockProvider.AssertNotCalled(t, "GenerateText", mock.Anything, mock.Anything)
 }
@@ -166,7 +166,7 @@ func TestPRBodyGenerator_GenerateBody_AIError(t *testing.T) {
 
 	result, err := gen.GenerateBody(context.Background(), prCtx)
 
-	require.NoError(t, err, "should not return error - falls back gracefully")
+	require.ErrorIs(t, err, ErrFallbackUsed, "should return ErrFallbackUsed on AI error")
 	assert.Contains(t, result, "What Changed", "should contain fallback template")
 	mockProvider.AssertExpectations(t)
 }
@@ -190,7 +190,7 @@ func TestPRBodyGenerator_GenerateBody_Timeout(t *testing.T) {
 
 	result, err := gen.GenerateBody(context.Background(), prCtx)
 
-	require.NoError(t, err, "should not return error - falls back on timeout")
+	require.ErrorIs(t, err, ErrFallbackUsed, "should return ErrFallbackUsed on timeout")
 	assert.Contains(t, result, "What Changed", "should contain fallback template")
 }
 
@@ -198,10 +198,13 @@ func TestPRBodyGenerator_GenerateBody_GuidelinesInjection(t *testing.T) {
 	mockProvider := NewMockProvider()
 	mockProvider.On("IsAvailable").Return(true)
 
+	// Valid PR body format (multiline with ## headers)
+	validPRBody := "## What Changed\n* Updated files\n\n## Why It Was Necessary\n* Keep sync"
+
 	var capturedRequest *GenerateRequest
 	mockProvider.On("GenerateText", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		capturedRequest = args.Get(1).(*GenerateRequest)
-	}).Return(&GenerateResponse{Content: "response"}, nil)
+	}).Return(&GenerateResponse{Content: validPRBody}, nil)
 
 	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, "Custom Guidelines Here", 5*time.Second, nil)
 
@@ -223,10 +226,13 @@ func TestPRBodyGenerator_GenerateBody_ExistingGuidelines(t *testing.T) {
 	mockProvider := NewMockProvider()
 	mockProvider.On("IsAvailable").Return(true)
 
+	// Valid PR body format (multiline with ## headers)
+	validPRBody := "## What Changed\n* Updated files\n\n## Why It Was Necessary\n* Keep sync"
+
 	var capturedRequest *GenerateRequest
 	mockProvider.On("GenerateText", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		capturedRequest = args.Get(1).(*GenerateRequest)
-	}).Return(&GenerateResponse{Content: "response"}, nil)
+	}).Return(&GenerateResponse{Content: validPRBody}, nil)
 
 	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, "Generator Guidelines", 5*time.Second, nil)
 
@@ -309,7 +315,7 @@ func TestPRBodyGenerator_WithCacheError(t *testing.T) {
 
 	result, err := gen.GenerateBody(context.Background(), prCtx)
 
-	require.NoError(t, err, "cache path should also fall back gracefully")
+	require.ErrorIs(t, err, ErrFallbackUsed, "cache path should return ErrFallbackUsed on error")
 	assert.Contains(t, result, "What Changed")
 }
 
@@ -521,7 +527,7 @@ func TestPRBodyGenerator_WithUnavailableMock(t *testing.T) {
 	}
 
 	result, err := gen.GenerateBody(context.Background(), prCtx)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrFallbackUsed, "should return ErrFallbackUsed when unavailable")
 	assert.Contains(t, result, "What Changed") // Should use fallback
 }
 
@@ -536,7 +542,7 @@ func TestPRBodyGenerator_WithErrorMock(t *testing.T) {
 	}
 
 	result, err := gen.GenerateBody(context.Background(), prCtx)
-	require.NoError(t, err) // Should not error - falls back gracefully
+	require.ErrorIs(t, err, ErrFallbackUsed, "should return ErrFallbackUsed on error")
 	assert.Contains(t, result, "What Changed")
 }
 
