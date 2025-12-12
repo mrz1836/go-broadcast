@@ -46,6 +46,8 @@ type RepositorySync struct {
 	stagedRepoPath string
 	// Performance metrics tracking
 	syncMetrics *PerformanceMetrics
+	// commitAIGenerated tracks if commit message was AI-generated (for PR metadata)
+	commitAIGenerated bool
 }
 
 // PerformanceMetrics tracks performance metrics for the entire sync operation
@@ -818,11 +820,20 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 
 	// Generate commit message AFTER staging so we have the real git diff
 	commitMsg, aiGenerated := rs.generateCommitMessage(ctx, changedFiles)
+	rs.commitAIGenerated = aiGenerated // Store for PR metadata block
+
+	// Log AI usage for commit message
+	if aiGenerated {
+		rs.logger.WithField("component", "ai_commit").Info("AI generated commit message")
+	} else if rs.engine != nil && rs.engine.commitGenerator != nil {
+		rs.logger.WithField("component", "ai_commit").Debug("AI commit generation failed, using static template")
+	}
 
 	rs.logger.WithFields(logrus.Fields{
-		"branch":     branchName,
-		"files":      len(changedFiles),
-		"commit_msg": commitMsg,
+		"branch":       branchName,
+		"files":        len(changedFiles),
+		"commit_msg":   commitMsg,
+		"ai_generated": aiGenerated,
 	}).Info("Creating commit")
 
 	// For dry-run: show preview and return without committing
@@ -958,9 +969,17 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 	title := rs.generatePRTitle()
 	body, aiGenerated := rs.generatePRBody(ctx, commitSHA, changedFiles, actualChangedFiles)
 
+	// Log AI usage for PR body
+	if aiGenerated {
+		rs.logger.WithField("component", "ai_pr").Info("AI generated PR body")
+	} else if rs.engine != nil && rs.engine.prGenerator != nil {
+		rs.logger.WithField("component", "ai_pr").Debug("AI PR body generation failed, using static template")
+	}
+
 	rs.logger.WithFields(logrus.Fields{
-		"branch": branchName,
-		"title":  title,
+		"branch":       branchName,
+		"title":        title,
+		"ai_generated": aiGenerated,
 	}).Info("Creating new pull request")
 
 	if rs.engine.options.DryRun {
@@ -1285,7 +1304,7 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 				sb.WriteString(aiBody)
 				sb.WriteString("\n\n")
 				// CRITICAL: Metadata is NEVER AI-generated - always append static metadata
-				rs.writeMetadataBlock(&sb, commitSHA, changedFiles)
+				rs.writeMetadataBlock(&sb, commitSHA, changedFiles, true) // PR body was AI-generated
 				return sb.String(), true
 			}
 			rs.logger.Debug("AI PR body generation used fallback")
@@ -1333,7 +1352,7 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 	sb.WriteString("* **Dependencies**: No dependency changes included in this sync\n\n")
 
 	// Add enhanced metadata as YAML block
-	rs.writeMetadataBlock(&sb, commitSHA, changedFiles)
+	rs.writeMetadataBlock(&sb, commitSHA, changedFiles, false) // PR body was NOT AI-generated
 
 	return sb.String(), false // Static fallback was used, not AI
 }
@@ -1469,7 +1488,7 @@ func (rs *RepositorySync) writePerformanceMetrics(sb *strings.Builder) {
 }
 
 // writeMetadataBlock writes the machine-parseable metadata block
-func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA string, _ []FileChange) {
+func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA string, _ []FileChange, prBodyAIGenerated bool) {
 	sb.WriteString("<!-- go-broadcast-metadata\n")
 
 	// Add group information if available
@@ -1485,6 +1504,11 @@ func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA stri
 	fmt.Fprintf(sb, "  target_repo: %s\n", rs.target.Repo)
 	fmt.Fprintf(sb, "  sync_commit: %s\n", commitSHA)
 	fmt.Fprintf(sb, "  sync_time: %s\n", time.Now().Format(time.RFC3339))
+
+	// Add AI generation status
+	sb.WriteString("ai_generated:\n")
+	fmt.Fprintf(sb, "  commit_message: %t\n", rs.commitAIGenerated)
+	fmt.Fprintf(sb, "  pr_body: %t\n", prBodyAIGenerated)
 
 	// Add directory information if directories are configured
 	if len(rs.target.Directories) > 0 {
