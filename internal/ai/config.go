@@ -89,8 +89,8 @@ func LoadConfig() *Config {
 
 	cfg := &Config{
 		Enabled:       enabled,
-		PREnabled:     parseBoolWithDefault("GO_BROADCAST_AI_PR_ENABLED", enabled),
-		CommitEnabled: parseBoolWithDefault("GO_BROADCAST_AI_COMMIT_ENABLED", enabled),
+		PREnabled:     parseBoolWithDefault("GO_BROADCAST_AI_PR_ENABLED", false),
+		CommitEnabled: parseBoolWithDefault("GO_BROADCAST_AI_COMMIT_ENABLED", false),
 		Provider:      env.GetEnvWithFallback("GO_BROADCAST_AI_PROVIDER", ProviderAnthropic),
 		APIKey:        env.GetEnvWithFallback("GO_BROADCAST_AI_API_KEY", ""),
 		Model:         env.GetEnvWithFallback("GO_BROADCAST_AI_MODEL", ""),

@@ -121,27 +121,10 @@ func (p *GenkitProvider) GenerateText(ctx context.Context, req *GenerateRequest)
 
 	start := time.Now()
 
-	// Build generation config
-	genConfig := &genkitai.GenerationCommonConfig{
-		MaxOutputTokens: req.MaxTokens,
-	}
-
-	// Add temperature - use request value, fall back to config value
-	// TemperatureNotSet (-1) indicates "use config default"
-	// Zero (0.0) is a valid temperature (most deterministic), so we check for sentinel value
-	temp := req.Temperature
-	if temp == TemperatureNotSet {
-		temp = p.config.Temperature
-	}
-	// Only set if within valid range (0.0-2.0)
-	if temp >= 0 && temp <= 2.0 {
-		genConfig.Temperature = temp
-	}
-
-	// Build generation options
+	// Build generation options - config is provider-specific, so we only use prompt
+	// The compat_oai plugins don't accept GenerationCommonConfig
 	opts := []genkitai.GenerateOption{
 		genkitai.WithPrompt(req.Prompt),
-		genkitai.WithConfig(genConfig),
 	}
 
 	// Generate response

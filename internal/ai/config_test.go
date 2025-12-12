@@ -48,7 +48,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	// Provider defaults
 	assert.Equal(t, ProviderAnthropic, cfg.Provider)
 	assert.Empty(t, cfg.APIKey)
-	assert.Equal(t, "claude-sonnet-4-20250514", cfg.Model) // default model for anthropic
+	assert.Equal(t, "claude-sonnet-4-5-20250929", cfg.Model) // default model for anthropic
 
 	// Generation parameters
 	assert.Equal(t, 2000, cfg.MaxTokens)
@@ -236,17 +236,17 @@ func TestLoadConfig_DefaultModel(t *testing.T) {
 		{
 			name:          "Anthropic default model",
 			provider:      "anthropic",
-			expectedModel: "claude-sonnet-4-20250514",
+			expectedModel: "claude-sonnet-4-5-20250929",
 		},
 		{
 			name:          "OpenAI default model",
 			provider:      "openai",
-			expectedModel: "gpt-4o",
+			expectedModel: "gpt-5.2",
 		},
 		{
 			name:          "Google default model",
 			provider:      "google",
-			expectedModel: "gemini-2.5-flash",
+			expectedModel: "gemini-3-pro-preview",
 		},
 		{
 			name:          "Unknown provider empty model",
@@ -422,9 +422,9 @@ func TestGetDefaultModel(t *testing.T) {
 		provider      string
 		expectedModel string
 	}{
-		{ProviderAnthropic, "claude-sonnet-4-20250514"},
-		{ProviderOpenAI, "gpt-4o"},
-		{ProviderGoogle, "gemini-2.5-flash"},
+		{ProviderAnthropic, "claude-sonnet-4-5-20250929"},
+		{ProviderOpenAI, "gpt-5.2"},
+		{ProviderGoogle, "gemini-3-pro-preview"},
 		{"unknown", ""},
 		{"", ""},
 	}
@@ -734,5 +734,101 @@ func TestSetConfigLogger(t *testing.T) {
 		assert.NotPanics(t, func() {
 			logConfigWarning("should not panic")
 		})
+	})
+}
+
+// TestConfigWithEmptyFeatureFlags tests the scenario where PR_ENABLED and
+// COMMIT_ENABLED are empty strings (as they would be after stripping inline
+// comments from .env.base like "GO_BROADCAST_AI_PR_ENABLED=  # comment")
+func TestConfigWithEmptyFeatureFlags(t *testing.T) {
+	t.Run("empty PR_ENABLED defaults to false", func(t *testing.T) {
+		t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
+		t.Setenv("GO_BROADCAST_AI_API_KEY", "test-key")
+		t.Setenv("GO_BROADCAST_AI_PR_ENABLED", "")
+		t.Setenv("GO_BROADCAST_AI_COMMIT_ENABLED", "")
+
+		cfg := LoadConfig()
+
+		assert.True(t, cfg.Enabled, "Master enabled should be true")
+		assert.False(t, cfg.PREnabled, "PR enabled should default to false when empty")
+		assert.False(t, cfg.CommitEnabled, "Commit enabled should default to false when empty")
+		assert.True(t, cfg.IsEnabled(), "IsEnabled should return true (master + API key)")
+		assert.False(t, cfg.IsPREnabled(), "IsPREnabled should return false (PR not explicitly enabled)")
+		assert.False(t, cfg.IsCommitEnabled(), "IsCommitEnabled should return false (Commit not explicitly enabled)")
+	})
+
+	t.Run("explicit true enables PR and Commit generation", func(t *testing.T) {
+		t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
+		t.Setenv("GO_BROADCAST_AI_API_KEY", "test-key")
+		t.Setenv("GO_BROADCAST_AI_PR_ENABLED", "true")
+		t.Setenv("GO_BROADCAST_AI_COMMIT_ENABLED", "true")
+
+		cfg := LoadConfig()
+
+		assert.True(t, cfg.Enabled)
+		assert.True(t, cfg.PREnabled, "PR enabled should be true when explicitly set")
+		assert.True(t, cfg.CommitEnabled, "Commit enabled should be true when explicitly set")
+		assert.True(t, cfg.IsPREnabled())
+		assert.True(t, cfg.IsCommitEnabled())
+	})
+}
+
+// TestConfigEnvFilesScenario tests the complete scenario of loading AI config
+// from environment variables as they would be set after loading .env files
+func TestConfigEnvFilesScenario(t *testing.T) {
+	t.Run("user enables AI via custom override", func(t *testing.T) {
+		// Simulate .env.base values (after inline comments stripped)
+		t.Setenv("GO_BROADCAST_AI_PROVIDER", "anthropic")
+		t.Setenv("GO_BROADCAST_AI_PR_ENABLED", "")     // Was "# comment"
+		t.Setenv("GO_BROADCAST_AI_COMMIT_ENABLED", "") // Was "# comment"
+
+		// Simulate .env.custom override
+		t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
+
+		// Simulate user having API key in shell (from ~/.zshrc)
+		t.Setenv("GO_BROADCAST_AI_API_KEY", "sk-ant-user-key")
+
+		cfg := LoadConfig()
+
+		// Verify configuration
+		assert.True(t, cfg.IsEnabled(), "AI should be enabled (master + API key present)")
+		assert.Equal(t, "anthropic", cfg.Provider)
+		assert.Equal(t, "sk-ant-user-key", cfg.APIKey)
+
+		// PR and Commit generation require explicit opt-in
+		assert.False(t, cfg.IsPREnabled(), "PR needs explicit enable in .env.custom")
+		assert.False(t, cfg.IsCommitEnabled(), "Commit needs explicit enable in .env.custom")
+	})
+
+	t.Run("user enables all AI features via custom", func(t *testing.T) {
+		// Simulate .env.base values
+		t.Setenv("GO_BROADCAST_AI_PROVIDER", "anthropic")
+
+		// Simulate .env.custom with full AI enablement
+		t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
+		t.Setenv("GO_BROADCAST_AI_PR_ENABLED", "true")
+		t.Setenv("GO_BROADCAST_AI_COMMIT_ENABLED", "true")
+
+		// API key from shell
+		t.Setenv("GO_BROADCAST_AI_API_KEY", "sk-ant-user-key")
+
+		cfg := LoadConfig()
+
+		assert.True(t, cfg.IsEnabled())
+		assert.True(t, cfg.IsPREnabled())
+		assert.True(t, cfg.IsCommitEnabled())
+	})
+
+	t.Run("ANTHROPIC_API_KEY fallback when main key not set", func(t *testing.T) {
+		t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
+		t.Setenv("GO_BROADCAST_AI_PROVIDER", "anthropic")
+		t.Setenv("GO_BROADCAST_AI_API_KEY", "") // Not set
+		t.Setenv("ANTHROPIC_API_KEY", "sk-ant-fallback-key")
+
+		cfg := LoadConfig()
+
+		assert.Equal(t, "sk-ant-fallback-key", cfg.APIKey,
+			"Should use ANTHROPIC_API_KEY as fallback")
+		assert.True(t, cfg.IsEnabled(), "Should be enabled via fallback key")
 	})
 }
