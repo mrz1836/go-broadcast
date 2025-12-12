@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/joho/godotenv"
 )
 
 // Static errors for consistent error handling
@@ -16,13 +14,13 @@ var (
 	ErrEnvBaseFileNotFound = errors.New("required .env.base file not found")
 )
 
-// LoadEnvFiles loads environment variables from .env.base and .env.custom files
-// following the GoFortress pattern used by other tools in the ecosystem.
+// LoadEnvFiles loads environment variables with proper precedence:
+//  1. OS environment variables (HIGHEST - never overwritten)
+//  2. .env.custom (project overrides)
+//  3. .env.base (defaults)
 //
-// Loading Strategy:
-// 1. Load .github/.env.base (required) - contains default configuration
-// 2. Load .github/.env.custom (optional) - project-specific overrides
-// 3. Merge with custom values taking precedence over base values
+// Variables already set in the OS environment are NEVER overwritten.
+// This allows users to override via shell exports or CI/CD secrets.
 //
 // This ensures go-broadcast follows the same configuration pattern as
 // go-coverage, go-pre-commit, mage-x, and other GoFortress tools.
@@ -31,26 +29,7 @@ func LoadEnvFiles() error {
 	baseFile := ".github/.env.base"
 	customFile := ".github/.env.custom"
 
-	// Load base configuration (required)
-	if _, err := os.Stat(baseFile); os.IsNotExist(err) {
-		return fmt.Errorf("%w at %s", ErrEnvBaseFileNotFound, baseFile)
-	}
-
-	// Load base environment variables
-	if err := godotenv.Overload(baseFile); err != nil {
-		return fmt.Errorf("failed to load %s: %w", baseFile, err)
-	}
-
-	// Load custom overrides (optional)
-	if _, err := os.Stat(customFile); err == nil {
-		// Custom file exists, load it to override base values
-		if err := godotenv.Overload(customFile); err != nil {
-			return fmt.Errorf("failed to load %s: %w", customFile, err)
-		}
-	}
-	// If custom file doesn't exist, that's fine - it's optional
-
-	return nil
+	return loadEnvFilesInternal(baseFile, customFile)
 }
 
 // LoadEnvFilesFromDir loads environment files from a specific directory.
@@ -59,22 +38,50 @@ func LoadEnvFilesFromDir(dir string) error {
 	baseFile := filepath.Join(dir, ".github", ".env.base")
 	customFile := filepath.Join(dir, ".github", ".env.custom")
 
-	// Load base configuration (required)
+	return loadEnvFilesInternal(baseFile, customFile)
+}
+
+// loadEnvFilesInternal is the shared implementation for loading env files.
+func loadEnvFilesInternal(baseFile, customFile string) error {
+	// Check base file exists (required)
 	if _, err := os.Stat(baseFile); os.IsNotExist(err) {
 		return fmt.Errorf("%w at %s", ErrEnvBaseFileNotFound, baseFile)
 	}
 
-	// Load base environment variables
-	if err := godotenv.Overload(baseFile); err != nil {
-		return fmt.Errorf("failed to load %s: %w", baseFile, err)
+	// Parse base configuration
+	baseVars, err := parseEnvFile(baseFile)
+	if err != nil {
+		return fmt.Errorf("failed to parse %s: %w", baseFile, err)
 	}
 
-	// Load custom overrides (optional)
+	// Parse custom overrides (optional)
+	customVars := make(map[string]string)
 	if _, err := os.Stat(customFile); err == nil {
-		// Custom file exists, load it to override base values
-		if err := godotenv.Overload(customFile); err != nil {
-			return fmt.Errorf("failed to load %s: %w", customFile, err)
+		customVars, err = parseEnvFile(customFile)
+		if err != nil {
+			return fmt.Errorf("failed to parse %s: %w", customFile, err)
 		}
+	}
+	// If custom file doesn't exist, that's fine - it's optional
+
+	// Merge: custom overrides base
+	merged := make(map[string]string)
+	for k, v := range baseVars {
+		merged[k] = v
+	}
+	for k, v := range customVars {
+		merged[k] = v // custom wins over base
+	}
+
+	// Apply: ONLY set if not already in OS environment
+	// This ensures OS env vars (from shell, CI/CD secrets, etc.) take precedence
+	for key, value := range merged {
+		if os.Getenv(key) == "" {
+			if err := os.Setenv(key, value); err != nil {
+				return fmt.Errorf("failed to set %s: %w", key, err)
+			}
+		}
+		// If OS env is already set, we respect it (don't overwrite)
 	}
 
 	return nil
