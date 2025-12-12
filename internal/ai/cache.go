@@ -91,14 +91,19 @@ func (c *ResponseCache) Set(diffContent, response string) {
 }
 
 // GetOrGenerate checks cache first, calls generator only on cache miss.
+// The keyPrefix differentiates different types of generation (e.g., "commit:", "pr:").
 // Returns the response, whether it was a cache hit, and any error from generation.
 func (c *ResponseCache) GetOrGenerate(
 	ctx context.Context,
+	keyPrefix string,
 	diffContent string,
 	generator func(context.Context) (string, error),
 ) (response string, cacheHit bool, err error) {
+	// Use prefixed key to separate commit vs PR cache entries
+	cacheKey := keyPrefix + diffContent
+
 	// Check cache first
-	if cached, ok := c.Get(diffContent); ok {
+	if cached, ok := c.Get(cacheKey); ok {
 		c.mu.Lock()
 		c.hits++
 		c.mu.Unlock()
@@ -116,7 +121,7 @@ func (c *ResponseCache) GetOrGenerate(
 	}
 
 	// Store in cache for future identical diffs
-	c.Set(diffContent, response)
+	c.Set(cacheKey, response)
 
 	return response, false, nil
 }

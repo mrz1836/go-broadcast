@@ -173,15 +173,15 @@ func TestResponseCache_GetOrGenerate_CacheMiss(t *testing.T) {
 		return "generated response", nil
 	}
 
-	response, cacheHit, err := cache.GetOrGenerate(ctx, "diff content", generator)
+	response, cacheHit, err := cache.GetOrGenerate(ctx, "test:", "diff content", generator)
 
 	require.NoError(t, err)
 	assert.False(t, cacheHit)
 	assert.Equal(t, "generated response", response)
 	assert.True(t, generatorCalled, "generator should be called on cache miss")
 
-	// Verify response was cached
-	cached, found := cache.Get("diff content")
+	// Verify response was cached with prefix
+	cached, found := cache.Get("test:diff content")
 	assert.True(t, found)
 	assert.Equal(t, "generated response", cached)
 }
@@ -195,8 +195,8 @@ func TestResponseCache_GetOrGenerate_CacheHit(t *testing.T) {
 	cache := NewResponseCache(cfg)
 	ctx := context.Background()
 
-	// Pre-populate cache
-	cache.Set("diff content", "cached response")
+	// Pre-populate cache with prefixed key
+	cache.Set("test:diff content", "cached response")
 
 	generatorCalled := false
 	generator := func(_ context.Context) (string, error) {
@@ -204,7 +204,7 @@ func TestResponseCache_GetOrGenerate_CacheHit(t *testing.T) {
 		return "new response", nil
 	}
 
-	response, cacheHit, err := cache.GetOrGenerate(ctx, "diff content", generator)
+	response, cacheHit, err := cache.GetOrGenerate(ctx, "test:", "diff content", generator)
 
 	require.NoError(t, err)
 	assert.True(t, cacheHit)
@@ -225,7 +225,7 @@ func TestResponseCache_GetOrGenerate_GeneratorError(t *testing.T) {
 		return "", errGenerationFailed
 	}
 
-	response, cacheHit, err := cache.GetOrGenerate(ctx, "diff content", generator)
+	response, cacheHit, err := cache.GetOrGenerate(ctx, "test:", "diff content", generator)
 
 	require.Error(t, err)
 	assert.Equal(t, errGenerationFailed, err)
@@ -233,7 +233,7 @@ func TestResponseCache_GetOrGenerate_GeneratorError(t *testing.T) {
 	assert.Empty(t, response)
 
 	// Verify error response was NOT cached
-	_, found := cache.Get("diff content")
+	_, found := cache.Get("test:diff content")
 	assert.False(t, found, "error responses should not be cached")
 }
 
@@ -257,7 +257,7 @@ func TestResponseCache_Stats(t *testing.T) {
 	assert.Equal(t, 0, size)
 
 	// First call - miss
-	_, cacheHit, err := cache.GetOrGenerate(ctx, "diff1", generator)
+	_, cacheHit, err := cache.GetOrGenerate(ctx, "test:", "diff1", generator)
 	require.NoError(t, err)
 	assert.False(t, cacheHit)
 	hits, misses, size = cache.Stats()
@@ -266,7 +266,7 @@ func TestResponseCache_Stats(t *testing.T) {
 	assert.Equal(t, 1, size)
 
 	// Second call with same diff - hit
-	_, cacheHit, err = cache.GetOrGenerate(ctx, "diff1", generator)
+	_, cacheHit, err = cache.GetOrGenerate(ctx, "test:", "diff1", generator)
 	require.NoError(t, err)
 	assert.True(t, cacheHit)
 	hits, misses, size = cache.Stats()
@@ -275,7 +275,7 @@ func TestResponseCache_Stats(t *testing.T) {
 	assert.Equal(t, 1, size)
 
 	// Third call with different diff - miss
-	_, cacheHit, err = cache.GetOrGenerate(ctx, "diff2", generator)
+	_, cacheHit, err = cache.GetOrGenerate(ctx, "test:", "diff2", generator)
 	require.NoError(t, err)
 	assert.False(t, cacheHit)
 	hits, misses, size = cache.Stats()
@@ -298,10 +298,10 @@ func TestResponseCache_Clear(t *testing.T) {
 	}
 
 	// Populate cache
-	_, cacheHit1, err1 := cache.GetOrGenerate(ctx, "diff1", generator)
+	_, cacheHit1, err1 := cache.GetOrGenerate(ctx, "test:", "diff1", generator)
 	require.NoError(t, err1)
 	assert.False(t, cacheHit1)
-	_, cacheHit2, err2 := cache.GetOrGenerate(ctx, "diff1", generator) // hit
+	_, cacheHit2, err2 := cache.GetOrGenerate(ctx, "test:", "diff1", generator) // hit
 	require.NoError(t, err2)
 	assert.True(t, cacheHit2)
 	assert.Equal(t, 1, cache.Size())
@@ -348,8 +348,8 @@ func TestResponseCache_Disabled(t *testing.T) {
 		return "generated", nil
 	}
 
-	response1, hit1, _ := cache.GetOrGenerate(ctx, "diff", generator)
-	response2, hit2, _ := cache.GetOrGenerate(ctx, "diff", generator)
+	response1, hit1, _ := cache.GetOrGenerate(ctx, "test:", "diff", generator)
+	response2, hit2, _ := cache.GetOrGenerate(ctx, "test:", "diff", generator)
 
 	assert.Equal(t, 2, callCount, "generator should be called every time when cache disabled")
 	assert.False(t, hit1)
@@ -390,7 +390,7 @@ func TestResponseCache_Concurrent(t *testing.T) {
 				case 1:
 					cache.Get(diff)
 				case 2:
-					_, _, _ = cache.GetOrGenerate(ctx, diff, generator)
+					_, _, _ = cache.GetOrGenerate(ctx, "test:", diff, generator)
 				case 3:
 					cache.Stats()
 				}
