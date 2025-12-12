@@ -3,7 +3,10 @@ package state
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/gh"
 )
 
 // TestDiscovererInterface verifies that concrete implementations satisfy the Discoverer interface
@@ -15,7 +18,7 @@ func TestDiscovererInterface(t *testing.T) {
 		{
 			name: "discoveryService implements Discoverer",
 			provider: func() Discoverer {
-				return NewDiscoverer(nil, nil, nil)
+				return NewDiscoverer(gh.NewMockClient(), nil, nil)
 			},
 		},
 		{
@@ -66,8 +69,8 @@ func TestDiscovererInterfaceCompliance(t *testing.T) {
 	// Test that both concrete and mock implementations can be assigned to interface
 	var discoverers []Discoverer
 
-	// Add concrete implementation
-	discoverers = append(discoverers, NewDiscoverer(nil, nil, nil))
+	// Add concrete implementation (requires non-nil client)
+	discoverers = append(discoverers, NewDiscoverer(gh.NewMockClient(), nil, nil))
 
 	// Add mock implementation
 	discoverers = append(discoverers, &MockDiscoverer{})
@@ -83,4 +86,11 @@ func TestDiscovererInterfaceCompliance(t *testing.T) {
 		require.NotNil(t, d.DiscoverTargetState, "DiscoverTargetState method should exist")
 		require.NotNil(t, d.ParseBranchName, "ParseBranchName method should exist")
 	}
+}
+
+// TestNewDiscoverer_NilClientPanic verifies that NewDiscoverer panics when ghClient is nil
+func TestNewDiscoverer_NilClientPanic(t *testing.T) {
+	assert.PanicsWithValue(t, "state.NewDiscoverer: ghClient cannot be nil", func() {
+		NewDiscoverer(nil, nil, nil)
+	}, "NewDiscoverer should panic with specific message when ghClient is nil")
 }

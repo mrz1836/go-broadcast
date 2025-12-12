@@ -17,6 +17,9 @@ import (
 // ErrNoGroupsFound indicates no groups were found in configuration
 var ErrNoGroupsFound = errors.New("no groups found in configuration")
 
+// ErrSourceStateNotFound indicates a programming error where source state was not found
+var ErrSourceStateNotFound = errors.New("internal error: source state not found")
+
 // discoveryService implements the Discoverer interface
 type discoveryService struct {
 	gh        gh.Client
@@ -27,13 +30,18 @@ type discoveryService struct {
 // NewDiscoverer creates a new state discoverer.
 //
 // Parameters:
-// - ghClient: GitHub client for API operations
+// - ghClient: GitHub client for API operations (must not be nil)
 // - logger: Logger instance for general logging
 // - logConfig: Configuration for debug logging and verbose settings
 //
 // Returns:
 // - Discoverer interface implementation for state discovery operations
+//
+// Panics if ghClient is nil to catch programming errors early.
 func NewDiscoverer(ghClient gh.Client, logger *logrus.Logger, logConfig *logging.LogConfig) Discoverer {
+	if ghClient == nil {
+		panic("state.NewDiscoverer: ghClient cannot be nil")
+	}
 	return &discoveryService{
 		gh:        ghClient,
 		logger:    logger,
@@ -81,7 +89,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 			logging.StandardFields.TargetCount: totalTargets,
 		}).Debug("Starting sync state discovery")
 	} else {
-		logrus.Info("Discovering sync state from GitHub")
+		logger.Info("Discovering sync state from GitHub")
 	}
 
 	// Check for context cancellation
@@ -204,7 +212,7 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 				})
 				targetLogger.Trace("Discovering target repository state")
 			} else {
-				logrus.WithField("repo", target.Repo).Debug("Discovering target state")
+				logger.WithField("repo", target.Repo).Debug("Discovering target state")
 			}
 
 			targetStart := time.Now()
@@ -227,7 +235,11 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 			}
 
 			// Determine sync status based on this group's source and target state
-			groupSourceState := sourceMap[sourceKey]
+			groupSourceState, exists := sourceMap[sourceKey]
+			if !exists {
+				// This indicates a programming error - source should have been discovered
+				return nil, fmt.Errorf("key %q in group %q: %w", sourceKey, group.Name, ErrSourceStateNotFound)
+			}
 			targetState.Status = d.determineSyncStatus(groupSourceState, targetState)
 
 			if d.logConfig != nil && d.logConfig.Debug.State {
@@ -357,7 +369,7 @@ func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo, branch
 						logging.StandardFields.Status:     "parse_failed",
 					}).Warn("Failed to parse sync branch metadata")
 				} else {
-					logrus.WithError(parseErr).WithField("branch", branch.Name).Warn("Failed to parse sync branch")
+					logger.WithError(parseErr).WithField("branch", branch.Name).Warn("Failed to parse sync branch")
 				}
 				continue
 			}
@@ -397,7 +409,9 @@ func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo, branch
 	for _, syncBranch := range targetState.SyncBranches {
 		if syncBranch.Metadata != nil {
 			if latestSyncTime == nil || syncBranch.Metadata.Timestamp.After(*latestSyncTime) {
-				latestSyncTime = &syncBranch.Metadata.Timestamp
+				// Copy the timestamp value to avoid pointer aliasing with struct field
+				timestamp := syncBranch.Metadata.Timestamp
+				latestSyncTime = &timestamp
 				targetState.LastSyncCommit = syncBranch.Metadata.CommitSHA
 				targetState.LastSyncTime = latestSyncTime
 
