@@ -6,9 +6,9 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/fatih/color v1.18.0
 	github.com/firebase/genkit/go v1.2.0
-	github.com/joho/godotenv v1.6.0-pre.2
 	github.com/magefile/mage v1.15.0
 	github.com/openai/openai-go v1.12.0
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
@@ -41,7 +41,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mbleigh/raymond v0.0.0-20250414171441-6b3a58ab9e0a // indirect
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
@@ -68,9 +67,6 @@ require (
 	google.golang.org/grpc v1.77.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-// This is the last stable version before breaking changes were introduced
-replace github.com/joho/godotenv => github.com/joho/godotenv v1.5.1
 
 // Fix CVE-2025-30204: Asymmetric Resource Consumption vulnerability
 replace github.com/golang-jwt/jwt/v5 => github.com/golang-jwt/jwt/v5 v5.3.0
