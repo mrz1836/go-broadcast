@@ -636,11 +636,20 @@ The `review-pr` command will:
 - Works with `--dry-run` to preview what would be processed
 - Processes each PR sequentially with the same smart merge behavior
 
+**Automerge Label Gating:**
+- When `GO_BROADCAST_AUTOMERGE_LABELS` is configured, merge operations require the PR to have one of the specified labels
+- **Label present**: Review + merge operations proceed as normal
+- **Label missing**: Review/comment only, NO merge attempt (safe mode)
+- **No labels configured**: Backwards compatible - merge proceeds without label check
+- This prevents accidental merges and ensures only explicitly approved PRs are merged
+- Configure via environment variable: `GO_BROADCAST_AUTOMERGE_LABELS=automerge,ready-to-merge`
+
 **Smart Merge Behavior (Try-and-Fallback):**
 - The command uses an intelligent try-first approach for maximum efficiency
+- **Automerge label check**: If labels are configured, PRs without the label are review-only
 - **Merge conflicts detected**: If the PR has merge conflicts, it enables auto-merge immediately
   - Warning: "⚠️  PR has merge conflicts - enabling auto-merge for when conflicts are resolved"
-- **Optimistic merge attempt**: For all other PRs, it tries to merge immediately first
+- **Optimistic merge attempt**: For PRs with the automerge label, it tries to merge immediately first
   - **Success**: If merge succeeds, the PR is merged right away ✓
   - **Branch protection detected**: If merge fails due to branch protection policies:
     - Automatically falls back to enabling auto-merge
@@ -669,6 +678,7 @@ The `review-pr` command will:
 - Display summary showing:
   - How many PRs were merged immediately
   - How many have auto-merge enabled
+  - How many were review-only (no automerge label)
   - How many failed
 - All PRs are processed even if some fail
 - Non-zero exit code if any PR fails
