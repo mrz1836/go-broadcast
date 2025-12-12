@@ -592,10 +592,10 @@ func TestDryRunOutput(t *testing.T) {
 		buf := &bytes.Buffer{}
 		output := NewDryRunOutput(buf)
 
-		longLine := "This is a very long line that exceeds sixty characters and should be truncated"
+		longLine := "This is a very long line that exceeds sixty characters and should not be truncated"
 		output.Content(longLine)
 
-		expected := "│ This is a very long line that exceeds sixty characters an...\n"
+		expected := "│ This is a very long line that exceeds sixty characters and should not be truncated\n"
 		assert.Equal(t, expected, buf.String())
 	})
 

@@ -1714,14 +1714,9 @@ func (d *DryRunOutput) Separator() {
 
 // Content prints content with proper formatting
 func (d *DryRunOutput) Content(line string) {
-	const maxContentLen = 60
-
 	if strings.TrimSpace(line) == "" {
 		_, _ = fmt.Fprintln(d.writer, "│")
 	} else {
-		if len(line) > maxContentLen {
-			line = line[:maxContentLen-3] + "..."
-		}
 		_, _ = fmt.Fprintf(d.writer, "│ %s\n", line)
 	}
 }
