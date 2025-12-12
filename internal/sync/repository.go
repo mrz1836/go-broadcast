@@ -42,6 +42,8 @@ type RepositorySync struct {
 	targetState *state.TargetState
 	logger      *logrus.Entry
 	tempDir     string
+	// stagedRepoPath is the path to the cloned repo with staged changes, used for AI diff generation
+	stagedRepoPath string
 	// Performance metrics tracking
 	syncMetrics *PerformanceMetrics
 }
@@ -718,33 +720,15 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 	return branchName
 }
 
-// commitChanges creates a commit with the changed files and returns commit SHA and actual changed files
+// commitChanges creates a commit with the changed files and returns commit SHA and actual changed files.
+// Even in dry-run mode, this clones the repo and stages files to generate accurate AI content.
 func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, changedFiles []FileChange) (string, []string, error) {
 	if len(changedFiles) == 0 {
 		return "", nil, internalerrors.ErrNoFilesToCommit
 	}
 
-	// Generate commit message
-	commitMsg := rs.generateCommitMessage(ctx, changedFiles)
-
-	rs.logger.WithFields(logrus.Fields{
-		"branch":     branchName,
-		"files":      len(changedFiles),
-		"commit_msg": commitMsg,
-	}).Info("Creating commit")
-
-	if rs.engine.options.DryRun {
-		rs.showDryRunCommitInfo(ctx, changedFiles)
-		rs.showDryRunFileChanges(changedFiles)
-		// For dry run, return the expected files as if they all changed
-		dryRunFiles := make([]string, len(changedFiles))
-		for i, file := range changedFiles {
-			dryRunFiles[i] = file.Path
-		}
-		return "dry-run-commit-sha", dryRunFiles, nil
-	}
-
 	// Clone the target repository for making changes
+	// We do this even in dry-run mode to get accurate diffs for AI generation
 	targetPath := filepath.Join(rs.tempDir, "target")
 	targetURL := fmt.Sprintf("https://github.com/%s.git", rs.target.Repo)
 
@@ -824,9 +808,33 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 		}
 	}
 
-	// Stage all changes
+	// Stage all changes - this prepares for both AI diff generation and the actual commit
 	if err := rs.engine.git.Add(ctx, targetPath, "."); err != nil {
 		return "", nil, fmt.Errorf("failed to stage changes: %w", err)
+	}
+
+	// Store the target path for AI diff generation
+	rs.stagedRepoPath = targetPath
+
+	// Generate commit message AFTER staging so we have the real git diff
+	commitMsg, aiGenerated := rs.generateCommitMessage(ctx, changedFiles)
+
+	rs.logger.WithFields(logrus.Fields{
+		"branch":     branchName,
+		"files":      len(changedFiles),
+		"commit_msg": commitMsg,
+	}).Info("Creating commit")
+
+	// For dry-run: show preview and return without committing
+	if rs.engine.options.DryRun {
+		rs.showDryRunCommitInfo(commitMsg, changedFiles, aiGenerated)
+		rs.showDryRunFileChanges(changedFiles)
+		// For dry run, return the expected files as if they all changed
+		dryRunFiles := make([]string, len(changedFiles))
+		for i, file := range changedFiles {
+			dryRunFiles[i] = file.Path
+		}
+		return "dry-run-commit-sha", dryRunFiles, nil
 	}
 
 	// Create the commit
@@ -948,7 +956,7 @@ func (rs *RepositorySync) checkForExistingPRViAPI(ctx context.Context, branchNam
 // createNewPR creates a new pull request
 func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA string, changedFiles []FileChange, actualChangedFiles []string) error {
 	title := rs.generatePRTitle()
-	body := rs.generatePRBody(ctx, commitSHA, changedFiles, actualChangedFiles)
+	body, aiGenerated := rs.generatePRBody(ctx, commitSHA, changedFiles, actualChangedFiles)
 
 	rs.logger.WithFields(logrus.Fields{
 		"branch": branchName,
@@ -956,7 +964,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 	}).Info("Creating new pull request")
 
 	if rs.engine.options.DryRun {
-		rs.showDryRunPRPreview(ctx, branchName, commitSHA, changedFiles)
+		rs.showDryRunPRPreview(ctx, branchName, title, body, aiGenerated)
 		return nil
 	}
 
@@ -1103,7 +1111,7 @@ func (rs *RepositorySync) updateExistingPR(ctx context.Context, pr *gh.PR, commi
 	}
 
 	// Update PR body with new information
-	newBody := rs.generatePRBody(ctx, commitSHA, changedFiles, actualChangedFiles)
+	newBody, _ := rs.generatePRBody(ctx, commitSHA, changedFiles, actualChangedFiles)
 
 	// Update the PR via GitHub API
 	updates := gh.PRUpdate{
@@ -1120,18 +1128,65 @@ func (rs *RepositorySync) updateExistingPR(ctx context.Context, pr *gh.PR, commi
 }
 
 // getDiffForAI retrieves and truncates the diff for AI context.
-func (rs *RepositorySync) getDiffForAI(ctx context.Context) string {
+// Uses the real git diff from stagedRepoPath if available (after repo is cloned and files staged).
+// Falls back to synthetic diff from changedFiles if stagedRepoPath is not set.
+func (rs *RepositorySync) getDiffForAI(ctx context.Context, changedFiles []FileChange) string {
 	if rs.engine.diffTruncator == nil {
 		return ""
 	}
 
-	diff, err := rs.engine.git.Diff(ctx, rs.tempDir, true) // staged changes
-	if err != nil {
-		rs.logger.WithError(err).Debug("Failed to get diff for AI context")
-		return ""
+	var diff string
+
+	// Prefer real git diff from staged repo if available
+	if rs.stagedRepoPath != "" {
+		var err error
+		diff, err = rs.engine.git.Diff(ctx, rs.stagedRepoPath, true) // staged changes
+		if err != nil {
+			rs.logger.WithError(err).Debug("Failed to get git diff for AI context, falling back to synthetic diff")
+		}
+	}
+
+	// Fall back to synthetic diff if git diff is empty or failed
+	if diff == "" && len(changedFiles) > 0 {
+		diff = rs.generateSyntheticDiff(changedFiles)
 	}
 
 	return rs.engine.diffTruncator.Truncate(diff)
+}
+
+// generateSyntheticDiff creates a unified diff from FileChange data.
+// This enables AI generation in dry-run mode without needing a git repository.
+// It uses the Content and OriginalContent fields from FileChange to generate diffs.
+func (rs *RepositorySync) generateSyntheticDiff(changedFiles []FileChange) string {
+	var sb strings.Builder
+
+	for _, file := range changedFiles {
+		var fileDiff string
+		if file.IsNew {
+			// New file: all lines added
+			fileDiff = ai.GenerateNewFileDiff(file.Path, string(file.Content))
+		} else if file.IsDeleted {
+			// Deleted file: all lines removed
+			fileDiff = ai.GenerateDeletedFileDiff(file.Path, string(file.OriginalContent))
+		} else {
+			// Modified file: diff between original and new content
+			oldContent := ""
+			newContent := ""
+			if file.OriginalContent != nil {
+				oldContent = string(file.OriginalContent)
+			}
+			if file.Content != nil {
+				newContent = string(file.Content)
+			}
+			fileDiff = ai.GenerateUnifiedDiff(file.Path, oldContent, newContent)
+		}
+
+		if fileDiff != "" {
+			sb.WriteString(fileDiff)
+		}
+	}
+
+	return sb.String()
 }
 
 // convertToAIFileChanges converts sync FileChange to AI FileChange type.
@@ -1167,29 +1222,34 @@ func (rs *RepositorySync) convertToAIFileChanges(files []FileChange) []ai.FileCh
 
 // generateCommitMessage creates a descriptive commit message.
 // Tries AI generation first if enabled, falls back to static template.
-func (rs *RepositorySync) generateCommitMessage(ctx context.Context, changedFiles []FileChange) string {
+func (rs *RepositorySync) generateCommitMessage(ctx context.Context, changedFiles []FileChange) (string, bool) {
 	// Try AI generation if enabled (check engine is not nil for tests)
 	if rs.engine != nil && rs.engine.commitGenerator != nil {
 		commitCtx := &ai.CommitContext{
 			SourceRepo:   rs.sourceState.Repo,
 			TargetRepo:   rs.target.Repo,
 			ChangedFiles: rs.convertToAIFileChanges(changedFiles),
-			DiffSummary:  rs.getDiffForAI(ctx),
+			DiffSummary:  rs.getDiffForAI(ctx, changedFiles), // Use synthetic diff for consistency
 		}
 
 		msg, err := rs.engine.commitGenerator.GenerateMessage(ctx, commitCtx)
-		if err == nil && msg != "" {
-			return msg
+		if msg != "" {
+			// Check if AI actually generated or if fallback was used
+			aiGenerated := !errors.Is(err, ai.ErrFallbackUsed)
+			if !aiGenerated {
+				rs.logger.Debug("AI commit message generation used fallback")
+			}
+			return msg, aiGenerated
 		}
-		rs.logger.WithError(err).Debug("AI commit message generation failed, using fallback")
+		rs.logger.WithError(err).Warn("AI commit message generation failed, using static fallback")
 	}
 
 	// Existing static generation (fallback)
 	if len(changedFiles) == 1 {
-		return fmt.Sprintf("sync: update %s from source repository", changedFiles[0].Path)
+		return fmt.Sprintf("sync: update %s from source repository", changedFiles[0].Path), false
 	}
 
-	return fmt.Sprintf("sync: update %d files from source repository", len(changedFiles))
+	return fmt.Sprintf("sync: update %d files from source repository", len(changedFiles)), false
 }
 
 // generatePRTitle creates a descriptive PR title
@@ -1203,7 +1263,8 @@ func (rs *RepositorySync) generatePRTitle() string {
 
 // generatePRBody creates a detailed PR description with metadata including directory sync info.
 // Tries AI generation first if enabled, falls back to static template.
-func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, changedFiles []FileChange, actualChangedFiles []string) string {
+// Returns (body, aiGenerated) where aiGenerated indicates if AI successfully generated the body.
+func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, changedFiles []FileChange, actualChangedFiles []string) (string, bool) {
 	var sb strings.Builder
 
 	// Try AI generation if enabled (check engine is not nil for tests)
@@ -1213,18 +1274,24 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 			TargetRepo:   rs.target.Repo,
 			CommitSHA:    commitSHA,
 			ChangedFiles: rs.convertToAIFileChanges(changedFiles),
-			DiffSummary:  rs.getDiffForAI(ctx),
+			DiffSummary:  rs.getDiffForAI(ctx, changedFiles), // Use synthetic diff for consistency
 		}
 
 		aiBody, err := rs.engine.prGenerator.GenerateBody(ctx, prCtx)
-		if err == nil && aiBody != "" {
-			sb.WriteString(aiBody)
-			sb.WriteString("\n")
-			// CRITICAL: Metadata is NEVER AI-generated - always append static metadata
-			rs.writeMetadataBlock(&sb, commitSHA, changedFiles)
-			return sb.String()
+		if aiBody != "" {
+			// Check if AI actually generated or if fallback was used
+			aiGenerated := !errors.Is(err, ai.ErrFallbackUsed)
+			if aiGenerated {
+				sb.WriteString(aiBody)
+				sb.WriteString("\n\n")
+				// CRITICAL: Metadata is NEVER AI-generated - always append static metadata
+				rs.writeMetadataBlock(&sb, commitSHA, changedFiles)
+				return sb.String(), true
+			}
+			rs.logger.Debug("AI PR body generation used fallback")
+		} else if err != nil && !errors.Is(err, ai.ErrFallbackUsed) {
+			rs.logger.WithError(err).Warn("AI PR body generation failed, using static fallback")
 		}
-		rs.logger.WithError(err).Debug("AI PR body generation failed, using fallback")
 	}
 
 	// Existing static generation (fallback)
@@ -1268,7 +1335,7 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 	// Add enhanced metadata as YAML block
 	rs.writeMetadataBlock(&sb, commitSHA, changedFiles)
 
-	return sb.String()
+	return sb.String(), false // Static fallback was used, not AI
 }
 
 // writeChangeSummary writes a detailed summary of what changed in the sync
@@ -1647,14 +1714,15 @@ func (d *DryRunOutput) Separator() {
 
 // Content prints content with proper formatting
 func (d *DryRunOutput) Content(line string) {
+	const maxContentLen = 60
+
 	if strings.TrimSpace(line) == "" {
 		_, _ = fmt.Fprintln(d.writer, "│")
 	} else {
-		if len(line) > 60 {
-			_, _ = fmt.Fprintf(d.writer, "│ %s\n", line[:57]+"...")
-		} else {
-			_, _ = fmt.Fprintf(d.writer, "│ %s\n", line)
+		if len(line) > maxContentLen {
+			line = line[:maxContentLen-3] + "..."
 		}
+		_, _ = fmt.Fprintf(d.writer, "│ %s\n", line)
 	}
 }
 
@@ -1687,15 +1755,24 @@ type FileChange struct {
 	IsDeleted       bool
 }
 
-// showDryRunCommitInfo displays commit information preview for dry-run
-func (rs *RepositorySync) showDryRunCommitInfo(ctx context.Context, changedFiles []FileChange) {
+// showDryRunCommitInfo displays commit information preview for dry-run.
+// Accepts pre-generated commit message to avoid redundant AI calls.
+// aiGenerated indicates whether the message was actually generated by AI (not fallback).
+func (rs *RepositorySync) showDryRunCommitInfo(commitMsg string, changedFiles []FileChange, aiGenerated bool) {
 	rs.logger.Debug("Showing dry-run commit preview")
 
-	commitMsg := rs.generateCommitMessage(ctx, changedFiles)
 	out := NewDryRunOutput(nil)
 
 	out.Header("📋 COMMIT PREVIEW")
 	out.Field("Message", commitMsg)
+	// Show AI status indicator based on actual generation result
+	if aiGenerated {
+		out.Field("Source", "🤖 AI-generated")
+	} else if rs.engine != nil && rs.engine.commitGenerator != nil {
+		out.Field("Source", "📝 Static template (AI generation failed)")
+	} else {
+		out.Field("Source", "📝 Static template")
+	}
 	out.Field("Files", fmt.Sprintf("%d changed", len(changedFiles)))
 
 	// Show file summary
@@ -1771,15 +1848,14 @@ func (rs *RepositorySync) formatReviewersWithFiltering(reviewers []string, curre
 	return strings.Join(formatted, ", ")
 }
 
-// showDryRunPRPreview displays full PR preview with formatting
-func (rs *RepositorySync) showDryRunPRPreview(ctx context.Context, branchName, commitSHA string, changedFiles []FileChange) {
+// showDryRunPRPreview displays full PR preview with formatting.
+// Accepts pre-generated title and body to avoid redundant AI calls.
+// aiGenerated indicates whether the body was actually generated by AI (not fallback).
+func (rs *RepositorySync) showDryRunPRPreview(ctx context.Context, branchName, title, body string, aiGenerated bool) {
 	rs.logger.WithFields(logrus.Fields{
 		"branch": branchName,
-		"files":  len(changedFiles),
 	}).Debug("Showing PR preview")
 
-	title := rs.generatePRTitle()
-	body := rs.generatePRBody(ctx, commitSHA, changedFiles, nil) // actualChangedFiles not available in dry-run
 	out := NewDryRunOutput(nil)
 
 	out.Header("DRY-RUN: Pull Request Preview")
@@ -1787,6 +1863,14 @@ func (rs *RepositorySync) showDryRunPRPreview(ctx context.Context, branchName, c
 	out.Field("Branch", branchName)
 	out.Separator()
 	out.Field("Title", title)
+	// Show AI status indicator based on actual generation result
+	if aiGenerated {
+		out.Field("Body Source", "🤖 AI-generated")
+	} else if rs.engine != nil && rs.engine.prGenerator != nil {
+		out.Field("Body Source", "📝 Static template (AI generation failed)")
+	} else {
+		out.Field("Body Source", "📝 Static template (AI disabled)")
+	}
 	out.Separator()
 
 	// Get current user for reviewer filtering display

@@ -103,9 +103,15 @@ func (e *Engine) initializeAI(ctx context.Context) {
 	// Load AI configuration from environment
 	cfg := ai.LoadConfig()
 
-	// Check if AI is enabled
+	// Check if AI is enabled and provide detailed reason if not
 	if !cfg.IsEnabled() {
-		log.Debug("AI text generation disabled")
+		if !cfg.Enabled {
+			log.Warn("AI text generation disabled by configuration (GO_BROADCAST_AI_ENABLED=false)")
+		} else if cfg.APIKey == "" {
+			log.Warn("AI text generation disabled: no API key configured (set GO_BROADCAST_AI_API_KEY or ANTHROPIC_API_KEY)")
+		} else {
+			log.Debug("AI text generation disabled")
+		}
 		return
 	}
 
