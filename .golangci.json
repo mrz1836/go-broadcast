@@ -166,7 +166,9 @@
             },
             "gomoddirectives": {
                 "replace-allow-list": [
-                    "github.com/joho/godotenv"
+                    "github.com/joho/godotenv",
+                    "github.com/golang-jwt/jwt/v5",
+                    "golang.org/x/crypto"
                 ]
             },
             "govet": {
