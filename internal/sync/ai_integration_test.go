@@ -122,9 +122,10 @@ func TestRepositorySync_GenerateCommitMessage(t *testing.T) {
 			{Path: "config.yaml"},
 		}
 
-		msg := rs.generateCommitMessage(context.Background(), changedFiles)
+		msg, aiGenerated := rs.generateCommitMessage(context.Background(), changedFiles)
 
 		// Should use AI-generated message (with sync: prefix added by commit generator)
+		assert.True(t, aiGenerated, "Message should be AI-generated")
 		assert.Contains(t, msg, "feat(sync): update configuration files")
 	})
 
@@ -147,9 +148,10 @@ func TestRepositorySync_GenerateCommitMessage(t *testing.T) {
 			{Path: "file.go"},
 		}
 
-		msg := rs.generateCommitMessage(context.Background(), changedFiles)
+		msg, aiGenerated := rs.generateCommitMessage(context.Background(), changedFiles)
 
 		// Should use fallback template (format: "sync: update <file> from source repository")
+		assert.False(t, aiGenerated, "Message should not be AI-generated when no generator")
 		assert.Contains(t, msg, "sync:")
 		assert.Contains(t, msg, "from source repository")
 	})
@@ -169,9 +171,10 @@ func TestRepositorySync_GenerateCommitMessage(t *testing.T) {
 			{Path: "file.go"},
 		}
 
-		msg := rs.generateCommitMessage(context.Background(), changedFiles)
+		msg, aiGenerated := rs.generateCommitMessage(context.Background(), changedFiles)
 
 		// Should use fallback template
+		assert.False(t, aiGenerated, "Message should not be AI-generated with nil engine")
 		assert.Contains(t, msg, "sync:")
 		assert.Contains(t, msg, "from source repository")
 	})
@@ -206,9 +209,10 @@ func TestRepositorySync_GenerateCommitMessage(t *testing.T) {
 			{Path: "file.go"},
 		}
 
-		msg := rs.generateCommitMessage(context.Background(), changedFiles)
+		msg, aiGenerated := rs.generateCommitMessage(context.Background(), changedFiles)
 
 		// Should fall back to template on error
+		assert.False(t, aiGenerated, "Message should not be AI-generated on failure")
 		assert.Contains(t, msg, "sync:")
 		assert.Contains(t, msg, "from source repository")
 	})
@@ -254,9 +258,10 @@ This PR updates configuration files from the source repository.
 			{Path: "config.yaml"},
 		}
 
-		body := rs.generatePRBody(context.Background(), "abc123", changedFiles, []string{"config.yaml"})
+		body, aiGenerated := rs.generatePRBody(context.Background(), "abc123", changedFiles, []string{"config.yaml"})
 
 		// Should include AI-generated content
+		assert.True(t, aiGenerated, "Body should be AI-generated")
 		assert.Contains(t, body, "## Summary")
 		assert.Contains(t, body, "Updated config.yaml")
 		// Should also include metadata block
@@ -282,9 +287,10 @@ This PR updates configuration files from the source repository.
 			{Path: "file.go"},
 		}
 
-		body := rs.generatePRBody(context.Background(), "abc123", changedFiles, []string{"file.go"})
+		body, aiGenerated := rs.generatePRBody(context.Background(), "abc123", changedFiles, []string{"file.go"})
 
 		// Should use fallback template (contains standard sections)
+		assert.False(t, aiGenerated, "Body should not be AI-generated when no generator")
 		assert.Contains(t, body, "What Changed")
 		assert.Contains(t, body, "go-broadcast-metadata")
 	})
@@ -319,9 +325,10 @@ This PR updates configuration files from the source repository.
 			{Path: "file.go"},
 		}
 
-		body := rs.generatePRBody(context.Background(), "abc123", changedFiles, []string{"file.go"})
+		body, aiGenerated := rs.generatePRBody(context.Background(), "abc123", changedFiles, []string{"file.go"})
 
 		// Should fall back on empty response
+		assert.False(t, aiGenerated, "Body should not be AI-generated on empty response")
 		assert.Contains(t, body, "What Changed")
 	})
 }
@@ -440,7 +447,7 @@ func TestGeneratePRBody_LongFileList(t *testing.T) {
 		actualFiles[i] = path
 	}
 
-	body := rs.generatePRBody(context.Background(), "abc123", changedFiles, actualFiles)
+	body, _ := rs.generatePRBody(context.Background(), "abc123", changedFiles, actualFiles)
 
 	// Should handle large file lists gracefully
 	assert.NotEmpty(t, body)

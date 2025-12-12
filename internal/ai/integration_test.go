@@ -15,11 +15,30 @@ import (
 
 // Integration tests require API keys to run.
 // Use build tag: go test -tags=integration ./internal/ai/...
+//
+// IMPORTANT: These tests make REAL API calls and cost money.
+// They are skipped by default. To run them:
+// 1. Comment out the t.Skip() line in the test you want to run
+// 2. Ensure the appropriate API key environment variable is set
+// 3. Run with: go test -tags=integration ./internal/ai/... -run TestName
 
+// TestGenkitProvider_Anthropic_Integration tests real API calls to Anthropic Claude.
+//
+// SKIPPED BY DEFAULT: This test makes real API calls that cost money and require
+// valid API credentials. It is skipped to prevent accidental charges when running
+// the test suite locally with API keys in environment variables.
+//
+// To run this test:
+//  1. Comment out the t.Skip() line below
+//  2. Set ANTHROPIC_API_KEY environment variable
+//  3. Run: go test -tags=integration ./internal/ai/... -run TestGenkitProvider_Anthropic_Integration -v
 func TestGenkitProvider_Anthropic_Integration(t *testing.T) {
+	// SKIP: Remove this line to enable real API testing (will incur costs)
+	t.Skip("Real AI API test - comment out this line to run (requires ANTHROPIC_API_KEY)")
+
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
-		t.Skip("ANTHROPIC_API_KEY not set, skipping integration test")
+		t.Skip("ANTHROPIC_API_KEY not set")
 	}
 
 	cfg := &Config{
@@ -53,10 +72,23 @@ func TestGenkitProvider_Anthropic_Integration(t *testing.T) {
 	assert.Contains(t, resp.Content, "Hello")
 }
 
+// TestGenkitProvider_OpenAI_Integration tests real API calls to OpenAI GPT models.
+//
+// SKIPPED BY DEFAULT: This test makes real API calls that cost money and require
+// valid API credentials. It is skipped to prevent accidental charges when running
+// the test suite locally with API keys in environment variables.
+//
+// To run this test:
+//  1. Comment out the t.Skip() line below
+//  2. Set OPENAI_API_KEY environment variable
+//  3. Run: go test -tags=integration ./internal/ai/... -run TestGenkitProvider_OpenAI_Integration -v
 func TestGenkitProvider_OpenAI_Integration(t *testing.T) {
+	// SKIP: Remove this line to enable real API testing (will incur costs)
+	t.Skip("Real AI API test - comment out this line to run (requires OPENAI_API_KEY)")
+
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		t.Skip("OPENAI_API_KEY not set, skipping integration test")
+		t.Skip("OPENAI_API_KEY not set")
 	}
 
 	cfg := &Config{
@@ -90,10 +122,23 @@ func TestGenkitProvider_OpenAI_Integration(t *testing.T) {
 	assert.Contains(t, resp.Content, "Hello")
 }
 
+// TestGenkitProvider_Google_Integration tests real API calls to Google Gemini models.
+//
+// SKIPPED BY DEFAULT: This test makes real API calls that cost money and require
+// valid API credentials. It is skipped to prevent accidental charges when running
+// the test suite locally with API keys in environment variables.
+//
+// To run this test:
+//  1. Comment out the t.Skip() line below
+//  2. Set GEMINI_API_KEY environment variable
+//  3. Run: go test -tags=integration ./internal/ai/... -run TestGenkitProvider_Google_Integration -v
 func TestGenkitProvider_Google_Integration(t *testing.T) {
+	// SKIP: Remove this line to enable real API testing (will incur costs)
+	t.Skip("Real AI API test - comment out this line to run (requires GEMINI_API_KEY)")
+
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
-		t.Skip("GEMINI_API_KEY not set, skipping integration test")
+		t.Skip("GEMINI_API_KEY not set")
 	}
 
 	cfg := &Config{
@@ -127,10 +172,24 @@ func TestGenkitProvider_Google_Integration(t *testing.T) {
 	assert.Contains(t, resp.Content, "Hello")
 }
 
+// TestCacheIntegration_IdenticalDiffs tests that the response cache correctly deduplicates
+// identical diffs across multiple repository syncs, reducing API calls and costs.
+//
+// SKIPPED BY DEFAULT: This test makes real API calls that cost money and require
+// valid API credentials. It is skipped to prevent accidental charges when running
+// the test suite locally with API keys in environment variables.
+//
+// To run this test:
+//  1. Comment out the t.Skip() line below
+//  2. Set ANTHROPIC_API_KEY environment variable
+//  3. Run: go test -tags=integration ./internal/ai/... -run TestCacheIntegration_IdenticalDiffs -v
 func TestCacheIntegration_IdenticalDiffs(t *testing.T) {
+	// SKIP: Remove this line to enable real API testing (will incur costs)
+	t.Skip("Real AI API test - comment out this line to run (requires ANTHROPIC_API_KEY)")
+
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
-		t.Skip("ANTHROPIC_API_KEY not set, skipping integration test")
+		t.Skip("ANTHROPIC_API_KEY not set")
 	}
 
 	cfg := &Config{
@@ -188,10 +247,25 @@ func TestCacheIntegration_IdenticalDiffs(t *testing.T) {
 	assert.Equal(t, int64(1), misses2)
 }
 
+// TestEndToEnd_PRGeneration tests the full PR body generation workflow with real AI.
+// It verifies that generated PR bodies contain the required sections (What Changed,
+// Why, Testing, Impact) and are properly formatted.
+//
+// SKIPPED BY DEFAULT: This test makes real API calls that cost money and require
+// valid API credentials. It is skipped to prevent accidental charges when running
+// the test suite locally with API keys in environment variables.
+//
+// To run this test:
+//  1. Comment out the t.Skip() line below
+//  2. Set ANTHROPIC_API_KEY environment variable
+//  3. Run: go test -tags=integration ./internal/ai/... -run TestEndToEnd_PRGeneration -v
 func TestEndToEnd_PRGeneration(t *testing.T) {
+	// SKIP: Remove this line to enable real API testing (will incur costs)
+	t.Skip("Real AI API test - comment out this line to run (requires ANTHROPIC_API_KEY)")
+
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
-		t.Skip("ANTHROPIC_API_KEY not set, skipping integration test")
+		t.Skip("ANTHROPIC_API_KEY not set")
 	}
 
 	cfg := &Config{
@@ -238,10 +312,25 @@ diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
 	assert.Contains(t, result, "Impact")
 }
 
+// TestEndToEnd_CommitGeneration tests the full commit message generation workflow with real AI.
+// It verifies that generated commit messages follow conventional commit format with the
+// "sync:" prefix and are within the 72-character limit.
+//
+// SKIPPED BY DEFAULT: This test makes real API calls that cost money and require
+// valid API credentials. It is skipped to prevent accidental charges when running
+// the test suite locally with API keys in environment variables.
+//
+// To run this test:
+//  1. Comment out the t.Skip() line below
+//  2. Set ANTHROPIC_API_KEY environment variable
+//  3. Run: go test -tags=integration ./internal/ai/... -run TestEndToEnd_CommitGeneration -v
 func TestEndToEnd_CommitGeneration(t *testing.T) {
+	// SKIP: Remove this line to enable real API testing (will incur costs)
+	t.Skip("Real AI API test - comment out this line to run (requires ANTHROPIC_API_KEY)")
+
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
-		t.Skip("ANTHROPIC_API_KEY not set, skipping integration test")
+		t.Skip("ANTHROPIC_API_KEY not set")
 	}
 
 	cfg := &Config{

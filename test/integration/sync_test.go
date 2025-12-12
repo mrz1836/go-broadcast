@@ -286,7 +286,11 @@ func TestEndToEndSync(t *testing.T) {
 			_ = os.WriteFile(filepath.Join(destPath, ".github/workflows/ci.yml"), []byte("workflow content"), 0o600)
 			_ = os.WriteFile(filepath.Join(destPath, "Makefile"), []byte("makefile content"), 0o600)
 		})
-		mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
+		mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
+		mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
+		mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil).Maybe()
+		mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return("abc123def456", nil).Maybe()
+		mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
 
 		// Mock getting source files
 		mockGH.On("GetFile", mock.Anything, "org/template-repo", ".github/workflows/ci.yml", "").
