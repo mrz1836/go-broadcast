@@ -2,6 +2,8 @@ package ai
 
 import (
 	"strings"
+
+	"github.com/pmezard/go-difflib/difflib"
 )
 
 // DiffTruncator truncates diffs to stay within token limits while preserving context.
@@ -132,4 +134,45 @@ func (t *DiffTruncator) TruncateWithSummary(fullDiff string) (truncatedDiff stri
 	}
 
 	return result.String(), includedFiles < fileCount || len(fullDiff) > t.MaxChars, fileCount
+}
+
+// GenerateUnifiedDiff creates a unified diff from old/new content.
+// Output format matches git diff for AI model compatibility.
+// This is used to generate synthetic diffs in dry-run mode when no git repo is available.
+func GenerateUnifiedDiff(filename, oldContent, newContent string) string {
+	diff := difflib.UnifiedDiff{
+		A:        difflib.SplitLines(oldContent),
+		B:        difflib.SplitLines(newContent),
+		FromFile: "a/" + filename,
+		ToFile:   "b/" + filename,
+		Context:  3,
+	}
+	result, _ := difflib.GetUnifiedDiffString(diff)
+	return result
+}
+
+// GenerateNewFileDiff creates a unified diff for a new file (all lines added).
+func GenerateNewFileDiff(filename, content string) string {
+	diff := difflib.UnifiedDiff{
+		A:        nil, // No original content
+		B:        difflib.SplitLines(content),
+		FromFile: "/dev/null",
+		ToFile:   "b/" + filename,
+		Context:  3,
+	}
+	result, _ := difflib.GetUnifiedDiffString(diff)
+	return result
+}
+
+// GenerateDeletedFileDiff creates a unified diff for a deleted file (all lines removed).
+func GenerateDeletedFileDiff(filename, originalContent string) string {
+	diff := difflib.UnifiedDiff{
+		A:        difflib.SplitLines(originalContent),
+		B:        nil, // No new content
+		FromFile: "a/" + filename,
+		ToFile:   "/dev/null",
+		Context:  3,
+	}
+	result, _ := difflib.GetUnifiedDiffString(diff)
+	return result
 }
