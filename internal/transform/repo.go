@@ -12,11 +12,15 @@ import (
 var ErrInvalidRepoFormat = errors.New("invalid repository format")
 
 // repoTransformer replaces repository names in specific contexts
-type repoTransformer struct{}
+type repoTransformer struct {
+	cache *RegexCache
+}
 
 // NewRepoTransformer creates a new repository name transformer
 func NewRepoTransformer() Transformer {
-	return &repoTransformer{}
+	return &repoTransformer{
+		cache: getDefaultCache(),
+	}
 }
 
 // Name returns the name of this transformer
@@ -65,30 +69,38 @@ func (r *repoTransformer) Transform(content []byte, ctx Context) ([]byte, error)
 
 // transformGoFile handles Go-specific transformations
 func (r *repoTransformer) transformGoFile(content []byte, sourceOrg, sourceRepo, targetOrg, targetRepo string) []byte {
+	// Escape target values for safe use in replacement strings
+	safeTargetOrg := escapeReplacement(targetOrg)
+	safeTargetRepo := escapeReplacement(targetRepo)
+
 	patterns := []struct {
-		regex       *regexp.Regexp
+		pattern     string
 		replacement string
 	}{
 		// Module declaration in go.mod
 		{
-			regex:       regexp.MustCompile(`(?m)^module\s+github\.com/` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo)),
-			replacement: fmt.Sprintf("module github.com/%s/%s", targetOrg, targetRepo),
+			pattern:     `(?m)^module\s+github\.com/` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo),
+			replacement: fmt.Sprintf("module github.com/%s/%s", safeTargetOrg, safeTargetRepo),
 		},
 		// Import statements - match exact repo boundary
 		{
-			regex:       regexp.MustCompile(`"github\.com/` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo) + `("|/[^"]*")`),
-			replacement: fmt.Sprintf(`"github.com/%s/%s$1`, targetOrg, targetRepo),
+			pattern:     `"github\.com/` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo) + `("|/[^"]*")`,
+			replacement: fmt.Sprintf(`"github.com/%s/%s$1`, safeTargetOrg, safeTargetRepo),
 		},
 		// Import blocks - match when followed by slash, quote, or end
 		{
-			regex:       regexp.MustCompile(`github\.com/` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo) + `(/|"|$)`),
-			replacement: fmt.Sprintf(`github.com/%s/%s$1`, targetOrg, targetRepo),
+			pattern:     `github\.com/` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo) + `(/|"|$)`,
+			replacement: fmt.Sprintf(`github.com/%s/%s$1`, safeTargetOrg, safeTargetRepo),
 		},
 	}
 
 	result := content
 	for _, p := range patterns {
-		result = p.regex.ReplaceAll(result, []byte(p.replacement))
+		re, err := r.cache.CompileRegex(p.pattern)
+		if err != nil {
+			continue // Skip invalid patterns
+		}
+		result = re.ReplaceAll(result, []byte(p.replacement))
 	}
 
 	return result
@@ -96,35 +108,43 @@ func (r *repoTransformer) transformGoFile(content []byte, sourceOrg, sourceRepo,
 
 // transformDocumentation handles documentation transformations
 func (r *repoTransformer) transformDocumentation(content []byte, sourceOrg, sourceRepo, targetOrg, targetRepo string) []byte {
+	// Escape target values for safe use in replacement strings
+	safeTargetOrg := escapeReplacement(targetOrg)
+	safeTargetRepo := escapeReplacement(targetRepo)
+
 	patterns := []struct {
-		regex       *regexp.Regexp
+		pattern     string
 		replacement string
 	}{
 		// GitHub URLs
 		{
-			regex:       regexp.MustCompile(`https://github\.com/` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo)),
-			replacement: fmt.Sprintf("https://github.com/%s/%s", targetOrg, targetRepo),
+			pattern:     `https://github\.com/` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo),
+			replacement: fmt.Sprintf("https://github.com/%s/%s", safeTargetOrg, safeTargetRepo),
 		},
 		// Go package references
 		{
-			regex:       regexp.MustCompile(`github\.com/` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo)),
-			replacement: fmt.Sprintf("github.com/%s/%s", targetOrg, targetRepo),
+			pattern:     `github\.com/` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo),
+			replacement: fmt.Sprintf("github.com/%s/%s", safeTargetOrg, safeTargetRepo),
 		},
 		// Plain org/repo references
 		{
-			regex:       regexp.MustCompile(`\b` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo) + `\b`),
-			replacement: fmt.Sprintf("%s/%s", targetOrg, targetRepo),
+			pattern:     `\b` + regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo) + `\b`,
+			replacement: fmt.Sprintf("%s/%s", safeTargetOrg, safeTargetRepo),
 		},
 		// Repository name in titles or badges
 		{
-			regex:       regexp.MustCompile(`\b` + regexp.QuoteMeta(sourceRepo) + `\b`),
-			replacement: targetRepo,
+			pattern:     `\b` + regexp.QuoteMeta(sourceRepo) + `\b`,
+			replacement: safeTargetRepo,
 		},
 	}
 
 	result := content
 	for _, p := range patterns {
-		result = p.regex.ReplaceAll(result, []byte(p.replacement))
+		re, err := r.cache.CompileRegex(p.pattern)
+		if err != nil {
+			continue // Skip invalid patterns
+		}
+		result = re.ReplaceAll(result, []byte(p.replacement))
 	}
 
 	return result
@@ -132,30 +152,38 @@ func (r *repoTransformer) transformDocumentation(content []byte, sourceOrg, sour
 
 // transformConfig handles configuration file transformations
 func (r *repoTransformer) transformConfig(content []byte, sourceOrg, sourceRepo, targetOrg, targetRepo string) []byte {
+	// Escape target values for safe use in replacement strings
+	safeTargetOrg := escapeReplacement(targetOrg)
+	safeTargetRepo := escapeReplacement(targetRepo)
+
 	patterns := []struct {
-		regex       *regexp.Regexp
+		pattern     string
 		replacement string
 	}{
 		// Repository references
 		{
-			regex:       regexp.MustCompile(regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo)),
-			replacement: fmt.Sprintf("%s/%s", targetOrg, targetRepo),
+			pattern:     regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo),
+			replacement: fmt.Sprintf("%s/%s", safeTargetOrg, safeTargetRepo),
 		},
 		// Just the repository name when it appears alone
 		{
-			regex:       regexp.MustCompile(`"` + regexp.QuoteMeta(sourceRepo) + `"`),
-			replacement: fmt.Sprintf(`"%s"`, targetRepo),
+			pattern:     `"` + regexp.QuoteMeta(sourceRepo) + `"`,
+			replacement: fmt.Sprintf(`"%s"`, safeTargetRepo),
 		},
 		// Standalone repository name wherever it appears (with word boundaries)
 		{
-			regex:       regexp.MustCompile(`\b` + regexp.QuoteMeta(sourceRepo) + `\b`),
-			replacement: targetRepo,
+			pattern:     `\b` + regexp.QuoteMeta(sourceRepo) + `\b`,
+			replacement: safeTargetRepo,
 		},
 	}
 
 	result := content
 	for _, p := range patterns {
-		result = p.regex.ReplaceAll(result, []byte(p.replacement))
+		re, err := r.cache.CompileRegex(p.pattern)
+		if err != nil {
+			continue // Skip invalid patterns
+		}
+		result = re.ReplaceAll(result, []byte(p.replacement))
 	}
 
 	return result
@@ -163,25 +191,33 @@ func (r *repoTransformer) transformConfig(content []byte, sourceOrg, sourceRepo,
 
 // transformGeneral applies general transformations for other file types
 func (r *repoTransformer) transformGeneral(content []byte, sourceOrg, sourceRepo, targetOrg, targetRepo string) []byte {
+	// Escape target values for safe use in replacement strings
+	safeTargetOrg := escapeReplacement(targetOrg)
+	safeTargetRepo := escapeReplacement(targetRepo)
+
 	patterns := []struct {
-		regex       *regexp.Regexp
+		pattern     string
 		replacement string
 	}{
 		// Repository references (org/repo format)
 		{
-			regex:       regexp.MustCompile(regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo)),
-			replacement: fmt.Sprintf("%s/%s", targetOrg, targetRepo),
+			pattern:     regexp.QuoteMeta(sourceOrg) + `/` + regexp.QuoteMeta(sourceRepo),
+			replacement: fmt.Sprintf("%s/%s", safeTargetOrg, safeTargetRepo),
 		},
 		// Standalone repository name wherever it appears (with word boundaries)
 		{
-			regex:       regexp.MustCompile(`\b` + regexp.QuoteMeta(sourceRepo) + `\b`),
-			replacement: targetRepo,
+			pattern:     `\b` + regexp.QuoteMeta(sourceRepo) + `\b`,
+			replacement: safeTargetRepo,
 		},
 	}
 
 	result := content
 	for _, p := range patterns {
-		result = p.regex.ReplaceAll(result, []byte(p.replacement))
+		re, err := r.cache.CompileRegex(p.pattern)
+		if err != nil {
+			continue // Skip invalid patterns
+		}
+		result = re.ReplaceAll(result, []byte(p.replacement))
 	}
 
 	return result
