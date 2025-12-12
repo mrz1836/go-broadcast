@@ -178,7 +178,7 @@ func TestOrchestrator_MultiGroupSync(t *testing.T) {
 	}, nil).Maybe()
 
 	// Create engine with mocks
-	engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, DefaultOptions())
+	engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, DefaultOptions())
 	engine.SetLogger(logrus.New())
 
 	// Execute the sync

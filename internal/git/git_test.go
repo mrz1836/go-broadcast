@@ -764,7 +764,7 @@ func TestNewClient_GitNotFound(t *testing.T) {
 	// Set PATH to empty to simulate git not being found
 	_ = os.Setenv("PATH", "")
 
-	client, err := NewClient(nil, nil)
+	client, err := NewClient(logrus.New(), nil)
 	require.Error(t, err)
 	assert.Nil(t, client)
 	assert.ErrorIs(t, err, ErrGitNotFound)
@@ -1395,4 +1395,101 @@ func TestGetChangedFiles_InitialCommit(t *testing.T) {
 	// We expect an error here since there's no HEAD~1
 	require.Error(t, err)
 	assert.Nil(t, files)
+}
+
+// TestDetectGitError tests the centralized error detection function
+func TestDetectGitError(t *testing.T) {
+	tests := []struct {
+		name     string
+		errMsg   string
+		expected error
+	}{
+		// Branch already exists patterns
+		{
+			name:     "branch already exists lowercase",
+			errMsg:   "error: branch 'feature' already exists",
+			expected: ErrBranchAlreadyExists,
+		},
+		{
+			name:     "branch already exists uppercase",
+			errMsg:   "ERROR: BRANCH ALREADY EXISTS",
+			expected: ErrBranchAlreadyExists,
+		},
+		{
+			name:     "updates were rejected",
+			errMsg:   "error: failed to push some refs, updates were rejected",
+			expected: ErrBranchAlreadyExists,
+		},
+		{
+			name:     "non-fast-forward",
+			errMsg:   "hint: Updates were rejected because a pushed branch tip is behind non-fast-forward",
+			expected: ErrBranchAlreadyExists,
+		},
+		{
+			name:     "fetch first",
+			errMsg:   "error: failed to push, fetch first",
+			expected: ErrBranchAlreadyExists,
+		},
+		// No changes patterns
+		{
+			name:     "nothing to commit",
+			errMsg:   "nothing to commit, working tree clean",
+			expected: ErrNoChanges,
+		},
+		{
+			name:     "no changes",
+			errMsg:   "On branch main, no changes to commit",
+			expected: ErrNoChanges,
+		},
+		{
+			name:     "working tree clean",
+			errMsg:   "nothing to commit, working tree clean",
+			expected: ErrNoChanges,
+		},
+		{
+			name:     "nothing added to commit",
+			errMsg:   "nothing added to commit but untracked files present",
+			expected: ErrNoChanges,
+		},
+		// Not a repository pattern
+		{
+			name:     "not a git repository",
+			errMsg:   "fatal: not a git repository (or any of the parent directories): .git",
+			expected: ErrNotARepository,
+		},
+		// Unknown error
+		{
+			name:     "unknown error",
+			errMsg:   "some random error message",
+			expected: nil,
+		},
+		{
+			name:     "empty error message",
+			errMsg:   "",
+			expected: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := detectGitError(tc.errMsg)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+// TestNewClient_NilLogger tests that NewClient returns an error when logger is nil
+func TestNewClient_NilLogger(t *testing.T) {
+	client, err := NewClient(nil, &logging.LogConfig{})
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNilLogger)
+	assert.Nil(t, client)
+}
+
+// TestNewClient_NilLogConfig tests that NewClient works with nil logConfig
+func TestNewClient_NilLogConfig(t *testing.T) {
+	logger := logrus.New()
+	client, err := NewClient(logger, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, client)
 }

@@ -436,3 +436,61 @@ For general questions, contact:
 	require.NoError(t, err)
 	assert.Equal(t, expected, string(result))
 }
+
+// TestEmailTransformer_SpecialCharactersInTargetEmail tests that email addresses
+// with special regex characters (like $) in the target email are handled correctly.
+// This was a bug where $ would be interpreted as a regex backreference.
+func TestEmailTransformer_SpecialCharactersInTargetEmail(t *testing.T) {
+	tests := []struct {
+		name        string
+		sourceEmail string
+		targetEmail string
+		input       string
+		expected    string
+	}{
+		{
+			name:        "dollar sign in target email",
+			sourceEmail: "security@example.com",
+			targetEmail: "user$1@company.com",
+			input:       "Contact security@example.com for help",
+			expected:    "Contact user$1@company.com for help",
+		},
+		{
+			name:        "multiple dollar signs in target email",
+			sourceEmail: "security@example.com",
+			targetEmail: "user$$test@company.com",
+			input:       "Contact security@example.com for help",
+			expected:    "Contact user$$test@company.com for help",
+		},
+		{
+			name:        "dollar sign in markdown link",
+			sourceEmail: "security@example.com",
+			targetEmail: "user$1@company.com",
+			input:       "[security@example.com](mailto:security@example.com)",
+			expected:    "[user$1@company.com](mailto:user$1@company.com)",
+		},
+		{
+			name:        "plus sign in target email",
+			sourceEmail: "security@example.com",
+			targetEmail: "user+tag@company.com",
+			input:       "Contact security@example.com for help",
+			expected:    "Contact user+tag@company.com for help",
+		},
+	}
+
+	transformer := NewEmailTransformer()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := Context{
+				FilePath:            "test.md",
+				SourceSecurityEmail: tt.sourceEmail,
+				TargetSecurityEmail: tt.targetEmail,
+			}
+
+			result, err := transformer.Transform([]byte(tt.input), ctx)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, string(result))
+		})
+	}
+}

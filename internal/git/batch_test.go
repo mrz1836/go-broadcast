@@ -56,16 +56,16 @@ func TestBatchAddFiles(t *testing.T) {
 			ctx := context.Background()
 
 			// Initialize git repo
-			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err := initCmd.Run()
 			require.NoError(t, err)
 
 			// Configure git user for tests
-			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
-			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
@@ -251,16 +251,16 @@ func TestBatchStatus(t *testing.T) {
 			ctx := context.Background()
 
 			// Initialize git repo
-			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err := initCmd.Run()
 			require.NoError(t, err)
 
 			// Configure git user for tests
-			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
-			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
@@ -408,16 +408,16 @@ func TestBatchStatusAll(t *testing.T) {
 			ctx := context.Background()
 
 			// Initialize git repo
-			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err := initCmd.Run()
 			require.NoError(t, err)
 
 			// Configure git user for tests
-			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
-			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
@@ -662,16 +662,16 @@ func TestBatchDiffFiles(t *testing.T) {
 			ctx := context.Background()
 
 			// Initialize git repo
-			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err := initCmd.Run()
 			require.NoError(t, err)
 
 			// Configure git user for tests
-			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
-			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
@@ -870,16 +870,16 @@ func TestBatchCheckIgnored(t *testing.T) {
 			ctx := context.Background()
 
 			// Initialize git repo
-			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err := initCmd.Run()
 			require.NoError(t, err)
 
 			// Configure git user for tests
-			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
-			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
@@ -1171,16 +1171,16 @@ func TestBatchRemoveFiles(t *testing.T) {
 			ctx := context.Background()
 
 			// Initialize git repo
-			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // tmpDir is from t.TempDir()
+			initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err := initCmd.Run()
 			require.NoError(t, err)
 
 			// Configure git user for tests
-			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
-			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // tmpDir is from t.TempDir()
+			configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // Test-only: git args are hardcoded constants // tmpDir is from t.TempDir()
 			err = configCmd.Run()
 			require.NoError(t, err)
 
@@ -1215,4 +1215,158 @@ func generateFileList(count int) []string {
 		files[i] = fmt.Sprintf("file%d.txt", i+1)
 	}
 	return files
+}
+
+// TestFilterValidFiles tests the filterValidFiles helper function
+func TestFilterValidFiles(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "all valid files",
+			input:    []string{"file1.txt", "file2.txt", "dir/file3.txt"},
+			expected: []string{"file1.txt", "file2.txt", "dir/file3.txt"},
+		},
+		{
+			name:     "empty strings filtered",
+			input:    []string{"file1.txt", "", "file2.txt", ""},
+			expected: []string{"file1.txt", "file2.txt"},
+		},
+		{
+			name:     "whitespace only strings filtered",
+			input:    []string{"file1.txt", "   ", "\t", "file2.txt"},
+			expected: []string{"file1.txt", "file2.txt"},
+		},
+		{
+			name:     "all empty strings",
+			input:    []string{"", "  ", "\t\n"},
+			expected: []string{},
+		},
+		{
+			name:     "empty input",
+			input:    []string{},
+			expected: []string{},
+		},
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: []string{},
+		},
+		{
+			name:     "preserves spaces in filenames",
+			input:    []string{"file with spaces.txt", "normal.txt"},
+			expected: []string{"file with spaces.txt", "normal.txt"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := filterValidFiles(tc.input)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+// TestBatchStatus_EdgeCases tests edge cases in git status parsing
+func TestBatchStatus_EdgeCases(t *testing.T) {
+	// These are unit tests for the line parsing logic
+	tests := []struct {
+		name     string
+		line     string
+		expected bool // should be included in result
+	}{
+		{
+			name:     "valid modified file",
+			line:     "M  file.txt",
+			expected: true,
+		},
+		{
+			name:     "line exactly 3 chars - invalid",
+			line:     "M  ",
+			expected: false,
+		},
+		{
+			name:     "line 2 chars - too short",
+			line:     "M ",
+			expected: false,
+		},
+		{
+			name:     "empty line",
+			line:     "",
+			expected: false,
+		},
+		{
+			name:     "valid minimum 4 chars",
+			line:     "M  a",
+			expected: true,
+		},
+		{
+			name:     "whitespace only after status",
+			line:     "M     ",
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Simulate the parsing logic from BatchStatus/BatchStatusAll
+			statuses := make(map[string]string)
+
+			if len(tc.line) >= 4 {
+				status := tc.line[:2]
+				file := strings.TrimSpace(tc.line[3:])
+				if file != "" {
+					statuses[file] = status
+				}
+			}
+
+			if tc.expected {
+				require.NotEmpty(t, statuses, "Expected file to be parsed from line: %q", tc.line)
+			} else {
+				require.Empty(t, statuses, "Expected empty result for line: %q", tc.line)
+			}
+		})
+	}
+}
+
+// TestBatchAddFiles_EmptyStrings tests that empty strings are filtered from batch operations
+func TestBatchAddFiles_EmptyStrings(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := testutil.CreateTempDir(t)
+
+	// Initialize git repo
+	initCmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // Test-only: git args are hardcoded constants
+	err := initCmd.Run()
+	require.NoError(t, err)
+
+	// Configure git user
+	configCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@example.com") //nolint:gosec // Test-only: git args are hardcoded constants
+	err = configCmd.Run()
+	require.NoError(t, err)
+
+	configCmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test User") //nolint:gosec // Test-only: git args are hardcoded constants
+	err = configCmd.Run()
+	require.NoError(t, err)
+
+	// Create a valid file
+	err = os.WriteFile(filepath.Join(tmpDir, "valid.txt"), []byte("content"), 0o600)
+	require.NoError(t, err)
+
+	logger := logrus.New()
+	client, err := NewClient(logger, nil)
+	require.NoError(t, err)
+
+	batchClient := client.(BatchClient)
+
+	// Test with mix of valid and empty strings
+	filesWithEmpty := []string{"valid.txt", "", "  ", "\t"}
+	err = batchClient.BatchAddFiles(ctx, tmpDir, filesWithEmpty)
+	require.NoError(t, err, "BatchAddFiles should succeed even with empty strings in input")
+
+	// Test with all empty strings - should be a no-op
+	allEmpty := []string{"", "  ", "\t\n"}
+	err = batchClient.BatchAddFiles(ctx, tmpDir, allEmpty)
+	require.NoError(t, err, "BatchAddFiles with all empty strings should return nil")
 }

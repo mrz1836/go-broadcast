@@ -255,7 +255,7 @@ func TestRepositorySync_Execute(t *testing.T) {
 		// Setup default expectations for pre-sync validation
 		ghClient.On("ListBranches", mock.Anything, mock.Anything).Return([]gh.Branch{}, nil).Maybe()
 
-		// Only mock the operations that should happen in dry-run
+		// Mock source repo clone
 		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
 			return strings.HasSuffix(path, "/source")
 		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
@@ -268,6 +268,27 @@ func TestRepositorySync_Execute(t *testing.T) {
 			testutil.WriteTestFile(t, filepath.Join(destPath, "file2.txt"), string(srcContent2)) // Test setup
 		})
 		gitClient.On("Checkout", mock.Anything, mock.Anything, "abc123").Return(nil)
+
+		// Mock target repo clone - now always happens even in dry-run to get accurate diffs
+		gitClient.On("Clone", mock.Anything, mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.HasSuffix(path, "/target")
+		}), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			// Create target directory
+			destPath := args[2].(string)
+			testutil.CreateTestDirectory(t, destPath)
+		})
+		gitClient.On("CreateBranch", mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.HasSuffix(path, "/target")
+		}), mock.Anything).Return(nil)
+		gitClient.On("Checkout", mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.HasSuffix(path, "/target")
+		}), mock.Anything).Return(nil)
+		gitClient.On("Add", mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.HasSuffix(path, "/target")
+		}), []string{"."}).Return(nil)
+		gitClient.On("Diff", mock.Anything, mock.MatchedBy(func(path string) bool {
+			return strings.HasSuffix(path, "/target")
+		}), true).Return("", nil).Maybe()
 
 		// Mock file operations
 		ghClient.On("GetFile", mock.Anything, "org/target", "file1.txt", "").
@@ -357,7 +378,8 @@ func TestRepositorySync_generateCommitMessage(t *testing.T) {
 			{Path: "README.md"},
 		}
 
-		msg := repoSync.generateCommitMessage(files)
+		msg, aiGenerated := repoSync.generateCommitMessage(context.Background(), files)
+		assert.False(t, aiGenerated, "Should not be AI-generated without generator")
 		assert.Equal(t, "sync: update README.md from source repository", msg)
 	})
 
@@ -368,7 +390,8 @@ func TestRepositorySync_generateCommitMessage(t *testing.T) {
 			{Path: ".github/workflows/ci.yml"},
 		}
 
-		msg := repoSync.generateCommitMessage(files)
+		msg, aiGenerated := repoSync.generateCommitMessage(context.Background(), files)
+		assert.False(t, aiGenerated, "Should not be AI-generated without generator")
 		assert.Equal(t, "sync: update 3 files from source repository", msg)
 	})
 }
@@ -408,7 +431,7 @@ func TestRepositorySync_generatePRBody(t *testing.T) {
 		{Path: "new-file.txt", IsNew: true},
 	}
 
-	body := repoSync.generatePRBody("commit456", files, nil)
+	body, _ := repoSync.generatePRBody(context.Background(), "commit456", files, nil)
 
 	// Verify key components are present
 	assert.Contains(t, body, "## What Changed")
@@ -569,10 +592,10 @@ func TestDryRunOutput(t *testing.T) {
 		buf := &bytes.Buffer{}
 		output := NewDryRunOutput(buf)
 
-		longLine := "This is a very long line that exceeds sixty characters and should be truncated"
+		longLine := "This is a very long line that exceeds sixty characters and should not be truncated"
 		output.Content(longLine)
 
-		expected := "│ This is a very long line that exceeds sixty characters an...\n"
+		expected := "│ This is a very long line that exceeds sixty characters and should not be truncated\n"
 		assert.Equal(t, expected, buf.String())
 	})
 

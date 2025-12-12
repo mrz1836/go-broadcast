@@ -3,6 +3,7 @@ package gh
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os/exec"
 	"time"
 
@@ -64,10 +65,15 @@ func (r *realCommandRunner) Run(ctx context.Context, name string, args ...string
 // - Records command timing and response size metrics
 func (r *realCommandRunner) RunWithInput(ctx context.Context, input []byte, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
-	logger := logging.WithStandardFields(r.logger, r.logConfig, logging.ComponentNames.API)
+
+	// Create logger entry only if logger is not nil to avoid panic
+	var logger *logrus.Entry
+	if r.logger != nil {
+		logger = logging.WithStandardFields(r.logger, r.logConfig, logging.ComponentNames.API)
+	}
 
 	// Debug logging when --debug-api flag is enabled
-	if r.logConfig != nil && r.logConfig.Debug.API {
+	if r.logConfig != nil && r.logConfig.Debug.API && logger != nil {
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.Operation: logging.OperationTypes.APIRequest,
 			"args":                           args,
@@ -111,7 +117,7 @@ func (r *realCommandRunner) RunWithInput(ctx context.Context, input []byte, name
 	duration := time.Since(start)
 
 	// Response logging when --debug-api flag is enabled
-	if r.logConfig != nil && r.logConfig.Debug.API {
+	if r.logConfig != nil && r.logConfig.Debug.API && logger != nil {
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.DurationMs:  duration.Milliseconds(),
 			logging.StandardFields.ContentSize: stdout.Len(),
@@ -188,7 +194,13 @@ type CommandError struct {
 }
 
 func (e *CommandError) Error() string {
-	return e.Stderr
+	if e.Stderr != "" {
+		return e.Stderr
+	}
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return fmt.Sprintf("command %s failed", e.Command)
 }
 
 func (e *CommandError) Unwrap() error {

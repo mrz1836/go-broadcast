@@ -234,3 +234,127 @@ func TestBranchParsingRoundTrip(t *testing.T) {
 	assert.Equal(t, timestamp, metadata.Timestamp)
 	assert.Equal(t, commitSHA, metadata.CommitSHA)
 }
+
+// TestParseSyncBranchNameWithPrefix tests parsing with custom prefixes
+func TestParseSyncBranchNameWithPrefix(t *testing.T) {
+	tests := []struct {
+		name        string
+		branchName  string
+		prefix      string
+		expectNil   bool
+		expectError bool
+		expected    *BranchMetadata
+	}{
+		{
+			name:       "custom prefix - sync/deploy",
+			branchName: "sync/deploy-prod-20240115-120530-abc123def",
+			prefix:     "sync/deploy",
+			expectNil:  false,
+			expected: &BranchMetadata{
+				Timestamp: time.Date(2024, 1, 15, 12, 5, 30, 0, time.UTC),
+				CommitSHA: "abc123def",
+				Prefix:    "sync/deploy",
+				GroupID:   "prod",
+			},
+		},
+		{
+			name:       "custom prefix - feature/sync-config",
+			branchName: "feature/sync-config-staging-20240620-093000-fedcba987",
+			prefix:     "feature/sync-config",
+			expectNil:  false,
+			expected: &BranchMetadata{
+				Timestamp: time.Date(2024, 6, 20, 9, 30, 0, 0, time.UTC),
+				CommitSHA: "fedcba987",
+				Prefix:    "feature/sync-config",
+				GroupID:   "staging",
+			},
+		},
+		{
+			name:       "prefix with special regex characters (escaped correctly)",
+			branchName: "sync.files-test-20240115-120530-abc123",
+			prefix:     "sync.files",
+			expectNil:  false,
+			expected: &BranchMetadata{
+				Timestamp: time.Date(2024, 1, 15, 12, 5, 30, 0, time.UTC),
+				CommitSHA: "abc123",
+				Prefix:    "sync.files",
+				GroupID:   "test",
+			},
+		},
+		{
+			name:        "wrong prefix - branch doesn't match",
+			branchName:  "chore/sync-files-default-20240115-120530-abc123def",
+			prefix:      "sync/deploy",
+			expectNil:   true,
+			expectError: true,
+		},
+		{
+			name:        "empty branch name",
+			branchName:  "",
+			prefix:      "chore/sync-files",
+			expectNil:   true,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseSyncBranchNameWithPrefix(tt.branchName, tt.prefix)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+
+			if tt.expectNil {
+				assert.Nil(t, result)
+				return
+			}
+
+			assert.NotNil(t, result)
+			assert.Equal(t, tt.expected.Timestamp, result.Timestamp)
+			assert.Equal(t, tt.expected.CommitSHA, result.CommitSHA)
+			assert.Equal(t, tt.expected.Prefix, result.Prefix)
+			assert.Equal(t, tt.expected.GroupID, result.GroupID)
+		})
+	}
+}
+
+// TestRegexCacheConcurrency tests that regex caching is thread-safe
+func TestRegexCacheConcurrency(t *testing.T) {
+	const numGoroutines = 100
+	const numIterations = 100
+
+	// Test concurrent access to getBranchPattern with different prefixes
+	prefixes := []string{
+		"chore/sync-files",
+		"sync/deploy",
+		"feature/sync-config",
+		"test/prefix",
+	}
+
+	done := make(chan bool, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func(id int) {
+			for j := 0; j < numIterations; j++ {
+				prefix := prefixes[j%len(prefixes)]
+				pattern := getBranchPattern(prefix)
+				// Verify pattern works correctly
+				branchName := prefix + "-group-20240115-120530-abc123"
+				matches := pattern.FindStringSubmatch(branchName)
+				if matches == nil {
+					t.Errorf("goroutine %d: pattern failed to match branch %s", id, branchName)
+				}
+			}
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	for i := 0; i < numGoroutines; i++ {
+		<-done
+	}
+}

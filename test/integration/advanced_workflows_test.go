@@ -164,7 +164,7 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 
 	// Create sync engine
 	opts := internalsync.DefaultOptions().WithDryRun(false)
-	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := internalsync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 	engine.SetLogger(logger)
@@ -340,7 +340,7 @@ clean:
 
 	// Create sync engine
 	opts := internalsync.DefaultOptions().WithDryRun(false)
-	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := internalsync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync
@@ -489,7 +489,7 @@ func testRollbackCapabilities(t *testing.T, generator *fixtures.TestRepoGenerato
 
 	// Create sync engine
 	opts := internalsync.DefaultOptions().WithDryRun(false)
-	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := internalsync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 	engine.SetLogger(logger)
@@ -608,7 +608,7 @@ func testStateConsistencyAcrossOperations(t *testing.T, generator *fixtures.Test
 
 	// Create sync engine
 	opts := internalsync.DefaultOptions().WithDryRun(false)
-	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := internalsync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute multiple sync operations to test state consistency
@@ -695,7 +695,7 @@ func testWorkflowPermissionsAndSecurity(t *testing.T, generator *fixtures.TestRe
 
 	// Create sync engine
 	opts := internalsync.DefaultOptions().WithDryRun(false)
-	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := internalsync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync with security considerations
@@ -784,7 +784,7 @@ func testIncrementalTemplateChanges(t *testing.T, generator *fixtures.TestRepoGe
 
 	// Create sync engine
 	opts := internalsync.DefaultOptions().WithDryRun(false)
-	engine := internalsync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := internalsync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute multiple sync cycles to test incremental changes

@@ -7,11 +7,15 @@ import (
 )
 
 // emailTransformer replaces email addresses in specific contexts
-type emailTransformer struct{}
+type emailTransformer struct {
+	cache *RegexCache
+}
 
 // NewEmailTransformer creates a new email address transformer
 func NewEmailTransformer() Transformer {
-	return &emailTransformer{}
+	return &emailTransformer{
+		cache: getDefaultCache(),
+	}
 }
 
 // Name returns the name of this transformer
@@ -38,6 +42,13 @@ func (e *emailTransformer) Transform(content []byte, ctx Context) ([]byte, error
 	return result, nil
 }
 
+// escapeReplacement escapes $ characters in replacement strings to prevent
+// regex backreference injection. In Go's regexp.ReplaceAll, $ is special:
+// $1 means captured group 1. To use a literal $, it must be escaped as $$.
+func escapeReplacement(s string) string {
+	return strings.ReplaceAll(s, "$", "$$")
+}
+
 // replaceEmail replaces all occurrences of source email with target email in various contexts
 func (e *emailTransformer) replaceEmail(content []byte, sourceEmail, targetEmail, filePath string) []byte {
 	fileExt := strings.ToLower(filepath.Ext(filePath))
@@ -58,35 +69,42 @@ func (e *emailTransformer) replaceEmail(content []byte, sourceEmail, targetEmail
 
 // replaceEmailMarkdown handles email replacement in Markdown files
 func (e *emailTransformer) replaceEmailMarkdown(content []byte, sourceEmail, targetEmail string) []byte {
+	// Escape target email for safe use in replacement strings
+	safeTarget := escapeReplacement(targetEmail)
+
 	patterns := []struct {
-		regex       *regexp.Regexp
+		pattern     string
 		replacement string
 	}{
 		// Markdown link: [text](mailto:email)
 		{
-			regex:       regexp.MustCompile(`\[([^\]]+)\]\(mailto:` + regexp.QuoteMeta(sourceEmail) + `\)`),
-			replacement: `[$1](mailto:` + targetEmail + `)`,
+			pattern:     `\[([^\]]+)\]\(mailto:` + regexp.QuoteMeta(sourceEmail) + `\)`,
+			replacement: `[$1](mailto:` + safeTarget + `)`,
 		},
 		// Markdown link: [email](mailto:email)
 		{
-			regex:       regexp.MustCompile(`\[` + regexp.QuoteMeta(sourceEmail) + `\]\(mailto:` + regexp.QuoteMeta(sourceEmail) + `\)`),
-			replacement: `[` + targetEmail + `](mailto:` + targetEmail + `)`,
+			pattern:     `\[` + regexp.QuoteMeta(sourceEmail) + `\]\(mailto:` + regexp.QuoteMeta(sourceEmail) + `\)`,
+			replacement: `[` + safeTarget + `](mailto:` + safeTarget + `)`,
 		},
 		// mailto: link
 		{
-			regex:       regexp.MustCompile(`mailto:` + regexp.QuoteMeta(sourceEmail)),
-			replacement: `mailto:` + targetEmail,
+			pattern:     `mailto:` + regexp.QuoteMeta(sourceEmail),
+			replacement: `mailto:` + safeTarget,
 		},
 		// Plain email address
 		{
-			regex:       regexp.MustCompile(`\b` + regexp.QuoteMeta(sourceEmail) + `\b`),
-			replacement: targetEmail,
+			pattern:     `\b` + regexp.QuoteMeta(sourceEmail) + `\b`,
+			replacement: safeTarget,
 		},
 	}
 
 	result := content
 	for _, p := range patterns {
-		result = p.regex.ReplaceAll(result, []byte(p.replacement))
+		re, err := e.cache.CompileRegex(p.pattern)
+		if err != nil {
+			continue // Skip invalid patterns
+		}
+		result = re.ReplaceAll(result, []byte(p.replacement))
 	}
 
 	return result
@@ -94,30 +112,37 @@ func (e *emailTransformer) replaceEmailMarkdown(content []byte, sourceEmail, tar
 
 // replaceEmailYAML handles email replacement in YAML files
 func (e *emailTransformer) replaceEmailYAML(content []byte, sourceEmail, targetEmail string) []byte {
+	// Escape target email for safe use in replacement strings
+	safeTarget := escapeReplacement(targetEmail)
+
 	patterns := []struct {
-		regex       *regexp.Regexp
+		pattern     string
 		replacement string
 	}{
 		// Quoted email: "email@example.com"
 		{
-			regex:       regexp.MustCompile(`"` + regexp.QuoteMeta(sourceEmail) + `"`),
-			replacement: `"` + targetEmail + `"`,
+			pattern:     `"` + regexp.QuoteMeta(sourceEmail) + `"`,
+			replacement: `"` + safeTarget + `"`,
 		},
 		// Single-quoted email: 'email@example.com'
 		{
-			regex:       regexp.MustCompile(`'` + regexp.QuoteMeta(sourceEmail) + `'`),
-			replacement: `'` + targetEmail + `'`,
+			pattern:     `'` + regexp.QuoteMeta(sourceEmail) + `'`,
+			replacement: `'` + safeTarget + `'`,
 		},
 		// Unquoted email after key
 		{
-			regex:       regexp.MustCompile(`(:\s*)` + regexp.QuoteMeta(sourceEmail) + `(\s|$)`),
-			replacement: `${1}` + targetEmail + `${2}`,
+			pattern:     `(:\s*)` + regexp.QuoteMeta(sourceEmail) + `(\s|$)`,
+			replacement: `${1}` + safeTarget + `${2}`,
 		},
 	}
 
 	result := content
 	for _, p := range patterns {
-		result = p.regex.ReplaceAll(result, []byte(p.replacement))
+		re, err := e.cache.CompileRegex(p.pattern)
+		if err != nil {
+			continue // Skip invalid patterns
+		}
+		result = re.ReplaceAll(result, []byte(p.replacement))
 	}
 
 	return result
@@ -125,37 +150,51 @@ func (e *emailTransformer) replaceEmailYAML(content []byte, sourceEmail, targetE
 
 // replaceEmailJSON handles email replacement in JSON files
 func (e *emailTransformer) replaceEmailJSON(content []byte, sourceEmail, targetEmail string) []byte {
+	// Escape target email for safe use in replacement strings
+	safeTarget := escapeReplacement(targetEmail)
+
 	// JSON always has quoted strings
-	pattern := regexp.MustCompile(`"` + regexp.QuoteMeta(sourceEmail) + `"`)
-	return pattern.ReplaceAll(content, []byte(`"`+targetEmail+`"`))
+	pattern := `"` + regexp.QuoteMeta(sourceEmail) + `"`
+	re, err := e.cache.CompileRegex(pattern)
+	if err != nil {
+		return content // Return unchanged on invalid pattern
+	}
+	return re.ReplaceAll(content, []byte(`"`+safeTarget+`"`))
 }
 
 // replaceEmailHTML handles email replacement in HTML files
 func (e *emailTransformer) replaceEmailHTML(content []byte, sourceEmail, targetEmail string) []byte {
+	// Escape target email for safe use in replacement strings
+	safeTarget := escapeReplacement(targetEmail)
+
 	patterns := []struct {
-		regex       *regexp.Regexp
+		pattern     string
 		replacement string
 	}{
 		// <a href="mailto:email">...</a>
 		{
-			regex:       regexp.MustCompile(`<a\s+href="mailto:` + regexp.QuoteMeta(sourceEmail) + `"`),
-			replacement: `<a href="mailto:` + targetEmail + `"`,
+			pattern:     `<a\s+href="mailto:` + regexp.QuoteMeta(sourceEmail) + `"`,
+			replacement: `<a href="mailto:` + safeTarget + `"`,
 		},
 		// mailto:email in href attributes
 		{
-			regex:       regexp.MustCompile(`mailto:` + regexp.QuoteMeta(sourceEmail)),
-			replacement: `mailto:` + targetEmail,
+			pattern:     `mailto:` + regexp.QuoteMeta(sourceEmail),
+			replacement: `mailto:` + safeTarget,
 		},
 		// Plain email with word boundaries
 		{
-			regex:       regexp.MustCompile(`\b` + regexp.QuoteMeta(sourceEmail) + `\b`),
-			replacement: targetEmail,
+			pattern:     `\b` + regexp.QuoteMeta(sourceEmail) + `\b`,
+			replacement: safeTarget,
 		},
 	}
 
 	result := content
 	for _, p := range patterns {
-		result = p.regex.ReplaceAll(result, []byte(p.replacement))
+		re, err := e.cache.CompileRegex(p.pattern)
+		if err != nil {
+			continue // Skip invalid patterns
+		}
+		result = re.ReplaceAll(result, []byte(p.replacement))
 	}
 
 	return result
@@ -163,7 +202,14 @@ func (e *emailTransformer) replaceEmailHTML(content []byte, sourceEmail, targetE
 
 // replaceEmailGeneral handles email replacement for general file types
 func (e *emailTransformer) replaceEmailGeneral(content []byte, sourceEmail, targetEmail string) []byte {
+	// Escape target email for safe use in replacement strings
+	safeTarget := escapeReplacement(targetEmail)
+
 	// Simple replacement with word boundaries
-	pattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(sourceEmail) + `\b`)
-	return pattern.ReplaceAll(content, []byte(targetEmail))
+	pattern := `\b` + regexp.QuoteMeta(sourceEmail) + `\b`
+	re, err := e.cache.CompileRegex(pattern)
+	if err != nil {
+		return content // Return unchanged on invalid pattern
+	}
+	return re.ReplaceAll(content, []byte(safeTarget))
 }

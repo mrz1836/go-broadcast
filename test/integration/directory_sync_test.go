@@ -128,6 +128,22 @@ func (suite *DirectorySyncTestSuite) createLargeTestStructure(baseDir string, fi
 	}
 }
 
+// resetGitMockExpectations clears existing git mock expectations and adds common ones
+// Use this after setupMocksForDirectory when you need to customize Clone behavior
+func (suite *DirectorySyncTestSuite) resetGitMockExpectations(mockGit *git.MockClient) {
+	mockGit.ExpectedCalls = nil
+	// Re-add common mocks after clearing
+	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	// Checkout is called with different branch names (source sha or sync branch)
+	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
+	// Mock CreateBranch - called even in dry-run mode for accurate AI content generation
+	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
+	// Mock Add, Commit, Push - called in commitChanges even for accurate AI diff generation
+	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil).Maybe()
+	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return("abc123def456", nil).Maybe()
+	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
+}
+
 // createDeepNestingStructure creates deeply nested directory structure
 func (suite *DirectorySyncTestSuite) createDeepNestingStructure(baseDir string, depth int) {
 	currentPath := baseDir
@@ -177,7 +193,16 @@ func (suite *DirectorySyncTestSuite) setupMocksForDirectory(mockGH *gh.MockClien
 			suite.T().Logf("Failed to create source directory %s: %v", sourcePath, err)
 		}
 	}).Maybe()
-	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
+	// Checkout is called with different branch names (source sha or sync branch)
+	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
+
+	// Mock CreateBranch - called even in dry-run mode for accurate AI content generation
+	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
+
+	// Mock Add, Commit, Push - called in commitChanges even for accurate AI diff generation
+	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil).Maybe()
+	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return("abc123def456", nil).Maybe()
+	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
 
 	// Mock transformations
 	mockTransform.On("Transform", mock.Anything, mock.Anything, mock.Anything).
@@ -211,7 +236,16 @@ func (suite *DirectorySyncTestSuite) setupGitMockWithFiles(mockGit *git.MockClie
 		// This matches real Git behavior where clone destination contains the repo content
 		suite.createTestStructure(destPath, files)
 	})
-	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
+	// Checkout is called with different branch names (source sha or sync branch)
+	mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
+
+	// Re-add CreateBranch mock - called even in dry-run mode for accurate AI content generation
+	mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
+
+	// Mock Add, Commit, Push - called in commitChanges even for accurate AI diff generation
+	mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil).Maybe()
+	mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return("abc123def456", nil).Maybe()
+	mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
 }
 
 // TestDirectorySync_EndToEnd tests complete directory sync workflow
@@ -276,7 +310,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EndToEnd() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true).WithMaxConcurrency(5)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -347,7 +381,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MixedConfiguration() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -395,9 +429,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeDirectory() {
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
 	// Override git mock to create the large directory structure during clone
-	mockGit.ExpectedCalls = nil // Clear existing expectations
-	// Re-add GetChangedFiles mock after clearing
-	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	suite.resetGitMockExpectations(mockGit)
 	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the source directory structure that the sync engine expects
@@ -411,11 +443,10 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeDirectory() {
 		suite.Require().NoError(err)
 		suite.createLargeTestStructure(largeDataDir, 1500)
 	})
-	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 	// Create sync engine with higher concurrency for large directories
 	opts := sync.DefaultOptions().WithDryRun(true).WithMaxConcurrency(20)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Measure performance
@@ -507,7 +538,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ComplexExclusions() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -595,7 +626,7 @@ metadata:
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -641,9 +672,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ProgressReporting() {
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
 	// Override git mock to create the large project directory structure during clone
-	mockGit.ExpectedCalls = nil // Clear existing expectations
-	// Re-add GetChangedFiles mock after clearing
-	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	suite.resetGitMockExpectations(mockGit)
 	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the source directory structure that the sync engine expects
@@ -657,11 +686,10 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ProgressReporting() {
 		suite.Require().NoError(err)
 		suite.createLargeTestStructure(largeProjectDir, 75)
 	})
-	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true).WithMaxConcurrency(10)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -729,7 +757,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_APIOptimization() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -780,9 +808,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EmptyDirectory() {
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
 	// Override git mock to create the empty directory during clone
-	mockGit.ExpectedCalls = nil // Clear existing expectations
-	// Re-add GetChangedFiles mock after clearing
-	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	suite.resetGitMockExpectations(mockGit)
 	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the source directory structure that the sync engine expects
@@ -795,11 +821,10 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EmptyDirectory() {
 		err = os.MkdirAll(emptyDir, 0o750)
 		suite.Require().NoError(err)
 	})
-	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -856,7 +881,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_OnlyExcludedFiles() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -901,9 +926,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_DeepNesting() {
 	suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
 	// Override git mock to create the deep nesting structure during clone
-	mockGit.ExpectedCalls = nil // Clear existing expectations
-	// Re-add GetChangedFiles mock after clearing
-	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	suite.resetGitMockExpectations(mockGit)
 	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the source directory structure that the sync engine expects
@@ -917,11 +940,10 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_DeepNesting() {
 		suite.Require().NoError(err)
 		suite.createDeepNestingStructure(deepDir, 15)
 	})
-	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -977,9 +999,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_SymbolicLinks() {
 	}
 
 	// Override git mock to create actual files and symlinks for this test
-	mockGit.ExpectedCalls = nil
-	// Re-add GetChangedFiles mock after clearing
-	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	suite.resetGitMockExpectations(mockGit)
 	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the test files
@@ -995,11 +1015,10 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_SymbolicLinks() {
 			suite.T().Logf("Failed to create symlink: %v", err)
 		}
 	})
-	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1060,7 +1079,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_UnicodeFilenames() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1113,18 +1132,15 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeFiles() {
 	}
 
 	// Override git mock to create actual large files for this test
-	mockGit.ExpectedCalls = nil
-	// Re-add GetChangedFiles mock after clearing
-	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	suite.resetGitMockExpectations(mockGit)
 	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		suite.createTestStructure(destPath, testFiles)
 	})
-	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1180,9 +1196,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PermissionErrors() {
 	}
 
 	// Override git mock to create files with permission issues for this test
-	mockGit.ExpectedCalls = nil
-	// Re-add GetChangedFiles mock after clearing
-	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	suite.resetGitMockExpectations(mockGit)
 	mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destPath := args[2].(string)
 		// Create the test files
@@ -1195,11 +1209,10 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PermissionErrors() {
 			suite.T().Logf("Failed to set file permissions: %v", err)
 		}
 	})
-	mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync - should handle permission errors gracefully
@@ -1249,7 +1262,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_NetworkFailures() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync - should handle network failures gracefully
@@ -1369,7 +1382,7 @@ updates:
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1451,7 +1464,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_CoverageModule() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1533,7 +1546,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MultipleDirectories() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1591,7 +1604,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PerformanceTargets() {
 
 	// Create sync engine with performance monitoring
 	opts := sync.DefaultOptions().WithDryRun(true).WithMaxConcurrency(20)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Measure performance metrics
@@ -1682,9 +1695,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MemoryUsage() {
 		suite.setupMocksForDirectory(mockGH, mockGit, mockState, mockTransform)
 
 		// Override git mock to create the memory test directory structure during clone
-		mockGit.ExpectedCalls = nil // Clear existing expectations
-		// Re-add GetChangedFiles mock after clearing
-		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		suite.resetGitMockExpectations(mockGit)
 		mockGit.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			destPath := args[2].(string)
 			// Create the source directory structure that the sync engine expects
@@ -1698,7 +1709,6 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MemoryUsage() {
 			suite.Require().NoError(err)
 			suite.createLargeTestStructure(memoryDir, fileCount)
 		})
-		mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
 
 		// Measure memory usage
 		var memBefore, memAfter runtime.MemStats
@@ -1707,7 +1717,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MemoryUsage() {
 
 		// Create and run sync engine
 		opts := sync.DefaultOptions().WithDryRun(true)
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(suite.logger)
 
 		err := engine.Sync(context.Background(), nil)
@@ -1869,7 +1879,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_APIEfficiency() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync

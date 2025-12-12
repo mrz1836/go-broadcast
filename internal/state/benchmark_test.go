@@ -18,8 +18,8 @@ func BenchmarkBranchParsing(b *testing.B) {
 		"sync/custom-prefix-20240115-142530-ghi789",
 	}
 
-	// Create a discovery service to test parsing
-	discovery := NewDiscoverer(nil, nil, nil)
+	// Create a discovery service to test parsing (requires non-nil client)
+	discovery := NewDiscoverer(gh.NewMockClient(), nil, nil)
 
 	benchmark.WithMemoryTracking(b, func() {
 		for _, branch := range branches {

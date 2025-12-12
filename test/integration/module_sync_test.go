@@ -623,7 +623,7 @@ func TestModuleSync_Integration(t *testing.T) {
 		}
 		mockState.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, gitClient, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, gitClient, mockState, mockTransform, opts)
 		engine.SetLogger(logger)
 		err = engine.Sync(ctx, nil)
 		require.NoError(t, err)
@@ -733,7 +733,7 @@ const (
 		}
 		mockState.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, gitClient, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, gitClient, mockState, mockTransform, opts)
 		engine.SetLogger(logger)
 		err = engine.Sync(ctx, nil)
 		require.NoError(t, err)
@@ -864,7 +864,7 @@ const (
 		}
 		mockState.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, gitClient, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, gitClient, mockState, mockTransform, opts)
 		engine.SetLogger(logger)
 		err = engine.Sync(ctx, nil)
 		require.NoError(t, err)
@@ -975,7 +975,7 @@ const (
 		}
 		mockState.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, gitClient, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, gitClient, mockState, mockTransform, opts)
 		engine.SetLogger(logger)
 		err = engine.Sync(ctx, nil)
 		require.NoError(t, err)

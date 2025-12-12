@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -27,7 +28,51 @@ var (
 	ErrGitCommand          = errors.New("git command failed")
 	ErrInvalidRepoURL      = errors.New("invalid repository URL format")
 	ErrBranchAlreadyExists = errors.New("branch already exists on remote")
+	ErrNilLogger           = errors.New("logger cannot be nil")
 )
+
+// errorPatterns maps git error message patterns to sentinel errors.
+// Using lowercase patterns for case-insensitive matching.
+//
+//nolint:gochecknoglobals // Package-level lookup table for error pattern matching - immutable after init
+var errorPatterns = map[*error][]string{
+	&ErrBranchAlreadyExists: {
+		"already exists",
+		"updates were rejected",
+		"non-fast-forward",
+		"fetch first",
+	},
+	&ErrNoChanges: {
+		"nothing to commit",
+		"no changes",
+		"working tree clean",
+		"nothing added to commit",
+	},
+	&ErrNotARepository: {
+		"not a git repository",
+	},
+}
+
+// detectGitError maps git command output to sentinel errors.
+// It performs case-insensitive matching against known error patterns.
+func detectGitError(errMsg string) error {
+	if errMsg == "" {
+		return nil
+	}
+	normalizedMsg := strings.ToLower(errMsg)
+	for sentinelErr, patterns := range errorPatterns {
+		for _, pattern := range patterns {
+			if strings.Contains(normalizedMsg, pattern) {
+				return *sentinelErr
+			}
+		}
+	}
+	return nil
+}
+
+// sshURLPattern is a pre-compiled regex for parsing SSH git URLs.
+// Compiled at package level for better performance.
+var sshURLPattern = regexp.MustCompile(`^git@([^:]+):([^/]+)/(.+?)(?:\.git)?$`)
 
 // gitClient implements the Client interface using git commands
 type gitClient struct {
@@ -38,13 +83,18 @@ type gitClient struct {
 // NewClient creates a new Git client.
 //
 // Parameters:
-// - logger: Logger instance for general logging
+// - logger: Logger instance for general logging (required, cannot be nil)
 // - logConfig: Configuration for debug logging and verbose settings
 //
 // Returns:
 // - Git client interface implementation
-// - Error if git command is not available in PATH
+// - Error if logger is nil or git command is not available in PATH
 func NewClient(logger *logrus.Logger, logConfig *logging.LogConfig) (Client, error) {
+	// Validate logger is not nil to prevent panics in logging calls
+	if logger == nil {
+		return nil, ErrNilLogger
+	}
+
 	// Check if git is available
 	if _, err := exec.LookPath("git"); err != nil {
 		return nil, ErrGitNotFound
@@ -206,10 +256,9 @@ func (g *gitClient) CreateBranch(ctx context.Context, repoPath, branch string) e
 	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", branch)
 
 	if err := g.runCommand(cmd); err != nil {
-		// Check if it's a branch already exists error
-		errStr := err.Error()
-		if strings.Contains(errStr, "already exists") {
-			return ErrBranchAlreadyExists
+		// Check for known error patterns
+		if sentinel := detectGitError(err.Error()); sentinel != nil {
+			return sentinel
 		}
 		return appErrors.WrapWithContext(err, fmt.Sprintf("create branch %s", branch))
 	}
@@ -236,13 +285,9 @@ func (g *gitClient) Commit(ctx context.Context, repoPath, message string) error 
 	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", message)
 
 	if err := g.runCommand(cmd); err != nil {
-		// Check if it's because there are no changes
-		errStr := err.Error()
-		if strings.Contains(errStr, "nothing to commit") ||
-			strings.Contains(errStr, "no changes") ||
-			strings.Contains(errStr, "working tree clean") ||
-			strings.Contains(errStr, "nothing added to commit") {
-			return ErrNoChanges
+		// Check for known error patterns
+		if sentinel := detectGitError(err.Error()); sentinel != nil {
+			return sentinel
 		}
 		return appErrors.WrapWithContext(err, "commit")
 	}
@@ -262,13 +307,9 @@ func (g *gitClient) Push(ctx context.Context, repoPath, remote, branch string, f
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 
 	if err := g.runCommand(cmd); err != nil {
-		// Check if it's a branch already exists error
-		errStr := err.Error()
-		if strings.Contains(errStr, "already exists") ||
-			strings.Contains(errStr, "updates were rejected") ||
-			strings.Contains(errStr, "non-fast-forward") ||
-			strings.Contains(errStr, "fetch first") {
-			return ErrBranchAlreadyExists
+		// Check for known error patterns
+		if sentinel := detectGitError(err.Error()); sentinel != nil {
+			return sentinel
 		}
 		return appErrors.WrapWithContext(err, "push")
 	}
@@ -360,8 +401,7 @@ func (g *gitClient) GetRepositoryInfo(ctx context.Context, repoPath string) (*Re
 // parseRepositoryURL parses a Git remote URL and extracts repository information
 func parseRepositoryURL(remoteURL string) (*RepositoryInfo, error) {
 	// Handle SSH URLs (git@github.com:owner/repo.git)
-	sshPattern := regexp.MustCompile(`^git@([^:]+):([^/]+)/(.+?)(?:\.git)?$`)
-	if matches := sshPattern.FindStringSubmatch(remoteURL); len(matches) == 4 {
+	if matches := sshURLPattern.FindStringSubmatch(remoteURL); len(matches) == 4 {
 		host := matches[1]
 		owner := matches[2]
 		repo := matches[3]
@@ -445,10 +485,15 @@ func (g *gitClient) runCommand(cmd *exec.Cmd) error {
 
 	// Debug logging when --debug-git flag is enabled
 	if g.logConfig != nil && g.logConfig.Debug.Git {
+		// Safely extract args, skipping command name if present
+		var args []string
+		if len(cmd.Args) > 1 {
+			args = cmd.Args[1:]
+		}
 		logger.WithFields(logrus.Fields{
 			logging.StandardFields.Operation: logging.OperationTypes.GitCommand,
 			"command":                        cmd.Path,
-			"args":                           cmd.Args[1:], // Skip command name for cleaner logs
+			"args":                           args,
 			"dir":                            cmd.Dir,
 			"env":                            filterSensitiveEnv(cmd.Env),
 		}).Debug("Executing git command")
@@ -493,32 +538,36 @@ func (g *gitClient) runCommand(cmd *exec.Cmd) error {
 
 	// Handle error case with detailed logging
 	var errMsg, outMsg string
-	if g.logConfig == nil || !g.logConfig.Debug.Git {
-		// Extract error messages from buffers when not using debug writers
-		if stderr, ok := cmd.Stderr.(*bytes.Buffer); ok {
-			errMsg = stderr.String()
-		}
-		if stdout, ok := cmd.Stdout.(*bytes.Buffer); ok {
-			outMsg = stdout.String()
-		}
 
-		if g.logger != nil {
-			g.logger.WithFields(logrus.Fields{
-				logging.StandardFields.Component: logging.ComponentNames.Git,
-				"command":                        strings.Join(cmd.Args, " "),
-				logging.StandardFields.Error:     errMsg,
-				"output":                         outMsg,
-				logging.StandardFields.Status:    "failed",
-			}).Error("Git command failed")
-		}
-	} else {
-		// When using debug logging, command details already logged above
-		logger.WithError(err).Error("Git command failed")
+	// Extract error messages - works for both debug writers and regular buffers
+	if dw, ok := cmd.Stderr.(*debugWriter); ok {
+		errMsg = dw.String()
+	} else if buf, ok := cmd.Stderr.(*bytes.Buffer); ok {
+		errMsg = buf.String()
 	}
 
-	// Check for common error patterns
-	if strings.Contains(errMsg, "not a git repository") {
-		return ErrNotARepository
+	if dw, ok := cmd.Stdout.(*debugWriter); ok {
+		outMsg = dw.String()
+	} else if buf, ok := cmd.Stdout.(*bytes.Buffer); ok {
+		outMsg = buf.String()
+	}
+
+	if g.logConfig != nil && g.logConfig.Debug.Git {
+		// When using debug logging, command details already logged above
+		logger.WithError(err).Error("Git command failed")
+	} else if g.logger != nil {
+		g.logger.WithFields(logrus.Fields{
+			logging.StandardFields.Component: logging.ComponentNames.Git,
+			"command":                        strings.Join(cmd.Args, " "),
+			logging.StandardFields.Error:     errMsg,
+			"output":                         outMsg,
+			logging.StandardFields.Status:    "failed",
+		}).Error("Git command failed")
+	}
+
+	// Check for common error patterns using centralized detection
+	if sentinel := detectGitError(errMsg); sentinel != nil {
+		return sentinel
 	}
 
 	// Return error with stderr content (or stdout if stderr is empty)
@@ -535,10 +584,13 @@ func (g *gitClient) runCommand(cmd *exec.Cmd) error {
 //
 // This writer captures stdout/stderr output from git commands and logs each
 // line at trace level when debug logging is enabled, providing real-time
-// visibility into git command execution.
+// visibility into git command execution. It also buffers content for later
+// error message extraction.
 type debugWriter struct {
 	logger *logrus.Entry
 	prefix string
+	buffer bytes.Buffer
+	mu     sync.Mutex
 }
 
 // Write implements io.Writer interface for capturing git command output.
@@ -551,10 +603,21 @@ type debugWriter struct {
 // - Error (always nil in current implementation)
 //
 // Side Effects:
+// - Buffers the content for later error extraction
 // - Logs the output content at trace level with stream identification
 func (w *debugWriter) Write(p []byte) (n int, err error) {
+	w.mu.Lock()
+	w.buffer.Write(p)
+	w.mu.Unlock()
 	w.logger.WithField("stream", w.prefix).Trace(string(p))
 	return len(p), nil
+}
+
+// String returns the buffered content for error message extraction.
+func (w *debugWriter) String() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buffer.String()
 }
 
 // isRetryableNetworkError checks if an error is a transient network error that should be retried

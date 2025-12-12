@@ -106,7 +106,7 @@ func extractMetadataYAML(body, marker string) (string, error) {
 		return "", ErrPRNoMetadataBlock
 	}
 
-	// Find the end of the metadata block
+	// Find the end of the metadata block (search from after marker start)
 	endIdx := strings.Index(body[startIdx:], "-->")
 	if endIdx == -1 {
 		return "", ErrPRMetadataNotClosed
@@ -114,13 +114,23 @@ func extractMetadataYAML(body, marker string) (string, error) {
 
 	// Extract just the YAML content between the markers
 	content := body[startIdx : startIdx+endIdx]
+
 	// Remove the marker line to get just the YAML
 	lines := strings.Split(content, "\n")
-	if len(lines) > 1 {
-		return strings.Join(lines[1:], "\n"), nil
+	if len(lines) <= 1 {
+		// Only marker line, no YAML content
+		return "", ErrPRNoMetadataBlock
 	}
 
-	return "", ErrPRNoMetadataBlock
+	// Skip marker line (first line) and join remaining
+	yamlContent := strings.Join(lines[1:], "\n")
+
+	// Check for empty or whitespace-only YAML content
+	if strings.TrimSpace(yamlContent) == "" {
+		return "", ErrPRNoMetadataBlock
+	}
+
+	return yamlContent, nil
 }
 
 // FormatEnhancedPRMetadata formats enhanced metadata for inclusion in a PR description

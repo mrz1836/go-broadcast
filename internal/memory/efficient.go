@@ -34,8 +34,15 @@ func NewStringIntern() *StringIntern {
 	return NewStringInternWithSize(DefaultStringInternSize)
 }
 
-// NewStringInternWithSize creates a string interning system with a specific max size
+// NewStringInternWithSize creates a string interning system with a specific max size.
+//
+// Parameters:
+//   - maxSize: Maximum number of strings to intern. Use 0 for unlimited.
+//     Negative values are treated as 0 (unlimited).
 func NewStringInternWithSize(maxSize int) *StringIntern {
+	if maxSize < 0 {
+		maxSize = 0 // Treat negative as unlimited
+	}
 	return &StringIntern{
 		values:  make(map[string]string),
 		maxSize: maxSize,
@@ -66,9 +73,9 @@ func (si *StringIntern) Intern(s string) string {
 		return interned
 	}
 
-	// Check if we need to evict old entries due to size limits
+	// Check if we need to evict entries due to size limits
 	if si.maxSize > 0 && len(si.values) >= si.maxSize {
-		si.evictOldest()
+		si.evictRandom()
 	}
 
 	// Intern the string
@@ -93,14 +100,18 @@ func (si *StringIntern) GetStats() StringInternStats {
 	}
 }
 
-// evictOldest removes approximately 10% of entries to make room for new ones
-// This is called when maxSize is reached
-func (si *StringIntern) evictOldest() {
-	evictCount := maxInt(1, len(si.values)/10) // Remove at least 1, up to 10%
+// evictRandom removes approximately 10% of entries to make room for new ones.
+// This is called when maxSize is reached.
+//
+// This uses random eviction (Go map iteration order is randomized),
+// which is fast and works well for string interning where all strings
+// have similar access patterns. It is NOT LRU or FIFO.
+func (si *StringIntern) evictRandom() {
+	evictCount := max(1, len(si.values)/10) // Remove at least 1, up to 10%
 	evicted := 0
 
-	// Simple eviction strategy: remove entries in iteration order
-	// This is not LRU but is fast and works well for most use cases
+	// Random eviction strategy: remove entries in map iteration order
+	// Go randomizes map iteration, so this effectively evicts random entries
 	for key := range si.values {
 		if evicted >= evictCount {
 			break
@@ -220,7 +231,7 @@ type PressureMonitor struct {
 type Thresholds struct {
 	HeapAllocMB   uint64 // Alert when heap allocation exceeds this (MB)
 	HeapSysMB     uint64 // Alert when heap system memory exceeds this (MB)
-	GCPercent     uint64 // Alert when GC percentage exceeds this
+	GCPercent     uint64 // Reserved for future use: alert when GC percentage exceeds this
 	NumGoroutines int    // Alert when goroutine count exceeds this
 }
 
@@ -279,6 +290,9 @@ func NewPressureMonitor(thresholds Thresholds, alertCallback func(Alert)) *Press
 	}
 }
 
+// MinMonitoringInterval is the minimum allowed monitoring interval
+const MinMonitoringInterval = time.Millisecond
+
 // StartMonitoring begins continuous memory monitoring
 func (mpm *PressureMonitor) StartMonitoring() {
 	mpm.mu.Lock()
@@ -286,6 +300,13 @@ func (mpm *PressureMonitor) StartMonitoring() {
 
 	if mpm.monitoringEnabled {
 		return // Already monitoring
+	}
+
+	// Validate monitoring interval to prevent ticker panic
+	if mpm.monitoringInterval <= 0 {
+		mpm.monitoringInterval = 30 * time.Second // Default
+	} else if mpm.monitoringInterval < MinMonitoringInterval {
+		mpm.monitoringInterval = MinMonitoringInterval
 	}
 
 	// Create a new stop channel for this monitoring session
@@ -453,8 +474,13 @@ type LazyLoader[T any] struct {
 	loadCount int64
 }
 
-// NewLazyLoader creates a new lazy loader with the given loading function
+// NewLazyLoader creates a new lazy loader with the given loading function.
+//
+// Panics if loader is nil.
 func NewLazyLoader[T any](loader func() (T, error)) *LazyLoader[T] {
+	if loader == nil {
+		panic("memory: LazyLoader loader function cannot be nil")
+	}
 	return &LazyLoader[T]{
 		loader: loader,
 	}
@@ -509,12 +535,4 @@ func (ll *LazyLoader[T]) IsLoaded() bool {
 // GetLoadCount returns the number of times the loader function has been called
 func (ll *LazyLoader[T]) GetLoadCount() int64 {
 	return atomic.LoadInt64(&ll.loadCount)
-}
-
-// Helper function for max calculation
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

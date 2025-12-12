@@ -4,6 +4,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 // Entry represents a cached value
@@ -12,7 +14,11 @@ type Entry struct {
 	ExpiresAt time.Time
 }
 
-// TTLCache provides time-based caching
+// TTLCache provides time-based caching with automatic expiration and cleanup.
+//
+// The cache uses a background goroutine for periodic cleanup of expired entries.
+// IMPORTANT: Always call Close() when done to stop the cleanup goroutine and
+// prevent resource leaks.
 type TTLCache struct {
 	mu      sync.RWMutex
 	items   map[string]Entry
@@ -24,17 +30,53 @@ type TTLCache struct {
 	misses atomic.Int64
 
 	// Cleanup
-	stopCleanup chan struct{}
-	once        sync.Once
+	cleanupInterval time.Duration
+	stopCleanup     chan struct{}
+	once            sync.Once
+
+	// Singleflight for GetOrLoad to prevent thundering herd
+	group singleflight.Group
 }
 
-// NewTTLCache creates a new TTL cache
+// DefaultTTL is the default cache TTL when an invalid value is provided.
+const DefaultTTL = time.Minute
+
+// DefaultMaxSize is the default maximum cache size when an invalid value is provided.
+const DefaultMaxSize = 1000
+
+// MinCleanupInterval is the minimum interval between cleanup runs.
+const MinCleanupInterval = time.Millisecond
+
+// NewTTLCache creates a new TTL cache.
+//
+// Parameters:
+//   - ttl: Time-to-live for cache entries. If <= 0, defaults to 1 minute.
+//   - maxSize: Maximum number of entries. If <= 0, defaults to 1000.
+//
+// IMPORTANT: Call Close() when done to stop the background cleanup goroutine.
 func NewTTLCache(ttl time.Duration, maxSize int) *TTLCache {
+	// Validate and apply defaults for TTL
+	if ttl <= 0 {
+		ttl = DefaultTTL
+	}
+
+	// Validate and apply defaults for maxSize
+	if maxSize <= 0 {
+		maxSize = DefaultMaxSize
+	}
+
+	// Calculate cleanup interval (ttl/2, but at least MinCleanupInterval)
+	cleanupInterval := ttl / 2
+	if cleanupInterval < MinCleanupInterval {
+		cleanupInterval = MinCleanupInterval
+	}
+
 	cache := &TTLCache{
-		items:       make(map[string]Entry),
-		ttl:         ttl,
-		maxSize:     maxSize,
-		stopCleanup: make(chan struct{}),
+		items:           make(map[string]Entry),
+		ttl:             ttl,
+		maxSize:         maxSize,
+		cleanupInterval: cleanupInterval,
+		stopCleanup:     make(chan struct{}),
 	}
 
 	// Start cleanup goroutine
@@ -79,19 +121,37 @@ func (c *TTLCache) Set(key string, value interface{}) {
 	}
 }
 
-// GetOrLoad retrieves from cache or loads using the provided function
+// GetOrLoad retrieves from cache or loads using the provided function.
+//
+// This method uses singleflight to prevent the "thundering herd" problem:
+// when multiple goroutines request the same missing key simultaneously,
+// only one will call the loader function, and the result is shared.
 func (c *TTLCache) GetOrLoad(key string, loader func() (interface{}, error)) (interface{}, error) {
+	// Fast path: check if value exists in cache
 	if val, ok := c.Get(key); ok {
 		return val, nil
 	}
 
-	val, err := loader()
-	if err != nil {
-		return nil, err
-	}
+	// Use singleflight to ensure only one loader runs per key
+	val, err, _ := c.group.Do(key, func() (interface{}, error) {
+		// Double-check after acquiring singleflight lock
+		// (another goroutine may have populated the cache)
+		if val, ok := c.Get(key); ok {
+			return val, nil
+		}
 
-	c.Set(key, val)
-	return val, nil
+		// Call the loader
+		val, err := loader()
+		if err != nil {
+			return nil, err
+		}
+
+		// Cache the result
+		c.Set(key, val)
+		return val, nil
+	})
+
+	return val, err
 }
 
 // Delete removes a key from the cache
@@ -112,12 +172,15 @@ func (c *TTLCache) Clear() {
 	c.misses.Store(0)
 }
 
-// Stats returns cache statistics
+// Stats returns cache statistics.
+//
+// The returned values represent a consistent snapshot - all values
+// are captured under the same lock to ensure consistency.
 func (c *TTLCache) Stats() (hits, misses int64, size int, hitRate float64) {
 	c.mu.RLock()
-	size = len(c.items)
-	c.mu.RUnlock()
+	defer c.mu.RUnlock()
 
+	size = len(c.items)
 	hits = c.hits.Load()
 	misses = c.misses.Load()
 
@@ -145,7 +208,7 @@ func (c *TTLCache) Close() {
 
 // cleanup periodically removes expired entries
 func (c *TTLCache) cleanup() {
-	ticker := time.NewTicker(c.ttl / 2)
+	ticker := time.NewTicker(c.cleanupInterval)
 	defer ticker.Stop()
 
 	for {
@@ -165,8 +228,22 @@ func (c *TTLCache) cleanup() {
 	}
 }
 
-// evictOldest removes the oldest entry
+// evictOldest removes an entry to make room for a new one.
+// It first tries to remove an expired entry, falling back to the oldest valid entry.
+// This is O(n) - for high-performance use cases with large caches,
+// consider using a heap-based or LRU eviction strategy.
 func (c *TTLCache) evictOldest() {
+	now := time.Now()
+
+	// First pass: try to find and remove any expired entry
+	for key, entry := range c.items {
+		if now.After(entry.ExpiresAt) {
+			delete(c.items, key)
+			return
+		}
+	}
+
+	// Second pass: no expired entries, remove the oldest valid entry
 	var oldestKey string
 	var oldestTime time.Time
 

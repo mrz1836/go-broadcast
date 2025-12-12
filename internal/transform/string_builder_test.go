@@ -681,3 +681,51 @@ func TestStringBuilderCapacityOptimization(t *testing.T) {
 		assert.Equal(t, expected, result)
 	})
 }
+
+// TestBuildKeyValuePairs_Deterministic verifies that map iteration is now sorted
+// and produces deterministic output across multiple runs.
+func TestBuildKeyValuePairs_Deterministic(t *testing.T) {
+	pairs := map[string]string{
+		"zulu":   "last",
+		"alpha":  "first",
+		"middle": "center",
+		"bravo":  "second",
+	}
+
+	// Run multiple times and verify same result
+	var results []string
+	for i := 0; i < 10; i++ {
+		result := BuildKeyValuePairs(pairs, "=", ", ")
+		results = append(results, result)
+	}
+
+	// All results should be identical due to sorted keys
+	expected := "alpha=first, bravo=second, middle=center, zulu=last"
+	for i, result := range results {
+		assert.Equal(t, expected, result, "Run %d should produce same result", i)
+	}
+}
+
+// TestBuildURLWithParams_Deterministic verifies that URL parameters are sorted
+// and produces deterministic output across multiple runs.
+func TestBuildURLWithParams_Deterministic(t *testing.T) {
+	params := map[string]string{
+		"z_param": "z_value",
+		"a_param": "a_value",
+		"m_param": "m_value",
+		"b_param": "b_value",
+	}
+
+	// Run multiple times and verify same result
+	var results []string
+	for i := 0; i < 10; i++ {
+		result := BuildURLWithParams("https://api.example.com/endpoint", params)
+		results = append(results, result)
+	}
+
+	// All results should be identical due to sorted keys
+	expected := "https://api.example.com/endpoint?a_param=a_value&b_param=b_value&m_param=m_value&z_param=z_value"
+	for i, result := range results {
+		assert.Equal(t, expected, result, "Run %d should produce same result", i)
+	}
+}

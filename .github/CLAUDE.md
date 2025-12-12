@@ -159,6 +159,32 @@ magex test:cover     # Generate and view test coverage
 magex deps:audit     # Scan for security vulnerabilities
 ```
 
+### 🤖 AI Text Generation (Optional)
+
+The `internal/ai/` package provides optional AI-powered PR body and commit message generation.
+
+**Enable in CI/CD:**
+```bash
+GO_BROADCAST_AI_ENABLED=true
+ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+**Providers:** Anthropic (default), OpenAI, Google Gemini via Genkit SDK.
+
+**Key Files:**
+- `internal/ai/config.go` - Environment configuration
+- `internal/ai/pr_generator.go` - PR body generation
+- `internal/ai/commit_generator.go` - Commit message generation
+- `internal/ai/cache.go` - Response caching (SHA256-keyed)
+- `internal/ai/diff.go` - Diff truncation for token limits
+
+**Behavior:**
+- Disabled by default (`GO_BROADCAST_AI_ENABLED=false`)
+- All failures fall back to static templates silently
+- Never blocks sync operations
+
+See [`.github/.env.base`](.env.base) for all configuration options.
+
 ### 📋 MAGE-X Quick Reference
 
 **Most Frequently Used Commands:**

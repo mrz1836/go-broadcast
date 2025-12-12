@@ -186,7 +186,7 @@ func BenchmarkGroupOrchestration(b *testing.B) {
 			opts := syncpkg.DefaultOptions().
 				WithDryRun(true) // Dry run for benchmarking
 
-			engine := syncpkg.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+			engine := syncpkg.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 			engine.SetLogger(logger)
 
 			start := time.Now()
@@ -508,7 +508,7 @@ func TestPerformanceStress(t *testing.T) {
 		opts := syncpkg.DefaultOptions().
 			WithDryRun(true)
 
-		engine := syncpkg.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := syncpkg.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logger)
 
 		start := time.Now()
@@ -684,7 +684,7 @@ func TestPerformanceStress(t *testing.T) {
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
-		_ = syncpkg.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		_ = syncpkg.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 
 		// Force garbage collection
 		runtime.GC()
@@ -786,7 +786,7 @@ func TestPerformanceStress(t *testing.T) {
 		opts := syncpkg.DefaultOptions().
 			WithDryRun(true)
 
-		engine := syncpkg.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := syncpkg.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logger)
 
 		start := time.Now()
@@ -927,7 +927,7 @@ func TestPerformanceRegression(t *testing.T) {
 			// Mock transform operations
 			mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-			engine := syncpkg.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+			engine := syncpkg.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 
 			start := time.Now()
 			err := engine.Sync(ctx, nil)
@@ -1068,7 +1068,7 @@ func TestPerformanceRegression(t *testing.T) {
 			// Mock transform operations
 			mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-			engine := syncpkg.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+			engine := syncpkg.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 
 			start := time.Now()
 			err := engine.Sync(ctx, nil)

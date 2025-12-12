@@ -593,24 +593,54 @@ func TestLazyLoaderConcurrency(t *testing.T) {
 	require.Equal(t, int64(1), ll.GetLoadCount())
 }
 
-func TestMaxInt(t *testing.T) {
-	tests := []struct {
-		name     string
-		a, b     int
-		expected int
-	}{
-		{"AGreater", 10, 5, 10},
-		{"BGreater", 5, 10, 10},
-		{"Equal", 7, 7, 7},
-		{"Negative", -5, -10, -5},
+// TestStringInternNegativeMaxSize tests that negative maxSize is treated as unlimited
+func TestStringInternNegativeMaxSize(t *testing.T) {
+	si := NewStringInternWithSize(-10)
+
+	require.NotNil(t, si)
+	require.Equal(t, 0, si.maxSize) // Should be treated as unlimited
+
+	// Should be able to add many entries without eviction
+	for i := 0; i < 100; i++ {
+		si.Intern(string(rune('a' + i)))
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := maxInt(tt.a, tt.b)
-			require.Equal(t, tt.expected, result)
-		})
-	}
+	stats := si.GetStats()
+	require.Equal(t, int64(100), stats.Size)
+	require.Equal(t, int64(0), stats.Evicted)
+}
+
+// TestLazyLoaderNilLoader tests that nil loader panics
+func TestLazyLoaderNilLoader(t *testing.T) {
+	require.Panics(t, func() {
+		NewLazyLoader[string](nil)
+	})
+}
+
+// TestPressureMonitorZeroInterval tests that zero monitoring interval gets default
+func TestPressureMonitorZeroInterval(t *testing.T) {
+	monitor := NewPressureMonitor(DefaultThresholds(), nil)
+	monitor.monitoringInterval = 0
+
+	// Should not panic
+	monitor.StartMonitoring()
+	defer monitor.StopMonitoring()
+
+	// Interval should have been set to default
+	require.GreaterOrEqual(t, monitor.monitoringInterval, MinMonitoringInterval)
+}
+
+// TestPressureMonitorNegativeInterval tests that negative monitoring interval gets default
+func TestPressureMonitorNegativeInterval(t *testing.T) {
+	monitor := NewPressureMonitor(DefaultThresholds(), nil)
+	monitor.monitoringInterval = -time.Hour
+
+	// Should not panic
+	monitor.StartMonitoring()
+	defer monitor.StopMonitoring()
+
+	// Interval should have been set to default
+	require.Greater(t, monitor.monitoringInterval, time.Duration(0))
 }
 
 // TestPressureMonitorCheckMemoryPressure tests the memory pressure checking functionality

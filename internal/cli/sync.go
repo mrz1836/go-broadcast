@@ -430,7 +430,7 @@ repoTransformerAdded:
 		WithAutomergeLabels(automergeLabels)
 
 	// Create and return engine
-	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+	engine := sync.NewEngine(ctx, cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 	engine.SetLogger(logrus.StandardLogger())
 
 	return engine, nil
@@ -521,7 +521,7 @@ repoTransformerAdded2:
 		WithAutomergeLabels(automergeLabels)
 
 	// Create and return engine
-	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+	engine := sync.NewEngine(ctx, cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 	engine.SetLogger(logger)
 
 	return engine, nil
@@ -682,7 +682,7 @@ repoTransformerAdded3:
 		WithAutomergeLabels(automergeLabels)
 
 	// Create and return engine
-	engine := sync.NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+	engine := sync.NewEngine(ctx, cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 	engine.SetLogger(logger)
 
 	return engine, nil

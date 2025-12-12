@@ -4,7 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sync"
 	"time"
+)
+
+// Cached regex patterns for performance - compiled once at package init
+var (
+	// invalidCharsPattern validates branch prefix characters
+	invalidCharsPattern = regexp.MustCompile(`[^a-zA-Z0-9/_-]`)
+
+	// branchPatternCache caches compiled regex patterns keyed by prefix
+	// to avoid recompilation on every parseSyncBranchNameWithPrefix call
+	branchPatternCache sync.Map //nolint:gochecknoglobals // intentional cache for performance
 )
 
 // Branch validation errors
@@ -13,6 +24,24 @@ var (
 	ErrBranchPrefixInvalid = errors.New("branch prefix contains invalid characters")
 	ErrNotSyncBranch       = errors.New("not a sync branch")
 )
+
+// getBranchPattern returns a cached compiled regex for the given branch prefix.
+// This avoids recompiling the same regex pattern on every call.
+func getBranchPattern(prefix string) *regexp.Regexp {
+	// Check cache first
+	if cached, ok := branchPatternCache.Load(prefix); ok {
+		return cached.(*regexp.Regexp)
+	}
+
+	// Compile new pattern - Format: prefix-{groupID}-YYYYMMDD-HHMMSS-{commit}
+	escapedPrefix := regexp.QuoteMeta(prefix)
+	pattern := fmt.Sprintf(`^(%s)-([a-zA-Z0-9_-]+)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`, escapedPrefix)
+	compiled := regexp.MustCompile(pattern)
+
+	// Store in cache (LoadOrStore handles race condition)
+	actual, _ := branchPatternCache.LoadOrStore(prefix, compiled)
+	return actual.(*regexp.Regexp)
+}
 
 // parseSyncBranchName parses a branch name to extract sync metadata
 func parseSyncBranchName(name string) (*BranchMetadata, error) {
@@ -23,9 +52,7 @@ func parseSyncBranchName(name string) (*BranchMetadata, error) {
 // parseSyncBranchNameWithPrefix parses a branch name with a specific prefix to extract sync metadata
 func parseSyncBranchNameWithPrefix(name, prefix string) (*BranchMetadata, error) {
 	// Format: prefix-{groupID}-YYYYMMDD-HHMMSS-{commit}
-	escapedPrefix := regexp.QuoteMeta(prefix)
-	pattern := fmt.Sprintf(`^(%s)-([a-zA-Z0-9_-]+)-(\d{8})-(\d{6})-([a-fA-F0-9]+)$`, escapedPrefix)
-	branchPattern := regexp.MustCompile(pattern)
+	branchPattern := getBranchPattern(prefix)
 
 	matches := branchPattern.FindStringSubmatch(name)
 	if matches == nil {
@@ -71,9 +98,8 @@ func ValidateBranchPrefix(prefix string) error {
 		return ErrBranchPrefixEmpty
 	}
 
-	// Check for invalid characters
-	invalidChars := regexp.MustCompile(`[^a-zA-Z0-9/_-]`)
-	if invalidChars.MatchString(prefix) {
+	// Check for invalid characters using cached pattern
+	if invalidCharsPattern.MatchString(prefix) {
 		return ErrBranchPrefixInvalid
 	}
 

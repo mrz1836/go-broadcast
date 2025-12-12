@@ -192,16 +192,29 @@ func BenchmarkConcurrentGitOperations(b *testing.B) {
 						b.Fatalf("Failed to submit batch: %v", err)
 					}
 
-					// Wait for completion
+					// Wait for completion with timeout protection
 					completed := 0
 					errorCount := 0
-					for result := range pool.Results() {
-						if result.Error != nil && !errors.Is(result.Error, ErrNoChanges) {
-							errorCount++
-						}
-						completed++
-						if completed >= scenario.repos {
-							break
+					resultTimeout := time.After(60 * time.Second)
+
+				resultLoop:
+					for {
+						select {
+						case result, ok := <-pool.Results():
+							if !ok {
+								// Channel closed, all results received
+								break resultLoop
+							}
+							if result.Error != nil && !errors.Is(result.Error, ErrNoChanges) {
+								errorCount++
+							}
+							completed++
+							if completed >= scenario.repos {
+								// Received all expected results, drain remaining and shutdown
+								break resultLoop
+							}
+						case <-resultTimeout:
+							b.Fatalf("Timeout waiting for results: completed %d of %d", completed, scenario.repos)
 						}
 					}
 

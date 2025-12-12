@@ -98,7 +98,7 @@ func TestEndToEndSync(t *testing.T) {
 
 		// Create sync engine
 		opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(2)
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync - should succeed without doing any sync work since targets are up-to-date
@@ -151,7 +151,7 @@ func TestEndToEndSync(t *testing.T) {
 
 		// Create sync engine
 		opts := sync.DefaultOptions().WithDryRun(false)
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -202,7 +202,7 @@ func TestEndToEndSync(t *testing.T) {
 
 		// Create sync engine with dry-run enabled
 		opts := sync.DefaultOptions().WithDryRun(true)
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -233,7 +233,7 @@ func TestEndToEndSync(t *testing.T) {
 
 		// Create sync engine
 		opts := sync.DefaultOptions()
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -286,7 +286,11 @@ func TestEndToEndSync(t *testing.T) {
 			_ = os.WriteFile(filepath.Join(destPath, ".github/workflows/ci.yml"), []byte("workflow content"), 0o600)
 			_ = os.WriteFile(filepath.Join(destPath, "Makefile"), []byte("makefile content"), 0o600)
 		})
-		mockGit.On("Checkout", mock.Anything, mock.Anything, "abc123def456").Return(nil)
+		mockGit.On("Checkout", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
+		mockGit.On("CreateBranch", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
+		mockGit.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil).Maybe()
+		mockGit.On("Commit", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return("abc123def456", nil).Maybe()
+		mockGit.On("Push", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
 
 		// Mock getting source files
 		mockGH.On("GetFile", mock.Anything, "org/template-repo", ".github/workflows/ci.yml", "").
@@ -316,7 +320,7 @@ func TestEndToEndSync(t *testing.T) {
 
 		// Create sync engine with high concurrency
 		opts := sync.DefaultOptions().WithDryRun(true).WithMaxConcurrency(10)
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync

@@ -433,7 +433,8 @@ func TestValidateEmail(t *testing.T) {
 			name:      "leading dot in local part",
 			email:     ".user@example.com",
 			fieldName: "security_email",
-			wantErr:   false, // The simplified RFC pattern allows this
+			wantErr:   true, // Now rejected - leading dots not allowed per RFC
+			errMsg:    "invalid field: security_email",
 		},
 		{
 			name:      "space in email",
@@ -966,12 +967,12 @@ func TestValidateFileMapping(t *testing.T) {
 
 // Test edge cases and security
 func TestValidationSecurityEdgeCases(t *testing.T) {
-	t.Run("long input handling", func(_ *testing.T) {
+	t.Run("long input handling", func(t *testing.T) {
 		longRepo := strings.Repeat("a", 1000) + "/" + strings.Repeat("b", 1000)
 		err := ValidateRepoName(longRepo)
-		// Should handle long inputs gracefully (may pass or fail based on regex)
-		// The important thing is it doesn't panic or cause issues
-		_ = err
+		// Should be rejected due to length limit
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum length")
 	})
 
 	t.Run("unicode handling", func(t *testing.T) {
@@ -983,7 +984,7 @@ func TestValidationSecurityEdgeCases(t *testing.T) {
 	t.Run("null byte injection", func(t *testing.T) {
 		nullByteRepo := "org/repo\x00"
 		err := ValidateRepoName(nullByteRepo)
-		assert.Error(t, err) // Should reject null bytes
+		require.Error(t, err) // Should reject null bytes (fails regex)
 	})
 
 	t.Run("complex path traversal", func(t *testing.T) {
@@ -993,13 +994,14 @@ func TestValidationSecurityEdgeCases(t *testing.T) {
 		assert.Contains(t, err.Error(), "path traversal detected")
 	})
 
-	t.Run("windows path traversal", func(_ *testing.T) {
+	t.Run("windows path traversal", func(t *testing.T) {
 		windowsPath := "src\\..\\..\\windows\\system32"
-		// Our current validation focuses on Unix-style paths
-		// This test documents current behavior
+		// Windows-style paths are treated as relative on Unix
+		// The backslash is not a path separator on Unix
 		err := ValidateFilePath(windowsPath, "test")
-		// May or may not error depending on implementation
-		_ = err
+		// On Unix, this path contains ".." which gets caught after filepath.Clean
+		// The behavior depends on the OS
+		assert.NoError(t, err) // On macOS/Linux, backslashes are just characters
 	})
 }
 
@@ -1014,12 +1016,14 @@ func TestValidateRepoNameEdgeCases(t *testing.T) {
 		{
 			name:    "extremely long org name",
 			repo:    strings.Repeat("a", 10000) + "/repo",
-			wantErr: false, // Regex doesn't enforce length limits
+			wantErr: true, // Length limits are now enforced
+			errMsg:  "exceeds maximum length",
 		},
 		{
 			name:    "extremely long repo name",
 			repo:    "org/" + strings.Repeat("b", 10000),
-			wantErr: false, // Regex doesn't enforce length limits
+			wantErr: true, // Length limits are now enforced
+			errMsg:  "exceeds maximum length",
 		},
 		{
 			name:    "single character org and repo",
@@ -1181,7 +1185,8 @@ func TestValidateBranchNameEdgeCases(t *testing.T) {
 		{
 			name:    "double dot",
 			branch:  "branch..name",
-			wantErr: false, // Allowed in branch names
+			wantErr: true, // Now rejected - '..' can cause issues with git range syntax
+			errMsg:  "contains '..'",
 		},
 		{
 			name:    "tilde character",
@@ -1205,12 +1210,14 @@ func TestValidateBranchNameEdgeCases(t *testing.T) {
 		{
 			name:    "multiple consecutive slashes",
 			branch:  "feature///branch",
-			wantErr: false, // Multiple slashes allowed
+			wantErr: true, // Now rejected - consecutive slashes are invalid in Git
+			errMsg:  "contains '//'",
 		},
 		{
 			name:    "ends with slash",
 			branch:  "feature/branch/",
-			wantErr: false, // Trailing slash allowed
+			wantErr: true, // Now rejected - trailing slashes are invalid in Git
+			errMsg:  "ends with '/'",
 		},
 		{
 			name:    "deeply nested slashes",
@@ -1221,12 +1228,13 @@ func TestValidateBranchNameEdgeCases(t *testing.T) {
 		{
 			name:    "extremely long branch name",
 			branch:  strings.Repeat("a", 1000),
-			wantErr: false, // No length limit enforced
+			wantErr: true, // Length limit now enforced
+			errMsg:  "exceeds maximum length",
 		},
 		{
 			name:    "branch name at git limit",
 			branch:  strings.Repeat("a", 255), // Git's typical limit
-			wantErr: false,
+			wantErr: false,                    // Exactly at limit
 		},
 		// Special git patterns
 		{
@@ -1393,13 +1401,15 @@ func TestValidateFilePathEdgeCases(t *testing.T) {
 			name:      "null byte in path",
 			path:      "file\x00.txt",
 			fieldName: "source",
-			wantErr:   false, // Not explicitly checked
+			wantErr:   true, // Now rejected for security
+			errMsg:    "contains invalid control characters",
 		},
 		{
 			name:      "control characters",
 			path:      "file\n\r\t.txt",
 			fieldName: "source",
-			wantErr:   false, // Not explicitly checked
+			wantErr:   true, // Now rejected for security
+			errMsg:    "contains invalid control characters",
 		},
 	}
 
@@ -1443,11 +1453,17 @@ func TestValidationResultEdgeCases(t *testing.T) {
 	t.Run("nil result methods", func(t *testing.T) {
 		var result *Result
 
-		// These should not panic
+		// These should not panic - nil receiver is now safe
 		assert.NotPanics(t, func() {
-			if result != nil {
-				_ = result.FirstError()
-			}
+			result.AddError(assert.AnError) // No-op on nil receiver
+		})
+		assert.NotPanics(t, func() {
+			err := result.FirstError()
+			assert.NoError(t, err)
+		})
+		assert.NotPanics(t, func() {
+			err := result.AllErrors()
+			assert.NoError(t, err)
 		})
 	})
 }
@@ -1517,9 +1533,10 @@ func TestValidateTargetConfigEdgeCases(t *testing.T) {
 			repo: "org/repo",
 			fileMappings: []FileMapping{
 				{Src: "src1", Dest: "./dest/file.txt"},
-				{Src: "src2", Dest: "dest/file.txt"}, // Same after normalization?
+				{Src: "src2", Dest: "dest/file.txt"}, // Same after normalization
 			},
-			wantErr: false, // Validation uses raw paths, not normalized
+			wantErr: true, // Now detected as duplicate after path normalization
+			errMsg:  "duplicate destination",
 		},
 	}
 
@@ -1682,14 +1699,214 @@ func TestValidationPatternPerformance(t *testing.T) {
 		// This test ensures patterns are compiled once and reused
 	})
 
-	t.Run("pathological regex input", func(_ *testing.T) {
+	t.Run("pathological regex input", func(t *testing.T) {
 		// Test inputs that could cause regex backtracking
-		longRepeating := strings.Repeat("a-", 100) + "b"
-		_ = ValidateRepoName("org/" + longRepeating)
-		_ = ValidateBranchName(longRepeating)
+		// These should be rejected due to length limits now
+		longRepeating := strings.Repeat("a-", 150) + "b" // 301 chars
+		err := ValidateRepoName("org/" + longRepeating)
+		require.Error(t, err) // Rejected by length limit
 
-		// Complex nested patterns
-		nestedSlashes := "feature/" + strings.Repeat("sub/", 50) + "branch"
-		_ = ValidateBranchName(nestedSlashes)
+		longRepeatingBranch := strings.Repeat("a-", 150) + "b" // 301 chars > 255
+		err = ValidateBranchName(longRepeatingBranch)
+		require.Error(t, err) // Rejected by length limit
+
+		// Moderate length inputs should still work
+		shortInput := strings.Repeat("a", 100)
+		err = ValidateBranchName(shortInput)
+		assert.NoError(t, err)
+	})
+}
+
+// TestErrorTruncation tests the MaxErrorsInMessage truncation
+func TestErrorTruncation(t *testing.T) {
+	result := NewValidationResult()
+
+	// Add more errors than MaxErrorsInMessage
+	for i := 0; i < MaxErrorsInMessage+5; i++ {
+		result.AddError(assert.AnError)
+	}
+
+	allErr := result.AllErrors()
+	require.Error(t, allErr)
+
+	// Should contain truncation message
+	assert.Contains(t, allErr.Error(), "... and 5 more errors")
+}
+
+// TestValidateTargetConfigErrorWrapping tests that error wrapping is applied correctly
+func TestValidateTargetConfigErrorWrapping(t *testing.T) {
+	t.Run("error is wrapped with correct mapping index", func(t *testing.T) {
+		// First mapping valid, second mapping invalid
+		fileMappings := []FileMapping{
+			{Src: "valid/src.txt", Dest: "valid/dest.txt"},
+			{Src: "", Dest: "dest2.txt"}, // Invalid - empty src
+		}
+
+		err := ValidateTargetConfig("org/repo", fileMappings)
+		require.Error(t, err)
+		// Error should mention mapping[1] not mapping[0]
+		assert.Contains(t, err.Error(), "mapping[1]")
+	})
+
+	t.Run("valid mapping after invalid does not re-wrap", func(t *testing.T) {
+		// First mapping invalid, second mapping valid
+		fileMappings := []FileMapping{
+			{Src: "", Dest: "dest1.txt"}, // Invalid - empty src
+			{Src: "valid/src.txt", Dest: "valid/dest2.txt"},
+		}
+
+		err := ValidateTargetConfig("org/repo", fileMappings)
+		require.Error(t, err)
+		// Error should mention mapping[0] only
+		assert.Contains(t, err.Error(), "mapping[0]")
+		// Should not mention mapping[1]
+		assert.NotContains(t, err.Error(), "mapping[1]")
+	})
+}
+
+// TestLengthLimits tests that all validators properly enforce length limits
+func TestLengthLimits(t *testing.T) {
+	t.Run("repo name at limit", func(t *testing.T) {
+		// Create repo name exactly at limit
+		repo := strings.Repeat("a", MaxRepoNameLength/2-1) + "/" + strings.Repeat("b", MaxRepoNameLength/2-1)
+		assert.LessOrEqual(t, len(repo), MaxRepoNameLength)
+		err := ValidateRepoName(repo)
+		assert.NoError(t, err)
+	})
+
+	t.Run("repo name exceeds limit", func(t *testing.T) {
+		repo := strings.Repeat("a", MaxRepoNameLength) + "/b"
+		err := ValidateRepoName(repo)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum length")
+	})
+
+	t.Run("branch name at limit", func(t *testing.T) {
+		branch := strings.Repeat("a", MaxBranchNameLength)
+		err := ValidateBranchName(branch)
+		assert.NoError(t, err)
+	})
+
+	t.Run("branch name exceeds limit", func(t *testing.T) {
+		branch := strings.Repeat("a", MaxBranchNameLength+1)
+		err := ValidateBranchName(branch)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum length")
+	})
+
+	t.Run("email at limit", func(t *testing.T) {
+		// Create email at limit: local@domain.tld
+		local := strings.Repeat("a", MaxEmailLength-15) // Reserve space for @domain.com
+		email := local + "@example.com"
+		// This will likely fail the regex, but shouldn't fail length check
+		err := ValidateEmail(email, "test")
+		if err != nil {
+			// If it errors, it should be format error not length error
+			assert.NotContains(t, err.Error(), "exceeds maximum length")
+		}
+	})
+
+	t.Run("email exceeds limit", func(t *testing.T) {
+		email := strings.Repeat("a", MaxEmailLength+1) + "@example.com"
+		err := ValidateEmail(email, "test")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum length")
+	})
+
+	t.Run("file path at limit", func(t *testing.T) {
+		path := strings.Repeat("a/", MaxFilePathLength/2-10) + "file.txt"
+		if len(path) <= MaxFilePathLength {
+			// Should not error due to length
+			err := ValidateFilePath(path, "test")
+			if err != nil {
+				assert.NotContains(t, err.Error(), "exceeds maximum length")
+			}
+		}
+	})
+
+	t.Run("file path exceeds limit", func(t *testing.T) {
+		path := strings.Repeat("a", MaxFilePathLength+1)
+		err := ValidateFilePath(path, "test")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum length")
+	})
+}
+
+// TestGitBranchNameRules tests Git-specific branch naming rules
+func TestGitBranchNameRules(t *testing.T) {
+	t.Run("rejects double dots", func(t *testing.T) {
+		err := ValidateBranchName("branch..name")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "contains '..'")
+	})
+
+	t.Run("rejects trailing slash", func(t *testing.T) {
+		err := ValidateBranchName("feature/branch/")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ends with '/'")
+	})
+
+	t.Run("rejects consecutive slashes", func(t *testing.T) {
+		err := ValidateBranchName("feature//branch")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "contains '//'")
+	})
+
+	t.Run("rejects .lock suffix", func(t *testing.T) {
+		err := ValidateBranchName("branch.lock")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ends with '.lock'")
+	})
+
+	t.Run("allows valid branch names", func(t *testing.T) {
+		validBranches := []string{
+			"master",
+			"main",
+			"feature/new-feature",
+			"release/v1.0.0",
+			"hotfix/bug-123",
+		}
+		for _, branch := range validBranches {
+			err := ValidateBranchName(branch)
+			assert.NoError(t, err, "branch %q should be valid", branch)
+		}
+	})
+}
+
+// TestControlCharacterRejection tests that control characters are rejected
+func TestControlCharacterRejection(t *testing.T) {
+	controlChars := []struct {
+		name string
+		char byte
+	}{
+		{"null byte", 0x00},
+		{"tab", 0x09},
+		{"newline", 0x0A},
+		{"carriage return", 0x0D},
+		{"bell", 0x07},
+	}
+
+	for _, cc := range controlChars {
+		t.Run(cc.name, func(t *testing.T) {
+			path := "file" + string(cc.char) + ".txt"
+			err := ValidateFilePath(path, "test")
+			require.Error(t, err, "control character %q should be rejected", cc.name)
+			assert.Contains(t, err.Error(), "contains invalid control characters")
+		})
+	}
+}
+
+// TestEmailConsecutiveDots tests that consecutive dots in emails are rejected
+func TestEmailConsecutiveDots(t *testing.T) {
+	t.Run("rejects consecutive dots in local part", func(t *testing.T) {
+		err := ValidateEmail("user..name@example.com", "test")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "consecutive dots")
+	})
+
+	t.Run("rejects consecutive dots in domain", func(t *testing.T) {
+		err := ValidateEmail("user@example..com", "test")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "consecutive dots")
 	})
 }

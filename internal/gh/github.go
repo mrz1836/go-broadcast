@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 
@@ -34,7 +35,8 @@ var (
 type githubClient struct {
 	runner      CommandRunner
 	logger      *logrus.Logger
-	currentUser *User // Cache for current user
+	currentUser *User        // Cache for current user
+	mu          sync.RWMutex // Protects currentUser
 }
 
 // NewClient creates a new GitHub client using gh CLI.
@@ -166,21 +168,27 @@ func (g *githubClient) CreatePR(ctx context.Context, repo string, req PRRequest)
 	// Set assignees if provided
 	if len(req.Assignees) > 0 {
 		if err := g.setAssignees(ctx, repo, pr.Number, req.Assignees); err != nil {
-			g.logger.WithError(err).Warn("Failed to set PR assignees")
+			if g.logger != nil {
+				g.logger.WithError(err).Warn("Failed to set PR assignees")
+			}
 		}
 	}
 
 	// Set reviewers if provided
 	if len(req.Reviewers) > 0 || len(req.TeamReviewers) > 0 {
 		if err := g.setReviewers(ctx, repo, pr.Number, req.Reviewers, req.TeamReviewers); err != nil {
-			g.logger.WithError(err).Warn("Failed to set PR reviewers")
+			if g.logger != nil {
+				g.logger.WithError(err).Warn("Failed to set PR reviewers")
+			}
 		}
 	}
 
 	// Set labels if provided
 	if len(req.Labels) > 0 {
 		if err := g.setLabels(ctx, repo, pr.Number, req.Labels); err != nil {
-			g.logger.WithError(err).Warn("Failed to set PR labels")
+			if g.logger != nil {
+				g.logger.WithError(err).Warn("Failed to set PR labels")
+			}
 		}
 	}
 
@@ -346,7 +354,9 @@ func (g *githubClient) ClosePR(ctx context.Context, repo string, number int, com
 	// First, add a comment if provided
 	if comment != "" {
 		if err := g.AddPRComment(ctx, repo, number, comment); err != nil {
-			g.logger.WithError(err).Warn("Failed to add comment before closing PR")
+			if g.logger != nil {
+				g.logger.WithError(err).Warn("Failed to add comment before closing PR")
+			}
 		}
 	}
 
@@ -411,10 +421,14 @@ func (g *githubClient) AddPRComment(ctx context.Context, repo string, number int
 
 // GetCurrentUser returns the authenticated user
 func (g *githubClient) GetCurrentUser(ctx context.Context) (*User, error) {
-	// Return cached user if available
+	// Check cache with read lock
+	g.mu.RLock()
 	if g.currentUser != nil {
-		return g.currentUser, nil
+		user := g.currentUser
+		g.mu.RUnlock()
+		return user, nil
 	}
+	g.mu.RUnlock()
 
 	output, err := g.runner.Run(ctx, "gh", "api", "user")
 	if err != nil {
@@ -426,8 +440,10 @@ func (g *githubClient) GetCurrentUser(ctx context.Context) (*User, error) {
 		return nil, appErrors.WrapWithContext(err, "parse user")
 	}
 
-	// Cache the user for future calls
+	// Cache the user with write lock
+	g.mu.Lock()
 	g.currentUser = &user
+	g.mu.Unlock()
 
 	return &user, nil
 }
@@ -664,7 +680,10 @@ func (g *githubClient) SearchAssignedPRs(ctx context.Context) ([]PR, error) {
 		// Parse owner/repo from URL (format: https://github.com/owner/repo/pull/123)
 		parts := strings.Split(result.URL, "/")
 		if len(parts) < 7 {
-			// Invalid URL format, skip this PR
+			// Invalid URL format, log warning and skip this PR
+			if g.logger != nil {
+				g.logger.WithField("url", result.URL).Warn("Skipping PR with invalid URL format")
+			}
 			continue
 		}
 		owner := parts[3]
@@ -677,11 +696,8 @@ func (g *githubClient) SearchAssignedPRs(ctx context.Context) ([]PR, error) {
 			State:  strings.ToLower(result.State),
 			Title:  result.Title,
 			Draft:  result.IsDraft,
+			Repo:   repo, // Store repo in dedicated field for cross-repository operations
 		}
-
-		// Store repo info in Head.SHA for CLI processing to extract owner/repo
-		// This is a temporary storage mechanism used by the review-pr command
-		pr.Head.SHA = repo
 
 		prs = append(prs, pr)
 	}
@@ -718,6 +734,10 @@ func (g *githubClient) HasApprovedReview(ctx context.Context, repo string, numbe
 	// We only check the latest review from this user, as users can update their reviews
 	userReviews := make(map[string]string) // username -> latest review state
 	for _, review := range reviews {
+		// Skip reviews with missing user data to avoid panic
+		if review.User.Login == "" {
+			continue
+		}
 		// Track the latest review state for each user
 		userReviews[review.User.Login] = review.State
 	}

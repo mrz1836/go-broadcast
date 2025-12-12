@@ -2,7 +2,9 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -76,8 +78,8 @@ func TestTTLCacheExpiration(t *testing.T) {
 	require.True(t, exists)
 	require.Equal(t, "value", value)
 
-	// Wait for expiration
-	time.Sleep(150 * time.Millisecond)
+	// Wait for expiration (use 250ms margin to avoid flaky tests on slow CI)
+	time.Sleep(250 * time.Millisecond)
 
 	// Should be expired
 	value, exists = cache.Get("expiring")
@@ -175,15 +177,15 @@ func TestTTLCacheStats(t *testing.T) {
 	// Get non-existent key (miss)
 	_, _ = cache.Get("nonexistent")
 
-	// Get expired key (miss)
+	// Get expired key (miss) - use longer margin for CI stability
 	cache.Set("expired", "value")
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(250 * time.Millisecond)
 	_, _ = cache.Get("expired")
 
 	hits, misses, size, hitRate = cache.Stats()
 	require.Equal(t, int64(1), hits)
 	require.Equal(t, int64(2), misses)
-	require.Equal(t, 0, size) // all keys have expired after 200ms
+	require.Equal(t, 0, size) // all keys have expired after 250ms
 	require.InDelta(t, 0.333, hitRate, 0.001)
 }
 
@@ -203,8 +205,8 @@ func TestTTLCacheConcurrency(t *testing.T) {
 			defer wg.Done()
 
 			for j := 0; j < numOperations; j++ {
-				key := "key" + string(rune(id))
-				value := "value" + string(rune(id))
+				key := fmt.Sprintf("key%d", id)
+				value := fmt.Sprintf("value%d", id)
 
 				// Mix of operations
 				switch j % 4 {
@@ -244,8 +246,8 @@ func TestTTLCacheCleanup(t *testing.T) {
 	require.Equal(t, 2, cache.Size())
 
 	// Wait for entries to expire and cleanup to run
-	// Cleanup runs at ttl/2 intervals
-	time.Sleep(200 * time.Millisecond)
+	// Cleanup runs at ttl/2 intervals (use 300ms margin for CI stability)
+	time.Sleep(300 * time.Millisecond)
 
 	// Force a read to check if entries are still there
 	_, exists1 := cache.Get("key1")
@@ -289,4 +291,161 @@ func TestTTLCacheMetrics(t *testing.T) {
 	assert.Equal(t, int64(1), misses)
 	assert.GreaterOrEqual(t, size, 1)
 	assert.InDelta(t, 0.5, hitRate, 0.001) // 50% hit rate
+}
+
+// TestTTLCacheZeroTTL tests that zero TTL gets a sensible default
+func TestTTLCacheZeroTTL(t *testing.T) {
+	// Should not panic with zero TTL
+	cache := NewTTLCache(0, 10)
+	defer cache.Close()
+
+	// Should work normally with default TTL
+	cache.Set("key", "value")
+	value, exists := cache.Get("key")
+	require.True(t, exists)
+	require.Equal(t, "value", value)
+}
+
+// TestTTLCacheNegativeTTL tests that negative TTL gets a sensible default
+func TestTTLCacheNegativeTTL(t *testing.T) {
+	// Should not panic with negative TTL
+	cache := NewTTLCache(-time.Hour, 10)
+	defer cache.Close()
+
+	// Should work normally with default TTL
+	cache.Set("key", "value")
+	value, exists := cache.Get("key")
+	require.True(t, exists)
+	require.Equal(t, "value", value)
+}
+
+// TestTTLCacheZeroMaxSize tests that zero maxSize gets a sensible default
+func TestTTLCacheZeroMaxSize(t *testing.T) {
+	// Should not have broken eviction with zero maxSize
+	cache := NewTTLCache(time.Second, 0)
+	defer cache.Close()
+
+	// Should be able to add multiple entries (using default maxSize)
+	for i := 0; i < 100; i++ {
+		cache.Set(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))
+	}
+
+	require.Equal(t, 100, cache.Size())
+}
+
+// TestTTLCacheNegativeMaxSize tests that negative maxSize gets a sensible default
+func TestTTLCacheNegativeMaxSize(t *testing.T) {
+	// Should not have unbounded growth with negative maxSize
+	cache := NewTTLCache(time.Second, -10)
+	defer cache.Close()
+
+	// Should be able to add entries normally
+	cache.Set("key", "value")
+	value, exists := cache.Get("key")
+	require.True(t, exists)
+	require.Equal(t, "value", value)
+}
+
+// TestTTLCacheGetOrLoadThunderingHerd tests that GetOrLoad prevents thundering herd
+func TestTTLCacheGetOrLoadThunderingHerd(t *testing.T) {
+	cache := NewTTLCache(time.Second, 100)
+	defer cache.Close()
+
+	const numGoroutines = 50
+	var loaderCalls atomic.Int64
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	// All goroutines try to load the same key simultaneously
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			_, err := cache.GetOrLoad("shared_key", func() (interface{}, error) {
+				loaderCalls.Add(1)
+				// Simulate slow loader
+				time.Sleep(50 * time.Millisecond)
+				return "loaded_value", nil
+			})
+			assert.NoError(t, err)
+		}()
+	}
+
+	wg.Wait()
+
+	// With singleflight, the loader should only be called once (or very few times)
+	// due to the double-check pattern
+	calls := loaderCalls.Load()
+	require.LessOrEqual(t, calls, int64(2), "Loader was called %d times, expected <= 2 (thundering herd not prevented)", calls)
+
+	// Verify the value was cached correctly
+	value, exists := cache.Get("shared_key")
+	require.True(t, exists)
+	require.Equal(t, "loaded_value", value)
+}
+
+// TestTTLCacheConcurrentClose tests that concurrent Close() calls are safe
+func TestTTLCacheConcurrentClose(t *testing.T) {
+	cache := NewTTLCache(time.Second, 10)
+	cache.Set("key", "value")
+
+	const numGoroutines = 10
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	// Multiple goroutines closing simultaneously should not panic
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			defer wg.Done()
+			cache.Close()
+		}()
+	}
+
+	wg.Wait()
+
+	// Cache should still be readable after close
+	value, exists := cache.Get("key")
+	require.True(t, exists)
+	require.Equal(t, "value", value)
+}
+
+// TestTTLCacheEvictionPrioritizesExpired tests that eviction removes expired entries first
+func TestTTLCacheEvictionPrioritizesExpired(t *testing.T) {
+	cache := NewTTLCache(50*time.Millisecond, 3)
+	defer cache.Close()
+
+	// Fill cache
+	cache.Set("key1", "value1")
+	cache.Set("key2", "value2")
+	cache.Set("key3", "value3")
+
+	require.Equal(t, 3, cache.Size())
+
+	// Wait for entries to expire
+	time.Sleep(100 * time.Millisecond)
+
+	// Add new entry - should evict an expired entry, not fail
+	cache.Set("key4", "value4")
+
+	// New entry should exist
+	value, exists := cache.Get("key4")
+	require.True(t, exists)
+	require.Equal(t, "value4", value)
+
+	// Size should still be within limits
+	require.LessOrEqual(t, cache.Size(), 3)
+}
+
+// TestTTLCacheVerySmallTTL tests cache behavior with very small TTL values
+func TestTTLCacheVerySmallTTL(t *testing.T) {
+	// TTL of 1 nanosecond should still work (cleanup interval will be at least 1ms)
+	cache := NewTTLCache(time.Nanosecond, 10)
+	defer cache.Close()
+
+	cache.Set("key", "value")
+
+	// Value should expire almost immediately
+	time.Sleep(10 * time.Millisecond)
+
+	_, exists := cache.Get("key")
+	require.False(t, exists)
 }

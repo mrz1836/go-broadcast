@@ -309,3 +309,69 @@ func TestRealCommandRunner_BackwardsCompatibilityLogging(t *testing.T) {
 	require.Contains(t, logs, "Executing command")
 	require.Contains(t, logs, "Command completed successfully")
 }
+
+func TestRealCommandRunner_RunWithInput_NilLogger(t *testing.T) {
+	// Test with nil logger - should not panic
+	runner := &realCommandRunner{
+		logger:    nil,
+		logConfig: nil,
+	}
+
+	output, err := runner.RunWithInput(context.Background(), nil, "echo", "test")
+	require.NoError(t, err)
+	require.Contains(t, string(output), "test")
+}
+
+func TestRealCommandRunner_RunWithInput_NilLoggerWithDebug(t *testing.T) {
+	// Test with nil logger but debug config - should not panic
+	runner := &realCommandRunner{
+		logger: nil,
+		logConfig: &logging.LogConfig{
+			Debug: logging.DebugFlags{
+				API: true,
+			},
+		},
+	}
+
+	output, err := runner.RunWithInput(context.Background(), nil, "echo", "test")
+	require.NoError(t, err)
+	require.Contains(t, string(output), "test")
+}
+
+func TestCommandError_Error_EmptyStderr(t *testing.T) {
+	// Test with empty stderr - should fallback to underlying error
+	baseErr := errors.New("exit status 1") //nolint:err113 // test error
+	err := &CommandError{
+		Command: "git",
+		Args:    []string{"status"},
+		Stderr:  "",
+		Err:     baseErr,
+	}
+
+	require.Equal(t, "exit status 1", err.Error())
+}
+
+func TestCommandError_Error_EmptyStderrNilErr(t *testing.T) {
+	// Test with empty stderr and nil error - should return command failed message
+	err := &CommandError{
+		Command: "git",
+		Args:    []string{"status"},
+		Stderr:  "",
+		Err:     nil,
+	}
+
+	require.Equal(t, "command git failed", err.Error())
+}
+
+func TestCommandError_Error_StderrPriority(t *testing.T) {
+	// Test that stderr takes priority when present
+	baseErr := errors.New("exit status 1") //nolint:err113 // test error
+	err := &CommandError{
+		Command: "git",
+		Args:    []string{"status"},
+		Stderr:  "fatal: not a git repository",
+		Err:     baseErr,
+	}
+
+	require.Equal(t, "fatal: not a git repository", err.Error())
+}

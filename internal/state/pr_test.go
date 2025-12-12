@@ -428,6 +428,80 @@ func TestGenerateEnhancedPRDescriptionManyDirectories(t *testing.T) {
 	assert.Contains(t, result, "* Total files synchronized: 50")
 }
 
+// TestExtractMetadataYAML_EdgeCases tests edge cases in metadata extraction
+func TestExtractMetadataYAML_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name        string
+		body        string
+		marker      string
+		expectError error
+		expectEmpty bool
+	}{
+		{
+			name:        "marker only - no content after",
+			body:        "<!-- go-broadcast-metadata-->",
+			marker:      "<!-- go-broadcast-metadata",
+			expectError: ErrPRNoMetadataBlock,
+		},
+		{
+			name:        "marker with only newline before close",
+			body:        "<!-- go-broadcast-metadata\n-->",
+			marker:      "<!-- go-broadcast-metadata",
+			expectError: ErrPRNoMetadataBlock,
+		},
+		{
+			name:        "marker with whitespace-only content",
+			body:        "<!-- go-broadcast-metadata\n   \n   \n-->",
+			marker:      "<!-- go-broadcast-metadata",
+			expectError: ErrPRNoMetadataBlock,
+		},
+		{
+			name:        "marker with tabs and spaces only",
+			body:        "<!-- go-broadcast-metadata\n\t  \t\n-->",
+			marker:      "<!-- go-broadcast-metadata",
+			expectError: ErrPRNoMetadataBlock,
+		},
+		{
+			name:        "unclosed metadata block",
+			body:        "<!-- go-broadcast-metadata\nsome: yaml\nmore: content",
+			marker:      "<!-- go-broadcast-metadata",
+			expectError: ErrPRMetadataNotClosed,
+		},
+		{
+			name:        "marker not found",
+			body:        "This PR has no metadata\nJust regular text",
+			marker:      "<!-- go-broadcast-metadata",
+			expectError: ErrPRNoMetadataBlock,
+		},
+		{
+			name:        "valid content - should not error",
+			body:        "<!-- go-broadcast-metadata\nkey: value\n-->",
+			marker:      "<!-- go-broadcast-metadata",
+			expectError: nil,
+		},
+		{
+			name:        "valid content with surrounding text",
+			body:        "Prefix text\n<!-- go-broadcast-metadata\nkey: value\n-->\nSuffix text",
+			marker:      "<!-- go-broadcast-metadata",
+			expectError: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := extractMetadataYAML(tt.body, tt.marker)
+
+			if tt.expectError != nil {
+				require.ErrorIs(t, err, tt.expectError)
+				assert.Empty(t, result)
+			} else {
+				require.NoError(t, err)
+				assert.NotEmpty(t, result)
+			}
+		})
+	}
+}
+
 func TestEnhancedPRMetadataRoundTrip(t *testing.T) {
 	// Test that we can generate an enhanced PR description and extract the metadata back
 	original := &EnhancedPRMetadata{

@@ -96,7 +96,12 @@ func (m *MockClient) GetRepositoryInfo(ctx context.Context, repoPath string) (*R
 	if args.Get(0) == nil {
 		return nil, testutil.ExtractError(args)
 	}
-	return args.Get(0).(*RepositoryInfo), testutil.ExtractError(args)
+	// Safe type assertion to prevent panic on misconfigured mock
+	result, ok := args.Get(0).(*RepositoryInfo)
+	if !ok {
+		return nil, testutil.ExtractError(args)
+	}
+	return result, testutil.ExtractError(args)
 }
 
 // GetChangedFiles mock implementation
@@ -105,7 +110,12 @@ func (m *MockClient) GetChangedFiles(ctx context.Context, repoPath string) ([]st
 	if args.Get(0) == nil {
 		return nil, testutil.ExtractError(args)
 	}
-	return args.Get(0).([]string), testutil.ExtractError(args)
+	// Safe type assertion to prevent panic on misconfigured mock
+	result, ok := args.Get(0).([]string)
+	if !ok {
+		return nil, testutil.ExtractError(args)
+	}
+	return result, testutil.ExtractError(args)
 }
 
 // BatchRemoveFiles mock implementation

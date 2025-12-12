@@ -65,6 +65,12 @@ func (ctx *DirectoryTransformContext) String() string {
 			ctx.FilePath)
 	}
 
+	// Guard against nil DirectoryMapping to prevent panic
+	if ctx.DirectoryMapping == nil {
+		return fmt.Sprintf("DirectoryTransformContext{FilePath: %s, IsFromDirectory: true, DirectoryMapping: <nil>}",
+			ctx.FilePath)
+	}
+
 	return fmt.Sprintf(
 		"DirectoryTransformContext{"+
 			"SourceRepo: %s, "+

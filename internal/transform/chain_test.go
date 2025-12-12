@@ -294,3 +294,116 @@ This is the go-lockfree-queue repository.
 	assert.Contains(t, string(result), "go-lockfree-queue@mrz1818.com")  // Corrupted email
 	assert.NotContains(t, string(result), "security@bsvassociation.org") // Email transform failed
 }
+
+// TestChain_ConcurrentAddAndTransform verifies that the chain is thread-safe
+// when Add() and Transform() are called concurrently from multiple goroutines.
+func TestChain_ConcurrentAddAndTransform(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.ErrorLevel) // Reduce noise
+
+	chain := NewChain(logger)
+
+	// Add initial transformer
+	initialTransformer := &MockTransformer{}
+	initialTransformer.On("Name").Return("initial")
+	initialTransformer.On("Transform", mock.Anything, mock.Anything).Return([]byte("transformed"), nil)
+	chain.Add(initialTransformer)
+
+	ctx := Context{
+		SourceRepo: "org/source",
+		TargetRepo: "org/target",
+		FilePath:   "test.txt",
+	}
+
+	// Run concurrent operations
+	done := make(chan bool)
+	const numGoroutines = 10
+	const numOperations = 100
+
+	// Start goroutines that call Transform
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			for j := 0; j < numOperations; j++ {
+				_, err := chain.Transform(context.Background(), []byte("test"), ctx)
+				if err != nil {
+					t.Errorf("Transform failed: %v", err)
+				}
+			}
+			done <- true
+		}()
+	}
+
+	// Start goroutines that call Add
+	for i := 0; i < numGoroutines/2; i++ {
+		go func(_ int) {
+			for j := 0; j < numOperations/10; j++ {
+				newTransformer := &MockTransformer{}
+				newTransformer.On("Name").Return("added")
+				newTransformer.On("Transform", mock.Anything, mock.Anything).Return([]byte("transformed"), nil)
+				chain.Add(newTransformer)
+			}
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	for i := 0; i < numGoroutines+numGoroutines/2; i++ {
+		<-done
+	}
+
+	// Verify chain still works
+	result, err := chain.Transform(context.Background(), []byte("final test"), ctx)
+	require.NoError(t, err)
+	assert.NotEmpty(t, result)
+}
+
+// TestChain_NilLogger verifies that NewChain handles nil logger gracefully
+func TestChain_NilLogger(t *testing.T) {
+	// Should not panic with nil logger
+	chain := NewChain(nil)
+	require.NotNil(t, chain)
+
+	// Create a simple transformer
+	transformer := &MockTransformer{}
+	transformer.On("Name").Return("test")
+	transformer.On("Transform", mock.Anything, mock.Anything).Return([]byte("result"), nil)
+
+	// Add should work
+	chain.Add(transformer)
+
+	// Transform should work
+	ctx := Context{
+		SourceRepo: "org/source",
+		TargetRepo: "org/target",
+		FilePath:   "test.txt",
+	}
+	result, err := chain.Transform(context.Background(), []byte("input"), ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "result", string(result))
+}
+
+// TestChain_ContextCancellation verifies that context cancellation is properly wrapped
+func TestChain_ContextCancellation(t *testing.T) {
+	logger := logrus.New()
+	chain := NewChain(logger)
+
+	// Add a slow transformer
+	slowTransformer := &MockTransformer{}
+	slowTransformer.On("Name").Return("slow")
+	slowTransformer.On("Transform", mock.Anything, mock.Anything).Return([]byte("result"), nil)
+	chain.Add(slowTransformer)
+
+	// Create canceled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	transformCtx := Context{
+		SourceRepo: "org/source",
+		TargetRepo: "org/target",
+		FilePath:   "test.txt",
+	}
+
+	_, err := chain.Transform(ctx, []byte("input"), transformCtx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "canceled") // Error should be wrapped
+}

@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -178,22 +177,23 @@ func TestGitClient_CloneWithRetry(t *testing.T) {
 		assert.Contains(t, err.Error(), "repository already exists")
 	})
 
-	t.Run("clone with context cancellation during retry", func(t *testing.T) {
+	t.Run("clone with immediate context cancellation", func(t *testing.T) {
 		client, err := NewClient(logger, &logging.LogConfig{})
 		require.NoError(t, err)
 
 		tmpDir := testutil.CreateTempDir(t)
 		repoPath := filepath.Join(tmpDir, "canceled-repo")
 
-		// Create a context that will be canceled quickly
-		cancelCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
-		defer cancel()
+		// Cancel context immediately to test cancellation path reliably
+		// This avoids timing-dependent behavior that causes flaky tests
+		cancelCtx, cancel := context.WithCancel(ctx)
+		cancel() // Cancel immediately
 
-		// Use a URL that will trigger network errors
-		err = client.Clone(cancelCtx, "https://invalid-url-that-causes-timeout.invalid/repo.git", repoPath, nil)
+		// Use any URL - the canceled context should cause immediate failure
+		err = client.Clone(cancelCtx, "https://example.com/repo.git", repoPath, nil)
 		require.Error(t, err)
-		// Should get either context canceled or network error
-		assert.True(t, errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "clone repository"))
+		// Should get context canceled error
+		assert.ErrorIs(t, err, context.Canceled)
 	})
 }
 

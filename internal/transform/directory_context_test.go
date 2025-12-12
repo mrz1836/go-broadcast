@@ -161,12 +161,15 @@ func TestDirectoryTransformContextStringWithNilDirectoryMapping(t *testing.T) {
 		TransformStartTime: time.Now(),
 	}
 
-	// This test documents that String() method panics with nil DirectoryMapping
-	// This is a limitation of the current implementation - it assumes DirectoryMapping is never nil
-	// when IsFromDirectory is true
-	assert.Panics(t, func() {
-		_ = ctx.String() // Assign to underscore to avoid unusedresult warning
-	}, "String() should panic when DirectoryMapping is nil but IsFromDirectory is true")
+	// String() should handle nil DirectoryMapping gracefully without panic
+	assert.NotPanics(t, func() {
+		result := ctx.String()
+		// Verify the output indicates nil DirectoryMapping
+		assert.Contains(t, result, "DirectoryTransformContext{")
+		assert.Contains(t, result, "FilePath: /path/to/file.txt")
+		assert.Contains(t, result, "IsFromDirectory: true")
+		assert.Contains(t, result, "DirectoryMapping: <nil>")
+	}, "String() should not panic when DirectoryMapping is nil")
 }
 
 func TestDirectoryTransformContextStringProgress(t *testing.T) {

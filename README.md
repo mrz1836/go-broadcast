@@ -267,7 +267,7 @@ magex update:install
 - **Context-aware** - Different transforms per target repository
 
 ### 🤖 **Automation & CI/CD**
-- **Automatic PR creation** - Creates pull requests with rich metadata
+- **Automatic PR creation** - Creates pull requests with rich metadata & AI-generated descriptions
 - **PR management** - Auto-assign reviewers, assignees, and labels
 - **Automerge labels** - Add configurable automerge labels to PRs with `--automerge` flag
 - **Global settings** - Organization-wide PR assignments
@@ -1053,6 +1053,47 @@ groups:
 - **Performance** – Check the latest numbers in the [Performance section](#-performance)
 
 <br/>
+
+<details>
+<summary><strong>🤖 AI-Powered Text Generation (Optional)</strong></summary>
+
+go-broadcast can optionally use AI to generate intelligent PR descriptions and commit messages based on diff analysis.
+
+**Quick Setup:**
+```bash
+export GO_BROADCAST_AI_ENABLED=true
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+**What Gets Generated:**
+| Feature | AI Output | Fallback |
+|---------|-----------|----------|
+| PR Body | Context-aware description | Static template |
+| Commit Message | Descriptive conventional commit | `sync: update N files` |
+
+**Supported Providers:**
+| Provider | Env Var | Default Model |
+|----------|---------|---------------|
+| Anthropic | `ANTHROPIC_API_KEY` | claude-sonnet-4-5-20250929 |
+| OpenAI | `OPENAI_API_KEY` | gpt-5.2 |
+| Google | `GEMINI_API_KEY` | gemini-3-pro-preview |
+
+**Performance Optimizations:**
+- **Caching**: Identical diffs across repos reuse cached AI responses (SHA256-keyed)
+- **Smart Truncation**: Large diffs are intelligently truncated to stay within token limits
+- **Retry Logic**: Transient failures are automatically retried with exponential backoff
+
+**Granular Control:**
+```bash
+GO_BROADCAST_AI_PR_ENABLED=true      # AI for PRs only
+GO_BROADCAST_AI_COMMIT_ENABLED=true  # AI for commits only
+```
+
+**Important**: AI failures never block sync operations - they fall back to static templates silently.
+
+See [`.github/.env.base`](.github/.env.base) for all AI configuration options.
+
+</details>
 
 <details>
 <summary><strong>Repository Features</strong></summary>

@@ -221,8 +221,8 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 
 			// Convert PRs to PRInfo structs
 			for _, pr := range prs {
-				// Extract repository from pr.Head.SHA (we stored "owner/repo" there)
-				repo := pr.Head.SHA
+				// Extract repository from pr.Repo field (populated by SearchAssignedPRs)
+				repo := pr.Repo
 				parts := strings.Split(repo, "/")
 				if len(parts) != 2 {
 					output.Warn(fmt.Sprintf("Skipping PR #%d: invalid repository format", pr.Number))
