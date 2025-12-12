@@ -2,6 +2,7 @@ package transform
 
 import (
 	"bytes"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -213,6 +214,7 @@ func BuildFileList(files []string, prefix, separator string) string {
 }
 
 // BuildKeyValuePairs constructs a formatted list of key-value pairs.
+// Keys are sorted alphabetically to ensure deterministic output.
 //
 // Parameters:
 // - pairs: Map of key-value pairs
@@ -220,18 +222,18 @@ func BuildFileList(files []string, prefix, separator string) string {
 // - pairSep: Separator between pairs (e.g., "\n", ", ")
 //
 // Returns:
-// - Formatted key-value string
+// - Formatted key-value string with keys in sorted order
 //
 // Example:
 //
 //	kvs := BuildKeyValuePairs(map[string]string{"repo": "user/repo", "branch": "master"}, ": ", "\n")
-//	// Result: "repo: user/repo\nbranch: main"
+//	// Result: "branch: main\nrepo: user/repo"
 func BuildKeyValuePairs(pairs map[string]string, keyValueSep, pairSep string) string {
 	if len(pairs) == 0 {
 		return ""
 	}
 
-	// Convert map to slice for consistent ordering
+	// Convert map to slice and sort for deterministic ordering
 	keys := make([]string, 0, len(pairs))
 	totalSize := 0
 
@@ -239,6 +241,7 @@ func BuildKeyValuePairs(pairs map[string]string, keyValueSep, pairSep string) st
 		keys = append(keys, key)
 		totalSize += len(key) + len(keyValueSep) + len(pairs[key])
 	}
+	sort.Strings(keys) // Ensure deterministic output order
 	totalSize += len(pairSep) * (len(pairs) - 1)
 
 	var sb strings.Builder
@@ -278,17 +281,7 @@ func BuildKeyValuePairs(pairs map[string]string, keyValueSep, pairSep string) st
 //	    return nil
 //	})
 func BuildLargeString(estimatedSize int, fn func(buf *bytes.Buffer) error) (string, error) {
-	// For very large strings, use buffer pool integration
-	if estimatedSize > pool.LargeBufferThreshold {
-		return pool.WithBufferResult(estimatedSize, func(buf *bytes.Buffer) (string, error) {
-			if err := fn(buf); err != nil {
-				return "", err
-			}
-			return buf.String(), nil
-		})
-	}
-
-	// For smaller large strings, use strings.Builder directly but with buffer pool
+	// Use buffer pool for efficient memory management
 	return pool.WithBufferResult(estimatedSize, func(buf *bytes.Buffer) (string, error) {
 		if err := fn(buf); err != nil {
 			return "", err
@@ -298,13 +291,14 @@ func BuildLargeString(estimatedSize int, fn func(buf *bytes.Buffer) error) (stri
 }
 
 // BuildURLWithParams constructs a URL with query parameters.
+// Parameters are sorted alphabetically by key for deterministic output.
 //
 // Parameters:
 // - baseURL: Base URL without parameters
 // - params: Map of parameter names to values
 //
 // Returns:
-// - Complete URL with encoded parameters
+// - Complete URL with encoded parameters in sorted key order
 //
 // Example:
 //
@@ -318,6 +312,13 @@ func BuildURLWithParams(baseURL string, params map[string]string) string {
 		return baseURL
 	}
 
+	// Collect and sort keys for deterministic output
+	keys := make([]string, 0, len(params))
+	for key := range params {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
 	// Estimate size: baseURL + "?" + params
 	totalSize := len(baseURL) + 1 // baseURL + "?"
 	for key, value := range params {
@@ -330,15 +331,13 @@ func BuildURLWithParams(baseURL string, params map[string]string) string {
 	sb.WriteString(baseURL)
 	sb.WriteByte('?')
 
-	first := true
-	for key, value := range params {
-		if !first {
+	for i, key := range keys {
+		if i > 0 {
 			sb.WriteByte('&')
 		}
 		sb.WriteString(key)
 		sb.WriteByte('=')
-		sb.WriteString(value)
-		first = false
+		sb.WriteString(params[key])
 	}
 
 	return sb.String()

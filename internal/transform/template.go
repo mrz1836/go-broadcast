@@ -2,7 +2,7 @@ package transform
 
 import (
 	"fmt"
-	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -108,14 +108,10 @@ func (t *templateTransformer) Transform(content []byte, ctx Context) ([]byte, er
 		varKeys = append(varKeys, k)
 	}
 
-	// Simple bubble sort by length (descending)
-	for i := 0; i < len(varKeys); i++ {
-		for j := i + 1; j < len(varKeys); j++ {
-			if len(varKeys[j]) > len(varKeys[i]) {
-				varKeys[i], varKeys[j] = varKeys[j], varKeys[i]
-			}
-		}
-	}
+	// Sort by length (descending) using efficient sort.Slice
+	sort.Slice(varKeys, func(i, j int) bool {
+		return len(varKeys[i]) > len(varKeys[j])
+	})
 
 	// Replace each variable
 	for _, varName := range varKeys {
@@ -131,17 +127,12 @@ func (t *templateTransformer) Transform(content []byte, ctx Context) ([]byte, er
 		patternReplacements := 0
 
 		for _, pattern := range patterns {
-			// Escape special regex characters in the pattern
-			escapedPattern := regexp.QuoteMeta(pattern)
-			re := regexp.MustCompile(escapedPattern)
-
-			oldResult := result
-			result = re.ReplaceAllLiteralString(result, value)
-
-			if result != oldResult {
+			// Count occurrences before replacement
+			currentReplacements := strings.Count(result, pattern)
+			if currentReplacements > 0 {
+				// Use strings.ReplaceAll for efficient literal string replacement
+				result = strings.ReplaceAll(result, pattern, value)
 				replaced = true
-				// Count replacements for this pattern
-				currentReplacements := strings.Count(oldResult, pattern)
 				patternReplacements += currentReplacements
 			}
 		}
@@ -233,24 +224,27 @@ func (t *templateTransformer) Transform(content []byte, ctx Context) ([]byte, er
 // findUnreplacedVariables finds any remaining template variables in the content
 func (t *templateTransformer) findUnreplacedVariables(content string) []string {
 	vars := make(map[string]bool)
+	cache := getDefaultCache()
 
 	// Find {{VAR}} style variables
-	re1 := regexp.MustCompile(`\{\{([A-Z_][A-Z0-9_]*)\}\}`)
-
-	matches1 := re1.FindAllStringSubmatch(content, -1)
-	for _, match := range matches1 {
-		if len(match) > 1 {
-			vars[match[1]] = true
+	re1, err := cache.CompileRegex(`\{\{([A-Z_][A-Z0-9_]*)\}\}`)
+	if err == nil {
+		matches1 := re1.FindAllStringSubmatch(content, -1)
+		for _, match := range matches1 {
+			if len(match) > 1 {
+				vars[match[1]] = true
+			}
 		}
 	}
 
 	// Find ${VAR} style variables
-	re2 := regexp.MustCompile(`\$\{([A-Z_][A-Z0-9_]*)\}`)
-
-	matches2 := re2.FindAllStringSubmatch(content, -1)
-	for _, match := range matches2 {
-		if len(match) > 1 {
-			vars[match[1]] = true
+	re2, err := cache.CompileRegex(`\$\{([A-Z_][A-Z0-9_]*)\}`)
+	if err == nil {
+		matches2 := re2.FindAllStringSubmatch(content, -1)
+		for _, match := range matches2 {
+			if len(match) > 1 {
+				vars[match[1]] = true
+			}
 		}
 	}
 

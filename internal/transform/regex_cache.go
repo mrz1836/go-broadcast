@@ -112,43 +112,47 @@ func (rc *RegexCache) CompileRegex(pattern string) (*regexp.Regexp, error) {
 
 	// Fast path: read from cache with read lock
 	rc.mu.RLock()
-	if re, ok := rc.cache[pattern]; ok {
-		rc.mu.RUnlock()
-		// Update cache statistics
+	re, ok := rc.cache[pattern]
+	rc.mu.RUnlock()
+
+	if ok {
+		// Update cache statistics atomically
 		rc.stats.mu.Lock()
 		rc.stats.hits++
 		rc.stats.mu.Unlock()
 		return re, nil
 	}
-	rc.mu.RUnlock()
 
 	// Slow path: compile and cache with write lock
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
 	// Double-check after acquiring write lock (another goroutine might have cached it)
-	if re, ok := rc.cache[pattern]; ok {
+	if cached, ok := rc.cache[pattern]; ok {
 		// Update cache statistics
 		rc.stats.mu.Lock()
 		rc.stats.hits++
 		rc.stats.mu.Unlock()
-		return re, nil
+		return cached, nil
 	}
 
 	// Compile the pattern
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		// Update cache statistics
+		// Update cache statistics for compilation failure
 		rc.stats.mu.Lock()
 		rc.stats.misses++
 		rc.stats.mu.Unlock()
 		return nil, err
 	}
 
-	// Cache the compiled regex (implement simple size limit to prevent unbounded growth)
+	// Cache the compiled regex if within size limit
 	if len(rc.cache) < rc.maxSize {
 		rc.cache[pattern] = re
 	}
+	// When cache is full, pattern is compiled but not cached.
+	// This is intentional to prevent unbounded memory growth.
+	// Consider implementing LRU eviction for high-throughput scenarios.
 
 	// Update cache statistics
 	rc.stats.mu.Lock()
@@ -224,13 +228,6 @@ func (rc *RegexCache) ClearCache() {
 	// Clear the cache
 	rc.cache = make(map[string]*regexp.Regexp)
 
-	// Reset statistics
-	rc.stats.mu.Lock()
-	rc.stats.hits = 0
-	rc.stats.misses = 0
-	rc.stats.size = 0
-	rc.stats.mu.Unlock()
-
 	// Re-initialize common patterns
 	for _, pattern := range rc.patterns {
 		if re, err := regexp.Compile(pattern); err == nil {
@@ -238,8 +235,10 @@ func (rc *RegexCache) ClearCache() {
 		}
 	}
 
-	// Update size after re-initialization
+	// Reset statistics in a single lock acquisition
 	rc.stats.mu.Lock()
+	rc.stats.hits = 0
+	rc.stats.misses = 0
 	rc.stats.size = len(rc.cache)
 	rc.stats.mu.Unlock()
 }
