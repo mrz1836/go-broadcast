@@ -357,7 +357,7 @@ func TestRepositorySync_generateCommitMessage(t *testing.T) {
 			{Path: "README.md"},
 		}
 
-		msg := repoSync.generateCommitMessage(files)
+		msg := repoSync.generateCommitMessage(context.Background(), files)
 		assert.Equal(t, "sync: update README.md from source repository", msg)
 	})
 
@@ -368,7 +368,7 @@ func TestRepositorySync_generateCommitMessage(t *testing.T) {
 			{Path: ".github/workflows/ci.yml"},
 		}
 
-		msg := repoSync.generateCommitMessage(files)
+		msg := repoSync.generateCommitMessage(context.Background(), files)
 		assert.Equal(t, "sync: update 3 files from source repository", msg)
 	})
 }
@@ -408,7 +408,7 @@ func TestRepositorySync_generatePRBody(t *testing.T) {
 		{Path: "new-file.txt", IsNew: true},
 	}
 
-	body := repoSync.generatePRBody("commit456", files, nil)
+	body := repoSync.generatePRBody(context.Background(), "commit456", files, nil)
 
 	// Verify key components are present
 	assert.Contains(t, body, "## What Changed")

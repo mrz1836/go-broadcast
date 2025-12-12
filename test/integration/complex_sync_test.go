@@ -166,7 +166,7 @@ func testMultiRepoSyncWithConflicts(t *testing.T, generator *fixtures.TestRepoGe
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(2)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 	engine.SetLogger(logger)
@@ -272,7 +272,7 @@ func testPartialSyncFailureRecovery(t *testing.T, generator *fixtures.TestRepoGe
 
 	// Create sync engine with retry capabilities
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(1)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync with retries
@@ -414,7 +414,7 @@ func testLargeFileHandling(t *testing.T, generator *fixtures.TestRepoGenerator) 
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync
@@ -533,7 +533,7 @@ func testConcurrentSyncOperations(t *testing.T, generator *fixtures.TestRepoGene
 
 			// Create sync engine with specific concurrency
 			opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(concurrency)
-			engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+			engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 			engine.SetLogger(logrus.New())
 
 			// Execute sync and measure performance
@@ -672,7 +672,7 @@ func testMemoryUsageMonitoring(t *testing.T, generator *fixtures.TestRepoGenerat
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(2)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync
@@ -799,7 +799,7 @@ func testStateConsistencyAcrossFailures(t *testing.T, generator *fixtures.TestRe
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(1)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute multiple sync attempts to test state consistency

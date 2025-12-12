@@ -126,7 +126,7 @@ func BenchmarkPerformanceRegression(b *testing.B) {
 			// Mock transform operations
 			mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-			engine := syncpkg.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+			engine := syncpkg.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 
 			start := time.Now()
 			err := engine.Sync(ctx, nil)
@@ -264,7 +264,7 @@ func BenchmarkPerformanceRegression(b *testing.B) {
 			// Mock transform operations
 			mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-			engine := syncpkg.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+			engine := syncpkg.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 
 			start := time.Now()
 			err := engine.Sync(ctx, nil)

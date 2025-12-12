@@ -276,7 +276,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EndToEnd() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true).WithMaxConcurrency(5)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -347,7 +347,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MixedConfiguration() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -415,7 +415,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeDirectory() {
 
 	// Create sync engine with higher concurrency for large directories
 	opts := sync.DefaultOptions().WithDryRun(true).WithMaxConcurrency(20)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Measure performance
@@ -507,7 +507,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ComplexExclusions() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -595,7 +595,7 @@ metadata:
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -661,7 +661,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ProgressReporting() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true).WithMaxConcurrency(10)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -729,7 +729,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_APIOptimization() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -799,7 +799,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EmptyDirectory() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -856,7 +856,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_OnlyExcludedFiles() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -921,7 +921,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_DeepNesting() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -999,7 +999,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_SymbolicLinks() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1060,7 +1060,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_UnicodeFilenames() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1124,7 +1124,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeFiles() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1199,7 +1199,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PermissionErrors() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync - should handle permission errors gracefully
@@ -1249,7 +1249,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_NetworkFailures() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync - should handle network failures gracefully
@@ -1369,7 +1369,7 @@ updates:
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1451,7 +1451,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_CoverageModule() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1533,7 +1533,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MultipleDirectories() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync
@@ -1591,7 +1591,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PerformanceTargets() {
 
 	// Create sync engine with performance monitoring
 	opts := sync.DefaultOptions().WithDryRun(true).WithMaxConcurrency(20)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Measure performance metrics
@@ -1707,7 +1707,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MemoryUsage() {
 
 		// Create and run sync engine
 		opts := sync.DefaultOptions().WithDryRun(true)
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(suite.logger)
 
 		err := engine.Sync(context.Background(), nil)
@@ -1869,7 +1869,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_APIEfficiency() {
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(true)
-	engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(suite.logger)
 
 	// Execute sync

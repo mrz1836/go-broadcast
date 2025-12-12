@@ -220,7 +220,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 		opts := sync.DefaultOptions().
 			WithDryRun(true)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logger)
 		err := engine.Sync(ctx, nil)
 		require.NoError(t, err)
@@ -355,7 +355,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 		opts := sync.DefaultOptions().
 			WithDryRun(true)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logger)
 		err := engine.Sync(ctx, nil)
 		require.NoError(t, err)
@@ -579,7 +579,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		err := engine.Sync(ctx, nil)
 		require.NoError(t, err)
 
@@ -741,7 +741,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		err := engine.Sync(ctx, nil)
 		require.NoError(t, err)
 
@@ -916,7 +916,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		err := engine.Sync(ctx, nil)
 		require.NoError(t, err)
 
@@ -1019,7 +1019,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 		opts := sync.DefaultOptions().
 			WithDryRun(true)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logger)
 		err := engine.Sync(ctx, nil)
 
@@ -1157,7 +1157,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 		opts := sync.DefaultOptions().
 			WithDryRun(true)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logger)
 		err := engine.Sync(ctx, nil)
 
@@ -1452,7 +1452,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		err := engine.Sync(ctx, nil)
 		require.NoError(t, err)
 
@@ -1607,7 +1607,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		err := engine.Sync(ctx, nil)
 		require.NoError(t, err)
 
@@ -1718,7 +1718,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		err := engine.Sync(ctx, nil)
 
 		// Should complete without errors
@@ -1865,7 +1865,7 @@ func TestMultiGroupSync_GroupFiltering(t *testing.T) {
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		err := engine.Sync(ctx, nil)
 		require.NoError(t, err)
 
@@ -2012,7 +2012,7 @@ func TestMultiGroupSync_GroupFiltering(t *testing.T) {
 		// Mock transform operations
 		mockTransform.On("Apply", mock.Anything, mock.Anything).Return(mock.Anything, nil)
 
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		err := engine.Sync(ctx, nil)
 		require.NoError(t, err)
 

@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -146,7 +147,7 @@ func TestDirectoryStatsRegressionInPRMetadata(t *testing.T) {
 		// Update the repoSync with the new metrics
 		repoSync.syncMetrics.DirectoryMetrics = directoryMetrics
 
-		prBody := repoSync.generatePRBody("testcommit", files, actualChangedFiles)
+		prBody := repoSync.generatePRBody(context.Background(), "testcommit", files, actualChangedFiles)
 
 		// Verify that the PR body contains correct directory stats in the YAML metadata
 		// files_synced now shows actual changes, not processed files
@@ -226,7 +227,7 @@ func TestDirectoryStatsRegressionInPRMetadata(t *testing.T) {
 			repoSync.syncMetrics.DirectoryMetrics = directoryMetrics
 		}
 
-		prBody := repoSync.generatePRBody("testcommit", []FileChange{{Path: ".vscode/settings.json"}}, actualChangedFiles)
+		prBody := repoSync.generatePRBody(context.Background(), "testcommit", []FileChange{{Path: ".vscode/settings.json"}}, actualChangedFiles)
 
 		// Even with disabled reporting, the stats should be correct in PR metadata
 		assert.Contains(t, prBody, "files_synced: 1", "Should track correct stats even when progress reporting is disabled")

@@ -44,7 +44,7 @@ func TestNewEngine(t *testing.T) {
 
 	t.Run("with options", func(t *testing.T) {
 		opts := &Options{DryRun: true}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 
 		assert.NotNil(t, engine)
 		assert.Equal(t, cfg, engine.config)
@@ -56,7 +56,7 @@ func TestNewEngine(t *testing.T) {
 	})
 
 	t.Run("with nil options", func(t *testing.T) {
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
 
 		assert.NotNil(t, engine)
 		assert.NotNil(t, engine.options)
@@ -134,7 +134,7 @@ func TestEngineSync(t *testing.T) {
 			DryRun:         false,
 			MaxConcurrency: 2,
 		}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -165,7 +165,7 @@ func TestEngineSync(t *testing.T) {
 		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).
 			Return(nil, errors.ErrTest)
 
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
 
 		// Execute sync
 		err := engine.Sync(context.Background(), nil)
@@ -215,7 +215,7 @@ func TestEngineSync(t *testing.T) {
 
 		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
 
 		// Execute sync
 		err := engine.Sync(context.Background(), nil)
@@ -257,7 +257,7 @@ func TestEngineSync(t *testing.T) {
 
 		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
 
 		// Execute sync with target filter - should skip since up-to-date
 		err := engine.Sync(context.Background(), []string{"org/target-a"})
@@ -293,7 +293,7 @@ func TestEngineSync(t *testing.T) {
 
 		stateDiscoverer.On("DiscoverState", mock.Anything, cfg).Return(currentState, nil)
 
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, nil)
 
 		// Execute sync with invalid target filter
 		err := engine.Sync(context.Background(), []string{"org/nonexistent"})
@@ -494,7 +494,7 @@ func TestEngineWithDryRun(t *testing.T) {
 
 	// Create engine with dry-run enabled
 	opts := &Options{DryRun: true}
-	engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+	engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync
@@ -595,7 +595,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 			DryRun:         false,
 			MaxConcurrency: 2, // Less than number of targets to test queuing
 		}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync - should fail fast on first error due to errgroup behavior
@@ -663,7 +663,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 			DryRun:         false,
 			MaxConcurrency: 3, // Allow all to run concurrently
 		}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -731,7 +731,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 			DryRun:         false,
 			MaxConcurrency: 3,
 		}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 		engine.SetLogger(logrus.New())
 
 		// Create context with short timeout
@@ -805,7 +805,7 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 			DryRun:         false,
 			MaxConcurrency: 2,
 		}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync - should succeed since all targets are either conflicts (skipped with warning) or up-to-date
@@ -1022,7 +1022,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 			DryRun:         false,
 			MaxConcurrency: 3, // Allow all to run concurrently
 		}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -1242,7 +1242,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 			DryRun:         false,
 			MaxConcurrency: 2,
 		}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -1353,7 +1353,7 @@ func TestEngine_ErrorCollection(t *testing.T) {
 			DryRun:         false,
 			MaxConcurrency: 1,
 		}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync

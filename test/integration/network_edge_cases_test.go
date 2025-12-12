@@ -214,7 +214,7 @@ func testGitHubAPIRateLimiting(t *testing.T, generator *fixtures.TestRepoGenerat
 
 	// Create sync engine with retry logic
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(1) // Lower concurrency to test rate limiting
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 	engine.SetLogger(logger)
@@ -374,7 +374,7 @@ func testNetworkInterruptionHandling(t *testing.T, generator *fixtures.TestRepoG
 
 	// Create sync engine with network resilience
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(2)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync multiple times to test network resilience
@@ -481,7 +481,7 @@ func testAuthenticationFailureScenarios(t *testing.T, generator *fixtures.TestRe
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync (should handle auth failures)
@@ -570,7 +570,7 @@ func testAPITimeoutAndRetry(t *testing.T, generator *fixtures.TestRepoGenerator)
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync with timeout constraints
@@ -725,7 +725,7 @@ func testConcurrentAPIOperations(t *testing.T, generator *fixtures.TestRepoGener
 
 			// Create sync engine with specific concurrency
 			opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(concurrency)
-			engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+			engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 			engine.SetLogger(logrus.New())
 
 			// Execute sync
@@ -831,7 +831,7 @@ func testGitHubAPIDegradation(t *testing.T, generator *fixtures.TestRepoGenerato
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync during API degradation
@@ -922,7 +922,7 @@ func testNetworkPartitionRecovery(t *testing.T, generator *fixtures.TestRepoGene
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync during and after partition
@@ -1025,7 +1025,7 @@ func testDNSResolutionFailures(t *testing.T, generator *fixtures.TestRepoGenerat
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync during DNS failures
@@ -1117,7 +1117,7 @@ func testSSLCertificateErrors(t *testing.T, generator *fixtures.TestRepoGenerato
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync with SSL certificate issues
@@ -1208,7 +1208,7 @@ func testProxyConnectionIssues(t *testing.T, generator *fixtures.TestRepoGenerat
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute sync with proxy issues
@@ -1318,7 +1318,7 @@ func testGitHubWebhookSimulation(t *testing.T, generator *fixtures.TestRepoGener
 
 	// Create sync engine
 	opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(3)
-	engine := sync.NewEngine(scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
+	engine := sync.NewEngine(context.Background(), scenario.Config, mockGH, mockGit, mockState, mockTransform, opts)
 	engine.SetLogger(logrus.New())
 
 	// Execute multiple concurrent syncs to simulate webhook-triggered updates

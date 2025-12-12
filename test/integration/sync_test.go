@@ -98,7 +98,7 @@ func TestEndToEndSync(t *testing.T) {
 
 		// Create sync engine
 		opts := sync.DefaultOptions().WithDryRun(false).WithMaxConcurrency(2)
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync - should succeed without doing any sync work since targets are up-to-date
@@ -151,7 +151,7 @@ func TestEndToEndSync(t *testing.T) {
 
 		// Create sync engine
 		opts := sync.DefaultOptions().WithDryRun(false)
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -202,7 +202,7 @@ func TestEndToEndSync(t *testing.T) {
 
 		// Create sync engine with dry-run enabled
 		opts := sync.DefaultOptions().WithDryRun(true)
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -233,7 +233,7 @@ func TestEndToEndSync(t *testing.T) {
 
 		// Create sync engine
 		opts := sync.DefaultOptions()
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -316,7 +316,7 @@ func TestEndToEndSync(t *testing.T) {
 
 		// Create sync engine with high concurrency
 		opts := sync.DefaultOptions().WithDryRun(true).WithMaxConcurrency(10)
-		engine := sync.NewEngine(cfg, mockGH, mockGit, mockState, mockTransform, opts)
+		engine := sync.NewEngine(context.Background(), cfg, mockGH, mockGit, mockState, mockTransform, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync

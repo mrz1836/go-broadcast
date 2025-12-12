@@ -244,7 +244,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 			DryRun:         false,
 			MaxConcurrency: 4,
 		}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -508,7 +508,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 			DryRun:         false,
 			MaxConcurrency: 3,
 		}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 		engine.SetLogger(logrus.New())
 
 		// Execute sync
@@ -613,7 +613,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 			DryRun:         false,
 			MaxConcurrency: 2, // Lower than number of targets to test queuing
 		}
-		engine := NewEngine(cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
+		engine := NewEngine(context.Background(), cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)
 		engine.SetLogger(logrus.New())
 
 		// Create context with timeout to test timeout handling
