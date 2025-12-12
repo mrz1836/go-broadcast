@@ -1037,6 +1037,47 @@ groups:
 
 ## 📚 Documentation
 
+<details>
+<summary><strong>🤖 AI-Powered Text Generation (Optional)</strong></summary>
+
+go-broadcast can optionally use AI to generate intelligent PR descriptions and commit messages based on diff analysis.
+
+**Quick Setup:**
+```bash
+export GO_BROADCAST_AI_ENABLED=true
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+**What Gets Generated:**
+| Feature | AI Output | Fallback |
+|---------|-----------|----------|
+| PR Body | Context-aware description | Static template |
+| Commit Message | Descriptive conventional commit | `sync: update N files` |
+
+**Supported Providers:**
+| Provider | Env Var | Default Model |
+|----------|---------|---------------|
+| Anthropic | `ANTHROPIC_API_KEY` | claude-sonnet-4-20250514 |
+| OpenAI | `OPENAI_API_KEY` | gpt-4o |
+| Google | `GEMINI_API_KEY` | gemini-2.5-flash |
+
+**Performance Optimizations:**
+- **Caching**: Identical diffs across repos reuse cached AI responses (SHA256-keyed)
+- **Smart Truncation**: Large diffs are intelligently truncated to stay within token limits
+- **Retry Logic**: Transient failures are automatically retried with exponential backoff
+
+**Granular Control:**
+```bash
+GO_BROADCAST_AI_PR_ENABLED=true      # AI for PRs only
+GO_BROADCAST_AI_COMMIT_ENABLED=true  # AI for commits only
+```
+
+**Important**: AI failures never block sync operations - they fall back to static templates silently.
+
+See [`.github/.env.base`](.github/.env.base) for all AI configuration options.
+
+</details>
+
 - **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
 - **Configuration Guide** – Complete guide to group-based configuration at [docs/configuration-guide.md](docs/configuration-guide.md)
 - **Module-Aware Sync** – Smart module versioning and synchronization at [docs/module-sync.md](docs/module-sync.md)
@@ -1453,49 +1494,6 @@ go-broadcast is designed for efficiency:
 
 📚 **Complete Performance Guide:**
 - [Performance Guide](docs/performance-guide.md) - Complete benchmarking, profiling, and optimization reference
-
-</details>
-
-<br/>
-
-<details>
-<summary><strong>🤖 AI-Powered Text Generation (Optional)</strong></summary>
-
-go-broadcast can optionally use AI to generate intelligent PR descriptions and commit messages based on diff analysis.
-
-**Quick Setup:**
-```bash
-export GO_BROADCAST_AI_ENABLED=true
-export ANTHROPIC_API_KEY=sk-ant-...
-```
-
-**What Gets Generated:**
-| Feature | AI Output | Fallback |
-|---------|-----------|----------|
-| PR Body | Context-aware description | Static template |
-| Commit Message | Descriptive conventional commit | `sync: update N files` |
-
-**Supported Providers:**
-| Provider | Env Var | Default Model |
-|----------|---------|---------------|
-| Anthropic | `ANTHROPIC_API_KEY` | claude-sonnet-4-20250514 |
-| OpenAI | `OPENAI_API_KEY` | gpt-4o |
-| Google | `GEMINI_API_KEY` | gemini-2.5-flash |
-
-**Performance Optimizations:**
-- **Caching**: Identical diffs across repos reuse cached AI responses (SHA256-keyed)
-- **Smart Truncation**: Large diffs are intelligently truncated to stay within token limits
-- **Retry Logic**: Transient failures are automatically retried with exponential backoff
-
-**Granular Control:**
-```bash
-GO_BROADCAST_AI_PR_ENABLED=true      # AI for PRs only
-GO_BROADCAST_AI_COMMIT_ENABLED=true  # AI for commits only
-```
-
-**Important**: AI failures never block sync operations - they fall back to static templates silently.
-
-See [`.github/.env.base`](.github/.env.base) for all AI configuration options.
 
 </details>
 
