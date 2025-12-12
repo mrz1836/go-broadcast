@@ -1,11 +1,16 @@
 package git
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -65,30 +70,51 @@ func TestBranchConflictScenarios(t *testing.T) {
 		}
 	})
 
-	t.Run("error handling chain", func(t *testing.T) {
-		// Test the complete error handling chain that would occur during sync
+	t.Run("error handling chain with actual recovery", func(t *testing.T) {
+		// Test the complete error handling chain with actual git operations
+		tmpDir := t.TempDir()
+		ctx := context.Background()
 
-		// Initial attempt fails with branch conflict
-		initialErr := ErrBranchAlreadyExists
-		require := assert.New(t)
+		// Initialize git repo
+		cmd := exec.CommandContext(ctx, "git", "init", tmpDir) //nolint:gosec // Test-only: git args are hardcoded constants
+		require.NoError(t, cmd.Run())
 
-		// First level: detect the error type
-		if errors.Is(initialErr, ErrBranchAlreadyExists) {
-			t.Log("✓ Step 1: Detected branch conflict")
+		// Configure git user
+		cmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.email", "test@test.com") //nolint:gosec // Test-only: git args are hardcoded constants
+		require.NoError(t, cmd.Run())
+		cmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "config", "user.name", "Test") //nolint:gosec // Test-only: git args are hardcoded constants
+		require.NoError(t, cmd.Run())
 
-			// Second level: attempt recovery (simulated success)
-			recoverySuccessful := true
+		// Create initial commit so we can create branches
+		testFile := filepath.Join(tmpDir, "test.txt")
+		require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o600))
+		cmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".") //nolint:gosec // Test-only: git args are hardcoded constants
+		require.NoError(t, cmd.Run())
+		cmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial") //nolint:gosec // Test-only: git args are hardcoded constants
+		require.NoError(t, cmd.Run())
 
-			if recoverySuccessful {
-				t.Log("✓ Step 2: Recovery successful")
-				// Recovery successful - no assertion needed
-			} else {
-				t.Log("✗ Step 2: Recovery failed")
-				require.Fail("Recovery should not fail in this test")
-			}
-		} else {
-			require.Fail("Should have detected branch conflict")
-		}
+		// Create an existing branch
+		cmd = exec.CommandContext(ctx, "git", "-C", tmpDir, "branch", "test-branch") //nolint:gosec // Test-only: git args are hardcoded constants
+		require.NoError(t, cmd.Run())
+
+		logger := logrus.New()
+		logger.SetLevel(logrus.WarnLevel)
+		client, err := NewClient(logger, nil)
+		require.NoError(t, err)
+
+		// Attempt to create same branch - should fail with ErrBranchAlreadyExists
+		err = client.CreateBranch(ctx, tmpDir, "test-branch")
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrBranchAlreadyExists, "Should detect branch already exists")
+
+		// Recovery: checkout existing branch instead of creating
+		err = client.Checkout(ctx, tmpDir, "test-branch")
+		require.NoError(t, err, "Recovery via checkout should succeed")
+
+		// Verify we're now on the branch
+		branch, err := client.GetCurrentBranch(ctx, tmpDir)
+		require.NoError(t, err)
+		assert.Equal(t, "test-branch", branch)
 	})
 
 	t.Run("integration with standard error patterns", func(t *testing.T) {
