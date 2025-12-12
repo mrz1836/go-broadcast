@@ -40,6 +40,10 @@ type PR struct {
 	Labels    []struct {
 		Name string `json:"name"`
 	} `json:"labels"`
+	// Repo stores the repository in "owner/repo" format.
+	// This is populated by SearchAssignedPRs for cross-repository operations.
+	// Not serialized to JSON as it's derived from the PR URL.
+	Repo string `json:"-"`
 }
 
 // PRRequest represents a request to create a pull request
@@ -151,6 +155,16 @@ const (
 // String returns the string representation of MergeMethod
 func (m MergeMethod) String() string {
 	return string(m)
+}
+
+// IsValid returns true if the MergeMethod is a valid, recognized value
+func (m MergeMethod) IsValid() bool {
+	switch m {
+	case MergeMethodMerge, MergeMethodSquash, MergeMethodRebase:
+		return true
+	default:
+		return false
+	}
 }
 
 // Review represents a GitHub pull request review

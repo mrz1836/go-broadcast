@@ -458,3 +458,55 @@ func TestTypes_DefaultValues(t *testing.T) {
 	require.Nil(t, fc.Content)
 	require.Empty(t, fc.SHA)
 }
+
+func TestMergeMethod_IsValid(t *testing.T) {
+	tests := []struct {
+		name     string
+		method   MergeMethod
+		expected bool
+	}{
+		{
+			name:     "merge method is valid",
+			method:   MergeMethodMerge,
+			expected: true,
+		},
+		{
+			name:     "squash method is valid",
+			method:   MergeMethodSquash,
+			expected: true,
+		},
+		{
+			name:     "rebase method is valid",
+			method:   MergeMethodRebase,
+			expected: true,
+		},
+		{
+			name:     "empty string is invalid",
+			method:   MergeMethod(""),
+			expected: false,
+		},
+		{
+			name:     "arbitrary string is invalid",
+			method:   MergeMethod("invalid"),
+			expected: false,
+		},
+		{
+			name:     "case sensitive - MERGE is invalid",
+			method:   MergeMethod("MERGE"),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.method.IsValid()
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestMergeMethod_String(t *testing.T) {
+	require.Equal(t, "merge", MergeMethodMerge.String())
+	require.Equal(t, "squash", MergeMethodSquash.String())
+	require.Equal(t, "rebase", MergeMethodRebase.String())
+}
