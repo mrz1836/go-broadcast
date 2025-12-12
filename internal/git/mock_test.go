@@ -3,7 +3,9 @@ package git
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -317,7 +319,7 @@ func TestMockClientDefensiveProgramming(t *testing.T) {
 }
 
 // TestMockClientConcurrency tests that MockClient is safe for concurrent use
-func TestMockClientConcurrency(_ *testing.T) {
+func TestMockClientConcurrency(t *testing.T) {
 	ctx := context.Background()
 	mock := NewMockClient()
 
@@ -332,77 +334,118 @@ func TestMockClientConcurrency(_ *testing.T) {
 	mock.On("GetCurrentBranch", ctx, "repo").Return("master", nil).Maybe()
 	mock.On("GetRemoteURL", ctx, "repo", "origin").Return("url", nil).Maybe()
 
-	// Run concurrent operations
-	done := make(chan bool, 9)
+	// Use WaitGroup for proper synchronization
+	var wg sync.WaitGroup
+	const goroutineCount = 9
+	const iterationsPerGoroutine = 10
+
+	// Channel to collect any unexpected errors
+	errChan := make(chan error, goroutineCount*iterationsPerGoroutine)
+
+	wg.Add(goroutineCount)
 
 	// Launch goroutines for each method
 	go func() {
-		for i := 0; i < 10; i++ {
-			_ = mock.Clone(ctx, "url", "path", nil)
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.Clone(ctx, "url", "path", nil); err != nil {
+				errChan <- err
+			}
 		}
-		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			_ = mock.Checkout(ctx, "repo", "branch")
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.Checkout(ctx, "repo", "branch"); err != nil {
+				errChan <- err
+			}
 		}
-		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			_ = mock.CreateBranch(ctx, "repo", "branch")
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.CreateBranch(ctx, "repo", "branch"); err != nil {
+				errChan <- err
+			}
 		}
-		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			_ = mock.Add(ctx, "repo", "file")
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.Add(ctx, "repo", "file"); err != nil {
+				errChan <- err
+			}
 		}
-		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			_ = mock.Commit(ctx, "repo", "message")
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.Commit(ctx, "repo", "message"); err != nil {
+				errChan <- err
+			}
 		}
-		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			_ = mock.Push(ctx, "repo", "remote", "branch", false)
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.Push(ctx, "repo", "remote", "branch", false); err != nil {
+				errChan <- err
+			}
 		}
-		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			_, _ = mock.Diff(ctx, "repo", false)
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if _, err := mock.Diff(ctx, "repo", false); err != nil {
+				errChan <- err
+			}
 		}
-		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			_, _ = mock.GetCurrentBranch(ctx, "repo")
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if _, err := mock.GetCurrentBranch(ctx, "repo"); err != nil {
+				errChan <- err
+			}
 		}
-		done <- true
 	}()
 
 	go func() {
-		for i := 0; i < 10; i++ {
-			_, _ = mock.GetRemoteURL(ctx, "repo", "origin")
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if _, err := mock.GetRemoteURL(ctx, "repo", "origin"); err != nil {
+				errChan <- err
+			}
 		}
-		done <- true
 	}()
 
-	// Wait for all goroutines to complete
-	for i := 0; i < 9; i++ {
-		<-done
+	// Wait for all goroutines with timeout protection
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// All goroutines completed successfully
+	case <-time.After(30 * time.Second):
+		t.Fatal("Test timed out - possible deadlock in concurrent mock access")
 	}
 
-	// No assertion needed - test passes if no race conditions or panics occur
+	// Check for unexpected errors
+	close(errChan)
+	for err := range errChan {
+		t.Errorf("Unexpected error during concurrent mock access: %v", err)
+	}
+
+	// Verify expectations were met
+	mock.AssertExpectations(t)
 }
