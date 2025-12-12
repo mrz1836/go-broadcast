@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/mrz1836/go-broadcast/internal/ai"
 	"github.com/mrz1836/go-broadcast/internal/config"
 	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
@@ -29,10 +30,17 @@ type Engine struct {
 	transform    transform.Chain
 	options      *Options
 	logger       *logrus.Logger
+
+	// AI text generation (optional, nil when disabled)
+	prGenerator     *ai.PRBodyGenerator
+	commitGenerator *ai.CommitMessageGenerator
+	responseCache   *ai.ResponseCache
+	diffTruncator   *ai.DiffTruncator
 }
 
 // NewEngine creates a new sync engine with the provided dependencies
 func NewEngine(
+	ctx context.Context,
 	cfg *config.Config,
 	ghClient gh.Client,
 	gitClient git.Client,
@@ -44,7 +52,7 @@ func NewEngine(
 		opts = DefaultOptions()
 	}
 
-	return &Engine{
+	e := &Engine{
 		config:    cfg,
 		gh:        ghClient,
 		git:       gitClient,
@@ -53,11 +61,93 @@ func NewEngine(
 		options:   opts,
 		logger:    logrus.StandardLogger(),
 	}
+
+	// Initialize AI components (non-fatal if it fails)
+	e.initializeAI(ctx)
+
+	return e
 }
 
 // SetLogger sets a custom logger for the engine
 func (e *Engine) SetLogger(logger *logrus.Logger) {
 	e.logger = logger
+}
+
+// SetPRGenerator sets a custom PR body generator for testing.
+// Pass nil to disable AI PR body generation.
+func (e *Engine) SetPRGenerator(gen *ai.PRBodyGenerator) {
+	e.prGenerator = gen
+}
+
+// SetCommitGenerator sets a custom commit message generator for testing.
+// Pass nil to disable AI commit message generation.
+func (e *Engine) SetCommitGenerator(gen *ai.CommitMessageGenerator) {
+	e.commitGenerator = gen
+}
+
+// SetResponseCache sets a custom response cache for testing.
+func (e *Engine) SetResponseCache(cache *ai.ResponseCache) {
+	e.responseCache = cache
+}
+
+// SetDiffTruncator sets a custom diff truncator for testing.
+func (e *Engine) SetDiffTruncator(truncator *ai.DiffTruncator) {
+	e.diffTruncator = truncator
+}
+
+// initializeAI sets up AI text generation components.
+// This is non-fatal - if AI initialization fails, we continue without AI.
+func (e *Engine) initializeAI(ctx context.Context) {
+	log := e.logger.WithField("component", "ai_init")
+
+	// Load AI configuration from environment
+	cfg := ai.LoadConfig()
+
+	// Check if AI is enabled
+	if !cfg.IsEnabled() {
+		log.Debug("AI text generation disabled")
+		return
+	}
+
+	// Create shared components
+	e.responseCache = ai.NewResponseCache(cfg)
+	e.diffTruncator = ai.NewDiffTruncator(cfg)
+	retryConfig := ai.RetryConfigFromConfig(cfg)
+
+	// Create provider
+	provider, err := ai.NewProviderFromEnv(ctx, log)
+	if err != nil {
+		log.WithError(err).Warn("AI provider initialization failed, AI features disabled")
+		return
+	}
+
+	// Initialize PR generator if enabled
+	if cfg.IsPREnabled() {
+		guidelines := ai.LoadPRGuidelines(".")
+		e.prGenerator = ai.NewPRBodyGenerator(
+			provider,
+			e.responseCache,
+			e.diffTruncator,
+			retryConfig,
+			guidelines,
+			cfg.Timeout,
+			log.WithField("generator", "pr_body"),
+		)
+		log.Info("AI PR body generation enabled")
+	}
+
+	// Initialize commit generator if enabled
+	if cfg.IsCommitEnabled() {
+		e.commitGenerator = ai.NewCommitMessageGenerator(
+			provider,
+			e.responseCache,
+			e.diffTruncator,
+			retryConfig,
+			cfg.Timeout,
+			log.WithField("generator", "commit_message"),
+		)
+		log.Info("AI commit message generation enabled")
+	}
 }
 
 // Sync orchestrates the complete synchronization process

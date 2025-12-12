@@ -12,6 +12,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/mrz1836/go-broadcast/internal/ai"
 	"github.com/mrz1836/go-broadcast/internal/config"
 	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/gh"
@@ -724,7 +725,7 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 	}
 
 	// Generate commit message
-	commitMsg := rs.generateCommitMessage(changedFiles)
+	commitMsg := rs.generateCommitMessage(ctx, changedFiles)
 
 	rs.logger.WithFields(logrus.Fields{
 		"branch":     branchName,
@@ -733,7 +734,7 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 	}).Info("Creating commit")
 
 	if rs.engine.options.DryRun {
-		rs.showDryRunCommitInfo(changedFiles)
+		rs.showDryRunCommitInfo(ctx, changedFiles)
 		rs.showDryRunFileChanges(changedFiles)
 		// For dry run, return the expected files as if they all changed
 		dryRunFiles := make([]string, len(changedFiles))
@@ -947,7 +948,7 @@ func (rs *RepositorySync) checkForExistingPRViAPI(ctx context.Context, branchNam
 // createNewPR creates a new pull request
 func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA string, changedFiles []FileChange, actualChangedFiles []string) error {
 	title := rs.generatePRTitle()
-	body := rs.generatePRBody(commitSHA, changedFiles, actualChangedFiles)
+	body := rs.generatePRBody(ctx, commitSHA, changedFiles, actualChangedFiles)
 
 	rs.logger.WithFields(logrus.Fields{
 		"branch": branchName,
@@ -1102,7 +1103,7 @@ func (rs *RepositorySync) updateExistingPR(ctx context.Context, pr *gh.PR, commi
 	}
 
 	// Update PR body with new information
-	newBody := rs.generatePRBody(commitSHA, changedFiles, actualChangedFiles)
+	newBody := rs.generatePRBody(ctx, commitSHA, changedFiles, actualChangedFiles)
 
 	// Update the PR via GitHub API
 	updates := gh.PRUpdate{
@@ -1118,8 +1119,72 @@ func (rs *RepositorySync) updateExistingPR(ctx context.Context, pr *gh.PR, commi
 	return nil
 }
 
-// generateCommitMessage creates a descriptive commit message
-func (rs *RepositorySync) generateCommitMessage(changedFiles []FileChange) string {
+// getDiffForAI retrieves and truncates the diff for AI context.
+func (rs *RepositorySync) getDiffForAI(ctx context.Context) string {
+	if rs.engine.diffTruncator == nil {
+		return ""
+	}
+
+	diff, err := rs.engine.git.Diff(ctx, rs.tempDir, true) // staged changes
+	if err != nil {
+		rs.logger.WithError(err).Debug("Failed to get diff for AI context")
+		return ""
+	}
+
+	return rs.engine.diffTruncator.Truncate(diff)
+}
+
+// convertToAIFileChanges converts sync FileChange to AI FileChange type.
+func (rs *RepositorySync) convertToAIFileChanges(files []FileChange) []ai.FileChange {
+	result := make([]ai.FileChange, 0, len(files))
+	for _, f := range files {
+		changeType := "modified"
+		if f.IsNew {
+			changeType = "added"
+		} else if f.IsDeleted {
+			changeType = "deleted"
+		}
+
+		// Estimate line changes from content length
+		linesAdded := 0
+		linesRemoved := 0
+		if f.Content != nil {
+			linesAdded = strings.Count(string(f.Content), "\n")
+		}
+		if f.OriginalContent != nil {
+			linesRemoved = strings.Count(string(f.OriginalContent), "\n")
+		}
+
+		result = append(result, ai.FileChange{
+			Path:         f.Path,
+			ChangeType:   changeType,
+			LinesAdded:   linesAdded,
+			LinesRemoved: linesRemoved,
+		})
+	}
+	return result
+}
+
+// generateCommitMessage creates a descriptive commit message.
+// Tries AI generation first if enabled, falls back to static template.
+func (rs *RepositorySync) generateCommitMessage(ctx context.Context, changedFiles []FileChange) string {
+	// Try AI generation if enabled (check engine is not nil for tests)
+	if rs.engine != nil && rs.engine.commitGenerator != nil {
+		commitCtx := &ai.CommitContext{
+			SourceRepo:   rs.sourceState.Repo,
+			TargetRepo:   rs.target.Repo,
+			ChangedFiles: rs.convertToAIFileChanges(changedFiles),
+			DiffSummary:  rs.getDiffForAI(ctx),
+		}
+
+		msg, err := rs.engine.commitGenerator.GenerateMessage(ctx, commitCtx)
+		if err == nil && msg != "" {
+			return msg
+		}
+		rs.logger.WithError(err).Debug("AI commit message generation failed, using fallback")
+	}
+
+	// Existing static generation (fallback)
 	if len(changedFiles) == 1 {
 		return fmt.Sprintf("sync: update %s from source repository", changedFiles[0].Path)
 	}
@@ -1136,9 +1201,33 @@ func (rs *RepositorySync) generatePRTitle() string {
 	return fmt.Sprintf("[Sync] Update project files from source repository (%s)", commitSHA)
 }
 
-// generatePRBody creates a detailed PR description with metadata including directory sync info
-func (rs *RepositorySync) generatePRBody(commitSHA string, changedFiles []FileChange, actualChangedFiles []string) string {
+// generatePRBody creates a detailed PR description with metadata including directory sync info.
+// Tries AI generation first if enabled, falls back to static template.
+func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, changedFiles []FileChange, actualChangedFiles []string) string {
 	var sb strings.Builder
+
+	// Try AI generation if enabled (check engine is not nil for tests)
+	if rs.engine != nil && rs.engine.prGenerator != nil {
+		prCtx := &ai.PRContext{
+			SourceRepo:   rs.sourceState.Repo,
+			TargetRepo:   rs.target.Repo,
+			CommitSHA:    commitSHA,
+			ChangedFiles: rs.convertToAIFileChanges(changedFiles),
+			DiffSummary:  rs.getDiffForAI(ctx),
+		}
+
+		aiBody, err := rs.engine.prGenerator.GenerateBody(ctx, prCtx)
+		if err == nil && aiBody != "" {
+			sb.WriteString(aiBody)
+			sb.WriteString("\n")
+			// CRITICAL: Metadata is NEVER AI-generated - always append static metadata
+			rs.writeMetadataBlock(&sb, commitSHA, changedFiles)
+			return sb.String()
+		}
+		rs.logger.WithError(err).Debug("AI PR body generation failed, using fallback")
+	}
+
+	// Existing static generation (fallback)
 
 	// What Changed section with enhanced details
 	sb.WriteString("## What Changed\n")
@@ -1599,10 +1688,10 @@ type FileChange struct {
 }
 
 // showDryRunCommitInfo displays commit information preview for dry-run
-func (rs *RepositorySync) showDryRunCommitInfo(changedFiles []FileChange) {
+func (rs *RepositorySync) showDryRunCommitInfo(ctx context.Context, changedFiles []FileChange) {
 	rs.logger.Debug("Showing dry-run commit preview")
 
-	commitMsg := rs.generateCommitMessage(changedFiles)
+	commitMsg := rs.generateCommitMessage(ctx, changedFiles)
 	out := NewDryRunOutput(nil)
 
 	out.Header("📋 COMMIT PREVIEW")
@@ -1690,7 +1779,7 @@ func (rs *RepositorySync) showDryRunPRPreview(ctx context.Context, branchName, c
 	}).Debug("Showing PR preview")
 
 	title := rs.generatePRTitle()
-	body := rs.generatePRBody(commitSHA, changedFiles, nil) // actualChangedFiles not available in dry-run
+	body := rs.generatePRBody(ctx, commitSHA, changedFiles, nil) // actualChangedFiles not available in dry-run
 	out := NewDryRunOutput(nil)
 
 	out.Header("DRY-RUN: Pull Request Preview")

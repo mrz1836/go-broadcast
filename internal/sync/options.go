@@ -34,6 +34,15 @@ type Options struct {
 
 	// AutomergeLabels specifies the labels to add when automerge is enabled
 	AutomergeLabels []string
+
+	// AIEnabled indicates whether AI text generation is enabled (master switch)
+	AIEnabled bool
+
+	// AIPREnabled indicates whether AI PR body generation is enabled
+	AIPREnabled bool
+
+	// AICommitEnabled indicates whether AI commit message generation is enabled
+	AICommitEnabled bool
 }
 
 // DefaultOptions returns the default sync options
@@ -96,5 +105,23 @@ func (o *Options) WithAutomerge(automerge bool) *Options {
 // WithAutomergeLabels sets the automerge labels
 func (o *Options) WithAutomergeLabels(labels []string) *Options {
 	o.AutomergeLabels = labels
+	return o
+}
+
+// WithAIEnabled sets the AI generation master switch
+func (o *Options) WithAIEnabled(enabled bool) *Options {
+	o.AIEnabled = enabled
+	return o
+}
+
+// WithAIPREnabled sets AI PR body generation
+func (o *Options) WithAIPREnabled(enabled bool) *Options {
+	o.AIPREnabled = enabled
+	return o
+}
+
+// WithAICommitEnabled sets AI commit message generation
+func (o *Options) WithAICommitEnabled(enabled bool) *Options {
+	o.AICommitEnabled = enabled
 	return o
 }
