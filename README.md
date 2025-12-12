@@ -267,7 +267,7 @@ magex update:install
 - **Context-aware** - Different transforms per target repository
 
 ### 🤖 **Automation & CI/CD**
-- **Automatic PR creation** - Creates pull requests with rich metadata
+- **Automatic PR creation** - Creates pull requests with rich metadata & AI-generated descriptions
 - **PR management** - Auto-assign reviewers, assignees, and labels
 - **Automerge labels** - Add configurable automerge labels to PRs with `--automerge` flag
 - **Global settings** - Organization-wide PR assignments
@@ -1037,6 +1037,23 @@ groups:
 
 ## 📚 Documentation
 
+- **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
+- **Configuration Guide** – Complete guide to group-based configuration at [docs/configuration-guide.md](docs/configuration-guide.md)
+- **Module-Aware Sync** – Smart module versioning and synchronization at [docs/module-sync.md](docs/module-sync.md)
+- **Group Examples** – Practical configuration patterns at [docs/group-examples.md](docs/group-examples.md)
+- **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)
+- **AI Sub-Agents Guide** – Comprehensive guide to [26 specialized AI agents](docs/sub-agents.md) for repository management
+- **Slash Commands Reference** – 20+ powerful [Claude Code commands](docs/slash-commands.md) for automated workflows
+- **Directory Sync Guide** – Complete guide to directory synchronization at [docs/directory-sync.md](docs/directory-sync.md)
+- **Configuration Examples** – Browse practical patterns in the [examples directory](examples)
+- **Troubleshooting** – Solve common issues with the [troubleshooting guide](docs/troubleshooting.md)
+- **API Reference** – Dive into the godocs at [pkg.go.dev/github.com/mrz1836/go-broadcast](https://pkg.go.dev/github.com/mrz1836/go-broadcast)
+- **Integration Tests** – End-to-end testing examples in [test/integration](test/integration)
+- **Internal Utilities** – Shared testing and validation utilities in [internal](internal) packages
+- **Performance** – Check the latest numbers in the [Performance section](#-performance)
+
+<br/>
+
 <details>
 <summary><strong>🤖 AI-Powered Text Generation (Optional)</strong></summary>
 
@@ -1077,23 +1094,6 @@ GO_BROADCAST_AI_COMMIT_ENABLED=true  # AI for commits only
 See [`.github/.env.base`](.github/.env.base) for all AI configuration options.
 
 </details>
-
-- **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
-- **Configuration Guide** – Complete guide to group-based configuration at [docs/configuration-guide.md](docs/configuration-guide.md)
-- **Module-Aware Sync** – Smart module versioning and synchronization at [docs/module-sync.md](docs/module-sync.md)
-- **Group Examples** – Practical configuration patterns at [docs/group-examples.md](docs/group-examples.md)
-- **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)
-- **AI Sub-Agents Guide** – Comprehensive guide to [26 specialized AI agents](docs/sub-agents.md) for repository management
-- **Slash Commands Reference** – 20+ powerful [Claude Code commands](docs/slash-commands.md) for automated workflows
-- **Directory Sync Guide** – Complete guide to directory synchronization at [docs/directory-sync.md](docs/directory-sync.md)
-- **Configuration Examples** – Browse practical patterns in the [examples directory](examples)
-- **Troubleshooting** – Solve common issues with the [troubleshooting guide](docs/troubleshooting.md)
-- **API Reference** – Dive into the godocs at [pkg.go.dev/github.com/mrz1836/go-broadcast](https://pkg.go.dev/github.com/mrz1836/go-broadcast)
-- **Integration Tests** – End-to-end testing examples in [test/integration](test/integration)
-- **Internal Utilities** – Shared testing and validation utilities in [internal](internal) packages
-- **Performance** – Check the latest numbers in the [Performance section](#-performance)
-
-<br/>
 
 <details>
 <summary><strong>Repository Features</strong></summary>
