@@ -20,6 +20,12 @@ var (
 	ErrGenerationTimeout     = errors.New("AI generation timed out")
 	ErrCacheFull             = errors.New("AI response cache full")
 	ErrEmptyResponse         = errors.New("AI returned empty response")
+	// ErrFallbackUsed indicates AI generation failed and fallback was used.
+	// This is NOT a fatal error - the returned message is valid, but callers
+	// can check for this error to know if AI actually generated the content.
+	ErrFallbackUsed = errors.New("AI generation failed, fallback used")
+	// ErrInvalidFormat indicates AI response was in wrong format (e.g., commit message instead of PR body).
+	ErrInvalidFormat = errors.New("AI response was in invalid format")
 )
 
 // GenerationError creates a standardized AI generation error.
