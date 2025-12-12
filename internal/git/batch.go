@@ -18,8 +18,22 @@ type BatchClient interface {
 // Ensure gitClient implements BatchClient
 var _ BatchClient = (*gitClient)(nil)
 
+// filterValidFiles removes empty strings and whitespace-only entries from a file list.
+// Returns a new slice containing only valid file paths.
+func filterValidFiles(files []string) []string {
+	validFiles := make([]string, 0, len(files))
+	for _, f := range files {
+		if strings.TrimSpace(f) != "" {
+			validFiles = append(validFiles, f)
+		}
+	}
+	return validFiles
+}
+
 // BatchAddFiles adds multiple files in optimized batches to avoid command line length limits
 func (g *gitClient) BatchAddFiles(ctx context.Context, repoPath string, files []string) error {
+	// Filter out empty strings to prevent passing invalid arguments to git
+	files = filterValidFiles(files)
 	if len(files) == 0 {
 		return nil
 	}
@@ -49,6 +63,8 @@ func (g *gitClient) BatchAddFiles(ctx context.Context, repoPath string, files []
 
 // BatchStatus gets status for multiple files efficiently using a single git command
 func (g *gitClient) BatchStatus(ctx context.Context, repoPath string, files []string) (map[string]string, error) {
+	// Filter out empty strings to prevent passing invalid arguments to git
+	files = filterValidFiles(files)
 	if len(files) == 0 {
 		return make(map[string]string), nil
 	}
@@ -67,12 +83,17 @@ func (g *gitClient) BatchStatus(ctx context.Context, repoPath string, files []st
 	lines := strings.Split(string(output), "\n")
 
 	for _, line := range lines {
-		if len(line) < 3 {
+		// Git porcelain format: "XY filename" (2 status chars + 1 space + 1+ filename = 4+ chars minimum)
+		if len(line) < 4 {
 			continue
 		}
 
 		status := line[:2]
 		file := strings.TrimSpace(line[3:])
+		// Skip lines with empty filenames after trimming whitespace
+		if file == "" {
+			continue
+		}
 		statuses[file] = status
 	}
 
@@ -94,12 +115,17 @@ func (g *gitClient) BatchStatusAll(ctx context.Context, repoPath string) (map[st
 	lines := strings.Split(string(output), "\n")
 
 	for _, line := range lines {
-		if len(line) < 3 {
+		// Git porcelain format: "XY filename" (2 status chars + 1 space + 1+ filename = 4+ chars minimum)
+		if len(line) < 4 {
 			continue
 		}
 
 		status := line[:2]
 		file := strings.TrimSpace(line[3:])
+		// Skip lines with empty filenames after trimming whitespace
+		if file == "" {
+			continue
+		}
 		statuses[file] = status
 	}
 
@@ -108,6 +134,8 @@ func (g *gitClient) BatchStatusAll(ctx context.Context, repoPath string) (map[st
 
 // BatchDiffFiles gets diff for multiple files efficiently
 func (g *gitClient) BatchDiffFiles(ctx context.Context, repoPath string, files []string, staged bool) (map[string]string, error) {
+	// Filter out empty strings to prevent passing invalid arguments to git
+	files = filterValidFiles(files)
 	if len(files) == 0 {
 		return make(map[string]string), nil
 	}
@@ -167,6 +195,8 @@ func (g *gitClient) BatchDiffFiles(ctx context.Context, repoPath string, files [
 
 // BatchCheckIgnored checks if multiple files are ignored by git
 func (g *gitClient) BatchCheckIgnored(ctx context.Context, repoPath string, files []string) (map[string]bool, error) {
+	// Filter out empty strings to prevent passing invalid arguments to git
+	files = filterValidFiles(files)
 	if len(files) == 0 {
 		return make(map[string]bool), nil
 	}
@@ -177,16 +207,14 @@ func (g *gitClient) BatchCheckIgnored(ctx context.Context, repoPath string, file
 	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed
 
 	output, err := cmd.Output()
-	// git check-ignore returns exit code 1 when files are not ignored, which is not an error
+	// git check-ignore returns exit code 1 when no files are ignored, which is expected behavior
 	if err != nil {
 		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-			// Files are not ignored - this is expected, continue processing
-			err = nil
-		}
-		if err != nil {
+		// Exit code 1 means "no files matched" - this is normal, not an error
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
 			return nil, fmt.Errorf("batch check-ignore failed: %w", err)
 		}
+		// Continue processing - exit code 1 is expected for "no files ignored"
 	}
 
 	ignored := make(map[string]bool)
@@ -211,6 +239,8 @@ func (g *gitClient) BatchCheckIgnored(ctx context.Context, repoPath string, file
 
 // BatchRemoveFiles removes multiple files from git tracking efficiently
 func (g *gitClient) BatchRemoveFiles(ctx context.Context, repoPath string, files []string, keepLocal bool) error {
+	// Filter out empty strings to prevent passing invalid arguments to git
+	files = filterValidFiles(files)
 	if len(files) == 0 {
 		return nil
 	}
