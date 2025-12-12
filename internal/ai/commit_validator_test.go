@@ -345,3 +345,107 @@ func TestValidateCommitMessage_Idempotent(t *testing.T) {
 		})
 	}
 }
+
+//nolint:gosmopolitan // intentional unicode test data
+func TestValidateCommitMessage_Unicode(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Japanese characters in message",
+			input:    "sync: 日本語ファイルを更新",
+			expected: "sync: 日本語ファイルを更新",
+		},
+		{
+			name:     "Chinese characters in message",
+			input:    "sync: 更新中文文件",
+			expected: "sync: 更新中文文件",
+		},
+		{
+			name:     "Korean characters in message",
+			input:    "sync: 한국어 파일 업데이트",
+			expected: "sync: 한국어 파일 업데이트",
+		},
+		{
+			name:     "Arabic characters in message",
+			input:    "sync: تحديث الملفات العربية",
+			expected: "sync: تحديث الملفات العربية",
+		},
+		{
+			name:     "Greek characters in message",
+			input:    "sync: ενημέρωση ελληνικών αρχείων",
+			expected: "sync: ενημέρωση ελληνικών αρχείων",
+		},
+		{
+			name:     "Cyrillic characters in message",
+			input:    "sync: обновление файлов",
+			expected: "sync: обновление файлов",
+		},
+		{
+			name:     "emoji in message preserved",
+			input:    "sync: update README 🎉",
+			expected: "sync: update README 🎉",
+		},
+		{
+			name:     "multiple emojis in message",
+			input:    "sync: 🚀 update CI workflows 🔧",
+			expected: "sync: 🚀 update CI workflows 🔧",
+		},
+		{
+			name:     "emoji-only file reference",
+			input:    "sync: update 📄 files",
+			expected: "sync: update 📄 files",
+		},
+		{
+			name:     "mixed unicode and ASCII",
+			input:    "sync: update файл.txt and 文件.md",
+			expected: "sync: update файл.txt and 文件.md",
+		},
+		{
+			name:     "unicode with chore prefix converted",
+			input:    "chore: 更新配置文件",
+			expected: "sync: 更新配置文件",
+		},
+		{
+			name:     "unicode message needs sync prefix",
+			input:    "日本語のメッセージ",
+			expected: "sync: 日本語のメッセージ",
+		},
+		{
+			name:     "accented characters",
+			input:    "sync: update café.txt and naïve.md",
+			expected: "sync: update café.txt and naïve.md",
+		},
+		{
+			name:     "mathematical symbols",
+			input:    "sync: update formula α + β = γ",
+			expected: "sync: update formula α + β = γ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidateCommitMessage(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+//nolint:gosmopolitan // intentional unicode test data
+func TestValidateCommitMessage_UnicodeIdempotent(t *testing.T) {
+	// Unicode messages should also be idempotent
+	messages := []string{
+		"sync: 日本語ファイルを更新",
+		"sync: обновление файлов 🎉",
+		"chore: 更新配置文件",
+		"sync: update café.txt",
+	}
+
+	for _, msg := range messages {
+		first := ValidateCommitMessage(msg)
+		second := ValidateCommitMessage(first)
+		assert.Equal(t, first, second, "validation should be idempotent for: %s", msg)
+	}
+}

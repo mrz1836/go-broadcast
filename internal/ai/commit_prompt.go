@@ -92,7 +92,8 @@ func BuildCommitPrompt(ctx *CommitContext) string {
 
 	var buf bytes.Buffer
 	if err := getCommitPromptTmpl().Execute(&buf, ctx); err != nil {
-		// Fallback to simple prompt on template error
+		// Log template error (usually indicates a code bug) and use fallback
+		logConfigWarning("commit prompt template execution failed: %v", err)
 		return fmt.Sprintf("Generate a sync commit message for %d files from %s to %s. Use conventional commits format with sync: prefix.",
 			len(ctx.ChangedFiles), ctx.SourceRepo, ctx.TargetRepo)
 	}

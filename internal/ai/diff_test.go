@@ -443,3 +443,250 @@ func TestDiffTruncator_EmptyDiff(t *testing.T) {
 	assert.False(t, truncated)
 	assert.Equal(t, 0, fileCount)
 }
+
+// Edge case tests for binary content, CRLF, and malformed diffs
+
+func TestDiffTruncator_BinaryContent(t *testing.T) {
+	cfg := &Config{
+		DiffMaxChars:        4000,
+		DiffMaxLinesPerFile: 50,
+	}
+	truncator := NewDiffTruncator(cfg)
+
+	// Simulated binary file diff (git marks these as "Binary files differ")
+	binaryDiff := `diff --git a/image.png b/image.png
+index abc123..def456 100644
+Binary files a/image.png and b/image.png differ`
+
+	result := truncator.Truncate(binaryDiff)
+	assert.Equal(t, binaryDiff, result, "binary diff marker should pass through unchanged")
+	assert.Contains(t, result, "Binary files")
+}
+
+func TestDiffTruncator_CRLFLineEndings(t *testing.T) {
+	cfg := &Config{
+		DiffMaxChars:        4000,
+		DiffMaxLinesPerFile: 50,
+	}
+	truncator := NewDiffTruncator(cfg)
+
+	// Diff with CRLF line endings (Windows-style)
+	crlfDiff := "diff --git a/file.txt b/file.txt\r\n" +
+		"index abc..def 100644\r\n" +
+		"--- a/file.txt\r\n" +
+		"+++ b/file.txt\r\n" +
+		"@@ -1,3 +1,4 @@\r\n" +
+		"+new line\r\n"
+
+	result := truncator.Truncate(crlfDiff)
+	assert.Contains(t, result, "diff --git")
+	assert.Contains(t, result, "+new line")
+}
+
+func TestDiffTruncator_MixedLineEndings(t *testing.T) {
+	cfg := &Config{
+		DiffMaxChars:        4000,
+		DiffMaxLinesPerFile: 50,
+	}
+	truncator := NewDiffTruncator(cfg)
+
+	// Diff with mixed LF and CRLF
+	mixedDiff := "diff --git a/file.txt b/file.txt\n" +
+		"--- a/file.txt\r\n" +
+		"+++ b/file.txt\n" +
+		"@@ -1,3 +1,4 @@\r\n" +
+		"+line1\n" +
+		"+line2\r\n"
+
+	result := truncator.Truncate(mixedDiff)
+	assert.Contains(t, result, "diff --git")
+	assert.Contains(t, result, "+line1")
+}
+
+func TestDiffTruncator_MalformedDiff_NoHunkHeaders(t *testing.T) {
+	cfg := &Config{
+		DiffMaxChars:        4000,
+		DiffMaxLinesPerFile: 50,
+	}
+	truncator := NewDiffTruncator(cfg)
+
+	// Malformed diff without @@ hunk headers
+	malformedDiff := `diff --git a/file.go b/file.go
+index abc..def 100644
+--- a/file.go
++++ b/file.go
++line without hunk header`
+
+	result := truncator.Truncate(malformedDiff)
+	// Should not panic, should handle gracefully
+	assert.Contains(t, result, "diff --git")
+	assert.Contains(t, result, "+line without hunk header")
+}
+
+func TestDiffTruncator_MalformedDiff_NoFilePaths(t *testing.T) {
+	cfg := &Config{
+		DiffMaxChars:        4000,
+		DiffMaxLinesPerFile: 50,
+	}
+	truncator := NewDiffTruncator(cfg)
+
+	// Malformed diff without proper file paths
+	malformedDiff := `diff --git
+@@ -1 +1 @@
+-old
++new`
+
+	result := truncator.Truncate(malformedDiff)
+	// Should handle gracefully without panic
+	assert.NotEmpty(t, result)
+}
+
+//nolint:gosmopolitan // intentional unicode test data
+func TestDiffTruncator_UnicodeContent(t *testing.T) {
+	cfg := &Config{
+		DiffMaxChars:        4000,
+		DiffMaxLinesPerFile: 50,
+	}
+	truncator := NewDiffTruncator(cfg)
+
+	// Diff with unicode content
+	unicodeDiff := `diff --git a/文件.go b/文件.go
+index abc..def 100644
+--- a/文件.go
++++ b/文件.go
+@@ -1,3 +1,4 @@
++日本語テキスト
++Ελληνικά
++🎉 Emoji content 🚀`
+
+	result := truncator.Truncate(unicodeDiff)
+	assert.Contains(t, result, "文件.go")
+	assert.Contains(t, result, "日本語テキスト")
+	assert.Contains(t, result, "🎉 Emoji content 🚀")
+}
+
+func TestDiffTruncator_VeryLongLines(t *testing.T) {
+	cfg := &Config{
+		DiffMaxChars:        500,
+		DiffMaxLinesPerFile: 50,
+	}
+	truncator := NewDiffTruncator(cfg)
+
+	// Diff with very long lines (minified JS, etc.)
+	longLine := strings.Repeat("x", 1000)
+	longLineDiff := `diff --git a/bundle.js b/bundle.js
+@@ -1 +1 @@
+-old
++` + longLine
+
+	result := truncator.Truncate(longLineDiff)
+	// Should truncate based on char limit
+	assert.Less(t, len(result), len(longLineDiff))
+}
+
+func TestDiffTruncator_SingleCharDiff(t *testing.T) {
+	cfg := &Config{
+		DiffMaxChars:        4000,
+		DiffMaxLinesPerFile: 50,
+	}
+	truncator := NewDiffTruncator(cfg)
+
+	singleCharDiff := "x"
+
+	result := truncator.Truncate(singleCharDiff)
+	assert.Equal(t, singleCharDiff, result)
+}
+
+func TestDiffTruncator_NullBytes(t *testing.T) {
+	cfg := &Config{
+		DiffMaxChars:        4000,
+		DiffMaxLinesPerFile: 50,
+	}
+	truncator := NewDiffTruncator(cfg)
+
+	// Diff with null bytes (binary content detection in git)
+	diffWithNull := "diff --git a/file b/file\n" +
+		"@@ -1 +1 @@\n" +
+		"+content\x00with\x00nulls\n"
+
+	result := truncator.Truncate(diffWithNull)
+	// Should handle without panic
+	assert.Contains(t, result, "diff --git")
+}
+
+func TestGenerateUnifiedDiff_Basic(t *testing.T) {
+	oldContent := "line1\nline2\nline3\n"
+	newContent := "line1\nmodified\nline3\n"
+
+	result := GenerateUnifiedDiff("test.txt", oldContent, newContent)
+
+	assert.Contains(t, result, "a/test.txt")
+	assert.Contains(t, result, "b/test.txt")
+	assert.Contains(t, result, "-line2")
+	assert.Contains(t, result, "+modified")
+}
+
+func TestGenerateUnifiedDiff_EmptyOldContent(t *testing.T) {
+	result := GenerateUnifiedDiff("new.txt", "", "new content\n")
+
+	assert.Contains(t, result, "a/new.txt")
+	assert.Contains(t, result, "b/new.txt")
+	assert.Contains(t, result, "+new content")
+}
+
+func TestGenerateUnifiedDiff_EmptyNewContent(t *testing.T) {
+	result := GenerateUnifiedDiff("deleted.txt", "old content\n", "")
+
+	assert.Contains(t, result, "a/deleted.txt")
+	assert.Contains(t, result, "b/deleted.txt")
+	assert.Contains(t, result, "-old content")
+}
+
+func TestGenerateUnifiedDiff_BothEmpty(t *testing.T) {
+	result := GenerateUnifiedDiff("empty.txt", "", "")
+
+	// Should produce empty or minimal diff
+	assert.NotContains(t, result, "+")
+	assert.NotContains(t, result, "-")
+}
+
+//nolint:gosmopolitan // intentional unicode test data
+func TestGenerateUnifiedDiff_UnicodeFilename(t *testing.T) {
+	result := GenerateUnifiedDiff("文档.txt", "旧内容\n", "新内容\n")
+
+	assert.Contains(t, result, "文档.txt")
+	assert.Contains(t, result, "-旧内容")
+	assert.Contains(t, result, "+新内容")
+}
+
+func TestGenerateNewFileDiff(t *testing.T) {
+	result := GenerateNewFileDiff("new.go", "package main\n\nfunc main() {}\n")
+
+	assert.Contains(t, result, "/dev/null")
+	assert.Contains(t, result, "b/new.go")
+	assert.Contains(t, result, "+package main")
+	assert.Contains(t, result, "+func main() {}")
+}
+
+func TestGenerateNewFileDiff_EmptyContent(t *testing.T) {
+	result := GenerateNewFileDiff("empty.txt", "")
+
+	assert.Contains(t, result, "/dev/null")
+	assert.Contains(t, result, "b/empty.txt")
+}
+
+func TestGenerateDeletedFileDiff(t *testing.T) {
+	result := GenerateDeletedFileDiff("old.go", "package old\n\nfunc old() {}\n")
+
+	assert.Contains(t, result, "a/old.go")
+	assert.Contains(t, result, "/dev/null")
+	assert.Contains(t, result, "-package old")
+	assert.Contains(t, result, "-func old() {}")
+}
+
+func TestGenerateDeletedFileDiff_EmptyContent(t *testing.T) {
+	result := GenerateDeletedFileDiff("empty.txt", "")
+
+	assert.Contains(t, result, "a/empty.txt")
+	assert.Contains(t, result, "/dev/null")
+}

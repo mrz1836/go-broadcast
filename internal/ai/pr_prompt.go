@@ -128,7 +128,8 @@ func BuildPRPrompt(ctx *PRContext) string {
 
 	var buf bytes.Buffer
 	if err := getPRPromptTmpl().Execute(&buf, ctx); err != nil {
-		// Fallback to simple prompt on template error
+		// Log template error (usually indicates a code bug) and use fallback
+		logConfigWarning("PR prompt template execution failed: %v", err)
 		return fmt.Sprintf("Generate a PR description for syncing %d files from %s to %s.",
 			len(ctx.ChangedFiles), ctx.SourceRepo, ctx.TargetRepo)
 	}

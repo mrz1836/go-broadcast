@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"sort"
 	"sync"
 	"time"
 )
@@ -49,9 +50,13 @@ func (c *ResponseCache) Get(diffContent string) (string, bool) {
 	if !c.enabled {
 		return "", false
 	}
-
 	hash := hashDiff(diffContent)
+	return c.getByHash(hash)
+}
 
+// getByHash retrieves a cached response by pre-computed hash.
+// Avoids redundant hashing when called from GetOrGenerate.
+func (c *ResponseCache) getByHash(hash string) (string, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -73,9 +78,13 @@ func (c *ResponseCache) Set(diffContent, response string) {
 	if !c.enabled {
 		return
 	}
-
 	hash := hashDiff(diffContent)
+	c.setByHash(hash, response)
+}
 
+// setByHash stores a response by pre-computed hash.
+// Avoids redundant hashing when called from GetOrGenerate.
+func (c *ResponseCache) setByHash(hash, response string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -99,11 +108,18 @@ func (c *ResponseCache) GetOrGenerate(
 	diffContent string,
 	generator func(context.Context) (string, error),
 ) (response string, cacheHit bool, err error) {
-	// Use prefixed key to separate commit vs PR cache entries
-	cacheKey := keyPrefix + diffContent
+	if !c.enabled {
+		// Cache disabled - generate directly
+		response, err = generator(ctx)
+		return response, false, err
+	}
 
-	// Check cache first
-	if cached, ok := c.Get(cacheKey); ok {
+	// Compute hash once for both get and set operations
+	cacheKey := keyPrefix + diffContent
+	hash := hashDiff(cacheKey)
+
+	// Check cache first using pre-computed hash
+	if cached, ok := c.getByHash(hash); ok {
 		c.mu.Lock()
 		c.hits++
 		c.mu.Unlock()
@@ -120,11 +136,14 @@ func (c *ResponseCache) GetOrGenerate(
 		return "", false, err
 	}
 
-	// Store in cache for future identical diffs
-	c.Set(cacheKey, response)
+	// Store in cache using pre-computed hash
+	c.setByHash(hash, response)
 
 	return response, false, nil
 }
+
+// cacheEvictionPercentage defines what percentage of entries to evict when cache is full.
+const cacheEvictionPercentage = 10
 
 // evictOldest removes entries older than TTL/2 or the oldest 10% if needed.
 // Must be called with mu held.
@@ -145,8 +164,8 @@ func (c *ResponseCache) evictOldest() {
 
 	// If still at capacity, remove oldest entries
 	if len(c.entries) >= c.maxSize {
-		// Find and remove the oldest 10%
-		targetRemoval := c.maxSize / 10
+		// Find and remove the oldest entries (configured percentage)
+		targetRemoval := c.maxSize / cacheEvictionPercentage
 		if targetRemoval < 1 {
 			targetRemoval = 1
 		}
@@ -160,17 +179,14 @@ func (c *ResponseCache) evictOldest() {
 			ages = append(ages, entryAge{hash: hash, age: now.Sub(entry.CreatedAt)})
 		}
 
-		// Simple selection of oldest entries (not a full sort for efficiency)
-		for removed := 0; removed < targetRemoval && len(ages) > 0; removed++ {
-			maxIdx := 0
-			for i := 1; i < len(ages); i++ {
-				if ages[i].age > ages[maxIdx].age {
-					maxIdx = i
-				}
-			}
-			delete(c.entries, ages[maxIdx].hash)
-			ages[maxIdx] = ages[len(ages)-1]
-			ages = ages[:len(ages)-1]
+		// Sort by age descending (oldest first) - O(n log n) instead of O(n*k) selection
+		sort.Slice(ages, func(i, j int) bool {
+			return ages[i].age > ages[j].age
+		})
+
+		// Delete the oldest entries
+		for i := 0; i < targetRemoval && i < len(ages); i++ {
+			delete(c.entries, ages[i].hash)
 		}
 	}
 }

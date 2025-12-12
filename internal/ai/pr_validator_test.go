@@ -124,3 +124,146 @@ func TestValidatePRBody(t *testing.T) {
 		})
 	}
 }
+
+//nolint:gosmopolitan // intentional unicode test data
+func TestValidatePRBody_Unicode(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		shouldBeValid bool
+	}{
+		{
+			name: "Japanese content with headers",
+			input: `## What Changed
+* 日本語ファイルを更新しました
+* 設定ファイルを同期
+
+## Why It Was Necessary
+* ソースリポジトリとの同期`,
+			shouldBeValid: true,
+		},
+		{
+			name: "Chinese content with headers",
+			input: `## What Changed
+* 更新了中文文档
+* 同步配置文件
+
+## Why It Was Necessary
+* 保持仓库同步`,
+			shouldBeValid: true,
+		},
+		{
+			name: "Cyrillic content with headers",
+			input: `## What Changed
+* Обновлены файлы конфигурации
+* Синхронизированы рабочие процессы
+
+## Why It Was Necessary
+* Необходима синхронизация`,
+			shouldBeValid: true,
+		},
+		{
+			name: "Emoji in PR body headers",
+			input: `## What Changed 🔄
+* Updated workflow files
+* Modified CI configuration 🚀
+
+## Why It Was Necessary ✨
+* Keeps repository aligned`,
+			shouldBeValid: true,
+		},
+		{
+			name: "Mixed unicode and ASCII with headers",
+			input: `## What Changed
+* Updated файл.txt and 文件.md
+* Modified café.go settings
+
+## Why It Was Necessary
+* Keep sync with αβγ-repo`,
+			shouldBeValid: true,
+		},
+		{
+			name: "Accented characters throughout",
+			input: `## What Changed
+* Mise à jour des fichiers
+* Configuração atualizada
+
+## Why It Was Necessary
+* Synchronization nécessaire`,
+			shouldBeValid: true,
+		},
+		{
+			name: "Arabic content with headers",
+			input: `## What Changed
+* تحديث ملفات التكوين
+* مزامنة سير العمل
+
+## Why It Was Necessary
+* الحفاظ على التزامن`,
+			shouldBeValid: true,
+		},
+		{
+			name:          "Unicode commit message rejected",
+			input:         "sync: 更新文件\n\n这是描述",
+			shouldBeValid: false,
+		},
+		{
+			name:          "Unicode content without headers rejected",
+			input:         "日本語の説明\n複数行ですが\nヘッダーがありません",
+			shouldBeValid: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidatePRBody(tt.input)
+			if tt.shouldBeValid {
+				assert.NotEmpty(t, result, "expected valid PR body to be accepted")
+				assert.Contains(t, result, "##", "valid PR body should contain headers")
+			} else {
+				assert.Empty(t, result, "expected invalid PR body to be rejected")
+			}
+		})
+	}
+}
+
+func TestValidatePRBody_EmojiEdgeCases(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		shouldBeValid bool
+	}{
+		{
+			name: "Emoji-only bullet points",
+			input: `## What Changed
+* 🔧 Fixed configuration
+* 🚀 Updated deployment
+* 📝 Modified docs
+
+## Why It Was Necessary
+* 🔄 Sync requirement`,
+			shouldBeValid: true,
+		},
+		{
+			name: "Complex emoji sequences",
+			input: `## What Changed
+* Updated files 👨‍👩‍👧‍👦
+* Modified 🏳️‍🌈 settings
+
+## Why It Was Necessary
+* Keep sync 🇺🇸`,
+			shouldBeValid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidatePRBody(tt.input)
+			if tt.shouldBeValid {
+				assert.NotEmpty(t, result)
+			} else {
+				assert.Empty(t, result)
+			}
+		})
+	}
+}

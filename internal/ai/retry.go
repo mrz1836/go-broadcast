@@ -94,10 +94,13 @@ func GenerateWithRetry(
 		}
 
 		// Wait with exponential backoff
+		// Use NewTimer instead of time.After to avoid goroutine leak on context cancellation
+		timer := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return nil, ctx.Err()
-		case <-time.After(delay):
+		case <-timer.C:
 		}
 
 		// Increase delay for next attempt

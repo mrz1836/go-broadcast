@@ -114,6 +114,15 @@ func (p *GenkitProvider) Name() string {
 }
 
 // GenerateText generates text based on the given prompt.
+//
+// IMPORTANT: Due to limitations in the Genkit compat_oai plugins, the following
+// GenerateRequest fields are NOT used by this implementation:
+//   - MaxTokens: Ignored - uses model defaults
+//   - Temperature: Ignored - uses model defaults
+//
+// Only req.Prompt is passed to the underlying Genkit provider.
+// The model defaults are configured at provider initialization time via getModelPath().
+// Future Genkit versions may support per-request configuration.
 func (p *GenkitProvider) GenerateText(ctx context.Context, req *GenerateRequest) (*GenerateResponse, error) {
 	if p.gk == nil {
 		return nil, ErrProviderNotConfigured
@@ -121,8 +130,10 @@ func (p *GenkitProvider) GenerateText(ctx context.Context, req *GenerateRequest)
 
 	start := time.Now()
 
-	// Build generation options - config is provider-specific, so we only use prompt
-	// The compat_oai plugins don't accept GenerationCommonConfig
+	// Build generation options.
+	// The compat_oai plugins (anthropic, openai) don't accept GenerationCommonConfig,
+	// so we cannot pass MaxTokens or Temperature per-request. These fields in GenerateRequest
+	// are provided for interface consistency and potential future use with native plugins.
 	opts := []genkitai.GenerateOption{
 		genkitai.WithPrompt(req.Prompt),
 	}
@@ -165,4 +176,13 @@ func getFinishReason(resp *genkitai.ModelResponse) string {
 		return ""
 	}
 	return string(resp.FinishReason)
+}
+
+// Close releases resources held by the provider.
+// Should be called when the provider is no longer needed to prevent resource leaks.
+func (p *GenkitProvider) Close() error {
+	// Genkit doesn't expose a cleanup method, but we clear the reference
+	// to allow garbage collection and prevent further use.
+	p.gk = nil
+	return nil
 }

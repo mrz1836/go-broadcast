@@ -69,6 +69,12 @@ func NewPRBodyGenerator(
 // Callers can check errors.Is(err, ErrFallbackUsed) to know if AI generated the body.
 // This method does not modify the input prCtx.
 func (g *PRBodyGenerator) GenerateBody(ctx context.Context, prCtx *PRContext) (string, error) {
+	// Guard against nil context - use fallback
+	if prCtx == nil {
+		g.logger.Debug("PR context is nil, using fallback PR body")
+		return g.generateFallback(nil), ErrFallbackUsed
+	}
+
 	// Check if provider is available
 	if g.provider == nil || !g.provider.IsAvailable() {
 		g.logger.Debug("AI provider not available, using fallback PR body")

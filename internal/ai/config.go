@@ -3,6 +3,7 @@ package ai
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/env"
@@ -12,19 +13,29 @@ import (
 // Set via SetConfigLogger() to enable logging of configuration parsing issues.
 //
 //nolint:gochecknoglobals // Intentional - allows optional logging without requiring dependency injection
-var configLogger func(msg string, args ...interface{})
+var (
+	configLogger   func(msg string, args ...interface{})
+	configLoggerMu sync.RWMutex
+)
 
 // SetConfigLogger sets an optional logger for configuration warnings.
 // The logger function receives a format string and arguments.
 // Pass nil to disable logging (default).
+// This function is safe for concurrent use.
 func SetConfigLogger(logger func(msg string, args ...interface{})) {
+	configLoggerMu.Lock()
+	defer configLoggerMu.Unlock()
 	configLogger = logger
 }
 
 // logConfigWarning logs a configuration warning if a logger is set.
+// This function is safe for concurrent use.
 func logConfigWarning(format string, args ...interface{}) {
-	if configLogger != nil {
-		configLogger(format, args...)
+	configLoggerMu.RLock()
+	logger := configLogger
+	configLoggerMu.RUnlock()
+	if logger != nil {
+		logger(format, args...)
 	}
 }
 

@@ -66,6 +66,12 @@ func NewCommitMessageGenerator(
 // Returns ErrFallbackUsed when AI generation failed and fallback was used.
 // Callers can check errors.Is(err, ErrFallbackUsed) to know if AI generated the message.
 func (g *CommitMessageGenerator) GenerateMessage(ctx context.Context, commitCtx *CommitContext) (string, error) {
+	// Guard against nil context - use fallback
+	if commitCtx == nil {
+		g.logger.Debug("Commit context is nil, using fallback commit message")
+		return g.generateFallback(nil), ErrFallbackUsed
+	}
+
 	// Check if provider is available
 	if g.provider == nil || !g.provider.IsAvailable() {
 		g.logger.Debug("AI provider not available, using fallback commit message")
