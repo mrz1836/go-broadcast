@@ -101,6 +101,7 @@ type ReviewPRResult struct {
 	Merged                  bool   `json:"merged"`                               // True if merged immediately
 	AutoMergeEnabled        bool   `json:"auto_merge_enabled"`                   // True if auto-merge was enabled
 	AutoMergeAlreadyEnabled bool   `json:"auto_merge_already_enabled,omitempty"` // True if auto-merge was already enabled
+	MergeSkippedNoLabel     bool   `json:"merge_skipped_no_label,omitempty"`     // True if merge skipped due to missing automerge label
 	MergeMethod             string `json:"merge_method,omitempty"`
 	Error                   string `json:"error,omitempty"`
 	AlreadyMerged           bool   `json:"already_merged,omitempty"`
@@ -251,6 +252,7 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 		bypassMergedCount := 0
 		autoMergeCount := 0
 		selfAuthoredCount := 0
+		reviewOnlyCount := 0
 
 		for i, prInfo := range prInfos {
 			if len(prInfos) > 1 {
@@ -369,6 +371,21 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 					output.Info(fmt.Sprintf("DRY RUN: Would submit approval with message: %s", *message))
 				}
 
+				// Check if PR has automerge label - required for any merge operation
+				hasAutoLabel := hasAutomergeLabel(pr.Labels, automergeLabels)
+
+				// If automerge labels are configured but PR lacks the label, show review-only behavior
+				if len(automergeLabels) > 0 && !hasAutoLabel {
+					output.Info("DRY RUN: PR lacks automerge label - would review only, NO merge attempt")
+					output.Info(fmt.Sprintf("DRY RUN: Required labels for merge: %s", strings.Join(automergeLabels, ", ")))
+					result.Reviewed = false
+					result.Merged = false
+					result.MergeSkippedNoLabel = true
+					results = append(results, result) //nolint:staticcheck // results used in summary
+					successCount++
+					continue
+				}
+
 				// Show merge strategy
 				output.Info(fmt.Sprintf("DRY RUN: Merge method: %s", mergeMethod))
 
@@ -376,21 +393,11 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 				if pr.Mergeable != nil && !*pr.Mergeable {
 					output.Warn("DRY RUN: PR has merge conflicts - would enable auto-merge")
 				} else if *bypass {
-					// Check if bypass would be allowed based on automerge labels
-					if !hasAutomergeLabel(pr.Labels, automergeLabels) {
-						output.Warn("DRY RUN: --bypass requested but PR lacks automerge label - bypass NOT allowed")
-						if len(automergeLabels) > 0 {
-							output.Info(fmt.Sprintf("DRY RUN: Required labels: %s", strings.Join(automergeLabels, ", ")))
-						} else {
-							output.Info("DRY RUN: No automerge labels configured in GO_BROADCAST_AUTOMERGE_LABELS")
-						}
-						output.Info("DRY RUN: Would attempt immediate merge (fallback to auto-merge if blocked)")
-					} else {
-						output.Info("DRY RUN: PR has automerge label - bypass allowed if needed")
-						output.Info("DRY RUN: Would attempt immediate merge first, use admin bypass if blocked")
-						if *ignoreChecks {
-							output.Warn("DRY RUN: Would ignore status checks (--ignore-checks)")
-						}
+					// Bypass is allowed since we already confirmed hasAutoLabel above (or no labels configured)
+					output.Info("DRY RUN: PR has automerge label - bypass allowed if needed")
+					output.Info("DRY RUN: Would attempt immediate merge first, use admin bypass if blocked")
+					if *ignoreChecks {
+						output.Warn("DRY RUN: Would ignore status checks (--ignore-checks)")
 					}
 				} else {
 					output.Info("DRY RUN: Would attempt immediate merge (fallback to auto-merge if blocked)")
@@ -437,6 +444,20 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 				output.Success(fmt.Sprintf("✓ PR #%d approved", prInfo.Number))
 			}
 
+			// Check if PR has automerge label - required for any merge operation
+			hasAutoLabel := hasAutomergeLabel(pr.Labels, automergeLabels)
+
+			// If automerge labels are configured but PR lacks the label, skip all merge operations
+			if len(automergeLabels) > 0 && !hasAutoLabel {
+				result.MergeSkippedNoLabel = true
+				reviewOnlyCount++
+				output.Info(fmt.Sprintf("✓ PR #%d reviewed - no automerge label, skipping merge", prInfo.Number))
+				output.Info(fmt.Sprintf("Required labels for merge: %s", strings.Join(automergeLabels, ", ")))
+				results = append(results, result) //nolint:staticcheck // results used in summary
+				successCount++
+				continue
+			}
+
 			output.Info(fmt.Sprintf("Using merge method: %s", mergeMethod))
 
 			// Smart merge strategy: try-and-fallback approach
@@ -463,16 +484,12 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 				}
 			} else {
 				// Determine if bypass is allowed (requires automerge label)
-				bypassAllowed := *bypass && hasAutomergeLabel(pr.Labels, automergeLabels)
+				bypassAllowed := *bypass && hasAutoLabel
 
-				// Warn if bypass was requested but not allowed
+				// Warn if bypass was requested but not allowed (only happens when no labels configured)
 				if *bypass && !bypassAllowed {
-					output.Warn(fmt.Sprintf("⚠️  PR #%d does not have automerge label - bypass not allowed", prInfo.Number))
-					if len(automergeLabels) > 0 {
-						output.Info(fmt.Sprintf("Required labels: %s", strings.Join(automergeLabels, ", ")))
-					} else {
-						output.Info("No automerge labels configured in GO_BROADCAST_AUTOMERGE_LABELS")
-					}
+					output.Warn(fmt.Sprintf("⚠️  PR #%d - bypass not allowed (no automerge labels configured)", prInfo.Number))
+					output.Info("Configure GO_BROADCAST_AUTOMERGE_LABELS to enable --bypass functionality")
 				}
 
 				// Try immediate merge first (optimistic approach)
@@ -555,6 +572,9 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 			}
 			if autoMergeCount > 0 {
 				output.Success(fmt.Sprintf("Auto-merge enabled: %d", autoMergeCount))
+			}
+			if reviewOnlyCount > 0 {
+				output.Info(fmt.Sprintf("Review only (no automerge label): %d", reviewOnlyCount))
 			}
 			if failureCount > 0 {
 				output.Error(fmt.Sprintf("Failed: %d", failureCount))

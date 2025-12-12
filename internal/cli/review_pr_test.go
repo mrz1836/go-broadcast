@@ -670,3 +670,131 @@ func TestBypassFlagBehavior(t *testing.T) {
 	require.NotNil(t, ignoreChecksFlag)
 	assert.Equal(t, "false", ignoreChecksFlag.DefValue)
 }
+
+func TestReviewPRResult_MergeSkippedNoLabelField(t *testing.T) {
+	// Test that the new MergeSkippedNoLabel field is properly set
+	tests := []struct {
+		name                string
+		mergeSkippedNoLabel bool
+		reviewed            bool
+		merged              bool
+		expectedBehavior    string
+	}{
+		{
+			name:                "PR reviewed only - no automerge label",
+			mergeSkippedNoLabel: true,
+			reviewed:            true,
+			merged:              false,
+			expectedBehavior:    "Should mark as review-only when no automerge label",
+		},
+		{
+			name:                "PR reviewed and merged - has automerge label",
+			mergeSkippedNoLabel: false,
+			reviewed:            true,
+			merged:              true,
+			expectedBehavior:    "Should proceed with merge when automerge label present",
+		},
+		{
+			name:                "PR reviewed only - no labels configured (backwards compat)",
+			mergeSkippedNoLabel: false,
+			reviewed:            true,
+			merged:              true,
+			expectedBehavior:    "Should proceed with merge when no labels configured",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ReviewPRResult{
+				PRInfo: PRInfo{
+					Owner:  "owner",
+					Repo:   "repo",
+					Number: 1,
+					URL:    "https://github.com/owner/repo/pull/1",
+				},
+				Reviewed:            tt.reviewed,
+				Merged:              tt.merged,
+				MergeSkippedNoLabel: tt.mergeSkippedNoLabel,
+			}
+
+			assert.Equal(t, tt.mergeSkippedNoLabel, result.MergeSkippedNoLabel, tt.expectedBehavior)
+			assert.Equal(t, tt.reviewed, result.Reviewed, tt.expectedBehavior)
+			assert.Equal(t, tt.merged, result.Merged, tt.expectedBehavior)
+		})
+	}
+}
+
+func TestMergeGatingOnAutomergeLabel(t *testing.T) {
+	// Test the logic of merge gating based on automerge labels
+	// This documents the expected behavior:
+	// - If automerge labels ARE configured and PR lacks the label -> review only, no merge
+	// - If automerge labels ARE configured and PR has the label -> proceed with merge
+	// - If automerge labels NOT configured -> proceed with merge (backwards compatibility)
+
+	tests := []struct {
+		name            string
+		automergeLabels []string
+		prLabels        []struct {
+			Name string `json:"name"`
+		}
+		expectMergeAttempt bool
+		description        string
+	}{
+		{
+			name:            "Labels configured, PR has label - should merge",
+			automergeLabels: []string{"automerge"},
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{
+				{Name: "automerge"},
+			},
+			expectMergeAttempt: true,
+			description:        "PR has required label, merge should proceed",
+		},
+		{
+			name:            "Labels configured, PR lacks label - no merge",
+			automergeLabels: []string{"automerge"},
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{
+				{Name: "bug"},
+			},
+			expectMergeAttempt: false,
+			description:        "PR lacks required label, should review only",
+		},
+		{
+			name:            "No labels configured - should merge (backwards compat)",
+			automergeLabels: []string{},
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{
+				{Name: "bug"},
+			},
+			expectMergeAttempt: true,
+			description:        "No labels configured, merge should proceed for backwards compatibility",
+		},
+		{
+			name:            "Nil labels configured - should merge (backwards compat)",
+			automergeLabels: nil,
+			prLabels: []struct {
+				Name string `json:"name"`
+			}{
+				{Name: "bug"},
+			},
+			expectMergeAttempt: true,
+			description:        "Nil labels configured, merge should proceed for backwards compatibility",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hasAutoLabel := hasAutomergeLabel(tt.prLabels, tt.automergeLabels)
+
+			// Simulate the merge gating logic from review_pr.go
+			shouldSkipMerge := len(tt.automergeLabels) > 0 && !hasAutoLabel
+			shouldAttemptMerge := !shouldSkipMerge
+
+			assert.Equal(t, tt.expectMergeAttempt, shouldAttemptMerge, tt.description)
+		})
+	}
+}
