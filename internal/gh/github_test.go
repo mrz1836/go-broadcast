@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -2018,5 +2019,148 @@ func TestCreatePR_InvalidRepoFormat(t *testing.T) {
 	assert.Contains(t, err.Error(), "parse repo")
 
 	// Should not call runner for invalid repo format
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetCurrentUser_Concurrent tests that concurrent calls to GetCurrentUser are safe
+func TestGetCurrentUser_Concurrent(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	user := User{
+		Login: "testuser",
+		ID:    12345,
+		Name:  "Test User",
+		Email: "test@example.com",
+	}
+	userOutput, err := json.Marshal(user)
+	require.NoError(t, err)
+
+	// Allow any number of calls since we're testing concurrency
+	mockRunner.On("Run", ctx, "gh", []string{"api", "user"}).
+		Return(userOutput, nil).Maybe()
+
+	// Run concurrent goroutines to test race condition safety
+	const goroutines = 10
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer wg.Done()
+			result, err := client.GetCurrentUser(ctx)
+			assert.NoError(t, err)
+			assert.NotNil(t, result)
+			assert.Equal(t, "testuser", result.Login)
+		}()
+	}
+
+	wg.Wait()
+}
+
+// TestHasApprovedReview_EmptyUserLogin tests that reviews with empty user login are skipped
+func TestHasApprovedReview_EmptyUserLogin(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Reviews with one having empty user login
+	reviews := []Review{
+		{
+			ID:    1,
+			User:  User{Login: ""}, // Empty login should be skipped
+			State: "APPROVED",
+		},
+		{
+			ID:    2,
+			User:  User{Login: "testuser"},
+			State: "APPROVED",
+		},
+	}
+	reviewOutput, err := json.Marshal(reviews)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/42/reviews"}).
+		Return(reviewOutput, nil)
+
+	// Should find testuser's approval, but not panic on empty login
+	hasApproval, err := client.HasApprovedReview(ctx, "org/repo", 42, "testuser")
+	require.NoError(t, err)
+	assert.True(t, hasApproval)
+
+	// Empty login user should not be found
+	hasApproval, err = client.HasApprovedReview(ctx, "org/repo", 42, "")
+	require.NoError(t, err)
+	assert.False(t, hasApproval)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestSearchAssignedPRs_InvalidURLFiltering tests that invalid PR URLs are filtered out gracefully
+func TestSearchAssignedPRs_InvalidURLFiltering(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Search results with some invalid URLs
+	searchResults := `[
+		{"number": 1, "title": "Valid PR", "url": "https://github.com/owner/repo/pull/1", "state": "OPEN", "isDraft": false},
+		{"number": 2, "title": "Invalid URL PR", "url": "invalid-url", "state": "OPEN", "isDraft": false},
+		{"number": 3, "title": "Short URL PR", "url": "https://github.com", "state": "OPEN", "isDraft": false}
+	]`
+
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+		Return([]byte(searchResults), nil)
+
+	prs, err := client.SearchAssignedPRs(ctx)
+	require.NoError(t, err)
+
+	// Only the valid PR should be returned
+	assert.Len(t, prs, 1)
+	assert.Equal(t, 1, prs[0].Number)
+	assert.Equal(t, "owner/repo", prs[0].Repo)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestCreatePR_NilLogger tests that PR creation works when logger is nil
+func TestCreatePR_NilLogger(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	// Create client with nil logger
+	client := NewClientWithRunner(mockRunner, nil)
+
+	req := PRRequest{
+		Title:     "Test PR",
+		Body:      "Test description",
+		Head:      "feature",
+		Base:      "master",
+		Assignees: []string{"user1"}, // This will fail but should not panic
+	}
+
+	pr := PR{
+		Number: 42,
+		Title:  req.Title,
+		Body:   req.Body,
+		State:  "open",
+	}
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Expect PR creation call
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/pulls", "--method", "POST", "--input", "-"}).
+		Return(prOutput, nil)
+
+	// Expect assignees call to fail - should not panic even with nil logger
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/org/repo/issues/42/assignees", "--method", "POST", "--input", "-"}).
+		Return(nil, internalerrors.ErrTest)
+
+	// Should not panic with nil logger
+	result, err := client.CreatePR(ctx, "org/repo", req)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 42, result.Number)
+
 	mockRunner.AssertExpectations(t)
 }
