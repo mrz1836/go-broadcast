@@ -21,6 +21,11 @@ func TestDefaultExclusions(t *testing.T) {
 	assert.Equal(t, expected, exclusions)
 }
 
+func TestApplyDirectoryDefaults_NilPointer(_ *testing.T) {
+	// Should not panic when called with nil
+	ApplyDirectoryDefaults(nil)
+}
+
 func TestApplyDirectoryDefaults(t *testing.T) {
 	tests := []struct {
 		name     string

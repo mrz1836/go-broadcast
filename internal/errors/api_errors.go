@@ -90,12 +90,17 @@ func GitHubUpdateError(resource, context string, err error) error {
 
 // APIResponseError creates a standardized API response error.
 // This is for unexpected API responses or status codes.
+// Valid HTTP status codes are in the range [100, 599].
+// Invalid status codes produce a distinct "invalid status" message.
 //
 // Example usage:
 //
 //	return APIResponseError(404, "repository not found")
 //	// Returns: "API response error: status 404: repository not found"
 func APIResponseError(statusCode int, message string) error {
+	if statusCode < 100 || statusCode > 599 {
+		return fmt.Errorf("%w: invalid status %d: %s", errAPIResponseTemplate, statusCode, message)
+	}
 	return fmt.Errorf("%w: status %d: %s", errAPIResponseTemplate, statusCode, message)
 }
 

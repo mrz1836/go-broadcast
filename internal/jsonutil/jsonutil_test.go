@@ -2,7 +2,9 @@ package jsonutil
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -389,7 +391,7 @@ func TestCompactJSON(t *testing.T) {
 			got, err := CompactJSON([]byte(tt.input))
 			if tt.wantErr {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "parse JSON for compaction")
+				assert.Contains(t, err.Error(), "compact JSON")
 				return
 			}
 			require.NoError(t, err)
@@ -628,19 +630,19 @@ func TestCompactJSONErrorCases(t *testing.T) {
 			name:    "completely malformed JSON",
 			input:   `this is not json at all`,
 			wantErr: true,
-			errMsg:  "parse JSON for compaction",
+			errMsg:  "compact JSON",
 		},
 		{
 			name:    "truncated JSON",
 			input:   `{"key":"val`,
 			wantErr: true,
-			errMsg:  "parse JSON for compaction",
+			errMsg:  "compact JSON",
 		},
 		{
 			name:    "empty input",
 			input:   ``,
 			wantErr: true,
-			errMsg:  "parse JSON for compaction",
+			errMsg:  "compact JSON",
 		},
 	}
 
@@ -682,4 +684,329 @@ func TestMergeJSONMarshalError(t *testing.T) {
 	result, err := MergeJSON(jsons...)
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"a":1,"b":2}`, string(result))
+}
+
+// ============================================================================
+// New tests for code review fixes
+// ============================================================================
+
+// TestUnmarshalJSON_EmptyInput tests that UnmarshalJSON returns clear error for empty/nil input
+func TestUnmarshalJSON_EmptyInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []byte
+	}{
+		{"nil input", nil},
+		{"empty slice", []byte{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := UnmarshalJSON[string](tt.input)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "empty input")
+			assert.Contains(t, err.Error(), "unmarshal JSON")
+		})
+	}
+}
+
+// TestGenerateTestJSON_MaxLimit tests that GenerateTestJSON rejects counts exceeding the max
+func TestGenerateTestJSON_MaxLimit(t *testing.T) {
+	tests := []struct {
+		name    string
+		count   int
+		wantErr bool
+		errType error
+	}{
+		{"at max limit", MaxGenerateCount, false, nil},
+		{"exceeds max by 1", MaxGenerateCount + 1, true, errCountTooLarge},
+		{"very large count", 10_000_000, true, errCountTooLarge},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := GenerateTestJSON(tt.count, "test")
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, tt.errType)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestCompactJSON_PreservesNumberPrecision tests that CompactJSON preserves large integers
+// This was a bug in the original implementation that used unmarshal/marshal
+func TestCompactJSON_PreservesNumberPrecision(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "max int64",
+			input: `{"id": 9223372036854775807}`,
+			want:  `{"id":9223372036854775807}`,
+		},
+		{
+			name:  "min int64",
+			input: `{"id": -9223372036854775808}`,
+			want:  `{"id":-9223372036854775808}`,
+		},
+		{
+			name:  "large decimal",
+			input: `{"value": 123456789.123456789}`,
+			want:  `{"value":123456789.123456789}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := CompactJSON([]byte(tt.input))
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, string(got))
+		})
+	}
+}
+
+// TestCompactJSON_EmptyInput tests that CompactJSON returns clear error for empty input
+func TestCompactJSON_EmptyInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []byte
+	}{
+		{"nil input", nil},
+		{"empty slice", []byte{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := CompactJSON(tt.input)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "empty input")
+		})
+	}
+}
+
+// TestMergeJSON_NilInput tests that MergeJSON returns clear error for nil element
+func TestMergeJSON_NilInput(t *testing.T) {
+	tests := []struct {
+		name     string
+		jsons    [][]byte
+		errIndex int
+	}{
+		{
+			name:     "nil at index 0",
+			jsons:    [][]byte{nil, []byte(`{"b":2}`)},
+			errIndex: 0,
+		},
+		{
+			name:     "nil at index 1",
+			jsons:    [][]byte{[]byte(`{"a":1}`), nil, []byte(`{"c":3}`)},
+			errIndex: 1,
+		},
+		{
+			name:     "nil at last index",
+			jsons:    [][]byte{[]byte(`{"a":1}`), []byte(`{"b":2}`), nil},
+			errIndex: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := MergeJSON(tt.jsons...)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), fmt.Sprintf("nil JSON data at index %d", tt.errIndex))
+		})
+	}
+}
+
+// TestMergeJSON_EmptyInput tests that MergeJSON returns clear error for empty element
+func TestMergeJSON_EmptyInput(t *testing.T) {
+	_, err := MergeJSON([]byte(`{"a":1}`), []byte{}, []byte(`{"c":3}`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty JSON data at index 1")
+}
+
+// TestMergeJSON_NullJSON tests that MergeJSON rejects JSON null values
+func TestMergeJSON_NullJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		jsons    [][]byte
+		errIndex int
+	}{
+		{
+			name:     "null at index 0",
+			jsons:    [][]byte{[]byte(`null`), []byte(`{"b":2}`)},
+			errIndex: 0,
+		},
+		{
+			name:     "null at index 1",
+			jsons:    [][]byte{[]byte(`{"a":1}`), []byte(`null`)},
+			errIndex: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := MergeJSON(tt.jsons...)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), fmt.Sprintf("JSON is null, expected object at index %d", tt.errIndex))
+		})
+	}
+}
+
+// ============================================================================
+// Race condition tests - verify thread safety
+// ============================================================================
+
+// TestMarshalJSON_Concurrent verifies MarshalJSON is safe for concurrent use
+func TestMarshalJSON_Concurrent(t *testing.T) {
+	var wg sync.WaitGroup
+	errCh := make(chan error, 100)
+
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			data := testStruct{Name: fmt.Sprintf("test-%d", n), Value: n}
+			_, err := MarshalJSON(data)
+			if err != nil {
+				errCh <- err
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// TestUnmarshalJSON_Concurrent verifies UnmarshalJSON is safe for concurrent use
+func TestUnmarshalJSON_Concurrent(t *testing.T) {
+	var wg sync.WaitGroup
+	errCh := make(chan error, 100)
+	input := []byte(`{"name":"test","value":42,"tags":["a","b"]}`)
+
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := UnmarshalJSON[testStruct](input)
+			if err != nil {
+				errCh <- err
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// TestCompactJSON_Concurrent verifies CompactJSON is safe for concurrent use
+func TestCompactJSON_Concurrent(t *testing.T) {
+	var wg sync.WaitGroup
+	errCh := make(chan error, 100)
+	input := []byte(`{  "name"  :  "test"  ,  "value"  :  42  }`)
+
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := CompactJSON(input)
+			if err != nil {
+				errCh <- err
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// TestMergeJSON_Concurrent verifies MergeJSON is safe for concurrent use
+func TestMergeJSON_Concurrent(t *testing.T) {
+	var wg sync.WaitGroup
+	errCh := make(chan error, 100)
+	json1 := []byte(`{"a":1,"b":2}`)
+	json2 := []byte(`{"c":3,"d":4}`)
+
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := MergeJSON(json1, json2)
+			if err != nil {
+				errCh <- err
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// TestGenerateTestJSON_Concurrent verifies GenerateTestJSON is safe for concurrent use
+func TestGenerateTestJSON_Concurrent(t *testing.T) {
+	var wg sync.WaitGroup
+	errCh := make(chan error, 100)
+
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			_, err := GenerateTestJSON(10, fmt.Sprintf("item-%d", n))
+			if err != nil {
+				errCh <- err
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// TestPrettyPrint_Concurrent verifies PrettyPrint is safe for concurrent use
+func TestPrettyPrint_Concurrent(t *testing.T) {
+	var wg sync.WaitGroup
+	errCh := make(chan error, 100)
+
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			data := map[string]int{"value": n}
+			_, err := PrettyPrint(data)
+			if err != nil {
+				errCh <- err
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Errorf("unexpected error: %v", err)
+	}
 }
