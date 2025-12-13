@@ -8,16 +8,31 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
 )
 
-// ErrGitHubAPIFailed is returned when GitHub API returns a non-200 status
-var ErrGitHubAPIFailed = errors.New("GitHub API request failed")
+// Default configuration constants
+const (
+	DefaultBaseURL      = "https://api.github.com"
+	DefaultTimeout      = 10 * time.Second
+	maxErrorBodySize    = 1024      // 1KB limit for error response bodies
+	maxResponseBodySize = 64 * 1024 // 64KB limit for success response bodies
+)
 
-// githubAPIBaseURL is the base URL for GitHub API (can be overridden in tests)
-var githubAPIBaseURL = "https://api.github.com" //nolint:gochecknoglobals // intentional for test injection
+// Errors returned by this package
+var (
+	ErrGitHubAPIFailed  = errors.New("GitHub API request failed")
+	ErrInvalidOwner     = errors.New("owner cannot be empty")
+	ErrInvalidRepo      = errors.New("repo cannot be empty")
+	ErrInvalidOwnerRepo = errors.New("owner/repo contains invalid characters")
+)
+
+// validOwnerRepoPattern matches valid GitHub owner/repo names
+// GitHub allows alphanumeric, hyphens, underscores, and dots
+var validOwnerRepoPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // GitHubRelease represents a GitHub release
 type GitHubRelease struct {
@@ -36,36 +51,118 @@ type Info struct {
 	IsNewer bool
 }
 
-// GetLatestRelease fetches the latest release from GitHub
-func GetLatestRelease(owner, repo string) (*GitHubRelease, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/releases/latest", githubAPIBaseURL, owner, repo)
+// Client provides methods for fetching GitHub releases with configurable settings.
+// Use NewClient to create a properly initialized client.
+type Client struct {
+	baseURL    string
+	httpClient *http.Client
+	userAgent  string
+}
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
+// Option configures a Client
+type Option func(*Client)
+
+// WithBaseURL sets a custom base URL for the GitHub API
+func WithBaseURL(url string) Option {
+	return func(c *Client) {
+		c.baseURL = strings.TrimSuffix(url, "/")
+	}
+}
+
+// WithHTTPClient sets a custom HTTP client
+func WithHTTPClient(client *http.Client) Option {
+	return func(c *Client) {
+		c.httpClient = client
+	}
+}
+
+// WithTimeout sets the HTTP client timeout
+func WithTimeout(timeout time.Duration) Option {
+	return func(c *Client) {
+		c.httpClient.Timeout = timeout
+	}
+}
+
+// WithUserAgent sets a custom user agent string
+func WithUserAgent(userAgent string) Option {
+	return func(c *Client) {
+		c.userAgent = userAgent
+	}
+}
+
+// NewClient creates a new Client with the given options
+func NewClient(opts ...Option) *Client {
+	c := &Client{
+		baseURL: DefaultBaseURL,
+		httpClient: &http.Client{
+			Timeout: DefaultTimeout,
+		},
+		userAgent: fmt.Sprintf("go-broadcast/dev (%s/%s)", runtime.GOOS, runtime.GOARCH),
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
+	for _, opt := range opts {
+		opt(c)
+	}
+
+	return c
+}
+
+// defaultClient is the package-level default client
+var defaultClient = NewClient() //nolint:gochecknoglobals // Intentional package-level convenience client
+
+// GetLatestRelease fetches the latest release from GitHub using the default client.
+// This is a convenience wrapper around Client.GetLatestRelease.
+func GetLatestRelease(ctx context.Context, owner, repo string) (*GitHubRelease, error) {
+	return defaultClient.GetLatestRelease(ctx, owner, repo)
+}
+
+// validateOwnerRepo validates the owner and repo parameters
+func validateOwnerRepo(owner, repo string) error {
+	if owner == "" {
+		return ErrInvalidOwner
+	}
+	if repo == "" {
+		return ErrInvalidRepo
+	}
+	if !validOwnerRepoPattern.MatchString(owner) || !validOwnerRepoPattern.MatchString(repo) {
+		return ErrInvalidOwnerRepo
+	}
+	return nil
+}
+
+// GetLatestRelease fetches the latest release from GitHub
+func (c *Client) GetLatestRelease(ctx context.Context, owner, repo string) (*GitHubRelease, error) {
+	if err := validateOwnerRepo(owner, repo); err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/repos/%s/%s/releases/latest", c.baseURL, owner, repo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
-	// Set user agent to avoid rate limiting
-	req.Header.Set("User-Agent", fmt.Sprintf("go-broadcast/%s (%s/%s)", "dev", runtime.GOOS, runtime.GOARCH))
+	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetching release: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		// Limit error body read to prevent memory exhaustion
+		limitedReader := io.LimitReader(resp.Body, maxErrorBodySize)
+		body, _ := io.ReadAll(limitedReader)
 		return nil, fmt.Errorf("%w: status %d: %s", ErrGitHubAPIFailed, resp.StatusCode, string(body))
 	}
 
+	// Limit response body to prevent memory exhaustion from malicious servers
+	limitedReader := io.LimitReader(resp.Body, maxResponseBodySize)
 	var release GitHubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+	if err := json.NewDecoder(limitedReader).Decode(&release); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
 
@@ -83,13 +180,10 @@ func CompareVersions(v1, v2 string) int {
 	v2 = strings.TrimPrefix(v2, "v")
 
 	// Handle development versions and commit hashes
-	// Check if v1 is a development version or commit hash
 	isV1Dev := v1 == "dev" || v1 == "" || isCommitHash(v1)
-	// Check if v2 is a development version or commit hash
 	isV2Dev := v2 == "dev" || v2 == "" || isCommitHash(v2)
 
 	if isV1Dev && isV2Dev {
-		// Both are dev/commit versions, consider them equal
 		return 0
 	}
 	if isV1Dev {
@@ -130,7 +224,7 @@ func CompareVersions(v1, v2 string) int {
 
 // parseVersion parses a version string into major, minor, patch integers
 func parseVersion(version string) []int {
-	// Remove any suffixes like -dirty, -rc1, etc.
+	// Remove any suffixes like -dirty, -rc1, +build, etc.
 	if idx := strings.IndexAny(version, "-+"); idx != -1 {
 		version = version[:idx]
 	}
@@ -153,20 +247,26 @@ func IsNewerVersion(currentVersion, latestVersion string) bool {
 	return CompareVersions(latestVersion, currentVersion) > 0
 }
 
-// NormalizeVersion ensures version strings are in a consistent format
+// NormalizeVersion ensures version strings are in a consistent format.
+// It removes the 'v' prefix, trims whitespace, and removes any pre-release
+// or build metadata suffixes (e.g., -rc1, -dirty, +build).
 func NormalizeVersion(version string) string {
 	version = strings.TrimSpace(version)
 	version = strings.TrimPrefix(version, "v")
 
-	// Remove any git suffixes
-	if idx := strings.Index(version, "-"); idx != -1 {
+	// Remove any pre-release or build metadata suffixes
+	if idx := strings.IndexAny(version, "-+"); idx != -1 {
 		version = version[:idx]
 	}
 
 	return version
 }
 
-// isCommitHash checks if a string looks like a git commit hash
+// isCommitHash checks if a string looks like a git commit hash.
+// It requires the string to:
+// - Be 7-40 characters long (short to full SHA-1)
+// - Contain only hex characters (0-9, a-f, A-F)
+// - Contain at least one letter (to distinguish from pure numeric versions)
 func isCommitHash(s string) bool {
 	// Remove any -dirty suffix
 	s = strings.TrimSuffix(s, "-dirty")
@@ -176,12 +276,21 @@ func isCommitHash(s string) bool {
 		return false
 	}
 
-	// Check if all characters are valid hex
+	hasLetter := false
 	for _, c := range s {
-		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+		isDigit := c >= '0' && c <= '9'
+		isLowerHex := c >= 'a' && c <= 'f'
+		isUpperHex := c >= 'A' && c <= 'F'
+
+		if !isDigit && !isLowerHex && !isUpperHex {
 			return false
+		}
+		if isLowerHex || isUpperHex {
+			hasLetter = true
 		}
 	}
 
-	return true
+	// Require at least one letter to distinguish from pure numeric versions
+	// like "1234567" or "2024010100"
+	return hasLetter
 }
