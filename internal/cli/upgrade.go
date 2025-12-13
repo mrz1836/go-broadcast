@@ -402,10 +402,16 @@ func extractBinaryFromArchive(reader io.Reader, destDir string) (string, error) 
 
 			// Copy binary content with size limit for security
 			limitedReader := io.LimitReader(tarReader, 100*1024*1024) // 100MB limit
-			_, err = io.Copy(file, limitedReader)
-			_ = file.Close()
-			if err != nil {
-				return "", fmt.Errorf("could not write binary: %w", err)
+			_, copyErr := io.Copy(file, limitedReader)
+			closeErr := file.Close()
+
+			// Check copy error first (more likely to indicate actual failure)
+			if copyErr != nil {
+				return "", fmt.Errorf("could not write binary: %w", copyErr)
+			}
+			// Check close error (can indicate disk full, I/O errors, etc.)
+			if closeErr != nil {
+				return "", fmt.Errorf("could not close binary file: %w", closeErr)
 			}
 
 			return destPath, nil

@@ -45,12 +45,17 @@ import (
 // Timer provides comprehensive operation timing with automatic logging of
 // duration, warnings for slow operations, and support for attaching
 // contextual metadata through the AddField method.
+//
+// Thread Safety: Timer is NOT safe for concurrent use from multiple goroutines.
+// Each Timer instance should be used by a single goroutine. If you need to
+// add fields from multiple goroutines, use external synchronization.
 type Timer struct {
 	start     time.Time
 	operation string
 	logger    *logrus.Entry
 	fields    logrus.Fields
 	ctx       context.Context //nolint:containedctx // Context needed for cancellation checks during timer lifecycle
+	stopped   bool            // Tracks whether Stop() has been called to prevent double-logging
 }
 
 // StartTimer creates a new timer for an operation.
@@ -60,18 +65,28 @@ type Timer struct {
 // system and supports metadata attachment for detailed operation context.
 //
 // Parameters:
-// - ctx: Context for cancellation control and operation lifecycle
-// - logger: Logger entry for structured output with correlation
+// - ctx: Context for cancellation control and operation lifecycle (nil defaults to context.Background())
+// - logger: Logger entry for structured output with correlation (must not be nil)
 // - operation: Name of the operation being timed for identification
 //
 // Returns:
 // - Timer instance for tracking operation duration and metadata
 //
+// Panics:
+// - If logger is nil
+//
 // Side Effects:
 // - Records the start time for duration calculation
 // - Creates a logger entry with operation context
 // - Initializes fields map for metadata storage
-func StartTimer(ctx context.Context, logger *logrus.Entry, operation string) *Timer {
+func StartTimer(ctx context.Context, logger *logrus.Entry, operation string) *Timer { //nolint:contextcheck // Intentional: nil ctx defaults to Background() per documented API contract
+	if logger == nil {
+		panic("metrics: StartTimer logger cannot be nil")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// Create timer with current timestamp and operation context
 	timer := &Timer{
 		start:     time.Now(),
@@ -116,11 +131,14 @@ func (t *Timer) AddField(key string, value interface{}) *Timer {
 // slow operations. It includes both machine-readable milliseconds and
 // human-readable duration formatting.
 //
+// Stop is idempotent - calling it multiple times returns the original duration
+// without logging again. This prevents duplicate log entries from deferred calls.
+//
 // Returns:
-// - Duration of the operation as time.Duration
+// - Duration of the operation as time.Duration (0 if already stopped)
 //
 // Side Effects:
-// - Logs operation duration with context and metadata
+// - Logs operation duration with context and metadata (first call only)
 // - Issues warnings for operations taking longer than 30 seconds
 // - Includes all attached fields in the log entry
 //
@@ -129,6 +147,11 @@ func (t *Timer) AddField(key string, value interface{}) *Timer {
 // - Normal operations: DEBUG level with completion message
 // - All operations include duration_ms and duration_human fields
 func (t *Timer) Stop() time.Duration {
+	if t.stopped {
+		return 0
+	}
+	t.stopped = true
+
 	// Calculate total duration since timer start
 	duration := time.Since(t.start)
 
@@ -152,17 +175,25 @@ func (t *Timer) Stop() time.Duration {
 // log entry. It's useful for timing operations that may fail, providing
 // both duration and error context for debugging.
 //
+// StopWithError is idempotent - calling it multiple times (or after Stop())
+// returns 0 without logging again. This prevents duplicate log entries.
+//
 // Parameters:
 // - err: Error that occurred during the operation (can be nil)
 //
 // Returns:
-// - Duration of the operation as time.Duration
+// - Duration of the operation as time.Duration (0 if already stopped)
 //
 // Side Effects:
-// - Logs operation duration with error context
+// - Logs operation duration with error context (first call only)
 // - Uses ERROR level for failed operations, DEBUG for successful ones
 // - Includes all attached fields and error information in log entry
 func (t *Timer) StopWithError(err error) time.Duration {
+	if t.stopped {
+		return 0
+	}
+	t.stopped = true
+
 	duration := time.Since(t.start)
 
 	// Add standard timing fields
