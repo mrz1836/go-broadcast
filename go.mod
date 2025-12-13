@@ -73,3 +73,6 @@ replace github.com/golang-jwt/jwt/v5 => github.com/golang-jwt/jwt/v5 v5.3.0
 
 // Fix CVE-2025-47913: SSH client panic on unexpected response
 replace golang.org/x/crypto => golang.org/x/crypto v0.46.0
+
+// Fix CVE-2025-67818: Path Traversal vulnerability in backup modules
+replace github.com/weaviate/weaviate => github.com/weaviate/weaviate v1.30.23

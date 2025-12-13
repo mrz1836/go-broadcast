@@ -168,7 +168,8 @@
                 "replace-allow-list": [
                     "github.com/joho/godotenv",
                     "github.com/golang-jwt/jwt/v5",
-                    "golang.org/x/crypto"
+                    "golang.org/x/crypto",
+                    "github.com/weaviate/weaviate"
                 ]
             },
             "govet": {
