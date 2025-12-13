@@ -1,6 +1,7 @@
 package benchmark
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -10,6 +11,9 @@ import (
 
 	"github.com/mrz1836/go-broadcast/internal/jsonutil"
 )
+
+// ErrEmptyFilename is returned when a filename is empty
+var ErrEmptyFilename = errors.New("filename cannot be empty")
 
 // BaselineReport represents a complete performance baseline
 type BaselineReport struct {
@@ -51,6 +55,11 @@ type ComparisonSummary struct {
 
 // SaveBaseline saves benchmark results to a JSON file
 func SaveBaseline(filename string, report BaselineReport) error {
+	// Validate filename
+	if filename == "" {
+		return ErrEmptyFilename
+	}
+
 	// Use PrettyPrint to get formatted JSON
 	formatted, err := jsonutil.PrettyPrint(report)
 	if err != nil {
@@ -67,6 +76,11 @@ func SaveBaseline(filename string, report BaselineReport) error {
 
 // LoadBaseline loads benchmark results from a JSON file
 func LoadBaseline(filename string) (*BaselineReport, error) {
+	// Validate filename
+	if filename == "" {
+		return nil, ErrEmptyFilename
+	}
+
 	data, err := os.ReadFile(filename) //nolint:gosec // Reading benchmark baseline file
 	if err != nil {
 		return nil, fmt.Errorf("failed to read baseline file: %w", err)
@@ -96,8 +110,22 @@ func CompareWithBaseline(current, baseline BaselineReport) ComparisonReport {
 	improvements := make(map[string]float64)
 	regressions := make(map[string]float64)
 
+	// Guard against nil maps
+	if current.Benchmarks == nil || baseline.Benchmarks == nil {
+		return ComparisonReport{
+			BaselineReport: baseline,
+			CurrentReport:  current,
+			Improvements:   improvements,
+			Regressions:    regressions,
+			Summary: ComparisonSummary{
+				TotalBenchmarks: len(current.Benchmarks),
+			},
+		}
+	}
+
 	var totalSpeedChange, totalMemoryChange float64
 	var changedCount int
+	changedBenchmarks := make(map[string]bool)
 
 	for name, currentMetric := range current.Benchmarks {
 		baselineMetric, exists := baseline.Benchmarks[name]
@@ -113,14 +141,18 @@ func CompareWithBaseline(current, baseline BaselineReport) ComparisonReport {
 
 		if speedChange > 0 {
 			improvements[name+"_speed"] = speedChange
+			changedBenchmarks[name] = true
 		} else if speedChange < 0 {
 			regressions[name+"_speed"] = -speedChange
+			changedBenchmarks[name] = true
 		}
 
 		if memoryChange > 0 {
 			improvements[name+"_memory"] = memoryChange
+			changedBenchmarks[name] = true
 		} else if memoryChange < 0 {
 			regressions[name+"_memory"] = -memoryChange
+			changedBenchmarks[name] = true
 		}
 
 		totalSpeedChange += speedChange
@@ -128,13 +160,20 @@ func CompareWithBaseline(current, baseline BaselineReport) ComparisonReport {
 		changedCount++
 	}
 
+	// Calculate averages safely (avoid division by zero)
+	var avgSpeed, avgMem float64
+	if changedCount > 0 {
+		avgSpeed = totalSpeedChange / float64(changedCount)
+		avgMem = totalMemoryChange / float64(changedCount)
+	}
+
 	summary := ComparisonSummary{
 		TotalBenchmarks:     len(current.Benchmarks),
 		Improved:            len(improvements),
 		Regressed:           len(regressions),
-		Unchanged:           len(current.Benchmarks) - len(improvements) - len(regressions),
-		AvgSpeedImprovement: totalSpeedChange / float64(changedCount),
-		AvgMemoryReduction:  totalMemoryChange / float64(changedCount),
+		Unchanged:           len(current.Benchmarks) - len(changedBenchmarks),
+		AvgSpeedImprovement: avgSpeed,
+		AvgMemoryReduction:  avgMem,
 	}
 
 	return ComparisonReport{
@@ -191,9 +230,16 @@ func GenerateTextReport(comparison ComparisonReport) string {
 		report.WriteString("\n")
 	}
 
-	// Detailed comparison
+	// Detailed comparison - sort names for deterministic output
 	report.WriteString("Detailed Comparison:\n")
-	for name, currentMetric := range comparison.CurrentReport.Benchmarks {
+	benchmarkNames := make([]string, 0, len(comparison.CurrentReport.Benchmarks))
+	for name := range comparison.CurrentReport.Benchmarks {
+		benchmarkNames = append(benchmarkNames, name)
+	}
+	sort.Strings(benchmarkNames)
+
+	for _, name := range benchmarkNames {
+		currentMetric := comparison.CurrentReport.Benchmarks[name]
 		baselineMetric, exists := comparison.BaselineReport.Benchmarks[name]
 		if !exists {
 			continue

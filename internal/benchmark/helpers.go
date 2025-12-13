@@ -99,9 +99,11 @@ func MeasureOperation(name string, fn func()) Result {
 	return result
 }
 
-// RunWithMemoryTracking executes a benchmark with detailed memory tracking
-func RunWithMemoryTracking(b *testing.B, _ string, fn func()) {
+// RunWithMemoryTracking executes a benchmark with detailed memory tracking.
+// The name parameter is reserved for future use (e.g., sub-benchmark labeling).
+func RunWithMemoryTracking(b *testing.B, name string, fn func()) {
 	b.Helper()
+	_ = name // Reserved for future sub-benchmark labeling
 
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
@@ -119,8 +121,11 @@ func RunWithMemoryTracking(b *testing.B, _ string, fn func()) {
 	bytesAfter := memStats.TotalAlloc
 
 	b.ReportAllocs()
-	b.ReportMetric(float64(allocsAfter-allocsBefore)/float64(b.N), "allocs/op")
-	b.ReportMetric(float64(bytesAfter-bytesBefore)/float64(b.N), "bytes/op")
+	// Guard against division by zero when b.N is 0
+	if b.N > 0 {
+		b.ReportMetric(float64(allocsAfter-allocsBefore)/float64(b.N), "allocs/op")
+		b.ReportMetric(float64(bytesAfter-bytesBefore)/float64(b.N), "bytes/op")
+	}
 }
 
 // CreateTempRepo creates a temporary git repository for testing
@@ -164,6 +169,14 @@ func StandardSizes() []Size {
 // SetupBenchmarkFiles creates files for benchmark testing
 func SetupBenchmarkFiles(b *testing.B, dir string, count int) []string {
 	b.Helper()
+
+	// Validate inputs
+	if dir == "" {
+		b.Fatal("directory path cannot be empty")
+	}
+	if count < 0 {
+		count = 0
+	}
 
 	files := make([]string, count)
 	for i := 0; i < count; i++ {
