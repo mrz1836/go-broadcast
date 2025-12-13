@@ -3,6 +3,7 @@ package env
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -404,4 +405,218 @@ GO_BROADCAST_AUTOMERGE_LABELS=automerge`
 	// Verify commented API key is NOT parsed
 	_, exists := vars["GO_BROADCAST_AI_API_KEY"]
 	assert.False(t, exists, "Commented out API key should not be parsed")
+}
+
+// TestExportPrefix tests that shell-style "export KEY=value" format is handled correctly.
+// This is the fix for Issue #4.
+func TestExportPrefix(t *testing.T) {
+	tempDir := t.TempDir()
+
+	t.Run("parses export prefix in file", func(t *testing.T) {
+		content := `export VAR1=value1
+export VAR2="quoted value"
+export VAR3='single quoted'
+VAR4=no_export
+export VAR5=`
+		file := filepath.Join(tempDir, "export.env")
+		require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
+
+		vars, err := parseEnvFile(file)
+		require.NoError(t, err)
+
+		assert.Equal(t, "value1", vars["VAR1"], "export prefix should be stripped")
+		assert.Equal(t, "quoted value", vars["VAR2"], "export with quoted value")
+		assert.Equal(t, "single quoted", vars["VAR3"], "export with single quoted value")
+		assert.Equal(t, "no_export", vars["VAR4"], "line without export")
+		assert.Empty(t, vars["VAR5"], "export with empty value")
+
+		// Verify "export" is NOT part of the key
+		_, exists := vars["export VAR1"]
+		assert.False(t, exists, "key should not include 'export ' prefix")
+	})
+
+	t.Run("parseEnvLine handles export prefix", func(t *testing.T) {
+		tests := []struct {
+			line      string
+			wantKey   string
+			wantValue string
+			wantOk    bool
+		}{
+			{"export FOO=bar", "FOO", "bar", true},
+			{"export FOO=", "FOO", "", true},
+			{"export FOO=\"quoted\"", "FOO", "quoted", true},
+			{"export FOO='single'", "FOO", "single", true},
+			{"exportFOO=bar", "exportFOO", "bar", true}, // no space = not export prefix
+			{"export=value", "export", "value", true},   // "export" as key name
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.line, func(t *testing.T) {
+				key, value, ok := parseEnvLine(tt.line)
+				assert.Equal(t, tt.wantOk, ok)
+				if ok {
+					assert.Equal(t, tt.wantKey, key)
+					assert.Equal(t, tt.wantValue, value)
+				}
+			})
+		}
+	})
+}
+
+// TestUnmatchedQuotes tests behavior when quotes are not properly closed.
+// This documents Issue #5 behavior: unmatched quotes are preserved as-is.
+func TestUnmatchedQuotes(t *testing.T) {
+	tests := []struct {
+		name      string
+		line      string
+		wantKey   string
+		wantValue string
+		wantOk    bool
+	}{
+		{
+			name:      "unmatched double quote at start",
+			line:      `KEY="unmatched`,
+			wantKey:   "KEY",
+			wantValue: `"unmatched`, // preserved with leading quote
+			wantOk:    true,
+		},
+		{
+			name:      "unmatched single quote at start",
+			line:      `KEY='unmatched`,
+			wantKey:   "KEY",
+			wantValue: `'unmatched`, // preserved with leading quote
+			wantOk:    true,
+		},
+		{
+			name:      "unmatched double quote at end",
+			line:      `KEY=unmatched"`,
+			wantKey:   "KEY",
+			wantValue: `unmatched"`, // preserved with trailing quote
+			wantOk:    true,
+		},
+		{
+			name:      "mismatched quotes",
+			line:      `KEY="value'`,
+			wantKey:   "KEY",
+			wantValue: `"value'`, // preserved as-is
+			wantOk:    true,
+		},
+		{
+			name:      "single char double quote",
+			line:      `KEY="`,
+			wantKey:   "KEY",
+			wantValue: `"`, // single quote preserved
+			wantOk:    true,
+		},
+		{
+			name:      "properly matched quotes",
+			line:      `KEY="matched"`,
+			wantKey:   "KEY",
+			wantValue: "matched", // quotes stripped
+			wantOk:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key, value, ok := parseEnvLine(tt.line)
+			assert.Equal(t, tt.wantOk, ok, "ok mismatch")
+			if ok {
+				assert.Equal(t, tt.wantKey, key, "key mismatch")
+				assert.Equal(t, tt.wantValue, value, "value mismatch")
+			}
+		})
+	}
+}
+
+// TestLongLine tests that lines within the buffer limit are handled correctly
+// and lines exceeding the limit cause an error. This tests Issue #6.
+func TestLongLine(t *testing.T) {
+	tempDir := t.TempDir()
+
+	t.Run("handles line at buffer limit", func(t *testing.T) {
+		// Create a line just under 100KB (well within limit)
+		longValue := strings.Repeat("x", 100*1024)
+		content := "LONG_KEY=" + longValue
+		file := filepath.Join(tempDir, "long_ok.env")
+		require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
+
+		vars, err := parseEnvFile(file)
+		require.NoError(t, err)
+		assert.Equal(t, longValue, vars["LONG_KEY"])
+	})
+
+	t.Run("handles multiple normal lines after long line", func(t *testing.T) {
+		// Ensure parsing continues correctly after a long line
+		longValue := strings.Repeat("y", 50*1024)
+		content := "FIRST=first\nLONG_KEY=" + longValue + "\nLAST=last"
+		file := filepath.Join(tempDir, "long_middle.env")
+		require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
+
+		vars, err := parseEnvFile(file)
+		require.NoError(t, err)
+		assert.Equal(t, "first", vars["FIRST"])
+		assert.Equal(t, longValue, vars["LONG_KEY"])
+		assert.Equal(t, "last", vars["LAST"])
+	})
+
+	t.Run("errors on line exceeding max length", func(t *testing.T) {
+		// Create a line exceeding MaxLineLength (1MB)
+		tooLongValue := strings.Repeat("z", MaxLineLength+100)
+		content := "TOO_LONG=" + tooLongValue
+		file := filepath.Join(tempDir, "too_long.env")
+		require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
+
+		_, err := parseEnvFile(file)
+		require.Error(t, err, "should error on line exceeding max length")
+		assert.Contains(t, err.Error(), "too long", "error should mention line too long")
+	})
+}
+
+// TestScannerError tests that scanner errors are properly returned.
+// This tests Issue #7 - the scanner.Err() return path.
+func TestScannerError(t *testing.T) {
+	t.Run("returns error for non-existent file", func(t *testing.T) {
+		_, err := parseEnvFile("/nonexistent/path/to/file.env")
+		require.Error(t, err)
+		assert.True(t, os.IsNotExist(err), "should return not-exist error")
+	})
+
+	t.Run("returns error for directory instead of file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		_, err := parseEnvFile(tempDir) // try to read a directory
+		require.Error(t, err)
+	})
+
+	t.Run("handles empty file without error", func(t *testing.T) {
+		tempDir := t.TempDir()
+		file := filepath.Join(tempDir, "empty.env")
+		require.NoError(t, os.WriteFile(file, []byte(""), 0o600))
+
+		vars, err := parseEnvFile(file)
+		require.NoError(t, err)
+		assert.Empty(t, vars, "empty file should produce empty map")
+	})
+
+	t.Run("handles file with only comments", func(t *testing.T) {
+		tempDir := t.TempDir()
+		content := "# comment 1\n# comment 2\n# comment 3"
+		file := filepath.Join(tempDir, "comments_only.env")
+		require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
+
+		vars, err := parseEnvFile(file)
+		require.NoError(t, err)
+		assert.Empty(t, vars, "file with only comments should produce empty map")
+	})
+
+	t.Run("handles file with only empty lines", func(t *testing.T) {
+		tempDir := t.TempDir()
+		content := "\n\n\n\n"
+		file := filepath.Join(tempDir, "empty_lines.env")
+		require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
+
+		vars, err := parseEnvFile(file)
+		require.NoError(t, err)
+		assert.Empty(t, vars, "file with only empty lines should produce empty map")
+	})
 }

@@ -2,6 +2,7 @@ package memory
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -928,6 +929,145 @@ func TestPressureMonitorStopChannelRaceCondition(t *testing.T) {
 	// Verify state
 	stats := monitor.GetMonitorStats()
 	require.False(t, stats.MonitoringEnabled)
+}
+
+// TestStringInternRaceCondition tests for race conditions in concurrent interning
+// Run with: go test -race -run TestStringInternRaceCondition
+func TestStringInternRaceCondition(t *testing.T) {
+	si := NewStringInternWithSize(100)
+	numGoroutines := 50
+	stringsPerGoroutine := 200
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	// Spawn goroutines that intern both new and existing strings concurrently
+	for i := 0; i < numGoroutines; i++ {
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < stringsPerGoroutine; j++ {
+				// Mix of unique and shared strings to exercise both fast and slow paths
+				if j%2 == 0 {
+					si.Intern("shared-string") // Hit fast path after first intern
+				} else {
+					si.Intern(fmt.Sprintf("unique-%d-%d", id, j)) // Miss path, may trigger eviction
+				}
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify consistency
+	stats := si.GetStats()
+	require.GreaterOrEqual(t, stats.Hits+stats.Misses, int64(numGoroutines*stringsPerGoroutine))
+}
+
+// TestPressureMonitorIntervalRace tests that monitoringInterval is safely passed to monitorLoop
+// Run with: go test -race -run TestPressureMonitorIntervalRace
+func TestPressureMonitorIntervalRace(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping race condition test in short mode")
+	}
+
+	monitor := NewPressureMonitor(DefaultThresholds(), nil)
+	monitor.monitoringInterval = 50 * time.Millisecond
+
+	var wg sync.WaitGroup
+	numIterations := 20
+
+	wg.Add(numIterations * 2)
+
+	// Rapidly start/stop monitoring while potentially modifying interval
+	for i := 0; i < numIterations; i++ {
+		go func() {
+			defer wg.Done()
+			monitor.StartMonitoring()
+		}()
+		go func() {
+			defer wg.Done()
+			time.Sleep(time.Millisecond)
+			monitor.StopMonitoring()
+		}()
+	}
+
+	wg.Wait()
+	monitor.StopMonitoring() // Ensure stopped at the end
+}
+
+// TestCalculateSeverityZeroThreshold tests division by zero edge case
+func TestCalculateSeverityZeroThreshold(t *testing.T) {
+	monitor := NewPressureMonitor(DefaultThresholds(), nil)
+
+	tests := []struct {
+		name      string
+		actual    float64
+		threshold float64
+		expected  AlertSeverity
+	}{
+		{
+			name:      "zero threshold with positive actual",
+			actual:    100,
+			threshold: 0,
+			expected:  AlertCritical,
+		},
+		{
+			name:      "zero threshold with zero actual",
+			actual:    0,
+			threshold: 0,
+			expected:  AlertInfo,
+		},
+		{
+			name:      "negative threshold with positive actual",
+			actual:    100,
+			threshold: -50,
+			expected:  AlertCritical,
+		},
+		{
+			name:      "negative threshold with zero actual",
+			actual:    0,
+			threshold: -50,
+			expected:  AlertInfo,
+		},
+		{
+			name:      "negative threshold with negative actual",
+			actual:    -100,
+			threshold: -50,
+			expected:  AlertInfo,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := monitor.calculateSeverity("test", tt.actual, tt.threshold)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestSendAlertSynchronous tests that alert callbacks are called synchronously
+func TestSendAlertSynchronous(t *testing.T) {
+	callOrder := make([]int, 0, 3)
+	mu := sync.Mutex{}
+
+	alertCallback := func(_ Alert) {
+		mu.Lock()
+		callOrder = append(callOrder, len(callOrder)+1)
+		mu.Unlock()
+		time.Sleep(10 * time.Millisecond) // Simulate some work
+	}
+
+	monitor := NewPressureMonitor(DefaultThresholds(), alertCallback)
+
+	// Send alerts synchronously
+	monitor.sendAlert(Alert{Type: "test1"})
+	monitor.sendAlert(Alert{Type: "test2"})
+	monitor.sendAlert(Alert{Type: "test3"})
+
+	// All callbacks should have completed synchronously
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, []int{1, 2, 3}, callOrder, "alerts should be processed synchronously in order")
 }
 
 // BenchmarkStringIntern tests the performance of string interning

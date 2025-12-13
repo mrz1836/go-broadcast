@@ -598,3 +598,79 @@ func TestGenerateAnalysisReportFileCreationError(t *testing.T) {
 			"Expected file access error, got: %s", errorMsg)
 	}
 }
+
+// TestFormatBytesDeltaOverflow tests that FormatBytesDelta handles math.MinInt64 correctly
+func TestFormatBytesDeltaOverflow(t *testing.T) {
+	// math.MinInt64 = -9223372036854775808, which is 8 exabytes
+	// -MinInt64 would overflow in int64, so we need special handling
+	result := FormatBytesDelta(-9223372036854775808) // math.MinInt64
+	require.Equal(t, "-8.0 EB", result)
+}
+
+// TestFormatBytesDeltaEdgeCases tests additional edge cases for FormatBytesDelta
+func TestFormatBytesDeltaEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		delta    int64
+		expected string
+	}{
+		{"MaxInt64", 9223372036854775807, "+8.0 EB"},
+		{"LargeNegative", -1099511627776, "-1.0 TB"},
+		{"LargePositive", 1099511627776, "+1.0 TB"},
+		{"OneByte", 1, "+1 B"},
+		{"MinusByte", -1, "-1 B"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FormatBytesDelta(tt.delta)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestMemoryProfilerEmptySessionName tests that empty session names are rejected
+func TestMemoryProfilerEmptySessionName(t *testing.T) {
+	tempDir := t.TempDir()
+	profiler := NewMemoryProfiler(tempDir)
+
+	err := profiler.Enable()
+	require.NoError(t, err)
+
+	// Try to start profiling with empty name
+	_, err = profiler.StartProfiling("")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrEmptySessionName)
+}
+
+// TestProfileWithContextCancellation tests that ProfileWithContext respects context cancellation
+func TestProfileWithContextCancellation(t *testing.T) {
+	// Test with already canceled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	comparison, err := ProfileWithContext(ctx, nil, "canceled-test", func() error {
+		return nil
+	})
+
+	require.Error(t, err)
+	require.Equal(t, context.Canceled, err)
+	require.Equal(t, MemoryComparison{}, comparison)
+}
+
+// TestProfileWithContextCancellationDuringExecution tests context cancellation during function execution
+func TestProfileWithContextCancellationDuringExecution(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	comparison, err := ProfileWithContext(ctx, nil, "cancel-during-test", func() error {
+		cancel() // Cancel during execution
+		return nil
+	})
+
+	// Should return context error since fn returned nil but context was canceled
+	require.Error(t, err)
+	require.Equal(t, context.Canceled, err)
+	// Comparison should still be populated
+	require.NotEmpty(t, comparison.From.Label)
+	require.NotEmpty(t, comparison.To.Label)
+}

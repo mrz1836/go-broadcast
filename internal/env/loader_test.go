@@ -702,3 +702,93 @@ LEVEL2=custom`
 	assert.Equal(t, "code_default", GetEnvWithFallback("NONEXISTENT_VAR", "code_default"),
 		"NONEXISTENT_VAR: Code default should be used (not in any source)")
 }
+
+// TestEmptyEnvVarPreserved tests that explicitly set empty env vars are preserved
+// and not overwritten by values from .env files. This is the fix for Issue #1.
+func TestEmptyEnvVarPreserved(t *testing.T) {
+	tempDir := t.TempDir()
+	githubDir := filepath.Join(tempDir, ".github")
+	require.NoError(t, os.MkdirAll(githubDir, 0o750))
+
+	// Create base file with a value
+	baseFile := filepath.Join(githubDir, ".env.base")
+	require.NoError(t, os.WriteFile(baseFile, []byte("EMPTY_TEST_VAR=file_value"), 0o600))
+
+	t.Run("explicitly empty env var is NOT overwritten", func(t *testing.T) {
+		// Set env var to empty string BEFORE loading files
+		t.Setenv("EMPTY_TEST_VAR", "")
+
+		// Load env files
+		err := LoadEnvFilesFromDir(tempDir)
+		require.NoError(t, err)
+
+		// Empty value should be preserved (NOT overwritten by file_value)
+		assert.Empty(t, os.Getenv("EMPTY_TEST_VAR"),
+			"Explicitly set empty env var should NOT be overwritten by file value")
+	})
+
+	t.Run("unset env var IS set from file", func(t *testing.T) {
+		// Ensure env var is NOT set
+		_ = os.Unsetenv("EMPTY_TEST_VAR")
+		t.Cleanup(func() { _ = os.Unsetenv("EMPTY_TEST_VAR") })
+
+		// Load env files
+		err := LoadEnvFilesFromDir(tempDir)
+		require.NoError(t, err)
+
+		// Unset var should now have file value
+		assert.Equal(t, "file_value", os.Getenv("EMPTY_TEST_VAR"),
+			"Unset env var should be set from file")
+	})
+}
+
+// TestGetEnvOrDefault tests the new GetEnvOrDefault function that preserves
+// explicitly set empty values (unlike GetEnvWithFallback).
+func TestGetEnvOrDefault(t *testing.T) {
+	testVar := "TEST_GET_ENV_OR_DEFAULT"
+
+	t.Run("returns value when set to non-empty", func(t *testing.T) {
+		t.Setenv(testVar, "actual_value")
+		result := GetEnvOrDefault(testVar, "default_value")
+		assert.Equal(t, "actual_value", result)
+	})
+
+	t.Run("returns empty string when explicitly set to empty", func(t *testing.T) {
+		t.Setenv(testVar, "")
+		result := GetEnvOrDefault(testVar, "default_value")
+		assert.Empty(t, result, "GetEnvOrDefault should preserve explicitly empty values")
+	})
+
+	t.Run("returns default when env not set", func(t *testing.T) {
+		_ = os.Unsetenv(testVar)
+		t.Cleanup(func() { _ = os.Unsetenv(testVar) })
+		result := GetEnvOrDefault(testVar, "default_value")
+		assert.Equal(t, "default_value", result)
+	})
+
+	t.Run("contrast with GetEnvWithFallback on empty", func(t *testing.T) {
+		t.Setenv(testVar, "")
+
+		// GetEnvOrDefault preserves empty
+		assert.Empty(t, GetEnvOrDefault(testVar, "default"),
+			"GetEnvOrDefault should return empty string")
+
+		// GetEnvWithFallback returns fallback for empty
+		assert.Equal(t, "default", GetEnvWithFallback(testVar, "default"),
+			"GetEnvWithFallback should return fallback for empty string")
+	})
+}
+
+// TestEnvLoadingRaceConditionNote documents that these tests manipulate global
+// environment variables and therefore cannot be run with t.Parallel().
+// The actual loader functions are thread-safe (no internal shared state),
+// but the tests themselves modify shared global state (os env vars).
+func TestEnvLoadingRaceConditionNote(t *testing.T) {
+	// This test exists to document the race condition concern.
+	// Tests in this file intentionally do NOT call t.Parallel() because they
+	// modify global environment variables via os.Setenv/os.Unsetenv.
+	//
+	// If you need to run tests in parallel, use t.Setenv() which automatically
+	// marks the test as incompatible with parallel execution.
+	t.Log("Tests in env package modify global env vars and cannot run in parallel")
+}

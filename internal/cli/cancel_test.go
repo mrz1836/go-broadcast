@@ -770,11 +770,11 @@ func TestPerformCancel_ConfigValidation(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("nil config", func(t *testing.T) {
-		// The performCancel function will panic with nil config instead of returning error
-		// This is because it calls cfg methods without checking for nil
-		assert.Panics(t, func() {
-			_, _ = performCancel(ctx, nil, []string{})
-		})
+		// The performCancel function should return ErrNilConfig for nil config
+		summary, err := performCancel(ctx, nil, []string{})
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrNilConfig)
+		assert.Nil(t, summary)
 	})
 
 	// Further testing would require either:
@@ -830,15 +830,16 @@ func TestGenerateCancelComment_Content(t *testing.T) {
 	assert.Contains(t, comment2, "**Canceled at**:")
 }
 
-// TestPerformCancelPanicRecovery tests panic handling in performCancel
-func TestPerformCancelPanicRecovery(t *testing.T) {
-	t.Run("nil config causes panic", func(t *testing.T) {
+// TestPerformCancelNilConfig tests error handling for nil config in performCancel
+func TestPerformCancelNilConfig(t *testing.T) {
+	t.Run("nil config returns error", func(t *testing.T) {
 		ctx := context.Background()
 
-		// performCancel should panic with nil config
-		require.Panics(t, func() {
-			_, _ = performCancel(ctx, nil, []string{})
-		})
+		// performCancel should return ErrNilConfig for nil config
+		summary, err := performCancel(ctx, nil, []string{})
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrNilConfig)
+		assert.Nil(t, summary)
 	})
 }
 
