@@ -113,7 +113,7 @@ func runUpgradeWithConfig(cmd *cobra.Command, config UpgradeConfig) error {
 
 	// Fetch latest release
 	output.Info("Checking for updates...")
-	release, err := versionpkg.GetLatestRelease("mrz1836", "go-broadcast")
+	release, err := versionpkg.GetLatestRelease(cmd.Context(), "mrz1836", "go-broadcast")
 	if err != nil {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}

@@ -81,12 +81,12 @@ func NewComplexExampleClient() *ComplexExampleClient {
 
 // GetItems - Refactored slice return (2 lines)
 func (m *ComplexExampleClient) GetItems(ctx context.Context) ([]string, error) {
-	return m.sliceHandler.HandleSlice("GetItems", ctx)
+	return m.sliceHandler.HandleSlice(ctx)
 }
 
 // GetCounts - Refactored map return (2 lines)
 func (m *ComplexExampleClient) GetCounts(ctx context.Context) (map[string]int, error) {
-	return m.mapHandler.HandleMap("GetCounts", ctx)
+	return m.mapHandler.HandleMap(ctx)
 }
 
 // Code reduction summary:

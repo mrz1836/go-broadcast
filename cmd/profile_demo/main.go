@@ -265,7 +265,11 @@ func (app *ProfileDemoApp) Run() error {
 
 func testWorkerPool() {
 	// Create worker pool with optimal worker count
-	pool := worker.NewPool(8, 100) // 8 workers, 100 queue size
+	pool, err := worker.NewPool(8, 100) // 8 workers, 100 queue size
+	if err != nil {
+		log.Printf("Failed to create worker pool: %v", err)
+		return
+	}
 
 	pool.Start(context.Background())
 	defer pool.Shutdown()

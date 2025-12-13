@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -171,4 +172,169 @@ func TestSetupLoggerWithLevel(t *testing.T) {
 
 	assert.NotNil(t, s.Logger)
 	assert.Equal(t, "test-component", s.Logger.Data["component"])
+}
+
+// TestTestContext_HasTimeout verifies TestContext returns a context with deadline
+func TestTestContext_HasTimeout(t *testing.T) {
+	t.Parallel()
+
+	ctx := TestContext()
+	require.NotNil(t, ctx)
+
+	// Verify context has a deadline (timeout was set)
+	deadline, hasDeadline := ctx.Deadline()
+	assert.True(t, hasDeadline, "TestContext should return context with deadline")
+	assert.False(t, deadline.IsZero(), "deadline should not be zero")
+
+	// Verify deadline is roughly 30 seconds from now (within 1 second tolerance)
+	expectedDeadline := time.Now().Add(30 * time.Second)
+	assert.WithinDuration(t, expectedDeadline, deadline, 1*time.Second)
+}
+
+// TestTestContextWithTimeout verifies custom timeout works
+func TestTestContextWithTimeout(t *testing.T) {
+	t.Parallel()
+
+	customTimeout := 5 * time.Second
+	ctx := TestContextWithTimeout(customTimeout)
+	require.NotNil(t, ctx)
+
+	deadline, hasDeadline := ctx.Deadline()
+	assert.True(t, hasDeadline)
+
+	expectedDeadline := time.Now().Add(customTimeout)
+	assert.WithinDuration(t, expectedDeadline, deadline, 100*time.Millisecond)
+}
+
+// TestTestContextWithCancel verifies the cancel-returning variant
+func TestTestContextWithCancel(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := TestContextWithCancel()
+	require.NotNil(t, ctx)
+	require.NotNil(t, cancel)
+	defer cancel()
+
+	deadline, hasDeadline := ctx.Deadline()
+	assert.True(t, hasDeadline)
+
+	expectedDeadline := time.Now().Add(30 * time.Second)
+	assert.WithinDuration(t, expectedDeadline, deadline, 1*time.Second)
+
+	// Verify cancel works
+	cancel()
+	assert.Error(t, ctx.Err())
+}
+
+// TestTestContextWithTimeoutAndCancel verifies the cancel-returning variant with custom timeout
+func TestTestContextWithTimeoutAndCancel(t *testing.T) {
+	t.Parallel()
+
+	customTimeout := 5 * time.Second
+	ctx, cancel := TestContextWithTimeoutAndCancel(customTimeout)
+	require.NotNil(t, ctx)
+	require.NotNil(t, cancel)
+	defer cancel()
+
+	deadline, hasDeadline := ctx.Deadline()
+	assert.True(t, hasDeadline)
+
+	expectedDeadline := time.Now().Add(customTimeout)
+	assert.WithinDuration(t, expectedDeadline, deadline, 100*time.Millisecond)
+
+	// Verify cancel works
+	cancel()
+	assert.Error(t, ctx.Err())
+}
+
+// TestCreateTempFileE tests the error-returning variant
+func TestCreateTempFileE(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success with content", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		name, err := CreateTempFileE(t, tempDir, "test-*.txt", "hello world")
+		require.NoError(t, err)
+		assert.FileExists(t, name)
+
+		content, err := os.ReadFile(name) //nolint:gosec // test file
+		require.NoError(t, err)
+		assert.Equal(t, "hello world", string(content))
+	})
+
+	t.Run("success empty content", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		name, err := CreateTempFileE(t, tempDir, "empty-*.txt", "")
+		require.NoError(t, err)
+		assert.FileExists(t, name)
+
+		content, err := os.ReadFile(name) //nolint:gosec // test file
+		require.NoError(t, err)
+		assert.Empty(t, content)
+	})
+
+	t.Run("error invalid directory", func(t *testing.T) {
+		t.Parallel()
+
+		name, err := CreateTempFileE(t, "/nonexistent/path/that/does/not/exist", "test-*.txt", "content")
+		require.Error(t, err)
+		assert.Empty(t, name)
+		assert.Contains(t, err.Error(), "create temp file")
+	})
+}
+
+// TestSetupTempDirWithCleanup_Suite tests the cleanup registration
+type TestSetupTempDirWithCleanupSuite struct {
+	Helper
+}
+
+func TestSetupTempDirWithCleanup(t *testing.T) {
+	suite.Run(t, new(TestSetupTempDirWithCleanupSuite))
+}
+
+func (s *TestSetupTempDirWithCleanupSuite) TestCleanupIsRegistered() {
+	s.SetupTempDirWithCleanup("cleanup-test-*")
+
+	// Verify temp dir was created
+	s.NotEmpty(s.TempDir)
+	s.DirExists(s.TempDir)
+
+	// Store path for later verification (TempDir will be cleared by cleanup)
+	tempPath := s.TempDir
+
+	// Create a file in the temp dir to ensure it gets cleaned up
+	testFile := filepath.Join(tempPath, "test.txt")
+	err := os.WriteFile(testFile, []byte("test"), 0o600)
+	s.Require().NoError(err)
+
+	// The actual cleanup verification happens automatically via t.Cleanup().
+	// We verify here that the directory exists during the test.
+	s.FileExists(testFile)
+}
+
+// TestCleanupTempDir_DoubleCallSafe verifies double cleanup is safe
+func TestCleanupTempDir_DoubleCallSafe(t *testing.T) {
+	t.Parallel()
+
+	s := &Helper{}
+	s.SetT(t)
+
+	// Create temp dir
+	tempDir, err := os.MkdirTemp("", "double-cleanup-*")
+	require.NoError(t, err)
+	s.TempDir = tempDir
+
+	// First cleanup should succeed
+	s.CleanupTempDir()
+	assert.Empty(t, s.TempDir)
+	assert.NoDirExists(t, tempDir)
+
+	// Second cleanup should be a no-op (not panic)
+	assert.NotPanics(t, func() {
+		s.CleanupTempDir()
+	})
 }
