@@ -129,40 +129,38 @@ func (c *ContentCache) Get(ctx context.Context, repo, branch, path string) (stri
 
 	key := cacheKey{Repo: repo, Branch: branch, Path: path}
 
-	c.mu.RLock()
+	// Use exclusive lock from the start to avoid lock upgrade race condition
+	// This prevents another goroutine from modifying the cache between our read and write operations
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	contentID, exists := c.keyToContentID[key]
 	if !exists {
-		c.mu.RUnlock()
 		c.misses.Add(1)
 		return "", false, nil
 	}
 
 	entry, exists := c.contents[contentID]
 	if !exists {
-		c.mu.RUnlock()
 		// Clean up stale key mapping
-		c.mu.Lock()
 		delete(c.keyToContentID, key)
-		c.mu.Unlock()
 		c.misses.Add(1)
 		return "", false, nil
 	}
 
 	// Check expiration
 	if time.Now().After(entry.ExpiresAt) {
-		c.mu.RUnlock()
-		c.evictExpired()
+		// We don't call evictExpired() here since we already hold the lock
+		// and evictExpired() would try to acquire it again (deadlock).
+		// Instead, just record the miss - evictExpired() will be called periodically.
 		c.misses.Add(1)
 		return "", false, nil
 	}
-	c.mu.RUnlock()
 
 	// Update access time and LRU position
-	c.mu.Lock()
 	entry.AccessedAt = time.Now()
 	c.moveToHead(key, contentID)
 	content := entry.Content
-	c.mu.Unlock()
 
 	c.hits.Add(1)
 	c.lastAccessed.Store(time.Now().Unix())
