@@ -40,19 +40,38 @@ func IsAbsolutePath(path string) bool {
 
 // HasPathTraversal checks if a path contains path traversal attempts.
 // This consolidates the common security check pattern.
+// A path is considered to have traversal if:
+// - For absolute paths: any ".." component exists (even if it doesn't escape root)
+// - For relative paths: it escapes upward from its starting point
 func HasPathTraversal(path string) bool {
+	// Normalize separators for consistent checking
+	normalizedPath := filepath.ToSlash(path)
+
+	// For absolute paths, any ".." component is suspicious
+	if strings.HasPrefix(normalizedPath, "/") {
+		parts := strings.Split(normalizedPath, "/")
+		for _, part := range parts {
+			if part == ".." {
+				return true
+			}
+		}
+		return false
+	}
+
+	// For relative paths: check if cleaned path escapes upward (starts with "..")
 	cleanPath := filepath.Clean(path)
-	// Check if cleaned path starts with .. (escapes upward)
 	if strings.HasPrefix(cleanPath, "..") {
 		return true
 	}
-	// Check for .. as a path component (not just substring)
+
+	// Check for ".." as a component in cleaned path
 	parts := strings.Split(cleanPath, string(filepath.Separator))
 	for _, part := range parts {
 		if part == ".." {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -81,8 +100,10 @@ func HasExtension(path string, extensions ...string) bool {
 	return false
 }
 
-// EnsureTrailingSlash ensures a path ends with a trailing slash.
-// This consolidates the common pattern for directory paths.
+// EnsureTrailingSlash ensures a path ends with a forward slash (/).
+// This consolidates the common pattern for directory paths and URLs.
+// Always uses forward slash regardless of platform, suitable for URLs
+// and normalized paths. Returns "/" for empty input.
 func EnsureTrailingSlash(path string) string {
 	if IsEmpty(path) {
 		return "/"
@@ -93,14 +114,17 @@ func EnsureTrailingSlash(path string) string {
 	return path
 }
 
-// RemoveTrailingSlash removes trailing slashes from a path.
+// RemoveTrailingSlash removes all trailing slashes from a path.
 // This consolidates the common pattern for normalizing paths.
 func RemoveTrailingSlash(path string) string {
-	return strings.TrimSuffix(path, "/")
+	return strings.TrimRight(path, "/")
 }
 
 // SplitPath splits a path into its directory components.
 // This consolidates the common pattern: strings.Split(filepath.ToSlash(path), "/")
+// For absolute paths (e.g., "/path/to/file"), the leading "/" is not preserved
+// in the result. Use IsAbsolutePath to check if the original path was absolute.
+// Returns nil for empty paths or paths with no components (e.g., "/").
 func SplitPath(path string) []string {
 	if IsEmpty(path) {
 		return nil
@@ -116,5 +140,11 @@ func SplitPath(path string) []string {
 			result = append(result, part)
 		}
 	}
+
+	// Return nil for paths with no components (e.g., "/" or ".")
+	if len(result) == 0 {
+		return nil
+	}
+
 	return result
 }

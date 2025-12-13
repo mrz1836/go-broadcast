@@ -426,6 +426,41 @@ func TestSanitizeForFilename(t *testing.T) {
 			input:    "clean-filename",
 			expected: "clean-filename",
 		},
+		{
+			name:     "NullByte",
+			input:    "file\x00name",
+			expected: "file-name",
+		},
+		{
+			name:     "ControlCharacters",
+			input:    "file\x01\x02\x1fname",
+			expected: "file---name",
+		},
+		{
+			name:     "NewlineAndTab",
+			input:    "file\nwith\ttabs",
+			expected: "file-with-tabs",
+		},
+		{
+			name:     "DELCharacter",
+			input:    "file\x7fname",
+			expected: "file-name",
+		},
+		{
+			name:     "EmptyResult",
+			input:    "   ",
+			expected: "unnamed",
+		},
+		{
+			name:     "AllProblematicResultsEmpty",
+			input:    "///",
+			expected: "---",
+		},
+		{
+			name:     "EmptyInput",
+			input:    "",
+			expected: "unnamed",
+		},
 	}
 
 	for _, tt := range tests {
@@ -471,6 +506,26 @@ func TestIsValidGitHubURL(t *testing.T) {
 			name:     "InvalidURL",
 			url:      "not-a-url",
 			expected: false,
+		},
+		{
+			name:     "RepoNameWithDoubleDots",
+			url:      "https://github.com/owner/my..repo",
+			expected: true, // ".." in repo name is valid, not path traversal
+		},
+		{
+			name:     "RepoNameWithTripleDots",
+			url:      "https://github.com/owner/repo...name",
+			expected: true, // "..." in repo name is valid
+		},
+		{
+			name:     "ActualPathTraversalInPath",
+			url:      "https://github.com/owner/../other/repo",
+			expected: false, // Actual path traversal attempt
+		},
+		{
+			name:     "ValidGitHubURLNoPath",
+			url:      "https://github.com",
+			expected: true, // Valid GitHub domain
 		},
 	}
 
