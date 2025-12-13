@@ -104,3 +104,6 @@ test/fixtures/directories/
 /run-benchmarks
 /validate-examples
 /benchmark-results
+/coverage_mage.txt
+/coverage_integration.txt
+/.mage-x
