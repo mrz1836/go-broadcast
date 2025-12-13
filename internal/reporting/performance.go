@@ -2,6 +2,7 @@
 package reporting
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,13 +11,16 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
+	"unicode"
 )
 
 // Reporting errors
 var (
 	ErrBaselineNotFound = errors.New("baseline file not found")
+	ErrPathTraversal    = errors.New("path traversal detected: file path escapes output directory")
 )
 
 // PerformanceReport represents a comprehensive performance analysis report
@@ -129,6 +133,7 @@ func DefaultReportConfig() ReportConfig {
 type PerformanceReporter struct {
 	config   ReportConfig
 	baseline *PerformanceReport
+	mu       sync.RWMutex // protects baseline field for concurrent access
 }
 
 // NewPerformanceReporter creates a new performance reporter
@@ -138,9 +143,41 @@ func NewPerformanceReporter(config ReportConfig) *PerformanceReporter {
 	}
 }
 
+// validatePath ensures the given path doesn't escape the output directory (path traversal protection)
+func (pr *PerformanceReporter) validatePath(path string) error {
+	// Clean and resolve the paths
+	absOutputDir, err := filepath.Abs(pr.config.OutputDirectory)
+	if err != nil {
+		return fmt.Errorf("failed to resolve output directory: %w", err)
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+
+	// Check if the path is within the output directory
+	relPath, err := filepath.Rel(absOutputDir, absPath)
+	if err != nil {
+		return fmt.Errorf("failed to compute relative path: %w", err)
+	}
+
+	// If the relative path starts with "..", the path escapes the output directory
+	if strings.HasPrefix(relPath, "..") {
+		return fmt.Errorf("%w: %s", ErrPathTraversal, path)
+	}
+
+	return nil
+}
+
 // LoadBaseline loads baseline metrics from file
 func (pr *PerformanceReporter) LoadBaseline() error {
 	baselinePath := filepath.Join(pr.config.OutputDirectory, pr.config.BaselineFile)
+
+	// Validate path doesn't escape output directory (prevent path traversal)
+	if err := pr.validatePath(baselinePath); err != nil {
+		return err
+	}
 
 	data, err := os.ReadFile(baselinePath) //nolint:gosec // Reading from configured baseline file path
 	if err != nil {
@@ -155,7 +192,9 @@ func (pr *PerformanceReporter) LoadBaseline() error {
 		return fmt.Errorf("failed to parse baseline file: %w", err)
 	}
 
+	pr.mu.Lock()
 	pr.baseline = &baseline
+	pr.mu.Unlock()
 	return nil
 }
 
@@ -167,6 +206,11 @@ func (pr *PerformanceReporter) SaveBaseline(report *PerformanceReport) error {
 
 	baselinePath := filepath.Join(pr.config.OutputDirectory, pr.config.BaselineFile)
 
+	// Validate path doesn't escape output directory (prevent path traversal)
+	if err := pr.validatePath(baselinePath); err != nil {
+		return err
+	}
+
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal baseline: %w", err)
@@ -176,17 +220,25 @@ func (pr *PerformanceReporter) SaveBaseline(report *PerformanceReport) error {
 		return fmt.Errorf("failed to write baseline file: %w", err)
 	}
 
+	pr.mu.Lock()
 	pr.baseline = report
+	pr.mu.Unlock()
 	return nil
 }
 
 // GenerateReport creates a comprehensive performance report
 func (pr *PerformanceReporter) GenerateReport(currentMetrics map[string]float64, testResults []TestResult, profileSummary ProfileSummary) (*PerformanceReport, error) {
+	// Create a defensive copy of currentMetrics to avoid mutating caller's data
+	metricsCopy := make(map[string]float64, len(currentMetrics))
+	for k, v := range currentMetrics {
+		metricsCopy[k] = v
+	}
+
 	report := &PerformanceReport{
 		Timestamp:      time.Now(),
 		ReportID:       generateReportID(),
 		Version:        "1.0",
-		CurrentMetrics: currentMetrics,
+		CurrentMetrics: metricsCopy,
 		Improvements:   make(map[string]float64),
 		Regressions:    make(map[string]float64),
 		TestResults:    testResults,
@@ -213,9 +265,12 @@ func (pr *PerformanceReporter) GenerateReport(currentMetrics map[string]float64,
 		}
 	}
 
-	// Compare with baseline if available
-	if pr.baseline != nil {
-		report.BaselineMetrics = pr.baseline.CurrentMetrics
+	// Compare with baseline if available (thread-safe read)
+	pr.mu.RLock()
+	baseline := pr.baseline
+	pr.mu.RUnlock()
+	if baseline != nil {
+		report.BaselineMetrics = baseline.CurrentMetrics
 		pr.calculatePerformanceChanges(report)
 	}
 
@@ -227,25 +282,49 @@ func (pr *PerformanceReporter) GenerateReport(currentMetrics map[string]float64,
 
 // calculatePerformanceChanges compares current metrics with baseline
 func (pr *PerformanceReporter) calculatePerformanceChanges(report *PerformanceReport) {
-	for metric, currentValue := range report.CurrentMetrics {
-		if baselineValue, exists := report.BaselineMetrics[metric]; exists {
-			change := ((currentValue - baselineValue) / baselineValue) * 100
+	// Sort metric keys for deterministic iteration order
+	metrics := make([]string, 0, len(report.CurrentMetrics))
+	for metric := range report.CurrentMetrics {
+		metrics = append(metrics, metric)
+	}
+	sort.Strings(metrics)
 
-			if abs(change) >= pr.config.ComparisonThreshold {
-				if change < 0 {
-					// Negative change is improvement for metrics like duration, memory usage
-					if isLowerBetterMetric(metric) {
-						report.Improvements[metric] = abs(change)
-					} else {
-						report.Regressions[metric] = abs(change)
-					}
+	for _, metric := range metrics {
+		currentValue := report.CurrentMetrics[metric]
+		baselineValue, exists := report.BaselineMetrics[metric]
+		if !exists {
+			continue
+		}
+
+		// Guard against division by zero
+		if baselineValue == 0 {
+			// If baseline is zero and current is non-zero, treat as significant change
+			if currentValue != 0 {
+				if isLowerBetterMetric(metric) {
+					report.Regressions[metric] = 100.0 // 100% regression from zero
+				} else if isHigherBetterMetric(metric) {
+					report.Improvements[metric] = 100.0 // 100% improvement from zero
+				}
+			}
+			continue
+		}
+
+		change := ((currentValue - baselineValue) / baselineValue) * 100
+
+		if abs(change) >= pr.config.ComparisonThreshold {
+			if change < 0 {
+				// Negative change is improvement for metrics like duration, memory usage
+				if isLowerBetterMetric(metric) {
+					report.Improvements[metric] = abs(change)
 				} else {
-					// Positive change is improvement for metrics like throughput
-					if isHigherBetterMetric(metric) {
-						report.Improvements[metric] = change
-					} else {
-						report.Regressions[metric] = change
-					}
+					report.Regressions[metric] = abs(change)
+				}
+			} else {
+				// Positive change is improvement for metrics like throughput
+				if isHigherBetterMetric(metric) {
+					report.Improvements[metric] = change
+				} else {
+					report.Regressions[metric] = change
 				}
 			}
 		}
@@ -299,10 +378,15 @@ func (pr *PerformanceReporter) analyzeMemoryMetrics(report *PerformanceReport) [
 		})
 	}
 
-	// Check memory growth
-	if pr.baseline != nil {
+	// Check memory growth (thread-safe baseline access)
+	pr.mu.RLock()
+	hasBaseline := pr.baseline != nil
+	pr.mu.RUnlock()
+
+	if hasBaseline {
 		if currentMem, exists := report.CurrentMetrics["memory_usage_mb"]; exists {
-			if baselineMem, exists := report.BaselineMetrics["memory_usage_mb"]; exists {
+			if baselineMem, exists := report.BaselineMetrics["memory_usage_mb"]; exists && baselineMem > 0 {
+				// Guard against division by zero
 				growth := ((currentMem - baselineMem) / baselineMem) * 100
 				if growth > 20 {
 					recommendations = append(recommendations, Recommendation{
@@ -331,7 +415,15 @@ func (pr *PerformanceReporter) analyzeMemoryMetrics(report *PerformanceReport) [
 func (pr *PerformanceReporter) analyzeRegressions(report *PerformanceReport) []Recommendation {
 	recommendations := make([]Recommendation, 0, len(report.Regressions))
 
-	for metric, regression := range report.Regressions {
+	// Sort regression keys for deterministic iteration order
+	metrics := make([]string, 0, len(report.Regressions))
+	for metric := range report.Regressions {
+		metrics = append(metrics, metric)
+	}
+	sort.Strings(metrics)
+
+	for _, metric := range metrics {
+		regression := report.Regressions[metric]
 		priority := PriorityMedium
 		if regression > 25 {
 			priority = PriorityHigh
@@ -359,7 +451,13 @@ func (pr *PerformanceReporter) analyzeTestFailures(report *PerformanceReport) []
 	var recommendations []Recommendation
 
 	if report.FailedTests > 0 {
-		failureRate := float64(report.FailedTests) / float64(report.TotalTests) * 100
+		// Guard against division by zero
+		var failureRate float64
+		if report.TotalTests > 0 {
+			failureRate = float64(report.FailedTests) / float64(report.TotalTests) * 100
+		} else {
+			failureRate = 100.0 // All tests failed if TotalTests is 0 but FailedTests > 0
+		}
 
 		priority := PriorityMedium
 		if failureRate > 20 {
@@ -451,36 +549,77 @@ func (pr *PerformanceReporter) saveJSONReport(report *PerformanceReport, filenam
 	return os.WriteFile(filename, data, 0o600)
 }
 
-// saveMarkdownReport saves the report as Markdown
+// saveMarkdownReport saves the report as Markdown using atomic write pattern
 func (pr *PerformanceReporter) saveMarkdownReport(report *PerformanceReport, filename string) error {
 	tmpl := template.Must(template.New("markdown").Funcs(pr.getTemplateFuncs()).Parse(markdownTemplate))
-
-	file, err := os.Create(filename) //nolint:gosec // Creating output report file
-	if err != nil {
-		return err
-	}
-	defer func() { _ = file.Close() }() // Ignore error in defer
-
-	return tmpl.Execute(file, report)
+	return pr.atomicWriteTemplate(tmpl, report, filename)
 }
 
-// saveHTMLReport saves the report as HTML
+// saveHTMLReport saves the report as HTML using atomic write pattern
 func (pr *PerformanceReporter) saveHTMLReport(report *PerformanceReport, filename string) error {
 	tmpl := template.Must(template.New("html").Funcs(pr.getTemplateFuncs()).Parse(htmlTemplate))
+	return pr.atomicWriteTemplate(tmpl, report, filename)
+}
 
-	file, err := os.Create(filename) //nolint:gosec // Creating output report file
+// atomicWriteTemplate writes template output to a temp file then renames to final destination
+// This prevents partial/corrupted files if template execution fails
+func (pr *PerformanceReporter) atomicWriteTemplate(tmpl *template.Template, report *PerformanceReport, filename string) error {
+	// Create temp file in the same directory to ensure rename works (same filesystem)
+	dir := filepath.Dir(filename)
+	tempFile, err := os.CreateTemp(dir, ".tmp_report_*")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer func() { _ = file.Close() }() // Ignore error in defer
+	tempName := tempFile.Name()
 
-	return tmpl.Execute(file, report)
+	// Clean up temp file on any error
+	success := false
+	defer func() {
+		if !success {
+			_ = tempFile.Close()
+			_ = os.Remove(tempName)
+		}
+	}()
+
+	// Execute template to temp file
+	if err := tmpl.Execute(tempFile, report); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	// Ensure data is flushed to disk
+	if err := tempFile.Sync(); err != nil {
+		return fmt.Errorf("failed to sync temp file: %w", err)
+	}
+
+	if err := tempFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	// Set proper permissions before rename
+	if err := os.Chmod(tempName, 0o600); err != nil {
+		return fmt.Errorf("failed to set file permissions: %w", err)
+	}
+
+	// Atomic rename
+	if err := os.Rename(tempName, filename); err != nil {
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	success = true
+	return nil
 }
 
 // Helper functions
 
 func generateReportID() string {
-	return fmt.Sprintf("%d", time.Now().Unix())
+	// Use nanoseconds + random bytes for uniqueness
+	// This prevents collisions when multiple reports are generated in quick succession
+	randomBytes := make([]byte, 4)
+	if _, err := rand.Read(randomBytes); err != nil {
+		// Fallback to timestamp only if random fails
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return fmt.Sprintf("%d_%x", time.Now().UnixNano(), randomBytes)
 }
 
 func getSystemInfo() SystemInfo {
@@ -521,11 +660,16 @@ func isHigherBetterMetric(metric string) bool {
 }
 
 func formatMetricName(metric string) string {
-	// Convert snake_case to Title Case
+	// Convert snake_case to Title Case (Unicode-safe)
 	parts := strings.Split(metric, "_")
 	for i, part := range parts {
-		if len(part) > 0 {
-			parts[i] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
+		runes := []rune(part)
+		if len(runes) > 0 {
+			runes[0] = unicode.ToUpper(runes[0])
+			for j := 1; j < len(runes); j++ {
+				runes[j] = unicode.ToLower(runes[j])
+			}
+			parts[i] = string(runes)
 		}
 	}
 	return strings.Join(parts, " ")
@@ -538,6 +682,20 @@ func abs(x float64) float64 {
 	return x
 }
 
+// formatBytesHelper formats byte counts into human-readable strings
+func formatBytesHelper(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
 // getTemplateFuncs returns template functions for report generation
 func (pr *PerformanceReporter) getTemplateFuncs() template.FuncMap {
 	return template.FuncMap{
@@ -548,23 +706,24 @@ func (pr *PerformanceReporter) getTemplateFuncs() template.FuncMap {
 			return fmt.Sprintf("%.1f%%", f)
 		},
 		"formatBytes": func(bytes int64) string {
-			const unit = 1024
-			if bytes < unit {
-				return fmt.Sprintf("%d B", bytes)
+			// Handle negative values
+			if bytes < 0 {
+				return fmt.Sprintf("-%s", formatBytesHelper(-bytes))
 			}
-			div, exp := int64(unit), 0
-			for n := bytes / unit; n >= unit; n /= unit {
-				div *= unit
-				exp++
-			}
-			return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+			return formatBytesHelper(bytes)
 		},
 		"title": func(v interface{}) string {
 			s := fmt.Sprintf("%v", v)
-			if len(s) == 0 {
+			runes := []rune(s)
+			if len(runes) == 0 {
 				return s
 			}
-			return strings.ToUpper(s[:1]) + strings.ToLower(s[1:])
+			// Unicode-safe title case conversion
+			runes[0] = unicode.ToUpper(runes[0])
+			for i := 1; i < len(runes); i++ {
+				runes[i] = unicode.ToLower(runes[i])
+			}
+			return string(runes)
 		},
 		"priorityClass": func(priority RecommendationPriority) string {
 			switch priority {
