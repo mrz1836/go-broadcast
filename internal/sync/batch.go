@@ -95,13 +95,23 @@ func (bp *BatchProcessor) ProcessFiles(ctx context.Context, sourcePath string, j
 		}
 	}()
 
+	// Close result channel after all workers complete
+	go func() {
+		_ = g.Wait() // Error already captured below
+		close(resultChan)
+	}()
+
 	// Wait for all workers to complete
 	if err := g.Wait(); err != nil {
+		// On error/cancellation, drain the result channel to prevent goroutine leaks
+		go func() {
+			for range resultChan { //nolint:revive // intentionally draining channel
+			}
+		}()
 		return nil, fmt.Errorf("batch processing failed: %w", err)
 	}
 
 	// Collect results
-	close(resultChan)
 	return bp.collectResults(resultChan), nil
 }
 
@@ -306,19 +316,19 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 			}
 
 			// Add email configuration if available
-			if bp.engine.currentGroup != nil {
-				baseCtx.SourceSecurityEmail = bp.engine.currentGroup.Source.SecurityEmail
-				baseCtx.SourceSupportEmail = bp.engine.currentGroup.Source.SupportEmail
+			if currentGroup := bp.engine.GetCurrentGroup(); currentGroup != nil {
+				baseCtx.SourceSecurityEmail = currentGroup.Source.SecurityEmail
+				baseCtx.SourceSupportEmail = currentGroup.Source.SupportEmail
 				// Use target-specific emails if set, otherwise use source emails
 				if bp.target.SecurityEmail != "" {
 					baseCtx.TargetSecurityEmail = bp.target.SecurityEmail
 				} else {
-					baseCtx.TargetSecurityEmail = bp.engine.currentGroup.Source.SecurityEmail
+					baseCtx.TargetSecurityEmail = currentGroup.Source.SecurityEmail
 				}
 				if bp.target.SupportEmail != "" {
 					baseCtx.TargetSupportEmail = bp.target.SupportEmail
 				} else {
-					baseCtx.TargetSupportEmail = bp.engine.currentGroup.Source.SupportEmail
+					baseCtx.TargetSupportEmail = currentGroup.Source.SupportEmail
 				}
 			}
 
@@ -359,19 +369,19 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 			}
 
 			// Add email configuration if available
-			if bp.engine.currentGroup != nil {
-				transformContext.SourceSecurityEmail = bp.engine.currentGroup.Source.SecurityEmail
-				transformContext.SourceSupportEmail = bp.engine.currentGroup.Source.SupportEmail
+			if currentGroup := bp.engine.GetCurrentGroup(); currentGroup != nil {
+				transformContext.SourceSecurityEmail = currentGroup.Source.SecurityEmail
+				transformContext.SourceSupportEmail = currentGroup.Source.SupportEmail
 				// Use target-specific emails if set, otherwise use source emails
 				if bp.target.SecurityEmail != "" {
 					transformContext.TargetSecurityEmail = bp.target.SecurityEmail
 				} else {
-					transformContext.TargetSecurityEmail = bp.engine.currentGroup.Source.SecurityEmail
+					transformContext.TargetSecurityEmail = currentGroup.Source.SecurityEmail
 				}
 				if bp.target.SupportEmail != "" {
 					transformContext.TargetSupportEmail = bp.target.SupportEmail
 				} else {
-					transformContext.TargetSupportEmail = bp.engine.currentGroup.Source.SupportEmail
+					transformContext.TargetSupportEmail = currentGroup.Source.SupportEmail
 				}
 			}
 
@@ -662,8 +672,19 @@ func (bp *BatchProcessor) ProcessFilesWithProgress(ctx context.Context, sourcePa
 		}
 	}()
 
+	// Close result channel after all workers complete
+	go func() {
+		_ = g.Wait() // Error already captured below
+		close(resultChan)
+	}()
+
 	// Wait for all workers to complete
 	if err := g.Wait(); err != nil {
+		// On error/cancellation, drain the result channel to prevent goroutine leaks
+		go func() {
+			for range resultChan { //nolint:revive // intentionally draining channel
+			}
+		}()
 		return nil, fmt.Errorf("batch processing failed: %w", err)
 	}
 
@@ -673,7 +694,6 @@ func (bp *BatchProcessor) ProcessFilesWithProgress(ctx context.Context, sourcePa
 	}
 
 	// Collect results
-	close(resultChan)
 	return bp.collectResults(resultChan), nil
 }
 

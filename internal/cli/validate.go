@@ -110,26 +110,8 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 		return nil
 	}
 
-	// Check if using group-based configuration
-	if len(cfg.Groups) > 0 {
-		displayGroupValidation(groups)
-	} else {
-		// Non-group format display
-		group := groups[0] // Single group configuration
-		output.Info(fmt.Sprintf("  Source: %s (branch: %s)", group.Source.Repo, group.Source.Branch))
-
-		if group.Defaults.BranchPrefix != "" || len(group.Defaults.PRLabels) > 0 {
-			output.Info("  Defaults:")
-			if group.Defaults.BranchPrefix != "" {
-				output.Info(fmt.Sprintf("    Branch prefix: %s", group.Defaults.BranchPrefix))
-			}
-			if len(group.Defaults.PRLabels) > 0 {
-				output.Info(fmt.Sprintf("    PR labels: %v", group.Defaults.PRLabels))
-			}
-		}
-
-		output.Info(fmt.Sprintf("  Targets: %d repositories", len(group.Targets)))
-	}
+	// Display group-based configuration (guaranteed non-empty from check above)
+	displayGroupValidation(groups)
 
 	// Show target details
 	totalFiles := 0
@@ -200,9 +182,9 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 
 // validateRepositoryAccessibility checks if source and target repositories are accessible via GitHub API
 func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, logConfig *logging.LogConfig, sourceOnly bool) error {
-	// Check for nil config to ensure panic behavior expected by tests
+	// Check for nil config
 	if cfg == nil {
-		panic("config cannot be nil")
+		return ErrNilConfig
 	}
 
 	// Try to create GitHub client
@@ -226,9 +208,9 @@ func validateRepositoryAccessibility(ctx context.Context, cfg *config.Config, lo
 
 // validateRepositoryAccessibilityWithClient checks if source and target repositories are accessible via GitHub API using the provided client
 func validateRepositoryAccessibilityWithClient(ctx context.Context, cfg *config.Config, ghClient gh.Client, sourceOnly bool) error {
-	// Check for nil config to ensure panic behavior expected by tests
+	// Check for nil config
 	if cfg == nil {
-		panic("config cannot be nil")
+		return ErrNilConfig
 	}
 
 	log := logrus.WithField("component", "validate-repos")

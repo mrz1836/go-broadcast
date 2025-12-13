@@ -1083,3 +1083,180 @@ targets:
 		})
 	}
 }
+
+// TestDeepCopyTransform verifies that Transform.Variables map is deep copied
+func TestDeepCopyTransform(t *testing.T) {
+	original := Transform{
+		RepoName: true,
+		Variables: map[string]string{
+			"key1": "original1",
+			"key2": "original2",
+		},
+	}
+
+	copied := deepCopyTransform(original)
+
+	// Verify values are equal
+	assert.Equal(t, original.RepoName, copied.RepoName)
+	assert.Equal(t, original.Variables, copied.Variables)
+
+	// Modify original map
+	original.Variables["key1"] = "modified"
+	original.Variables["key3"] = "new"
+
+	// Verify copied map is not affected
+	assert.Equal(t, "original1", copied.Variables["key1"])
+	assert.NotContains(t, copied.Variables, "key3")
+}
+
+// TestDeepCopyTransform_NilVariables verifies handling of nil Variables map
+func TestDeepCopyTransform_NilVariables(t *testing.T) {
+	original := Transform{
+		RepoName:  true,
+		Variables: nil,
+	}
+
+	copied := deepCopyTransform(original)
+
+	assert.Equal(t, original.RepoName, copied.RepoName)
+	assert.Nil(t, copied.Variables)
+}
+
+// TestResolveListReferences_TransformVariablesDeepCopy verifies Transform.Variables
+// is deep copied when resolving directory list references
+func TestResolveListReferences_TransformVariablesDeepCopy(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		DirectoryLists: []DirectoryList{{
+			ID:   "test-list",
+			Name: "Test List",
+			Directories: []DirectoryMapping{{
+				Src:  "src",
+				Dest: "dest",
+				Transform: Transform{
+					RepoName: true,
+					Variables: map[string]string{
+						"key": "original",
+					},
+				},
+			}},
+		}},
+		Groups: []Group{{
+			Name:   "test",
+			ID:     "test",
+			Source: SourceConfig{Repo: "org/repo"},
+			Targets: []TargetConfig{{
+				Repo:              "org/target",
+				DirectoryListRefs: []string{"test-list"},
+			}},
+		}},
+	}
+
+	err := resolveListReferences(config)
+	require.NoError(t, err)
+
+	// Modify original list's transform variables
+	config.DirectoryLists[0].Directories[0].Transform.Variables["key"] = "modified"
+
+	// Verify resolved copy is unaffected
+	resolvedVars := config.Groups[0].Targets[0].Directories[0].Transform.Variables
+	assert.Equal(t, "original", resolvedVars["key"])
+}
+
+// TestResolveListReferences_ModuleCheckTagsDeepCopy verifies Module.CheckTags
+// pointer is deep copied when resolving directory list references
+func TestResolveListReferences_ModuleCheckTagsDeepCopy(t *testing.T) {
+	checkTags := true
+	config := &Config{
+		Version: 1,
+		DirectoryLists: []DirectoryList{{
+			ID:   "test-list",
+			Name: "Test List",
+			Directories: []DirectoryMapping{{
+				Src:  "src",
+				Dest: "dest",
+				Module: &ModuleConfig{
+					Type:      "go",
+					Version:   "latest",
+					CheckTags: &checkTags,
+				},
+			}},
+		}},
+		Groups: []Group{{
+			Name:   "test",
+			ID:     "test",
+			Source: SourceConfig{Repo: "org/repo"},
+			Targets: []TargetConfig{{
+				Repo:              "org/target",
+				DirectoryListRefs: []string{"test-list"},
+			}},
+		}},
+	}
+
+	err := resolveListReferences(config)
+	require.NoError(t, err)
+
+	// Modify original CheckTags
+	*config.DirectoryLists[0].Directories[0].Module.CheckTags = false
+
+	// Verify resolved copy is unaffected
+	resolvedCheckTags := config.Groups[0].Targets[0].Directories[0].Module.CheckTags
+	require.NotNil(t, resolvedCheckTags)
+	assert.True(t, *resolvedCheckTags)
+}
+
+// TestResolveListReferences_DeterministicOrder verifies that resolved files
+// and directories are in deterministic order regardless of map iteration order
+func TestResolveListReferences_DeterministicOrder(t *testing.T) {
+	// Run multiple times to catch non-determinism
+	for iteration := 0; iteration < 50; iteration++ {
+		config := &Config{
+			Version: 1,
+			FileLists: []FileList{{
+				ID:   "file-list",
+				Name: "File List",
+				Files: []FileMapping{
+					{Src: "z.txt", Dest: "z.txt"},
+					{Src: "a.txt", Dest: "a.txt"},
+					{Src: "m.txt", Dest: "m.txt"},
+				},
+			}},
+			DirectoryLists: []DirectoryList{{
+				ID:   "dir-list",
+				Name: "Dir List",
+				Directories: []DirectoryMapping{
+					{Src: "dir-z", Dest: "dir-z"},
+					{Src: "dir-a", Dest: "dir-a"},
+					{Src: "dir-m", Dest: "dir-m"},
+				},
+			}},
+			Groups: []Group{{
+				Name:   "test",
+				ID:     "test",
+				Source: SourceConfig{Repo: "org/repo"},
+				Targets: []TargetConfig{{
+					Repo:              "org/target",
+					FileListRefs:      []string{"file-list"},
+					DirectoryListRefs: []string{"dir-list"},
+				}},
+			}},
+		}
+
+		err := resolveListReferences(config)
+		require.NoError(t, err)
+
+		// Verify files are sorted by Dest
+		files := config.Groups[0].Targets[0].Files
+		require.Len(t, files, 3)
+		assert.Equal(t, "a.txt", files[0].Dest)
+		assert.Equal(t, "m.txt", files[1].Dest)
+		assert.Equal(t, "z.txt", files[2].Dest)
+
+		// Verify directories are sorted by Dest
+		dirs := config.Groups[0].Targets[0].Directories
+		require.Len(t, dirs, 3)
+		assert.Equal(t, "dir-a", dirs[0].Dest)
+		assert.Equal(t, "dir-m", dirs[1].Dest)
+		assert.Equal(t, "dir-z", dirs[2].Dest)
+	}
+}

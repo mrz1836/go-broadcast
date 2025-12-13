@@ -342,3 +342,23 @@ func TestChunkSliceWithStrings(t *testing.T) {
 	expected := [][]string{{"a", "b"}, {"c", "d"}, {"e"}}
 	assert.Equal(t, expected, result)
 }
+
+func TestChunkSliceMutationIsolation(t *testing.T) {
+	// Verify that modifying chunks does not affect the original slice
+	original := []int{1, 2, 3, 4, 5, 6}
+	originalCopy := make([]int, len(original))
+	copy(originalCopy, original)
+
+	chunks := ChunkSlice(original, 2)
+
+	// Modify the first chunk
+	chunks[0][0] = 999
+	chunks[0][1] = 888
+
+	// Original slice should be unchanged
+	assert.Equal(t, originalCopy, original, "Original slice should not be modified when chunk is mutated")
+
+	// Verify chunks are independent from each other
+	chunks[1][0] = 777
+	assert.Equal(t, 999, chunks[0][0], "Other chunks should not be affected")
+}

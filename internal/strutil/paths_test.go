@@ -439,6 +439,16 @@ func TestRemoveTrailingSlash(t *testing.T) {
 			path:     "",
 			expected: "",
 		},
+		{
+			name:     "MultipleTrailingSlashes",
+			path:     "path/to/directory///",
+			expected: "path/to/directory",
+		},
+		{
+			name:     "OnlySlashes",
+			path:     "///",
+			expected: "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -484,6 +494,16 @@ func TestSplitPath(t *testing.T) {
 			name:     "PathWithEmptyComponents",
 			path:     "path//to///file.txt",
 			expected: []string{"path", "to", "file.txt"},
+		},
+		{
+			name:     "AbsoluteUnixPath",
+			path:     "/path/to/file.txt",
+			expected: []string{"path", "to", "file.txt"},
+		},
+		{
+			name:     "RootOnly",
+			path:     "/",
+			expected: nil,
 		},
 	}
 

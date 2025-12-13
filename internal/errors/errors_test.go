@@ -600,3 +600,116 @@ func TestNewUtilityEdgeCases(t *testing.T) {
 		assert.Equal(t, expected, result.Error())
 	})
 }
+
+// TestDeepErrorChain verifies that errors.Is() works correctly
+// even with deeply nested error chains (10+ levels).
+func TestDeepErrorChain(t *testing.T) {
+	original := fmt.Errorf("root cause") //nolint:err113 // test-only errors
+
+	// Create 10-level deep chain
+	chain := original
+	for i := 0; i < 10; i++ {
+		chain = WrapWithContext(chain, fmt.Sprintf("level %d", i))
+	}
+
+	// Verify original is still findable through deep chain
+	require.ErrorIs(t, chain, original)
+
+	// Verify message contains all levels
+	errorMsg := chain.Error()
+	for i := 0; i < 10; i++ {
+		assert.Contains(t, errorMsg, fmt.Sprintf("level %d", i))
+	}
+	assert.Contains(t, errorMsg, "root cause")
+}
+
+// TestVeryDeepErrorChain tests an even deeper chain (50 levels)
+// to ensure no stack overflow or performance issues.
+func TestVeryDeepErrorChain(t *testing.T) {
+	original := ErrSyncFailed
+
+	chain := original
+	for i := 0; i < 50; i++ {
+		chain = WrapWithContext(chain, fmt.Sprintf("operation %d", i))
+	}
+
+	// Should still be able to find the original sentinel error
+	require.ErrorIs(t, chain, ErrSyncFailed)
+}
+
+// customTestError is a custom error type for testing errors.As()
+type customTestError struct {
+	msg  string
+	code int
+}
+
+func (e *customTestError) Error() string {
+	return e.msg
+}
+
+// TestErrorAsDoesNotFindNonMatchingTypes verifies that errors.As()
+// correctly returns false when the wrapped error doesn't contain
+// the target type. This ensures future compatibility if custom
+// error types are added.
+func TestErrorAsDoesNotFindNonMatchingTypes(t *testing.T) {
+	var customErr *customTestError
+
+	// Create various wrapped errors that don't contain customTestError
+	wrapped1 := WrapWithContext(ErrNoFilesToCommit, "test operation")
+	wrapped2 := CommandFailedError("git clone", fmt.Errorf("exit 1")) //nolint:err113 // test-only errors
+	wrapped3 := GitOperationError("clone", "repo", ErrGitCommand)
+
+	// None of these should match customTestError type
+	assert.NotErrorAs(t, wrapped1, &customErr, "wrapped1 should not match customTestError")
+	assert.NotErrorAs(t, wrapped2, &customErr, "wrapped2 should not match customTestError")
+	assert.NotErrorAs(t, wrapped3, &customErr, "wrapped3 should not match customTestError")
+}
+
+// TestErrorAsFindsCustomType verifies that errors.As() correctly finds
+// a custom error type when it's present in the chain.
+func TestErrorAsFindsCustomType(t *testing.T) {
+	customErr := &customTestError{msg: "custom error", code: 42}
+	wrapped := WrapWithContext(customErr, "wrapping custom error")
+
+	var foundErr *customTestError
+	require.ErrorAs(t, wrapped, &foundErr, "should find customTestError in chain")
+	assert.Equal(t, "custom error", foundErr.msg)
+	assert.Equal(t, 42, foundErr.code)
+}
+
+// TestErrorAsFindsStandardTypes verifies that errors.As() works
+// with standard library error types when wrapped.
+func TestErrorAsFindsStandardTypes(t *testing.T) {
+	// Create an error that wraps a standard error
+	baseErr := fmt.Errorf("base: %w", errors.New("underlying")) //nolint:err113 // test-only errors
+	wrapped := WrapWithContext(baseErr, "operation")
+
+	// Should be able to find the base error
+	require.ErrorIs(t, wrapped, baseErr)
+}
+
+// TestMixedErrorChain tests a chain with different error types mixed together.
+func TestMixedErrorChain(t *testing.T) {
+	// Start with a sentinel error
+	level0 := ErrFileNotFound
+
+	// Wrap with different error functions
+	level1 := WrapWithContext(level0, "reading config")
+	level2 := FileOperationError("read", "/config.yaml", level1)
+	level3 := WrapWithContext(level2, "loading application")
+	level4 := CommandFailedError("app start", level3)
+
+	// All levels should be findable
+	require.ErrorIs(t, level4, ErrFileNotFound)
+	require.ErrorIs(t, level4, level1)
+	require.ErrorIs(t, level4, level2)
+	require.ErrorIs(t, level4, level3)
+
+	// Error message should contain context from all levels
+	errorMsg := level4.Error()
+	assert.Contains(t, errorMsg, "reading config")
+	assert.Contains(t, errorMsg, "/config.yaml")
+	assert.Contains(t, errorMsg, "loading application")
+	assert.Contains(t, errorMsg, "app start")
+	assert.Contains(t, errorMsg, "source file not found")
+}

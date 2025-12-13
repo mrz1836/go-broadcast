@@ -9,4 +9,7 @@ var (
 
 	// ErrNoMatchingTargets indicates no targets matched the filter
 	ErrNoMatchingTargets = errors.New("no matching targets found")
+
+	// ErrNilConfig indicates a nil configuration was passed to a function that requires a valid config
+	ErrNilConfig = errors.New("config cannot be nil")
 )

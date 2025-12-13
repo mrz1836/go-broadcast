@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -92,35 +93,48 @@ func NormalizePath(path string) string {
 
 // SanitizeForFilename sanitizes a string to be safe for use as a filename.
 // This consolidates the common pattern of replacing problematic characters.
+// Handles null bytes, control characters, and filesystem-unsafe characters.
+// Returns "unnamed" if the result would be empty.
 func SanitizeForFilename(name string) string {
-	// Replace common problematic characters
-	sanitized := strings.ReplaceAll(name, "/", "-")
-	sanitized = strings.ReplaceAll(sanitized, "\\", "-")
-	sanitized = strings.ReplaceAll(sanitized, ":", "-")
-	sanitized = strings.ReplaceAll(sanitized, "\"", "-")
-	sanitized = strings.ReplaceAll(sanitized, "<", "-")
-	sanitized = strings.ReplaceAll(sanitized, ">", "-")
-	sanitized = strings.ReplaceAll(sanitized, "|", "-")
-	sanitized = strings.ReplaceAll(sanitized, "?", "-")
-	sanitized = strings.ReplaceAll(sanitized, "*", "-")
-	return strings.TrimSpace(sanitized)
+	// Replace null bytes and control characters (0-31 and 127)
+	sanitized := strings.Map(func(r rune) rune {
+		if r < 32 || r == 127 {
+			return '-'
+		}
+		return r
+	}, name)
+
+	// Replace filesystem-problematic characters
+	for _, ch := range []string{"/", "\\", ":", "\"", "<", ">", "|", "?", "*"} {
+		sanitized = strings.ReplaceAll(sanitized, ch, "-")
+	}
+
+	sanitized = strings.TrimSpace(sanitized)
+
+	// Ensure we never return an empty string (invalid filename)
+	if sanitized == "" {
+		return "unnamed"
+	}
+
+	return sanitized
 }
 
 // IsValidGitHubURL validates if a URL is a valid GitHub URL.
 // This consolidates the common pattern of validating GitHub URLs.
+// Checks for path traversal attempts in the URL path (not in repo names).
 func IsValidGitHubURL(rawURL string) bool {
 	if IsEmpty(rawURL) {
 		return false
 	}
 
-	// Check for path traversal attempts
-	if strings.Contains(rawURL, "..") {
+	// Parse the URL first
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
 		return false
 	}
 
-	// Parse the URL
-	parsedURL, err := url.Parse(rawURL)
-	if err != nil {
+	// Check for path traversal in the URL path only (not in repo names like "my..repo")
+	if HasPathTraversal(parsedURL.Path) {
 		return false
 	}
 
@@ -130,10 +144,22 @@ func IsValidGitHubURL(rawURL string) bool {
 
 // ReplaceTemplateVars replaces template variables in content.
 // This consolidates the common pattern of multiple strings.ReplaceAll calls.
+// Keys are sorted alphabetically for deterministic replacement order.
 func ReplaceTemplateVars(content string, replacements map[string]string) string {
+	if len(replacements) == 0 {
+		return content
+	}
+
+	// Sort keys for deterministic replacement order
+	keys := make([]string, 0, len(replacements))
+	for k := range replacements {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	result := content
-	for placeholder, replacement := range replacements {
-		result = strings.ReplaceAll(result, placeholder, replacement)
+	for _, key := range keys {
+		result = strings.ReplaceAll(result, key, replacements[key])
 	}
 	return result
 }

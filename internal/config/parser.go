@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 
 	"gopkg.in/yaml.v3"
 
@@ -104,6 +105,21 @@ func applyDefaults(config *Config) {
 	}
 }
 
+// deepCopyTransform creates a deep copy of a Transform struct,
+// including the Variables map to avoid shared mutable state.
+func deepCopyTransform(t Transform) Transform {
+	result := Transform{
+		RepoName: t.RepoName,
+	}
+	if t.Variables != nil {
+		result.Variables = make(map[string]string, len(t.Variables))
+		for k, v := range t.Variables {
+			result.Variables[k] = v
+		}
+	}
+	return result
+}
+
 // resolveListReferences expands file and directory list references in targets
 func resolveListReferences(config *Config) error {
 	// Build lookup maps for efficient resolution
@@ -164,6 +180,11 @@ func resolveListReferences(config *Config) error {
 					resolvedFiles = append(resolvedFiles, file)
 				}
 
+				// Sort for deterministic order (map iteration is non-deterministic)
+				sort.Slice(resolvedFiles, func(i, j int) bool {
+					return resolvedFiles[i].Dest < resolvedFiles[j].Dest
+				})
+
 				target.Files = resolvedFiles
 			}
 
@@ -187,15 +208,19 @@ func resolveListReferences(config *Config) error {
 							Dest:              dir.Dest,
 							Exclude:           append([]string(nil), dir.Exclude...),
 							IncludeOnly:       append([]string(nil), dir.IncludeOnly...),
-							Transform:         dir.Transform,
+							Transform:         deepCopyTransform(dir.Transform),
 							PreserveStructure: dir.PreserveStructure,
 							IncludeHidden:     dir.IncludeHidden,
 							Delete:            dir.Delete,
 						}
 
-						// Deep copy module config if present
+						// Deep copy module config if present, including CheckTags pointer
 						if dir.Module != nil {
 							moduleCopy := *dir.Module
+							if dir.Module.CheckTags != nil {
+								checkTags := *dir.Module.CheckTags
+								moduleCopy.CheckTags = &checkTags
+							}
 							dirCopy.Module = &moduleCopy
 						}
 
@@ -213,6 +238,11 @@ func resolveListReferences(config *Config) error {
 				for _, dir := range dirMap {
 					resolvedDirs = append(resolvedDirs, dir)
 				}
+
+				// Sort for deterministic order (map iteration is non-deterministic)
+				sort.Slice(resolvedDirs, func(i, j int) bool {
+					return resolvedDirs[i].Dest < resolvedDirs[j].Dest
+				})
 
 				target.Directories = resolvedDirs
 			}

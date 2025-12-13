@@ -7,7 +7,10 @@ import (
 	"sync/atomic"
 )
 
-// BufferPool manages multiple tiers of buffer pools with statistics
+// BufferPool manages multiple tiers of buffer pools with statistics.
+// BufferPool is safe for concurrent use by multiple goroutines.
+// Statistics operations (GetStats, ResetStats) provide atomic individual reads
+// but not consistent snapshots across all fields during concurrent operations.
 type BufferPool struct {
 	smallBufferPool  *sync.Pool
 	mediumBufferPool *sync.Pool
@@ -87,16 +90,32 @@ const (
 // - Returned buffers may have larger capacity than requested (which is beneficial)
 // GetBuffer returns a buffer from the appropriate pool based on required size.
 func (bp *BufferPool) GetBuffer(size int) *bytes.Buffer {
+	// Guard against negative sizes which would cause panic in make()
+	if size < 0 {
+		size = 0
+	}
+
 	switch {
 	case size <= SmallBufferThreshold:
 		atomic.AddInt64(&bp.stats.smallGets, 1)
-		return bp.smallBufferPool.Get().(*bytes.Buffer)
+		// Type assertion is safe: New func always returns *bytes.Buffer and
+		// PutBuffer only accepts *bytes.Buffer. Defensive fallback included.
+		if buf, ok := bp.smallBufferPool.Get().(*bytes.Buffer); ok {
+			return buf
+		}
+		return bytes.NewBuffer(make([]byte, 0, SmallBufferThreshold))
 	case size <= MediumBufferThreshold:
 		atomic.AddInt64(&bp.stats.mediumGets, 1)
-		return bp.mediumBufferPool.Get().(*bytes.Buffer)
+		if buf, ok := bp.mediumBufferPool.Get().(*bytes.Buffer); ok {
+			return buf
+		}
+		return bytes.NewBuffer(make([]byte, 0, MediumBufferThreshold))
 	case size <= LargeBufferThreshold:
 		atomic.AddInt64(&bp.stats.largeGets, 1)
-		return bp.largeBufferPool.Get().(*bytes.Buffer)
+		if buf, ok := bp.largeBufferPool.Get().(*bytes.Buffer); ok {
+			return buf
+		}
+		return bytes.NewBuffer(make([]byte, 0, LargeBufferThreshold))
 	default:
 		// For very large requirements, create a new buffer without pooling
 		// This prevents memory waste from pooling oversized buffers
@@ -141,6 +160,9 @@ func GetBuffer(size int) *bytes.Buffer {
 // - Oversized buffers are not pooled to prevent memory waste
 // - Pool selection is based on buffer capacity, not original request size
 // PutBuffer returns a buffer to the appropriate pool after use.
+// Buffers that have grown beyond their original capacity tier
+// will be returned to the pool matching their current capacity.
+// This may cause pool imbalance over time with heavy buffer growth.
 func (bp *BufferPool) PutBuffer(buf *bytes.Buffer) {
 	if buf == nil {
 		return
@@ -255,6 +277,8 @@ func WithBufferResult[T any](size int, fn func(*bytes.Buffer) (T, error)) (T, er
 // This function is useful for monitoring pool effectiveness, detecting
 // memory usage patterns, and optimizing pool configurations.
 // GetStats returns current buffer pool statistics.
+// Values are read atomically individually but not as a consistent snapshot.
+// Concurrent operations may cause minor inconsistencies between fields.
 func (bp *BufferPool) GetStats() Stats {
 	return Stats{
 		SmallPool: Metrics{
@@ -301,12 +325,20 @@ type Metrics struct {
 	Puts int64 `json:"puts"` // Number of buffers returned to pool
 }
 
-// Efficiency calculates the pool efficiency as a percentage
-func (pm Metrics) Efficiency() float64 {
+// ReturnRate calculates the ratio of puts to gets as a percentage.
+// Values > 100% indicate external buffers were added to the pool.
+// Values < 100% indicate some buffers were not returned (potential leak or still in use).
+func (pm Metrics) ReturnRate() float64 {
 	if pm.Gets == 0 {
 		return 0
 	}
 	return float64(pm.Puts) / float64(pm.Gets) * 100
+}
+
+// Efficiency is deprecated: use ReturnRate instead.
+// Kept for backward compatibility.
+func (pm Metrics) Efficiency() float64 {
+	return pm.ReturnRate()
 }
 
 // ResetStats resets all pool statistics to zero.
@@ -314,6 +346,7 @@ func (pm Metrics) Efficiency() float64 {
 // This function is primarily useful for testing or when fresh
 // statistics are needed for monitoring purposes.
 // ResetStats resets all pool statistics to zero.
+// Not atomic with concurrent reads - stats may appear partially reset during operation.
 func (bp *BufferPool) ResetStats() {
 	atomic.StoreInt64(&bp.stats.smallGets, 0)
 	atomic.StoreInt64(&bp.stats.smallPuts, 0)
@@ -345,6 +378,15 @@ func ResetStats() {
 // Returns:
 // - Estimated buffer size in bytes
 func EstimateBufferSize(operation string, dataSize int) int {
+	// Guard against negative sizes and overflow
+	if dataSize < 0 {
+		dataSize = 0
+	}
+	// Cap at MaxPoolableSize to prevent overflow in multiplications
+	if dataSize > MaxPoolableSize {
+		dataSize = MaxPoolableSize
+	}
+
 	switch operation {
 	case "json_marshal":
 		// JSON typically expands by 20-50% due to quotes and structure

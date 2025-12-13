@@ -248,12 +248,68 @@ func TestAPIResponseError(t *testing.T) {
 			message:    "internal server error",
 			want:       "API response error: status 500: internal server error",
 		},
+		{
+			name:       "100 continue (minimum valid)",
+			statusCode: 100,
+			message:    "continue",
+			want:       "API response error: status 100: continue",
+		},
+		{
+			name:       "599 (maximum valid)",
+			statusCode: 599,
+			message:    "custom error",
+			want:       "API response error: status 599: custom error",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := APIResponseError(tt.statusCode, tt.message)
 			require.EqualError(t, err, tt.want)
+			require.ErrorIs(t, err, errAPIResponseTemplate)
+		})
+	}
+}
+
+func TestAPIResponseError_InvalidStatusCodes(t *testing.T) {
+	tests := []struct {
+		name        string
+		statusCode  int
+		wantContain string
+	}{
+		{
+			name:        "negative status code",
+			statusCode:  -1,
+			wantContain: "invalid status -1",
+		},
+		{
+			name:        "zero status code",
+			statusCode:  0,
+			wantContain: "invalid status 0",
+		},
+		{
+			name:        "status code too low (99)",
+			statusCode:  99,
+			wantContain: "invalid status 99",
+		},
+		{
+			name:        "status code too high (600)",
+			statusCode:  600,
+			wantContain: "invalid status 600",
+		},
+		{
+			name:        "very large status code",
+			statusCode:  9999,
+			wantContain: "invalid status 9999",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := APIResponseError(tt.statusCode, "message")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantContain)
+			// Should still wrap the template error
 			require.ErrorIs(t, err, errAPIResponseTemplate)
 		})
 	}

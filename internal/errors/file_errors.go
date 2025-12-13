@@ -112,6 +112,8 @@ func JSONUnmarshalError(context string, err error) error {
 
 // BatchOperationError creates a standardized batch operation error.
 // This consolidates patterns for batch processing failures.
+// The range is interpreted as [start, end) - start is inclusive, end is exclusive.
+// Invalid ranges (start < 0, end < 0, or start > end) produce a distinct error message.
 //
 // Example usage:
 //
@@ -120,6 +122,10 @@ func JSONUnmarshalError(context string, err error) error {
 func BatchOperationError(operation string, start, end int, err error) error {
 	if err == nil {
 		return nil
+	}
+	if start < 0 || end < 0 || start >= end {
+		return fmt.Errorf("%w: %s invalid range [%d, %d): %w",
+			errBatchOperationTemplate, operation, start, end, err)
 	}
 	return fmt.Errorf("%w: %s items %d-%d: %w", errBatchOperationTemplate, operation, start, end-1, err)
 }

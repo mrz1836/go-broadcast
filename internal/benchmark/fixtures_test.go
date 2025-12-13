@@ -458,3 +458,53 @@ func TestHelperFunctions(t *testing.T) {
 		require.Contains(t, []string{"small", "medium", "large", "xlarge"}, repos[0].Size)
 	})
 }
+
+// TestNegativeInputs verifies that all generator functions handle negative inputs gracefully
+func TestNegativeInputs(t *testing.T) {
+	t.Run("GenerateYAMLConfig_Negative", func(t *testing.T) {
+		// Should not panic and should return valid YAML with no targets
+		result := GenerateYAMLConfig(-5)
+		require.NotEmpty(t, result)
+		require.Contains(t, string(result), "version: 1")
+		require.Contains(t, string(result), "targets:")
+		// Should not contain any target repos
+		require.NotContains(t, string(result), "target-repo-")
+	})
+
+	t.Run("GenerateJSONResponse_Negative", func(t *testing.T) {
+		// Should not panic and should return empty array
+		result := GenerateJSONResponse(-5)
+		require.Equal(t, "[]", string(result))
+	})
+
+	t.Run("GenerateBase64Content_Negative", func(t *testing.T) {
+		// Should not panic and should return empty string
+		result := GenerateBase64Content(-5)
+		require.Empty(t, result)
+	})
+
+	t.Run("GenerateLogEntries_Negative", func(t *testing.T) {
+		// Should not panic and should return empty slice
+		result := GenerateLogEntries(-5, false)
+		require.Empty(t, result)
+	})
+
+	t.Run("GenerateGitDiff_NegativeFileCount", func(t *testing.T) {
+		// Should not panic and should return empty string
+		result := GenerateGitDiff(-5, 10)
+		require.Empty(t, result)
+	})
+
+	t.Run("GenerateGitDiff_NegativeLinesPerFile", func(t *testing.T) {
+		// Should not panic and should return diff with no line changes
+		result := GenerateGitDiff(1, -5)
+		require.NotEmpty(t, result)
+		require.Contains(t, result, "diff --git")
+	})
+
+	t.Run("GenerateRepositoryList_Negative", func(t *testing.T) {
+		// Should not panic and should return empty slice
+		result := GenerateRepositoryList(-5)
+		require.Empty(t, result)
+	})
+}

@@ -55,6 +55,7 @@ func NewStringInternWithSize(maxSize int) *StringIntern {
 // Common use cases include repository names, branch names, and file paths that appear frequently.
 func (si *StringIntern) Intern(s string) string {
 	// Fast path: check if string is already interned (read lock only)
+	// Stats use atomics because multiple goroutines may hold the read lock concurrently
 	si.mu.RLock()
 	if interned, ok := si.values[s]; ok {
 		si.mu.RUnlock()
@@ -86,11 +87,9 @@ func (si *StringIntern) Intern(s string) string {
 	return s
 }
 
-// GetStats returns current string interning statistics
+// GetStats returns current string interning statistics.
+// This method is lock-free since stats use atomics and maxSize is immutable.
 func (si *StringIntern) GetStats() StringInternStats {
-	si.mu.RLock()
-	defer si.mu.RUnlock()
-
 	return StringInternStats{
 		Hits:    atomic.LoadInt64(&si.stats.hits),
 		Misses:  atomic.LoadInt64(&si.stats.misses),
@@ -280,7 +279,12 @@ func (mas AlertSeverity) String() string {
 	}
 }
 
-// NewPressureMonitor creates a new memory pressure monitor
+// NewPressureMonitor creates a new memory pressure monitor.
+//
+// The alertCallback is invoked synchronously when memory thresholds are exceeded.
+// To avoid blocking the monitoring loop, ensure the callback completes quickly
+// (e.g., send to a buffered channel or log asynchronously).
+// Pass nil for alertCallback if no alerts are needed.
 func NewPressureMonitor(thresholds Thresholds, alertCallback func(Alert)) *PressureMonitor {
 	return &PressureMonitor{
 		thresholds:         thresholds,
@@ -313,7 +317,8 @@ func (mpm *PressureMonitor) StartMonitoring() {
 	stopChan := make(chan struct{})
 	mpm.stopChan = stopChan
 	mpm.monitoringEnabled = true
-	go mpm.monitorLoop(stopChan)
+	// Pass interval as parameter to avoid race condition on mpm.monitoringInterval
+	go mpm.monitorLoop(stopChan, mpm.monitoringInterval)
 }
 
 // StopMonitoring stops continuous memory monitoring
@@ -364,9 +369,11 @@ func (mpm *PressureMonitor) GetMonitorStats() MonitorStats {
 	}
 }
 
-// monitorLoop runs the continuous monitoring process
-func (mpm *PressureMonitor) monitorLoop(stopChan <-chan struct{}) {
-	ticker := time.NewTicker(mpm.monitoringInterval)
+// monitorLoop runs the continuous monitoring process.
+// The interval parameter is passed explicitly to avoid race conditions when
+// StartMonitoring() releases the lock before this goroutine reads the interval.
+func (mpm *PressureMonitor) monitorLoop(stopChan <-chan struct{}, interval time.Duration) {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
@@ -430,6 +437,14 @@ func (mpm *PressureMonitor) checkMemoryPressure() {
 
 // calculateSeverity determines alert severity based on how much the threshold is exceeded
 func (mpm *PressureMonitor) calculateSeverity(_ string, actual, threshold float64) AlertSeverity {
+	// Guard against division by zero or invalid thresholds
+	if threshold <= 0 {
+		if actual > 0 {
+			return AlertCritical // Any positive value exceeds a zero/negative threshold
+		}
+		return AlertInfo // Both are zero or negative, no meaningful comparison
+	}
+
 	ratio := actual / threshold
 
 	switch {
@@ -442,7 +457,11 @@ func (mpm *PressureMonitor) calculateSeverity(_ string, actual, threshold float6
 	}
 }
 
-// sendAlert sends an alert through the callback if configured
+// sendAlert sends an alert through the callback if configured.
+//
+// The callback is invoked synchronously. Callers providing an alertCallback
+// should ensure it completes quickly (e.g., by sending to a channel or using
+// non-blocking operations) to avoid delaying the monitoring loop.
 func (mpm *PressureMonitor) sendAlert(alert Alert) {
 	atomic.AddInt64(&mpm.alertCount, 1)
 
@@ -451,8 +470,7 @@ func (mpm *PressureMonitor) sendAlert(alert Alert) {
 	}
 
 	if mpm.alertCallback != nil {
-		// Call alert callback in a separate goroutine to avoid blocking monitoring
-		go mpm.alertCallback(alert)
+		mpm.alertCallback(alert)
 	}
 }
 
@@ -475,6 +493,11 @@ type LazyLoader[T any] struct {
 }
 
 // NewLazyLoader creates a new lazy loader with the given loading function.
+//
+// The loader function is called while holding a mutex lock. To avoid issues:
+//   - Do NOT call Get() on the same LazyLoader from within the loader (deadlock)
+//   - Ensure the loader completes in reasonable time (blocks all concurrent callers)
+//   - Consider using a timeout context if the loader performs I/O operations
 //
 // Panics if loader is nil.
 func NewLazyLoader[T any](loader func() (T, error)) *LazyLoader[T] {

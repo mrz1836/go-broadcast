@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html"
 	"log"
 	"os"
 	"os/exec"
@@ -20,7 +21,12 @@ import (
 var (
 	ErrProfilingSessionActive = errors.New("profiling session already active")
 	ErrNoActiveSession        = errors.New("no active profiling session")
+	ErrEmptySessionName       = errors.New("session name cannot be empty")
 )
+
+// maxSessionHistorySize is the absolute maximum number of sessions to keep in history
+// This prevents unbounded memory growth even when AutoCleanup is disabled
+const maxSessionHistorySize = 1000
 
 // ProfileSuite manages comprehensive profiling across multiple dimensions
 type ProfileSuite struct {
@@ -100,6 +106,16 @@ type SessionSummary struct {
 	TotalSize    int64         `json:"total_size_bytes"`
 }
 
+// SessionInfo contains safe, immutable information about a session
+// that can be returned without race conditions
+type SessionInfo struct {
+	Name      string    `json:"name"`
+	StartTime time.Time `json:"start_time"`
+	OutputDir string    `json:"output_dir"`
+	Started   bool      `json:"started"`
+	Stopped   bool      `json:"stopped"`
+}
+
 // NewProfileSuite creates a new comprehensive profiling suite
 func NewProfileSuite(outputDir string) *ProfileSuite {
 	return &ProfileSuite{
@@ -131,6 +147,11 @@ func (ps *ProfileSuite) Configure(config ProfileConfig) {
 
 // StartProfiling begins a comprehensive profiling session
 func (ps *ProfileSuite) StartProfiling(name string) error {
+	// Validate session name before acquiring lock
+	if name == "" {
+		return ErrEmptySessionName
+	}
+
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
@@ -201,19 +222,38 @@ func (ps *ProfileSuite) stopProfilingWithContext(ctx context.Context) error {
 		ps.cleanupOldSessions()
 	}
 
+	// Enforce hard limit on session history to prevent unbounded growth
+	// This applies even when AutoCleanup is disabled
+	if len(ps.sessionHistory) > maxSessionHistorySize {
+		ps.sessionHistory = ps.sessionHistory[len(ps.sessionHistory)-maxSessionHistorySize:]
+	}
+
 	ps.currentSession = nil
 	return nil
 }
 
 // ProfileWithFunc runs a function while profiling it comprehensively
-func (ps *ProfileSuite) ProfileWithFunc(name string, fn func() error) error {
-	if err := ps.StartProfiling(name); err != nil {
+// Panics are properly propagated after cleanup
+func (ps *ProfileSuite) ProfileWithFunc(name string, fn func() error) (err error) {
+	if err = ps.StartProfiling(name); err != nil {
 		return err
 	}
 
 	defer func() {
+		if r := recover(); r != nil {
+			// Attempt cleanup before re-panicking
+			if stopErr := ps.StopProfiling(); stopErr != nil {
+				log.Printf("Warning: failed to stop profiling after panic: %v\n", stopErr)
+			}
+			panic(r) // Re-panic with original value
+		}
+
 		if stopErr := ps.StopProfiling(); stopErr != nil {
-			log.Printf("Warning: failed to stop profiling: %v\n", stopErr)
+			if err == nil {
+				err = stopErr
+			} else {
+				log.Printf("Warning: failed to stop profiling: %v\n", stopErr)
+			}
 		}
 	}()
 
@@ -221,14 +261,27 @@ func (ps *ProfileSuite) ProfileWithFunc(name string, fn func() error) error {
 }
 
 // ProfileWithContext runs a function with context while profiling
-func (ps *ProfileSuite) ProfileWithContext(ctx context.Context, name string, fn func(context.Context) error) error {
-	if err := ps.StartProfiling(name); err != nil {
+// Panics are properly propagated after cleanup
+func (ps *ProfileSuite) ProfileWithContext(ctx context.Context, name string, fn func(context.Context) error) (err error) {
+	if err = ps.StartProfiling(name); err != nil {
 		return err
 	}
 
 	defer func() {
+		if r := recover(); r != nil {
+			// Attempt cleanup before re-panicking
+			if stopErr := ps.stopProfilingWithContext(ctx); stopErr != nil {
+				log.Printf("Warning: failed to stop profiling after panic: %v\n", stopErr)
+			}
+			panic(r) // Re-panic with original value
+		}
+
 		if stopErr := ps.stopProfilingWithContext(ctx); stopErr != nil {
-			log.Printf("Warning: failed to stop profiling: %v\n", stopErr)
+			if err == nil {
+				err = stopErr
+			} else {
+				log.Printf("Warning: failed to stop profiling: %v\n", stopErr)
+			}
 		}
 	}()
 
@@ -257,6 +310,29 @@ func (ps *ProfileSuite) enableProfiling() error {
 	return nil
 }
 
+// cleanupPartialSession cleans up resources when session startup fails partway through
+func (ps *ProfileSuite) cleanupPartialSession(session *ComprehensiveSession) {
+	// Stop and close CPU profiling if started
+	if session.cpuFile != nil {
+		pprof.StopCPUProfile()
+		_ = session.cpuFile.Close()
+		session.cpuFile = nil
+	}
+
+	// Stop memory profiling if started
+	if session.memSession != nil {
+		_ = ps.memProfiler.StopProfiling(session.memSession.Name)
+		session.memSession = nil
+	}
+
+	// Stop and close trace if started
+	if session.traceFile != nil {
+		trace.Stop()
+		_ = session.traceFile.Close()
+		session.traceFile = nil
+	}
+}
+
 // startSession starts all enabled profiling types for a session
 func (ps *ProfileSuite) startSession(session *ComprehensiveSession) error {
 	session.mu.Lock()
@@ -269,43 +345,60 @@ func (ps *ProfileSuite) startSession(session *ComprehensiveSession) error {
 	// Capture initial memory snapshot
 	session.startSnapshot = CaptureMemStats(fmt.Sprintf("%s_start", session.Name))
 
-	// Start CPU profiling
+	// Start CPU profiling (requires global lock since CPU profiling is process-wide)
 	if ps.config.EnableCPU {
+		globalProfilingMu.Lock()
 		cpuFile := filepath.Join(session.OutputDir, "cpu.prof")
 		cpu, err := os.Create(cpuFile) //nolint:gosec // Creating profile output file
 		if err != nil {
+			globalProfilingMu.Unlock()
 			return fmt.Errorf("failed to create CPU profile file: %w", err)
 		}
 		session.cpuFile = cpu
 
 		if err := pprof.StartCPUProfile(cpu); err != nil {
-			_ = cpu.Close() // Ignore error during cleanup
+			_ = cpu.Close()
+			session.cpuFile = nil
+			globalProfilingMu.Unlock()
 			return fmt.Errorf("failed to start CPU profiling: %w", err)
 		}
+		globalProfilingMu.Unlock()
 	}
 
 	// Start memory profiling session
+	// MemoryProfiler.StartProfiling acquires its own global lock internally
 	if ps.config.EnableMemory {
 		memSession, err := ps.memProfiler.StartProfiling(session.Name)
 		if err != nil {
+			// Cleanup CPU profiling before returning error
+			ps.cleanupPartialSession(session)
 			return fmt.Errorf("failed to start memory profiling: %w", err)
 		}
 		session.memSession = memSession
 	}
 
-	// Start execution trace
+	// Start execution trace (requires global lock since tracing is process-wide)
 	if ps.config.EnableTrace {
+		globalProfilingMu.Lock()
 		traceFile := filepath.Join(session.OutputDir, "trace.out")
 		traceF, err := os.Create(traceFile) //nolint:gosec // Creating trace output file
 		if err != nil {
+			globalProfilingMu.Unlock()
+			// Cleanup CPU and memory profiling before returning error
+			ps.cleanupPartialSession(session)
 			return fmt.Errorf("failed to create trace file: %w", err)
 		}
 		session.traceFile = traceF
 
 		if err := trace.Start(traceF); err != nil {
-			_ = traceF.Close() // Ignore error during cleanup
+			_ = traceF.Close()
+			session.traceFile = nil
+			globalProfilingMu.Unlock()
+			// Cleanup CPU and memory profiling before returning error
+			ps.cleanupPartialSession(session)
 			return fmt.Errorf("failed to start execution trace: %w", err)
 		}
+		globalProfilingMu.Unlock()
 	}
 
 	// Prepare additional profile file paths
@@ -509,12 +602,14 @@ func (ps *ProfileSuite) generateHTMLReport(ctx context.Context, session *Compreh
 	// Check if CPU profile exists and has content before generating HTML report
 	if info, err := os.Stat(cpuProfile); err != nil || info.Size() == 0 {
 		// Create a placeholder HTML report if no valid CPU profile exists
+		// Escape session name to prevent HTML injection
+		escapedName := html.EscapeString(session.Name)
 		placeholder := `<!DOCTYPE html>
 <html>
 <head><title>CPU Profile Report</title></head>
 <body>
 <h1>CPU Profile Report</h1>
-<p>No CPU profile data available for session: ` + session.Name + `</p>
+<p>No CPU profile data available for session: ` + escapedName + `</p>
 <p>This may be because the profiled function executed too quickly to capture meaningful CPU profile data.</p>
 </body>
 </html>`
@@ -525,22 +620,34 @@ func (ps *ProfileSuite) generateHTMLReport(ctx context.Context, session *Compreh
 	cmd := exec.CommandContext(ctx, "go", "tool", "pprof", "-svg", "-output", htmlReport+".svg", cpuProfile) //nolint:gosec // Go pprof tool with controlled arguments
 
 	if err := cmd.Run(); err != nil {
+		// Check if context was canceled before attempting fallback
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		// If SVG generation fails, create a simple HTML report with text output
 		textReport := filepath.Join(session.OutputDir, "cpu_profile.txt")
 		textCmd := exec.CommandContext(ctx, "go", "tool", "pprof", "-text", "-output", textReport, cpuProfile) //nolint:gosec // Go pprof tool with controlled arguments
 
 		if textErr := textCmd.Run(); textErr != nil {
+			// Check if failure was due to context cancellation
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			return fmt.Errorf("failed to generate HTML or text report: HTML error: %w, Text error: %w", err, textErr)
 		}
 
 		// Create HTML wrapper for text report
 		if textContent, readErr := os.ReadFile(textReport); readErr == nil { //nolint:gosec // Reading generated text report file
+			// Escape session name and text content to prevent HTML injection
+			escapedName := html.EscapeString(session.Name)
+			escapedContent := html.EscapeString(string(textContent))
 			htmlContent := `<!DOCTYPE html>
 <html>
 <head><title>CPU Profile Report</title></head>
 <body>
-<h1>CPU Profile Report - ` + session.Name + `</h1>
-<pre>` + string(textContent) + `</pre>
+<h1>CPU Profile Report - ` + escapedName + `</h1>
+<pre>` + escapedContent + `</pre>
 </body>
 </html>`
 			return os.WriteFile(htmlReport, []byte(htmlContent), 0o644) //nolint:gosec // HTML report file with standard permissions
@@ -592,22 +699,32 @@ func (ps *ProfileSuite) createSessionSummary(session *ComprehensiveSession) Sess
 }
 
 // cleanupOldSessions removes old profiling sessions to save disk space
+// Directories are deleted in a background goroutine to avoid blocking while holding the lock
 func (ps *ProfileSuite) cleanupOldSessions() {
 	if len(ps.sessionHistory) <= ps.config.MaxSessionsToKeep {
 		return
 	}
 
-	// Remove oldest sessions
+	// Calculate how many sessions to remove
 	toRemove := len(ps.sessionHistory) - ps.config.MaxSessionsToKeep
+
+	// Collect directories to delete before modifying session history
+	dirsToDelete := make([]string, toRemove)
 	for i := 0; i < toRemove; i++ {
-		session := ps.sessionHistory[i]
-		if err := os.RemoveAll(session.OutputDir); err != nil {
-			log.Printf("Warning: failed to cleanup session directory %s: %v\n", session.OutputDir, err)
-		}
+		dirsToDelete[i] = ps.sessionHistory[i].OutputDir
 	}
 
-	// Update session history
+	// Update session history immediately
 	ps.sessionHistory = ps.sessionHistory[toRemove:]
+
+	// Delete directories in background to avoid blocking while holding the lock
+	go func() {
+		for _, dir := range dirsToDelete {
+			if err := os.RemoveAll(dir); err != nil {
+				log.Printf("Warning: failed to cleanup session directory %s: %v\n", dir, err)
+			}
+		}
+	}()
 }
 
 // GetSessionHistory returns the history of profiling sessions
@@ -621,12 +738,28 @@ func (ps *ProfileSuite) GetSessionHistory() []SessionSummary {
 	return history
 }
 
-// GetCurrentSession returns information about the current profiling session
-func (ps *ProfileSuite) GetCurrentSession() *ComprehensiveSession {
+// GetCurrentSession returns safe, immutable information about the current profiling session
+// This prevents race conditions by returning a copy of essential fields rather than
+// the mutable session pointer
+func (ps *ProfileSuite) GetCurrentSession() *SessionInfo {
 	ps.mu.RLock()
 	defer ps.mu.RUnlock()
 
-	return ps.currentSession
+	if ps.currentSession == nil {
+		return nil
+	}
+
+	// Lock the session to safely read its fields
+	ps.currentSession.mu.Lock()
+	defer ps.currentSession.mu.Unlock()
+
+	return &SessionInfo{
+		Name:      ps.currentSession.Name,
+		StartTime: ps.currentSession.StartTime,
+		OutputDir: ps.currentSession.OutputDir,
+		Started:   ps.currentSession.started,
+		Stopped:   ps.currentSession.stopped,
+	}
 }
 
 // IsActive returns true if a profiling session is currently active

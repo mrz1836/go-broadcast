@@ -200,3 +200,42 @@ func TestProgressTrackerConcurrency(t *testing.T) {
 	assert.Equal(t, 30, results.Skipped)
 	assert.Len(t, results.Errors, 30)
 }
+
+// TestProgressTrackerNoDoubleCount tests that completed count is not incremented twice
+// This tests the fix for Issue 6: Progress double-count
+func TestProgressTrackerNoDoubleCount(t *testing.T) {
+	tracker := NewProgressTracker(5, false)
+
+	// Test 1: RecordSuccess should increment completed once
+	tracker.StartRepository("org/repo1")
+	tracker.RecordSuccess("org/repo1")
+	tracker.FinishRepository("org/repo1")
+	assert.Equal(t, 1, tracker.completed, "completed should be 1 after RecordSuccess+FinishRepository")
+	assert.Equal(t, 1, tracker.successful, "successful should be 1")
+
+	// Test 2: RecordError should increment completed once
+	tracker.StartRepository("org/repo2")
+	tracker.RecordError("org/repo2", errors.ErrTest)
+	tracker.FinishRepository("org/repo2")
+	assert.Equal(t, 2, tracker.completed, "completed should be 2 after RecordError+FinishRepository")
+	assert.Equal(t, 1, tracker.failed, "failed should be 1")
+
+	// Test 3: RecordSkipped should increment completed once
+	tracker.StartRepository("org/repo3")
+	tracker.RecordSkipped("org/repo3", "reason")
+	tracker.FinishRepository("org/repo3")
+	assert.Equal(t, 3, tracker.completed, "completed should be 3 after RecordSkipped+FinishRepository")
+	assert.Equal(t, 1, tracker.skipped, "skipped should be 1")
+
+	// Test 4: FinishRepository alone should increment completed once
+	tracker.StartRepository("org/repo4")
+	tracker.FinishRepository("org/repo4")
+	assert.Equal(t, 4, tracker.completed, "completed should be 4 after FinishRepository alone")
+	assert.Equal(t, 2, tracker.successful, "successful should be 2 (including implicit success)")
+
+	// Test 5: Progress percentage should be accurate
+	completed, total, percentage := tracker.GetProgress()
+	assert.Equal(t, 4, completed)
+	assert.Equal(t, 5, total)
+	assert.InEpsilon(t, 80.0, percentage, 0.001)
+}

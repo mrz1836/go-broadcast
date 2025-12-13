@@ -173,6 +173,74 @@ func TestNewMapHandler_GenericTypes(t *testing.T) {
 	})
 }
 
+// Nil Mock Panic Tests - verify fail-fast behavior
+func TestNewCallHandler_NilPanics(t *testing.T) {
+	t.Parallel()
+	assert.PanicsWithValue(t, "mocks: nil mock.Mock passed to NewCallHandler", func() {
+		NewCallHandler[string](nil)
+	})
+}
+
+func TestNewErrorHandler_NilPanics(t *testing.T) {
+	t.Parallel()
+	assert.PanicsWithValue(t, "mocks: nil mock.Mock passed to NewErrorHandler", func() {
+		NewErrorHandler(nil)
+	})
+}
+
+func TestNewBoolHandler_NilPanics(t *testing.T) {
+	t.Parallel()
+	assert.PanicsWithValue(t, "mocks: nil mock.Mock passed to NewBoolHandler", func() {
+		NewBoolHandler(nil)
+	})
+}
+
+func TestNewStringHandler_NilPanics(t *testing.T) {
+	t.Parallel()
+	assert.PanicsWithValue(t, "mocks: nil mock.Mock passed to NewStringHandler", func() {
+		NewStringHandler(nil)
+	})
+}
+
+func TestNewSliceHandler_NilPanics(t *testing.T) {
+	t.Parallel()
+	assert.PanicsWithValue(t, "mocks: nil mock.Mock passed to NewSliceHandler", func() {
+		NewSliceHandler[string](nil)
+	})
+}
+
+func TestNewMapHandler_NilPanics(t *testing.T) {
+	t.Parallel()
+	assert.PanicsWithValue(t, "mocks: nil mock.Mock passed to NewMapHandler", func() {
+		NewMapHandler[string, int](nil)
+	})
+}
+
+// MockBase Zero-Value Tests - verify fail-fast on uninitialized MockBase
+func TestMockBase_ZeroValue_ErrorPanics(t *testing.T) {
+	t.Parallel()
+	base := &MockBase{} // zero value, not using NewMockBase()
+	assert.PanicsWithValue(t, "mocks: MockBase not initialized - use NewMockBase()", func() {
+		_ = base.Error("arg")
+	})
+}
+
+func TestMockBase_ZeroValue_BoolPanics(t *testing.T) {
+	t.Parallel()
+	base := &MockBase{}
+	assert.PanicsWithValue(t, "mocks: MockBase not initialized - use NewMockBase()", func() {
+		_, _ = base.Bool("arg")
+	})
+}
+
+func TestMockBase_ZeroValue_StringPanics(t *testing.T) {
+	t.Parallel()
+	base := &MockBase{}
+	assert.PanicsWithValue(t, "mocks: MockBase not initialized - use NewMockBase()", func() {
+		_, _ = base.String("arg")
+	})
+}
+
 func TestNewMockBase(t *testing.T) {
 	t.Parallel()
 

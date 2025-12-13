@@ -24,8 +24,10 @@ func SafeSliceAccess[T any](slice []T, index int) (T, bool) {
 	return slice[index], true
 }
 
-// FilterNonEmpty filters out empty strings from a slice.
-// This consolidates the common pattern of filtering empty values.
+// FilterNonEmpty filters out empty strings from a slice and trims whitespace.
+// Both filtering and trimming are applied: empty/whitespace-only strings are removed,
+// and remaining strings have leading/trailing whitespace trimmed.
+// Returns nil for nil or empty input slices.
 func FilterNonEmpty(slice []string) []string {
 	if IsEmptySlice(slice) {
 		return nil
@@ -61,6 +63,8 @@ func UniqueStrings(slice []string) []string {
 
 // ChunkSlice splits a slice into chunks of the specified size.
 // This consolidates the common pattern of batch processing slices.
+// Each returned chunk is an independent copy, safe to modify without affecting
+// the original slice or other chunks.
 func ChunkSlice[T any](slice []T, chunkSize int) [][]T {
 	if IsEmptySlice(slice) || chunkSize <= 0 {
 		return nil
@@ -72,7 +76,10 @@ func ChunkSlice[T any](slice []T, chunkSize int) [][]T {
 		if end > len(slice) {
 			end = len(slice)
 		}
-		chunks = append(chunks, slice[i:end])
+		// Create independent copy to prevent mutations from affecting original
+		chunk := make([]T, end-i)
+		copy(chunk, slice[i:end])
+		chunks = append(chunks, chunk)
 	}
 	return chunks
 }

@@ -9,8 +9,23 @@ import (
 	"strings"
 )
 
+// MaxLineLength is the maximum length of a single line in an env file.
+// Lines longer than this will cause a scanner error.
+const MaxLineLength = 1024 * 1024 // 1MB
+
 // parseEnvFile reads a .env file and returns key-value pairs.
-// Handles comments (#), empty lines, and KEY=VALUE format.
+// Handles comments (#), empty lines, KEY=VALUE format, and "export KEY=VALUE" format.
+//
+// Supported formats:
+//   - Simple: KEY=value
+//   - Quoted: KEY="value" or KEY='value'
+//   - With export: export KEY=value
+//   - Inline comments: KEY=value # comment (stripped for unquoted values)
+//
+// Limitations:
+//   - Multiline values are NOT supported; each KEY=VALUE must be on one line.
+//   - Lines longer than 1MB will cause an error.
+//   - Key names are not validated; any non-empty string before '=' is accepted.
 func parseEnvFile(path string) (map[string]string, error) {
 	// filepath.Clean sanitizes the path to prevent directory traversal
 	cleanPath := filepath.Clean(path)
@@ -23,6 +38,9 @@ func parseEnvFile(path string) (map[string]string, error) {
 
 	vars := make(map[string]string)
 	scanner := bufio.NewScanner(file)
+	// Set a buffer limit to prevent unbounded memory usage on malformed files.
+	// Default scanner buffer is 64KB; we allow up to 1MB for long lines.
+	scanner.Buffer(make([]byte, 0, 64*1024), MaxLineLength)
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -50,7 +68,13 @@ func parseEnvFile(path string) (map[string]string, error) {
 //   - Empty: KEY= (empty string)
 //   - Values with equals: KEY=foo=bar (value is "foo=bar")
 //   - Inline comments: KEY=value # comment → value is "value"
+//   - Export prefix: export KEY=value → key is "KEY"
+//
+// Unmatched quotes (e.g., KEY="unmatched) are preserved as-is.
 func parseEnvLine(line string) (key, value string, ok bool) {
+	// Handle shell-style "export" prefix (e.g., "export FOO=bar")
+	line = strings.TrimPrefix(line, "export ")
+
 	idx := strings.Index(line, "=")
 	if idx == -1 {
 		return "", "", false

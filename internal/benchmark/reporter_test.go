@@ -300,8 +300,7 @@ func TestCompareWithBaseline(t *testing.T) {
 				require.Equal(t, len(tt.current.Benchmarks), result.Summary.TotalBenchmarks)
 				require.GreaterOrEqual(t, result.Summary.Improved, 0)
 				require.GreaterOrEqual(t, result.Summary.Regressed, 0)
-				// Unchanged can be negative if items have both improvements and regressions
-				// This is expected behavior given the current implementation
+				require.GreaterOrEqual(t, result.Summary.Unchanged, 0, "Unchanged count should never be negative")
 			}
 		})
 	}
@@ -526,4 +525,137 @@ func TestComparisonReportJSONSerialization(t *testing.T) {
 	require.Equal(t, report.Summary.TotalBenchmarks, unmarshaled.Summary.TotalBenchmarks)
 	require.Equal(t, report.Summary.Improved, unmarshaled.Summary.Improved)
 	require.Len(t, unmarshaled.Improvements, len(report.Improvements))
+}
+
+// TestCompareWithBaselineNilMaps tests handling of nil benchmark maps
+func TestCompareWithBaselineNilMaps(t *testing.T) {
+	tests := []struct {
+		name     string
+		current  BaselineReport
+		baseline BaselineReport
+	}{
+		{
+			name:     "NilCurrentBenchmarks",
+			current:  BaselineReport{Benchmarks: nil},
+			baseline: BaselineReport{Benchmarks: map[string]Metrics{"test": {}}},
+		},
+		{
+			name:     "NilBaselineBenchmarks",
+			current:  BaselineReport{Benchmarks: map[string]Metrics{"test": {}}},
+			baseline: BaselineReport{Benchmarks: nil},
+		},
+		{
+			name:     "BothNil",
+			current:  BaselineReport{Benchmarks: nil},
+			baseline: BaselineReport{Benchmarks: nil},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Should not panic
+			require.NotPanics(t, func() {
+				result := CompareWithBaseline(tt.current, tt.baseline)
+				require.NotNil(t, result.Improvements)
+				require.NotNil(t, result.Regressions)
+			})
+		})
+	}
+}
+
+// TestCompareWithBaselineNoOverlap tests when benchmarks have no overlap
+func TestCompareWithBaselineNoOverlap(t *testing.T) {
+	current := BaselineReport{
+		Benchmarks: map[string]Metrics{
+			"newBenchmark": {Name: "newBenchmark", NsPerOp: 1000},
+		},
+	}
+	baseline := BaselineReport{
+		Benchmarks: map[string]Metrics{
+			"oldBenchmark": {Name: "oldBenchmark", NsPerOp: 1000},
+		},
+	}
+
+	result := CompareWithBaseline(current, baseline)
+
+	// Should not cause division by zero
+	require.InDelta(t, float64(0), result.Summary.AvgSpeedImprovement, 0.001)
+	require.InDelta(t, float64(0), result.Summary.AvgMemoryReduction, 0.001)
+	require.Empty(t, result.Improvements)
+	require.Empty(t, result.Regressions)
+	require.Equal(t, 1, result.Summary.TotalBenchmarks)
+	require.Equal(t, 1, result.Summary.Unchanged)
+}
+
+// TestSaveBaselineEmptyFilename tests validation of empty filename
+func TestSaveBaselineEmptyFilename(t *testing.T) {
+	report := BaselineReport{}
+	err := SaveBaseline("", report)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "filename cannot be empty")
+}
+
+// TestLoadBaselineEmptyFilename tests validation of empty filename
+func TestLoadBaselineEmptyFilename(t *testing.T) {
+	_, err := LoadBaseline("")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "filename cannot be empty")
+}
+
+// TestGenerateTextReportDeterministic tests that report output is deterministic
+func TestGenerateTextReportDeterministic(t *testing.T) {
+	comparison := ComparisonReport{
+		BaselineReport: BaselineReport{
+			Timestamp: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			GOOS:      "linux",
+			GOARCH:    "amd64",
+			Benchmarks: map[string]Metrics{
+				"zzzBenchmark": {Name: "zzzBenchmark", NsPerOp: 1000, BytesPerOp: 250, AllocsPerOp: 5},
+				"aaaBenchmark": {Name: "aaaBenchmark", NsPerOp: 2000, BytesPerOp: 500, AllocsPerOp: 10},
+				"mmmBenchmark": {Name: "mmmBenchmark", NsPerOp: 1500, BytesPerOp: 375, AllocsPerOp: 7},
+			},
+		},
+		CurrentReport: BaselineReport{
+			Timestamp: time.Date(2023, 1, 2, 12, 0, 0, 0, time.UTC),
+			GOOS:      "linux",
+			GOARCH:    "amd64",
+			Benchmarks: map[string]Metrics{
+				"zzzBenchmark": {Name: "zzzBenchmark", NsPerOp: 800, BytesPerOp: 200, AllocsPerOp: 4},
+				"aaaBenchmark": {Name: "aaaBenchmark", NsPerOp: 1600, BytesPerOp: 400, AllocsPerOp: 8},
+				"mmmBenchmark": {Name: "mmmBenchmark", NsPerOp: 1200, BytesPerOp: 300, AllocsPerOp: 6},
+			},
+		},
+		Summary: ComparisonSummary{TotalBenchmarks: 3},
+	}
+
+	// Generate report multiple times and verify consistency
+	report1 := GenerateTextReport(comparison)
+	report2 := GenerateTextReport(comparison)
+	report3 := GenerateTextReport(comparison)
+
+	require.Equal(t, report1, report2, "Report should be deterministic")
+	require.Equal(t, report2, report3, "Report should be deterministic")
+
+	// Verify alphabetical ordering in detailed comparison
+	require.Contains(t, report1, "aaaBenchmark")
+	require.Contains(t, report1, "mmmBenchmark")
+	require.Contains(t, report1, "zzzBenchmark")
+
+	// aaaBenchmark should appear before mmmBenchmark which should appear before zzzBenchmark
+	aaaIdx := len(report1) - len(report1[findIndex(report1, "aaaBenchmark"):])
+	mmmIdx := len(report1) - len(report1[findIndex(report1, "mmmBenchmark"):])
+	zzzIdx := len(report1) - len(report1[findIndex(report1, "zzzBenchmark"):])
+
+	require.Less(t, aaaIdx, mmmIdx, "aaaBenchmark should appear before mmmBenchmark")
+	require.Less(t, mmmIdx, zzzIdx, "mmmBenchmark should appear before zzzBenchmark")
+}
+
+// findIndex returns the starting index of substr in s, or -1 if not found
+func findIndex(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
 }

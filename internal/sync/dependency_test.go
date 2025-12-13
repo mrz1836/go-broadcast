@@ -401,3 +401,55 @@ func TestDependencyResolver_DeepDependencyChain(t *testing.T) {
 		assert.Equal(t, groups[i].ID, result[i].ID)
 	}
 }
+
+// TestDependencyResolver_PathCleanupOnError tests that the DFS path is properly
+// cleaned up even when errors occur (Issue 7 fix)
+func TestDependencyResolver_PathCleanupOnError(t *testing.T) {
+	resolver := NewDependencyResolver(logrus.New())
+
+	// Create a complex graph with a cycle deep in the structure
+	// group-1 -> group-2 -> group-3 -> group-4 -> group-2 (cycle)
+	// This tests that the path is properly cleaned up when the error is returned
+	groups := []config.Group{
+		{ID: "group-1", Name: "Group 1", DependsOn: []string{"group-2"}},
+		{ID: "group-2", Name: "Group 2", DependsOn: []string{"group-3"}},
+		{ID: "group-3", Name: "Group 3", DependsOn: []string{"group-4"}},
+		{ID: "group-4", Name: "Group 4", DependsOn: []string{"group-2"}}, // Creates cycle
+	}
+
+	for _, g := range groups {
+		resolver.AddGroup(g)
+	}
+
+	_, err := resolver.Resolve()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "circular dependency")
+
+	// The error message should contain the cycle path
+	// This verifies that the path tracking worked correctly
+	assert.Contains(t, err.Error(), "group-2")
+}
+
+// TestDependencyResolver_MultipleErrorPaths tests that path cleanup works
+// correctly even with multiple potential error paths
+func TestDependencyResolver_MultipleErrorPaths(t *testing.T) {
+	resolver := NewDependencyResolver(logrus.New())
+
+	// Create a graph where multiple paths could lead to errors
+	// Test that visiting one erroneous path doesn't corrupt the state
+	// for detecting errors in another path
+	groups := []config.Group{
+		{ID: "group-1", Name: "Group 1", DependsOn: []string{"group-2"}},
+		{ID: "group-2", Name: "Group 2", DependsOn: []string{"group-1"}}, // Cycle 1
+		{ID: "group-3", Name: "Group 3", DependsOn: []string{"group-4"}},
+		{ID: "group-4", Name: "Group 4", DependsOn: []string{"group-3"}}, // Cycle 2
+	}
+
+	for _, g := range groups {
+		resolver.AddGroup(g)
+	}
+
+	_, err := resolver.Resolve()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "circular dependency")
+}

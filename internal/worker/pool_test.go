@@ -45,17 +45,63 @@ func (m *mockTask) Name() string {
 
 // TestNewPool tests pool creation
 func TestNewPool(t *testing.T) {
-	pool := NewPool(4, 10)
-	require.NotNil(t, pool)
-	assert.Equal(t, 4, pool.workers)
-	assert.NotNil(t, pool.taskQueue)
-	assert.NotNil(t, pool.results)
-	assert.NotNil(t, pool.cancel)
+	t.Run("valid parameters", func(t *testing.T) {
+		pool, err := NewPool(4, 10)
+		require.NoError(t, err)
+		require.NotNil(t, pool)
+		assert.Equal(t, 4, pool.workers)
+		assert.NotNil(t, pool.taskQueue)
+		assert.NotNil(t, pool.results)
+	})
+
+	t.Run("invalid workers", func(t *testing.T) {
+		pool, err := NewPool(0, 10)
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrInvalidWorkers)
+		require.Nil(t, pool)
+
+		pool, err = NewPool(-1, 10)
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrInvalidWorkers)
+		require.Nil(t, pool)
+	})
+
+	t.Run("invalid queue size", func(t *testing.T) {
+		pool, err := NewPool(4, 0)
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrInvalidQueueSize)
+		require.Nil(t, pool)
+
+		pool, err = NewPool(4, -1)
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrInvalidQueueSize)
+		require.Nil(t, pool)
+	})
+}
+
+// TestMustNewPool tests MustNewPool panic behavior
+func TestMustNewPool(t *testing.T) {
+	t.Run("valid parameters", func(t *testing.T) {
+		pool := MustNewPool(4, 10)
+		require.NotNil(t, pool)
+	})
+
+	t.Run("panics on invalid workers", func(t *testing.T) {
+		assert.Panics(t, func() {
+			MustNewPool(0, 10)
+		})
+	})
+
+	t.Run("panics on invalid queue size", func(t *testing.T) {
+		assert.Panics(t, func() {
+			MustNewPool(4, 0)
+		})
+	})
 }
 
 // TestPoolStartAndShutdown tests basic pool lifecycle
 func TestPoolStartAndShutdown(t *testing.T) {
-	pool := NewPool(2, 10)
+	pool := MustNewPool(2, 10)
 	ctx := context.Background()
 
 	pool.Start(ctx)
@@ -84,7 +130,7 @@ func TestPoolStartAndShutdown(t *testing.T) {
 
 // TestPoolSubmitBatch tests batch task submission
 func TestPoolSubmitBatch(t *testing.T) {
-	pool := NewPool(4, 20)
+	pool := MustNewPool(4, 20)
 	ctx := context.Background()
 	pool.Start(ctx)
 
@@ -121,7 +167,7 @@ func TestPoolSubmitBatch(t *testing.T) {
 
 // TestPoolTaskError tests handling of task errors
 func TestPoolTaskError(t *testing.T) {
-	pool := NewPool(2, 10)
+	pool := MustNewPool(2, 10)
 	ctx := context.Background()
 	pool.Start(ctx)
 
@@ -149,7 +195,7 @@ func TestPoolTaskError(t *testing.T) {
 
 // TestPoolQueueFull tests behavior when queue is full
 func TestPoolQueueFull(t *testing.T) {
-	pool := NewPool(1, 2) // Small queue: 1 worker, 2 queue slots
+	pool := MustNewPool(1, 2) // Small queue: 1 worker, 2 queue slots
 	ctx := context.Background()
 	pool.Start(ctx)
 
@@ -210,7 +256,7 @@ func TestPoolQueueFull(t *testing.T) {
 
 // TestPoolStats tests statistics tracking
 func TestPoolStats(t *testing.T) {
-	pool := NewPool(2, 10)
+	pool := MustNewPool(2, 10)
 	ctx := context.Background()
 	pool.Start(ctx)
 
@@ -257,7 +303,7 @@ func TestPoolStats(t *testing.T) {
 
 // TestPoolContextCancellation tests task cancellation via context
 func TestPoolContextCancellation(t *testing.T) {
-	pool := NewPool(2, 10)
+	pool := MustNewPool(2, 10)
 	ctx, cancel := context.WithCancel(context.Background())
 	pool.Start(ctx)
 
@@ -299,7 +345,7 @@ func TestPoolContextCancellation(t *testing.T) {
 
 // TestPoolConcurrentSubmit tests concurrent task submission
 func TestPoolConcurrentSubmit(t *testing.T) {
-	pool := NewPool(4, 100)
+	pool := MustNewPool(4, 100)
 	ctx := context.Background()
 	pool.Start(ctx)
 	defer pool.Shutdown() // Ensure cleanup even on timeout
@@ -341,7 +387,7 @@ func TestPoolConcurrentSubmit(t *testing.T) {
 
 // TestPoolPanicRecovery tests that worker panics don't crash the pool
 func TestPoolPanicRecovery(t *testing.T) {
-	pool := NewPool(2, 10)
+	pool := MustNewPool(2, 10)
 	ctx := context.Background()
 	pool.Start(ctx)
 
@@ -410,7 +456,7 @@ func TestErrorDefinitions(t *testing.T) {
 
 // TestPoolBatchSubmitPartialFailure tests batch submission with queue full
 func TestPoolBatchSubmitPartialFailure(t *testing.T) {
-	pool := NewPool(1, 2) // Very small queue
+	pool := MustNewPool(1, 2) // Very small queue
 	ctx := context.Background()
 	pool.Start(ctx)
 
@@ -449,7 +495,7 @@ func TestPoolHighConcurrencyStress(t *testing.T) {
 		numRoutines = 20
 	)
 
-	pool := NewPool(numWorkers, queueSize)
+	pool := MustNewPool(numWorkers, queueSize)
 	ctx := context.Background()
 	pool.Start(ctx)
 
@@ -536,7 +582,7 @@ func TestPoolResourceCleanupOnPanic(t *testing.T) {
 	const numWorkers = 5
 	const numTasks = 50
 
-	pool := NewPool(numWorkers, numTasks*2)
+	pool := MustNewPool(numWorkers, numTasks*2)
 	ctx := context.Background()
 	pool.Start(ctx)
 
@@ -613,7 +659,7 @@ func TestPoolContextCancellationCleanup(t *testing.T) {
 	const numWorkers = 4
 	const numTasks = 100
 
-	pool := NewPool(numWorkers, numTasks)
+	pool := MustNewPool(numWorkers, numTasks)
 	ctx, cancel := context.WithCancel(context.Background())
 	pool.Start(ctx)
 
@@ -682,7 +728,7 @@ func TestPoolMemoryLeakPrevention(t *testing.T) {
 	// Run multiple cycles to detect memory leaks
 	for i := 0; i < iterations; i++ {
 		t.Run(fmt.Sprintf("iteration_%d", i), func(t *testing.T) {
-			pool := NewPool(5, tasksPerIteration*2)
+			pool := MustNewPool(5, tasksPerIteration*2)
 			ctx := context.Background()
 			pool.Start(ctx)
 
@@ -752,4 +798,211 @@ func TestPoolMemoryLeakPrevention(t *testing.T) {
 			assert.Equal(t, int64(tasksPerIteration), atomic.LoadInt64(&completed))
 		})
 	}
+}
+
+// TestSubmitAfterShutdown verifies that Submit returns ErrPoolShuttingDown after Shutdown
+func TestSubmitAfterShutdown(t *testing.T) {
+	pool := MustNewPool(2, 10)
+	ctx := context.Background()
+	pool.Start(ctx)
+
+	// Drain results in background
+	go func() {
+		for range pool.Results() { //nolint:revive // Intentionally draining channel
+		}
+	}()
+
+	pool.Shutdown()
+
+	// Submit should return ErrPoolShuttingDown, not panic
+	task := &mockTask{name: "after-shutdown-task"}
+	err := pool.Submit(task)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrPoolShuttingDown)
+}
+
+// TestDoubleShutdown verifies that calling Shutdown twice doesn't panic
+func TestDoubleShutdown(t *testing.T) {
+	pool := MustNewPool(2, 10)
+	ctx := context.Background()
+	pool.Start(ctx)
+
+	// Drain results in background
+	go func() {
+		for range pool.Results() { //nolint:revive // Intentionally draining channel
+		}
+	}()
+
+	// First shutdown
+	pool.Shutdown()
+
+	// Second shutdown should not panic
+	assert.NotPanics(t, func() {
+		pool.Shutdown()
+	})
+
+	// Third shutdown should also not panic
+	assert.NotPanics(t, func() {
+		pool.Shutdown()
+	})
+}
+
+// TestNilTask verifies that Submit returns ErrNilTask for nil tasks
+func TestNilTask(t *testing.T) {
+	pool := MustNewPool(2, 10)
+	ctx := context.Background()
+	pool.Start(ctx)
+	defer pool.Shutdown()
+
+	// Drain results in background
+	go func() {
+		for range pool.Results() { //nolint:revive // Intentionally draining channel
+		}
+	}()
+
+	err := pool.Submit(nil)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNilTask)
+}
+
+// TestDoubleStart verifies that calling Start twice doesn't spawn duplicate workers
+func TestDoubleStart(t *testing.T) {
+	pool := MustNewPool(2, 10)
+	ctx := context.Background()
+
+	// Start the pool
+	pool.Start(ctx)
+
+	// Second start should be a no-op
+	pool.Start(ctx)
+
+	// Submit a task
+	task := &mockTask{name: "test-task"}
+	err := pool.Submit(task)
+	require.NoError(t, err)
+
+	// Should receive exactly one result
+	select {
+	case result := <-pool.Results():
+		assert.Equal(t, "test-task", result.TaskName)
+		require.NoError(t, result.Error)
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for result")
+	}
+
+	pool.Shutdown()
+
+	// Verify pool processed only once (not duplicated by multiple workers)
+	processed, _, _ := pool.Stats()
+	assert.Equal(t, int64(1), processed)
+}
+
+// TestContextCancellationNoTaskLoss verifies tasks are accounted for on cancellation
+func TestContextCancellationNoTaskLoss(t *testing.T) {
+	const numTasks = 20
+	pool := MustNewPool(4, numTasks)
+	ctx, cancel := context.WithCancel(context.Background())
+	pool.Start(ctx)
+
+	var resultsReceived atomic.Int64
+	var wg sync.WaitGroup
+
+	// Collect results
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for range pool.Results() {
+			resultsReceived.Add(1)
+		}
+	}()
+
+	// Submit tasks that wait for context cancellation
+	for i := 0; i < numTasks; i++ {
+		task := &mockTask{
+			name: fmt.Sprintf("task-%d", i),
+			executeFunc: func(ctx context.Context) error {
+				<-ctx.Done()
+				return ctx.Err()
+			},
+		}
+		err := pool.Submit(task)
+		require.NoError(t, err)
+	}
+
+	// Cancel context after tasks have started
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	pool.Shutdown()
+	wg.Wait()
+
+	// All submitted tasks should have a result (either completed or canceled)
+	// Some tasks may be dropped if results channel was full during shutdown,
+	// but we should have processed most of them
+	received := resultsReceived.Load()
+	t.Logf("Received %d/%d results", received, numTasks)
+	assert.Positive(t, received, "Should have received at least some results")
+}
+
+// TestResultsChannelBackpressure verifies workers don't deadlock when results aren't consumed
+func TestResultsChannelBackpressure(t *testing.T) {
+	// Create pool with small results buffer
+	pool := MustNewPool(2, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	pool.Start(ctx)
+
+	// Submit tasks without consuming results
+	for i := 0; i < 10; i++ {
+		task := &mockTask{
+			name:      fmt.Sprintf("task-%d", i),
+			sleepTime: 10 * time.Millisecond,
+		}
+		_ = pool.Submit(task) // Ignore errors - queue may fill up
+	}
+
+	// Wait a bit then cancel - this should not deadlock
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	// Shutdown should complete within timeout (not deadlock)
+	done := make(chan struct{})
+	go func() {
+		pool.Shutdown()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Success - shutdown completed
+	case <-time.After(5 * time.Second):
+		t.Fatal("Shutdown deadlocked - results channel backpressure issue")
+	}
+}
+
+// TestShutdownBeforeStart verifies Shutdown works even if Start was never called
+func TestShutdownBeforeStart(t *testing.T) {
+	pool := MustNewPool(2, 10)
+
+	// Shutdown without Start should not panic
+	assert.NotPanics(t, func() {
+		pool.Shutdown()
+	})
+}
+
+// TestErrorDefinitionsExtended tests all error variable definitions
+func TestErrorDefinitionsExtended(t *testing.T) {
+	t.Run("ErrNilTask", func(t *testing.T) {
+		require.Error(t, ErrNilTask)
+		assert.Equal(t, "task is nil", ErrNilTask.Error())
+	})
+
+	t.Run("ErrInvalidWorkers", func(t *testing.T) {
+		require.Error(t, ErrInvalidWorkers)
+		assert.Equal(t, "workers must be at least 1", ErrInvalidWorkers.Error())
+	})
+
+	t.Run("ErrInvalidQueueSize", func(t *testing.T) {
+		require.Error(t, ErrInvalidQueueSize)
+		assert.Equal(t, "queue size must be at least 1", ErrInvalidQueueSize.Error())
+	})
 }

@@ -84,7 +84,10 @@ func (e *ExclusionEngine) IsExcluded(filePath string) bool {
 
 	// Check cache first
 	if cached, found := e.cache.Load(normalizedPath); found {
-		return cached.(bool)
+		if val, ok := cached.(bool); ok {
+			return val
+		}
+		// Invalid cache entry, continue to evaluation
 	}
 
 	// Evaluate patterns
@@ -108,7 +111,10 @@ func (e *ExclusionEngine) IsDirectoryExcluded(dirPath string) bool {
 	// Check cache first
 	cacheKey := normalizedPath + "__DIR__"
 	if cached, found := e.cache.Load(cacheKey); found {
-		return cached.(bool)
+		if val, ok := cached.(bool); ok {
+			return val
+		}
+		// Invalid cache entry, continue to evaluation
 	}
 
 	// Evaluate patterns specifically for directories
@@ -220,6 +226,7 @@ func (e *ExclusionEngine) compilePattern(pattern string) exclusionPattern {
 		// If compilation fails, create a simple literal match
 		literalPattern := "(^|.*/)(" + regexp.QuoteMeta(original) + ")($|/.*)"
 		regex, _ = regexp.Compile(literalPattern)
+		// If even the fallback fails, regex will be nil and will be skipped during matching
 	}
 
 	return exclusionPattern{

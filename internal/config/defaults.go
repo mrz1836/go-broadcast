@@ -18,8 +18,12 @@ func DefaultExclusions() []string {
 	}
 }
 
-// ApplyDirectoryDefaults applies default values to directory mappings
+// ApplyDirectoryDefaults applies default values to directory mappings.
+// If dm is nil, the function returns immediately without panic.
 func ApplyDirectoryDefaults(dm *DirectoryMapping) {
+	if dm == nil {
+		return
+	}
 	if dm.Exclude == nil {
 		dm.Exclude = DefaultExclusions()
 	}

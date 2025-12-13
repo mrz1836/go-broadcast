@@ -325,6 +325,14 @@ func TestBatchOperationError(t *testing.T) {
 			err:       nil,
 			wantNil:   true,
 		},
+		{
+			name:      "single item batch (start equals end-1)",
+			operation: "process",
+			start:     5,
+			end:       6,
+			err:       baseErr,
+			want:      "batch operation failed: process items 5-5: processing failed",
+		},
 	}
 
 	for _, tt := range tests {
@@ -339,4 +347,76 @@ func TestBatchOperationError(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBatchOperationError_InvalidRange(t *testing.T) {
+	baseErr := errTestProcessing
+
+	tests := []struct {
+		name        string
+		operation   string
+		start       int
+		end         int
+		wantContain string
+	}{
+		{
+			name:        "start greater than end",
+			operation:   "process",
+			start:       10,
+			end:         5,
+			wantContain: "invalid range [10, 5)",
+		},
+		{
+			name:        "zero range (start equals end)",
+			operation:   "process",
+			start:       0,
+			end:         0,
+			wantContain: "invalid range [0, 0)",
+		},
+		{
+			name:        "same non-zero values",
+			operation:   "validate",
+			start:       5,
+			end:         5,
+			wantContain: "invalid range [5, 5)",
+		},
+		{
+			name:        "negative start",
+			operation:   "process",
+			start:       -1,
+			end:         5,
+			wantContain: "invalid range [-1, 5)",
+		},
+		{
+			name:        "negative end",
+			operation:   "process",
+			start:       0,
+			end:         -1,
+			wantContain: "invalid range [0, -1)",
+		},
+		{
+			name:        "both negative",
+			operation:   "process",
+			start:       -5,
+			end:         -1,
+			wantContain: "invalid range [-5, -1)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := BatchOperationError(tt.operation, tt.start, tt.end, baseErr)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantContain)
+			// Should still wrap both template and base error
+			require.ErrorIs(t, err, errBatchOperationTemplate)
+			require.ErrorIs(t, err, baseErr)
+		})
+	}
+}
+
+func TestBatchOperationError_InvalidRangeNilError(t *testing.T) {
+	// Even with invalid range, nil error should return nil
+	err := BatchOperationError("process", -1, 5, nil)
+	assert.NoError(t, err)
 }

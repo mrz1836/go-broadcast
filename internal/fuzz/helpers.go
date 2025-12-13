@@ -7,23 +7,29 @@ import (
 	"unicode/utf8"
 )
 
+// maxInputLength is the maximum input length for security validation functions.
+// Inputs exceeding this length are treated as suspicious/unsafe to prevent
+// resource exhaustion attacks.
+const maxInputLength = 10000
+
 // ContainsShellMetachars checks for shell metacharacters that could lead to command injection
+// Uses strings.ContainsAny for O(n) performance instead of O(n*m)
 func ContainsShellMetachars(s string) bool {
-	metachars := []string{";", "&", "|", "`", "$", "(", ")", "{", "}", "<", ">", "\\", "'", "\"", "\n", "\r", "\t"}
-	for _, char := range metachars {
-		if strings.Contains(s, char) {
-			return true
-		}
-	}
-	// Check for null bytes
-	if strings.Contains(s, "\x00") {
+	// Treat excessively long input as suspicious
+	if len(s) > maxInputLength {
 		return true
 	}
-	return false
+	// Shell metacharacters that could enable command injection
+	const shellMetachars = ";&|`$(){}<>\\'\"" + "\n\r\t\x00"
+	return strings.ContainsAny(s, shellMetachars)
 }
 
 // ContainsPathTraversal checks for path traversal attempts
 func ContainsPathTraversal(path string) bool {
+	// Treat excessively long input as suspicious
+	if len(path) > maxInputLength {
+		return true
+	}
 	dangerous := []string{
 		"..", "../", "..\\",
 		"/..", "\\..",
@@ -70,7 +76,12 @@ func IsValidUTF8(s string) bool {
 
 // ContainsURLMetachars checks for characters that could lead to URL injection
 func ContainsURLMetachars(url string) bool {
+	// Treat excessively long input as suspicious
+	if len(url) > maxInputLength {
+		return true
+	}
 	// Check for common URL injection patterns
+	// Patterns are lowercase; URL is lowercased for case-insensitive matching
 	dangerous := []string{
 		"javascript:", "data:", "vbscript:",
 		"file://", "dict://", "gopher://",
@@ -92,9 +103,13 @@ func IsSafeBranchName(branch string) bool {
 	if branch == "" {
 		return false
 	}
-	// Check for shell metacharacters
+	// Reject excessively long branch names
+	if len(branch) > maxInputLength {
+		return false
+	}
+	// Check for shell metacharacters - reject unsafe branches
 	if ContainsShellMetachars(branch) {
-		return true // unsafe
+		return false // contains shell metacharacters, not safe
 	}
 	// Check for git-specific dangerous patterns
 	dangerous := []string{
@@ -115,6 +130,10 @@ func IsSafeBranchName(branch string) bool {
 
 // IsSafeRepoName checks if a repository name follows safe patterns
 func IsSafeRepoName(repo string) bool {
+	// Reject excessively long repo names
+	if len(repo) > maxInputLength {
+		return false
+	}
 	// Basic format check
 	parts := strings.Split(repo, "/")
 	if len(parts) != 2 {

@@ -69,7 +69,7 @@ func BenchmarkWorkerPool(b *testing.B) {
 		for _, tasks := range taskCounts {
 			b.Run(fmt.Sprintf("Workers_%d_Tasks_%d", workers, tasks), func(b *testing.B) {
 				benchmark.WithMemoryTracking(b, func() {
-					pool := NewPool(workers, tasks)
+					pool := MustNewPool(workers, tasks)
 					pool.Start(context.Background())
 
 					// Submit tasks
@@ -121,7 +121,7 @@ func BenchmarkWorkerPoolThroughput(b *testing.B) {
 			benchmark.WithMemoryTracking(b, func() {
 				start := time.Now()
 
-				pool := NewPool(scenario.workers, scenario.taskCount)
+				pool := MustNewPool(scenario.workers, scenario.taskCount)
 				pool.Start(context.Background())
 
 				// Submit all tasks
@@ -163,7 +163,7 @@ func BenchmarkWorkerPoolCPUIntensive(b *testing.B) {
 				taskCount := 20 // Fixed number of tasks
 
 				benchmark.WithMemoryTracking(b, func() {
-					pool := NewPool(workers, taskCount)
+					pool := MustNewPool(workers, taskCount)
 					pool.Start(context.Background())
 
 					// Submit CPU-intensive tasks
@@ -208,7 +208,7 @@ func BenchmarkWorkerPoolMemoryUsage(b *testing.B) {
 		b.Run(scenario.name, func(b *testing.B) {
 			b.ReportAllocs()
 			benchmark.WithMemoryTracking(b, func() {
-				pool := NewPool(scenario.workers, scenario.queueSize)
+				pool := MustNewPool(scenario.workers, scenario.queueSize)
 				pool.Start(context.Background())
 
 				// Submit all tasks first
@@ -245,7 +245,7 @@ func BenchmarkWorkerPoolScaling(b *testing.B) {
 			benchmark.WithMemoryTracking(b, func() {
 				start := time.Now()
 
-				pool := NewPool(workers, taskCount)
+				pool := MustNewPool(workers, taskCount)
 				pool.Start(context.Background())
 
 				// Submit tasks
@@ -284,7 +284,7 @@ func BenchmarkWorkerPoolBatchSubmission(b *testing.B) {
 	for _, batchSize := range batchSizes {
 		b.Run(fmt.Sprintf("BatchSize_%d", batchSize), func(b *testing.B) {
 			benchmark.WithMemoryTracking(b, func() {
-				pool := NewPool(workers, batchSize*2)
+				pool := MustNewPool(workers, batchSize*2)
 				pool.Start(context.Background())
 
 				// Create batch of tasks
@@ -318,7 +318,7 @@ func BenchmarkWorkerPoolBatchSubmission(b *testing.B) {
 
 // BenchmarkWorkerPoolStats tests statistics collection overhead
 func BenchmarkWorkerPoolStats(b *testing.B) {
-	pool := NewPool(5, 100)
+	pool := MustNewPool(5, 100)
 	pool.Start(context.Background())
 	defer pool.Shutdown()
 
@@ -351,8 +351,9 @@ func BenchmarkWorkerPoolContextCancellation(b *testing.B) {
 	for _, scenario := range scenarios {
 		b.Run(scenario.name, func(b *testing.B) {
 			benchmark.WithMemoryTracking(b, func() {
-				pool := NewPool(scenario.workers, scenario.taskCount)
-				pool.Start(context.Background())
+				ctx, cancel := context.WithCancel(context.Background())
+				pool := MustNewPool(scenario.workers, scenario.taskCount)
+				pool.Start(ctx)
 
 				// Submit long-running tasks
 				for j := 0; j < scenario.taskCount; j++ {
@@ -365,7 +366,7 @@ func BenchmarkWorkerPoolContextCancellation(b *testing.B) {
 
 				// Cancel after a short time
 				time.Sleep(time.Millisecond * 10)
-				pool.cancel() // Cancel the context
+				cancel() // Cancel the context
 
 				// Wait for shutdown
 				pool.Shutdown()

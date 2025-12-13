@@ -17,11 +17,9 @@ func TestInit(_ *testing.T) {
 }
 
 func TestSetAndGetStdout(t *testing.T) {
-	// Save original
-	original := stdout
-	defer func() {
-		stdout = original
-	}()
+	// Save original using mutex-protected accessor
+	original := Stdout()
+	defer SetStdout(original)
 
 	// Test setting custom writer
 	buf := &bytes.Buffer{}
@@ -32,11 +30,9 @@ func TestSetAndGetStdout(t *testing.T) {
 }
 
 func TestSetAndGetStderr(t *testing.T) {
-	// Save original
-	original := stderr
-	defer func() {
-		stderr = original
-	}()
+	// Save original using mutex-protected accessor
+	original := Stderr()
+	defer SetStderr(original)
 
 	// Test setting custom writer
 	buf := &bytes.Buffer{}
@@ -50,7 +46,7 @@ func TestSuccess(t *testing.T) {
 	// Capture output
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	Success("test success message")
 
@@ -63,7 +59,7 @@ func TestSuccessf(t *testing.T) {
 	// Capture output
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	Successf("test %s message %d", "formatted", 123)
 
@@ -75,7 +71,7 @@ func TestInfo(t *testing.T) {
 	// Capture output
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	Info("test info message")
 
@@ -88,7 +84,7 @@ func TestInfof(t *testing.T) {
 	// Capture output
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	Infof("info %s %d", "test", 456)
 
@@ -100,7 +96,7 @@ func TestWarn(t *testing.T) {
 	// Capture stderr output
 	buf := &bytes.Buffer{}
 	SetStderr(buf)
-	defer SetStderr(stderr)
+	defer SetStderr(Stderr())
 
 	Warn("test warning message")
 
@@ -113,7 +109,7 @@ func TestWarnf(t *testing.T) {
 	// Capture stderr output
 	buf := &bytes.Buffer{}
 	SetStderr(buf)
-	defer SetStderr(stderr)
+	defer SetStderr(Stderr())
 
 	Warnf("warning %s %d", "formatted", 789)
 
@@ -125,7 +121,7 @@ func TestError(t *testing.T) {
 	// Capture stderr output
 	buf := &bytes.Buffer{}
 	SetStderr(buf)
-	defer SetStderr(stderr)
+	defer SetStderr(Stderr())
 
 	Error("test error message")
 
@@ -138,7 +134,7 @@ func TestErrorf(t *testing.T) {
 	// Capture stderr output
 	buf := &bytes.Buffer{}
 	SetStderr(buf)
-	defer SetStderr(stderr)
+	defer SetStderr(Stderr())
 
 	Errorf("error %s %d", "formatted", 999)
 
@@ -150,7 +146,7 @@ func TestPlain(t *testing.T) {
 	// Capture output
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	Plain("test plain message")
 
@@ -163,7 +159,7 @@ func TestPlainf(t *testing.T) {
 	// Capture output
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	Plainf("plain %s %d", "formatted", 111)
 
@@ -185,15 +181,15 @@ func TestProgressStartStop(t *testing.T) {
 	// Capture output
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	progress := NewProgress("testing progress")
 
 	// Start progress
 	progress.Start()
 
-	// Let it spin a bit
-	time.Sleep(50 * time.Millisecond)
+	// Let it spin a bit (ticker interval is 100ms, wait for at least one tick)
+	time.Sleep(150 * time.Millisecond)
 
 	// Stop progress
 	progress.Stop()
@@ -207,11 +203,11 @@ func TestProgressStopWithSuccess(t *testing.T) {
 	// Capture output
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	progress := NewProgress("test progress")
 	progress.Start()
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(150 * time.Millisecond) // Wait for at least one tick (100ms interval)
 	progress.StopWithSuccess("Success message")
 
 	output := buf.String()
@@ -222,16 +218,16 @@ func TestProgressStopWithError(t *testing.T) {
 	// Capture stderr output for error
 	stderrBuf := &bytes.Buffer{}
 	SetStderr(stderrBuf)
-	defer SetStderr(stderr)
+	defer SetStderr(Stderr())
 
 	// Capture stdout for progress
 	stdoutBuf := &bytes.Buffer{}
 	SetStdout(stdoutBuf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	progress := NewProgress("test progress")
 	progress.Start()
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(150 * time.Millisecond) // Wait for at least one tick (100ms interval)
 	progress.StopWithError("Error message")
 
 	errorOutput := stderrBuf.String()
@@ -242,7 +238,7 @@ func TestConcurrentOutputFunctions(t *testing.T) {
 	// Capture output
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	var wg sync.WaitGroup
 	numGoroutines := 10
@@ -302,7 +298,7 @@ func TestMultipleProgressIndicators(t *testing.T) {
 	// Capture output
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	// Create multiple progress indicators
 	progress1 := NewProgress("first progress")
@@ -312,8 +308,8 @@ func TestMultipleProgressIndicators(t *testing.T) {
 	progress1.Start()
 	progress2.Start()
 
-	// Let them run briefly
-	time.Sleep(30 * time.Millisecond)
+	// Let them run briefly (ticker interval is 100ms)
+	time.Sleep(150 * time.Millisecond)
 
 	// Stop both
 	progress1.Stop()
@@ -330,11 +326,13 @@ func TestOutputToCorrectStreams(t *testing.T) {
 	stdoutBuf := &bytes.Buffer{}
 	stderrBuf := &bytes.Buffer{}
 
+	originalStdout := Stdout()
+	originalStderr := Stderr()
 	SetStdout(stdoutBuf)
 	SetStderr(stderrBuf)
 	defer func() {
-		SetStdout(stdout)
-		SetStderr(stderr)
+		SetStdout(originalStdout)
+		SetStderr(originalStderr)
 	}()
 
 	// Test stdout functions
@@ -382,7 +380,7 @@ func BenchmarkSuccessOutput(b *testing.B) {
 	// Use a discard writer to avoid I/O overhead in benchmark
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -393,7 +391,7 @@ func BenchmarkSuccessOutput(b *testing.B) {
 func BenchmarkConcurrentOutput(b *testing.B) {
 	buf := &bytes.Buffer{}
 	SetStdout(buf)
-	defer SetStdout(stdout)
+	defer SetStdout(Stdout())
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -526,4 +524,122 @@ func TestNewColoredWriter(t *testing.T) {
 	assert.NotNil(t, writer.infoColor)
 	assert.NotNil(t, writer.warnColor)
 	assert.NotNil(t, writer.errorColor)
+}
+
+// Edge case tests for bug fixes
+
+func TestNewColoredWriter_NilWriters(t *testing.T) {
+	// Test that nil writers don't cause panics - they should default to io.Discard
+	writer := NewColoredWriter(nil, nil)
+
+	assert.NotNil(t, writer)
+	assert.NotNil(t, writer.stdout) // Should be io.Discard, not nil
+	assert.NotNil(t, writer.stderr) // Should be io.Discard, not nil
+
+	// These should not panic
+	writer.Success("test")
+	writer.Info("test")
+	writer.Warn("test")
+	writer.Error("test")
+	writer.Plain("test")
+}
+
+func TestProgress_StopWithoutStart(t *testing.T) {
+	// Calling Stop() without Start() should not deadlock or panic
+	progress := NewProgress("test")
+
+	// This should return immediately without blocking
+	done := make(chan struct{})
+	go func() {
+		progress.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Success - Stop() returned without blocking
+	case <-time.After(1 * time.Second):
+		t.Fatal("Stop() without Start() caused a deadlock")
+	}
+}
+
+func TestProgress_DoubleStop(t *testing.T) {
+	// Calling Stop() twice should not deadlock or panic
+	buf := &bytes.Buffer{}
+	SetStdout(buf)
+	defer SetStdout(Stdout())
+
+	progress := NewProgress("test")
+	progress.Start()
+	time.Sleep(150 * time.Millisecond) // Wait for at least one tick
+
+	// First stop - should work normally
+	progress.Stop()
+
+	// Second stop - should be a no-op, not deadlock
+	done := make(chan struct{})
+	go func() {
+		progress.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Success - second Stop() returned without blocking
+	case <-time.After(1 * time.Second):
+		t.Fatal("Double Stop() caused a deadlock")
+	}
+}
+
+func TestProgress_DoubleStart(t *testing.T) {
+	// Calling Start() twice should not spawn multiple goroutines
+	buf := &bytes.Buffer{}
+	SetStdout(buf)
+	defer SetStdout(Stdout())
+
+	progress := NewProgress("test")
+
+	// Start twice
+	progress.Start()
+	progress.Start() // Should be a no-op
+
+	time.Sleep(150 * time.Millisecond)
+
+	// Stop should work normally (only one goroutine to stop)
+	done := make(chan struct{})
+	go func() {
+		progress.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Success
+	case <-time.After(1 * time.Second):
+		t.Fatal("Stop() after double Start() caused issues")
+	}
+}
+
+func TestProgress_Idempotent(_ *testing.T) {
+	// Test that Progress operations are safe to call in any order
+	progress := NewProgress("test")
+
+	// Stop before Start
+	progress.Stop()
+	progress.Stop()
+
+	// Start after Stop
+	progress.Start()
+
+	// Start again (should be no-op since already started)
+	progress.Start()
+
+	time.Sleep(150 * time.Millisecond)
+
+	// Multiple stops
+	progress.Stop()
+	progress.Stop()
+	progress.Stop()
+
+	// No panics or deadlocks = success
 }

@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/fatih/color"
 )
@@ -24,6 +26,9 @@ type Writer interface {
 	Plainf(format string, args ...interface{})
 }
 
+// Compile-time interface check
+var _ Writer = (*ColoredWriter)(nil)
+
 // ColoredWriter implements Writer with colored output
 type ColoredWriter struct {
 	successColor *color.Color
@@ -35,8 +40,15 @@ type ColoredWriter struct {
 	mu           sync.Mutex
 }
 
-// NewColoredWriter creates a new ColoredWriter instance
+// NewColoredWriter creates a new ColoredWriter instance.
+// If stdout or stderr is nil, io.Discard is used as a safe default.
 func NewColoredWriter(stdout, stderr io.Writer) *ColoredWriter {
+	if stdout == nil {
+		stdout = io.Discard
+	}
+	if stderr == nil {
+		stderr = io.Discard
+	}
 	return &ColoredWriter{
 		successColor: color.New(color.FgGreen, color.Bold),
 		infoColor:    color.New(color.FgCyan),
@@ -221,12 +233,15 @@ func Plainf(format string, args ...interface{}) {
 	Plain(fmt.Sprintf(format, args...))
 }
 
-// Progress represents a progress indicator
+// Progress represents a progress indicator.
+// It is safe to call Stop() multiple times or without calling Start().
 type Progress struct {
 	message string
 	spinner []string
 	index   int
-	done    chan bool
+	done    chan struct{} // Use struct{} for signal channels (zero allocation)
+	started atomic.Bool   // Prevents double-start goroutine leak
+	stopped atomic.Bool   // Prevents double-stop and deadlock
 	mu      sync.Mutex
 }
 
@@ -235,18 +250,26 @@ func NewProgress(message string) *Progress {
 	return &Progress{
 		message: message,
 		spinner: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
-		done:    make(chan bool),
+		done:    make(chan struct{}),
 	}
 }
 
-// Start begins showing the progress indicator
+// Start begins showing the progress indicator.
+// Calling Start() multiple times is safe; subsequent calls are no-ops.
 func (p *Progress) Start() {
+	// Prevent double-start which would leak goroutines
+	if p.started.Swap(true) {
+		return
+	}
+
+	ticker := time.NewTicker(100 * time.Millisecond)
 	go func() {
+		defer ticker.Stop()
 		for {
 			select {
 			case <-p.done:
 				return
-			default:
+			case <-ticker.C:
 				p.mu.Lock()
 				mu.Lock()
 				_, _ = fmt.Fprintf(stdout, "\r%s %s", p.spinner[p.index], p.message)
@@ -258,9 +281,14 @@ func (p *Progress) Start() {
 	}()
 }
 
-// Stop stops the progress indicator
+// Stop stops the progress indicator.
+// It is safe to call Stop() multiple times or without calling Start().
 func (p *Progress) Stop() {
-	p.done <- true
+	// Prevent deadlock: only stop if started and not already stopped
+	if !p.started.Load() || p.stopped.Swap(true) {
+		return
+	}
+	close(p.done) // Close instead of send - idiomatic Go
 	mu.Lock()
 	_, _ = fmt.Fprint(stdout, "\r\033[K") // Clear line
 	mu.Unlock()

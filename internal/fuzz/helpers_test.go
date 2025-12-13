@@ -2,6 +2,7 @@ package fuzz
 
 import (
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -450,7 +451,7 @@ func TestIsSafeBranchName(t *testing.T) {
 		{
 			name:     "Branch with shell metachar semicolon",
 			input:    "branch;rm -rf /",
-			expected: true, // Bug: function returns true for unsafe branches
+			expected: false, // Contains shell metacharacter, unsafe
 		},
 		{
 			name:     "Branch with dot-dot",
@@ -475,12 +476,12 @@ func TestIsSafeBranchName(t *testing.T) {
 		{
 			name:     "Branch with backslash",
 			input:    "feature\\branch",
-			expected: true, // Bug: function returns true for unsafe branches
+			expected: false, // Contains shell metacharacter (backslash), unsafe
 		},
 		{
 			name:     "Branch with at-brace",
 			input:    "branch@{1}",
-			expected: true, // Bug: function returns true for unsafe branches
+			expected: false, // Contains shell metacharacter (braces), unsafe
 		},
 		{
 			name:     "Branch with lock suffix",
@@ -495,7 +496,7 @@ func TestIsSafeBranchName(t *testing.T) {
 		{
 			name:     "Branch with tab",
 			input:    "branch\tname",
-			expected: true, // Bug: function returns true for unsafe branches
+			expected: false, // Contains shell metacharacter (tab), unsafe
 		},
 		{
 			name:     "Branch starting with dash",
@@ -758,24 +759,27 @@ func TestContainsNullByte(t *testing.T) {
 	}
 }
 
-// TestIsSafeBranchNameLogicBug tests the logic bug in IsSafeBranchName
-func TestIsSafeBranchNameLogicBug(t *testing.T) {
-	// This test documents a bug in the IsSafeBranchName function
-	// The function returns true when ContainsShellMetachars returns true,
-	// but it should return false (unsafe) in that case
-	t.Run("LogicBugWithShellMetachars", func(t *testing.T) {
-		branchWithSemicolon := "branch;rm -rf /"
+// TestIsSafeBranchNameShellMetachars verifies shell metacharacter rejection
+func TestIsSafeBranchNameShellMetachars(t *testing.T) {
+	// Branches with shell metacharacters should be rejected as unsafe
+	testCases := []struct {
+		name  string
+		input string
+	}{
+		{"semicolon", "branch;rm -rf /"},
+		{"ampersand", "branch && echo pwned"},
+		{"pipe", "branch | cat /etc/passwd"},
+		{"backtick", "branch`whoami`"},
+		{"dollar", "branch$(id)"},
+		{"newline", "branch\nmalicious"},
+	}
 
-		// This demonstrates the bug - the function currently returns true
-		// when it should return false for branches with shell metacharacters
-		result := IsSafeBranchName(branchWithSemicolon)
-
-		// The function currently has a bug where it returns true for unsafe branches
-		// In the current implementation, line 97 says: return true // unsafe
-		// This should be: return false // unsafe
-		// For now, we test the current buggy behavior to make tests pass
-		assert.True(t, result, "Due to the documented bug, function returns true for unsafe branches")
-	})
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := IsSafeBranchName(tc.input)
+			assert.False(t, result, "Branch with %s should be unsafe", tc.name)
+		})
+	}
 }
 
 // TestFuzzHelpersEdgeCases tests edge cases and boundary conditions
@@ -817,11 +821,12 @@ func TestFuzzHelpersEdgeCases(t *testing.T) {
 func TestFuzzHelpersConcurrency(t *testing.T) {
 	t.Run("ConcurrentAccess", func(_ *testing.T) {
 		// Test that the functions are safe for concurrent access
-		done := make(chan bool, 10)
+		var wg sync.WaitGroup
 
 		for i := 0; i < 10; i++ {
+			wg.Add(1)
 			go func(_ int) {
-				defer func() { done <- true }()
+				defer wg.Done()
 
 				testStr := "test-string"
 
@@ -838,8 +843,63 @@ func TestFuzzHelpersConcurrency(t *testing.T) {
 		}
 
 		// Wait for all goroutines to complete
-		for i := 0; i < 10; i++ {
-			<-done
-		}
+		wg.Wait()
+	})
+}
+
+// TestInputLengthValidation verifies that excessively long inputs are treated as suspicious
+func TestInputLengthValidation(t *testing.T) {
+	// Create a string longer than maxInputLength (10000)
+	longInput := strings.Repeat("a", 10001)
+	normalInput := strings.Repeat("a", 100)
+
+	t.Run("ContainsShellMetachars_LongInput", func(t *testing.T) {
+		result := ContainsShellMetachars(longInput)
+		assert.True(t, result, "Excessively long input should be treated as suspicious")
+	})
+
+	t.Run("ContainsShellMetachars_NormalInput", func(t *testing.T) {
+		result := ContainsShellMetachars(normalInput)
+		assert.False(t, result, "Normal input without metacharacters should be safe")
+	})
+
+	t.Run("ContainsPathTraversal_LongInput", func(t *testing.T) {
+		result := ContainsPathTraversal(longInput)
+		assert.True(t, result, "Excessively long path should be treated as suspicious")
+	})
+
+	t.Run("ContainsPathTraversal_NormalInput", func(t *testing.T) {
+		result := ContainsPathTraversal(normalInput)
+		assert.False(t, result, "Normal path without traversal should be safe")
+	})
+
+	t.Run("ContainsURLMetachars_LongInput", func(t *testing.T) {
+		result := ContainsURLMetachars(longInput)
+		assert.True(t, result, "Excessively long URL should be treated as suspicious")
+	})
+
+	t.Run("ContainsURLMetachars_NormalInput", func(t *testing.T) {
+		result := ContainsURLMetachars("https://" + normalInput + ".com")
+		assert.False(t, result, "Normal URL should be safe")
+	})
+
+	t.Run("IsSafeBranchName_LongInput", func(t *testing.T) {
+		result := IsSafeBranchName(longInput)
+		assert.False(t, result, "Excessively long branch name should be unsafe")
+	})
+
+	t.Run("IsSafeBranchName_NormalInput", func(t *testing.T) {
+		result := IsSafeBranchName(normalInput)
+		assert.True(t, result, "Normal branch name should be safe")
+	})
+
+	t.Run("IsSafeRepoName_LongInput", func(t *testing.T) {
+		result := IsSafeRepoName(longInput + "/" + normalInput)
+		assert.False(t, result, "Excessively long repo name should be unsafe")
+	})
+
+	t.Run("IsSafeRepoName_NormalInput", func(t *testing.T) {
+		result := IsSafeRepoName("org/repo")
+		assert.True(t, result, "Normal repo name should be safe")
 	})
 }

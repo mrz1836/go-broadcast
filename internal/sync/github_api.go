@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -148,6 +149,7 @@ type GitHubAPI struct {
 	baseDelay  time.Duration
 	logger     *logrus.Logger
 	stats      *APIStats
+	avgMu      sync.Mutex // Protects AverageTreeSize updates
 }
 
 // NewGitHubAPI creates a new GitHub API client with tree caching support
@@ -436,21 +438,20 @@ func (api *GitHubAPI) fetchTree(ctx context.Context, repo, ref string) (*TreeMap
 
 // updateAverageTreeSize updates the rolling average of tree sizes
 func (api *GitHubAPI) updateAverageTreeSize(newSize int) {
-	// Simple rolling average implementation
-	for {
-		current := api.stats.AverageTreeSize.Load()
-		var newAvg int64
-		if current == 0 {
-			// First measurement
-			newAvg = int64(newSize)
-		} else {
-			// Weight new size as 10% of the average
-			newAvg = (current*9 + int64(newSize)) / 10
-		}
-		if api.stats.AverageTreeSize.CompareAndSwap(current, newAvg) {
-			break
-		}
+	// Use mutex to avoid spin lock race condition
+	api.avgMu.Lock()
+	defer api.avgMu.Unlock()
+
+	current := api.stats.AverageTreeSize.Load()
+	var newAvg int64
+	if current == 0 {
+		// First measurement
+		newAvg = int64(newSize)
+	} else {
+		// Weight new size as 10% of the average
+		newAvg = (current*9 + int64(newSize)) / 10
 	}
+	api.stats.AverageTreeSize.Store(newAvg)
 }
 
 // isRateLimitError checks if an error is due to GitHub API rate limiting

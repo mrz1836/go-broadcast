@@ -268,7 +268,7 @@ func (dp *DirectoryProcessor) discoverFiles(ctx context.Context, sourceDir strin
 
 		// Early exclusion check for directories to avoid walking excluded trees
 		if d.IsDir() {
-			if dp.exclusionEngine.IsDirectoryExcluded(relPath) {
+			if dp.exclusionEngine != nil && dp.exclusionEngine.IsDirectoryExcluded(relPath) {
 				dp.logger.WithField("directory", relPath).Debug("Directory excluded by patterns")
 				return filepath.SkipDir
 			}
@@ -278,7 +278,7 @@ func (dp *DirectoryProcessor) discoverFiles(ctx context.Context, sourceDir strin
 		}
 
 		// Check if file should be excluded
-		if dp.exclusionEngine.IsExcluded(relPath) {
+		if dp.exclusionEngine != nil && dp.exclusionEngine.IsExcluded(relPath) {
 			dp.logger.WithField("file", relPath).Debug("File excluded by patterns")
 			dp.progressManager.GetReporter(dirMapping.Src, 50).RecordFileExcluded()
 			return nil

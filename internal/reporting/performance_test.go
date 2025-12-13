@@ -2,8 +2,10 @@ package reporting
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -617,14 +619,15 @@ func TestSaveReport(t *testing.T) {
 func TestHelperFunctions(t *testing.T) {
 	t.Run("GenerateReportID", func(t *testing.T) {
 		id1 := generateReportID()
-		time.Sleep(time.Millisecond) // Ensure different timestamp
 		id2 := generateReportID()
 
 		require.NotEmpty(t, id1)
 		require.NotEmpty(t, id2)
-		// IDs might be the same if generated within the same second, so we test they're numeric
-		require.Regexp(t, `^\d+$`, id1)
-		require.Regexp(t, `^\d+$`, id2)
+		// IDs should be unique and match the format: nanoseconds_randomhex
+		require.Regexp(t, `^\d+_[a-f0-9]+$`, id1)
+		require.Regexp(t, `^\d+_[a-f0-9]+$`, id2)
+		// IDs should be different due to random component
+		require.NotEqual(t, id1, id2, "Report IDs should be unique")
 	})
 
 	t.Run("GetSystemInfo", func(t *testing.T) {
@@ -845,5 +848,431 @@ func BenchmarkGenerateReport(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+// TestPerformanceReporter_RaceConditions tests concurrent access to PerformanceReporter
+func TestPerformanceReporter_RaceConditions(t *testing.T) {
+	tempDir := testutil.CreateTempDir(t)
+
+	config := ReportConfig{
+		OutputDirectory:     tempDir,
+		BaselineFile:        "baseline.json",
+		ComparisonThreshold: 5.0,
+	}
+	reporter := NewPerformanceReporter(config)
+
+	// Create initial baseline
+	baselineReport := &PerformanceReport{
+		ReportID:       "baseline-1",
+		CurrentMetrics: map[string]float64{"latency": 100},
+	}
+	err := reporter.SaveBaseline(baselineReport)
+	require.NoError(t, err)
+
+	// Run concurrent operations
+	var wg sync.WaitGroup
+	const goroutines = 10
+	const iterations = 50
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				// Mix of load, save, and generate operations
+				switch j % 3 {
+				case 0:
+					_ = reporter.LoadBaseline()
+				case 1:
+					report := &PerformanceReport{
+						ReportID:       fmt.Sprintf("report-%d-%d", id, j),
+						CurrentMetrics: map[string]float64{"latency": float64(100 + j)},
+					}
+					_ = reporter.SaveBaseline(report)
+				case 2:
+					metrics := map[string]float64{"latency": float64(100 + j)}
+					_, _ = reporter.GenerateReport(metrics, nil, ProfileSummary{})
+				}
+			}
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+// TestCalculatePerformanceChanges_ZeroBaseline tests division by zero protection
+func TestCalculatePerformanceChanges_ZeroBaseline(t *testing.T) {
+	config := ReportConfig{ComparisonThreshold: 5.0}
+	reporter := NewPerformanceReporter(config)
+
+	tests := []struct {
+		name            string
+		currentMetrics  map[string]float64
+		baselineMetrics map[string]float64
+		wantPanic       bool
+	}{
+		{
+			name:            "ZeroBaselineLatency",
+			currentMetrics:  map[string]float64{"latency": 100},
+			baselineMetrics: map[string]float64{"latency": 0},
+			wantPanic:       false,
+		},
+		{
+			name:            "ZeroBaselineThroughput",
+			currentMetrics:  map[string]float64{"throughput": 1000},
+			baselineMetrics: map[string]float64{"throughput": 0},
+			wantPanic:       false,
+		},
+		{
+			name:            "BothZero",
+			currentMetrics:  map[string]float64{"latency": 0},
+			baselineMetrics: map[string]float64{"latency": 0},
+			wantPanic:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report := &PerformanceReport{
+				CurrentMetrics:  tt.currentMetrics,
+				BaselineMetrics: tt.baselineMetrics,
+				Improvements:    make(map[string]float64),
+				Regressions:     make(map[string]float64),
+			}
+
+			// Should not panic
+			require.NotPanics(t, func() {
+				reporter.calculatePerformanceChanges(report)
+			})
+		})
+	}
+}
+
+// TestAnalyzeTestFailures_ZeroTotalTests tests division by zero when TotalTests is 0
+func TestAnalyzeTestFailures_ZeroTotalTests(t *testing.T) {
+	config := DefaultReportConfig()
+	reporter := NewPerformanceReporter(config)
+
+	tests := []struct {
+		name        string
+		report      *PerformanceReport
+		wantPanic   bool
+		wantCount   int
+		wantFailure float64
+	}{
+		{
+			name: "ZeroTotalTestsWithFailures",
+			report: &PerformanceReport{
+				TotalTests:  0,
+				FailedTests: 1, // Edge case: FailedTests > 0 but TotalTests = 0
+				TestResults: []TestResult{},
+			},
+			wantPanic:   false,
+			wantCount:   1,
+			wantFailure: 100.0, // Should default to 100%
+		},
+		{
+			name: "ZeroTotalTestsNoFailures",
+			report: &PerformanceReport{
+				TotalTests:  0,
+				FailedTests: 0,
+				TestResults: []TestResult{},
+			},
+			wantPanic: false,
+			wantCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var recommendations []Recommendation
+			require.NotPanics(t, func() {
+				recommendations = reporter.analyzeTestFailures(tt.report)
+			})
+			require.Len(t, recommendations, tt.wantCount)
+		})
+	}
+}
+
+// TestAnalyzeMemoryMetrics_ZeroBaselineMemory tests division by zero when baseline memory is 0
+func TestAnalyzeMemoryMetrics_ZeroBaselineMemory(t *testing.T) {
+	config := DefaultReportConfig()
+	reporter := NewPerformanceReporter(config)
+	reporter.baseline = &PerformanceReport{
+		CurrentMetrics: map[string]float64{"memory_usage_mb": 0},
+	}
+
+	report := &PerformanceReport{
+		CurrentMetrics:  map[string]float64{"memory_usage_mb": 100},
+		BaselineMetrics: map[string]float64{"memory_usage_mb": 0},
+	}
+
+	// Should not panic
+	var recommendations []Recommendation
+	require.NotPanics(t, func() {
+		recommendations = reporter.analyzeMemoryMetrics(report)
+	})
+
+	// No memory growth recommendation when baseline is 0 (division would be undefined)
+	for _, rec := range recommendations {
+		require.NotEqual(t, "mem-growth", rec.ID, "Should not recommend mem-growth when baseline is 0")
+	}
+}
+
+// TestGenerateReport_NilMetrics tests that nil metrics don't cause panic
+func TestGenerateReport_NilMetrics(t *testing.T) {
+	tempDir := testutil.CreateTempDir(t)
+
+	config := ReportConfig{
+		OutputDirectory:     tempDir,
+		ComparisonThreshold: 5.0,
+	}
+	reporter := NewPerformanceReporter(config)
+
+	// Should not panic with nil metrics
+	require.NotPanics(t, func() {
+		report, err := reporter.GenerateReport(nil, nil, ProfileSummary{})
+		require.NoError(t, err)
+		require.NotNil(t, report)
+		require.NotNil(t, report.CurrentMetrics)
+	})
+}
+
+// TestGenerateReport_InputNotMutated verifies that the input map is not modified
+func TestGenerateReport_InputNotMutated(t *testing.T) {
+	tempDir := testutil.CreateTempDir(t)
+
+	config := ReportConfig{
+		OutputDirectory:     tempDir,
+		ComparisonThreshold: 5.0,
+		CustomMetrics:       map[string]interface{}{"custom": 42.0},
+	}
+	reporter := NewPerformanceReporter(config)
+
+	// Create input map
+	inputMetrics := map[string]float64{"latency": 100}
+	originalLen := len(inputMetrics)
+
+	// Generate report
+	_, err := reporter.GenerateReport(inputMetrics, nil, ProfileSummary{})
+	require.NoError(t, err)
+
+	// Input should not be modified
+	require.Len(t, inputMetrics, originalLen, "Input metrics should not be modified")
+	require.NotContains(t, inputMetrics, "custom", "Custom metrics should not be added to input")
+}
+
+// TestLoadBaseline_PathTraversal tests path traversal protection
+func TestLoadBaseline_PathTraversal(t *testing.T) {
+	tempDir := testutil.CreateTempDir(t)
+
+	tests := []struct {
+		name         string
+		baselineFile string
+		wantErr      bool
+		errContains  string
+	}{
+		{
+			name:         "ValidPath",
+			baselineFile: "baseline.json",
+			wantErr:      true, // Will fail because file doesn't exist, but not path traversal
+			errContains:  "baseline file not found",
+		},
+		{
+			name:         "PathTraversalAttempt",
+			baselineFile: "../../../etc/passwd",
+			wantErr:      true,
+			errContains:  "path traversal",
+		},
+		{
+			name:         "PathTraversalWithDots",
+			baselineFile: "subdir/../../../etc/passwd",
+			wantErr:      true,
+			errContains:  "path traversal",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := ReportConfig{
+				OutputDirectory: tempDir,
+				BaselineFile:    tt.baselineFile,
+			}
+			reporter := NewPerformanceReporter(config)
+
+			err := reporter.LoadBaseline()
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestSaveBaseline_PathTraversal tests path traversal protection on save
+func TestSaveBaseline_PathTraversal(t *testing.T) {
+	tempDir := testutil.CreateTempDir(t)
+
+	config := ReportConfig{
+		OutputDirectory: tempDir,
+		BaselineFile:    "../../../tmp/malicious.json",
+	}
+	reporter := NewPerformanceReporter(config)
+
+	report := &PerformanceReport{
+		ReportID:       "test",
+		CurrentMetrics: map[string]float64{"latency": 100},
+	}
+
+	err := reporter.SaveBaseline(report)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "path traversal")
+}
+
+// TestFormatMetricName_Unicode tests Unicode-safe metric name formatting
+func TestFormatMetricName_Unicode(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"response_time", "Response Time"},
+		{"メトリック", "メトリック"},     // Japanese characters
+		{"αβγ_δεζ", "Αβγ Δεζ"}, // Greek letters
+		{"über_metric", "Über Metric"},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := formatMetricName(tt.input)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestGenerateReportID_Uniqueness tests that generated IDs are unique
+func TestGenerateReportID_Uniqueness(t *testing.T) {
+	ids := make(map[string]bool)
+	const count = 1000
+
+	for i := 0; i < count; i++ {
+		id := generateReportID()
+		require.NotEmpty(t, id)
+		require.False(t, ids[id], "Duplicate ID generated: %s", id)
+		ids[id] = true
+	}
+}
+
+// TestFormatBytes_Negative tests negative byte handling
+func TestFormatBytes_Negative(t *testing.T) {
+	config := DefaultReportConfig()
+	reporter := NewPerformanceReporter(config)
+	funcs := reporter.getTemplateFuncs()
+	formatBytes := funcs["formatBytes"].(func(int64) string)
+
+	tests := []struct {
+		input    int64
+		expected string
+	}{
+		{0, "0 B"},
+		{512, "512 B"},
+		{1024, "1.0 KB"},
+		{-512, "-512 B"},
+		{-1024, "-1.0 KB"},
+		{-1024 * 1024, "-1.0 MB"},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d", tt.input), func(t *testing.T) {
+			result := formatBytes(tt.input)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestDeterministicRecommendationOrder tests that recommendations are deterministically ordered
+func TestDeterministicRecommendationOrder(t *testing.T) {
+	config := ReportConfig{ComparisonThreshold: 5.0}
+	reporter := NewPerformanceReporter(config)
+
+	report := &PerformanceReport{
+		Regressions: map[string]float64{
+			"z_metric": 30.0,
+			"a_metric": 30.0,
+			"m_metric": 30.0,
+		},
+	}
+
+	// Run multiple times and verify consistent order
+	var firstOrder []string
+	for i := 0; i < 10; i++ {
+		recommendations := reporter.analyzeRegressions(report)
+		var order []string
+		for _, rec := range recommendations {
+			order = append(order, rec.ID)
+		}
+
+		if i == 0 {
+			firstOrder = order
+		} else {
+			require.Equal(t, firstOrder, order, "Recommendation order should be deterministic")
+		}
+	}
+
+	// Verify sorted order (a, m, z)
+	require.Equal(t, "regression-a-metric", firstOrder[0])
+	require.Equal(t, "regression-m-metric", firstOrder[1])
+	require.Equal(t, "regression-z-metric", firstOrder[2])
+}
+
+// TestValidatePath tests the path validation helper
+func TestValidatePath(t *testing.T) {
+	tempDir := testutil.CreateTempDir(t)
+
+	config := ReportConfig{
+		OutputDirectory: tempDir,
+	}
+	reporter := NewPerformanceReporter(config)
+
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{
+			name:    "ValidPathInDir",
+			path:    filepath.Join(tempDir, "file.json"),
+			wantErr: false,
+		},
+		{
+			name:    "ValidSubdirPath",
+			path:    filepath.Join(tempDir, "subdir", "file.json"),
+			wantErr: false,
+		},
+		{
+			name:    "PathTraversalSimple",
+			path:    filepath.Join(tempDir, "..", "file.json"),
+			wantErr: true,
+		},
+		{
+			name:    "PathTraversalDeep",
+			path:    filepath.Join(tempDir, "..", "..", "..", "etc", "passwd"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := reporter.validatePath(tt.path)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, ErrPathTraversal)
+			} else {
+				require.NoError(t, err)
+			}
+		})
 	}
 }

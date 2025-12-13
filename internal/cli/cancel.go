@@ -144,7 +144,7 @@ func runCancel(cmd *cobra.Command, args []string) error {
 
 func performCancel(ctx context.Context, cfg *config.Config, targetRepos []string) (*CancelSummary, error) {
 	if cfg == nil {
-		panic("config cannot be nil")
+		return nil, ErrNilConfig
 	}
 
 	// Create logger for GitHub operations
@@ -179,7 +179,7 @@ func performCancel(ctx context.Context, cfg *config.Config, targetRepos []string
 // performCancelWithClient performs cancel operation with injected dependencies for testing
 func performCancelWithClient(ctx context.Context, cfg *config.Config, targetRepos []string, ghClient gh.Client, logger *logrus.Logger, logConfig *logging.LogConfig) (*CancelSummary, error) {
 	if cfg == nil {
-		panic("config cannot be nil")
+		return nil, ErrNilConfig
 	}
 
 	// Initialize state discoverer
@@ -191,7 +191,7 @@ func performCancelWithClient(ctx context.Context, cfg *config.Config, targetRepo
 // performCancelWithDiscoverer performs cancel operation with injected state discoverer for advanced testing
 func performCancelWithDiscoverer(ctx context.Context, cfg *config.Config, targetRepos []string, ghClient gh.Client, discoverer state.Discoverer) (*CancelSummary, error) {
 	if cfg == nil {
-		panic("config cannot be nil")
+		return nil, ErrNilConfig
 	}
 
 	// Filter config by groups before state discovery (performance optimization)

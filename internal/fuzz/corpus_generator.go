@@ -391,7 +391,16 @@ func (g *CorpusGenerator) saveCorpus(category string, corpus []string) error {
 }
 
 // generateDeeplyNested generates a deeply nested YAML structure
+// depth is bounded to prevent resource exhaustion
 func generateDeeplyNested(depth int) string {
+	const maxDepth = 1000
+	if depth < 0 {
+		depth = 0
+	}
+	if depth > maxDepth {
+		depth = maxDepth
+	}
+
 	var sb strings.Builder
 	sb.WriteString("version: 1\n")
 	sb.WriteString("source:\n")
@@ -409,7 +418,16 @@ func generateDeeplyNested(depth int) string {
 }
 
 // generateDeeplyNestedJSON generates deeply nested JSON
+// depth is bounded to prevent resource exhaustion
 func generateDeeplyNestedJSON(depth int) string {
+	const maxDepth = 1000
+	if depth < 0 {
+		depth = 0
+	}
+	if depth > maxDepth {
+		depth = maxDepth
+	}
+
 	var sb strings.Builder
 	for i := 0; i < depth; i++ {
 		sb.WriteString(`{"level":`)

@@ -43,7 +43,26 @@ var (
 	ErrListNameEmpty = errors.New("list name cannot be empty")
 	// ErrListReferenceNotFound indicates a referenced list does not exist
 	ErrListReferenceNotFound = errors.New("list reference not found")
+	// ErrCircularDependency indicates a circular dependency between groups
+	ErrCircularDependency = errors.New("circular dependency detected")
+	// ErrUnknownDependency indicates a group depends on a non-existent group
+	ErrUnknownDependency = errors.New("unknown dependency group")
+	// ErrSelfDependency indicates a group depends on itself
+	ErrSelfDependency = errors.New("group cannot depend on itself")
 )
+
+// containsPathTraversal checks if a path contains path traversal sequences.
+// It uses filepath.Clean to normalize the path and checks if it escapes the current directory.
+// Absolute paths are allowed as they don't represent directory traversal attacks.
+func containsPathTraversal(path string) bool {
+	if path == "" {
+		return false
+	}
+	cleaned := filepath.Clean(path)
+	// Check if the cleaned path starts with ".." (escapes current dir)
+	// This catches both "../foo" and "foo/../../bar" patterns
+	return strings.HasPrefix(cleaned, "..")
+}
 
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
@@ -238,7 +257,9 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 
 		seen := make(map[string]bool)
 		for _, target := range group.Targets {
-			if seen[target.Repo] {
+			// Use lowercase for case-insensitive comparison (GitHub repos are case-insensitive)
+			repoLower := strings.ToLower(target.Repo)
+			if seen[repoLower] {
 				if logConfig != nil && logConfig.Debug.Config {
 					logger.WithFields(logrus.Fields{
 						"group_index":                    i,
@@ -250,8 +271,13 @@ func (c *Config) ValidateWithLogging(ctx context.Context, logConfig *logging.Log
 				return fmt.Errorf("group[%d] (%s): %w: %s", i, group.Name, ErrDuplicateTarget, target.Repo)
 			}
 
-			seen[target.Repo] = true
+			seen[repoLower] = true
 		}
+	}
+
+	// Validate DependsOn references
+	if err := c.validateDependsOn(logConfig, logger); err != nil {
+		return err
 	}
 
 	// Log successful validation completion
@@ -341,7 +367,7 @@ func (c *Config) validateGroupSourceWithLogging(ctx context.Context, logConfig *
 
 // validateGroupGlobalWithLogging validates group global configuration with debug logging support.
 func (c *Config) validateGroupGlobalWithLogging(ctx context.Context, logConfig *logging.LogConfig, group Group) error {
-	logger := logrus.WithField("component", "config-group-global")
+	logger := logging.WithStandardFields(logrus.StandardLogger(), logConfig, "config-group-global")
 
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.WithFields(logrus.Fields{
@@ -408,7 +434,7 @@ func (c *Config) validateGroupGlobalWithLogging(ctx context.Context, logConfig *
 
 // validateGroupDefaultsWithLogging validates group defaults configuration with debug logging support.
 func (c *Config) validateGroupDefaultsWithLogging(ctx context.Context, logConfig *logging.LogConfig, group Group) error {
-	logger := logrus.WithField("component", "config-group-defaults")
+	logger := logging.WithStandardFields(logrus.StandardLogger(), logConfig, "config-group-defaults")
 
 	if logConfig != nil && logConfig.Debug.Config {
 		logger.WithFields(logrus.Fields{
@@ -630,7 +656,7 @@ func (t *TargetConfig) validateDirectories(_ context.Context, _ *logrus.Entry) e
 		}
 
 		// Validate paths don't contain path traversal
-		if strings.Contains(dir.Src, "..") || strings.Contains(dir.Dest, "..") {
+		if containsPathTraversal(dir.Src) || containsPathTraversal(dir.Dest) {
 			return fmt.Errorf("directory[%d]: %w", i, ErrPathTraversal)
 		}
 
@@ -651,14 +677,20 @@ func (t *TargetConfig) validateFileDirectoryConflicts() error {
 	// Build map of all destination paths
 	destPaths := make(map[string]string)
 
-	// Add file destinations
-	for _, file := range t.Files {
+	// Add file destinations with duplicate check
+	for i, file := range t.Files {
+		if _, exists := destPaths[file.Dest]; exists {
+			return fmt.Errorf("file[%d]: destination path %q already in use: %w", i, file.Dest, ErrDuplicateDestPath)
+		}
 		destPaths[file.Dest] = "file"
 	}
 
-	// Check directory destinations don't conflict
-	for _, dir := range t.Directories {
+	// Check directory destinations don't conflict (including duplicates within directories)
+	for i, dir := range t.Directories {
 		if existing, exists := destPaths[dir.Dest]; exists {
+			if existing == "directory" {
+				return fmt.Errorf("directory[%d]: destination path %q already in use: %w", i, dir.Dest, ErrDuplicateDestPath)
+			}
 			return fmt.Errorf("destination path %q used by both %s and directory: %w", dir.Dest, existing, ErrDuplicateDestPath)
 		}
 		destPaths[dir.Dest] = "directory"
@@ -716,7 +748,7 @@ func (c *Config) validateFileLists(ctx context.Context, logConfig *logging.LogCo
 			}
 
 			// Check for path traversal
-			if strings.Contains(file.Src, "..") || strings.Contains(file.Dest, "..") {
+			if containsPathTraversal(file.Src) || containsPathTraversal(file.Dest) {
 				return fmt.Errorf("file_list[%d] (%s) file[%d]: %w", i, list.ID, j, ErrPathTraversal)
 			}
 		}
@@ -774,7 +806,7 @@ func (c *Config) validateDirectoryLists(ctx context.Context, logConfig *logging.
 			}
 
 			// Check for path traversal
-			if strings.Contains(dir.Src, "..") || strings.Contains(dir.Dest, "..") {
+			if containsPathTraversal(dir.Src) || containsPathTraversal(dir.Dest) {
 				return fmt.Errorf("directory_list[%d] (%s) directory[%d]: %w", i, list.ID, j, ErrPathTraversal)
 			}
 
@@ -784,6 +816,101 @@ func (c *Config) validateDirectoryLists(ctx context.Context, logConfig *logging.
 					return fmt.Errorf("directory_list[%d] (%s) directory[%d]: invalid exclusion pattern[%d] %q: %w",
 						i, list.ID, j, k, pattern, err)
 				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// validateDependsOn validates group dependency references and detects circular dependencies.
+func (c *Config) validateDependsOn(logConfig *logging.LogConfig, logger *logrus.Entry) error {
+	// Build map of group IDs for quick lookup
+	groupIDs := make(map[string]int) // maps group ID to index
+	for i, group := range c.Groups {
+		groupIDs[group.ID] = i
+	}
+
+	// Validate each group's dependencies
+	for i, group := range c.Groups {
+		for _, dep := range group.DependsOn {
+			// Check for self-dependency
+			if dep == group.ID {
+				if logConfig != nil && logConfig.Debug.Config {
+					logger.WithFields(logrus.Fields{
+						"group_index": i,
+						"group_id":    group.ID,
+						"group_name":  group.Name,
+					}).Error("Group depends on itself")
+				}
+				return fmt.Errorf("group[%d] (%s): %w", i, group.Name, ErrSelfDependency)
+			}
+
+			// Check that dependency exists
+			if _, exists := groupIDs[dep]; !exists {
+				if logConfig != nil && logConfig.Debug.Config {
+					logger.WithFields(logrus.Fields{
+						"group_index":        i,
+						"group_id":           group.ID,
+						"group_name":         group.Name,
+						"unknown_dependency": dep,
+					}).Error("Group depends on unknown group")
+				}
+				return fmt.Errorf("group[%d] (%s): %w: %s", i, group.Name, ErrUnknownDependency, dep)
+			}
+		}
+	}
+
+	// Detect circular dependencies using DFS
+	if err := c.detectCircularDependencies(groupIDs); err != nil {
+		if logConfig != nil && logConfig.Debug.Config {
+			logger.WithField("error", err.Error()).Error("Circular dependency detected")
+		}
+		return err
+	}
+
+	return nil
+}
+
+// detectCircularDependencies uses DFS to detect cycles in the dependency graph.
+func (c *Config) detectCircularDependencies(groupIDs map[string]int) error {
+	// State: 0 = unvisited, 1 = visiting (in current path), 2 = visited (done)
+	state := make(map[string]int)
+
+	var visit func(groupID string, path []string) error
+	visit = func(groupID string, path []string) error {
+		if state[groupID] == 1 {
+			// Found a cycle - build the cycle path for error message
+			cycleStart := -1
+			for i, id := range path {
+				if id == groupID {
+					cycleStart = i
+					break
+				}
+			}
+			cyclePath := append(path[cycleStart:], groupID)
+			return fmt.Errorf("%w: %s", ErrCircularDependency, strings.Join(cyclePath, " -> "))
+		}
+		if state[groupID] == 2 {
+			return nil // Already fully processed
+		}
+
+		state[groupID] = 1 // Mark as visiting
+		idx := groupIDs[groupID]
+		for _, dep := range c.Groups[idx].DependsOn {
+			if err := visit(dep, append(path, groupID)); err != nil {
+				return err
+			}
+		}
+		state[groupID] = 2 // Mark as visited
+		return nil
+	}
+
+	// Visit all groups
+	for _, group := range c.Groups {
+		if state[group.ID] == 0 {
+			if err := visit(group.ID, nil); err != nil {
+				return err
 			}
 		}
 	}

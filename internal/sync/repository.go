@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -52,14 +53,40 @@ type RepositorySync struct {
 
 // PerformanceMetrics tracks performance metrics for the entire sync operation
 type PerformanceMetrics struct {
-	StartTime        time.Time
-	EndTime          time.Time
-	DirectoryMetrics map[string]DirectoryMetrics // keyed by source directory path
-	FileMetrics      FileProcessingMetrics
-	APICallsSaved    int // Total API calls saved by using tree API or caching
-	CacheHits        int // Number of cache hits
-	CacheMisses      int // Number of cache misses
-	TotalAPIRequests int // Total API requests made
+	StartTime          time.Time
+	EndTime            time.Time
+	DirectoryMetrics   map[string]DirectoryMetrics // keyed by source directory path
+	directoryMetricsMu sync.RWMutex                // Protects DirectoryMetrics map access
+	FileMetrics        FileProcessingMetrics
+	APICallsSaved      int // Total API calls saved by using tree API or caching
+	CacheHits          int // Number of cache hits
+	CacheMisses        int // Number of cache misses
+	TotalAPIRequests   int // Total API requests made
+}
+
+// GetDirectoryMetric returns a copy of the directory metrics for the given path (thread-safe).
+func (pm *PerformanceMetrics) GetDirectoryMetric(dirPath string) (DirectoryMetrics, bool) {
+	pm.directoryMetricsMu.RLock()
+	defer pm.directoryMetricsMu.RUnlock()
+	metrics, exists := pm.DirectoryMetrics[dirPath]
+	return metrics, exists
+}
+
+// SetDirectoryMetric sets the directory metrics for the given path (thread-safe).
+func (pm *PerformanceMetrics) SetDirectoryMetric(dirPath string, metrics DirectoryMetrics) {
+	pm.directoryMetricsMu.Lock()
+	defer pm.directoryMetricsMu.Unlock()
+	pm.DirectoryMetrics[dirPath] = metrics
+}
+
+// IterateDirectoryMetrics safely iterates over all directory metrics (thread-safe).
+// The callback receives a copy of each metric, so modifications won't affect the original.
+func (pm *PerformanceMetrics) IterateDirectoryMetrics(fn func(dirPath string, metrics DirectoryMetrics)) {
+	pm.directoryMetricsMu.RLock()
+	defer pm.directoryMetricsMu.RUnlock()
+	for dirPath, metrics := range pm.DirectoryMetrics {
+		fn(dirPath, metrics)
+	}
 }
 
 // FileProcessingMetrics tracks metrics for individual file processing
@@ -88,10 +115,10 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		AddField("sync_branch", rs.sourceState.Branch).
 		AddField("commit_sha", rs.sourceState.LatestCommit)
 	// Add group context if available
-	if rs.engine.currentGroup != nil {
+	if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil {
 		syncTimer = syncTimer.
-			AddField("group_name", rs.engine.currentGroup.Name).
-			AddField("group_id", rs.engine.currentGroup.ID)
+			AddField("group_name", currentGroup.Name).
+			AddField("group_id", currentGroup.ID)
 	}
 
 	// 1. Check if sync is actually needed
@@ -298,8 +325,8 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		out := NewDryRunOutput(nil)
 		out.Success("DRY-RUN SUMMARY: Repository sync preview completed successfully")
 		// Add group context if available
-		if rs.engine.currentGroup != nil {
-			out.Info(fmt.Sprintf("📋 Group: %s (%s)", rs.engine.currentGroup.Name, rs.engine.currentGroup.ID))
+		if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil {
+			out.Info(fmt.Sprintf("📋 Group: %s (%s)", currentGroup.Name, currentGroup.ID))
 		}
 		out.Info(fmt.Sprintf("📁 Repository: %s", rs.target.Repo))
 		out.Info(fmt.Sprintf("🌿 Branch: %s", branchName))
@@ -389,8 +416,8 @@ func (rs *RepositorySync) findExistingPRForBranch(branchName string) *gh.PR {
 // getBranchPrefix returns the branch prefix used for sync branches
 func (rs *RepositorySync) getBranchPrefix() string {
 	// Check if we have a current group with branch prefix
-	if rs.engine.currentGroup != nil && rs.engine.currentGroup.Defaults.BranchPrefix != "" {
-		return rs.engine.currentGroup.Defaults.BranchPrefix
+	if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil && currentGroup.Defaults.BranchPrefix != "" {
+		return currentGroup.Defaults.BranchPrefix
 	}
 
 	// Check if we have any groups in config with branch prefix
@@ -506,8 +533,8 @@ func (rs *RepositorySync) cloneSource(ctx context.Context) error {
 
 	// Get blob size limit from current group config
 	var opts *git.CloneOptions
-	if rs.engine.currentGroup != nil {
-		opts = &git.CloneOptions{BlobSizeLimit: rs.engine.currentGroup.Source.BlobSizeLimit}
+	if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil {
+		opts = &git.CloneOptions{BlobSizeLimit: currentGroup.Source.BlobSizeLimit}
 	}
 
 	if err := rs.engine.git.Clone(ctx, sourceURL, sourcePath, opts); err != nil {
@@ -583,19 +610,19 @@ func (rs *RepositorySync) processFile(ctx context.Context, sourcePath string, fi
 	}
 
 	// Add email configuration if available
-	if rs.engine.currentGroup != nil {
-		transformCtx.SourceSecurityEmail = rs.engine.currentGroup.Source.SecurityEmail
-		transformCtx.SourceSupportEmail = rs.engine.currentGroup.Source.SupportEmail
+	if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil {
+		transformCtx.SourceSecurityEmail = currentGroup.Source.SecurityEmail
+		transformCtx.SourceSupportEmail = currentGroup.Source.SupportEmail
 		// Use target-specific emails if set, otherwise use source emails
 		if rs.target.SecurityEmail != "" {
 			transformCtx.TargetSecurityEmail = rs.target.SecurityEmail
 		} else {
-			transformCtx.TargetSecurityEmail = rs.engine.currentGroup.Source.SecurityEmail
+			transformCtx.TargetSecurityEmail = currentGroup.Source.SecurityEmail
 		}
 		if rs.target.SupportEmail != "" {
 			transformCtx.TargetSupportEmail = rs.target.SupportEmail
 		} else {
-			transformCtx.TargetSupportEmail = rs.engine.currentGroup.Source.SupportEmail
+			transformCtx.TargetSupportEmail = currentGroup.Source.SupportEmail
 		}
 	}
 
@@ -689,9 +716,9 @@ func (rs *RepositorySync) createSyncBranch(_ context.Context) string {
 
 	var branchPrefix string
 	var groupID string
-	if rs.engine.currentGroup != nil {
-		branchPrefix = rs.engine.currentGroup.Defaults.BranchPrefix
-		groupID = rs.engine.currentGroup.ID
+	if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil {
+		branchPrefix = currentGroup.Defaults.BranchPrefix
+		groupID = currentGroup.ID
 	} else {
 		// Get defaults from the first group (since we have a single group in temporary config)
 		if len(rs.engine.config.Groups) > 0 {
@@ -989,7 +1016,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 
 	// Get base branch for PR - use target branch if specified, otherwise auto-detect
 	var baseBranch string
-	if rs.targetState.Branch != "" {
+	if rs.targetState != nil && rs.targetState.Branch != "" {
 		// Use configured target branch but validate it exists
 		baseBranch = rs.targetState.Branch
 
@@ -1406,7 +1433,7 @@ func (rs *RepositorySync) writeDirectorySyncDetails(sb *strings.Builder) {
 
 		// Get metrics for this directory if available
 		if rs.syncMetrics != nil && rs.syncMetrics.DirectoryMetrics != nil {
-			if metrics, exists := rs.syncMetrics.DirectoryMetrics[dirMapping.Src]; exists {
+			if metrics, exists := rs.syncMetrics.GetDirectoryMetric(dirMapping.Src); exists {
 				fmt.Fprintf(sb, "* **Files synced**: %d\n", metrics.FilesChanged)
 				fmt.Fprintf(sb, "* **Files examined**: %d\n", metrics.FilesProcessed)
 				fmt.Fprintf(sb, "* **Files excluded**: %d\n", metrics.FilesExcluded)
@@ -1492,10 +1519,12 @@ func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA stri
 	sb.WriteString("<!-- go-broadcast-metadata\n")
 
 	// Add group information if available
-	if rs.engine != nil && rs.engine.currentGroup != nil {
-		sb.WriteString("group:\n")
-		fmt.Fprintf(sb, "  id: %s\n", rs.engine.currentGroup.ID)
-		fmt.Fprintf(sb, "  name: %s\n", rs.engine.currentGroup.Name)
+	if rs.engine != nil {
+		if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil {
+			sb.WriteString("group:\n")
+			fmt.Fprintf(sb, "  id: %s\n", currentGroup.ID)
+			fmt.Fprintf(sb, "  name: %s\n", currentGroup.Name)
+		}
 	}
 
 	sb.WriteString("sync_metadata:\n")
@@ -1531,7 +1560,7 @@ func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA stri
 
 			// Add metrics if available
 			if rs.syncMetrics != nil && rs.syncMetrics.DirectoryMetrics != nil {
-				if metrics, exists := rs.syncMetrics.DirectoryMetrics[dirMapping.Src]; exists {
+				if metrics, exists := rs.syncMetrics.GetDirectoryMetric(dirMapping.Src); exists {
 					fmt.Fprintf(sb, "    files_synced: %d\n", metrics.FilesChanged)
 					fmt.Fprintf(sb, "    files_examined: %d\n", metrics.FilesProcessed)
 					fmt.Fprintf(sb, "    files_excluded: %d\n", metrics.FilesExcluded)
@@ -1956,9 +1985,9 @@ func (rs *RepositorySync) getPRAssignees() []string {
 	var global []string
 	var defaults []string
 
-	if rs.engine.currentGroup != nil {
-		global = rs.engine.currentGroup.Global.PRAssignees
-		defaults = rs.engine.currentGroup.Defaults.PRAssignees
+	if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil {
+		global = currentGroup.Global.PRAssignees
+		defaults = currentGroup.Defaults.PRAssignees
 	} else {
 		// Get from the first group (since we have a single group in temporary config)
 		if len(rs.engine.config.Groups) > 0 {
@@ -1984,9 +2013,9 @@ func (rs *RepositorySync) getPRReviewers() []string {
 	var global []string
 	var defaults []string
 
-	if rs.engine.currentGroup != nil {
-		global = rs.engine.currentGroup.Global.PRReviewers
-		defaults = rs.engine.currentGroup.Defaults.PRReviewers
+	if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil {
+		global = currentGroup.Global.PRReviewers
+		defaults = currentGroup.Defaults.PRReviewers
 	} else {
 		// Get from the first group (since we have a single group in temporary config)
 		if len(rs.engine.config.Groups) > 0 {
@@ -2012,9 +2041,9 @@ func (rs *RepositorySync) getPRLabels() []string {
 	var global []string
 	var defaults []string
 
-	if rs.engine.currentGroup != nil {
-		global = rs.engine.currentGroup.Global.PRLabels
-		defaults = rs.engine.currentGroup.Defaults.PRLabels
+	if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil {
+		global = currentGroup.Global.PRLabels
+		defaults = currentGroup.Defaults.PRLabels
 	} else {
 		// Get from the first group (since we have a single group in temporary config)
 		if len(rs.engine.config.Groups) > 0 {
@@ -2046,9 +2075,9 @@ func (rs *RepositorySync) getPRTeamReviewers() []string {
 	var global []string
 	var defaults []string
 
-	if rs.engine.currentGroup != nil {
-		global = rs.engine.currentGroup.Global.PRTeamReviewers
-		defaults = rs.engine.currentGroup.Defaults.PRTeamReviewers
+	if currentGroup := rs.engine.GetCurrentGroup(); currentGroup != nil {
+		global = currentGroup.Global.PRTeamReviewers
+		defaults = currentGroup.Defaults.PRTeamReviewers
 	} else {
 		// Get from the first group (since we have a single group in temporary config)
 		if len(rs.engine.config.Groups) > 0 {
@@ -2076,19 +2105,19 @@ func (rs *RepositorySync) updateDirectoryMetricsWithActualChanges(actualChangedF
 	}
 
 	// Reset FilesChanged counts for all directories
-	for dirPath, metrics := range rs.syncMetrics.DirectoryMetrics {
+	rs.syncMetrics.IterateDirectoryMetrics(func(dirPath string, metrics DirectoryMetrics) {
 		metrics.FilesChanged = 0
-		rs.syncMetrics.DirectoryMetrics[dirPath] = metrics
-	}
+		rs.syncMetrics.SetDirectoryMetric(dirPath, metrics)
+	})
 
 	// Count actual changes per directory
 	for _, filePath := range actualChangedFiles {
 		// Find which directory this file belongs to
 		for _, dirMapping := range rs.target.Directories {
 			if rs.isFileInDirectory(filePath, dirMapping.Dest) {
-				if metrics, exists := rs.syncMetrics.DirectoryMetrics[dirMapping.Src]; exists {
+				if metrics, exists := rs.syncMetrics.GetDirectoryMetric(dirMapping.Src); exists {
 					metrics.FilesChanged++
-					rs.syncMetrics.DirectoryMetrics[dirMapping.Src] = metrics
+					rs.syncMetrics.SetDirectoryMetric(dirMapping.Src, metrics)
 					rs.logger.WithFields(logrus.Fields{
 						"file":      filePath,
 						"directory": dirMapping.Src,
@@ -2101,13 +2130,13 @@ func (rs *RepositorySync) updateDirectoryMetricsWithActualChanges(actualChangedF
 	}
 
 	// Log final counts for verification
-	for dirPath, metrics := range rs.syncMetrics.DirectoryMetrics {
+	rs.syncMetrics.IterateDirectoryMetrics(func(dirPath string, metrics DirectoryMetrics) {
 		rs.logger.WithFields(logrus.Fields{
 			"directory":       dirPath,
 			"files_processed": metrics.FilesProcessed,
 			"files_changed":   metrics.FilesChanged,
 		}).Debug("Final directory metrics after git change tracking")
-	}
+	})
 }
 
 // isFileInDirectory checks if a file path belongs to a specific directory

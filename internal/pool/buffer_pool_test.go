@@ -3,12 +3,19 @@ package pool
 import (
 	"bytes"
 	"errors"
+	"os"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// TestMain ensures test isolation by resetting the default pool stats before all tests
+func TestMain(m *testing.M) {
+	ResetStats()
+	os.Exit(m.Run())
+}
 
 // TestNewBufferPool tests buffer pool creation
 func TestNewBufferPool(t *testing.T) {
@@ -84,21 +91,30 @@ func TestPutBuffer(t *testing.T) {
 	})
 }
 
-// TestBufferReuse tests that buffers are actually reused
+// TestBufferReuse tests that buffers are actually reused via pool statistics
 func TestBufferReuse(t *testing.T) {
 	bp := NewBufferPool()
+	bp.ResetStats()
 
-	// Get and return a buffer
+	// First cycle: get and return
 	buf1 := bp.GetBuffer(100)
 	buf1.WriteString("first use")
 	bp.PutBuffer(buf1)
+	_ = buf1 // Explicit: we no longer own this buffer after Put
 
-	// Get another buffer of same size
+	// Second cycle: get another buffer of same size
 	buf2 := bp.GetBuffer(100)
 
-	// Should be the same buffer (reused from pool)
-	assert.Equal(t, buf1, buf2)
-	assert.Equal(t, 0, buf2.Len()) // Should be reset
+	// Verify buffer is ready to use (reset)
+	assert.Equal(t, 0, buf2.Len())
+
+	// Verify pool statistics show proper usage
+	// (We can't reliably assert pointer identity due to sync.Pool behavior)
+	stats := bp.GetStats()
+	assert.Equal(t, int64(2), stats.SmallPool.Gets)
+	assert.Equal(t, int64(1), stats.SmallPool.Puts)
+
+	bp.PutBuffer(buf2)
 }
 
 // TestDefaultPool tests the package-level default pool
@@ -196,20 +212,20 @@ func TestStats(t *testing.T) {
 	assert.Equal(t, int64(3), stats.Resets) // Three buffers were reset
 }
 
-// TestMetricsEfficiency tests efficiency calculation
-func TestMetricsEfficiency(t *testing.T) {
+// TestMetricsReturnRate tests return rate calculation
+func TestMetricsReturnRate(t *testing.T) {
 	testCases := []struct {
 		name     string
 		metrics  Metrics
 		expected float64
 	}{
 		{
-			name:     "PerfectEfficiency",
+			name:     "PerfectReturnRate",
 			metrics:  Metrics{Gets: 100, Puts: 100},
 			expected: 100.0,
 		},
 		{
-			name:     "HalfEfficiency",
+			name:     "HalfReturnRate",
 			metrics:  Metrics{Gets: 100, Puts: 50},
 			expected: 50.0,
 		},
@@ -219,7 +235,7 @@ func TestMetricsEfficiency(t *testing.T) {
 			expected: 0.0,
 		},
 		{
-			name:     "MorePutsThanGets",
+			name:     "ExternalBuffersAdded",
 			metrics:  Metrics{Gets: 50, Puts: 60},
 			expected: 120.0,
 		},
@@ -227,8 +243,12 @@ func TestMetricsEfficiency(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			returnRate := tc.metrics.ReturnRate()
+			assert.InDelta(t, tc.expected, returnRate, 0.001)
+
+			// Verify deprecated Efficiency() returns same value
 			efficiency := tc.metrics.Efficiency()
-			assert.InDelta(t, tc.expected, efficiency, 0.001)
+			assert.InDelta(t, returnRate, efficiency, 0.001)
 		})
 	}
 }
@@ -365,4 +385,113 @@ func TestBufferSizeConstants(t *testing.T) {
 	assert.Equal(t, 8192, MediumBufferThreshold) // 8KB
 	assert.Equal(t, 65536, LargeBufferThreshold) // 64KB
 	assert.Equal(t, 131072, MaxPoolableSize)     // 128KB
+}
+
+// TestGetBufferNegativeSize tests that negative sizes don't cause panics
+func TestGetBufferNegativeSize(t *testing.T) {
+	bp := NewBufferPool()
+
+	testCases := []struct {
+		name string
+		size int
+	}{
+		{"NegativeOne", -1},
+		{"LargeNegative", -1000000},
+		{"MinInt", -1 << 31},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NotPanics(t, func() {
+				buf := bp.GetBuffer(tc.size)
+				require.NotNil(t, buf)
+				assert.GreaterOrEqual(t, buf.Cap(), 0)
+				bp.PutBuffer(buf)
+			})
+		})
+	}
+}
+
+// TestGetBufferNegativeSizeDefaultPool tests negative sizes with default pool
+func TestGetBufferNegativeSizeDefaultPool(t *testing.T) {
+	require.NotPanics(t, func() {
+		buf := GetBuffer(-100)
+		require.NotNil(t, buf)
+		PutBuffer(buf)
+	})
+}
+
+// TestEstimateBufferSizeEdgeCases tests overflow protection and edge cases
+func TestEstimateBufferSizeEdgeCases(t *testing.T) {
+	testCases := []struct {
+		name      string
+		operation string
+		dataSize  int
+	}{
+		{"LargeDataSize", "git_diff", 1 << 30},
+		{"VeryLargeDataSize", "json_marshal", 1 << 60},
+		{"NegativeDataSize", "template_transform", -1},
+		{"LargeNegativeDataSize", "file_content", -1 << 30},
+		{"MaxInt", "string_concat", 1<<63 - 1},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NotPanics(t, func() {
+				size := EstimateBufferSize(tc.operation, tc.dataSize)
+				// Result should always be positive
+				assert.Positive(t, size)
+				// Result should be within reasonable bounds
+				assert.LessOrEqual(t, size, MaxPoolableSize*5)
+			})
+		})
+	}
+}
+
+// TestDefensiveTypeAssertion tests that the pool handles type assertion safely
+func TestDefensiveTypeAssertion(t *testing.T) {
+	bp := NewBufferPool()
+
+	// Multiple rapid get/put cycles to stress test type assertions
+	for i := 0; i < 100; i++ {
+		sizes := []int{100, 5000, 50000, 100000}
+		for _, size := range sizes {
+			buf := bp.GetBuffer(size)
+			require.NotNil(t, buf)
+			buf.WriteString("test data")
+			bp.PutBuffer(buf)
+		}
+	}
+
+	stats := bp.GetStats()
+	totalGets := stats.SmallPool.Gets + stats.MediumPool.Gets + stats.LargePool.Gets + stats.Oversized
+	assert.Equal(t, int64(400), totalGets)
+}
+
+// TestBufferPoolImbalance documents behavior when buffers grow beyond original tier
+func TestBufferPoolImbalance(t *testing.T) {
+	bp := NewBufferPool()
+	bp.ResetStats()
+
+	// Get a small buffer
+	buf := bp.GetBuffer(100)
+	assert.LessOrEqual(t, buf.Cap(), SmallBufferThreshold)
+
+	// Write enough data to force buffer growth beyond small threshold
+	largeData := make([]byte, MediumBufferThreshold+1)
+	buf.Write(largeData)
+
+	// Buffer has grown - capacity is now larger than small threshold
+	assert.Greater(t, buf.Cap(), SmallBufferThreshold)
+
+	// Return buffer - it will go to a larger pool based on capacity
+	bp.PutBuffer(buf)
+
+	// Verify: buffer was gotten from small pool but returned to medium/large
+	stats := bp.GetStats()
+	assert.Equal(t, int64(1), stats.SmallPool.Gets)
+	assert.Equal(t, int64(0), stats.SmallPool.Puts) // Not returned to small pool
+	// It should have gone to medium or large pool based on new capacity
+	assert.True(t, stats.MediumPool.Puts > 0 || stats.LargePool.Puts > 0,
+		"Grown buffer should be returned to larger pool")
 }
