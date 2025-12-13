@@ -107,13 +107,12 @@ func (p *ProgressTracker) FinishRepository(repo string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Only update if not already set by RecordSuccess/RecordError
+	// Only update if not already set by RecordSuccess/RecordError/RecordSkipped
 	if p.repoStatus[repo] == RepoStatusInProgress {
 		p.repoStatus[repo] = RepoStatusSuccess
 		p.successful++
+		p.completed++ // Only increment completed when we change status
 	}
-
-	p.completed++
 }
 
 // RecordSuccess records a successful repository sync
@@ -123,6 +122,7 @@ func (p *ProgressTracker) RecordSuccess(repo string) {
 
 	p.repoStatus[repo] = RepoStatusSuccess
 	p.successful++
+	p.completed++
 
 	fields := logrus.Fields{
 		"repo":     repo,
@@ -146,6 +146,7 @@ func (p *ProgressTracker) RecordError(repo string, err error) {
 	p.repoStatus[repo] = RepoStatusFailed
 	p.errors[repo] = err
 	p.failed++
+	p.completed++
 	p.lastError = err
 
 	fields := logrus.Fields{
@@ -170,6 +171,7 @@ func (p *ProgressTracker) RecordSkipped(repo, reason string) {
 
 	p.repoStatus[repo] = RepoStatusSkipped
 	p.skipped++
+	p.completed++
 
 	fields := logrus.Fields{
 		"repo":     repo,

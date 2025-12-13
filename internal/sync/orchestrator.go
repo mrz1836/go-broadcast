@@ -262,9 +262,9 @@ func (o *GroupOrchestrator) areDependenciesSatisfied(group config.Group) bool {
 // executeGroupImpl is the actual implementation of executing a single group's sync operations
 func (o *GroupOrchestrator) executeGroupImpl(ctx context.Context, group config.Group) error {
 	// Set the current group in the engine
-	o.engine.currentGroup = &group
+	o.engine.SetCurrentGroup(&group)
 	defer func() {
-		o.engine.currentGroup = nil
+		o.engine.SetCurrentGroup(nil)
 	}()
 
 	// Create a temporary config for this group
