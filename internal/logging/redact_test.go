@@ -9,6 +9,63 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// deepCopyFields creates a deep copy of logrus.Fields to prevent test data mutation.
+func deepCopyFields(fields logrus.Fields) logrus.Fields {
+	if fields == nil {
+		return nil
+	}
+	result := make(logrus.Fields, len(fields))
+	for k, v := range fields {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			result[k] = deepCopyMap(val)
+		case []interface{}:
+			result[k] = deepCopySlice(val)
+		default:
+			result[k] = v
+		}
+	}
+	return result
+}
+
+// deepCopyMap creates a deep copy of a map[string]interface{}.
+func deepCopyMap(m map[string]interface{}) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
+	result := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			result[k] = deepCopyMap(val)
+		case []interface{}:
+			result[k] = deepCopySlice(val)
+		default:
+			result[k] = v
+		}
+	}
+	return result
+}
+
+// deepCopySlice creates a deep copy of a []interface{}.
+func deepCopySlice(s []interface{}) []interface{} {
+	if s == nil {
+		return nil
+	}
+	result := make([]interface{}, len(s))
+	for i, v := range s {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			result[i] = deepCopyMap(val)
+		case []interface{}:
+			result[i] = deepCopySlice(val)
+		default:
+			result[i] = v
+		}
+	}
+	return result
+}
+
 func TestNewRedactionService(t *testing.T) {
 	tests := []struct {
 		name string
@@ -192,13 +249,10 @@ func TestRedactionService_RedactLogEntry(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a copy of the entry to avoid modifying the original test data
+			// Create a deep copy of the entry to avoid modifying the original test data
 			entryCopy := &logrus.Entry{
 				Message: tt.entry.Message,
-				Data:    make(logrus.Fields),
-			}
-			for k, v := range tt.entry.Data {
-				entryCopy.Data[k] = v
+				Data:    deepCopyFields(tt.entry.Data),
 			}
 
 			// Create and use hook for redaction
@@ -452,7 +506,8 @@ func TestAuditLogger_LogConfigChange(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(_ *testing.T) {
 			// This should not panic or error
-			logger.LogConfigChange(tt.action, tt.path, tt.user)
+			// LogConfigChange signature: (user, action string, _ interface{})
+			logger.LogConfigChange(tt.user, tt.action, tt.path)
 
 			// Test passes if no panic occurs
 		})
@@ -491,7 +546,8 @@ func TestAuditLogger_LogRepositoryAccess(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(_ *testing.T) {
 			// This should not panic or error
-			logger.LogRepositoryAccess(tt.repo, tt.action, tt.user)
+			// LogRepositoryAccess signature: (user, repo, action string)
+			logger.LogRepositoryAccess(tt.user, tt.repo, tt.action)
 
 			// Test passes if no panic occurs
 		})

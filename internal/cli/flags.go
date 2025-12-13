@@ -14,7 +14,11 @@
 // dependency injection for all configuration and logging setup.
 package cli
 
-import "github.com/mrz1836/go-broadcast/internal/logging"
+import (
+	"sync"
+
+	"github.com/mrz1836/go-broadcast/internal/logging"
+)
 
 // LogConfig holds all logging and CLI configuration.
 //
@@ -39,38 +43,69 @@ type Flags struct {
 }
 
 // globalFlags is the singleton instance of flags
+// globalFlagsMu protects concurrent access to globalFlags
 //
 //nolint:gochecknoglobals // CLI flags need to be accessible across command functions
-var globalFlags = &Flags{
-	ConfigFile: "sync.yaml",
-	LogLevel:   "info",
-}
+var (
+	globalFlags = &Flags{
+		ConfigFile: "sync.yaml",
+		LogLevel:   "info",
+	}
+	globalFlagsMu sync.RWMutex
+)
 
-// GetConfigFile returns the config file path
+// GetConfigFile returns the config file path (thread-safe)
 func GetConfigFile() string {
+	globalFlagsMu.RLock()
+	defer globalFlagsMu.RUnlock()
 	if globalFlags == nil {
 		return "sync.yaml" // Default value
 	}
 	return globalFlags.ConfigFile
 }
 
-// IsDryRun returns whether dry-run mode is enabled
+// IsDryRun returns whether dry-run mode is enabled (thread-safe)
 func IsDryRun() bool {
+	globalFlagsMu.RLock()
+	defer globalFlagsMu.RUnlock()
 	if globalFlags == nil {
 		return false // Default value
 	}
 	return globalFlags.DryRun
 }
 
-// SetFlags updates the global flags
+// SetFlags updates the global flags (thread-safe)
 func SetFlags(f *Flags) {
+	globalFlagsMu.Lock()
+	defer globalFlagsMu.Unlock()
 	globalFlags = f
 }
 
-// ResetGlobalFlags resets the global flags to their default values
+// ResetGlobalFlags resets the global flags to their default values (thread-safe)
 // This is primarily used for testing to ensure clean state between tests
 func ResetGlobalFlags() {
+	globalFlagsMu.Lock()
+	defer globalFlagsMu.Unlock()
 	globalFlags.ConfigFile = "sync.yaml"
 	globalFlags.DryRun = false
 	globalFlags.LogLevel = "info"
+}
+
+// GetGlobalFlags returns a copy of the current global flags (thread-safe)
+// This is useful for tests that need to save and restore flag state
+func GetGlobalFlags() *Flags {
+	globalFlagsMu.RLock()
+	defer globalFlagsMu.RUnlock()
+	if globalFlags == nil {
+		return &Flags{ConfigFile: "sync.yaml", LogLevel: "info"}
+	}
+	// Return a copy to prevent race conditions
+	return &Flags{
+		ConfigFile:  globalFlags.ConfigFile,
+		DryRun:      globalFlags.DryRun,
+		LogLevel:    globalFlags.LogLevel,
+		GroupFilter: append([]string(nil), globalFlags.GroupFilter...),
+		SkipGroups:  append([]string(nil), globalFlags.SkipGroups...),
+		Automerge:   globalFlags.Automerge,
+	}
 }

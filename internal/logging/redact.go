@@ -58,6 +58,14 @@ type RedactionService struct {
 	sensitiveFields     []string
 	githubTokenPatterns []*regexp.Regexp
 	sshPattern          *regexp.Regexp
+	// Pre-compiled patterns for RedactSensitive (avoids recompilation on every call)
+	authPattern         *regexp.Regexp
+	jwtPattern          *regexp.Regexp
+	genericTokenPattern *regexp.Regexp
+	urlPasswordPattern  *regexp.Regexp
+	urlParamPattern     *regexp.Regexp
+	base64Pattern       *regexp.Regexp
+	envPattern          *regexp.Regexp
 }
 
 // NewRedactionService creates a new redaction service with comprehensive patterns.
@@ -152,6 +160,14 @@ func NewRedactionService() *RedactionService {
 			regexp.MustCompile(`ghr_[a-zA-Z0-9]{4,}`),
 		},
 		sshPattern: regexp.MustCompile(`-----BEGIN[A-Z\s]+PRIVATE KEY-----[\s\S]*?-----END[A-Z\s]+PRIVATE KEY-----`),
+		// Pre-compiled patterns for RedactSensitive (performance optimization)
+		authPattern:         regexp.MustCompile(`(Bearer|Token)\s+([^\s'\"]+)`),
+		jwtPattern:          regexp.MustCompile(`JWT\s+([a-zA-Z0-9_.-]{20,})`),
+		genericTokenPattern: regexp.MustCompile(`\b[a-zA-Z_]*token[a-zA-Z0-9_]*\b`),
+		urlPasswordPattern:  regexp.MustCompile(`://([^:]+):([^@]+)@`),
+		urlParamPattern:     regexp.MustCompile(`(password|token|secret|key|api_key)=([^\s&]+)`),
+		base64Pattern:       regexp.MustCompile(`\b([a-zA-Z0-9+/]{40,}={0,2})\b`),
+		envPattern:          regexp.MustCompile(`([A-Z_]*(?:TOKEN|SECRET|KEY|PASSWORD|PASS)[A-Z_]*=)([^\s]+)`),
 	}
 }
 
@@ -198,16 +214,13 @@ func (r *RedactionService) RedactSensitive(text string) string {
 	text = r.sshPattern.ReplaceAllString(text, "***REDACTED_SSH_KEY***")
 
 	// Authorization headers - preserve header name and Bearer/Token keyword
-	authPattern := regexp.MustCompile(`(Bearer|Token)\s+([^\s'\"]+)`)
-	text = authPattern.ReplaceAllString(text, "$1 ***REDACTED***")
+	text = r.authPattern.ReplaceAllString(text, "$1 ***REDACTED***")
 
 	// JWT tokens - preserve JWT prefix
-	jwtPattern := regexp.MustCompile(`JWT\s+([a-zA-Z0-9_.-]{20,})`)
-	text = jwtPattern.ReplaceAllString(text, "JWT ***REDACTED***")
+	text = r.jwtPattern.ReplaceAllString(text, "JWT ***REDACTED***")
 
 	// Generic tokens (like jwt_token2, api_token, etc)
-	genericTokenPattern := regexp.MustCompile(`\b[a-zA-Z_]*token[a-zA-Z0-9_]*\b`)
-	text = genericTokenPattern.ReplaceAllStringFunc(text, func(match string) string {
+	text = r.genericTokenPattern.ReplaceAllStringFunc(text, func(match string) string {
 		// Don't redact if it's already part of a GitHub token
 		if strings.HasPrefix(match, "ghp_") || strings.HasPrefix(match, "ghs_") ||
 			strings.HasPrefix(match, "github_pat_") || strings.HasPrefix(match, "ghr_") {
@@ -222,20 +235,16 @@ func (r *RedactionService) RedactSensitive(text string) string {
 	})
 
 	// URL passwords - preserve username
-	urlPasswordPattern := regexp.MustCompile(`://([^:]+):([^@]+)@`)
-	text = urlPasswordPattern.ReplaceAllString(text, "://$1:***REDACTED***@")
+	text = r.urlPasswordPattern.ReplaceAllString(text, "://$1:***REDACTED***@")
 
 	// URL parameters - preserve parameter name
-	urlParamPattern := regexp.MustCompile(`(password|token|secret|key|api_key)=([^\s&]+)`)
-	text = urlParamPattern.ReplaceAllString(text, "$1=***REDACTED***")
+	text = r.urlParamPattern.ReplaceAllString(text, "$1=***REDACTED***")
 
 	// Base64 secrets (standalone)
-	base64Pattern := regexp.MustCompile(`\b([a-zA-Z0-9+/]{40,}={0,2})\b`)
-	text = base64Pattern.ReplaceAllString(text, "***REDACTED***")
+	text = r.base64Pattern.ReplaceAllString(text, "***REDACTED***")
 
 	// Environment variables
-	envPattern := regexp.MustCompile(`([A-Z_]*(?:TOKEN|SECRET|KEY|PASSWORD|PASS)[A-Z_]*=)([^\s]+)`)
-	text = envPattern.ReplaceAllString(text, "$1***REDACTED***")
+	text = r.envPattern.ReplaceAllString(text, "$1***REDACTED***")
 
 	return text
 }
@@ -322,16 +331,33 @@ func (h *RedactionHook) Fire(entry *logrus.Entry) error {
 	// Redact the main message content
 	entry.Message = h.service.RedactSensitive(entry.Message)
 
-	// Process all fields for sensitive content
-	for key, value := range entry.Data {
-		entry.Data[key] = h.redactValue(key, value)
+	// Process all fields for sensitive content (guard against nil Data map)
+	if entry.Data != nil {
+		for key, value := range entry.Data {
+			entry.Data[key] = h.redactValue(key, value)
+		}
 	}
 
 	return nil
 }
 
-// redactValue recursively redacts sensitive data in values
+// maxRedactDepth is the maximum recursion depth for redacting nested structures.
+// This prevents stack overflow on pathologically deep nested data.
+const maxRedactDepth = 10
+
+// redactValue recursively redacts sensitive data in values.
+// This is a wrapper that starts recursion at depth 0.
 func (h *RedactionHook) redactValue(key string, value interface{}) interface{} {
+	return h.redactValueWithDepth(key, value, 0)
+}
+
+// redactValueWithDepth recursively redacts sensitive data in values with depth tracking.
+func (h *RedactionHook) redactValueWithDepth(key string, value interface{}, depth int) interface{} {
+	// Stop recursion at max depth to prevent stack overflow
+	if depth > maxRedactDepth {
+		return value
+	}
+
 	// Check if field name indicates sensitive data
 	if h.service.IsSensitiveField(key) {
 		// For sensitive field names, apply pattern-based redaction to strings
@@ -356,14 +382,14 @@ func (h *RedactionHook) redactValue(key string, value interface{}) interface{} {
 		// Recursively process nested maps
 		result := make(map[string]interface{})
 		for nestedKey, nestedValue := range v {
-			result[nestedKey] = h.redactValue(nestedKey, nestedValue)
+			result[nestedKey] = h.redactValueWithDepth(nestedKey, nestedValue, depth+1)
 		}
 		return result
 	case []interface{}:
 		// Process slices
 		result := make([]interface{}, len(v))
 		for i, item := range v {
-			result[i] = h.redactValue("", item) // Use empty key for array items
+			result[i] = h.redactValueWithDepth("", item, depth+1) // Use empty key for array items
 		}
 		return result
 	default:
@@ -414,7 +440,7 @@ func (a *AuditLogger) LogAuthentication(user, method string, success bool) {
 		"user":    user,
 		"method":  method,
 		"success": success,
-		"time":    time.Now().Unix(),
+		"time":    time.Now().Format(time.RFC3339),
 	}).Info("Authentication attempt")
 }
 
@@ -437,7 +463,7 @@ func (a *AuditLogger) LogConfigChange(user, action string, _ interface{}) {
 		"event":  "config_change",
 		"user":   user,
 		"action": action,
-		"time":   time.Now().Unix(),
+		"time":   time.Now().Format(time.RFC3339),
 	}).Info("Configuration changed")
 }
 
@@ -461,6 +487,6 @@ func (a *AuditLogger) LogRepositoryAccess(user, repo, action string) {
 		"user":   user,
 		"repo":   repo,
 		"action": action,
-		"time":   time.Now().Unix(),
+		"time":   time.Now().Format(time.RFC3339),
 	}).Info("Repository accessed")
 }

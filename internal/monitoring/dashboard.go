@@ -15,6 +15,27 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/profiling"
 )
 
+// ErrInvalidPort is returned when a port number is outside the valid range (1-65535).
+var ErrInvalidPort = errors.New("invalid port")
+
+// deepCopyMetrics creates a deep copy of the metrics map to prevent data races.
+// This ensures callers cannot modify internal state through returned references.
+func deepCopyMetrics(src map[string]interface{}) map[string]interface{} {
+	if src == nil {
+		return nil
+	}
+	result := make(map[string]interface{}, len(src))
+	for k, v := range src {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			result[k] = deepCopyMetrics(val)
+		default:
+			result[k] = v
+		}
+	}
+	return result
+}
+
 // MetricsCollector collects and aggregates runtime metrics
 type MetricsCollector struct {
 	mu      sync.RWMutex
@@ -72,10 +93,8 @@ func NewMetricsCollector(config DashboardConfig) *MetricsCollector {
 		cancel:          cancel,
 	}
 
-	// Start collection with the context
-	go mc.collect(ctx)
-
-	// Initialize profiler if enabled
+	// Initialize profiler BEFORE starting collection goroutine
+	// to prevent race condition on profiler access
 	if config.EnableProfiling {
 		mc.profiler = profiling.NewMemoryProfiler(config.ProfileDir)
 		if err := mc.profiler.Enable(); err != nil {
@@ -83,40 +102,43 @@ func NewMetricsCollector(config DashboardConfig) *MetricsCollector {
 		}
 	}
 
-	// Collection is already started in the constructor
+	// Now safe to start collection goroutine
+	go mc.collect(ctx)
 
 	return mc
 }
 
-// GetCurrentMetrics returns the current metrics
+// GetCurrentMetrics returns a deep copy of the current metrics.
+// The returned map is safe to modify without affecting internal state.
 func (mc *MetricsCollector) GetCurrentMetrics() map[string]interface{} {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
 
-	// Return a copy to prevent external modification
-	result := make(map[string]interface{})
-	for k, v := range mc.metrics {
-		result[k] = v
-	}
-
-	return result
+	// Return a deep copy to prevent data races on nested maps
+	return deepCopyMetrics(mc.metrics)
 }
 
-// GetMetricsHistory returns historical metrics
+// GetMetricsHistory returns a deep copy of historical metrics.
+// The returned slice is safe to modify without affecting internal state.
 func (mc *MetricsCollector) GetMetricsHistory() []MetricsSnapshot {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
 
-	// Return a copy to prevent external modification
+	// Return a deep copy including nested metrics maps
 	history := make([]MetricsSnapshot, len(mc.history))
-	copy(history, mc.history)
+	for i, snapshot := range mc.history {
+		history[i] = MetricsSnapshot{
+			Timestamp: snapshot.Timestamp,
+			Metrics:   deepCopyMetrics(snapshot.Metrics),
+		}
+	}
 
 	return history
 }
 
 // ServeHTTP implements http.Handler for metrics endpoint
 func (mc *MetricsCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	// Set CORS headers first (these can always be sent)
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
@@ -126,20 +148,27 @@ func (mc *MetricsCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check query parameters for different data types
+	// Prepare response data
+	var data interface{}
 	switch r.URL.Query().Get("type") {
 	case "history":
-		history := mc.GetMetricsHistory()
-		if err := json.NewEncoder(w).Encode(map[string]interface{}{
-			"history": history,
-		}); err != nil {
-			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
-		}
+		data = map[string]interface{}{"history": mc.GetMetricsHistory()}
 	default:
-		current := mc.GetCurrentMetrics()
-		if err := json.NewEncoder(w).Encode(current); err != nil {
-			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
-		}
+		data = mc.GetCurrentMetrics()
+	}
+
+	// Buffer the JSON response before sending headers
+	// This allows proper error handling with http.Error
+	buf, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+		return
+	}
+
+	// Now safe to set Content-Type and write response
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write(buf); err != nil {
+		log.Printf("Warning: failed to write metrics response: %v", err)
 	}
 }
 
@@ -235,15 +264,10 @@ func (mc *MetricsCollector) updateMetrics() {
 	mc.mu.Lock()
 	mc.metrics = currentMetrics
 
-	// Add to history
+	// Add to history with deep copy to prevent mutation
 	snapshot := MetricsSnapshot{
 		Timestamp: now,
-		Metrics:   make(map[string]interface{}),
-	}
-
-	// Deep copy metrics for history
-	for k, v := range currentMetrics {
-		snapshot.Metrics[k] = v
+		Metrics:   deepCopyMetrics(currentMetrics),
 	}
 
 	mc.history = append(mc.history, snapshot)
@@ -305,13 +329,33 @@ func (d *Dashboard) Start() error {
 	return d.server.ListenAndServe()
 }
 
-// StartBackground starts the dashboard server in the background
+// StartBackground starts the dashboard server in the background.
+// Returns an error if the server fails to start (e.g., port in use).
+// Blocks until the context is canceled, then performs graceful shutdown.
 func (d *Dashboard) StartBackground(ctx context.Context) error {
+	errChan := make(chan error, 1)
+
 	go func() {
 		if err := d.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Printf("Dashboard server error: %v\n", err)
+			errChan <- err
 		}
+		close(errChan)
 	}()
+
+	// Give server brief startup time to detect immediate failures
+	// (e.g., port already in use)
+	select {
+	case err := <-errChan:
+		if err != nil {
+			d.collector.Stop()
+			return fmt.Errorf("failed to start dashboard server: %w", err)
+		}
+	case <-time.After(50 * time.Millisecond):
+		// Server started successfully, proceed to wait for context
+	case <-ctx.Done():
+		// Context canceled during startup
+		return d.Stop(ctx)
+	}
 
 	// Wait for context cancellation
 	<-ctx.Done()
@@ -369,8 +413,13 @@ func dashboardCSSHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-// StartDashboard is a convenience function to start a dashboard with default config
+// StartDashboard is a convenience function to start a dashboard with default config.
+// Returns an error if port is invalid (must be 1-65535).
 func StartDashboard(port int) error {
+	if port < 1 || port > 65535 {
+		return fmt.Errorf("%w: %d must be between 1 and 65535", ErrInvalidPort, port)
+	}
+
 	config := DefaultDashboardConfig()
 	config.Port = port
 
@@ -378,8 +427,13 @@ func StartDashboard(port int) error {
 	return dashboard.Start()
 }
 
-// StartDashboardWithProfiling starts a dashboard with profiling enabled
+// StartDashboardWithProfiling starts a dashboard with profiling enabled.
+// Returns an error if port is invalid (must be 1-65535).
 func StartDashboardWithProfiling(port int, profileDir string) error {
+	if port < 1 || port > 65535 {
+		return fmt.Errorf("%w: %d must be between 1 and 65535", ErrInvalidPort, port)
+	}
+
 	config := DefaultDashboardConfig()
 	config.Port = port
 	config.EnableProfiling = true

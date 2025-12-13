@@ -8,6 +8,8 @@ package logging
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"time"
 )
 
 // LogConfig holds all logging and CLI configuration.
@@ -48,11 +50,13 @@ type DebugFlags struct {
 //
 // Returns a 16-byte hex-encoded string that can be used to correlate
 // log entries across different components for the same operation.
+// If crypto/rand fails, falls back to a timestamp-based ID for uniqueness.
 func GenerateCorrelationID() string {
 	bytes := make([]byte, 8)
 	if _, err := rand.Read(bytes); err != nil {
-		// Fallback to a simple timestamp-based ID if crypto/rand fails
-		return "fallback-id"
+		// Fallback to timestamp-based ID for uniqueness when crypto/rand fails.
+		// This is less secure but ensures unique correlation IDs for tracing.
+		return fmt.Sprintf("fallback-%d", time.Now().UnixNano())
 	}
 	return hex.EncodeToString(bytes)
 }
