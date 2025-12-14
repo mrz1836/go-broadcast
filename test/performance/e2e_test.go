@@ -297,7 +297,10 @@ func runSequentialSync(ctx context.Context, cfg *config.Config, _ *sync.Options)
 // runParallelSync executes sync operations in parallel using worker pool
 func runParallelSync(ctx context.Context, cfg *config.Config, options *sync.Options) error {
 	// Create worker pool for parallel processing
-	pool := worker.NewPool(options.MaxConcurrency, len(cfg.Groups[0].Targets))
+	pool, err := worker.NewPool(options.MaxConcurrency, len(cfg.Groups[0].Targets))
+	if err != nil {
+		return fmt.Errorf("failed to create worker pool: %w", err)
+	}
 	pool.Start(ctx)
 	defer pool.Shutdown()
 

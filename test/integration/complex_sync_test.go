@@ -25,19 +25,6 @@ import (
 	"github.com/mrz1836/go-broadcast/test/fixtures"
 )
 
-// Helper function for creating source files in Git Clone mocks
-func createSourceFilesInMock(args mock.Arguments, sourceFiles map[string][]byte) {
-	cloneDir := args[2].(string)
-
-	// Create the expected files in the clone directory
-	for filePath, content := range sourceFiles {
-		fullPath := filepath.Join(cloneDir, filePath)
-		dir := filepath.Dir(fullPath)
-		_ = os.MkdirAll(dir, 0o750)
-		_ = os.WriteFile(fullPath, content, 0o600)
-	}
-}
-
 // TestComplexSyncScenarios tests complex real-world sync scenarios
 func TestComplexSyncScenarios(t *testing.T) {
 	// Setup test environment
