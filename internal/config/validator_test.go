@@ -549,3 +549,234 @@ func TestTargetConfig_BranchValidation(t *testing.T) {
 		})
 	}
 }
+
+// TestValidate_DuplicateFileDestinations verifies that duplicate file destinations
+// within the same target are detected
+func TestValidate_DuplicateFileDestinations(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Groups: []Group{{
+			Name:   "test",
+			ID:     "test",
+			Source: SourceConfig{Repo: "org/source", Branch: "main"},
+			Targets: []TargetConfig{{
+				Repo: "org/target",
+				Files: []FileMapping{
+					{Src: "a.txt", Dest: "output.txt"},
+					{Src: "b.txt", Dest: "output.txt"}, // Duplicate destination
+				},
+			}},
+		}},
+	}
+
+	err := config.Validate()
+	require.Error(t, err)
+	// Validation catches duplicate via centralized validation package
+	assert.Contains(t, err.Error(), "duplicate destination")
+	assert.Contains(t, err.Error(), "output.txt")
+}
+
+// TestValidate_DuplicateDirectoryDestinations verifies that duplicate directory
+// destinations within the same target are detected
+func TestValidate_DuplicateDirectoryDestinations(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Groups: []Group{{
+			Name:   "test",
+			ID:     "test",
+			Source: SourceConfig{Repo: "org/source", Branch: "main"},
+			Targets: []TargetConfig{{
+				Repo: "org/target",
+				Directories: []DirectoryMapping{
+					{Src: "dir-a", Dest: "output-dir"},
+					{Src: "dir-b", Dest: "output-dir"}, // Duplicate destination
+				},
+			}},
+		}},
+	}
+
+	err := config.Validate()
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrDuplicateDestPath)
+	assert.Contains(t, err.Error(), "output-dir")
+}
+
+// TestValidate_CaseInsensitiveDuplicateRepo verifies that duplicate target
+// repositories are detected case-insensitively (GitHub repos are case-insensitive)
+func TestValidate_CaseInsensitiveDuplicateRepo(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Groups: []Group{{
+			Name:   "test",
+			ID:     "test",
+			Source: SourceConfig{Repo: "org/source", Branch: "main"},
+			Targets: []TargetConfig{
+				{Repo: "org/Target", Files: []FileMapping{{Src: "a", Dest: "a"}}},
+				{Repo: "org/target", Files: []FileMapping{{Src: "b", Dest: "b"}}}, // Case-insensitive duplicate
+			},
+		}},
+	}
+
+	err := config.Validate()
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrDuplicateTarget)
+}
+
+// TestValidate_CircularDependency verifies that circular dependencies between
+// groups are detected
+func TestValidate_CircularDependency(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Groups: []Group{
+			{
+				Name:      "Group A",
+				ID:        "a",
+				DependsOn: []string{"b"},
+				Source:    SourceConfig{Repo: "org/a", Branch: "main"},
+				Targets:   []TargetConfig{{Repo: "org/t1", Files: []FileMapping{{Src: "a", Dest: "a"}}}},
+			},
+			{
+				Name:      "Group B",
+				ID:        "b",
+				DependsOn: []string{"a"}, // Creates cycle: a -> b -> a
+				Source:    SourceConfig{Repo: "org/b", Branch: "main"},
+				Targets:   []TargetConfig{{Repo: "org/t2", Files: []FileMapping{{Src: "b", Dest: "b"}}}},
+			},
+		},
+	}
+
+	err := config.Validate()
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrCircularDependency)
+}
+
+// TestValidate_SelfDependency verifies that a group depending on itself is detected
+func TestValidate_SelfDependency(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Groups: []Group{{
+			Name:      "test",
+			ID:        "test",
+			DependsOn: []string{"test"}, // Self dependency
+			Source:    SourceConfig{Repo: "org/source", Branch: "main"},
+			Targets:   []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "a", Dest: "a"}}}},
+		}},
+	}
+
+	err := config.Validate()
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrSelfDependency)
+}
+
+// TestValidate_UnknownDependency verifies that dependencies on non-existent groups
+// are detected
+func TestValidate_UnknownDependency(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Groups: []Group{{
+			Name:      "test",
+			ID:        "test",
+			DependsOn: []string{"nonexistent"}, // Unknown dependency
+			Source:    SourceConfig{Repo: "org/source", Branch: "main"},
+			Targets:   []TargetConfig{{Repo: "org/target", Files: []FileMapping{{Src: "a", Dest: "a"}}}},
+		}},
+	}
+
+	err := config.Validate()
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrUnknownDependency)
+	assert.Contains(t, err.Error(), "nonexistent")
+}
+
+// TestValidate_ValidDependencies verifies that valid dependencies pass validation
+func TestValidate_ValidDependencies(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Groups: []Group{
+			{
+				Name:   "Group A",
+				ID:     "a",
+				Source: SourceConfig{Repo: "org/a", Branch: "main"},
+				Targets: []TargetConfig{{
+					Repo:  "org/t1",
+					Files: []FileMapping{{Src: "a", Dest: "a"}},
+				}},
+			},
+			{
+				Name:      "Group B",
+				ID:        "b",
+				DependsOn: []string{"a"}, // Valid: depends on existing group
+				Source:    SourceConfig{Repo: "org/b", Branch: "main"},
+				Targets: []TargetConfig{{
+					Repo:  "org/t2",
+					Files: []FileMapping{{Src: "b", Dest: "b"}},
+				}},
+			},
+		},
+	}
+
+	err := config.Validate()
+	assert.NoError(t, err)
+}
+
+// TestContainsPathTraversal verifies the improved path traversal detection
+func TestContainsPathTraversal(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{"empty path", "", false},
+		{"simple path", "foo/bar", false},
+		{"path with dots in name", "foo..bar", false},
+		{"path with double dots in name", "file..txt", false},
+		{"parent traversal", "../foo", true},
+		{"nested parent traversal", "foo/../bar", false}, // filepath.Clean normalizes to "bar"
+		{"deep parent traversal", "../../etc/passwd", true},
+		{"absolute path unix", "/etc/passwd", false}, // Absolute paths are allowed
+		{"current dir prefix", "./foo", false},
+		{"valid dotfile", ".gitignore", false},
+		{"valid hidden dir", ".github/workflows", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := containsPathTraversal(tt.path)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestValidate_ThreeWayCircularDependency verifies detection of longer dependency cycles
+func TestValidate_ThreeWayCircularDependency(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		Groups: []Group{
+			{
+				Name:      "Group A",
+				ID:        "a",
+				DependsOn: []string{"c"}, // a -> c -> b -> a
+				Source:    SourceConfig{Repo: "org/a", Branch: "main"},
+				Targets:   []TargetConfig{{Repo: "org/t1", Files: []FileMapping{{Src: "a", Dest: "a"}}}},
+			},
+			{
+				Name:      "Group B",
+				ID:        "b",
+				DependsOn: []string{"a"},
+				Source:    SourceConfig{Repo: "org/b", Branch: "main"},
+				Targets:   []TargetConfig{{Repo: "org/t2", Files: []FileMapping{{Src: "b", Dest: "b"}}}},
+			},
+			{
+				Name:      "Group C",
+				ID:        "c",
+				DependsOn: []string{"b"},
+				Source:    SourceConfig{Repo: "org/c", Branch: "main"},
+				Targets:   []TargetConfig{{Repo: "org/t3", Files: []FileMapping{{Src: "c", Dest: "c"}}}},
+			},
+		},
+	}
+
+	err := config.Validate()
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrCircularDependency)
+}

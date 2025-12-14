@@ -6,6 +6,14 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
+	"time"
+)
+
+// Thread-safe random source for concurrent test execution
+var (
+	rng   = rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec,gochecknoglobals // Using weak random for test fixtures
+	rngMu sync.Mutex                                        //nolint:gochecknoglobals // Mutex for thread-safe access to rng
 )
 
 // TestRepo represents a test repository configuration
@@ -24,6 +32,11 @@ type TestFile struct {
 
 // GenerateYAMLConfig creates test YAML configuration data
 func GenerateYAMLConfig(targetCount int) []byte {
+	// Normalize negative values to 0
+	if targetCount < 0 {
+		targetCount = 0
+	}
+
 	var buf bytes.Buffer
 	buf.WriteString(`version: 1
 source:
@@ -56,6 +69,11 @@ targets:`)
 
 // GenerateJSONResponse creates test JSON response data
 func GenerateJSONResponse(itemCount int) []byte {
+	// Normalize negative values to 0
+	if itemCount < 0 {
+		itemCount = 0
+	}
+
 	var buf bytes.Buffer
 	buf.WriteString("[")
 
@@ -80,6 +98,11 @@ func GenerateJSONResponse(itemCount int) []byte {
 
 // GenerateBase64Content creates base64 encoded test content
 func GenerateBase64Content(size int) string {
+	// Normalize negative values to 0
+	if size < 0 {
+		size = 0
+	}
+
 	content := make([]byte, size)
 	for i := range content {
 		content[i] = byte(65 + (i % 26)) // A-Z pattern
@@ -98,6 +121,11 @@ func GenerateBase64Content(size int) string {
 
 // GenerateLogEntries creates test log entries with various patterns
 func GenerateLogEntries(count int, withTokens bool) []string {
+	// Normalize negative values to 0
+	if count < 0 {
+		count = 0
+	}
+
 	entries := make([]string, count)
 	patterns := []string{
 		"INFO Processing file: %s",
@@ -137,6 +165,14 @@ func GenerateLogEntries(count int, withTokens bool) []string {
 
 // GenerateGitDiff creates a realistic git diff output
 func GenerateGitDiff(fileCount, linesPerFile int) string {
+	// Normalize negative values to 0
+	if fileCount < 0 {
+		fileCount = 0
+	}
+	if linesPerFile < 0 {
+		linesPerFile = 0
+	}
+
 	var buf strings.Builder
 
 	for i := 0; i < fileCount; i++ {
@@ -163,6 +199,11 @@ func GenerateGitDiff(fileCount, linesPerFile int) string {
 
 // GenerateRepositoryList creates test repository data
 func GenerateRepositoryList(count int) []TestRepo {
+	// Normalize negative values to 0
+	if count < 0 {
+		count = 0
+	}
+
 	repos := make([]TestRepo, count)
 
 	for i := 0; i < count; i++ {
@@ -192,18 +233,22 @@ func GenerateRepositoryList(count int) []TestRepo {
 func generateSHA() string {
 	const chars = "abcdef0123456789"
 	b := make([]byte, 40)
+	rngMu.Lock()
 	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))] //nolint:gosec // Using weak random for test fixtures is acceptable
+		b[i] = chars[rng.Intn(len(chars))]
 	}
+	rngMu.Unlock()
 	return string(b)
 }
 
 func generateToken() string {
 	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, 20)
+	rngMu.Lock()
 	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))] //nolint:gosec // Using weak random for test fixtures is acceptable
+		b[i] = chars[rng.Intn(len(chars))]
 	}
+	rngMu.Unlock()
 	return string(b)
 }
 
@@ -219,6 +264,3 @@ func getSizeCategory(fileCount int) string {
 		return "xlarge"
 	}
 }
-
-// As of Go 1.20, global rand is automatically seeded
-// No initialization required for random number generation in tests

@@ -177,8 +177,14 @@ func getVersionInfo() DiagnosticVersionInfo {
 // Returns:
 // - DiagnosticSystemInfo structure with system details
 func getSystemInfo() DiagnosticSystemInfo {
-	hostname, _ := os.Hostname()
-	homeDir, _ := os.UserHomeDir()
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "<unavailable>"
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		homeDir = "<unavailable>"
+	}
 
 	return DiagnosticSystemInfo{
 		OS:       runtime.GOOS,
@@ -224,13 +230,9 @@ func collectEnvironment(_ context.Context) map[string]string {
 	for _, key := range relevantVars {
 		value := os.Getenv(key)
 		if value != "" {
-			// Redact sensitive values automatically
+			// Fully redact sensitive values - never expose any part of secrets
 			if isSensitiveEnvVar(key) {
-				if len(value) > 8 {
-					value = value[:4] + "***REDACTED***"
-				} else {
-					value = "***REDACTED***"
-				}
+				value = "***REDACTED***"
 			}
 			env[key] = value
 		}

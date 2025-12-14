@@ -425,16 +425,16 @@ groups:
 	require.NoError(t, err)
 }
 
-// TestValidateRepositoryAccessibilityPanicRecovery tests panic handling
-func TestValidateRepositoryAccessibilityPanicRecovery(t *testing.T) {
-	t.Run("nil config causes panic", func(t *testing.T) {
-		// Test that validateRepositoryAccessibility panics with nil config
+// TestValidateRepositoryAccessibilityNilConfig tests error handling for nil config
+func TestValidateRepositoryAccessibilityNilConfig(t *testing.T) {
+	t.Run("nil config returns error", func(t *testing.T) {
+		// Test that validateRepositoryAccessibility returns ErrNilConfig for nil config
 		ctx := context.Background()
 		logConfig := &logging.LogConfig{LogLevel: "error"}
 
-		require.Panics(t, func() {
-			_ = validateRepositoryAccessibility(ctx, nil, logConfig, false)
-		})
+		err := validateRepositoryAccessibility(ctx, nil, logConfig, false)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrNilConfig)
 	})
 }
 

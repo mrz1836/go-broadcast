@@ -91,6 +91,9 @@ func (r *DependencyResolver) detectCircularDependencies() error {
 	dfs = func(groupID string) error {
 		visitState[groupID] = 1 // Mark as visiting
 		path = append(path, groupID)
+		defer func() {
+			path = path[:len(path)-1] // Always pop on exit
+		}()
 
 		for _, depID := range r.dependencies[groupID] {
 			switch visitState[depID] {
@@ -116,8 +119,7 @@ func (r *DependencyResolver) detectCircularDependencies() error {
 			// case 2: Already visited, skip
 		}
 
-		visitState[groupID] = 2   // Mark as visited
-		path = path[:len(path)-1] // Remove from path
+		visitState[groupID] = 2 // Mark as visited
 		return nil
 	}
 

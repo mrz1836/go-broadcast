@@ -3,13 +3,18 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/mrz1836/go-broadcast/internal/cli"
 	"github.com/mrz1836/go-broadcast/internal/env"
 	"github.com/mrz1836/go-broadcast/internal/output"
 )
+
+// errPanicRecovered is returned when a panic is recovered during application execution.
+var errPanicRecovered = errors.New("panic recovered")
 
 func main() {
 	app := NewApp()
@@ -61,16 +66,36 @@ func NewApp() *App {
 	}
 }
 
-// NewAppWithDependencies creates a new App instance with injectable dependencies
+// NewAppWithDependencies creates a new App instance with injectable dependencies.
+// Panics if either dependency is nil to fail fast during initialization.
 func NewAppWithDependencies(outputHandler OutputHandler, cliExecutor CLIExecutor) *App {
+	if outputHandler == nil {
+		panic("outputHandler must not be nil")
+	}
+	if cliExecutor == nil {
+		panic("cliExecutor must not be nil")
+	}
 	return &App{
 		outputHandler: outputHandler,
 		cliExecutor:   cliExecutor,
 	}
 }
 
-// Run executes the application with the given arguments
-func (a *App) Run(_ []string) error {
+// Run executes the application with the given arguments.
+// The args parameter is accepted for API consistency but is currently unused
+// because cobra reads directly from os.Args. This allows future flexibility
+// to pass custom args if needed.
+func (a *App) Run(_ []string) (err error) {
+	// Handle panics gracefully - must be first to catch all panics including Init/LoadEnvFiles
+	defer func() {
+		if r := recover(); r != nil {
+			// Log error with stack trace for debugging
+			a.outputHandler.Error(fmt.Sprintf("Fatal error: %v\n%s", r, debug.Stack()))
+			// Return error so main() exits with non-zero code
+			err = fmt.Errorf("%w: %v", errPanicRecovered, r)
+		}
+	}()
+
 	// Initialize colored output
 	a.outputHandler.Init()
 
@@ -81,13 +106,6 @@ func (a *App) Run(_ []string) error {
 		// This allows go-broadcast to work without env files if needed
 		a.outputHandler.Error(fmt.Sprintf("Warning: Failed to load environment files: %v", err))
 	}
-
-	// Handle panics gracefully
-	defer func() {
-		if r := recover(); r != nil {
-			a.outputHandler.Error(fmt.Sprintf("Fatal error: %v", r))
-		}
-	}()
 
 	// Execute CLI
 	return a.cliExecutor.Execute()

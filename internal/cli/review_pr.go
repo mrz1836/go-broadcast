@@ -15,6 +15,9 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
+// maxURLLength is the maximum allowed URL length to prevent ReDoS attacks
+const maxURLLength = 2048
+
 var (
 	// ErrEmptyPRURL is returned when an empty URL is provided
 	ErrEmptyPRURL = errors.New("empty URL provided")
@@ -28,6 +31,8 @@ var (
 	ErrMutuallyExclusiveFlags = errors.New("cannot use --all-assigned-prs flag with explicit PR URLs")
 	// ErrNoAssignedPRs is returned when no assigned PRs are found
 	ErrNoAssignedPRs = errors.New("no assigned PRs found")
+	// ErrURLTooLong is returned when URL exceeds maximum allowed length
+	ErrURLTooLong = errors.New("URL exceeds maximum length")
 )
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -53,6 +58,11 @@ func parsePRURL(url string) (*PRInfo, error) {
 
 	if url == "" {
 		return nil, ErrEmptyPRURL
+	}
+
+	// Validate URL length to prevent ReDoS attacks on regex
+	if len(url) > maxURLLength {
+		return nil, fmt.Errorf("%w: %d characters (max %d)", ErrURLTooLong, len(url), maxURLLength)
 	}
 
 	// Pattern for full GitHub URLs

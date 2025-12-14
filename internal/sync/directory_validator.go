@@ -491,7 +491,7 @@ func (dv *DirectoryValidator) ValidateFileIntegrity(_ context.Context, sourceFil
 		}
 	}()
 
-	// Collect results
+	// Close results channel after all workers complete
 	go func() {
 		wg.Wait()
 		close(results)

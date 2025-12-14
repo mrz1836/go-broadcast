@@ -995,7 +995,7 @@ func TestDashboardStartBackgroundAdditional(t *testing.T) {
 		config.Port = -1 // Invalid port
 		dashboard := NewDashboard(config)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 
 		// StartBackground blocks until context is canceled, so run in goroutine
@@ -1007,13 +1007,10 @@ func TestDashboardStartBackgroundAdditional(t *testing.T) {
 		// Wait for either completion or timeout
 		select {
 		case err := <-done:
-			// StartBackground doesn't propagate Start() errors, it only logs them.
-			// The method returns the result of Stop(), which might be nil.
-			// So we don't require an error here, just check that it completed.
-			if err != nil {
-				t.Logf("StartBackground returned error (this is okay): %v", err)
-			}
-		case <-time.After(200 * time.Millisecond):
+			// StartBackground should now propagate server startup errors
+			require.Error(t, err, "StartBackground should return error for invalid port")
+			assert.Contains(t, err.Error(), "failed to start dashboard server")
+		case <-time.After(300 * time.Millisecond):
 			t.Fatal("StartBackground did not complete within expected time")
 		}
 	})
@@ -1034,4 +1031,207 @@ func TestNewMetricsCollectorErrorHandling(t *testing.T) {
 			}
 		})
 	})
+}
+
+// TestPortValidation tests port validation in convenience functions
+func TestPortValidation(t *testing.T) {
+	testCases := []struct {
+		name      string
+		port      int
+		expectErr bool
+		errMsg    string
+	}{
+		{"valid port 80", 80, false, ""},
+		{"valid port 8080", 8080, false, ""},
+		{"valid port 65535", 65535, false, ""},
+		{"invalid port 0", 0, true, "invalid port: 0 must be between 1 and 65535"},
+		{"invalid port -1", -1, true, "invalid port: -1 must be between 1 and 65535"},
+		{"invalid port 65536", 65536, true, "invalid port: 65536 must be between 1 and 65535"},
+		{"invalid port negative large", -1000, true, "invalid port: -1000 must be between 1 and 65535"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// For valid ports, we can't actually test without starting a server
+			// so we only test the validation logic with invalid ports
+			if tc.expectErr {
+				err := StartDashboard(tc.port)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errMsg)
+
+				err = StartDashboardWithProfiling(tc.port, t.TempDir())
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errMsg)
+			}
+		})
+	}
+}
+
+// TestServeHTTPBufferedResponse tests that ServeHTTP buffers response before headers
+func TestServeHTTPBufferedResponse(t *testing.T) {
+	config := DefaultDashboardConfig()
+	config.CollectInterval = 10 * time.Millisecond
+	collector := NewMetricsCollector(config)
+	defer collector.Stop()
+
+	// Wait for some metrics
+	time.Sleep(50 * time.Millisecond)
+
+	t.Run("successful response sets correct headers", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/metrics", nil)
+		w := httptest.NewRecorder()
+
+		collector.ServeHTTP(w, req)
+
+		// Content-Type should be set after successful JSON encoding
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		// CORS headers should also be set
+		assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
+	})
+
+	t.Run("history endpoint works correctly", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/metrics?type=history", nil)
+		w := httptest.NewRecorder()
+
+		collector.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		var response map[string]interface{}
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Contains(t, response, "history")
+	})
+}
+
+// TestDeepCopyMetricsFunction tests the deepCopyMetrics helper directly
+func TestDeepCopyMetricsFunction(t *testing.T) {
+	t.Run("nil map", func(t *testing.T) {
+		result := deepCopyMetrics(nil)
+		assert.Nil(t, result)
+	})
+
+	t.Run("empty map", func(t *testing.T) {
+		result := deepCopyMetrics(map[string]interface{}{})
+		assert.NotNil(t, result)
+		assert.Empty(t, result)
+	})
+
+	t.Run("flat map", func(t *testing.T) {
+		original := map[string]interface{}{
+			"string": "value",
+			"int":    42,
+			"float":  3.14,
+			"bool":   true,
+		}
+		copied := deepCopyMetrics(original)
+
+		// Modify copy
+		copied["string"] = "modified"
+
+		// Original should be unchanged
+		assert.Equal(t, "value", original["string"])
+	})
+
+	t.Run("nested map", func(t *testing.T) {
+		original := map[string]interface{}{
+			"outer": map[string]interface{}{
+				"inner": "value",
+			},
+		}
+		copied := deepCopyMetrics(original)
+
+		// Modify nested value in copy
+		outer := copied["outer"].(map[string]interface{})
+		outer["inner"] = "modified"
+
+		// Original should be unchanged
+		origOuter := original["outer"].(map[string]interface{})
+		assert.Equal(t, "value", origOuter["inner"])
+	})
+
+	t.Run("deeply nested map", func(t *testing.T) {
+		original := map[string]interface{}{
+			"level1": map[string]interface{}{
+				"level2": map[string]interface{}{
+					"level3": map[string]interface{}{
+						"value": "deep",
+					},
+				},
+			},
+		}
+		copied := deepCopyMetrics(original)
+
+		// Modify deep value in copy
+		l1 := copied["level1"].(map[string]interface{})
+		l2 := l1["level2"].(map[string]interface{})
+		l3 := l2["level3"].(map[string]interface{})
+		l3["value"] = "modified"
+
+		// Original should be unchanged
+		origL1 := original["level1"].(map[string]interface{})
+		origL2 := origL1["level2"].(map[string]interface{})
+		origL3 := origL2["level3"].(map[string]interface{})
+		assert.Equal(t, "deep", origL3["value"])
+	})
+}
+
+// TestStartBackgroundErrorPropagation tests that server startup errors are propagated
+func TestStartBackgroundErrorPropagation(t *testing.T) {
+	t.Run("server startup failure returns error", func(t *testing.T) {
+		config := DefaultDashboardConfig()
+		config.Port = -1 // Invalid port will cause server.ListenAndServe to fail
+		dashboard := NewDashboard(config)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel()
+
+		errChan := make(chan error, 1)
+		go func() {
+			errChan <- dashboard.StartBackground(ctx)
+		}()
+
+		select {
+		case err := <-errChan:
+			require.Error(t, err, "Should return error for invalid port")
+			assert.Contains(t, err.Error(), "failed to start dashboard server")
+		case <-time.After(1 * time.Second):
+			t.Fatal("Timeout waiting for StartBackground to return error")
+		}
+	})
+}
+
+// TestProfilerInitializationOrder tests that profiler is initialized before collection starts
+func TestProfilerInitializationOrder(t *testing.T) {
+	config := DefaultDashboardConfig()
+	config.CollectInterval = 1 * time.Millisecond // Very fast collection
+	config.EnableProfiling = true
+	config.ProfileDir = t.TempDir()
+
+	// Create collector - profiler should be initialized before goroutine starts
+	collector := NewMetricsCollector(config)
+	defer collector.Stop()
+
+	// Immediately get metrics - should not panic or race on profiler access
+	require.NotPanics(t, func() {
+		for i := 0; i < 10; i++ {
+			_ = collector.GetCurrentMetrics()
+			time.Sleep(time.Millisecond)
+		}
+	})
+
+	// Wait for a few collection cycles
+	time.Sleep(20 * time.Millisecond)
+
+	metrics := collector.GetCurrentMetrics()
+
+	// Should have profiler metrics
+	profilerMetrics, ok := metrics["profiler"]
+	if ok {
+		profiler := profilerMetrics.(map[string]interface{})
+		assert.Contains(t, profiler, "enabled")
+	}
 }

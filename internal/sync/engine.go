@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
@@ -22,14 +23,15 @@ import (
 
 // Engine orchestrates the complete synchronization process
 type Engine struct {
-	config       *config.Config
-	currentGroup *config.Group // Current group being processed
-	gh           gh.Client
-	git          git.Client
-	state        state.Discoverer
-	transform    transform.Chain
-	options      *Options
-	logger       *logrus.Logger
+	config         *config.Config
+	currentGroup   *config.Group // Current group being processed
+	currentGroupMu sync.RWMutex  // Protects currentGroup access
+	gh             gh.Client
+	git            git.Client
+	state          state.Discoverer
+	transform      transform.Chain
+	options        *Options
+	logger         *logrus.Logger
 
 	// AI text generation (optional, nil when disabled)
 	prGenerator     *ai.PRBodyGenerator
@@ -93,6 +95,20 @@ func (e *Engine) SetResponseCache(cache *ai.ResponseCache) {
 // SetDiffTruncator sets a custom diff truncator for testing.
 func (e *Engine) SetDiffTruncator(truncator *ai.DiffTruncator) {
 	e.diffTruncator = truncator
+}
+
+// GetCurrentGroup returns the current group being processed (thread-safe).
+func (e *Engine) GetCurrentGroup() *config.Group {
+	e.currentGroupMu.RLock()
+	defer e.currentGroupMu.RUnlock()
+	return e.currentGroup
+}
+
+// SetCurrentGroup sets the current group being processed (thread-safe).
+func (e *Engine) SetCurrentGroup(group *config.Group) {
+	e.currentGroupMu.Lock()
+	defer e.currentGroupMu.Unlock()
+	e.currentGroup = group
 }
 
 // initializeAI sets up AI text generation components.
@@ -183,7 +199,7 @@ func (e *Engine) Sync(ctx context.Context, targetFilter []string) error {
 
 	// Single group - execute directly
 	group := groups[0]
-	e.currentGroup = &group // Set current group for RepositorySync to use
+	e.SetCurrentGroup(&group) // Set current group for RepositorySync to use
 	log.WithField("group_name", group.Name).Info("Processing single group")
 
 	// Execute the single group sync
@@ -439,9 +455,9 @@ func (e *Engine) syncRepository(ctx context.Context, target config.TargetConfig,
 		"component":   "repository_sync",
 	}
 	// Add group context if available
-	if e.currentGroup != nil {
-		fields["group_name"] = e.currentGroup.Name
-		fields["group_id"] = e.currentGroup.ID
+	if currentGroup := e.GetCurrentGroup(); currentGroup != nil {
+		fields["group_name"] = currentGroup.Name
+		fields["group_id"] = currentGroup.ID
 	}
 	log := e.logger.WithFields(fields)
 
@@ -451,7 +467,11 @@ func (e *Engine) syncRepository(ctx context.Context, target config.TargetConfig,
 	log.Info("Starting repository sync")
 
 	// Get target state
-	targetState := currentState.Targets[target.Repo]
+	targetState, exists := currentState.Targets[target.Repo]
+	if !exists {
+		log.Warn("Target state not found in current state, proceeding with nil state")
+		targetState = nil
+	}
 
 	// Create repository syncer
 	repoSync := &RepositorySync{

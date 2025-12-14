@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -25,7 +26,12 @@ var (
 	ErrSessionNotFound       = errors.New("profiling session not found")
 	ErrSessionAlreadyStarted = errors.New("session already started")
 	ErrProfileNotFound       = errors.New("profile not found")
+	ErrProfilingInUse        = errors.New("global profiling already in use by another session")
 )
+
+// globalProfilingMu serializes access to global profiling operations (CPU profile, trace)
+// Only one CPU profile or trace can be active at a time in the Go runtime
+var globalProfilingMu sync.Mutex //nolint:gochecknoglobals // Required for process-wide profiling serialization
 
 // MemoryProfiler provides comprehensive memory profiling capabilities
 // It captures heap profiles, allocation traces, and runtime statistics
@@ -110,6 +116,11 @@ func (mp *MemoryProfiler) Disable() error {
 
 // StartProfiling begins a comprehensive profiling session
 func (mp *MemoryProfiler) StartProfiling(name string) (*Session, error) {
+	// Validate session name before acquiring lock
+	if name == "" {
+		return nil, ErrEmptySessionName
+	}
+
 	mp.mu.Lock()
 	defer mp.mu.Unlock()
 
@@ -167,6 +178,11 @@ func (mp *MemoryProfiler) StopProfiling(name string) error {
 
 // startSession initiates all profiling types for a session
 func (mp *MemoryProfiler) startSession(session *Session) error {
+	// Acquire global profiling lock to prevent conflicts with other profilers
+	// CPU profiling and tracing are global operations in the Go runtime
+	globalProfilingMu.Lock()
+	defer globalProfilingMu.Unlock()
+
 	session.mu.Lock()
 	defer session.mu.Unlock()
 
@@ -252,8 +268,8 @@ func (mp *MemoryProfiler) stopSession(session *Session) error {
 // captureHeapProfile captures a heap profile
 func (mp *MemoryProfiler) captureHeapProfile(filename string) error {
 	// Force garbage collection to get accurate heap state
+	// A single GC is sufficient - running multiple GCs causes unnecessary latency
 	runtime.GC()
-	runtime.GC() // Run twice to ensure cleanup
 
 	f, err := os.Create(filename) //nolint:gosec // Creating profile output file
 	if err != nil {
@@ -287,7 +303,7 @@ func (mp *MemoryProfiler) captureAdditionalProfiles(outputDir string) {
 }
 
 // captureProfile captures a specific pprof profile
-func (mp *MemoryProfiler) captureProfile(name, filename string, debug int) error {
+func (mp *MemoryProfiler) captureProfile(name, filename string, debug int) (returnErr error) {
 	profile := pprof.Lookup(name)
 	if profile == nil {
 		return fmt.Errorf("%w: %s", ErrProfileNotFound, name)
@@ -297,7 +313,12 @@ func (mp *MemoryProfiler) captureProfile(name, filename string, debug int) error
 	if err != nil {
 		return err
 	}
-	defer func() { _ = f.Close() }() // Ignore error in defer
+	// Ensure file is closed and capture any close error
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to close profile file: %w", closeErr)
+		}
+	}()
 
 	return profile.WriteTo(f, debug)
 }
@@ -308,17 +329,21 @@ func writeToReport(writer io.Writer, format string, args ...interface{}) {
 }
 
 // generateAnalysisReport creates a human-readable analysis report
-func (mp *MemoryProfiler) generateAnalysisReport(session *Session) error {
+func (mp *MemoryProfiler) generateAnalysisReport(session *Session) (returnErr error) {
 	reportFile := filepath.Join(session.OutputDir, "analysis_report.txt")
 
 	f, err := os.Create(reportFile) //nolint:gosec // Creating report output file
 	if err != nil {
 		return err
 	}
-	defer func() { _ = f.Close() }() // Ignore error in defer
+	// Ensure file is closed and capture any close error
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to close report file: %w", closeErr)
+		}
+	}()
 
 	writer := bufio.NewWriter(f)
-	defer func() { _ = writer.Flush() }() // Ignore error in defer
 
 	// Write report header
 	_, _ = fmt.Fprintf(writer, "Memory Profiling Analysis Report\n")
@@ -398,6 +423,11 @@ func (mp *MemoryProfiler) generateAnalysisReport(session *Session) error {
 	writeToReport(writer, "\nExecution Trace Analysis:\n")
 	writeToReport(writer, "  go tool trace %s\n", filepath.Join(session.OutputDir, "trace.out"))
 
+	// Flush buffer and check for errors - critical for data integrity
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("failed to flush report buffer: %w", err)
+	}
+
 	return nil
 }
 
@@ -464,7 +494,15 @@ func (mc MemoryComparison) String() string {
 }
 
 // ProfileWithContext runs a function while profiling and returns memory comparison
-func ProfileWithContext(_ context.Context, profiler *MemoryProfiler, name string, fn func() error) (MemoryComparison, error) {
+// The context is checked before starting and after completion for cancellation
+func ProfileWithContext(ctx context.Context, profiler *MemoryProfiler, name string, fn func() error) (MemoryComparison, error) {
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		return MemoryComparison{}, ctx.Err()
+	default:
+	}
+
 	// Capture initial state
 	startSnapshot := CaptureMemStats(fmt.Sprintf("%s_start", name))
 
@@ -489,6 +527,12 @@ func ProfileWithContext(_ context.Context, profiler *MemoryProfiler, name string
 
 	// Return comparison and function error
 	comparison := startSnapshot.Compare(endSnapshot)
+
+	// If context was canceled during execution, prioritize returning context error
+	if ctx.Err() != nil && fnErr == nil {
+		return comparison, ctx.Err()
+	}
+
 	return comparison, fnErr
 }
 
@@ -535,15 +579,18 @@ func FormatBytesDelta(delta int64) string {
 		return "0 B"
 	}
 
-	sign := ""
-	if delta > 0 {
-		sign = "+"
-	}
-
+	sign := "+"
 	absBytes := uint64(delta)
+
 	if delta < 0 {
-		absBytes = uint64(-delta)
 		sign = "-"
+		// Handle math.MinInt64 overflow case: -MinInt64 overflows in int64
+		// because MinInt64 = -9223372036854775808 and MaxInt64 = 9223372036854775807
+		if delta == math.MinInt64 {
+			absBytes = uint64(math.MaxInt64) + 1
+		} else {
+			absBytes = uint64(-delta)
+		}
 	}
 
 	return sign + formatBytes(absBytes)

@@ -43,26 +43,27 @@ func LoadEnvFilesFromDir(dir string) error {
 
 // loadEnvFilesInternal is the shared implementation for loading env files.
 func loadEnvFilesInternal(baseFile, customFile string) error {
-	// Check base file exists (required)
-	if _, err := os.Stat(baseFile); os.IsNotExist(err) {
-		return fmt.Errorf("%w at %s", ErrEnvBaseFileNotFound, baseFile)
-	}
-
-	// Parse base configuration
+	// Parse base configuration (required file)
+	// We open the file directly instead of checking with Stat first to avoid
+	// a TOCTOU (time-of-check-to-time-of-use) race condition.
 	baseVars, err := parseEnvFile(baseFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("%w at %s", ErrEnvBaseFileNotFound, baseFile)
+		}
 		return fmt.Errorf("failed to parse %s: %w", baseFile, err)
 	}
 
-	// Parse custom overrides (optional)
-	customVars := make(map[string]string)
-	if _, err := os.Stat(customFile); err == nil {
-		customVars, err = parseEnvFile(customFile)
-		if err != nil {
+	// Parse custom overrides (optional file)
+	// We try to parse directly and ignore NotExist errors to avoid TOCTOU races.
+	customVars, err := parseEnvFile(customFile)
+	if err != nil {
+		if !os.IsNotExist(err) {
 			return fmt.Errorf("failed to parse %s: %w", customFile, err)
 		}
+		// Custom file doesn't exist - that's fine, it's optional
+		customVars = make(map[string]string)
 	}
-	// If custom file doesn't exist, that's fine - it's optional
 
 	// Merge: custom overrides base
 	merged := make(map[string]string)
@@ -75,13 +76,15 @@ func loadEnvFilesInternal(baseFile, customFile string) error {
 
 	// Apply: ONLY set if not already in OS environment
 	// This ensures OS env vars (from shell, CI/CD secrets, etc.) take precedence
+	// We use LookupEnv to distinguish between "not set" and "set to empty string".
+	// An explicitly set empty string (e.g., FOO="") is preserved and NOT overwritten.
 	for key, value := range merged {
-		if os.Getenv(key) == "" {
+		if _, exists := os.LookupEnv(key); !exists {
 			if err := os.Setenv(key, value); err != nil {
 				return fmt.Errorf("failed to set %s: %w", key, err)
 			}
 		}
-		// If OS env is already set, we respect it (don't overwrite)
+		// If OS env is already set (even to empty), we respect it (don't overwrite)
 	}
 
 	return nil
@@ -89,9 +92,23 @@ func loadEnvFilesInternal(baseFile, customFile string) error {
 
 // GetEnvWithFallback gets an environment variable with a fallback value.
 // This is useful for configuration values that should have sensible defaults.
+//
+// This function returns the fallback if the env var is not set OR if it
+// is set to an empty string. If you need to distinguish between "not set" and
+// "set to empty", use GetEnvOrDefault instead.
 func GetEnvWithFallback(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
 	return fallback
+}
+
+// GetEnvOrDefault gets an environment variable with a default value.
+// Unlike GetEnvWithFallback, this function preserves explicitly set empty values.
+// The default is only used when the variable is truly not set in the environment.
+func GetEnvOrDefault(key, defaultVal string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return defaultVal
 }

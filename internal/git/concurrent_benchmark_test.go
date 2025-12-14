@@ -123,7 +123,10 @@ func BenchmarkConcurrentGitOperations(b *testing.B) {
 			benchmark.WithMemoryTracking(b, func() {
 				// For concurrent operations, create separate repos to avoid lock conflicts
 				if scenario.concurrent > 1 {
-					pool := worker.NewPool(scenario.concurrent, scenario.repos)
+					pool, err := worker.NewPool(scenario.concurrent, scenario.repos)
+					if err != nil {
+						b.Fatalf("Failed to create worker pool: %v", err)
+					}
 					pool.Start(ctx)
 
 					// Create tasks - each with its own repo
@@ -360,7 +363,10 @@ func BenchmarkConcurrentVsSequential(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			start := time.Now()
 
-			pool := worker.NewPool(10, repoCount)
+			pool, err := worker.NewPool(10, repoCount)
+			if err != nil {
+				b.Fatalf("Failed to create worker pool: %v", err)
+			}
 			pool.Start(context.Background())
 
 			// Create tasks for each repo
@@ -418,7 +424,10 @@ func BenchmarkGitOperationScaling(b *testing.B) {
 			benchmark.WithMemoryTracking(b, func() {
 				start := time.Now()
 
-				pool := worker.NewPool(workers, operationCount)
+				pool, err := worker.NewPool(workers, operationCount)
+				if err != nil {
+					b.Fatalf("Failed to create worker pool: %v", err)
+				}
 				pool.Start(context.Background())
 
 				// Create git operation tasks

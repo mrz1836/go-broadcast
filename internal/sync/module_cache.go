@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"runtime"
 	"sync"
 	"time"
 
@@ -23,7 +24,9 @@ type ModuleCache struct {
 	once    sync.Once
 }
 
-// NewModuleCache creates a new module cache with the specified TTL
+// NewModuleCache creates a new module cache with the specified TTL.
+// Important: The caller must call Close() when done to prevent goroutine leaks.
+// A finalizer is registered as a safety measure, but explicit Close() is recommended.
 func NewModuleCache(ttl time.Duration, logger *logrus.Logger) *ModuleCache {
 	if ttl <= 0 {
 		ttl = 5 * time.Minute // Default TTL
@@ -38,6 +41,11 @@ func NewModuleCache(ttl time.Duration, logger *logrus.Logger) *ModuleCache {
 
 	// Start cleanup goroutine
 	go cache.cleanupExpired()
+
+	// Register finalizer to ensure cleanup on garbage collection
+	runtime.SetFinalizer(cache, func(c *ModuleCache) {
+		c.Close()
+	})
 
 	return cache
 }

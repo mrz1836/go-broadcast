@@ -309,14 +309,14 @@ func TestValidateRepositoryAccessibilityEdgeCases(t *testing.T) {
 	})
 
 	t.Run("Nil config", func(t *testing.T) {
-		// Test that the function fails gracefully with nil config
+		// Test that the function returns ErrNilConfig for nil config
 		ctx := context.Background()
 		logConfig := &logging.LogConfig{LogLevel: "error"}
 
-		// This should panic because cfg.Source is accessed directly
-		assert.Panics(t, func() {
-			_ = validateRepositoryAccessibility(ctx, nil, logConfig, false)
-		})
+		// Should return ErrNilConfig instead of panicking
+		err := validateRepositoryAccessibility(ctx, nil, logConfig, false)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrNilConfig)
 	})
 
 	t.Run("Special characters in repository names", func(t *testing.T) {

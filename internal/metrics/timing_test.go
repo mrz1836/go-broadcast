@@ -453,3 +453,77 @@ func TestTimer_FieldOverwrite(t *testing.T) {
 	assert.InEpsilon(t, 0.5, timer.fields["progress"], 0.001, "progress should still be preserved")
 	assert.Contains(t, timer.fields, logging.StandardFields.DurationMs, "timing fields should be added")
 }
+
+// TestStartTimer_NilLogger tests that nil logger causes panic
+func TestStartTimer_NilLogger(t *testing.T) {
+	assert.Panics(t, func() {
+		StartTimer(context.Background(), nil, "test_operation")
+	}, "StartTimer should panic when logger is nil")
+}
+
+// TestStartTimer_NilContext tests that nil context defaults to Background
+func TestStartTimer_NilContext(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+
+	// Should not panic with nil context
+	timer := StartTimer(nil, logger, "nil_context_test") //nolint:staticcheck // SA1012: intentionally testing nil context fallback behavior
+
+	assert.NotNil(t, timer, "timer should be created")
+	assert.NotNil(t, timer.ctx, "context should be set to a default value")
+	assert.False(t, timer.CheckCancellation(), "default context should not be canceled")
+}
+
+// TestTimer_DoubleStop tests that calling Stop multiple times is safe
+func TestTimer_DoubleStop(t *testing.T) {
+	timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "double_stop_test")
+	timer.AddField("test", "value")
+
+	// First stop should return the duration
+	time.Sleep(5 * time.Millisecond)
+	duration1 := timer.Stop()
+	assert.Greater(t, duration1, time.Duration(0), "first stop should return positive duration")
+
+	// Second stop should return 0 and not log again
+	duration2 := timer.Stop()
+	assert.Equal(t, time.Duration(0), duration2, "second stop should return 0")
+
+	// Third stop should also return 0
+	duration3 := timer.Stop()
+	assert.Equal(t, time.Duration(0), duration3, "third stop should return 0")
+}
+
+// TestTimer_DoubleStopWithError tests that calling StopWithError multiple times is safe
+func TestTimer_DoubleStopWithError(t *testing.T) {
+	t.Run("multiple StopWithError calls", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "double_stop_error_test")
+
+		time.Sleep(5 * time.Millisecond)
+		duration1 := timer.StopWithError(assert.AnError)
+		assert.Greater(t, duration1, time.Duration(0), "first stop should return positive duration")
+
+		duration2 := timer.StopWithError(nil)
+		assert.Equal(t, time.Duration(0), duration2, "second stop should return 0")
+	})
+
+	t.Run("Stop then StopWithError", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "stop_then_error_test")
+
+		time.Sleep(5 * time.Millisecond)
+		duration1 := timer.Stop()
+		assert.Greater(t, duration1, time.Duration(0), "first stop should return positive duration")
+
+		duration2 := timer.StopWithError(assert.AnError)
+		assert.Equal(t, time.Duration(0), duration2, "StopWithError after Stop should return 0")
+	})
+
+	t.Run("StopWithError then Stop", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "error_then_stop_test")
+
+		time.Sleep(5 * time.Millisecond)
+		duration1 := timer.StopWithError(nil)
+		assert.Greater(t, duration1, time.Duration(0), "first StopWithError should return positive duration")
+
+		duration2 := timer.Stop()
+		assert.Equal(t, time.Duration(0), duration2, "Stop after StopWithError should return 0")
+	})
+}

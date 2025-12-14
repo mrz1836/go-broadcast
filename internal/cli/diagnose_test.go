@@ -97,6 +97,7 @@ func TestCollectEnvironment(t *testing.T) {
 
 	t.Run("RedactsSensitiveValues", func(t *testing.T) {
 		// Set sensitive environment variables
+		// All sensitive values are fully redacted (no partial exposure for security)
 		testCases := []struct {
 			name     string
 			envVar   string
@@ -107,7 +108,7 @@ func TestCollectEnvironment(t *testing.T) {
 				name:     "RedactsGHToken",
 				envVar:   "GH_TOKEN",
 				value:    "ghp_1234567890abcdef",
-				expected: "ghp_***REDACTED***",
+				expected: "***REDACTED***",
 			},
 			{
 				name:     "RedactsShortToken",
@@ -119,7 +120,7 @@ func TestCollectEnvironment(t *testing.T) {
 				name:     "RedactsPasswordVariable",
 				envVar:   "DB_PASSWORD",
 				value:    "supersecret123",
-				expected: "supe***REDACTED***",
+				expected: "***REDACTED***",
 			},
 		}
 

@@ -192,11 +192,18 @@ func ExecuteWithContext(ctx context.Context) error {
 	// Handle interrupt signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigChan) // Clean up signal handler when done
 
+	// Start goroutine that exits cleanly when context is canceled or signal received
 	go func() {
-		<-sigChan
-		output.Warn("Interrupt received, canceling...")
-		cancel()
+		select {
+		case <-sigChan:
+			output.Warn("Interrupt received, canceling...")
+			cancel()
+		case <-ctx.Done():
+			// Context was canceled, exit cleanly without leaking goroutine
+			return
+		}
 	}()
 
 	// Execute command with context
@@ -623,16 +630,7 @@ Performs comprehensive validation including:
 
 // createRunStatus creates an isolated status run function with the given flags
 func createRunStatus(_ *Flags) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
-
-		// Get isolated logger from context, fallback to global if not available
-		logger, ok := ctx.Value(loggerContextKey{}).(*logrus.Logger)
-		if !ok {
-			logger = logrus.StandardLogger()
-		}
-		_ = logger.WithField("command", "status")
-
+	return func(_ *cobra.Command, _ []string) error {
 		// For now, use a placeholder implementation - this will be implemented properly
 		// when we address the status command's specific needs
 		return ErrStatusNotImplemented
@@ -649,7 +647,6 @@ func createRunValidate(flags *Flags) func(*cobra.Command, []string) error {
 		if !ok {
 			logger = logrus.StandardLogger()
 		}
-		_ = logger.WithField("command", "validate")
 
 		cfg, err := loadConfigWithFlags(flags, logger)
 		if err != nil {
@@ -728,9 +725,6 @@ func createRunSyncWithVerbose(config *LogConfig) func(*cobra.Command, []string) 
 // - Function that can be used as RunE for Cobra status commands
 func createRunStatusWithVerbose(_ *LogConfig) func(*cobra.Command, []string) error {
 	return func(_ *cobra.Command, _ []string) error {
-		log := logrus.WithField("command", "status")
-		_ = log
-
 		// For Phase 1, maintain existing behavior
 		return ErrStatusNotImplemented
 	}
@@ -745,9 +739,6 @@ func createRunStatusWithVerbose(_ *LogConfig) func(*cobra.Command, []string) err
 // - Function that can be used as RunE for Cobra validate commands
 func createRunValidateWithVerbose(config *LogConfig) func(*cobra.Command, []string) error {
 	return func(_ *cobra.Command, _ []string) error {
-		log := logrus.WithField("command", "validate")
-		_ = log
-
 		cfg, err := loadConfigWithLogConfig(config)
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
@@ -817,16 +808,7 @@ to clean up the repositories.`,
 // createRunCancel creates an isolated cancel run function with the given flags
 func createRunCancel(_ *Flags) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-
-		// Get isolated logger from context, fallback to global if not available
-		logger, ok := ctx.Value(loggerContextKey{}).(*logrus.Logger)
-		if !ok {
-			logger = logrus.StandardLogger()
-		}
-		_ = logger.WithField("command", "cancel")
-
-		// For now, delegate to the global cancel implementation
+		// Delegate to the global cancel implementation
 		// This maintains functionality while providing isolated flag support
 		return runCancel(cmd, args)
 	}
@@ -835,9 +817,6 @@ func createRunCancel(_ *Flags) func(*cobra.Command, []string) error {
 // createRunCancelWithVerbose creates a cancel run function with verbose logging support
 func createRunCancelWithVerbose(_ *LogConfig) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		log := logrus.WithField("command", "cancel")
-		_ = log
-
 		// For Phase 1, delegate to existing cancel implementation
 		return runCancel(cmd, args)
 	}
