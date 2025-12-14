@@ -251,12 +251,19 @@ func IsNewerVersion(currentVersion, latestVersion string) bool {
 // It removes the 'v' prefix, trims whitespace, and removes any pre-release
 // or build metadata suffixes (e.g., -rc1, -dirty, +build).
 func NormalizeVersion(version string) string {
-	version = strings.TrimSpace(version)
-	version = strings.TrimPrefix(version, "v")
-
 	// Remove any pre-release or build metadata suffixes
 	if idx := strings.IndexAny(version, "-+"); idx != -1 {
 		version = version[:idx]
+	}
+
+	// Remove leading/trailing whitespace and 'v' prefixes until stable
+	for {
+		trimmed := strings.TrimSpace(version)
+		trimmed = strings.TrimLeft(trimmed, "v")
+		if trimmed == version {
+			break
+		}
+		version = trimmed
 	}
 
 	return version
