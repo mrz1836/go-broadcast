@@ -1,3 +1,5 @@
+//go:build integration
+
 package integration
 
 import (
@@ -6,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -23,25 +24,6 @@ import (
 	syncpkg "github.com/mrz1836/go-broadcast/internal/sync"
 	"github.com/mrz1836/go-broadcast/internal/transform"
 )
-
-// isRaceEnabled returns true if the race detector is enabled
-func isRaceEnabled() bool {
-	// The race detector is enabled when the -race flag is used
-	// We can detect this by checking if the runtime/race package is active
-	// This is a build-time constant that gets set when -race is used
-	return runtime.GOOS != "js" && runtime.GOOS != "wasm" && getRaceEnabled()
-}
-
-// getRaceEnabled returns the race detection status
-// This is set by the race_enabled.go file when built with -race
-func getRaceEnabled() bool {
-	return raceEnabledFlag
-}
-
-// raceEnabledFlag is a build tag constant that's true when -race is enabled
-//
-//nolint:gochecknoglobals // Required for race detection at build time
-var raceEnabledFlag = false
 
 // Helper functions for git operations
 func initGitRepoPerf(t testing.TB, dir string) {
@@ -815,11 +797,6 @@ func TestPerformanceStress(t *testing.T) {
 		// Should complete in reasonable time
 		assert.Less(t, duration, 30*time.Second, "Large directory sync took too long")
 	})
-}
-
-// Common helper function for all integration tests
-func boolPtr(b bool) *bool {
-	return &b
 }
 
 func TestPerformanceRegression(t *testing.T) {
