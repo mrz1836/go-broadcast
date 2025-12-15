@@ -124,6 +124,16 @@ jobs:
               # Path: ci-results/ARTIFACT_NAME/.mage-x/ci-results.jsonl
               ARTIFACT_DIR=$(dirname "$(dirname "$jsonl_file")" | xargs basename)
               JSONL_NAME=$(basename "$jsonl_file")
+
+              # Validate expected structure - warn but continue with fallback
+              PARENT_DIR=$(basename "$(dirname "$jsonl_file")")
+              if [[ "$PARENT_DIR" != ".mage-x" ]]; then
+                echo "  Warning: Unexpected artifact structure for: $jsonl_file"
+                echo "  Expected: ci-results/ARTIFACT_NAME/.mage-x/ci-results.jsonl"
+                # Fallback: use parent directory name as artifact identifier
+                ARTIFACT_DIR=$(basename "$(dirname "$jsonl_file")")
+              fi
+
               TEST_LABEL=$(parse_test_label "$ARTIFACT_DIR" "$JSONL_NAME")
 
               echo ""
@@ -291,6 +301,13 @@ jobs:
               # Path: ci-results/ARTIFACT_NAME/.mage-x/ci-results.jsonl
               ARTIFACT_DIR=$(dirname "$(dirname "$jsonl_file")" | xargs basename)
               JSONL_NAME=$(basename "$jsonl_file")
+
+              # Validate expected structure - use fallback if unexpected
+              PARENT_DIR=$(basename "$(dirname "$jsonl_file")")
+              if [[ "$PARENT_DIR" != ".mage-x" ]]; then
+                ARTIFACT_DIR=$(basename "$(dirname "$jsonl_file")")
+              fi
+
               TEST_LABEL=$(parse_test_label "$ARTIFACT_DIR" "$JSONL_NAME")
 
               SUMMARY=$(grep '"type":"summary"' "$jsonl_file" 2>/dev/null | head -1 || echo "")
@@ -319,7 +336,7 @@ jobs:
 
             FAILURE_COUNT=0
             for jsonl_file in $(find ci-results/ -name "*.jsonl" 2>/dev/null); do
-              grep '"type":"failure"' "$jsonl_file" 2>/dev/null | while read -r line; do
+              while read -r line; do
                 # Limit total failures shown
                 FAILURE_COUNT=$((FAILURE_COUNT + 1))
                 if [[ $FAILURE_COUNT -gt 20 ]]; then
@@ -379,7 +396,7 @@ jobs:
                 echo "" >> $GITHUB_STEP_SUMMARY
                 echo "</details>" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
-              done
+              done < <(grep '"type":"failure"' "$jsonl_file" 2>/dev/null)
             done
           fi
 
