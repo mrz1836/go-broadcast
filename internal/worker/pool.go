@@ -182,6 +182,11 @@ func (p *Pool) worker(ctx context.Context) {
 			Duration: time.Since(start),
 		}
 
+		// Update stats before sending result to ensure consistency:
+		// consumers observing a result will always see updated stats
+		p.tasksActive.Add(-1)
+		p.tasksProcessed.Add(1)
+
 		// Send result with context awareness to prevent deadlock
 		select {
 		case p.results <- result:
@@ -195,8 +200,5 @@ func (p *Pool) worker(ctx context.Context) {
 				// Results channel full and context canceled, drop result to unblock
 			}
 		}
-
-		p.tasksActive.Add(-1)
-		p.tasksProcessed.Add(1)
 	}
 }
