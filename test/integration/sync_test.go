@@ -67,6 +67,7 @@ func TestEndToEndSync(t *testing.T) {
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -120,6 +121,7 @@ func TestEndToEndSync(t *testing.T) {
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -173,6 +175,7 @@ func TestEndToEndSync(t *testing.T) {
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -224,6 +227,7 @@ func TestEndToEndSync(t *testing.T) {
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -251,6 +255,7 @@ func TestEndToEndSync(t *testing.T) {
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 

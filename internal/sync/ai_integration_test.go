@@ -132,7 +132,8 @@ func TestRepositorySync_GenerateCommitMessage(t *testing.T) {
 	t.Run("without AI generator uses fallback", func(t *testing.T) {
 		cfg := &config.Config{}
 		engine := NewEngine(context.Background(), cfg, nil, nil, nil, nil, nil)
-		// Don't set commit generator - it remains nil
+		// Explicitly disable AI generator (NewEngine may auto-initialize from env)
+		engine.SetCommitGenerator(nil)
 
 		rs := &RepositorySync{
 			engine: engine,
@@ -271,7 +272,8 @@ This PR updates configuration files from the source repository.
 	t.Run("without AI generator uses fallback", func(t *testing.T) {
 		cfg := &config.Config{}
 		engine := NewEngine(context.Background(), cfg, nil, nil, nil, nil, nil)
-		// Don't set PR generator - it remains nil
+		// Explicitly disable AI generator (NewEngine may auto-initialize from env)
+		engine.SetPRGenerator(nil)
 
 		rs := &RepositorySync{
 			engine: engine,

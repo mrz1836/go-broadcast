@@ -294,6 +294,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EndToEnd() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -363,6 +364,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MixedConfiguration() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -425,6 +427,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeDirectory() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -506,6 +509,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ComplexExclusions() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -587,6 +591,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_TransformIntegration() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -668,6 +673,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_ProgressReporting() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -733,6 +739,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_APIOptimization() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -804,6 +811,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_EmptyDirectory() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -866,6 +874,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_OnlyExcludedFiles() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -922,6 +931,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_DeepNesting() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -989,6 +999,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_SymbolicLinks() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -1059,6 +1070,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_UnicodeFilenames() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -1120,6 +1132,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_LargeFiles() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -1186,6 +1199,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PermissionErrors() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -1253,6 +1267,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_NetworkFailures() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -1311,6 +1326,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_GithubDirectory() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -1438,6 +1454,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_CoverageModule() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -1522,6 +1539,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MultipleDirectories() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -1587,6 +1605,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_PerformanceTargets() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -1691,6 +1710,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_MemoryUsage() {
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -1838,6 +1858,7 @@ func (suite *DirectorySyncTestSuite) TestDirectorySync_APIEfficiency() {
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 

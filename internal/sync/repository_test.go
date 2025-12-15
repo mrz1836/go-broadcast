@@ -71,6 +71,8 @@ func TestRepositorySync_Execute(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		transformChain := &transform.MockChain{}
 
 		// Setup default expectations for pre-sync validation
@@ -196,6 +198,8 @@ func TestRepositorySync_Execute(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		transformChain := &transform.MockChain{}
 
 		// Setup default expectations for pre-sync validation
@@ -250,6 +254,8 @@ func TestRepositorySync_Execute(t *testing.T) {
 		// Setup mocks (minimal since dry-run shouldn't call most operations)
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		transformChain := &transform.MockChain{}
 
 		// Setup default expectations for pre-sync validation
@@ -1354,6 +1360,8 @@ func TestCreateNewPR_WithReviewerFiltering(t *testing.T) {
 	logger := logrus.NewEntry(logrus.New())
 
 	gitClient := &git.MockClient{}
+	gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	ghClient := &gh.MockClient{}
 
 	// Mock getting current user
@@ -1424,6 +1432,8 @@ func TestCreateNewPR_GetCurrentUserFailure(t *testing.T) {
 	logger := logrus.NewEntry(logrus.New())
 
 	gitClient := &git.MockClient{}
+	gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	ghClient := &gh.MockClient{}
 
 	// Mock getting current user fails
@@ -1496,6 +1506,8 @@ func TestRepositorySync_commitChanges_NoChanges(t *testing.T) {
 	// Setup mocks
 	ghClient := &gh.MockClient{}
 	gitClient := &git.MockClient{}
+	gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 
 	// Mock successful operations until commit
 	gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -1553,6 +1565,8 @@ func TestRepositorySync_commitChanges_NoChanges_GetSHAError(t *testing.T) {
 	// Setup mocks
 	ghClient := &gh.MockClient{}
 	gitClient := &git.MockClient{}
+	gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 
 	// Mock successful operations until commit
 	gitClient.On("Clone", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -2280,6 +2294,8 @@ func TestRepositorySync_NoChangesToSync(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		transformChain := &transform.MockChain{}
 
 		// Setup default expectations
@@ -2373,6 +2389,8 @@ func TestRepositorySync_NoChangesToSync(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		transformChain := &transform.MockChain{}
 
 		// Setup basic expectations

@@ -135,6 +135,7 @@ func BenchmarkGroupOrchestration(b *testing.B) {
 			mockGit := &git.MockClient{}
 			// Add broad GetChangedFiles mock to handle all calls
 			mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+			mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 			mockState := &state.MockDiscoverer{}
 			mockTransform := &transform.MockChain{}
 
@@ -469,6 +470,7 @@ func TestPerformanceStress(t *testing.T) {
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -664,6 +666,7 @@ func TestPerformanceStress(t *testing.T) {
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -747,6 +750,7 @@ func TestPerformanceStress(t *testing.T) {
 		mockGit := &git.MockClient{}
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -868,6 +872,7 @@ func TestPerformanceRegression(t *testing.T) {
 			mockGit := &git.MockClient{}
 			// Add broad GetChangedFiles mock to handle all calls
 			mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+			mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 			mockState := &state.MockDiscoverer{}
 			mockTransform := &transform.MockChain{}
 
@@ -1009,6 +1014,7 @@ func TestPerformanceRegression(t *testing.T) {
 			mockGit := &git.MockClient{}
 			// Add broad GetChangedFiles mock to handle all calls
 			mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+			mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 			mockState := &state.MockDiscoverer{}
 			mockTransform := &transform.MockChain{}
 

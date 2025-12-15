@@ -76,6 +76,8 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		transformChain := &transform.MockChain{}
 
 		// Setup default expectations for pre-sync validation
@@ -192,6 +194,8 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		transformChain := &transform.MockChain{}
 
 		// Setup default expectations
@@ -300,6 +304,8 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		transformChain := &transform.MockChain{}
 
 		// Setup default expectations
@@ -409,6 +415,8 @@ func TestRepositorySync_ExistingPRDetection(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		transformChain := &transform.MockChain{}
 
 		// Setup default expectations

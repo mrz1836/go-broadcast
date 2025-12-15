@@ -72,6 +72,7 @@ func testBranchProtectionHandling(t *testing.T, generator *fixtures.TestRepoGene
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -229,6 +230,7 @@ func testTemplateRepositoryUpdates(t *testing.T, generator *fixtures.TestRepoGen
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -374,6 +376,7 @@ func testRollbackCapabilities(t *testing.T, generator *fixtures.TestRepoGenerato
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -538,6 +541,7 @@ func testStateConsistencyAcrossOperations(t *testing.T, generator *fixtures.Test
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -645,6 +649,7 @@ func testWorkflowPermissionsAndSecurity(t *testing.T, generator *fixtures.TestRe
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 
@@ -727,6 +732,7 @@ func testIncrementalTemplateChanges(t *testing.T, generator *fixtures.TestRepoGe
 	mockGit := &git.MockClient{}
 	// Add broad GetChangedFiles mock to handle all calls
 	mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	mockState := &state.MockDiscoverer{}
 	mockTransform := &transform.MockChain{}
 

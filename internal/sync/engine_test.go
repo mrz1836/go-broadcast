@@ -36,6 +36,8 @@ func TestNewEngine(t *testing.T) {
 	cfg := &config.Config{}
 	ghClient := &gh.MockClient{}
 	gitClient := &git.MockClient{}
+	gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	stateDiscoverer := &state.MockDiscoverer{}
 	transformChain := &transform.MockChain{}
 
@@ -93,6 +95,8 @@ func TestEngineSync(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -149,6 +153,8 @@ func TestEngineSync(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -180,6 +186,8 @@ func TestEngineSync(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -229,6 +237,8 @@ func TestEngineSync(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -271,6 +281,8 @@ func TestEngineSync(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -461,6 +473,8 @@ func TestEngineWithDryRun(t *testing.T) {
 	// Setup mocks
 	ghClient := &gh.MockClient{}
 	gitClient := &git.MockClient{}
+	gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+	gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 	stateDiscoverer := &state.MockDiscoverer{}
 	transformChain := &transform.MockChain{}
 
@@ -545,6 +559,8 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -613,6 +629,8 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -681,6 +699,8 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -760,6 +780,8 @@ func TestEngineConcurrentErrorScenarios(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -864,6 +886,8 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -1059,6 +1083,8 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Setup mocks
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -1272,6 +1298,8 @@ func TestEngine_ErrorCollection(t *testing.T) {
 		// Setup mocks for successful sync
 		ghClient := &gh.MockClient{}
 		gitClient := &git.MockClient{}
+		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
+		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
