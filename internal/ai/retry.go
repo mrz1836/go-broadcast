@@ -56,6 +56,9 @@ func GenerateWithRetry(
 	delay := cfg.InitialDelay
 
 	for attempt := 1; attempt <= cfg.MaxAttempts; attempt++ {
+		if attempt == 1 && logger != nil {
+			logger.Info("Calling AI provider...")
+		}
 		resp, err := generate(ctx)
 		if err == nil {
 			if attempt > 1 && logger != nil {
