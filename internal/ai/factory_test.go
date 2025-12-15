@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewProviderFromEnv_DisabledByDefault(t *testing.T) {
@@ -41,72 +40,9 @@ func TestNewProviderFromEnv_EnabledWithoutAPIKey(t *testing.T) {
 	assert.ErrorIs(t, err, ErrAPIKeyMissing)
 }
 
-func TestNewProviderFromEnv_UsesProviderSpecificAPIKey(t *testing.T) {
-	tests := []struct {
-		name       string
-		provider   string
-		envVar     string
-		apiKey     string
-		expectName string
-	}{
-		{
-			name:       "Anthropic provider key",
-			provider:   ProviderAnthropic,
-			envVar:     "ANTHROPIC_API_KEY",
-			apiKey:     "anthropic-test-key",
-			expectName: ProviderAnthropic,
-		},
-		{
-			name:       "OpenAI provider key",
-			provider:   ProviderOpenAI,
-			envVar:     "OPENAI_API_KEY",
-			apiKey:     "openai-test-key",
-			expectName: ProviderOpenAI,
-		},
-		{
-			name:       "Google provider key",
-			provider:   ProviderGoogle,
-			envVar:     "GEMINI_API_KEY",
-			apiKey:     "google-test-key",
-			expectName: ProviderGoogle,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Clear all API keys first
-			t.Setenv("GO_BROADCAST_AI_API_KEY", "")
-			t.Setenv("ANTHROPIC_API_KEY", "")
-			t.Setenv("OPENAI_API_KEY", "")
-			t.Setenv("GEMINI_API_KEY", "")
-
-			// Set test config
-			t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
-			t.Setenv("GO_BROADCAST_AI_PROVIDER", tt.provider)
-			t.Setenv(tt.envVar, tt.apiKey)
-
-			provider, err := NewProviderFromEnv(context.Background(), nil)
-
-			require.NoError(t, err)
-			require.NotNil(t, provider)
-			assert.Equal(t, tt.expectName, provider.Name())
-		})
-	}
-}
-
-func TestNewProviderFromEnv_PrefersMainAPIKey(t *testing.T) {
-	// Set both main and provider-specific keys
-	t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
-	t.Setenv("GO_BROADCAST_AI_PROVIDER", ProviderAnthropic)
-	t.Setenv("GO_BROADCAST_AI_API_KEY", "main-api-key")
-	t.Setenv("ANTHROPIC_API_KEY", "anthropic-specific-key")
-
-	provider, err := NewProviderFromEnv(context.Background(), nil)
-
-	require.NoError(t, err)
-	require.NotNil(t, provider)
-	assert.Equal(t, ProviderAnthropic, provider.Name())
-}
+// TestNewProviderFromEnv_UsesProviderSpecificAPIKey and TestNewProviderFromEnv_PrefersMainAPIKey
+// are located in integration_test.go because they initialize real Genkit providers
+// which may make network requests during plugin initialization.
 
 func TestNewProviderFromEnv_UnsupportedProvider(t *testing.T) {
 	t.Setenv("GO_BROADCAST_AI_ENABLED", "true")

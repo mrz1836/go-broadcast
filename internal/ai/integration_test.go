@@ -369,3 +369,94 @@ func TestEndToEnd_CommitGeneration(t *testing.T) {
 	assert.True(t, len(result) <= 72, "commit message should be within 72 chars")
 	assert.Contains(t, result, "sync:", "should have sync: prefix")
 }
+
+// TestNewProviderFromEnv_UsesProviderSpecificAPIKey tests that NewProviderFromEnv
+// correctly uses provider-specific API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY).
+//
+// MOVED FROM factory_test.go: This test initializes real Genkit providers which may
+// make network requests during plugin initialization, even with fake API keys.
+//
+// To run this test:
+//  1. Comment out the t.Skip() line below
+//  2. Run: go test -tags=integration ./internal/ai/... -run TestNewProviderFromEnv_UsesProviderSpecificAPIKey -v
+func TestNewProviderFromEnv_UsesProviderSpecificAPIKey(t *testing.T) {
+	// SKIP: Initializes real Genkit providers which may make network requests
+	t.Skip("Initializes real providers - comment out to run")
+
+	tests := []struct {
+		name       string
+		provider   string
+		envVar     string
+		apiKey     string
+		expectName string
+	}{
+		{
+			name:       "Anthropic provider key",
+			provider:   ProviderAnthropic,
+			envVar:     "ANTHROPIC_API_KEY",
+			apiKey:     "anthropic-test-key",
+			expectName: ProviderAnthropic,
+		},
+		{
+			name:       "OpenAI provider key",
+			provider:   ProviderOpenAI,
+			envVar:     "OPENAI_API_KEY",
+			apiKey:     "openai-test-key",
+			expectName: ProviderOpenAI,
+		},
+		{
+			name:       "Google provider key",
+			provider:   ProviderGoogle,
+			envVar:     "GEMINI_API_KEY",
+			apiKey:     "google-test-key",
+			expectName: ProviderGoogle,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clear all API keys first
+			t.Setenv("GO_BROADCAST_AI_API_KEY", "")
+			t.Setenv("ANTHROPIC_API_KEY", "")
+			t.Setenv("OPENAI_API_KEY", "")
+			t.Setenv("GEMINI_API_KEY", "")
+
+			// Set test config
+			t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
+			t.Setenv("GO_BROADCAST_AI_PROVIDER", tt.provider)
+			t.Setenv(tt.envVar, tt.apiKey)
+
+			provider, err := NewProviderFromEnv(context.Background(), nil)
+
+			require.NoError(t, err)
+			require.NotNil(t, provider)
+			assert.Equal(t, tt.expectName, provider.Name())
+		})
+	}
+}
+
+// TestNewProviderFromEnv_PrefersMainAPIKey tests that GO_BROADCAST_AI_API_KEY
+// takes precedence over provider-specific API keys.
+//
+// MOVED FROM factory_test.go: This test initializes real Genkit providers which may
+// make network requests during plugin initialization, even with fake API keys.
+//
+// To run this test:
+//  1. Comment out the t.Skip() line below
+//  2. Run: go test -tags=integration ./internal/ai/... -run TestNewProviderFromEnv_PrefersMainAPIKey -v
+func TestNewProviderFromEnv_PrefersMainAPIKey(t *testing.T) {
+	// SKIP: Initializes real Genkit providers which may make network requests
+	t.Skip("Initializes real providers - comment out to run")
+
+	// Set both main and provider-specific keys
+	t.Setenv("GO_BROADCAST_AI_ENABLED", "true")
+	t.Setenv("GO_BROADCAST_AI_PROVIDER", ProviderAnthropic)
+	t.Setenv("GO_BROADCAST_AI_API_KEY", "main-api-key")
+	t.Setenv("ANTHROPIC_API_KEY", "anthropic-specific-key")
+
+	provider, err := NewProviderFromEnv(context.Background(), nil)
+
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+	assert.Equal(t, ProviderAnthropic, provider.Name())
+}
