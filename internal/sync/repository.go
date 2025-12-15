@@ -293,6 +293,9 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 			AddField(logging.StandardFields.BranchName, branchName).
 			AddField("commit_sha", commitSHA)
 
+		if rs.logger != nil {
+			rs.logger.Info("Pushing changes to remote...")
+		}
 		if err := rs.pushChanges(ctx, branchName); err != nil {
 			pushTimer.StopWithError(err)
 			syncTimer.StopWithError(err)
@@ -1084,6 +1087,9 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 		TeamReviewers: rs.getPRTeamReviewers(),
 	}
 
+	if rs.logger != nil {
+		rs.logger.Info("Creating pull request on GitHub...")
+	}
 	rs.TrackAPIRequest()
 	pr, err := rs.engine.gh.CreatePR(ctx, rs.target.Repo, prRequest)
 	if err != nil {
@@ -1314,6 +1320,9 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 	var sb strings.Builder
 
 	// Try AI generation if enabled (check engine is not nil for tests)
+	if rs.logger != nil {
+		rs.logger.Info("Generating PR body...")
+	}
 	if rs.engine != nil && rs.engine.prGenerator != nil {
 		prCtx := &ai.PRContext{
 			SourceRepo:   rs.sourceState.Repo,
@@ -2104,11 +2113,19 @@ func (rs *RepositorySync) updateDirectoryMetricsWithActualChanges(actualChangedF
 		return
 	}
 
-	// Reset FilesChanged counts for all directories
-	rs.syncMetrics.IterateDirectoryMetrics(func(dirPath string, metrics DirectoryMetrics) {
-		metrics.FilesChanged = 0
-		rs.syncMetrics.SetDirectoryMetric(dirPath, metrics)
+	// Reset FilesChanged counts for all directories.
+	// We collect keys first, then update outside the iteration to avoid deadlock
+	// (IterateDirectoryMetrics holds RLock, SetDirectoryMetric needs Lock).
+	var dirPaths []string
+	rs.syncMetrics.IterateDirectoryMetrics(func(dirPath string, _ DirectoryMetrics) {
+		dirPaths = append(dirPaths, dirPath)
 	})
+	for _, dirPath := range dirPaths {
+		if metrics, exists := rs.syncMetrics.GetDirectoryMetric(dirPath); exists {
+			metrics.FilesChanged = 0
+			rs.syncMetrics.SetDirectoryMetric(dirPath, metrics)
+		}
+	}
 
 	// Count actual changes per directory
 	for _, filePath := range actualChangedFiles {
