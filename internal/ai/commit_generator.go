@@ -90,6 +90,7 @@ func (g *CommitMessageGenerator) GenerateMessage(ctx context.Context, commitCtx 
 
 	// Use cache if available
 	if g.cache != nil {
+		g.logger.Info("Generating commit message with AI...")
 		var cacheHit bool
 		response, cacheHit, err = g.cache.GetOrGenerate(ctx, "commit:", commitCtx.DiffSummary, func(ctx context.Context) (string, error) {
 			return g.generateFromAI(ctx, commitCtx)
@@ -100,6 +101,7 @@ func (g *CommitMessageGenerator) GenerateMessage(ctx context.Context, commitCtx 
 		}
 	} else {
 		// No cache, generate directly
+		g.logger.Info("Generating commit message with AI...")
 		response, err = g.generateFromAI(ctx, commitCtx)
 	}
 
