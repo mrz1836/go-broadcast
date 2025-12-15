@@ -54,6 +54,12 @@ copy_ci_artifact() {
   local file="$1"
   local prefix="${2:-ci}"
 
+  # Validate input file exists
+  if [[ ! -f "$file" ]]; then
+    echo "⚠️ Warning: File not found: $file" >&2
+    return 1
+  fi
+
   # Extract artifact directory name for unique naming
   # Path structure: *-artifacts/ARTIFACT_NAME/.mage-x/ci-results.jsonl
   local parent_dir=$(dirname "$file")
@@ -62,5 +68,8 @@ copy_ci_artifact() {
   local dest="${prefix}-${artifact_dir}-${filename}"
 
   echo "Copying $prefix results $file to ./$dest"
-  cp "$file" "./$dest"
+  if ! cp "$file" "./$dest"; then
+    echo "⚠️ Warning: Failed to copy $file to $dest" >&2
+    return 1
+  fi
 }
