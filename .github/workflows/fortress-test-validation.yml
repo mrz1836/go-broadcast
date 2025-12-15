@@ -133,9 +133,9 @@ jobs:
               os_name="macOS"
             fi
 
-            # Extract Go version (last segment like "1.22" or "go1.22")
+            # Extract Go version (last segment like "1.22", "1.24.x", or "go1.22")
             local go_version=""
-            go_version=$(echo "$artifact_name" | grep -oE '[0-9]+\.[0-9]+$' || echo "")
+            go_version=$(echo "$artifact_name" | grep -oE '[0-9]+\.[0-9]+(\.[x0-9]+)?' | tail -1 || echo "")
 
             # Build label
             if [[ -n "$os_name" && -n "$go_version" ]]; then
@@ -300,9 +300,9 @@ jobs:
               os_name="macOS"
             fi
 
-            # Extract Go version (last segment like "1.22" or "go1.22")
+            # Extract Go version (last segment like "1.22", "1.24.x", or "go1.22")
             local go_version=""
-            go_version=$(echo "$artifact_name" | grep -oE '[0-9]+\.[0-9]+$' || echo "")
+            go_version=$(echo "$artifact_name" | grep -oE '[0-9]+\.[0-9]+(\.[x0-9]+)?' | tail -1 || echo "")
 
             # Build label
             if [[ -n "$os_name" && -n "$go_version" ]]; then
