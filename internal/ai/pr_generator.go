@@ -106,6 +106,7 @@ func (g *PRBodyGenerator) GenerateBody(ctx context.Context, prCtx *PRContext) (s
 
 	// Use cache if available
 	if g.cache != nil {
+		g.logger.Info("Generating PR body with AI...")
 		response, cacheHit, err := g.cache.GetOrGenerate(ctx, "pr:", localCtx.DiffSummary, func(ctx context.Context) (string, error) {
 			return g.generateFromAI(ctx, localCtx)
 		})
@@ -123,6 +124,7 @@ func (g *PRBodyGenerator) GenerateBody(ctx context.Context, prCtx *PRContext) (s
 	}
 
 	// No cache, generate directly
+	g.logger.Info("Generating PR body with AI...")
 	response, err := g.generateFromAI(ctx, localCtx)
 	if err != nil {
 		g.logger.WithError(err).Warn("AI generation failed, using fallback PR body")
