@@ -138,23 +138,40 @@ func (p *GenkitProvider) GenerateText(ctx context.Context, req *GenerateRequest)
 		genkitai.WithPrompt(req.Prompt),
 	}
 
-	// Generate response
-	resp, err := genkit.Generate(ctx, p.gk, opts...)
-	if err != nil {
-		return nil, GenerationError(p.provider, "generate text", err)
+	// Use a channel to get the result so we can respect context cancellation
+	// even if the underlying Genkit SDK doesn't properly handle it.
+	type generateResult struct {
+		resp *genkitai.ModelResponse
+		err  error
 	}
+	resultCh := make(chan generateResult, 1)
 
-	content := resp.Text()
-	if content == "" {
-		return nil, ErrEmptyResponse
+	go func() {
+		resp, err := genkit.Generate(ctx, p.gk, opts...)
+		resultCh <- generateResult{resp, err}
+	}()
+
+	// Wait for either result or context cancellation
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case r := <-resultCh:
+		if r.err != nil {
+			return nil, GenerationError(p.provider, "generate text", r.err)
+		}
+
+		content := r.resp.Text()
+		if content == "" {
+			return nil, ErrEmptyResponse
+		}
+
+		return &GenerateResponse{
+			Content:      content,
+			TokensUsed:   getTokenCount(r.resp),
+			FinishReason: getFinishReason(r.resp),
+			Duration:     time.Since(start),
+		}, nil
 	}
-
-	return &GenerateResponse{
-		Content:      content,
-		TokensUsed:   getTokenCount(resp),
-		FinishReason: getFinishReason(resp),
-		Duration:     time.Since(start),
-	}, nil
 }
 
 // IsAvailable checks if the provider is properly configured and ready.
