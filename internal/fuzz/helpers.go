@@ -115,6 +115,7 @@ func IsSafeBranchName(branch string) bool {
 	dangerous := []string{
 		"..", "~", "^", ":", "\\",
 		"@{", ".lock", " ", "\t",
+		"*", "?", "[", ";",
 	}
 	for _, pattern := range dangerous {
 		if strings.Contains(branch, pattern) {

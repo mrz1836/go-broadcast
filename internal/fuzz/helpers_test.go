@@ -499,6 +499,21 @@ func TestIsSafeBranchName(t *testing.T) {
 			expected: false, // Contains shell metacharacter (tab), unsafe
 		},
 		{
+			name:     "Branch with wildcard asterisk",
+			input:    "branch*",
+			expected: false,
+		},
+		{
+			name:     "Branch with wildcard question mark",
+			input:    "branch?",
+			expected: false,
+		},
+		{
+			name:     "Branch with open bracket",
+			input:    "branch[",
+			expected: false,
+		},
+		{
 			name:     "Branch starting with dash",
 			input:    "-delete-everything",
 			expected: false,

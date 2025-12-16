@@ -520,10 +520,14 @@ func checkBranchNameSecurity(t *testing.T, branch string) {
 
 	// Check our helper function
 	if !fuzz.IsSafeBranchName(branch) {
-		// IsSafeBranchName returns false for safe names, true for unsafe
-		// This seems backwards in the helper, but we'll test the actual behavior
-		if fuzz.IsSafeBranchName(branch) && !fuzz.ContainsShellMetachars(branch) {
-			t.Logf("Branch passed regex but failed safety check: %q", branch)
+		// IsSafeBranchName returns true for safe names, false for unsafe
+		// This block is entered if the branch is deemed unsafe.
+		// We can check if it was rejected due to metachars or other reasons.
+		if fuzz.ContainsShellMetachars(branch) {
+			// Correctly rejected due to shell metachars
+		} else {
+			// Rejected for other reasons (length, git specific patterns, etc)
+			// t.Logf("Branch rejected safety check: %q", branch)
 		}
 	}
 
