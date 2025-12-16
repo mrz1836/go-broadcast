@@ -650,7 +650,7 @@ func (g *githubClient) SearchAssignedPRs(ctx context.Context) ([]PR, error) {
 	// Use GitHub search API to find PRs assigned to current user
 	// The gh search prs command has limited fields compared to gh pr view
 	// We only need basic info here - full details will be fetched when processing each PR
-	output, err := g.runner.Run(ctx, "gh", "search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state")
+	output, err := g.runner.Run(ctx, "gh", "search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--json", "number,title,url,isDraft,state")
 	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "search assigned PRs")
 	}

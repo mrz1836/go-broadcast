@@ -1595,7 +1595,7 @@ func TestSearchAssignedPRs(t *testing.T) {
 	output, err := json.Marshal(searchResults)
 	require.NoError(t, err)
 
-	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--json", "number,title,url,isDraft,state"}).
 		Return(output, nil)
 
 	result, err := client.SearchAssignedPRs(ctx)
@@ -1627,7 +1627,7 @@ func TestSearchAssignedPRs_FiltersDrafts(t *testing.T) {
 	output, err := json.Marshal(searchResults)
 	require.NoError(t, err)
 
-	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--json", "number,title,url,isDraft,state"}).
 		Return(output, nil)
 
 	result, err := client.SearchAssignedPRs(ctx)
@@ -1645,7 +1645,7 @@ func TestSearchAssignedPRs_Error(t *testing.T) {
 	mockRunner := new(MockCommandRunner)
 	client := NewClientWithRunner(mockRunner, logrus.New())
 
-	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--json", "number,title,url,isDraft,state"}).
 		Return(nil, errTestAPIError)
 
 	result, err := client.SearchAssignedPRs(ctx)
@@ -1662,7 +1662,7 @@ func TestSearchAssignedPRs_JSONUnmarshalError(t *testing.T) {
 	mockRunner := new(MockCommandRunner)
 	client := NewClientWithRunner(mockRunner, logrus.New())
 
-	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--json", "number,title,url,isDraft,state"}).
 		Return([]byte("invalid json"), nil)
 
 	result, err := client.SearchAssignedPRs(ctx)
@@ -1692,7 +1692,7 @@ func TestSearchAssignedPRs_InvalidURL(t *testing.T) {
 	output, err := json.Marshal(searchResults)
 	require.NoError(t, err)
 
-	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--json", "number,title,url,isDraft,state"}).
 		Return(output, nil)
 
 	result, err := client.SearchAssignedPRs(ctx)
@@ -2110,7 +2110,7 @@ func TestSearchAssignedPRs_InvalidURLFiltering(t *testing.T) {
 		{"number": 3, "title": "Short URL PR", "url": "https://github.com", "state": "OPEN", "isDraft": false}
 	]`
 
-	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--json", "number,title,url,isDraft,state"}).
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--json", "number,title,url,isDraft,state"}).
 		Return([]byte(searchResults), nil)
 
 	prs, err := client.SearchAssignedPRs(ctx)
