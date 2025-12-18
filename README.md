@@ -98,7 +98,7 @@
        💡&nbsp;<a href="#-usage-examples"><code>Usage&nbsp;Examples</code></a>
     </td>
     <td align="center">
-       🤖&nbsp;<a href="#-ai-compliance"><code>AI Compliance</code></a>
+       🤖&nbsp;<a href="#-ai-usage--assistant-guidelines"><code>AI&nbsp;Usage</code></a>
     </td>
     <td align="center">
        ⚖️&nbsp;<a href="#-license"><code>License</code></a>
