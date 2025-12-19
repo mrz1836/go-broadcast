@@ -339,8 +339,8 @@ Every sync operation creates a branch with encoded metadata:
 [chore/sync-files]-[group1]-[20250123-143052]-[abc123f]
         │             │              │            │
         │             │              │            └─── Source branch commit SHA (7 chars)
-        │ 		 	      │              └──────────────── Timestamp (YYYYMMDD-HHMMSS)
-        │ 			      └─────────────────────────────── Group ID (from config)
+        │ 		 	  │              └──────────────── Timestamp (YYYYMMDD-HHMMSS)
+        │ 			  └─────────────────────────────── Group ID (from config)
         └───────────────────────────────────────────── Configurable prefix
 ```
 
