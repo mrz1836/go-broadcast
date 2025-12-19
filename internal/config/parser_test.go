@@ -1260,3 +1260,116 @@ func TestResolveListReferences_DeterministicOrder(t *testing.T) {
 		assert.Equal(t, "dir-z", dirs[2].Dest)
 	}
 }
+
+// TestIsTransientConfigError tests the error classification for retry logic
+func TestIsTransientConfigError(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		isTransient bool
+	}{
+		{
+			name:        "nil error",
+			err:         nil,
+			isTransient: false,
+		},
+		{
+			name:        "list reference not found - not transient",
+			err:         fmt.Errorf("failed to resolve: %w", ErrListReferenceNotFound),
+			isTransient: false,
+		},
+		{
+			name:        "duplicate list ID - not transient",
+			err:         fmt.Errorf("validation error: %w", ErrDuplicateListID),
+			isTransient: false,
+		},
+		{
+			name:        "duplicate target - not transient",
+			err:         ErrDuplicateTarget,
+			isTransient: false,
+		},
+		{
+			name:        "no targets - not transient",
+			err:         ErrNoTargets,
+			isTransient: false,
+		},
+		{
+			name:        "no mappings - not transient",
+			err:         ErrNoMappings,
+			isTransient: false,
+		},
+		{
+			name:        "path traversal - not transient",
+			err:         ErrPathTraversal,
+			isTransient: false,
+		},
+		{
+			name:        "generic I/O error - transient",
+			err:         errors.New("failed to read file: read error"), //nolint:err113 // test error
+			isTransient: true,
+		},
+		{
+			name:        "YAML parse error - transient",
+			err:         errors.New("failed to parse YAML: unexpected EOF"), //nolint:err113 // test error
+			isTransient: true,
+		},
+		{
+			name:        "file open error - transient",
+			err:         errors.New("failed to open config file: permission denied"), //nolint:err113 // test error
+			isTransient: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := isTransientConfigError(tc.err)
+			assert.Equal(t, tc.isTransient, result)
+		})
+	}
+}
+
+// TestFormatListNotFoundError tests the enhanced error message formatting
+func TestFormatListNotFoundError(t *testing.T) {
+	fileLists := map[string]*FileList{
+		"common-files":  {ID: "common-files", Name: "Common Files"},
+		"editor-config": {ID: "editor-config", Name: "Editor Config"},
+	}
+	directoryLists := map[string]*DirectoryList{
+		"github-workflows": {ID: "github-workflows", Name: "GitHub Workflows"},
+		"ai-templates":     {ID: "ai-templates", Name: "AI Templates"},
+	}
+
+	t.Run("file list not found - no hint", func(t *testing.T) {
+		msg := formatListNotFoundError("file", "non-existent", "test-group", "org/repo", fileLists, directoryLists)
+		assert.Contains(t, msg, "file_list 'non-existent' not found")
+		assert.Contains(t, msg, "group: test-group")
+		assert.Contains(t, msg, "target: org/repo")
+		assert.Contains(t, msg, "available file_lists:")
+		assert.Contains(t, msg, "common-files")
+		assert.Contains(t, msg, "editor-config")
+		assert.NotContains(t, msg, "exists as a directory_list")
+	})
+
+	t.Run("file list not found - exists as directory list", func(t *testing.T) {
+		msg := formatListNotFoundError("file", "ai-templates", "test-group", "org/repo", fileLists, directoryLists)
+		assert.Contains(t, msg, "file_list 'ai-templates' not found")
+		assert.Contains(t, msg, "exists as a directory_list")
+		assert.Contains(t, msg, "did you mean to use directory_list_refs")
+	})
+
+	t.Run("directory list not found - no hint", func(t *testing.T) {
+		msg := formatListNotFoundError("directory", "non-existent", "test-group", "org/repo", fileLists, directoryLists)
+		assert.Contains(t, msg, "directory_list 'non-existent' not found")
+		assert.Contains(t, msg, "available directory_lists:")
+		assert.Contains(t, msg, "github-workflows")
+		assert.Contains(t, msg, "ai-templates")
+		assert.NotContains(t, msg, "exists as a file_list")
+	})
+
+	t.Run("directory list not found - exists as file list", func(t *testing.T) {
+		msg := formatListNotFoundError("directory", "common-files", "test-group", "org/repo", fileLists, directoryLists)
+		assert.Contains(t, msg, "directory_list 'common-files' not found")
+		assert.Contains(t, msg, "exists as a file_list")
+		assert.Contains(t, msg, "did you mean to use file_list_refs")
+	})
+}
