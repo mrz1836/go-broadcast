@@ -1,21 +1,60 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"sort"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/mrz1836/go-broadcast/internal/logging"
 )
 
-// Load reads and parses a configuration file from the given path
+const (
+	// configLoadMaxRetries is the maximum number of attempts to load the config file
+	configLoadMaxRetries = 2
+	// configLoadRetryDelay is the delay between retry attempts
+	configLoadRetryDelay = 100 * time.Millisecond
+)
+
+// Load reads and parses a configuration file from the given path.
+// It includes retry logic for transient I/O errors (e.g., file being
+// modified by an editor during read).
 func Load(path string) (*Config, error) {
 	// Initialize audit logger for security event tracking
 	auditLogger := logging.NewAuditLogger()
 
+	var lastErr error
+	for attempt := 1; attempt <= configLoadMaxRetries; attempt++ {
+		cfg, err := loadOnce(path, auditLogger)
+		if err == nil {
+			if attempt > 1 {
+				auditLogger.LogConfigChange("system", "config_loaded_after_retry", path)
+			}
+			return cfg, nil
+		}
+
+		lastErr = err
+
+		// Don't retry semantic/validation errors - only I/O and parsing errors
+		if !isTransientConfigError(err) {
+			return nil, err
+		}
+
+		// Don't wait after last attempt
+		if attempt < configLoadMaxRetries {
+			time.Sleep(configLoadRetryDelay)
+		}
+	}
+
+	return nil, lastErr
+}
+
+// loadOnce performs a single attempt to load and parse the config file
+func loadOnce(path string, auditLogger *logging.AuditLogger) (*Config, error) {
 	file, err := os.Open(path) //#nosec G304 -- Path is user-provided config file
 	if err != nil {
 		// Log failed configuration access
@@ -36,6 +75,62 @@ func Load(path string) (*Config, error) {
 	auditLogger.LogConfigChange("system", "config_loaded", path)
 
 	return config, nil
+}
+
+// isTransientConfigError determines if an error is likely transient and worth retrying.
+// Semantic errors (like missing list references) are not retried as they require config changes.
+func isTransientConfigError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Don't retry semantic/validation errors - these require config file changes
+	if errors.Is(err, ErrListReferenceNotFound) ||
+		errors.Is(err, ErrDuplicateListID) ||
+		errors.Is(err, ErrDuplicateTarget) ||
+		errors.Is(err, ErrNoTargets) ||
+		errors.Is(err, ErrNoMappings) ||
+		errors.Is(err, ErrPathTraversal) {
+		return false
+	}
+
+	// Retry I/O and parsing errors (could be transient file access issues)
+	return true
+}
+
+// formatListNotFoundError creates a detailed error message when a list reference is not found.
+// It includes available lists and hints if the reference exists in the wrong list type.
+func formatListNotFoundError(listType, ref, groupID, targetRepo string, fileLists map[string]*FileList, directoryLists map[string]*DirectoryList) string {
+	var hint string
+
+	// Check if the reference exists in the wrong list type
+	if listType == "file" {
+		if _, existsInDir := directoryLists[ref]; existsInDir {
+			hint = fmt.Sprintf(" (note: '%s' exists as a directory_list, did you mean to use directory_list_refs?)", ref)
+		}
+	} else {
+		if _, existsInFile := fileLists[ref]; existsInFile {
+			hint = fmt.Sprintf(" (note: '%s' exists as a file_list, did you mean to use file_list_refs?)", ref)
+		}
+	}
+
+	// Collect available list IDs
+	var availableIDs []string
+	if listType == "file" {
+		availableIDs = make([]string, 0, len(fileLists))
+		for id := range fileLists {
+			availableIDs = append(availableIDs, id)
+		}
+	} else {
+		availableIDs = make([]string, 0, len(directoryLists))
+		for id := range directoryLists {
+			availableIDs = append(availableIDs, id)
+		}
+	}
+	sort.Strings(availableIDs)
+
+	return fmt.Sprintf("%s_list '%s' not found (group: %s, target: %s)%s; available %s_lists: %v",
+		listType, ref, groupID, targetRepo, hint, listType, availableIDs)
 }
 
 // LoadFromReader parses configuration from an io.Reader
@@ -156,8 +251,8 @@ func resolveListReferences(config *Config) error {
 				for _, ref := range target.FileListRefs {
 					list, exists := fileLists[ref]
 					if !exists {
-						return fmt.Errorf("%w: file list '%s' (group: %s, target: %s)",
-							ErrListReferenceNotFound, ref, group.ID, target.Repo)
+						return fmt.Errorf("%w: %s", ErrListReferenceNotFound,
+							formatListNotFoundError("file", ref, group.ID, target.Repo, fileLists, directoryLists))
 					}
 					// Add or override file mappings from the list
 					for _, file := range list.Files {
@@ -197,8 +292,8 @@ func resolveListReferences(config *Config) error {
 				for _, ref := range target.DirectoryListRefs {
 					list, exists := directoryLists[ref]
 					if !exists {
-						return fmt.Errorf("%w: directory list '%s' (group: %s, target: %s)",
-							ErrListReferenceNotFound, ref, group.ID, target.Repo)
+						return fmt.Errorf("%w: %s", ErrListReferenceNotFound,
+							formatListNotFoundError("directory", ref, group.ID, target.Repo, fileLists, directoryLists))
 					}
 					// Add or override directory mappings from the list
 					for _, dir := range list.Directories {
