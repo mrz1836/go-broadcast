@@ -326,3 +326,94 @@ groups:
 	assert.True(t, hasShared2, "Target2 should have shared file")
 	assert.True(t, hasService2, "Target2 should have service2 file")
 }
+
+// TestListReferenceNotFound_ShowsAvailableLists tests that error messages include available lists
+func TestListReferenceNotFound_ShowsAvailableLists(t *testing.T) {
+	yamlContent := `
+version: 1
+file_lists:
+  - id: "common-files"
+    name: "Common Files"
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+  - id: "editor-config"
+    name: "Editor Config"
+    files:
+      - src: ".editorconfig"
+        dest: ".editorconfig"
+groups:
+  - name: "Test"
+    id: "test"
+    source:
+      repo: "org/template"
+    targets:
+      - repo: "org/service"
+        file_list_refs: ["typo-in-list-name"]
+`
+
+	_, err := LoadFromReader(strings.NewReader(yamlContent))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "list reference not found")
+	// Should include available file lists
+	assert.Contains(t, err.Error(), "available file_lists:")
+	assert.Contains(t, err.Error(), "common-files")
+	assert.Contains(t, err.Error(), "editor-config")
+}
+
+// TestListReferenceNotFound_HintsWrongListType tests that error messages hint when list exists in wrong type
+func TestListReferenceNotFound_HintsWrongListType(t *testing.T) {
+	t.Run("file_list_ref points to directory_list", func(t *testing.T) {
+		yamlContent := `
+version: 1
+directory_lists:
+  - id: "ai-templates"
+    name: "AI Templates"
+    directories:
+      - src: ".github/templates"
+        dest: ".github/templates"
+groups:
+  - name: "Test"
+    id: "test"
+    source:
+      repo: "org/template"
+    targets:
+      - repo: "org/service"
+        file_list_refs: ["ai-templates"]
+`
+
+		_, err := LoadFromReader(strings.NewReader(yamlContent))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "list reference not found")
+		// Should hint that it exists as a directory_list
+		assert.Contains(t, err.Error(), "exists as a directory_list")
+		assert.Contains(t, err.Error(), "did you mean to use directory_list_refs")
+	})
+
+	t.Run("directory_list_ref points to file_list", func(t *testing.T) {
+		yamlContent := `
+version: 1
+file_lists:
+  - id: "common-files"
+    name: "Common Files"
+    files:
+      - src: "file.txt"
+        dest: "file.txt"
+groups:
+  - name: "Test"
+    id: "test"
+    source:
+      repo: "org/template"
+    targets:
+      - repo: "org/service"
+        directory_list_refs: ["common-files"]
+`
+
+		_, err := LoadFromReader(strings.NewReader(yamlContent))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "list reference not found")
+		// Should hint that it exists as a file_list
+		assert.Contains(t, err.Error(), "exists as a file_list")
+		assert.Contains(t, err.Error(), "did you mean to use file_list_refs")
+	})
+}
