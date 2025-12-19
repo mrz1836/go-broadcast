@@ -21,13 +21,6 @@ Welcome to the go-broadcast documentation! This directory contains comprehensive
 | **[logging.md](logging.md)**                     | Comprehensive logging documentation | Quick commands, log levels, debugging techniques, and diagnostic collection     |
 | **[performance-guide.md](performance-guide.md)** | Unified performance documentation   | Benchmarking, profiling, optimization strategies, and performance targets       |
 
-### Advanced Features
-
-| Document                                   | Description                    | Purpose                                                                   |
-|--------------------------------------------|--------------------------------|---------------------------------------------------------------------------|
-| **[sub-agents.md](sub-agents.md)**         | AI agent system documentation  | 26 specialized agents for automated repository management and maintenance |
-| **[slash-commands.md](slash-commands.md)** | Claude Code commands reference | 20+ powerful commands for automated testing, security, releases, and more |
-
 ### Examples & References
 
 | Document                                             | Description          | Purpose                                                                  |

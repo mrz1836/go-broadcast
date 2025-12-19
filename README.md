@@ -120,11 +120,37 @@ Get up and running with go-broadcast in under 5 minutes!
 
 ### Installation
 
-```bash
-# Install the go-broadcast CLI tool via master branch
-go install github.com/mrz1836/go-broadcast/cmd/go-broadcast@latest
+**Option 1: Pre-built Binary (Recommended)**
 
-# Upgrade to the latest stable version
+Download the latest release for your platform from [GitHub Releases](https://github.com/mrz1836/go-broadcast/releases), or use the GitHub CLI:
+
+```bash
+# macOS (Apple Silicon)
+gh release download --repo mrz1836/go-broadcast --pattern '*darwin*arm64*' -D /tmp && \
+  tar -xzf /tmp/go-broadcast_*_darwin_arm64.tar.gz -C /tmp && \
+  sudo mv /tmp/go-broadcast /usr/local/bin/
+
+# macOS (Intel)
+gh release download --repo mrz1836/go-broadcast --pattern '*darwin*amd64*' -D /tmp && \
+  tar -xzf /tmp/go-broadcast_*_darwin_amd64.tar.gz -C /tmp && \
+  sudo mv /tmp/go-broadcast /usr/local/bin/
+
+# Linux (x86_64)
+gh release download --repo mrz1836/go-broadcast --pattern '*linux*amd64*' -D /tmp && \
+  tar -xzf /tmp/go-broadcast_*_linux_amd64.tar.gz -C /tmp && \
+  sudo mv /tmp/go-broadcast /usr/local/bin/
+```
+
+**Option 2: Build from Source**
+
+```bash
+git clone https://github.com/mrz1836/go-broadcast.git
+cd go-broadcast && go install ./cmd/go-broadcast
+```
+
+**Option 3: Upgrade Existing Installation**
+
+```bash
 go-broadcast upgrade --force
 ```
 
@@ -1052,8 +1078,6 @@ groups:
 - **Module-Aware Sync** – Smart module versioning and synchronization at [docs/module-sync.md](docs/module-sync.md)
 - **Group Examples** – Practical configuration patterns at [docs/group-examples.md](docs/group-examples.md)
 - **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)
-- **AI Sub-Agents Guide** – Comprehensive guide to [26 specialized AI agents](docs/sub-agents.md) for repository management
-- **Slash Commands Reference** – 20+ powerful [Claude Code commands](docs/slash-commands.md) for automated workflows
 - **Directory Sync Guide** – Complete guide to directory synchronization at [docs/directory-sync.md](docs/directory-sync.md)
 - **Configuration Examples** – Browse practical patterns in the [examples directory](examples)
 - **Troubleshooting** – Solve common issues with the [troubleshooting guide](docs/troubleshooting.md)
@@ -1130,7 +1154,6 @@ See [`.github/.env.base`](.github/.env.base) for all AI configuration options.
 * **Out‑of‑the‑Box VS Code Happiness** with a preconfigured [Go](https://code.visualstudio.com/docs/languages/go) workspace and [`.vscode`](.vscode) folder with all the right settings.
 * **Optional Release Broadcasts** to your community via [Slack](https://slack.com), [Discord](https://discord.com), or [Twitter](https://twitter.com) – plug in your webhook.
 * **AI Playbook** – machine‑readable guidelines in [tech conventions](.github/tech-conventions/ai-compliance.md)
-* **20+ Powerful Slash Commands** – Claude Code commands that coordinate 26 specialized AI agents for automated workflows like `/test`, `/security`, `/release`, and more. See [docs/slash-commands.md](docs/slash-commands.md).
 * **Go-Pre-commit System** - [High-performance Go-native pre-commit hooks](https://github.com/mrz1836/go-pre-commit) with 17x faster execution—run the same formatting, linting, and tests before every commit, just like CI.
 * **Zero Python Dependencies** - Pure Go implementation with environment-based configuration via [.env.base](.github/.env.base).
 * **DevContainers for Instant Onboarding** – Launch a ready-to-code environment in seconds with [VS Code DevContainers](https://containers.dev/) and the included [.devcontainer.json](.devcontainer.json) config.
