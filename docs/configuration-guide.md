@@ -417,33 +417,6 @@ groups:
     depends_on: ["group-a"]
 ```
 
-## Migration from Legacy Configuration
-
-If migrating from an older single-source configuration, wrap your existing configuration in a group:
-
-**Before:**
-```yaml
-version: 1
-source:
-  repo: "org/templates"
-targets:
-  - repo: "org/service"
-```
-
-**After:**
-```yaml
-version: 1
-groups:
-  - name: "Default Sync"
-    id: "default"
-    priority: 1
-    enabled: true
-    source:
-      repo: "org/templates"
-    targets:
-      - repo: "org/service"
-```
-
 ## See Also
 
 - [Module-Aware Synchronization Guide](module-sync.md)
