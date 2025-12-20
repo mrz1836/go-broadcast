@@ -132,9 +132,10 @@ func (s *SyncCommand) ExecuteSync(ctx context.Context, flags *Flags, args []stri
 
 //nolint:gochecknoglobals // Package-level variables for CLI flags
 var (
-	groupFilter []string
-	skipGroups  []string
-	automerge   bool
+	groupFilter      []string
+	skipGroups       []string
+	automerge        bool
+	clearModuleCache bool
 )
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -184,6 +185,7 @@ func init() {
 	syncCmd.Flags().StringSliceVar(&groupFilter, "groups", nil, "Sync only specified groups (by name or ID)")
 	syncCmd.Flags().StringSliceVar(&skipGroups, "skip-groups", nil, "Skip specified groups during sync")
 	syncCmd.Flags().BoolVar(&automerge, "automerge", false, "Add automerge labels from GO_BROADCAST_AUTOMERGE_LABELS to created PRs")
+	syncCmd.Flags().BoolVar(&clearModuleCache, "clear-cache", false, "Clear module version cache before sync")
 }
 
 func runSync(cmd *cobra.Command, args []string) error {
@@ -427,7 +429,8 @@ repoTransformerAdded:
 		WithGroupFilter(groupFilter).
 		WithSkipGroups(skipGroups).
 		WithAutomerge(automerge).
-		WithAutomergeLabels(automergeLabels)
+		WithAutomergeLabels(automergeLabels).
+		WithClearModuleCache(clearModuleCache)
 
 	// Create and return engine
 	engine := sync.NewEngine(ctx, cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)

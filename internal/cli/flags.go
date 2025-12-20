@@ -34,12 +34,13 @@ type DebugFlags = logging.DebugFlags
 
 // Flags contains all global flags for the CLI (legacy support)
 type Flags struct {
-	ConfigFile  string
-	DryRun      bool
-	LogLevel    string
-	GroupFilter []string // Groups to sync (by name or ID)
-	SkipGroups  []string // Groups to skip during sync
-	Automerge   bool     // Enable automerge labels on created PRs
+	ConfigFile       string
+	DryRun           bool
+	LogLevel         string
+	GroupFilter      []string // Groups to sync (by name or ID)
+	SkipGroups       []string // Groups to skip during sync
+	Automerge        bool     // Enable automerge labels on created PRs
+	ClearModuleCache bool     // Clear module version cache before sync
 }
 
 // globalFlags is the singleton instance of flags
@@ -101,11 +102,12 @@ func GetGlobalFlags() *Flags {
 	}
 	// Return a copy to prevent race conditions
 	return &Flags{
-		ConfigFile:  globalFlags.ConfigFile,
-		DryRun:      globalFlags.DryRun,
-		LogLevel:    globalFlags.LogLevel,
-		GroupFilter: append([]string(nil), globalFlags.GroupFilter...),
-		SkipGroups:  append([]string(nil), globalFlags.SkipGroups...),
-		Automerge:   globalFlags.Automerge,
+		ConfigFile:       globalFlags.ConfigFile,
+		DryRun:           globalFlags.DryRun,
+		LogLevel:         globalFlags.LogLevel,
+		GroupFilter:      append([]string(nil), globalFlags.GroupFilter...),
+		SkipGroups:       append([]string(nil), globalFlags.SkipGroups...),
+		Automerge:        globalFlags.Automerge,
+		ClearModuleCache: globalFlags.ClearModuleCache,
 	}
 }
