@@ -663,6 +663,86 @@ func TestGitClient_CloneWithBranch_InvalidBranch(t *testing.T) {
 	assert.Contains(t, err.Error(), "clone repository with branch non-existent-branch")
 }
 
+func TestGitClient_CloneAtTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := testutil.CreateTempDir(t)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+
+	// Clone at a specific tag from a well-known repository with stable tags
+	// Using golang/mock which has stable version tags
+	err = client.CloneAtTag(ctx, "https://github.com/stretchr/testify.git", repoPath, "v1.8.0", nil)
+	require.NoError(t, err)
+
+	// Verify the repository was cloned
+	assert.DirExists(t, filepath.Join(repoPath, ".git"))
+
+	// Verify we're at the expected tag by checking HEAD matches the tag
+	sha, err := client.GetCurrentCommitSHA(ctx, repoPath)
+	require.NoError(t, err)
+	assert.NotEmpty(t, sha)
+}
+
+func TestGitClient_CloneAtTag_AlreadyExists(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := testutil.CreateTempDir(t)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+
+	// Create directory first
+	testutil.CreateTestDirectory(t, repoPath)
+	require.NoError(t, err)
+
+	// Try to clone at tag into existing directory
+	err = client.CloneAtTag(ctx, "https://github.com/stretchr/testify.git", repoPath, "v1.8.0", nil)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrRepositoryExists)
+}
+
+func TestGitClient_CloneAtTag_InvalidTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := testutil.CreateTempDir(t)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+
+	// Try to clone with non-existent tag
+	err = client.CloneAtTag(ctx, "https://github.com/octocat/Hello-World.git", repoPath, "non-existent-tag-v999.999.999", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "clone repository at tag non-existent-tag-v999.999.999")
+}
+
+func TestGitClient_CloneAtTag_EmptyTag(t *testing.T) {
+	client, err := NewClient(logrus.New(), nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	tmpDir := testutil.CreateTempDir(t)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+
+	// Try to clone with empty tag
+	err = client.CloneAtTag(ctx, "https://github.com/octocat/Hello-World.git", repoPath, "", nil)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrGitCommand)
+}
+
 func TestGitClient_Operations(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")

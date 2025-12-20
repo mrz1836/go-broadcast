@@ -240,6 +240,80 @@ func (g *gitClient) CloneWithBranch(ctx context.Context, url, path, branch strin
 	return fmt.Errorf("%w: clone with branch %s failed after %d attempts", ErrGitCommand, branch, maxRetries)
 }
 
+// CloneAtTag clones a repository at a specific tag with a shallow clone (depth 1).
+// This is optimized for fetching a specific version without full history.
+// opts can be nil to use default behavior.
+func (g *gitClient) CloneAtTag(ctx context.Context, url, path, tag string, opts *CloneOptions) error {
+	// Check if path already exists
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("%w: %s", ErrRepositoryExists, path)
+	}
+
+	// Tag is required for this method
+	if tag == "" {
+		return fmt.Errorf("%w: tag cannot be empty", ErrGitCommand)
+	}
+
+	logger := logging.WithStandardFields(g.logger, g.logConfig, logging.ComponentNames.Git)
+	logger.WithFields(logrus.Fields{
+		"url":  url,
+		"path": path,
+		"tag":  tag,
+	}).Debug("Cloning repository at specific tag (shallow)")
+
+	// Build clone arguments with --depth 1 for shallow clone
+	args := []string{"clone", "--depth", "1", "--branch", tag}
+
+	// Add blob filter if specified and not "0"
+	if opts != nil && opts.BlobSizeLimit != "" && opts.BlobSizeLimit != "0" {
+		args = append(args, "--filter=blob:limit="+opts.BlobSizeLimit)
+	}
+
+	args = append(args, url, path)
+
+	// Retry logic for network errors
+	maxRetries := 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed from validated tag/url inputs
+		cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+
+		err := g.runCommand(cmd)
+		if err == nil {
+			logger.WithField("tag", tag).Info("Successfully cloned repository at tag")
+			return nil // Success
+		}
+
+		// Check if it's a retryable network error
+		if isRetryableNetworkError(err) && attempt < maxRetries {
+			logger.WithFields(logrus.Fields{
+				"attempt":     attempt,
+				"max_retries": maxRetries,
+				"url":         url,
+				"tag":         tag,
+				"error":       err.Error(),
+			}).Warn("Network error during git clone at tag - retrying")
+
+			// Clean up failed partial clone
+			if cleanupErr := os.RemoveAll(path); cleanupErr != nil {
+				logger.WithError(cleanupErr).Debug("Failed to clean up partial clone")
+			}
+
+			// Brief delay before retry
+			select {
+			case <-time.After(time.Duration(attempt) * time.Second):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			continue
+		}
+
+		// Non-retryable error or max retries exceeded
+		return appErrors.WrapWithContext(err, fmt.Sprintf("clone repository at tag %s", tag))
+	}
+
+	return fmt.Errorf("%w: clone at tag %s failed after %d attempts", ErrGitCommand, tag, maxRetries)
+}
+
 // Checkout switches to the specified branch
 func (g *gitClient) Checkout(ctx context.Context, repoPath, branch string) error {
 	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", branch)

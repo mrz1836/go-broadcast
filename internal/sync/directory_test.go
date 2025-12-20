@@ -48,7 +48,7 @@ func (suite *DirectoryTestSuite) SetupSuite() {
 	suite.logger = logger.WithField("component", "directory-test")
 
 	// Create processor
-	suite.processor = NewDirectoryProcessor(suite.logger, 5)
+	suite.processor = NewDirectoryProcessor(suite.logger, 5, nil)
 
 	// Create mock engine and source state
 	suite.mockEngine = NewMockEngine()

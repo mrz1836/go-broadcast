@@ -30,6 +30,12 @@ func (m *MockClient) CloneWithBranch(ctx context.Context, url, path, branch stri
 	return testutil.ExtractError(args)
 }
 
+// CloneAtTag mock implementation
+func (m *MockClient) CloneAtTag(ctx context.Context, url, path, tag string, opts *CloneOptions) error {
+	args := m.Called(ctx, url, path, tag, opts)
+	return testutil.ExtractError(args)
+}
+
 // Checkout mock implementation
 func (m *MockClient) Checkout(ctx context.Context, repoPath, branch string) error {
 	args := m.Called(ctx, repoPath, branch)

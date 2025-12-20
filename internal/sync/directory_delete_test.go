@@ -34,7 +34,7 @@ func (suite *DirectoryDeleteTestSuite) SetupSuite() {
 	logger.SetLevel(logrus.DebugLevel)
 	suite.logger = logrus.NewEntry(logger)
 
-	suite.processor = NewDirectoryProcessor(suite.logger, 5)
+	suite.processor = NewDirectoryProcessor(suite.logger, 5, nil)
 	suite.mockGH = &gh.MockClient{}
 
 	suite.mockEngine = &Engine{
@@ -342,7 +342,7 @@ func TestDirectoryDeletion_Integration(t *testing.T) {
 	logger.SetLevel(logrus.DebugLevel)
 	loggerEntry := logrus.NewEntry(logger)
 
-	processor := NewDirectoryProcessor(loggerEntry, 5)
+	processor := NewDirectoryProcessor(loggerEntry, 5, nil)
 	mockGH := &gh.MockClient{}
 
 	engine := &Engine{

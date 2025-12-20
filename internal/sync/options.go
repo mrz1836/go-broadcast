@@ -43,6 +43,9 @@ type Options struct {
 
 	// AICommitEnabled indicates whether AI commit message generation is enabled
 	AICommitEnabled bool
+
+	// ClearModuleCache indicates whether to clear the module version cache before sync
+	ClearModuleCache bool
 }
 
 // DefaultOptions returns the default sync options
@@ -123,5 +126,11 @@ func (o *Options) WithAIPREnabled(enabled bool) *Options {
 // WithAICommitEnabled sets AI commit message generation
 func (o *Options) WithAICommitEnabled(enabled bool) *Options {
 	o.AICommitEnabled = enabled
+	return o
+}
+
+// WithClearModuleCache sets whether to clear the module version cache before sync
+func (o *Options) WithClearModuleCache(enabled bool) *Options {
+	o.ClearModuleCache = enabled
 	return o
 }

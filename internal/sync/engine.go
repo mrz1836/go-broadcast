@@ -111,6 +111,16 @@ func (e *Engine) SetCurrentGroup(group *config.Group) {
 	e.currentGroup = group
 }
 
+// GitClient returns the git client for repository operations.
+func (e *Engine) GitClient() git.Client {
+	return e.git
+}
+
+// Options returns the sync options.
+func (e *Engine) Options() *Options {
+	return e.options
+}
+
 // initializeAI sets up AI text generation components.
 // This is non-fatal - if AI initialization fails, we continue without AI.
 func (e *Engine) initializeAI(ctx context.Context) {

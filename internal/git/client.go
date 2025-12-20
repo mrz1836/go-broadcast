@@ -32,6 +32,11 @@ type Client interface {
 	// opts can be nil to use default behavior.
 	CloneWithBranch(ctx context.Context, url, path, branch string, opts *CloneOptions) error
 
+	// CloneAtTag clones a repository at a specific tag with a shallow clone (depth 1).
+	// This is optimized for fetching a specific version without full history.
+	// opts can be nil to use default behavior.
+	CloneAtTag(ctx context.Context, url, path, tag string, opts *CloneOptions) error
+
 	// Checkout switches to the specified branch
 	Checkout(ctx context.Context, repoPath, branch string) error
 

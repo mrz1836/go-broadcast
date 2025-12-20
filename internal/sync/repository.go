@@ -1634,8 +1634,24 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 
 	rs.logger.WithField("directory_count", len(rs.target.Directories)).Info("Processing directories with metrics collection")
 
-	// Create directory processor
-	processor := NewDirectoryProcessor(rs.logger, 10) // Use default worker count
+	// Construct source repo URL for module-aware sync
+	sourceRepoURL := ""
+	if rs.sourceState != nil && rs.sourceState.Repo != "" {
+		sourceRepoURL = fmt.Sprintf("https://github.com/%s", rs.sourceState.Repo)
+	}
+
+	// Build directory processor options
+	var opts *DirectoryProcessorOptions
+	if rs.engine != nil {
+		opts = &DirectoryProcessorOptions{
+			GitClient:     rs.engine.GitClient(),
+			SourceRepoURL: sourceRepoURL,
+			TempDir:       rs.tempDir,
+		}
+	}
+
+	// Create directory processor with module-aware sync support
+	processor := NewDirectoryProcessor(rs.logger, 10, opts)
 	defer processor.Close()
 
 	var allChanges []FileChange

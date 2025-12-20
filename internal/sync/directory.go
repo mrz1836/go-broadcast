@@ -15,6 +15,7 @@ import (
 
 	"github.com/mrz1836/go-broadcast/internal/config"
 	internalerrors "github.com/mrz1836/go-broadcast/internal/errors"
+	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/metrics"
 	"github.com/mrz1836/go-broadcast/internal/state"
 )
@@ -31,17 +32,51 @@ var (
 
 // DirectoryProcessor handles concurrent directory processing with worker pools
 type DirectoryProcessor struct {
-	exclusionEngine *ExclusionEngine
-	progressManager *DirectoryProgressManager
-	workerCount     int
-	logger          *logrus.Entry
-	moduleDetector  *ModuleDetector
-	moduleResolver  *ModuleResolver
-	moduleCache     *ModuleCache
+	exclusionEngine      *ExclusionEngine
+	progressManager      *DirectoryProgressManager
+	workerCount          int
+	logger               *logrus.Entry
+	moduleDetector       *ModuleDetector
+	moduleResolver       *ModuleResolver
+	moduleCache          *ModuleCache
+	moduleSourceResolver *ModuleSourceResolver
+	gitClient            git.Client
+	sourceRepoURL        string
+	tempDir              string
+}
+
+// ModuleSyncResult contains the result of module-aware sync preparation
+type ModuleSyncResult struct {
+	// SourcePath is the path to use for syncing (may differ from original if versioned)
+	SourcePath string
+
+	// ResolvedVersion is the version that was resolved from the constraint
+	ResolvedVersion string
+
+	// ModuleInfo contains the detected module information
+	ModuleInfo *ModuleInfo
+
+	// Cleanup should be called after sync completes to remove temporary directories
+	Cleanup func()
+}
+
+// DirectoryProcessorOptions contains optional configuration for DirectoryProcessor
+type DirectoryProcessorOptions struct {
+	// GitClient is the git client for cloning repositories at specific tags
+	GitClient git.Client
+
+	// SourceRepoURL is the URL of the source repository (e.g., "https://github.com/org/repo")
+	SourceRepoURL string
+
+	// TempDir is the base directory for temporary clones
+	TempDir string
+
+	// ClearModuleCache clears the module version cache before processing
+	ClearModuleCache bool
 }
 
 // NewDirectoryProcessor creates a new directory processor
-func NewDirectoryProcessor(logger *logrus.Entry, workerCount int) *DirectoryProcessor {
+func NewDirectoryProcessor(logger *logrus.Entry, workerCount int, opts *DirectoryProcessorOptions) *DirectoryProcessor {
 	if workerCount <= 0 {
 		workerCount = 10 // Default worker count
 	}
@@ -51,7 +86,13 @@ func NewDirectoryProcessor(logger *logrus.Entry, workerCount int) *DirectoryProc
 	moduleDetector := NewModuleDetector(logger.Logger)
 	moduleResolver := NewModuleResolver(logger.Logger, moduleCache)
 
-	return &DirectoryProcessor{
+	// Clear cache if requested
+	if opts != nil && opts.ClearModuleCache {
+		moduleCache.Clear()
+		logger.Info("Cleared module version cache")
+	}
+
+	dp := &DirectoryProcessor{
 		progressManager: NewDirectoryProgressManager(logger),
 		workerCount:     workerCount,
 		logger:          logger,
@@ -59,6 +100,16 @@ func NewDirectoryProcessor(logger *logrus.Entry, workerCount int) *DirectoryProc
 		moduleResolver:  moduleResolver,
 		moduleCache:     moduleCache,
 	}
+
+	// Set up module source resolver if git client is provided
+	if opts != nil && opts.GitClient != nil {
+		dp.gitClient = opts.GitClient
+		dp.sourceRepoURL = opts.SourceRepoURL
+		dp.tempDir = opts.TempDir
+		dp.moduleSourceResolver = NewModuleSourceResolver(opts.GitClient, logger.Logger, moduleCache)
+	}
+
+	return dp
 }
 
 // Close shuts down the directory processor and cleans up resources
@@ -85,8 +136,29 @@ func (rs *RepositorySync) processDirectories(ctx context.Context) ([]FileChange,
 
 	rs.logger.WithField("directory_count", len(rs.target.Directories)).Info("Processing directories")
 
-	// Create directory processor
-	processor := NewDirectoryProcessor(rs.logger, 10) // Use default worker count
+	// Construct source repo URL for module-aware sync
+	sourceRepoURL := ""
+	if rs.sourceState != nil && rs.sourceState.Repo != "" {
+		sourceRepoURL = fmt.Sprintf("https://github.com/%s", rs.sourceState.Repo)
+	}
+
+	// Build directory processor options
+	var opts *DirectoryProcessorOptions
+	if rs.engine != nil {
+		clearCache := false
+		if rs.engine.Options() != nil {
+			clearCache = rs.engine.Options().ClearModuleCache
+		}
+		opts = &DirectoryProcessorOptions{
+			GitClient:        rs.engine.GitClient(),
+			SourceRepoURL:    sourceRepoURL,
+			TempDir:          rs.tempDir,
+			ClearModuleCache: clearCache,
+		}
+	}
+
+	// Create directory processor with module-aware sync support
+	processor := NewDirectoryProcessor(rs.logger, 10, opts)
 	defer processor.Close()
 
 	sourcePath := filepath.Join(rs.tempDir, "source")
@@ -154,18 +226,35 @@ func (dp *DirectoryProcessor) ProcessDirectoryMapping(ctx context.Context, sourc
 		return nil, internalerrors.ErrFileNotFound
 	}
 
+	// Track the effective source directory (may change if module versioning is used)
+	effectiveSourceDir := fullSourceDir
+
 	// Handle module-aware sync if configured
 	if dirMapping.Module != nil {
-		if err := dp.handleModuleSync(ctx, fullSourceDir, dirMapping.Module, logger); err != nil {
+		result, err := dp.handleModuleSync(ctx, fullSourceDir, dirMapping.Src, dirMapping.Module, logger)
+		if err != nil {
 			logger.WithError(err).Warn("Module sync handling failed, continuing with standard sync")
 			// Continue with standard sync if module handling fails
-		} else {
-			logger.WithField("module_type", dirMapping.Module.Type).Debug("Module sync configuration applied")
+		} else if result != nil {
+			// Store result for potential update_refs processing
+			_ = result // TODO: Use for update_refs feature
+			if result.SourcePath != "" && result.SourcePath != fullSourceDir {
+				effectiveSourceDir = result.SourcePath
+				logger.WithFields(logrus.Fields{
+					"module_type":      dirMapping.Module.Type,
+					"resolved_version": result.ResolvedVersion,
+					"versioned_source": effectiveSourceDir,
+				}).Info("Using versioned module source for sync")
+			} else {
+				logger.WithField("module_type", dirMapping.Module.Type).Debug("Module sync configuration applied")
+			}
+			// Defer cleanup of versioned source
+			defer result.Cleanup()
 		}
 	}
 
-	// Discover files in the directory
-	files, err := dp.discoverFiles(ctx, fullSourceDir, dirMapping)
+	// Discover files in the directory (use effectiveSourceDir which may be versioned)
+	files, err := dp.discoverFiles(ctx, effectiveSourceDir, dirMapping)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover files in directory %s: %w", dirMapping.Src, err)
 	}
@@ -438,23 +527,33 @@ func (dp *DirectoryProcessor) GetWorkerCount() int {
 	return dp.workerCount
 }
 
-// handleModuleSync handles module-aware synchronization for a directory
-func (dp *DirectoryProcessor) handleModuleSync(ctx context.Context, sourceDir string, moduleConfig *config.ModuleConfig, logger *logrus.Entry) error {
+// handleModuleSync handles module-aware synchronization for a directory.
+// It returns a ModuleSyncResult containing the source path to use (which may be
+// a versioned clone if a version constraint was specified) and cleanup function.
+func (dp *DirectoryProcessor) handleModuleSync(ctx context.Context, sourceDir, dirSrc string, moduleConfig *config.ModuleConfig, logger *logrus.Entry) (*ModuleSyncResult, error) {
 	// Currently only support Go modules
 	if moduleConfig.Type != "" && moduleConfig.Type != "go" {
-		return fmt.Errorf("%w: %s", ErrUnsupportedModuleType, moduleConfig.Type)
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedModuleType, moduleConfig.Type)
+	}
+
+	// Default result uses the original source directory
+	result := &ModuleSyncResult{
+		SourcePath: sourceDir,
+		Cleanup:    func() {}, // No-op cleanup by default
 	}
 
 	// Check if the directory contains a Go module
 	moduleInfo, err := dp.moduleDetector.DetectModule(sourceDir)
 	if err != nil {
-		return fmt.Errorf("failed to detect module: %w", err)
+		return nil, fmt.Errorf("failed to detect module: %w", err)
 	}
 
 	if moduleInfo == nil {
 		logger.Debug("Directory does not contain a Go module, skipping module handling")
-		return nil
+		return result, nil
 	}
+
+	result.ModuleInfo = moduleInfo
 
 	logger.WithFields(logrus.Fields{
 		"module_name":    moduleInfo.Name,
@@ -471,22 +570,23 @@ func (dp *DirectoryProcessor) handleModuleSync(ctx context.Context, sourceDir st
 			checkTags = *moduleConfig.CheckTags
 		}
 
-		// Get the repository path from the module name (assuming GitHub for now)
-		// This is a simplified implementation - in reality, we'd need to parse the module name
-		// more carefully and handle various repository hosting services
-		repoPath := moduleInfo.Name
-		repoPath = strings.TrimPrefix(repoPath, "github.com/")
+		// Use the configured source repo URL for version resolution
+		repoURL := dp.sourceRepoURL
+		if repoURL == "" {
+			logger.Warn("No source repo URL configured, cannot fetch versioned source")
+			return result, nil
+		}
 
 		resolvedVersion, err := dp.moduleResolver.ResolveVersion(
 			ctx,
-			fmt.Sprintf("https://github.com/%s", repoPath),
+			repoURL,
 			moduleConfig.Version,
 			checkTags,
 		)
 		if err != nil {
 			logger.WithError(err).Warn("Failed to resolve module version constraint")
-			// Continue without version resolution
-			return nil
+			// Continue with original source
+			return result, nil
 		}
 
 		logger.WithFields(logrus.Fields{
@@ -494,18 +594,34 @@ func (dp *DirectoryProcessor) handleModuleSync(ctx context.Context, sourceDir st
 			"resolved":   resolvedVersion,
 		}).Info("Resolved module version")
 
-		// Store the resolved version for potential use in file processing
-		// This could be used to update go.mod files if UpdateRefs is true
+		result.ResolvedVersion = resolvedVersion
 		moduleInfo.Version = resolvedVersion
+
+		// If we have a module source resolver, fetch the versioned source
+		if dp.moduleSourceResolver != nil && dp.tempDir != "" {
+			versionedSource, err := dp.moduleSourceResolver.GetSourceAtVersion(
+				ctx,
+				repoURL,
+				resolvedVersion,
+				dirSrc, // Subdirectory within the repo
+				dp.tempDir,
+			)
+			if err != nil {
+				logger.WithError(err).Warn("Failed to fetch versioned source, using HEAD")
+				return result, nil
+			}
+
+			logger.WithFields(logrus.Fields{
+				"versioned_path": versionedSource.Path,
+				"version":        resolvedVersion,
+			}).Info("Using versioned module source")
+
+			result.SourcePath = versionedSource.Path
+			result.Cleanup = versionedSource.CleanupFunc
+		}
 	}
 
-	// If UpdateRefs is true, we'll need to update go.mod references
-	// This would be handled during file processing
-	if moduleConfig.UpdateRefs {
-		logger.Debug("Module reference updates will be applied during file processing")
-	}
-
-	return nil
+	return result, nil
 }
 
 // ProcessDirectoriesWithMetrics processes directories and returns detailed metrics
@@ -556,8 +672,29 @@ func (rs *RepositorySync) ProcessDirectoriesWithOptions(ctx context.Context, opt
 		"progress_threshold": opts.ProgressThreshold,
 	}).Info("Processing directories with custom options")
 
+	// Construct source repo URL for module-aware sync
+	sourceRepoURL := ""
+	if rs.sourceState != nil && rs.sourceState.Repo != "" {
+		sourceRepoURL = fmt.Sprintf("https://github.com/%s", rs.sourceState.Repo)
+	}
+
+	// Build directory processor options
+	var dpOpts *DirectoryProcessorOptions
+	if rs.engine != nil {
+		clearCache := false
+		if rs.engine.Options() != nil {
+			clearCache = rs.engine.Options().ClearModuleCache
+		}
+		dpOpts = &DirectoryProcessorOptions{
+			GitClient:        rs.engine.GitClient(),
+			SourceRepoURL:    sourceRepoURL,
+			TempDir:          rs.tempDir,
+			ClearModuleCache: clearCache,
+		}
+	}
+
 	// Create directory processor with custom options
-	processor := NewDirectoryProcessor(rs.logger, workerCount)
+	processor := NewDirectoryProcessor(rs.logger, workerCount, dpOpts)
 	defer processor.Close()
 
 	sourcePath := filepath.Join(rs.tempDir, "source")

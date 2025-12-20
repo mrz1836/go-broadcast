@@ -70,7 +70,7 @@ func (suite *DirectoryTransformTestSuite) SetupSuite() {
 	suite.logger = logger.WithField("component", "directory-transform-test")
 
 	// Create processor
-	suite.processor = NewDirectoryProcessor(suite.logger, 8)
+	suite.processor = NewDirectoryProcessor(suite.logger, 8, nil)
 
 	// Create mock engine and source state
 	suite.mockEngine = suite.createMockEngine()
