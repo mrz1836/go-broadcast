@@ -753,8 +753,12 @@ go-broadcast sync --groups "core" org/repo1 --config sync.yaml      # Combine wi
 go-broadcast sync --automerge --config sync.yaml                    # Add automerge labels to created PRs
 go-broadcast sync --automerge --groups "core" --config sync.yaml    # Automerge with group filtering (adds labels)
 
-# Monitor status
-go-broadcast status --config sync.yaml
+# Monitor status of repositories
+go-broadcast status --groups "core"
+go-broadcast status --groups "core,security"
+
+# Show all groups except specific ones
+go-broadcast status --skip-groups "experimental"
 
 # Troubleshooting and diagnostics
 go-broadcast diagnose                    # Collect system diagnostic information
