@@ -27,11 +27,11 @@ go-broadcast supports synchronizing entire directories alongside individual file
 
 ### Key Benefits
 
-✅ **Reduced Configuration** - Sync hundreds of files with single directory mapping
-✅ **Smart Defaults** - Automatic exclusion of `*.out`, `*.test`, binaries, and temp files
-✅ **Exceptional Performance** - 1000+ files processed in ~32ms
-✅ **API Efficient** - GitHub tree API reduces calls by 90%+
-✅ **Production Ready** - Battle-tested with real .github directories (149 files)
+- **Reduced Configuration** - Sync hundreds of files with single directory mapping
+- **Smart Defaults** - Automatic exclusion of `*.out`, `*.test`, binaries, and temp files
+- **Exceptional Performance** - 1000+ files processed in ~32ms
+- **API Efficient** - GitHub tree API reduces calls by 90%+
+- **Production Ready** - Battle-tested with real .github directories (149 files)
 
 ## Quick Start
 
