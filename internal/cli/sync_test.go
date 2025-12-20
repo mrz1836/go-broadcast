@@ -778,3 +778,42 @@ groups:
 		}
 	})
 }
+
+// TestLoadConfigWithFlags_EmptyGroups tests behavior when config has empty groups
+func TestLoadConfigWithFlags_EmptyGroups(t *testing.T) {
+	t.Run("EmptyGroupsSlice_NoIndexOutOfBounds", func(t *testing.T) {
+		// Create a config file with empty groups
+		tmpFile, err := os.CreateTemp("", "empty-groups-*.yml")
+		require.NoError(t, err)
+		defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+		emptyGroupsConfig := `version: 1
+groups: []`
+
+		_, err = tmpFile.WriteString(emptyGroupsConfig)
+		require.NoError(t, err)
+		require.NoError(t, tmpFile.Close())
+
+		flags := &Flags{
+			ConfigFile: tmpFile.Name(),
+		}
+
+		// Capture logs
+		var buf bytes.Buffer
+		logger := logrus.New()
+		logger.SetOutput(&buf)
+		logger.SetLevel(logrus.DebugLevel)
+
+		// This should not panic with index out of bounds
+		cfg, err := loadConfigWithFlags(flags, logger)
+
+		// Config may fail validation (no groups), but should not panic
+		if err != nil {
+			// Expected - empty groups is invalid config
+			assert.Contains(t, err.Error(), "invalid configuration")
+		} else {
+			require.NotNil(t, cfg)
+			assert.Empty(t, cfg.Groups)
+		}
+	})
+}

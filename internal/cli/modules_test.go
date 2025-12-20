@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -472,4 +473,159 @@ func TestFetchGitTags(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestFetchGitTags_SecurityValidation tests command injection prevention
+func TestFetchGitTags_SecurityValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		repo           string
+		expectErr      bool
+		errContains    string
+		securityReason string
+	}{
+		{
+			name:           "path_traversal_double_dot",
+			repo:           "../../../etc/passwd",
+			expectErr:      true,
+			errContains:    "invalid repository path",
+			securityReason: "Prevents path traversal attacks",
+		},
+		{
+			name:           "path_traversal_embedded",
+			repo:           "org/../secret/repo",
+			expectErr:      true,
+			errContains:    "invalid repository path",
+			securityReason: "Prevents embedded path traversal",
+		},
+		{
+			name:           "command_injection_semicolon",
+			repo:           "org/repo; rm -rf /",
+			expectErr:      true,
+			errContains:    "invalid repository path",
+			securityReason: "Prevents command chaining with semicolon",
+		},
+		{
+			name:           "command_injection_ampersand",
+			repo:           "org/repo && cat /etc/passwd",
+			expectErr:      true,
+			errContains:    "invalid repository path",
+			securityReason: "Prevents command chaining with &&",
+		},
+		{
+			name:           "command_injection_single_ampersand",
+			repo:           "org/repo & background",
+			expectErr:      true,
+			errContains:    "invalid repository path",
+			securityReason: "Prevents background command execution",
+		},
+		{
+			name:           "multiple_attack_vectors",
+			repo:           "../repo; whoami & id",
+			expectErr:      true,
+			errContains:    "invalid repository path",
+			securityReason: "Prevents combined attack vectors",
+		},
+		{
+			name:           "valid_repo_with_hyphen",
+			repo:           "my-org/my-repo",
+			expectErr:      false,
+			errContains:    "",
+			securityReason: "Allows valid repo names with hyphens",
+		},
+		{
+			name:           "valid_repo_with_underscore",
+			repo:           "my_org/my_repo",
+			expectErr:      false,
+			errContains:    "",
+			securityReason: "Allows valid repo names with underscores",
+		},
+		{
+			name:           "valid_repo_with_numbers",
+			repo:           "org123/repo456",
+			expectErr:      false,
+			errContains:    "",
+			securityReason: "Allows valid repo names with numbers",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			versions, err := fetchGitTags(ctx, tt.repo)
+
+			if tt.expectErr {
+				require.Error(t, err, "Security test '%s' should fail: %s", tt.name, tt.securityReason)
+				assert.Contains(t, err.Error(), tt.errContains)
+				require.ErrorIs(t, err, ErrInvalidRepositoryPath)
+				assert.Nil(t, versions)
+			} else {
+				// For valid repos, the function should not error due to security validation
+				// (it may error due to network/auth, which is acceptable)
+				if err != nil {
+					// If there's an error, it should NOT be ErrInvalidRepositoryPath
+					assert.NotErrorIs(t, err, ErrInvalidRepositoryPath,
+						"Valid repo '%s' should not be rejected by security validation", tt.repo)
+				}
+			}
+		})
+	}
+}
+
+// TestFetchGitTags_EdgeCases tests additional edge cases
+func TestFetchGitTags_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("single_dot_is_allowed", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+
+		// Single dot should be allowed (not a security issue)
+		_, err := fetchGitTags(ctx, "org.name/repo.name")
+		if err != nil {
+			// Should not be ErrInvalidRepositoryPath
+			assert.NotErrorIs(t, err, ErrInvalidRepositoryPath)
+		}
+	})
+
+	t.Run("newline_prevention", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+
+		// Newlines could be used for header injection in HTTP requests
+		// This is handled by the URL construction, not explicit validation
+		_, err := fetchGitTags(ctx, "org/repo\ninjected")
+		// The function should handle this gracefully (URL library will handle it)
+		// We just verify the function doesn't panic - error handling depends on implementation
+		_ = err
+	})
+
+	t.Run("unicode_in_repo_name", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+
+		// Unicode should be handled gracefully (using escaped Unicode)
+		_, err := fetchGitTags(ctx, "org/\u0440\u0435\u043f\u4f60\u597d")
+		if err != nil {
+			// Should not be ErrInvalidRepositoryPath (URL encoding handles this)
+			assert.NotErrorIs(t, err, ErrInvalidRepositoryPath)
+		}
+	})
+
+	t.Run("very_long_repo_name", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+
+		// Very long names should be handled gracefully
+		longName := "org/" + strings.Repeat("a", 1000)
+
+		_, err := fetchGitTags(ctx, longName)
+		// Should not panic, may return error from git command
+		// We just verify the function doesn't panic - error handling depends on implementation
+		_ = err
+	})
 }

@@ -700,6 +700,69 @@ func TestCheckCircularDependency(t *testing.T) {
 			},
 			expectCircular: false,
 		},
+		{
+			name:    "diamond graph no cycle",
+			groupID: "group-a",
+			dependencyMap: map[string][]string{
+				"group-a": {"group-b", "group-c"},
+				"group-b": {"group-d"},
+				"group-c": {"group-d"},
+				"group-d": {},
+			},
+			expectCircular: false,
+		},
+		{
+			name:    "long chain with cycle",
+			groupID: "group-1",
+			dependencyMap: map[string][]string{
+				"group-1": {"group-2"},
+				"group-2": {"group-3"},
+				"group-3": {"group-4"},
+				"group-4": {"group-5"},
+				"group-5": {"group-1"},
+			},
+			expectCircular: true,
+		},
+		{
+			name:    "long chain without cycle",
+			groupID: "group-1",
+			dependencyMap: map[string][]string{
+				"group-1": {"group-2"},
+				"group-2": {"group-3"},
+				"group-3": {"group-4"},
+				"group-4": {"group-5"},
+				"group-5": {},
+			},
+			expectCircular: false,
+		},
+		{
+			name:    "multiple branches one with cycle",
+			groupID: "group-1",
+			dependencyMap: map[string][]string{
+				"group-1": {"group-2", "group-3"},
+				"group-2": {"group-4"},
+				"group-3": {"group-5"},
+				"group-4": {},
+				"group-5": {"group-1"},
+			},
+			expectCircular: true,
+		},
+		{
+			name:    "non-existent dependency",
+			groupID: "group-1",
+			dependencyMap: map[string][]string{
+				"group-1": {"group-nonexistent"},
+			},
+			expectCircular: false,
+		},
+		{
+			name:    "group not in map",
+			groupID: "group-unknown",
+			dependencyMap: map[string][]string{
+				"group-1": {"group-2"},
+			},
+			expectCircular: false,
+		},
 	}
 
 	for _, tt := range tests {

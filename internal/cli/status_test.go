@@ -907,3 +907,268 @@ func TestGetRealStatusErrorCases(t *testing.T) {
 		_ = status // May be nil or valid depending on timing
 	})
 }
+
+// TestConvertStateToStatus_NilHandling tests nil input handling
+func TestConvertStateToStatus_NilHandling(t *testing.T) {
+	t.Run("NilConfig_EmptyGroups", func(t *testing.T) {
+		// When config is nil, function should not use group-based conversion
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusUpToDate,
+				},
+			},
+		}
+
+		// Should not panic with nil config
+		assert.NotPanics(t, func() {
+			status := convertStateToStatus(s, nil)
+			require.NotNil(t, status)
+			assert.Equal(t, "org/template", status.Source.Repository)
+			assert.Len(t, status.Targets, 1)
+		})
+	})
+
+	t.Run("ConfigWithEmptyGroups", func(t *testing.T) {
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusPending,
+				},
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{}, // Empty groups
+		}
+
+		// Should not panic with empty groups
+		assert.NotPanics(t, func() {
+			status := convertStateToStatus(s, cfg)
+			require.NotNil(t, status)
+		})
+	})
+
+	t.Run("StateWithEmptyTargets", func(t *testing.T) {
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{}, // Empty targets
+		}
+
+		cfg := &config.Config{}
+
+		status := convertStateToStatus(s, cfg)
+		require.NotNil(t, status)
+		assert.Empty(t, status.Targets)
+	})
+}
+
+// TestConvertSyncStatus_AllStatusValues tests all sync status enum conversions
+func TestConvertSyncStatus_AllStatusValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    state.SyncStatus
+		expected string
+	}{
+		{"up_to_date", state.StatusUpToDate, "synced"},
+		{"behind", state.StatusBehind, "outdated"},
+		{"pending", state.StatusPending, "pending"},
+		{"conflict", state.StatusConflict, "error"},
+		{"unknown", state.StatusUnknown, "unknown"},
+		{"invalid_status", state.SyncStatus("invalid-status"), "unknown"}, // Unknown status value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertSyncStatus(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestConvertStateToStatus_SyncBranchMetadata tests sync branch metadata handling
+func TestConvertStateToStatus_SyncBranchMetadata(t *testing.T) {
+	t.Run("AllBranchesHaveNilMetadata", func(t *testing.T) {
+		now := time.Now()
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusPending,
+					SyncBranches: []state.SyncBranch{
+						{Name: "sync/branch1", Metadata: nil},
+						{Name: "sync/branch2", Metadata: nil},
+					},
+					LastSyncTime: &now,
+				},
+			},
+		}
+
+		cfg := &config.Config{}
+
+		// Should not panic when all branches have nil metadata
+		assert.NotPanics(t, func() {
+			status := convertStateToStatus(s, cfg)
+			require.NotNil(t, status)
+			require.Len(t, status.Targets, 1)
+			// SyncBranch should be nil when no branch has metadata
+			assert.Nil(t, status.Targets[0].SyncBranch)
+		})
+	})
+
+	t.Run("MixedNilAndValidMetadata", func(t *testing.T) {
+		now := time.Now()
+		earlier := now.Add(-1 * time.Hour)
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusPending,
+					SyncBranches: []state.SyncBranch{
+						{Name: "sync/old", Metadata: &state.BranchMetadata{Timestamp: earlier}},
+						{Name: "sync/nil", Metadata: nil},
+						{Name: "sync/new", Metadata: &state.BranchMetadata{Timestamp: now}},
+					},
+				},
+			},
+		}
+
+		cfg := &config.Config{}
+
+		status := convertStateToStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Targets, 1)
+		// Should pick the most recent valid branch
+		require.NotNil(t, status.Targets[0].SyncBranch)
+		assert.Equal(t, "sync/new", *status.Targets[0].SyncBranch)
+	})
+
+	t.Run("EmptySyncBranches", func(t *testing.T) {
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:         "org/target1",
+					Status:       state.StatusUpToDate,
+					SyncBranches: []state.SyncBranch{}, // Empty
+				},
+			},
+		}
+
+		cfg := &config.Config{}
+
+		status := convertStateToStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Targets, 1)
+		assert.Nil(t, status.Targets[0].SyncBranch)
+	})
+}
+
+// TestConvertStateToGroupStatus_EdgeCases tests group status conversion edge cases
+func TestConvertStateToGroupStatus_EdgeCases(t *testing.T) {
+	t.Run("MultipleGroupsSameTarget", func(t *testing.T) {
+		// Test when same target appears in multiple groups
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusUpToDate,
+				},
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "group1",
+					ID:   "group1",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+					},
+				},
+				{
+					Name: "group2",
+					ID:   "group2",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"}, // Same target
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		assert.Len(t, status.Groups, 2)
+	})
+
+	t.Run("DisabledGroup", func(t *testing.T) {
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{},
+		}
+
+		disabled := false // false means the group is disabled
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name:     "disabled-group",
+					ID:       "disabled",
+					Enabled:  &disabled,
+					Priority: 1,
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+		assert.Equal(t, "disabled", status.Groups[0].State)
+		assert.False(t, status.Groups[0].Enabled)
+	})
+}
