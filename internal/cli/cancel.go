@@ -195,7 +195,7 @@ func performCancelWithDiscoverer(ctx context.Context, cfg *config.Config, target
 	}
 
 	// Filter config by groups before state discovery (performance optimization)
-	filteredCfg := filterConfigByGroups(cfg, cancelGroupFilter, cancelSkipGroups)
+	filteredCfg := FilterConfigByGroups(cfg, cancelGroupFilter, cancelSkipGroups)
 	if len(filteredCfg.Groups) == 0 {
 		logrus.Info("No groups match the specified filters")
 		return &CancelSummary{
@@ -247,64 +247,6 @@ func performCancelWithDiscoverer(ctx context.Context, cfg *config.Config, target
 	})
 
 	return summary, nil
-}
-
-// filterConfigByGroups filters the configuration to only include specified groups
-func filterConfigByGroups(cfg *config.Config, groupFilter, skipGroups []string) *config.Config {
-	// If no filters specified, return original config
-	if len(groupFilter) == 0 && len(skipGroups) == 0 {
-		return cfg
-	}
-
-	// Create a copy of the config with filtered groups
-	filteredCfg := &config.Config{
-		Version:        cfg.Version,
-		Name:           cfg.Name,
-		ID:             cfg.ID,
-		Groups:         []config.Group{},
-		FileLists:      cfg.FileLists,
-		DirectoryLists: cfg.DirectoryLists,
-	}
-
-	for _, group := range cfg.Groups {
-		// Check if group should be skipped
-		shouldSkip := false
-		for _, skipPattern := range skipGroups {
-			if group.Name == skipPattern || group.ID == skipPattern {
-				logrus.WithFields(logrus.Fields{
-					"group_name": group.Name,
-					"group_id":   group.ID,
-				}).Debug("Group matches skip pattern, excluding from cancel")
-				shouldSkip = true
-				break
-			}
-		}
-		if shouldSkip {
-			continue
-		}
-
-		// Check if group matches filter (if filter is specified)
-		if len(groupFilter) > 0 {
-			matchesFilter := false
-			for _, filterPattern := range groupFilter {
-				if group.Name == filterPattern || group.ID == filterPattern {
-					matchesFilter = true
-					break
-				}
-			}
-			if !matchesFilter {
-				logrus.WithFields(logrus.Fields{
-					"group_name": group.Name,
-					"group_id":   group.ID,
-				}).Debug("Group doesn't match filter pattern, excluding from cancel")
-				continue
-			}
-		}
-
-		filteredCfg.Groups = append(filteredCfg.Groups, group)
-	}
-
-	return filteredCfg
 }
 
 func filterTargets(s *state.State, targetRepos []string) ([]*state.TargetState, error) {

@@ -19,14 +19,18 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/state"
 )
 
-//nolint:gochecknoglobals // Package-level variable for CLI flag
+//nolint:gochecknoglobals // Package-level variables for CLI flags
 var (
-	jsonOutput bool
+	jsonOutput        bool
+	statusGroupFilter []string
+	statusSkipGroups  []string
 )
 
 // initStatus initializes status command flags
 func initStatus() {
 	statusCmd.Flags().BoolVar(&jsonOutput, "json", false, "Output status in JSON format")
+	statusCmd.Flags().StringSliceVar(&statusGroupFilter, "groups", nil, "Only show status for these groups (by name or ID)")
+	statusCmd.Flags().StringSliceVar(&statusSkipGroups, "skip-groups", nil, "Skip these groups (by name or ID)")
 }
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -39,12 +43,22 @@ Shows information about:
   • Open pull requests
   • Sync branches
   • Last sync timestamp and commit
-  • Out-of-date targets`,
+  • Out-of-date targets
+
+For configurations with groups, you can filter which groups to display using
+--groups or --skip-groups flags.`,
 	Example: `  # Show status for all targets
   go-broadcast status --config sync.yaml
 
   # Output in JSON format
-  go-broadcast status --json`,
+  go-broadcast status --json
+
+  # Show status for specific groups only
+  go-broadcast status --groups "core"
+  go-broadcast status --groups "core,security"
+
+  # Show all groups except specific ones
+  go-broadcast status --skip-groups "experimental"`,
 	Aliases: []string{"st"},
 	RunE:    runStatus,
 }
@@ -108,6 +122,9 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
+
+	// Apply group filtering if specified
+	cfg = FilterConfigByGroups(cfg, statusGroupFilter, statusSkipGroups)
 
 	// Initialize state discovery with real implementations
 	status, err := getRealStatus(ctx, cfg)

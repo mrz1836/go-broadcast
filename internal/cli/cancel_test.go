@@ -1502,7 +1502,7 @@ func TestFilterConfigByGroups(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filtered := filterConfigByGroups(cfg, tt.groupFilter, tt.skipGroups)
+			filtered := FilterConfigByGroups(cfg, tt.groupFilter, tt.skipGroups)
 
 			require.NotNil(t, filtered)
 			assert.Len(t, filtered.Groups, tt.wantCount, "unexpected number of groups")
@@ -1547,7 +1547,7 @@ func TestFilterConfigByGroups_PreservesStructure(t *testing.T) {
 		},
 	}
 
-	filtered := filterConfigByGroups(cfg, []string{"core"}, []string{})
+	filtered := FilterConfigByGroups(cfg, []string{"core"}, []string{})
 
 	assert.Equal(t, cfg.FileLists, filtered.FileLists)
 	assert.Equal(t, cfg.DirectoryLists, filtered.DirectoryLists)
