@@ -118,6 +118,8 @@ Get up and running with go-broadcast in under 5 minutes!
 - GitHub authentication: `gh auth login`
 - [MAGE-X](https://github.com/mrz1836/mage-x) (optional, for building from source)
 
+<br/>
+
 ### Installation
 
 **Option 1: Pre-built Binary (Recommended)**
@@ -154,6 +156,8 @@ cd go-broadcast && go install ./cmd/go-broadcast
 go-broadcast upgrade --force
 ```
 
+<br/>
+
 ### Create Configuration
 
 Create a `sync.yaml` file:
@@ -182,6 +186,8 @@ groups:
           repo_name: true
 ```
 
+<br/>
+
 ### Run Sync
 
 ```bash
@@ -194,6 +200,8 @@ go-broadcast sync --dry-run --config sync.yaml
 # Execute sync
 go-broadcast sync --config sync.yaml
 ```
+
+<br/>
 
 #### Example Dry-Run Output
 
@@ -344,6 +352,8 @@ Every sync operation creates a branch with encoded metadata:
         └───────────────────────────────────────────── Configurable prefix
 ```
 
+<br/>
+
 ### How go-broadcast Determines What to Sync
 
 1. **State Discovery** - Queries GitHub to find:
@@ -363,6 +373,8 @@ Every sync operation creates a branch with encoded metadata:
    - Applies transformations to source files
    - Compares content byte-by-byte with smart exclusion filtering
    - Skips unchanged files and processes directories concurrently
+
+<br/>
 
 ### Pull Request Metadata
 
@@ -392,6 +404,8 @@ performance:
 timestamp: 2025-01-23T14:30:52Z
 -->
 ```
+
+<br/>
 
 ### Why This Approach is Powerful
 
