@@ -169,7 +169,11 @@ func (s *LoggerService) ConfigureLogger(ctx context.Context) error {
 //
 // Returns:
 // - True if trace level logging is active based on configuration
+// - False if config is nil (safe default)
 func (s *LoggerService) IsTraceEnabled() bool {
+	if s.config == nil {
+		return false
+	}
 	return s.config.Verbose >= 2
 }
 
@@ -177,7 +181,11 @@ func (s *LoggerService) IsTraceEnabled() bool {
 //
 // Returns:
 // - True if debug level logging is active based on configuration
+// - False if config is nil (safe default)
 func (s *LoggerService) IsDebugEnabled() bool {
+	if s.config == nil {
+		return false
+	}
 	return s.config.Verbose >= 1 || s.mapVerboseToLevel() <= logrus.DebugLevel
 }
 
@@ -185,7 +193,11 @@ func (s *LoggerService) IsDebugEnabled() bool {
 //
 // Returns:
 // - DebugFlags struct containing all component debug settings
+// - Empty DebugFlags if config is nil (safe default)
 func (s *LoggerService) GetDebugFlags() DebugFlags {
+	if s.config == nil {
+		return DebugFlags{}
+	}
 	return s.config.Debug
 }
 
@@ -213,8 +225,13 @@ func (s *LoggerService) mapVerboseToLevel() logrus.Level {
 //
 // Returns:
 // - Appropriate logrus.Level based on configuration
-// - Error if configuration is invalid
+// - Error if configuration is invalid or nil
 func (s *LoggerService) mapVerboseLevelWithError() (logrus.Level, error) {
+	// Check for nil config
+	if s.config == nil {
+		return logrus.InfoLevel, ErrNilConfig
+	}
+
 	// If verbose flag is used, it overrides explicit log level
 	if s.config.Verbose > 0 {
 		switch s.config.Verbose {

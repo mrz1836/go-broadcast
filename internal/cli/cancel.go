@@ -188,10 +188,19 @@ func performCancelWithClient(ctx context.Context, cfg *config.Config, targetRepo
 	return performCancelWithDiscoverer(ctx, cfg, targetRepos, ghClient, discoverer)
 }
 
+// ErrNilDiscoverer is returned when a nil state discoverer is provided
+var ErrNilDiscoverer = errors.New("nil state discoverer provided")
+
+// ErrNilState is returned when state discovery returns nil state
+var ErrNilState = errors.New("state discovery returned nil state")
+
 // performCancelWithDiscoverer performs cancel operation with injected state discoverer for advanced testing
 func performCancelWithDiscoverer(ctx context.Context, cfg *config.Config, targetRepos []string, ghClient gh.Client, discoverer state.Discoverer) (*CancelSummary, error) {
 	if cfg == nil {
 		return nil, ErrNilConfig
+	}
+	if discoverer == nil {
+		return nil, ErrNilDiscoverer
 	}
 
 	// Filter config by groups before state discovery (performance optimization)
@@ -209,6 +218,9 @@ func performCancelWithDiscoverer(ctx context.Context, cfg *config.Config, target
 	currentState, err := discoverer.DiscoverState(ctx, filteredCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover sync state: %w", err)
+	}
+	if currentState == nil {
+		return nil, ErrNilState
 	}
 
 	// Filter targets if specified

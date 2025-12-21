@@ -3,6 +3,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -210,11 +211,19 @@ func ExecuteWithContext(ctx context.Context) error {
 	return rootCmd.ExecuteContext(ctx)
 }
 
+// ErrNilFlags is returned when nil flags are provided to logging setup
+var ErrNilFlags = errors.New("nil flags provided")
+
 // createSetupLogging creates an isolated logging setup function for the given flags
 // It returns a configured logger instance that can be used instead of the global logger
 func createSetupLogging(flags *Flags) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		// Version flag is handled in RunE functions, not here
+
+		// Guard against nil flags
+		if flags == nil {
+			return ErrNilFlags
+		}
 
 		// Parse log level
 		level, err := logrus.ParseLevel(strings.ToLower(flags.LogLevel))
@@ -373,6 +382,11 @@ func addVerboseFlags(cmd *cobra.Command, config *LogConfig) {
 func createSetupLoggingWithVerbose(config *LogConfig) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		// Version flag is handled in RunE functions, not here
+
+		// Guard against nil config
+		if config == nil {
+			return ErrNilConfig
+		}
 
 		ctx := cmd.Context()
 
