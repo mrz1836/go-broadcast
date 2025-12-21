@@ -305,11 +305,11 @@ func TestConvertSyncStatus(t *testing.T) {
 // TestRunStatus tests the main status command execution
 func TestRunStatus(t *testing.T) {
 	t.Run("ConfigNotFound", func(t *testing.T) {
-		// Save original config file path
-		originalConfig := globalFlags.ConfigFile
-		globalFlags.ConfigFile = "/non/existent/config.yml"
+		// Save original config file path (thread-safe)
+		originalFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: "/non/existent/config.yml", DryRun: originalFlags.DryRun, LogLevel: originalFlags.LogLevel})
 		defer func() {
-			globalFlags.ConfigFile = originalConfig
+			SetFlags(originalFlags)
 		}()
 
 		cmd := &cobra.Command{}
@@ -330,11 +330,11 @@ func TestRunStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, tmpFile.Close())
 
-		// Save original config file path
-		originalConfig := globalFlags.ConfigFile
-		globalFlags.ConfigFile = tmpFile.Name()
+		// Save original config file path (thread-safe)
+		originalFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: tmpFile.Name(), DryRun: originalFlags.DryRun, LogLevel: originalFlags.LogLevel})
 		defer func() {
-			globalFlags.ConfigFile = originalConfig
+			SetFlags(originalFlags)
 		}()
 
 		cmd := &cobra.Command{}
@@ -355,11 +355,11 @@ func TestRunStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, tmpFile.Close())
 
-		// Save original config file path
-		originalConfig := globalFlags.ConfigFile
-		globalFlags.ConfigFile = tmpFile.Name()
+		// Save original config file path (thread-safe)
+		originalFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: tmpFile.Name(), DryRun: originalFlags.DryRun, LogLevel: originalFlags.LogLevel})
 		defer func() {
-			globalFlags.ConfigFile = originalConfig
+			SetFlags(originalFlags)
 		}()
 
 		cmd := &cobra.Command{}
@@ -374,14 +374,13 @@ func TestRunStatus(t *testing.T) {
 	})
 
 	t.Run("JSONOutputFlag", func(t *testing.T) {
-		// Save original flags
-		originalConfig := globalFlags.ConfigFile
-		originalJSON := jsonOutput
-		globalFlags.ConfigFile = "/non/existent/config.yml"
-		jsonOutput = true
+		// Save original flags (thread-safe)
+		originalFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: "/non/existent/config.yml", DryRun: originalFlags.DryRun, LogLevel: originalFlags.LogLevel})
+		setJSONOutput(true)
 		defer func() {
-			globalFlags.ConfigFile = originalConfig
-			jsonOutput = originalJSON
+			SetFlags(originalFlags)
+			setJSONOutput(false)
 		}()
 
 		cmd := &cobra.Command{}

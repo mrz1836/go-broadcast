@@ -17,17 +17,18 @@ import (
 // This matters because nil flags could be passed during error paths.
 func TestSetFlags_NilValue(t *testing.T) {
 	// Save original state
-	oldFlags := globalFlags
+	oldFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = oldFlags
+		SetFlags(oldFlags)
 	}()
 
 	// Setting with empty struct should work
 	SetFlags(&Flags{})
 
 	// Verify flags are now at zero values
-	assert.Empty(t, globalFlags.ConfigFile)
-	assert.False(t, globalFlags.DryRun)
+	current := GetGlobalFlags()
+	assert.Empty(t, current.ConfigFile)
+	assert.False(t, current.DryRun)
 }
 
 // TestGetGlobalFlags_DeepCopyIsolation verifies that GetGlobalFlags returns
@@ -36,9 +37,9 @@ func TestSetFlags_NilValue(t *testing.T) {
 // This prevents accidental mutation of global state.
 func TestGetGlobalFlags_DeepCopyIsolation(t *testing.T) {
 	// Save original state
-	oldFlags := globalFlags
+	oldFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = oldFlags
+		SetFlags(oldFlags)
 	}()
 
 	// Set known state
@@ -65,9 +66,9 @@ func TestGetGlobalFlags_DeepCopyIsolation(t *testing.T) {
 
 // TestGetConfigFile_EmptyString verifies GetConfigFile behavior with empty config.
 func TestGetConfigFile_EmptyString(t *testing.T) {
-	oldFlags := globalFlags
+	oldFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = oldFlags
+		SetFlags(oldFlags)
 	}()
 
 	// Reset to nil-equivalent state
@@ -80,9 +81,9 @@ func TestGetConfigFile_EmptyString(t *testing.T) {
 
 // TestGetConfigFile_CustomValue verifies GetConfigFile returns custom value.
 func TestGetConfigFile_CustomValue(t *testing.T) {
-	oldFlags := globalFlags
+	oldFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = oldFlags
+		SetFlags(oldFlags)
 	}()
 
 	SetFlags(&Flags{ConfigFile: "custom-config.yaml"})
@@ -93,9 +94,9 @@ func TestGetConfigFile_CustomValue(t *testing.T) {
 
 // TestIsDryRun_DefaultFalse verifies IsDryRun defaults to false.
 func TestIsDryRun_DefaultFalse(t *testing.T) {
-	oldFlags := globalFlags
+	oldFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = oldFlags
+		SetFlags(oldFlags)
 	}()
 
 	ResetGlobalFlags()
@@ -110,9 +111,9 @@ func TestIsDryRun_DefaultFalse(t *testing.T) {
 // Other fields like GroupFilter, SkipGroups, and Automerge are NOT reset.
 // This test documents actual behavior of the implementation.
 func TestResetGlobalFlags_ClearsState(t *testing.T) {
-	oldFlags := globalFlags
+	oldFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = oldFlags
+		SetFlags(oldFlags)
 	}()
 
 	// Set complex state
@@ -145,9 +146,9 @@ func TestResetGlobalFlags_ClearsState(t *testing.T) {
 // This is critical because CLI flags may be accessed from multiple goroutines
 // during parallel test execution or async operations.
 func TestGlobalFlags_ConcurrentAccess(_ *testing.T) {
-	oldFlags := globalFlags
+	oldFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = oldFlags
+		SetFlags(oldFlags)
 	}()
 
 	const iterations = 100
@@ -189,9 +190,9 @@ func TestGlobalFlags_ConcurrentAccess(_ *testing.T) {
 // SetFlags assigns the pointer directly, so mutating the original
 // slice WILL affect the stored flags. This test documents actual behavior.
 func TestGlobalFlags_SliceMutation(t *testing.T) {
-	oldFlags := globalFlags
+	oldFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = oldFlags
+		SetFlags(oldFlags)
 	}()
 
 	original := []string{"a", "b", "c"}
@@ -213,9 +214,9 @@ func TestGlobalFlags_SliceMutation(t *testing.T) {
 // GetGlobalFlags returns a copy that may have nil slices if they
 // were empty in the original. This documents actual behavior.
 func TestGlobalFlags_EmptySlices(t *testing.T) {
-	oldFlags := globalFlags
+	oldFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = oldFlags
+		SetFlags(oldFlags)
 	}()
 
 	// Set with empty slices
@@ -233,9 +234,9 @@ func TestGlobalFlags_EmptySlices(t *testing.T) {
 
 // TestGlobalFlags_NilSlices verifies handling of nil slices.
 func TestGlobalFlags_NilSlices(t *testing.T) {
-	oldFlags := globalFlags
+	oldFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = oldFlags
+		SetFlags(oldFlags)
 	}()
 
 	// Set with nil slices

@@ -28,10 +28,10 @@ import (
 func TestPerformCancelWithDiscoverer_NilDiscoverer(t *testing.T) {
 	t.Parallel()
 
-	// Save and restore global flags
-	oldFlags := globalFlags
-	defer func() { globalFlags = oldFlags }()
-	globalFlags = &Flags{DryRun: false}
+	// Save and restore global flags (thread-safe)
+	oldFlags := GetGlobalFlags()
+	defer func() { SetFlags(oldFlags) }()
+	SetFlags(&Flags{ConfigFile: oldFlags.ConfigFile, DryRun: false, LogLevel: oldFlags.LogLevel})
 
 	// Save and restore cancel group filters
 	oldGroupFilter := cancelGroupFilter
@@ -100,10 +100,10 @@ func TestPerformCancelWithDiscoverer_NilConfig(t *testing.T) {
 // This matters because filterTargets would panic accessing state.Targets map
 // if the returned state is nil.
 func TestPerformCancelWithDiscoverer_DiscovererReturnsNilState(t *testing.T) {
-	// Not parallel because we modify global flags
-	oldFlags := globalFlags
-	defer func() { globalFlags = oldFlags }()
-	globalFlags = &Flags{DryRun: false}
+	// Not parallel because we modify global flags (thread-safe)
+	oldFlags := GetGlobalFlags()
+	defer func() { SetFlags(oldFlags) }()
+	SetFlags(&Flags{ConfigFile: oldFlags.ConfigFile, DryRun: false, LogLevel: oldFlags.LogLevel})
 
 	oldGroupFilter := cancelGroupFilter
 	oldSkipGroups := cancelSkipGroups
@@ -150,9 +150,10 @@ func TestPerformCancelWithDiscoverer_DiscovererReturnsNilState(t *testing.T) {
 //
 // This tests the normal error path to ensure errors are wrapped correctly.
 func TestPerformCancelWithDiscoverer_DiscovererReturnsError(t *testing.T) {
-	oldFlags := globalFlags
-	defer func() { globalFlags = oldFlags }()
-	globalFlags = &Flags{DryRun: false}
+	// Thread-safe flag access
+	oldFlags := GetGlobalFlags()
+	defer func() { SetFlags(oldFlags) }()
+	SetFlags(&Flags{ConfigFile: oldFlags.ConfigFile, DryRun: false, LogLevel: oldFlags.LogLevel})
 
 	oldGroupFilter := cancelGroupFilter
 	oldSkipGroups := cancelSkipGroups
@@ -206,9 +207,10 @@ func TestProcessCancelTarget_NilTarget(t *testing.T) {
 	// Since the function accesses target.Repo immediately, we verify the
 	// function's structure requires non-nil targets by checking a valid case.
 
-	oldFlags := globalFlags
-	defer func() { globalFlags = oldFlags }()
-	globalFlags = &Flags{DryRun: true}
+	// Thread-safe flag access
+	oldFlags := GetGlobalFlags()
+	defer func() { SetFlags(oldFlags) }()
+	SetFlags(&Flags{ConfigFile: oldFlags.ConfigFile, DryRun: true, LogLevel: oldFlags.LogLevel})
 
 	mockClient := gh.NewMockClient()
 

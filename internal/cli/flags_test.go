@@ -50,20 +50,20 @@ func TestGetConfigFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save current flags
-			originalFlags := globalFlags
+			// Save current flags (thread-safe)
+			originalFlags := GetGlobalFlags()
 
 			// Reset flags after test
 			defer func() {
-				globalFlags = originalFlags
+				SetFlags(originalFlags)
 			}()
 
 			// Setup test flags if provided
 			if tt.setupFlags != nil {
 				SetFlags(tt.setupFlags)
 			} else {
-				// Reset to nil for default test
-				globalFlags = nil
+				// Reset to default values for default test
+				ResetGlobalFlags()
 			}
 
 			// Test GetConfigFile
@@ -107,20 +107,20 @@ func TestIsDryRun(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save current flags
-			originalFlags := globalFlags
+			// Save current flags (thread-safe)
+			originalFlags := GetGlobalFlags()
 
 			// Reset flags after test
 			defer func() {
-				globalFlags = originalFlags
+				SetFlags(originalFlags)
 			}()
 
 			// Setup test flags if provided
 			if tt.setupFlags != nil {
 				SetFlags(tt.setupFlags)
 			} else {
-				// Reset to nil for default test
-				globalFlags = nil
+				// Reset to default values for default test
+				ResetGlobalFlags()
 			}
 
 			// Test IsDryRun
@@ -164,21 +164,22 @@ func TestSetFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save current flags
-			originalFlags := globalFlags
+			// Save current flags (thread-safe)
+			originalFlags := GetGlobalFlags()
 
 			// Reset flags after test
 			defer func() {
-				globalFlags = originalFlags
+				SetFlags(originalFlags)
 			}()
 
 			// Set new flags
 			SetFlags(tt.newFlags)
 
-			// Verify all fields were updated
-			require.Equal(t, tt.newFlags.ConfigFile, globalFlags.ConfigFile)
-			require.Equal(t, tt.newFlags.DryRun, globalFlags.DryRun)
-			require.Equal(t, tt.newFlags.LogLevel, globalFlags.LogLevel)
+			// Verify all fields were updated through GetGlobalFlags
+			current := GetGlobalFlags()
+			require.Equal(t, tt.newFlags.ConfigFile, current.ConfigFile)
+			require.Equal(t, tt.newFlags.DryRun, current.DryRun)
+			require.Equal(t, tt.newFlags.LogLevel, current.LogLevel)
 
 			// Verify that the functions return the new values
 			require.Equal(t, tt.newFlags.ConfigFile, GetConfigFile())
@@ -189,12 +190,12 @@ func TestSetFlags(t *testing.T) {
 
 // TestResetGlobalFlags verifies that ResetGlobalFlags restores default values
 func TestResetGlobalFlags(t *testing.T) {
-	// Save current flags
-	originalFlags := globalFlags
+	// Save current flags (thread-safe)
+	originalFlags := GetGlobalFlags()
 
 	// Reset flags after test
 	defer func() {
-		globalFlags = originalFlags
+		SetFlags(originalFlags)
 	}()
 
 	// Set non-default values
@@ -207,7 +208,7 @@ func TestResetGlobalFlags(t *testing.T) {
 	// Verify flags were changed
 	require.Equal(t, "custom.yaml", GetConfigFile())
 	require.True(t, IsDryRun())
-	require.Equal(t, "trace", globalFlags.LogLevel)
+	require.Equal(t, "trace", GetGlobalFlags().LogLevel)
 
 	// Reset flags
 	ResetGlobalFlags()
@@ -215,17 +216,17 @@ func TestResetGlobalFlags(t *testing.T) {
 	// Verify all flags are back to defaults
 	require.Equal(t, "sync.yaml", GetConfigFile())
 	require.False(t, IsDryRun())
-	require.Equal(t, "info", globalFlags.LogLevel)
+	require.Equal(t, "info", GetGlobalFlags().LogLevel)
 }
 
 // TestFlagsConcurrency verifies that flag operations are safe for concurrent use
 func TestFlagsConcurrency(t *testing.T) {
-	// Save current flags
-	originalFlags := globalFlags
+	// Save current flags (thread-safe)
+	originalFlags := GetGlobalFlags()
 
 	// Reset flags after test
 	defer func() {
-		globalFlags = originalFlags
+		SetFlags(originalFlags)
 	}()
 
 	// Test concurrent reads
@@ -279,31 +280,32 @@ func TestFlagsStructFields(t *testing.T) {
 
 // TestFlagsDefaultValues verifies the default values of global flags
 func TestFlagsDefaultValues(t *testing.T) {
-	// Save current flags
-	originalFlags := globalFlags
+	// Save current flags (thread-safe)
+	originalFlags := GetGlobalFlags()
 
 	// Reset flags after test
 	defer func() {
-		globalFlags = originalFlags
+		SetFlags(originalFlags)
 	}()
 
 	// Reset to ensure we're testing defaults
 	ResetGlobalFlags()
 
-	// Verify default values
-	require.Equal(t, "sync.yaml", globalFlags.ConfigFile)
-	require.False(t, globalFlags.DryRun)
-	require.Equal(t, "info", globalFlags.LogLevel)
+	// Verify default values through GetGlobalFlags
+	current := GetGlobalFlags()
+	require.Equal(t, "sync.yaml", current.ConfigFile)
+	require.False(t, current.DryRun)
+	require.Equal(t, "info", current.LogLevel)
 }
 
 // TestFlagsPointerBehavior verifies pointer behavior when setting flags
 func TestFlagsPointerBehavior(t *testing.T) {
-	// Save current flags
-	originalFlags := globalFlags
+	// Save current flags (thread-safe)
+	originalFlags := GetGlobalFlags()
 
 	// Reset flags after test
 	defer func() {
-		globalFlags = originalFlags
+		SetFlags(originalFlags)
 	}()
 
 	// Create a new flags instance

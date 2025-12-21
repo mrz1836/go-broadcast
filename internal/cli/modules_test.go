@@ -99,9 +99,9 @@ groups:
 			require.NoError(t, err)
 
 			// Set global config file path
-			oldFlags := globalFlags
-			globalFlags = &Flags{ConfigFile: configPath}
-			defer func() { globalFlags = oldFlags }()
+			oldFlags := GetGlobalFlags()
+			SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
+			defer func() { SetFlags(oldFlags) }()
 
 			// Capture output
 			var buf bytes.Buffer
@@ -196,9 +196,9 @@ groups:
 			require.NoError(t, err)
 
 			// Set global config file path
-			oldFlags := globalFlags
-			globalFlags = &Flags{ConfigFile: configPath}
-			defer func() { globalFlags = oldFlags }()
+			oldFlags := GetGlobalFlags()
+			SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
+			defer func() { SetFlags(oldFlags) }()
 
 			// Capture output
 			var buf bytes.Buffer
@@ -274,9 +274,9 @@ groups: []`,
 			require.NoError(t, err)
 
 			// Set global config file path
-			oldFlags := globalFlags
-			globalFlags = &Flags{ConfigFile: configPath}
-			defer func() { globalFlags = oldFlags }()
+			oldFlags := GetGlobalFlags()
+			SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
+			defer func() { SetFlags(oldFlags) }()
 
 			// Capture output
 			var buf bytes.Buffer
@@ -360,9 +360,9 @@ groups:
 			require.NoError(t, err)
 
 			// Set global config file path
-			oldFlags := globalFlags
-			globalFlags = &Flags{ConfigFile: configPath}
-			defer func() { globalFlags = oldFlags }()
+			oldFlags := GetGlobalFlags()
+			SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
+			defer func() { SetFlags(oldFlags) }()
 
 			// Capture output
 			var buf bytes.Buffer

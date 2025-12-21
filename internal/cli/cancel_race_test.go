@@ -66,9 +66,9 @@ func TestCancelGlobalFlags_ConcurrentModification(_ *testing.T) {
 //
 // This is tested separately because DryRun affects output behavior.
 func TestPerformCancel_ConcurrentDryRunToggle(_ *testing.T) {
-	// Save and restore global state
-	oldFlags := globalFlags
-	defer func() { globalFlags = oldFlags }()
+	// Save and restore global state (thread-safe)
+	oldFlags := GetGlobalFlags()
+	defer func() { SetFlags(oldFlags) }()
 
 	// This test verifies that concurrent access to globalFlags.DryRun
 	// during processCancelTarget is handled safely by the mutex.

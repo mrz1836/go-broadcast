@@ -33,13 +33,14 @@ func TestValidateCmd(t *testing.T) {
 // TestRunValidate tests the main validate command execution
 func TestRunValidate(t *testing.T) {
 	t.Run("ConfigNotFound", func(t *testing.T) {
-		// Save original config
-		originalFlags := globalFlags
-		globalFlags = &Flags{
+		// Save original config (thread-safe)
+		originalFlags := GetGlobalFlags()
+		SetFlags(&Flags{
 			ConfigFile: "/non/existent/config.yml",
-		}
+			LogLevel:   originalFlags.LogLevel,
+		})
 		defer func() {
-			globalFlags = originalFlags
+			SetFlags(originalFlags)
 		}()
 
 		cmd := &cobra.Command{}
@@ -71,13 +72,14 @@ groups:
 		require.NoError(t, err)
 		require.NoError(t, tmpFile.Close())
 
-		// Save original flags
-		originalFlags := globalFlags
-		globalFlags = &Flags{
+		// Save original flags (thread-safe)
+		originalFlags := GetGlobalFlags()
+		SetFlags(&Flags{
 			ConfigFile: tmpFile.Name(),
-		}
+			LogLevel:   originalFlags.LogLevel,
+		})
 		defer func() {
-			globalFlags = originalFlags
+			SetFlags(originalFlags)
 		}()
 
 		cmd := &cobra.Command{}
@@ -412,13 +414,14 @@ groups:
 
 	testutil.WriteTestFile(t, tmpFile.Name(), validConfig)
 
-	// Save original config
-	originalFlags := globalFlags
-	globalFlags = &Flags{
+	// Save original config (thread-safe)
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{
 		ConfigFile: tmpFile.Name(),
-	}
+		LogLevel:   originalFlags.LogLevel,
+	})
 	defer func() {
-		globalFlags = originalFlags
+		SetFlags(originalFlags)
 	}()
 
 	err = cmd.RunE(cmd, []string{})

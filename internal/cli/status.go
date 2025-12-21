@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -21,10 +22,39 @@ import (
 
 //nolint:gochecknoglobals // Package-level variables for CLI flags
 var (
+	statusFlagsMu     sync.RWMutex
 	jsonOutput        bool
 	statusGroupFilter []string
 	statusSkipGroups  []string
 )
+
+// setJSONOutput sets the JSON output flag (thread-safe, for testing)
+func setJSONOutput(v bool) {
+	statusFlagsMu.Lock()
+	defer statusFlagsMu.Unlock()
+	jsonOutput = v
+}
+
+// getJSONOutput returns the JSON output flag (thread-safe)
+func getJSONOutput() bool {
+	statusFlagsMu.RLock()
+	defer statusFlagsMu.RUnlock()
+	return jsonOutput
+}
+
+// getStatusGroupFilter returns a copy of the status group filter (thread-safe)
+func getStatusGroupFilter() []string {
+	statusFlagsMu.RLock()
+	defer statusFlagsMu.RUnlock()
+	return append([]string(nil), statusGroupFilter...)
+}
+
+// getStatusSkipGroups returns a copy of the status skip groups (thread-safe)
+func getStatusSkipGroups() []string {
+	statusFlagsMu.RLock()
+	defer statusFlagsMu.RUnlock()
+	return append([]string(nil), statusSkipGroups...)
+}
 
 // initStatus initializes status command flags
 func initStatus() {
@@ -124,7 +154,7 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Apply group filtering if specified
-	cfg = FilterConfigByGroups(cfg, statusGroupFilter, statusSkipGroups)
+	cfg = FilterConfigByGroups(cfg, getStatusGroupFilter(), getStatusSkipGroups())
 
 	// Initialize state discovery with real implementations
 	status, err := getRealStatus(ctx, cfg)
@@ -133,7 +163,7 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Output status
-	if jsonOutput {
+	if getJSONOutput() {
 		return outputJSON(status)
 	}
 

@@ -298,12 +298,14 @@ func TestRunDiagnose(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())
 
-	// Set global flags
-	globalFlags = &Flags{
+	// Set global flags (thread-safe)
+	oldFlags := GetGlobalFlags()
+	defer func() { SetFlags(oldFlags) }()
+	SetFlags(&Flags{
 		ConfigFile: "/test/config.yml",
 		LogLevel:   "info",
 		DryRun:     false,
-	}
+	})
 
 	// Run diagnose
 	err := runDiagnose(cmd, []string{})
@@ -465,13 +467,15 @@ func TestDiagnoseCmdIntegration(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	// Initialize global flags if not already set
-	if globalFlags == nil {
-		globalFlags = &Flags{
+	// Initialize global flags (thread-safe)
+	oldFlags := GetGlobalFlags()
+	defer func() { SetFlags(oldFlags) }()
+	if GetConfigFile() == "" {
+		SetFlags(&Flags{
 			ConfigFile: "~/.config/go-broadcast.yml",
 			LogLevel:   "info",
 			DryRun:     false,
-		}
+		})
 	}
 
 	cmd.SetContext(context.Background())

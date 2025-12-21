@@ -21,10 +21,10 @@ import (
 
 // TestRunCancel tests the runCancel function
 func TestRunCancel(t *testing.T) {
-	// Save original flags
-	originalFlags := globalFlags
+	// Save original flags (thread-safe)
+	originalFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = originalFlags
+		SetFlags(originalFlags)
 	}()
 
 	testCases := []struct {
@@ -39,9 +39,10 @@ func TestRunCancel(t *testing.T) {
 		{
 			name: "Config file not found",
 			setupConfig: func() (string, func()) {
-				globalFlags = &Flags{
+				SetFlags(&Flags{
 					ConfigFile: "/non/existent/config.yml",
-				}
+					LogLevel:   "info",
+				})
 				return "", func() {}
 			},
 			expectError:   true,
@@ -58,9 +59,10 @@ func TestRunCancel(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, tmpFile.Close())
 
-				globalFlags = &Flags{
+				SetFlags(&Flags{
 					ConfigFile: tmpFile.Name(),
-				}
+					LogLevel:   "info",
+				})
 				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
 			},
 			expectError:   true,
@@ -78,10 +80,11 @@ func TestRunCancel(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, tmpFile.Close())
 
-				globalFlags = &Flags{
+				SetFlags(&Flags{
 					ConfigFile: tmpFile.Name(),
 					DryRun:     true,
-				}
+					LogLevel:   "info",
+				})
 				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
 			},
 			dryRun:        true,
@@ -115,9 +118,10 @@ groups:
 				require.NoError(t, err)
 				require.NoError(t, tmpFile.Close())
 
-				globalFlags = &Flags{
+				SetFlags(&Flags{
 					ConfigFile: tmpFile.Name(),
-				}
+					LogLevel:   "info",
+				})
 				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
 			},
 			args:          []string{"org/target1"},
@@ -413,15 +417,10 @@ func TestOutputCancelResultsIntegration(t *testing.T) {
 			output.SetStdout(&stdoutBuf)
 			defer output.SetStdout(originalStdout)
 
-			// Set up JSON output flag
-			originalJSON := jsonOutput
-			if tc.outputFormat == "json" {
-				jsonOutput = true
-			} else {
-				jsonOutput = false
-			}
+			// Set up JSON output flag (thread-safe)
+			setJSONOutput(tc.outputFormat == "json")
 			defer func() {
-				jsonOutput = originalJSON
+				setJSONOutput(false)
 			}()
 
 			// Execute output function
@@ -486,10 +485,10 @@ func TestOutputCancelPreviewIntegration(t *testing.T) {
 
 // TestRunCancel_MultiGroupConfig tests the full cancel command with multi-group configurations
 func TestRunCancel_MultiGroupConfig(t *testing.T) {
-	// Save original flags
-	originalFlags := globalFlags
+	// Save original flags (thread-safe)
+	originalFlags := GetGlobalFlags()
 	defer func() {
-		globalFlags = originalFlags
+		SetFlags(originalFlags)
 	}()
 
 	testCases := []struct {
@@ -554,10 +553,11 @@ groups:
 				require.NoError(t, err)
 				require.NoError(t, tmpFile.Close())
 
-				globalFlags = &Flags{
+				SetFlags(&Flags{
 					ConfigFile: tmpFile.Name(),
 					DryRun:     true,
-				}
+					LogLevel:   "info",
+				})
 				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
 			},
 			dryRun:        true,
@@ -617,9 +617,10 @@ groups:
 				require.NoError(t, err)
 				require.NoError(t, tmpFile.Close())
 
-				globalFlags = &Flags{
+				SetFlags(&Flags{
 					ConfigFile: tmpFile.Name(),
-				}
+					LogLevel:   "info",
+				})
 				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
 			},
 			args:          []string{"skyetel/reach"}, // Target the 4th group specifically
@@ -870,10 +871,10 @@ func TestPerformCancelWithDiscoverer_MultiGroupIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Ensure dry run is off
-			originalDryRun := globalFlags.DryRun
-			globalFlags.DryRun = false
-			defer func() { globalFlags.DryRun = originalDryRun }()
+			// Ensure dry run is off (thread-safe)
+			originalFlags := GetGlobalFlags()
+			SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
+			defer func() { SetFlags(originalFlags) }()
 
 			// Create mocks
 			mockClient := &gh.MockClient{}

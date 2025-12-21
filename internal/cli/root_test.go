@@ -160,9 +160,11 @@ func TestCreateSetupLogging(t *testing.T) {
 // TestSetupLoggingGlobal tests global logging setup
 func TestSetupLoggingGlobal(t *testing.T) {
 	// Save original state
+	originalFlags := GetGlobalFlags()
 	originalLevel := logrus.GetLevel()
 	originalOutput := logrus.StandardLogger().Out
 	defer func() {
+		SetFlags(originalFlags)
 		logrus.SetLevel(originalLevel)
 		logrus.SetOutput(originalOutput)
 	}()
@@ -192,8 +194,8 @@ func TestSetupLoggingGlobal(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Set global flags
-			globalFlags = &tc.flags
+			// Set global flags (thread-safe)
+			SetFlags(&tc.flags)
 
 			cmd := &cobra.Command{}
 			err := setupLogging(cmd, []string{})

@@ -22,9 +22,9 @@ import (
 // This edge case can occur if previous syncs created PRs that weren't closed.
 // Current implementation only processes the first PR.
 func TestProcessCancelTarget_MultipleOpenPRs(t *testing.T) {
-	oldFlags := globalFlags
-	defer func() { globalFlags = oldFlags }()
-	globalFlags = &Flags{DryRun: true}
+	oldFlags := GetGlobalFlags()
+	defer func() { SetFlags(oldFlags) }()
+	SetFlags(&Flags{ConfigFile: oldFlags.ConfigFile, DryRun: true, LogLevel: oldFlags.LogLevel})
 
 	mockClient := gh.NewMockClient()
 
@@ -58,9 +58,9 @@ func TestProcessCancelTarget_MultipleOpenPRs(t *testing.T) {
 //
 // This is an edge case that shouldn't occur with valid config.
 func TestProcessCancelTarget_EmptyRepoName(t *testing.T) {
-	oldFlags := globalFlags
-	defer func() { globalFlags = oldFlags }()
-	globalFlags = &Flags{DryRun: true}
+	oldFlags := GetGlobalFlags()
+	defer func() { SetFlags(oldFlags) }()
+	SetFlags(&Flags{ConfigFile: oldFlags.ConfigFile, DryRun: true, LogLevel: oldFlags.LogLevel})
 
 	mockClient := gh.NewMockClient()
 
@@ -84,9 +84,9 @@ func TestProcessCancelTarget_EmptyRepoName(t *testing.T) {
 //
 // This can occur with malformed metadata.
 func TestProcessCancelTarget_ZeroTimestampMetadata(t *testing.T) {
-	oldFlags := globalFlags
-	defer func() { globalFlags = oldFlags }()
-	globalFlags = &Flags{DryRun: true}
+	oldFlags := GetGlobalFlags()
+	defer func() { SetFlags(oldFlags) }()
+	SetFlags(&Flags{ConfigFile: oldFlags.ConfigFile, DryRun: true, LogLevel: oldFlags.LogLevel})
 
 	mockClient := gh.NewMockClient()
 
@@ -121,9 +121,9 @@ func TestProcessCancelTarget_ZeroTimestampMetadata(t *testing.T) {
 // TestProcessCancelTarget_AllNilMetadata verifies handling when all
 // sync branches have nil metadata.
 func TestProcessCancelTarget_AllNilMetadata(t *testing.T) {
-	oldFlags := globalFlags
-	defer func() { globalFlags = oldFlags }()
-	globalFlags = &Flags{DryRun: true}
+	oldFlags := GetGlobalFlags()
+	defer func() { SetFlags(oldFlags) }()
+	SetFlags(&Flags{ConfigFile: oldFlags.ConfigFile, DryRun: true, LogLevel: oldFlags.LogLevel})
 
 	mockClient := gh.NewMockClient()
 
@@ -144,10 +144,10 @@ func TestProcessCancelTarget_AllNilMetadata(t *testing.T) {
 
 // TestProcessCancelTarget_KeepBranchesSetting verifies the keep-branches flag.
 func TestProcessCancelTarget_KeepBranchesSetting(t *testing.T) {
-	oldFlags := globalFlags
+	oldFlags := GetGlobalFlags()
 	oldKeepBranches := cancelKeepBranches
 	defer func() {
-		globalFlags = oldFlags
+		SetFlags(oldFlags)
 		cancelKeepBranches = oldKeepBranches
 	}()
 
@@ -173,7 +173,7 @@ func TestProcessCancelTarget_KeepBranchesSetting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			globalFlags = &Flags{DryRun: true}
+			SetFlags(&Flags{ConfigFile: oldFlags.ConfigFile, DryRun: true, LogLevel: oldFlags.LogLevel})
 			cancelKeepBranches = tt.keepBranches
 
 			mockClient := gh.NewMockClient()

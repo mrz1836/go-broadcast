@@ -116,10 +116,10 @@ func TestFilterTargets(t *testing.T) {
 }
 
 func TestProcessCancelTarget_DryRun(t *testing.T) {
-	// Set global dry run flag
-	originalDryRun := globalFlags.DryRun
-	globalFlags.DryRun = true
-	defer func() { globalFlags.DryRun = originalDryRun }()
+	// Set global dry run flag (thread-safe)
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: true, LogLevel: originalFlags.LogLevel})
+	defer func() { SetFlags(originalFlags) }()
 
 	// Create mock client
 	mockClient := &gh.MockClient{}
@@ -157,10 +157,10 @@ func TestProcessCancelTarget_DryRun(t *testing.T) {
 }
 
 func TestProcessCancelTarget_RealExecution(t *testing.T) {
-	// Ensure dry run is off
-	originalDryRun := globalFlags.DryRun
-	globalFlags.DryRun = false
-	defer func() { globalFlags.DryRun = originalDryRun }()
+	// Ensure dry run is off (thread-safe)
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
+	defer func() { SetFlags(originalFlags) }()
 
 	// Create mock client
 	mockClient := &gh.MockClient{}
@@ -205,10 +205,10 @@ func TestProcessCancelTarget_KeepBranches(t *testing.T) {
 	cancelKeepBranches = true
 	defer func() { cancelKeepBranches = originalKeepBranches }()
 
-	// Ensure dry run is off
-	originalDryRun := globalFlags.DryRun
-	globalFlags.DryRun = false
-	defer func() { globalFlags.DryRun = originalDryRun }()
+	// Ensure dry run is off (thread-safe)
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
+	defer func() { SetFlags(originalFlags) }()
 
 	// Create mock client
 	mockClient := &gh.MockClient{}
@@ -246,10 +246,10 @@ func TestProcessCancelTarget_KeepBranches(t *testing.T) {
 }
 
 func TestProcessCancelTarget_APIError(t *testing.T) {
-	// Ensure dry run is off
-	originalDryRun := globalFlags.DryRun
-	globalFlags.DryRun = false
-	defer func() { globalFlags.DryRun = originalDryRun }()
+	// Ensure dry run is off (thread-safe)
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
+	defer func() { SetFlags(originalFlags) }()
 
 	// Create mock client that returns error
 	mockClient := &gh.MockClient{}
@@ -275,10 +275,10 @@ func TestProcessCancelTarget_APIError(t *testing.T) {
 }
 
 func TestProcessCancelTarget_BranchDeletionError(t *testing.T) {
-	// Ensure dry run is off
-	originalDryRun := globalFlags.DryRun
-	globalFlags.DryRun = false
-	defer func() { globalFlags.DryRun = originalDryRun }()
+	// Ensure dry run is off (thread-safe)
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
+	defer func() { SetFlags(originalFlags) }()
 
 	// Ensure branches are not kept
 	originalKeepBranches := cancelKeepBranches
@@ -319,10 +319,10 @@ func TestProcessCancelTarget_BranchDeletionError(t *testing.T) {
 }
 
 func TestProcessCancelTarget_NoOpenPRs(t *testing.T) {
-	// Ensure dry run is off
-	originalDryRun := globalFlags.DryRun
-	globalFlags.DryRun = false
-	defer func() { globalFlags.DryRun = originalDryRun }()
+	// Ensure dry run is off (thread-safe)
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
+	defer func() { SetFlags(originalFlags) }()
 
 	// Create mock client - we need to mock DeleteBranch since it will be called
 	mockClient := &gh.MockClient{}
@@ -353,10 +353,10 @@ func TestProcessCancelTarget_NoOpenPRs(t *testing.T) {
 }
 
 func TestProcessCancelTarget_MultipleSyncBranches(t *testing.T) {
-	// Ensure dry run is off
-	originalDryRun := globalFlags.DryRun
-	globalFlags.DryRun = false
-	defer func() { globalFlags.DryRun = originalDryRun }()
+	// Ensure dry run is off (thread-safe)
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
+	defer func() { SetFlags(originalFlags) }()
 
 	// Create mock client
 	mockClient := &gh.MockClient{}
@@ -391,10 +391,10 @@ func TestProcessCancelTarget_MultipleSyncBranches(t *testing.T) {
 }
 
 func TestProcessCancelTarget_CustomComment(t *testing.T) {
-	// Ensure dry run is off
-	originalDryRun := globalFlags.DryRun
-	globalFlags.DryRun = false
-	defer func() { globalFlags.DryRun = originalDryRun }()
+	// Ensure dry run is off (thread-safe)
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
+	defer func() { SetFlags(originalFlags) }()
 
 	// Set custom comment
 	originalComment := cancelComment
@@ -790,11 +790,11 @@ func TestPerformCancel_ConfigValidation(t *testing.T) {
 }
 
 func TestRunCancel_ConfigNotFound(t *testing.T) {
-	// Save original config
-	originalConfig := globalFlags.ConfigFile
-	globalFlags.ConfigFile = "/non/existent/config.yml"
+	// Save original config (thread-safe)
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{ConfigFile: "/non/existent/config.yml", DryRun: originalFlags.DryRun, LogLevel: originalFlags.LogLevel})
 	defer func() {
-		globalFlags.ConfigFile = originalConfig
+		SetFlags(originalFlags)
 	}()
 
 	cmd := &cobra.Command{}
@@ -1242,10 +1242,10 @@ func TestPerformCancelWithDiscoverer_MultiGroup(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Ensure dry run is off
-			originalDryRun := globalFlags.DryRun
-			globalFlags.DryRun = false
-			defer func() { globalFlags.DryRun = originalDryRun }()
+			// Ensure dry run is off (thread-safe)
+			originalFlags := GetGlobalFlags()
+			SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
+			defer func() { SetFlags(originalFlags) }()
 
 			// Create mocks
 			mockClient := &gh.MockClient{}
@@ -1274,10 +1274,10 @@ func TestPerformCancelWithDiscoverer_MultiGroup(t *testing.T) {
 
 // TestProcessCancelTarget_MultiGroupBranchNames tests branch name handling for different groups
 func TestProcessCancelTarget_MultiGroupBranchNames(t *testing.T) {
-	// Ensure dry run is off
-	originalDryRun := globalFlags.DryRun
-	globalFlags.DryRun = false
-	defer func() { globalFlags.DryRun = originalDryRun }()
+	// Ensure dry run is off (thread-safe)
+	originalFlags := GetGlobalFlags()
+	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
+	defer func() { SetFlags(originalFlags) }()
 
 	tests := []struct {
 		name       string
