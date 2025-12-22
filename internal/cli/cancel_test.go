@@ -200,10 +200,10 @@ func TestProcessCancelTarget_RealExecution(t *testing.T) {
 }
 
 func TestProcessCancelTarget_KeepBranches(t *testing.T) {
-	// Set keep branches flag
-	originalKeepBranches := cancelKeepBranches
-	cancelKeepBranches = true
-	defer func() { cancelKeepBranches = originalKeepBranches }()
+	// Set keep branches flag (thread-safe)
+	originalKeepBranches := getCancelKeepBranches()
+	setCancelKeepBranches(true)
+	defer func() { setCancelKeepBranches(originalKeepBranches) }()
 
 	// Ensure dry run is off (thread-safe)
 	originalFlags := GetGlobalFlags()
@@ -280,10 +280,10 @@ func TestProcessCancelTarget_BranchDeletionError(t *testing.T) {
 	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
 	defer func() { SetFlags(originalFlags) }()
 
-	// Ensure branches are not kept
-	originalKeepBranches := cancelKeepBranches
-	cancelKeepBranches = false
-	defer func() { cancelKeepBranches = originalKeepBranches }()
+	// Ensure branches are not kept (thread-safe)
+	originalKeepBranches := getCancelKeepBranches()
+	setCancelKeepBranches(false)
+	defer func() { setCancelKeepBranches(originalKeepBranches) }()
 
 	// Create mock client that succeeds PR close but fails branch deletion
 	mockClient := &gh.MockClient{}
@@ -396,10 +396,10 @@ func TestProcessCancelTarget_CustomComment(t *testing.T) {
 	SetFlags(&Flags{ConfigFile: originalFlags.ConfigFile, DryRun: false, LogLevel: originalFlags.LogLevel})
 	defer func() { SetFlags(originalFlags) }()
 
-	// Set custom comment
-	originalComment := cancelComment
-	cancelComment = "Custom cancellation reason"
-	defer func() { cancelComment = originalComment }()
+	// Set custom comment (thread-safe)
+	originalComment := getCancelComment()
+	setCancelComment("Custom cancellation reason")
+	defer func() { setCancelComment(originalComment) }()
 
 	// Create mock client
 	mockClient := &gh.MockClient{}
@@ -486,10 +486,10 @@ func TestOutputCancelPreview(t *testing.T) {
 				DryRun: true,
 			},
 			setup: func() {
-				cancelKeepBranches = true
+				setCancelKeepBranches(true)
 			},
 			cleanup: func() {
-				cancelKeepBranches = false
+				setCancelKeepBranches(false)
 			},
 		},
 		{
@@ -546,7 +546,7 @@ func TestOutputCancelPreview(t *testing.T) {
 					}
 
 					if result.BranchName != "" {
-						if cancelKeepBranches {
+						if getCancelKeepBranches() {
 							assert.Contains(t, stdoutContent, "Would keep branch:")
 						} else {
 							assert.Contains(t, stdoutContent, "Would delete branch:")
@@ -633,10 +633,10 @@ func TestOutputCancelResults(t *testing.T) {
 			},
 			jsonOutput: true,
 			setup: func() {
-				jsonOutput = true
+				setJSONOutput(true)
 			},
 			cleanup: func() {
-				jsonOutput = false
+				setJSONOutput(false)
 			},
 		},
 		{
@@ -682,10 +682,10 @@ func TestOutputCancelResults(t *testing.T) {
 				DryRun: false,
 			},
 			setup: func() {
-				cancelKeepBranches = true
+				setCancelKeepBranches(true)
 			},
 			cleanup: func() {
-				cancelKeepBranches = false
+				setCancelKeepBranches(false)
 			},
 		},
 	}
@@ -735,9 +735,9 @@ func TestOutputCancelResults(t *testing.T) {
 
 					if result.BranchDeleted {
 						assert.Contains(t, stdoutContent, "Deleted branch:")
-					} else if result.BranchName != "" && !cancelKeepBranches {
+					} else if result.BranchName != "" && !getCancelKeepBranches() {
 						assert.Contains(t, stderrContent, "Failed to delete branch:")
-					} else if result.BranchName != "" && cancelKeepBranches {
+					} else if result.BranchName != "" && getCancelKeepBranches() {
 						assert.Contains(t, stdoutContent, "Kept branch:")
 					}
 
@@ -1625,16 +1625,16 @@ func TestPerformCancelWithDiscoverer_GroupFiltering(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup
-			originalGroupFilter := cancelGroupFilter
-			originalSkipGroups := cancelSkipGroups
+			// Setup (thread-safe)
+			originalGroupFilter := getCancelGroupFilter()
+			originalSkipGroups := getCancelSkipGroups()
 			defer func() {
-				cancelGroupFilter = originalGroupFilter
-				cancelSkipGroups = originalSkipGroups
+				setCancelGroupFilter(originalGroupFilter)
+				setCancelSkipGroups(originalSkipGroups)
 			}()
 
-			cancelGroupFilter = tt.groupFilter
-			cancelSkipGroups = tt.skipGroups
+			setCancelGroupFilter(tt.groupFilter)
+			setCancelSkipGroups(tt.skipGroups)
 
 			// Create mock client
 			mockClient := &gh.MockClient{}
@@ -1687,10 +1687,10 @@ func TestPerformCancelWithDiscoverer_EmptyGroupFilter(t *testing.T) {
 		},
 	}
 
-	// Set filters that won't match anything
-	originalGroupFilter := cancelGroupFilter
-	defer func() { cancelGroupFilter = originalGroupFilter }()
-	cancelGroupFilter = []string{"nonexistent"}
+	// Set filters that won't match anything (thread-safe)
+	originalGroupFilter := getCancelGroupFilter()
+	defer func() { setCancelGroupFilter(originalGroupFilter) }()
+	setCancelGroupFilter([]string{"nonexistent"})
 
 	mockClient := &gh.MockClient{}
 	mockDiscoverer := &state.MockDiscoverer{}

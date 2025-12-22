@@ -17,44 +17,37 @@ import (
 // TestCancelGlobalFlags_ConcurrentModification verifies that concurrent
 // modifications to cancel-related global flags don't cause races.
 //
-// This test documents potential race conditions with global state.
-// The cancel command uses package-level variables which are not synchronized.
+// The cancel command uses package-level variables protected by cancelFlagsMu.
+// This test verifies thread-safe access via getter/setter functions.
 func TestCancelGlobalFlags_ConcurrentModification(_ *testing.T) {
-	// Save original state
-	oldKeepBranches := cancelKeepBranches
-	oldComment := cancelComment
-	oldGroupFilter := cancelGroupFilter
-	oldSkipGroups := cancelSkipGroups
-	defer func() {
-		cancelKeepBranches = oldKeepBranches
-		cancelComment = oldComment
-		cancelGroupFilter = oldGroupFilter
-		cancelSkipGroups = oldSkipGroups
-	}()
-
-	// This test documents that concurrent access to these globals
-	// may cause data races. In production, cancel commands are
-	// typically run sequentially, so this is acceptable.
+	// Save original state using thread-safe getters
+	defer resetCancelFlags()
 
 	const goroutines = 10
 	var wg sync.WaitGroup
 
-	// Concurrent readers and writers
+	// Concurrent readers and writers using thread-safe accessors
 	for i := 0; i < goroutines; i++ {
 		wg.Add(2)
 
 		// Writer
-		go func(_ int) {
+		go func(idx int) {
 			defer wg.Done()
-			// These writes are not synchronized and may race
-			// This is acceptable for CLI usage where commands run sequentially
+			// Thread-safe writes
+			setCancelKeepBranches(idx%2 == 0)
+			setCancelComment("comment-" + string(rune('0'+idx%10)))
+			setCancelGroupFilter([]string{"group-" + string(rune('0'+idx%10))})
+			setCancelSkipGroups([]string{"skip-" + string(rune('0'+idx%10))})
 		}(i)
 
 		// Reader
 		go func() {
 			defer wg.Done()
-			// These reads are not synchronized
-			// Documenting current behavior
+			// Thread-safe reads
+			_ = getCancelKeepBranches()
+			_ = getCancelComment()
+			_ = getCancelGroupFilter()
+			_ = getCancelSkipGroups()
 		}()
 	}
 

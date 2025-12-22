@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -23,11 +24,78 @@ var ErrTargetNotFound = errors.New("target repository not found in configuration
 
 //nolint:gochecknoglobals // Package-level variables for CLI flags
 var (
+	cancelFlagsMu      sync.RWMutex // Protects cancel flag variables for thread-safety
 	cancelKeepBranches bool
 	cancelComment      string
 	cancelGroupFilter  []string
 	cancelSkipGroups   []string
 )
+
+// getCancelKeepBranches returns the keep-branches flag (thread-safe)
+func getCancelKeepBranches() bool {
+	cancelFlagsMu.RLock()
+	defer cancelFlagsMu.RUnlock()
+	return cancelKeepBranches
+}
+
+// setCancelKeepBranches sets the keep-branches flag (thread-safe, for testing)
+func setCancelKeepBranches(v bool) {
+	cancelFlagsMu.Lock()
+	defer cancelFlagsMu.Unlock()
+	cancelKeepBranches = v
+}
+
+// getCancelComment returns the comment flag (thread-safe)
+func getCancelComment() string {
+	cancelFlagsMu.RLock()
+	defer cancelFlagsMu.RUnlock()
+	return cancelComment
+}
+
+// setCancelComment sets the comment flag (thread-safe, for testing)
+func setCancelComment(v string) {
+	cancelFlagsMu.Lock()
+	defer cancelFlagsMu.Unlock()
+	cancelComment = v
+}
+
+// getCancelGroupFilter returns a copy of the group filter slice (thread-safe)
+func getCancelGroupFilter() []string {
+	cancelFlagsMu.RLock()
+	defer cancelFlagsMu.RUnlock()
+	return append([]string(nil), cancelGroupFilter...)
+}
+
+// setCancelGroupFilter sets the group filter (thread-safe, for testing)
+func setCancelGroupFilter(v []string) {
+	cancelFlagsMu.Lock()
+	defer cancelFlagsMu.Unlock()
+	cancelGroupFilter = append([]string(nil), v...)
+}
+
+// getCancelSkipGroups returns a copy of the skip groups slice (thread-safe)
+func getCancelSkipGroups() []string {
+	cancelFlagsMu.RLock()
+	defer cancelFlagsMu.RUnlock()
+	return append([]string(nil), cancelSkipGroups...)
+}
+
+// setCancelSkipGroups sets the skip groups (thread-safe, for testing)
+func setCancelSkipGroups(v []string) {
+	cancelFlagsMu.Lock()
+	defer cancelFlagsMu.Unlock()
+	cancelSkipGroups = append([]string(nil), v...)
+}
+
+// resetCancelFlags resets all cancel flags to defaults (thread-safe, for testing)
+func resetCancelFlags() {
+	cancelFlagsMu.Lock()
+	defer cancelFlagsMu.Unlock()
+	cancelKeepBranches = false
+	cancelComment = ""
+	cancelGroupFilter = nil
+	cancelSkipGroups = nil
+}
 
 // initCancel initializes cancel command flags
 func initCancel() {
@@ -113,18 +181,20 @@ func runCancel(cmd *cobra.Command, args []string) error {
 	}
 
 	// Log group filters if specified
-	if len(cancelGroupFilter) > 0 {
-		log.WithField("groups", cancelGroupFilter).Info("Filtering to specific groups")
+	groupFilter := getCancelGroupFilter()
+	skipGroups := getCancelSkipGroups()
+	if len(groupFilter) > 0 {
+		log.WithField("groups", groupFilter).Info("Filtering to specific groups")
 	}
-	if len(cancelSkipGroups) > 0 {
-		log.WithField("skip_groups", cancelSkipGroups).Info("Skipping specified groups")
+	if len(skipGroups) > 0 {
+		log.WithField("skip_groups", skipGroups).Info("Skipping specified groups")
 	}
 
 	// Filter targets if specified
 	targetRepos := args
 	if len(targetRepos) > 0 {
 		log.WithField("targets", targetRepos).Info("Canceling syncs for specific targets")
-	} else if len(cancelGroupFilter) == 0 && len(cancelSkipGroups) == 0 {
+	} else if len(groupFilter) == 0 && len(skipGroups) == 0 {
 		log.Info("Canceling syncs for all configured targets")
 	}
 
@@ -204,7 +274,7 @@ func performCancelWithDiscoverer(ctx context.Context, cfg *config.Config, target
 	}
 
 	// Filter config by groups before state discovery (performance optimization)
-	filteredCfg := FilterConfigByGroups(cfg, cancelGroupFilter, cancelSkipGroups)
+	filteredCfg := FilterConfigByGroups(cfg, getCancelGroupFilter(), getCancelSkipGroups())
 	if len(filteredCfg.Groups) == 0 {
 		logrus.Info("No groups match the specified filters")
 		return &CancelSummary{
@@ -306,8 +376,8 @@ func processCancelTarget(ctx context.Context, ghClient gh.Client, target *state.
 		} else {
 			// Generate comment
 			comment := generateCancelComment()
-			if cancelComment != "" {
-				comment = cancelComment
+			if customComment := getCancelComment(); customComment != "" {
+				comment = customComment
 			}
 
 			// Close the PR
@@ -338,7 +408,7 @@ func processCancelTarget(ctx context.Context, ghClient gh.Client, target *state.
 			result.BranchName = mostRecent.Name
 
 			// Only delete if not keeping branches
-			if !cancelKeepBranches {
+			if !getCancelKeepBranches() {
 				if globalFlags.DryRun {
 					result.BranchDeleted = true // Would be deleted
 				} else {
@@ -387,6 +457,7 @@ func outputCancelPreview(summary *CancelSummary) error {
 	output.Info(fmt.Sprintf("Would cancel sync operations for %d target(s):", summary.TotalTargets))
 	output.Info("")
 
+	keepBranches := getCancelKeepBranches()
 	for _, result := range summary.Results {
 		output.Info(fmt.Sprintf("📦 %s", result.Repository))
 
@@ -394,7 +465,7 @@ func outputCancelPreview(summary *CancelSummary) error {
 			output.Info(fmt.Sprintf("  ✓ Would close PR #%d", *result.PRNumber))
 		}
 
-		if result.BranchName != "" && !cancelKeepBranches {
+		if result.BranchName != "" && !keepBranches {
 			output.Info(fmt.Sprintf("  ✓ Would delete branch: %s", result.BranchName))
 		} else if result.BranchName != "" {
 			output.Info(fmt.Sprintf("  ⏸ Would keep branch: %s", result.BranchName))
@@ -409,7 +480,7 @@ func outputCancelPreview(summary *CancelSummary) error {
 
 	output.Info("Summary (would):")
 	output.Info(fmt.Sprintf("  PRs to close: %d", summary.PRsClosed))
-	if !cancelKeepBranches {
+	if !keepBranches {
 		output.Info(fmt.Sprintf("  Branches to delete: %d", summary.BranchesDeleted))
 	}
 
@@ -423,7 +494,7 @@ func outputCancelResults(summary *CancelSummary) error {
 	}
 
 	// Output JSON if requested
-	if jsonOutput {
+	if getJSONOutput() {
 		encoder := json.NewEncoder(output.Stdout())
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(summary)
@@ -433,6 +504,7 @@ func outputCancelResults(summary *CancelSummary) error {
 	output.Info(fmt.Sprintf("Canceled sync operations for %d target(s):", summary.TotalTargets))
 	output.Info("")
 
+	keepBranches := getCancelKeepBranches()
 	for _, result := range summary.Results {
 		output.Info(fmt.Sprintf("📦 %s", result.Repository))
 
@@ -444,7 +516,7 @@ func outputCancelResults(summary *CancelSummary) error {
 
 		if result.BranchDeleted {
 			output.Success(fmt.Sprintf("  ✓ Deleted branch: %s", result.BranchName))
-		} else if result.BranchName != "" && !cancelKeepBranches {
+		} else if result.BranchName != "" && !keepBranches {
 			output.Error(fmt.Sprintf("  ✗ Failed to delete branch: %s", result.BranchName))
 		} else if result.BranchName != "" {
 			output.Info(fmt.Sprintf("  ⏸ Kept branch: %s", result.BranchName))
@@ -461,7 +533,7 @@ func outputCancelResults(summary *CancelSummary) error {
 	output.Info("Summary:")
 	output.Success(fmt.Sprintf("  PRs closed: %d", summary.PRsClosed))
 
-	if !cancelKeepBranches {
+	if !keepBranches {
 		output.Success(fmt.Sprintf("  Branches deleted: %d", summary.BranchesDeleted))
 	}
 
