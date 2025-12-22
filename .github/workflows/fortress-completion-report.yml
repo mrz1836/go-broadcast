@@ -159,6 +159,9 @@ jobs:
     name: 📊 Process Statistics
     needs: initialize-report
     if: always()
+    permissions:
+      contents: read
+      actions: read
     uses: ./.github/workflows/fortress-completion-statistics.yml
     with:
       timing-metrics: ${{ needs.initialize-report.outputs.timing-data }}
@@ -171,6 +174,9 @@ jobs:
     name: 🧪 Process Test Analysis
     needs: initialize-report
     if: always()
+    permissions:
+      contents: read
+      actions: read
     uses: ./.github/workflows/fortress-completion-tests.yml
     with:
       test-suite-result: ${{ inputs.test-suite-result }}
@@ -183,6 +189,9 @@ jobs:
     name: ✅ Finalize Report
     needs: [initialize-report, process-statistics, process-tests]
     if: always()
+    permissions:
+      contents: read
+      actions: read
     uses: ./.github/workflows/fortress-completion-finalize.yml
     with:
       all-inputs: ${{ toJSON(inputs) }}
