@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/output"
@@ -15,6 +16,7 @@ import (
 //
 //nolint:gochecknoglobals // Build variables are set via ldflags during compilation
 var (
+	versionMu sync.RWMutex
 	version   = devVersionString
 	commit    = unknownString
 	buildDate = unknownString
@@ -58,8 +60,10 @@ func printVersion(jsonFormat bool) error {
 }
 
 // SetVersionInfo allows setting version information programmatically
-// This is useful for testing or when not using ldflags
+// This is useful for testing or when not using ldflags (thread-safe)
 func SetVersionInfo(v, c, d string) {
+	versionMu.Lock()
+	defer versionMu.Unlock()
 	if v != "" {
 		version = v
 	}
@@ -69,6 +73,57 @@ func SetVersionInfo(v, c, d string) {
 	if d != "" {
 		buildDate = d
 	}
+}
+
+// setVersion sets the version string (thread-safe, for testing)
+func setVersion(v string) {
+	versionMu.Lock()
+	defer versionMu.Unlock()
+	version = v
+}
+
+// setCommit sets the commit string (thread-safe, for testing)
+func setCommit(c string) {
+	versionMu.Lock()
+	defer versionMu.Unlock()
+	commit = c
+}
+
+// setBuildDate sets the build date string (thread-safe, for testing)
+func setBuildDate(d string) {
+	versionMu.Lock()
+	defer versionMu.Unlock()
+	buildDate = d
+}
+
+// getVersionRaw returns the raw version string (thread-safe)
+func getVersionRaw() string {
+	versionMu.RLock()
+	defer versionMu.RUnlock()
+	return version
+}
+
+// getCommitRaw returns the raw commit string (thread-safe)
+func getCommitRaw() string {
+	versionMu.RLock()
+	defer versionMu.RUnlock()
+	return commit
+}
+
+// getBuildDateRaw returns the raw build date string (thread-safe)
+func getBuildDateRaw() string {
+	versionMu.RLock()
+	defer versionMu.RUnlock()
+	return buildDate
+}
+
+// ResetVersionInfo resets the version info to defaults (thread-safe, for testing)
+func ResetVersionInfo() {
+	versionMu.Lock()
+	defer versionMu.Unlock()
+	version = devVersionString
+	commit = unknownString
+	buildDate = unknownString
 }
 
 // GetVersion returns the current version string with fallback to build info
@@ -100,9 +155,12 @@ func GetVersionInfo() VersionInfo {
 
 // getVersionWithFallback returns the version information with fallback to BuildInfo
 func getVersionWithFallback() string {
-	// If version was set via ldflags, use it
-	if version != devVersionString && version != "" {
-		return version
+	// If version was set via ldflags, use it (thread-safe read)
+	versionMu.RLock()
+	v := version
+	versionMu.RUnlock()
+	if v != devVersionString && v != "" {
+		return v
 	}
 
 	// Try to get version from build info
@@ -131,9 +189,12 @@ func getVersionWithFallback() string {
 
 // getCommitWithFallback returns the commit hash with fallback to BuildInfo
 func getCommitWithFallback() string {
-	// If commit was set via ldflags, use it
-	if commit != unknownString && commit != "" {
-		return commit
+	// If commit was set via ldflags, use it (thread-safe read)
+	versionMu.RLock()
+	c := commit
+	versionMu.RUnlock()
+	if c != unknownString && c != "" {
+		return c
 	}
 
 	// Try to get from build info
@@ -162,9 +223,12 @@ func getCommitWithFallback() string {
 
 // getBuildDateWithFallback returns the build date with fallback to BuildInfo
 func getBuildDateWithFallback() string {
-	// If build date was set via ldflags, use it
-	if buildDate != unknownString && buildDate != "" {
-		return buildDate
+	// If build date was set via ldflags, use it (thread-safe read)
+	versionMu.RLock()
+	bd := buildDate
+	versionMu.RUnlock()
+	if bd != unknownString && bd != "" {
+		return bd
 	}
 
 	// Try to get from build info

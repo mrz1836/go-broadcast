@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	gosync "sync"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -132,11 +133,60 @@ func (s *SyncCommand) ExecuteSync(ctx context.Context, flags *Flags, args []stri
 
 //nolint:gochecknoglobals // Package-level variables for CLI flags
 var (
+	syncFlagsMu      gosync.RWMutex //nolint:unused // Protects sync flag variables for thread-safety
 	groupFilter      []string
 	skipGroups       []string
 	automerge        bool
 	clearModuleCache bool
 )
+
+// getGroupFilter returns the group filter slice (thread-safe)
+//
+//nolint:unused // Available for thread-safe access
+func getGroupFilter() []string {
+	syncFlagsMu.RLock()
+	defer syncFlagsMu.RUnlock()
+	return groupFilter
+}
+
+// getSkipGroups returns the skip groups slice (thread-safe)
+//
+//nolint:unused // Available for thread-safe access
+func getSkipGroups() []string {
+	syncFlagsMu.RLock()
+	defer syncFlagsMu.RUnlock()
+	return skipGroups
+}
+
+// getAutomerge returns the automerge flag (thread-safe)
+//
+//nolint:unused // Available for thread-safe access
+func getAutomerge() bool {
+	syncFlagsMu.RLock()
+	defer syncFlagsMu.RUnlock()
+	return automerge
+}
+
+// getClearModuleCache returns the clear module cache flag (thread-safe)
+//
+//nolint:unused // Available for thread-safe access
+func getClearModuleCache() bool {
+	syncFlagsMu.RLock()
+	defer syncFlagsMu.RUnlock()
+	return clearModuleCache
+}
+
+// resetSyncFlags resets the sync flags to defaults (thread-safe, for testing)
+//
+//nolint:unused // Available for test cleanup and reset
+func resetSyncFlags() {
+	syncFlagsMu.Lock()
+	defer syncFlagsMu.Unlock()
+	groupFilter = nil
+	skipGroups = nil
+	automerge = false
+	clearModuleCache = false
+}
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var syncCmd = &cobra.Command{

@@ -35,16 +35,16 @@ func TestVersionInfo(t *testing.T) {
 
 // TestSetVersionInfo verifies that SetVersionInfo correctly updates version variables
 func TestSetVersionInfo(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
 	tests := []struct {
@@ -71,25 +71,25 @@ func TestSetVersionInfo(t *testing.T) {
 			setCommit:         "",
 			setBuildDate:      "",
 			expectedVersion:   "3.0.0",
-			expectedCommit:    commit,
-			expectedBuildDate: buildDate,
+			expectedCommit:    origCommit,
+			expectedBuildDate: origBuildDate,
 		},
 		{
 			name:              "set commit only",
 			setVersion:        "",
 			setCommit:         "ghi789",
 			setBuildDate:      "",
-			expectedVersion:   version,
+			expectedVersion:   origVersion,
 			expectedCommit:    "ghi789",
-			expectedBuildDate: buildDate,
+			expectedBuildDate: origBuildDate,
 		},
 		{
 			name:              "set build date only",
 			setVersion:        "",
 			setCommit:         "",
 			setBuildDate:      "2025-01-03",
-			expectedVersion:   version,
-			expectedCommit:    commit,
+			expectedVersion:   origVersion,
+			expectedCommit:    origCommit,
 			expectedBuildDate: "2025-01-03",
 		},
 		{
@@ -97,48 +97,48 @@ func TestSetVersionInfo(t *testing.T) {
 			setVersion:        "",
 			setCommit:         "",
 			setBuildDate:      "",
-			expectedVersion:   version,
-			expectedCommit:    commit,
-			expectedBuildDate: buildDate,
+			expectedVersion:   origVersion,
+			expectedCommit:    origCommit,
+			expectedBuildDate: origBuildDate,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset to original values before each test
-			version = origVersion
-			commit = origCommit
-			buildDate = origBuildDate
+			// Reset to original values before each test (thread-safe)
+			setVersion(origVersion)
+			setCommit(origCommit)
+			setBuildDate(origBuildDate)
 
 			// Set version info
 			SetVersionInfo(tt.setVersion, tt.setCommit, tt.setBuildDate)
 
-			// Verify values
-			require.Equal(t, tt.expectedVersion, version)
-			require.Equal(t, tt.expectedCommit, commit)
-			require.Equal(t, tt.expectedBuildDate, buildDate)
+			// Verify values (thread-safe)
+			require.Equal(t, tt.expectedVersion, getVersionRaw())
+			require.Equal(t, tt.expectedCommit, getCommitRaw())
+			require.Equal(t, tt.expectedBuildDate, getBuildDateRaw())
 		})
 	}
 }
 
 // TestPrintVersionTextOutput verifies the text output of the printVersion function
 func TestPrintVersionTextOutput(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
-	// Set known values
-	version = "1.0.0-test"
-	commit = "test123"
-	buildDate = "2025-01-01T12:00:00Z"
+	// Set known values (thread-safe)
+	setVersion("1.0.0-test")
+	setCommit("test123")
+	setBuildDate("2025-01-01T12:00:00Z")
 
 	// Capture output
 	var buf bytes.Buffer
@@ -160,22 +160,22 @@ func TestPrintVersionTextOutput(t *testing.T) {
 
 // TestPrintVersionJSONOutput verifies the JSON output of the printVersion function
 func TestPrintVersionJSONOutput(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
-	// Set known values
-	version = "2.0.0-json"
-	commit = "json456"
-	buildDate = "2025-01-02T00:00:00Z"
+	// Set known values (thread-safe)
+	setVersion("2.0.0-json")
+	setCommit("json456")
+	setBuildDate("2025-01-02T00:00:00Z")
 
 	// Capture output
 	var buf bytes.Buffer
@@ -233,22 +233,22 @@ func TestVersionInfoJSON(t *testing.T) {
 
 // TestPrintVersionDefaultValues verifies behavior with default build values
 func TestPrintVersionDefaultValues(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
-	// Set to default values
-	version = devVersionString
-	commit = unknownString
-	buildDate = unknownString
+	// Set to default values (thread-safe)
+	setVersion(devVersionString)
+	setCommit(unknownString)
+	setBuildDate(unknownString)
 
 	// Capture output
 	var buf bytes.Buffer
@@ -300,23 +300,23 @@ func TestPrintVersionFormats(t *testing.T) {
 
 // TestVersionOutputFormatting verifies the output formatting
 func TestVersionOutputFormatting(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
 	// Test JSON formatting with indentation
 	t.Run("json indentation", func(t *testing.T) {
-		version = "1.0.0"
-		commit = "abc"
-		buildDate = "2025-01-01"
+		setVersion("1.0.0")
+		setCommit("abc")
+		setBuildDate("2025-01-01")
 
 		var buf bytes.Buffer
 		output.SetStdout(&buf)
@@ -342,12 +342,12 @@ func TestVersionOutputFormatting(t *testing.T) {
 
 // TestGetCommit tests the GetCommit function
 func TestGetCommit(t *testing.T) {
-	// Save original values
-	origCommit := commit
+	// Save original values (thread-safe)
+	origCommit := getCommitRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		commit = origCommit
+		setCommit(origCommit)
 	}()
 
 	tests := []struct {
@@ -374,7 +374,7 @@ func TestGetCommit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			commit = tt.setCommit
+			setCommit(tt.setCommit)
 			result := GetCommit()
 
 			if tt.setCommit == unknownString {
@@ -389,12 +389,12 @@ func TestGetCommit(t *testing.T) {
 
 // TestGetBuildDate tests the GetBuildDate function
 func TestGetBuildDate(t *testing.T) {
-	// Save original values
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		buildDate = origBuildDate
+		setBuildDate(origBuildDate)
 	}()
 
 	tests := []struct {
@@ -421,7 +421,7 @@ func TestGetBuildDate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			buildDate = tt.setBuildDate
+			setBuildDate(tt.setBuildDate)
 			result := GetBuildDate()
 
 			if tt.setBuildDate == unknownString {
@@ -436,22 +436,22 @@ func TestGetBuildDate(t *testing.T) {
 
 // TestGetVersionInfoStruct tests the GetVersionInfo function
 func TestGetVersionInfoStruct(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
-	// Set known test values
-	version = "2.0.0-test"
-	commit = "test123"
-	buildDate = "2025-01-01T12:00:00Z"
+	// Set known test values (thread-safe)
+	setVersion("2.0.0-test")
+	setCommit("test123")
+	setBuildDate("2025-01-01T12:00:00Z")
 
 	info := GetVersionInfo()
 
@@ -469,22 +469,22 @@ func TestGetVersionInfoStruct(t *testing.T) {
 
 // TestVersionFallbackBehavior tests version fallback with default values
 func TestVersionFallbackBehavior(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
-	// Test with default/unknown values to trigger fallback logic
-	version = devVersionString
-	commit = unknownString
-	buildDate = unknownString
+	// Test with default/unknown values to trigger fallback logic (thread-safe)
+	setVersion(devVersionString)
+	setCommit(unknownString)
+	setBuildDate(unknownString)
 
 	// Test getVersionWithFallback
 	versionResult := getVersionWithFallback()
@@ -501,28 +501,28 @@ func TestVersionFallbackBehavior(t *testing.T) {
 
 // TestVersionFallbackFunctions tests version fallback functions with mocked build info
 func TestVersionFallbackFunctions(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
 	// Test getVersionWithFallback with known ldflags version
 	t.Run("getVersionWithFallback with ldflags", func(t *testing.T) {
-		version = "1.2.3"
+		setVersion("1.2.3")
 		result := getVersionWithFallback()
 		require.Equal(t, "1.2.3", result)
 	})
 
 	// Test getVersionWithFallback with dev version (should fall back to build info)
 	t.Run("getVersionWithFallback with dev version", func(t *testing.T) {
-		version = devVersionString
+		setVersion(devVersionString)
 		result := getVersionWithFallback()
 		// Should return either build info or dev string
 		require.NotEmpty(t, result)
@@ -532,14 +532,14 @@ func TestVersionFallbackFunctions(t *testing.T) {
 
 	// Test getCommitWithFallback with known ldflags commit
 	t.Run("getCommitWithFallback with ldflags", func(t *testing.T) {
-		commit = "abc123def456"
+		setCommit("abc123def456")
 		result := getCommitWithFallback()
 		require.Equal(t, "abc123def456", result)
 	})
 
 	// Test getCommitWithFallback with unknown commit (should fall back to build info)
 	t.Run("getCommitWithFallback with unknown", func(t *testing.T) {
-		commit = unknownString
+		setCommit(unknownString)
 		result := getCommitWithFallback()
 		// Should return either build info or unknown string
 		require.NotEmpty(t, result)
@@ -549,14 +549,14 @@ func TestVersionFallbackFunctions(t *testing.T) {
 
 	// Test getBuildDateWithFallback with known ldflags build date
 	t.Run("getBuildDateWithFallback with ldflags", func(t *testing.T) {
-		buildDate = "2025-01-01T12:00:00Z"
+		setBuildDate("2025-01-01T12:00:00Z")
 		result := getBuildDateWithFallback()
 		require.Equal(t, "2025-01-01T12:00:00Z", result)
 	})
 
 	// Test getBuildDateWithFallback with unknown build date (should fall back to build info)
 	t.Run("getBuildDateWithFallback with unknown", func(t *testing.T) {
-		buildDate = unknownString
+		setBuildDate(unknownString)
 		result := getBuildDateWithFallback()
 		// Should return either build info, go-install marker, or unknown string
 		require.NotEmpty(t, result)
@@ -567,21 +567,21 @@ func TestVersionFallbackFunctions(t *testing.T) {
 
 // TestVersionFallbackWithEmptyValues tests version fallback functions with empty values
 func TestVersionFallbackWithEmptyValues(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
 	// Test with empty version string
 	t.Run("empty version string", func(t *testing.T) {
-		version = ""
+		setVersion("")
 		result := getVersionWithFallback()
 		require.NotEmpty(t, result)
 		// Should fall back to build info or dev string
@@ -590,7 +590,7 @@ func TestVersionFallbackWithEmptyValues(t *testing.T) {
 
 	// Test with empty commit string
 	t.Run("empty commit string", func(t *testing.T) {
-		commit = ""
+		setCommit("")
 		result := getCommitWithFallback()
 		require.NotEmpty(t, result)
 		// Should fall back to build info or unknown
@@ -599,7 +599,7 @@ func TestVersionFallbackWithEmptyValues(t *testing.T) {
 
 	// Test with empty build date string
 	t.Run("empty build date string", func(t *testing.T) {
-		buildDate = ""
+		setBuildDate("")
 		result := getBuildDateWithFallback()
 		require.NotEmpty(t, result)
 		// Should fall back to build info, go-install, or unknown
@@ -609,27 +609,27 @@ func TestVersionFallbackWithEmptyValues(t *testing.T) {
 
 // TestVersionFallbackBuildInfoPaths tests specific build info fallback scenarios
 func TestVersionFallbackBuildInfoPaths(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
 	// Test scenarios that trigger different build info paths
 	t.Run("version fallback scenarios", func(t *testing.T) {
 		// Test dev version that should fall back to build info
-		version = devVersionString
+		setVersion(devVersionString)
 		result := getVersionWithFallback()
 		require.NotEmpty(t, result)
 
 		// Test empty version that should fall back to build info
-		version = ""
+		setVersion("")
 		result2 := getVersionWithFallback()
 		require.NotEmpty(t, result2)
 
@@ -643,12 +643,12 @@ func TestVersionFallbackBuildInfoPaths(t *testing.T) {
 
 	t.Run("commit fallback scenarios", func(t *testing.T) {
 		// Test unknown commit that should fall back to build info
-		commit = unknownString
+		setCommit(unknownString)
 		result := getCommitWithFallback()
 		require.NotEmpty(t, result)
 
 		// Test empty commit that should fall back to build info
-		commit = ""
+		setCommit("")
 		result2 := getCommitWithFallback()
 		require.NotEmpty(t, result2)
 
@@ -662,12 +662,12 @@ func TestVersionFallbackBuildInfoPaths(t *testing.T) {
 
 	t.Run("build date fallback scenarios", func(t *testing.T) {
 		// Test unknown build date that should fall back to build info
-		buildDate = unknownString
+		setBuildDate(unknownString)
 		result := getBuildDateWithFallback()
 		require.NotEmpty(t, result)
 
 		// Test empty build date that should fall back to build info
-		buildDate = ""
+		setBuildDate("")
 		result2 := getBuildDateWithFallback()
 		require.NotEmpty(t, result2)
 
@@ -682,24 +682,24 @@ func TestVersionFallbackBuildInfoPaths(t *testing.T) {
 
 // TestVersionWithBuildInfoPathCoverage tests additional build info paths for coverage
 func TestVersionWithBuildInfoPathCoverage(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
 	// Test to increase coverage of different fallback code paths
 	t.Run("test all fallback function conditions", func(t *testing.T) {
-		// Set all values to trigger fallback logic
-		version = devVersionString
-		commit = unknownString
-		buildDate = unknownString
+		// Set all values to trigger fallback logic (thread-safe)
+		setVersion(devVersionString)
+		setCommit(unknownString)
+		setBuildDate(unknownString)
 
 		// Call all fallback functions to exercise their code paths
 		versionResult := getVersionWithFallback()
@@ -713,17 +713,17 @@ func TestVersionWithBuildInfoPathCoverage(t *testing.T) {
 
 		// Test the various conditions in each function
 		// For version: test both dev and empty string conditions
-		version = ""
+		setVersion("")
 		emptyVersionResult := getVersionWithFallback()
 		require.NotEmpty(t, emptyVersionResult)
 
 		// For commit: test both unknown and empty string conditions
-		commit = ""
+		setCommit("")
 		emptyCommitResult := getCommitWithFallback()
 		require.NotEmpty(t, emptyCommitResult)
 
 		// For build date: test both unknown and empty string conditions
-		buildDate = ""
+		setBuildDate("")
 		emptyBuildDateResult := getBuildDateWithFallback()
 		require.NotEmpty(t, emptyBuildDateResult)
 	})
@@ -731,33 +731,33 @@ func TestVersionWithBuildInfoPathCoverage(t *testing.T) {
 
 // TestVersionFallbackDetailedPaths tests detailed build info scenarios
 func TestVersionFallbackDetailedPaths(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
 	// Test getVersionWithFallback specific paths
 	t.Run("version fallback detailed paths", func(t *testing.T) {
 		// Test condition: version != devVersionString && version != ""
-		version = "1.0.0-custom"
+		setVersion("1.0.0-custom")
 		result := getVersionWithFallback()
 		require.Equal(t, "1.0.0-custom", result)
 
 		// Test condition: version == devVersionString (triggers build info fallback)
-		version = devVersionString
+		setVersion(devVersionString)
 		result = getVersionWithFallback()
 		require.NotEmpty(t, result)
 		// In build environment, this should return dev or a commit hash
 
 		// Test condition: version == "" (triggers build info fallback)
-		version = ""
+		setVersion("")
 		result = getVersionWithFallback()
 		require.NotEmpty(t, result)
 		// This exercises the empty string condition in the first if statement
@@ -766,18 +766,18 @@ func TestVersionFallbackDetailedPaths(t *testing.T) {
 	// Test getCommitWithFallback specific paths
 	t.Run("commit fallback detailed paths", func(t *testing.T) {
 		// Test condition: commit != unknownString && commit != ""
-		commit = "abc123def456"
+		setCommit("abc123def456")
 		result := getCommitWithFallback()
 		require.Equal(t, "abc123def456", result)
 
 		// Test condition: commit == unknownString (triggers build info fallback)
-		commit = unknownString
+		setCommit(unknownString)
 		result = getCommitWithFallback()
 		require.NotEmpty(t, result)
 		// In build environment, this should return unknown or a commit hash
 
 		// Test condition: commit == "" (triggers build info fallback)
-		commit = ""
+		setCommit("")
 		result = getCommitWithFallback()
 		require.NotEmpty(t, result)
 		// This exercises the empty string condition in the first if statement
@@ -786,18 +786,18 @@ func TestVersionFallbackDetailedPaths(t *testing.T) {
 	// Test getBuildDateWithFallback specific paths
 	t.Run("build date fallback detailed paths", func(t *testing.T) {
 		// Test condition: buildDate != unknownString && buildDate != ""
-		buildDate = "2025-01-01T12:00:00Z"
+		setBuildDate("2025-01-01T12:00:00Z")
 		result := getBuildDateWithFallback()
 		require.Equal(t, "2025-01-01T12:00:00Z", result)
 
 		// Test condition: buildDate == unknownString (triggers build info fallback)
-		buildDate = unknownString
+		setBuildDate(unknownString)
 		result = getBuildDateWithFallback()
 		require.NotEmpty(t, result)
 		// In build environment, this should return unknown, go-install, or formatted date
 
 		// Test condition: buildDate == "" (triggers build info fallback)
-		buildDate = ""
+		setBuildDate("")
 		result = getBuildDateWithFallback()
 		require.NotEmpty(t, result)
 		// This exercises the empty string condition in the first if statement
@@ -806,16 +806,16 @@ func TestVersionFallbackDetailedPaths(t *testing.T) {
 
 // TestVersionEdgeCases tests edge cases for version handling
 func TestVersionEdgeCases(t *testing.T) {
-	// Save original values
-	origVersion := version
-	origCommit := commit
-	origBuildDate := buildDate
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
 
-	// Restore original values after test
+	// Restore original values after test (thread-safe)
 	defer func() {
-		version = origVersion
-		commit = origCommit
-		buildDate = origBuildDate
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
 	}()
 
 	tests := []struct {
@@ -846,9 +846,9 @@ func TestVersionEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			version = tt.version
-			commit = tt.commit
-			buildDate = tt.buildDate
+			setVersion(tt.version)
+			setCommit(tt.commit)
+			setBuildDate(tt.buildDate)
 
 			// Test that functions don't panic with edge case values
 			versionResult := GetVersion()

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -27,8 +28,25 @@ var (
 
 //nolint:gochecknoglobals // Cobra flags are designed to be global variables
 var (
-	showVersion bool
+	showVersionMu sync.RWMutex
+	showVersion   bool
 )
+
+// getShowVersion returns the showVersion flag (thread-safe)
+func getShowVersion() bool {
+	showVersionMu.RLock()
+	defer showVersionMu.RUnlock()
+	return showVersion
+}
+
+// setShowVersion sets the showVersion flag (thread-safe, for testing)
+//
+//nolint:unused // Available for test cleanup and reset
+func setShowVersion(v bool) {
+	showVersionMu.Lock()
+	defer showVersionMu.Unlock()
+	showVersion = v
+}
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var rootCmd = &cobra.Command{
@@ -254,8 +272,8 @@ func createSetupLogging(flags *Flags) func(*cobra.Command, []string) error {
 
 // rootRunE handles the root command execution when no subcommand is provided
 func rootRunE(cmd *cobra.Command, _ []string) error {
-	// If version flag is set, print version
-	if showVersion {
+	// If version flag is set, print version (thread-safe read)
+	if getShowVersion() {
 		return printVersion(false)
 	}
 
@@ -266,8 +284,8 @@ func rootRunE(cmd *cobra.Command, _ []string) error {
 // createRootRunE creates an isolated root run function for testing
 func createRootRunE() func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
-		// If version flag is set, print version
-		if showVersion {
+		// If version flag is set, print version (thread-safe read)
+		if getShowVersion() {
 			return printVersion(false)
 		}
 
@@ -279,8 +297,8 @@ func createRootRunE() func(*cobra.Command, []string) error {
 // createRootRunEWithVerbose creates a root run function with verbose logging support
 func createRootRunEWithVerbose(config *LogConfig) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
-		// If version flag is set, print version (with JSON support)
-		if showVersion {
+		// If version flag is set, print version (with JSON support, thread-safe read)
+		if getShowVersion() {
 			return printVersion(config.JSONOutput)
 		}
 
