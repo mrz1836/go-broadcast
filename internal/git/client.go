@@ -57,6 +57,9 @@ type Client interface {
 	// Diff returns the diff of staged changes
 	Diff(ctx context.Context, repoPath string, staged bool) (string, error)
 
+	// DiffIgnoreWhitespace returns the diff ignoring whitespace changes (line endings, trailing spaces)
+	DiffIgnoreWhitespace(ctx context.Context, repoPath string, staged bool) (string, error)
+
 	// GetCurrentBranch returns the name of the current branch
 	GetCurrentBranch(ctx context.Context, repoPath string) (string, error)
 

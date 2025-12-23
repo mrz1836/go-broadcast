@@ -68,10 +68,10 @@ type Config struct {
 	// Temperature controls randomness (0.0-1.0).
 	Temperature float64
 
-	// DiffMaxChars is the maximum characters in diff context (default: 4000).
+	// DiffMaxChars is the maximum characters in diff context (default: 12000).
 	DiffMaxChars int
 
-	// DiffMaxLinesPerFile is the maximum lines per file in diff (default: 50).
+	// DiffMaxLinesPerFile is the maximum lines per file in diff (default: 150).
 	DiffMaxLinesPerFile int
 
 	// CacheEnabled enables diff-based response caching (default: true).
@@ -110,8 +110,8 @@ func LoadConfig() *Config {
 		Temperature:   parseFloatWithDefault("GO_BROADCAST_AI_TEMPERATURE", 0.3),
 
 		// Diff truncation
-		DiffMaxChars:        parseIntWithDefault("GO_BROADCAST_AI_DIFF_MAX_CHARS", 4000),
-		DiffMaxLinesPerFile: parseIntWithDefault("GO_BROADCAST_AI_DIFF_MAX_LINES_PER_FILE", 50),
+		DiffMaxChars:        parseIntWithDefault("GO_BROADCAST_AI_DIFF_MAX_CHARS", 12000),
+		DiffMaxLinesPerFile: parseIntWithDefault("GO_BROADCAST_AI_DIFF_MAX_LINES_PER_FILE", 150),
 
 		// Cache (enabled by default for cost savings)
 		CacheEnabled: env.GetEnvWithFallback("GO_BROADCAST_AI_CACHE_ENABLED", "true") == "true",

@@ -660,10 +660,17 @@ func (rs *RepositorySync) processFile(ctx context.Context, sourcePath string, fi
 		rs.logger.WithError(err).WithField("file", fileMapping.Dest).Debug("Could not get existing file content, treating as new file")
 	}
 
+	// Use existing target content for OriginalContent (shows actual PR changes)
+	// Fall back to source content for new files where no existing content exists
+	originalContent := existingContent
+	if originalContent == nil {
+		originalContent = srcContent
+	}
+
 	return &FileChange{
 		Path:            fileMapping.Dest,
 		Content:         transformedContent,
-		OriginalContent: srcContent,
+		OriginalContent: originalContent,
 		IsNew:           err != nil, // err means file doesn't exist
 	}, nil
 }
@@ -1190,9 +1197,10 @@ func (rs *RepositorySync) getDiffForAI(ctx context.Context, changedFiles []FileC
 	var diff string
 
 	// Prefer real git diff from staged repo if available
+	// Use DiffIgnoreWhitespace to avoid line ending normalization masking real changes
 	if rs.stagedRepoPath != "" {
 		var err error
-		diff, err = rs.engine.git.Diff(ctx, rs.stagedRepoPath, true) // staged changes
+		diff, err = rs.engine.git.DiffIgnoreWhitespace(ctx, rs.stagedRepoPath, true) // staged changes, ignore whitespace
 		if err != nil {
 			rs.logger.WithError(err).Debug("Failed to get git diff for AI context, falling back to synthetic diff")
 		}
@@ -1252,13 +1260,17 @@ func (rs *RepositorySync) convertToAIFileChanges(files []FileChange) []ai.FileCh
 			changeType = "deleted"
 		}
 
-		// Estimate line changes from content length
+		// Calculate actual line changes (not total file lines)
 		linesAdded := 0
 		linesRemoved := 0
-		if f.Content != nil {
+		if f.Content != nil && f.OriginalContent != nil {
+			// Modified file: count actual diff lines
+			linesAdded, linesRemoved = ai.CountDiffLines(string(f.OriginalContent), string(f.Content))
+		} else if f.Content != nil {
+			// New file: all lines added
 			linesAdded = strings.Count(string(f.Content), "\n")
-		}
-		if f.OriginalContent != nil {
+		} else if f.OriginalContent != nil {
+			// Deleted file: all lines removed
 			linesRemoved = strings.Count(string(f.OriginalContent), "\n")
 		}
 

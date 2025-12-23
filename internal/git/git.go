@@ -408,6 +408,25 @@ func (g *gitClient) Diff(ctx context.Context, repoPath string, staged bool) (str
 	return string(output), nil
 }
 
+// DiffIgnoreWhitespace returns the diff ignoring whitespace changes.
+// Uses -w flag to ignore all whitespace (spaces, tabs, line endings).
+// This is useful for AI context where line ending normalization can mask real changes.
+func (g *gitClient) DiffIgnoreWhitespace(ctx context.Context, repoPath string, staged bool) (string, error) {
+	args := []string{"-C", repoPath, "diff", "-w"}
+	if staged {
+		args = append(args, "--staged")
+	}
+
+	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", appErrors.WrapWithContext(err, "get diff ignoring whitespace")
+	}
+
+	return string(output), nil
+}
+
 // GetCurrentBranch returns the name of the current branch
 func (g *gitClient) GetCurrentBranch(ctx context.Context, repoPath string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "branch", "--show-current")

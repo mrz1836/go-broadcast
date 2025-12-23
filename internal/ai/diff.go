@@ -136,6 +136,32 @@ func (t *DiffTruncator) TruncateWithSummary(fullDiff string) (truncatedDiff stri
 	return result.String(), includedFiles < fileCount || len(fullDiff) > t.MaxChars, fileCount
 }
 
+// CountDiffLines counts actual added and removed lines between old and new content.
+// Returns (linesAdded, linesRemoved) - the actual number of changed lines, not total file lines.
+func CountDiffLines(oldContent, newContent string) (added, removed int) {
+	oldLines := difflib.SplitLines(oldContent)
+	newLines := difflib.SplitLines(newContent)
+
+	// Use difflib to get the actual operations
+	matcher := difflib.NewMatcher(oldLines, newLines)
+	opcodes := matcher.GetOpCodes()
+
+	for _, op := range opcodes {
+		switch op.Tag {
+		case 'r': // Replace
+			removed += op.I2 - op.I1
+			added += op.J2 - op.J1
+		case 'd': // Delete
+			removed += op.I2 - op.I1
+		case 'i': // Insert
+			added += op.J2 - op.J1
+		}
+		// 'e' (equal) - no changes
+	}
+
+	return added, removed
+}
+
 // GenerateUnifiedDiff creates a unified diff from old/new content.
 // Output format matches git diff for AI model compatibility.
 // This is used to generate synthetic diffs in dry-run mode when no git repo is available.

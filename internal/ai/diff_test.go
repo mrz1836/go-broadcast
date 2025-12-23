@@ -690,3 +690,62 @@ func TestGenerateDeletedFileDiff_EmptyContent(t *testing.T) {
 	assert.Contains(t, result, "a/empty.txt")
 	assert.Contains(t, result, "/dev/null")
 }
+
+func TestCountDiffLines_Basic(t *testing.T) {
+	oldContent := "line1\nline2\nline3\n"
+	newContent := "line1\nmodified\nline3\n"
+
+	added, removed := CountDiffLines(oldContent, newContent)
+
+	assert.Equal(t, 1, added)   // "modified" added
+	assert.Equal(t, 1, removed) // "line2" removed
+}
+
+func TestCountDiffLines_AddedLines(t *testing.T) {
+	oldContent := "line1\nline2\n"
+	newContent := "line1\nline2\nline3\nline4\n"
+
+	added, removed := CountDiffLines(oldContent, newContent)
+
+	assert.Equal(t, 2, added)   // line3, line4 added
+	assert.Equal(t, 0, removed) // nothing removed
+}
+
+func TestCountDiffLines_RemovedLines(t *testing.T) {
+	oldContent := "line1\nline2\nline3\n"
+	newContent := "line1\n"
+
+	added, removed := CountDiffLines(oldContent, newContent)
+
+	assert.Equal(t, 0, added)   // nothing added
+	assert.Equal(t, 2, removed) // line2, line3 removed
+}
+
+func TestCountDiffLines_NoChanges(t *testing.T) {
+	content := "line1\nline2\nline3\n"
+
+	added, removed := CountDiffLines(content, content)
+
+	assert.Equal(t, 0, added)
+	assert.Equal(t, 0, removed)
+}
+
+func TestCountDiffLines_EmptyToContent(t *testing.T) {
+	oldContent := ""
+	newContent := "line1\nline2\n"
+
+	added, removed := CountDiffLines(oldContent, newContent)
+
+	assert.Equal(t, 2, added)
+	assert.Equal(t, 0, removed)
+}
+
+func TestCountDiffLines_ContentToEmpty(t *testing.T) {
+	oldContent := "line1\nline2\n"
+	newContent := ""
+
+	added, removed := CountDiffLines(oldContent, newContent)
+
+	assert.Equal(t, 0, added)
+	assert.Equal(t, 2, removed)
+}

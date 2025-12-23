@@ -72,6 +72,12 @@ func (m *MockClient) Diff(ctx context.Context, repoPath string, staged bool) (st
 	return testutil.ExtractStringResult(args)
 }
 
+// DiffIgnoreWhitespace mock implementation
+func (m *MockClient) DiffIgnoreWhitespace(ctx context.Context, repoPath string, staged bool) (string, error) {
+	args := m.Called(ctx, repoPath, staged)
+	return testutil.ExtractStringResult(args)
+}
+
 // GetCurrentBranch mock implementation
 func (m *MockClient) GetCurrentBranch(ctx context.Context, repoPath string) (string, error) {
 	args := m.Called(ctx, repoPath)

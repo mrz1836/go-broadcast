@@ -56,8 +56,8 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	assert.InDelta(t, 0.3, cfg.Temperature, 0.001)
 
 	// Diff truncation
-	assert.Equal(t, 4000, cfg.DiffMaxChars)
-	assert.Equal(t, 50, cfg.DiffMaxLinesPerFile)
+	assert.Equal(t, 12000, cfg.DiffMaxChars)
+	assert.Equal(t, 150, cfg.DiffMaxLinesPerFile)
 
 	// Cache defaults
 	assert.True(t, cfg.CacheEnabled)
@@ -537,8 +537,8 @@ func TestConfig_Validate(t *testing.T) {
 			Temperature:         0.3,
 			MaxTokens:           2000,
 			Timeout:             30 * time.Second,
-			DiffMaxChars:        4000,
-			DiffMaxLinesPerFile: 50,
+			DiffMaxChars:        12000,
+			DiffMaxLinesPerFile: 150,
 			CacheEnabled:        true,
 			CacheMaxSize:        1000,
 			CacheTTL:            time.Hour,

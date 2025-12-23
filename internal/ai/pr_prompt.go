@@ -72,6 +72,9 @@ Every PR must include these four sections:
 5. Be descriptive and detailed - this is a PR description, not a commit message
 6. Start your response immediately with "## What Changed" - no preamble
 7. DO NOT mention specific repository names - describe changes in terms of files/diff only, as this message may be used across multiple repositories
+8. CRITICAL: Version number changes (e.g., v1.12.1 → v1.12.2) are FUNCTIONAL changes, NOT formatting changes
+9. Never describe version updates, dependency bumps, or config value changes as "formatting" or "line ending" changes
+10. If the diff shows version numbers changing, explicitly mention the version change in "What Changed"
 
 ## Example of CORRECT PR Body Format
 ## What Changed
@@ -95,6 +98,7 @@ Every PR must include these four sections:
 - sync(ci): update workflows (THIS IS A COMMIT MESSAGE FORMAT - WRONG)
 - sync: update files from source repository (TOO SHORT - WRONG)
 - Any single line without ## headers (WRONG)
+- "Changes are purely formatting and line ending normalization" when versions changed (FACTUALLY INCORRECT - WRONG)
 
 ## Your Task
 Generate a PR description following the CORRECT format above. You MUST include these exact 4 sections:
