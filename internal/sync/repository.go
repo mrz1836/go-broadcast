@@ -680,8 +680,8 @@ func (rs *RepositorySync) getExistingFileContent(ctx context.Context, filePath s
 	// Track API request
 	rs.TrackAPIRequest()
 
-	// Try to get file from the target repository's default branch
-	fileContent, err := rs.engine.gh.GetFile(ctx, rs.target.Repo, filePath, "")
+	// Try to get file from the target repository's configured branch
+	fileContent, err := rs.engine.gh.GetFile(ctx, rs.target.Repo, filePath, rs.target.Branch)
 	if err != nil {
 		return nil, err
 	}
@@ -771,17 +771,21 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 	targetPath := filepath.Join(rs.tempDir, "target")
 	targetURL := fmt.Sprintf("https://github.com/%s.git", rs.target.Repo)
 
-	// Use target branch for cloning if specified, otherwise use default
-	targetBranch := ""
-	if rs.targetState != nil && rs.targetState.Branch != "" {
-		targetBranch = rs.targetState.Branch
-		rs.logger.WithField("target_branch", targetBranch).Info("Cloning repository with target branch")
-	}
+	// Disable partial clone for target repo - we need full blob content for accurate diffs.
+	// Partial clone with lazy blob fetching can cause git diff to show wrong base content
+	// because blobs may be fetched from origin/HEAD (master) instead of origin/development.
+	// See: https://github.com/mrz1836/go-broadcast/issues/XXX for details.
+	opts := &git.CloneOptions{BlobSizeLimit: "0"} // "0" disables blob filtering
 
-	// Get blob size limit from target config
-	opts := &git.CloneOptions{BlobSizeLimit: rs.target.BlobSizeLimit}
-
+	// Clone from the configured target branch (rs.target.Branch) to ensure the local diff
+	// matches what GitHub shows in the PR diff. This is critical for AI-generated descriptions.
+	// We intentionally do NOT clone from existing sync branches because:
+	// 1. Old sync branches may have been created from a different base branch
+	// 2. The PR diff is always relative to target branch, not old sync branches
+	// 3. Cloning from wrong base causes AI to describe incorrect changes
+	targetBranch := rs.target.Branch
 	if targetBranch != "" {
+		rs.logger.WithField("target_branch", targetBranch).Info("Cloning repository with target branch")
 		if err := rs.engine.git.CloneWithBranch(ctx, targetURL, targetPath, targetBranch, opts); err != nil {
 			return "", nil, fmt.Errorf("failed to clone target repository with branch %s: %w", targetBranch, err)
 		}
@@ -791,7 +795,7 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 		}
 	}
 
-	// Create and checkout the new branch
+	// Create and checkout the new sync branch from the target branch
 	if err := rs.engine.git.CreateBranch(ctx, targetPath, branchName); err != nil {
 		// Check if it's a branch already exists error (local branch)
 		if errors.Is(err, git.ErrBranchAlreadyExists) {
@@ -1191,10 +1195,12 @@ func (rs *RepositorySync) updateExistingPR(ctx context.Context, pr *gh.PR, commi
 // Falls back to synthetic diff from changedFiles if stagedRepoPath is not set.
 func (rs *RepositorySync) getDiffForAI(ctx context.Context, changedFiles []FileChange) string {
 	if rs.engine.diffTruncator == nil {
+		rs.logger.Debug("AI diff generation skipped: diffTruncator is nil")
 		return ""
 	}
 
 	var diff string
+	var diffSource string
 
 	// Prefer real git diff from staged repo if available
 	// Use DiffIgnoreWhitespace to avoid line ending normalization masking real changes
@@ -1203,15 +1209,53 @@ func (rs *RepositorySync) getDiffForAI(ctx context.Context, changedFiles []FileC
 		diff, err = rs.engine.git.DiffIgnoreWhitespace(ctx, rs.stagedRepoPath, true) // staged changes, ignore whitespace
 		if err != nil {
 			rs.logger.WithError(err).Debug("Failed to get git diff for AI context, falling back to synthetic diff")
+		} else if diff != "" {
+			diffSource = "git"
 		}
 	}
 
 	// Fall back to synthetic diff if git diff is empty or failed
 	if diff == "" && len(changedFiles) > 0 {
 		diff = rs.generateSyntheticDiff(changedFiles)
+		diffSource = "synthetic"
 	}
 
-	return rs.engine.diffTruncator.Truncate(diff)
+	// Log the diff being passed to AI for debugging
+	originalLen := len(diff)
+	truncatedDiff := rs.engine.diffTruncator.Truncate(diff)
+	truncated := len(truncatedDiff) < originalLen
+
+	rs.logger.WithFields(logrus.Fields{
+		"diff_source":      diffSource,
+		"original_length":  originalLen,
+		"truncated_length": len(truncatedDiff),
+		"was_truncated":    truncated,
+		"file_count":       len(changedFiles),
+	}).Debug("Diff prepared for AI generation")
+
+	// Log diff content preview at trace level for debugging
+	if rs.logger.Logger.IsLevelEnabled(logrus.TraceLevel) {
+		preview := truncatedDiff
+		if len(preview) > 500 {
+			preview = preview[:500] + "...[truncated in log]"
+		}
+		rs.logger.WithField("diff_preview", preview).Trace("Diff content preview for AI")
+	}
+
+	// Optionally write diff to file for debugging (set GO_BROADCAST_DEBUG_DIFF_PATH env var)
+	// Each repo gets its own debug file to avoid overwrites during multi-repo syncs
+	if debugPath := os.Getenv("GO_BROADCAST_DEBUG_DIFF_PATH"); debugPath != "" {
+		// Create per-repo debug file path (e.g., /tmp/debug.txt.owner_repo)
+		repoSuffix := strings.ReplaceAll(rs.target.Repo, "/", "_")
+		repoDebugPath := fmt.Sprintf("%s.%s", debugPath, repoSuffix)
+		if err := os.WriteFile(repoDebugPath, []byte(diff), 0o600); err != nil {
+			rs.logger.WithError(err).Warn("Failed to write debug diff file")
+		} else {
+			rs.logger.WithField("path", repoDebugPath).Debug("Wrote full diff to debug file")
+		}
+	}
+
+	return truncatedDiff
 }
 
 // generateSyntheticDiff creates a unified diff from FileChange data.
@@ -1221,6 +1265,17 @@ func (rs *RepositorySync) generateSyntheticDiff(changedFiles []FileChange) strin
 	var sb strings.Builder
 
 	for _, file := range changedFiles {
+		// Log content availability for debugging synthetic diff issues
+		rs.logger.WithFields(logrus.Fields{
+			"file":                 file.Path,
+			"is_new":               file.IsNew,
+			"is_deleted":           file.IsDeleted,
+			"has_content":          file.Content != nil,
+			"has_original_content": file.OriginalContent != nil,
+			"content_len":          len(file.Content),
+			"original_content_len": len(file.OriginalContent),
+		}).Trace("Generating synthetic diff for file")
+
 		var fileDiff string
 		if file.IsNew {
 			// New file: all lines added
@@ -1238,11 +1293,19 @@ func (rs *RepositorySync) generateSyntheticDiff(changedFiles []FileChange) strin
 			if file.Content != nil {
 				newContent = string(file.Content)
 			}
+
+			// Warn if both contents are identical (no actual diff)
+			if oldContent == newContent {
+				rs.logger.WithField("file", file.Path).Debug("Synthetic diff: original and new content are identical, no diff generated")
+			}
+
 			fileDiff = ai.GenerateUnifiedDiff(file.Path, oldContent, newContent)
 		}
 
 		if fileDiff != "" {
 			sb.WriteString(fileDiff)
+		} else {
+			rs.logger.WithField("file", file.Path).Debug("Synthetic diff: no diff generated for file")
 		}
 	}
 
@@ -1336,12 +1399,42 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 		rs.logger.Info("Generating PR body...")
 	}
 	if rs.engine != nil && rs.engine.prGenerator != nil {
+		// Filter changedFiles to only include files that actually changed in git
+		// This prevents AI from hallucinating changes for files that were examined but not modified
+		var filteredChanges []FileChange
+		if len(actualChangedFiles) > 0 {
+			actualChangedSet := make(map[string]bool, len(actualChangedFiles))
+			for _, path := range actualChangedFiles {
+				actualChangedSet[path] = true
+			}
+			for _, fc := range changedFiles {
+				if actualChangedSet[fc.Path] {
+					filteredChanges = append(filteredChanges, fc)
+				}
+			}
+			rs.logger.WithFields(logrus.Fields{
+				"examined_files": len(changedFiles),
+				"actual_changes": len(filteredChanges),
+			}).Debug("Filtered file list for AI generation")
+		} else {
+			// Fallback: if actualChangedFiles is empty/nil, use all changedFiles
+			filteredChanges = changedFiles
+		}
+
+		diffSummary := rs.getDiffForAI(ctx, filteredChanges)
+
+		// Warn when diff is empty but files changed - AI may produce inaccurate description
+		if diffSummary == "" && len(filteredChanges) > 0 {
+			rs.logger.WithField("file_count", len(filteredChanges)).Warn(
+				"Empty diff generated despite having changed files - AI may produce inaccurate PR description")
+		}
+
 		prCtx := &ai.PRContext{
 			SourceRepo:   rs.sourceState.Repo,
 			TargetRepo:   rs.target.Repo,
 			CommitSHA:    commitSHA,
-			ChangedFiles: rs.convertToAIFileChanges(changedFiles),
-			DiffSummary:  rs.getDiffForAI(ctx, changedFiles), // Use synthetic diff for consistency
+			ChangedFiles: rs.convertToAIFileChanges(filteredChanges),
+			DiffSummary:  diffSummary,
 		}
 
 		aiBody, err := rs.engine.prGenerator.GenerateBody(ctx, prCtx)
@@ -1352,7 +1445,8 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 				sb.WriteString(aiBody)
 				sb.WriteString("\n\n")
 				// CRITICAL: Metadata is NEVER AI-generated - always append static metadata
-				rs.writeMetadataBlock(&sb, commitSHA, changedFiles, true) // PR body was AI-generated
+				// Use filteredChanges so metadata reflects what AI actually saw
+				rs.writeMetadataBlock(&sb, commitSHA, filteredChanges, true) // PR body was AI-generated
 				return sb.String(), true
 			}
 			rs.logger.Debug("AI PR body generation used fallback")
@@ -1536,7 +1630,7 @@ func (rs *RepositorySync) writePerformanceMetrics(sb *strings.Builder) {
 }
 
 // writeMetadataBlock writes the machine-parseable metadata block
-func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA string, _ []FileChange, prBodyAIGenerated bool) {
+func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA string, changedFiles []FileChange, prBodyAIGenerated bool) {
 	sb.WriteString("<!-- go-broadcast-metadata\n")
 
 	// Add group information if available
@@ -1547,6 +1641,23 @@ func (rs *RepositorySync) writeMetadataBlock(sb *strings.Builder, commitSHA stri
 			fmt.Fprintf(sb, "  name: %s\n", currentGroup.Name)
 		}
 	}
+
+	// Add diff debugging info - helps diagnose AI description mismatches
+	sb.WriteString("diff_info:\n")
+	fmt.Fprintf(sb, "  staged_repo_available: %t\n", rs.stagedRepoPath != "")
+	fmt.Fprintf(sb, "  changed_files_count: %d\n", len(changedFiles))
+	// Count files with/without original content to diagnose synthetic diff issues
+	withOriginal := 0
+	withoutOriginal := 0
+	for _, f := range changedFiles {
+		if f.OriginalContent != nil {
+			withOriginal++
+		} else {
+			withoutOriginal++
+		}
+	}
+	fmt.Fprintf(sb, "  files_with_original_content: %d\n", withOriginal)
+	fmt.Fprintf(sb, "  files_without_original_content: %d\n", withoutOriginal)
 
 	sb.WriteString("sync_metadata:\n")
 	fmt.Fprintf(sb, "  source_repo: %s\n", rs.sourceState.Repo)

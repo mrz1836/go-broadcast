@@ -2498,11 +2498,12 @@ func TestRepositorySync_BranchAwareCloning(t *testing.T) {
 			}
 
 			targetState := &state.TargetState{
-				Branch: tt.targetBranch,
+				// Branch is no longer used for cloning - we use target.Branch from config
 			}
 
 			target := config.TargetConfig{
-				Repo: "target/repo",
+				Repo:   "target/repo",
+				Branch: tt.targetBranch, // This is now used for cloning, not targetState.Branch
 			}
 
 			// Mock directory operations
