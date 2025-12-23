@@ -2591,3 +2591,54 @@ func TestRepositorySync_BranchAwareCloning(t *testing.T) {
 		})
 	}
 }
+
+// TestRepositorySync_GetExistingFileContentUsesTargetBranch is a REGRESSION TEST.
+// This test ensures that GetFile is called with the configured target branch,
+// NOT an empty string which would default to the repository's default branch.
+//
+// Bug fixed: Previously the code passed "" to GetFile, which caused the GitHub API
+// to fetch from the default branch (e.g., master) instead of the configured
+// target branch (e.g., development). This resulted in incorrect diffs for
+// repositories where target branch != default branch.
+func TestRepositorySync_GetExistingFileContentUsesTargetBranch(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.NewEntry(logrus.New())
+
+	// CRITICAL: Set a non-empty target branch
+	// If this is empty, the test doesn't catch the regression
+	target := config.TargetConfig{
+		Repo:   "org/target",
+		Branch: "development", // Non-default branch
+	}
+
+	// Setup mock GitHub client
+	ghClient := &gh.MockClient{}
+
+	engine := &Engine{
+		gh: ghClient,
+	}
+
+	rs := &RepositorySync{
+		engine: engine,
+		target: target,
+		logger: logger,
+	}
+
+	// REGRESSION TEST: Mock expects "development" as the branch parameter (4th arg)
+	// If the code passes "" instead, this mock won't match and test will fail with:
+	//   mock: Unexpected Method Call
+	//   GetFile(context.Background, "org/target", "test.txt", "")
+	//   The expected call is:
+	//   GetFile(context.Background, "org/target", "test.txt", "development")
+	ghClient.On("GetFile", mock.Anything, "org/target", "test.txt", "development").
+		Return(&gh.FileContent{Content: []byte("existing content")}, nil).Once()
+
+	// Call getExistingFileContent directly
+	content, err := rs.getExistingFileContent(ctx, "test.txt")
+
+	require.NoError(t, err)
+	assert.Equal(t, []byte("existing content"), content)
+
+	// Verify the mock expectation was met - this is the key assertion
+	ghClient.AssertExpectations(t)
+}
