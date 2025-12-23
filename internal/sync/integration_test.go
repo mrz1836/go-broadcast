@@ -75,6 +75,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		gitClient.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -316,6 +317,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		gitClient.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
@@ -568,6 +570,7 @@ func TestEngine_MixedSyncScenarios(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		gitClient.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		gitClient.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		gitClient.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		stateDiscoverer := &state.MockDiscoverer{}
 		transformChain := &transform.MockChain{}
 
