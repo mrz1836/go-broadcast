@@ -465,8 +465,8 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 	change := &FileChange{
 		Path:            job.DestPath,
 		Content:         transformedContent,
-		OriginalContent: srcContent,
-		IsNew:           err != nil, // err means file doesn't exist
+		OriginalContent: existingContent, // Use target repo content for accurate diff
+		IsNew:           err != nil,      // err means file doesn't exist
 	}
 
 	// Report that this file actually changed
