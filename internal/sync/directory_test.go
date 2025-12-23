@@ -9,9 +9,12 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/state"
 )
 
@@ -557,4 +560,48 @@ type MockTransformChain struct{}
 func (m *MockTransformChain) Transform(_ context.Context, content []byte, _ interface{}) ([]byte, error) {
 	// Simple mock transformation - just return the content unchanged
 	return content, nil
+}
+
+// TestDirectoryProcessor_GetExistingFileContentUsesTargetBranch is a REGRESSION TEST.
+// This test ensures that GetFile is called with the branch parameter that is passed
+// to getExistingFileContent, NOT an empty string.
+//
+// Bug fixed: Previously the call site at line 766 passed "" to getExistingFileContent,
+// which caused the GitHub API to fetch from the default branch (e.g., master) instead
+// of the configured target branch (e.g., development). This resulted in incorrect diffs
+// for repositories where target branch != default branch.
+//
+// This test uses gh.MockClient (testify mock) to verify the branch parameter.
+func TestDirectoryProcessor_GetExistingFileContentUsesTargetBranch(t *testing.T) {
+	ctx := context.Background()
+	logger := logrus.NewEntry(logrus.New())
+
+	// Setup mock GitHub client with testify mock
+	ghClient := &gh.MockClient{}
+
+	// Create Engine with the mock
+	engine := &Engine{
+		gh: ghClient,
+	}
+
+	// Create processor
+	processor := NewDirectoryProcessor(logger, 1, nil)
+
+	// REGRESSION TEST: Mock expects "feature/branch" as the branch parameter (4th arg)
+	// If the code passes "" instead, this mock won't match and test will fail with:
+	//   mock: Unexpected Method Call
+	//   GetFile(context.Background, "test/target-repo", "file.txt", "")
+	//   The expected call is:
+	//   GetFile(context.Background, "test/target-repo", "file.txt", "feature/branch")
+	ghClient.On("GetFile", mock.Anything, "test/target-repo", "file.txt", "feature/branch").
+		Return(&gh.FileContent{Content: []byte("existing content")}, nil).Once()
+
+	// Call getExistingFileContent with explicit branch parameter
+	content, err := processor.getExistingFileContent(ctx, engine, "test/target-repo", "file.txt", "feature/branch")
+
+	require.NoError(t, err)
+	require.Equal(t, []byte("existing content"), content)
+
+	// Verify the mock expectation was met - this is the key assertion
+	ghClient.AssertExpectations(t)
 }
