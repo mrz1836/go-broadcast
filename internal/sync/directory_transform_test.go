@@ -448,13 +448,22 @@ func (suite *DirectoryTransformTestSuite) TestVariableSubstitutionAcrossDirector
 
 	for _, change := range changes {
 		transformedContent := string(change.Content)
-		originalContent := string(change.OriginalContent)
+
+		// Read source file content from disk (not OriginalContent, which is target repo content)
+		// OriginalContent is nil for new files since they don't exist in target repo
+		relativePath := strings.TrimPrefix(change.Path, dirMapping.Dest+"/")
+		sourceFilePath := filepath.Join(suite.sourceDir, relativePath)
+		srcBytes, err := os.ReadFile(sourceFilePath) //nolint:gosec // Test file reading from controlled temp directory
+		if err != nil {
+			continue // Skip if source file can't be read
+		}
+		sourceContent := string(srcBytes)
 
 		// Check that variables were substituted
 		for varName, expectedValue := range expectedVariables {
 			templateVar := fmt.Sprintf("{{.%s}}", varName)
 
-			if strings.Contains(originalContent, templateVar) {
+			if strings.Contains(sourceContent, templateVar) {
 				variablesFound[varName]++
 				suite.Contains(transformedContent, expectedValue,
 					"File %s should contain substituted value for %s", change.Path, varName)
@@ -464,7 +473,7 @@ func (suite *DirectoryTransformTestSuite) TestVariableSubstitutionAcrossDirector
 		}
 
 		// Verify repo name transformation if enabled
-		if dirMapping.Transform.RepoName && strings.Contains(originalContent, "test/source-repo") {
+		if dirMapping.Transform.RepoName && strings.Contains(sourceContent, "test/source-repo") {
 			suite.Contains(transformedContent, "test/target-repo",
 				"File %s should have repo name transformed", change.Path)
 		}
@@ -572,7 +581,8 @@ func (suite *DirectoryTransformTestSuite) TestErrorIsolation() {
 	// Verify that files were processed (even if some had errors, they use fallback content)
 	for _, change := range changes {
 		suite.NotNil(change.Content, "All changes should have content")
-		suite.NotNil(change.OriginalContent, "All changes should have original content")
+		// OriginalContent is nil for new files (files not in target repo).
+		// This is correct behavior - new files have no original content to compare against.
 	}
 
 	suite.logger.WithField("changes_count", len(changes)).Info("Error isolation test completed")
