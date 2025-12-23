@@ -143,6 +143,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -310,6 +311,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -492,6 +494,7 @@ func TestMultiGroupSync_BasicExecution(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -694,6 +697,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -873,6 +877,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -1007,6 +1012,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -1126,6 +1132,7 @@ func TestMultiGroupSync_Dependencies(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -1418,6 +1425,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -1565,6 +1573,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -1687,6 +1696,7 @@ func TestMultiGroupSync_ComplexScenarios(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -1835,6 +1845,7 @@ func TestMultiGroupSync_GroupFiltering(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
@@ -1983,6 +1994,7 @@ func TestMultiGroupSync_GroupFiltering(t *testing.T) {
 		// Add broad GetChangedFiles mock to handle all calls
 		mockGit.On("GetChangedFiles", mock.Anything, mock.Anything).Return([]string{"mocked-file.txt"}, nil).Maybe()
 		mockGit.On("Diff", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
+		mockGit.On("DiffIgnoreWhitespace", mock.Anything, mock.Anything, mock.Anything).Return("", nil).Maybe()
 		mockState := &state.MockDiscoverer{}
 		mockTransform := &transform.MockChain{}
 
