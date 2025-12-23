@@ -552,8 +552,8 @@ func (bp *BatchProcessor) collectResults(resultChan <-chan fileProcessResult) []
 
 // getExistingFileContent retrieves the current content of a file from the target repo
 func (bp *BatchProcessor) getExistingFileContent(ctx context.Context, filePath string) ([]byte, error) {
-	// Try to get file from the target repository's default branch
-	fileContent, err := bp.engine.gh.GetFile(ctx, bp.target.Repo, filePath, "")
+	// Try to get file from the target repository's configured branch
+	fileContent, err := bp.engine.gh.GetFile(ctx, bp.target.Repo, filePath, bp.target.Branch)
 	if err != nil {
 		return nil, err
 	}
