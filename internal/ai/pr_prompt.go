@@ -76,7 +76,10 @@ If the diff shows ONLY:
 
 Then describe ONLY those changes. Nothing else.
 
-## Output Format
+{{ if .PRGuidelines }}## Additional Guidelines
+{{ .PRGuidelines }}
+
+{{ end }}## Output Format
 Generate a PR description with these 4 sections. Start immediately with "## What Changed".
 
 1. **## What Changed** - Describe ONLY what the diff shows. Quote version numbers exactly as they appear.

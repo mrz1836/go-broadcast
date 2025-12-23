@@ -17,9 +17,8 @@ func TestBuildPRPrompt_EmptyContext(t *testing.T) {
 	result := BuildPRPrompt(ctx)
 
 	assert.NotEmpty(t, result)
-	assert.Contains(t, result, "Source Repository")
-	assert.Contains(t, result, "Target Repository")
 	assert.Contains(t, result, "Files Changed (0 files)")
+	assert.Contains(t, result, "WARNING: No Diff Content Available")
 }
 
 func TestBuildPRPrompt_BasicContext(t *testing.T) {
@@ -36,13 +35,11 @@ func TestBuildPRPrompt_BasicContext(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	assert.Contains(t, result, "owner/source-repo")
-	assert.Contains(t, result, "owner/target-repo")
-	assert.Contains(t, result, "abc123def")
 	assert.Contains(t, result, "Files Changed (2 files)")
-	assert.Contains(t, result, "README.md (modified, +10/-5 lines)")
-	assert.Contains(t, result, "main.go (added, +100/-0 lines)")
+	assert.Contains(t, result, "README.md")
+	assert.Contains(t, result, "main.go")
 	assert.Contains(t, result, "diff content here")
+	assert.Contains(t, result, "ACTUAL DIFF")
 }
 
 func TestBuildPRPrompt_WithCustomGuidelines(t *testing.T) {
@@ -81,8 +78,9 @@ func TestBuildPRPrompt_WithoutDiffSummary(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	// Should not contain Diff Summary section markers
-	assert.NotContains(t, result, "```diff")
+	// Without diff, should show warning instead of diff block
+	assert.NotContains(t, result, "ACTUAL DIFF")
+	assert.Contains(t, result, "WARNING: No Diff Content Available")
 }
 
 func TestBuildPRPrompt_WithDiffSummary(t *testing.T) {
@@ -94,7 +92,7 @@ func TestBuildPRPrompt_WithDiffSummary(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	assert.Contains(t, result, "## Diff Summary")
+	assert.Contains(t, result, "ACTUAL DIFF")
 	assert.Contains(t, result, "```diff")
 	assert.Contains(t, result, "some diff content")
 }
@@ -112,8 +110,7 @@ func TestBuildPRPrompt_SpecialCharactersInRepoNames(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	assert.Contains(t, result, "repo-with-dashes_and_underscores")
-	assert.Contains(t, result, "org-name/target.repo")
+	// New template doesn't include repo names, but file paths should be present
 	assert.Contains(t, result, "file with spaces.txt")
 	assert.Contains(t, result, "special[chars].go")
 }
@@ -154,12 +151,12 @@ func TestBuildPRPrompt_FilesWithLineStats(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	assert.Contains(t, result, "added.go (added, +50/-0 lines)")
-	assert.Contains(t, result, "modified.go (modified, +20/-10 lines)")
-	assert.Contains(t, result, "deleted.go (deleted, +0/-100 lines)")
-	// File with no line changes should not show line stats
-	assert.Contains(t, result, "nochange.go (modified)")
-	assert.NotContains(t, result, "nochange.go (modified, +0/-0 lines)")
+	// New template only lists file paths without line stats
+	assert.Contains(t, result, "added.go")
+	assert.Contains(t, result, "modified.go")
+	assert.Contains(t, result, "deleted.go")
+	assert.Contains(t, result, "nochange.go")
+	assert.Contains(t, result, "Files Changed (4 files)")
 }
 
 func TestBuildPRPrompt_ContainsFormatRequirements(t *testing.T) {
@@ -170,13 +167,15 @@ func TestBuildPRPrompt_ContainsFormatRequirements(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	// Should contain format requirements
-	assert.Contains(t, result, "4 markdown sections")
-	assert.Contains(t, result, "DO NOT output a single-line commit message")
-	assert.Contains(t, result, "DO NOT use conventional commit format")
+	// Should contain format requirements (new template format)
+	assert.Contains(t, result, "## Output Format")
+	assert.Contains(t, result, "## What Changed")
+	assert.Contains(t, result, "## Why It Was Necessary")
+	assert.Contains(t, result, "## Testing Performed")
+	assert.Contains(t, result, "## Impact / Risk")
 }
 
-func TestBuildPRPrompt_ContainsExamples(t *testing.T) {
+func TestBuildPRPrompt_ContainsHallucinationPrevention(t *testing.T) {
 	ctx := &PRContext{
 		SourceRepo: "owner/source",
 		TargetRepo: "owner/target",
@@ -184,9 +183,9 @@ func TestBuildPRPrompt_ContainsExamples(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	// Should contain example format
-	assert.Contains(t, result, "CORRECT PR Body Format")
-	assert.Contains(t, result, "WRONG Output Formats")
+	// Should contain hallucination prevention warnings
+	assert.Contains(t, result, "HALLUCINATION PREVENTION")
+	assert.Contains(t, result, "DO NOT")
 }
 
 //nolint:gosmopolitan // intentional unicode test data
@@ -206,8 +205,7 @@ func TestBuildPRPrompt_UnicodeContent(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	assert.Contains(t, result, "レポジトリ")
-	assert.Contains(t, result, "目标仓库")
+	// New template doesn't include repo names, but files and diff/guidelines should work
 	assert.Contains(t, result, "文件.go")
 	assert.Contains(t, result, "файл.txt")
 	assert.Contains(t, result, "αβγ.md")
@@ -260,8 +258,9 @@ func TestBuildPRPrompt_EmptyCommitSHA(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	// Should still contain the Commit SHA label, just with empty value
-	assert.Contains(t, result, "Commit SHA")
+	// New template doesn't include commit SHA, but should still generate valid prompt
+	assert.NotEmpty(t, result)
+	assert.Contains(t, result, "Files Changed")
 }
 
 func TestBuildPRPrompt_AllChangeTypes(t *testing.T) {
@@ -279,9 +278,11 @@ func TestBuildPRPrompt_AllChangeTypes(t *testing.T) {
 
 	result := BuildPRPrompt(ctx)
 
-	assert.Contains(t, result, "added.go (added)")
-	assert.Contains(t, result, "modified.go (modified)")
-	assert.Contains(t, result, "deleted.go (deleted)")
-	assert.Contains(t, result, "renamed.go (renamed)")
-	assert.Contains(t, result, "copied.go (copied)")
+	// New template lists file paths only (no change type annotations)
+	assert.Contains(t, result, "added.go")
+	assert.Contains(t, result, "modified.go")
+	assert.Contains(t, result, "deleted.go")
+	assert.Contains(t, result, "renamed.go")
+	assert.Contains(t, result, "copied.go")
+	assert.Contains(t, result, "Files Changed (5 files)")
 }

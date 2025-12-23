@@ -337,13 +337,12 @@ func TestBuildPRPrompt(t *testing.T) {
 
 		prompt := BuildPRPrompt(ctx)
 
-		assert.Contains(t, prompt, "owner/source")
-		assert.Contains(t, prompt, "owner/target")
-		assert.Contains(t, prompt, "abc123def456")
+		// New template focuses on diff and file paths, not repo names or commit SHA
 		assert.Contains(t, prompt, "README.md")
 		assert.Contains(t, prompt, "config.yaml")
 		assert.Contains(t, prompt, "Custom guidelines here")
 		assert.Contains(t, prompt, "2 files")
+		assert.Contains(t, prompt, "ACTUAL DIFF")
 	})
 
 	t.Run("nil context returns empty", func(t *testing.T) {
