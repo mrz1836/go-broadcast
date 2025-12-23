@@ -225,7 +225,7 @@ func TestBatchProcessor_ProcessFiles_SingleFile(t *testing.T) {
 	require.Len(t, changes, 1)
 	assert.Equal(t, "test.txt", changes[0].Path)
 	assert.Equal(t, []byte("Transformed Hello World"), changes[0].Content)
-	assert.Equal(t, []byte("Hello World"), changes[0].OriginalContent)
+	assert.Nil(t, changes[0].OriginalContent) // New files have no original content in target
 	assert.True(t, changes[0].IsNew)
 
 	mockGH.AssertExpectations(t)
@@ -305,6 +305,68 @@ func TestBatchProcessor_ProcessFiles_ContentUnchanged(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Empty(t, changes) // Should be empty since content unchanged
+
+	mockGH.AssertExpectations(t)
+}
+
+// TestBatchProcessor_ProcessFiles_ExistingFileUpdated tests that OriginalContent
+// is set to the TARGET repo's existing content (not source content).
+// REGRESSION TEST: Prevents bug where OriginalContent was incorrectly set to srcContent,
+// causing synthetic diffs to be empty when source and transformed content matched.
+func TestBatchProcessor_ProcessFiles_ExistingFileUpdated(t *testing.T) {
+	ctx := context.Background()
+
+	// Create temp directory with source file content
+	tempDir := t.TempDir()
+	testFilePath := filepath.Join(tempDir, "workflow.yml")
+	// Source content (what we're syncing from) - has new permission line
+	srcContent := []byte("name: CI\npermissions: {}\n")
+	err := os.WriteFile(testFilePath, srcContent, 0o600)
+	require.NoError(t, err)
+
+	logger := logrus.NewEntry(logrus.New())
+	mockGH := &gh.MockClient{}
+	engine := &Engine{
+		gh:        mockGH,
+		transform: nil, // No transformer needed - files sync without transformation
+	}
+	sourceState := &state.SourceState{
+		Repo:         "source/repo",
+		Branch:       "main",
+		LatestCommit: "abc123",
+	}
+	targetConfig := config.TargetConfig{
+		Repo:   "target/repo",
+		Branch: "development",
+	}
+
+	// Target repo has DIFFERENT content (older version without permissions)
+	existingTargetContent := []byte("name: CI\n")
+
+	// Mock GetFile returns existing TARGET content
+	mockGH.On("GetFile", mock.Anything, "target/repo", "workflow.yml", "development").
+		Return(&gh.FileContent{Content: existingTargetContent}, nil).Once()
+
+	processor := NewBatchProcessor(engine, targetConfig, sourceState, logger, 1)
+
+	// No transform config - file syncs as-is (common for workflow files)
+	jobs := []FileJob{
+		NewFileJob("workflow.yml", "workflow.yml", config.Transform{}),
+	}
+
+	changes, err := processor.ProcessFiles(ctx, tempDir, jobs)
+
+	require.NoError(t, err)
+	require.Len(t, changes, 1)
+	assert.Equal(t, "workflow.yml", changes[0].Path)
+	assert.Equal(t, srcContent, changes[0].Content) // New content is source content
+
+	// CRITICAL: OriginalContent must be TARGET repo's existing content (not source)
+	// This enables correct diff generation: old=existing target, new=transformed source
+	assert.Equal(t, existingTargetContent, changes[0].OriginalContent,
+		"OriginalContent should be target repo's existing content for accurate diffs")
+
+	assert.False(t, changes[0].IsNew)
 
 	mockGH.AssertExpectations(t)
 }
