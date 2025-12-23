@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"strings"
 	"testing"
@@ -421,16 +420,9 @@ func TestProcessCancelTarget_CustomComment(t *testing.T) {
 }
 
 func TestOutputCancelPreview(t *testing.T) {
-	// Capture output
-	var stdoutBuf, stderrBuf bytes.Buffer
-	originalStdout := output.Stdout()
-	originalStderr := output.Stderr()
-	output.SetStdout(&stdoutBuf)
-	output.SetStderr(&stderrBuf)
-	defer func() {
-		output.SetStdout(originalStdout)
-		output.SetStderr(originalStderr)
-	}()
+	// Capture output (thread-safe)
+	scope := output.CaptureOutput()
+	defer scope.Restore()
 
 	tests := []struct {
 		name    string
@@ -511,8 +503,8 @@ func TestOutputCancelPreview(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset buffers
-			stdoutBuf.Reset()
-			stderrBuf.Reset()
+			scope.Stdout.Reset()
+			scope.Stderr.Reset()
 
 			// Setup test-specific state
 			if tt.setup != nil {
@@ -525,8 +517,8 @@ func TestOutputCancelPreview(t *testing.T) {
 			err := outputCancelPreview(tt.summary)
 			require.NoError(t, err)
 
-			stdoutContent := stdoutBuf.String()
-			stderrContent := stderrBuf.String()
+			stdoutContent := scope.Stdout.String()
+			stderrContent := scope.Stderr.String()
 
 			// Common assertions
 			assert.Contains(t, stderrContent, "DRY-RUN MODE")
@@ -563,16 +555,9 @@ func TestOutputCancelPreview(t *testing.T) {
 }
 
 func TestOutputCancelResults(t *testing.T) {
-	// Capture output
-	var stdoutBuf, stderrBuf bytes.Buffer
-	originalStdout := output.Stdout()
-	originalStderr := output.Stderr()
-	output.SetStdout(&stdoutBuf)
-	output.SetStderr(&stderrBuf)
-	defer func() {
-		output.SetStdout(originalStdout)
-		output.SetStderr(originalStderr)
-	}()
+	// Capture output (thread-safe)
+	scope := output.CaptureOutput()
+	defer scope.Restore()
 
 	tests := []struct {
 		name       string
@@ -693,8 +678,8 @@ func TestOutputCancelResults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset buffers
-			stdoutBuf.Reset()
-			stderrBuf.Reset()
+			scope.Stdout.Reset()
+			scope.Stderr.Reset()
 
 			// Setup test-specific state
 			if tt.setup != nil {
@@ -707,8 +692,8 @@ func TestOutputCancelResults(t *testing.T) {
 			err := outputCancelResults(tt.summary)
 			require.NoError(t, err)
 
-			stdoutContent := stdoutBuf.String()
-			stderrContent := stderrBuf.String()
+			stdoutContent := scope.Stdout.String()
+			stderrContent := scope.Stderr.String()
 
 			if tt.summary.TotalTargets == 0 {
 				assert.Contains(t, stdoutContent, "No active sync operations found")

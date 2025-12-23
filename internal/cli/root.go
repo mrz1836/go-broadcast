@@ -30,6 +30,7 @@ var (
 var (
 	showVersionMu sync.RWMutex
 	showVersion   bool
+	rootCmdMu     sync.RWMutex // Protects rootCmd for thread-safe test access
 )
 
 // getShowVersion returns the showVersion flag (thread-safe)
@@ -39,13 +40,18 @@ func getShowVersion() bool {
 	return showVersion
 }
 
-// setShowVersion sets the showVersion flag (thread-safe, for testing)
-//
-//nolint:unused // Available for test cleanup and reset
-func setShowVersion(v bool) {
-	showVersionMu.Lock()
-	defer showVersionMu.Unlock()
-	showVersion = v
+// getRootCmd returns the root command (thread-safe, for testing)
+func getRootCmd() *cobra.Command {
+	rootCmdMu.RLock()
+	defer rootCmdMu.RUnlock()
+	return rootCmd
+}
+
+// setRootCmd sets the root command (thread-safe, for testing)
+func setRootCmd(cmd *cobra.Command) {
+	rootCmdMu.Lock()
+	defer rootCmdMu.Unlock()
+	rootCmd = cmd
 }
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -109,6 +115,9 @@ func NewRootCmd() *cobra.Command {
 		LogLevel:   "info",
 	}
 
+	// Create local version flag for this command instance (avoids race on global)
+	var localShowVersion bool
+
 	// Create new command instance with isolated setup function
 	cmd := &cobra.Command{
 		Use:   "go-broadcast",
@@ -119,16 +128,22 @@ files from a template repository to multiple target repositories.
 It derives all state from GitHub (branches, PRs, commits) and never stores
 state locally. It supports file transformations and provides progress tracking.`,
 		PersistentPreRunE: createSetupLogging(flags),
-		RunE:              createRootRunE(),
-		SilenceUsage:      true,
-		SilenceErrors:     true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Handle version flag using local variable
+			if localShowVersion {
+				return printVersion(false)
+			}
+			return cmd.Help()
+		},
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	// Add isolated flags
 	cmd.PersistentFlags().StringVarP(&flags.ConfigFile, "config", "c", "sync.yaml", "Path to configuration file")
 	cmd.PersistentFlags().BoolVar(&flags.DryRun, "dry-run", false, "Preview changes without making them")
 	cmd.PersistentFlags().StringVar(&flags.LogLevel, "log-level", "info", "Log level (debug, info, warn, error)")
-	cmd.PersistentFlags().BoolVar(&showVersion, "version", false, "Show version information")
+	cmd.PersistentFlags().BoolVar(&localShowVersion, "version", false, "Show version information")
 
 	// Add commands with isolated flags
 	cmd.AddCommand(createSyncCmd(flags))
@@ -279,19 +294,6 @@ func rootRunE(cmd *cobra.Command, _ []string) error {
 
 	// Otherwise show help
 	return cmd.Help()
-}
-
-// createRootRunE creates an isolated root run function for testing
-func createRootRunE() func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		// If version flag is set, print version (thread-safe read)
-		if getShowVersion() {
-			return printVersion(false)
-		}
-
-		// Otherwise show help
-		return cmd.Help()
-	}
 }
 
 // createRootRunEWithVerbose creates a root run function with verbose logging support

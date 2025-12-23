@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"os/signal"
@@ -19,11 +18,11 @@ import (
 
 // TestExecute tests the Execute function
 func TestExecute(t *testing.T) {
-	// Save original command and args
-	originalCmd := rootCmd
+	// Save original command and args (using thread-safe accessor)
+	originalCmd := getRootCmd()
 	originalArgs := os.Args
 	defer func() {
-		rootCmd = originalCmd
+		setRootCmd(originalCmd)
 		os.Args = originalArgs
 	}()
 
@@ -95,22 +94,13 @@ func TestExecute(t *testing.T) {
 				testCmd := NewRootCmd()
 				testCmd.SetArgs(tc.args[1:]) // Remove program name
 
-				// Capture both cobra's output and our output package output
-				var stdoutBuf, stderrBuf bytes.Buffer
+				// Capture output (thread-safe)
+				scope := output.CaptureOutput()
+				defer scope.Restore()
 
-				// Set cobra's output writers
-				testCmd.SetOut(&stdoutBuf)
-				testCmd.SetErr(&stderrBuf)
-
-				// Also capture our output package output
-				originalStdout := output.Stdout()
-				originalStderr := output.Stderr()
-				output.SetStdout(&stdoutBuf)
-				output.SetStderr(&stderrBuf)
-				defer func() {
-					output.SetStdout(originalStdout)
-					output.SetStderr(originalStderr)
-				}()
+				// Set cobra's output writers to the same buffers
+				testCmd.SetOut(scope.Stdout)
+				testCmd.SetErr(scope.Stderr)
 
 				// Execute command and expect error
 				err := testCmd.Execute()
@@ -118,7 +108,7 @@ func TestExecute(t *testing.T) {
 
 				// Verify output if test case provides verification function
 				if tc.verifyOutput != nil {
-					tc.verifyOutput(t, stdoutBuf.String(), stderrBuf.String())
+					tc.verifyOutput(t, scope.Stdout.String(), scope.Stderr.String())
 				}
 				return
 			}
@@ -132,22 +122,13 @@ func TestExecute(t *testing.T) {
 			testCmd := NewRootCmd()
 			testCmd.SetArgs(tc.args[1:]) // Remove program name
 
-			// Capture both cobra's output and our output package output
-			var stdoutBuf, stderrBuf bytes.Buffer
+			// Capture output (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
 
-			// Set cobra's output writers
-			testCmd.SetOut(&stdoutBuf)
-			testCmd.SetErr(&stderrBuf)
-
-			// Also capture our output package output
-			originalStdout := output.Stdout()
-			originalStderr := output.Stderr()
-			output.SetStdout(&stdoutBuf)
-			output.SetStderr(&stderrBuf)
-			defer func() {
-				output.SetStdout(originalStdout)
-				output.SetStderr(originalStderr)
-			}()
+			// Set cobra's output writers to the same buffers
+			testCmd.SetOut(scope.Stdout)
+			testCmd.SetErr(scope.Stderr)
 
 			// Execute command
 			err := testCmd.Execute()
@@ -155,7 +136,7 @@ func TestExecute(t *testing.T) {
 
 			// Verify output if test case provides verification function
 			if tc.verifyOutput != nil {
-				tc.verifyOutput(t, stdoutBuf.String(), stderrBuf.String())
+				tc.verifyOutput(t, scope.Stdout.String(), scope.Stderr.String())
 			}
 		})
 	}
@@ -203,10 +184,10 @@ func TestExecuteWithInterrupt(t *testing.T) {
 
 // TestExecuteContextCancellation tests context cancellation behavior
 func TestExecuteContextCancellation(t *testing.T) {
-	// Save original
-	originalCmd := rootCmd
+	// Save original (using thread-safe accessor)
+	originalCmd := getRootCmd()
 	defer func() {
-		rootCmd = originalCmd
+		setRootCmd(originalCmd)
 	}()
 
 	t.Run("Context cancellation propagation", func(t *testing.T) {
@@ -253,10 +234,10 @@ func TestExecuteErrorHandling(t *testing.T) {
 	// However, testing os.Exit is complex, so we test the error flow instead
 
 	t.Run("Command error handling", func(t *testing.T) {
-		// Save original
-		originalCmd := rootCmd
+		// Save original (using thread-safe accessor)
+		originalCmd := getRootCmd()
 		defer func() {
-			rootCmd = originalCmd
+			setRootCmd(originalCmd)
 		}()
 
 		// Create command that returns an error
@@ -268,20 +249,14 @@ func TestExecuteErrorHandling(t *testing.T) {
 			},
 		}
 		testCmd.AddCommand(errorCmd)
-		rootCmd = testCmd
-
-		// Capture output
-		var outputBuf bytes.Buffer
-		// output.SetWriter(&outputBuf) // Not available in output package
-		// defer output.SetWriter(os.Stdout)
-		_ = outputBuf
+		setRootCmd(testCmd)
 
 		// Set args
 		os.Args = []string{"go-broadcast", "error-test"}
 
 		// We can't test Execute directly because it calls os.Exit
 		// Instead, test the underlying ExecuteContext
-		err := rootCmd.ExecuteContext(context.Background())
+		err := getRootCmd().ExecuteContext(context.Background())
 		require.Error(t, err)
 		assert.Equal(t, assert.AnError, err)
 	})
@@ -327,22 +302,13 @@ func TestExecuteIntegration(t *testing.T) {
 			testCmd := NewRootCmd()
 			testCmd.SetArgs(tc.args[1:]) // Remove program name
 
-			// Capture both cobra's output and our output package output
-			var stdoutBuf, stderrBuf bytes.Buffer
+			// Capture output (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
 
-			// Set cobra's output writers
-			testCmd.SetOut(&stdoutBuf)
-			testCmd.SetErr(&stderrBuf)
-
-			// Also capture our output package output
-			originalStdout := output.Stdout()
-			originalStderr := output.Stderr()
-			output.SetStdout(&stdoutBuf)
-			output.SetStderr(&stderrBuf)
-			defer func() {
-				output.SetStdout(originalStdout)
-				output.SetStderr(originalStderr)
-			}()
+			// Set cobra's output writers to the same buffers
+			testCmd.SetOut(scope.Stdout)
+			testCmd.SetErr(scope.Stderr)
 
 			// Execute command
 			err := testCmd.Execute()
@@ -356,7 +322,7 @@ func TestExecuteIntegration(t *testing.T) {
 
 			// Verify output if test case provides verification function
 			if tc.verifyOutput != nil {
-				tc.verifyOutput(t, stdoutBuf.String(), stderrBuf.String())
+				tc.verifyOutput(t, scope.Stdout.String(), scope.Stderr.String())
 			}
 		})
 	}

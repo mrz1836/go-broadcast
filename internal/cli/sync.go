@@ -133,34 +133,28 @@ func (s *SyncCommand) ExecuteSync(ctx context.Context, flags *Flags, args []stri
 
 //nolint:gochecknoglobals // Package-level variables for CLI flags
 var (
-	syncFlagsMu      gosync.RWMutex //nolint:unused // Protects sync flag variables for thread-safety
+	syncFlagsMu      gosync.RWMutex // Protects sync flag variables for thread-safety
 	groupFilter      []string
 	skipGroups       []string
 	automerge        bool
 	clearModuleCache bool
 )
 
-// getGroupFilter returns the group filter slice (thread-safe)
-//
-//nolint:unused // Available for thread-safe access
+// getGroupFilter returns a copy of the group filter slice (thread-safe)
 func getGroupFilter() []string {
 	syncFlagsMu.RLock()
 	defer syncFlagsMu.RUnlock()
-	return groupFilter
+	return append([]string(nil), groupFilter...)
 }
 
-// getSkipGroups returns the skip groups slice (thread-safe)
-//
-//nolint:unused // Available for thread-safe access
+// getSkipGroups returns a copy of the skip groups slice (thread-safe)
 func getSkipGroups() []string {
 	syncFlagsMu.RLock()
 	defer syncFlagsMu.RUnlock()
-	return skipGroups
+	return append([]string(nil), skipGroups...)
 }
 
 // getAutomerge returns the automerge flag (thread-safe)
-//
-//nolint:unused // Available for thread-safe access
 func getAutomerge() bool {
 	syncFlagsMu.RLock()
 	defer syncFlagsMu.RUnlock()
@@ -168,24 +162,10 @@ func getAutomerge() bool {
 }
 
 // getClearModuleCache returns the clear module cache flag (thread-safe)
-//
-//nolint:unused // Available for thread-safe access
 func getClearModuleCache() bool {
 	syncFlagsMu.RLock()
 	defer syncFlagsMu.RUnlock()
 	return clearModuleCache
-}
-
-// resetSyncFlags resets the sync flags to defaults (thread-safe, for testing)
-//
-//nolint:unused // Available for test cleanup and reset
-func resetSyncFlags() {
-	syncFlagsMu.Lock()
-	defer syncFlagsMu.Unlock()
-	groupFilter = nil
-	skipGroups = nil
-	automerge = false
-	clearModuleCache = false
 }
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -254,19 +234,21 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Log group filters if specified
-	if len(groupFilter) > 0 {
-		log.WithField("groups", groupFilter).Info("Filtering to specific groups")
+	// Log group filters if specified (using thread-safe getters)
+	gf := getGroupFilter()
+	sg := getSkipGroups()
+	if len(gf) > 0 {
+		log.WithField("groups", gf).Info("Filtering to specific groups")
 	}
-	if len(skipGroups) > 0 {
-		log.WithField("skip_groups", skipGroups).Info("Skipping specified groups")
+	if len(sg) > 0 {
+		log.WithField("skip_groups", sg).Info("Skipping specified groups")
 	}
 
 	// Filter targets if specified
 	targets := args
 	if len(targets) > 0 {
 		log.WithField("targets", targets).Info("Syncing specific targets")
-	} else if len(groupFilter) == 0 && len(skipGroups) == 0 {
+	} else if len(gf) == 0 && len(sg) == 0 {
 		log.Info("Syncing all configured targets")
 	}
 
@@ -459,9 +441,10 @@ templateTransformerAdded:
 	}
 repoTransformerAdded:
 
-	// Load automerge labels from environment if automerge is enabled
+	// Load automerge labels from environment if automerge is enabled (thread-safe)
 	var automergeLabels []string
-	if automerge {
+	autoMergeEnabled := getAutomerge()
+	if autoMergeEnabled {
 		if envLabels := os.Getenv("GO_BROADCAST_AUTOMERGE_LABELS"); envLabels != "" {
 			// Split comma-separated labels and trim whitespace
 			for _, label := range strings.Split(envLabels, ",") {
@@ -472,15 +455,15 @@ repoTransformerAdded:
 		}
 	}
 
-	// Create sync options
+	// Create sync options (using thread-safe getters)
 	opts := sync.DefaultOptions().
 		WithDryRun(IsDryRun()).
 		WithMaxConcurrency(5).
-		WithGroupFilter(groupFilter).
-		WithSkipGroups(skipGroups).
-		WithAutomerge(automerge).
+		WithGroupFilter(getGroupFilter()).
+		WithSkipGroups(getSkipGroups()).
+		WithAutomerge(autoMergeEnabled).
 		WithAutomergeLabels(automergeLabels).
-		WithClearModuleCache(clearModuleCache)
+		WithClearModuleCache(getClearModuleCache())
 
 	// Create and return engine
 	engine := sync.NewEngine(ctx, cfg, ghClient, gitClient, stateDiscoverer, transformChain, opts)

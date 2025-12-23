@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -187,23 +186,16 @@ func TestValidateSourceFilesExist(t *testing.T) {
 				return
 			}
 
-			// Capture output
-			origStdout := output.Stdout()
-			origStderr := output.Stderr()
-			var stdoutBuf, stderrBuf bytes.Buffer
-			output.SetStdout(&stdoutBuf)
-			output.SetStderr(&stderrBuf)
-			defer func() {
-				output.SetStdout(origStdout)
-				output.SetStderr(origStderr)
-			}()
+			// Capture output (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
 
 			// Call the function with mock client
 			ctx := context.Background()
 			validateSourceFilesExistWithClient(ctx, tc.config, mockClient)
 
 			// Verify output - combine stdout and stderr
-			outputStr := stdoutBuf.String() + stderrBuf.String()
+			outputStr := scope.Stdout.String() + scope.Stderr.String()
 			tc.verifyOutput(t, outputStr)
 
 			// Verify mock expectations
@@ -251,23 +243,16 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 				Content: []byte("test content"),
 			}, nil)
 
-		// Capture output
-		origStdout := output.Stdout()
-		origStderr := output.Stderr()
-		var stdoutBuf, stderrBuf bytes.Buffer
-		output.SetStdout(&stdoutBuf)
-		output.SetStderr(&stderrBuf)
-		defer func() {
-			output.SetStdout(origStdout)
-			output.SetStderr(origStderr)
-		}()
+		// Capture output (thread-safe)
+		scope := output.CaptureOutput()
+		defer scope.Restore()
 
 		// Run the validation
 		ctx := context.Background()
 		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
 
 		// Verify output - combine stdout and stderr
-		outputStr := stdoutBuf.String() + stderrBuf.String()
+		outputStr := scope.Stdout.String() + scope.Stderr.String()
 
 		// Verify that empty paths are reported as not found and validation continues
 		assert.Contains(t, outputStr, "Source file not found: ", "Should report empty path as not found")
@@ -313,23 +298,16 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 		mockClient.On("GetFile", mock.Anything, "org/source-repo", "path/with.dots/file.txt", "master").
 			Return(&gh.FileContent{Path: "path/with.dots/file.txt", Content: []byte("content with dots")}, nil)
 
-		// Capture output
-		origStdout := output.Stdout()
-		origStderr := output.Stderr()
-		var stdoutBuf, stderrBuf bytes.Buffer
-		output.SetStdout(&stdoutBuf)
-		output.SetStderr(&stderrBuf)
-		defer func() {
-			output.SetStdout(origStdout)
-			output.SetStderr(origStderr)
-		}()
+		// Capture output (thread-safe)
+		scope := output.CaptureOutput()
+		defer scope.Restore()
 
 		// Call the function with mock client
 		ctx := context.Background()
 		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
 
 		// Verify output - combine stdout and stderr
-		outputStr := stdoutBuf.String() + stderrBuf.String()
+		outputStr := scope.Stdout.String() + scope.Stderr.String()
 
 		// Verify that all files with special characters are found
 		assert.Contains(t, outputStr, "All source files exist (4/4)", "Should successfully validate all files with special characters")
@@ -366,23 +344,16 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 		mockClient.On("GetFile", mock.Anything, "org/source-repo", longPath, "master").
 			Return(&gh.FileContent{Path: longPath, Content: []byte("content from very long path")}, nil)
 
-		// Capture output
-		origStdout := output.Stdout()
-		origStderr := output.Stderr()
-		var stdoutBuf, stderrBuf bytes.Buffer
-		output.SetStdout(&stdoutBuf)
-		output.SetStderr(&stderrBuf)
-		defer func() {
-			output.SetStdout(origStdout)
-			output.SetStderr(origStderr)
-		}()
+		// Capture output (thread-safe)
+		scope := output.CaptureOutput()
+		defer scope.Restore()
 
 		// Call the function with mock client
 		ctx := context.Background()
 		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
 
 		// Verify output - combine stdout and stderr
-		outputStr := stdoutBuf.String() + stderrBuf.String()
+		outputStr := scope.Stdout.String() + scope.Stderr.String()
 
 		// Verify that long paths are handled correctly
 		assert.Contains(t, outputStr, "All source files exist (1/1)", "Should successfully validate files with very long paths")
@@ -437,16 +408,9 @@ func TestValidateCommandWithMockedGitHub(t *testing.T) {
 		mockClient.On("GetFile", mock.Anything, "org/source", "README.md", "master").
 			Return(&gh.FileContent{Path: "README.md", Content: []byte("# README")}, nil)
 
-		// Capture output
-		origStdout := output.Stdout()
-		origStderr := output.Stderr()
-		var stdoutBuf, stderrBuf bytes.Buffer
-		output.SetStdout(&stdoutBuf)
-		output.SetStderr(&stderrBuf)
-		defer func() {
-			output.SetStdout(origStdout)
-			output.SetStderr(origStderr)
-		}()
+		// Capture output (thread-safe)
+		scope := output.CaptureOutput()
+		defer scope.Restore()
 
 		ctx := context.Background()
 
@@ -458,7 +422,7 @@ func TestValidateCommandWithMockedGitHub(t *testing.T) {
 		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
 
 		// Verify output contains success messages
-		outputStr := stdoutBuf.String() + stderrBuf.String()
+		outputStr := scope.Stdout.String() + scope.Stderr.String()
 		assert.Contains(t, outputStr, "Source repository accessible: org/source", "Should report source repo as accessible")
 		assert.Contains(t, outputStr, "Target repository accessible: org/target1", "Should report target repo as accessible")
 		assert.Contains(t, outputStr, "All source files exist", "Should report all source files exist")

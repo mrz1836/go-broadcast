@@ -2,6 +2,7 @@
 package output
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -231,6 +232,49 @@ func Plain(msg string) {
 // Plainf prints a formatted message without color
 func Plainf(format string, args ...interface{}) {
 	Plain(fmt.Sprintf(format, args...))
+}
+
+// Scope provides test-isolated output capture.
+// It captures stdout and stderr in thread-safe buffers while the scope is active.
+// Call Restore() in defer to restore original writers.
+type Scope struct {
+	prevStdout io.Writer
+	prevStderr io.Writer
+	Stdout     *bytes.Buffer
+	Stderr     *bytes.Buffer
+}
+
+// CaptureOutput creates a new output scope for testing.
+// This function atomically captures the current stdout/stderr and replaces them
+// with buffers for test isolation. Call scope.Restore() in defer to restore.
+//
+// Usage:
+//
+//	scope := output.CaptureOutput()
+//	defer scope.Restore()
+//	// ... run code that produces output ...
+//	assert.Contains(t, scope.Stdout.String(), "expected")
+func CaptureOutput() *Scope {
+	mu.Lock()
+	defer mu.Unlock()
+	scope := &Scope{
+		prevStdout: stdout,
+		prevStderr: stderr,
+		Stdout:     &bytes.Buffer{},
+		Stderr:     &bytes.Buffer{},
+	}
+	stdout = scope.Stdout
+	stderr = scope.Stderr
+	return scope
+}
+
+// Restore restores the original output writers.
+// This should be called in a defer immediately after CaptureOutput().
+func (s *Scope) Restore() {
+	mu.Lock()
+	defer mu.Unlock()
+	stdout = s.prevStdout
+	stderr = s.prevStderr
 }
 
 // Progress represents a progress indicator.

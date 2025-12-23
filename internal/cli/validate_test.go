@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -632,17 +631,14 @@ func TestDisplayGroupValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Capture both stdout and stderr
-			var stdoutBuf, stderrBuf bytes.Buffer
-			output.SetStdout(&stdoutBuf)
-			output.SetStderr(&stderrBuf)
-			defer output.SetStdout(os.Stdout)
-			defer output.SetStderr(os.Stderr)
+			// Capture output (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
 
 			displayGroupValidation(tt.groups)
 
 			// Combine both outputs for testing
-			capturedOutput := stdoutBuf.String() + stderrBuf.String()
+			capturedOutput := scope.Stdout.String() + scope.Stderr.String()
 			for _, expected := range tt.expectedOutput {
 				assert.Contains(t, capturedOutput, expected, "Output should contain expected text")
 			}

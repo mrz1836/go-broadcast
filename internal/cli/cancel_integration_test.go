@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -139,8 +138,9 @@ groups:
 			cmd := &cobra.Command{}
 			cmd.SetContext(context.Background())
 
-			// Capture output (would need proper output capture mechanism)
-			var outputBuf bytes.Buffer
+			// Capture output (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
 
 			// Execute command
 			err := runCancel(cmd, tc.args)
@@ -157,7 +157,7 @@ groups:
 
 			// Verify output if checker provided
 			if tc.verifyOutput != nil {
-				tc.verifyOutput(t, outputBuf.String())
+				tc.verifyOutput(t, scope.Stdout.String())
 			}
 
 			_ = configPath
@@ -411,11 +411,9 @@ func TestOutputCancelResultsIntegration(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Set up output capture
-			var stdoutBuf bytes.Buffer
-			originalStdout := output.Stdout()
-			output.SetStdout(&stdoutBuf)
-			defer output.SetStdout(originalStdout)
+			// Set up output capture (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
 
 			// Set up JSON output flag (thread-safe)
 			setJSONOutput(tc.outputFormat == "json")
@@ -429,7 +427,7 @@ func TestOutputCancelResultsIntegration(t *testing.T) {
 
 			// Verify output
 			if tc.verifyOutput != nil {
-				outputStr := stdoutBuf.String()
+				outputStr := scope.Stdout.String()
 				tc.verifyOutput(t, outputStr)
 			}
 		})
@@ -459,18 +457,16 @@ func TestOutputCancelPreviewIntegration(t *testing.T) {
 		DryRun: true,
 	}
 
-	// Set up output capture
-	var stdoutBuf bytes.Buffer
-	originalStdout := output.Stdout()
-	output.SetStdout(&stdoutBuf)
-	defer output.SetStdout(originalStdout)
+	// Set up output capture (thread-safe)
+	scope := output.CaptureOutput()
+	defer scope.Restore()
 
 	// Execute preview
 	err := outputCancelPreview(summary)
 	require.NoError(t, err)
 
 	// Verify output
-	outputStr := stdoutBuf.String()
+	outputStr := scope.Stdout.String()
 	assert.Contains(t, outputStr, "Would cancel sync operations for 2 target(s)")
 	assert.Contains(t, outputStr, "📦 org/target1")
 	assert.Contains(t, outputStr, "Would close PR #123")

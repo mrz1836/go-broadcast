@@ -1,11 +1,9 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"testing"
@@ -147,23 +145,16 @@ func TestOutputJSON(t *testing.T) {
 		},
 	}
 
-	// Capture output
-	oldStdout := output.Stdout()
-	r, w, _ := os.Pipe()
-	output.SetStdout(w)
-	defer output.SetStdout(oldStdout)
+	// Capture output (thread-safe)
+	scope := output.CaptureOutput()
+	defer scope.Restore()
 
 	err := outputJSON(status)
 	require.NoError(t, err)
 
-	// Close writer and read output
-	require.NoError(t, w.Close())
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-
 	// Verify JSON output
 	var decoded SyncStatus
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
+	require.NoError(t, json.Unmarshal(scope.Stdout.Bytes(), &decoded))
 	assert.Equal(t, status.Source.Repository, decoded.Source.Repository)
 }
 
@@ -691,15 +682,14 @@ func TestOutputGroupTextStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Capture output
-			var buf bytes.Buffer
-			output.SetStdout(&buf)
-			defer output.SetStdout(os.Stdout)
+			// Capture output (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
 
 			err := outputGroupTextStatus(tt.status)
 			require.NoError(t, err)
 
-			capturedOutput := buf.String()
+			capturedOutput := scope.Stdout.String()
 			for _, expected := range tt.expectedOutput {
 				assert.Contains(t, capturedOutput, expected, "Output should contain expected text")
 			}

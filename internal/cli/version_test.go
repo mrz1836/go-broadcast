@@ -2,9 +2,7 @@
 package cli
 
 import (
-	"bytes"
 	"encoding/json"
-	"os"
 	"runtime"
 	"strings"
 	"testing"
@@ -140,17 +138,16 @@ func TestPrintVersionTextOutput(t *testing.T) {
 	setCommit("test123")
 	setBuildDate("2025-01-01T12:00:00Z")
 
-	// Capture output
-	var buf bytes.Buffer
-	output.SetStdout(&buf)
-	defer output.SetStdout(os.Stdout)
+	// Capture output (thread-safe)
+	scope := output.CaptureOutput()
+	defer scope.Restore()
 
 	// Run the function
 	err := printVersion(false)
 	require.NoError(t, err)
 
 	// Verify output contains expected information
-	outputStr := buf.String()
+	outputStr := scope.Stdout.String()
 	require.Contains(t, outputStr, "go-broadcast 1.0.0-test")
 	require.Contains(t, outputStr, "Commit:     test123")
 	require.Contains(t, outputStr, "Build Date: 2025-01-01T12:00:00Z")
@@ -177,10 +174,9 @@ func TestPrintVersionJSONOutput(t *testing.T) {
 	setCommit("json456")
 	setBuildDate("2025-01-02T00:00:00Z")
 
-	// Capture output
-	var buf bytes.Buffer
-	output.SetStdout(&buf)
-	defer output.SetStdout(os.Stdout)
+	// Capture output (thread-safe)
+	scope := output.CaptureOutput()
+	defer scope.Restore()
 
 	// Run the function
 	err := printVersion(true)
@@ -188,7 +184,7 @@ func TestPrintVersionJSONOutput(t *testing.T) {
 
 	// Parse JSON output
 	var info VersionInfo
-	err = json.Unmarshal(buf.Bytes(), &info)
+	err = json.Unmarshal(scope.Stdout.Bytes(), &info)
 	require.NoError(t, err)
 
 	// Verify JSON data
@@ -250,17 +246,16 @@ func TestPrintVersionDefaultValues(t *testing.T) {
 	setCommit(unknownString)
 	setBuildDate(unknownString)
 
-	// Capture output
-	var buf bytes.Buffer
-	output.SetStdout(&buf)
-	defer output.SetStdout(os.Stdout)
+	// Capture output (thread-safe)
+	scope := output.CaptureOutput()
+	defer scope.Restore()
 
 	// Run the function
 	err := printVersion(false)
 	require.NoError(t, err)
 
 	// Verify output contains default values
-	outputStr := buf.String()
+	outputStr := scope.Stdout.String()
 	require.Contains(t, outputStr, "go-broadcast "+devVersionString)
 	require.Contains(t, outputStr, "Commit:     "+unknownString)
 	require.Contains(t, outputStr, "Build Date: "+unknownString)
@@ -270,30 +265,28 @@ func TestPrintVersionDefaultValues(t *testing.T) {
 func TestPrintVersionFormats(t *testing.T) {
 	// Test with text output
 	t.Run("text output", func(t *testing.T) {
-		var buf bytes.Buffer
-		output.SetStdout(&buf)
-		defer output.SetStdout(os.Stdout)
+		scope := output.CaptureOutput()
+		defer scope.Restore()
 
 		err := printVersion(false)
 		require.NoError(t, err)
 
 		// Verify some output was produced
-		require.Positive(t, buf.Len())
-		require.Contains(t, buf.String(), "go-broadcast")
+		require.Positive(t, scope.Stdout.Len())
+		require.Contains(t, scope.Stdout.String(), "go-broadcast")
 	})
 
 	// Test with JSON output
 	t.Run("json output", func(t *testing.T) {
-		var buf bytes.Buffer
-		output.SetStdout(&buf)
-		defer output.SetStdout(os.Stdout)
+		scope := output.CaptureOutput()
+		defer scope.Restore()
 
 		err := printVersion(true)
 		require.NoError(t, err)
 
 		// Verify valid JSON was produced
 		var info VersionInfo
-		err = json.Unmarshal(buf.Bytes(), &info)
+		err = json.Unmarshal(scope.Stdout.Bytes(), &info)
 		require.NoError(t, err)
 	})
 }
@@ -318,15 +311,14 @@ func TestVersionOutputFormatting(t *testing.T) {
 		setCommit("abc")
 		setBuildDate("2025-01-01")
 
-		var buf bytes.Buffer
-		output.SetStdout(&buf)
-		defer output.SetStdout(os.Stdout)
+		scope := output.CaptureOutput()
+		defer scope.Restore()
 
 		err := printVersion(true)
 		require.NoError(t, err)
 
 		// Verify indentation (2 spaces)
-		jsonStr := buf.String()
+		jsonStr := scope.Stdout.String()
 		lines := strings.Split(jsonStr, "\n")
 
 		// Check that fields are indented

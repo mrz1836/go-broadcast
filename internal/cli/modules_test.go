@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -103,10 +102,9 @@ groups:
 			SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
 			defer func() { SetFlags(oldFlags) }()
 
-			// Capture output
-			var buf bytes.Buffer
-			output.SetStdout(&buf)
-			defer output.SetStdout(os.Stdout)
+			// Capture output (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
 
 			// Create command
 			cmd := &cobra.Command{}
@@ -123,11 +121,11 @@ groups:
 			require.NoError(t, err)
 
 			if tt.expectNoOutput {
-				assert.Empty(t, buf.String())
+				assert.Empty(t, scope.Stdout.String())
 				return
 			}
 
-			capturedOutput := buf.String()
+			capturedOutput := scope.Stdout.String()
 			for _, expectedOutput := range tt.expectOutput {
 				assert.Contains(t, capturedOutput, expectedOutput, "Output should contain expected text")
 			}
@@ -200,10 +198,9 @@ groups:
 			SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
 			defer func() { SetFlags(oldFlags) }()
 
-			// Capture output
-			var buf bytes.Buffer
-			output.SetStdout(&buf)
-			defer output.SetStdout(os.Stdout)
+			// Capture output (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
 
 			// Create command
 			cmd := &cobra.Command{}
@@ -219,7 +216,7 @@ groups:
 
 			require.NoError(t, err)
 
-			capturedOutput := buf.String()
+			capturedOutput := scope.Stdout.String()
 			for _, expectedOutput := range tt.expectOutput {
 				assert.Contains(t, capturedOutput, expectedOutput, "Output should contain expected text")
 			}
@@ -278,10 +275,9 @@ groups: []`,
 			SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
 			defer func() { SetFlags(oldFlags) }()
 
-			// Capture output
-			var buf bytes.Buffer
-			output.SetStdout(&buf)
-			defer output.SetStdout(os.Stdout)
+			// Capture output (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
 
 			// Create command
 			cmd := &cobra.Command{}
@@ -297,7 +293,7 @@ groups: []`,
 
 			require.NoError(t, err)
 
-			capturedOutput := buf.String()
+			capturedOutput := scope.Stdout.String()
 			for _, expectedOutput := range tt.expectOutput {
 				assert.Contains(t, capturedOutput, expectedOutput, "Output should contain expected text")
 			}
@@ -364,10 +360,9 @@ groups:
 			SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
 			defer func() { SetFlags(oldFlags) }()
 
-			// Capture output
-			var buf bytes.Buffer
-			output.SetStdout(&buf)
-			defer output.SetStdout(os.Stdout)
+			// Capture output (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
 
 			// Create command
 			cmd := &cobra.Command{}
@@ -383,7 +378,7 @@ groups:
 
 			require.NoError(t, err)
 
-			capturedOutput := buf.String()
+			capturedOutput := scope.Stdout.String()
 			for _, expectedOutput := range tt.expectOutput {
 				assert.Contains(t, capturedOutput, expectedOutput, "Output should contain expected text")
 			}
