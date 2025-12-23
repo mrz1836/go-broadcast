@@ -37,81 +37,56 @@ type PRContext struct {
 }
 
 // prPromptTemplate is the template for PR body generation prompts.
-const prPromptTemplate = `You are a technical writer generating a pull request description for go-broadcast repository synchronization.
+// IMPORTANT: The diff is placed FIRST to ensure the AI focuses on actual changes, not patterns.
+const prPromptTemplate = `You are generating a PR description. Your ONLY source of truth is the diff below.
 
-## PR Guidelines to Follow
-{{ if .PRGuidelines }}{{ .PRGuidelines }}{{ else }}
-Every PR must include these four sections:
-1. **What Changed** - Technical summary of changes
-2. **Why It Was Necessary** - Context and motivation
-3. **Testing Performed** - Validation steps taken
-4. **Impact / Risk** - Risk assessment and breaking changes
-{{ end }}
-
-## Synchronization Context
-- **Source Repository**: {{ .SourceRepo }}
-- **Target Repository**: {{ .TargetRepo }}
-- **Commit SHA**: {{ .CommitSHA }}
-
-## Files Changed ({{ len .ChangedFiles }} files)
-{{ range .ChangedFiles -}}
-- {{ .Path }} ({{ .ChangeType }}{{ if or (gt .LinesAdded 0) (gt .LinesRemoved 0) }}, +{{ .LinesAdded }}/-{{ .LinesRemoved }} lines{{ end }})
-{{ end }}
-
-{{ if .DiffSummary }}## Diff Summary
+{{ if .DiffSummary }}## ACTUAL DIFF - THIS IS YOUR ONLY SOURCE OF TRUTH
+Read this diff carefully. You may ONLY describe changes that appear here.
 ` + "```diff" + `
 {{ .DiffSummary }}
 ` + "```" + `
+
+CRITICAL INSTRUCTIONS:
+- The diff above shows EXACTLY what changed (lines starting with - were removed, + were added)
+- You MUST describe ONLY what you see in this diff
+- If you cannot see a specific version number change in the diff, DO NOT mention it
+- If the diff shows "v1.12.1" changing to "v1.12.2", say exactly that - not "v1.11.0 to v1.12.2"
+{{ else }}
+## WARNING: No Diff Content Available
+The diff is empty. Use ONLY generic descriptions like "Synchronized configuration files".
+Do NOT invent specific changes - you have no information about what changed.
 {{ end }}
 
-## Output Format Requirements (MUST follow)
-1. Your response MUST contain exactly 4 markdown sections with ## headers
-2. Each section MUST have 2-4 bullet points starting with *
-3. DO NOT output a single-line commit message
-4. DO NOT use conventional commit format (type(scope): message)
-5. Be descriptive and detailed - this is a PR description, not a commit message
-6. Start your response immediately with "## What Changed" - no preamble
-7. DO NOT mention specific repository names - describe changes in terms of files/diff only, as this message may be used across multiple repositories
-8. CRITICAL: Version number changes (e.g., v1.12.1 → v1.12.2) are FUNCTIONAL changes, NOT formatting changes
-9. Never describe version updates, dependency bumps, or config value changes as "formatting" or "line ending" changes
-10. If the diff shows version numbers changing, explicitly mention the version change in "What Changed"
+## Files Changed ({{ len .ChangedFiles }} files)
+{{ range .ChangedFiles -}}
+- {{ .Path }}
+{{ end }}
 
-## Example of CORRECT PR Body Format
-## What Changed
-* Updated 4 GitHub workflow files to use mage-x v1.8.15
-* Modified CI pipeline configuration for improved build performance
-* Synchronized security scanning workflow with upstream changes
+## HALLUCINATION PREVENTION
+You are prone to hallucinating changes that are not in the diff. DO NOT:
+- Mention GO_COVERAGE_VERSION, GO_PRE_COMMIT_VERSION, or other variables unless they appear in the diff
+- Describe version changes that are not visible in the diff above
+- Assume what a file contains based on its name - only describe what the diff shows
+- Add details that sound plausible but are not in the diff
 
-## Why It Was Necessary
-* Incorporates latest workflow improvements and bug fixes
-* Ensures consistent CI/CD behavior with upstream changes
+If the diff shows ONLY:
+- MAGE_X_VERSION changing from v1.12.1 to v1.12.2
+- A comment being modified
+- permissions: contents: read being added
 
-## Testing Performed
-* Validated YAML syntax of workflow files
-* Verified no breaking changes in workflow configurations
+Then describe ONLY those changes. Nothing else.
 
-## Impact / Risk
-* **Low Risk**: Standard CI workflow updates
-* No breaking changes to existing functionality
+## Output Format
+Generate a PR description with these 4 sections. Start immediately with "## What Changed".
 
-## WRONG Output Formats (DO NOT use)
-- sync(ci): update workflows (THIS IS A COMMIT MESSAGE FORMAT - WRONG)
-- sync: update files from source repository (TOO SHORT - WRONG)
-- Any single line without ## headers (WRONG)
-- "Changes are purely formatting and line ending normalization" when versions changed (FACTUALLY INCORRECT - WRONG)
+1. **## What Changed** - Describe ONLY what the diff shows. Quote version numbers exactly as they appear.
+2. **## Why It Was Necessary** - Brief explanation (2-3 bullets)
+3. **## Testing Performed** - Validation steps (2-3 bullets)
+4. **## Impact / Risk** - Risk assessment (2-3 bullets)
 
-## Your Task
-Generate a PR description following the CORRECT format above. You MUST include these exact 4 sections:
-
-1. **## What Changed** - Technical summary based on the actual files and diff. Be specific about what files changed and why.
-
-2. **## Why It Was Necessary** - Explain the purpose of these changes without mentioning specific repository names.
-
-3. **## Testing Performed** - List validation steps appropriate for these specific file types.
-
-4. **## Impact / Risk** - Assess risk based on what files actually changed.
-
-IMPORTANT: Output ONLY the PR body with ## headers. Do NOT include code blocks. Start immediately with "## What Changed".
+Each section needs 2-4 bullet points starting with *.
+Do NOT mention specific repository names.
+Output ONLY the PR body - no preamble, no code blocks around your response.
 `
 
 // getPRPromptTmpl returns the cached parsed template for PR prompts.
