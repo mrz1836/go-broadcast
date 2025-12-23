@@ -763,7 +763,7 @@ func (dp *DirectoryProcessor) processDirectoryDeletion(ctx context.Context, dirM
 	changes := make([]FileChange, 0, len(allFiles))
 	for _, fileNode := range allFiles {
 		// Get existing file content for proper tracking
-		existingContent, err := dp.getExistingFileContent(ctx, engine, target.Repo, fileNode.Path)
+		existingContent, err := dp.getExistingFileContent(ctx, engine, target.Repo, fileNode.Path, target.Branch)
 		if err != nil {
 			logger.WithError(err).WithField("file", fileNode.Path).Debug("Could not get existing content for deletion, continuing")
 			existingContent = nil // Continue with deletion even if we can't get content
@@ -789,8 +789,8 @@ func (dp *DirectoryProcessor) processDirectoryDeletion(ctx context.Context, dirM
 }
 
 // getExistingFileContent retrieves file content for deletion tracking
-func (dp *DirectoryProcessor) getExistingFileContent(ctx context.Context, engine *Engine, repo, filePath string) ([]byte, error) {
-	fileContent, err := engine.gh.GetFile(ctx, repo, filePath, "")
+func (dp *DirectoryProcessor) getExistingFileContent(ctx context.Context, engine *Engine, repo, filePath, branch string) ([]byte, error) {
+	fileContent, err := engine.gh.GetFile(ctx, repo, filePath, branch)
 	if err != nil {
 		return nil, err
 	}
