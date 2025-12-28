@@ -28,7 +28,7 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/goccy/go-yaml v1.19.1 // indirect
-	github.com/google/dotprompt/go v0.0.0-20251222203746-267ead1970fc // indirect
+	github.com/google/dotprompt/go v0.0.0-20251225213517-f87a1b7686aa // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
