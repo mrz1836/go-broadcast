@@ -37,12 +37,17 @@ func NewMockVersionChecker() *MockVersionChecker {
 }
 
 // CheckLatestVersion returns the mocked version or error.
-func (m *MockVersionChecker) CheckLatestVersion(_ context.Context, repoURL string) (string, error) {
-	m.calls = append(m.calls, repoURL)
-	if err, ok := m.errors[repoURL]; ok {
+func (m *MockVersionChecker) CheckLatestVersion(_ context.Context, repoURL, goModulePath string) (string, error) {
+	// Use module path as key for Go proxy tools, otherwise use repo URL
+	key := repoURL
+	if goModulePath != "" {
+		key = goModulePath
+	}
+	m.calls = append(m.calls, key)
+	if err, ok := m.errors[key]; ok {
 		return "", err
 	}
-	if version, ok := m.versions[repoURL]; ok {
+	if version, ok := m.versions[key]; ok {
 		return version, nil
 	}
 	return "", errNotFound
@@ -171,6 +176,7 @@ func TestGetToolDefinitions(t *testing.T) {
 		"swag",
 		"yamlfmt",
 		"go-pre-commit",
+		"benchstat",
 	}
 
 	assert.Len(t, tools, len(expectedTools), "should have correct number of tools")
@@ -179,9 +185,14 @@ func TestGetToolDefinitions(t *testing.T) {
 		tool, ok := tools[toolName]
 		require.True(t, ok, "tool %s should exist", toolName)
 		assert.NotEmpty(t, tool.EnvVars, "tool %s should have env vars", toolName)
-		assert.NotEmpty(t, tool.RepoURL, "tool %s should have repo URL", toolName)
-		assert.NotEmpty(t, tool.RepoOwner, "tool %s should have repo owner", toolName)
-		assert.NotEmpty(t, tool.RepoName, "tool %s should have repo name", toolName)
+		// Go proxy-based tools (like benchstat) don't have GitHub repo info
+		if tool.GoModulePath == "" {
+			assert.NotEmpty(t, tool.RepoURL, "tool %s should have repo URL", toolName)
+			assert.NotEmpty(t, tool.RepoOwner, "tool %s should have repo owner", toolName)
+			assert.NotEmpty(t, tool.RepoName, "tool %s should have repo name", toolName)
+		} else {
+			assert.NotEmpty(t, tool.GoModulePath, "tool %s should have Go module path", toolName)
+		}
 	}
 
 	// Test specific tool configurations
@@ -705,9 +716,9 @@ func TestMockVersionChecker_CallTracking(t *testing.T) {
 	ctx := context.Background()
 
 	// Make calls
-	_, _ = mock.CheckLatestVersion(ctx, "https://github.com/owner/repo1")
-	_, _ = mock.CheckLatestVersion(ctx, "https://github.com/owner/repo2")
-	_, _ = mock.CheckLatestVersion(ctx, "https://github.com/owner/repo1")
+	_, _ = mock.CheckLatestVersion(ctx, "https://github.com/owner/repo1", "")
+	_, _ = mock.CheckLatestVersion(ctx, "https://github.com/owner/repo2", "")
+	_, _ = mock.CheckLatestVersion(ctx, "https://github.com/owner/repo1", "")
 
 	// Verify calls
 	calls := mock.GetCalls()
@@ -737,8 +748,8 @@ func TestVersionChecker_Integration(t *testing.T) {
 	checker := NewVersionChecker(false)
 	ctx := context.Background()
 
-	// Test with a known stable repo
-	version, err := checker.CheckLatestVersion(ctx, "https://github.com/magefile/mage")
+	// Test with a known stable repo (GitHub releases)
+	version, err := checker.CheckLatestVersion(ctx, "https://github.com/magefile/mage", "")
 	if err != nil {
 		// Network errors are ok in integration tests
 		t.Logf("Network error (expected in some envs): %v", err)
@@ -747,4 +758,80 @@ func TestVersionChecker_Integration(t *testing.T) {
 
 	assert.NotEmpty(t, version)
 	t.Logf("Found version: %s", version)
+}
+
+func TestVersionChecker_GoProxy_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	// Test Go proxy API
+	checker := NewVersionChecker(false)
+	ctx := context.Background()
+
+	// Test with a Go module that uses pseudo-versions
+	version, err := checker.CheckLatestVersion(ctx, "", "golang.org/x/perf")
+	if err != nil {
+		// Network errors are ok in integration tests
+		t.Logf("Network error (expected in some envs): %v", err)
+		return
+	}
+
+	assert.NotEmpty(t, version)
+	assert.Contains(t, version, "v0.0.0-", "should be a pseudo-version")
+	t.Logf("Found Go proxy version: %s", version)
+}
+
+func TestVersionUpdateService_CheckVersions_PinRecommended(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+	// Mock Go proxy response for benchstat
+	checker.SetVersion("golang.org/x/perf", "v0.0.0-20251208221838-04cf7a2dca90")
+
+	tools := map[string]*ToolInfo{
+		"benchstat": {
+			EnvVars:      []string{"MAGE_X_BENCHSTAT_VERSION"},
+			GoModulePath: "golang.org/x/perf",
+		},
+	}
+
+	currentVersions := map[string]string{
+		"benchstat": "latest",
+	}
+
+	ctx := context.Background()
+	results := service.checkVersions(ctx, tools, currentVersions)
+
+	require.Len(t, results, 1)
+	assert.Equal(t, "pin-recommended", results[0].Status)
+	assert.Equal(t, "v0.0.0-20251208221838-04cf7a2dca90", results[0].LatestVersion)
+	assert.Equal(t, "latest", results[0].CurrentVersion)
+}
+
+func TestVersionUpdateService_HasUpdates_IncludesPinRecommended(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+
+	t.Run("has pin-recommended", func(t *testing.T) {
+		results := []CheckResult{
+			{Status: "up-to-date"},
+			{Status: "pin-recommended"},
+			{Status: "up-to-date"},
+		}
+		assert.True(t, service.hasUpdates(results))
+	})
+
+	t.Run("only up-to-date and errors", func(t *testing.T) {
+		results := []CheckResult{
+			{Status: "up-to-date"},
+			{Status: "up-to-date"},
+			{Status: "error"},
+		}
+		assert.False(t, service.hasUpdates(results))
+	})
 }
