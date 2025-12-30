@@ -26,9 +26,9 @@ var (
 	ErrGitHubAPI      = errors.New("GitHub API error")
 )
 
-// VersionChecker defines the interface for checking latest tool versions from GitHub.
+// VersionChecker defines the interface for checking latest tool versions from GitHub or Go proxy.
 type VersionChecker interface {
-	CheckLatestVersion(ctx context.Context, repoURL string) (string, error)
+	CheckLatestVersion(ctx context.Context, repoURL, goModulePath string) (string, error)
 }
 
 // FileUpdater defines the interface for file operations.
@@ -47,10 +47,11 @@ type VersionLogger interface {
 
 // ToolInfo represents a tool with its version configuration.
 type ToolInfo struct {
-	EnvVars   []string // Multiple env vars may use the same tool
-	RepoURL   string   // GitHub repository URL
-	RepoOwner string   // GitHub owner
-	RepoName  string   // GitHub repository name
+	EnvVars      []string // Multiple env vars may use the same tool
+	RepoURL      string   // GitHub repository URL
+	RepoOwner    string   // GitHub owner
+	RepoName     string   // GitHub repository name
+	GoModulePath string   // Go module path for proxy.golang.org lookup (optional, takes precedence over GitHub)
 }
 
 // CheckResult represents the result of a version check.
@@ -75,6 +76,12 @@ type GoRelease struct {
 	Stable  bool   `json:"stable"`
 }
 
+// GoProxyInfo represents a Go proxy API response for module version lookup.
+type GoProxyInfo struct {
+	Version string `json:"Version"`
+	Time    string `json:"Time"`
+}
+
 // realVersionChecker implements VersionChecker using GitHub API.
 type realVersionChecker struct {
 	httpClient *http.Client
@@ -92,14 +99,19 @@ func NewVersionChecker(useGHCLI bool) VersionChecker {
 // GoDevAPIURL is the URL for the official Go download API.
 const GoDevAPIURL = "https://go.dev/dl/?mode=json"
 
-// CheckLatestVersion checks the latest version from GitHub releases.
-func (r *realVersionChecker) CheckLatestVersion(ctx context.Context, repoURL string) (string, error) {
-	// Special case for Go itself - use go.dev API
+// CheckLatestVersion checks the latest version from GitHub releases or Go proxy.
+func (r *realVersionChecker) CheckLatestVersion(ctx context.Context, repoURL, goModulePath string) (string, error) {
+	// Priority 1: Go proxy API for tools with GoModulePath
+	if goModulePath != "" {
+		return r.checkGoProxyVersion(ctx, goModulePath)
+	}
+
+	// Priority 2: go.dev API for Go itself
 	if repoURL == "https://go.dev" || repoURL == "https://github.com/golang/go" {
 		return r.checkGoVersion(ctx)
 	}
 
-	// Try gh CLI first if available and preferred
+	// Priority 3: gh CLI if available and preferred
 	if r.useGHCLI {
 		version, err := r.checkViaGHCLI(ctx, repoURL)
 		if err == nil {
@@ -108,7 +120,7 @@ func (r *realVersionChecker) CheckLatestVersion(ctx context.Context, repoURL str
 		// Fall through to API if gh CLI fails
 	}
 
-	// Use GitHub API
+	// Priority 4: GitHub API
 	return r.checkViaAPI(ctx, repoURL)
 }
 
@@ -176,6 +188,12 @@ func (r *realVersionChecker) checkViaAPI(ctx context.Context, repoURL string) (s
 // ErrGoDevAPI is returned when the go.dev API fails.
 var ErrGoDevAPI = errors.New("go.dev API error")
 
+// ErrGoProxyAPI is returned when the Go proxy API fails.
+var ErrGoProxyAPI = errors.New("go proxy API error")
+
+// GoProxyAPIURL is the base URL for the Go proxy API.
+const GoProxyAPIURL = "https://proxy.golang.org"
+
 // checkGoVersion uses the official go.dev API to check the latest stable Go version.
 func (r *realVersionChecker) checkGoVersion(ctx context.Context) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", GoDevAPIURL, nil)
@@ -213,6 +231,45 @@ func (r *realVersionChecker) checkGoVersion(ctx context.Context) (string, error)
 	}
 
 	return "", fmt.Errorf("%w: no stable releases found", ErrGoDevAPI)
+}
+
+// checkGoProxyVersion uses the Go proxy API to check the latest version of a Go module.
+func (r *realVersionChecker) checkGoProxyVersion(ctx context.Context, modulePath string) (string, error) {
+	// Build the proxy URL: https://proxy.golang.org/{module}/@latest
+	apiURL := fmt.Sprintf("%s/%s/@latest", GoProxyAPIURL, modulePath)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			_ = closeErr
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("%w: status %d: %s", ErrGoProxyAPI, resp.StatusCode, string(body))
+	}
+
+	var info GoProxyInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return "", fmt.Errorf("failed to parse Go proxy JSON: %w", err)
+	}
+
+	if info.Version == "" {
+		return "", fmt.Errorf("%w: empty version in response", ErrGoProxyAPI)
+	}
+
+	return info.Version, nil
 }
 
 // realFileUpdater implements FileUpdater using os package.
@@ -295,32 +352,40 @@ func GetToolDefinitions() map[string]*ToolInfo {
 
 	// Define unique tools with their GitHub repos (from .env.base comments)
 	definitions := []struct {
-		key       string
-		envVars   []string
-		repoOwner string
-		repoName  string
+		key          string
+		envVars      []string
+		repoOwner    string
+		repoName     string
+		goModulePath string // Go module path for proxy.golang.org lookup (optional)
 	}{
-		{"go-coverage", []string{"GO_COVERAGE_VERSION"}, "mrz1836", "go-coverage"},
-		{"mage-x", []string{"MAGE_X_VERSION"}, "mrz1836", "mage-x"},
-		{"gitleaks", []string{"MAGE_X_GITLEAKS_VERSION", "GITLEAKS_VERSION", "GO_PRE_COMMIT_GITLEAKS_VERSION"}, "gitleaks", "gitleaks"},
-		{"gofumpt", []string{"MAGE_X_GOFUMPT_VERSION", "GO_PRE_COMMIT_FUMPT_VERSION"}, "mvdan", "gofumpt"},
-		{"golangci-lint", []string{"MAGE_X_GOLANGCI_LINT_VERSION", "GO_PRE_COMMIT_GOLANGCI_LINT_VERSION"}, "golangci", "golangci-lint"},
-		{"goreleaser", []string{"MAGE_X_GORELEASER_VERSION"}, "goreleaser", "goreleaser"},
-		{"govulncheck", []string{"MAGE_X_GOVULNCHECK_VERSION", "GOVULNCHECK_VERSION"}, "golang", "vuln"},
-		{"mockgen", []string{"MAGE_X_MOCKGEN_VERSION"}, "uber-go", "mock"},
-		{"nancy", []string{"MAGE_X_NANCY_VERSION", "NANCY_VERSION"}, "sonatype-nexus-community", "nancy"},
-		{"staticcheck", []string{"MAGE_X_STATICCHECK_VERSION"}, "dominikh", "go-tools"},
-		{"swag", []string{"MAGE_X_SWAG_VERSION"}, "swaggo", "swag"},
-		{"yamlfmt", []string{"MAGE_X_YAMLFMT_VERSION"}, "google", "yamlfmt"},
-		{"go-pre-commit", []string{"GO_PRE_COMMIT_VERSION"}, "mrz1836", "go-pre-commit"},
+		{"go-coverage", []string{"GO_COVERAGE_VERSION"}, "mrz1836", "go-coverage", ""},
+		{"mage-x", []string{"MAGE_X_VERSION"}, "mrz1836", "mage-x", ""},
+		{"gitleaks", []string{"MAGE_X_GITLEAKS_VERSION", "GITLEAKS_VERSION", "GO_PRE_COMMIT_GITLEAKS_VERSION"}, "gitleaks", "gitleaks", ""},
+		{"gofumpt", []string{"MAGE_X_GOFUMPT_VERSION", "GO_PRE_COMMIT_FUMPT_VERSION"}, "mvdan", "gofumpt", ""},
+		{"golangci-lint", []string{"MAGE_X_GOLANGCI_LINT_VERSION", "GO_PRE_COMMIT_GOLANGCI_LINT_VERSION"}, "golangci", "golangci-lint", ""},
+		{"goreleaser", []string{"MAGE_X_GORELEASER_VERSION"}, "goreleaser", "goreleaser", ""},
+		{"govulncheck", []string{"MAGE_X_GOVULNCHECK_VERSION", "GOVULNCHECK_VERSION"}, "golang", "vuln", ""},
+		{"mockgen", []string{"MAGE_X_MOCKGEN_VERSION"}, "uber-go", "mock", ""},
+		{"nancy", []string{"MAGE_X_NANCY_VERSION", "NANCY_VERSION"}, "sonatype-nexus-community", "nancy", ""},
+		{"staticcheck", []string{"MAGE_X_STATICCHECK_VERSION"}, "dominikh", "go-tools", ""},
+		{"swag", []string{"MAGE_X_SWAG_VERSION"}, "swaggo", "swag", ""},
+		{"yamlfmt", []string{"MAGE_X_YAMLFMT_VERSION"}, "google", "yamlfmt", ""},
+		{"go-pre-commit", []string{"GO_PRE_COMMIT_VERSION"}, "mrz1836", "go-pre-commit", ""},
+		// Go proxy-based tools (use pseudo-versions like v0.0.0-YYYYMMDDHHMMSS-commitSHA)
+		{"benchstat", []string{"MAGE_X_BENCHSTAT_VERSION"}, "", "", "golang.org/x/perf"},
 	}
 
 	for _, def := range definitions {
+		var repoURL string
+		if def.repoOwner != "" && def.repoName != "" {
+			repoURL = fmt.Sprintf("https://github.com/%s/%s", def.repoOwner, def.repoName)
+		}
 		tools[def.key] = &ToolInfo{
-			EnvVars:   def.envVars,
-			RepoURL:   fmt.Sprintf("https://github.com/%s/%s", def.repoOwner, def.repoName),
-			RepoOwner: def.repoOwner,
-			RepoName:  def.repoName,
+			EnvVars:      def.envVars,
+			RepoURL:      repoURL,
+			RepoOwner:    def.repoOwner,
+			RepoName:     def.repoName,
+			GoModulePath: def.goModulePath,
 		}
 	}
 
@@ -430,7 +495,7 @@ func (s *VersionUpdateService) checkVersions(ctx context.Context, tools map[stri
 		}
 
 		currentVersion := currentVersions[toolKey]
-		latestVersion, err := s.checker.CheckLatestVersion(ctx, tool.RepoURL)
+		latestVersion, err := s.checker.CheckLatestVersion(ctx, tool.RepoURL, tool.GoModulePath)
 
 		result := CheckResult{
 			Tool:           toolKey,
@@ -442,6 +507,9 @@ func (s *VersionUpdateService) checkVersions(ctx context.Context, tools map[stri
 		if err != nil {
 			result.Status = "error"
 			result.Error = err
+		} else if currentVersion == "latest" {
+			// Special case: "latest" resolves to actual version - recommend pinning for reproducibility
+			result.Status = "pin-recommended"
 		} else if s.normalizeVersion(currentVersion) == s.normalizeVersion(latestVersion) {
 			result.Status = "up-to-date"
 		} else {
@@ -466,13 +534,14 @@ func (s *VersionUpdateService) normalizeVersion(version string) string {
 // displayResults displays the check results in a formatted table.
 func (s *VersionUpdateService) displayResults(results []CheckResult) {
 	// Print header
-	header := fmt.Sprintf("%-25s %-15s %-15s %s\n", "Tool", "Current", "Latest", "Status")
+	header := fmt.Sprintf("%-25s %-15s %-45s %s\n", "Tool", "Current", "Latest", "Status")
 	_, _ = os.Stdout.WriteString(header)
-	_, _ = os.Stdout.WriteString(strings.Repeat("─", 80) + "\n")
+	_, _ = os.Stdout.WriteString(strings.Repeat("─", 110) + "\n")
 
 	// Track statistics
 	upToDate := 0
 	updates := 0
+	pinRecommended := 0
 	errors := 0
 
 	// Print results
@@ -485,12 +554,15 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 		case "update-available":
 			statusIcon = "⬆ Update available"
 			updates++
+		case "pin-recommended":
+			statusIcon = "📌 Pin recommended"
+			pinRecommended++
 		case "error":
 			statusIcon = fmt.Sprintf("✗ Error: %v", result.Error)
 			errors++
 		}
 
-		line := fmt.Sprintf("%-25s %-15s %-15s %s\n",
+		line := fmt.Sprintf("%-25s %-15s %-45s %s\n",
 			result.Tool,
 			result.CurrentVersion,
 			result.LatestVersion,
@@ -504,18 +576,21 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 	_, _ = os.Stdout.WriteString("Summary:\n")
 	_, _ = fmt.Fprintf(os.Stdout, "✓ %d tools up to date\n", upToDate)
 	_, _ = fmt.Fprintf(os.Stdout, "⬆ %d tools with updates available\n", updates)
+	if pinRecommended > 0 {
+		_, _ = fmt.Fprintf(os.Stdout, "📌 %d tools recommend version pinning\n", pinRecommended)
+	}
 	_, _ = fmt.Fprintf(os.Stdout, "✗ %d tools failed to check\n", errors)
 	_, _ = os.Stdout.WriteString("\n")
 
-	if s.dryRun && updates > 0 {
+	if s.dryRun && (updates > 0 || pinRecommended > 0) {
 		s.logger.Info("[DRY RUN] No changes made. Set UPDATE_VERSIONS=true to apply updates.")
 	}
 }
 
-// hasUpdates checks if any updates are available.
+// hasUpdates checks if any updates are available or pinning is recommended.
 func (s *VersionUpdateService) hasUpdates(results []CheckResult) bool {
 	for _, result := range results {
-		if result.Status == "update-available" {
+		if result.Status == "update-available" || result.Status == "pin-recommended" {
 			return true
 		}
 	}
