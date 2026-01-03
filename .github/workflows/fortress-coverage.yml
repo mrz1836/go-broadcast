@@ -2434,7 +2434,7 @@ jobs:
               COVERAGE_PERCENTAGE=""
 
               # Fallback: Calculate from coverage file lines manually
-              # Coverage file format: file.go:line.col,line.col count statements
+              # Coverage file format: path/file.go:startLine.startCol,endLine.endCol stmtCount hitCount
               TOTAL_STATEMENTS=0
               COVERED_STATEMENTS=0
               while IFS= read -r line; do
