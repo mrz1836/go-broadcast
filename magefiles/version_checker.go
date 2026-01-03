@@ -531,12 +531,25 @@ func (s *VersionUpdateService) normalizeVersion(version string) string {
 	return version
 }
 
+// truncateVersion truncates long version strings with middle ellipsis.
+// Versions longer than maxLen become "start...end" format.
+func truncateVersion(version string, maxLen int) string {
+	if len(version) <= maxLen {
+		return version
+	}
+	// Account for 3 chars for "..."
+	available := maxLen - 3
+	startLen := (available * 2) / 3 // Keep more from start (prefix matters)
+	endLen := available - startLen
+	return version[:startLen] + "..." + version[len(version)-endLen:]
+}
+
 // displayResults displays the check results in a formatted table.
 func (s *VersionUpdateService) displayResults(results []CheckResult) {
 	// Print header
-	header := fmt.Sprintf("%-25s %-15s %-45s %s\n", "Tool", "Current", "Latest", "Status")
+	header := fmt.Sprintf("%-20s %-22s %-22s %s\n", "Tool", "Current", "Latest", "Status")
 	_, _ = os.Stdout.WriteString(header)
-	_, _ = os.Stdout.WriteString(strings.Repeat("─", 110) + "\n")
+	_, _ = os.Stdout.WriteString(strings.Repeat("─", 85) + "\n")
 
 	// Track statistics
 	upToDate := 0
@@ -562,10 +575,10 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 			errors++
 		}
 
-		line := fmt.Sprintf("%-25s %-15s %-45s %s\n",
+		line := fmt.Sprintf("%-20s %-22s %-22s %s\n",
 			result.Tool,
-			result.CurrentVersion,
-			result.LatestVersion,
+			truncateVersion(result.CurrentVersion, 20),
+			truncateVersion(result.LatestVersion, 20),
 			statusIcon,
 		)
 		_, _ = os.Stdout.WriteString(line)
