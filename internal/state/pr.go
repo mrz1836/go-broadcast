@@ -184,7 +184,7 @@ func GenerateEnhancedPRDescription(metadata *EnhancedPRMetadata, summary string)
 
 	// Show transforms if applied
 	if metadata.Performance != nil && len(metadata.Performance.TransformsApplied) > 0 {
-		var transforms []string
+		transforms := make([]string, 0, len(metadata.Performance.TransformsApplied))
 		for transform := range metadata.Performance.TransformsApplied {
 			transforms = append(transforms, transform)
 		}

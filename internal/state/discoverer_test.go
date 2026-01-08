@@ -67,7 +67,7 @@ func TestDiscovererInterfaceMethodSignatures(t *testing.T) {
 // TestDiscovererInterfaceCompilance ensures the interface methods have the correct types
 func TestDiscovererInterfaceCompliance(t *testing.T) {
 	// Test that both concrete and mock implementations can be assigned to interface
-	var discoverers []Discoverer
+	discoverers := make([]Discoverer, 0, 2)
 
 	// Add concrete implementation (requires non-nil client)
 	discoverers = append(discoverers, NewDiscoverer(gh.NewMockClient(), nil, nil))

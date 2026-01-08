@@ -93,7 +93,8 @@ func setupTestRepo(ctx context.Context, b *testing.B) (string, Client, func()) {
 
 // Helper to create git command for testing
 func (g *gitClient) createCommand(ctx context.Context, repoPath string, args ...string) *exec.Cmd {
-	fullArgs := []string{"-C", repoPath}
+	fullArgs := make([]string, 0, 2+len(args))
+	fullArgs = append(fullArgs, "-C", repoPath)
 	fullArgs = append(fullArgs, args...)
 	return exec.CommandContext(ctx, "git", fullArgs...) //nolint:gosec // Git command with controlled arguments
 }
@@ -287,7 +288,7 @@ func BenchmarkBatchOperations(b *testing.B) {
 
 			// Create test files
 			filePaths := testutil.CreateBenchmarkFiles(b, repoPath, fileCount)
-			var files []string
+			files := make([]string, 0, len(filePaths))
 			for _, filePath := range filePaths {
 				files = append(files, filepath.Base(filePath))
 			}
@@ -308,7 +309,7 @@ func BenchmarkBatchOperations(b *testing.B) {
 
 			// Create and add test files
 			filePaths := testutil.CreateBenchmarkFiles(b, repoPath, fileCount)
-			var files []string
+			files := make([]string, 0, len(filePaths))
 			for _, filePath := range filePaths {
 				files = append(files, filepath.Base(filePath))
 			}

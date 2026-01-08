@@ -333,7 +333,7 @@ func (pr *PerformanceReporter) calculatePerformanceChanges(report *PerformanceRe
 
 // generateRecommendations creates performance optimization recommendations
 func (pr *PerformanceReporter) generateRecommendations(report *PerformanceReport) []Recommendation {
-	var recommendations []Recommendation
+	recommendations := make([]Recommendation, 0, 8)
 
 	// Memory-related recommendations
 	recommendations = append(recommendations, pr.analyzeMemoryMetrics(report)...)

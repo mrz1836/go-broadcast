@@ -342,7 +342,8 @@ func (g *gitClient) CreateBranch(ctx context.Context, repoPath, branch string) e
 
 // Add stages files for commit
 func (g *gitClient) Add(ctx context.Context, repoPath string, paths ...string) error {
-	args := []string{"-C", repoPath, "add"}
+	args := make([]string, 0, 3+len(paths))
+	args = append(args, "-C", repoPath, "add")
 	args = append(args, paths...)
 
 	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed

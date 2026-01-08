@@ -48,7 +48,8 @@ func (g *gitClient) BatchAddFiles(ctx context.Context, repoPath string, files []
 		}
 
 		batch := files[i:end]
-		args := []string{"-C", repoPath, "add"}
+		args := make([]string, 0, 3+len(batch))
+		args = append(args, "-C", repoPath, "add")
 		args = append(args, batch...)
 
 		cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed
@@ -69,7 +70,8 @@ func (g *gitClient) BatchStatus(ctx context.Context, repoPath string, files []st
 		return make(map[string]string), nil
 	}
 
-	args := []string{"-C", repoPath, "status", "--porcelain", "--"}
+	args := make([]string, 0, 5+len(files))
+	args = append(args, "-C", repoPath, "status", "--porcelain", "--")
 	args = append(args, files...)
 
 	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed
@@ -201,7 +203,8 @@ func (g *gitClient) BatchCheckIgnored(ctx context.Context, repoPath string, file
 		return make(map[string]bool), nil
 	}
 
-	args := []string{"-C", repoPath, "check-ignore"}
+	args := make([]string, 0, 3+len(files))
+	args = append(args, "-C", repoPath, "check-ignore")
 	args = append(args, files...)
 
 	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed

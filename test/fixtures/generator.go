@@ -425,7 +425,7 @@ func (g *TestRepoGenerator) GenerateTestConfig(sourceRepo, sourceBranch string, 
 
 // GenerateOldFormatConfig creates a configuration using the old format
 func (g *TestRepoGenerator) GenerateOldFormatConfig(sourceRepo, sourceBranch string, targetRepos []*TestRepository) *config.Config {
-	targets := []config.TargetConfig{}
+	targets := make([]config.TargetConfig, 0, len(targetRepos))
 
 	for _, repo := range targetRepos {
 		target := config.TargetConfig{
@@ -478,7 +478,7 @@ func (g *TestRepoGenerator) GenerateOldFormatConfig(sourceRepo, sourceBranch str
 
 // GenerateGroupFormatConfig creates a configuration using the new group format
 func (g *TestRepoGenerator) GenerateGroupFormatConfig(sourceRepo, sourceBranch string, targetRepos []*TestRepository) *config.Config {
-	targets := []config.TargetConfig{}
+	targets := make([]config.TargetConfig, 0, len(targetRepos))
 
 	for _, repo := range targetRepos {
 		target := config.TargetConfig{

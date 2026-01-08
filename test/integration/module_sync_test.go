@@ -804,7 +804,7 @@ const (
 		commitFiles(t, sourceDir, "Add multiple modules")
 
 		// Create configuration with multiple module directories
-		var dirMappings []config.DirectoryMapping
+		dirMappings := make([]config.DirectoryMapping, 0, len(modules))
 		for _, mod := range modules {
 			dirMappings = append(dirMappings, config.DirectoryMapping{
 				Src:  mod.path,

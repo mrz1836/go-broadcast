@@ -1210,7 +1210,7 @@ func TestDeterministicRecommendationOrder(t *testing.T) {
 	var firstOrder []string
 	for i := 0; i < 10; i++ {
 		recommendations := reporter.analyzeRegressions(report)
-		var order []string
+		order := make([]string, 0, len(recommendations))
 		for _, rec := range recommendations {
 			order = append(order, rec.ID)
 		}
