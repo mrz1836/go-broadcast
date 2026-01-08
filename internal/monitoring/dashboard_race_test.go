@@ -9,6 +9,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// waitForHistory polls until history has at least minEntries, with timeout.
+// Returns true if the condition was met, false on timeout.
+// This is more reliable than time.Sleep() under race detection with t.Parallel().
+func waitForHistory(collector *MetricsCollector, minEntries int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if len(collector.GetMetricsHistory()) >= minEntries {
+			return true
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return false
+}
+
 // TestMetricsConcurrentReadWrite tests concurrent reads and writes to metrics.
 // This test specifically targets the deep copy fix for race conditions.
 func TestMetricsConcurrentReadWrite(t *testing.T) {
@@ -19,8 +33,9 @@ func TestMetricsConcurrentReadWrite(t *testing.T) {
 	collector := NewMetricsCollector(config)
 	defer collector.Stop()
 
-	// Wait for initial metrics collection
-	time.Sleep(20 * time.Millisecond)
+	// Wait for initial metrics collection using polling (more reliable than fixed sleep)
+	require.True(t, waitForHistory(collector, 1, 500*time.Millisecond),
+		"Timed out waiting for initial metrics collection")
 
 	const goroutines = 100
 	var wg sync.WaitGroup
@@ -95,8 +110,9 @@ func TestHistoryDeepCopyIsolation(t *testing.T) {
 	collector := NewMetricsCollector(config)
 	defer collector.Stop()
 
-	// Wait for history to build up
-	time.Sleep(30 * time.Millisecond)
+	// Wait for history to build up using polling (more reliable than fixed sleep under race detection)
+	require.True(t, waitForHistory(collector, 1, 500*time.Millisecond),
+		"Timed out waiting for history to be populated")
 
 	history1 := collector.GetMetricsHistory()
 	history2 := collector.GetMetricsHistory()
@@ -158,8 +174,9 @@ func TestConcurrentMetricsAndHistory(t *testing.T) {
 	collector := NewMetricsCollector(config)
 	defer collector.Stop()
 
-	// Wait for some history to build
-	time.Sleep(20 * time.Millisecond)
+	// Wait for some history to build using polling (more reliable than fixed sleep)
+	require.True(t, waitForHistory(collector, 1, 500*time.Millisecond),
+		"Timed out waiting for history to build")
 
 	const goroutines = 50
 	var wg sync.WaitGroup
