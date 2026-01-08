@@ -72,6 +72,9 @@ lint-output.txt
 # Node.js
 node_modules/
 
+# GoFortress
+.github/.env.base.backup
+
 ########################
 # Build & Distribution #
 ########################
