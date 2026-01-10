@@ -117,10 +117,14 @@ func TestAll() error {
 // By default, runs in dry-run mode (no changes).
 // Set UPDATE_VERSIONS=true environment variable to apply updates.
 //
+// Major version upgrades (e.g., v1.x.x to v2.x.x) are skipped by default.
+// Set ALLOW_MAJOR_UPGRADES=true to include major version upgrades.
+//
 // Usage:
 //
 //	mage updateToolVersions              # Dry run (no changes)
-//	UPDATE_VERSIONS=true mage updateToolVersions  # Apply updates
+//	UPDATE_VERSIONS=true mage updateToolVersions  # Apply minor/patch updates only
+//	UPDATE_VERSIONS=true ALLOW_MAJOR_UPGRADES=true mage updateToolVersions  # Apply all updates
 //
 // The command includes rate limiting (2s delay between checks) to avoid
 // GitHub API rate limits and will use gh CLI if available for higher limits.
@@ -132,5 +136,12 @@ func UpdateToolVersions() error {
 		dryRun = false
 	}
 
-	return RunVersionUpdate(dryRun)
+	// Check if major upgrades are allowed (default: false)
+	allowMajorUpgrades := false
+	majorEnv, _ := sh.Output("sh", "-c", "echo $ALLOW_MAJOR_UPGRADES")
+	if majorEnv == "true" {
+		allowMajorUpgrades = true
+	}
+
+	return RunVersionUpdate(dryRun, allowMajorUpgrades)
 }

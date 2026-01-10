@@ -415,7 +415,7 @@ func TestUpdateToolVersions(t *testing.T) {
 		checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.15")
 
 		// Create and inject mock service (dry-run mode)
-		mockService := NewVersionUpdateService(checker, updater, logger, true, 0)
+		mockService := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 		setVersionUpdateService(mockService)
 
 		err := UpdateToolVersions()
@@ -440,7 +440,7 @@ func TestUpdateToolVersions(t *testing.T) {
 		checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.16")
 
 		// Create and inject mock service (update mode)
-		mockService := NewVersionUpdateService(checker, updater, logger, false, 0)
+		mockService := NewVersionUpdateService(checker, updater, logger, false, false, 0)
 		setVersionUpdateService(mockService)
 
 		err := UpdateToolVersions()
@@ -465,7 +465,7 @@ func TestUpdateToolVersions(t *testing.T) {
 		checker.SetError("https://github.com/mrz1836/go-coverage", errRateLimitedTest)
 
 		// Create and inject mock service
-		mockService := NewVersionUpdateService(checker, updater, logger, true, 0)
+		mockService := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 		setVersionUpdateService(mockService)
 
 		// Should not return error even if checks fail (displays error in table)
@@ -486,7 +486,7 @@ func TestUpdateToolVersions(t *testing.T) {
 		updater.readError = errFileNotFoundTest
 
 		// Create and inject mock service
-		mockService := NewVersionUpdateService(checker, updater, logger, true, 0)
+		mockService := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 		setVersionUpdateService(mockService)
 
 		err := UpdateToolVersions()

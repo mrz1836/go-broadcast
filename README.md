@@ -1271,8 +1271,11 @@ To update the `.env.base` file with the latest tool versions, run:
 # Dry run to preview changes
 magex updateToolVersions
 
-# Apply changes to .env.base
+# Apply minor/patch updates to .env.base (major version upgrades are skipped by default)
 UPDATE_VERSIONS=true magex updateToolVersions
+
+# Apply all updates including major version upgrades (e.g., v1.x.x to v2.x.x)
+UPDATE_VERSIONS=true ALLOW_MAJOR_UPGRADES=true magex updateToolVersions
 ```
 
 </details>

@@ -328,21 +328,23 @@ func (c *consoleLogger) Warn(msg string) {
 
 // VersionUpdateService orchestrates the version update process.
 type VersionUpdateService struct {
-	checker VersionChecker
-	updater FileUpdater
-	logger  VersionLogger
-	dryRun  bool
-	delay   time.Duration
+	checker            VersionChecker
+	updater            FileUpdater
+	logger             VersionLogger
+	dryRun             bool
+	allowMajorUpgrades bool
+	delay              time.Duration
 }
 
 // NewVersionUpdateService creates a new version update service.
-func NewVersionUpdateService(checker VersionChecker, updater FileUpdater, logger VersionLogger, dryRun bool, delay time.Duration) *VersionUpdateService {
+func NewVersionUpdateService(checker VersionChecker, updater FileUpdater, logger VersionLogger, dryRun, allowMajorUpgrades bool, delay time.Duration) *VersionUpdateService {
 	return &VersionUpdateService{
-		checker: checker,
-		updater: updater,
-		logger:  logger,
-		dryRun:  dryRun,
-		delay:   delay,
+		checker:            checker,
+		updater:            updater,
+		logger:             logger,
+		dryRun:             dryRun,
+		allowMajorUpgrades: allowMajorUpgrades,
+		delay:              delay,
 	}
 }
 
@@ -512,6 +514,9 @@ func (s *VersionUpdateService) checkVersions(ctx context.Context, tools map[stri
 			result.Status = "pin-recommended"
 		} else if s.normalizeVersion(currentVersion) == s.normalizeVersion(latestVersion) {
 			result.Status = "up-to-date"
+		} else if s.isMajorUpgrade(currentVersion, latestVersion) && !s.allowMajorUpgrades {
+			// Major upgrade detected but not allowed - skip with notification
+			result.Status = "major-skipped"
 		} else {
 			result.Status = "update-available"
 		}
@@ -529,6 +534,54 @@ func (s *VersionUpdateService) normalizeVersion(version string) string {
 	// Remove 'go' prefix if present (for Go version comparison)
 	version = strings.TrimPrefix(version, "go")
 	return version
+}
+
+// extractMajorVersion extracts the major version number from a version string.
+// Returns the major version as a string and a boolean indicating success.
+// Examples: "v1.2.3" -> "1", "2.0.0-rc5" -> "2", "go1.25.5" -> "1"
+func (s *VersionUpdateService) extractMajorVersion(version string) (string, bool) {
+	normalized := s.normalizeVersion(version)
+	if normalized == "" {
+		return "", false
+	}
+
+	// Find the first dot or end of string
+	dotIdx := strings.Index(normalized, ".")
+	if dotIdx == -1 {
+		// No dot found, check if the entire string is a number
+		if _, err := fmt.Sscanf(normalized, "%d", new(int)); err == nil {
+			return normalized, true
+		}
+		return "", false
+	}
+
+	majorPart := normalized[:dotIdx]
+	// Verify it's a valid number
+	if _, err := fmt.Sscanf(majorPart, "%d", new(int)); err == nil {
+		return majorPart, true
+	}
+	return "", false
+}
+
+// isMajorUpgrade checks if the latest version is a major upgrade from the current version.
+// A major upgrade is when the major version number increases (e.g., v1.x.x -> v2.x.x).
+func (s *VersionUpdateService) isMajorUpgrade(current, latest string) bool {
+	currentMajor, currentOk := s.extractMajorVersion(current)
+	latestMajor, latestOk := s.extractMajorVersion(latest)
+
+	if !currentOk || !latestOk {
+		return false
+	}
+
+	var currentNum, latestNum int
+	if _, err := fmt.Sscanf(currentMajor, "%d", &currentNum); err != nil {
+		return false
+	}
+	if _, err := fmt.Sscanf(latestMajor, "%d", &latestNum); err != nil {
+		return false
+	}
+
+	return latestNum > currentNum
 }
 
 // truncateVersion truncates long version strings with middle ellipsis.
@@ -554,6 +607,7 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 	// Track statistics
 	upToDate := 0
 	updates := 0
+	majorSkipped := 0
 	pinRecommended := 0
 	errors := 0
 
@@ -567,6 +621,12 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 		case "update-available":
 			statusIcon = "⬆ Update available"
 			updates++
+		case "major-skipped":
+			// Extract major versions for display
+			currentMajor, _ := s.extractMajorVersion(result.CurrentVersion)
+			latestMajor, _ := s.extractMajorVersion(result.LatestVersion)
+			statusIcon = fmt.Sprintf("⏭ Major upgrade skipped (v%s→v%s)", currentMajor, latestMajor)
+			majorSkipped++
 		case "pin-recommended":
 			statusIcon = "📌 Pin recommended"
 			pinRecommended++
@@ -589,6 +649,9 @@ func (s *VersionUpdateService) displayResults(results []CheckResult) {
 	_, _ = os.Stdout.WriteString("Summary:\n")
 	_, _ = fmt.Fprintf(os.Stdout, "✓ %d tools up to date\n", upToDate)
 	_, _ = fmt.Fprintf(os.Stdout, "⬆ %d tools with updates available\n", updates)
+	if majorSkipped > 0 {
+		_, _ = fmt.Fprintf(os.Stdout, "⏭ %d major upgrades skipped (use ALLOW_MAJOR_UPGRADES=true to apply)\n", majorSkipped)
+	}
 	if pinRecommended > 0 {
 		_, _ = fmt.Fprintf(os.Stdout, "📌 %d tools recommend version pinning\n", pinRecommended)
 	}
@@ -682,7 +745,7 @@ var (
 )
 
 // getVersionUpdateService returns the global version update service instance.
-func getVersionUpdateService(dryRun bool) *VersionUpdateService {
+func getVersionUpdateService(dryRun, allowMajorUpgrades bool) *VersionUpdateService {
 	versionServiceMutex.RLock()
 	if versionUpdateService != nil {
 		versionServiceMutex.RUnlock()
@@ -703,7 +766,7 @@ func getVersionUpdateService(dryRun bool) *VersionUpdateService {
 		delay := 2 * time.Second
 
 		versionServiceMutex.Lock()
-		versionUpdateService = NewVersionUpdateService(checker, updater, logger, dryRun, delay)
+		versionUpdateService = NewVersionUpdateService(checker, updater, logger, dryRun, allowMajorUpgrades, delay)
 		versionServiceMutex.Unlock()
 	})
 
@@ -726,12 +789,12 @@ func resetVersionUpdateService() {
 }
 
 // RunVersionUpdate runs the version update process.
-func RunVersionUpdate(dryRun bool) error {
+func RunVersionUpdate(dryRun, allowMajorUpgrades bool) error {
 	ctx := context.Background()
 
 	// Get the path to .env.base
 	envFilePath := filepath.Join(".github", ".env.base")
 
-	service := getVersionUpdateService(dryRun)
+	service := getVersionUpdateService(dryRun, allowMajorUpgrades)
 	return service.Run(ctx, envFilePath)
 }

@@ -217,7 +217,7 @@ func TestVersionUpdateService_ExtractVersions(t *testing.T) {
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
-		service := NewVersionUpdateService(checker, updater, logger, true, 0)
+		service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 		content := []byte(`# Comment line
 GO_COVERAGE_VERSION=v1.1.15
@@ -242,7 +242,7 @@ NANCY_VERSION=v1.0.52
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
-		service := NewVersionUpdateService(checker, updater, logger, true, 0)
+		service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 		content := []byte(`# Simulating diverged versions (first one is older)
 MAGE_X_GITLEAKS_VERSION=8.29.1
@@ -262,7 +262,7 @@ func TestVersionUpdateService_NormalizeVersion(t *testing.T) {
 	checker := NewMockVersionChecker()
 	updater := NewMockFileUpdater()
 	logger := NewMockLogger()
-	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+	service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 	tests := []struct {
 		name     string
@@ -288,7 +288,7 @@ func TestVersionUpdateService_CheckVersions(t *testing.T) {
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
-		service := NewVersionUpdateService(checker, updater, logger, true, 0)
+		service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 		// Mock versions
 		checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.15")
@@ -326,7 +326,7 @@ func TestVersionUpdateService_CheckVersions(t *testing.T) {
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
-		service := NewVersionUpdateService(checker, updater, logger, true, 0)
+		service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 		// Mock versions with updates
 		checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.16")
@@ -366,7 +366,7 @@ func TestVersionUpdateService_CheckVersions(t *testing.T) {
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
-		service := NewVersionUpdateService(checker, updater, logger, true, 0)
+		service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 		// Mock error
 		checker.SetError("https://github.com/mrz1836/go-coverage", errRateLimited)
@@ -396,7 +396,7 @@ func TestVersionUpdateService_CheckVersions(t *testing.T) {
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
-		service := NewVersionUpdateService(checker, updater, logger, true, 0)
+		service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 		// Mock version with v prefix vs without
 		checker.SetVersion("https://github.com/gitleaks/gitleaks", "v8.29.1")
@@ -427,7 +427,7 @@ func TestVersionUpdateService_HasUpdates(t *testing.T) {
 	checker := NewMockVersionChecker()
 	updater := NewMockFileUpdater()
 	logger := NewMockLogger()
-	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+	service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 	t.Run("has updates", func(t *testing.T) {
 		results := []CheckResult{
@@ -453,7 +453,7 @@ func TestVersionUpdateService_UpdateFile(t *testing.T) {
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
-		service := NewVersionUpdateService(checker, updater, logger, false, 0)
+		service := NewVersionUpdateService(checker, updater, logger, false, false, 0)
 
 		originalContent := []byte(`# Configuration
 GO_COVERAGE_VERSION=v1.1.15
@@ -506,7 +506,7 @@ MAGE_X_GITLEAKS_VERSION=8.29.1
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
-		service := NewVersionUpdateService(checker, updater, logger, false, 0)
+		service := NewVersionUpdateService(checker, updater, logger, false, false, 0)
 
 		updater.backupError = errPermissionDenied
 
@@ -523,7 +523,7 @@ MAGE_X_GITLEAKS_VERSION=8.29.1
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
-		service := NewVersionUpdateService(checker, updater, logger, false, 0)
+		service := NewVersionUpdateService(checker, updater, logger, false, false, 0)
 
 		updater.writeError = errDiskFull
 
@@ -547,7 +547,7 @@ MAGE_X_GITLEAKS_VERSION=8.29.1
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
-		service := NewVersionUpdateService(checker, updater, logger, false, 0)
+		service := NewVersionUpdateService(checker, updater, logger, false, false, 0)
 
 		// Simulate diverged versions: different env vars have different current values and formats
 		originalContent := []byte(`# Configuration
@@ -583,7 +583,7 @@ func TestVersionUpdateService_Run_DryRun(t *testing.T) {
 	checker := NewMockVersionChecker()
 	updater := NewMockFileUpdater()
 	logger := NewMockLogger()
-	service := NewVersionUpdateService(checker, updater, logger, true, 10*time.Millisecond)
+	service := NewVersionUpdateService(checker, updater, logger, true, false, 10*time.Millisecond)
 
 	content := []byte(`GO_COVERAGE_VERSION=v1.1.15
 MAGE_X_VERSION=v1.8.7
@@ -610,7 +610,7 @@ func TestVersionUpdateService_Run_ActualUpdate(t *testing.T) {
 	checker := NewMockVersionChecker()
 	updater := NewMockFileUpdater()
 	logger := NewMockLogger()
-	service := NewVersionUpdateService(checker, updater, logger, false, 10*time.Millisecond)
+	service := NewVersionUpdateService(checker, updater, logger, false, false, 10*time.Millisecond)
 
 	content := []byte(`GO_COVERAGE_VERSION=v1.1.15
 MAGE_X_VERSION=v1.8.7
@@ -639,7 +639,7 @@ func TestVersionUpdateService_Run_ReadError(t *testing.T) {
 	checker := NewMockVersionChecker()
 	updater := NewMockFileUpdater()
 	logger := NewMockLogger()
-	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+	service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 	updater.readError = errFileNotFound
 
@@ -663,7 +663,7 @@ func TestRunVersionUpdate(t *testing.T) {
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
-		mockService := NewVersionUpdateService(checker, updater, logger, true, 0)
+		mockService := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 		// Set up mocks
 		updater.SetContent([]byte("GO_COVERAGE_VERSION=v1.1.15\n"))
@@ -672,7 +672,7 @@ func TestRunVersionUpdate(t *testing.T) {
 		// Inject mock service
 		setVersionUpdateService(mockService)
 
-		err := RunVersionUpdate(true)
+		err := RunVersionUpdate(true, false)
 		require.NoError(t, err)
 	})
 }
@@ -786,7 +786,7 @@ func TestVersionUpdateService_CheckVersions_PinRecommended(t *testing.T) {
 	checker := NewMockVersionChecker()
 	updater := NewMockFileUpdater()
 	logger := NewMockLogger()
-	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+	service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 	// Mock Go proxy response for benchstat
 	checker.SetVersion("golang.org/x/perf", "v0.0.0-20251208221838-04cf7a2dca90")
@@ -815,7 +815,7 @@ func TestVersionUpdateService_HasUpdates_IncludesPinRecommended(t *testing.T) {
 	checker := NewMockVersionChecker()
 	updater := NewMockFileUpdater()
 	logger := NewMockLogger()
-	service := NewVersionUpdateService(checker, updater, logger, true, 0)
+	service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
 	t.Run("has pin-recommended", func(t *testing.T) {
 		results := []CheckResult{
@@ -834,4 +834,265 @@ func TestVersionUpdateService_HasUpdates_IncludesPinRecommended(t *testing.T) {
 		}
 		assert.False(t, service.hasUpdates(results))
 	})
+}
+
+// Tests for major version upgrade detection
+
+func TestVersionUpdateService_ExtractMajorVersion(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
+
+	tests := []struct {
+		name        string
+		input       string
+		expected    string
+		expectValid bool
+	}{
+		{"standard semver", "1.2.3", "1", true},
+		{"with v prefix", "v1.2.3", "1", true},
+		{"double digit major", "v10.20.30", "10", true},
+		{"with go prefix", "go1.25.5", "1", true},
+		{"release candidate", "v2.0.0-rc5", "2", true},
+		{"pseudo-version", "v0.0.0-20251208221838-04cf7a2dca90", "0", true},
+		{"single number", "5", "5", true},
+		{"empty string", "", "", false},
+		{"no valid number", "latest", "", false},
+		{"non-numeric start", "abc.1.2", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, valid := service.extractMajorVersion(tt.input)
+			assert.Equal(t, tt.expectValid, valid, "validity mismatch")
+			if tt.expectValid {
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestVersionUpdateService_IsMajorUpgrade(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
+
+	tests := []struct {
+		name     string
+		current  string
+		latest   string
+		expected bool
+	}{
+		{"v1 to v2", "v1.16.6", "v2.0.0-rc5", true},
+		{"v1 to v2 no prefix", "1.16.6", "2.0.0", true},
+		{"v0 to v1", "v0.9.2", "v1.0.0", true},
+		{"same major different minor", "v1.15.5", "v1.15.6", false},
+		{"same major different patch", "v2.8.0", "v2.8.1", false},
+		{"downgrade major", "v2.0.0", "v1.0.0", false},
+		{"same version", "v1.0.0", "v1.0.0", false},
+		{"with go prefix", "go1.25.5", "go2.0.0", true},
+		{"go minor update", "go1.25.5", "go1.26.0", false},
+		{"pseudo-version same major", "v0.0.0-20251208221838-04cf7a2dca90", "v0.0.0-20260101000000-abc123", false},
+		{"invalid current", "latest", "v1.0.0", false},
+		{"invalid latest", "v1.0.0", "latest", false},
+		{"both invalid", "latest", "stable", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := service.isMajorUpgrade(tt.current, tt.latest)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestVersionUpdateService_CheckVersions_MajorUpgradeSkipped(t *testing.T) {
+	t.Run("major upgrade skipped by default", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		// allowMajorUpgrades = false
+		service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
+
+		// Mock versions with major upgrade
+		checker.SetVersion("https://github.com/swaggo/swag", "v2.0.0-rc5")
+
+		tools := map[string]*ToolInfo{
+			"swag": {
+				EnvVars:   []string{"MAGE_X_SWAG_VERSION"},
+				RepoURL:   "https://github.com/swaggo/swag",
+				RepoOwner: "swaggo",
+				RepoName:  "swag",
+			},
+		}
+
+		currentVersions := map[string]string{
+			"swag": "v1.16.6",
+		}
+
+		ctx := context.Background()
+		results := service.checkVersions(ctx, tools, currentVersions)
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "major-skipped", results[0].Status)
+		assert.Equal(t, "v1.16.6", results[0].CurrentVersion)
+		assert.Equal(t, "v2.0.0-rc5", results[0].LatestVersion)
+	})
+
+	t.Run("major upgrade allowed when flag set", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		// allowMajorUpgrades = true
+		service := NewVersionUpdateService(checker, updater, logger, true, true, 0)
+
+		// Mock versions with major upgrade
+		checker.SetVersion("https://github.com/swaggo/swag", "v2.0.0-rc5")
+
+		tools := map[string]*ToolInfo{
+			"swag": {
+				EnvVars:   []string{"MAGE_X_SWAG_VERSION"},
+				RepoURL:   "https://github.com/swaggo/swag",
+				RepoOwner: "swaggo",
+				RepoName:  "swag",
+			},
+		}
+
+		currentVersions := map[string]string{
+			"swag": "v1.16.6",
+		}
+
+		ctx := context.Background()
+		results := service.checkVersions(ctx, tools, currentVersions)
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "update-available", results[0].Status)
+		assert.Equal(t, "v2.0.0-rc5", results[0].LatestVersion)
+	})
+
+	t.Run("minor update not affected by major flag", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		// allowMajorUpgrades = false, but this is a minor update
+		service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
+
+		checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.15.6")
+
+		tools := map[string]*ToolInfo{
+			"mage-x": {
+				EnvVars:   []string{"MAGE_X_VERSION"},
+				RepoURL:   "https://github.com/mrz1836/mage-x",
+				RepoOwner: "mrz1836",
+				RepoName:  "mage-x",
+			},
+		}
+
+		currentVersions := map[string]string{
+			"mage-x": "v1.15.5",
+		}
+
+		ctx := context.Background()
+		results := service.checkVersions(ctx, tools, currentVersions)
+
+		require.Len(t, results, 1)
+		assert.Equal(t, "update-available", results[0].Status)
+	})
+}
+
+func TestVersionUpdateService_HasUpdates_ExcludesMajorSkipped(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, true, false, 0)
+
+	t.Run("major-skipped does not count as update", func(t *testing.T) {
+		results := []CheckResult{
+			{Status: "up-to-date"},
+			{Status: "major-skipped"},
+			{Status: "up-to-date"},
+		}
+		assert.False(t, service.hasUpdates(results))
+	})
+
+	t.Run("major-skipped with minor update available", func(t *testing.T) {
+		results := []CheckResult{
+			{Status: "up-to-date"},
+			{Status: "major-skipped"},
+			{Status: "update-available"},
+		}
+		assert.True(t, service.hasUpdates(results))
+	})
+}
+
+func TestVersionUpdateService_UpdateFile_SkipsMajorUpgrades(t *testing.T) {
+	t.Run("major-skipped status not updated", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, false, false, 0)
+
+		originalContent := []byte(`# Configuration
+MAGE_X_SWAG_VERSION=v1.16.6
+MAGE_X_VERSION=v1.15.5
+`)
+
+		updater.SetContent(originalContent)
+
+		results := []CheckResult{
+			{
+				Tool:           "swag",
+				EnvVars:        []string{"MAGE_X_SWAG_VERSION"},
+				CurrentVersion: "v1.16.6",
+				LatestVersion:  "v2.0.0-rc5",
+				Status:         "major-skipped", // Should not be updated
+			},
+			{
+				Tool:           "mage-x",
+				EnvVars:        []string{"MAGE_X_VERSION"},
+				CurrentVersion: "v1.15.5",
+				LatestVersion:  "v1.15.6",
+				Status:         "update-available", // Should be updated
+			},
+		}
+
+		err := service.updateFile(".github/.env.base", originalContent, results)
+		require.NoError(t, err)
+
+		writtenData := string(updater.GetWrittenData())
+		// swag should NOT be updated (major upgrade skipped)
+		assert.Contains(t, writtenData, "MAGE_X_SWAG_VERSION=v1.16.6")
+		// mage-x SHOULD be updated (minor update)
+		assert.Contains(t, writtenData, "MAGE_X_VERSION=v1.15.6")
+	})
+}
+
+func TestVersionUpdateService_Run_WithMajorUpgradesAllowed(t *testing.T) {
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	// allowMajorUpgrades = true
+	service := NewVersionUpdateService(checker, updater, logger, false, true, 10*time.Millisecond)
+
+	content := []byte(`MAGE_X_SWAG_VERSION=v1.16.6
+MAGE_X_VERSION=v1.15.5
+`)
+
+	updater.SetContent(content)
+	// Major upgrade
+	checker.SetVersion("https://github.com/swaggo/swag", "v2.0.0")
+	// Minor upgrade
+	checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.15.6")
+
+	ctx := context.Background()
+	err := service.Run(ctx, ".github/.env.base")
+
+	require.NoError(t, err)
+
+	// Both should be updated when allowMajorUpgrades=true
+	writtenData := string(updater.GetWrittenData())
+	assert.Contains(t, writtenData, "MAGE_X_SWAG_VERSION=v2.0.0")
+	assert.Contains(t, writtenData, "MAGE_X_VERSION=v1.15.6")
 }
