@@ -237,21 +237,17 @@ func TestRootRunE_VersionFlag(t *testing.T) {
 func TestContextTimeout(t *testing.T) {
 	t.Parallel()
 
-	// Create context with very short timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	// Wait for timeout
-	time.Sleep(5 * time.Millisecond)
+	// Verify context eventually gets canceled (polling is more reliable than fixed sleep in CI)
+	require.Eventually(t, func() bool {
+		return ctx.Err() != nil
+	}, 500*time.Millisecond, 5*time.Millisecond,
+		"context should be canceled with DeadlineExceeded error")
 
-	// Verify context is canceled
-	select {
-	case <-ctx.Done():
-		require.Error(t, ctx.Err())
-		require.ErrorIs(t, ctx.Err(), context.DeadlineExceeded)
-	default:
-		t.Fatal("context should be canceled")
-	}
+	require.ErrorIs(t, ctx.Err(), context.DeadlineExceeded)
 }
 
 // TestNewRootCmd_CommandStructure verifies root command configuration.
