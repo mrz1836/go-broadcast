@@ -1856,6 +1856,10 @@ func (m *TestValidationMockGHClient) AddPRComment(_ context.Context, _ string, _
 	return ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) GetPRCheckStatus(_ context.Context, _ string, _ int) (*gh.CheckStatusSummary, error) {
+	return nil, ErrMockNotImplemented
+}
+
 // TestRepositorySync_validateAndCleanupOrphanedBranches tests the validateAndCleanupOrphanedBranches method
 func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 	ctx := context.Background()

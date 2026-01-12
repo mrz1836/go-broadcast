@@ -988,6 +988,10 @@ func (m *DirectoryMockGHClient) GetCommit(_ context.Context, _, sha string) (*gh
 	return &gh.Commit{SHA: sha}, nil
 }
 
+func (m *DirectoryMockGHClient) GetPRCheckStatus(_ context.Context, _ string, _ int) (*gh.CheckStatusSummary, error) {
+	return &gh.CheckStatusSummary{}, nil
+}
+
 func (m *DirectoryMockGHClient) ClosePR(_ context.Context, _ string, _ int, _ string) error {
 	return nil
 }

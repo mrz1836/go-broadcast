@@ -143,3 +143,9 @@ func (m *MockClient) AddPRComment(ctx context.Context, repo string, number int, 
 	args := m.Called(ctx, repo, number, comment)
 	return args.Error(0)
 }
+
+// GetPRCheckStatus mock implementation
+func (m *MockClient) GetPRCheckStatus(ctx context.Context, repo string, number int) (*CheckStatusSummary, error) {
+	args := m.Called(ctx, repo, number)
+	return testutil.HandleTwoValueReturn[*CheckStatusSummary](args)
+}
