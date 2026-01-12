@@ -165,6 +165,7 @@ func TestGetToolDefinitions(t *testing.T) {
 		"go",
 		"go-coverage",
 		"mage-x",
+		"mage",
 		"gitleaks",
 		"gofumpt",
 		"golangci-lint",

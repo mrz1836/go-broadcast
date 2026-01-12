@@ -373,6 +373,7 @@ func GetToolDefinitions() map[string]*ToolInfo {
 		{"swag", []string{"MAGE_X_SWAG_VERSION"}, "swaggo", "swag", ""},
 		{"yamlfmt", []string{"MAGE_X_YAMLFMT_VERSION"}, "google", "yamlfmt", ""},
 		{"go-pre-commit", []string{"GO_PRE_COMMIT_VERSION"}, "mrz1836", "go-pre-commit", ""},
+		{"mage", []string{"MAGE_X_MAGE_VERSION"}, "magefile", "mage", ""},
 		// Go proxy-based tools (use pseudo-versions like v0.0.0-YYYYMMDDHHMMSS-commitSHA)
 		{"benchstat", []string{"MAGE_X_BENCHSTAT_VERSION"}, "", "", "golang.org/x/perf"},
 	}
