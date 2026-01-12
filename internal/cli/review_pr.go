@@ -103,18 +103,31 @@ func parsePRURL(url string) (*PRInfo, error) {
 
 // ReviewPRResult contains the result of a PR review and merge operation
 type ReviewPRResult struct {
-	PRInfo                  PRInfo `json:"pr_info"`
-	Reviewed                bool   `json:"reviewed"`
-	AlreadyReviewed         bool   `json:"already_reviewed,omitempty"`           // True if already reviewed by current user
-	SelfAuthored            bool   `json:"self_authored,omitempty"`              // True if PR is authored by current user
-	CommentAdded            bool   `json:"comment_added,omitempty"`              // True if comment was added instead of review
-	Merged                  bool   `json:"merged"`                               // True if merged immediately
-	AutoMergeEnabled        bool   `json:"auto_merge_enabled"`                   // True if auto-merge was enabled
-	AutoMergeAlreadyEnabled bool   `json:"auto_merge_already_enabled,omitempty"` // True if auto-merge was already enabled
-	MergeSkippedNoLabel     bool   `json:"merge_skipped_no_label,omitempty"`     // True if merge skipped due to missing automerge label
-	MergeMethod             string `json:"merge_method,omitempty"`
-	Error                   string `json:"error,omitempty"`
-	AlreadyMerged           bool   `json:"already_merged,omitempty"`
+	PRInfo                  PRInfo   `json:"pr_info"`
+	Reviewed                bool     `json:"reviewed"`
+	AlreadyReviewed         bool     `json:"already_reviewed,omitempty"`           // True if already reviewed by current user
+	SelfAuthored            bool     `json:"self_authored,omitempty"`              // True if PR is authored by current user
+	CommentAdded            bool     `json:"comment_added,omitempty"`              // True if comment was added instead of review
+	Merged                  bool     `json:"merged"`                               // True if merged immediately
+	AutoMergeEnabled        bool     `json:"auto_merge_enabled"`                   // True if auto-merge was enabled
+	AutoMergeAlreadyEnabled bool     `json:"auto_merge_already_enabled,omitempty"` // True if auto-merge was already enabled
+	MergeSkippedNoLabel     bool     `json:"merge_skipped_no_label,omitempty"`     // True if merge skipped due to missing automerge label
+	MergeMethod             string   `json:"merge_method,omitempty"`
+	Error                   string   `json:"error,omitempty"`
+	AlreadyMerged           bool     `json:"already_merged,omitempty"`
+	ChecksSkippedRunning    bool     `json:"checks_skipped_running,omitempty"` // True if skipped due to running checks
+	ChecksSkippedFailed     bool     `json:"checks_skipped_failed,omitempty"`  // True if skipped due to failed checks
+	CheckSummary            string   `json:"check_summary,omitempty"`          // Human-readable check summary
+	RunningCheckNames       []string `json:"running_check_names,omitempty"`    // Names of running checks
+	FailedCheckNames        []string `json:"failed_check_names,omitempty"`     // Names of failed checks
+}
+
+// skippedPRInfo tracks details about PRs skipped due to check status
+type skippedPRInfo struct {
+	Repo       string
+	Number     int
+	Reason     string   // "running" or "failed"
+	CheckNames []string // Names of running/failed checks
 }
 
 // createReviewPRCmd creates the review-pr command for isolated testing
@@ -263,6 +276,9 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 		autoMergeCount := 0
 		selfAuthoredCount := 0
 		reviewOnlyCount := 0
+		checksRunningSkipCount := 0
+		checksFailedSkipCount := 0
+		skippedPRs := make([]skippedPRInfo, 0)
 
 		for i, prInfo := range prInfos {
 			if len(prInfos) > 1 {
@@ -405,9 +421,14 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 				} else if *bypass {
 					// Bypass is allowed since we already confirmed hasAutoLabel above (or no labels configured)
 					output.Info("DRY RUN: PR has automerge label - bypass allowed if needed")
-					output.Info("DRY RUN: Would attempt immediate merge first, use admin bypass if blocked")
 					if *ignoreChecks {
-						output.Warn("DRY RUN: Would ignore status checks (--ignore-checks)")
+						output.Warn("DRY RUN: Would ignore status checks (--ignore-checks) and force merge")
+					} else {
+						output.Info("DRY RUN: Would check CI status before bypass merge")
+						output.Info("DRY RUN: - Running checks → skip PR")
+						output.Info("DRY RUN: - Failed checks → skip PR")
+						output.Info("DRY RUN: - All passed → proceed with bypass merge")
+						output.Info("DRY RUN: Tip: Use --ignore-checks to bypass even with running/failed checks")
 					}
 				} else {
 					output.Info("DRY RUN: Would attempt immediate merge (fallback to auto-merge if blocked)")
@@ -421,40 +442,8 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 				continue
 			}
 
-			// Submit review (skip if already approved, add comment if self-authored)
-			if alreadyApproved {
-				result.AlreadyReviewed = true
-				output.Info(fmt.Sprintf("✓ PR #%d already reviewed by you", prInfo.Number))
-			} else if isSelfAuthored {
-				// Can't approve own PR - add comment instead
-				result.SelfAuthored = true
-				output.Info(fmt.Sprintf("Adding comment to self-authored PR #%d...", prInfo.Number))
-				err = client.AddPRComment(ctx, repoFullName, prInfo.Number, *message)
-				if err != nil {
-					result.Error = fmt.Sprintf("Failed to add comment: %v", err)
-					output.Error(result.Error)
-					results = append(results, result) //nolint:staticcheck // results used in summary
-					failureCount++
-					continue
-				}
-				result.CommentAdded = true
-				selfAuthoredCount++
-				output.Success(fmt.Sprintf("✓ Comment added to PR #%d (self-authored)", prInfo.Number))
-			} else {
-				output.Info(fmt.Sprintf("Submitting approval for PR #%d...", prInfo.Number))
-				err = client.ReviewPR(ctx, repoFullName, prInfo.Number, *message)
-				if err != nil {
-					result.Error = fmt.Sprintf("Failed to review PR: %v", err)
-					output.Error(result.Error)
-					results = append(results, result) //nolint:staticcheck // results used in summary
-					failureCount++
-					continue
-				}
-				result.Reviewed = true
-				output.Success(fmt.Sprintf("✓ PR #%d approved", prInfo.Number))
-			}
-
-			// Check if PR has automerge label - required for any merge operation
+			// Check if PR has automerge label - required for any merge operation.
+			// We check this BEFORE adding review/comment to avoid duplicates when PR is skipped.
 			hasAutoLabel := hasAutomergeLabel(pr.Labels, automergeLabels)
 
 			// If automerge labels are configured but PR lacks the label, skip all merge operations
@@ -474,6 +463,38 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 
 			// If PR has merge conflicts, skip straight to auto-merge
 			if pr.Mergeable != nil && !*pr.Mergeable {
+				// Submit review/comment for merge conflict case (auto-merge will complete the merge)
+				if alreadyApproved {
+					result.AlreadyReviewed = true
+					output.Info(fmt.Sprintf("✓ PR #%d already reviewed by you", prInfo.Number))
+				} else if isSelfAuthored {
+					result.SelfAuthored = true
+					output.Info(fmt.Sprintf("Adding comment to self-authored PR #%d...", prInfo.Number))
+					err = client.AddPRComment(ctx, repoFullName, prInfo.Number, *message)
+					if err != nil {
+						result.Error = fmt.Sprintf("Failed to add comment: %v", err)
+						output.Error(result.Error)
+						results = append(results, result) //nolint:staticcheck // results used in summary
+						failureCount++
+						continue
+					}
+					result.CommentAdded = true
+					selfAuthoredCount++
+					output.Success(fmt.Sprintf("✓ Comment added to PR #%d (self-authored)", prInfo.Number))
+				} else {
+					output.Info(fmt.Sprintf("Submitting approval for PR #%d...", prInfo.Number))
+					err = client.ReviewPR(ctx, repoFullName, prInfo.Number, *message)
+					if err != nil {
+						result.Error = fmt.Sprintf("Failed to review PR: %v", err)
+						output.Error(result.Error)
+						results = append(results, result) //nolint:staticcheck // results used in summary
+						failureCount++
+						continue
+					}
+					result.Reviewed = true
+					output.Success(fmt.Sprintf("✓ PR #%d approved", prInfo.Number))
+				}
+
 				if autoMergeAlreadyEnabled {
 					result.AutoMergeAlreadyEnabled = true
 					output.Info(fmt.Sprintf("✓ Auto-merge already enabled for PR #%d", prInfo.Number))
@@ -502,9 +523,106 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 					output.Info("Configure GO_BROADCAST_AUTOMERGE_LABELS to enable --bypass functionality")
 				}
 
+				// If bypass is allowed, check CI status first (unless --ignore-checks is set)
+				if bypassAllowed && !*ignoreChecks {
+					checkStatus, checkErr := client.GetPRCheckStatus(ctx, repoFullName, prInfo.Number)
+					if checkErr != nil {
+						output.Warn(fmt.Sprintf("⚠️  Could not fetch check status for PR #%d: %v", prInfo.Number, checkErr))
+						// Continue with merge attempt if we can't get check status
+					} else {
+						result.CheckSummary = checkStatus.Summary()
+
+						// Display check status
+						if checkStatus.NoChecks() {
+							output.Info(fmt.Sprintf("PR #%d: %s", prInfo.Number, checkStatus.Summary()))
+						} else if checkStatus.HasRunningChecks() {
+							output.Warn(fmt.Sprintf("⏳ PR #%d: %s", prInfo.Number, checkStatus.Summary()))
+							runningNames := checkStatus.RunningCheckNames()
+							result.RunningCheckNames = runningNames
+							output.Info("   Running:")
+							for _, name := range runningNames {
+								output.Info(fmt.Sprintf("     - %s", name))
+							}
+							output.Warn("   Skipping - checks still running")
+							result.ChecksSkippedRunning = true
+							checksRunningSkipCount++
+							skippedPRs = append(skippedPRs, skippedPRInfo{
+								Repo:       repoFullName,
+								Number:     prInfo.Number,
+								Reason:     "running",
+								CheckNames: runningNames,
+							})
+							results = append(results, result) //nolint:staticcheck // results used in summary
+							successCount++                    // Count as success since we processed it correctly
+							continue
+						} else if checkStatus.HasFailedChecks() {
+							output.Error(fmt.Sprintf("❌ PR #%d: %s", prInfo.Number, checkStatus.Summary()))
+							failedNames := checkStatus.FailedCheckNames()
+							result.FailedCheckNames = failedNames
+							output.Info("   Failed:")
+							for _, name := range failedNames {
+								output.Info(fmt.Sprintf("     - %s", name))
+							}
+							output.Error("   Skipping - checks failed")
+							result.ChecksSkippedFailed = true
+							checksFailedSkipCount++
+							skippedPRs = append(skippedPRs, skippedPRInfo{
+								Repo:       repoFullName,
+								Number:     prInfo.Number,
+								Reason:     "failed",
+								CheckNames: failedNames,
+							})
+							results = append(results, result) //nolint:staticcheck // results used in summary
+							successCount++                    // Count as success since we processed it correctly
+							continue
+						} else {
+							// All checks passed
+							output.Success(fmt.Sprintf("✓ PR #%d: %s", prInfo.Number, checkStatus.Summary()))
+						}
+					}
+				}
+
+				// Submit review/comment NOW (after all skip conditions passed)
+				// We do this here to avoid duplicate comments when PR is skipped due to running/failed checks
+				if alreadyApproved {
+					result.AlreadyReviewed = true
+					output.Info(fmt.Sprintf("✓ PR #%d already reviewed by you", prInfo.Number))
+				} else if isSelfAuthored {
+					// Can't approve own PR - add comment instead
+					result.SelfAuthored = true
+					output.Info(fmt.Sprintf("Adding comment to self-authored PR #%d...", prInfo.Number))
+					err = client.AddPRComment(ctx, repoFullName, prInfo.Number, *message)
+					if err != nil {
+						result.Error = fmt.Sprintf("Failed to add comment: %v", err)
+						output.Error(result.Error)
+						results = append(results, result) //nolint:staticcheck // results used in summary
+						failureCount++
+						continue
+					}
+					result.CommentAdded = true
+					selfAuthoredCount++
+					output.Success(fmt.Sprintf("✓ Comment added to PR #%d (self-authored)", prInfo.Number))
+				} else {
+					output.Info(fmt.Sprintf("Submitting approval for PR #%d...", prInfo.Number))
+					err = client.ReviewPR(ctx, repoFullName, prInfo.Number, *message)
+					if err != nil {
+						result.Error = fmt.Sprintf("Failed to review PR: %v", err)
+						output.Error(result.Error)
+						results = append(results, result) //nolint:staticcheck // results used in summary
+						failureCount++
+						continue
+					}
+					result.Reviewed = true
+					output.Success(fmt.Sprintf("✓ PR #%d approved", prInfo.Number))
+				}
+
 				// Try immediate merge first (optimistic approach)
 				if bypassAllowed {
-					output.Info(fmt.Sprintf("Merging PR #%d (bypass available if needed)...", prInfo.Number))
+					if *ignoreChecks {
+						output.Info(fmt.Sprintf("Merging PR #%d (bypass available, ignoring checks)...", prInfo.Number))
+					} else {
+						output.Info(fmt.Sprintf("Merging PR #%d (bypass available if needed)...", prInfo.Number))
+					}
 				} else {
 					output.Info(fmt.Sprintf("Merging PR #%d...", prInfo.Number))
 				}
@@ -582,6 +700,26 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 			}
 			if autoMergeCount > 0 {
 				output.Success(fmt.Sprintf("Auto-merge enabled: %d", autoMergeCount))
+			}
+			if checksRunningSkipCount > 0 {
+				output.Warn(fmt.Sprintf("Skipped (checks running): %d", checksRunningSkipCount))
+				for _, skipped := range skippedPRs {
+					if skipped.Reason == "running" {
+						checkList := strings.Join(skipped.CheckNames, ", ")
+						output.Info(fmt.Sprintf("  - %s#%d: %d check(s) still running (%s)",
+							skipped.Repo, skipped.Number, len(skipped.CheckNames), checkList))
+					}
+				}
+			}
+			if checksFailedSkipCount > 0 {
+				output.Error(fmt.Sprintf("Skipped (checks failed): %d", checksFailedSkipCount))
+				for _, skipped := range skippedPRs {
+					if skipped.Reason == "failed" {
+						checkList := strings.Join(skipped.CheckNames, ", ")
+						output.Info(fmt.Sprintf("  - %s#%d: %d check(s) failed (%s)",
+							skipped.Repo, skipped.Number, len(skipped.CheckNames), checkList))
+					}
+				}
 			}
 			if reviewOnlyCount > 0 {
 				output.Info(fmt.Sprintf("Review only (no automerge label): %d", reviewOnlyCount))

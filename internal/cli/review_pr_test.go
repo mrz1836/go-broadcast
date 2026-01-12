@@ -798,3 +798,80 @@ func TestMergeGatingOnAutomergeLabel(t *testing.T) {
 		})
 	}
 }
+
+// TestReviewPRResult_CheckFields tests the new check-related fields
+func TestReviewPRResult_CheckFields(t *testing.T) {
+	result := ReviewPRResult{
+		PRInfo: PRInfo{
+			Owner:  "owner",
+			Repo:   "repo",
+			Number: 1,
+			URL:    "https://github.com/owner/repo/pull/1",
+		},
+		Reviewed:             true,
+		Merged:               false,
+		MergeMethod:          "squash",
+		ChecksSkippedRunning: true,
+		CheckSummary:         "3/5 checks complete (3 passed, 2 running)",
+		RunningCheckNames:    []string{"CI / Build", "CI / Tests"},
+	}
+
+	assert.True(t, result.ChecksSkippedRunning)
+	assert.False(t, result.ChecksSkippedFailed)
+	assert.Equal(t, "3/5 checks complete (3 passed, 2 running)", result.CheckSummary)
+	assert.Len(t, result.RunningCheckNames, 2)
+	assert.Contains(t, result.RunningCheckNames, "CI / Build")
+}
+
+// TestReviewPRResult_FailedCheckFields tests the failed check fields
+func TestReviewPRResult_FailedCheckFields(t *testing.T) {
+	result := ReviewPRResult{
+		PRInfo: PRInfo{
+			Owner:  "owner",
+			Repo:   "repo",
+			Number: 1,
+			URL:    "https://github.com/owner/repo/pull/1",
+		},
+		Reviewed:            true,
+		Merged:              false,
+		MergeMethod:         "squash",
+		ChecksSkippedFailed: true,
+		CheckSummary:        "5/5 checks complete (3 passed, 2 failed)",
+		FailedCheckNames:    []string{"CI / Lint", "CI / Security"},
+	}
+
+	assert.False(t, result.ChecksSkippedRunning)
+	assert.True(t, result.ChecksSkippedFailed)
+	assert.Equal(t, "5/5 checks complete (3 passed, 2 failed)", result.CheckSummary)
+	assert.Len(t, result.FailedCheckNames, 2)
+	assert.Contains(t, result.FailedCheckNames, "CI / Lint")
+}
+
+// TestSkippedPRInfo tests the skippedPRInfo struct
+func TestSkippedPRInfo(t *testing.T) {
+	info := skippedPRInfo{
+		Repo:       "owner/repo",
+		Number:     123,
+		Reason:     "running",
+		CheckNames: []string{"CI / Build", "CI / Tests"},
+	}
+
+	assert.Equal(t, "owner/repo", info.Repo)
+	assert.Equal(t, 123, info.Number)
+	assert.Equal(t, "running", info.Reason)
+	assert.Len(t, info.CheckNames, 2)
+}
+
+// TestSkippedPRInfo_FailedReason tests the skippedPRInfo with failed reason
+func TestSkippedPRInfo_FailedReason(t *testing.T) {
+	info := skippedPRInfo{
+		Repo:       "owner/repo",
+		Number:     456,
+		Reason:     "failed",
+		CheckNames: []string{"CI / Lint"},
+	}
+
+	assert.Equal(t, "failed", info.Reason)
+	assert.Len(t, info.CheckNames, 1)
+	assert.Contains(t, info.CheckNames, "CI / Lint")
+}
