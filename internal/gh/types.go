@@ -1,7 +1,10 @@
 // Package gh provides GitHub API client interfaces and types
 package gh
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Branch represents a GitHub branch
 type Branch struct {
@@ -181,4 +184,114 @@ type AutoMerge struct {
 	EnabledBy   User        `json:"enabled_by"`
 	MergeMethod MergeMethod `json:"merge_method"`
 	CommitTitle string      `json:"commit_title,omitempty"`
+}
+
+// CheckRun represents a GitHub check run
+type CheckRun struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`     // "queued", "in_progress", "completed"
+	Conclusion string `json:"conclusion"` // "success", "failure", "neutral", "canceled", "skipped", "timed_out", "action_required"
+}
+
+// CheckRunsResponse represents the response from GitHub's check-runs API
+type CheckRunsResponse struct {
+	TotalCount int        `json:"total_count"`
+	CheckRuns  []CheckRun `json:"check_runs"`
+}
+
+// CheckStatusSummary provides a summary of all check runs for a commit
+type CheckStatusSummary struct {
+	Total     int        // Total number of check runs
+	Completed int        // Checks that have completed (any conclusion)
+	Passed    int        // success + neutral
+	Skipped   int        // skipped (CI-skipped checks)
+	Failed    int        // failure + canceled + timed_out + action_required
+	Running   int        // queued + in_progress
+	Checks    []CheckRun // All check runs for detailed output
+}
+
+// HasRunningChecks returns true if any checks are still running
+func (s *CheckStatusSummary) HasRunningChecks() bool {
+	return s.Running > 0
+}
+
+// HasFailedChecks returns true if any checks have failed
+func (s *CheckStatusSummary) HasFailedChecks() bool {
+	return s.Failed > 0
+}
+
+// AllPassed returns true if all checks are complete and none failed
+func (s *CheckStatusSummary) AllPassed() bool {
+	return s.Total > 0 && s.Running == 0 && s.Failed == 0
+}
+
+// NoChecks returns true if there are no check runs configured
+func (s *CheckStatusSummary) NoChecks() bool {
+	return s.Total == 0
+}
+
+// RunningCheckNames returns the names of all running checks
+func (s *CheckStatusSummary) RunningCheckNames() []string {
+	var names []string
+	for _, check := range s.Checks {
+		if check.Status == "queued" || check.Status == "in_progress" {
+			names = append(names, check.Name)
+		}
+	}
+	return names
+}
+
+// FailedCheckNames returns the names of all failed checks
+func (s *CheckStatusSummary) FailedCheckNames() []string {
+	var names []string
+	for _, check := range s.Checks {
+		if check.Status == "completed" {
+			switch check.Conclusion {
+			case "failure", "canceled", "timed_out", "action_required":
+				names = append(names, check.Name)
+			}
+		}
+	}
+	return names
+}
+
+// Summary returns a human-readable summary string
+func (s *CheckStatusSummary) Summary() string {
+	if s.Total == 0 {
+		return "no checks configured"
+	}
+
+	parts := []string{}
+	if s.Passed > 0 {
+		parts = append(parts, fmt.Sprintf("%d passed", s.Passed))
+	}
+	if s.Skipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d skipped", s.Skipped))
+	}
+	if s.Failed > 0 {
+		parts = append(parts, fmt.Sprintf("%d failed", s.Failed))
+	}
+	if s.Running > 0 {
+		parts = append(parts, fmt.Sprintf("%d running", s.Running))
+	}
+
+	detail := ""
+	if len(parts) > 0 {
+		detail = " (" + joinStrings(parts, ", ") + ")"
+	}
+
+	return fmt.Sprintf("%d/%d checks complete%s", s.Completed, s.Total, detail)
+}
+
+// joinStrings joins strings with a separator (avoiding strings import in types)
+func joinStrings(strs []string, sep string) string {
+	if len(strs) == 0 {
+		return ""
+	}
+	result := strs[0]
+	for i := 1; i < len(strs); i++ {
+		result += sep + strs[i]
+	}
+	return result
 }

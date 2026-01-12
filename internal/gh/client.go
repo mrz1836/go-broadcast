@@ -71,4 +71,8 @@ type Client interface {
 
 	// AddPRComment adds a comment to a pull request (for cases where a review cannot be submitted)
 	AddPRComment(ctx context.Context, repo string, number int, comment string) error
+
+	// GetPRCheckStatus retrieves the status of all check runs for a PR's head commit
+	// Returns a summary of check statuses including running, passed, failed, and skipped counts
+	GetPRCheckStatus(ctx context.Context, repo string, number int) (*CheckStatusSummary, error)
 }

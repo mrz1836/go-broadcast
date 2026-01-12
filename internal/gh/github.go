@@ -749,3 +749,49 @@ func (g *githubClient) HasApprovedReview(ctx context.Context, repo string, numbe
 
 	return false, nil
 }
+
+// GetPRCheckStatus retrieves the status of all check runs for a PR's head commit
+func (g *githubClient) GetPRCheckStatus(ctx context.Context, repo string, number int) (*CheckStatusSummary, error) {
+	// First, get the PR to obtain the head SHA
+	pr, err := g.GetPR(ctx, repo, number)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, fmt.Sprintf("get PR #%d for check status", number))
+	}
+
+	// Get check runs for the head commit
+	output, err := g.runner.Run(ctx, "gh", "api", fmt.Sprintf("repos/%s/commits/%s/check-runs", repo, pr.Head.SHA))
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, fmt.Sprintf("get check runs for PR #%d", number))
+	}
+
+	response, err := jsonutil.UnmarshalJSON[CheckRunsResponse](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse check runs response")
+	}
+
+	// Build the summary
+	summary := &CheckStatusSummary{
+		Total:  response.TotalCount,
+		Checks: response.CheckRuns,
+	}
+
+	// Categorize each check run
+	for _, check := range response.CheckRuns {
+		switch check.Status {
+		case "completed":
+			summary.Completed++
+			switch check.Conclusion {
+			case "success", "neutral":
+				summary.Passed++
+			case "skipped":
+				summary.Skipped++
+			case "failure", "canceled", "timed_out", "action_required":
+				summary.Failed++
+			}
+		case "queued", "in_progress":
+			summary.Running++
+		}
+	}
+
+	return summary, nil
+}
