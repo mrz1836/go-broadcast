@@ -2164,3 +2164,476 @@ func TestCreatePR_NilLogger(t *testing.T) {
 
 	mockRunner.AssertExpectations(t)
 }
+
+// TestGetPRCheckStatus_AllPassed tests check status when all checks have passed
+func TestGetPRCheckStatus_AllPassed(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Mock PR to get head SHA
+	pr := PR{
+		Number: 123,
+		Title:  "Test PR",
+		State:  "open",
+	}
+	pr.Head.SHA = "abc123def456"
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Mock check runs response - all passed
+	checkRunsResponse := CheckRunsResponse{
+		TotalCount: 3,
+		CheckRuns: []CheckRun{
+			{ID: 1, Name: "CI / Build", Status: "completed", Conclusion: "success"},
+			{ID: 2, Name: "CI / Tests", Status: "completed", Conclusion: "success"},
+			{ID: 3, Name: "CI / Lint", Status: "completed", Conclusion: "neutral"},
+		},
+	}
+	checkRunsOutput, err := json.Marshal(checkRunsResponse)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123"}).
+		Return(prOutput, nil)
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/commits/abc123def456/check-runs"}).
+		Return(checkRunsOutput, nil)
+
+	result, err := client.GetPRCheckStatus(ctx, "org/repo", 123)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 3, result.Total)
+	assert.Equal(t, 3, result.Completed)
+	assert.Equal(t, 3, result.Passed)
+	assert.Equal(t, 0, result.Failed)
+	assert.Equal(t, 0, result.Running)
+	assert.Equal(t, 0, result.Skipped)
+	assert.True(t, result.AllPassed())
+	assert.False(t, result.HasRunningChecks())
+	assert.False(t, result.HasFailedChecks())
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPRCheckStatus_SomeRunning tests check status when some checks are still running
+func TestGetPRCheckStatus_SomeRunning(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Mock PR to get head SHA
+	pr := PR{
+		Number: 123,
+		Title:  "Test PR",
+		State:  "open",
+	}
+	pr.Head.SHA = "abc123def456"
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Mock check runs response - some running
+	checkRunsResponse := CheckRunsResponse{
+		TotalCount: 4,
+		CheckRuns: []CheckRun{
+			{ID: 1, Name: "CI / Build", Status: "completed", Conclusion: "success"},
+			{ID: 2, Name: "CI / Tests", Status: "in_progress", Conclusion: ""},
+			{ID: 3, Name: "CI / Lint", Status: "queued", Conclusion: ""},
+			{ID: 4, Name: "CI / Deploy", Status: "completed", Conclusion: "success"},
+		},
+	}
+	checkRunsOutput, err := json.Marshal(checkRunsResponse)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123"}).
+		Return(prOutput, nil)
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/commits/abc123def456/check-runs"}).
+		Return(checkRunsOutput, nil)
+
+	result, err := client.GetPRCheckStatus(ctx, "org/repo", 123)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 4, result.Total)
+	assert.Equal(t, 2, result.Completed)
+	assert.Equal(t, 2, result.Passed)
+	assert.Equal(t, 0, result.Failed)
+	assert.Equal(t, 2, result.Running)
+	assert.False(t, result.AllPassed())
+	assert.True(t, result.HasRunningChecks())
+	assert.False(t, result.HasFailedChecks())
+
+	// Verify running check names
+	runningNames := result.RunningCheckNames()
+	assert.Len(t, runningNames, 2)
+	assert.Contains(t, runningNames, "CI / Tests")
+	assert.Contains(t, runningNames, "CI / Lint")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPRCheckStatus_SomeFailed tests check status when some checks have failed
+func TestGetPRCheckStatus_SomeFailed(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Mock PR to get head SHA
+	pr := PR{
+		Number: 123,
+		Title:  "Test PR",
+		State:  "open",
+	}
+	pr.Head.SHA = "abc123def456"
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Mock check runs response - some failed
+	checkRunsResponse := CheckRunsResponse{
+		TotalCount: 5,
+		CheckRuns: []CheckRun{
+			{ID: 1, Name: "CI / Build", Status: "completed", Conclusion: "success"},
+			{ID: 2, Name: "CI / Tests", Status: "completed", Conclusion: "failure"},
+			{ID: 3, Name: "CI / Lint", Status: "completed", Conclusion: "canceled"},
+			{ID: 4, Name: "CI / Security", Status: "completed", Conclusion: "timed_out"},
+			{ID: 5, Name: "CI / Deploy", Status: "completed", Conclusion: "action_required"},
+		},
+	}
+	checkRunsOutput, err := json.Marshal(checkRunsResponse)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123"}).
+		Return(prOutput, nil)
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/commits/abc123def456/check-runs"}).
+		Return(checkRunsOutput, nil)
+
+	result, err := client.GetPRCheckStatus(ctx, "org/repo", 123)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 5, result.Total)
+	assert.Equal(t, 5, result.Completed)
+	assert.Equal(t, 1, result.Passed)
+	assert.Equal(t, 4, result.Failed)
+	assert.Equal(t, 0, result.Running)
+	assert.False(t, result.AllPassed())
+	assert.False(t, result.HasRunningChecks())
+	assert.True(t, result.HasFailedChecks())
+
+	// Verify failed check names
+	failedNames := result.FailedCheckNames()
+	assert.Len(t, failedNames, 4)
+	assert.Contains(t, failedNames, "CI / Tests")
+	assert.Contains(t, failedNames, "CI / Lint")
+	assert.Contains(t, failedNames, "CI / Security")
+	assert.Contains(t, failedNames, "CI / Deploy")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPRCheckStatus_NoChecks tests check status when no checks are configured
+func TestGetPRCheckStatus_NoChecks(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Mock PR to get head SHA
+	pr := PR{
+		Number: 123,
+		Title:  "Test PR",
+		State:  "open",
+	}
+	pr.Head.SHA = "abc123def456"
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Mock check runs response - no checks
+	checkRunsResponse := CheckRunsResponse{
+		TotalCount: 0,
+		CheckRuns:  []CheckRun{},
+	}
+	checkRunsOutput, err := json.Marshal(checkRunsResponse)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123"}).
+		Return(prOutput, nil)
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/commits/abc123def456/check-runs"}).
+		Return(checkRunsOutput, nil)
+
+	result, err := client.GetPRCheckStatus(ctx, "org/repo", 123)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 0, result.Total)
+	assert.True(t, result.NoChecks())
+	assert.False(t, result.AllPassed()) // No checks = not all passed
+	assert.False(t, result.HasRunningChecks())
+	assert.False(t, result.HasFailedChecks())
+	assert.Equal(t, "no checks configured", result.Summary())
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPRCheckStatus_WithSkipped tests check status with skipped checks
+func TestGetPRCheckStatus_WithSkipped(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Mock PR to get head SHA
+	pr := PR{
+		Number: 123,
+		Title:  "Test PR",
+		State:  "open",
+	}
+	pr.Head.SHA = "abc123def456"
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	// Mock check runs response - with skipped
+	checkRunsResponse := CheckRunsResponse{
+		TotalCount: 3,
+		CheckRuns: []CheckRun{
+			{ID: 1, Name: "CI / Build", Status: "completed", Conclusion: "success"},
+			{ID: 2, Name: "CI / Tests", Status: "completed", Conclusion: "success"},
+			{ID: 3, Name: "CI / Deploy", Status: "completed", Conclusion: "skipped"},
+		},
+	}
+	checkRunsOutput, err := json.Marshal(checkRunsResponse)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123"}).
+		Return(prOutput, nil)
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/commits/abc123def456/check-runs"}).
+		Return(checkRunsOutput, nil)
+
+	result, err := client.GetPRCheckStatus(ctx, "org/repo", 123)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, 3, result.Total)
+	assert.Equal(t, 3, result.Completed)
+	assert.Equal(t, 2, result.Passed)
+	assert.Equal(t, 1, result.Skipped)
+	assert.Equal(t, 0, result.Failed)
+	assert.Equal(t, 0, result.Running)
+	assert.True(t, result.AllPassed()) // Skipped counts as passed for AllPassed check
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPRCheckStatus_PRNotFound tests error when PR is not found
+func TestGetPRCheckStatus_PRNotFound(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/999"}).
+		Return(nil, &CommandError{Stderr: "404 Not Found"})
+
+	result, err := client.GetPRCheckStatus(ctx, "org/repo", 999)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "get PR #999 for check status")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPRCheckStatus_CheckRunsAPIError tests error when check runs API fails
+func TestGetPRCheckStatus_CheckRunsAPIError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Mock PR to get head SHA
+	pr := PR{
+		Number: 123,
+		Title:  "Test PR",
+		State:  "open",
+	}
+	pr.Head.SHA = "abc123def456"
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123"}).
+		Return(prOutput, nil)
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/commits/abc123def456/check-runs"}).
+		Return(nil, errTestAPIError)
+
+	result, err := client.GetPRCheckStatus(ctx, "org/repo", 123)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "get check runs for PR #123")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestGetPRCheckStatus_JSONUnmarshalError tests error when check runs JSON is invalid
+func TestGetPRCheckStatus_JSONUnmarshalError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Mock PR to get head SHA
+	pr := PR{
+		Number: 123,
+		Title:  "Test PR",
+		State:  "open",
+	}
+	pr.Head.SHA = "abc123def456"
+	prOutput, err := json.Marshal(pr)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/pulls/123"}).
+		Return(prOutput, nil)
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/org/repo/commits/abc123def456/check-runs"}).
+		Return([]byte("invalid json"), nil)
+
+	result, err := client.GetPRCheckStatus(ctx, "org/repo", 123)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "parse check runs response")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestCheckStatusSummary_Summary tests the Summary method
+func TestCheckStatusSummary_Summary(t *testing.T) {
+	tests := []struct {
+		name     string
+		summary  CheckStatusSummary
+		expected string
+	}{
+		{
+			name:     "No checks",
+			summary:  CheckStatusSummary{Total: 0},
+			expected: "no checks configured",
+		},
+		{
+			name: "All passed",
+			summary: CheckStatusSummary{
+				Total: 3, Completed: 3, Passed: 3,
+			},
+			expected: "3/3 checks complete (3 passed)",
+		},
+		{
+			name: "With running",
+			summary: CheckStatusSummary{
+				Total: 5, Completed: 3, Passed: 3, Running: 2,
+			},
+			expected: "3/5 checks complete (3 passed, 2 running)",
+		},
+		{
+			name: "With failed",
+			summary: CheckStatusSummary{
+				Total: 4, Completed: 4, Passed: 2, Failed: 2,
+			},
+			expected: "4/4 checks complete (2 passed, 2 failed)",
+		},
+		{
+			name: "With skipped",
+			summary: CheckStatusSummary{
+				Total: 3, Completed: 3, Passed: 2, Skipped: 1,
+			},
+			expected: "3/3 checks complete (2 passed, 1 skipped)",
+		},
+		{
+			name: "Mixed state",
+			summary: CheckStatusSummary{
+				Total: 6, Completed: 4, Passed: 2, Skipped: 1, Failed: 1, Running: 2,
+			},
+			expected: "4/6 checks complete (2 passed, 1 skipped, 1 failed, 2 running)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.summary.Summary()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestBypassMergePR_Squash tests bypass merge with squash method
+func TestBypassMergePR_Squash(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "123", "--repo", "org/repo", "--admin", "--squash"}).
+		Return([]byte(""), nil)
+
+	err := client.BypassMergePR(ctx, "org/repo", 123, MergeMethodSquash)
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestBypassMergePR_Rebase tests bypass merge with rebase method
+func TestBypassMergePR_Rebase(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "123", "--repo", "org/repo", "--admin", "--rebase"}).
+		Return([]byte(""), nil)
+
+	err := client.BypassMergePR(ctx, "org/repo", 123, MergeMethodRebase)
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestBypassMergePR_Merge tests bypass merge with merge method
+func TestBypassMergePR_Merge(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "123", "--repo", "org/repo", "--admin", "--merge"}).
+		Return([]byte(""), nil)
+
+	err := client.BypassMergePR(ctx, "org/repo", 123, MergeMethodMerge)
+	require.NoError(t, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestBypassMergePR_InvalidMethod tests bypass merge with invalid method
+func TestBypassMergePR_InvalidMethod(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	err := client.BypassMergePR(ctx, "org/repo", 123, MergeMethod("invalid"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported merge method")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestBypassMergePR_NotFound tests bypass merge when PR not found
+func TestBypassMergePR_NotFound(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "999", "--repo", "org/repo", "--admin", "--squash"}).
+		Return(nil, &CommandError{Stderr: "404 Not Found"})
+
+	err := client.BypassMergePR(ctx, "org/repo", 999, MergeMethodSquash)
+	require.Error(t, err)
+	assert.Equal(t, ErrPRNotFound, err)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestBypassMergePR_Error tests bypass merge when API returns error
+func TestBypassMergePR_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"pr", "merge", "123", "--repo", "org/repo", "--admin", "--squash"}).
+		Return(nil, errTestAPIError)
+
+	err := client.BypassMergePR(ctx, "org/repo", 123, MergeMethodSquash)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bypass merge PR #123")
+
+	mockRunner.AssertExpectations(t)
+}
