@@ -9,7 +9,7 @@ require (
 	github.com/magefile/mage v1.15.0
 	github.com/openai/openai-go v1.12.0
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.19.0
