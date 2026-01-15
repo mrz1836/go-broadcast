@@ -5,7 +5,7 @@ go 1.24.11
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/fatih/color v1.18.0
-	github.com/firebase/genkit/go v1.3.0
+	github.com/firebase/genkit/go v1.4.0
 	github.com/magefile/mage v1.15.0
 	github.com/openai/openai-go v1.12.0
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
