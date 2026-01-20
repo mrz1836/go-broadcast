@@ -370,26 +370,55 @@ func (g *gitClient) Commit(ctx context.Context, repoPath, message string) error 
 	return nil
 }
 
-// Push pushes the current branch to the remote
+// Push pushes the current branch to the remote with retry logic for network errors.
 func (g *gitClient) Push(ctx context.Context, repoPath, remote, branch string, force bool) error {
 	args := []string{"-C", repoPath, "push", remote, branch}
 	if force {
 		args = append(args, "--force")
 	}
 
-	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed
+	// Retry logic for network errors (same pattern as Clone)
+	maxRetries := 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // Arguments are safely constructed
+		cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+		err := g.runCommand(cmd)
+		if err == nil {
+			return nil // Success
+		}
 
-	if err := g.runCommand(cmd); err != nil {
-		// Check for known error patterns
+		// Check for known error patterns (sentinel errors are not retried)
 		if sentinel := detectGitError(err.Error()); sentinel != nil {
 			return sentinel
 		}
+
+		// Check if it's a retryable network error
+		if isRetryableNetworkError(err) && attempt < maxRetries {
+			logger := logging.WithStandardFields(g.logger, g.logConfig, logging.ComponentNames.Git)
+			logger.WithFields(logrus.Fields{
+				"attempt":     attempt,
+				"max_retries": maxRetries,
+				"branch":      branch,
+				"remote":      remote,
+				"repo_path":   repoPath,
+				"error":       err.Error(),
+			}).Warn("Network error during git push - retrying")
+
+			// Brief delay before retry
+			select {
+			case <-time.After(time.Duration(attempt) * time.Second):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			continue
+		}
+
+		// Non-retryable error or max retries exceeded
 		return appErrors.WrapWithContext(err, "push")
 	}
 
-	return nil
+	return fmt.Errorf("%w: push failed after %d attempts", ErrGitCommand, maxRetries)
 }
 
 // Diff returns the diff of changes
@@ -726,7 +755,8 @@ func isRetryableNetworkError(err error) bool {
 		strings.Contains(errStr, "timeout") ||
 		strings.Contains(errStr, "network is unreachable") ||
 		strings.Contains(errStr, "temporary failure") ||
-		strings.Contains(errStr, "connection refused")
+		strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "couldn't connect")
 }
 
 // filterSensitiveEnv filters environment variables to redact sensitive information.
