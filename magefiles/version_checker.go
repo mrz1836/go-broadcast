@@ -436,6 +436,9 @@ func (s *VersionUpdateService) Run(ctx context.Context, envFilePath string) erro
 	// Check latest versions
 	results := s.checkVersions(ctx, tools, currentVersions)
 
+	// Add blank line before results table
+	s.logger.Info("")
+
 	// Display results
 	s.displayResults(results)
 
@@ -496,6 +499,9 @@ func (s *VersionUpdateService) checkVersions(ctx context.Context, tools map[stri
 		if i > 0 {
 			time.Sleep(s.delay)
 		}
+
+		// Show progress
+		s.logger.Info(fmt.Sprintf("[%d/%d] Checking %s...", i+1, len(toolKeys), toolKey))
 
 		currentVersion := currentVersions[toolKey]
 		latestVersion, err := s.checker.CheckLatestVersion(ctx, tool.RepoURL, tool.GoModulePath)
