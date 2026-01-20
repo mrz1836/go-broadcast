@@ -25,6 +25,7 @@ type PRBodyGenerator struct {
 	cache       *ResponseCache
 	truncator   *DiffTruncator
 	retryConfig *RetryConfig
+	config      *Config
 	guidelines  string
 	timeout     time.Duration
 	logger      *logrus.Entry
@@ -38,6 +39,7 @@ func NewPRBodyGenerator(
 	cache *ResponseCache,
 	truncator *DiffTruncator,
 	retryConfig *RetryConfig,
+	config *Config,
 	guidelines string,
 	timeout time.Duration,
 	logger *logrus.Entry,
@@ -57,6 +59,7 @@ func NewPRBodyGenerator(
 		cache:       cache,
 		truncator:   truncator,
 		retryConfig: retryConfig,
+		config:      config,
 		guidelines:  guidelines,
 		timeout:     timeout,
 		logger:      logger,
@@ -116,6 +119,11 @@ func (g *PRBodyGenerator) GenerateBody(ctx context.Context, prCtx *PRContext) (s
 		}
 
 		if err != nil {
+			// Check if FailOnError is enabled - return blocking error
+			if g.config != nil && g.config.FailOnError {
+				g.logger.WithError(err).Error("AI generation failed and fail_on_error is enabled")
+				return "", FailedError(g.provider.Name(), "PR body", g.config.APIKeySource, err)
+			}
 			g.logger.WithError(err).Warn("AI generation failed, using fallback PR body")
 			return g.generateFallback(prCtx), ErrFallbackUsed
 		}
@@ -127,6 +135,11 @@ func (g *PRBodyGenerator) GenerateBody(ctx context.Context, prCtx *PRContext) (s
 	g.logger.Info("Generating PR body with AI...")
 	response, err := g.generateFromAI(ctx, localCtx)
 	if err != nil {
+		// Check if FailOnError is enabled - return blocking error
+		if g.config != nil && g.config.FailOnError {
+			g.logger.WithError(err).Error("AI generation failed and fail_on_error is enabled")
+			return "", FailedError(g.provider.Name(), "PR body", g.config.APIKeySource, err)
+		}
 		g.logger.WithError(err).Warn("AI generation failed, using fallback PR body")
 		return g.generateFallback(prCtx), ErrFallbackUsed
 	}

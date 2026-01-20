@@ -31,7 +31,7 @@ func TestNewCommitMessageGenerator(t *testing.T) {
 		retryConfig := DefaultRetryConfig()
 		logger := logrus.NewEntry(logrus.New())
 
-		gen := NewCommitMessageGenerator(mockProvider, cache, truncator, retryConfig, 30*time.Second, logger)
+		gen := NewCommitMessageGenerator(mockProvider, cache, truncator, retryConfig, nil, 30*time.Second, logger)
 
 		require.NotNil(t, gen)
 		assert.Equal(t, mockProvider, gen.provider)
@@ -41,7 +41,7 @@ func TestNewCommitMessageGenerator(t *testing.T) {
 	})
 
 	t.Run("with nil parameters uses defaults", func(t *testing.T) {
-		gen := NewCommitMessageGenerator(nil, nil, nil, nil, 0, nil)
+		gen := NewCommitMessageGenerator(nil, nil, nil, nil, nil, 0, nil)
 
 		require.NotNil(t, gen)
 		assert.Nil(t, gen.provider)
@@ -60,7 +60,7 @@ func TestCommitMessageGenerator_GenerateMessage_AISuccess(t *testing.T) {
 		nil,
 	)
 
-	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, nil, 5*time.Second, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo: "owner/source",
@@ -87,7 +87,7 @@ func TestCommitMessageGenerator_GenerateMessage_AIResponseValidated(t *testing.T
 		nil,
 	)
 
-	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, nil, 5*time.Second, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo:   "owner/source",
@@ -117,7 +117,7 @@ func TestCommitMessageGenerator_GenerateMessage_CacheHit(t *testing.T) {
 	mockProvider.On("IsAvailable").Return(true)
 	// GenerateText should NOT be called due to cache hit
 
-	gen := NewCommitMessageGenerator(mockProvider, cache, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(mockProvider, cache, nil, nil, nil, 5*time.Second, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo:  "owner/source",
@@ -133,7 +133,7 @@ func TestCommitMessageGenerator_GenerateMessage_CacheHit(t *testing.T) {
 }
 
 func TestCommitMessageGenerator_GenerateMessage_ProviderNil(t *testing.T) {
-	gen := NewCommitMessageGenerator(nil, nil, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(nil, nil, nil, nil, nil, 5*time.Second, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo:   "owner/source",
@@ -151,7 +151,7 @@ func TestCommitMessageGenerator_GenerateMessage_ProviderUnavailable(t *testing.T
 	mockProvider := NewMockProvider()
 	mockProvider.On("IsAvailable").Return(false)
 
-	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, nil, 5*time.Second, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo:   "owner/source",
@@ -174,7 +174,7 @@ func TestCommitMessageGenerator_GenerateMessage_AIError(t *testing.T) {
 		errCommitAPIError,
 	)
 
-	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, nil, 5*time.Second, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo: "owner/source",
@@ -201,7 +201,7 @@ func TestCommitMessageGenerator_GenerateMessage_EmptyAfterValidation(t *testing.
 		nil,
 	)
 
-	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, nil, 5*time.Second, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo: "owner/source",
@@ -227,7 +227,7 @@ func TestCommitMessageGenerator_GenerateMessage_Timeout(t *testing.T) {
 		<-ctx.Done() // Wait for context cancellation
 	}).Return(nil, context.DeadlineExceeded)
 
-	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, 50*time.Millisecond, nil)
+	gen := NewCommitMessageGenerator(mockProvider, nil, nil, nil, nil, 50*time.Millisecond, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo:   "owner/source",
@@ -242,7 +242,7 @@ func TestCommitMessageGenerator_GenerateMessage_Timeout(t *testing.T) {
 }
 
 func TestCommitMessageGenerator_Fallback_SingleFile(t *testing.T) {
-	gen := NewCommitMessageGenerator(nil, nil, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(nil, nil, nil, nil, nil, 5*time.Second, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo: "owner/source",
@@ -258,7 +258,7 @@ func TestCommitMessageGenerator_Fallback_SingleFile(t *testing.T) {
 }
 
 func TestCommitMessageGenerator_Fallback_MultipleFiles(t *testing.T) {
-	gen := NewCommitMessageGenerator(nil, nil, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(nil, nil, nil, nil, nil, 5*time.Second, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo: "owner/source",
@@ -276,7 +276,7 @@ func TestCommitMessageGenerator_Fallback_MultipleFiles(t *testing.T) {
 }
 
 func TestCommitMessageGenerator_Fallback_NoFiles(t *testing.T) {
-	gen := NewCommitMessageGenerator(nil, nil, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(nil, nil, nil, nil, nil, 5*time.Second, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo:   "owner/source",
@@ -290,7 +290,7 @@ func TestCommitMessageGenerator_Fallback_NoFiles(t *testing.T) {
 }
 
 func TestCommitMessageGenerator_Fallback_NilContext(t *testing.T) {
-	gen := NewCommitMessageGenerator(nil, nil, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(nil, nil, nil, nil, nil, 5*time.Second, nil)
 
 	result := gen.generateFallback(nil)
 
@@ -312,7 +312,7 @@ func TestCommitMessageGenerator_WithCacheError(t *testing.T) {
 		errCommitAIGeneration,
 	)
 
-	gen := NewCommitMessageGenerator(mockProvider, cache, nil, nil, 5*time.Second, nil)
+	gen := NewCommitMessageGenerator(mockProvider, cache, nil, nil, nil, 5*time.Second, nil)
 
 	commitCtx := &CommitContext{
 		SourceRepo: "owner/source",

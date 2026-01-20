@@ -25,6 +25,7 @@ type CommitMessageGenerator struct {
 	cache       *ResponseCache
 	truncator   *DiffTruncator
 	retryConfig *RetryConfig
+	config      *Config
 	timeout     time.Duration
 	logger      *logrus.Entry
 }
@@ -37,6 +38,7 @@ func NewCommitMessageGenerator(
 	cache *ResponseCache,
 	truncator *DiffTruncator,
 	retryConfig *RetryConfig,
+	config *Config,
 	timeout time.Duration,
 	logger *logrus.Entry,
 ) *CommitMessageGenerator {
@@ -55,6 +57,7 @@ func NewCommitMessageGenerator(
 		cache:       cache,
 		truncator:   truncator,
 		retryConfig: retryConfig,
+		config:      config,
 		timeout:     timeout,
 		logger:      logger,
 	}
@@ -106,6 +109,11 @@ func (g *CommitMessageGenerator) GenerateMessage(ctx context.Context, commitCtx 
 	}
 
 	if err != nil {
+		// Check if FailOnError is enabled - return blocking error
+		if g.config != nil && g.config.FailOnError {
+			g.logger.WithError(err).Error("AI generation failed and fail_on_error is enabled")
+			return "", FailedError(g.provider.Name(), "commit message", g.config.APIKeySource, err)
+		}
 		g.logger.WithError(err).Warn("AI generation failed, using fallback commit message")
 		return g.generateFallback(commitCtx), ErrFallbackUsed
 	}

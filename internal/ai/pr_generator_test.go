@@ -34,7 +34,7 @@ func TestNewPRBodyGenerator(t *testing.T) {
 		retryConfig := DefaultRetryConfig()
 		logger := logrus.NewEntry(logrus.New())
 
-		gen := NewPRBodyGenerator(mockProvider, cache, truncator, retryConfig, "guidelines", 30*time.Second, logger)
+		gen := NewPRBodyGenerator(mockProvider, cache, truncator, retryConfig, nil, "guidelines", 30*time.Second, logger)
 
 		require.NotNil(t, gen)
 		assert.Equal(t, mockProvider, gen.provider)
@@ -45,7 +45,7 @@ func TestNewPRBodyGenerator(t *testing.T) {
 	})
 
 	t.Run("with nil parameters uses defaults", func(t *testing.T) {
-		gen := NewPRBodyGenerator(nil, nil, nil, nil, "", 0, nil)
+		gen := NewPRBodyGenerator(nil, nil, nil, nil, nil, "", 0, nil)
 
 		require.NotNil(t, gen)
 		assert.Nil(t, gen.provider)
@@ -64,7 +64,7 @@ func TestPRBodyGenerator_GenerateBody_AISuccess(t *testing.T) {
 		nil,
 	)
 
-	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, "", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, nil, "", 5*time.Second, nil)
 
 	prCtx := &PRContext{
 		SourceRepo:   "owner/source",
@@ -96,7 +96,7 @@ func TestPRBodyGenerator_GenerateBody_CacheHit(t *testing.T) {
 	mockProvider.On("IsAvailable").Return(true)
 	// GenerateText should NOT be called due to cache hit
 
-	gen := NewPRBodyGenerator(mockProvider, cache, nil, nil, "", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(mockProvider, cache, nil, nil, nil, "", 5*time.Second, nil)
 
 	prCtx := &PRContext{
 		SourceRepo:  "owner/source",
@@ -112,7 +112,7 @@ func TestPRBodyGenerator_GenerateBody_CacheHit(t *testing.T) {
 }
 
 func TestPRBodyGenerator_GenerateBody_ProviderNil(t *testing.T) {
-	gen := NewPRBodyGenerator(nil, nil, nil, nil, "", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(nil, nil, nil, nil, nil, "", 5*time.Second, nil)
 
 	prCtx := &PRContext{
 		SourceRepo:   "owner/source",
@@ -133,7 +133,7 @@ func TestPRBodyGenerator_GenerateBody_ProviderUnavailable(t *testing.T) {
 	mockProvider := NewMockProvider()
 	mockProvider.On("IsAvailable").Return(false)
 
-	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, "", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, nil, "", 5*time.Second, nil)
 
 	prCtx := &PRContext{
 		SourceRepo:   "owner/source",
@@ -156,7 +156,7 @@ func TestPRBodyGenerator_GenerateBody_AIError(t *testing.T) {
 		errAPIError,
 	)
 
-	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, "", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, nil, "", 5*time.Second, nil)
 
 	prCtx := &PRContext{
 		SourceRepo:   "owner/source",
@@ -180,7 +180,7 @@ func TestPRBodyGenerator_GenerateBody_Timeout(t *testing.T) {
 		<-ctx.Done()
 	}).Return(nil, context.DeadlineExceeded)
 
-	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, "", 50*time.Millisecond, nil)
+	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, nil, "", 50*time.Millisecond, nil)
 
 	prCtx := &PRContext{
 		SourceRepo:   "owner/source",
@@ -206,7 +206,7 @@ func TestPRBodyGenerator_GenerateBody_GuidelinesInjection(t *testing.T) {
 		capturedRequest = args.Get(1).(*GenerateRequest)
 	}).Return(&GenerateResponse{Content: validPRBody}, nil)
 
-	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, "Custom Guidelines Here", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, nil, "Custom Guidelines Here", 5*time.Second, nil)
 
 	prCtx := &PRContext{
 		SourceRepo: "owner/source",
@@ -234,7 +234,7 @@ func TestPRBodyGenerator_GenerateBody_ExistingGuidelines(t *testing.T) {
 		capturedRequest = args.Get(1).(*GenerateRequest)
 	}).Return(&GenerateResponse{Content: validPRBody}, nil)
 
-	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, "Generator Guidelines", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, nil, "Generator Guidelines", 5*time.Second, nil)
 
 	prCtx := &PRContext{
 		SourceRepo:   "owner/source",
@@ -252,7 +252,7 @@ func TestPRBodyGenerator_GenerateBody_ExistingGuidelines(t *testing.T) {
 }
 
 func TestPRBodyGenerator_StaticFallback(t *testing.T) {
-	gen := NewPRBodyGenerator(nil, nil, nil, nil, "", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(nil, nil, nil, nil, nil, "", 5*time.Second, nil)
 
 	tests := []struct {
 		name       string
@@ -281,7 +281,7 @@ func TestPRBodyGenerator_StaticFallback(t *testing.T) {
 }
 
 func TestPRBodyGenerator_GenerateFallback_NilContext(t *testing.T) {
-	gen := NewPRBodyGenerator(nil, nil, nil, nil, "", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(nil, nil, nil, nil, nil, "", 5*time.Second, nil)
 
 	result := gen.generateFallback(nil)
 
@@ -304,7 +304,7 @@ func TestPRBodyGenerator_WithCacheError(t *testing.T) {
 		errAIGenerationFail,
 	)
 
-	gen := NewPRBodyGenerator(mockProvider, cache, nil, nil, "", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(mockProvider, cache, nil, nil, nil, "", 5*time.Second, nil)
 
 	prCtx := &PRContext{
 		SourceRepo:   "owner/source",
@@ -502,7 +502,7 @@ func TestLoadPRGuidelines(t *testing.T) {
 
 func TestPRBodyGenerator_WithSuccessMock(t *testing.T) {
 	mockProvider := NewSuccessMock("## What Changed\n\nAI generated content")
-	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, "", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, nil, "", 5*time.Second, nil)
 
 	prCtx := &PRContext{
 		SourceRepo:   "owner/source",
@@ -517,7 +517,7 @@ func TestPRBodyGenerator_WithSuccessMock(t *testing.T) {
 
 func TestPRBodyGenerator_WithUnavailableMock(t *testing.T) {
 	mockProvider := NewUnavailableMock()
-	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, "", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, nil, "", 5*time.Second, nil)
 
 	prCtx := &PRContext{
 		SourceRepo:   "owner/source",
@@ -532,7 +532,7 @@ func TestPRBodyGenerator_WithUnavailableMock(t *testing.T) {
 
 func TestPRBodyGenerator_WithErrorMock(t *testing.T) {
 	mockProvider := NewErrorMock(errAPIError)
-	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, "", 5*time.Second, nil)
+	gen := NewPRBodyGenerator(mockProvider, nil, nil, nil, nil, "", 5*time.Second, nil)
 
 	prCtx := &PRContext{
 		SourceRepo:   "owner/source",

@@ -27,6 +27,7 @@ func TestEngine_SetAIGenerators(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 			"",
 			5*time.Second,
 			nil,
@@ -44,6 +45,7 @@ func TestEngine_SetAIGenerators(t *testing.T) {
 		mockProvider := ai.NewSuccessMock("feat: test commit")
 		gen := ai.NewCommitMessageGenerator(
 			mockProvider,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -97,6 +99,7 @@ func TestRepositorySync_GenerateCommitMessage(t *testing.T) {
 		mockProvider := ai.NewSuccessMock("feat(sync): update configuration files")
 		gen := ai.NewCommitMessageGenerator(
 			mockProvider,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -188,6 +191,7 @@ func TestRepositorySync_GenerateCommitMessage(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 			5*time.Second,
 			nil,
 		)
@@ -234,6 +238,7 @@ This PR updates configuration files from the source repository.
 		mockProvider := ai.NewSuccessMock(aiBody)
 		gen := ai.NewPRBodyGenerator(
 			mockProvider,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -304,6 +309,7 @@ This PR updates configuration files from the source repository.
 			nil,
 			nil,
 			nil,
+			nil,
 			"",
 			5*time.Second,
 			nil,
@@ -370,6 +376,7 @@ func TestAICache_SharedAcrossOperations(t *testing.T) {
 		mockProvider,
 		cache,
 		truncator,
+		nil,
 		nil,
 		"",
 		5*time.Second,

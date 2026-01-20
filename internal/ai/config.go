@@ -91,19 +91,59 @@ type Config struct {
 
 	// RetryMaxDelay is the maximum delay between retries (default: 10s).
 	RetryMaxDelay time.Duration
+
+	// FailOnError determines whether AI failures should block sync operations.
+	// When true, sync will fail if AI generation fails instead of using fallback.
+	// Default: false (for backward compatibility).
+	FailOnError bool
+
+	// APIKeySource tracks which environment variable provided the API key.
+	// Used for error messages to help users debug API key issues.
+	// Values: "GO_BROADCAST_AI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"
+	APIKeySource string
 }
 
 // LoadConfig reads AI configuration from environment variables.
 // All settings have sensible defaults and the feature is disabled by default.
 func LoadConfig() *Config {
 	enabled := env.GetEnvWithFallback("GO_BROADCAST_AI_ENABLED", "false") == "true"
+	provider := env.GetEnvWithFallback("GO_BROADCAST_AI_PROVIDER", ProviderAnthropic)
+
+	// Load API key and track which env var provided it
+	apiKey := env.GetEnvWithFallback("GO_BROADCAST_AI_API_KEY", "")
+	apiKeySource := ""
+	if apiKey != "" {
+		apiKeySource = "GO_BROADCAST_AI_API_KEY"
+	}
+
+	// Fall back to provider-specific API key env vars if GO_BROADCAST_AI_API_KEY is not set
+	if apiKey == "" {
+		switch provider {
+		case ProviderAnthropic:
+			apiKey = env.GetEnvWithFallback("ANTHROPIC_API_KEY", "")
+			if apiKey != "" {
+				apiKeySource = "ANTHROPIC_API_KEY" //nolint:gosec // G101: not a credential, just env var name for error messages
+			}
+		case ProviderOpenAI:
+			apiKey = env.GetEnvWithFallback("OPENAI_API_KEY", "")
+			if apiKey != "" {
+				apiKeySource = "OPENAI_API_KEY" //nolint:gosec // G101: not a credential, just env var name for error messages
+			}
+		case ProviderGoogle:
+			apiKey = env.GetEnvWithFallback("GEMINI_API_KEY", "")
+			if apiKey != "" {
+				apiKeySource = "GEMINI_API_KEY" //nolint:gosec // G101: not a credential, just env var name for error messages
+			}
+		}
+	}
 
 	cfg := &Config{
 		Enabled:       enabled,
 		PREnabled:     parseBoolWithDefault("GO_BROADCAST_AI_PR_ENABLED", false),
 		CommitEnabled: parseBoolWithDefault("GO_BROADCAST_AI_COMMIT_ENABLED", false),
-		Provider:      env.GetEnvWithFallback("GO_BROADCAST_AI_PROVIDER", ProviderAnthropic),
-		APIKey:        env.GetEnvWithFallback("GO_BROADCAST_AI_API_KEY", ""),
+		Provider:      provider,
+		APIKey:        apiKey,
+		APIKeySource:  apiKeySource,
 		Model:         env.GetEnvWithFallback("GO_BROADCAST_AI_MODEL", ""),
 		MaxTokens:     parseIntWithDefault("GO_BROADCAST_AI_MAX_TOKENS", 2000),
 		Timeout:       parseDurationSecondsWithDefault("GO_BROADCAST_AI_TIMEOUT", 30*time.Second),
@@ -122,18 +162,9 @@ func LoadConfig() *Config {
 		RetryMaxAttempts:  parseIntWithDefault("GO_BROADCAST_AI_RETRY_MAX_ATTEMPTS", 3),
 		RetryInitialDelay: parseDurationSecondsWithDefault("GO_BROADCAST_AI_RETRY_INITIAL_DELAY", 1*time.Second),
 		RetryMaxDelay:     parseDurationSecondsWithDefault("GO_BROADCAST_AI_RETRY_MAX_DELAY", 10*time.Second),
-	}
 
-	// Fall back to provider-specific API key env vars if GO_BROADCAST_AI_API_KEY is not set
-	if cfg.APIKey == "" {
-		switch cfg.Provider {
-		case ProviderAnthropic:
-			cfg.APIKey = env.GetEnvWithFallback("ANTHROPIC_API_KEY", "")
-		case ProviderOpenAI:
-			cfg.APIKey = env.GetEnvWithFallback("OPENAI_API_KEY", "")
-		case ProviderGoogle:
-			cfg.APIKey = env.GetEnvWithFallback("GEMINI_API_KEY", "")
-		}
+		// Error handling
+		FailOnError: parseBoolWithDefault("GO_BROADCAST_AI_FAIL_ON_ERROR", false),
 	}
 
 	// Apply default model if not specified

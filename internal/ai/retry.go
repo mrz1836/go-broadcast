@@ -125,7 +125,12 @@ func isRetryableError(err error) bool {
 
 	errStr := strings.ToLower(err.Error())
 
-	// Rate limits
+	// Quota exhausted errors are NOT retryable (permanent failures)
+	if isQuotaExhaustedError(errStr) {
+		return false
+	}
+
+	// Rate limits (temporary - will resolve after a delay)
 	if strings.Contains(errStr, "rate limit") ||
 		strings.Contains(errStr, "429") ||
 		strings.Contains(errStr, "too many requests") {
@@ -167,4 +172,38 @@ func isRetryableError(err error) bool {
 // IsRetryableError is exported for testing.
 func IsRetryableError(err error) bool {
 	return isRetryableError(err)
+}
+
+// isQuotaExhaustedError checks if an error indicates quota/usage limit exhaustion.
+// These are permanent failures that won't resolve with retries.
+func isQuotaExhaustedError(errStr string) bool {
+	quotaIndicators := []string{
+		"quota exceeded",
+		"quota_exceeded",
+		"usage limit",
+		"billing",
+		"insufficient_quota",
+		"exceeded your current quota",
+		"you have exceeded",
+		"account limit",
+		"credit",
+		"subscription",
+		"reached your api usage limits",
+		"regain access",
+	}
+
+	for _, indicator := range quotaIndicators {
+		if strings.Contains(errStr, indicator) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsQuotaExhaustedError is exported for testing.
+func IsQuotaExhaustedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return isQuotaExhaustedError(strings.ToLower(err.Error()))
 }

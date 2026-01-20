@@ -161,11 +161,15 @@ func (e *Engine) initializeAI(ctx context.Context) {
 			e.responseCache,
 			e.diffTruncator,
 			retryConfig,
+			cfg,
 			guidelines,
 			cfg.Timeout,
 			log.WithField("generator", "pr_body"),
 		)
 		log.Info("AI PR body generation enabled")
+		if cfg.FailOnError {
+			log.Info("AI fail_on_error mode enabled - sync will fail on AI errors")
+		}
 	}
 
 	// Initialize commit generator if enabled
@@ -175,10 +179,14 @@ func (e *Engine) initializeAI(ctx context.Context) {
 			e.responseCache,
 			e.diffTruncator,
 			retryConfig,
+			cfg,
 			cfg.Timeout,
 			log.WithField("generator", "commit_message"),
 		)
 		log.Info("AI commit message generation enabled")
+		if cfg.FailOnError {
+			log.Info("AI fail_on_error mode enabled - sync will fail on AI errors")
+		}
 	}
 }
 

@@ -26,6 +26,9 @@ var (
 	ErrFallbackUsed = errors.New("AI generation failed, fallback used")
 	// ErrInvalidFormat indicates AI response was in wrong format (e.g., commit message instead of PR body).
 	ErrInvalidFormat = errors.New("AI response was in invalid format")
+	// ErrAIGenerationFailed indicates AI generation failed and FailOnError is enabled.
+	// This is a blocking error that prevents sync from continuing.
+	ErrAIGenerationFailed = errors.New("AI generation failed (fail_on_error enabled)")
 )
 
 // GenerationError creates a standardized AI generation error.
@@ -72,4 +75,19 @@ func ConfigError(field, reason string) error {
 //	// Returns: "AI provider error: anthropic 'rate limit': retry after 60 seconds"
 func RateLimitError(provider, retryAfter string) error {
 	return fmt.Errorf("%w: %s 'rate limit': retry after %s", errAIProviderTemplate, provider, retryAfter)
+}
+
+// FailedError creates an error with API key source context.
+// Used when FailOnError is enabled to provide debugging information.
+//
+// Example usage:
+//
+//	return ai.FailedError("anthropic", "commit message", "ANTHROPIC_API_KEY", err)
+//	// Returns: "AI generation failed (fail_on_error enabled) (using ANTHROPIC_API_KEY): anthropic 'commit message': <original error>"
+func FailedError(provider, context, apiKeySource string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%w (using %s): %s '%s': %w",
+		ErrAIGenerationFailed, apiKeySource, provider, context, err)
 }
