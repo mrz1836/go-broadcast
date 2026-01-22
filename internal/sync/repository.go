@@ -1368,7 +1368,7 @@ func (rs *RepositorySync) generateCommitMessage(ctx context.Context, changedFile
 			}
 			return msg, aiGenerated
 		}
-		rs.logger.WithError(err).Warn("AI commit message generation failed, using static fallback")
+		rs.logger.Warn("AI commit message generation failed, using static fallback")
 	}
 
 	// Existing static generation (fallback)
@@ -1451,7 +1451,7 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 			}
 			rs.logger.Debug("AI PR body generation used fallback")
 		} else if err != nil && !errors.Is(err, ai.ErrFallbackUsed) {
-			rs.logger.WithError(err).Warn("AI PR body generation failed, using static fallback")
+			rs.logger.Warn("AI PR body generation failed, using static fallback")
 		}
 	}
 
