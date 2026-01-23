@@ -9,7 +9,7 @@
 // - Timer struct for tracking operation duration
 // - Context-aware timing with cancellation support
 // - Metadata attachment through AddField method
-// - Automatic warnings for slow operations (>30 seconds)
+// - Configurable warnings for slow operations (default: 60 seconds)
 // - Human-readable duration formatting
 // - Integration with structured logging
 //
@@ -23,6 +23,11 @@
 //	timer := metrics.StartTimer(ctx, logger, "git_clone").
 //	  AddField("repo", "owner/repo").
 //	  AddField("branch", "master")
+//	defer timer.Stop()
+//
+//	// Timer with custom threshold for long-running operations
+//	timer := metrics.StartTimer(ctx, logger, "large_sync").
+//	  WithThreshold(5 * time.Minute)
 //	defer timer.Stop()
 //
 // Important notes:
@@ -40,6 +45,10 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/logging"
 )
 
+// DefaultSlowOperationThreshold is the default duration threshold for slow operation warnings.
+// Operations exceeding this threshold will be logged at WARN level.
+const DefaultSlowOperationThreshold = 60 * time.Second
+
 // Timer tracks the duration of an operation with support for additional metadata.
 //
 // Timer provides comprehensive operation timing with automatic logging of
@@ -56,6 +65,7 @@ type Timer struct {
 	fields    logrus.Fields
 	ctx       context.Context //nolint:containedctx // Context needed for cancellation checks during timer lifecycle
 	stopped   bool            // Tracks whether Stop() has been called to prevent double-logging
+	threshold time.Duration   // Custom threshold for slow operation warnings, 0 means use default
 }
 
 // StartTimer creates a new timer for an operation.
@@ -124,6 +134,29 @@ func (t *Timer) AddField(key string, value interface{}) *Timer {
 	return t
 }
 
+// WithThreshold sets a custom duration threshold for slow operation warnings.
+//
+// Operations exceeding this threshold will be logged at WARN level instead
+// of DEBUG level. This allows different operations to have appropriate
+// thresholds based on their expected duration.
+//
+// Parameters:
+// - d: Duration threshold for slow operation warnings
+//   - Positive value: Use as custom threshold
+//   - Zero: Use DefaultSlowOperationThreshold (60 seconds)
+//   - Negative value: Disable slow operation warnings entirely
+//
+// Returns:
+// - Timer instance for method chaining
+//
+// Notes:
+// - Method chaining is supported with AddField
+// - Default threshold is 60 seconds if not set
+func (t *Timer) WithThreshold(d time.Duration) *Timer {
+	t.threshold = d
+	return t
+}
+
 // Stop stops the timer and logs the duration with performance analysis.
 //
 // This method completes the timing measurement, calculates the total
@@ -139,11 +172,11 @@ func (t *Timer) AddField(key string, value interface{}) *Timer {
 //
 // Side Effects:
 // - Logs operation duration with context and metadata (first call only)
-// - Issues warnings for operations taking longer than 30 seconds
+// - Issues warnings for operations exceeding the configured threshold
 // - Includes all attached fields in the log entry
 //
 // Performance Analysis:
-// - Operations > 30 seconds: WARNING level with slow operation message
+// - Operations exceeding threshold: WARNING level with slow operation message
 // - Normal operations: DEBUG level with completion message
 // - All operations include duration_ms and duration_human fields
 func (t *Timer) Stop() time.Duration {
@@ -159,8 +192,15 @@ func (t *Timer) Stop() time.Duration {
 	t.fields[logging.StandardFields.DurationMs] = duration.Milliseconds()
 	t.fields["duration_human"] = duration.String()
 
+	// Determine threshold for slow operation warning
+	threshold := t.threshold
+	if threshold == 0 {
+		threshold = DefaultSlowOperationThreshold
+	}
+
 	// Check for slow operations and log with appropriate level
-	if duration > 30*time.Second {
+	// Negative threshold disables slow operation warnings
+	if threshold > 0 && duration > threshold {
 		t.logger.WithFields(t.fields).Warn("Operation took longer than expected")
 	} else {
 		t.logger.WithFields(t.fields).Debug("Operation completed")
@@ -206,9 +246,16 @@ func (t *Timer) StopWithError(err error) time.Duration {
 		t.fields[logging.StandardFields.Status] = "failed"
 		t.logger.WithFields(t.fields).Error("Operation failed")
 	} else {
+		// Determine threshold for slow operation warning
+		threshold := t.threshold
+		if threshold == 0 {
+			threshold = DefaultSlowOperationThreshold
+		}
+
 		// Log successful operations based on duration
+		// Negative threshold disables slow operation warnings
 		t.fields[logging.StandardFields.Status] = "completed"
-		if duration > 30*time.Second {
+		if threshold > 0 && duration > threshold {
 			t.logger.WithFields(t.fields).Warn("Operation completed but took longer than expected")
 		} else {
 			t.logger.WithFields(t.fields).Debug("Operation completed successfully")

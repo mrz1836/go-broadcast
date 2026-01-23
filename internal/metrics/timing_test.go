@@ -412,19 +412,20 @@ func TestTimer_SlowOperation(t *testing.T) {
 
 	// Manually set start time to simulate slow operation for warning logic
 	// This is a bit of a hack, but allows us to test the warning behavior without actually waiting
-	timer.start = time.Now().Add(-35 * time.Second)
+	// Default threshold is 60 seconds
+	timer.start = time.Now().Add(-65 * time.Second)
 
 	duration := timer.Stop()
 
 	// Duration should reflect the artificial start time
-	assert.Greater(t, duration, 30*time.Second, "simulated slow operation should show long duration")
+	assert.Greater(t, duration, 60*time.Second, "simulated slow operation should show long duration")
 
 	// Fields should still be populated correctly
 	assert.Contains(t, timer.fields, logging.StandardFields.DurationMs, "duration_ms should be present")
 	assert.Contains(t, timer.fields, "duration_human", "duration_human should be present")
 
 	durationMs := timer.fields[logging.StandardFields.DurationMs]
-	assert.Greater(t, durationMs.(int64), int64(30000), "duration_ms should show > 30 seconds")
+	assert.Greater(t, durationMs.(int64), int64(60000), "duration_ms should show > 60 seconds")
 }
 
 func TestTimer_FieldOverwrite(t *testing.T) {
@@ -526,4 +527,127 @@ func TestTimer_DoubleStopWithError(t *testing.T) {
 		duration2 := timer.Stop()
 		assert.Equal(t, time.Duration(0), duration2, "Stop after StopWithError should return 0")
 	})
+}
+
+func TestTimer_WithThreshold(t *testing.T) {
+	t.Run("method chaining", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "threshold_chain_test")
+
+		result := timer.WithThreshold(5 * time.Minute)
+
+		assert.Equal(t, timer, result, "WithThreshold should return the same timer for chaining")
+		assert.Equal(t, 5*time.Minute, timer.threshold, "threshold should be set")
+	})
+
+	t.Run("chaining with AddField", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "threshold_addfield_chain")
+
+		result := timer.
+			WithThreshold(2*time.Minute).
+			AddField("repo", "test/repo").
+			AddField("branch", "main")
+
+		assert.Equal(t, timer, result, "chained methods should return the same timer")
+		assert.Equal(t, 2*time.Minute, timer.threshold, "threshold should be set")
+		assert.Equal(t, "test/repo", timer.fields["repo"], "repo field should be set")
+		assert.Equal(t, "main", timer.fields["branch"], "branch field should be set")
+	})
+
+	t.Run("custom threshold with Stop - under threshold", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "custom_threshold_under")
+		timer.WithThreshold(10 * time.Second)
+
+		// Simulate 5 seconds (under threshold)
+		timer.start = time.Now().Add(-5 * time.Second)
+
+		duration := timer.Stop()
+
+		assert.Greater(t, duration, 4*time.Second, "duration should be around 5 seconds")
+		assert.Less(t, duration, 10*time.Second, "duration should be under threshold")
+		assert.Contains(t, timer.fields, logging.StandardFields.DurationMs, "duration_ms should be present")
+	})
+
+	t.Run("custom threshold with Stop - over threshold", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "custom_threshold_over")
+		timer.WithThreshold(10 * time.Second)
+
+		// Simulate 15 seconds (over threshold)
+		timer.start = time.Now().Add(-15 * time.Second)
+
+		duration := timer.Stop()
+
+		assert.Greater(t, duration, 10*time.Second, "duration should exceed custom threshold")
+		assert.Contains(t, timer.fields, logging.StandardFields.DurationMs, "duration_ms should be present")
+	})
+
+	t.Run("custom threshold with StopWithError - success over threshold", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "custom_threshold_error_over")
+		timer.WithThreshold(10 * time.Second)
+
+		// Simulate 15 seconds (over threshold)
+		timer.start = time.Now().Add(-15 * time.Second)
+
+		duration := timer.StopWithError(nil)
+
+		assert.Greater(t, duration, 10*time.Second, "duration should exceed custom threshold")
+		assert.Equal(t, "completed", timer.fields[logging.StandardFields.Status], "status should be completed")
+	})
+
+	t.Run("negative threshold disables warning", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "negative_threshold_test")
+		timer.WithThreshold(-1 * time.Second)
+
+		// Simulate very long operation (2 hours)
+		timer.start = time.Now().Add(-2 * time.Hour)
+
+		duration := timer.Stop()
+
+		// Should still return the correct duration
+		assert.Greater(t, duration, time.Hour, "duration should reflect the long operation")
+		assert.Contains(t, timer.fields, logging.StandardFields.DurationMs, "duration_ms should be present")
+	})
+
+	t.Run("zero threshold uses default", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "zero_threshold_test")
+		timer.WithThreshold(0) // Explicitly set to 0
+
+		// Verify that default is used (60 seconds)
+		// Simulate 45 seconds (under default threshold)
+		timer.start = time.Now().Add(-45 * time.Second)
+
+		duration := timer.Stop()
+
+		assert.Greater(t, duration, 40*time.Second, "duration should be around 45 seconds")
+		assert.Less(t, duration, DefaultSlowOperationThreshold, "duration should be under default threshold")
+	})
+
+	t.Run("very short custom threshold", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "short_threshold_test")
+		timer.WithThreshold(100 * time.Millisecond)
+
+		// Simulate 200ms operation
+		timer.start = time.Now().Add(-200 * time.Millisecond)
+
+		duration := timer.Stop()
+
+		assert.Greater(t, duration, 100*time.Millisecond, "duration should exceed short threshold")
+	})
+
+	t.Run("very long custom threshold for sync operations", func(t *testing.T) {
+		timer := StartTimer(context.Background(), logrus.NewEntry(logrus.New()), "long_threshold_test")
+		timer.WithThreshold(5 * time.Minute)
+
+		// Simulate 2 minute operation (under threshold)
+		timer.start = time.Now().Add(-2 * time.Minute)
+
+		duration := timer.Stop()
+
+		assert.Greater(t, duration, time.Minute, "duration should be around 2 minutes")
+		assert.Less(t, duration, 5*time.Minute, "duration should be under custom threshold")
+	})
+}
+
+func TestDefaultSlowOperationThreshold(t *testing.T) {
+	// Verify the constant is set to 60 seconds
+	assert.Equal(t, 60*time.Second, DefaultSlowOperationThreshold, "default threshold should be 60 seconds")
 }
