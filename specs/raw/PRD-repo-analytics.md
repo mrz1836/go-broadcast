@@ -708,6 +708,554 @@ Secret Scanning Alerts:
 
 ---
 
+## Go-Broadcast Patterns (Consistency)
+
+The analytics module MUST follow existing go-broadcast patterns for consistency:
+
+### Package Structure
+
+```
+internal/
+├── analytics/           # NEW: Analytics engine
+│   ├── client.go        # GitHub API client (REST + GraphQL)
+│   ├── client_test.go
+│   ├── models.go        # GORM models
+│   ├── sync.go          # Sync orchestrator
+│   ├── sync_test.go
+│   ├── progress.go      # Progress reporting (like directory_progress.go)
+│   ├── cache.go         # ETag caching
+│   ├── retry.go         # Backoff/retry logic
+│   └── export.go        # CSV/JSON/Postgres export
+├── cli/
+│   ├── analytics.go     # NEW: analytics subcommand
+│   └── analytics_test.go
+└── logging/             # EXISTING: Reuse logging patterns
+```
+
+### Logging Standards
+
+Use `internal/logging` patterns with `logrus` and `StandardFields`:
+
+```go
+import (
+    "github.com/sirupsen/logrus"
+    "github.com/mrz1836/go-broadcast/internal/logging"
+)
+
+// Define component name
+const componentAnalytics = "analytics"
+
+// Use structured logging with standard fields
+func (s *Syncer) syncRepository(ctx context.Context, repo Repository) error {
+    log := logging.WithStandardFields(s.logger, s.logConfig, componentAnalytics)
+
+    log.WithFields(logrus.Fields{
+        logging.StandardFields.RepoName:   repo.FullName,
+        logging.StandardFields.Operation:  "sync",
+        logging.StandardFields.Phase:      "start",
+    }).Info("Syncing repository")
+
+    start := time.Now()
+    // ... sync logic ...
+
+    log.WithFields(logrus.Fields{
+        logging.StandardFields.RepoName:   repo.FullName,
+        logging.StandardFields.Operation:  "sync",
+        logging.StandardFields.Phase:      "complete",
+        logging.StandardFields.DurationMs: time.Since(start).Milliseconds(),
+    }).Info("Repository synced successfully")
+
+    return nil
+}
+```
+
+### Interfaces (Testability)
+
+Follow the interface pattern from `cli/sync.go`:
+
+```go
+// GitHubClient interface for mocking in tests
+type GitHubClient interface {
+    GetRepository(ctx context.Context, owner, name string) (*Repository, error)
+    GetOrganizationRepos(ctx context.Context, org string) ([]Repository, error)
+    GetDependabotAlerts(ctx context.Context, owner, repo string) ([]DependabotAlert, error)
+    GetCodeScanningAlerts(ctx context.Context, owner, repo string) ([]CodeScanningAlert, error)
+    GetSecretScanningAlerts(ctx context.Context, owner, repo string) ([]SecretScanningAlert, error)
+}
+
+// Storage interface for database operations
+type Storage interface {
+    SaveRepository(ctx context.Context, repo *Repository) error
+    SaveSnapshot(ctx context.Context, snapshot *RepositorySnapshot) error
+    SaveAlerts(ctx context.Context, repoID uint, alerts []SecurityAlert) error
+    GetRepositories(ctx context.Context, filter RepositoryFilter) ([]Repository, error)
+}
+
+// AnalyticsService is the main service interface
+type AnalyticsService interface {
+    Sync(ctx context.Context, opts SyncOptions) error
+    GetStatus(ctx context.Context, repoName string) (*RepositoryStatus, error)
+    GetHistory(ctx context.Context, repoName string, since time.Time) ([]RepositorySnapshot, error)
+    GetAlerts(ctx context.Context, filter AlertFilter) ([]SecurityAlert, error)
+}
+```
+
+---
+
+## Resilience & Error Handling
+
+### Exponential Backoff with Jitter
+
+```go
+package analytics
+
+import (
+    "context"
+    "math/rand"
+    "time"
+
+    "github.com/sirupsen/logrus"
+)
+
+// RetryConfig defines retry behavior
+type RetryConfig struct {
+    MaxRetries     int
+    InitialBackoff time.Duration
+    MaxBackoff     time.Duration
+    Multiplier     float64
+    JitterFactor   float64 // 0.0 to 1.0
+}
+
+// DefaultRetryConfig returns sensible defaults
+func DefaultRetryConfig() RetryConfig {
+    return RetryConfig{
+        MaxRetries:     5,
+        InitialBackoff: 1 * time.Second,
+        MaxBackoff:     60 * time.Second,
+        Multiplier:     2.0,
+        JitterFactor:   0.3, // ±30% jitter
+    }
+}
+
+// RetryableFunc is a function that can be retried
+type RetryableFunc func(ctx context.Context) error
+
+// WithRetry executes a function with exponential backoff
+func WithRetry(ctx context.Context, log *logrus.Entry, cfg RetryConfig, operation string, fn RetryableFunc) error {
+    var lastErr error
+    backoff := cfg.InitialBackoff
+
+    for attempt := 0; attempt <= cfg.MaxRetries; attempt++ {
+        if attempt > 0 {
+            // Add jitter: backoff * (1 ± jitterFactor)
+            jitter := 1.0 + (rand.Float64()*2-1)*cfg.JitterFactor
+            sleepTime := time.Duration(float64(backoff) * jitter)
+
+            log.WithFields(logrus.Fields{
+                "attempt":    attempt,
+                "max":        cfg.MaxRetries,
+                "backoff_ms": sleepTime.Milliseconds(),
+                "operation":  operation,
+            }).Warn("Retrying after backoff")
+
+            select {
+            case <-ctx.Done():
+                return ctx.Err()
+            case <-time.After(sleepTime):
+            }
+
+            // Increase backoff for next attempt
+            backoff = time.Duration(float64(backoff) * cfg.Multiplier)
+            if backoff > cfg.MaxBackoff {
+                backoff = cfg.MaxBackoff
+            }
+        }
+
+        err := fn(ctx)
+        if err == nil {
+            if attempt > 0 {
+                log.WithFields(logrus.Fields{
+                    "attempt":   attempt,
+                    "operation": operation,
+                }).Info("Retry succeeded")
+            }
+            return nil
+        }
+
+        lastErr = err
+
+        // Check if error is retryable
+        if !isRetryableError(err) {
+            log.WithFields(logrus.Fields{
+                "error":     err.Error(),
+                "operation": operation,
+            }).Error("Non-retryable error")
+            return err
+        }
+
+        log.WithFields(logrus.Fields{
+            "attempt":   attempt,
+            "error":     err.Error(),
+            "operation": operation,
+        }).Warn("Retryable error occurred")
+    }
+
+    return fmt.Errorf("max retries exceeded for %s: %w", operation, lastErr)
+}
+
+// isRetryableError determines if an error should trigger a retry
+func isRetryableError(err error) bool {
+    // Rate limit errors
+    if strings.Contains(err.Error(), "rate limit") {
+        return true
+    }
+    // Temporary network errors
+    if strings.Contains(err.Error(), "timeout") ||
+       strings.Contains(err.Error(), "connection refused") ||
+       strings.Contains(err.Error(), "EOF") {
+        return true
+    }
+    // GitHub 5xx errors
+    if strings.Contains(err.Error(), "502") ||
+       strings.Contains(err.Error(), "503") ||
+       strings.Contains(err.Error(), "504") {
+        return true
+    }
+    return false
+}
+```
+
+### Rate Limit Handling
+
+```go
+// RateLimitHandler manages GitHub rate limits
+type RateLimitHandler struct {
+    remaining  int
+    resetAt    time.Time
+    buffer     int // Keep this many in reserve
+    mu         sync.RWMutex
+    log        *logrus.Entry
+}
+
+// WaitIfNeeded blocks if rate limit is near exhaustion
+func (r *RateLimitHandler) WaitIfNeeded(ctx context.Context) error {
+    r.mu.RLock()
+    remaining := r.remaining
+    resetAt := r.resetAt
+    r.mu.RUnlock()
+
+    if remaining > r.buffer {
+        return nil // Plenty of requests remaining
+    }
+
+    sleepTime := time.Until(resetAt)
+    if sleepTime <= 0 {
+        return nil // Reset already happened
+    }
+
+    r.log.WithFields(logrus.Fields{
+        "remaining":   remaining,
+        "buffer":      r.buffer,
+        "reset_in":    sleepTime.Round(time.Second).String(),
+    }).Warn("Rate limit buffer reached, waiting for reset")
+
+    select {
+    case <-ctx.Done():
+        return ctx.Err()
+    case <-time.After(sleepTime):
+        return nil
+    }
+}
+
+// UpdateFromResponse updates rate limit info from API response
+func (r *RateLimitHandler) UpdateFromResponse(resp *http.Response) {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+
+    if remaining := resp.Header.Get("X-RateLimit-Remaining"); remaining != "" {
+        r.remaining, _ = strconv.Atoi(remaining)
+    }
+    if reset := resp.Header.Get("X-RateLimit-Reset"); reset != "" {
+        resetUnix, _ := strconv.ParseInt(reset, 10, 64)
+        r.resetAt = time.Unix(resetUnix, 0)
+    }
+
+    r.log.WithFields(logrus.Fields{
+        "remaining": r.remaining,
+        "reset_at":  r.resetAt.Format(time.RFC3339),
+    }).Debug("Rate limit updated")
+}
+```
+
+---
+
+## User Experience & Progress Logging
+
+### Progress Reporter (Following directory_progress.go Pattern)
+
+```go
+// SyncProgressReporter provides real-time feedback during sync
+type SyncProgressReporter struct {
+    logger         *logrus.Entry
+    updateInterval time.Duration
+    lastUpdate     time.Time
+    mu             sync.RWMutex
+
+    // Metrics
+    metrics SyncMetrics
+}
+
+// SyncMetrics tracks sync progress
+type SyncMetrics struct {
+    // Discovery
+    OrgsDiscovered   int
+    ReposDiscovered  int
+    ReposMonitored   int
+
+    // Progress
+    ReposProcessed   int
+    ReposSkipped     int // Unchanged (ETag match)
+    ReposErrored     int
+
+    // Data collected
+    SnapshotsCreated int
+    AlertsFound      int
+    AlertsCritical   int
+    AlertsHigh       int
+
+    // Timing
+    StartTime        time.Time
+    LastRepoTime     time.Duration
+    TotalAPITime     time.Duration
+    TotalDBTime      time.Duration
+}
+
+// LogProgress outputs current progress (rate-limited to avoid spam)
+func (p *SyncProgressReporter) LogProgress(force bool) {
+    p.mu.Lock()
+    defer p.mu.Unlock()
+
+    now := time.Now()
+    if !force && now.Sub(p.lastUpdate) < p.updateInterval {
+        return
+    }
+    p.lastUpdate = now
+
+    elapsed := time.Since(p.metrics.StartTime)
+    remaining := p.metrics.ReposMonitored - p.metrics.ReposProcessed - p.metrics.ReposSkipped
+
+    p.logger.WithFields(logrus.Fields{
+        "progress":    fmt.Sprintf("%d/%d", p.metrics.ReposProcessed+p.metrics.ReposSkipped, p.metrics.ReposMonitored),
+        "processed":   p.metrics.ReposProcessed,
+        "skipped":     p.metrics.ReposSkipped,
+        "remaining":   remaining,
+        "elapsed":     elapsed.Round(time.Second).String(),
+        "alerts":      p.metrics.AlertsFound,
+        "critical":    p.metrics.AlertsCritical,
+    }).Info("📊 Sync progress")
+}
+
+// LogRepoStart logs when starting to process a repo
+func (p *SyncProgressReporter) LogRepoStart(repo string) {
+    p.logger.WithFields(logrus.Fields{
+        "repo":     repo,
+        "progress": fmt.Sprintf("%d/%d", p.metrics.ReposProcessed+1, p.metrics.ReposMonitored),
+    }).Info("🔄 Processing repository")
+}
+
+// LogRepoComplete logs when a repo is done
+func (p *SyncProgressReporter) LogRepoComplete(repo string, stats RepoSyncStats) {
+    p.mu.Lock()
+    p.metrics.ReposProcessed++
+    p.metrics.SnapshotsCreated++
+    p.metrics.AlertsFound += stats.AlertsFound
+    p.metrics.AlertsCritical += stats.AlertsCritical
+    p.metrics.AlertsHigh += stats.AlertsHigh
+    p.metrics.LastRepoTime = stats.Duration
+    p.mu.Unlock()
+
+    fields := logrus.Fields{
+        "repo":        repo,
+        "duration_ms": stats.Duration.Milliseconds(),
+        "stars":       stats.Stars,
+        "forks":       stats.Forks,
+    }
+
+    // Only add alert info if there are alerts
+    if stats.AlertsFound > 0 {
+        fields["alerts"] = stats.AlertsFound
+        if stats.AlertsCritical > 0 {
+            fields["critical"] = stats.AlertsCritical
+        }
+    }
+
+    p.logger.WithFields(fields).Info("✅ Repository synced")
+}
+
+// LogRepoSkipped logs when a repo is skipped (no changes)
+func (p *SyncProgressReporter) LogRepoSkipped(repo string, reason string) {
+    p.mu.Lock()
+    p.metrics.ReposSkipped++
+    p.mu.Unlock()
+
+    p.logger.WithFields(logrus.Fields{
+        "repo":   repo,
+        "reason": reason,
+    }).Debug("⏭️  Repository skipped (no changes)")
+}
+
+// LogRepoError logs when a repo fails
+func (p *SyncProgressReporter) LogRepoError(repo string, err error) {
+    p.mu.Lock()
+    p.metrics.ReposErrored++
+    p.mu.Unlock()
+
+    p.logger.WithFields(logrus.Fields{
+        "repo":  repo,
+        "error": err.Error(),
+    }).Error("❌ Repository sync failed")
+}
+
+// LogSummary outputs final summary
+func (p *SyncProgressReporter) LogSummary() {
+    p.mu.RLock()
+    m := p.metrics
+    p.mu.RUnlock()
+
+    elapsed := time.Since(m.StartTime)
+
+    p.logger.WithFields(logrus.Fields{
+        "duration":     elapsed.Round(time.Second).String(),
+        "repos_synced": m.ReposProcessed,
+        "repos_skipped": m.ReposSkipped,
+        "repos_errored": m.ReposErrored,
+        "snapshots":    m.SnapshotsCreated,
+        "alerts_total": m.AlertsFound,
+        "alerts_critical": m.AlertsCritical,
+        "alerts_high":  m.AlertsHigh,
+    }).Info("🎉 Sync complete")
+
+    // Print human-readable summary
+    fmt.Println()
+    fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    fmt.Println("📊 ANALYTICS SYNC SUMMARY")
+    fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    fmt.Printf("   Duration:        %s\n", elapsed.Round(time.Second))
+    fmt.Printf("   Repos synced:    %d\n", m.ReposProcessed)
+    fmt.Printf("   Repos skipped:   %d (unchanged)\n", m.ReposSkipped)
+    if m.ReposErrored > 0 {
+        fmt.Printf("   Repos errored:   %d ⚠️\n", m.ReposErrored)
+    }
+    fmt.Printf("   Snapshots:       %d\n", m.SnapshotsCreated)
+    fmt.Println()
+    if m.AlertsFound > 0 {
+        fmt.Println("🔒 SECURITY ALERTS")
+        fmt.Printf("   Total open:      %d\n", m.AlertsFound)
+        if m.AlertsCritical > 0 {
+            fmt.Printf("   Critical:        %d 🔴\n", m.AlertsCritical)
+        }
+        if m.AlertsHigh > 0 {
+            fmt.Printf("   High:            %d 🟠\n", m.AlertsHigh)
+        }
+    } else {
+        fmt.Println("🔒 No security alerts found ✅")
+    }
+    fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+}
+```
+
+### CLI Output Examples
+
+**Normal sync:**
+```
+$ broadcast analytics sync
+
+🚀 Starting analytics sync...
+   Organizations: mrz1836, BitcoinSchema, bsv-blockchain, bitcoin-sv, skyetel
+   Mode: incremental
+
+🔄 Processing repository mrz1836/go-whatsonchain [1/87]
+✅ Repository synced                    repo=mrz1836/go-whatsonchain duration_ms=234 stars=15 forks=8
+🔄 Processing repository mrz1836/go-broadcast [2/87]
+✅ Repository synced                    repo=mrz1836/go-broadcast duration_ms=312 stars=42 alerts=2
+⏭️  Repository skipped (no changes)     repo=mrz1836/go-api-router
+📊 Sync progress                        progress=25/87 elapsed=1m12s alerts=5 critical=1
+
+... (continues) ...
+
+🎉 Sync complete                        duration=4m32s repos_synced=72 repos_skipped=15 alerts_total=23
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 ANALYTICS SYNC SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Duration:        4m32s
+   Repos synced:    72
+   Repos skipped:   15 (unchanged)
+   Snapshots:       72
+
+🔒 SECURITY ALERTS
+   Total open:      23
+   Critical:        3 🔴
+   High:            7 🟠
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**With --verbose flag:**
+```
+$ broadcast analytics sync --verbose
+
+🚀 Starting analytics sync...
+   Config: ~/.config/broadcast/config.yaml
+   Database: ~/.config/broadcast/analytics.db (SQLite)
+   Organizations: 5
+   Repositories: 87 monitored
+
+📡 Checking rate limit...               remaining=4823 reset_in=48m
+
+🔄 Processing repository mrz1836/go-whatsonchain [1/87]
+   → Fetching via GraphQL...            cost=1
+   → Stars: 15 (+0), Forks: 8 (+0), Issues: 3
+   → Fetching Dependabot alerts...      found=0
+   → Fetching code scanning alerts...   found=0
+   → Creating snapshot...               id=1234
+✅ Repository synced                    duration_ms=234
+
+🔄 Processing repository mrz1836/go-broadcast [2/87]
+   → Fetching via GraphQL...            cost=1
+   → Stars: 42 (+2), Forks: 12 (+1), Issues: 5
+   → Fetching Dependabot alerts...      found=2
+     └─ critical: lodash <4.17.21 (CVE-2021-23337)
+     └─ high: axios <0.21.1 (CVE-2020-28168)
+   → Fetching code scanning alerts...   found=0
+   → Creating snapshot...               id=1235
+✅ Repository synced                    duration_ms=312 alerts=2
+```
+
+**Rate limit handling:**
+```
+$ broadcast analytics sync
+
+🔄 Processing repository bitcoin-sv/go-sdk [45/87]
+⚠️  Rate limit buffer reached           remaining=95 buffer=100 reset_in=12m34s
+   Waiting for rate limit reset...
+   (Press Ctrl+C to abort)
+📡 Rate limit reset                     remaining=5000
+🔄 Resuming sync...
+```
+
+**Error with retry:**
+```
+🔄 Processing repository skyetel/internal-api [67/87]
+⚠️  Retryable error occurred            attempt=1 error="502 Bad Gateway"
+   Retrying after backoff               attempt=2 backoff_ms=1200
+⚠️  Retryable error occurred            attempt=2 error="502 Bad Gateway"
+   Retrying after backoff               attempt=3 backoff_ms=2600
+✅ Retry succeeded                      attempt=3
+✅ Repository synced                    duration_ms=3842
+```
+
+---
+
 ## Rate Limit Management
 
 ### GitHub Rate Limits
