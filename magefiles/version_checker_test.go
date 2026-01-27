@@ -178,6 +178,9 @@ func TestGetToolDefinitions(t *testing.T) {
 		"yamlfmt",
 		"go-pre-commit",
 		"benchstat",
+		"act",
+		"actionlint",
+		"go-sarif",
 	}
 
 	assert.Len(t, tools, len(expectedTools), "should have correct number of tools")

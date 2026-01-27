@@ -398,6 +398,9 @@ func validateSourceFilesExistWithClient(ctx context.Context, cfg *config.Config,
 	group := groups[0] // For compatibility with old format, work with first group
 	for _, target := range group.Targets {
 		for _, file := range target.Files {
+			if file.Delete || file.Src == "" {
+				continue // Skip delete-only mappings that have no source
+			}
 			sourceFiles[file.Src] = true
 		}
 	}

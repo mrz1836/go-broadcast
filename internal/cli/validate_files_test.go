@@ -208,7 +208,7 @@ func TestValidateSourceFilesExist(t *testing.T) {
 
 // TestValidateSourceFilesExistEdgeCases tests edge cases
 func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
-	t.Run("Empty file paths", func(t *testing.T) {
+	t.Run("Empty file paths are skipped", func(t *testing.T) {
 		cfg := &config.Config{
 			Groups: []config.Group{{
 				Name: "test-group",
@@ -221,7 +221,7 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 					{
 						Repo: "org/target1",
 						Files: []config.FileMapping{
-							{Src: "", Dest: "README.md"},              // Empty source path
+							{Src: "", Dest: "README.md"},              // Empty source path — should be skipped
 							{Src: "valid-file.txt", Dest: "file.txt"}, // Valid file to ensure processing continues
 						},
 					},
@@ -233,10 +233,7 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 		mockClient := gh.NewMockClient()
 
 		// Setup mock expectations
-		// Both empty path and valid file will be checked (current behavior)
-		// Empty path will fail, but validation continues
-		mockClient.On("GetFile", mock.Anything, "org/source-repo", "", "master").
-			Return(nil, gh.ErrFileNotFound)
+		// Only valid-file.txt should be checked; empty src is skipped
 		mockClient.On("GetFile", mock.Anything, "org/source-repo", "valid-file.txt", "master").
 			Return(&gh.FileContent{
 				Path:    "valid-file.txt",
@@ -254,11 +251,57 @@ func TestValidateSourceFilesExistEdgeCases(t *testing.T) {
 		// Verify output - combine stdout and stderr
 		outputStr := scope.Stdout.String() + scope.Stderr.String()
 
-		// Verify that empty paths are reported as not found and validation continues
-		assert.Contains(t, outputStr, "Source file not found: ", "Should report empty path as not found")
-		assert.Contains(t, outputStr, "Some source files missing (1/2 found)", "Should report partial success")
+		// Empty src paths should be skipped, only valid file checked
+		assert.Contains(t, outputStr, "All source files exist (1/1)", "Should only validate non-empty source paths")
 
-		// Verify mock expectations - both paths should be checked
+		// Verify mock expectations - only valid-file.txt should be checked
+		mockClient.AssertExpectations(t)
+	})
+
+	t.Run("Delete-only file mappings are skipped", func(t *testing.T) {
+		cfg := &config.Config{
+			Groups: []config.Group{{
+				Name: "test-group",
+				ID:   "test-group-1",
+				Source: config.SourceConfig{
+					Repo:   "org/source-repo",
+					Branch: "master",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "org/target1",
+						Files: []config.FileMapping{
+							{Dest: ".github/actions/old-action/action.yml", Delete: true}, // Delete-only — should be skipped
+							{Dest: ".github/workflows/old-workflow.yml", Delete: true},    // Delete-only — should be skipped
+							{Src: "valid-file.txt", Dest: "file.txt"},                     // Valid file
+						},
+					},
+				},
+			}},
+		}
+
+		// Create mock client
+		mockClient := gh.NewMockClient()
+
+		// Only the valid file should be checked; delete-only mappings are skipped
+		mockClient.On("GetFile", mock.Anything, "org/source-repo", "valid-file.txt", "master").
+			Return(&gh.FileContent{
+				Path:    "valid-file.txt",
+				Content: []byte("test content"),
+			}, nil)
+
+		// Capture output (thread-safe)
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		ctx := context.Background()
+		validateSourceFilesExistWithClient(ctx, cfg, mockClient)
+
+		// Verify output
+		outputStr := scope.Stdout.String() + scope.Stderr.String()
+		assert.Contains(t, outputStr, "All source files exist (1/1)", "Should only validate non-delete source paths")
+
+		// Verify mock expectations - only valid-file.txt should be checked
 		mockClient.AssertExpectations(t)
 	})
 

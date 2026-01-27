@@ -376,6 +376,10 @@ func GetToolDefinitions() map[string]*ToolInfo {
 		{"mage", []string{"MAGE_X_MAGE_VERSION"}, "magefile", "mage", ""},
 		// Go proxy-based tools (use pseudo-versions like v0.0.0-YYYYMMDDHHMMSS-commitSHA)
 		{"benchstat", []string{"MAGE_X_BENCHSTAT_VERSION"}, "", "", "golang.org/x/perf"},
+		// Guardian CI tools
+		{"act", []string{"GUARDIAN_ACT_VERSION"}, "nektos", "act", ""},
+		{"actionlint", []string{"GUARDIAN_ACTIONLINT_VERSION"}, "rhysd", "actionlint", ""},
+		{"go-sarif", []string{"GUARDIAN_GO_SARIF_VERSION"}, "owenrumney", "go-sarif", ""},
 	}
 
 	for _, def := range definitions {
