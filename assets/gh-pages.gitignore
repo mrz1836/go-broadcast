@@ -17,6 +17,7 @@
 !/coverage-for-the-badge.svg
 !/branches.html
 !/coverage-data.json
+!/coverage.out
 
 # Allow favicon and manifest files
 !/favicon.ico
