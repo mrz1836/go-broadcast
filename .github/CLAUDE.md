@@ -200,10 +200,10 @@ govulncheck ./... # Security scan
 
 ## Documentation
 
-| Document | Purpose |
-|----------|---------|
-| [`README.md`](../README.md) | Project overview and quick start |
-| [`AGENTS.md`](AGENTS.md) | Primary authority for all development standards |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution guidelines |
-| [`docs/`](../docs/) | Technical documentation |
-| [`examples/`](../examples/) | Configuration examples |
+| Document                             | Purpose                                         |
+|--------------------------------------|-------------------------------------------------|
+| [`README.md`](../README.md)          | Project overview and quick start                |
+| [`AGENTS.md`](AGENTS.md)             | Primary authority for all development standards |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution guidelines                         |
+| [`docs/`](../docs/)                  | Technical documentation                         |
+| [`examples/`](../examples/)          | Configuration examples                          |
