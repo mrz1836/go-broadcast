@@ -779,6 +779,475 @@ func TestGetEnvOrDefault(t *testing.T) {
 	})
 }
 
+// TestLoadEnvDir tests the core directory loading functionality.
+func TestLoadEnvDir(t *testing.T) {
+	t.Run("loads multiple numbered files in correct order", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		// Create files with different numbered prefixes
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "00-core.env"),
+			[]byte("CORE_VAR=core\nSHARED=from_core"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "10-tools.env"),
+			[]byte("TOOL_VAR=tool\nSHARED=from_tools"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "90-project.env"),
+			[]byte("PROJECT_VAR=project\nSHARED=from_project"), 0o600))
+
+		_ = os.Unsetenv("CORE_VAR")
+		_ = os.Unsetenv("TOOL_VAR")
+		_ = os.Unsetenv("PROJECT_VAR")
+		_ = os.Unsetenv("SHARED")
+		defer func() {
+			_ = os.Unsetenv("CORE_VAR")
+			_ = os.Unsetenv("TOOL_VAR")
+			_ = os.Unsetenv("PROJECT_VAR")
+			_ = os.Unsetenv("SHARED")
+		}()
+
+		err := LoadEnvDir(tempDir, false)
+		require.NoError(t, err)
+
+		assert.Equal(t, "core", os.Getenv("CORE_VAR"))
+		assert.Equal(t, "tool", os.Getenv("TOOL_VAR"))
+		assert.Equal(t, "project", os.Getenv("PROJECT_VAR"))
+		// Last file (90-project.env) should win for shared key
+		assert.Equal(t, "from_project", os.Getenv("SHARED"))
+	})
+
+	t.Run("OS env vars are never overwritten", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "00-core.env"),
+			[]byte("PROTECTED=from_file\nNEW_VAR=from_file"), 0o600))
+
+		t.Setenv("PROTECTED", "from_os")
+		_ = os.Unsetenv("NEW_VAR")
+		defer func() { _ = os.Unsetenv("NEW_VAR") }()
+
+		err := LoadEnvDir(tempDir, false)
+		require.NoError(t, err)
+
+		assert.Equal(t, "from_os", os.Getenv("PROTECTED"),
+			"OS env var should not be overwritten")
+		assert.Equal(t, "from_file", os.Getenv("NEW_VAR"),
+			"Unset var should be set from file")
+	})
+
+	t.Run("returns error for non-directory path", func(t *testing.T) {
+		tempFile := filepath.Join(t.TempDir(), "not-a-dir.env")
+		require.NoError(t, os.WriteFile(tempFile, []byte("KEY=val"), 0o600))
+
+		err := LoadEnvDir(tempFile, false)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrNotDirectory)
+	})
+
+	t.Run("returns error for directory with no .env files", func(t *testing.T) {
+		tempDir := t.TempDir()
+		// Create a non-.env file
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "README.md"),
+			[]byte("# Not an env file"), 0o600))
+
+		err := LoadEnvDir(tempDir, false)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrNoEnvFiles)
+	})
+
+	t.Run("returns error for non-existent directory", func(t *testing.T) {
+		err := LoadEnvDir("/nonexistent/path/to/env", false)
+		require.Error(t, err)
+	})
+}
+
+// TestLoadEnvDirSkipLocal tests CI awareness with 99-local.env.
+func TestLoadEnvDirSkipLocal(t *testing.T) {
+	t.Run("skipLocal true skips 99-local.env", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "00-core.env"),
+			[]byte("CORE_VAR=core\nOVERRIDE=core"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "99-local.env"),
+			[]byte("LOCAL_VAR=local\nOVERRIDE=local"), 0o600))
+
+		_ = os.Unsetenv("CORE_VAR")
+		_ = os.Unsetenv("LOCAL_VAR")
+		_ = os.Unsetenv("OVERRIDE")
+		defer func() {
+			_ = os.Unsetenv("CORE_VAR")
+			_ = os.Unsetenv("LOCAL_VAR")
+			_ = os.Unsetenv("OVERRIDE")
+		}()
+
+		err := LoadEnvDir(tempDir, true)
+		require.NoError(t, err)
+
+		assert.Equal(t, "core", os.Getenv("CORE_VAR"))
+		// LOCAL_VAR should NOT be set because 99-local.env was skipped
+		assert.Empty(t, os.Getenv("LOCAL_VAR"),
+			"99-local.env should be skipped when skipLocal is true")
+		// OVERRIDE should be from core, not local
+		assert.Equal(t, "core", os.Getenv("OVERRIDE"),
+			"99-local.env overrides should not apply when skipped")
+	})
+
+	t.Run("skipLocal false loads 99-local.env", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "00-core.env"),
+			[]byte("CORE_VAR=core\nOVERRIDE=core"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "99-local.env"),
+			[]byte("LOCAL_VAR=local\nOVERRIDE=local"), 0o600))
+
+		_ = os.Unsetenv("CORE_VAR")
+		_ = os.Unsetenv("LOCAL_VAR")
+		_ = os.Unsetenv("OVERRIDE")
+		defer func() {
+			_ = os.Unsetenv("CORE_VAR")
+			_ = os.Unsetenv("LOCAL_VAR")
+			_ = os.Unsetenv("OVERRIDE")
+		}()
+
+		err := LoadEnvDir(tempDir, false)
+		require.NoError(t, err)
+
+		assert.Equal(t, "core", os.Getenv("CORE_VAR"))
+		assert.Equal(t, "local", os.Getenv("LOCAL_VAR"),
+			"99-local.env should be loaded when skipLocal is false")
+		assert.Equal(t, "local", os.Getenv("OVERRIDE"),
+			"99-local.env should override earlier files")
+	})
+
+	t.Run("other files always loaded regardless of skipLocal", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "00-core.env"),
+			[]byte("A=1"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "50-middle.env"),
+			[]byte("B=2"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "99-local.env"),
+			[]byte("C=3"), 0o600))
+
+		_ = os.Unsetenv("A")
+		_ = os.Unsetenv("B")
+		_ = os.Unsetenv("C")
+		defer func() {
+			_ = os.Unsetenv("A")
+			_ = os.Unsetenv("B")
+			_ = os.Unsetenv("C")
+		}()
+
+		err := LoadEnvDir(tempDir, true)
+		require.NoError(t, err)
+
+		assert.Equal(t, "1", os.Getenv("A"), "00-core.env should always load")
+		assert.Equal(t, "2", os.Getenv("B"), "50-middle.env should always load")
+		assert.Empty(t, os.Getenv("C"), "99-local.env should be skipped")
+	})
+}
+
+// TestLoadEnvDirSortOrder tests deterministic lexicographic ordering.
+func TestLoadEnvDirSortOrder(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create files deliberately out of filesystem order
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "20-second.env"),
+		[]byte("ORDER=20"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "00-first.env"),
+		[]byte("ORDER=00"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "10-middle.env"),
+		[]byte("ORDER=10"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "90-last.env"),
+		[]byte("ORDER=90"), 0o600))
+
+	_ = os.Unsetenv("ORDER")
+	defer func() { _ = os.Unsetenv("ORDER") }()
+
+	err := LoadEnvDir(tempDir, false)
+	require.NoError(t, err)
+
+	// 90-last.env should be loaded last (highest number), so its value wins
+	assert.Equal(t, "90", os.Getenv("ORDER"),
+		"Last file in sorted order should win")
+}
+
+// TestLoadEnvFilesModularPreferred tests that modular .github/env/ is preferred over legacy.
+func TestLoadEnvFilesModularPreferred(t *testing.T) {
+	// Save original working directory
+	originalWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		chdirErr := os.Chdir(originalWd)
+		require.NoError(t, chdirErr)
+	}()
+
+	t.Run("uses modular when both exist", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "env-modular-preferred-test")
+		require.NoError(t, err)
+		defer func() { _ = os.RemoveAll(tempDir) }()
+
+		require.NoError(t, os.Chdir(tempDir))
+
+		// Create legacy files
+		githubDir := filepath.Join(tempDir, ".github")
+		require.NoError(t, os.MkdirAll(githubDir, 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(githubDir, ".env.base"),
+			[]byte("SOURCE=legacy"), 0o600))
+
+		// Create modular directory
+		envDir := filepath.Join(githubDir, "env")
+		require.NoError(t, os.MkdirAll(envDir, 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(envDir, "00-core.env"),
+			[]byte("SOURCE=modular"), 0o600))
+
+		_ = os.Unsetenv("SOURCE")
+		defer func() { _ = os.Unsetenv("SOURCE") }()
+
+		err = LoadEnvFiles()
+		require.NoError(t, err)
+
+		assert.Equal(t, "modular", os.Getenv("SOURCE"),
+			"Modular env dir should be preferred over legacy files")
+	})
+
+	t.Run("falls back to legacy when modular dir absent", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "env-legacy-fallback-test")
+		require.NoError(t, err)
+		defer func() { _ = os.RemoveAll(tempDir) }()
+
+		require.NoError(t, os.Chdir(tempDir))
+
+		// Create only legacy files (no modular dir)
+		githubDir := filepath.Join(tempDir, ".github")
+		require.NoError(t, os.MkdirAll(githubDir, 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(githubDir, ".env.base"),
+			[]byte("SOURCE=legacy"), 0o600))
+
+		_ = os.Unsetenv("SOURCE")
+		defer func() { _ = os.Unsetenv("SOURCE") }()
+
+		err = LoadEnvFiles()
+		require.NoError(t, err)
+
+		assert.Equal(t, "legacy", os.Getenv("SOURCE"),
+			"Should fall back to legacy when modular dir is absent")
+	})
+
+	t.Run("falls back to legacy when modular dir has no env files", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "env-empty-modular-test")
+		require.NoError(t, err)
+		defer func() { _ = os.RemoveAll(tempDir) }()
+
+		require.NoError(t, os.Chdir(tempDir))
+
+		// Create legacy files
+		githubDir := filepath.Join(tempDir, ".github")
+		require.NoError(t, os.MkdirAll(githubDir, 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(githubDir, ".env.base"),
+			[]byte("SOURCE=legacy"), 0o600))
+
+		// Create modular dir with only non-.env files
+		envDir := filepath.Join(githubDir, "env")
+		require.NoError(t, os.MkdirAll(envDir, 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(envDir, "README.md"),
+			[]byte("# Not an env file"), 0o600))
+
+		_ = os.Unsetenv("SOURCE")
+		defer func() { _ = os.Unsetenv("SOURCE") }()
+
+		err = LoadEnvFiles()
+		require.NoError(t, err)
+
+		assert.Equal(t, "legacy", os.Getenv("SOURCE"),
+			"Should fall back to legacy when modular dir has no .env files")
+	})
+}
+
+// TestLoadEnvFilesFromDirModularPreferred tests modular-first behavior for LoadEnvFilesFromDir.
+func TestLoadEnvFilesFromDirModularPreferred(t *testing.T) {
+	t.Run("uses modular when both exist", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		// Create legacy files
+		githubDir := filepath.Join(tempDir, ".github")
+		require.NoError(t, os.MkdirAll(githubDir, 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(githubDir, ".env.base"),
+			[]byte("SOURCE=legacy"), 0o600))
+
+		// Create modular directory
+		envDir := filepath.Join(githubDir, "env")
+		require.NoError(t, os.MkdirAll(envDir, 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(envDir, "00-core.env"),
+			[]byte("SOURCE=modular"), 0o600))
+
+		_ = os.Unsetenv("SOURCE")
+		defer func() { _ = os.Unsetenv("SOURCE") }()
+
+		err := LoadEnvFilesFromDir(tempDir)
+		require.NoError(t, err)
+
+		assert.Equal(t, "modular", os.Getenv("SOURCE"),
+			"Modular env dir should be preferred over legacy files")
+	})
+
+	t.Run("falls back to legacy when modular dir absent", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		// Create only legacy files
+		githubDir := filepath.Join(tempDir, ".github")
+		require.NoError(t, os.MkdirAll(githubDir, 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(githubDir, ".env.base"),
+			[]byte("SOURCE=legacy"), 0o600))
+
+		_ = os.Unsetenv("SOURCE")
+		defer func() { _ = os.Unsetenv("SOURCE") }()
+
+		err := LoadEnvFilesFromDir(tempDir)
+		require.NoError(t, err)
+
+		assert.Equal(t, "legacy", os.Getenv("SOURCE"),
+			"Should fall back to legacy when modular dir is absent")
+	})
+}
+
+// TestLoadEnvDirOSPrecedence tests that OS env vars take precedence with modular loading.
+func TestLoadEnvDirOSPrecedence(t *testing.T) {
+	t.Run("mixed scenario with some from OS, some from files", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "00-core.env"),
+			[]byte("FROM_OS=file_value\nFROM_FILE=file_value\nFROM_OVERRIDE=core"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "90-project.env"),
+			[]byte("FROM_OVERRIDE=project"), 0o600))
+
+		t.Setenv("FROM_OS", "os_value")
+		_ = os.Unsetenv("FROM_FILE")
+		_ = os.Unsetenv("FROM_OVERRIDE")
+		defer func() {
+			_ = os.Unsetenv("FROM_FILE")
+			_ = os.Unsetenv("FROM_OVERRIDE")
+		}()
+
+		err := LoadEnvDir(tempDir, false)
+		require.NoError(t, err)
+
+		assert.Equal(t, "os_value", os.Getenv("FROM_OS"),
+			"OS env var should be preserved")
+		assert.Equal(t, "file_value", os.Getenv("FROM_FILE"),
+			"Unset var should come from file")
+		assert.Equal(t, "project", os.Getenv("FROM_OVERRIDE"),
+			"Later file should override earlier file")
+	})
+}
+
+// TestIsCI tests the CI detection helper.
+func TestIsCI(t *testing.T) {
+	t.Run("returns true when CI=true", func(t *testing.T) {
+		t.Setenv("CI", "true")
+		assert.True(t, isCI())
+	})
+
+	t.Run("returns false when CI is not set", func(t *testing.T) {
+		_ = os.Unsetenv("CI")
+		t.Cleanup(func() { _ = os.Unsetenv("CI") })
+		assert.False(t, isCI())
+	})
+
+	t.Run("returns false when CI is other value", func(t *testing.T) {
+		t.Setenv("CI", "false")
+		assert.False(t, isCI())
+	})
+
+	t.Run("returns false when CI is empty", func(t *testing.T) {
+		t.Setenv("CI", "")
+		assert.False(t, isCI())
+	})
+}
+
+// TestHasEnvFiles tests the directory validation helper.
+func TestHasEnvFiles(t *testing.T) {
+	t.Run("returns true for directory with .env files", func(t *testing.T) {
+		tempDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "00-core.env"),
+			[]byte("KEY=val"), 0o600))
+		assert.True(t, hasEnvFiles(tempDir))
+	})
+
+	t.Run("returns false for directory without .env files", func(t *testing.T) {
+		tempDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "README.md"),
+			[]byte("# readme"), 0o600))
+		assert.False(t, hasEnvFiles(tempDir))
+	})
+
+	t.Run("returns false for empty directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		assert.False(t, hasEnvFiles(tempDir))
+	})
+
+	t.Run("returns false for non-existent path", func(t *testing.T) {
+		assert.False(t, hasEnvFiles("/nonexistent/path"))
+	})
+
+	t.Run("returns false for file path", func(t *testing.T) {
+		tempFile := filepath.Join(t.TempDir(), "file.env")
+		require.NoError(t, os.WriteFile(tempFile, []byte("KEY=val"), 0o600))
+		assert.False(t, hasEnvFiles(tempFile))
+	})
+}
+
+// TestFindEnvDir tests the directory discovery helper.
+func TestFindEnvDir(t *testing.T) {
+	originalWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		chdirErr := os.Chdir(originalWd)
+		require.NoError(t, chdirErr)
+	}()
+
+	t.Run("finds .github/env with env files", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "env-find-test")
+		require.NoError(t, err)
+		defer func() { _ = os.RemoveAll(tempDir) }()
+
+		envDir := filepath.Join(tempDir, ".github", "env")
+		require.NoError(t, os.MkdirAll(envDir, 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(envDir, "00-core.env"),
+			[]byte("KEY=val"), 0o600))
+
+		require.NoError(t, os.Chdir(tempDir))
+
+		result := findEnvDir()
+		assert.NotEmpty(t, result)
+		assert.Equal(t, filepath.Join(".github", "env"), result)
+	})
+
+	t.Run("returns empty when .github/env missing", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "env-find-missing-test")
+		require.NoError(t, err)
+		defer func() { _ = os.RemoveAll(tempDir) }()
+
+		require.NoError(t, os.Chdir(tempDir))
+
+		result := findEnvDir()
+		assert.Empty(t, result)
+	})
+
+	t.Run("returns empty when .github/env has no .env files", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "env-find-empty-test")
+		require.NoError(t, err)
+		defer func() { _ = os.RemoveAll(tempDir) }()
+
+		envDir := filepath.Join(tempDir, ".github", "env")
+		require.NoError(t, os.MkdirAll(envDir, 0o750))
+		require.NoError(t, os.WriteFile(filepath.Join(envDir, "README.md"),
+			[]byte("# readme"), 0o600))
+
+		require.NoError(t, os.Chdir(tempDir))
+
+		result := findEnvDir()
+		assert.Empty(t, result)
+	})
+}
+
 // TestEnvLoadingRaceConditionNote documents that these tests manipulate global
 // environment variables and therefore cannot be run with t.Parallel().
 // The actual loader functions are thread-safe (no internal shared state),

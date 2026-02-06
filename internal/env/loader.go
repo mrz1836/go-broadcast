@@ -7,38 +7,138 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 // Static errors for consistent error handling
 var (
 	ErrEnvBaseFileNotFound = errors.New("required .env.base file not found")
+	ErrNotDirectory        = errors.New("path is not a directory")
+	ErrNoEnvFiles          = errors.New("no .env files found in directory")
 )
 
 // LoadEnvFiles loads environment variables with proper precedence:
 //  1. OS environment variables (HIGHEST - never overwritten)
-//  2. .env.custom (project overrides)
-//  3. .env.base (defaults)
+//  2. Modular .github/env/*.env files (preferred, last-wins ordering)
+//  3. Legacy .env.custom (project overrides) + .env.base (defaults)
 //
 // Variables already set in the OS environment are NEVER overwritten.
 // This allows users to override via shell exports or CI/CD secrets.
 //
+// If a modular .github/env/ directory with .env files exists, it is used.
+// Otherwise, falls back to the legacy .env.base + .env.custom pattern.
+//
 // This ensures go-broadcast follows the same configuration pattern as
 // go-coverage, go-pre-commit, mage-x, and other GoFortress tools.
 func LoadEnvFiles() error {
-	// Define file paths following GoFortress convention
-	baseFile := ".github/.env.base"
-	customFile := ".github/.env.custom"
-
-	return loadEnvFilesInternal(baseFile, customFile)
+	// Try modular mode first (preferred)
+	if envDir := findEnvDir(); envDir != "" {
+		return LoadEnvDir(envDir, isCI())
+	}
+	// Fall back to legacy mode
+	return loadEnvFilesInternal(".github/.env.base", ".github/.env.custom")
 }
 
 // LoadEnvFilesFromDir loads environment files from a specific directory.
 // This is useful for testing or when running from a different working directory.
+// Prefers modular .github/env/ if available, falls back to legacy files.
 func LoadEnvFilesFromDir(dir string) error {
+	// Try modular mode first (preferred)
+	if envDir := findEnvDirFromBase(dir); envDir != "" {
+		return LoadEnvDir(envDir, isCI())
+	}
+	// Fall back to legacy mode
 	baseFile := filepath.Join(dir, ".github", ".env.base")
 	customFile := filepath.Join(dir, ".github", ".env.custom")
-
 	return loadEnvFilesInternal(baseFile, customFile)
+}
+
+// LoadEnvDir loads all .env files from a directory in lexicographic order.
+// Files are merged with overload semantics (later files override earlier ones).
+// After merging, variables are only set if not already present in the OS environment.
+//
+// When skipLocal is true, 99-local.env is skipped (intended for CI environments
+// where local developer overrides should not apply).
+func LoadEnvDir(dirPath string, skipLocal bool) error {
+	info, err := os.Stat(dirPath)
+	if err != nil {
+		return fmt.Errorf("failed to access env directory %s: %w", dirPath, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%w: %s", ErrNotDirectory, dirPath)
+	}
+
+	matches, err := filepath.Glob(filepath.Join(dirPath, "*.env"))
+	if err != nil {
+		return fmt.Errorf("failed to glob env files in %s: %w", dirPath, err)
+	}
+
+	sort.Strings(matches)
+
+	merged := make(map[string]string)
+	loaded := 0
+	for _, file := range matches {
+		if skipLocal && filepath.Base(file) == "99-local.env" {
+			continue
+		}
+		if err := loadAndApplyEnvFile(file, merged); err != nil {
+			return fmt.Errorf("failed to load %s: %w", file, err)
+		}
+		loaded++
+	}
+
+	if loaded == 0 {
+		return fmt.Errorf("%w: %s", ErrNoEnvFiles, dirPath)
+	}
+
+	// Apply merged vars (OS env wins)
+	for key, value := range merged {
+		if _, exists := os.LookupEnv(key); !exists {
+			if err := os.Setenv(key, value); err != nil {
+				return fmt.Errorf("failed to set %s: %w", key, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// isCI returns true when running in a CI environment.
+func isCI() bool {
+	return os.Getenv("CI") == "true"
+}
+
+// findEnvDir looks for a .github/env/ directory relative to the current working
+// directory that contains at least one .env file.
+func findEnvDir() string {
+	dir := filepath.Join(".github", "env")
+	if hasEnvFiles(dir) {
+		return dir
+	}
+	return ""
+}
+
+// findEnvDirFromBase looks for a .github/env/ directory relative to the given
+// base directory that contains at least one .env file.
+func findEnvDirFromBase(baseDir string) string {
+	dir := filepath.Join(baseDir, ".github", "env")
+	if hasEnvFiles(dir) {
+		return dir
+	}
+	return ""
+}
+
+// hasEnvFiles returns true if dirPath is a directory containing at least one .env file.
+func hasEnvFiles(dirPath string) bool {
+	info, err := os.Stat(dirPath)
+	if err != nil || !info.IsDir() {
+		return false
+	}
+	matches, err := filepath.Glob(filepath.Join(dirPath, "*.env"))
+	if err != nil {
+		return false
+	}
+	return len(matches) > 0
 }
 
 // loadEnvFilesInternal is the shared implementation for loading env files.

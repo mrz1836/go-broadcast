@@ -60,6 +60,20 @@ func parseEnvFile(path string) (map[string]string, error) {
 	return vars, scanner.Err()
 }
 
+// loadAndApplyEnvFile reads a .env file and merges its key-value pairs into the
+// provided vars map. Later calls override earlier values (overload semantics).
+// This reuses the existing parseEnvLine logic for parsing individual lines.
+func loadAndApplyEnvFile(path string, vars map[string]string) error {
+	parsed, err := parseEnvFile(path)
+	if err != nil {
+		return err
+	}
+	for k, v := range parsed {
+		vars[k] = v
+	}
+	return nil
+}
+
 // parseEnvLine extracts key and value from "KEY=VALUE" format.
 // Handles:
 //   - Simple: KEY=value
