@@ -1143,7 +1143,7 @@ GO_BROADCAST_AI_COMMIT_ENABLED=true  # AI for commits only
 
 **Important**: AI failures never block sync operations - they fall back to static templates silently.
 
-See [`.github/.env.base`](.github/.env.base) for all AI configuration options.
+See the [modular environment configuration](.github/env/README.md) for all AI configuration options.
 
 </details>
 
@@ -1173,7 +1173,7 @@ See [`.github/.env.base`](.github/.env.base) for all AI configuration options.
 * **Optional Release Broadcasts** to your community via [Slack](https://slack.com), [Discord](https://discord.com), or [Twitter](https://twitter.com) – plug in your webhook.
 * **AI Playbook** – machine‑readable guidelines in [tech conventions](.github/tech-conventions/ai-compliance.md)
 * **Go-Pre-commit System** - [High-performance Go-native pre-commit hooks](https://github.com/mrz1836/go-pre-commit) with 17x faster execution—run the same formatting, linting, and tests before every commit, just like CI.
-* **Zero Python Dependencies** - Pure Go implementation with environment-based configuration via [.env.base](.github/.env.base).
+* **Zero Python Dependencies** - Pure Go implementation with [modular environment-based configuration](.github/env/README.md).
 * **DevContainers for Instant Onboarding** – Launch a ready-to-code environment in seconds with [VS Code DevContainers](https://containers.dev/) and the included [.devcontainer.json](.devcontainer.json) config.
 
 </details>
@@ -1223,10 +1223,9 @@ magex help
 All GitHub Actions workflows in this repository are powered by a single configuration files – your one-stop shop for tweaking CI/CD behavior without touching a single YAML file! 🎯
 
 **Configuration Files:**
-- **[.env.base](.github/.env.base)** – Default configuration that works for most Go projects
-- **[.env.custom](.github/.env.custom)** – Optional project-specific overrides
+- **[`.github/env/`](.github/env/README.md)** – Modular environment configuration split into domain-specific files loaded in numeric order
 
-This magical file controls everything from:
+These configuration files control everything from:
 - **⚙️ Go version matrix** (test on multiple versions or just one)
 - **🏃 Runner selection** (Ubuntu or macOS, your wallet decides)
 - **🔬 Feature toggles** (coverage, fuzzing, linting, race detection, benchmarks)
@@ -1265,13 +1264,13 @@ magex deps:update all-modules
 
 This command ensures all dependencies are brought up to date in a single step, including Go modules and any tools managed by [MAGE-X](https://github.com/mrz1836/mage-x). It is the recommended way to keep your development environment and CI in sync with the latest versions.
 
-To update the `.env.base` file with the latest tool versions, run:
+To update the environment files with the latest tool versions, run:
 
 ```bash
 # Dry run to preview changes
 magex updateToolVersions
 
-# Apply minor/patch updates to .env.base (major version upgrades are skipped by default)
+# Apply minor/patch updates (major version upgrades are skipped by default)
 UPDATE_VERSIONS=true magex updateToolVersions
 
 # Apply all updates including major version upgrades (e.g., v1.x.x to v2.x.x)
@@ -1295,7 +1294,7 @@ go-pre-commit install
 go-pre-commit run --all-files
 ```
 
-The system is configured via [.env.base](.github/.env.base) and can be customized using also using [.env.custom](.github/.env.custom) and provides 17x faster execution than traditional Python-based pre-commit hooks. See the [complete documentation](http://github.com/mrz1836/go-pre-commit) for details.
+The system is configured via the [modular environment configuration](.github/env/README.md) and provides 17x faster execution than traditional Python-based pre-commit hooks. See the [complete documentation](http://github.com/mrz1836/go-pre-commit) for details.
 
 </details>
 
