@@ -74,6 +74,7 @@ node_modules/
 
 # GoFortress
 .github/.env.base.backup
+.github/env/*.backup
 .github/env/99-local.env
 
 ########################
