@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -70,26 +72,33 @@ func (m *MockVersionChecker) GetCalls() []string {
 
 // MockFileUpdater is a mock implementation of FileUpdater for testing.
 type MockFileUpdater struct {
-	content      []byte
-	readError    error
-	writeError   error
-	backupError  error
-	writtenPath  string
-	writtenData  []byte
-	backedUpPath string
+	contents      map[string][]byte // path -> content (multi-file support)
+	readError     error             // global read error (applies to all reads)
+	writeError    error             // global write error (applies to all writes)
+	backupError   error             // global backup error
+	writtenFiles  map[string][]byte // path -> written data (tracks all writes)
+	backedUpPaths []string          // list of backed up paths
 }
 
 // NewMockFileUpdater creates a new mock file updater.
 func NewMockFileUpdater() *MockFileUpdater {
-	return &MockFileUpdater{}
+	return &MockFileUpdater{
+		contents:      make(map[string][]byte),
+		writtenFiles:  make(map[string][]byte),
+		backedUpPaths: make([]string, 0),
+	}
 }
 
 // ReadFile returns the mocked content or error.
-func (m *MockFileUpdater) ReadFile(_ string) ([]byte, error) {
+func (m *MockFileUpdater) ReadFile(path string) ([]byte, error) {
 	if m.readError != nil {
 		return nil, m.readError
 	}
-	return m.content, nil
+	if content, ok := m.contents[path]; ok {
+		return content, nil
+	}
+	// Return empty content for unknown paths (no version vars will be found)
+	return []byte{}, nil
 }
 
 // WriteFile stores the written data.
@@ -97,8 +106,7 @@ func (m *MockFileUpdater) WriteFile(path string, content []byte, _ os.FileMode) 
 	if m.writeError != nil {
 		return m.writeError
 	}
-	m.writtenPath = path
-	m.writtenData = content
+	m.writtenFiles[path] = content
 	return nil
 }
 
@@ -107,18 +115,38 @@ func (m *MockFileUpdater) BackupFile(path string) error {
 	if m.backupError != nil {
 		return m.backupError
 	}
-	m.backedUpPath = path
+	m.backedUpPaths = append(m.backedUpPaths, path)
 	return nil
 }
 
-// SetContent sets the content to return on read.
-func (m *MockFileUpdater) SetContent(content []byte) {
-	m.content = content
+// SetContent sets the content to return on read for a specific file path.
+func (m *MockFileUpdater) SetContent(path string, content []byte) {
+	m.contents[path] = content
 }
 
-// GetWrittenData returns the data that was written.
-func (m *MockFileUpdater) GetWrittenData() []byte {
-	return m.writtenData
+// GetWrittenData returns the data that was written for a specific file path.
+func (m *MockFileUpdater) GetWrittenData(path string) []byte {
+	return m.writtenFiles[path]
+}
+
+// GetAllWrittenPaths returns all paths that were written to.
+func (m *MockFileUpdater) GetAllWrittenPaths() []string {
+	paths := make([]string, 0, len(m.writtenFiles))
+	for p := range m.writtenFiles {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	return paths
+}
+
+// WasBackedUp returns true if the given path was backed up.
+func (m *MockFileUpdater) WasBackedUp(path string) bool {
+	for _, p := range m.backedUpPaths {
+		if p == path {
+			return true
+		}
+	}
+	return false
 }
 
 // MockLogger is a mock implementation of VersionLogger for testing.
@@ -452,21 +480,29 @@ func TestVersionUpdateService_HasUpdates(t *testing.T) {
 	})
 }
 
-func TestVersionUpdateService_UpdateFile(t *testing.T) {
-	t.Run("successful update", func(t *testing.T) {
+func TestVersionUpdateService_UpdateFiles(t *testing.T) {
+	t.Run("successful update across multiple files", func(t *testing.T) {
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
 		service := NewVersionUpdateService(checker, updater, logger, false, false, 0)
 
-		originalContent := []byte(`# Configuration
+		coverageContent := []byte(`# Coverage config
 GO_COVERAGE_VERSION=v1.1.15
-MAGE_X_VERSION=v1.8.7
+`)
+		securityContent := []byte(`# Security config
 GITLEAKS_VERSION=8.29.1
+`)
+		mageXContent := []byte(`# Mage-X config
+MAGE_X_VERSION=v1.8.7
 MAGE_X_GITLEAKS_VERSION=8.29.1
 `)
 
-		updater.SetContent(originalContent)
+		fileContents := map[string][]byte{
+			".github/env/10-coverage.env": coverageContent,
+			".github/env/10-security.env": securityContent,
+			".github/env/10-mage-x.env":   mageXContent,
+		}
 
 		results := []CheckResult{
 			{
@@ -492,18 +528,24 @@ MAGE_X_GITLEAKS_VERSION=8.29.1
 			},
 		}
 
-		err := service.updateFile(".github/.env.base", originalContent, results)
+		err := service.updateFiles(fileContents, results)
 		require.NoError(t, err)
 
-		// Verify backup was created
-		assert.Equal(t, ".github/.env.base", updater.backedUpPath)
+		// Verify coverage file was updated
+		assert.True(t, updater.WasBackedUp(".github/env/10-coverage.env"))
+		writtenCoverage := string(updater.GetWrittenData(".github/env/10-coverage.env"))
+		assert.Contains(t, writtenCoverage, "GO_COVERAGE_VERSION=v1.1.16")
 
-		// Verify file was written
-		writtenData := string(updater.GetWrittenData())
-		assert.Contains(t, writtenData, "GO_COVERAGE_VERSION=v1.1.16")
-		assert.Contains(t, writtenData, "GITLEAKS_VERSION=8.30.0")
-		assert.Contains(t, writtenData, "MAGE_X_GITLEAKS_VERSION=8.30.0")
-		assert.Contains(t, writtenData, "MAGE_X_VERSION=v1.8.7") // Unchanged
+		// Verify security file was updated
+		assert.True(t, updater.WasBackedUp(".github/env/10-security.env"))
+		writtenSecurity := string(updater.GetWrittenData(".github/env/10-security.env"))
+		assert.Contains(t, writtenSecurity, "GITLEAKS_VERSION=8.30.0")
+
+		// Verify mage-x file was updated (gitleaks version changed)
+		assert.True(t, updater.WasBackedUp(".github/env/10-mage-x.env"))
+		writtenMageX := string(updater.GetWrittenData(".github/env/10-mage-x.env"))
+		assert.Contains(t, writtenMageX, "MAGE_X_GITLEAKS_VERSION=8.30.0")
+		assert.Contains(t, writtenMageX, "MAGE_X_VERSION=v1.8.7") // Unchanged
 	})
 
 	t.Run("backup failure", func(t *testing.T) {
@@ -514,11 +556,20 @@ MAGE_X_GITLEAKS_VERSION=8.29.1
 
 		updater.backupError = errPermissionDenied
 
-		results := []CheckResult{
-			{Status: "update-available"},
+		fileContents := map[string][]byte{
+			".github/env/10-coverage.env": []byte("GO_COVERAGE_VERSION=v1.1.15\n"),
 		}
 
-		err := service.updateFile(".github/.env.base", []byte{}, results)
+		results := []CheckResult{
+			{
+				EnvVars:        []string{"GO_COVERAGE_VERSION"},
+				CurrentVersion: "v1.1.15",
+				LatestVersion:  "v1.1.16",
+				Status:         "update-available",
+			},
+		}
+
+		err := service.updateFiles(fileContents, results)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create backup")
 	})
@@ -531,6 +582,10 @@ MAGE_X_GITLEAKS_VERSION=8.29.1
 
 		updater.writeError = errDiskFull
 
+		fileContents := map[string][]byte{
+			".github/env/10-coverage.env": []byte("GO_COVERAGE_VERSION=v1.1.15\n"),
+		}
+
 		results := []CheckResult{
 			{
 				EnvVars:        []string{"GO_COVERAGE_VERSION"},
@@ -540,27 +595,34 @@ MAGE_X_GITLEAKS_VERSION=8.29.1
 			},
 		}
 
-		err := service.updateFile(".github/.env.base", []byte("GO_COVERAGE_VERSION=v1.1.15"), results)
+		err := service.updateFiles(fileContents, results)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to write file")
 	})
 
 	t.Run("diverged versions are all updated preserving v-prefix format", func(t *testing.T) {
 		// Test that all env vars for a tool are updated even when they have different current versions,
-		// and that the v-prefix format of each env var is preserved
+		// and that the v-prefix format of each env var is preserved across multiple files
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
 		service := NewVersionUpdateService(checker, updater, logger, false, false, 0)
 
-		// Simulate diverged versions: different env vars have different current values and formats
-		originalContent := []byte(`# Configuration
+		securityContent := []byte(`# Security config
 GITLEAKS_VERSION=8.29.1
+`)
+		mageXContent := []byte(`# Mage-X config
 MAGE_X_GITLEAKS_VERSION=8.29.1
+`)
+		preCommitContent := []byte(`# Pre-commit config
 GO_PRE_COMMIT_GITLEAKS_VERSION=v8.30.0
 `)
 
-		updater.SetContent(originalContent)
+		fileContents := map[string][]byte{
+			".github/env/10-security.env":   securityContent,
+			".github/env/10-mage-x.env":     mageXContent,
+			".github/env/10-pre-commit.env": preCommitContent,
+		}
 
 		results := []CheckResult{
 			{
@@ -572,14 +634,62 @@ GO_PRE_COMMIT_GITLEAKS_VERSION=v8.30.0
 			},
 		}
 
-		err := service.updateFile(".github/.env.base", originalContent, results)
+		err := service.updateFiles(fileContents, results)
 		require.NoError(t, err)
 
 		// Verify ALL env vars were updated, preserving their original v-prefix format
-		writtenData := string(updater.GetWrittenData())
-		assert.Contains(t, writtenData, "GITLEAKS_VERSION=8.31.0")                // No v (original had no v)
-		assert.Contains(t, writtenData, "MAGE_X_GITLEAKS_VERSION=8.31.0")         // No v (original had no v)
-		assert.Contains(t, writtenData, "GO_PRE_COMMIT_GITLEAKS_VERSION=v8.31.0") // Has v (original had v)
+		writtenSecurity := string(updater.GetWrittenData(".github/env/10-security.env"))
+		assert.Contains(t, writtenSecurity, "GITLEAKS_VERSION=8.31.0") // No v (original had no v)
+
+		writtenMageX := string(updater.GetWrittenData(".github/env/10-mage-x.env"))
+		assert.Contains(t, writtenMageX, "MAGE_X_GITLEAKS_VERSION=8.31.0") // No v (original had no v)
+
+		writtenPreCommit := string(updater.GetWrittenData(".github/env/10-pre-commit.env"))
+		assert.Contains(t, writtenPreCommit, "GO_PRE_COMMIT_GITLEAKS_VERSION=v8.31.0") // Has v (original had v)
+	})
+
+	t.Run("only changed files are backed up and written", func(t *testing.T) {
+		checker := NewMockVersionChecker()
+		updater := NewMockFileUpdater()
+		logger := NewMockLogger()
+		service := NewVersionUpdateService(checker, updater, logger, false, false, 0)
+
+		coverageContent := []byte(`# Coverage config
+GO_COVERAGE_VERSION=v1.1.15
+`)
+		redisContent := []byte(`# Redis config
+ENABLE_REDIS_SERVICE=false
+REDIS_VERSION=7-alpine
+`)
+		workflowContent := []byte(`# Workflow config
+STALE_DAYS_BEFORE_STALE=60
+`)
+
+		fileContents := map[string][]byte{
+			".github/env/10-coverage.env":  coverageContent,
+			".github/env/20-redis.env":     redisContent,
+			".github/env/20-workflows.env": workflowContent,
+		}
+
+		results := []CheckResult{
+			{
+				Tool:           "go-coverage",
+				EnvVars:        []string{"GO_COVERAGE_VERSION"},
+				CurrentVersion: "v1.1.15",
+				LatestVersion:  "v1.1.16",
+				Status:         "update-available",
+			},
+		}
+
+		err := service.updateFiles(fileContents, results)
+		require.NoError(t, err)
+
+		// Only coverage file should be backed up and written
+		writtenPaths := updater.GetAllWrittenPaths()
+		assert.Equal(t, []string{".github/env/10-coverage.env"}, writtenPaths)
+		assert.True(t, updater.WasBackedUp(".github/env/10-coverage.env"))
+		assert.False(t, updater.WasBackedUp(".github/env/20-redis.env"))
+		assert.False(t, updater.WasBackedUp(".github/env/20-workflows.env"))
 	})
 }
 
@@ -589,22 +699,22 @@ func TestVersionUpdateService_Run_DryRun(t *testing.T) {
 	logger := NewMockLogger()
 	service := NewVersionUpdateService(checker, updater, logger, true, false, 10*time.Millisecond)
 
-	content := []byte(`GO_COVERAGE_VERSION=v1.1.15
-MAGE_X_VERSION=v1.8.7
-`)
+	coverageFile := ".github/env/10-coverage.env"
+	mageXFile := ".github/env/10-mage-x.env"
 
-	updater.SetContent(content)
+	updater.SetContent(coverageFile, []byte("GO_COVERAGE_VERSION=v1.1.15\n"))
+	updater.SetContent(mageXFile, []byte("MAGE_X_VERSION=v1.8.7\n"))
 	checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.16")
 	checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.8.8")
 
 	ctx := context.Background()
-	err := service.Run(ctx, ".github/.env.base")
+	err := service.Run(ctx, []string{coverageFile, mageXFile})
 
 	require.NoError(t, err)
 
 	// In dry run mode, no files should be written
-	assert.Empty(t, updater.writtenPath)
-	assert.Empty(t, updater.backedUpPath)
+	assert.Empty(t, updater.GetAllWrittenPaths())
+	assert.Empty(t, updater.backedUpPaths)
 
 	// Logger should have been used
 	assert.NotEmpty(t, logger.GetInfoMessages())
@@ -616,27 +726,29 @@ func TestVersionUpdateService_Run_ActualUpdate(t *testing.T) {
 	logger := NewMockLogger()
 	service := NewVersionUpdateService(checker, updater, logger, false, false, 10*time.Millisecond)
 
-	content := []byte(`GO_COVERAGE_VERSION=v1.1.15
-MAGE_X_VERSION=v1.8.7
-`)
+	coverageFile := ".github/env/10-coverage.env"
+	mageXFile := ".github/env/10-mage-x.env"
 
-	updater.SetContent(content)
+	updater.SetContent(coverageFile, []byte("GO_COVERAGE_VERSION=v1.1.15\n"))
+	updater.SetContent(mageXFile, []byte("MAGE_X_VERSION=v1.8.7\n"))
 	checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.16")
 	checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.8.8")
 
 	ctx := context.Background()
-	err := service.Run(ctx, ".github/.env.base")
+	err := service.Run(ctx, []string{coverageFile, mageXFile})
 
 	require.NoError(t, err)
 
-	// File should be backed up and written
-	assert.Equal(t, ".github/.env.base", updater.backedUpPath)
-	assert.Equal(t, ".github/.env.base", updater.writtenPath)
+	// Both files should be backed up and written
+	assert.True(t, updater.WasBackedUp(coverageFile))
+	assert.True(t, updater.WasBackedUp(mageXFile))
 
 	// Verify updates
-	writtenData := string(updater.GetWrittenData())
-	assert.Contains(t, writtenData, "GO_COVERAGE_VERSION=v1.1.16")
-	assert.Contains(t, writtenData, "MAGE_X_VERSION=v1.8.8")
+	writtenCoverage := string(updater.GetWrittenData(coverageFile))
+	assert.Contains(t, writtenCoverage, "GO_COVERAGE_VERSION=v1.1.16")
+
+	writtenMageX := string(updater.GetWrittenData(mageXFile))
+	assert.Contains(t, writtenMageX, "MAGE_X_VERSION=v1.8.8")
 }
 
 func TestVersionUpdateService_Run_ReadError(t *testing.T) {
@@ -648,14 +760,61 @@ func TestVersionUpdateService_Run_ReadError(t *testing.T) {
 	updater.readError = errFileNotFound
 
 	ctx := context.Background()
-	err := service.Run(ctx, ".github/.env.base")
+	err := service.Run(ctx, []string{".github/env/10-coverage.env"})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read file")
 }
 
+func TestVersionUpdateService_Run_MultiFile(t *testing.T) {
+	// End-to-end test: versions spread across multiple files
+	checker := NewMockVersionChecker()
+	updater := NewMockFileUpdater()
+	logger := NewMockLogger()
+	service := NewVersionUpdateService(checker, updater, logger, false, false, 0)
+
+	coreFile := ".github/env/00-core.env"
+	coverageFile := ".github/env/10-coverage.env"
+	mageXFile := ".github/env/10-mage-x.env"
+	securityFile := ".github/env/10-security.env"
+
+	updater.SetContent(coreFile, []byte("GOVULNCHECK_GO_VERSION=1.25.7\n"))
+	updater.SetContent(coverageFile, []byte("GO_COVERAGE_VERSION=v1.2.0\n"))
+	updater.SetContent(mageXFile, []byte("MAGE_X_VERSION=v1.19.0\nMAGE_X_GITLEAKS_VERSION=8.29.0\n"))
+	updater.SetContent(securityFile, []byte("GITLEAKS_VERSION=8.29.0\n"))
+
+	checker.SetVersion("https://go.dev", "go1.25.7") // up-to-date
+	checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.3.0")
+	checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.20.0")
+	checker.SetVersion("https://github.com/gitleaks/gitleaks", "v8.30.0")
+
+	ctx := context.Background()
+	envFiles := []string{coreFile, coverageFile, mageXFile, securityFile}
+	err := service.Run(ctx, envFiles)
+	require.NoError(t, err)
+
+	// Core file should NOT be written (Go version up-to-date)
+	assert.False(t, updater.WasBackedUp(coreFile))
+
+	// Coverage file should be updated
+	writtenCoverage := string(updater.GetWrittenData(coverageFile))
+	assert.Contains(t, writtenCoverage, "GO_COVERAGE_VERSION=v1.3.0")
+
+	// Mage-X file should be updated
+	writtenMageX := string(updater.GetWrittenData(mageXFile))
+	assert.Contains(t, writtenMageX, "MAGE_X_VERSION=v1.20.0")
+	assert.Contains(t, writtenMageX, "MAGE_X_GITLEAKS_VERSION=8.30.0") // no v prefix preserved
+
+	// Security file should be updated
+	writtenSecurity := string(updater.GetWrittenData(securityFile))
+	assert.Contains(t, writtenSecurity, "GITLEAKS_VERSION=8.30.0") // no v prefix preserved
+}
+
 func TestRunVersionUpdate(t *testing.T) {
 	t.Run("dry run mode", func(t *testing.T) {
+		// RunVersionUpdate uses relative path .github/env, so chdir to project root
+		t.Chdir("..")
+
 		// Save original service
 		originalService := versionUpdateService
 		defer func() {
@@ -669,8 +828,7 @@ func TestRunVersionUpdate(t *testing.T) {
 		logger := NewMockLogger()
 		mockService := NewVersionUpdateService(checker, updater, logger, true, false, 0)
 
-		// Set up mocks
-		updater.SetContent([]byte("GO_COVERAGE_VERSION=v1.1.15\n"))
+		// Set up mocks - ReadFile returns empty for undiscovered paths
 		checker.SetVersion("https://github.com/mrz1836/go-coverage", "v1.1.15")
 
 		// Inject mock service
@@ -678,6 +836,72 @@ func TestRunVersionUpdate(t *testing.T) {
 
 		err := RunVersionUpdate(true, false)
 		require.NoError(t, err)
+	})
+}
+
+func TestDiscoverEnvFiles(t *testing.T) {
+	t.Run("discovers and sorts env files", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		// Create test env files
+		for _, name := range []string{"00-core.env", "10-mage-x.env", "10-security.env", "20-redis.env"} {
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, name), []byte("# test"), 0o600))
+		}
+
+		files, err := discoverEnvFiles(tmpDir)
+		require.NoError(t, err)
+		require.Len(t, files, 4)
+		assert.Equal(t, filepath.Join(tmpDir, "00-core.env"), files[0])
+		assert.Equal(t, filepath.Join(tmpDir, "10-mage-x.env"), files[1])
+		assert.Equal(t, filepath.Join(tmpDir, "10-security.env"), files[2])
+		assert.Equal(t, filepath.Join(tmpDir, "20-redis.env"), files[3])
+	})
+
+	t.Run("excludes 90- and 99- prefixed files", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		for _, name := range []string{"00-core.env", "90-project.env", "99-local.env"} {
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, name), []byte("# test"), 0o600))
+		}
+
+		files, err := discoverEnvFiles(tmpDir)
+		require.NoError(t, err)
+		require.Len(t, files, 1)
+		assert.Equal(t, filepath.Join(tmpDir, "00-core.env"), files[0])
+	})
+
+	t.Run("excludes non-env files", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		for _, name := range []string{"00-core.env", "load-env.sh", "README.md"} {
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, name), []byte("# test"), 0o600))
+		}
+
+		files, err := discoverEnvFiles(tmpDir)
+		require.NoError(t, err)
+		require.Len(t, files, 1)
+		assert.Equal(t, filepath.Join(tmpDir, "00-core.env"), files[0])
+	})
+
+	t.Run("returns error when no eligible files found", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		// Only excluded files
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "90-project.env"), []byte("# test"), 0o600))
+
+		_, err := discoverEnvFiles(tmpDir)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrNoEnvFiles)
+	})
+
+	t.Run("returns error when directory is empty", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		_, err := discoverEnvFiles(tmpDir)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrNoEnvFiles)
+	})
+
+	t.Run("returns error when directory does not exist", func(t *testing.T) {
+		_, err := discoverEnvFiles("/nonexistent/path")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read env directory")
 	})
 }
 
@@ -1031,19 +1255,21 @@ func TestVersionUpdateService_HasUpdates_ExcludesMajorSkipped(t *testing.T) {
 	})
 }
 
-func TestVersionUpdateService_UpdateFile_SkipsMajorUpgrades(t *testing.T) {
+func TestVersionUpdateService_UpdateFiles_SkipsMajorUpgrades(t *testing.T) {
 	t.Run("major-skipped status not updated", func(t *testing.T) {
 		checker := NewMockVersionChecker()
 		updater := NewMockFileUpdater()
 		logger := NewMockLogger()
 		service := NewVersionUpdateService(checker, updater, logger, false, false, 0)
 
-		originalContent := []byte(`# Configuration
+		mageXContent := []byte(`# Configuration
 MAGE_X_SWAG_VERSION=v1.16.6
 MAGE_X_VERSION=v1.15.5
 `)
 
-		updater.SetContent(originalContent)
+		fileContents := map[string][]byte{
+			".github/env/10-mage-x.env": mageXContent,
+		}
 
 		results := []CheckResult{
 			{
@@ -1062,10 +1288,10 @@ MAGE_X_VERSION=v1.15.5
 			},
 		}
 
-		err := service.updateFile(".github/.env.base", originalContent, results)
+		err := service.updateFiles(fileContents, results)
 		require.NoError(t, err)
 
-		writtenData := string(updater.GetWrittenData())
+		writtenData := string(updater.GetWrittenData(".github/env/10-mage-x.env"))
 		// swag should NOT be updated (major upgrade skipped)
 		assert.Contains(t, writtenData, "MAGE_X_SWAG_VERSION=v1.16.6")
 		// mage-x SHOULD be updated (minor update)
@@ -1080,23 +1306,20 @@ func TestVersionUpdateService_Run_WithMajorUpgradesAllowed(t *testing.T) {
 	// allowMajorUpgrades = true
 	service := NewVersionUpdateService(checker, updater, logger, false, true, 10*time.Millisecond)
 
-	content := []byte(`MAGE_X_SWAG_VERSION=v1.16.6
-MAGE_X_VERSION=v1.15.5
-`)
-
-	updater.SetContent(content)
+	mageXFile := ".github/env/10-mage-x.env"
+	updater.SetContent(mageXFile, []byte("MAGE_X_SWAG_VERSION=v1.16.6\nMAGE_X_VERSION=v1.15.5\n"))
 	// Major upgrade
 	checker.SetVersion("https://github.com/swaggo/swag", "v2.0.0")
 	// Minor upgrade
 	checker.SetVersion("https://github.com/mrz1836/mage-x", "v1.15.6")
 
 	ctx := context.Background()
-	err := service.Run(ctx, ".github/.env.base")
+	err := service.Run(ctx, []string{mageXFile})
 
 	require.NoError(t, err)
 
 	// Both should be updated when allowMajorUpgrades=true
-	writtenData := string(updater.GetWrittenData())
+	writtenData := string(updater.GetWrittenData(mageXFile))
 	assert.Contains(t, writtenData, "MAGE_X_SWAG_VERSION=v2.0.0")
 	assert.Contains(t, writtenData, "MAGE_X_VERSION=v1.15.6")
 }

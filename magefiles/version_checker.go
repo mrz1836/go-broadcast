@@ -24,6 +24,7 @@ import (
 var (
 	ErrInvalidRepoURL = errors.New("invalid repository URL")
 	ErrGitHubAPI      = errors.New("GitHub API error")
+	ErrNoEnvFiles     = errors.New("no env files found")
 )
 
 // VersionChecker defines the interface for checking latest tool versions from GitHub or Go proxy.
@@ -407,8 +408,8 @@ func GetToolDefinitions() map[string]*ToolInfo {
 	return tools
 }
 
-// Run executes the version update process.
-func (s *VersionUpdateService) Run(ctx context.Context, envFilePath string) error {
+// Run executes the version update process across the given env files.
+func (s *VersionUpdateService) Run(ctx context.Context, envFiles []string) error {
 	// Log the execution mode immediately
 	if s.dryRun {
 		s.logger.Info("🔍 Running in DRY RUN mode - no changes will be applied")
@@ -417,11 +418,20 @@ func (s *VersionUpdateService) Run(ctx context.Context, envFilePath string) erro
 	}
 	s.logger.Info("")
 
-	// Read the .env.base file
-	content, err := s.updater.ReadFile(envFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
+	// Read all env files and combine content for version extraction
+	fileContents := make(map[string][]byte, len(envFiles))
+	var combinedContent []byte
+	for _, filePath := range envFiles {
+		content, err := s.updater.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		}
+		fileContents[filePath] = content
+		combinedContent = append(combinedContent, content...)
+		combinedContent = append(combinedContent, '\n')
 	}
+
+	s.logger.Info(fmt.Sprintf("📂 Loaded %d env files for version checking", len(envFiles)))
 
 	// Get tool definitions
 	tools := GetToolDefinitions()
@@ -434,8 +444,8 @@ func (s *VersionUpdateService) Run(ctx context.Context, envFilePath string) erro
 	s.logger.Info(fmt.Sprintf("🔍 Checking %d tools for updates (estimated time: ~%d seconds)...", toolCount, estimatedSeconds))
 	s.logger.Info("")
 
-	// Extract current versions from file
-	currentVersions := s.extractVersions(content, tools)
+	// Extract current versions from combined content
+	currentVersions := s.extractVersions(combinedContent, tools)
 
 	// Check latest versions
 	results := s.checkVersions(ctx, tools, currentVersions)
@@ -446,9 +456,9 @@ func (s *VersionUpdateService) Run(ctx context.Context, envFilePath string) erro
 	// Display results
 	s.displayResults(results)
 
-	// Update file if needed
+	// Update files if needed
 	if !s.dryRun && s.hasUpdates(results) {
-		return s.updateFile(envFilePath, content, results)
+		return s.updateFiles(fileContents, results)
 	}
 
 	return nil
@@ -684,20 +694,23 @@ func (s *VersionUpdateService) hasUpdates(results []CheckResult) bool {
 	return false
 }
 
-// updateFile updates the .env.base file with new versions.
-func (s *VersionUpdateService) updateFile(envFilePath string, content []byte, results []CheckResult) error {
-	s.logger.Info("📝 Updating .env.base file...")
+// updateFiles updates env files that have matching env vars with new versions.
+// Only files with actual changes are backed up and written.
+func (s *VersionUpdateService) updateFiles(fileContents map[string][]byte, results []CheckResult) error {
+	s.logger.Info("📝 Updating env files...")
 
-	// Create backup
-	if err := s.updater.BackupFile(envFilePath); err != nil {
-		return fmt.Errorf("failed to create backup: %w", err)
-	}
-	s.logger.Info("✓ Backup created: " + envFilePath + ".backup")
+	updatedCount := 0
 
-	// Update content
-	newContent := content
-	for _, result := range results {
-		if result.Status == "update-available" {
+	// Process each file
+	for filePath, originalContent := range fileContents {
+		newContent := make([]byte, len(originalContent))
+		copy(newContent, originalContent)
+
+		for _, result := range results {
+			if result.Status != "update-available" {
+				continue
+			}
+
 			for _, envVar := range result.EnvVars {
 				// Match the env var and capture its current version to detect format
 				pattern := regexp.MustCompile(fmt.Sprintf(`(?m)^(%s=)([^#\s]+)(\s|$)`,
@@ -735,14 +748,23 @@ func (s *VersionUpdateService) updateFile(envFilePath string, content []byte, re
 				})
 			}
 		}
+
+		// Only backup and write if content actually changed
+		if !bytes.Equal(originalContent, newContent) {
+			if err := s.updater.BackupFile(filePath); err != nil {
+				return fmt.Errorf("failed to create backup for %s: %w", filePath, err)
+			}
+			s.logger.Info("✓ Backup created: " + filePath + ".backup")
+
+			if err := s.updater.WriteFile(filePath, newContent, 0o600); err != nil {
+				return fmt.Errorf("failed to write file %s: %w", filePath, err)
+			}
+			updatedCount++
+			s.logger.Info("✓ Updated: " + filepath.Base(filePath))
+		}
 	}
 
-	// Write updated content
-	if err := s.updater.WriteFile(envFilePath, newContent, 0o600); err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
-	}
-
-	s.logger.Info("✓ File updated successfully")
+	s.logger.Info(fmt.Sprintf("✓ %d file(s) updated successfully", updatedCount))
 	return nil
 }
 
@@ -799,13 +821,54 @@ func resetVersionUpdateService() {
 	versionServiceOnce = sync.Once{}
 }
 
+// discoverEnvFiles scans a directory for eligible .env files.
+// It returns sorted file paths, excluding files prefixed with 90- or 99-
+// (project overrides and local development) and non-.env files.
+func discoverEnvFiles(dirPath string) ([]string, error) {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read env directory %s: %w", dirPath, err)
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+
+		// Only process .env files
+		if !strings.HasSuffix(name, ".env") {
+			continue
+		}
+
+		// Exclude project overrides (90-*) and local development (99-*)
+		if strings.HasPrefix(name, "90-") || strings.HasPrefix(name, "99-") {
+			continue
+		}
+
+		files = append(files, filepath.Join(dirPath, name))
+	}
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("%w in %s", ErrNoEnvFiles, dirPath)
+	}
+
+	sort.Strings(files)
+	return files, nil
+}
+
 // RunVersionUpdate runs the version update process.
 func RunVersionUpdate(dryRun, allowMajorUpgrades bool) error {
 	ctx := context.Background()
 
-	// Get the path to .env.base
-	envFilePath := filepath.Join(".github", ".env.base")
+	// Discover env files in .github/env/
+	envDirPath := filepath.Join(".github", "env")
+	envFiles, err := discoverEnvFiles(envDirPath)
+	if err != nil {
+		return fmt.Errorf("failed to discover env files: %w", err)
+	}
 
 	service := getVersionUpdateService(dryRun, allowMajorUpgrades)
-	return service.Run(ctx, envFilePath)
+	return service.Run(ctx, envFiles)
 }

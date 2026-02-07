@@ -110,9 +110,10 @@ func TestAll() error {
 	return TestPerf()
 }
 
-// UpdateToolVersions checks and updates tool versions in .github/.env.base
+// UpdateToolVersions checks and updates tool versions in .github/env/ files
 // This command checks GitHub releases for the latest versions of all tools
-// defined in .env.base and updates them if newer versions are available.
+// defined in the env files (00-*, 10-*, 20-*) and updates them if newer
+// versions are available. Files prefixed with 90- and 99- are excluded.
 //
 // By default, runs in dry-run mode (no changes).
 // Set UPDATE_VERSIONS=true environment variable to apply updates.
