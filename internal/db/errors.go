@@ -25,6 +25,9 @@ var (
 	// ErrInvalidReference is returned when a reference (file_list_ref, directory_list_ref) cannot be resolved
 	ErrInvalidReference = errors.New("invalid reference")
 
+	// ErrReferenceNotFound is returned when a referenced external ID does not exist
+	ErrReferenceNotFound = errors.New("reference not found")
+
 	// ErrValidationFailed is returned when model validation fails
 	ErrValidationFailed = errors.New("validation failed")
 
