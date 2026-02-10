@@ -169,11 +169,20 @@ func printStatus(status DBStatus) error {
 	}
 	output.Info(fmt.Sprintf("Schema Version: %s", status.Version))
 
-	// Print table counts
+	// Print table counts (showing all tables for visibility)
 	output.Info("\nTable Counts:")
-	for table, count := range status.TableCounts {
-		if count > 0 {
-			output.Info(fmt.Sprintf("  %-25s %d", table+":", count))
+	// Define ordered list of tables for consistent display
+	tableOrder := []string{
+		"configs", "groups", "sources", "targets",
+		"file_lists", "directory_lists",
+		"file_mappings", "directory_mappings",
+		"transforms",
+		"group_dependencies", "group_globals", "group_defaults",
+		"target_file_list_refs", "target_directory_list_refs",
+	}
+	for _, table := range tableOrder {
+		if count, exists := status.TableCounts[table]; exists {
+			output.Info(fmt.Sprintf("  %-30s %d", table+":", count))
 		}
 	}
 
