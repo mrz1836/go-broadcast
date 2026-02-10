@@ -22,11 +22,11 @@ type BaseModel struct {
 type Metadata map[string]interface{}
 
 // Value implements driver.Valuer for database storage
-//nolint:recvcheck // Value requires value receiver per driver.Valuer interface
+//
+//nolint:recvcheck
 func (m Metadata) Value() (driver.Value, error) {
 	if m == nil {
-		//nolint:nilnil // Returning nil,nil is correct for SQL NULL
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 	return json.Marshal(m)
 }
@@ -55,11 +55,11 @@ func (m *Metadata) Scan(value interface{}) error {
 type JSONStringSlice []string
 
 // Value implements driver.Valuer
-//nolint:recvcheck // Value requires value receiver per driver.Valuer interface
+//
+//nolint:recvcheck
 func (j JSONStringSlice) Value() (driver.Value, error) {
 	if j == nil {
-		//nolint:nilnil // Returning nil,nil is correct for SQL NULL
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 	return json.Marshal(j)
 }
@@ -88,11 +88,11 @@ func (j *JSONStringSlice) Scan(value interface{}) error {
 type JSONStringMap map[string]string
 
 // Value implements driver.Valuer
-//nolint:recvcheck // Value requires value receiver per driver.Valuer interface
+//
+//nolint:recvcheck
 func (j JSONStringMap) Value() (driver.Value, error) {
 	if j == nil {
-		//nolint:nilnil // Returning nil,nil is correct for SQL NULL
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 	return json.Marshal(j)
 }

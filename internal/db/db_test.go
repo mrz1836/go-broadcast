@@ -38,7 +38,7 @@ func TestOpenSQLite_EmptyPath(t *testing.T) {
 	}
 
 	db, err := OpenSQLite(config)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, db)
 	assert.Contains(t, err.Error(), "path is required")
 }
@@ -159,7 +159,7 @@ func TestOpen_EmptyPath(t *testing.T) {
 	}
 
 	database, err := Open(opts)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, database)
 	assert.Contains(t, err.Error(), "path is required")
 }

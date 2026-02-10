@@ -324,7 +324,7 @@ func TestSource_ValidationHooks(t *testing.T) {
 			err := db.Create(&tt.source).Error
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errString)
 			} else {
 				assert.NoError(t, err)
@@ -384,7 +384,7 @@ func TestTarget_ValidationHooks(t *testing.T) {
 			err := db.Create(&tt.target).Error
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errString)
 			} else {
 				assert.NoError(t, err)
@@ -453,7 +453,7 @@ func TestFileMapping_ValidationHooks(t *testing.T) {
 			err := db.Create(&tt.mapping).Error
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errString)
 			} else {
 				assert.NoError(t, err)
@@ -510,7 +510,7 @@ func TestGroup_ValidationHooks(t *testing.T) {
 			err := db.Create(&tt.group).Error
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errString)
 			} else {
 				assert.NoError(t, err)
@@ -525,11 +525,11 @@ func TestMetadata_InvalidJSON(t *testing.T) {
 
 	// Invalid JSON should error
 	err := m.Scan([]byte("{invalid json}"))
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Invalid type should error
 	err = m.Scan(12345)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid type")
 }
 
@@ -538,10 +538,10 @@ func TestJSONStringSlice_InvalidJSON(t *testing.T) {
 	var j JSONStringSlice
 
 	err := j.Scan([]byte("{not an array}"))
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = j.Scan(12345)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid type")
 }
 
@@ -550,10 +550,10 @@ func TestJSONStringMap_InvalidJSON(t *testing.T) {
 	var j JSONStringMap
 
 	err := j.Scan([]byte("[not an object]"))
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = j.Scan(12345)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid type")
 }
 
@@ -562,10 +562,10 @@ func TestJSONModuleConfig_InvalidJSON(t *testing.T) {
 	var j JSONModuleConfig
 
 	err := j.Scan([]byte("invalid"))
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = j.Scan(12345)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid type")
 }
 
