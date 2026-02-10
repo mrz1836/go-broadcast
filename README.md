@@ -294,7 +294,7 @@ magex update:install
 - **Reusable lists** - Define file/directory lists once, use everywhere
 - **Module-aware sync** - Version management for Go modules with semantic versioning
 
-### 🗄️ **Database Backend** *(NEW)*
+### 🗄️ **Database Backend**
 - **SQLite storage** - Structured configuration in queryable database (pure Go, no CGO)
 - **YAML import/export** - Seamless migration and backwards compatibility
 - **Write-time validation** - Catch errors before they affect repositories
@@ -1102,7 +1102,7 @@ groups:
 
 - **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
 - **Configuration Guide** – Complete guide to group-based configuration at [docs/configuration-guide.md](docs/configuration-guide.md)
-- **Database Backend** *(NEW)* – Structured configuration storage with SQLite at [docs/database.md](docs/database.md)
+- **Database Backend** – Structured configuration storage with SQLite at [docs/database.md](docs/database.md)
 - **Module-Aware Sync** – Smart module versioning and synchronization at [docs/module-sync.md](docs/module-sync.md)
 - **Group Examples** – Practical configuration patterns at [docs/group-examples.md](docs/group-examples.md)
 - **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)
