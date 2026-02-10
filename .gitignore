@@ -114,3 +114,5 @@ test/fixtures/directories/
 /.mage-x
 .github/env/99-local.env
 /coverage_0.txt
+/coverage_test.txt
+/coverage_full.txt
