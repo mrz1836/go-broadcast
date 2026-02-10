@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 	"gorm.io/gorm/logger"
@@ -80,6 +82,28 @@ func runDBInit(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
 	defer func() { _ = database.Close() }()
+
+	// Insert initial migration record
+	gormDB := database.DB()
+	initialVersion := "1.0.0"
+	initialDesc := "Initial schema via AutoMigrate"
+
+	// Calculate checksum consistent with migration framework
+	checksumData := fmt.Sprintf("%s:%s", initialVersion, initialDesc)
+	hash := sha256.Sum256([]byte(checksumData))
+	checksum := fmt.Sprintf("%x", hash)
+
+	// Create initial migration record
+	initialMigration := db.SchemaMigration{
+		Version:     initialVersion,
+		AppliedAt:   time.Now().UTC(),
+		Description: initialDesc,
+		Checksum:    checksum,
+	}
+
+	if err := gormDB.Create(&initialMigration).Error; err != nil {
+		return fmt.Errorf("failed to record initial schema version: %w", err)
+	}
 
 	output.Success(fmt.Sprintf("✓ Database initialized: %s", path))
 	return nil
