@@ -39,12 +39,6 @@ go-broadcast db status
 ```bash
 # Import your existing sync.yaml
 go-broadcast db import sync.yaml
-
-# Import with validation
-go-broadcast db import sync.yaml --validate
-
-# Merge with existing data
-go-broadcast db import sync.yaml --merge
 ```
 
 ### Query Configuration
@@ -176,6 +170,81 @@ go-broadcast sync --from-db --dry-run
 </details>
 
 <details>
+<summary><b>group_globals</b> — Group-level global PR settings</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `group_id` | uint | Foreign key to `groups` (1:1, unique) |
+| `pr_labels` | text | JSON array of PR labels |
+| `pr_assignees` | text | JSON array of assignees |
+| `pr_reviewers` | text | JSON array of reviewers |
+| `pr_team_reviewers` | text | JSON array of team reviewers |
+| `metadata` | text | JSON metadata |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Belongs to `groups` (1:1)
+
+**Purpose:**
+- Stores global PR settings that apply to all targets in a group
+- Can be overridden by target-specific PR settings
+
+</details>
+
+<details>
+<summary><b>group_defaults</b> — Group-level default settings</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `group_id` | uint | Foreign key to `groups` (1:1, unique) |
+| `branch_prefix` | text | Default branch prefix for PRs |
+| `pr_labels` | text | JSON array of default PR labels |
+| `pr_assignees` | text | JSON array of default assignees |
+| `pr_reviewers` | text | JSON array of default reviewers |
+| `pr_team_reviewers` | text | JSON array of default team reviewers |
+| `metadata` | text | JSON metadata |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Belongs to `groups` (1:1)
+
+**Purpose:**
+- Provides default values for targets that don't specify their own settings
+
+</details>
+
+<details>
+<summary><b>group_dependencies</b> — Group dependency graph</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `group_id` | uint | Foreign key to `groups` |
+| `depends_on_id` | text | External ID of dependency group |
+| `position` | int | Ordering for dependency resolution |
+| `metadata` | text | JSON metadata |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+
+**Relations:**
+- Belongs to `groups`
+
+**Purpose:**
+- Tracks which groups depend on other groups
+- Used for execution ordering and circular dependency detection
+
+**Indexes:**
+- `group_id` for fast dependency lookups
+
+</details>
+
+<details>
 <summary><b>sources</b> — Source repository configuration</summary>
 
 | Column | Type | Description |
@@ -205,6 +274,9 @@ go-broadcast sync --from-db --dry-run
 | `group_id` | uint | Foreign key to `groups` |
 | `repo` | text | Repository (org/name) |
 | `branch` | text | Branch name |
+| `blob_size_limit` | text | Max blob size limit |
+| `security_email` | text | Security contact email |
+| `support_email` | text | Support contact email |
 | `pr_labels` | text | JSON array of PR labels |
 | `pr_assignees` | text | JSON array of assignees |
 | `pr_reviewers` | text | JSON array of reviewers |
@@ -219,9 +291,6 @@ go-broadcast sync --from-db --dry-run
 - Has zero or one `transforms` (polymorphic)
 - Many-to-many with `file_lists` via `target_file_list_refs`
 - Many-to-many with `directory_lists` via `target_directory_list_refs`
-
-**Indexes:**
-- Composite: `(group_id, repo)` for fast lookups
 
 </details>
 
@@ -329,6 +398,48 @@ go-broadcast sync --from-db --dry-run
 
 </details>
 
+<details>
+<summary><b>target_directory_list_refs</b> — Many-to-many join table for directory lists</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `target_id` | uint | Foreign key to `targets` |
+| `directory_list_id` | uint | Foreign key to `directory_lists` |
+| `position` | int | Ordering for export |
+| `metadata` | text | JSON metadata |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+
+**Relations:**
+- Belongs to `targets`
+- Belongs to `directory_lists`
+
+**Indexes:**
+- Unique composite: `(target_id, directory_list_id)`
+
+</details>
+
+<details>
+<summary><b>schema_migrations</b> — Schema version tracking</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `version` | text | Schema version string (unique) |
+| `applied_at` | datetime | When migration was applied |
+| `description` | text | Human-readable description |
+| `checksum` | text | Integrity verification hash |
+
+**Purpose:**
+- Tracks applied schema migrations
+- Enables safe schema evolution
+
+**Indexes:**
+- Unique index on `version`
+
+</details>
+
 ---
 
 ## 🔄 Import/Export
@@ -351,11 +462,7 @@ go-broadcast db status
 
 ### Import Behavior
 
-| Flag | Behavior |
-|------|----------|
-| (default) | **Replace**: Delete all existing data, import fresh |
-| `--merge` | **Merge**: Add new groups/targets, update existing |
-| `--validate` | Validate YAML before import (exit on error) |
+By default, import performs a **full replacement**: all existing data is deleted and replaced with the imported configuration. All operations are performed within a transaction - if import fails, no changes are made to the database.
 
 ### Export Workflow
 
@@ -438,12 +545,6 @@ go-broadcast db status
 # Basic import (replaces all data)
 go-broadcast db import sync.yaml
 
-# Merge with existing data
-go-broadcast db import sync.yaml --merge
-
-# Validate before import
-go-broadcast db import sync.yaml --validate
-
 # Custom database path
 go-broadcast db import sync.yaml --db-path /tmp/test.db
 ```
@@ -488,7 +589,7 @@ go-broadcast db query --file-list ai-files
 go-broadcast db query --contains "workflows"
 
 # JSON output for scripting
-go-broadcast db query --file .github/workflows/ci.yml --format json
+go-broadcast db query --file .github/workflows/ci.yml --json
 ```
 
 </details>
@@ -500,8 +601,8 @@ go-broadcast db query --file .github/workflows/ci.yml --format json
 # Run all validation checks
 go-broadcast db validate
 
-# Verbose output
-go-broadcast db validate --verbose
+# JSON output
+go-broadcast db validate --json
 ```
 
 **Checks:**
@@ -520,8 +621,8 @@ go-broadcast db validate --verbose
 # Show differences
 go-broadcast db diff sync.yaml
 
-# Machine-readable output
-go-broadcast db diff sync.yaml --format json
+# Detailed output
+go-broadcast db diff sync.yaml --detail
 ```
 
 </details>
@@ -750,16 +851,9 @@ PRAGMA mmap_size=268435456      -- 256MB memory-mapped I/O
 go-broadcast db <command> --db-path /custom/path.db
 ```
 
-**Override via environment:**
-```bash
-export GO_BROADCAST_DB=/custom/path.db
-go-broadcast db status
-```
-
 **Precedence:**
-1. `--db-path` flag (highest)
-2. `GO_BROADCAST_DB` environment variable
-3. Default path (lowest)
+1. `--db-path` flag (if provided)
+2. Default path
 
 ### Connection Settings
 
@@ -769,7 +863,7 @@ Configured in `internal/db/sqlite.go`:
 // Connection pool
 MaxOpenConns: 1          // SQLite single-writer
 MaxIdleConns: 1
-ConnMaxLifetime: 0       // No connection reuse limit
+ConnMaxLifetime: time.Hour  // 1 hour connection reuse limit
 ```
 
 ---
