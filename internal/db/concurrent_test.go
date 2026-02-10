@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,8 @@ import (
 
 func TestConcurrentReads(t *testing.T) {
 	db := TestDB(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test Config", Version: 1}
@@ -64,7 +66,8 @@ func TestConcurrentReads(t *testing.T) {
 
 func TestConcurrentWrites_DifferentGroups(t *testing.T) {
 	db := TestDB(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Create test config
 	config := &Config{ExternalID: "test-config", Name: "Test Config", Version: 1}
@@ -115,7 +118,8 @@ func TestConcurrentWrites_DifferentGroups(t *testing.T) {
 
 func TestConcurrentWrites_DifferentTargets(t *testing.T) {
 	db := TestDB(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test Config", Version: 1}
@@ -166,7 +170,8 @@ func TestConcurrentWrites_DifferentTargets(t *testing.T) {
 
 func TestConcurrentReadWrite(t *testing.T) {
 	db := TestDB(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test Config", Version: 1}
@@ -239,7 +244,8 @@ func TestConcurrentReadWrite(t *testing.T) {
 
 func TestConcurrentUpdates(t *testing.T) {
 	db := TestDB(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test Config", Version: 1}
@@ -297,7 +303,8 @@ func TestConcurrentUpdates(t *testing.T) {
 
 func TestConcurrentRefManagement(t *testing.T) {
 	db := TestDB(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test Config", Version: 1}
@@ -363,7 +370,8 @@ func TestConcurrentRefManagement(t *testing.T) {
 
 func TestConcurrentQuery(t *testing.T) {
 	db := TestDB(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test Config", Version: 1}

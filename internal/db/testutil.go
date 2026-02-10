@@ -2,24 +2,53 @@ package db
 
 import (
 	"testing"
+	"time"
 
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
 // TestDB creates an in-memory SQLite database for testing
 // Auto-migrates all models and registers t.Cleanup() for automatic cleanup
+//
+// Unlike OpenSQLite, this disables PrepareStmt to avoid livelock under the
+// race detector. PrepareStmt's sync.RWMutex combined with MaxOpenConns=1
+// causes concurrent read/write tests to hang when goroutine scheduling
+// changes under -race.
 func TestDB(t testing.TB) *gorm.DB {
 	t.Helper()
 
-	config := SQLiteConfig{
-		Path:     ":memory:",
-		LogLevel: logger.Silent, // Keep tests quiet by default
-	}
-
-	db, err := OpenSQLite(config)
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+		NowFunc: func() time.Time {
+			return time.Now().UTC()
+		},
+		PrepareStmt: false,
+	})
 	if err != nil {
 		t.Fatalf("failed to create test database: %v", err)
+	}
+
+	// Apply same connection pool settings as OpenSQLite
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("failed to get underlying database: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	// Apply essential pragmas (skip performance-only pragmas for in-memory test DBs)
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA foreign_keys=ON",
+	}
+	for _, pragma := range pragmas {
+		if err := db.Exec(pragma).Error; err != nil {
+			t.Fatalf("failed to set pragma %q: %v", pragma, err)
+		}
 	}
 
 	// Auto-migrate all models
