@@ -4,30 +4,199 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
 )
 
+// ImportOptions contains optional parameters for ImportConfig
+type ImportOptions struct {
+	SourcePath string
+}
+
+// ImportOption is a functional option for ImportConfig
+type ImportOption func(*ImportOptions)
+
+// WithSourcePath sets the source file path for enrichment
+func WithSourcePath(path string) ImportOption {
+	return func(o *ImportOptions) {
+		o.SourcePath = path
+	}
+}
+
+// enrichConfigFields enriches config Name and ID fields if they're empty
+// Derives values from the source file path to make them more user-friendly
+// Only enriches if a sourcePath is provided; empty sourcePath means no enrichment
+func enrichConfigFields(cfg *config.Config, sourcePath string) (name, externalID string) {
+	name = cfg.Name
+	externalID = cfg.ID
+
+	// Only enrich if sourcePath is provided and values are empty
+	if sourcePath != "" && (name == "" || externalID == "") {
+		// Derive from filename
+		var baseName string
+		if sourcePath == "-" {
+			// stdin
+			baseName = "stdin"
+		} else {
+			// Get filename without extension
+			filename := filepath.Base(sourcePath)
+			ext := filepath.Ext(filename)
+			baseName = strings.TrimSuffix(filename, ext)
+
+			// If baseName is empty after trimming, use timestamp
+			if baseName == "" {
+				baseName = fmt.Sprintf("config-%d", time.Now().Unix())
+			}
+		}
+
+		// Apply defaults if empty
+		if name == "" {
+			name = baseName
+		}
+		if externalID == "" {
+			externalID = baseName
+		}
+	}
+
+	return name, externalID
+}
+
+// CalculateConfigMetrics analyzes a config and returns metrics and analysis
+// Returns two maps: "metrics" with counts and "config_analysis" with feature detection
+func CalculateConfigMetrics(cfg *config.Config) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	// Initialize metrics
+	metrics := make(map[string]interface{})
+	analysis := make(map[string]interface{})
+
+	// Basic counts
+	metrics["groups_count"] = len(cfg.Groups)
+	metrics["file_lists_count"] = len(cfg.FileLists)
+	metrics["directory_lists_count"] = len(cfg.DirectoryLists)
+
+	// Detailed group analysis
+	var totalTargets, totalFiles, totalDirectories int
+	var enabledGroups, disabledGroups int
+	hasDependencies := false
+	hasTransforms := false
+	hasModuleConfigs := false
+	sourceRepos := make(map[string]bool)
+	targetReposMap := make(map[string]bool)
+
+	// Analyze groups
+	for _, group := range cfg.Groups {
+		// Enabled is *bool, default is true when nil
+		if group.Enabled == nil || *group.Enabled {
+			enabledGroups++
+		} else {
+			disabledGroups++
+		}
+
+		// Track source repos
+		if group.Source.Repo != "" {
+			sourceRepos[group.Source.Repo] = true
+		}
+
+		// Check for dependencies
+		if len(group.DependsOn) > 0 {
+			hasDependencies = true
+		}
+
+		// Analyze targets
+		totalTargets += len(group.Targets)
+		for _, target := range group.Targets {
+			// Track target repos
+			if target.Repo != "" {
+				targetReposMap[target.Repo] = true
+			}
+
+			// Count inline files and directories
+			totalFiles += len(target.Files)
+			totalDirectories += len(target.Directories)
+
+			// Count file list refs
+			totalFiles += len(target.FileListRefs)
+
+			// Count directory list refs
+			totalDirectories += len(target.DirectoryListRefs)
+
+			// Check for target-level transforms
+			if target.Transform.RepoName || len(target.Transform.Variables) > 0 {
+				hasTransforms = true
+			}
+
+			// Check for directory-level transforms and module configs
+			for _, dir := range target.Directories {
+				if dir.Transform.RepoName || len(dir.Transform.Variables) > 0 {
+					hasTransforms = true
+				}
+				if dir.Module != nil && (dir.Module.Version != "" || dir.Module.Type != "") {
+					hasModuleConfigs = true
+				}
+			}
+		}
+	}
+
+	// Add counts to metrics
+	metrics["total_targets"] = totalTargets
+	metrics["total_files"] = totalFiles
+	metrics["total_directories"] = totalDirectories
+	metrics["enabled_groups"] = enabledGroups
+	metrics["disabled_groups"] = disabledGroups
+
+	// Build source repos list
+	sourceReposList := make([]string, 0, len(sourceRepos))
+	for repo := range sourceRepos {
+		sourceReposList = append(sourceReposList, repo)
+	}
+
+	// Add analysis data
+	analysis["has_dependencies"] = hasDependencies
+	analysis["has_transforms"] = hasTransforms
+	analysis["has_module_configs"] = hasModuleConfigs
+	analysis["source_repos"] = sourceReposList
+	analysis["target_repos_count"] = len(targetReposMap)
+
+	// Combine into result
+	result["metrics"] = metrics
+	result["config_analysis"] = analysis
+
+	return result
+}
+
 // ImportConfig imports a config.Config into the database
 // All operations are performed in a single transaction for atomicity
 // Returns the created/updated Config record
-func (c *Converter) ImportConfig(ctx context.Context, cfg *config.Config) (*Config, error) {
+func (c *Converter) ImportConfig(ctx context.Context, cfg *config.Config, opts ...ImportOption) (*Config, error) {
 	var dbConfig *Config
 	var refs *refMap
+
+	// Apply options
+	options := &ImportOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	// Enrich config fields if needed
+	name, externalID := enrichConfigFields(cfg, options.SourcePath)
 
 	// Perform all operations in a transaction
 	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Step 1: Upsert Config record
 		dbConfig = &Config{
-			ExternalID: cfg.ID,
-			Name:       cfg.Name,
+			ExternalID: externalID,
+			Name:       name,
 			Version:    cfg.Version,
 		}
 
 		var existing Config
-		result := tx.Where("external_id = ?", cfg.ID).First(&existing)
+		result := tx.Where("external_id = ?", externalID).First(&existing)
 		switch {
 		case result.Error == nil:
 			dbConfig.ID = existing.ID
