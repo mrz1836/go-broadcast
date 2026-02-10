@@ -43,6 +43,8 @@ func init() {
 	dbCmd.AddCommand(dbImportCmd)
 	dbCmd.AddCommand(dbExportCmd)
 	dbCmd.AddCommand(dbDiffCmd)
+	dbCmd.AddCommand(dbQueryCmd)
+	dbCmd.AddCommand(dbValidateCmd)
 }
 
 // getDBPath returns the database path, using default if not specified
