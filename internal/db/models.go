@@ -334,6 +334,9 @@ type TargetFileListRef struct {
 	Metadata   Metadata  `gorm:"type:text" json:"metadata,omitempty"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
+
+	// Relationships for preloading
+	FileList FileList `gorm:"foreignKey:FileListID" json:"file_list,omitempty"`
 }
 
 // TargetDirectoryListRef is the join table for Target <-> DirectoryList M2M
@@ -345,6 +348,9 @@ type TargetDirectoryListRef struct {
 	Metadata        Metadata  `gorm:"type:text" json:"metadata,omitempty"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
+
+	// Relationships for preloading
+	DirectoryList DirectoryList `gorm:"foreignKey:DirectoryListID" json:"directory_list,omitempty"`
 }
 
 // SchemaMigration tracks schema versions for migration management
