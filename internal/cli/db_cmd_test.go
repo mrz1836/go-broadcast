@@ -116,6 +116,38 @@ func TestDBInit(t *testing.T) {
 		_, err = os.Stat(filepath.Dir(tmpPath))
 		require.NoError(t, err)
 	})
+
+	t.Run("initial migration record created", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpPath := filepath.Join(tmpDir, "versioned.db")
+
+		// Save and restore
+		oldDBPath := dbPath
+		oldForce := dbInitForce
+		defer func() {
+			dbPath = oldDBPath
+			dbInitForce = oldForce
+		}()
+
+		dbPath = tmpPath
+		dbInitForce = false
+
+		// Run init
+		err := runDBInit(nil, nil)
+		require.NoError(t, err)
+
+		// Verify migration record exists
+		database, err := db.Open(db.OpenOptions{Path: tmpPath})
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var migration db.SchemaMigration
+		err = database.DB().Order("applied_at DESC").First(&migration).Error
+		require.NoError(t, err)
+		assert.Equal(t, "1.0.0", migration.Version)
+		assert.Equal(t, "Initial schema via AutoMigrate", migration.Description)
+		assert.NotEmpty(t, migration.Checksum)
+	})
 }
 
 // TestDBStatus tests the db status command
@@ -224,6 +256,51 @@ func TestDBStatus(t *testing.T) {
 		assert.Equal(t, tmpPath, status.Path)
 		assert.True(t, status.Exists)
 		assert.Positive(t, status.TableCounts["configs"])
+	})
+
+	t.Run("shows version after init", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpPath := filepath.Join(tmpDir, "version.db")
+
+		// Save and restore
+		oldDBPath := dbPath
+		oldForce := dbInitForce
+		oldJSON := dbStatusJSON
+		oldStdout := os.Stdout
+		defer func() {
+			dbPath = oldDBPath
+			dbInitForce = oldForce
+			dbStatusJSON = oldJSON
+			os.Stdout = oldStdout
+		}()
+
+		// Initialize database using init command
+		dbPath = tmpPath
+		dbInitForce = false
+		err := runDBInit(nil, nil)
+		require.NoError(t, err)
+
+		// Run status with JSON output
+		dbStatusJSON = true
+
+		// Capture stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		err = runDBStatus(nil, nil)
+		require.NoError(t, err)
+
+		// Restore stdout and read output
+		_ = w.Close()
+		os.Stdout = oldStdout
+		var output bytes.Buffer
+		_, _ = output.ReadFrom(r)
+
+		// Parse JSON output
+		var status DBStatus
+		err = json.Unmarshal(output.Bytes(), &status)
+		require.NoError(t, err)
+		assert.Equal(t, "1.0.0", status.Version)
 	})
 }
 
