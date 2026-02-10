@@ -52,17 +52,17 @@ func init() {
 
 // DBStatus represents database status information
 type DBStatus struct {
-	Path         string            `json:"path"`
-	Exists       bool              `json:"exists"`
-	Size         int64             `json:"size_bytes,omitempty"`
-	LastModified *time.Time        `json:"last_modified,omitempty"`
-	Version      string            `json:"version,omitempty"`
-	TableCounts  map[string]int64  `json:"table_counts,omitempty"`
-	Error        string            `json:"error,omitempty"`
+	Path         string           `json:"path"`
+	Exists       bool             `json:"exists"`
+	Size         int64            `json:"size_bytes,omitempty"`
+	LastModified *time.Time       `json:"last_modified,omitempty"`
+	Version      string           `json:"version,omitempty"`
+	TableCounts  map[string]int64 `json:"table_counts,omitempty"`
+	Error        string           `json:"error,omitempty"`
 }
 
 // runDBStatus executes the database status command
-func runDBStatus(cmd *cobra.Command, args []string) error {
+func runDBStatus(_ *cobra.Command, _ []string) error {
 	path := getDBPath()
 	status := DBStatus{
 		Path:        path,
@@ -95,7 +95,7 @@ func runDBStatus(cmd *cobra.Command, args []string) error {
 		status.Error = fmt.Sprintf("failed to open database: %v", err)
 		return printStatus(status)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	gormDB := database.DB()
 
@@ -113,19 +113,19 @@ func runDBStatus(cmd *cobra.Command, args []string) error {
 
 	// Get table counts
 	tables := map[string]interface{}{
-		"configs":                &db.Config{},
-		"groups":                 &db.Group{},
-		"sources":                &db.Source{},
-		"targets":                &db.Target{},
-		"file_lists":             &db.FileList{},
-		"directory_lists":        &db.DirectoryList{},
-		"file_mappings":          &db.FileMapping{},
-		"directory_mappings":     &db.DirectoryMapping{},
-		"transforms":             &db.Transform{},
-		"group_dependencies":     &db.GroupDependency{},
-		"group_globals":          &db.GroupGlobal{},
-		"group_defaults":         &db.GroupDefault{},
-		"target_file_list_refs":  &db.TargetFileListRef{},
+		"configs":                    &db.Config{},
+		"groups":                     &db.Group{},
+		"sources":                    &db.Source{},
+		"targets":                    &db.Target{},
+		"file_lists":                 &db.FileList{},
+		"directory_lists":            &db.DirectoryList{},
+		"file_mappings":              &db.FileMapping{},
+		"directory_mappings":         &db.DirectoryMapping{},
+		"transforms":                 &db.Transform{},
+		"group_dependencies":         &db.GroupDependency{},
+		"group_globals":              &db.GroupGlobal{},
+		"group_defaults":             &db.GroupDefault{},
+		"target_file_list_refs":      &db.TargetFileListRef{},
 		"target_directory_list_refs": &db.TargetDirectoryListRef{},
 	}
 

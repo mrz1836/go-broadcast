@@ -109,7 +109,7 @@ func jsonToModuleConfig(j *JSONModuleConfig) *config.ModuleConfig {
 }
 
 // validateReferences checks that all external ID references exist in the database
-func (c *Converter) validateReferences(ctx context.Context, cfg *config.Config, refs *refMap) error {
+func (c *Converter) validateReferences(_ context.Context, cfg *config.Config, refs *refMap) error {
 	// Validate group dependencies
 	for _, group := range cfg.Groups {
 		for _, depID := range group.DependsOn {

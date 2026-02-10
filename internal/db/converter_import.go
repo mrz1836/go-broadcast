@@ -31,15 +31,15 @@ func (c *Converter) ImportConfig(ctx context.Context, cfg *config.Config) (*Conf
 			dbConfig.ID = existing.ID
 			dbConfig.CreatedAt = existing.CreatedAt
 			if err := tx.Save(dbConfig).Error; err != nil {
-				return fmt.Errorf("%w: failed to update config: %v", ErrImportFailed, err)
+				return fmt.Errorf("%w: failed to update config: %w", ErrImportFailed, err)
 			}
 		} else if result.Error == gorm.ErrRecordNotFound {
 			// Create new
 			if err := tx.Create(dbConfig).Error; err != nil {
-				return fmt.Errorf("%w: failed to create config: %v", ErrImportFailed, err)
+				return fmt.Errorf("%w: failed to create config: %w", ErrImportFailed, err)
 			}
 		} else {
-			return fmt.Errorf("%w: failed to check existing config: %v", ErrImportFailed, result.Error)
+			return fmt.Errorf("%w: failed to check existing config: %w", ErrImportFailed, result.Error)
 		}
 
 		// Step 2: Build reference maps
@@ -94,15 +94,15 @@ func (c *Converter) importFileLists(tx *gorm.DB, configID uint, fileLists []conf
 			dbFileList.ID = existing.ID
 			dbFileList.CreatedAt = existing.CreatedAt
 			if err := tx.Save(dbFileList).Error; err != nil {
-				return fmt.Errorf("%w: failed to update file list %q: %v", ErrImportFailed, fl.ID, err)
+				return fmt.Errorf("%w: failed to update file list %q: %w", ErrImportFailed, fl.ID, err)
 			}
 		} else if result.Error == gorm.ErrRecordNotFound {
 			// Create new
 			if err := tx.Create(dbFileList).Error; err != nil {
-				return fmt.Errorf("%w: failed to create file list %q: %v", ErrImportFailed, fl.ID, err)
+				return fmt.Errorf("%w: failed to create file list %q: %w", ErrImportFailed, fl.ID, err)
 			}
 		} else {
-			return fmt.Errorf("%w: failed to check existing file list %q: %v", ErrImportFailed, fl.ID, result.Error)
+			return fmt.Errorf("%w: failed to check existing file list %q: %w", ErrImportFailed, fl.ID, result.Error)
 		}
 
 		// Update reference map
@@ -136,15 +136,15 @@ func (c *Converter) importDirectoryLists(tx *gorm.DB, configID uint, directoryLi
 			dbDirList.ID = existing.ID
 			dbDirList.CreatedAt = existing.CreatedAt
 			if err := tx.Save(dbDirList).Error; err != nil {
-				return fmt.Errorf("%w: failed to update directory list %q: %v", ErrImportFailed, dl.ID, err)
+				return fmt.Errorf("%w: failed to update directory list %q: %w", ErrImportFailed, dl.ID, err)
 			}
 		} else if result.Error == gorm.ErrRecordNotFound {
 			// Create new
 			if err := tx.Create(dbDirList).Error; err != nil {
-				return fmt.Errorf("%w: failed to create directory list %q: %v", ErrImportFailed, dl.ID, err)
+				return fmt.Errorf("%w: failed to create directory list %q: %w", ErrImportFailed, dl.ID, err)
 			}
 		} else {
-			return fmt.Errorf("%w: failed to check existing directory list %q: %v", ErrImportFailed, dl.ID, result.Error)
+			return fmt.Errorf("%w: failed to check existing directory list %q: %w", ErrImportFailed, dl.ID, result.Error)
 		}
 
 		// Update reference map
@@ -185,7 +185,7 @@ func (c *Converter) importGroups(tx *gorm.DB, configID uint, groups []config.Gro
 			dbGroup.ID = existing.ID
 			dbGroup.CreatedAt = existing.CreatedAt
 			if err := tx.Save(dbGroup).Error; err != nil {
-				return fmt.Errorf("%w: failed to update group %q: %v", ErrImportFailed, group.ID, err)
+				return fmt.Errorf("%w: failed to update group %q: %w", ErrImportFailed, group.ID, err)
 			}
 
 			// Delete old associations to replace them
@@ -195,10 +195,10 @@ func (c *Converter) importGroups(tx *gorm.DB, configID uint, groups []config.Gro
 		} else if result.Error == gorm.ErrRecordNotFound {
 			// Create new
 			if err := tx.Create(dbGroup).Error; err != nil {
-				return fmt.Errorf("%w: failed to create group %q: %v", ErrImportFailed, group.ID, err)
+				return fmt.Errorf("%w: failed to create group %q: %w", ErrImportFailed, group.ID, err)
 			}
 		} else {
-			return fmt.Errorf("%w: failed to check existing group %q: %v", ErrImportFailed, group.ID, result.Error)
+			return fmt.Errorf("%w: failed to check existing group %q: %w", ErrImportFailed, group.ID, result.Error)
 		}
 
 		// Update reference map

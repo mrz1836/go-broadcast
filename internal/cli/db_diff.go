@@ -3,8 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"gorm.io/gorm/logger"
@@ -56,7 +54,7 @@ func init() {
 }
 
 // runDBDiff executes the database diff command
-func runDBDiff(cmd *cobra.Command, args []string) error {
+func runDBDiff(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 	if ctx == nil {
 		ctx = context.Background()
@@ -80,7 +78,7 @@ func runDBDiff(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	// Export database to config
 	converter := db.NewConverter(database.DB())
@@ -98,8 +96,8 @@ func runDBDiff(cmd *cobra.Command, args []string) error {
 	if configExternalID == "" {
 		// Use first config in database
 		var dbConfig db.Config
-		if err := database.DB().First(&dbConfig).Error; err != nil {
-			return fmt.Errorf("no configuration found in database: %w", err)
+		if dbErr := database.DB().First(&dbConfig).Error; dbErr != nil {
+			return fmt.Errorf("no configuration found in database: %w", dbErr)
 		}
 		configExternalID = dbConfig.ExternalID
 	}
@@ -121,7 +119,7 @@ func runDBDiff(cmd *cobra.Command, args []string) error {
 	// Show differences
 	output.Warn(fmt.Sprintf("Found %d difference(s):", len(diffs)))
 	for _, diff := range diffs {
-		fmt.Println(diff)
+		fmt.Println(diff) //nolint:forbidigo // intentional stdout output for diff display
 	}
 
 	return nil
@@ -275,25 +273,4 @@ func stringSlicesEqual(a, b []string) bool {
 		}
 	}
 	return true
-}
-
-// formatValue formats a value for display
-func formatValue(v interface{}) string {
-	if v == nil {
-		return "<nil>"
-	}
-
-	val := reflect.ValueOf(v)
-	switch val.Kind() {
-	case reflect.String:
-		return fmt.Sprintf("%q", v)
-	case reflect.Slice, reflect.Array:
-		var parts []string
-		for i := 0; i < val.Len(); i++ {
-			parts = append(parts, fmt.Sprintf("%v", val.Index(i)))
-		}
-		return "[" + strings.Join(parts, ", ") + "]"
-	default:
-		return fmt.Sprintf("%v", v)
-	}
 }

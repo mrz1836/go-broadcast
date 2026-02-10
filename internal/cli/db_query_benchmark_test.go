@@ -1,3 +1,4 @@
+//go:build bench_heavy
 // +build bench_heavy
 
 package cli
@@ -80,7 +81,7 @@ func BenchmarkDBQueryByFile(b *testing.B) {
 
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		_ = runDBQuery(nil, nil)
 	}
@@ -154,7 +155,7 @@ func BenchmarkDBQueryByRepo(b *testing.B) {
 
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		_ = runDBQuery(nil, nil)
 	}
@@ -230,7 +231,7 @@ func BenchmarkDBQueryByPattern(b *testing.B) {
 
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		_ = runDBQuery(nil, nil)
 	}
@@ -310,7 +311,7 @@ func BenchmarkDBQueryByFileList(b *testing.B) {
 
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		_ = runDBQuery(nil, nil)
 	}
@@ -387,7 +388,7 @@ func BenchmarkDBQueryJSON(b *testing.B) {
 
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		_ = runDBQuery(nil, nil)
 	}

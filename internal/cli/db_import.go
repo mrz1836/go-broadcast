@@ -82,7 +82,7 @@ func runDBImport(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	// Check if config already exists
 	var existingConfig db.Config

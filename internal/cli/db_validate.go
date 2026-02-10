@@ -67,7 +67,7 @@ type ValidationCheck struct {
 }
 
 // runDBValidate executes the database validation command
-func runDBValidate(cmd *cobra.Command, args []string) error {
+func runDBValidate(_ *cobra.Command, _ []string) error {
 	path := getDBPath()
 
 	// Check if database exists
@@ -83,7 +83,7 @@ func runDBValidate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	gormDB := database.DB()
 	ctx := context.Background()
@@ -150,8 +150,8 @@ func checkOrphanedFileListRefs(ctx context.Context, gormDB *gorm.DB, result *Val
 	if len(orphans) > 0 {
 		for _, orphan := range orphans {
 			result.Errors = append(result.Errors, ValidationError{
-				Type:    "orphaned_file_list_ref",
-				Message: fmt.Sprintf("Target '%s' references non-existent file list (ID: %d)", 
+				Type: "orphaned_file_list_ref",
+				Message: fmt.Sprintf("Target '%s' references non-existent file list (ID: %d)",
 					orphan.TargetRepo, orphan.FileListID),
 				Details: fmt.Sprintf("target_id=%d, file_list_id=%d", orphan.TargetID, orphan.FileListID),
 			})
@@ -193,8 +193,8 @@ func checkOrphanedDirectoryListRefs(ctx context.Context, gormDB *gorm.DB, result
 	if len(orphans) > 0 {
 		for _, orphan := range orphans {
 			result.Errors = append(result.Errors, ValidationError{
-				Type:    "orphaned_directory_list_ref",
-				Message: fmt.Sprintf("Target '%s' references non-existent directory list (ID: %d)", 
+				Type: "orphaned_directory_list_ref",
+				Message: fmt.Sprintf("Target '%s' references non-existent directory list (ID: %d)",
 					orphan.TargetRepo, orphan.DirectoryListID),
 				Details: fmt.Sprintf("target_id=%d, directory_list_id=%d", orphan.TargetID, orphan.DirectoryListID),
 			})
@@ -234,8 +234,8 @@ func checkOrphanedFileMappings(ctx context.Context, gormDB *gorm.DB, result *Val
 	} else if len(targetOrphans) > 0 {
 		for _, orphan := range targetOrphans {
 			result.Errors = append(result.Errors, ValidationError{
-				Type:    "orphaned_file_mapping",
-				Message: fmt.Sprintf("File mapping '%s' references non-existent target (ID: %d)", 
+				Type: "orphaned_file_mapping",
+				Message: fmt.Sprintf("File mapping '%s' references non-existent target (ID: %d)",
 					orphan.Dest, orphan.OwnerID),
 				Details: fmt.Sprintf("file_mapping_id=%d", orphan.ID),
 			})
@@ -260,8 +260,8 @@ func checkOrphanedFileMappings(ctx context.Context, gormDB *gorm.DB, result *Val
 	} else if len(listOrphans) > 0 {
 		for _, orphan := range listOrphans {
 			result.Errors = append(result.Errors, ValidationError{
-				Type:    "orphaned_file_mapping",
-				Message: fmt.Sprintf("File mapping '%s' references non-existent file list (ID: %d)", 
+				Type: "orphaned_file_mapping",
+				Message: fmt.Sprintf("File mapping '%s' references non-existent file list (ID: %d)",
 					orphan.Dest, orphan.OwnerID),
 				Details: fmt.Sprintf("file_mapping_id=%d", orphan.ID),
 			})
@@ -303,8 +303,8 @@ func checkOrphanedDirectoryMappings(ctx context.Context, gormDB *gorm.DB, result
 	} else if len(targetOrphans) > 0 {
 		for _, orphan := range targetOrphans {
 			result.Errors = append(result.Errors, ValidationError{
-				Type:    "orphaned_directory_mapping",
-				Message: fmt.Sprintf("Directory mapping '%s' references non-existent target (ID: %d)", 
+				Type: "orphaned_directory_mapping",
+				Message: fmt.Sprintf("Directory mapping '%s' references non-existent target (ID: %d)",
 					orphan.Dest, orphan.OwnerID),
 				Details: fmt.Sprintf("directory_mapping_id=%d", orphan.ID),
 			})
@@ -329,8 +329,8 @@ func checkOrphanedDirectoryMappings(ctx context.Context, gormDB *gorm.DB, result
 	} else if len(listOrphans) > 0 {
 		for _, orphan := range listOrphans {
 			result.Errors = append(result.Errors, ValidationError{
-				Type:    "orphaned_directory_mapping",
-				Message: fmt.Sprintf("Directory mapping '%s' references non-existent directory list (ID: %d)", 
+				Type: "orphaned_directory_mapping",
+				Message: fmt.Sprintf("Directory mapping '%s' references non-existent directory list (ID: %d)",
 					orphan.Dest, orphan.OwnerID),
 				Details: fmt.Sprintf("directory_mapping_id=%d", orphan.ID),
 			})

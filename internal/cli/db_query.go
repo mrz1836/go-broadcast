@@ -106,7 +106,7 @@ func runDBQuery(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	queryRepo := db.NewQueryRepository(database.DB())
 	ctx := context.Background()
@@ -154,7 +154,7 @@ func queryByFile(ctx context.Context, repo db.QueryRepository, filePath string) 
 
 	for _, target := range targets {
 		output.Info(fmt.Sprintf("  • %s", target.Repo))
-		
+
 		// Show matching file mappings
 		for _, fm := range target.FileMappings {
 			if fm.Dest == filePath || fm.Src == filePath {
@@ -361,7 +361,7 @@ func queryByPattern(ctx context.Context, repo db.QueryRepository, pattern string
 		} else if fm.Src == "" {
 			output.Info(fmt.Sprintf("  • dest: %s (type: %s, id: %d)", fm.Dest, fm.OwnerType, fm.OwnerID))
 		} else {
-			output.Info(fmt.Sprintf("  • src: %s → dest: %s (type: %s, id: %d)", 
+			output.Info(fmt.Sprintf("  • src: %s → dest: %s (type: %s, id: %d)",
 				fm.Src, fm.Dest, fm.OwnerType, fm.OwnerID))
 		}
 	}

@@ -368,25 +368,25 @@ func loadConfig() (*config.Config, error) {
 // loadConfigFromDB loads configuration from the database
 func loadConfigFromDB() (*config.Config, error) {
 	ctx := context.Background()
-	dbPath := getDBPath()
+	loadDBPath := getDBPath()
 
 	// Open database
 	database, err := db.Open(db.OpenOptions{
-		Path:     dbPath,
+		Path:     loadDBPath,
 		LogLevel: logger.Silent,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database at %s: %w", dbPath, err)
+		return nil, fmt.Errorf("failed to open database at %s: %w", loadDBPath, err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	// Create converter
 	converter := db.NewConverter(database.DB())
 
 	// Get first config (default behavior)
 	var dbConfig db.Config
-	if err := database.DB().First(&dbConfig).Error; err != nil {
-		return nil, fmt.Errorf("no configuration found in database: %w", err)
+	if dbErr := database.DB().First(&dbConfig).Error; dbErr != nil {
+		return nil, fmt.Errorf("no configuration found in database: %w", dbErr)
 	}
 
 	// Export configuration

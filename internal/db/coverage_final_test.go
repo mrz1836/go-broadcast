@@ -49,8 +49,8 @@ func TestConverterImport_DirectoryListEdgeCases(t *testing.T) {
 					},
 					Targets: []config.TargetConfig{
 						{
-							Repo:                  "mrz1836/target",
-							DirectoryListRefs:     []string{"dir-list-with-module"},
+							Repo:              "mrz1836/target",
+							DirectoryListRefs: []string{"dir-list-with-module"},
 						},
 					},
 				},
@@ -108,8 +108,8 @@ func TestConverterImport_DirectoryListEdgeCases(t *testing.T) {
 					},
 					Targets: []config.TargetConfig{
 						{
-							Repo:                  "mrz1836/target",
-							DirectoryListRefs:     []string{"full-dir-list"},
+							Repo:              "mrz1836/target",
+							DirectoryListRefs: []string{"full-dir-list"},
 						},
 					},
 				},
@@ -158,8 +158,8 @@ func TestConverterImport_DirectoryListEdgeCases(t *testing.T) {
 					},
 					Targets: []config.TargetConfig{
 						{
-							Repo:                  "mrz1836/target",
-							DirectoryListRefs:     []string{"delete-dir-list"},
+							Repo:              "mrz1836/target",
+							DirectoryListRefs: []string{"delete-dir-list"},
 						},
 					},
 				},

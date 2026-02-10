@@ -263,7 +263,7 @@ func TestConcurrentUpdates(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			
+
 			// Read current state
 			g, err := repo.GetByID(ctx, group.ID)
 			if err != nil {

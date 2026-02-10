@@ -217,7 +217,7 @@ func TestDBQuery(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Restore stdout and read output
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 		var output bytes.Buffer
 		_, _ = output.ReadFrom(r)
@@ -246,7 +246,7 @@ func TestDBQuery(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Restore stdout and read output
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 		var output bytes.Buffer
 		_, _ = output.ReadFrom(r)

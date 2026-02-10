@@ -18,7 +18,7 @@ func (c *Converter) ExportConfig(ctx context.Context, externalID string) (*confi
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("%w: config %q not found", ErrRecordNotFound, externalID)
 		}
-		return nil, fmt.Errorf("%w: failed to find config: %v", ErrExportFailed, err)
+		return nil, fmt.Errorf("%w: failed to find config: %w", ErrExportFailed, err)
 	}
 
 	cfg := &config.Config{
@@ -98,7 +98,7 @@ func (c *Converter) exportFileLists(ctx context.Context, configID uint) ([]confi
 			return db.Order("position ASC")
 		}).
 		Find(&dbFileLists).Error; err != nil {
-		return nil, fmt.Errorf("%w: failed to load file lists: %v", ErrExportFailed, err)
+		return nil, fmt.Errorf("%w: failed to load file lists: %w", ErrExportFailed, err)
 	}
 
 	fileLists := make([]config.FileList, len(dbFileLists))
@@ -125,7 +125,7 @@ func (c *Converter) exportDirectoryLists(ctx context.Context, configID uint) ([]
 		}).
 		Preload("Directories.Transform"). // Preload transforms for directory mappings
 		Find(&dbDirLists).Error; err != nil {
-		return nil, fmt.Errorf("%w: failed to load directory lists: %v", ErrExportFailed, err)
+		return nil, fmt.Errorf("%w: failed to load directory lists: %w", ErrExportFailed, err)
 	}
 
 	dirLists := make([]config.DirectoryList, len(dbDirLists))
@@ -171,7 +171,7 @@ func (c *Converter) exportGroups(ctx context.Context, configID uint, reverseRefs
 			return db.Order("position ASC").Preload("DirectoryList")
 		}).
 		Find(&dbGroups).Error; err != nil {
-		return nil, fmt.Errorf("%w: failed to load groups: %v", ErrExportFailed, err)
+		return nil, fmt.Errorf("%w: failed to load groups: %w", ErrExportFailed, err)
 	}
 
 	groups := make([]config.Group, len(dbGroups))
@@ -414,7 +414,7 @@ func (c *Converter) ExportGroup(ctx context.Context, configID uint, groupExterna
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("%w: group %q not found", ErrRecordNotFound, groupExternalID)
 		}
-		return nil, fmt.Errorf("%w: failed to load group: %v", ErrExportFailed, err)
+		return nil, fmt.Errorf("%w: failed to load group: %w", ErrExportFailed, err)
 	}
 
 	// Build reverse ref maps

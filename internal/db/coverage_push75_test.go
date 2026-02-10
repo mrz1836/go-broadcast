@@ -103,8 +103,8 @@ func TestConverterImport_DirectoryListsWithTransform(t *testing.T) {
 				},
 				Targets: []config.TargetConfig{
 					{
-						Repo:                  "mrz1836/target",
-						DirectoryListRefs:     []string{"dir-with-transform"},
+						Repo:              "mrz1836/target",
+						DirectoryListRefs: []string{"dir-with-transform"},
 					},
 				},
 			},

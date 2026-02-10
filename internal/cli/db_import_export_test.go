@@ -19,7 +19,7 @@ import (
 func TestDBImportExportRoundTrip(t *testing.T) {
 	// Create temporary directory for test files
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
+	testDBPath := filepath.Join(tmpDir, "test.db")
 	exportPath := filepath.Join(tmpDir, "export.yaml")
 
 	// Create test YAML configuration
@@ -67,9 +67,9 @@ func TestDBImportExportRoundTrip(t *testing.T) {
 				},
 				Targets: []config.TargetConfig{
 					{
-						Repo:             "mrz1836/target1",
-						Branch:           "main",
-						FileListRefs:     []string{"test-files"},
+						Repo:              "mrz1836/target1",
+						Branch:            "main",
+						FileListRefs:      []string{"test-files"},
 						DirectoryListRefs: []string{"test-dirs"},
 						Files: []config.FileMapping{
 							{Src: "LICENSE", Dest: "LICENSE"},
@@ -90,16 +90,16 @@ func TestDBImportExportRoundTrip(t *testing.T) {
 	yamlPath := filepath.Join(tmpDir, "test.yaml")
 	yamlData, err := yaml.Marshal(testConfig)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(yamlPath, yamlData, 0o644))
+	require.NoError(t, os.WriteFile(yamlPath, yamlData, 0o600))
 
 	// Initialize database
 	database, err := db.Open(db.OpenOptions{
-		Path:        dbPath,
+		Path:        testDBPath,
 		LogLevel:    logger.Silent,
 		AutoMigrate: true,
 	})
 	require.NoError(t, err)
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	ctx := context.Background()
 	converter := db.NewConverter(database.DB())
@@ -167,7 +167,7 @@ func TestDBImportExportRoundTrip(t *testing.T) {
 	// Write exported YAML
 	exportedYAML, err := yaml.Marshal(exportedConfig)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(exportPath, exportedYAML, 0o644))
+	require.NoError(t, os.WriteFile(exportPath, exportedYAML, 0o600))
 
 	// Load exported YAML and verify it's valid
 	loadedConfig, err := config.Load(exportPath)
@@ -179,16 +179,16 @@ func TestDBImportExportRoundTrip(t *testing.T) {
 // TestDBImportForceReplace tests that force flag replaces existing config
 func TestDBImportForceReplace(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
+	testDBPath := filepath.Join(tmpDir, "test.db")
 
 	// Initialize database
 	database, err := db.Open(db.OpenOptions{
-		Path:        dbPath,
+		Path:        testDBPath,
 		LogLevel:    logger.Silent,
 		AutoMigrate: true,
 	})
 	require.NoError(t, err)
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	ctx := context.Background()
 	converter := db.NewConverter(database.DB())
@@ -276,16 +276,16 @@ func TestDBImportForceReplace(t *testing.T) {
 // TestDBDiffDetectsChanges tests that diff command detects configuration differences
 func TestDBDiffDetectsChanges(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
+	testDBPath := filepath.Join(tmpDir, "test.db")
 
 	// Initialize database
 	database, err := db.Open(db.OpenOptions{
-		Path:        dbPath,
+		Path:        testDBPath,
 		LogLevel:    logger.Silent,
 		AutoMigrate: true,
 	})
 	require.NoError(t, err)
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	ctx := context.Background()
 	converter := db.NewConverter(database.DB())
@@ -368,16 +368,16 @@ func TestDBDiffDetectsChanges(t *testing.T) {
 // TestDBImportValidatesConfig tests that import validates configuration before importing
 func TestDBImportValidatesConfig(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
+	testDBPath := filepath.Join(tmpDir, "test.db")
 
 	// Initialize database
 	database, err := db.Open(db.OpenOptions{
-		Path:        dbPath,
+		Path:        testDBPath,
 		LogLevel:    logger.Silent,
 		AutoMigrate: true,
 	})
 	require.NoError(t, err)
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	ctx := context.Background()
 	converter := db.NewConverter(database.DB())
@@ -410,16 +410,16 @@ func TestDBImportValidatesConfig(t *testing.T) {
 // TestDBExportEmptyDatabase tests exporting from an empty database
 func TestDBExportEmptyDatabase(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
+	testDBPath := filepath.Join(tmpDir, "test.db")
 
 	// Initialize empty database
 	database, err := db.Open(db.OpenOptions{
-		Path:        dbPath,
+		Path:        testDBPath,
 		LogLevel:    logger.Silent,
 		AutoMigrate: true,
 	})
 	require.NoError(t, err)
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	ctx := context.Background()
 	converter := db.NewConverter(database.DB())
@@ -432,16 +432,16 @@ func TestDBExportEmptyDatabase(t *testing.T) {
 // TestDBImportReferenceResolution tests that file list and directory list references are correctly resolved
 func TestDBImportReferenceResolution(t *testing.T) {
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
+	testDBPath := filepath.Join(tmpDir, "test.db")
 
 	// Initialize database
 	database, err := db.Open(db.OpenOptions{
-		Path:        dbPath,
+		Path:        testDBPath,
 		LogLevel:    logger.Silent,
 		AutoMigrate: true,
 	})
 	require.NoError(t, err)
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	ctx := context.Background()
 	converter := db.NewConverter(database.DB())

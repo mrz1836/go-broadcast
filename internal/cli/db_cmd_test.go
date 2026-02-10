@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -213,7 +212,7 @@ func TestDBStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		// Restore stdout and read output
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 		var output bytes.Buffer
 		_, _ = output.ReadFrom(r)
@@ -224,7 +223,7 @@ func TestDBStatus(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, tmpPath, status.Path)
 		assert.True(t, status.Exists)
-		assert.Greater(t, status.TableCounts["configs"], int64(0))
+		assert.Positive(t, status.TableCounts["configs"])
 	})
 }
 
@@ -437,19 +436,4 @@ func BenchmarkDBInit(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-}
-
-// Helper to create a test cobra command with captured output
-func newTestCommand(runE func(cmd *cobra.Command, args []string) error) (*cobra.Command, *bytes.Buffer, *bytes.Buffer) {
-	cmd := &cobra.Command{
-		Use:   "test",
-		RunE:  runE,
-	}
-
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	cmd.SetOut(stdout)
-	cmd.SetErr(stderr)
-
-	return cmd, stdout, stderr
 }

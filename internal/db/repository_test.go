@@ -13,6 +13,7 @@ import (
 // RepositoryTestSuite provides a test suite for repository operations
 type RepositoryTestSuite struct {
 	suite.Suite
+
 	db     *gorm.DB
 	ctx    context.Context
 	config *Config

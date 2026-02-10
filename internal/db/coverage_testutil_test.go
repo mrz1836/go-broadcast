@@ -151,7 +151,7 @@ func TestDirectoryListRepository_WithSeed(t *testing.T) {
 		lists, err := repo.ListWithDirectories(ctx, seed.Config.ID)
 		require.NoError(t, err)
 		assert.Len(t, lists, 1)
-		// Note: The seed creates the directory list but directories are in DirectoryMappings
+		// The seed creates the directory list but directories are in DirectoryMappings
 		// which are owned by targets, not directory lists
 	})
 

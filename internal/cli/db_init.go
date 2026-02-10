@@ -42,7 +42,7 @@ func init() {
 }
 
 // runDBInit executes the database initialization
-func runDBInit(cmd *cobra.Command, args []string) error {
+func runDBInit(_ *cobra.Command, _ []string) error {
 	path := getDBPath()
 
 	// Check if database exists
@@ -79,7 +79,7 @@ func runDBInit(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	output.Success(fmt.Sprintf("✓ Database initialized: %s", path))
 	return nil

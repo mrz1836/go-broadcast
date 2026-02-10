@@ -95,21 +95,21 @@ func TestConverterFullRoundTrip(t *testing.T) {
 				},
 				Targets: []config.TargetConfig{
 					{
-						Repo:                  "mrz1836/target1",
-						Branch:                "develop",
-						BlobSizeLimit:         "50MB",
-						SecurityEmail:         "sec@target1.com",
-						SupportEmail:          "sup@target1.com",
-						PRLabels:              []string{"target-label1", "target-label2"},
-						PRAssignees:           []string{"target-assignee"},
-						PRReviewers:           []string{"target-reviewer"},
-						PRTeamReviewers:       []string{"target-team1", "target-team2"},
-						FileListRefs:          []string{"comprehensive-filelist"},
-						DirectoryListRefs:     []string{"comprehensive-dirlist"},
-						Files:                 []config.FileMapping{
+						Repo:              "mrz1836/target1",
+						Branch:            "develop",
+						BlobSizeLimit:     "50MB",
+						SecurityEmail:     "sec@target1.com",
+						SupportEmail:      "sup@target1.com",
+						PRLabels:          []string{"target-label1", "target-label2"},
+						PRAssignees:       []string{"target-assignee"},
+						PRReviewers:       []string{"target-reviewer"},
+						PRTeamReviewers:   []string{"target-team1", "target-team2"},
+						FileListRefs:      []string{"comprehensive-filelist"},
+						DirectoryListRefs: []string{"comprehensive-dirlist"},
+						Files: []config.FileMapping{
 							{Src: "inline.txt", Dest: "inline-dest.txt"},
 						},
-						Directories:           []config.DirectoryMapping{
+						Directories: []config.DirectoryMapping{
 							{
 								Src:  "inline/dir",
 								Dest: "inline-dest/dir",

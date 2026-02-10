@@ -31,8 +31,8 @@ func TestConverterValidateReferences_AllPaths(t *testing.T) {
 					},
 					Targets: []config.TargetConfig{
 						{
-							Repo:                  "mrz1836/target",
-							DirectoryListRefs:     []string{"non-existent-dir-list"}, // Missing reference
+							Repo:              "mrz1836/target",
+							DirectoryListRefs: []string{"non-existent-dir-list"}, // Missing reference
 						},
 					},
 				},

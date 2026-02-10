@@ -595,11 +595,11 @@ func TestConverterImport_EdgeCases(t *testing.T) {
 					},
 					Targets: []config.TargetConfig{
 						{
-							Repo:                  "mrz1836/target",
-							FileListRefs:          []string{"empty-file-list"},
-							DirectoryListRefs:     []string{"empty-dir-list"},
-							Files:                 []config.FileMapping{},       // Empty inline
-							Directories:           []config.DirectoryMapping{}, // Empty inline
+							Repo:              "mrz1836/target",
+							FileListRefs:      []string{"empty-file-list"},
+							DirectoryListRefs: []string{"empty-dir-list"},
+							Files:             []config.FileMapping{},      // Empty inline
+							Directories:       []config.DirectoryMapping{}, // Empty inline
 						},
 					},
 				},

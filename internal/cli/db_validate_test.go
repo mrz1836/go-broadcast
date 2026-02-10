@@ -1,7 +1,6 @@
 package cli
 
 import (
-
 	"bytes"
 	"encoding/json"
 	"os"
@@ -91,7 +90,7 @@ func TestDBValidate(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Restore stdout and read output
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 		var output bytes.Buffer
 		_, _ = output.ReadFrom(r)
@@ -155,14 +154,14 @@ func TestDBValidateOrphanedRefs(t *testing.T) {
 
 	// Temporarily disable foreign key constraints to create orphaned ref
 	require.NoError(t, gormDB.Exec("PRAGMA foreign_keys = OFF").Error)
-	
+
 	// Create orphaned file list ref (pointing to non-existent file list)
 	orphanRef := &db.TargetFileListRef{
 		TargetID:   target.ID,
 		FileListID: 99999, // Non-existent ID
 	}
 	require.NoError(t, gormDB.Create(orphanRef).Error)
-	
+
 	// Re-enable foreign key constraints
 	require.NoError(t, gormDB.Exec("PRAGMA foreign_keys = ON").Error)
 
@@ -185,10 +184,10 @@ func TestDBValidateOrphanedRefs(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		err := runDBValidate(nil, nil)
+		_ = runDBValidate(nil, nil)
 
 		// Restore stdout and read output
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 		var output bytes.Buffer
 		_, _ = output.ReadFrom(r)
@@ -214,10 +213,10 @@ func TestDBValidateOrphanedRefs(t *testing.T) {
 
 // TestDBValidateCircularDependencies tests circular dependency detection
 func TestDBValidateCircularDependencies(t *testing.T) {
-	// Note: This test is simplified as circular dependency detection
+	// This test is simplified as circular dependency detection
 	// is thoroughly tested in internal/db/dependency_test.go
 	// Here we just verify the validation command integrates with it correctly
-	
+
 	// Create test database with no circular dependencies
 	tmpDir := t.TempDir()
 	tmpPath := filepath.Join(tmpDir, "no-circular.db")
@@ -280,10 +279,10 @@ func TestDBValidateCircularDependencies(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		err := runDBValidate(nil, nil)
+		_ = runDBValidate(nil, nil)
 
 		// Restore stdout and read output
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 		var output bytes.Buffer
 		_, _ = output.ReadFrom(r)
@@ -299,9 +298,9 @@ func TestDBValidateCircularDependencies(t *testing.T) {
 
 // TestDBValidateOrphanedMappings tests validation of orphaned mappings
 func TestDBValidateOrphanedMappings(t *testing.T) {
-	// Note: Orphaned mappings are tested more thoroughly in the OrphanedRefs test
+	// Orphaned mappings are tested more thoroughly in the OrphanedRefs test
 	// This test verifies the validation check runs without errors on valid data
-	
+
 	// Create test database with valid mappings
 	tmpDir := t.TempDir()
 	tmpPath := filepath.Join(tmpDir, "valid-mapping.db")
@@ -366,10 +365,10 @@ func TestDBValidateOrphanedMappings(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		err := runDBValidate(nil, nil)
+		_ = runDBValidate(nil, nil)
 
 		// Restore stdout and read output
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 		var output bytes.Buffer
 		_, _ = output.ReadFrom(r)
@@ -433,10 +432,10 @@ func TestDBValidateEmpty(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		err := runDBValidate(nil, nil)
+		_ = runDBValidate(nil, nil)
 
 		// Restore stdout and read output
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 		var output bytes.Buffer
 		_, _ = output.ReadFrom(r)

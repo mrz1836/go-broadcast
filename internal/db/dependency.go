@@ -10,9 +10,9 @@ import (
 
 // DependencyGraph represents a directed graph of group dependencies
 type DependencyGraph struct {
-	groups map[string]*Group           // external_id -> Group
-	edges  map[string][]string          // external_id -> []depends_on_external_id
-	inDegree map[string]int             // external_id -> number of incoming edges
+	groups   map[string]*Group   // external_id -> Group
+	edges    map[string][]string // external_id -> []depends_on_external_id
+	inDegree map[string]int      // external_id -> number of incoming edges
 }
 
 // NewDependencyGraph creates a dependency graph from a list of groups

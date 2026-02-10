@@ -54,7 +54,7 @@ func init() {
 }
 
 // runDBExport executes the database export command
-func runDBExport(cmd *cobra.Command, args []string) error {
+func runDBExport(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 	if ctx == nil {
 		ctx = context.Background()
@@ -80,7 +80,7 @@ func runDBExport(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	converter := db.NewConverter(database.DB())
 
@@ -89,20 +89,20 @@ func runDBExport(cmd *cobra.Command, args []string) error {
 	if dbExportGroup != "" {
 		// Find the config that owns this group
 		var group db.Group
-		if err := database.DB().Where("external_id = ?", dbExportGroup).First(&group).Error; err != nil {
-			return fmt.Errorf("group %q not found: %w", dbExportGroup, err)
+		if dbErr := database.DB().Where("external_id = ?", dbExportGroup).First(&group).Error; dbErr != nil {
+			return fmt.Errorf("group %q not found: %w", dbExportGroup, dbErr)
 		}
 
 		var cfg db.Config
-		if err := database.DB().First(&cfg, group.ConfigID).Error; err != nil {
-			return fmt.Errorf("failed to find config for group: %w", err)
+		if dbErr := database.DB().First(&cfg, group.ConfigID).Error; dbErr != nil {
+			return fmt.Errorf("failed to find config for group: %w", dbErr)
 		}
 		configExternalID = cfg.ExternalID
 	} else {
 		// Find first config
 		var cfg db.Config
-		if err := database.DB().First(&cfg).Error; err != nil {
-			return fmt.Errorf("no configuration found in database: %w", err)
+		if dbErr := database.DB().First(&cfg).Error; dbErr != nil {
+			return fmt.Errorf("no configuration found in database: %w", dbErr)
 		}
 		configExternalID = cfg.ExternalID
 	}
@@ -140,10 +140,10 @@ func runDBExport(cmd *cobra.Command, args []string) error {
 
 	// Write output
 	if dbExportStdout {
-		fmt.Print(string(yamlData))
+		fmt.Print(string(yamlData)) //nolint:forbidigo // intentional stdout output for --stdout flag
 	} else {
 		output.Info(fmt.Sprintf("Writing to: %s", dbExportOutput))
-		if err := os.WriteFile(dbExportOutput, yamlData, 0o644); err != nil {
+		if err := os.WriteFile(dbExportOutput, yamlData, 0o600); err != nil {
 			return fmt.Errorf("failed to write file: %w", err)
 		}
 		output.Success(fmt.Sprintf("✓ Exported to: %s", dbExportOutput))
