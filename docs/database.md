@@ -10,7 +10,7 @@
 
 </div>
 
----
+<br>
 
 ## 📑 Navigation
 
@@ -20,7 +20,7 @@
 | [⌨️ CLI Commands](#-cli-commands) | [🔍 Queries](#-queries) | [🧪 Testing](#-testing) |
 | [⚡ Performance](#-performance) | [🏗️ Architecture](#-architecture) | [⚙️ Configuration](#-configuration) |
 
----
+<br>
 
 ## 🚀 Quick Start
 
@@ -80,7 +80,7 @@ go-broadcast sync --from-db --groups "core,security"
 go-broadcast sync --from-db --dry-run
 ```
 
----
+<br>
 
 ## 📊 Schema Reference
 
@@ -440,7 +440,7 @@ go-broadcast sync --from-db --dry-run
 
 </details>
 
----
+<br>
 
 ## 🔄 Import/Export
 
@@ -493,7 +493,7 @@ The converter preserves:
 - Complex nested structures
 - All field types
 
----
+<br>
 
 ## ⌨️ CLI Commands
 
@@ -627,7 +627,7 @@ go-broadcast db diff sync.yaml --detail
 
 </details>
 
----
+<br>
 
 ## 🔍 Queries
 
@@ -710,7 +710,7 @@ Found 3 file mappings matching "dependabot":
   → synced to 12 repos (group: mrz-tools)
 ```
 
----
+<br>
 
 ## 🧪 Testing
 
@@ -759,7 +759,7 @@ go tool cover -html=coverage.out
 - 20 goroutines writing to different groups
 - No data corruption or deadlocks
 
----
+<br>
 
 ## ⚡ Performance
 
@@ -786,7 +786,7 @@ go test ./internal/db/... -tags bench_heavy -bench=. -benchtime=10s
 - sync.yaml: 1857 lines → 420KB SQLite
 - 6 groups, 50+ targets → <1MB database
 
----
+<br>
 
 ## 🏗️ Architecture
 
@@ -835,7 +835,7 @@ PRAGMA mmap_size=268435456      -- 256MB memory-mapped I/O
 - Read-only queries with preloading
 - Ordered by `position` for faithful YAML reproduction
 
----
+<br>
 
 ## ⚙️ Configuration
 
@@ -866,7 +866,7 @@ MaxIdleConns: 1
 ConnMaxLifetime: time.Hour  // 1 hour connection reuse limit
 ```
 
----
+<br>
 
 ## 📚 Migration Guide
 
@@ -913,7 +913,7 @@ Database backend is purely additive:
 2. **Export anytime:** `go-broadcast db export --output sync.yaml`
 3. **Fall back:** Remove `--from-db` flag → uses YAML
 
----
+<br>
 
 ## 🔗 Related Documentation
 
@@ -922,7 +922,7 @@ Database backend is purely additive:
 - [CLI Reference](./cli.md) — All commands
 - [Development Guide](./development.md) — Contributing
 
----
+<br>
 
 <div align="center">
 
