@@ -2,7 +2,13 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 	"gorm.io/gorm/logger"
@@ -94,9 +100,16 @@ func runDBImport(cmd *cobra.Command, _ []string) error {
 	// Import configuration
 	output.Info(fmt.Sprintf("Importing configuration: %s (ID: %s)", cfg.Name, cfg.ID))
 	converter := db.NewConverter(database.DB())
-	dbConfig, err := converter.ImportConfig(ctx, cfg)
+	dbConfig, err := converter.ImportConfig(ctx, cfg, db.WithSourcePath(dbImportYAML))
 	if err != nil {
 		return fmt.Errorf("import failed: %w", err)
+	}
+
+	// Enrich config with metadata
+	metadata := buildCompleteMetadata(cfg, dbImportYAML)
+	if err := enrichConfigWithMetadata(database, dbConfig.ID, metadata); err != nil {
+		output.Warn(fmt.Sprintf("Failed to enrich metadata: %v", err))
+		// Non-fatal: continue execution
 	}
 
 	// Count imported records
@@ -116,4 +129,108 @@ func runDBImport(cmd *cobra.Command, _ []string) error {
 	output.Info(fmt.Sprintf("  Directory Lists:  %d", dirListCount))
 
 	return nil
+}
+
+// collectFileMetadata collects metadata about the source file
+// Returns a map with file information or partial data on errors (non-fatal)
+func collectFileMetadata(path string) map[string]interface{} {
+	metadata := make(map[string]interface{})
+
+	// Handle special cases
+	if path == "" || path == "-" {
+		metadata["path"] = path
+		metadata["abs_path"] = ""
+		metadata["rel_path"] = ""
+		metadata["size_bytes"] = 0
+		metadata["modified_at"] = ""
+		metadata["sha256"] = ""
+		return metadata
+	}
+
+	// Get file stats
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		// Return partial metadata on error
+		metadata["path"] = path
+		metadata["abs_path"] = ""
+		metadata["rel_path"] = ""
+		metadata["size_bytes"] = 0
+		metadata["modified_at"] = ""
+		metadata["sha256"] = ""
+		return metadata
+	}
+
+	// Basic file info
+	metadata["path"] = path
+	metadata["size_bytes"] = fileInfo.Size()
+	metadata["modified_at"] = fileInfo.ModTime().UTC().Format(time.RFC3339)
+
+	// Get absolute path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		metadata["abs_path"] = path
+	} else {
+		metadata["abs_path"] = absPath
+	}
+
+	// Get relative path from current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		metadata["rel_path"] = path
+	} else {
+		var relPath string
+		relPath, err = filepath.Rel(cwd, absPath)
+		if err != nil {
+			metadata["rel_path"] = path
+		} else {
+			metadata["rel_path"] = relPath
+		}
+	}
+
+	// Calculate SHA256 hash for change detection
+	file, err := os.Open(path) //nolint:gosec // G304: path is user-provided CLI input (intentional)
+	if err != nil {
+		metadata["sha256"] = ""
+		return metadata
+	}
+	defer func() { _ = file.Close() }()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		metadata["sha256"] = ""
+		return metadata
+	}
+
+	metadata["sha256"] = hex.EncodeToString(hash.Sum(nil))
+
+	return metadata
+}
+
+// buildCompleteMetadata combines all metadata sources into a complete metadata map
+func buildCompleteMetadata(cfg *config.Config, filePath string) db.Metadata {
+	metadata := make(db.Metadata)
+
+	// Import context
+	importContext := map[string]interface{}{
+		"timestamp":        time.Now().UTC().Format(time.RFC3339),
+		"source_type":      "cli",
+		"enriched_version": "1.0",
+	}
+	metadata["import"] = importContext
+
+	// Source file metadata
+	fileMetadata := collectFileMetadata(filePath)
+	metadata["source_file"] = fileMetadata
+
+	// Config metrics and analysis
+	configMetrics := db.CalculateConfigMetrics(cfg)
+	metadata["metrics"] = configMetrics["metrics"]
+	metadata["config_analysis"] = configMetrics["config_analysis"]
+
+	return metadata
+}
+
+// enrichConfigWithMetadata updates the Config record with metadata
+func enrichConfigWithMetadata(database db.Database, configID uint, metadata db.Metadata) error {
+	return database.DB().Model(&db.Config{}).Where("id = ?", configID).Update("metadata", metadata).Error
 }
