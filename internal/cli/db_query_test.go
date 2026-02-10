@@ -320,4 +320,4 @@ func TestDBQueryCommand(t *testing.T) {
 	})
 }
 
-// Note: Benchmarks for db query are in db_query_benchmark_test.go with bench_heavy tag
+// Benchmarks moved to db_query_benchmark_test.go (bench_heavy tag)

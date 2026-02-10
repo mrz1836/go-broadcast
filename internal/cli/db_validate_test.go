@@ -449,4 +449,4 @@ func TestDBValidateEmpty(t *testing.T) {
 	})
 }
 
-// Note: Benchmarks for db validate are in db_query_benchmark_test.go with bench_heavy tag
+// Benchmarks moved to db_query_benchmark_test.go (bench_heavy tag)
