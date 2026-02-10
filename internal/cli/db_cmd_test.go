@@ -319,21 +319,36 @@ func TestDBCommandIntegration(t *testing.T) {
 
 	t.Run("db command has subcommands", func(t *testing.T) {
 		subcommands := dbCmd.Commands()
-		assert.Len(t, subcommands, 2, "should have 2 subcommands")
+		assert.GreaterOrEqual(t, len(subcommands), 7, "should have at least 7 subcommands")
 
-		// Find init and status commands
-		var hasInit, hasStatus bool
+		// Find all expected commands
+		var hasInit, hasStatus, hasImport, hasExport, hasDiff, hasQuery, hasValidate bool
 		for _, cmd := range subcommands {
 			switch cmd.Use {
 			case "init":
 				hasInit = true
 			case "status":
 				hasStatus = true
+			case "import":
+				hasImport = true
+			case "export":
+				hasExport = true
+			case "diff":
+				hasDiff = true
+			case "query":
+				hasQuery = true
+			case "validate":
+				hasValidate = true
 			}
 		}
 
 		assert.True(t, hasInit, "should have init subcommand")
 		assert.True(t, hasStatus, "should have status subcommand")
+		assert.True(t, hasImport, "should have import subcommand")
+		assert.True(t, hasExport, "should have export subcommand")
+		assert.True(t, hasDiff, "should have diff subcommand")
+		assert.True(t, hasQuery, "should have query subcommand")
+		assert.True(t, hasValidate, "should have validate subcommand")
 	})
 
 	t.Run("init command has force flag", func(t *testing.T) {

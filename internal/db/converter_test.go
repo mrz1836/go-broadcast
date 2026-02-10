@@ -14,8 +14,11 @@ import (
 
 // TestConverterRoundTrip_RealSyncYAML tests import -> export with actual sync.yaml
 func TestConverterRoundTrip_RealSyncYAML(t *testing.T) {
-	// Load real sync.yaml
+	// Load real sync.yaml - skip if not available (CI environment)
 	syncPath := filepath.Join("..", "..", "sync.yaml")
+	if _, err := os.Stat(syncPath); os.IsNotExist(err) {
+		t.Skip("sync.yaml not available in this environment")
+	}
 	data, err := os.ReadFile(syncPath) //nolint:gosec // reading test fixture from known path
 	require.NoError(t, err, "failed to read sync.yaml")
 
