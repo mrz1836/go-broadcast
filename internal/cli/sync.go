@@ -9,8 +9,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"gorm.io/gorm/logger"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/db"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 	"github.com/mrz1836/go-broadcast/internal/git"
 	"github.com/mrz1836/go-broadcast/internal/output"
@@ -138,6 +140,7 @@ var (
 	skipGroups       []string
 	automerge        bool
 	clearModuleCache bool
+	fromDB           bool // Load configuration from database instead of YAML
 )
 
 // getGroupFilter returns a copy of the group filter slice (thread-safe)
@@ -168,6 +171,13 @@ func getClearModuleCache() bool {
 	return clearModuleCache
 }
 
+// getFromDB returns the from-db flag (thread-safe)
+func getFromDB() bool {
+	syncFlagsMu.RLock()
+	defer syncFlagsMu.RUnlock()
+	return fromDB
+}
+
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var syncCmd = &cobra.Command{
 	Use:   "sync [targets...]",
@@ -176,6 +186,10 @@ var syncCmd = &cobra.Command{
 
 If no targets are specified, all targets in the configuration file will be synchronized.
 Target repositories can be specified as arguments to sync only specific repos.
+
+Configuration Source:
+  By default, configuration is loaded from the YAML file (--config).
+  Use --from-db to load configuration from the database instead.
 
 Group Filtering:
   Use --groups to sync only specific groups (by name or ID).
@@ -186,6 +200,10 @@ Group Filtering:
   go-broadcast sync --config sync.yaml     # Use specific config file
   go-broadcast sync org/repo1 org/repo2    # Sync only specified repositories
   go-broadcast sync --dry-run              # Preview changes without making them
+
+  # Database-backed configuration
+  go-broadcast sync --from-db              # Load configuration from database
+  go-broadcast sync --from-db --groups "core"  # Sync specific groups from database
 
   # Group-based sync
   go-broadcast sync --groups "core,security"       # Sync only core and security groups
@@ -216,6 +234,7 @@ func init() {
 	syncCmd.Flags().StringSliceVar(&skipGroups, "skip-groups", nil, "Skip specified groups during sync")
 	syncCmd.Flags().BoolVar(&automerge, "automerge", false, "Add automerge labels from GO_BROADCAST_AUTOMERGE_LABELS to created PRs")
 	syncCmd.Flags().BoolVar(&clearModuleCache, "clear-cache", false, "Clear module version cache before sync")
+	syncCmd.Flags().BoolVar(&fromDB, "from-db", false, "Load configuration from database instead of YAML file")
 }
 
 func runSync(cmd *cobra.Command, args []string) error {
@@ -320,6 +339,11 @@ func createRunSync(flags *Flags) func(*cobra.Command, []string) error {
 }
 
 func loadConfig() (*config.Config, error) {
+	// Check if loading from database
+	if getFromDB() {
+		return loadConfigFromDB()
+	}
+
 	configPath := GetConfigFile()
 
 	// Check if config file exists
@@ -336,6 +360,44 @@ func loadConfig() (*config.Config, error) {
 	// Validate configuration
 	if err := cfg.ValidateWithLogging(context.Background(), nil); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
+	return cfg, nil
+}
+
+// loadConfigFromDB loads configuration from the database
+func loadConfigFromDB() (*config.Config, error) {
+	ctx := context.Background()
+	dbPath := getDBPath()
+
+	// Open database
+	database, err := db.Open(db.OpenOptions{
+		Path:     dbPath,
+		LogLevel: logger.Silent,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database at %s: %w", dbPath, err)
+	}
+	defer database.Close()
+
+	// Create converter
+	converter := db.NewConverter(database.DB())
+
+	// Get first config (default behavior)
+	var dbConfig db.Config
+	if err := database.DB().First(&dbConfig).Error; err != nil {
+		return nil, fmt.Errorf("no configuration found in database: %w", err)
+	}
+
+	// Export configuration
+	cfg, err := converter.ExportConfig(ctx, dbConfig.ExternalID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to export configuration from database: %w", err)
+	}
+
+	// Validate configuration
+	if err := cfg.ValidateWithLogging(context.Background(), nil); err != nil {
+		return nil, fmt.Errorf("invalid configuration from database: %w", err)
 	}
 
 	return cfg, nil
