@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
 	"gorm.io/gorm"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
 )
 
 // ImportConfig imports a config.Config into the database

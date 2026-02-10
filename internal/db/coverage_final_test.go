@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
 )
 
 // TestConverterImport_DirectoryListEdgeCases targets importDirectoryLists (58.8% -> higher)

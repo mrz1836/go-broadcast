@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mrz1836/go-broadcast/internal/config"
 	"gorm.io/gorm"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
 )
 
 // Converter handles bidirectional conversion between config.Config (YAML) and DB models
