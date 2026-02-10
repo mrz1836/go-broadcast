@@ -62,11 +62,11 @@ func runDBExport(cmd *cobra.Command, _ []string) error {
 
 	// Validate flags
 	if !dbExportStdout && dbExportOutput == "" {
-		return fmt.Errorf("either --output or --stdout must be specified")
+		return fmt.Errorf("either --output or --stdout must be specified") //nolint:err113 // user-facing CLI validation error
 	}
 
 	if dbExportStdout && dbExportOutput != "" {
-		return fmt.Errorf("cannot specify both --output and --stdout")
+		return fmt.Errorf("cannot specify both --output and --stdout") //nolint:err113 // user-facing CLI validation error
 	}
 
 	path := getDBPath()

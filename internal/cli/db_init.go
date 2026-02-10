@@ -47,7 +47,7 @@ func runDBInit(_ *cobra.Command, _ []string) error {
 
 	// Check if database exists
 	if _, err := os.Stat(path); err == nil && !dbInitForce {
-		return fmt.Errorf("database already exists at %s (use --force to recreate)", path)
+		return fmt.Errorf("database already exists at %s (use --force to recreate)", path) //nolint:err113 // user-facing CLI error
 	}
 
 	// Remove existing database if force flag is set

@@ -19,6 +19,8 @@ type BaseModel struct {
 }
 
 // Metadata is a JSON key/value map stored as TEXT, provides extensibility on every table
+//
+//nolint:recvcheck // mixed receivers required by driver.Valuer/sql.Scanner interface
 type Metadata map[string]interface{}
 
 // Value implements driver.Valuer for database storage
@@ -50,6 +52,8 @@ func (m *Metadata) Scan(value interface{}) error {
 }
 
 // JSONStringSlice stores []string as JSON TEXT (for pr_labels, exclude, include_only, etc.)
+//
+//nolint:recvcheck // mixed receivers required by driver.Valuer/sql.Scanner interface
 type JSONStringSlice []string
 
 // Value implements driver.Valuer
@@ -81,6 +85,8 @@ func (j *JSONStringSlice) Scan(value interface{}) error {
 }
 
 // JSONStringMap stores map[string]string as JSON TEXT (for Transform.Variables)
+//
+//nolint:recvcheck // mixed receivers required by driver.Valuer/sql.Scanner interface
 type JSONStringMap map[string]string
 
 // Value implements driver.Valuer

@@ -347,7 +347,7 @@ func TestQueryRepository_FindByPattern(t *testing.T) {
 	// Query with no matches
 	results3, err := repo.FindByPattern(ctx, "nonexistent")
 	require.NoError(t, err)
-	assert.Len(t, results3, 0)
+	assert.Empty(t, results3)
 }
 
 func TestQueryRepository_FindByPattern_MatchesSrc(t *testing.T) {

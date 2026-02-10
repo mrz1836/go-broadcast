@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -29,7 +30,7 @@ func (r *directoryListRepository) Create(ctx context.Context, directoryList *Dir
 func (r *directoryListRepository) GetByID(ctx context.Context, id uint) (*DirectoryList, error) {
 	var directoryList DirectoryList
 	if err := r.db.WithContext(ctx).First(&directoryList, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("failed to get directory list by id: %w", err)
@@ -41,7 +42,7 @@ func (r *directoryListRepository) GetByID(ctx context.Context, id uint) (*Direct
 func (r *directoryListRepository) GetByExternalID(ctx context.Context, externalID string) (*DirectoryList, error) {
 	var directoryList DirectoryList
 	if err := r.db.WithContext(ctx).Where("external_id = ?", externalID).First(&directoryList).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("failed to get directory list by external_id: %w", err)

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -72,7 +73,7 @@ func runDBValidate(_ *cobra.Command, _ []string) error {
 
 	// Check if database exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return fmt.Errorf("database does not exist: %s (run 'go-broadcast db init' to create)", path)
+		return fmt.Errorf("database does not exist: %s (run 'go-broadcast db init' to create)", path) //nolint:err113 // user-facing CLI error
 	}
 
 	// Open database
@@ -97,7 +98,7 @@ func runDBValidate(_ *cobra.Command, _ []string) error {
 	// Get the config ID (assume single config for now)
 	var config db.Config
 	if err := gormDB.First(&config).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			result.Checks = append(result.Checks, ValidationCheck{
 				Type:    "config",
 				Message: "No configuration found in database",
@@ -137,7 +138,6 @@ func checkOrphanedFileListRefs(ctx context.Context, gormDB *gorm.DB, result *Val
 		Joins("LEFT JOIN targets ON targets.id = target_file_list_refs.target_id").
 		Where("file_lists.id IS NULL OR file_lists.deleted_at IS NOT NULL").
 		Scan(&orphans).Error
-
 	if err != nil {
 		result.Errors = append(result.Errors, ValidationError{
 			Type:    "orphaned_file_list_refs",
@@ -180,7 +180,6 @@ func checkOrphanedDirectoryListRefs(ctx context.Context, gormDB *gorm.DB, result
 		Joins("LEFT JOIN targets ON targets.id = target_directory_list_refs.target_id").
 		Where("directory_lists.id IS NULL OR directory_lists.deleted_at IS NOT NULL").
 		Scan(&orphans).Error
-
 	if err != nil {
 		result.Errors = append(result.Errors, ValidationError{
 			Type:    "orphaned_directory_list_refs",
@@ -350,7 +349,7 @@ func checkCircularDependencies(ctx context.Context, gormDB *gorm.DB, configID ui
 	// Use the dependency.go validation function
 	err := db.ValidateGroupDependencies(ctx, gormDB, configID)
 	if err != nil {
-		if err == db.ErrCircularDependency {
+		if errors.Is(err, db.ErrCircularDependency) {
 			result.Errors = append(result.Errors, ValidationError{
 				Type:    "circular_dependency",
 				Message: "Circular dependency detected between groups",
@@ -419,5 +418,5 @@ func printValidationResult(result ValidationResult) error {
 	}
 
 	output.Error(fmt.Sprintf("✗ Database validation failed with %d error(s)", len(result.Errors)))
-	return fmt.Errorf("validation failed")
+	return fmt.Errorf("validation failed") //nolint:err113 // validation summary error
 }

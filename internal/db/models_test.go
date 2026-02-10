@@ -327,7 +327,7 @@ func TestSource_ValidationHooks(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errString)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -387,7 +387,7 @@ func TestTarget_ValidationHooks(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errString)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -456,7 +456,7 @@ func TestFileMapping_ValidationHooks(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errString)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -513,7 +513,7 @@ func TestGroup_ValidationHooks(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errString)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}

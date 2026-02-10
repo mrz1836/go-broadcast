@@ -18,7 +18,7 @@ func TestDependencyGraph_DetectCycles_NoCycle(t *testing.T) {
 
 	dg := NewDependencyGraph(groups)
 	err := dg.DetectCycles()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestDependencyGraph_DetectCycles_SimpleCycle(t *testing.T) {
@@ -31,7 +31,7 @@ func TestDependencyGraph_DetectCycles_SimpleCycle(t *testing.T) {
 	dg := NewDependencyGraph(groups)
 	err := dg.DetectCycles()
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrCircularDependency)
+	require.ErrorIs(t, err, ErrCircularDependency)
 	assert.Contains(t, err.Error(), "group-a")
 	assert.Contains(t, err.Error(), "group-b")
 }
@@ -60,7 +60,7 @@ func TestDependencyGraph_DetectCycles_SelfReference(t *testing.T) {
 	dg := NewDependencyGraph(groups)
 	err := dg.DetectCycles()
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrCircularDependency)
+	require.ErrorIs(t, err, ErrCircularDependency)
 	assert.Contains(t, err.Error(), "group-a")
 }
 
@@ -78,7 +78,7 @@ func TestDependencyGraph_DetectCycles_MultipleDependencies(t *testing.T) {
 
 	dg := NewDependencyGraph(groups)
 	err := dg.DetectCycles()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestDependencyGraph_DetectCycles_Empty(t *testing.T) {
@@ -87,7 +87,7 @@ func TestDependencyGraph_DetectCycles_Empty(t *testing.T) {
 
 	dg := NewDependencyGraph(groups)
 	err := dg.DetectCycles()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestDependencyGraph_DetectCycles_NoDependencies(t *testing.T) {
@@ -100,7 +100,7 @@ func TestDependencyGraph_DetectCycles_NoDependencies(t *testing.T) {
 
 	dg := NewDependencyGraph(groups)
 	err := dg.DetectCycles()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestDependencyGraph_TopologicalSort_Simple(t *testing.T) {
@@ -208,7 +208,7 @@ func TestValidateGroupDependencies_Valid(t *testing.T) {
 
 	// Validate should pass
 	err = ValidateGroupDependencies(ctx, db, config.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestValidateGroupDependencies_NonExistentDependency(t *testing.T) {

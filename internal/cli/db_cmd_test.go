@@ -37,7 +37,7 @@ func TestDBInit(t *testing.T) {
 
 		// Verify database file exists
 		_, err = os.Stat(tmpPath)
-		assert.NoError(t, err, "database file should exist")
+		require.NoError(t, err, "database file should exist")
 	})
 
 	t.Run("fails if database already exists", func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestDBInit(t *testing.T) {
 		tmpPath := filepath.Join(tmpDir, "existing.db")
 
 		// Create existing database
-		_, err := os.Create(tmpPath)
+		_, err := os.Create(tmpPath) //nolint:gosec // test file in temp directory
 		require.NoError(t, err)
 
 		// Save and restore
@@ -61,7 +61,7 @@ func TestDBInit(t *testing.T) {
 
 		// Run init (should fail)
 		err = runDBInit(nil, nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "already exists")
 	})
 
@@ -88,7 +88,7 @@ func TestDBInit(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify database was recreated (should be SQLite file, not "old data")
-		content, err := os.ReadFile(tmpPath)
+		content, err := os.ReadFile(tmpPath) //nolint:gosec // test file in temp directory
 		require.NoError(t, err)
 		assert.NotEqual(t, "old data", string(content))
 	})
@@ -114,7 +114,7 @@ func TestDBInit(t *testing.T) {
 
 		// Verify all directories were created
 		_, err = os.Stat(filepath.Dir(tmpPath))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -145,7 +145,7 @@ func TestDBStatus(t *testing.T) {
 
 		// Run status
 		err = runDBStatus(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("reports missing database", func(t *testing.T) {
@@ -165,7 +165,7 @@ func TestDBStatus(t *testing.T) {
 
 		// Run status (should report missing)
 		err := runDBStatus(nil, nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not exist")
 	})
 
@@ -220,7 +220,7 @@ func TestDBStatus(t *testing.T) {
 		// Parse JSON output
 		var status DBStatus
 		err = json.Unmarshal(output.Bytes(), &status)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, tmpPath, status.Path)
 		assert.True(t, status.Exists)
 		assert.Positive(t, status.TableCounts["configs"])
@@ -367,7 +367,7 @@ func TestDBInitValidation(t *testing.T) {
 
 		// This should succeed as :memory: is valid for SQLite
 		err := runDBInit(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -392,7 +392,7 @@ func TestDBStatusValidation(t *testing.T) {
 
 		// Should report error but not panic
 		err := runDBStatus(nil, nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 

@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
@@ -26,19 +27,18 @@ func (c *Converter) ImportConfig(ctx context.Context, cfg *config.Config) (*Conf
 
 		var existing Config
 		result := tx.Where("external_id = ?", cfg.ID).First(&existing)
-		if result.Error == nil {
-			// Update existing
+		switch {
+		case result.Error == nil:
 			dbConfig.ID = existing.ID
 			dbConfig.CreatedAt = existing.CreatedAt
 			if err := tx.Save(dbConfig).Error; err != nil {
 				return fmt.Errorf("%w: failed to update config: %w", ErrImportFailed, err)
 			}
-		} else if result.Error == gorm.ErrRecordNotFound {
-			// Create new
+		case errors.Is(result.Error, gorm.ErrRecordNotFound):
 			if err := tx.Create(dbConfig).Error; err != nil {
 				return fmt.Errorf("%w: failed to create config: %w", ErrImportFailed, err)
 			}
-		} else {
+		default:
 			return fmt.Errorf("%w: failed to check existing config: %w", ErrImportFailed, result.Error)
 		}
 
@@ -67,7 +67,6 @@ func (c *Converter) ImportConfig(ctx context.Context, cfg *config.Config) (*Conf
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -89,19 +88,18 @@ func (c *Converter) importFileLists(tx *gorm.DB, configID uint, fileLists []conf
 		// Check if already exists
 		var existing FileList
 		result := tx.Where("external_id = ?", fl.ID).First(&existing)
-		if result.Error == nil {
-			// Update existing
+		switch {
+		case result.Error == nil:
 			dbFileList.ID = existing.ID
 			dbFileList.CreatedAt = existing.CreatedAt
 			if err := tx.Save(dbFileList).Error; err != nil {
 				return fmt.Errorf("%w: failed to update file list %q: %w", ErrImportFailed, fl.ID, err)
 			}
-		} else if result.Error == gorm.ErrRecordNotFound {
-			// Create new
+		case errors.Is(result.Error, gorm.ErrRecordNotFound):
 			if err := tx.Create(dbFileList).Error; err != nil {
 				return fmt.Errorf("%w: failed to create file list %q: %w", ErrImportFailed, fl.ID, err)
 			}
-		} else {
+		default:
 			return fmt.Errorf("%w: failed to check existing file list %q: %w", ErrImportFailed, fl.ID, result.Error)
 		}
 
@@ -131,19 +129,18 @@ func (c *Converter) importDirectoryLists(tx *gorm.DB, configID uint, directoryLi
 		// Check if already exists
 		var existing DirectoryList
 		result := tx.Where("external_id = ?", dl.ID).First(&existing)
-		if result.Error == nil {
-			// Update existing
+		switch {
+		case result.Error == nil:
 			dbDirList.ID = existing.ID
 			dbDirList.CreatedAt = existing.CreatedAt
 			if err := tx.Save(dbDirList).Error; err != nil {
 				return fmt.Errorf("%w: failed to update directory list %q: %w", ErrImportFailed, dl.ID, err)
 			}
-		} else if result.Error == gorm.ErrRecordNotFound {
-			// Create new
+		case errors.Is(result.Error, gorm.ErrRecordNotFound):
 			if err := tx.Create(dbDirList).Error; err != nil {
 				return fmt.Errorf("%w: failed to create directory list %q: %w", ErrImportFailed, dl.ID, err)
 			}
-		} else {
+		default:
 			return fmt.Errorf("%w: failed to check existing directory list %q: %w", ErrImportFailed, dl.ID, result.Error)
 		}
 
@@ -180,24 +177,21 @@ func (c *Converter) importGroups(tx *gorm.DB, configID uint, groups []config.Gro
 		// Check if already exists
 		var existing Group
 		result := tx.Where("external_id = ?", group.ID).First(&existing)
-		if result.Error == nil {
-			// Update existing
+		switch {
+		case result.Error == nil:
 			dbGroup.ID = existing.ID
 			dbGroup.CreatedAt = existing.CreatedAt
 			if err := tx.Save(dbGroup).Error; err != nil {
 				return fmt.Errorf("%w: failed to update group %q: %w", ErrImportFailed, group.ID, err)
 			}
-
-			// Delete old associations to replace them
 			if err := c.deleteGroupAssociations(tx, dbGroup.ID); err != nil {
 				return fmt.Errorf("failed to delete old associations for group %q: %w", group.ID, err)
 			}
-		} else if result.Error == gorm.ErrRecordNotFound {
-			// Create new
+		case errors.Is(result.Error, gorm.ErrRecordNotFound):
 			if err := tx.Create(dbGroup).Error; err != nil {
 				return fmt.Errorf("%w: failed to create group %q: %w", ErrImportFailed, group.ID, err)
 			}
-		} else {
+		default:
 			return fmt.Errorf("%w: failed to check existing group %q: %w", ErrImportFailed, group.ID, result.Error)
 		}
 

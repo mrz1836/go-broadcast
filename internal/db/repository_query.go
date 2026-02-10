@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -87,7 +88,7 @@ func (r *queryRepository) FindByRepo(ctx context.Context, repo string) (*Target,
 		}).
 		Where("repo = ?", repo).
 		First(&target).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("failed to find target by repo: %w", err)

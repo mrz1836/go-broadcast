@@ -118,7 +118,7 @@ func TestRepositoryDelete_HardDelete(t *testing.T) {
 
 		repo := NewFileListRepository(db)
 		err = repo.Delete(ctx, fileList.ID, true) // Hard delete
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Should not be found even with Unscoped
 		var count int64
@@ -137,7 +137,7 @@ func TestRepositoryDelete_HardDelete(t *testing.T) {
 
 		repo := NewDirectoryListRepository(db)
 		err = repo.Delete(ctx, dirList.ID, true) // Hard delete
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var count int64
 		db.Unscoped().Model(&DirectoryList{}).Where("id = ?", dirList.ID).Count(&count)
@@ -162,7 +162,7 @@ func TestRepositoryDelete_HardDelete(t *testing.T) {
 
 		repo := NewTargetRepository(db)
 		err = repo.Delete(ctx, target.ID, true) // Hard delete
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var count int64
 		db.Unscoped().Model(&Target{}).Where("id = ?", target.ID).Count(&count)
@@ -300,7 +300,7 @@ func TestModelsHooks_ValidationErrors(t *testing.T) {
 			Name: "Test Group",
 		}
 		err = db.Create(group).Error
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "external_id")
 	})
 
@@ -319,7 +319,7 @@ func TestModelsHooks_ValidationErrors(t *testing.T) {
 			Name: "Test File List",
 		}
 		err = db.Create(fileList).Error
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "external_id")
 	})
 
@@ -338,7 +338,7 @@ func TestModelsHooks_ValidationErrors(t *testing.T) {
 			Name: "Test Dir List",
 		}
 		err = db.Create(dirList).Error
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "external_id")
 	})
 
@@ -364,7 +364,7 @@ func TestModelsHooks_ValidationErrors(t *testing.T) {
 			Repo:    "invalid repo format", // Invalid repo name
 		}
 		err = db.Create(target).Error
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "repo")
 	})
 }
@@ -440,7 +440,7 @@ func TestModelsHooks_BeforeUpdate(t *testing.T) {
 		// Update should still validate
 		mapping.DeleteFlag = true // Setting delete flag with src is valid
 		err = db.WithContext(ctx).Save(mapping).Error
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -450,7 +450,7 @@ func TestJSONModuleConfigScan_Error(t *testing.T) {
 
 	// Test nil value
 	err := jmc.Scan(nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test invalid JSON
 	err = jmc.Scan([]byte(`{invalid json`))
@@ -463,7 +463,7 @@ func TestJSONStringSliceScan_Error(t *testing.T) {
 
 	// Test nil value
 	err := jss.Scan(nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test invalid JSON
 	err = jss.Scan([]byte(`[invalid json`))
@@ -476,7 +476,7 @@ func TestJSONStringMapScan_Error(t *testing.T) {
 
 	// Test nil value
 	err := jsm.Scan(nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test invalid JSON
 	err = jsm.Scan([]byte(`{invalid: json}`))
@@ -489,7 +489,7 @@ func TestMetadataScan_Error(t *testing.T) {
 
 	// Test nil value
 	err := meta.Scan(nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test invalid JSON
 	err = meta.Scan([]byte(`{bad json`))
@@ -545,19 +545,19 @@ func TestTargetRepositoryReferences(t *testing.T) {
 
 	// Test AddFileListRef
 	err = repo.AddFileListRef(ctx, target.ID, fileList.ID, 0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test RemoveFileListRef
 	err = repo.RemoveFileListRef(ctx, target.ID, fileList.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test AddDirectoryListRef
 	err = repo.AddDirectoryListRef(ctx, target.ID, dirList.ID, 0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test RemoveDirectoryListRef
 	err = repo.RemoveDirectoryListRef(ctx, target.ID, dirList.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 // TestConverterImport_EdgeCases tests import edge cases (58-82% coverage improvement)

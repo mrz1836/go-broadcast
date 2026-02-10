@@ -75,7 +75,7 @@ func TestDBValidate(t *testing.T) {
 		dbValidateJSON = false
 
 		err := runDBValidate(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("JSON output for clean database", func(t *testing.T) {
@@ -87,7 +87,7 @@ func TestDBValidate(t *testing.T) {
 		os.Stdout = w
 
 		err := runDBValidate(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Restore stdout and read output
 		_ = w.Close()
@@ -98,10 +98,10 @@ func TestDBValidate(t *testing.T) {
 		// Parse JSON output
 		var result ValidationResult
 		err = json.Unmarshal(output.Bytes(), &result)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, result.Valid)
-		assert.Len(t, result.Errors, 0)
-		assert.Greater(t, len(result.Checks), 0)
+		assert.Empty(t, result.Errors)
+		assert.NotEmpty(t, result.Checks)
 	})
 
 	t.Run("missing database", func(t *testing.T) {
@@ -109,7 +109,7 @@ func TestDBValidate(t *testing.T) {
 		dbValidateJSON = false
 
 		err := runDBValidate(nil, nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not exist")
 	})
 }
@@ -195,9 +195,9 @@ func TestDBValidateOrphanedRefs(t *testing.T) {
 		// Parse JSON output
 		var result ValidationResult
 		err = json.Unmarshal(output.Bytes(), &result)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, result.Valid)
-		assert.Greater(t, len(result.Errors), 0)
+		assert.NotEmpty(t, result.Errors)
 
 		// Check that we detected the orphaned ref
 		hasOrphanError := false
@@ -290,9 +290,9 @@ func TestDBValidateCircularDependencies(t *testing.T) {
 		// Parse JSON output
 		var result ValidationResult
 		err = json.Unmarshal(output.Bytes(), &result)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, result.Valid, "should be valid with no circular dependencies")
-		assert.Len(t, result.Errors, 0, "should have no errors")
+		assert.Empty(t, result.Errors, "should have no errors")
 	})
 }
 
@@ -376,9 +376,9 @@ func TestDBValidateOrphanedMappings(t *testing.T) {
 		// Parse JSON output
 		var result ValidationResult
 		err = json.Unmarshal(output.Bytes(), &result)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, result.Valid, "should be valid with correct file mappings")
-		assert.Len(t, result.Errors, 0, "should have no errors")
+		assert.Empty(t, result.Errors, "should have no errors")
 	})
 }
 
@@ -443,9 +443,9 @@ func TestDBValidateEmpty(t *testing.T) {
 		// Parse JSON output
 		var result ValidationResult
 		err = json.Unmarshal(output.Bytes(), &result)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, result.Valid)
-		assert.Greater(t, len(result.Checks), 0)
+		assert.NotEmpty(t, result.Checks)
 	})
 }
 

@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"gorm.io/gorm"
 )
@@ -15,7 +13,7 @@ type RepositoryTestSuite struct {
 	suite.Suite
 
 	db     *gorm.DB
-	ctx    context.Context
+	ctx    context.Context //nolint:containedctx // test suite pattern requires context in struct
 	config *Config
 }
 
@@ -31,7 +29,7 @@ func (s *RepositoryTestSuite) SetupTest() {
 		Version:    1,
 	}
 	err := s.db.Create(s.config).Error
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 }
 
 // TestConfigRepository tests ConfigRepository operations
@@ -48,41 +46,41 @@ func (s *RepositoryTestSuite) TestConfigRepository() {
 		Version:    1,
 	}
 	err := repo.Create(s.ctx, cfg)
-	require.NoError(s.T(), err)
-	assert.NotZero(s.T(), cfg.ID)
+	s.Require().NoError(err)
+	s.NotZero(cfg.ID)
 
 	// Test GetByID
 	fetched, err := repo.GetByID(s.ctx, cfg.ID)
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), cfg.ExternalID, fetched.ExternalID)
-	assert.Equal(s.T(), cfg.Name, fetched.Name)
-	assert.Equal(s.T(), "value", fetched.Metadata["key"])
+	s.Require().NoError(err)
+	s.Equal(cfg.ExternalID, fetched.ExternalID)
+	s.Equal(cfg.Name, fetched.Name)
+	s.Equal("value", fetched.Metadata["key"])
 
 	// Test GetByExternalID
 	fetched2, err := repo.GetByExternalID(s.ctx, "test-cfg-1")
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), cfg.ID, fetched2.ID)
+	s.Require().NoError(err)
+	s.Equal(cfg.ID, fetched2.ID)
 
 	// Test Update
 	cfg.Name = "Updated Config"
 	err = repo.Update(s.ctx, cfg)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	fetched3, err := repo.GetByID(s.ctx, cfg.ID)
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), "Updated Config", fetched3.Name)
+	s.Require().NoError(err)
+	s.Equal("Updated Config", fetched3.Name)
 
 	// Test List
 	configs, err := repo.List(s.ctx)
-	require.NoError(s.T(), err)
-	assert.GreaterOrEqual(s.T(), len(configs), 2) // At least our 2 test configs
+	s.Require().NoError(err)
+	s.GreaterOrEqual(len(configs), 2) // At least our 2 test configs
 
 	// Test Delete
 	err = repo.Delete(s.ctx, cfg.ID)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	_, err = repo.GetByID(s.ctx, cfg.ID)
-	assert.ErrorIs(s.T(), err, ErrRecordNotFound)
+	s.ErrorIs(err, ErrRecordNotFound)
 }
 
 // TestGroupRepository tests GroupRepository operations
@@ -101,42 +99,42 @@ func (s *RepositoryTestSuite) TestGroupRepository() {
 		Position:   0,
 	}
 	err := repo.Create(s.ctx, group)
-	require.NoError(s.T(), err)
-	assert.NotZero(s.T(), group.ID)
+	s.Require().NoError(err)
+	s.NotZero(group.ID)
 
 	// Test GetByID
 	fetched, err := repo.GetByID(s.ctx, group.ID)
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), group.ExternalID, fetched.ExternalID)
-	assert.Equal(s.T(), group.Name, fetched.Name)
-	assert.Equal(s.T(), group.Priority, fetched.Priority)
+	s.Require().NoError(err)
+	s.Equal(group.ExternalID, fetched.ExternalID)
+	s.Equal(group.Name, fetched.Name)
+	s.Equal(group.Priority, fetched.Priority)
 
 	// Test GetByExternalID
 	fetched2, err := repo.GetByExternalID(s.ctx, "test-group-1")
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), group.ID, fetched2.ID)
+	s.Require().NoError(err)
+	s.Equal(group.ID, fetched2.ID)
 
 	// Test Update
 	group.Description = "Updated description"
 	err = repo.Update(s.ctx, group)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	fetched3, err := repo.GetByID(s.ctx, group.ID)
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), "Updated description", fetched3.Description)
+	s.Require().NoError(err)
+	s.Equal("Updated description", fetched3.Description)
 
 	// Test List
 	groups, err := repo.List(s.ctx, s.config.ID)
-	require.NoError(s.T(), err)
-	assert.Len(s.T(), groups, 1)
+	s.Require().NoError(err)
+	s.Len(groups, 1)
 
 	// Test soft Delete
 	err = repo.Delete(s.ctx, group.ID, false)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	groups2, err := repo.List(s.ctx, s.config.ID)
-	require.NoError(s.T(), err)
-	assert.Len(s.T(), groups2, 0) // Should be soft-deleted
+	s.Require().NoError(err)
+	s.Empty(groups2) // Should be soft-deleted
 
 	// Test hard Delete
 	group2 := &Group{
@@ -145,13 +143,13 @@ func (s *RepositoryTestSuite) TestGroupRepository() {
 		Name:       "Test Group 2",
 	}
 	err = repo.Create(s.ctx, group2)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	err = repo.Delete(s.ctx, group2.ID, true)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	_, err = repo.GetByID(s.ctx, group2.ID)
-	assert.ErrorIs(s.T(), err, ErrRecordNotFound)
+	s.ErrorIs(err, ErrRecordNotFound)
 }
 
 // TestGroupRepositoryWithAssociations tests group preloading
@@ -178,7 +176,7 @@ func (s *RepositoryTestSuite) TestGroupRepositoryWithAssociations() {
 		},
 	}
 	err := s.db.Create(group).Error
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Create a target for the group
 	target := &Target{
@@ -187,23 +185,23 @@ func (s *RepositoryTestSuite) TestGroupRepositoryWithAssociations() {
 		Branch:  "main",
 	}
 	err = s.db.Create(target).Error
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Test ListWithAssociations
 	groups, err := repo.ListWithAssociations(s.ctx, s.config.ID)
-	require.NoError(s.T(), err)
-	require.Len(s.T(), groups, 1)
+	s.Require().NoError(err)
+	s.Require().Len(groups, 1)
 
 	g := groups[0]
-	assert.Equal(s.T(), "mrz1836/test", g.Source.Repo)
-	assert.Equal(s.T(), "main", g.Source.Branch)
-	assert.Len(s.T(), g.GroupGlobal.PRLabels, 1)
-	assert.Equal(s.T(), "sync", g.GroupGlobal.PRLabels[0])
-	assert.Equal(s.T(), "broadcast", g.GroupDefault.BranchPrefix)
-	assert.Len(s.T(), g.Dependencies, 1)
-	assert.Equal(s.T(), "other-group", g.Dependencies[0].DependsOnID)
-	assert.Len(s.T(), g.Targets, 1)
-	assert.Equal(s.T(), "mrz1836/target", g.Targets[0].Repo)
+	s.Equal("mrz1836/test", g.Source.Repo)
+	s.Equal("main", g.Source.Branch)
+	s.Len(g.GroupGlobal.PRLabels, 1)
+	s.Equal("sync", g.GroupGlobal.PRLabels[0])
+	s.Equal("broadcast", g.GroupDefault.BranchPrefix)
+	s.Len(g.Dependencies, 1)
+	s.Equal("other-group", g.Dependencies[0].DependsOnID)
+	s.Len(g.Targets, 1)
+	s.Equal("mrz1836/target", g.Targets[0].Repo)
 }
 
 // TestTargetRepository tests TargetRepository operations
@@ -217,7 +215,7 @@ func (s *RepositoryTestSuite) TestTargetRepository() {
 		Name:       "Test Group for Targets",
 	}
 	err := s.db.Create(group).Error
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Test Create
 	target := &Target{
@@ -230,41 +228,41 @@ func (s *RepositoryTestSuite) TestTargetRepository() {
 		Position: 0,
 	}
 	err = repo.Create(s.ctx, target)
-	require.NoError(s.T(), err)
-	assert.NotZero(s.T(), target.ID)
+	s.Require().NoError(err)
+	s.NotZero(target.ID)
 
 	// Test GetByID
 	fetched, err := repo.GetByID(s.ctx, target.ID)
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), target.Repo, fetched.Repo)
-	assert.Equal(s.T(), "library", fetched.Metadata["type"])
+	s.Require().NoError(err)
+	s.Equal(target.Repo, fetched.Repo)
+	s.Equal("library", fetched.Metadata["type"])
 
 	// Test GetByRepo
 	fetched2, err := repo.GetByRepo(s.ctx, group.ID, "mrz1836/test-target")
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), target.ID, fetched2.ID)
+	s.Require().NoError(err)
+	s.Equal(target.ID, fetched2.ID)
 
 	// Test Update
 	target.Branch = "develop"
 	err = repo.Update(s.ctx, target)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	fetched3, err := repo.GetByID(s.ctx, target.ID)
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), "develop", fetched3.Branch)
+	s.Require().NoError(err)
+	s.Equal("develop", fetched3.Branch)
 
 	// Test List
 	targets, err := repo.List(s.ctx, group.ID)
-	require.NoError(s.T(), err)
-	assert.Len(s.T(), targets, 1)
+	s.Require().NoError(err)
+	s.Len(targets, 1)
 
 	// Test soft Delete
 	err = repo.Delete(s.ctx, target.ID, false)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	targets2, err := repo.List(s.ctx, group.ID)
-	require.NoError(s.T(), err)
-	assert.Len(s.T(), targets2, 0)
+	s.Require().NoError(err)
+	s.Empty(targets2)
 }
 
 // TestTargetRefManagement tests file list and directory list ref management
@@ -278,14 +276,14 @@ func (s *RepositoryTestSuite) TestTargetRefManagement() {
 		Name:       "Test Group for Refs",
 	}
 	err := s.db.Create(group).Error
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	target := &Target{
 		GroupID: group.ID,
 		Repo:    "mrz1836/test-refs",
 	}
 	err = repo.Create(s.ctx, target)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	fileList := &FileList{
 		ConfigID:   s.config.ID,
@@ -293,7 +291,7 @@ func (s *RepositoryTestSuite) TestTargetRefManagement() {
 		Name:       "Test File List",
 	}
 	err = s.db.Create(fileList).Error
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	dirList := &DirectoryList{
 		ConfigID:   s.config.ID,
@@ -301,50 +299,50 @@ func (s *RepositoryTestSuite) TestTargetRefManagement() {
 		Name:       "Test Directory List",
 	}
 	err = s.db.Create(dirList).Error
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Test AddFileListRef
 	err = repo.AddFileListRef(s.ctx, target.ID, fileList.ID, 0)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Verify ref was created
 	var refCount int64
 	err = s.db.Model(&TargetFileListRef{}).
 		Where("target_id = ? AND file_list_id = ?", target.ID, fileList.ID).
 		Count(&refCount).Error
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), int64(1), refCount)
+	s.Require().NoError(err)
+	s.Equal(int64(1), refCount)
 
 	// Test AddDirectoryListRef
 	err = repo.AddDirectoryListRef(s.ctx, target.ID, dirList.ID, 0)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Verify ref was created
 	err = s.db.Model(&TargetDirectoryListRef{}).
 		Where("target_id = ? AND directory_list_id = ?", target.ID, dirList.ID).
 		Count(&refCount).Error
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), int64(1), refCount)
+	s.Require().NoError(err)
+	s.Equal(int64(1), refCount)
 
 	// Test RemoveFileListRef
 	err = repo.RemoveFileListRef(s.ctx, target.ID, fileList.ID)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	err = s.db.Model(&TargetFileListRef{}).
 		Where("target_id = ? AND file_list_id = ?", target.ID, fileList.ID).
 		Count(&refCount).Error
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), int64(0), refCount)
+	s.Require().NoError(err)
+	s.Equal(int64(0), refCount)
 
 	// Test RemoveDirectoryListRef
 	err = repo.RemoveDirectoryListRef(s.ctx, target.ID, dirList.ID)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	err = s.db.Model(&TargetDirectoryListRef{}).
 		Where("target_id = ? AND directory_list_id = ?", target.ID, dirList.ID).
 		Count(&refCount).Error
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), int64(0), refCount)
+	s.Require().NoError(err)
+	s.Equal(int64(0), refCount)
 }
 
 // TestFileListRepository tests FileListRepository operations
@@ -360,40 +358,40 @@ func (s *RepositoryTestSuite) TestFileListRepository() {
 		Position:    0,
 	}
 	err := repo.Create(s.ctx, fileList)
-	require.NoError(s.T(), err)
-	assert.NotZero(s.T(), fileList.ID)
+	s.Require().NoError(err)
+	s.NotZero(fileList.ID)
 
 	// Test GetByID
 	fetched, err := repo.GetByID(s.ctx, fileList.ID)
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), fileList.Name, fetched.Name)
+	s.Require().NoError(err)
+	s.Equal(fileList.Name, fetched.Name)
 
 	// Test GetByExternalID
 	fetched2, err := repo.GetByExternalID(s.ctx, "test-file-list-1")
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), fileList.ID, fetched2.ID)
+	s.Require().NoError(err)
+	s.Equal(fileList.ID, fetched2.ID)
 
 	// Test Update
 	fileList.Description = "Updated description"
 	err = repo.Update(s.ctx, fileList)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	fetched3, err := repo.GetByID(s.ctx, fileList.ID)
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), "Updated description", fetched3.Description)
+	s.Require().NoError(err)
+	s.Equal("Updated description", fetched3.Description)
 
 	// Test List
 	lists, err := repo.List(s.ctx, s.config.ID)
-	require.NoError(s.T(), err)
-	assert.GreaterOrEqual(s.T(), len(lists), 1)
+	s.Require().NoError(err)
+	s.GreaterOrEqual(len(lists), 1)
 
 	// Test soft Delete
 	err = repo.Delete(s.ctx, fileList.ID, false)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	lists2, err := repo.List(s.ctx, s.config.ID)
-	require.NoError(s.T(), err)
-	assert.Len(s.T(), lists2, 0)
+	s.Require().NoError(err)
+	s.Empty(lists2)
 }
 
 // TestFileListWithFiles tests file list preloading
@@ -407,7 +405,7 @@ func (s *RepositoryTestSuite) TestFileListWithFiles() {
 		Name:       "Test File List With Files",
 	}
 	err := s.db.Create(fileList).Error
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Create file mappings
 	mapping1 := &FileMapping{
@@ -418,7 +416,7 @@ func (s *RepositoryTestSuite) TestFileListWithFiles() {
 		Position:  0,
 	}
 	err = s.db.Create(mapping1).Error
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	mapping2 := &FileMapping{
 		OwnerType: "file_list",
@@ -428,17 +426,17 @@ func (s *RepositoryTestSuite) TestFileListWithFiles() {
 		Position:  1,
 	}
 	err = s.db.Create(mapping2).Error
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	// Test ListWithFiles
 	lists, err := repo.ListWithFiles(s.ctx, s.config.ID)
-	require.NoError(s.T(), err)
-	require.Len(s.T(), lists, 1)
+	s.Require().NoError(err)
+	s.Require().Len(lists, 1)
 
 	fl := lists[0]
-	assert.Len(s.T(), fl.Files, 2)
-	assert.Equal(s.T(), ".github/workflows/ci.yml", fl.Files[0].Dest)
-	assert.Equal(s.T(), "README.md", fl.Files[1].Dest)
+	s.Len(fl.Files, 2)
+	s.Equal(".github/workflows/ci.yml", fl.Files[0].Dest)
+	s.Equal("README.md", fl.Files[1].Dest)
 }
 
 // TestDirectoryListRepository tests DirectoryListRepository operations
@@ -454,40 +452,40 @@ func (s *RepositoryTestSuite) TestDirectoryListRepository() {
 		Position:    0,
 	}
 	err := repo.Create(s.ctx, dirList)
-	require.NoError(s.T(), err)
-	assert.NotZero(s.T(), dirList.ID)
+	s.Require().NoError(err)
+	s.NotZero(dirList.ID)
 
 	// Test GetByID
 	fetched, err := repo.GetByID(s.ctx, dirList.ID)
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), dirList.Name, fetched.Name)
+	s.Require().NoError(err)
+	s.Equal(dirList.Name, fetched.Name)
 
 	// Test GetByExternalID
 	fetched2, err := repo.GetByExternalID(s.ctx, "test-dir-list-1")
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), dirList.ID, fetched2.ID)
+	s.Require().NoError(err)
+	s.Equal(dirList.ID, fetched2.ID)
 
 	// Test Update
 	dirList.Description = "Updated description"
 	err = repo.Update(s.ctx, dirList)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	fetched3, err := repo.GetByID(s.ctx, dirList.ID)
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), "Updated description", fetched3.Description)
+	s.Require().NoError(err)
+	s.Equal("Updated description", fetched3.Description)
 
 	// Test List
 	lists, err := repo.List(s.ctx, s.config.ID)
-	require.NoError(s.T(), err)
-	assert.GreaterOrEqual(s.T(), len(lists), 1)
+	s.Require().NoError(err)
+	s.GreaterOrEqual(len(lists), 1)
 
 	// Test Delete
 	err = repo.Delete(s.ctx, dirList.ID, false)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	lists2, err := repo.List(s.ctx, s.config.ID)
-	require.NoError(s.T(), err)
-	assert.Len(s.T(), lists2, 0)
+	s.Require().NoError(err)
+	s.Empty(lists2)
 }
 
 func TestRepositoryTestSuite(t *testing.T) {

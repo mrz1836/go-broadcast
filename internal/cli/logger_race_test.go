@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestLoggerService_ConcurrentConfigureLogger verifies that ConfigureLogger
@@ -145,7 +146,7 @@ func TestLoggerService_HookAccumulation(t *testing.T) {
 	// Call ConfigureLogger multiple times
 	for i := 0; i < 3; i++ {
 		err := service.ConfigureLogger(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	// Logrus doesn't provide a way to check hook count.

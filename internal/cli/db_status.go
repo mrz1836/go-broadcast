@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -102,7 +103,7 @@ func runDBStatus(_ *cobra.Command, _ []string) error {
 	// Get schema version
 	var migration db.SchemaMigration
 	if err := gormDB.Order("applied_at DESC").First(&migration).Error; err != nil {
-		if err != gorm.ErrRecordNotFound {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			status.Error = fmt.Sprintf("failed to get schema version: %v", err)
 			return printStatus(status)
 		}
@@ -154,12 +155,12 @@ func printStatus(status DBStatus) error {
 
 	if !status.Exists {
 		output.Error(status.Error)
-		return fmt.Errorf("database does not exist")
+		return fmt.Errorf("database does not exist") //nolint:err113 // user-facing CLI error
 	}
 
 	if status.Error != "" {
 		output.Error(status.Error)
-		return fmt.Errorf("database error: %s", status.Error)
+		return fmt.Errorf("database error: %s", status.Error) //nolint:err113 // user-facing CLI error
 	}
 
 	output.Info(fmt.Sprintf("Size: %.2f KB", float64(status.Size)/1024))

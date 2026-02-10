@@ -372,7 +372,7 @@ func TestDefaultConfigLoader(t *testing.T) {
 		err := loader.ValidateConfig(cfg)
 
 		// This should not error for a valid config
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 

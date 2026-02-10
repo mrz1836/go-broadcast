@@ -129,7 +129,7 @@ func TestCreateSetupLogging_InvalidLogLevel(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "invalid log level")
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -199,7 +199,7 @@ func TestCreateSetupLoggingWithVerbose_ValidConfig(t *testing.T) {
 			cmd.SetContext(context.Background())
 
 			err := setupFn(cmd, nil)
-			assert.NoError(t, err, "valid config should not return error")
+			require.NoError(t, err, "valid config should not return error")
 		})
 	}
 }
@@ -218,7 +218,7 @@ func TestRootRunE_VersionFlag(t *testing.T) {
 
 		err := rootRunE(cmd, nil)
 		// Should show help (which doesn't return error)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("version flag true shows version", func(t *testing.T) {
@@ -229,7 +229,7 @@ func TestRootRunE_VersionFlag(t *testing.T) {
 
 		err := rootRunE(cmd, nil)
 		// printVersion should succeed
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 

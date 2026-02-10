@@ -296,7 +296,7 @@ func TestRepositorySoftDelete(t *testing.T) {
 
 		// Should not appear in normal queries
 		_, err = repo.GetByID(ctx, group.ID)
-		assert.ErrorIs(t, err, ErrRecordNotFound)
+		require.ErrorIs(t, err, ErrRecordNotFound)
 
 		// But should exist with Unscoped
 		var count int64

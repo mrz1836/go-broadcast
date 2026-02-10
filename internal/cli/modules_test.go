@@ -114,7 +114,7 @@ groups:
 			err = runListModules(cmd, []string{})
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -210,7 +210,7 @@ groups:
 			err = runShowModule(cmd, tt.args)
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -287,7 +287,7 @@ groups: []`,
 			err = runModuleVersions(cmd, tt.args)
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -372,7 +372,7 @@ groups:
 			err = runValidateModules(cmd, []string{})
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -460,7 +460,7 @@ func TestFetchGitTags(t *testing.T) {
 			versions, err := fetchGitTags(ctx, tt.repo)
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
 				// We don't assert no error because this might fail due to network/auth
 				// We just ensure it doesn't panic and returns a slice

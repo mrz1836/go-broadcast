@@ -276,7 +276,7 @@ func TestConverterImport_GroupEdgeCases(t *testing.T) {
 
 		exported, err := converter.ExportConfig(ctx, cfg.ID)
 		require.NoError(t, err)
-		assert.Equal(t, "", exported.Groups[0].Defaults.BranchPrefix)
+		assert.Empty(t, exported.Groups[0].Defaults.BranchPrefix)
 	})
 }
 
@@ -383,7 +383,7 @@ func TestConverterImport_TargetEdgeCases(t *testing.T) {
 
 		exported, err := converter.ExportConfig(ctx, cfg.ID)
 		require.NoError(t, err)
-		assert.Equal(t, "", exported.Groups[0].Targets[0].Branch)
+		assert.Empty(t, exported.Groups[0].Targets[0].Branch)
 	})
 }
 

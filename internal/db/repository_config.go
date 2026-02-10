@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -29,7 +30,7 @@ func (r *configRepository) Create(ctx context.Context, config *Config) error {
 func (r *configRepository) GetByID(ctx context.Context, id uint) (*Config, error) {
 	var config Config
 	if err := r.db.WithContext(ctx).First(&config, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("failed to get config by id: %w", err)
@@ -41,7 +42,7 @@ func (r *configRepository) GetByID(ctx context.Context, id uint) (*Config, error
 func (r *configRepository) GetByExternalID(ctx context.Context, externalID string) (*Config, error) {
 	var config Config
 	if err := r.db.WithContext(ctx).Where("external_id = ?", externalID).First(&config).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("failed to get config by external_id: %w", err)

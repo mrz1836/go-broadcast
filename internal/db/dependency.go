@@ -202,6 +202,7 @@ func ValidateGroupDependencies(ctx context.Context, db *gorm.DB, configID uint) 
 	for _, group := range groups {
 		for _, dep := range group.Dependencies {
 			if !existingIDs[dep.DependsOnID] {
+				//nolint:err113 // wrapped in ErrCircularDependency at call site
 				return fmt.Errorf("group %s depends on non-existent group %s",
 					group.ExternalID, dep.DependsOnID)
 			}

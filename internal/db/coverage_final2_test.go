@@ -50,7 +50,7 @@ func TestModelsHooks_DirectoryMappingBeforeUpdate(t *testing.T) {
 	// Test update with valid data
 	dirMapping.Src = "updated/src"
 	err = db.WithContext(ctx).Save(dirMapping).Error
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test update with invalid data (empty dest for non-delete)
 	dirMapping.Dest = ""
@@ -84,7 +84,7 @@ func TestModelsHooks_GroupDefaultBeforeCreate(t *testing.T) {
 			BranchPrefix: "feature",
 		}
 		err := db.Create(groupDefault).Error
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("Empty branch prefix", func(t *testing.T) {
@@ -102,7 +102,7 @@ func TestModelsHooks_GroupDefaultBeforeCreate(t *testing.T) {
 			BranchPrefix: "", // Empty is valid
 		}
 		err = db.Create(groupDefault).Error
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -247,7 +247,7 @@ func TestConverterImport_FileMappingsEdgeCases(t *testing.T) {
 		exported, err := converter.ExportConfig(ctx, cfg.ID)
 		require.NoError(t, err)
 		assert.True(t, exported.Groups[0].Targets[0].Files[0].Delete)
-		assert.Equal(t, "", exported.Groups[0].Targets[0].Files[0].Src)
+		assert.Empty(t, exported.Groups[0].Targets[0].Files[0].Src)
 	})
 
 	t.Run("Multiple file mappings in target", func(t *testing.T) {
@@ -327,7 +327,7 @@ func TestConverterImport_DirectoryMappingsEdgeCases(t *testing.T) {
 		exported, err := converter.ExportConfig(ctx, cfg.ID)
 		require.NoError(t, err)
 		assert.True(t, exported.Groups[0].Targets[0].Directories[0].Delete)
-		assert.Equal(t, "", exported.Groups[0].Targets[0].Directories[0].Src)
+		assert.Empty(t, exported.Groups[0].Targets[0].Directories[0].Src)
 	})
 
 	t.Run("Multiple directory mappings in target", func(t *testing.T) {

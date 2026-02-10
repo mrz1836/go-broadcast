@@ -90,7 +90,7 @@ func TestFilterTargets(t *testing.T) {
 			targets, err := filterTargets(s, tt.targetRepos)
 
 			if tt.wantError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -1105,7 +1105,7 @@ func TestFilterTargets_MultiGroup(t *testing.T) {
 			targets, err := filterTargets(s, tt.targetRepos)
 
 			if tt.wantError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 

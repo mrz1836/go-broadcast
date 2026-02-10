@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -15,7 +16,7 @@ func (c *Converter) ExportConfig(ctx context.Context, externalID string) (*confi
 	// Find config by external ID
 	var dbConfig Config
 	if err := c.db.WithContext(ctx).Where("external_id = ?", externalID).First(&dbConfig).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("%w: config %q not found", ErrRecordNotFound, externalID)
 		}
 		return nil, fmt.Errorf("%w: failed to find config: %w", ErrExportFailed, err)
@@ -411,7 +412,7 @@ func (c *Converter) ExportGroup(ctx context.Context, configID uint, groupExterna
 			return db.Order("position ASC").Preload("DirectoryList")
 		}).
 		First(&dbGroup).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("%w: group %q not found", ErrRecordNotFound, groupExternalID)
 		}
 		return nil, fmt.Errorf("%w: failed to load group: %w", ErrExportFailed, err)

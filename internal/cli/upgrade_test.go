@@ -475,7 +475,7 @@ func TestCheckGoInstalled(t *testing.T) {
 		assert.Contains(t, err.Error(), "go is not installed or not in PATH")
 	} else {
 		// If no error, Go is properly installed
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 }
 
@@ -1376,7 +1376,7 @@ func TestRunUpgradeWithConfigLogic(t *testing.T) {
 					assert.Contains(t, err.Error(), tt.errorContains)
 				}
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}

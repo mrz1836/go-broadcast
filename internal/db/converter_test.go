@@ -16,7 +16,7 @@ import (
 func TestConverterRoundTrip_RealSyncYAML(t *testing.T) {
 	// Load real sync.yaml
 	syncPath := filepath.Join("..", "..", "sync.yaml")
-	data, err := os.ReadFile(syncPath)
+	data, err := os.ReadFile(syncPath) //nolint:gosec // reading test fixture from known path
 	require.NoError(t, err, "failed to read sync.yaml")
 
 	var cfg config.Config
@@ -58,9 +58,9 @@ func TestConverterRoundTrip_RealSyncYAML(t *testing.T) {
 
 		for j, origFile := range original.Files {
 			expFile := exported.Files[j]
-			assert.Equal(t, origFile.Src, expFile.Src, "file list %d file %d src mismatch", i, j)
-			assert.Equal(t, origFile.Dest, expFile.Dest, "file list %d file %d dest mismatch", i, j)
-			assert.Equal(t, origFile.Delete, expFile.Delete, "file list %d file %d delete mismatch", i, j)
+			assert.Equal(t, expFile.Src, origFile.Src, "file list %d file %d src mismatch", i, j)
+			assert.Equal(t, expFile.Dest, origFile.Dest, "file list %d file %d dest mismatch", i, j)
+			assert.Equal(t, expFile.Delete, origFile.Delete, "file list %d file %d delete mismatch", i, j)
 		}
 	}
 
@@ -90,8 +90,8 @@ func TestConverterRoundTrip_RealSyncYAML(t *testing.T) {
 		assert.Len(t, exported.Targets, len(original.Targets), "group %d targets count mismatch", i)
 		for j, origTarget := range original.Targets {
 			expTarget := exported.Targets[j]
-			assert.Equal(t, origTarget.Repo, expTarget.Repo, "group %d target %d repo mismatch", i, j)
-			assert.Equal(t, origTarget.Branch, expTarget.Branch, "group %d target %d branch mismatch", i, j)
+			assert.Equal(t, expTarget.Repo, origTarget.Repo, "group %d target %d repo mismatch", i, j)
+			assert.Equal(t, expTarget.Branch, origTarget.Branch, "group %d target %d branch mismatch", i, j)
 
 			// Verify file list refs
 			assert.ElementsMatch(t, origTarget.FileListRefs, expTarget.FileListRefs,
@@ -280,14 +280,14 @@ func TestConverterRoundTrip_TransformInheritance(t *testing.T) {
 	// Verify target-level transform
 	target := exported.Groups[0].Targets[0]
 	assert.True(t, target.Transform.RepoName, "target transform repo_name should be preserved")
-	assert.Equal(t, 2, len(target.Transform.Variables), "target transform variables count")
+	assert.Len(t, target.Transform.Variables, 2, "target transform variables count")
 	assert.Equal(t, "value1", target.Transform.Variables["VAR1"])
 	assert.Equal(t, "value2", target.Transform.Variables["VAR2"])
 
 	// Verify directory-level transform
 	dirMapping := target.Directories[0]
 	assert.False(t, dirMapping.Transform.RepoName, "directory transform repo_name should be preserved")
-	assert.Equal(t, 1, len(dirMapping.Transform.Variables), "directory transform variables count")
+	assert.Len(t, dirMapping.Transform.Variables, 1, "directory transform variables count")
 	assert.Equal(t, "dir_value", dirMapping.Transform.Variables["DIR_VAR"])
 }
 

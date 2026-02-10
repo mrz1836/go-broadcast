@@ -78,11 +78,11 @@ func TestTestDBWithSeed(t *testing.T) {
 	// Verify data is actually in the database
 	var configCount int64
 	db.Model(&Config{}).Count(&configCount)
-	assert.Greater(t, configCount, int64(0))
+	assert.Positive(t, configCount)
 
 	var groupCount int64
 	db.Model(&Group{}).Count(&groupCount)
-	assert.Greater(t, groupCount, int64(0))
+	assert.Positive(t, groupCount)
 
 	var targetCount int64
 	db.Model(&Target{}).Count(&targetCount)
@@ -106,7 +106,7 @@ func TestQueryRepository_WithSeed(t *testing.T) {
 		results, err := repo.FindByPattern(ctx, "test-repo")
 		require.NoError(t, err)
 		// FindByPattern uses SQL LIKE, so it may return 0 if pattern doesn't match
-		assert.GreaterOrEqual(t, len(results), 0)
+		_ = results // len(results) is always >= 0, so assertion is meaningless
 	})
 
 	t.Run("FindByFileList finds targets by file list ref", func(t *testing.T) {

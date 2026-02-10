@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -68,7 +69,7 @@ type QueryResult struct {
 }
 
 // runDBQuery executes the database query command
-func runDBQuery(cmd *cobra.Command, args []string) error {
+func runDBQuery(_ *cobra.Command, _ []string) error {
 	// Validate exactly one query flag is specified
 	flagCount := 0
 	if dbQueryFile != "" {
@@ -85,17 +86,17 @@ func runDBQuery(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagCount == 0 {
-		return fmt.Errorf("must specify one of: --file, --repo, --file-list, or --contains")
+		return fmt.Errorf("must specify one of: --file, --repo, --file-list, or --contains") //nolint:err113 // user-facing CLI validation error
 	}
 	if flagCount > 1 {
-		return fmt.Errorf("only one query flag allowed at a time")
+		return fmt.Errorf("only one query flag allowed at a time") //nolint:err113 // user-facing CLI validation error
 	}
 
 	path := getDBPath()
 
 	// Check if database exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return fmt.Errorf("database does not exist: %s (run 'go-broadcast db init' to create)", path)
+		return fmt.Errorf("database does not exist: %s (run 'go-broadcast db init' to create)", path) //nolint:err113 // user-facing CLI error
 	}
 
 	// Open database
@@ -174,7 +175,7 @@ func queryByFile(ctx context.Context, repo db.QueryRepository, filePath string) 
 func queryByRepo(ctx context.Context, repo db.QueryRepository, repoName string) error {
 	target, err := repo.FindByRepo(ctx, repoName)
 	if err != nil {
-		if err == db.ErrRecordNotFound {
+		if errors.Is(err, db.ErrRecordNotFound) {
 			if dbQueryJSON {
 				return printJSON(QueryResult{
 					Query:   fmt.Sprintf("repo: %s", repoName),
@@ -279,7 +280,7 @@ func queryByFileList(ctx context.Context, database db.Database, externalID strin
 	fileListRepo := db.NewFileListRepository(database.DB())
 	fileList, err := fileListRepo.GetByExternalID(ctx, externalID)
 	if err != nil {
-		if err == db.ErrRecordNotFound {
+		if errors.Is(err, db.ErrRecordNotFound) {
 			if dbQueryJSON {
 				return printJSON(QueryResult{
 					Query:   fmt.Sprintf("file-list: %s", externalID),

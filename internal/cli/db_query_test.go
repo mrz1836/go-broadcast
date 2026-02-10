@@ -121,7 +121,7 @@ func TestDBQuery(t *testing.T) {
 		dbQueryJSON = false
 
 		err := runDBQuery(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("query by file (not found)", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestDBQuery(t *testing.T) {
 		dbQueryJSON = false
 
 		err := runDBQuery(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("query by repo", func(t *testing.T) {
@@ -143,7 +143,7 @@ func TestDBQuery(t *testing.T) {
 		dbQueryJSON = false
 
 		err := runDBQuery(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("query by repo (not found)", func(t *testing.T) {
@@ -154,7 +154,7 @@ func TestDBQuery(t *testing.T) {
 		dbQueryJSON = false
 
 		err := runDBQuery(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("query by file list", func(t *testing.T) {
@@ -165,7 +165,7 @@ func TestDBQuery(t *testing.T) {
 		dbQueryJSON = false
 
 		err := runDBQuery(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("query by file list (not found)", func(t *testing.T) {
@@ -176,7 +176,7 @@ func TestDBQuery(t *testing.T) {
 		dbQueryJSON = false
 
 		err := runDBQuery(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("query by pattern", func(t *testing.T) {
@@ -187,7 +187,7 @@ func TestDBQuery(t *testing.T) {
 		dbQueryJSON = false
 
 		err := runDBQuery(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("query by pattern (not found)", func(t *testing.T) {
@@ -198,7 +198,7 @@ func TestDBQuery(t *testing.T) {
 		dbQueryJSON = false
 
 		err := runDBQuery(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("JSON output by file", func(t *testing.T) {
@@ -214,7 +214,7 @@ func TestDBQuery(t *testing.T) {
 		os.Stdout = w
 
 		err := runDBQuery(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Restore stdout and read output
 		_ = w.Close()
@@ -225,7 +225,7 @@ func TestDBQuery(t *testing.T) {
 		// Parse JSON output
 		var result QueryResult
 		err = json.Unmarshal(output.Bytes(), &result)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, result.Query, ".github/workflows/ci.yml")
 		assert.GreaterOrEqual(t, result.Count, 1)
 	})
@@ -243,7 +243,7 @@ func TestDBQuery(t *testing.T) {
 		os.Stdout = w
 
 		err := runDBQuery(nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Restore stdout and read output
 		_ = w.Close()
@@ -254,7 +254,7 @@ func TestDBQuery(t *testing.T) {
 		// Parse JSON output
 		var result QueryResult
 		err = json.Unmarshal(output.Bytes(), &result)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, result.Query, "mrz1836/target-repo")
 	})
 
@@ -266,7 +266,7 @@ func TestDBQuery(t *testing.T) {
 		dbQueryJSON = false
 
 		err := runDBQuery(nil, nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "must specify one of")
 	})
 
@@ -278,7 +278,7 @@ func TestDBQuery(t *testing.T) {
 		dbQueryJSON = false
 
 		err := runDBQuery(nil, nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "only one query flag")
 	})
 
@@ -291,7 +291,7 @@ func TestDBQuery(t *testing.T) {
 		dbQueryJSON = false
 
 		err := runDBQuery(nil, nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not exist")
 	})
 }

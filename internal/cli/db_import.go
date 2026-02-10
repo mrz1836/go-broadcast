@@ -51,7 +51,7 @@ func init() {
 }
 
 // runDBImport executes the database import command
-func runDBImport(cmd *cobra.Command, args []string) error {
+func runDBImport(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 	if ctx == nil {
 		ctx = context.Background()
@@ -68,7 +68,7 @@ func runDBImport(cmd *cobra.Command, args []string) error {
 
 	// Validate configuration before import
 	output.Info("Validating configuration...")
-	if err := cfg.ValidateWithLogging(ctx, nil); err != nil {
+	if err = cfg.ValidateWithLogging(ctx, nil); err != nil {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
@@ -88,7 +88,7 @@ func runDBImport(cmd *cobra.Command, args []string) error {
 	var existingConfig db.Config
 	result := database.DB().Where("external_id = ?", cfg.ID).First(&existingConfig)
 	if result.Error == nil && !dbImportForce {
-		return fmt.Errorf("config %q already exists (use --force to replace)", cfg.ID)
+		return fmt.Errorf("config %q already exists (use --force to replace)", cfg.ID) //nolint:err113 // user-facing CLI error
 	}
 
 	// Import configuration
@@ -108,7 +108,7 @@ func runDBImport(cmd *cobra.Command, args []string) error {
 	database.DB().Model(&db.DirectoryList{}).Where("config_id = ?", dbConfig.ID).Count(&dirListCount)
 
 	// Report success
-	output.Success(fmt.Sprintf("✓ Import completed successfully"))
+	output.Success("✓ Import completed successfully")
 	output.Info(fmt.Sprintf("  Config:           %s (v%d)", dbConfig.Name, dbConfig.Version))
 	output.Info(fmt.Sprintf("  Groups:           %d", groupCount))
 	output.Info(fmt.Sprintf("  Targets:          %d", targetCount))

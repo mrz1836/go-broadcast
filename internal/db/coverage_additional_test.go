@@ -41,7 +41,7 @@ func TestConverterValidateReferences_AllPaths(t *testing.T) {
 
 		_, err := converter.ImportConfig(ctx, cfg)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, ErrReferenceNotFound)
+		require.ErrorIs(t, err, ErrReferenceNotFound)
 		assert.Contains(t, err.Error(), "directory list")
 	})
 
@@ -68,7 +68,7 @@ func TestConverterValidateReferences_AllPaths(t *testing.T) {
 
 		_, err := converter.ImportConfig(ctx, cfg)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, ErrReferenceNotFound)
+		require.ErrorIs(t, err, ErrReferenceNotFound)
 		assert.Contains(t, err.Error(), "group dependency")
 	})
 }

@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -29,7 +30,7 @@ func (r *targetRepository) Create(ctx context.Context, target *Target) error {
 func (r *targetRepository) GetByID(ctx context.Context, id uint) (*Target, error) {
 	var target Target
 	if err := r.db.WithContext(ctx).First(&target, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("failed to get target by id: %w", err)
@@ -43,7 +44,7 @@ func (r *targetRepository) GetByRepo(ctx context.Context, groupID uint, repo str
 	if err := r.db.WithContext(ctx).
 		Where("group_id = ? AND repo = ?", groupID, repo).
 		First(&target).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("failed to get target by repo: %w", err)

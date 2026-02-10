@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -29,7 +30,7 @@ func (r *groupRepository) Create(ctx context.Context, group *Group) error {
 func (r *groupRepository) GetByID(ctx context.Context, id uint) (*Group, error) {
 	var group Group
 	if err := r.db.WithContext(ctx).First(&group, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("failed to get group by id: %w", err)
@@ -41,7 +42,7 @@ func (r *groupRepository) GetByID(ctx context.Context, id uint) (*Group, error) 
 func (r *groupRepository) GetByExternalID(ctx context.Context, externalID string) (*Group, error) {
 	var group Group
 	if err := r.db.WithContext(ctx).Where("external_id = ?", externalID).First(&group).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("failed to get group by external_id: %w", err)

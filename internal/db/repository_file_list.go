@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -29,7 +30,7 @@ func (r *fileListRepository) Create(ctx context.Context, fileList *FileList) err
 func (r *fileListRepository) GetByID(ctx context.Context, id uint) (*FileList, error) {
 	var fileList FileList
 	if err := r.db.WithContext(ctx).First(&fileList, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("failed to get file list by id: %w", err)
@@ -41,7 +42,7 @@ func (r *fileListRepository) GetByID(ctx context.Context, id uint) (*FileList, e
 func (r *fileListRepository) GetByExternalID(ctx context.Context, externalID string) (*FileList, error) {
 	var fileList FileList
 	if err := r.db.WithContext(ctx).Where("external_id = ?", externalID).First(&fileList).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
 		return nil, fmt.Errorf("failed to get file list by external_id: %w", err)

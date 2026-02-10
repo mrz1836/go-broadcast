@@ -404,7 +404,7 @@ func TestDBImportValidatesConfig(t *testing.T) {
 
 	// Attempt to import (should fail validation)
 	_, err = converter.ImportConfig(ctx, invalidConfig)
-	assert.Error(t, err, "Should reject invalid configuration")
+	require.Error(t, err, "Should reject invalid configuration")
 }
 
 // TestDBExportEmptyDatabase tests exporting from an empty database
@@ -426,7 +426,7 @@ func TestDBExportEmptyDatabase(t *testing.T) {
 
 	// Attempt to export from empty database
 	_, err = converter.ExportConfig(ctx, "nonexistent")
-	assert.Error(t, err, "Should fail to export from empty database")
+	require.Error(t, err, "Should fail to export from empty database")
 }
 
 // TestDBImportReferenceResolution tests that file list and directory list references are correctly resolved
