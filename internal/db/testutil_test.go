@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestTestDBWithSeed tests the TestDBWithSeed helper function (0% -> 100%)
+// TestTestDBWithSeed tests the TestDBWithSeed helper function
 func TestTestDBWithSeed(t *testing.T) {
 	db, seed := TestDBWithSeed(t)
 
