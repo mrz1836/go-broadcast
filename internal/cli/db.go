@@ -40,6 +40,9 @@ func init() {
 	// Add subcommands
 	dbCmd.AddCommand(dbInitCmd)
 	dbCmd.AddCommand(dbStatusCmd)
+	dbCmd.AddCommand(dbImportCmd)
+	dbCmd.AddCommand(dbExportCmd)
+	dbCmd.AddCommand(dbDiffCmd)
 }
 
 // getDBPath returns the database path, using default if not specified
