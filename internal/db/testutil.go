@@ -74,6 +74,9 @@ func TestDB(t testing.TB) *gorm.DB {
 // SeedData holds pre-created test data matching sync.yaml patterns
 type SeedData struct {
 	Config            *Config
+	Clients           []*Client
+	Organizations     []*Organization
+	Repos             []*Repo
 	Groups            []*Group
 	Sources           []*Source
 	GroupGlobals      []*GroupGlobal
@@ -149,6 +152,57 @@ func TestDBWithSeed(t testing.TB) (*gorm.DB, *SeedData) {
 		}
 	}
 
+	// Create Client → Organization → Repo chain
+	client := &Client{
+		Name:        "MrZ",
+		Description: "Test client",
+	}
+	client.Metadata = Metadata{"client": "test"}
+	if err := db.Create(client).Error; err != nil {
+		t.Fatalf("failed to seed client: %v", err)
+	}
+	seed.Clients = []*Client{client}
+
+	org := &Organization{
+		ClientID:    client.ID,
+		Name:        "mrz1836",
+		Description: "MrZ GitHub org",
+	}
+	org.Metadata = Metadata{"org": "test"}
+	if err := db.Create(org).Error; err != nil {
+		t.Fatalf("failed to seed organization: %v", err)
+	}
+	seed.Organizations = []*Organization{org}
+
+	sourceRepo := &Repo{
+		OrganizationID: org.ID,
+		Name:           "go-broadcast",
+		Description:    "Source repo",
+	}
+	sourceRepo.Metadata = Metadata{"repo": "source"}
+	if err := db.Create(sourceRepo).Error; err != nil {
+		t.Fatalf("failed to seed source repo: %v", err)
+	}
+
+	targetRepo1 := &Repo{
+		OrganizationID: org.ID,
+		Name:           "test-repo-1",
+		Description:    "Target repo 1",
+	}
+	if err := db.Create(targetRepo1).Error; err != nil {
+		t.Fatalf("failed to seed target repo 1: %v", err)
+	}
+
+	targetRepo2 := &Repo{
+		OrganizationID: org.ID,
+		Name:           "test-repo-2",
+		Description:    "Target repo 2",
+	}
+	if err := db.Create(targetRepo2).Error; err != nil {
+		t.Fatalf("failed to seed target repo 2: %v", err)
+	}
+	seed.Repos = []*Repo{sourceRepo, targetRepo1, targetRepo2}
+
 	// Create Group
 	enabled := true
 	mrzToolsGroup := &Group{
@@ -171,7 +225,7 @@ func TestDBWithSeed(t testing.TB) (*gorm.DB, *SeedData) {
 	// Create Source for group
 	mainSource := &Source{
 		GroupID:       seed.Groups[0].ID,
-		Repo:          "mrz1836/go-broadcast",
+		RepoID:        sourceRepo.ID,
 		Branch:        "master",
 		BlobSizeLimit: "10m",
 		SecurityEmail: "security@example.com",
@@ -221,7 +275,7 @@ func TestDBWithSeed(t testing.TB) (*gorm.DB, *SeedData) {
 	// Create Targets
 	target1 := &Target{
 		GroupID:         seed.Groups[0].ID,
-		Repo:            "mrz1836/test-repo-1",
+		RepoID:          targetRepo1.ID,
 		Branch:          "main",
 		BlobSizeLimit:   "",
 		SecurityEmail:   "",
@@ -236,7 +290,7 @@ func TestDBWithSeed(t testing.TB) (*gorm.DB, *SeedData) {
 
 	target2 := &Target{
 		GroupID:         seed.Groups[0].ID,
-		Repo:            "mrz1836/test-repo-2",
+		RepoID:          targetRepo2.ID,
 		Branch:          "develop",
 		BlobSizeLimit:   "",
 		SecurityEmail:   "",
