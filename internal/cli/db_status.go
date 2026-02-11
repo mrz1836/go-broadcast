@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -26,12 +28,13 @@ var (
 Shows:
 • Database path and file size
 • Schema version
-• Table counts (configs, groups, targets, file lists, etc.)
+• All table counts (automatically discovered)
 • Last modification time
+• Hierarchy: clients → organizations → repos
 
 Output formats:
-• Human-readable (default)
-• JSON (--json flag)
+• Human-readable (default) - tables grouped logically
+• JSON (--json flag) - all tables with counts
 
 Examples:
   # Show status (human-readable)
@@ -102,7 +105,8 @@ func runDBStatus(_ *cobra.Command, _ []string) error {
 
 	// Get schema version
 	var migration db.SchemaMigration
-	if err := gormDB.Order("applied_at DESC").First(&migration).Error; err != nil {
+	err = gormDB.Order("applied_at DESC").First(&migration).Error
+	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			status.Error = fmt.Sprintf("failed to get schema version: %v", err)
 			return printStatus(status)
@@ -112,27 +116,20 @@ func runDBStatus(_ *cobra.Command, _ []string) error {
 		status.Version = migration.Version
 	}
 
-	// Get table counts
-	tables := map[string]interface{}{
-		"configs":                    &db.Config{},
-		"groups":                     &db.Group{},
-		"sources":                    &db.Source{},
-		"targets":                    &db.Target{},
-		"file_lists":                 &db.FileList{},
-		"directory_lists":            &db.DirectoryList{},
-		"file_mappings":              &db.FileMapping{},
-		"directory_mappings":         &db.DirectoryMapping{},
-		"transforms":                 &db.Transform{},
-		"group_dependencies":         &db.GroupDependency{},
-		"group_globals":              &db.GroupGlobal{},
-		"group_defaults":             &db.GroupDefault{},
-		"target_file_list_refs":      &db.TargetFileListRef{},
-		"target_directory_list_refs": &db.TargetDirectoryListRef{},
+	// Get all tables dynamically using GORM Migrator
+	allTables, err := gormDB.Migrator().GetTables()
+	if err != nil {
+		status.Error = fmt.Sprintf("failed to get tables: %v", err)
+		return printStatus(status)
 	}
 
-	for tableName, model := range tables {
+	// Filter out SQLite internal tables (sqlite_*)
+	userTables := filterUserTables(allTables)
+
+	// Count records for each table
+	for _, tableName := range userTables {
 		var count int64
-		if err := gormDB.Model(model).Count(&count).Error; err != nil {
+		if err := gormDB.Table(tableName).Count(&count).Error; err != nil {
 			output.Warn(fmt.Sprintf("Failed to count %s: %v", tableName, err))
 			continue
 		}
@@ -171,20 +168,86 @@ func printStatus(status DBStatus) error {
 
 	// Print table counts (showing all tables for visibility)
 	output.Info("\nTable Counts:")
-	// Define ordered list of tables for consistent display
-	tableOrder := []string{
-		"configs", "groups", "sources", "targets",
-		"file_lists", "directory_lists",
-		"file_mappings", "directory_mappings",
-		"transforms",
-		"group_dependencies", "group_globals", "group_defaults",
-		"target_file_list_refs", "target_directory_list_refs",
-	}
-	for _, table := range tableOrder {
-		if count, exists := status.TableCounts[table]; exists {
-			output.Info(fmt.Sprintf("  %-30s %d", table+":", count))
-		}
+	// Get tables in logical display order
+	orderedTables := orderTables(status.TableCounts)
+	for _, table := range orderedTables {
+		count := status.TableCounts[table]
+		output.Info(fmt.Sprintf("  %-30s %d", table+":", count))
 	}
 
 	return nil
+}
+
+// filterUserTables removes internal SQLite tables
+func filterUserTables(tables []string) []string {
+	var filtered []string
+	for _, table := range tables {
+		// Skip SQLite internal tables
+		if strings.HasPrefix(table, "sqlite_") {
+			continue
+		}
+		filtered = append(filtered, table)
+	}
+	return filtered
+}
+
+// orderTables returns tables in logical display order, with unknown tables at the end alphabetically
+func orderTables(tableCounts map[string]int64) []string {
+	// Define logical ordering for known tables (hierarchy + grouped by purpose)
+	preferredOrder := []string{
+		// Hierarchy (top-down)
+		"clients",
+		"organizations",
+		"repos",
+
+		// Configuration
+		"configs",
+		"groups",
+		"group_dependencies",
+		"group_globals",
+		"group_defaults",
+
+		// Sources and Targets
+		"sources",
+		"targets",
+
+		// File/Directory Lists
+		"file_lists",
+		"directory_lists",
+
+		// Mappings and Transforms
+		"file_mappings",
+		"directory_mappings",
+		"transforms",
+
+		// Join Tables
+		"target_file_list_refs",
+		"target_directory_list_refs",
+
+		// System
+		"schema_migrations",
+	}
+
+	ordered := make([]string, 0, len(tableCounts))
+	seen := make(map[string]bool)
+
+	// Add tables in preferred order (if they exist)
+	for _, table := range preferredOrder {
+		if _, exists := tableCounts[table]; exists {
+			ordered = append(ordered, table)
+			seen[table] = true
+		}
+	}
+
+	// Add any remaining tables alphabetically (future-proofing)
+	remaining := make([]string, 0)
+	for table := range tableCounts {
+		if !seen[table] {
+			remaining = append(remaining, table)
+		}
+	}
+	sort.Strings(remaining)
+	ordered = append(ordered, remaining...)
+
+	return ordered
 }
