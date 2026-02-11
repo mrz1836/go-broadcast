@@ -154,8 +154,43 @@ func (j *JSONModuleConfig) Scan(value interface{}) error {
 }
 
 // =====================
-// Main Tables (15 models)
+// Main Tables (18 models)
 // =====================
+
+// Client represents a top-level owner (e.g., a person or company)
+type Client struct {
+	BaseModel
+
+	Name          string         `gorm:"type:text;not null;uniqueIndex" json:"name"`
+	Description   string         `gorm:"type:text" json:"description"`
+	Organizations []Organization `gorm:"foreignKey:ClientID" json:"organizations,omitempty"`
+}
+
+// Organization represents a GitHub organization (e.g., "mrz1836", "bsv-blockchain")
+type Organization struct {
+	BaseModel
+
+	ClientID    uint   `gorm:"index;not null" json:"client_id"`
+	Name        string `gorm:"type:text;not null;uniqueIndex" json:"name"`
+	Description string `gorm:"type:text" json:"description"`
+	Client      Client `gorm:"foreignKey:ClientID" json:"client,omitempty"`
+	Repos       []Repo `gorm:"foreignKey:OrganizationID" json:"repos,omitempty"`
+}
+
+// Repo represents a repository within an organization (e.g., "go-broadcast")
+type Repo struct {
+	BaseModel
+
+	OrganizationID uint         `gorm:"not null;uniqueIndex:idx_org_repo;index" json:"organization_id"`
+	Name           string       `gorm:"type:text;not null;uniqueIndex:idx_org_repo" json:"name"`
+	Description    string       `gorm:"type:text" json:"description"`
+	Organization   Organization `gorm:"foreignKey:OrganizationID" json:"organization,omitempty"`
+}
+
+// FullName returns the "org/repo" format name
+func (r *Repo) FullName() string {
+	return r.Organization.Name + "/" + r.Name
+}
 
 // Config represents the root configuration (maps to config.Config)
 type Config struct {
@@ -205,11 +240,12 @@ type Source struct {
 	BaseModel
 
 	GroupID       uint   `gorm:"uniqueIndex;not null" json:"group_id"` // 1:1 relationship
-	Repo          string `gorm:"type:text;not null;index" json:"repo"`
+	RepoID        uint   `gorm:"index;not null" json:"repo_id"`
 	Branch        string `gorm:"type:text;not null" json:"branch"`
 	BlobSizeLimit string `gorm:"type:text" json:"blob_size_limit"`
 	SecurityEmail string `gorm:"type:text" json:"security_email"`
 	SupportEmail  string `gorm:"type:text" json:"support_email"`
+	RepoRef       Repo   `gorm:"foreignKey:RepoID" json:"repo,omitempty"`
 }
 
 // GroupGlobal represents group-level global config (maps to config.GlobalConfig)
@@ -240,7 +276,7 @@ type Target struct {
 	BaseModel
 
 	GroupID         uint            `gorm:"index;not null" json:"group_id"`
-	Repo            string          `gorm:"type:text;not null;index" json:"repo"`
+	RepoID          uint            `gorm:"index;not null" json:"repo_id"`
 	Branch          string          `gorm:"type:text" json:"branch"`
 	BlobSizeLimit   string          `gorm:"type:text" json:"blob_size_limit"`
 	SecurityEmail   string          `gorm:"type:text" json:"security_email"`
@@ -250,6 +286,7 @@ type Target struct {
 	PRReviewers     JSONStringSlice `gorm:"type:text" json:"pr_reviewers"`
 	PRTeamReviewers JSONStringSlice `gorm:"type:text" json:"pr_team_reviewers"`
 	Position        int             `gorm:"default:0" json:"position"`
+	RepoRef         Repo            `gorm:"foreignKey:RepoID" json:"repo,omitempty"`
 
 	// Polymorphic relationships
 	FileMappings      []FileMapping      `gorm:"polymorphic:Owner;polymorphicValue:target" json:"files,omitempty"`

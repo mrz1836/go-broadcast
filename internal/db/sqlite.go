@@ -75,6 +75,9 @@ func OpenSQLite(config SQLiteConfig) (*gorm.DB, error) {
 // AutoMigrate runs auto-migration for all models
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
+		&Client{},
+		&Organization{},
+		&Repo{},
 		&Config{},
 		&Group{},
 		&GroupDependency{},

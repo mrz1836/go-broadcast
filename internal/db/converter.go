@@ -24,6 +24,8 @@ type refMap struct {
 	fileLists      map[string]uint // external_id -> db ID
 	directoryLists map[string]uint // external_id -> db ID
 	groups         map[string]uint // external_id -> db ID
+	repos          map[string]uint // "org/repo" -> Repo.ID
+	organizations  map[string]uint // org name -> Organization.ID
 }
 
 // newRefMap creates an empty reference map
@@ -32,6 +34,8 @@ func newRefMap() *refMap {
 		fileLists:      make(map[string]uint),
 		directoryLists: make(map[string]uint),
 		groups:         make(map[string]uint),
+		repos:          make(map[string]uint),
+		organizations:  make(map[string]uint),
 	}
 }
 

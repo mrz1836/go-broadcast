@@ -369,7 +369,7 @@ func (c *Converter) importGroups(tx *gorm.DB, configID uint, groups []config.Gro
 		refs.groups[group.ID] = dbGroup.ID
 
 		// Import source
-		if err := c.importSource(tx, dbGroup.ID, &group.Source); err != nil {
+		if err := c.importSource(tx, dbGroup.ID, &group.Source, refs); err != nil {
 			return fmt.Errorf("failed to import source for group %q: %w", group.ID, err)
 		}
 
@@ -414,11 +414,70 @@ func (c *Converter) deleteGroupAssociations(tx *gorm.DB, groupID uint) error {
 	return nil
 }
 
+// resolveRepoID resolves a "org/repo" string to a Repo.ID, creating Client/Org/Repo as needed
+func (c *Converter) resolveRepoID(tx *gorm.DB, fullName string, refs *refMap) (uint, error) {
+	// Check cache first
+	if id, ok := refs.repos[fullName]; ok {
+		return id, nil
+	}
+
+	parts := strings.SplitN(fullName, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return 0, fmt.Errorf("%w: expected org/repo, got %q", ErrInvalidRepoFormat, fullName)
+	}
+	orgName := parts[0]
+	repoName := parts[1]
+
+	// Find or create organization
+	var orgID uint
+	if id, ok := refs.organizations[orgName]; ok {
+		orgID = id
+	} else {
+		var org Organization
+		err := tx.Where("name = ?", orgName).First(&org).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Auto-create client with same name as org
+			client := Client{Name: orgName}
+			if cErr := tx.Create(&client).Error; cErr != nil {
+				return 0, fmt.Errorf("failed to create client for org %q: %w", orgName, cErr)
+			}
+			org = Organization{ClientID: client.ID, Name: orgName}
+			if err = tx.Create(&org).Error; err != nil {
+				return 0, fmt.Errorf("failed to create organization %q: %w", orgName, err)
+			}
+		} else if err != nil {
+			return 0, err
+		}
+		orgID = org.ID
+		refs.organizations[orgName] = orgID
+	}
+
+	// Find or create repo
+	var repo Repo
+	err := tx.Where("organization_id = ? AND name = ?", orgID, repoName).First(&repo).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		repo = Repo{OrganizationID: orgID, Name: repoName}
+		if err = tx.Create(&repo).Error; err != nil {
+			return 0, fmt.Errorf("failed to create repo %q: %w", fullName, err)
+		}
+	} else if err != nil {
+		return 0, err
+	}
+
+	refs.repos[fullName] = repo.ID
+	return repo.ID, nil
+}
+
 // importSource creates or updates the source config for a group
-func (c *Converter) importSource(tx *gorm.DB, groupID uint, source *config.SourceConfig) error {
+func (c *Converter) importSource(tx *gorm.DB, groupID uint, source *config.SourceConfig, refs *refMap) error {
+	repoID, err := c.resolveRepoID(tx, source.Repo, refs)
+	if err != nil {
+		return fmt.Errorf("failed to resolve source repo %q: %w", source.Repo, err)
+	}
+
 	dbSource := &Source{
 		GroupID:       groupID,
-		Repo:          source.Repo,
+		RepoID:        repoID,
 		Branch:        source.Branch,
 		BlobSizeLimit: source.BlobSizeLimit,
 		SecurityEmail: source.SecurityEmail,
@@ -499,9 +558,14 @@ func (c *Converter) importGroupDependencies(tx *gorm.DB, groupID uint, dependsOn
 // importTargets creates or updates targets with all associations
 func (c *Converter) importTargets(tx *gorm.DB, groupID uint, targets []config.TargetConfig, refs *refMap) error {
 	for i, target := range targets {
+		repoID, err := c.resolveRepoID(tx, target.Repo, refs)
+		if err != nil {
+			return fmt.Errorf("failed to resolve target repo %q: %w", target.Repo, err)
+		}
+
 		dbTarget := &Target{
 			GroupID:         groupID,
-			Repo:            target.Repo,
+			RepoID:          repoID,
 			Branch:          target.Branch,
 			BlobSizeLimit:   target.BlobSizeLimit,
 			SecurityEmail:   target.SecurityEmail,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -27,6 +28,7 @@ func (r *queryRepository) FindByFile(ctx context.Context, filePath string) ([]*T
 		Distinct("targets.*").
 		Joins("JOIN file_mappings ON file_mappings.owner_id = targets.id AND file_mappings.owner_type = ?", "target").
 		Where("file_mappings.dest = ? OR file_mappings.src = ?", filePath, filePath).
+		Preload("RepoRef.Organization").
 		Preload("FileMappings", func(db *gorm.DB) *gorm.DB {
 			return db.Order("position ASC")
 		}).
@@ -42,6 +44,7 @@ func (r *queryRepository) FindByFile(ctx context.Context, filePath string) ([]*T
 		Joins("JOIN file_lists ON file_lists.id = target_file_list_refs.file_list_id").
 		Joins("JOIN file_mappings ON file_mappings.owner_id = file_lists.id AND file_mappings.owner_type = ?", "file_list").
 		Where("file_mappings.dest = ? OR file_mappings.src = ?", filePath, filePath).
+		Preload("RepoRef.Organization").
 		Preload("FileListRefs.FileList.Files", func(db *gorm.DB) *gorm.DB {
 			return db.Order("position ASC")
 		}).
@@ -68,10 +71,19 @@ func (r *queryRepository) FindByFile(ctx context.Context, filePath string) ([]*T
 	return result, nil
 }
 
-// FindByRepo finds all file/directory mappings for a specific repo
+// FindByRepo finds all file/directory mappings for a specific repo (org/repo format)
 func (r *queryRepository) FindByRepo(ctx context.Context, repo string) (*Target, error) {
+	parts := strings.SplitN(repo, "/", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("%w: expected org/repo, got %q", ErrInvalidRepoFormat, repo)
+	}
+
 	var target Target
 	if err := r.db.WithContext(ctx).
+		Joins("JOIN repos ON repos.id = targets.repo_id AND repos.deleted_at IS NULL").
+		Joins("JOIN organizations ON organizations.id = repos.organization_id AND organizations.deleted_at IS NULL").
+		Where("organizations.name = ? AND repos.name = ?", parts[0], parts[1]).
+		Preload("RepoRef.Organization").
 		Preload("FileMappings", func(db *gorm.DB) *gorm.DB {
 			return db.Order("position ASC")
 		}).
@@ -86,7 +98,6 @@ func (r *queryRepository) FindByRepo(ctx context.Context, repo string) (*Target,
 		Preload("DirectoryListRefs.DirectoryList.Directories", func(db *gorm.DB) *gorm.DB {
 			return db.Order("position ASC")
 		}).
-		Where("repo = ?", repo).
 		First(&target).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
@@ -102,6 +113,7 @@ func (r *queryRepository) FindByFileList(ctx context.Context, fileListID uint) (
 	if err := r.db.WithContext(ctx).
 		Joins("JOIN target_file_list_refs ON target_file_list_refs.target_id = targets.id").
 		Where("target_file_list_refs.file_list_id = ?", fileListID).
+		Preload("RepoRef.Organization").
 		Preload("FileListRefs.FileList").
 		Find(&targets).Error; err != nil {
 		return nil, fmt.Errorf("failed to find targets by file list: %w", err)
@@ -115,6 +127,7 @@ func (r *queryRepository) FindByDirectoryList(ctx context.Context, directoryList
 	if err := r.db.WithContext(ctx).
 		Joins("JOIN target_directory_list_refs ON target_directory_list_refs.target_id = targets.id").
 		Where("target_directory_list_refs.directory_list_id = ?", directoryListID).
+		Preload("RepoRef.Organization").
 		Preload("DirectoryListRefs.DirectoryList").
 		Find(&targets).Error; err != nil {
 		return nil, fmt.Errorf("failed to find targets by directory list: %w", err)

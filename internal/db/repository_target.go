@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -38,16 +39,24 @@ func (r *targetRepository) GetByID(ctx context.Context, id uint) (*Target, error
 	return &target, nil
 }
 
-// GetByRepo retrieves a target by group ID and repo name
-func (r *targetRepository) GetByRepo(ctx context.Context, groupID uint, repo string) (*Target, error) {
+// GetByRepoName retrieves a target by group ID and full repo name (org/repo) using JOINs
+func (r *targetRepository) GetByRepoName(ctx context.Context, groupID uint, repoFullName string) (*Target, error) {
+	parts := strings.SplitN(repoFullName, "/", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("%w: expected org/repo, got %q", ErrInvalidRepoFormat, repoFullName)
+	}
+
 	var target Target
 	if err := r.db.WithContext(ctx).
-		Where("group_id = ? AND repo = ?", groupID, repo).
+		Joins("JOIN repos ON repos.id = targets.repo_id AND repos.deleted_at IS NULL").
+		Joins("JOIN organizations ON organizations.id = repos.organization_id AND organizations.deleted_at IS NULL").
+		Where("targets.group_id = ? AND organizations.name = ? AND repos.name = ?", groupID, parts[0], parts[1]).
+		Preload("RepoRef.Organization").
 		First(&target).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrRecordNotFound
 		}
-		return nil, fmt.Errorf("failed to get target by repo: %w", err)
+		return nil, fmt.Errorf("failed to get target by repo name: %w", err)
 	}
 	return &target, nil
 }
@@ -87,10 +96,11 @@ func (r *targetRepository) List(ctx context.Context, groupID uint) ([]*Target, e
 }
 
 // ListWithAssociations retrieves all targets with full preloading
-// Preloads: FileMappings, DirectoryMappings, Transform, FileListRefs, DirectoryListRefs
+// Preloads: RepoRef.Organization, FileMappings, DirectoryMappings, Transform, FileListRefs, DirectoryListRefs
 func (r *targetRepository) ListWithAssociations(ctx context.Context, groupID uint) ([]*Target, error) {
 	var targets []*Target
 	if err := r.db.WithContext(ctx).
+		Preload("RepoRef.Organization").
 		Preload("FileMappings", func(db *gorm.DB) *gorm.DB {
 			return db.Order("position ASC")
 		}).

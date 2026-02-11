@@ -149,7 +149,7 @@ func (c *Converter) exportGroups(ctx context.Context, configID uint, reverseRefs
 	if err := c.db.WithContext(ctx).
 		Where("config_id = ?", configID).
 		Order("position ASC").
-		Preload("Source").
+		Preload("Source.RepoRef.Organization").
 		Preload("GroupGlobal").
 		Preload("GroupDefault").
 		Preload("Dependencies", func(db *gorm.DB) *gorm.DB {
@@ -158,6 +158,7 @@ func (c *Converter) exportGroups(ctx context.Context, configID uint, reverseRefs
 		Preload("Targets", func(db *gorm.DB) *gorm.DB {
 			return db.Order("position ASC")
 		}).
+		Preload("Targets.RepoRef.Organization").
 		Preload("Targets.FileMappings", func(db *gorm.DB) *gorm.DB {
 			return db.Order("position ASC")
 		}).
@@ -198,7 +199,7 @@ func (c *Converter) exportGroups(ctx context.Context, configID uint, reverseRefs
 // exportSource converts a Source model to config.SourceConfig
 func (c *Converter) exportSource(dbSource Source) config.SourceConfig {
 	return config.SourceConfig{
-		Repo:          dbSource.Repo,
+		Repo:          dbSource.RepoRef.Organization.Name + "/" + dbSource.RepoRef.Name,
 		Branch:        dbSource.Branch,
 		BlobSizeLimit: dbSource.BlobSizeLimit,
 		SecurityEmail: dbSource.SecurityEmail,
@@ -255,7 +256,7 @@ func (c *Converter) exportTargets(dbTargets []Target, reverseRefs *reverseRefMap
 	targets := make([]config.TargetConfig, len(dbTargets))
 	for i, dbTarget := range dbTargets {
 		targets[i] = config.TargetConfig{
-			Repo:              dbTarget.Repo,
+			Repo:              dbTarget.RepoRef.Organization.Name + "/" + dbTarget.RepoRef.Name,
 			Branch:            dbTarget.Branch,
 			BlobSizeLimit:     dbTarget.BlobSizeLimit,
 			SecurityEmail:     dbTarget.SecurityEmail,
@@ -389,7 +390,7 @@ func (c *Converter) ExportGroup(ctx context.Context, configID uint, groupExterna
 	var dbGroup Group
 	if err := c.db.WithContext(ctx).
 		Where("config_id = ? AND external_id = ?", configID, groupExternalID).
-		Preload("Source").
+		Preload("Source.RepoRef.Organization").
 		Preload("GroupGlobal").
 		Preload("GroupDefault").
 		Preload("Dependencies", func(db *gorm.DB) *gorm.DB {
@@ -398,6 +399,7 @@ func (c *Converter) ExportGroup(ctx context.Context, configID uint, groupExterna
 		Preload("Targets", func(db *gorm.DB) *gorm.DB {
 			return db.Order("position ASC")
 		}).
+		Preload("Targets.RepoRef.Organization").
 		Preload("Targets.FileMappings", func(db *gorm.DB) *gorm.DB {
 			return db.Order("position ASC")
 		}).

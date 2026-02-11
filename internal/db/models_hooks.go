@@ -8,10 +8,55 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/validation"
 )
 
+// BeforeCreate validates Client model before database insertion
+func (c *Client) BeforeCreate(_ *gorm.DB) error {
+	if err := validation.ValidateNonEmpty("name", c.Name); err != nil {
+		return fmt.Errorf("%w: %w", ErrValidationFailed, err)
+	}
+	return nil
+}
+
+// BeforeUpdate validates Client model before database update
+func (c *Client) BeforeUpdate(_ *gorm.DB) error {
+	return c.BeforeCreate(nil)
+}
+
+// BeforeCreate validates Organization model before database insertion
+func (o *Organization) BeforeCreate(_ *gorm.DB) error {
+	if o.ClientID == 0 {
+		return fmt.Errorf("%w: client_id is required", ErrValidationFailed)
+	}
+	if err := validation.ValidateNonEmpty("name", o.Name); err != nil {
+		return fmt.Errorf("%w: %w", ErrValidationFailed, err)
+	}
+	return nil
+}
+
+// BeforeUpdate validates Organization model before database update
+func (o *Organization) BeforeUpdate(_ *gorm.DB) error {
+	return o.BeforeCreate(nil)
+}
+
+// BeforeCreate validates Repo model before database insertion
+func (r *Repo) BeforeCreate(_ *gorm.DB) error {
+	if r.OrganizationID == 0 {
+		return fmt.Errorf("%w: organization_id is required", ErrValidationFailed)
+	}
+	if err := validation.ValidateRepoShortName(r.Name); err != nil {
+		return fmt.Errorf("%w: %w", ErrValidationFailed, err)
+	}
+	return nil
+}
+
+// BeforeUpdate validates Repo model before database update
+func (r *Repo) BeforeUpdate(_ *gorm.DB) error {
+	return r.BeforeCreate(nil)
+}
+
 // BeforeCreate validates Source model before database insertion
 func (s *Source) BeforeCreate(_ *gorm.DB) error {
-	if err := validation.ValidateRepoName(s.Repo); err != nil {
-		return fmt.Errorf("%w: %w", ErrValidationFailed, err)
+	if s.RepoID == 0 {
+		return fmt.Errorf("%w: repo_id is required", ErrValidationFailed)
 	}
 	if err := validation.ValidateBranchName(s.Branch); err != nil {
 		return fmt.Errorf("%w: %w", ErrValidationFailed, err)
@@ -32,8 +77,8 @@ func (s *Source) BeforeUpdate(_ *gorm.DB) error {
 
 // BeforeCreate validates Target model before database insertion
 func (t *Target) BeforeCreate(_ *gorm.DB) error {
-	if err := validation.ValidateRepoName(t.Repo); err != nil {
-		return fmt.Errorf("%w: %w", ErrValidationFailed, err)
+	if t.RepoID == 0 {
+		return fmt.Errorf("%w: repo_id is required", ErrValidationFailed)
 	}
 	if t.Branch != "" {
 		if err := validation.ValidateBranchName(t.Branch); err != nil {
