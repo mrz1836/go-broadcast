@@ -13,6 +13,14 @@ func TestQueryRepository_FindByFile_InlineMapping(t *testing.T) {
 	ctx := context.Background()
 	repo := NewQueryRepository(db)
 
+	// Create entity hierarchy: Client -> Organization -> Repo
+	client := &Client{Name: "test"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+	repoRecord := &Repo{OrganizationID: org.ID, Name: "test-repo"}
+	require.NoError(t, db.Create(repoRecord).Error)
+
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test", Version: 1}
 	require.NoError(t, db.Create(config).Error)
@@ -20,7 +28,7 @@ func TestQueryRepository_FindByFile_InlineMapping(t *testing.T) {
 	group := &Group{ConfigID: config.ID, ExternalID: "test-group", Name: "Test Group"}
 	require.NoError(t, db.Create(group).Error)
 
-	target := &Target{GroupID: group.ID, Repo: "mrz1836/test-repo"}
+	target := &Target{GroupID: group.ID, RepoID: repoRecord.ID}
 	require.NoError(t, db.Create(target).Error)
 
 	// Create file mapping
@@ -36,13 +44,21 @@ func TestQueryRepository_FindByFile_InlineMapping(t *testing.T) {
 	targets, err := repo.FindByFile(ctx, ".github/workflows/ci.yml")
 	require.NoError(t, err)
 	require.Len(t, targets, 1)
-	assert.Equal(t, "mrz1836/test-repo", targets[0].Repo)
+	assert.Equal(t, repoRecord.ID, targets[0].RepoID)
 }
 
 func TestQueryRepository_FindByFile_ViaFileList(t *testing.T) {
 	db := TestDB(t)
 	ctx := context.Background()
 	repo := NewQueryRepository(db)
+
+	// Create entity hierarchy: Client -> Organization -> Repo
+	client := &Client{Name: "test"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+	repoRecord := &Repo{OrganizationID: org.ID, Name: "test-repo"}
+	require.NoError(t, db.Create(repoRecord).Error)
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test", Version: 1}
@@ -51,7 +67,7 @@ func TestQueryRepository_FindByFile_ViaFileList(t *testing.T) {
 	group := &Group{ConfigID: config.ID, ExternalID: "test-group", Name: "Test Group"}
 	require.NoError(t, db.Create(group).Error)
 
-	target := &Target{GroupID: group.ID, Repo: "mrz1836/test-repo"}
+	target := &Target{GroupID: group.ID, RepoID: repoRecord.ID}
 	require.NoError(t, db.Create(target).Error)
 
 	// Create file list with mapping
@@ -82,13 +98,23 @@ func TestQueryRepository_FindByFile_ViaFileList(t *testing.T) {
 	targets, err := repo.FindByFile(ctx, "README.md")
 	require.NoError(t, err)
 	require.Len(t, targets, 1)
-	assert.Equal(t, "mrz1836/test-repo", targets[0].Repo)
+	assert.Equal(t, repoRecord.ID, targets[0].RepoID)
 }
 
 func TestQueryRepository_FindByFile_MultipleTargets(t *testing.T) {
 	db := TestDB(t)
 	ctx := context.Background()
 	repo := NewQueryRepository(db)
+
+	// Create entity hierarchy: Client -> Organization -> Repos
+	client := &Client{Name: "test"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+	repoRecord1 := &Repo{OrganizationID: org.ID, Name: "repo1"}
+	require.NoError(t, db.Create(repoRecord1).Error)
+	repoRecord2 := &Repo{OrganizationID: org.ID, Name: "repo2"}
+	require.NoError(t, db.Create(repoRecord2).Error)
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test", Version: 1}
@@ -98,10 +124,10 @@ func TestQueryRepository_FindByFile_MultipleTargets(t *testing.T) {
 	require.NoError(t, db.Create(group).Error)
 
 	// Create two targets with the same file
-	target1 := &Target{GroupID: group.ID, Repo: "mrz1836/repo1"}
+	target1 := &Target{GroupID: group.ID, RepoID: repoRecord1.ID}
 	require.NoError(t, db.Create(target1).Error)
 
-	target2 := &Target{GroupID: group.ID, Repo: "mrz1836/repo2"}
+	target2 := &Target{GroupID: group.ID, RepoID: repoRecord2.ID}
 	require.NoError(t, db.Create(target2).Error)
 
 	// Create file mappings for both
@@ -126,15 +152,23 @@ func TestQueryRepository_FindByFile_MultipleTargets(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, targets, 2)
 
-	repos := []string{targets[0].Repo, targets[1].Repo}
-	assert.Contains(t, repos, "mrz1836/repo1")
-	assert.Contains(t, repos, "mrz1836/repo2")
+	repoIDs := []uint{targets[0].RepoID, targets[1].RepoID}
+	assert.Contains(t, repoIDs, repoRecord1.ID)
+	assert.Contains(t, repoIDs, repoRecord2.ID)
 }
 
 func TestQueryRepository_FindByFile_BySrc(t *testing.T) {
 	db := TestDB(t)
 	ctx := context.Background()
 	repo := NewQueryRepository(db)
+
+	// Create entity hierarchy: Client -> Organization -> Repo
+	client := &Client{Name: "test"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+	repoRecord := &Repo{OrganizationID: org.ID, Name: "test-repo"}
+	require.NoError(t, db.Create(repoRecord).Error)
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test", Version: 1}
@@ -143,7 +177,7 @@ func TestQueryRepository_FindByFile_BySrc(t *testing.T) {
 	group := &Group{ConfigID: config.ID, ExternalID: "test-group", Name: "Test Group"}
 	require.NoError(t, db.Create(group).Error)
 
-	target := &Target{GroupID: group.ID, Repo: "mrz1836/test-repo"}
+	target := &Target{GroupID: group.ID, RepoID: repoRecord.ID}
 	require.NoError(t, db.Create(target).Error)
 
 	// Create file mapping with different src and dest
@@ -159,19 +193,27 @@ func TestQueryRepository_FindByFile_BySrc(t *testing.T) {
 	targets, err := repo.FindByFile(ctx, "source/config.yml")
 	require.NoError(t, err)
 	require.Len(t, targets, 1)
-	assert.Equal(t, "mrz1836/test-repo", targets[0].Repo)
+	assert.Equal(t, repoRecord.ID, targets[0].RepoID)
 
 	// Query by dest
 	targets2, err := repo.FindByFile(ctx, "config/app.yml")
 	require.NoError(t, err)
 	require.Len(t, targets2, 1)
-	assert.Equal(t, "mrz1836/test-repo", targets2[0].Repo)
+	assert.Equal(t, repoRecord.ID, targets2[0].RepoID)
 }
 
 func TestQueryRepository_FindByRepo(t *testing.T) {
 	db := TestDB(t)
 	ctx := context.Background()
 	repo := NewQueryRepository(db)
+
+	// Create entity hierarchy: Client -> Organization -> Repo
+	client := &Client{Name: "test"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+	repoRecord := &Repo{OrganizationID: org.ID, Name: "test-repo"}
+	require.NoError(t, db.Create(repoRecord).Error)
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test", Version: 1}
@@ -180,7 +222,7 @@ func TestQueryRepository_FindByRepo(t *testing.T) {
 	group := &Group{ConfigID: config.ID, ExternalID: "test-group", Name: "Test Group"}
 	require.NoError(t, db.Create(group).Error)
 
-	target := &Target{GroupID: group.ID, Repo: "mrz1836/test-repo"}
+	target := &Target{GroupID: group.ID, RepoID: repoRecord.ID}
 	require.NoError(t, db.Create(target).Error)
 
 	// Create file mapping
@@ -227,6 +269,16 @@ func TestQueryRepository_FindByFileList(t *testing.T) {
 	ctx := context.Background()
 	repo := NewQueryRepository(db)
 
+	// Create entity hierarchy: Client -> Organization -> Repos
+	client := &Client{Name: "test"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+	repoRecord1 := &Repo{OrganizationID: org.ID, Name: "repo1"}
+	require.NoError(t, db.Create(repoRecord1).Error)
+	repoRecord2 := &Repo{OrganizationID: org.ID, Name: "repo2"}
+	require.NoError(t, db.Create(repoRecord2).Error)
+
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test", Version: 1}
 	require.NoError(t, db.Create(config).Error)
@@ -241,10 +293,10 @@ func TestQueryRepository_FindByFileList(t *testing.T) {
 	}
 	require.NoError(t, db.Create(fileList).Error)
 
-	target1 := &Target{GroupID: group.ID, Repo: "mrz1836/repo1"}
+	target1 := &Target{GroupID: group.ID, RepoID: repoRecord1.ID}
 	require.NoError(t, db.Create(target1).Error)
 
-	target2 := &Target{GroupID: group.ID, Repo: "mrz1836/repo2"}
+	target2 := &Target{GroupID: group.ID, RepoID: repoRecord2.ID}
 	require.NoError(t, db.Create(target2).Error)
 
 	// Create references
@@ -259,15 +311,23 @@ func TestQueryRepository_FindByFileList(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, targets, 2)
 
-	repos := []string{targets[0].Repo, targets[1].Repo}
-	assert.Contains(t, repos, "mrz1836/repo1")
-	assert.Contains(t, repos, "mrz1836/repo2")
+	repoIDs := []uint{targets[0].RepoID, targets[1].RepoID}
+	assert.Contains(t, repoIDs, repoRecord1.ID)
+	assert.Contains(t, repoIDs, repoRecord2.ID)
 }
 
 func TestQueryRepository_FindByDirectoryList(t *testing.T) {
 	db := TestDB(t)
 	ctx := context.Background()
 	repo := NewQueryRepository(db)
+
+	// Create entity hierarchy: Client -> Organization -> Repo
+	client := &Client{Name: "test"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+	repoRecord := &Repo{OrganizationID: org.ID, Name: "test-repo"}
+	require.NoError(t, db.Create(repoRecord).Error)
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test", Version: 1}
@@ -283,7 +343,7 @@ func TestQueryRepository_FindByDirectoryList(t *testing.T) {
 	}
 	require.NoError(t, db.Create(dirList).Error)
 
-	target := &Target{GroupID: group.ID, Repo: "mrz1836/test-repo"}
+	target := &Target{GroupID: group.ID, RepoID: repoRecord.ID}
 	require.NoError(t, db.Create(target).Error)
 
 	// Create reference
@@ -294,13 +354,21 @@ func TestQueryRepository_FindByDirectoryList(t *testing.T) {
 	targets, err := repo.FindByDirectoryList(ctx, dirList.ID)
 	require.NoError(t, err)
 	require.Len(t, targets, 1)
-	assert.Equal(t, "mrz1836/test-repo", targets[0].Repo)
+	assert.Equal(t, repoRecord.ID, targets[0].RepoID)
 }
 
 func TestQueryRepository_FindByPattern(t *testing.T) {
 	db := TestDB(t)
 	ctx := context.Background()
 	repo := NewQueryRepository(db)
+
+	// Create entity hierarchy: Client -> Organization -> Repo
+	client := &Client{Name: "test"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+	repoRecord := &Repo{OrganizationID: org.ID, Name: "test-repo"}
+	require.NoError(t, db.Create(repoRecord).Error)
 
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test", Version: 1}
@@ -309,7 +377,7 @@ func TestQueryRepository_FindByPattern(t *testing.T) {
 	group := &Group{ConfigID: config.ID, ExternalID: "test-group", Name: "Test Group"}
 	require.NoError(t, db.Create(group).Error)
 
-	target := &Target{GroupID: group.ID, Repo: "mrz1836/test-repo"}
+	target := &Target{GroupID: group.ID, RepoID: repoRecord.ID}
 	require.NoError(t, db.Create(target).Error)
 
 	// Create multiple file mappings
@@ -355,6 +423,14 @@ func TestQueryRepository_FindByPattern_MatchesSrc(t *testing.T) {
 	ctx := context.Background()
 	repo := NewQueryRepository(db)
 
+	// Create entity hierarchy: Client -> Organization -> Repo
+	client := &Client{Name: "test"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+	repoRecord := &Repo{OrganizationID: org.ID, Name: "test-repo"}
+	require.NoError(t, db.Create(repoRecord).Error)
+
 	// Create test data
 	config := &Config{ExternalID: "test-config", Name: "Test", Version: 1}
 	require.NoError(t, db.Create(config).Error)
@@ -362,7 +438,7 @@ func TestQueryRepository_FindByPattern_MatchesSrc(t *testing.T) {
 	group := &Group{ConfigID: config.ID, ExternalID: "test-group", Name: "Test Group"}
 	require.NoError(t, db.Create(group).Error)
 
-	target := &Target{GroupID: group.ID, Repo: "mrz1836/test-repo"}
+	target := &Target{GroupID: group.ID, RepoID: repoRecord.ID}
 	require.NoError(t, db.Create(target).Error)
 
 	// Create file mapping with src

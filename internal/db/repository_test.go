@@ -156,13 +156,23 @@ func (s *RepositoryTestSuite) TestGroupRepository() {
 func (s *RepositoryTestSuite) TestGroupRepositoryWithAssociations() {
 	repo := NewGroupRepository(s.db)
 
+	// Create Client -> Organization -> Repo chain
+	client := &Client{Name: "test"}
+	s.Require().NoError(s.db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	s.Require().NoError(s.db.Create(org).Error)
+	sourceRepo := &Repo{OrganizationID: org.ID, Name: "test"}
+	s.Require().NoError(s.db.Create(sourceRepo).Error)
+	targetRepo := &Repo{OrganizationID: org.ID, Name: "target"}
+	s.Require().NoError(s.db.Create(targetRepo).Error)
+
 	// Create a group with all associations
 	group := &Group{
 		ConfigID:   s.config.ID,
 		ExternalID: "test-group-assoc",
 		Name:       "Test Group With Associations",
 		Source: Source{
-			Repo:   "mrz1836/test",
+			RepoID: sourceRepo.ID,
 			Branch: "main",
 		},
 		GroupGlobal: GroupGlobal{
@@ -181,7 +191,7 @@ func (s *RepositoryTestSuite) TestGroupRepositoryWithAssociations() {
 	// Create a target for the group
 	target := &Target{
 		GroupID: group.ID,
-		Repo:    "mrz1836/target",
+		RepoID:  targetRepo.ID,
 		Branch:  "main",
 	}
 	err = s.db.Create(target).Error
@@ -193,7 +203,7 @@ func (s *RepositoryTestSuite) TestGroupRepositoryWithAssociations() {
 	s.Require().Len(groups, 1)
 
 	g := groups[0]
-	s.Equal("mrz1836/test", g.Source.Repo)
+	s.Equal(sourceRepo.ID, g.Source.RepoID)
 	s.Equal("main", g.Source.Branch)
 	s.Len(g.GroupGlobal.PRLabels, 1)
 	s.Equal("sync", g.GroupGlobal.PRLabels[0])
@@ -201,12 +211,20 @@ func (s *RepositoryTestSuite) TestGroupRepositoryWithAssociations() {
 	s.Len(g.Dependencies, 1)
 	s.Equal("other-group", g.Dependencies[0].DependsOnID)
 	s.Len(g.Targets, 1)
-	s.Equal("mrz1836/target", g.Targets[0].Repo)
+	s.Equal(targetRepo.ID, g.Targets[0].RepoID)
 }
 
 // TestTargetRepository tests TargetRepository operations
 func (s *RepositoryTestSuite) TestTargetRepository() {
 	repo := NewTargetRepository(s.db)
+
+	// Create Client -> Organization -> Repo chain
+	client := &Client{Name: "test-targets"}
+	s.Require().NoError(s.db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836-targets"}
+	s.Require().NoError(s.db.Create(org).Error)
+	testRepo := &Repo{OrganizationID: org.ID, Name: "test-target"}
+	s.Require().NoError(s.db.Create(testRepo).Error)
 
 	// Create a group first
 	group := &Group{
@@ -223,7 +241,7 @@ func (s *RepositoryTestSuite) TestTargetRepository() {
 			Metadata: Metadata{"type": "library"},
 		},
 		GroupID:  group.ID,
-		Repo:     "mrz1836/test-target",
+		RepoID:   testRepo.ID,
 		Branch:   "main",
 		Position: 0,
 	}
@@ -234,11 +252,11 @@ func (s *RepositoryTestSuite) TestTargetRepository() {
 	// Test GetByID
 	fetched, err := repo.GetByID(s.ctx, target.ID)
 	s.Require().NoError(err)
-	s.Equal(target.Repo, fetched.Repo)
+	s.Equal(target.RepoID, fetched.RepoID)
 	s.Equal("library", fetched.Metadata["type"])
 
-	// Test GetByRepo
-	fetched2, err := repo.GetByRepo(s.ctx, group.ID, "mrz1836/test-target")
+	// Test GetByRepoName
+	fetched2, err := repo.GetByRepoName(s.ctx, group.ID, "mrz1836-targets/test-target")
 	s.Require().NoError(err)
 	s.Equal(target.ID, fetched2.ID)
 
@@ -269,6 +287,14 @@ func (s *RepositoryTestSuite) TestTargetRepository() {
 func (s *RepositoryTestSuite) TestTargetRefManagement() {
 	repo := NewTargetRepository(s.db)
 
+	// Create Client -> Organization -> Repo chain
+	client := &Client{Name: "test-refs"}
+	s.Require().NoError(s.db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836-refs"}
+	s.Require().NoError(s.db.Create(org).Error)
+	testRepo := &Repo{OrganizationID: org.ID, Name: "test-refs"}
+	s.Require().NoError(s.db.Create(testRepo).Error)
+
 	// Create test data
 	group := &Group{
 		ConfigID:   s.config.ID,
@@ -280,7 +306,7 @@ func (s *RepositoryTestSuite) TestTargetRefManagement() {
 
 	target := &Target{
 		GroupID: group.ID,
-		Repo:    "mrz1836/test-refs",
+		RepoID:  testRepo.ID,
 	}
 	err = repo.Create(s.ctx, target)
 	s.Require().NoError(err)

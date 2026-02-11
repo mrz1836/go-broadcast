@@ -35,7 +35,7 @@ func TestTestDBWithSeed(t *testing.T) {
 
 	// Verify sources were created
 	require.Len(t, seed.Sources, 1)
-	assert.Equal(t, "mrz1836/go-broadcast", seed.Sources[0].Repo)
+	assert.Equal(t, seed.Repos[0].ID, seed.Sources[0].RepoID)
 	assert.Equal(t, "master", seed.Sources[0].Branch)
 
 	// Verify group globals were created
@@ -48,8 +48,8 @@ func TestTestDBWithSeed(t *testing.T) {
 
 	// Verify targets were created
 	require.Len(t, seed.Targets, 2)
-	assert.Equal(t, "mrz1836/test-repo-1", seed.Targets[0].Repo)
-	assert.Equal(t, "mrz1836/test-repo-2", seed.Targets[1].Repo)
+	assert.Equal(t, seed.Repos[1].ID, seed.Targets[0].RepoID)
+	assert.Equal(t, seed.Repos[2].ID, seed.Targets[1].RepoID)
 
 	// Verify file mappings were created
 	require.Len(t, seed.FileMappings, 2)
@@ -99,7 +99,7 @@ func TestQueryRepository_WithSeed(t *testing.T) {
 		result, err := repo.FindByRepo(ctx, "mrz1836/test-repo-1")
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		assert.Equal(t, "mrz1836/test-repo-1", result.Repo)
+		assert.Equal(t, seed.Repos[1].ID, result.RepoID)
 	})
 
 	t.Run("FindByPattern matches repos", func(t *testing.T) {
@@ -190,10 +190,10 @@ func TestTargetRepository_WithSeed(t *testing.T) {
 		assert.Len(t, target1.DirectoryListRefs, 1)
 	})
 
-	t.Run("GetByRepo finds target by repo name", func(t *testing.T) {
-		target, err := repo.GetByRepo(ctx, seed.Groups[0].ID, "mrz1836/test-repo-1")
+	t.Run("GetByRepoName finds target by repo name", func(t *testing.T) {
+		target, err := repo.GetByRepoName(ctx, seed.Groups[0].ID, "mrz1836/test-repo-1")
 		require.NoError(t, err)
-		assert.Equal(t, "mrz1836/test-repo-1", target.Repo)
+		assert.Equal(t, seed.Repos[1].ID, target.RepoID)
 	})
 }
 
@@ -210,7 +210,7 @@ func TestGroupRepository_WithSeed(t *testing.T) {
 
 		group := groups[0]
 		assert.Equal(t, "mrz-tools", group.ExternalID)
-		assert.NotEmpty(t, group.Source.Repo)
+		assert.NotZero(t, group.Source.RepoID)
 		assert.NotEmpty(t, group.GroupGlobal.PRLabels)
 		assert.NotEmpty(t, group.GroupDefault.BranchPrefix)
 		assert.Len(t, group.Targets, 2)

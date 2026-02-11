@@ -261,6 +261,14 @@ func TestSource_ValidationHooks(t *testing.T) {
 	group := &Group{ConfigID: config.ID, ExternalID: "test-group", Name: "Test Group"}
 	require.NoError(t, db.Create(group).Error)
 
+	// Create Client -> Organization -> Repo chain
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "testorg"}
+	require.NoError(t, db.Create(org).Error)
+	repo := &Repo{OrganizationID: org.ID, Name: "testrepo"}
+	require.NoError(t, db.Create(repo).Error)
+
 	tests := []struct {
 		name      string
 		source    Source
@@ -271,51 +279,31 @@ func TestSource_ValidationHooks(t *testing.T) {
 			name: "valid source",
 			source: Source{
 				GroupID: group.ID,
-				Repo:    "mrz1836/test-repo",
+				RepoID:  repo.ID,
 				Branch:  "main",
 			},
 			expectErr: false,
 		},
 		{
-			name: "invalid repo format",
+			name: "missing repo_id",
 			source: Source{
 				GroupID: group.ID,
-				Repo:    "invalid",
+				RepoID:  0,
 				Branch:  "main",
 			},
 			expectErr: true,
-			errString: "invalid format",
-		},
-		{
-			name: "empty repo",
-			source: Source{
-				GroupID: group.ID,
-				Repo:    "",
-				Branch:  "main",
-			},
-			expectErr: true,
-			errString: "cannot be empty",
+			errString: "repo_id is required",
 		},
 		{
 			name: "invalid email",
 			source: Source{
 				GroupID:       group.ID,
-				Repo:          "mrz1836/test",
+				RepoID:        repo.ID,
 				Branch:        "main",
 				SecurityEmail: "not-an-email",
 			},
 			expectErr: true,
 			errString: "invalid field",
-		},
-		{
-			name: "path traversal in repo",
-			source: Source{
-				GroupID: group.ID,
-				Repo:    "org/../etc/passwd",
-				Branch:  "main",
-			},
-			expectErr: true,
-			errString: "invalid format",
 		},
 	}
 
@@ -328,6 +316,7 @@ func TestSource_ValidationHooks(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.errString)
 			} else {
 				require.NoError(t, err)
+				assert.Equal(t, repo.ID, tt.source.RepoID)
 			}
 		})
 	}
@@ -344,6 +333,14 @@ func TestTarget_ValidationHooks(t *testing.T) {
 	group := &Group{ConfigID: config.ID, ExternalID: "test-group", Name: "Test Group"}
 	require.NoError(t, db.Create(group).Error)
 
+	// Create Client -> Organization -> Repo chain
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "testorg"}
+	require.NoError(t, db.Create(org).Error)
+	repo := &Repo{OrganizationID: org.ID, Name: "target-repo"}
+	require.NoError(t, db.Create(repo).Error)
+
 	tests := []struct {
 		name      string
 		target    Target
@@ -354,24 +351,24 @@ func TestTarget_ValidationHooks(t *testing.T) {
 			name: "valid target",
 			target: Target{
 				GroupID: group.ID,
-				Repo:    "mrz1836/target-repo",
+				RepoID:  repo.ID,
 			},
 			expectErr: false,
 		},
 		{
-			name: "invalid repo",
+			name: "missing repo_id",
 			target: Target{
 				GroupID: group.ID,
-				Repo:    "invalid-repo",
+				RepoID:  0,
 			},
 			expectErr: true,
-			errString: "invalid format",
+			errString: "repo_id is required",
 		},
 		{
 			name: "invalid email",
 			target: Target{
 				GroupID:      group.ID,
-				Repo:         "mrz1836/test",
+				RepoID:       repo.ID,
 				SupportEmail: "bad@email@com",
 			},
 			expectErr: true,
@@ -388,6 +385,7 @@ func TestTarget_ValidationHooks(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.errString)
 			} else {
 				require.NoError(t, err)
+				assert.Equal(t, repo.ID, tt.target.RepoID)
 			}
 		})
 	}

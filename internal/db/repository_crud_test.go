@@ -39,7 +39,7 @@ func TestRepositoryGetByExternalID_NotFound(t *testing.T) {
 
 	t.Run("Target not found by repo", func(t *testing.T) {
 		repo := NewTargetRepository(db)
-		_, err := repo.GetByRepo(ctx, 1, "mrz1836/non-existent")
+		_, err := repo.GetByRepoName(ctx, 1, "mrz1836/non-existent")
 		assert.ErrorIs(t, err, ErrRecordNotFound)
 	})
 }
@@ -120,6 +120,13 @@ func TestRepositoryDelete_HardDelete(t *testing.T) {
 	})
 
 	t.Run("Target hard delete", func(t *testing.T) {
+		client := &Client{Name: "test-delete"}
+		require.NoError(t, db.Create(client).Error)
+		org := &Organization{ClientID: client.ID, Name: "mrz1836-delete"}
+		require.NoError(t, db.Create(org).Error)
+		testRepo := &Repo{OrganizationID: org.ID, Name: "test-delete"}
+		require.NoError(t, db.Create(testRepo).Error)
+
 		group := &Group{
 			ConfigID:   config.ID,
 			ExternalID: "test-group-delete",
@@ -130,7 +137,7 @@ func TestRepositoryDelete_HardDelete(t *testing.T) {
 
 		target := &Target{
 			GroupID: group.ID,
-			Repo:    "mrz1836/test-delete",
+			RepoID:  testRepo.ID,
 		}
 		err = db.Create(target).Error
 		require.NoError(t, err)
@@ -212,10 +219,18 @@ func TestRepositoryListWithAssociations(t *testing.T) {
 	err = db.Create(group).Error
 	require.NoError(t, err)
 
+	// Create Client -> Organization -> Repo chain
+	client := &Client{Name: "test-assoc"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836-assoc"}
+	require.NoError(t, db.Create(org).Error)
+	testRepo := &Repo{OrganizationID: org.ID, Name: "test"}
+	require.NoError(t, db.Create(testRepo).Error)
+
 	// Create target with associations
 	target := &Target{
 		GroupID: group.ID,
-		Repo:    "mrz1836/test",
+		RepoID:  testRepo.ID,
 		Branch:  "main",
 		Transform: Transform{
 			RepoName: true,
@@ -286,6 +301,13 @@ func TestTargetRepositoryReferences(t *testing.T) {
 	err = db.Create(dirList).Error
 	require.NoError(t, err)
 
+	client := &Client{Name: "test-refs"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836-refs"}
+	require.NoError(t, db.Create(org).Error)
+	testRepo := &Repo{OrganizationID: org.ID, Name: "test"}
+	require.NoError(t, db.Create(testRepo).Error)
+
 	group := &Group{
 		ConfigID:   config.ID,
 		ExternalID: "test-group",
@@ -296,7 +318,7 @@ func TestTargetRepositoryReferences(t *testing.T) {
 
 	target := &Target{
 		GroupID: group.ID,
-		Repo:    "mrz1836/test",
+		RepoID:  testRepo.ID,
 	}
 	err = db.Create(target).Error
 	require.NoError(t, err)
@@ -564,6 +586,13 @@ func TestRepositoryUpdate_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("Update Target metadata", func(t *testing.T) {
+		client := &Client{Name: "test-update-meta"}
+		require.NoError(t, db.Create(client).Error)
+		org := &Organization{ClientID: client.ID, Name: "mrz1836-update"}
+		require.NoError(t, db.Create(org).Error)
+		testRepo := &Repo{OrganizationID: org.ID, Name: "test"}
+		require.NoError(t, db.Create(testRepo).Error)
+
 		group := &Group{
 			ConfigID:   config.ID,
 			ExternalID: "update-group",
@@ -577,7 +606,7 @@ func TestRepositoryUpdate_EdgeCases(t *testing.T) {
 				Metadata: Metadata{"key": "value"},
 			},
 			GroupID: group.ID,
-			Repo:    "mrz1836/test",
+			RepoID:  testRepo.ID,
 		}
 		err = db.Create(target).Error
 		require.NoError(t, err)
@@ -609,6 +638,13 @@ func TestQueryRepository_EdgeCases(t *testing.T) {
 	err := db.Create(config).Error
 	require.NoError(t, err)
 
+	client := &Client{Name: "test-query"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836-query"}
+	require.NoError(t, db.Create(org).Error)
+	testRepo := &Repo{OrganizationID: org.ID, Name: "query-test"}
+	require.NoError(t, db.Create(testRepo).Error)
+
 	group := &Group{
 		ConfigID:   config.ID,
 		ExternalID: "query-test-group",
@@ -619,14 +655,14 @@ func TestQueryRepository_EdgeCases(t *testing.T) {
 
 	target := &Target{
 		GroupID: group.ID,
-		Repo:    "mrz1836/query-test",
+		RepoID:  testRepo.ID,
 	}
 	err = db.Create(target).Error
 	require.NoError(t, err)
 
 	t.Run("FindByRepo with existing repo", func(t *testing.T) {
 		repo := NewQueryRepository(db)
-		results, err := repo.FindByRepo(ctx, "mrz1836/query-test")
+		results, err := repo.FindByRepo(ctx, "mrz1836-query/query-test")
 		require.NoError(t, err)
 		assert.NotEmpty(t, results)
 	})

@@ -28,11 +28,19 @@ func TestConcurrentReads(t *testing.T) {
 	}
 	require.NoError(t, db.Create(group).Error)
 
+	// Create entity hierarchy for repos
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+
 	// Create multiple targets
 	for i := 0; i < 10; i++ {
+		testRepo := &Repo{OrganizationID: org.ID, Name: fmt.Sprintf("repo%d", i)}
+		require.NoError(t, db.Create(testRepo).Error)
 		target := &Target{
 			GroupID:  group.ID,
-			Repo:     fmt.Sprintf("mrz1836/repo%d", i),
+			RepoID:   testRepo.ID,
 			Position: i,
 		}
 		require.NoError(t, db.Create(target).Error)
@@ -132,6 +140,19 @@ func TestConcurrentWrites_DifferentTargets(t *testing.T) {
 	}
 	require.NoError(t, db.Create(group).Error)
 
+	// Create entity hierarchy for repos
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+
+	// Pre-create repos for all 50 targets
+	repos := make([]*Repo, 50)
+	for i := 0; i < 50; i++ {
+		repos[i] = &Repo{OrganizationID: org.ID, Name: fmt.Sprintf("repo-%d", i)}
+		require.NoError(t, db.Create(repos[i]).Error)
+	}
+
 	repo := NewTargetRepository(db)
 
 	// Create 50 targets concurrently
@@ -144,7 +165,7 @@ func TestConcurrentWrites_DifferentTargets(t *testing.T) {
 			defer wg.Done()
 			target := &Target{
 				GroupID:  group.ID,
-				Repo:     fmt.Sprintf("mrz1836/repo-%d", idx),
+				RepoID:   repos[idx].ID,
 				Position: idx,
 			}
 			err := repo.Create(ctx, target)
@@ -184,11 +205,29 @@ func TestConcurrentReadWrite(t *testing.T) {
 	}
 	require.NoError(t, db.Create(group).Error)
 
+	// Create entity hierarchy for repos
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+
+	// Pre-create repos for initial + concurrent targets (5 + 10 = 15)
+	initialRepos := make([]*Repo, 5)
+	for i := 0; i < 5; i++ {
+		initialRepos[i] = &Repo{OrganizationID: org.ID, Name: fmt.Sprintf("initial-%d", i)}
+		require.NoError(t, db.Create(initialRepos[i]).Error)
+	}
+	concurrentRepos := make([]*Repo, 10)
+	for i := 0; i < 10; i++ {
+		concurrentRepos[i] = &Repo{OrganizationID: org.ID, Name: fmt.Sprintf("concurrent-%d", i)}
+		require.NoError(t, db.Create(concurrentRepos[i]).Error)
+	}
+
 	// Create initial targets
 	for i := 0; i < 5; i++ {
 		target := &Target{
 			GroupID:  group.ID,
-			Repo:     fmt.Sprintf("mrz1836/initial-%d", i),
+			RepoID:   initialRepos[i].ID,
 			Position: i,
 		}
 		require.NoError(t, db.Create(target).Error)
@@ -218,7 +257,7 @@ func TestConcurrentReadWrite(t *testing.T) {
 			defer wg.Done()
 			target := &Target{
 				GroupID:  group.ID,
-				Repo:     fmt.Sprintf("mrz1836/concurrent-%d", idx),
+				RepoID:   concurrentRepos[idx].ID,
 				Position: 100 + idx,
 			}
 			err := repo.Create(ctx, target)
@@ -317,9 +356,17 @@ func TestConcurrentRefManagement(t *testing.T) {
 	}
 	require.NoError(t, db.Create(group).Error)
 
+	// Create entity hierarchy for repo
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+	testRepo := &Repo{OrganizationID: org.ID, Name: "test-repo"}
+	require.NoError(t, db.Create(testRepo).Error)
+
 	target := &Target{
 		GroupID: group.ID,
-		Repo:    "mrz1836/test-repo",
+		RepoID:  testRepo.ID,
 	}
 	require.NoError(t, db.Create(target).Error)
 
@@ -384,11 +431,19 @@ func TestConcurrentQuery(t *testing.T) {
 	}
 	require.NoError(t, db.Create(group).Error)
 
+	// Create entity hierarchy for repos
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+
 	// Create targets with file mappings
 	for i := 0; i < 5; i++ {
+		queryRepo := &Repo{OrganizationID: org.ID, Name: fmt.Sprintf("repo-%d", i)}
+		require.NoError(t, db.Create(queryRepo).Error)
 		target := &Target{
 			GroupID:  group.ID,
-			Repo:     fmt.Sprintf("mrz1836/repo-%d", i),
+			RepoID:   queryRepo.ID,
 			Position: i,
 		}
 		require.NoError(t, db.Create(target).Error)
@@ -448,6 +503,22 @@ func TestConcurrentTransactions(t *testing.T) {
 	config := &Config{ExternalID: "test-config", Name: "Test Config", Version: 1}
 	require.NoError(t, db.Create(config).Error)
 
+	// Create entity hierarchy for repos
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+	org := &Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, db.Create(org).Error)
+
+	// Pre-create repos for sources and targets (10 each)
+	sourceRepos := make([]*Repo, 10)
+	targetRepos := make([]*Repo, 10)
+	for i := 0; i < 10; i++ {
+		sourceRepos[i] = &Repo{OrganizationID: org.ID, Name: fmt.Sprintf("source-%d", i)}
+		require.NoError(t, db.Create(sourceRepos[i]).Error)
+		targetRepos[i] = &Repo{OrganizationID: org.ID, Name: fmt.Sprintf("target-%d", i)}
+		require.NoError(t, db.Create(targetRepos[i]).Error)
+	}
+
 	// Run 10 concurrent transactions, each creating a group with associated data
 	var wg sync.WaitGroup
 	errChan := make(chan error, 10)
@@ -464,7 +535,7 @@ func TestConcurrentTransactions(t *testing.T) {
 					ExternalID: fmt.Sprintf("group-%d", idx),
 					Name:       fmt.Sprintf("Group %d", idx),
 					Source: Source{
-						Repo:   fmt.Sprintf("mrz1836/source-%d", idx),
+						RepoID: sourceRepos[idx].ID,
 						Branch: "main",
 					},
 				}
@@ -475,7 +546,7 @@ func TestConcurrentTransactions(t *testing.T) {
 				// Create target
 				target := &Target{
 					GroupID: group.ID,
-					Repo:    fmt.Sprintf("mrz1836/target-%d", idx),
+					RepoID:  targetRepos[idx].ID,
 				}
 				if err := tx.Create(target).Error; err != nil {
 					return err
@@ -515,7 +586,7 @@ func TestConcurrentTransactions(t *testing.T) {
 	assert.Len(t, groups, 10)
 
 	for _, g := range groups {
-		assert.NotEmpty(t, g.Source.Repo)
+		assert.NotZero(t, g.Source.RepoID)
 		assert.Len(t, g.Targets, 1)
 	}
 }
