@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"gorm.io/gorm"
 )
@@ -516,4 +517,49 @@ func (s *RepositoryTestSuite) TestDirectoryListRepository() {
 
 func TestRepositoryTestSuite(t *testing.T) {
 	suite.Run(t, new(RepositoryTestSuite))
+}
+
+// TestRepositoryConstructors tests that all repository constructors return non-nil instances
+func TestRepositoryConstructors(t *testing.T) {
+	db := TestDB(t)
+
+	t.Run("NewConfigRepository", func(t *testing.T) {
+		repo := NewConfigRepository(db)
+		assert.NotNil(t, repo, "NewConfigRepository should return non-nil")
+	})
+
+	t.Run("NewGroupRepository", func(t *testing.T) {
+		repo := NewGroupRepository(db)
+		assert.NotNil(t, repo, "NewGroupRepository should return non-nil")
+	})
+
+	t.Run("NewTargetRepository", func(t *testing.T) {
+		repo := NewTargetRepository(db)
+		assert.NotNil(t, repo, "NewTargetRepository should return non-nil")
+	})
+
+	t.Run("NewFileListRepository", func(t *testing.T) {
+		repo := NewFileListRepository(db)
+		assert.NotNil(t, repo, "NewFileListRepository should return non-nil")
+	})
+
+	t.Run("NewDirectoryListRepository", func(t *testing.T) {
+		repo := NewDirectoryListRepository(db)
+		assert.NotNil(t, repo, "NewDirectoryListRepository should return non-nil")
+	})
+
+	t.Run("NewClientRepository", func(t *testing.T) {
+		repo := NewClientRepository(db)
+		assert.NotNil(t, repo, "NewClientRepository should return non-nil")
+	})
+
+	t.Run("NewOrganizationRepository", func(t *testing.T) {
+		repo := NewOrganizationRepository(db)
+		assert.NotNil(t, repo, "NewOrganizationRepository should return non-nil")
+	})
+
+	t.Run("NewRepoRepository", func(t *testing.T) {
+		repo := NewRepoRepository(db)
+		assert.NotNil(t, repo, "NewRepoRepository should return non-nil")
+	})
 }
