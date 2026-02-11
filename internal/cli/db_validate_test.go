@@ -35,6 +35,19 @@ func TestDBValidate(t *testing.T) {
 	}
 	require.NoError(t, gormDB.Create(cfg).Error)
 
+	// Create client, organization, and repos
+	client := &db.Client{Name: "test-client"}
+	require.NoError(t, gormDB.Create(client).Error)
+
+	org := &db.Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, gormDB.Create(org).Error)
+
+	sourceRepo := &db.Repo{OrganizationID: org.ID, Name: "source-repo"}
+	require.NoError(t, gormDB.Create(sourceRepo).Error)
+
+	targetRepo := &db.Repo{OrganizationID: org.ID, Name: "target-repo"}
+	require.NoError(t, gormDB.Create(targetRepo).Error)
+
 	// Create group
 	group := &db.Group{
 		ConfigID:   cfg.ID,
@@ -46,7 +59,7 @@ func TestDBValidate(t *testing.T) {
 	// Create source
 	source := &db.Source{
 		GroupID: group.ID,
-		Repo:    "mrz1836/source-repo",
+		RepoID:  sourceRepo.ID,
 		Branch:  "main",
 	}
 	require.NoError(t, gormDB.Create(source).Error)
@@ -54,7 +67,7 @@ func TestDBValidate(t *testing.T) {
 	// Create target
 	target := &db.Target{
 		GroupID: group.ID,
-		Repo:    "mrz1836/target-repo",
+		RepoID:  targetRepo.ID,
 		Branch:  "main",
 	}
 	require.NoError(t, gormDB.Create(target).Error)
@@ -136,6 +149,16 @@ func TestDBValidateOrphanedRefs(t *testing.T) {
 	}
 	require.NoError(t, gormDB.Create(cfg).Error)
 
+	// Create client, organization, and repos
+	client := &db.Client{Name: "test-client"}
+	require.NoError(t, gormDB.Create(client).Error)
+
+	org := &db.Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, gormDB.Create(org).Error)
+
+	targetRepo := &db.Repo{OrganizationID: org.ID, Name: "target-repo"}
+	require.NoError(t, gormDB.Create(targetRepo).Error)
+
 	// Create group
 	group := &db.Group{
 		ConfigID:   cfg.ID,
@@ -147,7 +170,7 @@ func TestDBValidateOrphanedRefs(t *testing.T) {
 	// Create target
 	target := &db.Target{
 		GroupID: group.ID,
-		Repo:    "mrz1836/target-repo",
+		RepoID:  targetRepo.ID,
 		Branch:  "main",
 	}
 	require.NoError(t, gormDB.Create(target).Error)
@@ -321,6 +344,16 @@ func TestDBValidateOrphanedMappings(t *testing.T) {
 	}
 	require.NoError(t, gormDB.Create(cfg).Error)
 
+	// Create client, organization, and repos
+	client := &db.Client{Name: "test-client"}
+	require.NoError(t, gormDB.Create(client).Error)
+
+	org := &db.Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, gormDB.Create(org).Error)
+
+	testRepo := &db.Repo{OrganizationID: org.ID, Name: "test-repo"}
+	require.NoError(t, gormDB.Create(testRepo).Error)
+
 	// Create group
 	group := &db.Group{
 		ConfigID:   cfg.ID,
@@ -332,7 +365,7 @@ func TestDBValidateOrphanedMappings(t *testing.T) {
 	// Create target
 	target := &db.Target{
 		GroupID: group.ID,
-		Repo:    "mrz1836/test-repo",
+		RepoID:  testRepo.ID,
 		Branch:  "main",
 	}
 	require.NoError(t, gormDB.Create(target).Error)

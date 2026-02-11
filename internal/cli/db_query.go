@@ -154,7 +154,7 @@ func queryByFile(ctx context.Context, repo db.QueryRepository, filePath string) 
 	}
 
 	for _, target := range targets {
-		output.Info(fmt.Sprintf("  • %s", target.Repo))
+		output.Info(fmt.Sprintf("  • %s", target.RepoRef.FullName()))
 
 		// Show matching file mappings
 		for _, fm := range target.FileMappings {
@@ -324,7 +324,7 @@ func queryByFileList(ctx context.Context, database db.Database, externalID strin
 	}
 
 	for _, target := range targets {
-		output.Info(fmt.Sprintf("  • %s", target.Repo))
+		output.Info(fmt.Sprintf("  • %s", target.RepoRef.FullName()))
 	}
 
 	return nil

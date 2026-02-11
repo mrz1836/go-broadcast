@@ -133,9 +133,11 @@ func checkOrphanedFileListRefs(ctx context.Context, gormDB *gorm.DB, result *Val
 	var orphans []OrphanRef
 	err := gormDB.WithContext(ctx).
 		Table("target_file_list_refs").
-		Select("target_file_list_refs.target_id, target_file_list_refs.file_list_id, targets.repo as target_repo").
+		Select("target_file_list_refs.target_id, target_file_list_refs.file_list_id, COALESCE(organizations.name || '/' || repos.name, 'unknown') as target_repo").
 		Joins("LEFT JOIN file_lists ON file_lists.id = target_file_list_refs.file_list_id").
 		Joins("LEFT JOIN targets ON targets.id = target_file_list_refs.target_id").
+		Joins("LEFT JOIN repos ON repos.id = targets.repo_id").
+		Joins("LEFT JOIN organizations ON organizations.id = repos.organization_id").
 		Where("file_lists.id IS NULL OR file_lists.deleted_at IS NOT NULL").
 		Scan(&orphans).Error
 	if err != nil {
@@ -175,9 +177,11 @@ func checkOrphanedDirectoryListRefs(ctx context.Context, gormDB *gorm.DB, result
 	var orphans []OrphanRef
 	err := gormDB.WithContext(ctx).
 		Table("target_directory_list_refs").
-		Select("target_directory_list_refs.target_id, target_directory_list_refs.directory_list_id, targets.repo as target_repo").
+		Select("target_directory_list_refs.target_id, target_directory_list_refs.directory_list_id, COALESCE(organizations.name || '/' || repos.name, 'unknown') as target_repo").
 		Joins("LEFT JOIN directory_lists ON directory_lists.id = target_directory_list_refs.directory_list_id").
 		Joins("LEFT JOIN targets ON targets.id = target_directory_list_refs.target_id").
+		Joins("LEFT JOIN repos ON repos.id = targets.repo_id").
+		Joins("LEFT JOIN organizations ON organizations.id = repos.organization_id").
 		Where("directory_lists.id IS NULL OR directory_lists.deleted_at IS NOT NULL").
 		Scan(&orphans).Error
 	if err != nil {
