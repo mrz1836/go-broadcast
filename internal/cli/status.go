@@ -75,17 +75,23 @@ Shows information about:
   • Last sync timestamp and commit
   • Out-of-date targets
 
+Configuration Source:
+  By default, configuration is loaded from the YAML file (--config).
+  Use --from-db to load configuration from the database instead.
+
 For configurations with groups, you can filter which groups to display using
 --groups or --skip-groups flags.`,
 	Example: `  # Show status for all targets
   go-broadcast status --config sync.yaml
+  go-broadcast status --from-db
 
   # Output in JSON format
   go-broadcast status --json
+  go-broadcast status --from-db --json
 
   # Show status for specific groups only
   go-broadcast status --groups "core"
-  go-broadcast status --groups "core,security"
+  go-broadcast status --from-db --groups "core,security"
 
   # Show all groups except specific ones
   go-broadcast status --skip-groups "experimental"`,

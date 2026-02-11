@@ -115,6 +115,10 @@ This command finds all open sync pull requests for the specified targets (or all
 and closes them with a descriptive comment. By default, it also deletes the associated sync branches
 to clean up the repositories.
 
+Configuration Source:
+  By default, configuration is loaded from the YAML file (--config).
+  Use --from-db to load configuration from the database instead.
+
 Group Filtering:
   Use --groups to cancel only specific groups (by name or ID).
   Use --skip-groups to exclude specific groups from cancel.
@@ -124,13 +128,15 @@ Use this when you need to cancel a sync operation due to issues and want to re-s
 updated files or configuration.`,
 	Example: `  # Cancel all active syncs
   go-broadcast cancel --config sync.yaml
+  go-broadcast cancel --from-db
 
   # Cancel syncs for specific repositories
   go-broadcast cancel org/repo1 org/repo2
+  go-broadcast cancel --from-db org/repo1 org/repo2
 
   # Cancel syncs for specific groups (much faster for multi-group configs!)
   go-broadcast cancel --groups "core"
-  go-broadcast cancel --groups "core,security"
+  go-broadcast cancel --from-db --groups "core,security"
 
   # Cancel syncs for specific repository in a group
   go-broadcast cancel --groups "third-party-libraries" org/repo1
@@ -139,13 +145,13 @@ updated files or configuration.`,
   go-broadcast cancel --skip-groups "experimental"
 
   # Preview what would be canceled (dry run)
-  go-broadcast cancel --dry-run --config sync.yaml
+  go-broadcast cancel --dry-run --from-db
 
   # Close PRs but keep sync branches
-  go-broadcast cancel --keep-branches --config sync.yaml
+  go-broadcast cancel --keep-branches --from-db
 
   # Add custom comment when closing PRs
-  go-broadcast cancel --comment "Canceling due to configuration update" --config sync.yaml`,
+  go-broadcast cancel --from-db --comment "Canceling due to detected issue" --groups "bitcoin-schema"`,
 	Aliases: []string{"c"},
 	RunE:    runCancel,
 }

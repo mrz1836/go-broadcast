@@ -140,7 +140,6 @@ var (
 	skipGroups       []string
 	automerge        bool
 	clearModuleCache bool
-	fromDB           bool // Load configuration from database instead of YAML
 )
 
 // getGroupFilter returns a copy of the group filter slice (thread-safe)
@@ -169,13 +168,6 @@ func getClearModuleCache() bool {
 	syncFlagsMu.RLock()
 	defer syncFlagsMu.RUnlock()
 	return clearModuleCache
-}
-
-// getFromDB returns the from-db flag (thread-safe)
-func getFromDB() bool {
-	syncFlagsMu.RLock()
-	defer syncFlagsMu.RUnlock()
-	return fromDB
 }
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
@@ -234,7 +226,6 @@ func init() {
 	syncCmd.Flags().StringSliceVar(&skipGroups, "skip-groups", nil, "Skip specified groups during sync")
 	syncCmd.Flags().BoolVar(&automerge, "automerge", false, "Add automerge labels from GO_BROADCAST_AUTOMERGE_LABELS to created PRs")
 	syncCmd.Flags().BoolVar(&clearModuleCache, "clear-cache", false, "Clear module version cache before sync")
-	syncCmd.Flags().BoolVar(&fromDB, "from-db", false, "Load configuration from database instead of YAML file")
 }
 
 func runSync(cmd *cobra.Command, args []string) error {
@@ -339,8 +330,13 @@ func createRunSync(flags *Flags) func(*cobra.Command, []string) error {
 }
 
 func loadConfig() (*config.Config, error) {
+	// Warn if both flags are specified
+	if GetFromDB() && GetConfigFile() != "sync.yaml" {
+		logrus.Warn("Both --from-db and --config specified; using --from-db (--config ignored)")
+	}
+
 	// Check if loading from database
-	if getFromDB() {
+	if GetFromDB() {
 		return loadConfigFromDB()
 	}
 
@@ -369,6 +365,11 @@ func loadConfig() (*config.Config, error) {
 func loadConfigFromDB() (*config.Config, error) {
 	ctx := context.Background()
 	loadDBPath := getDBPath()
+
+	// Check if database file exists
+	if _, err := os.Stat(loadDBPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("%w: %s (use 'go-broadcast db init' to create it)", ErrDatabaseFileNotFound, loadDBPath)
+	}
 
 	// Open database
 	database, err := db.Open(db.OpenOptions{

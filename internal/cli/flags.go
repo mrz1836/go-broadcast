@@ -41,6 +41,7 @@ type Flags struct {
 	SkipGroups       []string // Groups to skip during sync
 	Automerge        bool     // Enable automerge labels on created PRs
 	ClearModuleCache bool     // Clear module version cache before sync
+	FromDB           bool     // Load configuration from database instead of YAML
 }
 
 // globalFlags is the singleton instance of flags
@@ -75,6 +76,16 @@ func IsDryRun() bool {
 	return globalFlags.DryRun
 }
 
+// GetFromDB returns whether to load config from database (thread-safe)
+func GetFromDB() bool {
+	globalFlagsMu.RLock()
+	defer globalFlagsMu.RUnlock()
+	if globalFlags == nil {
+		return false // Default value
+	}
+	return globalFlags.FromDB
+}
+
 // SetFlags updates the global flags (thread-safe)
 func SetFlags(f *Flags) {
 	globalFlagsMu.Lock()
@@ -90,6 +101,7 @@ func ResetGlobalFlags() {
 	globalFlags.ConfigFile = "sync.yaml"
 	globalFlags.DryRun = false
 	globalFlags.LogLevel = "info"
+	globalFlags.FromDB = false
 }
 
 // GetGlobalFlags returns a copy of the current global flags (thread-safe)
@@ -109,5 +121,6 @@ func GetGlobalFlags() *Flags {
 		SkipGroups:       append([]string(nil), globalFlags.SkipGroups...),
 		Automerge:        globalFlags.Automerge,
 		ClearModuleCache: globalFlags.ClearModuleCache,
+		FromDB:           globalFlags.FromDB,
 	}
 }

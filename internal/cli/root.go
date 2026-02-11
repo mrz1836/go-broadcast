@@ -88,6 +88,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globalFlags.LogLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().BoolVar(&showVersion, "version", false, "Show version information")
 	rootCmd.PersistentFlags().StringVar(&dbPath, "db-path", "", "Path to database file (default: ~/.config/go-broadcast/broadcast.db)")
+	rootCmd.PersistentFlags().BoolVar(&globalFlags.FromDB, "from-db", false, "Load configuration from database instead of YAML file")
 
 	// New verbose flags are not added to global command to avoid conflicts
 	// They will be added to individual commands that use LogConfig
