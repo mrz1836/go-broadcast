@@ -59,6 +59,13 @@
                     "gomoddirectives"
                 ],
                 "text": "replacement are not allowed: github.com/joho/godotenv"
+            },
+            {
+                "linters": [
+                    "revive"
+                ],
+                "text": "var-naming: avoid package names that conflict with Go standard library package names",
+                "path": "internal/(metrics|sync|version)/.*\\.go$"
             }
         ],
         "uniq-by-line": true
