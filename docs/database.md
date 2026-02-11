@@ -58,7 +58,7 @@ go-broadcast db query --file-list ai-files
 
 ```bash
 # Export entire configuration
-go-broadcast db export --output sync.yaml
+go-broadcast db export --output sync-exported.yaml
 
 # Export single group
 go-broadcast db export --group mrz-tools --output group.yaml
@@ -87,6 +87,22 @@ go-broadcast sync --from-db --dry-run
 ### Entity Relationship Diagram
 
 ```
+    ┌──────────────┐
+    │   clients    │
+    └──────┬───────┘
+           │ 1:N
+           ▼
+    ┌──────────────┐
+    │organizations │
+    └──────┬───────┘
+           │ 1:N
+           ▼
+    ┌──────────────┐
+    │    repos     │◄──────────────────────────────┐
+    └──────────────┘                               │
+           ▲                                       │
+           │ repo_id FK                            │ repo_id FK
+           │                                       │
                 ┌──────────────┐
                 │   configs    │
                 └──────┬───────┘
@@ -102,8 +118,8 @@ go-broadcast sync --from-db --dry-run
            │    │                  ▼
            ▼    ▼          ┌─────────────────┐
     ┌─────────┐ │          │ file_mappings   │
-    │ sources │ │          │  (polymorphic)  │
-    └─────────┘ │          └─────────────────┘
+    │ sources │─┘          │  (polymorphic)  │
+    └─────────┘            └─────────────────┘
                 │
                 ▼
          ┌──────────────┐
@@ -122,6 +138,66 @@ go-broadcast sync --from-db --dry-run
          │ target_file_list_refs  │
          └────────────────────────┘
 ```
+
+<details>
+<summary><b>clients</b> — Top-level owner entities</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `name` | text | Client name (unique) |
+| `description` | text | Client description |
+| `metadata` | text | JSON metadata |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Has many `organizations`
+
+</details>
+
+<details>
+<summary><b>organizations</b> — GitHub organizations</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `client_id` | uint | Foreign key to `clients` |
+| `name` | text | Organization name (unique, e.g. "mrz1836") |
+| `description` | text | Organization description |
+| `metadata` | text | JSON metadata |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Belongs to `clients`
+- Has many `repos`
+
+</details>
+
+<details>
+<summary><b>repos</b> — Repository records</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `organization_id` | uint | Foreign key to `organizations` |
+| `name` | text | Short repo name (e.g. "go-broadcast") |
+| `description` | text | Repository description |
+| `metadata` | text | JSON metadata |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Belongs to `organizations`
+
+**Indexes:**
+- Unique composite: `(organization_id, name)`
+
+</details>
 
 <details>
 <summary><b>configs</b> — Root configuration container</summary>
@@ -251,15 +327,19 @@ go-broadcast sync --from-db --dry-run
 |--------|------|-------------|
 | `id` | uint | Primary key |
 | `group_id` | uint | Foreign key to `groups` (1:1) |
-| `repo` | text | Repository (org/name) |
+| `repo_id` | uint | Foreign key to `repos` |
 | `branch` | text | Branch name |
 | `blob_size_limit` | text | Max blob size |
 | `security_email` | text | Security contact |
 | `support_email` | text | Support contact |
 | `metadata` | text | JSON metadata |
 
+**Relations:**
+- Belongs to `groups` (1:1)
+- Belongs to `repos` (via `repo_id`)
+
 **Validation:**
-- `repo`: Must match `org/name` format
+- `repo_id`: Must reference a valid repo
 - `branch`: Must be valid branch name
 - Emails: Must be valid email addresses
 
@@ -272,7 +352,7 @@ go-broadcast sync --from-db --dry-run
 |--------|------|-------------|
 | `id` | uint | Primary key |
 | `group_id` | uint | Foreign key to `groups` |
-| `repo` | text | Repository (org/name) |
+| `repo_id` | uint | Foreign key to `repos` |
 | `branch` | text | Branch name |
 | `blob_size_limit` | text | Max blob size limit |
 | `security_email` | text | Security contact email |
@@ -286,6 +366,7 @@ go-broadcast sync --from-db --dry-run
 
 **Relations:**
 - Belongs to `groups`
+- Belongs to `repos` (via `repo_id`)
 - Has many `file_mappings` (polymorphic)
 - Has many `directory_mappings` (polymorphic)
 - Has zero or one `transforms` (polymorphic)
@@ -740,7 +821,7 @@ go tool cover -html=coverage.out
 
 **Metadata Round-Trip:**
 - Create model with complex metadata → read back → verify
-- Tested on all 15 models
+- Tested on all 18 models
 
 **Validation Hooks:**
 - Invalid repo format → error
