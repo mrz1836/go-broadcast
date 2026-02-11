@@ -506,6 +506,260 @@ func TestDBCommandHelp(t *testing.T) {
 	})
 }
 
+// TestFilterUserTables tests the filterUserTables helper function
+func TestFilterUserTables(t *testing.T) {
+	t.Run("filters out SQLite internal tables", func(t *testing.T) {
+		input := []string{
+			"clients",
+			"sqlite_sequence",
+			"configs",
+			"sqlite_master",
+			"groups",
+			"sqlite_temp_master",
+		}
+
+		expected := []string{
+			"clients",
+			"configs",
+			"groups",
+		}
+
+		result := filterUserTables(input)
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("handles empty input", func(t *testing.T) {
+		input := []string{}
+		result := filterUserTables(input)
+		assert.Empty(t, result)
+	})
+
+	t.Run("handles all SQLite internal tables", func(t *testing.T) {
+		input := []string{
+			"sqlite_sequence",
+			"sqlite_master",
+			"sqlite_temp_master",
+		}
+		result := filterUserTables(input)
+		assert.Empty(t, result)
+	})
+
+	t.Run("passes through user tables unchanged", func(t *testing.T) {
+		input := []string{
+			"clients",
+			"organizations",
+			"repos",
+			"schema_migrations",
+		}
+		expected := input
+		result := filterUserTables(input)
+		assert.Equal(t, expected, result)
+	})
+}
+
+// TestOrderTables tests the orderTables helper function
+func TestOrderTables(t *testing.T) {
+	t.Run("orders hierarchy tables first", func(t *testing.T) {
+		input := map[string]int64{
+			"configs":       5,
+			"repos":         3,
+			"clients":       1,
+			"organizations": 2,
+			"groups":        4,
+		}
+
+		result := orderTables(input)
+
+		// Hierarchy tables should be first
+		assert.Equal(t, "clients", result[0])
+		assert.Equal(t, "organizations", result[1])
+		assert.Equal(t, "repos", result[2])
+
+		// Config tables should follow
+		assert.Equal(t, "configs", result[3])
+		assert.Equal(t, "groups", result[4])
+	})
+
+	t.Run("places unknown tables at end alphabetically", func(t *testing.T) {
+		input := map[string]int64{
+			"clients":      1,
+			"unknown_zulu": 99,
+			"configs":      5,
+			"unknown_alfa": 98,
+		}
+
+		result := orderTables(input)
+
+		// Known tables first
+		assert.Equal(t, "clients", result[0])
+		assert.Equal(t, "configs", result[1])
+
+		// Unknown tables at end, alphabetically
+		assert.Equal(t, "unknown_alfa", result[2])
+		assert.Equal(t, "unknown_zulu", result[3])
+	})
+
+	t.Run("handles all known tables in correct order", func(t *testing.T) {
+		// Create a map with all known tables
+		input := map[string]int64{
+			"clients":                    1,
+			"organizations":              2,
+			"repos":                      3,
+			"configs":                    4,
+			"groups":                     5,
+			"group_dependencies":         6,
+			"group_globals":              7,
+			"group_defaults":             8,
+			"sources":                    9,
+			"targets":                    10,
+			"file_lists":                 11,
+			"directory_lists":            12,
+			"file_mappings":              13,
+			"directory_mappings":         14,
+			"transforms":                 15,
+			"target_file_list_refs":      16,
+			"target_directory_list_refs": 17,
+			"schema_migrations":          18,
+		}
+
+		result := orderTables(input)
+
+		// Verify the expected order (hierarchy first)
+		expectedOrder := []string{
+			"clients",
+			"organizations",
+			"repos",
+			"configs",
+			"groups",
+			"group_dependencies",
+			"group_globals",
+			"group_defaults",
+			"sources",
+			"targets",
+			"file_lists",
+			"directory_lists",
+			"file_mappings",
+			"directory_mappings",
+			"transforms",
+			"target_file_list_refs",
+			"target_directory_list_refs",
+			"schema_migrations",
+		}
+
+		assert.Equal(t, expectedOrder, result)
+	})
+
+	t.Run("handles empty input", func(t *testing.T) {
+		input := map[string]int64{}
+		result := orderTables(input)
+		assert.Empty(t, result)
+	})
+
+	t.Run("handles only unknown tables", func(t *testing.T) {
+		input := map[string]int64{
+			"zebra": 1,
+			"apple": 2,
+			"mango": 3,
+		}
+
+		result := orderTables(input)
+
+		// Should be alphabetically sorted
+		assert.Equal(t, []string{"apple", "mango", "zebra"}, result)
+	})
+
+	t.Run("maintains all tables from input", func(t *testing.T) {
+		input := map[string]int64{
+			"clients":       1,
+			"unknown_one":   2,
+			"configs":       3,
+			"unknown_two":   4,
+			"organizations": 5,
+		}
+
+		result := orderTables(input)
+
+		// All tables should be present
+		assert.Len(t, result, 5)
+		assert.Contains(t, result, "clients")
+		assert.Contains(t, result, "organizations")
+		assert.Contains(t, result, "configs")
+		assert.Contains(t, result, "unknown_one")
+		assert.Contains(t, result, "unknown_two")
+	})
+}
+
+// TestDBStatusDynamicDiscovery tests that db status discovers all tables dynamically
+func TestDBStatusDynamicDiscovery(t *testing.T) {
+	t.Run("discovers hierarchy tables", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpPath := filepath.Join(tmpDir, "discovery.db")
+
+		// Save and restore
+		oldDBPath := dbPath
+		oldStatusJSON := dbStatusJSON
+		defer func() {
+			dbPath = oldDBPath
+			dbStatusJSON = oldStatusJSON
+		}()
+
+		dbPath = tmpPath
+		dbStatusJSON = true
+
+		// Initialize database
+		dbInitForce = false
+		err := runDBInit(nil, nil)
+		require.NoError(t, err)
+
+		// Capture status output
+		var buf bytes.Buffer
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+		defer func() { os.Stdout = oldStdout }()
+
+		// Run status
+		err = runDBStatus(nil, nil)
+		require.NoError(t, err)
+
+		// Restore stdout and read output
+		_ = w.Close()
+		_, _ = buf.ReadFrom(r)
+		output := buf.String()
+
+		// Parse JSON output
+		var status DBStatus
+		err = json.Unmarshal([]byte(output), &status)
+		require.NoError(t, err)
+
+		// Verify hierarchy tables are present
+		_, hasClients := status.TableCounts["clients"]
+		_, hasOrgs := status.TableCounts["organizations"]
+		_, hasRepos := status.TableCounts["repos"]
+
+		assert.True(t, hasClients, "clients table should be discovered")
+		assert.True(t, hasOrgs, "organizations table should be discovered")
+		assert.True(t, hasRepos, "repos table should be discovered")
+
+		// Verify all expected tables are present
+		expectedTables := []string{
+			"clients", "organizations", "repos",
+			"configs", "groups", "sources", "targets",
+			"file_lists", "directory_lists",
+			"file_mappings", "directory_mappings",
+			"transforms",
+			"group_dependencies", "group_globals", "group_defaults",
+			"target_file_list_refs", "target_directory_list_refs",
+			"schema_migrations",
+		}
+
+		for _, table := range expectedTables {
+			_, exists := status.TableCounts[table]
+			assert.True(t, exists, "table %s should be discovered", table)
+		}
+	})
+}
+
 // BenchmarkDBInit benchmarks database initialization
 func BenchmarkDBInit(b *testing.B) {
 	tmpBase := b.TempDir()
