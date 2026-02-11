@@ -294,6 +294,16 @@ magex update:install
 - **Reusable lists** - Define file/directory lists once, use everywhere
 - **Module-aware sync** - Version management for Go modules with semantic versioning
 
+### 🗄️ **Database Backend**
+- **SQLite storage** - Structured configuration in queryable database (pure Go, no CGO)
+- **YAML import/export** - Seamless migration and backwards compatibility
+- **Universal --from-db flag** - Works with all commands (sync, status, cancel, validate, modules)
+- **Write-time validation** - Catch errors before they affect repositories
+- **Queryable config** - "Which repos sync this file?" answered instantly
+- **CLI management** - Full CRUD operations without editing YAML
+- **Transaction safety** - All-or-nothing imports with automatic rollback
+- **[Full documentation →](docs/database.md)**
+
 ### 🔄 **Advanced Transformations**
 - **Variable substitution** - Template variables ({{VAR}} and ${VAR} syntax)
 - **Go module updates** - Automatic repository name transformation
@@ -742,6 +752,15 @@ go-broadcast sync --dry-run --config sync.yaml
 go-broadcast sync --config sync.yaml
 go-broadcast sync org/specific-repo --config sync.yaml
 
+# Database-backed configuration (alternative to YAML)
+go-broadcast db init                              # Initialize database
+go-broadcast db import sync.yaml                  # Import existing YAML config
+go-broadcast sync --from-db                       # Sync using database config
+go-broadcast status --from-db                     # Check status from database
+go-broadcast validate --from-db                   # Validate database config
+go-broadcast cancel --from-db --groups "core"     # Cancel using database config
+# See docs/database.md for complete database documentation
+
 # Group-based sync operations
 go-broadcast sync --groups "Default Sync" --config sync.yaml        # Sync only one group by name
 go-broadcast sync --groups "default" --config sync.yaml             # Sync by group ID
@@ -1087,12 +1106,65 @@ groups:
 - **Compliance labeling**: Automatically tag all PRs with audit/compliance labels
 </details>
 
+<details>
+<summary><strong>🗄️ Database-Backed Configuration</strong></summary>
+
+Use SQLite database instead of YAML files for dynamic configuration management, queryable config, and structured storage.
+
+**Quick Start:**
+```bash
+# Initialize database
+go-broadcast db init
+
+# Import existing YAML configuration
+go-broadcast db import sync.yaml
+
+# Use database for all operations
+go-broadcast sync --from-db
+go-broadcast status --from-db --json
+go-broadcast validate --from-db
+go-broadcast cancel --from-db --groups "bitcoin-schema"
+```
+
+**Query your configuration:**
+```bash
+# Which repos sync this file?
+go-broadcast db query --file .github/workflows/ci.yml
+
+# What files sync to this repo?
+go-broadcast db query --repo company/service-name
+
+# Which targets use this file list?
+go-broadcast db query --file-list ai-files
+```
+
+**Export back to YAML:**
+```bash
+# Export entire configuration
+go-broadcast db export --output backup.yaml
+
+# Export specific group
+go-broadcast db export --group core --output core-group.yaml
+```
+
+**Benefits:**
+- **Queryable**: Answer "which repos sync this file?" instantly
+- **Structured**: SQLite schema with full validation
+- **Backwards compatible**: Import/export YAML anytime
+- **Works everywhere**: `--from-db` flag available on all commands
+- **Transaction safety**: All-or-nothing imports with rollback
+
+See the complete [Database Documentation](docs/database.md) for schema reference, CLI commands, and migration guide.
+
+</details>
+
 <br/>
 
 ## 📚 Documentation
 
 - **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
 - **Configuration Guide** – Complete guide to group-based configuration at [docs/configuration-guide.md](docs/configuration-guide.md)
+- **Database Backend** – Structured configuration storage with SQLite at [docs/database.md](docs/database.md)
 - **Module-Aware Sync** – Smart module versioning and synchronization at [docs/module-sync.md](docs/module-sync.md)
 - **Group Examples** – Practical configuration patterns at [docs/group-examples.md](docs/group-examples.md)
 - **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)

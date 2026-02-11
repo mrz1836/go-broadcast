@@ -12,4 +12,7 @@ var (
 
 	// ErrNilConfig indicates a nil configuration was passed to a function that requires a valid config
 	ErrNilConfig = errors.New("config cannot be nil")
+
+	// ErrDatabaseFileNotFound indicates the database file was not found
+	ErrDatabaseFileNotFound = errors.New("database file not found")
 )

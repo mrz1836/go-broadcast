@@ -36,18 +36,26 @@ Provides tools for working with module-aware synchronization, including:
   • Listing detected modules in source repositories
   • Showing module details and versions
   • Validating module configurations
-  • Checking available versions from git tags`,
+  • Checking available versions from git tags
+
+Configuration Source:
+  By default, configuration is loaded from the YAML file (--config).
+  Use --from-db to load configuration from the database instead.`,
 	Example: `  # List all modules in configuration
   go-broadcast modules list
+  go-broadcast modules list --from-db
 
   # Show details for a specific module
   go-broadcast modules show github.com/example/module
+  go-broadcast modules show --from-db github.com/example/module
 
   # Show available versions for a module
   go-broadcast modules versions github.com/example/module
+  go-broadcast modules versions --from-db github.com/example/module
 
   # Validate module configurations
-  go-broadcast modules validate`,
+  go-broadcast modules validate
+  go-broadcast modules validate --from-db`,
 }
 
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables

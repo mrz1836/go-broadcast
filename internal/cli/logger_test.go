@@ -154,7 +154,7 @@ func TestLoggerService_ConfigureLogger(t *testing.T) {
 			err := service.ConfigureLogger(ctx)
 
 			if tt.expectError {
-				assert.Error(t, err, "expected error during logger configuration")
+				require.Error(t, err, "expected error during logger configuration")
 			} else {
 				require.NoError(t, err, "logger configuration should not return error")
 				tt.validate(t, tt.config)
@@ -455,9 +455,9 @@ func TestLoggerService_ErrorHandling(t *testing.T) {
 			err := service.ConfigureLogger(ctx)
 
 			if tt.expectError {
-				assert.Error(t, err, "expected error for invalid configuration")
+				require.Error(t, err, "expected error for invalid configuration")
 			} else {
-				assert.NoError(t, err, "valid configuration should not error")
+				require.NoError(t, err, "valid configuration should not error")
 			}
 		})
 	}

@@ -16,6 +16,12 @@ const (
 	// MaxRepoNameLength is the maximum length for repository names (org/repo)
 	MaxRepoNameLength = 200
 
+	// MaxOrgNameLength is the maximum length for organization names
+	MaxOrgNameLength = 100
+
+	// MaxRepoShortNameLength is the maximum length for repository short names (without org prefix)
+	MaxRepoShortNameLength = 100
+
 	// MaxBranchNameLength is the maximum length for branch names (Git limit is ~255)
 	MaxBranchNameLength = 255
 
@@ -30,6 +36,9 @@ const (
 var (
 	// repoNamePattern validates repository names in org/repo format
 	repoNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][\w.-]*/[a-zA-Z0-9][\w.-]*$`)
+
+	// nameSegmentPattern validates a single name segment (org name or repo short name)
+	nameSegmentPattern = regexp.MustCompile(`^[a-zA-Z0-9][\w.-]*$`)
 
 	// branchNamePattern validates branch names with allowed characters
 	branchNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][\w./\-]*$`)
@@ -68,6 +77,64 @@ func ValidateRepoName(name string) error {
 		if strings.HasSuffix(part, ".") {
 			return errors.InvalidFieldError("repository name", name+" (segment ends with '.')")
 		}
+	}
+
+	return nil
+}
+
+// ValidateOrgName validates an organization name (a single segment, no slash).
+func ValidateOrgName(name string) error {
+	if name == "" {
+		return errors.EmptyFieldError("organization name")
+	}
+
+	if len(name) > MaxOrgNameLength {
+		return errors.ValidationError("organization name", fmt.Sprintf("exceeds maximum length of %d characters", MaxOrgNameLength))
+	}
+
+	if strings.Contains(name, "/") {
+		return errors.InvalidFieldError("organization name", name+" (contains '/')")
+	}
+
+	if strings.Contains(name, "..") {
+		return errors.PathTraversalError(name)
+	}
+
+	if !nameSegmentPattern.MatchString(name) {
+		return errors.FormatError("organization name", name, "alphanumeric with hyphens, dots, underscores")
+	}
+
+	if strings.HasSuffix(name, ".") {
+		return errors.InvalidFieldError("organization name", name+" (ends with '.')")
+	}
+
+	return nil
+}
+
+// ValidateRepoShortName validates a repository short name (without org prefix, no slash).
+func ValidateRepoShortName(name string) error {
+	if name == "" {
+		return errors.EmptyFieldError("repository name")
+	}
+
+	if len(name) > MaxRepoShortNameLength {
+		return errors.ValidationError("repository name", fmt.Sprintf("exceeds maximum length of %d characters", MaxRepoShortNameLength))
+	}
+
+	if strings.Contains(name, "/") {
+		return errors.InvalidFieldError("repository name", name+" (contains '/')")
+	}
+
+	if strings.Contains(name, "..") {
+		return errors.PathTraversalError(name)
+	}
+
+	if !nameSegmentPattern.MatchString(name) {
+		return errors.FormatError("repository name", name, "alphanumeric with hyphens, dots, underscores")
+	}
+
+	if strings.HasSuffix(name, ".") {
+		return errors.InvalidFieldError("repository name", name+" (ends with '.')")
 	}
 
 	return nil

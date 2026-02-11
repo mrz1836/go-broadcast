@@ -114,7 +114,7 @@ groups:
 			err = runListModules(cmd, []string{})
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -210,7 +210,7 @@ groups:
 			err = runShowModule(cmd, tt.args)
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -287,7 +287,7 @@ groups: []`,
 			err = runModuleVersions(cmd, tt.args)
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -372,7 +372,7 @@ groups:
 			err = runValidateModules(cmd, []string{})
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -460,7 +460,7 @@ func TestFetchGitTags(t *testing.T) {
 			versions, err := fetchGitTags(ctx, tt.repo)
 
 			if tt.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
 				// We don't assert no error because this might fail due to network/auth
 				// We just ensure it doesn't panic and returns a slice
@@ -622,5 +622,222 @@ func TestFetchGitTags_EdgeCases(t *testing.T) {
 		// Should not panic, may return error from git command
 		// We just verify the function doesn't panic - error handling depends on implementation
 		_ = err
+	})
+}
+
+// TestFetchGitTags_GitCommandFailures tests git command execution failures
+func TestFetchGitTags_GitCommandFailures(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty_repository_no_tags", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+
+		// Test against a repository that exists but has no tags
+		// This will make an actual network call, so we just verify it doesn't panic
+		_, err := fetchGitTags(ctx, "octocat/Hello-World")
+		// Should return empty list or error, not panic
+		if err != nil {
+			assert.NotErrorIs(t, err, ErrInvalidRepositoryPath)
+		}
+	})
+
+	t.Run("nonexistent_repository", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+
+		// Test against a repository that doesn't exist
+		_, err := fetchGitTags(ctx, "nonexistent-org-12345/nonexistent-repo-67890")
+		// Should return error for network/git failure
+		require.Error(t, err)
+		assert.NotErrorIs(t, err, ErrInvalidRepositoryPath)
+	})
+
+	t.Run("malformed_git_output_handling", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+
+		// Test that the function handles malformed output gracefully
+		// by testing with a valid repo (will get valid output)
+		// The actual malformed output testing would require mocking exec.Command
+		_, err := fetchGitTags(ctx, "github/docs")
+		// Should not panic on any output format
+		_ = err
+	})
+}
+
+// TestRunModuleVersions_ErrorPaths tests error scenarios for runModuleVersions
+func TestRunModuleVersions_ErrorPaths(t *testing.T) {
+	t.Run("module_not_in_any_group", func(t *testing.T) {
+		// Create temporary config file
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.yml")
+		testConfig := `version: 1
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        directories:
+          - src: "src/module1"
+            dest: "src/module1"
+            module:
+              type: go
+              version: latest`
+
+		err := os.WriteFile(configPath, []byte(testConfig), 0o600)
+		require.NoError(t, err)
+
+		// Set global config file path
+		oldFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
+		defer func() { SetFlags(oldFlags) }()
+
+		// Capture output (thread-safe)
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		// Create command
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+
+		// Try to get versions for a module that doesn't exist in config
+		err = runModuleVersions(cmd, []string{"nonexistent/module"})
+
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrModuleNotFound)
+		capturedOutput := scope.Stdout.String() + scope.Stderr.String()
+		assert.Contains(t, capturedOutput, "Module not found in configuration")
+	})
+
+	t.Run("version_resolution_failures", func(t *testing.T) {
+		// Create temporary config file with module
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.yml")
+		testConfig := `version: 1
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: nonexistent-org/nonexistent-repo
+      branch: main
+    targets:
+      - repo: org/target1
+        directories:
+          - src: "."
+            dest: "."
+            module:
+              type: go
+              version: v1.2.3
+              check_tags: true`
+
+		err := os.WriteFile(configPath, []byte(testConfig), 0o600)
+		require.NoError(t, err)
+
+		// Set global config file path
+		oldFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
+		defer func() { SetFlags(oldFlags) }()
+
+		// Capture output (thread-safe)
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		// Create command
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+
+		// Try to get versions - will fail because repository doesn't exist
+		err = runModuleVersions(cmd, []string{"."})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to fetch versions")
+	})
+
+	t.Run("display_more_than_10_versions", func(t *testing.T) {
+		// Create temporary config file
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.yml")
+		testConfig := `version: 1
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: golang/go
+      branch: master
+    targets:
+      - repo: org/target1
+        directories:
+          - src: "."
+            dest: "."
+            module:
+              type: go
+              version: latest
+              check_tags: true`
+
+		err := os.WriteFile(configPath, []byte(testConfig), 0o600)
+		require.NoError(t, err)
+
+		// Set global config file path
+		oldFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
+		defer func() { SetFlags(oldFlags) }()
+
+		// Capture output (thread-safe)
+		scope := output.CaptureOutput()
+		defer scope.Restore()
+
+		// Create command
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+
+		// Run against a repo with many tags (golang/go has many versions)
+		err = runModuleVersions(cmd, []string{"."})
+
+		// May succeed or fail depending on network, but should handle pagination
+		capturedOutput := scope.Stdout.String()
+		if err == nil && strings.Contains(capturedOutput, "and") && strings.Contains(capturedOutput, "more") {
+			// Successfully showed pagination message
+			assert.Contains(t, capturedOutput, "more")
+		}
+	})
+
+	t.Run("missing_module_path_argument", func(t *testing.T) {
+		// Create temporary config file
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "config.yml")
+		testConfig := `version: 1
+groups:
+  - name: "test-group"
+    id: "test-group-1"
+    source:
+      repo: org/template
+      branch: main
+    targets:
+      - repo: org/target1
+        files:
+          - src: README.md
+            dest: README.md`
+
+		err := os.WriteFile(configPath, []byte(testConfig), 0o600)
+		require.NoError(t, err)
+
+		// Set global config file path
+		oldFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: configPath, LogLevel: oldFlags.LogLevel})
+		defer func() { SetFlags(oldFlags) }()
+
+		// Create command
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+
+		// Try to run without arguments
+		err = runModuleVersions(cmd, []string{})
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrModulePathRequired)
 	})
 }

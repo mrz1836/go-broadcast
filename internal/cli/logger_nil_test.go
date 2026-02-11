@@ -249,7 +249,7 @@ func TestLoggerService_NilConfig_ConfigureLogger(t *testing.T) {
 				require.Error(t, err, "ConfigureLogger should return error")
 				assert.Contains(t, err.Error(), tt.errorMsg, "error should contain expected message")
 			} else {
-				assert.NoError(t, err, "ConfigureLogger should succeed")
+				require.NoError(t, err, "ConfigureLogger should succeed")
 			}
 		})
 	}
@@ -381,7 +381,7 @@ func TestLoggerService_NilConfig_ContextCancellation(t *testing.T) {
 			if tt.expectError {
 				require.Error(t, err, "should return error")
 			} else {
-				assert.NoError(t, err, "should not return error")
+				require.NoError(t, err, "should not return error")
 			}
 		})
 	}

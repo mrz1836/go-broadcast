@@ -1160,4 +1160,272 @@ func TestConvertStateToGroupStatus_EdgeCases(t *testing.T) {
 		assert.Equal(t, "disabled", status.Groups[0].State)
 		assert.False(t, status.Groups[0].Enabled)
 	})
+
+	t.Run("GroupWithMixedTargetStates", func(t *testing.T) {
+		// Test group with targets in different states - should determine overall group state
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusUpToDate,
+				},
+				"org/target2": {
+					Repo:   "org/target2",
+					Status: state.StatusBehind,
+				},
+				"org/target3": {
+					Repo:   "org/target3",
+					Status: state.StatusPending,
+				},
+				"org/target4": {
+					Repo:   "org/target4",
+					Status: state.StatusConflict,
+				},
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "mixed-group",
+					ID:   "mixed",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+						{Repo: "org/target2"},
+						{Repo: "org/target3"},
+						{Repo: "org/target4"},
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+
+		group := status.Groups[0]
+		assert.Len(t, group.Targets, 4)
+
+		// Group state should reflect worst state (error takes precedence)
+		assert.Equal(t, "error", group.State)
+	})
+
+	t.Run("GroupWithNoTargets", func(t *testing.T) {
+		// Test group with no targets configured
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "empty-group",
+					ID:   "empty",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{}, // No targets
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+
+		group := status.Groups[0]
+		assert.Empty(t, group.Targets)
+		// State should be synced or unknown when no targets
+		assert.True(t, group.State == "synced" || group.State == "unknown")
+	})
+
+	t.Run("GroupWithTargetsMissingFromState", func(t *testing.T) {
+		// Test when config has targets but state doesn't have info for them
+		// The actual implementation only includes targets that exist in state
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusUpToDate,
+				},
+				// target2 is missing from state
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "incomplete-group",
+					ID:   "incomplete",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+						{Repo: "org/target2"}, // Not in state
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+
+		group := status.Groups[0]
+		// Only target1 should be present since target2 is not in state
+		assert.Len(t, group.Targets, 1)
+		assert.Equal(t, "org/target1", group.Targets[0].Repository)
+		assert.Equal(t, "synced", group.Targets[0].State)
+	})
+
+	t.Run("PrioritySortingEdgeCases", func(t *testing.T) {
+		// Test that groups are properly sorted by priority
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name:     "low-priority",
+					ID:       "low",
+					Priority: 100,
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+				},
+				{
+					Name:     "high-priority",
+					ID:       "high",
+					Priority: 0,
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+				},
+				{
+					Name:     "mid-priority",
+					ID:       "mid",
+					Priority: 50,
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 3)
+
+		// Groups should be sorted by priority (lowest first)
+		assert.Equal(t, "high-priority", status.Groups[0].Name)
+		assert.Equal(t, 0, status.Groups[0].Priority)
+		assert.Equal(t, "mid-priority", status.Groups[1].Name)
+		assert.Equal(t, 50, status.Groups[1].Priority)
+		assert.Equal(t, "low-priority", status.Groups[2].Name)
+		assert.Equal(t, 100, status.Groups[2].Priority)
+	})
+
+	t.Run("GroupStateCalculationAllSynced", func(t *testing.T) {
+		// Test group state when all targets are synced
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {Repo: "org/target1", Status: state.StatusUpToDate},
+				"org/target2": {Repo: "org/target2", Status: state.StatusUpToDate},
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "all-synced",
+					ID:   "synced",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+						{Repo: "org/target2"},
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+		assert.Equal(t, "synced", status.Groups[0].State)
+	})
+
+	t.Run("GroupStateCalculationAllOutdated", func(t *testing.T) {
+		// Test group state when all targets are outdated
+		// According to the implementation, "outdated" targets result in "ready" group state
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {Repo: "org/target1", Status: state.StatusBehind},
+				"org/target2": {Repo: "org/target2", Status: state.StatusBehind},
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "all-outdated",
+					ID:   "outdated",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+						{Repo: "org/target2"},
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+		// Group state is "ready" when targets are outdated but not error/pending
+		assert.Equal(t, "ready", status.Groups[0].State)
+	})
 }

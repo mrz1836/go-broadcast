@@ -206,7 +206,7 @@ func TestTestValidConfigUsability(t *testing.T) {
 		// Still should be valid YAML after modifications
 		var config map[string]interface{}
 		err := yaml.Unmarshal([]byte(modifiedConfig), &config)
-		assert.NoError(t, err, "Modified config should still be valid YAML")
+		require.NoError(t, err, "Modified config should still be valid YAML")
 	})
 }
 
