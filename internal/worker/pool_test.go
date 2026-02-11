@@ -479,7 +479,7 @@ func TestPoolBatchSubmitPartialFailure(t *testing.T) {
 
 	// Consume any pending results before shutdown to avoid deadlock
 	go func() {
-		for range pool.Results() { //nolint:revive // intentionally draining channel
+		for range pool.Results() {
 		}
 	}()
 
@@ -808,7 +808,7 @@ func TestSubmitAfterShutdown(t *testing.T) {
 
 	// Drain results in background
 	go func() {
-		for range pool.Results() { //nolint:revive // Intentionally draining channel
+		for range pool.Results() {
 		}
 	}()
 
@@ -829,7 +829,7 @@ func TestDoubleShutdown(t *testing.T) {
 
 	// Drain results in background
 	go func() {
-		for range pool.Results() { //nolint:revive // Intentionally draining channel
+		for range pool.Results() {
 		}
 	}()
 
@@ -856,7 +856,7 @@ func TestNilTask(t *testing.T) {
 
 	// Drain results in background
 	go func() {
-		for range pool.Results() { //nolint:revive // Intentionally draining channel
+		for range pool.Results() {
 		}
 	}()
 

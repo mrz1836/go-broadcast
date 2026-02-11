@@ -105,7 +105,7 @@ func (bp *BatchProcessor) ProcessFiles(ctx context.Context, sourcePath string, j
 	if err := g.Wait(); err != nil {
 		// On error/cancellation, drain the result channel to prevent goroutine leaks
 		go func() {
-			for range resultChan { //nolint:revive // intentionally draining channel
+			for range resultChan {
 			}
 		}()
 		return nil, fmt.Errorf("batch processing failed: %w", err)
@@ -682,7 +682,7 @@ func (bp *BatchProcessor) ProcessFilesWithProgress(ctx context.Context, sourcePa
 	if err := g.Wait(); err != nil {
 		// On error/cancellation, drain the result channel to prevent goroutine leaks
 		go func() {
-			for range resultChan { //nolint:revive // intentionally draining channel
+			for range resultChan {
 			}
 		}()
 		return nil, fmt.Errorf("batch processing failed: %w", err)
