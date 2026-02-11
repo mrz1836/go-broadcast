@@ -67,17 +67,28 @@ go-broadcast db export --group mrz-tools --output group.yaml
 go-broadcast db export --stdout
 ```
 
-### Sync from Database
+### Use Database Configuration
+
+The `--from-db` flag works with all configuration-based commands:
 
 ```bash
-# Use database instead of YAML file
+# Sync from database
 go-broadcast sync --from-db
-
-# Sync specific groups from database
 go-broadcast sync --from-db --groups "core,security"
-
-# Dry-run with database configuration
 go-broadcast sync --from-db --dry-run
+
+# Check status from database
+go-broadcast status --from-db
+go-broadcast status --from-db --json
+
+# Validate database configuration
+go-broadcast validate --from-db
+
+# Cancel operations using database configuration
+go-broadcast cancel --from-db --groups "bitcoin-schema"
+
+# List modules from database
+go-broadcast modules list --from-db
 ```
 
 <br>
