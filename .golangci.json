@@ -215,16 +215,16 @@
                 "range-loops": true,
                 "simple": true
             },
-            "unparam": {
-                "check-exported": false
-            },
             "revive": {
                 "rules": [
                     {
-                        "name": "var-naming",
-                        "disabled": true
+                        "disabled": true,
+                        "name": "var-naming"
                     }
                 ]
+            },
+            "unparam": {
+                "check-exported": false
             }
         }
     },
