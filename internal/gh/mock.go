@@ -149,3 +149,18 @@ func (m *MockClient) GetPRCheckStatus(ctx context.Context, repo string, number i
 	args := m.Called(ctx, repo, number)
 	return testutil.HandleTwoValueReturn[*CheckStatusSummary](args)
 }
+
+// DiscoverOrgRepos mock implementation
+func (m *MockClient) DiscoverOrgRepos(ctx context.Context, org string) ([]RepoInfo, error) {
+	args := m.Called(ctx, org)
+	return testutil.HandleTwoValueReturn[[]RepoInfo](args)
+}
+
+// ExecuteGraphQL mock implementation
+func (m *MockClient) ExecuteGraphQL(ctx context.Context, query string) (map[string]interface{}, error) {
+	args := m.Called(ctx, query)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]interface{}), args.Error(1)
+}

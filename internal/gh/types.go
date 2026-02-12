@@ -295,3 +295,20 @@ func joinStrings(strs []string, sep string) string {
 	}
 	return result
 }
+
+// RepoInfo represents basic repository information from discovery
+type RepoInfo struct {
+	Name     string `json:"name"`
+	FullName string `json:"full_name"`
+	Owner    struct {
+		Login string `json:"login"`
+	} `json:"owner"`
+	Description   *string   `json:"description"`
+	Language      *string   `json:"language"`
+	Private       bool      `json:"private"`
+	Fork          bool      `json:"fork"`
+	Archived      bool      `json:"archived"`
+	DefaultBranch string    `json:"default_branch"`
+	HTMLURL       string    `json:"html_url"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}

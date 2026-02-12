@@ -795,3 +795,32 @@ func (g *githubClient) GetPRCheckStatus(ctx context.Context, repo string, number
 
 	return summary, nil
 }
+
+// GraphQLResponse represents a GraphQL API response
+type GraphQLResponse struct {
+	Data   map[string]interface{} `json:"data"`
+	Errors []struct {
+		Message string `json:"message"`
+	} `json:"errors"`
+}
+
+// ExecuteGraphQL executes a GraphQL query and returns the raw response data
+func (g *githubClient) ExecuteGraphQL(ctx context.Context, query string) (map[string]interface{}, error) {
+	// Execute GraphQL query via gh api
+	output, err := g.runner.RunWithInput(ctx, []byte(query), "gh", "api", "graphql", "-f", "query=-")
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "execute GraphQL query")
+	}
+
+	// Parse response - GraphQL returns { "data": {...}, "errors": [...] }
+	response, err := jsonutil.UnmarshalJSON[GraphQLResponse](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse GraphQL response")
+	}
+
+	if len(response.Errors) > 0 {
+		return nil, fmt.Errorf("GraphQL errors: %v", response.Errors)
+	}
+
+	return response.Data, nil
+}

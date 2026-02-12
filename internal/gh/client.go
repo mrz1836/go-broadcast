@@ -75,4 +75,11 @@ type Client interface {
 	// GetPRCheckStatus retrieves the status of all check runs for a PR's head commit
 	// Returns a summary of check statuses including running, passed, failed, and skipped counts
 	GetPRCheckStatus(ctx context.Context, repo string, number int) (*CheckStatusSummary, error)
+
+	// DiscoverOrgRepos returns all repositories for an organization
+	// Uses REST API with pagination to fetch all repos
+	DiscoverOrgRepos(ctx context.Context, org string) ([]RepoInfo, error)
+
+	// ExecuteGraphQL executes a GraphQL query and returns the raw response data
+	ExecuteGraphQL(ctx context.Context, query string) (map[string]interface{}, error)
 }
