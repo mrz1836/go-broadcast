@@ -3,6 +3,7 @@ package db
 import (
 	"crypto/sha256"
 	"fmt"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -18,8 +19,10 @@ type Migration struct {
 
 // MigrationManager handles schema migrations
 type MigrationManager struct {
-	db         *gorm.DB
-	migrations []Migration
+	db             *gorm.DB
+	mu             sync.Mutex
+	migrations     []Migration
+	schemaInitOnce sync.Once
 }
 
 // NewMigrationManager creates a new migration manager
@@ -32,6 +35,8 @@ func NewMigrationManager(db *gorm.DB) *MigrationManager {
 
 // Register adds a migration to the manager
 func (m *MigrationManager) Register(migration Migration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.migrations = append(m.migrations, migration)
 }
 
@@ -58,12 +63,22 @@ func (m *MigrationManager) IsMigrationApplied(version string) (bool, error) {
 
 // Apply runs all pending migrations
 func (m *MigrationManager) Apply() error {
-	// Ensure schema_migrations table exists
-	if err := m.db.AutoMigrate(&SchemaMigration{}); err != nil {
-		return fmt.Errorf("failed to create schema_migrations table: %w", err)
+	// Ensure schema_migrations table exists (thread-safe, only runs once)
+	var schemaErr error
+	m.schemaInitOnce.Do(func() {
+		schemaErr = m.db.AutoMigrate(&SchemaMigration{})
+	})
+	if schemaErr != nil {
+		return fmt.Errorf("failed to create schema_migrations table: %w", schemaErr)
 	}
 
-	for _, migration := range m.migrations {
+	// Get a snapshot of migrations under lock
+	m.mu.Lock()
+	migrations := make([]Migration, len(m.migrations))
+	copy(migrations, m.migrations)
+	m.mu.Unlock()
+
+	for _, migration := range migrations {
 		applied, err := m.IsMigrationApplied(migration.Version)
 		if err != nil {
 			return fmt.Errorf("failed to check migration status: %w", err)
@@ -112,16 +127,20 @@ func (m *MigrationManager) Rollback() error {
 		return fmt.Errorf("no migrations to rollback: %w", err)
 	}
 
-	// Find the migration definition
-	var migration *Migration
+	// Find the migration definition under lock, copy it
+	m.mu.Lock()
+	var migration Migration
+	var found bool
 	for i := range m.migrations {
 		if m.migrations[i].Version == lastMigration.Version {
-			migration = &m.migrations[i]
+			migration = m.migrations[i]
+			found = true
 			break
 		}
 	}
+	m.mu.Unlock()
 
-	if migration == nil {
+	if !found {
 		return fmt.Errorf("%w for version: %s", ErrMigrationNotFound, lastMigration.Version)
 	}
 
