@@ -747,8 +747,8 @@ func TestMigrationManager_ConcurrentApply(t *testing.T) {
 		}
 	}
 
-	// At least one should succeed
-	assert.Positive(t, successCount, "at least one Apply should succeed")
+	// All should succeed (first applies, others skip because already applied)
+	assert.Equal(t, 3, successCount, "all Apply calls should succeed (first applies, rest skip)")
 
 	// Verify table exists
 	var count int64

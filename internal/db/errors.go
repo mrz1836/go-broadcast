@@ -40,6 +40,9 @@ var (
 	// ErrNoDownFunction is returned when attempting to rollback a migration without a down function
 	ErrNoDownFunction = errors.New("migration has no down function")
 
+	// ErrMigrationStateChanged is returned when the migration state changes during a rollback operation
+	ErrMigrationStateChanged = errors.New("migration state changed during rollback")
+
 	// ErrInvalidRepoFormat is returned when a repo string is not in "org/repo" format
 	ErrInvalidRepoFormat = errors.New("invalid repo format")
 )
