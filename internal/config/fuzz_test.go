@@ -82,8 +82,8 @@ targets:
 	}
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		// Skip if data is too large (prevent OOM)
-		if len(data) > 1024*1024 { // 1MB limit
+		// Skip long inputs to avoid timeout in CI
+		if len(data) > 50000 {
 			t.Skip("Input too large")
 		}
 

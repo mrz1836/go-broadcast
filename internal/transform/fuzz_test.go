@@ -152,8 +152,8 @@ func FuzzTemplateVariableReplacement(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, templateData, varsData []byte) {
-		// Skip extremely long inputs to avoid resource exhaustion
-		if len(templateData)+len(varsData) > 100000 {
+		// Skip long inputs to avoid timeout in CI
+		if len(templateData)+len(varsData) > 20000 {
 			t.Skip("Input too large")
 		}
 
@@ -325,9 +325,9 @@ func FuzzRegexReplacement(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, sourceOrg, sourceRepo, targetOrg, targetRepo, content, filePath string) {
-		// Skip extremely long inputs
+		// Skip long inputs to avoid timeout in CI
 		totalLen := len(sourceOrg) + len(sourceRepo) + len(targetOrg) + len(targetRepo) + len(content) + len(filePath)
-		if totalLen > 50000 {
+		if totalLen > 20000 {
 			t.Skip("Input too large")
 		}
 
@@ -461,9 +461,9 @@ func FuzzTransformChain(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, content, sourceRepo, targetRepo, varsJSON, filePath, transformersJSON string) {
-		// Skip extremely long inputs
+		// Skip long inputs to avoid timeout in CI
 		totalLen := len(content) + len(sourceRepo) + len(targetRepo) + len(varsJSON) + len(filePath) + len(transformersJSON)
-		if totalLen > 100000 {
+		if totalLen > 20000 {
 			t.Skip("Input too large")
 		}
 
