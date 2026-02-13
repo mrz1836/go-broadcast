@@ -166,9 +166,13 @@ go-broadcast modules list --from-db
            │            │ repository_snapshots │
            │            └──────────────────────┘
            │
-           └── 1:N ──►  ┌─────────────────┐
-                        │ security_alerts │
-                        └─────────────────┘
+           ├── 1:N ──►  ┌─────────────────┐
+           │            │ security_alerts │
+           │            └─────────────────┘
+           │
+           └── 1:N ──►  ┌──────────────────────┐
+                        │ ci_metrics_snapshots │
+                        └──────────────────────┘
 
     ┌──────────────┐
     │  sync_runs   │  (standalone)
@@ -572,6 +576,7 @@ go-broadcast modules list --from-db
 | `language` | text | Primary language |
 | `is_private` | bool | Visibility flag |
 | `is_fork` | bool | Fork flag |
+| `fork_source` | text | Parent repo full name if fork |
 | `is_archived` | bool | Archived flag |
 | `url` | text | HTML URL |
 | `metadata_etag` | text | ETag for conditional metadata requests |
@@ -587,6 +592,7 @@ go-broadcast modules list --from-db
 - Belongs to `organizations`
 - Has many `repository_snapshots`
 - Has many `security_alerts`
+- Has many `ci_metrics_snapshots`
 
 **Indexes:**
 - Unique index on `full_name`
@@ -613,6 +619,10 @@ go-broadcast modules list --from-db
 | `latest_tag` | text | Latest tag name |
 | `latest_tag_at` | datetime | Latest tag date |
 | `repo_updated_at` | datetime | Last activity on repo |
+| `pushed_at` | datetime | Last code push timestamp |
+| `dependabot_alert_count` | int | Open Dependabot alert count |
+| `code_scanning_alert_count` | int | Open code scanning alert count |
+| `secret_scanning_alert_count` | int | Open secret scanning alert count |
 | `raw_data` | text | JSON raw GraphQL response |
 | `metadata` | text | JSON metadata |
 | `created_at` | datetime | Creation timestamp |
@@ -665,6 +675,44 @@ go-broadcast modules list --from-db
 - Index on `state`
 - Index on `severity`
 - Index on `alert_number`
+
+</details>
+
+<details>
+<summary><b>ci_metrics_snapshots</b> — Point-in-time CI metrics from GoFortress workflow artifacts</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `repository_id` | uint | Foreign key to `analytics_repositories` |
+| `snapshot_at` | datetime | Timestamp of snapshot |
+| `workflow_run_id` | int64 | GitHub Actions workflow run ID |
+| `branch` | text | Branch the workflow ran on |
+| `commit_sha` | text | Commit SHA of the workflow run |
+| `go_files_loc` | int | Lines of code in Go files |
+| `test_files_loc` | int | Lines of code in test files |
+| `go_files_count` | int | Number of Go source files |
+| `test_files_count` | int | Number of test files |
+| `test_count` | int | Total unit test count |
+| `benchmark_count` | int | Total benchmark count |
+| `coverage_percent` | float64 | Code coverage percentage (nullable) |
+| `raw_data` | text | JSON raw artifact data |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Belongs to `analytics_repositories`
+
+**Indexes:**
+- Index on `repository_id`
+- Index on `snapshot_at`
+- Index on `workflow_run_id`
+
+**Purpose:**
+- Captures CI metrics from GoFortress workflow artifacts for trend analysis
+- Sources: `loc-stats` (JSON), `statistics-section` (markdown fallback), `coverage-stats-codecov` (JSON), `tests-section` (markdown), `bench-stats-*` (JSON)
+- Tracks code size, test coverage, and test/benchmark counts over time
 
 </details>
 
