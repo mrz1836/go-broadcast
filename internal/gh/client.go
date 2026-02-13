@@ -82,4 +82,16 @@ type Client interface {
 
 	// ExecuteGraphQL executes a GraphQL query and returns the raw response data
 	ExecuteGraphQL(ctx context.Context, query string) (map[string]interface{}, error)
+
+	// GetDependabotAlerts retrieves Dependabot security alerts for a repository
+	// Returns empty slice if Dependabot is not enabled (404 response)
+	GetDependabotAlerts(ctx context.Context, repo string) ([]DependabotAlert, error)
+
+	// GetCodeScanningAlerts retrieves code scanning alerts for a repository
+	// Returns empty slice if code scanning is not enabled (404 response)
+	GetCodeScanningAlerts(ctx context.Context, repo string) ([]CodeScanningAlert, error)
+
+	// GetSecretScanningAlerts retrieves secret scanning alerts for a repository
+	// Returns empty slice if secret scanning is not enabled (404 response)
+	GetSecretScanningAlerts(ctx context.Context, repo string) ([]SecretScanningAlert, error)
 }

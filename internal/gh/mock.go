@@ -164,3 +164,21 @@ func (m *MockClient) ExecuteGraphQL(ctx context.Context, query string) (map[stri
 	}
 	return args.Get(0).(map[string]interface{}), args.Error(1)
 }
+
+// GetDependabotAlerts mock implementation
+func (m *MockClient) GetDependabotAlerts(ctx context.Context, repo string) ([]DependabotAlert, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[[]DependabotAlert](args)
+}
+
+// GetCodeScanningAlerts mock implementation
+func (m *MockClient) GetCodeScanningAlerts(ctx context.Context, repo string) ([]CodeScanningAlert, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[[]CodeScanningAlert](args)
+}
+
+// GetSecretScanningAlerts mock implementation
+func (m *MockClient) GetSecretScanningAlerts(ctx context.Context, repo string) ([]SecretScanningAlert, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[[]SecretScanningAlert](args)
+}
