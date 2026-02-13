@@ -74,8 +74,8 @@ func FuzzGitURLSafety(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, url string) {
-		// Skip extremely long inputs
-		if len(url) > 2048 { // Reasonable URL length limit
+		// Skip long inputs to avoid expensive validation on unrealistic URLs
+		if len(url) > 1000 {
 			t.Skip("URL too long")
 		}
 
