@@ -73,17 +73,17 @@ type SecurityAlert struct {
 	BaseModel
 
 	RepositoryID    uint       `gorm:"index;not null" json:"repository_id"`
-	AlertType       string     `gorm:"type:text;not null;index" json:"alert_type"`  // dependabot, code_scanning, secret_scanning
-	AlertNumber     int        `gorm:"index" json:"alert_number"`                   // Alert number from GitHub API
-	State           string     `gorm:"type:text;index" json:"state"`                // open, fixed, dismissed
-	Severity        string     `gorm:"type:text;index" json:"severity"`             // critical, high, medium, low
-	Summary         string     `gorm:"type:text" json:"summary"`                    // Short summary
-	Description     string     `gorm:"type:text" json:"description"`                // Full description
-	HTMLURL         string     `gorm:"type:text" json:"html_url"`                   // Link to alert
-	CreatedAt       time.Time  `json:"created_at"`                                  // When alert was created
-	FixedAt         *time.Time `json:"fixed_at,omitempty"`                          // When alert was fixed
-	DismissedAt     *time.Time `json:"dismissed_at,omitempty"`                      // When alert was dismissed
-	DismissedReason string     `gorm:"type:text" json:"dismissed_reason,omitempty"` // Reason for dismissal
+	AlertType       string     `gorm:"type:text;not null;index" json:"alert_type"`      // dependabot, code_scanning, secret_scanning
+	AlertNumber     int        `gorm:"index" json:"alert_number"`                       // Alert number from GitHub API
+	State           string     `gorm:"type:text;index" json:"state"`                    // open, fixed, dismissed
+	Severity        string     `gorm:"type:text;index" json:"severity"`                 // critical, high, medium, low
+	Summary         string     `gorm:"type:text" json:"summary"`                        // Short summary
+	Description     string     `gorm:"type:text" json:"description"`                    // Full description
+	HTMLURL         string     `gorm:"type:text" json:"html_url"`                       // Link to alert
+	AlertCreatedAt  time.Time  `gorm:"column:alert_created_at" json:"alert_created_at"` // When GitHub alert was created (distinct from BaseModel.CreatedAt)
+	FixedAt         *time.Time `json:"fixed_at,omitempty"`                              // When alert was fixed
+	DismissedAt     *time.Time `json:"dismissed_at,omitempty"`                          // When alert was dismissed
+	DismissedReason string     `gorm:"type:text" json:"dismissed_reason,omitempty"`     // Reason for dismissal
 
 	// Type-specific fields stored as JSON (CVSS score, CWE, package info, etc.)
 	AlertData Metadata `gorm:"type:text" json:"alert_data,omitempty"`

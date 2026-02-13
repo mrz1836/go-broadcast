@@ -83,7 +83,7 @@ fragment RepoFields on Repository {
     tagName
     publishedAt
   }
-  refs(refPrefix: "refs/tags/", last: 1, orderBy: {field: TAG_COMMIT_DATE, direction: DESC}) {
+  tags: refs(refPrefix: "refs/tags/", last: 1, orderBy: {field: TAG_COMMIT_DATE, direction: DESC}) {
     nodes {
       name
       target {
@@ -201,11 +201,26 @@ func ParseBatchResponse(data map[string]interface{}, repos []gh.RepoInfo) (map[s
 			}
 		}
 
-		// Extract latest tag from refs
-		// The query fetches refs(refPrefix: "refs/tags/", last: 1) which gives us the latest tag
-		// This is a second "refs" field in the response, but GraphQL doesn't allow duplicate field names
-		// So we need to check the tag data separately or use a different approach
-		// For now, we'll leave latest tag extraction for a follow-up since the fragment has duplicate "refs"
+		// Extract latest tag from aliased "tags" field
+		if tags, ok := repoData["tags"].(map[string]interface{}); ok {
+			if nodes, ok := tags["nodes"].([]interface{}); ok && len(nodes) > 0 {
+				if node, ok := nodes[0].(map[string]interface{}); ok {
+					if name, ok := node["name"].(string); ok {
+						metadata.LatestTag = name
+					}
+					// Extract tag date from target (can be Tag or Commit)
+					if target, ok := node["target"].(map[string]interface{}); ok {
+						if tagger, ok := target["tagger"].(map[string]interface{}); ok {
+							if date, ok := tagger["date"].(string); ok {
+								metadata.LatestTagAt = &date
+							}
+						} else if committedDate, ok := target["committedDate"].(string); ok {
+							metadata.LatestTagAt = &committedDate
+						}
+					}
+				}
+			}
+		}
 
 		result[repo.FullName] = metadata
 	}

@@ -809,7 +809,7 @@ type GraphQLResponse struct {
 // ExecuteGraphQL executes a GraphQL query and returns the raw response data
 func (g *githubClient) ExecuteGraphQL(ctx context.Context, query string) (map[string]interface{}, error) {
 	// Execute GraphQL query via gh api
-	output, err := g.runner.RunWithInput(ctx, []byte(query), "gh", "api", "graphql", "-f", "query=-")
+	output, err := g.runner.RunWithInput(ctx, []byte(query), "gh", "api", "graphql", "-F", "query=@-")
 	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "execute GraphQL query")
 	}

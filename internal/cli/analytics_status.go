@@ -1,13 +1,8 @@
 package cli
 
 import (
-	"errors"
-
 	"github.com/spf13/cobra"
 )
-
-// ErrNotImplemented is returned for features not yet implemented
-var ErrNotImplemented = errors.New("feature not yet implemented")
 
 // newAnalyticsStatusCmd creates the analytics status command
 func newAnalyticsStatusCmd() *cobra.Command {

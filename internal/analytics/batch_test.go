@@ -31,6 +31,7 @@ func TestBuildBatchQuery(t *testing.T) {
 		assert.Contains(t, query, "forkCount")
 		assert.Contains(t, query, "issues(states: [OPEN])")
 		assert.Contains(t, query, "pullRequests(states: [OPEN])")
+		assert.Contains(t, query, `tags: refs(refPrefix: "refs/tags/"`)
 	})
 
 	t.Run("builds query for multiple repos", func(t *testing.T) {
@@ -164,6 +165,18 @@ func TestParseBatchResponse(t *testing.T) {
 					"tagName":     "v1.2.3",
 					"publishedAt": publishedAt,
 				},
+				"tags": map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{
+							"name": "v1.2.3",
+							"target": map[string]interface{}{
+								"tagger": map[string]interface{}{
+									"date": "2024-01-15T10:00:00Z",
+								},
+							},
+						},
+					},
+				},
 			},
 		}
 
@@ -185,6 +198,9 @@ func TestParseBatchResponse(t *testing.T) {
 		assert.Equal(t, "v1.2.3", metadata.LatestRelease)
 		assert.NotNil(t, metadata.LatestReleaseAt)
 		assert.Equal(t, publishedAt, *metadata.LatestReleaseAt)
+		assert.Equal(t, "v1.2.3", metadata.LatestTag)
+		assert.NotNil(t, metadata.LatestTagAt)
+		assert.Equal(t, "2024-01-15T10:00:00Z", *metadata.LatestTagAt)
 		assert.Equal(t, "2024-01-20T12:00:00Z", metadata.UpdatedAt)
 	})
 

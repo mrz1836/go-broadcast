@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -96,6 +97,13 @@ func (p *Pipeline) collectMetadata(ctx context.Context, repos []gh.RepoInfo) (ma
 
 	// Process each batch
 	for i, batch := range batches {
+		// Check for context cancellation between batches
+		select {
+		case <-ctx.Done():
+			return allMetadata, ctx.Err()
+		default:
+		}
+
 		if p.logger != nil {
 			p.logger.WithFields(logrus.Fields{
 				"batch":      i + 1,
@@ -194,21 +202,7 @@ func isComplexityError(err error) bool {
 		return false
 	}
 	errStr := err.Error()
-	return contains(errStr, "complexity") || contains(errStr, "too complex") || contains(errStr, "query cost")
-}
-
-// contains checks if a string contains a substring (avoiding strings import)
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && hasSubstring(s, substr))
-}
-
-func hasSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(errStr, "complexity") || strings.Contains(errStr, "too complex") || strings.Contains(errStr, "query cost")
 }
 
 // ============================================================
@@ -282,13 +276,12 @@ func (p *Pipeline) RecordSyncRunError(ctx context.Context, run *db.SyncRun, repo
 		"time":  time.Now().Format(time.RFC3339),
 	}
 
-	// Append to errors array
+	// Append to errors array (always use []interface{} for JSON round-trip consistency)
 	if run.Errors == nil {
 		run.Errors = db.Metadata{
-			"errors": []map[string]interface{}{errorEntry},
+			"errors": []interface{}{errorEntry},
 		}
 	} else {
-		// Extract existing errors array
 		errorsArray, ok := run.Errors["errors"].([]interface{})
 		if !ok {
 			errorsArray = []interface{}{}

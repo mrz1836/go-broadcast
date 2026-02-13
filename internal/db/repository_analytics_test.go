@@ -200,13 +200,13 @@ func TestAnalyticsRepo_Alerts(t *testing.T) {
 
 	t.Run("UpsertAlert", func(t *testing.T) {
 		alert := &SecurityAlert{
-			RepositoryID: analyticsRepo.ID,
-			AlertType:    "dependabot",
-			AlertNumber:  1,
-			State:        "open",
-			Severity:     "high",
-			Summary:      "Test alert",
-			CreatedAt:    time.Now(),
+			RepositoryID:   analyticsRepo.ID,
+			AlertType:      "dependabot",
+			AlertNumber:    1,
+			State:          "open",
+			Severity:       "high",
+			Summary:        "Test alert",
+			AlertCreatedAt: time.Now(),
 		}
 
 		err := repo.UpsertAlert(ctx, alert)
@@ -226,13 +226,13 @@ func TestAnalyticsRepo_Alerts(t *testing.T) {
 		severities := []string{"critical", "high", "medium", "low"}
 		for i, sev := range severities {
 			alert := &SecurityAlert{
-				RepositoryID: analyticsRepo.ID,
-				AlertType:    "code_scanning",
-				AlertNumber:  i + 10,
-				State:        "open",
-				Severity:     sev,
-				Summary:      "Alert " + sev,
-				CreatedAt:    time.Now(),
+				RepositoryID:   analyticsRepo.ID,
+				AlertType:      "code_scanning",
+				AlertNumber:    i + 10,
+				State:          "open",
+				Severity:       sev,
+				Summary:        "Alert " + sev,
+				AlertCreatedAt: time.Now(),
 			}
 			require.NoError(t, repo.UpsertAlert(ctx, alert))
 		}

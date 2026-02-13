@@ -8,6 +8,11 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	// analyticsDefaultClientName is the name of the auto-created client for analytics-discovered orgs
+	analyticsDefaultClientName = "analytics"
+)
+
 // ErrInvalidSyncRunID is returned when attempting to update a sync run with ID 0
 var ErrInvalidSyncRunID = errors.New("cannot update sync run with ID 0")
 
@@ -53,8 +58,43 @@ func NewAnalyticsRepo(db *gorm.DB) AnalyticsRepo {
 // Organizations
 // ============================================================
 
-// UpsertOrganization creates or updates an organization
+// ensureDefaultClient creates or retrieves the default "analytics" client for discovered orgs.
+// Organizations require a ClientID FK; this provides one for orgs discovered via the GitHub API
+// that don't have a pre-existing client from config import.
+func (r *analyticsRepo) ensureDefaultClient(ctx context.Context) (uint, error) {
+	var client Client
+	err := r.db.WithContext(ctx).
+		Where("name = ?", analyticsDefaultClientName).
+		First(&client).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		client = Client{
+			Name:        analyticsDefaultClientName,
+			Description: "Auto-created client for analytics-discovered organizations",
+		}
+		if createErr := r.db.WithContext(ctx).Create(&client).Error; createErr != nil {
+			return 0, createErr
+		}
+		return client.ID, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return client.ID, nil
+}
+
+// UpsertOrganization creates or updates an organization.
+// If ClientID is 0, a default "analytics" client is auto-created and assigned.
 func (r *analyticsRepo) UpsertOrganization(ctx context.Context, org *Organization) error {
+	// Ensure ClientID is set for new orgs discovered via analytics
+	if org.ClientID == 0 {
+		clientID, err := r.ensureDefaultClient(ctx)
+		if err != nil {
+			return err
+		}
+		org.ClientID = clientID
+	}
+
 	// Try to find existing
 	var existing Organization
 	err := r.db.WithContext(ctx).
@@ -206,7 +246,7 @@ func (r *analyticsRepo) GetOpenAlerts(ctx context.Context, repoID uint, severity
 	}
 
 	err := query.
-		Order("severity DESC, created_at DESC").
+		Order("severity DESC, alert_created_at DESC").
 		Find(&alerts).Error
 
 	return alerts, err
