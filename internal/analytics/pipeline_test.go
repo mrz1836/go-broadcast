@@ -17,7 +17,7 @@ func TestNewPipeline(t *testing.T) {
 	mockClient := gh.NewMockClient()
 	logger := logrus.New()
 
-	pipeline := NewPipeline(mockClient, logger)
+	pipeline := NewPipeline(mockClient, nil, logger)
 	require.NotNil(t, pipeline)
 	assert.NotNil(t, pipeline.ghClient)
 	assert.NotNil(t, pipeline.logger)
@@ -31,7 +31,7 @@ func TestSyncOrganization(t *testing.T) {
 		logger := logrus.New()
 		logger.SetLevel(logrus.WarnLevel) // Reduce noise in tests
 
-		pipeline := NewPipeline(mockClient, logger)
+		pipeline := NewPipeline(mockClient, nil, logger)
 
 		// Mock discovery response
 		desc1 := "Repo 1"
@@ -75,7 +75,7 @@ func TestSyncOrganization(t *testing.T) {
 
 	t.Run("empty organization", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		pipeline := NewPipeline(mockClient, nil)
+		pipeline := NewPipeline(mockClient, nil, nil)
 
 		mockClient.On("DiscoverOrgRepos", ctx, "empty-org").Return([]gh.RepoInfo{}, nil)
 
@@ -88,7 +88,7 @@ func TestSyncOrganization(t *testing.T) {
 
 	t.Run("discovery error", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		pipeline := NewPipeline(mockClient, nil)
+		pipeline := NewPipeline(mockClient, nil, nil)
 
 		mockClient.On("DiscoverOrgRepos", ctx, "error-org").Return(nil, errors.New("API error"))
 
@@ -106,7 +106,7 @@ func TestSyncRepository(t *testing.T) {
 
 	t.Run("successful single repo sync", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		pipeline := NewPipeline(mockClient, nil)
+		pipeline := NewPipeline(mockClient, nil, nil)
 
 		// Mock GraphQL response for single repo
 		graphQLData := map[string]interface{}{
@@ -133,7 +133,7 @@ func TestSyncRepository(t *testing.T) {
 
 	t.Run("GraphQL error", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		pipeline := NewPipeline(mockClient, nil)
+		pipeline := NewPipeline(mockClient, nil, nil)
 
 		mockClient.On("ExecuteGraphQL", ctx, mock.Anything).
 			Return(nil, errors.New("GraphQL error"))
@@ -153,7 +153,7 @@ func TestCollectMetadata_Batching(t *testing.T) {
 		mockClient := gh.NewMockClient()
 		logger := logrus.New()
 		logger.SetLevel(logrus.WarnLevel)
-		pipeline := NewPipeline(mockClient, logger)
+		pipeline := NewPipeline(mockClient, nil, logger)
 
 		// Create 52 repos (should result in 3 batches: 25, 25, 2)
 		repos := make([]gh.RepoInfo, 52)

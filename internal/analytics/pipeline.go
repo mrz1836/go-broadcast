@@ -3,22 +3,26 @@ package analytics
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/mrz1836/go-broadcast/internal/db"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 )
 
 // Pipeline orchestrates repo discovery and batched metadata collection
 type Pipeline struct {
 	ghClient gh.Client
+	repo     db.AnalyticsRepo
 	logger   *logrus.Logger
 }
 
 // NewPipeline creates a new analytics pipeline
-func NewPipeline(ghClient gh.Client, logger *logrus.Logger) *Pipeline {
+func NewPipeline(ghClient gh.Client, repo db.AnalyticsRepo, logger *logrus.Logger) *Pipeline {
 	return &Pipeline{
 		ghClient: ghClient,
+		repo:     repo,
 		logger:   logger,
 	}
 }
@@ -201,4 +205,102 @@ func hasSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// ============================================================
+// SyncRun Tracking
+// ============================================================
+
+// StartSyncRun creates a new SyncRun record at the start of sync
+func (p *Pipeline) StartSyncRun(ctx context.Context, syncType, orgFilter, repoFilter string) (*db.SyncRun, error) {
+	run := &db.SyncRun{
+		StartedAt:  time.Now(),
+		Status:     "running",
+		SyncType:   syncType,
+		OrgFilter:  orgFilter,
+		RepoFilter: repoFilter,
+	}
+
+	if err := p.repo.CreateSyncRun(ctx, run); err != nil {
+		return nil, fmt.Errorf("failed to create sync run: %w", err)
+	}
+
+	if p.logger != nil {
+		p.logger.WithFields(logrus.Fields{
+			"sync_run_id": run.ID,
+			"sync_type":   syncType,
+			"org_filter":  orgFilter,
+			"repo_filter": repoFilter,
+		}).Info("Started sync run")
+	}
+
+	return run, nil
+}
+
+// UpdateSyncRunCounters updates the counters for a running SyncRun
+func (p *Pipeline) UpdateSyncRunCounters(ctx context.Context, run *db.SyncRun) error {
+	if err := p.repo.UpdateSyncRun(ctx, run); err != nil {
+		return fmt.Errorf("failed to update sync run: %w", err)
+	}
+	return nil
+}
+
+// CompleteSyncRun marks a SyncRun as completed and calculates final metrics
+func (p *Pipeline) CompleteSyncRun(ctx context.Context, run *db.SyncRun, status string) error {
+	now := time.Now()
+	run.CompletedAt = &now
+	run.Status = status
+	run.DurationMs = now.Sub(run.StartedAt).Milliseconds()
+
+	if err := p.repo.UpdateSyncRun(ctx, run); err != nil {
+		return fmt.Errorf("failed to complete sync run: %w", err)
+	}
+
+	if p.logger != nil {
+		p.logger.WithFields(logrus.Fields{
+			"sync_run_id":       run.ID,
+			"status":            status,
+			"duration_ms":       run.DurationMs,
+			"repos_processed":   run.ReposProcessed,
+			"repos_skipped":     run.ReposSkipped,
+			"snapshots_created": run.SnapshotsCreated,
+		}).Info("Completed sync run")
+	}
+
+	return nil
+}
+
+// RecordSyncRunError adds an error to the SyncRun's error log
+func (p *Pipeline) RecordSyncRunError(ctx context.Context, run *db.SyncRun, repo string, err error) {
+	errorEntry := map[string]interface{}{
+		"repo":  repo,
+		"error": err.Error(),
+		"time":  time.Now().Format(time.RFC3339),
+	}
+
+	// Append to errors array
+	if run.Errors == nil {
+		run.Errors = db.Metadata{
+			"errors": []map[string]interface{}{errorEntry},
+		}
+	} else {
+		// Extract existing errors array
+		errorsArray, ok := run.Errors["errors"].([]interface{})
+		if !ok {
+			errorsArray = []interface{}{}
+		}
+		errorsArray = append(errorsArray, errorEntry)
+		run.Errors["errors"] = errorsArray
+	}
+
+	run.ReposFailed++
+	run.LastProcessedRepo = repo
+
+	if p.logger != nil {
+		p.logger.WithFields(logrus.Fields{
+			"sync_run_id": run.ID,
+			"repo":        repo,
+			"error":       err.Error(),
+		}).Warn("Recorded sync error")
+	}
 }
