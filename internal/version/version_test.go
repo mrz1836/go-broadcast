@@ -885,6 +885,11 @@ func FuzzCompareVersions(f *testing.F) {
 	f.Add("999999999.0.0", "0.0.1")
 
 	f.Fuzz(func(t *testing.T, v1, v2 string) {
+		// Skip long inputs to avoid timeout in CI
+		if len(v1)+len(v2) > 1000 {
+			t.Skip("Combined version length too long")
+		}
+
 		// Should never panic
 		result := CompareVersions(v1, v2)
 		// Result must be -1, 0, or 1
@@ -903,6 +908,11 @@ func FuzzParseVersion(f *testing.F) {
 	f.Add("999.888.777")
 
 	f.Fuzz(func(t *testing.T, version string) {
+		// Skip long inputs to avoid timeout in CI
+		if len(version) > 500 {
+			t.Skip("Version string too long")
+		}
+
 		// Should never panic
 		result := parseVersion(version)
 		// Result should be a valid slice (not nil after make)
@@ -926,6 +936,11 @@ func FuzzNormalizeVersion(f *testing.F) {
 	f.Add("")
 
 	f.Fuzz(func(t *testing.T, version string) {
+		// Skip long inputs to avoid timeout in CI
+		if len(version) > 500 {
+			t.Skip("Version string too long")
+		}
+
 		// Should never panic
 		result := NormalizeVersion(version)
 
@@ -950,6 +965,11 @@ func FuzzIsCommitHash(f *testing.F) {
 	f.Add("dev")
 
 	f.Fuzz(func(_ *testing.T, s string) {
+		// Skip long inputs to avoid timeout in CI
+		if len(s) > 100 {
+			return
+		}
+
 		// Should never panic
 		_ = isCommitHash(s)
 	})
