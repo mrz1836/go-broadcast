@@ -52,11 +52,23 @@ func NewAnalyticsRepo(db *gorm.DB) AnalyticsRepo {
 
 // UpsertOrganization creates or updates an organization
 func (r *analyticsRepo) UpsertOrganization(ctx context.Context, org *Organization) error {
-	result := r.db.WithContext(ctx).
+	// Try to find existing
+	var existing Organization
+	err := r.db.WithContext(ctx).
 		Where("name = ?", org.Name).
-		Assign(org).
-		FirstOrCreate(org)
-	return result.Error
+		First(&existing).Error
+
+	if err == gorm.ErrRecordNotFound {
+		// Create new
+		return r.db.WithContext(ctx).Create(org).Error
+	}
+	if err != nil {
+		return err
+	}
+
+	// Update existing
+	org.ID = existing.ID
+	return r.db.WithContext(ctx).Save(org).Error
 }
 
 // GetOrganization retrieves an organization by login name
@@ -86,11 +98,23 @@ func (r *analyticsRepo) ListOrganizations(ctx context.Context) ([]Organization, 
 
 // UpsertRepository creates or updates an analytics repository
 func (r *analyticsRepo) UpsertRepository(ctx context.Context, repo *AnalyticsRepository) error {
-	result := r.db.WithContext(ctx).
+	// Try to find existing
+	var existing AnalyticsRepository
+	err := r.db.WithContext(ctx).
 		Where("full_name = ?", repo.FullName).
-		Assign(repo).
-		FirstOrCreate(repo)
-	return result.Error
+		First(&existing).Error
+
+	if err == gorm.ErrRecordNotFound {
+		// Create new
+		return r.db.WithContext(ctx).Create(repo).Error
+	}
+	if err != nil {
+		return err
+	}
+
+	// Update existing
+	repo.ID = existing.ID
+	return r.db.WithContext(ctx).Save(repo).Error
 }
 
 // GetRepository retrieves a repository by full name (owner/name)
@@ -200,7 +224,6 @@ func (r *analyticsRepo) GetAlertCounts(ctx context.Context, repoID uint) (map[st
 		Where("repository_id = ? AND state = ?", repoID, "open").
 		Group("severity").
 		Scan(&results).Error
-
 	if err != nil {
 		return nil, err
 	}
