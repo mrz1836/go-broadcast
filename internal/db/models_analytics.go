@@ -25,6 +25,7 @@ type AnalyticsRepository struct {
 	Language       string     `gorm:"type:text" json:"language"`                                           // Primary language
 	IsPrivate      bool       `json:"is_private"`                                                          // Visibility
 	IsFork         bool       `json:"is_fork"`                                                             // Is this a fork?
+	ForkSource     string     `gorm:"type:text" json:"fork_source,omitempty"`                              // Parent repo full name if fork
 	IsArchived     bool       `json:"is_archived"`                                                         // Is archived?
 	URL            string     `gorm:"type:text" json:"url"`                                                // HTML URL
 	MetadataETag   string     `gorm:"type:text" json:"metadata_etag"`                                      // ETag for conditional metadata requests
@@ -36,6 +37,7 @@ type AnalyticsRepository struct {
 	Organization *Organization        `gorm:"foreignKey:OrganizationID" json:"organization,omitempty"`
 	Snapshots    []RepositorySnapshot `gorm:"foreignKey:RepositoryID" json:"snapshots,omitempty"`
 	Alerts       []SecurityAlert      `gorm:"foreignKey:RepositoryID" json:"alerts,omitempty"`
+	CISnapshots  []CIMetricsSnapshot  `gorm:"foreignKey:RepositoryID" json:"ci_snapshots,omitempty"`
 }
 
 // RepositorySnapshot captures point-in-time metrics for a repository.
@@ -62,6 +64,12 @@ type RepositorySnapshot struct {
 
 	// Activity timestamps
 	RepoUpdatedAt *time.Time `json:"repo_updated_at,omitempty"` // Last activity on repo
+	PushedAt      *time.Time `json:"pushed_at,omitempty"`       // Last code push timestamp
+
+	// Denormalized security alert counts (for fast dashboard queries)
+	DependabotAlertCount     int `json:"dependabot_alert_count"`
+	CodeScanningAlertCount   int `json:"code_scanning_alert_count"`
+	SecretScanningAlertCount int `json:"secret_scanning_alert_count"`
 
 	// Raw data for future expansion (store full GraphQL response)
 	RawData Metadata `gorm:"type:text" json:"raw_data,omitempty"`
@@ -115,4 +123,29 @@ type SyncRun struct {
 
 	// Resume support (for future incremental syncs)
 	LastProcessedRepo string `gorm:"type:text" json:"last_processed_repo,omitempty"` // For future resume support
+}
+
+// CIMetricsSnapshot captures CI build metrics from GoFortress workflow artifacts.
+// Replaces the fragile shell script approach in zai/scripts/scorecard-collect.sh.
+type CIMetricsSnapshot struct {
+	BaseModel
+
+	RepositoryID  uint      `gorm:"index;not null" json:"repository_id"`
+	SnapshotAt    time.Time `gorm:"index;not null" json:"snapshot_at"`
+	WorkflowRunID int64     `gorm:"index" json:"workflow_run_id"`
+	Branch        string    `gorm:"type:text" json:"branch"`
+	CommitSHA     string    `gorm:"type:text" json:"commit_sha"`
+
+	// LOC (from loc-stats JSON or statistics-section markdown fallback)
+	GoFilesLOC     int `json:"go_files_loc"`
+	TestFilesLOC   int `json:"test_files_loc"`
+	GoFilesCount   int `json:"go_files_count"`
+	TestFilesCount int `json:"test_files_count"`
+
+	// Testing (from tests-section markdown + bench-stats JSON)
+	TestCount       int      `json:"test_count"`
+	BenchmarkCount  int      `json:"benchmark_count"`
+	CoveragePercent *float64 `json:"coverage_percent"` // nullable — not all repos report
+
+	RawData Metadata `gorm:"type:text" json:"raw_data,omitempty"`
 }

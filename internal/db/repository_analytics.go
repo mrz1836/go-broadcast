@@ -37,6 +37,11 @@ type AnalyticsRepo interface {
 	UpsertAlert(ctx context.Context, alert *SecurityAlert) error
 	GetOpenAlerts(ctx context.Context, repoID uint, severity string) ([]SecurityAlert, error)
 	GetAlertCounts(ctx context.Context, repoID uint) (map[string]int, error)
+	GetAlertCountsByType(ctx context.Context, repoID uint) (map[string]int, error)
+
+	// CI Snapshots
+	CreateCISnapshot(ctx context.Context, snap *CIMetricsSnapshot) error
+	GetLatestCISnapshot(ctx context.Context, repoID uint) (*CIMetricsSnapshot, error)
 
 	// SyncRuns
 	CreateSyncRun(ctx context.Context, run *SyncRun) error
@@ -305,4 +310,53 @@ func (r *analyticsRepo) GetLatestSyncRun(ctx context.Context) (*SyncRun, error) 
 		return nil, err
 	}
 	return &run, nil
+}
+
+// GetAlertCountsByType retrieves open alert counts grouped by alert_type for a repository.
+// Returns a map of alert_type ("dependabot", "code_scanning", "secret_scanning") to count.
+func (r *analyticsRepo) GetAlertCountsByType(ctx context.Context, repoID uint) (map[string]int, error) {
+	var results []struct {
+		AlertType string
+		Count     int
+	}
+
+	err := r.db.WithContext(ctx).
+		Model(&SecurityAlert{}).
+		Select("alert_type, count(*) as count").
+		Where("repository_id = ? AND state = ?", repoID, "open").
+		Group("alert_type").
+		Scan(&results).Error
+	if err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int)
+	for _, r := range results {
+		counts[r.AlertType] = r.Count
+	}
+
+	return counts, nil
+}
+
+// ============================================================
+// CI Snapshots
+// ============================================================
+
+// CreateCISnapshot creates a new CI metrics snapshot
+func (r *analyticsRepo) CreateCISnapshot(ctx context.Context, snap *CIMetricsSnapshot) error {
+	return r.db.WithContext(ctx).Create(snap).Error
+}
+
+// GetLatestCISnapshot retrieves the most recent CI snapshot for a repository
+// Returns gorm.ErrRecordNotFound if no snapshot exists
+func (r *analyticsRepo) GetLatestCISnapshot(ctx context.Context, repoID uint) (*CIMetricsSnapshot, error) {
+	var snap CIMetricsSnapshot
+	err := r.db.WithContext(ctx).
+		Where("repository_id = ?", repoID).
+		Order("snapshot_at DESC").
+		First(&snap).Error
+	if err != nil {
+		return nil, err
+	}
+	return &snap, nil
 }

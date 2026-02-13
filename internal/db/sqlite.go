@@ -99,5 +99,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&RepositorySnapshot{},
 		&SecurityAlert{},
 		&SyncRun{},
+		&CIMetricsSnapshot{},
 	)
 }
