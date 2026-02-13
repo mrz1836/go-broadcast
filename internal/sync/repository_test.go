@@ -1860,6 +1860,26 @@ func (m *TestValidationMockGHClient) GetPRCheckStatus(_ context.Context, _ strin
 	return nil, ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) DiscoverOrgRepos(_ context.Context, _ string) ([]gh.RepoInfo, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) ExecuteGraphQL(_ context.Context, _ string) (map[string]interface{}, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetDependabotAlerts(_ context.Context, _ string) ([]gh.DependabotAlert, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetCodeScanningAlerts(_ context.Context, _ string) ([]gh.CodeScanningAlert, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetSecretScanningAlerts(_ context.Context, _ string) ([]gh.SecretScanningAlert, error) {
+	return nil, ErrMockNotImplemented
+}
+
 // TestRepositorySync_validateAndCleanupOrphanedBranches tests the validateAndCleanupOrphanedBranches method
 func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 	ctx := context.Background()
