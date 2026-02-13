@@ -182,3 +182,27 @@ func (m *MockClient) GetSecretScanningAlerts(ctx context.Context, repo string) (
 	args := m.Called(ctx, repo)
 	return testutil.HandleTwoValueReturn[[]SecretScanningAlert](args)
 }
+
+// ListWorkflows mock implementation
+func (m *MockClient) ListWorkflows(ctx context.Context, repo string) ([]Workflow, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[[]Workflow](args)
+}
+
+// GetWorkflowRuns mock implementation
+func (m *MockClient) GetWorkflowRuns(ctx context.Context, repo string, workflowID int64, count int) ([]WorkflowRun, error) {
+	args := m.Called(ctx, repo, workflowID, count)
+	return testutil.HandleTwoValueReturn[[]WorkflowRun](args)
+}
+
+// GetRunArtifacts mock implementation
+func (m *MockClient) GetRunArtifacts(ctx context.Context, repo string, runID int64) ([]Artifact, error) {
+	args := m.Called(ctx, repo, runID)
+	return testutil.HandleTwoValueReturn[[]Artifact](args)
+}
+
+// DownloadRunArtifact mock implementation
+func (m *MockClient) DownloadRunArtifact(ctx context.Context, repo string, runID int64, artifactName, destDir string) error {
+	args := m.Called(ctx, repo, runID, artifactName, destDir)
+	return args.Error(0)
+}

@@ -374,6 +374,56 @@ type CodeScanningAlert struct {
 	FixedAt     *time.Time `json:"fixed_at"`
 }
 
+// Workflow represents a GitHub Actions workflow
+type Workflow struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	State string `json:"state"` // active, disabled_manually, etc.
+}
+
+// WorkflowsResponse represents the response from the workflows API
+type WorkflowsResponse struct {
+	TotalCount int        `json:"total_count"`
+	Workflows  []Workflow `json:"workflows"`
+}
+
+// WorkflowRun represents a GitHub Actions workflow run
+type WorkflowRun struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`     // completed, in_progress, queued
+	Conclusion string `json:"conclusion"` // success, failure, canceled, skipped
+	HeadBranch string `json:"head_branch"`
+	HeadSHA    string `json:"head_sha"`
+	RunNumber  int    `json:"run_number"`
+	CreatedAt  string `json:"created_at"`
+	UpdatedAt  string `json:"updated_at"`
+}
+
+// WorkflowRunsResponse represents the response from the workflow runs API
+type WorkflowRunsResponse struct {
+	TotalCount   int           `json:"total_count"`
+	WorkflowRuns []WorkflowRun `json:"workflow_runs"`
+}
+
+// Artifact represents a GitHub Actions workflow artifact
+type Artifact struct {
+	ID                 int64  `json:"id"`
+	Name               string `json:"name"`
+	SizeInBytes        int64  `json:"size_in_bytes"`
+	ArchiveDownloadURL string `json:"archive_download_url"`
+	Expired            bool   `json:"expired"`
+	CreatedAt          string `json:"created_at"`
+	ExpiresAt          string `json:"expires_at"`
+}
+
+// ArtifactsResponse represents the response from the artifacts API
+type ArtifactsResponse struct {
+	TotalCount int        `json:"total_count"`
+	Artifacts  []Artifact `json:"artifacts"`
+}
+
 // SecretScanningAlert represents a secret scanning alert
 type SecretScanningAlert struct {
 	Number                int        `json:"number"`

@@ -94,4 +94,16 @@ type Client interface {
 	// GetSecretScanningAlerts retrieves secret scanning alerts for a repository
 	// Returns empty slice if secret scanning is not enabled (404 response)
 	GetSecretScanningAlerts(ctx context.Context, repo string) ([]SecretScanningAlert, error)
+
+	// ListWorkflows returns all workflows for a repository
+	ListWorkflows(ctx context.Context, repo string) ([]Workflow, error)
+
+	// GetWorkflowRuns returns recent runs for a specific workflow
+	GetWorkflowRuns(ctx context.Context, repo string, workflowID int64, count int) ([]WorkflowRun, error)
+
+	// GetRunArtifacts returns all artifacts for a workflow run
+	GetRunArtifacts(ctx context.Context, repo string, runID int64) ([]Artifact, error)
+
+	// DownloadRunArtifact downloads a named artifact from a workflow run to the specified directory
+	DownloadRunArtifact(ctx context.Context, repo string, runID int64, artifactName, destDir string) error
 }
