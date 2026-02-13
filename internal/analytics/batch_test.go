@@ -32,6 +32,9 @@ func TestBuildBatchQuery(t *testing.T) {
 		assert.Contains(t, query, "issues(states: [OPEN])")
 		assert.Contains(t, query, "pullRequests(states: [OPEN])")
 		assert.Contains(t, query, `tags: refs(refPrefix: "refs/tags/"`)
+		assert.Contains(t, query, "pushedAt")
+		assert.Contains(t, query, "isFork")
+		assert.Contains(t, query, "parent { nameWithOwner }")
 	})
 
 	t.Run("builds query for multiple repos", func(t *testing.T) {
@@ -146,6 +149,11 @@ func TestParseBatchResponse(t *testing.T) {
 				"forkCount":      float64(5),
 				"description":    "A test repository",
 				"updatedAt":      "2024-01-20T12:00:00Z",
+				"pushedAt":       "2024-01-19T08:30:00Z",
+				"isFork":         true,
+				"parent": map[string]interface{}{
+					"nameWithOwner": "upstream/test-repo",
+				},
 				"watchers": map[string]interface{}{
 					"totalCount": float64(10),
 				},
@@ -202,6 +210,39 @@ func TestParseBatchResponse(t *testing.T) {
 		assert.NotNil(t, metadata.LatestTagAt)
 		assert.Equal(t, "2024-01-15T10:00:00Z", *metadata.LatestTagAt)
 		assert.Equal(t, "2024-01-20T12:00:00Z", metadata.UpdatedAt)
+		assert.Equal(t, "2024-01-19T08:30:00Z", metadata.PushedAt)
+		assert.True(t, metadata.IsFork)
+		assert.Equal(t, "upstream/test-repo", metadata.ForkParent)
+	})
+
+	t.Run("non-fork repo has empty fork fields", func(t *testing.T) {
+		repos := []gh.RepoInfo{
+			{
+				Name:     "my-repo",
+				FullName: "owner/my-repo",
+				Owner: struct {
+					Login string `json:"login"`
+				}{Login: "owner"},
+			},
+		}
+
+		data := map[string]interface{}{
+			"repo0": map[string]interface{}{
+				"nameWithOwner":  "owner/my-repo",
+				"stargazerCount": float64(10),
+				"isFork":         false,
+			},
+		}
+
+		result, err := ParseBatchResponse(data, repos)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+
+		metadata := result["owner/my-repo"]
+		require.NotNil(t, metadata)
+		assert.False(t, metadata.IsFork)
+		assert.Empty(t, metadata.ForkParent)
+		assert.Empty(t, metadata.PushedAt)
 	})
 
 	t.Run("handles missing optional fields", func(t *testing.T) {

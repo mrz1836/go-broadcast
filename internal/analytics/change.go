@@ -1,6 +1,8 @@
 package analytics
 
 import (
+	"time"
+
 	"github.com/mrz1836/go-broadcast/internal/db"
 )
 
@@ -10,6 +12,8 @@ import (
 // Fields compared:
 //   - Stars, Forks, OpenIssues, OpenPRs, BranchCount
 //   - LatestRelease, LatestTag
+//   - PushedAt
+//   - DependabotAlertCount, CodeScanningAlertCount, SecretScanningAlertCount
 //
 // At typical activity levels, ~80-90% of repos remain unchanged on any given day,
 // so this provides massive DB savings by skipping unnecessary snapshot writes.
@@ -49,6 +53,34 @@ func HasChanged(current, previous *db.RepositorySnapshot) bool {
 		return true
 	}
 
+	// Compare activity timestamps
+	if !timeEqual(current.PushedAt, previous.PushedAt) {
+		return true
+	}
+
+	// Compare security alert counts
+	if current.DependabotAlertCount != previous.DependabotAlertCount {
+		return true
+	}
+	if current.CodeScanningAlertCount != previous.CodeScanningAlertCount {
+		return true
+	}
+	if current.SecretScanningAlertCount != previous.SecretScanningAlertCount {
+		return true
+	}
+
 	// No changes detected
 	return false
+}
+
+// timeEqual safely compares two *time.Time values.
+// Returns true if both are nil, or both are non-nil and equal.
+func timeEqual(a, b *time.Time) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Equal(*b)
 }

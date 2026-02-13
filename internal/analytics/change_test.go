@@ -228,6 +228,150 @@ func TestHasChanged(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "pushed_at changed",
+			current: &db.RepositorySnapshot{
+				Stars:       100,
+				Forks:       10,
+				OpenIssues:  5,
+				OpenPRs:     2,
+				BranchCount: 8,
+				PushedAt:    timePtr(now),
+			},
+			previous: &db.RepositorySnapshot{
+				Stars:       100,
+				Forks:       10,
+				OpenIssues:  5,
+				OpenPRs:     2,
+				BranchCount: 8,
+				PushedAt:    timePtr(now.Add(-24 * time.Hour)),
+			},
+			want: true,
+		},
+		{
+			name: "pushed_at nil to set",
+			current: &db.RepositorySnapshot{
+				Stars:       100,
+				Forks:       10,
+				OpenIssues:  5,
+				OpenPRs:     2,
+				BranchCount: 8,
+				PushedAt:    timePtr(now),
+			},
+			previous: &db.RepositorySnapshot{
+				Stars:       100,
+				Forks:       10,
+				OpenIssues:  5,
+				OpenPRs:     2,
+				BranchCount: 8,
+				PushedAt:    nil,
+			},
+			want: true,
+		},
+		{
+			name: "pushed_at both nil is unchanged",
+			current: &db.RepositorySnapshot{
+				Stars:       100,
+				Forks:       10,
+				OpenIssues:  5,
+				OpenPRs:     2,
+				BranchCount: 8,
+				PushedAt:    nil,
+			},
+			previous: &db.RepositorySnapshot{
+				Stars:       100,
+				Forks:       10,
+				OpenIssues:  5,
+				OpenPRs:     2,
+				BranchCount: 8,
+				PushedAt:    nil,
+			},
+			want: false,
+		},
+		{
+			name: "dependabot alert count changed",
+			current: &db.RepositorySnapshot{
+				Stars:                100,
+				Forks:                10,
+				OpenIssues:           5,
+				OpenPRs:              2,
+				BranchCount:          8,
+				DependabotAlertCount: 3,
+			},
+			previous: &db.RepositorySnapshot{
+				Stars:                100,
+				Forks:                10,
+				OpenIssues:           5,
+				OpenPRs:              2,
+				BranchCount:          8,
+				DependabotAlertCount: 1,
+			},
+			want: true,
+		},
+		{
+			name: "code scanning alert count changed",
+			current: &db.RepositorySnapshot{
+				Stars:                  100,
+				Forks:                  10,
+				OpenIssues:             5,
+				OpenPRs:                2,
+				BranchCount:            8,
+				CodeScanningAlertCount: 2,
+			},
+			previous: &db.RepositorySnapshot{
+				Stars:                  100,
+				Forks:                  10,
+				OpenIssues:             5,
+				OpenPRs:                2,
+				BranchCount:            8,
+				CodeScanningAlertCount: 0,
+			},
+			want: true,
+		},
+		{
+			name: "secret scanning alert count changed",
+			current: &db.RepositorySnapshot{
+				Stars:                    100,
+				Forks:                    10,
+				OpenIssues:               5,
+				OpenPRs:                  2,
+				BranchCount:              8,
+				SecretScanningAlertCount: 1,
+			},
+			previous: &db.RepositorySnapshot{
+				Stars:                    100,
+				Forks:                    10,
+				OpenIssues:               5,
+				OpenPRs:                  2,
+				BranchCount:              8,
+				SecretScanningAlertCount: 0,
+			},
+			want: true,
+		},
+		{
+			name: "all alert counts identical is unchanged",
+			current: &db.RepositorySnapshot{
+				Stars:                    100,
+				Forks:                    10,
+				OpenIssues:               5,
+				OpenPRs:                  2,
+				BranchCount:              8,
+				DependabotAlertCount:     2,
+				CodeScanningAlertCount:   1,
+				SecretScanningAlertCount: 0,
+			},
+			previous: &db.RepositorySnapshot{
+				Stars:                    100,
+				Forks:                    10,
+				OpenIssues:               5,
+				OpenPRs:                  2,
+				BranchCount:              8,
+				DependabotAlertCount:     2,
+				CodeScanningAlertCount:   1,
+				SecretScanningAlertCount: 0,
+			},
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -236,4 +380,34 @@ func TestHasChanged(t *testing.T) {
 			assert.Equal(t, tt.want, got, "HasChanged() result mismatch")
 		})
 	}
+}
+
+func TestTimeEqual(t *testing.T) {
+	now := time.Now()
+	later := now.Add(time.Hour)
+
+	tests := []struct {
+		name string
+		a    *time.Time
+		b    *time.Time
+		want bool
+	}{
+		{"both nil", nil, nil, true},
+		{"a nil b set", nil, &now, false},
+		{"a set b nil", &now, nil, false},
+		{"same time", &now, &now, true},
+		{"different times", &now, &later, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := timeEqual(tt.a, tt.b)
+			assert.Equal(t, tt.want, got, "timeEqual() result mismatch")
+		})
+	}
+}
+
+// timePtr returns a pointer to the given time value
+func timePtr(t time.Time) *time.Time {
+	return &t
 }

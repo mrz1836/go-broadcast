@@ -32,6 +32,9 @@ type RepoMetadata struct {
 	LatestTag       string
 	LatestTagAt     *string
 	UpdatedAt       string
+	PushedAt        string // last code push timestamp
+	IsFork          bool
+	ForkParent      string // parent repo nameWithOwner
 }
 
 // BuildBatchQuery creates an aliased GraphQL query for multiple repos
@@ -62,6 +65,9 @@ fragment RepoFields on Repository {
   nameWithOwner
   stargazerCount
   forkCount
+  pushedAt
+  isFork
+  parent { nameWithOwner }
   watchers {
     totalCount
   }
@@ -154,6 +160,17 @@ func ParseBatchResponse(data map[string]interface{}, repos []gh.RepoInfo) (map[s
 		}
 		if updatedAt, ok := repoData["updatedAt"].(string); ok {
 			metadata.UpdatedAt = updatedAt
+		}
+		if pushedAt, ok := repoData["pushedAt"].(string); ok {
+			metadata.PushedAt = pushedAt
+		}
+		if isFork, ok := repoData["isFork"].(bool); ok {
+			metadata.IsFork = isFork
+		}
+		if parent, ok := repoData["parent"].(map[string]interface{}); ok {
+			if nwo, ok := parent["nameWithOwner"].(string); ok {
+				metadata.ForkParent = nwo
+			}
 		}
 
 		// Extract watchers (nested object)
