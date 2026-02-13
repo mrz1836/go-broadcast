@@ -1,10 +1,13 @@
 package cli
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/spf13/cobra"
 )
+
+// ErrNotImplemented is returned for features not yet implemented
+var ErrNotImplemented = errors.New("feature not yet implemented")
 
 // newAnalyticsStatusCmd creates the analytics status command
 func newAnalyticsStatusCmd() *cobra.Command {
@@ -18,7 +21,7 @@ Optionally specify a specific repo (owner/name) or show all repos.`,
 			// TODO: Implement analytics status
 			// - Get repo(s) from db.AnalyticsRepo
 			// - Display metrics, alerts, last sync
-			return fmt.Errorf("analytics status not yet implemented (Phase 5 stub)")
+			return ErrNotImplemented
 		},
 	}
 

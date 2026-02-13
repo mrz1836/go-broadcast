@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +27,7 @@ with change detection to minimize database writes.`,
 			// - Initialize db.AnalyticsRepo
 			// - Create analytics.Pipeline
 			// - Run sync based on flags
-			return fmt.Errorf("analytics sync not yet implemented (Phase 5 stub)")
+			return ErrNotImplemented
 		},
 	}
 
