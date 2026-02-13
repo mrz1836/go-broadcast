@@ -315,18 +315,18 @@ type RepoInfo struct {
 
 // DependabotAlert represents a Dependabot security alert
 type DependabotAlert struct {
-	Number               int       `json:"number"`
-	State                string    `json:"state"` // open, dismissed, fixed
-	DependencyPackage    string    `json:"-"`     // Extracted from dependency.package.name
-	DependencyManifest   string    `json:"-"`     // Extracted from dependency.manifest_path
+	Number                int    `json:"number"`
+	State                 string `json:"state"` // open, dismissed, fixed
+	DependencyPackage     string `json:"-"`     // Extracted from dependency.package.name
+	DependencyManifest    string `json:"-"`     // Extracted from dependency.manifest_path
 	SecurityVulnerability struct {
 		Package struct {
 			Ecosystem string `json:"ecosystem"`
 			Name      string `json:"name"`
 		} `json:"package"`
-		Severity            string `json:"severity"` // low, medium, high, critical
+		Severity               string `json:"severity"` // low, medium, high, critical
 		VulnerableVersionRange string `json:"vulnerable_version_range"`
-		FirstPatchedVersion *struct {
+		FirstPatchedVersion    *struct {
 			Identifier string `json:"identifier"`
 		} `json:"first_patched_version"`
 	} `json:"security_vulnerability"`
@@ -336,20 +336,20 @@ type DependabotAlert struct {
 		} `json:"package"`
 		ManifestPath string `json:"manifest_path"`
 	} `json:"dependency"`
-	HTMLURL   string     `json:"html_url"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	HTMLURL     string     `json:"html_url"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 	DismissedAt *time.Time `json:"dismissed_at"`
-	FixedAt   *time.Time `json:"fixed_at"`
+	FixedAt     *time.Time `json:"fixed_at"`
 }
 
 // CodeScanningAlert represents a code scanning security alert
 type CodeScanningAlert struct {
-	Number      int    `json:"number"`
-	State       string `json:"state"` // open, dismissed, fixed
-	Rule        struct {
+	Number int    `json:"number"`
+	State  string `json:"state"` // open, dismissed, fixed
+	Rule   struct {
 		ID          string `json:"id"`
-		Severity    string `json:"severity"` // note, warning, error
+		Severity    string `json:"severity"` // Severity levels: info, warning, error
 		Description string `json:"description"`
 	} `json:"rule"`
 	Tool struct {
@@ -376,15 +376,15 @@ type CodeScanningAlert struct {
 
 // SecretScanningAlert represents a secret scanning alert
 type SecretScanningAlert struct {
-	Number         int    `json:"number"`
-	State          string `json:"state"` // open, resolved
-	SecretType     string `json:"secret_type"`
-	SecretTypeDisplayName string `json:"secret_type_display_name"`
-	Secret         string `json:"secret"`
-	Resolution     *string `json:"resolution"` // false_positive, wont_fix, revoked, used_in_tests
-	ResolvedBy     *User   `json:"resolved_by"`
-	ResolvedAt     *time.Time `json:"resolved_at"`
-	HTMLURL        string     `json:"html_url"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      *time.Time `json:"updated_at"`
+	Number                int        `json:"number"`
+	State                 string     `json:"state"` // open, resolved
+	SecretType            string     `json:"secret_type"`
+	SecretTypeDisplayName string     `json:"secret_type_display_name"`
+	Secret                string     `json:"secret"`
+	Resolution            *string    `json:"resolution"` // false_positive, wont_fix, revoked, used_in_tests
+	ResolvedBy            *User      `json:"resolved_by"`
+	ResolvedAt            *time.Time `json:"resolved_at"`
+	HTMLURL               string     `json:"html_url"`
+	CreatedAt             time.Time  `json:"created_at"`
+	UpdatedAt             *time.Time `json:"updated_at"`
 }

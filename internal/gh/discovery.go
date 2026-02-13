@@ -18,7 +18,7 @@ func (g *githubClient) DiscoverOrgRepos(ctx context.Context, org string) ([]Repo
 		"--paginate")
 	if err != nil {
 		if isNotFoundError(err) {
-			return nil, fmt.Errorf("organization not found: %s", org)
+			return nil, fmt.Errorf("%w: %s", ErrOrganizationNotFound, org)
 		}
 		return nil, appErrors.WrapWithContext(err, fmt.Sprintf("discover repos for org %s", org))
 	}

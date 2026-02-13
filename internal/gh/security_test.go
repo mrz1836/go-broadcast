@@ -101,7 +101,7 @@ func TestGetDependabotAlerts(t *testing.T) {
 
 		result, err := client.GetDependabotAlerts(ctx, "test/repo")
 		require.NoError(t, err)
-		assert.Len(t, result, 0)
+		assert.Empty(t, result)
 
 		mockRunner.AssertExpectations(t)
 	})
@@ -204,7 +204,7 @@ func TestGetCodeScanningAlerts(t *testing.T) {
 
 		result, err := client.GetCodeScanningAlerts(ctx, "test/repo")
 		require.NoError(t, err)
-		assert.Len(t, result, 0)
+		assert.Empty(t, result)
 
 		mockRunner.AssertExpectations(t)
 	})
@@ -265,7 +265,7 @@ func TestGetSecretScanningAlerts(t *testing.T) {
 
 		result, err := client.GetSecretScanningAlerts(ctx, "test/repo")
 		require.NoError(t, err)
-		assert.Len(t, result, 0)
+		assert.Empty(t, result)
 
 		mockRunner.AssertExpectations(t)
 	})

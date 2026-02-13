@@ -91,7 +91,7 @@ func TestDiscoverOrgRepos(t *testing.T) {
 
 		result, err := client.DiscoverOrgRepos(ctx, "empty-org")
 		require.NoError(t, err)
-		assert.Len(t, result, 0)
+		assert.Empty(t, result)
 
 		mockRunner.AssertExpectations(t)
 	})

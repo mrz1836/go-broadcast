@@ -29,6 +29,8 @@ var (
 	ErrGitTreeNotFound        = errors.New("git tree not found")
 	ErrRepositoryNotFound     = errors.New("repository not found")
 	ErrUnsupportedMergeMethod = errors.New("unsupported merge method")
+	ErrOrganizationNotFound   = errors.New("organization not found")
+	ErrGraphQLError           = errors.New("GraphQL query failed")
 )
 
 // githubClient implements the Client interface using gh CLI
@@ -819,7 +821,7 @@ func (g *githubClient) ExecuteGraphQL(ctx context.Context, query string) (map[st
 	}
 
 	if len(response.Errors) > 0 {
-		return nil, fmt.Errorf("GraphQL errors: %v", response.Errors)
+		return nil, fmt.Errorf("%w: %v", ErrGraphQLError, response.Errors)
 	}
 
 	return response.Data, nil
