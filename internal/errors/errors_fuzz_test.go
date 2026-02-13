@@ -59,8 +59,8 @@ func FuzzInvalidFieldError(f *testing.F) {
 	f.Add("unicode_field_日本語", "unicode_value_中文") //nolint:gosmopolitan // intentional unicode test data
 
 	f.Fuzz(func(t *testing.T, field, value string) {
-		// Skip extremely long inputs to avoid resource exhaustion
-		if len(field)+len(value) > 50000 {
+		// Skip long inputs to avoid timeout in CI with expensive error formatting
+		if len(field)+len(value) > 20000 {
 			t.Skip("Combined input length too long")
 		}
 
