@@ -691,6 +691,12 @@ jobs:
           echo ""
           echo "🚀 Running go-coverage complete command for main output..."
           echo "  Command: $GO_COVERAGE_BINARY complete --input \"$COVERAGE_FILE\" --output \"$OUTPUT_DIR\""
+          echo "  GO_COVERAGE_THRESHOLD: ${GO_COVERAGE_THRESHOLD:-not set}"
+          echo "  GO_COVERAGE_CREATE_STATUSES: ${GO_COVERAGE_CREATE_STATUSES:-not set}"
+
+          # Explicitly export environment variables for the go-coverage subprocess
+          export GO_COVERAGE_THRESHOLD="${GO_COVERAGE_THRESHOLD:-65.0}"
+          export GO_COVERAGE_CREATE_STATUSES="${GO_COVERAGE_CREATE_STATUSES:-true}"
 
           if "$GO_COVERAGE_BINARY" complete \
             --input "$COVERAGE_FILE" \
@@ -788,6 +794,7 @@ jobs:
           echo "  Pages deployed: $PAGES_DEPLOYED"
 
           # Process coverage for branch-specific output
+          # Note: GO_COVERAGE_THRESHOLD and GO_COVERAGE_CREATE_STATUSES already exported above
           echo ""
           echo "🚀 Running go-coverage complete command for branch-specific output..."
           echo "  Command: $GO_COVERAGE_BINARY complete --input \"$COVERAGE_FILE\" --output \"$BRANCH_OUTPUT_DIR\""
