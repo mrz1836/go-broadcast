@@ -278,7 +278,7 @@ func TestAnalyticsIndexes(t *testing.T) {
 		// Query by indexed fields (should be fast)
 		var found AnalyticsRepository
 		err := db.Where("full_name = ?", "idx-org/idx-repo").First(&found).Error
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, repo.ID, found.ID)
 
 		err = db.Where("owner = ? AND name = ?", "idx-org", "idx-repo").First(&found).Error

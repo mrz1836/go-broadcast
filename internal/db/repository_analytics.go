@@ -2,11 +2,14 @@ package db
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+// ErrInvalidSyncRunID is returned when attempting to update a sync run with ID 0
+var ErrInvalidSyncRunID = errors.New("cannot update sync run with ID 0")
 
 // AnalyticsRepo provides database operations for analytics data
 type AnalyticsRepo interface {
@@ -58,7 +61,7 @@ func (r *analyticsRepo) UpsertOrganization(ctx context.Context, org *Organizatio
 		Where("name = ?", org.Name).
 		First(&existing).Error
 
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Create new
 		return r.db.WithContext(ctx).Create(org).Error
 	}
@@ -104,7 +107,7 @@ func (r *analyticsRepo) UpsertRepository(ctx context.Context, repo *AnalyticsRep
 		Where("full_name = ?", repo.FullName).
 		First(&existing).Error
 
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Create new
 		return r.db.WithContext(ctx).Create(repo).Error
 	}
@@ -153,6 +156,7 @@ func (r *analyticsRepo) CreateSnapshot(ctx context.Context, snap *RepositorySnap
 }
 
 // GetLatestSnapshot retrieves the most recent snapshot for a repository
+// Returns gorm.ErrRecordNotFound if no snapshot exists
 func (r *analyticsRepo) GetLatestSnapshot(ctx context.Context, repoID uint) (*RepositorySnapshot, error) {
 	var snap RepositorySnapshot
 	err := r.db.WithContext(ctx).
@@ -160,9 +164,6 @@ func (r *analyticsRepo) GetLatestSnapshot(ctx context.Context, repoID uint) (*Re
 		Order("snapshot_at DESC").
 		First(&snap).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil // No previous snapshot
-		}
 		return nil, err
 	}
 	return &snap, nil
@@ -248,21 +249,19 @@ func (r *analyticsRepo) CreateSyncRun(ctx context.Context, run *SyncRun) error {
 // UpdateSyncRun updates an existing sync run
 func (r *analyticsRepo) UpdateSyncRun(ctx context.Context, run *SyncRun) error {
 	if run.ID == 0 {
-		return fmt.Errorf("cannot update sync run: ID is 0")
+		return ErrInvalidSyncRunID
 	}
 	return r.db.WithContext(ctx).Save(run).Error
 }
 
 // GetLatestSyncRun retrieves the most recent sync run
+// Returns gorm.ErrRecordNotFound if no sync run exists
 func (r *analyticsRepo) GetLatestSyncRun(ctx context.Context) (*SyncRun, error) {
 	var run SyncRun
 	err := r.db.WithContext(ctx).
 		Order("started_at DESC").
 		First(&run).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &run, nil

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestAnalyticsRepo_Organizations(t *testing.T) {
@@ -170,7 +171,8 @@ func TestAnalyticsRepo_Snapshots(t *testing.T) {
 	t.Run("GetLatestSnapshot_NoSnapshots", func(t *testing.T) {
 		// Test with non-existent repo ID
 		latest, err := repo.GetLatestSnapshot(ctx, 99999)
-		require.NoError(t, err)
+		require.Error(t, err)
+		require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 		assert.Nil(t, latest)
 	})
 }
@@ -243,7 +245,7 @@ func TestAnalyticsRepo_Alerts(t *testing.T) {
 		// Get critical alerts
 		criticals, err := repo.GetOpenAlerts(ctx, analyticsRepo.ID, "critical")
 		require.NoError(t, err)
-		assert.Equal(t, 1, len(criticals))
+		assert.Len(t, criticals, 1)
 		assert.Equal(t, "critical", criticals[0].Severity)
 	})
 
@@ -251,7 +253,7 @@ func TestAnalyticsRepo_Alerts(t *testing.T) {
 		counts, err := repo.GetAlertCounts(ctx, analyticsRepo.ID)
 		require.NoError(t, err)
 		assert.NotEmpty(t, counts)
-		assert.Greater(t, counts["high"], 0)
+		assert.Positive(t, counts["high"])
 	})
 }
 
@@ -328,7 +330,7 @@ func TestAnalyticsRepo_SyncRuns(t *testing.T) {
 			Status: "completed",
 		}
 		err := repo.UpdateSyncRun(ctx, run)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "ID is 0")
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrInvalidSyncRunID)
 	})
 }

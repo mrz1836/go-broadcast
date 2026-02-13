@@ -6,7 +6,7 @@ import (
 
 // =====================
 // Analytics Models (4 new models)
-// NOTE: Reuses existing Organization model from T-19 (models.go)
+// Reuses existing Organization model from T-19 (models.go)
 // =====================
 
 // AnalyticsRepository tracks individual repo metrics (separate from config.Target)
