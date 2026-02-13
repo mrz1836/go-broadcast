@@ -302,6 +302,10 @@ magex update:install
 - **Queryable config** - "Which repos sync this file?" answered instantly
 - **CLI management** - Full CRUD operations without editing YAML
 - **Transaction safety** - All-or-nothing imports with automatic rollback
+- **Repository analytics** - Track stars, forks, issues, PRs, and security alerts across orgs
+- **Batched GraphQL collection** - Collect metadata for 25 repos per API call (96% reduction)
+- **Security alert tracking** - Dependabot, code scanning, and secret scanning alerts with severity
+- **Point-in-time snapshots** - Historical trend data for repository metrics
 - **[Full documentation →](docs/database.md)**
 
 ### 🔄 **Advanced Transformations**
@@ -761,6 +765,13 @@ go-broadcast validate --from-db                   # Validate database config
 go-broadcast cancel --from-db --groups "core"     # Cancel using database config
 # See docs/database.md for complete database documentation
 
+# Repository analytics
+go-broadcast analytics sync                       # Collect analytics for all orgs
+go-broadcast analytics sync --org mrz1836         # Sync specific organization
+go-broadcast analytics sync --security-only       # Security alerts only
+go-broadcast analytics status                     # Show analytics status
+go-broadcast analytics status mrz1836/go-broadcast # Status for specific repo
+
 # Group-based sync operations
 go-broadcast sync --groups "Default Sync" --config sync.yaml        # Sync only one group by name
 go-broadcast sync --groups "default" --config sync.yaml             # Sync by group ID
@@ -1165,6 +1176,7 @@ See the complete [Database Documentation](docs/database.md) for schema reference
 - **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
 - **Configuration Guide** – Complete guide to group-based configuration at [docs/configuration-guide.md](docs/configuration-guide.md)
 - **Database Backend** – Structured configuration storage with SQLite at [docs/database.md](docs/database.md)
+- **Repository Analytics** – Track repo metrics and security alerts across organizations at [docs/database.md](docs/database.md#analytics-entity-relationship-diagram)
 - **Module-Aware Sync** – Smart module versioning and synchronization at [docs/module-sync.md](docs/module-sync.md)
 - **Group Examples** – Practical configuration patterns at [docs/group-examples.md](docs/group-examples.md)
 - **Usage Examples** – Real-world scenarios in the [Usage Examples section](#-usage-examples)

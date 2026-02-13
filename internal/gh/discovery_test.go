@@ -1,0 +1,113 @@
+package gh
+
+import (
+	"context"
+	"encoding/json"
+	"testing"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestDiscoverOrgRepos(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("successful discovery with multiple repos", func(t *testing.T) {
+		mockRunner := new(MockCommandRunner)
+		client := NewClientWithRunner(mockRunner, logrus.New())
+
+		desc1 := "Test repo 1"
+		lang1 := "Go"
+		desc2 := "Test repo 2"
+		lang2 := "Python"
+
+		repos := []RepoInfo{
+			{
+				Name:     "repo1",
+				FullName: "test-org/repo1",
+				Owner: struct {
+					Login string `json:"login"`
+				}{Login: "test-org"},
+				Description:   &desc1,
+				Language:      &lang1,
+				Private:       false,
+				Fork:          false,
+				Archived:      false,
+				DefaultBranch: "main",
+				HTMLURL:       "https://github.com/test-org/repo1",
+			},
+			{
+				Name:     "repo2",
+				FullName: "test-org/repo2",
+				Owner: struct {
+					Login string `json:"login"`
+				}{Login: "test-org"},
+				Description:   &desc2,
+				Language:      &lang2,
+				Private:       true,
+				Fork:          false,
+				Archived:      false,
+				DefaultBranch: "master",
+				HTMLURL:       "https://github.com/test-org/repo2",
+			},
+		}
+
+		output, err := json.Marshal(repos)
+		require.NoError(t, err)
+
+		mockRunner.On("Run", ctx, "gh", []string{"api", "orgs/test-org/repos?per_page=100&type=all", "--paginate"}).
+			Return(output, nil)
+
+		result, err := client.DiscoverOrgRepos(ctx, "test-org")
+		require.NoError(t, err)
+		assert.Len(t, result, 2)
+
+		// Verify first repo fields
+		assert.Equal(t, "repo1", result[0].Name)
+		assert.Equal(t, "test-org/repo1", result[0].FullName)
+		assert.Equal(t, "test-org", result[0].Owner.Login)
+		assert.NotNil(t, result[0].Description)
+		assert.Equal(t, "Test repo 1", *result[0].Description)
+		assert.NotNil(t, result[0].Language)
+		assert.Equal(t, "Go", *result[0].Language)
+		assert.False(t, result[0].Private)
+		assert.False(t, result[0].Fork)
+		assert.False(t, result[0].Archived)
+		assert.Equal(t, "main", result[0].DefaultBranch)
+
+		mockRunner.AssertExpectations(t)
+	})
+
+	t.Run("empty organization", func(t *testing.T) {
+		mockRunner := new(MockCommandRunner)
+		client := NewClientWithRunner(mockRunner, logrus.New())
+
+		output, err := json.Marshal([]RepoInfo{})
+		require.NoError(t, err)
+
+		mockRunner.On("Run", ctx, "gh", []string{"api", "orgs/empty-org/repos?per_page=100&type=all", "--paginate"}).
+			Return(output, nil)
+
+		result, err := client.DiscoverOrgRepos(ctx, "empty-org")
+		require.NoError(t, err)
+		assert.Empty(t, result)
+
+		mockRunner.AssertExpectations(t)
+	})
+
+	t.Run("organization not found", func(t *testing.T) {
+		mockRunner := new(MockCommandRunner)
+		client := NewClientWithRunner(mockRunner, logrus.New())
+
+		mockRunner.On("Run", ctx, "gh", []string{"api", "orgs/nonexistent-org/repos?per_page=100&type=all", "--paginate"}).
+			Return(nil, &CommandError{Stderr: "404 Not Found"})
+
+		result, err := client.DiscoverOrgRepos(ctx, "nonexistent-org")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "organization not found")
+		assert.Nil(t, result)
+
+		mockRunner.AssertExpectations(t)
+	})
+}

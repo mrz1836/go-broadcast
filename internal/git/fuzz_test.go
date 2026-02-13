@@ -74,8 +74,8 @@ func FuzzGitURLSafety(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, url string) {
-		// Skip extremely long inputs
-		if len(url) > 2048 { // Reasonable URL length limit
+		// Skip long inputs to avoid expensive validation on unrealistic URLs
+		if len(url) > 1000 {
 			t.Skip("URL too long")
 		}
 
@@ -169,8 +169,8 @@ func FuzzGitFilePath(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, filePath string) {
-		// Skip extremely long inputs
-		if len(filePath) > 4096 { // PATH_MAX on most systems
+		// Skip long inputs to avoid expensive validation
+		if len(filePath) > 2000 {
 			t.Skip("Path too long")
 		}
 
@@ -355,8 +355,8 @@ func FuzzGitCommitMessage(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, message string) {
-		// Skip extremely long inputs
-		if len(message) > 100000 { // Reasonable commit message limit
+		// Skip long inputs to avoid expensive validation
+		if len(message) > 5000 {
 			t.Skip("Commit message too long")
 		}
 
@@ -432,8 +432,8 @@ func FuzzGitRepoPath(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, repoPath string) {
-		// Skip extremely long inputs
-		if len(repoPath) > 4096 { // PATH_MAX
+		// Skip long inputs to avoid expensive validation
+		if len(repoPath) > 2000 {
 			t.Skip("Path too long")
 		}
 

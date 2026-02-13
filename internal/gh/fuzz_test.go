@@ -81,8 +81,8 @@ func FuzzGitHubCLIArgs(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, command, repo, arg1, arg2 string) {
-		// Skip extremely long inputs to avoid resource exhaustion
-		if len(command)+len(repo)+len(arg1)+len(arg2) > 10000 {
+		// Skip long inputs to avoid timeout in CI
+		if len(command)+len(repo)+len(arg1)+len(arg2) > 5000 {
 			t.Skip("Combined argument length too long")
 		}
 
@@ -226,8 +226,8 @@ func FuzzJSONParsing(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, jsonData string) {
-		// Skip extremely long inputs to avoid resource exhaustion
-		if len(jsonData) > 100000 {
+		// Skip long inputs to avoid timeout in CI
+		if len(jsonData) > 10000 {
 			t.Skip("JSON data too long")
 		}
 

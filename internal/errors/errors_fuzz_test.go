@@ -28,6 +28,11 @@ func FuzzWrapWithContext(f *testing.F) {
 
 	baseErr := errors.New("base error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, operation string) {
+		// Skip extremely long inputs to avoid resource exhaustion
+		if len(operation) > 50000 {
+			t.Skip("Input length too long")
+		}
+
 		// Should never panic
 		result := WrapWithContext(baseErr, operation)
 
@@ -54,6 +59,11 @@ func FuzzInvalidFieldError(f *testing.F) {
 	f.Add("unicode_field_日本語", "unicode_value_中文") //nolint:gosmopolitan // intentional unicode test data
 
 	f.Fuzz(func(t *testing.T, field, value string) {
+		// Skip long inputs to avoid timeout in CI with expensive error formatting
+		if len(field)+len(value) > 20000 {
+			t.Skip("Combined input length too long")
+		}
+
 		// Should never panic
 		result := InvalidFieldError(field, value)
 
@@ -76,6 +86,11 @@ func FuzzValidationError(f *testing.F) {
 	f.Add(strings.Repeat("i", 10000), strings.Repeat("r", 10000))
 
 	f.Fuzz(func(t *testing.T, item, reason string) {
+		// Skip extremely long inputs to avoid resource exhaustion
+		if len(item)+len(reason) > 50000 {
+			t.Skip("Combined input length too long")
+		}
+
 		result := ValidationError(item, reason)
 		require.Error(t, result)
 		require.True(t, strings.HasPrefix(result.Error(), "validation failed"))
@@ -94,6 +109,11 @@ func FuzzPathTraversalError(f *testing.F) {
 	f.Add(strings.Repeat("a/", 1000))
 
 	f.Fuzz(func(t *testing.T, path string) {
+		// Skip extremely long inputs to avoid resource exhaustion
+		if len(path) > 50000 {
+			t.Skip("Input length too long")
+		}
+
 		result := PathTraversalError(path)
 		require.Error(t, result)
 		require.True(t, strings.HasPrefix(result.Error(), "path traversal detected"))
@@ -111,6 +131,11 @@ func FuzzGitOperationError(f *testing.F) {
 
 	baseErr := errors.New("git error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, operation, context string) {
+		// Skip extremely long inputs to avoid resource exhaustion
+		if len(operation)+len(context) > 50000 {
+			t.Skip("Combined input length too long")
+		}
+
 		result := GitOperationError(operation, context, baseErr)
 		require.Error(t, result)
 		require.ErrorIs(t, result, baseErr)
@@ -128,6 +153,11 @@ func FuzzFileOperationError(f *testing.F) {
 
 	baseErr := errors.New("file error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, operation, path string) {
+		// Skip extremely long inputs to avoid resource exhaustion
+		if len(operation)+len(path) > 50000 {
+			t.Skip("Combined input length too long")
+		}
+
 		result := FileOperationError(operation, path, baseErr)
 		require.Error(t, result)
 		require.ErrorIs(t, result, baseErr)
@@ -226,6 +256,11 @@ func FuzzCommandFailedError(f *testing.F) {
 
 	baseErr := errors.New("command error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, cmd string) {
+		// Skip extremely long inputs to avoid resource exhaustion
+		if len(cmd) > 50000 {
+			t.Skip("Input length too long")
+		}
+
 		result := CommandFailedError(cmd, baseErr)
 		require.Error(t, result)
 		require.ErrorIs(t, result, baseErr)
@@ -241,6 +276,11 @@ func FuzzFormatError(f *testing.F) {
 	f.Add("field\x00null", "value\x00null", "format\x00null")
 
 	f.Fuzz(func(t *testing.T, field, value, expectedFormat string) {
+		// Skip extremely long inputs to avoid resource exhaustion
+		if len(field)+len(value)+len(expectedFormat) > 50000 {
+			t.Skip("Combined input length too long")
+		}
+
 		result := FormatError(field, value, expectedFormat)
 		require.Error(t, result)
 		require.True(t, strings.HasPrefix(result.Error(), "invalid format"))

@@ -149,3 +149,60 @@ func (m *MockClient) GetPRCheckStatus(ctx context.Context, repo string, number i
 	args := m.Called(ctx, repo, number)
 	return testutil.HandleTwoValueReturn[*CheckStatusSummary](args)
 }
+
+// DiscoverOrgRepos mock implementation
+func (m *MockClient) DiscoverOrgRepos(ctx context.Context, org string) ([]RepoInfo, error) {
+	args := m.Called(ctx, org)
+	return testutil.HandleTwoValueReturn[[]RepoInfo](args)
+}
+
+// ExecuteGraphQL mock implementation
+func (m *MockClient) ExecuteGraphQL(ctx context.Context, query string) (map[string]interface{}, error) {
+	args := m.Called(ctx, query)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]interface{}), args.Error(1)
+}
+
+// GetDependabotAlerts mock implementation
+func (m *MockClient) GetDependabotAlerts(ctx context.Context, repo string) ([]DependabotAlert, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[[]DependabotAlert](args)
+}
+
+// GetCodeScanningAlerts mock implementation
+func (m *MockClient) GetCodeScanningAlerts(ctx context.Context, repo string) ([]CodeScanningAlert, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[[]CodeScanningAlert](args)
+}
+
+// GetSecretScanningAlerts mock implementation
+func (m *MockClient) GetSecretScanningAlerts(ctx context.Context, repo string) ([]SecretScanningAlert, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[[]SecretScanningAlert](args)
+}
+
+// ListWorkflows mock implementation
+func (m *MockClient) ListWorkflows(ctx context.Context, repo string) ([]Workflow, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[[]Workflow](args)
+}
+
+// GetWorkflowRuns mock implementation
+func (m *MockClient) GetWorkflowRuns(ctx context.Context, repo string, workflowID int64, count int) ([]WorkflowRun, error) {
+	args := m.Called(ctx, repo, workflowID, count)
+	return testutil.HandleTwoValueReturn[[]WorkflowRun](args)
+}
+
+// GetRunArtifacts mock implementation
+func (m *MockClient) GetRunArtifacts(ctx context.Context, repo string, runID int64) ([]Artifact, error) {
+	args := m.Called(ctx, repo, runID)
+	return testutil.HandleTwoValueReturn[[]Artifact](args)
+}
+
+// DownloadRunArtifact mock implementation
+func (m *MockClient) DownloadRunArtifact(ctx context.Context, repo string, runID int64, artifactName, destDir string) error {
+	args := m.Called(ctx, repo, runID, artifactName, destDir)
+	return args.Error(0)
+}

@@ -75,6 +75,7 @@ func OpenSQLite(config SQLiteConfig) (*gorm.DB, error) {
 // AutoMigrate runs auto-migration for all models
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
+		// Core models from T-19
 		&Client{},
 		&Organization{},
 		&Repo{},
@@ -93,5 +94,11 @@ func AutoMigrate(db *gorm.DB) error {
 		&TargetFileListRef{},
 		&TargetDirectoryListRef{},
 		&SchemaMigration{},
+		// Analytics models from T-22
+		&AnalyticsRepository{},
+		&RepositorySnapshot{},
+		&SecurityAlert{},
+		&SyncRun{},
+		&CIMetricsSnapshot{},
 	)
 }

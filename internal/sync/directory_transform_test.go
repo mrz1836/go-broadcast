@@ -1055,6 +1055,42 @@ func (m *DirectoryMockGHClient) AddPRComment(_ context.Context, _ string, _ int,
 	return nil
 }
 
+func (m *DirectoryMockGHClient) DiscoverOrgRepos(_ context.Context, _ string) ([]gh.RepoInfo, error) {
+	return nil, nil
+}
+
+func (m *DirectoryMockGHClient) ExecuteGraphQL(_ context.Context, _ string) (map[string]interface{}, error) {
+	return make(map[string]interface{}), nil
+}
+
+func (m *DirectoryMockGHClient) GetDependabotAlerts(_ context.Context, _ string) ([]gh.DependabotAlert, error) {
+	return nil, nil
+}
+
+func (m *DirectoryMockGHClient) GetCodeScanningAlerts(_ context.Context, _ string) ([]gh.CodeScanningAlert, error) {
+	return nil, nil
+}
+
+func (m *DirectoryMockGHClient) GetSecretScanningAlerts(_ context.Context, _ string) ([]gh.SecretScanningAlert, error) {
+	return nil, nil
+}
+
+func (m *DirectoryMockGHClient) ListWorkflows(_ context.Context, _ string) ([]gh.Workflow, error) {
+	return nil, nil
+}
+
+func (m *DirectoryMockGHClient) GetWorkflowRuns(_ context.Context, _ string, _ int64, _ int) ([]gh.WorkflowRun, error) {
+	return nil, nil
+}
+
+func (m *DirectoryMockGHClient) GetRunArtifacts(_ context.Context, _ string, _ int64) ([]gh.Artifact, error) {
+	return nil, nil
+}
+
+func (m *DirectoryMockGHClient) DownloadRunArtifact(_ context.Context, _ string, _ int64, _, _ string) error {
+	return nil
+}
+
 // DirectoryMockFileContent represents mock file content
 type DirectoryMockFileContent struct {
 	Content []byte

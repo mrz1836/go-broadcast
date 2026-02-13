@@ -150,6 +150,35 @@ go-broadcast modules list --from-db
          └────────────────────────┘
 ```
 
+### Analytics Entity Relationship Diagram
+
+```
+    ┌──────────────┐
+    │organizations │
+    └──────┬───────┘
+           │ 1:N
+           ▼
+    ┌──────────────────────┐
+    │analytics_repositories│
+    └──────┬───────────────┘
+           │
+           ├── 1:N ──►  ┌──────────────────────┐
+           │            │ repository_snapshots │
+           │            └──────────────────────┘
+           │
+           ├── 1:N ──►  ┌─────────────────┐
+           │            │ security_alerts │
+           │            └─────────────────┘
+           │
+           └── 1:N ──►  ┌──────────────────────┐
+                        │ ci_metrics_snapshots │
+                        └──────────────────────┘
+
+    ┌──────────────┐
+    │  sync_runs   │  (standalone)
+    └──────────────┘
+```
+
 <details>
 <summary><b>clients</b> — Top-level owner entities</summary>
 
@@ -532,6 +561,200 @@ go-broadcast modules list --from-db
 
 </details>
 
+<details>
+<summary><b>analytics_repositories</b> — Repository records for analytics tracking</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `organization_id` | uint | Foreign key to `organizations` |
+| `owner` | text | GitHub owner (org/user) |
+| `name` | text | Repo name |
+| `full_name` | text | Full name (owner/name, unique) |
+| `description` | text | Repo description |
+| `default_branch` | text | Default branch (main/master) |
+| `language` | text | Primary language |
+| `is_private` | bool | Visibility flag |
+| `is_fork` | bool | Fork flag |
+| `fork_source` | text | Parent repo full name if fork |
+| `is_archived` | bool | Archived flag |
+| `url` | text | HTML URL |
+| `metadata_etag` | text | ETag for conditional metadata requests |
+| `security_etag` | text | ETag for conditional security requests |
+| `last_sync_at` | datetime | Last sync timestamp |
+| `last_sync_run_id` | uint | Links to the SyncRun that last processed this repo |
+| `metadata` | text | JSON metadata |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Belongs to `organizations`
+- Has many `repository_snapshots`
+- Has many `security_alerts`
+- Has many `ci_metrics_snapshots`
+
+**Indexes:**
+- Unique index on `full_name`
+- Composite index on `(owner, name)`
+
+</details>
+
+<details>
+<summary><b>repository_snapshots</b> — Point-in-time repository metrics</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `repository_id` | uint | Foreign key to `analytics_repositories` |
+| `snapshot_at` | datetime | Timestamp of snapshot |
+| `stars` | int | Stargazers count |
+| `forks` | int | Forks count |
+| `watchers` | int | Watchers count |
+| `open_issues` | int | Open issues count |
+| `open_prs` | int | Open pull requests count |
+| `branch_count` | int | Total branches |
+| `latest_release` | text | Latest release tag name |
+| `latest_release_at` | datetime | Latest release date |
+| `latest_tag` | text | Latest tag name |
+| `latest_tag_at` | datetime | Latest tag date |
+| `repo_updated_at` | datetime | Last activity on repo |
+| `pushed_at` | datetime | Last code push timestamp |
+| `dependabot_alert_count` | int | Open Dependabot alert count |
+| `code_scanning_alert_count` | int | Open code scanning alert count |
+| `secret_scanning_alert_count` | int | Open secret scanning alert count |
+| `raw_data` | text | JSON raw GraphQL response |
+| `metadata` | text | JSON metadata |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Belongs to `analytics_repositories`
+
+**Indexes:**
+- Index on `repository_id`
+- Index on `snapshot_at`
+
+**Purpose:**
+- Captures point-in-time metrics for trend analysis
+- Uses timestamp (not date-only) to support future hourly snapshots
+
+</details>
+
+<details>
+<summary><b>security_alerts</b> — Security alert tracking (Dependabot, code scanning, secret scanning)</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `repository_id` | uint | Foreign key to `analytics_repositories` |
+| `alert_type` | text | Alert source: `dependabot`, `code_scanning`, `secret_scanning` |
+| `alert_number` | int | Alert number from GitHub API |
+| `state` | text | Alert state: `open`, `fixed`, `dismissed` |
+| `severity` | text | Severity level: `critical`, `high`, `medium`, `low` |
+| `summary` | text | Short summary |
+| `description` | text | Full description |
+| `html_url` | text | Link to alert on GitHub |
+| `alert_created_at` | datetime | When GitHub alert was created |
+| `fixed_at` | datetime | When alert was fixed |
+| `dismissed_at` | datetime | When alert was dismissed |
+| `dismissed_reason` | text | Reason for dismissal |
+| `alert_data` | text | JSON blob of type-specific data (CVSS, CWE, package info) |
+| `metadata` | text | JSON metadata |
+| `created_at` | datetime | DB record creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Belongs to `analytics_repositories`
+
+**Indexes:**
+- Index on `repository_id`
+- Index on `alert_type`
+- Index on `state`
+- Index on `severity`
+- Index on `alert_number`
+
+</details>
+
+<details>
+<summary><b>ci_metrics_snapshots</b> — Point-in-time CI metrics from GoFortress workflow artifacts</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `repository_id` | uint | Foreign key to `analytics_repositories` |
+| `snapshot_at` | datetime | Timestamp of snapshot |
+| `workflow_run_id` | int64 | GitHub Actions workflow run ID |
+| `branch` | text | Branch the workflow ran on |
+| `commit_sha` | text | Commit SHA of the workflow run |
+| `go_files_loc` | int | Lines of code in Go files |
+| `test_files_loc` | int | Lines of code in test files |
+| `go_files_count` | int | Number of Go source files |
+| `test_files_count` | int | Number of test files |
+| `test_count` | int | Total unit test count |
+| `benchmark_count` | int | Total benchmark count |
+| `coverage_percent` | float64 | Code coverage percentage (nullable) |
+| `raw_data` | text | JSON raw artifact data |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Belongs to `analytics_repositories`
+
+**Indexes:**
+- Index on `repository_id`
+- Index on `snapshot_at`
+- Index on `workflow_run_id`
+
+**Purpose:**
+- Captures CI metrics from GoFortress workflow artifacts for trend analysis
+- Sources: `loc-stats` (JSON), `statistics-section` (markdown fallback), `coverage-stats-codecov` (JSON), `tests-section` (markdown), `bench-stats-*` (JSON)
+- Tracks code size, test coverage, and test/benchmark counts over time
+
+</details>
+
+<details>
+<summary><b>sync_runs</b> — Analytics sync execution tracking</summary>
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `started_at` | datetime | When sync started |
+| `completed_at` | datetime | When sync completed |
+| `status` | text | Execution status: `running`, `completed`, `failed`, `partial` |
+| `sync_type` | text | Sync type: `full`, `security_only`, `metadata_only` |
+| `org_filter` | text | Organization filter (empty = all orgs) |
+| `repo_filter` | text | Repository filter (empty = all repos) |
+| `repos_processed` | int | Total repos processed |
+| `repos_skipped` | int | Skipped via change detection |
+| `repos_failed` | int | Failed to process |
+| `snapshots_created` | int | New snapshots written |
+| `alerts_upserted` | int | Alerts created/updated |
+| `api_calls_made` | int | Total GitHub API calls |
+| `duration_ms` | int | Total execution time in milliseconds |
+| `errors` | text | JSON array of error details |
+| `last_processed_repo` | text | For future resume support |
+| `metadata` | text | JSON metadata |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Standalone (no foreign keys)
+
+**Indexes:**
+- Index on `status`
+
+**Purpose:**
+- Tracks each analytics sync execution for observability
+- Provides detailed metrics about API usage, processing time, and errors
+- Supports incremental sync via `last_processed_repo`
+
+</details>
+
 <br>
 
 ## 🔄 Import/Export
@@ -719,6 +942,58 @@ go-broadcast db diff sync.yaml --detail
 
 </details>
 
+### Analytics Commands
+
+<details>
+<summary><code>analytics sync</code> — Collect repository analytics data</summary>
+
+```bash
+# Full sync for all organizations
+go-broadcast analytics sync
+
+# Sync specific organization only
+go-broadcast analytics sync --org mrz1836
+
+# Sync specific repository
+go-broadcast analytics sync --repo mrz1836/go-broadcast
+
+# Security alerts only (skip metadata)
+go-broadcast analytics sync --security-only
+
+# Force full sync (ignore change detection)
+go-broadcast analytics sync --full
+
+# Preview what would be synced
+go-broadcast analytics sync --dry-run
+```
+
+**What it does:**
+- Discovers all repos in configured organizations via GitHub REST API
+- Collects repository metadata using batched GraphQL queries (25 repos per query)
+- Fetches security alerts (Dependabot, code scanning, secret scanning) concurrently
+- Creates point-in-time snapshots and upserts security alerts
+- Tracks sync progress in `sync_runs` table
+
+</details>
+
+<details>
+<summary><code>analytics status</code> — Show analytics status for repositories</summary>
+
+```bash
+# Show analytics status for all repositories
+go-broadcast analytics status
+
+# Show status for specific repository
+go-broadcast analytics status mrz1836/go-broadcast
+```
+
+**Output:**
+- Repository metrics (stars, forks, open issues, PRs)
+- Security alert summary by severity
+- Last sync timestamp and duration
+
+</details>
+
 <br>
 
 ## 🔍 Queries
@@ -827,6 +1102,8 @@ go tool cover -html=coverage.out
 | Query Tests | `query_test.go` | >85% |
 | Dependency Tests | `dependency_test.go` | >95% |
 | Concurrent Tests | `concurrent_test.go` | >80% |
+| Analytics Model Tests | `models_analytics_test.go` | >85% |
+| Analytics Repository Tests | `repository_analytics_test.go` | >85% |
 
 ### Key Test Scenarios
 

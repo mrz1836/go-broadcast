@@ -75,4 +75,35 @@ type Client interface {
 	// GetPRCheckStatus retrieves the status of all check runs for a PR's head commit
 	// Returns a summary of check statuses including running, passed, failed, and skipped counts
 	GetPRCheckStatus(ctx context.Context, repo string, number int) (*CheckStatusSummary, error)
+
+	// DiscoverOrgRepos returns all repositories for an organization
+	// Uses REST API with pagination to fetch all repos
+	DiscoverOrgRepos(ctx context.Context, org string) ([]RepoInfo, error)
+
+	// ExecuteGraphQL executes a GraphQL query and returns the raw response data
+	ExecuteGraphQL(ctx context.Context, query string) (map[string]interface{}, error)
+
+	// GetDependabotAlerts retrieves Dependabot security alerts for a repository
+	// Returns empty slice if Dependabot is not enabled (404 response)
+	GetDependabotAlerts(ctx context.Context, repo string) ([]DependabotAlert, error)
+
+	// GetCodeScanningAlerts retrieves code scanning alerts for a repository
+	// Returns empty slice if code scanning is not enabled (404 response)
+	GetCodeScanningAlerts(ctx context.Context, repo string) ([]CodeScanningAlert, error)
+
+	// GetSecretScanningAlerts retrieves secret scanning alerts for a repository
+	// Returns empty slice if secret scanning is not enabled (404 response)
+	GetSecretScanningAlerts(ctx context.Context, repo string) ([]SecretScanningAlert, error)
+
+	// ListWorkflows returns all workflows for a repository
+	ListWorkflows(ctx context.Context, repo string) ([]Workflow, error)
+
+	// GetWorkflowRuns returns recent runs for a specific workflow
+	GetWorkflowRuns(ctx context.Context, repo string, workflowID int64, count int) ([]WorkflowRun, error)
+
+	// GetRunArtifacts returns all artifacts for a workflow run
+	GetRunArtifacts(ctx context.Context, repo string, runID int64) ([]Artifact, error)
+
+	// DownloadRunArtifact downloads a named artifact from a workflow run to the specified directory
+	DownloadRunArtifact(ctx context.Context, repo string, runID int64, artifactName, destDir string) error
 }
