@@ -82,8 +82,6 @@
 #  - GitHub Docs: Keeping your GitHub Actions and workflows secure
 #  - OWASP: CI/CD Security Top 10
 #
-# ════════════════════════════════════════════════════════════════════════════════
-#
 # ------------------------------------------------------------------------------------
 
 name: PR Management (Forks)
@@ -125,14 +123,14 @@ jobs:
     steps:
       # ┌─────────────────────────────────────────────────────────────────────┐
       # │ SECURITY SCANNERS: This checkout is SAFE despite pull_request_target│
-      # │                                                                      │
-      # │ Justification:                                                       │
+      # │                                                                     │
+      # │ Justification:                                                      │
       # │  - Only checks out TRUSTED base branch (ref: github.base_ref)       │
       # │  - NEVER checks out PR head code from untrusted fork                │
       # │  - Implements recommended two-workflow security pattern             │
       # │  - Uses sparse checkout (minimal attack surface)                    │
       # │  - No executable code from PR is ever run                           │
-      # │                                                                      │
+      # │                                                                     │
       # │ Pattern: Two-workflow security model (see SECURITY.md)              │
       # │ References: githubactions:S7631, semgrep:github-actions-checkout    │
       # └─────────────────────────────────────────────────────────────────────┘
