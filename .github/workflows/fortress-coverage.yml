@@ -892,6 +892,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
           THRESHOLD="${{ env.GO_COVERAGE_THRESHOLD }}"
+          export GO_COVERAGE_THRESHOLD="$THRESHOLD"  # Ensure env var is available to subprocess
           echo "📊 Coverage threshold: ${THRESHOLD}%"
 
           # Find coverage file
