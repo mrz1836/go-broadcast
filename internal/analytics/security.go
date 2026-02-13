@@ -31,26 +31,25 @@ const (
 
 // SecurityAlert represents a unified security alert for database storage
 type SecurityAlert struct {
-	RepositoryID   int64             // Foreign key to repositories table
-	AlertType      SecurityAlertType // dependabot, code_scanning, secret_scanning
-	AlertNumber    int               // Alert number from GitHub
-	State          string            // open, dismissed, fixed, resolved
-	Severity       string            // Severity level (varies by alert type)
-	Title          string            // Human-readable title/description
-	HTMLURL        string            // Link to the alert on GitHub
-	CreatedAt      string            // ISO 8601 timestamp
-	UpdatedAt      string            // ISO 8601 timestamp
-	DismissedAt    *string           // ISO 8601 timestamp (nullable)
-	FixedAt        *string           // ISO 8601 timestamp (nullable)
-	ResolvedAt     *string           // ISO 8601 timestamp (nullable)
-	RawData        string            // JSON blob of full alert data for debugging
+	RepositoryID int64             // Foreign key to repositories table
+	AlertType    SecurityAlertType // dependabot, code_scanning, secret_scanning
+	AlertNumber  int               // Alert number from GitHub
+	State        string            // open, dismissed, fixed, resolved
+	Severity     string            // Severity level (varies by alert type)
+	Title        string            // Human-readable title/description
+	HTMLURL      string            // Link to the alert on GitHub
+	CreatedAt    string            // ISO 8601 timestamp
+	UpdatedAt    string            // ISO 8601 timestamp
+	DismissedAt  *string           // ISO 8601 timestamp (nullable)
+	FixedAt      *string           // ISO 8601 timestamp (nullable)
+	ResolvedAt   *string           // ISO 8601 timestamp (nullable)
+	RawData      string            // JSON blob of full alert data for debugging
 }
 
 // SecurityCollector handles concurrent security alert collection
 type SecurityCollector struct {
 	ghClient gh.Client
 	logger   *logrus.Logger
-	mu       sync.Mutex // Protects rate limit checks
 }
 
 // NewSecurityCollector creates a new security alert collector
@@ -82,8 +81,6 @@ func (s *SecurityCollector) CollectAlerts(ctx context.Context, repos []gh.RepoIn
 
 	// Spawn workers for each repository
 	for _, repo := range repos {
-		repo := repo // Capture loop variable
-
 		g.Go(func() error {
 			alerts, err := s.collectRepoAlerts(ctx, repo.FullName)
 			if err != nil {

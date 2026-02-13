@@ -13,6 +13,15 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/gh"
 )
 
+var (
+	errAPIError               = errors.New("API error")
+	errGraphQLError           = errors.New("GraphQL error")
+	errQueryTooComplex        = errors.New("query is too complex")
+	errQueryCostExceeded      = errors.New("query cost exceeded")
+	errComplexityLimitReached = errors.New("complexity limit reached")
+	errNetworkTimeout         = errors.New("network timeout")
+)
+
 func TestNewPipeline(t *testing.T) {
 	mockClient := gh.NewMockClient()
 	logger := logrus.New()
@@ -90,7 +99,7 @@ func TestSyncOrganization(t *testing.T) {
 		mockClient := gh.NewMockClient()
 		pipeline := NewPipeline(mockClient, nil, nil)
 
-		mockClient.On("DiscoverOrgRepos", ctx, "error-org").Return(nil, errors.New("API error"))
+		mockClient.On("DiscoverOrgRepos", ctx, "error-org").Return(nil, errAPIError)
 
 		result, err := pipeline.SyncOrganization(ctx, "error-org")
 		require.Error(t, err)
@@ -136,7 +145,7 @@ func TestSyncRepository(t *testing.T) {
 		pipeline := NewPipeline(mockClient, nil, nil)
 
 		mockClient.On("ExecuteGraphQL", ctx, mock.Anything).
-			Return(nil, errors.New("GraphQL error"))
+			Return(nil, errGraphQLError)
 
 		result, err := pipeline.SyncRepository(ctx, "owner", "error-repo")
 		require.Error(t, err)
@@ -189,22 +198,22 @@ func TestIsComplexityError(t *testing.T) {
 	}{
 		{
 			name:     "complexity error",
-			err:      errors.New("query is too complex"),
+			err:      errQueryTooComplex,
 			expected: true,
 		},
 		{
 			name:     "query cost error",
-			err:      errors.New("query cost exceeded"),
+			err:      errQueryCostExceeded,
 			expected: true,
 		},
 		{
 			name:     "complexity limit",
-			err:      errors.New("complexity limit reached"),
+			err:      errComplexityLimitReached,
 			expected: true,
 		},
 		{
 			name:     "other error",
-			err:      errors.New("network timeout"),
+			err:      errNetworkTimeout,
 			expected: false,
 		},
 		{

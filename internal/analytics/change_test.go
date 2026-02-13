@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mrz1836/go-broadcast/internal/db"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/mrz1836/go-broadcast/internal/db"
 )
 
 func TestHasChanged(t *testing.T) {

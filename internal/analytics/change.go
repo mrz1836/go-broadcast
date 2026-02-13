@@ -18,7 +18,7 @@ import (
 //   - true if data has changed (should write new snapshot)
 //   - false if data is identical (skip snapshot write)
 //   - true if previous is nil (first snapshot)
-func HasChanged(current *db.RepositorySnapshot, previous *db.RepositorySnapshot) bool {
+func HasChanged(current, previous *db.RepositorySnapshot) bool {
 	// First snapshot - always write
 	if previous == nil {
 		return true

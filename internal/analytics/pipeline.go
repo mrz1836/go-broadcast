@@ -2,6 +2,7 @@ package analytics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,6 +11,9 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/db"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 )
+
+// ErrMetadataNotReturned is returned when metadata is not found for a repository
+var ErrMetadataNotReturned = errors.New("metadata not returned for repository")
 
 // Pipeline orchestrates repo discovery and batched metadata collection
 type Pipeline struct {
@@ -69,7 +73,7 @@ func (p *Pipeline) SyncRepository(ctx context.Context, owner, name string) (*Rep
 
 	result, ok := metadata[repo.FullName]
 	if !ok {
-		return nil, fmt.Errorf("no metadata returned for %s", repo.FullName)
+		return nil, fmt.Errorf("%w: %s", ErrMetadataNotReturned, repo.FullName)
 	}
 
 	return result, nil
