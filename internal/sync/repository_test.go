@@ -1880,6 +1880,22 @@ func (m *TestValidationMockGHClient) GetSecretScanningAlerts(_ context.Context, 
 	return nil, ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) ListWorkflows(_ context.Context, _ string) ([]gh.Workflow, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetWorkflowRuns(_ context.Context, _ string, _ int64, _ int) ([]gh.WorkflowRun, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetRunArtifacts(_ context.Context, _ string, _ int64) ([]gh.Artifact, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) DownloadRunArtifact(_ context.Context, _ string, _ int64, _, _ string) error {
+	return ErrMockNotImplemented
+}
+
 // TestRepositorySync_validateAndCleanupOrphanedBranches tests the validateAndCleanupOrphanedBranches method
 func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 	ctx := context.Background()
