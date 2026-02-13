@@ -107,6 +107,7 @@ func init() {
 	rootCmd.AddCommand(modulesCmd)
 	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(dbCmd)
+	rootCmd.AddCommand(newAnalyticsCmd())
 }
 
 // NewRootCmd creates a new isolated root command instance for testing
