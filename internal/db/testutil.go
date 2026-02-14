@@ -418,3 +418,10 @@ func TestDBWithSeed(t testing.TB) (*gorm.DB, *SeedData) {
 
 	return db, seed
 }
+
+// TimePtr creates a time.Time pointer from year, month, day, hour, min, sec
+// Useful for testing nullable timestamp fields
+func TimePtr(year, month, day, hour, minute, sec int) *time.Time {
+	t := time.Date(year, time.Month(month), day, hour, minute, sec, 0, time.UTC)
+	return &t
+}

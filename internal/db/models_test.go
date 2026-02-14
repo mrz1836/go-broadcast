@@ -624,3 +624,266 @@ func TestCustomTypes_Value(t *testing.T) {
 		assert.NotNil(t, val)
 	})
 }
+
+// TestRepoModel_AllFieldsPersist tests that all enhanced Repo fields persist correctly
+func TestRepoModel_AllFieldsPersist(t *testing.T) {
+	db := TestDB(t)
+
+	// Create client and organization first
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+
+	org := &Organization{
+		ClientID: client.ID,
+		Name:     "test-org",
+	}
+	require.NoError(t, db.Create(org).Error)
+
+	// Create repo with ALL new fields populated
+	now := TimePtr(2024, 2, 14, 12, 0, 0)
+	repo := &Repo{
+		OrganizationID:        org.ID,
+		Name:                  "test-repo",
+		Description:           "Test description",
+		Language:              "Go",
+		HomepageURL:           "https://example.com",
+		Topics:                `["golang","testing","cli"]`,
+		License:               "MIT",
+		DiskUsageKB:           2048,
+		IsPrivate:             false,
+		IsArchived:            false,
+		IsFork:                true,
+		ForkParent:            "upstream/repo",
+		DefaultBranch:         "main",
+		HasIssuesEnabled:      true,
+		HasWikiEnabled:        false,
+		HasDiscussionsEnabled: true,
+		HTMLURL:               "https://github.com/test/repo",
+		SSHURL:                "git@github.com:test/repo.git",
+		CloneURL:              "https://github.com/test/repo.git",
+		GitHubCreatedAt:       now,
+		LastPushedAt:          now,
+		GitHubUpdatedAt:       now,
+	}
+
+	// Save to database
+	err := db.Create(repo).Error
+	require.NoError(t, err)
+	require.NotZero(t, repo.ID, "Repo should have ID after create")
+
+	// Reload from database
+	var loaded Repo
+	err = db.Preload("Organization").First(&loaded, repo.ID).Error
+	require.NoError(t, err)
+
+	// Verify ALL fields persisted correctly
+	assert.Equal(t, "test-repo", loaded.Name)
+	assert.Equal(t, "Test description", loaded.Description)
+	assert.Equal(t, "Go", loaded.Language, "Language field not persisted")
+	assert.Equal(t, "https://example.com", loaded.HomepageURL, "Homepage URL not persisted")
+	assert.Equal(t, `["golang","testing","cli"]`, loaded.Topics, "Topics JSON not persisted")
+	assert.Equal(t, "MIT", loaded.License, "License not persisted")
+	assert.Equal(t, 2048, loaded.DiskUsageKB, "Disk usage not persisted")
+	assert.False(t, loaded.IsPrivate)
+	assert.False(t, loaded.IsArchived)
+	assert.True(t, loaded.IsFork, "Fork flag not persisted")
+	assert.Equal(t, "upstream/repo", loaded.ForkParent, "Fork parent not persisted")
+	assert.Equal(t, "main", loaded.DefaultBranch, "Default branch not persisted")
+	assert.True(t, loaded.HasIssuesEnabled, "Issues flag not persisted")
+	assert.False(t, loaded.HasWikiEnabled, "Wiki flag not persisted")
+	assert.True(t, loaded.HasDiscussionsEnabled, "Discussions flag not persisted")
+	assert.Equal(t, "https://github.com/test/repo", loaded.HTMLURL, "HTML URL not persisted")
+	assert.Equal(t, "git@github.com:test/repo.git", loaded.SSHURL, "SSH URL not persisted")
+	assert.Equal(t, "https://github.com/test/repo.git", loaded.CloneURL, "Clone URL not persisted")
+	assert.NotNil(t, loaded.GitHubCreatedAt, "GitHub created timestamp not persisted")
+	assert.NotNil(t, loaded.LastPushedAt, "Last pushed timestamp not persisted")
+	assert.NotNil(t, loaded.GitHubUpdatedAt, "GitHub updated timestamp not persisted")
+
+	// Verify relationship loaded
+	assert.Equal(t, "test-org", loaded.Organization.Name)
+}
+
+// TestRepoModel_QueryByLanguage tests querying repos by programming language
+func TestRepoModel_QueryByLanguage(t *testing.T) {
+	db := TestDB(t)
+
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+
+	org := &Organization{ClientID: client.ID, Name: "test-org"}
+	require.NoError(t, db.Create(org).Error)
+
+	// Create repos with different languages
+	repos := []Repo{
+		{OrganizationID: org.ID, Name: "go-repo", Language: "Go"},
+		{OrganizationID: org.ID, Name: "py-repo", Language: "Python"},
+		{OrganizationID: org.ID, Name: "js-repo", Language: "JavaScript"},
+		{OrganizationID: org.ID, Name: "go-repo2", Language: "Go"},
+	}
+
+	for _, r := range repos {
+		require.NoError(t, db.Create(&r).Error)
+	}
+
+	// Query by language using index
+	var goRepos []Repo
+	err := db.Where("language = ?", "Go").Find(&goRepos).Error
+	require.NoError(t, err)
+
+	assert.Len(t, goRepos, 2, "Should find 2 Go repos")
+	names := []string{goRepos[0].Name, goRepos[1].Name}
+	assert.Contains(t, names, "go-repo")
+	assert.Contains(t, names, "go-repo2")
+}
+
+// TestRepoModel_QueryByLicense tests querying repos by license
+func TestRepoModel_QueryByLicense(t *testing.T) {
+	db := TestDB(t)
+
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+
+	org := &Organization{ClientID: client.ID, Name: "test-org"}
+	require.NoError(t, db.Create(org).Error)
+
+	// Create repos with different licenses
+	repos := []Repo{
+		{OrganizationID: org.ID, Name: "mit-repo", License: "MIT"},
+		{OrganizationID: org.ID, Name: "apache-repo", License: "Apache-2.0"},
+		{OrganizationID: org.ID, Name: "mit-repo2", License: "MIT"},
+		{OrganizationID: org.ID, Name: "unlicensed-repo", License: ""},
+	}
+
+	for _, r := range repos {
+		require.NoError(t, db.Create(&r).Error)
+	}
+
+	// Query by license
+	var mitRepos []Repo
+	err := db.Where("license = ?", "MIT").Find(&mitRepos).Error
+	require.NoError(t, err)
+
+	assert.Len(t, mitRepos, 2, "Should find 2 MIT repos")
+}
+
+// TestRepoModel_TopicsJSON tests JSON topics field handling
+func TestRepoModel_TopicsJSON(t *testing.T) {
+	db := TestDB(t)
+
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+
+	org := &Organization{ClientID: client.ID, Name: "test-org"}
+	require.NoError(t, db.Create(org).Error)
+
+	repo := &Repo{
+		OrganizationID: org.ID,
+		Name:           "test-repo",
+		Topics:         `["golang","testing","open-source"]`,
+	}
+	require.NoError(t, db.Create(repo).Error)
+
+	// Query using JSON LIKE
+	var result []Repo
+	err := db.Where("topics LIKE ?", "%golang%").Find(&result).Error
+	require.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	// Parse topics JSON
+	var topics []string
+	err = json.Unmarshal([]byte(result[0].Topics), &topics)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"golang", "testing", "open-source"}, topics)
+}
+
+// TestRepoModel_QueryByStatus tests filtering by repo status fields
+func TestRepoModel_QueryByStatus(t *testing.T) {
+	db := TestDB(t)
+
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+
+	org := &Organization{ClientID: client.ID, Name: "test-org"}
+	require.NoError(t, db.Create(org).Error)
+
+	// Create repos with various statuses
+	repos := []Repo{
+		{OrganizationID: org.ID, Name: "active-public", IsPrivate: false, IsArchived: false},
+		{OrganizationID: org.ID, Name: "active-private", IsPrivate: true, IsArchived: false},
+		{OrganizationID: org.ID, Name: "archived-public", IsPrivate: false, IsArchived: true},
+		{OrganizationID: org.ID, Name: "archived-private", IsPrivate: true, IsArchived: true},
+		{OrganizationID: org.ID, Name: "fork-repo", IsFork: true, ForkParent: "upstream/repo"},
+	}
+
+	for _, r := range repos {
+		require.NoError(t, db.Create(&r).Error)
+	}
+
+	// Test: Find active private repos
+	var activePrivate []Repo
+	err := db.Where("is_private = ? AND is_archived = ?", true, false).Find(&activePrivate).Error
+	require.NoError(t, err)
+	assert.Len(t, activePrivate, 1)
+	assert.Equal(t, "active-private", activePrivate[0].Name)
+
+	// Test: Find forks
+	var forks []Repo
+	err = db.Where("is_fork = ?", true).Find(&forks).Error
+	require.NoError(t, err)
+	assert.Len(t, forks, 1)
+	assert.Equal(t, "upstream/repo", forks[0].ForkParent)
+
+	// Test: Find all active (non-archived) repos
+	var active []Repo
+	err = db.Where("is_archived = ?", false).Find(&active).Error
+	require.NoError(t, err)
+	assert.Len(t, active, 3) // active-public, active-private, fork-repo
+}
+
+// TestRepoModel_NullableTimestamps tests nullable timestamp fields
+func TestRepoModel_NullableTimestamps(t *testing.T) {
+	db := TestDB(t)
+
+	client := &Client{Name: "test-client"}
+	require.NoError(t, db.Create(client).Error)
+
+	org := &Organization{ClientID: client.ID, Name: "test-org"}
+	require.NoError(t, db.Create(org).Error)
+
+	// Repo with no timestamps
+	repo1 := &Repo{
+		OrganizationID:  org.ID,
+		Name:            "no-timestamps",
+		GitHubCreatedAt: nil,
+		LastPushedAt:    nil,
+		GitHubUpdatedAt: nil,
+	}
+	require.NoError(t, db.Create(repo1).Error)
+
+	// Repo with timestamps
+	now := TimePtr(2024, 2, 14, 12, 0, 0)
+	repo2 := &Repo{
+		OrganizationID:  org.ID,
+		Name:            "with-timestamps",
+		GitHubCreatedAt: now,
+		LastPushedAt:    now,
+		GitHubUpdatedAt: now,
+	}
+	require.NoError(t, db.Create(repo2).Error)
+
+	// Verify null timestamps
+	var loaded1 Repo
+	err := db.First(&loaded1, repo1.ID).Error
+	require.NoError(t, err)
+	assert.Nil(t, loaded1.GitHubCreatedAt)
+	assert.Nil(t, loaded1.LastPushedAt)
+	assert.Nil(t, loaded1.GitHubUpdatedAt)
+
+	// Verify non-null timestamps
+	var loaded2 Repo
+	err = db.First(&loaded2, repo2.ID).Error
+	require.NoError(t, err)
+	assert.NotNil(t, loaded2.GitHubCreatedAt)
+	assert.NotNil(t, loaded2.LastPushedAt)
+	assert.NotNil(t, loaded2.GitHubUpdatedAt)
+}
