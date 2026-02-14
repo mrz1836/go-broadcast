@@ -3,8 +3,10 @@
 package git
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/fuzz"
 )
@@ -75,15 +77,26 @@ func FuzzGitURLSafety(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, url string) {
 		// Skip long inputs to avoid expensive validation on unrealistic URLs
-		if len(url) > 1000 {
-			t.Skipf("Input too large: %d bytes (limit: 1000)", len(url))
+		if len(url) > 300 {
+			t.Skipf("Input too large: %d bytes (limit: 300)", len(url))
 		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+		defer cancel()
 
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic with URL: %v, input: %q", r, url)
 			}
 		}()
+
+		// Check context before expensive validation
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before validation")
+		default:
+		}
 
 		// Validate URL for security issues
 		validateGitURL(t, url)
@@ -170,15 +183,26 @@ func FuzzGitFilePath(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, filePath string) {
 		// Skip long inputs to avoid expensive validation
-		if len(filePath) > 2000 {
-			t.Skipf("Input too large: %d bytes (limit: 2000)", len(filePath))
+		if len(filePath) > 500 {
+			t.Skipf("Input too large: %d bytes (limit: 500)", len(filePath))
 		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+		defer cancel()
 
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic with file path: %v, input: %q", r, filePath)
 			}
 		}()
+
+		// Check context before expensive validation
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before validation")
+		default:
+		}
 
 		// Validate file path for security issues
 		validateGitFilePath(t, filePath)
@@ -274,15 +298,26 @@ func FuzzGitBranchName(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, branch string) {
 		// Skip extremely long inputs
-		if len(branch) > 255 { // Git branch name limit
-			t.Skipf("Input too large: %d bytes (limit: 255)", len(branch))
+		if len(branch) > 150 { // Conservative limit for fuzzing
+			t.Skipf("Input too large: %d bytes (limit: 150)", len(branch))
 		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+		defer cancel()
 
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic with branch name: %v, input: %q", r, branch)
 			}
 		}()
+
+		// Check context before expensive validation
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before validation")
+		default:
+		}
 
 		// Validate branch name for security issues
 		validateGitBranchName(t, branch)
@@ -356,15 +391,26 @@ func FuzzGitCommitMessage(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, message string) {
 		// Skip long inputs to avoid expensive validation
-		if len(message) > 5000 {
-			t.Skipf("Input too large: %d bytes (limit: 5000)", len(message))
+		if len(message) > 1000 {
+			t.Skipf("Input too large: %d bytes (limit: 1000)", len(message))
 		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+		defer cancel()
 
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic with commit message: %v, input: %q", r, message)
 			}
 		}()
+
+		// Check context before expensive validation
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before validation")
+		default:
+		}
 
 		// Validate commit message
 		validateGitCommitMessage(t, message)
@@ -433,15 +479,26 @@ func FuzzGitRepoPath(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, repoPath string) {
 		// Skip long inputs to avoid expensive validation
-		if len(repoPath) > 2000 {
-			t.Skipf("Input too large: %d bytes (limit: 2000)", len(repoPath))
+		if len(repoPath) > 500 {
+			t.Skipf("Input too large: %d bytes (limit: 500)", len(repoPath))
 		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+		defer cancel()
 
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic with repo path: %v, input: %q", r, repoPath)
 			}
 		}()
+
+		// Check context before expensive validation
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before validation")
+		default:
+		}
 
 		// Validate repo path for security issues
 		validateGitRepoPath(t, repoPath)

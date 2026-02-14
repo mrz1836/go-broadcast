@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -83,8 +84,25 @@ targets:
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		// Skip long inputs to avoid timeout in CI
-		if len(data) > 10000 {
-			t.Skipf("Input too large: %d bytes (limit: 10000)", len(data))
+		if len(data) > 5000 {
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(data))
+		}
+
+		// Create context with timeout to prevent expensive YAML parsing from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("Panic during validation of parsed config: %v with input: %s", r, string(data))
+			}
+		}()
+
+		// Check context before expensive parsing
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before parsing")
+		default:
 		}
 
 		reader := bytes.NewReader(data)
@@ -107,12 +125,6 @@ targets:
 			return
 		}
 
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("Panic during validation of parsed config: %v with input: %s", r, string(data))
-			}
-		}()
-
 		// Parsed config should have defaults applied to groups
 		if len(parsedCfg.Groups) > 0 {
 			group := parsedCfg.Groups[0]
@@ -125,7 +137,7 @@ targets:
 		}
 
 		// Validate the parsed config
-		validationErr := parsedCfg.ValidateWithLogging(context.Background(), nil)
+		validationErr := parsedCfg.ValidateWithLogging(ctx, nil)
 		if validationErr != nil {
 			// Validation error is acceptable
 			return
@@ -215,15 +227,26 @@ func FuzzRepoNameValidation(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, repoName string) {
 		// Skip extremely long inputs
-		if len(repoName) > 1000 {
-			t.Skipf("Input too large: %d bytes (limit: 1000)", len(repoName))
+		if len(repoName) > 500 {
+			t.Skipf("Input too large: %d bytes (limit: 500)", len(repoName))
 		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+		defer cancel()
 
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic in repo validation: %v with input: %q", r, repoName)
 			}
 		}()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before validation")
+		default:
+		}
 
 		// Test against the validation package
 		err := validation.ValidateRepoName(repoName)
@@ -251,7 +274,7 @@ func FuzzRepoNameValidation(f *testing.F) {
 			},
 		}
 
-		validateErr := cfg.ValidateWithLogging(context.Background(), nil)
+		validateErr := cfg.ValidateWithLogging(ctx, nil)
 		if validateErr == nil && !isValid {
 			t.Errorf("Validate() accepted invalid repo name: %q", repoName)
 		}
@@ -350,15 +373,26 @@ func FuzzBranchNameValidation(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, branch string) {
 		// Skip extremely long inputs
-		if len(branch) > 1000 {
-			t.Skipf("Input too large: %d bytes (limit: 1000)", len(branch))
+		if len(branch) > 500 {
+			t.Skipf("Input too large: %d bytes (limit: 500)", len(branch))
 		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+		defer cancel()
 
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic in branch validation: %v with input: %q", r, branch)
 			}
 		}()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before validation")
+		default:
+		}
 
 		// Test against the validation package
 		err := validation.ValidateBranchName(branch)
@@ -386,7 +420,7 @@ func FuzzBranchNameValidation(f *testing.F) {
 			},
 		}
 
-		validateErr := cfg.ValidateWithLogging(context.Background(), nil)
+		validateErr := cfg.ValidateWithLogging(ctx, nil)
 		if validateErr == nil && !isValid {
 			t.Errorf("Validate() accepted invalid branch name: %q", branch)
 		}

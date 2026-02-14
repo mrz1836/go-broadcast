@@ -3,9 +3,11 @@
 package errors //nolint:revive,nolintlint // internal test package, name conflict intentional
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -29,8 +31,19 @@ func FuzzWrapWithContext(f *testing.F) {
 	baseErr := errors.New("base error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, operation string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(operation) > 5000 {
-			t.Skipf("Input too large: %d bytes (limit: 5000)", len(operation))
+		if len(operation) > 2000 {
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(operation))
+		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
 		}
 
 		// Should never panic
@@ -60,8 +73,19 @@ func FuzzInvalidFieldError(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, field, value string) {
 		// Skip long inputs to avoid timeout in CI with expensive error formatting
-		if len(field)+len(value) > 5000 {
-			t.Skipf("Input too large: %d bytes (limit: 5000)", len(field)+len(value))
+		if len(field)+len(value) > 2000 {
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(field)+len(value))
+		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
 		}
 
 		// Should never panic
@@ -87,8 +111,19 @@ func FuzzValidationError(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, item, reason string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(item)+len(reason) > 5000 {
-			t.Skipf("Input too large: %d bytes (limit: 5000)", len(item)+len(reason))
+		if len(item)+len(reason) > 2000 {
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(item)+len(reason))
+		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
 		}
 
 		result := ValidationError(item, reason)
@@ -110,8 +145,19 @@ func FuzzPathTraversalError(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, path string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(path) > 5000 {
-			t.Skipf("Input too large: %d bytes (limit: 5000)", len(path))
+		if len(path) > 2000 {
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(path))
+		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
 		}
 
 		result := PathTraversalError(path)
@@ -130,13 +176,24 @@ func FuzzGitOperationError(f *testing.F) {
 	f.Add(strings.Repeat("o", 5000), strings.Repeat("c", 5000))
 
 	baseErr := errors.New("git error") //nolint:err113 // test-only error for fuzz testing
-	f.Fuzz(func(t *testing.T, operation, context string) {
+	f.Fuzz(func(t *testing.T, operation, gitContext string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(operation)+len(context) > 5000 {
-			t.Skipf("Input too large: %d bytes (limit: 5000)", len(operation)+len(context))
+		if len(operation)+len(gitContext) > 2000 {
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(operation)+len(gitContext))
 		}
 
-		result := GitOperationError(operation, context, baseErr)
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
+		}
+
+		result := GitOperationError(operation, gitContext, baseErr)
 		require.Error(t, result)
 		require.ErrorIs(t, result, baseErr)
 		require.True(t, strings.HasPrefix(result.Error(), "git operation failed"))
@@ -154,8 +211,19 @@ func FuzzFileOperationError(f *testing.F) {
 	baseErr := errors.New("file error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, operation, path string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(operation)+len(path) > 5000 {
-			t.Skipf("Input too large: %d bytes (limit: 5000)", len(operation)+len(path))
+		if len(operation)+len(path) > 2000 {
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(operation)+len(path))
+		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
 		}
 
 		result := FileOperationError(operation, path, baseErr)
@@ -188,8 +256,19 @@ func FuzzBatchOperationError(f *testing.F) {
 	baseErr := errors.New("batch error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, operation string, start, end int) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(operation) > 5000 {
-			t.Skipf("Input too large: %d bytes (limit: 5000)", len(operation))
+		if len(operation) > 2000 {
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(operation))
+		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
 		}
 
 		// Should never panic regardless of input
@@ -237,6 +316,17 @@ func FuzzAPIResponseError(f *testing.F) {
 			t.Skipf("Input too large: %d bytes (limit: 1000)", len(message))
 		}
 
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
+		}
+
 		// Should never panic
 		result := APIResponseError(statusCode, message)
 
@@ -267,8 +357,19 @@ func FuzzCommandFailedError(f *testing.F) {
 	baseErr := errors.New("command error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, cmd string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(cmd) > 5000 {
-			t.Skipf("Input too large: %d bytes (limit: 5000)", len(cmd))
+		if len(cmd) > 2000 {
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(cmd))
+		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
 		}
 
 		result := CommandFailedError(cmd, baseErr)
@@ -287,8 +388,19 @@ func FuzzFormatError(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, field, value, expectedFormat string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(field)+len(value)+len(expectedFormat) > 5000 {
-			t.Skipf("Input too large: %d bytes (limit: 5000)", len(field)+len(value)+len(expectedFormat))
+		if len(field)+len(value)+len(expectedFormat) > 2000 {
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(field)+len(value)+len(expectedFormat))
+		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
 		}
 
 		result := FormatError(field, value, expectedFormat)

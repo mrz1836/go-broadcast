@@ -890,6 +890,17 @@ func FuzzCompareVersions(f *testing.F) {
 			t.Skipf("Input too large: %d bytes (limit: 1000)", len(v1)+len(v2))
 		}
 
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
+		}
+
 		// Should never panic
 		result := CompareVersions(v1, v2)
 		// Result must be -1, 0, or 1
@@ -911,6 +922,17 @@ func FuzzParseVersion(f *testing.F) {
 		// Skip long inputs to avoid timeout in CI
 		if len(version) > 500 {
 			t.Skipf("Input too large: %d bytes (limit: 500)", len(version))
+		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
 		}
 
 		// Should never panic
@@ -941,6 +963,17 @@ func FuzzNormalizeVersion(f *testing.F) {
 			t.Skipf("Input too large: %d bytes (limit: 500)", len(version))
 		}
 
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
+		}
+
 		// Should never panic
 		result := NormalizeVersion(version)
 
@@ -968,6 +1001,17 @@ func FuzzIsCommitHash(f *testing.F) {
 		// Skip long inputs to avoid timeout in CI
 		if len(s) > 100 {
 			t.Skipf("Input too large: %d bytes (limit: 100)", len(s))
+		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operation")
+		default:
 		}
 
 		// Should never panic

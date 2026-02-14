@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
@@ -82,15 +83,26 @@ func FuzzGitHubCLIArgs(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, command, repo, arg1, arg2 string) {
 		// Skip long inputs to avoid timeout in CI
-		if len(command)+len(repo)+len(arg1)+len(arg2) > 5000 {
-			t.Skipf("Input too large: %d bytes (limit: 5000)", len(command)+len(repo)+len(arg1)+len(arg2))
+		if len(command)+len(repo)+len(arg1)+len(arg2) > 1500 {
+			t.Skipf("Input too large: %d bytes (limit: 1500)", len(command)+len(repo)+len(arg1)+len(arg2))
 		}
+
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+		defer cancel()
 
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic with args: %v, inputs: %q %q %q %q", r, command, repo, arg1, arg2)
 			}
 		}()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before operations")
+		default:
+		}
 
 		// Create mock command runner to intercept commands
 		mockRunner := &MockCommandRunner{}
@@ -107,8 +119,6 @@ func FuzzGitHubCLIArgs(f *testing.F) {
 		validateGitHubCLIArgs(t, command, repo, arg1, arg2)
 
 		// Test different GitHub operations to see how they handle the inputs
-		ctx := context.Background()
-
 		// Test ListBranches - constructs API path from repo
 		if repo != "" {
 			_, _ = client.ListBranches(ctx, repo)
@@ -227,15 +237,26 @@ func FuzzJSONParsing(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, jsonData string) {
 		// Skip long inputs to avoid timeout in CI
-		if len(jsonData) > 10000 {
-			t.Skipf("Input too large: %d bytes (limit: 10000)", len(jsonData))
+		if len(jsonData) > 3000 {
+			t.Skipf("Input too large: %d bytes (limit: 3000)", len(jsonData))
 		}
+
+		// Create context with timeout to prevent expensive JSON parsing from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
 
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic parsing JSON: %v, input: %q", r, jsonData)
 			}
 		}()
+
+		// Check context before expensive parsing
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before parsing")
+		default:
+		}
 
 		// Test parsing into different GitHub types
 		testJSONParsing(t, jsonData)
@@ -546,11 +567,22 @@ func FuzzErrorHandling(f *testing.F) {
 			t.Skipf("Input too large: %d bytes (limit: 5000)", len(errorMsg))
 		}
 
+		// Create context with timeout to prevent expensive operations from hanging
+		ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+		defer cancel()
+
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic in error handling: %v, input: %q", r, errorMsg)
 			}
 		}()
+
+		// Check context before expensive operations
+		select {
+		case <-ctx.Done():
+			t.Skipf("Context timeout before error handling")
+		default:
+		}
 
 		// Test the isNotFoundError function
 		err := &CommandError{

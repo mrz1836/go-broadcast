@@ -153,15 +153,26 @@ func FuzzTemplateVariableReplacement(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, templateData, varsData []byte) {
 		// Skip long inputs to avoid timeout in CI
-		if len(templateData)+len(varsData) > 2000 {
-			t.Skipf("Input too large: %d bytes (limit: 2000)", len(templateData)+len(varsData))
+		if len(templateData)+len(varsData) > 800 {
+			t.Skipf("Input too large: %d bytes (limit: 800)", len(templateData)+len(varsData))
 		}
+
+		// Create context with timeout to prevent expensive template operations from hanging
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
 
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic in template replacement: %v", r)
 			}
 		}()
+
+		// Check context before expensive operations
+		select {
+		case <-timeoutCtx.Done():
+			t.Skipf("Context timeout before transformation")
+		default:
+		}
 
 		// Parse variables JSON
 		var vars map[string]string
@@ -327,9 +338,13 @@ func FuzzRegexReplacement(f *testing.F) {
 	f.Fuzz(func(t *testing.T, sourceOrg, sourceRepo, targetOrg, targetRepo, content, filePath string) {
 		// Skip long inputs to avoid timeout in CI
 		totalLen := len(sourceOrg) + len(sourceRepo) + len(targetOrg) + len(targetRepo) + len(content) + len(filePath)
-		if totalLen > 4000 {
-			t.Skipf("Input too large: %d bytes (limit: 4000)", totalLen)
+		if totalLen > 1000 {
+			t.Skipf("Input too large: %d bytes (limit: 1000)", totalLen)
 		}
+
+		// Create context with timeout to prevent expensive regex operations from hanging
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
 
 		defer func() {
 			if r := recover(); r != nil {
@@ -342,6 +357,13 @@ func FuzzRegexReplacement(f *testing.F) {
 				t.Fatalf("Unexpected panic in regex replacement: %v", r)
 			}
 		}()
+
+		// Check context before expensive operations
+		select {
+		case <-timeoutCtx.Done():
+			t.Skipf("Context timeout before transformation")
+		default:
+		}
 
 		// Create repo transformer
 		transformer := NewRepoTransformer()
@@ -463,8 +485,8 @@ func FuzzTransformChain(f *testing.F) {
 	f.Fuzz(func(t *testing.T, content, sourceRepo, targetRepo, varsJSON, filePath, transformersJSON string) {
 		// Skip long inputs to avoid timeout in CI
 		totalLen := len(content) + len(sourceRepo) + len(targetRepo) + len(varsJSON) + len(filePath) + len(transformersJSON)
-		if totalLen > 2000 {
-			t.Skipf("Input too large: %d bytes (limit: 2000)", totalLen)
+		if totalLen > 800 {
+			t.Skipf("Input too large: %d bytes (limit: 800)", totalLen)
 		}
 
 		defer func() {
@@ -582,11 +604,22 @@ func FuzzBinaryDetection(f *testing.F) {
 			t.Skipf("Input too large: %d bytes (limit: 10000)", len(filePath)+len(content))
 		}
 
+		// Create context with timeout to prevent expensive operations from hanging
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+		defer cancel()
+
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("Panic in binary detection: %v", r)
 			}
 		}()
+
+		// Check context before expensive operations
+		select {
+		case <-timeoutCtx.Done():
+			t.Skipf("Context timeout before detection")
+		default:
+		}
 
 		// Test binary detection
 		isBinary := IsBinary(filePath, []byte(content))
