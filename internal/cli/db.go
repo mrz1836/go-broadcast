@@ -45,6 +45,16 @@ func init() {
 	dbCmd.AddCommand(dbDiffCmd)
 	dbCmd.AddCommand(dbQueryCmd)
 	dbCmd.AddCommand(dbValidateCmd)
+
+	// CRUD noun commands for granular configuration management
+	dbCmd.AddCommand(newDBGroupCmd())
+	dbCmd.AddCommand(newDBTargetCmd())
+	dbCmd.AddCommand(newDBFileListCmd())
+	dbCmd.AddCommand(newDBDirListCmd())
+	dbCmd.AddCommand(newDBFileCmd())
+	dbCmd.AddCommand(newDBDirCmd())
+	dbCmd.AddCommand(newDBRefCmd())
+	dbCmd.AddCommand(newDBBulkCmd())
 }
 
 // getDBPath returns the database path, using default if not specified
