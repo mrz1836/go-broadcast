@@ -19,6 +19,8 @@ var errPanicRecovered = errors.New("panic recovered")
 func main() {
 	app := NewApp()
 	if err := app.Run(os.Args[1:]); err != nil {
+		// Error already displayed by outputHandler in Run() or by cli.Execute()
+		// Just exit with error code
 		os.Exit(1)
 	}
 }
@@ -101,12 +103,17 @@ func (a *App) Run(_ []string) (err error) {
 
 	// Load environment configuration files (.env.base and .env.custom)
 	// This follows the GoFortress pattern used by other tools in the ecosystem
-	if err := env.LoadEnvFiles(); err != nil {
+	if envErr := env.LoadEnvFiles(); envErr != nil {
 		// Don't fail hard on env file loading errors, but warn the user
 		// This allows go-broadcast to work without env files if needed
-		a.outputHandler.Error(fmt.Sprintf("Warning: Failed to load environment files: %v", err))
+		a.outputHandler.Error(fmt.Sprintf("Warning: Failed to load environment files: %v", envErr))
 	}
 
 	// Execute CLI
-	return a.cliExecutor.Execute()
+	err = a.cliExecutor.Execute()
+	if err != nil {
+		// Display error to user
+		a.outputHandler.Error(err.Error())
+	}
+	return err
 }

@@ -93,6 +93,10 @@ func TestApp_Run(t *testing.T) {
 		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
 			return containsEnvWarning(msg)
 		})).Return()
+		// Expect error from CLI execution
+		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
+			return strings.Contains(msg, "CLI execution failed")
+		})).Return()
 		mockCLIExecutor.On("Execute").Return(ErrCLIExecutionFailed)
 
 		// Create app with mocked dependencies
@@ -250,6 +254,10 @@ func TestApp_ErrorPathsCoverage(t *testing.T) {
 				mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
 					return containsEnvWarning(msg)
 				})).Return()
+				// Expect error from CLI execution
+				mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
+					return strings.Contains(msg, tc.expectError)
+				})).Return()
 				mockCLIExecutor.On("Execute").Return(tc.cliErr)
 
 				app := NewAppWithDependencies(mockOutputHandler, mockCLIExecutor)
@@ -362,12 +370,16 @@ func TestApp_MockValidation(t *testing.T) {
 		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
 			return containsEnvWarning(msg)
 		})).Return()
+		// Expect error from CLI execution
+		mockOutputHandler.On("Error", mock.MatchedBy(func(msg string) bool {
+			return strings.Contains(msg, "CLI execution failed")
+		})).Return()
 		mockCLIExecutor.On("Execute").Return(ErrCLIExecutionFailed)
 
 		app := NewAppWithDependencies(mockOutputHandler, mockCLIExecutor)
 		_ = app.Run([]string{})
 
-		// Should only call Error for env file warning, no other Error calls
+		// Should call Error twice: once for env warning, once for CLI error
 		mockOutputHandler.AssertExpectations(t)
 		mockCLIExecutor.AssertExpectations(t)
 	})
