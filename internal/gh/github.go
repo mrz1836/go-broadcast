@@ -30,6 +30,8 @@ var (
 	ErrRepositoryNotFound     = errors.New("repository not found")
 	ErrUnsupportedMergeMethod = errors.New("unsupported merge method")
 	ErrOrganizationNotFound   = errors.New("organization not found")
+	ErrUserNotFound           = errors.New("user not found")
+	ErrOwnerNotFound          = errors.New("owner not found (neither org nor user)")
 	ErrGraphQLError           = errors.New("GraphQL query failed")
 )
 

@@ -76,7 +76,8 @@ type Client interface {
 	// Returns a summary of check statuses including running, passed, failed, and skipped counts
 	GetPRCheckStatus(ctx context.Context, repo string, number int) (*CheckStatusSummary, error)
 
-	// DiscoverOrgRepos returns all repositories for an organization
+	// DiscoverOrgRepos returns all repositories for an owner (organization or user account)
+	// Automatically detects whether the owner is an org or user account
 	// Uses REST API with pagination to fetch all repos
 	DiscoverOrgRepos(ctx context.Context, org string) ([]RepoInfo, error)
 

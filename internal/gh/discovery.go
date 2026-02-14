@@ -8,19 +8,42 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/jsonutil"
 )
 
-// DiscoverOrgRepos returns all repositories for an organization
+// DiscoverOrgRepos returns all repositories for an owner (organization or user account)
+// Automatically detects whether owner is an org or user by trying org endpoint first,
+// then falling back to user endpoint if org is not found.
 // Uses REST API with pagination to fetch all repos (public and private)
 func (g *githubClient) DiscoverOrgRepos(ctx context.Context, org string) ([]RepoInfo, error) {
-	// Use gh api with --paginate to handle large org repos
-	// per_page=100 is the max, type=all includes both public and private repos
-	output, err := g.runner.Run(ctx, "gh", "api",
-		fmt.Sprintf("orgs/%s/repos?per_page=100&type=all", org),
-		"--paginate")
-	if err != nil {
-		if isNotFoundError(err) {
-			return nil, fmt.Errorf("%w: %s", ErrOrganizationNotFound, org)
+	// Try organization endpoint first
+	repos, err := g.tryDiscoverRepos(ctx, fmt.Sprintf("orgs/%s/repos?per_page=100&type=all", org))
+	if err == nil {
+		return repos, nil
+	}
+
+	// If org not found (404), try user endpoint
+	if isNotFoundError(err) {
+		repos, userErr := g.tryDiscoverRepos(ctx, fmt.Sprintf("users/%s/repos?per_page=100&type=all", org))
+		if userErr == nil {
+			return repos, nil
 		}
-		return nil, appErrors.WrapWithContext(err, fmt.Sprintf("discover repos for org %s", org))
+
+		// Both failed - owner doesn't exist as org or user
+		if isNotFoundError(userErr) {
+			return nil, fmt.Errorf("%w: %s", ErrOwnerNotFound, org)
+		}
+
+		// User endpoint returned a different error (rate limit, permission, etc.)
+		return nil, appErrors.WrapWithContext(userErr, fmt.Sprintf("discover repos for user %s", org))
+	}
+
+	// Org endpoint returned a different error (rate limit, permission, etc.)
+	return nil, appErrors.WrapWithContext(err, fmt.Sprintf("discover repos for owner %s", org))
+}
+
+// tryDiscoverRepos attempts to fetch repos from a given API endpoint
+func (g *githubClient) tryDiscoverRepos(ctx context.Context, endpoint string) ([]RepoInfo, error) {
+	output, err := g.runner.Run(ctx, "gh", "api", endpoint, "--paginate")
+	if err != nil {
+		return nil, err
 	}
 
 	repos, err := jsonutil.UnmarshalJSON[[]RepoInfo](output)
