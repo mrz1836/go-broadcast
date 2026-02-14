@@ -87,6 +87,8 @@ with change detection to minimize database writes.`,
 
 			gormDB := database.DB()
 			analyticsRepo := db.NewAnalyticsRepo(gormDB)
+			repoRepo := db.NewRepoRepository(gormDB)
+			orgRepo := db.NewOrganizationRepository(gormDB)
 
 			// Initialize GitHub client
 			ghClient, err := gh.NewClient(ctx, logger, &logging.LogConfig{})
@@ -95,7 +97,7 @@ with change detection to minimize database writes.`,
 			}
 
 			// Create analytics pipeline
-			pipeline := analytics.NewPipeline(ghClient, analyticsRepo, logger)
+			pipeline := analytics.NewPipeline(ghClient, analyticsRepo, repoRepo, orgRepo, logger)
 
 			// Determine sync scope
 			syncType := determineSyncType(securityOnly)
@@ -141,7 +143,7 @@ with change detection to minimize database writes.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&org, "org", "", "Sync specific organization only")
+	cmd.Flags().StringVar(&org, "org", "", "Sync specific owner (organization or user account)")
 	cmd.Flags().StringVar(&repo, "repo", "", "Sync specific repository only (owner/name)")
 	cmd.Flags().BoolVar(&securityOnly, "security-only", false, "Sync security alerts only")
 	cmd.Flags().BoolVar(&full, "full", false, "Force full sync (ignore change detection)")
@@ -497,17 +499,17 @@ func syncOrganization(
 	showProgress, isDryRun, forceFull bool,
 ) error {
 	if showProgress {
-		output.Info(fmt.Sprintf("Starting sync for organization: %s", org))
+		output.Info(fmt.Sprintf("Starting sync for owner: %s", org))
 	}
 
 	// Discover repos via Pipeline
 	metadata, err := pipeline.SyncOrganization(ctx, org)
 	if err != nil {
-		return fmt.Errorf("failed to sync organization %s: %w", org, err)
+		return fmt.Errorf("failed to sync owner %s: %w", org, err)
 	}
 
 	if showProgress {
-		output.Info(fmt.Sprintf("Discovered %d repositories in %s", len(metadata), org))
+		output.Info(fmt.Sprintf("Discovered %d repositories for %s", len(metadata), org))
 	}
 
 	if isDryRun {

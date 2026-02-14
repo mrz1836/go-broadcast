@@ -16,18 +16,25 @@ import (
 // ErrMetadataNotReturned is returned when metadata is not found for a repository
 var ErrMetadataNotReturned = errors.New("metadata not returned for repository")
 
+// errOrgNotFound is returned when an organization is not found in the database
+var errOrgNotFound = errors.New("organization not found in database")
+
 // Pipeline orchestrates repo discovery and batched metadata collection
 type Pipeline struct {
 	ghClient gh.Client
 	repo     db.AnalyticsRepo
+	repoRepo db.RepoRepository
+	orgRepo  db.OrganizationRepository
 	logger   *logrus.Logger
 }
 
 // NewPipeline creates a new analytics pipeline
-func NewPipeline(ghClient gh.Client, repo db.AnalyticsRepo, logger *logrus.Logger) *Pipeline {
+func NewPipeline(ghClient gh.Client, repo db.AnalyticsRepo, repoRepo db.RepoRepository, orgRepo db.OrganizationRepository, logger *logrus.Logger) *Pipeline {
 	return &Pipeline{
 		ghClient: ghClient,
 		repo:     repo,
+		repoRepo: repoRepo,
+		orgRepo:  orgRepo,
 		logger:   logger,
 	}
 }
@@ -42,27 +49,57 @@ func (p *Pipeline) GetLogger() *logrus.Logger {
 	return p.logger
 }
 
-// SyncOrganization discovers repos for an organization and collects metadata
+// SyncOrganization syncs metadata for configured repos in an organization
+// Only syncs repos that are already in the go-broadcast database, not all repos owned by the org
 func (p *Pipeline) SyncOrganization(ctx context.Context, org string) (map[string]*RepoMetadata, error) {
-	// Step 1: Discover all repos for the organization
-	repos, err := p.ghClient.DiscoverOrgRepos(ctx, org)
+	// Step 1: Query configured repos from database for this org
+	configuredRepos, err := p.getConfiguredReposForOrg(ctx, org)
 	if err != nil {
-		return nil, fmt.Errorf("failed to discover repos for org %s: %w", org, err)
+		return nil, fmt.Errorf("failed to get configured repos for owner %s: %w", org, err)
 	}
 
 	if p.logger != nil {
 		p.logger.WithFields(logrus.Fields{
-			"org":        org,
-			"repo_count": len(repos),
-		}).Info("Discovered repositories")
+			"owner":      org,
+			"repo_count": len(configuredRepos),
+		}).Info("Found configured repositories")
 	}
 
-	if len(repos) == 0 {
+	if len(configuredRepos) == 0 {
 		return make(map[string]*RepoMetadata), nil
 	}
 
 	// Step 2: Batch repos and collect metadata
-	return p.collectMetadata(ctx, repos)
+	return p.collectMetadata(ctx, configuredRepos)
+}
+
+// getConfiguredReposForOrg queries the database for repos configured in this org
+func (p *Pipeline) getConfiguredReposForOrg(ctx context.Context, orgName string) ([]gh.RepoInfo, error) {
+	// Get organization from database
+	org, err := p.orgRepo.GetByName(ctx, orgName)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s (import config first)", errOrgNotFound, orgName)
+	}
+
+	// Get configured repos for this organization
+	repos, err := p.repoRepo.List(ctx, org.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query repos: %w", err)
+	}
+
+	// Convert db.Repo to gh.RepoInfo
+	repoInfos := make([]gh.RepoInfo, len(repos))
+	for i, repo := range repos {
+		repoInfos[i] = gh.RepoInfo{
+			Name:     repo.Name,
+			FullName: fmt.Sprintf("%s/%s", orgName, repo.Name),
+			Owner: struct {
+				Login string `json:"login"`
+			}{Login: orgName},
+		}
+	}
+
+	return repoInfos, nil
 }
 
 // SyncRepository collects metadata for a single repository
