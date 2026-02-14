@@ -33,6 +33,20 @@ type AnalyticsRepository struct {
 	LastSyncAt     *time.Time `json:"last_sync_at,omitempty"`                                              // Last sync timestamp
 	LastSyncRunID  *uint      `json:"last_sync_run_id,omitempty"`                                          // Links to the SyncRun that last processed this repo
 
+	// Enhanced metadata fields (matching Repo model)
+	HomepageURL           string     `gorm:"type:text" json:"homepage_url"`                    // Project homepage
+	Topics                string     `gorm:"type:text" json:"topics"`                          // JSON array of topics
+	License               string     `gorm:"type:text" json:"license"`                         // License key (e.g., "MIT")
+	DiskUsageKB           int        `gorm:"default:0" json:"disk_usage_kb"`                   // Repository size in kilobytes
+	HasIssuesEnabled      bool       `gorm:"default:false" json:"has_issues_enabled"`          // Issues feature status
+	HasWikiEnabled        bool       `gorm:"default:false" json:"has_wiki_enabled"`            // Wiki feature status
+	HasDiscussionsEnabled bool       `gorm:"default:false" json:"has_discussions_enabled"`     // Discussions feature status
+	SSHURL                string     `gorm:"type:text" json:"ssh_url"`                         // SSH clone URL
+	CloneURL              string     `gorm:"type:text" json:"clone_url"`                       // HTTPS clone URL
+	GitHubCreatedAt       *time.Time `gorm:"type:datetime" json:"github_created_at,omitempty"` // Repo creation date on GitHub
+	LastPushedAt          *time.Time `gorm:"type:datetime" json:"last_pushed_at,omitempty"`    // Last code push timestamp
+	GitHubUpdatedAt       *time.Time `gorm:"type:datetime" json:"github_updated_at,omitempty"` // Last metadata update on GitHub
+
 	// Relationships
 	Organization *Organization        `gorm:"foreignKey:OrganizationID" json:"organization,omitempty"`
 	Snapshots    []RepositorySnapshot `gorm:"foreignKey:RepositoryID" json:"snapshots,omitempty"`

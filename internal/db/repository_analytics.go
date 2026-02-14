@@ -59,6 +59,12 @@ func NewAnalyticsRepo(db *gorm.DB) AnalyticsRepo {
 	return &analyticsRepo{db: db}
 }
 
+// GetDB returns the underlying GORM database connection
+// This is used by analytics sync to update config repos table with GitHub data
+func (r *analyticsRepo) GetDB() *gorm.DB {
+	return r.db
+}
+
 // ============================================================
 // Organizations
 // ============================================================

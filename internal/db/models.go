@@ -185,6 +185,35 @@ type Repo struct {
 	Name           string       `gorm:"type:text;not null;uniqueIndex:idx_org_repo" json:"name"`
 	Description    string       `gorm:"type:text" json:"description"`
 	Organization   Organization `gorm:"foreignKey:OrganizationID" json:"organization,omitempty"`
+
+	// Metadata fields
+	Language    string `gorm:"type:text;index" json:"language"` // Primary programming language
+	HomepageURL string `gorm:"type:text" json:"homepage_url"`   // Project homepage
+	Topics      string `gorm:"type:text" json:"topics"`         // JSON array of topics
+	License     string `gorm:"type:text;index" json:"license"`  // License key (e.g., "MIT")
+	DiskUsageKB int    `gorm:"default:0" json:"disk_usage_kb"`  // Repository size in kilobytes
+
+	// Status & Configuration fields
+	IsPrivate     bool   `gorm:"default:false;index" json:"is_private"`  // Private repository flag
+	IsArchived    bool   `gorm:"default:false;index" json:"is_archived"` // Archived repository flag
+	IsFork        bool   `gorm:"default:false;index" json:"is_fork"`     // Is this a fork?
+	ForkParent    string `gorm:"type:text" json:"fork_parent"`           // Parent repo full name (e.g., "owner/repo")
+	DefaultBranch string `gorm:"type:text" json:"default_branch"`        // Default branch name
+
+	// Feature flags
+	HasIssuesEnabled      bool `gorm:"default:false" json:"has_issues_enabled"`      // Issues feature status
+	HasWikiEnabled        bool `gorm:"default:false" json:"has_wiki_enabled"`        // Wiki feature status
+	HasDiscussionsEnabled bool `gorm:"default:false" json:"has_discussions_enabled"` // Discussions feature status
+
+	// URLs
+	HTMLURL  string `gorm:"type:text" json:"html_url"`  // GitHub web URL
+	SSHURL   string `gorm:"type:text" json:"ssh_url"`   // SSH clone URL
+	CloneURL string `gorm:"type:text" json:"clone_url"` // HTTPS clone URL
+
+	// Activity timestamps (nullable - may not exist for all repos)
+	GitHubCreatedAt *time.Time `gorm:"type:datetime" json:"github_created_at"` // Repo creation date on GitHub
+	LastPushedAt    *time.Time `gorm:"type:datetime" json:"last_pushed_at"`    // Last code push timestamp
+	GitHubUpdatedAt *time.Time `gorm:"type:datetime" json:"github_updated_at"` // Last metadata update on GitHub
 }
 
 // FullName returns the "org/repo" format name
