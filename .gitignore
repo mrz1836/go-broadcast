@@ -112,3 +112,5 @@ test/fixtures/directories/
 /coverage_mage.txt
 /coverage_integration.txt
 /.mage-x
+/go-broadcast-test
+/go-broadcast-ci-test
