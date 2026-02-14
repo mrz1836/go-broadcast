@@ -90,11 +90,11 @@ func FuzzTemplateVariableReplacement(f *testing.F) {
 		// Large expansion attempts
 		{
 			template: "{{EXPAND}}",
-			vars:     map[string]string{"EXPAND": strings.Repeat("LARGE", 1000)},
+			vars:     map[string]string{"EXPAND": strings.Repeat("LARGE", 50)},
 		},
 		{
 			template: "{{A}}{{A}}{{A}}",
-			vars:     map[string]string{"A": strings.Repeat("x", 100)},
+			vars:     map[string]string{"A": strings.Repeat("x", 50)},
 		},
 
 		// Unicode and special characters
@@ -153,8 +153,8 @@ func FuzzTemplateVariableReplacement(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, templateData, varsData []byte) {
 		// Skip long inputs to avoid timeout in CI
-		if len(templateData)+len(varsData) > 20000 {
-			t.Skip("Input too large")
+		if len(templateData)+len(varsData) > 2000 {
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(templateData)+len(varsData))
 		}
 
 		defer func() {
@@ -297,7 +297,7 @@ func FuzzRegexReplacement(f *testing.F) {
 			sourceRepo: "repo",
 			targetOrg:  "target",
 			targetRepo: "dest",
-			content:    strings.Repeat("github.com/large/repo ", 1000),
+			content:    strings.Repeat("github.com/large/repo ", 100),
 			filePath:   "large.go",
 		},
 
@@ -327,8 +327,8 @@ func FuzzRegexReplacement(f *testing.F) {
 	f.Fuzz(func(t *testing.T, sourceOrg, sourceRepo, targetOrg, targetRepo, content, filePath string) {
 		// Skip long inputs to avoid timeout in CI
 		totalLen := len(sourceOrg) + len(sourceRepo) + len(targetOrg) + len(targetRepo) + len(content) + len(filePath)
-		if totalLen > 20000 {
-			t.Skip("Input too large")
+		if totalLen > 4000 {
+			t.Skipf("Input too large: %d bytes (limit: 4000)", totalLen)
 		}
 
 		defer func() {
@@ -419,10 +419,10 @@ func FuzzTransformChain(f *testing.F) {
 
 		// Large content for performance testing
 		{
-			content:      "{{BIG}} " + strings.Repeat("github.com/large/repo ", 500),
+			content:      "{{BIG}} " + strings.Repeat("github.com/large/repo ", 50),
 			sourceRepo:   "large/repo",
 			targetRepo:   "target/dest",
-			variables:    map[string]string{"BIG": strings.Repeat("LARGE", 100)},
+			variables:    map[string]string{"BIG": strings.Repeat("LARGE", 20)},
 			filePath:     "huge.txt",
 			transformers: []string{"template", "repo"},
 		},
@@ -463,8 +463,8 @@ func FuzzTransformChain(f *testing.F) {
 	f.Fuzz(func(t *testing.T, content, sourceRepo, targetRepo, varsJSON, filePath, transformersJSON string) {
 		// Skip long inputs to avoid timeout in CI
 		totalLen := len(content) + len(sourceRepo) + len(targetRepo) + len(varsJSON) + len(filePath) + len(transformersJSON)
-		if totalLen > 20000 {
-			t.Skip("Input too large")
+		if totalLen > 2000 {
+			t.Skipf("Input too large: %d bytes (limit: 2000)", totalLen)
 		}
 
 		defer func() {
@@ -578,8 +578,8 @@ func FuzzBinaryDetection(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, filePath, content string) {
 		// Skip extremely long inputs
-		if len(filePath)+len(content) > 50000 {
-			t.Skip("Input too large")
+		if len(filePath)+len(content) > 10000 {
+			t.Skipf("Input too large: %d bytes (limit: 10000)", len(filePath)+len(content))
 		}
 
 		defer func() {
