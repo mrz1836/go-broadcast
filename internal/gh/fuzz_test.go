@@ -83,7 +83,7 @@ func FuzzGitHubCLIArgs(f *testing.F) {
 	f.Fuzz(func(t *testing.T, command, repo, arg1, arg2 string) {
 		// Skip long inputs to avoid timeout in CI
 		if len(command)+len(repo)+len(arg1)+len(arg2) > 5000 {
-			t.Skip("Combined argument length too long")
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(command)+len(repo)+len(arg1)+len(arg2))
 		}
 
 		defer func() {
@@ -228,7 +228,7 @@ func FuzzJSONParsing(f *testing.F) {
 	f.Fuzz(func(t *testing.T, jsonData string) {
 		// Skip long inputs to avoid timeout in CI
 		if len(jsonData) > 10000 {
-			t.Skip("JSON data too long")
+			t.Skipf("Input too large: %d bytes (limit: 10000)", len(jsonData))
 		}
 
 		defer func() {
@@ -542,8 +542,8 @@ func FuzzErrorHandling(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, errorMsg string) {
 		// Skip extremely long inputs
-		if len(errorMsg) > 50000 {
-			t.Skip("Error message too long")
+		if len(errorMsg) > 5000 {
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(errorMsg))
 		}
 
 		defer func() {

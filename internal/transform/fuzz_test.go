@@ -507,7 +507,7 @@ func FuzzTransformChain(f *testing.F) {
 		}
 
 		// Create context with timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
 		transformCtx := Context{

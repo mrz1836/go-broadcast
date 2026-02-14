@@ -76,7 +76,7 @@ func FuzzGitURLSafety(f *testing.F) {
 	f.Fuzz(func(t *testing.T, url string) {
 		// Skip long inputs to avoid expensive validation on unrealistic URLs
 		if len(url) > 1000 {
-			t.Skip("URL too long")
+			t.Skipf("Input too large: %d bytes (limit: 1000)", len(url))
 		}
 
 		defer func() {
@@ -171,7 +171,7 @@ func FuzzGitFilePath(f *testing.F) {
 	f.Fuzz(func(t *testing.T, filePath string) {
 		// Skip long inputs to avoid expensive validation
 		if len(filePath) > 2000 {
-			t.Skip("Path too long")
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(filePath))
 		}
 
 		defer func() {
@@ -275,7 +275,7 @@ func FuzzGitBranchName(f *testing.F) {
 	f.Fuzz(func(t *testing.T, branch string) {
 		// Skip extremely long inputs
 		if len(branch) > 255 { // Git branch name limit
-			t.Skip("Branch name too long")
+			t.Skipf("Input too large: %d bytes (limit: 255)", len(branch))
 		}
 
 		defer func() {
@@ -357,7 +357,7 @@ func FuzzGitCommitMessage(f *testing.F) {
 	f.Fuzz(func(t *testing.T, message string) {
 		// Skip long inputs to avoid expensive validation
 		if len(message) > 5000 {
-			t.Skip("Commit message too long")
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(message))
 		}
 
 		defer func() {
@@ -434,7 +434,7 @@ func FuzzGitRepoPath(f *testing.F) {
 	f.Fuzz(func(t *testing.T, repoPath string) {
 		// Skip long inputs to avoid expensive validation
 		if len(repoPath) > 2000 {
-			t.Skip("Path too long")
+			t.Skipf("Input too large: %d bytes (limit: 2000)", len(repoPath))
 		}
 
 		defer func() {

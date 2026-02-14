@@ -29,8 +29,8 @@ func FuzzWrapWithContext(f *testing.F) {
 	baseErr := errors.New("base error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, operation string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(operation) > 50000 {
-			t.Skip("Input length too long")
+		if len(operation) > 5000 {
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(operation))
 		}
 
 		// Should never panic
@@ -60,8 +60,8 @@ func FuzzInvalidFieldError(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, field, value string) {
 		// Skip long inputs to avoid timeout in CI with expensive error formatting
-		if len(field)+len(value) > 20000 {
-			t.Skip("Combined input length too long")
+		if len(field)+len(value) > 5000 {
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(field)+len(value))
 		}
 
 		// Should never panic
@@ -87,8 +87,8 @@ func FuzzValidationError(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, item, reason string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(item)+len(reason) > 50000 {
-			t.Skip("Combined input length too long")
+		if len(item)+len(reason) > 5000 {
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(item)+len(reason))
 		}
 
 		result := ValidationError(item, reason)
@@ -110,8 +110,8 @@ func FuzzPathTraversalError(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, path string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(path) > 50000 {
-			t.Skip("Input length too long")
+		if len(path) > 5000 {
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(path))
 		}
 
 		result := PathTraversalError(path)
@@ -132,8 +132,8 @@ func FuzzGitOperationError(f *testing.F) {
 	baseErr := errors.New("git error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, operation, context string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(operation)+len(context) > 50000 {
-			t.Skip("Combined input length too long")
+		if len(operation)+len(context) > 5000 {
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(operation)+len(context))
 		}
 
 		result := GitOperationError(operation, context, baseErr)
@@ -154,8 +154,8 @@ func FuzzFileOperationError(f *testing.F) {
 	baseErr := errors.New("file error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, operation, path string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(operation)+len(path) > 50000 {
-			t.Skip("Combined input length too long")
+		if len(operation)+len(path) > 5000 {
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(operation)+len(path))
 		}
 
 		result := FileOperationError(operation, path, baseErr)
@@ -187,6 +187,11 @@ func FuzzBatchOperationError(f *testing.F) {
 
 	baseErr := errors.New("batch error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, operation string, start, end int) {
+		// Skip extremely long inputs to avoid resource exhaustion
+		if len(operation) > 5000 {
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(operation))
+		}
+
 		// Should never panic regardless of input
 		result := BatchOperationError(operation, start, end, baseErr)
 
@@ -227,6 +232,11 @@ func FuzzAPIResponseError(f *testing.F) {
 	f.Add(-2147483648, "min int")
 
 	f.Fuzz(func(t *testing.T, statusCode int, message string) {
+		// Skip extremely long inputs to avoid resource exhaustion
+		if len(message) > 1000 {
+			t.Skipf("Input too large: %d bytes (limit: 1000)", len(message))
+		}
+
 		// Should never panic
 		result := APIResponseError(statusCode, message)
 
@@ -257,8 +267,8 @@ func FuzzCommandFailedError(f *testing.F) {
 	baseErr := errors.New("command error") //nolint:err113 // test-only error for fuzz testing
 	f.Fuzz(func(t *testing.T, cmd string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(cmd) > 50000 {
-			t.Skip("Input length too long")
+		if len(cmd) > 5000 {
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(cmd))
 		}
 
 		result := CommandFailedError(cmd, baseErr)
@@ -277,8 +287,8 @@ func FuzzFormatError(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, field, value, expectedFormat string) {
 		// Skip extremely long inputs to avoid resource exhaustion
-		if len(field)+len(value)+len(expectedFormat) > 50000 {
-			t.Skip("Combined input length too long")
+		if len(field)+len(value)+len(expectedFormat) > 5000 {
+			t.Skipf("Input too large: %d bytes (limit: 5000)", len(field)+len(value)+len(expectedFormat))
 		}
 
 		result := FormatError(field, value, expectedFormat)

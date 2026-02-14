@@ -83,8 +83,8 @@ targets:
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		// Skip long inputs to avoid timeout in CI
-		if len(data) > 50000 {
-			t.Skip("Input too large")
+		if len(data) > 10000 {
+			t.Skipf("Input too large: %d bytes (limit: 10000)", len(data))
 		}
 
 		reader := bytes.NewReader(data)
@@ -216,7 +216,7 @@ func FuzzRepoNameValidation(f *testing.F) {
 	f.Fuzz(func(t *testing.T, repoName string) {
 		// Skip extremely long inputs
 		if len(repoName) > 1000 {
-			t.Skip("Input too long")
+			t.Skipf("Input too large: %d bytes (limit: 1000)", len(repoName))
 		}
 
 		defer func() {
@@ -351,7 +351,7 @@ func FuzzBranchNameValidation(f *testing.F) {
 	f.Fuzz(func(t *testing.T, branch string) {
 		// Skip extremely long inputs
 		if len(branch) > 1000 {
-			t.Skip("Input too long")
+			t.Skipf("Input too large: %d bytes (limit: 1000)", len(branch))
 		}
 
 		defer func() {

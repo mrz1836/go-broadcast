@@ -887,7 +887,7 @@ func FuzzCompareVersions(f *testing.F) {
 	f.Fuzz(func(t *testing.T, v1, v2 string) {
 		// Skip long inputs to avoid timeout in CI
 		if len(v1)+len(v2) > 1000 {
-			t.Skip("Combined version length too long")
+			t.Skipf("Input too large: %d bytes (limit: 1000)", len(v1)+len(v2))
 		}
 
 		// Should never panic
@@ -910,7 +910,7 @@ func FuzzParseVersion(f *testing.F) {
 	f.Fuzz(func(t *testing.T, version string) {
 		// Skip long inputs to avoid timeout in CI
 		if len(version) > 500 {
-			t.Skip("Version string too long")
+			t.Skipf("Input too large: %d bytes (limit: 500)", len(version))
 		}
 
 		// Should never panic
@@ -938,7 +938,7 @@ func FuzzNormalizeVersion(f *testing.F) {
 	f.Fuzz(func(t *testing.T, version string) {
 		// Skip long inputs to avoid timeout in CI
 		if len(version) > 500 {
-			t.Skip("Version string too long")
+			t.Skipf("Input too large: %d bytes (limit: 500)", len(version))
 		}
 
 		// Should never panic
@@ -964,10 +964,10 @@ func FuzzIsCommitHash(f *testing.F) {
 	f.Add("")
 	f.Add("dev")
 
-	f.Fuzz(func(_ *testing.T, s string) {
+	f.Fuzz(func(t *testing.T, s string) {
 		// Skip long inputs to avoid timeout in CI
 		if len(s) > 100 {
-			return
+			t.Skipf("Input too large: %d bytes (limit: 100)", len(s))
 		}
 
 		// Should never panic
