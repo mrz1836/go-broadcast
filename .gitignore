@@ -114,3 +114,5 @@ test/fixtures/directories/
 /.mage-x
 /go-broadcast-test
 /go-broadcast-ci-test
+sync-fixed.yaml
+broadcast

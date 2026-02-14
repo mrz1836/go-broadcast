@@ -257,7 +257,11 @@ go-broadcast modules list --from-db
 </details>
 
 <details>
-<summary><b>repos</b> — Repository records</summary>
+<summary><b>repos</b> — Repository records with comprehensive GitHub metadata</summary>
+
+This table stores configuration repositories with rich metadata automatically synced from GitHub during analytics collection.
+
+**Base Fields:**
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -265,16 +269,95 @@ go-broadcast modules list --from-db
 | `organization_id` | uint | Foreign key to `organizations` |
 | `name` | text | Short repo name (e.g. "go-broadcast") |
 | `description` | text | Repository description |
-| `metadata` | text | JSON metadata |
+| `metadata` | text | JSON metadata for extensibility |
 | `created_at` | datetime | Creation timestamp |
 | `updated_at` | datetime | Last update timestamp |
 | `deleted_at` | datetime | Soft delete timestamp |
+
+**GitHub Metadata Fields:**
+
+*Language & Topics:*
+| Column | Type | Description |
+|--------|------|-------------|
+| `language` | text | Primary programming language (indexed) |
+| `topics` | text | JSON array of repository topics/tags |
+| `license` | text | License key (e.g. "MIT") (indexed) |
+
+*Repository Status:*
+| Column | Type | Description |
+|--------|------|-------------|
+| `is_private` | bool | Private repository flag (indexed) |
+| `is_archived` | bool | Archived repository flag (indexed) |
+| `is_fork` | bool | Fork status (indexed) |
+| `fork_parent` | text | Parent repo full name if forked (e.g. "owner/repo") |
+| `default_branch` | text | Default branch name (e.g. "main", "master") |
+
+*Repository Features:*
+| Column | Type | Description |
+|--------|------|-------------|
+| `has_issues_enabled` | bool | Issues feature enabled |
+| `has_wiki_enabled` | bool | Wiki feature enabled |
+| `has_discussions_enabled` | bool | Discussions feature enabled |
+
+*URLs:*
+| Column | Type | Description |
+|--------|------|-------------|
+| `homepage_url` | text | Project homepage URL |
+| `html_url` | text | GitHub web URL |
+| `ssh_url` | text | SSH clone URL |
+| `clone_url` | text | HTTPS clone URL |
+
+*Size & Timestamps:*
+| Column | Type | Description |
+|--------|------|-------------|
+| `disk_usage_kb` | int | Repository size in kilobytes |
+| `github_created_at` | datetime | Repository creation date on GitHub |
+| `last_pushed_at` | datetime | Last code push timestamp |
+| `github_updated_at` | datetime | Last metadata update on GitHub |
 
 **Relations:**
 - Belongs to `organizations`
 
 **Indexes:**
 - Unique composite: `(organization_id, name)`
+- Single column: `language`, `license`, `is_private`, `is_archived`, `is_fork`
+
+**Sync Flow:**
+```
+GitHub GraphQL API (analytics sync)
+    ↓
+analytics_repositories table (full metadata)
+    ↓
+repos table (same metadata via updateConfigRepoFromGitHub)
+```
+
+**Use Cases:**
+
+```sql
+-- Filter repositories by programming language
+SELECT name, language FROM repos WHERE language = 'Go';
+
+-- Find archived repositories
+SELECT name, is_archived FROM repos WHERE is_archived = true;
+
+-- Query by license type
+SELECT name, license FROM repos WHERE license = 'MIT';
+
+-- Search topics (JSON contains)
+SELECT name, topics FROM repos WHERE topics LIKE '%golang%';
+
+-- Active private repositories
+SELECT name FROM repos WHERE is_private = true AND is_archived = false;
+
+-- Find forks and their parents
+SELECT name, fork_parent FROM repos WHERE is_fork = true;
+
+-- Repositories with discussions enabled
+SELECT name FROM repos WHERE has_discussions_enabled = true;
+
+-- Get clone URLs for all repos
+SELECT name, clone_url, ssh_url FROM repos;
+```
 
 </details>
 
