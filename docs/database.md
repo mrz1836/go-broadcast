@@ -750,8 +750,13 @@ go-broadcast modules list --from-db
 
 **Purpose:**
 - Captures CI metrics from GoFortress workflow artifacts for trend analysis
-- Sources: `loc-stats` (JSON), `statistics-section` (markdown fallback), `coverage-stats-codecov` (JSON), `tests-section` (markdown), `bench-stats-*` (JSON)
+- Sources:
+  - **LOC metrics**: `loc-stats` (JSON - primary), `statistics-section` (markdown - fallback)
+  - **Test count**: `ci-results-*/.mage-x/ci-results.jsonl` (JSONL - primary), `tests-section` (markdown - fallback)
+  - **Coverage**: `coverage-stats-internal` (JSON)
+  - **Benchmarks**: `bench-stats-*` (JSON)
 - Tracks code size, test coverage, and test/benchmark counts over time
+- Test count uses `unique_total` from ci-results for accurate unique test function count
 
 </details>
 
@@ -1501,8 +1506,17 @@ go-broadcast analytics sync --dry-run
 - Discovers all repos in configured organizations via GitHub REST API
 - Collects repository metadata using batched GraphQL queries (25 repos per query)
 - Fetches security alerts (Dependabot, code scanning, secret scanning) concurrently
+- Collects CI metrics from GoFortress workflow artifacts (test counts, LOC, coverage, benchmarks)
 - Creates point-in-time snapshots and upserts security alerts
 - Tracks sync progress in `sync_runs` table
+
+**CI Metrics Collected:**
+- Lines of Code (LOC): Go files and test files
+- File Counts: Number of Go source and test files
+- Test Count: Unique test functions from test execution (not just file-based count)
+- Benchmark Count: Number of benchmark functions
+- Coverage Percentage: Code coverage from GoFortress runs
+- Sources artifact data from the latest successful GoFortress workflow run
 
 </details>
 
@@ -1606,6 +1620,35 @@ Found 3 file mappings matching "dependabot":
 • .github/workflows/dependabot-auto-merge.yml
   → synced to 12 repos (group: mrz-tools)
 ```
+
+**5. View CI metrics for a repository**
+
+```bash
+# Using direct SQLite query
+sqlite3 ~/.config/go-broadcast/broadcast.db "
+SELECT
+  snapshot_at,
+  test_count,
+  benchmark_count,
+  coverage_percent,
+  go_files_loc,
+  test_files_loc
+FROM ci_metrics_snapshots cms
+JOIN analytics_repositories ar ON cms.repository_id = ar.id
+WHERE ar.full_name = 'mrz1836/go-broadcast'
+ORDER BY snapshot_at DESC
+LIMIT 5;
+"
+```
+
+**Example Output:**
+```
+2026-02-14 13:49:01|7958|176|78.9|38548|115498
+2026-02-13 10:22:15|7945|176|78.5|38421|115200
+2026-02-12 14:33:42|7920|174|78.2|38300|114850
+```
+
+This shows test count growth from 7920 → 7958 unique tests, stable benchmark count at 176, and coverage improving from 78.2% to 78.9%.
 
 <br>
 
