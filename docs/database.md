@@ -17,8 +17,9 @@
 | | | |
 |:---:|:---:|:---:|
 | [🚀 Quick Start](#-quick-start) | [📊 Schema Reference](#-schema-reference) | [🔄 Import/Export](#-importexport) |
-| [⌨️ CLI Commands](#-cli-commands) | [🔍 Queries](#-queries) | [🧪 Testing](#-testing) |
-| [⚡ Performance](#-performance) | [🏗️ Architecture](#-architecture) | [⚙️ Configuration](#-configuration) |
+| [⌨️ CLI Commands](#-cli-commands) | [🤖 CRUD Commands](#crud-commands) | [🔍 Queries](#-queries) |
+| [🧪 Testing](#-testing) | [⚡ Performance](#-performance) | [🏗️ Architecture](#-architecture) |
+| [⚙️ Configuration](#-configuration) | | |
 
 <br>
 
@@ -942,6 +943,497 @@ go-broadcast db diff sync.yaml --detail
 
 </details>
 
+### CRUD Commands
+
+These commands provide granular, AI-agent-friendly access to individual database records. All commands support `--json` for structured output with a standard response envelope:
+
+```json
+{
+  "success": true,
+  "action": "created",
+  "type": "group",
+  "data": { ... },
+  "count": 1,
+  "error": "",
+  "hint": ""
+}
+```
+
+#### Group Management — `db group`
+
+<details>
+<summary><code>db group list</code> — List all groups</summary>
+
+```bash
+go-broadcast db group list
+go-broadcast db group list --json
+```
+
+**Output:** Group ID, name, enabled state, and target count for each group.
+
+</details>
+
+<details>
+<summary><code>db group get &lt;id&gt;</code> — Show group details</summary>
+
+```bash
+go-broadcast db group get mrz-tools
+go-broadcast db group get mrz-tools --json
+```
+
+**Output:** Full group details including source repo, branch, global/default settings, and all targets.
+
+</details>
+
+<details>
+<summary><code>db group create</code> — Create a new group</summary>
+
+```bash
+go-broadcast db group create \
+  --id mrz-tools \
+  --name "MRZ Tools" \
+  --source-repo mrz1836/go-broadcast \
+  --source-branch main \
+  --json
+
+# With optional fields
+go-broadcast db group create \
+  --id security-group \
+  --name "Security Group" \
+  --source-repo mrz1836/go-broadcast \
+  --source-branch main \
+  --description "Security-related files" \
+  --priority 10 \
+  --disabled \
+  --json
+```
+
+**What it does:**
+- Creates the group, source, group_globals, and group_defaults records atomically in a single transaction
+- Auto-creates the organization and repo records if they don't exist
+
+</details>
+
+<details>
+<summary><code>db group update &lt;id&gt;</code> — Update group fields</summary>
+
+```bash
+go-broadcast db group update mrz-tools --name "MRZ Tools v2" --json
+go-broadcast db group update mrz-tools --description "Updated description" --priority 5 --json
+```
+
+**Updatable fields:** `--name`, `--description`, `--priority`
+
+</details>
+
+<details>
+<summary><code>db group delete &lt;id&gt;</code> — Delete a group</summary>
+
+```bash
+# Soft delete (reversible)
+go-broadcast db group delete mrz-tools --json
+
+# Hard delete (permanent, requires no FK dependencies)
+go-broadcast db group delete mrz-tools --hard --json
+```
+
+</details>
+
+<details>
+<summary><code>db group enable/disable &lt;id&gt;</code> — Toggle group enabled state</summary>
+
+```bash
+go-broadcast db group enable mrz-tools --json
+go-broadcast db group disable mrz-tools --json
+```
+
+</details>
+
+#### Target Management — `db target`
+
+<details>
+<summary><code>db target list</code> — List targets in a group</summary>
+
+```bash
+go-broadcast db target list --group mrz-tools --json
+```
+
+**Output:** All targets in the group with repo name, branch, and PR settings.
+
+</details>
+
+<details>
+<summary><code>db target get</code> — Show target details</summary>
+
+```bash
+go-broadcast db target get --group mrz-tools --repo mrz1836/go-api --json
+```
+
+**Output:** Full target details including inline mappings, file list refs, directory list refs, and transforms.
+
+</details>
+
+<details>
+<summary><code>db target add</code> — Add a target to a group</summary>
+
+```bash
+go-broadcast db target add --group mrz-tools --repo mrz1836/new-repo --json
+
+# With optional settings
+go-broadcast db target add \
+  --group mrz-tools \
+  --repo mrz1836/new-repo \
+  --branch main \
+  --json
+```
+
+**Idempotent:** Returns `"already_exists"` action if the target already exists in the group.
+
+</details>
+
+<details>
+<summary><code>db target remove</code> — Remove a target from a group</summary>
+
+```bash
+# Soft delete
+go-broadcast db target remove --group mrz-tools --repo mrz1836/old-repo --json
+
+# Hard delete
+go-broadcast db target remove --group mrz-tools --repo mrz1836/old-repo --hard --json
+```
+
+</details>
+
+<details>
+<summary><code>db target update</code> — Update target settings</summary>
+
+```bash
+go-broadcast db target update \
+  --group mrz-tools \
+  --repo mrz1836/go-api \
+  --branch develop \
+  --pr-labels "sync,automated" \
+  --pr-assignees "mrz1836" \
+  --pr-reviewers "reviewer1,reviewer2" \
+  --json
+```
+
+**Updatable fields:** `--branch`, `--pr-labels`, `--pr-assignees`, `--pr-reviewers`
+
+</details>
+
+#### File List Management — `db file-list`
+
+<details>
+<summary><code>db file-list list</code> — List all file lists</summary>
+
+```bash
+go-broadcast db file-list list --json
+```
+
+</details>
+
+<details>
+<summary><code>db file-list get &lt;id&gt;</code> — Show file list with mappings</summary>
+
+```bash
+go-broadcast db file-list get ai-files --json
+```
+
+**Output:** File list details and all file mappings (src, dest, delete_flag).
+
+</details>
+
+<details>
+<summary><code>db file-list create</code> — Create a new file list</summary>
+
+```bash
+go-broadcast db file-list create --id security-files --name "Security Files" --json
+```
+
+</details>
+
+<details>
+<summary><code>db file-list delete &lt;id&gt;</code> — Delete a file list</summary>
+
+```bash
+go-broadcast db file-list delete security-files --json
+go-broadcast db file-list delete security-files --hard --json
+```
+
+</details>
+
+<details>
+<summary><code>db file-list add-file &lt;id&gt;</code> — Add a file mapping to a file list</summary>
+
+```bash
+go-broadcast db file-list add-file ai-files --src SECURITY.md --dest SECURITY.md --json
+
+# With delete flag (marks file for deletion in targets)
+go-broadcast db file-list add-file ai-files --src "" --dest old-file.txt --delete-flag --json
+```
+
+</details>
+
+<details>
+<summary><code>db file-list remove-file &lt;id&gt;</code> — Remove a file mapping by destination path</summary>
+
+```bash
+go-broadcast db file-list remove-file ai-files --dest SECURITY.md --json
+```
+
+</details>
+
+#### Directory List Management — `db dir-list`
+
+<details>
+<summary><code>db dir-list list</code> — List all directory lists</summary>
+
+```bash
+go-broadcast db dir-list list --json
+```
+
+</details>
+
+<details>
+<summary><code>db dir-list get &lt;id&gt;</code> — Show directory list with mappings</summary>
+
+```bash
+go-broadcast db dir-list get github-workflows --json
+```
+
+</details>
+
+<details>
+<summary><code>db dir-list create</code> — Create a new directory list</summary>
+
+```bash
+go-broadcast db dir-list create --id ci-configs --name "CI Configurations" --json
+```
+
+</details>
+
+<details>
+<summary><code>db dir-list delete &lt;id&gt;</code> — Delete a directory list</summary>
+
+```bash
+go-broadcast db dir-list delete ci-configs --json
+go-broadcast db dir-list delete ci-configs --hard --json
+```
+
+</details>
+
+<details>
+<summary><code>db dir-list add-dir &lt;id&gt;</code> — Add a directory mapping to a directory list</summary>
+
+```bash
+go-broadcast db dir-list add-dir github-workflows \
+  --src .github/workflows \
+  --dest .github/workflows \
+  --json
+
+# With options
+go-broadcast db dir-list add-dir github-workflows \
+  --src .github/workflows \
+  --dest .github/workflows \
+  --exclude "*.tmp,*.bak" \
+  --preserve-structure \
+  --json
+```
+
+</details>
+
+<details>
+<summary><code>db dir-list remove-dir &lt;id&gt;</code> — Remove a directory mapping by destination path</summary>
+
+```bash
+go-broadcast db dir-list remove-dir github-workflows --dest .github/workflows --json
+```
+
+</details>
+
+#### Inline File Mappings — `db file`
+
+Manage file mappings directly on targets (owner_type="target"):
+
+<details>
+<summary><code>db file list</code> — List inline file mappings on a target</summary>
+
+```bash
+go-broadcast db file list --group mrz-tools --repo mrz1836/go-api --json
+```
+
+</details>
+
+<details>
+<summary><code>db file add</code> — Add an inline file mapping to a target</summary>
+
+```bash
+go-broadcast db file add \
+  --group mrz-tools \
+  --repo mrz1836/go-api \
+  --src .cursorrules \
+  --dest .cursorrules \
+  --json
+```
+
+</details>
+
+<details>
+<summary><code>db file remove</code> — Remove an inline file mapping from a target</summary>
+
+```bash
+go-broadcast db file remove \
+  --group mrz-tools \
+  --repo mrz1836/go-api \
+  --dest .cursorrules \
+  --json
+```
+
+</details>
+
+#### Inline Directory Mappings — `db dir`
+
+Manage directory mappings directly on targets (owner_type="target"):
+
+<details>
+<summary><code>db dir list</code> — List inline directory mappings on a target</summary>
+
+```bash
+go-broadcast db dir list --group mrz-tools --repo mrz1836/go-api --json
+```
+
+</details>
+
+<details>
+<summary><code>db dir add</code> — Add an inline directory mapping to a target</summary>
+
+```bash
+go-broadcast db dir add \
+  --group mrz-tools \
+  --repo mrz1836/go-api \
+  --src .github/workflows \
+  --dest .github/workflows \
+  --exclude "*.tmp" \
+  --preserve-structure \
+  --json
+```
+
+</details>
+
+<details>
+<summary><code>db dir remove</code> — Remove an inline directory mapping from a target</summary>
+
+```bash
+go-broadcast db dir remove \
+  --group mrz-tools \
+  --repo mrz1836/go-api \
+  --dest .github/workflows \
+  --json
+```
+
+</details>
+
+#### Reference Management — `db ref`
+
+Attach or detach shared file lists and directory lists to/from individual targets:
+
+<details>
+<summary><code>db ref add-file-list</code> — Attach a file list to a target</summary>
+
+```bash
+go-broadcast db ref add-file-list \
+  --group mrz-tools \
+  --repo mrz1836/go-api \
+  --file-list ai-files \
+  --json
+```
+
+**Idempotent:** Returns `"already_attached"` action if the reference already exists.
+
+</details>
+
+<details>
+<summary><code>db ref remove-file-list</code> — Detach a file list from a target</summary>
+
+```bash
+go-broadcast db ref remove-file-list \
+  --group mrz-tools \
+  --repo mrz1836/go-api \
+  --file-list ai-files \
+  --json
+```
+
+</details>
+
+<details>
+<summary><code>db ref add-dir-list</code> — Attach a directory list to a target</summary>
+
+```bash
+go-broadcast db ref add-dir-list \
+  --group mrz-tools \
+  --repo mrz1836/go-api \
+  --dir-list github-workflows \
+  --json
+```
+
+</details>
+
+<details>
+<summary><code>db ref remove-dir-list</code> — Detach a directory list from a target</summary>
+
+```bash
+go-broadcast db ref remove-dir-list \
+  --group mrz-tools \
+  --repo mrz1836/go-api \
+  --dir-list github-workflows \
+  --json
+```
+
+</details>
+
+#### Bulk Operations — `db bulk`
+
+Apply changes to all targets in a group at once:
+
+<details>
+<summary><code>db bulk add-file-list</code> — Attach a file list to all targets in a group</summary>
+
+```bash
+go-broadcast db bulk add-file-list --group mrz-tools --file-list ai-files --json
+```
+
+**Response includes:** Number of affected targets. Idempotent — skips targets that already have the reference.
+
+</details>
+
+<details>
+<summary><code>db bulk remove-file-list</code> — Detach a file list from all targets in a group</summary>
+
+```bash
+go-broadcast db bulk remove-file-list --group mrz-tools --file-list ai-files --json
+```
+
+</details>
+
+<details>
+<summary><code>db bulk add-dir-list</code> — Attach a directory list to all targets in a group</summary>
+
+```bash
+go-broadcast db bulk add-dir-list --group mrz-tools --dir-list github-workflows --json
+```
+
+</details>
+
+<details>
+<summary><code>db bulk remove-dir-list</code> — Detach a directory list from all targets in a group</summary>
+
+```bash
+go-broadcast db bulk remove-dir-list --group mrz-tools --dir-list github-workflows --json
+```
+
+</details>
+
 ### Analytics Commands
 
 <details>
@@ -1104,6 +1596,10 @@ go tool cover -html=coverage.out
 | Concurrent Tests | `concurrent_test.go` | >80% |
 | Analytics Model Tests | `models_analytics_test.go` | >85% |
 | Analytics Repository Tests | `repository_analytics_test.go` | >85% |
+| File Mapping Repository | `repository_file_mapping_test.go` | >80% |
+| Directory Mapping Repository | `repository_directory_mapping_test.go` | >80% |
+| Bulk Repository | `repository_bulk_test.go` | >80% |
+| CLI CRUD Tests | `db_crud_test.go` | >80% |
 
 ### Key Test Scenarios
 
