@@ -35,6 +35,22 @@ type RepoMetadata struct {
 	PushedAt        string // last code push timestamp
 	IsFork          bool
 	ForkParent      string // parent repo nameWithOwner
+	IsPrivate       bool
+	IsArchived      bool
+	// Enhanced fields for comprehensive repo metadata
+	Language              string   // Primary programming language
+	HomepageURL           string   // Project homepage
+	CreatedAt             string   // Repository creation timestamp
+	Topics                []string // Repository topics/tags
+	License               string   // License key (e.g., "MIT")
+	LicenseName           string   // Full license name (e.g., "MIT License")
+	DiskUsageKB           int      // Repository size in kilobytes
+	HasIssuesEnabled      bool     // Issues feature status
+	HasWikiEnabled        bool     // Wiki feature status
+	HasDiscussionsEnabled bool     // Discussions feature status
+	HTMLURL               string   // GitHub web URL
+	SSHURL                string   // SSH clone URL
+	CloneURL              string   // HTTPS clone URL (mirrors URL field)
 }
 
 // BuildBatchQuery creates an aliased GraphQL query for multiple repos
@@ -68,6 +84,8 @@ fragment RepoFields on Repository {
   pushedAt
   isFork
   parent { nameWithOwner }
+  isPrivate
+  isArchived
   watchers {
     totalCount
   }
@@ -104,6 +122,28 @@ fragment RepoFields on Repository {
       }
     }
   }
+  primaryLanguage {
+    name
+  }
+  createdAt
+  homepageUrl
+  diskUsage
+  licenseInfo {
+    key
+    name
+  }
+  repositoryTopics(first: 10) {
+    nodes {
+      topic {
+        name
+      }
+    }
+  }
+  hasIssuesEnabled
+  hasWikiEnabled
+  hasDiscussionsEnabled
+  url
+  sshUrl
 }
 `)
 
@@ -172,6 +212,12 @@ func ParseBatchResponse(data map[string]interface{}, repos []gh.RepoInfo) (map[s
 				metadata.ForkParent = nwo
 			}
 		}
+		if isPrivate, ok := repoData["isPrivate"].(bool); ok {
+			metadata.IsPrivate = isPrivate
+		}
+		if isArchived, ok := repoData["isArchived"].(bool); ok {
+			metadata.IsArchived = isArchived
+		}
 
 		// Extract watchers (nested object)
 		if watchers, ok := repoData["watchers"].(map[string]interface{}); ok {
@@ -237,6 +283,75 @@ func ParseBatchResponse(data map[string]interface{}, repos []gh.RepoInfo) (map[s
 					}
 				}
 			}
+		}
+
+		// Extract primary language
+		if primaryLanguage, ok := repoData["primaryLanguage"].(map[string]interface{}); ok {
+			if name, ok := primaryLanguage["name"].(string); ok {
+				metadata.Language = name
+			}
+		}
+
+		// Extract creation timestamp
+		if createdAt, ok := repoData["createdAt"].(string); ok {
+			metadata.CreatedAt = createdAt
+		}
+
+		// Extract homepage URL
+		if homepageUrl, ok := repoData["homepageUrl"].(string); ok {
+			metadata.HomepageURL = homepageUrl
+		}
+
+		// Extract disk usage (in KB)
+		if diskUsage, ok := repoData["diskUsage"].(float64); ok {
+			metadata.DiskUsageKB = int(diskUsage)
+		}
+
+		// Extract license information
+		if licenseInfo, ok := repoData["licenseInfo"].(map[string]interface{}); ok {
+			if key, ok := licenseInfo["key"].(string); ok {
+				metadata.License = key
+			}
+			if name, ok := licenseInfo["name"].(string); ok {
+				metadata.LicenseName = name
+			}
+		}
+
+		// Extract repository topics
+		if repositoryTopics, ok := repoData["repositoryTopics"].(map[string]interface{}); ok {
+			if nodes, ok := repositoryTopics["nodes"].([]interface{}); ok {
+				topics := make([]string, 0, len(nodes))
+				for _, node := range nodes {
+					if nodeMap, ok := node.(map[string]interface{}); ok {
+						if topic, ok := nodeMap["topic"].(map[string]interface{}); ok {
+							if name, ok := topic["name"].(string); ok {
+								topics = append(topics, name)
+							}
+						}
+					}
+				}
+				metadata.Topics = topics
+			}
+		}
+
+		// Extract feature flags
+		if hasIssuesEnabled, ok := repoData["hasIssuesEnabled"].(bool); ok {
+			metadata.HasIssuesEnabled = hasIssuesEnabled
+		}
+		if hasWikiEnabled, ok := repoData["hasWikiEnabled"].(bool); ok {
+			metadata.HasWikiEnabled = hasWikiEnabled
+		}
+		if hasDiscussionsEnabled, ok := repoData["hasDiscussionsEnabled"].(bool); ok {
+			metadata.HasDiscussionsEnabled = hasDiscussionsEnabled
+		}
+
+		// Extract URLs
+		if url, ok := repoData["url"].(string); ok {
+			metadata.HTMLURL = url
+			metadata.CloneURL = url + ".git" // HTTPS clone URL is HTML URL + .git
+		}
+		if sshUrl, ok := repoData["sshUrl"].(string); ok {
+			metadata.SSHURL = sshUrl
 		}
 
 		result[repo.FullName] = metadata

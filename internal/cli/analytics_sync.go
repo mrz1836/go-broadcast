@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -215,6 +216,9 @@ func syncSingleRepository(
 		return fmt.Errorf("failed to upsert repository: %w", repoErr)
 	}
 
+	// Update config repos table with all GitHub metadata
+	updateConfigRepoFromGitHub(ctx, analyticsRepo, fullName, metadata)
+
 	// Build current snapshot
 	currentSnapshot := buildRepositorySnapshot(metadata, repo.ID)
 
@@ -280,6 +284,14 @@ func buildAnalyticsRepository(metadata *analytics.RepoMetadata, orgID uint) *db.
 	// Parse owner from FullName (owner/name format)
 	owner, name := parseOwnerAndName(metadata.FullName)
 
+	// Convert topics slice to JSON string
+	var topicsJSON string
+	if len(metadata.Topics) > 0 {
+		if jsonBytes, err := json.Marshal(metadata.Topics); err == nil {
+			topicsJSON = string(jsonBytes)
+		}
+	}
+
 	return &db.AnalyticsRepository{
 		OrganizationID: orgID,
 		Owner:          owner,
@@ -287,12 +299,26 @@ func buildAnalyticsRepository(metadata *analytics.RepoMetadata, orgID uint) *db.
 		FullName:       metadata.FullName,
 		Description:    metadata.Description,
 		DefaultBranch:  metadata.DefaultBranch,
-		Language:       "", // Not available in GraphQL metadata
-		IsPrivate:      false,
+		Language:       metadata.Language,
+		IsPrivate:      metadata.IsPrivate,
 		IsFork:         metadata.IsFork,
 		ForkSource:     metadata.ForkParent,
-		IsArchived:     false,
-		URL:            fmt.Sprintf("https://github.com/%s", metadata.FullName),
+		IsArchived:     metadata.IsArchived,
+		URL:            metadata.HTMLURL,
+
+		// Enhanced metadata fields
+		HomepageURL:           metadata.HomepageURL,
+		Topics:                topicsJSON,
+		License:               metadata.License,
+		DiskUsageKB:           metadata.DiskUsageKB,
+		HasIssuesEnabled:      metadata.HasIssuesEnabled,
+		HasWikiEnabled:        metadata.HasWikiEnabled,
+		HasDiscussionsEnabled: metadata.HasDiscussionsEnabled,
+		SSHURL:                metadata.SSHURL,
+		CloneURL:              metadata.CloneURL,
+		GitHubCreatedAt:       parseTime(metadata.CreatedAt),
+		LastPushedAt:          parseTime(metadata.PushedAt),
+		GitHubUpdatedAt:       parseTime(metadata.UpdatedAt),
 	}
 }
 
@@ -708,4 +734,89 @@ func displaySyncSummary(syncRun *db.SyncRun, status string) {
 	}
 
 	output.Plain(strings.Repeat("─", 60))
+}
+
+// updateConfigRepoFromGitHub updates the config repos table with data from GitHub API
+// This keeps the config repos table in sync with actual GitHub repo state
+func updateConfigRepoFromGitHub(ctx context.Context, analyticsRepo db.AnalyticsRepo, fullName string, metadata *analytics.RepoMetadata) {
+	// Get the GORM DB from the analytics repo interface
+	// We need to access the underlying database to update the config repos table
+	type gormGetter interface {
+		GetDB() *gorm.DB
+	}
+
+	getter, ok := analyticsRepo.(gormGetter)
+	if !ok {
+		// Can't get DB, skip silently
+		return
+	}
+
+	database := getter.GetDB()
+
+	// Convert topics slice to JSON string
+	var topicsJSON string
+	if len(metadata.Topics) > 0 {
+		if jsonBytes, err := json.Marshal(metadata.Topics); err == nil {
+			topicsJSON = string(jsonBytes)
+		}
+	}
+
+	// Update config repos table with all GitHub metadata
+	result := database.WithContext(ctx).
+		Exec(`
+			UPDATE repos
+			SET
+				is_private = ?,
+				is_archived = ?,
+				default_branch = ?,
+				language = ?,
+				homepage_url = ?,
+				topics = ?,
+				license = ?,
+				disk_usage_kb = ?,
+				is_fork = ?,
+				fork_parent = ?,
+				has_issues_enabled = ?,
+				has_wiki_enabled = ?,
+				has_discussions_enabled = ?,
+				html_url = ?,
+				ssh_url = ?,
+				clone_url = ?,
+				github_created_at = ?,
+				last_pushed_at = ?,
+				github_updated_at = ?,
+				updated_at = CURRENT_TIMESTAMP
+			WHERE id IN (
+				SELECT r.id
+				FROM repos r
+				JOIN organizations o ON r.organization_id = o.id
+				WHERE (o.name || '/' || r.name) = ?
+			)
+		`,
+			metadata.IsPrivate,
+			metadata.IsArchived,
+			metadata.DefaultBranch,
+			metadata.Language,
+			metadata.HomepageURL,
+			topicsJSON,
+			metadata.License,
+			metadata.DiskUsageKB,
+			metadata.IsFork,
+			metadata.ForkParent,
+			metadata.HasIssuesEnabled,
+			metadata.HasWikiEnabled,
+			metadata.HasDiscussionsEnabled,
+			metadata.HTMLURL,
+			metadata.SSHURL,
+			metadata.CloneURL,
+			parseTime(metadata.CreatedAt),
+			parseTime(metadata.PushedAt),
+			parseTime(metadata.UpdatedAt),
+			fullName,
+		)
+
+	if result.Error != nil {
+		// Log warning but don't fail the sync
+		output.Warn(fmt.Sprintf("Failed to update config repo from GitHub for %s: %v", fullName, result.Error))
+	}
 }
