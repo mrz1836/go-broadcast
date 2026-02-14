@@ -17,10 +17,10 @@
 <table align="center">
   <tr>
     <td align="center" width="33%">
-       🚀&nbsp;<a href="#-quick-start"><code>Quick Start</code></a>
+       🚀&nbsp;<a href="#-quick-start"><code>Quick&nbsp;Start</code></a>
     </td>
     <td align="center" width="33%">
-       📊&nbsp;<a href="#-schema-reference"><code>Schema Reference</code></a>
+       📊&nbsp;<a href="#-schema-reference"><code>Schema&nbsp;Reference</code></a>
     </td>
     <td align="center" width="33%">
        🔄&nbsp;<a href="#-importexport"><code>Import/Export</code></a>
@@ -28,10 +28,10 @@
   </tr>
   <tr>
     <td align="center">
-       ⌨️&nbsp;<a href="#-cli-commands"><code>CLI Commands</code></a>
+       ⌨️&nbsp;<a href="#-cli-commands"><code>CLI&nbsp;Commands</code></a>
     </td>
     <td align="center">
-       🤖&nbsp;<a href="#crud-commands"><code>CRUD Commands</code></a>
+       🤖&nbsp;<a href="#crud-commands"><code>CRUD&nbsp;Commands</code></a>
     </td>
     <td align="center">
        🔍&nbsp;<a href="#-queries"><code>Queries</code></a>
