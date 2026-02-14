@@ -1584,12 +1584,15 @@ go-broadcast analytics sync --dry-run
 ```
 
 **What it does:**
-- Discovers all repos in configured organizations via GitHub REST API
+- **Only syncs repos configured in your go-broadcast database** (from the `repos` table)
+- Does NOT discover new repos from GitHub - only updates analytics for repos you've already imported
 - Collects repository metadata using batched GraphQL queries (25 repos per query)
 - Fetches security alerts (Dependabot, code scanning, secret scanning) concurrently
 - Collects CI metrics from GoFortress workflow artifacts (test counts, LOC, coverage, benchmarks)
 - Creates point-in-time snapshots and upserts security alerts
 - Tracks sync progress in `sync_runs` table
+
+**Important:** The `--org` flag filters by configured repos in that organization, it does not discover all repos owned by that GitHub org/user. You must first import your configuration (`go-broadcast db import sync.yaml`) before running analytics sync.
 
 **CI Metrics Collected:**
 - Lines of Code (LOC): Go files and test files

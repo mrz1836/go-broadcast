@@ -20,8 +20,9 @@ func openDatabase() (db.Database, error) {
 		return nil, fmt.Errorf("database does not exist: %s (run 'go-broadcast db init' to create)", path) //nolint:err113 // user-facing CLI error
 	}
 	database, err := db.Open(db.OpenOptions{
-		Path:     path,
-		LogLevel: logger.Silent,
+		Path:        path,
+		LogLevel:    logger.Silent,
+		AutoMigrate: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
