@@ -481,5 +481,4 @@ func TestAnalyticsRepo_CISnapshots(t *testing.T) {
 		// Just verify the snapshot was created
 		assert.NotNil(t, retrieved)
 	})
-
 }

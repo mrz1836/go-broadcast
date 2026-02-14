@@ -82,7 +82,6 @@ func TestAnalyticsModels(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotZero(t, snapshot.ID)
 		assert.Equal(t, 42, snapshot.Stars)
-
 	})
 
 	// Test SecurityAlert creation
