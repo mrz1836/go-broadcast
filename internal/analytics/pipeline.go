@@ -32,6 +32,16 @@ func NewPipeline(ghClient gh.Client, repo db.AnalyticsRepo, logger *logrus.Logge
 	}
 }
 
+// GetGHClient returns the GitHub client
+func (p *Pipeline) GetGHClient() gh.Client {
+	return p.ghClient
+}
+
+// GetLogger returns the logger
+func (p *Pipeline) GetLogger() *logrus.Logger {
+	return p.logger
+}
+
 // SyncOrganization discovers repos for an organization and collects metadata
 func (p *Pipeline) SyncOrganization(ctx context.Context, org string) (map[string]*RepoMetadata, error) {
 	// Step 1: Discover all repos for the organization

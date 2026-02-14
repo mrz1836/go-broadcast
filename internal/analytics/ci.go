@@ -31,11 +31,12 @@ const (
 	GoFortressWorkflowName = "GoFortress"
 
 	// Artifact names used by GoFortress
-	artifactLOCStats        = "loc-stats"
-	artifactStatistics      = "statistics-section"
-	artifactCoverageCodecov = "coverage-stats-codecov"
-	artifactTestsSection    = "tests-section"
-	artifactBenchPrefix     = "bench-stats-"
+	artifactLOCStats         = "loc-stats"
+	artifactStatistics       = "statistics-section"
+	artifactCoverageInternal = "coverage-stats-internal"
+	artifactTestsSection     = "tests-section"
+	artifactBenchPrefix      = "bench-stats-"
+	artifactCIResultsPrefix  = "ci-results-"
 )
 
 // CIMetrics holds parsed CI metrics for a single repository
@@ -135,7 +136,7 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 
 	var fortressID int64
 	for _, wf := range workflows {
-		if strings.Contains(wf.Name, GoFortressWorkflowName) {
+		if wf.Name == GoFortressWorkflowName {
 			fortressID = wf.ID
 			break
 		}
@@ -188,12 +189,20 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 	}
 
 	// Coverage: from codecov JSON
-	if artifactNames[artifactCoverageCodecov] {
+	if artifactNames[artifactCoverageInternal] {
 		c.parseCoverageArtifact(ctx, repo, latestRun.ID, tmpDir, metrics)
 	}
 
-	// Tests: from tests-section markdown
-	if artifactNames[artifactTestsSection] {
+	// Tests: prefer ci-results JSON, fall back to tests-section markdown
+	ciResultsFound := false
+	for name := range artifactNames {
+		if strings.HasPrefix(name, artifactCIResultsPrefix) {
+			c.parseCIResultsArtifact(ctx, repo, latestRun.ID, name, tmpDir, metrics)
+			ciResultsFound = true
+			break
+		}
+	}
+	if !ciResultsFound && artifactNames[artifactTestsSection] {
 		c.parseTestsArtifact(ctx, repo, latestRun.ID, tmpDir, metrics)
 	}
 
@@ -262,8 +271,8 @@ func (c *CICollector) parseLOCFromMarkdownArtifact(ctx context.Context, repo str
 
 // parseCoverageArtifact downloads and parses the coverage JSON artifact
 func (c *CICollector) parseCoverageArtifact(ctx context.Context, repo string, runID int64, tmpDir string, metrics *CIMetrics) {
-	artDir := filepath.Join(tmpDir, artifactCoverageCodecov)
-	if err := c.ghClient.DownloadRunArtifact(ctx, repo, runID, artifactCoverageCodecov, artDir); err != nil {
+	artDir := filepath.Join(tmpDir, artifactCoverageInternal)
+	if err := c.ghClient.DownloadRunArtifact(ctx, repo, runID, artifactCoverageInternal, artDir); err != nil {
 		if c.logger != nil {
 			c.logger.WithError(err).Debug("Failed to download coverage artifact")
 		}
@@ -304,6 +313,33 @@ func (c *CICollector) parseTestsArtifact(ctx context.Context, repo string, runID
 	}
 
 	metrics.TestCount = parseTestCountFromMarkdown(data)
+}
+
+// parseCIResultsArtifact downloads and parses the ci-results artifact with JSONL test data
+func (c *CICollector) parseCIResultsArtifact(ctx context.Context, repo string, runID int64, name, tmpDir string, metrics *CIMetrics) {
+	artDir := filepath.Join(tmpDir, name)
+	if err := c.ghClient.DownloadRunArtifact(ctx, repo, runID, name, artDir); err != nil {
+		if c.logger != nil {
+			c.logger.WithError(err).WithField("artifact", name).Debug("Failed to download ci-results artifact")
+		}
+		return
+	}
+
+	// Look for .mage-x/ci-results.jsonl
+	jsonlPath := filepath.Join(artDir, ".mage-x", "ci-results.jsonl")
+	data, err := os.ReadFile(filepath.Clean(jsonlPath))
+	if err != nil {
+		if c.logger != nil {
+			c.logger.WithError(err).WithField("artifact", name).Debug("Failed to read ci-results.jsonl")
+		}
+		return
+	}
+
+	testCount := parseCIResultsJSONL(data)
+	if testCount > 0 {
+		metrics.TestCount = testCount
+		metrics.RawData["ci_results"] = json.RawMessage(data)
+	}
 }
 
 // parseBenchArtifact downloads and parses a bench-stats JSON artifact
@@ -423,6 +459,44 @@ func parseBenchStatsJSON(data []byte) int {
 		}
 	}
 
+	return 0
+}
+
+// parseCIResultsJSONL extracts test count from ci-results.jsonl (JSONL format with summary line)
+func parseCIResultsJSONL(data []byte) int {
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	for scanner.Scan() {
+		line := scanner.Bytes()
+
+		var entry map[string]interface{}
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+
+		// Look for the summary entry
+		if entryType, ok := entry["type"].(string); ok && entryType == "summary" {
+			if summary, ok := entry["summary"].(map[string]interface{}); ok {
+				// Prefer unique_total (actual unique test functions)
+				if uniqueTotal, ok := summary["unique_total"]; ok {
+					switch v := uniqueTotal.(type) {
+					case float64:
+						return int(v)
+					case int:
+						return v
+					}
+				}
+				// Fallback to total if unique_total not present
+				if total, ok := summary["total"]; ok {
+					switch v := total.(type) {
+					case float64:
+						return int(v)
+					case int:
+						return v
+					}
+				}
+			}
+		}
+	}
 	return 0
 }
 

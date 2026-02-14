@@ -193,6 +193,52 @@ func TestParseBenchStatsJSON(t *testing.T) {
 	})
 }
 
+func TestParseCIResultsJSONL(t *testing.T) {
+	t.Run("valid ci-results with unique_total", func(t *testing.T) {
+		data := []byte(`{"type":"start","timestamp":"2026-02-14T17:14:27Z","metadata":{"branch":"master","commit":"c259b80e"}}
+{"type":"summary","summary":{"status":"passed","total":15884,"unique_total":7958,"passed":15782,"failed":0,"skipped":102,"duration":"1m24s"}}`)
+
+		count := parseCIResultsJSONL(data)
+		assert.Equal(t, 7958, count)
+	})
+
+	t.Run("valid ci-results with total fallback", func(t *testing.T) {
+		data := []byte(`{"type":"start","timestamp":"2026-02-14T17:14:27Z"}
+{"type":"summary","summary":{"status":"passed","total":100,"passed":98,"failed":2}}`)
+
+		count := parseCIResultsJSONL(data)
+		assert.Equal(t, 100, count)
+	})
+
+	t.Run("no summary entry", func(t *testing.T) {
+		data := []byte(`{"type":"start","timestamp":"2026-02-14T17:14:27Z"}
+{"type":"progress","message":"Running tests..."}`)
+
+		count := parseCIResultsJSONL(data)
+		assert.Equal(t, 0, count)
+	})
+
+	t.Run("invalid JSON lines", func(t *testing.T) {
+		data := []byte(`broken json
+not valid`)
+
+		count := parseCIResultsJSONL(data)
+		assert.Equal(t, 0, count)
+	})
+
+	t.Run("empty data", func(t *testing.T) {
+		count := parseCIResultsJSONL([]byte{})
+		assert.Equal(t, 0, count)
+	})
+
+	t.Run("summary with missing counts", func(t *testing.T) {
+		data := []byte(`{"type":"summary","summary":{"status":"passed","duration":"10s"}}`)
+
+		count := parseCIResultsJSONL(data)
+		assert.Equal(t, 0, count)
+	})
+}
+
 func TestParseTestCountFromMarkdown(t *testing.T) {
 	t.Run("tests keyword", func(t *testing.T) {
 		md := []byte("### Test Results\n" +
@@ -403,7 +449,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 		mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(100)).
 			Return([]gh.Artifact{
 				{ID: 200, Name: "loc-stats"},
-				{ID: 201, Name: "coverage-stats-codecov"},
+				{ID: 201, Name: "coverage-stats-internal"},
 			}, nil)
 
 		// Mock artifact downloads — write test data into the destination directory
@@ -416,12 +462,12 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 			}).
 			Return(nil)
 
-		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), "coverage-stats-codecov", mock.AnythingOfType("string")).
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), "coverage-stats-internal", mock.AnythingOfType("string")).
 			Run(func(args mock.Arguments) {
 				destDir := args.String(4)
 				_ = os.MkdirAll(destDir, 0o750)
 				covJSON := `{"coverage_percentage": 87.5, "provider": "codecov"}`
-				_ = os.WriteFile(filepath.Join(destDir, "coverage-stats-codecov.json"), []byte(covJSON), 0o600)
+				_ = os.WriteFile(filepath.Join(destDir, "coverage-stats-internal.json"), []byte(covJSON), 0o600)
 			}).
 			Return(nil)
 
