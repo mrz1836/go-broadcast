@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -140,24 +141,45 @@ func (r *realCommandRunner) RunWithInput(ctx context.Context, input []byte, name
 		// Include stderr in error message for better debugging
 		if stderr.Len() > 0 {
 			if r.logger != nil {
+				// 404 errors are expected for many operations (disabled features, missing resources)
+				// Log them at DEBUG level to avoid confusion
+				stderrStr := stderr.String()
+				is404 := strings.Contains(stderrStr, "404") ||
+					strings.Contains(stderrStr, "Not Found") ||
+					strings.Contains(stderrStr, "could not resolve")
+
 				if r.logConfig != nil && r.logConfig.Debug.API {
 					// Error logging with timing context
-					logger.WithFields(logrus.Fields{
+					fields := logrus.Fields{
 						"command":                         name,
 						"args":                            args,
 						"stderr":                          stderr.String(),
 						logging.StandardFields.DurationMs: duration.Milliseconds(),
-						logging.StandardFields.Status:     "failed",
-					}).Error("GitHub CLI command failed")
+					}
+
+					if is404 {
+						fields[logging.StandardFields.Status] = "not_found"
+						logger.WithFields(fields).Debug("Resource not found (HTTP 404)")
+					} else {
+						fields[logging.StandardFields.Status] = "failed"
+						logger.WithFields(fields).Error("GitHub CLI command failed")
+					}
 				} else {
 					// Basic error logging for backwards compatibility
-					r.logger.WithFields(logrus.Fields{
+					fields := logrus.Fields{
 						logging.StandardFields.Component: logging.ComponentNames.API,
 						"command":                        name,
 						"args":                           args,
 						"stderr":                         stderr.String(),
-						logging.StandardFields.Status:    "failed",
-					}).Error("Command failed")
+					}
+
+					if is404 {
+						fields[logging.StandardFields.Status] = "not_found"
+						r.logger.WithFields(fields).Debug("Resource not found (HTTP 404)")
+					} else {
+						fields[logging.StandardFields.Status] = "failed"
+						r.logger.WithFields(fields).Error("Command failed")
+					}
 				}
 			}
 			return nil, &CommandError{

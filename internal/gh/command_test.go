@@ -375,3 +375,177 @@ func TestCommandError_Error_StderrPriority(t *testing.T) {
 
 	require.Equal(t, "fatal: not a git repository", err.Error())
 }
+
+func TestRealCommandRunner_404ErrorLogging(t *testing.T) {
+	tests := []struct {
+		name              string
+		stderr            string
+		expectDebugLevel  bool
+		expectErrorLevel  bool
+		expectedLogStatus string
+	}{
+		{
+			name:              "404NotFound",
+			stderr:            "gh: Not Found (HTTP 404)\n",
+			expectDebugLevel:  true,
+			expectErrorLevel:  false,
+			expectedLogStatus: "not_found",
+		},
+		{
+			name:              "404InMessage",
+			stderr:            "Error: 404 page not found",
+			expectDebugLevel:  true,
+			expectErrorLevel:  false,
+			expectedLogStatus: "not_found",
+		},
+		{
+			name:              "CouldNotResolve",
+			stderr:            "Error: could not resolve repository",
+			expectDebugLevel:  true,
+			expectErrorLevel:  false,
+			expectedLogStatus: "not_found",
+		},
+		{
+			name:              "RealError",
+			stderr:            "Error: authentication failed",
+			expectDebugLevel:  false,
+			expectErrorLevel:  true,
+			expectedLogStatus: "failed",
+		},
+		{
+			name:              "RateLimitError",
+			stderr:            "Error: API rate limit exceeded",
+			expectDebugLevel:  false,
+			expectErrorLevel:  true,
+			expectedLogStatus: "failed",
+		},
+		{
+			name:              "NetworkError",
+			stderr:            "Error: network timeout",
+			expectDebugLevel:  false,
+			expectErrorLevel:  true,
+			expectedLogStatus: "failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a logger with a buffer to capture logs
+			var logBuffer bytes.Buffer
+			logger := logrus.New()
+			logger.SetOutput(&logBuffer)
+			logger.SetLevel(logrus.DebugLevel)
+			logger.SetFormatter(&logrus.TextFormatter{
+				DisableColors:    true,
+				DisableTimestamp: true,
+			})
+
+			runner := &realCommandRunner{
+				logger:    logger,
+				logConfig: &logging.LogConfig{},
+			}
+
+			// Simulate a failed command with stderr
+			ctx := context.Background()
+			_, err := runner.RunWithInput(ctx, nil, "sh", "-c", "echo '"+tt.stderr+"' >&2; exit 1")
+
+			// Should always return an error
+			require.Error(t, err)
+
+			logs := logBuffer.String()
+
+			if tt.expectDebugLevel {
+				// Should log at DEBUG level with "Resource not found (HTTP 404)" message
+				require.Contains(t, logs, "level=debug")
+				require.Contains(t, logs, "Resource not found (HTTP 404)")
+				require.Contains(t, logs, "status=not_found")
+				require.NotContains(t, logs, "level=error")
+			}
+
+			if tt.expectErrorLevel {
+				// Should log at ERROR level with "Command failed" message
+				require.Contains(t, logs, "level=error")
+				require.Contains(t, logs, "Command failed")
+				require.Contains(t, logs, "status=failed")
+				require.NotContains(t, logs, "Resource not found")
+			}
+		})
+	}
+}
+
+func TestRealCommandRunner_404ErrorLogging_WithDebugAPI(t *testing.T) {
+	tests := []struct {
+		name              string
+		stderr            string
+		expectDebugLevel  bool
+		expectErrorLevel  bool
+		expectedLogStatus string
+	}{
+		{
+			name:              "404WithDebugAPI",
+			stderr:            "gh: Not Found (HTTP 404)\n",
+			expectDebugLevel:  true,
+			expectErrorLevel:  false,
+			expectedLogStatus: "not_found",
+		},
+		{
+			name:              "RealErrorWithDebugAPI",
+			stderr:            "Error: authentication failed",
+			expectDebugLevel:  false,
+			expectErrorLevel:  true,
+			expectedLogStatus: "failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a logger with a buffer to capture logs
+			var logBuffer bytes.Buffer
+			logger := logrus.New()
+			logger.SetOutput(&logBuffer)
+			logger.SetLevel(logrus.DebugLevel)
+			logger.SetFormatter(&logrus.TextFormatter{
+				DisableColors:    true,
+				DisableTimestamp: true,
+			})
+
+			runner := &realCommandRunner{
+				logger: logger,
+				logConfig: &logging.LogConfig{
+					Debug: logging.DebugFlags{
+						API: true,
+					},
+				},
+			}
+
+			// Simulate a failed command with stderr
+			ctx := context.Background()
+			_, err := runner.RunWithInput(ctx, nil, "sh", "-c", "echo '"+tt.stderr+"' >&2; exit 1")
+
+			// Should always return an error
+			require.Error(t, err)
+
+			logs := logBuffer.String()
+
+			if tt.expectDebugLevel {
+				// Should log at DEBUG level with "Resource not found (HTTP 404)" message
+				require.Contains(t, logs, "level=debug")
+				require.Contains(t, logs, "Resource not found (HTTP 404)")
+				require.Contains(t, logs, "status=not_found")
+				require.NotContains(t, logs, "level=error")
+				// Should include timing info when debug API is enabled
+				require.Contains(t, logs, "duration_ms")
+			}
+
+			if tt.expectErrorLevel {
+				// Should log at ERROR level
+				require.Contains(t, logs, "level=error")
+				require.Contains(t, logs, "GitHub CLI command failed")
+				require.Contains(t, logs, "status=failed")
+				require.NotContains(t, logs, "Resource not found")
+				// Should include timing info when debug API is enabled
+				require.Contains(t, logs, "duration_ms")
+			}
+		})
+	}
+}

@@ -8,8 +8,13 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/jsonutil"
 )
 
-// GetDependabotAlerts retrieves Dependabot security alerts for a repository
-// Returns empty slice if Dependabot is not enabled (404 response)
+// GetDependabotAlerts retrieves Dependabot security alerts for a repository.
+//
+// Returns empty slice (not error) if:
+//   - Dependabot is not enabled for the repository (HTTP 404)
+//   - The repository has no open Dependabot alerts
+//
+// Returns error only for actual API failures (auth, network, rate limits, etc.)
 func (g *githubClient) GetDependabotAlerts(ctx context.Context, repo string) ([]DependabotAlert, error) {
 	output, err := g.runner.Run(ctx, "gh", "api",
 		fmt.Sprintf("repos/%s/dependabot/alerts", repo),
@@ -39,8 +44,13 @@ func (g *githubClient) GetDependabotAlerts(ctx context.Context, repo string) ([]
 	return alerts, nil
 }
 
-// GetCodeScanningAlerts retrieves code scanning alerts for a repository
-// Returns empty slice if code scanning is not enabled (404 response)
+// GetCodeScanningAlerts retrieves code scanning alerts for a repository.
+//
+// Returns empty slice (not error) if:
+//   - Code scanning is not enabled for the repository (HTTP 404)
+//   - The repository has no open code scanning alerts
+//
+// Returns error only for actual API failures (auth, network, rate limits, etc.)
 func (g *githubClient) GetCodeScanningAlerts(ctx context.Context, repo string) ([]CodeScanningAlert, error) {
 	output, err := g.runner.Run(ctx, "gh", "api",
 		fmt.Sprintf("repos/%s/code-scanning/alerts", repo),
@@ -64,8 +74,13 @@ func (g *githubClient) GetCodeScanningAlerts(ctx context.Context, repo string) (
 	return alerts, nil
 }
 
-// GetSecretScanningAlerts retrieves secret scanning alerts for a repository
-// Returns empty slice if secret scanning is not enabled (404 response)
+// GetSecretScanningAlerts retrieves secret scanning alerts for a repository.
+//
+// Returns empty slice (not error) if:
+//   - Secret scanning is not enabled for the repository (HTTP 404)
+//   - The repository has no open secret scanning alerts
+//
+// Returns error only for actual API failures (auth, network, rate limits, etc.)
 func (g *githubClient) GetSecretScanningAlerts(ctx context.Context, repo string) ([]SecretScanningAlert, error) {
 	output, err := g.runner.Run(ctx, "gh", "api",
 		fmt.Sprintf("repos/%s/secret-scanning/alerts", repo),
