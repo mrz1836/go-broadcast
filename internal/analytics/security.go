@@ -43,7 +43,6 @@ type SecurityAlert struct {
 	DismissedAt  *string           // ISO 8601 timestamp (nullable)
 	FixedAt      *string           // ISO 8601 timestamp (nullable)
 	ResolvedAt   *string           // ISO 8601 timestamp (nullable)
-	RawData      string            // JSON blob of full alert data for debugging
 }
 
 // SecurityCollector handles concurrent security alert collection

@@ -70,9 +70,6 @@ type RepositorySnapshot struct {
 	DependabotAlertCount     int `json:"dependabot_alert_count"`
 	CodeScanningAlertCount   int `json:"code_scanning_alert_count"`
 	SecretScanningAlertCount int `json:"secret_scanning_alert_count"`
-
-	// Raw data for future expansion (store full GraphQL response)
-	RawData Metadata `gorm:"type:text" json:"raw_data,omitempty"`
 }
 
 // SecurityAlert tracks dependabot, code scanning, and secret scanning alerts.
@@ -146,6 +143,4 @@ type CIMetricsSnapshot struct {
 	TestCount       int      `json:"test_count"`
 	BenchmarkCount  int      `json:"benchmark_count"`
 	CoveragePercent *float64 `json:"coverage_percent"` // nullable — not all repos report
-
-	RawData Metadata `gorm:"type:text" json:"raw_data,omitempty"`
 }

@@ -51,7 +51,6 @@ type CIMetrics struct {
 	TestCount      int
 	BenchmarkCount int
 	Coverage       *float64
-	RawData        map[string]interface{}
 }
 
 // CICollector handles concurrent CI metrics collection from GoFortress artifacts
@@ -171,7 +170,6 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 		WorkflowRunID: latestRun.ID,
 		Branch:        latestRun.HeadBranch,
 		CommitSHA:     latestRun.HeadSHA,
-		RawData:       make(map[string]interface{}),
 	}
 
 	// Step 4: Download and parse artifacts
@@ -240,7 +238,6 @@ func (c *CICollector) parseLOCArtifact(ctx context.Context, repo string, runID i
 		metrics.TestFilesLOC = loc.TestFilesLOC
 		metrics.GoFilesCount = loc.GoFilesCount
 		metrics.TestFilesCount = loc.TestFilesCount
-		metrics.RawData["loc_stats"] = json.RawMessage(data)
 	}
 }
 
@@ -290,7 +287,6 @@ func (c *CICollector) parseCoverageArtifact(ctx context.Context, repo string, ru
 	cov := parseCoverageJSON(data)
 	if cov != nil {
 		metrics.Coverage = cov
-		metrics.RawData["coverage_stats"] = json.RawMessage(data)
 	}
 }
 
@@ -338,7 +334,6 @@ func (c *CICollector) parseCIResultsArtifact(ctx context.Context, repo string, r
 	testCount := parseCIResultsJSONL(data)
 	if testCount > 0 {
 		metrics.TestCount = testCount
-		metrics.RawData["ci_results"] = json.RawMessage(data)
 	}
 }
 

@@ -662,7 +662,6 @@ go-broadcast modules list --from-db
 | `dependabot_alert_count` | int | Open Dependabot alert count |
 | `code_scanning_alert_count` | int | Open code scanning alert count |
 | `secret_scanning_alert_count` | int | Open secret scanning alert count |
-| `raw_data` | text | JSON raw GraphQL response |
 | `metadata` | text | JSON metadata |
 | `created_at` | datetime | Creation timestamp |
 | `updated_at` | datetime | Last update timestamp |
@@ -735,7 +734,6 @@ go-broadcast modules list --from-db
 | `test_count` | int | Total unit test count |
 | `benchmark_count` | int | Total benchmark count |
 | `coverage_percent` | float64 | Code coverage percentage (nullable) |
-| `raw_data` | text | JSON raw artifact data |
 | `created_at` | datetime | Creation timestamp |
 | `updated_at` | datetime | Last update timestamp |
 | `deleted_at` | datetime | Soft delete timestamp |

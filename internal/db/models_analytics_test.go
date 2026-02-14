@@ -76,10 +76,6 @@ func TestAnalyticsModels(t *testing.T) {
 			OpenPRs:       1,
 			BranchCount:   5,
 			LatestRelease: "v1.2.3",
-			RawData: Metadata{
-				"source": "graphql",
-				"batch":  "test-batch",
-			},
 		}
 
 		err := db.Create(snapshot).Error
@@ -87,11 +83,6 @@ func TestAnalyticsModels(t *testing.T) {
 		assert.NotZero(t, snapshot.ID)
 		assert.Equal(t, 42, snapshot.Stars)
 
-		// Verify metadata stored correctly
-		var loaded RepositorySnapshot
-		err = db.First(&loaded, snapshot.ID).Error
-		require.NoError(t, err)
-		assert.Equal(t, "graphql", loaded.RawData["source"])
 	})
 
 	// Test SecurityAlert creation

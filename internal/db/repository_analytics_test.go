@@ -482,18 +482,4 @@ func TestAnalyticsRepo_CISnapshots(t *testing.T) {
 		assert.NotNil(t, retrieved)
 	})
 
-	t.Run("CreateCISnapshot_WithRawData", func(t *testing.T) {
-		snap := &CIMetricsSnapshot{
-			RepositoryID:  analyticsRepo.ID,
-			SnapshotAt:    time.Now().Add(time.Hour), // Future to be latest
-			WorkflowRunID: 88888,
-			Branch:        "main",
-			GoFilesLOC:    3000,
-			RawData:       Metadata{"loc_stats": "raw json data"},
-		}
-
-		err := repo.CreateCISnapshot(ctx, snap)
-		require.NoError(t, err)
-		assert.NotZero(t, snap.ID)
-	})
 }
