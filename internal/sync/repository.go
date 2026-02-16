@@ -49,6 +49,8 @@ type RepositorySync struct {
 	syncMetrics *PerformanceMetrics
 	// commitAIGenerated tracks if commit message was AI-generated (for PR metadata)
 	commitAIGenerated bool
+	// moduleUpdates tracks module version updates for go.mod references
+	moduleUpdates []ModuleUpdateInfo
 }
 
 // PerformanceMetrics tracks performance metrics for the entire sync operation
@@ -814,6 +816,79 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 		}
 	}
 
+	// Apply go.mod module updates if any
+	if len(rs.moduleUpdates) > 0 {
+		rs.logger.WithField("module_updates", len(rs.moduleUpdates)).Info("Applying module updates to go.mod")
+		goModUpdater := NewGoModUpdater(rs.logger.Logger)
+
+		for _, update := range rs.moduleUpdates {
+			goModPath := filepath.Join(targetPath, update.DestPath)
+
+			// Check if go.mod exists in target repository
+			if _, err := os.Stat(goModPath); os.IsNotExist(err) {
+				rs.logger.WithFields(logrus.Fields{
+					"path":   update.DestPath,
+					"module": update.ModuleName,
+				}).Warn("go.mod not found in target repository, skipping update")
+				continue
+			}
+
+			// Read the current go.mod
+			// #nosec G304 -- goModPath is constructed from controlled values (temp dir + config dest path)
+			currentContent, err := os.ReadFile(goModPath)
+			if err != nil {
+				rs.logger.WithError(err).WithFields(logrus.Fields{
+					"path":   update.DestPath,
+					"module": update.ModuleName,
+				}).Warn("Failed to read go.mod, skipping update")
+				continue
+			}
+
+			// Try to update existing dependency, or add if it doesn't exist
+			updatedContent, modified, err := goModUpdater.UpdateDependency(
+				currentContent,
+				update.ModuleName,
+				update.Version,
+			)
+			if err != nil {
+				rs.logger.WithError(err).WithFields(logrus.Fields{
+					"path":   update.DestPath,
+					"module": update.ModuleName,
+				}).Warn("Failed to update go.mod dependency, skipping")
+				continue
+			}
+
+			// If not modified, try adding as new dependency
+			if !modified {
+				updatedContent, modified, err = goModUpdater.AddDependency(
+					currentContent,
+					update.ModuleName,
+					update.Version,
+				)
+				if err != nil {
+					rs.logger.WithError(err).WithFields(logrus.Fields{
+						"path":   update.DestPath,
+						"module": update.ModuleName,
+					}).Warn("Failed to add go.mod dependency, skipping")
+					continue
+				}
+			}
+
+			// Write the updated go.mod if modified
+			if modified {
+				if err := os.WriteFile(goModPath, updatedContent, 0o600); err != nil {
+					return "", nil, fmt.Errorf("failed to write updated go.mod %s: %w", update.DestPath, err)
+				}
+
+				rs.logger.WithFields(logrus.Fields{
+					"path":    update.DestPath,
+					"module":  update.ModuleName,
+					"version": update.Version,
+				}).Info("Updated module reference in go.mod")
+			}
+		}
+	}
+
 	// Apply file changes to the target repository
 	var filesToDelete []string
 	for _, fileChange := range changedFiles {
@@ -1122,7 +1197,7 @@ func (rs *RepositorySync) createNewPR(ctx context.Context, branchName, commitSHA
 					"branch_name": branchName,
 				}).Info("Found existing PR for branch - updating instead of creating new one")
 				// Update the existing PR instead
-				return rs.updateExistingPR(ctx, existingPR, commitSHA, changedFiles, nil) // TODO: Pass actualChangedFiles when available
+				return rs.updateExistingPR(ctx, existingPR, commitSHA, changedFiles, actualChangedFiles)
 			}
 
 			// If no existing PR found, try branch cleanup and retry
@@ -1846,6 +1921,12 @@ func (rs *RepositorySync) processDirectoriesWithMetrics(ctx context.Context) ([]
 
 	processTimer.AddField("total_changes", len(allChanges)).
 		AddField("directories_processed", len(collectedMetrics)).Stop()
+
+	// Collect module updates from processor
+	rs.moduleUpdates = processor.GetModuleUpdates()
+	if len(rs.moduleUpdates) > 0 {
+		rs.logger.WithField("module_updates", len(rs.moduleUpdates)).Info("Collected module updates for go.mod")
+	}
 
 	rs.logger.WithFields(logrus.Fields{
 		"total_changes":         len(allChanges),
