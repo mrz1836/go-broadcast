@@ -21,11 +21,6 @@ import (
 // loggerContextKey is a type for context keys to avoid collisions
 type loggerContextKey struct{}
 
-// Static errors for command implementations
-var (
-	ErrStatusNotImplemented = fmt.Errorf("status command not yet implemented for isolated flags")
-)
-
 //nolint:gochecknoglobals // Cobra flags are designed to be global variables
 var (
 	showVersionMu sync.RWMutex
@@ -667,11 +662,24 @@ Performs comprehensive validation including:
 }
 
 // createRunStatus creates an isolated status run function with the given flags
-func createRunStatus(_ *Flags) func(*cobra.Command, []string) error {
-	return func(_ *cobra.Command, _ []string) error {
-		// For now, use a placeholder implementation - this will be implemented properly
-		// when we address the status command's specific needs
-		return ErrStatusNotImplemented
+func createRunStatus(flags *Flags) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		ctx := cmd.Context()
+
+		// Get isolated logger from context, fallback to global if not available
+		logger, ok := ctx.Value(loggerContextKey{}).(*logrus.Logger)
+		if !ok {
+			logger = logrus.StandardLogger()
+		}
+
+		// Load configuration using existing utility
+		cfg, err := loadConfigWithFlags(flags, logger)
+		if err != nil {
+			return fmt.Errorf("failed to load configuration: %w", err)
+		}
+
+		// Use the shared status discovery and output helper
+		return getStatusAndOutput(ctx, cfg, false)
 	}
 }
 
@@ -761,10 +769,21 @@ func createRunSyncWithVerbose(config *LogConfig) func(*cobra.Command, []string) 
 //
 // Returns:
 // - Function that can be used as RunE for Cobra status commands
-func createRunStatusWithVerbose(_ *LogConfig) func(*cobra.Command, []string) error {
-	return func(_ *cobra.Command, _ []string) error {
-		// For Phase 1, maintain existing behavior
-		return ErrStatusNotImplemented
+func createRunStatusWithVerbose(config *LogConfig) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		ctx := cmd.Context()
+
+		// Load configuration using LogConfig
+		cfg, err := loadConfigWithLogConfig(config)
+		if err != nil {
+			return fmt.Errorf("failed to load configuration: %w", err)
+		}
+
+		// Determine JSON output from log config
+		jsonOutput := config.JSONOutput || config.LogFormat == "json"
+
+		// Use the shared status discovery and output helper
+		return getStatusAndOutput(ctx, cfg, jsonOutput)
 	}
 }
 

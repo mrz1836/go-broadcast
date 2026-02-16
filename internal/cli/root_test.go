@@ -407,16 +407,19 @@ func TestVerboseCommandCreationFunctions(t *testing.T) {
 
 // TestCreateRunStatus tests status run function creation
 func TestCreateRunStatus(t *testing.T) {
-	flags := &Flags{}
+	flags := &Flags{
+		ConfigFile: "/non/existent/config.yml",
+	}
 	runFunc := createRunStatus(flags)
 	require.NotNil(t, runFunc)
 
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())
 
+	// Should fail with config load error, not NotImplemented error
 	err := runFunc(cmd, []string{})
 	require.Error(t, err)
-	assert.Equal(t, ErrStatusNotImplemented, err)
+	assert.Contains(t, err.Error(), "failed to load configuration")
 }
 
 // TestCreateRunValidate tests validate run function
@@ -487,14 +490,19 @@ func TestCreateRunValidateWithVerbose(t *testing.T) {
 
 // TestCreateRunStatusWithVerbose tests verbose status run function
 func TestCreateRunStatusWithVerbose(t *testing.T) {
-	config := &LogConfig{}
+	config := &LogConfig{
+		ConfigFile: "/non/existent/config.yml",
+	}
 	runFunc := createRunStatusWithVerbose(config)
 	require.NotNil(t, runFunc)
 
 	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+
+	// Should fail with config load error, not NotImplemented error
 	err := runFunc(cmd, []string{})
 	require.Error(t, err)
-	assert.Equal(t, ErrStatusNotImplemented, err)
+	assert.Contains(t, err.Error(), "failed to load configuration")
 }
 
 // TestLoggerContextKey tests logger context storage
