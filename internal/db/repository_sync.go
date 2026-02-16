@@ -154,7 +154,7 @@ func (r *broadcastSyncRepo) GetSyncRunSummaryStats(ctx context.Context) (*SyncRu
 	// Average duration (only for completed runs)
 	if err := r.db.WithContext(ctx).
 		Model(&BroadcastSyncRun{}).
-		Select("AVG(duration_ms)").
+		Select("COALESCE(AVG(duration_ms), 0)").
 		Where("status IN ?", []string{BroadcastSyncRunStatusSuccess, BroadcastSyncRunStatusPartial, BroadcastSyncRunStatusFailed}).
 		Where("duration_ms > 0").
 		Scan(&stats.AvgDurationMs).Error; err != nil {
