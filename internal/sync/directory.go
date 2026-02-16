@@ -43,6 +43,8 @@ type DirectoryProcessor struct {
 	gitClient            git.Client
 	sourceRepoURL        string
 	tempDir              string
+	moduleUpdates        []ModuleUpdateInfo // Tracks module updates for go.mod
+	moduleUpdatesMu      sync.Mutex         // Protects moduleUpdates access
 }
 
 // ModuleSyncResult contains the result of module-aware sync preparation
@@ -58,6 +60,18 @@ type ModuleSyncResult struct {
 
 	// Cleanup should be called after sync completes to remove temporary directories
 	Cleanup func()
+}
+
+// ModuleUpdateInfo tracks information needed to update go.mod references
+type ModuleUpdateInfo struct {
+	// DestPath is the destination path where go.mod should be updated
+	DestPath string
+
+	// ModuleName is the name of the module to update
+	ModuleName string
+
+	// Version is the version to set in go.mod
+	Version string
 }
 
 // DirectoryProcessorOptions contains optional configuration for DirectoryProcessor
@@ -236,8 +250,27 @@ func (dp *DirectoryProcessor) ProcessDirectoryMapping(ctx context.Context, sourc
 			logger.WithError(err).Warn("Module sync handling failed, continuing with standard sync")
 			// Continue with standard sync if module handling fails
 		} else if result != nil {
-			// Store result for potential update_refs processing
-			_ = result // TODO: Use for update_refs feature
+			// Handle update_refs feature if enabled
+			if dirMapping.Module != nil && dirMapping.Module.UpdateRefs && result.ModuleInfo != nil {
+				// Build path to go.mod in destination directory
+				goModPath := filepath.Join(dirMapping.Dest, "go.mod")
+
+				// Store module update info to be applied during commit phase
+				dp.moduleUpdatesMu.Lock()
+				dp.moduleUpdates = append(dp.moduleUpdates, ModuleUpdateInfo{
+					DestPath:   goModPath,
+					ModuleName: result.ModuleInfo.Name,
+					Version:    result.ResolvedVersion,
+				})
+				dp.moduleUpdatesMu.Unlock()
+
+				logger.WithFields(logrus.Fields{
+					"module":    result.ModuleInfo.Name,
+					"version":   result.ResolvedVersion,
+					"dest_path": goModPath,
+				}).Info("Module reference update will be applied during commit")
+			}
+
 			if result.SourcePath != "" && result.SourcePath != fullSourceDir {
 				effectiveSourceDir = result.SourcePath
 				logger.WithFields(logrus.Fields{
@@ -795,4 +828,14 @@ func (dp *DirectoryProcessor) getExistingFileContent(ctx context.Context, engine
 		return nil, err
 	}
 	return fileContent.Content, nil
+}
+
+// GetModuleUpdates returns the collected module update information
+func (dp *DirectoryProcessor) GetModuleUpdates() []ModuleUpdateInfo {
+	dp.moduleUpdatesMu.Lock()
+	defer dp.moduleUpdatesMu.Unlock()
+	// Return a copy to avoid race conditions
+	result := make([]ModuleUpdateInfo, len(dp.moduleUpdates))
+	copy(result, dp.moduleUpdates)
+	return result
 }
