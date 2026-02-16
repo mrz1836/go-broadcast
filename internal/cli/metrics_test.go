@@ -138,8 +138,8 @@ func TestOutputJSONMetrics(t *testing.T) {
 			"rate":  95.5,
 		}
 
-		// Note: This writes to stdout, so we can't easily assert the output
-		// In a real test, we'd want to capture stdout or refactor to take io.Writer
+		// This writes to stdout, so we can't easily assert the output.
+		// In a real test, we'd want to capture stdout or refactor to take io.Writer.
 		err := outputJSONMetrics("test", data)
 		assert.NoError(t, err)
 	})
