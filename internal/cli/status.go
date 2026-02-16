@@ -162,6 +162,12 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	// Apply group filtering if specified
 	cfg = FilterConfigByGroups(cfg, getStatusGroupFilter(), getStatusSkipGroups())
 
+	return getStatusAndOutput(ctx, cfg, getJSONOutput())
+}
+
+// getStatusAndOutput is a shared helper that performs status discovery and output
+// It's used by both the global status command and isolated flag variants
+func getStatusAndOutput(ctx context.Context, cfg *config.Config, jsonOutput bool) error {
 	// Initialize state discovery with real implementations
 	status, err := getRealStatus(ctx, cfg)
 	if err != nil {
@@ -169,7 +175,7 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Output status
-	if getJSONOutput() {
+	if jsonOutput {
 		return outputJSON(status)
 	}
 
