@@ -100,5 +100,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&SecurityAlert{},
 		&SyncRun{},
 		&CIMetricsSnapshot{},
+		// Broadcast sync metrics models from T-98
+		&BroadcastSyncRun{},
+		&BroadcastSyncTargetResult{},
+		&BroadcastSyncFileChange{},
 	)
 }
