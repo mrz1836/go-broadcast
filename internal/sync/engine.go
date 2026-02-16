@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -38,6 +39,11 @@ type Engine struct {
 	commitGenerator *ai.CommitMessageGenerator
 	responseCache   *ai.ResponseCache
 	diffTruncator   *ai.DiffTruncator
+
+	// Sync metrics tracking (optional, nil when disabled)
+	syncRepo     SyncMetricsRecorder
+	currentRun   *BroadcastSyncRun
+	currentRunMu sync.RWMutex // Protects currentRun access
 }
 
 // NewEngine creates a new sync engine with the provided dependencies
@@ -109,6 +115,25 @@ func (e *Engine) SetCurrentGroup(group *config.Group) {
 	e.currentGroupMu.Lock()
 	defer e.currentGroupMu.Unlock()
 	e.currentGroup = group
+}
+
+// SetSyncMetricsRecorder sets the sync metrics recorder for this engine
+func (e *Engine) SetSyncMetricsRecorder(recorder SyncMetricsRecorder) {
+	e.syncRepo = recorder
+}
+
+// GetCurrentRun returns the current sync run being tracked (thread-safe).
+func (e *Engine) GetCurrentRun() *BroadcastSyncRun {
+	e.currentRunMu.RLock()
+	defer e.currentRunMu.RUnlock()
+	return e.currentRun
+}
+
+// setCurrentRun sets the current sync run being tracked (thread-safe, internal).
+func (e *Engine) setCurrentRun(run *BroadcastSyncRun) {
+	e.currentRunMu.Lock()
+	defer e.currentRunMu.Unlock()
+	e.currentRun = run
 }
 
 // GitClient returns the git client for repository operations.
@@ -241,7 +266,13 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 		"target_count":  len(currentState.Targets),
 	}).Info("State discovery completed")
 
-	// 2. Determine which targets to sync using group's targets
+	// 2. Record sync run start (if metrics recording enabled)
+	if metricsErr := e.recordSyncRunStart(ctx, group, currentState); metricsErr != nil {
+		// Non-fatal: log warning but continue sync
+		log.WithError(metricsErr).Warn("Failed to record sync run start metrics")
+	}
+
+	// 3. Determine which targets to sync using group's targets
 	syncTargets, err := e.filterGroupTargets(targetFilter, group, currentState)
 	if err != nil {
 		return appErrors.WrapWithContext(err, "filter targets")
@@ -254,10 +285,15 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 
 	log.WithField("sync_targets", len(syncTargets)).Info("Targets selected for sync")
 
-	// 3. Create progress tracker
+	// 4. Update sync run with target count (if metrics recording enabled)
+	if err := e.updateSyncRunTargetCount(ctx, len(syncTargets)); err != nil {
+		log.WithError(err).Warn("Failed to update sync run target count")
+	}
+
+	// 5. Create progress tracker
 	progress := NewProgressTrackerWithGroup(len(syncTargets), e.options.DryRun, group.Name, group.ID)
 
-	// 4. Process repositories concurrently with error collection
+	// 6. Process repositories concurrently with error collection
 	var g errgroup.Group
 	g.SetLimit(e.options.MaxConcurrency)
 
@@ -285,7 +321,7 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 		})
 	}
 
-	// 5. Wait for all syncs to complete
+	// 7. Wait for all syncs to complete
 	_ = g.Wait() // Always returns nil since we handle errors via errorCollector
 	close(errorCollector)
 
@@ -309,7 +345,7 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 		}
 	}
 
-	// 6. Report final results with detailed error information
+	// 8. Report final results with detailed error information
 	results := progress.GetResults()
 	log.WithFields(logrus.Fields{
 		"successful": results.Successful,
@@ -318,6 +354,11 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 		"duration":   results.Duration,
 		"errors":     len(collectedErrors),
 	}).Info("Sync operation completed")
+
+	// 9. Finalize sync run record (if metrics recording enabled)
+	if err := e.finalizeSyncRun(ctx, results, collectedErrors); err != nil {
+		log.WithError(err).Warn("Failed to finalize sync run metrics")
+	}
 
 	// Log individual errors for debugging
 	for i, err := range collectedErrors {
@@ -510,5 +551,131 @@ func (e *Engine) syncRepository(ctx context.Context, target config.TargetConfig,
 
 	log.Info("Repository sync completed successfully")
 	progress.RecordSuccess(target.Repo)
+	return nil
+}
+
+// recordSyncRunStart creates a new sync run record at the beginning of a sync operation
+func (e *Engine) recordSyncRunStart(ctx context.Context, group config.Group, currentState *state.State) error {
+	// Skip if metrics recording is not enabled
+	if e.syncRepo == nil {
+		return nil
+	}
+
+	log := e.logger.WithField("component", "metrics_recording")
+
+	// Create new sync run record
+	run := &BroadcastSyncRun{
+		ExternalID:   GenerateSyncRunExternalID(),
+		StartedAt:    time.Now(),
+		Status:       SyncRunStatusRunning,
+		Trigger:      DetermineTrigger(e.options),
+		SourceBranch: currentState.Source.Branch,
+		SourceCommit: currentState.Source.LatestCommit,
+	}
+
+	// TODO: Set group ID if available (requires DB lookup to convert string ID to uint)
+	// For now, we'll rely on ExternalID and SourceCommit for tracking
+	// groupID lookup would require database access here
+	run.GroupID = nil
+
+	// Create the run in the database
+	if err := e.syncRepo.CreateSyncRun(ctx, run); err != nil {
+		return fmt.Errorf("failed to create sync run record: %w", err)
+	}
+
+	// Store the run for later updates
+	e.setCurrentRun(run)
+
+	log.WithFields(logrus.Fields{
+		"run_id":      run.ExternalID,
+		"group_name":  group.Name,
+		"source_repo": currentState.Source.Repo,
+	}).Info("Sync run metrics recording started")
+
+	return nil
+}
+
+// updateSyncRunTargetCount updates the sync run with the number of targets to be synced
+func (e *Engine) updateSyncRunTargetCount(ctx context.Context, targetCount int) error {
+	// Skip if metrics recording is not enabled
+	if e.syncRepo == nil {
+		return nil
+	}
+
+	run := e.GetCurrentRun()
+	if run == nil {
+		return nil // No run to update
+	}
+
+	run.TotalTargets = targetCount
+
+	if err := e.syncRepo.UpdateSyncRun(ctx, run); err != nil {
+		return fmt.Errorf("failed to update sync run target count: %w", err)
+	}
+
+	return nil
+}
+
+// finalizeSyncRun updates the sync run with final results
+func (e *Engine) finalizeSyncRun(ctx context.Context, results *Results, errors []error) error {
+	// Skip if metrics recording is not enabled
+	if e.syncRepo == nil {
+		return nil
+	}
+
+	run := e.GetCurrentRun()
+	if run == nil {
+		return nil // No run to finalize
+	}
+
+	log := e.logger.WithField("component", "metrics_recording")
+
+	// Update run with final stats
+	endTime := time.Now()
+	run.EndedAt = &endTime
+	run.DurationMs = endTime.Sub(run.StartedAt).Milliseconds()
+	run.SuccessfulTargets = results.Successful
+	run.FailedTargets = results.Failed
+	run.SkippedTargets = results.Skipped
+
+	// Determine final status
+	if results.Failed == 0 && results.Successful == run.TotalTargets {
+		run.Status = SyncRunStatusSuccess
+	} else if results.Failed > 0 && results.Successful > 0 {
+		run.Status = SyncRunStatusPartial
+	} else if results.Failed == run.TotalTargets {
+		run.Status = SyncRunStatusFailed
+	} else if results.Skipped == run.TotalTargets {
+		run.Status = SyncRunStatusSkipped
+	} else {
+		run.Status = SyncRunStatusPartial
+	}
+
+	// Store error summary if there were failures
+	if len(errors) > 0 {
+		errorMessages := make([]string, 0, len(errors))
+		for i, err := range errors {
+			if i >= 3 {
+				errorMessages = append(errorMessages, fmt.Sprintf("... and %d more errors", len(errors)-3))
+				break
+			}
+			errorMessages = append(errorMessages, err.Error())
+		}
+		run.ErrorSummary = strings.Join(errorMessages, "; ")
+	}
+
+	// Update the run in the database
+	if err := e.syncRepo.UpdateSyncRun(ctx, run); err != nil {
+		return fmt.Errorf("failed to finalize sync run record: %w", err)
+	}
+
+	log.WithFields(logrus.Fields{
+		"run_id":     run.ExternalID,
+		"status":     run.Status,
+		"successful": run.SuccessfulTargets,
+		"failed":     run.FailedTargets,
+		"duration":   run.DurationMs,
+	}).Info("Sync run metrics finalized")
+
 	return nil
 }

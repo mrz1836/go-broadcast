@@ -110,6 +110,24 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		DirectoryMetrics: make(map[string]DirectoryMetrics),
 	}
 
+	// TODO(Task 7): Track variables for metrics recording
+	// var (
+	// 	finalBranchName    string
+	// 	finalCommitSHA     string
+	// 	finalAllChanges    []FileChange
+	// 	finalActualChanges []string
+	// 	finalErr           error
+	// )
+
+	// TODO(Task 7): Defer metrics recording (captures success or failure)
+	// defer func() {
+	// 	if rs.engine.syncRepo != nil {
+	// 		if err := rs.recordTargetResult(ctx, finalBranchName, finalCommitSHA, finalAllChanges, finalActualChanges, finalErr); err != nil {
+	// 			rs.logger.WithError(err).Warn("Failed to record target result metrics")
+	// 		}
+	// 	}
+	// }()
+
 	// Start overall operation timer
 	syncTimer := metrics.StartTimer(ctx, rs.logger, "repository_sync").
 		AddField(logging.StandardFields.SourceRepo, rs.sourceState.Repo).
@@ -150,6 +168,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	if err := rs.createTempDir(); err != nil {
 		tempDirTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
 	tempDirTimer.AddField("temp_dir", rs.tempDir).Stop()
@@ -164,6 +183,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	if err := rs.cloneSource(ctx); err != nil {
 		cloneTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to clone source: %w", err)
 	}
 	cloneTimer.Stop()
@@ -177,6 +197,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	if err != nil {
 		processTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to process files: %w", err)
 	}
 	fileProcessingDuration := time.Since(fileProcessingStart)
@@ -204,6 +225,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	directoryChanges, directoryMetrics, err := rs.processDirectoriesWithMetrics(ctx)
 	if err != nil {
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to process directories: %w", err)
 	}
 
@@ -251,6 +273,11 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		AddField("changed_files", len(allChanges))
 
 	commitSHA, actualChangedFiles, err := rs.commitChanges(ctx, branchName, allChanges)
+	// Capture for metrics recording
+	// TODO(Task 7): finalBranchName = branchName
+	// TODO(Task 7): finalCommitSHA = commitSHA
+	// TODO(Task 7): finalAllChanges = allChanges
+	// TODO(Task 7): finalActualChanges = actualChangedFiles
 	if err != nil {
 		commitTimer.StopWithError(err)
 		// Check if it's because there are no changes to sync
@@ -264,6 +291,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 			return nil
 		}
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to commit changes: %w", err)
 	}
 	commitTimer.AddField("commit_sha", commitSHA).Stop()
@@ -301,6 +329,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		if err := rs.pushChanges(ctx, branchName); err != nil {
 			pushTimer.StopWithError(err)
 			syncTimer.StopWithError(err)
+			// TODO(Task 7): finalErr = err
 			return fmt.Errorf("failed to push changes: %w", err)
 		}
 		pushTimer.Stop()
@@ -317,6 +346,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	if err := rs.createOrUpdatePR(ctx, branchName, commitSHA, allChanges, actualChangedFiles); err != nil {
 		prTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to create/update PR: %w", err)
 	}
 	prTimer.Stop()
@@ -347,6 +377,12 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		AddField(logging.StandardFields.BranchName, branchName).
 		AddField("final_commit_sha", commitSHA).
 		AddField("total_changed_files", len(allChanges)).Stop()
+
+	// TODO(Task 7): Record target result metrics (if enabled)
+	// if err := rs.recordTargetResult(ctx, branchName, commitSHA, allChanges, actualChangedFiles, nil); err != nil {
+	// 	// Non-fatal: log warning but don't fail the sync
+	// 	rs.logger.WithError(err).Warn("Failed to record target result metrics")
+	// }
 
 	return nil
 }
@@ -2384,4 +2420,193 @@ func (rs *RepositorySync) isFileInDirectory(filePath, directoryPath string) bool
 
 	// Check if file is directly in the directory or a subdirectory
 	return strings.HasPrefix(filePath, directoryPath+"/") || filePath == directoryPath
+}
+
+// recordTargetResult records the sync target result to the database
+func (rs *RepositorySync) recordTargetResult(
+	ctx context.Context,
+	branchName, commitSHA string,
+	allChanges []FileChange,
+	actualChangedFiles []string,
+	syncErr error,
+) error {
+	// Skip if metrics recording is not enabled
+	if rs.engine.syncRepo == nil {
+		return nil
+	}
+
+	// Get the current sync run
+	currentRun := rs.engine.GetCurrentRun()
+	if currentRun == nil {
+		return nil // No run to record against
+	}
+
+	log := rs.logger.WithField("component", "metrics_recording")
+
+	// Finalize performance metrics if not already done
+	if rs.syncMetrics.EndTime.IsZero() {
+		rs.syncMetrics.EndTime = time.Now()
+	}
+
+	// Determine status based on error and changes
+	status := TargetStatusSuccess
+	var errorMessage string
+	if syncErr != nil {
+		status = TargetStatusFailed
+		errorMessage = syncErr.Error()
+	} else if len(actualChangedFiles) == 0 && len(allChanges) == 0 {
+		status = TargetStatusNoChanges
+	}
+
+	// Calculate aggregate line stats from file changes
+	totalLinesAdded := 0
+	totalLinesRemoved := 0
+	totalBytesChanged := int64(0)
+
+	for _, fc := range allChanges {
+		// Compute line diff for this file
+		linesAdded, linesRemoved := rs.computeLineDiff(fc.OriginalContent, fc.Content)
+		totalLinesAdded += linesAdded
+		totalLinesRemoved += linesRemoved
+		totalBytesChanged += int64(len(fc.Content))
+	}
+
+	// Create target result record
+	result := &BroadcastSyncTargetResult{
+		BroadcastSyncRunID: currentRun.ID,
+		TargetID:           uint(rs.target.ID),       // Assuming target has ID field
+		RepoID:             uint(rs.targetState.ID), // Assuming targetState has ID field
+		StartedAt:          rs.syncMetrics.StartTime,
+		EndedAt:            &rs.syncMetrics.EndTime,
+		DurationMs:         rs.syncMetrics.EndTime.Sub(rs.syncMetrics.StartTime).Milliseconds(),
+		Status:             status,
+		BranchName:         branchName,
+		SourceCommitSHA:    rs.sourceState.LatestCommit,
+		FilesProcessed:     rs.syncMetrics.FileMetrics.FilesProcessed,
+		FilesChanged:       len(actualChangedFiles),
+		FilesDeleted:       rs.syncMetrics.FileMetrics.FilesDeleted,
+		LinesAdded:         totalLinesAdded,
+		LinesRemoved:       totalLinesRemoved,
+		BytesChanged:       totalBytesChanged,
+		ErrorMessage:       errorMessage,
+	}
+
+	// Store PR info if available (will be set in createOrUpdatePR)
+	rs.capturePRInfo(result)
+
+	// Create the target result in the database
+	if err := rs.engine.syncRepo.CreateTargetResult(ctx, result); err != nil {
+		return fmt.Errorf("failed to create target result: %w", err)
+	}
+
+	log.WithFields(logrus.Fields{
+		"result_id":     result.ID,
+		"status":        status,
+		"files_changed": len(actualChangedFiles),
+		"lines_added":   totalLinesAdded,
+		"lines_removed": totalLinesRemoved,
+	}).Info("Target result metrics recorded")
+
+	// Record file changes (Task 8)
+	if err := rs.recordFileChanges(ctx, result.ID, allChanges); err != nil {
+		// Non-fatal: log warning but don't fail
+		log.WithError(err).Warn("Failed to record file changes")
+	}
+
+	// Update sync run aggregates
+	rs.updateSyncRunAggregates(ctx, currentRun, result)
+
+	return nil
+}
+
+// computeLineDiff calculates lines added and removed between original and new content
+func (rs *RepositorySync) computeLineDiff(original, new []byte) (linesAdded, linesRemoved int) {
+	// Handle deletions
+	if len(new) == 0 && len(original) > 0 {
+		return 0, len(strings.Split(string(original), "\n"))
+	}
+
+	// Handle additions
+	if len(original) == 0 && len(new) > 0 {
+		return len(strings.Split(string(new), "\n")), 0
+	}
+
+	// For modifications, do a simple line count comparison
+	originalLines := strings.Split(string(original), "\n")
+	newLines := strings.Split(string(new), "\n")
+
+	originalCount := len(originalLines)
+	newCount := len(newLines)
+
+	if newCount > originalCount {
+		linesAdded = newCount - originalCount
+	} else if originalCount > newCount {
+		linesRemoved = originalCount - newCount
+	}
+
+	return linesAdded, linesRemoved
+}
+
+// capturePRInfo captures PR information if a PR was created
+// This will be populated by createOrUpdatePR method
+func (rs *RepositorySync) capturePRInfo(result *BroadcastSyncTargetResult) {
+	// PR info is stored in RepositorySync after creation
+	// For now, we'll check if there's a lastPR field or similar
+	// This is a placeholder - the actual implementation depends on
+	// how PR info is stored in RepositorySync
+	// TODO: Wire up PR info when PR is created
+}
+
+// recordFileChanges records individual file changes to the database (Task 8)
+func (rs *RepositorySync) recordFileChanges(ctx context.Context, targetResultID uint, fileChanges []FileChange) error {
+	if len(fileChanges) == 0 {
+		return nil
+	}
+
+	log := rs.logger.WithField("component", "metrics_recording")
+
+	// Convert FileChange to BroadcastSyncFileChange
+	dbChanges := make([]BroadcastSyncFileChange, 0, len(fileChanges))
+	for i, fc := range fileChanges {
+		linesAdded, linesRemoved := rs.computeLineDiff(fc.OriginalContent, fc.Content)
+
+		changeType := FileChangeTypeModified
+		if fc.IsNew {
+			changeType = FileChangeTypeAdded
+		} else if fc.IsDeleted {
+			changeType = FileChangeTypeDeleted
+		}
+
+		dbChange := BroadcastSyncFileChange{
+			BroadcastSyncTargetResultID: targetResultID,
+			FilePath:                    fc.Path,
+			ChangeType:                  changeType,
+			LinesAdded:                  linesAdded,
+			LinesRemoved:                linesRemoved,
+			SizeBytes:                   int64(len(fc.Content)),
+			Position:                    i,
+		}
+		dbChanges = append(dbChanges, dbChange)
+	}
+
+	// Batch create file changes
+	if err := rs.engine.syncRepo.CreateFileChanges(ctx, dbChanges); err != nil {
+		return fmt.Errorf("failed to create file changes: %w", err)
+	}
+
+	log.WithField("file_count", len(dbChanges)).Info("File changes recorded")
+	return nil
+}
+
+// updateSyncRunAggregates updates the sync run with aggregated stats from target result
+func (rs *RepositorySync) updateSyncRunAggregates(ctx context.Context, run *BroadcastSyncRun, result *BroadcastSyncTargetResult) {
+	// Update aggregated file/line counts
+	run.TotalFilesChanged += result.FilesChanged
+	run.TotalLinesAdded += result.LinesAdded
+	run.TotalLinesRemoved += result.LinesRemoved
+
+	// Update the run (non-fatal if it fails)
+	if err := rs.engine.syncRepo.UpdateSyncRun(ctx, run); err != nil {
+		rs.logger.WithError(err).Warn("Failed to update sync run aggregates")
+	}
 }
