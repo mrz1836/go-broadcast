@@ -17,11 +17,11 @@ func TestBroadcastSyncRepo_CreateSyncRun(t *testing.T) {
 
 	t.Run("create valid run", func(t *testing.T) {
 		run := &BroadcastSyncRun{
-			ExternalID:    "SR-20260215-abc123",
-			StartedAt:     time.Now(),
-			Status:        BroadcastSyncRunStatusRunning,
-			Trigger:       BroadcastSyncRunTriggerManual,
-			TotalTargets:  3,
+			ExternalID:   "SR-20260215-abc123",
+			StartedAt:    time.Now(),
+			Status:       BroadcastSyncRunStatusRunning,
+			Trigger:      BroadcastSyncRunTriggerManual,
+			TotalTargets: 3,
 		}
 
 		err := repo.CreateSyncRun(ctx, run)
@@ -246,7 +246,7 @@ func TestBroadcastSyncRepo_GetSummaryStats(t *testing.T) {
 		stats, err := repo.GetSyncRunSummaryStats(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, int64(3), stats.TotalRuns)
-		assert.InDelta(t, 66.67, stats.SuccessRate, 0.1) // 2/3 = 66.67%
+		assert.InDelta(t, 66.67, stats.SuccessRate, 0.1)  // 2/3 = 66.67%
 		assert.Equal(t, int64(3000), stats.AvgDurationMs) // (5000+3000+1000)/3 = 3000
 	})
 }

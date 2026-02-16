@@ -12,11 +12,11 @@ import (
 func TestBroadcastSyncRunValidation(t *testing.T) {
 	t.Run("valid run", func(t *testing.T) {
 		run := &BroadcastSyncRun{
-			ExternalID:    "SR-20260215-abc123",
-			StartedAt:     time.Now(),
-			Status:        BroadcastSyncRunStatusRunning,
-			Trigger:       BroadcastSyncRunTriggerManual,
-			TotalTargets:  3,
+			ExternalID:   "SR-20260215-abc123",
+			StartedAt:    time.Now(),
+			Status:       BroadcastSyncRunStatusRunning,
+			Trigger:      BroadcastSyncRunTriggerManual,
+			TotalTargets: 3,
 		}
 
 		assert.NotEmpty(t, run.ExternalID)
@@ -54,7 +54,7 @@ func TestBroadcastSyncRunValidation(t *testing.T) {
 	t.Run("computed duration", func(t *testing.T) {
 		startedAt := time.Now()
 		endedAt := startedAt.Add(5 * time.Second)
-		
+
 		run := &BroadcastSyncRun{
 			ExternalID: "SR-20260215-test",
 			StartedAt:  startedAt,
