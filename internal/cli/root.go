@@ -91,6 +91,7 @@ func init() {
 	// Initialize command flags
 	initStatus()
 	initCancel()
+	initMetrics()
 
 	// Add commands
 	rootCmd.AddCommand(syncCmd)
@@ -103,6 +104,7 @@ func init() {
 	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(dbCmd)
 	rootCmd.AddCommand(newAnalyticsCmd())
+	rootCmd.AddCommand(metricsCmd)
 }
 
 // NewRootCmd creates a new isolated root command instance for testing

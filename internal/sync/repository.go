@@ -51,6 +51,8 @@ type RepositorySync struct {
 	commitAIGenerated bool
 	// moduleUpdates tracks module version updates for go.mod references
 	moduleUpdates []ModuleUpdateInfo
+	// createdPR stores PR info after creation for metrics recording
+	createdPR *createdPR
 }
 
 // PerformanceMetrics tracks performance metrics for the entire sync operation
@@ -100,6 +102,13 @@ type FileProcessingMetrics struct {
 	FilesDeleted         int   // Files that were deleted from target repositories
 	ProcessingTimeMs     int64 // Time spent processing files
 	FilesActuallyChanged int   // Alias for FilesChanged for clarity
+}
+
+// createdPR stores PR info after creation for metrics recording
+type createdPR struct {
+	Number int
+	URL    string
+	State  string
 }
 
 // Execute performs the complete sync operation for this repository
@@ -2472,10 +2481,12 @@ func (rs *RepositorySync) recordTargetResult(
 	}
 
 	// Create target result record
+	// TODO: Resolve TargetID and RepoID from database by looking up target.Repo
+	// For now, using 0 as placeholder - proper lookup needed
 	result := &BroadcastSyncTargetResult{
 		BroadcastSyncRunID: currentRun.ID,
-		TargetID:           uint(rs.target.ID),       // Assuming target has ID field
-		RepoID:             uint(rs.targetState.ID), // Assuming targetState has ID field
+		TargetID:           0, // TODO: Look up Target ID from database by repo name
+		RepoID:             0, // TODO: Look up Repo ID from database by repo name
 		StartedAt:          rs.syncMetrics.StartTime,
 		EndedAt:            &rs.syncMetrics.EndTime,
 		DurationMs:         rs.syncMetrics.EndTime.Sub(rs.syncMetrics.StartTime).Milliseconds(),
