@@ -154,9 +154,9 @@ func GenerateEnhancedPRDescription(metadata *EnhancedPRMetadata, summary string)
 
 	// Add what changed section
 	builder.WriteString("## What Changed\n")
-	builder.WriteString(fmt.Sprintf("* Sync from %s (commit: %s)\n",
+	fmt.Fprintf(&builder, "* Sync from %s (commit: %s)\n",
 		metadata.SyncMetadata.SourceRepo,
-		metadata.SyncMetadata.SourceCommit))
+		metadata.SyncMetadata.SourceCommit)
 
 	// Count total files
 	totalFiles := len(metadata.Files)
@@ -165,12 +165,12 @@ func GenerateEnhancedPRDescription(metadata *EnhancedPRMetadata, summary string)
 	}
 
 	if totalFiles > 0 {
-		builder.WriteString(fmt.Sprintf("* Total files synchronized: %d\n", totalFiles))
+		fmt.Fprintf(&builder, "* Total files synchronized: %d\n", totalFiles)
 	}
 
 	// List directories if any
 	if len(metadata.Directories) > 0 {
-		builder.WriteString(fmt.Sprintf("* Directories synchronized: %d\n", len(metadata.Directories)))
+		fmt.Fprintf(&builder, "* Directories synchronized: %d\n", len(metadata.Directories))
 
 		// Calculate total excluded files
 		totalExcluded := 0
@@ -178,7 +178,7 @@ func GenerateEnhancedPRDescription(metadata *EnhancedPRMetadata, summary string)
 			totalExcluded += dir.FilesExcluded
 		}
 		if totalExcluded > 0 {
-			builder.WriteString(fmt.Sprintf("* Files excluded: %d\n", totalExcluded))
+			fmt.Fprintf(&builder, "* Files excluded: %d\n", totalExcluded)
 		}
 	}
 
@@ -188,12 +188,12 @@ func GenerateEnhancedPRDescription(metadata *EnhancedPRMetadata, summary string)
 		for transform := range metadata.Performance.TransformsApplied {
 			transforms = append(transforms, transform)
 		}
-		builder.WriteString(fmt.Sprintf("* Transforms applied: %s\n", strings.Join(transforms, ", ")))
+		fmt.Fprintf(&builder, "* Transforms applied: %s\n", strings.Join(transforms, ", "))
 	}
 
 	// Show API optimization if significant
 	if metadata.Performance != nil && metadata.Performance.APICallsSaved > 0 {
-		builder.WriteString(fmt.Sprintf("* API calls optimized: %d calls saved\n", metadata.Performance.APICallsSaved))
+		fmt.Fprintf(&builder, "* API calls optimized: %d calls saved\n", metadata.Performance.APICallsSaved)
 	}
 
 	builder.WriteString("\n")
@@ -202,7 +202,7 @@ func GenerateEnhancedPRDescription(metadata *EnhancedPRMetadata, summary string)
 	if len(metadata.Files) > 0 && len(metadata.Files) <= 10 {
 		builder.WriteString("## Files Synchronized\n")
 		for _, file := range metadata.Files {
-			builder.WriteString(fmt.Sprintf("* `%s` → `%s`\n", file.Source, file.Destination))
+			fmt.Fprintf(&builder, "* `%s` → `%s`\n", file.Source, file.Destination)
 		}
 		builder.WriteString("\n")
 	}
@@ -210,11 +210,11 @@ func GenerateEnhancedPRDescription(metadata *EnhancedPRMetadata, summary string)
 	if len(metadata.Directories) > 0 && len(metadata.Directories) <= 5 {
 		builder.WriteString("## Directories Synchronized\n")
 		for _, dir := range metadata.Directories {
-			builder.WriteString(fmt.Sprintf("* `%s` → `%s`", dir.Source, dir.Destination))
+			fmt.Fprintf(&builder, "* `%s` → `%s`", dir.Source, dir.Destination)
 			if dir.FilesSynced > 0 {
-				builder.WriteString(fmt.Sprintf(" (%d files", dir.FilesSynced))
+				fmt.Fprintf(&builder, " (%d files", dir.FilesSynced)
 				if dir.FilesExcluded > 0 {
-					builder.WriteString(fmt.Sprintf(", %d excluded", dir.FilesExcluded))
+					fmt.Fprintf(&builder, ", %d excluded", dir.FilesExcluded)
 				}
 				builder.WriteString(")")
 			}
@@ -222,12 +222,12 @@ func GenerateEnhancedPRDescription(metadata *EnhancedPRMetadata, summary string)
 
 			// Show exclusion patterns if any
 			if len(dir.Excluded) > 0 && len(dir.Excluded) <= 5 {
-				builder.WriteString(fmt.Sprintf("  - Excluded: %s\n", strings.Join(dir.Excluded, ", ")))
+				fmt.Fprintf(&builder, "  - Excluded: %s\n", strings.Join(dir.Excluded, ", "))
 			}
 		}
 		builder.WriteString("\n")
 	} else if len(metadata.Directories) > 5 {
-		builder.WriteString(fmt.Sprintf("## Directories Synchronized\n%d directories synchronized (too many to list)\n\n", len(metadata.Directories)))
+		fmt.Fprintf(&builder, "## Directories Synchronized\n%d directories synchronized (too many to list)\n\n", len(metadata.Directories))
 	}
 
 	// Add metadata block

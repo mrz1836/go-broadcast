@@ -75,7 +75,7 @@ func commitFiles(t *testing.T, dir, message string) {
 	}
 
 	// Commit files
-	cmd = exec.CommandContext(ctx, "git", "commit", "-m", message)
+	cmd = exec.CommandContext(ctx, "git", "commit", "-m", message) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to commit files in %s: %v", dir, err)
@@ -85,7 +85,7 @@ func commitFiles(t *testing.T, dir, message string) {
 func createGitTag(t *testing.T, dir, tag string) {
 	t.Helper()
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "git", "tag", tag)
+	cmd := exec.CommandContext(ctx, "git", "tag", tag) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to create git tag %s: %v", tag, err)

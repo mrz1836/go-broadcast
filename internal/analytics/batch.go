@@ -68,10 +68,10 @@ func BuildBatchQuery(repos []gh.RepoInfo) string {
 	// Add aliased repository queries
 	for i, repo := range repos {
 		alias := fmt.Sprintf("repo%d", i)
-		sb.WriteString(fmt.Sprintf(`  %s: repository(owner: "%s", name: "%s") {
+		fmt.Fprintf(&sb, `  %s: repository(owner: "%s", name: "%s") {
     ...RepoFields
   }
-`, alias, repo.Owner.Login, repo.Name))
+`, alias, repo.Owner.Login, repo.Name)
 	}
 
 	// Add fragment definition

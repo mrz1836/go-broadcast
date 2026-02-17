@@ -423,7 +423,7 @@ func TestFileExists(t *testing.T) {
 		// Create a temporary file
 		tmpFile, err := os.CreateTemp("", "test")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		defer func() { _ = os.Remove(tmpFile.Name()) }() //nolint:gosec // G703: path from os.CreateTemp, not user-controlled input
 
 		exists, err := FileExists(tmpFile.Name())
 		require.NoError(t, err)
@@ -479,7 +479,7 @@ func TestFileExists(t *testing.T) {
 		// Create a file in current directory
 		tmpFile, err := os.CreateTemp(".", "test")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		defer func() { _ = os.Remove(tmpFile.Name()) }() //nolint:gosec // G703: path from os.CreateTemp, not user-controlled input
 
 		// Get just the filename
 		filename := filepath.Base(tmpFile.Name())
@@ -497,7 +497,7 @@ func TestFileExists(t *testing.T) {
 		// Create a temporary file
 		tmpFile, err := os.CreateTemp("", "test")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		defer func() { _ = os.Remove(tmpFile.Name()) }() //nolint:gosec // G703: path from os.CreateTemp, not user-controlled input
 
 		// Create a symlink to the file
 		linkPath := tmpFile.Name() + ".link"

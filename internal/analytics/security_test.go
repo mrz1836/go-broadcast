@@ -63,7 +63,7 @@ func TestSecurityCollector_CollectAlerts_SingleRepo(t *testing.T) {
 	codeScanningAlerts := []gh.CodeScanningAlert{codeScanningAlert}
 
 	secretScanningAlerts := []gh.SecretScanningAlert{
-		{
+		{ //nolint:gosec // G101: test data with fake credentials, not real secrets
 			Number:                3,
 			State:                 "open",
 			SecretTypeDisplayName: "GitHub Token",

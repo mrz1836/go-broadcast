@@ -63,7 +63,7 @@ groups:
 	for i := 0; i < 100; i++ {
 		buf.WriteString(`
       - repo: "org/target-repo-`)
-		buf.WriteString(fmt.Sprintf("%d", i))
+		fmt.Fprintf(&buf, "%d", i)
 		buf.WriteString(`"
         files:
           - src: ".github/workflows/ci.yml"
@@ -76,7 +76,7 @@ groups:
           repo_name: true
           variables:
             SERVICE_NAME: "service-`)
-		buf.WriteString(fmt.Sprintf("%d", i))
+		fmt.Fprintf(&buf, "%d", i)
 		buf.WriteString(`"
             ENVIRONMENT: "production"`)
 	}

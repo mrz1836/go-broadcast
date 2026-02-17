@@ -405,7 +405,7 @@ func (mp *MemoryProfiler) generateAnalysisReport(session *Session) (returnErr er
 	for _, filename := range profileFiles {
 		filePath := filepath.Join(session.OutputDir, filename)
 		if info, err := os.Stat(filePath); err == nil {
-			writeToReport(writer, "%s: %s (%s)\n", filename, formatBytes(uint64(max(0, info.Size()))), info.ModTime().Format(time.RFC3339)) //nolint:gosec // file sizes are non-negative and bounded
+			writeToReport(writer, "%s: %s (%s)\n", filename, formatBytes(uint64(max(0, info.Size()))), info.ModTime().Format(time.RFC3339))
 		}
 	}
 
@@ -482,13 +482,13 @@ type MemoryComparison struct {
 func (mc MemoryComparison) String() string {
 	var result strings.Builder
 
-	result.WriteString(fmt.Sprintf("Memory Comparison: %s → %s (%.2fs)\n",
-		mc.From.Label, mc.To.Label, mc.Duration.Seconds()))
-	result.WriteString(fmt.Sprintf("  Heap Alloc: %+s\n", FormatBytesDelta(mc.AllocDelta)))
-	result.WriteString(fmt.Sprintf("  Total Alloc: %+s\n", FormatBytesDelta(mc.TotalAllocDelta)))
-	result.WriteString(fmt.Sprintf("  Heap Sys: %+s\n", FormatBytesDelta(mc.HeapSysDelta)))
-	result.WriteString(fmt.Sprintf("  GC Count: %+d\n", mc.GCDelta))
-	result.WriteString(fmt.Sprintf("  Goroutines: %+d\n", mc.GoroutineDelta))
+	fmt.Fprintf(&result, "Memory Comparison: %s → %s (%.2fs)\n",
+		mc.From.Label, mc.To.Label, mc.Duration.Seconds())
+	fmt.Fprintf(&result, "  Heap Alloc: %+s\n", FormatBytesDelta(mc.AllocDelta))
+	fmt.Fprintf(&result, "  Total Alloc: %+s\n", FormatBytesDelta(mc.TotalAllocDelta))
+	fmt.Fprintf(&result, "  Heap Sys: %+s\n", FormatBytesDelta(mc.HeapSysDelta))
+	fmt.Fprintf(&result, "  GC Count: %+d\n", mc.GCDelta)
+	fmt.Fprintf(&result, "  Goroutines: %+d\n", mc.GoroutineDelta)
 
 	return result.String()
 }
@@ -580,7 +580,7 @@ func FormatBytesDelta(delta int64) string {
 	}
 
 	sign := "+"
-	absBytes := uint64(delta)
+	absBytes := uint64(delta) //nolint:gosec // G115: negative case is handled below with special math.MinInt64 check
 
 	if delta < 0 {
 		sign = "-"

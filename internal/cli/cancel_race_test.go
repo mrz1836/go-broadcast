@@ -179,7 +179,7 @@ func TestCancelSummary_ConcurrentUpdates(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			result := CancelResult{
-				Repository: "org/repo-" + string(rune('0'+idx)),
+				Repository: "org/repo-" + string(rune('0'+idx)), //nolint:gosec // G115: idx is bounded by goroutines count, safe conversion
 				PRClosed:   true,
 			}
 

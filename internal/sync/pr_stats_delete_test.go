@@ -169,7 +169,7 @@ func TestPRDescription_WithDeletions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test that the calculation logic matches expected format
 			filesChanged := tt.metrics.FilesChanged - tt.metrics.FilesDeleted
-			expectedFormat := "files_deleted: " + string(rune(tt.metrics.FilesDeleted+'0'))
+			expectedFormat := "files_deleted: " + string(rune(tt.metrics.FilesDeleted+'0')) //nolint:gosec // G115: FilesDeleted is a small bounded integer in test data
 
 			// Verify the math is correct
 			if tt.metrics.FilesDeleted > 0 {

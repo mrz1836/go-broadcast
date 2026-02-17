@@ -430,7 +430,7 @@ type SecretScanningAlert struct {
 	State                 string     `json:"state"` // open, resolved
 	SecretType            string     `json:"secret_type"`
 	SecretTypeDisplayName string     `json:"secret_type_display_name"`
-	Secret                string     `json:"secret"`
+	Secret                string     `json:"secret"`     //nolint:gosec // G117: this field represents the actual secret scanning alert value from GitHub API
 	Resolution            *string    `json:"resolution"` // false_positive, wont_fix, revoked, used_in_tests
 	ResolvedBy            *User      `json:"resolved_by"`
 	ResolvedAt            *time.Time `json:"resolved_at"`

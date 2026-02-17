@@ -167,7 +167,7 @@ func (mc *MetricsCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Now safe to set Content-Type and write response
 	w.Header().Set("Content-Type", "application/json")
-	if _, err := w.Write(buf); err != nil {
+	if _, err := w.Write(buf); err != nil { //nolint:gosec // G705: buf contains pre-encoded JSON, not user-controlled data
 		log.Printf("Warning: failed to write metrics response: %v", err)
 	}
 }

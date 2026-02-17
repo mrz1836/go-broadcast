@@ -315,7 +315,8 @@ func TestRunStatus(t *testing.T) {
 		// Create a temporary file with invalid YAML
 		tmpFile, err := os.CreateTemp("", "invalid-config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		_, err = tmpFile.WriteString("invalid: yaml: content:\n  - broken")
 		require.NoError(t, err)
@@ -340,7 +341,8 @@ func TestRunStatus(t *testing.T) {
 		// Create a valid temporary config
 		tmpFile, err := os.CreateTemp("", "valid-config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		_, err = tmpFile.WriteString(TestValidConfig)
 		require.NoError(t, err)

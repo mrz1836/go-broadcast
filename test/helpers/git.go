@@ -40,7 +40,7 @@ func InitGitRepo(dir, initialCommitMsg string) error {
 	}
 
 	// Create initial commit
-	cmd = exec.CommandContext(ctx, "git", "commit", "--allow-empty", "-m", initialCommitMsg)
+	cmd = exec.CommandContext(ctx, "git", "commit", "--allow-empty", "-m", initialCommitMsg) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 	cmd.Dir = dir
 	return cmd.Run()
 }
@@ -54,7 +54,7 @@ func CommitChanges(dir, commitMsg string) error {
 		return err
 	}
 
-	cmd = exec.CommandContext(ctx, "git", "commit", "-m", commitMsg)
+	cmd = exec.CommandContext(ctx, "git", "commit", "-m", commitMsg) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 	cmd.Dir = dir
 	return cmd.Run()
 }
@@ -74,14 +74,14 @@ func GetLatestCommit(dir string) (string, error) {
 // CreateBranch creates a new git branch
 func CreateBranch(dir, branchName string) error {
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "git", "checkout", "-b", branchName)
+	cmd := exec.CommandContext(ctx, "git", "checkout", "-b", branchName) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 	cmd.Dir = dir
 	return cmd.Run()
 }
 
 // FileExists checks if a file exists
 func FileExists(filePath string) (bool, error) {
-	_, err := os.Stat(filePath)
+	_, err := os.Stat(filePath) //nolint:gosec // G703: filePath comes from the caller which validates the path
 	if err == nil {
 		return true, nil
 	}

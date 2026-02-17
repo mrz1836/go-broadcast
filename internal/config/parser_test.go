@@ -635,7 +635,7 @@ groups:
 				var sb strings.Builder
 				sb.WriteString("version: 1\ngroups:\n  - name: \"test-group\"\n    id: \"test\"\n    source:\n      repo: \"org/source\"\n    targets:\n")
 				for i := 0; i < 100; i++ {
-					sb.WriteString(fmt.Sprintf("      - repo: \"org/target%d\"\n", i))
+					fmt.Fprintf(&sb, "      - repo: \"org/target%d\"\n", i)
 				}
 				return sb.String()
 			}(),

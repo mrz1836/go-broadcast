@@ -111,7 +111,7 @@ func (r *ModuleResolver) ResolveVersion(ctx context.Context, repoPath, constrain
 // fetchGitTags fetches all git tags from a repository
 func (r *ModuleResolver) fetchGitTags(ctx context.Context, repoPath string) ([]string, error) {
 	// Use git ls-remote to get tags
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--tags", repoPath)
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--tags", repoPath) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to run git ls-remote: %w", err)

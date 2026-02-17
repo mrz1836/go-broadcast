@@ -1323,7 +1323,7 @@ func (rs *RepositorySync) getDiffForAI(ctx context.Context, changedFiles []FileC
 		// Create per-repo debug file path (e.g., /tmp/debug.txt.owner_repo)
 		repoSuffix := strings.ReplaceAll(rs.target.Repo, "/", "_")
 		repoDebugPath := fmt.Sprintf("%s.%s", debugPath, repoSuffix)
-		if err := os.WriteFile(repoDebugPath, []byte(diff), 0o600); err != nil {
+		if err := os.WriteFile(repoDebugPath, []byte(diff), 0o600); err != nil { //nolint:gosec // G703: repoDebugPath is constructed from env var + safe suffix, not user input
 			rs.logger.WithError(err).Warn("Failed to write debug diff file")
 		} else {
 			rs.logger.WithField("path", repoDebugPath).Debug("Wrote full diff to debug file")
@@ -1539,7 +1539,7 @@ func (rs *RepositorySync) generatePRBody(ctx context.Context, commitSHA string, 
 	if len(commitSHA) > 7 {
 		shortSHA = commitSHA[:7]
 	}
-	sb.WriteString(fmt.Sprintf("* Brought target repository in line with source repository state at commit %s\n\n", shortSHA))
+	fmt.Fprintf(&sb, "* Brought target repository in line with source repository state at commit %s\n\n", shortSHA)
 
 	// Directory synchronization details (if directories are configured)
 	if len(rs.target.Directories) > 0 {

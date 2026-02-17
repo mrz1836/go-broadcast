@@ -137,11 +137,11 @@ func TestBatchStatus(t *testing.T) {
 				testutil.WriteTestFile(t, filePath, "original content")
 
 				ctx := context.Background()
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 
@@ -163,11 +163,11 @@ func TestBatchStatus(t *testing.T) {
 				file1 := filepath.Join(tmpDir, "file1.txt")
 				testutil.WriteTestFile(t, file1, "content1")
 
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 
@@ -178,7 +178,7 @@ func TestBatchStatus(t *testing.T) {
 				file2 := filepath.Join(tmpDir, "file2.txt")
 				testutil.WriteTestFile(t, file2, "content2")
 
-				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file2.txt")
+				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file2.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = addCmd2.Run()
 				require.NoError(t, err)
 
@@ -315,7 +315,7 @@ func TestBatchStatusAll(t *testing.T) {
 				mainFile := filepath.Join(srcDir, "main.go")
 				testutil.WriteTestFile(t, mainFile, "package main")
 
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "src/main.go")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "src/main.go") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
@@ -323,11 +323,11 @@ func TestBatchStatusAll(t *testing.T) {
 				oldFile := filepath.Join(tmpDir, "old.go")
 				testutil.WriteTestFile(t, oldFile, "package old")
 
-				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "old.go")
+				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "old.go") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = addCmd2.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial files")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial files") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 
@@ -338,7 +338,7 @@ func TestBatchStatusAll(t *testing.T) {
 				readmeFile := filepath.Join(tmpDir, "README.md")
 				testutil.WriteTestFile(t, readmeFile, "# Test Repo")
 
-				addCmd3 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "README.md")
+				addCmd3 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "README.md") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = addCmd3.Run()
 				require.NoError(t, err)
 
@@ -347,7 +347,7 @@ func TestBatchStatusAll(t *testing.T) {
 				testutil.WriteTestFile(t, tempFile, "temporary")
 
 				// Delete old.go
-				rmCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "rm", "old.go")
+				rmCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "rm", "old.go") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = rmCmd.Run()
 				require.NoError(t, err)
 			},
@@ -372,16 +372,16 @@ func TestBatchStatusAll(t *testing.T) {
 				goFile := filepath.Join(tmpDir, "file.go")
 				testutil.WriteTestFile(t, goFile, "package main")
 
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 
 				// Rename old-name.txt to new-name.txt
-				mvCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "mv", "old-name.txt", "new-name.txt")
+				mvCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "mv", "old-name.txt", "new-name.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = mvCmd.Run()
 				require.NoError(t, err)
 
@@ -477,11 +477,11 @@ func TestBatchDiffFiles(t *testing.T) {
 				file2 := filepath.Join(tmpDir, "file2.txt")
 				testutil.WriteTestFile(t, file2, "original content 2")
 
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 
@@ -518,18 +518,18 @@ func TestBatchDiffFiles(t *testing.T) {
 				file1 := filepath.Join(tmpDir, "file1.txt")
 				testutil.WriteTestFile(t, file1, "original content 1")
 
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 
 				// Modify file1 and stage it
 				testutil.WriteTestFile(t, file1, "staged content 1")
 
-				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
+				addCmd2 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = addCmd2.Run()
 				require.NoError(t, err)
 
@@ -537,7 +537,7 @@ func TestBatchDiffFiles(t *testing.T) {
 				file2 := filepath.Join(tmpDir, "file2.txt")
 				testutil.WriteTestFile(t, file2, "new file content")
 
-				addCmd3 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file2.txt")
+				addCmd3 := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file2.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = addCmd3.Run()
 				require.NoError(t, err)
 			},
@@ -570,11 +570,11 @@ func TestBatchDiffFiles(t *testing.T) {
 					testutil.WriteTestFileWithFormat(t, filePath, "original content %d", i)
 				}
 
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial commit") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 
@@ -615,11 +615,11 @@ func TestBatchDiffFiles(t *testing.T) {
 				delFile := filepath.Join(tmpDir, "deleted.txt")
 				testutil.WriteTestFile(t, delFile, "to be deleted")
 
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 
@@ -830,7 +830,7 @@ func TestBatchCheckIgnored(t *testing.T) {
 				// Create gitignore that ignores even numbered files
 				var gitignoreContent strings.Builder
 				for i := 0; i < 120; i += 2 {
-					gitignoreContent.WriteString(fmt.Sprintf("file%d.txt\n", i+1))
+					fmt.Fprintf(&gitignoreContent, "file%d.txt\n", i+1)
 				}
 
 				gitignore := filepath.Join(tmpDir, ".gitignore")
@@ -936,11 +936,11 @@ func TestBatchRemoveFiles(t *testing.T) {
 				file1 := filepath.Join(tmpDir, "file1.txt")
 				testutil.WriteTestFile(t, file1, "content1")
 
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "file1.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add file1") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 			},
@@ -948,7 +948,7 @@ func TestBatchRemoveFiles(t *testing.T) {
 				ctx := context.Background()
 
 				// Check git status - file should be deleted
-				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain")
+				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				output, err := statusCmd.Output()
 				require.NoError(t, err)
 				require.Contains(t, string(output), "D  file1.txt")
@@ -973,11 +973,11 @@ func TestBatchRemoveFiles(t *testing.T) {
 				file2 := filepath.Join(tmpDir, "file2.txt")
 				testutil.WriteTestFile(t, file2, "content2")
 
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add files")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add files") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 			},
@@ -985,7 +985,7 @@ func TestBatchRemoveFiles(t *testing.T) {
 				ctx := context.Background()
 
 				// Check git status - files should be deleted from index
-				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain")
+				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				output, err := statusCmd.Output()
 				require.NoError(t, err)
 
@@ -1050,11 +1050,11 @@ func TestBatchRemoveFiles(t *testing.T) {
 				testutil.WriteTestFile(t, readmeFile, "# Test")
 
 				// Add and commit all files
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add files")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add files") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 			},
@@ -1062,7 +1062,7 @@ func TestBatchRemoveFiles(t *testing.T) {
 				ctx := context.Background()
 
 				// Check git status
-				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain")
+				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				output, err := statusCmd.Output()
 				require.NoError(t, err)
 
@@ -1100,11 +1100,11 @@ func TestBatchRemoveFiles(t *testing.T) {
 				}
 
 				// Add and commit all files
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", ".") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add many files")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "add many files") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 			},
@@ -1112,7 +1112,7 @@ func TestBatchRemoveFiles(t *testing.T) {
 				ctx := context.Background()
 
 				// Check git status
-				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain")
+				statusCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "status", "--porcelain") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				output, err := statusCmd.Output()
 				require.NoError(t, err)
 
@@ -1147,11 +1147,11 @@ func TestBatchRemoveFiles(t *testing.T) {
 				dummyFile := filepath.Join(tmpDir, "dummy.txt")
 				testutil.WriteTestFile(t, dummyFile, "dummy")
 
-				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "dummy.txt")
+				addCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "add", "dummy.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err := addCmd.Run()
 				require.NoError(t, err)
 
-				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial")
+				commitCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "commit", "-m", "initial") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = commitCmd.Run()
 				require.NoError(t, err)
 			},

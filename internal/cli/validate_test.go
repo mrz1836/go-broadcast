@@ -54,7 +54,8 @@ func TestRunValidate(t *testing.T) {
 		// Create temporary valid config
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		validConfig := `version: 1
 groups:
@@ -119,7 +120,8 @@ func TestRunValidateWithFlags(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, tmpFile.Close())
 
-				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+				tmpName := tmpFile.Name()
+				return tmpName, func() { _ = os.Remove(tmpName) }
 			},
 			expectError: true,
 			errorCheck: func(t *testing.T, err error) {
@@ -143,7 +145,8 @@ targets:
 				require.NoError(t, err)
 				require.NoError(t, tmpFile.Close())
 
-				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+				tmpName := tmpFile.Name()
+				return tmpName, func() { _ = os.Remove(tmpName) }
 			},
 			expectError: true,
 			errorCheck: func(t *testing.T, err error) {
@@ -173,7 +176,8 @@ groups:
 				require.NoError(t, err)
 				require.NoError(t, tmpFile.Close())
 
-				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+				tmpName := tmpFile.Name()
+				return tmpName, func() { _ = os.Remove(tmpName) }
 			},
 			expectError: false,
 			outputCheck: nil,
@@ -205,7 +209,8 @@ groups:
 				require.NoError(t, err)
 				require.NoError(t, tmpFile.Close())
 
-				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+				tmpName := tmpFile.Name()
+				return tmpName, func() { _ = os.Remove(tmpName) }
 			},
 			expectError: false,
 			outputCheck: nil,
@@ -238,7 +243,8 @@ groups:
 				require.NoError(t, err)
 				require.NoError(t, tmpFile.Close())
 
-				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+				tmpName := tmpFile.Name()
+				return tmpName, func() { _ = os.Remove(tmpName) }
 			},
 			expectError: false,
 			outputCheck: nil,
@@ -276,7 +282,8 @@ groups:
 				require.NoError(t, err)
 				require.NoError(t, tmpFile.Close())
 
-				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+				tmpName := tmpFile.Name()
+				return tmpName, func() { _ = os.Remove(tmpName) }
 			},
 			expectError: false,
 			outputCheck: nil,
@@ -316,7 +323,8 @@ func TestValidateOutputFormatting(t *testing.T) {
 	// Create temporary valid config
 	tmpFile, err := os.CreateTemp("", "config-*.yml")
 	require.NoError(t, err)
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	tmpName := tmpFile.Name()
+	defer func() { _ = os.Remove(tmpName) }()
 
 	validConfig := `version: 1
 groups:
@@ -398,7 +406,8 @@ func TestValidateCommandIntegration(t *testing.T) {
 	// Create a valid config
 	tmpFile, err := os.CreateTemp("", "config-*.yml")
 	require.NoError(t, err)
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	tmpName := tmpFile.Name()
+	defer func() { _ = os.Remove(tmpName) }()
 
 	validConfig := `version: 1
 groups:
@@ -471,7 +480,8 @@ func TestValidateWithFlagsEdgeCases(t *testing.T) {
 	t.Run("skip remote checks flag", func(t *testing.T) {
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		validConfig := `version: 1
 groups:
@@ -506,7 +516,8 @@ groups:
 	t.Run("source only flag", func(t *testing.T) {
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		validConfig := `version: 1
 groups:
