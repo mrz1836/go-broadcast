@@ -122,6 +122,11 @@ func (e *Engine) SetSyncMetricsRecorder(recorder SyncMetricsRecorder) {
 	e.syncRepo = recorder
 }
 
+// HasMetricsRecorder reports whether a sync metrics recorder has been attached.
+func (e *Engine) HasMetricsRecorder() bool {
+	return e.syncRepo != nil
+}
+
 // GetCurrentRun returns the current sync run being tracked (thread-safe).
 func (e *Engine) GetCurrentRun() *BroadcastSyncRun {
 	e.currentRunMu.RLock()
