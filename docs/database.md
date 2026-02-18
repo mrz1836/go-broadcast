@@ -53,6 +53,7 @@
        ⚙️&nbsp;<a href="#-configuration"><code>Configuration</code></a>
     </td>
     <td align="center">
+       📈&nbsp;<a href="#-metrics-command"><code>Metrics&nbsp;Command</code></a>
     </td>
     <td align="center">
     </td>
@@ -216,6 +217,24 @@ go-broadcast modules list --from-db
     ┌──────────────┐
     │  sync_runs   │  (standalone)
     └──────────────┘
+```
+
+### Broadcast Sync Tracking Entity Relationship Diagram
+
+```
+    ┌──────────────────────────────┐
+    │     broadcast_sync_runs      │
+    └──────────────┬───────────────┘
+                   │ 1:N
+                   ▼
+    ┌──────────────────────────────────┐
+    │  broadcast_sync_target_results   │
+    └──────────────┬───────────────────┘
+                   │ 1:N
+                   ▼
+    ┌──────────────────────────────┐
+    │  broadcast_sync_file_changes │
+    └──────────────────────────────┘
 ```
 
 <details>
@@ -877,6 +896,144 @@ SELECT name, clone_url, ssh_url FROM repos;
 - Tracks each analytics sync execution for observability
 - Provides detailed metrics about API usage, processing time, and errors
 - Supports incremental sync via `last_processed_repo`
+
+</details>
+
+<details>
+<summary><b>broadcast_sync_runs</b> — Broadcast sync execution tracking</summary>
+
+Tracks each `go-broadcast sync` invocation with timing, scope, and aggregate statistics.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `external_id` | text | User-facing ID (`SR-{YYYYMMDD}-{random6}`, unique) |
+| `group_id` | uint | FK to `groups` (nullable — null means full sync) |
+| `source_repo_id` | uint | FK to `repos` at time of sync (nullable) |
+| `source_branch` | text | Source branch name |
+| `source_commit` | text | Source commit SHA at sync time |
+| `started_at` | datetime | Sync start time (not null) |
+| `ended_at` | datetime | Sync end time (nullable) |
+| `duration_ms` | int64 | Total duration in milliseconds |
+| `status` | text | `pending`, `running`, `success`, `partial`, `failed`, `skipped` |
+| `trigger` | text | How sync was initiated: `manual`, `cron`, `ci` |
+| `options` | text | JSON blob of sync options used |
+| `total_targets` | int | Total target repos in this sync |
+| `successful_targets` | int | Targets that completed successfully |
+| `failed_targets` | int | Targets that failed |
+| `skipped_targets` | int | Targets that were skipped |
+| `total_files_changed` | int | Aggregated file change count across all targets |
+| `total_lines_added` | int | Aggregated lines added across all targets |
+| `total_lines_removed` | int | Aggregated lines removed across all targets |
+| `error_summary` | text | Human-readable error summary (nullable) |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Has many `broadcast_sync_target_results`
+
+**Indexes:**
+- Unique index on `external_id`
+- Index on `status`
+
+**Status Values:**
+- `pending` — Created but not yet started
+- `running` — Currently in progress
+- `success` — All targets completed successfully
+- `partial` — Some targets succeeded, some failed
+- `failed` — All targets failed or fatal error occurred
+- `skipped` — Sync was skipped (e.g. no changes)
+
+**Trigger Values:**
+- `manual` — Invoked directly by user
+- `cron` — Invoked by scheduled job
+- `ci` — Invoked by CI pipeline
+
+</details>
+
+<details>
+<summary><b>broadcast_sync_target_results</b> — Per-target sync results</summary>
+
+Tracks the result of syncing each individual target repository within a broadcast sync run.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `broadcast_sync_run_id` | uint | FK to `broadcast_sync_runs` (not null) |
+| `target_id` | uint | FK to `targets` (not null) |
+| `repo_id` | uint | FK to `repos` (not null) |
+| `started_at` | datetime | Target sync start time (not null) |
+| `ended_at` | datetime | Target sync end time (nullable) |
+| `duration_ms` | int64 | Duration in milliseconds |
+| `status` | text | `pending`, `success`, `failed`, `skipped`, `no_changes` |
+| `branch_name` | text | Working branch created for this sync |
+| `source_commit_sha` | text | Source commit SHA |
+| `files_processed` | int | Total files evaluated |
+| `files_changed` | int | Files that were actually modified |
+| `files_deleted` | int | Files that were deleted |
+| `lines_added` | int | Aggregated lines added across all file changes |
+| `lines_removed` | int | Aggregated lines removed across all file changes |
+| `bytes_changed` | int64 | Total bytes changed |
+| `pr_number` | int | Pull request number (nullable — only set if PR created) |
+| `pr_url` | text | Pull request URL (nullable) |
+| `pr_state` | text | PR state: `open`, `merged`, `closed` (nullable) |
+| `error_message` | text | Error message if failed (nullable) |
+| `error_details` | text | JSON blob with additional error context (nullable) |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Belongs to `broadcast_sync_runs`
+- Has many `broadcast_sync_file_changes`
+
+**Indexes:**
+- Index on `broadcast_sync_run_id`
+- Index on `target_id`
+- Index on `repo_id`
+- Index on `status`
+
+**Status Values:**
+- `pending` — Not yet processed
+- `success` — Sync completed and PR created (or changes applied)
+- `failed` — Error occurred during sync
+- `skipped` — Target was intentionally skipped
+- `no_changes` — No file differences detected; no PR created
+
+</details>
+
+<details>
+<summary><b>broadcast_sync_file_changes</b> — Per-file change records</summary>
+
+Tracks individual file-level changes within a target sync result, including diff statistics.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uint | Primary key |
+| `broadcast_sync_target_result_id` | uint | FK to `broadcast_sync_target_results` (not null) |
+| `file_path` | text | Destination file path in target repo (not null) |
+| `source_path` | text | Source file path if different from destination (nullable) |
+| `change_type` | text | `added`, `modified`, `deleted` |
+| `lines_added` | int | Lines added to this file |
+| `lines_removed` | int | Lines removed from this file |
+| `size_bytes` | int64 | File size in bytes after change |
+| `position` | int | Ordering within the target result |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+| `deleted_at` | datetime | Soft delete timestamp |
+
+**Relations:**
+- Belongs to `broadcast_sync_target_results`
+
+**Indexes:**
+- Index on `broadcast_sync_target_result_id`
+- Index on `file_path`
+
+**Change Type Values:**
+- `added` — File did not exist in target; was created
+- `modified` — File existed and was updated
+- `deleted` — File was removed from target
 
 </details>
 
@@ -1624,6 +1781,73 @@ go-broadcast analytics status mrz1836/go-broadcast
 
 <br>
 
+## 📈 Metrics Command
+
+The `metrics` command queries broadcast sync history stored in the `broadcast_sync_runs`, `broadcast_sync_target_results`, and `broadcast_sync_file_changes` tables. It is a top-level command (not under `db` or `analytics`).
+
+```bash
+# Show summary statistics (default mode)
+go-broadcast metrics
+
+# Show runs from the last 7 days
+go-broadcast metrics --last 7d
+
+# Show sync history for a specific target repository
+go-broadcast metrics --repo mrz1836/go-paymail
+
+# Show detailed information for a specific run
+go-broadcast metrics --run SR-20260215-abc123
+
+# Output as JSON for scripting/automation
+go-broadcast metrics --json
+go-broadcast metrics --last 24h --json
+```
+
+### Flags
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--last <period>` | string | Show runs from last period (e.g., `7d`, `24h`, `30d`, `1w`) |
+| `--repo <owner/name>` | string | Filter by target repository full name |
+| `--run <external_id>` | string | Show details for a specific run by its external ID |
+| `--json` | bool | Output as JSON instead of formatted table |
+
+### Modes
+
+**1. Summary (default)**
+
+Shows aggregate statistics across all broadcast sync runs:
+- Total run count and success rate
+- Average sync duration
+- Runs and files changed in the last 7 days
+- Timestamp of the last sync run
+
+**2. Recent Runs (`--last`)**
+
+Lists recent sync runs in a table view. Supported duration suffixes: `h` (hours), `d` (days), `w` (weeks), `m` (months), `y` (years).
+
+**3. Repository History (`--repo`)**
+
+Shows sync history filtered to runs that targeted a specific repository, including per-run status, files changed, duration, and PR info.
+
+**4. Run Detail (`--run`)**
+
+Shows full details for a single sync run identified by its external ID (`SR-{YYYYMMDD}-{random6}` format), including all per-target results and error information.
+
+### External ID Format
+
+Each sync run is assigned a human-readable external ID:
+
+```
+SR-20260217-a3b9c1
+```
+
+- `SR` — Sync Run prefix
+- `20260217` — Date in YYYYMMDD format
+- `a3b9c1` — 6-character random suffix
+
+<br>
+
 ## 🔍 Queries
 
 ### Common Query Patterns
@@ -1765,6 +1989,10 @@ go tool cover -html=coverage.out
 | Directory Mapping Repository | `repository_directory_mapping_test.go` | >80% |
 | Bulk Repository | `repository_bulk_test.go` | >80% |
 | CLI CRUD Tests | `db_crud_test.go` | >80% |
+| Sync Model Tests | `models_sync_test.go` | >85% |
+| Sync Repository Tests | `repository_sync_test.go` | >85% |
+| Sync Integration Tests | `sync/metrics_integration_test.go` | >80% |
+| Metrics CLI Tests | `cli/metrics_test.go` | >80% |
 
 ### Key Test Scenarios
 
