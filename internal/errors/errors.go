@@ -16,6 +16,7 @@ var (
 	ErrSyncFailed        = errors.New("sync operation failed")
 	ErrNoMatchingTargets = errors.New("no targets match the specified filter")
 	ErrFileNotFound      = errors.New("source file not found")
+	ErrFileTooLarge      = errors.New("file exceeds size limit")
 	ErrTransformNotFound = errors.New("transform not found")
 
 	// State errors

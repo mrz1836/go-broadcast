@@ -65,9 +65,15 @@ func (bp *BatchProcessor) ProcessFiles(ctx context.Context, sourcePath string, j
 
 	bp.logger.WithField("job_count", len(jobs)).Info("Starting batch file processing")
 
-	// Create channels for job distribution
-	jobChan := make(chan FileJob, len(jobs))
-	resultChan := make(chan fileProcessResult, len(jobs))
+	// Create channels for job distribution.
+	// Cap buffer to prevent unbounded allocation for large job lists (CWE-400).
+	const maxChanBuf = 1000
+	chanBuf := len(jobs)
+	if chanBuf > maxChanBuf {
+		chanBuf = maxChanBuf
+	}
+	jobChan := make(chan FileJob, chanBuf)
+	resultChan := make(chan fileProcessResult, chanBuf)
 
 	// Start worker goroutines
 	g, ctx := errgroup.WithContext(ctx)
@@ -205,10 +211,11 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 	fullSourcePath := filepath.Join(sourcePath, job.SourcePath)
 	logger.WithField("full_source_path", fullSourcePath).Debug("Reading source file")
 
-	// Check if source file exists
-	srcContent, err := os.ReadFile(fullSourcePath) //nolint:gosec // Path is constructed from trusted configuration
-	if err != nil {
-		if os.IsNotExist(err) {
+	// Check if source file exists and enforce size limit before reading (CWE-400).
+	const maxFileSizeBytes = 10 * 1024 * 1024 // 10 MB
+	fi, statErr := os.Stat(fullSourcePath)
+	if statErr != nil {
+		if os.IsNotExist(statErr) {
 			logger.Debug("Source file not found, skipping")
 			return fileProcessResult{
 				Change: nil,
@@ -216,6 +223,24 @@ func (bp *BatchProcessor) processFileJobWithReporter(ctx context.Context, source
 				Job:    job,
 			}
 		}
+		logger.WithError(statErr).Error("Failed to stat source file")
+		return fileProcessResult{
+			Change: nil,
+			Error:  fmt.Errorf("failed to stat source file %s: %w", job.SourcePath, statErr),
+			Job:    job,
+		}
+	}
+	if fi.Size() > maxFileSizeBytes {
+		logger.WithField("file_size", fi.Size()).Warn("Source file exceeds size limit, skipping")
+		return fileProcessResult{
+			Change: nil,
+			Error:  fmt.Errorf("%w: %s (%d bytes)", internalerrors.ErrFileTooLarge, job.SourcePath, fi.Size()),
+			Job:    job,
+		}
+	}
+
+	srcContent, err := os.ReadFile(fullSourcePath) //nolint:gosec // Path is constructed from trusted configuration
+	if err != nil {
 		logger.WithError(err).Error("Failed to read source file")
 		return fileProcessResult{
 			Change: nil,
@@ -635,9 +660,15 @@ func (bp *BatchProcessor) ProcessFilesWithProgress(ctx context.Context, sourcePa
 
 	bp.logger.WithField("job_count", len(jobs)).Info("Starting batch file processing with progress reporting")
 
-	// Create channels for job distribution
-	jobChan := make(chan FileJob, len(jobs))
-	resultChan := make(chan fileProcessResult, len(jobs))
+	// Create channels for job distribution.
+	// Cap buffer to prevent unbounded allocation for large job lists (CWE-400).
+	const maxChanBuf = 1000
+	chanBuf := len(jobs)
+	if chanBuf > maxChanBuf {
+		chanBuf = maxChanBuf
+	}
+	jobChan := make(chan FileJob, chanBuf)
+	resultChan := make(chan fileProcessResult, chanBuf)
 
 	// Initialize progress
 	if progressReporter != nil {
