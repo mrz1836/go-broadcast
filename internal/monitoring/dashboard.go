@@ -139,7 +139,7 @@ func (mc *MetricsCollector) GetMetricsHistory() []MetricsSnapshot {
 // ServeHTTP implements http.Handler for metrics endpoint
 func (mc *MetricsCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Set CORS headers first (these can always be sent)
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 

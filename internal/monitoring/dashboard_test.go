@@ -141,7 +141,7 @@ func TestMetricsHTTPHandler(t *testing.T) {
 		collector.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
+		assert.Equal(t, "http://localhost", w.Header().Get("Access-Control-Allow-Origin"))
 		assert.Contains(t, w.Header().Get("Access-Control-Allow-Methods"), "GET")
 	})
 }
@@ -1088,7 +1088,7 @@ func TestServeHTTPBufferedResponse(t *testing.T) {
 		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
 		// CORS headers should also be set
-		assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
+		assert.Equal(t, "http://localhost", w.Header().Get("Access-Control-Allow-Origin"))
 	})
 
 	t.Run("history endpoint works correctly", func(t *testing.T) {
