@@ -750,19 +750,58 @@ The `review-pr` command will:
 ```bash
 # Validate and preview
 go-broadcast validate --config sync.yaml
+go-broadcast validate --skip-remote-checks        # Offline validation (no network checks)
+go-broadcast validate --source-only               # Only validate source repo access
 go-broadcast sync --dry-run --config sync.yaml
 
 # Execute sync
 go-broadcast sync --config sync.yaml
 go-broadcast sync org/specific-repo --config sync.yaml
+go-broadcast sync --clear-cache --config sync.yaml  # Clear module version cache before sync
 
 # Database-backed configuration (alternative to YAML)
 go-broadcast db init                              # Initialize database
+go-broadcast db init --force                      # Force recreation (destroys existing data)
 go-broadcast db import sync.yaml                  # Import existing YAML config
+go-broadcast db import --force                    # Force import (replace existing config)
 go-broadcast sync --from-db                       # Sync using database config
 go-broadcast status --from-db                     # Check status from database
 go-broadcast validate --from-db                   # Validate database config
 go-broadcast cancel --from-db --groups "core"     # Cancel using database config
+
+# Database status and inspection
+go-broadcast db status                            # Show database status (version, table counts)
+go-broadcast db status --json                     # Status in JSON format
+go-broadcast db diff                              # Compare DB config vs YAML file
+go-broadcast db diff --yaml my-config.yaml        # Compare against specific YAML file
+go-broadcast db diff --detail                     # Show detailed field-level differences
+go-broadcast db validate                          # Validate database consistency
+go-broadcast db validate --json                   # Validation results in JSON
+
+# Database export
+go-broadcast db export --output backup.yaml       # Export entire config to YAML
+go-broadcast db export --group core --output core-group.yaml  # Export specific group
+go-broadcast db export --stdout                   # Export to stdout
+
+# Granular CLI management (full reference: docs/database.md)
+go-broadcast db group list                        # List all groups
+go-broadcast db group enable my-group             # Enable a group
+go-broadcast db group disable my-group            # Disable a group
+go-broadcast db group create                      # Create a new group
+go-broadcast db group update my-group             # Update a group
+go-broadcast db group delete my-group             # Delete a group
+go-broadcast db target list                       # List all target repositories
+go-broadcast db target add owner/repo             # Add a target repository
+go-broadcast db target remove target-id           # Remove a target repository
+go-broadcast db file-list list                    # List all file lists
+go-broadcast db file-list create                  # Create a new file list
+go-broadcast db file-list delete list-id          # Delete a file list
+go-broadcast db dir-list list                     # List all directory lists
+go-broadcast db dir-list create                   # Create a new directory list
+go-broadcast db ref add-file-list target-id list-id   # Add file list ref to target
+go-broadcast db ref add-dir-list target-id list-id    # Add dir list ref to target
+go-broadcast db bulk add-file-list list-id t1 t2      # Add file list to multiple targets
+go-broadcast db bulk add-dir-list list-id t1 t2       # Add dir list to multiple targets
 # See docs/database.md for complete database documentation
 
 # Repository analytics
@@ -803,6 +842,15 @@ go-broadcast cancel --groups "core" org/repo1              # Cancel specific rep
 go-broadcast cancel --skip-groups "experimental"           # Cancel all except experimental group
 go-broadcast cancel --dry-run                              # Preview what would be cancelled
 
+# Query sync metrics and history
+go-broadcast metrics                              # Summary statistics across all sync runs
+go-broadcast metrics --last 7d                    # Runs from last 7 days
+go-broadcast metrics --last 24h                   # Runs from last 24 hours
+go-broadcast metrics --repo owner/repo-name       # Sync history for specific repository
+go-broadcast metrics --run SR-20260215-abc123     # Details for a specific run ID
+go-broadcast metrics --json                       # Output as JSON
+go-broadcast metrics --last 24h --json            # Recent runs in JSON format
+
 # Review and merge pull requests
 go-broadcast review-pr <pr-url>                                      # Review and merge single PR
 go-broadcast review-pr <url1> <url2> <url3>                         # Batch review and merge multiple PRs
@@ -816,11 +864,19 @@ go-broadcast review-pr --all-assigned-prs --message "LGTM"          # Custom mes
 go-broadcast review-pr --bypass <pr-url>                            # Bypass branch protection (admin)
 go-broadcast review-pr --bypass --ignore-checks <pr-url>            # Bypass and skip status checks
 
+# Module management
+go-broadcast modules list                                         # List all modules in config
+go-broadcast modules show github.com/example/module               # Show module details
+go-broadcast modules versions github.com/example/module           # Show available versions for a module
+go-broadcast modules validate                                     # Validate all module configurations
+go-broadcast modules list --from-db                               # List modules from database config
+
 # Upgrade go-broadcast
 go-broadcast upgrade                     # Upgrade to latest version
 go-broadcast upgrade --check             # Check for updates without upgrading
 go-broadcast upgrade --force             # Force upgrade even if already on latest
 go-broadcast upgrade --verbose           # Show release notes after upgrade
+go-broadcast upgrade --use-binary        # Install pre-built binary instead of go install
 ```
 
 ### Configuration Reference
