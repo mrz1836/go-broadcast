@@ -1896,6 +1896,10 @@ func (m *TestValidationMockGHClient) DownloadRunArtifact(_ context.Context, _ st
 	return ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) GetRateLimit(_ context.Context) (*gh.RateLimitResponse, error) {
+	return nil, ErrMockNotImplemented
+}
+
 // TestRepositorySync_validateAndCleanupOrphanedBranches tests the validateAndCleanupOrphanedBranches method
 func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 	ctx := context.Background()

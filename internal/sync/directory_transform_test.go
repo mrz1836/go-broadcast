@@ -1091,6 +1091,10 @@ func (m *DirectoryMockGHClient) DownloadRunArtifact(_ context.Context, _ string,
 	return nil
 }
 
+func (m *DirectoryMockGHClient) GetRateLimit(_ context.Context) (*gh.RateLimitResponse, error) {
+	return &gh.RateLimitResponse{}, nil
+}
+
 // DirectoryMockFileContent represents mock file content
 type DirectoryMockFileContent struct {
 	Content []byte

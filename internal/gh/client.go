@@ -107,4 +107,7 @@ type Client interface {
 
 	// DownloadRunArtifact downloads a named artifact from a workflow run to the specified directory
 	DownloadRunArtifact(ctx context.Context, repo string, runID int64, artifactName, destDir string) error
+
+	// GetRateLimit retrieves the current GitHub API rate limit status
+	GetRateLimit(ctx context.Context) (*RateLimitResponse, error)
 }

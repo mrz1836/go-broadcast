@@ -424,6 +424,18 @@ type ArtifactsResponse struct {
 	Artifacts  []Artifact `json:"artifacts"`
 }
 
+// RateLimitResponse represents the GitHub API rate limit status
+type RateLimitResponse struct {
+	Resources struct {
+		Core struct {
+			Limit     int   `json:"limit"`
+			Remaining int   `json:"remaining"`
+			Reset     int64 `json:"reset"`
+			Used      int   `json:"used"`
+		} `json:"core"`
+	} `json:"resources"`
+}
+
 // SecretScanningAlert represents a secret scanning alert
 type SecretScanningAlert struct {
 	Number                int        `json:"number"`

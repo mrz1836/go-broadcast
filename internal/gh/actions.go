@@ -76,3 +76,18 @@ func (g *githubClient) DownloadRunArtifact(ctx context.Context, repo string, run
 
 	return nil
 }
+
+// GetRateLimit retrieves the current GitHub API rate limit status
+func (g *githubClient) GetRateLimit(ctx context.Context) (*RateLimitResponse, error) {
+	output, err := g.runner.Run(ctx, "gh", "api", "rate_limit")
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "get rate limit")
+	}
+
+	response, err := jsonutil.UnmarshalJSON[RateLimitResponse](output)
+	if err != nil {
+		return nil, appErrors.WrapWithContext(err, "parse rate limit response")
+	}
+
+	return &response, nil
+}

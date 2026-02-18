@@ -206,3 +206,9 @@ func (m *MockClient) DownloadRunArtifact(ctx context.Context, repo string, runID
 	args := m.Called(ctx, repo, runID, artifactName, destDir)
 	return args.Error(0)
 }
+
+// GetRateLimit mock implementation
+func (m *MockClient) GetRateLimit(ctx context.Context) (*RateLimitResponse, error) {
+	args := m.Called(ctx)
+	return testutil.HandleTwoValueReturn[*RateLimitResponse](args)
+}
