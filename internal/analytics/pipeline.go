@@ -26,16 +26,19 @@ type Pipeline struct {
 	repoRepo db.RepoRepository
 	orgRepo  db.OrganizationRepository
 	logger   *logrus.Logger
+	throttle *Throttle
 }
 
-// NewPipeline creates a new analytics pipeline
-func NewPipeline(ghClient gh.Client, repo db.AnalyticsRepo, repoRepo db.RepoRepository, orgRepo db.OrganizationRepository, logger *logrus.Logger) *Pipeline {
+// NewPipeline creates a new analytics pipeline.
+// throttle may be nil for unthrottled operation.
+func NewPipeline(ghClient gh.Client, repo db.AnalyticsRepo, repoRepo db.RepoRepository, orgRepo db.OrganizationRepository, logger *logrus.Logger, throttle *Throttle) *Pipeline {
 	return &Pipeline{
 		ghClient: ghClient,
 		repo:     repo,
 		repoRepo: repoRepo,
 		orgRepo:  orgRepo,
 		logger:   logger,
+		throttle: throttle,
 	}
 }
 
@@ -47,6 +50,11 @@ func (p *Pipeline) GetGHClient() gh.Client {
 // GetLogger returns the logger
 func (p *Pipeline) GetLogger() *logrus.Logger {
 	return p.logger
+}
+
+// GetThrottle returns the throttle (may be nil)
+func (p *Pipeline) GetThrottle() *Throttle {
+	return p.throttle
 }
 
 // SyncOrganization syncs metadata for configured repos in an organization
@@ -230,6 +238,13 @@ func (p *Pipeline) collectMetadata(ctx context.Context, repos []gh.RepoInfo) (ma
 				"batch":        i + 1,
 				"repos_parsed": len(metadata),
 			}).Debug("Batch processed successfully")
+		}
+
+		// Inter-batch delay to avoid rate-limit pressure
+		if p.throttle != nil && i < len(batches)-1 {
+			if err := p.throttle.WaitInterRepo(ctx); err != nil {
+				return allMetadata, err
+			}
 		}
 	}
 

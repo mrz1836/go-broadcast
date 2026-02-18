@@ -21,7 +21,7 @@ func TestSecurityCollector_CollectAlerts_EmptyRepos(t *testing.T) {
 	t.Parallel()
 
 	mockClient := new(gh.MockClient)
-	collector := NewSecurityCollector(mockClient, nil)
+	collector := NewSecurityCollector(mockClient, nil, nil)
 
 	ctx := context.Background()
 	results, err := collector.CollectAlerts(ctx, []gh.RepoInfo{})
@@ -36,7 +36,7 @@ func TestSecurityCollector_CollectAlerts_SingleRepo(t *testing.T) {
 	t.Parallel()
 
 	mockClient := new(gh.MockClient)
-	collector := NewSecurityCollector(mockClient, nil)
+	collector := NewSecurityCollector(mockClient, nil, nil)
 
 	// Setup mock responses for all three alert types
 	dependabotAlert := gh.DependabotAlert{
@@ -105,7 +105,7 @@ func TestSecurityCollector_CollectAlerts_MultipleRepos(t *testing.T) {
 	t.Parallel()
 
 	mockClient := new(gh.MockClient)
-	collector := NewSecurityCollector(mockClient, nil)
+	collector := NewSecurityCollector(mockClient, nil, nil)
 
 	// Setup mocks for 5 repos
 	repos := []gh.RepoInfo{
@@ -136,7 +136,7 @@ func TestSecurityCollector_CollectAlerts_PartialFailure(t *testing.T) {
 	t.Parallel()
 
 	mockClient := new(gh.MockClient)
-	collector := NewSecurityCollector(mockClient, nil)
+	collector := NewSecurityCollector(mockClient, nil, nil)
 
 	// Setup: repo1 succeeds, repo2 fails, repo3 succeeds
 	repos := []gh.RepoInfo{
@@ -196,7 +196,7 @@ func TestSecurityCollector_CollectAlerts_WorkerPoolLimit(t *testing.T) {
 	t.Parallel()
 
 	mockClient := new(gh.MockClient)
-	collector := NewSecurityCollector(mockClient, nil)
+	collector := NewSecurityCollector(mockClient, nil, nil)
 
 	// Track concurrent execution
 	var activeWorkers int32
@@ -250,7 +250,7 @@ func TestSecurityCollector_CollectAlerts_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	mockClient := new(gh.MockClient)
-	collector := NewSecurityCollector(mockClient, nil)
+	collector := NewSecurityCollector(mockClient, nil, nil)
 
 	// Create many repos to ensure some are still running when context is canceled
 	repos := make([]gh.RepoInfo, 30)
@@ -298,7 +298,7 @@ func TestSecurityCollector_CollectAlerts_OnlyReposWithAlerts(t *testing.T) {
 	t.Parallel()
 
 	mockClient := new(gh.MockClient)
-	collector := NewSecurityCollector(mockClient, nil)
+	collector := NewSecurityCollector(mockClient, nil, nil)
 
 	repos := []gh.RepoInfo{
 		{FullName: "org/repo-with-alerts"},
@@ -350,7 +350,7 @@ func TestSecurityAlert_Types(t *testing.T) {
 func TestSecurityCollector_Constants(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, 10, SecurityWorkerLimit, "worker limit should be 10")
+	assert.Equal(t, 3, SecurityWorkerLimit, "worker limit should be 3")
 	assert.Equal(t, 100, RateLimitThreshold, "rate limit threshold should be 100")
 }
 
@@ -364,7 +364,7 @@ func TestSecurityCollector_CollectAlerts_RaceCondition(t *testing.T) {
 	t.Parallel()
 
 	mockClient := new(gh.MockClient)
-	collector := NewSecurityCollector(mockClient, nil)
+	collector := NewSecurityCollector(mockClient, nil, nil)
 
 	// Create many repos to maximize concurrent access
 	repos := make([]gh.RepoInfo, 50)

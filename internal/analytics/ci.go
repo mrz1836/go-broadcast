@@ -24,8 +24,9 @@ import (
 var errFileNotFound = errors.New("artifact file not found")
 
 const (
-	// CIWorkerLimit is the max number of concurrent CI metric collection workers
-	CIWorkerLimit = 5
+	// CIWorkerLimit is the max number of concurrent CI metric collection workers.
+	// Kept low (2) so the shared rate limiter can govern throughput effectively.
+	CIWorkerLimit = 2
 
 	// GoFortressWorkflowName is the name of the GoFortress CI workflow
 	GoFortressWorkflowName = "GoFortress"
@@ -58,13 +59,16 @@ type CIMetrics struct {
 type CICollector struct {
 	ghClient gh.Client
 	logger   *logrus.Logger
+	throttle *Throttle
 }
 
-// NewCICollector creates a new CI metrics collector
-func NewCICollector(ghClient gh.Client, logger *logrus.Logger) *CICollector {
+// NewCICollector creates a new CI metrics collector.
+// throttle may be nil for unthrottled operation.
+func NewCICollector(ghClient gh.Client, logger *logrus.Logger, throttle *Throttle) *CICollector {
 	return &CICollector{
 		ghClient: ghClient,
 		logger:   logger,
+		throttle: throttle,
 	}
 }
 
@@ -129,7 +133,12 @@ func (c *CICollector) CollectCIMetrics(ctx context.Context, repos []gh.RepoInfo)
 // Returns nil if the repo doesn't have a GoFortress workflow.
 func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetrics, error) {
 	// Step 1: Find GoFortress workflow
-	workflows, err := c.ghClient.ListWorkflows(ctx, repo)
+	var workflows []gh.Workflow
+	err := c.doAPI(ctx, "list-workflows:"+repo, func() error {
+		var apiErr error
+		workflows, apiErr = c.ghClient.ListWorkflows(ctx, repo)
+		return apiErr
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list workflows: %w", err)
 	}
@@ -146,7 +155,12 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 	}
 
 	// Step 2: Get latest successful run
-	runs, err := c.ghClient.GetWorkflowRuns(ctx, repo, fortressID, 1)
+	var runs []gh.WorkflowRun
+	err = c.doAPI(ctx, "get-workflow-runs:"+repo, func() error {
+		var apiErr error
+		runs, apiErr = c.ghClient.GetWorkflowRuns(ctx, repo, fortressID, 1)
+		return apiErr
+	})
 	if err != nil {
 		return nil, fmt.Errorf("get workflow runs: %w", err)
 	}
@@ -156,7 +170,12 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 	latestRun := runs[0]
 
 	// Step 3: Get artifacts for this run
-	artifacts, err := c.ghClient.GetRunArtifacts(ctx, repo, latestRun.ID)
+	var artifacts []gh.Artifact
+	err = c.doAPI(ctx, "get-run-artifacts:"+repo, func() error {
+		var apiErr error
+		artifacts, apiErr = c.ghClient.GetRunArtifacts(ctx, repo, latestRun.ID)
+		return apiErr
+	})
 	if err != nil {
 		return nil, fmt.Errorf("get run artifacts: %w", err)
 	}
@@ -218,6 +237,14 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 	}
 
 	return metrics, nil
+}
+
+// doAPI executes fn through the throttle if available, or directly if not
+func (c *CICollector) doAPI(ctx context.Context, operation string, fn func() error) error {
+	if c.throttle != nil {
+		return c.throttle.DoWithRetry(ctx, operation, fn)
+	}
+	return fn()
 }
 
 // parseLOCArtifact downloads and parses the loc-stats JSON artifact

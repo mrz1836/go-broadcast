@@ -360,7 +360,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 
 	t.Run("empty repos returns empty map", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		collector := NewCICollector(mockClient, logrus.New())
+		collector := NewCICollector(mockClient, logrus.New(), nil)
 
 		result, err := collector.CollectCIMetrics(ctx, nil)
 		require.NoError(t, err)
@@ -369,7 +369,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 
 	t.Run("repo without GoFortress is skipped", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		collector := NewCICollector(mockClient, logrus.New())
+		collector := NewCICollector(mockClient, logrus.New(), nil)
 
 		repos := []gh.RepoInfo{
 			{FullName: "owner/repo1"},
@@ -389,7 +389,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 
 	t.Run("repo with GoFortress but no runs is skipped", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		collector := NewCICollector(mockClient, logrus.New())
+		collector := NewCICollector(mockClient, logrus.New(), nil)
 
 		repos := []gh.RepoInfo{
 			{FullName: "owner/repo1"},
@@ -412,7 +412,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 
 	t.Run("workflow list error is handled gracefully", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		collector := NewCICollector(mockClient, logrus.New())
+		collector := NewCICollector(mockClient, logrus.New(), nil)
 
 		repos := []gh.RepoInfo{
 			{FullName: "owner/repo1"},
@@ -430,7 +430,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 
 	t.Run("successful collection with loc-stats and coverage artifacts", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		collector := NewCICollector(mockClient, logrus.New())
+		collector := NewCICollector(mockClient, logrus.New(), nil)
 
 		repos := []gh.RepoInfo{
 			{FullName: "owner/repo1"},
@@ -492,7 +492,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 
 	t.Run("successful collection with bench-stats artifact", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		collector := NewCICollector(mockClient, logrus.New())
+		collector := NewCICollector(mockClient, logrus.New(), nil)
 
 		repos := []gh.RepoInfo{
 			{FullName: "owner/repo1"},
@@ -535,7 +535,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 
 	t.Run("successful collection with markdown fallback for LOC", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		collector := NewCICollector(mockClient, logrus.New())
+		collector := NewCICollector(mockClient, logrus.New(), nil)
 
 		repos := []gh.RepoInfo{
 			{FullName: "owner/repo1"},
@@ -586,7 +586,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 
 	t.Run("coverage fallback to coverage-stats-codecov when internal absent", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		collector := NewCICollector(mockClient, logrus.New())
+		collector := NewCICollector(mockClient, logrus.New(), nil)
 
 		repos := []gh.RepoInfo{
 			{FullName: "owner/repo1"},
@@ -652,7 +652,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 
 	t.Run("coverage-stats-internal preferred over coverage-stats-codecov when both present", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		collector := NewCICollector(mockClient, logrus.New())
+		collector := NewCICollector(mockClient, logrus.New(), nil)
 
 		repos := []gh.RepoInfo{
 			{FullName: "owner/repo1"},
@@ -707,7 +707,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 
 	t.Run("artifact download failure is handled gracefully", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		collector := NewCICollector(mockClient, logrus.New())
+		collector := NewCICollector(mockClient, logrus.New(), nil)
 
 		repos := []gh.RepoInfo{
 			{FullName: "owner/repo1"},
@@ -747,7 +747,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 func TestCICollector_CollectCIMetrics_NilLogger(t *testing.T) {
 	ctx := context.Background()
 	mockClient := gh.NewMockClient()
-	collector := NewCICollector(mockClient, nil) // nil logger
+	collector := NewCICollector(mockClient, nil, nil) // nil logger
 
 	repos := []gh.RepoInfo{
 		{FullName: "owner/repo1"},

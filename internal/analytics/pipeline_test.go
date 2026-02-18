@@ -25,7 +25,7 @@ func TestNewPipeline(t *testing.T) {
 	mockClient := gh.NewMockClient()
 	logger := logrus.New()
 
-	pipeline := NewPipeline(mockClient, nil, nil, nil, logger)
+	pipeline := NewPipeline(mockClient, nil, nil, nil, logger, nil)
 	require.NotNil(t, pipeline)
 	assert.NotNil(t, pipeline.ghClient)
 	assert.NotNil(t, pipeline.logger)
@@ -41,7 +41,7 @@ func TestSyncRepository(t *testing.T) {
 
 	t.Run("successful single repo sync", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		pipeline := NewPipeline(mockClient, nil, nil, nil, nil)
+		pipeline := NewPipeline(mockClient, nil, nil, nil, nil, nil)
 
 		// Mock GraphQL response for single repo
 		graphQLData := map[string]interface{}{
@@ -68,7 +68,7 @@ func TestSyncRepository(t *testing.T) {
 
 	t.Run("GraphQL error", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
-		pipeline := NewPipeline(mockClient, nil, nil, nil, nil)
+		pipeline := NewPipeline(mockClient, nil, nil, nil, nil, nil)
 
 		mockClient.On("ExecuteGraphQL", ctx, mock.Anything).
 			Return(nil, errGraphQLError)

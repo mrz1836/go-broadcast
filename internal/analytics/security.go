@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	// SecurityWorkerLimit is the max number of concurrent security API calls
-	SecurityWorkerLimit = 10
+	// SecurityWorkerLimit is the max number of concurrent security API calls.
+	// Kept low (3) so the shared rate limiter can govern throughput effectively.
+	SecurityWorkerLimit = 3
 
 	// RateLimitThreshold is the minimum remaining rate limit before pausing
 	RateLimitThreshold = 100
@@ -49,13 +50,16 @@ type SecurityAlert struct {
 type SecurityCollector struct {
 	ghClient gh.Client
 	logger   *logrus.Logger
+	throttle *Throttle
 }
 
-// NewSecurityCollector creates a new security alert collector
-func NewSecurityCollector(ghClient gh.Client, logger *logrus.Logger) *SecurityCollector {
+// NewSecurityCollector creates a new security alert collector.
+// throttle may be nil for unthrottled operation.
+func NewSecurityCollector(ghClient gh.Client, logger *logrus.Logger, throttle *Throttle) *SecurityCollector {
 	return &SecurityCollector{
 		ghClient: ghClient,
 		logger:   logger,
+		throttle: throttle,
 	}
 }
 
@@ -131,7 +135,12 @@ func (s *SecurityCollector) collectRepoAlerts(ctx context.Context, repo string) 
 	var allAlerts []SecurityAlert
 
 	// Collect Dependabot alerts
-	dependabotAlerts, err := s.ghClient.GetDependabotAlerts(ctx, repo)
+	var dependabotAlerts []gh.DependabotAlert
+	err := s.doAPI(ctx, "dependabot-alerts:"+repo, func() error {
+		var apiErr error
+		dependabotAlerts, apiErr = s.ghClient.GetDependabotAlerts(ctx, repo)
+		return apiErr
+	})
 	if err != nil {
 		return nil, fmt.Errorf("dependabot alerts: %w", err)
 	}
@@ -153,7 +162,12 @@ func (s *SecurityCollector) collectRepoAlerts(ctx context.Context, repo string) 
 	}
 
 	// Collect Code Scanning alerts
-	codeScanningAlerts, err := s.ghClient.GetCodeScanningAlerts(ctx, repo)
+	var codeScanningAlerts []gh.CodeScanningAlert
+	err = s.doAPI(ctx, "code-scanning-alerts:"+repo, func() error {
+		var apiErr error
+		codeScanningAlerts, apiErr = s.ghClient.GetCodeScanningAlerts(ctx, repo)
+		return apiErr
+	})
 	if err != nil {
 		return nil, fmt.Errorf("code scanning alerts: %w", err)
 	}
@@ -175,7 +189,12 @@ func (s *SecurityCollector) collectRepoAlerts(ctx context.Context, repo string) 
 	}
 
 	// Collect Secret Scanning alerts
-	secretScanningAlerts, err := s.ghClient.GetSecretScanningAlerts(ctx, repo)
+	var secretScanningAlerts []gh.SecretScanningAlert
+	err = s.doAPI(ctx, "secret-scanning-alerts:"+repo, func() error {
+		var apiErr error
+		secretScanningAlerts, apiErr = s.ghClient.GetSecretScanningAlerts(ctx, repo)
+		return apiErr
+	})
 	if err != nil {
 		return nil, fmt.Errorf("secret scanning alerts: %w", err)
 	}
@@ -198,6 +217,14 @@ func (s *SecurityCollector) collectRepoAlerts(ctx context.Context, repo string) 
 	}
 
 	return allAlerts, nil
+}
+
+// doAPI executes fn through the throttle if available, or directly if not
+func (s *SecurityCollector) doAPI(ctx context.Context, operation string, fn func() error) error {
+	if s.throttle != nil {
+		return s.throttle.DoWithRetry(ctx, operation, fn)
+	}
+	return fn()
 }
 
 // formatTimePtr formats a time pointer to ISO 8601 string, returns nil if input is nil
