@@ -34,6 +34,7 @@ const (
 	artifactLOCStats         = "loc-stats"
 	artifactStatistics       = "statistics-section"
 	artifactCoverageInternal = "coverage-stats-internal"
+	artifactCoverageCodecov  = "coverage-stats-codecov" // fallback: repos using codecov provider upload this name
 	artifactTestsSection     = "tests-section"
 	artifactBenchPrefix      = "bench-stats-"
 	artifactCIResultsPrefix  = "ci-results-"
@@ -186,9 +187,14 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 		c.parseLOCFromMarkdownArtifact(ctx, repo, latestRun.ID, tmpDir, metrics)
 	}
 
-	// Coverage: from codecov JSON
-	if artifactNames[artifactCoverageInternal] {
-		c.parseCoverageArtifact(ctx, repo, latestRun.ID, tmpDir, metrics)
+	// Coverage: prefer internal provider artifact; fall back to codecov provider artifact.
+	// Both upload the same JSON schema (coverage_percentage field). The provider used
+	// depends on GO_COVERAGE_PROVIDER in the repo's GoFortress config.
+	switch {
+	case artifactNames[artifactCoverageInternal]:
+		c.parseCoverageArtifact(ctx, repo, latestRun.ID, artifactCoverageInternal, tmpDir, metrics)
+	case artifactNames[artifactCoverageCodecov]:
+		c.parseCoverageArtifact(ctx, repo, latestRun.ID, artifactCoverageCodecov, tmpDir, metrics)
 	}
 
 	// Tests: prefer ci-results JSON, fall back to tests-section markdown
@@ -266,12 +272,13 @@ func (c *CICollector) parseLOCFromMarkdownArtifact(ctx context.Context, repo str
 	metrics.TestFilesCount = testFiles
 }
 
-// parseCoverageArtifact downloads and parses the coverage JSON artifact
-func (c *CICollector) parseCoverageArtifact(ctx context.Context, repo string, runID int64, tmpDir string, metrics *CIMetrics) {
-	artDir := filepath.Join(tmpDir, artifactCoverageInternal)
-	if err := c.ghClient.DownloadRunArtifact(ctx, repo, runID, artifactCoverageInternal, artDir); err != nil {
+// parseCoverageArtifact downloads and parses a coverage JSON artifact by name.
+// Both "coverage-stats-internal" and "coverage-stats-codecov" share the same JSON schema.
+func (c *CICollector) parseCoverageArtifact(ctx context.Context, repo string, runID int64, name, tmpDir string, metrics *CIMetrics) {
+	artDir := filepath.Join(tmpDir, name)
+	if err := c.ghClient.DownloadRunArtifact(ctx, repo, runID, name, artDir); err != nil {
 		if c.logger != nil {
-			c.logger.WithError(err).Debug("Failed to download coverage artifact")
+			c.logger.WithError(err).WithField("artifact", name).Debug("Failed to download coverage artifact")
 		}
 		return
 	}

@@ -584,6 +584,127 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 		mockClient.AssertExpectations(t)
 	})
 
+	t.Run("coverage fallback to coverage-stats-codecov when internal absent", func(t *testing.T) {
+		mockClient := gh.NewMockClient()
+		collector := NewCICollector(mockClient, logrus.New())
+
+		repos := []gh.RepoInfo{
+			{FullName: "owner/repo1"},
+		}
+
+		mockClient.On("ListWorkflows", mock.Anything, "owner/repo1").
+			Return([]gh.Workflow{
+				{ID: 10, Name: "GoFortress"},
+			}, nil)
+
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), 1).
+			Return([]gh.WorkflowRun{
+				{ID: 100, HeadBranch: "master", HeadSHA: "abc123"},
+			}, nil)
+
+		// Only coverage-stats-codecov present (repo uses codecov provider)
+		mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(100)).
+			Return([]gh.Artifact{
+				{ID: 200, Name: "loc-stats"},
+				{ID: 201, Name: "coverage-stats-codecov"},
+			}, nil)
+
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), "loc-stats", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				locJSON := `{"go_files_loc": 3000, "test_files_loc": 1000, "go_files_count": 50, "test_files_count": 20}`
+				_ = os.WriteFile(filepath.Join(destDir, "loc-stats.json"), []byte(locJSON), 0o600)
+			}).
+			Return(nil)
+
+		// Should download coverage-stats-codecov as fallback
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), "coverage-stats-codecov", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				// Same JSON schema as coverage-stats-internal
+				covJSON := `{"coverage_percentage": 73.2, "provider": "codecov", "branch": "master"}`
+				_ = os.WriteFile(filepath.Join(destDir, "coverage-stats-codecov.json"), []byte(covJSON), 0o600)
+			}).
+			Return(nil)
+
+		result, err := collector.CollectCIMetrics(ctx, repos)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+
+		metrics := result["owner/repo1"]
+		require.NotNil(t, metrics)
+		assert.Equal(t, 3000, metrics.GoFilesLOC)
+		require.NotNil(t, metrics.Coverage, "coverage should be populated from codecov fallback artifact")
+		assert.InDelta(t, 73.2, *metrics.Coverage, 0.01)
+
+		// Verify internal artifact was NOT requested (only codecov was present)
+		for _, call := range mockClient.Calls {
+			if call.Method == "DownloadRunArtifact" {
+				assert.NotEqual(t, "coverage-stats-internal", call.Arguments.String(3),
+					"should not attempt to download coverage-stats-internal when only codecov artifact exists")
+			}
+		}
+
+		mockClient.AssertExpectations(t)
+	})
+
+	t.Run("coverage-stats-internal preferred over coverage-stats-codecov when both present", func(t *testing.T) {
+		mockClient := gh.NewMockClient()
+		collector := NewCICollector(mockClient, logrus.New())
+
+		repos := []gh.RepoInfo{
+			{FullName: "owner/repo1"},
+		}
+
+		mockClient.On("ListWorkflows", mock.Anything, "owner/repo1").
+			Return([]gh.Workflow{
+				{ID: 10, Name: "GoFortress"},
+			}, nil)
+
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), 1).
+			Return([]gh.WorkflowRun{
+				{ID: 100, HeadBranch: "master", HeadSHA: "abc123"},
+			}, nil)
+
+		// Both artifacts present — internal should win
+		mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(100)).
+			Return([]gh.Artifact{
+				{ID: 200, Name: "coverage-stats-internal"},
+				{ID: 201, Name: "coverage-stats-codecov"},
+			}, nil)
+
+		// Only internal should be downloaded (coverage from internal = 91.0)
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), "coverage-stats-internal", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				covJSON := `{"coverage_percentage": 91.0, "provider": "internal"}`
+				_ = os.WriteFile(filepath.Join(destDir, "coverage-stats-internal.json"), []byte(covJSON), 0o600)
+			}).
+			Return(nil)
+
+		result, err := collector.CollectCIMetrics(ctx, repos)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+
+		metrics := result["owner/repo1"]
+		require.NotNil(t, metrics)
+		require.NotNil(t, metrics.Coverage)
+		assert.InDelta(t, 91.0, *metrics.Coverage, 0.01, "internal artifact should take precedence")
+
+		// Verify codecov artifact was NOT downloaded
+		for _, call := range mockClient.Calls {
+			if call.Method == "DownloadRunArtifact" {
+				assert.NotEqual(t, "coverage-stats-codecov", call.Arguments.String(3),
+					"should not download coverage-stats-codecov when internal artifact exists")
+			}
+		}
+
+		mockClient.AssertExpectations(t)
+	})
+
 	t.Run("artifact download failure is handled gracefully", func(t *testing.T) {
 		mockClient := gh.NewMockClient()
 		collector := NewCICollector(mockClient, logrus.New())
