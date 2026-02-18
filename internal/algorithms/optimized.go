@@ -4,6 +4,7 @@ package algorithms
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -595,10 +596,14 @@ func (bp *BatchProcessor) flush() error {
 	bp.items = bp.items[:0]
 	bp.lastFlush = time.Now()
 
-	// Process outside of lock to avoid blocking other operations
-	bp.mu.Unlock()
-	err := bp.processor(itemsCopy)
-	bp.mu.Lock()
+	// Process outside of lock to avoid blocking other operations.
+	// Use a closure with defer so the lock is always re-acquired, even if processor panics (CWE-667).
+	var err error
+	func() {
+		bp.mu.Unlock()
+		defer bp.mu.Lock()
+		err = bp.processor(itemsCopy)
+	}()
 
 	return err
 }
@@ -619,13 +624,17 @@ func (bp *BatchProcessor) autoFlushWorker() {
 					time.Since(bp.lastFlush) > bp.maxWaitTime)
 
 			if shouldFlush {
-				_ = bp.flush()
+				if err := bp.flush(); err != nil {
+					log.Printf("batch processor: periodic flush failed: %v", err)
+				}
 			}
 			bp.mu.Unlock()
 
 		case <-bp.stopChan:
 			// Final flush before stopping
-			_ = bp.Flush()
+			if err := bp.Flush(); err != nil {
+				log.Printf("batch processor: stop-time flush failed: %v", err)
+			}
 			return
 		}
 	}
