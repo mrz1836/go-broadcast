@@ -754,6 +754,10 @@ func createRunSyncWithVerbose(config *LogConfig) func(*cobra.Command, []string) 
 			return fmt.Errorf("failed to initialize sync engine: %w", err)
 		}
 
+		// Attach sync metrics recorder if database is available
+		closeMetrics := tryAttachMetricsRecorder(engine, logrus.StandardLogger())
+		defer closeMetrics()
+
 		// Execute sync
 		if err := engine.Sync(ctx, targets); err != nil {
 			return fmt.Errorf("sync failed: %w", err)
