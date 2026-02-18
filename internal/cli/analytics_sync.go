@@ -40,12 +40,15 @@ func determineSyncType(securityOnly bool) string {
 // newAnalyticsSyncCmd creates the analytics sync command
 func newAnalyticsSyncCmd() *cobra.Command {
 	var (
-		org          string
-		repo         string
-		securityOnly bool
-		full         bool
-		dryRun       bool
-		progress     bool
+		org            string
+		repo           string
+		securityOnly   bool
+		full           bool
+		dryRun         bool
+		progress       bool
+		rateLimit      float64
+		burst          int
+		interRepoDelay int
 	)
 
 	cmd := &cobra.Command{
@@ -96,8 +99,41 @@ with change detection to minimize database writes.`,
 				return fmt.Errorf("failed to create GitHub client: %w", err)
 			}
 
+			// Create shared throttle for rate limiting
+			throttleCfg := analytics.DefaultThrottleConfig()
+			throttleCfg.RequestsPerSecond = rateLimit
+			throttleCfg.BurstSize = burst
+			throttleCfg.InterRepoDelay = time.Duration(interRepoDelay) * time.Millisecond
+			throttle := analytics.NewThrottle(throttleCfg, logger)
+
 			// Create analytics pipeline
-			pipeline := analytics.NewPipeline(ghClient, analyticsRepo, repoRepo, orgRepo, logger)
+			pipeline := analytics.NewPipeline(ghClient, analyticsRepo, repoRepo, orgRepo, logger, throttle)
+
+			// Pre-flight rate limit check
+			if showProgress := progress; showProgress {
+				rateLimitInfo, rateLimitErr := analytics.CheckRateLimit(ctx, ghClient)
+				if rateLimitErr != nil {
+					output.Warn(fmt.Sprintf("Could not check rate limit: %v", rateLimitErr))
+				} else {
+					analytics.DisplayRateLimitInfo(rateLimitInfo)
+
+					// Estimate cost and warn if budget is low
+					repoCount := 0
+					if repo != "" {
+						repoCount = 1
+					}
+					// For org/full sync, we'll warn with a conservative estimate
+					if repoCount == 0 {
+						repoCount = 50 // Conservative default estimate
+					}
+					estimate := analytics.EstimateSyncCost(repoCount)
+					analytics.WarnIfBudgetLow(rateLimitInfo, estimate)
+				}
+
+				output.Info(fmt.Sprintf("Throttle: %.1f req/s, burst %d, %dms inter-repo delay",
+					throttleCfg.RequestsPerSecond, throttleCfg.BurstSize,
+					throttleCfg.InterRepoDelay.Milliseconds()))
+			}
 
 			// Determine sync scope
 			syncType := determineSyncType(securityOnly)
@@ -135,8 +171,12 @@ with change detection to minimize database writes.`,
 				output.Warn(fmt.Sprintf("Failed to update sync run: %v", completeErr))
 			}
 
+			// Update API call count from throttle stats
+			throttleStats := throttle.Stats()
+			syncRun.APICallsMade = int(throttleStats.TotalCalls)
+
 			// Display summary
-			displaySyncSummary(syncRun, status)
+			displaySyncSummary(syncRun, status, &throttleStats)
 
 			// Return original sync error if any
 			return syncErr
@@ -149,6 +189,9 @@ with change detection to minimize database writes.`,
 	cmd.Flags().BoolVar(&full, "full", false, "Force full sync (ignore change detection)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be synced without writing to DB")
 	cmd.Flags().BoolVar(&progress, "progress", true, "Show progress output")
+	cmd.Flags().Float64Var(&rateLimit, "rate-limit", 1.0, "Max GitHub API requests per second")
+	cmd.Flags().IntVar(&burst, "burst", 3, "Max burst size for rate limiter")
+	cmd.Flags().IntVar(&interRepoDelay, "inter-repo-delay", 500, "Delay between repos in milliseconds")
 
 	return cmd
 }
@@ -265,7 +308,7 @@ func syncSingleRepository(
 	}
 
 	syncRun.ReposProcessed++
-	syncRun.APICallsMade += 3 // Metadata + security + CI (approximate)
+	// API call count is tracked by the shared throttle
 
 	if showProgress {
 		totalAlerts := currentSnapshot.DependabotAlertCount + currentSnapshot.CodeScanningAlertCount + currentSnapshot.SecretScanningAlertCount
@@ -367,7 +410,7 @@ func collectSecurityAlerts(
 	fullName string,
 ) (int, error) {
 	// Use SecurityCollector to fetch alerts
-	securityCollector := analytics.NewSecurityCollector(pipeline.GetGHClient(), pipeline.GetLogger())
+	securityCollector := analytics.NewSecurityCollector(pipeline.GetGHClient(), pipeline.GetLogger(), pipeline.GetThrottle())
 
 	// Create RepoInfo for collector
 	parts := strings.Split(fullName, "/")
@@ -429,7 +472,7 @@ func collectCIMetrics(
 	fullName string,
 ) error {
 	// Use CICollector to fetch metrics
-	ciCollector := analytics.NewCICollector(pipeline.GetGHClient(), pipeline.GetLogger())
+	ciCollector := analytics.NewCICollector(pipeline.GetGHClient(), pipeline.GetLogger(), pipeline.GetThrottle())
 
 	parts := strings.Split(fullName, "/")
 	repoInfo := gh.RepoInfo{
@@ -529,6 +572,7 @@ func syncOrganization(
 	}
 
 	// Process each repository
+	repoIndex := 0
 	for fullName, meta := range metadata {
 		parts := strings.Split(fullName, "/")
 		if len(parts) != 2 {
@@ -538,6 +582,12 @@ func syncOrganization(
 		if err := syncRepositoryMetadata(ctx, pipeline, analyticsRepo, syncRun, meta, showProgress, forceFull); err != nil {
 			output.Warn(fmt.Sprintf("Failed to sync %s: %v", fullName, err))
 			continue
+		}
+
+		// Inter-repo delay to avoid rate-limit pressure
+		repoIndex++
+		if throttle := pipeline.GetThrottle(); throttle != nil && repoIndex < len(metadata) {
+			_ = throttle.WaitInterRepo(ctx)
 		}
 	}
 
@@ -675,7 +725,7 @@ func syncRepositoryMetadata(
 	}
 
 	syncRun.ReposProcessed++
-	syncRun.APICallsMade += 3 // Metadata + security + CI (approximate)
+	// API call count is tracked by the shared throttle
 
 	if showProgress {
 		totalAlerts := currentSnapshot.DependabotAlertCount + currentSnapshot.CodeScanningAlertCount + currentSnapshot.SecretScanningAlertCount
@@ -692,7 +742,7 @@ func syncRepositoryMetadata(
 }
 
 // displaySyncSummary displays a user-friendly summary of the sync operation
-func displaySyncSummary(syncRun *db.SyncRun, status string) {
+func displaySyncSummary(syncRun *db.SyncRun, status string, throttleStats *analytics.ThrottleStats) {
 	// Don't show summary for dry-run (already shown inline)
 	if syncRun.SyncType == "full" && syncRun.ReposProcessed > 0 && syncRun.SnapshotsCreated == 0 && syncRun.AlertsUpserted == 0 && syncRun.DurationMs < 10 {
 		// This looks like a dry-run, skip summary
@@ -730,9 +780,18 @@ func displaySyncSummary(syncRun *db.SyncRun, status string) {
 		output.Info(fmt.Sprintf("Duration: %s", duration.Round(time.Millisecond)))
 	}
 
-	// API calls
+	// API calls and throttle stats
 	if syncRun.APICallsMade > 0 {
 		output.Info(fmt.Sprintf("GitHub API Calls: %d", syncRun.APICallsMade))
+	}
+	if throttleStats != nil {
+		if throttleStats.TotalRetries > 0 {
+			output.Warn(fmt.Sprintf("Rate-Limit Retries: %d", throttleStats.TotalRetries))
+		}
+		if throttleStats.TotalWaitedMs > 0 {
+			waitDuration := time.Duration(throttleStats.TotalWaitedMs) * time.Millisecond
+			output.Info(fmt.Sprintf("Throttle Wait Time: %s", waitDuration.Round(time.Millisecond)))
+		}
 	}
 
 	output.Plain(strings.Repeat("─", 60))
