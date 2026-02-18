@@ -273,6 +273,10 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize sync engine: %w", err)
 	}
 
+	// Attach sync metrics recorder if database is available
+	closeMetrics := tryAttachMetricsRecorder(engine, logrus.StandardLogger())
+	defer closeMetrics()
+
 	// Execute sync
 	if err := engine.Sync(ctx, targets); err != nil {
 		return fmt.Errorf("sync failed: %w", err)
@@ -318,6 +322,10 @@ func createRunSync(flags *Flags) func(*cobra.Command, []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to initialize sync engine: %w", err)
 		}
+
+		// Attach sync metrics recorder if database is available
+		closeMetrics := tryAttachMetricsRecorder(engine, logger)
+		defer closeMetrics()
 
 		// Execute sync
 		if err := engine.Sync(ctx, targets); err != nil {
@@ -438,6 +446,33 @@ func loadConfigWithFlags(flags *Flags, logger *logrus.Logger) (*config.Config, e
 	}).Debug("Configuration loaded")
 
 	return cfg, nil
+}
+
+// tryAttachMetricsRecorder attempts to open the database and attach a sync metrics
+// recorder to the engine. If the database does not exist or cannot be opened, it
+// logs and returns a no-op closer so sync continues without metrics.
+// The returned function must be called (typically via defer) when the sync completes.
+func tryAttachMetricsRecorder(engine *sync.Engine, log *logrus.Logger) func() {
+	path := getDBPath()
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		log.Debug("Database not found; sync metrics will not be recorded")
+		return func() {}
+	}
+
+	database, err := db.Open(db.OpenOptions{
+		Path:     path,
+		LogLevel: logger.Silent,
+	})
+	if err != nil {
+		log.WithError(err).Warn("Failed to open database; sync metrics will not be recorded")
+		return func() {}
+	}
+
+	repo := db.NewBroadcastSyncRepo(database.DB())
+	adapter := sync.NewDBMetricsAdapter(repo)
+	engine.SetSyncMetricsRecorder(adapter)
+
+	return func() { _ = database.Close() }
 }
 
 // createSyncEngine initializes the sync engine with all required dependencies
