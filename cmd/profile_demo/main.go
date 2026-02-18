@@ -520,7 +520,7 @@ func modifyData(data []byte, ratio float64) []byte {
 		if modifyCount >= len(data) {
 			// Modify all positions
 			for i := range result {
-				result[i] = byte(secureRandInt(256))
+				result[i] = byte(secureRandInt(256)) //nolint:gosec // G115: secureRandInt(256) returns [0,255], safe conversion to byte
 			}
 		} else {
 			// Create a list of all positions and shuffle to get unique positions
@@ -537,7 +537,7 @@ func modifyData(data []byte, ratio float64) []byte {
 
 			// Modify the first modifyCount positions from the shuffled list
 			for i := 0; i < modifyCount; i++ {
-				result[positions[i]] = byte(secureRandInt(256))
+				result[positions[i]] = byte(secureRandInt(256)) //nolint:gosec // G115: secureRandInt(256) returns [0,255], safe conversion to byte
 			}
 		}
 	}

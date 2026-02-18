@@ -48,7 +48,7 @@ defaults:
 targets:`)
 
 	for i := 0; i < targetCount; i++ {
-		buf.WriteString(fmt.Sprintf(`
+		fmt.Fprintf(&buf, `
   - repo: "org/target-repo-%d"
     files:
       - src: ".github/workflows/ci.yml"
@@ -61,7 +61,7 @@ targets:`)
       repo_name: true
       variables:
         SERVICE_NAME: "service-%d"
-        ENVIRONMENT: "production"`, i, i))
+        ENVIRONMENT: "production"`, i, i)
 	}
 
 	return buf.Bytes()
@@ -81,7 +81,7 @@ func GenerateJSONResponse(itemCount int) []byte {
 		if i > 0 {
 			buf.WriteString(",")
 		}
-		buf.WriteString(fmt.Sprintf(`{
+		fmt.Fprintf(&buf, `{
   "name": "item-%d",
   "sha": "%s",
   "commit": {
@@ -89,7 +89,7 @@ func GenerateJSONResponse(itemCount int) []byte {
     "message": "Commit message %d"
   },
   "protected": %t
-}`, i, generateSHA(), generateSHA(), i, i%2 == 0))
+}`, i, generateSHA(), generateSHA(), i, i%2 == 0)
 	}
 
 	buf.WriteString("]")
@@ -177,18 +177,18 @@ func GenerateGitDiff(fileCount, linesPerFile int) string {
 
 	for i := 0; i < fileCount; i++ {
 		filename := fmt.Sprintf("file%d.txt", i)
-		buf.WriteString(fmt.Sprintf("diff --git a/%s b/%s\n", filename, filename))
-		buf.WriteString(fmt.Sprintf("index %s..%s 100644\n", generateSHA()[:7], generateSHA()[:7]))
-		buf.WriteString(fmt.Sprintf("--- a/%s\n", filename))
-		buf.WriteString(fmt.Sprintf("+++ b/%s\n", filename))
-		buf.WriteString(fmt.Sprintf("@@ -1,%d +1,%d @@\n", linesPerFile, linesPerFile+5))
+		fmt.Fprintf(&buf, "diff --git a/%s b/%s\n", filename, filename)
+		fmt.Fprintf(&buf, "index %s..%s 100644\n", generateSHA()[:7], generateSHA()[:7])
+		fmt.Fprintf(&buf, "--- a/%s\n", filename)
+		fmt.Fprintf(&buf, "+++ b/%s\n", filename)
+		fmt.Fprintf(&buf, "@@ -1,%d +1,%d @@\n", linesPerFile, linesPerFile+5)
 
 		for j := 0; j < linesPerFile; j++ {
 			if j%3 == 0 {
-				buf.WriteString(fmt.Sprintf("-old line %d\n", j))
-				buf.WriteString(fmt.Sprintf("+new line %d\n", j))
+				fmt.Fprintf(&buf, "-old line %d\n", j)
+				fmt.Fprintf(&buf, "+new line %d\n", j)
 			} else {
-				buf.WriteString(fmt.Sprintf(" unchanged line %d\n", j))
+				fmt.Fprintf(&buf, " unchanged line %d\n", j)
 			}
 		}
 		buf.WriteString("\n")

@@ -54,7 +54,7 @@ type Config struct {
 	Provider string
 
 	// APIKey is the API key for the selected provider.
-	APIKey string
+	APIKey string //nolint:gosec // G117: this is the intended field for holding the API key credential
 
 	// Model specifies which model to use (provider-specific defaults apply if empty).
 	Model string

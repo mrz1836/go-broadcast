@@ -96,12 +96,12 @@ func TestRedactionService_RedactSensitive(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{
+		{ //nolint:gosec // G101: test data with fake credentials for verifying redaction
 			name:     "github token ghp_",
 			input:    "Using token ghp_1234567890abcdefghijklmnopqrstuvwxyz123456",
 			expected: "Using token ghp_***REDACTED***",
 		},
-		{
+		{ //nolint:gosec // G101: test data with fake credentials for verifying redaction
 			name:     "github token ghs_",
 			input:    "Server token ghs_abcdefghijklmnopqrstuvwxyz1234567890123456",
 			expected: "Server token ghs_***REDACTED***",
@@ -146,7 +146,7 @@ func TestRedactionService_RedactSensitive(t *testing.T) {
 			input:    "",
 			expected: "",
 		},
-		{
+		{ //nolint:gosec // G101: test data with fake credentials for verifying redaction
 			name:     "url with password",
 			input:    "https://user:password123@github.com/repo.git",
 			expected: "https://user:***REDACTED***@github.com/repo.git",
@@ -176,7 +176,7 @@ func TestRedactionService_RedactLogEntry(t *testing.T) {
 	}{
 		{
 			name: "redact token in message",
-			entry: &logrus.Entry{
+			entry: &logrus.Entry{ //nolint:gosec // G101: test data with fake credentials for verifying redaction
 				Message: "Using token ghp_1234567890abcdefghijklmnopqrstuvwxyz123456",
 				Data:    logrus.Fields{},
 			},
@@ -196,7 +196,7 @@ func TestRedactionService_RedactLogEntry(t *testing.T) {
 					"normal_field": "normal_value",
 				},
 			},
-			expected: map[string]interface{}{
+			expected: map[string]interface{}{ //nolint:gosec // G101: test data with fake credentials for verifying redaction
 				"message":      "Processing request",
 				"password":     "***REDACTED***",
 				"token":        "ghp_***REDACTED***",
@@ -581,7 +581,7 @@ func TestRedactionHookFireWithComplexData(t *testing.T) {
 				Message: "Processing user data with token ghp_secrettoken123",
 			},
 			expected: map[string]interface{}{
-				"user": map[string]interface{}{
+				"user": map[string]interface{}{ //nolint:gosec // G101: test data with redacted tokens, not real credentials
 					"token":    "ghp_***REDACTED***", // pattern-based redaction for sensitive field
 					"password": "***REDACTED***",     // complete redaction for sensitive field
 					"name":     "john",               // not sensitive

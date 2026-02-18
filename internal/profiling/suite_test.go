@@ -774,7 +774,7 @@ func TestProfileSuiteMemoryProfilingIntegration(t *testing.T) {
 func TestWriteToReport(t *testing.T) {
 	tempFile, err := os.CreateTemp("", "report-test-*.txt")
 	require.NoError(t, err)
-	defer func() { _ = os.Remove(tempFile.Name()) }()
+	defer func() { _ = os.Remove(tempFile.Name()) }() //nolint:gosec // G703: path from os.CreateTemp or trusted source, not user input
 	defer func() { _ = tempFile.Close() }()
 
 	// Test writing to report
@@ -785,7 +785,7 @@ func TestWriteToReport(t *testing.T) {
 	err = tempFile.Sync()
 	require.NoError(t, err)
 
-	content, err := os.ReadFile(tempFile.Name())
+	content, err := os.ReadFile(tempFile.Name()) //nolint:gosec // G703: path from os.CreateTemp, not user-controlled input
 	require.NoError(t, err)
 
 	expectedContent := "Test message: hello\nNumber: 42\n"

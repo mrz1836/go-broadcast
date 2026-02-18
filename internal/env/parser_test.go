@@ -130,26 +130,19 @@ KEY6=https://example.com # url with comment`
 	})
 
 	t.Run("handles complex real-world example", func(t *testing.T) {
-		content := `# Database Configuration
-DATABASE_URL=postgres://user:pass@localhost/db
-
-# API Keys (DO NOT COMMIT REAL VALUES)
-# API_KEY=
-
-# Feature Flags
-FEATURE_ENABLED=true
-DEBUG_MODE=false
-
-# Paths with special characters
-LOG_PATH=/var/log/app.log
-CONFIG_PATH="./config/settings.json"`
+		testDBURL := "postgres://user:pass@localhost/db" //nolint:gosec // G101: fake test credential, not a real password
+		content := "# Database Configuration\nDATABASE_URL=" + testDBURL + "\n\n" +
+			"# API Keys (DO NOT COMMIT REAL VALUES)\n# API_KEY=\n\n" +
+			"# Feature Flags\nFEATURE_ENABLED=true\nDEBUG_MODE=false\n\n" +
+			"# Paths with special characters\nLOG_PATH=/var/log/app.log\n" +
+			"CONFIG_PATH=\"./config/settings.json\""
 		file := filepath.Join(tempDir, "complex.env")
 		require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
 
 		vars, err := parseEnvFile(file)
 		require.NoError(t, err)
 
-		assert.Equal(t, "postgres://user:pass@localhost/db", vars["DATABASE_URL"])
+		assert.Equal(t, testDBURL, vars["DATABASE_URL"])
 		assert.Equal(t, "true", vars["FEATURE_ENABLED"])
 		assert.Equal(t, "false", vars["DEBUG_MODE"])
 		assert.Equal(t, "/var/log/app.log", vars["LOG_PATH"])
@@ -256,7 +249,7 @@ func TestParseEnvLine(t *testing.T) {
 			wantValue: "value",
 			wantOk:    true,
 		},
-		{
+		{ //nolint:gosec // G101: fake test credential in URL, not a real password
 			name:      "url value",
 			line:      "DATABASE_URL=postgres://user:pass@localhost:5432/db",
 			wantKey:   "DATABASE_URL",

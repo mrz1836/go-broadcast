@@ -64,7 +64,7 @@ func TestGlobalFlagsConcurrentAccess(t *testing.T) {
 				defer wg.Done()
 				for j := 0; j < 10; j++ {
 					SetFlags(&Flags{
-						ConfigFile: "config" + string(rune('0'+id)) + ".yaml",
+						ConfigFile: "config" + string(rune('0'+id)) + ".yaml", //nolint:gosec // G115: id is bounded by numWriters, safe int->rune conversion
 						DryRun:     id%2 == 0,
 						LogLevel:   "info",
 					})

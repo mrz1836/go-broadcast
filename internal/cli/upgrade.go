@@ -326,7 +326,7 @@ func upgradeBinary(latestVersion string) error {
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:gosec // G704: URL is validated and comes from trusted GitHub release API
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrDownloadFailed, err)
 	}

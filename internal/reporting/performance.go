@@ -596,12 +596,12 @@ func (pr *PerformanceReporter) atomicWriteTemplate(tmpl *template.Template, repo
 	}
 
 	// Set proper permissions before rename
-	if err := os.Chmod(tempName, 0o600); err != nil {
+	if err := os.Chmod(tempName, 0o600); err != nil { //nolint:gosec // G703: tempName is from os.CreateTemp, not user-controlled input
 		return fmt.Errorf("failed to set file permissions: %w", err)
 	}
 
 	// Atomic rename
-	if err := os.Rename(tempName, filename); err != nil {
+	if err := os.Rename(tempName, filename); err != nil { //nolint:gosec // G703: tempName is from os.CreateTemp and filename is validated by the caller
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 

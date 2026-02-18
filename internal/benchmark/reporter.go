@@ -192,30 +192,30 @@ func GenerateTextReport(comparison ComparisonReport) string {
 	report.WriteString("Performance Comparison Report\n")
 	report.WriteString("=============================\n\n")
 
-	report.WriteString(fmt.Sprintf("Baseline: %s (%s %s)\n",
+	fmt.Fprintf(&report, "Baseline: %s (%s %s)\n",
 		comparison.BaselineReport.Timestamp.Format("2006-01-02 15:04:05"),
-		comparison.BaselineReport.GOOS, comparison.BaselineReport.GOARCH))
-	report.WriteString(fmt.Sprintf("Current:  %s (%s %s)\n\n",
+		comparison.BaselineReport.GOOS, comparison.BaselineReport.GOARCH)
+	fmt.Fprintf(&report, "Current:  %s (%s %s)\n\n",
 		comparison.CurrentReport.Timestamp.Format("2006-01-02 15:04:05"),
-		comparison.CurrentReport.GOOS, comparison.CurrentReport.GOARCH))
+		comparison.CurrentReport.GOOS, comparison.CurrentReport.GOARCH)
 
 	// Summary
 	summary := comparison.Summary
 	report.WriteString("Summary:\n")
-	report.WriteString(fmt.Sprintf("  Total Benchmarks: %d\n", summary.TotalBenchmarks))
-	report.WriteString(fmt.Sprintf("  Improved:         %d\n", summary.Improved))
-	report.WriteString(fmt.Sprintf("  Regressed:        %d\n", summary.Regressed))
-	report.WriteString(fmt.Sprintf("  Unchanged:        %d\n", summary.Unchanged))
-	report.WriteString(fmt.Sprintf("  Avg Speed Improvement: %.1f%%\n", summary.AvgSpeedImprovement))
-	report.WriteString(fmt.Sprintf("  Avg Memory Reduction:  %.1f%%\n\n", summary.AvgMemoryReduction))
+	fmt.Fprintf(&report, "  Total Benchmarks: %d\n", summary.TotalBenchmarks)
+	fmt.Fprintf(&report, "  Improved:         %d\n", summary.Improved)
+	fmt.Fprintf(&report, "  Regressed:        %d\n", summary.Regressed)
+	fmt.Fprintf(&report, "  Unchanged:        %d\n", summary.Unchanged)
+	fmt.Fprintf(&report, "  Avg Speed Improvement: %.1f%%\n", summary.AvgSpeedImprovement)
+	fmt.Fprintf(&report, "  Avg Memory Reduction:  %.1f%%\n\n", summary.AvgMemoryReduction)
 
 	// Improvements
 	if len(comparison.Improvements) > 0 {
 		report.WriteString("Improvements:\n")
 		improvements := sortMetrics(comparison.Improvements)
 		for _, metric := range improvements {
-			report.WriteString(fmt.Sprintf("  %s: %.1f%% %s\n",
-				metric.Name, metric.Value, getImprovementEmoji(metric.Value)))
+			fmt.Fprintf(&report, "  %s: %.1f%% %s\n",
+				metric.Name, metric.Value, getImprovementEmoji(metric.Value))
 		}
 		report.WriteString("\n")
 	}
@@ -225,7 +225,7 @@ func GenerateTextReport(comparison ComparisonReport) string {
 		report.WriteString("Regressions:\n")
 		regressions := sortMetrics(comparison.Regressions)
 		for _, metric := range regressions {
-			report.WriteString(fmt.Sprintf("  %s: %.1f%% ⚠️\n", metric.Name, metric.Value))
+			fmt.Fprintf(&report, "  %s: %.1f%% ⚠️\n", metric.Name, metric.Value)
 		}
 		report.WriteString("\n")
 	}
@@ -245,16 +245,16 @@ func GenerateTextReport(comparison ComparisonReport) string {
 			continue
 		}
 
-		report.WriteString(fmt.Sprintf("\n%s:\n", name))
-		report.WriteString(fmt.Sprintf("  Speed:  %d ns/op → %d ns/op (%.1f%%)\n",
+		fmt.Fprintf(&report, "\n%s:\n", name)
+		fmt.Fprintf(&report, "  Speed:  %d ns/op → %d ns/op (%.1f%%)\n",
 			baselineMetric.NsPerOp, currentMetric.NsPerOp,
-			calculateImprovement(float64(baselineMetric.NsPerOp), float64(currentMetric.NsPerOp))))
-		report.WriteString(fmt.Sprintf("  Memory: %d B/op → %d B/op (%.1f%%)\n",
+			calculateImprovement(float64(baselineMetric.NsPerOp), float64(currentMetric.NsPerOp)))
+		fmt.Fprintf(&report, "  Memory: %d B/op → %d B/op (%.1f%%)\n",
 			baselineMetric.BytesPerOp, currentMetric.BytesPerOp,
-			calculateImprovement(float64(baselineMetric.BytesPerOp), float64(currentMetric.BytesPerOp))))
-		report.WriteString(fmt.Sprintf("  Allocs: %d allocs/op → %d allocs/op (%.1f%%)\n",
+			calculateImprovement(float64(baselineMetric.BytesPerOp), float64(currentMetric.BytesPerOp)))
+		fmt.Fprintf(&report, "  Allocs: %d allocs/op → %d allocs/op (%.1f%%)\n",
 			baselineMetric.AllocsPerOp, currentMetric.AllocsPerOp,
-			calculateImprovement(float64(baselineMetric.AllocsPerOp), float64(currentMetric.AllocsPerOp))))
+			calculateImprovement(float64(baselineMetric.AllocsPerOp), float64(currentMetric.AllocsPerOp)))
 	}
 
 	return report.String()

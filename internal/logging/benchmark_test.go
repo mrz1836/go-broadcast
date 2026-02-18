@@ -158,7 +158,7 @@ func BenchmarkConcurrentLogging(b *testing.B) {
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
-					logger.WithFields(logrus.Fields{
+					logger.WithFields(logrus.Fields{ //nolint:gosec // G101: fake token to test redaction, not a real credential
 						"user":      "test-user",
 						"operation": "sync",
 						"repo":      "user/repo",

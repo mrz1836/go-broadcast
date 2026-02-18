@@ -442,7 +442,8 @@ func TestCreateRunValidate(t *testing.T) {
 		// Create temporary valid config
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		validConfig := TestValidConfig
 
@@ -468,7 +469,8 @@ func TestCreateRunValidateWithVerbose(t *testing.T) {
 	// Create temporary valid config
 	tmpFile, err := os.CreateTemp("", "config-*.yml")
 	require.NoError(t, err)
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	tmpName := tmpFile.Name()
+	defer func() { _ = os.Remove(tmpName) }()
 
 	validConfig := TestValidConfig
 
@@ -594,7 +596,8 @@ func TestCreateRunSyncWithVerbose(t *testing.T) {
 			if tt.setupFile {
 				tmpFile, err = os.CreateTemp("", "test-config-*.yaml")
 				require.NoError(t, err)
-				defer func() { _ = os.Remove(tmpFile.Name()) }()
+				tmpName := tmpFile.Name()
+				defer func() { _ = os.Remove(tmpName) }()
 
 				configContent := `version: 1
 groups:

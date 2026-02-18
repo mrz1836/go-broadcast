@@ -36,12 +36,12 @@ func configureGitUser(ctx context.Context, t *testing.T, repoPath string) {
 	t.Helper()
 
 	// Configure git user email
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.email", "test@example.com")
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.email", "test@example.com") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 	err := cmd.Run()
 	require.NoError(t, err)
 
 	// Configure git user name
-	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.name", "Test User")
+	cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "config", "user.name", "Test User") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 	err = cmd.Run()
 	require.NoError(t, err)
 }
@@ -322,7 +322,7 @@ func TestGitClient_Checkout(t *testing.T) {
 			},
 			setupRepo: func(t *testing.T, ctx context.Context, repoPath string) {
 				// Initialize repository
-				cmd := exec.CommandContext(ctx, "git", "init", repoPath)
+				cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 
 				// Configure git user
@@ -332,18 +332,18 @@ func TestGitClient_Checkout(t *testing.T) {
 				testFile := filepath.Join(repoPath, "test.txt")
 				require.NoError(t, os.WriteFile(testFile, []byte("test content"), 0o600))
 
-				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "test.txt")
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "test.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 
-				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "Initial commit")
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "Initial commit") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 
 				// Create a new branch
-				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", "test-branch")
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", "test-branch") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 
 				// Switch back to main/master
-				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-")
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 			},
 			branchName:  "test-branch",
@@ -356,7 +356,7 @@ func TestGitClient_Checkout(t *testing.T) {
 			},
 			setupRepo: func(t *testing.T, ctx context.Context, repoPath string) {
 				// Initialize repository
-				cmd := exec.CommandContext(ctx, "git", "init", repoPath)
+				cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 
 				// Configure git user
@@ -366,18 +366,18 @@ func TestGitClient_Checkout(t *testing.T) {
 				testFile := filepath.Join(repoPath, "test.txt")
 				require.NoError(t, os.WriteFile(testFile, []byte("test content"), 0o600))
 
-				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "test.txt")
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "test.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 
-				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "Initial commit")
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "Initial commit") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 
 				// Create a new branch
-				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", "debug-branch")
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", "debug-branch") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 
 				// Switch back to main/master
-				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-")
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 			},
 			branchName:  "debug-branch",
@@ -390,7 +390,7 @@ func TestGitClient_Checkout(t *testing.T) {
 			},
 			setupRepo: func(t *testing.T, ctx context.Context, repoPath string) {
 				// Initialize repository
-				cmd := exec.CommandContext(ctx, "git", "init", repoPath)
+				cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 
 				// Configure git user
@@ -400,10 +400,10 @@ func TestGitClient_Checkout(t *testing.T) {
 				testFile := filepath.Join(repoPath, "test.txt")
 				require.NoError(t, os.WriteFile(testFile, []byte("test content"), 0o600))
 
-				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "test.txt")
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "test.txt") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 
-				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "Initial commit")
+				cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "Initial commit") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				require.NoError(t, cmd.Run())
 			},
 			branchName:   "non-existent-branch",
@@ -1403,7 +1403,7 @@ func TestGetChangedFiles(t *testing.T) {
 
 				// Second commit with same content (this would not happen in practice but tests the edge case)
 				// Use direct git command for --allow-empty since the client doesn't support it directly
-				cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "--allow-empty", "-m", "Empty commit")
+				cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "--allow-empty", "-m", "Empty commit") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 				err = cmd.Run()
 				require.NoError(t, err)
 			},
@@ -1418,7 +1418,7 @@ func TestGetChangedFiles(t *testing.T) {
 
 			// Initialize repository
 			ctx := context.Background()
-			cmd := exec.CommandContext(ctx, "git", "-C", tempDir, "init") // #nosec G204
+			cmd := exec.CommandContext(ctx, "git", "-C", tempDir, "init") // #nosec G204 //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 			err := cmd.Run()
 			require.NoError(t, err)
 
@@ -1452,7 +1452,7 @@ func TestGetChangedFiles_InitialCommit(t *testing.T) {
 	ctx := context.Background()
 
 	// Initialize repository
-	cmd := exec.CommandContext(ctx, "git", "-C", tempDir, "init") // #nosec G204
+	cmd := exec.CommandContext(ctx, "git", "-C", tempDir, "init") // #nosec G204 //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 	err := cmd.Run()
 	require.NoError(t, err)
 	configureGitUser(ctx, t, tempDir)

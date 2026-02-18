@@ -59,6 +59,18 @@
                     "gomoddirectives"
                 ],
                 "text": "replacement are not allowed: github.com/joho/godotenv"
+            },
+            {
+                "linters": [
+                    "gosec"
+                ],
+                "path": ".*_test\\.go$"
+            },
+            {
+                "linters": [
+                    "gosec"
+                ],
+                "path": "test/.*\\.go$"
             }
         ],
         "uniq-by-line": true

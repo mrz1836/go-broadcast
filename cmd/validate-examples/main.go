@@ -102,7 +102,7 @@ func main() {
 }
 
 func showUsage() {
-	_, _ = fmt.Fprintln(os.Stdout, "Usage:", os.Args[0], "[options]")
+	_, _ = fmt.Fprintln(os.Stdout, "Usage:", os.Args[0], "[options]") //nolint:gosec // G705: writing to stdout, not an HTTP response; os.Args[0] is the program name
 	_, _ = fmt.Fprintln(os.Stdout)
 	_, _ = fmt.Fprintln(os.Stdout, "Options:")
 	_, _ = fmt.Fprintln(os.Stdout, "  -h, --help     Show this help message")
@@ -116,8 +116,8 @@ func showUsage() {
 	_, _ = fmt.Fprintln(os.Stdout, "  - All example files must exist in examples/ directory")
 	_, _ = fmt.Fprintln(os.Stdout)
 	_, _ = fmt.Fprintln(os.Stdout, "Examples:")
-	_, _ = fmt.Fprintln(os.Stdout, "  "+os.Args[0]+"                    # Validate all examples")
-	_, _ = fmt.Fprintln(os.Stdout, "  "+os.Args[0]+" --verbose          # Validate with verbose output")
+	_, _ = fmt.Fprintln(os.Stdout, "  "+os.Args[0]+"                    # Validate all examples")        //nolint:gosec // G705: writing to stdout, not an HTTP response
+	_, _ = fmt.Fprintln(os.Stdout, "  "+os.Args[0]+" --verbose          # Validate with verbose output") //nolint:gosec // G705: writing to stdout, not an HTTP response
 }
 
 func printHeader(boldBlue *color.Color) {
@@ -138,7 +138,7 @@ func validateConfig(result *validationResult, configFile, description string, bl
 	result.totalExamples++
 
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, goBroadcastBinary, "validate", "--config", configFile)
+	cmd := exec.CommandContext(ctx, goBroadcastBinary, "validate", "--config", configFile) //nolint:gosec // G204: binary path is a trusted constant, configFile is a validated path
 	if err := cmd.Run(); err != nil {
 		_, _ = boldRed.Printf("❌ INVALID: %s\n", configFile)
 		result.invalidExamples++
@@ -160,7 +160,7 @@ func testCommand(command, description string, blueColor, boldRed, boldGreen *col
 	_, _ = fmt.Fprintf(os.Stdout, "Description: %s\n", description)
 
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "sh", "-c", command)
+	cmd := exec.CommandContext(ctx, "sh", "-c", command) //nolint:gosec // G204: command is a predefined test string from trusted configuration
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 

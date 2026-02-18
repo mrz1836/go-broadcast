@@ -166,7 +166,7 @@ func main() {
 }
 
 func runBenchmark(ctx context.Context, args []string, outputFile string) error {
-	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd := exec.CommandContext(ctx, "go", args...) //nolint:gosec // G204: args are constructed from trusted benchmark configuration
 
 	// Create output file
 	file, err := os.Create(outputFile) // #nosec G304 -- outputFile is constructed from safe components

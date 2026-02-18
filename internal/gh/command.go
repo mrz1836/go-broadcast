@@ -65,7 +65,7 @@ func (r *realCommandRunner) Run(ctx context.Context, name string, args ...string
 // - Logs detailed request/response information when --debug-api flag is enabled
 // - Records command timing and response size metrics
 func (r *realCommandRunner) RunWithInput(ctx context.Context, input []byte, name string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // G204: name is a trusted command (gh) from the caller, args are validated
 
 	// Create logger entry only if logger is not nil to avoid panic
 	var logger *logrus.Entry

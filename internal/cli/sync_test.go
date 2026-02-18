@@ -56,7 +56,8 @@ func TestRunSync(t *testing.T) {
 		// Create temporary invalid config
 		tmpFile, err := os.CreateTemp("", "invalid-config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		invalidConfig := `invalid: yaml: content:`
 		_, err = tmpFile.WriteString(invalidConfig)
@@ -102,7 +103,8 @@ func TestCreateRunSync(t *testing.T) {
 		// Create valid config
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		validConfig := `version: 1
 groups:
@@ -152,7 +154,8 @@ groups:
 		// Create valid config
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		validConfig := TestValidConfig
 
@@ -197,7 +200,8 @@ func TestLoadConfig(t *testing.T) {
 		// Create temporary valid config
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		validConfig := TestValidConfig
 
@@ -226,7 +230,8 @@ func TestLoadConfig(t *testing.T) {
 		// Create temporary invalid YAML
 		tmpFile, err := os.CreateTemp("", "invalid-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		invalidYAML := `invalid: yaml: content:`
 		_, err = tmpFile.WriteString(invalidYAML)
@@ -265,7 +270,8 @@ func TestLoadConfigWithFlags(t *testing.T) {
 		// Create temporary valid config
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		validConfig := `version: 1
 groups:
@@ -333,7 +339,8 @@ func TestLoadConfigWithLogConfig(t *testing.T) {
 		// Create temporary valid config
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		validConfig := TestValidConfig
 
@@ -366,7 +373,8 @@ func TestLoadConfigWithLogConfig(t *testing.T) {
 		// Create temporary valid config
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		validConfig := TestValidConfig
 
@@ -569,7 +577,8 @@ func TestSyncCommandGroupFiltering(t *testing.T) {
 		// Create temporary valid config with multiple groups
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		configWithGroups := `version: 1
 groups:
@@ -621,7 +630,8 @@ groups:
 		// Create temporary valid config with multiple groups
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		configWithGroups := `version: 1
 groups:
@@ -673,7 +683,8 @@ groups:
 		// Create temporary valid config with multiple groups
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		configWithGroups := `version: 1
 groups:
@@ -736,7 +747,8 @@ groups:
 		// Create temporary valid config with multiple groups
 		tmpFile, err := os.CreateTemp("", "config-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		configWithGroups := `version: 1
 groups:
@@ -785,7 +797,8 @@ func TestLoadConfigWithFlags_EmptyGroups(t *testing.T) {
 		// Create a config file with empty groups
 		tmpFile, err := os.CreateTemp("", "empty-groups-*.yml")
 		require.NoError(t, err)
-		defer func() { _ = os.Remove(tmpFile.Name()) }()
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
 
 		emptyGroupsConfig := `version: 1
 groups: []`

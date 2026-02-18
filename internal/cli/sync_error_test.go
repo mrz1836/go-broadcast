@@ -83,7 +83,7 @@ func (m *mockOutputWriter) Successf(format string, args ...interface{}) {
 }
 func (m *mockOutputWriter) Plain(msg string) { m.buf.WriteString(msg) }
 func (m *mockOutputWriter) Plainf(format string, args ...interface{}) {
-	m.buf.WriteString(fmt.Sprintf(format, args...))
+	fmt.Fprintf(&m.buf, format, args...)
 }
 
 // validTestConfig returns a minimal valid config for testing

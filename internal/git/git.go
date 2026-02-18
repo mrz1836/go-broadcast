@@ -316,7 +316,7 @@ func (g *gitClient) CloneAtTag(ctx context.Context, url, path, tag string, opts 
 
 // Checkout switches to the specified branch
 func (g *gitClient) Checkout(ctx context.Context, repoPath, branch string) error {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", branch)
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", branch) //nolint:gosec // G204: arguments are git subcommands and user-controlled repo path validated by caller
 
 	if err := g.runCommand(cmd); err != nil {
 		return appErrors.WrapWithContext(err, fmt.Sprintf("checkout branch %s", branch))
@@ -327,7 +327,7 @@ func (g *gitClient) Checkout(ctx context.Context, repoPath, branch string) error
 
 // CreateBranch creates a new branch from the current HEAD
 func (g *gitClient) CreateBranch(ctx context.Context, repoPath, branch string) error {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", branch)
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "checkout", "-b", branch) //nolint:gosec // G204: arguments are git subcommands and user-controlled repo path validated by caller
 
 	if err := g.runCommand(cmd); err != nil {
 		// Check for known error patterns
@@ -357,7 +357,7 @@ func (g *gitClient) Add(ctx context.Context, repoPath string, paths ...string) e
 
 // Commit creates a commit with the given message
 func (g *gitClient) Commit(ctx context.Context, repoPath, message string) error {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", message)
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", message) //nolint:gosec // G204: arguments are git subcommands and user-controlled repo path validated by caller
 
 	if err := g.runCommand(cmd); err != nil {
 		// Check for known error patterns
@@ -459,12 +459,12 @@ func (g *gitClient) DiffIgnoreWhitespace(ctx context.Context, repoPath string, s
 
 // GetCurrentBranch returns the name of the current branch
 func (g *gitClient) GetCurrentBranch(ctx context.Context, repoPath string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "branch", "--show-current")
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "branch", "--show-current") //nolint:gosec // G204: arguments are trusted git subcommands with validated repository path
 
 	output, err := cmd.Output()
 	if err != nil {
 		// Try alternative method for older git versions
-		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "symbolic-ref", "--short", "HEAD")
+		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "symbolic-ref", "--short", "HEAD") //nolint:gosec // G204: arguments are trusted git subcommands with validated repository path
 
 		output, err = cmd.Output()
 		if err != nil {
@@ -477,7 +477,7 @@ func (g *gitClient) GetCurrentBranch(ctx context.Context, repoPath string) (stri
 
 // GetRemoteURL returns the URL of the specified remote
 func (g *gitClient) GetRemoteURL(ctx context.Context, repoPath, remote string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "remote", "get-url", remote)
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "remote", "get-url", remote) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -489,7 +489,7 @@ func (g *gitClient) GetRemoteURL(ctx context.Context, repoPath, remote string) (
 
 // AddRemote adds a new remote to the repository
 func (g *gitClient) AddRemote(ctx context.Context, repoPath, remoteName, remoteURL string) error {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "remote", "add", remoteName, remoteURL)
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "remote", "add", remoteName, remoteURL) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 
 	if err := g.runCommand(cmd); err != nil {
 		return appErrors.WrapWithContext(err, "add remote")
@@ -500,7 +500,7 @@ func (g *gitClient) AddRemote(ctx context.Context, repoPath, remoteName, remoteU
 
 // GetCurrentCommitSHA returns the SHA of the current commit
 func (g *gitClient) GetCurrentCommitSHA(ctx context.Context, repoPath string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "rev-parse", "HEAD")
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "rev-parse", "HEAD") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -567,7 +567,7 @@ func parseRepositoryURL(remoteURL string) (*RepositoryInfo, error) {
 
 // GetChangedFiles returns the list of files that changed in the last commit
 func (g *gitClient) GetChangedFiles(ctx context.Context, repoPath string) ([]string, error) {
-	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "diff", "--name-only", "HEAD~1")
+	cmd := exec.CommandContext(ctx, "git", "-C", repoPath, "diff", "--name-only", "HEAD~1") //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 
 	output, err := cmd.Output()
 	if err != nil {

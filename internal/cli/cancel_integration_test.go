@@ -62,7 +62,8 @@ func TestRunCancel(t *testing.T) {
 					ConfigFile: tmpFile.Name(),
 					LogLevel:   "info",
 				})
-				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+				tmpName := tmpFile.Name()
+				return tmpName, func() { _ = os.Remove(tmpName) }
 			},
 			expectError:   true,
 			errorContains: "failed to load configuration",
@@ -84,7 +85,8 @@ func TestRunCancel(t *testing.T) {
 					DryRun:     true,
 					LogLevel:   "info",
 				})
-				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+				tmpName := tmpFile.Name()
+				return tmpName, func() { _ = os.Remove(tmpName) }
 			},
 			dryRun:        true,
 			expectError:   true, // Will fail because gh.NewClient requires actual GitHub CLI
@@ -121,7 +123,8 @@ groups:
 					ConfigFile: tmpFile.Name(),
 					LogLevel:   "info",
 				})
-				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+				tmpName := tmpFile.Name()
+				return tmpName, func() { _ = os.Remove(tmpName) }
 			},
 			args:          []string{"org/target1"},
 			expectError:   true, // Will fail because gh.NewClient requires actual GitHub CLI
@@ -554,7 +557,8 @@ groups:
 					DryRun:     true,
 					LogLevel:   "info",
 				})
-				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+				tmpName := tmpFile.Name()
+				return tmpName, func() { _ = os.Remove(tmpName) }
 			},
 			dryRun:        true,
 			expectError:   true, // Will fail because gh.NewClient requires actual GitHub CLI
@@ -617,7 +621,8 @@ groups:
 					ConfigFile: tmpFile.Name(),
 					LogLevel:   "info",
 				})
-				return tmpFile.Name(), func() { _ = os.Remove(tmpFile.Name()) }
+				tmpName := tmpFile.Name()
+				return tmpName, func() { _ = os.Remove(tmpName) }
 			},
 			args:          []string{"skyetel/reach"}, // Target the 4th group specifically
 			expectError:   true,                      // Will fail because gh.NewClient requires actual GitHub CLI

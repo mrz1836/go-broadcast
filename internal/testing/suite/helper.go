@@ -215,13 +215,13 @@ func CreateTempFileE(t *testing.T, dir, pattern, content string) (string, error)
 	if content != "" {
 		if _, err := file.WriteString(content); err != nil {
 			_ = file.Close()
-			_ = os.Remove(name)
+			_ = os.Remove(name) //nolint:gosec // G703: path from os.CreateTemp or trusted source, not user input
 			return "", fmt.Errorf("write to temp file %s: %w", name, err)
 		}
 	}
 
 	if err := file.Close(); err != nil {
-		_ = os.Remove(name)
+		_ = os.Remove(name) //nolint:gosec // G703: path from os.CreateTemp or trusted source, not user input
 		return "", fmt.Errorf("close temp file %s: %w", name, err)
 	}
 

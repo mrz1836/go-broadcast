@@ -254,7 +254,7 @@ func TestGetGitHubTokenRealWorldTokenFormats(t *testing.T) {
 			ghToken:  "",
 			expected: "ghp_1234567890abcdef1234567890abcdef12345678",
 		},
-		{
+		{ //nolint:gosec // G101: test data with fake credentials, not real secrets
 			name:     "Fine-grained PAT token format",
 			patToken: "github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ",
 			ghToken:  "",

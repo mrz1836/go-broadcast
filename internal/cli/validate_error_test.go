@@ -401,7 +401,7 @@ func TestCheckCircularDependency_LargeGraph(t *testing.T) {
 }
 
 func groupName(i int) string {
-	return "group-" + string(rune('0'+i/10)) + string(rune('0'+i%10))
+	return "group-" + string(rune('0'+i/10)) + string(rune('0'+i%10)) //nolint:gosec // G115: bounded integer, safe conversion in test helper
 }
 
 // TestValidateSentinelErrors verifies that validation sentinel errors
