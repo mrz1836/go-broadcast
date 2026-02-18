@@ -45,4 +45,28 @@ var (
 
 	// ErrInvalidRepoFormat is returned when a repo string is not in "org/repo" format
 	ErrInvalidRepoFormat = errors.New("invalid repo format")
+
+	// ErrMissingExternalID is returned when attempting to create a sync run without an external_id
+	ErrMissingExternalID = errors.New("external_id is required")
+
+	// ErrMissingSyncRunID is returned when attempting to update a sync run with ID 0
+	ErrMissingSyncRunID = errors.New("cannot update sync run with ID 0")
+
+	// ErrMissingBroadcastSyncRunID is returned when creating a target result without a broadcast_sync_run_id
+	ErrMissingBroadcastSyncRunID = errors.New("broadcast_sync_run_id is required")
+
+	// ErrMissingTargetID is returned when creating a target result without a target_id
+	ErrMissingTargetID = errors.New("target_id is required")
+
+	// ErrMissingRepoID is returned when creating a target result without a repo_id
+	ErrMissingRepoID = errors.New("repo_id is required")
+
+	// ErrMissingTargetResultID is returned when attempting to update a target result with ID 0
+	ErrMissingTargetResultID = errors.New("cannot update target result with ID 0")
+
+	// ErrMissingBroadcastSyncTargetResultID is returned when creating a file change without a broadcast_sync_target_result_id
+	ErrMissingBroadcastSyncTargetResultID = errors.New("broadcast_sync_target_result_id is required")
+
+	// ErrMissingFilePath is returned when creating a file change without a file_path
+	ErrMissingFilePath = errors.New("file_path is required")
 )

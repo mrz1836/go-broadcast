@@ -110,6 +110,24 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		DirectoryMetrics: make(map[string]DirectoryMetrics),
 	}
 
+	// TODO(Task 7): Track variables for metrics recording
+	// var (
+	// 	finalBranchName    string
+	// 	finalCommitSHA     string
+	// 	finalAllChanges    []FileChange
+	// 	finalActualChanges []string
+	// 	finalErr           error
+	// )
+
+	// TODO(Task 7): Defer metrics recording (captures success or failure)
+	// defer func() {
+	// 	if rs.engine.syncRepo != nil {
+	// 		if err := rs.recordTargetResult(ctx, finalBranchName, finalCommitSHA, finalAllChanges, finalActualChanges, finalErr); err != nil {
+	// 			rs.logger.WithError(err).Warn("Failed to record target result metrics")
+	// 		}
+	// 	}
+	// }()
+
 	// Start overall operation timer
 	syncTimer := metrics.StartTimer(ctx, rs.logger, "repository_sync").
 		AddField(logging.StandardFields.SourceRepo, rs.sourceState.Repo).
@@ -150,6 +168,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	if err := rs.createTempDir(); err != nil {
 		tempDirTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
 	tempDirTimer.AddField("temp_dir", rs.tempDir).Stop()
@@ -164,6 +183,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	if err := rs.cloneSource(ctx); err != nil {
 		cloneTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to clone source: %w", err)
 	}
 	cloneTimer.Stop()
@@ -177,6 +197,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	if err != nil {
 		processTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to process files: %w", err)
 	}
 	fileProcessingDuration := time.Since(fileProcessingStart)
@@ -204,6 +225,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	directoryChanges, directoryMetrics, err := rs.processDirectoriesWithMetrics(ctx)
 	if err != nil {
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to process directories: %w", err)
 	}
 
@@ -251,6 +273,11 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		AddField("changed_files", len(allChanges))
 
 	commitSHA, actualChangedFiles, err := rs.commitChanges(ctx, branchName, allChanges)
+	// Capture for metrics recording
+	// TODO(Task 7): finalBranchName = branchName
+	// TODO(Task 7): finalCommitSHA = commitSHA
+	// TODO(Task 7): finalAllChanges = allChanges
+	// TODO(Task 7): finalActualChanges = actualChangedFiles
 	if err != nil {
 		commitTimer.StopWithError(err)
 		// Check if it's because there are no changes to sync
@@ -264,6 +291,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 			return nil
 		}
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to commit changes: %w", err)
 	}
 	commitTimer.AddField("commit_sha", commitSHA).Stop()
@@ -301,6 +329,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		if err := rs.pushChanges(ctx, branchName); err != nil {
 			pushTimer.StopWithError(err)
 			syncTimer.StopWithError(err)
+			// TODO(Task 7): finalErr = err
 			return fmt.Errorf("failed to push changes: %w", err)
 		}
 		pushTimer.Stop()
@@ -317,6 +346,7 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 	if err := rs.createOrUpdatePR(ctx, branchName, commitSHA, allChanges, actualChangedFiles); err != nil {
 		prTimer.StopWithError(err)
 		syncTimer.StopWithError(err)
+		// TODO(Task 7): finalErr = err
 		return fmt.Errorf("failed to create/update PR: %w", err)
 	}
 	prTimer.Stop()
@@ -347,6 +377,12 @@ func (rs *RepositorySync) Execute(ctx context.Context) error {
 		AddField(logging.StandardFields.BranchName, branchName).
 		AddField("final_commit_sha", commitSHA).
 		AddField("total_changed_files", len(allChanges)).Stop()
+
+	// TODO(Task 7): Record target result metrics (if enabled)
+	// if err := rs.recordTargetResult(ctx, branchName, commitSHA, allChanges, actualChangedFiles, nil); err != nil {
+	// 	// Non-fatal: log warning but don't fail the sync
+	// 	rs.logger.WithError(err).Warn("Failed to record target result metrics")
+	// }
 
 	return nil
 }
