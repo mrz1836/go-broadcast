@@ -1910,3 +1910,307 @@ func TestEmailConsecutiveDots(t *testing.T) {
 		assert.Contains(t, err.Error(), "consecutive dots")
 	})
 }
+
+func TestValidateOrgName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		org     string
+		wantErr bool
+		errMsg  string
+	}{
+		// Valid cases
+		{
+			name: "simple org name",
+			org:  "myorg",
+		},
+		{
+			name: "org with hyphens",
+			org:  "my-org",
+		},
+		{
+			name: "org with dots",
+			org:  "my.org",
+		},
+		{
+			name: "org with underscores",
+			org:  "my_org",
+		},
+		{
+			name: "org with numbers",
+			org:  "org123",
+		},
+		{
+			name: "single character",
+			org:  "a",
+		},
+		{
+			name: "uppercase",
+			org:  "MyOrg",
+		},
+
+		// Invalid cases
+		{
+			name:    "empty",
+			org:     "",
+			wantErr: true,
+			errMsg:  "field cannot be empty: organization name",
+		},
+		{
+			name:    "too long",
+			org:     strings.Repeat("a", MaxOrgNameLength+1),
+			wantErr: true,
+			errMsg:  "exceeds maximum length",
+		},
+		{
+			name:    "contains slash",
+			org:     "my/org",
+			wantErr: true,
+			errMsg:  "contains '/'",
+		},
+		{
+			name:    "path traversal",
+			org:     "my..org",
+			wantErr: true,
+			errMsg:  "path traversal detected",
+		},
+		{
+			name:    "starts with hyphen",
+			org:     "-myorg",
+			wantErr: true,
+			errMsg:  "invalid format",
+		},
+		{
+			name:    "starts with dot",
+			org:     ".myorg",
+			wantErr: true,
+			errMsg:  "invalid format",
+		},
+		{
+			name:    "special chars",
+			org:     "org@name",
+			wantErr: true,
+			errMsg:  "invalid format",
+		},
+		{
+			name:    "space in name",
+			org:     "my org",
+			wantErr: true,
+			errMsg:  "invalid format",
+		},
+		{
+			name:    "ends with dot",
+			org:     "myorg.",
+			wantErr: true,
+			errMsg:  "ends with '.'",
+		},
+		{
+			name:    "at exact length limit",
+			org:     strings.Repeat("a", MaxOrgNameLength),
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateOrgName(tt.org)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateRepoShortName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		repo    string
+		wantErr bool
+		errMsg  string
+	}{
+		// Valid cases
+		{
+			name: "simple name",
+			repo: "myrepo",
+		},
+		{
+			name: "name with hyphens",
+			repo: "my-repo",
+		},
+		{
+			name: "name with dots",
+			repo: "my.repo",
+		},
+		{
+			name: "name with underscores",
+			repo: "my_repo",
+		},
+		{
+			name: "name with numbers",
+			repo: "repo123",
+		},
+		{
+			name: "single character",
+			repo: "r",
+		},
+		{
+			name: "uppercase",
+			repo: "MyRepo",
+		},
+
+		// Invalid cases
+		{
+			name:    "empty",
+			repo:    "",
+			wantErr: true,
+			errMsg:  "field cannot be empty: repository name",
+		},
+		{
+			name:    "too long",
+			repo:    strings.Repeat("a", MaxRepoShortNameLength+1),
+			wantErr: true,
+			errMsg:  "exceeds maximum length",
+		},
+		{
+			name:    "contains slash",
+			repo:    "my/repo",
+			wantErr: true,
+			errMsg:  "contains '/'",
+		},
+		{
+			name:    "path traversal",
+			repo:    "my..repo",
+			wantErr: true,
+			errMsg:  "path traversal detected",
+		},
+		{
+			name:    "starts with hyphen",
+			repo:    "-myrepo",
+			wantErr: true,
+			errMsg:  "invalid format",
+		},
+		{
+			name:    "starts with dot",
+			repo:    ".myrepo",
+			wantErr: true,
+			errMsg:  "invalid format",
+		},
+		{
+			name:    "special chars",
+			repo:    "repo@name",
+			wantErr: true,
+			errMsg:  "invalid format",
+		},
+		{
+			name:    "space in name",
+			repo:    "my repo",
+			wantErr: true,
+			errMsg:  "invalid format",
+		},
+		{
+			name:    "ends with dot",
+			repo:    "myrepo.",
+			wantErr: true,
+			errMsg:  "ends with '.'",
+		},
+		{
+			name:    "at exact length limit",
+			repo:    strings.Repeat("a", MaxRepoShortNameLength),
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateRepoShortName(tt.repo)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateBranchPrefixEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		prefix  string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    ".lock suffix",
+			prefix:  "sync.lock",
+			wantErr: true,
+			errMsg:  "ends with '.lock'",
+		},
+		{
+			name:    "consecutive slashes",
+			prefix:  "sync//template",
+			wantErr: true,
+			errMsg:  "contains '//'",
+		},
+		{
+			name:    "double dots",
+			prefix:  "sync..template",
+			wantErr: true,
+			errMsg:  "contains '..'",
+		},
+		{
+			name:    "ends with slash",
+			prefix:  "sync/",
+			wantErr: true,
+			errMsg:  "ends with '/'",
+		},
+		{
+			name:    "exceeds max length",
+			prefix:  strings.Repeat("a", MaxBranchNameLength+1),
+			wantErr: true,
+			errMsg:  "exceeds maximum length",
+		},
+		{
+			name:    "at max length",
+			prefix:  strings.Repeat("a", MaxBranchNameLength),
+			wantErr: false,
+		},
+		{
+			name:    "nested valid prefix",
+			prefix:  "chore/sync/files",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateBranchPrefix(tt.prefix)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

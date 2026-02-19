@@ -643,3 +643,28 @@ func TestProgress_Idempotent(_ *testing.T) {
 
 	// No panics or deadlocks = success
 }
+
+func TestCaptureOutput(t *testing.T) {
+	t.Run("captures stdout and stderr", func(t *testing.T) {
+		scope := CaptureOutput()
+		defer scope.Restore()
+
+		Success("hello from capture")
+		Error("error from capture")
+
+		assert.Contains(t, scope.Stdout.String(), "hello from capture")
+		assert.Contains(t, scope.Stderr.String(), "error from capture")
+	})
+
+	t.Run("restore reverts to original writers", func(t *testing.T) {
+		originalStdout := Stdout()
+		originalStderr := Stderr()
+
+		scope := CaptureOutput()
+		assert.NotEqual(t, originalStdout, Stdout())
+
+		scope.Restore()
+		assert.Equal(t, originalStdout, Stdout())
+		assert.Equal(t, originalStderr, Stderr())
+	})
+}
