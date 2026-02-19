@@ -251,6 +251,175 @@ func TestBroadcastSyncRepo_GetSummaryStats(t *testing.T) {
 	})
 }
 
+// TestBroadcastSyncRepo_ListSyncRunsByRepo tests listing sync runs for a specific repo
+func TestBroadcastSyncRepo_ListSyncRunsByRepo(t *testing.T) {
+	t.Parallel()
+
+	db := TestDB(t)
+	repo := NewBroadcastSyncRepo(db)
+	ctx := context.Background()
+
+	// Create two sync runs
+	now := time.Now()
+	run1 := &BroadcastSyncRun{
+		ExternalID: "SR-byrepo-001",
+		StartedAt:  now.Add(-2 * time.Hour),
+		Status:     BroadcastSyncRunStatusSuccess,
+	}
+	run2 := &BroadcastSyncRun{
+		ExternalID: "SR-byrepo-002",
+		StartedAt:  now.Add(-1 * time.Hour),
+		Status:     BroadcastSyncRunStatusFailed,
+	}
+	run3 := &BroadcastSyncRun{
+		ExternalID: "SR-byrepo-003",
+		StartedAt:  now,
+		Status:     BroadcastSyncRunStatusSuccess,
+	}
+
+	require.NoError(t, repo.CreateSyncRun(ctx, run1))
+	require.NoError(t, repo.CreateSyncRun(ctx, run2))
+	require.NoError(t, repo.CreateSyncRun(ctx, run3))
+
+	// Link run1 and run3 to repoID=10 via target results
+	require.NoError(t, repo.CreateTargetResult(ctx, &BroadcastSyncTargetResult{
+		BroadcastSyncRunID: run1.ID,
+		TargetID:           1,
+		RepoID:             10,
+		StartedAt:          now,
+		Status:             BroadcastSyncTargetStatusSuccess,
+	}))
+	require.NoError(t, repo.CreateTargetResult(ctx, &BroadcastSyncTargetResult{
+		BroadcastSyncRunID: run3.ID,
+		TargetID:           1,
+		RepoID:             10,
+		StartedAt:          now,
+		Status:             BroadcastSyncTargetStatusSuccess,
+	}))
+
+	// Link run2 to a different repoID=20
+	require.NoError(t, repo.CreateTargetResult(ctx, &BroadcastSyncTargetResult{
+		BroadcastSyncRunID: run2.ID,
+		TargetID:           2,
+		RepoID:             20,
+		StartedAt:          now,
+		Status:             BroadcastSyncTargetStatusFailed,
+	}))
+
+	t.Run("returns runs for specific repo", func(t *testing.T) {
+		t.Parallel()
+		runs, err := repo.ListSyncRunsByRepo(ctx, 10, 100)
+		require.NoError(t, err)
+		assert.Len(t, runs, 2)
+		// Should be ordered by started_at DESC (run3 first, then run1)
+		assert.Equal(t, run3.ID, runs[0].ID)
+		assert.Equal(t, run1.ID, runs[1].ID)
+	})
+
+	t.Run("returns runs for other repo", func(t *testing.T) {
+		t.Parallel()
+		runs, err := repo.ListSyncRunsByRepo(ctx, 20, 100)
+		require.NoError(t, err)
+		assert.Len(t, runs, 1)
+		assert.Equal(t, run2.ID, runs[0].ID)
+	})
+
+	t.Run("returns empty for unknown repo", func(t *testing.T) {
+		t.Parallel()
+		runs, err := repo.ListSyncRunsByRepo(ctx, 9999, 100)
+		require.NoError(t, err)
+		assert.Empty(t, runs)
+	})
+
+	t.Run("respects limit", func(t *testing.T) {
+		t.Parallel()
+		runs, err := repo.ListSyncRunsByRepo(ctx, 10, 1)
+		require.NoError(t, err)
+		assert.Len(t, runs, 1)
+	})
+
+	t.Run("default limit when zero", func(t *testing.T) {
+		t.Parallel()
+		runs, err := repo.ListSyncRunsByRepo(ctx, 10, 0)
+		require.NoError(t, err)
+		assert.Len(t, runs, 2) // Default limit of 100 allows all
+	})
+
+	t.Run("default limit when negative", func(t *testing.T) {
+		t.Parallel()
+		runs, err := repo.ListSyncRunsByRepo(ctx, 10, -1)
+		require.NoError(t, err)
+		assert.Len(t, runs, 2) // Default limit of 100 allows all
+	})
+}
+
+// TestBroadcastSyncRepo_UpdateTargetResult tests updating a target result
+func TestBroadcastSyncRepo_UpdateTargetResult(t *testing.T) {
+	t.Parallel()
+
+	db := TestDB(t)
+	repo := NewBroadcastSyncRepo(db)
+	ctx := context.Background()
+
+	// Create parent run
+	run := &BroadcastSyncRun{
+		ExternalID: "SR-updatetr-001",
+		StartedAt:  time.Now(),
+		Status:     BroadcastSyncRunStatusRunning,
+	}
+	require.NoError(t, repo.CreateSyncRun(ctx, run))
+
+	t.Run("update existing target result", func(t *testing.T) {
+		t.Parallel()
+		result := &BroadcastSyncTargetResult{
+			BroadcastSyncRunID: run.ID,
+			TargetID:           1,
+			RepoID:             1,
+			StartedAt:          time.Now(),
+			Status:             BroadcastSyncTargetStatusPending,
+		}
+		require.NoError(t, repo.CreateTargetResult(ctx, result))
+
+		// Update the result
+		endedAt := time.Now()
+		result.EndedAt = &endedAt
+		result.Status = BroadcastSyncTargetStatusSuccess
+		result.FilesChanged = 3
+
+		err := repo.UpdateTargetResult(ctx, result)
+		require.NoError(t, err)
+
+		// Verify via GetTargetResultsByRunID
+		results, err := repo.GetTargetResultsByRunID(ctx, run.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, results)
+
+		var found bool
+		for _, r := range results {
+			if r.ID == result.ID {
+				found = true
+				assert.Equal(t, BroadcastSyncTargetStatusSuccess, r.Status)
+				assert.Equal(t, 3, r.FilesChanged)
+				assert.NotNil(t, r.EndedAt)
+			}
+		}
+		assert.True(t, found, "updated target result should be retrievable")
+	})
+
+	t.Run("update without ID returns error", func(t *testing.T) {
+		t.Parallel()
+		result := &BroadcastSyncTargetResult{
+			BroadcastSyncRunID: run.ID,
+			TargetID:           1,
+			RepoID:             1,
+			Status:             BroadcastSyncTargetStatusPending,
+		}
+
+		err := repo.UpdateTargetResult(ctx, result)
+		assert.ErrorIs(t, err, ErrMissingTargetResultID)
+	})
+}
+
 // TestBroadcastSyncRepo_CreateTargetResult tests creating target results
 func TestBroadcastSyncRepo_CreateTargetResult(t *testing.T) {
 	db := TestDB(t)

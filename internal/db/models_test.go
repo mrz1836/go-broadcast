@@ -625,6 +625,57 @@ func TestCustomTypes_Value(t *testing.T) {
 	})
 }
 
+// TestRepo_FullName tests the Repo.FullName() method returns "org/repo" format
+func TestRepo_FullName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		repo     Repo
+		expected string
+	}{
+		{
+			name: "standard org and repo",
+			repo: Repo{
+				Name:         "my-repo",
+				Organization: Organization{Name: "my-org"},
+			},
+			expected: "my-org/my-repo",
+		},
+		{
+			name: "empty org name",
+			repo: Repo{
+				Name:         "my-repo",
+				Organization: Organization{Name: ""},
+			},
+			expected: "/my-repo",
+		},
+		{
+			name: "empty repo name",
+			repo: Repo{
+				Name:         "",
+				Organization: Organization{Name: "my-org"},
+			},
+			expected: "my-org/",
+		},
+		{
+			name: "both empty",
+			repo: Repo{
+				Name:         "",
+				Organization: Organization{},
+			},
+			expected: "/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.expected, tt.repo.FullName())
+		})
+	}
+}
+
 // TestRepoModel_AllFieldsPersist tests that all enhanced Repo fields persist correctly
 func TestRepoModel_AllFieldsPersist(t *testing.T) {
 	db := TestDB(t)

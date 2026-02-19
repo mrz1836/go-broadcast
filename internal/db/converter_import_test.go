@@ -1433,3 +1433,322 @@ func TestConverterImport_AddFileList(t *testing.T) {
 	assert.Equal(t, "file-list-new", exported.FileLists[0].ID)
 	assert.Equal(t, []string{"file-list-new"}, exported.Groups[0].Targets[0].FileListRefs)
 }
+
+// TestCalculateConfigMetrics tests the pure CalculateConfigMetrics function
+func TestCalculateConfigMetrics(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty config", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{}
+		result := CalculateConfigMetrics(cfg)
+
+		metrics, ok := result["metrics"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, 0, metrics["groups_count"])
+		assert.Equal(t, 0, metrics["file_lists_count"])
+		assert.Equal(t, 0, metrics["directory_lists_count"])
+		assert.Equal(t, 0, metrics["total_targets"])
+		assert.Equal(t, 0, metrics["total_files"])
+		assert.Equal(t, 0, metrics["total_directories"])
+		assert.Equal(t, 0, metrics["enabled_groups"])
+		assert.Equal(t, 0, metrics["disabled_groups"])
+
+		analysis, ok := result["config_analysis"].(map[string]interface{})
+		require.True(t, ok)
+		assert.False(t, analysis["has_dependencies"].(bool))
+		assert.False(t, analysis["has_transforms"].(bool))
+		assert.False(t, analysis["has_module_configs"].(bool))
+		assert.Equal(t, 0, analysis["target_repos_count"])
+	})
+
+	t.Run("config with enabled and disabled groups", func(t *testing.T) {
+		t.Parallel()
+
+		enabled := true
+		disabled := false
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					ID:      "g1",
+					Enabled: &enabled,
+					Source:  config.SourceConfig{Repo: "org/source1"},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+					},
+				},
+				{
+					ID:      "g2",
+					Enabled: &disabled,
+					Source:  config.SourceConfig{Repo: "org/source2"},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target2"},
+						{Repo: "org/target3"},
+					},
+				},
+				{
+					ID:      "g3",
+					Enabled: nil, // nil defaults to enabled
+					Source:  config.SourceConfig{Repo: "org/source1"},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+					},
+				},
+			},
+		}
+
+		result := CalculateConfigMetrics(cfg)
+
+		metrics := result["metrics"].(map[string]interface{})
+		assert.Equal(t, 3, metrics["groups_count"])
+		assert.Equal(t, 2, metrics["enabled_groups"])
+		assert.Equal(t, 1, metrics["disabled_groups"])
+		assert.Equal(t, 4, metrics["total_targets"])
+
+		analysis := result["config_analysis"].(map[string]interface{})
+		assert.Equal(t, 3, analysis["target_repos_count"])
+
+		sourceRepos := analysis["source_repos"].([]string)
+		assert.Len(t, sourceRepos, 2)
+	})
+
+	t.Run("config with dependencies", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					ID:        "g1",
+					DependsOn: []string{"g2"},
+					Source:    config.SourceConfig{Repo: "org/src"},
+				},
+				{
+					ID:     "g2",
+					Source: config.SourceConfig{Repo: "org/src"},
+				},
+			},
+		}
+
+		result := CalculateConfigMetrics(cfg)
+		analysis := result["config_analysis"].(map[string]interface{})
+		assert.True(t, analysis["has_dependencies"].(bool))
+	})
+
+	t.Run("config with transforms", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					ID:     "g1",
+					Source: config.SourceConfig{Repo: "org/src"},
+					Targets: []config.TargetConfig{
+						{
+							Repo: "org/target",
+							Transform: config.Transform{
+								RepoName: true,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		result := CalculateConfigMetrics(cfg)
+		analysis := result["config_analysis"].(map[string]interface{})
+		assert.True(t, analysis["has_transforms"].(bool))
+	})
+
+	t.Run("config with directory-level transforms", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					ID:     "g1",
+					Source: config.SourceConfig{Repo: "org/src"},
+					Targets: []config.TargetConfig{
+						{
+							Repo: "org/target",
+							Directories: []config.DirectoryMapping{
+								{
+									Src:  "src",
+									Dest: "dest",
+									Transform: config.Transform{
+										Variables: map[string]string{"KEY": "val"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		result := CalculateConfigMetrics(cfg)
+		analysis := result["config_analysis"].(map[string]interface{})
+		assert.True(t, analysis["has_transforms"].(bool))
+
+		metrics := result["metrics"].(map[string]interface{})
+		assert.Equal(t, 1, metrics["total_directories"])
+	})
+
+	t.Run("config with module configs", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					ID:     "g1",
+					Source: config.SourceConfig{Repo: "org/src"},
+					Targets: []config.TargetConfig{
+						{
+							Repo: "org/target",
+							Directories: []config.DirectoryMapping{
+								{
+									Src:  "src",
+									Dest: "dest",
+									Module: &config.ModuleConfig{
+										Type:    "go",
+										Version: "v1.0.0",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		result := CalculateConfigMetrics(cfg)
+		analysis := result["config_analysis"].(map[string]interface{})
+		assert.True(t, analysis["has_module_configs"].(bool))
+	})
+
+	t.Run("config with file and directory list refs", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{
+			FileLists:      []config.FileList{{ID: "fl1"}, {ID: "fl2"}},
+			DirectoryLists: []config.DirectoryList{{ID: "dl1"}},
+			Groups: []config.Group{
+				{
+					ID:     "g1",
+					Source: config.SourceConfig{Repo: "org/src"},
+					Targets: []config.TargetConfig{
+						{
+							Repo: "org/target",
+							Files: []config.FileMapping{
+								{Src: "a.txt", Dest: "a.txt"},
+							},
+							Directories: []config.DirectoryMapping{
+								{Src: "dir1", Dest: "dir1"},
+							},
+							FileListRefs:      []string{"fl1", "fl2"},
+							DirectoryListRefs: []string{"dl1"},
+						},
+					},
+				},
+			},
+		}
+
+		result := CalculateConfigMetrics(cfg)
+		metrics := result["metrics"].(map[string]interface{})
+		assert.Equal(t, 2, metrics["file_lists_count"])
+		assert.Equal(t, 1, metrics["directory_lists_count"])
+		// total_files = 1 inline + 2 refs = 3
+		assert.Equal(t, 3, metrics["total_files"])
+		// total_directories = 1 inline + 1 ref = 2
+		assert.Equal(t, 2, metrics["total_directories"])
+	})
+}
+
+// TestWithSourcePath tests the WithSourcePath functional option
+func TestWithSourcePath(t *testing.T) {
+	t.Parallel()
+
+	t.Run("sets source path", func(t *testing.T) {
+		t.Parallel()
+
+		opts := &ImportOptions{}
+		WithSourcePath("/path/to/file.yaml")(opts)
+		assert.Equal(t, "/path/to/file.yaml", opts.SourcePath)
+	})
+
+	t.Run("sets empty path", func(t *testing.T) {
+		t.Parallel()
+
+		opts := &ImportOptions{}
+		WithSourcePath("")(opts)
+		assert.Empty(t, opts.SourcePath)
+	})
+}
+
+// TestEnrichConfigFields tests the enrichConfigFields function
+func TestEnrichConfigFields(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no enrichment without source path", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{Name: "", ID: ""}
+		name, extID := enrichConfigFields(cfg, "")
+		assert.Empty(t, name)
+		assert.Empty(t, extID)
+	})
+
+	t.Run("no enrichment when values already set", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{Name: "existing-name", ID: "existing-id"}
+		name, extID := enrichConfigFields(cfg, "/some/path/config.yaml")
+		assert.Equal(t, "existing-name", name)
+		assert.Equal(t, "existing-id", extID)
+	})
+
+	t.Run("enriches from filename", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{Name: "", ID: ""}
+		name, extID := enrichConfigFields(cfg, "/some/path/my-config.yaml")
+		assert.Equal(t, "my-config", name)
+		assert.Equal(t, "my-config", extID)
+	})
+
+	t.Run("enriches only empty name", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{Name: "", ID: "preset-id"}
+		name, extID := enrichConfigFields(cfg, "/path/data.yaml")
+		assert.Equal(t, "data", name)
+		assert.Equal(t, "preset-id", extID)
+	})
+
+	t.Run("enriches only empty ID", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{Name: "preset-name", ID: ""}
+		name, extID := enrichConfigFields(cfg, "/path/data.yaml")
+		assert.Equal(t, "preset-name", name)
+		assert.Equal(t, "data", extID)
+	})
+
+	t.Run("stdin source path", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{Name: "", ID: ""}
+		name, extID := enrichConfigFields(cfg, "-")
+		assert.Equal(t, "stdin", name)
+		assert.Equal(t, "stdin", extID)
+	})
+
+	t.Run("filename without extension", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{Name: "", ID: ""}
+		name, extID := enrichConfigFields(cfg, "/path/Makefile")
+		assert.Equal(t, "Makefile", name)
+		assert.Equal(t, "Makefile", extID)
+	})
+}
