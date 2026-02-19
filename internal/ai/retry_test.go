@@ -431,6 +431,81 @@ func TestIsRetryableError(t *testing.T) {
 	}
 }
 
+func TestIsQuotaExhaustedError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "quota exceeded",
+			err:      errors.New("quota exceeded"), //nolint:err113 // test error
+			expected: true,
+		},
+		{
+			name:     "insufficient quota",
+			err:      errors.New("insufficient_quota"), //nolint:err113 // test error
+			expected: true,
+		},
+		{
+			name:     "exceeded your current quota",
+			err:      errors.New("you have exceeded your current quota"), //nolint:err113 // test error
+			expected: true,
+		},
+		{
+			name:     "billing issue",
+			err:      errors.New("billing issue detected"), //nolint:err113 // test error
+			expected: true,
+		},
+		{
+			name:     "credit issue",
+			err:      errors.New("no credit remaining"), //nolint:err113 // test error
+			expected: true,
+		},
+		{
+			name:     "subscription issue",
+			err:      errors.New("subscription expired"), //nolint:err113 // test error
+			expected: true,
+		},
+		{
+			name:     "usage limit",
+			err:      errors.New("usage limit reached"), //nolint:err113 // test error
+			expected: true,
+		},
+		{
+			name:     "regular error not quota",
+			err:      errTimeout,
+			expected: false,
+		},
+		{
+			name:     "rate limit is not quota",
+			err:      errRateLimitExceeded,
+			expected: false,
+		},
+		{
+			name:     "case insensitive",
+			err:      errors.New("QUOTA EXCEEDED"), //nolint:err113 // test error
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := IsQuotaExhaustedError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestIsRetryableError_CaseInsensitive(t *testing.T) {
 	tests := []struct {
 		name      string
