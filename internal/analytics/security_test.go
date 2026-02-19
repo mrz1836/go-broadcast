@@ -398,3 +398,32 @@ func TestSecurityCollector_CollectAlerts_RaceCondition(t *testing.T) {
 	// Run with -race flag to detect data races
 	mockClient.AssertExpectations(t)
 }
+
+func TestFormatTimePtr(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil returns nil", func(t *testing.T) {
+		t.Parallel()
+
+		result := formatTimePtr(nil)
+		assert.Nil(t, result)
+	})
+
+	t.Run("valid time returns ISO 8601 string", func(t *testing.T) {
+		t.Parallel()
+
+		ts := time.Date(2026, 2, 19, 15, 30, 45, 0, time.UTC)
+		result := formatTimePtr(&ts)
+		require.NotNil(t, result)
+		assert.Equal(t, "2026-02-19T15:30:45Z", *result)
+	})
+
+	t.Run("zero time returns formatted string", func(t *testing.T) {
+		t.Parallel()
+
+		ts := time.Time{}
+		result := formatTimePtr(&ts)
+		require.NotNil(t, result)
+		assert.NotEmpty(t, *result)
+	})
+}
