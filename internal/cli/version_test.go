@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mrz1836/go-broadcast/internal/output"
@@ -857,4 +858,153 @@ func TestVersionEdgeCases(t *testing.T) {
 			require.NotEmpty(t, info.BuildDate)
 		})
 	}
+}
+
+// TestResetVersionInfo verifies that ResetVersionInfo restores default values
+func TestResetVersionInfo(t *testing.T) {
+	t.Parallel()
+
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
+
+	// Restore original values after test (thread-safe)
+	defer func() {
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
+	}()
+
+	t.Run("resets from custom values to defaults", func(t *testing.T) {
+		// Set custom values
+		SetVersionInfo("9.8.7", "custom_commit_hash", "2099-12-31T23:59:59Z")
+
+		// Verify custom values are set
+		require.Equal(t, "9.8.7", getVersionRaw())
+		require.Equal(t, "custom_commit_hash", getCommitRaw())
+		require.Equal(t, "2099-12-31T23:59:59Z", getBuildDateRaw())
+
+		// Reset
+		ResetVersionInfo()
+
+		// Verify defaults are restored
+		assert.Equal(t, devVersionString, getVersionRaw())
+		assert.Equal(t, unknownString, getCommitRaw())
+		assert.Equal(t, unknownString, getBuildDateRaw())
+	})
+
+	t.Run("reset is idempotent", func(t *testing.T) {
+		// Reset twice in a row
+		ResetVersionInfo()
+		ResetVersionInfo()
+
+		assert.Equal(t, devVersionString, getVersionRaw())
+		assert.Equal(t, unknownString, getCommitRaw())
+		assert.Equal(t, unknownString, getBuildDateRaw())
+	})
+
+	t.Run("set then reset then verify getters use fallback", func(t *testing.T) {
+		// Set known values
+		SetVersionInfo("5.0.0", "abc1234", "2025-06-15")
+
+		// Verify direct getters return set values
+		assert.Equal(t, "5.0.0", GetVersion())
+		assert.Equal(t, "abc1234", GetCommit())
+		assert.Equal(t, "2025-06-15", GetBuildDate())
+
+		// Reset to defaults
+		ResetVersionInfo()
+
+		// After reset, GetVersion/GetCommit/GetBuildDate use fallback logic.
+		// The raw values should be the defaults.
+		assert.Equal(t, devVersionString, getVersionRaw())
+		assert.Equal(t, unknownString, getCommitRaw())
+		assert.Equal(t, unknownString, getBuildDateRaw())
+
+		// The public getters may return build info fallback, but should not be empty
+		assert.NotEmpty(t, GetVersion())
+		assert.NotEmpty(t, GetCommit())
+		assert.NotEmpty(t, GetBuildDate())
+	})
+}
+
+// TestGetVersion verifies GetVersion returns expected values
+func TestGetVersion(t *testing.T) {
+	t.Parallel()
+
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+
+	// Restore original values after test (thread-safe)
+	defer func() {
+		setVersion(origVersion)
+	}()
+
+	t.Run("returns set version when explicitly set", func(t *testing.T) {
+		setVersion("4.2.0-rc1")
+		result := GetVersion()
+		assert.Equal(t, "4.2.0-rc1", result)
+	})
+
+	t.Run("returns non-empty with dev default", func(t *testing.T) {
+		setVersion(devVersionString)
+		result := GetVersion()
+		assert.NotEmpty(t, result)
+		// Should be either devVersionString or a commit hash from build info
+		assert.True(t, result == devVersionString || len(result) >= 7,
+			"Expected dev string or commit hash, got: %s", result)
+	})
+
+	t.Run("returns non-empty with empty string", func(t *testing.T) {
+		setVersion("")
+		result := GetVersion()
+		assert.NotEmpty(t, result)
+	})
+
+	t.Run("preserves semver format", func(t *testing.T) {
+		setVersion("v1.2.3")
+		result := GetVersion()
+		assert.Equal(t, "v1.2.3", result)
+	})
+}
+
+// TestSetVersionInfoAndReset tests the full lifecycle: set, verify, reset, verify
+func TestSetVersionInfoAndReset(t *testing.T) {
+	t.Parallel()
+
+	// Save original values (thread-safe)
+	origVersion := getVersionRaw()
+	origCommit := getCommitRaw()
+	origBuildDate := getBuildDateRaw()
+
+	// Restore original values after test (thread-safe)
+	defer func() {
+		setVersion(origVersion)
+		setCommit(origCommit)
+		setBuildDate(origBuildDate)
+	}()
+
+	// Set custom values
+	SetVersionInfo("10.0.0", "deadbeef1234", "2026-01-01T00:00:00Z")
+
+	// Verify custom values through public API
+	assert.Equal(t, "10.0.0", GetVersion())
+	assert.Equal(t, "deadbeef1234", GetCommit())
+	assert.Equal(t, "2026-01-01T00:00:00Z", GetBuildDate())
+
+	// Verify GetVersionInfo struct reflects custom values
+	info := GetVersionInfo()
+	assert.Equal(t, "10.0.0", info.Version)
+	assert.Equal(t, "deadbeef1234", info.Commit)
+	assert.Equal(t, "2026-01-01T00:00:00Z", info.BuildDate)
+	assert.Equal(t, runtime.Version(), info.GoVersion)
+	assert.Equal(t, runtime.GOOS, info.OS)
+	assert.Equal(t, runtime.GOARCH, info.Arch)
+
+	// Reset and verify defaults
+	ResetVersionInfo()
+	assert.Equal(t, devVersionString, getVersionRaw())
+	assert.Equal(t, unknownString, getCommitRaw())
+	assert.Equal(t, unknownString, getBuildDateRaw())
 }
