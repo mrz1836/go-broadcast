@@ -285,6 +285,9 @@ func (e *Engine) executeSingleGroup(ctx context.Context, group config.Group, tar
 
 	if len(syncTargets) == 0 {
 		log.Info("No targets require synchronization")
+		if finalizeErr := e.finalizeSyncRun(ctx, &Results{}, nil); finalizeErr != nil {
+			log.WithError(finalizeErr).Warn("Failed to finalize sync run metrics")
+		}
 		return nil
 	}
 
@@ -644,15 +647,18 @@ func (e *Engine) finalizeSyncRun(ctx context.Context, results *Results, errors [
 	run.SkippedTargets = results.Skipped
 
 	// Determine final status
-	if results.Failed == 0 && results.Successful == run.TotalTargets {
-		run.Status = SyncRunStatusSuccess
-	} else if results.Failed > 0 && results.Successful > 0 {
-		run.Status = SyncRunStatusPartial
-	} else if results.Failed == run.TotalTargets {
-		run.Status = SyncRunStatusFailed
-	} else if results.Skipped == run.TotalTargets {
+	switch {
+	case run.TotalTargets == 0:
 		run.Status = SyncRunStatusSkipped
-	} else {
+	case results.Failed == 0 && results.Successful == run.TotalTargets:
+		run.Status = SyncRunStatusSuccess
+	case results.Failed > 0 && results.Successful > 0:
+		run.Status = SyncRunStatusPartial
+	case results.Failed == run.TotalTargets:
+		run.Status = SyncRunStatusFailed
+	case results.Skipped == run.TotalTargets:
+		run.Status = SyncRunStatusSkipped
+	default:
 		run.Status = SyncRunStatusPartial
 	}
 
