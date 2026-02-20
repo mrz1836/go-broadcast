@@ -198,9 +198,9 @@ go-broadcast modules list --from-db
     └──────┬───────┘
            │ 1:N
            ▼
-    ┌──────────────────────┐
-    │analytics_repositories│
-    └──────┬───────────────┘
+    ┌──────────────┐
+    │    repos     │  (unified: config + analytics)
+    └──────┬───────┘
            │
            ├── 1:N ──►  ┌──────────────────────┐
            │            │ repository_snapshots │
@@ -287,6 +287,7 @@ This table stores configuration repositories with rich metadata automatically sy
 | `id` | uint | Primary key |
 | `organization_id` | uint | Foreign key to `organizations` |
 | `name` | text | Short repo name (e.g. "go-broadcast") |
+| `full_name` | text | Persisted "org/repo" format (unique) |
 | `description` | text | Repository description |
 | `metadata` | text | JSON metadata for extensibility |
 | `created_at` | datetime | Creation timestamp |
@@ -334,20 +335,30 @@ This table stores configuration repositories with rich metadata automatically sy
 | `last_pushed_at` | datetime | Last code push timestamp |
 | `github_updated_at` | datetime | Last metadata update on GitHub |
 
+*Analytics Sync Fields:*
+| Column | Type | Description |
+|--------|------|-------------|
+| `metadata_etag` | text | ETag for conditional metadata API requests |
+| `security_etag` | text | ETag for conditional security API requests |
+| `last_sync_at` | datetime | Last analytics sync timestamp |
+| `last_sync_run_id` | uint | Links to the SyncRun that last processed this repo |
+
 **Relations:**
 - Belongs to `organizations`
+- Has many `repository_snapshots`
+- Has many `security_alerts`
+- Has many `ci_metrics_snapshots`
 
 **Indexes:**
 - Unique composite: `(organization_id, name)`
+- Unique: `full_name`
 - Single column: `language`, `license`, `is_private`, `is_archived`, `is_fork`
 
 **Sync Flow:**
 ```
 GitHub GraphQL API (analytics sync)
     ↓
-analytics_repositories table (full metadata)
-    ↓
-repos table (same metadata via updateConfigRepoFromGitHub)
+repos table (direct write — single source of truth)
 ```
 
 **Use Cases:**
@@ -703,51 +714,12 @@ SELECT name, clone_url, ssh_url FROM repos;
 </details>
 
 <details>
-<summary><b>analytics_repositories</b> — Repository records for analytics tracking</summary>
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | uint | Primary key |
-| `organization_id` | uint | Foreign key to `organizations` |
-| `owner` | text | GitHub owner (org/user) |
-| `name` | text | Repo name |
-| `full_name` | text | Full name (owner/name, unique) |
-| `description` | text | Repo description |
-| `default_branch` | text | Default branch (main/master) |
-| `language` | text | Primary language |
-| `is_private` | bool | Visibility flag |
-| `is_fork` | bool | Fork flag |
-| `fork_source` | text | Parent repo full name if fork |
-| `is_archived` | bool | Archived flag |
-| `url` | text | HTML URL |
-| `metadata_etag` | text | ETag for conditional metadata requests |
-| `security_etag` | text | ETag for conditional security requests |
-| `last_sync_at` | datetime | Last sync timestamp |
-| `last_sync_run_id` | uint | Links to the SyncRun that last processed this repo |
-| `metadata` | text | JSON metadata |
-| `created_at` | datetime | Creation timestamp |
-| `updated_at` | datetime | Last update timestamp |
-| `deleted_at` | datetime | Soft delete timestamp |
-
-**Relations:**
-- Belongs to `organizations`
-- Has many `repository_snapshots`
-- Has many `security_alerts`
-- Has many `ci_metrics_snapshots`
-
-**Indexes:**
-- Unique index on `full_name`
-- Composite index on `(owner, name)`
-
-</details>
-
-<details>
 <summary><b>repository_snapshots</b> — Point-in-time repository metrics</summary>
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | uint | Primary key |
-| `repository_id` | uint | Foreign key to `analytics_repositories` |
+| `repository_id` | uint | Foreign key to `repos` |
 | `snapshot_at` | datetime | Timestamp of snapshot |
 | `stars` | int | Stargazers count |
 | `forks` | int | Forks count |
@@ -770,7 +742,7 @@ SELECT name, clone_url, ssh_url FROM repos;
 | `deleted_at` | datetime | Soft delete timestamp |
 
 **Relations:**
-- Belongs to `analytics_repositories`
+- Belongs to `repos`
 
 **Indexes:**
 - Index on `repository_id`
@@ -788,7 +760,7 @@ SELECT name, clone_url, ssh_url FROM repos;
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | uint | Primary key |
-| `repository_id` | uint | Foreign key to `analytics_repositories` |
+| `repository_id` | uint | Foreign key to `repos` |
 | `alert_type` | text | Alert source: `dependabot`, `code_scanning`, `secret_scanning` |
 | `alert_number` | int | Alert number from GitHub API |
 | `state` | text | Alert state: `open`, `fixed`, `dismissed` |
@@ -807,7 +779,7 @@ SELECT name, clone_url, ssh_url FROM repos;
 | `deleted_at` | datetime | Soft delete timestamp |
 
 **Relations:**
-- Belongs to `analytics_repositories`
+- Belongs to `repos`
 
 **Indexes:**
 - Index on `repository_id`
@@ -824,7 +796,7 @@ SELECT name, clone_url, ssh_url FROM repos;
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | uint | Primary key |
-| `repository_id` | uint | Foreign key to `analytics_repositories` |
+| `repository_id` | uint | Foreign key to `repos` |
 | `snapshot_at` | datetime | Timestamp of snapshot |
 | `workflow_run_id` | int64 | GitHub Actions workflow run ID |
 | `branch` | text | Branch the workflow ran on |
@@ -841,7 +813,7 @@ SELECT name, clone_url, ssh_url FROM repos;
 | `deleted_at` | datetime | Soft delete timestamp |
 
 **Relations:**
-- Belongs to `analytics_repositories`
+- Belongs to `repos`
 
 **Indexes:**
 - Index on `repository_id`
@@ -1942,8 +1914,8 @@ SELECT
   go_files_loc,
   test_files_loc
 FROM ci_metrics_snapshots cms
-JOIN analytics_repositories ar ON cms.repository_id = ar.id
-WHERE ar.full_name = 'mrz1836/go-broadcast'
+JOIN repos r ON cms.repository_id = r.id
+WHERE r.full_name = 'mrz1836/go-broadcast'
 ORDER BY snapshot_at DESC
 LIMIT 5;
 "
