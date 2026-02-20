@@ -150,11 +150,13 @@ func (r *analyticsRepo) ListOrganizations(ctx context.Context) ([]Organization, 
 // Repositories
 // ============================================================
 
-// UpsertRepository creates or updates an analytics repository
+// UpsertRepository creates or updates an analytics repository.
+// Uses Unscoped to find soft-deleted records and restore them on upsert,
+// avoiding UNIQUE constraint failures when a repo was previously soft-deleted.
 func (r *analyticsRepo) UpsertRepository(ctx context.Context, repo *AnalyticsRepository) error {
-	// Try to find existing
+	// Try to find existing (including soft-deleted rows to avoid unique constraint conflicts)
 	var existing AnalyticsRepository
-	err := r.db.WithContext(ctx).
+	err := r.db.WithContext(ctx).Unscoped().
 		Where("full_name = ?", repo.FullName).
 		First(&existing).Error
 
@@ -166,9 +168,13 @@ func (r *analyticsRepo) UpsertRepository(ctx context.Context, repo *AnalyticsRep
 		return err
 	}
 
-	// Update existing
+	// Update existing (restore if soft-deleted)
 	repo.ID = existing.ID
-	return r.db.WithContext(ctx).Save(repo).Error
+	if existing.DeletedAt.Valid {
+		// Clear soft-delete: restore the record
+		repo.DeletedAt = gorm.DeletedAt{Valid: false}
+	}
+	return r.db.WithContext(ctx).Unscoped().Save(repo).Error
 }
 
 // GetRepository retrieves a repository by full name (owner/name)

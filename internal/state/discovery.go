@@ -117,6 +117,11 @@ func (d *discoveryService) DiscoverState(ctx context.Context, cfg *config.Config
 
 	// Iterate through all groups to find all targets
 	for groupIdx, group := range groups {
+		// Check context before each group to avoid unnecessary API calls
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("context canceled before processing group %s: %w", group.ID, err)
+		}
+
 		if d.logConfig != nil && d.logConfig.Debug.State {
 			logger.WithFields(logrus.Fields{
 				"group_index":                      groupIdx,

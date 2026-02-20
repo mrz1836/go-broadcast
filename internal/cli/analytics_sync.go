@@ -42,6 +42,7 @@ func newAnalyticsSyncCmd() *cobra.Command {
 	var (
 		org            string
 		repo           string
+		allOrgs        bool
 		securityOnly   bool
 		full           bool
 		dryRun         bool
@@ -152,9 +153,12 @@ with change detection to minimize database writes.`,
 			} else if org != "" {
 				// Organization sync
 				syncErr = syncOrganization(ctx, pipeline, analyticsRepo, syncRun, org, progress, dryRun, full)
-			} else {
-				// Full sync (all organizations)
+			} else if allOrgs {
+				// Explicit org-wide sync: discover all repos in all organizations (legacy behavior)
 				syncErr = syncAllOrganizations(ctx, pipeline, analyticsRepo, syncRun, progress, dryRun, full)
+			} else {
+				// Default: sync only managed repos from DB targets (from sync.yaml groups)
+				syncErr = syncManagedRepos(ctx, gormDB, pipeline, analyticsRepo, syncRun, progress, dryRun, full)
 			}
 
 			// Determine final status
@@ -184,6 +188,7 @@ with change detection to minimize database writes.`,
 	}
 
 	cmd.Flags().StringVar(&org, "org", "", "Sync specific owner (organization or user account)")
+	cmd.Flags().BoolVar(&allOrgs, "all-orgs", false, "Sync all repositories in all organizations (org-wide discovery, not just managed repos)")
 	cmd.Flags().StringVar(&repo, "repo", "", "Sync specific repository only (owner/name)")
 	cmd.Flags().BoolVar(&securityOnly, "security-only", false, "Sync security alerts only")
 	cmd.Flags().BoolVar(&full, "full", false, "Force full sync (ignore change detection)")
@@ -640,6 +645,90 @@ func syncAllOrganizations(
 		if err := syncOrganization(ctx, pipeline, analyticsRepo, syncRun, org.Name, showProgress, false, forceFull); err != nil {
 			output.Warn(fmt.Sprintf("Failed to sync organization %s: %v", org.Name, err))
 			continue
+		}
+	}
+
+	return nil
+}
+
+// syncManagedRepos syncs only the repositories managed by enabled sync groups.
+// It reads the repo list from DB targets (populated via `db import` from sync.yaml)
+// rather than discovering all repos in each organization via GitHub API.
+// This ensures analytics data covers exactly the set of managed repos.
+func syncManagedRepos(
+	ctx context.Context,
+	gormDB *gorm.DB,
+	pipeline *analytics.Pipeline,
+	analyticsRepo db.AnalyticsRepo,
+	syncRun *db.SyncRun,
+	showProgress, isDryRun, forceFull bool,
+) error {
+	// Query unique managed repos from enabled groups
+	type managedRepo struct {
+		OrgName  string
+		RepoName string
+	}
+
+	var managedRepos []managedRepo
+
+	result := gormDB.Raw(`
+		SELECT DISTINCT o.name AS org_name, r.name AS repo_name
+		FROM targets t
+		JOIN repos r ON t.repo_id = r.id
+		JOIN organizations o ON r.organization_id = o.id
+		JOIN groups g ON t.group_id = g.id
+		WHERE g.enabled = 1
+		ORDER BY o.name, r.name
+	`).Scan(&managedRepos)
+	if result.Error != nil {
+		return fmt.Errorf("failed to query managed repos: %w", result.Error)
+	}
+
+	if len(managedRepos) == 0 {
+		return fmt.Errorf("no managed repos found in database (run `go-broadcast db import` to import configuration)") //nolint:err113 // user-facing CLI error
+	}
+
+	if showProgress {
+		output.Info(fmt.Sprintf("Syncing %d managed repositories from database configuration", len(managedRepos)))
+	}
+
+	if isDryRun {
+		output.Info(fmt.Sprintf("[DRY RUN] Would sync %d managed repositories:", len(managedRepos)))
+		for _, r := range managedRepos {
+			output.Info(fmt.Sprintf("  • %s/%s", r.OrgName, r.RepoName))
+		}
+		output.Info("")
+		output.Info("  Actions that would be performed for each repository:")
+		output.Info("  • Collect repository metadata via GraphQL")
+		output.Info("  • Fetch security alerts concurrently")
+		output.Info("  • Collect CI metrics from workflows")
+		output.Info("  • Create database snapshots (with change detection)")
+		output.Info("")
+		output.Success(fmt.Sprintf("✓ Dry-run complete. Would process %d repositories. Remove --dry-run to sync.", len(managedRepos)))
+
+		syncRun.ReposProcessed = len(managedRepos)
+		return nil
+	}
+
+	// Sync each managed repository
+	for i, r := range managedRepos {
+		fullName := fmt.Sprintf("%s/%s", r.OrgName, r.RepoName)
+
+		meta, err := pipeline.SyncRepository(ctx, r.OrgName, r.RepoName)
+		if err != nil {
+			output.Warn(fmt.Sprintf("Failed to collect metadata for %s: %v", fullName, err))
+			pipeline.RecordSyncRunError(ctx, syncRun, fullName, err)
+			continue
+		}
+
+		if err := syncRepositoryMetadata(ctx, pipeline, analyticsRepo, syncRun, meta, showProgress, forceFull); err != nil {
+			output.Warn(fmt.Sprintf("Failed to store metadata for %s: %v", fullName, err))
+			continue
+		}
+
+		// Inter-repo delay to avoid rate-limit pressure
+		if throttle := pipeline.GetThrottle(); throttle != nil && i < len(managedRepos)-1 {
+			_ = throttle.WaitInterRepo(ctx)
 		}
 	}
 
