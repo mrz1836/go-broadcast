@@ -86,14 +86,14 @@ func displayAllRepositories(ctx context.Context, analyticsRepo db.AnalyticsRepo)
 
 	for _, repo := range repos {
 		status := repoStatus{
-			FullName:   repo.FullName,
+			FullName:   repo.FullName(),
 			LastSyncAt: repo.LastSyncAt,
 		}
 
 		// Get latest snapshot for metrics
 		snapshot, snapshotErr := analyticsRepo.GetLatestSnapshot(ctx, repo.ID)
 		if snapshotErr != nil && !errors.Is(snapshotErr, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("failed to get snapshot for %s: %w", repo.FullName, snapshotErr)
+			return fmt.Errorf("failed to get snapshot for %s: %w", repo.FullName(), snapshotErr)
 		}
 		if snapshot != nil {
 			status.Stars = snapshot.Stars
@@ -105,7 +105,7 @@ func displayAllRepositories(ctx context.Context, analyticsRepo db.AnalyticsRepo)
 		// Get alert counts
 		alertCounts, countErr := analyticsRepo.GetAlertCounts(ctx, repo.ID)
 		if countErr != nil && !errors.Is(countErr, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("failed to get alert counts for %s: %w", repo.FullName, countErr)
+			return fmt.Errorf("failed to get alert counts for %s: %w", repo.FullName(), countErr)
 		}
 		for _, count := range alertCounts {
 			status.TotalAlerts += count
@@ -201,12 +201,12 @@ func displaySingleRepository(ctx context.Context, analyticsRepo db.AnalyticsRepo
 
 	// Display header
 	output.Plain("")
-	output.Info(fmt.Sprintf("Analytics Status - %s", repo.FullName))
+	output.Info(fmt.Sprintf("Analytics Status - %s", repo.FullName()))
 	output.Plain(strings.Repeat("─", 80))
 
 	// Repository Info section
 	output.Plain("Repository Info:")
-	output.Plain(fmt.Sprintf("  Full Name:     %s", repo.FullName))
+	output.Plain(fmt.Sprintf("  Full Name:     %s", repo.FullName()))
 	if repo.Description != "" {
 		output.Plain(fmt.Sprintf("  Description:   %s", truncate(repo.Description, 60)))
 	}

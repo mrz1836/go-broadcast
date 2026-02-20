@@ -53,24 +53,24 @@ func (m *mockAnalyticsRepoPipeline) ListOrganizations(ctx context.Context) ([]db
 	return args.Get(0).([]db.Organization), args.Error(1)
 }
 
-func (m *mockAnalyticsRepoPipeline) UpsertRepository(ctx context.Context, repo *db.AnalyticsRepository) error {
+func (m *mockAnalyticsRepoPipeline) UpsertRepository(ctx context.Context, repo *db.Repo) error {
 	return m.Called(ctx, repo).Error(0)
 }
 
-func (m *mockAnalyticsRepoPipeline) GetRepository(ctx context.Context, fullName string) (*db.AnalyticsRepository, error) {
+func (m *mockAnalyticsRepoPipeline) GetRepository(ctx context.Context, fullName string) (*db.Repo, error) {
 	args := m.Called(ctx, fullName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*db.AnalyticsRepository), args.Error(1)
+	return args.Get(0).(*db.Repo), args.Error(1)
 }
 
-func (m *mockAnalyticsRepoPipeline) ListRepositories(ctx context.Context, orgLogin string) ([]db.AnalyticsRepository, error) {
+func (m *mockAnalyticsRepoPipeline) ListRepositories(ctx context.Context, orgLogin string) ([]db.Repo, error) {
 	args := m.Called(ctx, orgLogin)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]db.AnalyticsRepository), args.Error(1)
+	return args.Get(0).([]db.Repo), args.Error(1)
 }
 
 func (m *mockAnalyticsRepoPipeline) CreateSnapshot(ctx context.Context, snap *db.RepositorySnapshot) error {

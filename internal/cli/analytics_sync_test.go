@@ -131,7 +131,7 @@ func TestParseOwnerAndName(t *testing.T) {
 	}
 }
 
-func TestBuildAnalyticsRepository(t *testing.T) {
+func TestBuildRepo(t *testing.T) {
 	t.Parallel()
 
 	metadata := &analytics.RepoMetadata{
@@ -164,20 +164,19 @@ func TestBuildAnalyticsRepository(t *testing.T) {
 		UpdatedAt:             "2024-06-01T14:30:00Z",
 	}
 
-	result := buildAnalyticsRepository(metadata, 42)
+	result := buildRepo(metadata, 42)
 
 	assert.Equal(t, uint(42), result.OrganizationID)
-	assert.Equal(t, "org", result.Owner)
 	assert.Equal(t, "repo", result.Name)
-	assert.Equal(t, "org/repo", result.FullName)
+	assert.Equal(t, "org/repo", result.FullNameStr)
 	assert.Equal(t, "Test repo", result.Description)
 	assert.Equal(t, "main", result.DefaultBranch)
 	assert.Equal(t, "Go", result.Language)
 	assert.True(t, result.IsFork)
-	assert.Equal(t, "upstream/repo", result.ForkSource)
+	assert.Equal(t, "upstream/repo", result.ForkParent)
 	assert.False(t, result.IsPrivate)
 	assert.False(t, result.IsArchived)
-	assert.Equal(t, "https://github.com/org/repo", result.URL)
+	assert.Equal(t, "https://github.com/org/repo", result.HTMLURL)
 	assert.Equal(t, "https://example.com", result.HomepageURL)
 	assert.Contains(t, result.Topics, `"go"`)
 	assert.Contains(t, result.Topics, `"tools"`)
@@ -193,7 +192,7 @@ func TestBuildAnalyticsRepository(t *testing.T) {
 	require.NotNil(t, result.GitHubUpdatedAt)
 }
 
-func TestBuildAnalyticsRepository_EmptyTopics(t *testing.T) {
+func TestBuildRepo_EmptyTopics(t *testing.T) {
 	t.Parallel()
 
 	metadata := &analytics.RepoMetadata{
@@ -201,7 +200,7 @@ func TestBuildAnalyticsRepository_EmptyTopics(t *testing.T) {
 		Topics:   nil,
 	}
 
-	result := buildAnalyticsRepository(metadata, 1)
+	result := buildRepo(metadata, 1)
 	assert.Empty(t, result.Topics)
 }
 

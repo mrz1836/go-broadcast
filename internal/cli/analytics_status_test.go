@@ -51,25 +51,25 @@ func (m *mockAnalyticsRepo) ListOrganizations(ctx context.Context) ([]db.Organiz
 	return args.Get(0).([]db.Organization), args.Error(1)
 }
 
-func (m *mockAnalyticsRepo) UpsertRepository(ctx context.Context, repo *db.AnalyticsRepository) error {
+func (m *mockAnalyticsRepo) UpsertRepository(ctx context.Context, repo *db.Repo) error {
 	args := m.Called(ctx, repo)
 	return args.Error(0)
 }
 
-func (m *mockAnalyticsRepo) GetRepository(ctx context.Context, fullName string) (*db.AnalyticsRepository, error) {
+func (m *mockAnalyticsRepo) GetRepository(ctx context.Context, fullName string) (*db.Repo, error) {
 	args := m.Called(ctx, fullName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*db.AnalyticsRepository), args.Error(1)
+	return args.Get(0).(*db.Repo), args.Error(1)
 }
 
-func (m *mockAnalyticsRepo) ListRepositories(ctx context.Context, orgLogin string) ([]db.AnalyticsRepository, error) {
+func (m *mockAnalyticsRepo) ListRepositories(ctx context.Context, orgLogin string) ([]db.Repo, error) {
 	args := m.Called(ctx, orgLogin)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]db.AnalyticsRepository), args.Error(1)
+	return args.Get(0).([]db.Repo), args.Error(1)
 }
 
 func (m *mockAnalyticsRepo) CreateSnapshot(ctx context.Context, snap *db.RepositorySnapshot) error {
@@ -374,7 +374,7 @@ func TestDisplayAllRepositories(t *testing.T) {
 
 		mockRepo := new(mockAnalyticsRepo)
 		mockRepo.On("ListRepositories", ctx, "").
-			Return([]db.AnalyticsRepository{}, nil)
+			Return([]db.Repo{}, nil)
 
 		err := displayAllRepositories(ctx, mockRepo)
 		require.NoError(t, err)
@@ -399,9 +399,9 @@ func TestDisplayAllRepositories(t *testing.T) {
 
 		syncTime := time.Now().Add(-1 * time.Hour)
 		completedAt := time.Now().Add(-30 * time.Minute)
-		repos := []db.AnalyticsRepository{
-			{FullName: "org/repo1", LastSyncAt: &syncTime},
-			{FullName: "org/repo2"},
+		repos := []db.Repo{
+			{FullNameStr: "org/repo1", LastSyncAt: &syncTime},
+			{FullNameStr: "org/repo2"},
 		}
 		repos[0].ID = 1
 		repos[1].ID = 2
@@ -433,7 +433,7 @@ func TestDisplayAllRepositories(t *testing.T) {
 	t.Run("snapshot error propagates", func(t *testing.T) {
 		t.Parallel()
 
-		repos := []db.AnalyticsRepository{{FullName: "org/repo1"}}
+		repos := []db.Repo{{FullNameStr: "org/repo1"}}
 		repos[0].ID = 1
 
 		mockRepo := new(mockAnalyticsRepo)
@@ -450,7 +450,7 @@ func TestDisplayAllRepositories(t *testing.T) {
 	t.Run("alert count error propagates", func(t *testing.T) {
 		t.Parallel()
 
-		repos := []db.AnalyticsRepository{{FullName: "org/repo1"}}
+		repos := []db.Repo{{FullNameStr: "org/repo1"}}
 		repos[0].ID = 1
 
 		mockRepo := new(mockAnalyticsRepo)
@@ -469,7 +469,7 @@ func TestDisplayAllRepositories(t *testing.T) {
 	t.Run("sync run not found is not error", func(t *testing.T) {
 		t.Parallel()
 
-		repos := []db.AnalyticsRepository{{FullName: "org/repo1"}}
+		repos := []db.Repo{{FullNameStr: "org/repo1"}}
 		repos[0].ID = 1
 
 		mockRepo := new(mockAnalyticsRepo)
@@ -489,7 +489,7 @@ func TestDisplayAllRepositories(t *testing.T) {
 	t.Run("sync run error propagates", func(t *testing.T) {
 		t.Parallel()
 
-		repos := []db.AnalyticsRepository{{FullName: "org/repo1"}}
+		repos := []db.Repo{{FullNameStr: "org/repo1"}}
 		repos[0].ID = 1
 
 		mockRepo := new(mockAnalyticsRepo)
@@ -543,8 +543,8 @@ func TestDisplaySingleRepository(t *testing.T) {
 		t.Parallel()
 
 		syncTime := time.Now().Add(-2 * time.Hour)
-		repo := &db.AnalyticsRepository{
-			FullName:      "org/repo",
+		repo := &db.Repo{
+			FullNameStr:   "org/repo",
 			Description:   "A test repository",
 			Language:      "Go",
 			DefaultBranch: "main",
@@ -589,8 +589,8 @@ func TestDisplaySingleRepository(t *testing.T) {
 	t.Run("repo without snapshot", func(t *testing.T) {
 		t.Parallel()
 
-		repo := &db.AnalyticsRepository{
-			FullName: "org/new-repo",
+		repo := &db.Repo{
+			FullNameStr: "org/new-repo",
 		}
 		repo.ID = 2
 
@@ -611,10 +611,10 @@ func TestDisplaySingleRepository(t *testing.T) {
 	t.Run("private archived repo", func(t *testing.T) {
 		t.Parallel()
 
-		repo := &db.AnalyticsRepository{
-			FullName:   "org/private-repo",
-			IsPrivate:  true,
-			IsArchived: true,
+		repo := &db.Repo{
+			FullNameStr: "org/private-repo",
+			IsPrivate:   true,
+			IsArchived:  true,
 		}
 		repo.ID = 3
 
@@ -635,7 +635,7 @@ func TestDisplaySingleRepository(t *testing.T) {
 	t.Run("snapshot error propagates", func(t *testing.T) {
 		t.Parallel()
 
-		repo := &db.AnalyticsRepository{FullName: "org/repo"}
+		repo := &db.Repo{FullNameStr: "org/repo"}
 		repo.ID = 4
 
 		mockRepo := new(mockAnalyticsRepo)
@@ -652,7 +652,7 @@ func TestDisplaySingleRepository(t *testing.T) {
 	t.Run("alert counts by type error propagates", func(t *testing.T) {
 		t.Parallel()
 
-		repo := &db.AnalyticsRepository{FullName: "org/repo"}
+		repo := &db.Repo{FullNameStr: "org/repo"}
 		repo.ID = 5
 
 		mockRepo := new(mockAnalyticsRepo)
@@ -671,7 +671,7 @@ func TestDisplaySingleRepository(t *testing.T) {
 	t.Run("alert counts by severity error propagates", func(t *testing.T) {
 		t.Parallel()
 
-		repo := &db.AnalyticsRepository{FullName: "org/repo"}
+		repo := &db.Repo{FullNameStr: "org/repo"}
 		repo.ID = 6
 
 		mockRepo := new(mockAnalyticsRepo)

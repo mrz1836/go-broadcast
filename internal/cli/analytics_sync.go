@@ -257,7 +257,7 @@ func syncSingleRepository(
 	}
 
 	// Upsert repository
-	repo := buildAnalyticsRepository(metadata, org.ID)
+	repo := buildRepo(metadata, org.ID)
 	if repoErr := analyticsRepo.UpsertRepository(ctx, repo); repoErr != nil {
 		pipeline.RecordSyncRunError(ctx, syncRun, fullName, repoErr)
 		if showProgress {
@@ -265,9 +265,6 @@ func syncSingleRepository(
 		}
 		return fmt.Errorf("failed to upsert repository: %w", repoErr)
 	}
-
-	// Update config repos table with all GitHub metadata
-	updateConfigRepoFromGitHub(ctx, analyticsRepo, fullName, metadata)
 
 	// Build current snapshot
 	currentSnapshot := buildRepositorySnapshot(metadata, repo.ID)
@@ -329,10 +326,10 @@ func syncSingleRepository(
 	return nil
 }
 
-// buildAnalyticsRepository constructs an AnalyticsRepository from metadata
-func buildAnalyticsRepository(metadata *analytics.RepoMetadata, orgID uint) *db.AnalyticsRepository {
-	// Parse owner from FullName (owner/name format)
-	owner, name := parseOwnerAndName(metadata.FullName)
+// buildRepo constructs a Repo from metadata
+func buildRepo(metadata *analytics.RepoMetadata, orgID uint) *db.Repo {
+	// Parse name from FullName (owner/name format)
+	_, name := parseOwnerAndName(metadata.FullName)
 
 	// Convert topics slice to JSON string
 	var topicsJSON string
@@ -342,21 +339,18 @@ func buildAnalyticsRepository(metadata *analytics.RepoMetadata, orgID uint) *db.
 		}
 	}
 
-	return &db.AnalyticsRepository{
-		OrganizationID: orgID,
-		Owner:          owner,
-		Name:           name,
-		FullName:       metadata.FullName,
-		Description:    metadata.Description,
-		DefaultBranch:  metadata.DefaultBranch,
-		Language:       metadata.Language,
-		IsPrivate:      metadata.IsPrivate,
-		IsFork:         metadata.IsFork,
-		ForkSource:     metadata.ForkParent,
-		IsArchived:     metadata.IsArchived,
-		URL:            metadata.HTMLURL,
-
-		// Enhanced metadata fields
+	return &db.Repo{
+		OrganizationID:        orgID,
+		Name:                  name,
+		FullNameStr:           metadata.FullName,
+		Description:           metadata.Description,
+		DefaultBranch:         metadata.DefaultBranch,
+		Language:              metadata.Language,
+		IsPrivate:             metadata.IsPrivate,
+		IsFork:                metadata.IsFork,
+		ForkParent:            metadata.ForkParent,
+		IsArchived:            metadata.IsArchived,
+		HTMLURL:               metadata.HTMLURL,
 		HomepageURL:           metadata.HomepageURL,
 		Topics:                topicsJSON,
 		License:               metadata.License,
@@ -761,7 +755,7 @@ func syncRepositoryMetadata(
 	}
 
 	// Upsert repository
-	repo := buildAnalyticsRepository(metadata, org.ID)
+	repo := buildRepo(metadata, org.ID)
 	if err := analyticsRepo.UpsertRepository(ctx, repo); err != nil {
 		pipeline.RecordSyncRunError(ctx, syncRun, fullName, err)
 		if showProgress {
@@ -884,89 +878,4 @@ func displaySyncSummary(syncRun *db.SyncRun, status string, throttleStats *analy
 	}
 
 	output.Plain(strings.Repeat("─", 60))
-}
-
-// updateConfigRepoFromGitHub updates the config repos table with data from GitHub API
-// This keeps the config repos table in sync with actual GitHub repo state
-func updateConfigRepoFromGitHub(ctx context.Context, analyticsRepo db.AnalyticsRepo, fullName string, metadata *analytics.RepoMetadata) {
-	// Get the GORM DB from the analytics repo interface
-	// We need to access the underlying database to update the config repos table
-	type gormGetter interface {
-		GetDB() *gorm.DB
-	}
-
-	getter, ok := analyticsRepo.(gormGetter)
-	if !ok {
-		// Can't get DB, skip silently
-		return
-	}
-
-	database := getter.GetDB()
-
-	// Convert topics slice to JSON string
-	var topicsJSON string
-	if len(metadata.Topics) > 0 {
-		if jsonBytes, err := json.Marshal(metadata.Topics); err == nil {
-			topicsJSON = string(jsonBytes)
-		}
-	}
-
-	// Update config repos table with all GitHub metadata
-	result := database.WithContext(ctx).
-		Exec(`
-			UPDATE repos
-			SET
-				is_private = ?,
-				is_archived = ?,
-				default_branch = ?,
-				language = ?,
-				homepage_url = ?,
-				topics = ?,
-				license = ?,
-				disk_usage_kb = ?,
-				is_fork = ?,
-				fork_parent = ?,
-				has_issues_enabled = ?,
-				has_wiki_enabled = ?,
-				has_discussions_enabled = ?,
-				html_url = ?,
-				ssh_url = ?,
-				clone_url = ?,
-				github_created_at = ?,
-				last_pushed_at = ?,
-				github_updated_at = ?,
-				updated_at = CURRENT_TIMESTAMP
-			WHERE id IN (
-				SELECT r.id
-				FROM repos r
-				JOIN organizations o ON r.organization_id = o.id
-				WHERE (o.name || '/' || r.name) = ?
-			)
-		`,
-			metadata.IsPrivate,
-			metadata.IsArchived,
-			metadata.DefaultBranch,
-			metadata.Language,
-			metadata.HomepageURL,
-			topicsJSON,
-			metadata.License,
-			metadata.DiskUsageKB,
-			metadata.IsFork,
-			metadata.ForkParent,
-			metadata.HasIssuesEnabled,
-			metadata.HasWikiEnabled,
-			metadata.HasDiscussionsEnabled,
-			metadata.HTMLURL,
-			metadata.SSHURL,
-			metadata.CloneURL,
-			parseTime(metadata.CreatedAt),
-			parseTime(metadata.PushedAt),
-			parseTime(metadata.UpdatedAt),
-			fullName,
-		)
-
-	if result.Error != nil {
-		// Log warning but don't fail the sync
-		output.Warn(fmt.Sprintf("Failed to update config repo from GitHub for %s: %v", fullName, result.Error))
-	}
 }
