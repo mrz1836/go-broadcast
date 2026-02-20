@@ -90,6 +90,12 @@ func Open(opts OpenOptions) (Database, error) {
 			_ = d.Close()
 			return nil, fmt.Errorf("auto-migration failed: %w", err)
 		}
+
+		// Run registered data migrations after schema migration
+		if err := RunMigrations(db); err != nil {
+			_ = d.Close()
+			return nil, fmt.Errorf("data migration failed: %w", err)
+		}
 	}
 
 	return d, nil

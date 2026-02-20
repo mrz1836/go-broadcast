@@ -38,19 +38,26 @@ func (o *Organization) BeforeUpdate(_ *gorm.DB) error {
 }
 
 // BeforeCreate validates Repo model before database insertion
-func (r *Repo) BeforeCreate(_ *gorm.DB) error {
+func (r *Repo) BeforeCreate(tx *gorm.DB) error {
 	if r.OrganizationID == 0 {
 		return fmt.Errorf("%w: organization_id is required", ErrValidationFailed)
 	}
 	if err := validation.ValidateRepoShortName(r.Name); err != nil {
 		return fmt.Errorf("%w: %w", ErrValidationFailed, err)
 	}
+	// Auto-populate FullNameStr if not already set
+	if r.FullNameStr == "" && tx != nil {
+		var org Organization
+		if err := tx.Select("name").First(&org, r.OrganizationID).Error; err == nil && org.Name != "" {
+			r.FullNameStr = org.Name + "/" + r.Name
+		}
+	}
 	return nil
 }
 
 // BeforeUpdate validates Repo model before database update
-func (r *Repo) BeforeUpdate(_ *gorm.DB) error {
-	return r.BeforeCreate(nil)
+func (r *Repo) BeforeUpdate(tx *gorm.DB) error {
+	return r.BeforeCreate(tx)
 }
 
 // BeforeCreate validates Source model before database insertion

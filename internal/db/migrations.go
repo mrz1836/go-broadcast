@@ -206,3 +206,146 @@ func calculateChecksum(version, description string) string {
 	hash := sha256.Sum256([]byte(data))
 	return fmt.Sprintf("%x", hash)
 }
+
+// RunMigrations registers and applies all data migrations.
+// Called after AutoMigrate to handle data transformations that GORM's
+// AutoMigrate cannot express (e.g., data copy, FK re-pointing, table drops).
+func RunMigrations(db *gorm.DB) error {
+	mgr := NewMigrationManager(db)
+
+	// Register all migrations
+	mgr.Register(migrationConsolidateAnalyticsRepos())
+
+	return mgr.Apply()
+}
+
+// migrationConsolidateAnalyticsRepos merges analytics_repositories into repos.
+// Steps:
+// 1. Populate full_name on existing repos
+// 2. Copy analytics-only fields from analytics_repositories into matching repos
+// 3. Re-point repository_snapshots, security_alerts, ci_metrics_snapshots FKs
+// 4. Drop analytics_repositories table
+func migrationConsolidateAnalyticsRepos() Migration {
+	return Migration{
+		Version:     "20260220_001",
+		Description: "Consolidate analytics_repositories into repos table",
+		Up: func(tx *gorm.DB) error {
+			// Check if analytics_repositories table exists; if not, nothing to migrate
+			if !tx.Migrator().HasTable("analytics_repositories") {
+				// Still populate full_name for existing repos
+				if err := tx.Exec(`
+					UPDATE repos
+					SET full_name = (
+						SELECT o.name || '/' || repos.name
+						FROM organizations o
+						WHERE o.id = repos.organization_id
+					)
+					WHERE full_name IS NULL OR full_name = ''
+				`).Error; err != nil {
+					return fmt.Errorf("failed to populate full_name: %w", err)
+				}
+				return nil
+			}
+
+			// 1. Populate full_name on existing repos from organization name
+			if err := tx.Exec(`
+				UPDATE repos
+				SET full_name = (
+					SELECT o.name || '/' || repos.name
+					FROM organizations o
+					WHERE o.id = repos.organization_id
+				)
+				WHERE full_name IS NULL OR full_name = ''
+			`).Error; err != nil {
+				return fmt.Errorf("failed to populate full_name: %w", err)
+			}
+
+			// 2. Copy analytics fields into matching repos rows
+			if err := tx.Exec(`
+				UPDATE repos
+				SET
+					metadata_etag = COALESCE((
+						SELECT ar.metadata_etag FROM analytics_repositories ar
+						WHERE ar.full_name = repos.full_name
+					), repos.metadata_etag),
+					security_etag = COALESCE((
+						SELECT ar.security_etag FROM analytics_repositories ar
+						WHERE ar.full_name = repos.full_name
+					), repos.security_etag),
+					last_sync_at = COALESCE((
+						SELECT ar.last_sync_at FROM analytics_repositories ar
+						WHERE ar.full_name = repos.full_name
+					), repos.last_sync_at),
+					last_sync_run_id = COALESCE((
+						SELECT ar.last_sync_run_id FROM analytics_repositories ar
+						WHERE ar.full_name = repos.full_name
+					), repos.last_sync_run_id)
+				WHERE EXISTS (
+					SELECT 1 FROM analytics_repositories ar
+					WHERE ar.full_name = repos.full_name
+				)
+			`).Error; err != nil {
+				return fmt.Errorf("failed to copy analytics fields: %w", err)
+			}
+
+			// 3. Re-point repository_snapshots FK from analytics_repositories IDs to repos IDs
+			if err := tx.Exec(`
+				UPDATE repository_snapshots
+				SET repository_id = (
+					SELECT r.id FROM repos r
+					JOIN analytics_repositories ar ON ar.full_name = r.full_name
+					WHERE ar.id = repository_snapshots.repository_id
+				)
+				WHERE EXISTS (
+					SELECT 1 FROM analytics_repositories ar
+					JOIN repos r ON ar.full_name = r.full_name
+					WHERE ar.id = repository_snapshots.repository_id
+				)
+			`).Error; err != nil {
+				return fmt.Errorf("failed to re-point repository_snapshots: %w", err)
+			}
+
+			// 4. Re-point security_alerts FK
+			if err := tx.Exec(`
+				UPDATE security_alerts
+				SET repository_id = (
+					SELECT r.id FROM repos r
+					JOIN analytics_repositories ar ON ar.full_name = r.full_name
+					WHERE ar.id = security_alerts.repository_id
+				)
+				WHERE EXISTS (
+					SELECT 1 FROM analytics_repositories ar
+					JOIN repos r ON ar.full_name = r.full_name
+					WHERE ar.id = security_alerts.repository_id
+				)
+			`).Error; err != nil {
+				return fmt.Errorf("failed to re-point security_alerts: %w", err)
+			}
+
+			// 5. Re-point ci_metrics_snapshots FK
+			if err := tx.Exec(`
+				UPDATE ci_metrics_snapshots
+				SET repository_id = (
+					SELECT r.id FROM repos r
+					JOIN analytics_repositories ar ON ar.full_name = r.full_name
+					WHERE ar.id = ci_metrics_snapshots.repository_id
+				)
+				WHERE EXISTS (
+					SELECT 1 FROM analytics_repositories ar
+					JOIN repos r ON ar.full_name = r.full_name
+					WHERE ar.id = ci_metrics_snapshots.repository_id
+				)
+			`).Error; err != nil {
+				return fmt.Errorf("failed to re-point ci_metrics_snapshots: %w", err)
+			}
+
+			// 6. Drop analytics_repositories table
+			if err := tx.Exec("DROP TABLE IF EXISTS analytics_repositories").Error; err != nil {
+				return fmt.Errorf("failed to drop analytics_repositories: %w", err)
+			}
+
+			return nil
+		},
+		Down: nil, // One-way migration; rollback not supported
+	}
+}

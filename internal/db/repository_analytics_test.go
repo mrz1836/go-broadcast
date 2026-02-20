@@ -68,27 +68,26 @@ func TestAnalyticsRepo_Repositories(t *testing.T) {
 	require.NoError(t, repo.UpsertOrganization(ctx, org))
 
 	t.Run("UpsertRepository", func(t *testing.T) {
-		analyticsRepo := &AnalyticsRepository{
+		r := &Repo{
 			OrganizationID: org.ID,
-			Owner:          "test-org",
 			Name:           "test-repo",
-			FullName:       "test-org/test-repo",
+			FullNameStr:    "test-org/test-repo",
 			Description:    "Test repository",
 			DefaultBranch:  "main",
 			Language:       "Go",
 			IsPrivate:      false,
 			IsFork:         false,
 			IsArchived:     false,
-			URL:            "https://github.com/test-org/test-repo",
+			HTMLURL:        "https://github.com/test-org/test-repo",
 		}
 
-		err := repo.UpsertRepository(ctx, analyticsRepo)
+		err := repo.UpsertRepository(ctx, r)
 		require.NoError(t, err)
-		assert.NotZero(t, analyticsRepo.ID)
+		assert.NotZero(t, r.ID)
 
 		// Update
-		analyticsRepo.Description = "Updated"
-		err = repo.UpsertRepository(ctx, analyticsRepo)
+		r.Description = "Updated"
+		err = repo.UpsertRepository(ctx, r)
 		require.NoError(t, err)
 
 		// Verify
@@ -117,17 +116,16 @@ func TestAnalyticsRepo_Snapshots(t *testing.T) {
 	org := &Organization{Name: "test-org", ClientID: client.ID}
 	require.NoError(t, repo.UpsertOrganization(ctx, org))
 
-	analyticsRepo := &AnalyticsRepository{
+	r := &Repo{
 		OrganizationID: org.ID,
-		Owner:          "test-org",
 		Name:           "test-repo",
-		FullName:       "test-org/test-repo",
+		FullNameStr:    "test-org/test-repo",
 	}
-	require.NoError(t, repo.UpsertRepository(ctx, analyticsRepo))
+	require.NoError(t, repo.UpsertRepository(ctx, r))
 
 	t.Run("CreateSnapshot", func(t *testing.T) {
 		snap := &RepositorySnapshot{
-			RepositoryID:  analyticsRepo.ID,
+			RepositoryID:  r.ID,
 			SnapshotAt:    time.Now(),
 			Stars:         100,
 			Forks:         10,
@@ -148,14 +146,14 @@ func TestAnalyticsRepo_Snapshots(t *testing.T) {
 		now := time.Now()
 		for i := 0; i < 3; i++ {
 			snap := &RepositorySnapshot{
-				RepositoryID: analyticsRepo.ID,
+				RepositoryID: r.ID,
 				SnapshotAt:   now.Add(time.Duration(-i) * 24 * time.Hour),
 				Stars:        100 + i,
 			}
 			require.NoError(t, repo.CreateSnapshot(ctx, snap))
 		}
 
-		latest, err := repo.GetLatestSnapshot(ctx, analyticsRepo.ID)
+		latest, err := repo.GetLatestSnapshot(ctx, r.ID)
 		require.NoError(t, err)
 		assert.NotNil(t, latest)
 		assert.Equal(t, 100, latest.Stars) // Most recent
@@ -163,7 +161,7 @@ func TestAnalyticsRepo_Snapshots(t *testing.T) {
 
 	t.Run("GetSnapshotHistory", func(t *testing.T) {
 		since := time.Now().Add(-48 * time.Hour)
-		snaps, err := repo.GetSnapshotHistory(ctx, analyticsRepo.ID, since)
+		snaps, err := repo.GetSnapshotHistory(ctx, r.ID, since)
 		require.NoError(t, err)
 		assert.NotEmpty(t, snaps)
 	})
@@ -190,17 +188,16 @@ func TestAnalyticsRepo_Alerts(t *testing.T) {
 	org := &Organization{Name: "test-org", ClientID: client.ID}
 	require.NoError(t, repo.UpsertOrganization(ctx, org))
 
-	analyticsRepo := &AnalyticsRepository{
+	r := &Repo{
 		OrganizationID: org.ID,
-		Owner:          "test-org",
 		Name:           "test-repo",
-		FullName:       "test-org/test-repo",
+		FullNameStr:    "test-org/test-repo",
 	}
-	require.NoError(t, repo.UpsertRepository(ctx, analyticsRepo))
+	require.NoError(t, repo.UpsertRepository(ctx, r))
 
 	t.Run("UpsertAlert", func(t *testing.T) {
 		alert := &SecurityAlert{
-			RepositoryID:   analyticsRepo.ID,
+			RepositoryID:   r.ID,
 			AlertType:      "dependabot",
 			AlertNumber:    1,
 			State:          "open",
@@ -226,7 +223,7 @@ func TestAnalyticsRepo_Alerts(t *testing.T) {
 		severities := []string{"critical", "high", "medium", "low"}
 		for i, sev := range severities {
 			alert := &SecurityAlert{
-				RepositoryID:   analyticsRepo.ID,
+				RepositoryID:   r.ID,
 				AlertType:      "code_scanning",
 				AlertNumber:    i + 10,
 				State:          "open",
@@ -238,19 +235,19 @@ func TestAnalyticsRepo_Alerts(t *testing.T) {
 		}
 
 		// Get all open alerts
-		alerts, err := repo.GetOpenAlerts(ctx, analyticsRepo.ID, "")
+		alerts, err := repo.GetOpenAlerts(ctx, r.ID, "")
 		require.NoError(t, err)
 		assert.NotEmpty(t, alerts)
 
 		// Get critical alerts
-		criticals, err := repo.GetOpenAlerts(ctx, analyticsRepo.ID, "critical")
+		criticals, err := repo.GetOpenAlerts(ctx, r.ID, "critical")
 		require.NoError(t, err)
 		assert.Len(t, criticals, 1)
 		assert.Equal(t, "critical", criticals[0].Severity)
 	})
 
 	t.Run("GetAlertCounts", func(t *testing.T) {
-		counts, err := repo.GetAlertCounts(ctx, analyticsRepo.ID)
+		counts, err := repo.GetAlertCounts(ctx, r.ID)
 		require.NoError(t, err)
 		assert.NotEmpty(t, counts)
 		assert.Positive(t, counts["high"])
@@ -259,7 +256,7 @@ func TestAnalyticsRepo_Alerts(t *testing.T) {
 	t.Run("GetAlertCountsByType", func(t *testing.T) {
 		// Create additional open alerts of different types
 		secretAlert := &SecurityAlert{
-			RepositoryID:   analyticsRepo.ID,
+			RepositoryID:   r.ID,
 			AlertType:      "secret_scanning",
 			AlertNumber:    100,
 			State:          "open",
@@ -269,7 +266,7 @@ func TestAnalyticsRepo_Alerts(t *testing.T) {
 		}
 		require.NoError(t, repo.UpsertAlert(ctx, secretAlert))
 
-		counts, err := repo.GetAlertCountsByType(ctx, analyticsRepo.ID)
+		counts, err := repo.GetAlertCountsByType(ctx, r.ID)
 		require.NoError(t, err)
 		assert.NotEmpty(t, counts)
 		// We have open code_scanning alerts from earlier
@@ -286,11 +283,10 @@ func TestAnalyticsRepo_Alerts(t *testing.T) {
 
 	t.Run("GetAlertCountsByType_ClosedAlertsExcluded", func(t *testing.T) {
 		// Create a repo with only closed alerts
-		closedRepo := &AnalyticsRepository{
+		closedRepo := &Repo{
 			OrganizationID: org.ID,
-			Owner:          "test-org",
 			Name:           "closed-alerts-repo",
-			FullName:       "test-org/closed-alerts-repo",
+			FullNameStr:    "test-org/closed-alerts-repo",
 		}
 		require.NoError(t, repo.UpsertRepository(ctx, closedRepo))
 
@@ -402,18 +398,17 @@ func TestAnalyticsRepo_CISnapshots(t *testing.T) {
 	org := &Organization{Name: "test-org", ClientID: client.ID}
 	require.NoError(t, repo.UpsertOrganization(ctx, org))
 
-	analyticsRepo := &AnalyticsRepository{
+	r := &Repo{
 		OrganizationID: org.ID,
-		Owner:          "test-org",
 		Name:           "test-repo",
-		FullName:       "test-org/test-repo",
+		FullNameStr:    "test-org/test-repo",
 	}
-	require.NoError(t, repo.UpsertRepository(ctx, analyticsRepo))
+	require.NoError(t, repo.UpsertRepository(ctx, r))
 
 	t.Run("CreateCISnapshot", func(t *testing.T) {
 		coverage := 85.5
 		snap := &CIMetricsSnapshot{
-			RepositoryID:    analyticsRepo.ID,
+			RepositoryID:    r.ID,
 			SnapshotAt:      time.Now(),
 			WorkflowRunID:   12345,
 			Branch:          "main",
@@ -437,7 +432,7 @@ func TestAnalyticsRepo_CISnapshots(t *testing.T) {
 		now := time.Now()
 		for i := 0; i < 3; i++ {
 			snap := &CIMetricsSnapshot{
-				RepositoryID:  analyticsRepo.ID,
+				RepositoryID:  r.ID,
 				SnapshotAt:    now.Add(time.Duration(-i) * 24 * time.Hour),
 				WorkflowRunID: int64(100 + i),
 				Branch:        "main",
@@ -446,7 +441,7 @@ func TestAnalyticsRepo_CISnapshots(t *testing.T) {
 			require.NoError(t, repo.CreateCISnapshot(ctx, snap))
 		}
 
-		latest, err := repo.GetLatestCISnapshot(ctx, analyticsRepo.ID)
+		latest, err := repo.GetLatestCISnapshot(ctx, r.ID)
 		require.NoError(t, err)
 		require.NotNil(t, latest)
 		assert.Equal(t, 5000, latest.GoFilesLOC) // Most recent (i=0)
@@ -462,7 +457,7 @@ func TestAnalyticsRepo_CISnapshots(t *testing.T) {
 
 	t.Run("CreateCISnapshot_NilCoverage", func(t *testing.T) {
 		snap := &CIMetricsSnapshot{
-			RepositoryID:    analyticsRepo.ID,
+			RepositoryID:    r.ID,
 			SnapshotAt:      time.Now(),
 			WorkflowRunID:   99999,
 			Branch:          "develop",
@@ -475,7 +470,7 @@ func TestAnalyticsRepo_CISnapshots(t *testing.T) {
 		assert.NotZero(t, snap.ID)
 
 		// Verify nil coverage is preserved
-		retrieved, err := repo.GetLatestCISnapshot(ctx, analyticsRepo.ID)
+		retrieved, err := repo.GetLatestCISnapshot(ctx, r.ID)
 		require.NoError(t, err)
 		// Latest may or may not be this one depending on timestamp ordering
 		// Just verify the snapshot was created

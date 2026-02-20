@@ -183,6 +183,7 @@ type Repo struct {
 
 	OrganizationID uint         `gorm:"not null;uniqueIndex:idx_org_repo;index" json:"organization_id"`
 	Name           string       `gorm:"type:text;not null;uniqueIndex:idx_org_repo" json:"name"`
+	FullNameStr    string       `gorm:"column:full_name;type:text;uniqueIndex" json:"full_name"` // Persisted "org/repo" format
 	Description    string       `gorm:"type:text" json:"description"`
 	Organization   Organization `gorm:"foreignKey:OrganizationID" json:"organization,omitempty"`
 
@@ -214,10 +215,25 @@ type Repo struct {
 	GitHubCreatedAt *time.Time `gorm:"type:datetime" json:"github_created_at"` // Repo creation date on GitHub
 	LastPushedAt    *time.Time `gorm:"type:datetime" json:"last_pushed_at"`    // Last code push timestamp
 	GitHubUpdatedAt *time.Time `gorm:"type:datetime" json:"github_updated_at"` // Last metadata update on GitHub
+
+	// Analytics sync fields (formerly on analytics_repositories)
+	MetadataETag  string     `gorm:"type:text" json:"metadata_etag"` // ETag for conditional metadata requests
+	SecurityETag  string     `gorm:"type:text" json:"security_etag"` // ETag for conditional security requests
+	LastSyncAt    *time.Time `json:"last_sync_at,omitempty"`         // Last analytics sync timestamp
+	LastSyncRunID *uint      `json:"last_sync_run_id,omitempty"`     // Links to the SyncRun that last processed this repo
+
+	// Analytics relationships
+	Snapshots   []RepositorySnapshot `gorm:"foreignKey:RepositoryID" json:"snapshots,omitempty"`
+	Alerts      []SecurityAlert      `gorm:"foreignKey:RepositoryID" json:"alerts,omitempty"`
+	CISnapshots []CIMetricsSnapshot  `gorm:"foreignKey:RepositoryID" json:"ci_snapshots,omitempty"`
 }
 
-// FullName returns the "org/repo" format name
+// FullName returns the "org/repo" format name.
+// Prefers the persisted FullNameStr column; falls back to Organization preload.
 func (r *Repo) FullName() string {
+	if r.FullNameStr != "" {
+		return r.FullNameStr
+	}
 	return r.Organization.Name + "/" + r.Name
 }
 

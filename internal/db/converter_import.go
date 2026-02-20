@@ -456,7 +456,7 @@ func (c *Converter) resolveRepoID(tx *gorm.DB, fullName string, refs *refMap) (u
 	var repo Repo
 	err := tx.Where("organization_id = ? AND name = ?", orgID, repoName).First(&repo).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		repo = Repo{OrganizationID: orgID, Name: repoName}
+		repo = Repo{OrganizationID: orgID, Name: repoName, FullNameStr: fullName}
 		if err = tx.Create(&repo).Error; err != nil {
 			return 0, fmt.Errorf("failed to create repo %q: %w", fullName, err)
 		}

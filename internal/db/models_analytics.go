@@ -5,54 +5,9 @@ import (
 )
 
 // =====================
-// Analytics Models (4 new models)
-// Reuses existing Organization model from T-19 (models.go)
+// Analytics Models
+// Reuses existing Organization and Repo models from models.go
 // =====================
-
-// AnalyticsRepository tracks individual repo metrics (separate from config.Target)
-// Links to existing Organization model from T-19 via OrganizationID.
-// This is distinct from config Targets - analytics tracks ALL repos in an org,
-// while Targets are specific repos selected for syncing.
-type AnalyticsRepository struct {
-	BaseModel
-
-	OrganizationID uint       `gorm:"index" json:"organization_id"`                                        // FK to existing Organization table
-	Owner          string     `gorm:"type:text;not null;index:idx_analytics_repo_owner_name" json:"owner"` // GitHub owner (org/user)
-	Name           string     `gorm:"type:text;not null;index:idx_analytics_repo_owner_name" json:"name"`  // Repo name
-	FullName       string     `gorm:"uniqueIndex;type:text;not null" json:"full_name"`                     // owner/name
-	Description    string     `gorm:"type:text" json:"description"`                                        // Repo description
-	DefaultBranch  string     `gorm:"type:text" json:"default_branch"`                                     // Default branch (main/master)
-	Language       string     `gorm:"type:text" json:"language"`                                           // Primary language
-	IsPrivate      bool       `json:"is_private"`                                                          // Visibility
-	IsFork         bool       `json:"is_fork"`                                                             // Is this a fork?
-	ForkSource     string     `gorm:"type:text" json:"fork_source,omitempty"`                              // Parent repo full name if fork
-	IsArchived     bool       `json:"is_archived"`                                                         // Is archived?
-	URL            string     `gorm:"type:text" json:"url"`                                                // HTML URL
-	MetadataETag   string     `gorm:"type:text" json:"metadata_etag"`                                      // ETag for conditional metadata requests
-	SecurityETag   string     `gorm:"type:text" json:"security_etag"`                                      // ETag for conditional security requests
-	LastSyncAt     *time.Time `json:"last_sync_at,omitempty"`                                              // Last sync timestamp
-	LastSyncRunID  *uint      `json:"last_sync_run_id,omitempty"`                                          // Links to the SyncRun that last processed this repo
-
-	// Enhanced metadata fields (matching Repo model)
-	HomepageURL           string     `gorm:"type:text" json:"homepage_url"`                    // Project homepage
-	Topics                string     `gorm:"type:text" json:"topics"`                          // JSON array of topics
-	License               string     `gorm:"type:text" json:"license"`                         // License key (e.g., "MIT")
-	DiskUsageKB           int        `gorm:"default:0" json:"disk_usage_kb"`                   // Repository size in kilobytes
-	HasIssuesEnabled      bool       `gorm:"default:false" json:"has_issues_enabled"`          // Issues feature status
-	HasWikiEnabled        bool       `gorm:"default:false" json:"has_wiki_enabled"`            // Wiki feature status
-	HasDiscussionsEnabled bool       `gorm:"default:false" json:"has_discussions_enabled"`     // Discussions feature status
-	SSHURL                string     `gorm:"type:text" json:"ssh_url"`                         // SSH clone URL
-	CloneURL              string     `gorm:"type:text" json:"clone_url"`                       // HTTPS clone URL
-	GitHubCreatedAt       *time.Time `gorm:"type:datetime" json:"github_created_at,omitempty"` // Repo creation date on GitHub
-	LastPushedAt          *time.Time `gorm:"type:datetime" json:"last_pushed_at,omitempty"`    // Last code push timestamp
-	GitHubUpdatedAt       *time.Time `gorm:"type:datetime" json:"github_updated_at,omitempty"` // Last metadata update on GitHub
-
-	// Relationships
-	Organization *Organization        `gorm:"foreignKey:OrganizationID" json:"organization,omitempty"`
-	Snapshots    []RepositorySnapshot `gorm:"foreignKey:RepositoryID" json:"snapshots,omitempty"`
-	Alerts       []SecurityAlert      `gorm:"foreignKey:RepositoryID" json:"alerts,omitempty"`
-	CISnapshots  []CIMetricsSnapshot  `gorm:"foreignKey:RepositoryID" json:"ci_snapshots,omitempty"`
-}
 
 // RepositorySnapshot captures point-in-time metrics for a repository.
 // Uses timestamp (not date-only) to support future hourly snapshots.

@@ -95,7 +95,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&TargetDirectoryListRef{},
 		&SchemaMigration{},
 		// Analytics models from T-22
-		&AnalyticsRepository{},
 		&RepositorySnapshot{},
 		&SecurityAlert{},
 		&SyncRun{},

@@ -26,29 +26,28 @@ func TestAnalyticsModels(t *testing.T) {
 	}
 	require.NoError(t, db.Create(org).Error)
 
-	// Test AnalyticsRepository creation
-	t.Run("CreateAnalyticsRepository", func(t *testing.T) {
-		repo := &AnalyticsRepository{
+	// Test Repo creation with analytics fields
+	t.Run("CreateRepoWithAnalyticsFields", func(t *testing.T) {
+		repo := &Repo{
 			OrganizationID: org.ID,
-			Owner:          "test-org",
 			Name:           "test-repo",
-			FullName:       "test-org/test-repo",
+			FullNameStr:    "test-org/test-repo",
 			Description:    "Test repository",
 			DefaultBranch:  "main",
 			Language:       "Go",
 			IsPrivate:      false,
 			IsFork:         false,
 			IsArchived:     false,
-			URL:            "https://github.com/test-org/test-repo",
+			HTMLURL:        "https://github.com/test-org/test-repo",
 		}
 
 		err := db.Create(repo).Error
 		require.NoError(t, err)
 		assert.NotZero(t, repo.ID)
-		assert.Equal(t, "test-org/test-repo", repo.FullName)
+		assert.Equal(t, "test-org/test-repo", repo.FullNameStr)
 
 		// Verify we can load with organization
-		var loaded AnalyticsRepository
+		var loaded Repo
 		err = db.Preload("Organization").First(&loaded, repo.ID).Error
 		require.NoError(t, err)
 		assert.Equal(t, org.Name, loaded.Organization.Name)
@@ -56,11 +55,10 @@ func TestAnalyticsModels(t *testing.T) {
 
 	// Test RepositorySnapshot creation
 	t.Run("CreateRepositorySnapshot", func(t *testing.T) {
-		repo := &AnalyticsRepository{
+		repo := &Repo{
 			OrganizationID: org.ID,
-			Owner:          "test-org",
 			Name:           "snapshot-repo",
-			FullName:       "test-org/snapshot-repo",
+			FullNameStr:    "test-org/snapshot-repo",
 			DefaultBranch:  "main",
 		}
 		require.NoError(t, db.Create(repo).Error)
@@ -86,11 +84,10 @@ func TestAnalyticsModels(t *testing.T) {
 
 	// Test SecurityAlert creation
 	t.Run("CreateSecurityAlert", func(t *testing.T) {
-		repo := &AnalyticsRepository{
+		repo := &Repo{
 			OrganizationID: org.ID,
-			Owner:          "test-org",
 			Name:           "alert-repo",
-			FullName:       "test-org/alert-repo",
+			FullNameStr:    "test-org/alert-repo",
 			DefaultBranch:  "main",
 		}
 		require.NoError(t, db.Create(repo).Error)
@@ -175,23 +172,21 @@ func TestAnalyticsModels(t *testing.T) {
 		assert.NotNil(t, loaded.CompletedAt)
 	})
 
-	// Test unique constraint on FullName
+	// Test unique constraint on FullNameStr
 	t.Run("UniqueConstraintOnFullName", func(t *testing.T) {
-		repo1 := &AnalyticsRepository{
+		repo1 := &Repo{
 			OrganizationID: org.ID,
-			Owner:          "test-org",
 			Name:           "unique-repo",
-			FullName:       "test-org/unique-repo",
+			FullNameStr:    "test-org/unique-repo",
 			DefaultBranch:  "main",
 		}
 		require.NoError(t, db.Create(repo1).Error)
 
 		// Try to create duplicate
-		repo2 := &AnalyticsRepository{
+		repo2 := &Repo{
 			OrganizationID: org.ID,
-			Owner:          "test-org",
-			Name:           "unique-repo",
-			FullName:       "test-org/unique-repo",
+			Name:           "unique-repo-dup",
+			FullNameStr:    "test-org/unique-repo",
 			DefaultBranch:  "main",
 		}
 		err := db.Create(repo2).Error
@@ -200,11 +195,10 @@ func TestAnalyticsModels(t *testing.T) {
 
 	// Test relationship loading
 	t.Run("LoadRelationships", func(t *testing.T) {
-		repo := &AnalyticsRepository{
+		repo := &Repo{
 			OrganizationID: org.ID,
-			Owner:          "test-org",
 			Name:           "rel-repo",
-			FullName:       "test-org/rel-repo",
+			FullNameStr:    "test-org/rel-repo",
 			DefaultBranch:  "main",
 		}
 		require.NoError(t, db.Create(repo).Error)
@@ -234,7 +228,7 @@ func TestAnalyticsModels(t *testing.T) {
 		require.NoError(t, db.Create(alert).Error)
 
 		// Load with relationships
-		var loaded AnalyticsRepository
+		var loaded Repo
 		err := db.Preload("Organization").Preload("Snapshots").Preload("Alerts").First(&loaded, repo.ID).Error
 		require.NoError(t, err)
 		assert.Equal(t, org.Name, loaded.Organization.Name)
@@ -257,21 +251,17 @@ func TestAnalyticsIndexes(t *testing.T) {
 		org := &Organization{ClientID: client.ID, Name: "idx-org"}
 		require.NoError(t, db.Create(org).Error)
 
-		repo := &AnalyticsRepository{
+		repo := &Repo{
 			OrganizationID: org.ID,
-			Owner:          "idx-org",
 			Name:           "idx-repo",
-			FullName:       "idx-org/idx-repo",
+			FullNameStr:    "idx-org/idx-repo",
 		}
 		require.NoError(t, db.Create(repo).Error)
 
 		// Query by indexed fields (should be fast)
-		var found AnalyticsRepository
+		var found Repo
 		err := db.Where("full_name = ?", "idx-org/idx-repo").First(&found).Error
 		require.NoError(t, err)
 		assert.Equal(t, repo.ID, found.ID)
-
-		err = db.Where("owner = ? AND name = ?", "idx-org", "idx-repo").First(&found).Error
-		assert.NoError(t, err)
 	})
 }

@@ -23,10 +23,10 @@ type AnalyticsRepo interface {
 	GetOrganization(ctx context.Context, login string) (*Organization, error)
 	ListOrganizations(ctx context.Context) ([]Organization, error)
 
-	// Repositories
-	UpsertRepository(ctx context.Context, repo *AnalyticsRepository) error
-	GetRepository(ctx context.Context, fullName string) (*AnalyticsRepository, error)
-	ListRepositories(ctx context.Context, orgLogin string) ([]AnalyticsRepository, error)
+	// Repositories (uses unified Repo model)
+	UpsertRepository(ctx context.Context, repo *Repo) error
+	GetRepository(ctx context.Context, fullName string) (*Repo, error)
+	ListRepositories(ctx context.Context, orgLogin string) ([]Repo, error)
 
 	// Snapshots
 	CreateSnapshot(ctx context.Context, snap *RepositorySnapshot) error
@@ -57,12 +57,6 @@ type analyticsRepo struct {
 // NewAnalyticsRepo creates a new analytics repository
 func NewAnalyticsRepo(db *gorm.DB) AnalyticsRepo {
 	return &analyticsRepo{db: db}
-}
-
-// GetDB returns the underlying GORM database connection
-// This is used by analytics sync to update config repos table with GitHub data
-func (r *analyticsRepo) GetDB() *gorm.DB {
-	return r.db
 }
 
 // ============================================================
@@ -150,14 +144,14 @@ func (r *analyticsRepo) ListOrganizations(ctx context.Context) ([]Organization, 
 // Repositories
 // ============================================================
 
-// UpsertRepository creates or updates an analytics repository.
+// UpsertRepository creates or updates a repository.
 // Uses Unscoped to find soft-deleted records and restore them on upsert,
 // avoiding UNIQUE constraint failures when a repo was previously soft-deleted.
-func (r *analyticsRepo) UpsertRepository(ctx context.Context, repo *AnalyticsRepository) error {
+func (r *analyticsRepo) UpsertRepository(ctx context.Context, repo *Repo) error {
 	// Try to find existing (including soft-deleted rows to avoid unique constraint conflicts)
-	var existing AnalyticsRepository
+	var existing Repo
 	err := r.db.WithContext(ctx).Unscoped().
-		Where("full_name = ?", repo.FullName).
+		Where("full_name = ?", repo.FullNameStr).
 		First(&existing).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -178,8 +172,8 @@ func (r *analyticsRepo) UpsertRepository(ctx context.Context, repo *AnalyticsRep
 }
 
 // GetRepository retrieves a repository by full name (owner/name)
-func (r *analyticsRepo) GetRepository(ctx context.Context, fullName string) (*AnalyticsRepository, error) {
-	var repo AnalyticsRepository
+func (r *analyticsRepo) GetRepository(ctx context.Context, fullName string) (*Repo, error) {
+	var repo Repo
 	err := r.db.WithContext(ctx).
 		Where("full_name = ?", fullName).
 		Preload("Organization").
@@ -191,15 +185,20 @@ func (r *analyticsRepo) GetRepository(ctx context.Context, fullName string) (*An
 }
 
 // ListRepositories retrieves all repositories for an organization
-func (r *analyticsRepo) ListRepositories(ctx context.Context, orgLogin string) ([]AnalyticsRepository, error) {
-	var repos []AnalyticsRepository
+func (r *analyticsRepo) ListRepositories(ctx context.Context, orgLogin string) ([]Repo, error) {
+	var repos []Repo
 
-	query := r.db.WithContext(ctx).
-		Joins("JOIN organizations ON organizations.id = analytics_repositories.organization_id").
-		Where("organizations.name = ?", orgLogin).
-		Order("analytics_repositories.name ASC")
+	query := r.db.WithContext(ctx)
 
-	err := query.Find(&repos).Error
+	if orgLogin != "" {
+		query = query.
+			Joins("JOIN organizations ON organizations.id = repos.organization_id").
+			Where("organizations.name = ?", orgLogin)
+	}
+
+	err := query.
+		Order("repos.name ASC").
+		Find(&repos).Error
 	return repos, err
 }
 
