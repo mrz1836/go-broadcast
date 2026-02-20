@@ -372,20 +372,11 @@ func loadConfig() (*config.Config, error) {
 // loadConfigFromDB loads configuration from the database
 func loadConfigFromDB() (*config.Config, error) {
 	ctx := context.Background()
-	loadDBPath := getDBPath()
 
-	// Check if database file exists
-	if _, err := os.Stat(loadDBPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("%w: %s (use 'go-broadcast db init' to create it)", ErrDatabaseFileNotFound, loadDBPath)
-	}
-
-	// Open database
-	database, err := db.Open(db.OpenOptions{
-		Path:     loadDBPath,
-		LogLevel: logger.Silent,
-	})
+	// Open database using shared helper (handles existence check + auto-migration)
+	database, err := openDatabase()
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database at %s: %w", loadDBPath, err)
+		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 	defer func() { _ = database.Close() }()
 
@@ -460,8 +451,9 @@ func tryAttachMetricsRecorder(engine *sync.Engine, log *logrus.Logger) func() {
 	}
 
 	database, err := db.Open(db.OpenOptions{
-		Path:     path,
-		LogLevel: logger.Silent,
+		Path:        path,
+		LogLevel:    logger.Silent,
+		AutoMigrate: true,
 	})
 	if err != nil {
 		log.WithError(err).Warn("Failed to open database; sync metrics will not be recorded")

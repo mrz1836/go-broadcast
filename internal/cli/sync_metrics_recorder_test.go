@@ -143,3 +143,34 @@ func TestTryAttachMetricsRecorder_CloserReleasesDB(t *testing.T) {
 	// Calling it a second time should also be safe (no-op on already-closed DB).
 	assert.NotPanics(t, closer)
 }
+
+// TestTryAttachMetricsRecorder_PreMigrationDB verifies that when the database
+// was created before the broadcast_sync_runs table existed (pre-migration),
+// tryAttachMetricsRecorder still attaches successfully because it now runs
+// AutoMigrate to create missing tables.
+func TestTryAttachMetricsRecorder_PreMigrationDB(t *testing.T) {
+	// Create a database WITHOUT auto-migration (simulates a pre-T-98 database
+	// that lacks the broadcast_sync_runs table).
+	dir := t.TempDir()
+	path := filepath.Join(dir, "pre-migration.db")
+
+	database, err := db.Open(db.OpenOptions{
+		Path:        path,
+		AutoMigrate: false,
+	})
+	require.NoError(t, err, "failed to create pre-migration database")
+	require.NoError(t, database.Close())
+
+	setTestDBPath(t, path)
+
+	engine := newMinimalEngine(t)
+	log := logrus.New()
+	log.SetOutput(os.Stderr)
+
+	closer := tryAttachMetricsRecorder(engine, log)
+	require.NotNil(t, closer)
+	defer closer()
+
+	assert.True(t, engine.HasMetricsRecorder(),
+		"recorder should be attached even for pre-migration DB (AutoMigrate creates missing tables)")
+}
