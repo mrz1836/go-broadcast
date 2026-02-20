@@ -862,8 +862,6 @@ func TestVersionEdgeCases(t *testing.T) {
 
 // TestResetVersionInfo verifies that ResetVersionInfo restores default values
 func TestResetVersionInfo(t *testing.T) {
-	t.Parallel()
-
 	// Save original values (thread-safe)
 	origVersion := getVersionRaw()
 	origCommit := getCommitRaw()
