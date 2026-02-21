@@ -261,17 +261,19 @@ func migrationConsolidateAnalyticsRepos() Migration {
 			}
 
 			// 2. Copy analytics fields into matching repos rows
+			// GORM's default naming strategy splits "ETag" into "e_tag",
+			// so the physical column names are metadata_e_tag / security_e_tag.
 			if err := tx.Exec(`
 				UPDATE repos
 				SET
-					metadata_etag = COALESCE((
-						SELECT ar.metadata_etag FROM analytics_repositories ar
+					metadata_e_tag = COALESCE((
+						SELECT ar.metadata_e_tag FROM analytics_repositories ar
 						WHERE ar.full_name = repos.full_name
-					), repos.metadata_etag),
-					security_etag = COALESCE((
-						SELECT ar.security_etag FROM analytics_repositories ar
+					), repos.metadata_e_tag),
+					security_e_tag = COALESCE((
+						SELECT ar.security_e_tag FROM analytics_repositories ar
 						WHERE ar.full_name = repos.full_name
-					), repos.security_etag),
+					), repos.security_e_tag),
 					last_sync_at = COALESCE((
 						SELECT ar.last_sync_at FROM analytics_repositories ar
 						WHERE ar.full_name = repos.full_name
