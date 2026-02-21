@@ -86,6 +86,16 @@ func Open(opts OpenOptions) (Database, error) {
 
 	// Run auto-migration if requested
 	if opts.AutoMigrate {
+		// Disable FK enforcement during schema and data migrations.
+		// The DB may hold rows that reference analytics_repositories IDs
+		// (not yet consolidated into repos), which would cause false-positive
+		// FOREIGN KEY constraint failures while GORM recreates tables.
+		// FK enforcement is restored immediately after all migrations complete.
+		if err := db.Exec("PRAGMA foreign_keys=OFF").Error; err != nil {
+			_ = d.Close()
+			return nil, fmt.Errorf("failed to disable foreign keys for migration: %w", err)
+		}
+
 		if err := d.AutoMigrate(); err != nil {
 			_ = d.Close()
 			return nil, fmt.Errorf("auto-migration failed: %w", err)
@@ -95,6 +105,12 @@ func Open(opts OpenOptions) (Database, error) {
 		if err := RunMigrations(db); err != nil {
 			_ = d.Close()
 			return nil, fmt.Errorf("data migration failed: %w", err)
+		}
+
+		// Re-enable FK enforcement after all migrations complete
+		if err := db.Exec("PRAGMA foreign_keys=ON").Error; err != nil {
+			_ = d.Close()
+			return nil, fmt.Errorf("failed to re-enable foreign keys after migration: %w", err)
 		}
 	}
 
