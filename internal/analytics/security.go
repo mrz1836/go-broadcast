@@ -2,7 +2,9 @@ package analytics
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,6 +48,12 @@ type SecurityAlert struct {
 	ResolvedAt   *string           // ISO 8601 timestamp (nullable)
 }
 
+// SecurityCollectionResult holds alerts and any warnings from collection
+type SecurityCollectionResult struct {
+	Alerts   []SecurityAlert
+	Warnings []string // User-visible warnings (e.g., "REST 404, used GraphQL fallback")
+}
+
 // SecurityCollector handles concurrent security alert collection
 type SecurityCollector struct {
 	ghClient gh.Client
@@ -63,11 +71,11 @@ func NewSecurityCollector(ghClient gh.Client, logger *logrus.Logger, throttle *T
 	}
 }
 
-// CollectAlerts fetches all security alerts for multiple repositories concurrently
-// Returns a map of repo full name to list of alerts
-func (s *SecurityCollector) CollectAlerts(ctx context.Context, repos []gh.RepoInfo) (map[string][]SecurityAlert, error) {
+// CollectAlerts fetches all security alerts for multiple repositories concurrently.
+// Returns a map of repo full name to collection results (alerts + warnings).
+func (s *SecurityCollector) CollectAlerts(ctx context.Context, repos []gh.RepoInfo) (map[string]*SecurityCollectionResult, error) {
 	if len(repos) == 0 {
-		return make(map[string][]SecurityAlert), nil
+		return make(map[string]*SecurityCollectionResult), nil
 	}
 
 	if s.logger != nil {
@@ -75,7 +83,7 @@ func (s *SecurityCollector) CollectAlerts(ctx context.Context, repos []gh.RepoIn
 	}
 
 	// Result map with mutex protection
-	results := make(map[string][]SecurityAlert)
+	results := make(map[string]*SecurityCollectionResult)
 	var resultMu sync.Mutex
 
 	// Create errgroup with bounded concurrency
@@ -85,26 +93,21 @@ func (s *SecurityCollector) CollectAlerts(ctx context.Context, repos []gh.RepoIn
 	// Spawn workers for each repository
 	for _, repo := range repos {
 		g.Go(func() error {
-			alerts, err := s.collectRepoAlerts(ctx, repo.FullName)
-			if err != nil {
-				if s.logger != nil {
-					s.logger.WithError(err).WithField("repo", repo.FullName).Warn("Failed to collect security alerts")
-				}
-				// Don't fail the entire operation for a single repo error
-				return nil
-			}
+			result := s.collectRepoAlerts(ctx, repo.FullName)
 
-			if len(alerts) > 0 {
-				resultMu.Lock()
-				results[repo.FullName] = alerts
-				resultMu.Unlock()
+			resultMu.Lock()
+			results[repo.FullName] = result
+			resultMu.Unlock()
 
-				if s.logger != nil {
-					s.logger.WithFields(logrus.Fields{
-						"repo":        repo.FullName,
-						"alert_count": len(alerts),
-					}).Debug("Collected security alerts")
+			if s.logger != nil {
+				fields := logrus.Fields{
+					"repo":        repo.FullName,
+					"alert_count": len(result.Alerts),
 				}
+				if len(result.Warnings) > 0 {
+					fields["warnings"] = len(result.Warnings)
+				}
+				s.logger.WithFields(fields).Debug("Collected security alerts")
 			}
 
 			return nil
@@ -118,61 +121,144 @@ func (s *SecurityCollector) CollectAlerts(ctx context.Context, repos []gh.RepoIn
 
 	if s.logger != nil {
 		totalAlerts := 0
-		for _, alerts := range results {
-			totalAlerts += len(alerts)
+		totalWarnings := 0
+		for _, result := range results {
+			totalAlerts += len(result.Alerts)
+			totalWarnings += len(result.Warnings)
 		}
-		s.logger.WithFields(logrus.Fields{
-			"repos_with_alerts": len(results),
-			"total_alerts":      totalAlerts,
-		}).Info("Security alert collection complete")
+		fields := logrus.Fields{
+			"repos_processed": len(results),
+			"total_alerts":    totalAlerts,
+		}
+		if totalWarnings > 0 {
+			fields["total_warnings"] = totalWarnings
+		}
+		s.logger.WithFields(fields).Info("Security alert collection complete")
 	}
 
 	return results, nil
 }
 
-// collectRepoAlerts fetches all security alert types for a single repository
-func (s *SecurityCollector) collectRepoAlerts(ctx context.Context, repo string) ([]SecurityAlert, error) {
-	var allAlerts []SecurityAlert
+// collectRepoAlerts fetches all security alert types for a single repository.
+// Never returns an error — all issues are captured as warnings in the result.
+func (s *SecurityCollector) collectRepoAlerts(ctx context.Context, repo string) *SecurityCollectionResult {
+	result := &SecurityCollectionResult{}
 
-	// Collect Dependabot alerts
+	// === Dependabot / Vulnerability Alerts ===
+	s.collectDependabotAlerts(ctx, repo, result)
+
+	// === Code Scanning Alerts ===
+	s.collectCodeScanningAlerts(ctx, repo, result)
+
+	// === Secret Scanning Alerts ===
+	s.collectSecretScanningAlerts(ctx, repo, result)
+
+	return result
+}
+
+// collectDependabotAlerts tries REST first, falls back to GraphQL on 404
+func (s *SecurityCollector) collectDependabotAlerts(ctx context.Context, repo string, result *SecurityCollectionResult) {
 	var dependabotAlerts []gh.DependabotAlert
 	err := s.doAPI(ctx, "dependabot-alerts:"+repo, func() error {
 		var apiErr error
 		dependabotAlerts, apiErr = s.ghClient.GetDependabotAlerts(ctx, repo)
 		return apiErr
 	})
-	if err != nil {
-		return nil, fmt.Errorf("dependabot alerts: %w", err)
+
+	if err == nil {
+		// REST worked — convert alerts
+		for _, alert := range dependabotAlerts {
+			result.Alerts = append(result.Alerts, SecurityAlert{
+				AlertType:   AlertTypeDependabot,
+				AlertNumber: alert.Number,
+				State:       alert.State,
+				Severity:    alert.SecurityVulnerability.Severity,
+				Title: fmt.Sprintf("%s vulnerability in %s",
+					alert.SecurityVulnerability.Severity,
+					alert.DependencyPackage),
+				HTMLURL:     alert.HTMLURL,
+				CreatedAt:   alert.CreatedAt.Format("2006-01-02T15:04:05Z"),
+				UpdatedAt:   alert.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+				DismissedAt: formatTimePtr(alert.DismissedAt),
+				FixedAt:     formatTimePtr(alert.FixedAt),
+			})
+		}
+		return
 	}
-	for _, alert := range dependabotAlerts {
-		allAlerts = append(allAlerts, SecurityAlert{
+
+	// Check if it's a 404 — try GraphQL fallback
+	if errors.Is(err, gh.ErrSecurityNotAvailable) {
+		s.collectVulnerabilityAlertsGraphQL(ctx, repo, result)
+		return
+	}
+
+	// Actual API error
+	result.Warnings = append(result.Warnings,
+		fmt.Sprintf("dependabot: failed to fetch alerts: %v", err))
+}
+
+// collectVulnerabilityAlertsGraphQL fetches vulnerability alerts via GraphQL as fallback
+func (s *SecurityCollector) collectVulnerabilityAlertsGraphQL(ctx context.Context, repo string, result *SecurityCollectionResult) {
+	var graphqlAlerts []gh.VulnerabilityAlert
+	err := s.doAPI(ctx, "graphql-vuln-alerts:"+repo, func() error {
+		var apiErr error
+		graphqlAlerts, apiErr = s.ghClient.GetVulnerabilityAlertsGraphQL(ctx, repo)
+		return apiErr
+	})
+	if err != nil {
+		result.Warnings = append(result.Warnings,
+			fmt.Sprintf("dependabot: REST API returned 404, GraphQL fallback also failed: %v", err))
+		return
+	}
+
+	// Convert GraphQL alerts to unified SecurityAlert
+	for _, alert := range graphqlAlerts {
+		severity := normalizeSeverity(alert.Severity)
+		result.Alerts = append(result.Alerts, SecurityAlert{
 			AlertType:   AlertTypeDependabot,
 			AlertNumber: alert.Number,
-			State:       alert.State,
-			Severity:    alert.SecurityVulnerability.Severity,
-			Title: fmt.Sprintf("%s vulnerability in %s",
-				alert.SecurityVulnerability.Severity,
-				alert.DependencyPackage),
-			HTMLURL:     alert.HTMLURL,
+			State:       strings.ToLower(alert.State), // GraphQL returns OPEN/DISMISSED/FIXED
+			Severity:    severity,
+			Title: fmt.Sprintf("%s vulnerability in %s: %s",
+				severity, alert.PackageName, alert.AdvisorySummary),
+			HTMLURL:     alert.AdvisoryPermalink,
 			CreatedAt:   alert.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:   alert.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:   alert.CreatedAt.Format("2006-01-02T15:04:05Z"), // GraphQL doesn't have updatedAt
 			DismissedAt: formatTimePtr(alert.DismissedAt),
 			FixedAt:     formatTimePtr(alert.FixedAt),
 		})
 	}
 
-	// Collect Code Scanning alerts
+	if len(graphqlAlerts) > 0 {
+		result.Warnings = append(result.Warnings,
+			fmt.Sprintf("dependabot: REST API unavailable (404), used GraphQL fallback (%d alerts found)", len(graphqlAlerts)))
+	} else {
+		result.Warnings = append(result.Warnings,
+			"dependabot: REST API unavailable (404), GraphQL fallback found no open alerts")
+	}
+}
+
+// collectCodeScanningAlerts fetches code scanning alerts via REST
+func (s *SecurityCollector) collectCodeScanningAlerts(ctx context.Context, repo string, result *SecurityCollectionResult) {
 	var codeScanningAlerts []gh.CodeScanningAlert
-	err = s.doAPI(ctx, "code-scanning-alerts:"+repo, func() error {
+	err := s.doAPI(ctx, "code-scanning-alerts:"+repo, func() error {
 		var apiErr error
 		codeScanningAlerts, apiErr = s.ghClient.GetCodeScanningAlerts(ctx, repo)
 		return apiErr
 	})
 	if err != nil {
-		return nil, fmt.Errorf("code scanning alerts: %w", err)
+		if errors.Is(err, gh.ErrSecurityNotAvailable) {
+			result.Warnings = append(result.Warnings,
+				"code_scanning: REST API unavailable (404) — feature may not be enabled or token lacks scope")
+		} else {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("code_scanning: failed to fetch alerts: %v", err))
+		}
+		return
 	}
+
 	for _, alert := range codeScanningAlerts {
-		allAlerts = append(allAlerts, SecurityAlert{
+		result.Alerts = append(result.Alerts, SecurityAlert{
 			AlertType:   AlertTypeCodeScanning,
 			AlertNumber: alert.Number,
 			State:       alert.State,
@@ -187,23 +273,33 @@ func (s *SecurityCollector) collectRepoAlerts(ctx context.Context, repo string) 
 			FixedAt:     formatTimePtr(alert.FixedAt),
 		})
 	}
+}
 
-	// Collect Secret Scanning alerts
+// collectSecretScanningAlerts fetches secret scanning alerts via REST
+func (s *SecurityCollector) collectSecretScanningAlerts(ctx context.Context, repo string, result *SecurityCollectionResult) {
 	var secretScanningAlerts []gh.SecretScanningAlert
-	err = s.doAPI(ctx, "secret-scanning-alerts:"+repo, func() error {
+	err := s.doAPI(ctx, "secret-scanning-alerts:"+repo, func() error {
 		var apiErr error
 		secretScanningAlerts, apiErr = s.ghClient.GetSecretScanningAlerts(ctx, repo)
 		return apiErr
 	})
 	if err != nil {
-		return nil, fmt.Errorf("secret scanning alerts: %w", err)
+		if errors.Is(err, gh.ErrSecurityNotAvailable) {
+			result.Warnings = append(result.Warnings,
+				"secret_scanning: REST API unavailable (404) — feature may not be enabled or token lacks scope")
+		} else {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("secret_scanning: failed to fetch alerts: %v", err))
+		}
+		return
 	}
+
 	for _, alert := range secretScanningAlerts {
 		var updatedAt string
 		if alert.UpdatedAt != nil {
 			updatedAt = alert.UpdatedAt.Format("2006-01-02T15:04:05Z")
 		}
-		allAlerts = append(allAlerts, SecurityAlert{
+		result.Alerts = append(result.Alerts, SecurityAlert{
 			AlertType:   AlertTypeSecretScanning,
 			AlertNumber: alert.Number,
 			State:       alert.State,
@@ -215,8 +311,6 @@ func (s *SecurityCollector) collectRepoAlerts(ctx context.Context, repo string) 
 			ResolvedAt:  formatTimePtr(alert.ResolvedAt),
 		})
 	}
-
-	return allAlerts, nil
 }
 
 // doAPI executes fn through the throttle if available, or directly if not
@@ -225,6 +319,23 @@ func (s *SecurityCollector) doAPI(ctx context.Context, operation string, fn func
 		return s.throttle.DoWithRetry(ctx, operation, fn)
 	}
 	return fn()
+}
+
+// normalizeSeverity converts GraphQL severity (CRITICAL, HIGH, MODERATE, LOW)
+// to the REST API format (critical, high, medium, low)
+func normalizeSeverity(severity string) string {
+	switch strings.ToUpper(severity) {
+	case "CRITICAL":
+		return "critical"
+	case "HIGH":
+		return "high"
+	case "MODERATE":
+		return "medium"
+	case "LOW":
+		return "low"
+	default:
+		return strings.ToLower(severity)
+	}
 }
 
 // formatTimePtr formats a time pointer to ISO 8601 string, returns nil if input is nil

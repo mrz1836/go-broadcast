@@ -93,6 +93,10 @@ func (m *mockAnalyticsRepo) GetSnapshotHistory(ctx context.Context, repoID uint,
 	return args.Get(0).([]db.RepositorySnapshot), args.Error(1)
 }
 
+func (m *mockAnalyticsRepo) UpdateSnapshotAlertCounts(_ context.Context, _ *db.RepositorySnapshot) error {
+	return nil
+}
+
 func (m *mockAnalyticsRepo) UpsertAlert(ctx context.Context, alert *db.SecurityAlert) error {
 	args := m.Called(ctx, alert)
 	return args.Error(0)

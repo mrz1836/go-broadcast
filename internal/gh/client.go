@@ -92,9 +92,14 @@ type Client interface {
 	// Returns empty slice if code scanning is not enabled (404 response)
 	GetCodeScanningAlerts(ctx context.Context, repo string) ([]CodeScanningAlert, error)
 
-	// GetSecretScanningAlerts retrieves secret scanning alerts for a repository
-	// Returns empty slice if secret scanning is not enabled (404 response)
+	// GetSecretScanningAlerts retrieves secret scanning alerts for a repository.
+	// Returns ErrSecurityNotAvailable if the REST endpoint returns 404.
 	GetSecretScanningAlerts(ctx context.Context, repo string) ([]SecretScanningAlert, error)
+
+	// GetVulnerabilityAlertsGraphQL retrieves vulnerability alerts via GraphQL API.
+	// This is the fallback when REST Dependabot endpoints return 404 due to token scope.
+	// The GraphQL vulnerabilityAlerts query works with standard repository read access.
+	GetVulnerabilityAlertsGraphQL(ctx context.Context, repo string) ([]VulnerabilityAlert, error)
 
 	// ListWorkflows returns all workflows for a repository
 	ListWorkflows(ctx context.Context, repo string) ([]Workflow, error)

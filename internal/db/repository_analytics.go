@@ -32,6 +32,7 @@ type AnalyticsRepo interface {
 	CreateSnapshot(ctx context.Context, snap *RepositorySnapshot) error
 	GetLatestSnapshot(ctx context.Context, repoID uint) (*RepositorySnapshot, error)
 	GetSnapshotHistory(ctx context.Context, repoID uint, since time.Time) ([]RepositorySnapshot, error)
+	UpdateSnapshotAlertCounts(ctx context.Context, snap *RepositorySnapshot) error
 
 	// Alerts
 	UpsertAlert(ctx context.Context, alert *SecurityAlert) error
@@ -209,6 +210,17 @@ func (r *analyticsRepo) ListRepositories(ctx context.Context, orgLogin string) (
 // CreateSnapshot creates a new repository snapshot
 func (r *analyticsRepo) CreateSnapshot(ctx context.Context, snap *RepositorySnapshot) error {
 	return r.db.WithContext(ctx).Create(snap).Error
+}
+
+// UpdateSnapshotAlertCounts updates only the alert count fields on an existing snapshot
+func (r *analyticsRepo) UpdateSnapshotAlertCounts(ctx context.Context, snap *RepositorySnapshot) error {
+	return r.db.WithContext(ctx).
+		Model(snap).
+		Updates(map[string]interface{}{
+			"dependabot_alert_count":      snap.DependabotAlertCount,
+			"code_scanning_alert_count":   snap.CodeScanningAlertCount,
+			"secret_scanning_alert_count": snap.SecretScanningAlertCount,
+		}).Error
 }
 
 // GetLatestSnapshot retrieves the most recent snapshot for a repository

@@ -297,11 +297,21 @@ func syncSingleRepository(
 	}
 
 	// Collect and upsert security alerts
-	alertCount, err := collectSecurityAlerts(ctx, pipeline, analyticsRepo, repo.ID, fullName)
+	secResult, err := collectSecurityAlerts(ctx, pipeline, analyticsRepo, repo.ID, fullName)
 	if err != nil {
 		output.Warn(fmt.Sprintf("Failed to collect security alerts for %s: %v", fullName, err))
-	} else {
-		syncRun.AlertsUpserted += alertCount
+	}
+	if secResult != nil {
+		syncRun.AlertsUpserted += secResult.AlertCount
+		// Surface warnings to user
+		for _, w := range secResult.Warnings {
+			output.Warn(fmt.Sprintf("  %s: %s", fullName, w))
+		}
+	}
+
+	// Update snapshot alert counts from collected data
+	if currentSnapshot != nil {
+		updateSnapshotAlertCounts(ctx, analyticsRepo, repo.ID, currentSnapshot)
 	}
 
 	// Collect and create CI metrics snapshot
@@ -400,14 +410,21 @@ func buildRepositorySnapshot(metadata *analytics.RepoMetadata, repoID uint) *db.
 	}
 }
 
-// collectSecurityAlerts collects and upserts security alerts for a repository
+// securityCollectionOutput holds the result of security alert collection for a repo
+type securityCollectionOutput struct {
+	AlertCount int
+	Warnings   []string
+}
+
+// collectSecurityAlerts collects and upserts security alerts for a repository.
+// Returns the number of alerts upserted and any warnings for display.
 func collectSecurityAlerts(
 	ctx context.Context,
 	pipeline *analytics.Pipeline,
 	analyticsRepo db.AnalyticsRepo,
 	repoID uint,
 	fullName string,
-) (int, error) {
+) (*securityCollectionOutput, error) {
 	// Use SecurityCollector to fetch alerts
 	securityCollector := analytics.NewSecurityCollector(pipeline.GetGHClient(), pipeline.GetLogger(), pipeline.GetThrottle())
 
@@ -421,25 +438,51 @@ func collectSecurityAlerts(
 		Name: parts[1],
 	}
 
-	alertMap, err := securityCollector.CollectAlerts(ctx, []gh.RepoInfo{repoInfo})
+	resultMap, err := securityCollector.CollectAlerts(ctx, []gh.RepoInfo{repoInfo})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	alerts, ok := alertMap[fullName]
-	if !ok || len(alerts) == 0 {
-		return 0, nil
+	result, ok := resultMap[fullName]
+	if !ok {
+		return &securityCollectionOutput{}, nil
+	}
+
+	out := &securityCollectionOutput{
+		Warnings: result.Warnings,
 	}
 
 	// Upsert each alert
-	for _, alert := range alerts {
+	for _, alert := range result.Alerts {
 		dbAlert := convertSecurityAlert(alert, repoID)
 		if upsertErr := analyticsRepo.UpsertAlert(ctx, dbAlert); upsertErr != nil {
-			return 0, fmt.Errorf("failed to upsert alert: %w", upsertErr)
+			return out, fmt.Errorf("failed to upsert alert: %w", upsertErr)
 		}
+		out.AlertCount++
 	}
 
-	return len(alerts), nil
+	return out, nil
+}
+
+// updateSnapshotAlertCounts queries the DB for current alert counts and updates the snapshot
+func updateSnapshotAlertCounts(
+	ctx context.Context,
+	analyticsRepo db.AnalyticsRepo,
+	repoID uint,
+	snapshot *db.RepositorySnapshot,
+) {
+	counts, err := analyticsRepo.GetAlertCountsByType(ctx, repoID)
+	if err != nil {
+		return // Best-effort; snapshot already created with zero counts
+	}
+
+	snapshot.DependabotAlertCount = counts["dependabot"]
+	snapshot.CodeScanningAlertCount = counts["code_scanning"]
+	snapshot.SecretScanningAlertCount = counts["secret_scanning"]
+
+	if err := analyticsRepo.UpdateSnapshotAlertCounts(ctx, snapshot); err != nil {
+		output.Warn(fmt.Sprintf("Failed to update snapshot alert counts: %v", err))
+	}
 }
 
 // convertSecurityAlert converts analytics.SecurityAlert to db.SecurityAlert
@@ -795,11 +838,20 @@ func syncRepositoryMetadata(
 	}
 
 	// Collect and upsert security alerts
-	alertCount, err := collectSecurityAlerts(ctx, pipeline, analyticsRepo, repo.ID, fullName)
-	if err != nil {
-		output.Warn(fmt.Sprintf("Failed to collect security alerts for %s: %v", fullName, err))
-	} else {
-		syncRun.AlertsUpserted += alertCount
+	secResult, secErr := collectSecurityAlerts(ctx, pipeline, analyticsRepo, repo.ID, fullName)
+	if secErr != nil {
+		output.Warn(fmt.Sprintf("Failed to collect security alerts for %s: %v", fullName, secErr))
+	}
+	if secResult != nil {
+		syncRun.AlertsUpserted += secResult.AlertCount
+		for _, w := range secResult.Warnings {
+			output.Warn(fmt.Sprintf("  %s: %s", fullName, w))
+		}
+	}
+
+	// Update snapshot alert counts from collected data
+	if currentSnapshot != nil {
+		updateSnapshotAlertCounts(ctx, analyticsRepo, repo.ID, currentSnapshot)
 	}
 
 	// Collect and create CI metrics snapshot

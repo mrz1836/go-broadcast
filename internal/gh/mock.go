@@ -183,6 +183,12 @@ func (m *MockClient) GetSecretScanningAlerts(ctx context.Context, repo string) (
 	return testutil.HandleTwoValueReturn[[]SecretScanningAlert](args)
 }
 
+// GetVulnerabilityAlertsGraphQL mock implementation
+func (m *MockClient) GetVulnerabilityAlertsGraphQL(ctx context.Context, repo string) ([]VulnerabilityAlert, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[[]VulnerabilityAlert](args)
+}
+
 // ListWorkflows mock implementation
 func (m *MockClient) ListWorkflows(ctx context.Context, repo string) ([]Workflow, error) {
 	args := m.Called(ctx, repo)

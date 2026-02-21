@@ -436,6 +436,27 @@ type RateLimitResponse struct {
 	} `json:"resources"`
 }
 
+// VulnerabilityAlert represents a GitHub vulnerability alert from the GraphQL API.
+// Unlike the Dependabot REST endpoint, the GraphQL API works with standard
+// repository access and does not require the security_events scope.
+type VulnerabilityAlert struct {
+	Number                 int
+	State                  string // open, dismissed, fixed (lowercased from GraphQL OPEN/DISMISSED/FIXED)
+	CreatedAt              time.Time
+	DismissedAt            *time.Time
+	FixedAt                *time.Time
+	Severity               string // critical, high, moderate, low (lowercased from GraphQL CRITICAL/HIGH/MODERATE/LOW)
+	PackageName            string
+	PackageEcosystem       string
+	AdvisorySummary        string
+	AdvisoryGHSAID         string
+	AdvisoryPermalink      string
+	VulnerableVersionRange string
+	FirstPatchedVersion    string
+	ManifestPath           string
+	Permalink              string // Direct link to the alert on GitHub
+}
+
 // SecretScanningAlert represents a secret scanning alert
 type SecretScanningAlert struct {
 	Number                int        `json:"number"`

@@ -1071,6 +1071,10 @@ func (m *DirectoryMockGHClient) GetCodeScanningAlerts(_ context.Context, _ strin
 	return nil, nil
 }
 
+func (m *DirectoryMockGHClient) GetVulnerabilityAlertsGraphQL(_ context.Context, _ string) ([]gh.VulnerabilityAlert, error) {
+	return nil, nil
+}
+
 func (m *DirectoryMockGHClient) GetSecretScanningAlerts(_ context.Context, _ string) ([]gh.SecretScanningAlert, error) {
 	return nil, nil
 }

@@ -780,7 +780,6 @@ func TestMigrationManager_ConcurrentApply(t *testing.T) {
 	assert.Equal(t, int64(1), count)
 }
 
-
 func TestRunMigrations_ConsolidateAnalyticsRepositories(t *testing.T) {
 	gormDB := TestDB(t)
 

@@ -1876,6 +1876,10 @@ func (m *TestValidationMockGHClient) GetCodeScanningAlerts(_ context.Context, _ 
 	return nil, ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) GetVulnerabilityAlertsGraphQL(_ context.Context, _ string) ([]gh.VulnerabilityAlert, error) {
+	return nil, nil
+}
+
 func (m *TestValidationMockGHClient) GetSecretScanningAlerts(_ context.Context, _ string) ([]gh.SecretScanningAlert, error) {
 	return nil, ErrMockNotImplemented
 }

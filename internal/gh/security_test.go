@@ -87,7 +87,7 @@ func TestGetDependabotAlerts(t *testing.T) {
 		mockRunner.AssertExpectations(t)
 	})
 
-	t.Run("dependabot not enabled (404)", func(t *testing.T) {
+	t.Run("dependabot not enabled (404) returns ErrSecurityNotAvailable", func(t *testing.T) {
 		mockRunner := new(MockCommandRunner)
 		client := NewClientWithRunner(mockRunner, logrus.New())
 
@@ -98,6 +98,29 @@ func TestGetDependabotAlerts(t *testing.T) {
 			"-F", "per_page=100",
 			"--paginate",
 		}).Return(nil, &CommandError{Stderr: "404 Not Found"})
+
+		result, err := client.GetDependabotAlerts(ctx, "test/repo")
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrSecurityNotAvailable)
+		assert.Nil(t, result)
+
+		mockRunner.AssertExpectations(t)
+	})
+
+	t.Run("empty alerts returns empty slice", func(t *testing.T) {
+		mockRunner := new(MockCommandRunner)
+		client := NewClientWithRunner(mockRunner, logrus.New())
+
+		output, err := json.Marshal([]DependabotAlert{})
+		require.NoError(t, err)
+
+		mockRunner.On("Run", ctx, "gh", []string{
+			"api",
+			"repos/test/repo/dependabot/alerts",
+			"-F", "state=open",
+			"-F", "per_page=100",
+			"--paginate",
+		}).Return(output, nil)
 
 		result, err := client.GetDependabotAlerts(ctx, "test/repo")
 		require.NoError(t, err)
@@ -190,7 +213,7 @@ func TestGetCodeScanningAlerts(t *testing.T) {
 		mockRunner.AssertExpectations(t)
 	})
 
-	t.Run("code scanning not enabled (404)", func(t *testing.T) {
+	t.Run("code scanning not enabled (404) returns ErrSecurityNotAvailable", func(t *testing.T) {
 		mockRunner := new(MockCommandRunner)
 		client := NewClientWithRunner(mockRunner, logrus.New())
 
@@ -203,8 +226,9 @@ func TestGetCodeScanningAlerts(t *testing.T) {
 		}).Return(nil, &CommandError{Stderr: "404 Not Found"})
 
 		result, err := client.GetCodeScanningAlerts(ctx, "test/repo")
-		require.NoError(t, err)
-		assert.Empty(t, result)
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrSecurityNotAvailable)
+		assert.Nil(t, result)
 
 		mockRunner.AssertExpectations(t)
 	})
@@ -251,7 +275,7 @@ func TestGetSecretScanningAlerts(t *testing.T) {
 		mockRunner.AssertExpectations(t)
 	})
 
-	t.Run("secret scanning not enabled (404)", func(t *testing.T) {
+	t.Run("secret scanning not enabled (404) returns ErrSecurityNotAvailable", func(t *testing.T) {
 		mockRunner := new(MockCommandRunner)
 		client := NewClientWithRunner(mockRunner, logrus.New())
 
@@ -264,9 +288,18 @@ func TestGetSecretScanningAlerts(t *testing.T) {
 		}).Return(nil, &CommandError{Stderr: "404 Not Found"})
 
 		result, err := client.GetSecretScanningAlerts(ctx, "test/repo")
-		require.NoError(t, err)
-		assert.Empty(t, result)
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrSecurityNotAvailable)
+		assert.Nil(t, result)
 
 		mockRunner.AssertExpectations(t)
+	})
+}
+
+func TestErrSecurityNotAvailable(t *testing.T) {
+	t.Run("sentinel error is distinguishable", func(t *testing.T) {
+		err := ErrSecurityNotAvailable
+		require.ErrorIs(t, err, ErrSecurityNotAvailable)
+		assert.Contains(t, err.Error(), "security feature not available")
 	})
 }
