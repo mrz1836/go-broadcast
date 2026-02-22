@@ -464,7 +464,9 @@ func collectSecurityAlerts(
 	return out, nil
 }
 
-// updateSnapshotAlertCounts queries the DB for current alert counts and updates the snapshot
+// updateSnapshotAlertCounts queries the DB for current alert counts and updates the snapshot.
+// If the snapshot was never persisted (skipped due to no changes), it fetches the latest
+// persisted snapshot for this repo and updates that instead.
 func updateSnapshotAlertCounts(
 	ctx context.Context,
 	analyticsRepo db.AnalyticsRepo,
@@ -472,15 +474,26 @@ func updateSnapshotAlertCounts(
 	snapshot *db.RepositorySnapshot,
 ) {
 	counts, err := analyticsRepo.GetAlertCountsByType(ctx, repoID)
-	if err != nil {
-		return // Best-effort; snapshot already created with zero counts
+	if err != nil || len(counts) == 0 {
+		return // No alerts to update
 	}
 
-	snapshot.DependabotAlertCount = counts["dependabot"]
-	snapshot.CodeScanningAlertCount = counts["code_scanning"]
-	snapshot.SecretScanningAlertCount = counts["secret_scanning"]
+	// If the snapshot wasn't persisted (ID=0, e.g. skipped for no changes),
+	// fetch the latest persisted snapshot to update its counts instead
+	target := snapshot
+	if snapshot.ID == 0 {
+		latest, latestErr := analyticsRepo.GetLatestSnapshot(ctx, repoID)
+		if latestErr != nil || latest == nil {
+			return // No snapshot to update
+		}
+		target = latest
+	}
 
-	if err := analyticsRepo.UpdateSnapshotAlertCounts(ctx, snapshot); err != nil {
+	target.DependabotAlertCount = counts["dependabot"]
+	target.CodeScanningAlertCount = counts["code_scanning"]
+	target.SecretScanningAlertCount = counts["secret_scanning"]
+
+	if err := analyticsRepo.UpdateSnapshotAlertCounts(ctx, target); err != nil {
 		output.Warn(fmt.Sprintf("Failed to update snapshot alert counts: %v", err))
 	}
 }
