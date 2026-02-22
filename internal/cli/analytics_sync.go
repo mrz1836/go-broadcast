@@ -323,7 +323,7 @@ func syncSingleRepository(
 	// API call count is tracked by the shared throttle
 
 	if showProgress {
-		totalAlerts := currentSnapshot.DependabotAlertCount + currentSnapshot.CodeScanningAlertCount + currentSnapshot.SecretScanningAlertCount
+		totalAlerts := getAlertTotal(ctx, analyticsRepo, repo.ID)
 		output.Success(fmt.Sprintf("✓ %s: %d stars, %d forks, %d open issues, %d alerts",
 			fullName,
 			metadata.Stars,
@@ -496,6 +496,20 @@ func updateSnapshotAlertCounts(
 	if err := analyticsRepo.UpdateSnapshotAlertCounts(ctx, target); err != nil {
 		output.Warn(fmt.Sprintf("Failed to update snapshot alert counts: %v", err))
 	}
+}
+
+// getAlertTotal returns the total open alert count for a repository from the DB.
+// Used for display purposes to ensure accurate counts regardless of snapshot state.
+func getAlertTotal(ctx context.Context, analyticsRepo db.AnalyticsRepo, repoID uint) int {
+	counts, err := analyticsRepo.GetAlertCountsByType(ctx, repoID)
+	if err != nil {
+		return 0
+	}
+	total := 0
+	for _, c := range counts {
+		total += c
+	}
+	return total
 }
 
 // convertSecurityAlert converts analytics.SecurityAlert to db.SecurityAlert
@@ -876,7 +890,7 @@ func syncRepositoryMetadata(
 	// API call count is tracked by the shared throttle
 
 	if showProgress {
-		totalAlerts := currentSnapshot.DependabotAlertCount + currentSnapshot.CodeScanningAlertCount + currentSnapshot.SecretScanningAlertCount
+		totalAlerts := getAlertTotal(ctx, analyticsRepo, repo.ID)
 		output.Success(fmt.Sprintf("✓ %s: %d stars, %d forks, %d open issues, %d alerts",
 			fullName,
 			metadata.Stars,
