@@ -69,9 +69,7 @@ func TestGetDependabotAlerts(t *testing.T) {
 
 		mockRunner.On("Run", ctx, "gh", []string{
 			"api",
-			"repos/test/repo/dependabot/alerts",
-			"-F", "state=open",
-			"-F", "per_page=100",
+			"repos/test/repo/dependabot/alerts?state=open&per_page=100",
 			"--paginate",
 		}).Return(output, nil)
 
@@ -93,9 +91,7 @@ func TestGetDependabotAlerts(t *testing.T) {
 
 		mockRunner.On("Run", ctx, "gh", []string{
 			"api",
-			"repos/test/repo/dependabot/alerts",
-			"-F", "state=open",
-			"-F", "per_page=100",
+			"repos/test/repo/dependabot/alerts?state=open&per_page=100",
 			"--paginate",
 		}).Return(nil, &CommandError{Stderr: "404 Not Found"})
 
@@ -116,9 +112,7 @@ func TestGetDependabotAlerts(t *testing.T) {
 
 		mockRunner.On("Run", ctx, "gh", []string{
 			"api",
-			"repos/test/repo/dependabot/alerts",
-			"-F", "state=open",
-			"-F", "per_page=100",
+			"repos/test/repo/dependabot/alerts?state=open&per_page=100",
 			"--paginate",
 		}).Return(output, nil)
 
@@ -196,9 +190,7 @@ func TestGetCodeScanningAlerts(t *testing.T) {
 
 		mockRunner.On("Run", ctx, "gh", []string{
 			"api",
-			"repos/test/repo/code-scanning/alerts",
-			"-F", "state=open",
-			"-F", "per_page=100",
+			"repos/test/repo/code-scanning/alerts?state=open&per_page=100",
 			"--paginate",
 		}).Return(output, nil)
 
@@ -219,9 +211,7 @@ func TestGetCodeScanningAlerts(t *testing.T) {
 
 		mockRunner.On("Run", ctx, "gh", []string{
 			"api",
-			"repos/test/repo/code-scanning/alerts",
-			"-F", "state=open",
-			"-F", "per_page=100",
+			"repos/test/repo/code-scanning/alerts?state=open&per_page=100",
 			"--paginate",
 		}).Return(nil, &CommandError{Stderr: "404 Not Found"})
 
@@ -259,9 +249,7 @@ func TestGetSecretScanningAlerts(t *testing.T) {
 
 		mockRunner.On("Run", ctx, "gh", []string{
 			"api",
-			"repos/test/repo/secret-scanning/alerts",
-			"-F", "state=open",
-			"-F", "per_page=100",
+			"repos/test/repo/secret-scanning/alerts?state=open&per_page=100",
 			"--paginate",
 		}).Return(output, nil)
 
@@ -281,9 +269,7 @@ func TestGetSecretScanningAlerts(t *testing.T) {
 
 		mockRunner.On("Run", ctx, "gh", []string{
 			"api",
-			"repos/test/repo/secret-scanning/alerts",
-			"-F", "state=open",
-			"-F", "per_page=100",
+			"repos/test/repo/secret-scanning/alerts?state=open&per_page=100",
 			"--paginate",
 		}).Return(nil, &CommandError{Stderr: "404 Not Found"})
 

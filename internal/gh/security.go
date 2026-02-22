@@ -27,9 +27,7 @@ var ErrSecurityNotAvailable = errors.New("security feature not available via RES
 // Returns other errors for actual API failures (auth, network, rate limits, etc.)
 func (g *githubClient) GetDependabotAlerts(ctx context.Context, repo string) ([]DependabotAlert, error) {
 	output, err := g.runner.Run(ctx, "gh", "api",
-		fmt.Sprintf("repos/%s/dependabot/alerts", repo),
-		"-F", "state=open",
-		"-F", "per_page=100",
+		fmt.Sprintf("repos/%s/dependabot/alerts?state=open&per_page=100", repo),
 		"--paginate")
 	if err != nil {
 		if isNotFoundError(err) {
@@ -64,9 +62,7 @@ func (g *githubClient) GetDependabotAlerts(ctx context.Context, repo string) ([]
 // Returns other errors for actual API failures (auth, network, rate limits, etc.)
 func (g *githubClient) GetCodeScanningAlerts(ctx context.Context, repo string) ([]CodeScanningAlert, error) {
 	output, err := g.runner.Run(ctx, "gh", "api",
-		fmt.Sprintf("repos/%s/code-scanning/alerts", repo),
-		"-F", "state=open",
-		"-F", "per_page=100",
+		fmt.Sprintf("repos/%s/code-scanning/alerts?state=open&per_page=100", repo),
 		"--paginate")
 	if err != nil {
 		if isNotFoundError(err) {
@@ -95,9 +91,7 @@ func (g *githubClient) GetCodeScanningAlerts(ctx context.Context, repo string) (
 // Returns other errors for actual API failures (auth, network, rate limits, etc.)
 func (g *githubClient) GetSecretScanningAlerts(ctx context.Context, repo string) ([]SecretScanningAlert, error) {
 	output, err := g.runner.Run(ctx, "gh", "api",
-		fmt.Sprintf("repos/%s/secret-scanning/alerts", repo),
-		"-F", "state=open",
-		"-F", "per_page=100",
+		fmt.Sprintf("repos/%s/secret-scanning/alerts?state=open&per_page=100", repo),
 		"--paginate")
 	if err != nil {
 		if isNotFoundError(err) {
