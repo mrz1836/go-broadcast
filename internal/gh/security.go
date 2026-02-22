@@ -90,6 +90,7 @@ func (g *githubClient) GetCodeScanningAlerts(ctx context.Context, repo string) (
 //
 // Returns other errors for actual API failures (auth, network, rate limits, etc.)
 func (g *githubClient) GetSecretScanningAlerts(ctx context.Context, repo string) ([]SecretScanningAlert, error) {
+	// Fetch standard partner/provider-detected secret scanning alerts
 	output, err := g.runner.Run(ctx, "gh", "api",
 		fmt.Sprintf("repos/%s/secret-scanning/alerts?state=open&per_page=100", repo),
 		"--paginate")
@@ -104,6 +105,44 @@ func (g *githubClient) GetSecretScanningAlerts(ctx context.Context, repo string)
 	alerts, err := jsonutil.UnmarshalJSON[[]SecretScanningAlert](output)
 	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "parse secret scanning alerts")
+	}
+
+	// Fetch AI-detected generic secrets (password, generic_api_key, etc.)
+	// These are excluded from the default list and require explicit secret_type filtering.
+	// GitHub's "Generic" category in the UI uses these types.
+	genericSecretTypes := []string{"password", "generic_api_key", "generic_high_entropy_secret"}
+	seen := make(map[int]bool, len(alerts))
+	for _, a := range alerts {
+		seen[a.Number] = true
+	}
+
+	for _, secretType := range genericSecretTypes {
+		genericOutput, genericErr := g.runner.Run(ctx, "gh", "api",
+			fmt.Sprintf("repos/%s/secret-scanning/alerts?state=open&per_page=100&secret_type=%s", repo, secretType),
+			"--paginate")
+		if genericErr != nil {
+			// Non-fatal: log and continue with what we have
+			if g.logger != nil && !isNotFoundError(genericErr) {
+				g.logger.Debugf("Failed to fetch %s secret scanning alerts for %s: %v", secretType, repo, genericErr)
+			}
+			continue
+		}
+
+		genericAlerts, parseErr := jsonutil.UnmarshalJSON[[]SecretScanningAlert](genericOutput)
+		if parseErr != nil {
+			if g.logger != nil {
+				g.logger.Debugf("Failed to parse %s secret scanning alerts for %s: %v", secretType, repo, parseErr)
+			}
+			continue
+		}
+
+		// Deduplicate (in case any overlap with the default list)
+		for i := range genericAlerts {
+			if !seen[genericAlerts[i].Number] {
+				alerts = append(alerts, genericAlerts[i])
+				seen[genericAlerts[i].Number] = true
+			}
+		}
 	}
 
 	return alerts, nil

@@ -253,6 +253,16 @@ func TestGetSecretScanningAlerts(t *testing.T) {
 			"--paginate",
 		}).Return(output, nil)
 
+		// Generic secret type calls return empty
+		emptyJSON, _ := json.Marshal([]SecretScanningAlert{})
+		for _, secretType := range []string{"password", "generic_api_key", "generic_high_entropy_secret"} {
+			mockRunner.On("Run", ctx, "gh", []string{
+				"api",
+				"repos/test/repo/secret-scanning/alerts?state=open&per_page=100&secret_type=" + secretType,
+				"--paginate",
+			}).Return(emptyJSON, nil).Maybe()
+		}
+
 		result, err := client.GetSecretScanningAlerts(ctx, "test/repo")
 		require.NoError(t, err)
 		assert.Len(t, result, 1)
