@@ -550,6 +550,149 @@ func TestTargetConfig_BranchValidation(t *testing.T) {
 	}
 }
 
+// TestTargetConfig_MappingRequirement tests that targets accept any combination of
+// direct mappings or list refs, and reject targets with none.
+func TestTargetConfig_MappingRequirement(t *testing.T) {
+	tests := []struct {
+		name      string
+		target    TargetConfig
+		expectErr bool
+	}{
+		{
+			name: "valid - files only",
+			target: TargetConfig{
+				Repo:  "org/target",
+				Files: []FileMapping{{Src: "a.txt", Dest: "a.txt"}},
+			},
+		},
+		{
+			name: "valid - directories only",
+			target: TargetConfig{
+				Repo:        "org/target",
+				Directories: []DirectoryMapping{{Src: "src", Dest: "dest"}},
+			},
+		},
+		{
+			name: "valid - file list refs only",
+			target: TargetConfig{
+				Repo:         "org/target",
+				FileListRefs: []string{"common-files"},
+			},
+		},
+		{
+			name: "valid - directory list refs only",
+			target: TargetConfig{
+				Repo:              "org/target",
+				DirectoryListRefs: []string{"github-workflows"},
+			},
+		},
+		{
+			name: "valid - file list refs and directory list refs",
+			target: TargetConfig{
+				Repo:              "org/target",
+				FileListRefs:      []string{"common-files", "editor-config"},
+				DirectoryListRefs: []string{"github-workflows", "vs-code"},
+			},
+		},
+		{
+			name: "valid - files and directories",
+			target: TargetConfig{
+				Repo:        "org/target",
+				Files:       []FileMapping{{Src: "a.txt", Dest: "a.txt"}},
+				Directories: []DirectoryMapping{{Src: "src", Dest: "dest"}},
+			},
+		},
+		{
+			name: "valid - all four mapping types",
+			target: TargetConfig{
+				Repo:              "org/target",
+				Files:             []FileMapping{{Src: "a.txt", Dest: "a.txt"}},
+				Directories:       []DirectoryMapping{{Src: "src", Dest: "dest"}},
+				FileListRefs:      []string{"common-files"},
+				DirectoryListRefs: []string{"github-workflows"},
+			},
+		},
+		{
+			name: "invalid - no mappings at all",
+			target: TargetConfig{
+				Repo: "org/target",
+			},
+			expectErr: true,
+		},
+		{
+			name: "invalid - empty slices for all mapping types",
+			target: TargetConfig{
+				Repo:              "org/target",
+				Files:             []FileMapping{},
+				Directories:       []DirectoryMapping{},
+				FileListRefs:      []string{},
+				DirectoryListRefs: []string{},
+			},
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			logger := logrus.NewEntry(logrus.StandardLogger())
+
+			err := tt.target.validateWithLogging(ctx, nil, logger)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, ErrNoMappings)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestTargetConfig_ListRefsOnlyFullValidation verifies that a target with only list refs
+// passes full config-level validation (the real-world scenario that was broken).
+func TestTargetConfig_ListRefsOnlyFullValidation(t *testing.T) {
+	config := &Config{
+		Version: 1,
+		FileLists: []FileList{
+			{
+				ID:   "common-files",
+				Name: "Common Files",
+				Files: []FileMapping{
+					{Src: ".editorconfig", Dest: ".editorconfig"},
+				},
+			},
+		},
+		DirectoryLists: []DirectoryList{
+			{
+				ID:   "github-workflows",
+				Name: "GitHub Workflows",
+				Directories: []DirectoryMapping{
+					{Src: ".github/workflows", Dest: ".github/workflows"},
+				},
+			},
+		},
+		Groups: []Group{
+			{
+				Name:   "test-group",
+				ID:     "test-group",
+				Source: SourceConfig{Repo: "org/source", Branch: "main"},
+				Targets: []TargetConfig{
+					{
+						Repo:              "org/target",
+						FileListRefs:      []string{"common-files"},
+						DirectoryListRefs: []string{"github-workflows"},
+						Transform:         Transform{RepoName: true},
+					},
+				},
+			},
+		},
+	}
+
+	err := config.Validate()
+	assert.NoError(t, err)
+}
+
 // TestValidate_DuplicateFileDestinations verifies that duplicate file destinations
 // within the same target are detected
 func TestValidate_DuplicateFileDestinations(t *testing.T) {

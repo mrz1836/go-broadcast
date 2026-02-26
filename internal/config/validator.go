@@ -506,8 +506,8 @@ func (t *TargetConfig) validateWithLogging(ctx context.Context, logConfig *loggi
 	default:
 	}
 
-	// Validate that we have at least one file or directory mapping
-	if len(t.Files) == 0 && len(t.Directories) == 0 {
+	// Validate that we have at least one file or directory mapping (direct or via list refs)
+	if len(t.Files) == 0 && len(t.Directories) == 0 && len(t.FileListRefs) == 0 && len(t.DirectoryListRefs) == 0 {
 		return ErrNoMappings
 	}
 
