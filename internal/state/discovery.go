@@ -511,10 +511,9 @@ func (d *discoveryService) DiscoverTargetState(ctx context.Context, repo, branch
 	return targetState, nil
 }
 
-// ParseBranchName parses a branch name to extract sync metadata
+// ParseBranchName parses a branch name to extract sync metadata.
+// Delegates to parseSyncBranchName in branch.go.
 func (d *discoveryService) ParseBranchName(name string) (*BranchMetadata, error) {
-	// This will be implemented in branch.go
-	// For now, return a placeholder
 	return parseSyncBranchName(name)
 }
 

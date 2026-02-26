@@ -508,3 +508,124 @@ func TestDBImportReferenceResolution(t *testing.T) {
 	assert.Contains(t, exportedTarget.FileListRefs, "common-files")
 	assert.Contains(t, exportedTarget.DirectoryListRefs, "common-dirs")
 }
+
+// TestDBExportSingleGroup tests exporting a single group using ExportGroup
+func TestDBExportSingleGroup(t *testing.T) {
+	tmpDir := t.TempDir()
+	testDBPath := filepath.Join(tmpDir, "test.db")
+
+	// Initialize database
+	database, err := db.Open(db.OpenOptions{
+		Path:        testDBPath,
+		LogLevel:    logger.Silent,
+		AutoMigrate: true,
+	})
+	require.NoError(t, err)
+	defer func() { _ = database.Close() }()
+
+	ctx := context.Background()
+	converter := db.NewConverter(database.DB())
+
+	// Create multi-group config
+	testConfig := &config.Config{
+		Version: 1,
+		Name:    "multi-group",
+		ID:      "multi-cfg",
+		Groups: []config.Group{
+			{
+				Name: "Group Alpha",
+				ID:   "group-alpha",
+				Source: config.SourceConfig{
+					Repo:   "mrz1836/source",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "mrz1836/target1"},
+				},
+			},
+			{
+				Name: "Group Beta",
+				ID:   "group-beta",
+				Source: config.SourceConfig{
+					Repo:   "mrz1836/source2",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "mrz1836/target2"},
+					{Repo: "mrz1836/target3"},
+				},
+			},
+		},
+	}
+
+	// Import the multi-group config
+	dbCfg, err := converter.ImportConfig(ctx, testConfig)
+	require.NoError(t, err)
+
+	// Export single group
+	group, err := converter.ExportGroup(ctx, dbCfg.ID, "group-beta")
+	require.NoError(t, err)
+
+	// Verify only the requested group was exported
+	assert.Equal(t, "Group Beta", group.Name)
+	assert.Equal(t, "group-beta", group.ID)
+	assert.Len(t, group.Targets, 2)
+	assert.Equal(t, "mrz1836/target2", group.Targets[0].Repo)
+	assert.Equal(t, "mrz1836/target3", group.Targets[1].Repo)
+
+	// Verify the exported group can be wrapped in a config and marshaled to YAML
+	cfg := &config.Config{
+		Version: 1,
+		Groups:  []config.Group{*group},
+	}
+	yamlData, err := yaml.Marshal(cfg)
+	require.NoError(t, err)
+	assert.Contains(t, string(yamlData), "group-beta")
+	assert.NotContains(t, string(yamlData), "group-alpha")
+}
+
+// TestDBExportSingleGroup_NotFound tests error when exporting a nonexistent group
+func TestDBExportSingleGroup_NotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	testDBPath := filepath.Join(tmpDir, "test.db")
+
+	// Initialize database
+	database, err := db.Open(db.OpenOptions{
+		Path:        testDBPath,
+		LogLevel:    logger.Silent,
+		AutoMigrate: true,
+	})
+	require.NoError(t, err)
+	defer func() { _ = database.Close() }()
+
+	ctx := context.Background()
+	converter := db.NewConverter(database.DB())
+
+	// Import a config
+	testConfig := &config.Config{
+		Version: 1,
+		Name:    "test",
+		ID:      "test-cfg",
+		Groups: []config.Group{
+			{
+				Name: "Existing Group",
+				ID:   "existing",
+				Source: config.SourceConfig{
+					Repo:   "mrz1836/source",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "mrz1836/target1"},
+				},
+			},
+		},
+	}
+
+	dbCfg, err := converter.ImportConfig(ctx, testConfig)
+	require.NoError(t, err)
+
+	// Try to export nonexistent group
+	_, err = converter.ExportGroup(ctx, dbCfg.ID, "nonexistent")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}

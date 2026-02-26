@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm/logger"
 
+	"github.com/mrz1836/go-broadcast/internal/config"
 	"github.com/mrz1836/go-broadcast/internal/db"
 	"github.com/mrz1836/go-broadcast/internal/output"
 )
@@ -108,27 +109,32 @@ func runDBExport(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Export configuration
-	output.Info(fmt.Sprintf("Exporting configuration: %s", configExternalID))
-	cfg, err := converter.ExportConfig(ctx, configExternalID)
-	if err != nil {
-		return fmt.Errorf("export failed: %w", err)
-	}
-
-	// Filter to single group if requested
+	var cfg *config.Config
 	if dbExportGroup != "" {
-		output.Info(fmt.Sprintf("Filtering to group: %s", dbExportGroup))
-		var filteredGroups []db.Group
-		for _, group := range cfg.Groups {
-			if group.ID == dbExportGroup {
-				// We need to export just this one group
-				// For now, keep all groups and let user extract
-				// In future, could add group-only export
-				break
-			}
+		// Export single group
+		output.Info(fmt.Sprintf("Exporting group: %s", dbExportGroup))
+
+		var dbCfg db.Config
+		if dbErr := database.DB().Where("external_id = ?", configExternalID).First(&dbCfg).Error; dbErr != nil {
+			return fmt.Errorf("failed to find config: %w", dbErr)
 		}
-		if len(filteredGroups) == 0 {
-			// Keep all groups for now (ExportGroup could be used for single group)
-			output.Warn("Note: Full config exported. Use YAML tools to extract specific group.")
+
+		group, gErr := converter.ExportGroup(ctx, dbCfg.ID, dbExportGroup)
+		if gErr != nil {
+			return fmt.Errorf("failed to export group %q: %w", dbExportGroup, gErr)
+		}
+
+		cfg = &config.Config{
+			Version: 1,
+			Groups:  []config.Group{*group},
+		}
+	} else {
+		// Export full config
+		output.Info(fmt.Sprintf("Exporting configuration: %s", configExternalID))
+		var eErr error
+		cfg, eErr = converter.ExportConfig(ctx, configExternalID)
+		if eErr != nil {
+			return fmt.Errorf("export failed: %w", eErr)
 		}
 	}
 

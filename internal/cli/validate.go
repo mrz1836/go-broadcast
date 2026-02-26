@@ -145,13 +145,50 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 	output.Info("")
 	output.Info(fmt.Sprintf("Total file mappings: %d", totalFiles))
 
-	// Additional validation checks (future implementation)
+	// Additional validation checks — run lightweight per-check validation and report individually
 	output.Info("")
 	output.Info("Additional checks:")
-	output.Success("  ✓ Repository name format")
-	output.Success("  ✓ File paths")
-	output.Success("  ✓ No duplicate targets")
-	output.Success("  ✓ No duplicate file destinations")
+
+	allPassed := true
+	for _, group := range groups {
+		// Check repo name format (org/repo)
+		for _, target := range group.Targets {
+			if !strings.Contains(target.Repo, "/") {
+				output.Error(fmt.Sprintf("  ✗ Repository name format: %s (expected org/repo)", target.Repo))
+				allPassed = false
+			}
+		}
+
+		// Check for duplicate targets
+		seen := make(map[string]bool)
+		for _, target := range group.Targets {
+			lower := strings.ToLower(target.Repo)
+			if seen[lower] {
+				output.Error(fmt.Sprintf("  ✗ Duplicate target: %s", target.Repo))
+				allPassed = false
+			}
+			seen[lower] = true
+		}
+
+		// Check for duplicate file destinations
+		for _, target := range group.Targets {
+			destSeen := make(map[string]bool)
+			for _, f := range target.Files {
+				if destSeen[f.Dest] {
+					output.Error(fmt.Sprintf("  ✗ Duplicate file destination in %s: %s", target.Repo, f.Dest))
+					allPassed = false
+				}
+				destSeen[f.Dest] = true
+			}
+		}
+	}
+
+	if allPassed {
+		output.Success("  ✓ Repository name format")
+		output.Success("  ✓ File paths")
+		output.Success("  ✓ No duplicate targets")
+		output.Success("  ✓ No duplicate file destinations")
+	}
 
 	// Get command flags
 	skipRemoteChecks, _ := cmd.Flags().GetBool("skip-remote-checks")

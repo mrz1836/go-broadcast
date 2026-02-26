@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -173,6 +174,17 @@ func TestMetricsFlagsThreadSafety(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			<-done
 		}
+	})
+}
+
+// TestShowRepoHistory_InvalidFormat tests that invalid repo format gives a clear error
+func TestShowRepoHistory_InvalidFormat(t *testing.T) {
+	t.Run("no slash in name returns error", func(t *testing.T) {
+		// A string with no slash and not a number should fail
+		err := showRepoHistory(context.Background(), nil, nil, "not-a-repo", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid repo format")
+		assert.Contains(t, err.Error(), "owner/name")
 	})
 }
 

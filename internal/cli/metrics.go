@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"gorm.io/gorm"
 
 	"github.com/mrz1836/go-broadcast/internal/db"
 )
@@ -104,7 +105,7 @@ func runMetrics(cmd *cobra.Command, args []string) error {
 	case runID != "":
 		return showRunDetails(ctx, syncRepo, runID, jsonOut)
 	case repo != "":
-		return showRepoHistory(ctx, syncRepo, repo, jsonOut)
+		return showRepoHistory(ctx, syncRepo, database.DB(), repo, jsonOut)
 	case last != "":
 		return showRecentRuns(ctx, syncRepo, last, jsonOut)
 	default:
@@ -200,18 +201,21 @@ func showRecentRuns(ctx context.Context, repo db.BroadcastSyncRepo, period strin
 }
 
 // showRepoHistory displays sync history for a specific repository
-func showRepoHistory(ctx context.Context, repo db.BroadcastSyncRepo, repoName string, jsonOut bool) error {
-	// Parse repo name to get repo ID
-	// For now, we need to query the repo by name
-	// This requires a helper function or we accept repo ID directly
-	// Let's accept both formats: ID or owner/name
-
+func showRepoHistory(ctx context.Context, repo db.BroadcastSyncRepo, gormDB *gorm.DB, repoName string, jsonOut bool) error {
 	// Try to parse as uint first (repo ID)
 	var repoID uint
 	if _, err := fmt.Sscanf(repoName, "%d", &repoID); err != nil {
-		// Not a number, try to resolve from name
-		// For now, return an error asking for ID
-		return fmt.Errorf("repo lookup by name not yet implemented, please use repo ID (e.g., --repo 5)") //nolint:err113 // user-facing CLI error
+		// Try to resolve "org/repo" format to DB ID
+		parts := strings.SplitN(repoName, "/", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid repo format %q: use numeric ID or owner/name (e.g., --repo mrz1836/go-broadcast)", repoName) //nolint:err113 // user-facing CLI error
+		}
+		repoRepo := db.NewRepoRepository(gormDB)
+		dbRepo, lookupErr := repoRepo.GetByFullName(ctx, parts[0], parts[1])
+		if lookupErr != nil {
+			return fmt.Errorf("repo %q not found in database: %w", repoName, lookupErr)
+		}
+		repoID = dbRepo.ID
 	}
 
 	runs, err := repo.ListSyncRunsByRepo(ctx, repoID, 100)
@@ -225,7 +229,7 @@ func showRepoHistory(ctx context.Context, repo db.BroadcastSyncRepo, repoName st
 
 	// Human-readable output
 	//nolint:forbidigo // CLI output requires fmt.Printf for formatting
-	fmt.Printf("🔍 Sync History for Repo ID %d\n", repoID)
+	fmt.Printf("🔍 Sync History for Repo %s (ID %d)\n", repoName, repoID)
 	//nolint:forbidigo // CLI output requires fmt.Printf for formatting
 	fmt.Println(strings.Repeat("─", 100))
 
