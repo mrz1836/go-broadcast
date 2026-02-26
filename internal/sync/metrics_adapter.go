@@ -2,18 +2,37 @@ package sync
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/mrz1836/go-broadcast/internal/db"
 )
 
+// Sentinel errors for metrics adapter
+var (
+	ErrGroupRepoNotConfigured  = errors.New("group repository not configured")
+	ErrRepoRepoNotConfigured   = errors.New("repo repository not configured")
+	ErrTargetRepoNotConfigured = errors.New("target repository not configured")
+	ErrInvalidRepoFullName     = errors.New("invalid repo full name: expected org/repo format")
+)
+
 // dbMetricsAdapter adapts the db.BroadcastSyncRepo to the SyncMetricsRecorder interface
 type dbMetricsAdapter struct {
-	repo db.BroadcastSyncRepo
+	repo       db.BroadcastSyncRepo
+	repoRepo   db.RepoRepository
+	targetRepo db.TargetRepository
+	groupRepo  db.GroupRepository
 }
 
 // NewDBMetricsAdapter creates a new database metrics adapter
-func NewDBMetricsAdapter(repo db.BroadcastSyncRepo) SyncMetricsRecorder {
-	return &dbMetricsAdapter{repo: repo}
+func NewDBMetricsAdapter(repo db.BroadcastSyncRepo, repoRepo db.RepoRepository, targetRepo db.TargetRepository, groupRepo db.GroupRepository) SyncMetricsRecorder {
+	return &dbMetricsAdapter{
+		repo:       repo,
+		repoRepo:   repoRepo,
+		targetRepo: targetRepo,
+		groupRepo:  groupRepo,
+	}
 }
 
 // CreateSyncRun creates a new sync run record
@@ -56,6 +75,46 @@ func (a *dbMetricsAdapter) CreateFileChanges(ctx context.Context, changes []Broa
 	}
 
 	return a.repo.CreateFileChanges(ctx, dbChanges)
+}
+
+// LookupGroupID resolves a config group external ID string to a DB uint ID
+func (a *dbMetricsAdapter) LookupGroupID(ctx context.Context, groupExternalID string) (uint, error) {
+	if a.groupRepo == nil {
+		return 0, ErrGroupRepoNotConfigured
+	}
+	group, err := a.groupRepo.GetByExternalID(ctx, groupExternalID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to look up group %q: %w", groupExternalID, err)
+	}
+	return group.ID, nil
+}
+
+// LookupRepoID resolves an "org/repo" string to a DB uint ID
+func (a *dbMetricsAdapter) LookupRepoID(ctx context.Context, repoFullName string) (uint, error) {
+	if a.repoRepo == nil {
+		return 0, ErrRepoRepoNotConfigured
+	}
+	parts := strings.SplitN(repoFullName, "/", 2)
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("%w: %q", ErrInvalidRepoFullName, repoFullName)
+	}
+	repo, err := a.repoRepo.GetByFullName(ctx, parts[0], parts[1])
+	if err != nil {
+		return 0, fmt.Errorf("failed to look up repo %q: %w", repoFullName, err)
+	}
+	return repo.ID, nil
+}
+
+// LookupTargetID resolves a group DB ID + repo full name to a target DB uint ID
+func (a *dbMetricsAdapter) LookupTargetID(ctx context.Context, groupDBID uint, repoFullName string) (uint, error) {
+	if a.targetRepo == nil {
+		return 0, ErrTargetRepoNotConfigured
+	}
+	target, err := a.targetRepo.GetByRepoName(ctx, groupDBID, repoFullName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to look up target for group %d, repo %q: %w", groupDBID, repoFullName, err)
+	}
+	return target.ID, nil
 }
 
 // convertSyncRunToDB converts sync engine's BroadcastSyncRun to db model

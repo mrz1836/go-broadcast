@@ -18,6 +18,11 @@ var (
 	errMockFileChanges = errors.New("mock file changes error")
 )
 
+// Static error variables for lookup mock methods.
+var (
+	errMockLookup = errors.New("mock lookup error")
+)
+
 // mockSyncMetricsRecorder is a minimal mock implementing SyncMetricsRecorder.
 type mockSyncMetricsRecorder struct{}
 
@@ -35,6 +40,18 @@ func (m *mockSyncMetricsRecorder) CreateTargetResult(_ context.Context, _ *Broad
 
 func (m *mockSyncMetricsRecorder) CreateFileChanges(_ context.Context, _ []BroadcastSyncFileChange) error {
 	return errMockFileChanges
+}
+
+func (m *mockSyncMetricsRecorder) LookupGroupID(_ context.Context, _ string) (uint, error) {
+	return 0, errMockLookup
+}
+
+func (m *mockSyncMetricsRecorder) LookupRepoID(_ context.Context, _ string) (uint, error) {
+	return 0, errMockLookup
+}
+
+func (m *mockSyncMetricsRecorder) LookupTargetID(_ context.Context, _ uint, _ string) (uint, error) {
+	return 0, errMockLookup
 }
 
 func TestEngine_MetricsRecorder(t *testing.T) {

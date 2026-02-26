@@ -51,37 +51,89 @@ func TestGenerateSyncRunExternalID(t *testing.T) {
 }
 
 func TestDetermineTrigger(t *testing.T) {
-	t.Parallel()
-
-	t.Run("nil options returns manual", func(t *testing.T) {
-		t.Parallel()
+	t.Run("nil options returns manual when no CI vars set", func(t *testing.T) {
+		// Clear any CI env vars that might be set
+		for _, v := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE"} {
+			t.Setenv(v, "")
+		}
 
 		trigger := DetermineTrigger(nil)
 		assert.Equal(t, TriggerManual, trigger)
 	})
 
-	t.Run("default options returns manual", func(t *testing.T) {
-		t.Parallel()
+	t.Run("default options returns manual when no CI vars set", func(t *testing.T) {
+		for _, v := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE"} {
+			t.Setenv(v, "")
+		}
 
 		opts := DefaultOptions()
 		trigger := DetermineTrigger(opts)
 		assert.Equal(t, TriggerManual, trigger)
 	})
 
-	t.Run("empty options struct returns manual", func(t *testing.T) {
-		t.Parallel()
+	t.Run("returns ci when CI env var is set", func(t *testing.T) {
+		t.Setenv("CI", "true")
+
+		trigger := DetermineTrigger(nil)
+		assert.Equal(t, TriggerCI, trigger)
+	})
+
+	t.Run("returns ci when GITHUB_ACTIONS is set", func(t *testing.T) {
+		t.Setenv("GITHUB_ACTIONS", "true")
 
 		trigger := DetermineTrigger(&Options{})
-		assert.Equal(t, TriggerManual, trigger)
+		assert.Equal(t, TriggerCI, trigger)
 	})
 }
 
 func TestIsRunningInCI(t *testing.T) {
-	t.Parallel()
+	t.Run("returns false when no CI vars set", func(t *testing.T) {
+		for _, v := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE"} {
+			t.Setenv(v, "")
+		}
 
-	t.Run("returns false", func(t *testing.T) {
-		t.Parallel()
+		assert.False(t, isRunningInCI())
+	})
 
-		assert.False(t, isRunningInCI(), "isRunningInCI should return false (current implementation)")
+	t.Run("returns true when CI is set", func(t *testing.T) {
+		t.Setenv("CI", "true")
+
+		assert.True(t, isRunningInCI())
+	})
+
+	t.Run("returns true when GITHUB_ACTIONS is set", func(t *testing.T) {
+		t.Setenv("GITHUB_ACTIONS", "true")
+
+		assert.True(t, isRunningInCI())
+	})
+
+	t.Run("returns true when GITLAB_CI is set", func(t *testing.T) {
+		t.Setenv("GITLAB_CI", "true")
+
+		assert.True(t, isRunningInCI())
+	})
+
+	t.Run("returns true when CIRCLECI is set", func(t *testing.T) {
+		t.Setenv("CIRCLECI", "true")
+
+		assert.True(t, isRunningInCI())
+	})
+
+	t.Run("returns true when TRAVIS is set", func(t *testing.T) {
+		t.Setenv("TRAVIS", "true")
+
+		assert.True(t, isRunningInCI())
+	})
+
+	t.Run("returns true when JENKINS_URL is set", func(t *testing.T) {
+		t.Setenv("JENKINS_URL", "http://jenkins.example.com")
+
+		assert.True(t, isRunningInCI())
+	})
+
+	t.Run("returns true when BUILDKITE is set", func(t *testing.T) {
+		t.Setenv("BUILDKITE", "true")
+
+		assert.True(t, isRunningInCI())
 	})
 }

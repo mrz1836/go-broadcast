@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -22,6 +23,15 @@ type SyncMetricsRecorder interface {
 
 	// CreateFileChanges batch creates file change records
 	CreateFileChanges(ctx context.Context, changes []BroadcastSyncFileChange) error
+
+	// LookupGroupID resolves a config group external ID string to a DB uint ID
+	LookupGroupID(ctx context.Context, groupExternalID string) (uint, error)
+
+	// LookupRepoID resolves an "org/repo" string to a DB uint ID
+	LookupRepoID(ctx context.Context, repoFullName string) (uint, error)
+
+	// LookupTargetID resolves a group DB ID + repo full name to a target DB uint ID
+	LookupTargetID(ctx context.Context, groupDBID uint, repoFullName string) (uint, error)
 }
 
 // BroadcastSyncRun is a minimal representation for the sync engine
@@ -150,8 +160,11 @@ func DetermineTrigger(options *Options) string {
 
 // isRunningInCI checks if we're running in a CI environment
 func isRunningInCI() bool {
-	// For now, we'll just return false as a safe default
-	// This can be enhanced later with actual env var checking:
-	// - Check for CI, GITHUB_ACTIONS, GITLAB_CI, CIRCLECI, etc.
+	ciVars := []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE"}
+	for _, v := range ciVars {
+		if os.Getenv(v) != "" {
+			return true
+		}
+	}
 	return false
 }

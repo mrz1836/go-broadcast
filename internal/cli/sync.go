@@ -460,8 +460,11 @@ func tryAttachMetricsRecorder(engine *sync.Engine, log *logrus.Logger) func() {
 		return func() {}
 	}
 
-	repo := db.NewBroadcastSyncRepo(database.DB())
-	adapter := sync.NewDBMetricsAdapter(repo)
+	syncRepo := db.NewBroadcastSyncRepo(database.DB())
+	repoRepo := db.NewRepoRepository(database.DB())
+	targetRepo := db.NewTargetRepository(database.DB())
+	groupRepo := db.NewGroupRepository(database.DB())
+	adapter := sync.NewDBMetricsAdapter(syncRepo, repoRepo, targetRepo, groupRepo)
 	engine.SetSyncMetricsRecorder(adapter)
 
 	return func() { _ = database.Close() }

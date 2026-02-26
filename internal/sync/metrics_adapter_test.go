@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -158,7 +159,98 @@ func TestNewDBMetricsAdapter(t *testing.T) {
 	t.Parallel()
 
 	testDB := db.TestDB(t)
-	repo := db.NewBroadcastSyncRepo(testDB)
-	adapter := NewDBMetricsAdapter(repo)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	repoRepo := db.NewRepoRepository(testDB)
+	targetRepo := db.NewTargetRepository(testDB)
+	groupRepo := db.NewGroupRepository(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, repoRepo, targetRepo, groupRepo)
 	require.NotNil(t, adapter)
+}
+
+func TestDBMetricsAdapter_LookupGroupID_NotConfigured(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, nil, nil, nil)
+
+	_, err := adapter.LookupGroupID(context.Background(), "some-group")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "group repository not configured")
+}
+
+func TestDBMetricsAdapter_LookupRepoID_NotConfigured(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, nil, nil, nil)
+
+	_, err := adapter.LookupRepoID(context.Background(), "org/repo")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "repo repository not configured")
+}
+
+func TestDBMetricsAdapter_LookupTargetID_NotConfigured(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, nil, nil, nil)
+
+	_, err := adapter.LookupTargetID(context.Background(), 1, "org/repo")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target repository not configured")
+}
+
+func TestDBMetricsAdapter_LookupRepoID_InvalidFormat(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	repoRepo := db.NewRepoRepository(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, repoRepo, nil, nil)
+
+	_, err := adapter.LookupRepoID(context.Background(), "invalid-no-slash")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid repo full name")
+}
+
+func TestDBMetricsAdapter_LookupGroupID_NotFound(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	groupRepo := db.NewGroupRepository(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, nil, nil, groupRepo)
+
+	_, err := adapter.LookupGroupID(context.Background(), "nonexistent-group")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to look up group")
+}
+
+func TestDBMetricsAdapter_LookupRepoID_NotFound(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	repoRepo := db.NewRepoRepository(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, repoRepo, nil, nil)
+
+	_, err := adapter.LookupRepoID(context.Background(), "nonexistent/repo")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to look up repo")
+}
+
+func TestDBMetricsAdapter_LookupTargetID_NotFound(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	targetRepo := db.NewTargetRepository(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, nil, targetRepo, nil)
+
+	_, err := adapter.LookupTargetID(context.Background(), 999, "nonexistent/repo")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to look up target")
 }

@@ -141,6 +141,18 @@ func (e *Engine) setCurrentRun(run *BroadcastSyncRun) {
 	e.currentRun = run
 }
 
+// RecordTargetStats adds per-target file/line counts to the current run totals (thread-safe).
+// Called from concurrent RepositorySync goroutines; the mutex ensures safe aggregation.
+func (e *Engine) RecordTargetStats(filesChanged, linesAdded, linesRemoved int) {
+	e.currentRunMu.Lock()
+	defer e.currentRunMu.Unlock()
+	if e.currentRun != nil {
+		e.currentRun.TotalFilesChanged += filesChanged
+		e.currentRun.TotalLinesAdded += linesAdded
+		e.currentRun.TotalLinesRemoved += linesRemoved
+	}
+}
+
 // GitClient returns the git client for repository operations.
 func (e *Engine) GitClient() git.Client {
 	return e.git
@@ -581,10 +593,19 @@ func (e *Engine) recordSyncRunStart(ctx context.Context, group config.Group, cur
 		SourceCommit: currentState.Source.LatestCommit,
 	}
 
-	// TODO: Set group ID if available (requires DB lookup to convert string ID to uint)
-	// For now, we'll rely on ExternalID and SourceCommit for tracking
-	// groupID lookup would require database access here
-	run.GroupID = nil
+	// Resolve group ID from external ID string to DB uint
+	if groupID, err := e.syncRepo.LookupGroupID(ctx, group.ID); err == nil {
+		run.GroupID = &groupID
+	} else {
+		log.WithError(err).Debug("Could not resolve group DB ID, field will be nil")
+	}
+
+	// Resolve source repo ID from "org/repo" to DB uint
+	if sourceRepoID, err := e.syncRepo.LookupRepoID(ctx, currentState.Source.Repo); err == nil {
+		run.SourceRepoID = &sourceRepoID
+	} else {
+		log.WithError(err).Debug("Could not resolve source repo DB ID, field will be nil")
+	}
 
 	// Create the run in the database
 	if err := e.syncRepo.CreateSyncRun(ctx, run); err != nil {
