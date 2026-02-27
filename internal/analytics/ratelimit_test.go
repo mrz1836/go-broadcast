@@ -135,8 +135,6 @@ func TestWarnIfBudgetLow(t *testing.T) {
 	})
 
 	t.Run("plenty of budget shows no warning", func(t *testing.T) {
-		t.Parallel()
-
 		scope := output.CaptureOutput()
 		defer scope.Restore()
 
@@ -154,8 +152,6 @@ func TestWarnIfBudgetLow(t *testing.T) {
 	})
 
 	t.Run("tight budget shows warning", func(t *testing.T) {
-		t.Parallel()
-
 		scope := output.CaptureOutput()
 		defer scope.Restore()
 
@@ -173,8 +169,6 @@ func TestWarnIfBudgetLow(t *testing.T) {
 	})
 
 	t.Run("very low budget shows low warning", func(t *testing.T) {
-		t.Parallel()
-
 		scope := output.CaptureOutput()
 		defer scope.Restore()
 
@@ -203,8 +197,6 @@ func TestDisplayRateLimitInfo(t *testing.T) {
 	})
 
 	t.Run("displays rate limit info", func(t *testing.T) {
-		t.Parallel()
-
 		scope := output.CaptureOutput()
 		defer scope.Restore()
 
