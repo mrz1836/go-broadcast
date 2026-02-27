@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -162,5 +163,66 @@ func TestEngine_Options(t *testing.T) {
 			logger: logrus.New(),
 		}
 		assert.Nil(t, engine.Options())
+	})
+}
+
+func TestEngine_RecordTargetStats(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil currentRun — no panic, no state change", func(t *testing.T) {
+		t.Parallel()
+
+		engine := &Engine{
+			logger: logrus.New(),
+		}
+		// currentRun is nil — calling RecordTargetStats must not panic
+		require.NotPanics(t, func() {
+			engine.RecordTargetStats(5, 10, 3)
+		})
+		assert.Nil(t, engine.GetCurrentRun())
+	})
+
+	t.Run("active currentRun — totals accumulate correctly", func(t *testing.T) {
+		t.Parallel()
+
+		engine := &Engine{
+			logger: logrus.New(),
+		}
+		engine.setCurrentRun(&BroadcastSyncRun{ExternalID: "SR-test", Status: SyncRunStatusRunning})
+
+		engine.RecordTargetStats(3, 10, 2)
+		engine.RecordTargetStats(2, 5, 1)
+
+		run := engine.GetCurrentRun()
+		require.NotNil(t, run)
+		assert.Equal(t, 5, run.TotalFilesChanged)
+		assert.Equal(t, 15, run.TotalLinesAdded)
+		assert.Equal(t, 3, run.TotalLinesRemoved)
+	})
+
+	t.Run("concurrent calls — race-safe accumulation", func(t *testing.T) {
+		t.Parallel()
+
+		engine := &Engine{
+			logger: logrus.New(),
+		}
+		engine.setCurrentRun(&BroadcastSyncRun{ExternalID: "SR-race", Status: SyncRunStatusRunning})
+
+		const goroutines = 10
+		var wg sync.WaitGroup
+		wg.Add(goroutines)
+		for range goroutines {
+			go func() {
+				defer wg.Done()
+				engine.RecordTargetStats(1, 1, 1)
+			}()
+		}
+		wg.Wait()
+
+		run := engine.GetCurrentRun()
+		require.NotNil(t, run)
+		assert.Equal(t, goroutines, run.TotalFilesChanged)
+		assert.Equal(t, goroutines, run.TotalLinesAdded)
+		assert.Equal(t, goroutines, run.TotalLinesRemoved)
 	})
 }

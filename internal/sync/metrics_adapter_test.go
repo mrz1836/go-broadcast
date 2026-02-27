@@ -254,3 +254,139 @@ func TestDBMetricsAdapter_LookupTargetID_NotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to look up target")
 }
+
+func TestDBMetricsAdapter_CreateSyncRun(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, nil, nil, nil)
+
+	run := &BroadcastSyncRun{
+		ExternalID:   "SR-20260219-test001",
+		SourceBranch: "main",
+		Status:       SyncRunStatusRunning,
+		Trigger:      "manual",
+		StartedAt:    time.Now(),
+	}
+
+	err := adapter.CreateSyncRun(context.Background(), run)
+	require.NoError(t, err)
+	assert.Positive(t, run.ID, "ID should be populated after create")
+}
+
+func TestDBMetricsAdapter_UpdateSyncRun(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, nil, nil, nil)
+
+	// First create a run
+	run := &BroadcastSyncRun{
+		ExternalID:   "SR-20260219-test002",
+		SourceBranch: "main",
+		Status:       SyncRunStatusRunning,
+		Trigger:      "manual",
+		StartedAt:    time.Now(),
+	}
+	require.NoError(t, adapter.CreateSyncRun(context.Background(), run))
+	require.Positive(t, run.ID)
+
+	// Now update it
+	run.Status = SyncRunStatusSuccess
+	err := adapter.UpdateSyncRun(context.Background(), run)
+	require.NoError(t, err)
+}
+
+func TestDBMetricsAdapter_CreateTargetResult(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, nil, nil, nil)
+
+	// Create a parent run first (FK requirement)
+	run := &BroadcastSyncRun{
+		ExternalID:   "SR-20260219-test003",
+		SourceBranch: "main",
+		Status:       SyncRunStatusRunning,
+		Trigger:      "manual",
+		StartedAt:    time.Now(),
+	}
+	require.NoError(t, adapter.CreateSyncRun(context.Background(), run))
+	require.Positive(t, run.ID)
+
+	result := &BroadcastSyncTargetResult{
+		BroadcastSyncRunID: run.ID,
+		TargetID:           1,
+		RepoID:             1,
+		Status:             "success",
+		StartedAt:          time.Now(),
+	}
+
+	err := adapter.CreateTargetResult(context.Background(), result)
+	require.NoError(t, err)
+	assert.Positive(t, result.ID, "ID should be populated after create")
+}
+
+func TestDBMetricsAdapter_CreateFileChanges(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, nil, nil, nil)
+
+	t.Run("empty slice returns nil", func(t *testing.T) {
+		t.Parallel()
+
+		err := adapter.CreateFileChanges(context.Background(), []BroadcastSyncFileChange{})
+		require.NoError(t, err)
+	})
+
+	t.Run("non-empty slice persisted without error", func(t *testing.T) {
+		t.Parallel()
+
+		// Create a run + target result to satisfy FKs
+		localDB := db.TestDB(t)
+		localSyncRepo := db.NewBroadcastSyncRepo(localDB)
+		localAdapter := NewDBMetricsAdapter(localSyncRepo, nil, nil, nil)
+
+		run := &BroadcastSyncRun{
+			ExternalID:   "SR-20260219-test004",
+			SourceBranch: "main",
+			Status:       SyncRunStatusRunning,
+			Trigger:      "manual",
+			StartedAt:    time.Now(),
+		}
+		require.NoError(t, localAdapter.CreateSyncRun(context.Background(), run))
+
+		result := &BroadcastSyncTargetResult{
+			BroadcastSyncRunID: run.ID,
+			TargetID:           1,
+			RepoID:             1,
+			Status:             "success",
+			StartedAt:          time.Now(),
+		}
+		require.NoError(t, localAdapter.CreateTargetResult(context.Background(), result))
+
+		changes := []BroadcastSyncFileChange{
+			{
+				BroadcastSyncTargetResultID: result.ID,
+				FilePath:                    "README.md",
+				ChangeType:                  FileChangeTypeModified,
+				LinesAdded:                  5,
+				LinesRemoved:                2,
+			},
+			{
+				BroadcastSyncTargetResultID: result.ID,
+				FilePath:                    "main.go",
+				ChangeType:                  FileChangeTypeAdded,
+				LinesAdded:                  20,
+			},
+		}
+
+		err := localAdapter.CreateFileChanges(context.Background(), changes)
+		require.NoError(t, err)
+	})
+}

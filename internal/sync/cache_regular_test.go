@@ -584,3 +584,43 @@ func TestContentCache_StaleKeyCleanup(t *testing.T) {
 	cache.mu.RUnlock()
 	assert.False(t, exists)
 }
+
+func TestContentCache_EvictExpired(t *testing.T) {
+	logger := logrus.NewEntry(logrus.New())
+	// Very short TTL so entries expire quickly
+	cache := NewContentCache(50*time.Millisecond, 1024*1024, logger)
+	defer func() {
+		err := cache.Close()
+		require.NoError(t, err)
+	}()
+
+	ctx := context.Background()
+
+	// Insert 3 entries
+	entries := []struct {
+		repo, branch, path, content string
+	}{
+		{"repo1", "main", "file1.txt", "content1"},
+		{"repo1", "main", "file2.txt", "content2"},
+		{"repo1", "main", "file3.txt", "content3"},
+	}
+	for _, e := range entries {
+		err := cache.Put(ctx, e.repo, e.branch, e.path, e.content)
+		require.NoError(t, err)
+	}
+
+	// Verify all 3 are present
+	stats := cache.GetStats()
+	assert.Equal(t, int64(3), stats.Size)
+
+	// Wait for TTL to expire
+	time.Sleep(100 * time.Millisecond)
+
+	// Manually call evictExpired (internal method, same package)
+	cache.evictExpired()
+
+	// All entries should be gone
+	statsAfter := cache.GetStats()
+	assert.Equal(t, int64(0), statsAfter.Size)
+	assert.Positive(t, statsAfter.Evictions)
+}
