@@ -322,6 +322,11 @@ func syncSingleRepository(
 	syncRun.ReposProcessed++
 	// API call count is tracked by the shared throttle
 
+	// Update repo's last analytics sync timestamp
+	if tsErr := analyticsRepo.UpdateRepoSyncTimestamp(ctx, repo.ID, time.Now(), syncRun.ID); tsErr != nil {
+		output.Warn(fmt.Sprintf("Failed to update sync timestamp for %s: %v", fullName, tsErr))
+	}
+
 	if showProgress {
 		totalAlerts := getAlertTotal(ctx, analyticsRepo, repo.ID)
 		output.Success(fmt.Sprintf("✓ %s: %d stars, %d forks, %d open issues, %d alerts",
@@ -888,6 +893,11 @@ func syncRepositoryMetadata(
 
 	syncRun.ReposProcessed++
 	// API call count is tracked by the shared throttle
+
+	// Update repo's last analytics sync timestamp
+	if tsErr := analyticsRepo.UpdateRepoSyncTimestamp(ctx, repo.ID, time.Now(), syncRun.ID); tsErr != nil {
+		output.Warn(fmt.Sprintf("Failed to update sync timestamp for %s: %v", fullName, tsErr))
+	}
 
 	if showProgress {
 		totalAlerts := getAlertTotal(ctx, analyticsRepo, repo.ID)

@@ -157,6 +157,11 @@ func (m *mockAnalyticsRepo) GetLatestSyncRun(ctx context.Context) (*db.SyncRun, 
 	return args.Get(0).(*db.SyncRun), args.Error(1)
 }
 
+func (m *mockAnalyticsRepo) UpdateRepoSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, syncRunID uint) error {
+	args := m.Called(ctx, repoID, syncAt, syncRunID)
+	return args.Error(0)
+}
+
 func TestFormatTimeAgo(t *testing.T) {
 	t.Parallel()
 

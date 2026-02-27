@@ -153,6 +153,10 @@ func (m *mockAnalyticsRepoPipeline) GetLatestSyncRun(ctx context.Context) (*db.S
 	return args.Get(0).(*db.SyncRun), args.Error(1)
 }
 
+func (m *mockAnalyticsRepoPipeline) UpdateRepoSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, syncRunID uint) error {
+	return m.Called(ctx, repoID, syncAt, syncRunID).Error(0)
+}
+
 type mockOrgRepository struct {
 	mock.Mock
 }
@@ -255,6 +259,14 @@ func (m *mockRepoRepository) FindOrCreateFromFullName(ctx context.Context, fullN
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*db.Repo), args.Error(1)
+}
+
+func (m *mockRepoRepository) UpdateLastSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, syncRunID uint) error {
+	return m.Called(ctx, repoID, syncAt, syncRunID).Error(0)
+}
+
+func (m *mockRepoRepository) UpdateLastBroadcastSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, broadcastSyncRunID uint) error {
+	return m.Called(ctx, repoID, syncAt, broadcastSyncRunID).Error(0)
 }
 
 // --- Tests ---
