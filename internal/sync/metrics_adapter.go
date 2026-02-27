@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/mrz1836/go-broadcast/internal/db"
 )
@@ -115,6 +116,14 @@ func (a *dbMetricsAdapter) LookupTargetID(ctx context.Context, groupDBID uint, r
 		return 0, fmt.Errorf("failed to look up target for group %d, repo %q: %w", groupDBID, repoFullName, err)
 	}
 	return target.ID, nil
+}
+
+// UpdateRepoSyncTimestamp updates the repo's last broadcast sync timestamp and run ID
+func (a *dbMetricsAdapter) UpdateRepoSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, runID uint) error {
+	if a.repoRepo == nil {
+		return ErrRepoRepoNotConfigured
+	}
+	return a.repoRepo.UpdateLastBroadcastSyncTimestamp(ctx, repoID, syncAt, runID)
 }
 
 // convertSyncRunToDB converts sync engine's BroadcastSyncRun to db model

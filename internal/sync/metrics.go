@@ -32,6 +32,9 @@ type SyncMetricsRecorder interface {
 
 	// LookupTargetID resolves a group DB ID + repo full name to a target DB uint ID
 	LookupTargetID(ctx context.Context, groupDBID uint, repoFullName string) (uint, error)
+
+	// UpdateRepoSyncTimestamp updates the repo's last broadcast sync timestamp and run ID
+	UpdateRepoSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, runID uint) error
 }
 
 // BroadcastSyncRun is a minimal representation for the sync engine

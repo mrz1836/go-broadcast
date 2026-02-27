@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -53,6 +54,10 @@ func (m *mockSyncMetricsRecorder) LookupRepoID(_ context.Context, _ string) (uin
 
 func (m *mockSyncMetricsRecorder) LookupTargetID(_ context.Context, _ uint, _ string) (uint, error) {
 	return 0, errMockLookup
+}
+
+func (m *mockSyncMetricsRecorder) UpdateRepoSyncTimestamp(_ context.Context, _ uint, _ time.Time, _ uint) error {
+	return nil
 }
 
 func TestEngine_MetricsRecorder(t *testing.T) {

@@ -330,6 +330,51 @@ func TestDBMetricsAdapter_CreateTargetResult(t *testing.T) {
 	assert.Positive(t, result.ID, "ID should be populated after create")
 }
 
+func TestDBMetricsAdapter_UpdateRepoSyncTimestamp_NotConfigured(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, nil, nil, nil)
+
+	err := adapter.UpdateRepoSyncTimestamp(context.Background(), 1, time.Now(), 1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "repo repository not configured")
+}
+
+func TestDBMetricsAdapter_UpdateRepoSyncTimestamp_Success(t *testing.T) {
+	t.Parallel()
+
+	testDB := db.TestDB(t)
+	syncRepo := db.NewBroadcastSyncRepo(testDB)
+	repoRepo := db.NewRepoRepository(testDB)
+	adapter := NewDBMetricsAdapter(syncRepo, repoRepo, nil, nil)
+
+	// Create a client + org + repo (Repo validation requires org)
+	client := &db.Client{Name: "ts-test-client"}
+	require.NoError(t, testDB.Create(client).Error)
+
+	org := &db.Organization{ClientID: client.ID, Name: "ts-test-org"}
+	require.NoError(t, testDB.Create(org).Error)
+
+	repo, err := repoRepo.FindOrCreateFromFullName(context.Background(), "ts-test-org/ts-test-repo", client.ID)
+	require.NoError(t, err)
+	require.Positive(t, repo.ID)
+
+	// Update via adapter
+	syncAt := time.Now().Truncate(time.Second)
+	err = adapter.UpdateRepoSyncTimestamp(context.Background(), repo.ID, syncAt, 42)
+	require.NoError(t, err)
+
+	// Verify the broadcast sync fields were updated
+	fetched, err := repoRepo.GetByID(context.Background(), repo.ID)
+	require.NoError(t, err)
+	require.NotNil(t, fetched.LastBroadcastSyncAt)
+	assert.WithinDuration(t, syncAt, *fetched.LastBroadcastSyncAt, time.Second)
+	require.NotNil(t, fetched.LastBroadcastSyncRunID)
+	assert.Equal(t, uint(42), *fetched.LastBroadcastSyncRunID)
+}
+
 func TestDBMetricsAdapter_CreateFileChanges(t *testing.T) {
 	t.Parallel()
 

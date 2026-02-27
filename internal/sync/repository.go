@@ -2212,6 +2212,13 @@ func (rs *RepositorySync) recordTargetResult(
 		return fmt.Errorf("failed to create target result: %w", err)
 	}
 
+	// Update repo's last broadcast sync timestamp on success
+	if status == TargetStatusSuccess || status == TargetStatusNoChanges {
+		if tsErr := rs.engine.syncRepo.UpdateRepoSyncTimestamp(ctx, repoID, endTime, run.ID); tsErr != nil {
+			log.WithError(tsErr).Warn("Failed to update repo broadcast sync timestamp")
+		}
+	}
+
 	// Set the result ID on file changes and create them
 	if len(fileChanges) > 0 {
 		for i := range fileChanges {
