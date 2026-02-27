@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/db"
 )
 
 // TestFormatMetricsStatus tests status formatting
@@ -206,5 +208,81 @@ func TestMetricsCommandFlags(t *testing.T) {
 		assert.NotEmpty(t, cmd.Short)
 		assert.NotEmpty(t, cmd.Long)
 		assert.NotEmpty(t, cmd.Example)
+	})
+}
+
+// TestShowSummaryStats tests the showSummaryStats function
+func TestShowSummaryStats(t *testing.T) {
+	t.Parallel()
+
+	t.Run("EmptyDB", func(t *testing.T) {
+		t.Parallel()
+
+		gormDB := db.TestDB(t)
+		syncRepo := db.NewBroadcastSyncRepo(gormDB)
+
+		err := showSummaryStats(context.Background(), syncRepo, false)
+		require.NoError(t, err)
+	})
+
+	t.Run("JSONOutput", func(t *testing.T) {
+		t.Parallel()
+
+		gormDB := db.TestDB(t)
+		syncRepo := db.NewBroadcastSyncRepo(gormDB)
+
+		err := showSummaryStats(context.Background(), syncRepo, true)
+		require.NoError(t, err)
+	})
+}
+
+// TestShowRecentRuns tests the showRecentRuns function
+func TestShowRecentRuns(t *testing.T) {
+	t.Parallel()
+
+	t.Run("InvalidPeriod", func(t *testing.T) {
+		t.Parallel()
+
+		gormDB := db.TestDB(t)
+		syncRepo := db.NewBroadcastSyncRepo(gormDB)
+
+		err := showRecentRuns(context.Background(), syncRepo, "bad", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid period")
+	})
+
+	t.Run("EmptyResults", func(t *testing.T) {
+		t.Parallel()
+
+		gormDB := db.TestDB(t)
+		syncRepo := db.NewBroadcastSyncRepo(gormDB)
+
+		err := showRecentRuns(context.Background(), syncRepo, "7d", false)
+		require.NoError(t, err)
+	})
+
+	t.Run("JSONOutput", func(t *testing.T) {
+		t.Parallel()
+
+		gormDB := db.TestDB(t)
+		syncRepo := db.NewBroadcastSyncRepo(gormDB)
+
+		err := showRecentRuns(context.Background(), syncRepo, "7d", true)
+		require.NoError(t, err)
+	})
+}
+
+// TestShowRunDetails tests the showRunDetails function
+func TestShowRunDetails(t *testing.T) {
+	t.Parallel()
+
+	t.Run("NotFound", func(t *testing.T) {
+		t.Parallel()
+
+		gormDB := db.TestDB(t)
+		syncRepo := db.NewBroadcastSyncRepo(gormDB)
+
+		err := showRunDetails(context.Background(), syncRepo, "SR-nonexistent", false)
+		require.Error(t, err)
 	})
 }
