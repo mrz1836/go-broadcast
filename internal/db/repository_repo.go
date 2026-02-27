@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -135,4 +136,26 @@ func (r *repoRepository) FindOrCreateFromFullName(ctx context.Context, fullName 
 	}
 	repo.Organization = org
 	return &repo, nil
+}
+
+func (r *repoRepository) UpdateLastSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, syncRunID uint) error {
+	return r.db.WithContext(ctx).
+		Session(&gorm.Session{SkipHooks: true}).
+		Model(&Repo{}).
+		Where("id = ?", repoID).
+		Updates(map[string]interface{}{
+			"last_sync_at":     syncAt,
+			"last_sync_run_id": syncRunID,
+		}).Error
+}
+
+func (r *repoRepository) UpdateLastBroadcastSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, broadcastSyncRunID uint) error {
+	return r.db.WithContext(ctx).
+		Session(&gorm.Session{SkipHooks: true}).
+		Model(&Repo{}).
+		Where("id = ?", repoID).
+		Updates(map[string]interface{}{
+			"last_broadcast_sync_at":     syncAt,
+			"last_broadcast_sync_run_id": broadcastSyncRunID,
+		}).Error
 }

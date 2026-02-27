@@ -222,6 +222,10 @@ type Repo struct {
 	LastSyncAt    *time.Time `json:"last_sync_at,omitempty"`         // Last analytics sync timestamp
 	LastSyncRunID *uint      `json:"last_sync_run_id,omitempty"`     // Links to the SyncRun that last processed this repo
 
+	// Broadcast sync fields
+	LastBroadcastSyncAt    *time.Time `json:"last_broadcast_sync_at,omitempty"`     // Last broadcast sync timestamp
+	LastBroadcastSyncRunID *uint      `json:"last_broadcast_sync_run_id,omitempty"` // FK to broadcast_sync_runs
+
 	// Analytics relationships
 	Snapshots   []RepositorySnapshot `gorm:"foreignKey:RepositoryID" json:"snapshots,omitempty"`
 	Alerts      []SecurityAlert      `gorm:"foreignKey:RepositoryID" json:"alerts,omitempty"`

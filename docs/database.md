@@ -343,6 +343,12 @@ This table stores configuration repositories with rich metadata automatically sy
 | `last_sync_at` | datetime | Last analytics sync timestamp |
 | `last_sync_run_id` | uint | Links to the SyncRun that last processed this repo |
 
+*Broadcast Sync Fields:*
+| Column | Type | Description |
+|--------|------|-------------|
+| `last_broadcast_sync_at` | datetime | Last broadcast sync timestamp |
+| `last_broadcast_sync_run_id` | uint | FK to broadcast_sync_runs |
+
 **Relations:**
 - Belongs to `organizations`
 - Has many `repository_snapshots`

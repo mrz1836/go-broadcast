@@ -48,6 +48,9 @@ type AnalyticsRepo interface {
 	CreateSyncRun(ctx context.Context, run *SyncRun) error
 	UpdateSyncRun(ctx context.Context, run *SyncRun) error
 	GetLatestSyncRun(ctx context.Context) (*SyncRun, error)
+
+	// Repo sync tracking
+	UpdateRepoSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, syncRunID uint) error
 }
 
 // analyticsRepo implements AnalyticsRepo using GORM
@@ -382,4 +385,16 @@ func (r *analyticsRepo) GetLatestCISnapshot(ctx context.Context, repoID uint) (*
 		return nil, err
 	}
 	return &snap, nil
+}
+
+// UpdateRepoSyncTimestamp updates the repo's last analytics sync timestamp and run ID
+func (r *analyticsRepo) UpdateRepoSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, syncRunID uint) error {
+	return r.db.WithContext(ctx).
+		Session(&gorm.Session{SkipHooks: true}).
+		Model(&Repo{}).
+		Where("id = ?", repoID).
+		Updates(map[string]interface{}{
+			"last_sync_at":     syncAt,
+			"last_sync_run_id": syncRunID,
+		}).Error
 }

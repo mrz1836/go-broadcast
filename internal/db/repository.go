@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"time"
 )
 
 // ClientRepository manages Client CRUD operations
@@ -36,6 +37,8 @@ type RepoRepository interface {
 	Delete(ctx context.Context, id uint, hard bool) error
 	List(ctx context.Context, organizationID uint) ([]*Repo, error)
 	FindOrCreateFromFullName(ctx context.Context, fullName string, defaultClientID uint) (*Repo, error)
+	UpdateLastSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, syncRunID uint) error
+	UpdateLastBroadcastSyncTimestamp(ctx context.Context, repoID uint, syncAt time.Time, broadcastSyncRunID uint) error
 }
 
 // ConfigRepository manages Config CRUD operations
