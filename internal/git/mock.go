@@ -105,29 +105,13 @@ func (m *MockClient) GetCurrentCommitSHA(ctx context.Context, repoPath string) (
 // GetRepositoryInfo mock implementation
 func (m *MockClient) GetRepositoryInfo(ctx context.Context, repoPath string) (*RepositoryInfo, error) {
 	args := m.Called(ctx, repoPath)
-	if args.Get(0) == nil {
-		return nil, testutil.ExtractError(args)
-	}
-	// Safe type assertion to prevent panic on misconfigured mock
-	result, ok := args.Get(0).(*RepositoryInfo)
-	if !ok {
-		return nil, testutil.ExtractError(args)
-	}
-	return result, testutil.ExtractError(args)
+	return testutil.ExtractResult[*RepositoryInfo](args, 0)
 }
 
 // GetChangedFiles mock implementation
 func (m *MockClient) GetChangedFiles(ctx context.Context, repoPath string) ([]string, error) {
 	args := m.Called(ctx, repoPath)
-	if args.Get(0) == nil {
-		return nil, testutil.ExtractError(args)
-	}
-	// Safe type assertion to prevent panic on misconfigured mock
-	result, ok := args.Get(0).([]string)
-	if !ok {
-		return nil, testutil.ExtractError(args)
-	}
-	return result, testutil.ExtractError(args)
+	return testutil.ExtractResult[[]string](args, 0)
 }
 
 // BatchRemoveFiles mock implementation

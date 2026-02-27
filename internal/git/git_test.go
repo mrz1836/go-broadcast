@@ -1573,3 +1573,99 @@ func TestNewClient_NilLogConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, client)
 }
+
+// TestDiffIgnoreWhitespace tests the DiffIgnoreWhitespace function
+func TestDiffIgnoreWhitespace(t *testing.T) {
+	client, err := NewClient(logrus.New(), &logging.LogConfig{})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	t.Run("NoChanges", func(t *testing.T) {
+		tmpDir := testutil.CreateTempDir(t)
+		repoPath := filepath.Join(tmpDir, "test-repo")
+
+		cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+		configureGitUser(ctx, t, repoPath)
+
+		testFile := filepath.Join(repoPath, "test.txt")
+		require.NoError(t, os.WriteFile(testFile, []byte("hello\n"), 0o600))
+		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "test.txt") //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "initial") //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		diff, err := client.DiffIgnoreWhitespace(ctx, repoPath, false)
+		require.NoError(t, err)
+		assert.Empty(t, diff)
+	})
+
+	t.Run("StagedChanges", func(t *testing.T) {
+		tmpDir := testutil.CreateTempDir(t)
+		repoPath := filepath.Join(tmpDir, "test-repo")
+
+		cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+		configureGitUser(ctx, t, repoPath)
+
+		testFile := filepath.Join(repoPath, "staged.txt")
+		require.NoError(t, os.WriteFile(testFile, []byte("original\n"), 0o600))
+		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "staged.txt") //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "commit", "-m", "initial") //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		require.NoError(t, os.WriteFile(testFile, []byte("modified\n"), 0o600))
+		cmd = exec.CommandContext(ctx, "git", "-C", repoPath, "add", "staged.txt") //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		diff, err := client.DiffIgnoreWhitespace(ctx, repoPath, true)
+		require.NoError(t, err)
+		assert.NotEmpty(t, diff)
+	})
+
+	t.Run("InvalidPath", func(t *testing.T) {
+		_, err := client.DiffIgnoreWhitespace(ctx, "/non/existent/path", false)
+		require.Error(t, err)
+	})
+}
+
+// TestAddRemote tests the AddRemote function
+func TestAddRemote(t *testing.T) {
+	client, err := NewClient(logrus.New(), &logging.LogConfig{})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	t.Run("Success", func(t *testing.T) {
+		tmpDir := testutil.CreateTempDir(t)
+		repoPath := filepath.Join(tmpDir, "test-repo")
+
+		cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		err := client.AddRemote(ctx, repoPath, "upstream", "https://github.com/test/repo.git")
+		require.NoError(t, err)
+	})
+
+	t.Run("DuplicateRemote", func(t *testing.T) {
+		tmpDir := testutil.CreateTempDir(t)
+		repoPath := filepath.Join(tmpDir, "test-repo")
+
+		cmd := exec.CommandContext(ctx, "git", "init", repoPath) //nolint:gosec // Git command with safe static args
+		require.NoError(t, cmd.Run())
+
+		err := client.AddRemote(ctx, repoPath, "upstream", "https://github.com/test/repo.git")
+		require.NoError(t, err)
+
+		// Adding same remote again should fail
+		err = client.AddRemote(ctx, repoPath, "upstream", "https://github.com/test/repo.git")
+		require.Error(t, err)
+	})
+
+	t.Run("InvalidRepoPath", func(t *testing.T) {
+		err := client.AddRemote(ctx, "/non/existent/path", "origin", "https://github.com/test/repo.git")
+		require.Error(t, err)
+	})
+}
