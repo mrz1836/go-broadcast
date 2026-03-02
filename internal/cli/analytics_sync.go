@@ -449,15 +449,15 @@ func collectSecurityAlerts(
 	}
 
 	result, ok := resultMap[fullName]
-	if !ok {
-		return &securityCollectionOutput{}, nil
+	// Always initialize out, even when no open alerts were returned.
+	// If the repo has 0 open alerts on GitHub it won't appear in resultMap, but
+	// we still need to call CloseStaleAlerts below to clear any stale DB records.
+	out := &securityCollectionOutput{}
+	if ok {
+		out.Warnings = result.Warnings
 	}
 
-	out := &securityCollectionOutput{
-		Warnings: result.Warnings,
-	}
-
-	// Upsert each alert and track their numbers for reconciliation
+	// Upsert each currently-open alert and collect their numbers
 	var currentAlertNumbers []int
 	for _, alert := range result.Alerts {
 		dbAlert := convertSecurityAlert(alert, repoID)
