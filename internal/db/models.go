@@ -206,6 +206,13 @@ type Repo struct {
 	HasWikiEnabled        bool `gorm:"default:false" json:"has_wiki_enabled"`        // Wiki feature status
 	HasDiscussionsEnabled bool `gorm:"default:false" json:"has_discussions_enabled"` // Discussions feature status
 
+	// Repository settings (fetched via REST API, updated each sync)
+	AutoMergeEnabled      bool `gorm:"default:false" json:"auto_merge_enabled"`      // Auto-merge feature enabled
+	UpdateBranchEnabled   bool `gorm:"default:false" json:"update_branch_enabled"`   // Allow update branch button
+	DependabotEnabled     bool `gorm:"default:false" json:"dependabot_enabled"`      // Dependabot security updates enabled
+	SecretScanningEnabled bool `gorm:"default:false" json:"secret_scanning_enabled"` // Secret scanning enabled
+	PushProtectionEnabled bool `gorm:"default:false" json:"push_protection_enabled"` // Secret scanning push protection enabled
+
 	// URLs
 	HTMLURL  string `gorm:"type:text" json:"html_url"`  // GitHub web URL
 	SSHURL   string `gorm:"type:text" json:"ssh_url"`   // SSH clone URL

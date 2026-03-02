@@ -18,12 +18,13 @@ type RepositorySnapshot struct {
 	SnapshotAt   time.Time `gorm:"index;not null" json:"snapshot_at"` // Timestamp (not date-only) for future hourly support
 
 	// Core metrics (from GraphQL batched queries)
-	Stars       int `json:"stars"`        // Stargazers count
-	Forks       int `json:"forks"`        // Forks count
-	Watchers    int `json:"watchers"`     // Watchers count
-	OpenIssues  int `json:"open_issues"`  // Open issues count
-	OpenPRs     int `json:"open_prs"`     // Open pull requests count
-	BranchCount int `json:"branch_count"` // Total branches
+	Stars        int `json:"stars"`        // Stargazers count
+	Forks        int `json:"forks"`        // Forks count
+	Watchers     int `json:"watchers"`     // Watchers count
+	OpenIssues   int `json:"open_issues"`  // Open issues count
+	OpenPRs      int `json:"open_prs"`     // Open pull requests count
+	BranchCount  int `json:"branch_count"` // Total branches
+	Contributors int `json:"contributors"` // Total contributor count (first page, max 100)
 
 	// Release information
 	LatestRelease   string     `gorm:"type:text" json:"latest_release,omitempty"` // Latest release tag name
