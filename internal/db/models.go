@@ -12,7 +12,7 @@ import (
 // BaseModel contains common columns for all tables following GORM conventions
 type BaseModel struct {
 	ID        uint           `gorm:"primarykey" json:"id"`
-	CreatedAt time.Time      `json:"created_at"`
+	CreatedAt time.Time      `gorm:"<-:create" json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 	Metadata  Metadata       `gorm:"type:text" json:"metadata,omitempty"`
@@ -280,7 +280,7 @@ type GroupDependency struct {
 	DependsOnID string    `gorm:"type:text;not null" json:"depends_on_id"` // External ID of dependency
 	Position    int       `gorm:"default:0" json:"position"`
 	Metadata    Metadata  `gorm:"type:text" json:"metadata,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
+	CreatedAt   time.Time `gorm:"<-:create" json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
@@ -418,7 +418,7 @@ type TargetFileListRef struct {
 	FileListID uint      `gorm:"uniqueIndex:idx_target_file_list;index;not null" json:"file_list_id"`
 	Position   int       `gorm:"default:0" json:"position"`
 	Metadata   Metadata  `gorm:"type:text" json:"metadata,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
+	CreatedAt  time.Time `gorm:"<-:create" json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 
 	// Relationships for preloading
@@ -432,7 +432,7 @@ type TargetDirectoryListRef struct {
 	DirectoryListID uint      `gorm:"uniqueIndex:idx_target_dir_list;index;not null" json:"directory_list_id"`
 	Position        int       `gorm:"default:0" json:"position"`
 	Metadata        Metadata  `gorm:"type:text" json:"metadata,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
+	CreatedAt       time.Time `gorm:"<-:create" json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 
 	// Relationships for preloading

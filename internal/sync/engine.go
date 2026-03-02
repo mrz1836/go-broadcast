@@ -586,7 +586,7 @@ func (e *Engine) recordSyncRunStart(ctx context.Context, group config.Group, cur
 	// Create new sync run record
 	run := &BroadcastSyncRun{
 		ExternalID:   GenerateSyncRunExternalID(),
-		StartedAt:    time.Now(),
+		StartedAt:    time.Now().UTC(),
 		Status:       SyncRunStatusRunning,
 		Trigger:      DetermineTrigger(e.options),
 		SourceBranch: currentState.Source.Branch,
@@ -660,7 +660,7 @@ func (e *Engine) finalizeSyncRun(ctx context.Context, results *Results, errors [
 	log := e.logger.WithField("component", "metrics_recording")
 
 	// Update run with final stats
-	endTime := time.Now()
+	endTime := time.Now().UTC()
 	run.EndedAt = &endTime
 	run.DurationMs = endTime.Sub(run.StartedAt).Milliseconds()
 	run.SuccessfulTargets = results.Successful

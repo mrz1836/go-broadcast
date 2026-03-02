@@ -215,8 +215,50 @@ func RunMigrations(db *gorm.DB) error {
 
 	// Register all migrations
 	mgr.Register(migrationConsolidateAnalyticsRepos())
+	mgr.Register(migrationFixZeroCreatedAt())
 
 	return mgr.Apply()
+}
+
+// migrationFixZeroCreatedAt fixes rows where created_at was overwritten with
+// Go's zero time (0001-01-01) by .Save() calls that did not preserve the field.
+// Uses updated_at (or started_at for sync runs) as the best available proxy.
+func migrationFixZeroCreatedAt() Migration {
+	return Migration{
+		Version:     "20260302_001",
+		Description: "Fix zero created_at timestamps in organizations, repos, and broadcast_sync_runs",
+		Up: func(tx *gorm.DB) error {
+			// organizations: use updated_at as proxy
+			if err := tx.Exec(`
+				UPDATE organizations
+				SET created_at = updated_at
+				WHERE created_at LIKE '0001%'
+			`).Error; err != nil {
+				return fmt.Errorf("failed to fix organizations created_at: %w", err)
+			}
+
+			// repos: use updated_at as proxy
+			if err := tx.Exec(`
+				UPDATE repos
+				SET created_at = updated_at
+				WHERE created_at LIKE '0001%'
+			`).Error; err != nil {
+				return fmt.Errorf("failed to fix repos created_at: %w", err)
+			}
+
+			// broadcast_sync_runs: use started_at (semantically closer to creation time)
+			if err := tx.Exec(`
+				UPDATE broadcast_sync_runs
+				SET created_at = started_at
+				WHERE created_at LIKE '0001%'
+			`).Error; err != nil {
+				return fmt.Errorf("failed to fix broadcast_sync_runs created_at: %w", err)
+			}
+
+			return nil
+		},
+		Down: nil, // One-way migration; original zero values are not worth restoring
+	}
 }
 
 // migrationConsolidateAnalyticsRepos merges analytics_repositories into repos.

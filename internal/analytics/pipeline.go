@@ -274,7 +274,7 @@ func isComplexityError(err error) bool {
 // StartSyncRun creates a new SyncRun record at the start of sync
 func (p *Pipeline) StartSyncRun(ctx context.Context, syncType, orgFilter, repoFilter string) (*db.SyncRun, error) {
 	run := &db.SyncRun{
-		StartedAt:  time.Now(),
+		StartedAt:  time.Now().UTC(),
 		Status:     "running",
 		SyncType:   syncType,
 		OrgFilter:  orgFilter,
@@ -307,7 +307,7 @@ func (p *Pipeline) UpdateSyncRunCounters(ctx context.Context, run *db.SyncRun) e
 
 // CompleteSyncRun marks a SyncRun as completed and calculates final metrics
 func (p *Pipeline) CompleteSyncRun(ctx context.Context, run *db.SyncRun, status string) error {
-	now := time.Now()
+	now := time.Now().UTC()
 	run.CompletedAt = &now
 	run.Status = status
 	run.DurationMs = now.Sub(run.StartedAt).Milliseconds()
@@ -335,7 +335,7 @@ func (p *Pipeline) RecordSyncRunError(ctx context.Context, run *db.SyncRun, repo
 	errorEntry := map[string]interface{}{
 		"repo":  repo,
 		"error": err.Error(),
-		"time":  time.Now().Format(time.RFC3339),
+		"time":  time.Now().UTC().Format(time.RFC3339),
 	}
 
 	// Append to errors array (always use []interface{} for JSON round-trip consistency)
