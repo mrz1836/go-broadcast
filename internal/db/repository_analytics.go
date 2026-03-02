@@ -259,7 +259,7 @@ func (r *analyticsRepo) GetSnapshotHistory(ctx context.Context, repoID uint, sin
 // UpsertAlert creates or updates a security alert
 // Matches by repository_id, alert_type, and alert_number
 func (r *analyticsRepo) UpsertAlert(ctx context.Context, alert *SecurityAlert) error {
-	// NOTE: FirstOrCreate+Assign does not reliably update existing records in GORM v2
+	// FirstOrCreate+Assign does not reliably update existing records in GORM v2
 	// (Assign only assigns on create in some versions). Use explicit Find→Create/Save instead.
 	var existing SecurityAlert
 	err := r.db.WithContext(ctx).
