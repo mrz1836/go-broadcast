@@ -218,3 +218,9 @@ func (m *MockClient) GetRateLimit(ctx context.Context) (*RateLimitResponse, erro
 	args := m.Called(ctx)
 	return testutil.HandleTwoValueReturn[*RateLimitResponse](args)
 }
+
+// GetContributorCount mock implementation
+func (m *MockClient) GetContributorCount(ctx context.Context, repo string) (int, error) {
+	args := m.Called(ctx, repo)
+	return args.Int(0), args.Error(1)
+}

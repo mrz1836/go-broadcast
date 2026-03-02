@@ -115,4 +115,7 @@ type Client interface {
 
 	// GetRateLimit retrieves the current GitHub API rate limit status
 	GetRateLimit(ctx context.Context) (*RateLimitResponse, error)
+
+	// GetContributorCount returns the number of contributors for a repository (up to 100).
+	GetContributorCount(ctx context.Context, repo string) (int, error)
 }

@@ -135,12 +135,25 @@ type GitTree struct {
 
 // Repository represents a GitHub repository with settings
 type Repository struct {
-	Name             string `json:"name"`
-	FullName         string `json:"full_name"`
-	DefaultBranch    string `json:"default_branch"`
-	AllowSquashMerge bool   `json:"allow_squash_merge"`
-	AllowMergeCommit bool   `json:"allow_merge_commit"`
-	AllowRebaseMerge bool   `json:"allow_rebase_merge"`
+	Name                string `json:"name"`
+	FullName            string `json:"full_name"`
+	DefaultBranch       string `json:"default_branch"`
+	AllowSquashMerge    bool   `json:"allow_squash_merge"`
+	AllowMergeCommit    bool   `json:"allow_merge_commit"`
+	AllowRebaseMerge    bool   `json:"allow_rebase_merge"`
+	AllowAutoMerge      bool   `json:"allow_auto_merge"`
+	AllowUpdateBranch   bool   `json:"allow_update_branch"`
+	SecurityAndAnalysis struct {
+		DependabotSecurityUpdates struct {
+			Status string `json:"status"` // "enabled" or "disabled"
+		} `json:"dependabot_security_updates"`
+		SecretScanning struct {
+			Status string `json:"status"`
+		} `json:"secret_scanning"`
+		SecretScanningPushProtection struct {
+			Status string `json:"status"`
+		} `json:"secret_scanning_push_protection"`
+	} `json:"security_and_analysis"`
 }
 
 // MergeMethod represents the type of merge to perform

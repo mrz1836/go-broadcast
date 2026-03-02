@@ -808,6 +808,29 @@ type GraphQLResponse struct {
 	} `json:"errors"`
 }
 
+// GetContributorCount returns the number of contributors for a repository (up to 100).
+// Counts the first page of contributors only to control API call cost.
+func (g *githubClient) GetContributorCount(ctx context.Context, repo string) (int, error) {
+	output, err := g.runner.Run(ctx, "gh", "api",
+		fmt.Sprintf("repos/%s/contributors?per_page=100&anon=false", repo))
+	if err != nil {
+		if isNotFoundError(err) {
+			return 0, nil
+		}
+		return 0, appErrors.WrapWithContext(err, "get contributors")
+	}
+
+	type contributor struct {
+		Login string `json:"login"`
+	}
+	contributors, parseErr := jsonutil.UnmarshalJSON[[]contributor](output)
+	if parseErr != nil {
+		return 0, appErrors.WrapWithContext(parseErr, "parse contributors")
+	}
+
+	return len(contributors), nil
+}
+
 // ExecuteGraphQL executes a GraphQL query and returns the raw response data
 func (g *githubClient) ExecuteGraphQL(ctx context.Context, query string) (map[string]interface{}, error) {
 	// Execute GraphQL query via gh api
