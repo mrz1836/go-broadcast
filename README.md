@@ -114,7 +114,7 @@
 Get up and running with go-broadcast in under 5 minutes!
 
 ### Prerequisites
-- [Go 1.24+](https://golang.org/doc/install) ([supported release](https://golang.org/doc/devel/release.html#policy)) and [GitHub CLI](https://cli.github.com/) installed
+- [Go 1.25+](https://golang.org/doc/install) ([supported release](https://golang.org/doc/devel/release.html#policy)) and [GitHub CLI](https://cli.github.com/) installed
 - GitHub authentication: `gh auth login`
 - [MAGE-X](https://github.com/mrz1836/mage-x) (optional, for building from source)
 
@@ -1524,7 +1524,7 @@ For more detailed information, see the [comprehensive logging guide](docs/loggin
 
 ## 🧪 Examples & Tests
 
-All unit tests and [examples](examples) run via [GitHub Actions](https://github.com/mrz1836/go-broadcast/actions) and use [Go version 1.24.x](https://go.dev/doc/go1.24). View the [configuration file](.github/workflows/fortress.yml).
+All unit tests and [examples](examples) run via [GitHub Actions](https://github.com/mrz1836/go-broadcast/actions) and use [Go version 1.25.x](https://go.dev/doc/go1.25). View the [configuration file](.github/workflows/fortress.yml).
 
 Run all tests (fast):
 
