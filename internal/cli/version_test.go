@@ -19,7 +19,7 @@ func TestVersionInfo(t *testing.T) {
 		Version:   "1.2.3",
 		Commit:    "abc123",
 		BuildDate: "2025-01-01",
-		GoVersion: "go1.24",
+		GoVersion: "go1.25",
 		OS:        "linux",
 		Arch:      "amd64",
 	}
@@ -27,7 +27,7 @@ func TestVersionInfo(t *testing.T) {
 	require.Equal(t, "1.2.3", info.Version)
 	require.Equal(t, "abc123", info.Commit)
 	require.Equal(t, "2025-01-01", info.BuildDate)
-	require.Equal(t, "go1.24", info.GoVersion)
+	require.Equal(t, "go1.25", info.GoVersion)
 	require.Equal(t, "linux", info.OS)
 	require.Equal(t, "amd64", info.Arch)
 }
@@ -203,7 +203,7 @@ func TestVersionInfoJSON(t *testing.T) {
 		Version:   "1.2.3",
 		Commit:    "abc123",
 		BuildDate: "2025-01-01",
-		GoVersion: "go1.24",
+		GoVersion: "go1.25",
 		OS:        "linux",
 		Arch:      "amd64",
 	}
@@ -217,7 +217,7 @@ func TestVersionInfoJSON(t *testing.T) {
 	require.Contains(t, jsonStr, `"version":"1.2.3"`)
 	require.Contains(t, jsonStr, `"commit":"abc123"`)
 	require.Contains(t, jsonStr, `"build_date":"2025-01-01"`)
-	require.Contains(t, jsonStr, `"go_version":"go1.24"`)
+	require.Contains(t, jsonStr, `"go_version":"go1.25"`)
 	require.Contains(t, jsonStr, `"os":"linux"`)
 	require.Contains(t, jsonStr, `"arch":"amd64"`)
 
