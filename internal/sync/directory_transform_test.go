@@ -1099,6 +1099,10 @@ func (m *DirectoryMockGHClient) GetRateLimit(_ context.Context) (*gh.RateLimitRe
 	return &gh.RateLimitResponse{}, nil
 }
 
+func (m *DirectoryMockGHClient) GetContributorCount(_ context.Context, _ string) (int, error) {
+	return 0, nil
+}
+
 // DirectoryMockFileContent represents mock file content
 type DirectoryMockFileContent struct {
 	Content []byte

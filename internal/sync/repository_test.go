@@ -1904,6 +1904,10 @@ func (m *TestValidationMockGHClient) GetRateLimit(_ context.Context) (*gh.RateLi
 	return nil, ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) GetContributorCount(_ context.Context, _ string) (int, error) {
+	return 0, ErrMockNotImplemented
+}
+
 // TestRepositorySync_validateAndCleanupOrphanedBranches tests the validateAndCleanupOrphanedBranches method
 func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 	ctx := context.Background()
