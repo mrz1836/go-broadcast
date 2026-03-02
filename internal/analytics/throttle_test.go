@@ -409,21 +409,23 @@ func TestIsAPIRateLimitError(t *testing.T) {
 		expected bool
 	}{
 		{"nil error", nil, false},
-		{"rate limit", errors.New("rate limit exceeded"), true},                                     //nolint:err113 // test
-		{"Rate Limit capitalized", errors.New("Rate Limit Exceeded"), true},                         //nolint:err113 // test
-		{"403 error", errors.New("HTTP 403 Forbidden"), true},                                       //nolint:err113 // test
-		{"429 error", errors.New("HTTP 429 Too Many Requests"), true},                               //nolint:err113 // test
-		{"abuse detection", errors.New("You have triggered an abuse detection mechanism"), true},    //nolint:err113 // test
-		{"secondary rate", errors.New("You have exceeded a secondary rate limit"), true},            //nolint:err113 // test
-		{"too many requests", errors.New("too many requests"), true},                                //nolint:err113 // test
-		{"api rate limit", errors.New("api rate limit exceeded for this endpoint"), true},           //nolint:err113 // test
-		{"404 not found", errors.New("HTTP 404 Not Found"), false},                                  //nolint:err113 // test
-		{"generic error", errors.New("network timeout"), false},                                     //nolint:err113 // test
-		{"empty error", errors.New(""), false},                                                      //nolint:err113 // test
-		{"422 validation", errors.New("422 Validation Failed"), false},                              //nolint:err113 // test
-		{"500 server error", errors.New("500 Internal Server Error"), false},                        //nolint:err113 // test
-		{"embedded 403", errors.New("gh: api error: HTTP 403: rate limit exceeded for user"), true}, //nolint:err113 // test
-		{"embedded 429", errors.New("gh: api error: HTTP 429: secondary rate limit reached"), true}, //nolint:err113 // test
+		{"rate limit", errors.New("rate limit exceeded"), true},                                                               //nolint:err113 // test
+		{"Rate Limit capitalized", errors.New("Rate Limit Exceeded"), true},                                                   //nolint:err113 // test
+		{"403 error", errors.New("HTTP 403 Forbidden"), false},                                                                //nolint:err113 // test
+		{"429 error", errors.New("HTTP 429 Too Many Requests"), true},                                                         //nolint:err113 // test
+		{"403 archived repo", errors.New("Dependabot alerts are not available for archived repositories. (HTTP 403)"), false}, //nolint:err113 // test
+		{"403 not enabled", errors.New("Code scanning is not enabled for this repository. (HTTP 403)"), false},                //nolint:err113 // test
+		{"abuse detection", errors.New("You have triggered an abuse detection mechanism"), true},                              //nolint:err113 // test
+		{"secondary rate", errors.New("You have exceeded a secondary rate limit"), true},                                      //nolint:err113 // test
+		{"too many requests", errors.New("too many requests"), true},                                                          //nolint:err113 // test
+		{"api rate limit", errors.New("api rate limit exceeded for this endpoint"), true},                                     //nolint:err113 // test
+		{"404 not found", errors.New("HTTP 404 Not Found"), false},                                                            //nolint:err113 // test
+		{"generic error", errors.New("network timeout"), false},                                                               //nolint:err113 // test
+		{"empty error", errors.New(""), false},                                                                                //nolint:err113 // test
+		{"422 validation", errors.New("422 Validation Failed"), false},                                                        //nolint:err113 // test
+		{"500 server error", errors.New("500 Internal Server Error"), false},                                                  //nolint:err113 // test
+		{"embedded 403", errors.New("gh: api error: HTTP 403: rate limit exceeded for user"), true},                           //nolint:err113 // test
+		{"embedded 429", errors.New("gh: api error: HTTP 429: secondary rate limit reached"), true},                           //nolint:err113 // test
 	}
 
 	for _, tt := range tests {

@@ -724,7 +724,7 @@ func TestIsRateLimitError(t *testing.T) {
 	}{
 		{"nil error", nil, false},
 		{"rate limit error", errRateLimitExceededSimple, true},
-		{"403 error", errHTTP403Forbidden, true},
+		{"403 error", errHTTP403Forbidden, false},
 		{"x-ratelimit header", errXRateLimitRemaining, true},
 		{"404 error", errHTTP404NotFound, false},
 		{"network error", errConnectionRefused, false},

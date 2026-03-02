@@ -461,7 +461,7 @@ func isRateLimitError(err error) bool {
 	}
 	errStr := strings.ToLower(err.Error())
 	return strings.Contains(errStr, "rate limit") ||
-		strings.Contains(errStr, "403") ||
+		strings.Contains(errStr, "too many requests") ||
 		strings.Contains(errStr, "x-ratelimit")
 }
 

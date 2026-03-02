@@ -165,8 +165,6 @@ func isAPIRateLimitError(err error) bool {
 		strings.Contains(errStr, "secondary rate") ||
 		strings.Contains(errStr, "too many requests") ||
 		strings.Contains(errStr, "api rate limit exceeded") ||
-		// HTTP status codes often present in error strings
-		strings.Contains(errStr, "403") ||
 		strings.Contains(errStr, "429")
 }
 
