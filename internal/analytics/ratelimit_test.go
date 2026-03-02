@@ -126,7 +126,6 @@ func TestEstimateSyncCost(t *testing.T) {
 func TestWarnIfBudgetLow(t *testing.T) {
 	// Not parallel: subtests use output.CaptureOutput() which swaps shared global state
 	t.Run("nil info does not panic", func(t *testing.T) {
-
 		estimate := EstimateSyncCost(10)
 		// Should not panic
 		WarnIfBudgetLow(nil, estimate)
@@ -187,7 +186,6 @@ func TestWarnIfBudgetLow(t *testing.T) {
 func TestDisplayRateLimitInfo(t *testing.T) {
 	// Not parallel: subtests use output.CaptureOutput() which swaps shared global state
 	t.Run("nil info does not panic", func(t *testing.T) {
-
 		// Should not panic
 		DisplayRateLimitInfo(nil)
 	})
