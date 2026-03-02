@@ -22,12 +22,12 @@ var ErrSecurityNotAvailable = errors.New("security feature not available via RES
 //   - The REST endpoint returns HTTP 404 (token lacks security_events scope or Dependabot not enabled)
 //
 // Returns empty slice with nil error if:
-//   - The endpoint is accessible but the repository has no open Dependabot alerts
+//   - The endpoint is accessible but the repository has no Dependabot alerts
 //
 // Returns other errors for actual API failures (auth, network, rate limits, etc.)
 func (g *githubClient) GetDependabotAlerts(ctx context.Context, repo string) ([]DependabotAlert, error) {
 	output, err := g.runner.Run(ctx, "gh", "api",
-		fmt.Sprintf("repos/%s/dependabot/alerts?state=open&per_page=100", repo),
+		fmt.Sprintf("repos/%s/dependabot/alerts?per_page=100", repo),
 		"--paginate")
 	if err != nil {
 		if isNotFoundError(err) {
@@ -57,12 +57,12 @@ func (g *githubClient) GetDependabotAlerts(ctx context.Context, repo string) ([]
 //   - The REST endpoint returns HTTP 404 (code scanning not configured or token lacks scope)
 //
 // Returns empty slice with nil error if:
-//   - The endpoint is accessible but the repository has no open code scanning alerts
+//   - The endpoint is accessible but the repository has no code scanning alerts
 //
 // Returns other errors for actual API failures (auth, network, rate limits, etc.)
 func (g *githubClient) GetCodeScanningAlerts(ctx context.Context, repo string) ([]CodeScanningAlert, error) {
 	output, err := g.runner.Run(ctx, "gh", "api",
-		fmt.Sprintf("repos/%s/code-scanning/alerts?state=open&per_page=100", repo),
+		fmt.Sprintf("repos/%s/code-scanning/alerts?per_page=100", repo),
 		"--paginate")
 	if err != nil {
 		if isNotFoundError(err) {
@@ -86,13 +86,13 @@ func (g *githubClient) GetCodeScanningAlerts(ctx context.Context, repo string) (
 //   - The REST endpoint returns HTTP 404 (secret scanning not configured or token lacks scope)
 //
 // Returns empty slice with nil error if:
-//   - The endpoint is accessible but the repository has no open secret scanning alerts
+//   - The endpoint is accessible but the repository has no secret scanning alerts
 //
 // Returns other errors for actual API failures (auth, network, rate limits, etc.)
 func (g *githubClient) GetSecretScanningAlerts(ctx context.Context, repo string) ([]SecretScanningAlert, error) {
 	// Fetch standard partner/provider-detected secret scanning alerts
 	output, err := g.runner.Run(ctx, "gh", "api",
-		fmt.Sprintf("repos/%s/secret-scanning/alerts?state=open&per_page=100", repo),
+		fmt.Sprintf("repos/%s/secret-scanning/alerts?per_page=100", repo),
 		"--paginate")
 	if err != nil {
 		if isNotFoundError(err) {
@@ -118,7 +118,7 @@ func (g *githubClient) GetSecretScanningAlerts(ctx context.Context, repo string)
 
 	for _, secretType := range genericSecretTypes {
 		genericOutput, genericErr := g.runner.Run(ctx, "gh", "api",
-			fmt.Sprintf("repos/%s/secret-scanning/alerts?state=open&per_page=100&secret_type=%s", repo, secretType),
+			fmt.Sprintf("repos/%s/secret-scanning/alerts?per_page=100&secret_type=%s", repo, secretType),
 			"--paginate")
 		if genericErr != nil {
 			// Non-fatal: log and continue with what we have
@@ -193,7 +193,7 @@ func (g *githubClient) GetVulnerabilityAlertsGraphQL(ctx context.Context, repo s
 
 	query := fmt.Sprintf(`{
   repository(owner: %q, name: %q) {
-    vulnerabilityAlerts(first: 100, states: OPEN) {
+    vulnerabilityAlerts(first: 100) {
       totalCount
       nodes {
         number
