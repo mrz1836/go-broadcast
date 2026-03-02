@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -258,12 +259,25 @@ func (r *analyticsRepo) GetSnapshotHistory(ctx context.Context, repoID uint, sin
 // UpsertAlert creates or updates a security alert
 // Matches by repository_id, alert_type, and alert_number
 func (r *analyticsRepo) UpsertAlert(ctx context.Context, alert *SecurityAlert) error {
-	result := r.db.WithContext(ctx).
+	// NOTE: FirstOrCreate+Assign does not reliably update existing records in GORM v2
+	// (Assign only assigns on create in some versions). Use explicit Find→Create/Save instead.
+	var existing SecurityAlert
+	err := r.db.WithContext(ctx).
 		Where("repository_id = ? AND alert_type = ? AND alert_number = ?",
 			alert.RepositoryID, alert.AlertType, alert.AlertNumber).
-		Assign(alert).
-		FirstOrCreate(alert)
-	return result.Error
+		First(&existing).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return r.db.WithContext(ctx).Create(alert).Error
+	}
+	if err != nil {
+		return fmt.Errorf("lookup alert: %w", err)
+	}
+
+	// Preserve DB-managed fields; overwrite all others with current GitHub state
+	alert.ID = existing.ID
+	alert.CreatedAt = existing.CreatedAt
+	return r.db.WithContext(ctx).Save(alert).Error
 }
 
 // GetOpenAlerts retrieves open alerts for a repository, optionally filtered by severity
