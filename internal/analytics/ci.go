@@ -31,6 +31,11 @@ const (
 	// GoFortressWorkflowName is the name of the GoFortress CI workflow
 	GoFortressWorkflowName = "GoFortress"
 
+	// maxWorkflowRunsToCheck is the number of recent successful runs to fetch.
+	// If the latest run's artifacts are expired, older runs are tried as fallback.
+	// This uses a single paginated API request regardless of count.
+	maxWorkflowRunsToCheck = 5
+
 	// Artifact names used by GoFortress
 	artifactLOCStats         = "loc-stats"
 	artifactStatistics       = "statistics-section"
@@ -131,6 +136,7 @@ func (c *CICollector) CollectCIMetrics(ctx context.Context, repos []gh.RepoInfo)
 
 // collectRepoCI fetches CI metrics for a single repository.
 // Returns nil if the repo doesn't have a GoFortress workflow.
+// Tries multiple recent successful runs to handle expired artifacts.
 func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetrics, error) {
 	// Step 1: Find GoFortress workflow
 	var workflows []gh.Workflow
@@ -154,11 +160,11 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 		return nil, nil //nolint:nilnil // nil signals no GoFortress workflow — caller checks for nil
 	}
 
-	// Step 2: Get latest successful run
+	// Step 2: Get recent successful runs (fetch several in case latest has expired artifacts)
 	var runs []gh.WorkflowRun
 	err = c.doAPI(ctx, "get-workflow-runs:"+repo, func() error {
 		var apiErr error
-		runs, apiErr = c.ghClient.GetWorkflowRuns(ctx, repo, fortressID, 1)
+		runs, apiErr = c.ghClient.GetWorkflowRuns(ctx, repo, fortressID, maxWorkflowRunsToCheck)
 		return apiErr
 	})
 	if err != nil {
@@ -167,43 +173,109 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 	if len(runs) == 0 {
 		return nil, nil //nolint:nilnil // nil signals no successful runs — caller checks for nil
 	}
-	latestRun := runs[0]
 
-	// Step 3: Get artifacts for this run
+	// Step 3: Try runs in order until we find one with valid coverage artifacts.
+	// Keep the first result as fallback in case no run has valid coverage.
+	var fallbackMetrics *CIMetrics
+
+	for _, run := range runs {
+		metrics, hasCoverage := c.tryRunArtifacts(ctx, repo, run)
+		if metrics == nil {
+			continue
+		}
+
+		if hasCoverage {
+			return metrics, nil // Found a run with valid coverage — use it
+		}
+
+		// Keep the first metrics as fallback (most recent run, best available)
+		if fallbackMetrics == nil {
+			fallbackMetrics = metrics
+		}
+
+		if c.logger != nil {
+			c.logger.WithFields(logrus.Fields{
+				"repo":   repo,
+				"run_id": run.ID,
+			}).Debug("No valid coverage artifacts in run, trying older run")
+		}
+	}
+
+	// No run had valid coverage; return the best we have (latest run's metrics without coverage)
+	return fallbackMetrics, nil
+}
+
+// tryRunArtifacts fetches and parses artifacts for a single workflow run.
+// Returns the parsed metrics and whether valid (non-expired) coverage artifacts were available.
+// Returns (nil, false) if artifacts could not be fetched.
+func (c *CICollector) tryRunArtifacts(ctx context.Context, repo string, run gh.WorkflowRun) (*CIMetrics, bool) {
+	// Fetch artifacts for this run
 	var artifacts []gh.Artifact
-	err = c.doAPI(ctx, "get-run-artifacts:"+repo, func() error {
+	err := c.doAPI(ctx, fmt.Sprintf("get-run-artifacts:%s:%d", repo, run.ID), func() error {
 		var apiErr error
-		artifacts, apiErr = c.ghClient.GetRunArtifacts(ctx, repo, latestRun.ID)
+		artifacts, apiErr = c.ghClient.GetRunArtifacts(ctx, repo, run.ID)
 		return apiErr
 	})
 	if err != nil {
-		return nil, fmt.Errorf("get run artifacts: %w", err)
+		if c.logger != nil {
+			c.logger.WithError(err).WithFields(logrus.Fields{
+				"repo":   repo,
+				"run_id": run.ID,
+			}).Warn("Failed to get run artifacts")
+		}
+		return nil, false
 	}
 
-	// Build artifact name set for quick lookup
+	// Build artifact name set, filtering out expired artifacts
 	artifactNames := make(map[string]bool, len(artifacts))
+	expiredCount := 0
 	for _, a := range artifacts {
+		if a.Expired {
+			expiredCount++
+			continue
+		}
 		artifactNames[a.Name] = true
 	}
 
-	metrics := &CIMetrics{
-		WorkflowRunID: latestRun.ID,
-		Branch:        latestRun.HeadBranch,
-		CommitSHA:     latestRun.HeadSHA,
+	// Check if valid coverage artifacts exist
+	hasCoverage := artifactNames[artifactCoverageInternal] || artifactNames[artifactCoverageCodecov]
+
+	// Log expired artifacts — only warn when coverage is affected, otherwise debug
+	if expiredCount > 0 && c.logger != nil {
+		entry := c.logger.WithFields(logrus.Fields{
+			"repo":          repo,
+			"run_id":        run.ID,
+			"expired_count": expiredCount,
+			"valid_count":   len(artifactNames),
+		})
+		if !hasCoverage {
+			entry.Warn("Coverage artifact expired in workflow run")
+		} else {
+			entry.Debug("Skipping expired artifacts in workflow run (coverage still valid)")
+		}
 	}
 
-	// Step 4: Download and parse artifacts
+	metrics := &CIMetrics{
+		WorkflowRunID: run.ID,
+		Branch:        run.HeadBranch,
+		CommitSHA:     run.HeadSHA,
+	}
+
+	// Download and parse artifacts
 	tmpDir, err := os.MkdirTemp("", "ci-metrics-*")
 	if err != nil {
-		return nil, fmt.Errorf("create temp dir: %w", err)
+		if c.logger != nil {
+			c.logger.WithError(err).Debug("Failed to create temp dir for CI metrics")
+		}
+		return nil, false
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// LOC: prefer JSON, fall back to markdown
 	if artifactNames[artifactLOCStats] {
-		c.parseLOCArtifact(ctx, repo, latestRun.ID, artifactLOCStats, tmpDir, metrics)
+		c.parseLOCArtifact(ctx, repo, run.ID, artifactLOCStats, tmpDir, metrics)
 	} else if artifactNames[artifactStatistics] {
-		c.parseLOCFromMarkdownArtifact(ctx, repo, latestRun.ID, tmpDir, metrics)
+		c.parseLOCFromMarkdownArtifact(ctx, repo, run.ID, tmpDir, metrics)
 	}
 
 	// Coverage: prefer internal provider artifact; fall back to codecov provider artifact.
@@ -211,32 +283,32 @@ func (c *CICollector) collectRepoCI(ctx context.Context, repo string) (*CIMetric
 	// depends on GO_COVERAGE_PROVIDER in the repo's GoFortress config.
 	switch {
 	case artifactNames[artifactCoverageInternal]:
-		c.parseCoverageArtifact(ctx, repo, latestRun.ID, artifactCoverageInternal, tmpDir, metrics)
+		c.parseCoverageArtifact(ctx, repo, run.ID, artifactCoverageInternal, tmpDir, metrics)
 	case artifactNames[artifactCoverageCodecov]:
-		c.parseCoverageArtifact(ctx, repo, latestRun.ID, artifactCoverageCodecov, tmpDir, metrics)
+		c.parseCoverageArtifact(ctx, repo, run.ID, artifactCoverageCodecov, tmpDir, metrics)
 	}
 
 	// Tests: prefer ci-results JSON, fall back to tests-section markdown
 	ciResultsFound := false
 	for name := range artifactNames {
 		if strings.HasPrefix(name, artifactCIResultsPrefix) {
-			c.parseCIResultsArtifact(ctx, repo, latestRun.ID, name, tmpDir, metrics)
+			c.parseCIResultsArtifact(ctx, repo, run.ID, name, tmpDir, metrics)
 			ciResultsFound = true
 			break
 		}
 	}
 	if !ciResultsFound && artifactNames[artifactTestsSection] {
-		c.parseTestsArtifact(ctx, repo, latestRun.ID, tmpDir, metrics)
+		c.parseTestsArtifact(ctx, repo, run.ID, tmpDir, metrics)
 	}
 
 	// Benchmarks: from bench-stats-* JSON files
 	for name := range artifactNames {
 		if strings.HasPrefix(name, artifactBenchPrefix) {
-			c.parseBenchArtifact(ctx, repo, latestRun.ID, name, tmpDir, metrics)
+			c.parseBenchArtifact(ctx, repo, run.ID, name, tmpDir, metrics)
 		}
 	}
 
-	return metrics, nil
+	return metrics, hasCoverage
 }
 
 // doAPI executes fn through the throttle if available, or directly if not

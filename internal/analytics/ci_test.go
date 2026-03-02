@@ -400,7 +400,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 				{ID: 10, Name: "GoFortress", Path: ".github/workflows/fortress.yml"},
 			}, nil)
 
-		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), 1).
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
 			Return([]gh.WorkflowRun{}, nil)
 
 		result, err := collector.CollectCIMetrics(ctx, repos)
@@ -441,7 +441,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 				{ID: 10, Name: "GoFortress", Path: ".github/workflows/fortress.yml"},
 			}, nil)
 
-		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), 1).
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
 			Return([]gh.WorkflowRun{
 				{ID: 100, HeadBranch: "main", HeadSHA: "abc123", Status: "completed", Conclusion: "success"},
 			}, nil)
@@ -503,7 +503,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 				{ID: 10, Name: "GoFortress"},
 			}, nil)
 
-		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), 1).
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
 			Return([]gh.WorkflowRun{
 				{ID: 100, HeadBranch: "main", HeadSHA: "def456"},
 			}, nil)
@@ -546,7 +546,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 				{ID: 10, Name: "GoFortress"},
 			}, nil)
 
-		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), 1).
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
 			Return([]gh.WorkflowRun{
 				{ID: 100, HeadBranch: "main", HeadSHA: "xyz789"},
 			}, nil)
@@ -597,7 +597,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 				{ID: 10, Name: "GoFortress"},
 			}, nil)
 
-		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), 1).
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
 			Return([]gh.WorkflowRun{
 				{ID: 100, HeadBranch: "master", HeadSHA: "abc123"},
 			}, nil)
@@ -663,7 +663,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 				{ID: 10, Name: "GoFortress"},
 			}, nil)
 
-		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), 1).
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
 			Return([]gh.WorkflowRun{
 				{ID: 100, HeadBranch: "master", HeadSHA: "abc123"},
 			}, nil)
@@ -718,7 +718,7 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 				{ID: 10, Name: "GoFortress"},
 			}, nil)
 
-		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), 1).
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
 			Return([]gh.WorkflowRun{
 				{ID: 100, HeadBranch: "main", HeadSHA: "abc"},
 			}, nil)
@@ -739,6 +739,202 @@ func TestCICollector_CollectCIMetrics(t *testing.T) {
 		metrics := result["owner/repo1"]
 		require.NotNil(t, metrics)
 		assert.Equal(t, 0, metrics.GoFilesLOC)
+
+		mockClient.AssertExpectations(t)
+	})
+
+	t.Run("expired coverage artifacts are filtered out", func(t *testing.T) {
+		mockClient := gh.NewMockClient()
+		collector := NewCICollector(mockClient, logrus.New(), nil)
+
+		repos := []gh.RepoInfo{
+			{FullName: "owner/repo1"},
+		}
+
+		mockClient.On("ListWorkflows", mock.Anything, "owner/repo1").
+			Return([]gh.Workflow{
+				{ID: 10, Name: "GoFortress"},
+			}, nil)
+
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
+			Return([]gh.WorkflowRun{
+				{ID: 100, HeadBranch: "main", HeadSHA: "abc123"},
+			}, nil)
+
+		// Coverage artifact is expired, LOC artifact is valid
+		mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(100)).
+			Return([]gh.Artifact{
+				{ID: 200, Name: "loc-stats", Expired: false},
+				{ID: 201, Name: "coverage-stats-internal", Expired: true},
+			}, nil)
+
+		// Only LOC artifact should be downloaded (coverage is expired)
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), "loc-stats", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				locJSON := `{"go_files_loc": 3000, "test_files_loc": 1000, "go_files_count": 50, "test_files_count": 20}`
+				_ = os.WriteFile(filepath.Join(destDir, "loc-stats.json"), []byte(locJSON), 0o600)
+			}).
+			Return(nil)
+
+		result, err := collector.CollectCIMetrics(ctx, repos)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+
+		metrics := result["owner/repo1"]
+		require.NotNil(t, metrics)
+		assert.Equal(t, 3000, metrics.GoFilesLOC)
+		assert.Nil(t, metrics.Coverage, "coverage should be nil when artifact is expired")
+
+		// Verify expired coverage artifact was NOT downloaded
+		for _, call := range mockClient.Calls {
+			if call.Method == "DownloadRunArtifact" {
+				assert.NotEqual(t, "coverage-stats-internal", call.Arguments.String(3),
+					"should not attempt to download expired coverage artifact")
+			}
+		}
+
+		mockClient.AssertExpectations(t)
+	})
+
+	t.Run("falls back to older run when latest has expired coverage", func(t *testing.T) {
+		mockClient := gh.NewMockClient()
+		collector := NewCICollector(mockClient, logrus.New(), nil)
+
+		repos := []gh.RepoInfo{
+			{FullName: "owner/repo1"},
+		}
+
+		mockClient.On("ListWorkflows", mock.Anything, "owner/repo1").
+			Return([]gh.Workflow{
+				{ID: 10, Name: "GoFortress"},
+			}, nil)
+
+		// Two runs: latest (200) and older (100)
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
+			Return([]gh.WorkflowRun{
+				{ID: 200, HeadBranch: "main", HeadSHA: "newer"},
+				{ID: 100, HeadBranch: "main", HeadSHA: "older"},
+			}, nil)
+
+		// Run 200: coverage expired
+		mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(200)).
+			Return([]gh.Artifact{
+				{ID: 300, Name: "loc-stats", Expired: false},
+				{ID: 301, Name: "coverage-stats-internal", Expired: true},
+			}, nil)
+
+		// Run 200: LOC is downloaded (valid)
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(200), "loc-stats", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				locJSON := `{"go_files_loc": 5000, "test_files_loc": 2000, "go_files_count": 80, "test_files_count": 40}`
+				_ = os.WriteFile(filepath.Join(destDir, "loc-stats.json"), []byte(locJSON), 0o600)
+			}).
+			Return(nil)
+
+		// Run 100: coverage valid
+		mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(100)).
+			Return([]gh.Artifact{
+				{ID: 400, Name: "loc-stats", Expired: false},
+				{ID: 401, Name: "coverage-stats-internal", Expired: false},
+			}, nil)
+
+		// Run 100: both artifacts downloaded
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), "loc-stats", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				locJSON := `{"go_files_loc": 4800, "test_files_loc": 1900, "go_files_count": 78, "test_files_count": 38}`
+				_ = os.WriteFile(filepath.Join(destDir, "loc-stats.json"), []byte(locJSON), 0o600)
+			}).
+			Return(nil)
+
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), "coverage-stats-internal", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				covJSON := `{"coverage_percentage": 82.5, "provider": "internal"}`
+				_ = os.WriteFile(filepath.Join(destDir, "coverage-stats-internal.json"), []byte(covJSON), 0o600)
+			}).
+			Return(nil)
+
+		result, err := collector.CollectCIMetrics(ctx, repos)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+
+		metrics := result["owner/repo1"]
+		require.NotNil(t, metrics)
+		assert.Equal(t, int64(100), metrics.WorkflowRunID, "should use the older run with valid coverage")
+		require.NotNil(t, metrics.Coverage)
+		assert.InDelta(t, 82.5, *metrics.Coverage, 0.01)
+
+		mockClient.AssertExpectations(t)
+	})
+
+	t.Run("returns metrics without coverage when all runs have expired coverage", func(t *testing.T) {
+		mockClient := gh.NewMockClient()
+		collector := NewCICollector(mockClient, logrus.New(), nil)
+
+		repos := []gh.RepoInfo{
+			{FullName: "owner/repo1"},
+		}
+
+		mockClient.On("ListWorkflows", mock.Anything, "owner/repo1").
+			Return([]gh.Workflow{
+				{ID: 10, Name: "GoFortress"},
+			}, nil)
+
+		// Two runs, both with expired coverage
+		mockClient.On("GetWorkflowRuns", mock.Anything, "owner/repo1", int64(10), maxWorkflowRunsToCheck).
+			Return([]gh.WorkflowRun{
+				{ID: 200, HeadBranch: "main", HeadSHA: "newer"},
+				{ID: 100, HeadBranch: "main", HeadSHA: "older"},
+			}, nil)
+
+		// Run 200: coverage expired, LOC valid
+		mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(200)).
+			Return([]gh.Artifact{
+				{ID: 300, Name: "loc-stats", Expired: false},
+				{ID: 301, Name: "coverage-stats-internal", Expired: true},
+			}, nil)
+
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(200), "loc-stats", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				locJSON := `{"go_files_loc": 5000, "test_files_loc": 2000, "go_files_count": 80, "test_files_count": 40}`
+				_ = os.WriteFile(filepath.Join(destDir, "loc-stats.json"), []byte(locJSON), 0o600)
+			}).
+			Return(nil)
+
+		// Run 100: also expired coverage, LOC valid
+		mockClient.On("GetRunArtifacts", mock.Anything, "owner/repo1", int64(100)).
+			Return([]gh.Artifact{
+				{ID: 400, Name: "loc-stats", Expired: false},
+				{ID: 401, Name: "coverage-stats-internal", Expired: true},
+			}, nil)
+
+		mockClient.On("DownloadRunArtifact", mock.Anything, "owner/repo1", int64(100), "loc-stats", mock.AnythingOfType("string")).
+			Run(func(args mock.Arguments) {
+				destDir := args.String(4)
+				_ = os.MkdirAll(destDir, 0o750)
+				locJSON := `{"go_files_loc": 4800, "test_files_loc": 1900, "go_files_count": 78, "test_files_count": 38}`
+				_ = os.WriteFile(filepath.Join(destDir, "loc-stats.json"), []byte(locJSON), 0o600)
+			}).
+			Return(nil)
+
+		result, err := collector.CollectCIMetrics(ctx, repos)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+
+		metrics := result["owner/repo1"]
+		require.NotNil(t, metrics)
+		assert.Equal(t, int64(200), metrics.WorkflowRunID, "should use the latest run as fallback")
+		assert.Equal(t, 5000, metrics.GoFilesLOC, "LOC from latest run should be preserved")
+		assert.Nil(t, metrics.Coverage, "coverage should be nil when all runs have expired artifacts")
 
 		mockClient.AssertExpectations(t)
 	})
