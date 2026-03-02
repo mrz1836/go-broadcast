@@ -457,13 +457,24 @@ func collectSecurityAlerts(
 		Warnings: result.Warnings,
 	}
 
-	// Upsert each alert
+	// Upsert each alert and track their numbers for reconciliation
+	var currentAlertNumbers []int
 	for _, alert := range result.Alerts {
 		dbAlert := convertSecurityAlert(alert, repoID)
 		if upsertErr := analyticsRepo.UpsertAlert(ctx, dbAlert); upsertErr != nil {
 			return out, fmt.Errorf("failed to upsert alert: %w", upsertErr)
 		}
 		out.AlertCount++
+		currentAlertNumbers = append(currentAlertNumbers, alert.AlertNumber)
+	}
+
+	// Reconcile: mark stale open alerts as auto_resolved
+	resolved, resolveErr := analyticsRepo.CloseStaleAlerts(ctx, repoID, currentAlertNumbers)
+	if resolveErr != nil {
+		return out, fmt.Errorf("failed to close stale alerts: %w", resolveErr)
+	}
+	if resolved > 0 {
+		out.Warnings = append(out.Warnings, fmt.Sprintf("auto-resolved %d stale alert(s) no longer open on GitHub", resolved))
 	}
 
 	return out, nil

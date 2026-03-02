@@ -17,6 +17,8 @@ import (
 // repoStatus holds aggregated status for a single repository
 type repoStatus struct {
 	FullName    string
+	Org         string
+	RepoName    string
 	Stars       int
 	Forks       int
 	OpenIssues  int
@@ -85,8 +87,12 @@ func displayAllRepositories(ctx context.Context, analyticsRepo db.AnalyticsRepo)
 	reposWithAlerts := 0
 
 	for _, repo := range repos {
+		fullName := repo.FullName()
+		org, repoName := splitFullName(fullName)
 		status := repoStatus{
-			FullName:   repo.FullName(),
+			FullName:   fullName,
+			Org:        org,
+			RepoName:   repoName,
 			LastSyncAt: repo.LastSyncAt,
 		}
 
@@ -119,30 +125,49 @@ func displayAllRepositories(ctx context.Context, analyticsRepo db.AnalyticsRepo)
 		statuses = append(statuses, status)
 	}
 
+	// Group statuses by org (preserving order from DB query)
+	orgOrder := []string{}
+	orgGroups := make(map[string][]repoStatus)
+	for _, status := range statuses {
+		if _, exists := orgGroups[status.Org]; !exists {
+			orgOrder = append(orgOrder, status.Org)
+		}
+		orgGroups[status.Org] = append(orgGroups[status.Org], status)
+	}
+
 	// Display header
 	output.Plain("")
 	output.Info("Analytics Status - All Repositories")
-	output.Plain(strings.Repeat("─", 80))
 
-	// Display table
-	output.Plain(fmt.Sprintf("%-35s %6s %6s %7s %5s %7s  %s",
-		"Repository", "Stars", "Forks", "Issues", "PRs", "Alerts", "Last Sync"))
-	output.Plain(strings.Repeat("─", 80))
-
-	for _, status := range statuses {
-		lastSync := "Never"
-		if status.LastSyncAt != nil {
-			lastSync = formatTimeAgo(status.LastSyncAt)
+	// Display each org as its own table
+	for _, org := range orgOrder {
+		group := orgGroups[org]
+		output.Plain("")
+		repoWord := "repositories"
+		if len(group) == 1 {
+			repoWord = "repository"
 		}
+		output.Info(fmt.Sprintf("%s (%d %s)", org, len(group), repoWord))
+		output.Plain(strings.Repeat("─", 80))
+		output.Plain(fmt.Sprintf("%-35s %6s %6s %7s %5s %7s  %s",
+			"Repository", "Stars", "Forks", "Issues", "PRs", "Alerts", "Last Sync"))
+		output.Plain(strings.Repeat("─", 80))
 
-		output.Plain(fmt.Sprintf("%-35s %6d %6d %7d %5d %7d  %s",
-			truncate(status.FullName, 35),
-			status.Stars,
-			status.Forks,
-			status.OpenIssues,
-			status.OpenPRs,
-			status.TotalAlerts,
-			lastSync))
+		for _, status := range group {
+			lastSync := "Never"
+			if status.LastSyncAt != nil {
+				lastSync = formatTimeAgo(status.LastSyncAt)
+			}
+
+			output.Plain(fmt.Sprintf("%-35s %6d %6d %7d %5d %7d  %s",
+				truncate(status.RepoName, 35),
+				status.Stars,
+				status.Forks,
+				status.OpenIssues,
+				status.OpenPRs,
+				status.TotalAlerts,
+				lastSync))
+		}
 	}
 
 	// Display summary
@@ -374,6 +399,14 @@ func formatDuration(ms int64) string {
 	default:
 		return fmt.Sprintf("%.1fh", duration.Hours())
 	}
+}
+
+// splitFullName splits "org/repo" into its org and repo parts
+func splitFullName(fullName string) (org, repo string) {
+	if idx := strings.IndexByte(fullName, '/'); idx >= 0 {
+		return fullName[:idx], fullName[idx+1:]
+	}
+	return "", fullName
 }
 
 // truncate truncates a string to the specified length, adding "..." if truncated

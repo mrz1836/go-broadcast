@@ -162,6 +162,10 @@ func (m *mockAnalyticsRepo) UpdateRepoSyncTimestamp(ctx context.Context, repoID 
 	return args.Error(0)
 }
 
+func (m *mockAnalyticsRepo) CloseStaleAlerts(_ context.Context, _ uint, _ []int) (int64, error) {
+	return 0, nil
+}
+
 func TestFormatTimeAgo(t *testing.T) {
 	t.Parallel()
 
@@ -697,6 +701,66 @@ func TestDisplaySingleRepository(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to get alert counts by severity")
 		mockRepo.AssertExpectations(t)
 	})
+}
+
+func TestSplitFullName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    string
+		wantOrg  string
+		wantRepo string
+	}{
+		{"standard", "mrz1836/go-broadcast", "mrz1836", "go-broadcast"},
+		{"no slash", "standalone", "", "standalone"},
+		{"empty", "", "", ""},
+		{"org only with slash", "org/", "org", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			org, repo := splitFullName(tt.input)
+			assert.Equal(t, tt.wantOrg, org)
+			assert.Equal(t, tt.wantRepo, repo)
+		})
+	}
+}
+
+func TestDisplayAllRepositories_MultiOrg(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	syncTime := time.Now().Add(-1 * time.Hour)
+	completedAt := time.Now().Add(-30 * time.Minute)
+
+	// Repos from multiple orgs, pre-sorted by full_name_str as DB would return
+	repos := []db.Repo{
+		{FullNameStr: "alpha-org/repo-a", LastSyncAt: &syncTime},
+		{FullNameStr: "alpha-org/repo-b"},
+		{FullNameStr: "beta-org/repo-c"},
+	}
+	repos[0].ID = 1
+	repos[1].ID = 2
+	repos[2].ID = 3
+
+	mockRepo := new(mockAnalyticsRepo)
+	mockRepo.On("ListRepositories", ctx, "").Return(repos, nil)
+
+	for _, r := range repos {
+		mockRepo.On("GetLatestSnapshot", ctx, r.ID).
+			Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetAlertCounts", ctx, r.ID).
+			Return(map[string]int{}, nil)
+	}
+
+	mockRepo.On("GetLatestSyncRun", ctx).
+		Return(&db.SyncRun{CompletedAt: &completedAt, DurationMs: 3000}, nil)
+
+	err := displayAllRepositories(ctx, mockRepo)
+	require.NoError(t, err)
+	mockRepo.AssertExpectations(t)
 }
 
 // timePtr creates a *time.Time from a time.Time value

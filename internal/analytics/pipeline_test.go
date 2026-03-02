@@ -157,6 +157,10 @@ func (m *mockAnalyticsRepoPipeline) UpdateRepoSyncTimestamp(ctx context.Context,
 	return m.Called(ctx, repoID, syncAt, syncRunID).Error(0)
 }
 
+func (m *mockAnalyticsRepoPipeline) CloseStaleAlerts(_ context.Context, _ uint, _ []int) (int64, error) {
+	return 0, nil
+}
+
 type mockOrgRepository struct {
 	mock.Mock
 }
