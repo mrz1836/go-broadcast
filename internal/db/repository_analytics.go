@@ -39,6 +39,7 @@ type AnalyticsRepo interface {
 	GetOpenAlerts(ctx context.Context, repoID uint, severity string) ([]SecurityAlert, error)
 	GetAlertCounts(ctx context.Context, repoID uint) (map[string]int, error)
 	GetAlertCountsByType(ctx context.Context, repoID uint) (map[string]int, error)
+	CloseStaleAlerts(ctx context.Context, repoID uint, currentAlertNumbers []int) (int64, error)
 
 	// CI Snapshots
 	CreateCISnapshot(ctx context.Context, snap *CIMetricsSnapshot) error
@@ -201,7 +202,7 @@ func (r *analyticsRepo) ListRepositories(ctx context.Context, orgLogin string) (
 	}
 
 	err := query.
-		Order("repos.name ASC").
+		Order("repos.full_name ASC").
 		Find(&repos).Error
 	return repos, err
 }
@@ -362,6 +363,27 @@ func (r *analyticsRepo) GetAlertCountsByType(ctx context.Context, repoID uint) (
 	}
 
 	return counts, nil
+}
+
+// CloseStaleAlerts marks open alerts as "auto_resolved" if they were not in the
+// freshly-fetched set of currently-open alert numbers from GitHub.
+// Returns the number of alerts that were resolved.
+func (r *analyticsRepo) CloseStaleAlerts(ctx context.Context, repoID uint, currentAlertNumbers []int) (int64, error) {
+	now := time.Now()
+	query := r.db.WithContext(ctx).
+		Model(&SecurityAlert{}).
+		Where("repository_id = ? AND state = ?", repoID, "open")
+
+	if len(currentAlertNumbers) > 0 {
+		query = query.Where("alert_number NOT IN ?", currentAlertNumbers)
+	}
+
+	result := query.Updates(map[string]interface{}{
+		"state":    "auto_resolved",
+		"fixed_at": now,
+	})
+
+	return result.RowsAffected, result.Error
 }
 
 // ============================================================

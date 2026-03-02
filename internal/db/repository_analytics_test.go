@@ -305,6 +305,102 @@ func TestAnalyticsRepo_Alerts(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, counts)
 	})
+
+	t.Run("CloseStaleAlerts_Partial", func(t *testing.T) {
+		staleRepo := &Repo{
+			OrganizationID: org.ID,
+			Name:           "stale-partial-repo",
+			FullNameStr:    "test-org/stale-partial-repo",
+		}
+		require.NoError(t, repo.UpsertRepository(ctx, staleRepo))
+
+		for i := 1; i <= 3; i++ {
+			require.NoError(t, repo.UpsertAlert(ctx, &SecurityAlert{
+				RepositoryID: staleRepo.ID, AlertType: "dependabot", AlertNumber: i,
+				State: "open", Severity: "high", AlertCreatedAt: time.Now(),
+			}))
+		}
+
+		// GitHub now only reports alerts 1 and 3 as open
+		resolved, err := repo.CloseStaleAlerts(ctx, staleRepo.ID, []int{1, 3})
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), resolved)
+
+		openAlerts, err := repo.GetOpenAlerts(ctx, staleRepo.ID, "")
+		require.NoError(t, err)
+		assert.Len(t, openAlerts, 2)
+		for _, a := range openAlerts {
+			assert.NotEqual(t, 2, a.AlertNumber)
+		}
+	})
+
+	t.Run("CloseStaleAlerts_AllResolved", func(t *testing.T) {
+		allGoneRepo := &Repo{
+			OrganizationID: org.ID,
+			Name:           "all-gone-repo",
+			FullNameStr:    "test-org/all-gone-repo",
+		}
+		require.NoError(t, repo.UpsertRepository(ctx, allGoneRepo))
+
+		for i := 1; i <= 2; i++ {
+			require.NoError(t, repo.UpsertAlert(ctx, &SecurityAlert{
+				RepositoryID: allGoneRepo.ID, AlertType: "code_scanning", AlertNumber: i,
+				State: "open", Severity: "medium", AlertCreatedAt: time.Now(),
+			}))
+		}
+
+		// Empty slice = GitHub returned no open alerts
+		resolved, err := repo.CloseStaleAlerts(ctx, allGoneRepo.ID, []int{})
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), resolved)
+
+		openAlerts, err := repo.GetOpenAlerts(ctx, allGoneRepo.ID, "")
+		require.NoError(t, err)
+		assert.Empty(t, openAlerts)
+	})
+
+	t.Run("CloseStaleAlerts_NoneStale", func(t *testing.T) {
+		noStaleRepo := &Repo{
+			OrganizationID: org.ID,
+			Name:           "no-stale-repo",
+			FullNameStr:    "test-org/no-stale-repo",
+		}
+		require.NoError(t, repo.UpsertRepository(ctx, noStaleRepo))
+
+		require.NoError(t, repo.UpsertAlert(ctx, &SecurityAlert{
+			RepositoryID: noStaleRepo.ID, AlertType: "dependabot", AlertNumber: 1,
+			State: "open", Severity: "low", AlertCreatedAt: time.Now(),
+		}))
+
+		resolved, err := repo.CloseStaleAlerts(ctx, noStaleRepo.ID, []int{1})
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), resolved)
+	})
+
+	t.Run("CloseStaleAlerts_IsolatedToRepo", func(t *testing.T) {
+		repoA := &Repo{OrganizationID: org.ID, Name: "iso-repo-a", FullNameStr: "test-org/iso-repo-a"}
+		require.NoError(t, repo.UpsertRepository(ctx, repoA))
+		repoB := &Repo{OrganizationID: org.ID, Name: "iso-repo-b", FullNameStr: "test-org/iso-repo-b"}
+		require.NoError(t, repo.UpsertRepository(ctx, repoB))
+
+		require.NoError(t, repo.UpsertAlert(ctx, &SecurityAlert{
+			RepositoryID: repoA.ID, AlertType: "dependabot", AlertNumber: 1,
+			State: "open", Severity: "high", AlertCreatedAt: time.Now(),
+		}))
+		require.NoError(t, repo.UpsertAlert(ctx, &SecurityAlert{
+			RepositoryID: repoB.ID, AlertType: "dependabot", AlertNumber: 1,
+			State: "open", Severity: "high", AlertCreatedAt: time.Now(),
+		}))
+
+		// Close stale for repoA with empty list — should NOT affect repoB
+		resolved, err := repo.CloseStaleAlerts(ctx, repoA.ID, []int{})
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), resolved)
+
+		openB, err := repo.GetOpenAlerts(ctx, repoB.ID, "")
+		require.NoError(t, err)
+		assert.Len(t, openB, 1)
+	})
 }
 
 func TestAnalyticsRepo_SyncRuns(t *testing.T) {
