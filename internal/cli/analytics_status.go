@@ -16,15 +16,17 @@ import (
 
 // repoStatus holds aggregated status for a single repository
 type repoStatus struct {
-	FullName    string
-	Org         string
-	RepoName    string
-	Stars       int
-	Forks       int
-	OpenIssues  int
-	OpenPRs     int
-	TotalAlerts int
-	LastSyncAt  *time.Time
+	FullName        string
+	Org             string
+	RepoName        string
+	Stars           int
+	Forks           int
+	OpenIssues      int
+	OpenPRs         int
+	TotalAlerts     int
+	LastSyncAt      *time.Time
+	LastPushedAt    *time.Time
+	CoveragePercent *float64
 }
 
 // newAnalyticsStatusCmd creates the analytics status command
@@ -106,6 +108,16 @@ func displayAllRepositories(ctx context.Context, analyticsRepo db.AnalyticsRepo)
 			status.Forks = snapshot.Forks
 			status.OpenIssues = snapshot.OpenIssues
 			status.OpenPRs = snapshot.OpenPRs
+			status.LastPushedAt = snapshot.PushedAt
+		}
+
+		// Get latest CI snapshot for coverage
+		ciSnap, ciErr := analyticsRepo.GetLatestCISnapshot(ctx, repo.ID)
+		if ciErr != nil && !errors.Is(ciErr, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("failed to get CI snapshot for %s: %w", repo.FullName(), ciErr)
+		}
+		if ciSnap != nil {
+			status.CoveragePercent = ciSnap.CoveragePercent
 		}
 
 		// Get alert counts
@@ -143,15 +155,16 @@ func displayAllRepositories(ctx context.Context, analyticsRepo db.AnalyticsRepo)
 	for _, org := range orgOrder {
 		group := orgGroups[org]
 		output.Plain("")
+		output.Plain("")
 		repoWord := "repositories"
 		if len(group) == 1 {
 			repoWord = "repository"
 		}
 		output.Info(fmt.Sprintf("%s (%d %s)", org, len(group), repoWord))
-		output.Plain(strings.Repeat("─", 80))
-		output.Plain(fmt.Sprintf("%-35s %6s %6s %7s %5s %7s  %s",
-			"Repository", "Stars", "Forks", "Issues", "PRs", "Alerts", "Last Sync"))
-		output.Plain(strings.Repeat("─", 80))
+		output.Plain(strings.Repeat("─", 115))
+		output.Plain(fmt.Sprintf("%-35s %6s %6s %7s %5s %7s %8s  %-16s %s",
+			"Repository", "Stars", "Forks", "Issues", "PRs", "Alerts", "Coverage", "Last Push", "Last Sync"))
+		output.Plain(strings.Repeat("─", 115))
 
 		for _, status := range group {
 			lastSync := "Never"
@@ -159,18 +172,46 @@ func displayAllRepositories(ctx context.Context, analyticsRepo db.AnalyticsRepo)
 				lastSync = formatTimeAgo(status.LastSyncAt)
 			}
 
-			output.Plain(fmt.Sprintf("%-35s %6d %6d %7d %5d %7d  %s",
+			output.Plain(fmt.Sprintf("%-35s %6d %6d %7d %5d %7d %8s  %-16s %s",
 				truncate(status.RepoName, 35),
 				status.Stars,
 				status.Forks,
 				status.OpenIssues,
 				status.OpenPRs,
 				status.TotalAlerts,
+				formatCoverage(status.CoveragePercent),
+				formatTimeAgoShort(status.LastPushedAt),
 				lastSync))
 		}
+
+		// Summary row
+		var sumStars, sumForks, sumIssues, sumPRs, sumAlerts int
+		var sumCoverage float64
+		var covCount int
+		for _, s := range group {
+			sumStars += s.Stars
+			sumForks += s.Forks
+			sumIssues += s.OpenIssues
+			sumPRs += s.OpenPRs
+			sumAlerts += s.TotalAlerts
+			if s.CoveragePercent != nil {
+				sumCoverage += *s.CoveragePercent
+				covCount++
+			}
+		}
+		avgCoverage := "-"
+		if covCount > 0 {
+			avg := sumCoverage / float64(covCount)
+			avgCoverage = fmt.Sprintf("%.1f%%", avg)
+		}
+		output.Plain(strings.Repeat("─", 115))
+		output.Plain(fmt.Sprintf("%-35s %6d %6d %7d %5d %7d %8s  %-16s %s",
+			"Total", sumStars, sumForks, sumIssues, sumPRs, sumAlerts, avgCoverage, "", ""))
 	}
 
 	// Display summary
+	output.Plain(strings.Repeat("─", 115))
+
 	output.Plain("")
 	if reposWithAlerts > 0 {
 		output.Info(fmt.Sprintf("Total: %d repositories, %d with %d open alerts",
@@ -189,7 +230,7 @@ func displayAllRepositories(ctx context.Context, analyticsRepo db.AnalyticsRepo)
 		output.Info(fmt.Sprintf("Last sync: %s (%s)", formatTimeAgo(lastSync.CompletedAt), duration))
 	}
 
-	output.Plain(strings.Repeat("─", 80))
+	output.Plain(strings.Repeat("─", 115))
 	output.Plain("")
 
 	return nil
@@ -210,6 +251,12 @@ func displaySingleRepository(ctx context.Context, analyticsRepo db.AnalyticsRepo
 	snapshot, err := analyticsRepo.GetLatestSnapshot(ctx, repo.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return fmt.Errorf("failed to get snapshot: %w", err)
+	}
+
+	// Get latest CI snapshot for coverage
+	ciSnap, err := analyticsRepo.GetLatestCISnapshot(ctx, repo.ID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to get CI snapshot: %w", err)
 	}
 
 	// Get alert counts by type
@@ -267,6 +314,12 @@ func displaySingleRepository(ctx context.Context, analyticsRepo db.AnalyticsRepo
 		output.Plain(fmt.Sprintf("  Open PRs:      %d", snapshot.OpenPRs))
 		if snapshot.BranchCount > 0 {
 			output.Plain(fmt.Sprintf("  Branches:      %d", snapshot.BranchCount))
+		}
+		if ciSnap != nil && ciSnap.CoveragePercent != nil {
+			output.Plain(fmt.Sprintf("  Coverage:      %s", formatCoverage(ciSnap.CoveragePercent)))
+		}
+		if snapshot.PushedAt != nil {
+			output.Plain(fmt.Sprintf("  Last Push:     %s", formatTimeAgo(snapshot.PushedAt)))
 		}
 	} else {
 		output.Warn("No metrics available yet. Run 'analytics sync' to collect data.")
@@ -379,6 +432,22 @@ func formatTimeAgo(t *time.Time) string {
 		}
 		return fmt.Sprintf("%d months ago", months)
 	}
+}
+
+// formatTimeAgoShort is like formatTimeAgo but returns "never" instead of "unknown" for nil.
+func formatTimeAgoShort(t *time.Time) string {
+	if t == nil {
+		return "never"
+	}
+	return formatTimeAgo(t)
+}
+
+// formatCoverage formats a nullable coverage percentage for display.
+func formatCoverage(p *float64) string {
+	if p == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%.1f%%", *p)
 }
 
 // formatDuration converts milliseconds to a human-readable duration format

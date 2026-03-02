@@ -23,6 +23,7 @@ var (
 	errSyncRunFailed   = errors.New("sync run query failed")
 	errAlertByType     = errors.New("alert by type query failed")
 	errAlertBySeverity = errors.New("alert by severity query failed")
+	errCISnapshotFail  = errors.New("CI snapshot query failed")
 )
 
 // mockAnalyticsRepo implements db.AnalyticsRepo for testing
@@ -422,17 +423,23 @@ func TestDisplayAllRepositories(t *testing.T) {
 		mockRepo := new(mockAnalyticsRepo)
 		mockRepo.On("ListRepositories", ctx, "").Return(repos, nil)
 
-		// Repo 1: has snapshot and alerts
+		// Repo 1: has snapshot, alerts, and coverage
+		cov := 85.3
+		pushedAt := time.Now().Add(-3 * 24 * time.Hour)
 		mockRepo.On("GetLatestSnapshot", ctx, uint(1)).
-			Return(&db.RepositorySnapshot{Stars: 42, Forks: 5, OpenIssues: 3, OpenPRs: 1}, nil)
+			Return(&db.RepositorySnapshot{Stars: 42, Forks: 5, OpenIssues: 3, OpenPRs: 1, PushedAt: &pushedAt}, nil)
 		mockRepo.On("GetAlertCounts", ctx, uint(1)).
 			Return(map[string]int{"critical": 2, "high": 1}, nil)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).
+			Return(&db.CIMetricsSnapshot{CoveragePercent: &cov}, nil)
 
-		// Repo 2: no snapshot, no alerts
+		// Repo 2: no snapshot, no alerts, no CI snapshot
 		mockRepo.On("GetLatestSnapshot", ctx, uint(2)).
 			Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("GetAlertCounts", ctx, uint(2)).
 			Return(map[string]int{}, nil)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(2)).
+			Return(nil, gorm.ErrRecordNotFound)
 
 		// Latest sync run
 		mockRepo.On("GetLatestSyncRun", ctx).
@@ -470,12 +477,33 @@ func TestDisplayAllRepositories(t *testing.T) {
 		mockRepo.On("ListRepositories", ctx, "").Return(repos, nil)
 		mockRepo.On("GetLatestSnapshot", ctx, uint(1)).
 			Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).
+			Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("GetAlertCounts", ctx, uint(1)).
 			Return(nil, errAlertFailed)
 
 		err := displayAllRepositories(ctx, mockRepo)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get alert counts")
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("CI snapshot error propagates", func(t *testing.T) {
+		t.Parallel()
+
+		repos := []db.Repo{{FullNameStr: "org/repo1"}}
+		repos[0].ID = 1
+
+		mockRepo := new(mockAnalyticsRepo)
+		mockRepo.On("ListRepositories", ctx, "").Return(repos, nil)
+		mockRepo.On("GetLatestSnapshot", ctx, uint(1)).
+			Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).
+			Return(nil, errCISnapshotFail)
+
+		err := displayAllRepositories(ctx, mockRepo)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get CI snapshot")
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -491,6 +519,8 @@ func TestDisplayAllRepositories(t *testing.T) {
 			Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("GetAlertCounts", ctx, uint(1)).
 			Return(map[string]int{}, nil)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).
+			Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("GetLatestSyncRun", ctx).
 			Return(nil, gorm.ErrRecordNotFound)
 
@@ -511,6 +541,8 @@ func TestDisplayAllRepositories(t *testing.T) {
 			Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("GetAlertCounts", ctx, uint(1)).
 			Return(map[string]int{}, nil)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).
+			Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("GetLatestSyncRun", ctx).
 			Return(nil, errSyncRunFailed)
 
@@ -588,9 +620,12 @@ func TestDisplaySingleRepository(t *testing.T) {
 			"medium":   1,
 		}
 
+		cov := 72.5
 		mockRepo := new(mockAnalyticsRepo)
 		mockRepo.On("GetRepository", ctx, "org/repo").Return(repo, nil)
 		mockRepo.On("GetLatestSnapshot", ctx, uint(1)).Return(snapshot, nil)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(1)).
+			Return(&db.CIMetricsSnapshot{CoveragePercent: &cov}, nil)
 		mockRepo.On("GetAlertCountsByType", ctx, uint(1)).Return(alertsByType, nil)
 		mockRepo.On("GetAlertCounts", ctx, uint(1)).Return(alertsBySeverity, nil)
 
@@ -610,6 +645,8 @@ func TestDisplaySingleRepository(t *testing.T) {
 		mockRepo := new(mockAnalyticsRepo)
 		mockRepo.On("GetRepository", ctx, "org/new-repo").Return(repo, nil)
 		mockRepo.On("GetLatestSnapshot", ctx, uint(2)).
+			Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(2)).
 			Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("GetAlertCountsByType", ctx, uint(2)).
 			Return(map[string]int{}, nil)
@@ -634,6 +671,8 @@ func TestDisplaySingleRepository(t *testing.T) {
 		mockRepo := new(mockAnalyticsRepo)
 		mockRepo.On("GetRepository", ctx, "org/private-repo").Return(repo, nil)
 		mockRepo.On("GetLatestSnapshot", ctx, uint(3)).
+			Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(3)).
 			Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("GetAlertCountsByType", ctx, uint(3)).
 			Return(map[string]int{}, nil)
@@ -662,7 +701,7 @@ func TestDisplaySingleRepository(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("alert counts by type error propagates", func(t *testing.T) {
+	t.Run("CI snapshot error propagates", func(t *testing.T) {
 		t.Parallel()
 
 		repo := &db.Repo{FullNameStr: "org/repo"}
@@ -672,7 +711,28 @@ func TestDisplaySingleRepository(t *testing.T) {
 		mockRepo.On("GetRepository", ctx, "org/repo").Return(repo, nil)
 		mockRepo.On("GetLatestSnapshot", ctx, uint(5)).
 			Return(nil, gorm.ErrRecordNotFound)
-		mockRepo.On("GetAlertCountsByType", ctx, uint(5)).
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(5)).
+			Return(nil, errCISnapshotFail)
+
+		err := displaySingleRepository(ctx, mockRepo, "org/repo")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get CI snapshot")
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("alert counts by type error propagates", func(t *testing.T) {
+		t.Parallel()
+
+		repo := &db.Repo{FullNameStr: "org/repo"}
+		repo.ID = 6
+
+		mockRepo := new(mockAnalyticsRepo)
+		mockRepo.On("GetRepository", ctx, "org/repo").Return(repo, nil)
+		mockRepo.On("GetLatestSnapshot", ctx, uint(6)).
+			Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(6)).
+			Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetAlertCountsByType", ctx, uint(6)).
 			Return(nil, errAlertByType)
 
 		err := displaySingleRepository(ctx, mockRepo, "org/repo")
@@ -685,15 +745,17 @@ func TestDisplaySingleRepository(t *testing.T) {
 		t.Parallel()
 
 		repo := &db.Repo{FullNameStr: "org/repo"}
-		repo.ID = 6
+		repo.ID = 7
 
 		mockRepo := new(mockAnalyticsRepo)
 		mockRepo.On("GetRepository", ctx, "org/repo").Return(repo, nil)
-		mockRepo.On("GetLatestSnapshot", ctx, uint(6)).
+		mockRepo.On("GetLatestSnapshot", ctx, uint(7)).
 			Return(nil, gorm.ErrRecordNotFound)
-		mockRepo.On("GetAlertCountsByType", ctx, uint(6)).
+		mockRepo.On("GetLatestCISnapshot", ctx, uint(7)).
+			Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetAlertCountsByType", ctx, uint(7)).
 			Return(map[string]int{}, nil)
-		mockRepo.On("GetAlertCounts", ctx, uint(6)).
+		mockRepo.On("GetAlertCounts", ctx, uint(7)).
 			Return(nil, errAlertBySeverity)
 
 		err := displaySingleRepository(ctx, mockRepo, "org/repo")
@@ -753,6 +815,8 @@ func TestDisplayAllRepositories_MultiOrg(t *testing.T) {
 			Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("GetAlertCounts", ctx, r.ID).
 			Return(map[string]int{}, nil)
+		mockRepo.On("GetLatestCISnapshot", ctx, r.ID).
+			Return(nil, gorm.ErrRecordNotFound)
 	}
 
 	mockRepo.On("GetLatestSyncRun", ctx).
@@ -763,7 +827,50 @@ func TestDisplayAllRepositories_MultiOrg(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
+func TestFormatCoverage(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    *float64
+		expected string
+	}{
+		{"nil returns dash", nil, "-"},
+		{"zero", float64Ptr(0), "0.0%"},
+		{"typical", float64Ptr(85.3), "85.3%"},
+		{"full coverage", float64Ptr(100), "100.0%"},
+		{"fractional", float64Ptr(72.567), "72.6%"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.expected, formatCoverage(tt.input))
+		})
+	}
+}
+
+func TestFormatTimeAgoShort(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil returns never", func(t *testing.T) {
+		t.Parallel()
+		assert.Equal(t, "never", formatTimeAgoShort(nil))
+	})
+
+	t.Run("non-nil delegates to formatTimeAgo", func(t *testing.T) {
+		t.Parallel()
+		ts := time.Now().Add(-5 * time.Minute)
+		assert.Equal(t, "5 minutes ago", formatTimeAgoShort(&ts))
+	})
+}
+
 // timePtr creates a *time.Time from a time.Time value
 func timePtr(t time.Time) *time.Time {
 	return &t
+}
+
+// float64Ptr creates a *float64 from a float64 value
+func float64Ptr(f float64) *float64 {
+	return &f
 }
