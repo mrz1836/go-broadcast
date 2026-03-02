@@ -10,7 +10,7 @@ import (
 // to determine if any meaningful changes have occurred.
 //
 // Fields compared:
-//   - Stars, Forks, OpenIssues, OpenPRs, BranchCount
+//   - Stars, Forks, OpenIssues, OpenPRs, BranchCount, Contributors
 //   - LatestRelease, LatestTag
 //   - PushedAt
 //   - DependabotAlertCount, CodeScanningAlertCount, SecretScanningAlertCount
@@ -42,6 +42,9 @@ func HasChanged(current, previous *db.RepositorySnapshot) bool {
 		return true
 	}
 	if current.BranchCount != previous.BranchCount {
+		return true
+	}
+	if current.Contributors != previous.Contributors {
 		return true
 	}
 

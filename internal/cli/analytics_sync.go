@@ -256,8 +256,15 @@ func syncSingleRepository(
 		return fmt.Errorf("failed to upsert organization: %w", orgErr)
 	}
 
+	// Fetch repo settings via REST (allow_auto_merge, security settings, etc.)
+	repoSettings, settingsErr := pipeline.GetGHClient().GetRepository(ctx, fullName)
+	if settingsErr != nil {
+		output.Warn(fmt.Sprintf("Failed to fetch repo settings for %s: %v", fullName, settingsErr))
+	}
+
 	// Upsert repository
 	repo := buildRepo(metadata, org.ID)
+	applyRepoSettings(repo, repoSettings)
 	if repoErr := analyticsRepo.UpsertRepository(ctx, repo); repoErr != nil {
 		pipeline.RecordSyncRunError(ctx, syncRun, fullName, repoErr)
 		if showProgress {
@@ -268,6 +275,7 @@ func syncSingleRepository(
 
 	// Build current snapshot
 	currentSnapshot := buildRepositorySnapshot(metadata, repo.ID)
+	currentSnapshot.Contributors = fetchContributorCount(ctx, pipeline.GetGHClient(), fullName)
 
 	// Check for changes (unless --full flag forces write)
 	shouldWrite := forceFull
@@ -379,6 +387,28 @@ func buildRepo(metadata *analytics.RepoMetadata, orgID uint) *db.Repo {
 		LastPushedAt:          parseTime(metadata.PushedAt),
 		GitHubUpdatedAt:       parseTime(metadata.UpdatedAt),
 	}
+}
+
+// applyRepoSettings copies REST-sourced settings from gh.Repository into the db.Repo.
+func applyRepoSettings(repo *db.Repo, settings *gh.Repository) {
+	if settings == nil {
+		return
+	}
+	repo.AutoMergeEnabled = settings.AllowAutoMerge
+	repo.UpdateBranchEnabled = settings.AllowUpdateBranch
+	repo.DependabotEnabled = settings.SecurityAndAnalysis.DependabotSecurityUpdates.Status == "enabled"
+	repo.SecretScanningEnabled = settings.SecurityAndAnalysis.SecretScanning.Status == "enabled"
+	repo.PushProtectionEnabled = settings.SecurityAndAnalysis.SecretScanningPushProtection.Status == "enabled"
+}
+
+// fetchContributorCount returns the contributor count for a repo, logging warnings on error.
+func fetchContributorCount(ctx context.Context, ghClient gh.Client, fullName string) int {
+	count, err := ghClient.GetContributorCount(ctx, fullName)
+	if err != nil {
+		output.Warn(fmt.Sprintf("Failed to fetch contributor count for %s: %v", fullName, err))
+		return 0
+	}
+	return count
 }
 
 // parseOwnerAndName splits "owner/name" format into owner and name
@@ -840,8 +870,15 @@ func syncRepositoryMetadata(
 		return fmt.Errorf("failed to upsert organization: %w", err)
 	}
 
+	// Fetch repo settings via REST (allow_auto_merge, security settings, etc.)
+	repoSettings, settingsErr := pipeline.GetGHClient().GetRepository(ctx, fullName)
+	if settingsErr != nil {
+		output.Warn(fmt.Sprintf("Failed to fetch repo settings for %s: %v", fullName, settingsErr))
+	}
+
 	// Upsert repository
 	repo := buildRepo(metadata, org.ID)
+	applyRepoSettings(repo, repoSettings)
 	if err := analyticsRepo.UpsertRepository(ctx, repo); err != nil {
 		pipeline.RecordSyncRunError(ctx, syncRun, fullName, err)
 		if showProgress {
@@ -852,6 +889,7 @@ func syncRepositoryMetadata(
 
 	// Build current snapshot
 	currentSnapshot := buildRepositorySnapshot(metadata, repo.ID)
+	currentSnapshot.Contributors = fetchContributorCount(ctx, pipeline.GetGHClient(), fullName)
 
 	// Check for changes (unless --full flag forces write)
 	shouldWrite := forceFull
