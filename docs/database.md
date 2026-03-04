@@ -1381,6 +1381,47 @@ go-broadcast db target update \
 
 </details>
 
+<details>
+<summary><code>db target clone</code> — Clone a target with all its mappings</summary>
+
+Deep-copy a target and all its child records (file mappings, directory mappings, transforms, list refs) to a new repository within the same group.
+
+```bash
+# Clone all settings from one target to a new repo
+go-broadcast db target clone \
+  --group mrz-tools \
+  --from mrz1836/existing-repo \
+  --to mrz1836/new-repo \
+  --json
+
+# Clone with overrides
+go-broadcast db target clone \
+  --group mrz-tools \
+  --from mrz1836/existing-repo \
+  --to mrz1836/new-repo \
+  --branch develop \
+  --pr-labels "sync,automated" \
+  --pr-reviewers "reviewer1" \
+  --json
+```
+
+**What gets cloned:**
+- Target scalar fields: `branch`, `blob_size_limit`, `security_email`, `support_email`, `pr_labels`, `pr_assignees`, `pr_reviewers`, `pr_team_reviewers`
+- Inline file mappings (`src`, `dest`, `delete_flag`, `position`)
+- Inline directory mappings (`src`, `dest`, `exclude`, `include_only`, `preserve_structure`, `include_hidden`, `delete_flag`, `module_config`, `position`)
+- Target-level transform (`repo_name`, `variables`)
+- Directory-level transforms (`repo_name`, `variables`)
+- File list references — new join rows pointing to the same shared `file_lists` (not duplicated)
+- Directory list references — new join rows pointing to the same shared `directory_lists` (not duplicated)
+
+**Override flags:** `--branch`, `--pr-labels`, `--pr-assignees`, `--pr-reviewers`, `--pr-team-reviewers` (omitted flags inherit from source)
+
+**Auto-creates:** The destination repo and organization if they don't exist in the database.
+
+**Transaction safety:** All records are created atomically — if any step fails, the entire clone rolls back.
+
+</details>
+
 #### File List Management — `db file-list`
 
 <details>
