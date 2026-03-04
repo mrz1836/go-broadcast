@@ -890,6 +890,255 @@ func TestBulkRemoveDirList(t *testing.T) {
 }
 
 // ====================
+// Target Clone tests
+// ====================
+
+func TestTargetClone(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Enrich target1 with directory mapping, transforms, and directory list ref
+	// so we can fully test deep clone
+	database, err := openDatabase()
+	require.NoError(t, err)
+	gormDB := database.DB()
+
+	// Find target1 (test-repo-1)
+	var target1 db.Target
+	require.NoError(t, gormDB.Where("position = 0").First(&target1).Error)
+
+	// Add a target-level transform
+	require.NoError(t, gormDB.Create(&db.Transform{
+		OwnerType: "target",
+		OwnerID:   target1.ID,
+		RepoName:  true,
+		Variables: db.JSONStringMap{"PROJECT_NAME": "go-broadcast"},
+	}).Error)
+
+	// Add a directory mapping with its own transform
+	dirMapping := &db.DirectoryMapping{
+		OwnerType:         "target",
+		OwnerID:           target1.ID,
+		Src:               ".github/workflows",
+		Dest:              ".github/workflows",
+		Exclude:           db.JSONStringSlice{"release.yml"},
+		PreserveStructure: boolPtr(true),
+		Position:          0,
+	}
+	require.NoError(t, gormDB.Create(dirMapping).Error)
+	require.NoError(t, gormDB.Create(&db.Transform{
+		OwnerType: "directory_mapping",
+		OwnerID:   dirMapping.ID,
+		RepoName:  true,
+		Variables: db.JSONStringMap{"CI_VERSION": "v2"},
+	}).Error)
+
+	// Add directory list ref to target1 (it already has a file list ref from setupTestDB)
+	var dl db.DirectoryList
+	require.NoError(t, gormDB.Where("external_id = ?", "github-workflows").First(&dl).Error)
+	require.NoError(t, gormDB.Create(&db.TargetDirectoryListRef{
+		TargetID:        target1.ID,
+		DirectoryListID: dl.ID,
+		Position:        0,
+	}).Error)
+
+	require.NoError(t, database.Close())
+
+	t.Run("happy path - clone with all associations", func(t *testing.T) {
+		cmd := newDBTargetCloneCmd()
+		cmd.SetArgs([]string{
+			"--group", "mrz-tools",
+			"--from", "mrz1836/test-repo-1",
+			"--to", "mrz1836/cloned-repo",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error {
+			return cmd.Execute()
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "cloned", resp.Action)
+		assert.Equal(t, "target", resp.Type)
+		assert.Contains(t, resp.Hint, "cloned from")
+
+		// Verify all child records were cloned
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+		gormDB := database.DB()
+
+		// Find the cloned target
+		var clonedRepo db.Repo
+		require.NoError(t, gormDB.
+			Joins("JOIN organizations ON organizations.id = repos.organization_id").
+			Where("organizations.name = ? AND repos.name = ?", "mrz1836", "cloned-repo").
+			First(&clonedRepo).Error)
+
+		var clonedTarget db.Target
+		require.NoError(t, gormDB.Where("repo_id = ?", clonedRepo.ID).First(&clonedTarget).Error)
+
+		// Verify branch was copied
+		assert.Equal(t, "main", clonedTarget.Branch)
+
+		// Verify file mappings
+		var fileMappings []db.FileMapping
+		require.NoError(t, gormDB.Where("owner_type = ? AND owner_id = ?", "target", clonedTarget.ID).Find(&fileMappings).Error)
+		assert.Len(t, fileMappings, 1) // .editorconfig
+		assert.Equal(t, ".editorconfig", fileMappings[0].Dest)
+
+		// Verify directory mappings
+		var dirMappings []db.DirectoryMapping
+		require.NoError(t, gormDB.Where("owner_type = ? AND owner_id = ?", "target", clonedTarget.ID).Find(&dirMappings).Error)
+		assert.Len(t, dirMappings, 1)
+		assert.Equal(t, ".github/workflows", dirMappings[0].Dest)
+		assert.Equal(t, db.JSONStringSlice{"release.yml"}, dirMappings[0].Exclude)
+
+		// Verify directory mapping transform
+		var dmTransform db.Transform
+		require.NoError(t, gormDB.Where("owner_type = ? AND owner_id = ?", "directory_mapping", dirMappings[0].ID).First(&dmTransform).Error)
+		assert.True(t, dmTransform.RepoName)
+		assert.Equal(t, "v2", dmTransform.Variables["CI_VERSION"])
+
+		// Verify target-level transform
+		var targetTransform db.Transform
+		require.NoError(t, gormDB.Where("owner_type = ? AND owner_id = ?", "target", clonedTarget.ID).First(&targetTransform).Error)
+		assert.True(t, targetTransform.RepoName)
+		assert.Equal(t, "go-broadcast", targetTransform.Variables["PROJECT_NAME"])
+
+		// Verify file list refs
+		var fileListRefs []db.TargetFileListRef
+		require.NoError(t, gormDB.Where("target_id = ?", clonedTarget.ID).Find(&fileListRefs).Error)
+		assert.Len(t, fileListRefs, 1)
+
+		// Verify directory list refs
+		var dirListRefs []db.TargetDirectoryListRef
+		require.NoError(t, gormDB.Where("target_id = ?", clonedTarget.ID).Find(&dirListRefs).Error)
+		assert.Len(t, dirListRefs, 1)
+
+		// Verify source target is unchanged (IDs should differ)
+		var sourceFileMappings []db.FileMapping
+		require.NoError(t, gormDB.Where("owner_type = ? AND owner_id = ?", "target", target1.ID).Find(&sourceFileMappings).Error)
+		assert.Len(t, sourceFileMappings, 1)
+		assert.NotEqual(t, sourceFileMappings[0].ID, fileMappings[0].ID)
+	})
+
+	t.Run("clone with overrides", func(t *testing.T) {
+		cmd := newDBTargetCloneCmd()
+		cmd.SetArgs([]string{
+			"--group", "mrz-tools",
+			"--from", "mrz1836/test-repo-1",
+			"--to", "mrz1836/override-repo",
+			"--branch", "develop",
+			"--pr-labels", "sync,auto",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error {
+			return cmd.Execute()
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+
+		// Verify overrides were applied
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+		gormDB := database.DB()
+
+		var overrideRepo db.Repo
+		require.NoError(t, gormDB.
+			Joins("JOIN organizations ON organizations.id = repos.organization_id").
+			Where("organizations.name = ? AND repos.name = ?", "mrz1836", "override-repo").
+			First(&overrideRepo).Error)
+
+		var overrideTarget db.Target
+		require.NoError(t, gormDB.Where("repo_id = ?", overrideRepo.ID).First(&overrideTarget).Error)
+		assert.Equal(t, "develop", overrideTarget.Branch)
+		assert.Equal(t, db.JSONStringSlice{"sync", "auto"}, overrideTarget.PRLabels)
+	})
+
+	t.Run("destination already exists", func(t *testing.T) {
+		cmd := newDBTargetCloneCmd()
+		cmd.SetArgs([]string{
+			"--group", "mrz-tools",
+			"--from", "mrz1836/test-repo-1",
+			"--to", "mrz1836/test-repo-2",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error {
+			return cmd.Execute()
+		})
+		require.NoError(t, err)
+		assert.False(t, resp.Success)
+		assert.Contains(t, resp.Error, "already exists")
+	})
+
+	t.Run("source not found", func(t *testing.T) {
+		cmd := newDBTargetCloneCmd()
+		cmd.SetArgs([]string{
+			"--group", "mrz-tools",
+			"--from", "mrz1836/nonexistent",
+			"--to", "mrz1836/new-clone",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error {
+			return cmd.Execute()
+		})
+		require.NoError(t, err)
+		assert.False(t, resp.Success)
+		assert.Contains(t, resp.Error, "not found")
+		assert.Contains(t, resp.Hint, "target list")
+	})
+
+	t.Run("invalid group", func(t *testing.T) {
+		cmd := newDBTargetCloneCmd()
+		cmd.SetArgs([]string{
+			"--group", "nonexistent",
+			"--from", "mrz1836/test-repo-1",
+			"--to", "mrz1836/new-clone",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error {
+			return cmd.Execute()
+		})
+		require.NoError(t, err)
+		assert.False(t, resp.Success)
+		assert.Contains(t, resp.Error, "not found")
+	})
+
+	t.Run("clone to new org auto-creates", func(t *testing.T) {
+		cmd := newDBTargetCloneCmd()
+		cmd.SetArgs([]string{
+			"--group", "mrz-tools",
+			"--from", "mrz1836/test-repo-1",
+			"--to", "neworg/new-repo",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error {
+			return cmd.Execute()
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "cloned", resp.Action)
+
+		// Verify org was auto-created
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+		gormDB := database.DB()
+
+		var org db.Organization
+		require.NoError(t, gormDB.Where("name = ?", "neworg").First(&org).Error)
+		assert.Equal(t, "neworg", org.Name)
+	})
+}
+
+// ====================
 // Response envelope tests
 // ====================
 

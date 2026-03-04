@@ -64,6 +64,7 @@ func newDBTargetCmd() *cobra.Command {
 		newDBTargetAddCmd(),
 		newDBTargetRemoveCmd(),
 		newDBTargetUpdateCmd(),
+		newDBTargetCloneCmd(),
 	)
 
 	return cmd
@@ -525,4 +526,294 @@ func splitCSV(s string) db.JSONStringSlice {
 		}
 	}
 	return result
+}
+
+func newDBTargetCloneCmd() *cobra.Command {
+	var (
+		jsonOutput      bool
+		groupID         string
+		from            string
+		to              string
+		branch          string
+		prLabels        string
+		prAssignees     string
+		prReviewers     string
+		prTeamReviewers string
+	)
+	cmd := &cobra.Command{
+		Use:   "clone",
+		Short: "Clone a target with all its mappings",
+		Long:  `Deep-copy a target and all its child records (file mappings, directory mappings, transforms, list refs) to a new repository.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTargetClone(cmd, groupID, from, to, branch, prLabels, prAssignees, prReviewers, prTeamReviewers, jsonOutput)
+		},
+	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
+	cmd.Flags().StringVar(&groupID, "group", "", "Group external ID (required)")
+	cmd.Flags().StringVar(&from, "from", "", "Source target repository (org/repo) (required)")
+	cmd.Flags().StringVar(&to, "to", "", "New target repository (org/repo) (required)")
+	cmd.Flags().StringVar(&branch, "branch", "", "Override branch for new target (defaults to source)")
+	cmd.Flags().StringVar(&prLabels, "pr-labels", "", "Override comma-separated PR labels")
+	cmd.Flags().StringVar(&prAssignees, "pr-assignees", "", "Override comma-separated PR assignees")
+	cmd.Flags().StringVar(&prReviewers, "pr-reviewers", "", "Override comma-separated PR reviewers")
+	cmd.Flags().StringVar(&prTeamReviewers, "pr-team-reviewers", "", "Override comma-separated PR team reviewers")
+	_ = cmd.MarkFlagRequired("group")
+	_ = cmd.MarkFlagRequired("from")
+	_ = cmd.MarkFlagRequired("to")
+	return cmd
+}
+
+func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branch, prLabels, prAssignees, prReviewers, prTeamReviewers string, jsonOutput bool) error {
+	database, err := openDatabase()
+	if err != nil {
+		return printErrorResponse("target", "cloned", err.Error(), "", jsonOutput)
+	}
+	defer func() { _ = database.Close() }()
+
+	ctx := context.Background()
+	gormDB := database.DB()
+
+	// Resolve group
+	group, err := resolveGroup(ctx, gormDB, groupExternalID)
+	if err != nil {
+		return printErrorResponse("target", "cloned", err.Error(), groupHintList(), jsonOutput)
+	}
+
+	// Check destination doesn't already exist
+	targetRepo := db.NewTargetRepository(gormDB)
+	existing, err := targetRepo.GetByRepoName(ctx, group.ID, toRepo)
+	if err == nil && existing != nil {
+		return printErrorResponse("target", "cloned",
+			fmt.Sprintf("target %q already exists in group %q", toRepo, groupExternalID),
+			fmt.Sprintf("run 'go-broadcast db target get --group %s --repo %s --json' to inspect it", groupExternalID, toRepo),
+			jsonOutput)
+	}
+
+	// Find source target with all associations
+	targets, err := targetRepo.ListWithAssociations(ctx, group.ID)
+	if err != nil {
+		return printErrorResponse("target", "cloned", err.Error(), "", jsonOutput)
+	}
+
+	var source *db.Target
+	for _, t := range targets {
+		name := resolveRepoName(ctx, gormDB, t.RepoID)
+		if strings.EqualFold(name, fromRepo) {
+			source = t
+			break
+		}
+	}
+	if source == nil {
+		return printErrorResponse("target", "cloned",
+			fmt.Sprintf("source target %q not found in group %q", fromRepo, groupExternalID),
+			fmt.Sprintf("run 'go-broadcast db target list --group %s --json' to see available targets", groupExternalID),
+			jsonOutput)
+	}
+
+	// Execute deep clone in a transaction
+	var newTarget *db.Target
+	err = gormDB.Transaction(func(tx *gorm.DB) error {
+		newTarget, err = cloneTargetInTx(ctx, cmd, tx, source, group.ID, toRepo, len(targets),
+			branch, prLabels, prAssignees, prReviewers, prTeamReviewers)
+		return err
+	})
+	if err != nil {
+		return printErrorResponse("target", "cloned", err.Error(), "", jsonOutput)
+	}
+
+	result := targetListResult{
+		Repo:     toRepo,
+		Branch:   newTarget.Branch,
+		Position: newTarget.Position,
+		GroupID:  groupExternalID,
+	}
+
+	return printResponse(CLIResponse{
+		Success: true,
+		Action:  "cloned",
+		Type:    "target",
+		Data:    result,
+		Hint:    fmt.Sprintf("cloned from %s", fromRepo),
+	}, jsonOutput)
+}
+
+func cloneTargetInTx(
+	ctx context.Context,
+	cmd *cobra.Command,
+	tx *gorm.DB,
+	source *db.Target,
+	groupID uint,
+	toRepo string,
+	position int,
+	branch, prLabels, prAssignees, prReviewers, prTeamReviewers string,
+) (*db.Target, error) {
+	// Resolve destination repo (auto-creates client/org/repo)
+	repoRepo := db.NewRepoRepository(tx)
+	destRepo, err := repoRepo.FindOrCreateFromFullName(ctx, toRepo, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve destination repo: %w", err)
+	}
+
+	// Create new Target record - copy scalar fields from source
+	newTarget := &db.Target{
+		GroupID:         groupID,
+		RepoID:          destRepo.ID,
+		Branch:          source.Branch,
+		BlobSizeLimit:   source.BlobSizeLimit,
+		SecurityEmail:   source.SecurityEmail,
+		SupportEmail:    source.SupportEmail,
+		PRLabels:        copyJSONStringSlice(source.PRLabels),
+		PRAssignees:     copyJSONStringSlice(source.PRAssignees),
+		PRReviewers:     copyJSONStringSlice(source.PRReviewers),
+		PRTeamReviewers: copyJSONStringSlice(source.PRTeamReviewers),
+		Position:        position,
+	}
+
+	// Apply overrides (only if flag was explicitly provided)
+	if cmd.Flags().Changed("branch") {
+		newTarget.Branch = branch
+	}
+	if cmd.Flags().Changed("pr-labels") {
+		newTarget.PRLabels = splitCSV(prLabels)
+	}
+	if cmd.Flags().Changed("pr-assignees") {
+		newTarget.PRAssignees = splitCSV(prAssignees)
+	}
+	if cmd.Flags().Changed("pr-reviewers") {
+		newTarget.PRReviewers = splitCSV(prReviewers)
+	}
+	if cmd.Flags().Changed("pr-team-reviewers") {
+		newTarget.PRTeamReviewers = splitCSV(prTeamReviewers)
+	}
+
+	if err = tx.WithContext(ctx).Create(newTarget).Error; err != nil {
+		return nil, fmt.Errorf("failed to create cloned target: %w", err)
+	}
+
+	// Clone FileMappings (polymorphic: OwnerType="target")
+	for _, fm := range source.FileMappings {
+		clone := db.FileMapping{
+			OwnerType:  "target",
+			OwnerID:    newTarget.ID,
+			Src:        fm.Src,
+			Dest:       fm.Dest,
+			DeleteFlag: fm.DeleteFlag,
+			Position:   fm.Position,
+		}
+		if err = tx.WithContext(ctx).Create(&clone).Error; err != nil {
+			return nil, fmt.Errorf("failed to clone file mapping %q: %w", fm.Dest, err)
+		}
+	}
+
+	// Clone DirectoryMappings with nested Transforms
+	for _, dm := range source.DirectoryMappings {
+		clone := db.DirectoryMapping{
+			OwnerType:         "target",
+			OwnerID:           newTarget.ID,
+			Src:               dm.Src,
+			Dest:              dm.Dest,
+			Exclude:           copyJSONStringSlice(dm.Exclude),
+			IncludeOnly:       copyJSONStringSlice(dm.IncludeOnly),
+			PreserveStructure: copyBoolPtr(dm.PreserveStructure),
+			IncludeHidden:     copyBoolPtr(dm.IncludeHidden),
+			DeleteFlag:        dm.DeleteFlag,
+			ModuleConfig:      copyModuleConfig(dm.ModuleConfig),
+			Position:          dm.Position,
+		}
+		if err = tx.WithContext(ctx).Create(&clone).Error; err != nil {
+			return nil, fmt.Errorf("failed to clone directory mapping %q: %w", dm.Dest, err)
+		}
+
+		// Clone directory-level transform (OwnerType="directory_mapping")
+		if dm.Transform.ID != 0 {
+			tmClone := db.Transform{
+				OwnerType: "directory_mapping",
+				OwnerID:   clone.ID,
+				RepoName:  dm.Transform.RepoName,
+				Variables: copyJSONStringMap(dm.Transform.Variables),
+			}
+			if err = tx.WithContext(ctx).Create(&tmClone).Error; err != nil {
+				return nil, fmt.Errorf("failed to clone transform for directory %q: %w", dm.Dest, err)
+			}
+		}
+	}
+
+	// Clone target-level Transform (OwnerType="target")
+	if source.Transform.ID != 0 {
+		tmClone := db.Transform{
+			OwnerType: "target",
+			OwnerID:   newTarget.ID,
+			RepoName:  source.Transform.RepoName,
+			Variables: copyJSONStringMap(source.Transform.Variables),
+		}
+		if err = tx.WithContext(ctx).Create(&tmClone).Error; err != nil {
+			return nil, fmt.Errorf("failed to clone target transform: %w", err)
+		}
+	}
+
+	// Clone TargetFileListRefs (point to same FileList, just new join records)
+	for _, ref := range source.FileListRefs {
+		clone := db.TargetFileListRef{
+			TargetID:   newTarget.ID,
+			FileListID: ref.FileListID,
+			Position:   ref.Position,
+		}
+		if err = tx.WithContext(ctx).Create(&clone).Error; err != nil {
+			return nil, fmt.Errorf("failed to clone file list ref: %w", err)
+		}
+	}
+
+	// Clone TargetDirectoryListRefs (point to same DirectoryList)
+	for _, ref := range source.DirectoryListRefs {
+		clone := db.TargetDirectoryListRef{
+			TargetID:        newTarget.ID,
+			DirectoryListID: ref.DirectoryListID,
+			Position:        ref.Position,
+		}
+		if err = tx.WithContext(ctx).Create(&clone).Error; err != nil {
+			return nil, fmt.Errorf("failed to clone directory list ref: %w", err)
+		}
+	}
+
+	return newTarget, nil
+}
+
+// copyJSONStringSlice creates a deep copy of a JSONStringSlice
+func copyJSONStringSlice(s db.JSONStringSlice) db.JSONStringSlice {
+	if s == nil {
+		return nil
+	}
+	c := make(db.JSONStringSlice, len(s))
+	copy(c, s)
+	return c
+}
+
+// copyJSONStringMap creates a deep copy of a JSONStringMap
+func copyJSONStringMap(m db.JSONStringMap) db.JSONStringMap {
+	if m == nil {
+		return nil
+	}
+	c := make(db.JSONStringMap, len(m))
+	for k, v := range m {
+		c[k] = v
+	}
+	return c
+}
+
+// copyBoolPtr creates a copy of a *bool
+func copyBoolPtr(b *bool) *bool {
+	if b == nil {
+		return nil
+	}
+	v := *b
+	return &v
+}
+
+// copyModuleConfig creates a deep copy of a *JSONModuleConfig
+func copyModuleConfig(mc *db.JSONModuleConfig) *db.JSONModuleConfig {
+	if mc == nil {
+		return nil
+	}
+	c := *mc
+	return &c
 }
