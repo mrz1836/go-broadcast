@@ -101,7 +101,7 @@ func TestMetricsHTTPHandler(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	t.Run("CurrentMetrics", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/metrics", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/metrics", nil)
 		w := httptest.NewRecorder()
 
 		collector.ServeHTTP(w, req)
@@ -117,7 +117,7 @@ func TestMetricsHTTPHandler(t *testing.T) {
 	})
 
 	t.Run("HistoryMetrics", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/metrics?type=history", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/metrics?type=history", nil)
 		w := httptest.NewRecorder()
 
 		collector.ServeHTTP(w, req)
@@ -135,7 +135,7 @@ func TestMetricsHTTPHandler(t *testing.T) {
 	})
 
 	t.Run("CORSHeaders", func(t *testing.T) {
-		req := httptest.NewRequest("OPTIONS", "/api/metrics", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "OPTIONS", "/api/metrics", nil)
 		w := httptest.NewRecorder()
 
 		collector.ServeHTTP(w, req)
@@ -197,7 +197,7 @@ func TestDashboardEndpoints(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tc.path, nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", tc.path, nil)
 			w := httptest.NewRecorder()
 
 			tc.handler(w, req)
@@ -214,7 +214,7 @@ func TestHealthHandler(t *testing.T) {
 	config := DefaultDashboardConfig()
 	dashboard := NewDashboard(config)
 
-	req := httptest.NewRequest("GET", "/api/health", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/health", nil)
 	w := httptest.NewRecorder()
 
 	dashboard.healthHandler(w, req)
@@ -426,7 +426,7 @@ func TestCollectorGetters(t *testing.T) {
 
 // TestDashboardHTMLTemplateValidation tests the HTML template structure and content
 func TestDashboardHTMLTemplateValidation(t *testing.T) {
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 	w := httptest.NewRecorder()
 
 	dashboardHandler(w, req)
@@ -483,7 +483,7 @@ func TestDashboardHTMLTemplateValidation(t *testing.T) {
 
 // TestDashboardHTMLTemplateStructure tests for proper HTML nesting
 func TestDashboardHTMLTemplateStructure(t *testing.T) {
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 	w := httptest.NewRecorder()
 
 	dashboardHandler(w, req)
@@ -523,7 +523,7 @@ func TestDashboardHTMLTemplateStructure(t *testing.T) {
 
 // TestDashboardCSSValidation tests the CSS content
 func TestDashboardCSSValidation(t *testing.T) {
-	req := httptest.NewRequest("GET", "/dashboard.css", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/dashboard.css", nil)
 	w := httptest.NewRecorder()
 
 	dashboardCSSHandler(w, req)
@@ -576,7 +576,7 @@ func TestDashboardCSSValidation(t *testing.T) {
 
 // TestDashboardCSSParsingValidation tests CSS syntax validity
 func TestDashboardCSSParsingValidation(t *testing.T) {
-	req := httptest.NewRequest("GET", "/dashboard.css", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/dashboard.css", nil)
 	w := httptest.NewRecorder()
 
 	dashboardCSSHandler(w, req)
@@ -613,7 +613,7 @@ func TestDashboardCSSParsingValidation(t *testing.T) {
 
 // TestDashboardJSValidation tests the JavaScript content
 func TestDashboardJSValidation(t *testing.T) {
-	req := httptest.NewRequest("GET", "/dashboard.js", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/dashboard.js", nil)
 	w := httptest.NewRecorder()
 
 	dashboardJSHandler(w, req)
@@ -675,7 +675,7 @@ func TestDashboardJSValidation(t *testing.T) {
 
 // TestDashboardJSSyntaxValidation tests basic JavaScript syntax
 func TestDashboardJSSyntaxValidation(t *testing.T) {
-	req := httptest.NewRequest("GET", "/dashboard.js", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/dashboard.js", nil)
 	w := httptest.NewRecorder()
 
 	dashboardJSHandler(w, req)
@@ -749,7 +749,7 @@ func TestDashboardTemplateSizes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tc.path, nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", tc.path, nil)
 			w := httptest.NewRecorder()
 
 			tc.handler(w, req)
@@ -780,7 +780,7 @@ func TestDashboardTemplateContentSecurity(t *testing.T) {
 
 	for _, template := range templates {
 		t.Run(template.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", template.path, nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", template.path, nil)
 			w := httptest.NewRecorder()
 
 			template.handler(w, req)
@@ -841,7 +841,7 @@ func TestDashboardHandlerErrorPaths(t *testing.T) {
 	t.Run("DashboardHandlerWriteError", func(t *testing.T) {
 		// Create a mock response writer that fails on write
 		mockWriter := &errorResponseWriter{}
-		req := httptest.NewRequest("GET", "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 
 		// This should not panic even if write fails
 		require.NotPanics(t, func() {
@@ -851,7 +851,7 @@ func TestDashboardHandlerErrorPaths(t *testing.T) {
 
 	t.Run("DashboardJSHandlerWriteError", func(t *testing.T) {
 		mockWriter := &errorResponseWriter{}
-		req := httptest.NewRequest("GET", "/dashboard.js", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/dashboard.js", nil)
 
 		require.NotPanics(t, func() {
 			dashboardJSHandler(mockWriter, req)
@@ -860,7 +860,7 @@ func TestDashboardHandlerErrorPaths(t *testing.T) {
 
 	t.Run("DashboardCSSHandlerWriteError", func(t *testing.T) {
 		mockWriter := &errorResponseWriter{}
-		req := httptest.NewRequest("GET", "/dashboard.css", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/dashboard.css", nil)
 
 		require.NotPanics(t, func() {
 			dashboardCSSHandler(mockWriter, req)
@@ -875,7 +875,7 @@ func TestHealthHandlerJSONEncodeError(t *testing.T) {
 
 	// Create a mock response writer that fails on write
 	mockWriter := &errorResponseWriter{}
-	req := httptest.NewRequest("GET", "/api/health", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/health", nil)
 
 	// This should not panic even if JSON encoding fails
 	require.NotPanics(t, func() {
@@ -1078,7 +1078,7 @@ func TestServeHTTPBufferedResponse(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	t.Run("successful response sets correct headers", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/metrics", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/metrics", nil)
 		w := httptest.NewRecorder()
 
 		collector.ServeHTTP(w, req)
@@ -1092,7 +1092,7 @@ func TestServeHTTPBufferedResponse(t *testing.T) {
 	})
 
 	t.Run("history endpoint works correctly", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/metrics?type=history", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/metrics?type=history", nil)
 		w := httptest.NewRecorder()
 
 		collector.ServeHTTP(w, req)

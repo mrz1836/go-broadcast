@@ -244,7 +244,7 @@ func TestGetSecretScanningAlerts(t *testing.T) {
 			},
 		}
 
-		output, err := json.Marshal(alerts)
+		output, err := json.Marshal(alerts) //nolint:gosec // G117: test struct contains fake secret value for testing alert parsing
 		require.NoError(t, err)
 
 		mockRunner.On("Run", ctx, "gh", []string{
@@ -254,7 +254,7 @@ func TestGetSecretScanningAlerts(t *testing.T) {
 		}).Return(output, nil)
 
 		// Generic secret type calls return empty
-		emptyJSON, _ := json.Marshal([]SecretScanningAlert{})
+		emptyJSON, _ := json.Marshal([]SecretScanningAlert{}) //nolint:gosec // G117: marshaling struct type with Secret field for test purposes
 		for _, secretType := range []string{"password", "generic_api_key", "generic_high_entropy_secret"} {
 			mockRunner.On("Run", ctx, "gh", []string{
 				"api",

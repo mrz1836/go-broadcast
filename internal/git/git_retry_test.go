@@ -534,7 +534,7 @@ func TestPushRetryLogic(t *testing.T) {
 	})
 
 	t.Run("context cancellation during retry", func(t *testing.T) {
-		cancelCtx, cancel := context.WithCancel(ctx)
+		cancelCtx, cancel := context.WithCancel(ctx) //nolint:gosec // G118: cancel is called in goroutine below
 
 		mockClient := &mockGitClientForPushRetryTesting{
 			maxFailures:   5,

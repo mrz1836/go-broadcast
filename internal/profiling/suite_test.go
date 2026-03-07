@@ -193,7 +193,7 @@ func TestProfileSuiteProfileWithContextCancellation(t *testing.T) {
 	suite := NewProfileSuite(t.TempDir())
 	configureForTesting(suite)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in testFunc closure
 
 	testFunc := func(ctx context.Context) error {
 		cancel() // Cancel the context during execution
@@ -774,7 +774,7 @@ func TestProfileSuiteMemoryProfilingIntegration(t *testing.T) {
 func TestWriteToReport(t *testing.T) {
 	tempFile, err := os.CreateTemp("", "report-test-*.txt")
 	require.NoError(t, err)
-	defer func() { _ = os.Remove(tempFile.Name()) }() //nolint:gosec // G703: path from os.CreateTemp or trusted source, not user input
+	defer func() { _ = os.Remove(tempFile.Name()) }()
 	defer func() { _ = tempFile.Close() }()
 
 	// Test writing to report
@@ -785,7 +785,7 @@ func TestWriteToReport(t *testing.T) {
 	err = tempFile.Sync()
 	require.NoError(t, err)
 
-	content, err := os.ReadFile(tempFile.Name()) //nolint:gosec // G703: path from os.CreateTemp, not user-controlled input
+	content, err := os.ReadFile(tempFile.Name())
 	require.NoError(t, err)
 
 	expectedContent := "Test message: hello\nNumber: 42\n"
@@ -885,7 +885,7 @@ func TestProfileSuiteContextCancellation(t *testing.T) {
 	suite := NewProfileSuite(t.TempDir())
 	configureForTesting(suite)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in the fn closure below
 
 	err := suite.ProfileWithContext(ctx, "cancel-test", func(ctx context.Context) error {
 		cancel() // Cancel during execution

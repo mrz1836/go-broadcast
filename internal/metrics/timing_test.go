@@ -286,9 +286,7 @@ func TestTimer_CheckCancellation(t *testing.T) {
 		{
 			name: "context with timeout not expired",
 			ctxFunc: func() context.Context {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
-				// Store cancel to avoid lint warning, but don't call it
-				// We want to test a non-expired timeout
+				ctx, cancel := context.WithTimeout(context.Background(), time.Hour) //nolint:gosec // G118: cancel intentionally not called; test verifies non-expired timeout behavior
 				_ = cancel
 				return ctx
 			},

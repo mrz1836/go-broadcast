@@ -521,12 +521,12 @@ func (rs *RepositorySync) cleanupWithPermissionFix() error {
 			// Make directories readable and writable (executable for directories is needed for traversal)
 			// Using 0700 is acceptable for directories as it's needed for cleanup
 			// #nosec G302
-			if chmodErr := os.Chmod(path, 0o700); chmodErr != nil {
+			if chmodErr := os.Chmod(path, 0o700); chmodErr != nil { //nolint:gosec // G122: TOCTOU risk accepted for cleanup
 				rs.logger.WithError(chmodErr).WithField("path", path).Debug("Failed to chmod directory")
 			}
 		} else {
 			// Make files readable and writable
-			if chmodErr := os.Chmod(path, 0o600); chmodErr != nil {
+			if chmodErr := os.Chmod(path, 0o600); chmodErr != nil { //nolint:gosec // G122: TOCTOU risk accepted for cleanup
 				rs.logger.WithError(chmodErr).WithField("path", path).Debug("Failed to chmod file")
 			}
 		}
@@ -917,7 +917,7 @@ func (rs *RepositorySync) commitChanges(ctx context.Context, branchName string, 
 
 			// Write the updated go.mod if modified
 			if modified {
-				if err := os.WriteFile(goModPath, updatedContent, 0o600); err != nil {
+				if err := os.WriteFile(goModPath, updatedContent, 0o600); err != nil { //nolint:gosec // G703: goModPath is derived from validated destination paths in application logic
 					return "", nil, fmt.Errorf("failed to write updated go.mod %s: %w", update.DestPath, err)
 				}
 

@@ -147,7 +147,7 @@ func BenchmarkConcurrentLogging(b *testing.B) {
 	goroutineCounts := []int{1, 10, 50, 100}
 
 	for _, count := range goroutineCounts {
-		b.Run(string(rune('0'+count/10))+"0_Goroutines", func(b *testing.B) {
+		b.Run(string(rune('0'+count/10))+"0_Goroutines", func(b *testing.B) { //nolint:gosec // G115: arithmetic produces valid ASCII digit rune
 			logger := logrus.New()
 			logger.SetOutput(&bytes.Buffer{}) // Discard output for performance
 
@@ -305,7 +305,7 @@ func BenchmarkLogEntryGeneration(b *testing.B) {
 	entryCounts := []int{10, 100, 1000, 5000}
 
 	for _, count := range entryCounts {
-		b.Run(string(rune('0'+count/1000))+"k_Entries", func(b *testing.B) {
+		b.Run(string(rune('0'+count/1000))+"k_Entries", func(b *testing.B) { //nolint:gosec // G115: arithmetic produces valid ASCII digit rune
 			entries := benchmark.GenerateLogEntries(count, true) // With tokens
 
 			benchmark.WithMemoryTracking(b, func() {

@@ -320,7 +320,7 @@ func TestGroupOrchestrator_ExecuteGroups_ContextCancellation(t *testing.T) {
 	orch := NewGroupOrchestrator(cfg, engine, logrus.New())
 
 	// Cancel context after first group
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in executeGroup wrapper closure
 
 	executor := &testGroupExecutor{
 		errorsToReturn: make(map[string]error),

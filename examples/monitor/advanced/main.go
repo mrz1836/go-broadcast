@@ -208,7 +208,7 @@ func algorithmicWorkload() {
 				// Test binary detection on the data
 				dataBytes := make([]byte, len(data))
 				for idx, v := range data {
-					dataBytes[idx] = byte(v % 256)
+					dataBytes[idx] = byte(v % 256) //nolint:gosec // G115: v%256 ensures value is in [0,255] range
 				}
 
 				isBinary := algorithms.IsBinaryOptimized(dataBytes)

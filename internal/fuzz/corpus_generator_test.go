@@ -81,7 +81,7 @@ func TestCorpusGeneratorErrorCases(t *testing.T) {
 		tmpFile, err := os.CreateTemp("", "fuzz-test-file")
 		require.NoError(t, err)
 		defer func() {
-			_ = os.Remove(tmpFile.Name()) //nolint:gosec // G703: path from os.CreateTemp or trusted source, not user input
+			_ = os.Remove(tmpFile.Name())
 		}()
 		_ = tmpFile.Close()
 

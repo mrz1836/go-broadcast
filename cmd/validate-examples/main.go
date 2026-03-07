@@ -102,7 +102,7 @@ func main() {
 }
 
 func showUsage() {
-	_, _ = fmt.Fprintln(os.Stdout, "Usage:", os.Args[0], "[options]") //nolint:gosec // G705: writing to stdout, not an HTTP response; os.Args[0] is the program name
+	_, _ = fmt.Fprintln(os.Stdout, "Usage:", os.Args[0], "[options]")
 	_, _ = fmt.Fprintln(os.Stdout)
 	_, _ = fmt.Fprintln(os.Stdout, "Options:")
 	_, _ = fmt.Fprintln(os.Stdout, "  -h, --help     Show this help message")
@@ -116,8 +116,8 @@ func showUsage() {
 	_, _ = fmt.Fprintln(os.Stdout, "  - All example files must exist in examples/ directory")
 	_, _ = fmt.Fprintln(os.Stdout)
 	_, _ = fmt.Fprintln(os.Stdout, "Examples:")
-	_, _ = fmt.Fprintln(os.Stdout, "  "+os.Args[0]+"                    # Validate all examples")        //nolint:gosec // G705: writing to stdout, not an HTTP response
-	_, _ = fmt.Fprintln(os.Stdout, "  "+os.Args[0]+" --verbose          # Validate with verbose output") //nolint:gosec // G705: writing to stdout, not an HTTP response
+	_, _ = fmt.Fprintln(os.Stdout, "  "+os.Args[0]+"                    # Validate all examples")
+	_, _ = fmt.Fprintln(os.Stdout, "  "+os.Args[0]+" --verbose          # Validate with verbose output")
 }
 
 func printHeader(boldBlue *color.Color) {

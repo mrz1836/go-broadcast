@@ -162,7 +162,7 @@ func (r *realVersionChecker) checkViaAPI(ctx context.Context, repoURL string) (s
 
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	resp, err := r.httpClient.Do(req) //nolint:gosec // G704: URL is constructed from trusted GitHub API constants
+	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -204,7 +204,7 @@ func (r *realVersionChecker) checkGoVersion(ctx context.Context) (string, error)
 
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := r.httpClient.Do(req) //nolint:gosec // G704: URL is the trusted GoDevAPIURL constant
+	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -246,7 +246,7 @@ func (r *realVersionChecker) checkGoProxyVersion(ctx context.Context, modulePath
 
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := r.httpClient.Do(req) //nolint:gosec // G704: URL is constructed from the trusted GoProxyAPIURL constant
+	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -301,7 +301,7 @@ func (r *realFileUpdater) BackupFile(path string) error {
 	}
 
 	backupPath := path + ".backup"
-	return os.WriteFile(backupPath, content, 0o600)
+	return os.WriteFile(backupPath, content, 0o600) //nolint:gosec // G703: backupPath is derived from path+".backup", controlled by application
 }
 
 // consoleLogger implements VersionLogger using os.Stdout.

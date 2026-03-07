@@ -81,7 +81,7 @@ func CreateBranch(dir, branchName string) error {
 
 // FileExists checks if a file exists
 func FileExists(filePath string) (bool, error) {
-	_, err := os.Stat(filePath) //nolint:gosec // G703: filePath comes from the caller which validates the path
+	_, err := os.Stat(filePath)
 	if err == nil {
 		return true, nil
 	}

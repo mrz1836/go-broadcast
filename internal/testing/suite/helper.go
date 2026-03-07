@@ -126,7 +126,7 @@ const defaultTestTimeout = 30 * time.Second
 // The default timeout prevents tests from hanging indefinitely.
 // For proper resource management, use TestContextWithCancel instead.
 func TestContext() context.Context {
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTestTimeout) //nolint:gosec // G118: cancel is called in goroutine when context expires
 	// Schedule cancel to run when context deadline is reached
 	go func() {
 		<-ctx.Done()
@@ -138,13 +138,13 @@ func TestContext() context.Context {
 // TestContextWithCancel returns a context with default timeout and its cancel function.
 // Caller should defer cancel() to properly release resources.
 func TestContextWithCancel() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), defaultTestTimeout)
+	return context.WithTimeout(context.Background(), defaultTestTimeout) //nolint:gosec // G118: cancel is returned to caller who is responsible for calling it
 }
 
 // TestContextWithTimeout returns a context with a custom timeout for testing.
 // For proper resource management, use TestContextWithTimeoutAndCancel instead.
 func TestContextWithTimeout(timeout time.Duration) context.Context {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout) //nolint:gosec // G118: cancel is called in goroutine when context expires
 	// Schedule cancel to run when context deadline is reached
 	go func() {
 		<-ctx.Done()
@@ -156,7 +156,7 @@ func TestContextWithTimeout(timeout time.Duration) context.Context {
 // TestContextWithTimeoutAndCancel returns a context with custom timeout and its cancel function.
 // Caller should defer cancel() to properly release resources.
 func TestContextWithTimeoutAndCancel(timeout time.Duration) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), timeout)
+	return context.WithTimeout(context.Background(), timeout) //nolint:gosec // G118: cancel is returned to caller via CancelFunc return value
 }
 
 // CreateTestLogger creates a logger configured for testing with standard settings
@@ -215,13 +215,13 @@ func CreateTempFileE(t *testing.T, dir, pattern, content string) (string, error)
 	if content != "" {
 		if _, err := file.WriteString(content); err != nil {
 			_ = file.Close()
-			_ = os.Remove(name) //nolint:gosec // G703: path from os.CreateTemp or trusted source, not user input
+			_ = os.Remove(name)
 			return "", fmt.Errorf("write to temp file %s: %w", name, err)
 		}
 	}
 
 	if err := file.Close(); err != nil {
-		_ = os.Remove(name) //nolint:gosec // G703: path from os.CreateTemp or trusted source, not user input
+		_ = os.Remove(name)
 		return "", fmt.Errorf("close temp file %s: %w", name, err)
 	}
 

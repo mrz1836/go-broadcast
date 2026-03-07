@@ -390,7 +390,7 @@ func TestSecurityCollector_CollectAlerts_ContextCancellation(t *testing.T) {
 	}
 
 	// Create context that will be canceled immediately
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in goroutine below
 
 	// Setup mocks with delay and context checking
 	for _, repo := range repos {
