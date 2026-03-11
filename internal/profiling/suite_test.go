@@ -193,7 +193,7 @@ func TestProfileSuiteProfileWithContextCancellation(t *testing.T) {
 	suite := NewProfileSuite(t.TempDir())
 	configureForTesting(suite)
 
-	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in testFunc closure
+	ctx, cancel := context.WithCancel(context.Background())
 
 	testFunc := func(ctx context.Context) error {
 		cancel() // Cancel the context during execution
@@ -885,7 +885,7 @@ func TestProfileSuiteContextCancellation(t *testing.T) {
 	suite := NewProfileSuite(t.TempDir())
 	configureForTesting(suite)
 
-	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in the fn closure below
+	ctx, cancel := context.WithCancel(context.Background())
 
 	err := suite.ProfileWithContext(ctx, "cancel-test", func(ctx context.Context) error {
 		cancel() // Cancel during execution

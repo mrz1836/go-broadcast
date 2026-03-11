@@ -92,8 +92,8 @@ func TestParseDuration(t *testing.T) {
 		expectError   bool
 	}{
 		{"hours", "24h", 24 * time.Hour, 1 * time.Second, false},
-		{"days", "7d", 7 * 24 * time.Hour, 1 * time.Second, false},
-		{"weeks", "2w", 14 * 24 * time.Hour, 1 * time.Second, false},
+		{"days", "7d", now.Sub(now.AddDate(0, 0, -7)), 1 * time.Second, false},
+		{"weeks", "2w", now.Sub(now.AddDate(0, 0, -14)), 1 * time.Second, false},
 		{"months", "1m", now.Sub(now.AddDate(0, -1, 0)), 1 * time.Second, false},
 		{"years", "1y", now.Sub(now.AddDate(-1, 0, 0)), 1 * time.Second, false},
 		{"empty", "", 0, 0, true},

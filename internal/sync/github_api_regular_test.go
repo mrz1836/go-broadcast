@@ -693,7 +693,7 @@ func TestFetchTreeWithRetry_ContextCanceled(t *testing.T) {
 	})
 	defer api.Close()
 
-	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in goroutine below
+	ctx, cancel := context.WithCancel(context.Background())
 	repo := testRepo
 	ref := testRef
 

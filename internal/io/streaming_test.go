@@ -501,7 +501,7 @@ func TestStreamProcessorProcessLargeJSON(t *testing.T) {
 		require.NoError(t, err)
 		testutil.WriteTestFile(t, jsonFile, string(data))
 
-		cancelCtx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in handler closure
+		cancelCtx, cancel := context.WithCancel(context.Background())
 		processedCount := 0
 
 		handler := func(_ interface{}) error {
@@ -683,7 +683,7 @@ func TestBatchFileProcessorProcessBatch(t *testing.T) {
 	})
 
 	t.Run("ContextCancellation", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in goroutine below
+		ctx, cancel := context.WithCancel(context.Background())
 
 		// Create a slow operation
 		inputFile := filepath.Join(tempDir, "slow_input.txt")
@@ -1295,7 +1295,7 @@ func TestBatchFileProcessorEdgeCases(t *testing.T) {
 			}
 		}
 
-		cancelCtx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in goroutine below
+		cancelCtx, cancel := context.WithCancel(context.Background())
 
 		// Cancel context after a short delay
 		go func() {

@@ -660,7 +660,7 @@ func TestProfileWithContextCancellation(t *testing.T) {
 
 // TestProfileWithContextCancellationDuringExecution tests context cancellation during function execution
 func TestProfileWithContextCancellationDuringExecution(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in the fn closure below
+	ctx, cancel := context.WithCancel(context.Background())
 
 	comparison, err := ProfileWithContext(ctx, nil, "cancel-during-test", func() error {
 		cancel() // Cancel during execution

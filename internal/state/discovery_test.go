@@ -478,7 +478,7 @@ func TestDiscoveryService_DiscoverStateContextCancellation(t *testing.T) {
 	})
 
 	t.Run("context canceled during target discovery", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in Run callback above
+		ctx, cancel := context.WithCancel(context.Background())
 
 		mockGH := &gh.MockClient{}
 		discoverer := NewDiscoverer(mockGH, logger, nil)

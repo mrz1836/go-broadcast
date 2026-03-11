@@ -180,7 +180,7 @@ func TestGenerateWithRetry_ContextCancellation(t *testing.T) {
 		Multiplier:   2.0,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is called in generator function closure
+	ctx, cancel := context.WithCancel(context.Background())
 	logger := logrus.NewEntry(logrus.New())
 
 	var callCount int32
