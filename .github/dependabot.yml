@@ -69,6 +69,27 @@ updates:
       include: "scope"
 
   # ──────────────────────────────────────────────────────────────
+  # 2b. GitHub Actions — Composite Actions (.github/actions/*)
+  # ──────────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/.github/actions/*"
+    target-branch: "master"
+    schedule:
+      interval: "daily"
+      time: "08:15"
+      timezone: "America/New_York"
+    groups:
+      ghactions-all:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+    assignees: ["mrz1836"]
+    labels: ["chore", "dependencies", "github-actions"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # ──────────────────────────────────────────────────────────────
   # 3. DevContainer (devcontainer.json : base image + features)
   # ──────────────────────────────────────────────────────────────
   - package-ecosystem: "devcontainers"
