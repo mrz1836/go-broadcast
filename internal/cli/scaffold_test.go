@@ -17,7 +17,7 @@ func TestRunScaffold_DryRun(t *testing.T) {
 
 	opts := ScaffoldOptions{
 		Name:    "my-repo",
-		Owner:   "mrz1836",
+		Owner:   "acme",
 		Preset:  &preset,
 		DryRun:  true,
 		Topics:  []string{"go", "library"},
@@ -27,7 +27,7 @@ func TestRunScaffold_DryRun(t *testing.T) {
 	result, err := RunScaffold(ctx, nil, opts)
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.Equal(t, "mrz1836/my-repo", result.RepoFullName)
+	assert.Equal(t, "acme/my-repo", result.RepoFullName)
 	assert.False(t, result.Created)
 }
 
@@ -37,21 +37,21 @@ func TestRunScaffold_CreateSuccess(t *testing.T) {
 
 	mockClient := new(gh.MockClient)
 	mockClient.On("CreateRepository", ctx, gh.CreateRepoOptions{
-		Name:        "mrz1836/my-repo",
+		Name:        "acme/my-repo",
 		Description: "A test repo",
 		Private:     true,
 	}).Return(&gh.Repository{Name: "my-repo"}, nil)
-	mockClient.On("UpdateRepoSettings", ctx, "mrz1836/my-repo", presetToRepoSettings(&preset)).Return(nil)
-	mockClient.On("SetTopics", ctx, "mrz1836/my-repo", []string{"go"}).Return(nil)
-	mockClient.On("SyncLabels", ctx, "mrz1836/my-repo", presetLabelsToGH(preset.Labels)).Return(nil)
+	mockClient.On("UpdateRepoSettings", ctx, "acme/my-repo", presetToRepoSettings(&preset)).Return(nil)
+	mockClient.On("SetTopics", ctx, "acme/my-repo", []string{"go"}).Return(nil)
+	mockClient.On("SyncLabels", ctx, "acme/my-repo", presetLabelsToGH(preset.Labels)).Return(nil)
 	for _, rc := range preset.Rulesets {
-		mockClient.On("CreateOrUpdateRuleset", ctx, "mrz1836/my-repo", configRulesetToGH(&rc)).Return(nil)
+		mockClient.On("CreateOrUpdateRuleset", ctx, "acme/my-repo", configRulesetToGH(&rc)).Return(nil)
 	}
 
 	opts := ScaffoldOptions{
 		Name:        "my-repo",
 		Description: "A test repo",
-		Owner:       "mrz1836",
+		Owner:       "acme",
 		Preset:      &preset,
 		Topics:      []string{"go"},
 	}
@@ -60,7 +60,7 @@ func TestRunScaffold_CreateSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.True(t, result.Created)
-	assert.Equal(t, "mrz1836/my-repo", result.RepoFullName)
+	assert.Equal(t, "acme/my-repo", result.RepoFullName)
 	mockClient.AssertExpectations(t)
 }
 
@@ -70,7 +70,7 @@ func TestRunScaffold_CreateFailure(t *testing.T) {
 
 	mockClient := new(gh.MockClient)
 	mockClient.On("CreateRepository", ctx, gh.CreateRepoOptions{
-		Name:        "mrz1836/fail-repo",
+		Name:        "acme/fail-repo",
 		Description: "fail",
 		Private:     true,
 	}).Return((*gh.Repository)(nil), assert.AnError)
@@ -78,7 +78,7 @@ func TestRunScaffold_CreateFailure(t *testing.T) {
 	opts := ScaffoldOptions{
 		Name:        "fail-repo",
 		Description: "fail",
-		Owner:       "mrz1836",
+		Owner:       "acme",
 		Preset:      &preset,
 	}
 

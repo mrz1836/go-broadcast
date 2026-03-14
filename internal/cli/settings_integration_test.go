@@ -24,21 +24,21 @@ func TestSettingsIntegration_ScaffoldThenAudit(t *testing.T) {
 
 	// Scaffold expects these calls
 	mockClient.On("CreateRepository", ctx, gh.CreateRepoOptions{
-		Name:        "mrz1836/integration-test",
+		Name:        "acme/integration-test",
 		Description: "Integration test repo",
 		Private:     true,
 	}).Return(&gh.Repository{Name: "integration-test"}, nil)
-	mockClient.On("UpdateRepoSettings", ctx, "mrz1836/integration-test", presetToRepoSettings(&preset)).Return(nil)
-	mockClient.On("SyncLabels", ctx, "mrz1836/integration-test", presetLabelsToGH(preset.Labels)).Return(nil)
+	mockClient.On("UpdateRepoSettings", ctx, "acme/integration-test", presetToRepoSettings(&preset)).Return(nil)
+	mockClient.On("SyncLabels", ctx, "acme/integration-test", presetLabelsToGH(preset.Labels)).Return(nil)
 	for _, rc := range preset.Rulesets {
-		mockClient.On("CreateOrUpdateRuleset", ctx, "mrz1836/integration-test", configRulesetToGH(&rc)).Return(nil)
+		mockClient.On("CreateOrUpdateRuleset", ctx, "acme/integration-test", configRulesetToGH(&rc)).Return(nil)
 	}
 
 	// Step 1: Scaffold
 	scaffoldOpts := ScaffoldOptions{
 		Name:        "integration-test",
 		Description: "Integration test repo",
-		Owner:       "mrz1836",
+		Owner:       "acme",
 		Preset:      &preset,
 		NoClone:     true,
 	}
@@ -62,9 +62,9 @@ func TestSettingsIntegration_ScaffoldThenAudit(t *testing.T) {
 		SquashMergeCommitTitle:   preset.SquashMergeCommitTitle,
 		SquashMergeCommitMessage: preset.SquashMergeCommitMessage,
 	}
-	mockClient.On("GetRepoSettings", ctx, "mrz1836/integration-test").Return(currentSettings, nil)
+	mockClient.On("GetRepoSettings", ctx, "acme/integration-test").Return(currentSettings, nil)
 
-	auditResult := auditSingleRepo(ctx, mockClient, "mrz1836/integration-test", preset.ID)
+	auditResult := auditSingleRepo(ctx, mockClient, "acme/integration-test", preset.ID)
 	assert.Empty(t, auditResult.Error)
 	assert.Equal(t, 100, auditResult.Score)
 	assert.Equal(t, 0, auditResult.Failed)

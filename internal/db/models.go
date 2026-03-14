@@ -166,7 +166,7 @@ type Client struct {
 	Organizations []Organization `gorm:"foreignKey:ClientID" json:"organizations,omitempty"`
 }
 
-// Organization represents a GitHub organization (e.g., "mrz1836", "bsv-blockchain")
+// Organization represents a GitHub organization (e.g., "my-org", "example-corp")
 type Organization struct {
 	BaseModel
 

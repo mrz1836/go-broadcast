@@ -141,6 +141,6 @@ func TestRunSettingsApply_InvalidRepo(t *testing.T) {
 }
 
 func TestRunSettingsApply_DryRun(t *testing.T) {
-	err := runSettingsApply(t.Context(), "mrz1836/my-repo", "mvp", "", "", false, true)
+	err := runSettingsApply(t.Context(), "acme/my-repo", "mvp", "", "", false, true)
 	require.NoError(t, err)
 }

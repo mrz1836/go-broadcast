@@ -1243,7 +1243,7 @@ func (suite *DirectoryTransformTestSuite) TestVSCodeSettingsRealWorldTransformat
     },
     "go.useLanguageServer": true,
     "gopls": {
-        "formatting.local": "github.com/mrz1836/go-broadcast",
+        "formatting.local": "github.com/acme/go-broadcast",
         "formatting.gofumpt": true
     },
     "go.lintTool": "golangci-lint",
@@ -1268,21 +1268,21 @@ func (suite *DirectoryTransformTestSuite) TestVSCodeSettingsRealWorldTransformat
 
 	// Set up target config for go-pre-commit repository
 	targetConfig := config.TargetConfig{
-		Repo: "mrz1836/go-pre-commit",
+		Repo: "acme/go-pre-commit",
 		Transform: config.Transform{
 			RepoName: true,
 		},
 	}
 
 	sourceState := &state.SourceState{
-		Repo: "mrz1836/go-broadcast",
+		Repo: "acme/go-broadcast",
 	}
 
 	// Create a real engine with the actual repo transformer and a mock GitHub client
 	mockGHClient := gh.NewMockClient()
 	// Configure mock to return the target content for .vscode/settings.json
-	targetSettingsContent := strings.ReplaceAll(settingsContent, "github.com/mrz1836/go-broadcast", "github.com/mrz1836/go-pre-commit")
-	mockGHClient.On("GetFile", mock.Anything, "mrz1836/go-pre-commit", ".vscode/settings.json", "").Return(&gh.FileContent{
+	targetSettingsContent := strings.ReplaceAll(settingsContent, "github.com/acme/go-broadcast", "github.com/acme/go-pre-commit")
+	mockGHClient.On("GetFile", mock.Anything, "acme/go-pre-commit", ".vscode/settings.json", "").Return(&gh.FileContent{
 		Content: []byte(targetSettingsContent),
 	}, nil)
 

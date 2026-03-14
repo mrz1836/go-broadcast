@@ -35,19 +35,19 @@ func newSettingsAuditCmd() *cobra.Command {
 Checks all 12 managed settings, rulesets, and labels. Outputs a score and
 detailed results. Exit code 1 if any checks fail (CI-friendly).`,
 		Example: `  # Audit a single repo
-  go-broadcast settings audit mrz1836/go-broadcast
+  go-broadcast settings audit owner/my-repo
 
   # Audit with specific preset
-  go-broadcast settings audit mrz1836/my-repo --preset go-lib
+  go-broadcast settings audit owner/my-repo --preset go-lib
 
   # Audit all repos in database
   go-broadcast settings audit --all
 
   # Audit and save results to database
-  go-broadcast settings audit mrz1836/my-repo --save
+  go-broadcast settings audit owner/my-repo --save
 
   # JSON output for CI
-  go-broadcast settings audit mrz1836/my-repo --json`,
+  go-broadcast settings audit owner/my-repo --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSettingsAudit(cmd.Context(), args, presetID, org, all, save, format, dryRun, jsonOutput)
 		},

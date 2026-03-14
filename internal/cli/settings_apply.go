@@ -32,16 +32,16 @@ func newSettingsApplyCmd() *cobra.Command {
 Compares current settings against the preset and shows a diff before applying.
 Idempotent: re-running with no changes produces no API calls.`,
 		Example: `  # Apply with default preset
-  go-broadcast settings apply mrz1836/go-broadcast
+  go-broadcast settings apply owner/my-repo
 
   # Apply specific preset
-  go-broadcast settings apply mrz1836/my-repo --preset go-lib
+  go-broadcast settings apply owner/my-repo --preset go-lib
 
   # Preview changes
-  go-broadcast settings apply mrz1836/my-repo --dry-run
+  go-broadcast settings apply owner/my-repo --dry-run
 
   # Apply with topics and description
-  go-broadcast settings apply mrz1836/my-repo --topics "go,library" --description "A Go library"`,
+  go-broadcast settings apply owner/my-repo --topics "go,library" --description "A Go library"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSettingsApply(cmd.Context(), args[0], presetID, topics, description, force, dryRun)

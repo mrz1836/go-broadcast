@@ -34,16 +34,16 @@ func newScaffoldCmd() *cobra.Command {
 Applies repository settings, labels, and rulesets from the specified preset.
 Repositories are always created as private — make public manually when ready.`,
 		Example: `  # Create with default (mvp) preset
-  go-broadcast scaffold mrz1836/my-new-repo "A cool project"
+  go-broadcast scaffold owner/my-new-repo "A cool project"
 
   # Create with specific preset
-  go-broadcast scaffold mrz1836/my-lib "Go library" --preset go-lib
+  go-broadcast scaffold owner/my-lib "Go library" --preset go-lib
 
   # Preview what would be created
-  go-broadcast scaffold mrz1836/my-repo "Test" --dry-run
+  go-broadcast scaffold owner/my-repo "Test" --dry-run
 
   # Create with topics
-  go-broadcast scaffold mrz1836/my-repo "Test" --topics "go,library,tools"`,
+  go-broadcast scaffold owner/my-repo "Test" --topics "go,library,tools"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runScaffold(cmd.Context(), args[0], args[1], presetID, topics, description, noClone, noFiles, dryRun)
@@ -60,7 +60,7 @@ Repositories are always created as private — make public manually when ready.`
 	return cmd
 }
 
-func runScaffold(ctx context.Context, repoName, desc, presetID, topics string, _ string, noClone, noFiles, dryRun bool) error {
+func runScaffold(ctx context.Context, repoName, desc, presetID, topics, _ string, noClone, noFiles, dryRun bool) error {
 	// Parse owner/name
 	parts := strings.Split(repoName, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {

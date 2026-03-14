@@ -24,7 +24,7 @@ import (
 func parseRepoName(fullName string) (owner, name string, err error) {
 	parts := strings.Split(fullName, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("invalid repository format %q, expected owner/name (e.g., mrz1836/go-broadcast)", fullName) //nolint:err113 // user-facing CLI error
+		return "", "", fmt.Errorf("invalid repository format %q, expected owner/name (e.g., owner/repo)", fullName) //nolint:err113 // user-facing CLI error
 	}
 	return parts[0], parts[1], nil
 }

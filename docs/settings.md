@@ -18,13 +18,9 @@ A preset defines:
 - Labels (name, color, description)
 - Rulesets (branch protection, tag protection)
 
-### Built-in Presets
+Presets are fully user-defined. Define them in your `sync.yaml` configuration file under the `settings_presets` key, or create them directly in the database via `db preset create`.
 
-Four presets are defined in `sync.yaml`:
-- **mvp** — Default preset for new repositories
-- **go-lib** — Go library repositories
-- **personal** — Personal repositories
-- **bsva** — BSV Association repositories
+A hardcoded `mvp` default is used as a fallback when no preset is found.
 
 ### Preset Resolution Order
 
@@ -40,17 +36,17 @@ When a command needs a preset, it resolves in this order:
 Create a new private GitHub repository with settings from a preset.
 
 ```bash
-# Create with default (mvp) preset
-go-broadcast scaffold mrz1836/my-new-repo "A cool project"
+# Create with default preset
+go-broadcast scaffold <owner/repo> "Project description"
 
 # Create with specific preset
-go-broadcast scaffold mrz1836/my-lib "Go library" --preset go-lib
+go-broadcast scaffold <owner/repo> "Go library" --preset my-preset
 
 # Preview what would be created
-go-broadcast scaffold mrz1836/my-repo "Test" --dry-run
+go-broadcast scaffold <owner/repo> "Test" --dry-run
 
 # Create with topics
-go-broadcast scaffold mrz1836/my-repo "Test" --topics "go,library,tools"
+go-broadcast scaffold <owner/repo> "Test" --topics "go,library,tools"
 ```
 
 Flags:
@@ -66,16 +62,16 @@ Apply preset settings to an existing repository.
 
 ```bash
 # Apply with default preset
-go-broadcast settings apply mrz1836/go-broadcast
+go-broadcast settings apply <owner/repo>
 
 # Apply specific preset
-go-broadcast settings apply mrz1836/my-repo --preset go-lib
+go-broadcast settings apply <owner/repo> --preset my-preset
 
 # Preview changes
-go-broadcast settings apply mrz1836/my-repo --dry-run
+go-broadcast settings apply <owner/repo> --dry-run
 
 # Apply with topics and description
-go-broadcast settings apply mrz1836/my-repo --topics "go,library" --description "A Go library"
+go-broadcast settings apply <owner/repo> --topics "go,library" --description "A Go library"
 ```
 
 Flags:
@@ -93,22 +89,22 @@ Audit repositories against their assigned preset.
 
 ```bash
 # Audit a single repo
-go-broadcast settings audit mrz1836/go-broadcast
+go-broadcast settings audit <owner/repo>
 
 # Audit with specific preset
-go-broadcast settings audit mrz1836/my-repo --preset go-lib
+go-broadcast settings audit <owner/repo> --preset my-preset
 
 # Audit all repos in database
 go-broadcast settings audit --all
 
 # Audit all repos in an organization
-go-broadcast settings audit --org mrz1836
+go-broadcast settings audit --org <org-name>
 
 # Audit and save results to database
-go-broadcast settings audit mrz1836/my-repo --save
+go-broadcast settings audit <owner/repo> --save
 
 # JSON output for CI
-go-broadcast settings audit mrz1836/my-repo --json
+go-broadcast settings audit <owner/repo> --json
 ```
 
 Flags:
@@ -131,16 +127,16 @@ Manage settings presets in the database.
 go-broadcast db preset list
 
 # Show preset details
-go-broadcast db preset show mvp
+go-broadcast db preset show <preset-id>
 
 # Create a new preset with defaults
-go-broadcast db preset create my-preset --name "My Preset"
+go-broadcast db preset create <preset-id> --name "My Preset"
 
 # Delete a preset
-go-broadcast db preset delete my-preset
+go-broadcast db preset delete <preset-id>
 
 # Assign a preset to a repository
-go-broadcast db preset assign mvp mrz1836/my-repo
+go-broadcast db preset assign <preset-id> <owner/repo>
 
 # Import presets from sync.yaml
 go-broadcast db preset import
@@ -172,10 +168,10 @@ The command exits with code 1 if any checks fail, making it suitable for CI gate
 
 ## Workflow
 
-1. Define presets in `sync.yaml` under `settings_presets`
+1. Define presets in your `sync.yaml` under `settings_presets`
 2. Import presets to database: `go-broadcast db preset import`
-3. Assign presets to repos: `go-broadcast db preset assign mvp mrz1836/my-repo`
-4. Apply settings: `go-broadcast settings apply mrz1836/my-repo`
+3. Assign presets to repos: `go-broadcast db preset assign <preset-id> <owner/repo>`
+4. Apply settings: `go-broadcast settings apply <owner/repo>`
 5. Audit periodically: `go-broadcast settings audit --all --save`
 
 The `analytics sync` command automatically backfills merge settings for all repos at zero additional API cost.
