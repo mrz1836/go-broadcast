@@ -144,3 +144,13 @@ func TestRunSettingsApply_DryRun(t *testing.T) {
 	err := runSettingsApply(t.Context(), "acme/my-repo", "mvp", "", "", false, true)
 	require.NoError(t, err)
 }
+
+func TestRunSettingsApply_DryRun_WithTopics(t *testing.T) {
+	err := runSettingsApply(t.Context(), "acme/repo", "mvp", "go,library", "", false, true)
+	require.NoError(t, err)
+}
+
+func TestRunSettingsApply_DryRun_WithDescription(t *testing.T) {
+	err := runSettingsApply(t.Context(), "acme/repo", "mvp", "", "My library", false, true)
+	require.NoError(t, err)
+}

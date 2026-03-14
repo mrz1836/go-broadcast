@@ -148,3 +148,14 @@ func TestResolveAuditRepos_NoArgs(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "specify repos, --org, or --all")
 }
+
+func TestRunSettingsAudit_DryRun(t *testing.T) {
+	err := runSettingsAudit(t.Context(), []string{"owner/repo1", "owner/repo2"}, "", "", false, false, "table", true, false)
+	require.NoError(t, err)
+}
+
+func TestRunSettingsAudit_ResolveError(t *testing.T) {
+	err := runSettingsAudit(t.Context(), nil, "", "", false, false, "table", false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "specify repos, --org, or --all")
+}

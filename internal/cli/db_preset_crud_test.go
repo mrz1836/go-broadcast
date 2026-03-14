@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -201,6 +202,146 @@ func TestConfigPresetToDBPreset(t *testing.T) {
 	assert.Equal(t, "active", result.Rulesets[0].Enforcement) // Default enforcement
 	assert.Equal(t, "tag-protection", result.Rulesets[1].Name)
 	assert.Equal(t, "evaluate", result.Rulesets[1].Enforcement) // Explicit enforcement
+}
+
+func TestPresetAssign_Success(t *testing.T) {
+	cleanup := setupPresetTestDB(t)
+	defer cleanup()
+
+	// Create a preset first
+	_, err := captureJSON(t, func() error {
+		return runPresetCreate("assign-test", "Assign Test", "desc", true)
+	})
+	require.NoError(t, err)
+
+	resp, err := captureJSON(t, func() error {
+		return runPresetAssign("assign-test", "owner/repo", true)
+	})
+	require.NoError(t, err)
+	assert.True(t, resp.Success)
+	assert.Equal(t, "assigned", resp.Action)
+}
+
+func TestPresetAssign_PresetNotFound(t *testing.T) {
+	cleanup := setupPresetTestDB(t)
+	defer cleanup()
+
+	resp, err := captureJSON(t, func() error {
+		return runPresetAssign("nonexistent-preset", "owner/repo", true)
+	})
+	require.NoError(t, err)
+	assert.False(t, resp.Success)
+	assert.Contains(t, resp.Error, "not found")
+}
+
+func TestPresetAssign_JSONOutput(t *testing.T) {
+	cleanup := setupPresetTestDB(t)
+	defer cleanup()
+
+	_, err := captureJSON(t, func() error {
+		return runPresetCreate("json-assign", "JSON Assign", "", true)
+	})
+	require.NoError(t, err)
+
+	resp, err := captureJSON(t, func() error {
+		return runPresetAssign("json-assign", "acme/my-repo", true)
+	})
+	require.NoError(t, err)
+	assert.True(t, resp.Success)
+	assert.Equal(t, "assigned", resp.Action)
+	assert.Equal(t, "preset", resp.Type)
+}
+
+func TestPresetImport_Success(t *testing.T) {
+	cleanup := setupPresetTestDB(t)
+	defer cleanup()
+
+	configContent := `version: 1
+groups: []
+settings_presets:
+  - id: import-preset
+    name: Import Preset
+    has_issues: true
+    allow_squash_merge: true
+`
+	configPath := filepath.Join(t.TempDir(), "sync.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o600))
+
+	resp, err := captureJSON(t, func() error {
+		return runPresetImport(configPath, true)
+	})
+	require.NoError(t, err)
+	assert.True(t, resp.Success)
+	assert.Equal(t, "imported", resp.Action)
+	assert.Equal(t, 1, resp.Count)
+}
+
+func TestPresetImport_NoPresetsInConfig(t *testing.T) {
+	configContent := `version: 1
+groups: []
+`
+	configPath := filepath.Join(t.TempDir(), "sync.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o600))
+
+	resp, err := captureJSON(t, func() error {
+		return runPresetImport(configPath, true)
+	})
+	require.NoError(t, err)
+	assert.False(t, resp.Success)
+	assert.Contains(t, resp.Error, "no settings_presets")
+}
+
+func TestPresetImport_InvalidConfigPath(t *testing.T) {
+	resp, err := captureJSON(t, func() error {
+		return runPresetImport("/nonexistent/path/sync.yaml", true)
+	})
+	require.NoError(t, err)
+	assert.False(t, resp.Success)
+	assert.NotEmpty(t, resp.Error)
+}
+
+func TestPresetImport_MultiplePresets(t *testing.T) {
+	cleanup := setupPresetTestDB(t)
+	defer cleanup()
+
+	configContent := `version: 1
+groups: []
+settings_presets:
+  - id: multi-preset-1
+    name: Multi Preset 1
+    has_issues: true
+    allow_squash_merge: true
+  - id: multi-preset-2
+    name: Multi Preset 2
+    has_issues: false
+    allow_merge_commit: true
+`
+	configPath := filepath.Join(t.TempDir(), "sync.yaml")
+	require.NoError(t, os.WriteFile(configPath, []byte(configContent), 0o600))
+
+	resp, err := captureJSON(t, func() error {
+		return runPresetImport(configPath, true)
+	})
+	require.NoError(t, err)
+	assert.True(t, resp.Success)
+	assert.Equal(t, 2, resp.Count)
+}
+
+func TestPresetDelete_HardDelete(t *testing.T) {
+	cleanup := setupPresetTestDB(t)
+	defer cleanup()
+
+	_, err := captureJSON(t, func() error {
+		return runPresetCreate("hard-del-test", "Hard Delete Test", "", true)
+	})
+	require.NoError(t, err)
+
+	resp, err := captureJSON(t, func() error {
+		return runPresetDelete("hard-del-test", true, true)
+	})
+	require.NoError(t, err)
+	assert.True(t, resp.Success)
+	assert.Equal(t, "hard-deleted", resp.Action)
 }
 
 func TestBuildPresetDetailResult(t *testing.T) {
