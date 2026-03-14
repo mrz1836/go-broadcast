@@ -48,6 +48,7 @@ paths = [
     '''(?i)test/.*''',
     '''plans/.*\.md$''',
     '''docs/.*\.md$''',
+    '''\.github/tech-conventions/.*\.md$''',
     '''examples/.*''',
     '''internal/fuzz/corpus/.*''',
     '''(?i)testdata/.*''',
