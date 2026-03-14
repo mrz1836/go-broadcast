@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="93" height="28" role="img" aria-label="Coverage status: good">
+  <title>Coverage status: good</title>
+  <g shape-rendering="crispEdges">
+    <rect width="47" height="28" fill="#555"/>
+    <rect x="47" width="46" height="28" fill="#7c3aed"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="11" font-weight="bold">
+    
+    <text x="25" y="19">STATUS</text>
+    <text x="68" y="19">GOOD</text>
+  </g>
+</svg>

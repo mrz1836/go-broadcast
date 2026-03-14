@@ -1,0 +1,50 @@
+# GitHub Pages Deployment Filter
+# This file is used to control what gets deployed to the gh-pages branch
+# It ensures only coverage-related files are included in GitHub Pages
+
+# Ignore everything by default
+/*
+
+# Allow essential coverage files
+!/.gitignore
+!/.nojekyll
+!/index.html
+!/dashboard.html
+!/coverage.html
+!/coverage.svg
+!/branches.html
+!/coverage-data.json
+
+# Allow favicon and manifest files
+!/favicon.ico
+!/favicon.svg
+!/favicon-16.svg
+!/*.png
+!/site.webmanifest
+
+# Allow coverage-related directories
+!/coverage/
+!/data/
+!/assets/
+
+# Allow all subdirectories and their contents
+# This ensures branch-specific and PR coverage is included
+!**/
+
+# Explicitly ignore common non-coverage files that might sneak in
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*.swo
+node_modules/
+.git/
+.github/
+*.md
+go.mod
+go.sum
+*.go
+Makefile
+.cursorrules
+CITATION.cff

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mrz1836/go-broadcast Coverage Dashboard</title>
+    <meta name="description" content="Coverage tracking and analytics for mrz1836/go-broadcast">
+
+    
+    <link rel="icon" type="image/x-icon" href="./assets/images/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="./assets/images/favicon.svg">
+    <link rel="shortcut icon" href="./assets/images/favicon.ico">
+    <link rel="manifest" href="./assets/site.webmanifest">
+
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    
+    <link rel="stylesheet" href="./assets/css/coverage.css">
+
+    
+    <meta property="og:title" content="mrz1836/go-broadcast Coverage Report">
+    <meta property="og:description" content="Code coverage analysis for mrz1836/go-broadcast">
+    <meta property="og:type" content="website">
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-VKFVWG6GXM"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-VKFVWG6GXM');
+    </script>
+
+</head>
+<body>
+    <div class="theme-toggle fixed" onclick="toggleTheme()" aria-label="Toggle theme">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 18c-3.3 0-6-2.7-6-6s2.7-6 6-6 6 2.7 6 6-2.7 6-6 6z"/>
+        </svg>
+    </div>
+
+    <div class="container">
+        <header class="header enhanced">
+            <div class="header-content">
+                <div class="header-main">
+                    <h1>PR #51 Coverage</h1>
+                    <p class="subtitle">Coverage analysis for this pull request</p>
+                </div>
+
+                <div class="header-status">
+                    <div class="status-indicator">
+                        <span class="status-dot active"></span>
+                        <span class="status-text">Coverage Active</span>
+                    </div>
+                    <div class="last-sync">
+                        <span>🕐 <span class="dynamic-timestamp" data-timestamp="2025-12-08T13:32:21Z">2025-12-08 13:32:21 UTC</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="repo-info-enhanced">
+                <div class="repo-details">
+                    <a href="https://github.com/mrz1836/go-broadcast" target="_blank" class="repo-item repo-item-clickable">
+                        <span class="repo-icon">📦</span>
+                        <span class="repo-label">Repository</span>
+                        <span class="repo-value repo-link-light">mrz1836/go-broadcast</span>
+                    </a>
+                    <a href="https://github.com/mrz1836" target="_blank" class="repo-item repo-item-clickable">
+                        <span class="repo-icon">👤</span>
+                        <span class="repo-label">Owner</span>
+                        <span class="repo-value">mrz1836</span>
+                    </a>
+                    <a href="https://github.com/mrz1836/go-broadcast/tree/51/merge" target="_blank" class="repo-item repo-item-clickable">
+                        <span class="repo-icon">🌿</span>
+                        <span class="repo-label">Branch</span>
+                        <span class="repo-value">51/merge</span>
+                    </a>
+                        <a href="https://github.com/mrz1836/go-broadcast/commit/9e111fb65814de2d3ef9def6cd667eb3c3b7a5de" target="_blank" class="repo-item repo-item-clickable">
+                            <span class="repo-icon">🔗</span>
+                            <span class="repo-label">Commit</span>
+                            <span class="repo-value commit-link">9e111fb</span>
+                        </a>
+                </div>
+
+                <div class="header-actions">
+                    <button class="action-btn primary" onclick="window.location.reload()">
+                        <span class="btn-icon">🔄</span>
+                        <span class="btn-text">Refresh</span>
+                    </button>
+                    <button class="action-btn secondary" onclick="window.open('./coverage.html', '_blank')">
+                        <span class="btn-icon">📄</span>
+                        <span class="btn-text">Detailed Report</span>
+                    </button>
+                    <button class="action-btn secondary" onclick="window.open('https:\/\/github.com\/mrz1836\/go-broadcast', '_blank')">
+                        <span class="btn-icon">📦</span>
+                        <span class="btn-text">Repository</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <h3>📊 Overall Coverage</h3>
+                    <div class="metric-value success">81.1%</div>
+                    <div class="metric-label">PR Coverage</div>
+                    <div class="coverage-bar">
+                        <div class="coverage-fill" style="width: 81.1%; background:var(--gradient-primary);"></div>
+                    </div>
+                        <div class="status-badge">
+                            🆕 New PR Coverage
+                        </div>
+                </div>
+
+                <div class="metric-card">
+                    <h3>📁 Packages</h3>
+                    <div class="metric-value">36</div>
+                    <div class="metric-label">Packages analyzed</div>
+                    <div style="margin-top: 1rem;">
+                        <div style="font-size: 0.9rem; color: var(--color-text-secondary);">
+                            • All packages tracked
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <h3>🎯 Quality Gate</h3>
+                    <div class="quality-gate-badge">
+                        <svg class="quality-gate-icon" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" fill="currentColor" fill-opacity="0.1"/>
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M8.5 12.5L10.5 14.5L15.5 9.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span class="quality-gate-text">PASSED</span>
+                    </div>
+                    <div class="metric-label">Threshold: 80% (exceeded)</div>
+                    <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--color-success);">
+                        Coverage meets quality standards
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <h3>🔄 Coverage Trend</h3>
+                    
+                        <div class="metric-value" style="font-size: 1.5rem;">📊</div>
+                        <div class="metric-label">Trend Analysis</div>
+                        <div style="margin-top: 1rem;">
+                            
+                                <div style="font-size: 0.9rem; color: var(--color-primary);">
+                                    
+                                        📊 PR Coverage Analysis
+                                    
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 0.5rem;">
+                                    
+                                        Base branch comparison pending
+                                    
+                                </div>
+                            
+                        </div>
+                    
+                </div>
+            </div>
+
+            <div class="links-section">
+                <h3 style="margin-bottom: 1rem;">📋 Coverage Reports & Tools</h3>
+                <div class="links-grid">
+                    <a href="./coverage.html" class="link-item" target="_blank">
+                        📄 Detailed HTML Report
+                    </a>
+                    <button class="link-item" onclick="copyBadgeURL(event, 'https:\/\/mrz1836.github.io\/go-broadcast\/coverage.svg')">
+                        🏷️ <span class="btn-text">Copy Badge URL</span>
+                    </button>
+                    <a href="https://github.com/mrz1836/go-broadcast" class="link-item" target="_blank">
+                        📦 Source Repository
+                    </a>
+                    <a href="https://github.com/mrz1836/go-broadcast/actions" class="link-item" target="_blank">
+                        🚀 GitHub Actions
+                    </a>
+                </div>
+            </div>
+            <div class="package-list dashboard">
+                <h3 style="margin-bottom: 1rem;">📦 Package Coverage</h3>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">profiling</div>
+                    <div class="package-coverage" style="color:#58a6ff;">86.52%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 86.52%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">suite</div>
+                    <div class="package-coverage" style="color:#58a6ff;">86.27%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 86.27%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">version</div>
+                    <div class="package-coverage" style="color:#d29922;">70.15%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 70.15%; background:var(--gradient-warning);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">fuzz</div>
+                    <div class="package-coverage" style="color:#3fb950;">94.78%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 94.78%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">output</div>
+                    <div class="package-coverage" style="color:#3fb950;">100%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">go-broadcast</div>
+                    <div class="package-coverage" style="color:#58a6ff;">80%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 80%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">strutil</div>
+                    <div class="package-coverage" style="color:#3fb950;">98.29%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 98.29%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">git</div>
+                    <div class="package-coverage" style="color:#58a6ff;">87.72%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 87.72%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">pool</div>
+                    <div class="package-coverage" style="color:#3fb950;">96.83%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 96.83%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">config</div>
+                    <div class="package-coverage" style="color:#d29922;">79.83%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 79.83%; background:var(--gradient-warning);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">algorithms</div>
+                    <div class="package-coverage" style="color:#3fb950;">91.7%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 91.7%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">gh</div>
+                    <div class="package-coverage" style="color:#58a6ff;">88.56%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 88.56%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">mocks</div>
+                    <div class="package-coverage" style="color:#f85149;">0%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 0%; background:var(--gradient-danger);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">generate-corpus</div>
+                    <div class="package-coverage" style="color:#58a6ff;">83.33%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 83.33%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">cli</div>
+                    <div class="package-coverage" style="color:#d29922;">67.55%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 67.55%; background:var(--gradient-warning);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">profile_demo</div>
+                    <div class="package-coverage" style="color:#58a6ff;">84.76%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 84.76%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">run-benchmarks</div>
+                    <div class="package-coverage" style="color:#f85149;">0%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 0%; background:var(--gradient-danger);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">jsonutil</div>
+                    <div class="package-coverage" style="color:#3fb950;">95%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 95%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">state</div>
+                    <div class="package-coverage" style="color:#3fb950;">97.04%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 97.04%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">validation</div>
+                    <div class="package-coverage" style="color:#3fb950;">100%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">io</div>
+                    <div class="package-coverage" style="color:#3fb950;">94.66%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 94.66%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">monitoring</div>
+                    <div class="package-coverage" style="color:#3fb950;">93.86%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 93.86%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">testutil</div>
+                    <div class="package-coverage" style="color:#58a6ff;">81.51%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 81.51%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">errors</div>
+                    <div class="package-coverage" style="color:#3fb950;">100%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">cache</div>
+                    <div class="package-coverage" style="color:#3fb950;">97.01%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 97.01%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">magefiles</div>
+                    <div class="package-coverage" style="color:#d29922;">73.21%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 73.21%; background:var(--gradient-warning);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">worker</div>
+                    <div class="package-coverage" style="color:#3fb950;">100%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 100%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">metrics</div>
+                    <div class="package-coverage" style="color:#3fb950;">96.3%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 96.3%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">benchmark</div>
+                    <div class="package-coverage" style="color:#3fb950;">97.02%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 97.02%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">env</div>
+                    <div class="package-coverage" style="color:#d29922;">73.91%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 73.91%; background:var(--gradient-warning);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">reporting</div>
+                    <div class="package-coverage" style="color:#3fb950;">92.68%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 92.68%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">sync</div>
+                    <div class="package-coverage" style="color:#d29922;">78.63%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 78.63%; background:var(--gradient-warning);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">logging</div>
+                    <div class="package-coverage" style="color:#3fb950;">92.37%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 92.37%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">transform</div>
+                    <div class="package-coverage" style="color:#3fb950;">96.84%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 96.84%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">test-cleanup</div>
+                    <div class="package-coverage" style="color:#58a6ff;">80.26%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 80.26%; background:var(--gradient-primary);"></div>
+                    </div>
+                </div>
+                <div class="package-item dashboard">
+                    <div class="package-name dashboard">memory</div>
+                    <div class="package-coverage" style="color:#3fb950;">96.18%</div>
+                    <div class="package-bar">
+                        <div class="package-bar-fill" style="width: 96.18%; background:var(--gradient-success);"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+    
+    <footer class="footer">
+        <div class="footer-content dashboard">
+            <div class="footer-info">
+                <div class="footer-version">
+                    <a href="https://github.com/mrz1836/go-broadcast/releases/tag/v1.11.7" target="_blank" class="version-link">
+                        <span class="version-icon">🏷️</span>
+                        <span class="version-text">v1.11.7</span>
+                    </a>
+                </div>
+                <span class="footer-separator">•</span>
+                <div class="footer-powered">
+                    <span class="powered-text">Powered by</span>
+                    <a href="https://github.com/mrz1836/go-coverage" target="_blank" class="go-coverage-link">
+                        <span class="coverage-icon">📊</span>
+                        <span class="coverage-text">go-coverage</span>
+                    </a>
+                </div>
+                <span class="footer-separator">•</span>
+                <div class="footer-timestamp">
+                    <span class="timestamp-icon">🕐</span>
+                    <span class="timestamp-text dynamic-timestamp" data-timestamp="2025-12-08T13:32:21Z">Generated 2025-12-08 13:32:21 UTC</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+    <script src="./assets/js/coverage-time.js"></script>
+	<script src="./assets/js/theme.js"></script>
+    </div>
+
+</body>
+</html>
