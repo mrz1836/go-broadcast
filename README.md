@@ -8,7 +8,7 @@
 
 <a href="https://github.com/mrz1836/go-broadcast/releases"><img src="https://img.shields.io/github/release-pre/mrz1836/go-broadcast?include_prereleases&style=flat-square&logo=github&color=black" alt="Release"></a>
 <a href="https://golang.org/"><img src="https://img.shields.io/github/go-mod/go-version/mrz1836/go-broadcast?style=flat-square&logo=go&color=00ADD8" alt="Go Version"></a>
-<a href="https://github.com/mrz1836/go-broadcast/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mrz1836/go-broadcast?style=flat-square&color=blue" alt="License"></a>
+<a href="https://github.com/mrz1836/go-broadcast/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mrz1836/go-broadcast?style=flat-square&color=blue&v=1" alt="License"></a>
 
 <br/>
 
