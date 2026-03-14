@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
 
 	"github.com/mrz1836/go-broadcast/internal/db"
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
@@ -539,11 +542,18 @@ func newDBTargetCloneCmd() *cobra.Command {
 		prAssignees     string
 		prReviewers     string
 		prTeamReviewers string
+		createRepo      bool
+		presetID        string
+		topicsStr       string
+		noFiles         bool
+		noCloneRepo     bool
 	)
 	cmd := &cobra.Command{
 		Use:   "clone",
 		Short: "Clone a target with all its mappings",
-		Long:  `Deep-copy a target and all its child records (file mappings, directory mappings, transforms, list refs) to a new repository.`,
+		Long: `Deep-copy a target and all its child records (file mappings, directory mappings, transforms, list refs) to a new repository.
+
+With --create-repo, also creates the GitHub repository using the scaffold flow before cloning the target.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runTargetClone(cmd, groupID, from, to, branch, prLabels, prAssignees, prReviewers, prTeamReviewers, jsonOutput)
 		},
@@ -557,6 +567,17 @@ func newDBTargetCloneCmd() *cobra.Command {
 	cmd.Flags().StringVar(&prAssignees, "pr-assignees", "", "Override comma-separated PR assignees")
 	cmd.Flags().StringVar(&prReviewers, "pr-reviewers", "", "Override comma-separated PR reviewers")
 	cmd.Flags().StringVar(&prTeamReviewers, "pr-team-reviewers", "", "Override comma-separated PR team reviewers")
+	cmd.Flags().BoolVar(&createRepo, "create-repo", false, "Create the GitHub repository before cloning target")
+	cmd.Flags().StringVar(&presetID, "preset", "mvp", "Settings preset ID (used with --create-repo)")
+	cmd.Flags().StringVar(&topicsStr, "topics", "", "Comma-separated topics (used with --create-repo)")
+	cmd.Flags().BoolVar(&noFiles, "no-files", false, "Skip initial file creation (used with --create-repo)")
+	cmd.Flags().BoolVar(&noCloneRepo, "no-clone-repo", false, "Don't clone repository locally (used with --create-repo)")
+	// Keep unused vars referenced to avoid compile error
+	_ = createRepo
+	_ = presetID
+	_ = topicsStr
+	_ = noFiles
+	_ = noCloneRepo
 	_ = cmd.MarkFlagRequired("group")
 	_ = cmd.MarkFlagRequired("from")
 	_ = cmd.MarkFlagRequired("to")
@@ -564,13 +585,65 @@ func newDBTargetCloneCmd() *cobra.Command {
 }
 
 func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branch, prLabels, prAssignees, prReviewers, prTeamReviewers string, jsonOutput bool) error {
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// If --create-repo is set, run scaffold flow first
+	if cmd.Flags().Changed("create-repo") {
+		presetID, _ := cmd.Flags().GetString("preset")
+		topicsStr, _ := cmd.Flags().GetString("topics")
+		noFiles, _ := cmd.Flags().GetBool("no-files")
+		noCloneRepo, _ := cmd.Flags().GetBool("no-clone-repo")
+
+		var topicList []string
+		if topicsStr != "" {
+			topicList = strings.Split(topicsStr, ",")
+			for i := range topicList {
+				topicList[i] = strings.TrimSpace(topicList[i])
+			}
+		}
+
+		preset := resolvePreset(ctx, presetID)
+
+		repoParts := strings.Split(toRepo, "/")
+		if len(repoParts) != 2 {
+			return printErrorResponse("target", "cloned",
+				fmt.Sprintf("invalid repo format %q", toRepo), "", jsonOutput)
+		}
+
+		logger := logrus.StandardLogger()
+		ghClient, ghErr := gh.NewClient(ctx, logger, &logging.LogConfig{})
+		if ghErr != nil {
+			return printErrorResponse("target", "cloned",
+				fmt.Sprintf("GitHub client: %v", ghErr), "", jsonOutput)
+		}
+
+		_, scaffoldErr := RunScaffold(ctx, ghClient, ScaffoldOptions{
+			Name:    repoParts[1],
+			Owner:   repoParts[0],
+			Preset:  preset,
+			Topics:  topicList,
+			NoClone: noCloneRepo,
+			NoFiles: noFiles,
+		})
+		if scaffoldErr != nil {
+			return printErrorResponse("target", "cloned",
+				fmt.Sprintf("scaffold failed: %v", scaffoldErr),
+				fmt.Sprintf("partial cleanup: gh repo delete %s --yes", toRepo),
+				jsonOutput)
+		}
+
+		output.Success(fmt.Sprintf("Repository %s created, now cloning target...", toRepo))
+	}
+
 	database, err := openDatabase()
 	if err != nil {
 		return printErrorResponse("target", "cloned", err.Error(), "", jsonOutput)
 	}
 	defer func() { _ = database.Close() }()
 
-	ctx := context.Background()
 	gormDB := database.DB()
 
 	// Resolve group
