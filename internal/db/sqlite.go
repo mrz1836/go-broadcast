@@ -103,5 +103,10 @@ func AutoMigrate(db *gorm.DB) error {
 		&BroadcastSyncRun{},
 		&BroadcastSyncTargetResult{},
 		&BroadcastSyncFileChange{},
+		// Settings preset models from T-31
+		&SettingsPreset{},
+		&SettingsPresetLabel{},
+		&SettingsPresetRuleset{},
+		&RepoSettingsAudit{},
 	)
 }

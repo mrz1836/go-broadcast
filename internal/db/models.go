@@ -213,6 +213,18 @@ type Repo struct {
 	SecretScanningEnabled bool `gorm:"default:false" json:"secret_scanning_enabled"` // Secret scanning enabled
 	PushProtectionEnabled bool `gorm:"default:false" json:"push_protection_enabled"` // Secret scanning push protection enabled
 
+	// Merge strategy settings (fetched via REST API)
+	AllowSquashMerge         bool   `gorm:"default:false" json:"allow_squash_merge"`
+	AllowMergeCommit         bool   `gorm:"default:false" json:"allow_merge_commit"`
+	AllowRebaseMerge         bool   `gorm:"default:false" json:"allow_rebase_merge"`
+	DeleteBranchOnMerge      bool   `gorm:"default:false" json:"delete_branch_on_merge"`
+	SquashMergeCommitTitle   string `gorm:"type:text" json:"squash_merge_commit_title"`
+	SquashMergeCommitMessage string `gorm:"type:text" json:"squash_merge_commit_message"`
+
+	// Settings preset assignment
+	SettingsPresetID *uint           `gorm:"index" json:"settings_preset_id,omitempty"`
+	SettingsPreset   *SettingsPreset `gorm:"foreignKey:SettingsPresetID" json:"settings_preset,omitempty"`
+
 	// URLs
 	HTMLURL  string `gorm:"type:text" json:"html_url"`  // GitHub web URL
 	SSHURL   string `gorm:"type:text" json:"ssh_url"`   // SSH clone URL

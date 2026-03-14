@@ -55,6 +55,7 @@ func init() {
 	dbCmd.AddCommand(newDBDirCmd())
 	dbCmd.AddCommand(newDBRefCmd())
 	dbCmd.AddCommand(newDBBulkCmd())
+	dbCmd.AddCommand(newDBPresetCmd())
 }
 
 // getDBPath returns the database path, using default if not specified

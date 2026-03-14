@@ -399,6 +399,14 @@ func applyRepoSettings(repo *db.Repo, settings *gh.Repository) {
 	repo.DependabotEnabled = settings.SecurityAndAnalysis.DependabotSecurityUpdates.Status == "enabled"
 	repo.SecretScanningEnabled = settings.SecurityAndAnalysis.SecretScanning.Status == "enabled"
 	repo.PushProtectionEnabled = settings.SecurityAndAnalysis.SecretScanningPushProtection.Status == "enabled"
+
+	// Merge strategy settings (backfilled from REST API at zero cost)
+	repo.AllowSquashMerge = settings.AllowSquashMerge
+	repo.AllowMergeCommit = settings.AllowMergeCommit
+	repo.AllowRebaseMerge = settings.AllowRebaseMerge
+	repo.DeleteBranchOnMerge = settings.DeleteBranchOnMerge
+	repo.SquashMergeCommitTitle = settings.SquashMergeCommitTitle
+	repo.SquashMergeCommitMessage = settings.SquashMergeCommitMessage
 }
 
 // fetchContributorCount returns the contributor count for a repo, logging warnings on error.

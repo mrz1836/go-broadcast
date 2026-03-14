@@ -107,6 +107,22 @@ type DirectoryListRepository interface {
 	ListWithDirectories(ctx context.Context, configID uint) ([]*DirectoryList, error)
 }
 
+// SettingsPresetRepository manages SettingsPreset CRUD operations
+type SettingsPresetRepository interface {
+	Create(ctx context.Context, preset *SettingsPreset) error
+	GetByID(ctx context.Context, id uint) (*SettingsPreset, error)
+	GetByExternalID(ctx context.Context, externalID string) (*SettingsPreset, error)
+	Update(ctx context.Context, preset *SettingsPreset) error
+	Delete(ctx context.Context, id uint, hard bool) error
+	List(ctx context.Context) ([]*SettingsPreset, error)
+	// ImportFromConfig upserts a preset by ExternalID, replacing children
+	ImportFromConfig(ctx context.Context, preset *SettingsPreset) error
+	// AssignPresetToRepo sets Repo.SettingsPresetID
+	AssignPresetToRepo(ctx context.Context, repoID, presetID uint) error
+	// GetPresetForRepo returns the assigned preset or nil
+	GetPresetForRepo(ctx context.Context, repoID uint) (*SettingsPreset, error)
+}
+
 // QueryRepository provides cross-entity query operations
 type QueryRepository interface {
 	// FindByFile finds all targets that sync a specific file path
