@@ -88,7 +88,7 @@ go-broadcast db import sync.yaml
 go-broadcast db query --file .github/workflows/ci.yml
 
 # What files sync to this repo?
-go-broadcast db query --repo mrz1836/my-repo
+go-broadcast db query --repo owner/my-repo
 
 # Which targets use this file list?
 go-broadcast db query --file-list ai-files
@@ -101,7 +101,7 @@ go-broadcast db query --file-list ai-files
 go-broadcast db export --output sync-exported.yaml
 
 # Export single group
-go-broadcast db export --group mrz-tools --output group.yaml
+go-broadcast db export --group my-tools --output group.yaml
 
 # Export to stdout
 go-broadcast db export --stdout
@@ -125,7 +125,7 @@ go-broadcast status --from-db --json
 go-broadcast validate --from-db
 
 # Cancel operations using database configuration
-go-broadcast cancel --from-db --groups "bitcoin-schema"
+go-broadcast cancel --from-db --groups "my-group"
 
 # List modules from database
 go-broadcast modules list --from-db
@@ -262,7 +262,7 @@ go-broadcast modules list --from-db
 |--------|------|-------------|
 | `id` | uint | Primary key |
 | `client_id` | uint | Foreign key to `clients` |
-| `name` | text | Organization name (unique, e.g. "mrz1836") |
+| `name` | text | Organization name (unique, e.g. "my-org") |
 | `description` | text | Organization description |
 | `metadata` | text | JSON metadata |
 | `created_at` | datetime | Creation timestamp |
@@ -1046,7 +1046,7 @@ By default, import performs a **full replacement**: all existing data is deleted
 go-broadcast db export --output backup.yaml
 
 # Export single group for review
-go-broadcast db export --group mrz-tools --output review.yaml
+go-broadcast db export --group my-tools --output review.yaml
 
 # Export to stdout (pipe to other tools)
 go-broadcast db export --stdout | yq eval '.groups[0].name'
@@ -1139,7 +1139,7 @@ go-broadcast db import sync.yaml --db-path /tmp/test.db
 go-broadcast db export --output sync.yaml
 
 # Export single group
-go-broadcast db export --group mrz-tools --output group.yaml
+go-broadcast db export --group my-tools --output group.yaml
 
 # Export to stdout
 go-broadcast db export --stdout
@@ -1155,7 +1155,7 @@ go-broadcast db export --stdout
 go-broadcast db query --file .github/workflows/ci.yml
 
 # What files sync to this repo?
-go-broadcast db query --repo mrz1836/my-repo
+go-broadcast db query --repo owner/my-repo
 
 # Which targets use this file list?
 go-broadcast db query --file-list ai-files
@@ -1236,8 +1236,8 @@ go-broadcast db group list --json
 <summary><code>db group get &lt;id&gt;</code> — Show group details</summary>
 
 ```bash
-go-broadcast db group get mrz-tools
-go-broadcast db group get mrz-tools --json
+go-broadcast db group get my-tools
+go-broadcast db group get my-tools --json
 ```
 
 **Output:** Full group details including source repo, branch, global/default settings, and all targets.
@@ -1249,9 +1249,9 @@ go-broadcast db group get mrz-tools --json
 
 ```bash
 go-broadcast db group create \
-  --id mrz-tools \
-  --name "MRZ Tools" \
-  --source-repo mrz1836/go-broadcast \
+  --id my-tools \
+  --name "My Tools" \
+  --source-repo owner/my-project \
   --source-branch main \
   --json
 
@@ -1259,7 +1259,7 @@ go-broadcast db group create \
 go-broadcast db group create \
   --id security-group \
   --name "Security Group" \
-  --source-repo mrz1836/go-broadcast \
+  --source-repo owner/my-project \
   --source-branch main \
   --description "Security-related files" \
   --priority 10 \
@@ -1277,8 +1277,8 @@ go-broadcast db group create \
 <summary><code>db group update &lt;id&gt;</code> — Update group fields</summary>
 
 ```bash
-go-broadcast db group update mrz-tools --name "MRZ Tools v2" --json
-go-broadcast db group update mrz-tools --description "Updated description" --priority 5 --json
+go-broadcast db group update my-tools --name "My Tools v2" --json
+go-broadcast db group update my-tools --description "Updated description" --priority 5 --json
 ```
 
 **Updatable fields:** `--name`, `--description`, `--priority`
@@ -1290,10 +1290,10 @@ go-broadcast db group update mrz-tools --description "Updated description" --pri
 
 ```bash
 # Soft delete (reversible)
-go-broadcast db group delete mrz-tools --json
+go-broadcast db group delete my-tools --json
 
 # Hard delete (permanent, requires no FK dependencies)
-go-broadcast db group delete mrz-tools --hard --json
+go-broadcast db group delete my-tools --hard --json
 ```
 
 </details>
@@ -1302,8 +1302,8 @@ go-broadcast db group delete mrz-tools --hard --json
 <summary><code>db group enable/disable &lt;id&gt;</code> — Toggle group enabled state</summary>
 
 ```bash
-go-broadcast db group enable mrz-tools --json
-go-broadcast db group disable mrz-tools --json
+go-broadcast db group enable my-tools --json
+go-broadcast db group disable my-tools --json
 ```
 
 </details>
@@ -1314,7 +1314,7 @@ go-broadcast db group disable mrz-tools --json
 <summary><code>db target list</code> — List targets in a group</summary>
 
 ```bash
-go-broadcast db target list --group mrz-tools --json
+go-broadcast db target list --group my-tools --json
 ```
 
 **Output:** All targets in the group with repo name, branch, and PR settings.
@@ -1325,7 +1325,7 @@ go-broadcast db target list --group mrz-tools --json
 <summary><code>db target get</code> — Show target details</summary>
 
 ```bash
-go-broadcast db target get --group mrz-tools --repo mrz1836/go-api --json
+go-broadcast db target get --group my-tools --repo owner/go-api --json
 ```
 
 **Output:** Full target details including inline mappings, file list refs, directory list refs, and transforms.
@@ -1336,12 +1336,12 @@ go-broadcast db target get --group mrz-tools --repo mrz1836/go-api --json
 <summary><code>db target add</code> — Add a target to a group</summary>
 
 ```bash
-go-broadcast db target add --group mrz-tools --repo mrz1836/new-repo --json
+go-broadcast db target add --group my-tools --repo owner/new-repo --json
 
 # With optional settings
 go-broadcast db target add \
-  --group mrz-tools \
-  --repo mrz1836/new-repo \
+  --group my-tools \
+  --repo owner/new-repo \
   --branch main \
   --json
 ```
@@ -1355,10 +1355,10 @@ go-broadcast db target add \
 
 ```bash
 # Soft delete
-go-broadcast db target remove --group mrz-tools --repo mrz1836/old-repo --json
+go-broadcast db target remove --group my-tools --repo owner/old-repo --json
 
 # Hard delete
-go-broadcast db target remove --group mrz-tools --repo mrz1836/old-repo --hard --json
+go-broadcast db target remove --group my-tools --repo owner/old-repo --hard --json
 ```
 
 </details>
@@ -1368,11 +1368,11 @@ go-broadcast db target remove --group mrz-tools --repo mrz1836/old-repo --hard -
 
 ```bash
 go-broadcast db target update \
-  --group mrz-tools \
-  --repo mrz1836/go-api \
+  --group my-tools \
+  --repo owner/go-api \
   --branch develop \
   --pr-labels "sync,automated" \
-  --pr-assignees "mrz1836" \
+  --pr-assignees "contributor" \
   --pr-reviewers "reviewer1,reviewer2" \
   --json
 ```
@@ -1389,16 +1389,16 @@ Deep-copy a target and all its child records (file mappings, directory mappings,
 ```bash
 # Clone all settings from one target to a new repo
 go-broadcast db target clone \
-  --group mrz-tools \
-  --from mrz1836/existing-repo \
-  --to mrz1836/new-repo \
+  --group my-tools \
+  --from owner/existing-repo \
+  --to owner/new-repo \
   --json
 
 # Clone with overrides
 go-broadcast db target clone \
-  --group mrz-tools \
-  --from mrz1836/existing-repo \
-  --to mrz1836/new-repo \
+  --group my-tools \
+  --from owner/existing-repo \
+  --to owner/new-repo \
   --branch develop \
   --pr-labels "sync,automated" \
   --pr-reviewers "reviewer1" \
@@ -1560,7 +1560,7 @@ Manage file mappings directly on targets (owner_type="target"):
 <summary><code>db file list</code> — List inline file mappings on a target</summary>
 
 ```bash
-go-broadcast db file list --group mrz-tools --repo mrz1836/go-api --json
+go-broadcast db file list --group my-tools --repo owner/go-api --json
 ```
 
 </details>
@@ -1570,8 +1570,8 @@ go-broadcast db file list --group mrz-tools --repo mrz1836/go-api --json
 
 ```bash
 go-broadcast db file add \
-  --group mrz-tools \
-  --repo mrz1836/go-api \
+  --group my-tools \
+  --repo owner/go-api \
   --src .cursorrules \
   --dest .cursorrules \
   --json
@@ -1584,8 +1584,8 @@ go-broadcast db file add \
 
 ```bash
 go-broadcast db file remove \
-  --group mrz-tools \
-  --repo mrz1836/go-api \
+  --group my-tools \
+  --repo owner/go-api \
   --dest .cursorrules \
   --json
 ```
@@ -1600,7 +1600,7 @@ Manage directory mappings directly on targets (owner_type="target"):
 <summary><code>db dir list</code> — List inline directory mappings on a target</summary>
 
 ```bash
-go-broadcast db dir list --group mrz-tools --repo mrz1836/go-api --json
+go-broadcast db dir list --group my-tools --repo owner/go-api --json
 ```
 
 </details>
@@ -1610,8 +1610,8 @@ go-broadcast db dir list --group mrz-tools --repo mrz1836/go-api --json
 
 ```bash
 go-broadcast db dir add \
-  --group mrz-tools \
-  --repo mrz1836/go-api \
+  --group my-tools \
+  --repo owner/go-api \
   --src .github/workflows \
   --dest .github/workflows \
   --exclude "*.tmp" \
@@ -1626,8 +1626,8 @@ go-broadcast db dir add \
 
 ```bash
 go-broadcast db dir remove \
-  --group mrz-tools \
-  --repo mrz1836/go-api \
+  --group my-tools \
+  --repo owner/go-api \
   --dest .github/workflows \
   --json
 ```
@@ -1643,8 +1643,8 @@ Attach or detach shared file lists and directory lists to/from individual target
 
 ```bash
 go-broadcast db ref add-file-list \
-  --group mrz-tools \
-  --repo mrz1836/go-api \
+  --group my-tools \
+  --repo owner/go-api \
   --file-list ai-files \
   --json
 ```
@@ -1658,8 +1658,8 @@ go-broadcast db ref add-file-list \
 
 ```bash
 go-broadcast db ref remove-file-list \
-  --group mrz-tools \
-  --repo mrz1836/go-api \
+  --group my-tools \
+  --repo owner/go-api \
   --file-list ai-files \
   --json
 ```
@@ -1671,8 +1671,8 @@ go-broadcast db ref remove-file-list \
 
 ```bash
 go-broadcast db ref add-dir-list \
-  --group mrz-tools \
-  --repo mrz1836/go-api \
+  --group my-tools \
+  --repo owner/go-api \
   --dir-list github-workflows \
   --json
 ```
@@ -1684,8 +1684,8 @@ go-broadcast db ref add-dir-list \
 
 ```bash
 go-broadcast db ref remove-dir-list \
-  --group mrz-tools \
-  --repo mrz1836/go-api \
+  --group my-tools \
+  --repo owner/go-api \
   --dir-list github-workflows \
   --json
 ```
@@ -1700,7 +1700,7 @@ Apply changes to all targets in a group at once:
 <summary><code>db bulk add-file-list</code> — Attach a file list to all targets in a group</summary>
 
 ```bash
-go-broadcast db bulk add-file-list --group mrz-tools --file-list ai-files --json
+go-broadcast db bulk add-file-list --group my-tools --file-list ai-files --json
 ```
 
 **Response includes:** Number of affected targets. Idempotent — skips targets that already have the reference.
@@ -1711,7 +1711,7 @@ go-broadcast db bulk add-file-list --group mrz-tools --file-list ai-files --json
 <summary><code>db bulk remove-file-list</code> — Detach a file list from all targets in a group</summary>
 
 ```bash
-go-broadcast db bulk remove-file-list --group mrz-tools --file-list ai-files --json
+go-broadcast db bulk remove-file-list --group my-tools --file-list ai-files --json
 ```
 
 </details>
@@ -1720,7 +1720,7 @@ go-broadcast db bulk remove-file-list --group mrz-tools --file-list ai-files --j
 <summary><code>db bulk add-dir-list</code> — Attach a directory list to all targets in a group</summary>
 
 ```bash
-go-broadcast db bulk add-dir-list --group mrz-tools --dir-list github-workflows --json
+go-broadcast db bulk add-dir-list --group my-tools --dir-list github-workflows --json
 ```
 
 </details>
@@ -1729,7 +1729,7 @@ go-broadcast db bulk add-dir-list --group mrz-tools --dir-list github-workflows 
 <summary><code>db bulk remove-dir-list</code> — Detach a directory list from all targets in a group</summary>
 
 ```bash
-go-broadcast db bulk remove-dir-list --group mrz-tools --dir-list github-workflows --json
+go-broadcast db bulk remove-dir-list --group my-tools --dir-list github-workflows --json
 ```
 
 </details>
@@ -1744,10 +1744,10 @@ go-broadcast db bulk remove-dir-list --group mrz-tools --dir-list github-workflo
 go-broadcast analytics sync
 
 # Sync specific organization only
-go-broadcast analytics sync --org mrz1836
+go-broadcast analytics sync --org my-org
 
 # Sync specific repository
-go-broadcast analytics sync --repo mrz1836/go-broadcast
+go-broadcast analytics sync --repo owner/my-project
 
 # Security alerts only (skip metadata)
 go-broadcast analytics sync --security-only
@@ -1788,7 +1788,7 @@ go-broadcast analytics sync --dry-run
 go-broadcast analytics status
 
 # Show status for specific repository
-go-broadcast analytics status mrz1836/go-broadcast
+go-broadcast analytics status owner/my-project
 ```
 
 **Output:**
@@ -1812,7 +1812,7 @@ go-broadcast metrics
 go-broadcast metrics --last 7d
 
 # Show sync history for a specific target repository
-go-broadcast metrics --repo mrz1836/go-paymail
+go-broadcast metrics --repo owner/go-paymail
 
 # Show detailed information for a specific run
 go-broadcast metrics --run SR-20260215-abc123
@@ -1882,26 +1882,20 @@ go-broadcast db query --file .github/workflows/ci.yml
 File: .github/workflows/ci.yml
 Synced to 12 repositories:
 
-Group: mrz-tools
-  • mrz1836/go-api
-  • mrz1836/go-broadcast
-  • mrz1836/go-cache
-
-Group: bsva-repos
-  • bsvalias/go-bsvalias
-  • bsvalias/paymail-server
+Group: tools
+  • owner/go-api
 ```
 
 **2. What files sync to a repository?**
 
 ```bash
-go-broadcast db query --repo mrz1836/go-broadcast
+go-broadcast db query --repo owner/my-project
 ```
 
 **Output:**
 ```
-Repository: mrz1836/go-broadcast
-Group: mrz-tools
+Repository: owner/my-project
+Group: tools
 
 Inline Files:
   • .github/workflows/ci.yml → .github/workflows/ci.yml
@@ -1927,8 +1921,8 @@ go-broadcast db query --file-list ai-files
 File List: ai-files (AI development guidelines)
 Used by 47 targets:
 
-Group: mrz-tools (15 targets)
-Group: bsva-repos (32 targets)
+Group: my-tools (15 targets)
+Group: org-repos (32 targets)
 ```
 
 **4. Search by pattern**
@@ -1945,7 +1939,7 @@ Found 3 file mappings matching "dependabot":
   → synced to 42 repos (via file list "github-security")
 
 • .github/workflows/dependabot-auto-merge.yml
-  → synced to 12 repos (group: mrz-tools)
+  → synced to 12 repos (group: my-tools)
 ```
 
 **5. View CI metrics for a repository**
@@ -1962,7 +1956,7 @@ SELECT
   test_files_loc
 FROM ci_metrics_snapshots cms
 JOIN repos r ON cms.repository_id = r.id
-WHERE r.full_name = 'mrz1836/go-broadcast'
+WHERE r.full_name = 'owner/my-project'
 ORDER BY snapshot_at DESC
 LIMIT 5;
 "

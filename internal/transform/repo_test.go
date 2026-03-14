@@ -193,43 +193,43 @@ var repoName = "oldrepo"`,
 			name: "funding yml with URL parameters",
 			content: `# These are supported funding model platforms
 
-github: mrz1836
-custom: https://mrz1818.com/?tab=tips&utm_source=github&utm_medium=sponsor-link&utm_campaign=go-broadcast&utm_term=go-broadcast&utm_content=go-broadcast`,
+github: acme
+custom: https://example-tips.com/?tab=tips&utm_source=github&utm_medium=sponsor-link&utm_campaign=my-project&utm_term=my-project&utm_content=my-project`,
 			ctx: Context{
-				SourceRepo: "mrz1836/go-broadcast",
-				TargetRepo: "mrz1836/go-coverage",
+				SourceRepo: "acme/my-project",
+				TargetRepo: "acme/go-coverage",
 				FilePath:   ".github/FUNDING.yml",
 			},
 			wantContent: `# These are supported funding model platforms
 
-github: mrz1836
-custom: https://mrz1818.com/?tab=tips&utm_source=github&utm_medium=sponsor-link&utm_campaign=go-coverage&utm_term=go-coverage&utm_content=go-coverage`,
+github: acme
+custom: https://example-tips.com/?tab=tips&utm_source=github&utm_medium=sponsor-link&utm_campaign=go-coverage&utm_term=go-coverage&utm_content=go-coverage`,
 			wantError: false,
 		},
 		{
 			name: "vscode settings with repo names",
 			content: `{
-  "formatting.local": "github.com/mrz1836/go-broadcast",
+  "formatting.local": "github.com/acme/my-project",
   "go.lintTool": "golangci-lint"
 }`,
 			ctx: Context{
-				SourceRepo: "mrz1836/go-broadcast",
-				TargetRepo: "mrz1836/go-coverage",
+				SourceRepo: "acme/my-project",
+				TargetRepo: "acme/go-coverage",
 				FilePath:   ".vscode/settings.json",
 			},
 			wantContent: `{
-  "formatting.local": "github.com/mrz1836/go-coverage",
+  "formatting.local": "github.com/acme/go-coverage",
   "go.lintTool": "golangci-lint"
 }`,
 			wantError: false,
 		},
 		{
 			name: "general text file with standalone repo names",
-			content: `This project is called go-broadcast and uses go-broadcast for testing.
-The go-broadcast tool is amazing!`,
+			content: `This project is called my-project and uses my-project for testing.
+The my-project tool is amazing!`,
 			ctx: Context{
-				SourceRepo: "mrz1836/go-broadcast",
-				TargetRepo: "mrz1836/go-coverage",
+				SourceRepo: "acme/my-project",
+				TargetRepo: "acme/go-coverage",
 				FilePath:   "notes.txt",
 			},
 			wantContent: `This project is called go-coverage and uses go-coverage for testing.
@@ -253,7 +253,7 @@ The go-coverage tool is amazing!`,
     },
     "go.useLanguageServer": true,
     "gopls": {
-        "formatting.local": "github.com/mrz1836/go-broadcast",
+        "formatting.local": "github.com/acme/my-project",
         "formatting.gofumpt": true
     },
     "go.lintTool": "golangci-lint",
@@ -265,8 +265,8 @@ The go-coverage tool is amazing!`,
     }
 }`,
 			ctx: Context{
-				SourceRepo: "mrz1836/go-broadcast",
-				TargetRepo: "mrz1836/go-pre-commit",
+				SourceRepo: "acme/my-project",
+				TargetRepo: "acme/go-pre-commit",
 				FilePath:   ".vscode/settings.json",
 			},
 			wantContent: `{
@@ -284,7 +284,7 @@ The go-coverage tool is amazing!`,
     },
     "go.useLanguageServer": true,
     "gopls": {
-        "formatting.local": "github.com/mrz1836/go-pre-commit",
+        "formatting.local": "github.com/acme/go-pre-commit",
         "formatting.gofumpt": true
     },
     "go.lintTool": "golangci-lint",

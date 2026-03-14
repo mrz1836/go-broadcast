@@ -279,7 +279,7 @@ func TestEmailTransformer_RealWorldSecurityMD(t *testing.T) {
 If you've found a security issue, **please don't open a public issue or PR**.
 
 Instead, send a private email to:
-📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+📧 [go-broadcast@source-dev.com](mailto:go-broadcast@source-dev.com)
 
 Include the following:
 
@@ -307,7 +307,7 @@ Include the following:
 	transformer := NewEmailTransformer()
 	ctx := Context{
 		FilePath:            ".github/SECURITY.md",
-		SourceSecurityEmail: "go-broadcast@mrz1818.com",
+		SourceSecurityEmail: "go-broadcast@source-dev.com",
 		TargetSecurityEmail: "my-service@company.com",
 	}
 
@@ -322,7 +322,7 @@ func TestEmailTransformer_RealWorldSupportMD(t *testing.T) {
 ## 📬 Private Contact
 
 For sensitive or non-public concerns, reach out to:
-📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+📧 [go-broadcast@source-dev.com](mailto:go-broadcast@source-dev.com)
 `
 
 	expected := `# 🛟 Support Guide
@@ -336,7 +336,7 @@ For sensitive or non-public concerns, reach out to:
 	transformer := NewEmailTransformer()
 	ctx := Context{
 		FilePath:           ".github/SUPPORT.md",
-		SourceSupportEmail: "go-broadcast@mrz1818.com",
+		SourceSupportEmail: "go-broadcast@source-dev.com",
 		TargetSupportEmail: "my-service@company.com",
 	}
 
@@ -367,13 +367,13 @@ func TestEmailTransformer_PartialEmailNotReplaced(t *testing.T) {
 func TestEmailTransformer_EmailWithRepoNameInAddress(t *testing.T) {
 	// Regression test: Ensure email addresses containing repo names are transformed correctly
 	// This test covers the bug where repo name transformer would corrupt emails like
-	// "go-broadcast@mrz1818.com" by replacing "go-broadcast" before email transformer runs
+	// "my-project@source-dev.com" by replacing "my-project" before email transformer runs
 	input := `# Security Policy
 
 If you've found a security issue, **please don't open a public issue or PR**.
 
 Instead, send a private email to:
-📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+📧 [my-project@source-dev.com](mailto:my-project@source-dev.com)
 
 Include the following:
 * Description of the issue
@@ -384,7 +384,7 @@ Include the following:
 If you've found a security issue, **please don't open a public issue or PR**.
 
 Instead, send a private email to:
-📧 [security@bsvassociation.org](mailto:security@bsvassociation.org)
+📧 [security@target-corp.com](mailto:security@target-corp.com)
 
 Include the following:
 * Description of the issue
@@ -393,8 +393,8 @@ Include the following:
 	transformer := NewEmailTransformer()
 	ctx := Context{
 		FilePath:            ".github/SECURITY.md",
-		SourceSecurityEmail: "go-broadcast@mrz1818.com",
-		TargetSecurityEmail: "security@bsvassociation.org",
+		SourceSecurityEmail: "my-project@source-dev.com",
+		TargetSecurityEmail: "security@target-corp.com",
 	}
 
 	result, err := transformer.Transform([]byte(input), ctx)
@@ -408,28 +408,28 @@ func TestEmailTransformer_EmailAndSupportWithRepoNameInAddress(t *testing.T) {
 	input := `# Support Guide
 
 For sensitive or non-public concerns, reach out to:
-📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+📧 [my-project@source-dev.com](mailto:my-project@source-dev.com)
 
 For general questions, contact:
-📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+📧 [my-project@source-dev.com](mailto:my-project@source-dev.com)
 `
 
 	expected := `# Support Guide
 
 For sensitive or non-public concerns, reach out to:
-📧 [security@bsvassociation.org](mailto:security@bsvassociation.org)
+📧 [security@target-corp.com](mailto:security@target-corp.com)
 
 For general questions, contact:
-📧 [security@bsvassociation.org](mailto:security@bsvassociation.org)
+📧 [security@target-corp.com](mailto:security@target-corp.com)
 `
 
 	transformer := NewEmailTransformer()
 	ctx := Context{
 		FilePath:            ".github/SUPPORT.md",
-		SourceSecurityEmail: "go-broadcast@mrz1818.com",
-		TargetSecurityEmail: "security@bsvassociation.org",
-		SourceSupportEmail:  "go-broadcast@mrz1818.com",
-		TargetSupportEmail:  "security@bsvassociation.org",
+		SourceSecurityEmail: "my-project@source-dev.com",
+		TargetSecurityEmail: "security@target-corp.com",
+		SourceSupportEmail:  "my-project@source-dev.com",
+		TargetSupportEmail:  "security@target-corp.com",
 	}
 
 	result, err := transformer.Transform([]byte(input), ctx)

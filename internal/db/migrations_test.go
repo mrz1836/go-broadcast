@@ -787,7 +787,7 @@ func TestRunMigrations_ConsolidateAnalyticsRepositories(t *testing.T) {
 	client := &Client{Name: "github"}
 	require.NoError(t, gormDB.Create(client).Error)
 
-	org := &Organization{ClientID: client.ID, Name: "bsv-blockchain"}
+	org := &Organization{ClientID: client.ID, Name: "example-corp"}
 	require.NoError(t, gormDB.Create(org).Error)
 
 	repo := &Repo{OrganizationID: org.ID, Name: "go-wallet-toolbox"}
@@ -811,7 +811,7 @@ func TestRunMigrations_ConsolidateAnalyticsRepositories(t *testing.T) {
 	require.NoError(t, gormDB.Exec(`
 		INSERT INTO analytics_repositories (id, full_name, metadata_e_tag, security_e_tag, last_sync_at, last_sync_run_id)
 		VALUES (?, ?, ?, ?, ?, ?);
-	`, 123, "bsv-blockchain/go-wallet-toolbox", "m-etag", "s-etag", now, 77).Error)
+	`, 123, "example-corp/go-wallet-toolbox", "m-etag", "s-etag", now, 77).Error)
 
 	// Sanity: table exists before migration
 	require.True(t, gormDB.Migrator().HasTable("analytics_repositories"))
@@ -825,7 +825,7 @@ func TestRunMigrations_ConsolidateAnalyticsRepositories(t *testing.T) {
 	// Repo full_name should be populated and legacy fields copied over
 	var got Repo
 	require.NoError(t, gormDB.First(&got, repo.ID).Error)
-	require.Equal(t, "bsv-blockchain/go-wallet-toolbox", got.FullNameStr)
+	require.Equal(t, "example-corp/go-wallet-toolbox", got.FullNameStr)
 	require.Equal(t, "m-etag", got.MetadataETag)
 	require.Equal(t, "s-etag", got.SecurityETag)
 	require.NotNil(t, got.LastSyncAt)

@@ -29,7 +29,7 @@ func TestTestDBWithSeed(t *testing.T) {
 
 	// Verify groups were created
 	require.Len(t, seed.Groups, 1)
-	assert.Equal(t, "mrz-tools", seed.Groups[0].ExternalID)
+	assert.Equal(t, "my-tools", seed.Groups[0].ExternalID)
 	assert.NotNil(t, seed.Groups[0].Enabled)
 	assert.True(t, *seed.Groups[0].Enabled)
 
@@ -96,7 +96,7 @@ func TestQueryRepository_WithSeed(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("FindByRepo finds seeded target", func(t *testing.T) {
-		result, err := repo.FindByRepo(ctx, "mrz1836/test-repo-1")
+		result, err := repo.FindByRepo(ctx, "acme/test-repo-1")
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		assert.Equal(t, seed.Repos[1].ID, result.RepoID)
@@ -191,7 +191,7 @@ func TestTargetRepository_WithSeed(t *testing.T) {
 	})
 
 	t.Run("GetByRepoName finds target by repo name", func(t *testing.T) {
-		target, err := repo.GetByRepoName(ctx, seed.Groups[0].ID, "mrz1836/test-repo-1")
+		target, err := repo.GetByRepoName(ctx, seed.Groups[0].ID, "acme/test-repo-1")
 		require.NoError(t, err)
 		assert.Equal(t, seed.Repos[1].ID, target.RepoID)
 	})
@@ -209,7 +209,7 @@ func TestGroupRepository_WithSeed(t *testing.T) {
 		require.Len(t, groups, 1)
 
 		group := groups[0]
-		assert.Equal(t, "mrz-tools", group.ExternalID)
+		assert.Equal(t, "my-tools", group.ExternalID)
 		assert.NotZero(t, group.Source.RepoID)
 		assert.NotEmpty(t, group.GroupGlobal.PRLabels)
 		assert.NotEmpty(t, group.GroupDefault.BranchPrefix)
@@ -217,8 +217,8 @@ func TestGroupRepository_WithSeed(t *testing.T) {
 	})
 
 	t.Run("GetByExternalID finds group", func(t *testing.T) {
-		group, err := repo.GetByExternalID(ctx, "mrz-tools")
+		group, err := repo.GetByExternalID(ctx, "my-tools")
 		require.NoError(t, err)
-		assert.Equal(t, "MrZ Tools", group.Name)
+		assert.Equal(t, "My Tools", group.Name)
 	})
 }

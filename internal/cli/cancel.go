@@ -151,7 +151,7 @@ updated files or configuration.`,
   go-broadcast cancel --keep-branches --from-db
 
   # Add custom comment when closing PRs
-  go-broadcast cancel --from-db --comment "Canceling due to detected issue" --groups "bitcoin-schema"`,
+  go-broadcast cancel --from-db --comment "Canceling due to detected issue" --groups "my-group"`,
 	Aliases: []string{"c"},
 	RunE:    runCancel,
 }

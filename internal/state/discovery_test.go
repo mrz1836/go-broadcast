@@ -881,7 +881,7 @@ func TestDiscoveryService_MultiGroupDiscovery(t *testing.T) {
 	logger.SetLevel(logrus.DebugLevel)
 
 	t.Run("successful multi-group discovery with different sources", func(t *testing.T) {
-		cfg := createMultiGroupConfig(4) // 4 groups like in the skyetel-go issue
+		cfg := createMultiGroupConfig(4) // 4 groups like in the vendor-go issue
 		mockGH := &gh.MockClient{}
 		discoverer := NewDiscoverer(mockGH, logger, nil)
 
@@ -967,37 +967,37 @@ func TestDiscoveryService_MultiGroupDiscovery(t *testing.T) {
 		mockGH.AssertExpectations(t)
 	})
 
-	t.Run("skyetel-go regression test - 4th group discovery", func(t *testing.T) {
-		// Recreate the scenario where skyetel-go group was the 4th group and not being discovered
+	t.Run("vendor-go regression test - 4th group discovery", func(t *testing.T) {
+		// Recreate the scenario where vendor-go group was the 4th group and not being discovered
 		cfg := &config.Config{
 			Version: 1,
 			Groups: []config.Group{
 				{
-					Name:     "mrz-tools",
-					ID:       "mrz-tools",
-					Source:   config.SourceConfig{Repo: "mrz1836/go-broadcast", Branch: "master"},
-					Targets:  []config.TargetConfig{{Repo: "mrz1836/tool1"}},
+					Name:     "my-tools",
+					ID:       "my-tools",
+					Source:   config.SourceConfig{Repo: "acme/my-project", Branch: "master"},
+					Targets:  []config.TargetConfig{{Repo: "acme/tool1"}},
 					Defaults: config.DefaultConfig{BranchPrefix: "chore/sync-files"},
 				},
 				{
-					Name:     "mrz-libraries",
-					ID:       "mrz-libraries",
-					Source:   config.SourceConfig{Repo: "mrz1836/go-broadcast", Branch: "master"},
-					Targets:  []config.TargetConfig{{Repo: "mrz1836/lib1"}},
+					Name:     "my-libraries",
+					ID:       "my-libraries",
+					Source:   config.SourceConfig{Repo: "acme/my-project", Branch: "master"},
+					Targets:  []config.TargetConfig{{Repo: "acme/lib1"}},
 					Defaults: config.DefaultConfig{BranchPrefix: "chore/sync-files"},
 				},
 				{
-					Name:     "mrz-fun-projects",
-					ID:       "mrz-fun-projects",
-					Source:   config.SourceConfig{Repo: "mrz1836/go-broadcast", Branch: "master"},
-					Targets:  []config.TargetConfig{{Repo: "mrz1836/fun1"}},
+					Name:     "my-projects",
+					ID:       "my-projects",
+					Source:   config.SourceConfig{Repo: "acme/my-project", Branch: "master"},
+					Targets:  []config.TargetConfig{{Repo: "acme/fun1"}},
 					Defaults: config.DefaultConfig{BranchPrefix: "chore/sync-files"},
 				},
 				{
-					Name:     "skyetel-go", // This was the 4th group that wasn't being discovered
-					ID:       "skyetel-go",
-					Source:   config.SourceConfig{Repo: "skyetel/go-template", Branch: "development"},
-					Targets:  []config.TargetConfig{{Repo: "skyetel/reach"}},
+					Name:     "vendor-go", // This was the 4th group that wasn't being discovered
+					ID:       "vendor-go",
+					Source:   config.SourceConfig{Repo: "acme/go-template", Branch: "development"},
+					Targets:  []config.TargetConfig{{Repo: "acme/repo-1"}},
 					Defaults: config.DefaultConfig{BranchPrefix: "chore/sync-files"},
 				},
 			},
@@ -1007,7 +1007,7 @@ func TestDiscoveryService_MultiGroupDiscovery(t *testing.T) {
 		discoverer := NewDiscoverer(mockGH, logger, nil)
 
 		// Mock all source repositories
-		mockGH.On("GetBranch", mock.Anything, "mrz1836/go-broadcast", "master").
+		mockGH.On("GetBranch", mock.Anything, "acme/my-project", "master").
 			Return(&gh.Branch{
 				Name: "master",
 				Commit: struct {
@@ -1016,7 +1016,7 @@ func TestDiscoveryService_MultiGroupDiscovery(t *testing.T) {
 				}{SHA: "561a06e"},
 			}, nil)
 
-		mockGH.On("GetBranch", mock.Anything, "skyetel/go-template", "development").
+		mockGH.On("GetBranch", mock.Anything, "acme/go-template", "development").
 			Return(&gh.Branch{
 				Name: "development",
 				Commit: struct {
@@ -1025,8 +1025,8 @@ func TestDiscoveryService_MultiGroupDiscovery(t *testing.T) {
 				}{SHA: "561a06e"},
 			}, nil)
 
-		// Mock target repositories - only skyetel/reach has active sync
-		targets := []string{"mrz1836/tool1", "mrz1836/lib1", "mrz1836/fun1"}
+		// Mock target repositories - only acme/repo-1 has active sync
+		targets := []string{"acme/tool1", "acme/lib1", "acme/fun1"}
 		for _, repo := range targets {
 			branches := []gh.Branch{
 				{Name: "master", Commit: struct {
@@ -1038,9 +1038,9 @@ func TestDiscoveryService_MultiGroupDiscovery(t *testing.T) {
 			mockGH.On("ListPRs", mock.Anything, repo, "open").Return([]gh.PR{}, nil)
 		}
 
-		// skyetel/reach has the active sync branch and PR
-		syncBranch := "chore/sync-files-skyetel-go-20250112-145757-561a06e"
-		mockGH.On("ListBranches", mock.Anything, "skyetel/reach").
+		// acme/repo-1 has the active sync branch and PR
+		syncBranch := "chore/sync-files-vendor-go-20250112-145757-561a06e"
+		mockGH.On("ListBranches", mock.Anything, "acme/repo-1").
 			Return([]gh.Branch{
 				{Name: "development", Commit: struct {
 					SHA string `json:"sha"`
@@ -1052,7 +1052,7 @@ func TestDiscoveryService_MultiGroupDiscovery(t *testing.T) {
 				}{SHA: "ghi789"}},
 			}, nil)
 
-		mockGH.On("ListPRs", mock.Anything, "skyetel/reach", "open").
+		mockGH.On("ListPRs", mock.Anything, "acme/repo-1", "open").
 			Return([]gh.PR{
 				{
 					Number: 430,
@@ -1073,14 +1073,14 @@ func TestDiscoveryService_MultiGroupDiscovery(t *testing.T) {
 		// Should discover all 4 targets
 		assert.Len(t, state.Targets, 4)
 
-		// Verify skyetel/reach (from 4th group) is discovered with active sync
-		skyetelTarget, exists := state.Targets["skyetel/reach"]
-		assert.True(t, exists, "skyetel/reach should be discovered")
-		assert.NotNil(t, skyetelTarget)
-		assert.Len(t, skyetelTarget.SyncBranches, 1)
-		assert.Len(t, skyetelTarget.OpenPRs, 1)
-		assert.Equal(t, 430, skyetelTarget.OpenPRs[0].Number)
-		assert.Equal(t, syncBranch, skyetelTarget.SyncBranches[0].Name)
+		// Verify acme/repo-1 (from 4th group) is discovered with active sync
+		vendorTarget, exists := state.Targets["acme/repo-1"]
+		assert.True(t, exists, "acme/repo-1 should be discovered")
+		assert.NotNil(t, vendorTarget)
+		assert.Len(t, vendorTarget.SyncBranches, 1)
+		assert.Len(t, vendorTarget.OpenPRs, 1)
+		assert.Equal(t, 430, vendorTarget.OpenPRs[0].Number)
+		assert.Equal(t, syncBranch, vendorTarget.SyncBranches[0].Name)
 
 		mockGH.AssertExpectations(t)
 	})

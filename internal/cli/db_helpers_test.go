@@ -60,11 +60,11 @@ func TestResolveGroup(t *testing.T) {
 		gormDB, seed := db.TestDBWithSeed(t)
 		ctx := context.Background()
 
-		group, err := resolveGroup(ctx, gormDB, "mrz-tools")
+		group, err := resolveGroup(ctx, gormDB, "my-tools")
 		require.NoError(t, err)
 		require.NotNil(t, group)
 		assert.Equal(t, seed.Groups[0].ID, group.ID)
-		assert.Equal(t, "MrZ Tools", group.Name)
+		assert.Equal(t, "My Tools", group.Name)
 	})
 }
 
@@ -89,7 +89,7 @@ func TestResolveTarget(t *testing.T) {
 		gormDB, seed := db.TestDBWithSeed(t)
 		ctx := context.Background()
 
-		target, err := resolveTarget(ctx, gormDB, seed.Groups[0].ID, "mrz1836/test-repo-1")
+		target, err := resolveTarget(ctx, gormDB, seed.Groups[0].ID, "acme/test-repo-1")
 		require.NoError(t, err)
 		require.NotNil(t, target)
 		assert.Equal(t, seed.Targets[0].ID, target.ID)

@@ -196,14 +196,14 @@ func TestChain_EmailBeforeRepoTransformer(t *testing.T) {
 	// to prevent repo name in email addresses from being corrupted.
 	//
 	// Bug scenario:
-	// 1. Source file has: "go-broadcast@mrz1818.com"
-	// 2. If repo transformer runs first, it replaces "go-broadcast" with target repo name
-	//    resulting in: "go-lockfree-queue@mrz1818.com" (WRONG!)
-	// 3. Email transformer then can't find "go-broadcast@mrz1818.com" to replace
+	// 1. Source file has: "my-project@source-dev.com"
+	// 2. If repo transformer runs first, it replaces "my-project" with target repo name
+	//    resulting in: "queue-lib@source-dev.com" (WRONG!)
+	// 3. Email transformer then can't find "my-project@source-dev.com" to replace
 	//
 	// Correct behavior:
-	// 1. Email transformer runs first, replaces "go-broadcast@mrz1818.com"
-	//    with "security@bsvassociation.org"
+	// 1. Email transformer runs first, replaces "my-project@source-dev.com"
+	//    with "security@target-corp.com"
 	// 2. Repo transformer then runs and doesn't affect the email
 	logger := logrus.New()
 	logger.SetLevel(logrus.FatalLevel) // Suppress logs for test
@@ -216,25 +216,25 @@ func TestChain_EmailBeforeRepoTransformer(t *testing.T) {
 	input := `# Security Policy
 
 If you've found a security issue, send a private email to:
-📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+📧 [my-project@source-dev.com](mailto:my-project@source-dev.com)
 
-This is the go-broadcast repository.
+This is the my-project repository.
 `
 
 	expected := `# Security Policy
 
 If you've found a security issue, send a private email to:
-📧 [security@bsvassociation.org](mailto:security@bsvassociation.org)
+📧 [security@target-corp.com](mailto:security@target-corp.com)
 
-This is the go-lockfree-queue repository.
+This is the queue-lib repository.
 `
 
 	ctx := Context{
-		SourceRepo:          "mrz1836/go-broadcast",
-		TargetRepo:          "bsv-blockchain/go-lockfree-queue",
+		SourceRepo:          "acme/my-project",
+		TargetRepo:          "example-corp/queue-lib",
 		FilePath:            ".github/SECURITY.md",
-		SourceSecurityEmail: "go-broadcast@mrz1818.com",
-		TargetSecurityEmail: "security@bsvassociation.org",
+		SourceSecurityEmail: "my-project@source-dev.com",
+		TargetSecurityEmail: "security@target-corp.com",
 	}
 
 	result, err := chain.Transform(context.Background(), []byte(input), ctx)
@@ -242,9 +242,9 @@ This is the go-lockfree-queue repository.
 	assert.Equal(t, expected, string(result))
 
 	// Verify the email was transformed correctly (not corrupted by repo transformer)
-	assert.Contains(t, string(result), "security@bsvassociation.org")
-	assert.NotContains(t, string(result), "go-broadcast@mrz1818.com")
-	assert.NotContains(t, string(result), "go-lockfree-queue@mrz1818.com") // Should NOT contain corrupted email
+	assert.Contains(t, string(result), "security@target-corp.com")
+	assert.NotContains(t, string(result), "my-project@source-dev.com")
+	assert.NotContains(t, string(result), "queue-lib@source-dev.com") // Should NOT contain corrupted email
 }
 
 func TestChain_RepoBeforeEmailTransformer_BreaksEmail(t *testing.T) {
@@ -261,29 +261,29 @@ func TestChain_RepoBeforeEmailTransformer_BreaksEmail(t *testing.T) {
 	input := `# Security Policy
 
 If you've found a security issue, send a private email to:
-📧 [go-broadcast@mrz1818.com](mailto:go-broadcast@mrz1818.com)
+📧 [my-project@source-dev.com](mailto:my-project@source-dev.com)
 
-This is the go-broadcast repository.
+This is the my-project repository.
 `
 
 	// With WRONG order, the email gets corrupted:
-	// 1. Repo transformer replaces "go-broadcast" -> "go-lockfree-queue"
-	//    Email becomes: "go-lockfree-queue@mrz1818.com"
-	// 2. Email transformer can't find "go-broadcast@mrz1818.com" to replace
+	// 1. Repo transformer replaces "my-project" -> "queue-lib"
+	//    Email becomes: "queue-lib@source-dev.com"
+	// 2. Email transformer can't find "my-project@source-dev.com" to replace
 	wrongResult := `# Security Policy
 
 If you've found a security issue, send a private email to:
-📧 [go-lockfree-queue@mrz1818.com](mailto:go-lockfree-queue@mrz1818.com)
+📧 [queue-lib@source-dev.com](mailto:queue-lib@source-dev.com)
 
-This is the go-lockfree-queue repository.
+This is the queue-lib repository.
 `
 
 	ctx := Context{
-		SourceRepo:          "mrz1836/go-broadcast",
-		TargetRepo:          "bsv-blockchain/go-lockfree-queue",
+		SourceRepo:          "acme/my-project",
+		TargetRepo:          "example-corp/queue-lib",
 		FilePath:            ".github/SECURITY.md",
-		SourceSecurityEmail: "go-broadcast@mrz1818.com",
-		TargetSecurityEmail: "security@bsvassociation.org",
+		SourceSecurityEmail: "my-project@source-dev.com",
+		TargetSecurityEmail: "security@target-corp.com",
 	}
 
 	result, err := chain.Transform(context.Background(), []byte(input), ctx)
@@ -291,8 +291,8 @@ This is the go-lockfree-queue repository.
 
 	// This test verifies the WRONG behavior happens with wrong order
 	assert.Equal(t, wrongResult, string(result))
-	assert.Contains(t, string(result), "go-lockfree-queue@mrz1818.com")  // Corrupted email
-	assert.NotContains(t, string(result), "security@bsvassociation.org") // Email transform failed
+	assert.Contains(t, string(result), "queue-lib@source-dev.com")    // Corrupted email
+	assert.NotContains(t, string(result), "security@target-corp.com") // Email transform failed
 }
 
 // TestChain_ConcurrentAddAndTransform verifies that the chain is thread-safe

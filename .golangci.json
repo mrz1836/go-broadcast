@@ -206,7 +206,6 @@
             },
             "misspell": {
                 "ignore-rules": [
-                    "bsv",
                     "bitcoin"
                 ],
                 "locale": "US"

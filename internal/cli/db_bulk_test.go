@@ -12,7 +12,7 @@ import (
 
 // setupBulkTestDB creates a temp SQLite DB, initializes it, and returns a cleanup function.
 // It also seeds the data from TestDBWithSeed into the file-based DB so that group
-// "mrz-tools" and file/directory lists exist for the "not-found list" tests.
+// "my-tools" and file/directory lists exist for the "not-found list" tests.
 func setupBulkTestDB(t *testing.T, seed bool) {
 	t.Helper()
 
@@ -45,14 +45,14 @@ func setupBulkTestDB(t *testing.T, seed bool) {
 		client := &db.Client{Name: "test-client"}
 		require.NoError(t, gormDB.Create(client).Error)
 
-		org := &db.Organization{ClientID: client.ID, Name: "mrz1836"}
+		org := &db.Organization{ClientID: client.ID, Name: "acme"}
 		require.NoError(t, gormDB.Create(org).Error)
 
 		enabled := true
 		group := &db.Group{
 			ConfigID:   cfg.ID,
-			ExternalID: "mrz-tools",
-			Name:       "MrZ Tools",
+			ExternalID: "my-tools",
+			Name:       "My Tools",
 			Enabled:    &enabled,
 		}
 		require.NoError(t, gormDB.Create(group).Error)
@@ -86,7 +86,7 @@ func TestRunBulkAddFileList_GroupNotFound(t *testing.T) {
 func TestRunBulkAddFileList_FileListNotFound(t *testing.T) {
 	setupBulkTestDB(t, true)
 
-	err := runBulkAddFileList("mrz-tools", "nonexistent-file-list", false)
+	err := runBulkAddFileList("my-tools", "nonexistent-file-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -104,7 +104,7 @@ func TestRunBulkRemoveFileList_GroupNotFound(t *testing.T) {
 func TestRunBulkRemoveFileList_FileListNotFound(t *testing.T) {
 	setupBulkTestDB(t, true)
 
-	err := runBulkRemoveFileList("mrz-tools", "nonexistent-file-list", false)
+	err := runBulkRemoveFileList("my-tools", "nonexistent-file-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -122,7 +122,7 @@ func TestRunBulkAddDirList_GroupNotFound(t *testing.T) {
 func TestRunBulkAddDirList_DirListNotFound(t *testing.T) {
 	setupBulkTestDB(t, true)
 
-	err := runBulkAddDirList("mrz-tools", "nonexistent-dir-list", false)
+	err := runBulkAddDirList("my-tools", "nonexistent-dir-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -140,7 +140,7 @@ func TestRunBulkRemoveDirList_GroupNotFound(t *testing.T) {
 func TestRunBulkRemoveDirList_DirListNotFound(t *testing.T) {
 	setupBulkTestDB(t, true)
 
-	err := runBulkRemoveDirList("mrz-tools", "nonexistent-dir-list", false)
+	err := runBulkRemoveDirList("my-tools", "nonexistent-dir-list", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }

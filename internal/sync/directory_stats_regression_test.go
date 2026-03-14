@@ -31,7 +31,7 @@ func TestDirectoryStatsRegressionInPRMetadata(t *testing.T) {
 				LatestCommit: "abc123",
 			},
 			target: config.TargetConfig{
-				Repo: "skyetel/reach",
+				Repo: "acme/repo-1",
 				Directories: []config.DirectoryMapping{
 					{
 						Src:     ".github/workflows",

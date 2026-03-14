@@ -39,7 +39,7 @@ Examples:
   go-broadcast db export --stdout
 
   # Export single group
-  go-broadcast db export --group mrz-tools --output group.yaml
+  go-broadcast db export --group my-tools --output group.yaml
 
   # Export from custom database path
   go-broadcast db export --output sync.yaml --db-path /tmp/test.db`,

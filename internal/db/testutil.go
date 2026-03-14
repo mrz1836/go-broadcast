@@ -154,7 +154,7 @@ func TestDBWithSeed(t testing.TB) (*gorm.DB, *SeedData) {
 
 	// Create Client → Organization → Repo chain
 	client := &Client{
-		Name:        "MrZ",
+		Name:        "Acme",
 		Description: "Test client",
 	}
 	client.Metadata = Metadata{"client": "test"}
@@ -165,8 +165,8 @@ func TestDBWithSeed(t testing.TB) (*gorm.DB, *SeedData) {
 
 	org := &Organization{
 		ClientID:    client.ID,
-		Name:        "mrz1836",
-		Description: "MrZ GitHub org",
+		Name:        "acme",
+		Description: "Acme GitHub org",
 	}
 	org.Metadata = Metadata{"org": "test"}
 	if err := db.Create(org).Error; err != nil {
@@ -205,17 +205,17 @@ func TestDBWithSeed(t testing.TB) (*gorm.DB, *SeedData) {
 
 	// Create Group
 	enabled := true
-	mrzToolsGroup := &Group{
+	toolsGroup := &Group{
 		ConfigID:    seed.Config.ID,
-		ExternalID:  "mrz-tools",
-		Name:        "MrZ Tools",
+		ExternalID:  "my-tools",
+		Name:        "My Tools",
 		Description: "Standard tooling sync group",
 		Priority:    0,
 		Enabled:     &enabled,
 		Position:    0,
 	}
-	mrzToolsGroup.Metadata = Metadata{"owner": "mrz"}
-	seed.Groups = []*Group{mrzToolsGroup}
+	toolsGroup.Metadata = Metadata{"owner": "dev"}
+	seed.Groups = []*Group{toolsGroup}
 	for _, g := range seed.Groups {
 		if err := db.Create(g).Error; err != nil {
 			t.Fatalf("failed to seed group: %v", err)
@@ -242,8 +242,8 @@ func TestDBWithSeed(t testing.TB) (*gorm.DB, *SeedData) {
 	// Create GroupGlobal
 	groupGlobal := &GroupGlobal{
 		GroupID:         seed.Groups[0].ID,
-		PRLabels:        JSONStringSlice{"automated-sync", "mrz-tools"},
-		PRAssignees:     JSONStringSlice{"mrz1836"},
+		PRLabels:        JSONStringSlice{"automated-sync", "my-tools"},
+		PRAssignees:     JSONStringSlice{"contributor"},
 		PRReviewers:     JSONStringSlice{},
 		PRTeamReviewers: JSONStringSlice{},
 	}
@@ -369,7 +369,7 @@ func TestDBWithSeed(t testing.TB) (*gorm.DB, *SeedData) {
 		RepoName:  true,
 		Variables: JSONStringMap{
 			"PROJECT_NAME": "test-repo-1",
-			"OWNER":        "mrz1836",
+			"OWNER":        "contributor",
 		},
 	}
 	transform.Metadata = Metadata{"transform": "target"}

@@ -1034,14 +1034,14 @@ func createMultiGroupState() *state.State {
 					},
 				},
 			},
-			"org/group4-target1": { // Simulating skyetel-go being the 4th group
+			"org/group4-target1": { // Simulating vendor-go being the 4th group
 				Repo: "org/group4-target1",
 				OpenPRs: []gh.PR{
 					{Number: 430, State: "open"},
 				},
 				SyncBranches: []state.SyncBranch{
 					{
-						Name: "chore/sync-files-skyetel-go-20250112-145757-561a06e",
+						Name: "chore/sync-files-vendor-go-20250112-145757-561a06e",
 						Metadata: &state.BranchMetadata{
 							Timestamp: time.Date(2025, time.January, 12, 14, 57, 57, 0, time.UTC),
 						},
@@ -1075,7 +1075,7 @@ func TestFilterTargets_MultiGroup(t *testing.T) {
 			wantRepos:   []string{"org/group1-target1", "org/group2-target1", "org/group4-target1"},
 		},
 		{
-			name:        "specific target from 4th group (skyetel-go regression)",
+			name:        "specific target from 4th group (vendor-go regression)",
 			targetRepos: []string{"org/group4-target1"},
 			wantCount:   1,
 			wantRepos:   []string{"org/group4-target1"},
@@ -1145,8 +1145,8 @@ func TestPerformCancelWithDiscoverer_MultiGroup(t *testing.T) {
 				},
 			},
 			{
-				Name:   "skyetel-go", // Simulating the 4th group scenario
-				Source: config.SourceConfig{Repo: "skyetel/template", Branch: "development"},
+				Name:   "vendor-go", // Simulating the 4th group scenario
+				Source: config.SourceConfig{Repo: "acme/template", Branch: "development"},
 				Targets: []config.TargetConfig{
 					{Repo: "org/group4-target1"},
 				},
@@ -1173,7 +1173,7 @@ func TestPerformCancelWithDiscoverer_MultiGroup(t *testing.T) {
 				// Mock delete branches
 				mockClient.On("DeleteBranch", mock.Anything, "org/group1-target1", "chore/sync-files-group1-20240115-120000-abc123").Return(nil)
 				mockClient.On("DeleteBranch", mock.Anything, "org/group2-target1", "chore/sync-files-group2-20240116-130000-def456").Return(nil)
-				mockClient.On("DeleteBranch", mock.Anything, "org/group4-target1", "chore/sync-files-skyetel-go-20250112-145757-561a06e").Return(nil)
+				mockClient.On("DeleteBranch", mock.Anything, "org/group4-target1", "chore/sync-files-vendor-go-20250112-145757-561a06e").Return(nil)
 			},
 			verifySummary: func(t *testing.T, summary *CancelSummary) {
 				assert.Equal(t, 3, summary.TotalTargets)
@@ -1183,12 +1183,12 @@ func TestPerformCancelWithDiscoverer_MultiGroup(t *testing.T) {
 			},
 		},
 		{
-			name:        "cancel sync from specific group (skyetel-go regression test)",
+			name:        "cancel sync from specific group (vendor-go regression test)",
 			targetRepos: []string{"org/group4-target1"},
 			setupState:  createMultiGroupState,
 			setupMocks: func(mockClient *gh.MockClient) {
 				mockClient.On("ClosePR", mock.Anything, "org/group4-target1", 430, mock.AnythingOfType("string")).Return(nil)
-				mockClient.On("DeleteBranch", mock.Anything, "org/group4-target1", "chore/sync-files-skyetel-go-20250112-145757-561a06e").Return(nil)
+				mockClient.On("DeleteBranch", mock.Anything, "org/group4-target1", "chore/sync-files-vendor-go-20250112-145757-561a06e").Return(nil)
 			},
 			verifySummary: func(t *testing.T, summary *CancelSummary) {
 				assert.Equal(t, 1, summary.TotalTargets)
@@ -1214,7 +1214,7 @@ func TestPerformCancelWithDiscoverer_MultiGroup(t *testing.T) {
 				mockClient.On("ClosePR", mock.Anything, "org/group1-target1", 101, mock.AnythingOfType("string")).Return(nil)
 				mockClient.On("ClosePR", mock.Anything, "org/group4-target1", 430, mock.AnythingOfType("string")).Return(nil)
 				mockClient.On("DeleteBranch", mock.Anything, "org/group1-target1", "chore/sync-files-group1-20240115-120000-abc123").Return(nil)
-				mockClient.On("DeleteBranch", mock.Anything, "org/group4-target1", "chore/sync-files-skyetel-go-20250112-145757-561a06e").Return(nil)
+				mockClient.On("DeleteBranch", mock.Anything, "org/group4-target1", "chore/sync-files-vendor-go-20250112-145757-561a06e").Return(nil)
 			},
 			verifySummary: func(t *testing.T, summary *CancelSummary) {
 				assert.Equal(t, 2, summary.TotalTargets)
@@ -1271,25 +1271,25 @@ func TestProcessCancelTarget_MultiGroupBranchNames(t *testing.T) {
 		verify     func(*testing.T, CancelResult)
 	}{
 		{
-			name: "skyetel-go group branch format",
+			name: "vendor-go group branch format",
 			target: &state.TargetState{
-				Repo: "skyetel/reach",
+				Repo: "acme/repo-1",
 				SyncBranches: []state.SyncBranch{
 					{
-						Name: "chore/sync-files-skyetel-go-20250112-145757-561a06e",
+						Name: "chore/sync-files-vendor-go-20250112-145757-561a06e",
 						Metadata: &state.BranchMetadata{
 							Timestamp: time.Date(2025, time.January, 12, 14, 57, 57, 0, time.UTC),
-							GroupID:   "skyetel-go",
+							GroupID:   "vendor-go",
 						},
 					},
 				},
 			},
 			setupMocks: func(mockClient *gh.MockClient) {
-				mockClient.On("DeleteBranch", mock.Anything, "skyetel/reach", "chore/sync-files-skyetel-go-20250112-145757-561a06e").Return(nil)
+				mockClient.On("DeleteBranch", mock.Anything, "acme/repo-1", "chore/sync-files-vendor-go-20250112-145757-561a06e").Return(nil)
 			},
 			verify: func(t *testing.T, result CancelResult) {
-				assert.Equal(t, "skyetel/reach", result.Repository)
-				assert.Equal(t, "chore/sync-files-skyetel-go-20250112-145757-561a06e", result.BranchName)
+				assert.Equal(t, "acme/repo-1", result.Repository)
+				assert.Equal(t, "chore/sync-files-vendor-go-20250112-145757-561a06e", result.BranchName)
 				assert.True(t, result.BranchDeleted)
 				assert.Empty(t, result.Error)
 			},

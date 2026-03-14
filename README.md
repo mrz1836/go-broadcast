@@ -1190,7 +1190,7 @@ go-broadcast db import sync.yaml
 go-broadcast sync --from-db
 go-broadcast status --from-db --json
 go-broadcast validate --from-db
-go-broadcast cancel --from-db --groups "bitcoin-schema"
+go-broadcast cancel --from-db --groups "my-group"
 ```
 
 **Query your configuration:**
