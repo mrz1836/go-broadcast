@@ -1,0 +1,651 @@
+package git
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+)
+
+// Define test errors as static wrapped errors
+var (
+	errCloneFailed     = errors.New("clone failed")
+	errCheckoutFailed  = errors.New("checkout failed")
+	errBranchFailed    = errors.New("branch creation failed")
+	errAddFailed       = errors.New("add failed")
+	errNothingToCommit = errors.New("nothing to commit")
+	errPushFailed      = errors.New("push failed")
+	errDiffFailed      = errors.New("diff failed")
+	errTestError       = errors.New("test error")
+	errNotGitRepo      = errors.New("not a git repository")
+	errRemoteNotFound  = errors.New("remote not found")
+)
+
+// TestMockClientImplementation tests the MockClient implementation
+func TestMockClientImplementation(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Clone", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Clone", ctx, "https://github.com/test/repo.git", "/tmp/repo", (*CloneOptions)(nil)).Return(nil)
+
+			err := mock.Clone(ctx, "https://github.com/test/repo.git", "/tmp/repo", nil)
+			require.NoError(t, err)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Clone", ctx, "https://github.com/test/repo.git", "/tmp/repo", (*CloneOptions)(nil)).Return(errCloneFailed)
+
+			err := mock.Clone(ctx, "https://github.com/test/repo.git", "/tmp/repo", nil)
+			require.Error(t, err)
+			require.Equal(t, errCloneFailed, err)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("improperly configured mock", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Clone", ctx, "url", "path", (*CloneOptions)(nil)).Return()
+
+			err := mock.Clone(ctx, "url", "path", nil)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "mock not properly configured")
+		})
+
+		t.Run("mock returns non-error type", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Clone", ctx, "url", "path", (*CloneOptions)(nil)).Return("not an error")
+
+			err := mock.Clone(ctx, "url", "path", nil)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "mock returned non-error type")
+		})
+	})
+
+	t.Run("Checkout", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Checkout", ctx, "/tmp/repo", "master").Return(nil)
+
+			err := mock.Checkout(ctx, "/tmp/repo", "master")
+			require.NoError(t, err)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Checkout", ctx, "/tmp/repo", "master").Return(errCheckoutFailed)
+
+			err := mock.Checkout(ctx, "/tmp/repo", "master")
+			require.Error(t, err)
+			require.Equal(t, errCheckoutFailed, err)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("CreateBranch", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("CreateBranch", ctx, "/tmp/repo", "feature-branch").Return(nil)
+
+			err := mock.CreateBranch(ctx, "/tmp/repo", "feature-branch")
+			require.NoError(t, err)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("CreateBranch", ctx, "/tmp/repo", "feature-branch").Return(errBranchFailed)
+
+			err := mock.CreateBranch(ctx, "/tmp/repo", "feature-branch")
+			require.Error(t, err)
+			require.Equal(t, errBranchFailed, err)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("Add", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			paths := []string{"file1.txt", "file2.txt"}
+			mock.On("Add", ctx, "/tmp/repo", paths).Return(nil)
+
+			err := mock.Add(ctx, "/tmp/repo", paths...)
+			require.NoError(t, err)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			paths := []string{"file1.txt"}
+			mock.On("Add", ctx, "/tmp/repo", paths).Return(errAddFailed)
+
+			err := mock.Add(ctx, "/tmp/repo", paths...)
+			require.Error(t, err)
+			require.Equal(t, errAddFailed, err)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("Commit", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Commit", ctx, "/tmp/repo", "Test commit").Return(nil)
+
+			err := mock.Commit(ctx, "/tmp/repo", "Test commit")
+			require.NoError(t, err)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Commit", ctx, "/tmp/repo", "Test commit").Return(errNothingToCommit)
+
+			err := mock.Commit(ctx, "/tmp/repo", "Test commit")
+			require.Error(t, err)
+			require.Equal(t, errNothingToCommit, err)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("Push", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Push", ctx, "/tmp/repo", "origin", "master", false).Return(nil)
+
+			err := mock.Push(ctx, "/tmp/repo", "origin", "master", false)
+			require.NoError(t, err)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case with force", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Push", ctx, "/tmp/repo", "origin", "master", true).Return(errPushFailed)
+
+			err := mock.Push(ctx, "/tmp/repo", "origin", "master", true)
+			require.Error(t, err)
+			require.Equal(t, errPushFailed, err)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("Diff", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			expectedDiff := "diff --git a/file.txt b/file.txt\n+added line"
+			mock.On("Diff", ctx, "/tmp/repo", false).Return(expectedDiff, nil)
+
+			diff, err := mock.Diff(ctx, "/tmp/repo", false)
+			require.NoError(t, err)
+			require.Equal(t, expectedDiff, diff)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Diff", ctx, "/tmp/repo", true).Return("", errDiffFailed)
+
+			diff, err := mock.Diff(ctx, "/tmp/repo", true)
+			require.Error(t, err)
+			require.Equal(t, errDiffFailed, err)
+			require.Empty(t, diff)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("improperly configured mock - single argument", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Diff", ctx, "/tmp/repo", false).Return(errTestError)
+
+			diff, err := mock.Diff(ctx, "/tmp/repo", false)
+			require.Error(t, err)
+			require.Equal(t, errTestError, err)
+			require.Empty(t, diff)
+		})
+
+		t.Run("improperly configured mock - no arguments", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("Diff", ctx, "/tmp/repo", false).Return()
+
+			diff, err := mock.Diff(ctx, "/tmp/repo", false)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "mock not properly configured")
+			require.Empty(t, diff)
+		})
+	})
+
+	t.Run("GetCurrentBranch", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("GetCurrentBranch", ctx, "/tmp/repo").Return("master", nil)
+
+			branch, err := mock.GetCurrentBranch(ctx, "/tmp/repo")
+			require.NoError(t, err)
+			require.Equal(t, "master", branch)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("GetCurrentBranch", ctx, "/tmp/repo").Return("", errNotGitRepo)
+
+			branch, err := mock.GetCurrentBranch(ctx, "/tmp/repo")
+			require.Error(t, err)
+			require.Equal(t, errNotGitRepo, err)
+			require.Empty(t, branch)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("GetRemoteURL", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			expectedURL := "https://github.com/test/repo.git"
+			mock.On("GetRemoteURL", ctx, "/tmp/repo", "origin").Return(expectedURL, nil)
+
+			url, err := mock.GetRemoteURL(ctx, "/tmp/repo", "origin")
+			require.NoError(t, err)
+			require.Equal(t, expectedURL, url)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("GetRemoteURL", ctx, "/tmp/repo", "upstream").Return("", errRemoteNotFound)
+
+			url, err := mock.GetRemoteURL(ctx, "/tmp/repo", "upstream")
+			require.Error(t, err)
+			require.Equal(t, errRemoteNotFound, err)
+			require.Empty(t, url)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("CloneWithBranch", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("CloneWithBranch", ctx, "https://github.com/test/repo.git", "/tmp/repo", "main", (*CloneOptions)(nil)).Return(nil)
+
+			err := mock.CloneWithBranch(ctx, "https://github.com/test/repo.git", "/tmp/repo", "main", nil)
+			require.NoError(t, err)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("CloneWithBranch", ctx, "https://github.com/test/repo.git", "/tmp/repo", "main", (*CloneOptions)(nil)).Return(errCloneWithBranchFailed)
+
+			err := mock.CloneWithBranch(ctx, "https://github.com/test/repo.git", "/tmp/repo", "main", nil)
+			require.Error(t, err)
+			require.Equal(t, errCloneWithBranchFailed, err)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("CloneAtTag", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("CloneAtTag", ctx, "https://github.com/test/repo.git", "/tmp/repo", "v1.0.0", (*CloneOptions)(nil)).Return(nil)
+
+			err := mock.CloneAtTag(ctx, "https://github.com/test/repo.git", "/tmp/repo", "v1.0.0", nil)
+			require.NoError(t, err)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("CloneAtTag", ctx, "https://github.com/test/repo.git", "/tmp/repo", "v1.0.0", (*CloneOptions)(nil)).Return(errCloneAtTagFailed)
+
+			err := mock.CloneAtTag(ctx, "https://github.com/test/repo.git", "/tmp/repo", "v1.0.0", nil)
+			require.Error(t, err)
+			require.Equal(t, errCloneAtTagFailed, err)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("DiffIgnoreWhitespace", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			expectedDiff := "diff text"
+			mock.On("DiffIgnoreWhitespace", ctx, "/tmp/repo", false).Return(expectedDiff, nil)
+
+			diff, err := mock.DiffIgnoreWhitespace(ctx, "/tmp/repo", false)
+			require.NoError(t, err)
+			require.Equal(t, expectedDiff, diff)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("DiffIgnoreWhitespace", ctx, "/tmp/repo", true).Return("", errDiffIgnoreFailed)
+
+			diff, err := mock.DiffIgnoreWhitespace(ctx, "/tmp/repo", true)
+			require.Error(t, err)
+			require.Equal(t, errDiffIgnoreFailed, err)
+			require.Empty(t, diff)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("AddRemote", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("AddRemote", ctx, "/tmp/repo", "upstream", "https://github.com/test/repo.git").Return(nil)
+
+			err := mock.AddRemote(ctx, "/tmp/repo", "upstream", "https://github.com/test/repo.git")
+			require.NoError(t, err)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("AddRemote", ctx, "/tmp/repo", "upstream", "https://github.com/test/repo.git").Return(errAddRemoteFailed)
+
+			err := mock.AddRemote(ctx, "/tmp/repo", "upstream", "https://github.com/test/repo.git")
+			require.Error(t, err)
+			require.Equal(t, errAddRemoteFailed, err)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("GetCurrentCommitSHA", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			expectedSHA := "abc123def456abc123def456abc123def456abc1"
+			mock.On("GetCurrentCommitSHA", ctx, "/tmp/repo").Return(expectedSHA, nil)
+
+			sha, err := mock.GetCurrentCommitSHA(ctx, "/tmp/repo")
+			require.NoError(t, err)
+			require.Equal(t, expectedSHA, sha)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("GetCurrentCommitSHA", ctx, "/tmp/repo").Return("", errGetSHAFailed)
+
+			sha, err := mock.GetCurrentCommitSHA(ctx, "/tmp/repo")
+			require.Error(t, err)
+			require.Equal(t, errGetSHAFailed, err)
+			require.Empty(t, sha)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("GetRepositoryInfo", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			info := &RepositoryInfo{
+				Name:     "repo",
+				Owner:    "owner",
+				FullName: "owner/repo",
+				URL:      "https://github.com/owner/repo.git",
+				IsGitHub: true,
+			}
+			mock.On("GetRepositoryInfo", ctx, "/tmp/repo").Return(info, nil)
+
+			result, err := mock.GetRepositoryInfo(ctx, "/tmp/repo")
+			require.NoError(t, err)
+			require.Equal(t, info, result)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("GetRepositoryInfo", ctx, "/tmp/repo").Return((*RepositoryInfo)(nil), errGetRepoInfoFailed)
+
+			result, err := mock.GetRepositoryInfo(ctx, "/tmp/repo")
+			require.Error(t, err)
+			require.Equal(t, errGetRepoInfoFailed, err)
+			require.Nil(t, result)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("GetChangedFiles", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			files := []string{"file.go", "README.md"}
+			mock.On("GetChangedFiles", ctx, "/tmp/repo").Return(files, nil)
+
+			result, err := mock.GetChangedFiles(ctx, "/tmp/repo")
+			require.NoError(t, err)
+			require.Equal(t, files, result)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			mock.On("GetChangedFiles", ctx, "/tmp/repo").Return(([]string)(nil), errGetChangedFailed)
+
+			result, err := mock.GetChangedFiles(ctx, "/tmp/repo")
+			require.Error(t, err)
+			require.Equal(t, errGetChangedFailed, err)
+			require.Nil(t, result)
+			mock.AssertExpectations(t)
+		})
+	})
+
+	t.Run("BatchRemoveFiles", func(t *testing.T) {
+		t.Run("success case", func(t *testing.T) {
+			mock := NewMockClient()
+			files := []string{"old.go", "unused.go"}
+			mock.On("BatchRemoveFiles", ctx, "/tmp/repo", files, false).Return(nil)
+
+			err := mock.BatchRemoveFiles(ctx, "/tmp/repo", files, false)
+			require.NoError(t, err)
+			mock.AssertExpectations(t)
+		})
+
+		t.Run("error case", func(t *testing.T) {
+			mock := NewMockClient()
+			files := []string{"old.go"}
+			mock.On("BatchRemoveFiles", ctx, "/tmp/repo", files, true).Return(errBatchRemoveFailed)
+
+			err := mock.BatchRemoveFiles(ctx, "/tmp/repo", files, true)
+			require.Error(t, err)
+			require.Equal(t, errBatchRemoveFailed, err)
+			mock.AssertExpectations(t)
+		})
+	})
+}
+
+// Static error variables for additional mock methods
+var (
+	errCloneWithBranchFailed = errors.New("clone with branch failed")
+	errCloneAtTagFailed      = errors.New("clone at tag failed")
+	errDiffIgnoreFailed      = errors.New("diff ignore whitespace failed")
+	errAddRemoteFailed       = errors.New("add remote failed")
+	errGetSHAFailed          = errors.New("get current commit SHA failed")
+	errGetRepoInfoFailed     = errors.New("get repository info failed")
+	errGetChangedFailed      = errors.New("get changed files failed")
+	errBatchRemoveFailed     = errors.New("batch remove files failed")
+)
+
+// TestMockClientDefensiveProgramming tests the defensive programming in MockClient
+func TestMockClientDefensiveProgramming(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("handles nil returns gracefully", func(t *testing.T) {
+		mock := NewMockClient()
+
+		// Test methods that return only error
+		mock.On("Clone", ctx, "url", "path", (*CloneOptions)(nil)).Return(nil).Once()
+		err := mock.Clone(ctx, "url", "path", nil)
+		require.NoError(t, err)
+
+		mock.On("Checkout", ctx, "repo", "branch").Return(nil).Once()
+		err = mock.Checkout(ctx, "repo", "branch")
+		require.NoError(t, err)
+
+		mock.On("CreateBranch", ctx, "repo", "branch").Return(nil).Once()
+		err = mock.CreateBranch(ctx, "repo", "branch")
+		require.NoError(t, err)
+
+		mock.On("Add", ctx, "repo", []string{"file"}).Return(nil).Once()
+		err = mock.Add(ctx, "repo", "file")
+		require.NoError(t, err)
+
+		mock.On("Commit", ctx, "repo", "message").Return(nil).Once()
+		err = mock.Commit(ctx, "repo", "message")
+		require.NoError(t, err)
+
+		mock.On("Push", ctx, "repo", "remote", "branch", false).Return(nil).Once()
+		err = mock.Push(ctx, "repo", "remote", "branch", false)
+		require.NoError(t, err)
+
+		// Test methods that return value and error
+		mock.On("Diff", ctx, "repo", false).Return("", nil).Once()
+		diff, err := mock.Diff(ctx, "repo", false)
+		require.NoError(t, err)
+		require.Empty(t, diff)
+
+		mock.On("GetCurrentBranch", ctx, "repo").Return("", nil).Once()
+		branch, err := mock.GetCurrentBranch(ctx, "repo")
+		require.NoError(t, err)
+		require.Empty(t, branch)
+
+		mock.On("GetRemoteURL", ctx, "repo", "origin").Return("", nil).Once()
+		url, err := mock.GetRemoteURL(ctx, "repo", "origin")
+		require.NoError(t, err)
+		require.Empty(t, url)
+
+		mock.AssertExpectations(t)
+	})
+}
+
+// TestMockClientConcurrency tests that MockClient is safe for concurrent use
+func TestMockClientConcurrency(t *testing.T) {
+	ctx := context.Background()
+	mock := NewMockClient()
+
+	// Set up expectations for concurrent calls
+	mock.On("Clone", ctx, "url", "path", (*CloneOptions)(nil)).Return(nil).Maybe()
+	mock.On("Checkout", ctx, "repo", "branch").Return(nil).Maybe()
+	mock.On("CreateBranch", ctx, "repo", "branch").Return(nil).Maybe()
+	mock.On("Add", ctx, "repo", []string{"file"}).Return(nil).Maybe()
+	mock.On("Commit", ctx, "repo", "message").Return(nil).Maybe()
+	mock.On("Push", ctx, "repo", "remote", "branch", false).Return(nil).Maybe()
+	mock.On("Diff", ctx, "repo", false).Return("diff", nil).Maybe()
+	mock.On("GetCurrentBranch", ctx, "repo").Return("master", nil).Maybe()
+	mock.On("GetRemoteURL", ctx, "repo", "origin").Return("url", nil).Maybe()
+
+	// Use WaitGroup for proper synchronization
+	var wg sync.WaitGroup
+	const goroutineCount = 9
+	const iterationsPerGoroutine = 10
+
+	// Channel to collect any unexpected errors
+	errChan := make(chan error, goroutineCount*iterationsPerGoroutine)
+
+	wg.Add(goroutineCount)
+
+	// Launch goroutines for each method
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.Clone(ctx, "url", "path", nil); err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.Checkout(ctx, "repo", "branch"); err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.CreateBranch(ctx, "repo", "branch"); err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.Add(ctx, "repo", "file"); err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.Commit(ctx, "repo", "message"); err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if err := mock.Push(ctx, "repo", "remote", "branch", false); err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if _, err := mock.Diff(ctx, "repo", false); err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if _, err := mock.GetCurrentBranch(ctx, "repo"); err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterationsPerGoroutine; i++ {
+			if _, err := mock.GetRemoteURL(ctx, "repo", "origin"); err != nil {
+				errChan <- err
+			}
+		}
+	}()
+
+	// Wait for all goroutines with timeout protection
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// All goroutines completed successfully
+	case <-time.After(30 * time.Second):
+		t.Fatal("Test timed out - possible deadlock in concurrent mock access")
+	}
+
+	// Check for unexpected errors
+	close(errChan)
+	for err := range errChan {
+		t.Errorf("Unexpected error during concurrent mock access: %v", err)
+	}
+
+	// Verify expectations were met
+	mock.AssertExpectations(t)
+}

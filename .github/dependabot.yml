@@ -1,0 +1,112 @@
+# ────────────────────────────────────────────────────────────────
+# Dependabot Configuration
+#
+# Purpose:
+#   • Keep Go modules, GitHub Actions and DevContainer images/features up‑to‑date with zero‑day
+#     security patches and semantic‑version upgrades.
+#   • Reduce attack surface by limiting outdated dependencies.
+#   • Minimise PR noise via smart grouping and sane pull‑request limits.
+#
+# References:
+#   https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+#   https://docs.github.com/en/code-security/dependabot/configuration-options-for-dependency-updates
+#
+# Security Hardened Defaults:
+#   • Daily cadence (08:00 America/New_York) – align with CVE dump cycle.
+#   • Direct dependencies only – prevents unsolicited transitive churn.
+#   • PRs labeled, assigned, and target the protected "master/main" branch.
+#   • PR titles prefixed with chore(scope): – conventional commits.
+#   • Force‑push and delete‑branch disabled via branch‑protection rules.
+#   • PR limit = 10 to avoid queue flooding.
+#   • All dependency PRs require passing CI + CODEOWNERS review.
+# ────────────────────────────────────────────────────────────────
+
+version: 2
+
+updates:
+  # ──────────────────────────────────────────────────────────────
+  # 1. Main module (go.mod / go.sum)
+  # ──────────────────────────────────────────────────────────────
+  - package-ecosystem: "gomod"
+    directory: "/"
+    target-branch: "master"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+      timezone: "America/New_York"
+    allow:
+      - dependency-type: "direct"
+    groups:
+      go-deps:
+        patterns: ["*"]
+    open-pull-requests-limit: 10
+    assignees: ["mrz1836"]
+    labels: ["chore", "dependencies", "gomod"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # ──────────────────────────────────────────────────────────────
+  # 2. GitHub Actions Workflows
+  # ──────────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "master"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+      timezone: "America/New_York"
+    allow:
+      - dependency-type: "direct"
+    groups:
+      ghactions-all:
+        patterns: ["*"]
+    open-pull-requests-limit: 10
+    assignees: ["mrz1836"]
+    labels: ["chore", "dependencies", "github-actions"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # ──────────────────────────────────────────────────────────────
+  # 2b. GitHub Actions — Composite Actions (.github/actions/*)
+  # ──────────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/.github/actions/*"
+    target-branch: "master"
+    schedule:
+      interval: "daily"
+      time: "08:15"
+      timezone: "America/New_York"
+    groups:
+      ghactions-all:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+    assignees: ["mrz1836"]
+    labels: ["chore", "dependencies", "github-actions"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # ──────────────────────────────────────────────────────────────
+  # 3. DevContainer (devcontainer.json : base image + features)
+  # ──────────────────────────────────────────────────────────────
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    target-branch: "master"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+      timezone: "America/New_York"
+    allow:
+      - dependency-type: "direct"
+    groups:
+      devcontainer-all:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+    assignees: ["mrz1836"]
+    labels: ["chore", "dependencies", "devcontainer"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"

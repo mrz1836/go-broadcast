@@ -1,0 +1,198 @@
+# File and Directory Deletion Example
+# This configuration demonstrates how to delete files and directories from target repositories
+version: 1
+
+groups:
+  - name: "Repository Cleanup"
+    id: "cleanup-sync"
+    description: "Clean up obsolete files while syncing new ones"
+    priority: 1
+    enabled: true
+    source:
+      repo: "company/template-repo"
+      branch: "main"
+
+    defaults:
+      pr_labels: ["cleanup", "automated-sync"]
+      pr_assignees: ["platform-team"]
+
+    targets:
+      - repo: "company/service-a"
+
+        # File operations - both syncing and deletions
+        files:
+          # Regular file syncing
+          - src: ".github/workflows/new-ci.yml"
+            dest: ".github/workflows/ci.yml"
+          - src: "configs/app.yml"
+            dest: "configs/app.yml"
+          # File deletions - remove obsolete files
+          # Note: src can be empty or a dummy value when delete: true
+          - src: "dummy"
+            dest: ".github/workflows/old-ci.yml"
+            delete: true
+          - src: "dummy"
+            dest: "deprecated-config.json"
+            delete: true
+          - src: "dummy"
+            dest: "legacy-script.sh"
+            delete: true # src omitted when deleting
+
+        # Directory operations - both syncing and deletions
+        directories:
+          # Directory syncing
+          - src: ".github/actions"
+            dest: ".github/actions"
+            exclude: ["*.tmp"]
+          # Directory deletions - remove entire directories
+          - src: "dummy"
+            dest: "old-docs"
+            delete: true
+          - src: "dummy"
+            dest: ".github/legacy-workflows"
+            delete: true
+
+      - repo: "company/service-b"
+
+        # Mixed operations: sync some, delete others
+        files:
+          # Sync new files
+          - src: "README.md"
+            dest: "README.md"
+          - src: "LICENSE"
+            dest: "LICENSE"
+
+          # Remove old files
+          - src: "dummy"
+            dest: "OLD_README.txt"
+            delete: true
+          - src: "dummy"
+            dest: "DEPRECATED_LICENSE"
+            delete: true
+
+        directories:
+          # Sync updated directory
+          - src: "scripts"
+            dest: "scripts"
+            exclude: ["*.log", "tmp/*"]
+
+          # Remove obsolete directories
+          - src: "dummy"
+            dest: "legacy-scripts"
+            delete: true
+          - src: "dummy"
+            dest: "old-configs"
+            delete: true
+
+        transform:
+          repo_name: true
+
+  - name: "Security Policy Cleanup"
+    id: "security-cleanup"
+    description: "Update security policies and remove deprecated files"
+    priority: 2
+    enabled: true
+    source:
+      repo: "company/security-templates"
+      branch: "main"
+
+    targets:
+      - repo: "company/critical-service"
+
+        # File operations - both syncing and deletions
+        files:
+          # Update security files
+          - src: ".github/SECURITY.md"
+            dest: ".github/SECURITY.md"
+          - src: "security/policies.yml"
+            dest: "security/policies.yml"
+          # Remove old security files
+          - src: "dummy"
+            dest: "SECURITY_OLD.md"
+            delete: true
+          - src: "dummy"
+            dest: "security/deprecated-policy.json"
+            delete: true
+
+        # Remove entire deprecated security directory
+        directories:
+          - src: "dummy"
+            dest: "security/legacy"
+            delete: true
+
+        pr_labels: ["security-update", "cleanup"]
+        pr_assignees: ["security-team"]
+        pr_reviewers: ["security-lead"]
+
+  - name: "Documentation Restructure"
+    id: "docs-restructure"
+    description: "Reorganize documentation and remove outdated content"
+    priority: 3
+    enabled: true
+    source:
+      repo: "company/docs-template"
+      branch: "main"
+
+    targets:
+      - repo: "company/service-docs"
+
+        # Directory operations - both syncing and deletions
+        directories:
+          # Sync new documentation structure
+          - src: "docs/api"
+            dest: "docs/api"
+          - src: "docs/guides"
+            dest: "docs/guides"
+          # Remove old documentation structure
+          - src: "dummy"
+            dest: "documentation" # Old docs directory
+            delete: true
+          - src: "dummy"
+            dest: "guides" # Moved to docs/guides
+            delete: true
+          - src: "dummy"
+            dest: "api-reference" # Moved to docs/api
+            delete: true
+
+        # Clean up individual obsolete files
+        files:
+          - src: "dummy"
+            dest: "README_OLD.md"
+            delete: true
+          - src: "dummy"
+            dest: "CHANGELOG_LEGACY.md"
+            delete: true
+
+# Advanced deletion patterns
+file_lists:
+  - id: "cleanup-files"
+    name: "Files to Clean Up"
+    description: "Common obsolete files to remove"
+    files:
+      - src: "dummy"
+        dest: ".travis.yml" # Remove old CI
+        delete: true
+      - src: "dummy"
+        dest: "circle.yml" # Remove old CI
+        delete: true
+      - src: "dummy"
+        dest: "Jenkinsfile.old" # Remove old CI
+        delete: true
+      - src: "dummy"
+        dest: "package-lock.json.bak"
+        delete: true
+
+directory_lists:
+  - id: "cleanup-directories"
+    name: "Directories to Clean Up"
+    description: "Common obsolete directories to remove"
+    directories:
+      - src: "dummy"
+        dest: "node_modules_backup"
+        delete: true
+      - src: "dummy"
+        dest: "legacy"
+        delete: true
+      - src: "dummy"
+        dest: "deprecated"
+        delete: true

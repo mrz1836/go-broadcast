@@ -1,0 +1,1433 @@
+package cli
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/gh"
+	"github.com/mrz1836/go-broadcast/internal/output"
+	"github.com/mrz1836/go-broadcast/internal/state"
+)
+
+const errorState = "error"
+
+// TestInitStatus tests status command initialization
+func TestInitStatus(t *testing.T) {
+	// Check that json flag is already registered from package init
+	jsonFlag := statusCmd.Flags().Lookup("json")
+	require.NotNil(t, jsonFlag)
+	assert.Equal(t, "false", jsonFlag.DefValue)
+	assert.Equal(t, "Output status in JSON format", jsonFlag.Usage)
+}
+
+// TestStatusCmd tests status command configuration
+func TestStatusCmd(t *testing.T) {
+	cmd := statusCmd
+	assert.Equal(t, "status", cmd.Use)
+	assert.Equal(t, "Show sync state for all targets", cmd.Short)
+	assert.Contains(t, cmd.Long, "synchronization state")
+	assert.Contains(t, cmd.Example, "go-broadcast status")
+	assert.Contains(t, cmd.Aliases, "st")
+	assert.NotNil(t, cmd.RunE)
+}
+
+// TestSyncStatusJSON tests JSON marshaling of SyncStatus
+func TestSyncStatusJSON(t *testing.T) {
+	status := &SyncStatus{
+		Source: SourceStatus{
+			Repository:   "org/source-repo",
+			Branch:       "master",
+			LatestCommit: "abc123def456789",
+		},
+		Targets: []TargetStatus{
+			{
+				Repository: "org/target1",
+				State:      "synced",
+				LastSync: &SyncInfo{
+					Timestamp: "2024-01-15T12:00:00Z",
+					Commit:    "abc123def456789",
+				},
+			},
+			{
+				Repository: "org/target2",
+				State:      "outdated",
+				SyncBranch: strPtr("chore/sync-files-20240115-120000-abc123"),
+				PullRequest: &PullRequestInfo{
+					Number: 42,
+					State:  "open",
+					URL:    "https://github.com/org/target2/pull/42",
+					Title:  "Sync template updates",
+				},
+			},
+			{
+				Repository: "org/target3",
+				State:      errorState,
+				Error:      strPtr("failed to access repository"),
+			},
+		},
+	}
+
+	data, err := json.Marshal(status)
+	require.NoError(t, err)
+
+	// Verify JSON structure
+	var decoded SyncStatus
+	require.NoError(t, json.Unmarshal(data, &decoded))
+
+	assert.Equal(t, status.Source.Repository, decoded.Source.Repository)
+	assert.Len(t, decoded.Targets, 3)
+	assert.Equal(t, "synced", decoded.Targets[0].State)
+	assert.Equal(t, "outdated", decoded.Targets[1].State)
+	assert.Equal(t, errorState, decoded.Targets[2].State)
+
+	// Verify optional fields
+	assert.NotNil(t, decoded.Targets[0].LastSync)
+	assert.NotNil(t, decoded.Targets[1].PullRequest)
+	assert.NotNil(t, decoded.Targets[2].Error)
+}
+
+// TestStatusConversion tests status conversion logic
+func TestStatusConversion(t *testing.T) {
+	// Create a mock state for testing conversion
+	mockState := createMockState()
+
+	// Convert to CLI status format (pass nil config for non-group format)
+	status := convertStateToStatus(mockState, nil)
+
+	// Verify source status
+	assert.Equal(t, "org/template", status.Source.Repository)
+	assert.Equal(t, "master", status.Source.Branch)
+	assert.NotEmpty(t, status.Source.LatestCommit)
+
+	// Verify targets
+	assert.Len(t, status.Targets, 3)
+
+	// First target should be synced
+	assert.Equal(t, "org/target1", status.Targets[0].Repository)
+	assert.Equal(t, "synced", status.Targets[0].State)
+	assert.NotNil(t, status.Targets[0].LastSync)
+
+	// Other targets should be outdated with PR
+	for i := 1; i < 3; i++ {
+		target := status.Targets[i]
+		assert.Equal(t, fmt.Sprintf("org/target%d", i+1), target.Repository)
+		assert.Equal(t, "outdated", target.State)
+		assert.NotNil(t, target.SyncBranch)
+		assert.NotNil(t, target.PullRequest)
+		assert.Equal(t, 42, target.PullRequest.Number)
+		assert.Equal(t, "open", target.PullRequest.State)
+	}
+}
+
+// TestOutputJSON tests JSON output formatting
+func TestOutputJSON(t *testing.T) {
+	status := &SyncStatus{
+		Source: SourceStatus{
+			Repository:   "org/source",
+			Branch:       "master",
+			LatestCommit: "abc123",
+		},
+		Targets: []TargetStatus{
+			{
+				Repository: "org/target",
+				State:      "synced",
+			},
+		},
+	}
+
+	// Capture output (thread-safe)
+	scope := output.CaptureOutput()
+	defer scope.Restore()
+
+	err := outputJSON(status)
+	require.NoError(t, err)
+
+	// Verify JSON output
+	var decoded SyncStatus
+	require.NoError(t, json.Unmarshal(scope.Stdout.Bytes(), &decoded))
+	assert.Equal(t, status.Source.Repository, decoded.Source.Repository)
+}
+
+// TestOutputTextStatus tests text output formatting
+func TestOutputTextStatus(t *testing.T) {
+	testCases := []struct {
+		name   string
+		status *SyncStatus
+	}{
+		{
+			name: "AllSynced",
+			status: &SyncStatus{
+				Source: SourceStatus{
+					Repository:   "org/source",
+					Branch:       "master",
+					LatestCommit: "abc123def456789",
+				},
+				Targets: []TargetStatus{
+					{
+						Repository: "org/target1",
+						State:      "synced",
+						LastSync: &SyncInfo{
+							Timestamp: "2024-01-15T12:00:00Z",
+							Commit:    "abc123def456789",
+						},
+					},
+					{
+						Repository: "org/target2",
+						State:      "synced",
+						LastSync: &SyncInfo{
+							Timestamp: "2024-01-15T12:00:00Z",
+							Commit:    "abc123def456789",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "MixedStates",
+			status: &SyncStatus{
+				Source: SourceStatus{
+					Repository:   "org/source",
+					Branch:       "master",
+					LatestCommit: "xyz789",
+				},
+				Targets: []TargetStatus{
+					{
+						Repository: "org/target1",
+						State:      "synced",
+					},
+					{
+						Repository: "org/target2",
+						State:      "outdated",
+						SyncBranch: strPtr("chore/sync-files-branch"),
+						PullRequest: &PullRequestInfo{
+							Number: 10,
+							State:  "open",
+							URL:    "https://github.com/org/target2/pull/10",
+							Title:  "Update from source repository",
+						},
+					},
+					{
+						Repository: "org/target3",
+						State:      "pending",
+					},
+					{
+						Repository: "org/target4",
+						State:      errorState,
+						Error:      strPtr("Authentication failed"),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Just test that the function runs without error
+			err := outputTextStatus(tc.status)
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestGetRealStatus tests getRealStatus function with various scenarios
+func TestGetRealStatus(t *testing.T) {
+	// Skip these tests if we're not in an environment with proper GitHub access
+	// The getRealStatus function requires real GitHub API access which isn't available in test environments
+	t.Skip("Skipping getRealStatus tests - requires real GitHub API access and dependency injection")
+}
+
+// TestConvertSyncStatus tests the convertSyncStatus function
+func TestConvertSyncStatus(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    state.SyncStatus
+		expected string
+	}{
+		{
+			name:     "StatusUpToDate",
+			input:    state.StatusUpToDate,
+			expected: "synced",
+		},
+		{
+			name:     "StatusBehind",
+			input:    state.StatusBehind,
+			expected: "outdated",
+		},
+		{
+			name:     "StatusPending",
+			input:    state.StatusPending,
+			expected: "pending",
+		},
+		{
+			name:     "StatusUnknown",
+			input:    state.StatusUnknown,
+			expected: "unknown",
+		},
+		{
+			name:     "StatusConflict",
+			input:    state.StatusConflict,
+			expected: errorState,
+		},
+		{
+			name:     "InvalidStatus",
+			input:    state.SyncStatus("invalid-status"),
+			expected: "unknown",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := convertSyncStatus(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+// TestRunStatus tests the main status command execution
+func TestRunStatus(t *testing.T) {
+	t.Run("ConfigNotFound", func(t *testing.T) {
+		// Save original config file path (thread-safe)
+		originalFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: "/non/existent/config.yml", DryRun: originalFlags.DryRun, LogLevel: originalFlags.LogLevel})
+		defer func() {
+			SetFlags(originalFlags)
+		}()
+
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+
+		err := runStatus(cmd, []string{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to load configuration")
+	})
+
+	t.Run("ConfigLoadError", func(t *testing.T) {
+		// Create a temporary file with invalid YAML
+		tmpFile, err := os.CreateTemp("", "invalid-config-*.yml")
+		require.NoError(t, err)
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
+
+		_, err = tmpFile.WriteString("invalid: yaml: content:\n  - broken")
+		require.NoError(t, err)
+		require.NoError(t, tmpFile.Close())
+
+		// Save original config file path (thread-safe)
+		originalFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: tmpFile.Name(), DryRun: originalFlags.DryRun, LogLevel: originalFlags.LogLevel})
+		defer func() {
+			SetFlags(originalFlags)
+		}()
+
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+
+		err = runStatus(cmd, []string{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to load configuration")
+	})
+
+	t.Run("ValidConfigWithMockStatus", func(t *testing.T) {
+		// Create a valid temporary config
+		tmpFile, err := os.CreateTemp("", "valid-config-*.yml")
+		require.NoError(t, err)
+		tmpName := tmpFile.Name()
+		defer func() { _ = os.Remove(tmpName) }()
+
+		_, err = tmpFile.WriteString(TestValidConfig)
+		require.NoError(t, err)
+		require.NoError(t, tmpFile.Close())
+
+		// Save original config file path (thread-safe)
+		originalFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: tmpFile.Name(), DryRun: originalFlags.DryRun, LogLevel: originalFlags.LogLevel})
+		defer func() {
+			SetFlags(originalFlags)
+		}()
+
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+
+		// This will fail due to lack of GitHub access, but we're testing the flow
+		err = runStatus(cmd, []string{})
+		// We expect an error because we can't mock getRealStatus without dependency injection
+		require.Error(t, err)
+		// But it should get past config loading
+		assert.Contains(t, err.Error(), "failed to discover status")
+	})
+
+	t.Run("JSONOutputFlag", func(t *testing.T) {
+		// Save original flags (thread-safe)
+		originalFlags := GetGlobalFlags()
+		SetFlags(&Flags{ConfigFile: "/non/existent/config.yml", DryRun: originalFlags.DryRun, LogLevel: originalFlags.LogLevel})
+		setJSONOutput(true)
+		defer func() {
+			SetFlags(originalFlags)
+			setJSONOutput(false)
+		}()
+
+		cmd := &cobra.Command{}
+		cmd.SetContext(context.Background())
+
+		err := runStatus(cmd, []string{})
+		require.Error(t, err)
+		// Should still fail on config, regardless of output format
+		assert.Contains(t, err.Error(), "failed to load configuration")
+	})
+
+	t.Run("ValidConfigTextOutput", func(t *testing.T) {
+		t.Skip("Skipping integration test that requires real GitHub API access")
+	})
+
+	t.Run("ValidConfigJSONOutput", func(t *testing.T) {
+		t.Skip("Skipping integration test that requires real GitHub API access")
+	})
+}
+
+// TestTargetStatusStates tests all possible target states
+func TestTargetStatusStates(t *testing.T) {
+	states := []string{"synced", "outdated", "pending", errorState}
+
+	for _, state := range states {
+		t.Run(state, func(t *testing.T) {
+			status := TargetStatus{
+				Repository: "org/repo",
+				State:      state,
+			}
+
+			// Add state-specific fields
+			switch state {
+			case "outdated":
+				status.SyncBranch = strPtr("sync/branch")
+				status.PullRequest = &PullRequestInfo{
+					Number: 1,
+					State:  "open",
+					URL:    "https://github.com/org/repo/pull/1",
+					Title:  "Sync",
+				}
+			case errorState:
+				status.Error = strPtr("test error")
+			}
+
+			// Marshal and unmarshal
+			data, err := json.Marshal(status)
+			require.NoError(t, err)
+
+			var decoded TargetStatus
+			require.NoError(t, json.Unmarshal(data, &decoded))
+
+			assert.Equal(t, state, decoded.State)
+
+			// Verify state-specific fields
+			switch state {
+			case "outdated":
+				assert.NotNil(t, decoded.SyncBranch)
+				assert.NotNil(t, decoded.PullRequest)
+			case errorState:
+				assert.NotNil(t, decoded.Error)
+			}
+		})
+	}
+}
+
+// TestStatusSummaryCalculation tests summary statistics
+func TestStatusSummaryCalculation(t *testing.T) {
+	status := &SyncStatus{
+		Source: SourceStatus{
+			Repository:   "org/source",
+			Branch:       "master",
+			LatestCommit: "abc123",
+		},
+		Targets: []TargetStatus{
+			{Repository: "repo1", State: "synced"},
+			{Repository: "repo2", State: "synced"},
+			{Repository: "repo3", State: "outdated"},
+			{Repository: "repo4", State: "outdated"},
+			{Repository: "repo5", State: "outdated"},
+			{Repository: "repo6", State: "pending"},
+			{Repository: "repo7", State: errorState},
+		},
+	}
+
+	// Just test that the function runs without error
+	err := outputTextStatus(status)
+	require.NoError(t, err)
+}
+
+// TestStatusOutputIcons tests correct icon display for states
+func TestStatusOutputIcons(t *testing.T) {
+	iconMap := map[string]string{
+		"synced":   "✓",
+		"outdated": "⚠",
+		"pending":  "⏳",
+		errorState: "✗",
+		"unknown":  "?",
+	}
+
+	for state := range iconMap {
+		t.Run(state, func(t *testing.T) {
+			status := &SyncStatus{
+				Source: SourceStatus{
+					Repository:   "org/source",
+					Branch:       "master",
+					LatestCommit: "abc123",
+				},
+				Targets: []TargetStatus{
+					{
+						Repository: "org/target",
+						State:      state,
+					},
+				},
+			}
+
+			// Just test that the function runs without error
+			err := outputTextStatus(status)
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestConvertStateToGroupStatus tests the convertStateToGroupStatus function
+func TestConvertStateToGroupStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		state          *state.State
+		config         *config.Config
+		expectedGroups int
+		expectedName   string
+	}{
+		{
+			name: "convert state with single group",
+			state: &state.State{
+				Source: state.SourceState{
+					Repo:         "org/template",
+					Branch:       "main",
+					LatestCommit: "abc123",
+				},
+				Targets: map[string]*state.TargetState{
+					"org/target1": {
+						Repo:           "org/target1",
+						Status:         state.StatusUpToDate,
+						LastSyncCommit: "abc123",
+					},
+				},
+			},
+			config: &config.Config{
+				Version: 1,
+				Groups: []config.Group{
+					{
+						Name: "test-group",
+						ID:   "test-group-1",
+						Source: config.SourceConfig{
+							Repo:   "org/template",
+							Branch: "main",
+						},
+						Targets: []config.TargetConfig{
+							{
+								Repo: "org/target1",
+							},
+						},
+					},
+				},
+			},
+			expectedGroups: 1,
+			expectedName:   "test-group",
+		},
+		{
+			name: "convert state with disabled group",
+			state: &state.State{
+				Source: state.SourceState{
+					Repo:         "org/template",
+					Branch:       "main",
+					LatestCommit: "abc123",
+				},
+				Targets: map[string]*state.TargetState{},
+			},
+			config: &config.Config{
+				Version: 1,
+				Groups: []config.Group{
+					{
+						Name:    "disabled-group",
+						ID:      "disabled-group-1",
+						Enabled: boolPtr(false),
+						Source: config.SourceConfig{
+							Repo:   "org/template",
+							Branch: "main",
+						},
+						Targets: []config.TargetConfig{},
+					},
+				},
+			},
+			expectedGroups: 1,
+			expectedName:   "disabled-group",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertStateToGroupStatus(tt.state, tt.config)
+
+			assert.NotNil(t, result)
+			assert.Len(t, result.Groups, tt.expectedGroups)
+
+			if tt.expectedGroups > 0 {
+				assert.Equal(t, tt.expectedName, result.Groups[0].Name)
+			}
+		})
+	}
+}
+
+// TestOutputGroupTextStatus tests the outputGroupTextStatus function
+func TestOutputGroupTextStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		status         *SyncStatus
+		expectedOutput []string
+	}{
+		{
+			name: "output group status with synced state",
+			status: &SyncStatus{
+				Groups: []GroupStatus{
+					{
+						Name:     "test-group",
+						ID:       "test-group-1",
+						Priority: 0,
+						State:    "synced",
+						Enabled:  true,
+						Source: SourceStatus{
+							Repository: "org/template",
+							Branch:     "main",
+						},
+						Targets: []TargetStatus{
+							{
+								Repository: "org/target1",
+								State:      "synced",
+							},
+						},
+					},
+				},
+			},
+			expectedOutput: []string{
+				"=== Sync Status (Group-Based Configuration) ===",
+				"✓ Group: test-group (test-group-1) [Priority: 0]",
+				"Source: org/template (branch: main)",
+				"✓ org/target1 [synced]",
+			},
+		},
+		{
+			name: "output group status with error state",
+			status: &SyncStatus{
+				Groups: []GroupStatus{
+					{
+						Name:     "error-group",
+						ID:       "error-group-1",
+						Priority: 1,
+						State:    "error",
+						Enabled:  true,
+						Source: SourceStatus{
+							Repository: "org/template",
+							Branch:     "main",
+						},
+						Targets: []TargetStatus{
+							{
+								Repository: "org/target1",
+								State:      "error",
+								Error:      strPtr("sync failed"),
+							},
+						},
+					},
+				},
+			},
+			expectedOutput: []string{
+				"=== Sync Status (Group-Based Configuration) ===",
+				"✗ Group: error-group (error-group-1) [Priority: 1]",
+				"Source: org/template (branch: main)",
+				"✗ org/target1 [error]",
+			},
+		},
+		{
+			name: "output group status with disabled state",
+			status: &SyncStatus{
+				Groups: []GroupStatus{
+					{
+						Name:     "disabled-group",
+						ID:       "disabled-group-1",
+						Priority: 0,
+						State:    "disabled",
+						Enabled:  false,
+						Source: SourceStatus{
+							Repository: "org/template",
+							Branch:     "main",
+						},
+						Targets: []TargetStatus{},
+					},
+				},
+			},
+			expectedOutput: []string{
+				"=== Sync Status (Group-Based Configuration) ===",
+				"⊘ Group: disabled-group (disabled-group-1) [Priority: 0]",
+				"Source: org/template (branch: main)",
+				"(Group is disabled)",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Capture output (thread-safe)
+			scope := output.CaptureOutput()
+			defer scope.Restore()
+
+			err := outputGroupTextStatus(tt.status)
+			require.NoError(t, err)
+
+			capturedOutput := scope.Stdout.String()
+			for _, expected := range tt.expectedOutput {
+				assert.Contains(t, capturedOutput, expected, "Output should contain expected text")
+			}
+		})
+	}
+}
+
+// Helper function to create boolean pointer
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+// Helper function to create string pointer
+func strPtr(s string) *string {
+	return &s
+}
+
+// createMockState creates a mock state for testing conversion logic
+func createMockState() *state.State {
+	now := time.Now()
+	commitSHA := "abc123def456"
+
+	return &state.State{
+		Source: state.SourceState{
+			Repo:         "org/template",
+			Branch:       "master",
+			LatestCommit: commitSHA,
+			LastChecked:  now,
+		},
+		Targets: map[string]*state.TargetState{
+			"org/target1": {
+				Repo:           "org/target1",
+				Status:         state.StatusUpToDate,
+				LastSyncCommit: commitSHA,
+				LastSyncTime:   &now,
+				SyncBranches: []state.SyncBranch{
+					{
+						Name: "chore/sync-files-20240115-120000-abc123",
+						Metadata: &state.BranchMetadata{
+							Timestamp: now,
+							CommitSHA: commitSHA,
+							Prefix:    "chore/sync-files",
+						},
+					},
+				},
+				OpenPRs: []gh.PR{},
+			},
+			"org/target2": {
+				Repo:           "org/target2",
+				Status:         state.StatusBehind,
+				LastSyncCommit: "abc123old",
+				LastSyncTime:   &now,
+				SyncBranches: []state.SyncBranch{
+					{
+						Name: "chore/sync-files-20240116-120000-abc124",
+						Metadata: &state.BranchMetadata{
+							Timestamp: now.Add(time.Hour),
+							CommitSHA: "abc124",
+							Prefix:    "chore/sync-files",
+						},
+					},
+				},
+				OpenPRs: []gh.PR{
+					{
+						Number: 42,
+						State:  "open",
+						Title:  "Sync template updates",
+						Head: struct {
+							Ref string `json:"ref"`
+							SHA string `json:"sha"`
+						}{
+							Ref: "chore/sync-files-20240116-120000-abc124",
+							SHA: "abc124",
+						},
+					},
+				},
+			},
+			"org/target3": {
+				Repo:           "org/target3",
+				Status:         state.StatusBehind,
+				LastSyncCommit: "abc123old",
+				LastSyncTime:   &now,
+				SyncBranches: []state.SyncBranch{
+					{
+						Name: "chore/sync-files-20240117-120000-abc125",
+						Metadata: &state.BranchMetadata{
+							Timestamp: now.Add(2 * time.Hour),
+							CommitSHA: "abc125",
+							Prefix:    "chore/sync-files",
+						},
+					},
+				},
+				OpenPRs: []gh.PR{
+					{
+						Number: 42,
+						State:  "open",
+						Title:  "Sync template updates",
+						Head: struct {
+							Ref string `json:"ref"`
+							SHA string `json:"sha"`
+						}{
+							Ref: "chore/sync-files-20240117-120000-abc125",
+							SHA: "abc125",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// TestGetRealStatusErrorCases tests error handling in getRealStatus
+func TestGetRealStatusErrorCases(t *testing.T) {
+	t.Run("GitHub client creation failure", func(t *testing.T) {
+		ctx := context.Background()
+		cfg := &config.Config{
+			Groups: []config.Group{{
+				Source: config.SourceConfig{
+					Repo:   "test/source",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{Repo: "test/target1"},
+				},
+			}},
+		}
+
+		// This will likely fail with GitHub CLI not found or auth issues
+		status, err := getRealStatus(ctx, cfg)
+
+		// Should return error, not panic
+		require.Error(t, err)
+		assert.Nil(t, status)
+
+		// Error should be GitHub-related (auth, not found, or branch error)
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to initialize GitHub client") ||
+				strings.Contains(err.Error(), "ErrGHNotFound") ||
+				strings.Contains(err.Error(), "ErrNotAuthenticated") ||
+				strings.Contains(err.Error(), "Please install GitHub CLI") ||
+				strings.Contains(err.Error(), "Please run: gh auth login") ||
+				strings.Contains(err.Error(), "branch not found") ||
+				strings.Contains(err.Error(), "not authenticated"),
+			"Expected GitHub client or branch error, got: %s", err.Error())
+	})
+
+	t.Run("State discovery failure", func(t *testing.T) {
+		ctx := context.Background()
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "test-group",
+					ID:   "test-group-1",
+					Source: config.SourceConfig{
+						Repo:   "nonexistent/repo",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "test/target1"},
+					},
+				},
+			},
+		}
+
+		// Will fail at state discovery phase if it gets past client creation
+		status, err := getRealStatus(ctx, cfg)
+		require.Error(t, err)
+		assert.Nil(t, status)
+	})
+
+	t.Run("Context cancellation", func(t *testing.T) {
+		// Create canceled context
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "test-group",
+					ID:   "test-group-1",
+					Source: config.SourceConfig{
+						Repo:   "test/source",
+						Branch: "main",
+					},
+				},
+			},
+		}
+
+		// Should handle canceled context gracefully
+		status, err := getRealStatus(ctx, cfg)
+		// The function might still succeed if it doesn't check context before operations
+		// or it might fail with context/GitHub error - both are acceptable
+		if err != nil {
+			// If it errors, it should be related to context or GitHub operations
+			assert.True(t,
+				strings.Contains(err.Error(), "context") ||
+					strings.Contains(err.Error(), "canceled") ||
+					strings.Contains(err.Error(), "GitHub") ||
+					strings.Contains(err.Error(), "initialize") ||
+					strings.Contains(err.Error(), "not authenticated") ||
+					strings.Contains(err.Error(), "branch not found"),
+				"Expected context or GitHub error, got: %s", err.Error())
+		}
+		_ = status // May be nil or valid depending on timing
+	})
+}
+
+// TestConvertStateToStatus_NilHandling tests nil input handling
+func TestConvertStateToStatus_NilHandling(t *testing.T) {
+	t.Run("NilConfig_EmptyGroups", func(t *testing.T) {
+		// When config is nil, function should not use group-based conversion
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusUpToDate,
+				},
+			},
+		}
+
+		// Should not panic with nil config
+		assert.NotPanics(t, func() {
+			status := convertStateToStatus(s, nil)
+			require.NotNil(t, status)
+			assert.Equal(t, "org/template", status.Source.Repository)
+			assert.Len(t, status.Targets, 1)
+		})
+	})
+
+	t.Run("ConfigWithEmptyGroups", func(t *testing.T) {
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusPending,
+				},
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{}, // Empty groups
+		}
+
+		// Should not panic with empty groups
+		assert.NotPanics(t, func() {
+			status := convertStateToStatus(s, cfg)
+			require.NotNil(t, status)
+		})
+	})
+
+	t.Run("StateWithEmptyTargets", func(t *testing.T) {
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{}, // Empty targets
+		}
+
+		cfg := &config.Config{}
+
+		status := convertStateToStatus(s, cfg)
+		require.NotNil(t, status)
+		assert.Empty(t, status.Targets)
+	})
+}
+
+// TestConvertSyncStatus_AllStatusValues tests all sync status enum conversions
+func TestConvertSyncStatus_AllStatusValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    state.SyncStatus
+		expected string
+	}{
+		{"up_to_date", state.StatusUpToDate, "synced"},
+		{"behind", state.StatusBehind, "outdated"},
+		{"pending", state.StatusPending, "pending"},
+		{"conflict", state.StatusConflict, "error"},
+		{"unknown", state.StatusUnknown, "unknown"},
+		{"invalid_status", state.SyncStatus("invalid-status"), "unknown"}, // Unknown status value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertSyncStatus(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestConvertStateToStatus_SyncBranchMetadata tests sync branch metadata handling
+func TestConvertStateToStatus_SyncBranchMetadata(t *testing.T) {
+	t.Run("AllBranchesHaveNilMetadata", func(t *testing.T) {
+		now := time.Now()
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusPending,
+					SyncBranches: []state.SyncBranch{
+						{Name: "sync/branch1", Metadata: nil},
+						{Name: "sync/branch2", Metadata: nil},
+					},
+					LastSyncTime: &now,
+				},
+			},
+		}
+
+		cfg := &config.Config{}
+
+		// Should not panic when all branches have nil metadata
+		assert.NotPanics(t, func() {
+			status := convertStateToStatus(s, cfg)
+			require.NotNil(t, status)
+			require.Len(t, status.Targets, 1)
+			// SyncBranch should be nil when no branch has metadata
+			assert.Nil(t, status.Targets[0].SyncBranch)
+		})
+	})
+
+	t.Run("MixedNilAndValidMetadata", func(t *testing.T) {
+		now := time.Now()
+		earlier := now.Add(-1 * time.Hour)
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusPending,
+					SyncBranches: []state.SyncBranch{
+						{Name: "sync/old", Metadata: &state.BranchMetadata{Timestamp: earlier}},
+						{Name: "sync/nil", Metadata: nil},
+						{Name: "sync/new", Metadata: &state.BranchMetadata{Timestamp: now}},
+					},
+				},
+			},
+		}
+
+		cfg := &config.Config{}
+
+		status := convertStateToStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Targets, 1)
+		// Should pick the most recent valid branch
+		require.NotNil(t, status.Targets[0].SyncBranch)
+		assert.Equal(t, "sync/new", *status.Targets[0].SyncBranch)
+	})
+
+	t.Run("EmptySyncBranches", func(t *testing.T) {
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:         "org/target1",
+					Status:       state.StatusUpToDate,
+					SyncBranches: []state.SyncBranch{}, // Empty
+				},
+			},
+		}
+
+		cfg := &config.Config{}
+
+		status := convertStateToStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Targets, 1)
+		assert.Nil(t, status.Targets[0].SyncBranch)
+	})
+}
+
+// TestConvertStateToGroupStatus_EdgeCases tests group status conversion edge cases
+func TestConvertStateToGroupStatus_EdgeCases(t *testing.T) {
+	t.Run("MultipleGroupsSameTarget", func(t *testing.T) {
+		// Test when same target appears in multiple groups
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusUpToDate,
+				},
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "group1",
+					ID:   "group1",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+					},
+				},
+				{
+					Name: "group2",
+					ID:   "group2",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"}, // Same target
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		assert.Len(t, status.Groups, 2)
+	})
+
+	t.Run("DisabledGroup", func(t *testing.T) {
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{},
+		}
+
+		disabled := false // false means the group is disabled
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name:     "disabled-group",
+					ID:       "disabled",
+					Enabled:  &disabled,
+					Priority: 1,
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+		assert.Equal(t, "disabled", status.Groups[0].State)
+		assert.False(t, status.Groups[0].Enabled)
+	})
+
+	t.Run("GroupWithMixedTargetStates", func(t *testing.T) {
+		// Test group with targets in different states - should determine overall group state
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusUpToDate,
+				},
+				"org/target2": {
+					Repo:   "org/target2",
+					Status: state.StatusBehind,
+				},
+				"org/target3": {
+					Repo:   "org/target3",
+					Status: state.StatusPending,
+				},
+				"org/target4": {
+					Repo:   "org/target4",
+					Status: state.StatusConflict,
+				},
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "mixed-group",
+					ID:   "mixed",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+						{Repo: "org/target2"},
+						{Repo: "org/target3"},
+						{Repo: "org/target4"},
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+
+		group := status.Groups[0]
+		assert.Len(t, group.Targets, 4)
+
+		// Group state should reflect worst state (error takes precedence)
+		assert.Equal(t, "error", group.State)
+	})
+
+	t.Run("GroupWithNoTargets", func(t *testing.T) {
+		// Test group with no targets configured
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "empty-group",
+					ID:   "empty",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{}, // No targets
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+
+		group := status.Groups[0]
+		assert.Empty(t, group.Targets)
+		// State should be synced or unknown when no targets
+		assert.True(t, group.State == "synced" || group.State == "unknown")
+	})
+
+	t.Run("GroupWithTargetsMissingFromState", func(t *testing.T) {
+		// Test when config has targets but state doesn't have info for them
+		// The actual implementation only includes targets that exist in state
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:         "org/template",
+				Branch:       "main",
+				LatestCommit: "abc123",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {
+					Repo:   "org/target1",
+					Status: state.StatusUpToDate,
+				},
+				// target2 is missing from state
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "incomplete-group",
+					ID:   "incomplete",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+						{Repo: "org/target2"}, // Not in state
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+
+		group := status.Groups[0]
+		// Only target1 should be present since target2 is not in state
+		assert.Len(t, group.Targets, 1)
+		assert.Equal(t, "org/target1", group.Targets[0].Repository)
+		assert.Equal(t, "synced", group.Targets[0].State)
+	})
+
+	t.Run("PrioritySortingEdgeCases", func(t *testing.T) {
+		// Test that groups are properly sorted by priority
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name:     "low-priority",
+					ID:       "low",
+					Priority: 100,
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+				},
+				{
+					Name:     "high-priority",
+					ID:       "high",
+					Priority: 0,
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+				},
+				{
+					Name:     "mid-priority",
+					ID:       "mid",
+					Priority: 50,
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 3)
+
+		// Groups should be sorted by priority (lowest first)
+		assert.Equal(t, "high-priority", status.Groups[0].Name)
+		assert.Equal(t, 0, status.Groups[0].Priority)
+		assert.Equal(t, "mid-priority", status.Groups[1].Name)
+		assert.Equal(t, 50, status.Groups[1].Priority)
+		assert.Equal(t, "low-priority", status.Groups[2].Name)
+		assert.Equal(t, 100, status.Groups[2].Priority)
+	})
+
+	t.Run("GroupStateCalculationAllSynced", func(t *testing.T) {
+		// Test group state when all targets are synced
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {Repo: "org/target1", Status: state.StatusUpToDate},
+				"org/target2": {Repo: "org/target2", Status: state.StatusUpToDate},
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "all-synced",
+					ID:   "synced",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+						{Repo: "org/target2"},
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+		assert.Equal(t, "synced", status.Groups[0].State)
+	})
+
+	t.Run("GroupStateCalculationAllOutdated", func(t *testing.T) {
+		// Test group state when all targets are outdated
+		// According to the implementation, "outdated" targets result in "ready" group state
+		s := &state.State{
+			Source: state.SourceState{
+				Repo:   "org/template",
+				Branch: "main",
+			},
+			Targets: map[string]*state.TargetState{
+				"org/target1": {Repo: "org/target1", Status: state.StatusBehind},
+				"org/target2": {Repo: "org/target2", Status: state.StatusBehind},
+			},
+		}
+
+		cfg := &config.Config{
+			Groups: []config.Group{
+				{
+					Name: "all-outdated",
+					ID:   "outdated",
+					Source: config.SourceConfig{
+						Repo:   "org/template",
+						Branch: "main",
+					},
+					Targets: []config.TargetConfig{
+						{Repo: "org/target1"},
+						{Repo: "org/target2"},
+					},
+				},
+			},
+		}
+
+		status := convertStateToGroupStatus(s, cfg)
+		require.NotNil(t, status)
+		require.Len(t, status.Groups, 1)
+		// Group state is "ready" when targets are outdated but not error/pending
+		assert.Equal(t, "ready", status.Groups[0].State)
+	})
+}

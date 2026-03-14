@@ -1,0 +1,409 @@
+package transform
+
+import (
+	"context"
+	"testing"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/errors"
+)
+
+func TestChain_Add(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	chain := NewChain(logger)
+
+	// Add transformers
+	transformer1 := &MockTransformer{}
+	transformer1.On("Name").Return("transformer1")
+
+	transformer2 := &MockTransformer{}
+	transformer2.On("Name").Return("transformer2")
+
+	chain.Add(transformer1).Add(transformer2)
+
+	// Verify transformers were added
+	transformers := chain.Transformers()
+	assert.Len(t, transformers, 2)
+	assert.Equal(t, "transformer1", transformers[0].Name())
+	assert.Equal(t, "transformer2", transformers[1].Name())
+}
+
+func TestChain_Transform(t *testing.T) {
+	tests := []struct {
+		name        string
+		setup       func() (Chain, []byte, Context)
+		wantContent string
+		wantError   bool
+	}{
+		{
+			name: "successful chain execution",
+			setup: func() (Chain, []byte, Context) {
+				logger := logrus.New()
+				chain := NewChain(logger)
+
+				// First transformer: uppercase
+				t1 := &MockTransformer{}
+				t1.On("Name").Return("uppercase")
+				t1.On("Transform", []byte("hello world"), mock.Anything).
+					Return([]byte("HELLO WORLD"), nil)
+
+				// Second transformer: add suffix
+				t2 := &MockTransformer{}
+				t2.On("Name").Return("suffix")
+				t2.On("Transform", []byte("HELLO WORLD"), mock.Anything).
+					Return([]byte("HELLO WORLD!"), nil)
+
+				chain.Add(t1).Add(t2)
+
+				ctx := Context{
+					SourceRepo: "org/source",
+					TargetRepo: "org/target",
+					FilePath:   "test.txt",
+				}
+
+				return chain, []byte("hello world"), ctx
+			},
+			wantContent: "HELLO WORLD!",
+			wantError:   false,
+		},
+		{
+			name: "empty chain returns original content",
+			setup: func() (Chain, []byte, Context) {
+				logger := logrus.New()
+				chain := NewChain(logger)
+
+				ctx := Context{
+					SourceRepo: "org/source",
+					TargetRepo: "org/target",
+					FilePath:   "test.txt",
+				}
+
+				return chain, []byte("unchanged"), ctx
+			},
+			wantContent: "unchanged",
+			wantError:   false,
+		},
+		{
+			name: "transformer error stops chain",
+			setup: func() (Chain, []byte, Context) {
+				logger := logrus.New()
+				chain := NewChain(logger)
+
+				// First transformer: succeeds
+				t1 := &MockTransformer{}
+				t1.On("Name").Return("success")
+				t1.On("Transform", mock.Anything, mock.Anything).
+					Return([]byte("modified"), nil)
+
+				// Second transformer: fails
+				t2 := &MockTransformer{}
+				t2.On("Name").Return("failure")
+				t2.On("Transform", mock.Anything, mock.Anything).
+					Return(nil, errors.ErrTest)
+
+				// Third transformer: should not be called
+				t3 := &MockTransformer{}
+				t3.On("Name").Return("never-called")
+
+				chain.Add(t1).Add(t2).Add(t3)
+
+				ctx := Context{
+					SourceRepo: "org/source",
+					TargetRepo: "org/target",
+					FilePath:   "test.txt",
+				}
+
+				return chain, []byte("original"), ctx
+			},
+			wantContent: "",
+			wantError:   true,
+		},
+		{
+			name: "context cancellation stops chain",
+			setup: func() (Chain, []byte, Context) {
+				logger := logrus.New()
+				chain := NewChain(logger)
+
+				// Add a transformer that won't be called
+				t1 := &MockTransformer{}
+				t1.On("Name").Return("never-called")
+
+				chain.Add(t1)
+
+				ctx := Context{
+					SourceRepo: "org/source",
+					TargetRepo: "org/target",
+					FilePath:   "test.txt",
+				}
+
+				return chain, []byte("original"), ctx
+			},
+			wantContent: "",
+			wantError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			chain, content, transformCtx := tt.setup()
+
+			ctx := context.Background()
+			if tt.name == "context cancellation stops chain" {
+				cancelCtx, cancel := context.WithCancel(ctx)
+				cancel() // Cancel immediately
+
+				ctx = cancelCtx
+			}
+
+			result, err := chain.Transform(ctx, content, transformCtx)
+
+			if tt.wantError {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantContent, string(result))
+			}
+		})
+	}
+}
+
+func TestChain_Transformers(t *testing.T) {
+	logger := logrus.New()
+	chain := NewChain(logger).(*chain)
+
+	// Add transformers
+	t1 := &MockTransformer{}
+	t2 := &MockTransformer{}
+	chain.transformers = []Transformer{t1, t2}
+
+	// Get transformers
+	transformers := chain.Transformers()
+	assert.Len(t, transformers, 2)
+
+	// Verify it's a copy (modifying returned slice doesn't affect chain)
+	transformers[0] = nil
+	assert.NotNil(t, chain.transformers[0])
+}
+
+func TestChain_EmailBeforeRepoTransformer(t *testing.T) {
+	// Regression test: Email transformer must run BEFORE repo transformer
+	// to prevent repo name in email addresses from being corrupted.
+	//
+	// Bug scenario:
+	// 1. Source file has: "my-project@source-dev.com"
+	// 2. If repo transformer runs first, it replaces "my-project" with target repo name
+	//    resulting in: "queue-lib@source-dev.com" (WRONG!)
+	// 3. Email transformer then can't find "my-project@source-dev.com" to replace
+	//
+	// Correct behavior:
+	// 1. Email transformer runs first, replaces "my-project@source-dev.com"
+	//    with "security@target-corp.com"
+	// 2. Repo transformer then runs and doesn't affect the email
+	logger := logrus.New()
+	logger.SetLevel(logrus.FatalLevel) // Suppress logs for test
+
+	chain := NewChain(logger)
+
+	// Add transformers in the correct order: Email FIRST, then Repo
+	chain.Add(NewEmailTransformer()).Add(NewRepoTransformer())
+
+	input := `# Security Policy
+
+If you've found a security issue, send a private email to:
+📧 [my-project@source-dev.com](mailto:my-project@source-dev.com)
+
+This is the my-project repository.
+`
+
+	expected := `# Security Policy
+
+If you've found a security issue, send a private email to:
+📧 [security@target-corp.com](mailto:security@target-corp.com)
+
+This is the queue-lib repository.
+`
+
+	ctx := Context{
+		SourceRepo:          "acme/my-project",
+		TargetRepo:          "example-corp/queue-lib",
+		FilePath:            ".github/SECURITY.md",
+		SourceSecurityEmail: "my-project@source-dev.com",
+		TargetSecurityEmail: "security@target-corp.com",
+	}
+
+	result, err := chain.Transform(context.Background(), []byte(input), ctx)
+	require.NoError(t, err)
+	assert.Equal(t, expected, string(result))
+
+	// Verify the email was transformed correctly (not corrupted by repo transformer)
+	assert.Contains(t, string(result), "security@target-corp.com")
+	assert.NotContains(t, string(result), "my-project@source-dev.com")
+	assert.NotContains(t, string(result), "queue-lib@source-dev.com") // Should NOT contain corrupted email
+}
+
+func TestChain_RepoBeforeEmailTransformer_BreaksEmail(t *testing.T) {
+	// Anti-pattern test: Demonstrates what happens when transformers are in WRONG order
+	// This test documents the bug behavior to ensure we don't regress
+	logger := logrus.New()
+	logger.SetLevel(logrus.FatalLevel) // Suppress logs for test
+
+	chain := NewChain(logger)
+
+	// Add transformers in the WRONG order: Repo FIRST, then Email
+	chain.Add(NewRepoTransformer()).Add(NewEmailTransformer())
+
+	input := `# Security Policy
+
+If you've found a security issue, send a private email to:
+📧 [my-project@source-dev.com](mailto:my-project@source-dev.com)
+
+This is the my-project repository.
+`
+
+	// With WRONG order, the email gets corrupted:
+	// 1. Repo transformer replaces "my-project" -> "queue-lib"
+	//    Email becomes: "queue-lib@source-dev.com"
+	// 2. Email transformer can't find "my-project@source-dev.com" to replace
+	wrongResult := `# Security Policy
+
+If you've found a security issue, send a private email to:
+📧 [queue-lib@source-dev.com](mailto:queue-lib@source-dev.com)
+
+This is the queue-lib repository.
+`
+
+	ctx := Context{
+		SourceRepo:          "acme/my-project",
+		TargetRepo:          "example-corp/queue-lib",
+		FilePath:            ".github/SECURITY.md",
+		SourceSecurityEmail: "my-project@source-dev.com",
+		TargetSecurityEmail: "security@target-corp.com",
+	}
+
+	result, err := chain.Transform(context.Background(), []byte(input), ctx)
+	require.NoError(t, err)
+
+	// This test verifies the WRONG behavior happens with wrong order
+	assert.Equal(t, wrongResult, string(result))
+	assert.Contains(t, string(result), "queue-lib@source-dev.com")    // Corrupted email
+	assert.NotContains(t, string(result), "security@target-corp.com") // Email transform failed
+}
+
+// TestChain_ConcurrentAddAndTransform verifies that the chain is thread-safe
+// when Add() and Transform() are called concurrently from multiple goroutines.
+func TestChain_ConcurrentAddAndTransform(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.ErrorLevel) // Reduce noise
+
+	chain := NewChain(logger)
+
+	// Add initial transformer
+	initialTransformer := &MockTransformer{}
+	initialTransformer.On("Name").Return("initial")
+	initialTransformer.On("Transform", mock.Anything, mock.Anything).Return([]byte("transformed"), nil)
+	chain.Add(initialTransformer)
+
+	ctx := Context{
+		SourceRepo: "org/source",
+		TargetRepo: "org/target",
+		FilePath:   "test.txt",
+	}
+
+	// Run concurrent operations
+	done := make(chan bool)
+	const numGoroutines = 10
+	const numOperations = 100
+
+	// Start goroutines that call Transform
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			for j := 0; j < numOperations; j++ {
+				_, err := chain.Transform(context.Background(), []byte("test"), ctx)
+				if err != nil {
+					t.Errorf("Transform failed: %v", err)
+				}
+			}
+			done <- true
+		}()
+	}
+
+	// Start goroutines that call Add
+	for i := 0; i < numGoroutines/2; i++ {
+		go func(_ int) {
+			for j := 0; j < numOperations/10; j++ {
+				newTransformer := &MockTransformer{}
+				newTransformer.On("Name").Return("added")
+				newTransformer.On("Transform", mock.Anything, mock.Anything).Return([]byte("transformed"), nil)
+				chain.Add(newTransformer)
+			}
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	for i := 0; i < numGoroutines+numGoroutines/2; i++ {
+		<-done
+	}
+
+	// Verify chain still works
+	result, err := chain.Transform(context.Background(), []byte("final test"), ctx)
+	require.NoError(t, err)
+	assert.NotEmpty(t, result)
+}
+
+// TestChain_NilLogger verifies that NewChain handles nil logger gracefully
+func TestChain_NilLogger(t *testing.T) {
+	// Should not panic with nil logger
+	chain := NewChain(nil)
+	require.NotNil(t, chain)
+
+	// Create a simple transformer
+	transformer := &MockTransformer{}
+	transformer.On("Name").Return("test")
+	transformer.On("Transform", mock.Anything, mock.Anything).Return([]byte("result"), nil)
+
+	// Add should work
+	chain.Add(transformer)
+
+	// Transform should work
+	ctx := Context{
+		SourceRepo: "org/source",
+		TargetRepo: "org/target",
+		FilePath:   "test.txt",
+	}
+	result, err := chain.Transform(context.Background(), []byte("input"), ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "result", string(result))
+}
+
+// TestChain_ContextCancellation verifies that context cancellation is properly wrapped
+func TestChain_ContextCancellation(t *testing.T) {
+	logger := logrus.New()
+	chain := NewChain(logger)
+
+	// Add a slow transformer
+	slowTransformer := &MockTransformer{}
+	slowTransformer.On("Name").Return("slow")
+	slowTransformer.On("Transform", mock.Anything, mock.Anything).Return([]byte("result"), nil)
+	chain.Add(slowTransformer)
+
+	// Create canceled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	transformCtx := Context{
+		SourceRepo: "org/source",
+		TargetRepo: "org/target",
+		FilePath:   "test.txt",
+	}
+
+	_, err := chain.Transform(ctx, []byte("input"), transformCtx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "canceled") // Error should be wrapped
+}

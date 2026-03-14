@@ -1,0 +1,130 @@
+// Package env provides utilities for loading environment variables from .env files.
+// It follows the GoFortress pattern used by other tools in the ecosystem.
+package env
+
+import (
+	"bufio"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// MaxLineLength is the maximum length of a single line in an env file.
+// Lines longer than this will cause a scanner error.
+const MaxLineLength = 1024 * 1024 // 1MB
+
+// parseEnvFile reads a .env file and returns key-value pairs.
+// Handles comments (#), empty lines, KEY=VALUE format, and "export KEY=VALUE" format.
+//
+// Supported formats:
+//   - Simple: KEY=value
+//   - Quoted: KEY="value" or KEY='value'
+//   - With export: export KEY=value
+//   - Inline comments: KEY=value # comment (stripped for unquoted values)
+//
+// Limitations:
+//   - Multiline values are NOT supported; each KEY=VALUE must be on one line.
+//   - Lines longer than 1MB will cause an error.
+//   - Key names are not validated; any non-empty string before '=' is accepted.
+func parseEnvFile(path string) (map[string]string, error) {
+	// filepath.Clean sanitizes the path to prevent directory traversal
+	cleanPath := filepath.Clean(path)
+
+	file, err := os.Open(cleanPath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = file.Close() }()
+
+	vars := make(map[string]string)
+	scanner := bufio.NewScanner(file)
+	// Set a buffer limit to prevent unbounded memory usage on malformed files.
+	// Default scanner buffer is 64KB; we allow up to 1MB for long lines.
+	scanner.Buffer(make([]byte, 0, 64*1024), MaxLineLength)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Parse KEY=VALUE (handle quoted values, etc.)
+		key, value, ok := parseEnvLine(line)
+		if ok {
+			vars[key] = value
+		}
+	}
+
+	return vars, scanner.Err()
+}
+
+// loadAndApplyEnvFile reads a .env file and merges its key-value pairs into the
+// provided vars map. Later calls override earlier values (overload semantics).
+// This reuses the existing parseEnvLine logic for parsing individual lines.
+func loadAndApplyEnvFile(path string, vars map[string]string) error {
+	parsed, err := parseEnvFile(path)
+	if err != nil {
+		return err
+	}
+	for k, v := range parsed {
+		vars[k] = v
+	}
+	return nil
+}
+
+// parseEnvLine extracts key and value from "KEY=VALUE" format.
+// Handles:
+//   - Simple: KEY=value
+//   - Quoted: KEY="value with spaces"
+//   - Single quoted: KEY='value'
+//   - Empty: KEY= (empty string)
+//   - Values with equals: KEY=foo=bar (value is "foo=bar")
+//   - Inline comments: KEY=value # comment → value is "value"
+//   - Export prefix: export KEY=value → key is "KEY"
+//
+// Unmatched quotes (e.g., KEY="unmatched) are preserved as-is.
+func parseEnvLine(line string) (key, value string, ok bool) {
+	// Handle shell-style "export" prefix (e.g., "export FOO=bar")
+	line = strings.TrimPrefix(line, "export ")
+
+	idx := strings.Index(line, "=")
+	if idx == -1 {
+		return "", "", false
+	}
+
+	key = strings.TrimSpace(line[:idx])
+	if key == "" {
+		return "", "", false
+	}
+
+	// Value is everything after the first '=' (supports values containing '=')
+	value = line[idx+1:]
+
+	// Check if the value starts with a quote (after trimming leading whitespace)
+	trimmedValue := strings.TrimSpace(value)
+	isQuoted := len(trimmedValue) > 0 &&
+		(trimmedValue[0] == '"' || trimmedValue[0] == '\'')
+
+	// Strip inline comments for unquoted values
+	// Look for " #" (space followed by #) to distinguish from values like "#hashtag"
+	if !isQuoted {
+		if commentIdx := strings.Index(value, " #"); commentIdx != -1 {
+			value = value[:commentIdx]
+		}
+	}
+
+	// Trim leading/trailing whitespace from value
+	value = strings.TrimSpace(value)
+
+	// Handle quoted values - strip the quotes
+	if len(value) >= 2 {
+		if (value[0] == '"' && value[len(value)-1] == '"') ||
+			(value[0] == '\'' && value[len(value)-1] == '\'') {
+			value = value[1 : len(value)-1]
+		}
+	}
+
+	return key, value, true
+}
