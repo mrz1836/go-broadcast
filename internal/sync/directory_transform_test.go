@@ -1103,6 +1103,38 @@ func (m *DirectoryMockGHClient) GetContributorCount(_ context.Context, _ string)
 	return 0, nil
 }
 
+func (m *DirectoryMockGHClient) CreateRepository(_ context.Context, _ gh.CreateRepoOptions) (*gh.Repository, error) {
+	return &gh.Repository{}, nil
+}
+
+func (m *DirectoryMockGHClient) UpdateRepoSettings(_ context.Context, _ string, _ gh.RepoSettings) error {
+	return nil
+}
+
+func (m *DirectoryMockGHClient) GetRepoSettings(_ context.Context, _ string) (*gh.RepoSettings, error) {
+	return &gh.RepoSettings{}, nil
+}
+
+func (m *DirectoryMockGHClient) CreateOrUpdateRuleset(_ context.Context, _ string, _ gh.Ruleset) error {
+	return nil
+}
+
+func (m *DirectoryMockGHClient) ListRulesets(_ context.Context, _ string) ([]gh.Ruleset, error) {
+	return nil, nil
+}
+
+func (m *DirectoryMockGHClient) SyncLabels(_ context.Context, _ string, _ []gh.Label) error {
+	return nil
+}
+
+func (m *DirectoryMockGHClient) ListLabels(_ context.Context, _ string) ([]gh.Label, error) {
+	return nil, nil
+}
+
+func (m *DirectoryMockGHClient) SetTopics(_ context.Context, _ string, _ []string) error {
+	return nil
+}
+
 // DirectoryMockFileContent represents mock file content
 type DirectoryMockFileContent struct {
 	Content []byte

@@ -135,15 +135,22 @@ type GitTree struct {
 
 // Repository represents a GitHub repository with settings
 type Repository struct {
-	Name                string `json:"name"`
-	FullName            string `json:"full_name"`
-	DefaultBranch       string `json:"default_branch"`
-	AllowSquashMerge    bool   `json:"allow_squash_merge"`
-	AllowMergeCommit    bool   `json:"allow_merge_commit"`
-	AllowRebaseMerge    bool   `json:"allow_rebase_merge"`
-	AllowAutoMerge      bool   `json:"allow_auto_merge"`
-	AllowUpdateBranch   bool   `json:"allow_update_branch"`
-	SecurityAndAnalysis struct {
+	Name                     string `json:"name"`
+	FullName                 string `json:"full_name"`
+	DefaultBranch            string `json:"default_branch"`
+	AllowSquashMerge         bool   `json:"allow_squash_merge"`
+	AllowMergeCommit         bool   `json:"allow_merge_commit"`
+	AllowRebaseMerge         bool   `json:"allow_rebase_merge"`
+	AllowAutoMerge           bool   `json:"allow_auto_merge"`
+	AllowUpdateBranch        bool   `json:"allow_update_branch"`
+	DeleteBranchOnMerge      bool   `json:"delete_branch_on_merge"`
+	SquashMergeCommitTitle   string `json:"squash_merge_commit_title"`
+	SquashMergeCommitMessage string `json:"squash_merge_commit_message"`
+	HasIssues                bool   `json:"has_issues"`
+	HasWiki                  bool   `json:"has_wiki"`
+	HasProjects              bool   `json:"has_projects"`
+	HasDiscussions           bool   `json:"has_discussions"`
+	SecurityAndAnalysis      struct {
 		DependabotSecurityUpdates struct {
 			Status string `json:"status"` // "enabled" or "disabled"
 		} `json:"dependabot_security_updates"`
@@ -483,4 +490,69 @@ type SecretScanningAlert struct {
 	HTMLURL               string     `json:"html_url"`
 	CreatedAt             time.Time  `json:"created_at"`
 	UpdatedAt             *time.Time `json:"updated_at"`
+}
+
+// CreateRepoOptions holds parameters for creating a new repository
+type CreateRepoOptions struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Private     bool   `json:"private"`
+	AutoInit    bool   `json:"auto_init,omitempty"`
+}
+
+// RepoSettings represents the 12 managed settings fields for a repository
+type RepoSettings struct {
+	HasIssues                bool   `json:"has_issues"`
+	HasWiki                  bool   `json:"has_wiki"`
+	HasProjects              bool   `json:"has_projects"`
+	HasDiscussions           bool   `json:"has_discussions"`
+	AllowSquashMerge         bool   `json:"allow_squash_merge"`
+	AllowMergeCommit         bool   `json:"allow_merge_commit"`
+	AllowRebaseMerge         bool   `json:"allow_rebase_merge"`
+	DeleteBranchOnMerge      bool   `json:"delete_branch_on_merge"`
+	AllowAutoMerge           bool   `json:"allow_auto_merge"`
+	AllowUpdateBranch        bool   `json:"allow_update_branch"`
+	SquashMergeCommitTitle   string `json:"squash_merge_commit_title,omitempty"`
+	SquashMergeCommitMessage string `json:"squash_merge_commit_message,omitempty"`
+}
+
+// Ruleset represents a GitHub repository ruleset
+type Ruleset struct {
+	ID           int             `json:"id,omitempty"`
+	Name         string          `json:"name"`
+	Target       string          `json:"target"`      // "branch" or "tag"
+	Enforcement  string          `json:"enforcement"` // "active", "disabled", "evaluate"
+	BypassActors []BypassActor   `json:"bypass_actors,omitempty"`
+	Conditions   *RuleConditions `json:"conditions,omitempty"`
+	Rules        []RuleSpec      `json:"rules"`
+}
+
+// BypassActor defines who can bypass a ruleset
+type BypassActor struct {
+	ActorID    int    `json:"actor_id"`
+	ActorType  string `json:"actor_type"`  // "RepositoryRole"
+	BypassMode string `json:"bypass_mode"` // "always"
+}
+
+// RuleConditions defines conditions for a ruleset
+type RuleConditions struct {
+	RefName RefNameCondition `json:"ref_name"`
+}
+
+// RefNameCondition defines ref name patterns for a ruleset
+type RefNameCondition struct {
+	Include []string `json:"include"`
+	Exclude []string `json:"exclude"`
+}
+
+// RuleSpec defines a single rule within a ruleset
+type RuleSpec struct {
+	Type string `json:"type"` // "deletion", "update", "pull_request"
+}
+
+// Label represents a GitHub repository label
+type Label struct {
+	Name        string `json:"name"`
+	Color       string `json:"color"`
+	Description string `json:"description,omitempty"`
 }

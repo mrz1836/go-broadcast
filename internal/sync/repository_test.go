@@ -1908,6 +1908,38 @@ func (m *TestValidationMockGHClient) GetContributorCount(_ context.Context, _ st
 	return 0, ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) CreateRepository(_ context.Context, _ gh.CreateRepoOptions) (*gh.Repository, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) UpdateRepoSettings(_ context.Context, _ string, _ gh.RepoSettings) error {
+	return ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) GetRepoSettings(_ context.Context, _ string) (*gh.RepoSettings, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) CreateOrUpdateRuleset(_ context.Context, _ string, _ gh.Ruleset) error {
+	return ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) ListRulesets(_ context.Context, _ string) ([]gh.Ruleset, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) SyncLabels(_ context.Context, _ string, _ []gh.Label) error {
+	return ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) ListLabels(_ context.Context, _ string) ([]gh.Label, error) {
+	return nil, ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) SetTopics(_ context.Context, _ string, _ []string) error {
+	return ErrMockNotImplemented
+}
+
 // TestRepositorySync_validateAndCleanupOrphanedBranches tests the validateAndCleanupOrphanedBranches method
 func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 	ctx := context.Background()

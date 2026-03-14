@@ -224,3 +224,51 @@ func (m *MockClient) GetContributorCount(ctx context.Context, repo string) (int,
 	args := m.Called(ctx, repo)
 	return args.Int(0), args.Error(1)
 }
+
+// CreateRepository mock implementation
+func (m *MockClient) CreateRepository(ctx context.Context, opts CreateRepoOptions) (*Repository, error) {
+	args := m.Called(ctx, opts)
+	return testutil.HandleTwoValueReturn[*Repository](args)
+}
+
+// UpdateRepoSettings mock implementation
+func (m *MockClient) UpdateRepoSettings(ctx context.Context, repo string, settings RepoSettings) error {
+	args := m.Called(ctx, repo, settings)
+	return args.Error(0)
+}
+
+// GetRepoSettings mock implementation
+func (m *MockClient) GetRepoSettings(ctx context.Context, repo string) (*RepoSettings, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[*RepoSettings](args)
+}
+
+// CreateOrUpdateRuleset mock implementation
+func (m *MockClient) CreateOrUpdateRuleset(ctx context.Context, repo string, ruleset Ruleset) error {
+	args := m.Called(ctx, repo, ruleset)
+	return args.Error(0)
+}
+
+// ListRulesets mock implementation
+func (m *MockClient) ListRulesets(ctx context.Context, repo string) ([]Ruleset, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[[]Ruleset](args)
+}
+
+// SyncLabels mock implementation
+func (m *MockClient) SyncLabels(ctx context.Context, repo string, labels []Label) error {
+	args := m.Called(ctx, repo, labels)
+	return args.Error(0)
+}
+
+// ListLabels mock implementation
+func (m *MockClient) ListLabels(ctx context.Context, repo string) ([]Label, error) {
+	args := m.Called(ctx, repo)
+	return testutil.HandleTwoValueReturn[[]Label](args)
+}
+
+// SetTopics mock implementation
+func (m *MockClient) SetTopics(ctx context.Context, repo string, topics []string) error {
+	args := m.Called(ctx, repo, topics)
+	return args.Error(0)
+}

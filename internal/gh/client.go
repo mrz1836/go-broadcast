@@ -118,4 +118,28 @@ type Client interface {
 
 	// GetContributorCount returns the number of contributors for a repository (up to 100).
 	GetContributorCount(ctx context.Context, repo string) (int, error)
+
+	// CreateRepository creates a new GitHub repository
+	CreateRepository(ctx context.Context, opts CreateRepoOptions) (*Repository, error)
+
+	// UpdateRepoSettings updates repository settings via PATCH /repos/{owner}/{repo}
+	UpdateRepoSettings(ctx context.Context, repo string, settings RepoSettings) error
+
+	// GetRepoSettings retrieves repository settings (alias for GetRepository with typed return)
+	GetRepoSettings(ctx context.Context, repo string) (*RepoSettings, error)
+
+	// CreateOrUpdateRuleset creates or updates a ruleset by name
+	CreateOrUpdateRuleset(ctx context.Context, repo string, ruleset Ruleset) error
+
+	// ListRulesets lists all rulesets for a repository
+	ListRulesets(ctx context.Context, repo string) ([]Ruleset, error)
+
+	// SyncLabels idempotently syncs labels (PATCH existing, POST missing)
+	SyncLabels(ctx context.Context, repo string, labels []Label) error
+
+	// ListLabels lists all labels for a repository
+	ListLabels(ctx context.Context, repo string) ([]Label, error)
+
+	// SetTopics replaces all topics for a repository
+	SetTopics(ctx context.Context, repo string, topics []string) error
 }
