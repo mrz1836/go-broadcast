@@ -321,6 +321,8 @@ magex update:install
 - **Global settings** - Organization-wide PR assignments
 - **Branch naming** - Encoded metadata for state tracking
 - **Cancel operations** - Abort active syncs with cleanup
+- **Repository scaffolding** - Create new repos with preset settings, labels, and rulesets ([docs →](docs/settings.md))
+- **Settings management** - Apply and audit repository settings against presets
 - **Self-updating** - Built-in upgrade command with version management
 
 ### 📊 **Developer Experience**
@@ -871,6 +873,17 @@ go-broadcast modules versions github.com/example/module           # Show availab
 go-broadcast modules validate                                     # Validate all module configurations
 go-broadcast modules list --from-db                               # List modules from database config
 
+# Scaffold and settings (docs/settings.md)
+go-broadcast scaffold owner/repo "Description"               # Create repo with preset
+go-broadcast scaffold owner/repo "Desc" --preset go-lib      # Use specific preset
+go-broadcast scaffold owner/repo "Desc" --topics "go,tools"  # Add topics
+go-broadcast scaffold owner/repo "Desc" --dry-run            # Preview without creating
+go-broadcast settings apply owner/repo                       # Apply preset to existing repo
+go-broadcast settings apply owner/repo --dry-run             # Preview changes
+go-broadcast settings audit owner/repo                       # Audit repo against preset
+go-broadcast settings audit --all                            # Audit all repos in database
+go-broadcast settings audit owner/repo --json                # JSON output for CI
+
 # Upgrade go-broadcast
 go-broadcast upgrade                     # Upgrade to latest version
 go-broadcast upgrade --check             # Check for updates without upgrading
@@ -1230,6 +1243,7 @@ See the complete [Database Documentation](docs/database.md) for schema reference
 ## 📚 Documentation
 
 - **Quick Start** – Get up and running in 5 minutes with the [Quick Start guide](#-quick-start)
+- **Repository Settings** – Scaffold, apply, and audit repository settings at [docs/settings.md](docs/settings.md)
 - **Configuration Guide** – Complete guide to group-based configuration at [docs/configuration-guide.md](docs/configuration-guide.md)
 - **Database Backend** – Structured configuration storage with SQLite at [docs/database.md](docs/database.md)
 - **Repository Analytics** – Track repo metrics and security alerts across organizations at [docs/database.md](docs/database.md#analytics-entity-relationship-diagram)
