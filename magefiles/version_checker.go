@@ -542,6 +542,20 @@ func (s *VersionUpdateService) checkVersions(ctx context.Context, tools map[stri
 			result.Status = "update-available"
 		}
 
+		// Log version result inline so users watching live output can see what was found
+		switch result.Status {
+		case "error":
+			s.logger.Warn(fmt.Sprintf("       %s: error fetching version: %v", toolKey, err))
+		case "up-to-date":
+			s.logger.Info(fmt.Sprintf("       %s: %s (up-to-date)", toolKey, latestVersion))
+		case "update-available":
+			s.logger.Info(fmt.Sprintf("       %s: %s -> %s (update available)", toolKey, currentVersion, latestVersion))
+		case "major-skipped":
+			s.logger.Info(fmt.Sprintf("       %s: %s -> %s (major upgrade skipped)", toolKey, currentVersion, latestVersion))
+		case "pin-recommended":
+			s.logger.Info(fmt.Sprintf("       %s: resolved to %s (pin recommended)", toolKey, latestVersion))
+		}
+
 		results = append(results, result)
 	}
 
