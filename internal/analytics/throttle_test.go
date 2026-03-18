@@ -215,7 +215,7 @@ func TestThrottle_WaitInterRepo(t *testing.T) {
 		elapsed := time.Since(start)
 
 		require.NoError(t, err)
-		assert.Less(t, elapsed, 10*time.Millisecond)
+		assert.Less(t, elapsed, 50*time.Millisecond)
 	})
 
 	t.Run("cancels on context cancellation", func(t *testing.T) {

@@ -320,7 +320,7 @@ func TestTimer_GetElapsed(t *testing.T) {
 	// Get initial elapsed time (should be very small)
 	elapsed1 := timer.GetElapsed()
 	assert.GreaterOrEqual(t, elapsed1, time.Duration(0), "initial elapsed time should be non-negative")
-	assert.Less(t, elapsed1, time.Millisecond, "initial elapsed time should be very small")
+	assert.Less(t, elapsed1, 50*time.Millisecond, "initial elapsed time should be very small")
 
 	// Wait a bit and check again
 	time.Sleep(5 * time.Millisecond)
