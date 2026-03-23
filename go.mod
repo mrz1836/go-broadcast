@@ -85,4 +85,4 @@ require (
 replace github.com/golang-jwt/jwt/v5 => github.com/golang-jwt/jwt/v5 v5.3.1
 
 // Fix CVE-2025-67818: Path Traversal vulnerability in backup modules
-replace github.com/weaviate/weaviate => github.com/weaviate/weaviate v1.36.5
+replace github.com/weaviate/weaviate => github.com/weaviate/weaviate v1.36.6
