@@ -143,50 +143,47 @@ func (g *githubClient) ListRulesets(ctx context.Context, repo string) ([]Ruleset
 	return rulesets, nil
 }
 
-// SyncLabels idempotently syncs labels (PATCH existing, POST missing)
+// SyncLabels idempotently syncs labels using an upsert pattern.
+// It tries PATCH first for every label; if the label does not exist (404), it falls back to POST.
+// This avoids 422 errors on fresh repos where GitHub creates default labels asynchronously.
 func (g *githubClient) SyncLabels(ctx context.Context, repo string, labels []Label) error {
-	// List existing labels for idempotent sync
-	existing, err := g.ListLabels(ctx, repo)
-	if err != nil {
-		return appErrors.WrapWithContext(err, "list labels for sync")
-	}
-
-	existingMap := make(map[string]bool, len(existing))
-	for _, l := range existing {
-		existingMap[strings.ToLower(l.Name)] = true
-	}
-
 	for _, label := range labels {
 		jsonData, marshalErr := jsonutil.MarshalJSON(label)
 		if marshalErr != nil {
 			return appErrors.WrapWithContext(marshalErr, "marshal label")
 		}
 
-		if existingMap[strings.ToLower(label.Name)] {
-			// Update existing label
-			encodedName := strings.ReplaceAll(label.Name, " ", "%20")
-			syncErr := rateLimitedDo(ctx, defaultAPIDelay, func() error {
-				_, runErr := g.runner.RunWithInput(ctx, jsonData, "gh", "api",
-					fmt.Sprintf("repos/%s/labels/%s", repo, encodedName),
-					"--method", "PATCH", "--input", "-")
-				return runErr
-			})
-			if syncErr != nil {
-				if g.logger != nil {
-					g.logger.WithError(syncErr).Warnf("Failed to update label %q", label.Name)
-				}
+		encodedName := strings.ReplaceAll(label.Name, " ", "%20")
+
+		// Try PATCH first; treat 404 as a signal to POST instead of retrying
+		notFound := false
+		patchErr := rateLimitedDo(ctx, defaultAPIDelay, func() error {
+			_, runErr := g.runner.RunWithInput(ctx, jsonData, "gh", "api",
+				fmt.Sprintf("repos/%s/labels/%s", repo, encodedName),
+				"--method", "PATCH", "--input", "-")
+			if isNotFoundError(runErr) {
+				notFound = true
+				return nil // stop retrying; fall back to POST below
 			}
-		} else {
-			// Create new label
-			syncErr := rateLimitedDo(ctx, defaultAPIDelay, func() error {
+			return runErr
+		})
+		if patchErr != nil {
+			if g.logger != nil {
+				g.logger.WithError(patchErr).Warnf("Failed to update label %q", label.Name)
+			}
+			continue
+		}
+
+		if notFound {
+			postErr := rateLimitedDo(ctx, defaultAPIDelay, func() error {
 				_, runErr := g.runner.RunWithInput(ctx, jsonData, "gh", "api",
 					fmt.Sprintf("repos/%s/labels", repo),
 					"--method", "POST", "--input", "-")
 				return runErr
 			})
-			if syncErr != nil {
+			if postErr != nil {
 				if g.logger != nil {
-					g.logger.WithError(syncErr).Warnf("Failed to create label %q", label.Name)
+					g.logger.WithError(postErr).Warnf("Failed to create label %q", label.Name)
 				}
 			}
 		}
