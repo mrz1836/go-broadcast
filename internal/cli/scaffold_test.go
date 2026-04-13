@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,6 +36,10 @@ func TestRunScaffold_CreateSuccess(t *testing.T) {
 	ctx := context.Background()
 	preset := config.DefaultPreset()
 
+	homeDir, err := os.UserHomeDir()
+	require.NoError(t, err)
+	clonePath := homeDir + "/projects/my-repo"
+
 	mockClient := new(gh.MockClient)
 	mockClient.On("CreateRepository", ctx, gh.CreateRepoOptions{
 		Name:        "acme/my-repo",
@@ -43,10 +48,14 @@ func TestRunScaffold_CreateSuccess(t *testing.T) {
 	}).Return(&gh.Repository{Name: "my-repo"}, nil)
 	mockClient.On("UpdateRepoSettings", ctx, "acme/my-repo", presetToRepoSettings(&preset)).Return(nil)
 	mockClient.On("SetTopics", ctx, "acme/my-repo", []string{"go"}).Return(nil)
+	mockClient.On("CreateFileCommit", ctx, "acme/my-repo", "README.md", "Initial commit",
+		[]byte("# my-repo\n\nA test repo\n"), "main").Return(nil)
+	mockClient.On("RenameBranch", ctx, "acme/my-repo", "main", "master").Return(nil)
 	mockClient.On("SyncLabels", ctx, "acme/my-repo", presetLabelsToGH(preset.Labels)).Return(nil)
 	for _, rc := range preset.Rulesets {
 		mockClient.On("CreateOrUpdateRuleset", ctx, "acme/my-repo", configRulesetToGH(&rc)).Return(nil)
 	}
+	mockClient.On("CloneRepository", ctx, "acme/my-repo", clonePath).Return(nil)
 
 	opts := ScaffoldOptions{
 		Name:        "my-repo",
@@ -61,6 +70,7 @@ func TestRunScaffold_CreateSuccess(t *testing.T) {
 	require.NotNil(t, result)
 	assert.True(t, result.Created)
 	assert.Equal(t, "acme/my-repo", result.RepoFullName)
+	assert.Equal(t, clonePath, result.ClonePath)
 	mockClient.AssertExpectations(t)
 }
 
@@ -86,6 +96,79 @@ func TestRunScaffold_CreateFailure(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to create repository")
+}
+
+func TestRunScaffold_NoClone(t *testing.T) {
+	ctx := context.Background()
+	preset := config.DefaultPreset()
+
+	mockClient := new(gh.MockClient)
+	mockClient.On("CreateRepository", ctx, gh.CreateRepoOptions{
+		Name:        "acme/my-repo",
+		Description: "test",
+		Private:     true,
+	}).Return(&gh.Repository{Name: "my-repo"}, nil)
+	mockClient.On("UpdateRepoSettings", ctx, "acme/my-repo", presetToRepoSettings(&preset)).Return(nil)
+	mockClient.On("CreateFileCommit", ctx, "acme/my-repo", "README.md", "Initial commit",
+		[]byte("# my-repo\n\ntest\n"), "main").Return(nil)
+	mockClient.On("RenameBranch", ctx, "acme/my-repo", "main", "master").Return(nil)
+	mockClient.On("SyncLabels", ctx, "acme/my-repo", presetLabelsToGH(preset.Labels)).Return(nil)
+	for _, rc := range preset.Rulesets {
+		mockClient.On("CreateOrUpdateRuleset", ctx, "acme/my-repo", configRulesetToGH(&rc)).Return(nil)
+	}
+
+	opts := ScaffoldOptions{
+		Name:        "my-repo",
+		Description: "test",
+		Owner:       "acme",
+		Preset:      &preset,
+		NoClone:     true,
+	}
+
+	result, err := RunScaffold(ctx, mockClient, opts)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.Created)
+	assert.Empty(t, result.ClonePath)
+	mockClient.AssertExpectations(t)
+}
+
+func TestRunScaffold_NoFiles(t *testing.T) {
+	ctx := context.Background()
+	preset := config.DefaultPreset()
+
+	homeDir, err := os.UserHomeDir()
+	require.NoError(t, err)
+	clonePath := homeDir + "/projects/my-repo"
+
+	mockClient := new(gh.MockClient)
+	mockClient.On("CreateRepository", ctx, gh.CreateRepoOptions{
+		Name:        "acme/my-repo",
+		Description: "test",
+		Private:     true,
+	}).Return(&gh.Repository{Name: "my-repo"}, nil)
+	mockClient.On("UpdateRepoSettings", ctx, "acme/my-repo", presetToRepoSettings(&preset)).Return(nil)
+	mockClient.On("RenameBranch", ctx, "acme/my-repo", "main", "master").Return(nil)
+	mockClient.On("SyncLabels", ctx, "acme/my-repo", presetLabelsToGH(preset.Labels)).Return(nil)
+	for _, rc := range preset.Rulesets {
+		mockClient.On("CreateOrUpdateRuleset", ctx, "acme/my-repo", configRulesetToGH(&rc)).Return(nil)
+	}
+	mockClient.On("CloneRepository", ctx, "acme/my-repo", clonePath).Return(nil)
+
+	opts := ScaffoldOptions{
+		Name:        "my-repo",
+		Description: "test",
+		Owner:       "acme",
+		Preset:      &preset,
+		NoFiles:     true,
+	}
+
+	result, err := RunScaffold(ctx, mockClient, opts)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.Created)
+	assert.Equal(t, clonePath, result.ClonePath)
+	mockClient.AssertExpectations(t)
 }
 
 func TestPresetToRepoSettings(t *testing.T) {

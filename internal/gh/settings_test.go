@@ -697,3 +697,92 @@ func TestSetTopics_RunnerError(t *testing.T) {
 	assert.Contains(t, err.Error(), "topics error")
 	mockRunner.AssertExpectations(t)
 }
+
+func TestCloneRepository_Success(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"repo", "clone", "owner/my-repo", "/home/user/projects/my-repo"}).
+		Return([]byte{}, nil)
+
+	err := client.CloneRepository(ctx, "owner/my-repo", "/home/user/projects/my-repo")
+	require.NoError(t, err)
+	mockRunner.AssertExpectations(t)
+}
+
+func TestCloneRepository_RunnerError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"repo", "clone", "owner/my-repo", "/home/user/projects/my-repo"}).
+		Return(nil, errTestCLIError)
+
+	err := client.CloneRepository(ctx, "owner/my-repo", "/home/user/projects/my-repo")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cli error")
+	mockRunner.AssertExpectations(t)
+}
+
+func TestCreateFileCommit_Success(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{
+		"api", "repos/owner/repo/contents/README.md",
+		"--method", "PUT", "--input", "-",
+	}).Return([]byte("{}"), nil)
+
+	err := client.CreateFileCommit(ctx, "owner/repo", "README.md", "Initial commit", []byte("# test\n"), "main")
+	require.NoError(t, err)
+	mockRunner.AssertExpectations(t)
+}
+
+func TestCreateFileCommit_RunnerError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{
+		"api", "repos/owner/repo/contents/README.md",
+		"--method", "PUT", "--input", "-",
+	}).Return(nil, errTestCLIError)
+
+	err := client.CreateFileCommit(ctx, "owner/repo", "README.md", "Initial commit", []byte("# test\n"), "main")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cli error")
+	mockRunner.AssertExpectations(t)
+}
+
+func TestRenameBranch_Success(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{
+		"api", "repos/owner/repo/branches/main/rename",
+		"--method", "POST", "--input", "-",
+	}).Return([]byte("{}"), nil)
+
+	err := client.RenameBranch(ctx, "owner/repo", "main", "master")
+	require.NoError(t, err)
+	mockRunner.AssertExpectations(t)
+}
+
+func TestRenameBranch_RunnerError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{
+		"api", "repos/owner/repo/branches/main/rename",
+		"--method", "POST", "--input", "-",
+	}).Return(nil, errTestCLIError)
+
+	err := client.RenameBranch(ctx, "owner/repo", "main", "master")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cli error")
+	mockRunner.AssertExpectations(t)
+}

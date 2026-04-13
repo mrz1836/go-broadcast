@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
@@ -44,10 +45,14 @@ func RunScaffold(ctx context.Context, ghClient gh.Client, opts ScaffoldOptions) 
 		if len(opts.Topics) > 0 {
 			output.Info(fmt.Sprintf("    3. Set topics: %s", strings.Join(opts.Topics, ", ")))
 		}
-		output.Info(fmt.Sprintf("    4. Sync %d labels", len(opts.Preset.Labels)))
-		output.Info(fmt.Sprintf("    5. Create %d rulesets", len(opts.Preset.Rulesets)))
+		if !opts.NoFiles {
+			output.Info("    4. Create initial README.md")
+		}
+		output.Info("    5. Rename branch main → master")
+		output.Info(fmt.Sprintf("    6. Sync %d labels", len(opts.Preset.Labels)))
+		output.Info(fmt.Sprintf("    7. Create %d rulesets", len(opts.Preset.Rulesets)))
 		if !opts.NoClone {
-			output.Info("    6. Clone repository locally")
+			output.Info("    8. Clone repository locally")
 		}
 		return &ScaffoldResult{RepoFullName: repoFullName}, nil
 	}
@@ -84,7 +89,26 @@ func RunScaffold(ctx context.Context, ghClient gh.Client, opts ScaffoldOptions) 
 		}
 	}
 
-	// Step 4: Sync labels
+	// Step 4: Create initial README.md on main branch
+	if !opts.NoFiles {
+		output.Info("Creating initial README.md...")
+		readmeContent := []byte(fmt.Sprintf("# %s\n\n%s\n", opts.Name, opts.Description))
+		if err = ghClient.CreateFileCommit(ctx, repoFullName, "README.md", "Initial commit", readmeContent, "main"); err != nil {
+			output.Warn(fmt.Sprintf("Failed to create README.md: %v (continuing...)", err))
+		} else {
+			output.Success("README.md created")
+		}
+	}
+
+	// Step 5: Rename default branch main → master
+	output.Info("Renaming default branch to master...")
+	if err = ghClient.RenameBranch(ctx, repoFullName, "main", "master"); err != nil {
+		output.Warn(fmt.Sprintf("Failed to rename branch: %v (continuing...)", err))
+	} else {
+		output.Success("Default branch renamed to master")
+	}
+
+	// Step 6: Sync labels
 	if len(opts.Preset.Labels) > 0 {
 		output.Info("Syncing labels...")
 		labels := presetLabelsToGH(opts.Preset.Labels)
@@ -95,7 +119,7 @@ func RunScaffold(ctx context.Context, ghClient gh.Client, opts ScaffoldOptions) 
 		}
 	}
 
-	// Step 5: Create rulesets
+	// Step 7: Create rulesets
 	for _, rc := range opts.Preset.Rulesets {
 		output.Info(fmt.Sprintf("Creating ruleset: %s...", rc.Name))
 		ruleset := configRulesetToGH(&rc)
@@ -106,10 +130,29 @@ func RunScaffold(ctx context.Context, ghClient gh.Client, opts ScaffoldOptions) 
 		}
 	}
 
-	return &ScaffoldResult{
+	result := &ScaffoldResult{
 		RepoFullName: repoFullName,
 		Created:      true,
-	}, nil
+	}
+
+	// Step 8: Clone repository locally
+	if !opts.NoClone {
+		homeDir, homeErr := os.UserHomeDir()
+		if homeErr != nil {
+			output.Warn(fmt.Sprintf("Failed to get home directory for clone: %v (skipping clone)", homeErr))
+		} else {
+			clonePath := homeDir + "/projects/" + opts.Name
+			output.Info(fmt.Sprintf("Cloning repository to %s...", clonePath))
+			if cloneErr := ghClient.CloneRepository(ctx, repoFullName, clonePath); cloneErr != nil {
+				output.Warn(fmt.Sprintf("Failed to clone repository: %v (continuing...)", cloneErr))
+			} else {
+				result.ClonePath = clonePath
+				output.Success(fmt.Sprintf("Repository cloned to %s", clonePath))
+			}
+		}
+	}
+
+	return result, nil
 }
 
 // presetToRepoSettings converts a config preset to gh.RepoSettings

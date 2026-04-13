@@ -1940,6 +1940,18 @@ func (m *TestValidationMockGHClient) SetTopics(_ context.Context, _ string, _ []
 	return ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) CloneRepository(_ context.Context, _, _ string) error {
+	return ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) CreateFileCommit(_ context.Context, _, _, _ string, _ []byte, _ string) error {
+	return ErrMockNotImplemented
+}
+
+func (m *TestValidationMockGHClient) RenameBranch(_ context.Context, _, _, _ string) error {
+	return ErrMockNotImplemented
+}
+
 // TestRepositorySync_validateAndCleanupOrphanedBranches tests the validateAndCleanupOrphanedBranches method
 func TestRepositorySync_validateAndCleanupOrphanedBranches(t *testing.T) {
 	ctx := context.Background()

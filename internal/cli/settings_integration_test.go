@@ -29,6 +29,9 @@ func TestSettingsIntegration_ScaffoldThenAudit(t *testing.T) {
 		Private:     true,
 	}).Return(&gh.Repository{Name: "integration-test"}, nil)
 	mockClient.On("UpdateRepoSettings", ctx, "acme/integration-test", presetToRepoSettings(&preset)).Return(nil)
+	mockClient.On("CreateFileCommit", ctx, "acme/integration-test", "README.md", "Initial commit",
+		[]byte("# integration-test\n\nIntegration test repo\n"), "main").Return(nil)
+	mockClient.On("RenameBranch", ctx, "acme/integration-test", "main", "master").Return(nil)
 	mockClient.On("SyncLabels", ctx, "acme/integration-test", presetLabelsToGH(preset.Labels)).Return(nil)
 	for _, rc := range preset.Rulesets {
 		mockClient.On("CreateOrUpdateRuleset", ctx, "acme/integration-test", configRulesetToGH(&rc)).Return(nil)
