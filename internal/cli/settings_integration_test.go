@@ -16,6 +16,11 @@ import (
 // TestSettingsIntegration_ScaffoldThenAudit tests the full flow:
 // scaffold a repo → audit it → verify perfect score
 func TestSettingsIntegration_ScaffoldThenAudit(t *testing.T) {
+	// Isolate from user's real DB so resolvePreset falls back to config.DefaultPreset().
+	oldDBPath := dbPath
+	dbPath = filepath.Join(t.TempDir(), "nonexistent.db")
+	defer func() { dbPath = oldDBPath }()
+
 	ctx := context.Background()
 	preset := config.DefaultPreset()
 
@@ -78,6 +83,11 @@ func TestSettingsIntegration_ScaffoldThenAudit(t *testing.T) {
 
 // TestSettingsIntegration_AuditWithDrift tests auditing a repo that has drifted from preset
 func TestSettingsIntegration_AuditWithDrift(t *testing.T) {
+	// Isolate from user's real DB so resolvePreset falls back to config.DefaultPreset().
+	oldDBPath := dbPath
+	dbPath = filepath.Join(t.TempDir(), "nonexistent.db")
+	defer func() { dbPath = oldDBPath }()
+
 	ctx := context.Background()
 	preset := config.DefaultPreset()
 

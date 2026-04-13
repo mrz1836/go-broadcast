@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -112,6 +113,12 @@ func TestAuditSingleRepo_Error(t *testing.T) {
 }
 
 func TestAuditSingleRepo_PerfectScore(t *testing.T) {
+	// Isolate from user's real DB at ~/.config/go-broadcast/broadcast.db so
+	// resolvePreset falls back to config.DefaultPreset() instead of a user-level preset.
+	oldDBPath := dbPath
+	dbPath = filepath.Join(t.TempDir(), "nonexistent.db")
+	defer func() { dbPath = oldDBPath }()
+
 	preset := config.DefaultPreset()
 	current := &gh.RepoSettings{
 		HasIssues:                preset.HasIssues,
