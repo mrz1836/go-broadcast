@@ -92,14 +92,14 @@ func TestBuildBranchRuleset(t *testing.T) {
 		assert.NotNil(t, rs.Rules, "rules should be an empty slice, not nil")
 	})
 
-	t.Run("nil include and exclude", func(t *testing.T) {
+	t.Run("nil include and exclude become empty slices", func(t *testing.T) {
 		t.Parallel()
 
 		rs := BuildBranchRuleset("nil-conditions", nil, nil, []string{"deletion"})
 
 		require.NotNil(t, rs.Conditions)
-		assert.Nil(t, rs.Conditions.RefName.Include)
-		assert.Nil(t, rs.Conditions.RefName.Exclude)
+		assert.Equal(t, []string{}, rs.Conditions.RefName.Include)
+		assert.Equal(t, []string{}, rs.Conditions.RefName.Exclude)
 	})
 
 	t.Run("many rules", func(t *testing.T) {
@@ -183,14 +183,14 @@ func TestBuildTagRuleset(t *testing.T) {
 		assert.NotNil(t, rs.Rules, "rules should be an empty slice, not nil")
 	})
 
-	t.Run("nil include and exclude", func(t *testing.T) {
+	t.Run("nil include and exclude become empty slices", func(t *testing.T) {
 		t.Parallel()
 
 		rs := BuildTagRuleset("nil-conditions", nil, nil, []string{"update"})
 
 		require.NotNil(t, rs.Conditions)
-		assert.Nil(t, rs.Conditions.RefName.Include)
-		assert.Nil(t, rs.Conditions.RefName.Exclude)
+		assert.Equal(t, []string{}, rs.Conditions.RefName.Include)
+		assert.Equal(t, []string{}, rs.Conditions.RefName.Exclude)
 	})
 
 	t.Run("many rules", func(t *testing.T) {
@@ -233,6 +233,38 @@ func TestBuildBranchRuleset_DefaultName_VsTagRuleset_DefaultName(t *testing.T) {
 
 	assert.Equal(t, "branch-protection", branch.Name)
 	assert.Equal(t, "tag-protection", tag.Name)
+}
+
+func TestBuildRuleset_NilIncludeExclude_SerializeToEmptyArrays(t *testing.T) {
+	t.Parallel()
+
+	t.Run("branch ruleset nil slices produce [] not null in JSON", func(t *testing.T) {
+		t.Parallel()
+
+		rs := BuildBranchRuleset("test", nil, nil, nil)
+		data, err := json.Marshal(rs.Conditions)
+		require.NoError(t, err)
+
+		jsonStr := string(data)
+		assert.Contains(t, jsonStr, `"include":[]`, "include should serialize as empty array")
+		assert.Contains(t, jsonStr, `"exclude":[]`, "exclude should serialize as empty array")
+		assert.NotContains(t, jsonStr, `"include":null`)
+		assert.NotContains(t, jsonStr, `"exclude":null`)
+	})
+
+	t.Run("tag ruleset nil slices produce [] not null in JSON", func(t *testing.T) {
+		t.Parallel()
+
+		rs := BuildTagRuleset("test", nil, nil, nil)
+		data, err := json.Marshal(rs.Conditions)
+		require.NoError(t, err)
+
+		jsonStr := string(data)
+		assert.Contains(t, jsonStr, `"include":[]`, "include should serialize as empty array")
+		assert.Contains(t, jsonStr, `"exclude":[]`, "exclude should serialize as empty array")
+		assert.NotContains(t, jsonStr, `"include":null`)
+		assert.NotContains(t, jsonStr, `"exclude":null`)
+	})
 }
 
 // Tests for githubClient settings methods
@@ -578,8 +610,9 @@ func TestSyncLabels_NewLabel(t *testing.T) {
 	mockRunner := new(MockCommandRunner)
 	client := NewClientWithRunner(mockRunner, logrus.New())
 
-	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/owner/repo/labels", "--paginate"}).
-		Return([]byte("[]"), nil)
+	// PATCH returns 404 (label doesn't exist yet) → fall back to POST
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/owner/repo/labels/bug", "--method", "PATCH", "--input", "-"}).
+		Return(nil, &CommandError{Stderr: "404 Not Found"})
 	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/owner/repo/labels", "--method", "POST", "--input", "-"}).
 		Return([]byte("{}"), nil)
 
@@ -594,33 +627,28 @@ func TestSyncLabels_ExistingLabel(t *testing.T) {
 	mockRunner := new(MockCommandRunner)
 	client := NewClientWithRunner(mockRunner, logrus.New())
 
-	existing := []Label{{Name: "bug", Color: "old-color"}}
-	existingJSON, err := json.Marshal(existing)
-	require.NoError(t, err)
-
-	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/owner/repo/labels", "--paginate"}).
-		Return(existingJSON, nil)
+	// PATCH succeeds directly — no ListLabels needed with upsert pattern
 	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/owner/repo/labels/bug", "--method", "PATCH", "--input", "-"}).
 		Return([]byte("{}"), nil)
 
 	labels := []Label{{Name: "bug", Color: "d73a4a"}}
-	err = client.SyncLabels(ctx, "owner/repo", labels)
+	err := client.SyncLabels(ctx, "owner/repo", labels)
 	require.NoError(t, err)
 	mockRunner.AssertExpectations(t)
 }
 
-func TestSyncLabels_ListError(t *testing.T) {
+func TestSyncLabels_PatchNonFoundError_LogsAndContinues(t *testing.T) {
 	ctx := context.Background()
 	mockRunner := new(MockCommandRunner)
 	client := NewClientWithRunner(mockRunner, logrus.New())
 
-	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/owner/repo/labels", "--paginate"}).
+	// PATCH fails with a non-404 error; should log warning and return nil (not propagate error)
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/owner/repo/labels/bug", "--method", "PATCH", "--input", "-"}).
 		Return(nil, errTestLabelsFetchError)
 
 	labels := []Label{{Name: "bug", Color: "d73a4a"}}
 	err := client.SyncLabels(ctx, "owner/repo", labels)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "list labels for sync")
+	require.NoError(t, err) // errors are logged, not returned
 	mockRunner.AssertExpectations(t)
 }
 
@@ -629,19 +657,16 @@ func TestSyncLabels_MixedNew_And_Existing(t *testing.T) {
 	mockRunner := new(MockCommandRunner)
 	client := NewClientWithRunner(mockRunner, logrus.New())
 
-	existing := []Label{{Name: "bug", Color: "d73a4a"}}
-	existingJSON, err := json.Marshal(existing)
-	require.NoError(t, err)
-
-	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/owner/repo/labels", "--paginate"}).
-		Return(existingJSON, nil)
+	// "bug" exists: PATCH succeeds; "feature" is new: PATCH returns 404, POST creates it
 	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/owner/repo/labels/bug", "--method", "PATCH", "--input", "-"}).
 		Return([]byte("{}"), nil)
+	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/owner/repo/labels/feature", "--method", "PATCH", "--input", "-"}).
+		Return(nil, &CommandError{Stderr: "404 Not Found"})
 	mockRunner.On("RunWithInput", ctx, mock.Anything, "gh", []string{"api", "repos/owner/repo/labels", "--method", "POST", "--input", "-"}).
 		Return([]byte("{}"), nil)
 
 	labels := []Label{{Name: "bug", Color: "d73a4a"}, {Name: "feature", Color: "a2eeef"}}
-	err = client.SyncLabels(ctx, "owner/repo", labels)
+	err := client.SyncLabels(ctx, "owner/repo", labels)
 	require.NoError(t, err)
 	mockRunner.AssertExpectations(t)
 }

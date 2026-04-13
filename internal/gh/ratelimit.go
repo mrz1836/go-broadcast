@@ -62,6 +62,13 @@ func BuildBranchRuleset(name string, include, exclude, rules []string) Ruleset {
 		name = "branch-protection"
 	}
 
+	if include == nil {
+		include = []string{}
+	}
+	if exclude == nil {
+		exclude = []string{}
+	}
+
 	ruleSpecs := make([]RuleSpec, 0, len(rules))
 	for _, r := range rules {
 		ruleSpecs = append(ruleSpecs, RuleSpec{Type: r})
@@ -92,6 +99,13 @@ func BuildBranchRuleset(name string, include, exclude, rules []string) Ruleset {
 func BuildTagRuleset(name string, include, exclude, rules []string) Ruleset {
 	if name == "" {
 		name = "tag-protection"
+	}
+
+	if include == nil {
+		include = []string{}
+	}
+	if exclude == nil {
+		exclude = []string{}
 	}
 
 	ruleSpecs := make([]RuleSpec, 0, len(rules))
