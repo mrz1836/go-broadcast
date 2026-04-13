@@ -272,3 +272,21 @@ func (m *MockClient) SetTopics(ctx context.Context, repo string, topics []string
 	args := m.Called(ctx, repo, topics)
 	return args.Error(0)
 }
+
+// CloneRepository mock implementation
+func (m *MockClient) CloneRepository(ctx context.Context, repo string, destPath string) error {
+	args := m.Called(ctx, repo, destPath)
+	return args.Error(0)
+}
+
+// CreateFileCommit mock implementation
+func (m *MockClient) CreateFileCommit(ctx context.Context, repo, path, message string, content []byte, branch string) error {
+	args := m.Called(ctx, repo, path, message, content, branch)
+	return args.Error(0)
+}
+
+// RenameBranch mock implementation
+func (m *MockClient) RenameBranch(ctx context.Context, repo, oldName, newName string) error {
+	args := m.Called(ctx, repo, oldName, newName)
+	return args.Error(0)
+}

@@ -2,6 +2,7 @@ package gh
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -214,6 +215,50 @@ func (g *githubClient) ListLabels(ctx context.Context, repo string) ([]Label, er
 	}
 
 	return labels, nil
+}
+
+// CloneRepository clones a GitHub repository to the specified local path
+func (g *githubClient) CloneRepository(ctx context.Context, repo string, destPath string) error {
+	return rateLimitedDo(ctx, defaultAPIDelay, func() error {
+		_, runErr := g.runner.Run(ctx, "gh", "repo", "clone", repo, destPath)
+		return runErr
+	})
+}
+
+// CreateFileCommit creates or updates a file in a repository via the Contents API
+func (g *githubClient) CreateFileCommit(ctx context.Context, repo, path, message string, content []byte, branch string) error {
+	payload := map[string]string{
+		"message": message,
+		"content": base64.StdEncoding.EncodeToString(content),
+		"branch":  branch,
+	}
+	jsonData, err := jsonutil.MarshalJSON(payload)
+	if err != nil {
+		return appErrors.WrapWithContext(err, "marshal file commit")
+	}
+
+	return rateLimitedDo(ctx, defaultAPIDelay, func() error {
+		_, runErr := g.runner.RunWithInput(ctx, jsonData, "gh", "api",
+			fmt.Sprintf("repos/%s/contents/%s", repo, path),
+			"--method", "PUT", "--input", "-")
+		return runErr
+	})
+}
+
+// RenameBranch renames a branch in a repository
+func (g *githubClient) RenameBranch(ctx context.Context, repo, oldName, newName string) error {
+	payload := map[string]string{"new_name": newName}
+	jsonData, err := jsonutil.MarshalJSON(payload)
+	if err != nil {
+		return appErrors.WrapWithContext(err, "marshal rename branch")
+	}
+
+	return rateLimitedDo(ctx, defaultAPIDelay, func() error {
+		_, runErr := g.runner.RunWithInput(ctx, jsonData, "gh", "api",
+			fmt.Sprintf("repos/%s/branches/%s/rename", repo, oldName),
+			"--method", "POST", "--input", "-")
+		return runErr
+	})
 }
 
 // SetTopics replaces all topics for a repository

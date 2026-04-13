@@ -142,4 +142,13 @@ type Client interface {
 
 	// SetTopics replaces all topics for a repository
 	SetTopics(ctx context.Context, repo string, topics []string) error
+
+	// CloneRepository clones a GitHub repository to the specified local path
+	CloneRepository(ctx context.Context, repo string, destPath string) error
+
+	// CreateFileCommit creates or updates a file in a repository via the Contents API
+	CreateFileCommit(ctx context.Context, repo, path, message string, content []byte, branch string) error
+
+	// RenameBranch renames a branch in a repository
+	RenameBranch(ctx context.Context, repo, oldName, newName string) error
 }

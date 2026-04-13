@@ -1067,6 +1067,18 @@ func (m *DirectoryMockGHClient) GetDependabotAlerts(_ context.Context, _ string)
 	return nil, nil
 }
 
+func (m *DirectoryMockGHClient) CloneRepository(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (m *DirectoryMockGHClient) CreateFileCommit(_ context.Context, _, _, _ string, _ []byte, _ string) error {
+	return nil
+}
+
+func (m *DirectoryMockGHClient) RenameBranch(_ context.Context, _, _, _ string) error {
+	return nil
+}
+
 func (m *DirectoryMockGHClient) GetCodeScanningAlerts(_ context.Context, _ string) ([]gh.CodeScanningAlert, error) {
 	return nil, nil
 }
