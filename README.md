@@ -657,6 +657,12 @@ go-broadcast review-pr owner/repo#123
 # Review all PRs assigned to you (excludes drafts)
 go-broadcast review-pr --all-assigned-prs
 
+# Review and merge all assigned Dependabot PRs (CI gate enforced)
+go-broadcast review-pr --all-assigned-prs --dependabot
+
+# Preview what --dependabot would do without making changes
+go-broadcast review-pr --all-assigned-prs --dependabot --dry-run
+
 # Customize the review approval message
 go-broadcast review-pr --message "Approved after testing" \
   https://github.com/owner/repo/pull/123
@@ -691,6 +697,23 @@ The `review-pr` command will:
 - Perfect for bulk reviewing and merging your assigned PRs
 - Works with `--dry-run` to preview what would be processed
 - Processes each PR sequentially with the same smart merge behavior
+
+**Dependabot Mode (`--dependabot`):**
+- Filter flag for `--all-assigned-prs` — must be combined with it (`--dependabot` alone errors out)
+- Narrows the search to PRs authored by `app/dependabot` and assigned to you
+  (configure `.github/dependabot.yml` with `assignees: [<your-username>]` so
+  Dependabot auto-assigns new PRs)
+- **Always enforces the CI gate**, regardless of `--bypass`:
+  - **All checks passed** → approve + immediate merge
+  - **Checks still running** → approve + enable GitHub auto-merge (non-blocking, moves on)
+  - **Any check failed** → skip the PR (no review, no merge) and report in the summary
+- **Bypasses the `GO_BROADCAST_AUTOMERGE_LABELS` requirement** — Dependabot PRs don't
+  need the automerge label, so you don't have to configure Dependabot to apply it
+- Compatible with `--bypass`: if branch protection blocks an otherwise-eligible PR,
+  admin privileges are used as a fallback
+- Compatible with `--dry-run`: lists matching Dependabot PRs and shows the intended
+  action per PR without touching anything
+- Example: `go-broadcast review-pr --all-assigned-prs --dependabot`
 
 **Automerge Label Gating:**
 - When `GO_BROADCAST_AUTOMERGE_LABELS` is configured, merge operations require the PR to have one of the specified labels
@@ -863,6 +886,8 @@ go-broadcast review-pr https://github.com/owner/repo/pull/123       # Use full U
 go-broadcast review-pr --all-assigned-prs                           # Review all PRs assigned to you
 go-broadcast review-pr --all-assigned-prs --dry-run                 # Preview all assigned PRs
 go-broadcast review-pr --all-assigned-prs --message "LGTM"          # Custom message for all assigned PRs
+go-broadcast review-pr --all-assigned-prs --dependabot              # Auto-merge assigned Dependabot PRs (CI gate)
+go-broadcast review-pr --all-assigned-prs --dependabot --dry-run    # Preview what --dependabot would do
 go-broadcast review-pr --bypass <pr-url>                            # Bypass branch protection (admin)
 go-broadcast review-pr --bypass --ignore-checks <pr-url>            # Bypass and skip status checks
 

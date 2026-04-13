@@ -215,7 +215,7 @@ func (g *githubClient) ListLabels(ctx context.Context, repo string) ([]Label, er
 }
 
 // CloneRepository clones a GitHub repository to the specified local path
-func (g *githubClient) CloneRepository(ctx context.Context, repo string, destPath string) error {
+func (g *githubClient) CloneRepository(ctx context.Context, repo, destPath string) error {
 	return rateLimitedDo(ctx, defaultAPIDelay, func() error {
 		_, runErr := g.runner.Run(ctx, "gh", "repo", "clone", repo, destPath)
 		return runErr

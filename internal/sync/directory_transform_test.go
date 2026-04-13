@@ -1043,6 +1043,10 @@ func (m *DirectoryMockGHClient) SearchAssignedPRs(_ context.Context) ([]gh.PR, e
 	return nil, nil
 }
 
+func (m *DirectoryMockGHClient) SearchAssignedPRsByAuthor(_ context.Context, _ string) ([]gh.PR, error) {
+	return nil, nil
+}
+
 func (m *DirectoryMockGHClient) GetPRReviews(_ context.Context, _ string, _ int) ([]gh.Review, error) {
 	return nil, nil
 }

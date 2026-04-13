@@ -1,10 +1,16 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-broadcast/internal/gh"
 )
 
 func TestParsePRURL(t *testing.T) {
@@ -874,4 +880,442 @@ func TestSkippedPRInfo_FailedReason(t *testing.T) {
 	assert.Equal(t, "failed", info.Reason)
 	assert.Len(t, info.CheckNames, 1)
 	assert.Contains(t, info.CheckNames, "CI / Lint")
+}
+
+// ------------------------------------------------------------------
+// Dependabot flag tests
+// ------------------------------------------------------------------
+
+// errTestBranchProtection simulates a branch-protection rejection response
+// from the gh CLI so the dependabot+bypass fallback path can be exercised.
+var errTestBranchProtection = errors.New("base branch policy prohibits the merge")
+
+// errTestCheckStatusFetch simulates a transient error while fetching CI check
+// status, used to exercise the ciGateUnknown branch in runCIGate.
+var errTestCheckStatusFetch = errors.New("check status fetch failed")
+
+// withMockGHClient swaps newReviewPRClient for a function that returns the
+// provided mock. Restoration is automatic via t.Cleanup so tests stay isolated.
+// Tests using this helper MUST NOT use t.Parallel() because newReviewPRClient
+// is a package-level variable.
+func withMockGHClient(t *testing.T, mockClient *gh.MockClient) {
+	t.Helper()
+	orig := newReviewPRClient
+	newReviewPRClient = func(_ context.Context, _ *logrus.Logger) (gh.Client, error) {
+		return mockClient, nil
+	}
+	t.Cleanup(func() {
+		newReviewPRClient = orig
+	})
+}
+
+// makeDependabotPR returns a minimal PR struct representing a Dependabot PR.
+func makeDependabotPR(number int) *gh.PR {
+	pr := &gh.PR{
+		Number:    number,
+		State:     "open",
+		Title:     "chore(deps): bump foo",
+		Mergeable: boolPtr(true),
+	}
+	pr.User.Login = "dependabot[bot]"
+	pr.Head.SHA = "abc123"
+	return pr
+}
+
+// makeRepositorySettings returns a Repository with only squash-merge enabled.
+func makeRepositorySettings() *gh.Repository {
+	return &gh.Repository{
+		Name:             "repo",
+		FullName:         "owner/repo",
+		DefaultBranch:    "main",
+		AllowSquashMerge: true,
+	}
+}
+
+// makePassingCheckSummary returns a CheckStatusSummary with all checks green.
+func makePassingCheckSummary() *gh.CheckStatusSummary {
+	return &gh.CheckStatusSummary{
+		Total:     2,
+		Completed: 2,
+		Passed:    2,
+		Checks: []gh.CheckRun{
+			{Name: "CI / build", Status: "completed", Conclusion: "success"},
+			{Name: "CI / test", Status: "completed", Conclusion: "success"},
+		},
+	}
+}
+
+// makeRunningCheckSummary returns a CheckStatusSummary with one running check.
+func makeRunningCheckSummary() *gh.CheckStatusSummary {
+	return &gh.CheckStatusSummary{
+		Total:     2,
+		Completed: 1,
+		Passed:    1,
+		Running:   1,
+		Checks: []gh.CheckRun{
+			{Name: "CI / build", Status: "completed", Conclusion: "success"},
+			{Name: "CI / test", Status: "in_progress"},
+		},
+	}
+}
+
+// makeFailedCheckSummary returns a CheckStatusSummary with one failed check.
+func makeFailedCheckSummary() *gh.CheckStatusSummary {
+	return &gh.CheckStatusSummary{
+		Total:     2,
+		Completed: 2,
+		Passed:    1,
+		Failed:    1,
+		Checks: []gh.CheckRun{
+			{Name: "CI / build", Status: "completed", Conclusion: "success"},
+			{Name: "CI / test", Status: "completed", Conclusion: "failure"},
+		},
+	}
+}
+
+// setupDependabotBaseMocks wires up the common mock expectations every
+// dependabot test needs: current user, PR fetch, approved-review check, and
+// repository settings. It does NOT wire up the search call or the CI gate
+// call — each test does those explicitly.
+func setupDependabotBaseMocks(m *gh.MockClient, pr *gh.PR, alreadyApproved bool) {
+	m.On("GetPR", mock.Anything, "owner/repo", pr.Number).Return(pr, nil)
+	m.On("GetCurrentUser", mock.Anything).Return(&gh.User{Login: "testuser"}, nil)
+	m.On("HasApprovedReview", mock.Anything, "owner/repo", pr.Number, "testuser").Return(alreadyApproved, nil)
+	m.On("GetRepository", mock.Anything, "owner/repo").Return(makeRepositorySettings(), nil)
+}
+
+func TestReviewPR_DependabotRequiresAllAssigned(t *testing.T) {
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--dependabot"})
+
+	err := cmd.Execute()
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrDependabotRequiresAllAssigned)
+}
+
+func TestReviewPR_DependabotWithExplicitURLs(t *testing.T) {
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--dependabot", "--all-assigned-prs", "owner/repo#1"})
+
+	err := cmd.Execute()
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrMutuallyExclusiveFlags)
+}
+
+func TestReviewPR_DependabotHappyPath(t *testing.T) {
+	mockClient := gh.NewMockClient()
+	withMockGHClient(t, mockClient)
+
+	pr1 := gh.PR{Number: 10, State: "open", Repo: "owner/repo"}
+	pr2 := gh.PR{Number: 11, State: "open", Repo: "owner/repo"}
+	mockClient.On("SearchAssignedPRsByAuthor", mock.Anything, "app/dependabot").
+		Return([]gh.PR{pr1, pr2}, nil)
+
+	// Full PR details for each PR
+	fullPR1 := makeDependabotPR(10)
+	fullPR2 := makeDependabotPR(11)
+	setupDependabotBaseMocks(mockClient, fullPR1, false)
+	setupDependabotBaseMocks(mockClient, fullPR2, false)
+
+	// CI gate returns all passing
+	mockClient.On("GetPRCheckStatus", mock.Anything, "owner/repo", 10).Return(makePassingCheckSummary(), nil)
+	mockClient.On("GetPRCheckStatus", mock.Anything, "owner/repo", 11).Return(makePassingCheckSummary(), nil)
+
+	// Review + merge for each
+	mockClient.On("ReviewPR", mock.Anything, "owner/repo", 10, "LGTM").Return(nil)
+	mockClient.On("ReviewPR", mock.Anything, "owner/repo", 11, "LGTM").Return(nil)
+	mockClient.On("MergePR", mock.Anything, "owner/repo", 10, gh.MergeMethodSquash).Return(nil)
+	mockClient.On("MergePR", mock.Anything, "owner/repo", 11, gh.MergeMethodSquash).Return(nil)
+
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--all-assigned-prs", "--dependabot"})
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	mockClient.AssertExpectations(t)
+	// MergePR must have been called for both, and EnableAutoMergePR must NOT have been called
+	mockClient.AssertNotCalled(t, "EnableAutoMergePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockClient.AssertNotCalled(t, "BypassMergePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestReviewPR_DependabotChecksRunning(t *testing.T) {
+	mockClient := gh.NewMockClient()
+	withMockGHClient(t, mockClient)
+
+	mockClient.On("SearchAssignedPRsByAuthor", mock.Anything, "app/dependabot").
+		Return([]gh.PR{{Number: 20, State: "open", Repo: "owner/repo"}}, nil)
+
+	fullPR := makeDependabotPR(20)
+	setupDependabotBaseMocks(mockClient, fullPR, false)
+	mockClient.On("GetPRCheckStatus", mock.Anything, "owner/repo", 20).Return(makeRunningCheckSummary(), nil)
+	mockClient.On("ReviewPR", mock.Anything, "owner/repo", 20, "LGTM").Return(nil)
+	mockClient.On("EnableAutoMergePR", mock.Anything, "owner/repo", 20, gh.MergeMethodSquash).Return(nil)
+
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--all-assigned-prs", "--dependabot"})
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	mockClient.AssertExpectations(t)
+	// MergePR must NOT have been called - we went straight to auto-merge
+	mockClient.AssertNotCalled(t, "MergePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestReviewPR_DependabotChecksFailed(t *testing.T) {
+	mockClient := gh.NewMockClient()
+	withMockGHClient(t, mockClient)
+
+	mockClient.On("SearchAssignedPRsByAuthor", mock.Anything, "app/dependabot").
+		Return([]gh.PR{{Number: 30, State: "open", Repo: "owner/repo"}}, nil)
+
+	fullPR := makeDependabotPR(30)
+	setupDependabotBaseMocks(mockClient, fullPR, false)
+	mockClient.On("GetPRCheckStatus", mock.Anything, "owner/repo", 30).Return(makeFailedCheckSummary(), nil)
+
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--all-assigned-prs", "--dependabot"})
+	err := cmd.Execute()
+	require.NoError(t, err) // processing "succeeds" — PR was evaluated and skipped
+
+	mockClient.AssertExpectations(t)
+	// Neither review nor merge should have been called
+	mockClient.AssertNotCalled(t, "ReviewPR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockClient.AssertNotCalled(t, "MergePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockClient.AssertNotCalled(t, "EnableAutoMergePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestReviewPR_DependabotBypassesLabelGate(t *testing.T) {
+	t.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge")
+
+	mockClient := gh.NewMockClient()
+	withMockGHClient(t, mockClient)
+
+	mockClient.On("SearchAssignedPRsByAuthor", mock.Anything, "app/dependabot").
+		Return([]gh.PR{{Number: 40, State: "open", Repo: "owner/repo"}}, nil)
+
+	// Intentionally NO "automerge" label on this PR
+	fullPR := makeDependabotPR(40)
+	setupDependabotBaseMocks(mockClient, fullPR, false)
+	mockClient.On("GetPRCheckStatus", mock.Anything, "owner/repo", 40).Return(makePassingCheckSummary(), nil)
+	mockClient.On("ReviewPR", mock.Anything, "owner/repo", 40, "LGTM").Return(nil)
+	mockClient.On("MergePR", mock.Anything, "owner/repo", 40, gh.MergeMethodSquash).Return(nil)
+
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--all-assigned-prs", "--dependabot"})
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestReviewPR_DependabotNoPRsFound(t *testing.T) {
+	mockClient := gh.NewMockClient()
+	withMockGHClient(t, mockClient)
+
+	mockClient.On("SearchAssignedPRsByAuthor", mock.Anything, "app/dependabot").
+		Return([]gh.PR{}, nil)
+
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--all-assigned-prs", "--dependabot"})
+	err := cmd.Execute()
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrNoDependabotPRs)
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestReviewPR_DependabotAlreadyApproved(t *testing.T) {
+	mockClient := gh.NewMockClient()
+	withMockGHClient(t, mockClient)
+
+	mockClient.On("SearchAssignedPRsByAuthor", mock.Anything, "app/dependabot").
+		Return([]gh.PR{{Number: 50, State: "open", Repo: "owner/repo"}}, nil)
+
+	// User already approved — but auto-merge is NOT enabled yet and PR is not merged,
+	// so we still proceed through CI gate + merge.
+	fullPR := makeDependabotPR(50)
+	setupDependabotBaseMocks(mockClient, fullPR, true)
+	mockClient.On("GetPRCheckStatus", mock.Anything, "owner/repo", 50).Return(makePassingCheckSummary(), nil)
+	mockClient.On("MergePR", mock.Anything, "owner/repo", 50, gh.MergeMethodSquash).Return(nil)
+
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--all-assigned-prs", "--dependabot"})
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	mockClient.AssertExpectations(t)
+	// Review should be skipped because user already approved
+	mockClient.AssertNotCalled(t, "ReviewPR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestReviewPR_DependabotDryRun(t *testing.T) {
+	mockClient := gh.NewMockClient()
+	withMockGHClient(t, mockClient)
+
+	mockClient.On("SearchAssignedPRsByAuthor", mock.Anything, "app/dependabot").
+		Return([]gh.PR{{Number: 60, State: "open", Repo: "owner/repo"}}, nil)
+
+	fullPR := makeDependabotPR(60)
+	setupDependabotBaseMocks(mockClient, fullPR, false)
+
+	flags := &Flags{DryRun: true}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--all-assigned-prs", "--dependabot"})
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	// Dry run must NOT trigger any mutating calls
+	mockClient.AssertNotCalled(t, "ReviewPR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockClient.AssertNotCalled(t, "MergePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockClient.AssertNotCalled(t, "EnableAutoMergePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockClient.AssertNotCalled(t, "BypassMergePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockClient.AssertNotCalled(t, "GetPRCheckStatus", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestReviewPR_DependabotWithBypass_BranchProtectionFallback(t *testing.T) {
+	mockClient := gh.NewMockClient()
+	withMockGHClient(t, mockClient)
+
+	mockClient.On("SearchAssignedPRsByAuthor", mock.Anything, "app/dependabot").
+		Return([]gh.PR{{Number: 70, State: "open", Repo: "owner/repo"}}, nil)
+
+	fullPR := makeDependabotPR(70)
+	setupDependabotBaseMocks(mockClient, fullPR, false)
+	mockClient.On("GetPRCheckStatus", mock.Anything, "owner/repo", 70).Return(makePassingCheckSummary(), nil)
+	mockClient.On("ReviewPR", mock.Anything, "owner/repo", 70, "LGTM").Return(nil)
+
+	// First merge attempt fails with branch protection error
+	mockClient.On("MergePR", mock.Anything, "owner/repo", 70, gh.MergeMethodSquash).Return(errTestBranchProtection)
+	// Then bypass merge succeeds
+	mockClient.On("BypassMergePR", mock.Anything, "owner/repo", 70, gh.MergeMethodSquash).Return(nil)
+
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--all-assigned-prs", "--dependabot", "--bypass"})
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestReviewPR_DependabotMergeConflict(t *testing.T) {
+	mockClient := gh.NewMockClient()
+	withMockGHClient(t, mockClient)
+
+	mockClient.On("SearchAssignedPRsByAuthor", mock.Anything, "app/dependabot").
+		Return([]gh.PR{{Number: 80, State: "open", Repo: "owner/repo"}}, nil)
+
+	fullPR := makeDependabotPR(80)
+	fullPR.Mergeable = boolPtr(false) // merge conflict
+	setupDependabotBaseMocks(mockClient, fullPR, false)
+	mockClient.On("ReviewPR", mock.Anything, "owner/repo", 80, "LGTM").Return(nil)
+	mockClient.On("EnableAutoMergePR", mock.Anything, "owner/repo", 80, gh.MergeMethodSquash).Return(nil)
+
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--all-assigned-prs", "--dependabot"})
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	mockClient.AssertExpectations(t)
+	// CI gate should NOT be called because merge-conflict branch short-circuits before it
+	mockClient.AssertNotCalled(t, "GetPRCheckStatus", mock.Anything, mock.Anything, mock.Anything)
+	mockClient.AssertNotCalled(t, "MergePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+// TestReviewPR_BypassCIGateRegression guards the runCIGate extraction: the
+// existing --bypass code path must still skip PRs when checks are running.
+func TestReviewPR_BypassCIGateRegression(t *testing.T) {
+	t.Setenv("GO_BROADCAST_AUTOMERGE_LABELS", "automerge")
+
+	mockClient := gh.NewMockClient()
+	withMockGHClient(t, mockClient)
+
+	mockClient.On("SearchAssignedPRs", mock.Anything).
+		Return([]gh.PR{{Number: 90, State: "open", Repo: "owner/repo"}}, nil)
+
+	// Non-dependabot PR WITH the required automerge label so --bypass is allowed
+	pr := &gh.PR{
+		Number:    90,
+		State:     "open",
+		Title:     "some change",
+		Mergeable: boolPtr(true),
+		Labels: []struct {
+			Name string `json:"name"`
+		}{{Name: "automerge"}},
+	}
+	pr.User.Login = "some-human"
+	pr.Head.SHA = "def456"
+
+	setupDependabotBaseMocks(mockClient, pr, false)
+	mockClient.On("GetPRCheckStatus", mock.Anything, "owner/repo", 90).Return(makeRunningCheckSummary(), nil)
+
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+	cmd.SetArgs([]string{"--all-assigned-prs", "--bypass"})
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	mockClient.AssertExpectations(t)
+	// --bypass path must SKIP the PR when checks are running (not fall back to auto-merge)
+	mockClient.AssertNotCalled(t, "ReviewPR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockClient.AssertNotCalled(t, "MergePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockClient.AssertNotCalled(t, "EnableAutoMergePR", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+// TestRunCIGate_Unit exercises the runCIGate helper directly across all
+// decision branches to guarantee the extraction keeps every path covered.
+func TestRunCIGate_Unit(t *testing.T) {
+	cases := []struct {
+		name     string
+		summary  *gh.CheckStatusSummary
+		fetchErr error
+		want     ciGateDecision
+	}{
+		{name: "proceed_all_passed", summary: makePassingCheckSummary(), want: ciGateProceed},
+		{name: "skip_running", summary: makeRunningCheckSummary(), want: ciGateSkipRunning},
+		{name: "skip_failed", summary: makeFailedCheckSummary(), want: ciGateSkipFailed},
+		{name: "proceed_no_checks", summary: &gh.CheckStatusSummary{}, want: ciGateProceed},
+		{name: "unknown_on_error", fetchErr: errTestCheckStatusFetch, want: ciGateUnknown},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := gh.NewMockClient()
+			if tc.fetchErr != nil {
+				m.On("GetPRCheckStatus", mock.Anything, "owner/repo", 1).Return(nil, tc.fetchErr)
+			} else {
+				m.On("GetPRCheckStatus", mock.Anything, "owner/repo", 1).Return(tc.summary, nil)
+			}
+
+			prInfo := &PRInfo{Owner: "owner", Repo: "repo", Number: 1}
+			result := &ReviewPRResult{}
+
+			got := runCIGate(context.Background(), m, "owner/repo", prInfo, result)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestReviewPR_DependabotFlagRegistered(t *testing.T) {
+	flags := &Flags{}
+	cmd := createReviewPRCmd(flags)
+
+	depFlag := cmd.Flags().Lookup("dependabot")
+	require.NotNil(t, depFlag)
+	assert.Equal(t, "false", depFlag.DefValue)
+	assert.Contains(t, depFlag.Usage, "Dependabot")
+}
+
+func TestErrNoDependabotPRs(t *testing.T) {
+	assert.Contains(t, ErrNoDependabotPRs.Error(), "Dependabot")
+	assert.Contains(t, ErrDependabotRequiresAllAssigned.Error(), "--all-assigned-prs")
 }

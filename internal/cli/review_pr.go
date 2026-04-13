@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -31,12 +32,43 @@ var (
 	ErrMutuallyExclusiveFlags = errors.New("cannot use --all-assigned-prs flag with explicit PR URLs")
 	// ErrNoAssignedPRs is returned when no assigned PRs are found
 	ErrNoAssignedPRs = errors.New("no assigned PRs found")
+	// ErrNoDependabotPRs is returned when no Dependabot PRs assigned to the user are found
+	ErrNoDependabotPRs = errors.New("no assigned Dependabot PRs found")
+	// ErrDependabotRequiresAllAssigned is returned when --dependabot is used without --all-assigned-prs
+	ErrDependabotRequiresAllAssigned = errors.New("--dependabot requires --all-assigned-prs")
 	// ErrURLTooLong is returned when URL exceeds maximum allowed length
 	ErrURLTooLong = errors.New("URL exceeds maximum length")
 )
 
+// dependabotAuthor is the GitHub search author filter used to match Dependabot-authored PRs.
+const dependabotAuthor = "app/dependabot"
+
+// ciGateDecision describes the outcome of a CI status check for a PR.
+type ciGateDecision int
+
+const (
+	// ciGateProceed indicates all checks passed (or there are no checks) and merging may proceed.
+	ciGateProceed ciGateDecision = iota
+	// ciGateSkipRunning indicates one or more checks are still running.
+	ciGateSkipRunning
+	// ciGateSkipFailed indicates one or more checks have failed.
+	ciGateSkipFailed
+	// ciGateUnknown indicates we could not fetch check status (permission issue, network, etc.).
+	// Caller may choose to proceed optimistically.
+	ciGateUnknown
+)
+
 //nolint:gochecknoglobals // Cobra commands are designed to be global variables
 var reviewPRCmd = createReviewPRCmd(globalFlags)
+
+// newReviewPRClient constructs the GitHub client used by the review-pr command.
+// It is a package-level variable so tests can inject a mock client without
+// spinning up the real gh CLI.
+//
+//nolint:gochecknoglobals // test injection seam
+var newReviewPRClient = func(ctx context.Context, logger *logrus.Logger) (gh.Client, error) {
+	return gh.NewClient(ctx, logger, nil)
+}
 
 // PRInfo contains parsed information from a PR URL
 type PRInfo struct {
@@ -136,6 +168,7 @@ func createReviewPRCmd(flags *Flags) *cobra.Command {
 	var allAssignedPRs bool
 	var bypass bool
 	var ignoreChecks bool
+	var dependabot bool
 
 	cmd := &cobra.Command{
 		Use:   "review-pr [<pr-url> [pr-url...]]",
@@ -147,6 +180,13 @@ This command will:
 2. Submit an approving review with the specified message
 3. Detect the repository's preferred merge method
 4. Merge the PR using the detected method
+
+The --dependabot flag (combined with --all-assigned-prs) narrows the search to
+Dependabot-authored PRs and always enforces a CI gate: PRs with all checks
+passing are approved and merged immediately, PRs with checks still running are
+approved and handed to GitHub auto-merge, and PRs with failed checks are
+skipped. The GO_BROADCAST_AUTOMERGE_LABELS requirement is bypassed for
+Dependabot PRs.
 
 The command supports both single and batch operations, processing multiple PRs in sequence.`,
 		Example: `  # Review and merge a single PR
@@ -160,6 +200,12 @@ The command supports both single and batch operations, processing multiple PRs i
 
   # Review and merge all PRs assigned to you
   go-broadcast review-pr --all-assigned-prs
+
+  # Review and merge all assigned Dependabot PRs (CI gate enforced)
+  go-broadcast review-pr --all-assigned-prs --dependabot
+
+  # Preview what --dependabot would do without making changes
+  go-broadcast review-pr --all-assigned-prs --dependabot --dry-run
 
   # Customize the review message
   go-broadcast review-pr --message "Approved after testing" https://github.com/owner/repo/pull/123
@@ -176,19 +222,20 @@ The command supports both single and batch operations, processing multiple PRs i
   # Review all assigned PRs with custom message
   go-broadcast review-pr --all-assigned-prs --message "LGTM" --dry-run`,
 		Args: cobra.ArbitraryArgs, // Allow 0 or more args since --all-assigned-prs doesn't need URLs
-		RunE: createRunReviewPR(flags, &message, &allAssignedPRs, &bypass, &ignoreChecks),
+		RunE: createRunReviewPR(flags, &message, &allAssignedPRs, &bypass, &ignoreChecks, &dependabot),
 	}
 
 	cmd.Flags().StringVarP(&message, "message", "m", "LGTM", "Review approval message")
 	cmd.Flags().BoolVar(&allAssignedPRs, "all-assigned-prs", false, "Review and merge all open PRs assigned to you (excludes drafts)")
 	cmd.Flags().BoolVar(&bypass, "bypass", false, "Use admin privileges to bypass branch protection rules")
 	cmd.Flags().BoolVar(&ignoreChecks, "ignore-checks", false, "Skip waiting for status checks to pass (use with --bypass)")
+	cmd.Flags().BoolVar(&dependabot, "dependabot", false, "Filter --all-assigned-prs to only Dependabot PRs; enforces CI gate and skips the GO_BROADCAST_AUTOMERGE_LABELS requirement")
 
 	return cmd
 }
 
 // createRunReviewPR creates the run function for the review-pr command
-func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ignoreChecks *bool) func(*cobra.Command, []string) error {
+func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ignoreChecks, dependabot *bool) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		log := logrus.WithField("command", "review-pr")
@@ -196,6 +243,11 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 		var prInfos []*PRInfo
 
 		// Validate arguments BEFORE creating GitHub client (fail fast)
+		// --dependabot is a filter on --all-assigned-prs; it cannot be used alone.
+		if *dependabot && !*allAssignedPRs {
+			return ErrDependabotRequiresAllAssigned
+		}
+
 		// Check for mutually exclusive options
 		if *allAssignedPRs && len(args) > 0 {
 			return ErrMutuallyExclusiveFlags
@@ -219,7 +271,7 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 		}
 
 		// Initialize GitHub client (only after validation passes)
-		client, err := gh.NewClient(ctx, log.Logger, nil)
+		client, err := newReviewPRClient(ctx, log.Logger)
 		if err != nil {
 			return fmt.Errorf("failed to create GitHub client: %w", err)
 		}
@@ -229,19 +281,34 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 
 		// If using --all-assigned-prs, fetch PRs from GitHub
 		if *allAssignedPRs {
-			// Fetch all assigned PRs
-			output.Info("Fetching all PRs assigned to you...")
-			prs, err := client.SearchAssignedPRs(ctx)
+			var prs []gh.PR
+			var err error
+
+			if *dependabot {
+				output.Info("Fetching assigned Dependabot PRs...")
+				prs, err = client.SearchAssignedPRsByAuthor(ctx, dependabotAuthor)
+			} else {
+				output.Info("Fetching all PRs assigned to you...")
+				prs, err = client.SearchAssignedPRs(ctx)
+			}
 			if err != nil {
 				return fmt.Errorf("failed to search assigned PRs: %w", err)
 			}
 
 			if len(prs) == 0 {
+				if *dependabot {
+					output.Warn("No assigned Dependabot PRs found")
+					return ErrNoDependabotPRs
+				}
 				output.Warn("No assigned PRs found")
 				return ErrNoAssignedPRs
 			}
 
-			output.Info(fmt.Sprintf("Found %d assigned PR(s) (draft PRs filtered out)", len(prs)))
+			if *dependabot {
+				output.Info(fmt.Sprintf("Found %d assigned Dependabot PR(s) (draft PRs filtered out)", len(prs)))
+			} else {
+				output.Info(fmt.Sprintf("Found %d assigned PR(s) (draft PRs filtered out)", len(prs)))
+			}
 
 			// Convert PRs to PRInfo structs
 			for _, pr := range prs {
@@ -400,8 +467,11 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 				// Check if PR has automerge label - required for any merge operation
 				hasAutoLabel := hasAutomergeLabel(pr.Labels, automergeLabels)
 
-				// If automerge labels are configured but PR lacks the label, show review-only behavior
-				if len(automergeLabels) > 0 && !hasAutoLabel {
+				// Dependabot mode bypasses the automerge-label requirement entirely.
+				if *dependabot {
+					output.Info("DRY RUN: Dependabot mode - GO_BROADCAST_AUTOMERGE_LABELS gate is skipped")
+				} else if len(automergeLabels) > 0 && !hasAutoLabel {
+					// If automerge labels are configured but PR lacks the label, show review-only behavior
 					output.Info("DRY RUN: PR lacks automerge label - would review only, NO merge attempt")
 					output.Info(fmt.Sprintf("DRY RUN: Required labels for merge: %s", strings.Join(automergeLabels, ", ")))
 					result.Reviewed = false
@@ -416,9 +486,15 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 				output.Info(fmt.Sprintf("DRY RUN: Merge method: %s", mergeMethod))
 
 				// Show merge approach based on state
-				if pr.Mergeable != nil && !*pr.Mergeable {
+				switch {
+				case pr.Mergeable != nil && !*pr.Mergeable:
 					output.Warn("DRY RUN: PR has merge conflicts - would enable auto-merge")
-				} else if *bypass {
+				case *dependabot:
+					output.Info("DRY RUN: Dependabot mode - CI gate enforced")
+					output.Info("DRY RUN: - All checks passed → approve + immediate merge")
+					output.Info("DRY RUN: - Checks still running → approve + enable auto-merge")
+					output.Info("DRY RUN: - Checks failed → skip PR")
+				case *bypass:
 					// Bypass is allowed since we already confirmed hasAutoLabel above (or no labels configured)
 					output.Info("DRY RUN: PR has automerge label - bypass allowed if needed")
 					if *ignoreChecks {
@@ -430,7 +506,7 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 						output.Info("DRY RUN: - All passed → proceed with bypass merge")
 						output.Info("DRY RUN: Tip: Use --ignore-checks to bypass even with running/failed checks")
 					}
-				} else {
+				default:
 					output.Info("DRY RUN: Would attempt immediate merge (fallback to auto-merge if blocked)")
 					output.Info("DRY RUN: Tip: Use --bypass to merge with admin privileges")
 				}
@@ -446,8 +522,10 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 			// We check this BEFORE adding review/comment to avoid duplicates when PR is skipped.
 			hasAutoLabel := hasAutomergeLabel(pr.Labels, automergeLabels)
 
-			// If automerge labels are configured but PR lacks the label, skip all merge operations
-			if len(automergeLabels) > 0 && !hasAutoLabel {
+			// If automerge labels are configured but PR lacks the label, skip all merge operations.
+			// Dependabot mode bypasses this gate so users don't have to configure dependabot.yml
+			// to auto-apply a label.
+			if !*dependabot && len(automergeLabels) > 0 && !hasAutoLabel {
 				result.MergeSkippedNoLabel = true
 				reviewOnlyCount++
 				output.Info(fmt.Sprintf("✓ PR #%d reviewed - no automerge label, skipping merge", prInfo.Number))
@@ -518,31 +596,34 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 				bypassAllowed := *bypass && hasAutoLabel
 
 				// Warn if bypass was requested but not allowed (only happens when no labels configured)
-				if *bypass && !bypassAllowed {
+				if *bypass && !bypassAllowed && !*dependabot {
 					output.Warn(fmt.Sprintf("⚠️  PR #%d - bypass not allowed (no automerge labels configured)", prInfo.Number))
 					output.Info("Configure GO_BROADCAST_AUTOMERGE_LABELS to enable --bypass functionality")
 				}
 
-				// If bypass is allowed, check CI status first (unless --ignore-checks is set)
-				if bypassAllowed && !*ignoreChecks {
-					checkStatus, checkErr := client.GetPRCheckStatus(ctx, repoFullName, prInfo.Number)
-					if checkErr != nil {
-						output.Warn(fmt.Sprintf("⚠️  Could not fetch check status for PR #%d: %v", prInfo.Number, checkErr))
-						// Continue with merge attempt if we can't get check status
-					} else {
-						result.CheckSummary = checkStatus.Summary()
+				// Dependabot mode allows bypass regardless of label gate (label gate is skipped above).
+				if *dependabot && *bypass {
+					bypassAllowed = true
+				}
 
-						// Display check status
-						if checkStatus.NoChecks() {
-							output.Info(fmt.Sprintf("PR #%d: %s", prInfo.Number, checkStatus.Summary()))
-						} else if checkStatus.HasRunningChecks() {
-							output.Warn(fmt.Sprintf("⏳ PR #%d: %s", prInfo.Number, checkStatus.Summary()))
-							runningNames := checkStatus.RunningCheckNames()
-							result.RunningCheckNames = runningNames
-							output.Info("   Running:")
-							for _, name := range runningNames {
-								output.Info(fmt.Sprintf("     - %s", name))
-							}
+				// Run the CI gate when either:
+				//   - dependabot mode is active (always gate on CI), OR
+				//   - bypass is allowed AND --ignore-checks was not set.
+				//
+				// forceAutoMerge is set to true when dependabot mode detects checks still
+				// running: we still approve, but skip straight to EnableAutoMergePR rather
+				// than racing CI with an immediate MergePR call.
+				var forceAutoMerge bool
+				runCheckGate := *dependabot || (bypassAllowed && !*ignoreChecks)
+				if runCheckGate {
+					decision := runCIGate(ctx, client, repoFullName, prInfo, &result)
+					switch decision {
+					case ciGateSkipRunning:
+						if *dependabot {
+							// Dependabot: approve + enable auto-merge instead of skipping.
+							output.Info("   Checks still running - will approve and enable auto-merge")
+							forceAutoMerge = true
+						} else {
 							output.Warn("   Skipping - checks still running")
 							result.ChecksSkippedRunning = true
 							checksRunningSkipCount++
@@ -550,35 +631,27 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 								Repo:       repoFullName,
 								Number:     prInfo.Number,
 								Reason:     "running",
-								CheckNames: runningNames,
+								CheckNames: result.RunningCheckNames,
 							})
 							results = append(results, result) //nolint:staticcheck // results used in summary
 							successCount++                    // Count as success since we processed it correctly
 							continue
-						} else if checkStatus.HasFailedChecks() {
-							output.Error(fmt.Sprintf("❌ PR #%d: %s", prInfo.Number, checkStatus.Summary()))
-							failedNames := checkStatus.FailedCheckNames()
-							result.FailedCheckNames = failedNames
-							output.Info("   Failed:")
-							for _, name := range failedNames {
-								output.Info(fmt.Sprintf("     - %s", name))
-							}
-							output.Error("   Skipping - checks failed")
-							result.ChecksSkippedFailed = true
-							checksFailedSkipCount++
-							skippedPRs = append(skippedPRs, skippedPRInfo{
-								Repo:       repoFullName,
-								Number:     prInfo.Number,
-								Reason:     "failed",
-								CheckNames: failedNames,
-							})
-							results = append(results, result) //nolint:staticcheck // results used in summary
-							successCount++                    // Count as success since we processed it correctly
-							continue
-						} else {
-							// All checks passed
-							output.Success(fmt.Sprintf("✓ PR #%d: %s", prInfo.Number, checkStatus.Summary()))
 						}
+					case ciGateSkipFailed:
+						output.Error("   Skipping - checks failed")
+						result.ChecksSkippedFailed = true
+						checksFailedSkipCount++
+						skippedPRs = append(skippedPRs, skippedPRInfo{
+							Repo:       repoFullName,
+							Number:     prInfo.Number,
+							Reason:     "failed",
+							CheckNames: result.FailedCheckNames,
+						})
+						results = append(results, result) //nolint:staticcheck // results used in summary
+						successCount++                    // Count as success since we processed it correctly
+						continue
+					case ciGateProceed, ciGateUnknown:
+						// proceed with review + merge
 					}
 				}
 
@@ -614,6 +687,30 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 					}
 					result.Reviewed = true
 					output.Success(fmt.Sprintf("✓ PR #%d approved", prInfo.Number))
+				}
+
+				// Dependabot + CI running: skip immediate merge and enable auto-merge instead.
+				if forceAutoMerge {
+					if autoMergeAlreadyEnabled {
+						result.AutoMergeAlreadyEnabled = true
+						output.Info(fmt.Sprintf("✓ Auto-merge already enabled for PR #%d", prInfo.Number))
+					} else {
+						output.Info(fmt.Sprintf("Enabling auto-merge for PR #%d (waiting for CI)...", prInfo.Number))
+						err = client.EnableAutoMergePR(ctx, repoFullName, prInfo.Number, mergeMethod)
+						if err != nil {
+							result.Error = fmt.Sprintf("Failed to enable auto-merge: %v", err)
+							output.Error(result.Error)
+							results = append(results, result) //nolint:staticcheck // results used in summary
+							failureCount++
+							continue
+						}
+						result.AutoMergeEnabled = true
+						autoMergeCount++
+						output.Success(fmt.Sprintf("✓ Auto-merge enabled for PR #%d - will merge when checks pass", prInfo.Number))
+					}
+					results = append(results, result) //nolint:staticcheck // results used in summary
+					successCount++
+					continue
 				}
 
 				// Try immediate merge first (optimistic approach)
@@ -735,6 +832,52 @@ func createRunReviewPR(flags *Flags, message *string, allAssignedPRs, bypass, ig
 		}
 
 		return nil
+	}
+}
+
+// runCIGate fetches CI check status for a PR, emits progress output, mutates
+// the provided result with any discovered check summary / names, and returns a
+// decision that tells the caller whether to proceed with the merge, skip the
+// PR, or treat the status as unknown (network/permission error).
+//
+// The caller is responsible for updating counters, appending to skippedPRs,
+// and deciding whether a skipRunning result should become a skip or a fallback
+// to enabling auto-merge (the dependabot path does the latter).
+func runCIGate(ctx context.Context, client gh.Client, repoFullName string, prInfo *PRInfo, result *ReviewPRResult) ciGateDecision {
+	checkStatus, checkErr := client.GetPRCheckStatus(ctx, repoFullName, prInfo.Number)
+	if checkErr != nil {
+		output.Warn(fmt.Sprintf("⚠️  Could not fetch check status for PR #%d: %v", prInfo.Number, checkErr))
+		return ciGateUnknown
+	}
+
+	result.CheckSummary = checkStatus.Summary()
+
+	switch {
+	case checkStatus.NoChecks():
+		output.Info(fmt.Sprintf("PR #%d: %s", prInfo.Number, checkStatus.Summary()))
+		return ciGateProceed
+	case checkStatus.HasRunningChecks():
+		output.Warn(fmt.Sprintf("⏳ PR #%d: %s", prInfo.Number, checkStatus.Summary()))
+		runningNames := checkStatus.RunningCheckNames()
+		result.RunningCheckNames = runningNames
+		output.Info("   Running:")
+		for _, name := range runningNames {
+			output.Info(fmt.Sprintf("     - %s", name))
+		}
+		return ciGateSkipRunning
+	case checkStatus.HasFailedChecks():
+		output.Error(fmt.Sprintf("❌ PR #%d: %s", prInfo.Number, checkStatus.Summary()))
+		failedNames := checkStatus.FailedCheckNames()
+		result.FailedCheckNames = failedNames
+		output.Info("   Failed:")
+		for _, name := range failedNames {
+			output.Info(fmt.Sprintf("     - %s", name))
+		}
+		return ciGateSkipFailed
+	default:
+		// All checks passed
+		output.Success(fmt.Sprintf("✓ PR #%d: %s", prInfo.Number, checkStatus.Summary()))
+		return ciGateProceed
 	}
 }
 

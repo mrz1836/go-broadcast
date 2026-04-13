@@ -63,6 +63,11 @@ type Client interface {
 	// SearchAssignedPRs searches for all open, non-draft pull requests assigned to the current user
 	SearchAssignedPRs(ctx context.Context) ([]PR, error)
 
+	// SearchAssignedPRsByAuthor searches for open, non-draft pull requests assigned to
+	// the current user and authored by the given user (e.g. "app/dependabot").
+	// An empty author string behaves identically to SearchAssignedPRs.
+	SearchAssignedPRsByAuthor(ctx context.Context, author string) ([]PR, error)
+
 	// GetPRReviews retrieves all reviews for a pull request
 	GetPRReviews(ctx context.Context, repo string, number int) ([]Review, error)
 
@@ -144,7 +149,7 @@ type Client interface {
 	SetTopics(ctx context.Context, repo string, topics []string) error
 
 	// CloneRepository clones a GitHub repository to the specified local path
-	CloneRepository(ctx context.Context, repo string, destPath string) error
+	CloneRepository(ctx context.Context, repo, destPath string) error
 
 	// CreateFileCommit creates or updates a file in a repository via the Contents API
 	CreateFileCommit(ctx context.Context, repo, path, message string, content []byte, branch string) error

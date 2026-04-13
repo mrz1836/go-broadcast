@@ -994,6 +994,48 @@ func TestMockClient_SearchAssignedPRs(t *testing.T) {
 	})
 }
 
+// TestMockClient_SearchAssignedPRsByAuthor tests the SearchAssignedPRsByAuthor mock method
+func TestMockClient_SearchAssignedPRsByAuthor(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		m := NewMockClient()
+		expected := []PR{
+			{Number: 10, Title: "chore(deps): bump foo", State: "open"},
+			{Number: 11, Title: "chore(deps): bump bar", State: "open"},
+		}
+		m.On("SearchAssignedPRsByAuthor", mock.Anything, "app/dependabot").Return(expected, nil)
+
+		prs, err := m.SearchAssignedPRsByAuthor(context.Background(), "app/dependabot")
+		require.NoError(t, err)
+		assert.Equal(t, expected, prs)
+		m.AssertExpectations(t)
+	})
+
+	t.Run("error", func(t *testing.T) {
+		t.Parallel()
+		m := NewMockClient()
+		m.On("SearchAssignedPRsByAuthor", mock.Anything, "app/dependabot").Return(nil, assert.AnError)
+
+		prs, err := m.SearchAssignedPRsByAuthor(context.Background(), "app/dependabot")
+		require.ErrorIs(t, err, assert.AnError)
+		assert.Nil(t, prs)
+		m.AssertExpectations(t)
+	})
+
+	t.Run("empty_author_distinct_from_default", func(t *testing.T) {
+		t.Parallel()
+		m := NewMockClient()
+		m.On("SearchAssignedPRsByAuthor", mock.Anything, "").Return([]PR{}, nil)
+
+		prs, err := m.SearchAssignedPRsByAuthor(context.Background(), "")
+		require.NoError(t, err)
+		assert.Empty(t, prs)
+		m.AssertExpectations(t)
+	})
+}
+
 // TestMockClient_GetPRReviews tests the GetPRReviews mock method
 func TestMockClient_GetPRReviews(t *testing.T) {
 	t.Parallel()

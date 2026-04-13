@@ -1703,6 +1703,146 @@ func TestSearchAssignedPRs_InvalidURL(t *testing.T) {
 	mockRunner.AssertExpectations(t)
 }
 
+// TestSearchAssignedPRsByAuthor tests successful author-filtered PR search
+func TestSearchAssignedPRsByAuthor(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	searchResults := []struct {
+		Number  int    `json:"number"`
+		Title   string `json:"title"`
+		URL     string `json:"url"`
+		State   string `json:"state"`
+		IsDraft bool   `json:"isDraft"`
+	}{
+		{Number: 42, Title: "chore(deps): bump foo", URL: "https://github.com/org/repo/pull/42", State: "OPEN", IsDraft: false},
+		{Number: 43, Title: "chore(deps): bump bar", URL: "https://github.com/org/repo/pull/43", State: "OPEN", IsDraft: false},
+	}
+	output, err := json.Marshal(searchResults)
+	require.NoError(t, err)
+
+	// Expect --author app/dependabot appended to the args before --json
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--author", "app/dependabot", "--json", "number,title,url,isDraft,state"}).
+		Return(output, nil)
+
+	result, err := client.SearchAssignedPRsByAuthor(ctx, "app/dependabot")
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Equal(t, 42, result[0].Number)
+	assert.Equal(t, "org/repo", result[0].Repo)
+	assert.Equal(t, 43, result[1].Number)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestSearchAssignedPRsByAuthor_FiltersDrafts ensures draft PRs are filtered out
+func TestSearchAssignedPRsByAuthor_FiltersDrafts(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	searchResults := []struct {
+		Number  int    `json:"number"`
+		Title   string `json:"title"`
+		URL     string `json:"url"`
+		State   string `json:"state"`
+		IsDraft bool   `json:"isDraft"`
+	}{
+		{Number: 1, Title: "PR 1", URL: "https://github.com/org/repo/pull/1", State: "OPEN", IsDraft: false},
+		{Number: 2, Title: "Draft PR", URL: "https://github.com/org/repo/pull/2", State: "OPEN", IsDraft: true},
+		{Number: 3, Title: "PR 3", URL: "https://github.com/org/repo/pull/3", State: "OPEN", IsDraft: false},
+	}
+	output, err := json.Marshal(searchResults)
+	require.NoError(t, err)
+
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--author", "app/dependabot", "--json", "number,title,url,isDraft,state"}).
+		Return(output, nil)
+
+	result, err := client.SearchAssignedPRsByAuthor(ctx, "app/dependabot")
+	require.NoError(t, err)
+	assert.Len(t, result, 2) // Only non-draft PRs
+	assert.Equal(t, 1, result[0].Number)
+	assert.Equal(t, 3, result[1].Number)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestSearchAssignedPRsByAuthor_Error tests error handling for author-filtered search failures
+func TestSearchAssignedPRsByAuthor_Error(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--author", "app/dependabot", "--json", "number,title,url,isDraft,state"}).
+		Return(nil, errTestAPIError)
+
+	result, err := client.SearchAssignedPRsByAuthor(ctx, "app/dependabot")
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "search assigned PRs")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestSearchAssignedPRsByAuthor_JSONUnmarshalError tests error handling for invalid JSON
+func TestSearchAssignedPRsByAuthor_JSONUnmarshalError(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--author", "app/dependabot", "--json", "number,title,url,isDraft,state"}).
+		Return([]byte("invalid json"), nil)
+
+	result, err := client.SearchAssignedPRsByAuthor(ctx, "app/dependabot")
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "parse search results")
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestSearchAssignedPRsByAuthor_InvalidURLFiltering ensures bad URLs are dropped gracefully
+func TestSearchAssignedPRsByAuthor_InvalidURLFiltering(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	searchResults := `[
+		{"number": 1, "title": "Valid PR", "url": "https://github.com/owner/repo/pull/1", "state": "OPEN", "isDraft": false},
+		{"number": 2, "title": "Invalid URL PR", "url": "invalid-url", "state": "OPEN", "isDraft": false}
+	]`
+
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--author", "app/dependabot", "--json", "number,title,url,isDraft,state"}).
+		Return([]byte(searchResults), nil)
+
+	prs, err := client.SearchAssignedPRsByAuthor(ctx, "app/dependabot")
+	require.NoError(t, err)
+	assert.Len(t, prs, 1)
+	assert.Equal(t, 1, prs[0].Number)
+	assert.Equal(t, "owner/repo", prs[0].Repo)
+
+	mockRunner.AssertExpectations(t)
+}
+
+// TestSearchAssignedPRsByAuthor_EmptyAuthor verifies that an empty author argument
+// produces the same gh invocation as SearchAssignedPRs (no --author flag).
+func TestSearchAssignedPRsByAuthor_EmptyAuthor(t *testing.T) {
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	// Empty author omits --author entirely, matching the base SearchAssignedPRs command.
+	mockRunner.On("Run", ctx, "gh", []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--json", "number,title,url,isDraft,state"}).
+		Return([]byte(`[]`), nil)
+
+	result, err := client.SearchAssignedPRsByAuthor(ctx, "")
+	require.NoError(t, err)
+	assert.Empty(t, result)
+
+	mockRunner.AssertExpectations(t)
+}
+
 // TestGetPRReviews tests successful retrieval of PR reviews
 func TestGetPRReviews(t *testing.T) {
 	ctx := context.Background()

@@ -651,10 +651,30 @@ func (g *githubClient) EnableAutoMergePR(ctx context.Context, repo string, numbe
 
 // SearchAssignedPRs searches for all open, non-draft pull requests assigned to the current user
 func (g *githubClient) SearchAssignedPRs(ctx context.Context) ([]PR, error) {
+	return g.searchAssignedPRsFiltered(ctx, "")
+}
+
+// SearchAssignedPRsByAuthor searches for open, non-draft pull requests assigned to
+// the current user and authored by the given user (e.g. "app/dependabot").
+// An empty author string behaves identically to SearchAssignedPRs.
+func (g *githubClient) SearchAssignedPRsByAuthor(ctx context.Context, author string) ([]PR, error) {
+	return g.searchAssignedPRsFiltered(ctx, author)
+}
+
+// searchAssignedPRsFiltered is the shared implementation for assigned-PR search.
+// When authorFilter is non-empty it adds `--author <authorFilter>` to the gh search
+// invocation, letting callers narrow results to a specific author (e.g. "app/dependabot").
+func (g *githubClient) searchAssignedPRsFiltered(ctx context.Context, authorFilter string) ([]PR, error) {
 	// Use GitHub search API to find PRs assigned to current user
 	// The gh search prs command has limited fields compared to gh pr view
 	// We only need basic info here - full details will be fetched when processing each PR
-	output, err := g.runner.Run(ctx, "gh", "search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000", "--json", "number,title,url,isDraft,state")
+	args := []string{"search", "prs", "--assignee", "@me", "--state", "open", "--limit", "1000"}
+	if authorFilter != "" {
+		args = append(args, "--author", authorFilter)
+	}
+	args = append(args, "--json", "number,title,url,isDraft,state")
+
+	output, err := g.runner.Run(ctx, "gh", args...)
 	if err != nil {
 		return nil, appErrors.WrapWithContext(err, "search assigned PRs")
 	}

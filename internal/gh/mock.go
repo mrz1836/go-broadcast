@@ -126,6 +126,12 @@ func (m *MockClient) SearchAssignedPRs(ctx context.Context) ([]PR, error) {
 	return testutil.HandleTwoValueReturn[[]PR](args)
 }
 
+// SearchAssignedPRsByAuthor mock implementation
+func (m *MockClient) SearchAssignedPRsByAuthor(ctx context.Context, author string) ([]PR, error) {
+	args := m.Called(ctx, author)
+	return testutil.HandleTwoValueReturn[[]PR](args)
+}
+
 // GetPRReviews mock implementation
 func (m *MockClient) GetPRReviews(ctx context.Context, repo string, number int) ([]Review, error) {
 	args := m.Called(ctx, repo, number)
@@ -274,7 +280,7 @@ func (m *MockClient) SetTopics(ctx context.Context, repo string, topics []string
 }
 
 // CloneRepository mock implementation
-func (m *MockClient) CloneRepository(ctx context.Context, repo string, destPath string) error {
+func (m *MockClient) CloneRepository(ctx context.Context, repo, destPath string) error {
 	args := m.Called(ctx, repo, destPath)
 	return args.Error(0)
 }

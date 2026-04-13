@@ -1844,6 +1844,10 @@ func (m *TestValidationMockGHClient) SearchAssignedPRs(_ context.Context) ([]gh.
 	return nil, ErrMockNotImplemented
 }
 
+func (m *TestValidationMockGHClient) SearchAssignedPRsByAuthor(_ context.Context, _ string) ([]gh.PR, error) {
+	return nil, ErrMockNotImplemented
+}
+
 func (m *TestValidationMockGHClient) GetPRReviews(_ context.Context, _ string, _ int) ([]gh.Review, error) {
 	return nil, ErrMockNotImplemented
 }
