@@ -929,7 +929,8 @@ func TestResetVersionInfo(t *testing.T) {
 
 // TestGetVersion verifies GetVersion returns expected values
 func TestGetVersion(t *testing.T) {
-	t.Parallel()
+	// Not parallel: mutates shared global version state via setVersion,
+	// which would race with other tests in this file that do the same.
 
 	// Save original values (thread-safe)
 	origVersion := getVersionRaw()
@@ -969,7 +970,8 @@ func TestGetVersion(t *testing.T) {
 
 // TestSetVersionInfoAndReset tests the full lifecycle: set, verify, reset, verify
 func TestSetVersionInfoAndReset(t *testing.T) {
-	t.Parallel()
+	// Not parallel: mutates shared global version/commit/buildDate state,
+	// which would race with other tests in this file that do the same.
 
 	// Save original values (thread-safe)
 	origVersion := getVersionRaw()
