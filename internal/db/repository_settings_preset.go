@@ -180,6 +180,39 @@ func (r *settingsPresetRepository) AssignPresetToRepo(ctx context.Context, repoI
 	return nil
 }
 
+// SeedIfMissing creates any preset whose ExternalID is not already present in the DB.
+// Returns the count of newly-seeded presets. Idempotent.
+func (r *settingsPresetRepository) SeedIfMissing(ctx context.Context, presets []*SettingsPreset) (int, error) {
+	seeded := 0
+	for _, preset := range presets {
+		if preset == nil {
+			continue
+		}
+		_, err := r.GetByExternalID(ctx, preset.ExternalID)
+		if err == nil {
+			continue // already exists, skip
+		}
+		if !errors.Is(err, ErrRecordNotFound) {
+			return seeded, fmt.Errorf("failed to check preset %q: %w", preset.ExternalID, err)
+		}
+		// Reset IDs so GORM creates a fresh row (callers may pass reusable templates)
+		preset.ID = 0
+		for i := range preset.Labels {
+			preset.Labels[i].ID = 0
+			preset.Labels[i].SettingsPresetID = 0
+		}
+		for i := range preset.Rulesets {
+			preset.Rulesets[i].ID = 0
+			preset.Rulesets[i].SettingsPresetID = 0
+		}
+		if err := r.Create(ctx, preset); err != nil {
+			return seeded, fmt.Errorf("failed to seed preset %q: %w", preset.ExternalID, err)
+		}
+		seeded++
+	}
+	return seeded, nil
+}
+
 // GetPresetForRepo returns the assigned preset or nil
 func (r *settingsPresetRepository) GetPresetForRepo(ctx context.Context, repoID uint) (*SettingsPreset, error) {
 	var repo Repo

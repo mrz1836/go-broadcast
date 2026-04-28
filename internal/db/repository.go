@@ -121,6 +121,9 @@ type SettingsPresetRepository interface {
 	AssignPresetToRepo(ctx context.Context, repoID, presetID uint) error
 	// GetPresetForRepo returns the assigned preset or nil
 	GetPresetForRepo(ctx context.Context, repoID uint) (*SettingsPreset, error)
+	// SeedIfMissing creates each preset only when no row exists with the same ExternalID.
+	// Returns the count of newly-seeded presets. Idempotent.
+	SeedIfMissing(ctx context.Context, presets []*SettingsPreset) (int, error)
 }
 
 // QueryRepository provides cross-entity query operations
