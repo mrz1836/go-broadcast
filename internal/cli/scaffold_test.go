@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/db"
 	"github.com/mrz1836/go-broadcast/internal/gh"
 )
 
@@ -266,4 +267,73 @@ func TestDbPresetToConfigPreset(t *testing.T) {
 	assert.Equal(t, "bug", preset.Labels[0].Name)
 	require.Len(t, preset.Rulesets, 1)
 	assert.Equal(t, "branch-protection", preset.Rulesets[0].Name)
+}
+
+func TestResolvePreset_DefaultReservedID(t *testing.T) {
+	cleanup := setupPresetTestDB(t)
+	defer cleanup()
+	cleanupCfg := withEmptyConfigPath(t)
+	defer cleanupCfg()
+
+	preset, err := resolvePreset(context.Background(), reservedDefaultPresetID)
+	require.NoError(t, err)
+	require.NotNil(t, preset)
+	assert.Equal(t, reservedDefaultPresetID, preset.ID,
+		"reserved id should resolve to DefaultPreset() with id=default")
+	assert.NotEmpty(t, preset.Labels, "DefaultPreset ships labels")
+}
+
+func TestResolvePreset_UnknownIDErrors(t *testing.T) {
+	cleanup := setupPresetTestDB(t)
+	defer cleanup()
+	cleanupCfg := withEmptyConfigPath(t)
+	defer cleanupCfg()
+
+	preset, err := resolvePreset(context.Background(), "nonexistent-xyz-typo")
+	require.Error(t, err)
+	assert.Nil(t, preset)
+	assert.Contains(t, err.Error(), "unknown preset:")
+	assert.Contains(t, err.Error(), "presets list")
+}
+
+func TestResolvePreset_AutoSeedsEmptyDB(t *testing.T) {
+	cleanup := setupPresetTestDB(t)
+	defer cleanup()
+	cleanupCfg := withEmptyConfigPath(t)
+	defer cleanupCfg()
+
+	// DB starts empty; resolving a bundled id should auto-seed and return it.
+	preset, err := resolvePreset(context.Background(), "mvp")
+	require.NoError(t, err)
+	require.NotNil(t, preset)
+	assert.Equal(t, "mvp", preset.ID)
+
+	// DB should now contain the bundled rows.
+	database, err := db.Open(db.OpenOptions{Path: dbPath, AutoMigrate: true})
+	require.NoError(t, err)
+	defer func() { _ = database.Close() }()
+	rows, err := db.NewSettingsPresetRepository(database.DB()).List(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, rows, len(BundledPresets()), "auto-seed populates every bundled default")
+}
+
+func TestResolvePreset_DBPriorityOverBundled(t *testing.T) {
+	cleanup := setupPresetTestDB(t)
+	defer cleanup()
+	cleanupCfg := withEmptyConfigPath(t)
+	defer cleanupCfg()
+
+	// Pre-insert an mvp row whose name would never come from the bundled default.
+	database, err := db.Open(db.OpenOptions{Path: dbPath, AutoMigrate: true})
+	require.NoError(t, err)
+	require.NoError(t, db.NewSettingsPresetRepository(database.DB()).Create(
+		context.Background(),
+		&db.SettingsPreset{ExternalID: "mvp", Name: "MVP from DB", Description: "DB-resident override"},
+	))
+	require.NoError(t, database.Close())
+
+	preset, err := resolvePreset(context.Background(), "mvp")
+	require.NoError(t, err)
+	require.NotNil(t, preset)
+	assert.Equal(t, "MVP from DB", preset.Name, "DB row should win over bundled default")
 }
