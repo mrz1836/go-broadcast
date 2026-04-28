@@ -3,12 +3,24 @@ package gh
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	appErrors "github.com/mrz1836/go-broadcast/internal/errors"
 	"github.com/mrz1836/go-broadcast/internal/jsonutil"
 )
+
+// createRepoRetryDelays controls the backoff between post-create GetRepository
+// retries. GitHub's eventual-consistency window often returns 404 on the first
+// fetch even after a successful `gh repo create`. Exposed as a var so tests can
+// override with small values.
+var createRepoRetryDelays = []time.Duration{ //nolint:gochecknoglobals // tunable retry schedule, override in tests
+	500 * time.Millisecond,
+	1 * time.Second,
+	2 * time.Second,
+}
 
 // CreateRepository creates a new GitHub repository
 func (g *githubClient) CreateRepository(ctx context.Context, opts CreateRepoOptions) (*Repository, error) {
@@ -24,7 +36,6 @@ func (g *githubClient) CreateRepository(ctx context.Context, opts CreateRepoOpti
 		"--clone=false",
 	}
 
-	var result *Repository
 	err := rateLimitedDo(ctx, defaultAPIDelay, func() error {
 		_, runErr := g.runner.Run(ctx, "gh", args...)
 		return runErr
@@ -33,13 +44,44 @@ func (g *githubClient) CreateRepository(ctx context.Context, opts CreateRepoOpti
 		return nil, appErrors.WrapWithContext(err, "create repository")
 	}
 
-	// Fetch the created repository details
-	result, err = g.GetRepository(ctx, opts.Name)
-	if err != nil {
-		return nil, appErrors.WrapWithContext(err, "get created repository")
+	// Fetch the created repository details. GitHub may return 404 briefly after
+	// the create succeeds (propagation lag) — retry on 404 only. Other errors
+	// (5xx, network, auth) bubble up immediately.
+	maxAttempts := len(createRepoRetryDelays) + 1
+	var result *Repository
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		result, err = g.GetRepository(ctx, opts.Name)
+		if err == nil {
+			return result, nil
+		}
+
+		if !errors.Is(err, ErrRepositoryNotFound) {
+			return nil, appErrors.WrapWithContext(err, "get created repository")
+		}
+
+		if attempt >= maxAttempts {
+			break
+		}
+
+		delay := createRepoRetryDelays[attempt-1]
+		if g.logger != nil {
+			g.logger.Warnf(
+				"post-create GetRepository returned 404 for %s — propagation pending, retry %d/%d after %s",
+				opts.Name, attempt, maxAttempts, delay,
+			)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(delay):
+		}
 	}
 
-	return result, nil
+	return nil, fmt.Errorf(
+		"repository propagation timed out after %d attempts: %s: %w",
+		maxAttempts, opts.Name, err,
+	)
 }
 
 // UpdateRepoSettings updates repository settings via PATCH /repos/{owner}/{repo}

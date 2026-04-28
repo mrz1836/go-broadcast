@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
+	logrustest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -22,6 +25,8 @@ var (
 	errTestLabelsError         = errors.New("labels error")
 	errTestLabelsFetchError    = errors.New("labels fetch error")
 	errTestTopicsError         = errors.New("topics error")
+	errTestHTTP404NotFound     = errors.New("HTTP 404 Not Found")
+	errTestHTTP500             = errors.New("HTTP 500 Internal Server Error")
 )
 
 func TestBuildBranchRuleset(t *testing.T) {
@@ -322,6 +327,102 @@ func TestCreateRepository_GetRepositoryError(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "get created repository")
+	mockRunner.AssertExpectations(t)
+}
+
+// setFastCreateRepoDelays swaps the package-level retry schedule with 1ms delays
+// for fast tests, restoring the original on cleanup.
+func setFastCreateRepoDelays(t *testing.T) {
+	t.Helper()
+	orig := createRepoRetryDelays
+	createRepoRetryDelays = []time.Duration{
+		1 * time.Millisecond,
+		1 * time.Millisecond,
+		1 * time.Millisecond,
+	}
+	t.Cleanup(func() { createRepoRetryDelays = orig })
+}
+
+func TestCreateRepository_RetriesOn404ThenSuccess(t *testing.T) {
+	setFastCreateRepoDelays(t)
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+
+	logger, hook := logrustest.NewNullLogger()
+	logger.SetLevel(logrus.WarnLevel)
+	client := NewClientWithRunner(mockRunner, logger)
+
+	opts := CreateRepoOptions{Name: "owner/my-repo", Description: "desc", Private: true}
+	repo := Repository{Name: "my-repo", FullName: "owner/my-repo"}
+	repoJSON, err := json.Marshal(repo)
+	require.NoError(t, err)
+
+	// create succeeds
+	mockRunner.On("Run", ctx, "gh", []string{"repo", "create", "owner/my-repo", "--description", "desc", "--private", "--clone=false"}).
+		Return([]byte{}, nil).Once()
+	// 1st GET → 404
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/owner/my-repo"}).
+		Return(nil, errTestHTTP404NotFound).Once()
+	// 2nd GET → success
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/owner/my-repo"}).
+		Return(repoJSON, nil).Once()
+
+	result, err := client.CreateRepository(ctx, opts)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, "my-repo", result.Name)
+
+	// exactly one retry log line
+	warnCount := 0
+	for _, e := range hook.AllEntries() {
+		if e.Level == logrus.WarnLevel && strings.Contains(e.Message, "propagation pending") {
+			warnCount++
+		}
+	}
+	assert.Equal(t, 1, warnCount, "expected exactly one retry warn log")
+	mockRunner.AssertExpectations(t)
+}
+
+func TestCreateRepository_RetriesExhausted(t *testing.T) {
+	setFastCreateRepoDelays(t)
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	opts := CreateRepoOptions{Name: "owner/my-repo", Description: "desc", Private: true}
+	mockRunner.On("Run", ctx, "gh", []string{"repo", "create", "owner/my-repo", "--description", "desc", "--private", "--clone=false"}).
+		Return([]byte{}, nil).Once()
+	// every GET returns 404 (4 attempts: initial + 3 backoffs)
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/owner/my-repo"}).
+		Return(nil, errTestHTTP404NotFound).Times(len(createRepoRetryDelays) + 1)
+
+	result, err := client.CreateRepository(ctx, opts)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "propagation timed out")
+	assert.Contains(t, err.Error(), "owner/my-repo")
+	require.ErrorIs(t, err, ErrRepositoryNotFound, "exhaustion error should still wrap ErrRepositoryNotFound")
+	mockRunner.AssertExpectations(t)
+}
+
+func TestCreateRepository_DoesNotRetryOn5xx(t *testing.T) {
+	setFastCreateRepoDelays(t)
+	ctx := context.Background()
+	mockRunner := new(MockCommandRunner)
+	client := NewClientWithRunner(mockRunner, logrus.New())
+
+	opts := CreateRepoOptions{Name: "owner/my-repo", Description: "desc", Private: false}
+	mockRunner.On("Run", ctx, "gh", []string{"repo", "create", "owner/my-repo", "--description", "desc", "--public", "--clone=false"}).
+		Return([]byte{}, nil).Once()
+	// single GET → 500, no retry
+	mockRunner.On("Run", ctx, "gh", []string{"api", "repos/owner/my-repo"}).
+		Return(nil, errTestHTTP500).Once()
+
+	result, err := client.CreateRepository(ctx, opts)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "get created repository")
+	assert.NotContains(t, err.Error(), "propagation timed out")
 	mockRunner.AssertExpectations(t)
 }
 
