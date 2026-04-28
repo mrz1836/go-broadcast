@@ -41,7 +41,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.22.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/invopop/jsonschema v0.14.0 // indirect
+	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mailru/easyjson v0.9.2 // indirect
@@ -49,7 +49,6 @@ require (
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mbleigh/raymond v0.0.0-20250414171441-6b3a58ab9e0a // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
-	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
@@ -68,7 +67,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
-	go.yaml.in/yaml/v4 v4.0.0-rc.4 // indirect
 	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
@@ -89,3 +87,7 @@ replace github.com/golang-jwt/jwt/v5 => github.com/golang-jwt/jwt/v5 v5.3.1
 
 // Fix CVE-2025-67818: Path Traversal vulnerability in backup modules
 replace github.com/weaviate/weaviate => github.com/weaviate/weaviate v1.37.2
+
+// Pin to v0.13.0: v0.14.0 switched Properties from wk8/go-ordered-map to pb33f/ordered-map,
+// breaking dotprompt (github.com/google/dotprompt/go) which still imports wk8.
+replace github.com/invopop/jsonschema => github.com/invopop/jsonschema v0.13.0
