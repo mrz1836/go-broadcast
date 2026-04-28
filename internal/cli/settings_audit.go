@@ -193,8 +193,18 @@ func runSettingsAudit(ctx context.Context, repos []string, presetID, org string,
 }
 
 func auditSingleRepo(ctx context.Context, ghClient gh.Client, repo, presetID string) auditResult {
-	// Resolve preset for this repo
-	preset := resolvePreset(ctx, presetID)
+	// Resolve preset for this repo. An empty --preset flag falls back to the
+	// generic mvp default to match the documented "default: repo's assigned
+	// preset or mvp" behavior without re-introducing silent forging for
+	// arbitrary unknown ids.
+	resolveID := presetID
+	if resolveID == "" {
+		resolveID = "mvp"
+	}
+	preset, err := resolvePreset(ctx, resolveID)
+	if err != nil {
+		return auditResult{Repo: repo, Preset: presetID, Error: err.Error()}
+	}
 	if presetID == "" {
 		presetID = preset.ID
 	}

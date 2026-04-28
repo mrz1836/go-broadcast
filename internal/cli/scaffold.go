@@ -15,6 +15,10 @@ import (
 	"github.com/mrz1836/go-broadcast/internal/output"
 )
 
+// reservedDefaultPresetID is the literal id that explicitly resolves to the
+// hardcoded fallback preset returned by config.DefaultPreset().
+const reservedDefaultPresetID = "default"
+
 // newScaffoldCmd creates the "scaffold" command
 func newScaffoldCmd() *cobra.Command {
 	var (
@@ -67,8 +71,11 @@ func runScaffold(ctx context.Context, repoName, desc, presetID, topics, _ string
 		return fmt.Errorf("invalid repo format %q, expected owner/name", repoName) //nolint:err113 // user-facing
 	}
 
-	// Resolve preset: try DB first, fall back to config, then hardcoded default
-	preset := resolvePreset(ctx, presetID)
+	// Resolve preset: try DB first, fall back to config, then bundled defaults
+	preset, err := resolvePreset(ctx, presetID)
+	if err != nil {
+		return err
+	}
 
 	// Parse topics
 	var topicList []string
@@ -92,7 +99,7 @@ func runScaffold(ctx context.Context, repoName, desc, presetID, topics, _ string
 
 	if dryRun {
 		// No need for a real GH client in dry-run mode
-		_, err := RunScaffold(ctx, nil, opts)
+		_, err = RunScaffold(ctx, nil, opts)
 		return err
 	}
 
@@ -112,58 +119,107 @@ func runScaffold(ctx context.Context, repoName, desc, presetID, topics, _ string
 	return nil
 }
 
-// resolvePreset looks up a preset from DB first, then config file, then falls back to default
-func resolvePreset(ctx context.Context, presetID string) *config.SettingsPreset {
-	// Try DB lookup
+// resolvePreset looks up a preset across the resolution chain (DB → config file
+// → bundled defaults) and returns it. The reserved id "default" always
+// resolves to the hardcoded fallback returned by config.DefaultPreset().
+//
+// On first use against an empty preset table, the bundled generic defaults are
+// auto-seeded so subsequent lookups can find them. An unknown id returns a
+// helpful error rather than silently forging a placeholder preset.
+func resolvePreset(ctx context.Context, presetID string) (*config.SettingsPreset, error) {
+	// Reserved id always resolves to the hardcoded fallback preset.
+	if presetID == reservedDefaultPresetID {
+		dflt := config.DefaultPreset()
+		dflt.ID = reservedDefaultPresetID
+		return &dflt, nil
+	}
+
+	// Try DB lookup (auto-seed bundled defaults if the preset table is empty).
 	database, err := openDatabase()
 	if err == nil {
 		defer func() { _ = database.Close() }()
 		presetRepo := db.NewSettingsPresetRepository(database.DB())
+
+		autoSeedBundledIfEmpty(ctx, presetRepo)
+
 		dbPreset, dbErr := presetRepo.GetByExternalID(ctx, presetID)
 		if dbErr == nil {
-			// Convert DB preset to config preset
-			compat := &dbSettingsPresetCompat{
-				ExternalID:               dbPreset.ExternalID,
-				Name:                     dbPreset.Name,
-				Description:              dbPreset.Description,
-				HasIssues:                dbPreset.HasIssues,
-				HasWiki:                  dbPreset.HasWiki,
-				HasProjects:              dbPreset.HasProjects,
-				HasDiscussions:           dbPreset.HasDiscussions,
-				AllowSquashMerge:         dbPreset.AllowSquashMerge,
-				AllowMergeCommit:         dbPreset.AllowMergeCommit,
-				AllowRebaseMerge:         dbPreset.AllowRebaseMerge,
-				DeleteBranchOnMerge:      dbPreset.DeleteBranchOnMerge,
-				AllowAutoMerge:           dbPreset.AllowAutoMerge,
-				AllowUpdateBranch:        dbPreset.AllowUpdateBranch,
-				SquashMergeCommitTitle:   dbPreset.SquashMergeCommitTitle,
-				SquashMergeCommitMessage: dbPreset.SquashMergeCommitMessage,
-			}
-			for _, l := range dbPreset.Labels {
-				compat.Labels = append(compat.Labels, dbLabelCompat{
-					Name: l.Name, Color: l.Color, Description: l.Description,
-				})
-			}
-			for _, r := range dbPreset.Rulesets {
-				compat.Rulesets = append(compat.Rulesets, dbRulesetCompat{
-					Name: r.Name, Target: r.Target, Enforcement: r.Enforcement,
-					Include: []string(r.Include), Exclude: []string(r.Exclude), Rules: []string(r.Rules),
-				})
-			}
-			return dbPresetToConfigPreset(compat)
+			return dbPresetToResolved(dbPreset), nil
 		}
 	}
 
-	// Try config file
-	cfg, cfgErr := config.Load(globalFlags.ConfigFile)
-	if cfgErr == nil {
+	// Try config file.
+	if cfg, cfgErr := config.Load(globalFlags.ConfigFile); cfgErr == nil {
 		if p := cfg.GetPreset(presetID); p != nil {
-			return p
+			return p, nil
 		}
 	}
 
-	// Fall back to hardcoded default
-	dflt := config.DefaultPreset()
-	dflt.ID = presetID
-	return &dflt
+	// Try bundled defaults.
+	for _, bp := range BundledPresets() {
+		if bp.ID == presetID {
+			preset := bp
+			return &preset, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unknown preset: %s (run 'go-broadcast presets list' to see available)", presetID) //nolint:err113 // user-facing CLI error
+}
+
+// autoSeedBundledIfEmpty seeds the bundled defaults into the preset table when
+// the table is empty. Errors are logged but do not block resolution.
+func autoSeedBundledIfEmpty(ctx context.Context, presetRepo db.SettingsPresetRepository) {
+	existing, listErr := presetRepo.List(ctx)
+	if listErr != nil || len(existing) > 0 {
+		return
+	}
+
+	bundled := BundledPresets()
+	dbPresets := make([]*db.SettingsPreset, 0, len(bundled))
+	for i := range bundled {
+		dbPresets = append(dbPresets, configPresetToDBPreset(&bundled[i]))
+	}
+
+	seeded, seedErr := presetRepo.SeedIfMissing(ctx, dbPresets)
+	if seedErr != nil {
+		logrus.WithError(seedErr).Warn("failed to auto-seed bundled presets")
+		return
+	}
+	if seeded > 0 {
+		logrus.WithField("count", seeded).Info("auto-seeded bundled preset(s) into empty DB")
+	}
+}
+
+// dbPresetToResolved converts a stored db.SettingsPreset into the config-level
+// SettingsPreset returned by resolvePreset.
+func dbPresetToResolved(dbPreset *db.SettingsPreset) *config.SettingsPreset {
+	compat := &dbSettingsPresetCompat{
+		ExternalID:               dbPreset.ExternalID,
+		Name:                     dbPreset.Name,
+		Description:              dbPreset.Description,
+		HasIssues:                dbPreset.HasIssues,
+		HasWiki:                  dbPreset.HasWiki,
+		HasProjects:              dbPreset.HasProjects,
+		HasDiscussions:           dbPreset.HasDiscussions,
+		AllowSquashMerge:         dbPreset.AllowSquashMerge,
+		AllowMergeCommit:         dbPreset.AllowMergeCommit,
+		AllowRebaseMerge:         dbPreset.AllowRebaseMerge,
+		DeleteBranchOnMerge:      dbPreset.DeleteBranchOnMerge,
+		AllowAutoMerge:           dbPreset.AllowAutoMerge,
+		AllowUpdateBranch:        dbPreset.AllowUpdateBranch,
+		SquashMergeCommitTitle:   dbPreset.SquashMergeCommitTitle,
+		SquashMergeCommitMessage: dbPreset.SquashMergeCommitMessage,
+	}
+	for _, l := range dbPreset.Labels {
+		compat.Labels = append(compat.Labels, dbLabelCompat{
+			Name: l.Name, Color: l.Color, Description: l.Description,
+		})
+	}
+	for _, r := range dbPreset.Rulesets {
+		compat.Rulesets = append(compat.Rulesets, dbRulesetCompat{
+			Name: r.Name, Target: r.Target, Enforcement: r.Enforcement,
+			Include: []string(r.Include), Exclude: []string(r.Exclude), Rules: []string(r.Rules),
+		})
+	}
+	return dbPresetToConfigPreset(compat)
 }
