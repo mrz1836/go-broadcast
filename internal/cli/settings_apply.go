@@ -72,7 +72,10 @@ func runSettingsApply(ctx context.Context, repo, presetID, topics, description s
 	}
 
 	// Resolve preset
-	preset := resolvePreset(ctx, presetID)
+	preset, err := resolvePreset(ctx, presetID)
+	if err != nil {
+		return err
+	}
 
 	output.Info(fmt.Sprintf("Settings apply: %s (preset: %s)", repo, preset.ID))
 

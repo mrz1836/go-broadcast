@@ -605,7 +605,11 @@ func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branc
 			}
 		}
 
-		preset := resolvePreset(ctx, presetID)
+		preset, presetErr := resolvePreset(ctx, presetID)
+		if presetErr != nil {
+			return printErrorResponse("target", "cloned", presetErr.Error(),
+				"run 'go-broadcast presets list' to see available presets", jsonOutput)
+		}
 
 		repoParts := strings.Split(toRepo, "/")
 		if len(repoParts) != 2 {

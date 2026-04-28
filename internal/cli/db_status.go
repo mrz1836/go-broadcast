@@ -175,6 +175,10 @@ func printStatus(status DBStatus) error {
 		output.Info(fmt.Sprintf("  %-30s %d", table+":", count))
 	}
 
+	if _, hasPresets := status.TableCounts["settings_presets"]; hasPresets {
+		output.Info("  → run 'go-broadcast presets list' for full inventory across sources")
+	}
+
 	return nil
 }
 

@@ -107,6 +107,7 @@ func init() {
 	rootCmd.AddCommand(metricsCmd)
 	rootCmd.AddCommand(newScaffoldCmd())
 	rootCmd.AddCommand(newSettingsCmd())
+	rootCmd.AddCommand(newPresetsCmd())
 }
 
 // NewRootCmd creates a new isolated root command instance for testing
