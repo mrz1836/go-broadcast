@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -75,6 +76,14 @@ func runBulkAddFileList(groupExternalID, fileListExternalID string, jsonOutput b
 			"run 'go-broadcast db file-list list --json' to see available file lists", jsonOutput)
 	}
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "bulk-attached",
+			Type:   "file_list_ref",
+			Data:   bulkResult{GroupID: groupExternalID, ListID: fileListExternalID},
+		}, fmt.Sprintf("attach file list %q to all targets in group %q", fileListExternalID, groupExternalID), jsonOutput)
+	}
+
 	bulkRepo := db.NewBulkRepository(gormDB)
 	affected, err := bulkRepo.AddFileListToAllTargets(ctx, group.ID, fl.ID)
 	if err != nil {
@@ -134,6 +143,14 @@ func runBulkRemoveFileList(groupExternalID, fileListExternalID string, jsonOutpu
 	if err != nil {
 		return printErrorResponse("bulk", "remove-file-list", err.Error(),
 			"run 'go-broadcast db file-list list --json' to see available file lists", jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "bulk-detached",
+			Type:   "file_list_ref",
+			Data:   bulkResult{GroupID: groupExternalID, ListID: fileListExternalID},
+		}, fmt.Sprintf("detach file list %q from all targets in group %q", fileListExternalID, groupExternalID), jsonOutput)
 	}
 
 	bulkRepo := db.NewBulkRepository(gormDB)
@@ -197,6 +214,14 @@ func runBulkAddDirList(groupExternalID, dirListExternalID string, jsonOutput boo
 			"run 'go-broadcast db dir-list list --json' to see available directory lists", jsonOutput)
 	}
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "bulk-attached",
+			Type:   "directory_list_ref",
+			Data:   bulkResult{GroupID: groupExternalID, ListID: dirListExternalID},
+		}, fmt.Sprintf("attach directory list %q to all targets in group %q", dirListExternalID, groupExternalID), jsonOutput)
+	}
+
 	bulkRepo := db.NewBulkRepository(gormDB)
 	affected, err := bulkRepo.AddDirectoryListToAllTargets(ctx, group.ID, dl.ID)
 	if err != nil {
@@ -256,6 +281,14 @@ func runBulkRemoveDirList(groupExternalID, dirListExternalID string, jsonOutput 
 	if err != nil {
 		return printErrorResponse("bulk", "remove-dir-list", err.Error(),
 			"run 'go-broadcast db dir-list list --json' to see available directory lists", jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "bulk-detached",
+			Type:   "directory_list_ref",
+			Data:   bulkResult{GroupID: groupExternalID, ListID: dirListExternalID},
+		}, fmt.Sprintf("detach directory list %q from all targets in group %q", dirListExternalID, groupExternalID), jsonOutput)
 	}
 
 	bulkRepo := db.NewBulkRepository(gormDB)

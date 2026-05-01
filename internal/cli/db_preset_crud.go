@@ -291,6 +291,18 @@ func runPresetCreate(id, name, description string, jsonOutput bool) error {
 		SquashMergeCommitMessage: dflt.SquashMergeCommitMessage,
 	}
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "created",
+			Type:   "preset",
+			Data: presetListResult{
+				ExternalID:  id,
+				Name:        name,
+				Description: description,
+			},
+		}, fmt.Sprintf("create preset %q", id), jsonOutput)
+	}
+
 	if err = presetRepo.Create(ctx, preset); err != nil {
 		return printErrorResponse("preset", "created", err.Error(), "", jsonOutput)
 	}
@@ -340,6 +352,14 @@ func runPresetDelete(externalID string, hard, jsonOutput bool) error {
 			"run 'go-broadcast db preset list' to see available presets", jsonOutput)
 	}
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: deleteAction(hard),
+			Type:   "preset",
+			Data:   map[string]string{"external_id": externalID},
+		}, fmt.Sprintf("%s preset %q", dryRunDeleteVerb(hard), externalID), jsonOutput)
+	}
+
 	if err = presetRepo.Delete(ctx, preset.ID, hard); err != nil {
 		return printErrorResponse("preset", "deleted", err.Error(), "", jsonOutput)
 	}
@@ -387,6 +407,17 @@ func runPresetAssign(presetExternalID, repoFullName string, jsonOutput bool) err
 		return printErrorResponse("preset", "assigned",
 			fmt.Sprintf("preset %q not found: %v", presetExternalID, err),
 			"run 'go-broadcast db preset list' to see available presets", jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "assigned",
+			Type:   "preset",
+			Data: map[string]string{
+				"preset": presetExternalID,
+				"repo":   repoFullName,
+			},
+		}, fmt.Sprintf("assign preset %q to repo %q", presetExternalID, repoFullName), jsonOutput)
 	}
 
 	repoRepo := db.NewRepoRepository(gormDB)
@@ -451,6 +482,15 @@ func runPresetImport(configFile string, jsonOutput bool) error {
 
 	ctx := context.Background()
 	presetRepo := db.NewSettingsPresetRepository(database.DB())
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "imported",
+			Type:   "preset",
+			Data:   map[string]int{"count": len(cfg.SettingsPresets)},
+			Count:  len(cfg.SettingsPresets),
+		}, fmt.Sprintf("import %d preset(s) from %q", len(cfg.SettingsPresets), configFile), jsonOutput)
+	}
 
 	imported := 0
 	for _, cp := range cfg.SettingsPresets {

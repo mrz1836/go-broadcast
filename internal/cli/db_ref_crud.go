@@ -103,6 +103,17 @@ func runRefAddFileList(groupExternalID, repoFullName, fileListExternalID string,
 		Where("target_id = ?", target.ID).
 		Select("COALESCE(MAX(position), -1)").Scan(&maxPos)
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "attached",
+			Type:   "file_list_ref",
+			Data: map[string]string{
+				"repo":      repoFullName,
+				"file_list": fileListExternalID,
+			},
+		}, fmt.Sprintf("attach file list %q to target %q in group %q", fileListExternalID, repoFullName, groupExternalID), jsonOutput)
+	}
+
 	targetRepo := db.NewTargetRepository(gormDB)
 	if err = targetRepo.AddFileListRef(ctx, target.ID, fl.ID, maxPos+1); err != nil {
 		return printErrorResponse("ref", "attached", err.Error(), "", jsonOutput)
@@ -169,6 +180,17 @@ func runRefRemoveFileList(groupExternalID, repoFullName, fileListExternalID stri
 	if err != nil {
 		return printErrorResponse("ref", "detached", err.Error(),
 			"run 'go-broadcast db file-list list --json' to see available file lists", jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "detached",
+			Type:   "file_list_ref",
+			Data: map[string]string{
+				"repo":      repoFullName,
+				"file_list": fileListExternalID,
+			},
+		}, fmt.Sprintf("detach file list %q from target %q in group %q", fileListExternalID, repoFullName, groupExternalID), jsonOutput)
 	}
 
 	targetRepo := db.NewTargetRepository(gormDB)
@@ -261,6 +283,17 @@ func runRefAddDirList(groupExternalID, repoFullName, dirListExternalID string, j
 		Where("target_id = ?", target.ID).
 		Select("COALESCE(MAX(position), -1)").Scan(&maxPos)
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "attached",
+			Type:   "directory_list_ref",
+			Data: map[string]string{
+				"repo":     repoFullName,
+				"dir_list": dirListExternalID,
+			},
+		}, fmt.Sprintf("attach directory list %q to target %q in group %q", dirListExternalID, repoFullName, groupExternalID), jsonOutput)
+	}
+
 	targetRepo := db.NewTargetRepository(gormDB)
 	if err = targetRepo.AddDirectoryListRef(ctx, target.ID, dl.ID, maxPos+1); err != nil {
 		return printErrorResponse("ref", "attached", err.Error(), "", jsonOutput)
@@ -327,6 +360,17 @@ func runRefRemoveDirList(groupExternalID, repoFullName, dirListExternalID string
 	if err != nil {
 		return printErrorResponse("ref", "detached", err.Error(),
 			"run 'go-broadcast db dir-list list --json' to see available directory lists", jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "detached",
+			Type:   "directory_list_ref",
+			Data: map[string]string{
+				"repo":     repoFullName,
+				"dir_list": dirListExternalID,
+			},
+		}, fmt.Sprintf("detach directory list %q from target %q in group %q", dirListExternalID, repoFullName, groupExternalID), jsonOutput)
 	}
 
 	targetRepo := db.NewTargetRepository(gormDB)

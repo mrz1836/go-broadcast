@@ -108,6 +108,21 @@ func runDirAdd(groupExternalID, repoFullName, src, dest, exclude, includeOnly st
 		Position:          len(existing),
 	}
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "created",
+			Type:   "directory_mapping",
+			Data: dirMappingResult{
+				Src:               src,
+				Dest:              dest,
+				Exclude:           []string(mapping.Exclude),
+				IncludeOnly:       []string(mapping.IncludeOnly),
+				PreserveStructure: &preserveStructure,
+				Delete:            deleteFlag,
+			},
+		}, fmt.Sprintf("create directory mapping %q on target %q in group %q", dest, repoFullName, groupExternalID), jsonOutput)
+	}
+
 	if err = dmRepo.Create(ctx, mapping); err != nil {
 		return printErrorResponse("directory_mapping", "created", err.Error(), "", jsonOutput)
 	}
@@ -180,6 +195,17 @@ func runDirRemove(groupExternalID, repoFullName, dest string, jsonOutput bool) e
 			fmt.Sprintf("directory mapping with dest %q not found on target %q", dest, repoFullName),
 			fmt.Sprintf("run 'go-broadcast db dir list --group %s --repo %s --json'", groupExternalID, repoFullName),
 			jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "deleted",
+			Type:   "directory_mapping",
+			Data: map[string]string{
+				"repo": repoFullName,
+				"dest": dest,
+			},
+		}, fmt.Sprintf("delete directory mapping %q from target %q in group %q", dest, repoFullName, groupExternalID), jsonOutput)
 	}
 
 	if err = dmRepo.Delete(ctx, mapping.ID, true); err != nil {

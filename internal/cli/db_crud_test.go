@@ -94,6 +94,25 @@ func setupTestDB(t *testing.T) func() {
 	}
 }
 
+func withDryRunEnabled(t *testing.T) {
+	t.Helper()
+
+	original := GetGlobalFlags()
+	SetFlags(&Flags{
+		ConfigFile:       original.ConfigFile,
+		DryRun:           true,
+		LogLevel:         original.LogLevel,
+		GroupFilter:      append([]string(nil), original.GroupFilter...),
+		SkipGroups:       append([]string(nil), original.SkipGroups...),
+		Automerge:        original.Automerge,
+		ClearModuleCache: original.ClearModuleCache,
+		FromDB:           original.FromDB,
+	})
+	t.Cleanup(func() {
+		SetFlags(original)
+	})
+}
+
 // captureJSON captures JSON output by temporarily redirecting stdout
 func captureJSON(t *testing.T, fn func() error) (CLIResponse, error) {
 	t.Helper()
@@ -365,6 +384,29 @@ func TestTargetAdd(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, resp.Success)
 		assert.Equal(t, "already_exists", resp.Action)
+	})
+
+	t.Run("dry-run does not create target", func(t *testing.T) {
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.Target{}).Count(&before).Error)
+
+		resp, err := captureJSON(t, func() error {
+			return runTargetAdd("my-tools", "acme/dry-run-target", "main", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+		assert.Equal(t, "created", resp.Action)
+
+		var after int64
+		require.NoError(t, database.DB().Model(&db.Target{}).Count(&after).Error)
+		assert.Equal(t, before, after)
 	})
 }
 
@@ -662,6 +704,32 @@ func TestFileAdd(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Success)
+
+	t.Run("dry-run does not create file mapping", func(t *testing.T) {
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var target db.Target
+		require.NoError(t, database.DB().Where("position = ?", 0).First(&target).Error)
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.FileMapping{}).Where("owner_type = ? AND owner_id = ?", "target", target.ID).Count(&before).Error)
+
+		resp, err := captureJSON(t, func() error {
+			return runFileAdd("my-tools", "acme/test-repo-1", "LICENSE", "LICENSE", false, true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+		assert.Equal(t, "created", resp.Action)
+
+		var after int64
+		require.NoError(t, database.DB().Model(&db.FileMapping{}).Where("owner_type = ? AND owner_id = ?", "target", target.ID).Count(&after).Error)
+		assert.Equal(t, before, after)
+	})
 }
 
 func TestFileRemove(t *testing.T) {
@@ -756,18 +824,79 @@ func TestRefAddFileList(t *testing.T) {
 		assert.True(t, resp.Success)
 		assert.Equal(t, "already_attached", resp.Action)
 	})
+
+	t.Run("dry-run does not attach file list ref", func(t *testing.T) {
+		// Create a fresh target with no existing refs so we hit the writer path,
+		// not the idempotent "already_attached" branch.
+		_, err := captureJSON(t, func() error {
+			return runTargetAdd("my-tools", "acme/ref-fl-dry-target", "main", true)
+		})
+		require.NoError(t, err)
+
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.TargetFileListRef{}).Count(&before).Error)
+
+		resp, err := captureJSON(t, func() error {
+			return runRefAddFileList("my-tools", "acme/ref-fl-dry-target", "ai-files", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+		assert.Equal(t, "attached", resp.Action)
+
+		var after int64
+		require.NoError(t, database.DB().Model(&db.TargetFileListRef{}).Count(&after).Error)
+		assert.Equal(t, before, after)
+	})
 }
 
 func TestRefRemoveFileList(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
 
-	resp, err := captureJSON(t, func() error {
-		return runRefRemoveFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+	t.Run("remove existing ref", func(t *testing.T) {
+		resp, err := captureJSON(t, func() error {
+			return runRefRemoveFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "detached", resp.Action)
 	})
-	require.NoError(t, err)
-	assert.True(t, resp.Success)
-	assert.Equal(t, "detached", resp.Action)
+
+	t.Run("dry-run does not detach file list ref", func(t *testing.T) {
+		// Re-attach to set up the row, then dry-run remove and confirm it stays
+		_, err := captureJSON(t, func() error {
+			return runRefAddFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+		})
+		require.NoError(t, err)
+
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.TargetFileListRef{}).Count(&before).Error)
+
+		resp, err := captureJSON(t, func() error {
+			return runRefRemoveFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+		assert.Equal(t, "detached", resp.Action)
+
+		var after int64
+		require.NoError(t, database.DB().Model(&db.TargetFileListRef{}).Count(&after).Error)
+		assert.Equal(t, before, after)
+	})
 }
 
 func TestRefAddDirList(t *testing.T) {
@@ -791,18 +920,79 @@ func TestRefAddDirList(t *testing.T) {
 		assert.True(t, resp.Success)
 		assert.Equal(t, "already_attached", resp.Action)
 	})
+
+	t.Run("dry-run does not attach dir list ref", func(t *testing.T) {
+		// Create a fresh target with no existing refs so we hit the writer path,
+		// not the idempotent "already_attached" branch.
+		_, err := captureJSON(t, func() error {
+			return runTargetAdd("my-tools", "acme/ref-dl-dry-target", "main", true)
+		})
+		require.NoError(t, err)
+
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.TargetDirectoryListRef{}).Count(&before).Error)
+
+		resp, err := captureJSON(t, func() error {
+			return runRefAddDirList("my-tools", "acme/ref-dl-dry-target", "github-workflows", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+		assert.Equal(t, "attached", resp.Action)
+
+		var after int64
+		require.NoError(t, database.DB().Model(&db.TargetDirectoryListRef{}).Count(&after).Error)
+		assert.Equal(t, before, after)
+	})
 }
 
 func TestRefRemoveDirList(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
 
-	resp, err := captureJSON(t, func() error {
-		return runRefRemoveDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+	t.Run("remove existing ref", func(t *testing.T) {
+		resp, err := captureJSON(t, func() error {
+			return runRefRemoveDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "detached", resp.Action)
 	})
-	require.NoError(t, err)
-	assert.True(t, resp.Success)
-	assert.Equal(t, "detached", resp.Action)
+
+	t.Run("dry-run does not detach dir list ref", func(t *testing.T) {
+		// Re-attach to set up the row, then dry-run remove and confirm it stays
+		_, err := captureJSON(t, func() error {
+			return runRefAddDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+		})
+		require.NoError(t, err)
+
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.TargetDirectoryListRef{}).Count(&before).Error)
+
+		resp, err := captureJSON(t, func() error {
+			return runRefRemoveDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+		assert.Equal(t, "detached", resp.Action)
+
+		var after int64
+		require.NoError(t, database.DB().Model(&db.TargetDirectoryListRef{}).Count(&after).Error)
+		assert.Equal(t, before, after)
+	})
 }
 
 // ====================
@@ -1021,6 +1211,37 @@ func TestTargetClone(t *testing.T) {
 		require.NoError(t, gormDB.Where("owner_type = ? AND owner_id = ?", "target", target1.ID).Find(&sourceFileMappings).Error)
 		assert.Len(t, sourceFileMappings, 1)
 		assert.NotEqual(t, sourceFileMappings[0].ID, fileMappings[0].ID)
+	})
+
+	t.Run("dry-run does not clone target", func(t *testing.T) {
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.Target{}).Count(&before).Error)
+
+		cmd := newDBTargetCloneCmd()
+		cmd.SetArgs([]string{
+			"--group", "my-tools",
+			"--from", "acme/test-repo-1",
+			"--to", "acme/dry-run-clone",
+			"--json",
+		})
+
+		resp, err := captureJSON(t, func() error {
+			return cmd.Execute()
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+		assert.Equal(t, "cloned", resp.Action)
+
+		var after int64
+		require.NoError(t, database.DB().Model(&db.Target{}).Count(&after).Error)
+		assert.Equal(t, before, after)
 	})
 
 	t.Run("clone with overrides", func(t *testing.T) {

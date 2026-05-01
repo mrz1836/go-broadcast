@@ -365,6 +365,21 @@ func runGroupCreate(id, name, sourceRepo, sourceBranch, description string, prio
 
 	enabled := !disabled
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "created",
+			Type:   "group",
+			Data: groupListResult{
+				ExternalID:  id,
+				Name:        name,
+				Description: description,
+				Priority:    priority,
+				Enabled:     enabled,
+				TargetCount: 0,
+			},
+		}, fmt.Sprintf("create group %q", id), jsonOutput)
+	}
+
 	// Create group + source + global + default in transaction
 	err = gormDB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Create group
@@ -493,17 +508,25 @@ func runGroupUpdate(cmd *cobra.Command, externalID, name, description string, pr
 		group.Enabled = &e
 	}
 
-	groupRepo := db.NewGroupRepository(gormDB)
-	if err = groupRepo.Update(ctx, group); err != nil {
-		return printErrorResponse("group", "updated", err.Error(), "", jsonOutput)
-	}
-
 	result := groupListResult{
 		ExternalID:  group.ExternalID,
 		Name:        group.Name,
 		Description: group.Description,
 		Priority:    group.Priority,
 		Enabled:     group.Enabled == nil || *group.Enabled,
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "updated",
+			Type:   "group",
+			Data:   result,
+		}, fmt.Sprintf("update group %q", externalID), jsonOutput)
+	}
+
+	groupRepo := db.NewGroupRepository(gormDB)
+	if err = groupRepo.Update(ctx, group); err != nil {
+		return printErrorResponse("group", "updated", err.Error(), "", jsonOutput)
 	}
 
 	return printResponse(CLIResponse{
@@ -546,6 +569,14 @@ func runGroupDelete(externalID string, hard, jsonOutput bool) error {
 	if err != nil {
 		return printErrorResponse("group", "deleted", err.Error(),
 			"run 'go-broadcast db group list --json' to see available groups", jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: deleteAction(hard),
+			Type:   "group",
+			Data:   map[string]string{"external_id": externalID},
+		}, fmt.Sprintf("%s group %q", dryRunDeleteVerb(hard), externalID), jsonOutput)
 	}
 
 	groupRepo := db.NewGroupRepository(gormDB)
@@ -612,14 +643,25 @@ func runGroupSetEnabled(externalID string, enabled, jsonOutput bool) error {
 
 	group.Enabled = &enabled
 
-	groupRepo := db.NewGroupRepository(gormDB)
-	if err = groupRepo.Update(ctx, group); err != nil {
-		return printErrorResponse("group", "updated", err.Error(), "", jsonOutput)
-	}
-
 	action := "enabled"
 	if !enabled {
 		action = "disabled"
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: action,
+			Type:   "group",
+			Data: map[string]interface{}{
+				"external_id": externalID,
+				"enabled":     enabled,
+			},
+		}, fmt.Sprintf("%s group %q", action, externalID), jsonOutput)
+	}
+
+	groupRepo := db.NewGroupRepository(gormDB)
+	if err = groupRepo.Update(ctx, group); err != nil {
+		return printErrorResponse("group", "updated", err.Error(), "", jsonOutput)
 	}
 
 	return printResponse(CLIResponse{
