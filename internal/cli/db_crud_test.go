@@ -824,18 +824,79 @@ func TestRefAddFileList(t *testing.T) {
 		assert.True(t, resp.Success)
 		assert.Equal(t, "already_attached", resp.Action)
 	})
+
+	t.Run("dry-run does not attach file list ref", func(t *testing.T) {
+		// Create a fresh target with no existing refs so we hit the writer path,
+		// not the idempotent "already_attached" branch.
+		_, err := captureJSON(t, func() error {
+			return runTargetAdd("my-tools", "acme/ref-fl-dry-target", "main", true)
+		})
+		require.NoError(t, err)
+
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.TargetFileListRef{}).Count(&before).Error)
+
+		resp, err := captureJSON(t, func() error {
+			return runRefAddFileList("my-tools", "acme/ref-fl-dry-target", "ai-files", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+		assert.Equal(t, "attached", resp.Action)
+
+		var after int64
+		require.NoError(t, database.DB().Model(&db.TargetFileListRef{}).Count(&after).Error)
+		assert.Equal(t, before, after)
+	})
 }
 
 func TestRefRemoveFileList(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
 
-	resp, err := captureJSON(t, func() error {
-		return runRefRemoveFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+	t.Run("remove existing ref", func(t *testing.T) {
+		resp, err := captureJSON(t, func() error {
+			return runRefRemoveFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "detached", resp.Action)
 	})
-	require.NoError(t, err)
-	assert.True(t, resp.Success)
-	assert.Equal(t, "detached", resp.Action)
+
+	t.Run("dry-run does not detach file list ref", func(t *testing.T) {
+		// Re-attach to set up the row, then dry-run remove and confirm it stays
+		_, err := captureJSON(t, func() error {
+			return runRefAddFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+		})
+		require.NoError(t, err)
+
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.TargetFileListRef{}).Count(&before).Error)
+
+		resp, err := captureJSON(t, func() error {
+			return runRefRemoveFileList("my-tools", "acme/test-repo-1", "ai-files", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+		assert.Equal(t, "detached", resp.Action)
+
+		var after int64
+		require.NoError(t, database.DB().Model(&db.TargetFileListRef{}).Count(&after).Error)
+		assert.Equal(t, before, after)
+	})
 }
 
 func TestRefAddDirList(t *testing.T) {
@@ -859,18 +920,79 @@ func TestRefAddDirList(t *testing.T) {
 		assert.True(t, resp.Success)
 		assert.Equal(t, "already_attached", resp.Action)
 	})
+
+	t.Run("dry-run does not attach dir list ref", func(t *testing.T) {
+		// Create a fresh target with no existing refs so we hit the writer path,
+		// not the idempotent "already_attached" branch.
+		_, err := captureJSON(t, func() error {
+			return runTargetAdd("my-tools", "acme/ref-dl-dry-target", "main", true)
+		})
+		require.NoError(t, err)
+
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.TargetDirectoryListRef{}).Count(&before).Error)
+
+		resp, err := captureJSON(t, func() error {
+			return runRefAddDirList("my-tools", "acme/ref-dl-dry-target", "github-workflows", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+		assert.Equal(t, "attached", resp.Action)
+
+		var after int64
+		require.NoError(t, database.DB().Model(&db.TargetDirectoryListRef{}).Count(&after).Error)
+		assert.Equal(t, before, after)
+	})
 }
 
 func TestRefRemoveDirList(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
 
-	resp, err := captureJSON(t, func() error {
-		return runRefRemoveDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+	t.Run("remove existing ref", func(t *testing.T) {
+		resp, err := captureJSON(t, func() error {
+			return runRefRemoveDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.Equal(t, "detached", resp.Action)
 	})
-	require.NoError(t, err)
-	assert.True(t, resp.Success)
-	assert.Equal(t, "detached", resp.Action)
+
+	t.Run("dry-run does not detach dir list ref", func(t *testing.T) {
+		// Re-attach to set up the row, then dry-run remove and confirm it stays
+		_, err := captureJSON(t, func() error {
+			return runRefAddDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+		})
+		require.NoError(t, err)
+
+		withDryRunEnabled(t)
+
+		database, err := openDatabase()
+		require.NoError(t, err)
+		defer func() { _ = database.Close() }()
+
+		var before int64
+		require.NoError(t, database.DB().Model(&db.TargetDirectoryListRef{}).Count(&before).Error)
+
+		resp, err := captureJSON(t, func() error {
+			return runRefRemoveDirList("my-tools", "acme/test-repo-2", "github-workflows", true)
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Success)
+		assert.True(t, resp.DryRun)
+		assert.Equal(t, "detached", resp.Action)
+
+		var after int64
+		require.NoError(t, database.DB().Model(&db.TargetDirectoryListRef{}).Count(&after).Error)
+		assert.Equal(t, before, after)
+	})
 }
 
 // ====================
