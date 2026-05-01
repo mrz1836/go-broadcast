@@ -16,8 +16,36 @@ type CLIResponse struct {
 	Type    string      `json:"type"`            // "group", "target", "file_list", "directory_list", etc.
 	Data    interface{} `json:"data"`            // result object or array
 	Count   int         `json:"count,omitempty"` // for lists
+	DryRun  bool        `json:"dry_run,omitempty"`
 	Error   string      `json:"error,omitempty"` // error message on failure
 	Hint    string      `json:"hint,omitempty"`  // actionable suggestion on failure
+}
+
+func printDryRunResponse(resp CLIResponse, preview string, jsonOutput bool) error {
+	output.Warn("DRY-RUN MODE: No changes will be made")
+
+	if jsonOutput {
+		resp.Success = true
+		resp.DryRun = true
+		return printResponse(resp, true)
+	}
+
+	output.Info(fmt.Sprintf("[DRY-RUN] would %s", preview))
+	return nil
+}
+
+func deleteAction(hard bool) string {
+	if hard {
+		return "hard-deleted"
+	}
+	return "soft-deleted"
+}
+
+func dryRunDeleteVerb(hard bool) string {
+	if hard {
+		return "hard-delete"
+	}
+	return "soft-delete"
 }
 
 // printResponse outputs a CLIResponse. When jsonOutput is true, it writes structured JSON

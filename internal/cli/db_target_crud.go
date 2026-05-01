@@ -323,6 +323,19 @@ func runTargetAdd(groupExternalID, repoFullName, branch string, jsonOutput bool)
 		return printErrorResponse("target", "created", err.Error(), "", jsonOutput)
 	}
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "created",
+			Type:   "target",
+			Data: targetListResult{
+				Repo:     repoFullName,
+				Branch:   branch,
+				Position: len(existingTargets),
+				GroupID:  groupExternalID,
+			},
+		}, fmt.Sprintf("create target %q in group %q", repoFullName, groupExternalID), jsonOutput)
+	}
+
 	// Resolve repo (auto-creates client/org/repo)
 	repoRepo := db.NewRepoRepository(gormDB)
 	repoRecord, err := repoRepo.FindOrCreateFromFullName(ctx, repoFullName, 0)
@@ -399,6 +412,17 @@ func runTargetRemove(groupExternalID, repoFullName string, hard, jsonOutput bool
 		return printErrorResponse("target", "deleted", err.Error(),
 			fmt.Sprintf("run 'go-broadcast db target list --group %s --json' to see available targets", groupExternalID),
 			jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: deleteAction(hard),
+			Type:   "target",
+			Data: map[string]string{
+				"repo":     repoFullName,
+				"group_id": groupExternalID,
+			},
+		}, fmt.Sprintf("%s target %q from group %q", dryRunDeleteVerb(hard), repoFullName, groupExternalID), jsonOutput)
 	}
 
 	targetRepo := db.NewTargetRepository(gormDB)
@@ -486,16 +510,24 @@ func runTargetUpdate(cmd *cobra.Command, groupExternalID, repoFullName, branch, 
 		target.PRReviewers = splitCSV(prReviewers)
 	}
 
-	targetRepo := db.NewTargetRepository(gormDB)
-	if err = targetRepo.Update(ctx, target); err != nil {
-		return printErrorResponse("target", "updated", err.Error(), "", jsonOutput)
-	}
-
 	result := targetListResult{
 		Repo:     repoFullName,
 		Branch:   target.Branch,
 		Position: target.Position,
 		GroupID:  groupExternalID,
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "updated",
+			Type:   "target",
+			Data:   result,
+		}, fmt.Sprintf("update target %q in group %q", repoFullName, groupExternalID), jsonOutput)
+	}
+
+	targetRepo := db.NewTargetRepository(gormDB)
+	if err = targetRepo.Update(ctx, target); err != nil {
+		return printErrorResponse("target", "updated", err.Error(), "", jsonOutput)
 	}
 
 	return printResponse(CLIResponse{
@@ -617,29 +649,31 @@ func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branc
 				fmt.Sprintf("invalid repo format %q", toRepo), "", jsonOutput)
 		}
 
-		logger := logrus.StandardLogger()
-		ghClient, ghErr := gh.NewClient(ctx, logger, &logging.LogConfig{})
-		if ghErr != nil {
-			return printErrorResponse("target", "cloned",
-				fmt.Sprintf("GitHub client: %v", ghErr), "", jsonOutput)
-		}
+		if !IsDryRun() {
+			logger := logrus.StandardLogger()
+			ghClient, ghErr := gh.NewClient(ctx, logger, &logging.LogConfig{})
+			if ghErr != nil {
+				return printErrorResponse("target", "cloned",
+					fmt.Sprintf("GitHub client: %v", ghErr), "", jsonOutput)
+			}
 
-		_, scaffoldErr := RunScaffold(ctx, ghClient, ScaffoldOptions{
-			Name:    repoParts[1],
-			Owner:   repoParts[0],
-			Preset:  preset,
-			Topics:  topicList,
-			NoClone: noCloneRepo,
-			NoFiles: noFiles,
-		})
-		if scaffoldErr != nil {
-			return printErrorResponse("target", "cloned",
-				fmt.Sprintf("scaffold failed: %v", scaffoldErr),
-				fmt.Sprintf("partial cleanup: gh repo delete %s --yes", toRepo),
-				jsonOutput)
-		}
+			_, scaffoldErr := RunScaffold(ctx, ghClient, ScaffoldOptions{
+				Name:    repoParts[1],
+				Owner:   repoParts[0],
+				Preset:  preset,
+				Topics:  topicList,
+				NoClone: noCloneRepo,
+				NoFiles: noFiles,
+			})
+			if scaffoldErr != nil {
+				return printErrorResponse("target", "cloned",
+					fmt.Sprintf("scaffold failed: %v", scaffoldErr),
+					fmt.Sprintf("partial cleanup: gh repo delete %s --yes", toRepo),
+					jsonOutput)
+			}
 
-		output.Success(fmt.Sprintf("Repository %s created, now cloning target...", toRepo))
+			output.Success(fmt.Sprintf("Repository %s created, now cloning target...", toRepo))
+		}
 	}
 
 	database, err := openDatabase()
@@ -685,6 +719,25 @@ func runTargetClone(cmd *cobra.Command, groupExternalID, fromRepo, toRepo, branc
 			fmt.Sprintf("source target %q not found in group %q", fromRepo, groupExternalID),
 			fmt.Sprintf("run 'go-broadcast db target list --group %s --json' to see available targets", groupExternalID),
 			jsonOutput)
+	}
+
+	previewBranch := source.Branch
+	if cmd.Flags().Changed("branch") {
+		previewBranch = branch
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "cloned",
+			Type:   "target",
+			Data: targetListResult{
+				Repo:     toRepo,
+				Branch:   previewBranch,
+				Position: len(targets),
+				GroupID:  groupExternalID,
+			},
+			Hint: fmt.Sprintf("cloned from %s", fromRepo),
+		}, fmt.Sprintf("clone target %q to %q in group %q", fromRepo, toRepo, groupExternalID), jsonOutput)
 	}
 
 	// Execute deep clone in a transaction

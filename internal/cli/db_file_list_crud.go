@@ -244,6 +244,19 @@ func runFileListCreate(id, name, description string, jsonOutput bool) error {
 		Position:    len(existingLists),
 	}
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "created",
+			Type:   "file_list",
+			Data: fileListResult{
+				ExternalID:  id,
+				Name:        name,
+				Description: description,
+				FileCount:   0,
+			},
+		}, fmt.Sprintf("create file list %q", id), jsonOutput)
+	}
+
 	if err = flRepo.Create(ctx, fl); err != nil {
 		return printErrorResponse("file_list", "created", err.Error(), "", jsonOutput)
 	}
@@ -295,6 +308,14 @@ func runFileListDelete(externalID string, hard, jsonOutput bool) error {
 	if err != nil {
 		return printErrorResponse("file_list", "deleted", err.Error(),
 			"run 'go-broadcast db file-list list --json' to see available file lists", jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: deleteAction(hard),
+			Type:   "file_list",
+			Data:   map[string]string{"external_id": externalID},
+		}, fmt.Sprintf("%s file list %q", dryRunDeleteVerb(hard), externalID), jsonOutput)
 	}
 
 	flRepo := db.NewFileListRepository(gormDB)
@@ -378,14 +399,22 @@ func runFileListAddFile(externalID, src, dest string, deleteFlag, jsonOutput boo
 		Position:   len(existing),
 	}
 
-	if err = fmRepo.Create(ctx, mapping); err != nil {
-		return printErrorResponse("file_mapping", "created", err.Error(), "", jsonOutput)
-	}
-
 	result := fileMappingResult{
 		Src:    src,
 		Dest:   dest,
 		Delete: deleteFlag,
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "created",
+			Type:   "file_mapping",
+			Data:   result,
+		}, fmt.Sprintf("create file mapping %q in file list %q", dest, externalID), jsonOutput)
+	}
+
+	if err = fmRepo.Create(ctx, mapping); err != nil {
+		return printErrorResponse("file_mapping", "created", err.Error(), "", jsonOutput)
 	}
 
 	return printResponse(CLIResponse{
@@ -438,6 +467,17 @@ func runFileListRemoveFile(externalID, dest string, jsonOutput bool) error {
 			fmt.Sprintf("file mapping with dest %q not found in file list %q", dest, externalID),
 			fmt.Sprintf("run 'go-broadcast db file-list get %s --json' to see available mappings", externalID),
 			jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "deleted",
+			Type:   "file_mapping",
+			Data: map[string]string{
+				"file_list": externalID,
+				"dest":      dest,
+			},
+		}, fmt.Sprintf("delete file mapping %q from file list %q", dest, externalID), jsonOutput)
 	}
 
 	if err = fmRepo.Delete(ctx, mapping.ID, true); err != nil {

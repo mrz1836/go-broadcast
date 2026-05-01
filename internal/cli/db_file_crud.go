@@ -100,6 +100,18 @@ func runFileAdd(groupExternalID, repoFullName, src, dest string, deleteFlag, jso
 		Position:   len(existing),
 	}
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "created",
+			Type:   "file_mapping",
+			Data: fileMappingResult{
+				Src:    src,
+				Dest:   dest,
+				Delete: deleteFlag,
+			},
+		}, fmt.Sprintf("create file mapping %q on target %q in group %q", dest, repoFullName, groupExternalID), jsonOutput)
+	}
+
 	if err = fmRepo.Create(ctx, mapping); err != nil {
 		return printErrorResponse("file_mapping", "created", err.Error(), "", jsonOutput)
 	}
@@ -169,6 +181,17 @@ func runFileRemove(groupExternalID, repoFullName, dest string, jsonOutput bool) 
 			fmt.Sprintf("file mapping with dest %q not found on target %q", dest, repoFullName),
 			fmt.Sprintf("run 'go-broadcast db file list --group %s --repo %s --json'", groupExternalID, repoFullName),
 			jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "deleted",
+			Type:   "file_mapping",
+			Data: map[string]string{
+				"repo": repoFullName,
+				"dest": dest,
+			},
+		}, fmt.Sprintf("delete file mapping %q from target %q in group %q", dest, repoFullName, groupExternalID), jsonOutput)
 	}
 
 	if err = fmRepo.Delete(ctx, mapping.ID, true); err != nil {

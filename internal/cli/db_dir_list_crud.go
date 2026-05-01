@@ -244,6 +244,19 @@ func runDirListCreate(id, name, description string, jsonOutput bool) error {
 		Position:    len(existingLists),
 	}
 
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "created",
+			Type:   "directory_list",
+			Data: dirListResult{
+				ExternalID:  id,
+				Name:        name,
+				Description: description,
+				DirCount:    0,
+			},
+		}, fmt.Sprintf("create directory list %q", id), jsonOutput)
+	}
+
 	if err = dlRepo.Create(ctx, dl); err != nil {
 		return printErrorResponse("directory_list", "created", err.Error(), "", jsonOutput)
 	}
@@ -295,6 +308,14 @@ func runDirListDelete(externalID string, hard, jsonOutput bool) error {
 	if err != nil {
 		return printErrorResponse("directory_list", "deleted", err.Error(),
 			"run 'go-broadcast db dir-list list --json' to see available directory lists", jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: deleteAction(hard),
+			Type:   "directory_list",
+			Data:   map[string]string{"external_id": externalID},
+		}, fmt.Sprintf("%s directory list %q", dryRunDeleteVerb(hard), externalID), jsonOutput)
 	}
 
 	dlRepo := db.NewDirectoryListRepository(gormDB)
@@ -385,10 +406,6 @@ func runDirListAddDir(externalID, src, dest, exclude, includeOnly string, preser
 		Position:          len(existing),
 	}
 
-	if err = dmRepo.Create(ctx, mapping); err != nil {
-		return printErrorResponse("directory_mapping", "created", err.Error(), "", jsonOutput)
-	}
-
 	result := dirMappingResult{
 		Src:               src,
 		Dest:              dest,
@@ -396,6 +413,18 @@ func runDirListAddDir(externalID, src, dest, exclude, includeOnly string, preser
 		IncludeOnly:       []string(mapping.IncludeOnly),
 		PreserveStructure: &preserveStructure,
 		Delete:            deleteFlag,
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "created",
+			Type:   "directory_mapping",
+			Data:   result,
+		}, fmt.Sprintf("create directory mapping %q in directory list %q", dest, externalID), jsonOutput)
+	}
+
+	if err = dmRepo.Create(ctx, mapping); err != nil {
+		return printErrorResponse("directory_mapping", "created", err.Error(), "", jsonOutput)
 	}
 
 	return printResponse(CLIResponse{
@@ -448,6 +477,17 @@ func runDirListRemoveDir(externalID, dest string, jsonOutput bool) error {
 			fmt.Sprintf("directory mapping with dest %q not found in directory list %q", dest, externalID),
 			fmt.Sprintf("run 'go-broadcast db dir-list get %s --json' to see available mappings", externalID),
 			jsonOutput)
+	}
+
+	if IsDryRun() {
+		return printDryRunResponse(CLIResponse{
+			Action: "deleted",
+			Type:   "directory_mapping",
+			Data: map[string]string{
+				"directory_list": externalID,
+				"dest":           dest,
+			},
+		}, fmt.Sprintf("delete directory mapping %q from directory list %q", dest, externalID), jsonOutput)
 	}
 
 	if err = dmRepo.Delete(ctx, mapping.ID, true); err != nil {
