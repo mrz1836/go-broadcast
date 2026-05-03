@@ -90,7 +90,7 @@ func (p *Pool) Start(ctx context.Context) {
 	}
 
 	// Create a derived context that we control for cancellation
-	p.ctx, p.cancel = context.WithCancel(ctx) //nolint:gosec // G118: cancel is stored in p.cancel and called in Stop()
+	p.ctx, p.cancel = context.WithCancel(ctx)
 
 	for i := 0; i < p.workers; i++ {
 		p.wg.Add(1)
