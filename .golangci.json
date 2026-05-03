@@ -84,6 +84,7 @@
             "exhaustive",
             "gocyclo",
             "nestif",
+            "goconst",
             "funcorder"
         ],
         "enable": [
@@ -108,7 +109,6 @@
             "gochecknoglobals",
             "gochecknoinits",
             "gochecksumtype",
-            "goconst",
             "godox",
             "goheader",
             "gomoddirectives",
