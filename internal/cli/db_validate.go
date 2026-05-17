@@ -28,6 +28,7 @@ Checks performed:
 • Missing file lists (file list refs pointing to deleted lists)
 • Missing directory lists (directory list refs pointing to deleted lists)
 • Circular dependencies between groups
+• Active targets with no file mappings, directory mappings, or list references
 • Orphaned file mappings (mappings with invalid owner references)
 • Orphaned directory mappings (mappings with invalid owner references)
 
@@ -71,9 +72,19 @@ type ValidationCheck struct {
 func runDBValidate(_ *cobra.Command, _ []string) error {
 	path := getDBPath()
 
+	result, err := runDBValidation(path)
+	if err != nil {
+		return err
+	}
+
+	return printValidationResult(result)
+}
+
+// runDBValidation executes database validation checks and returns the result without printing.
+func runDBValidation(path string) (ValidationResult, error) {
 	// Check if database exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return fmt.Errorf("database does not exist: %s (run 'go-broadcast db init' to create)", path) //nolint:err113 // user-facing CLI error
+		return ValidationResult{}, fmt.Errorf("database does not exist: %s (run 'go-broadcast db init' to create)", path) //nolint:err113 // user-facing CLI error
 	}
 
 	// Open database
@@ -82,7 +93,7 @@ func runDBValidate(_ *cobra.Command, _ []string) error {
 		LogLevel: logger.Silent,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
+		return ValidationResult{}, fmt.Errorf("failed to open database: %w", err)
 	}
 	defer func() { _ = database.Close() }()
 
@@ -103,9 +114,9 @@ func runDBValidate(_ *cobra.Command, _ []string) error {
 				Type:    "config",
 				Message: "No configuration found in database",
 			})
-			return printValidationResult(result)
+			return result, nil
 		}
-		return fmt.Errorf("failed to load config: %w", err)
+		return ValidationResult{}, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	// Run all validation checks
@@ -114,12 +125,13 @@ func runDBValidate(_ *cobra.Command, _ []string) error {
 	checkOrphanedFileMappings(ctx, gormDB, &result)
 	checkOrphanedDirectoryMappings(ctx, gormDB, &result)
 	checkCircularDependencies(ctx, gormDB, config.ID, &result)
+	checkEmptyActiveTargets(ctx, gormDB, config.ID, &result)
 
 	if len(result.Errors) > 0 {
 		result.Valid = false
 	}
 
-	return printValidationResult(result)
+	return result, nil
 }
 
 // checkOrphanedFileListRefs checks for target_file_list_refs pointing to non-existent file lists
@@ -381,6 +393,69 @@ func checkCircularDependencies(ctx context.Context, gormDB *gorm.DB, configID ui
 		Type:    "dependencies",
 		Message: fmt.Sprintf("No circular dependencies (checked %d groups, %d dependencies)", groupCount, depCount),
 		Count:   int(depCount),
+	})
+}
+
+// checkEmptyActiveTargets checks for active targets with no mappings or list references.
+func checkEmptyActiveTargets(ctx context.Context, gormDB *gorm.DB, configID uint, result *ValidationResult) {
+	type EmptyTarget struct {
+		TargetID        uint
+		GroupExternalID string
+		OrgName         string
+		RepoName        string
+	}
+
+	var emptyTargets []EmptyTarget
+	err := gormDB.WithContext(ctx).
+		Table("targets").
+		Select(`
+			targets.id AS target_id,
+			groups.external_id AS group_external_id,
+			organizations.name AS org_name,
+			repos.name AS repo_name`).
+		Joins("JOIN groups ON groups.id = targets.group_id").
+		Joins("JOIN repos ON repos.id = targets.repo_id").
+		Joins("JOIN organizations ON organizations.id = repos.organization_id").
+		Where("targets.deleted_at IS NULL").
+		Where("groups.config_id = ?", configID).
+		Where(`
+			(SELECT COUNT(*) FROM file_mappings
+				WHERE file_mappings.owner_type = 'target'
+				  AND file_mappings.owner_id = targets.id
+				  AND file_mappings.deleted_at IS NULL) = 0
+			AND (SELECT COUNT(*) FROM directory_mappings
+				WHERE directory_mappings.owner_type = 'target'
+				  AND directory_mappings.owner_id = targets.id
+				  AND directory_mappings.deleted_at IS NULL) = 0
+			AND (SELECT COUNT(*) FROM target_file_list_refs
+				WHERE target_file_list_refs.target_id = targets.id) = 0
+			AND (SELECT COUNT(*) FROM target_directory_list_refs
+				WHERE target_directory_list_refs.target_id = targets.id) = 0`).
+		Scan(&emptyTargets).Error
+	if err != nil {
+		result.Errors = append(result.Errors, ValidationError{
+			Type:    "empty_targets_check",
+			Message: "Failed to check empty active targets",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if len(emptyTargets) > 0 {
+		for _, target := range emptyTargets {
+			identifier := fmt.Sprintf("%s / %s/%s", target.GroupExternalID, target.OrgName, target.RepoName)
+			result.Errors = append(result.Errors, ValidationError{
+				Type:    "empty_target",
+				Message: fmt.Sprintf("Active target '%s' has no file mappings, directory mappings, or list references", identifier),
+				Details: fmt.Sprintf("target_id=%d", target.TargetID),
+			})
+		}
+		return
+	}
+
+	result.Checks = append(result.Checks, ValidationCheck{
+		Type:    "empty_targets",
+		Message: "All active targets have mappings or list references",
 	})
 }
 

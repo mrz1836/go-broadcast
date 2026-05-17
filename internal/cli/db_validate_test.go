@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	"github.com/mrz1836/go-broadcast/internal/db"
 )
@@ -71,6 +72,15 @@ func TestDBValidate(t *testing.T) {
 		Branch:  "main",
 	}
 	require.NoError(t, gormDB.Create(target).Error)
+
+	// non-empty mapping ensures the empty-target check passes; the original test relied on an unguarded zero state.
+	validMapping := &db.FileMapping{
+		OwnerType: "target",
+		OwnerID:   target.ID,
+		Src:       "README.md",
+		Dest:      "README.md",
+	}
+	require.NoError(t, gormDB.Create(validMapping).Error)
 
 	require.NoError(t, database.Close())
 
@@ -480,6 +490,104 @@ func TestDBValidateEmpty(t *testing.T) {
 		assert.True(t, result.Valid)
 		assert.NotEmpty(t, result.Checks)
 	})
+}
+
+// TestDBValidateEmptyTarget tests active targets with and without mappings/list refs.
+func TestDBValidateEmptyTarget(t *testing.T) {
+	testCases := []struct {
+		name         string
+		populate     func(t *testing.T, gormDB *gorm.DB, targetID uint, configID uint)
+		wantValid    bool
+		wantEmptyErr bool
+	}{
+		{
+			name:         "empty target is invalid",
+			wantValid:    false,
+			wantEmptyErr: true,
+		},
+		{
+			name: "file mapping only is valid",
+			populate: func(t *testing.T, gormDB *gorm.DB, targetID uint, _ uint) {
+				require.NoError(t, gormDB.Create(&db.FileMapping{OwnerType: "target", OwnerID: targetID, Src: "README.md", Dest: "README.md"}).Error)
+			},
+			wantValid: true,
+		},
+		{
+			name: "directory mapping only is valid",
+			populate: func(t *testing.T, gormDB *gorm.DB, targetID uint, _ uint) {
+				require.NoError(t, gormDB.Create(&db.DirectoryMapping{OwnerType: "target", OwnerID: targetID, Src: "templates", Dest: "templates"}).Error)
+			},
+			wantValid: true,
+		},
+		{
+			name: "file list ref only is valid",
+			populate: func(t *testing.T, gormDB *gorm.DB, targetID uint, configID uint) {
+				fileList := &db.FileList{ConfigID: configID, ExternalID: "files", Name: "Files"}
+				require.NoError(t, gormDB.Create(fileList).Error)
+				require.NoError(t, gormDB.Create(&db.TargetFileListRef{TargetID: targetID, FileListID: fileList.ID}).Error)
+			},
+			wantValid: true,
+		},
+		{
+			name: "directory list ref only is valid",
+			populate: func(t *testing.T, gormDB *gorm.DB, targetID uint, configID uint) {
+				dirList := &db.DirectoryList{ConfigID: configID, ExternalID: "dirs", Name: "Directories"}
+				require.NoError(t, gormDB.Create(dirList).Error)
+				require.NoError(t, gormDB.Create(&db.TargetDirectoryListRef{TargetID: targetID, DirectoryListID: dirList.ID}).Error)
+			},
+			wantValid: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpPath, targetID, configID := createDBValidateTargetFixture(t)
+			database, err := db.Open(db.OpenOptions{Path: tmpPath})
+			require.NoError(t, err)
+			if tc.populate != nil {
+				tc.populate(t, database.DB(), targetID, configID)
+			}
+			require.NoError(t, database.Close())
+
+			result, err := runDBValidation(tmpPath)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantValid, result.Valid)
+
+			hasEmptyTarget := false
+			for _, validationErr := range result.Errors {
+				if validationErr.Type == "empty_target" {
+					hasEmptyTarget = true
+					assert.Contains(t, validationErr.Message, "test-group / mrz1836/target-repo")
+				}
+			}
+			assert.Equal(t, tc.wantEmptyErr, hasEmptyTarget)
+		})
+	}
+}
+
+func createDBValidateTargetFixture(t *testing.T) (string, uint, uint) {
+	t.Helper()
+
+	tmpPath := filepath.Join(t.TempDir(), "validate-target.db")
+	database, err := db.Open(db.OpenOptions{Path: tmpPath, AutoMigrate: true})
+	require.NoError(t, err)
+	gormDB := database.DB()
+
+	cfg := &db.Config{ExternalID: "test-config", Name: "Test Config", Version: 1}
+	require.NoError(t, gormDB.Create(cfg).Error)
+	client := &db.Client{Name: "test-client"}
+	require.NoError(t, gormDB.Create(client).Error)
+	org := &db.Organization{ClientID: client.ID, Name: "mrz1836"}
+	require.NoError(t, gormDB.Create(org).Error)
+	repo := &db.Repo{OrganizationID: org.ID, Name: "target-repo"}
+	require.NoError(t, gormDB.Create(repo).Error)
+	group := &db.Group{ConfigID: cfg.ID, ExternalID: "test-group", Name: "Test Group"}
+	require.NoError(t, gormDB.Create(group).Error)
+	target := &db.Target{GroupID: group.ID, RepoID: repo.ID, Branch: "main"}
+	require.NoError(t, gormDB.Create(target).Error)
+	require.NoError(t, database.Close())
+
+	return tmpPath, target.ID, cfg.ID
 }
 
 // Benchmarks moved to db_query_benchmark_test.go (bench_heavy tag)
