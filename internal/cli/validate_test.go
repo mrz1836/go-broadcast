@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mrz1836/go-broadcast/internal/config"
+	"github.com/mrz1836/go-broadcast/internal/db"
 	"github.com/mrz1836/go-broadcast/internal/logging"
 	"github.com/mrz1836/go-broadcast/internal/output"
 	"github.com/mrz1836/go-broadcast/internal/testutil"
@@ -316,6 +317,93 @@ groups:
 			}
 		})
 	}
+}
+
+// TestRunValidateFromDB verifies validate --from-db routes to database-backed config and DB integrity checks.
+func TestRunValidateFromDB(t *testing.T) {
+	tmpPath := createValidateFromDBFixture(t)
+
+	oldDBPath := dbPath
+	oldFlags := GetGlobalFlags()
+	defer func() {
+		dbPath = oldDBPath
+		SetFlags(oldFlags)
+	}()
+	dbPath = tmpPath
+
+	cmd := &cobra.Command{}
+	cmd.Flags().Bool("skip-remote-checks", false, "")
+	cmd.Flags().Bool("source-only", false, "")
+	require.NoError(t, cmd.Flags().Set("skip-remote-checks", "true"))
+
+	flags := &Flags{ConfigFile: "sync.yaml", FromDB: true, LogLevel: oldFlags.LogLevel}
+	SetFlags(flags)
+
+	scope := output.CaptureOutput()
+	err := runValidateWithFlags(flags, cmd)
+	scope.Restore()
+
+	require.NoError(t, err)
+	capturedOutput := scope.Stdout.String() + scope.Stderr.String()
+	assert.Contains(t, capturedOutput, "Configuration validation")
+	assert.Contains(t, capturedOutput, "Database integrity")
+	assert.Contains(t, capturedOutput, "✓ Database is valid!")
+}
+
+func TestRunValidateFromDBConfigConflict(t *testing.T) {
+	oldFlags := GetGlobalFlags()
+	defer SetFlags(oldFlags)
+
+	cmd := &cobra.Command{}
+	cmd.Flags().Bool("skip-remote-checks", false, "")
+	cmd.Flags().Bool("source-only", false, "")
+
+	flags := &Flags{ConfigFile: "foo.yaml", FromDB: true, LogLevel: oldFlags.LogLevel}
+	SetFlags(flags)
+
+	err := runValidateWithFlags(flags, cmd)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--from-db")
+	assert.Contains(t, err.Error(), "--config")
+	assert.Contains(t, err.Error(), "foo.yaml")
+}
+
+func createValidateFromDBFixture(t *testing.T) string {
+	t.Helper()
+
+	tmpPath := filepath.Join(t.TempDir(), "validate-from-db.db")
+	database, err := db.Open(db.OpenOptions{Path: tmpPath, AutoMigrate: true})
+	require.NoError(t, err)
+	converter := db.NewConverter(database.DB())
+
+	cfg := &config.Config{
+		Version: 1,
+		ID:      "test-config",
+		Name:    "Test Config",
+		Groups: []config.Group{
+			{
+				ID:   "test-group",
+				Name: "Test Group",
+				Source: config.SourceConfig{
+					Repo:   "mrz1836/source-repo",
+					Branch: "main",
+				},
+				Targets: []config.TargetConfig{
+					{
+						Repo: "mrz1836/target-repo",
+						Files: []config.FileMapping{
+							{Src: "README.md", Dest: "README.md"},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err = converter.ImportConfig(context.Background(), cfg)
+	require.NoError(t, err)
+	require.NoError(t, database.Close())
+
+	return tmpPath
 }
 
 // TestValidateOutputFormatting tests the output formatting

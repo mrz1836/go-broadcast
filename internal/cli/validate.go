@@ -72,6 +72,10 @@ func runValidate(cmd *cobra.Command, _ []string) error {
 }
 
 func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
+	if flags.FromDB {
+		return runValidateFromDB(flags, cmd)
+	}
+
 	log := logrus.WithField("command", "validate")
 	configPath := flags.ConfigFile
 
@@ -103,6 +107,48 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
+	displayConfigValidationSummary(cfg)
+	runAdditionalValidationChecks(cfg)
+	runRemoteValidationChecks(flags, cmd, cfg)
+
+	return nil
+}
+
+func runValidateFromDB(flags *Flags, cmd *cobra.Command) error {
+	configPath := flags.ConfigFile
+	if configPath != "" && configPath != "sync.yaml" {
+		return fmt.Errorf("--from-db cannot be used with --config %q; remove one of these flags", configPath) //nolint:err113 // user-facing CLI error
+	}
+
+	output.Info("Validating configuration from database")
+	output.Info("")
+	output.Info("Configuration validation")
+	output.Info("========================")
+
+	cfg, err := loadConfigFromDB()
+	if err != nil {
+		output.Error(fmt.Sprintf("Database configuration validation failed: %v", err))
+		return err
+	}
+
+	displayConfigValidationSummary(cfg)
+	if !runAdditionalValidationChecks(cfg) {
+		return fmt.Errorf("configuration validation failed") //nolint:err113 // user-facing CLI error
+	}
+	runRemoteValidationChecks(flags, cmd, cfg)
+
+	output.Info("")
+	output.Info("Database integrity")
+	output.Info("==================")
+
+	result, err := runDBValidation(getDBPath())
+	if err != nil {
+		return err
+	}
+	return printValidationResult(result)
+}
+
+func displayConfigValidationSummary(cfg *config.Config) {
 	// Display configuration summary
 	output.Success("✓ Configuration is valid!")
 	output.Info("")
@@ -112,7 +158,7 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 	groups := cfg.Groups
 	if len(groups) == 0 {
 		output.Info("  No configuration groups found")
-		return nil
+		return
 	}
 
 	// Display group-based configuration (guaranteed non-empty from check above)
@@ -121,30 +167,31 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 	// Show target details
 	totalFiles := 0
 
-	if len(groups) > 0 {
-		group := groups[0]
-		for i, target := range group.Targets {
-			output.Info(fmt.Sprintf("    %d. %s", i+1, target.Repo))
-			output.Info(fmt.Sprintf("       Files: %d mappings", len(target.Files)))
+	group := groups[0]
+	for i, target := range group.Targets {
+		output.Info(fmt.Sprintf("    %d. %s", i+1, target.Repo))
+		output.Info(fmt.Sprintf("       Files: %d mappings", len(target.Files)))
 
-			// Count transforms
-			transformCount := 0
-			if target.Transform.RepoName {
-				transformCount++
-			}
-
-			transformCount += len(target.Transform.Variables)
-			if transformCount > 0 {
-				output.Info(fmt.Sprintf("       Transforms: %d configured", transformCount))
-			}
-
-			totalFiles += len(target.Files)
+		// Count transforms
+		transformCount := 0
+		if target.Transform.RepoName {
+			transformCount++
 		}
+
+		transformCount += len(target.Transform.Variables)
+		if transformCount > 0 {
+			output.Info(fmt.Sprintf("       Transforms: %d configured", transformCount))
+		}
+
+		totalFiles += len(target.Files)
 	}
 
 	output.Info("")
 	output.Info(fmt.Sprintf("Total file mappings: %d", totalFiles))
+}
 
+func runAdditionalValidationChecks(cfg *config.Config) bool {
+	groups := cfg.Groups
 	// Additional validation checks — run lightweight per-check validation and report individually
 	output.Info("")
 	output.Info("Additional checks:")
@@ -190,6 +237,10 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 		output.Success("  ✓ No duplicate file destinations")
 	}
 
+	return allPassed
+}
+
+func runRemoteValidationChecks(flags *Flags, cmd *cobra.Command, cfg *config.Config) {
 	// Get command flags
 	skipRemoteChecks, _ := cmd.Flags().GetBool("skip-remote-checks")
 	sourceOnly, _ := cmd.Flags().GetBool("source-only")
@@ -218,8 +269,6 @@ func runValidateWithFlags(flags *Flags, cmd *cobra.Command) error {
 		output.Info("  ⚠ Repository accessibility check skipped")
 		output.Info("  ⚠ Source file existence check skipped")
 	}
-
-	return nil
 }
 
 // validateRepositoryAccessibility checks if source and target repositories are accessible via GitHub API
