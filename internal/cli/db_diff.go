@@ -107,6 +107,10 @@ func runDBDiff(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to export database: %w", err)
 	}
 
+	if err := config.ApplyDefaultsAndResolve(dbCfg); err != nil {
+		return fmt.Errorf("failed to apply defaults and resolve list references on DB side: %w", err)
+	}
+
 	// Compare configurations
 	output.Info("\nComparing configurations...")
 	diffs := compareConfigs(yamlCfg, dbCfg, dbDiffDetail)

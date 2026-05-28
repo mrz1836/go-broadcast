@@ -133,6 +133,18 @@ func formatListNotFoundError(listType, ref, groupID, targetRepo string, fileList
 		listType, ref, groupID, targetRepo, hint, listType, availableIDs)
 }
 
+// ApplyDefaultsAndResolve applies defaults and resolves all file/directory list references on cfg.
+// Defaults must be applied before reference resolution; both steps are required for any *Config
+// returned from a loader (YAML or DB). Callers must not call applyDefaults or resolveListReferences
+// individually — use this function so the ordering is always enforced by the config package.
+func ApplyDefaultsAndResolve(cfg *Config) error {
+	applyDefaults(cfg)
+	if err := resolveListReferences(cfg); err != nil {
+		return fmt.Errorf("failed to resolve list references: %w", err)
+	}
+	return nil
+}
+
 // LoadFromReader parses configuration from an io.Reader
 func LoadFromReader(reader io.Reader) (*Config, error) {
 	config := &Config{}
@@ -144,12 +156,8 @@ func LoadFromReader(reader io.Reader) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
-	// Apply defaults
-	applyDefaults(config)
-
-	// Resolve list references
-	if err := resolveListReferences(config); err != nil {
-		return nil, fmt.Errorf("failed to resolve list references: %w", err)
+	if err := ApplyDefaultsAndResolve(config); err != nil {
+		return nil, err
 	}
 
 	return config, nil
