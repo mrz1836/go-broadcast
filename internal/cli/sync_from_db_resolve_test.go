@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"path/filepath"
 	"testing"
 
@@ -170,8 +169,7 @@ func TestSync_FromDB_MissingFileListRef_Errors(t *testing.T) {
 
 	_, err = loadConfigFromDB()
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, config.ErrListReferenceNotFound),
-		"expected ErrListReferenceNotFound in error chain, got: %v", err)
+	require.ErrorIs(t, err, config.ErrListReferenceNotFound)
 	assert.Contains(t, err.Error(), "available file_lists",
 		"error message should include 'available file_lists' hint from formatListNotFoundError")
 }
