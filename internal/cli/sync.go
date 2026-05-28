@@ -395,6 +395,11 @@ func loadConfigFromDB() (*config.Config, error) {
 		return nil, fmt.Errorf("failed to export configuration from database: %w", err)
 	}
 
+	// DB-loaded configs must run through ApplyDefaultsAndResolve to reach parity with YAML — see internal/config/parser.go.
+	if err := config.ApplyDefaultsAndResolve(cfg); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults and resolve list references: %w", err)
+	}
+
 	// Validate configuration
 	if err := cfg.ValidateWithLogging(context.Background(), nil); err != nil {
 		return nil, fmt.Errorf("invalid configuration from database: %w", err)
