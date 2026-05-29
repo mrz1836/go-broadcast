@@ -2633,7 +2633,7 @@ func TestRepositorySync_BranchAwareCloning(t *testing.T) {
 				sourceState: sourceState,
 				targetState: targetState,
 				logger:      logrus.NewEntry(logrus.New()),
-				tempDir:     "/tmp/test",
+				tempDir:     t.TempDir(),
 			}
 
 			// Mock the git operations based on expected behavior

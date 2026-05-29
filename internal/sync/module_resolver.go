@@ -26,14 +26,21 @@ var (
 type ModuleResolver struct {
 	logger *logrus.Logger
 	cache  *ModuleCache
+
+	// tagFetcher retrieves the raw git tags for a repository. It defaults to a
+	// `git ls-remote` implementation but can be overridden in tests to avoid
+	// real network access.
+	tagFetcher func(ctx context.Context, repoPath string) ([]string, error)
 }
 
 // NewModuleResolver creates a new module version resolver
 func NewModuleResolver(logger *logrus.Logger, cache *ModuleCache) *ModuleResolver {
-	return &ModuleResolver{
+	r := &ModuleResolver{
 		logger: logger,
 		cache:  cache,
 	}
+	r.tagFetcher = r.gitLsRemoteTags
+	return r
 }
 
 // ResolveVersion resolves a version constraint to a concrete version
@@ -108,8 +115,14 @@ func (r *ModuleResolver) ResolveVersion(ctx context.Context, repoPath, constrain
 	return resolved, nil
 }
 
-// fetchGitTags fetches all git tags from a repository
+// fetchGitTags fetches all git tags from a repository via the configured
+// tagFetcher (defaults to git ls-remote; overridable in tests).
 func (r *ModuleResolver) fetchGitTags(ctx context.Context, repoPath string) ([]string, error) {
+	return r.tagFetcher(ctx, repoPath)
+}
+
+// gitLsRemoteTags fetches all semver-like git tags from a repository using git ls-remote.
+func (r *ModuleResolver) gitLsRemoteTags(ctx context.Context, repoPath string) ([]string, error) {
 	// Use git ls-remote to get tags
 	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--tags", repoPath) //nolint:gosec // G204: exec uses trusted git command with controlled arguments
 	output, err := cmd.Output()
